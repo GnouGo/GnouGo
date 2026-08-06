@@ -64,8 +64,6 @@ internal sealed class ConfigurationCopilotProviderConfigResolver : ICopilotProvi
 			return null;
 
 		var normalizedProviderName = providerName.Trim();
-		if (useHostDefault)
-			fallbackModel = _configuration["GNouGo:DefaultLlmModel"] ?? _configuration["LLM:DefaultModel"] ?? fallbackModel;
 		var config = await LoadProviderConfigAsync(normalizedProviderName, ct);
 		if (config is null)
 			throw new McpException($"Copilot provider '{normalizedProviderName}' was not found in configuration or KeyVault. Expected configuration section '{ProvidersSectionPath}:{normalizedProviderName}' or KeyVault secret 'LLM--Models--{normalizedProviderName}'.");

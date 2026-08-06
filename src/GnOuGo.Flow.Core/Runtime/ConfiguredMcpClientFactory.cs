@@ -215,10 +215,20 @@ public sealed class ConfiguredMcpClientFactory : IMcpClientFactory, IAsyncDispos
         var content = new Dictionary<string, JsonElement>(StringComparer.Ordinal);
         if (response is JsonObject responseObject)
         {
-            foreach (var property in responseObject)
+            foreach (var field in fields ?? [])
             {
-                if (property.Value is not null)
-                    content[property.Key] = JsonDocument.Parse(property.Value.ToJsonString()).RootElement.Clone();
+                var value = responseObject[field.Name];
+                if (value is null
+                    && fields is { Count: 1 })
+                {
+                    // Choice-oriented human-input providers use the stable
+                    // { "response": ... } envelope. Preserve the requested
+                    // MCP schema name when bridging that optimized UI shape.
+                    value = responseObject["response"];
+                }
+
+                if (value is not null)
+                    content[field.Name] = JsonDocument.Parse(value.ToJsonString()).RootElement.Clone();
             }
         }
         else if (fields is { Count: 1 })

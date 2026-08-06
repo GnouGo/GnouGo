@@ -25,6 +25,12 @@ public sealed class BundledMcpEditableFieldSettings
     public bool Sensitive { get; set; } = true;
     public string? SecretKey { get; set; }
     public string? Target { get; set; }
+    public List<string> Options { get; set; } = [];
+    public string? OptionsSource { get; set; }
+    public string? DefaultValue { get; set; }
+    public bool AllowInherit { get; set; }
+    public int? MinValue { get; set; }
+    public int? MaxValue { get; set; }
 
     public string ResolveSecretKey(string serverName, string fieldName)
         => string.IsNullOrWhiteSpace(SecretKey)

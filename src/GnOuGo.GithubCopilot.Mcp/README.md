@@ -34,7 +34,8 @@ For local desktop usage, prefer `Code:Copilot:UseLoggedInUser=true` and keep `Ap
 
 Relevant Copilot settings:
 
-- `Code:Copilot:Model`: model passed to the SDK session, default `gpt-4.1`.
+- `Code:Copilot:Provider`: optional configured provider override. `Copilot` delegates to the current Agent default.
+- `Code:Copilot:Model`: fallback model passed to the SDK session, default `gpt-5.4-mini` in the packaged configuration.
 - `Code:Copilot:Mode`: Copilot mode, one of `ask`, `edit`, or `agent`; legacy `plan` is accepted as an alias for `ask`.
 - `Code:Copilot:ReasoningEffort`: optional reasoning effort, default `high`.
 - `Code:Copilot:UseLoggedInUser`: whether the SDK may use an already logged-in user when no explicit token is provided, default `false` in code defaults and `true` in the local appsettings template.
@@ -45,6 +46,11 @@ Relevant Copilot settings:
 MCP transport sessions are never used as Copilot session identity. Managed calls use a `cps_*` opaque handle bound to `TenantId`; one-shot calls create, execute, disconnect, and permanently delete one SDK session. Request `_meta.gnougo` propagates tenant, correlation, run, step, repository, PR number, and head SHA.
 
 Interactive permission, user-input, and nested MCP elicitation callbacks are bridged through stable MCP form elicitation. `deny` is appropriate for pure review inference. `auto_approve_allowlist` permits only explicitly named read-only paths/tools. `approve_all` is rejected unless the host gate is enabled.
+Interactive permission prompts show the exact operation, warnings, sandbox-bypass status, and remembered scope. They offer **Allow once**, **Refuse**, and **Allow similar operations for this session** only when the SDK marks a matching scope as safe. Session decisions are scoped to command identifiers, exact MCP tools, URL domains, exact custom tools, or supported filesystem categories and are cleared when the managed session is deleted. Unrestricted `AllowAllForThisSession`, permanent approvals, and location-level approvals are not exposed.
+
+When hosted by Agent Server/Desktop, `/mcp edit GnOuGo.GithubCopilot.Mcp` edits only provider, fallback model, reasoning effort, logged-in-user authentication, request timeout, and managed-session TTL. Every override is encrypted separately under `LLM--McpServerOverrides--GnOuGo.GithubCopilot.Mcp--...` and injected into the next MCP process through `Code__Copilot__...` environment keys. Selecting a field under **inherit fields** deletes only that override. Command, arguments, roots, extensions, write policy, credentials, and `EnableApproveAll` remain protected. Provider credentials continue to resolve from `LLM--Models--<provider>` and are never copied into the MCP override entries.
+
+Provider resolution order is an explicit tool argument, the MCP provider override, then the Agent default. Model resolution order is the selected provider's KeyVault model, the MCP fallback model, then the packaged fallback. An existing managed session keeps the configuration captured when it was created; editor changes apply to the next workflow/MCP process.
 
 ## Pull-request review contract
 

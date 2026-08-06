@@ -33,6 +33,10 @@ public sealed class GitHubCopilotSdkClientFactory : ICopilotSdkClientFactory
 
 internal sealed class GitHubCopilotSdkClient : ICopilotSdkClient
 {
+    internal const string PermissionAllowOnceChoice = "Allow once";
+    internal const string PermissionRefuseChoice = "Refuse";
+    internal const string PermissionAllowForSessionChoice = "Allow similar operations for this session";
+
     private readonly CopilotClient _client;
     private readonly CopilotRuntimeConfiguration _configuration;
     private readonly ILogger _logger;
@@ -275,18 +279,118 @@ internal sealed class GitHubCopilotSdkClient : ICopilotSdkClient
         if (source.HumanInputProvider is null)
             return PermissionDecision.UserNotAvailable();
 
+        var hasSessionApproval = TryBuildSessionApproval(request, out var sessionApproval, out var sessionScope);
+        IReadOnlyList<string> choices = hasSessionApproval
+            ? [PermissionAllowOnceChoice, PermissionRefuseChoice, PermissionAllowForSessionChoice]
+            : [PermissionAllowOnceChoice, PermissionRefuseChoice];
+        var details = DescribePermission(request);
+        if (!string.IsNullOrWhiteSpace(sessionScope))
+            details += $"\n\nIf allowed for this session: {sessionScope}";
+
         var response = await source.HumanInputProvider.RequestAsync(
             new CopilotHumanInputRequest(
                 source.Request.Context,
                 "permission",
                 "Allow this Copilot operation?",
-                ["approve", "deny"],
+                choices,
                 false,
-                DescribePermission(request)),
+                details),
             CancellationToken.None);
-        return response.Accepted && string.Equals(response.Answer, "approve", StringComparison.OrdinalIgnoreCase)
-            ? PermissionDecision.ApproveOnce()
-            : PermissionDecision.Reject("The user denied the operation.");
+
+        return ResolveInteractivePermissionResponse(response, hasSessionApproval ? sessionApproval : null);
+    }
+
+    internal static PermissionDecision ResolveInteractivePermissionResponse(
+        CopilotHumanInputResponse response,
+        PermissionDecision? sessionApproval)
+    {
+        if (!response.Accepted
+            || string.Equals(response.Answer, PermissionRefuseChoice, StringComparison.OrdinalIgnoreCase))
+        {
+            return PermissionDecision.Reject("The user refused the operation.");
+        }
+
+        if (string.Equals(response.Answer, PermissionAllowOnceChoice, StringComparison.OrdinalIgnoreCase))
+            return PermissionDecision.ApproveOnce();
+
+        if (sessionApproval is not null
+            && string.Equals(response.Answer, PermissionAllowForSessionChoice, StringComparison.OrdinalIgnoreCase))
+        {
+            return sessionApproval;
+        }
+
+        return PermissionDecision.Reject("The permission response was not recognized.");
+    }
+
+    internal static bool TryBuildSessionApproval(
+        PermissionRequest request,
+        out PermissionDecision? decision,
+        out string? scopeDescription)
+    {
+        PermissionDecisionApproveForSessionApproval? approval = null;
+        string? domain = null;
+
+        switch (request)
+        {
+            case PermissionRequestShell shell
+                when shell.CanOfferSessionApproval == true
+                     && shell.Commands?.Select(static command => command.Identifier)
+                         .Where(static identifier => !string.IsNullOrWhiteSpace(identifier))
+                         .Distinct(StringComparer.OrdinalIgnoreCase)
+                         .ToArray() is { Length: > 0 } commandIdentifiers:
+                approval = new PermissionDecisionApproveForSessionApprovalCommands
+                {
+                    CommandIdentifiers = commandIdentifiers
+                };
+                scopeDescription = $"commands identified as {string.Join(", ", commandIdentifiers)} until this Copilot session ends.";
+                break;
+
+            case PermissionRequestWrite write when write.CanOfferSessionApproval == true:
+                approval = new PermissionDecisionApproveForSessionApprovalWrite();
+                scopeDescription = "filesystem write operations until this Copilot session ends.";
+                break;
+
+            case PermissionRequestRead:
+                approval = new PermissionDecisionApproveForSessionApprovalRead();
+                scopeDescription = "filesystem read operations until this Copilot session ends.";
+                break;
+
+            case PermissionRequestMcp mcp
+                when !string.IsNullOrWhiteSpace(mcp.ServerName)
+                     && !string.IsNullOrWhiteSpace(mcp.ToolName):
+                approval = new PermissionDecisionApproveForSessionApprovalMcp
+                {
+                    ServerName = mcp.ServerName,
+                    ToolName = mcp.ToolName
+                };
+                scopeDescription = $"MCP tool {mcp.ServerName}/{mcp.ToolName} until this Copilot session ends.";
+                break;
+
+            case PermissionRequestUrl url when TryGetPermissionDomain(url.Url, out var resolvedDomain):
+                domain = resolvedDomain;
+                scopeDescription = $"URL domain {resolvedDomain} until this Copilot session ends.";
+                break;
+
+            case PermissionRequestCustomTool tool when !string.IsNullOrWhiteSpace(tool.ToolName):
+                approval = new PermissionDecisionApproveForSessionApprovalCustomTool
+                {
+                    ToolName = tool.ToolName
+                };
+                scopeDescription = $"custom tool {tool.ToolName} until this Copilot session ends.";
+                break;
+
+            default:
+                decision = null;
+                scopeDescription = null;
+                return false;
+        }
+
+        decision = new PermissionDecisionApproveForSession
+        {
+            Approval = approval,
+            Domain = domain
+        };
+        return true;
     }
 
     internal static bool IsAllowlisted(PermissionRequest request, IReadOnlyList<string>? allowlist)
@@ -305,17 +409,59 @@ internal sealed class GitHubCopilotSdkClient : ICopilotSdkClient
         };
     }
 
-    private static string DescribePermission(PermissionRequest request)
-        => request switch
+    internal static string DescribePermission(PermissionRequest request)
+    {
+        var details = request switch
         {
-            PermissionRequestRead read => $"Read path: {read.Path}",
-            PermissionRequestWrite write => $"Write file: {write.FileName}",
-            PermissionRequestShell shell => $"Shell command requested: {shell.Intention ?? "unspecified intention"}",
-            PermissionRequestMcp mcp => $"MCP tool: {mcp.ServerName}/{mcp.ToolName} (readOnly={mcp.ReadOnly})",
-            PermissionRequestUrl url => $"URL access: {url.Url}",
-            PermissionRequestCustomTool tool => $"Custom tool: {tool.ToolName}",
+            PermissionRequestRead read => $"Read path: {read.Path}\nIntention: {read.Intention ?? "unspecified"}",
+            PermissionRequestWrite write => $"Write file: {write.FileName}\nIntention: {write.Intention ?? "unspecified"}",
+            PermissionRequestShell shell => $"Shell command: {shell.FullCommandText ?? "unspecified"}\nIntention: {shell.Intention ?? "unspecified"}",
+            PermissionRequestMcp mcp => $"MCP tool: {mcp.ServerName}/{mcp.ToolName}\nRead-only: {mcp.ReadOnly}",
+            PermissionRequestUrl url => $"URL access: {url.Url}\nIntention: {url.Intention ?? "unspecified"}",
+            PermissionRequestCustomTool tool => $"Custom tool: {tool.ToolName}\nDescription: {tool.ToolDescription ?? "unspecified"}",
             _ => $"Permission kind: {request.Kind}"
         };
+
+        var warning = request switch
+        {
+            PermissionRequestShell shell => shell.Warning,
+            _ => null
+        };
+        var sandboxBypass = request switch
+        {
+            PermissionRequestRead read => (read.RequestSandboxBypass, read.RequestSandboxBypassReason),
+            PermissionRequestWrite write => (write.RequestSandboxBypass, write.RequestSandboxBypassReason),
+            PermissionRequestShell shell => (shell.RequestSandboxBypass, shell.RequestSandboxBypassReason),
+            PermissionRequestUrl url => (url.RequestSandboxBypass, url.RequestSandboxBypassReason),
+            _ => ((bool?)false, (string?)null)
+        };
+        var reportsSandboxBypass = request is PermissionRequestRead
+            or PermissionRequestWrite
+            or PermissionRequestShell
+            or PermissionRequestUrl;
+
+        if (!string.IsNullOrWhiteSpace(warning))
+            details += $"\nWarning: {warning}";
+        if (sandboxBypass.Item1 == true)
+            details += $"\nSandbox bypass requested: yes ({sandboxBypass.Item2 ?? "no reason supplied"})";
+        else if (reportsSandboxBypass)
+            details += "\nSandbox bypass requested: no";
+        return details;
+    }
+
+    private static bool TryGetPermissionDomain(string? value, out string domain)
+    {
+        if (Uri.TryCreate(value, UriKind.Absolute, out var uri)
+            && uri.Scheme is "http" or "https"
+            && !string.IsNullOrWhiteSpace(uri.Host))
+        {
+            domain = uri.IdnHost;
+            return true;
+        }
+
+        domain = string.Empty;
+        return false;
+    }
 
     private static bool NameMatches(string? name, string candidate)
         => !string.IsNullOrWhiteSpace(name) && (string.Equals(name, candidate, StringComparison.OrdinalIgnoreCase) || candidate == "*");

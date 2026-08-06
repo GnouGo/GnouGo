@@ -34,6 +34,7 @@ internal sealed class CodeServerSettingsOptionsConfigurator(IConfiguration confi
         settings.ForwardTraceContext = ReadBoolean(section, nameof(CodeCopilotSettings.ForwardTraceContext), settings.ForwardTraceContext);
         settings.LogLevel = ReadString(section, nameof(CodeCopilotSettings.LogLevel), settings.LogLevel);
         settings.RequestTimeoutSeconds = ReadInt32(section, nameof(CodeCopilotSettings.RequestTimeoutSeconds), settings.RequestTimeoutSeconds);
+        settings.ManagedSessionTtlSeconds = ReadInt32(section, nameof(CodeCopilotSettings.ManagedSessionTtlSeconds), settings.ManagedSessionTtlSeconds);
         settings.TokenEnvironmentVariables = ReadStringList(section, nameof(CodeCopilotSettings.TokenEnvironmentVariables), settings.TokenEnvironmentVariables);
 
         ConfigureTelemetry(section.GetSection(nameof(CodeCopilotSettings.Telemetry)), settings.Telemetry);
@@ -79,4 +80,3 @@ internal sealed class CodeServerSettingsOptionsConfigurator(IConfiguration confi
             .ToList();
     }
 }
-

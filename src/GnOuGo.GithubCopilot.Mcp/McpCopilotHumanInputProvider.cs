@@ -37,6 +37,7 @@ internal sealed class McpCopilotHumanInputProvider : ICopilotHumanInputProvider
                 : null;
         var accepted = result.IsAccepted
             && !string.Equals(answer, "deny", StringComparison.OrdinalIgnoreCase)
+            && !string.Equals(answer, "refuse", StringComparison.OrdinalIgnoreCase)
             && !string.Equals(answer, "cancel", StringComparison.OrdinalIgnoreCase);
         var content = result.Content is null
             ? (JsonElement?)null

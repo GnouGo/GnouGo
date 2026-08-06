@@ -30,6 +30,7 @@ public sealed class CodeServerSettingsOptionsConfiguratorTests
                 ["Code:Copilot:ForwardTraceContext"] = "false",
                 ["Code:Copilot:LogLevel"] = "debug",
                 ["Code:Copilot:RequestTimeoutSeconds"] = "42",
+                ["Code:Copilot:ManagedSessionTtlSeconds"] = "84",
                 ["Code:Copilot:TokenEnvironmentVariables:0"] = "TOKEN_ONE",
                 ["Code:Copilot:Telemetry:Enabled"] = "false",
                 ["Code:Copilot:Telemetry:ExporterType"] = "file",
@@ -60,6 +61,7 @@ public sealed class CodeServerSettingsOptionsConfiguratorTests
         Assert.False(settings.Copilot.ForwardTraceContext);
         Assert.Equal("debug", settings.Copilot.LogLevel);
         Assert.Equal(42, settings.Copilot.RequestTimeoutSeconds);
+        Assert.Equal(84, settings.Copilot.ManagedSessionTtlSeconds);
         Assert.Equal(["TOKEN_ONE"], settings.Copilot.TokenEnvironmentVariables);
         Assert.False(settings.Copilot.Telemetry.Enabled);
         Assert.Equal("file", settings.Copilot.Telemetry.ExporterType);
@@ -78,7 +80,8 @@ public sealed class CodeServerSettingsOptionsConfiguratorTests
                 ["Code:MaxFileSizeBytes"] = "not-a-number",
                 ["Code:MaxSearchResults"] = "not-a-number",
                 ["Code:AllowWrites"] = "not-a-bool",
-                ["Code:Copilot:RequestTimeoutSeconds"] = "not-a-number"
+                ["Code:Copilot:RequestTimeoutSeconds"] = "not-a-number",
+                ["Code:Copilot:ManagedSessionTtlSeconds"] = "not-a-number"
             })
             .Build();
         var settings = new CodeServerSettings();
@@ -91,8 +94,8 @@ public sealed class CodeServerSettingsOptionsConfiguratorTests
         Assert.Equal(100, settings.MaxSearchResults);
         Assert.False(settings.AllowWrites);
         Assert.Equal(120, settings.Copilot.RequestTimeoutSeconds);
+        Assert.Equal(1800, settings.Copilot.ManagedSessionTtlSeconds);
         Assert.Equal(defaultExtensions, settings.AllowedExtensions);
         Assert.Equal(defaultTokenEnvironmentVariables, settings.Copilot.TokenEnvironmentVariables);
     }
 }
-

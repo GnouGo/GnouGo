@@ -45,6 +45,46 @@ public class ConfiguredMcpClientFactoryTests
     }
 
     [Fact]
+    public async Task ElicitationHandler_MapsChoiceEnvelopeToRequestedFieldAndDropsProviderMetadata()
+    {
+        var provider = new ScriptedHumanInputProvider(new JsonObject
+        {
+            ["response"] = "Allow once",
+            ["source"] = "blazor",
+            ["unexpected"] = "discard-me"
+        });
+        var options = ConfiguredMcpClientFactory.CreateClientOptions(provider);
+        var handler = options.Handlers?.ElicitationHandler;
+        Assert.NotNull(handler);
+
+        var result = await handler!(new ElicitRequestParams
+        {
+            Mode = "form",
+            Message = "Allow this operation?",
+            RequestedSchema = new ElicitRequestParams.RequestSchema
+            {
+                Properties = new Dictionary<string, ElicitRequestParams.PrimitiveSchemaDefinition>(StringComparer.Ordinal)
+                {
+                    ["answer"] = new ElicitRequestParams.UntitledSingleSelectEnumSchema
+                    {
+                        Enum = ["Allow once", "Refuse"],
+                        Description = "Shell command: dotnet test"
+                    }
+                },
+                Required = ["answer"]
+            }
+        }, TestContext.Current.CancellationToken);
+
+        Assert.Equal("accept", result.Action);
+        Assert.NotNull(result.Content);
+        Assert.Equal("Allow once", result.Content["answer"].GetString());
+        Assert.DoesNotContain("source", result.Content.Keys);
+        Assert.DoesNotContain("unexpected", result.Content.Keys);
+        Assert.Equal(HumanInputContract.ModeChoice, provider.LastRequest?.Mode);
+        Assert.Equal("Shell command: dotnet test", Assert.Single(provider.LastRequest!.Fields!).Description);
+    }
+
+    [Fact]
     public void IsUnexpectedServerExit_ReturnsTrue_ForNestedProcessExitMessage()
     {
         var ex = new InvalidOperationException(
@@ -52,6 +92,17 @@ public class ConfiguredMcpClientFactoryTests
             new Exception("MCP server process exited unexpectedly Server's stderr tail: ..."));
 
         Assert.True(InvokeIsUnexpectedServerExit(ex));
+    }
+
+    private sealed class ScriptedHumanInputProvider(JsonNode? response) : IHumanInputProvider
+    {
+        public HumanInputRequest? LastRequest { get; private set; }
+
+        public Task<JsonNode?> RequestInputAsync(HumanInputRequest request, CancellationToken ct)
+        {
+            LastRequest = request;
+            return Task.FromResult(response?.DeepClone());
+        }
     }
 
     [Theory]

@@ -41,8 +41,8 @@ public sealed class ConfigurationCopilotProviderConfigResolverTests
 
         Assert.NotNull(result);
         Assert.Equal("OpenAi", result.ProviderName);
-        Assert.Equal("host-default-model", result.Model);
-        Assert.Equal("host-default-model", result.Provider.ModelId);
+        Assert.Equal("copilot-fallback-model", result.Model);
+        Assert.Equal("copilot-fallback-model", result.Provider.ModelId);
         Assert.Equal("test-secret", result.Provider.ApiKey);
     }
 
@@ -64,7 +64,7 @@ public sealed class ConfigurationCopilotProviderConfigResolverTests
 
         Assert.NotNull(result);
         Assert.Equal("OpenAi", result.ProviderName);
-        Assert.Equal("host-default-model", result.Model);
+        Assert.Equal("copilot-policy-model", result.Model);
         Assert.Equal("test-secret", result.Provider.ApiKey);
     }
 

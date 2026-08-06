@@ -1598,12 +1598,33 @@ public sealed class ConfigureProvidersService
 
         var fields = new List<HumanInputFieldDef>();
         var fieldSecretKeys = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        var existingValues = new Dictionary<string, string?>(StringComparer.OrdinalIgnoreCase);
+        var fieldOptions = new Dictionary<string, IReadOnlyList<string>>(StringComparer.OrdinalIgnoreCase);
+        IReadOnlyList<string> configuredLlmProviders = [];
+        if (serverSettings.EditableFields.Values.Any(field =>
+                string.Equals(field.OptionsSource, "llm_providers", StringComparison.OrdinalIgnoreCase)))
+        {
+            configuredLlmProviders = (await LoadConfiguredLlmProvidersAsync(ct))
+                .Select(provider => provider.Provider)
+                .Where(provider => !string.IsNullOrWhiteSpace(provider))
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .OrderBy(provider => provider, StringComparer.OrdinalIgnoreCase)
+                .ToArray();
+        }
+
+        var inheritableOverrides = new List<string>();
         foreach (var fieldEntry in serverSettings.EditableFields.OrderBy(x => x.Key, StringComparer.OrdinalIgnoreCase))
         {
             var field = fieldEntry.Value;
             var secretKey = field.ResolveSecretKey(serverName, fieldEntry.Key);
             fieldSecretKeys[fieldEntry.Key] = secretKey;
             var existingValue = await _keyVaultStore.GetSecretValueAsync(secretKey, ct);
+            existingValues[fieldEntry.Key] = existingValue;
+            if (field.AllowInherit && existingValue is not null)
+                inheritableOverrides.Add(fieldEntry.Key);
+
+            var options = ResolveBundledMcpFieldOptions(field, configuredLlmProviders);
+            fieldOptions[fieldEntry.Key] = options;
             fields.Add(new HumanInputFieldDef
             {
                 Name = fieldEntry.Key,
@@ -1614,33 +1635,116 @@ public sealed class ConfigureProvidersService
                     : field.Description,
                 Default = field.Sensitive
                     ? string.Empty
-                    : existingValue ?? string.Empty
+                    : existingValue ?? field.DefaultValue ?? string.Empty,
+                Options = options.Count == 0 ? null : options.ToList()
+            });
+        }
+
+        if (inheritableOverrides.Count > 0)
+        {
+            fields.Insert(0, new HumanInputFieldDef
+            {
+                Name = "inherit_fields",
+                Type = "multiselect",
+                Required = false,
+                Description = "Select individual fields whose encrypted override must be deleted so the packaged/default value is inherited again.",
+                Options = inheritableOverrides
             });
         }
 
         JsonNode? response = null;
+        var requestContext = configuredLlmProviders.Count > 0
+            || serverSettings.EditableFields.Values.Any(field =>
+                string.Equals(field.OptionsSource, "llm_providers", StringComparison.OrdinalIgnoreCase))
+            ? "Only runtime defaults are editable. Provider credentials continue to come from their existing LLM--Models--<provider> KeyVault entries. Changes apply to the next workflow/MCP process, not to an already-running session."
+            : "Only the configured editable fields are shown. Sensitive fields can be left empty to keep the current stored value.";
         var request = CreateFieldsRequest(
             runId,
             "mcp_edit.bundled_fields",
             $"Edit MCP server '{serverName}':",
             fields,
-            JsonValue.Create("Only the configured editable fields are shown. Sensitive fields can be left empty to keep the current stored value."));
+            JsonValue.Create(requestContext));
         await foreach (var evt in EmitHumanInputRequestAsync(request, r => response = r, ct))
             yield return evt;
 
+        var inheritedFields = ReadMultiSelectResponse(response, "inherit_fields");
         var values = ReadFieldResponse(response, request.Fields!);
-        var savedFields = new List<string>();
+        var normalizedValues = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        var validationErrors = new List<string>();
         foreach (var fieldEntry in serverSettings.EditableFields)
         {
-            var value = values.GetValueOrDefault(fieldEntry.Key);
-            if (string.IsNullOrWhiteSpace(value))
+            var fieldName = fieldEntry.Key;
+            var field = fieldEntry.Value;
+            if (inheritedFields.Contains(fieldName))
+            {
+                if (!field.AllowInherit)
+                    validationErrors.Add($"{GetMcpEditableFieldDisplayName(fieldName, field)} cannot inherit its packaged value.");
                 continue;
+            }
 
-            await _keyVaultStore.SaveSecretValueAsync(fieldSecretKeys[fieldEntry.Key], value, ct);
-            savedFields.Add(GetMcpEditableFieldDisplayName(fieldEntry.Key, fieldEntry.Value));
+            var value = values.GetValueOrDefault(fieldName) ?? string.Empty;
+            if (string.IsNullOrWhiteSpace(value))
+            {
+                if (field.Required && !field.Sensitive)
+                    validationErrors.Add($"{GetMcpEditableFieldDisplayName(fieldName, field)} is required. Select it under inherit fields to delete an existing override.");
+                continue;
+            }
+
+            if (!TryValidateBundledMcpFieldValue(
+                    fieldName,
+                    field,
+                    fieldOptions[fieldName],
+                    value,
+                    out var normalized,
+                    out var validationError))
+            {
+                validationErrors.Add(validationError);
+                continue;
+            }
+
+            normalizedValues[fieldName] = normalized;
         }
 
-        if (savedFields.Count == 0)
+        if (validationErrors.Count > 0)
+        {
+            yield return new SmartFlowEvent(
+                "answer",
+                "❌ MCP server overrides were not changed:\n- " + string.Join("\n- ", validationErrors));
+            yield break;
+        }
+
+        var savedFields = new List<string>();
+        var inheritedFieldNames = new List<string>();
+        foreach (var fieldEntry in serverSettings.EditableFields)
+        {
+            var fieldName = fieldEntry.Key;
+            var field = fieldEntry.Value;
+            if (inheritedFields.Contains(fieldName))
+            {
+                if (existingValues[fieldName] is not null
+                    && await _keyVaultStore.DeleteSecretAsync(fieldSecretKeys[fieldName], ct))
+                {
+                    inheritedFieldNames.Add(GetMcpEditableFieldDisplayName(fieldName, field));
+                }
+                continue;
+            }
+
+            if (!normalizedValues.TryGetValue(fieldName, out var value))
+                continue;
+
+            var existingValue = existingValues[fieldName];
+            if (string.Equals(existingValue, value, StringComparison.Ordinal)
+                || existingValue is null
+                && string.Equals(field.DefaultValue, value, StringComparison.OrdinalIgnoreCase))
+            {
+                continue;
+            }
+
+            await _keyVaultStore.SaveSecretValueAsync(fieldSecretKeys[fieldName], value, ct);
+            savedFields.Add(GetMcpEditableFieldDisplayName(fieldName, field));
+        }
+
+        if (savedFields.Count == 0 && inheritedFieldNames.Count == 0)
         {
             yield return new SmartFlowEvent("answer", $"ℹ️ MCP server '{serverName}' unchanged.");
             yield break;
@@ -1648,7 +1752,14 @@ public sealed class ConfigureProvidersService
 
         var effective = await _keyVaultStore.BuildEffectiveOptionsAsync(_optionsStore.Current, ct);
         _optionsStore.ReplaceRuntimeOptions(effective);
-        yield return new SmartFlowEvent("answer", $"✅ MCP server '{serverName}' updated: {string.Join(", ", savedFields)}.");
+        var changes = new List<string>();
+        if (savedFields.Count > 0)
+            changes.Add($"overridden: {string.Join(", ", savedFields)}");
+        if (inheritedFieldNames.Count > 0)
+            changes.Add($"inherited: {string.Join(", ", inheritedFieldNames)}");
+        yield return new SmartFlowEvent(
+            "answer",
+            $"✅ MCP server '{serverName}' updated ({string.Join("; ", changes)}). Changes apply to the next workflow/MCP process; already-running sessions are unchanged.");
     }
 
     private async IAsyncEnumerable<SmartFlowEvent> ExecuteInteractiveMcpRemoveAsync(
@@ -2712,6 +2823,103 @@ public sealed class ConfigureProvidersService
         => string.IsNullOrWhiteSpace(field.DisplayName)
             ? fieldName
             : field.DisplayName;
+
+    private static IReadOnlyList<string> ResolveBundledMcpFieldOptions(
+        BundledMcpEditableFieldSettings field,
+        IReadOnlyList<string> configuredLlmProviders)
+    {
+        IEnumerable<string> values = field.Options;
+        if (string.Equals(field.OptionsSource, "llm_providers", StringComparison.OrdinalIgnoreCase))
+            values = ["Copilot", .. configuredLlmProviders];
+
+        return values
+            .Where(value => !string.IsNullOrWhiteSpace(value))
+            .Select(value => value.Trim())
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+    }
+
+    private static HashSet<string> ReadMultiSelectResponse(JsonNode? response, string fieldName)
+    {
+        var selected = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        if (response?[fieldName] is not JsonArray array)
+            return selected;
+
+        foreach (var item in array)
+        {
+            if (item is JsonValue value
+                && value.TryGetValue<string>(out var selectedValue)
+                && !string.IsNullOrWhiteSpace(selectedValue))
+            {
+                selected.Add(selectedValue.Trim());
+            }
+        }
+
+        return selected;
+    }
+
+    private static bool TryValidateBundledMcpFieldValue(
+        string fieldName,
+        BundledMcpEditableFieldSettings field,
+        IReadOnlyList<string> options,
+        string value,
+        out string normalized,
+        out string error)
+    {
+        var displayName = GetMcpEditableFieldDisplayName(fieldName, field);
+        normalized = value.Trim();
+        error = string.Empty;
+
+        if (options.Count > 0)
+        {
+            var candidate = normalized;
+            var matchingOption = options.FirstOrDefault(option =>
+                string.Equals(option, candidate, StringComparison.OrdinalIgnoreCase));
+            if (matchingOption is null)
+            {
+                error = $"{displayName} must be one of: {string.Join(", ", options)}.";
+                return false;
+            }
+
+            normalized = matchingOption;
+        }
+
+        if (string.Equals(field.Type, "boolean", StringComparison.OrdinalIgnoreCase))
+        {
+            if (!bool.TryParse(normalized, out var boolValue))
+            {
+                error = $"{displayName} must be true or false.";
+                return false;
+            }
+
+            normalized = boolValue.ToString().ToLowerInvariant();
+        }
+
+        if (string.Equals(field.Type, "integer", StringComparison.OrdinalIgnoreCase))
+        {
+            if (!int.TryParse(normalized, NumberStyles.Integer, CultureInfo.InvariantCulture, out var intValue))
+            {
+                error = $"{displayName} must be an integer.";
+                return false;
+            }
+
+            if (field.MinValue is not null && intValue < field.MinValue)
+            {
+                error = $"{displayName} must be at least {field.MinValue.Value}.";
+                return false;
+            }
+
+            if (field.MaxValue is not null && intValue > field.MaxValue)
+            {
+                error = $"{displayName} must be at most {field.MaxValue.Value}.";
+                return false;
+            }
+
+            normalized = intValue.ToString(CultureInfo.InvariantCulture);
+        }
+
+        return true;
+    }
 
     private bool TryResolveBundledMcpServer(
         string requestedName,

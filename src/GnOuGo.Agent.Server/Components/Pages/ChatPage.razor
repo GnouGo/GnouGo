@@ -420,6 +420,13 @@
 
                             @if (_pendingHumanInput.Choices is { Count: > 0 })
                             {
+                                @if (_pendingHumanInput.Fields is { Count: 1 }
+                                     && !string.IsNullOrWhiteSpace(_pendingHumanInput.Fields[0].Description))
+                                {
+                                    <div class="gnougo-hitl-field__description gnougo-hitl-field__description--choice">
+                                        @_pendingHumanInput.Fields[0].Description
+                                    </div>
+                                }
                                 <div style="display: flex; gap: 8px; flex-wrap: wrap; margin-top: 8px;">
                                     @foreach (var choice in _pendingHumanInput.Choices)
                                     {
@@ -2471,7 +2478,13 @@
         var response = new JsonObject { ["response"] = responseValue };
         HumanInputProvider.TrySubmitResponse(_pendingHumanInput.RunId, _pendingHumanInput.StepId, response);
 
-        RecordHumanInput(_pendingHumanInput.Prompt, choice);
+        var summaryQuestion = _pendingHumanInput.Prompt;
+        if (_pendingHumanInput.Fields is { Count: 1 }
+            && !string.IsNullOrWhiteSpace(_pendingHumanInput.Fields[0].Description))
+        {
+            summaryQuestion = $"{summaryQuestion} — {_pendingHumanInput.Fields[0].Description}";
+        }
+        RecordHumanInput(summaryQuestion, choice);
 
         ResetHumanInputState();
         StateHasChanged();

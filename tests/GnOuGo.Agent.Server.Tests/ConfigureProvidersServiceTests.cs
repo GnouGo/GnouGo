@@ -303,6 +303,163 @@ public sealed class ConfigureProvidersServiceTests
     }
 
     [Fact]
+    public async Task ExecuteAsync_McpEdit_BundledCopilotRendersAndPersistsValidatedRuntimeDefaults()
+    {
+        const string serverName = "GnOuGo.GithubCopilot.Mcp";
+        var settings = CreateBundledCopilotMcpSettings();
+        var keyVaultStore = new FakeKeyVaultRuntimeConfigStore()
+            .AddSecret(
+                "LLM--Models--openai",
+                "{\"provider\":\"openai\",\"url\":\"https://api.openai.com/v1\",\"model\":\"gpt-provider-model\",\"authType\":\"api_key\",\"apiKey\":\"provider-secret\"}");
+        var humanInput = new AgentHumanInputProvider();
+        var runtimeStore = SmartFlowTestFactory.CreateRuntimeOptionsStore(new LLMOptions
+        {
+            McpServers = new Dictionary<string, McpServerOptions>(StringComparer.OrdinalIgnoreCase)
+            {
+                [serverName] = new()
+                {
+                    Type = "stdio",
+                    Command = "tools/GnOuGo.GithubCopilot.Mcp/GnOuGo.GithubCopilot.Mcp",
+                    Args = ["--stdio"]
+                }
+            }
+        });
+
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(10));
+        var token = cts.Token;
+        var responder = Task.Run(async () =>
+        {
+            await foreach (var request in humanInput.PendingRequests.ReadAllAsync(token))
+            {
+                Assert.Equal("mcp_edit.bundled_fields", request.StepId);
+                Assert.NotNull(request.Fields);
+                Assert.Equal(6, request.Fields!.Count);
+                Assert.DoesNotContain(request.Fields!, field => field.Name is "command" or "args" or "allow_writes" or "enable_approve_all");
+                var providerField = Assert.Single(request.Fields!, field => field.Name == "provider");
+                Assert.Contains("Copilot", providerField.Options!);
+                Assert.Contains("openai", providerField.Options!);
+                Assert.Equal("Copilot", providerField.Default);
+
+                humanInput.TrySubmitResponse(request.RunId, request.StepId, new JsonObject
+                {
+                    ["provider"] = "openai",
+                    ["model"] = "fallback-model",
+                    ["reasoning_effort"] = "medium",
+                    ["use_logged_in_user"] = false,
+                    ["request_timeout_seconds"] = 600,
+                    ["managed_session_ttl_seconds"] = 300
+                });
+                break;
+            }
+        }, token);
+
+        var service = new ConfigureProvidersService(
+            new RecordingLlmClient(),
+            humanInput,
+            new FakeModelCatalog(),
+            keyVaultStore,
+            runtimeStore,
+            SmartFlowTestFactory.CreateTelemetryHarness().Telemetry,
+            NullLogger<ConfigureProvidersService>.Instance,
+            bundledMcpSettings: Options.Create(settings));
+
+        var events = await SmartFlowTestFactory.CollectAsync(service.ExecuteAsync($"/mcp edit {serverName}", token), token);
+        await responder;
+
+        Assert.Contains(events, evt => evt.Type == "answer"
+                                      && evt.Text?.Contains("next workflow/MCP process", StringComparison.Ordinal) == true);
+        Assert.Equal("openai", await keyVaultStore.GetSecretValueAsync(CopilotOverrideKey("Provider"), token));
+        Assert.Equal("fallback-model", await keyVaultStore.GetSecretValueAsync(CopilotOverrideKey("Model"), token));
+        Assert.Equal("medium", await keyVaultStore.GetSecretValueAsync(CopilotOverrideKey("ReasoningEffort"), token));
+        Assert.Equal("false", await keyVaultStore.GetSecretValueAsync(CopilotOverrideKey("UseLoggedInUser"), token));
+        Assert.Equal("600", await keyVaultStore.GetSecretValueAsync(CopilotOverrideKey("RequestTimeoutSeconds"), token));
+        Assert.Equal("300", await keyVaultStore.GetSecretValueAsync(CopilotOverrideKey("ManagedSessionTtlSeconds"), token));
+        Assert.Equal("provider-secret", JsonNode.Parse((await keyVaultStore.GetSecretValueAsync("LLM--Models--openai", token))!)?["apiKey"]?.GetValue<string>());
+    }
+
+    [Fact]
+    public async Task ExecuteAsync_McpEdit_BundledCopilotRejectsInvalidValuesWithoutPartialWrites()
+    {
+        const string serverName = "GnOuGo.GithubCopilot.Mcp";
+        var keyVaultStore = new FakeKeyVaultRuntimeConfigStore()
+            .AddSecret(
+                "LLM--Models--openai",
+                "{\"provider\":\"openai\",\"url\":\"https://api.openai.com/v1\",\"model\":\"gpt-provider-model\",\"authType\":\"api_key\",\"apiKey\":\"provider-secret\"}");
+        var humanInput = new AgentHumanInputProvider();
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(10));
+        var token = cts.Token;
+        var responder = Task.Run(async () =>
+        {
+            await foreach (var request in humanInput.PendingRequests.ReadAllAsync(token))
+            {
+                humanInput.TrySubmitResponse(request.RunId, request.StepId, new JsonObject
+                {
+                    ["provider"] = "missing-provider",
+                    ["model"] = "fallback-model",
+                    ["reasoning_effort"] = "extreme",
+                    ["use_logged_in_user"] = "not-a-boolean",
+                    ["request_timeout_seconds"] = 0,
+                    ["managed_session_ttl_seconds"] = -1
+                });
+                break;
+            }
+        }, token);
+        var service = SmartFlowTestFactory.CreateProvidersService(
+            new RecordingLlmClient(),
+            keyVaultStore: keyVaultStore,
+            humanInput: humanInput,
+            bundledMcpSettings: CreateBundledCopilotMcpSettings());
+
+        var events = await SmartFlowTestFactory.CollectAsync(service.ExecuteAsync($"/mcp edit {serverName}", token), token);
+        await responder;
+
+        var answer = Assert.Single(events, evt => evt.Type == "answer");
+        Assert.Contains("were not changed", answer.Text);
+        Assert.Contains("Provider override must be one of", answer.Text);
+        Assert.Null(await keyVaultStore.GetSecretValueAsync(CopilotOverrideKey("Model"), token));
+    }
+
+    [Fact]
+    public async Task ExecuteAsync_McpEdit_BundledCopilotCanDeleteOneOverrideToInheritDefault()
+    {
+        const string serverName = "GnOuGo.GithubCopilot.Mcp";
+        var keyVaultStore = new FakeKeyVaultRuntimeConfigStore()
+            .AddSecret("LLM--Models--openai", "{\"provider\":\"openai\",\"url\":\"https://api.openai.com/v1\",\"model\":\"gpt-4.1\",\"authType\":\"none\"}")
+            .AddSecret(CopilotOverrideKey("Provider"), "openai");
+        var humanInput = new AgentHumanInputProvider();
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(10));
+        var token = cts.Token;
+        var responder = Task.Run(async () =>
+        {
+            await foreach (var request in humanInput.PendingRequests.ReadAllAsync(token))
+            {
+                var inheritField = Assert.Single(request.Fields!, field => field.Name == "inherit_fields");
+                Assert.Contains("provider", inheritField.Options!);
+                var response = new JsonObject
+                {
+                    ["inherit_fields"] = new JsonArray("provider")
+                };
+                foreach (var field in request.Fields!.Where(field => field.Name != "inherit_fields"))
+                    response[field.Name] = field.Default;
+                humanInput.TrySubmitResponse(request.RunId, request.StepId, response);
+                break;
+            }
+        }, token);
+        var service = SmartFlowTestFactory.CreateProvidersService(
+            new RecordingLlmClient(),
+            keyVaultStore: keyVaultStore,
+            humanInput: humanInput,
+            bundledMcpSettings: CreateBundledCopilotMcpSettings());
+
+        var events = await SmartFlowTestFactory.CollectAsync(service.ExecuteAsync($"/mcp edit {serverName}", token), token);
+        await responder;
+
+        Assert.Contains(events, evt => evt.Type == "answer" && evt.Text?.Contains("inherited: Provider override", StringComparison.Ordinal) == true);
+        Assert.Null(await keyVaultStore.GetSecretValueAsync(CopilotOverrideKey("Provider"), token));
+        Assert.Null(await keyVaultStore.GetSecretValueAsync(CopilotOverrideKey("Model"), token));
+    }
+
+    [Fact]
     public async Task ExecuteAsync_LlmList_ReturnsDeterministicMarkdownWithoutCallingLlm()
     {
         var llm = new RecordingLlmClient();
@@ -1919,6 +2076,54 @@ public sealed class ConfigureProvidersServiceTests
                 }
             }
         };
+
+    private static BundledMcpSettings CreateBundledCopilotMcpSettings()
+        => new()
+        {
+            Servers = new Dictionary<string, BundledMcpServerSettings>(StringComparer.OrdinalIgnoreCase)
+            {
+                ["GnOuGo.GithubCopilot.Mcp"] = new()
+                {
+                    Listable = true,
+                    EditableFields = new Dictionary<string, BundledMcpEditableFieldSettings>(StringComparer.OrdinalIgnoreCase)
+                    {
+                        ["provider"] = CopilotField("Provider override", "Provider", "select", "Copilot", optionsSource: "llm_providers"),
+                        ["model"] = CopilotField("Fallback model", "Model", "string", "gpt-5.4-mini"),
+                        ["reasoning_effort"] = CopilotField("Reasoning effort", "ReasoningEffort", "select", "high", ["low", "medium", "high", "xhigh"]),
+                        ["use_logged_in_user"] = CopilotField("Use logged-in GitHub user", "UseLoggedInUser", "boolean", "true"),
+                        ["request_timeout_seconds"] = CopilotField("Request timeout (seconds)", "RequestTimeoutSeconds", "integer", "7200", minValue: 1),
+                        ["managed_session_ttl_seconds"] = CopilotField("Managed-session TTL (seconds)", "ManagedSessionTtlSeconds", "integer", "1800", minValue: 1)
+                    }
+                }
+            }
+        };
+
+    private static BundledMcpEditableFieldSettings CopilotField(
+        string displayName,
+        string configurationName,
+        string type,
+        string defaultValue,
+        List<string>? options = null,
+        string? optionsSource = null,
+        int? minValue = null)
+        => new()
+        {
+            DisplayName = displayName,
+            Description = displayName,
+            Type = type,
+            Required = true,
+            Sensitive = false,
+            SecretKey = CopilotOverrideKey(configurationName),
+            Target = $"env:Code__Copilot__{configurationName}",
+            Options = options ?? [],
+            OptionsSource = optionsSource,
+            DefaultValue = defaultValue,
+            AllowInherit = true,
+            MinValue = minValue
+        };
+
+    private static string CopilotOverrideKey(string configurationName)
+        => $"LLM--McpServerOverrides--GnOuGo.GithubCopilot.Mcp--Code--Copilot--{configurationName}";
 
     private static bool IsModelMetadataRequest(HumanInputRequest request)
         => request.StepId.StartsWith("llm_model.metadata.", StringComparison.Ordinal);
