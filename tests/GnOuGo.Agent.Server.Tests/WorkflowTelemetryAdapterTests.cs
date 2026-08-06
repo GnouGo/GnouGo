@@ -2,7 +2,9 @@ using System.Text.Json;
 using System.Text.Json.Nodes;
 using GnOuGo.Agent.Server.SmartFlow;
 using GnOuGo.Assets.Animation;
+using GnOuGo.Flow.Core.Compilation;
 using GnOuGo.Flow.Core.Models;
+using GnOuGo.Flow.Core.Parsing;
 using GnOuGo.Flow.Core.Runtime;
 
 namespace GnOuGo.Agent.Server.Tests;
@@ -365,6 +367,132 @@ public sealed class WorkflowTelemetryAdapterTests
         telemetry.WorkflowEnd(root, new WorkflowResultInfo { Success = true });
 
         Assert.Contains(events, item => item.Animation?.Event?.Type == SimulationEventTypes.SimulationCompleted);
+    }
+
+    [Fact]
+    public async Task WorkflowEngine_LocalCallTraversesChildAnimationLaneAndReturnsToParent()
+    {
+        const string yaml = """
+            version: 1
+            entrypoint: main
+            workflows:
+              main:
+                steps:
+                  - id: delegate
+                    type: workflow.call
+                    input:
+                      ref: { kind: local, name: child }
+              child:
+                steps:
+                  - id: research
+                    type: llm.call
+                    input:
+                      provider: test
+                      model: test-model
+                      prompt: Research the request.
+                  - id: draft
+                    type: llm.call
+                    input:
+                      provider: test
+                      model: test-model
+                      prompt: Draft the response.
+            """;
+        var document = WorkflowParser.Parse(yaml);
+        var compiled = new WorkflowCompiler().Compile(document);
+        var workflow = compiled.Workflows[compiled.Entrypoint!];
+        var events = new List<SmartFlowEvent>();
+        var bridge = AgentWorkflowAnimationBridge.Create(
+            yaml,
+            workflow.Name,
+            "abcdef0123456789abcdef0123456789",
+            events.Add,
+            out _);
+        var engine = new WorkflowEngine
+        {
+            LLMClient = new StaticLlmClient(),
+            Telemetry = new CompositeWorkflowTelemetry(
+                new AgentStreamingTelemetry(events.Add, bridge),
+                NullWorkflowTelemetry.Instance)
+        };
+
+        var result = await engine.ExecuteAsync(workflow, new JsonObject(), TestContext.Current.CancellationToken);
+
+        Assert.True(result.Success, result.Error?.Message);
+        var workflowStarts = events
+            .Where(item => item.Type == "telemetry.workflow.start")
+            .Select(Json)
+            .ToArray();
+        var stepStarts = events
+            .Where(item => item.Type == "telemetry.step.start")
+            .Select(Json)
+            .ToArray();
+        Assert.Equal(2, workflowStarts.Length);
+        Assert.Equal("main", workflowStarts[0]["workflow.name"]!.GetValue<string>());
+        Assert.Equal("child", workflowStarts[1]["workflow.name"]!.GetValue<string>());
+        Assert.Equal(
+            workflowStarts[0]["workflow.instance.id"]!.GetValue<string>(),
+            workflowStarts[1]["workflow.parent.instance.id"]!.GetValue<string>());
+        Assert.Equal(
+            stepStarts.Single(item => item["step.id"]!.GetValue<string>() == "delegate")["step.occurrence.id"]!.GetValue<string>(),
+            workflowStarts[1]["caller.step.occurrence.id"]!.GetValue<string>());
+
+        var animationEvents = events
+            .Where(item => item.Type == "animation.event")
+            .Select(item => item.Animation?.Event)
+            .OfType<SimulationEvent>()
+            .ToArray();
+        var discovered = Assert.Single(animationEvents, item =>
+            item.Type == SimulationEventTypes.WorkflowDiscovered
+            && item.WorkflowName == "child");
+        Assert.Equal("delegate", discovered.StepId);
+        Assert.Equal("workflow.call", discovered.StepType);
+
+        var childSpawn = Assert.Single(animationEvents, item =>
+            item.Type == SimulationEventTypes.ActorSpawned
+            && item.WorkflowName == "child");
+        Assert.False(string.IsNullOrWhiteSpace(childSpawn.ActorId));
+        var childActorId = childSpawn.ActorId!;
+        var childStepStarts = animationEvents
+            .Where(item =>
+                item.Type == SimulationEventTypes.StepStarted
+                && item.WorkflowName == "child")
+            .ToArray();
+        Assert.Equal(new[] { "research", "draft" }, childStepStarts.Select(item => item.StepId));
+        Assert.All(childStepStarts, item =>
+        {
+            Assert.Equal(childActorId, item.ActorId);
+            Assert.False(string.IsNullOrWhiteSpace(item.NodeId));
+            Assert.False(string.IsNullOrWhiteSpace(item.StationId));
+        });
+        Assert.All(childStepStarts, childStep => Assert.Contains(animationEvents, item =>
+            item.Type == SimulationEventTypes.ActorMoved
+            && item.ActorId == childActorId
+            && item.StepId == childStep.StepId
+            && item.NodeId == childStep.NodeId
+            && item.Sequence < childStep.Sequence));
+        var childStepCompletions = animationEvents
+            .Where(item =>
+                item.Type == SimulationEventTypes.StepCompleted
+                && item.WorkflowName == "child")
+            .ToArray();
+        Assert.Equal(new[] { "research", "draft" }, childStepCompletions.Select(item => item.StepId));
+
+        var rootStart = animationEvents.Single(item =>
+            item.Type == SimulationEventTypes.WorkflowStarted
+            && item.WorkflowName == "main");
+        var childCompletion = animationEvents.Single(item =>
+            item.Type == SimulationEventTypes.WorkflowCompleted
+            && item.WorkflowName == "child");
+        var returnHandoff = Assert.Single(animationEvents, item =>
+            item.Type == SimulationEventTypes.TaskHandedOff
+            && item.ActorId == childActorId
+            && item.TargetActorId == rootStart.ActorId);
+        Assert.True(childStepCompletions.Max(item => item.Sequence) < childCompletion.Sequence);
+        Assert.True(childCompletion.Sequence < returnHandoff.Sequence);
+        Assert.Contains(animationEvents, item =>
+            item.Type == SimulationEventTypes.SimulationCompleted
+            && item.Status == SimulationStatus.Succeeded);
+        Assert.DoesNotContain(events, item => item.Type == "animation.scene.patch");
     }
 
     [Fact]
@@ -762,5 +890,11 @@ public sealed class WorkflowTelemetryAdapterTests
             => events.Add($"{name}:AddEvent:{eventName}");
 
         public void Dispose() { }
+    }
+
+    private sealed class StaticLlmClient : ILLMClient
+    {
+        public Task<LLMResponse> CallAsync(LLMRequest request, CancellationToken ct)
+            => Task.FromResult(new LLMResponse { Text = $"completed:{request.Prompt}" });
     }
 }

@@ -92,12 +92,15 @@ public class WorkflowTelemetryTests
         public List<TestSpan> WorkflowSpans { get; } = new();
         public List<TestSpan> StepSpans { get; } = new();
         public List<TestSpan> ChildSpans { get; } = new();
+        public List<(TestSpan Span, WorkflowTelemetryInfo Info)> WorkflowStarts { get; } = new();
+        public List<(TestSpan Span, WorkflowResultInfo Result)> WorkflowEnds { get; } = new();
 
         public IWorkflowSpan WorkflowStart(WorkflowTelemetryInfo info)
         {
             Events.Add(("WorkflowStart", info));
             var span = new TestSpan { Name = info.WorkflowName };
             WorkflowSpans.Add(span);
+            WorkflowStarts.Add((span, info));
             return span;
         }
 
@@ -106,12 +109,14 @@ public class WorkflowTelemetryTests
             Events.Add(("WorkflowStart", info));
             var span = new TestSpan { Name = info.WorkflowName, ParentName = (parentSpan as TestSpan)?.Name };
             WorkflowSpans.Add(span);
+            WorkflowStarts.Add((span, info));
             return span;
         }
 
         public void WorkflowEnd(IWorkflowSpan span, WorkflowResultInfo result)
         {
             Events.Add(("WorkflowEnd", result));
+            WorkflowEnds.Add(((TestSpan)span, result));
         }
 
         public IStepSpan StepStart(ITelemetrySpan parentSpan, StepTelemetryInfo info)
@@ -208,6 +213,156 @@ workflows:
         Assert.NotNull(wfResult);
         Assert.True(wfResult!.Success);
         Assert.Equal(1, wfResult.StepsExecuted);
+    }
+
+    [Fact]
+    public async Task CustomTelemetry_WorkflowCallCreatesNestedWorkflowLifecycles()
+    {
+        var recording = new RecordingTelemetry();
+        var workflow = CompileMain("""
+            version: 1
+            workflows:
+              main:
+                steps:
+                  - id: call_child
+                    type: workflow.call
+                    input:
+                      ref: { kind: local, name: child }
+                      args: { value: nested }
+              child:
+                inputs:
+                  value: { type: string, required: true }
+                steps:
+                  - id: child_work
+                    type: set
+                    input: { value: "${data.inputs.value}" }
+                  - id: call_grandchild
+                    type: workflow.call
+                    input:
+                      ref: { kind: local, name: grandchild }
+              grandchild:
+                steps:
+                  - id: grandchild_work
+                    type: set
+                    input: { done: true }
+            """);
+        var engine = new WorkflowEngine { Telemetry = recording };
+
+        var result = await engine.ExecuteAsync(workflow, new JsonObject(), CancellationToken.None);
+
+        Assert.True(result.Success, result.Error?.Message);
+        Assert.Equal(new[] { "main", "child", "grandchild" }, recording.WorkflowSpans.Select(span => span.Name));
+        Assert.Null(recording.WorkflowSpans.Single(span => span.Name == "main").ParentName);
+        Assert.Equal("call_child", recording.WorkflowSpans.Single(span => span.Name == "child").ParentName);
+        Assert.Equal("call_grandchild", recording.WorkflowSpans.Single(span => span.Name == "grandchild").ParentName);
+        Assert.Equal("main", recording.StepSpans.Single(span => span.Name == "call_child").ParentName);
+        Assert.Equal("child", recording.StepSpans.Single(span => span.Name == "child_work").ParentName);
+        Assert.Equal("child", recording.StepSpans.Single(span => span.Name == "call_grandchild").ParentName);
+        Assert.Equal("grandchild", recording.StepSpans.Single(span => span.Name == "grandchild_work").ParentName);
+
+        var childStart = recording.WorkflowStarts.Single(item => item.Span.Name == "child").Info;
+        Assert.Equal("nested", childStart.Inputs!["value"]!.GetValue<string>());
+        Assert.Equal("yaml", childStart.SourceFormat);
+        Assert.Contains("name: grandchild", childStart.SourceText, StringComparison.Ordinal);
+        Assert.Equal(new[] { "grandchild", "child", "main" }, recording.WorkflowEnds.Select(item => item.Span.Name));
+        Assert.All(recording.WorkflowEnds, item => Assert.True(item.Result.Success));
+        Assert.All(recording.WorkflowSpans, span => Assert.True(span.Disposed));
+    }
+
+    [Fact]
+    public async Task CustomTelemetry_FailedWorkflowCallEndsAndDisposesChildLifecycle()
+    {
+        var recording = new RecordingTelemetry();
+        var workflow = CompileMain("""
+            version: 1
+            workflows:
+              main:
+                steps:
+                  - id: call_child
+                    type: workflow.call
+                    input:
+                      ref: { kind: local, name: child }
+              child:
+                steps:
+                  - id: parse_payload
+                    type: template.render
+                    input:
+                      engine: mustache
+                      template: not-json
+                      data: {}
+                      mode: json
+            """);
+        var engine = new WorkflowEngine { Telemetry = recording };
+
+        var result = await engine.ExecuteAsync(workflow, new JsonObject(), CancellationToken.None);
+
+        Assert.False(result.Success);
+        var childEnd = recording.WorkflowEnds.Single(item => item.Span.Name == "child");
+        Assert.False(childEnd.Result.Success);
+        Assert.False(string.IsNullOrWhiteSpace(childEnd.Result.ErrorCode));
+        Assert.Equal("child", recording.StepSpans.Single(span => span.Name == "parse_payload").ParentName);
+        Assert.All(recording.WorkflowSpans, span => Assert.True(span.Disposed));
+    }
+
+    [Fact]
+    public async Task CustomTelemetry_CancelledWorkflowCallFinalizesAndDisposesChildLifecycle()
+    {
+        var recording = new RecordingTelemetry();
+        var humanInput = new WaitingHumanInputProvider();
+        var workflow = CompileMain("""
+            version: 1
+            workflows:
+              main:
+                steps:
+                  - id: call_child
+                    type: workflow.call
+                    input:
+                      ref: { kind: local, name: child }
+              child:
+                steps:
+                  - id: wait_for_user
+                    type: human.input
+                    input:
+                      mode: text
+                      prompt: Continue?
+                      timeout_ms: 0
+                finally:
+                  - id: cleanup
+                    type: set
+                    input: { completed: true }
+            """);
+        var engine = new WorkflowEngine
+        {
+            Telemetry = recording,
+            HumanInputProvider = humanInput
+        };
+        using var cancellation = new CancellationTokenSource();
+
+        var execution = engine.ExecuteAsync(workflow, new JsonObject(), cancellation.Token);
+        await humanInput.Started.Task.WaitAsync(
+            TimeSpan.FromSeconds(5),
+            TestContext.Current.CancellationToken);
+        cancellation.Cancel();
+        var result = await execution;
+
+        Assert.False(result.Success);
+        var childEnd = recording.WorkflowEnds.Single(item => item.Span.Name == "child");
+        Assert.False(childEnd.Result.Success);
+        Assert.Equal("CANCELLED", childEnd.Result.ErrorCode);
+        Assert.Equal("child", recording.StepSpans.Single(span => span.Name == "cleanup").ParentName);
+        Assert.All(recording.WorkflowSpans, span => Assert.True(span.Disposed));
+    }
+
+    private sealed class WaitingHumanInputProvider : IHumanInputProvider
+    {
+        public TaskCompletionSource Started { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        public async Task<JsonNode?> RequestInputAsync(HumanInputRequest request, CancellationToken ct)
+        {
+            Started.TrySetResult();
+            await Task.Delay(Timeout.InfiniteTimeSpan, ct);
+            return null;
+        }
     }
 
     [Fact]

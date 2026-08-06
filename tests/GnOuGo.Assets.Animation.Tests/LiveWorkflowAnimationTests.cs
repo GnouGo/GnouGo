@@ -425,6 +425,92 @@ public sealed class LiveWorkflowAnimationTests
     }
 
     [Fact]
+    public void LiveSession_CollapsesShortLocalWorkflowCallIntoParentLane()
+    {
+        const string yaml = """
+            version: 1
+            entrypoint: main
+            workflows:
+              main:
+                steps:
+                  - id: delegate
+                    type: workflow.call
+                    input:
+                      ref: { kind: local, name: child }
+              child:
+                steps:
+                  - { id: prepare, type: set }
+                  - { id: format, type: template.render }
+            """;
+        var validation = WorkflowPreviewValidator.ParseAndValidate(yaml);
+        var plan = GnouGnouAnimationPlanner.BuildLive(
+            validation,
+            new GnouGnouAnimationOptions { Seed = 17 });
+        var session = new WorkflowLiveAnimationSession(plan);
+        var parentLane = Assert.Single(plan.Lanes);
+
+        session.Apply(new AnimationExecutionSignal
+        {
+            Kind = AnimationExecutionSignalKind.WorkflowStarted,
+            WorkflowInstanceId = "root",
+            WorkflowName = "main"
+        });
+        session.Apply(new AnimationExecutionSignal
+        {
+            Kind = AnimationExecutionSignalKind.StepStarted,
+            WorkflowInstanceId = "root",
+            StepOccurrenceId = "delegate-1",
+            StepId = "delegate",
+            StepType = "workflow.call"
+        });
+        var childStart = session.Apply(new AnimationExecutionSignal
+        {
+            Kind = AnimationExecutionSignalKind.WorkflowStarted,
+            WorkflowInstanceId = "child-1",
+            ParentWorkflowInstanceId = "root",
+            CallerStepOccurrenceId = "delegate-1",
+            WorkflowName = "child",
+            SourceText = yaml
+        });
+        var shortStep = session.Apply(new AnimationExecutionSignal
+        {
+            Kind = AnimationExecutionSignalKind.StepStarted,
+            WorkflowInstanceId = "child-1",
+            StepOccurrenceId = "prepare-1",
+            StepId = "prepare",
+            StepType = "set"
+        });
+        var childEnd = session.Apply(new AnimationExecutionSignal
+        {
+            Kind = AnimationExecutionSignalKind.WorkflowCompleted,
+            WorkflowInstanceId = "child-1",
+            ParentWorkflowInstanceId = "root",
+            WorkflowName = "child",
+            Status = SimulationStatus.Succeeded
+        });
+
+        Assert.DoesNotContain(childStart, update => update.ScenePatch is not null);
+        Assert.DoesNotContain(childStart, update => update.Event?.Type is
+            SimulationEventTypes.WorkflowDiscovered
+            or SimulationEventTypes.ActorSpawned
+            or SimulationEventTypes.ActorMoved
+            or SimulationEventTypes.TaskHandedOff);
+        var stepStarted = Assert.Single(shortStep, update =>
+            update.Event?.Type == SimulationEventTypes.StepStarted).Event!;
+        Assert.Equal(parentLane.ActorId, stepStarted.ActorId);
+        Assert.Null(stepStarted.NodeId);
+        Assert.Null(stepStarted.StationId);
+        Assert.DoesNotContain(shortStep, update => update.ScenePatch is not null);
+        Assert.DoesNotContain(shortStep, update => update.Event?.Type == SimulationEventTypes.ActorMoved);
+        Assert.Contains(childEnd, update =>
+            update.Event?.Type == SimulationEventTypes.WorkflowCompleted
+            && update.Event.WorkflowName == "child");
+        Assert.DoesNotContain(childEnd, update => update.Event?.Type is
+            SimulationEventTypes.ActorMoved
+            or SimulationEventTypes.TaskHandedOff);
+    }
+
+    [Fact]
     public void LiveSession_DiscoversRuntimeWorkflowWithoutLeakingSource()
     {
         var root = WorkflowPreviewValidator.ParseAndValidate("""

@@ -110,59 +110,132 @@ public sealed class WorkflowCallExecutor : IStepExecutor
 
         var inheritedFinalization = ctx.EffectiveExecutionScope.IsFinalization;
         var executionScope = ctx.Engine.CreateExecutionScopeForWorkflow(subWorkflow, inheritedFinalization);
+        var workflowInfo = new WorkflowTelemetryInfo
+        {
+            WorkflowName = resolution.WorkflowName,
+            DocumentName = subWorkflow.Document?.Source?.Name,
+            Inputs = resolvedArgs.DeepClone(),
+            SourceText = subWorkflow.Document?.Source?.RawYaml,
+            SourceFormat = "yaml"
+        };
+        var workflowSpan = ctx.TelemetrySpan is null
+            ? ctx.Engine.Telemetry.WorkflowStart(workflowInfo)
+            : ctx.Engine.Telemetry.WorkflowStart(ctx.TelemetrySpan, workflowInfo);
+        var workflowStopwatch = System.Diagnostics.Stopwatch.StartNew();
+        Exception? outputEvaluationError = null;
+        Exception? unhandledLifecycleError = null;
+        JsonNode? outputs = null;
         try
         {
-            await ctx.Engine.ExecuteStepsAsync(
-                subWorkflow.Steps,
-                subData,
-                result,
-                ctx.Limits,
-                ctx.CallDepth + 1,
-                newCallStack,
-                executionScope,
-                ct,
-                ctx.TelemetrySpan);
-        }
-        catch (WorkflowRuntimeException ex)
-        {
-            result.Success = false;
-            result.Error = ex.ToWorkflowError();
-        }
-        catch (OperationCanceledException)
-        {
-            result.Success = false;
-            result.Error = new WorkflowError
+            WorkflowTelemetryInputAttributes.Apply(workflowSpan, subData["inputs"]);
+            try
             {
-                Code = "CANCELLED",
-                Type = "CANCELLED",
-                Message = "Workflow execution cancelled",
-                Retryable = true
-            };
+                await ctx.Engine.ExecuteStepsAsync(
+                    subWorkflow.Steps,
+                    subData,
+                    result,
+                    ctx.Limits,
+                    ctx.CallDepth + 1,
+                    newCallStack,
+                    executionScope,
+                    ct,
+                    workflowSpan);
+            }
+            catch (WorkflowRuntimeException ex)
+            {
+                result.Success = false;
+                result.Error = ex.ToWorkflowError();
+            }
+            catch (OperationCanceledException)
+            {
+                result.Success = false;
+                result.Error = new WorkflowError
+                {
+                    Code = "CANCELLED",
+                    Type = "CANCELLED",
+                    Message = "Workflow execution cancelled",
+                    Retryable = true
+                };
+            }
+            catch (Exception ex)
+            {
+                result.Success = false;
+                result.Error = new WorkflowError
+                {
+                    Code = "INTERNAL_ERROR",
+                    Type = ex.GetType().Name,
+                    Message = ex.Message,
+                    Retryable = false
+                };
+            }
+            finally
+            {
+                await ctx.Engine.ExecuteWorkflowFinalizationAsync(
+                    subWorkflow,
+                    subData,
+                    result,
+                    ctx.Limits,
+                    ctx.CallDepth + 1,
+                    newCallStack,
+                    executionScope,
+                    workflowSpan,
+                    inheritedFinalization ? ct : null);
+            }
+
+            if (result.Success)
+            {
+                try
+                {
+                    outputs = subWorkflow.Outputs != null
+                        ? ctx.Engine.EvaluateWorkflowOutputs(
+                            subWorkflow.Outputs,
+                            subData,
+                            executionScope,
+                            resolution.WorkflowName)
+                        : subData["steps"]?.DeepClone();
+                }
+                catch (Exception ex)
+                {
+                    outputEvaluationError = ex;
+                }
+            }
         }
         catch (Exception ex)
         {
-            result.Success = false;
-            result.Error = new WorkflowError
-            {
-                Code = "INTERNAL_ERROR",
-                Type = ex.GetType().Name,
-                Message = ex.Message,
-                Retryable = false
-            };
+            unhandledLifecycleError = ex;
+            throw;
         }
         finally
         {
-            await ctx.Engine.ExecuteWorkflowFinalizationAsync(
-                subWorkflow,
-                subData,
-                result,
-                ctx.Limits,
-                ctx.CallDepth + 1,
-                newCallStack,
-                executionScope,
-                ctx.TelemetrySpan,
-                inheritedFinalization ? ct : null);
+            workflowStopwatch.Stop();
+            try
+            {
+                ctx.Engine.Telemetry.WorkflowEnd(workflowSpan, new WorkflowResultInfo
+                {
+                    Success = result.Success
+                              && outputEvaluationError is null
+                              && unhandledLifecycleError is null,
+                    StepsExecuted = result.StepResults.Count,
+                    Duration = workflowStopwatch.Elapsed,
+                    ErrorCode = result.Error?.Code
+                                ?? (outputEvaluationError as WorkflowRuntimeException)?.Code
+                                ?? (unhandledLifecycleError as WorkflowRuntimeException)?.Code
+                                ?? (outputEvaluationError is null && unhandledLifecycleError is null
+                                    ? null
+                                    : "INTERNAL_ERROR"),
+                    ErrorMessage = result.Error?.Message
+                                   ?? outputEvaluationError?.Message
+                                   ?? unhandledLifecycleError?.Message
+                });
+            }
+            finally
+            {
+                workflowSpan.Dispose();
+            }
         }
+
+        if (outputEvaluationError is not null)
+            System.Runtime.ExceptionServices.ExceptionDispatchInfo.Capture(outputEvaluationError).Throw();
 
         if (!result.Success)
         {
@@ -177,21 +250,6 @@ public sealed class WorkflowCallExecutor : IStepExecutor
                 error.Message,
                 error.Retryable,
                 details: EnrichCalledWorkflowFailureDetails(error.Details, result, resolution.WorkflowName));
-        }
-
-        // Evaluate outputs
-        JsonNode? outputs;
-        if (subWorkflow.Outputs != null)
-        {
-            outputs = ctx.Engine.EvaluateWorkflowOutputs(
-                subWorkflow.Outputs,
-                subData,
-                executionScope,
-                resolution.WorkflowName);
-        }
-        else
-        {
-            outputs = subData["steps"]?.DeepClone();
         }
 
         return new JsonObject
