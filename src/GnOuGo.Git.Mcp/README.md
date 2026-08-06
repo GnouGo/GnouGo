@@ -19,7 +19,7 @@ This stdio server uses the stable C# MCP SDK `2.0.0` and requires MCP `2026-07-2
 
 The packaged default remains read/write capable (`AllowMutations=true`, `AllowNetworkOperations=true`, `ReviewReadOnly=false`); actual operations are still root-guarded. The following stricter review policy is opt-in for a dedicated server configuration.
 
-Set `Git:ReviewReadOnly=true`, `Git:AllowMutations=false`, and `Git:AllowNetworkOperations=true` for a dedicated review server. In this mode `git_clone` and `git_fetch` are permitted only below `.GnOuGo/data/reviews/`; checkout, stage, commit, push, pull/merge, and branch deletion remain denied. Use `git_clone.response.projectRootRelative` for all later calls. This policy protects user checkouts while still allowing exact remote revision comparison.
+Set `Git:ReviewReadOnly=true`, `Git:AllowMutations=false`, and `Git:AllowNetworkOperations=true` for a dedicated review server. In this mode `git_clone` and `git_fetch` are permitted only below the visible `workflows/` root; checkout, stage, commit, push, pull/merge, and branch deletion remain denied. Use `git_clone.response.projectRootRelative` for all later calls. This policy protects user checkouts while still allowing exact remote revision comparison.
 
 `git_compare_refs` defaults to merge-base-to-head semantics. Follow `nextCursor` until null and preserve every page's `baseSha`, `headSha`, and `mergeBaseSha`. Treat `truncated`, binary, and submodule entries as explicit coverage gaps.
 
@@ -41,6 +41,8 @@ call `git_fetch` with `remoteName: "origin"` and `refSpec: "refs/heads/<branchNa
 ## Policy and authentication
 
 The tool resolves project roots under `Git:DefaultWorkingDirectory` and `Git:AllowedWorkingRoots`. Relative paths are resolved below the default working directory, which defaults to `GnOuGo` on the current user's Desktop for local desktop usage.
+
+Every `git_clone.targetDirectory` must be a purpose-specific child below `workflows/`, for example `workflows/github-review-123`. Existing repositories used as `projectRoot` may live elsewhere in the visible workspace, but paths under the reserved `.GnOuGo/` internal subtree are rejected. The legacy `.GnOuGo/data/reviews/` location is no longer a valid Git workflow workspace.
 
 Git credentials are optional and are resolved in this order:
 

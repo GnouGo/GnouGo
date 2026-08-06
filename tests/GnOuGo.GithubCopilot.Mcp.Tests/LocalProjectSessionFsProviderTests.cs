@@ -66,6 +66,19 @@ public sealed class LocalProjectSessionFsProviderTests : IDisposable
         Assert.Contains("parent traversal", ex.Message, StringComparison.OrdinalIgnoreCase);
     }
 
+    [Fact]
+    public async Task ReadFileForTestAsync_RejectsReservedGnOuGoPath()
+    {
+        var internalDirectory = Directory.CreateDirectory(Path.Combine(_root, ".GnOuGo"));
+        File.WriteAllText(Path.Combine(internalDirectory.FullName, "Internal.cs"), "internal");
+        var provider = CreateProvider(allowWrites: false);
+
+        var ex = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            provider.ReadFileForTestAsync(".GnOuGo/Internal.cs", TestContext.Current.CancellationToken));
+
+        Assert.Contains("reserved", ex.Message, StringComparison.OrdinalIgnoreCase);
+    }
+
     public void Dispose()
     {
         try { Directory.Delete(_root, recursive: true); }

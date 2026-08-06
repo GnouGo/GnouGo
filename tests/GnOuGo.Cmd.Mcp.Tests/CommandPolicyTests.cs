@@ -101,6 +101,7 @@ public class CommandPolicyTests
         Assert.Contains("- list_files: List workspace files.", description);
         Assert.Contains("path (required, workspace path, directory, Directory to list.)", description);
         Assert.Contains("Pass parametersJson as a JSON object string", description);
+        Assert.Contains("reserved .GnOuGo", description);
         Assert.DoesNotContain("Get-ChildItem", description);
     }
 
@@ -158,7 +159,7 @@ public class CommandPolicyTests
         Assert.Contains("- allowedCommandCount: 1", description);
         Assert.Contains("- environment.operatingSystem:", description);
         Assert.Contains("- environment.availableShells:", description);
-        Assert.Contains("Only allowedWorkingRoots are authorized", description);
+        Assert.Contains("reserved .GnOuGo", description);
     }
 
     [Fact]
@@ -183,6 +184,18 @@ public class CommandPolicyTests
         var ex = Assert.Throws<InvalidOperationException>(() => policy.ResolveWorkingDirectory(outside));
 
         Assert.Contains("outside the allowed roots", ex.Message);
+    }
+
+    [Fact]
+    public void ResolveWorkingDirectory_RejectsReservedGnOuGoDirectory()
+    {
+        var root = CreateTempDirectory();
+        var internalDirectory = Directory.CreateDirectory(Path.Combine(root, ".GnOuGo", "work")).FullName;
+        var policy = CreatePolicy(root, commandScript: "Write-Output 'ok'");
+
+        var ex = Assert.Throws<InvalidOperationException>(() => policy.ResolveWorkingDirectory(internalDirectory));
+
+        Assert.Contains("reserved", ex.Message, StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]
@@ -316,6 +329,31 @@ public class CommandPolicyTests
             policy.RenderScript(command, new JsonObject { ["path"] = Path.Combine(outside, "notes") }, root));
 
         Assert.Contains("outside the allowed workspace roots", ex.Message);
+    }
+
+    [Theory]
+    [InlineData(".GnOuGo/agent.yaml")]
+    [InlineData(".GnOuGo/data/internal.json")]
+    public void RenderScript_RejectsWorkspacePathParameterInsideReservedGnOuGo(string path)
+    {
+        var root = CreateTempDirectory();
+        var settings = CreateSettings(root, "Get-ChildItem {{path}}", parameters: new Dictionary<string, CommandParameterSettings>
+        {
+            ["path"] = new()
+            {
+                Required = true,
+                Pattern = "^.+$",
+                MaxLength = 260,
+                IsWorkspacePath = true
+            }
+        });
+        var policy = new CommandPolicy(settings, root);
+        var command = policy.GetRequiredCommand("test");
+
+        var ex = Assert.Throws<InvalidOperationException>(() =>
+            policy.RenderScript(command, new JsonObject { ["path"] = path }, root));
+
+        Assert.Contains("reserved", ex.Message, StringComparison.OrdinalIgnoreCase);
     }
 
     [Theory]

@@ -24,6 +24,8 @@ This is intentionally a **deny-by-default** design to limit risks:
 
 By default, the server now resolves its writable workspace to `Desktop/GnOuGo` for the current user and creates that directory automatically on startup if it does not already exist.
 
+The `.GnOuGo/` subtree is reserved for GnOuGo-managed databases and internal temporary state. Working directories and all bundled path-bearing parameters reject that subtree before shell execution. Workflow-owned files belong below visible paths, with materialized workflow workspaces conventionally placed under `workflows/<purpose-specific-name>`. Bundled recursive search and listing aliases omit `.GnOuGo/`.
+
 ## Cross-Platform Support
 
 The server is designed to work on **Windows**, **Linux**, and **macOS** out of the box.
@@ -154,6 +156,7 @@ When `IsWorkspacePath` is enabled, the server additionally rejects:
 - `~` home-directory shortcuts
 - wildcard characters such as `*` and `?`
 - any resolved path outside the configured allowed workspace roots
+- `.GnOuGo` or any descendant of that reserved internal subtree
 
 Example:
 

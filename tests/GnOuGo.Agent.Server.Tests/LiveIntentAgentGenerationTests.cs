@@ -36,8 +36,8 @@ public sealed class LiveIntentAgentGenerationTests
         var sourceRoot = FindSourceRoot();
         var previousDirectory = Directory.GetCurrentDirectory();
         var workspaceRoot = GnOuGoWorkspace.ResolveDefaultWorkingDirectory();
-        var reviewRoot = Path.GetFullPath(Path.Combine(workspaceRoot, ".GnOuGo", "data", "reviews"));
-        var existingReviewWorkspaces = SnapshotReviewWorkspaces(reviewRoot);
+        var workflowWorkspacesRoot = GnOuGoWorkspace.ResolveWorkflowWorkspacesDirectory(workspaceRoot);
+        var existingWorkflowWorkspaces = SnapshotWorkflowWorkspaces(workflowWorkspacesRoot);
         var generatedAgents = new List<(string Id, string Name)>();
         AgentUserConfigSnapshot? previousConfig = null;
         WebApplication? app = null;
@@ -154,7 +154,7 @@ public sealed class LiveIntentAgentGenerationTests
                 await app.DisposeAsync();
             }
             Directory.SetCurrentDirectory(previousDirectory);
-            DeleteNewReviewWorkspaces(reviewRoot, existingReviewWorkspaces);
+            DeleteNewWorkflowWorkspaces(workflowWorkspacesRoot, existingWorkflowWorkspaces);
         }
     }
 
@@ -436,10 +436,10 @@ public sealed class LiveIntentAgentGenerationTests
         var runId = DateTimeOffset.UtcNow.ToString("yyyyMMddHHmmss") + "-" + Guid.NewGuid().ToString("N")[..8];
         var branchName = $"gnougo/e2e-intent-pr-review-{runId}";
         var fixtureRelativePath = $"e2e-fixtures/IntentPrReviewFixture-{runId}.cs";
-        var fixtureCloneRelative = $".GnOuGo/data/e2e/intent-pr-review-{runId}";
+        var fixtureCloneRelative = $"workflows/e2e/intent-pr-review-{runId}";
         var workspaceRoot = GnOuGoWorkspace.ResolveDefaultWorkingDirectory();
-        var reviewRoot = Path.GetFullPath(Path.Combine(workspaceRoot, ".GnOuGo", "data", "reviews"));
-        var existingReviewWorkspaces = SnapshotReviewWorkspaces(reviewRoot);
+        var workflowWorkspacesRoot = GnOuGoWorkspace.ResolveWorkflowWorkspacesDirectory(workspaceRoot);
+        var existingWorkflowWorkspaces = SnapshotWorkflowWorkspaces(workflowWorkspacesRoot);
         string? fixtureProjectRoot = null;
         int? pullNumber = null;
         var branchPushed = false;
@@ -588,8 +588,8 @@ public sealed class LiveIntentAgentGenerationTests
                 }
             }
 
-            DeleteIsolatedDirectory(workspaceRoot, fixtureCloneRelative, ".GnOuGo/data/e2e");
-            DeleteNewReviewWorkspaces(reviewRoot, existingReviewWorkspaces);
+            DeleteIsolatedDirectory(workspaceRoot, fixtureCloneRelative, "workflows/e2e");
+            DeleteNewWorkflowWorkspaces(workflowWorkspacesRoot, existingWorkflowWorkspaces);
         }
     }
 
@@ -772,16 +772,16 @@ public sealed class LiveIntentAgentGenerationTests
             Directory.Delete(path, recursive: true);
     }
 
-    private static void DeleteNewReviewWorkspaces(string reviewRoot, IReadOnlySet<string> existing)
+    private static void DeleteNewWorkflowWorkspaces(string workflowWorkspacesRoot, IReadOnlySet<string> existing)
     {
-        if (!Directory.Exists(reviewRoot))
+        if (!Directory.Exists(workflowWorkspacesRoot))
             return;
 
         var newDirectories = Directory
-            .EnumerateDirectories(reviewRoot, "*", SearchOption.AllDirectories)
+            .EnumerateDirectories(workflowWorkspacesRoot, "*", SearchOption.AllDirectories)
             .Select(Path.GetFullPath)
             .Where(directory => !existing.Contains(directory)
-                                && GnOuGoWorkspace.IsPathWithinRoot(directory, reviewRoot))
+                                && GnOuGoWorkspace.IsPathWithinRoot(directory, workflowWorkspacesRoot))
             .OrderBy(static directory => directory.Length)
             .ToArray();
         foreach (var directory in newDirectories)
@@ -794,9 +794,9 @@ public sealed class LiveIntentAgentGenerationTests
         }
     }
 
-    private static IReadOnlySet<string> SnapshotReviewWorkspaces(string reviewRoot)
-        => Directory.Exists(reviewRoot)
-            ? Directory.EnumerateDirectories(reviewRoot, "*", SearchOption.AllDirectories)
+    private static IReadOnlySet<string> SnapshotWorkflowWorkspaces(string workflowWorkspacesRoot)
+        => Directory.Exists(workflowWorkspacesRoot)
+            ? Directory.EnumerateDirectories(workflowWorkspacesRoot, "*", SearchOption.AllDirectories)
                 .Select(Path.GetFullPath)
                 .ToHashSet(StringComparer.Ordinal)
             : new HashSet<string>(StringComparer.Ordinal);

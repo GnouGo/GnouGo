@@ -1637,7 +1637,7 @@ public sealed class SmartFlowService
             ? boolean
             : null;
 
-    private static string BuildRepairWorkflowYaml() => """
+    internal static string BuildRepairWorkflowYaml() => """
         version: 1
         name: agent-workflow-repair
         workflows:
@@ -1700,6 +1700,7 @@ public sealed class SmartFlowService
                       - Change only the identified failing step and, when required, existing expressions that directly consume that step.
                       - For MCP failures, update the MCP request shape, output access, error handling, or tool choice based on the error details.
                       - `mcp.call` raises workflow errors by default; use `on_error` only when the workflow can recover intentionally.
+                      - Keep the workspace boundary: `.GnOuGo` is reserved for GnOuGo internal state and must never be used for workflow-facing paths. Put workflow-owned working directories below `workflows/<purpose-specific-name>`.
                     context: |
                       This repair is being triggered after a real execution failure in GnOuGo.Agent.Server.
                       The replacement YAML will be shown to the user and persisted through GnOuGo.Agent.Mcp `agent_update` only after explicit confirmation.

@@ -173,6 +173,29 @@ public sealed class CodePolicyTests : IDisposable
         Assert.Contains("outside the allowed roots", ex.Message, StringComparison.OrdinalIgnoreCase);
     }
 
+    [Fact]
+    public void ResolveProjectRoot_RejectsReservedGnOuGoDirectory()
+    {
+        var internalRoot = Directory.CreateDirectory(Path.Combine(_root, ".GnOuGo", "data", "project")).FullName;
+        var policy = CreatePolicy();
+
+        var ex = Assert.Throws<InvalidOperationException>(() => policy.ResolveProjectRoot(internalRoot));
+
+        Assert.Contains("reserved", ex.Message, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void ResolveReadableFile_RejectsReservedGnOuGoChildOfWorkspaceRoot()
+    {
+        var internalDirectory = Directory.CreateDirectory(Path.Combine(_root, ".GnOuGo"));
+        File.WriteAllText(Path.Combine(internalDirectory.FullName, "agent.cs"), "internal");
+        var policy = CreatePolicy();
+
+        var ex = Assert.Throws<InvalidOperationException>(() => policy.ResolveReadableFile(".", ".GnOuGo/agent.cs"));
+
+        Assert.Contains("reserved", ex.Message, StringComparison.OrdinalIgnoreCase);
+    }
+
     [Theory]
     [InlineData("file:///tmp/project")]
     [InlineData("~/project")]

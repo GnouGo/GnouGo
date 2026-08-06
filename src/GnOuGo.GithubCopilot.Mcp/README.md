@@ -22,6 +22,10 @@ This stdio server uses the stable C# MCP SDK `2.0.0` and requires MCP `2026-07-2
 
 Git repository workflows are provided by the separate `GnOuGo.Git.Mcp` tool.
 
+## Workspace path policy
+
+Code and Copilot `projectRoot` and file paths may target normal visible content below the configured workspace. The `.GnOuGo/` subtree is reserved for GnOuGo-managed state and is rejected. Recursive project summaries, searches, and session file discovery omit that reserved tree. Workflow-owned checkouts should be materialized below `workflows/<purpose-specific-name>` by Git MCP and passed to later Code/Copilot calls through the returned project-root value.
+
 ## Authentication
 
 `code_suggest_change` uses `GitHub.Copilot.SDK` and can authenticate with the locally signed-in GitHub user or with an explicit token when supported by the Copilot runtime.

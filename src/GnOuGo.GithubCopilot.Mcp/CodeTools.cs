@@ -11,7 +11,7 @@ namespace GnOuGo.GithubCopilot.Mcp;
 [McpServerToolType]
 public sealed class CodeTools
 {
-    private const string RequiredProjectRootDescription = "Required workspace-relative path to an existing project root. Null, omitted, empty, absolute, file URI, home-relative, and parent-traversal values are invalid. After git_clone succeeds, pass git_clone.response.projectRootRelative; do not invent this path before it exists.";
+    private const string RequiredProjectRootDescription = "Required workspace-relative path to an existing project root outside the reserved .GnOuGo internal directory. Null, omitted, empty, absolute, file URI, home-relative, and parent-traversal values are invalid. After git_clone succeeds, pass git_clone.response.projectRootRelative; do not invent this path before it exists.";
     private const string RequiredProjectRootToolSuffix = " projectRoot is required and must be a non-empty workspace-relative existing project root; pass git_clone.response.projectRootRelative after cloning.";
 
     private readonly CodeProjectService _projectService;

@@ -81,8 +81,7 @@ public sealed class DocumentOperationHost
             return new DocumentListResult(false, "DIRECTORY_NOT_FOUND",
                 $"Directory not found: {resolved}", []);
 
-        var option = recursive ? SearchOption.AllDirectories : SearchOption.TopDirectoryOnly;
-        var files = Directory.GetFiles(resolved, "*", option)
+        var files = EnumerateVisibleFiles(resolved, recursive)
             .Where(f => _policy.IsExtensionAllowed(f))
             .Select(f =>
             {
@@ -99,6 +98,31 @@ public sealed class DocumentOperationHost
             .ToArray();
 
         return new DocumentListResult(true, null, null, files);
+    }
+
+    private IEnumerable<string> EnumerateVisibleFiles(string root, bool recursive)
+    {
+        var pending = new Stack<string>();
+        pending.Push(root);
+
+        while (pending.Count > 0)
+        {
+            var directory = pending.Pop();
+            foreach (var file in Directory.EnumerateFiles(directory))
+            {
+                if (!_policy.IsReservedWorkspacePath(file))
+                    yield return file;
+            }
+
+            if (!recursive)
+                continue;
+
+            foreach (var child in Directory.EnumerateDirectories(directory))
+            {
+                if (!_policy.IsReservedWorkspacePath(child))
+                    pending.Push(child);
+            }
+        }
     }
 
     // ────────────────────────────────── WRITE ─────────────────────────────────

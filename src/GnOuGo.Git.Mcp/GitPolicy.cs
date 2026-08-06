@@ -67,6 +67,7 @@ public sealed class GitPolicy
         if (!Directory.Exists(candidate))
             throw new InvalidOperationException($"Project root '{candidate}' does not exist.");
         EnsureWithinAllowedRoots(candidate);
+        EnsureOutsideReservedWorkspace(candidate);
         return candidate;
     }
 
@@ -76,12 +77,23 @@ public sealed class GitPolicy
             throw new InvalidOperationException("targetDirectory must not be empty.");
 
         var path = ResolvePath(targetDirectory, mustExist: false, expectDirectory: true, relativeBasePath: _defaultWorkingDirectory);
+        EnsureOutsideReservedWorkspace(path);
+        var workflowRoot = GnOuGoWorkspace.ResolveWorkflowWorkspacesDirectory(_defaultWorkingDirectory);
+        var relativeToWorkflowRoot = Path.GetRelativePath(workflowRoot, path);
+        if (!GnOuGoWorkspace.IsWorkflowWorkspacePath(path, _defaultWorkingDirectory)
+            || string.Equals(relativeToWorkflowRoot, ".", StringComparison.Ordinal))
+        {
+            throw new InvalidOperationException(
+                $"git_clone targetDirectory must be a child of the workflow workspace '{workflowRoot}', "
+                + $"for example '{GnOuGoWorkspace.WorkflowWorkspacesSubfolder}/repository-name'.");
+        }
+
         if (File.Exists(path))
             throw new InvalidOperationException($"Clone target '{path}' is an existing file.");
         if (Directory.Exists(path) && Directory.EnumerateFileSystemEntries(path).Any())
             throw new InvalidOperationException($"Clone target directory '{path}' already exists and is not empty.");
-        if (_settings.ReviewReadOnly)
-            EnsureReviewWorkspace(path);
+
+        Directory.CreateDirectory(workflowRoot);
         return path;
     }
 
@@ -110,9 +122,9 @@ public sealed class GitPolicy
     {
         if (!_settings.ReviewReadOnly)
             return;
-        var reviewRoot = Path.Combine(_defaultWorkingDirectory, GnOuGoWorkspace.WorkspaceDataSubfolder, "data", "reviews");
-        if (!GnOuGoWorkspace.IsPathWithinRoot(path, reviewRoot))
-            throw new InvalidOperationException($"review_read_only permits clone/fetch only under the isolated review root '{reviewRoot}'.");
+        var workflowRoot = GnOuGoWorkspace.ResolveWorkflowWorkspacesDirectory(_defaultWorkingDirectory);
+        if (!GnOuGoWorkspace.IsWorkflowWorkspacePath(path, _defaultWorkingDirectory))
+            throw new InvalidOperationException($"review_read_only permits clone/fetch only under the workflow workspace '{workflowRoot}'.");
     }
 
     public void EnsureGitNetworkAllowed(string operation)
@@ -180,6 +192,17 @@ public sealed class GitPolicy
         var roots = ResolveAllowedWorkingRoots();
         if (!roots.Any(root => IsPathWithinRoot(path, root)))
             throw new InvalidOperationException($"Path '{path}' is outside the allowed roots: {string.Join(", ", roots)}.");
+    }
+
+    private void EnsureOutsideReservedWorkspace(string path)
+    {
+        if (GnOuGoWorkspace.IsReservedWorkspacePath(path, _defaultWorkingDirectory))
+        {
+            throw new InvalidOperationException(
+                $"Path '{path}' is inside the reserved GnOuGo internal directory "
+                + $"'{GnOuGoWorkspace.WorkspaceDataSubfolder}'. Use '{GnOuGoWorkspace.WorkflowWorkspacesSubfolder}/<name>' "
+                + "for workflow-owned working data.");
+        }
     }
 
     private static bool ContainsParentTraversalSegment(string path)

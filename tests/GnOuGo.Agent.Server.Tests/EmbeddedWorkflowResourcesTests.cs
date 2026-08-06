@@ -61,6 +61,30 @@ public sealed class EmbeddedWorkflowResourcesTests
         Assert.DoesNotContain("publication_policy", yaml, StringComparison.OrdinalIgnoreCase);
     }
 
+    [Theory]
+    [InlineData("configure-agents-agent.yaml")]
+    [InlineData("dynamic-workflow-agent.yaml")]
+    public void PlanningWorkflows_AdvertiseVisibleWorkflowWorkspaceBoundary(string resourceSuffix)
+    {
+        var yaml = LoadEmbeddedYaml(resourceSuffix);
+
+        Assert.Contains("`.GnOuGo` is reserved for GnOuGo internal state", yaml, StringComparison.Ordinal);
+        Assert.Contains("`workflows/<purpose-specific-name>`", yaml, StringComparison.Ordinal);
+        Assert.DoesNotContain(".GnOuGo/data/reviews", yaml, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain(".GnOuGo/data/e2e", yaml, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void RuntimeRepairWorkflow_AdvertisesVisibleWorkflowWorkspaceBoundary()
+    {
+        var yaml = SmartFlowService.BuildRepairWorkflowYaml();
+
+        Assert.Contains("`.GnOuGo` is reserved for GnOuGo internal state", yaml, StringComparison.Ordinal);
+        Assert.Contains("`workflows/<purpose-specific-name>`", yaml, StringComparison.Ordinal);
+        Assert.DoesNotContain(".GnOuGo/data/reviews", yaml, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain(".GnOuGo/data/e2e", yaml, StringComparison.OrdinalIgnoreCase);
+    }
+
     private static string LoadEmbeddedYaml(string resourceSuffix)
     {
         var assembly = typeof(SmartFlowService).Assembly;

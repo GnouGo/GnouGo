@@ -12,7 +12,7 @@ namespace GnOuGo.GithubCopilot.Mcp;
 [McpServerToolType]
 internal sealed class CopilotTools
 {
-    private const string ReviewProjectRootDescription = "Required workspace-relative path to an existing checked-out project root. Pass a documented repository-materialization capability output such as projectRootRelative; a URL, repository identifier, or invented path is invalid.";
+    private const string ReviewProjectRootDescription = "Required workspace-relative path to an existing checked-out project root outside the reserved .GnOuGo internal directory. Pass a documented repository-materialization capability output such as projectRootRelative; a URL, repository identifier, or invented path is invalid.";
     private const string ReviewFilesJsonDescription = "Required JSON array of per-file exact comparison patches returned by a documented revision-comparison capability. A raw aggregate diff or invented file list is invalid.";
 
     private readonly CopilotSessionManager _sessions;
@@ -63,7 +63,7 @@ internal sealed class CopilotTools
     [McpServerTool(Name = "copilot_session_create", UseStructuredContent = true, OutputSchemaType = typeof(CopilotSessionDescriptor)), Description("Creates a tenant-bound managed Copilot session and returns an opaque handle. MCP transport/session IDs are never used as Copilot session identity.")]
     public Task<CopilotSessionDescriptor> CreateSessionAsync(
         RequestContext<CallToolRequestParams> requestContext,
-        [Description("Required workspace-relative existing project root.")] string projectRoot,
+        [Description("Required workspace-relative existing project root outside the reserved .GnOuGo internal directory.")] string projectRoot,
         [Description("Permission mode: interactive, auto_approve_allowlist, deny, or approve_all. approve_all is host-policy gated.")] string permissionMode = "interactive",
         [Description("Optional configured KeyVault-backed LLM provider name, for example OpenAi.")] string? provider = null,
         [Description("Optional model override. Provider configuration may select its own model.")] string? model = null,

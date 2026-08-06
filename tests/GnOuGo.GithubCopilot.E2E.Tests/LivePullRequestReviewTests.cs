@@ -48,8 +48,8 @@ public sealed class LivePullRequestReviewTests
         var runId = DateTimeOffset.UtcNow.ToString("yyyyMMddHHmmss") + "-" + Guid.NewGuid().ToString("N")[..8];
         var branchName = $"gnougo/e2e-pr-review-{runId}";
         var fixtureRelativePath = $"e2e-fixtures/GnOuGoPrReviewFixture-{runId}.cs";
-        var fixtureCloneRelative = $".GnOuGo/data/e2e/pr-review-{runId}";
-        var reviewCloneRelative = $".GnOuGo/data/reviews/pr-review-{runId}";
+        var fixtureCloneRelative = $"workflows/e2e/pr-review-fixture-{runId}";
+        var reviewCloneRelative = $"workflows/e2e/pr-review-readonly-{runId}";
         var tenantId = "e2e-pr-review";
 
         var fixtureGit = CreateFixtureGitService(workspaceRoot, gitToken!);
@@ -296,8 +296,8 @@ public sealed class LivePullRequestReviewTests
             if (mcpFactory is not null)
                 await mcpFactory.DisposeAsync();
 
-            DeleteIsolatedDirectory(workspaceRoot, fixtureCloneRelative, ".GnOuGo/data/e2e");
-            DeleteIsolatedDirectory(workspaceRoot, reviewCloneRelative, ".GnOuGo/data/reviews");
+            DeleteIsolatedDirectory(workspaceRoot, fixtureCloneRelative, "workflows/e2e");
+            DeleteIsolatedDirectory(workspaceRoot, reviewCloneRelative, "workflows/e2e");
         }
     }
 

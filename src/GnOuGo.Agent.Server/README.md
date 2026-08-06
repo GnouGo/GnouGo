@@ -338,6 +338,7 @@ The desktop workflow publishes a trimmed self-contained `GnOuGo.Agent.Desktop` (
 
 By default, the GnOuGo workspace remains `Desktop/GnOuGo`.
 Persisted agent workflow YAML files are saved in `Desktop/GnOuGo/.GnOuGo/`, uploaded files are saved in `Desktop/GnOuGo/.GnOuGo/Files/`, and SQLite databases are saved in `Desktop/GnOuGo/.GnOuGo/data/`.
+Workflow-owned working directories are separate and visible under `Desktop/GnOuGo/workflows/`, using purpose-specific children such as `workflows/github-review-123`. Every Agent Server `workflow.plan` entrypoint instructs generated workflows to use this visible root and never `.GnOuGo/` for project or file paths. The `.GnOuGo/` subtree remains reserved for GnOuGo-managed internal state.
 The default settings carry these relative paths explicitly:
 
 - agent workflows → `./.GnOuGo/{agent-name}.yaml`

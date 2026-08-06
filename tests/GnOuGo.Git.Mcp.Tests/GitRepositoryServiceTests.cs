@@ -253,18 +253,18 @@ public sealed class GitRepositoryServiceTests : IDisposable
     public void Clone_CopiesLocalRepositoryIntoAllowedEmptyDirectory()
     {
         var source = Path.Combine(_root, "source");
-        var target = Path.Combine(_root, "target");
+        var target = Path.Combine(_root, "workflows", "target");
         Directory.CreateDirectory(source);
         Repository.Init(source);
         var sourceService = CreateService(source, allowNetwork: true);
         WriteCommit(sourceService, Path.Combine(source, "README.md"), "source\n", "source initial", root: source);
         var service = CreateService(allowNetwork: true);
 
-        var clone = service.Clone(source, "target");
+        var clone = service.Clone(source, "workflows/target");
 
         Assert.Equal(NormalizePath(target), NormalizePath(clone.RepositoryRoot));
-        Assert.Equal("target", clone.RepositoryRootRelative);
-        Assert.Equal("target", clone.ProjectRootRelative);
+        Assert.Equal("workflows/target", clone.RepositoryRootRelative);
+        Assert.Equal("workflows/target", clone.ProjectRootRelative);
         Assert.Contains("Cloned", clone.Output, StringComparison.OrdinalIgnoreCase);
         Assert.Contains("target", clone.Output, StringComparison.OrdinalIgnoreCase);
         Assert.True(Repository.IsValid(target));
@@ -275,7 +275,7 @@ public sealed class GitRepositoryServiceTests : IDisposable
     public void Clone_DefaultFetchesOnlyDefaultBranchWithMinimalMetadata()
     {
         var source = Path.Combine(_root, "source-minimal");
-        var target = Path.Combine(_root, "target-minimal");
+        var target = Path.Combine(_root, "workflows", "target-minimal");
         Directory.CreateDirectory(source);
         Repository.Init(source);
         var sourceService = CreateService(source, allowNetwork: true);
@@ -290,7 +290,7 @@ public sealed class GitRepositoryServiceTests : IDisposable
         sourceService.Checkout(".", defaultBranch);
         var service = CreateService(allowNetwork: true);
 
-        var clone = service.Clone(source, "target-minimal");
+        var clone = service.Clone(source, "workflows/target-minimal");
 
         Assert.Equal(NormalizePath(target), NormalizePath(clone.RepositoryRoot));
         Assert.Equal(1, clone.HistoryDepth);
@@ -308,7 +308,7 @@ public sealed class GitRepositoryServiceTests : IDisposable
     public void Clone_FetchAllBranchesKeepsRemoteBranches()
     {
         var source = Path.Combine(_root, "source-all-branches");
-        var target = Path.Combine(_root, "target-all-branches");
+        var target = Path.Combine(_root, "workflows", "target-all-branches");
         Directory.CreateDirectory(source);
         Repository.Init(source);
         var sourceService = CreateService(source, allowNetwork: true);
@@ -317,7 +317,7 @@ public sealed class GitRepositoryServiceTests : IDisposable
         WriteCommit(sourceService, "feature.txt", "feature\n", "feature commit", root: source);
         var service = CreateService(allowNetwork: true);
 
-        var clone = service.Clone(source, "target-all-branches", historyDepth: 0, fetchAllBranches: true);
+        var clone = service.Clone(source, "workflows/target-all-branches", historyDepth: 0, fetchAllBranches: true);
 
         Assert.True(clone.FetchAllBranches);
         Assert.Equal(0, clone.HistoryDepth);
@@ -330,7 +330,7 @@ public sealed class GitRepositoryServiceTests : IDisposable
     public void Clone_HistoryDepthZeroFetchesFullHistory()
     {
         var source = Path.Combine(_root, "source-full-history");
-        var target = Path.Combine(_root, "target-full-history");
+        var target = Path.Combine(_root, "workflows", "target-full-history");
         Directory.CreateDirectory(source);
         Repository.Init(source);
         var sourceService = CreateService(source, allowNetwork: true);
@@ -338,7 +338,7 @@ public sealed class GitRepositoryServiceTests : IDisposable
         WriteCommit(sourceService, "README.md", "two\n", "second", root: source);
         var service = CreateService(allowNetwork: true);
 
-        var clone = service.Clone(source, "target-full-history", historyDepth: 0);
+        var clone = service.Clone(source, "workflows/target-full-history", historyDepth: 0);
 
         Assert.Equal(0, clone.HistoryDepth);
         using var repository = new Repository(target);
@@ -349,7 +349,7 @@ public sealed class GitRepositoryServiceTests : IDisposable
     public void Clone_FullyQualifiedRemoteReference_FetchesExactlyAndChecksOutDetached()
     {
         var source = Path.Combine(_root, "source-exact-reference");
-        var target = Path.Combine(_root, "target-exact-reference");
+        var target = Path.Combine(_root, "workflows", "target-exact-reference");
         Directory.CreateDirectory(source);
         Repository.Init(source);
         var sourceService = CreateService(source, allowNetwork: true);
@@ -364,7 +364,7 @@ public sealed class GitRepositoryServiceTests : IDisposable
 
         var clone = service.Clone(
             source,
-            "target-exact-reference",
+            "workflows/target-exact-reference",
             branch: "refs/changes/123/head",
             historyDepth: 0,
             fetchAllBranches: true);
@@ -381,7 +381,7 @@ public sealed class GitRepositoryServiceTests : IDisposable
     public void Clone_FullCommitObjectId_FetchesExactlyAndChecksOutDetached()
     {
         var source = Path.Combine(_root, "source-exact-object-id");
-        var target = Path.Combine(_root, "target-exact-object-id");
+        var target = Path.Combine(_root, "workflows", "target-exact-object-id");
         Directory.CreateDirectory(source);
         Repository.Init(source);
         var sourceService = CreateService(source, allowNetwork: true);
@@ -393,7 +393,7 @@ public sealed class GitRepositoryServiceTests : IDisposable
 
         var clone = service.Clone(
             source,
-            "target-exact-object-id",
+            "workflows/target-exact-object-id",
             branch: exactCommit.Sha,
             historyDepth: 0);
 
@@ -492,10 +492,12 @@ public sealed class GitRepositoryServiceTests : IDisposable
         };
         var reviewService = new GitRepositoryService(new GitPolicy(settings, _root), Options.Create(settings));
 
-        var clone = reviewService.Clone(source, ".GnOuGo/data/reviews/run", historyDepth: 0);
+        var clone = reviewService.Clone(source, "workflows/review-run", historyDepth: 0);
 
         Assert.True(clone.Success);
+        Assert.Equal("workflows/review-run", clone.ProjectRootRelative);
         Assert.Throws<InvalidOperationException>(() => reviewService.Clone(source, "not-isolated", historyDepth: 0));
+        Assert.Throws<InvalidOperationException>(() => reviewService.Clone(source, ".GnOuGo/data/reviews/legacy", historyDepth: 0));
         Assert.Throws<InvalidOperationException>(() => reviewService.Checkout(clone.ProjectRootRelative, "master"));
     }
 

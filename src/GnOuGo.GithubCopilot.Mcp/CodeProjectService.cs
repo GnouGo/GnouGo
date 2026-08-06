@@ -6,7 +6,8 @@ namespace GnOuGo.GithubCopilot.Mcp;
 
 public sealed class CodeProjectService
 {
-    private static readonly string[] IgnoredDirectoryNames = [".git", "bin", "obj", "node_modules", ".vs", ".idea", ".vscode"];
+    private static readonly string[] IgnoredDirectoryNames =
+        [".git", GnOuGoWorkspace.WorkspaceDataSubfolder, "bin", "obj", "node_modules", ".vs", ".idea", ".vscode"];
 
     private readonly CodePolicy _policy;
     private readonly CodeServerSettings _settings;

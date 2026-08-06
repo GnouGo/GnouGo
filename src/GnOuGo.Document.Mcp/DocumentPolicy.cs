@@ -52,6 +52,13 @@ public sealed class DocumentPolicy
             throw new InvalidOperationException(
                 $"Path '{fullPath}' is outside allowed roots: {string.Join(", ", allowedRoots)}.");
 
+        if (IsReservedWorkspacePath(fullPath))
+        {
+            throw new InvalidOperationException(
+                $"Path '{fullPath}' is inside the reserved GnOuGo internal directory "
+                + $"'{GnOuGoWorkspace.WorkspaceDataSubfolder}'. Use a visible workspace-relative path outside that directory.");
+        }
+
         return fullPath;
     }
 
@@ -95,7 +102,7 @@ public sealed class DocumentPolicy
         sb.Append("Current document_get_policy.MaxFileSizeBytes: ");
         sb.Append(policy.MaxFileSizeBytes);
         sb.AppendLine(" bytes.");
-        sb.AppendLine("Use relative paths only from the workspace root; do not provide absolute paths. Only workspace-contained targets are authorized.");
+        sb.AppendLine("Use relative paths only from the workspace root; do not provide absolute paths. Only workspace-contained targets outside the reserved .GnOuGo internal directory are authorized.");
         sb.AppendLine("For long LLM workflows, initialize the document with append=false, then call document_write repeatedly with append=true as each section is ready.");
         sb.Append("This avoids sending one very large final save payload that can exceed the model context window.");
         return sb.ToString().TrimEnd();
@@ -133,6 +140,9 @@ public sealed class DocumentPolicy
 
     internal static bool IsPathWithinRoot(string path, string root)
         => GnOuGoWorkspace.IsPathWithinRoot(path, root);
+
+    internal bool IsReservedWorkspacePath(string path)
+        => GnOuGoWorkspace.IsReservedWorkspacePath(path, _defaultWorkingDirectory);
 
     private static string NormalizeRequired(string? value, string param)
     {

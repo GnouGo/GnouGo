@@ -27,6 +27,8 @@ This stdio server uses the stable C# MCP SDK `2.0.0` and targets MCP `2026-07-28
 
 `document_write` includes the current `document_get_policy` values in its MCP tool description when clients list tools: allowed roots, allowed extensions, default working directory, and max file size. This lets clients choose valid target paths without a separate hardcoded allowlist.
 
+Document paths may target normal visible content below the configured workspace, including workflow-owned output below `workflows/<purpose-specific-name>`. The `.GnOuGo/` subtree is reserved for GnOuGo-managed state and is rejected for reads and writes. Recursive `document_list` results omit that reserved tree.
+
 ### Incremental writes for LLM workflows
 
 `document_write` has an `append` parameter. The default is `false`, which preserves the existing overwrite/create behavior. For long MCP workflows, prefer this pattern:

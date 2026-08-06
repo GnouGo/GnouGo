@@ -69,6 +69,7 @@ public sealed class CodePolicy
         if (!Directory.Exists(candidate))
             throw new InvalidOperationException($"Project root '{candidate}' does not exist.");
         EnsureWithinAllowedRoots(candidate);
+        EnsureOutsideReservedWorkspace(candidate);
         return candidate;
     }
 
@@ -200,6 +201,7 @@ public sealed class CodePolicy
         if (!IsPathWithinRoot(path, projectRoot))
             throw new InvalidOperationException("relativePath resolves outside the project root.");
         EnsureWithinAllowedRoots(path);
+        EnsureOutsideReservedWorkspace(path);
         return path;
     }
 
@@ -216,6 +218,7 @@ public sealed class CodePolicy
         if (string.IsNullOrWhiteSpace(resolvedRoot) || !Directory.Exists(resolvedRoot))
             throw new InvalidOperationException($"Project root '{resolvedRoot}' does not exist.");
         EnsureWithinAllowedRoots(resolvedRoot);
+        EnsureOutsideReservedWorkspace(resolvedRoot);
     }
 
     private void EnsureWithinAllowedRoots(string path, bool includeDefault = true)
@@ -223,6 +226,17 @@ public sealed class CodePolicy
         var roots = includeDefault ? ResolveAllowedWorkingRoots() : ResolveAllowedWorkingRootsWithoutDefault();
         if (!roots.Any(root => IsPathWithinRoot(path, root)))
             throw new InvalidOperationException($"Path '{path}' is outside the allowed roots: {string.Join(", ", roots)}.");
+    }
+
+    internal void EnsureOutsideReservedWorkspace(string path)
+    {
+        if (GnOuGoWorkspace.IsReservedWorkspacePath(path, _defaultWorkingDirectory))
+        {
+            throw new InvalidOperationException(
+                $"Path '{path}' is inside the reserved GnOuGo internal directory "
+                + $"'{GnOuGoWorkspace.WorkspaceDataSubfolder}'. Use '{GnOuGoWorkspace.WorkflowWorkspacesSubfolder}/<name>' "
+                + "for workflow-owned project data.");
+        }
     }
 
     private IReadOnlyList<string> ResolveAllowedWorkingRootsWithoutDefault()
