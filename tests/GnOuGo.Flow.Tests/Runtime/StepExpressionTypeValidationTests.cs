@@ -237,6 +237,162 @@ workflows:
     }
 
     [Fact]
+    public void SemanticValidation_AcceptsNestedObjectShapeJsDocFromGeneratedSummaryLeaf()
+    {
+        var doc = WorkflowParser.Parse("""
+version: 1
+skill:
+  description: Generated summary leaf validation test.
+  tags: [test]
+  inputs: {}
+  outputs: {}
+functions: |
+  /**
+   * Builds a technical summary for a pull request.
+   * @param {Array<{path:string,status:string,additions:number,deletions:number,patch_excerpt:string}>} files - Changed file summaries.
+   * @param {Array<object>} projects - Modified project records.
+   * @param {object} projectSummary - Parsed project structure context.
+   * @param {object} statusData - Parsed status summary data.
+   * @param {string} copilotSummary - Copilot review summary.
+   * @returns {string} Standalone technical summary.
+   */
+  function buildTechnicalSummary(files, projects, projectSummary, statusData, copilotSummary) {
+    return String(files.length + projects.length) + String(projectSummary) + String(statusData) + copilotSummary;
+  }
+
+  /**
+   * Builds the complete pull request comment.
+   * @param {string} functionalSummary - Functional summary text.
+   * @param {string} technicalSummary - Technical summary text.
+   * @param {object} statusData - Parsed status summary data.
+   * @param {Array<{path:string,status:string,additions:number,deletions:number,patch_excerpt:string}>} files - Changed file summaries.
+   * @param {Array<object>} findings - High-confidence findings.
+   * @returns {string} Complete Markdown comment body.
+   */
+  function buildComment(functionalSummary, technicalSummary, statusData, files, findings) {
+    return functionalSummary + technicalSummary + String(statusData) + String(files.length + findings.length);
+  }
+
+  /**
+   * Projects changed files to their public contract.
+   * @param {Array<{path:string,status:string,additions:number,deletions:number,patch_excerpt:string}>} files - Changed file summaries.
+   * @returns {Array<{path:string,status:string}>} Projected changed file summaries.
+   */
+  function projectFiles(files) {
+    return files.map(function (file) {
+      return { path: file.path, status: file.status };
+    });
+  }
+workflows:
+  main:
+    inputs:
+      files:
+        type: array
+        items:
+          type: object
+    steps:
+      - id: project
+        type: set
+        output_schema:
+          type: object
+          properties:
+            files:
+              type: array
+              items:
+                type: object
+                properties:
+                  path: { type: string }
+                  status: { type: string }
+                required: [path, status]
+                additionalProperties: false
+          required: [files]
+          additionalProperties: false
+        input:
+          files: "${functions.projectFiles(data.inputs.files)}"
+""");
+
+        InvokeSemanticValidation(doc);
+    }
+
+    [Fact]
+    public void SemanticValidation_AcceptsOptionalDefaultedJsDocParameter()
+    {
+        var doc = WorkflowParser.Parse("""
+version: 1
+skill:
+  description: Optional JSDoc parameter validation test.
+  tags: [test]
+  inputs: {}
+  outputs: {}
+functions: |
+  /**
+   * Formats a label.
+   * @param {string} value - Value to format.
+   * @param {string} [prefix=Summary] - Optional prefix.
+   * @returns {string} Formatted label.
+   */
+  function formatLabel(value, prefix = "Summary") {
+    return prefix + ": " + value;
+  }
+workflows:
+  main:
+    steps: []
+""");
+
+        InvokeSemanticValidation(doc);
+    }
+
+    [Fact]
+    public void SemanticValidation_RejectsUnbalancedNestedJsDocTypes()
+    {
+        var doc = WorkflowParser.Parse("""
+version: 1
+skill:
+  description: Malformed nested JSDoc validation test.
+  tags: [test]
+  inputs: {}
+  outputs: {}
+functions: |
+  /**
+   * Projects changed files.
+   * @param {Array<{path:string}> files - Missing the outer closing brace.
+   * @returns {Array<{path:string}> Missing the outer closing brace.
+   */
+  function projectFiles(files) {
+    return files;
+  }
+workflows:
+  main:
+    steps: []
+""");
+
+        var exception = Assert.Throws<TargetInvocationException>(() => InvokeSemanticValidation(doc));
+
+        Assert.Contains("FUNCTION_JSDOC_PARAM_MISSING", exception.InnerException!.Message);
+        Assert.Contains("FUNCTION_JSDOC_RETURNS_MISSING", exception.InnerException.Message);
+    }
+
+    [Fact]
+    public void FunctionJsDocNormalizer_DoesNotDuplicateNestedObjectShapeParameter()
+    {
+        const string nestedParam = "@param {Array<{path:string,status:string}>} files";
+        var script = $$"""
+        /**
+         * Formats changed files.
+         * {{nestedParam}} - Changed files.
+         * @returns {string} Formatted files.
+         */
+        function formatFiles(files) {
+          return Array.isArray(files) ? String(files.length) : "0";
+        }
+        """;
+
+        var normalized = WorkflowPlanSemanticValidator.CompleteInferableFunctionParameterJsDoc(script);
+
+        Assert.Equal(1, normalized.Split(nestedParam, StringSplitOptions.None).Length - 1);
+    }
+
+    [Fact]
     public void FunctionJsDocNormalizer_AddsOnlyParametersWithProvableCoarseTypes()
     {
         var script = """

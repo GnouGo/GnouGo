@@ -4,6 +4,7 @@ using System.Text.RegularExpressions;
 using GnOuGo.AI.Core;
 using GnOuGo.Flow.Core.Expressions;
 using GnOuGo.Flow.Core.Models;
+using GnOuGo.Mcp.Core;
 
 namespace GnOuGo.Flow.Core.Runtime.Executors;
 
@@ -153,6 +154,8 @@ public sealed partial class WorkflowPlanExecutor
                         failedServers,
                         Array.Empty<ResolvedCapability>());
 
+                ValidateDiscoveredArtifactContracts(discovered);
+
                 (resolved, constraints) = await InferCapabilitiesAsync(
                     ctx,
                     input,
@@ -203,6 +206,16 @@ public sealed partial class WorkflowPlanExecutor
                     ["mode"] = mode,
                     ["reason"] = ex.GetType().Name
                 });
+        }
+    }
+
+    private static void ValidateDiscoveredArtifactContracts(
+        IReadOnlyList<McpServerDiscovery> discovered)
+    {
+        foreach (var server in discovered)
+        {
+            foreach (var tool in server.Tools)
+                _ = GetValidatedMcpArtifactContract(tool, server.Name);
         }
     }
 
@@ -415,14 +428,14 @@ public sealed partial class WorkflowPlanExecutor
         var model = resolvedModel ?? "gpt-4";
         var reasoning = generator["reasoning"]?.GetValue<string>() ?? "low";
         var allowedNativeTypes = ResolveAllowedNativeStepTypes(ctx, input);
-        var catalog = BuildSchemaAwareCapabilityCatalog(discovered, allowedNativeTypes);
 
         using var inferenceSpan = ctx.BeginTelemetrySpan(parentSpan!, "workflow.plan.capability_preflight.infer", "capability_preflight_infer", new[]
         {
             new KeyValuePair<string, object?>("gen_ai.operation.name", "chat"),
             new KeyValuePair<string, object?>("gen_ai.system", provider ?? "unknown"),
             new KeyValuePair<string, object?>("gen_ai.request.model", model),
-            new KeyValuePair<string, object?>("gnougo-flow.plan.capability_catalog.entry_count", catalog.Entries.Count)
+            new KeyValuePair<string, object?>("gnougo-flow.plan.capability_catalog.full_server_count", discovered.Count),
+            new KeyValuePair<string, object?>("gnougo-flow.plan.capability_catalog.full_tool_count", discovered.Sum(static server => server.Tools.Count))
         });
 
         var inferencePhase = "capability_inventory_call";
@@ -507,6 +520,30 @@ public sealed partial class WorkflowPlanExecutor
 
             inferenceSpan.SetAttribute("gnougo-flow.plan.capability_inventory.operation_count", inventory.Operations.Count);
             inferenceSpan.SetAttribute("gnougo-flow.plan.capability_inventory.constraint_count", inventory.Constraints.Count);
+
+            inferencePhase = "physical_capability_candidate_selection";
+            var matchingDiscovery = IsCapabilityCandidateSelectionEnabled(generator)
+                ? await SelectPhysicalCapabilityCandidatesAsync(
+                    llmClient,
+                    inventory,
+                    discovered,
+                    instruction,
+                    generatorContext,
+                    provider,
+                    model,
+                    reasoning,
+                    ctx,
+                    inferenceSpan,
+                    ct)
+                : discovered.Select(CloneDiscovery).ToList();
+
+            inferencePhase = "capability_catalog_expansion";
+            var catalog = BuildSchemaAwareCapabilityCatalog(matchingDiscovery, allowedNativeTypes, discovered);
+            inferenceSpan.SetAttribute("gnougo-flow.plan.capability_catalog.entry_count", catalog.Entries.Count);
+            inferenceSpan.SetAttribute("gnougo-flow.plan.capability_catalog.character_count", catalog.Text.Length);
+            inferenceSpan.SetAttribute("gnougo-flow.plan.capability_catalog.selected_server_count", matchingDiscovery.Count);
+            inferenceSpan.SetAttribute("gnougo-flow.plan.capability_catalog.selected_tool_count", matchingDiscovery.Sum(static server => server.Tools.Count));
+            inferenceSpan.SetAttribute("gnougo-flow.plan.capability_catalog.selected_prompt_count", matchingDiscovery.Sum(static server => server.Prompts.Count));
 
             inferencePhase = "capability_matching_call";
             var matchingResponse = await llmClient.CallAsync(new LLMRequest
@@ -621,9 +658,8 @@ public sealed partial class WorkflowPlanExecutor
                 .Select(id => entries[id])
                 .ToArray();
             var missing = selected
-                .SelectMany(static entry => entry.RequiredInputs)
+                .SelectMany(GetRequiredArtifactFields)
                 .Select(field => (Field: field, Kind: GetOperationalArtifactKind(field)))
-                .Where(static item => item.Kind != null)
                 .Where(item => !IsExplicitCallerArtifactInput(userInstruction, item.Field, item.Kind!))
                 .Where(item => !selected.Any(entry => CapabilityProducesArtifactKind(entry, item.Kind!)))
                 .GroupBy(static item => item.Kind!, StringComparer.Ordinal)
@@ -682,11 +718,31 @@ public sealed partial class WorkflowPlanExecutor
     }
 
     private static bool CapabilityProducesArtifactKind(CapabilityCatalogEntry entry, string kind)
-        => entry.Outputs.Any(field => string.Equals(GetOperationalArtifactKind(field), kind, StringComparison.Ordinal)
-                                      && ArtifactOutputDescriptionProvesExistence(field.Description));
+        => entry.ArtifactContract != null
+            ? entry.ArtifactContract.Produces.Any(artifact =>
+                string.Equals(artifact.Kind, kind, StringComparison.Ordinal)
+                && string.Equals(artifact.Mode, McpArtifactContractMetadata.MaterializeMode, StringComparison.Ordinal))
+            : entry.Outputs.Any(field => string.Equals(GetOperationalArtifactKind(field), kind, StringComparison.Ordinal)
+                                         && ArtifactOutputDescriptionProvesExistence(field.Description));
 
     private static bool CapabilityRequiresArtifactKind(CapabilityCatalogEntry entry, string kind)
-        => entry.RequiredInputs.Any(field => string.Equals(GetOperationalArtifactKind(field), kind, StringComparison.Ordinal));
+        => entry.ArtifactContract != null
+            ? entry.ArtifactContract.Consumes.Any(artifact =>
+                artifact.Required && string.Equals(artifact.Kind, kind, StringComparison.Ordinal))
+            : entry.RequiredInputs.Any(field => string.Equals(GetOperationalArtifactKind(field), kind, StringComparison.Ordinal));
+
+    private static IReadOnlyList<CapabilitySchemaField> GetRequiredArtifactFields(CapabilityCatalogEntry entry)
+        => entry.ArtifactContract != null
+            ? entry.ArtifactContract.Consumes
+                .Where(static artifact => artifact.Required)
+                .Select(static artifact => new CapabilitySchemaField(
+                    artifact.Pointer,
+                    "string",
+                    $"Required MCP-declared artifact of kind {artifact.Kind}."))
+                .ToArray()
+            : entry.RequiredInputs
+                .Where(static field => GetOperationalArtifactKind(field) != null)
+                .ToArray();
 
     private static bool ArtifactOutputDescriptionProvesExistence(string description)
         => Regex.IsMatch(
@@ -715,13 +771,13 @@ public sealed partial class WorkflowPlanExecutor
             || normalized.Contains("workspaceroot", StringComparison.Ordinal)
             || normalized is "workdir" or "cwd")
         {
-            return "workspace_root";
+            return McpArtifactContractMetadata.WorkspaceDirectoryKind;
         }
 
         if (normalized.Contains("directory", StringComparison.Ordinal)
             || normalized.Contains("folder", StringComparison.Ordinal))
         {
-            return "directory";
+            return McpArtifactContractMetadata.WorkspaceDirectoryKind;
         }
 
         if (normalized.EndsWith("handle", StringComparison.Ordinal))
@@ -748,7 +804,7 @@ public sealed partial class WorkflowPlanExecutor
         var phrases = new[]
         {
             NormalizeCapabilityIntentText(spacedLeaf),
-            kind.Replace('_', ' ')
+            kind.Replace('_', ' ').Replace('.', ' ')
         }.Where(static phrase => phrase.Length > 0).Distinct(StringComparer.Ordinal).ToArray();
         return phrases.Any(phrase => Regex.IsMatch(
             normalizedInstruction,
@@ -810,6 +866,7 @@ public sealed partial class WorkflowPlanExecutor
         - Exclude credentials, provider selection, secret-vault lookup, authentication, and connection setup performed internally by whichever runtime capability is selected later.
         - Exclude persistence, registration, or provisioning of the generated workflow/agent when that happens outside the generated workflow after planning.
         - Include cleanup only when the user explicitly requests cleanup as runtime behavior. Do not invent a generic cleanup operation merely because an unknown future implementation might allocate a resource; cleanup encapsulated inside a selected capability is not a separate workflow operation.
+        - When the task names one external source, inventory at most one owned resource-materialization operation for that source. Preparation, analysis, verification, and publication phases consume the same resource; they are not separate requests to materialize phase-specific copies. Inventory multiple materializations only when the user explicitly requests distinct source resources.
         - Mark optional enrichment required=false.
         - Set complete=true once every explicit runtime intention is represented, including conditional and optional intentions.
         - Set complete=false only when ambiguity in the user's requested runtime behavior prevents you from identifying the intended operation or constraint. When false, provide concise incomplete_reasons describing the missing user intent and what must be clarified. Do not cite tool or catalog uncertainty as a reason.
@@ -833,6 +890,7 @@ public sealed partial class WorkflowPlanExecutor
         - Exclude credentials, provider selection, secret-vault lookup, authentication, and connection setup performed internally by a later capability.
         - Exclude persistence, registration, or provisioning performed outside the generated workflow after planning.
         - Preserve cleanup only when the user explicitly requested it as runtime behavior. Never invent generic cleanup for resources that are not part of the user's intention.
+        - Preserve one owned materialization for one external source and let later operations consume it. Do not turn workflow phases into additional source-materialization intentions unless the user explicitly requested distinct source resources.
         - Keep prohibitions, ordering requirements, safety rules, and invariants as constraints rather than positive operations.
         - Inventory only intentions expressed in the user task. Do not copy, paraphrase, or restate these repair or runtime-boundary instructions as operations or constraints.
         - Preserve execution_kind and external_effect_kind for every operation. External writes use external_effect/write; external reads use external_effect/read; AI or other non-mutating execution uses external_effect/execute; owned resource setup/cleanup uses external_effect/lifecycle; human and local work use none.
@@ -1213,11 +1271,13 @@ public sealed partial class WorkflowPlanExecutor
             - unavailable: the catalog contains no sufficient implementation.
 
             Prefer the smallest sufficient composition. A composition is valid only when every selected capability is necessary for the one operation. For a multi-action tool, choose selector-specific entries whose request_bindings describe the logical operation. Different selector values are distinct capabilities.
+            A selector entry with variant_of inherits the description, arguments, outputs, and artifact contract from the whole-tool entry identified by the same server, kind, and method; its compact row intentionally contains only the distinguishing literal request_bindings.
             A whole-tool entry without request_bindings is appropriate when enum-valued arguments are runtime data rather than a fixed logical action. Prefer a combined selector entry over several single-selector entries when one physical call requires all of those fixed literal values.
 
             Capability sufficiency includes input provenance and data flow:
             - Read each selected card's required arguments and bounded output fields. A required argument must be supplied by a semantically compatible workflow runtime input, a documented host-internal/default value, a literal selector binding, or an output of a selected producer capability.
             - When a selected capability requires an existing external artifact such as a workspace, project root, directory, file, handle, or exact comparison payload, include the necessary producer capability or capabilities in the same composed match unless the user explicitly supplies that pre-existing artifact as a runtime input.
+            - A producer output may feed any number of operations. Selecting the same materializer as a prerequisite for several operations represents one shared locked occurrence unless the inventory contains distinct source-materialization operations.
             - Use documented output fields to identify producers. Do not assume that local parsing, transformation, a URL, an identifier, or an invented string can create or prove an external artifact.
             - A high-level capability may stand alone only when its documented contract encapsulates its prerequisites. Otherwise select the smallest prerequisite-closed composition.
 
@@ -1669,6 +1729,7 @@ public sealed partial class WorkflowPlanExecutor
         CapabilityCatalog catalog)
     {
         var entries = catalog.Entries.ToDictionary(static entry => entry.Id, StringComparer.Ordinal);
+        var retainedMaterializerOccurrences = FindRetainedMaterializerOccurrences(evaluation, entries);
         var resolved = new List<ResolvedCapability>();
         foreach (var match in evaluation.OperationMatches)
         {
@@ -1687,6 +1748,11 @@ public sealed partial class WorkflowPlanExecutor
             foreach (var catalogId in match.CatalogIds)
             {
                 var entry = entries[catalogId];
+                if (IsArtifactMaterializer(entry)
+                    && !retainedMaterializerOccurrences.Contains((match.Operation.Id, catalogId)))
+                {
+                    continue;
+                }
                 var id = match.CatalogIds.Count == 1 ? match.Operation.Id : $"{match.Operation.Id}::{catalogId}";
                 resolved.Add(new ResolvedCapability(id, match.Operation.Description, match.Operation.Required,
                     entry.Resolution, entry.Server, entry.Kind, entry.Method, entry.RequestBindings,
@@ -1705,6 +1771,63 @@ public sealed partial class WorkflowPlanExecutor
         }
         return (resolved, constraints);
     }
+
+    private static HashSet<(string OperationId, string CatalogId)> FindRetainedMaterializerOccurrences(
+        CapabilityMatchingEvaluation evaluation,
+        IReadOnlyDictionary<string, CapabilityCatalogEntry> entries)
+    {
+        var occurrences = new Dictionary<string, List<(string OperationId, bool IsOwnedSource)>>(StringComparer.Ordinal);
+        foreach (var match in evaluation.OperationMatches.Where(static match => match.Status is "matched" or "composed"))
+        {
+            var selected = match.CatalogIds
+                .Where(entries.ContainsKey)
+                .Select(id => entries[id])
+                .ToArray();
+            foreach (var materializer in selected.Where(IsArtifactMaterializer))
+            {
+                var producedKinds = GetMaterializedArtifactKinds(materializer);
+                var isPrerequisite = selected.Any(other =>
+                    !string.Equals(other.Id, materializer.Id, StringComparison.Ordinal)
+                    && producedKinds.Any(kind => CapabilityRequiresArtifactKind(other, kind)));
+                if (!occurrences.TryGetValue(materializer.Id, out var values))
+                {
+                    values = [];
+                    occurrences[materializer.Id] = values;
+                }
+                values.Add((match.Operation.Id, !isPrerequisite));
+            }
+        }
+
+        var retained = new HashSet<(string OperationId, string CatalogId)>();
+        foreach (var (catalogId, values) in occurrences)
+        {
+            var ownedSources = values.Where(static value => value.IsOwnedSource).ToArray();
+            if (ownedSources.Length > 0)
+            {
+                foreach (var owner in ownedSources)
+                    retained.Add((owner.OperationId, catalogId));
+                continue;
+            }
+
+            var sharedPrerequisite = values.First();
+            retained.Add((sharedPrerequisite.OperationId, catalogId));
+        }
+        return retained;
+    }
+
+    private static bool IsArtifactMaterializer(CapabilityCatalogEntry entry)
+        => GetMaterializedArtifactKinds(entry).Count > 0;
+
+    private static IReadOnlyList<string> GetMaterializedArtifactKinds(CapabilityCatalogEntry entry)
+        => entry.ArtifactContract?.Produces
+               .Where(static artifact => string.Equals(
+                   artifact.Mode,
+                   McpArtifactContractMetadata.MaterializeMode,
+                   StringComparison.Ordinal))
+               .Select(static artifact => artifact.Kind)
+               .Distinct(StringComparer.Ordinal)
+               .ToArray()
+           ?? Array.Empty<string>();
 
     private static bool TryReadComplete(JsonObject json, out bool complete)
     {
@@ -1907,9 +2030,8 @@ public sealed partial class WorkflowPlanExecutor
         {
             var missingKinds = result
                 .SelectMany(static server => server.Tools)
-                .SelectMany(tool => BuildCapabilitySchemaFields(tool.InputSchema, requiredOnly: true))
+                .SelectMany(GetRequiredArtifactFields)
                 .Select(field => (Field: field, Kind: GetOperationalArtifactKind(field)))
-                .Where(static item => item.Kind != null)
                 .Where(item => !IsExplicitCallerArtifactInput(userInstruction, item.Field, item.Kind!))
                 .Where(item => !SelectedDiscoveryProducesArtifactKind(result, item.Kind!))
                 .Select(static item => item.Kind!)
@@ -1949,13 +2071,68 @@ public sealed partial class WorkflowPlanExecutor
                          && !ToolRequiresArtifactKind(tool, kind));
 
     private static bool ToolProducesArtifactKind(McpToolInfo tool, string kind)
-        => BuildCapabilitySchemaFields(tool.OutputSchema, requiredOnly: false)
-            .Any(field => string.Equals(GetOperationalArtifactKind(field), kind, StringComparison.Ordinal)
-                          && ArtifactOutputDescriptionProvesExistence(field.Description));
+    {
+        var contract = GetValidatedMcpArtifactContract(tool);
+        return contract != null
+            ? contract.Produces.Any(artifact =>
+                string.Equals(artifact.Kind, kind, StringComparison.Ordinal)
+                && string.Equals(artifact.Mode, McpArtifactContractMetadata.MaterializeMode, StringComparison.Ordinal))
+            : BuildCapabilitySchemaFields(tool.OutputSchema, requiredOnly: false)
+                .Any(field => string.Equals(GetOperationalArtifactKind(field), kind, StringComparison.Ordinal)
+                              && ArtifactOutputDescriptionProvesExistence(field.Description));
+    }
 
     private static bool ToolRequiresArtifactKind(McpToolInfo tool, string kind)
-        => BuildCapabilitySchemaFields(tool.InputSchema, requiredOnly: true)
-            .Any(field => string.Equals(GetOperationalArtifactKind(field), kind, StringComparison.Ordinal));
+    {
+        var contract = GetValidatedMcpArtifactContract(tool);
+        return contract != null
+            ? contract.Consumes.Any(artifact =>
+                artifact.Required && string.Equals(artifact.Kind, kind, StringComparison.Ordinal))
+            : BuildCapabilitySchemaFields(tool.InputSchema, requiredOnly: true)
+                .Any(field => string.Equals(GetOperationalArtifactKind(field), kind, StringComparison.Ordinal));
+    }
+
+    private static IReadOnlyList<CapabilitySchemaField> GetRequiredArtifactFields(McpToolInfo tool)
+    {
+        var contract = GetValidatedMcpArtifactContract(tool);
+        return contract != null
+            ? contract.Consumes
+                .Where(static artifact => artifact.Required)
+                .Select(static artifact => new CapabilitySchemaField(
+                    artifact.Pointer,
+                    "string",
+                    $"Required MCP-declared artifact of kind {artifact.Kind}."))
+                .ToArray()
+            : BuildCapabilitySchemaFields(tool.InputSchema, requiredOnly: true)
+                .Where(static field => GetOperationalArtifactKind(field) != null)
+                .ToArray();
+    }
+
+    private static McpArtifactContract? GetValidatedMcpArtifactContract(
+        McpToolInfo tool,
+        string? serverName = null)
+    {
+        var validation = McpArtifactContractParser.ParseAndValidate(
+            tool.Meta,
+            tool.InputSchema,
+            tool.OutputSchema);
+        if (validation.Errors.Count == 0)
+            return validation.Contract;
+
+        var identity = string.IsNullOrWhiteSpace(serverName)
+            ? tool.Name
+            : serverName + "/" + tool.Name;
+        throw new WorkflowRuntimeException(
+            ErrorCodes.CapabilityPreflightUnavailable,
+            $"MCP tool '{identity}' advertises an invalid GnOuGo artifact contract.",
+            details: new JsonObject
+            {
+                ["phase"] = "mcp_artifact_contract",
+                ["server"] = serverName,
+                ["tool"] = tool.Name,
+                ["errors"] = new JsonArray(validation.Errors.Select(static error => (JsonNode)JsonValue.Create(error)!).ToArray())
+            });
+    }
 
     private static bool AddToolToDiscovery(
         List<McpServerDiscovery> result,
@@ -2017,9 +2194,8 @@ public sealed partial class WorkflowPlanExecutor
         var seen = new HashSet<string>(StringComparer.Ordinal);
         foreach (var consumer in plannedDiscovered)
         {
-            var requiredArtifacts = BuildCapabilitySchemaFields(consumer.Info!.InputSchema, requiredOnly: true)
+            var requiredArtifacts = GetRequiredArtifactFields(consumer.Info!)
                 .Select(field => (Field: field, Kind: GetOperationalArtifactKind(field)))
-                .Where(static item => item.Kind != null)
                 .Where(item => !IsExplicitCallerArtifactInput(userInstruction, item.Field, item.Kind!))
                 .ToArray();
             foreach (var requirement in requiredArtifacts)
@@ -2201,6 +2377,9 @@ public sealed partial class WorkflowPlanExecutor
                 "generated_required_capability_omitted");
         }
 
+        ValidateNoRedundantArtifactMaterializers(preflight, calls);
+        ValidateMcpArtifactDataflow(document, preflight);
+
         var deniedCalls = preflight.Constraints
             .Where(static constraint => constraint.Required)
             .SelectMany(static constraint => constraint.DeniedAlternatives.Select(alternative => (constraint, alternative)))
@@ -2232,6 +2411,411 @@ public sealed partial class WorkflowPlanExecutor
                 });
         }
     }
+
+    private static void ValidateNoRedundantArtifactMaterializers(
+        CapabilityPreflightResult preflight,
+        IReadOnlyList<StepDef> calls)
+    {
+        var materializers = preflight.DiscoveredServers
+            .SelectMany(server => server.Tools.Select(tool => (Server: server.Name, Tool: tool)))
+            .Where(item => GetValidatedMcpArtifactContract(item.Tool, item.Server)?.Produces.Any(artifact =>
+                string.Equals(artifact.Mode, McpArtifactContractMetadata.MaterializeMode, StringComparison.Ordinal)) == true)
+            .ToDictionary(
+                static item => (item.Server, item.Tool.Name),
+                static item => item.Tool,
+                EqualityComparer<(string Server, string Name)>.Default);
+        if (materializers.Count == 0)
+            return;
+
+        var remainingAllowances = preflight.RequiredMcpCapabilities
+            .Where(capability => materializers.ContainsKey((capability.Server!, capability.Method!)))
+            .ToList();
+        var redundant = new List<JsonObject>();
+        foreach (var call in calls)
+        {
+            var server = ReadMcpCallInputString(call, "server");
+            var kind = ReadMcpCallInputString(call, "kind") ?? "tool";
+            if (string.IsNullOrWhiteSpace(server) || !string.Equals(kind, "tool", StringComparison.Ordinal))
+                continue;
+
+            var methods = new List<string>();
+            var method = ReadMcpCallInputString(call, "method");
+            if (!string.IsNullOrWhiteSpace(method))
+                methods.Add(method);
+            if (call.Input?["methods"] is JsonArray methodArray)
+            {
+                methods.AddRange(methodArray
+                    .OfType<JsonValue>()
+                    .Select(static value => value.TryGetValue<string>(out var candidate) ? candidate : null)
+                    .Where(static candidate => !string.IsNullOrWhiteSpace(candidate))
+                    .Select(static candidate => candidate!));
+            }
+
+            foreach (var candidate in methods.Distinct(StringComparer.Ordinal))
+            {
+                if (!materializers.ContainsKey((server, candidate)))
+                    continue;
+
+                var allowanceIndex = remainingAllowances.FindIndex(capability =>
+                    string.Equals(capability.Server, server, StringComparison.Ordinal)
+                    && string.Equals(capability.Method, candidate, StringComparison.Ordinal)
+                    && McpStepMatchesCapability(
+                        call,
+                        capability.Server!,
+                        capability.Kind!,
+                        capability.Method!,
+                        capability.RequestBindings));
+                if (allowanceIndex >= 0)
+                {
+                    remainingAllowances.RemoveAt(allowanceIndex);
+                    continue;
+                }
+
+                redundant.Add(new JsonObject
+                {
+                    ["step_id"] = call.Id,
+                    ["server"] = server,
+                    ["method"] = candidate
+                });
+            }
+        }
+
+        if (redundant.Count == 0)
+            return;
+
+        throw new WorkflowRuntimeException(
+            ErrorCodes.CapabilityPreflightRedundantArtifactProducer,
+            "Generated workflow contains an MCP artifact materializer with no corresponding locked capability occurrence.",
+            details: new JsonObject
+            {
+                ["phase"] = "capability_preflight",
+                ["reason"] = "redundant_artifact_materializer",
+                ["redundant_calls"] = new JsonArray(redundant.Select(static item => (JsonNode)item).ToArray())
+            });
+    }
+
+    private sealed record PlannedArtifactProducer(
+        string Workflow,
+        string StepId,
+        string Kind,
+        string Pointer);
+
+    private sealed record ArtifactResolution(
+        bool Proven,
+        IReadOnlySet<PlannedArtifactProducer> Producers,
+        bool UsesCallerInput)
+    {
+        public static ArtifactResolution Unproven { get; } = new(
+            false,
+            new HashSet<PlannedArtifactProducer>(),
+            false);
+    }
+
+    private static void ValidateMcpArtifactDataflow(
+        WorkflowDocument document,
+        CapabilityPreflightResult preflight)
+    {
+        var tools = preflight.DiscoveredServers
+            .SelectMany(server => server.Tools.Select(tool => (Server: server.Name, Tool: tool)))
+            .ToDictionary(
+                static item => (item.Server, item.Tool.Name),
+                static item => item.Tool,
+                EqualityComparer<(string Server, string Name)>.Default);
+        if (tools.Count == 0)
+            return;
+
+        var stepsByWorkflow = document.Workflows.ToDictionary(
+            static workflow => workflow.Key,
+            static workflow => EnumerateSteps(workflow.Value.Steps)
+                .Concat(EnumerateSteps(workflow.Value.Finally))
+                .Where(static step => !string.IsNullOrWhiteSpace(step.Id))
+                .GroupBy(static step => step.Id, StringComparer.Ordinal)
+                .ToDictionary(static group => group.Key, static group => group.First(), StringComparer.Ordinal),
+            StringComparer.Ordinal);
+        var workflowCallers = BuildWorkflowArtifactCallerIndex(document);
+        var producers = new List<PlannedArtifactProducer>();
+        var consumers = new List<(string Workflow, StepDef Step, McpConsumedArtifact Artifact, JsonNode? Value)>();
+
+        foreach (var (workflowName, workflowSteps) in stepsByWorkflow)
+        {
+            foreach (var step in workflowSteps.Values.Where(static item =>
+                         string.Equals(item.Type, "mcp.call", StringComparison.Ordinal)))
+            {
+                var server = ReadMcpCallInputString(step, "server");
+                var kind = ReadMcpCallInputString(step, "kind") ?? "tool";
+                var method = ReadMcpCallInputString(step, "method");
+                if (!string.Equals(kind, "tool", StringComparison.Ordinal)
+                    || string.IsNullOrWhiteSpace(server)
+                    || string.IsNullOrWhiteSpace(method)
+                    || !tools.TryGetValue((server, method), out var tool))
+                {
+                    continue;
+                }
+
+                var contract = GetValidatedMcpArtifactContract(tool, server);
+                if (contract == null)
+                    continue;
+
+                producers.AddRange(contract.Produces
+                    .Where(static artifact => string.Equals(
+                        artifact.Mode,
+                        McpArtifactContractMetadata.MaterializeMode,
+                        StringComparison.Ordinal))
+                    .Select(artifact => new PlannedArtifactProducer(
+                        workflowName,
+                        step.Id,
+                        artifact.Kind,
+                        artifact.Pointer)));
+                foreach (var artifact in contract.Consumes.Where(static artifact => artifact.Required))
+                {
+                    consumers.Add((
+                        workflowName,
+                        step,
+                        artifact,
+                        ResolveInstancePointer(step.Input?["request"], artifact.Pointer)));
+                }
+            }
+        }
+
+        if (consumers.Count == 0)
+            return;
+
+        var diagnostics = new JsonArray();
+        foreach (var consumer in consumers)
+        {
+            var resolution = ResolveArtifactValue(
+                document,
+                stepsByWorkflow,
+                workflowCallers,
+                producers,
+                consumer.Workflow,
+                consumer.Value,
+                consumer.Artifact.Kind,
+                new HashSet<string>(StringComparer.Ordinal));
+            if (resolution.Proven)
+                continue;
+
+            diagnostics.Add((JsonNode)new JsonObject
+            {
+                ["code"] = "MCP_ARTIFACT_PROVENANCE_UNPROVEN",
+                ["workflow"] = consumer.Workflow,
+                ["consumer_step"] = consumer.Step.Id,
+                ["artifact_kind"] = consumer.Artifact.Kind,
+                ["request_pointer"] = consumer.Artifact.Pointer,
+                ["value"] = consumer.Value?.DeepClone(),
+                ["expected"] = "An exact compatible producer response value, optionally routed through workflow inputs/outputs or a transparent set alias, or an exact caller-provided artifact input."
+            });
+        }
+
+        if (diagnostics.Count == 0)
+            return;
+
+        var details = new JsonObject
+        {
+            ["phase"] = "mcp_artifact_dataflow",
+            ["reason"] = "unproven_artifact_provenance",
+            ["diagnostics"] = diagnostics,
+            ["llm_guidance"] = new JsonArray(
+                (JsonNode)JsonValue.Create("Route the exact field declared by a compatible MCP artifact producer to the consumer request pointer.")!,
+                (JsonNode)JsonValue.Create("Do not invent, concatenate, cast, normalize, or otherwise transform artifact values.")!,
+                (JsonNode)JsonValue.Create("Reuse one producer value for every compatible downstream consumer when the task has one source artifact.")!)
+        };
+        throw new WorkflowRuntimeException(
+            ErrorCodes.TemplatePlan,
+            "Generated workflow contains an MCP artifact consumer whose required value has no compatible, unchanged provenance. | repair diagnostics: "
+            + WorkflowPlanDiagnostics.ToPromptJson(details),
+            details: details);
+    }
+
+    private static IReadOnlyDictionary<string, IReadOnlyList<(string Workflow, StepDef Call)>>
+        BuildWorkflowArtifactCallerIndex(WorkflowDocument document)
+    {
+        var callers = new Dictionary<string, List<(string Workflow, StepDef Call)>>(StringComparer.Ordinal);
+        foreach (var (workflowName, workflow) in document.Workflows)
+        {
+            foreach (var call in EnumerateSteps(workflow.Steps)
+                         .Concat(EnumerateSteps(workflow.Finally))
+                         .Where(static step => string.Equals(step.Type, "workflow.call", StringComparison.Ordinal)))
+            {
+                var target = ReadWorkflowCallRefNameFromInput(call);
+                if (string.IsNullOrWhiteSpace(target))
+                    continue;
+                if (!callers.TryGetValue(target, out var targetCallers))
+                    callers[target] = targetCallers = [];
+                targetCallers.Add((workflowName, call));
+            }
+        }
+
+        return callers.ToDictionary(
+            static item => item.Key,
+            static item => (IReadOnlyList<(string Workflow, StepDef Call)>)item.Value,
+            StringComparer.Ordinal);
+    }
+
+    private static ArtifactResolution ResolveArtifactValue(
+        WorkflowDocument document,
+        IReadOnlyDictionary<string, Dictionary<string, StepDef>> stepsByWorkflow,
+        IReadOnlyDictionary<string, IReadOnlyList<(string Workflow, StepDef Call)>> workflowCallers,
+        IReadOnlyList<PlannedArtifactProducer> producers,
+        string workflowName,
+        JsonNode? value,
+        string artifactKind,
+        HashSet<string> visited)
+    {
+        if (value is not JsonValue scalar
+            || !scalar.TryGetValue<string>(out var expression)
+            || string.IsNullOrWhiteSpace(expression))
+        {
+            return ArtifactResolution.Unproven;
+        }
+
+        var visitKey = workflowName + "\u001f" + artifactKind + "\u001f" + expression;
+        if (!visited.Add(visitKey))
+            return ArtifactResolution.Unproven;
+        try
+        {
+            var path = TrimWorkflowExpression(expression);
+            const string inputPrefix = "data.inputs.";
+            if (path.StartsWith(inputPrefix, StringComparison.Ordinal))
+            {
+                var inputPath = path[inputPrefix.Length..]
+                    .Split('.', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+                if (inputPath.Length == 0)
+                    return ArtifactResolution.Unproven;
+
+                if (!workflowCallers.TryGetValue(workflowName, out var callers) || callers.Count == 0)
+                {
+                    return new ArtifactResolution(
+                        true,
+                        new HashSet<PlannedArtifactProducer>(),
+                        true);
+                }
+
+                var combined = new HashSet<PlannedArtifactProducer>();
+                var usesCallerInput = false;
+                foreach (var caller in callers)
+                {
+                    var argument = ResolveInstancePath(caller.Call.Input?["args"], inputPath);
+                    var resolved = ResolveArtifactValue(
+                        document,
+                        stepsByWorkflow,
+                        workflowCallers,
+                        producers,
+                        caller.Workflow,
+                        argument,
+                        artifactKind,
+                        visited);
+                    if (!resolved.Proven)
+                        return ArtifactResolution.Unproven;
+                    combined.UnionWith(resolved.Producers);
+                    usesCallerInput |= resolved.UsesCallerInput;
+                }
+
+                return new ArtifactResolution(true, combined, usesCallerInput);
+            }
+
+            const string stepPrefix = "data.steps.";
+            if (!path.StartsWith(stepPrefix, StringComparison.Ordinal)
+                || !stepsByWorkflow.TryGetValue(workflowName, out var workflowSteps))
+            {
+                return ArtifactResolution.Unproven;
+            }
+
+            var stepPath = path[stepPrefix.Length..]
+                .Split('.', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+            if (stepPath.Length < 2 || !workflowSteps.TryGetValue(stepPath[0], out var sourceStep))
+                return ArtifactResolution.Unproven;
+            var remainingPath = stepPath.Skip(1).ToArray();
+
+            var matchingProducer = producers.FirstOrDefault(producer =>
+                string.Equals(producer.Workflow, workflowName, StringComparison.Ordinal)
+                && string.Equals(producer.StepId, sourceStep.Id, StringComparison.Ordinal)
+                && string.Equals(producer.Kind, artifactKind, StringComparison.Ordinal)
+                && remainingPath.SequenceEqual(
+                    new[] { "response" }.Concat(DecodeArtifactPointer(producer.Pointer)),
+                    StringComparer.Ordinal));
+            if (matchingProducer != null)
+            {
+                return new ArtifactResolution(
+                    true,
+                    new HashSet<PlannedArtifactProducer> { matchingProducer },
+                    false);
+            }
+
+            if (string.Equals(sourceStep.Type, "set", StringComparison.Ordinal))
+            {
+                return ResolveArtifactValue(
+                    document,
+                    stepsByWorkflow,
+                    workflowCallers,
+                    producers,
+                    workflowName,
+                    ResolveInstancePath(sourceStep.Input, remainingPath),
+                    artifactKind,
+                    visited);
+            }
+
+            if (!string.Equals(sourceStep.Type, "workflow.call", StringComparison.Ordinal))
+                return ArtifactResolution.Unproven;
+            var targetWorkflow = ReadWorkflowCallRefNameFromInput(sourceStep);
+            if (string.IsNullOrWhiteSpace(targetWorkflow)
+                || !document.Workflows.TryGetValue(targetWorkflow, out var target)
+                || remainingPath.Length == 0)
+            {
+                return ArtifactResolution.Unproven;
+            }
+
+            var outputIndex = string.Equals(remainingPath[0], "outputs", StringComparison.Ordinal) ? 1 : 0;
+            if (remainingPath.Length != outputIndex + 1
+                || target.Outputs == null
+                || !target.Outputs.TryGetValue(remainingPath[outputIndex], out var output))
+            {
+                return ArtifactResolution.Unproven;
+            }
+
+            return ResolveArtifactValue(
+                document,
+                stepsByWorkflow,
+                workflowCallers,
+                producers,
+                targetWorkflow,
+                JsonValue.Create(output.Expr),
+                artifactKind,
+                visited);
+        }
+        finally
+        {
+            visited.Remove(visitKey);
+        }
+    }
+
+    private static JsonNode? ResolveInstancePointer(JsonNode? root, string pointer)
+        => ResolveInstancePath(root, DecodeArtifactPointer(pointer));
+
+    private static JsonNode? ResolveInstancePath(JsonNode? root, IReadOnlyList<string> path)
+    {
+        var current = root;
+        foreach (var segment in path)
+        {
+            current = current switch
+            {
+                JsonObject obj => obj[segment],
+                JsonArray array when int.TryParse(segment, out var index) && index >= 0 && index < array.Count => array[index],
+                _ => null
+            };
+            if (current == null)
+                return null;
+        }
+
+        return current;
+    }
+
+    private static IReadOnlyList<string> DecodeArtifactPointer(string pointer)
+        => pointer[1..]
+            .Split('/', StringSplitOptions.None)
+            .Select(static segment => segment.Replace("~1", "/", StringComparison.Ordinal)
+                .Replace("~0", "~", StringComparison.Ordinal))
+            .ToArray();
 
     private static WorkflowPipelineExtraction ValidateLockedCapabilitiesInExtraction(
         WorkflowPipelineExtraction extraction,

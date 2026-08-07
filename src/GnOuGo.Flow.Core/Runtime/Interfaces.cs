@@ -279,6 +279,9 @@ public sealed record McpCorrelationContext
     public string? TenantId { get; init; }
     public string? CorrelationId { get; init; }
     public string? RunId { get; init; }
+    public string? ExecutionId { get; init; }
+    public string? AgentId { get; init; }
+    public string? AgentName { get; init; }
     public string? TraceId { get; init; }
     public string? SpanId { get; init; }
     public string? TraceParent { get; init; }
@@ -346,6 +349,13 @@ public sealed class McpToolInfo
     public string Name { get; set; } = "";
     public string? Description { get; set; }
     public JsonNode? InputSchema { get; set; }
+
+    /// <summary>
+    /// Optional tool metadata advertised by MCP <c>tools/list</c>. GnOuGo-owned
+    /// servers use the namespaced <c>gnougo.artifacts</c> contract to describe
+    /// domain-neutral artifacts produced or consumed by a tool.
+    /// </summary>
+    public JsonNode? Meta { get; set; }
 
     /// <summary>
     /// Optional JSON Schema describing the tool result content returned as

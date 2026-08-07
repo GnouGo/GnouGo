@@ -33,6 +33,16 @@ public sealed partial class WorkflowPlanExecutor
         }
 
         var targetWorkflow = ResolveRepairTargetWorkflow(original, requestedWorkflow, stepId);
+        var originalTargetStep = FindStep(original.Workflows[targetWorkflow], stepId)
+                                 ?? throw RepairScopeViolation(
+                                     "repair.scope.step_id",
+                                     $"Failing step '{stepId}' was not found in the original workflow.");
+        var candidateTargetStep = candidate.Workflows.TryGetValue(targetWorkflow, out var candidateTargetWorkflow)
+            ? FindStep(candidateTargetWorkflow, stepId)
+            : null;
+        var repeatedMcpRepair = candidateTargetStep is null
+            ? null
+            : CreateRepeatedMcpRepairPattern(originalTargetStep, candidateTargetStep);
         EnsureEquivalent(original.Version, candidate.Version, "version");
         EnsureEquivalent(original.Name, candidate.Name, "name");
         EnsureEquivalent(original.Meta, candidate.Meta, "meta");
@@ -72,12 +82,14 @@ public sealed partial class WorkflowPlanExecutor
                 candidateWorkflow.Steps,
                 path + ".steps",
                 isTargetWorkflow ? stepId : null,
+                isTargetWorkflow ? repeatedMcpRepair : null,
                 ref changedTargetRegion);
             ValidateRepairStepList(
                 originalWorkflow.Finally,
                 candidateWorkflow.Finally,
                 path + ".finally",
                 isTargetWorkflow ? stepId : null,
+                isTargetWorkflow ? repeatedMcpRepair : null,
                 ref changedTargetRegion);
         }
 
@@ -136,6 +148,44 @@ public sealed partial class WorkflowPlanExecutor
         return false;
     }
 
+    private static StepDef? FindStep(WorkflowDef workflow, string stepId)
+        => FindStep(workflow.Steps, stepId) ?? FindStep(workflow.Finally, stepId);
+
+    private static StepDef? FindStep(IReadOnlyList<StepDef> steps, string stepId)
+    {
+        foreach (var step in steps)
+        {
+            if (string.Equals(step.Id, stepId, StringComparison.Ordinal))
+                return step;
+
+            var nested = FindStep(step.Steps ?? [], stepId)
+                         ?? FindStep(step.Default ?? [], stepId);
+            if (nested is not null)
+                return nested;
+
+            if (step.Branches is not null)
+            {
+                foreach (var branch in step.Branches)
+                {
+                    nested = FindStep(branch.Steps, stepId);
+                    if (nested is not null)
+                        return nested;
+                }
+            }
+
+            if (step.Cases is null)
+                continue;
+            foreach (var item in step.Cases)
+            {
+                nested = FindStep(item.Steps, stepId);
+                if (nested is not null)
+                    return nested;
+            }
+        }
+
+        return null;
+    }
+
     private static void ValidateWorkflowOutputs(
         IReadOnlyDictionary<string, OutputDef>? original,
         IReadOnlyDictionary<string, OutputDef>? candidate,
@@ -175,11 +225,149 @@ public sealed partial class WorkflowPlanExecutor
         }
     }
 
+    private static RepeatedMcpRepairPattern? CreateRepeatedMcpRepairPattern(
+        StepDef originalTarget,
+        StepDef candidateTarget)
+    {
+        if (!TryReadMcpCallIdentity(originalTarget, out var beforeIdentity)
+            || !TryReadMcpCallIdentity(candidateTarget, out var afterIdentity))
+        {
+            return null;
+        }
+
+        var beforeShell = BuildStepShell(originalTarget);
+        var afterShell = BuildStepShell(candidateTarget);
+        return JsonNode.DeepEquals(beforeShell, afterShell)
+            ? null
+            : new RepeatedMcpRepairPattern(beforeIdentity, afterIdentity, beforeShell, afterShell);
+    }
+
+    private static bool IsExactRepeatedMcpRepair(
+        StepDef before,
+        StepDef after,
+        RepeatedMcpRepairPattern? pattern)
+    {
+        if (pattern is null
+            || !TryReadMcpCallIdentity(before, out var beforeIdentity)
+            || !TryReadMcpCallIdentity(after, out var afterIdentity)
+            || beforeIdentity != pattern.BeforeIdentity
+            || afterIdentity != pattern.AfterIdentity)
+        {
+            return false;
+        }
+
+        return ReplaysExactPatch(
+            pattern.BeforeShell,
+            pattern.AfterShell,
+            BuildStepShell(before),
+            BuildStepShell(after));
+    }
+
+    private static bool TryReadMcpCallIdentity(StepDef step, out McpCallIdentity identity)
+    {
+        identity = default;
+        if (!string.Equals(step.Type, "mcp.call", StringComparison.OrdinalIgnoreCase)
+            || step.Input is not JsonObject input)
+        {
+            return false;
+        }
+
+        var server = TryGetString(input["server"]);
+        var method = TryGetString(input["method"]);
+        var kind = TryGetString(input["kind"]) ?? "tool";
+        if (string.IsNullOrWhiteSpace(server) || string.IsNullOrWhiteSpace(method))
+            return false;
+
+        identity = new McpCallIdentity(server, kind, method);
+        return true;
+    }
+
+    private static bool ReplaysExactPatch(
+        JsonNode? patternBefore,
+        JsonNode? patternAfter,
+        JsonNode? siblingBefore,
+        JsonNode? siblingAfter)
+        => ReplaysExactPatch(
+            patternBeforeExists: true,
+            patternBefore,
+            patternAfterExists: true,
+            patternAfter,
+            siblingBeforeExists: true,
+            siblingBefore,
+            siblingAfterExists: true,
+            siblingAfter);
+
+    private static bool ReplaysExactPatch(
+        bool patternBeforeExists,
+        JsonNode? patternBefore,
+        bool patternAfterExists,
+        JsonNode? patternAfter,
+        bool siblingBeforeExists,
+        JsonNode? siblingBefore,
+        bool siblingAfterExists,
+        JsonNode? siblingAfter)
+    {
+        var patternUnchanged = patternBeforeExists == patternAfterExists
+                               && JsonNode.DeepEquals(patternBefore, patternAfter);
+        if (patternUnchanged)
+        {
+            return siblingBeforeExists == siblingAfterExists
+                   && JsonNode.DeepEquals(siblingBefore, siblingAfter);
+        }
+
+        if (patternBefore is JsonObject patternBeforeObject
+            && patternAfter is JsonObject patternAfterObject
+            && siblingBefore is JsonObject siblingBeforeObject
+            && siblingAfter is JsonObject siblingAfterObject)
+        {
+            var keys = patternBeforeObject.Select(static pair => pair.Key)
+                .Concat(patternAfterObject.Select(static pair => pair.Key))
+                .Concat(siblingBeforeObject.Select(static pair => pair.Key))
+                .Concat(siblingAfterObject.Select(static pair => pair.Key))
+                .Distinct(StringComparer.Ordinal);
+            foreach (var key in keys)
+            {
+                var hasPatternBefore = patternBeforeObject.TryGetPropertyValue(key, out var patternBeforeValue);
+                var hasPatternAfter = patternAfterObject.TryGetPropertyValue(key, out var patternAfterValue);
+                var hasSiblingBefore = siblingBeforeObject.TryGetPropertyValue(key, out var siblingBeforeValue);
+                var hasSiblingAfter = siblingAfterObject.TryGetPropertyValue(key, out var siblingAfterValue);
+                if (!ReplaysExactPatch(
+                        hasPatternBefore,
+                        patternBeforeValue,
+                        hasPatternAfter,
+                        patternAfterValue,
+                        hasSiblingBefore,
+                        siblingBeforeValue,
+                        hasSiblingAfter,
+                        siblingAfterValue))
+                {
+                    return false;
+                }
+            }
+
+            return true;
+        }
+
+        return siblingBeforeExists == patternBeforeExists
+               && siblingAfterExists == patternAfterExists
+               && JsonNode.DeepEquals(siblingBefore, patternBefore)
+               && JsonNode.DeepEquals(siblingAfter, patternAfter);
+    }
+
+    private readonly record struct McpCallIdentity(string Server, string Kind, string Method);
+
+    private sealed record RepeatedMcpRepairPattern(
+        McpCallIdentity BeforeIdentity,
+        McpCallIdentity AfterIdentity,
+        JsonObject BeforeShell,
+        JsonObject AfterShell);
+
     private static void ValidateRepairStepList(
         IReadOnlyList<StepDef> original,
         IReadOnlyList<StepDef> candidate,
         string path,
         string? targetStepId,
+        RepeatedMcpRepairPattern? repeatedMcpRepair,
         ref bool changedTargetRegion)
     {
         if (original.Count != candidate.Count)
@@ -208,11 +396,13 @@ public sealed partial class WorkflowPlanExecutor
                            && string.Equals(before.Id, targetStepId, StringComparison.Ordinal);
             var isExistingDirectConsumer = !string.IsNullOrWhiteSpace(targetStepId)
                                            && ReferencesStep(BuildStepShell(before).ToJsonString(), targetStepId);
+            var isRepeatedMcpContractRepair = !isTarget
+                                              && IsExactRepeatedMcpRepair(before, after, repeatedMcpRepair);
             var beforeShell = BuildStepShell(before);
             var afterShell = BuildStepShell(after);
             if (!JsonNode.DeepEquals(beforeShell, afterShell))
             {
-                if (!isTarget && !isExistingDirectConsumer)
+                if (!isTarget && !isExistingDirectConsumer && !isRepeatedMcpContractRepair)
                 {
                     throw RepairScopeViolation(
                         stepPath,
@@ -224,10 +414,10 @@ public sealed partial class WorkflowPlanExecutor
 
             // The target is expected to be a leaf operation. Even if a model
             // returns a composite here, its topology remains locked below.
-            ValidateRepairStepList(before.Steps ?? [], after.Steps ?? [], stepPath + ".steps", targetStepId, ref changedTargetRegion);
-            ValidateRepairStepList(before.Default ?? [], after.Default ?? [], stepPath + ".default", targetStepId, ref changedTargetRegion);
-            ValidateBranches(before.Branches, after.Branches, stepPath + ".branches", targetStepId, ref changedTargetRegion);
-            ValidateCases(before.Cases, after.Cases, stepPath + ".cases", targetStepId, ref changedTargetRegion);
+            ValidateRepairStepList(before.Steps ?? [], after.Steps ?? [], stepPath + ".steps", targetStepId, repeatedMcpRepair, ref changedTargetRegion);
+            ValidateRepairStepList(before.Default ?? [], after.Default ?? [], stepPath + ".default", targetStepId, repeatedMcpRepair, ref changedTargetRegion);
+            ValidateBranches(before.Branches, after.Branches, stepPath + ".branches", targetStepId, repeatedMcpRepair, ref changedTargetRegion);
+            ValidateCases(before.Cases, after.Cases, stepPath + ".cases", targetStepId, repeatedMcpRepair, ref changedTargetRegion);
         }
     }
 
@@ -255,6 +445,7 @@ public sealed partial class WorkflowPlanExecutor
         IReadOnlyList<BranchDef>? candidate,
         string path,
         string? targetStepId,
+        RepeatedMcpRepairPattern? repeatedMcpRepair,
         ref bool changedTargetRegion)
     {
         var before = original ?? [];
@@ -262,7 +453,7 @@ public sealed partial class WorkflowPlanExecutor
         if (before.Count != after.Count)
             throw RepairScopeViolation(path, "Parallel branch topology must remain unchanged.");
         for (var index = 0; index < before.Count; index++)
-            ValidateRepairStepList(before[index].Steps, after[index].Steps, $"{path}[{index}].steps", targetStepId, ref changedTargetRegion);
+            ValidateRepairStepList(before[index].Steps, after[index].Steps, $"{path}[{index}].steps", targetStepId, repeatedMcpRepair, ref changedTargetRegion);
     }
 
     private static void ValidateCases(
@@ -270,6 +461,7 @@ public sealed partial class WorkflowPlanExecutor
         IReadOnlyList<SwitchCaseDef>? candidate,
         string path,
         string? targetStepId,
+        RepeatedMcpRepairPattern? repeatedMcpRepair,
         ref bool changedTargetRegion)
     {
         var before = original ?? [];
@@ -280,7 +472,7 @@ public sealed partial class WorkflowPlanExecutor
         {
             EnsureEquivalent(before[index].Value, after[index].Value, $"{path}[{index}].value");
             EnsureEquivalent(before[index].When, after[index].When, $"{path}[{index}].when");
-            ValidateRepairStepList(before[index].Steps, after[index].Steps, $"{path}[{index}].steps", targetStepId, ref changedTargetRegion);
+            ValidateRepairStepList(before[index].Steps, after[index].Steps, $"{path}[{index}].steps", targetStepId, repeatedMcpRepair, ref changedTargetRegion);
         }
     }
 

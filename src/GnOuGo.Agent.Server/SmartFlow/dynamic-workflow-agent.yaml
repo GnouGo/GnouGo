@@ -55,6 +55,8 @@ workflows:
       - id: generate
         type: workflow.plan
         input:
+          capability_preflight:
+            mode: infer
           generator:
             instruction: >
               Create a workflow that accomplishes the following task:

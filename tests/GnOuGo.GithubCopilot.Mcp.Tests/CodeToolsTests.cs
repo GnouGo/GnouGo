@@ -313,6 +313,9 @@ public sealed class CodeToolsTests : IDisposable
 			["gnougo"] = new JsonObject
 			{
 				["correlationId"] = "corr-nested",
+				["executionId"] = "execution-1",
+				["agentId"] = "agent-1",
+				["agentName"] = "Reviewer",
 				["context"] = new JsonObject
 				{
 					["repository"] = "owner/resource",
@@ -328,9 +331,14 @@ public sealed class CodeToolsTests : IDisposable
 		Assert.Equal("owner/resource", context.Repository);
 		Assert.Equal(7, context.PullRequestNumber);
 		Assert.Equal("123456", context.HeadSha);
+		Assert.Equal("execution-1", context.ExecutionId);
+		Assert.Equal("agent-1", context.AgentId);
+		Assert.Equal("Reviewer", context.AgentName);
 		var roundTripGnougo = Assert.IsType<JsonObject>(context.ToMcpMeta()["gnougo"]);
 		var roundTripContext = Assert.IsType<JsonObject>(roundTripGnougo["context"]);
 		Assert.Equal("owner/resource", roundTripContext["repository"]!.GetValue<string>());
+		Assert.Equal("execution-1", roundTripGnougo["executionId"]!.GetValue<string>());
+		Assert.Equal("agent-1", roundTripGnougo["agentId"]!.GetValue<string>());
 		Assert.False(roundTripGnougo.ContainsKey("repository"));
 		Assert.False(roundTripGnougo.ContainsKey("pullRequestNumber"));
 		Assert.False(roundTripGnougo.ContainsKey("headSha"));

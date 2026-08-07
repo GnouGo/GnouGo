@@ -1,4 +1,5 @@
 using System.Collections.Concurrent;
+using System.Runtime.ExceptionServices;
 
 namespace GnOuGo.GithubCopilot.Core;
 
@@ -7,6 +8,8 @@ public sealed class CopilotSessionManager : IAsyncDisposable
     private readonly ICopilotSdkClientFactory _clientFactory;
     private readonly ICopilotProviderResolver? _providerResolver;
     private readonly ICopilotHumanInputProvider? _humanInputProvider;
+    private readonly ICopilotPermissionGrantStore? _permissionGrantStore;
+    private readonly ICopilotPermissionEventSink? _permissionEventSink;
     private readonly TimeProvider _timeProvider;
     private readonly ConcurrentDictionary<string, ManagedEntry> _entries = new(StringComparer.Ordinal);
     private int _disposed;
@@ -15,11 +18,15 @@ public sealed class CopilotSessionManager : IAsyncDisposable
         ICopilotSdkClientFactory clientFactory,
         ICopilotProviderResolver? providerResolver = null,
         ICopilotHumanInputProvider? humanInputProvider = null,
+        ICopilotPermissionGrantStore? permissionGrantStore = null,
+        ICopilotPermissionEventSink? permissionEventSink = null,
         TimeProvider? timeProvider = null)
     {
         _clientFactory = clientFactory;
         _providerResolver = providerResolver;
         _humanInputProvider = humanInputProvider;
+        _permissionGrantStore = permissionGrantStore;
+        _permissionEventSink = permissionEventSink;
         _timeProvider = timeProvider ?? TimeProvider.System;
     }
 
@@ -35,7 +42,7 @@ public sealed class CopilotSessionManager : IAsyncDisposable
         {
             await client.StartAsync(cancellationToken);
             var session = await client.CreateSessionAsync(
-                new CopilotSdkSessionConfiguration(request, provider, _humanInputProvider),
+                new CopilotSdkSessionConfiguration(request, provider, _humanInputProvider, _permissionGrantStore, _permissionEventSink),
                 cancellationToken);
             var now = _timeProvider.GetUtcNow();
             var handle = CreateHandle();
@@ -67,7 +74,7 @@ public sealed class CopilotSessionManager : IAsyncDisposable
                     await client.StartAsync(cancellationToken);
                     var session = await client.ResumeSessionAsync(
                         entry.CopilotSessionId,
-                        new CopilotSdkSessionConfiguration(entry.Request, entry.Provider, _humanInputProvider),
+                        new CopilotSdkSessionConfiguration(entry.Request, entry.Provider, _humanInputProvider, _permissionGrantStore, _permissionEventSink),
                         cancellationToken);
                     entry.Client = client;
                     entry.Session = session;
@@ -159,6 +166,105 @@ public sealed class CopilotSessionManager : IAsyncDisposable
         finally
         {
             await DeleteAsync(request.Context, descriptor.Handle, CancellationToken.None);
+        }
+    }
+
+    /// <summary>
+    /// Runs one turn in an ephemeral managed session so interactive permission and
+    /// elicitation callbacks remain available, then permanently deletes the session.
+    /// </summary>
+    public async Task<CopilotSendResult> InteractiveOneShotAsync(
+        CopilotSessionCreateRequest createRequest,
+        string prompt,
+        IReadOnlyList<CopilotAttachment>? attachments,
+        CancellationToken cancellationToken,
+        Action<CopilotStreamEvent>? progress = null)
+    {
+        var request = createRequest with
+        {
+            SessionKind = CopilotSessionKind.Managed,
+            PermissionMode = CopilotPermissionMode.Interactive
+        };
+        ReportLifecycle(progress, "session_create", "thinking", "Creating an interactive Copilot session.");
+        CopilotSessionDescriptor descriptor;
+        try
+        {
+            descriptor = await CreateAsync(request, cancellationToken);
+        }
+        catch (Exception ex)
+        {
+            ReportLifecycle(
+                progress,
+                ex is OperationCanceledException ? "session_create_cancelled" : "session_create_failed",
+                ex is OperationCanceledException ? "warning" : "error",
+                ex is OperationCanceledException
+                    ? "Interactive Copilot session creation was cancelled."
+                    : "Interactive Copilot session creation failed.");
+            throw;
+        }
+        ReportLifecycle(progress, "session_created", "info", "Interactive Copilot session created.");
+        CopilotSendResult? result = null;
+        Exception? primaryException = null;
+        try
+        {
+            ReportLifecycle(progress, "request_send", "thinking", "Sending the request to Copilot.");
+            result = await SendAsync(
+                new CopilotSendRequest(request.Context, descriptor.Handle, prompt, Attachments: attachments),
+                cancellationToken);
+            ReportLifecycle(progress, "request_completed", "info", "Copilot completed the request.");
+        }
+        catch (Exception ex)
+        {
+            primaryException = ex;
+            ReportLifecycle(
+                progress,
+                ex is OperationCanceledException ? "request_cancelled" : "request_failed",
+                ex is OperationCanceledException ? "warning" : "error",
+                ex is OperationCanceledException ? "The Copilot request was cancelled." : "The Copilot request failed.");
+        }
+
+        Exception? cleanupException = null;
+        try
+        {
+            ReportLifecycle(progress, "session_delete", "thinking", "Deleting the ephemeral Copilot session.");
+            await DeleteAsync(request.Context, descriptor.Handle, CancellationToken.None);
+            ReportLifecycle(progress, "session_deleted", "info", "Ephemeral Copilot session deleted.");
+        }
+        catch (Exception ex)
+        {
+            cleanupException = ex;
+            ReportLifecycle(progress, "session_delete_failed", "error", "The ephemeral Copilot session could not be fully deleted.");
+        }
+
+        if (primaryException is not null)
+        {
+            if (cleanupException is not null)
+                primaryException.Data["CopilotSessionCleanupError"] = cleanupException.Message;
+            ExceptionDispatchInfo.Capture(primaryException).Throw();
+        }
+
+        if (cleanupException is not null)
+            ExceptionDispatchInfo.Capture(cleanupException).Throw();
+
+        return result!;
+    }
+
+    private static void ReportLifecycle(
+        Action<CopilotStreamEvent>? progress,
+        string kind,
+        string level,
+        string message)
+    {
+        if (progress is null)
+            return;
+
+        try
+        {
+            progress(new CopilotStreamEvent(kind, level, message, DateTimeOffset.UtcNow));
+        }
+        catch
+        {
+            // Observability callbacks must never change Copilot execution behavior.
         }
     }
 

@@ -1,5 +1,6 @@
 using System.Text.Json.Nodes;
 using System.Reflection;
+using System.Text.RegularExpressions;
 using Microsoft.Extensions.Logging;
 using Moq;
 using GnOuGo.Flow.Core.Compilation;
@@ -453,6 +454,296 @@ public class WorkflowPlanExecutorTests
         Assert.Equal(2, plan["meta"]?["attempt"]?.GetValue<int>());
         Assert.Contains("<previous_error>", prompts[1]);
         Assert.Contains("<invalid_yaml>", prompts[1]);
+    }
+
+    [Fact]
+    public async Task WorkflowPlan_NestedObjectShapeJsDocSummaryLeafPassesFirstValidationAttempt()
+    {
+        const string generatedSummaryLeaf = """
+            version: 1
+            name: generate_pull_request_summary_comment
+            skill:
+              description: Generates a pull request summary comment.
+              tags: [pull-request, summary]
+              inputs: {}
+              outputs: {}
+            functions: |
+              /**
+               * Builds a technical summary for a pull request.
+               * @param {Array<{path:string,status:string,additions:number,deletions:number,patch_excerpt:string}>} files - Changed file summaries.
+               * @param {Array<object>} projects - Modified project records.
+               * @param {object} projectSummary - Parsed project structure context.
+               * @param {object} statusData - Parsed status summary data.
+               * @param {string} copilotSummary - Copilot review summary.
+               * @returns {string} Standalone technical summary.
+               */
+              function buildTechnicalSummary(files, projects, projectSummary, statusData, copilotSummary) {
+                return String(files.length + projects.length) + String(projectSummary) + String(statusData) + copilotSummary;
+              }
+
+              /**
+               * Builds the complete pull request comment.
+               * @param {string} functionalSummary - Functional summary text.
+               * @param {string} technicalSummary - Technical summary text.
+               * @param {object} statusData - Parsed status summary data.
+               * @param {Array<{path:string,status:string,additions:number,deletions:number,patch_excerpt:string}>} files - Changed file summaries.
+               * @param {Array<object>} findings - High-confidence findings.
+               * @returns {string} Complete Markdown comment body.
+               */
+              function buildComment(functionalSummary, technicalSummary, statusData, files, findings) {
+                return functionalSummary + technicalSummary + String(statusData) + String(files.length + findings.length);
+              }
+            workflows:
+              main:
+                steps:
+                  - id: summary_ready
+                    type: template.render
+                    input:
+                      engine: mustache
+                      template: Summary functions are ready.
+                      mode: text
+            """;
+
+        var callCount = 0;
+        var mockLlm = new Mock<ILLMClient>();
+        mockLlm.Setup(client => client.CallAsync(It.IsAny<LLMRequest>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(() =>
+            {
+                callCount++;
+                return new LLMResponse { Text = generatedSummaryLeaf };
+            });
+
+        var workflow = CompileMain("""
+        version: 1
+        workflows:
+          main:
+            steps:
+              - id: plan
+                type: workflow.plan
+                input:
+                  mode: basic
+                  generator:
+                    model: gpt-4
+                    instruction: Generate a pull request summary leaf.
+                    prefilter: false
+                  validate:
+                    compile: true
+                  on_invalid:
+                    max_attempts: 2
+        """);
+
+        var result = await new WorkflowEngine { LLMClient = mockLlm.Object }
+            .ExecuteAsync(workflow, new JsonObject(), CancellationToken.None);
+
+        Assert.True(result.Success, result.Error?.Message);
+        Assert.Equal(1, callCount);
+        var plan = Assert.IsType<JsonObject>(result.Outputs!["plan"]);
+        Assert.Equal(1, plan["meta"]?["attempt"]?.GetValue<int>());
+        Assert.Contains("buildTechnicalSummary", plan["yaml"]?.GetValue<string>());
+        Assert.Contains("buildComment", plan["yaml"]?.GetValue<string>());
+    }
+
+    [Fact]
+    public async Task WorkflowPlan_RepairMode_FixesEveryExactRepeatedMcpContractViolation()
+    {
+        const string originalWorkflow = """
+            version: 1
+            name: repeated-permission-agent
+            skill:
+              description: Runs two command-capable Copilot tasks.
+              tags: [copilot]
+              inputs: {}
+              outputs: {}
+            workflows:
+              main:
+                inputs:
+                  project_root:
+                    type: string
+                    required: true
+                steps:
+                  - id: install_dependencies
+                    type: mcp.call
+                    input:
+                      server: copilot
+                      method: copilot_one_shot
+                      request:
+                        projectRoot: "${data.inputs.project_root}"
+                        prompt: Install dependencies.
+                        permissionMode: allow
+                  - id: run_tests
+                    type: mcp.call
+                    input:
+                      server: copilot
+                      method: copilot_one_shot
+                      request:
+                        projectRoot: "${data.inputs.project_root}"
+                        prompt: Run tests and lint.
+                        permissionMode: allow
+            """;
+        const string firstRepair = """
+            version: 1
+            name: repeated-permission-agent
+            skill:
+              description: Runs two command-capable Copilot tasks.
+              tags: [copilot]
+              inputs: {}
+              outputs: {}
+            workflows:
+              main:
+                inputs:
+                  project_root:
+                    type: string
+                    required: true
+                steps:
+                  - id: install_dependencies
+                    type: mcp.call
+                    input:
+                      server: copilot
+                      method: copilot_interactive_one_shot
+                      request:
+                        projectRoot: "${data.inputs.project_root}"
+                        prompt: Install dependencies.
+                  - id: run_tests
+                    type: mcp.call
+                    input:
+                      server: copilot
+                      method: copilot_one_shot
+                      request:
+                        projectRoot: "${data.inputs.project_root}"
+                        prompt: Run tests and lint.
+                        permissionMode: allow
+            """;
+        const string completeRepair = """
+            version: 1
+            name: repeated-permission-agent
+            skill:
+              description: Runs two command-capable Copilot tasks.
+              tags: [copilot]
+              inputs: {}
+              outputs: {}
+            workflows:
+              main:
+                inputs:
+                  project_root:
+                    type: string
+                    required: true
+                steps:
+                  - id: install_dependencies
+                    type: mcp.call
+                    input:
+                      server: copilot
+                      method: copilot_interactive_one_shot
+                      request:
+                        projectRoot: "${data.inputs.project_root}"
+                        prompt: Install dependencies.
+                  - id: run_tests
+                    type: mcp.call
+                    input:
+                      server: copilot
+                      method: copilot_interactive_one_shot
+                      request:
+                        projectRoot: "${data.inputs.project_root}"
+                        prompt: Run tests and lint.
+            """;
+
+        var calls = 0;
+        var prompts = new List<string>();
+        var mockLlm = new Mock<ILLMClient>();
+        mockLlm.Setup(client => client.CallAsync(It.IsAny<LLMRequest>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((LLMRequest request, CancellationToken _) =>
+            {
+                prompts.Add(request.Prompt);
+                calls++;
+                return new LLMResponse { Text = calls == 1 ? firstRepair : completeRepair };
+            });
+
+        var mcpFactory = new InMemoryMcpClientFactory();
+        mcpFactory.RegisterServer("copilot", new MockMcpServerConfig
+        {
+            Tools =
+            [
+                new McpToolInfo
+                {
+                    Name = "copilot_one_shot",
+                    InputSchema = JsonNode.Parse("""
+                    {
+                      "type": "object",
+                      "properties": {
+                        "projectRoot": { "type": "string" },
+                        "prompt": { "type": "string" },
+                        "permissionMode": {
+                          "type": "string",
+                          "enum": ["auto_approve_allowlist", "deny", "approve_all"],
+                          "default": "deny"
+                        }
+                      },
+                      "required": ["projectRoot", "prompt"]
+                    }
+                    """)
+                },
+                new McpToolInfo
+                {
+                    Name = "copilot_interactive_one_shot",
+                    Description = "Runs an ephemeral managed interactive session for command-capable work.",
+                    InputSchema = JsonNode.Parse("""
+                    {
+                      "type": "object",
+                      "properties": {
+                        "projectRoot": { "type": "string" },
+                        "prompt": { "type": "string" }
+                      },
+                      "required": ["projectRoot", "prompt"]
+                    }
+                    """)
+                }
+            ]
+        });
+
+        var workflow = CompileMain("""
+        version: 1
+        workflows:
+          main:
+            inputs:
+              existing_yaml:
+                type: string
+                required: true
+            steps:
+              - id: plan
+                type: workflow.plan
+                input:
+                  mode: repair
+                  generator:
+                    model: gpt-4
+                    prefilter: false
+                  repair:
+                    existing_yaml: "${data.inputs.existing_yaml}"
+                    error:
+                      code: MCP_CALL_ERROR
+                      message: permissionMode must be interactive, auto_approve_allowlist, deny, or approve_all.
+                    scope:
+                      workflow: main
+                      step_id: install_dependencies
+                  validate:
+                    compile: true
+                  on_invalid:
+                    max_attempts: 2
+        """);
+
+        var result = await new WorkflowEngine { LLMClient = mockLlm.Object, McpClientFactory = mcpFactory }
+            .ExecuteAsync(workflow, new JsonObject { ["existing_yaml"] = originalWorkflow }, CancellationToken.None);
+
+        Assert.True(result.Success, result.Error?.Message);
+        Assert.Equal(2, calls);
+        Assert.Contains("received \\u0022allow\\u0022", prompts[1], StringComparison.Ordinal);
+        Assert.Contains("Fix every occurrence", prompts[1], StringComparison.OrdinalIgnoreCase);
+        var plan = Assert.IsType<JsonObject>(result.Outputs!["plan"]);
+        var yaml = plan["yaml"]!.GetValue<string>();
+        Assert.DoesNotContain("permissionMode: allow", yaml, StringComparison.Ordinal);
+        Assert.Equal(2, Regex.Matches(yaml, "method: copilot_interactive_one_shot", RegexOptions.CultureInvariant).Count);
+        Assert.Equal(2, Regex.Matches(
+            yaml,
+            Regex.Escape("projectRoot: \"${data.inputs.project_root}\""),
+            RegexOptions.CultureInvariant).Count);
     }
 
     [Fact]
@@ -1026,6 +1317,11 @@ workflows:
         Assert.Contains("Emit booleans and numbers as unquoted YAML scalars", capturedPrompt);
         Assert.Contains("Use YAML literal block scalars (`|`) for multiline prompts/templates", capturedPrompt);
         Assert.Contains("Follow the discovered MCP schema and tool description exactly", capturedPrompt);
+        Assert.Contains("authoritative for every request property", capturedPrompt);
+        Assert.Contains("never invent, concatenate, template, cast, normalize, or guess a constrained literal", capturedPrompt);
+        Assert.Contains("documented default satisfies the requested effect", capturedPrompt);
+        Assert.Contains("documented interaction and safety behavior", capturedPrompt);
+        Assert.Contains("Treat host-policy-gated values as unavailable", capturedPrompt);
         Assert.Contains("Mode selection priority", capturedPrompt);
         Assert.Contains("`choice`: MUST use whenever the user must select exactly one answer", capturedPrompt);
         Assert.Contains("Never place possible choices/options/answers only in `prompt` or `context`.", capturedPrompt);
@@ -11916,6 +12212,94 @@ workflows:
     }
 
     [Fact]
+    public async Task WorkflowPlan_SemanticValidation_RejectsInventedEnumOnOrdinaryMcpProperty()
+    {
+        var mockLlm = new Mock<ILLMClient>();
+        mockLlm.Setup(l => l.CallAsync(It.IsAny<LLMRequest>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new LLMResponse
+            {
+                Text = """
+                       version: 1
+                       name: generated-permission-workflow
+                       skill:
+                         description: Generated permission workflow.
+                         tags: [generated]
+                         inputs: {}
+                         outputs: {}
+                       workflows:
+                         main:
+                           steps:
+                             - id: execute
+                               type: mcp.call
+                               input:
+                                 server: copilot
+                                 method: copilot_one_shot
+                                 request:
+                                   projectRoot: workflows/repository
+                                   prompt: Run tests.
+                                   permissionMode: allow
+                       """
+            });
+
+        var mcpFactory = new InMemoryMcpClientFactory();
+        mcpFactory.RegisterServer("copilot", new MockMcpServerConfig
+        {
+            Tools =
+            [
+                new McpToolInfo
+                {
+                    Name = "copilot_one_shot",
+                    InputSchema = JsonNode.Parse("""
+                    {
+                      "type": "object",
+                      "properties": {
+                        "projectRoot": { "type": "string" },
+                        "prompt": { "type": "string" },
+                        "permissionMode": {
+                          "type": "string",
+                          "enum": ["auto_approve_allowlist", "deny", "approve_all"],
+                          "default": "deny"
+                        }
+                      },
+                      "required": ["projectRoot", "prompt"]
+                    }
+                    """)
+                }
+            ]
+        });
+
+        var workflow = CompileMain("""
+        version: 1
+        workflows:
+          main:
+            steps:
+              - id: plan
+                type: workflow.plan
+                input:
+                  mode: basic
+                  generator:
+                    model: gpt-4
+                    instruction: Run tests through Copilot.
+                    prefilter: false
+                  on_invalid:
+                    max_attempts: 1
+        """);
+
+        var result = await new WorkflowEngine { LLMClient = mockLlm.Object, McpClientFactory = mcpFactory }
+            .ExecuteAsync(workflow, new JsonObject(), CancellationToken.None);
+
+        Assert.False(result.Success);
+        var error = result.Error!.Message + result.Error.Details?.ToJsonString();
+        Assert.Contains("MCP_REQUEST_SCHEMA_INVALID", error);
+        Assert.Contains("copilot/copilot_one_shot", error);
+        Assert.Contains("input.request.permissionMode", error);
+        Assert.Contains("received \\u0022allow\\u0022", error);
+        Assert.Contains("auto_approve_allowlist", error);
+        Assert.Contains("deny", error);
+        Assert.Contains("approve_all", error);
+    }
+
+    [Fact]
     public async Task WorkflowPlan_SemanticValidation_EnforcesConditionalMcpRequestSchemaKeywords()
     {
         var mockLlm = new Mock<ILLMClient>();
@@ -16476,7 +16860,13 @@ workflows:
             Tools = new List<McpToolInfo>
             {
                 new() { Name = "list_repos", Description = "List repositories for a user" },
-                new() { Name = "delete_repo", Description = "Delete a repository" }
+                new() { Name = "delete_repo", Description = "Delete a repository" },
+                new()
+                {
+                    Name = "copilot_permission_grants_list",
+                    Description = "List persistent permission grants",
+                    Meta = JsonNode.Parse("""{"gnougo":{"management":{"visibility":"management_only"}}}""")
+                }
             }
         });
         mcpFactory.RegisterServer("weather", new MockMcpServerConfig
@@ -16531,12 +16921,14 @@ workflows:
         Assert.Contains("Build a workflow that lists GitHub repositories", requests[1].Prompt);
         Assert.Contains("</user_prompt>", requests[1].Prompt);
         Assert.DoesNotContain("Instruction: Build a workflow that lists GitHub repositories", requests[1].Prompt);
+        Assert.DoesNotContain("copilot_permission_grants_list", requests[1].Prompt);
         var mcpSectionStart = requests[2].Prompt.LastIndexOf("<available_mcp_servers>", StringComparison.Ordinal);
         var mcpSectionEnd = requests[2].Prompt.IndexOf("<mcp_output_access>", mcpSectionStart, StringComparison.Ordinal);
         var mcpSection = requests[2].Prompt[mcpSectionStart..mcpSectionEnd];
         Assert.Contains("list_repos", mcpSection);
         Assert.DoesNotContain("get_weather", mcpSection);
         Assert.DoesNotContain("delete_repo", mcpSection);
+        Assert.DoesNotContain("copilot_permission_grants_list", mcpSection);
     }
 
     [Fact]

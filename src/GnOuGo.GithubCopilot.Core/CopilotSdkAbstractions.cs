@@ -40,4 +40,6 @@ public interface ICopilotSdkSession : IAsyncDisposable
 public sealed record CopilotSdkSessionConfiguration(
     CopilotSessionCreateRequest Request,
     CopilotProviderResolution? Provider,
-    ICopilotHumanInputProvider? HumanInputProvider);
+    ICopilotHumanInputProvider? HumanInputProvider,
+    ICopilotPermissionGrantStore? PermissionGrantStore = null,
+    ICopilotPermissionEventSink? PermissionEventSink = null);

@@ -28,6 +28,10 @@ builder.Services.AddSingleton<ICopilotProviderResolver, CoreCopilotProviderResol
 builder.Services.AddSingleton<ICopilotSdkClientFactory, GitHubCopilotSdkClientFactory>();
 builder.Services.AddSingleton<McpCopilotHumanInputProvider>();
 builder.Services.AddSingleton<ICopilotHumanInputProvider>(sp => sp.GetRequiredService<McpCopilotHumanInputProvider>());
+builder.Services.AddSingleton<SqliteCopilotPermissionGrantStore>();
+builder.Services.AddSingleton<ICopilotPermissionGrantStore>(sp => sp.GetRequiredService<SqliteCopilotPermissionGrantStore>());
+builder.Services.AddSingleton<McpCopilotPermissionEventSink>();
+builder.Services.AddSingleton<ICopilotPermissionEventSink>(sp => sp.GetRequiredService<McpCopilotPermissionEventSink>());
 builder.Services.AddSingleton<CopilotSessionManager>();
 builder.Services.AddSingleton<CopilotReviewManager>();
 builder.Services.AddSingleton<CodePolicy>();

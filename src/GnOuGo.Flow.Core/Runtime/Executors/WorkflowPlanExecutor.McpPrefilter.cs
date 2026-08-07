@@ -30,6 +30,16 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
         ITelemetrySpan? parentSpan,
         CancellationToken ct)
     {
+        allServers = allServers.Select(server => new McpServerDiscovery
+        {
+            Name = server.Name,
+            Description = server.Description,
+            CallTimeoutSeconds = server.CallTimeoutSeconds,
+            Tools = server.Tools.Where(static tool => !IsManagementOnlyMcpTool(tool)).ToArray(),
+            Prompts = server.Prompts,
+            Discovered = server.Discovered
+        }).ToList();
+
         // Build a compact catalog for the pre-filter prompt
         var catalogSb = new StringBuilder();
         foreach (var srv in allServers)
@@ -323,6 +333,12 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
         }
     }
 
+    private static bool IsManagementOnlyMcpTool(McpToolInfo tool)
+        => string.Equals(
+            tool.Meta?["gnougo"]?["management"]?["visibility"]?.GetValue<string>(),
+            "management_only",
+            StringComparison.OrdinalIgnoreCase);
+
     /// <summary>
     /// Formats MCP server discovery results into the prompt text for <available_mcp_servers>.
     /// </summary>
@@ -366,6 +382,8 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
                     AppendMcpCapabilityCard(sb, "      ", server, t);
                     if (t.InputSchema != null)
                         AppendJsonBlock(sb, "      ", "input_schema", t.InputSchema);
+                    if (t.Meta?["gnougo"]?["artifacts"] is JsonNode artifactContract)
+                        AppendJsonBlock(sb, "      ", "artifact_contract", artifactContract);
                     if (t.OutputSchema != null)
                         AppendJsonBlock(sb, "      ", "output_schema", t.OutputSchema);
                     if (t.ExampleResponse != null)
@@ -411,6 +429,9 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
         sb.AppendLine("When building `mcp.call.input.request`, preserve JSON schema scalar types exactly: numbers/integers/booleans must be unquoted YAML scalars, while strings may be quoted.");
         sb.AppendLine("Follow the discovered MCP schema and tool description exactly; do not add Flow-specific conventions for request fields.");
         sb.AppendLine("Treat property descriptions as part of the request contract. A property marked optional at the root can still be required for a selected enum/const/discriminator mode or target.");
+        sb.AppendLine("Every enum, const, discriminator, pattern, and range applies to its property regardless of the property's name. Never invent, construct, transform, or guess a constrained literal; use one exact documented value.");
+        sb.AppendLine("Omit an optional argument only when its documented default satisfies the requested effect. If a capability's interaction or safety behavior cannot satisfy the task, choose another documented capability instead of bypassing its policy.");
+        sb.AppendLine("Treat host-policy-gated values as unavailable unless the user explicitly requested that behavior and the discovered contract establishes availability.");
         sb.AppendLine("When an MCP call forwards a typed source item, preserve exact-named schema-compatible identity, target, location, range, and selector fields unless their descriptions explicitly limit them to a case that does not apply.");
         sb.AppendLine("Prefer adapting each `capability_card_yaml` example when it matches the task; the JSON schemas remain authoritative for exact validation.");
         sb.AppendLine("If a string field must contain JSON text, prefer a YAML literal block (`|`) so nested quotes remain valid YAML.");

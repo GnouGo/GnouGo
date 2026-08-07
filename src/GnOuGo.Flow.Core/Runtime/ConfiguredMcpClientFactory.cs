@@ -26,6 +26,8 @@ public sealed class ConfiguredMcpClientFactory : IMcpClientFactory, IAsyncDispos
     private const int MaxCapturedStdioErrorLines = 80;
     private static readonly ConcurrentDictionary<string, StdioServerDiagnostics> StdioDiagnostics = new(StringComparer.OrdinalIgnoreCase);
     private static readonly ConcurrentDictionary<string, ConcurrentDictionary<Guid, Action<McpRealtimeProgressEvent>>> ProgressHandlers = new(StringComparer.OrdinalIgnoreCase);
+    private static readonly ConcurrentDictionary<string, ConcurrentDictionary<Guid, Action<McpHumanInputSignal>>> HumanInputHandlers = new(StringComparer.OrdinalIgnoreCase);
+    private static readonly ConcurrentDictionary<Guid, McpCorrelationContext> ActiveHumanInputCalls = new();
 
     private readonly Dictionary<string, McpServerOptions> _serverConfigs;
     private readonly ConcurrentDictionary<string, McpClient> _clients = new();
@@ -82,6 +84,22 @@ public sealed class ConfiguredMcpClientFactory : IMcpClientFactory, IAsyncDispos
         return new ProgressHandlerScope(registrationId, keys);
     }
 
+    public static IDisposable PushHumanInputHandler(McpCorrelationContext context, Action<McpHumanInputSignal> handler)
+    {
+        ArgumentNullException.ThrowIfNull(handler);
+
+        var registrationId = Guid.NewGuid();
+        ActiveHumanInputCalls[registrationId] = context;
+        var keys = BuildProgressHandlerKeys(context).Distinct(StringComparer.OrdinalIgnoreCase).ToArray();
+        foreach (var key in keys)
+        {
+            var handlers = HumanInputHandlers.GetOrAdd(key, _ => new ConcurrentDictionary<Guid, Action<McpHumanInputSignal>>());
+            handlers[registrationId] = handler;
+        }
+
+        return new HumanInputHandlerScope(registrationId, keys);
+    }
+
     public static bool PublishProgress(McpRealtimeProgressEvent progressEvent)
     {
         var delivered = false;
@@ -110,6 +128,36 @@ public sealed class ConfiguredMcpClientFactory : IMcpClientFactory, IAsyncDispos
         }
 
         return delivered;
+    }
+
+    public static bool PublishHumanInput(McpHumanInputSignal signal)
+    {
+        // Dispatch through the most specific available identity only. Falling through
+        // to server/method keys after an exact run/step match would let concurrent
+        // calls to the same cached MCP client observe each other's elicitation.
+        foreach (var key in BuildProgressHandlerKeys(signal.Correlation).Distinct(StringComparer.OrdinalIgnoreCase))
+        {
+            if (!HumanInputHandlers.TryGetValue(key, out var handlers))
+                continue;
+
+            var delivered = false;
+            foreach (var item in handlers)
+            {
+                try
+                {
+                    item.Value(signal);
+                    delivered = true;
+                }
+                catch
+                {
+                    // Human-input telemetry must never break the elicitation exchange.
+                }
+            }
+
+            return delivered;
+        }
+
+        return false;
     }
 
     public async Task<IMcpSession> GetClientAsync(string serverName, CancellationToken ct)
@@ -156,10 +204,12 @@ public sealed class ConfiguredMcpClientFactory : IMcpClientFactory, IAsyncDispos
                 $"Unknown MCP transport type '{config.Type}' for server '{serverName}'")
         };
 
-        return await McpClient.CreateAsync(transport, CreateClientOptions(_humanInputProvider), cancellationToken: ct);
+        return await McpClient.CreateAsync(transport, CreateClientOptions(_humanInputProvider, serverName), cancellationToken: ct);
     }
 
-    internal static McpClientOptions CreateClientOptions(IHumanInputProvider? humanInputProvider = null)
+    internal static McpClientOptions CreateClientOptions(
+        IHumanInputProvider? humanInputProvider = null,
+        string? serverName = null)
     {
         var options = new McpClientOptions
         {
@@ -172,7 +222,7 @@ public sealed class ConfiguredMcpClientFactory : IMcpClientFactory, IAsyncDispos
             options.Handlers = new McpClientHandlers
             {
                 ElicitationHandler = async (request, cancellationToken) =>
-                    await HandleElicitationAsync(humanInputProvider, request, cancellationToken)
+                    await HandleElicitationAsync(humanInputProvider, serverName, request, cancellationToken)
             };
         }
         return options;
@@ -180,12 +230,26 @@ public sealed class ConfiguredMcpClientFactory : IMcpClientFactory, IAsyncDispos
 
     private static async ValueTask<ElicitResult> HandleElicitationAsync(
         IHumanInputProvider provider,
+        string? serverName,
         ElicitRequestParams? request,
         CancellationToken cancellationToken)
     {
         if (request is null)
             return new ElicitResult { Action = "cancel" };
-        var correlation = CurrentCorrelation.Value;
+        // Elicitation may be dispatched by a cached client's background transport
+        // loop, where AsyncLocal state is not guaranteed to represent the active
+        // call. Prefer the call metadata echoed by the MCP server.
+        var correlation = ResolveHumanInputCorrelation(request.Meta);
+        if (correlation is null && !string.IsNullOrWhiteSpace(serverName))
+        {
+            correlation = ResolveSoleActiveHumanInputCall(serverName, out var ambiguous);
+            if (ambiguous)
+            {
+                throw new InvalidOperationException(
+                    $"MCP server '{serverName}' requested human input without call correlation metadata while multiple calls were active. The request was rejected to prevent cross-run input delivery.");
+            }
+        }
+        correlation ??= CurrentCorrelation.Value;
         var fields = request.RequestedSchema?.Properties.Select(property => new HumanInputFieldDef
         {
             Name = property.Key,
@@ -199,18 +263,47 @@ public sealed class ConfiguredMcpClientFactory : IMcpClientFactory, IAsyncDispos
                 _ => null
             }
         }).ToList();
-        var response = await provider.RequestInputAsync(new HumanInputRequest
+        var humanRequest = new HumanInputRequest
         {
             RunId = correlation?.RunId ?? correlation?.CorrelationId ?? Guid.NewGuid().ToString("N"),
             StepId = correlation?.StepId ?? "mcp-elicitation",
             Prompt = request.Message,
             Mode = fields is { Count: > 1 } ? HumanInputContract.ModeForm : HumanInputContract.ModeChoice,
+            Context = BuildMcpHumanInputContext(correlation),
             Fields = fields,
             Choices = fields is { Count: 1 } ? fields[0].Options : null,
             TimeoutMs = HumanInputContract.DefaultTimeoutMs
-        }, cancellationToken);
+        };
+        var effectiveCorrelation = correlation ?? new McpCorrelationContext
+        {
+            CorrelationId = humanRequest.RunId,
+            RunId = humanRequest.RunId,
+            StepId = humanRequest.StepId,
+            StepType = "mcp.call"
+        };
+        PublishHumanInput(new McpHumanInputSignal(effectiveCorrelation, humanRequest, McpHumanInputSignalPhase.Waiting));
+
+        JsonNode? response;
+        try
+        {
+            response = await provider.RequestInputAsync(humanRequest, cancellationToken);
+        }
+        catch
+        {
+            PublishHumanInput(new McpHumanInputSignal(effectiveCorrelation, humanRequest, McpHumanInputSignalPhase.Cancelled));
+            throw;
+        }
+
         if (response is null)
+        {
+            PublishHumanInput(new McpHumanInputSignal(effectiveCorrelation, humanRequest, McpHumanInputSignalPhase.Cancelled));
             return new ElicitResult { Action = "cancel" };
+        }
+
+        PublishHumanInput(new McpHumanInputSignal(
+            effectiveCorrelation,
+            humanRequest,
+            IsRefusalResponse(response) ? McpHumanInputSignalPhase.Refused : McpHumanInputSignalPhase.Resumed));
 
         var content = new Dictionary<string, JsonElement>(StringComparer.Ordinal);
         if (response is JsonObject responseObject)
@@ -236,6 +329,100 @@ public sealed class ConfiguredMcpClientFactory : IMcpClientFactory, IAsyncDispos
             content[fields[0].Name] = JsonDocument.Parse(response.ToJsonString()).RootElement.Clone();
         }
         return new ElicitResult { Action = "accept", Content = content };
+    }
+
+    private static JsonObject? BuildMcpHumanInputContext(McpCorrelationContext? correlation)
+    {
+        if (correlation is null)
+            return null;
+
+        var context = new JsonObject();
+        if (!string.IsNullOrWhiteSpace(correlation.ServerName))
+            context["mcp_server"] = correlation.ServerName;
+        if (!string.IsNullOrWhiteSpace(correlation.MethodName))
+            context["mcp_method"] = correlation.MethodName;
+        if (!string.IsNullOrWhiteSpace(correlation.Kind))
+            context["mcp_kind"] = correlation.Kind;
+        if (!string.IsNullOrWhiteSpace(correlation.ExecutionId))
+            context["execution_id"] = correlation.ExecutionId;
+        if (!string.IsNullOrWhiteSpace(correlation.AgentId))
+            context["agent_id"] = correlation.AgentId;
+        if (!string.IsNullOrWhiteSpace(correlation.AgentName))
+            context["agent_name"] = correlation.AgentName;
+        return context.Count == 0 ? null : context;
+    }
+
+    private static McpCorrelationContext? ResolveHumanInputCorrelation(JsonObject? meta)
+    {
+        if (meta is null)
+            return null;
+
+        var gnougo = meta["gnougo"] as JsonObject;
+        if (gnougo is null)
+            return null;
+
+        var correlation = new McpCorrelationContext
+        {
+            CorrelationId = ReadMetaString(gnougo, "correlationId"),
+            TenantId = ReadMetaString(gnougo, "tenantId"),
+            RunId = ReadMetaString(gnougo, "runId"),
+            ExecutionId = ReadMetaString(gnougo, "executionId"),
+            AgentId = ReadMetaString(gnougo, "agentId"),
+            AgentName = ReadMetaString(gnougo, "agentName"),
+            TraceId = ReadMetaString(gnougo, "traceId"),
+            SpanId = ReadMetaString(gnougo, "spanId"),
+            TraceParent = ReadMetaString(gnougo, "traceparent") ?? ReadMetaString(meta, "traceparent"),
+            StepId = ReadMetaString(gnougo, "stepId"),
+            StepType = ReadMetaString(gnougo, "stepType"),
+            ServerName = ReadMetaString(gnougo, "mcpServer"),
+            MethodName = ReadMetaString(gnougo, "mcpMethod"),
+            Kind = ReadMetaString(gnougo, "mcpKind"),
+            Context = gnougo["context"]?.DeepClone() as JsonObject
+        };
+
+        return string.IsNullOrWhiteSpace(correlation.CorrelationId)
+               && string.IsNullOrWhiteSpace(correlation.RunId)
+               && string.IsNullOrWhiteSpace(correlation.StepId)
+            ? null
+            : correlation;
+    }
+
+    private static McpCorrelationContext? ResolveSoleActiveHumanInputCall(
+        string serverName,
+        out bool ambiguous)
+    {
+        var matches = ActiveHumanInputCalls.Values
+            .Where(context => string.Equals(context.ServerName, serverName, StringComparison.OrdinalIgnoreCase))
+            .GroupBy(
+                static context => string.Join(
+                    "\u001f",
+                    context.CorrelationId ?? string.Empty,
+                    context.RunId ?? string.Empty,
+                    context.StepId ?? string.Empty),
+                StringComparer.Ordinal)
+            .Select(static group => group.First())
+            .Take(2)
+            .ToArray();
+        ambiguous = matches.Length > 1;
+        return matches.Length == 1 ? matches[0] : null;
+    }
+
+    private static string? ReadMetaString(JsonObject source, string name)
+        => source.TryGetPropertyValue(name, out var node)
+           && node is JsonValue value
+           && value.TryGetValue<string>(out var text)
+            ? text
+            : null;
+
+    private static bool IsRefusalResponse(JsonNode response)
+    {
+        var candidate = response;
+        if (response is JsonObject obj)
+            candidate = obj["response"] ?? obj["answer"] ?? obj["decision"] ?? response;
+
+        return candidate is JsonValue value
+               && value.TryGetValue<string>(out var text)
+               && text.Trim().ToLowerInvariant() is "deny" or "refuse" or "reject" or "cancel";
     }
 
     private static HttpClientTransport CreateHttpTransport(McpServerOptions config, McpCorrelationContext? correlation)
@@ -586,6 +773,9 @@ public sealed class ConfiguredMcpClientFactory : IMcpClientFactory, IAsyncDispos
         AddJson(gnougo, "correlationId", correlation?.CorrelationId);
         AddJson(gnougo, "tenantId", correlation?.TenantId);
         AddJson(gnougo, "runId", correlation?.RunId);
+        AddJson(gnougo, "executionId", correlation?.ExecutionId);
+        AddJson(gnougo, "agentId", correlation?.AgentId);
+        AddJson(gnougo, "agentName", correlation?.AgentName);
         AddJson(gnougo, "traceId", activity?.TraceId.ToString() ?? correlation?.TraceId);
         AddJson(gnougo, "spanId", activity?.SpanId.ToString() ?? correlation?.SpanId);
         AddJson(gnougo, "parentSpanId", activity?.ParentSpanId.ToString() ?? correlation?.SpanId);
@@ -706,6 +896,38 @@ public sealed class ConfiguredMcpClientFactory : IMcpClientFactory, IAsyncDispos
         }
     }
 
+    private sealed class HumanInputHandlerScope : IDisposable
+    {
+        private readonly Guid _registrationId;
+        private readonly IReadOnlyList<string> _keys;
+        private bool _disposed;
+
+        public HumanInputHandlerScope(Guid registrationId, IReadOnlyList<string> keys)
+        {
+            _registrationId = registrationId;
+            _keys = keys;
+        }
+
+        public void Dispose()
+        {
+            if (_disposed)
+                return;
+
+            foreach (var key in _keys)
+            {
+                if (!HumanInputHandlers.TryGetValue(key, out var handlers))
+                    continue;
+
+                handlers.TryRemove(_registrationId, out _);
+                if (handlers.IsEmpty)
+                    HumanInputHandlers.TryRemove(key, out _);
+            }
+
+            ActiveHumanInputCalls.TryRemove(_registrationId, out _);
+            _disposed = true;
+        }
+    }
+
     private sealed class StdioServerDiagnostics
     {
         private readonly object _gate = new();
@@ -802,6 +1024,19 @@ public sealed class McpRealtimeProgressEvent
     public string? Timestamp { get; init; }
 }
 
+public enum McpHumanInputSignalPhase
+{
+    Waiting,
+    Resumed,
+    Refused,
+    Cancelled
+}
+
+public sealed record McpHumanInputSignal(
+    McpCorrelationContext Correlation,
+    HumanInputRequest Request,
+    McpHumanInputSignalPhase Phase);
+
 /// <summary>
 /// Adapts a <see cref="McpClient"/> from the Microsoft library
 /// to the <see cref="IMcpSession"/> interface used by GnOuGo.Flow.Core executors.
@@ -850,6 +1085,7 @@ internal sealed class McpSessionAdapter : IMcpSession, ILiveMcpToolDiscoverySess
         {
             Name = t.Name,
             Description = t.Description,
+            Meta = t.ProtocolTool.Meta?.DeepClone(),
             InputSchema = t.JsonSchema.ValueKind != JsonValueKind.Undefined
                 ? JsonNode.Parse(t.JsonSchema.GetRawText())
                 : null,

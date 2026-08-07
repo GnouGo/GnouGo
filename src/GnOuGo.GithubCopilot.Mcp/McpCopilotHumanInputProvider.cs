@@ -7,28 +7,69 @@ namespace GnOuGo.GithubCopilot.Mcp;
 
 internal sealed class McpCopilotHumanInputProvider : ICopilotHumanInputProvider
 {
-    private readonly AsyncLocal<McpServer?> _currentServer = new();
+    private readonly AsyncLocal<RequestContext?> _currentRequest = new();
+    private readonly CodeProgressReporter _progress;
+    private readonly CodeMcpTraceContextAccessor _traceContext;
 
-    public IDisposable Push(McpServer server)
+    public McpCopilotHumanInputProvider(
+        CodeProgressReporter progress,
+        CodeMcpTraceContextAccessor traceContext)
     {
-        var previous = _currentServer.Value;
-        _currentServer.Value = server;
+        _progress = progress;
+        _traceContext = traceContext;
+    }
+
+    public IDisposable Push(McpServer server, CancellationToken cancellationToken = default)
+    {
+        var previous = _currentRequest.Value;
+        _currentRequest.Value = new RequestContext(
+            server,
+            cancellationToken,
+            CodeMcpTraceContext.Capture(_traceContext));
         return new Scope(this, previous);
     }
 
     public async Task<CopilotHumanInputResponse> RequestAsync(CopilotHumanInputRequest request, CancellationToken cancellationToken)
     {
-        var server = _currentServer.Value
+        var current = _currentRequest.Value
             ?? throw new InvalidOperationException("Interactive Copilot callbacks require an active MCP request context.");
+        using var linkedCancellation = CancellationTokenSource.CreateLinkedTokenSource(
+            cancellationToken,
+            current.CancellationToken);
         var schema = request.RequestedSchema is { } requestedSchema
             ? ConvertSchema(requestedSchema)
             : BuildAnswerSchema(request);
-        var result = await server.ElicitAsync(new ElicitRequestParams
+        var progressKind = NormalizeProgressKind(request.Kind);
+        _progress.Report(
+            progressKind + ".requested",
+            "thinking",
+            BuildWaitingMessage(request.Kind),
+            fallbackServer: "GnOuGo.GithubCopilot.Mcp",
+            fallbackMethod: "copilot_interactive_one_shot",
+            fallbackMcpKind: "tool");
+
+        ElicitResult result;
+        try
         {
-            Mode = "form",
-            Message = request.Prompt,
-            RequestedSchema = schema
-        }, cancellationToken);
+            result = await current.Server.ElicitAsync(new ElicitRequestParams
+            {
+                Mode = "form",
+                Message = request.Prompt,
+                RequestedSchema = schema,
+                Meta = current.TraceContext?.ToMcpMeta()
+            }, linkedCancellation.Token);
+        }
+        catch (OperationCanceledException)
+        {
+            _progress.Report(
+                progressKind + ".cancelled",
+                "warning",
+                BuildCancelledMessage(request.Kind),
+                fallbackServer: "GnOuGo.GithubCopilot.Mcp",
+                fallbackMethod: "copilot_interactive_one_shot",
+                fallbackMcpKind: "tool");
+            throw;
+        }
 
         var answer = result.Content is not null
             && result.Content.TryGetValue("answer", out var value)
@@ -42,8 +83,35 @@ internal sealed class McpCopilotHumanInputProvider : ICopilotHumanInputProvider
         var content = result.Content is null
             ? (JsonElement?)null
             : JsonSerializer.SerializeToElement(result.Content, CodeMcpJsonContext.Default.DictionaryStringJsonElement);
+        _progress.Report(
+            progressKind + ".completed",
+            accepted ? "info" : "warning",
+            BuildCompletedMessage(request.Kind, accepted),
+            fallbackServer: "GnOuGo.GithubCopilot.Mcp",
+            fallbackMethod: "copilot_interactive_one_shot",
+            fallbackMcpKind: "tool");
         return new CopilotHumanInputResponse(accepted, answer, request.AllowFreeform, content);
     }
+
+    private static string NormalizeProgressKind(string? kind)
+        => string.IsNullOrWhiteSpace(kind)
+            ? "human_input"
+            : "human_input." + kind.Trim().ToLowerInvariant().Replace(' ', '_');
+
+    private static string BuildWaitingMessage(string? kind)
+        => string.Equals(kind, "permission", StringComparison.OrdinalIgnoreCase)
+            ? "Copilot is waiting for permission."
+            : "Copilot is waiting for human input.";
+
+    private static string BuildCancelledMessage(string? kind)
+        => string.Equals(kind, "permission", StringComparison.OrdinalIgnoreCase)
+            ? "The Copilot permission request was cancelled."
+            : "The Copilot human-input request was cancelled.";
+
+    private static string BuildCompletedMessage(string? kind, bool accepted)
+        => string.Equals(kind, "permission", StringComparison.OrdinalIgnoreCase)
+            ? accepted ? "Copilot permission was answered." : "Copilot permission was refused."
+            : accepted ? "Copilot human input was received." : "Copilot human input was refused.";
 
     private static ElicitRequestParams.RequestSchema BuildAnswerSchema(CopilotHumanInputRequest request)
     {
@@ -98,8 +166,13 @@ internal sealed class McpCopilotHumanInputProvider : ICopilotHumanInputProvider
     private static string? ReadString(JsonElement source, string name)
         => source.TryGetProperty(name, out var value) && value.ValueKind == JsonValueKind.String ? value.GetString() : null;
 
-    private sealed class Scope(McpCopilotHumanInputProvider owner, McpServer? previous) : IDisposable
+    private sealed record RequestContext(
+        McpServer Server,
+        CancellationToken CancellationToken,
+        CodeMcpTraceContext? TraceContext);
+
+    private sealed class Scope(McpCopilotHumanInputProvider owner, RequestContext? previous) : IDisposable
     {
-        public void Dispose() => owner._currentServer.Value = previous;
+        public void Dispose() => owner._currentRequest.Value = previous;
     }
 }

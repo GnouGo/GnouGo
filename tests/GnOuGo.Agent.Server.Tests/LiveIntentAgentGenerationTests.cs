@@ -8,6 +8,7 @@ using GnOuGo.Flow.Core.Compilation;
 using GnOuGo.Flow.Core.Models;
 using GnOuGo.Flow.Core.Parsing;
 using GnOuGo.Flow.Core.Runtime;
+using GnOuGo.Mcp.Core;
 using GnOuGo.Workspace;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.Extensions.Caching.Memory;
@@ -21,9 +22,16 @@ public sealed class LiveIntentAgentGenerationTests
 {
     private const string EnableVariable = "GNOU_GO_LIVE_INTENT_AGENT_E2E";
     private const string AcceptancePrompt = """
-        Create a reusable agent that accepts a GitHub pull-request URL and review
-        instructions. Use the configured AI and MCP capabilities to review the changed
-        code and publish high-confidence findings as GitHub pull-request review comments.
+        Create a reusable agent that accepts a GitHub pull-request URL and review instructions.
+
+        For the supplied pull request:
+        1. Clone the project once.
+        2. Ask Copilot to install or restore dependencies for every modified project.
+        3. Ask Copilot to run all relevant unit tests and linters.
+        4. Ask Copilot to review all changed code and publish only high-confidence findings as inline GitHub pull-request review comments.
+        5. APPROVE only when dependency restoration, tests, lint, and complete changed-code coverage succeed without findings; otherwise submit REQUEST_CHANGES. Include a functional-then-technical summary with dependency, test, lint, coverage, and findings status.
+
+        Whatever happens, delete every directory created by the workflow at the end.
         """;
 
     [Fact]
@@ -225,10 +233,11 @@ public sealed class LiveIntentAgentGenerationTests
         Assert.Contains("review_instructions", inputs.Keys, StringComparer.Ordinal);
 
         var steps = EnumerateReachableSteps(document, compiled.Entrypoint!).ToArray();
-        Assert.Contains(steps, static step => step.Type == "human.input");
+        Assert.Single(steps, static step => step.Type == "human.input");
         var calls = steps.Where(static step => step.Type == "mcp.call").ToArray();
         Assert.NotEmpty(calls);
         var discovered = new Dictionary<string, (Dictionary<string, McpToolInfo> Tools, HashSet<string> Prompts)>(StringComparer.Ordinal);
+        var resolvedToolCalls = new List<(StepDef Step, McpToolInfo Tool)>();
         foreach (var call in calls)
         {
             var server = call.Input?["server"]?.GetValue<string>();
@@ -249,8 +258,71 @@ public sealed class LiveIntentAgentGenerationTests
             Assert.True(kind == "prompt" ? catalog.Prompts.Contains(method!) : catalog.Tools.ContainsKey(method!),
                 $"Generated call '{server}/{method}' was not present in the live discovered catalog.");
             if (kind != "prompt" && catalog.Tools.TryGetValue(method!, out var tool))
+            {
                 ValidateLiteralSelectors(tool.InputSchema, call.Input?["request"]);
+                resolvedToolCalls.Add((call, tool));
+            }
         }
+
+        var workspaceMaterializers = resolvedToolCalls.Where(static call =>
+        {
+            var parsed = McpArtifactContractParser.ParseAndValidate(
+                call.Tool.Meta,
+                call.Tool.InputSchema,
+                call.Tool.OutputSchema);
+            return parsed.IsValid && parsed.Contract!.Produces.Any(static artifact =>
+                artifact.Kind == McpArtifactContractMetadata.WorkspaceDirectoryKind
+                && artifact.Mode == McpArtifactContractMetadata.MaterializeMode);
+        }).ToArray();
+        Assert.Single(workspaceMaterializers);
+
+        var workspaceConsumers = resolvedToolCalls.Where(static call =>
+        {
+            var parsed = McpArtifactContractParser.ParseAndValidate(
+                call.Tool.Meta,
+                call.Tool.InputSchema,
+                call.Tool.OutputSchema);
+            return parsed.IsValid && parsed.Contract!.Consumes.Any(static artifact =>
+                artifact.Kind == McpArtifactContractMetadata.WorkspaceDirectoryKind && artifact.Required);
+        }).ToArray();
+        Assert.NotEmpty(workspaceConsumers);
+        Assert.All(workspaceConsumers, static call =>
+        {
+            var projectRoot = call.Step.Input?["request"]?["projectRoot"]?.GetValue<string>();
+            Assert.False(string.IsNullOrWhiteSpace(projectRoot));
+            Assert.Contains("${", projectRoot, StringComparison.Ordinal);
+        });
+
+        var interactiveCopilotCalls = calls.Where(static call => string.Equals(
+            call.Input?["method"]?.GetValue<string>(),
+            "copilot_interactive_one_shot",
+            StringComparison.Ordinal)).ToArray();
+        Assert.True(interactiveCopilotCalls.Length >= 2);
+        Assert.Contains(interactiveCopilotCalls, static call =>
+            call.Input?["request"]?["prompt"]?.GetValue<string>()?.Contains("depend", StringComparison.OrdinalIgnoreCase) == true);
+        Assert.Contains(interactiveCopilotCalls, static call =>
+        {
+            var prompt = call.Input?["request"]?["prompt"]?.GetValue<string>();
+            return prompt?.Contains("test", StringComparison.OrdinalIgnoreCase) == true
+                   && (prompt.Contains("lint", StringComparison.OrdinalIgnoreCase)
+                       || prompt.Contains("format", StringComparison.OrdinalIgnoreCase));
+        });
+
+        var reviewEvents = calls
+            .Where(static call => string.Equals(call.Input?["method"]?.GetValue<string>(), "pull_request_review_write", StringComparison.Ordinal))
+            .Select(static call => call.Input?["request"]?["event"]?.GetValue<string>())
+            .Where(static value => !string.IsNullOrWhiteSpace(value))
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+        Assert.Contains("APPROVE", reviewEvents);
+        Assert.Contains("REQUEST_CHANGES", reviewEvents);
+
+        var finallyCalls = document.Workflows.Values
+            .SelectMany(static workflow => EnumerateSteps(workflow.Finally))
+            .Where(static step => step.Type == "mcp.call")
+            .ToArray();
+        Assert.Contains(finallyCalls, static call =>
+            string.Equals(call.Input?["method"]?.GetValue<string>(), "cmd_run", StringComparison.Ordinal)
+            && string.Equals(call.Input?["request"]?["commandName"]?.GetValue<string>(), "delete_directory", StringComparison.Ordinal));
 
         var githubServers = calls
             .Where(static call => string.Equals(
@@ -303,17 +375,18 @@ public sealed class LiveIntentAgentGenerationTests
                 var isSelector = propertySchema.ContainsKey("const")
                                  || string.Equals(discriminatorProperty, property.Key, StringComparison.Ordinal)
                                  || IsActionSelectorProperty(property.Key);
-                var allowed = isSelector
-                    ? ReadDocumentedScalarValues(propertySchema)
-                    : Array.Empty<JsonNode>();
+                var allowed = ReadDocumentedScalarValues(propertySchema);
                 if (allowed.Count > 0)
                 {
                     Assert.IsAssignableFrom<JsonValue>(requestValue);
                     if (requestValue is JsonValue textValue
                         && textValue.TryGetValue<string>(out var textValueString))
                     {
-                        Assert.DoesNotContain("${", textValueString, StringComparison.Ordinal);
-                        AssertStableCapabilityIdentifier(textValueString);
+                        if (isSelector)
+                        {
+                            Assert.DoesNotContain("${", textValueString, StringComparison.Ordinal);
+                            AssertStableCapabilityIdentifier(textValueString);
+                        }
                     }
                     Assert.Contains(allowed, candidate => JsonNode.DeepEquals(candidate, requestValue));
                 }
@@ -512,7 +585,7 @@ public sealed class LiveIntentAgentGenerationTests
             var inputs = new JsonObject
             {
                 [contract.PullRequestUrlInput] = $"https://github.com/{owner}/{repository}/pull/{pullNumber.Value}",
-                ["review_instructions"] = "Report the demonstrable division-by-zero correctness defect introduced by the changed fixture line. Publish only a high-confidence inline COMMENT finding."
+            ["review_instructions"] = "Report the demonstrable division-by-zero correctness defect introduced by the changed fixture line. Publish it as a high-confidence inline finding and submit REQUEST_CHANGES."
             };
 
             using var responderCancellation = CancellationTokenSource.CreateLinkedTokenSource(ct);
@@ -545,7 +618,7 @@ public sealed class LiveIntentAgentGenerationTests
             Assert.Contains(recordingFactory.Calls, static call => call.IsGitHub
                 && string.Equals(call.Method, "pull_request_review_write", StringComparison.Ordinal)
                 && string.Equals((call.Arguments as JsonObject)?["method"]?.GetValue<string>(), "submit_pending", StringComparison.Ordinal)
-                && string.Equals((call.Arguments as JsonObject)?["event"]?.GetValue<string>(), "COMMENT", StringComparison.OrdinalIgnoreCase));
+                && string.Equals((call.Arguments as JsonObject)?["event"]?.GetValue<string>(), "REQUEST_CHANGES", StringComparison.OrdinalIgnoreCase));
             Assert.DoesNotContain(recordingFactory.Calls, static call =>
                 call.Method.Contains("merge", StringComparison.OrdinalIgnoreCase)
                 || call.Method.Contains("push", StringComparison.OrdinalIgnoreCase)

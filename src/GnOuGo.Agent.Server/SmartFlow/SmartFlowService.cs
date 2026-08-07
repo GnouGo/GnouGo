@@ -399,6 +399,9 @@ public sealed class SmartFlowService
                 {
                     LogStepContent = true,
                     RunId = correlationId,
+                    ExecutionId = correlationId,
+                    AgentId = resolvedWorkflow.Agent?.Id,
+                    AgentName = resolvedWorkflow.AgentName,
                     TenantId = _tenantId
                 }
             };
@@ -1696,9 +1699,11 @@ public sealed class SmartFlowService
                       - It must expose an `answer` output string.
                       - It must remain self-contained and must not ask the user to review its own YAML.
                       - Prefer fixing the smallest root cause that explains the latest runtime error.
-                      - Preserve every local sub-workflow, workflow.call edge, step ID, step type, branch, public input, and public output contract.
-                      - Change only the identified failing step and, when required, existing expressions that directly consume that step.
-                      - For MCP failures, update the MCP request shape, output access, error handling, or tool choice based on the error details.
+                      - Preserve every unaffected local sub-workflow, workflow.call edge, step ID, step type, branch, public input, and public output contract.
+                      - Change the identified failing step and directly affected consumers. Also repair every occurrence of the same proven server/method/request-field contract violation so the replacement workflow is valid as a whole.
+                      - For MCP failures, update the request shape, output access, error handling, or tool choice from the discovered schema and error details. If the current tool cannot provide the original task's required interaction or safety behavior, replace it with a compatible discovered capability while preserving the step ID, output contract, workspace data flow, and unaffected orchestration.
+                      - Never invent or transform enum, const, discriminator, or other constrained MCP literals. Use an exact documented value; omit an optional argument only when its documented default satisfies the requested effect.
+                      - Treat host-policy-gated values as unavailable unless the user explicitly requested that behavior and discovery establishes availability.
                       - `mcp.call` raises workflow errors by default; use `on_error` only when the workflow can recover intentionally.
                       - Keep the workspace boundary: `.GnOuGo` is reserved for GnOuGo internal state and must never be used for workflow-facing paths. Put workflow-owned working directories below `workflows/<purpose-specific-name>`.
                     context: |

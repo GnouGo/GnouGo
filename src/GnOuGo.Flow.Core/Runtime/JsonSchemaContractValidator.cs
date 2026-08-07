@@ -683,9 +683,16 @@ internal static class JsonSchemaContractValidator
         }
 
         if (schema.TryGetPropertyValue("const", out var constant) && !JsonNode.DeepEquals(value, constant))
-            errors.Add($"{path}: value must equal {constant?.ToJsonString() ?? "null"}");
+        {
+            errors.Add(
+                $"{path}: value must equal {constant?.ToJsonString() ?? "null"}; received {value?.ToJsonString() ?? "null"}");
+        }
         if (schema["enum"] is JsonArray allowed && !allowed.Any(candidate => JsonNode.DeepEquals(value, candidate)))
-            errors.Add($"{path}: value is not included in enum");
+        {
+            var allowedText = string.Join(", ", allowed.Select(static candidate => candidate?.ToJsonString() ?? "null"));
+            errors.Add(
+                $"{path}: value is not included in enum; received {value?.ToJsonString() ?? "null"}; allowed values: {allowedText}");
+        }
 
         var applicableType = ReadApplicableType(schema, value);
         if (applicableType != null && !MatchesType(value, applicableType))

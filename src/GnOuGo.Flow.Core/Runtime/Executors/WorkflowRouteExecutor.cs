@@ -1482,6 +1482,9 @@ public sealed class WorkflowRouteExecutor : IStepExecutor
             MaxFunctionCallDepth = parent.MaxFunctionCallDepth,
             LogStepContent = parent.LogStepContent,
             TenantId = parent.TenantId,
+            ExecutionId = parent.ExecutionId ?? parent.RunId,
+            AgentId = parent.AgentId,
+            AgentName = parent.AgentName,
             RunId = $"{parentRunId}:route:{SanitizeRunIdPart(candidate.Id)}:{Guid.NewGuid():N}"
         };
     }

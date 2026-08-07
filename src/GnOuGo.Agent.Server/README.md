@@ -84,6 +84,9 @@ In other words, runtime consumers should treat the mounted MCP endpoints as part
 
 The persisted values live in the Agent MCP SQLite database (`Agent:DatabasePath`) rather than only in browser state.
 LLM provider and MCP server definitions are hydrated from encrypted KeyVault secrets; `user-settings.json` is no longer used. Each workflow execution builds its MCP runtime catalog from the latest KeyVault-backed definitions, so a server saved through `/mcp add` is available to the next `/gnougo add` or workflow run without restarting Agent.Server. `/mcp list` and workflow capability preflight therefore use the same persisted configuration source.
+
+For user-configured HTTP servers, `/mcp edit <name>` can keep the current authentication settings, rotate an API key, replace OIDC client credentials, switch between `api_key`, `oidc`, and `none`, or remove authentication. Choosing `keep_current` preserves the encrypted credentials; choosing a named authentication mode collects replacement credentials and clears fields belonging to the previous mode. Bundled MCP servers continue to expose only their allow-listed override fields, and stdio MCP servers do not use this HTTP authentication flow.
+
 `/llm add` can configure `openai`, `ollama`, `copilot`, and `anthropic` providers. The Anthropic provider uses the Anthropic Messages API endpoint `https://api.anthropic.com/v1` and stores the API key encrypted in KeyVault like the other remote providers. The legacy `claude` name is still accepted as an alias for existing configurations.
 
 After model selection, `/llm add` and `/llm edit <provider>` always display an editable review form containing token limits, pricing, structured-output/tool/JSON support, temperature and reasoning behavior, vision/audio/embedding support, supported reasoning efforts, and unsupported request parameters. Exact catalog values remain catalog-backed when accepted unchanged. Edited values and accepted fuzzy/heuristic defaults are persisted as non-secret, provider-qualified overrides such as `openai/model-id`; legacy unqualified overrides remain readable. Approximate matches are restricted to the normalized provider and the UI identifies the source model and similarity before saving.
@@ -166,7 +169,8 @@ Both menus close through a shared click-away backdrop and remain compact on
 mobile.
 
 Dynamic planning and routing have dedicated live semantics. `workflow.plan`
-walks the main GnOuGo to a planning roundabout, `workflow.route` uses a routing
+walks the main GnOuGo to a planning roundabout and keeps the `think` action for
+the complete running step, `workflow.route` uses a routing
 roundabout, and `workflow.execute` uses a handoff roundabout. When a generated or
 selected workflow starts, a caller-aware `workflow.discovered` event announces
 the new lane before its GnOuGo spawns and receives the parcel. Short generated
@@ -202,6 +206,24 @@ that card instead of becoming chat messages. Timeout, cancellation, and
 failure update the same parcel and execution status. Confirmation buttons use
 their labels only for presentation and submit a Boolean response; Flow.Core also
 normalizes provider labels such as `approve` and `reject` before expressions run.
+MCP elicitation uses this same visible card and wire payload. In particular,
+interactive Copilot permission requests emit the waiting animation before the
+form is streamed, and emit a resumed/refused/cancelled signal afterward. The
+request is correlated to its exact workflow run and MCP step rather than read
+from a shared pending-request queue, so concurrent executions cannot steal one
+another's permission form.
+
+When the Copilot host gate `Code__Copilot__EnableApproveAll=true` is enabled,
+permission cards distinguish **Allow similar operations for this task**,
+**Allow all for this Copilot task**, **Allow all for this workflow run**, and
+**Allow all future runs for this agent**. Persistent approval requires a second
+confirmation. It is keyed by tenant and stable agent ID, survives restarts and
+renames, and is revoked automatically when the agent is deleted. Use
+`/mcp copilot permissions` to list persistent grants and
+`/mcp copilot permissions revoke <grant-id>` to revoke one manually. Sandbox
+bypass always requires its own **Allow once / Refuse** decision. Automatically
+approved operations remain visible in **LIVE WORKFLOW ACTIVITY** and never leave
+a stale human-input card.
 
 `/api/chat/stream` retains its existing SSE event names and text payloads.
 Additional `animation.prepared`, `animation.scene.patch`, and
@@ -238,7 +260,7 @@ known to be current.
 
 When no explicit/default agent is selected, `SmartFlowService` runs the embedded `SmartFlow/main-routing-agent.yaml` workflow. That workflow uses `workflow.route` to expand all persisted database agents (`ref: { kind: database }`), select one or more relevant sub-workflows, auto-extract structured inputs from the prompt/history, and request any remaining missing or invalid declared inputs through the existing Human Input form before execution. Candidate forms are presented one at a time, then the completed workflows use their configured execution policy. The route also includes a local general fallback workflow so a fresh installation can still answer prompts before any persisted agents exist.
 
-`/gnougo add` runs generic two-pass capability preflight before workflow decomposition. The first structured call inventories runtime operations and constraints without seeing tools; the second matches them to opaque IDs from a compact schema-aware catalog. If the first inventory is incomplete, one bounded repair call separates missing user intent from later capability uncertainty. A second incomplete result is shown with sanitized clarification reasons and still fails before persistence. Documented scalar selectors make logical variants of a multi-action MCP tool distinct and lock their literal request values through decomposition and YAML validation. Host configuration, internal provider/credential resolution, and the outer agent-persistence action are outside the generated workflow inventory. Required resource cleanup is generated under the Flow workflow-level `finally` array.
+`/gnougo add` runs generic inventory-first capability preflight before workflow decomposition. The first structured call inventories runtime operations and constraints without seeing tools. A compact paged selector then chooses relevant physical MCP tools from one entry per tool, adds MCP-declared artifact producers, and expands authoritative schemas and selector variants only for that selected set before final matching. If inventory or required-candidate selection is incomplete, each stage gets one bounded repair. Complete discovery remains available to dry runs and deterministic validation, and the 256,000-character expanded-catalog guard is unchanged. Documented scalar selectors make logical variants of a multi-action MCP tool distinct and lock their literal request values through decomposition and YAML validation. Host configuration, internal provider/credential resolution, and the outer agent-persistence action are outside the generated workflow inventory. Required resource cleanup is generated under the Flow workflow-level `finally` array.
 
 Read and write capabilities remain discoverable by default; preflight describes availability rather than silently changing an MCP server's execution policy. When preflight fails, the chat response and trace show the sanitized error code, unavailable operation IDs/descriptions, failed catalogs, and a generic configuration action instead of only the summary message.
 

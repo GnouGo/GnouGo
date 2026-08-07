@@ -252,12 +252,12 @@ public sealed class McpCallExecutor : IStepExecutor
         if (errorPolicy.DetectResultErrors)
             ctx.SetTelemetryAttribute("mcp.detect_result_errors", true);
 
+        using var timeoutCts = timeoutMs.HasValue
+            ? new CancellationTokenSource(timeoutMs.Value)
+            : new CancellationTokenSource();
+        using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(ct, timeoutCts.Token);
         try
         {
-            using var timeoutCts = timeoutMs.HasValue
-                ? new CancellationTokenSource(timeoutMs.Value)
-                : new CancellationTokenSource();
-            using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(ct, timeoutCts.Token);
 
             var requestContext = ValidateAndCloneRequestContext(input["context"]);
             var correlation = BuildCorrelationContext(ctx, serverName, kind, singleMethod, batchMethods, requestContext);
@@ -274,6 +274,9 @@ public sealed class McpCallExecutor : IStepExecutor
                     realtimeProgressFingerprints.TryAdd(BuildProgressFingerprint(progressEvent.EventKind, progressEvent.Message, progressEvent.File), 0);
                     EmitRealtimeMcpProgressEventAsThinking(ctx, progressEvent, correlation);
                 });
+            using var humanInputScope = ConfiguredMcpClientFactory.PushHumanInputHandler(
+                correlation,
+                signal => EmitRealtimeMcpHumanInputSignal(ctx, signal));
             await using var session = await factory.GetClientAsync(serverName, linkedCts.Token);
 
             IReadOnlyList<McpToolInfo>? runtimeToolCatalog = null;
@@ -391,11 +394,15 @@ public sealed class McpCallExecutor : IStepExecutor
         {
             throw;
         }
-        catch (OperationCanceledException) when (!ct.IsCancellationRequested)
+        catch (OperationCanceledException) when (timeoutCts.IsCancellationRequested && !ct.IsCancellationRequested)
         {
             var target = batchMethods != null ? string.Join(", ", batchMethods) : singleMethod ?? (hasPromptSelection ? "(llm-selection)" : "(auto)");
             throw new WorkflowRuntimeException(ErrorCodes.McpTimeout,
                 $"mcp.call to '{serverName}/{target}' timed out after {timeoutMs}ms", retryable: true);
+        }
+        catch (OperationCanceledException) when (ct.IsCancellationRequested)
+        {
+            throw;
         }
         catch (Exception ex)
         {
@@ -862,6 +869,7 @@ Produce the final answer strictly from the executed MCP results.
                 Name = name,
                 Description = node["description"]?.GetValue<string>(),
                 InputSchema = node["input_schema"]?.DeepClone() ?? node["inputSchema"]?.DeepClone(),
+                Meta = node["meta"]?.DeepClone() ?? node["_meta"]?.DeepClone(),
                 OutputSchema = node["output_schema"]?.DeepClone() ?? node["outputSchema"]?.DeepClone(),
                 ExampleResponse = node["example_response"]?.DeepClone() ?? node["exampleResponse"]?.DeepClone()
             }), usedNames));
@@ -1233,6 +1241,71 @@ Produce the final answer strictly from the executed MCP results.
         ctx.AddTelemetryEvent("gnougo-flow.step.thinking", attributes);
     }
 
+    private static void EmitRealtimeMcpHumanInputSignal(
+        StepExecutionContext ctx,
+        McpHumanInputSignal signal)
+    {
+        if (signal.Phase == McpHumanInputSignalPhase.Waiting)
+        {
+            ctx.AddTelemetryEvent("gnougo-flow.step.waiting_for_human", new[]
+            {
+                new KeyValuePair<string, object?>("gnougo-flow.human.prompt", signal.Request.Prompt),
+                new KeyValuePair<string, object?>("gnougo-flow.human.request", BuildHumanInputRequestPayload(signal.Request).ToJsonString()),
+                new KeyValuePair<string, object?>("gnougo-flow.human.phase", "waiting"),
+                new KeyValuePair<string, object?>("mcp.server.name", signal.Correlation.ServerName),
+                new KeyValuePair<string, object?>("mcp.method.name", signal.Correlation.MethodName),
+                new KeyValuePair<string, object?>("mcp.kind", signal.Correlation.Kind)
+            });
+            return;
+        }
+
+        ctx.AddTelemetryEvent("gnougo-flow.step.human_input_resumed", new[]
+        {
+            new KeyValuePair<string, object?>("gnougo-flow.human.run_id", signal.Request.RunId),
+            new KeyValuePair<string, object?>("gnougo-flow.human.step_id", signal.Request.StepId),
+            new KeyValuePair<string, object?>("gnougo-flow.human.phase", signal.Phase.ToString().ToLowerInvariant()),
+            new KeyValuePair<string, object?>("mcp.server.name", signal.Correlation.ServerName),
+            new KeyValuePair<string, object?>("mcp.method.name", signal.Correlation.MethodName),
+            new KeyValuePair<string, object?>("mcp.kind", signal.Correlation.Kind)
+        });
+    }
+
+    private static JsonObject BuildHumanInputRequestPayload(HumanInputRequest request)
+    {
+        var payload = new JsonObject
+        {
+            ["prompt"] = request.Prompt,
+            ["mode"] = request.Mode,
+            ["run_id"] = request.RunId,
+            ["step_id"] = request.StepId,
+            ["timeout_ms"] = request.TimeoutMs
+        };
+        if (request.Context is not null)
+            payload["context"] = request.Context.DeepClone();
+        if (request.Choices is { Count: > 0 })
+            payload["choices"] = new JsonArray(request.Choices.Select(static choice => (JsonNode)JsonValue.Create(choice)!).ToArray());
+        if (request.Fields is { Count: > 0 })
+        {
+            payload["fields"] = new JsonArray(request.Fields.Select(static field =>
+            {
+                var node = new JsonObject
+                {
+                    ["name"] = field.Name,
+                    ["type"] = field.Type,
+                    ["required"] = field.Required
+                };
+                if (field.Description is not null)
+                    node["description"] = field.Description;
+                if (field.Options is { Count: > 0 })
+                    node["options"] = new JsonArray(field.Options.Select(static option => (JsonNode)JsonValue.Create(option)!).ToArray());
+                if (field.Default is not null)
+                    node["default"] = field.Default;
+                return (JsonNode)node;
+            }).ToArray());
+        }
+        return payload;
+    }
+
     private static string BuildProgressFingerprint(string? eventKind, string? message, string? file)
         => string.Join("\u001f", eventKind ?? string.Empty, message ?? string.Empty, file ?? string.Empty);
 
@@ -1348,6 +1421,9 @@ Produce the final answer strictly from the executed MCP results.
             TenantId = ctx.Limits.TenantId ?? Environment.GetEnvironmentVariable("GNouGo__TenantId"),
             CorrelationId = ctx.Limits.RunId ?? activity?.TraceId.ToString() ?? Guid.NewGuid().ToString("N"),
             RunId = ctx.Limits.RunId,
+            ExecutionId = ctx.Limits.ExecutionId ?? ctx.Limits.RunId,
+            AgentId = ctx.Limits.AgentId,
+            AgentName = ctx.Limits.AgentName,
             TraceId = traceId,
             SpanId = spanId,
             TraceParent = activity != null ? $"00-{activity.TraceId}-{activity.SpanId}-{(activity.ActivityTraceFlags.HasFlag(ActivityTraceFlags.Recorded) ? "01" : "00")}" : null,
@@ -1362,7 +1438,7 @@ Produce the final answer strictly from the executed MCP results.
 
     private static readonly HashSet<string> ReservedContextKeys = new(StringComparer.OrdinalIgnoreCase)
     {
-        "correlationId", "tenantId", "runId", "traceId", "spanId", "parentSpanId",
+        "correlationId", "tenantId", "runId", "executionId", "agentId", "agentName", "traceId", "spanId", "parentSpanId",
         "traceparent", "tracestate", "stepId", "stepType", "mcpServer", "mcpMethod", "mcpKind"
     };
 

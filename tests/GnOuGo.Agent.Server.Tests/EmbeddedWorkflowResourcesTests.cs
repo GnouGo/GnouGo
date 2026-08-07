@@ -61,6 +61,15 @@ public sealed class EmbeddedWorkflowResourcesTests
         Assert.DoesNotContain("publication_policy", yaml, StringComparison.OrdinalIgnoreCase);
     }
 
+    [Fact]
+    public void DynamicWorkflowAgent_EnablesInferredCapabilityPreflight()
+    {
+        var yaml = LoadEmbeddedYaml("dynamic-workflow-agent.yaml");
+
+        Assert.Contains("capability_preflight:", yaml, StringComparison.Ordinal);
+        Assert.Contains("mode: infer", yaml, StringComparison.Ordinal);
+    }
+
     [Theory]
     [InlineData("configure-agents-agent.yaml")]
     [InlineData("dynamic-workflow-agent.yaml")]
@@ -81,6 +90,10 @@ public sealed class EmbeddedWorkflowResourcesTests
 
         Assert.Contains("`.GnOuGo` is reserved for GnOuGo internal state", yaml, StringComparison.Ordinal);
         Assert.Contains("`workflows/<purpose-specific-name>`", yaml, StringComparison.Ordinal);
+        Assert.Contains("repair every occurrence of the same proven server/method/request-field contract violation", yaml, StringComparison.Ordinal);
+        Assert.Contains("replace it with a compatible discovered capability", yaml, StringComparison.Ordinal);
+        Assert.Contains("Never invent or transform enum, const, discriminator, or other constrained MCP literals", yaml, StringComparison.Ordinal);
+        Assert.Contains("Treat host-policy-gated values as unavailable", yaml, StringComparison.Ordinal);
         Assert.DoesNotContain(".GnOuGo/data/reviews", yaml, StringComparison.OrdinalIgnoreCase);
         Assert.DoesNotContain(".GnOuGo/data/e2e", yaml, StringComparison.OrdinalIgnoreCase);
     }

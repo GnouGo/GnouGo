@@ -18,6 +18,9 @@ internal sealed record CodeMcpTraceContext(
     string? McpKind)
 {
     public string? TenantId { get; init; }
+    public string? ExecutionId { get; init; }
+    public string? AgentId { get; init; }
+    public string? AgentName { get; init; }
     public string? Repository { get; init; }
     public int? PullRequestNumber { get; init; }
     public string? HeadSha { get; init; }
@@ -42,6 +45,9 @@ internal sealed record CodeMcpTraceContext(
             McpMethod = FirstNonEmpty(activityContext.McpMethod, requestContext.McpMethod),
             McpKind = FirstNonEmpty(activityContext.McpKind, requestContext.McpKind),
             TenantId = FirstNonEmpty(activityContext.TenantId, requestContext.TenantId),
+            ExecutionId = FirstNonEmpty(activityContext.ExecutionId, requestContext.ExecutionId),
+            AgentId = FirstNonEmpty(activityContext.AgentId, requestContext.AgentId),
+            AgentName = FirstNonEmpty(activityContext.AgentName, requestContext.AgentName),
             Repository = FirstNonEmpty(activityContext.Repository, requestContext.Repository),
             PullRequestNumber = activityContext.PullRequestNumber ?? requestContext.PullRequestNumber,
             HeadSha = FirstNonEmpty(activityContext.HeadSha, requestContext.HeadSha)
@@ -68,6 +74,9 @@ internal sealed record CodeMcpTraceContext(
             McpKind: Environment.GetEnvironmentVariable("GNouGo__McpKind"))
         {
             TenantId = Environment.GetEnvironmentVariable("GNouGo__TenantId"),
+            ExecutionId = Environment.GetEnvironmentVariable("GNouGo__ExecutionId"),
+            AgentId = Environment.GetEnvironmentVariable("GNouGo__AgentId"),
+            AgentName = Environment.GetEnvironmentVariable("GNouGo__AgentName"),
             Repository = Environment.GetEnvironmentVariable("GNouGo__Repository"),
             PullRequestNumber = ReadInt(Environment.GetEnvironmentVariable("GNouGo__PullRequestNumber")),
             HeadSha = Environment.GetEnvironmentVariable("GNouGo__HeadSha")
@@ -107,6 +116,9 @@ internal sealed record CodeMcpTraceContext(
             McpKind: Environment.GetEnvironmentVariable("GNouGo__McpKind"))
         {
             TenantId = Environment.GetEnvironmentVariable("GNouGo__TenantId"),
+            ExecutionId = Environment.GetEnvironmentVariable("GNouGo__ExecutionId"),
+            AgentId = Environment.GetEnvironmentVariable("GNouGo__AgentId"),
+            AgentName = Environment.GetEnvironmentVariable("GNouGo__AgentName"),
             Repository = Environment.GetEnvironmentVariable("GNouGo__Repository"),
             PullRequestNumber = ReadInt(Environment.GetEnvironmentVariable("GNouGo__PullRequestNumber")),
             HeadSha = Environment.GetEnvironmentVariable("GNouGo__HeadSha")
@@ -150,6 +162,9 @@ internal sealed record CodeMcpTraceContext(
             McpKind: ReadString(gnougo, "mcpKind"))
         {
             TenantId = ReadString(gnougo, "tenantId"),
+            ExecutionId = ReadString(gnougo, "executionId"),
+            AgentId = ReadString(gnougo, "agentId"),
+            AgentName = ReadString(gnougo, "agentName"),
             Repository = ReadString(domainContext, "repository") ?? ReadString(gnougo, "repository"),
             PullRequestNumber = ReadInt(domainContext, "pullRequestNumber") ?? ReadInt(gnougo, "pullRequestNumber"),
             HeadSha = ReadString(domainContext, "headSha") ?? ReadString(gnougo, "headSha")
@@ -174,6 +189,9 @@ internal sealed record CodeMcpTraceContext(
         Add(gnougo, "mcpMethod", McpMethod);
         Add(gnougo, "mcpKind", McpKind);
         Add(gnougo, "tenantId", TenantId);
+        Add(gnougo, "executionId", ExecutionId);
+        Add(gnougo, "agentId", AgentId);
+        Add(gnougo, "agentName", AgentName);
         var domainContext = new JsonObject();
         Add(domainContext, "repository", Repository);
         if (PullRequestNumber is not null)
@@ -204,6 +222,9 @@ internal sealed record CodeMcpTraceContext(
         Add(headers, "x-gnougo-mcp-method", McpMethod);
         Add(headers, "x-gnougo-mcp-kind", McpKind);
         Add(headers, "x-gnougo-tenant-id", TenantId);
+        Add(headers, "x-gnougo-execution-id", ExecutionId);
+        Add(headers, "x-gnougo-agent-id", AgentId);
+        Add(headers, "x-gnougo-agent-name", AgentName);
         Add(headers, "x-gnougo-repository", Repository);
         if (PullRequestNumber is not null)
             headers["x-gnougo-pr-number"] = PullRequestNumber.Value.ToString(System.Globalization.CultureInfo.InvariantCulture);
@@ -228,6 +249,9 @@ internal sealed record CodeMcpTraceContext(
         Add(env, "GNouGo__McpMethod", McpMethod);
         Add(env, "GNouGo__McpKind", McpKind);
         Add(env, "GNouGo__TenantId", TenantId);
+        Add(env, "GNouGo__ExecutionId", ExecutionId);
+        Add(env, "GNouGo__AgentId", AgentId);
+        Add(env, "GNouGo__AgentName", AgentName);
         Add(env, "GNouGo__Repository", Repository);
         if (PullRequestNumber is not null)
             env["GNouGo__PullRequestNumber"] = PullRequestNumber.Value.ToString(System.Globalization.CultureInfo.InvariantCulture);
@@ -244,6 +268,9 @@ internal sealed record CodeMcpTraceContext(
            || !string.IsNullOrWhiteSpace(RunId)
            || !string.IsNullOrWhiteSpace(StepId)
            || !string.IsNullOrWhiteSpace(TenantId)
+           || !string.IsNullOrWhiteSpace(ExecutionId)
+           || !string.IsNullOrWhiteSpace(AgentId)
+           || !string.IsNullOrWhiteSpace(AgentName)
            || !string.IsNullOrWhiteSpace(Repository)
            || PullRequestNumber is not null
            || !string.IsNullOrWhiteSpace(HeadSha);

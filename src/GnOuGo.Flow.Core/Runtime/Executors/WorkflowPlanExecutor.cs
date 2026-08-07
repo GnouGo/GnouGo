@@ -37,7 +37,9 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
         "7. Prefer the exact MCP argument name and type.",
         "8. Read argument descriptions as part of the contract: a globally optional argument can be mandatory for the selected mode, discriminator, target, or operation.",
         "9. When forwarding a typed source item, preserve exact-named schema-compatible identity, target, location, range, and selector values unless their descriptions limit them to a case that does not apply.",
-        "10. Before returning YAML, self-check every selected enum/const/discriminator value against the tool and argument descriptions and include all applicable companion arguments."
+        "10. Treat enum, const, discriminator, pattern, and range constraints as authoritative for every MCP property, not only fields named mode, method, action, or operation.",
+        "11. Never invent, construct, transform, or guess a constrained literal. Use one exact documented value, or omit an optional property only when its documented default satisfies the requested effect.",
+        "12. Select a capability whose documented interaction and safety behavior satisfies the task. Do not select a host-policy-gated value unless the user explicitly requested that behavior and discovery establishes its availability."
     };
 
     public string StepType => "workflow.plan";
@@ -50,6 +52,7 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
         new(ErrorCodes.CapabilityPreflightUnavailable, false, "A required operation has no exact discovered MCP capability or allowed native step."),
         new(ErrorCodes.CapabilityPreflightDiscoveryFailed, false, "A configured MCP catalog required for fail-closed capability validation could not be discovered."),
         new(ErrorCodes.CapabilityPreflightInferenceFailed, false, "Capability inference returned an invalid, uncertain, or incomplete operation inventory."),
+        new(ErrorCodes.CapabilityPreflightRedundantArtifactProducer, false, "The generated workflow materializes an MCP artifact more times than capability preflight authorized."),
         new(ErrorCodes.WorkflowPlanRepairStalled, false, "The same normalized validation diagnostics survived two repair attempts.")
     };
 
@@ -330,6 +333,12 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
         basePrompt.AppendLine("- Use documented output shapes exactly: `template.render` text is `data.steps.<id>.text`; `llm.call` text is `data.steps.<id>.text` and structured JSON is `data.steps.<id>.json`; `mcp.call` single-tool response is `data.steps.<id>.response`.");
         basePrompt.AppendLine("- Do not assume nested fields inside opaque MCP `response` unless the tool schema/description explicitly documents them; pass the whole response onward when uncertain.");
         basePrompt.AppendLine("- NEVER invent properties under `data.steps.<id>.response`. Access `response.<field>` only when an `output_schema` or `example_response` explicitly documents that field.");
+        basePrompt.AppendLine("- Every discovered MCP `input_schema` is authoritative for every request property. Use enum/const values exactly as documented; never invent, concatenate, template, cast, normalize, or guess a constrained literal.");
+        basePrompt.AppendLine("- Omit an optional MCP argument only when its documented default satisfies the requested effect. If the selected capability cannot provide the required interaction or safety behavior, choose another documented capability instead of weakening or bypassing its policy.");
+        basePrompt.AppendLine("- Treat host-policy-gated values as unavailable unless the user explicitly requested that behavior and the discovered contract establishes availability.");
+        basePrompt.AppendLine("- Treat a discovered MCP `artifact_contract` as authoritative. A `produces` pointer identifies the exact response field that materializes an artifact; a compatible `consumes` pointer identifies the request field that must receive it.");
+        basePrompt.AppendLine("- Materialize each required artifact once per locked capability occurrence, then pass that exact producer response field unchanged to every compatible consumer. Do not create a second artifact merely because work is split across phases or workflows.");
+        basePrompt.AppendLine("- Never invent, concatenate, template, cast, or normalize an artifact locator. Route it directly or through a transparent one-field `set` alias.");
         basePrompt.AppendLine("- If an MCP response is opaque, use `json(data.steps.<id>.response)` to pass the whole response to another step.");
         basePrompt.AppendLine("- If precise fields are needed from an opaque response, add an `llm.call` normalization step with `structured_output`, then read fields from `data.steps.<normalizer>.json`.");
         basePrompt.AppendLine("- When an opaque response decodes to a string (for example a unified diff), keep it as text. Do not treat the decoded string as an object/array or silently replace it with an empty collection; preserve the raw text when parsing it explicitly.");

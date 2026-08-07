@@ -1,6 +1,9 @@
 using System.Reflection;
+using System.Text.Json.Nodes;
+using GnOuGo.Mcp.Core;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
+using ModelContextProtocol.Client;
 using ModelContextProtocol.Protocol;
 using ModelContextProtocol.Server;
 using GnOuGo.GithubCopilot.Core;
@@ -73,6 +76,161 @@ public sealed class CodeToolsStructuredOutputTests : IDisposable
     }
 
     [Fact]
+    public void ProjectRootTools_AdvertiseGenericWorkspaceConsumers()
+    {
+        var toolTypes = new[] { typeof(CodeTools), typeof(CopilotTools) };
+        var methods = toolTypes
+            .SelectMany(type => type.GetMethods(BindingFlags.Public | BindingFlags.Instance | BindingFlags.DeclaredOnly))
+            .Where(method => method.GetCustomAttribute<McpServerToolAttribute>() != null)
+            .Where(method => method.GetParameters().Any(parameter =>
+                string.Equals(parameter.Name, "projectRoot", StringComparison.Ordinal)))
+            .ToArray();
+
+        Assert.NotEmpty(methods);
+        foreach (var method in methods)
+        {
+            var attribute = Assert.Single(method.GetCustomAttributes<McpMetaAttribute>());
+            Assert.Equal(McpArtifactContractMetadata.MetaPropertyName, attribute.Name);
+            Assert.True(JsonNode.DeepEquals(
+                JsonNode.Parse(McpArtifactContractMetadata.WorkspaceDirectoryConsumerProjectRootJson),
+                JsonNode.Parse(attribute.JsonValue!)), method.Name);
+
+            var description = method.GetParameters()
+                .Single(parameter => string.Equals(parameter.Name, "projectRoot", StringComparison.Ordinal))
+                .GetCustomAttribute<System.ComponentModel.DescriptionAttribute>()?.Description;
+            Assert.Contains("workspace.directory", description, StringComparison.Ordinal);
+            Assert.DoesNotContain("git_clone", description, StringComparison.Ordinal);
+        }
+    }
+
+    [Fact]
+    public void CopilotPermissionTools_AdvertiseAuthoritativeSnakeCaseEnumsAndDefaults()
+    {
+        var tools = DiscoverCopilotTools();
+
+        var managed = GetInputSchema(tools["copilot_session_create"]);
+        AssertPermissionSchema(
+            managed,
+            ["interactive", "auto_approve_allowlist", "deny", "approve_all"],
+            "interactive");
+
+        var oneShotTool = tools["copilot_one_shot"];
+        var oneShot = GetInputSchema(oneShotTool);
+        AssertPermissionSchema(
+            oneShot,
+            ["auto_approve_allowlist", "deny", "approve_all"],
+            "deny");
+        Assert.NotNull(oneShot["properties"]?["permissionAllowlistJson"]);
+        Assert.Contains("copilot_interactive_one_shot", oneShotTool.ProtocolTool.Description, StringComparison.Ordinal);
+
+        var interactive = tools["copilot_interactive_one_shot"];
+        var interactiveSchema = GetInputSchema(interactive);
+        Assert.Null(interactiveSchema["properties"]?["permissionMode"]);
+        Assert.NotNull(interactiveSchema["properties"]?["permissionAllowlistJson"]);
+        Assert.Contains("interactive", interactive.ProtocolTool.Description, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("deletes", interactive.ProtocolTool.Description, StringComparison.OrdinalIgnoreCase);
+        Assert.True(JsonNode.DeepEquals(
+            JsonNode.Parse(McpArtifactContractMetadata.WorkspaceDirectoryConsumerProjectRootJson),
+            interactive.ProtocolTool.Meta?[McpArtifactContractMetadata.MetaPropertyName]));
+
+        foreach (var name in new[]
+                 {
+                     "copilot_permission_grants_list",
+                     "copilot_permission_grant_revoke",
+                     "copilot_permission_grants_revoke_agent"
+                 })
+        {
+            Assert.Equal(
+                "management_only",
+                tools[name].ProtocolTool.Meta?["gnougo"]?["management"]?["visibility"]?.GetValue<string>());
+        }
+    }
+
+    [Fact]
+    public void PermissionActivityMessage_IncludesDecisionScopeAndWorkflowCorrelation()
+    {
+        var context = new CopilotRequestContext(
+            "tenant-a",
+            RunId: "run-child",
+            StepId: "copilot-step",
+            Repository: "org/repository",
+            ExecutionId: "execution-a",
+            AgentId: "agent-a",
+            AgentName: "Reviewer");
+        var permissionEvent = new CopilotPermissionEvent(
+            "permission.auto_approved",
+            "info",
+            "Auto-approved shell command.",
+            "shell",
+            CopilotPermissionGrantScope.WorkflowRun,
+            context,
+            Automatic: true);
+
+        var message = McpCopilotPermissionEventSink.BuildActivityMessage(permissionEvent);
+
+        Assert.Contains("operation=shell", message, StringComparison.Ordinal);
+        Assert.Contains("decision=automatic_reuse", message, StringComparison.Ordinal);
+        Assert.Contains("scope=workflow_run", message, StringComparison.Ordinal);
+        Assert.Contains("agent=Reviewer", message, StringComparison.Ordinal);
+        Assert.Contains("repository=org/repository", message, StringComparison.Ordinal);
+        Assert.Contains("execution=execution-a", message, StringComparison.Ordinal);
+        Assert.Contains("run=run-child", message, StringComparison.Ordinal);
+        Assert.Contains("step=copilot-step", message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task LiveStdioDiscovery_PublishesAuthoritativePermissionSchemas()
+    {
+        var executable = Path.Combine(
+            AppContext.BaseDirectory,
+            "GnOuGo.GithubCopilot.Mcp" + (OperatingSystem.IsWindows() ? ".exe" : ""));
+        Assert.True(File.Exists(executable), $"The MCP test executable was not found at '{executable}'.");
+
+        var transport = new StdioClientTransport(new StdioClientTransportOptions
+        {
+            Command = executable,
+            Name = "GnOuGo.GithubCopilot.Mcp.Tests",
+            WorkingDirectory = AppContext.BaseDirectory,
+            EnvironmentVariables = new Dictionary<string, string?>
+            {
+                ["Code__DefaultWorkingDirectory"] = _root,
+                ["Code__AllowedWorkingRoots__0"] = _root
+            }
+        });
+        await using var client = await McpClient.CreateAsync(
+            transport,
+            new McpClientOptions
+            {
+                ClientInfo = new Implementation
+                {
+                    Name = "GnOuGo.GithubCopilot.Mcp.Tests",
+                    Version = "1.0.0"
+                }
+            },
+            cancellationToken: TestContext.Current.CancellationToken);
+
+        var tools = (await client.ListToolsAsync(cancellationToken: TestContext.Current.CancellationToken))
+            .ToDictionary(static tool => tool.Name, StringComparer.Ordinal);
+        AssertPermissionSchema(
+            Assert.IsType<JsonObject>(JsonNode.Parse(tools["copilot_session_create"].JsonSchema.GetRawText())),
+            ["interactive", "auto_approve_allowlist", "deny", "approve_all"],
+            "interactive");
+        AssertPermissionSchema(
+            Assert.IsType<JsonObject>(JsonNode.Parse(tools["copilot_one_shot"].JsonSchema.GetRawText())),
+            ["auto_approve_allowlist", "deny", "approve_all"],
+            "deny");
+        var interactive = tools["copilot_interactive_one_shot"];
+        var interactiveSchema = Assert.IsType<JsonObject>(JsonNode.Parse(interactive.JsonSchema.GetRawText()));
+        Assert.Null(interactiveSchema["properties"]?["permissionMode"]);
+        Assert.True(JsonNode.DeepEquals(
+            JsonNode.Parse(McpArtifactContractMetadata.WorkspaceDirectoryConsumerProjectRootJson),
+            interactive.ProtocolTool.Meta?[McpArtifactContractMetadata.MetaPropertyName]));
+        Assert.Equal(
+            "management_only",
+            tools["copilot_permission_grants_list"].ProtocolTool.Meta?["gnougo"]?["management"]?["visibility"]?.GetValue<string>());
+    }
+
+    [Fact]
     public void ExistingReviewComments_AcceptsDirectArraysAndThreadEnvelopes()
     {
         var parser = typeof(CopilotTools).GetMethod(
@@ -120,6 +278,44 @@ public sealed class CodeToolsStructuredOutputTests : IDisposable
         => returnType.IsGenericType && returnType.GetGenericTypeDefinition() == typeof(Task<>)
             ? returnType.GetGenericArguments()[0]
             : returnType;
+
+    private static Dictionary<string, McpServerTool> DiscoverCopilotTools()
+    {
+        var services = new ServiceCollection();
+        services.AddLogging();
+        services
+            .AddMcpServer(options =>
+            {
+                options.ServerInfo = new Implementation
+                {
+                    Name = "GnOuGo.GithubCopilot.Mcp.Tests",
+                    Version = "1.0.0"
+                };
+            })
+            .WithTools<CopilotTools>(CodeMcpJson.SerializerOptions);
+
+        using var provider = services.BuildServiceProvider();
+        return provider.GetServices<McpServerTool>()
+            .ToDictionary(static tool => tool.ProtocolTool.Name, StringComparer.Ordinal);
+    }
+
+    private static JsonObject GetInputSchema(McpServerTool tool)
+        => Assert.IsType<JsonObject>(JsonNode.Parse(tool.ProtocolTool.InputSchema.GetRawText()));
+
+    private static void AssertPermissionSchema(
+        JsonObject schema,
+        IReadOnlyList<string> expectedValues,
+        string expectedDefault)
+    {
+        var permission = Assert.IsType<JsonObject>(schema["properties"]?["permissionMode"]);
+        var values = Assert.IsType<JsonArray>(permission["enum"])
+            .Select(static node => node!.GetValue<string>())
+            .ToArray();
+
+        Assert.Equal(expectedValues, values);
+        Assert.Equal(expectedDefault, permission["default"]?.GetValue<string>());
+        Assert.DoesNotContain("allow", values, StringComparer.Ordinal);
+    }
 
     private CodeServerSettings CreateSettings() => new()
     {

@@ -1,4 +1,6 @@
 using System.Reflection;
+using System.Text.Json.Nodes;
+using GnOuGo.Mcp.Core;
 using ModelContextProtocol.Server;
 using Xunit;
 
@@ -54,5 +56,35 @@ public sealed class GitToolsStructuredOutputTests
 
         Assert.NotNull(property);
         Assert.Equal(typeof(string), property!.PropertyType);
+    }
+
+    [Fact]
+    public void GitTools_AdvertiseWorkspaceArtifactContracts()
+    {
+        var methods = typeof(GitTools)
+            .GetMethods(BindingFlags.Public | BindingFlags.Instance | BindingFlags.DeclaredOnly)
+            .Where(method => method.GetCustomAttribute<McpServerToolAttribute>() != null)
+            .ToArray();
+        var clone = Assert.Single(methods, method =>
+            string.Equals(method.GetCustomAttribute<McpServerToolAttribute>()!.Name, "git_clone", StringComparison.Ordinal));
+        AssertArtifactMetadata(
+            clone,
+            McpArtifactContractMetadata.WorkspaceDirectoryProducerProjectRootRelativeJson);
+
+        var consumers = methods
+            .Where(method => method.GetParameters().Any(parameter =>
+                string.Equals(parameter.Name, "projectRoot", StringComparison.Ordinal)))
+            .ToArray();
+        Assert.NotEmpty(consumers);
+        Assert.All(consumers, method => AssertArtifactMetadata(
+            method,
+            McpArtifactContractMetadata.WorkspaceDirectoryConsumerProjectRootJson));
+    }
+
+    private static void AssertArtifactMetadata(MethodInfo method, string expectedGnougoJson)
+    {
+        var attribute = Assert.Single(method.GetCustomAttributes<McpMetaAttribute>());
+        Assert.Equal(McpArtifactContractMetadata.MetaPropertyName, attribute.Name);
+        Assert.True(JsonNode.DeepEquals(JsonNode.Parse(expectedGnougoJson), JsonNode.Parse(attribute.JsonValue!)));
     }
 }

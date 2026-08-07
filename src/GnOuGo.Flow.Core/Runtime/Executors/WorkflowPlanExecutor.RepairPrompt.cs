@@ -55,7 +55,12 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
         sb.AppendLine("MCP request objects must preserve schema scalar types exactly. Numeric/integer/boolean fields must be unquoted YAML scalars when required explicitly by the MCP schema/validator.");
         sb.AppendLine("MCP request expressions must also match the schema statically. Do not pass nullable structured_output fields into required MCP request fields unless the value was refined with `assert.non_null` or the same step has an `if` guard proving that exact field is non-null.");
         sb.AppendLine("MCP property descriptions are contractual. A globally optional property may be mandatory for a selected mode or target; preserve applicable exact-named identity, target, location, range, and selector values from typed source items.");
+        sb.AppendLine("Every MCP input_schema constraint is authoritative for every property. Never invent, construct, transform, or guess an enum/const/discriminator value; use one exact documented literal.");
+        sb.AppendLine("Omit an optional MCP argument only when its documented default satisfies the requested effect. When the current tool cannot provide the required interaction or safety behavior, replace it with a compatible documented capability while preserving the step ID, output contract, data flow, and unaffected orchestration.");
+        sb.AppendLine("Treat host-policy-gated values as unavailable unless the user explicitly requested that behavior and discovery establishes availability. Repair every occurrence of the same proven contract violation, not only the first step that failed at runtime.");
         sb.AppendLine("When an opaque MCP response decodes to a string, preserve it as raw text unless an explicit parser produces a verified structured collection; never turn a textual response into an empty object/array by assumption.");
+        sb.AppendLine("Treat MCP artifact_contract metadata as authoritative. Reuse each exact produced artifact field for every compatible consumer and do not add another materializer without a locked capability occurrence.");
+        sb.AppendLine("Never invent, concatenate, template, cast, or normalize an artifact locator; route it directly or through a transparent one-field set alias.");
         sb.AppendLine("If an external write depends on analyzed records/files/findings, require proven read/parse coverage first. A non-empty source count paired with zero normalized items must stop before Human Input and before the write.");
         sb.AppendLine("Never satisfy missing MCP request arguments with `data.env.*`, empty strings, fake values, casts, or string-to-number conversions.");
         sb.AppendLine("Workflow output expressions must resolve to their declared type on every branch.");
@@ -713,6 +718,9 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
         sb.AppendLine("  input: { server: <exact-server>, kind: tool, method: <exact-tool>, request: { ... } }");
         sb.AppendLine("For every listed input_schema_json, copy all required request properties into input.request with the exact schema name and scalar type.");
         sb.AppendLine("Also inspect every property description and selected enum/const/discriminator value. Include conditionally applicable companion properties even when the root schema does not list them in required.");
+        sb.AppendLine("Schema constraints apply to every property regardless of its name. Never invent, construct, transform, or guess a constrained literal; use an exact documented value and omit an optional argument only when its default satisfies the requested effect.");
+        sb.AppendLine("If the failing tool's documented interaction or safety behavior cannot satisfy the original task, replace it with a compatible discovered capability while preserving the step ID, output contract, data flow, and unaffected orchestration.");
+        sb.AppendLine("Treat host-policy-gated values as unavailable unless the user explicitly requested that behavior and discovery establishes availability. Fix every occurrence of the same proven server/method/request-field contract violation in the YAML.");
         sb.AppendLine("If a required numeric/integer/boolean MCP property is missing, add an explicit YAML scalar value; do not use an expression string, cast, empty value, fake value, or data.env fallback.");
         sb.AppendLine("When repairing one MCP call, re-check every MCP call in the YAML so earlier schema fixes are preserved.");
         sb.AppendLine("Available MCP servers: " + string.Join(", ", discovered.Select(static server => server.Name).OrderBy(static name => name, StringComparer.Ordinal)));
@@ -798,6 +806,8 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
             sb.AppendLine();
             if (tool.InputSchema != null)
                 AppendJsonBlock(sb, "    ", "input_schema", tool.InputSchema);
+            if (tool.Meta?["gnougo"]?["artifacts"] is JsonNode artifactContract)
+                AppendJsonBlock(sb, "    ", "artifact_contract", artifactContract);
             if (tool.OutputSchema != null)
                 AppendJsonBlock(sb, "    ", "output_schema", tool.OutputSchema);
             if (tool.ExampleResponse != null)

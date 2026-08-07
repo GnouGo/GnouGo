@@ -2,6 +2,7 @@ using System.Text;
 using System.Text.Json.Nodes;
 using GnOuGo.Flow.Core.Expressions;
 using GnOuGo.Flow.Core.Models;
+using GnOuGo.Mcp.Core;
 
 namespace GnOuGo.Flow.Core.Runtime.Executors;
 
@@ -35,7 +36,8 @@ public sealed partial class WorkflowPlanExecutor
         IReadOnlyList<CapabilityRequestBinding> RequestBindings,
         string Card,
         IReadOnlyList<CapabilitySchemaField> RequiredInputs,
-        IReadOnlyList<CapabilitySchemaField> Outputs);
+        IReadOnlyList<CapabilitySchemaField> Outputs,
+        McpArtifactContract? ArtifactContract);
 
     private sealed record CapabilitySchemaField(
         string Path,
@@ -78,14 +80,15 @@ public sealed partial class WorkflowPlanExecutor
 
     private static CapabilityCatalog BuildSchemaAwareCapabilityCatalog(
         IReadOnlyList<McpServerDiscovery> discovered,
-        IReadOnlySet<string> nativeStepTypes)
+        IReadOnlySet<string> nativeStepTypes,
+        IReadOnlyList<McpServerDiscovery>? completeDiscovery = null)
     {
-        var pending = new List<(string Resolution, string? Server, string? Kind, string Method, string Description, IReadOnlyList<CapabilityRequestBinding> Bindings, string Card, IReadOnlyList<CapabilitySchemaField> RequiredInputs, IReadOnlyList<CapabilitySchemaField> Outputs)>();
+        var pending = new List<(string Resolution, string? Server, string? Kind, string Method, string Description, IReadOnlyList<CapabilityRequestBinding> Bindings, string Card, IReadOnlyList<CapabilitySchemaField> RequiredInputs, IReadOnlyList<CapabilitySchemaField> Outputs, McpArtifactContract? ArtifactContract)>();
 
         foreach (var native in nativeStepTypes.OrderBy(static value => value, StringComparer.Ordinal))
         {
             pending.Add(("native", null, null, native, $"Native Flow step type {native}.", Array.Empty<CapabilityRequestBinding>(),
-                $"resolution=native method={native}", Array.Empty<CapabilitySchemaField>(), Array.Empty<CapabilitySchemaField>()));
+                $"resolution=native method={native}", Array.Empty<CapabilitySchemaField>(), Array.Empty<CapabilitySchemaField>(), null));
         }
 
         foreach (var server in discovered.OrderBy(static item => item.Name, StringComparer.Ordinal))
@@ -100,28 +103,29 @@ public sealed partial class WorkflowPlanExecutor
                     : "none";
                 pending.Add(("mcp", server.Name, "prompt", prompt.Name, description, Array.Empty<CapabilityRequestBinding>(),
                     $"resolution=mcp server={server.Name} kind=prompt method={prompt.Name} description={description} arguments=[{arguments}]",
-                    Array.Empty<CapabilitySchemaField>(), Array.Empty<CapabilitySchemaField>()));
+                    Array.Empty<CapabilitySchemaField>(), Array.Empty<CapabilitySchemaField>(), null));
             }
 
             foreach (var tool in server.Tools.OrderBy(static item => item.Name, StringComparer.Ordinal))
             {
                 var description = LimitCapabilityDescription(tool.Description);
                 var arguments = BuildCompactArgumentSummary(tool.InputSchema, includeDescriptions: true);
-                var selectorArguments = BuildCompactArgumentSummary(tool.InputSchema, includeDescriptions: false);
                 var outputs = BuildCompactOutputSummary(tool.OutputSchema);
                 var requiredInputs = BuildCapabilitySchemaFields(tool.InputSchema, requiredOnly: true);
                 var outputFields = BuildCapabilitySchemaFields(tool.OutputSchema, requiredOnly: false);
+                var artifactContract = GetValidatedMcpArtifactContract(tool, server.Name);
+                var artifactSummary = FormatArtifactContractSummary(artifactContract);
                 var variants = ExtractSelectorVariants(tool.InputSchema);
                 pending.Add(("mcp", server.Name, "tool", tool.Name, description, Array.Empty<CapabilityRequestBinding>(),
-                    $"resolution=mcp server={server.Name} kind=tool method={tool.Name} description={description} arguments=[{arguments}] outputs=[{outputs}]",
-                    requiredInputs, outputFields));
+                    $"resolution=mcp server={server.Name} kind=tool method={tool.Name} description={description} arguments=[{arguments}] outputs=[{outputs}]{artifactSummary}",
+                    requiredInputs, outputFields, artifactContract));
 
                 foreach (var variant in variants.OrderBy(static item => CanonicalizeBindings(item.Bindings), StringComparer.Ordinal))
                 {
                     var bindings = FormatBindingsCompact(variant.Bindings);
                     pending.Add(("mcp", server.Name, "tool", tool.Name, description, variant.Bindings,
-                        $"resolution=mcp server={server.Name} kind=tool method={tool.Name} description={description} arguments=[{selectorArguments}] outputs=[{outputs}] request_bindings=[{bindings}]",
-                        requiredInputs, outputFields));
+                        $"resolution=mcp server={server.Name} kind=tool method={tool.Name} variant_of={server.Name}/tool/{tool.Name} request_bindings=[{bindings}]",
+                        requiredInputs, outputFields, artifactContract));
                 }
             }
         }
@@ -133,30 +137,79 @@ public sealed partial class WorkflowPlanExecutor
             .ThenBy(static item => item.Method, StringComparer.Ordinal)
             .ThenBy(static item => CanonicalizeBindings(item.Bindings), StringComparer.Ordinal)
             .ToArray();
-        var entries = new List<CapabilityCatalogEntry>(ordered.Length);
-        var text = new StringBuilder();
-        for (var index = 0; index < ordered.Length; index++)
+        var rendered = ordered.Select((item, index) => new
         {
-            var item = ordered[index];
-            var id = $"cap_{index + 1:D6}";
-            var line = $"{id} {item.Card}";
-            if (text.Length + line.Length + Environment.NewLine.Length > CapabilityCatalogMaxCharacters)
-            {
-                throw new WorkflowRuntimeException(
-                    ErrorCodes.CapabilityPreflightInferenceFailed,
-                    "The schema-aware capability catalog exceeds the safe inference limit.",
-                    details: new JsonObject
-                    {
-                        ["phase"] = "capability_catalog",
-                        ["reason"] = "catalog_too_large",
-                        ["maximum_characters"] = CapabilityCatalogMaxCharacters,
-                        ["entry_count"] = ordered.Length
-                    });
-            }
+            Item = item,
+            Id = $"cap_{index + 1:D6}",
+            Line = $"cap_{index + 1:D6} {item.Card}"
+        }).ToArray();
+        var totalCharacters = rendered.Sum(static item => item.Line.Length + Environment.NewLine.Length);
+        if (totalCharacters > CapabilityCatalogMaxCharacters)
+        {
+            var largestContributors = new JsonArray(rendered
+                .GroupBy(static item => new
+                {
+                    item.Item.Resolution,
+                    item.Item.Server,
+                    item.Item.Kind,
+                    item.Item.Method
+                })
+                .Select(static group => new
+                {
+                    group.Key.Resolution,
+                    group.Key.Server,
+                    group.Key.Kind,
+                    group.Key.Method,
+                    Characters = group.Sum(static item => item.Line.Length + Environment.NewLine.Length),
+                    Entries = group.Count(),
+                    Variants = group.Count(static item => item.Item.Bindings.Count > 0)
+                })
+                .OrderByDescending(static item => item.Characters)
+                .ThenBy(static item => item.Server, StringComparer.Ordinal)
+                .ThenBy(static item => item.Method, StringComparer.Ordinal)
+                .Take(8)
+                .Select(static item => (JsonNode)new JsonObject
+                {
+                    ["resolution"] = item.Resolution,
+                    ["server"] = item.Server,
+                    ["kind"] = item.Kind,
+                    ["method"] = item.Method,
+                    ["characters"] = item.Characters,
+                    ["entry_count"] = item.Entries,
+                    ["variant_count"] = item.Variants
+                }).ToArray());
+            throw new WorkflowRuntimeException(
+                ErrorCodes.CapabilityPreflightInferenceFailed,
+                "The schema-aware capability catalog exceeds the safe inference limit.",
+                details: new JsonObject
+                {
+                    ["phase"] = "capability_catalog",
+                    ["reason"] = "catalog_too_large",
+                    ["maximum_characters"] = CapabilityCatalogMaxCharacters,
+                    ["total_characters"] = totalCharacters,
+                    ["entry_count"] = ordered.Length,
+                    ["base_entry_count"] = ordered.Count(static item => item.Bindings.Count == 0),
+                    ["variant_count"] = ordered.Count(static item => item.Bindings.Count > 0),
+                    ["selected_server_count"] = discovered.Count,
+                    ["selected_tool_count"] = discovered.Sum(static server => server.Tools.Count),
+                    ["selected_prompt_count"] = discovered.Sum(static server => server.Prompts.Count),
+                    ["full_server_count"] = completeDiscovery?.Count ?? discovered.Count,
+                    ["full_tool_count"] = completeDiscovery?.Sum(static server => server.Tools.Count)
+                                          ?? discovered.Sum(static server => server.Tools.Count),
+                    ["full_prompt_count"] = completeDiscovery?.Sum(static server => server.Prompts.Count)
+                                            ?? discovered.Sum(static server => server.Prompts.Count),
+                    ["largest_contributors"] = largestContributors
+                });
+        }
 
-            text.AppendLine(line);
+        var entries = new List<CapabilityCatalogEntry>(rendered.Length);
+        var text = new StringBuilder(totalCharacters);
+        foreach (var renderedItem in rendered)
+        {
+            var item = renderedItem.Item;
+            text.AppendLine(renderedItem.Line);
             entries.Add(new CapabilityCatalogEntry(
-                id,
+                renderedItem.Id,
                 item.Resolution,
                 item.Server,
                 item.Kind,
@@ -164,10 +217,23 @@ public sealed partial class WorkflowPlanExecutor
                 item.Bindings,
                 item.Card,
                 item.RequiredInputs,
-                item.Outputs));
+                item.Outputs,
+                item.ArtifactContract));
         }
 
         return new CapabilityCatalog(entries, text.ToString());
+    }
+
+    private static string FormatArtifactContractSummary(McpArtifactContract? contract)
+    {
+        if (contract == null)
+            return string.Empty;
+
+        var produces = string.Join(",", contract.Produces.Select(static artifact =>
+            $"{artifact.Kind}:{artifact.Pointer}:{artifact.Mode}"));
+        var consumes = string.Join(",", contract.Consumes.Select(static artifact =>
+            $"{artifact.Kind}:{artifact.Pointer}:{(artifact.Required ? "required" : "optional")}"));
+        return $" artifacts=[produces({produces}) consumes({consumes})]";
     }
 
     private static string LimitCapabilityDescription(string? description)

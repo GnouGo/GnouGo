@@ -146,7 +146,7 @@ function actionForStep(stepType?: string): GnouGnouWorkflowCharacterAction {
   if (normalized.startsWith('human.')) return 'wait'
   if (normalized === 'llm' || normalized.startsWith('llm.')) return 'think'
   if (normalized === 'workflow.route') return 'communicate'
-  if (normalized === 'workflow.plan') return 'type'
+  if (normalized === 'workflow.plan') return 'think'
   if (normalized.startsWith('workflow.')) return 'handoff'
   if (normalized.startsWith('mcp.')) return 'communicate'
   return 'type'

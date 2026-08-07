@@ -26,6 +26,8 @@ public sealed class ConfigureProvidersService
     private readonly BundledMcpSettings _bundledMcpSettings;
     private readonly AgentOTelTelemetry _otel;
     private readonly ILogger<ConfigureProvidersService> _logger;
+    private readonly IMcpClientFactory? _mcpFactory;
+    private readonly string _tenantId;
 
     public ConfigureProvidersService(
         ILLMClient llm,
@@ -36,7 +38,9 @@ public sealed class ConfigureProvidersService
         AgentOTelTelemetry otel,
         ILogger<ConfigureProvidersService> logger,
         AgentUserConfigMcpClient? userConfigClient = null,
-        IOptions<BundledMcpSettings>? bundledMcpSettings = null)
+        IOptions<BundledMcpSettings>? bundledMcpSettings = null,
+        IMcpClientFactory? mcpFactory = null,
+        IOptions<OpenTelemetrySettings>? openTelemetrySettings = null)
     {
         _llm = llm;
         _humanInput = humanInput;
@@ -47,6 +51,8 @@ public sealed class ConfigureProvidersService
         _bundledMcpSettings = bundledMcpSettings?.Value ?? new BundledMcpSettings();
         _otel = otel;
         _logger = logger;
+        _mcpFactory = mcpFactory;
+        _tenantId = WorkflowExecutionTenant.Resolve(openTelemetrySettings);
     }
 
     /// <summary>
@@ -154,6 +160,22 @@ public sealed class ConfigureProvidersService
         {
             await foreach (var evt in ExecuteInteractiveMcpAddAsync(ct))
                 yield return evt;
+            yield break;
+        }
+
+        if (string.Equals(trimmedCommand, "/mcp copilot permissions", StringComparison.OrdinalIgnoreCase))
+        {
+            yield return new SmartFlowEvent("answer", await RenderCopilotPermissionGrantsAsync(ct));
+            yield break;
+        }
+
+        const string copilotPermissionRevokePrefix = "/mcp copilot permissions revoke";
+        if (trimmedCommand.StartsWith(copilotPermissionRevokePrefix, StringComparison.OrdinalIgnoreCase))
+        {
+            var grantId = trimmedCommand.Length > copilotPermissionRevokePrefix.Length
+                ? trimmedCommand[copilotPermissionRevokePrefix.Length..].Trim()
+                : string.Empty;
+            yield return new SmartFlowEvent("answer", await RevokeCopilotPermissionGrantAsync(grantId, ct));
             yield break;
         }
 
@@ -1544,6 +1566,31 @@ public sealed class ConfigureProvidersService
                 Description = fields.GetValueOrDefault("description") ?? existing.Description,
                 Url = fields.GetValueOrDefault("url") ?? existing.Url
             };
+
+            response = null;
+            var authModeRequest = CreateChoiceRequest(
+                runId,
+                "mcp_edit.auth_mode",
+                $"Choose authentication mode for '{existing.Name}':",
+                ["keep_current", "api_key", "oidc", "none"],
+                JsonValue.Create($"Current: {existing.AuthType}"));
+            await foreach (var evt in EmitHumanInputRequestAsync(authModeRequest, r => response = r, ct))
+                yield return evt;
+
+            var authSelection = ReadChoiceResponse(response) ?? "keep_current";
+            if (!string.Equals(authSelection, "keep_current", StringComparison.OrdinalIgnoreCase))
+            {
+                McpServerConfig? authConfig = null;
+                await foreach (var evt in CollectMcpAuthConfigAsync(runId, authSelection, existing, cfg => authConfig = cfg, ct))
+                    yield return evt;
+
+                if (authConfig is null)
+                    yield break;
+
+                existing = authConfig;
+            }
+
+            flowSpan.SetTag("gnougo.agent.mcp.auth_type", existing.AuthType);
         }
         else
         {
@@ -3136,6 +3183,8 @@ public sealed class ConfigureProvidersService
         sb.AppendLine("| `/mcp add` | Add a new MCP server |");
         sb.AppendLine("| `/mcp edit <name>` | Edit an existing MCP server |");
         sb.AppendLine("| `/mcp remove <name>` | Remove an MCP server |");
+        sb.AppendLine("| `/mcp copilot permissions` | List persistent Copilot approvals |");
+        sb.AppendLine("| `/mcp copilot permissions revoke <grant-id>` | Revoke a persistent Copilot approval |");
         sb.AppendLine();
         sb.AppendLine("**Transport types:**");
         sb.AppendLine("- **HTTP** — connect to an HTTP MCP endpoint with optional auth");
@@ -3143,6 +3192,59 @@ public sealed class ConfigureProvidersService
         sb.AppendLine();
         sb.Append($"All configurations are stored encrypted in KeyVault using the .NET convention `{KeyVaultConfigNaming.GetDisplayConvention(KeyVaultConfigSecretKind.McpServer)}`.");
         return sb.ToString().TrimEnd();
+    }
+
+    private async Task<string> RenderCopilotPermissionGrantsAsync(CancellationToken ct)
+    {
+        if (_mcpFactory is null)
+            return "❌ Copilot permission management is unavailable in this host.";
+
+        await using var session = await _mcpFactory.GetClientAsync("GnOuGo.GithubCopilot.Mcp", ct);
+        var call = await session.CallToolAsync(
+            "copilot_permission_grants_list",
+            new JsonObject { ["tenantId"] = _tenantId },
+            ct);
+        if (call.IsError || call.Content is not JsonObject response)
+            return "❌ Could not list persistent Copilot permission grants.";
+        if (response["success"]?.GetValue<bool>() != true)
+            return $"❌ {response["errorMessage"]?.GetValue<string>() ?? response["error_message"]?.GetValue<string>() ?? "Could not list persistent Copilot permission grants."}";
+
+        var grants = response["grants"] as JsonArray ?? [];
+        if (grants.Count == 0)
+            return "# Copilot Permission Grants\n\nNo persistent future-agent approvals are active for this tenant.";
+
+        var sb = new StringBuilder();
+        sb.AppendLine("# Copilot Permission Grants");
+        sb.AppendLine();
+        sb.AppendLine("| Agent | Grant ID | Last used |");
+        sb.AppendLine("|---|---|---|");
+        foreach (var grant in grants.OfType<JsonObject>())
+        {
+            var agent = grant["agentName"]?.GetValue<string>() ?? grant["agentId"]?.GetValue<string>() ?? "unknown";
+            var id = grant["id"]?.GetValue<string>() ?? string.Empty;
+            var lastUsed = grant["lastUsedAt"]?.GetValue<string>() ?? string.Empty;
+            sb.AppendLine($"| {EscapeMarkdownCell(agent)} | `{EscapeBackticks(id)}` | {EscapeMarkdownCell(lastUsed)} |");
+        }
+        sb.AppendLine();
+        sb.Append("Revoke with `/mcp copilot permissions revoke <grant-id>`. Sandbox-bypass requests are never covered by these grants.");
+        return sb.ToString();
+    }
+
+    private async Task<string> RevokeCopilotPermissionGrantAsync(string grantId, CancellationToken ct)
+    {
+        if (string.IsNullOrWhiteSpace(grantId))
+            return "❌ Specify a grant ID: `/mcp copilot permissions revoke <grant-id>`.";
+        if (_mcpFactory is null)
+            return "❌ Copilot permission management is unavailable in this host.";
+
+        await using var session = await _mcpFactory.GetClientAsync("GnOuGo.GithubCopilot.Mcp", ct);
+        var call = await session.CallToolAsync(
+            "copilot_permission_grant_revoke",
+            new JsonObject { ["grantId"] = grantId, ["tenantId"] = _tenantId },
+            ct);
+        if (call.IsError || call.Content is not JsonObject response || response["success"]?.GetValue<bool>() != true)
+            return $"❌ {((call.Content as JsonObject)?["errorMessage"]?.GetValue<string>() ?? "The Copilot permission grant could not be revoked.")}";
+        return $"✅ Persistent Copilot permission grant `{EscapeBackticks(grantId)}` revoked.";
     }
 
     private static string RenderEmbeddingHelp(string command)

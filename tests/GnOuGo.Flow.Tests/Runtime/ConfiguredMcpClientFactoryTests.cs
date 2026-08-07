@@ -1,11 +1,19 @@
 using System.Reflection;
 using System.Diagnostics;
+using System.IO.Pipelines;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 
 using GnOuGo.AI.Core;
 using GnOuGo.Flow.Core.Runtime;
+using ModelContextProtocol;
+using ModelContextProtocol.Client;
 using ModelContextProtocol.Protocol;
+using McpProtocolServer = ModelContextProtocol.Server.McpServer;
+using McpProtocolServerOptions = ModelContextProtocol.Server.McpServerOptions;
+using McpProtocolServerTool = ModelContextProtocol.Server.McpServerTool;
+using McpProtocolServerToolCreateOptions = ModelContextProtocol.Server.McpServerToolCreateOptions;
+using McpStreamServerTransport = ModelContextProtocol.Server.StreamServerTransport;
 using Xunit;
 
 namespace GnOuGo.Flow.Tests.Runtime;
@@ -85,6 +93,396 @@ public class ConfiguredMcpClientFactoryTests
     }
 
     [Fact]
+    public async Task ElicitationHandler_PublishesCallScopedWaitingAndResumedSignals()
+    {
+        var provider = new ScriptedHumanInputProvider(new JsonObject { ["response"] = "Allow once" });
+        var correlation = new McpCorrelationContext
+        {
+            CorrelationId = "correlation-1",
+            RunId = "run-1",
+            StepId = "copilot-step",
+            StepType = "mcp.call",
+            ServerName = "copilot",
+            MethodName = "copilot_interactive_one_shot",
+            Kind = "tool"
+        };
+        var signals = new List<McpHumanInputSignal>();
+        using var correlationScope = ConfiguredMcpClientFactory.PushCorrelationContext(correlation);
+        using var signalScope = ConfiguredMcpClientFactory.PushHumanInputHandler(correlation, signals.Add);
+        var handler = ConfiguredMcpClientFactory.CreateClientOptions(provider).Handlers!.ElicitationHandler!;
+
+        var result = await handler(new ElicitRequestParams
+        {
+            Mode = "form",
+            Message = "Allow this operation?",
+            RequestedSchema = new ElicitRequestParams.RequestSchema
+            {
+                Properties = new Dictionary<string, ElicitRequestParams.PrimitiveSchemaDefinition>(StringComparer.Ordinal)
+                {
+                    ["answer"] = new ElicitRequestParams.UntitledSingleSelectEnumSchema
+                    {
+                        Enum = ["Allow once", "Refuse"],
+                        Description = "Shell command: dotnet test"
+                    }
+                },
+                Required = ["answer"]
+            }
+        }, TestContext.Current.CancellationToken);
+
+        Assert.Equal("accept", result.Action);
+        Assert.Equal([McpHumanInputSignalPhase.Waiting, McpHumanInputSignalPhase.Resumed], signals.Select(static signal => signal.Phase));
+        Assert.All(signals, signal => Assert.Same(correlation, signal.Correlation));
+        Assert.Equal("run-1", signals[0].Request.RunId);
+        Assert.Equal("copilot-step", signals[0].Request.StepId);
+        Assert.Equal("copilot", signals[0].Request.Context!["mcp_server"]!.GetValue<string>());
+        Assert.Equal("copilot_interactive_one_shot", signals[0].Request.Context!["mcp_method"]!.GetValue<string>());
+    }
+
+    [Fact]
+    public async Task ElicitationHandler_PublishesCancelledSignalWhenProviderIsCancelled()
+    {
+        var provider = new CancellingHumanInputProvider();
+        var correlation = new McpCorrelationContext
+        {
+            CorrelationId = "correlation-2",
+            RunId = "run-2",
+            StepId = "copilot-step",
+            ServerName = "copilot",
+            MethodName = "copilot_interactive_one_shot"
+        };
+        var signals = new List<McpHumanInputSignal>();
+        using var correlationScope = ConfiguredMcpClientFactory.PushCorrelationContext(correlation);
+        using var signalScope = ConfiguredMcpClientFactory.PushHumanInputHandler(correlation, signals.Add);
+        var handler = ConfiguredMcpClientFactory.CreateClientOptions(provider).Handlers!.ElicitationHandler!;
+        using var cancellation = new CancellationTokenSource();
+        cancellation.Cancel();
+
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(async () => await handler(
+            new ElicitRequestParams { Mode = "form", Message = "Allow this operation?" },
+            cancellation.Token));
+
+        Assert.Equal([McpHumanInputSignalPhase.Waiting, McpHumanInputSignalPhase.Cancelled], signals.Select(static signal => signal.Phase));
+    }
+
+    [Fact]
+    public async Task ElicitationHandler_PublishesRefusedSignalAndSupportsSequentialPermissions()
+    {
+        var provider = new SequencedHumanInputProvider(
+            new JsonObject { ["response"] = "Allow once" },
+            new JsonObject { ["response"] = "Refuse" });
+        var correlation = new McpCorrelationContext
+        {
+            CorrelationId = "correlation-sequential",
+            RunId = "run-sequential",
+            StepId = "copilot-step",
+            ServerName = "copilot",
+            MethodName = "copilot_interactive_one_shot"
+        };
+        var signals = new List<McpHumanInputSignal>();
+        using var signalScope = ConfiguredMcpClientFactory.PushHumanInputHandler(correlation, signals.Add);
+        var handler = ConfiguredMcpClientFactory.CreateClientOptions(provider, "copilot").Handlers!.ElicitationHandler!;
+        var request = new ElicitRequestParams { Mode = "form", Message = "Allow this operation?", Meta = BuildCorrelationMeta(correlation) };
+
+        var accepted = await handler(request, TestContext.Current.CancellationToken);
+        var refused = await handler(request, TestContext.Current.CancellationToken);
+
+        Assert.Equal("accept", accepted.Action);
+        Assert.Equal("accept", refused.Action);
+        Assert.Equal(
+            [McpHumanInputSignalPhase.Waiting, McpHumanInputSignalPhase.Resumed, McpHumanInputSignalPhase.Waiting, McpHumanInputSignalPhase.Refused],
+            signals.Select(static signal => signal.Phase));
+    }
+
+    [Fact]
+    public async Task ElicitationHandler_ProviderTimeoutPublishesCancelledSignal()
+    {
+        var provider = new BlockingHumanInputProvider();
+        var correlation = new McpCorrelationContext
+        {
+            CorrelationId = "correlation-timeout",
+            RunId = "run-timeout",
+            StepId = "copilot-step",
+            ServerName = "copilot",
+            MethodName = "copilot_interactive_one_shot"
+        };
+        var signals = new List<McpHumanInputSignal>();
+        using var signalScope = ConfiguredMcpClientFactory.PushHumanInputHandler(correlation, signals.Add);
+        var handler = ConfiguredMcpClientFactory.CreateClientOptions(provider, "copilot").Handlers!.ElicitationHandler!;
+        using var cancellation = new CancellationTokenSource(TimeSpan.FromMilliseconds(20));
+
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(async () => await handler(
+            new ElicitRequestParams { Mode = "form", Message = "Allow?", Meta = BuildCorrelationMeta(correlation) },
+            cancellation.Token));
+
+        Assert.Equal([McpHumanInputSignalPhase.Waiting, McpHumanInputSignalPhase.Cancelled], signals.Select(static signal => signal.Phase));
+    }
+
+    [Fact]
+    public void HumanInputSignal_UsesExactCorrelationWithConcurrentCallsToSameTool()
+    {
+        var first = new McpCorrelationContext
+        {
+            CorrelationId = "correlation-first",
+            RunId = "run-first",
+            StepId = "copilot-step",
+            ServerName = "copilot",
+            MethodName = "copilot_interactive_one_shot"
+        };
+        var second = new McpCorrelationContext
+        {
+            CorrelationId = "correlation-second",
+            RunId = "run-second",
+            StepId = "copilot-step",
+            ServerName = "copilot",
+            MethodName = "copilot_interactive_one_shot"
+        };
+        var firstSignals = new List<McpHumanInputSignal>();
+        var secondSignals = new List<McpHumanInputSignal>();
+        using var firstScope = ConfiguredMcpClientFactory.PushHumanInputHandler(first, firstSignals.Add);
+        using var secondScope = ConfiguredMcpClientFactory.PushHumanInputHandler(second, secondSignals.Add);
+
+        var delivered = ConfiguredMcpClientFactory.PublishHumanInput(new McpHumanInputSignal(
+            first,
+            new HumanInputRequest { RunId = first.RunId, StepId = first.StepId, Prompt = "Allow?" },
+            McpHumanInputSignalPhase.Waiting));
+
+        Assert.True(delivered);
+        Assert.Single(firstSignals);
+        Assert.Empty(secondSignals);
+    }
+
+    [Fact]
+    public async Task ElicitationHandler_PrefersCallMetadataOverCachedClientAsyncLocalContext()
+    {
+        var provider = new ScriptedHumanInputProvider(new JsonObject { ["response"] = "Allow once" });
+        var staleCorrelation = new McpCorrelationContext
+        {
+            CorrelationId = "stale-correlation",
+            RunId = "stale-run",
+            StepId = "stale-step",
+            ServerName = "copilot",
+            MethodName = "copilot_interactive_one_shot"
+        };
+        var activeCorrelation = new McpCorrelationContext
+        {
+            CorrelationId = "active-correlation",
+            RunId = "active-run",
+            StepId = "active-step",
+            ServerName = "copilot",
+            MethodName = "copilot_interactive_one_shot"
+        };
+        var staleSignals = new List<McpHumanInputSignal>();
+        var activeSignals = new List<McpHumanInputSignal>();
+        using var correlationScope = ConfiguredMcpClientFactory.PushCorrelationContext(staleCorrelation);
+        using var staleScope = ConfiguredMcpClientFactory.PushHumanInputHandler(staleCorrelation, staleSignals.Add);
+        using var activeScope = ConfiguredMcpClientFactory.PushHumanInputHandler(activeCorrelation, activeSignals.Add);
+        var handler = ConfiguredMcpClientFactory.CreateClientOptions(provider).Handlers!.ElicitationHandler!;
+
+        var result = await handler(new ElicitRequestParams
+        {
+            Mode = "form",
+            Message = "Allow this operation?",
+            Meta = new JsonObject
+            {
+                ["gnougo"] = new JsonObject
+                {
+                    ["correlationId"] = activeCorrelation.CorrelationId,
+                    ["runId"] = activeCorrelation.RunId,
+                    ["stepId"] = activeCorrelation.StepId,
+                    ["mcpServer"] = activeCorrelation.ServerName,
+                    ["mcpMethod"] = activeCorrelation.MethodName,
+                    ["mcpKind"] = "tool"
+                }
+            },
+            RequestedSchema = new ElicitRequestParams.RequestSchema
+            {
+                Properties = new Dictionary<string, ElicitRequestParams.PrimitiveSchemaDefinition>(StringComparer.Ordinal)
+                {
+                    ["answer"] = new ElicitRequestParams.UntitledSingleSelectEnumSchema
+                    {
+                        Enum = ["Allow once", "Refuse"]
+                    }
+                },
+                Required = ["answer"]
+            }
+        }, TestContext.Current.CancellationToken);
+
+        Assert.Equal("accept", result.Action);
+        Assert.Empty(staleSignals);
+        Assert.Equal([McpHumanInputSignalPhase.Waiting, McpHumanInputSignalPhase.Resumed], activeSignals.Select(static signal => signal.Phase));
+        Assert.Equal("active-run", provider.LastRequest!.RunId);
+        Assert.Equal("active-step", provider.LastRequest.StepId);
+    }
+
+    [Fact]
+    public async Task ElicitationHandler_UsesSoleActiveCallWhenExternalServerOmitsCorrelationMetadata()
+    {
+        var provider = new ScriptedHumanInputProvider(new JsonObject { ["response"] = "Allow once" });
+        var activeCorrelation = new McpCorrelationContext
+        {
+            CorrelationId = "active-correlation",
+            RunId = "active-run",
+            StepId = "active-step",
+            ServerName = "external-server",
+            MethodName = "request_permission"
+        };
+        var signals = new List<McpHumanInputSignal>();
+        using var activeScope = ConfiguredMcpClientFactory.PushHumanInputHandler(activeCorrelation, signals.Add);
+        var handler = ConfiguredMcpClientFactory.CreateClientOptions(provider, "external-server").Handlers!.ElicitationHandler!;
+
+        var result = await handler(
+            new ElicitRequestParams { Mode = "form", Message = "Allow?" },
+            TestContext.Current.CancellationToken);
+
+        Assert.Equal("accept", result.Action);
+        Assert.Equal("active-run", provider.LastRequest!.RunId);
+        Assert.Equal("active-step", provider.LastRequest.StepId);
+        Assert.Equal([McpHumanInputSignalPhase.Waiting, McpHumanInputSignalPhase.Resumed], signals.Select(static signal => signal.Phase));
+    }
+
+    [Fact]
+    public async Task ElicitationHandler_RejectsAmbiguousUncorrelatedConcurrentCalls()
+    {
+        var provider = new ScriptedHumanInputProvider(new JsonObject { ["response"] = "Allow once" });
+        var first = new McpCorrelationContext
+        {
+            CorrelationId = "first",
+            RunId = "first-run",
+            StepId = "first-step",
+            ServerName = "external-server",
+            MethodName = "request_permission"
+        };
+        var second = new McpCorrelationContext
+        {
+            CorrelationId = "second",
+            RunId = "second-run",
+            StepId = "second-step",
+            ServerName = "external-server",
+            MethodName = "request_permission"
+        };
+        using var firstScope = ConfiguredMcpClientFactory.PushHumanInputHandler(first, static _ => { });
+        using var secondScope = ConfiguredMcpClientFactory.PushHumanInputHandler(second, static _ => { });
+        var handler = ConfiguredMcpClientFactory.CreateClientOptions(provider, "external-server").Handlers!.ElicitationHandler!;
+
+        var exception = await Assert.ThrowsAsync<InvalidOperationException>(async () => await handler(
+            new ElicitRequestParams { Mode = "form", Message = "Allow?" },
+            TestContext.Current.CancellationToken));
+
+        Assert.Contains("without call correlation metadata", exception.Message, StringComparison.Ordinal);
+        Assert.Null(provider.LastRequest);
+    }
+
+    [Fact]
+    public async Task ElicitationHandler_RoundTripsOverBidirectionalMcpStreamsAndResumesToolCall()
+    {
+        var provider = new DeferredHumanInputProvider();
+        var correlation = new McpCorrelationContext
+        {
+            CorrelationId = "stream-correlation",
+            RunId = "stream-run",
+            StepId = "stream-step",
+            ServerName = "stream-server",
+            MethodName = "request_permission",
+            Kind = "tool"
+        };
+        var signals = new List<McpHumanInputSignal>();
+        using var signalScope = ConfiguredMcpClientFactory.PushHumanInputHandler(correlation, signals.Add);
+        var clientToServer = new Pipe();
+        var serverToClient = new Pipe();
+        await using var serverTransport = new McpStreamServerTransport(
+            clientToServer.Reader.AsStream(),
+            serverToClient.Writer.AsStream(),
+            "stream-server");
+        await using var server = McpProtocolServer.Create(serverTransport, new McpProtocolServerOptions
+        {
+            ServerInfo = new Implementation { Name = "stream-server", Version = "1.0.0" },
+            ToolCollection =
+            [
+                McpProtocolServerTool.Create(
+                    (Func<McpProtocolServer, CancellationToken, Task<string>>)RequestPermissionOverMcpAsync,
+                    new McpProtocolServerToolCreateOptions { Name = "request_permission" })
+            ]
+        });
+        using var serverCancellation = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
+        var serverTask = server.RunAsync(serverCancellation.Token);
+        await using var client = await McpClient.CreateAsync(
+            new StreamClientTransport(clientToServer.Writer.AsStream(), serverToClient.Reader.AsStream()),
+            ConfiguredMcpClientFactory.CreateClientOptions(provider),
+            cancellationToken: TestContext.Current.CancellationToken);
+
+        var callTask = client.CallToolAsync(
+            "request_permission",
+            arguments: null,
+            progress: null,
+            new RequestOptions
+            {
+                Meta = BuildCorrelationMeta(correlation)
+            },
+            TestContext.Current.CancellationToken);
+        var request = await provider.RequestSeen.Task.WaitAsync(TestContext.Current.CancellationToken);
+
+        Assert.False(callTask.IsCompleted);
+        Assert.Equal("stream-run", request.RunId);
+        Assert.Equal("stream-step", request.StepId);
+        provider.Response.TrySetResult(new JsonObject { ["response"] = "Allow once" });
+        var result = await callTask;
+
+        Assert.NotEqual(true, result.IsError);
+        Assert.Equal([McpHumanInputSignalPhase.Waiting, McpHumanInputSignalPhase.Resumed], signals.Select(static signal => signal.Phase));
+
+        serverCancellation.Cancel();
+        await serverTask;
+    }
+
+    private static async Task<string> RequestPermissionOverMcpAsync(
+        McpProtocolServer server,
+        CancellationToken cancellationToken)
+    {
+        var trace = new McpCorrelationContext
+        {
+            CorrelationId = "stream-correlation",
+            RunId = "stream-run",
+            StepId = "stream-step",
+            ServerName = "stream-server",
+            MethodName = "request_permission",
+            Kind = "tool"
+        };
+        var result = await server.ElicitAsync(new ElicitRequestParams
+        {
+            Mode = "form",
+            Message = "Allow the streamed MCP operation?",
+            Meta = BuildCorrelationMeta(trace),
+            RequestedSchema = new ElicitRequestParams.RequestSchema
+            {
+                Properties = new Dictionary<string, ElicitRequestParams.PrimitiveSchemaDefinition>(StringComparer.Ordinal)
+                {
+                    ["answer"] = new ElicitRequestParams.UntitledSingleSelectEnumSchema
+                    {
+                        Enum = ["Allow once", "Refuse"]
+                    }
+                },
+                Required = ["answer"]
+            }
+        }, cancellationToken);
+        return result.Action;
+    }
+
+    private static JsonObject BuildCorrelationMeta(McpCorrelationContext correlation)
+        => new()
+        {
+            ["gnougo"] = new JsonObject
+            {
+                ["correlationId"] = correlation.CorrelationId,
+                ["runId"] = correlation.RunId,
+                ["stepId"] = correlation.StepId,
+                ["stepType"] = "mcp.call",
+                ["mcpServer"] = correlation.ServerName,
+                ["mcpMethod"] = correlation.MethodName,
+                ["mcpKind"] = correlation.Kind
+            }
+        };
+
+    [Fact]
     public void IsUnexpectedServerExit_ReturnsTrue_ForNestedProcessExitMessage()
     {
         var ex = new InvalidOperationException(
@@ -102,6 +500,45 @@ public class ConfiguredMcpClientFactoryTests
         {
             LastRequest = request;
             return Task.FromResult(response?.DeepClone());
+        }
+    }
+
+    private sealed class CancellingHumanInputProvider : IHumanInputProvider
+    {
+        public Task<JsonNode?> RequestInputAsync(HumanInputRequest request, CancellationToken ct)
+            => Task.FromCanceled<JsonNode?>(ct);
+    }
+
+    private sealed class DeferredHumanInputProvider : IHumanInputProvider
+    {
+        public TaskCompletionSource<HumanInputRequest> RequestSeen { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        public TaskCompletionSource<JsonNode?> Response { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        public async Task<JsonNode?> RequestInputAsync(HumanInputRequest request, CancellationToken ct)
+        {
+            RequestSeen.TrySetResult(request);
+            return await Response.Task.WaitAsync(ct);
+        }
+    }
+
+    private sealed class BlockingHumanInputProvider : IHumanInputProvider
+    {
+        public async Task<JsonNode?> RequestInputAsync(HumanInputRequest request, CancellationToken ct)
+        {
+            await Task.Delay(Timeout.InfiniteTimeSpan, ct);
+            return null;
+        }
+    }
+
+    private sealed class SequencedHumanInputProvider(params JsonNode?[] responses) : IHumanInputProvider
+    {
+        private int _index;
+
+        public Task<JsonNode?> RequestInputAsync(HumanInputRequest request, CancellationToken ct)
+        {
+            ct.ThrowIfCancellationRequested();
+            var index = Interlocked.Increment(ref _index) - 1;
+            return Task.FromResult(responses[index]?.DeepClone());
         }
     }
 
@@ -275,6 +712,9 @@ public class ConfiguredMcpClientFactoryTests
             MethodName = "code_suggest_change",
             Kind = "tool",
             TenantId = "tenant-1",
+            ExecutionId = "execution-1",
+            AgentId = "agent-1",
+            AgentName = "Reviewer",
             Context = new JsonObject
             {
                 ["workspace"] = "catalog-a",
@@ -293,6 +733,9 @@ public class ConfiguredMcpClientFactoryTests
         Assert.Equal(activity.SpanId.ToString(), gnougo["spanId"]!.GetValue<string>());
         Assert.Equal(activity.ParentSpanId.ToString(), gnougo["parentSpanId"]!.GetValue<string>());
         Assert.Equal("tenant-1", gnougo["tenantId"]!.GetValue<string>());
+        Assert.Equal("execution-1", gnougo["executionId"]!.GetValue<string>());
+        Assert.Equal("agent-1", gnougo["agentId"]!.GetValue<string>());
+        Assert.Equal("Reviewer", gnougo["agentName"]!.GetValue<string>());
         var context = Assert.IsType<JsonObject>(gnougo["context"]);
         Assert.Equal("catalog-a", context["workspace"]!.GetValue<string>());
         Assert.Equal(42, context["operationRevision"]!.GetValue<int>());

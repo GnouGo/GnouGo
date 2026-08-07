@@ -35,6 +35,9 @@ internal sealed class CodeServerSettingsOptionsConfigurator(IConfiguration confi
         settings.LogLevel = ReadString(section, nameof(CodeCopilotSettings.LogLevel), settings.LogLevel);
         settings.RequestTimeoutSeconds = ReadInt32(section, nameof(CodeCopilotSettings.RequestTimeoutSeconds), settings.RequestTimeoutSeconds);
         settings.ManagedSessionTtlSeconds = ReadInt32(section, nameof(CodeCopilotSettings.ManagedSessionTtlSeconds), settings.ManagedSessionTtlSeconds);
+        settings.EnableApproveAll = ReadBoolean(section, nameof(CodeCopilotSettings.EnableApproveAll), settings.EnableApproveAll);
+        settings.PermissionDatabasePath = ReadString(section, nameof(CodeCopilotSettings.PermissionDatabasePath), settings.PermissionDatabasePath);
+        settings.WorkflowGrantTtlSeconds = ReadInt32(section, nameof(CodeCopilotSettings.WorkflowGrantTtlSeconds), settings.WorkflowGrantTtlSeconds);
         settings.TokenEnvironmentVariables = ReadStringList(section, nameof(CodeCopilotSettings.TokenEnvironmentVariables), settings.TokenEnvironmentVariables);
 
         ConfigureTelemetry(section.GetSection(nameof(CodeCopilotSettings.Telemetry)), settings.Telemetry);

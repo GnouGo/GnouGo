@@ -39,6 +39,7 @@ internal static class McpToolContractEnricher
             Name = tool.Name,
             Description = tool.Description,
             InputSchema = tool.InputSchema?.DeepClone(),
+            Meta = tool.Meta?.DeepClone(),
             OutputSchema = inferredOutputSchema,
             ExampleResponse = tool.ExampleResponse?.DeepClone()
         };

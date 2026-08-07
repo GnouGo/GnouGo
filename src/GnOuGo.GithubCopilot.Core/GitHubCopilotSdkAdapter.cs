@@ -2,6 +2,7 @@ using GitHub.Copilot;
 using GitHub.Copilot.Rpc;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
+using System.Text.RegularExpressions;
 
 namespace GnOuGo.GithubCopilot.Core;
 
@@ -35,7 +36,12 @@ internal sealed class GitHubCopilotSdkClient : ICopilotSdkClient
 {
     internal const string PermissionAllowOnceChoice = "Allow once";
     internal const string PermissionRefuseChoice = "Refuse";
-    internal const string PermissionAllowForSessionChoice = "Allow similar operations for this session";
+    internal const string PermissionAllowForSessionChoice = "Allow similar operations for this task";
+    internal const string PermissionAllowAllTaskChoice = "Allow all for this Copilot task";
+    internal const string PermissionAllowAllWorkflowChoice = "Allow all for this workflow run";
+    internal const string PermissionAllowAllFutureAgentChoice = "Allow all future runs for this agent";
+    internal const string PermissionConfirmFutureAgentChoice = "Confirm persistent approval";
+    internal const string PermissionCancelFutureAgentChoice = "Cancel";
 
     private readonly CopilotClient _client;
     private readonly CopilotRuntimeConfiguration _configuration;
@@ -217,9 +223,16 @@ internal sealed class GitHubCopilotSdkClient : ICopilotSdkClient
             CopilotPermissionMode.AutoApproveAllowlist => (request, _) => Task.FromResult(IsAllowlisted(request, source.Request.Configuration.PermissionAllowlist)
                 ? PermissionDecision.ApproveOnce()
                 : PermissionDecision.Reject("The requested operation is outside the read-only allowlist.")),
-            CopilotPermissionMode.Interactive => async (request, _) => await RequestInteractivePermissionAsync(request, source),
+            CopilotPermissionMode.Interactive => BuildInteractivePermissionHandler(source),
             _ => static (_, _) => Task.FromResult(PermissionDecision.UserNotAvailable())
         };
+
+    private static Func<PermissionRequest, PermissionInvocation, Task<PermissionDecision>> BuildInteractivePermissionHandler(
+        CopilotSdkSessionConfiguration source)
+    {
+        var taskState = new InteractivePermissionTaskState();
+        return async (request, _) => await RequestInteractivePermissionAsync(request, source, taskState);
+    }
 
     private static Func<UserInputRequest, UserInputInvocation, Task<UserInputResponse>>? BuildUserInputHandler(CopilotSdkSessionConfiguration source)
     {
@@ -274,18 +287,61 @@ internal sealed class GitHubCopilotSdkClient : ICopilotSdkClient
         };
     }
 
-    private static async Task<PermissionDecision> RequestInteractivePermissionAsync(PermissionRequest request, CopilotSdkSessionConfiguration source)
+    internal static async Task<PermissionDecision> RequestInteractivePermissionAsync(
+        PermissionRequest request,
+        CopilotSdkSessionConfiguration source,
+        InteractivePermissionTaskState taskState)
     {
         if (source.HumanInputProvider is null)
             return PermissionDecision.UserNotAvailable();
 
-        var hasSessionApproval = TryBuildSessionApproval(request, out var sessionApproval, out var sessionScope);
-        IReadOnlyList<string> choices = hasSessionApproval
-            ? [PermissionAllowOnceChoice, PermissionRefuseChoice, PermissionAllowForSessionChoice]
-            : [PermissionAllowOnceChoice, PermissionRefuseChoice];
+        var operationKind = DescribePermissionKind(request);
         var details = DescribePermission(request);
+        var safeDetails = RedactPermissionDetails(details);
+        ReportPermission(source, "permission.requested", "thinking", $"Copilot requested permission for {safeDetails}", operationKind, null, automatic: false);
+
+        var sandboxBypass = RequestsSandboxBypass(request);
+        if (!sandboxBypass && taskState.AllowAll)
+        {
+            ReportPermission(source, "permission.auto_approved", "info", $"Auto-approved {safeDetails} using the current-task grant.", operationKind, CopilotPermissionGrantScope.CurrentTask, automatic: true);
+            return PermissionDecision.ApproveOnce();
+        }
+
+        if (!sandboxBypass && source.PermissionGrantStore is not null)
+        {
+            try
+            {
+                var reusable = await source.PermissionGrantStore.FindReusableGrantAsync(source.Request.Context, CancellationToken.None);
+                if (reusable is not null)
+                {
+                    ReportPermission(source, "permission.auto_approved", "info", $"Auto-approved {safeDetails} using the {FormatGrantScope(reusable.Scope)} grant.", operationKind, reusable.Scope, automatic: true);
+                    return PermissionDecision.ApproveOnce();
+                }
+            }
+            catch (Exception ex)
+            {
+                ReportPermission(source, "permission.grant_lookup_failed", "warning", $"Could not load a reusable Copilot permission grant; explicit approval is required. {ex.GetType().Name}", operationKind, null, automatic: false);
+            }
+        }
+
+        var hasSessionApproval = TryBuildSessionApproval(request, out var sessionApproval, out var sessionScope);
+        var choices = new List<string> { PermissionAllowOnceChoice };
+        if (!sandboxBypass && hasSessionApproval)
+            choices.Add(PermissionAllowForSessionChoice);
+        if (!sandboxBypass && source.Request.Configuration.EnableApproveAll)
+        {
+            choices.Add(PermissionAllowAllTaskChoice);
+            if (source.PermissionGrantStore is not null && !string.IsNullOrWhiteSpace(source.Request.Context.ExecutionId))
+                choices.Add(PermissionAllowAllWorkflowChoice);
+            if (source.PermissionGrantStore is not null && !string.IsNullOrWhiteSpace(source.Request.Context.AgentId))
+                choices.Add(PermissionAllowAllFutureAgentChoice);
+        }
+        choices.Add(PermissionRefuseChoice);
+
         if (!string.IsNullOrWhiteSpace(sessionScope))
             details += $"\n\nIf allowed for this session: {sessionScope}";
+        if (source.Request.Configuration.EnableApproveAll && !sandboxBypass)
+            details += "\n\nBroad approvals never include sandbox-bypass requests. Every automatically approved operation remains visible in workflow activity.";
 
         var response = await source.HumanInputProvider.RequestAsync(
             new CopilotHumanInputRequest(
@@ -297,7 +353,147 @@ internal sealed class GitHubCopilotSdkClient : ICopilotSdkClient
                 details),
             CancellationToken.None);
 
-        return ResolveInteractivePermissionResponse(response, hasSessionApproval ? sessionApproval : null);
+        if (!response.Accepted
+            || string.Equals(response.Answer, PermissionRefuseChoice, StringComparison.OrdinalIgnoreCase))
+        {
+            ReportPermission(source, "permission.refused", "warning", $"Refused {safeDetails}.", operationKind, null, automatic: false);
+            return PermissionDecision.Reject("The user refused the operation.");
+        }
+
+        if (string.Equals(response.Answer, PermissionAllowOnceChoice, StringComparison.OrdinalIgnoreCase))
+        {
+            ReportPermission(source, "permission.granted", "info", $"Allowed once: {safeDetails}.", operationKind, null, automatic: false);
+            return PermissionDecision.ApproveOnce();
+        }
+
+        if (sessionApproval is not null
+            && string.Equals(response.Answer, PermissionAllowForSessionChoice, StringComparison.OrdinalIgnoreCase))
+        {
+            ReportPermission(source, "permission.granted", "info", $"Allowed similar operations for this task: {safeDetails}.", operationKind, CopilotPermissionGrantScope.CurrentTask, automatic: false);
+            return sessionApproval;
+        }
+
+        if (!sandboxBypass
+            && source.Request.Configuration.EnableApproveAll
+            && string.Equals(response.Answer, PermissionAllowAllTaskChoice, StringComparison.OrdinalIgnoreCase))
+        {
+            taskState.AllowAll = true;
+            ReportPermission(source, "permission.granted", "warning", $"Allowed all non-bypass operations for this Copilot task, beginning with {safeDetails}.", operationKind, CopilotPermissionGrantScope.CurrentTask, automatic: false);
+            return PermissionDecision.ApproveOnce();
+        }
+
+        if (!sandboxBypass
+            && source.Request.Configuration.EnableApproveAll
+            && source.PermissionGrantStore is not null
+            && string.Equals(response.Answer, PermissionAllowAllWorkflowChoice, StringComparison.OrdinalIgnoreCase))
+        {
+            var grant = await source.PermissionGrantStore.GrantWorkflowRunAsync(source.Request.Context, CancellationToken.None);
+            ReportPermission(source, "permission.granted", "warning", $"Allowed all non-bypass operations for this workflow run, beginning with {safeDetails}.", operationKind, grant.Scope, automatic: false);
+            return PermissionDecision.ApproveOnce();
+        }
+
+        if (!sandboxBypass
+            && source.Request.Configuration.EnableApproveAll
+            && source.PermissionGrantStore is not null
+            && string.Equals(response.Answer, PermissionAllowAllFutureAgentChoice, StringComparison.OrdinalIgnoreCase))
+        {
+            var confirmation = await source.HumanInputProvider.RequestAsync(
+                new CopilotHumanInputRequest(
+                    source.Request.Context,
+                    "permission_persistence_confirmation",
+                    "Persist broad Copilot approval for this agent?",
+                    [PermissionConfirmFutureAgentChoice, PermissionCancelFutureAgentChoice],
+                    false,
+                    $"Agent: {source.Request.Context.AgentName ?? source.Request.Context.AgentId}\nTenant: {source.Request.Context.TenantId}\nThis survives restarts until revoked. Sandbox-bypass requests will still require approval."),
+                CancellationToken.None);
+            if (!confirmation.Accepted
+                || !string.Equals(confirmation.Answer, PermissionConfirmFutureAgentChoice, StringComparison.OrdinalIgnoreCase))
+            {
+                ReportPermission(source, "permission.refused", "warning", "Persistent Copilot approval was cancelled; the pending operation was refused.", operationKind, CopilotPermissionGrantScope.FutureAgentRuns, automatic: false);
+                return PermissionDecision.Reject("The user cancelled persistent approval.");
+            }
+
+            var grant = await source.PermissionGrantStore.GrantFutureAgentRunsAsync(source.Request.Context, CancellationToken.None);
+            ReportPermission(source, "permission.granted", "warning", $"Persisted broad approval for future runs of agent '{grant.AgentName ?? grant.AgentId}', beginning with {safeDetails}.", operationKind, grant.Scope, automatic: false);
+            return PermissionDecision.ApproveOnce();
+        }
+
+        ReportPermission(source, "permission.refused", "warning", "The Copilot permission response was not recognized and was rejected.", operationKind, null, automatic: false);
+        return PermissionDecision.Reject("The permission response was not recognized.");
+    }
+
+    private static bool RequestsSandboxBypass(PermissionRequest request)
+        => request switch
+        {
+            PermissionRequestRead read => read.RequestSandboxBypass == true,
+            PermissionRequestWrite write => write.RequestSandboxBypass == true,
+            PermissionRequestShell shell => shell.RequestSandboxBypass == true,
+            PermissionRequestUrl url => url.RequestSandboxBypass == true,
+            _ => false
+        };
+
+    private static string DescribePermissionKind(PermissionRequest request)
+        => request switch
+        {
+            PermissionRequestRead => "filesystem_read",
+            PermissionRequestWrite => "filesystem_write",
+            PermissionRequestShell => "shell",
+            PermissionRequestMcp => "mcp_tool",
+            PermissionRequestUrl => "url",
+            PermissionRequestCustomTool => "custom_tool",
+            _ => request.Kind ?? "unknown"
+        };
+
+    private static string FormatGrantScope(CopilotPermissionGrantScope scope)
+        => scope switch
+        {
+            CopilotPermissionGrantScope.CurrentTask => "current-task",
+            CopilotPermissionGrantScope.WorkflowRun => "workflow-run",
+            CopilotPermissionGrantScope.FutureAgentRuns => "future-agent-runs",
+            _ => scope.ToString()
+        };
+
+    private static void ReportPermission(
+        CopilotSdkSessionConfiguration source,
+        string kind,
+        string level,
+        string message,
+        string operationKind,
+        CopilotPermissionGrantScope? scope,
+        bool automatic)
+    {
+        try
+        {
+            source.PermissionEventSink?.Report(new CopilotPermissionEvent(
+                kind,
+                level,
+                message.Length <= 1200 ? message : message[..1200] + "...",
+                operationKind,
+                scope,
+                source.Request.Context,
+                automatic));
+        }
+        catch
+        {
+            // Observability must never change the permission decision.
+        }
+    }
+
+    private static string RedactPermissionDetails(string details)
+    {
+        var redacted = Regex.Replace(
+            details,
+            @"(?i)\b(authorization|api[_-]?key|password|secret|token)\s*[:=]\s*(?:bearer\s+)?[^\s;]+",
+            "$1=<redacted>",
+            RegexOptions.CultureInvariant,
+            TimeSpan.FromMilliseconds(100));
+        redacted = redacted.Replace('\r', ' ').Replace('\n', ' ').Trim();
+        return redacted.Length <= 800 ? redacted : redacted[..800] + "...";
+    }
+
+    internal sealed class InteractivePermissionTaskState
+    {
+        public bool AllowAll { get; set; }
     }
 
     internal static PermissionDecision ResolveInteractivePermissionResponse(

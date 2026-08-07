@@ -824,6 +824,9 @@ public sealed class WorkflowEngine : IWorkflowRuntime
             MaxFinalizationSteps = source.MaxFinalizationSteps,
             LogStepContent = source.LogStepContent,
             RunId = null,
+            ExecutionId = source.ExecutionId,
+            AgentId = source.AgentId,
+            AgentName = source.AgentName,
             TenantId = source.TenantId
         };
 

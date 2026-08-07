@@ -120,6 +120,10 @@ public sealed class ConfigureAgentsService
         // Capture the command activity so we can restore it inside Task.Run continuations
         // (thread-pool threads do not inherit Activity.Current from the calling async flow).
         var parentActivity = commandTrace.Activity;
+        var removalAgentId = string.Equals(descriptor.Action, "remove", StringComparison.Ordinal)
+            && !string.IsNullOrWhiteSpace(descriptor.Argument)
+                ? await TryResolveAgentIdAsync(descriptor.Argument, ct)
+                : null;
 
         if (string.Equals(trimmedCommand, "/gnougo list", StringComparison.OrdinalIgnoreCase))
         {
@@ -281,6 +285,12 @@ public sealed class ConfigureAgentsService
         }
         else
         {
+            if (!string.IsNullOrWhiteSpace(removalAgentId)
+                && !string.IsNullOrWhiteSpace(descriptor.Argument)
+                && await TryResolveAgentIdAsync(descriptor.Argument, ct) is null)
+            {
+                await TryRevokeDeletedAgentCopilotGrantsAsync(removalAgentId, ct);
+            }
             commandTrace.SetStatus(ActivityStatusCode.Ok);
         }
     }
@@ -362,6 +372,44 @@ public sealed class ConfigureAgentsService
         }
 
         return sb.ToString().TrimEnd();
+    }
+
+    private async Task<string?> TryResolveAgentIdAsync(string name, CancellationToken ct)
+    {
+        try
+        {
+            await using var session = await _mcpFactory.GetClientAsync("GnOuGo.Agent.Mcp", ct);
+            var call = await session.CallToolAsync(
+                "agent_get_by_name",
+                new JsonObject { ["name"] = name },
+                ct);
+            if (call.IsError || call.Content is not JsonObject response || response["success"]?.GetValue<bool>() != true)
+                return null;
+            return (response["agent"] as JsonObject)?["id"]?.GetValue<string>();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogDebug(ex, "Could not resolve agent '{AgentName}' while preparing permission-grant cleanup.", name);
+            return null;
+        }
+    }
+
+    private async Task TryRevokeDeletedAgentCopilotGrantsAsync(string agentId, CancellationToken ct)
+    {
+        try
+        {
+            await using var session = await _mcpFactory.GetClientAsync("GnOuGo.GithubCopilot.Mcp", ct);
+            var call = await session.CallToolAsync(
+                "copilot_permission_grants_revoke_agent",
+                new JsonObject { ["agentId"] = agentId, ["tenantId"] = _tenantId },
+                ct);
+            if (call.IsError)
+                _logger.LogWarning("Persistent Copilot permission grants for deleted agent {AgentId} could not be revoked.", agentId);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Persistent Copilot permission grants for deleted agent {AgentId} could not be revoked.", agentId);
+        }
     }
 
     private async Task<AgentLlmSelection?> ResolveAgentLlmSelectionAsync(CancellationToken ct)

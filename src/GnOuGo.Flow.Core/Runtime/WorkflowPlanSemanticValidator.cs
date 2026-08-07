@@ -80,12 +80,9 @@ internal static class WorkflowPlanSemanticValidator
     private static readonly Regex JsMemberAccessRegex = new(
         @"\b(?<var>[A-Za-z_$][A-Za-z0-9_$]*)\s*\??\.\s*(?<member>[A-Za-z_$][A-Za-z0-9_$]*)\b",
         RegexOptions.Compiled);
-    private static readonly Regex JsDocParamRegex = new(
-        @"@param\s+\{(?<type>[^}\r\n]+)\}\s+(?<name>\[?[A-Za-z_$][A-Za-z0-9_$]*(?:=[^\]\s]+)?\]?)",
-        RegexOptions.Compiled | RegexOptions.IgnoreCase);
-    private static readonly Regex JsDocReturnsRegex = new(
-        @"@returns?\s+\{(?<type>[^}\r\n]+)\}",
-        RegexOptions.Compiled | RegexOptions.IgnoreCase);
+    private static readonly Regex JsDocParameterNameRegex = new(
+        @"\s+(?<name>\[?[A-Za-z_$][A-Za-z0-9_$]*(?:=[^\]\s]+)?\]?)",
+        RegexOptions.Compiled);
     private static readonly HashSet<string> KnownMcpCallInputFields = new(StringComparer.Ordinal)
     {
         "server", "kind", "method", "methods", "request", "request_template", "template_data",
@@ -485,15 +482,122 @@ internal static class WorkflowPlanSemanticValidator
     private static Dictionary<string, string> ParseJsDocParamTypes(string jsDoc)
     {
         var parameters = new Dictionary<string, string>(StringComparer.Ordinal);
-        foreach (Match match in JsDocParamRegex.Matches(jsDoc))
+        foreach (var tag in EnumerateTypedJsDocTags(jsDoc, "@param"))
         {
-            var name = NormalizeJsDocParameterName(match.Groups["name"].Value);
-            var type = match.Groups["type"].Value.Trim();
+            var nameMatch = JsDocParameterNameRegex.Match(jsDoc, tag.NextIndex);
+            if (!nameMatch.Success || nameMatch.Index != tag.NextIndex)
+                continue;
+
+            var name = NormalizeJsDocParameterName(nameMatch.Groups["name"].Value);
             if (!string.IsNullOrWhiteSpace(name) && !parameters.ContainsKey(name))
-                parameters[name] = type;
+                parameters[name] = tag.Type;
         }
 
         return parameters;
+    }
+
+    private static IEnumerable<(string Type, int NextIndex)> EnumerateTypedJsDocTags(
+        string jsDoc,
+        params string[] tagNames)
+    {
+        var cursor = 0;
+        while (cursor < jsDoc.Length)
+        {
+            var markerIndex = jsDoc.IndexOf('@', cursor);
+            if (markerIndex < 0)
+                yield break;
+
+            cursor = markerIndex + 1;
+            foreach (var tagName in tagNames)
+            {
+                if (!jsDoc.AsSpan(markerIndex).StartsWith(tagName, StringComparison.OrdinalIgnoreCase))
+                    continue;
+
+                var typeStart = markerIndex + tagName.Length;
+                if (typeStart >= jsDoc.Length || !char.IsWhiteSpace(jsDoc[typeStart]))
+                    continue;
+
+                while (typeStart < jsDoc.Length && char.IsWhiteSpace(jsDoc[typeStart]))
+                    typeStart++;
+
+                if (typeStart >= jsDoc.Length
+                    || jsDoc[typeStart] != '{'
+                    || !TryReadBalancedJsDocType(jsDoc, typeStart, out var type, out var nextIndex))
+                {
+                    continue;
+                }
+
+                cursor = nextIndex;
+                yield return (type, nextIndex);
+                break;
+            }
+        }
+    }
+
+    private static bool TryReadBalancedJsDocType(
+        string jsDoc,
+        int openingBraceIndex,
+        out string type,
+        out int nextIndex)
+    {
+        type = "";
+        nextIndex = openingBraceIndex;
+        var depth = 0;
+        var quote = '\0';
+        var escaped = false;
+
+        for (var index = openingBraceIndex; index < jsDoc.Length; index++)
+        {
+            var current = jsDoc[index];
+            if (current is '\r' or '\n')
+                return false;
+
+            if (quote != '\0')
+            {
+                if (escaped)
+                {
+                    escaped = false;
+                    continue;
+                }
+
+                if (current == '\\')
+                {
+                    escaped = true;
+                    continue;
+                }
+
+                if (current == quote)
+                    quote = '\0';
+                continue;
+            }
+
+            if (current is '\'' or '"' or '`')
+            {
+                quote = current;
+                continue;
+            }
+
+            if (current == '{')
+            {
+                depth++;
+                continue;
+            }
+
+            if (current != '}')
+                continue;
+
+            depth--;
+            if (depth < 0)
+                return false;
+            if (depth != 0)
+                continue;
+
+            type = jsDoc[(openingBraceIndex + 1)..index].Trim();
+            nextIndex = index + 1;
+            return !string.IsNullOrWhiteSpace(type);
+        }
+
+        return false;
     }
 
     private static string NormalizeJsDocParameterName(string name)
@@ -518,8 +622,9 @@ internal static class WorkflowPlanSemanticValidator
 
     private static string? ParseJsDocReturnType(string jsDoc)
     {
-        var match = JsDocReturnsRegex.Match(jsDoc);
-        return match.Success ? match.Groups["type"].Value.Trim() : null;
+        return EnumerateTypedJsDocTags(jsDoc, "@returns", "@return")
+            .Select(static tag => tag.Type)
+            .FirstOrDefault();
     }
 
     private static string BuildFunctionJsDocSuggestion(FunctionDeclaration declaration)
@@ -2959,7 +3064,9 @@ internal static class WorkflowPlanSemanticValidator
         if (schema.TryGetPropertyValue("const", out var constant)
             && !JsonNode.DeepEquals(value, constant))
         {
-            errors.Add(new SchemaValidationError(path, $"value must equal {constant?.ToJsonString() ?? "null"}"));
+            errors.Add(new SchemaValidationError(
+                path,
+                $"value must equal {constant?.ToJsonString() ?? "null"}; received {value?.ToJsonString() ?? "null"}"));
         }
 
         if (schema["enum"] is not JsonArray allowedValues)
@@ -2968,7 +3075,9 @@ internal static class WorkflowPlanSemanticValidator
         if (!allowedValues.Any(allowed => JsonNode.DeepEquals(value, allowed)))
         {
             var allowedText = string.Join(", ", allowedValues.Select(static allowed => allowed?.ToJsonString() ?? "null"));
-            errors.Add(new SchemaValidationError(path, $"value must be one of: {allowedText}"));
+            errors.Add(new SchemaValidationError(
+                path,
+                $"value must be one of: {allowedText}; received {value?.ToJsonString() ?? "null"}"));
         }
     }
 

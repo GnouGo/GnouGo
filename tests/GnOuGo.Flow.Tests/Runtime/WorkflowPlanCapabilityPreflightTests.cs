@@ -1,6 +1,7 @@
 using System.Reflection;
 using System.Collections;
 using System.Runtime.CompilerServices;
+using System.Text.RegularExpressions;
 using System.Text.Json.Nodes;
 using GnOuGo.AI.Core;
 using GnOuGo.Flow.Core.Compilation;
@@ -8,6 +9,7 @@ using GnOuGo.Flow.Core.Models;
 using GnOuGo.Flow.Core.Parsing;
 using GnOuGo.Flow.Core.Runtime;
 using GnOuGo.Flow.Core.Runtime.Executors;
+using GnOuGo.Mcp.Core;
 using Moq;
 using Xunit;
 
@@ -15,6 +17,43 @@ namespace GnOuGo.Flow.Tests.Runtime;
 
 public sealed class WorkflowPlanCapabilityPreflightTests
 {
+    private const string ValidWorkspaceWorkflow = """
+        version: 1
+        name: generated-workspace
+        skill:
+          description: Materialize and analyze one workspace.
+          tags: [generated]
+          inputs: {}
+          outputs: {}
+        workflows:
+          main:
+            steps:
+              - id: materialize
+                type: mcp.call
+                input:
+                  server: workspace-provider
+                  kind: tool
+                  method: create_workspace
+                  request:
+                    sourceUrl: https://example.invalid/source
+              - id: inspect
+                type: mcp.call
+                input:
+                  server: workspace-consumer
+                  kind: tool
+                  method: inspect_workspace
+                  request:
+                    projectRoot: ${data.steps.materialize.response.projectRootRelative}
+              - id: verify
+                type: mcp.call
+                input:
+                  server: workspace-consumer
+                  kind: tool
+                  method: verify_workspace
+                  request:
+                    projectRoot: ${data.steps.materialize.response.projectRootRelative}
+        """;
+
     private const string ValidTemplateWorkflow = """
         version: 1
         name: generated-template
@@ -728,6 +767,211 @@ public sealed class WorkflowPlanCapabilityPreflightTests
     }
 
     [Fact]
+    public async Task ExplicitPreflight_AllowsOneMaterializerToFeedMultipleConsumers()
+    {
+        var result = await ExecuteAsync(
+            WorkspacePlan(includeSecondMaterializerRequirement: false),
+            ConstantLlm(ValidWorkspaceWorkflow).Object,
+            CreateArtifactFactory());
+
+        Assert.True(result.Success, result.Error?.Message);
+    }
+
+    [Fact]
+    public async Task ExplicitPreflight_PreservesArtifactProvenanceAcrossTypedWorkflowBoundaries()
+    {
+        var result = await ExecuteAsync(
+            WorkspacePlan(includeSecondMaterializerRequirement: false),
+            ConstantLlm("""
+                version: 1
+                name: generated-workspace-pipeline
+                skill:
+                  description: Materialize and analyze one workspace.
+                  tags: [generated]
+                  inputs: {}
+                  outputs: {}
+                workflows:
+                  main:
+                    steps:
+                      - id: produce
+                        type: workflow.call
+                        input:
+                          ref: { kind: local, name: materialize_workspace }
+                          args:
+                            source_url: https://example.invalid/source
+                      - id: inspect
+                        type: workflow.call
+                        input:
+                          ref: { kind: local, name: inspect_workspace }
+                          args:
+                            project_root: ${data.steps.produce.outputs.project_root}
+                      - id: verify
+                        type: workflow.call
+                        input:
+                          ref: { kind: local, name: verify_workspace }
+                          args:
+                            project_root: ${data.steps.produce.outputs.project_root}
+                  materialize_workspace:
+                    inputs:
+                      source_url: { type: string, required: true }
+                    steps:
+                      - id: materialize
+                        type: mcp.call
+                        input:
+                          server: workspace-provider
+                          kind: tool
+                          method: create_workspace
+                          request:
+                            sourceUrl: ${data.inputs.source_url}
+                    outputs:
+                      project_root:
+                        expr: ${data.steps.materialize.response.projectRootRelative}
+                        type: string
+                  inspect_workspace:
+                    inputs:
+                      project_root: { type: string, required: true }
+                    steps:
+                      - id: inspect_call
+                        type: mcp.call
+                        input:
+                          server: workspace-consumer
+                          kind: tool
+                          method: inspect_workspace
+                          request:
+                            projectRoot: ${data.inputs.project_root}
+                  verify_workspace:
+                    inputs:
+                      project_root: { type: string, required: true }
+                    steps:
+                      - id: verify_call
+                        type: mcp.call
+                        input:
+                          server: workspace-consumer
+                          kind: tool
+                          method: verify_workspace
+                          request:
+                            projectRoot: ${data.inputs.project_root}
+                """).Object,
+            CreateArtifactFactory());
+
+        Assert.True(result.Success, result.Error?.Message);
+    }
+
+    [Fact]
+    public async Task ExplicitPreflight_RejectsInventedArtifactConsumerValue()
+    {
+        var workflow = ValidWorkspaceWorkflow.Replace(
+            "${data.steps.materialize.response.projectRootRelative}",
+            "workflows/invented-directory",
+            StringComparison.Ordinal);
+        var result = await ExecuteAsync(
+            WorkspacePlan(includeSecondMaterializerRequirement: false),
+            ConstantLlm(workflow).Object,
+            CreateArtifactFactory());
+
+        Assert.False(result.Success);
+        Assert.Equal(ErrorCodes.TemplatePlan, result.Error!.Code);
+        Assert.Equal("mcp_artifact_dataflow", result.Error.Details!["phase"]!.GetValue<string>());
+        Assert.Equal("unproven_artifact_provenance", result.Error.Details["reason"]!.GetValue<string>());
+    }
+
+    [Fact]
+    public async Task ExplicitPreflight_RejectsTransformedArtifactConsumerValue()
+    {
+        var workflow = ValidWorkspaceWorkflow.Replace(
+            "${data.steps.materialize.response.projectRootRelative}",
+            "${toString(data.steps.materialize.response.projectRootRelative)}",
+            StringComparison.Ordinal);
+        var result = await ExecuteAsync(
+            WorkspacePlan(includeSecondMaterializerRequirement: false),
+            ConstantLlm(workflow).Object,
+            CreateArtifactFactory());
+
+        Assert.False(result.Success);
+        Assert.Equal(ErrorCodes.TemplatePlan, result.Error!.Code);
+        Assert.Equal("mcp_artifact_dataflow", result.Error.Details!["phase"]!.GetValue<string>());
+    }
+
+    [Fact]
+    public async Task ExplicitPreflight_RejectsIncompatibleArtifactKinds()
+    {
+        var result = await ExecuteAsync(
+            WorkspacePlan(includeSecondMaterializerRequirement: false),
+            ConstantLlm(ValidWorkspaceWorkflow).Object,
+            CreateArtifactFactory(consumerArtifactKind: "workspace.archive"));
+
+        Assert.False(result.Success);
+        Assert.Equal(ErrorCodes.TemplatePlan, result.Error!.Code);
+        Assert.Equal("mcp_artifact_dataflow", result.Error.Details!["phase"]!.GetValue<string>());
+    }
+
+    [Fact]
+    public async Task ExplicitPreflight_RejectsUnplannedSecondMaterializer()
+    {
+        var workflow = ValidWorkspaceWorkflow.Replace(
+            "      - id: inspect",
+            """
+                  - id: materialize_again
+                    type: mcp.call
+                    input:
+                      server: workspace-provider
+                      kind: tool
+                      method: create_workspace
+                      request:
+                        sourceUrl: https://example.invalid/source
+                  - id: inspect
+            """,
+            StringComparison.Ordinal);
+        var result = await ExecuteAsync(
+            WorkspacePlan(includeSecondMaterializerRequirement: false),
+            ConstantLlm(workflow).Object,
+            CreateArtifactFactory());
+
+        Assert.False(result.Success);
+        Assert.Equal(ErrorCodes.CapabilityPreflightRedundantArtifactProducer, result.Error!.Code);
+        Assert.Equal("redundant_artifact_materializer", result.Error.Details!["reason"]!.GetValue<string>());
+    }
+
+    [Fact]
+    public async Task ExplicitPreflight_AllowsTwoLockedMaterializerOccurrences()
+    {
+        var workflow = ValidWorkspaceWorkflow.Replace(
+            "      - id: inspect",
+            """
+                  - id: materialize_second_source
+                    type: mcp.call
+                    input:
+                      server: workspace-provider
+                      kind: tool
+                      method: create_workspace
+                      request:
+                        sourceUrl: https://example.invalid/second-source
+                  - id: inspect
+            """,
+            StringComparison.Ordinal);
+        var result = await ExecuteAsync(
+            WorkspacePlan(includeSecondMaterializerRequirement: true),
+            ConstantLlm(workflow).Object,
+            CreateArtifactFactory());
+
+        Assert.True(result.Success, result.Error?.Message);
+    }
+
+    [Fact]
+    public async Task InferredPreflight_RejectsInvalidExplicitArtifactPointerBeforeGeneration()
+    {
+        var factory = CreateArtifactFactory(invalidProducerPointer: true);
+        var llm = new Mock<ILLMClient>(MockBehavior.Strict);
+
+        var result = await ExecuteAsync(InferredPlan(), llm.Object, factory);
+
+        Assert.False(result.Success);
+        Assert.Equal(ErrorCodes.CapabilityPreflightUnavailable, result.Error!.Code);
+        Assert.Equal("mcp_artifact_contract", result.Error.Details!["phase"]!.GetValue<string>());
+        llm.Verify(client => client.CallAsync(It.IsAny<LLMRequest>(), It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    [Fact]
     public async Task InferredPreflight_ExpandsOneToolIntoDistinctSelectorCapabilities()
     {
         var prompts = new List<string>();
@@ -757,6 +1001,9 @@ public sealed class WorkflowPlanCapabilityPreflightTests
         Assert.Equal(3, prompts.Count);
         Assert.Contains("request_bindings=[/method=\"list_items\"]", prompts[1], StringComparison.Ordinal);
         Assert.Contains("request_bindings=[/method=\"get_status\"]", prompts[1], StringComparison.Ordinal);
+        Assert.Contains("variant_of=inventory/tool/inventory_read", prompts[1], StringComparison.Ordinal);
+        Assert.Single(Regex.Matches(prompts[1], "description=Perform one documented inventory read operation\\.")
+            .Cast<System.Text.RegularExpressions.Match>());
         Assert.Contains("/method=\"list_items\"", prompts[2], StringComparison.Ordinal);
         Assert.Contains("/method=\"get_status\"", prompts[2], StringComparison.Ordinal);
     }
@@ -879,13 +1126,15 @@ public sealed class WorkflowPlanCapabilityPreflightTests
             }]
         });
         var llm = new Mock<ILLMClient>(MockBehavior.Strict);
+        llm.Setup(client => client.CallAsync(It.IsAny<LLMRequest>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(InventoryResponse());
 
         var result = await ExecuteAsync(InferredPlan(), llm.Object, factory);
 
         Assert.False(result.Success);
         Assert.Equal(ErrorCodes.CapabilityPreflightInferenceFailed, result.Error!.Code);
         Assert.Equal("selector_value_limit_exceeded", result.Error.Details!["reason"]!.GetValue<string>());
-        llm.Verify(client => client.CallAsync(It.IsAny<LLMRequest>(), It.IsAny<CancellationToken>()), Times.Never);
+        llm.Verify(client => client.CallAsync(It.IsAny<LLMRequest>(), It.IsAny<CancellationToken>()), Times.Once);
     }
 
     [Fact]
@@ -901,13 +1150,391 @@ public sealed class WorkflowPlanCapabilityPreflightTests
             }).ToList()
         });
         var llm = new Mock<ILLMClient>(MockBehavior.Strict);
+        llm.Setup(client => client.CallAsync(It.IsAny<LLMRequest>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(InventoryResponse());
 
         var result = await ExecuteAsync(InferredPlan(), llm.Object, factory);
 
         Assert.False(result.Success);
         Assert.Equal(ErrorCodes.CapabilityPreflightInferenceFailed, result.Error!.Code);
         Assert.Equal("catalog_too_large", result.Error.Details!["reason"]!.GetValue<string>());
-        llm.Verify(client => client.CallAsync(It.IsAny<LLMRequest>(), It.IsAny<CancellationToken>()), Times.Never);
+        Assert.True(result.Error.Details["total_characters"]!.GetValue<int>() > 256_000);
+        Assert.Equal(600, result.Error.Details["selected_tool_count"]!.GetValue<int>());
+        Assert.Equal(600, result.Error.Details["full_tool_count"]!.GetValue<int>());
+        Assert.NotEmpty(Assert.IsType<JsonArray>(result.Error.Details["largest_contributors"]));
+        llm.Verify(client => client.CallAsync(It.IsAny<LLMRequest>(), It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task InferredPreflight_FiltersOversizedIrrelevantCatalogBeforeSchemaExpansion()
+    {
+        var factory = new InMemoryMcpClientFactory();
+        factory.RegisterServer("large-inventory", new MockMcpServerConfig
+        {
+            Tools = Enumerable.Range(0, 600).Select(index => new McpToolInfo
+            {
+                Name = $"inventory_action_{index:D4}",
+                Description = new string('x', 512)
+            }).ToList()
+        });
+        var storage = CreateNeutralFactory();
+        foreach (var server in storage.ServerMetadata!)
+        {
+            var client = await storage.GetClientAsync(server.Name, CancellationToken.None);
+            var tools = await client.ListToolsAsync(CancellationToken.None);
+            factory.RegisterServer(server.Name, new MockMcpServerConfig
+            {
+                Description = server.Description,
+                Tools = tools.ToList()
+            });
+        }
+
+        var prompts = new List<string>();
+        var llm = new Mock<ILLMClient>();
+        llm.Setup(client => client.CallAsync(It.IsAny<LLMRequest>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((LLMRequest request, CancellationToken _) =>
+            {
+                prompts.Add(request.Prompt);
+                if (request.Prompt.Contains("domain-neutral workflow runtime analyst", StringComparison.Ordinal))
+                    return InventoryResponse(("load_object", "Load the requested object.", true));
+                if (request.Prompt.Contains("physical capability candidate selector", StringComparison.Ordinal))
+                {
+                    var ids = request.Prompt.Contains(" method=get_object", StringComparison.Ordinal)
+                        ? new[] { CatalogIdForMethod(request.Prompt, "get_object") }
+                        : Array.Empty<string>();
+                    return PhysicalCandidateResponse(("load_object", ids));
+                }
+                if (request.Prompt.Contains("domain-neutral capability matcher", StringComparison.Ordinal))
+                    return MatchResponse(("load_object", "mcp", CatalogIdForMethod(request.Prompt, "get_object")));
+                if (request.Prompt.Contains("tool-selection assistant", StringComparison.OrdinalIgnoreCase))
+                    return McpPrefilterResponse(("object-storage", new[] { "get_object" }));
+                return new LLMResponse { Text = ValidStorageWorkflow };
+            });
+
+        var result = await ExecuteAsync(
+            InferredPlan().Replace("prefilter: false", "prefilter: true", StringComparison.Ordinal),
+            llm.Object,
+            factory);
+
+        Assert.True(result.Success, result.Error?.Message);
+        var selectorPrompts = prompts.Where(prompt => prompt.Contains("physical capability candidate selector", StringComparison.Ordinal)).ToArray();
+        Assert.NotEmpty(selectorPrompts);
+        Assert.DoesNotContain(selectorPrompts, prompt => prompt.Contains("request_bindings=", StringComparison.Ordinal));
+        var matchingPrompt = Assert.Single(prompts, prompt => prompt.Contains("domain-neutral capability matcher", StringComparison.Ordinal));
+        Assert.Contains("method=get_object", matchingPrompt, StringComparison.Ordinal);
+        Assert.DoesNotContain("method=inventory_action_", matchingPrompt, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task InferredPreflight_StillRejectsGenuinelyOversizedSelectedSchema()
+    {
+        static JsonArray Values(string prefix) => new(Enumerable.Range(0, 64)
+            .Select(index => (JsonNode?)JsonValue.Create($"{prefix}_{index:D2}"))
+            .ToArray());
+
+        var factory = new InMemoryMcpClientFactory();
+        factory.RegisterServer("selected-service", new MockMcpServerConfig
+        {
+            Tools =
+            [
+                new McpToolInfo
+                {
+                    Name = "selected_action",
+                    Description = "Perform the selected operation.",
+                    InputSchema = new JsonObject
+                    {
+                        ["type"] = "object",
+                        ["oneOf"] = new JsonArray(new JsonObject
+                        {
+                            ["properties"] = new JsonObject
+                            {
+                                ["left"] = new JsonObject { ["type"] = "string", ["enum"] = Values("left") },
+                                ["right"] = new JsonObject { ["type"] = "string", ["enum"] = Values("right") }
+                            }
+                        })
+                    }
+                }
+            ]
+        });
+
+        var llm = new Mock<ILLMClient>();
+        llm.Setup(client => client.CallAsync(It.IsAny<LLMRequest>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((LLMRequest request, CancellationToken _) =>
+            {
+                if (request.Prompt.Contains("domain-neutral workflow runtime analyst", StringComparison.Ordinal))
+                    return InventoryResponse(("selected_operation", "Perform the selected operation.", true));
+                if (request.Prompt.Contains("physical capability candidate selector", StringComparison.Ordinal))
+                {
+                    return PhysicalCandidateResponse(("selected_operation", new[]
+                    {
+                        CatalogIdForMethod(request.Prompt, "selected_action")
+                    }));
+                }
+                throw new InvalidOperationException("Matching must not run for an oversized selected schema.");
+            });
+
+        var result = await ExecuteAsync(
+            InferredPlan().Replace("prefilter: false", "prefilter: true", StringComparison.Ordinal),
+            llm.Object,
+            factory);
+
+        Assert.False(result.Success);
+        Assert.Equal(ErrorCodes.CapabilityPreflightInferenceFailed, result.Error!.Code);
+        Assert.Equal("catalog_too_large", result.Error.Details!["reason"]!.GetValue<string>());
+        Assert.Equal(1, result.Error.Details["selected_tool_count"]!.GetValue<int>());
+        Assert.Equal(1, result.Error.Details["full_tool_count"]!.GetValue<int>());
+        Assert.True(result.Error.Details["variant_count"]!.GetValue<int>() >= 4_096);
+    }
+
+    [Fact]
+    public async Task InferredPreflight_RepairsOneOmittedPhysicalCandidateAgainstCompactCatalog()
+    {
+        var selectorCalls = 0;
+        var prompts = new List<string>();
+        var llm = new Mock<ILLMClient>();
+        llm.Setup(client => client.CallAsync(It.IsAny<LLMRequest>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((LLMRequest request, CancellationToken _) =>
+            {
+                prompts.Add(request.Prompt);
+                if (request.Prompt.Contains("domain-neutral workflow runtime analyst", StringComparison.Ordinal))
+                    return InventoryResponse(("load_object", "Load the requested object.", true));
+                if (request.Prompt.Contains("physical capability candidate selector", StringComparison.Ordinal))
+                {
+                    selectorCalls++;
+                    return selectorCalls == 1
+                        ? PhysicalCandidateResponse(("load_object", Array.Empty<string>()))
+                        : PhysicalCandidateResponse(("load_object", new[] { CatalogIdForMethod(request.Prompt, "get_object") }));
+                }
+                if (request.Prompt.Contains("domain-neutral capability matcher", StringComparison.Ordinal))
+                    return MatchResponse(("load_object", "mcp", CatalogIdForMethod(request.Prompt, "get_object")));
+                if (request.Prompt.Contains("tool-selection assistant", StringComparison.OrdinalIgnoreCase))
+                    return McpPrefilterResponse(("object-storage", new[] { "get_object" }));
+                return new LLMResponse { Text = ValidStorageWorkflow };
+            });
+
+        var result = await ExecuteAsync(
+            InferredPlan().Replace("prefilter: false", "prefilter: true", StringComparison.Ordinal),
+            llm.Object,
+            CreateNeutralFactory());
+
+        Assert.True(result.Success, result.Error?.Message);
+        Assert.Equal(2, selectorCalls);
+        Assert.Contains(prompts, prompt => prompt.Contains("single bounded repair pass", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public async Task InferredPreflight_ReportsUnavailableCleanupOnlyAfterCompactCandidateRepair()
+    {
+        var selectorCalls = 0;
+        var matchingCalls = 0;
+        var llm = new Mock<ILLMClient>();
+        llm.Setup(client => client.CallAsync(It.IsAny<LLMRequest>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((LLMRequest request, CancellationToken _) =>
+            {
+                if (request.Prompt.Contains("domain-neutral workflow runtime analyst", StringComparison.Ordinal))
+                    return InventoryResponseWithEffects((
+                        "cleanup_created_directories",
+                        "Delete every directory successfully created by this workflow.",
+                        true,
+                        "external_effect",
+                        "lifecycle"));
+                if (request.Prompt.Contains("physical capability candidate selector", StringComparison.Ordinal))
+                {
+                    selectorCalls++;
+                    Assert.Contains("method=get_object", request.Prompt, StringComparison.Ordinal);
+                    return PhysicalCandidateResponse(("cleanup_created_directories", Array.Empty<string>()));
+                }
+                if (request.Prompt.Contains("domain-neutral capability matcher", StringComparison.Ordinal))
+                {
+                    matchingCalls++;
+                    return MatchResponse(("cleanup_created_directories", "unavailable", string.Empty));
+                }
+                throw new InvalidOperationException("Generation must not run for an unavailable required operation.");
+            });
+
+        var result = await ExecuteAsync(
+            InferredPlan()
+                .Replace("prefilter: false", "prefilter: true", StringComparison.Ordinal)
+                .Replace(
+                    "Load a configured object and optionally notify a consumer.",
+                    "Delete every directory successfully created by this workflow.",
+                    StringComparison.Ordinal),
+            llm.Object,
+            CreateNeutralFactory());
+
+        Assert.False(result.Success);
+        Assert.Equal(ErrorCodes.CapabilityPreflightUnavailable, result.Error!.Code);
+        Assert.Equal(2, selectorCalls);
+        Assert.Equal(2, matchingCalls);
+    }
+
+    [Fact]
+    public async Task InferredPreflight_AddsDeclaredArtifactProducerAfterPhysicalSelection()
+    {
+        string? matchingPrompt = null;
+        var llm = new Mock<ILLMClient>();
+        llm.Setup(client => client.CallAsync(It.IsAny<LLMRequest>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((LLMRequest request, CancellationToken _) =>
+            {
+                if (request.Prompt.Contains("domain-neutral workflow runtime analyst", StringComparison.Ordinal))
+                    return InventoryResponse(("inspect_workspace", "Inspect a materialized workspace.", true));
+                if (request.Prompt.Contains("physical capability candidate selector", StringComparison.Ordinal))
+                {
+                    return PhysicalCandidateResponse(("inspect_workspace", new[]
+                    {
+                        CatalogIdForMethod(request.Prompt, "inspect_workspace")
+                    }));
+                }
+                if (request.Prompt.Contains("domain-neutral capability matcher", StringComparison.Ordinal))
+                {
+                    matchingPrompt = request.Prompt;
+                    return MatchingResponse((
+                        "inspect_workspace",
+                        "composed",
+                        new[]
+                        {
+                            CatalogIdForMethod(request.Prompt, "create_workspace"),
+                            CatalogIdForMethod(request.Prompt, "inspect_workspace")
+                        },
+                        Array.Empty<string>(),
+                        "The producer supplies the required workspace artifact."));
+                }
+                if (request.Prompt.Contains("tool-selection assistant", StringComparison.OrdinalIgnoreCase))
+                {
+                    return McpPrefilterResponse(
+                        ("workspace-provider", new[] { "create_workspace" }),
+                        ("workspace-consumer", new[] { "inspect_workspace", "verify_workspace" }));
+                }
+                return new LLMResponse { Text = ValidWorkspaceWorkflow };
+            });
+
+        var result = await ExecuteAsync(
+            InferredPlan()
+                .Replace("prefilter: false", "prefilter: true", StringComparison.Ordinal)
+                .Replace("Load a configured object and optionally notify a consumer.", "Inspect one materialized workspace.", StringComparison.Ordinal),
+            llm.Object,
+            CreateArtifactFactory());
+
+        Assert.True(result.Success, result.Error?.Message);
+        Assert.NotNull(matchingPrompt);
+        Assert.Contains("method=create_workspace", matchingPrompt, StringComparison.Ordinal);
+        Assert.Contains("produces(workspace.directory:/projectRootRelative:materialize)", matchingPrompt, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task InferredPreflight_RejectsPhaseSpecificCopiesOfOneSharedMaterializer()
+    {
+        var generated = ValidWorkspaceWorkflow.Replace(
+            "      - id: inspect",
+            """
+                  - id: materialize_for_inspection
+                    type: mcp.call
+                    input:
+                      server: workspace-provider
+                      kind: tool
+                      method: create_workspace
+                      request:
+                        sourceUrl: https://example.invalid/source
+                  - id: materialize_for_verification
+                    type: mcp.call
+                    input:
+                      server: workspace-provider
+                      kind: tool
+                      method: create_workspace
+                      request:
+                        sourceUrl: https://example.invalid/source
+                  - id: inspect
+            """,
+            StringComparison.Ordinal);
+        var llm = new Mock<ILLMClient>();
+        llm.Setup(client => client.CallAsync(It.IsAny<LLMRequest>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((LLMRequest request, CancellationToken _) =>
+            {
+                if (request.Prompt.Contains("domain-neutral workflow runtime analyst", StringComparison.Ordinal))
+                {
+                    return InventoryResponseWithEffects(
+                        ("materialize_source", "Materialize the one requested source workspace.", true, "external_effect", "lifecycle"),
+                        ("inspect_source", "Inspect the materialized source workspace.", true, "external_effect", "execute"),
+                        ("verify_source", "Verify the materialized source workspace.", true, "external_effect", "execute"));
+                }
+                if (request.Prompt.Contains("domain-neutral capability matcher", StringComparison.Ordinal))
+                {
+                    var producer = CatalogIdForMethod(request.Prompt, "create_workspace");
+                    return MatchingResponse(
+                        ("materialize_source", "matched", [producer], Array.Empty<string>(), "The producer materializes the source."),
+                        ("inspect_source", "composed", [producer, CatalogIdForMethod(request.Prompt, "inspect_workspace")], Array.Empty<string>(), "Inspection consumes the produced workspace."),
+                        ("verify_source", "composed", [producer, CatalogIdForMethod(request.Prompt, "verify_workspace")], Array.Empty<string>(), "Verification consumes the produced workspace."));
+                }
+                return new LLMResponse { Text = generated };
+            });
+
+        var result = await ExecuteAsync(
+            InferredPlan().Replace(
+                "Load a configured object and optionally notify a consumer.",
+                "Materialize one source workspace and reuse it for inspection and verification.",
+                StringComparison.Ordinal),
+            llm.Object,
+            CreateArtifactFactory());
+
+        Assert.False(result.Success);
+        Assert.Equal(ErrorCodes.WorkflowPlanRepairStalled, result.Error!.Code);
+        var lastError = Assert.IsType<JsonObject>(result.Error.Details!["last_error"]);
+        Assert.Equal(ErrorCodes.CapabilityPreflightRedundantArtifactProducer, lastError["code"]!.GetValue<string>());
+        var details = Assert.IsType<JsonObject>(lastError["details"]);
+        Assert.Equal("redundant_artifact_materializer", details["reason"]!.GetValue<string>());
+        Assert.Equal(2, Assert.IsType<JsonArray>(details["redundant_calls"]).Count);
+    }
+
+    [Fact]
+    public async Task InferredPreflight_AllowsTwoExplicitSourceMaterializerOccurrences()
+    {
+        var generated = ValidWorkspaceWorkflow.Replace(
+            "      - id: inspect",
+            """
+                  - id: materialize_second_source
+                    type: mcp.call
+                    input:
+                      server: workspace-provider
+                      kind: tool
+                      method: create_workspace
+                      request:
+                        sourceUrl: https://example.invalid/second-source
+                  - id: inspect
+            """,
+            StringComparison.Ordinal);
+        var llm = new Mock<ILLMClient>();
+        llm.Setup(client => client.CallAsync(It.IsAny<LLMRequest>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((LLMRequest request, CancellationToken _) =>
+            {
+                if (request.Prompt.Contains("domain-neutral workflow runtime analyst", StringComparison.Ordinal))
+                {
+                    return InventoryResponseWithEffects(
+                        ("materialize_first_source", "Materialize the first requested source workspace.", true, "external_effect", "lifecycle"),
+                        ("materialize_second_source", "Materialize the second requested source workspace.", true, "external_effect", "lifecycle"),
+                        ("inspect_first_source", "Inspect the first materialized source workspace.", true, "external_effect", "execute"),
+                        ("verify_first_source", "Verify the first materialized source workspace.", true, "external_effect", "execute"));
+                }
+                if (request.Prompt.Contains("domain-neutral capability matcher", StringComparison.Ordinal))
+                {
+                    var producer = CatalogIdForMethod(request.Prompt, "create_workspace");
+                    return MatchingResponse(
+                        ("materialize_first_source", "matched", [producer], Array.Empty<string>(), "The producer materializes the first source."),
+                        ("materialize_second_source", "matched", [producer], Array.Empty<string>(), "The producer materializes the second source."),
+                        ("inspect_first_source", "composed", [producer, CatalogIdForMethod(request.Prompt, "inspect_workspace")], Array.Empty<string>(), "Inspection consumes the first workspace."),
+                        ("verify_first_source", "composed", [producer, CatalogIdForMethod(request.Prompt, "verify_workspace")], Array.Empty<string>(), "Verification consumes the first workspace."));
+                }
+                return new LLMResponse { Text = generated };
+            });
+
+        var result = await ExecuteAsync(
+            InferredPlan().Replace(
+                "Load a configured object and optionally notify a consumer.",
+                "Materialize two distinct source workspaces and inspect and verify the first one.",
+                StringComparison.Ordinal),
+            llm.Object,
+            CreateArtifactFactory());
+
+        Assert.True(result.Success, result.Error?.Message);
     }
 
     [Fact]
@@ -1891,6 +2518,36 @@ public sealed class WorkflowPlanCapabilityPreflightTests
     private static LLMResponse MatchResponse(params (string OperationId, string Resolution, string CatalogId)[] matches)
         => MatchResponseWithConstraints(matches, Array.Empty<(string ConstraintId, string[] CatalogIds)>());
 
+    private static LLMResponse PhysicalCandidateResponse(
+        params (string OperationId, string[] CatalogIds)[] operations)
+        => new()
+        {
+            Json = new JsonObject
+            {
+                ["operation_candidates"] = new JsonArray(operations.Select(static operation => (JsonNode)new JsonObject
+                {
+                    ["operation_id"] = operation.OperationId,
+                    ["catalog_ids"] = new JsonArray(operation.CatalogIds.Select(static id => (JsonNode?)JsonValue.Create(id)).ToArray())
+                }).ToArray()),
+                ["constraint_candidates"] = new JsonArray()
+            }
+        };
+
+    private static LLMResponse McpPrefilterResponse(
+        params (string Server, string[] Tools)[] servers)
+        => new()
+        {
+            Json = new JsonObject
+            {
+                ["servers"] = new JsonArray(servers.Select(static server => (JsonNode)new JsonObject
+                {
+                    ["name"] = server.Server,
+                    ["tools"] = new JsonArray(server.Tools.Select(static tool => (JsonNode?)JsonValue.Create(tool)).ToArray()),
+                    ["prompts"] = new JsonArray()
+                }).ToArray())
+            }
+        };
+
     private static LLMResponse InventoryResponse(params (string Id, string Description, bool Required)[] operations)
         => new()
         {
@@ -2177,6 +2834,123 @@ public sealed class WorkflowPlanCapabilityPreflightTests
             ]
         });
         return factory;
+    }
+
+    private static InMemoryMcpClientFactory CreateArtifactFactory(
+        bool invalidProducerPointer = false,
+        string consumerArtifactKind = McpArtifactContractMetadata.WorkspaceDirectoryKind)
+    {
+        static JsonObject Meta(string json) => new()
+        {
+            [McpArtifactContractMetadata.MetaPropertyName] = JsonNode.Parse(json)
+        };
+
+        var producerMetadata = invalidProducerPointer
+            ? """{"artifacts":{"version":1,"produces":[{"kind":"workspace.directory","pointer":"/missing","mode":"materialize"}]}}"""
+            : McpArtifactContractMetadata.WorkspaceDirectoryProducerProjectRootRelativeJson;
+        var producer = new McpToolInfo
+        {
+            Name = "create_workspace",
+            Description = "Materialize a workspace from a source URL.",
+            Meta = Meta(producerMetadata),
+            InputSchema = JsonNode.Parse("""
+                {
+                  "type": "object",
+                  "properties": { "sourceUrl": { "type": "string" } },
+                  "required": ["sourceUrl"],
+                  "additionalProperties": false
+                }
+                """),
+            OutputSchema = JsonNode.Parse("""
+                {
+                  "type": "object",
+                  "properties": { "projectRootRelative": { "type": "string" } },
+                  "required": ["projectRootRelative"],
+                  "additionalProperties": false
+                }
+                """)
+        };
+        var consumerSchema = JsonNode.Parse("""
+            {
+              "type": "object",
+              "properties": { "projectRoot": { "type": "string" } },
+              "required": ["projectRoot"],
+              "additionalProperties": false
+            }
+            """);
+        var consumerMetadata = McpArtifactContractMetadata.WorkspaceDirectoryConsumerProjectRootJson.Replace(
+            McpArtifactContractMetadata.WorkspaceDirectoryKind,
+            consumerArtifactKind,
+            StringComparison.Ordinal);
+        var factory = new InMemoryMcpClientFactory();
+        factory.RegisterServer("workspace-provider", new MockMcpServerConfig { Tools = [producer] });
+        factory.RegisterServer("workspace-consumer", new MockMcpServerConfig
+        {
+            Tools =
+            [
+                new McpToolInfo
+                {
+                    Name = "inspect_workspace",
+                    Description = "Inspect a materialized workspace.",
+                    Meta = Meta(consumerMetadata),
+                    InputSchema = consumerSchema!.DeepClone()
+                },
+                new McpToolInfo
+                {
+                    Name = "verify_workspace",
+                    Description = "Verify a materialized workspace.",
+                    Meta = Meta(consumerMetadata),
+                    InputSchema = consumerSchema.DeepClone()
+                }
+            ]
+        });
+        return factory;
+    }
+
+    private static string WorkspacePlan(bool includeSecondMaterializerRequirement)
+    {
+        var second = includeSecondMaterializerRequirement
+            ? """
+              - id: materialize_second_workspace
+                description: Materialize the second requested workspace.
+                required: true
+                alternatives:
+                  - server: workspace-provider
+                    kind: tool
+                    method: create_workspace
+              """
+            : string.Empty;
+        return ExplicitPlan($$"""
+            - id: materialize_workspace
+              description: Materialize the requested workspace.
+              required: true
+              alternatives:
+                - server: workspace-provider
+                  kind: tool
+                  method: create_workspace
+            {{second}}
+            - id: inspect_workspace
+              description: Inspect the materialized workspace.
+              required: true
+              alternatives:
+                - server: workspace-consumer
+                  kind: tool
+                  method: inspect_workspace
+            - id: verify_workspace
+              description: Verify the materialized workspace.
+              required: true
+              alternatives:
+                - server: workspace-consumer
+                  kind: tool
+                  method: verify_workspace
+            """)
+            .Replace(
+                "Load an object and produce the requested result.",
+                includeSecondMaterializerRequirement
+                    ? "Materialize two requested workspaces and analyze the first one."
+                    : "Materialize one requested workspace and reuse it for inspection and verification.",
+                StringComparison.Ordinal)
+            .Replace("max_repair_attempts: 3", "max_repair_attempts: 1", StringComparison.Ordinal);
     }
 
     private static string ExplicitPlan(string requirements) => $$"""

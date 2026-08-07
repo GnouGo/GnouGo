@@ -431,7 +431,7 @@
                                     @foreach (var choice in _pendingHumanInput.Choices)
                                     {
                                         var c = choice;
-                                        <button class="gnougo-composer__send"
+                                        <button class="@GetHumanInputChoiceClass(c)"
                                                 type="button"
                                                 style="min-width: 80px;"
                                                 @onclick="@(() => SubmitHumanInputChoice(c))">
@@ -2488,6 +2488,20 @@
 
         ResetHumanInputState();
         StateHasChanged();
+    }
+
+    private static string GetHumanInputChoiceClass(string choice)
+    {
+        const string baseClass = "gnougo-composer__send gnougo-hitl-choice";
+        if (choice.Contains("future runs", StringComparison.OrdinalIgnoreCase)
+            || choice.Contains("persistent approval", StringComparison.OrdinalIgnoreCase))
+            return baseClass + " gnougo-hitl-choice--persistent";
+        if (choice.StartsWith("Allow all", StringComparison.OrdinalIgnoreCase))
+            return baseClass + " gnougo-hitl-choice--broad";
+        if (choice.Equals("Refuse", StringComparison.OrdinalIgnoreCase)
+            || choice.Equals("Cancel", StringComparison.OrdinalIgnoreCase))
+            return baseClass + " gnougo-hitl-choice--refuse";
+        return baseClass;
     }
 
     private void SubmitHumanInputText()

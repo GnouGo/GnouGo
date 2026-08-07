@@ -20,7 +20,7 @@ public class McpCallExecutorTests
 
     private static async Task<RunResult> RunMain(string yaml, JsonObject? inputs = null,
         IMcpClientFactory? mcpFactory = null, ILLMClient? llm = null, IWorkflowTelemetry? telemetry = null,
-        ExecutionLimits? limits = null, IMemoryCache? mcpCache = null)
+        ExecutionLimits? limits = null, IMemoryCache? mcpCache = null, CancellationToken cancellationToken = default)
     {
         var compiled = CompileDoc(yaml);
         var wf = compiled.Workflows[compiled.Entrypoint!];
@@ -32,7 +32,7 @@ public class McpCallExecutorTests
             Telemetry = telemetry ?? NullWorkflowTelemetry.Instance,
             Limits = limits ?? new ExecutionLimits()
         };
-        return await engine.ExecuteAsync(wf, inputs ?? new JsonObject(), CancellationToken.None);
+        return await engine.ExecuteAsync(wf, inputs ?? new JsonObject(), cancellationToken);
     }
 
     // ------ Basic mcp.call ------
@@ -121,11 +121,21 @@ workflows:
           method: read
           request: {}
 """, new JsonObject { ["tenantId"] = "workflow-controlled" }, factory,
-            limits: new ExecutionLimits { TenantId = "host-controlled", RunId = "run-1" });
+            limits: new ExecutionLimits
+            {
+                TenantId = "host-controlled",
+                RunId = "run-1",
+                ExecutionId = "execution-1",
+                AgentId = "agent-1",
+                AgentName = "Reviewer"
+            });
 
         Assert.True(result.Success, result.Error?.Message);
         var gnougo = Assert.IsType<JsonObject>(capturedMeta!["gnougo"]);
         Assert.Equal("host-controlled", gnougo["tenantId"]!.GetValue<string>());
+        Assert.Equal("execution-1", gnougo["executionId"]!.GetValue<string>());
+        Assert.Equal("agent-1", gnougo["agentId"]!.GetValue<string>());
+        Assert.Equal("Reviewer", gnougo["agentName"]!.GetValue<string>());
     }
 
     [Fact]
@@ -757,6 +767,88 @@ workflows:
     }
 
     [Fact]
+    public async Task McpCall_RealtimeElicitationIsForwardedAsHumanInputTelemetry()
+    {
+        var spanEvents = new List<(string Name, IReadOnlyList<KeyValuePair<string, object?>>? Attributes)>();
+        var workflowSpan = new Mock<IWorkflowSpan>();
+        var stepSpan = new Mock<IStepSpan>();
+        stepSpan
+            .Setup(s => s.AddEvent(It.IsAny<string>(), It.IsAny<IReadOnlyList<KeyValuePair<string, object?>>?>()))
+            .Callback<string, IReadOnlyList<KeyValuePair<string, object?>>?>((name, attributes) => spanEvents.Add((name, attributes)));
+        var telemetry = new Mock<IWorkflowTelemetry>();
+        telemetry.Setup(t => t.WorkflowStart(It.IsAny<WorkflowTelemetryInfo>())).Returns(workflowSpan.Object);
+        telemetry.Setup(t => t.StepStart(It.IsAny<ITelemetrySpan>(), It.IsAny<StepTelemetryInfo>())).Returns(stepSpan.Object);
+
+        var correlation = new McpCorrelationContext
+        {
+            ServerName = "copilot",
+            MethodName = "copilot_interactive_one_shot",
+            Kind = "tool",
+            RunId = "run-1",
+            StepId = "install"
+        };
+        var request = new HumanInputRequest
+        {
+            RunId = "run-1",
+            StepId = "install",
+            Prompt = "Allow this Copilot operation?",
+            Mode = HumanInputContract.ModeChoice,
+            Choices = ["Allow once", "Refuse"],
+            Fields =
+            [
+                new HumanInputFieldDef
+                {
+                    Name = "answer",
+                    Type = "select",
+                    Required = true,
+                    Description = "Shell command: dotnet test",
+                    Options = ["Allow once", "Refuse"]
+                }
+            ]
+        };
+        var mockSession = new Mock<IMcpSession>();
+        mockSession.Setup(s => s.ServerName).Returns("copilot");
+        mockSession.Setup(s => s.CallToolAsync("copilot_interactive_one_shot", It.IsAny<JsonNode?>(), It.IsAny<CancellationToken>()))
+            .Returns(() =>
+            {
+                ConfiguredMcpClientFactory.PublishHumanInput(new McpHumanInputSignal(correlation, request, McpHumanInputSignalPhase.Waiting));
+                ConfiguredMcpClientFactory.PublishHumanInput(new McpHumanInputSignal(correlation, request, McpHumanInputSignalPhase.Resumed));
+                return Task.FromResult(new McpCallResult
+                {
+                    Content = new JsonObject { ["content"] = "done" }
+                });
+            });
+        mockSession.Setup(s => s.DisposeAsync()).Returns(ValueTask.CompletedTask);
+        var mockFactory = new Mock<IMcpClientFactory>();
+        mockFactory.Setup(f => f.GetClientAsync("copilot", It.IsAny<CancellationToken>())).ReturnsAsync(mockSession.Object);
+
+        var result = await RunMain("""
+version: 1
+workflows:
+  main:
+    steps:
+      - id: install
+        type: mcp.call
+        input:
+          server: copilot
+          method: copilot_interactive_one_shot
+          request:
+            projectRoot: workspace
+            prompt: Run tests.
+""", mcpFactory: mockFactory.Object, telemetry: telemetry.Object, limits: new ExecutionLimits { RunId = "run-1" });
+
+        Assert.True(result.Success, result.Error?.Message);
+        var waiting = Assert.Single(spanEvents, static item => item.Name == "gnougo-flow.step.waiting_for_human");
+        var waitingAttributes = waiting.Attributes!.ToDictionary(static item => item.Key, static item => item.Value);
+        var payload = JsonNode.Parse(waitingAttributes["gnougo-flow.human.request"]!.ToString()!)!.AsObject();
+        Assert.Equal("run-1", payload["run_id"]!.GetValue<string>());
+        Assert.Equal("install", payload["step_id"]!.GetValue<string>());
+        Assert.Equal("Allow this Copilot operation?", payload["prompt"]!.GetValue<string>());
+        Assert.Equal("Shell command: dotnet test", payload["fields"]![0]!["description"]!.GetValue<string>());
+        Assert.Contains(spanEvents, static item => item.Name == "gnougo-flow.step.human_input_resumed");
+    }
+
+    [Fact]
     public async Task McpCall_WithExpressions_ResolvesInput()
     {
         var mockSession = new Mock<IMcpSession>();
@@ -1126,6 +1218,104 @@ workflows:
 
         Assert.True(result.Success);
         Assert.Equal("ok", result.Outputs!["status"]!.GetValue<string>());
+    }
+
+    [Fact]
+    public async Task McpCall_CallerCancellationRemainsWorkflowCancellation()
+    {
+        var mockSession = new Mock<IMcpSession>();
+        mockSession.Setup(s => s.ServerName).Returns("slow");
+        mockSession.Setup(s => s.CallToolAsync("wait", It.IsAny<JsonNode?>(), It.IsAny<CancellationToken>()))
+            .Returns(async (string _, JsonNode? _, CancellationToken ct) =>
+            {
+                await Task.Delay(Timeout.InfiniteTimeSpan, ct);
+                return new McpCallResult();
+            });
+        mockSession.Setup(s => s.DisposeAsync()).Returns(ValueTask.CompletedTask);
+
+        var mockFactory = new Mock<IMcpClientFactory>();
+        mockFactory.Setup(f => f.GetClientAsync("slow", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(mockSession.Object);
+        using var cancellation = new CancellationTokenSource(TimeSpan.FromMilliseconds(30));
+
+        var result = await RunMain("""
+version: 1
+workflows:
+  main:
+    steps:
+      - id: call
+        type: mcp.call
+        input:
+          server: slow
+          method: wait
+          timeout_ms: 60000
+""", mcpFactory: mockFactory.Object, cancellationToken: cancellation.Token);
+
+        Assert.False(result.Success);
+        Assert.Equal("CANCELLED", result.Error?.Code);
+        Assert.DoesNotContain("MCP_CALL_ERROR", result.Error?.Message ?? string.Empty, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task McpCall_DedicatedTimeoutReportsMcpTimeout()
+    {
+        var mockSession = new Mock<IMcpSession>();
+        mockSession.Setup(s => s.ServerName).Returns("slow");
+        mockSession.Setup(s => s.CallToolAsync("wait", It.IsAny<JsonNode?>(), It.IsAny<CancellationToken>()))
+            .Returns(async (string _, JsonNode? _, CancellationToken ct) =>
+            {
+                await Task.Delay(Timeout.InfiniteTimeSpan, ct);
+                return new McpCallResult();
+            });
+        mockSession.Setup(s => s.DisposeAsync()).Returns(ValueTask.CompletedTask);
+        var mockFactory = new Mock<IMcpClientFactory>();
+        mockFactory.Setup(f => f.GetClientAsync("slow", It.IsAny<CancellationToken>())).ReturnsAsync(mockSession.Object);
+
+        var result = await RunMain("""
+version: 1
+workflows:
+  main:
+    steps:
+      - id: call
+        type: mcp.call
+        input:
+          server: slow
+          method: wait
+          timeout_ms: 20
+""", mcpFactory: mockFactory.Object);
+
+        Assert.False(result.Success);
+        Assert.Equal(ErrorCodes.McpTimeout, result.Error?.Code);
+    }
+
+    [Fact]
+    public async Task McpCall_TransportCancellationWithoutCallerOrTimeoutIsMcpCallError()
+    {
+        using var transportCancellation = new CancellationTokenSource();
+        transportCancellation.Cancel();
+        var mockSession = new Mock<IMcpSession>();
+        mockSession.Setup(s => s.ServerName).Returns("broken");
+        mockSession.Setup(s => s.CallToolAsync("wait", It.IsAny<JsonNode?>(), It.IsAny<CancellationToken>()))
+            .Returns(Task.FromCanceled<McpCallResult>(transportCancellation.Token));
+        mockSession.Setup(s => s.DisposeAsync()).Returns(ValueTask.CompletedTask);
+        var mockFactory = new Mock<IMcpClientFactory>();
+        mockFactory.Setup(f => f.GetClientAsync("broken", It.IsAny<CancellationToken>())).ReturnsAsync(mockSession.Object);
+
+        var result = await RunMain("""
+version: 1
+workflows:
+  main:
+    steps:
+      - id: call
+        type: mcp.call
+        input:
+          server: broken
+          method: wait
+          timeout_ms: 60000
+""", mcpFactory: mockFactory.Object);
+
+        Assert.False(result.Success);
+        Assert.Equal(ErrorCodes.McpCallError, result.Error?.Code);
     }
 
 

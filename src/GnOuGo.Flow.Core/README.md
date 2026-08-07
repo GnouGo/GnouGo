@@ -11,7 +11,7 @@ Write YAML workflows that orchestrate LLMs, MCP servers, templates, loops, human
 
 The runtime uses the stable C# MCP SDK `2.0.0`. HTTP and stdio clients prefer MCP `2026-07-28` discovery with `server/discover` and automatically fall back to `2025-11-25` initialization when an external server is older. GnOuGo-owned servers require `2026-07-28` in conformance tests. Flow does not use `Mcp-Session-Id` for Copilot identity.
 
-Every discovery/tool/resource/prompt request carries reserved technical metadata such as correlation, run, trace, step, and tenant identifiers under `_meta.gnougo`; HTTP headers and stdio environment receive the same technical identifiers. A caller may explicitly add domain-neutral request context through `mcp.call.input.context`, which is propagated only under `_meta.gnougo.context`. Flow never extracts domain fields from workflow data. MCP elicitation is bridged to the workflow `IHumanInputProvider`, enabling stable multi-round-trip HITL without putting credentials in YAML.
+Every discovery/tool/resource/prompt request carries reserved technical metadata such as correlation, stable execution and agent identity, run, trace, step, and tenant identifiers under `_meta.gnougo`; HTTP headers and stdio environment receive the same technical identifiers. These host-owned fields cannot be overridden by workflow input. A caller may explicitly add domain-neutral request context through `mcp.call.input.context`, which is propagated only under `_meta.gnougo.context`. Flow never extracts domain fields from workflow data. MCP elicitation is bridged to the workflow `IHumanInputProvider`, enabling stable multi-round-trip HITL without putting credentials in YAML. MCP tools marked `gnougo.management.visibility=management_only` remain discoverable to management clients but are excluded from workflow planning catalogs.
 
 Before the first tool call on each live MCP client, Flow performs that client's
 `tools/list` discovery even when the process-wide capability catalog is already
@@ -630,6 +630,10 @@ Expected item shape:
 ```
 
 Only the `message` field is required. These messages are operational progress milestones and should not contain raw model chain-of-thought.
+
+#### MCP elicitation → visible Human Input
+
+An MCP form-elicitation request is surfaced through the same `HumanInputRequest` contract as a `human.input` step. `mcp.call` emits `gnougo-flow.step.waiting_for_human` before awaiting the provider, then `gnougo-flow.step.human_input_resumed` with a `resumed`, `refused`, or `cancelled` phase. Correlation metadata sent back by the MCP server identifies the exact run and step, including when a transport client is cached or several calls use the same server and method concurrently. An external server that omits this metadata can use the sole active call for that server; an ambiguous concurrent request is rejected instead of risking cross-run input delivery. Caller cancellation remains workflow cancellation and releases the pending provider request; only expiration of the dedicated MCP timeout is reported as `MCP_TIMEOUT`.
 
 ---
 
@@ -1297,11 +1301,26 @@ The most powerful step type: asks an LLM to **generate a complete YAML workflow*
 
 #### Generic capability preflight
 
-`capability_preflight.mode: infer` discovers every configured MCP catalog and uses two strict structured-output calls. Pass 1 inventories positive runtime operations and constraints without seeing tools. Pass 2 matches that inventory to deterministic opaque IDs from a compact schema-aware catalog. The catalog expands documented scalar `enum`/`const`, nested selectors, discriminators, `oneOf`, and `anyOf` branches, so logical variants of one physical tool remain distinct capabilities. Required unavailable operations fail before classification, decomposition, or YAML generation. Prohibitions, safety rules, ordering requirements, and invariants are constraints rather than executable operations, so abstaining never requires a tool.
+`capability_preflight.mode: infer` discovers every configured MCP catalog and starts by inventorying positive runtime operations and constraints without exposing tools. When `generator.prefilter` is enabled (the default), Flow then pages through a compact one-entry-per-physical-tool catalog to select relevant candidates, adds compatible MCP-declared artifact producers, and only then builds the schema-aware matching catalog. Enum, `const`, nested selector, discriminator, `oneOf`, and `anyOf` variants reference their base physical contract and carry only their exact request bindings. Required unavailable operations fail before classification, decomposition, or YAML generation. Prohibitions, safety rules, ordering requirements, and invariants are constraints rather than executable operations, so abstaining never requires a tool.
 
-The inventory excludes configuration already supplied by the host, provider or credential resolution performed internally by a selected capability, and persistence performed outside the generated workflow. Inventory completeness means that all requested runtime intentions were enumerated; it does not assert that tools or selector matches exist. If the first inventory is incomplete, Flow performs one bounded repair call. A second incomplete result fails closed with sanitized `incomplete_reasons` in the error details so interactive callers can explain what user intent needs clarification. Catalog traversal is bounded to four schema levels, 64 selector values per property, 512 description characters, and 256,000 total catalog characters. An incomplete or oversized catalog fails closed with `CAPABILITY_PREFLIGHT_INFERENCE_FAILED`.
+The inventory excludes configuration already supplied by the host, provider or credential resolution performed internally by a selected capability, and persistence performed outside the generated workflow. Inventory completeness means that all requested runtime intentions were enumerated; it does not assert that tools or selector matches exist. If the first inventory is incomplete, Flow performs one bounded repair call. Candidate selection likewise performs one bounded repair when a required external operation has no candidate after every compact page was considered. A second omission is allowed to reach the authoritative matcher, which reports `CAPABILITY_PREFLIGHT_UNAVAILABLE` only after the compact full catalog has been considered. Complete discovery is retained for dry runs and deterministic schema validation; filtering changes inference context only and preserves the original tool schemas and metadata.
+
+Schema-aware catalog traversal is bounded to four schema levels, 64 selector values per property, 512 description characters, and 256,000 expanded characters. The limit remains a fail-closed safety boundary. Oversize diagnostics include total characters, selected and full server/tool counts, base and variant counts, and the largest contributing tools. No catalog is silently truncated.
 
 Each operation is classified as `external_effect`, `human_interaction`, or `local_processing`; external effects are additionally classified as `read`, `write`, `execute`, or owned-resource `lifecycle`. Matching can select one capability, the smallest complementary composition, or no capability for local work. Operation and opaque catalog IDs remain locked through pipeline extraction, leaf blueprints, repair, and final validation. Required capability occurrences are a multiset: two operations selecting the same tool still require two statically verifiable calls. Local operations remain semantic blueprint obligations instead of being forced onto an arbitrary native step.
+
+MCP tools may advertise the versioned `_meta.gnougo.artifacts` contract. Flow
+uses its domain-neutral artifact kinds and JSON pointers to compose producers
+with consumers: one materialized output can feed multiple later leaves, and the
+main workflow must route that exact value without constructing a locator.
+Explicit metadata is authoritative; schema/description inference remains only
+for external MCP compatibility. Final validation traces required consumer
+values across direct calls, transparent `set` aliases, and typed workflow
+input/output boundaries; invented, transformed, or kind-incompatible values
+are rejected. When preflight is enabled, an artifact
+materializer with no remaining locked capability occurrence fails with
+`CAPABILITY_PREFLIGHT_REDUNDANT_ARTIFACT_PRODUCER`. Multiple explicitly
+requested source operations still produce multiple locked occurrences.
 
 The matcher computes completeness deterministically and performs at most one repair while retaining valid decisions. Confirmed required omissions use `CAPABILITY_PREFLIGHT_UNAVAILABLE`; malformed, unknown-ID, or unresolved ambiguous decisions use `CAPABILITY_PREFLIGHT_INFERENCE_FAILED`. Both expose bounded, sanitized matching diagnostics. Unless unattended execution was explicitly requested, inferred generation deterministically adds a required `human_interaction` operation and ordering constraint before the first external write; this safety gate is no longer optional prompt guidance. Conditional and ordering constraints remain policy-only because an exact denied capability would incorrectly ban its valid post-gate use.
 
@@ -1872,6 +1891,7 @@ on_error:
 | `CAPABILITY_PREFLIGHT_UNAVAILABLE` | No | A required operation has no exact available capability |
 | `CAPABILITY_PREFLIGHT_DISCOVERY_FAILED` | No | A required catalog could not be discovered reliably |
 | `CAPABILITY_PREFLIGHT_INFERENCE_FAILED` | No | Capability inventory inference was invalid or incomplete |
+| `CAPABILITY_PREFLIGHT_REDUNDANT_ARTIFACT_PRODUCER` | No | The workflow contains an artifact materializer that was not locked by capability preflight |
 | `WORKFLOW_PLAN_REPAIR_STALLED` | No | The same diagnostics survived two repair attempts |
 | `TEMPLATE_PLAN` | No | `workflow.plan` failed to generate valid YAML |
 | `TEMPLATE_POLICY` | No | Generated workflow violates policy constraints |

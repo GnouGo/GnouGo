@@ -1,4 +1,5 @@
 using System.Net;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 
 namespace GnOuGo.AI.Core.Tests;
@@ -6,7 +7,7 @@ namespace GnOuGo.AI.Core.Tests;
 public sealed class HttpRequestHelperTests
 {
     [Fact]
-    public async Task SendWithServerErrorRetryAsync_RetriesTwiceWithExponentialBackoff()
+    public async Task SendWithServerErrorRetryAsync_RetriesThreeTimesWithExponentialBackoff()
     {
         var attempts = 0;
         var requestBodies = new List<string>();
@@ -21,6 +22,7 @@ public sealed class HttpRequestHelperTests
             {
                 1 => new HttpResponseMessage(HttpStatusCode.InternalServerError),
                 2 => new HttpResponseMessage(HttpStatusCode.BadGateway),
+                3 => new HttpResponseMessage(HttpStatusCode.ServiceUnavailable),
                 _ => new HttpResponseMessage(HttpStatusCode.OK)
             };
         }));
@@ -46,11 +48,11 @@ public sealed class HttpRequestHelperTests
             TestContext.Current.CancellationToken);
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-        Assert.Equal(3, attempts);
-        Assert.Equal(["{}", "{}", "{}"], requestBodies);
-        Assert.Equal(["Bearer secret", "Bearer secret", "Bearer secret"], authorizationHeaders);
+        Assert.Equal(4, attempts);
+        Assert.Equal(["{}", "{}", "{}", "{}"], requestBodies);
+        Assert.Equal(["Bearer secret", "Bearer secret", "Bearer secret", "Bearer secret"], authorizationHeaders);
         Assert.Equal(
-            [TimeSpan.FromMilliseconds(250), TimeSpan.FromMilliseconds(500)],
+            [TimeSpan.FromMilliseconds(250), TimeSpan.FromMilliseconds(500), TimeSpan.FromMilliseconds(1_000)],
             delays);
     }
 
@@ -58,6 +60,7 @@ public sealed class HttpRequestHelperTests
     public async Task SendWithServerErrorRetryAsync_ReturnsFinalServerErrorAfterRetryBudget()
     {
         var attempts = 0;
+        var logger = new CapturingLogger();
         using var http = new HttpClient(new StubHttpMessageHandler(_ =>
         {
             attempts++;
@@ -68,13 +71,18 @@ public sealed class HttpRequestHelperTests
             http,
             () => HttpRequestHelper.CreateGet("https://provider.example/models"),
             HttpCompletionOption.ResponseHeadersRead,
-            NullLogger.Instance,
+            logger,
             "test provider call",
             static (_, _) => Task.CompletedTask,
             TestContext.Current.CancellationToken);
 
         Assert.Equal(HttpStatusCode.ServiceUnavailable, response.StatusCode);
-        Assert.Equal(3, attempts);
+        Assert.Equal(4, attempts);
+        Assert.Contains(logger.Entries, entry => entry.Level == LogLevel.Error
+            && entry.Message.Contains("StatusCode=503", StringComparison.Ordinal)
+            && entry.Message.Contains("AttemptCount=4", StringComparison.Ordinal)
+            && entry.Message.Contains("RetryCount=3", StringComparison.Ordinal)
+            && entry.Message.Contains("ElapsedMs=", StringComparison.Ordinal));
     }
 
     [Theory]
@@ -115,5 +123,32 @@ public sealed class HttpRequestHelperTests
             HttpRequestMessage request,
             CancellationToken cancellationToken)
             => _handler(request);
+    }
+
+    private sealed class CapturingLogger : ILogger
+    {
+        public List<(LogLevel Level, string Message)> Entries { get; } = [];
+
+        public IDisposable BeginScope<TState>(TState state) where TState : notnull
+            => NullScope.Instance;
+
+        public bool IsEnabled(LogLevel logLevel) => true;
+
+        public void Log<TState>(
+            LogLevel logLevel,
+            EventId eventId,
+            TState state,
+            Exception? exception,
+            Func<TState, Exception?, string> formatter)
+            => Entries.Add((logLevel, formatter(state, exception)));
+
+        private sealed class NullScope : IDisposable
+        {
+            public static NullScope Instance { get; } = new();
+
+            public void Dispose()
+            {
+            }
+        }
     }
 }

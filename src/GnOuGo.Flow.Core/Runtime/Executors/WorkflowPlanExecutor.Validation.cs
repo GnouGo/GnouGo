@@ -364,6 +364,7 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
                     Name = tool.Name,
                     Description = tool.Description,
                     InputSchema = tool.InputSchema?.DeepClone(),
+                    Meta = tool.Meta?.DeepClone(),
                     OutputSchema = tool.OutputSchema?.DeepClone(),
                     ExampleResponse = tool.ExampleResponse?.DeepClone()
                 }).ToList(),

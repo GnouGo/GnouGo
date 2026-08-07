@@ -132,6 +132,18 @@ public sealed class ExecutionLimits
     public string? RunId { get; set; }
 
     /// <summary>
+    /// Stable identifier for the root host execution. Unlike <see cref="RunId"/>,
+    /// this value is preserved when routers create child run identifiers.
+    /// </summary>
+    public string? ExecutionId { get; set; }
+
+    /// <summary>Host-owned identifier of the selected persisted agent.</summary>
+    public string? AgentId { get; set; }
+
+    /// <summary>Host-owned display name of the selected persisted agent.</summary>
+    public string? AgentName { get; set; }
+
+    /// <summary>
     /// Host-owned tenant identifier propagated as reserved technical metadata to
     /// external capabilities. Workflow inputs cannot override this value.
     /// </summary>

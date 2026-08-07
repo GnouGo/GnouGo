@@ -204,7 +204,7 @@ public sealed class WorkflowTelemetryAdapterTests
     }
 
     [Fact]
-    public void AgentStreamingTelemetry_RoutedHumanInputEmitsWaitingAndResumeAnimationEvents()
+    public void AgentStreamingTelemetry_McpElicitationEmitsVisibleRequestAndResumeAnimationEvents()
     {
         const string yaml = """
             version: 1
@@ -212,8 +212,8 @@ public sealed class WorkflowTelemetryAdapterTests
             workflows:
               main:
                 steps:
-                  - id: route
-                    type: workflow.route
+                  - id: install
+                    type: mcp.call
             """;
         var events = new List<SmartFlowEvent>();
         var bridge = AgentWorkflowAnimationBridge.Create(
@@ -228,18 +228,19 @@ public sealed class WorkflowTelemetryAdapterTests
             WorkflowName = "main",
             SourceText = yaml
         });
-        var route = telemetry.StepStart(workflow, new StepTelemetryInfo
+        var call = telemetry.StepStart(workflow, new StepTelemetryInfo
         {
-            StepId = "route",
-            StepType = "workflow.route"
+            StepId = "install",
+            StepType = "mcp.call"
         });
 
-        route.AddEvent("gnougo-flow.step.waiting_for_human", [
-            new("gnougo-flow.human.request", """{"run_id":"run","step_id":"route:inputs:child","prompt":"Repository?","mode":"form"}""")
+        call.AddEvent("gnougo-flow.step.waiting_for_human", [
+            new("gnougo-flow.human.request", """{"run_id":"run","step_id":"install","prompt":"Allow Copilot to run dotnet test?","mode":"choice","choices":["Allow once","Refuse"],"context":{"mcp_server":"copilot","mcp_method":"copilot_interactive_one_shot"}}""")
         ]);
-        route.AddEvent("gnougo-flow.step.human_input_resumed", [
+        call.AddEvent("gnougo-flow.step.human_input_resumed", [
             new("gnougo-flow.human.run_id", "run"),
-            new("gnougo-flow.human.step_id", "route:inputs:child")
+            new("gnougo-flow.human.step_id", "install"),
+            new("gnougo-flow.human.phase", "resumed")
         ]);
 
         var animationEvents = events
@@ -253,6 +254,9 @@ public sealed class WorkflowTelemetryAdapterTests
             item.Animation?.Event?.Type == SimulationEventTypes.HumanInputWaiting);
         var requestIndex = events.FindIndex(item => item.Type == "human_input_request");
         Assert.True(waitingIndex >= 0 && requestIndex > waitingIndex);
+        var requestPayload = JsonNode.Parse(events[requestIndex].Text!)!.AsObject();
+        Assert.Equal("install", requestPayload["step_id"]!.GetValue<string>());
+        Assert.Equal("copilot_interactive_one_shot", requestPayload["context"]!["mcp_method"]!.GetValue<string>());
     }
 
     [Fact]
@@ -642,6 +646,8 @@ public sealed class WorkflowTelemetryAdapterTests
         Assert.Contains("fadeOut: async (hostId: string, durationMs = 360)", main, StringComparison.Ordinal);
         Assert.Contains("gnougo-workflow-card__stage--leaving", main, StringComparison.Ordinal);
         Assert.Contains("copyText,", main, StringComparison.Ordinal);
+        Assert.Contains("if (normalized === 'workflow.plan') return 'think'", runtime, StringComparison.Ordinal);
+        Assert.DoesNotContain("if (normalized === 'workflow.plan') return 'type'", runtime, StringComparison.Ordinal);
         Assert.Contains(".gnougo-workflow-card__stage", styles, StringComparison.Ordinal);
         Assert.Contains("height: clamp(340px, 52dvh, 620px);", styles, StringComparison.Ordinal);
         Assert.Contains("max-height: min(620px, calc(100dvh - 220px));", styles, StringComparison.Ordinal);

@@ -1353,6 +1353,8 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
             - If a required tool variable can be derived internally from semantic inputs, keep it inside the block content instead of exposing it as a public subworkflow input.
             - If a later block needs a documented tool response field, expose that field as an output of the producing block using the documented type.
             - When a planned tool requires an existing operational artifact that the user did not explicitly supply, plan a documented producer tool and expose its compatible response field through an upstream leaf. Never invent an artifact path, handle, directory, or workspace input.
+            - MCP artifact_contract metadata is authoritative. Materialize one artifact per locked producer occurrence, expose the exact declared response pointer, and route that value unchanged through main to every compatible consumer leaf.
+            - Do not repeat a materializer merely because preparation, validation, analysis, or publication are separate leaves.
             - Required workflow inputs are validated by the runtime before execution. Do not add missing/empty required-input decision trees or user-facing fallback branches unless the user explicitly requested that behavior.
             - Do not copy every MCP field into every block; include only the variables needed for that block boundary.
             - Do not use placeholders for missing required variables. If they are not derivable, make them explicit inputs.
@@ -1392,7 +1394,7 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
             - Only the main workflow can call subworkflows.
             - Every subworkflow is a leaf workflow.
             - A subworkflow must never call another subworkflow.
-            - A subworkflow must never depend on another subworkflow.
+            - Main may order independent leaves and pass a typed output from an earlier producer leaf into one or more later consumer leaves.
             - The final YAML will contain the main workflow and all leaf subworkflows in the same local YAML file.
             - The main workflow calls leaf workflows with local workflow.call.
 
@@ -3634,7 +3636,7 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
         sb.AppendLine("- The workflow must be a leaf workflow.");
         sb.AppendLine("- Do not use workflow.call.");
         sb.AppendLine("- Do not use workflow.plan.");
-        sb.AppendLine("- Do not depend on another subworkflow.");
+        sb.AppendLine("- Do not call or inspect another subworkflow directly. This leaf may consume typed values that main passes from an earlier producer leaf.");
         sb.AppendLine("- Treat the declared input/output contract as a draft when MCP tools require additional arguments.");
         AppendMcpInputContractChecklist(sb);
         AppendExpressionFunctionRules(sb);
@@ -3667,6 +3669,7 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
         sb.AppendLine("- An opaque MCP response may be plain text even after JSON envelope decoding. Preserve textual results verbatim, retain the raw text when parsing it, and never assume a decoded string exposes object fields or an items array.");
         sb.AppendLine("- If this leaf contributes evidence for a later external write, expose enough source/coverage information for main to distinguish a genuinely empty result from a failed or lossy parse.");
         sb.AppendLine("- A public output that is an operational artifact locator (for example a workspace, project root, directory, or file that must already exist) must remain statically traceable to the exact external/action response field that created or proved it, or to an exact caller input. Bind it directly or through transparent one-field `set` aliases; never return an invented literal, string template, cast, or custom-function result as that artifact locator.");
+        sb.AppendLine("- If this leaf owns an MCP materializer, expose the exact field declared by artifact_contract. If it consumes an artifact, accept the compatible typed value as an input; never add a second materializer to make the leaf self-contained.");
         sb.AppendLine("- Any workflow output with `type: array` MUST be strongly typed with an `items` schema. Never generate an array output as a bare expression or bare `type: array` without `items`.");
         sb.AppendLine("- Array output `items` must use a concrete type. If items are objects, include every property the parent may need under `items.properties`.");
         sb.AppendLine("- Never duplicate the YAML key `required` in an object schema. Use `required: true|false` only for input-level requiredness, and use `required_properties: [field_name]` for required object property names.");
@@ -4452,6 +4455,7 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
         sb.AppendLine("- Do not reference an `if`-guarded step from an unconditional later step unless a guaranteed value has first been produced on every path.");
         sb.AppendLine("- Workflow outputs must resolve to their declared type on every path.");
         sb.AppendLine("- Preserve operational artifact provenance: an artifact-locator output must bind directly to the external/action response field that created or proved it, or to an exact caller input. Do not route that locator through a custom function, string template, cast, or invented literal.");
+        sb.AppendLine("- Preserve artifact reuse: repair consumers to accept the existing producer output; never repair a missing artifact argument by adding another materializer.");
 
         if (previousErrors.Count > 0)
         {
@@ -7583,6 +7587,7 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
         sb.AppendLine("- Use conditionals, switches, loops, or parallel branches when the orchestration requires them.");
         sb.AppendLine("- For container support nodes (`sequence`, `switch`, `parallel`, loops), nested graph nodes are allowed in `steps`, `branches[].steps`, `cases[].steps`, and `default`.");
         sb.AppendLine("- Pass leaf arguments from declared `data.inputs.<name>`, earlier step outputs, loop variables, derived values, or constants.");
+        sb.AppendLine("- Route MCP-declared artifact values directly from the producer leaf output to every compatible consumer leaf argument. Reuse one value for fan-out; never derive or fabricate another locator in main.");
         sb.AppendLine("- Every `data.inputs.<name>` reference MUST have an identically named declaration in `graph.inputs` or `document.skill.inputs`.");
         sb.AppendLine("- Leaf input names are call arguments, not automatically public main inputs.");
         sb.AppendLine("- `generated_leaf_contracts_yaml` is authoritative for leaf workflow names, call arguments, and available outputs.");

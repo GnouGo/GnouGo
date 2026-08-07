@@ -18,6 +18,7 @@ public static class ErrorCodes
     public const string CapabilityPreflightUnavailable = "CAPABILITY_PREFLIGHT_UNAVAILABLE";
     public const string CapabilityPreflightDiscoveryFailed = "CAPABILITY_PREFLIGHT_DISCOVERY_FAILED";
     public const string CapabilityPreflightInferenceFailed = "CAPABILITY_PREFLIGHT_INFERENCE_FAILED";
+    public const string CapabilityPreflightRedundantArtifactProducer = "CAPABILITY_PREFLIGHT_REDUNDANT_ARTIFACT_PRODUCER";
     public const string WorkflowPlanRepairStalled = "WORKFLOW_PLAN_REPAIR_STALLED";
     public const string WorkflowFinalizationFailed = "WORKFLOW_FINALIZATION_FAILED";
     public const string WorkflowFinalizationTimeout = "WORKFLOW_FINALIZATION_TIMEOUT";

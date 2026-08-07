@@ -2,6 +2,7 @@ using System.ComponentModel;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using GnOuGo.GithubCopilot.Core;
+using GnOuGo.Mcp.Core;
 using Microsoft.Extensions.Options;
 using ModelContextProtocol;
 using ModelContextProtocol.Protocol;
@@ -12,8 +13,9 @@ namespace GnOuGo.GithubCopilot.Mcp;
 [McpServerToolType]
 internal sealed class CopilotTools
 {
-    private const string ReviewProjectRootDescription = "Required workspace-relative path to an existing checked-out project root outside the reserved .GnOuGo internal directory. Pass a documented repository-materialization capability output such as projectRootRelative; a URL, repository identifier, or invented path is invalid.";
+    private const string ReviewProjectRootDescription = "Required workspace-relative path to an existing project root outside the reserved .GnOuGo internal directory. Pass a documented workspace.directory artifact output or a caller-provided existing directory; a URL, repository identifier, absolute path, or invented path is invalid.";
     private const string ReviewFilesJsonDescription = "Required JSON array of per-file exact comparison patches returned by a documented revision-comparison capability. A raw aggregate diff or invented file list is invalid.";
+    private const string ManagementOnlyMetadataJson = """{"management":{"version":1,"visibility":"management_only"}}""";
 
     private readonly CopilotSessionManager _sessions;
     private readonly CopilotReviewManager _reviews;
@@ -22,6 +24,7 @@ internal sealed class CopilotTools
     private readonly CodeMcpTraceContextAccessor _traceContext;
     private readonly McpCopilotHumanInputProvider _humanInput;
     private readonly CodeProgressReporter _progress;
+    private readonly ICopilotPermissionGrantStore _permissionGrants;
 
     public CopilotTools(
         CopilotSessionManager sessions,
@@ -30,7 +33,8 @@ internal sealed class CopilotTools
         IOptions<CodeServerSettings> settings,
         CodeMcpTraceContextAccessor traceContext,
         McpCopilotHumanInputProvider humanInput,
-        CodeProgressReporter progress)
+        CodeProgressReporter progress,
+        ICopilotPermissionGrantStore permissionGrants)
     {
         _sessions = sessions;
         _reviews = reviews;
@@ -39,10 +43,73 @@ internal sealed class CopilotTools
         _traceContext = traceContext;
         _humanInput = humanInput;
         _progress = progress;
+        _permissionGrants = permissionGrants;
     }
 
     [McpServerTool(Name = "copilot_get_capabilities", UseStructuredContent = true, OutputSchemaType = typeof(CopilotCapabilityCatalogResult)), Description("Returns the strict generally-available Copilot SDK capability allowlist and stable MCP protocol revisions. Preview, experimental, remote/cloud, fleet, fork, canvas, extension, manual-compaction, and unknown RPC APIs are excluded.")]
     public CopilotCapabilityCatalogResult GetCapabilities() => GaCapabilityCatalog.Describe();
+
+    [McpServerTool(Name = "copilot_permission_grants_list", UseStructuredContent = true, OutputSchemaType = typeof(CopilotPermissionGrantListResult)), Description("Management-only operation used by Agent.Server Configuration to list persistent future-agent Copilot permission grants for one tenant. Generated workflows must not call this tool.")]
+    [McpMeta("gnougo", JsonValue = ManagementOnlyMetadataJson)]
+    public async Task<CopilotPermissionGrantListResult> ListPermissionGrantsAsync(
+        string? tenantId = null,
+        CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            var context = BuildContext(tenantId);
+            var grants = await _permissionGrants.ListFutureAgentGrantsAsync(context.TenantId, cancellationToken);
+            return new CopilotPermissionGrantListResult(true, grants);
+        }
+        catch (Exception ex) when (ex is ArgumentException or InvalidOperationException or IOException)
+        {
+            return new CopilotPermissionGrantListResult(false, [], "PERMISSION_GRANT_LIST_FAILED", ex.Message);
+        }
+    }
+
+    [McpServerTool(Name = "copilot_permission_grant_revoke", UseStructuredContent = true, OutputSchemaType = typeof(CopilotPermissionGrantOperationResult)), Description("Management-only operation used by Agent.Server Configuration to revoke one persistent Copilot permission grant. Generated workflows must not call this tool.")]
+    [McpMeta("gnougo", JsonValue = ManagementOnlyMetadataJson)]
+    public async Task<CopilotPermissionGrantOperationResult> RevokePermissionGrantAsync(
+        string grantId,
+        string? tenantId = null,
+        CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            var context = BuildContext(tenantId);
+            var revoked = await _permissionGrants.RevokeAsync(context.TenantId, grantId, cancellationToken);
+            if (revoked)
+                ReportGrantRevoked($"Revoked persistent Copilot permission grant '{grantId}'.");
+            return revoked
+                ? new CopilotPermissionGrantOperationResult(true, grantId, 1)
+                : new CopilotPermissionGrantOperationResult(false, grantId, 0, "PERMISSION_GRANT_NOT_FOUND", "The permission grant was not found for this tenant.");
+        }
+        catch (Exception ex) when (ex is ArgumentException or InvalidOperationException or IOException)
+        {
+            return new CopilotPermissionGrantOperationResult(false, grantId, 0, "PERMISSION_GRANT_REVOKE_FAILED", ex.Message);
+        }
+    }
+
+    [McpServerTool(Name = "copilot_permission_grants_revoke_agent", UseStructuredContent = true, OutputSchemaType = typeof(CopilotPermissionGrantOperationResult)), Description("Management-only operation used by Agent.Server when deleting an agent. Revokes that agent's persistent Copilot permission grants for the tenant. Generated workflows must not call this tool.")]
+    [McpMeta("gnougo", JsonValue = ManagementOnlyMetadataJson)]
+    public async Task<CopilotPermissionGrantOperationResult> RevokeAgentPermissionGrantsAsync(
+        string agentId,
+        string? tenantId = null,
+        CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            var context = BuildContext(tenantId);
+            var count = await _permissionGrants.RevokeAgentAsync(context.TenantId, agentId, cancellationToken);
+            if (count > 0)
+                ReportGrantRevoked($"Revoked {count} persistent Copilot permission grant(s) for agent '{agentId}'.");
+            return new CopilotPermissionGrantOperationResult(true, RevokedCount: count);
+        }
+        catch (Exception ex) when (ex is ArgumentException or InvalidOperationException or IOException)
+        {
+            return new CopilotPermissionGrantOperationResult(false, RevokedCount: 0, ErrorCode: "PERMISSION_GRANT_REVOKE_FAILED", ErrorMessage: ex.Message);
+        }
+    }
 
     [McpServerTool(Name = "copilot_connectivity", UseStructuredContent = true, OutputSchemaType = typeof(CopilotConnectivityResult)), Description("Starts a temporary Copilot SDK client and verifies connectivity without creating a session.")]
     public Task<CopilotConnectivityResult> ConnectivityAsync(CancellationToken cancellationToken = default)
@@ -61,10 +128,11 @@ internal sealed class CopilotTools
         => ExecuteAsync(() => _sessions.ListModelsAsync(BuildConfiguration(null), cancellationToken));
 
     [McpServerTool(Name = "copilot_session_create", UseStructuredContent = true, OutputSchemaType = typeof(CopilotSessionDescriptor)), Description("Creates a tenant-bound managed Copilot session and returns an opaque handle. MCP transport/session IDs are never used as Copilot session identity.")]
+    [McpMeta(McpArtifactContractMetadata.MetaPropertyName, JsonValue = McpArtifactContractMetadata.WorkspaceDirectoryConsumerProjectRootJson)]
     public Task<CopilotSessionDescriptor> CreateSessionAsync(
         RequestContext<CallToolRequestParams> requestContext,
-        [Description("Required workspace-relative existing project root outside the reserved .GnOuGo internal directory.")] string projectRoot,
-        [Description("Permission mode: interactive, auto_approve_allowlist, deny, or approve_all. approve_all is host-policy gated.")] string permissionMode = "interactive",
+        [Description(ReviewProjectRootDescription)] string projectRoot,
+        [Description("Permission mode. interactive is the safe choice for work that may need user approval; auto_approve_allowlist permits only explicitly listed read-only operations; deny rejects tool execution; approve_all is host-policy gated and generated workflows must not select it unless unattended execution was explicitly requested and availability is established.")] CopilotManagedPermissionModeInput permissionMode = CopilotManagedPermissionModeInput.Interactive,
         [Description("Optional configured KeyVault-backed LLM provider name, for example OpenAi.")] string? provider = null,
         [Description("Optional model override. Provider configuration may select its own model.")] string? model = null,
         [Description("Optional JSON array of read-only tool/path allowlist entries for auto_approve_allowlist.")] string? permissionAllowlistJson = null,
@@ -81,7 +149,7 @@ internal sealed class CopilotTools
                 BuildContext(tenantId),
                 BuildConfiguration(projectRoot, provider, model, permissionAllowlistJson, availableToolsJson, excludedToolsJson, skillDirectoriesJson, disabledSkillsJson, enableConfigDiscovery),
                 CopilotSessionKind.Managed,
-                ParsePermissionMode(permissionMode),
+                ToCorePermissionMode(permissionMode),
                 streaming),
             cancellationToken));
 
@@ -119,23 +187,47 @@ internal sealed class CopilotTools
         [Description("Optional JSON array of file/blob attachments using the stable attachment contract.")] string? attachmentsJson = null,
         string? tenantId = null,
         CancellationToken cancellationToken = default)
-        => WithServerAsync(requestContext, () => SendWithProgressAsync(
+        => WithServerAsync(requestContext, cancellationToken, () => SendWithProgressAsync(
             new CopilotSendRequest(BuildContext(tenantId), handle, prompt, deliveryMode, agentMode, ParseAttachments(attachmentsJson)),
             cancellationToken));
 
-    [McpServerTool(Name = "copilot_one_shot", UseStructuredContent = true, OutputSchemaType = typeof(CopilotSendResult)), Description("Runs one call in one ephemeral Copilot session, then disconnects and permanently deletes it. Interactive callbacks are not supported in one-shot mode.")]
+    [McpServerTool(Name = "copilot_one_shot", UseStructuredContent = true, OutputSchemaType = typeof(CopilotSendResult)), Description("Runs one non-interactive call in one ephemeral Copilot session, then disconnects and permanently deletes it. The deny default is appropriate for inference that needs no tool execution. Use copilot_interactive_one_shot for work that may install dependencies, run commands, edit files, or otherwise require user permission. approve_all is host-policy gated and generated workflows must not select it unless unattended execution was explicitly requested and availability is established.")]
+    [McpMeta(McpArtifactContractMetadata.MetaPropertyName, JsonValue = McpArtifactContractMetadata.WorkspaceDirectoryConsumerProjectRootJson)]
     public Task<CopilotSendResult> OneShotAsync(
         RequestContext<CallToolRequestParams> requestContext,
-        string projectRoot,
+        [Description(ReviewProjectRootDescription)] string projectRoot,
         string prompt,
-        string permissionMode = "deny",
+        [Description("Non-interactive permission mode. deny is the safe default; auto_approve_allowlist permits only entries supplied in permissionAllowlistJson; approve_all is host-policy gated and must not be selected by generated workflows without explicit unattended intent and established availability.")] CopilotOneShotPermissionModeInput permissionMode = CopilotOneShotPermissionModeInput.Deny,
         string? provider = null,
         string? model = null,
+        [Description("Optional JSON array of read-only tool/path allowlist entries used only with auto_approve_allowlist.")] string? permissionAllowlistJson = null,
         string? attachmentsJson = null,
         string? tenantId = null,
         CancellationToken cancellationToken = default)
         => WithServerAsync(requestContext, () => OneShotWithProgressAsync(
-            new CopilotSessionCreateRequest(BuildContext(tenantId), BuildConfiguration(projectRoot, provider, model), CopilotSessionKind.OneShot, ParsePermissionMode(permissionMode)),
+            new CopilotSessionCreateRequest(BuildContext(tenantId), BuildConfiguration(projectRoot, provider, model, permissionAllowlistJson), CopilotSessionKind.OneShot, ToCorePermissionMode(permissionMode)),
+            prompt,
+            ParseAttachments(attachmentsJson),
+            cancellationToken));
+
+    [McpServerTool(Name = "copilot_interactive_one_shot", UseStructuredContent = true, OutputSchemaType = typeof(CopilotSendResult)), Description("Runs one turn in an ephemeral managed Copilot session with interactive MCP permission and elicitation callbacks, then permanently deletes the session after success, failure, or cancellation. Use this capability for work that may install dependencies, run commands, edit files, or otherwise require user permission.")]
+    [McpMeta(McpArtifactContractMetadata.MetaPropertyName, JsonValue = McpArtifactContractMetadata.WorkspaceDirectoryConsumerProjectRootJson)]
+    public Task<CopilotSendResult> InteractiveOneShotAsync(
+        RequestContext<CallToolRequestParams> requestContext,
+        [Description(ReviewProjectRootDescription)] string projectRoot,
+        string prompt,
+        string? provider = null,
+        string? model = null,
+        [Description("Optional JSON array of read-only tool/path allowlist entries retained in the ephemeral managed session configuration.")] string? permissionAllowlistJson = null,
+        string? attachmentsJson = null,
+        string? tenantId = null,
+        CancellationToken cancellationToken = default)
+        => WithServerAsync(requestContext, cancellationToken, () => InteractiveOneShotWithProgressAsync(
+            new CopilotSessionCreateRequest(
+                BuildContext(tenantId),
+                BuildConfiguration(projectRoot, provider, model, permissionAllowlistJson),
+                CopilotSessionKind.Managed,
+                CopilotPermissionMode.Interactive),
             prompt,
             ParseAttachments(attachmentsJson),
             cancellationToken));
@@ -193,6 +285,7 @@ internal sealed class CopilotTools
         => ExecuteAsync(() => _sessions.CreateWorkspaceFileAsync(BuildContext(tenantId), handle, path, content, cancellationToken));
 
     [McpServerTool(Name = "copilot_review_start", UseStructuredContent = true, OutputSchemaType = typeof(CopilotReviewSession)), Description("Starts a read-only, batched PR review in one managed ephemeral Copilot session. filesJson must contain exact Git MCP compare patches. Optional reviewInstructions are applied to every batch, and existingCommentsJson is used to suppress duplicate findings. Omit provider and model to use the host's configured KeyVault-backed default; do not copy them from code_get_policy.")]
+    [McpMeta(McpArtifactContractMetadata.MetaPropertyName, JsonValue = McpArtifactContractMetadata.WorkspaceDirectoryConsumerProjectRootJson)]
     public Task<CopilotReviewSession> ReviewStartAsync(
         RequestContext<CallToolRequestParams> requestContext,
         [Description(ReviewProjectRootDescription)] string projectRoot,
@@ -232,6 +325,7 @@ internal sealed class CopilotTools
         => ExecuteAsync(() => _reviews.FinishAsync(BuildContext(tenantId), reviewHandle, cancellationToken));
 
     [McpServerTool(Name = "copilot_review", UseStructuredContent = true, OutputSchemaType = typeof(CopilotReviewResult)), Description("Runs all bounded PR review batches in one ephemeral Copilot session and permanently deletes session state afterward. Optional reviewInstructions are applied to every batch, and existingCommentsJson is used to suppress duplicate findings. Omit provider and model to use the host's configured KeyVault-backed default; do not copy them from code_get_policy.")]
+    [McpMeta(McpArtifactContractMetadata.MetaPropertyName, JsonValue = McpArtifactContractMetadata.WorkspaceDirectoryConsumerProjectRootJson)]
     public Task<CopilotReviewResult> ReviewAsync(
         RequestContext<CallToolRequestParams> requestContext,
         [Description(ReviewProjectRootDescription)] string projectRoot,
@@ -313,12 +407,31 @@ internal sealed class CopilotTools
         var resolvedTenant = string.IsNullOrWhiteSpace(tenantId) ? trace?.TenantId : tenantId.Trim();
         if (string.IsNullOrWhiteSpace(resolvedTenant))
             throw new McpException("TenantId is required in _meta.gnougo.tenantId or the tenantId argument.");
-        return new CopilotRequestContext(resolvedTenant, trace?.CorrelationId, trace?.RunId, trace?.StepId, trace?.Repository, trace?.PullRequestNumber, trace?.HeadSha);
+        return new CopilotRequestContext(
+            resolvedTenant,
+            trace?.CorrelationId,
+            trace?.RunId,
+            trace?.StepId,
+            trace?.Repository,
+            trace?.PullRequestNumber,
+            trace?.HeadSha,
+            trace?.ExecutionId,
+            trace?.AgentId,
+            trace?.AgentName);
     }
 
     private async Task<T> WithServerAsync<T>(RequestContext<CallToolRequestParams> requestContext, Func<Task<T>> action)
     {
         using var scope = _humanInput.Push(requestContext.Server);
+        return await ExecuteAsync(action);
+    }
+
+    private async Task<T> WithServerAsync<T>(
+        RequestContext<CallToolRequestParams> requestContext,
+        CancellationToken cancellationToken,
+        Func<Task<T>> action)
+    {
+        using var scope = _humanInput.Push(requestContext.Server, cancellationToken);
         return await ExecuteAsync(action);
     }
 
@@ -340,6 +453,33 @@ internal sealed class CopilotTools
         return result;
     }
 
+    private async Task<CopilotSendResult> InteractiveOneShotWithProgressAsync(
+        CopilotSessionCreateRequest request,
+        string prompt,
+        IReadOnlyList<CopilotAttachment>? attachments,
+        CancellationToken cancellationToken)
+    {
+        var result = await _sessions.InteractiveOneShotAsync(
+            request,
+            prompt,
+            attachments,
+            cancellationToken,
+            ReportInteractiveOneShotProgress);
+        ReportProgress(result);
+        return result;
+    }
+
+    private void ReportInteractiveOneShotProgress(CopilotStreamEvent progressEvent)
+    {
+        _progress.Report(
+            progressEvent.Kind,
+            progressEvent.Level,
+            progressEvent.Message,
+            fallbackServer: "GnOuGo.GithubCopilot.Mcp",
+            fallbackMethod: "copilot_interactive_one_shot",
+            fallbackMcpKind: "tool");
+    }
+
     private void ReportProgress(CopilotSendResult result)
     {
         foreach (var progressEvent in result.Events)
@@ -353,6 +493,15 @@ internal sealed class CopilotTools
                 fallbackMcpKind: "tool");
         }
     }
+
+    private void ReportGrantRevoked(string message)
+        => _progress.Report(
+            "permission.grant.revoked",
+            "info",
+            message,
+            fallbackServer: "GnOuGo.GithubCopilot.Mcp",
+            fallbackMethod: "copilot_permission_grant_revoke",
+            fallbackMcpKind: "tool");
 
     private static async Task<T> ExecuteAsync<T>(Func<Task<T>> action)
     {
@@ -374,14 +523,23 @@ internal sealed class CopilotTools
         }
     }
 
-    private static CopilotPermissionMode ParsePermissionMode(string mode)
-        => mode.Trim().ToLowerInvariant() switch
+    private static CopilotPermissionMode ToCorePermissionMode(CopilotManagedPermissionModeInput mode)
+        => mode switch
         {
-            "interactive" => CopilotPermissionMode.Interactive,
-            "auto_approve_allowlist" => CopilotPermissionMode.AutoApproveAllowlist,
-            "deny" => CopilotPermissionMode.Deny,
-            "approve_all" => CopilotPermissionMode.ApproveAll,
-            _ => throw new McpException("permissionMode must be interactive, auto_approve_allowlist, deny, or approve_all.")
+            CopilotManagedPermissionModeInput.Interactive => CopilotPermissionMode.Interactive,
+            CopilotManagedPermissionModeInput.AutoApproveAllowlist => CopilotPermissionMode.AutoApproveAllowlist,
+            CopilotManagedPermissionModeInput.Deny => CopilotPermissionMode.Deny,
+            CopilotManagedPermissionModeInput.ApproveAll => CopilotPermissionMode.ApproveAll,
+            _ => throw new ArgumentOutOfRangeException(nameof(mode), mode, "Unsupported managed Copilot permission mode.")
+        };
+
+    private static CopilotPermissionMode ToCorePermissionMode(CopilotOneShotPermissionModeInput mode)
+        => mode switch
+        {
+            CopilotOneShotPermissionModeInput.AutoApproveAllowlist => CopilotPermissionMode.AutoApproveAllowlist,
+            CopilotOneShotPermissionModeInput.Deny => CopilotPermissionMode.Deny,
+            CopilotOneShotPermissionModeInput.ApproveAll => CopilotPermissionMode.ApproveAll,
+            _ => throw new ArgumentOutOfRangeException(nameof(mode), mode, "Unsupported one-shot Copilot permission mode.")
         };
 
     private static IReadOnlyList<string>? ParseStringList(string? json)

@@ -27,7 +27,10 @@ public sealed record CopilotRequestContext(
     string? StepId = null,
     string? Repository = null,
     int? PullRequestNumber = null,
-    string? HeadSha = null);
+    string? HeadSha = null,
+    string? ExecutionId = null,
+    string? AgentId = null,
+    string? AgentName = null);
 
 public sealed record CopilotRuntimeConfiguration(
     string WorkingDirectory,

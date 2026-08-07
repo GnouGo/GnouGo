@@ -31,6 +31,9 @@ public sealed class CodeServerSettingsOptionsConfiguratorTests
                 ["Code:Copilot:LogLevel"] = "debug",
                 ["Code:Copilot:RequestTimeoutSeconds"] = "42",
                 ["Code:Copilot:ManagedSessionTtlSeconds"] = "84",
+                ["Code:Copilot:EnableApproveAll"] = "true",
+                ["Code:Copilot:PermissionDatabasePath"] = "data/permissions.db",
+                ["Code:Copilot:WorkflowGrantTtlSeconds"] = "3600",
                 ["Code:Copilot:TokenEnvironmentVariables:0"] = "TOKEN_ONE",
                 ["Code:Copilot:Telemetry:Enabled"] = "false",
                 ["Code:Copilot:Telemetry:ExporterType"] = "file",
@@ -62,6 +65,9 @@ public sealed class CodeServerSettingsOptionsConfiguratorTests
         Assert.Equal("debug", settings.Copilot.LogLevel);
         Assert.Equal(42, settings.Copilot.RequestTimeoutSeconds);
         Assert.Equal(84, settings.Copilot.ManagedSessionTtlSeconds);
+        Assert.True(settings.Copilot.EnableApproveAll);
+        Assert.Equal("data/permissions.db", settings.Copilot.PermissionDatabasePath);
+        Assert.Equal(3600, settings.Copilot.WorkflowGrantTtlSeconds);
         Assert.Equal(["TOKEN_ONE"], settings.Copilot.TokenEnvironmentVariables);
         Assert.False(settings.Copilot.Telemetry.Enabled);
         Assert.Equal("file", settings.Copilot.Telemetry.ExporterType);

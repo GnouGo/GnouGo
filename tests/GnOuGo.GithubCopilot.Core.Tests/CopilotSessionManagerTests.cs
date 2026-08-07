@@ -62,6 +62,106 @@ public sealed class CopilotSessionManagerTests
     }
 
     [Fact]
+    public async Task InteractiveOneShot_UsesManagedInteractiveSessionAndDeletesState()
+    {
+        var factory = new FakeClientFactory();
+        await using var manager = new CopilotSessionManager(factory);
+        var progress = new List<CopilotStreamEvent>();
+
+        var result = await manager.InteractiveOneShotAsync(
+            CreateRequest("tenant-a", CopilotPermissionMode.Deny) with { SessionKind = CopilotSessionKind.OneShot },
+            "install dependencies",
+            null,
+            TestContext.Current.CancellationToken,
+            progress.Add);
+
+        Assert.Equal("reply:install dependencies", result.Content);
+        Assert.Equal(CopilotSessionKind.Managed, factory.LastConfiguration?.Request.SessionKind);
+        Assert.Equal(CopilotPermissionMode.Interactive, factory.LastConfiguration?.Request.PermissionMode);
+        Assert.Equal(1, factory.DeleteCount);
+        Assert.Empty(manager.List("tenant-a"));
+        Assert.Equal(
+            ["session_create", "session_created", "request_send", "request_completed", "session_delete", "session_deleted"],
+            progress.Select(static item => item.Kind));
+    }
+
+    [Fact]
+    public async Task InteractiveOneShot_DeletesStateWhenSendFails()
+    {
+        var factory = new FakeClientFactory { SendException = new InvalidOperationException("send failed") };
+        await using var manager = new CopilotSessionManager(factory);
+
+        var exception = await Assert.ThrowsAsync<InvalidOperationException>(() => manager.InteractiveOneShotAsync(
+            CreateRequest("tenant-a"),
+            "run tests",
+            null,
+            TestContext.Current.CancellationToken));
+
+        Assert.Equal("send failed", exception.Message);
+        Assert.Equal(1, factory.DeleteCount);
+        Assert.Empty(manager.List("tenant-a"));
+    }
+
+    [Fact]
+    public async Task InteractiveOneShot_DeletesStateWhenSendIsCancelled()
+    {
+        var factory = new FakeClientFactory { SendDelay = TimeSpan.FromSeconds(5) };
+        await using var manager = new CopilotSessionManager(factory);
+        using var cancellation = new CancellationTokenSource(TimeSpan.FromMilliseconds(20));
+
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => manager.InteractiveOneShotAsync(
+            CreateRequest("tenant-a"),
+            "run lint",
+            null,
+            cancellation.Token));
+
+        Assert.Equal(1, factory.DeleteCount);
+        Assert.Empty(manager.List("tenant-a"));
+    }
+
+    [Fact]
+    public async Task InteractiveOneShot_ReportsCreateFailureWithoutAttemptingDeletion()
+    {
+        var factory = new FakeClientFactory { CreateException = new InvalidOperationException("create failed") };
+        await using var manager = new CopilotSessionManager(factory);
+        var progress = new List<CopilotStreamEvent>();
+
+        var exception = await Assert.ThrowsAsync<InvalidOperationException>(() => manager.InteractiveOneShotAsync(
+            CreateRequest("tenant-a"),
+            "run tests",
+            null,
+            TestContext.Current.CancellationToken,
+            progress.Add));
+
+        Assert.Equal("create failed", exception.Message);
+        Assert.Equal(["session_create", "session_create_failed"], progress.Select(static item => item.Kind));
+        Assert.Equal(0, factory.DeleteCount);
+        Assert.Empty(manager.List("tenant-a"));
+    }
+
+    [Fact]
+    public async Task InteractiveOneShot_PreservesPrimaryFailureWhenDeletionAlsoFails()
+    {
+        var factory = new FakeClientFactory
+        {
+            SendException = new InvalidOperationException("send failed"),
+            DeleteException = new InvalidOperationException("delete failed")
+        };
+        await using var manager = new CopilotSessionManager(factory);
+
+        var exception = await Assert.ThrowsAsync<InvalidOperationException>(() => manager.InteractiveOneShotAsync(
+            CreateRequest("tenant-a"),
+            "run tests",
+            null,
+            TestContext.Current.CancellationToken));
+
+        Assert.Equal("send failed", exception.Message);
+        Assert.Equal("delete failed", exception.Data["CopilotSessionCleanupError"]);
+        Assert.Equal(1, factory.DeleteCount);
+        Assert.Empty(manager.List("tenant-a"));
+    }
+
+    [Fact]
     public async Task ApproveAll_RequiresHostPolicyGate()
     {
         await using var manager = new CopilotSessionManager(new FakeClientFactory());
@@ -178,7 +278,11 @@ public sealed class CopilotSessionManagerTests
         public int DeleteCount;
         public int ResumeCount;
         public TimeSpan SendDelay { get; set; } = TimeSpan.FromMilliseconds(30);
+        public Exception? CreateException { get; set; }
+        public Exception? SendException { get; set; }
+        public Exception? DeleteException { get; set; }
         public string? ForegroundSessionId { get; set; }
+        public CopilotSdkSessionConfiguration? LastConfiguration { get; private set; }
 
         public ICopilotSdkClient Create(CopilotRuntimeConfiguration configuration) => new FakeClient(this);
 
@@ -193,7 +297,10 @@ public sealed class CopilotSessionManagerTests
 
             public Task<ICopilotSdkSession> CreateSessionAsync(CopilotSdkSessionConfiguration configuration, CancellationToken cancellationToken)
             {
-                var session = new FakeSession(Guid.NewGuid().ToString("N"), owner.SendDelay);
+                if (owner.CreateException is not null)
+                    throw owner.CreateException;
+                owner.LastConfiguration = configuration;
+                var session = new FakeSession(Guid.NewGuid().ToString("N"), owner.SendDelay, owner.SendException);
                 owner._sessions[session.SessionId] = session;
                 owner.LastSession = session;
                 return Task.FromResult<ICopilotSdkSession>(session);
@@ -202,7 +309,8 @@ public sealed class CopilotSessionManagerTests
             public Task<ICopilotSdkSession> ResumeSessionAsync(string sessionId, CopilotSdkSessionConfiguration configuration, CancellationToken cancellationToken)
             {
                 Interlocked.Increment(ref owner.ResumeCount);
-                var session = new FakeSession(sessionId, owner.SendDelay);
+                owner.LastConfiguration = configuration;
+                var session = new FakeSession(sessionId, owner.SendDelay, owner.SendException);
                 owner._sessions[sessionId] = session;
                 owner.LastSession = session;
                 return Task.FromResult<ICopilotSdkSession>(session);
@@ -212,6 +320,8 @@ public sealed class CopilotSessionManagerTests
             {
                 owner._sessions.TryRemove(sessionId, out _);
                 Interlocked.Increment(ref owner.DeleteCount);
+                if (owner.DeleteException is not null)
+                    throw owner.DeleteException;
                 return Task.CompletedTask;
             }
 
@@ -225,7 +335,7 @@ public sealed class CopilotSessionManagerTests
         }
     }
 
-    private sealed class FakeSession(string sessionId, TimeSpan delay) : ICopilotSdkSession
+    private sealed class FakeSession(string sessionId, TimeSpan delay, Exception? sendException) : ICopilotSdkSession
     {
         private int _concurrent;
         public string SessionId { get; } = sessionId;
@@ -238,6 +348,8 @@ public sealed class CopilotSessionManagerTests
             try
             {
                 await Task.Delay(delay, cancellationToken);
+                if (sendException is not null)
+                    throw sendException;
                 return new CopilotSendResult(handle, SessionId, $"reply:{request.Prompt}", "test-model", []);
             }
             finally
