@@ -2,6 +2,10 @@
 
 All notable changes to this project are documented in this file.
 
+## v0.17.2 - 2026-08-07
+
+- feature: copilot (release) (#79) (6cc5b13)
+
 ## v0.17.1 - 2026-08-03
 
 - refactor: update libraries (#62) (release) (f4f3c03)
