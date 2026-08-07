@@ -9,7 +9,7 @@ internal sealed class LocalProjectSessionFsProvider : SessionFsProvider
 {
     private static readonly HashSet<string> IgnoredDirectoryNames = new(StringComparer.OrdinalIgnoreCase)
     {
-        ".git", "bin", "obj", "node_modules", ".vs", ".idea", ".vscode"
+        ".git", GnOuGo.Workspace.GnOuGoWorkspace.WorkspaceDataSubfolder, "bin", "obj", "node_modules", ".vs", ".idea", ".vscode"
     };
 
     private readonly CodePolicy _policy;
@@ -243,6 +243,7 @@ internal sealed class LocalProjectSessionFsProvider : SessionFsProvider
             : Path.GetFullPath(Path.Combine(_projectRoot, relativePath));
         if (!CodePolicy.IsPathWithinRoot(fullPath, _projectRoot))
             throw new InvalidOperationException($"SessionFs path '{path}' resolves outside the project root.");
+        _policy.EnsureOutsideReservedWorkspace(fullPath);
         return fullPath;
     }
 
@@ -283,4 +284,3 @@ internal sealed class LocalProjectSessionFsProvider : SessionFsProvider
     private static bool HasDriveRelativePrefix(string path)
         => path.Length >= 2 && char.IsAsciiLetter(path[0]) && path[1] == ':';
 }
-

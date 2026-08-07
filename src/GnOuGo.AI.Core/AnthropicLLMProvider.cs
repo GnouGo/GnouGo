@@ -74,10 +74,20 @@ public sealed class AnthropicLLMProvider : ILLMProvider, ILLMModelCatalogProvide
 			request.StructuredOutputSchema,
 			request.StructuredOutputStrict);
 
-		using var req = HttpRequestHelper.CreateJsonPost(url, payload);
-		ApplyHeaders(req, auth);
+		HttpRequestMessage CreateMessageRequest()
+		{
+			var requestMessage = HttpRequestHelper.CreateJsonPost(url, payload);
+			ApplyHeaders(requestMessage, auth);
+			return requestMessage;
+		}
 
-		using var resp = await _http.SendAsync(req, HttpCompletionOption.ResponseHeadersRead, ct);
+		using var resp = await HttpRequestHelper.SendWithServerErrorRetryAsync(
+			_http,
+			CreateMessageRequest,
+			HttpCompletionOption.ResponseHeadersRead,
+			_logger,
+			"Anthropic message creation",
+			ct);
 		if (!resp.IsSuccessStatusCode)
 		{
 			var body = await HttpRequestHelper.ReadErrorBodyAsync(resp, ct);
@@ -120,10 +130,20 @@ public sealed class AnthropicLLMProvider : ILLMProvider, ILLMModelCatalogProvide
 			request.StructuredOutputSchema,
 			request.StructuredOutputStrict);
 
-		using var createReq = HttpRequestHelper.CreateJsonPost(batchUrl, payload);
-		ApplyHeaders(createReq, auth);
+		HttpRequestMessage CreateBatchRequest()
+		{
+			var requestMessage = HttpRequestHelper.CreateJsonPost(batchUrl, payload);
+			ApplyHeaders(requestMessage, auth);
+			return requestMessage;
+		}
 
-		using var createResp = await _http.SendAsync(createReq, HttpCompletionOption.ResponseHeadersRead, ct);
+		using var createResp = await HttpRequestHelper.SendWithServerErrorRetryAsync(
+			_http,
+			CreateBatchRequest,
+			HttpCompletionOption.ResponseHeadersRead,
+			_logger,
+			"Anthropic batch creation",
+			ct);
 		var createBody = await createResp.Content.ReadAsStringAsync(ct);
 
 		if (!createResp.IsSuccessStatusCode)
@@ -218,10 +238,20 @@ public sealed class AnthropicLLMProvider : ILLMProvider, ILLMModelCatalogProvide
 
 			// Poll batch status
 			var pollUrl = batchUrl.TrimEnd('/') + "/" + Uri.EscapeDataString(batchId);
-			using var pollReq = HttpRequestHelper.CreateGet(pollUrl);
-			ApplyHeaders(pollReq, auth);
+			HttpRequestMessage CreatePollRequest()
+			{
+				var requestMessage = HttpRequestHelper.CreateGet(pollUrl);
+				ApplyHeaders(requestMessage, auth);
+				return requestMessage;
+			}
 
-			using var pollResp = await _http.SendAsync(pollReq, HttpCompletionOption.ResponseHeadersRead, ct);
+			using var pollResp = await HttpRequestHelper.SendWithServerErrorRetryAsync(
+				_http,
+				CreatePollRequest,
+				HttpCompletionOption.ResponseHeadersRead,
+				_logger,
+				"Anthropic batch polling",
+				ct);
 			responseBody = await pollResp.Content.ReadAsStringAsync(ct);
 
 			if (!pollResp.IsSuccessStatusCode)
@@ -233,10 +263,20 @@ public sealed class AnthropicLLMProvider : ILLMProvider, ILLMModelCatalogProvide
 	private async Task<LLMClientResponse> FetchBatchResultAsync(
 		string resultsUrl, AnthropicAuth auth, LLMClientRequest request, string model, CancellationToken ct)
 	{
-		using var resultsReq = HttpRequestHelper.CreateGet(resultsUrl);
-		ApplyHeaders(resultsReq, auth);
+		HttpRequestMessage CreateResultsRequest()
+		{
+			var requestMessage = HttpRequestHelper.CreateGet(resultsUrl);
+			ApplyHeaders(requestMessage, auth);
+			return requestMessage;
+		}
 
-		using var resultsResp = await _http.SendAsync(resultsReq, HttpCompletionOption.ResponseHeadersRead, ct);
+		using var resultsResp = await HttpRequestHelper.SendWithServerErrorRetryAsync(
+			_http,
+			CreateResultsRequest,
+			HttpCompletionOption.ResponseHeadersRead,
+			_logger,
+			"Anthropic batch result retrieval",
+			ct);
 		if (!resultsResp.IsSuccessStatusCode)
 		{
 			var errBody = await HttpRequestHelper.ReadErrorBodyAsync(resultsResp, ct);
@@ -312,10 +352,20 @@ public sealed class AnthropicLLMProvider : ILLMProvider, ILLMModelCatalogProvide
 		var url = BuildModelsUrl(provider.Url);
 		var auth = await ResolveAuthAsync(provider, ct);
 
-		using var req = HttpRequestHelper.CreateGet(url);
-		ApplyHeaders(req, auth);
+		HttpRequestMessage CreateModelListRequest()
+		{
+			var requestMessage = HttpRequestHelper.CreateGet(url);
+			ApplyHeaders(requestMessage, auth);
+			return requestMessage;
+		}
 
-		using var resp = await _http.SendAsync(req, HttpCompletionOption.ResponseHeadersRead, ct);
+		using var resp = await HttpRequestHelper.SendWithServerErrorRetryAsync(
+			_http,
+			CreateModelListRequest,
+			HttpCompletionOption.ResponseHeadersRead,
+			_logger,
+			"Anthropic model discovery",
+			ct);
 		if (!resp.IsSuccessStatusCode)
 		{
 			var body = await HttpRequestHelper.ReadErrorBodyAsync(resp, ct);

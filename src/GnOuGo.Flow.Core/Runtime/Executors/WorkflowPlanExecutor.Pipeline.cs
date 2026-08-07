@@ -21,7 +21,9 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
         "switch",
         "parallel",
         "loop.sequential",
-        "loop.parallel"
+        "loop.parallel",
+        "human.input",
+        "emit"
     ];
 
     private const string PipelineWorkKindOrchestration = "orchestration";
@@ -99,6 +101,13 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
         IReadOnlyList<string> RequiredOutputPaths,
         string? ExpectedType);
 
+    private sealed record PipelineLeafInputContractDemand(
+        string LeafName,
+        string ConsumerStepId,
+        string Reason,
+        IReadOnlyDictionary<string, JsonNode?> RequiredInputSchemas,
+        IReadOnlyDictionary<string, string> SourceExpressions);
+
     private sealed record PipelineQualityEvent(
         string Kind,
         int Attempt,
@@ -149,6 +158,7 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
         string Type,
         string Purpose,
         PipelinePlannedTool? PlannedTool,
+        PipelinePlannedNativeStep? PlannedNativeStep,
         JsonNode? OutputSchema);
 
     private sealed record PipelineLeafBlueprintOutput(
@@ -174,7 +184,11 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
         StepDef Step,
         IReadOnlyList<StepDef> Ancestors);
 
-    private async Task<JsonNode?> ExecutePipelineAsync(StepExecutionContext ctx, JsonObject input, CancellationToken ct)
+    private async Task<JsonNode?> ExecutePipelineAsync(
+        StepExecutionContext ctx,
+        JsonObject input,
+        CapabilityPreflightResult capabilityPreflight,
+        CancellationToken ct)
     {
         var llmClient = ctx.Engine.LLMClient
             ?? throw new WorkflowRuntimeException(ErrorCodes.TemplatePlan, "No LLM client configured");
@@ -215,10 +229,10 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
             llmClient, rawPrompt, provider, model, reasoning, ctx, ct);
 
         var globalMcpContext = await BuildPipelineGlobalMcpContextAsync(
-            llmClient, generator, normalizedMarkdown, rawPrompt, model, provider, reasoning, ctx, ct);
+            llmClient, generator, normalizedMarkdown, rawPrompt, model, provider, reasoning, capabilityPreflight, ctx, ct);
 
         var (annotatedMarkdown, extraction) = await MarkAndExtractSubworkflowSpecsAsync(
-            llmClient, normalizedMarkdown, globalMcpContext, input, provider, model, reasoning, useStructuredExtraction, ctx, ct);
+            llmClient, normalizedMarkdown, globalMcpContext, input, provider, model, reasoning, useStructuredExtraction, capabilityPreflight, ctx, ct);
 
         ctx.SetTelemetryAttribute("gnougo-flow.plan.pipeline.subworkflow_count", extraction.Subworkflows.Count);
 
@@ -231,7 +245,7 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
             try
             {
                 var tasks = extraction.Subworkflows
-                    .Select(spec => GenerateLeafWorkflowAsync(ctx, input, generator, spec, ct))
+                    .Select(spec => GenerateLeafWorkflowAsync(ctx, input, generator, spec, globalMcpContext, ct))
                     .ToArray();
                 generatedLeaves = await Task.WhenAll(tasks);
             }
@@ -269,6 +283,8 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
                     ct);
                 string? previousAssemblyResponse = null;
                 string? previousAssemblyError = null;
+                string? previousAssemblyDiagnosticFingerprint = null;
+                var unchangedAssemblyRepairAttempts = 0;
                 Exception? lastAssemblyException = null;
                 string? assembledYaml = null;
                 WorkflowDocument? assembledDocument = null;
@@ -367,6 +383,7 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
 
                         var assembly = ParseGeneratedMainAssembly(mainResponse.Text ?? string.Empty, currentLeaves);
                         var mainInputs = ResolveMainInputContract(configuredMainInputs, assembly, generatedLeafInputs);
+                        ValidateInferredMainArtifactInputs(mainInputs, configuredMainInputs, rawPrompt);
                         ForceMainWorkflowInputs(assembly.MainWorkflowNode, mainInputs);
                         EnsureMainWorkflowOutputs(assembly.MainWorkflowNode, extraction.Subworkflows);
                         ValidateDeclaredMainInputReferences(assembly.MainWorkflowNode, mainInputs);
@@ -387,6 +404,20 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
                             {
                                 validationSpan.SetAttribute("gnougo-flow.plan.yaml_length", assembledYaml.Length);
                                 assembledDocument = ParseAndValidateGeneratedWorkflow(assembledYaml);
+                                (assembledDocument, assembledYaml) = PromoteGeneratedDirectMcpScalarInputSchemas(
+                                    assembledDocument,
+                                    assembledYaml,
+                                    validationDiscovered);
+                                (assembledDocument, assembledYaml) = PromoteGeneratedDirectWorkflowCallObjectInputSchemas(
+                                    assembledDocument,
+                                    assembledYaml,
+                                    validationDiscovered,
+                                    ctx.Engine.Registry);
+                                (assembledDocument, assembledYaml) = PromoteGeneratedDirectOutputSchemas(
+                                    assembledDocument,
+                                    assembledYaml,
+                                    validationDiscovered,
+                                    ctx.Engine.Registry);
                                 validationSpan.SetAttribute("gnougo-flow.plan.workflow_count", assembledDocument.Workflows.Count);
                                 EnforcePipelineWorkflowHierarchy(
                                     assembledDocument,
@@ -405,6 +436,7 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
                                     ctx,
                                     validationSpan.Span,
                                     ct);
+                                ValidateLockedCapabilitiesInDocument(assembledDocument, capabilityPreflight);
                             }
                             catch (Exception ex)
                             {
@@ -425,15 +457,140 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
                     {
                         throw;
                     }
-                    catch (Exception ex) when (attempt < maxAssemblyAttempts)
+                    catch (Exception ex)
                     {
+                        if (WorkflowPlanDiagnostics.IsTransientProviderFailure(ex))
+                        {
+                            attemptSpan.Fail(ex);
+                            throw;
+                        }
+
+                        var inputContractDemand = TryAnalyzePipelineLeafInputContractDemand(ex, assembledDocument, currentLeaves);
+                        var contractDemand = inputContractDemand == null
+                            ? TryAnalyzePipelineLeafContractDemand(ex, assembledDocument, currentLeaves)
+                            : null;
+                        if (inputContractDemand == null && contractDemand == null)
+                        {
+                            var stalled = DetectRepairStall(
+                                ex,
+                                attempt,
+                                isRepairAttempt: attempt > 1,
+                                ref previousAssemblyDiagnosticFingerprint,
+                                ref unchangedAssemblyRepairAttempts);
+                            if (stalled != null)
+                            {
+                                attemptSpan.Fail(stalled);
+                                throw stalled;
+                            }
+                        }
+                        if (attempt >= maxAssemblyAttempts)
+                        {
+                            lastAssemblyException = ex;
+                            attemptSpan.AddEvent(
+                                "gnougo-flow.plan.pipeline.main_assembly.error",
+                                BuildPlanErrorTelemetryAttributes(ex, attempt, "assemble_main_workflow"));
+                            attemptSpan.SetAttribute("gnougo-flow.plan.pipeline.assembly_status", "failed");
+                            attemptSpan.Fail(ex);
+                            break;
+                        }
+
                         lastAssemblyException = ex;
                         previousAssemblyError = BuildStructuredPlanError(ex, attempt);
-                        var contractDemand = TryAnalyzePipelineLeafContractDemand(ex, assembledDocument, currentLeaves);
                         attemptSpan.AddEvent(
                             "gnougo-flow.plan.pipeline.main_assembly.error",
                             BuildPlanErrorTelemetryAttributes(ex, attempt, "assemble_main_workflow"));
-                        if (contractDemand != null)
+                        if (inputContractDemand != null)
+                        {
+                            try
+                            {
+                                currentLeaves = await RegenerateLeafForInputContractDemandAsync(
+                                    ctx,
+                                    input,
+                                    generator,
+                                    extraction,
+                                    currentLeaves,
+                                    globalMcpContext,
+                                    inputContractDemand,
+                                    ex,
+                                    attempt,
+                                    attemptSpan.Span,
+                                    ct);
+                                qualityEvents.Add(new PipelineQualityEvent(
+                                    "leaf_input_contract_repair",
+                                    attempt,
+                                    "assemble_main_workflow",
+                                    inputContractDemand.LeafName,
+                                    null,
+                                    inputContractDemand.ConsumerStepId,
+                                    string.Join(",", inputContractDemand.RequiredInputSchemas.Keys.Order(StringComparer.Ordinal)),
+                                    null,
+                                    inputContractDemand.Reason,
+                                    inputContractDemand.RequiredInputSchemas.Keys.Order(StringComparer.Ordinal).ToArray(),
+                                    "compatible input contract",
+                                    null,
+                                    "Regenerated consuming leaf against authoritative parent source contracts."));
+                                // The previous parent assembly was produced against the old leaf input
+                                // contract. Reusing it as repair context after the contract changes can
+                                // preserve an obsolete adapter and make parent/leaf types oscillate.
+                                // Reassemble from the locked blueprint and the refreshed leaf contracts.
+                                previousAssemblyResponse = null;
+                                previousAssemblyError = null;
+                                assembledYaml = null;
+                                assembledDocument = null;
+                                previousAssemblyDiagnosticFingerprint = null;
+                                unchangedAssemblyRepairAttempts = 0;
+                                attemptSpan.SetAttribute("gnougo-flow.plan.pipeline.assembly_status", "leaf_input_contract_repaired");
+                                ctx.Engine.Logger.LogWarning(
+                                    ex,
+                                    "workflow.plan pipeline main assembly attempt {Attempt}/{MaxAttempts} found incompatible input contracts for leaf {Leaf}, regenerated impacted leaf",
+                                    attempt,
+                                    maxAssemblyAttempts,
+                                    inputContractDemand.LeafName);
+                                ctx.AddTelemetryEvent("gnougo-flow.plan.pipeline.leaf_input_contract_repair", new[]
+                                {
+                                    new KeyValuePair<string, object?>("gnougo-flow.plan.attempt", attempt),
+                                    new KeyValuePair<string, object?>("gnougo-flow.plan.max_attempts", maxAssemblyAttempts),
+                                    new KeyValuePair<string, object?>("gnougo-flow.plan.pipeline.leaf_name", inputContractDemand.LeafName),
+                                    new KeyValuePair<string, object?>("gnougo-flow.plan.pipeline.consumer_step", inputContractDemand.ConsumerStepId),
+                                    new KeyValuePair<string, object?>("gnougo-flow.plan.pipeline.input_names", string.Join(",", inputContractDemand.RequiredInputSchemas.Keys.Order(StringComparer.Ordinal)))
+                                });
+                            }
+                            catch (OperationCanceledException)
+                            {
+                                throw;
+                            }
+                            catch (Exception repairEx)
+                            {
+                                lastAssemblyException = repairEx;
+                                previousAssemblyError = BuildStructuredPlanError(repairEx, attempt);
+                                qualityEvents.Add(new PipelineQualityEvent(
+                                    "leaf_input_contract_repair_failed",
+                                    attempt,
+                                    "repair_leaf_input_contract",
+                                    inputContractDemand.LeafName,
+                                    null,
+                                    inputContractDemand.ConsumerStepId,
+                                    string.Join(",", inputContractDemand.RequiredInputSchemas.Keys.Order(StringComparer.Ordinal)),
+                                    null,
+                                    inputContractDemand.Reason,
+                                    inputContractDemand.RequiredInputSchemas.Keys.Order(StringComparer.Ordinal).ToArray(),
+                                    "compatible input contract",
+                                    repairEx.GetType().Name,
+                                    TruncatePipelineQualityMessage(repairEx.Message)));
+                                attemptSpan.AddEvent(
+                                    "gnougo-flow.plan.pipeline.leaf_input_contract_repair.error",
+                                    BuildPlanErrorTelemetryAttributes(repairEx, attempt, "repair_leaf_input_contract", inputContractDemand.LeafName));
+                                attemptSpan.SetAttribute("gnougo-flow.plan.pipeline.assembly_status", "retrying");
+                                attemptSpan.Fail(repairEx);
+                                ctx.Engine.Logger.LogWarning(
+                                    repairEx,
+                                    "workflow.plan pipeline input contract repair for {Leaf} failed during main assembly attempt {Attempt}/{MaxAttempts}, reprompting main",
+                                    inputContractDemand.LeafName,
+                                    attempt,
+                                    maxAssemblyAttempts);
+                            }
+                        }
+                        else if (contractDemand != null)
                         {
                             try
                             {
@@ -443,6 +600,7 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
                                     generator,
                                     extraction,
                                     currentLeaves,
+                                    globalMcpContext,
                                     contractDemand,
                                     ex,
                                     attempt,
@@ -462,6 +620,15 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
                                     contractDemand.ExpectedType,
                                     null,
                                     "Regenerated producing leaf with a stronger output contract."));
+                                // The old parent assembly was based on the weaker producer contract.
+                                // It is no longer a sound repair baseline once the public leaf contract
+                                // has changed, so compose a fresh parent from the authoritative inputs.
+                                previousAssemblyResponse = null;
+                                previousAssemblyError = null;
+                                assembledYaml = null;
+                                assembledDocument = null;
+                                previousAssemblyDiagnosticFingerprint = null;
+                                unchangedAssemblyRepairAttempts = 0;
                                 attemptSpan.SetAttribute("gnougo-flow.plan.pipeline.assembly_status", "leaf_contract_repaired");
                                 ctx.Engine.Logger.LogWarning(
                                     ex,
@@ -542,21 +709,11 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
                             null,
                             null,
                             null,
-                            contractDemand?.Reason,
-                            contractDemand?.RequiredOutputPaths,
-                            contractDemand?.ExpectedType,
+                            inputContractDemand?.Reason ?? contractDemand?.Reason,
+                            inputContractDemand?.RequiredInputSchemas.Keys.Order(StringComparer.Ordinal).ToArray() ?? contractDemand?.RequiredOutputPaths,
+                            inputContractDemand == null ? contractDemand?.ExpectedType : "compatible input contract",
                             ex.GetType().Name,
                             TruncatePipelineQualityMessage(ex.Message)));
-                    }
-                    catch (Exception ex)
-                    {
-                        lastAssemblyException = ex;
-                        attemptSpan.AddEvent(
-                            "gnougo-flow.plan.pipeline.main_assembly.error",
-                            BuildPlanErrorTelemetryAttributes(ex, attempt, "assemble_main_workflow"));
-                        attemptSpan.SetAttribute("gnougo-flow.plan.pipeline.assembly_status", "failed");
-                        attemptSpan.Fail(ex);
-                        break;
                     }
                 }
 
@@ -651,6 +808,7 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
             {
                 ["normalized_markdown"] = normalizedMarkdown,
                 ["annotated_markdown"] = annotatedMarkdown,
+                ["capability_preflight"] = BuildCapabilityPreflightJson(capabilityPreflight),
                 ["specs"] = BuildExtractionJson(extraction),
                 ["quality_report"] = qualityReport,
                 ["inspection"] = inspection
@@ -749,17 +907,20 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
         string model,
         string? provider,
         string? reasoning,
+        CapabilityPreflightResult capabilityPreflight,
         StepExecutionContext ctx,
         CancellationToken ct)
     {
+        var mcpFactory = ctx.Engine.McpClientFactory;
         var prefilterNode = generator["prefilter"];
         var shouldPrefilter = prefilterNode == null
             || prefilterNode is JsonObject
             || (prefilterNode is JsonValue jv && (!jv.TryGetValue<bool>(out var bv) || bv));
-        if (!shouldPrefilter)
+        if (!shouldPrefilter && !capabilityPreflight.Enabled)
             return PipelineMcpContext.Empty;
 
-        if (ctx.Engine.McpClientFactory?.ServerMetadata == null || ctx.Engine.McpClientFactory.ServerMetadata.Count == 0)
+        if (!capabilityPreflight.Enabled
+            && (mcpFactory?.ServerMetadata == null || mcpFactory.ServerMetadata.Count == 0))
             return PipelineMcpContext.Empty;
 
         var prefilterModel = model;
@@ -781,14 +942,50 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
 
         try
         {
+            if (capabilityPreflight.Enabled)
+            {
+                var discoveredFromPreflight = capabilityPreflight.DiscoveredServers.Select(CloneDiscovery).ToList();
+                if (shouldPrefilter && discoveredFromPreflight.Count > 0)
+                {
+                    var complete = discoveredFromPreflight.Select(CloneDiscovery).ToList();
+                    discoveredFromPreflight = await PrefilterMcpServersAsync(
+                        llmClient,
+                        discoveredFromPreflight,
+                        normalizedMarkdown,
+                        rawPrompt,
+                        prefilterModel,
+                        prefilterProvider,
+                        prefilterTemperature,
+                        reasoning,
+                        ctx,
+                        mcpContextSpan.Span,
+                        ct);
+                    discoveredFromPreflight = MergeLockedCapabilitiesIntoDiscovery(
+                        discoveredFromPreflight,
+                        complete,
+                        capabilityPreflight);
+                    discoveredFromPreflight = ExpandSelectedOperationalArtifactPrerequisites(
+                        discoveredFromPreflight,
+                        complete,
+                        rawPrompt);
+                }
+
+                var preflightDoc = discoveredFromPreflight.Count == 0
+                    ? FormatLockedCapabilities(capabilityPreflight)
+                    : FormatMcpServersDoc(discoveredFromPreflight) + "\n" + FormatLockedCapabilities(capabilityPreflight);
+                mcpContextSpan.SetAttribute("mcp.servers_selected", discoveredFromPreflight.Count);
+                mcpContextSpan.SetAttribute("mcp.tools_selected", discoveredFromPreflight.Sum(static server => server.Tools.Count));
+                return new PipelineMcpContext(discoveredFromPreflight, preflightDoc);
+            }
+
             var requiredMcpServerNames = ExtractRequiredMcpServerNames(
                 normalizedMarkdown,
                 rawPrompt,
-                ctx.Engine.McpClientFactory.ServerMetadata);
+                mcpFactory!.ServerMetadata);
 
             var candidateMcpServers = await PrefilterMcpServerMetadataAsync(
                 llmClient,
-                ctx.Engine.McpClientFactory,
+                mcpFactory,
                 normalizedMarkdown,
                 rawPrompt,
                 prefilterModel,
@@ -801,12 +998,12 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
 
             candidateMcpServers = MergeRequiredMcpServerMetadata(
                 candidateMcpServers,
-                ctx.Engine.McpClientFactory.ServerMetadata,
+                mcpFactory.ServerMetadata,
                 requiredMcpServerNames,
                 ctx);
 
             var discovered = await DiscoverMcpServersAsync(
-                ctx.Engine.McpClientFactory,
+                mcpFactory,
                 ctx.Engine.McpCache,
                 ctx.Engine.Logger,
                 ctx,
@@ -834,6 +1031,10 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
                     prefilterSource,
                     requiredMcpServerNames,
                     ctx);
+                discovered = ExpandSelectedOperationalArtifactPrerequisites(
+                    discovered,
+                    prefilterSource,
+                    rawPrompt);
             }
 
             if (discovered == null || discovered.Count == 0)
@@ -864,6 +1065,7 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
         string model,
         string? reasoning,
         bool useStructuredExtraction,
+        CapabilityPreflightResult capabilityPreflight,
         StepExecutionContext ctx,
         CancellationToken ct)
     {
@@ -951,6 +1153,15 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
             {
                 var extraction = ExtractSubworkflowSpecs(annotatedMarkdown);
                 extraction = EnrichSubworkflowSpecsWithStructuredMetadata(extraction, structuredMetadata, pipelineMcpContext, responseValidationErrors);
+                extraction = ComposeLockedCapabilitiesIntoPipelineExtraction(
+                    extraction,
+                    capabilityPreflight,
+                    pipelineMcpContext);
+                extraction = ValidateLockedCapabilitiesInExtraction(extraction, capabilityPreflight);
+                extraction = ValidatePlannedToolArtifactPrerequisites(
+                    extraction,
+                    pipelineMcpContext,
+                    normalizedMarkdown);
                 extractionSpan.SetAttribute("gnougo-flow.plan.pipeline.subworkflow_count", extraction.Subworkflows.Count);
                 extractionSpan.SetAttribute("gnougo-flow.plan.pipeline.validation_error_count", extraction.ValidationErrors.Count);
                 extractionSpan.SetAttribute("gnougo-flow.plan.pipeline.planned_tool_count", extraction.Subworkflows.Sum(static spec => spec.PlannedTools.Count));
@@ -1141,6 +1352,10 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
             - For a subworkflow that calls or prepares a tool call, include required request variables from the tool schema as inputs only when they must come from the caller or an upstream block.
             - If a required tool variable can be derived internally from semantic inputs, keep it inside the block content instead of exposing it as a public subworkflow input.
             - If a later block needs a documented tool response field, expose that field as an output of the producing block using the documented type.
+            - When a planned tool requires an existing operational artifact that the user did not explicitly supply, plan a documented producer tool and expose its compatible response field through an upstream leaf. Never invent an artifact path, handle, directory, or workspace input.
+            - MCP artifact_contract metadata is authoritative. Materialize one artifact per locked producer occurrence, expose the exact declared response pointer, and route that value unchanged through main to every compatible consumer leaf.
+            - Do not repeat a materializer merely because preparation, validation, analysis, or publication are separate leaves.
+            - Required workflow inputs are validated by the runtime before execution. Do not add missing/empty required-input decision trees or user-facing fallback branches unless the user explicitly requested that behavior.
             - Do not copy every MCP field into every block; include only the variables needed for that block boundary.
             - Do not use placeholders for missing required variables. If they are not derivable, make them explicit inputs.
             """);
@@ -1156,8 +1371,11 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
             - Structured output fields should declare concrete object properties and array item types when later workflow steps need field-level access.
             - Avoid `any`, bare `object`, and bare `array` outputs. If an output may be looped over or inspected by the main workflow, declare concrete `items` and object `properties`.
             - Structured `planned_tools` must list every MCP server tool or prompt this leaf is expected to call directly.
+            - A capability name that appears only inside a prohibition such as "do not call ..." is not a planned tool. Never add negated capabilities to `planned_tools`.
             - Mark planned tools as required when omitting that MCP call would violate the leaf goal.
-            - For each relevant MCP tool or prompt, add a structured planned_tools entry with the exact server name, kind, method name, purpose, consumed fields, and produced fields.
+            - For each relevant MCP tool or prompt, add a structured planned_tools entry with the exact server name, kind, method name, purpose, consumed fields, produced fields, and any locked request_bindings.
+            - Treat each locked capability as a separate invocation obligation, even when multiple operations use the same physical tool. Copy supplied operation_id and catalog_id values into operation_ids and catalog_ids for traceability.
+            - request_bindings are JSON Pointer/scalar pairs that must later appear as exact literal values under mcp.call.input.request. Do not omit, merge, or dynamically construct them.
             - External-work leaves that clone, read/fetch/query/list external data, write, delete, cleanup, report, post, push, or call outside systems must declare concrete planned_tools when matching MCP tools/prompts are documented above.
             - Do not invent planned tools. Only use MCP servers, tools, and prompts documented in the global MCP tool context.
             - If no MCP tool or prompt is required for a leaf, use an empty planned_tools array.
@@ -1176,7 +1394,7 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
             - Only the main workflow can call subworkflows.
             - Every subworkflow is a leaf workflow.
             - A subworkflow must never call another subworkflow.
-            - A subworkflow must never depend on another subworkflow.
+            - Main may order independent leaves and pass a typed output from an earlier producer leaf into one or more later consumer leaves.
             - The final YAML will contain the main workflow and all leaf subworkflows in the same local YAML file.
             - The main workflow calls leaf workflows with local workflow.call.
 
@@ -1236,7 +1454,8 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
             sb.AppendLine("- Structured work_kind must match the leaf role: orchestration, deterministic_shaping, or external_work.");
             sb.AppendLine("- Structured contract_role must be one of external_action, typed_data_producer, algorithmic_transform, deterministic_glue, orchestration, or abstract_policy.");
             sb.AppendLine("- Only external_action, typed_data_producer, and algorithmic_transform can remain as leaf blocks; move deterministic_glue, orchestration, and abstract_policy back to the main workflow.");
-            sb.AppendLine("- Every remaining leaf must have a concrete_outcome and strongly typed output schemas.");
+            sb.AppendLine("- Every remaining leaf must have a concrete_outcome and strongly typed input and output schemas.");
+            sb.AppendLine("- Public leaf boundaries must never use `type: any`, bare objects, or arrays without concrete items. Model the fields consumed from another leaf explicitly.");
             sb.AppendLine("- External-work leaves with matching MCP capabilities must include concrete planned_tools entries.");
             sb.AppendLine("- Structured planned_tools must use exact MCP server/tool/prompt names from the global MCP context.");
             sb.AppendLine("- Fix low extraction scores by either making the leaf a meaningful external/algorithmic unit with concrete planned_tools/contracts, or moving trivial shaping/orchestration back to the main workflow.");
@@ -1335,7 +1554,10 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
                         maxAttempts)
                 };
 
-            var review = ParseExtractionQualityReviewResponse(response);
+            var review = NormalizeExtractionQualityReviewAgainstLockedContracts(
+                extraction,
+                pipelineMcpContext,
+                ParseExtractionQualityReviewResponse(response));
             ctx.SetTelemetryAttribute("gnougo-flow.plan.pipeline.extraction_quality.score", review.Score);
             ctx.SetTelemetryAttribute("gnougo-flow.plan.pipeline.extraction_quality.verdict", review.Verdict);
             ctx.SetTelemetryAttribute("gnougo-flow.plan.pipeline.extraction_quality.diagnostic_count", review.Diagnostics.Count);
@@ -1392,6 +1614,18 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
         sb.AppendLine("- leaves are abstract, cross-cutting, or too broad to generate reliably;");
         sb.AppendLine("- trivial deterministic glue is extracted instead of staying in main.");
         sb.AppendLine();
+        sb.AppendLine("Authoritative platform rules:");
+        sb.AppendLine("- locked capability operations, selector bindings, local-processing obligations, and constraints in extraction_json are authoritative;");
+        sb.AppendLine("- required=true on a locked planned tool means the generated workflow must contain that call; it does not mean the call is unconditional, so preserve any documented guard or branch;");
+        sb.AppendLine("- never recommend removing or downgrading a planned tool carrying locked operation_ids or catalog_ids;");
+        sb.AppendLine("- locked capabilities are an exact multiset: deterministic validation has already assigned each required occurrence once; an additional technical call may intentionally have empty operation_ids/catalog_ids, and you must not ask to duplicate an identity already assigned to another call;");
+        sb.AppendLine("- occurrence identity is the `(operation_id, catalog_id)` pair. A composed operation intentionally repeats one operation_id across multiple distinct catalog_ids, and those complementary calls may belong to different cohesive leaves; do not report that as duplication;");
+        sb.AppendLine("- work_kind is intentionally limited to orchestration, deterministic_shaping, or external_work; contract_role is intentionally limited to external_action, typed_data_producer, algorithmic_transform, deterministic_glue, orchestration, or abstract_policy. Do not request unsupported semantic subtypes such as external_read, llm_work, or analysis;");
+        sb.AppendLine("- a human confirmation before the first external write is a generic platform safety policy unless unattended execution was explicitly requested, and is not a behavioral overconstraint;");
+        sb.AppendLine("- do not require an optional external action mentioned only in extractor prose unless it is required by the normalized request or a locked capability operation;");
+        sb.AppendLine("- when extractor prose names a concrete discovered MCP method and selector, planned_tools must contain that literal discovered call or the prose must be removed.");
+        sb.AppendLine("- capability names mentioned only inside a prohibition are not calls and must not appear in planned_tools.");
+        sb.AppendLine();
         AppendPromptSection(sb, "normalized_prompt", normalizedMarkdown);
         AppendPromptSection(sb, "mcp_context_json", BuildPipelineMcpContextJson(pipelineMcpContext).ToJsonString(PromptJsonOptions));
         AppendPromptSection(sb, "annotated_markdown", annotatedMarkdown);
@@ -1426,6 +1660,154 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
           }
         }
         """)!;
+
+    private static PipelineExtractionQualityReview NormalizeExtractionQualityReviewAgainstLockedContracts(
+        WorkflowPipelineExtraction extraction,
+        PipelineMcpContext pipelineMcpContext,
+        PipelineExtractionQualityReview review)
+    {
+        var specs = extraction.Subworkflows.ToDictionary(static spec => spec.Name, StringComparer.Ordinal);
+        var lockedOccurrencePairs = extraction.Subworkflows
+            .SelectMany(static spec => spec.PlannedTools)
+            .Where(static tool => tool.Required && tool.OperationIds.Count == 1 && tool.CatalogIds.Count == 1)
+            .Select(static tool => (OperationId: tool.OperationIds[0], CatalogId: tool.CatalogIds[0]))
+            .ToArray();
+        var lockedOccurrencePairsAreUnique = lockedOccurrencePairs
+            .GroupBy(static pair => pair)
+            .All(static group => group.Count() == 1);
+        var correctedCritical = false;
+        var diagnostics = review.Diagnostics.Select(diagnostic =>
+        {
+            var diagnosticText = string.Join(' ', new[]
+            {
+                diagnostic.Code,
+                diagnostic.Message,
+                diagnostic.Recommendation
+            }.Where(static value => !string.IsNullOrWhiteSpace(value))!).ToLowerInvariant();
+            var mentionsOccurrenceIdentity = diagnosticText.Contains("operation_id", StringComparison.Ordinal)
+                                             || diagnosticText.Contains("operation id", StringComparison.Ordinal)
+                                             || diagnosticText.Contains("catalog_id", StringComparison.Ordinal)
+                                             || diagnosticText.Contains("catalog id", StringComparison.Ordinal)
+                                             || diagnosticText.Contains("locked occurrence", StringComparison.Ordinal)
+                                             || Regex.IsMatch(
+                                                 diagnosticText,
+                                                 @"\bop[_a-z0-9-]*::cap_[a-z0-9_-]+\b",
+                                                 RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
+            var asksToAddOccurrenceIdentity = diagnosticText.Contains("omit", StringComparison.Ordinal)
+                                              || diagnosticText.Contains("missing", StringComparison.Ordinal)
+                                              || diagnosticText.Contains("add", StringComparison.Ordinal)
+                                              || diagnosticText.Contains("include", StringComparison.Ordinal)
+                                              || diagnosticText.Contains("copy", StringComparison.Ordinal)
+                                              || diagnosticText.Contains("reflect", StringComparison.Ordinal);
+            var challengesValidatedOccurrenceIdentity = mentionsOccurrenceIdentity
+                                                         && asksToAddOccurrenceIdentity
+                                                         && !diagnosticText.Contains("duplicate", StringComparison.Ordinal);
+            var misclassifiesComposedOperationAsDuplicate = lockedOccurrencePairsAreUnique
+                                                            && mentionsOccurrenceIdentity
+                                                            && diagnosticText.Contains("duplicate", StringComparison.Ordinal);
+            if (challengesValidatedOccurrenceIdentity || misclassifiesComposedOperationAsDuplicate)
+            {
+                correctedCritical |= string.Equals(diagnostic.Severity, "critical", StringComparison.Ordinal);
+                return diagnostic with
+                {
+                    Severity = "info",
+                    Message = diagnostic.Message + " Deterministic multiset validation already assigned every locked capability occurrence; additional technical calls intentionally remain unlocked.",
+                    Recommendation = "Preserve the deterministic locked occurrence identities and do not duplicate them onto additional calls."
+                };
+            }
+
+            if (string.IsNullOrWhiteSpace(diagnostic.LeafName)
+                || !specs.TryGetValue(diagnostic.LeafName, out var spec))
+            {
+                return diagnostic;
+            }
+
+            if (diagnostic.Code.Contains("MISSING_PLANNED_TOOL", StringComparison.OrdinalIgnoreCase)
+                || diagnostic.Code.Contains("MISSING_NAMED_MCP", StringComparison.OrdinalIgnoreCase))
+            {
+                var claimedMethods = pipelineMcpContext.Servers
+                    .Where(static server => server.Discovered)
+                    .SelectMany(static server => server.Tools.Select(static tool => tool.Name)
+                        .Concat(server.Prompts.Select(static prompt => prompt.Name)))
+                    .Distinct(StringComparer.Ordinal)
+                    .Where(method => ContainsIntentToken(diagnosticText, method))
+                    .ToArray();
+                var specClauses = SplitCapabilityMentionClauses(BuildPipelineSpecIntentText(spec));
+                var hasClaimedInvocation = claimedMethods.Any(method => specClauses.Any(clause =>
+                    ContainsIntentToken(clause, method)
+                    && IsPositiveCapabilityInvocationClause(clause, method)));
+                if (claimedMethods.Length > 0 && !hasClaimedInvocation)
+                {
+                    correctedCritical |= string.Equals(diagnostic.Severity, "critical", StringComparison.Ordinal);
+                    return diagnostic with
+                    {
+                        Severity = "info",
+                        Message = diagnostic.Message + " Deterministic evidence validation found no invocation of the claimed method in the cited leaf.",
+                        Recommendation = "Do not add a capability solely from an unsupported quality-review claim."
+                    };
+                }
+            }
+
+            var claimedContradictoryMethods = extraction.Subworkflows
+                .SelectMany(static candidate => candidate.PlannedTools)
+                .Where(static tool => tool.Required && (tool.OperationIds.Count > 0 || tool.CatalogIds.Count > 0))
+                .Select(static tool => tool.Method)
+                .Distinct(StringComparer.Ordinal)
+                .Where(method => ContainsIntentToken(diagnostic.Message, method))
+                .ToArray();
+            var reportsContradictoryPlannedTool = diagnostic.Code.Contains(
+                "CONTRADICTORY_PLANNED_TOOL",
+                StringComparison.OrdinalIgnoreCase);
+            if (reportsContradictoryPlannedTool
+                && claimedContradictoryMethods.Length > 0
+                && claimedContradictoryMethods.All(method => spec.PlannedTools.All(tool =>
+                    !string.Equals(tool.Method, method, StringComparison.Ordinal))))
+            {
+                correctedCritical |= string.Equals(diagnostic.Severity, "critical", StringComparison.Ordinal);
+                return diagnostic with
+                {
+                    Severity = "info",
+                    Message = diagnostic.Message + " Deterministic ownership validation shows that the claimed locked tool is not assigned to this leaf.",
+                    Recommendation = "Preserve the deterministically assigned `(operation_id, catalog_id)` owner."
+                };
+            }
+            var challengesRequiredLock = diagnosticText.Contains("optional", StringComparison.Ordinal)
+                                         || diagnosticText.Contains("not required", StringComparison.Ordinal)
+                                         || diagnosticText.Contains("remove", StringComparison.Ordinal)
+                                         || diagnosticText.Contains("downgrade", StringComparison.Ordinal);
+            var challengesPlacement = diagnosticText.Contains("misassign", StringComparison.Ordinal)
+                                      || diagnosticText.Contains("wrong leaf", StringComparison.Ordinal)
+                                      || diagnosticText.Contains("incorrectly includes", StringComparison.Ordinal)
+                                      || diagnosticText.Contains("move ", StringComparison.Ordinal)
+                                      || diagnosticText.Contains("assign", StringComparison.Ordinal)
+                                         && diagnosticText.Contains(" leaf", StringComparison.Ordinal);
+            if (!challengesRequiredLock || challengesPlacement)
+                return diagnostic;
+
+            var challengedLockedTool = spec.PlannedTools.Any(tool => tool.Required
+                                                                     && (tool.OperationIds.Count > 0 || tool.CatalogIds.Count > 0)
+                                                                     && ContainsIntentToken(diagnosticText, tool.Method));
+            if (!challengedLockedTool)
+                return diagnostic;
+
+            correctedCritical |= string.Equals(diagnostic.Severity, "critical", StringComparison.Ordinal);
+            return diagnostic with
+            {
+                Severity = "info",
+                Message = diagnostic.Message + " The proposed downgrade is ignored because capability preflight locked this runtime operation as required.",
+                Recommendation = "Preserve the locked call. Its control flow may remain conditional when the leaf contract requires that."
+            };
+        }).ToArray();
+
+        var hasCritical = diagnostics.Any(static diagnostic => string.Equals(diagnostic.Severity, "critical", StringComparison.Ordinal));
+        var score = correctedCritical && !hasCritical
+            ? Math.Max(review.Score, PipelineExtractionQualityReviewThreshold)
+            : review.Score;
+        var verdict = correctedCritical && !hasCritical && score >= PipelineExtractionQualityReviewThreshold
+            ? "pass"
+            : review.Verdict;
+        return review with { Score = score, Verdict = verdict, Diagnostics = diagnostics };
+    }
 
     private static PipelineExtractionQualityReview ParseExtractionQualityReviewResponse(LLMResponse response)
     {
@@ -1943,6 +2325,20 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
                         "server": { "type": "string" },
                         "kind": { "type": "string", "enum": ["tool", "prompt"] },
                         "method": { "type": "string" },
+                        "operation_ids": { "type": "array", "items": { "type": "string" } },
+                        "catalog_ids": { "type": "array", "items": { "type": "string" } },
+                        "request_bindings": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "additionalProperties": false,
+                            "required": ["path", "value"],
+                            "properties": {
+                              "path": { "type": "string" },
+                              "value": { "type": ["string", "number", "boolean", "null"] }
+                            }
+                          }
+                        },
                         "required": { "type": "boolean" },
                         "purpose": { "type": "string" },
                         "consumes": { "type": "array", "items": { "type": "string" } },
@@ -2226,6 +2622,18 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
             var server = GetStringProperty(tool, "server") ?? "";
             var kind = GetStringProperty(tool, "kind") ?? "tool";
             var method = GetStringProperty(tool, "method") ?? "";
+            IReadOnlyList<CapabilityRequestBinding> requestBindings;
+            try
+            {
+                requestBindings = ParseCapabilityRequestBindings(
+                    tool["request_bindings"] as JsonArray,
+                    $"Structured subworkflow '{subworkflowName}' planned tool '{server}/{method}'");
+            }
+            catch (WorkflowRuntimeException ex)
+            {
+                validationErrors.Add(ex.Message);
+                requestBindings = Array.Empty<CapabilityRequestBinding>();
+            }
             var required = tool["required"] is JsonValue requiredValue
                            && requiredValue.TryGetValue<bool>(out var requiredBool)
                            && requiredBool;
@@ -2237,7 +2645,10 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
                 required,
                 GetStringProperty(tool, "purpose"),
                 GetStringArray(tool["consumes"] as JsonArray),
-                GetStringArray(tool["produces"] as JsonArray)));
+                GetStringArray(tool["produces"] as JsonArray),
+                requestBindings,
+                GetStringArray(tool["operation_ids"] as JsonArray),
+                GetStringArray(tool["catalog_ids"] as JsonArray)));
         }
 
         return result;
@@ -2291,6 +2702,25 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
             var plannedTools = structured?.PlannedTools ?? Array.Empty<PipelinePlannedTool>();
             var workKind = NormalizePipelineWorkKind(structured?.WorkKind) ?? InferPipelineWorkKind(spec);
             var contractRole = NormalizePipelineContractRole(structured?.ContractRole);
+            if (DeclaresNoExternalCalls(string.Join(' ', new[]
+                {
+                    spec.Goal,
+                    spec.ExtractReason,
+                    spec.Content,
+                    structured?.Description,
+                    structured?.ConcreteOutcome
+                }.Where(static value => !string.IsNullOrWhiteSpace(value))!)))
+            {
+                // A leaf that explicitly declares local-only processing cannot also own an MCP
+                // call. Locked external capabilities are composed into another compatible leaf.
+                plannedTools = Array.Empty<PipelinePlannedTool>();
+                workKind = PipelineWorkKindDeterministicShaping;
+                contractRole = PipelineContractRoleAlgorithmicTransform;
+            }
+            else
+            {
+                plannedTools = RemoveToolsMentionedOnlyAsProhibitions(spec, structured, plannedTools);
+            }
             ValidatePlannedToolsAgainstMcpContext(spec.Name, plannedTools, pipelineMcpContext, validationErrors);
 
             var enrichedSpec = spec with
@@ -2406,6 +2836,10 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
                 : server.Tools.Any(tool => string.Equals(tool.Name, plannedTool.Method, StringComparison.Ordinal));
             if (!exists)
                 validationErrors.Add($"Subworkflow '{subworkflowName}' planned {plannedTool.Kind} '{plannedTool.Server}/{plannedTool.Method}' was not found in discovered MCP capabilities.");
+            else if (plannedTool.RequestBindings.Count > 0 && !AlternativeBindingsMatchSchema(
+                         new CapabilityAlternative(plannedTool.Server, plannedTool.Kind, plannedTool.Method, plannedTool.RequestBindings),
+                         server))
+                validationErrors.Add($"Subworkflow '{subworkflowName}' planned tool '{plannedTool.Server}/{plannedTool.Method}' contains request_bindings that are not documented scalar selectors in the discovered input schema.");
         }
     }
 
@@ -2642,6 +3076,18 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
                 validationErrors,
                 rootCauses);
         }
+
+        foreach (var (inputName, schema) in spec.InputSchemas)
+        {
+            CollectWeakExtractionSchemaDiagnostics(
+                schema,
+                $"subworkflows.{spec.Name}.inputs.{inputName}",
+                spec.Name,
+                inputName,
+                validationErrors,
+                rootCauses,
+                isInput: true);
+        }
     }
 
     private static bool HasConcreteTypedOutputContract(WorkflowPipelineSubworkflowSpec spec)
@@ -2655,9 +3101,10 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
         string leafName,
         string outputName,
         List<string> validationErrors,
-        List<PipelineRootCause> rootCauses)
+        List<PipelineRootCause> rootCauses,
+        bool isInput = false)
     {
-        foreach (var diagnostic in EnumerateWeakExtractionSchemaDiagnostics(schema, path))
+        foreach (var diagnostic in EnumerateWeakExtractionSchemaDiagnostics(schema, path, isInput))
         {
             validationErrors.Add(diagnostic.Message);
             AddPipelineRootCause(
@@ -2673,11 +3120,14 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
         }
     }
 
-    private static IEnumerable<(string Code, string Path, string Message)> EnumerateWeakExtractionSchemaDiagnostics(JsonNode? schema, string path)
+    private static IEnumerable<(string Code, string Path, string Message)> EnumerateWeakExtractionSchemaDiagnostics(
+        JsonNode? schema,
+        string path,
+        bool isInput = false)
     {
         if (schema is not JsonObject obj)
         {
-            yield return WeakExtractionSchemaDiagnostic(path, "schema is missing or not an object");
+            yield return WeakExtractionSchemaDiagnostic(path, "schema is missing or not an object", isInput);
             yield break;
         }
 
@@ -2685,7 +3135,7 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
         {
             for (var i = 0; i < anyOf.Count; i++)
             {
-                foreach (var diagnostic in EnumerateWeakExtractionSchemaDiagnostics(anyOf[i], $"{path}.anyOf[{i}]"))
+                foreach (var diagnostic in EnumerateWeakExtractionSchemaDiagnostics(anyOf[i], $"{path}.anyOf[{i}]", isInput))
                     yield return diagnostic;
             }
             yield break;
@@ -2695,7 +3145,7 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
         {
             for (var i = 0; i < oneOf.Count; i++)
             {
-                foreach (var diagnostic in EnumerateWeakExtractionSchemaDiagnostics(oneOf[i], $"{path}.oneOf[{i}]"))
+                foreach (var diagnostic in EnumerateWeakExtractionSchemaDiagnostics(oneOf[i], $"{path}.oneOf[{i}]", isInput))
                     yield return diagnostic;
             }
             yield break;
@@ -2705,18 +3155,18 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
         switch (type)
         {
             case "any":
-                yield return WeakExtractionSchemaDiagnostic(path, "type `any` is not a concrete public leaf output contract");
+                yield return WeakExtractionSchemaDiagnostic(path, "type `any` is not a concrete public leaf contract", isInput);
                 yield break;
 
             case "array":
             {
                 if (obj["items"] is not JsonObject items)
                 {
-                    yield return WeakExtractionSchemaDiagnostic($"{path}.items", "array output must declare concrete items");
+                    yield return WeakExtractionSchemaDiagnostic($"{path}.items", "array contract must declare concrete items", isInput);
                     yield break;
                 }
 
-                foreach (var diagnostic in EnumerateWeakExtractionSchemaDiagnostics(items, $"{path}.items"))
+                foreach (var diagnostic in EnumerateWeakExtractionSchemaDiagnostics(items, $"{path}.items", isInput))
                     yield return diagnostic;
                 yield break;
             }
@@ -2725,13 +3175,13 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
             {
                 if (obj["properties"] is not JsonObject properties || properties.Count == 0)
                 {
-                    yield return WeakExtractionSchemaDiagnostic($"{path}.properties", "object output must declare non-empty properties");
+                    yield return WeakExtractionSchemaDiagnostic($"{path}.properties", "object contract must declare non-empty properties", isInput);
                     yield break;
                 }
 
                 foreach (var (propertyName, propertySchema) in properties)
                 {
-                    foreach (var diagnostic in EnumerateWeakExtractionSchemaDiagnostics(propertySchema, $"{path}.properties.{propertyName}"))
+                    foreach (var diagnostic in EnumerateWeakExtractionSchemaDiagnostics(propertySchema, $"{path}.properties.{propertyName}", isInput))
                         yield return diagnostic;
                 }
                 yield break;
@@ -2742,22 +3192,27 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
                 var additionalProperties = obj["additional_properties"] ?? obj["additionalProperties"];
                 if (additionalProperties is not JsonObject additionalPropertiesObject)
                 {
-                    yield return WeakExtractionSchemaDiagnostic($"{path}.additional_properties", "dictionary output must declare concrete additional_properties");
+                    yield return WeakExtractionSchemaDiagnostic($"{path}.additional_properties", "dictionary contract must declare concrete additional_properties", isInput);
                     yield break;
                 }
 
-                foreach (var diagnostic in EnumerateWeakExtractionSchemaDiagnostics(additionalPropertiesObject, $"{path}.additional_properties"))
+                foreach (var diagnostic in EnumerateWeakExtractionSchemaDiagnostics(additionalPropertiesObject, $"{path}.additional_properties", isInput))
                     yield return diagnostic;
                 yield break;
             }
         }
     }
 
-    private static (string Code, string Path, string Message) WeakExtractionSchemaDiagnostic(string path, string reason)
+    private static (string Code, string Path, string Message) WeakExtractionSchemaDiagnostic(
+        string path,
+        string reason,
+        bool isInput = false)
     {
-        var message = $"WEAK_EXTRACTION_OUTPUT_SCHEMA: {path}: {reason}. "
-                      + "Strengthen the extracted leaf output contract before leaf generation, or move the candidate back to main.";
-        return ("WEAK_EXTRACTION_OUTPUT_SCHEMA", path, message);
+        var code = isInput ? "WEAK_EXTRACTION_INPUT_SCHEMA" : "WEAK_EXTRACTION_OUTPUT_SCHEMA";
+        var contract = isInput ? "input" : "output";
+        var message = $"{code}: {path}: {reason}. "
+                      + $"Strengthen the extracted leaf {contract} contract before leaf generation, or move the candidate back to main.";
+        return (code, path, message);
     }
 
     private static void AddExtractionRootCauseForScoreDiagnostic(
@@ -2958,157 +3413,6 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
     private static string FormatPipelineExtractionScoreList(IReadOnlyList<string> values)
         => values.Count == 0 ? "none" : string.Join("; ", values.Distinct(StringComparer.OrdinalIgnoreCase).Take(5));
 
-    private static string? NormalizePipelineWorkKind(string? workKind)
-    {
-        if (string.IsNullOrWhiteSpace(workKind))
-            return null;
-
-        var normalized = workKind.Trim().ToLowerInvariant().Replace('-', '_');
-        return normalized switch
-        {
-            PipelineWorkKindOrchestration => PipelineWorkKindOrchestration,
-            PipelineWorkKindDeterministicShaping => PipelineWorkKindDeterministicShaping,
-            PipelineWorkKindExternalWork => PipelineWorkKindExternalWork,
-            _ => null
-        };
-    }
-
-    private static string? NormalizePipelineContractRole(string? role)
-    {
-        if (string.IsNullOrWhiteSpace(role))
-            return null;
-
-        var normalized = role.Trim().ToLowerInvariant().Replace('-', '_');
-        return normalized switch
-        {
-            PipelineContractRoleExternalAction => PipelineContractRoleExternalAction,
-            PipelineContractRoleTypedDataProducer => PipelineContractRoleTypedDataProducer,
-            PipelineContractRoleAlgorithmicTransform => PipelineContractRoleAlgorithmicTransform,
-            PipelineContractRoleDeterministicGlue => PipelineContractRoleDeterministicGlue,
-            PipelineContractRoleOrchestration => PipelineContractRoleOrchestration,
-            PipelineContractRoleAbstractPolicy => PipelineContractRoleAbstractPolicy,
-            _ => null
-        };
-    }
-
-    private static string InferPipelineWorkKind(WorkflowPipelineSubworkflowSpec spec)
-    {
-        if (ContainsExternalWorkIntent(BuildPipelineSpecIntentText(spec)))
-            return PipelineWorkKindExternalWork;
-
-        if (ContainsDeterministicShapingIntent(BuildPipelineSpecIntentText(spec)))
-            return PipelineWorkKindDeterministicShaping;
-
-        return PipelineWorkKindOrchestration;
-    }
-
-    private static string InferPipelineContractRole(WorkflowPipelineSubworkflowSpec spec)
-    {
-        if (IsExternalWorkSpec(spec) || spec.PlannedTools.Any(static tool => tool.Required))
-            return PipelineContractRoleExternalAction;
-
-        var intentText = BuildPipelineSpecIntentText(spec);
-        if (ContainsAlgorithmicExtractionIntent(intentText))
-            return PipelineContractRoleAlgorithmicTransform;
-
-        if (string.Equals(spec.WorkKind, PipelineWorkKindDeterministicShaping, StringComparison.Ordinal)
-            || ContainsDeterministicShapingIntent(intentText))
-            return PipelineContractRoleDeterministicGlue;
-
-        if (string.Equals(spec.WorkKind, PipelineWorkKindOrchestration, StringComparison.Ordinal))
-            return PipelineContractRoleOrchestration;
-
-        if (HasConcreteTypedOutputContract(spec))
-            return PipelineContractRoleTypedDataProducer;
-
-        return PipelineContractRoleAbstractPolicy;
-    }
-
-    private static bool IsExternalWorkSpec(WorkflowPipelineSubworkflowSpec spec)
-        => string.Equals(spec.WorkKind, PipelineWorkKindExternalWork, StringComparison.Ordinal)
-           || ContainsExternalWorkIntent(BuildPipelineSpecIntentText(spec));
-
-    private static string BuildPipelineSpecIntentText(WorkflowPipelineSubworkflowSpec spec)
-        => string.Join('\n', new[]
-            {
-                spec.Name,
-                spec.Goal,
-                spec.Description,
-                spec.ExtractReason,
-                spec.Content
-            }
-            .Where(static value => !string.IsNullOrWhiteSpace(value)))!;
-
-    private static bool ContainsExternalWorkIntent(string text)
-        => ExternalWorkIntentRegex().IsMatch(text);
-
-    private static bool ContainsDeterministicShapingIntent(string text)
-        => DeterministicShapingIntentRegex().IsMatch(text);
-
-    private static bool ContainsAlgorithmicExtractionIntent(string text)
-        => AlgorithmicExtractionIntentRegex().IsMatch(text);
-
-    private static IReadOnlyList<PipelineMcpCapabilityMatch> FindLikelyMcpCapabilityMatches(
-        WorkflowPipelineSubworkflowSpec spec,
-        PipelineMcpContext pipelineMcpContext)
-    {
-        if (pipelineMcpContext.Servers.Count == 0)
-            return Array.Empty<PipelineMcpCapabilityMatch>();
-
-        var specTokens = ExtractIntentTokens(BuildPipelineSpecIntentText(spec));
-        if (specTokens.Count == 0)
-            return Array.Empty<PipelineMcpCapabilityMatch>();
-
-        var matches = new List<PipelineMcpCapabilityMatch>();
-        foreach (var server in pipelineMcpContext.Servers)
-        {
-            foreach (var tool in server.Tools)
-            {
-                if (CapabilityTextMatchesIntent(specTokens, tool.Name, tool.Description, server.Name, server.Description))
-                    matches.Add(new PipelineMcpCapabilityMatch(server.Name, "tool", tool.Name));
-            }
-
-            foreach (var prompt in server.Prompts)
-            {
-                if (CapabilityTextMatchesIntent(specTokens, prompt.Name, prompt.Description, server.Name, server.Description))
-                    matches.Add(new PipelineMcpCapabilityMatch(server.Name, "prompt", prompt.Name));
-            }
-        }
-
-        return matches
-            .DistinctBy(static match => match.DisplayName, StringComparer.Ordinal)
-            .ToArray();
-    }
-
-    private static bool CapabilityTextMatchesIntent(
-        IReadOnlySet<string> specTokens,
-        string name,
-        string? description,
-        string serverName,
-        string? serverDescription)
-    {
-        var capabilityTokens = ExtractIntentTokens(string.Join(' ', new[] { name, description, serverName, serverDescription }
-            .Where(static value => !string.IsNullOrWhiteSpace(value)))!);
-        if (capabilityTokens.Count == 0)
-            return false;
-
-        return capabilityTokens.Any(specTokens.Contains);
-    }
-
-    private static IReadOnlySet<string> ExtractIntentTokens(string text)
-    {
-        var tokens = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-        foreach (Match match in IntentTokenRegex().Matches(text))
-        {
-            var token = match.Value.Trim().ToLowerInvariant();
-            if (token.Length < 4 || PipelineIntentStopWords.Contains(token))
-                continue;
-
-            tokens.Add(token);
-        }
-
-        return tokens;
-    }
 
     private static WorkflowPipelineExtraction ExtractSubworkflowSpecs(string annotatedMarkdown)
     {
@@ -3265,6 +3569,7 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
                 inputSchemas,
                 outputSchemas,
                 Array.Empty<PipelinePlannedTool>(),
+                Array.Empty<PipelinePlannedNativeStep>(),
                 workKind: null,
                 contentText));
     }
@@ -3294,6 +3599,7 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
             spec.InputSchemas,
             spec.OutputSchemas,
             spec.PlannedTools,
+            spec.PlannedNativeSteps ?? Array.Empty<PipelinePlannedNativeStep>(),
             spec.WorkKind,
             spec.Content);
 
@@ -3308,6 +3614,7 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
         IReadOnlyDictionary<string, JsonNode?> inputSchemas,
         IReadOnlyDictionary<string, JsonNode?> outputSchemas,
         IReadOnlyList<PipelinePlannedTool> plannedTools,
+        IReadOnlyList<PipelinePlannedNativeStep> plannedNativeSteps,
         string? workKind,
         string content)
     {
@@ -3329,7 +3636,7 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
         sb.AppendLine("- The workflow must be a leaf workflow.");
         sb.AppendLine("- Do not use workflow.call.");
         sb.AppendLine("- Do not use workflow.plan.");
-        sb.AppendLine("- Do not depend on another subworkflow.");
+        sb.AppendLine("- Do not call or inspect another subworkflow directly. This leaf may consume typed values that main passes from an earlier producer leaf.");
         sb.AppendLine("- Treat the declared input/output contract as a draft when MCP tools require additional arguments.");
         AppendMcpInputContractChecklist(sb);
         AppendExpressionFunctionRules(sb);
@@ -3343,6 +3650,11 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
             sb.AppendLine("- Required planned MCP tools must appear as explicit direct `mcp.call` steps in this leaf.");
             sb.AppendLine("- For planned MCP tools, use exact `input.server`, `input.kind`, and literal `input.method`/`input.methods`; do not satisfy required planned tools through LLM-assisted MCP selection.");
         }
+        if (plannedNativeSteps.Count > 0)
+        {
+            sb.AppendLine("- Required planned native Flow steps must appear as explicit direct steps in this leaf with the exact documented step type.");
+            sb.AppendLine("- Do not replace a required native interaction or action with prose, an emit step, or an MCP call.");
+        }
         if (string.Equals(workKind, PipelineWorkKindExternalWork, StringComparison.Ordinal))
         {
             sb.AppendLine("- This leaf is external work: it must execute the external/LLM/rendered action with a real step such as mcp.call, llm.call, template.render, or human.input.");
@@ -3354,6 +3666,10 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
         sb.AppendLine("- Follow discovered MCP schemas and tool descriptions exactly; do not add Flow-specific conventions for request fields.");
         sb.AppendLine("- Any schema with `type: object` MUST be strongly typed with a non-empty `properties` mapping. Never generate a bare `type: object` input, output, item, or nested property.");
         sb.AppendLine("- For closed set output_schema objects or arrays, project exact declared fields before assigning custom-function results; do not pass opaque source objects through.");
+        sb.AppendLine("- An opaque MCP response may be plain text even after JSON envelope decoding. Preserve textual results verbatim, retain the raw text when parsing it, and never assume a decoded string exposes object fields or an items array.");
+        sb.AppendLine("- If this leaf contributes evidence for a later external write, expose enough source/coverage information for main to distinguish a genuinely empty result from a failed or lossy parse.");
+        sb.AppendLine("- A public output that is an operational artifact locator (for example a workspace, project root, directory, or file that must already exist) must remain statically traceable to the exact external/action response field that created or proved it, or to an exact caller input. Bind it directly or through transparent one-field `set` aliases; never return an invented literal, string template, cast, or custom-function result as that artifact locator.");
+        sb.AppendLine("- If this leaf owns an MCP materializer, expose the exact field declared by artifact_contract. If it consumes an artifact, accept the compatible typed value as an input; never add a second materializer to make the leaf self-contained.");
         sb.AppendLine("- Any workflow output with `type: array` MUST be strongly typed with an `items` schema. Never generate an array output as a bare expression or bare `type: array` without `items`.");
         sb.AppendLine("- Array output `items` must use a concrete type. If items are objects, include every property the parent may need under `items.properties`.");
         sb.AppendLine("- Never duplicate the YAML key `required` in an object schema. Use `required: true|false` only for input-level requiredness, and use `required_properties: [field_name]` for required object property names.");
@@ -3363,6 +3679,7 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
         AppendStructuredContractSection(sb, "Structured input schemas", inputSchemas);
         AppendStructuredContractSection(sb, "Structured output schemas", outputSchemas);
         AppendPlannedToolsSection(sb, plannedTools);
+        AppendPlannedNativeStepsSection(sb, plannedNativeSteps);
         sb.AppendLine();
         sb.AppendLine("Content to implement:");
         sb.AppendLine(content);
@@ -3418,6 +3735,33 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
                 sb.AppendLine($"  consumes: {string.Join(", ", plannedTool.Consumes)}");
             if (plannedTool.Produces.Count > 0)
                 sb.AppendLine($"  produces: {string.Join(", ", plannedTool.Produces)}");
+            if (plannedTool.RequestBindings.Count > 0)
+                sb.AppendLine($"  request_bindings (mandatory literal request values): {FormatBindingsCompact(plannedTool.RequestBindings)}");
+        }
+    }
+
+    private static void AppendPlannedNativeStepsSection(
+        StringBuilder sb,
+        IReadOnlyList<PipelinePlannedNativeStep> plannedNativeSteps)
+    {
+        sb.AppendLine();
+        sb.AppendLine("Planned native Flow steps:");
+        if (plannedNativeSteps.Count == 0)
+        {
+            sb.AppendLine("- none");
+            return;
+        }
+
+        foreach (var plannedStep in plannedNativeSteps)
+        {
+            var required = plannedStep.Required ? "required" : "optional";
+            sb.AppendLine($"- {plannedStep.Method} ({required})");
+            if (!string.IsNullOrWhiteSpace(plannedStep.Purpose))
+                sb.AppendLine($"  purpose: {plannedStep.Purpose}");
+            if (plannedStep.OperationIds.Count > 0)
+                sb.AppendLine($"  operation_ids: {string.Join(", ", plannedStep.OperationIds)}");
+            if (plannedStep.CatalogIds.Count > 0)
+                sb.AppendLine($"  catalog_ids: {string.Join(", ", plannedStep.CatalogIds)}");
         }
     }
 
@@ -3474,6 +3818,22 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
     {
         var steps = new List<PipelineLeafBlueprintStep>();
         var usedStepIds = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var plannedNativeStep in spec.PlannedNativeSteps ?? Array.Empty<PipelinePlannedNativeStep>())
+        {
+            var stepId = MakeUniqueBlueprintStepId(
+                "perform_" + SanitizeBlueprintIdentifier(plannedNativeStep.Method),
+                usedStepIds);
+            steps.Add(new PipelineLeafBlueprintStep(
+                stepId,
+                plannedNativeStep.Method,
+                string.IsNullOrWhiteSpace(plannedNativeStep.Purpose)
+                    ? $"Execute required native Flow step {plannedNativeStep.Method}."
+                    : plannedNativeStep.Purpose!,
+                PlannedTool: null,
+                plannedNativeStep,
+                BuildBlueprintStepOutputSchema(spec.OutputSchemas)));
+        }
+
         foreach (var plannedTool in spec.PlannedTools)
         {
             var stepId = MakeUniqueBlueprintStepId(
@@ -3486,6 +3846,7 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
                     ? $"Call planned MCP {plannedTool.Kind} {plannedTool.Server}/{plannedTool.Method}."
                     : plannedTool.Purpose!,
                 plannedTool,
+                PlannedNativeStep: null,
                 BuildBlueprintStepOutputSchema(spec.OutputSchemas)));
         }
 
@@ -3502,6 +3863,7 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
                     ? $"Produce the public outputs for leaf '{spec.Name}'."
                     : spec.ConcreteOutcome!,
                 PlannedTool: null,
+                PlannedNativeStep: null,
                 BuildBlueprintStepOutputSchema(spec.OutputSchemas)));
         }
 
@@ -3632,6 +3994,21 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
                     "steps",
                     "PIPELINE_LEAF_BLUEPRINT_MISSING_PLANNED_TOOL",
                     $"Leaf blueprint must include required planned MCP {requiredTool.Kind} {requiredTool.Server}/{requiredTool.Method}.");
+            }
+        }
+
+        foreach (var requiredNativeStep in (spec.PlannedNativeSteps ?? Array.Empty<PipelinePlannedNativeStep>())
+                     .Where(static step => step.Required))
+        {
+            if (!blueprint.Steps.Any(step => step.PlannedNativeStep != null
+                                             && PlannedNativeStepMatches(step.PlannedNativeStep, requiredNativeStep)))
+            {
+                AddLeafBlueprintDiagnostic(
+                    diagnostics,
+                    spec.Name,
+                    "steps",
+                    "PIPELINE_LEAF_BLUEPRINT_MISSING_PLANNED_NATIVE_STEP",
+                    $"Leaf blueprint must include required native Flow step {requiredNativeStep.Method}.");
             }
         }
 
@@ -3780,7 +4157,13 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
     private static bool PlannedToolMatches(PipelinePlannedTool candidate, PipelinePlannedTool expected)
         => string.Equals(candidate.Server, expected.Server, StringComparison.Ordinal)
            && string.Equals(candidate.Kind, expected.Kind, StringComparison.Ordinal)
-           && string.Equals(candidate.Method, expected.Method, StringComparison.Ordinal);
+           && string.Equals(candidate.Method, expected.Method, StringComparison.Ordinal)
+           && RequestBindingsEqual(candidate.RequestBindings, expected.RequestBindings);
+
+    private static bool PlannedNativeStepMatches(
+        PipelinePlannedNativeStep candidate,
+        PipelinePlannedNativeStep expected)
+        => string.Equals(candidate.Method, expected.Method, StringComparison.Ordinal);
 
     private static JsonObject BuildLeafPlanInput(
         JsonObject pipelineInput,
@@ -3789,7 +4172,6 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
         PipelineLeafBlueprint blueprint,
         string? previousError,
         string? previousYaml,
-        string? previousPrompt,
         string? previousRepairContext)
     {
         var leafGenerator = generator.DeepClone() as JsonObject ?? new JsonObject();
@@ -3798,7 +4180,7 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
         var generationPrompt = BuildLeafYamlGenerationPrompt(spec.GenerationPrompt, blueprint);
         leafGenerator["instruction"] = string.IsNullOrWhiteSpace(previousError)
             ? generationPrompt
-            : BuildLeafRepairPrompt(generationPrompt, previousPrompt, previousYaml, previousError, previousRepairContext);
+            : BuildLeafRepairPrompt(generationPrompt, previousYaml, previousError, previousRepairContext);
         leafGenerator["context"] = "";
         leafGenerator["pipeline_leaf_name"] = spec.Name;
 
@@ -3832,6 +4214,7 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
         sb.AppendLine("- Implement every required planned tool call and public output binding from the blueprint.");
         sb.AppendLine("- Do not weaken output schemas from the blueprint.");
         sb.AppendLine("- If the blueprint names a planned MCP tool, the YAML must contain a matching explicit direct mcp.call.");
+        sb.AppendLine("- Every planned tool request_binding must appear as the exact literal scalar at its JSON Pointer path under mcp.call.input.request. Expressions, opaque request objects, and a different selector value are invalid.");
         AppendPromptSection(sb, "locked_leaf_blueprint_json", BuildPipelineLeafBlueprintJson(blueprint).ToJsonString(PromptJsonOptions));
         return sb.ToString().TrimEnd();
     }
@@ -3841,6 +4224,7 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
         JsonObject pipelineInput,
         JsonObject generator,
         WorkflowPipelineSubworkflowSpec spec,
+        PipelineMcpContext pipelineMcpContext,
         CancellationToken ct)
     {
         var maxAttempts = GetPipelineGenerationMaxAttempts(pipelineInput);
@@ -3848,8 +4232,9 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
         Exception? lastException = null;
         string? previousError = null;
         string? previousYaml = null;
-        string? previousPrompt = null;
         string? previousRepairContext = null;
+        string? previousDiagnosticFingerprint = null;
+        var unchangedRepairAttempts = 0;
         var previousErrors = new List<string>();
         var leafQualityEvents = new List<PipelineQualityEvent>();
 
@@ -3873,9 +4258,7 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
                     blueprint,
                     previousError,
                     previousYaml,
-                    previousPrompt,
                     previousRepairContext);
-                var leafPrompt = ((leafInput["generator"] as JsonObject)?["instruction"] as JsonValue)?.GetValue<string>();
                 var leafCtx = new StepExecutionContext
                 {
                     Step = parentCtx.Step,
@@ -3896,12 +4279,11 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
                 leafAttemptSpan.SetAttribute("gnougo-flow.plan.pipeline.leaf_status", "succeeded");
                 try
                 {
-                    return PrepareGeneratedLeaf(spec, yaml, blueprint, leafQualityEvents);
+                    return PrepareGeneratedLeaf(spec, yaml, blueprint, leafQualityEvents, pipelineMcpContext);
                 }
                 catch
                 {
                     previousYaml = yaml;
-                    previousPrompt = leafPrompt;
                     throw;
                 }
             }
@@ -3911,8 +4293,19 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
             }
             catch (Exception ex) when (attempt < maxAttempts)
             {
+                if (WorkflowPlanDiagnostics.IsTransientProviderFailure(ex))
+                    throw;
+
+                var stalled = DetectRepairStall(
+                    ex,
+                    attempt,
+                    isRepairAttempt: attempt > 1,
+                    ref previousDiagnosticFingerprint,
+                    ref unchangedRepairAttempts);
+                if (stalled != null)
+                    throw stalled;
+
                 lastException = ex;
-                previousPrompt ??= BuildLeafYamlGenerationPrompt(spec.GenerationPrompt, blueprint);
                 previousYaml ??= TryExtractGeneratedYamlFromException(ex);
                 previousError = FormatLeafGenerationError(spec.Name, attempt, ex);
                 previousErrors.Add(previousError);
@@ -4061,6 +4454,8 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
         sb.AppendLine("- Never satisfy missing MCP arguments with `data.env.*`, empty strings, fake values, casts, or string-to-number conversions.");
         sb.AppendLine("- Do not reference an `if`-guarded step from an unconditional later step unless a guaranteed value has first been produced on every path.");
         sb.AppendLine("- Workflow outputs must resolve to their declared type on every path.");
+        sb.AppendLine("- Preserve operational artifact provenance: an artifact-locator output must bind directly to the external/action response field that created or proved it, or to an exact caller input. Do not route that locator through a custom function, string template, cast, or invented literal.");
+        sb.AppendLine("- Preserve artifact reuse: repair consumers to accept the existing producer output; never repair a missing artifact argument by adding another materializer.");
 
         if (previousErrors.Count > 0)
         {
@@ -4102,7 +4497,6 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
 
     private static string BuildLeafRepairPrompt(
         string generationPrompt,
-        string? previousPrompt,
         string? previousYaml,
         string previousError,
         string? additionalRepairContext)
@@ -4110,15 +4504,6 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
         var repairContext = new StringBuilder();
         repairContext.AppendLine("Previous generated YAML for this leaf workflow failed validation.");
         repairContext.AppendLine("Regenerate only this leaf workflow and fix the YAML below.");
-
-        if (!string.IsNullOrWhiteSpace(previousPrompt))
-        {
-            repairContext.AppendLine();
-            repairContext.AppendLine("The previous prompt sent for this leaf attempt is included below so you can preserve the same task and constraints.");
-            repairContext.AppendLine("<previous_prompt>");
-            repairContext.AppendLine(previousPrompt.Trim());
-            repairContext.AppendLine("</previous_prompt>");
-        }
 
         if (!string.IsNullOrWhiteSpace(additionalRepairContext))
         {
@@ -4142,6 +4527,7 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
         JsonObject generator,
         WorkflowPipelineExtraction extraction,
         GeneratedLeafWorkflow[] leaves,
+        PipelineMcpContext pipelineMcpContext,
         PipelineLeafContractDemand demand,
         Exception mainValidationException,
         int attempt,
@@ -4176,7 +4562,6 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
             currentLeaf.Blueprint,
             previousError,
             currentLeaf.Yaml,
-            spec.GenerationPrompt,
             repairContext);
         ForceSinglePlanAttempt(leafInput);
 
@@ -4196,12 +4581,82 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
             ?? throw new WorkflowRuntimeException(ErrorCodes.TemplatePlan, $"Leaf workflow '{spec.Name}' contract repair did not return an object.");
         var yaml = result["yaml"]?.GetValue<string>()
             ?? throw new WorkflowRuntimeException(ErrorCodes.TemplatePlan, $"Leaf workflow '{spec.Name}' contract repair did not return YAML.");
-        var repairedLeaf = PrepareGeneratedLeaf(spec, yaml, currentLeaf.Blueprint, currentLeaf.QualityEvents);
+        var repairedLeaf = PrepareGeneratedLeaf(spec, yaml, currentLeaf.Blueprint, currentLeaf.QualityEvents, pipelineMcpContext);
         EnsureLeafSatisfiesContractDemand(repairedLeaf, demand);
 
         var repairedLeaves = leaves.ToArray();
         repairedLeaves[leafIndex] = repairedLeaf;
         leafRepairSpan.SetAttribute("gnougo-flow.plan.pipeline.leaf_contract_repair_status", "succeeded");
+        return repairedLeaves;
+    }
+
+    private async Task<GeneratedLeafWorkflow[]> RegenerateLeafForInputContractDemandAsync(
+        StepExecutionContext parentCtx,
+        JsonObject pipelineInput,
+        JsonObject generator,
+        WorkflowPipelineExtraction extraction,
+        GeneratedLeafWorkflow[] leaves,
+        PipelineMcpContext pipelineMcpContext,
+        PipelineLeafInputContractDemand demand,
+        Exception mainValidationException,
+        int attempt,
+        ITelemetrySpan parentSpan,
+        CancellationToken ct)
+    {
+        var leafIndex = Array.FindIndex(leaves, leaf => string.Equals(leaf.Name, demand.LeafName, StringComparison.Ordinal));
+        if (leafIndex < 0)
+            throw new WorkflowRuntimeException(ErrorCodes.TemplatePlan, $"Cannot repair leaf input contract: generated leaf '{demand.LeafName}' was not found.");
+
+        var spec = extraction.Subworkflows.FirstOrDefault(subworkflow => string.Equals(subworkflow.Name, demand.LeafName, StringComparison.Ordinal))
+            ?? throw new WorkflowRuntimeException(ErrorCodes.TemplatePlan, $"Cannot repair leaf input contract: extracted leaf spec '{demand.LeafName}' was not found.");
+
+        using var leafRepairSpan = parentCtx.BeginTelemetrySpan(
+            parentSpan,
+            "workflow.plan.pipeline.repair_leaf_input_contract",
+            "repair_leaf_input_contract",
+            new[]
+            {
+                new KeyValuePair<string, object?>("gnougo-flow.plan.pipeline.leaf_name", demand.LeafName),
+                new KeyValuePair<string, object?>("gnougo-flow.plan.pipeline.consumer_step", demand.ConsumerStepId),
+                new KeyValuePair<string, object?>("gnougo-flow.plan.pipeline.input_names", string.Join(",", demand.RequiredInputSchemas.Keys.Order(StringComparer.Ordinal))),
+                new KeyValuePair<string, object?>("gnougo-flow.plan.attempt", attempt)
+            });
+
+        var currentLeaf = leaves[leafIndex];
+        var previousError = BuildLeafInputContractDemandError(demand, mainValidationException, attempt);
+        var repairContext = BuildLeafInputContractDemandRepairContext(demand, currentLeaf);
+        var leafInput = BuildLeafPlanInput(
+            pipelineInput,
+            generator,
+            spec,
+            currentLeaf.Blueprint,
+            previousError,
+            currentLeaf.Yaml,
+            repairContext);
+        ForceSinglePlanAttempt(leafInput);
+
+        var leafCtx = new StepExecutionContext
+        {
+            Step = parentCtx.Step,
+            Data = parentCtx.Data,
+            Engine = parentCtx.Engine,
+            Limits = parentCtx.Limits,
+            CallDepth = parentCtx.CallDepth,
+            CallStack = new HashSet<string>(parentCtx.CallStack),
+            ExecutionScope = parentCtx.ExecutionScope,
+            TelemetrySpan = parentCtx.TelemetrySpan
+        };
+
+        var result = await ExecuteSinglePlanAsync(leafCtx, leafInput, ct, leafRepairSpan.Span) as JsonObject
+            ?? throw new WorkflowRuntimeException(ErrorCodes.TemplatePlan, $"Leaf workflow '{spec.Name}' input contract repair did not return an object.");
+        var yaml = result["yaml"]?.GetValue<string>()
+            ?? throw new WorkflowRuntimeException(ErrorCodes.TemplatePlan, $"Leaf workflow '{spec.Name}' input contract repair did not return YAML.");
+        var repairedLeaf = PrepareGeneratedLeaf(spec, yaml, currentLeaf.Blueprint, currentLeaf.QualityEvents, pipelineMcpContext);
+        EnsureLeafSatisfiesInputContractDemand(repairedLeaf, demand);
+
+        var repairedLeaves = leaves.ToArray();
+        repairedLeaves[leafIndex] = repairedLeaf;
+        leafRepairSpan.SetAttribute("gnougo-flow.plan.pipeline.leaf_input_contract_repair_status", "succeeded");
         return repairedLeaves;
     }
 
@@ -4228,6 +4683,22 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
         }.ToJsonString(PromptJsonOptions);
     }
 
+    private static string BuildLeafInputContractDemandError(
+        PipelineLeafInputContractDemand demand,
+        Exception mainValidationException,
+        int attempt)
+    {
+        var details = BuildLeafInputContractDemandJson(demand);
+        details["main_validation_error"] = JsonNode.Parse(BuildStructuredPlanError(mainValidationException, attempt));
+        return new JsonObject
+        {
+            ["attempt"] = attempt,
+            ["code"] = "PIPELINE_LEAF_INPUT_CONTRACT_DEMAND",
+            ["message"] = $"Final main validation requires leaf '{demand.LeafName}' to accept authoritative parent-produced input contracts.",
+            ["pipeline_leaf_input_contract_demand"] = details
+        }.ToJsonString(PromptJsonOptions);
+    }
+
     private static string BuildLeafContractDemandRepairContext(
         PipelineLeafContractDemand demand,
         GeneratedLeafWorkflow currentLeaf)
@@ -4244,6 +4715,12 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
         sb.AppendLine("- Do not introduce tool-specific rules; use the leaf's existing task context only.");
         sb.AppendLine("- If the demanded output is an array, declare `type: array` with concrete `items.properties` for every required item field.");
         sb.AppendLine("- If the demanded output is an object, declare concrete `properties` for every required field.");
+        if (IsExternalArtifactProvenanceDemand(demand))
+        {
+            sb.AppendLine("- This demand is about artifact provenance, not only schema shape.");
+            sb.AppendLine("- Bind the demanded output directly to the exact external/action response field that created or proved the artifact, or to an exact caller input. A transparent one-field `set` alias is allowed.");
+            sb.AppendLine("- Do not obtain the demanded artifact locator from a custom function, aggregate helper, cast, string template, or invented literal, even when such a helper receives the real locator as an argument.");
+        }
         sb.AppendLine();
         AppendPromptSection(sb, "pipeline_leaf_contract_demand", BuildLeafContractDemandJson(demand).ToJsonString(PromptJsonOptions));
         AppendPromptSection(sb, "current_leaf_output_schema_yaml", SerializeYamlMapping(new Dictionary<string, JsonNode?>
@@ -4251,6 +4728,42 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
             [demand.OutputName] = currentOutputSchema?.DeepClone()
         }));
         AppendPromptSection(sb, "required_output_schema_guidance_yaml", BuildLeafContractDemandSchemaGuidanceYaml(demand));
+        return sb.ToString().TrimEnd();
+    }
+
+    private static string BuildLeafInputContractDemandRepairContext(
+        PipelineLeafInputContractDemand demand,
+        GeneratedLeafWorkflow currentLeaf)
+    {
+        var currentInputs = BuildLeafInputSchemaMap(currentLeaf);
+        var demandedSchemas = demand.RequiredInputSchemas.ToDictionary(
+            static pair => pair.Key,
+            static pair => pair.Value?.DeepClone(),
+            StringComparer.Ordinal);
+        var currentDemandedInputs = demand.RequiredInputSchemas.Keys
+            .ToDictionary(
+                static name => name,
+                name => currentInputs.TryGetValue(name, out var schema) ? schema?.DeepClone() : null,
+                StringComparer.Ordinal);
+
+        var sources = new JsonObject();
+        foreach (var (inputName, sourceExpression) in demand.SourceExpressions.OrderBy(static pair => pair.Key, StringComparer.Ordinal))
+            sources[inputName] = sourceExpression;
+
+        var sb = new StringBuilder();
+        sb.AppendLine("Pipeline leaf input contract demand:");
+        sb.AppendLine("- Preserve the original leaf goal, public outputs, planned tool calls, and implementation intent.");
+        sb.AppendLine("- Regenerate only this consuming leaf workflow.");
+        sb.AppendLine("- For every named input below, the authoritative parent source contract must be assignable to the regenerated leaf input contract.");
+        sb.AppendLine("- Copy the authoritative schema when possible. A broader concrete contract is allowed only when it does not require properties or item fields that the source does not guarantee.");
+        sb.AppendLine("- Do not use `any`, omit array item schemas, or add required nested fields absent from the authoritative source contract.");
+        sb.AppendLine("- Adapt the leaf's internal deterministic shaping or parsing to the accepted input shape; do not move the leaf's work into the parent workflow.");
+        sb.AppendLine("- Do not introduce new public inputs, tools, external work, or use-case-specific assumptions.");
+        sb.AppendLine();
+        AppendPromptSection(sb, "pipeline_leaf_input_contract_demand", BuildLeafInputContractDemandJson(demand).ToJsonString(PromptJsonOptions));
+        AppendPromptSection(sb, "authoritative_parent_input_contracts_yaml", SerializeYamlMapping(demandedSchemas));
+        AppendPromptSection(sb, "current_leaf_input_contracts_yaml", SerializeYamlMapping(currentDemandedInputs));
+        AppendPromptSection(sb, "authoritative_parent_source_expressions_json", sources.ToJsonString(PromptJsonOptions));
         return sb.ToString().TrimEnd();
     }
 
@@ -4342,6 +4855,26 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
                 .ToArray())
         };
 
+    private static JsonObject BuildLeafInputContractDemandJson(PipelineLeafInputContractDemand demand)
+    {
+        var schemas = new JsonObject();
+        foreach (var (inputName, schema) in demand.RequiredInputSchemas.OrderBy(static pair => pair.Key, StringComparer.Ordinal))
+            schemas[inputName] = schema?.DeepClone();
+
+        var sources = new JsonObject();
+        foreach (var (inputName, sourceExpression) in demand.SourceExpressions.OrderBy(static pair => pair.Key, StringComparer.Ordinal))
+            sources[inputName] = sourceExpression;
+
+        return new JsonObject
+        {
+            ["leaf"] = demand.LeafName,
+            ["consumer_step"] = demand.ConsumerStepId,
+            ["reason"] = demand.Reason,
+            ["required_input_schemas"] = schemas,
+            ["source_expressions"] = sources
+        };
+    }
+
     private static void EnsureLeafSatisfiesContractDemand(
         GeneratedLeafWorkflow leaf,
         PipelineLeafContractDemand demand)
@@ -4357,6 +4890,15 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
 
         var descriptor = FlowTypeDescriptorConverter.FromJsonSchema(schema);
         var errors = new List<string>();
+        if (IsExternalArtifactProvenanceDemand(demand)
+            && !WorkflowPlanPipelineQualityAnalyzer.IsLeafArtifactOutputProven(
+                leaf.Document,
+                leaf.GeneratedWorkflowName,
+                demand.OutputName,
+                out var provenanceFailure))
+        {
+            errors.Add(provenanceFailure ?? $"output '{demand.OutputName}' must preserve external artifact provenance");
+        }
         if (string.Equals(demand.Reason, "WEAK_OUTPUT_SCHEMA", StringComparison.Ordinal)
             && IsWeakPipelineOutputDescriptor(descriptor))
         {
@@ -4382,6 +4924,42 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
             ErrorCodes.TemplatePlan,
             $"Leaf workflow '{demand.LeafName}' contract repair did not satisfy downstream contract demand: {string.Join("; ", errors)}.",
             details: new JsonObject { ["pipeline_leaf_contract_demand"] = BuildLeafContractDemandJson(demand) });
+    }
+
+    private static void EnsureLeafSatisfiesInputContractDemand(
+        GeneratedLeafWorkflow leaf,
+        PipelineLeafInputContractDemand demand)
+    {
+        var inputs = BuildLeafInputSchemaMap(leaf);
+        var errors = new List<string>();
+        foreach (var (inputName, sourceSchema) in demand.RequiredInputSchemas.OrderBy(static pair => pair.Key, StringComparer.Ordinal))
+        {
+            if (!inputs.TryGetValue(inputName, out var targetSchema))
+            {
+                errors.Add($"input '{inputName}' is missing");
+                continue;
+            }
+
+            var sourceDescriptor = FlowTypeDescriptorConverter.FromJsonSchema(sourceSchema);
+            var targetDescriptor = FlowTypeDescriptorConverter.FromJsonSchema(targetSchema);
+            if (WorkflowPlanContractNormalizer.IsWeakDescriptor(targetDescriptor))
+            {
+                errors.Add($"input '{inputName}' must declare a strong concrete schema");
+                continue;
+            }
+
+            var issue = sourceDescriptor.FindAssignmentIssue(targetDescriptor);
+            if (issue != null)
+                errors.Add($"input '{inputName}' is not compatible with its parent source contract: {issue.Message}");
+        }
+
+        if (errors.Count == 0)
+            return;
+
+        throw new WorkflowRuntimeException(
+            ErrorCodes.TemplatePlan,
+            $"Leaf workflow '{demand.LeafName}' input contract repair did not satisfy parent contract demand: {string.Join("; ", errors)}.",
+            details: new JsonObject { ["pipeline_leaf_input_contract_demand"] = BuildLeafInputContractDemandJson(demand) });
     }
 
     private static bool PipelineOutputDescriptorSatisfiesExpectedType(FlowTypeDescriptor descriptor, string expectedType)
@@ -4452,6 +5030,162 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
     private static string[] SplitContractPath(string path)
         => path.Split('.', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
 
+    private static PipelineLeafInputContractDemand? TryAnalyzePipelineLeafInputContractDemand(
+        Exception exception,
+        WorkflowDocument? assembledDocument,
+        IReadOnlyList<GeneratedLeafWorkflow> leaves)
+    {
+        if (assembledDocument == null || !assembledDocument.Workflows.TryGetValue("main", out var main))
+            return null;
+
+        var leafNames = leaves.Select(static leaf => leaf.Name).ToHashSet(StringComparer.Ordinal);
+        string? demandedLeaf = null;
+        string? consumerStepId = null;
+        var schemas = new Dictionary<string, JsonNode?>(StringComparer.Ordinal);
+        var sources = new Dictionary<string, string>(StringComparer.Ordinal);
+
+        foreach (var diagnostic in EnumeratePipelineDiagnostics(exception))
+        {
+            if (!string.Equals(GetStringProperty(diagnostic, "code"), ErrorCodes.ExprTypeMismatch, StringComparison.Ordinal))
+                continue;
+
+            var workflow = GetStringProperty(diagnostic, "workflow");
+            var stepId = GetStringProperty(diagnostic, "step");
+            var field = GetStringProperty(diagnostic, "field") ?? "";
+            var invalidPath = GetStringProperty(diagnostic, "invalid_path") ?? "";
+            const string argumentPrefix = "input.args.";
+            if (!string.Equals(workflow, "main", StringComparison.Ordinal)
+                || string.IsNullOrWhiteSpace(stepId)
+                || !field.StartsWith(argumentPrefix, StringComparison.Ordinal)
+                || field.Length == argumentPrefix.Length)
+            {
+                continue;
+            }
+
+            var inputName = field[argumentPrefix.Length..];
+            if (inputName.Contains('.', StringComparison.Ordinal)
+                || !IdentifierRegex().IsMatch(inputName)
+                || !TryGetMainLeafCall(main, leafNames, stepId, out var consumerLeaf)
+                || !TryResolveMainSourceContract(main, leaves, invalidPath, out var sourceSchema))
+            {
+                continue;
+            }
+
+            var consumer = leaves.FirstOrDefault(leaf => string.Equals(leaf.Name, consumerLeaf, StringComparison.Ordinal));
+            if (consumer == null
+                || !BuildLeafInputSchemaMap(consumer).TryGetValue(inputName, out var targetSchema))
+            {
+                continue;
+            }
+
+            var sourceDescriptor = FlowTypeDescriptorConverter.FromJsonSchema(sourceSchema);
+            var targetDescriptor = FlowTypeDescriptorConverter.FromJsonSchema(targetSchema);
+            if (sourceDescriptor.IsOpaque
+                || sourceDescriptor.FindAssignmentIssue(targetDescriptor) == null)
+            {
+                continue;
+            }
+
+            if (demandedLeaf != null
+                && (!string.Equals(demandedLeaf, consumerLeaf, StringComparison.Ordinal)
+                    || !string.Equals(consumerStepId, stepId, StringComparison.Ordinal)))
+            {
+                continue;
+            }
+
+            demandedLeaf = consumerLeaf;
+            consumerStepId = stepId;
+            schemas[inputName] = sourceSchema.DeepClone();
+            sources[inputName] = invalidPath;
+        }
+
+        return demandedLeaf == null || consumerStepId == null || schemas.Count == 0
+            ? null
+            : new PipelineLeafInputContractDemand(
+                demandedLeaf,
+                consumerStepId,
+                ErrorCodes.ExprTypeMismatch,
+                schemas,
+                sources);
+    }
+
+    private static bool TryResolveMainSourceContract(
+        WorkflowDef main,
+        IReadOnlyList<GeneratedLeafWorkflow> leaves,
+        string expression,
+        [System.Diagnostics.CodeAnalysis.NotNullWhen(true)] out JsonNode? schema)
+    {
+        schema = null;
+        var path = TrimWorkflowExpression(expression);
+        const string inputPrefix = "data.inputs.";
+        if (path.StartsWith(inputPrefix, StringComparison.Ordinal))
+        {
+            var segments = path[inputPrefix.Length..]
+                .Split('.', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+            if (segments.Length == 0 || main.Inputs == null || !main.Inputs.TryGetValue(segments[0], out var input))
+                return false;
+
+            var descriptor = FlowTypeDescriptorConverter.FromInputDef(input);
+            var resolved = segments.Length == 1 ? descriptor : descriptor.ResolvePath(segments.Skip(1).ToArray());
+            return TryBuildStrongInputContract(resolved, out schema);
+        }
+
+        const string stepPrefix = "data.steps.";
+        if (!path.StartsWith(stepPrefix, StringComparison.Ordinal))
+            return false;
+
+        var stepSegments = path[stepPrefix.Length..]
+            .Split('.', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+        if (stepSegments.Length < 2)
+            return false;
+
+        var step = EnumerateSteps(main.Steps)
+            .Concat(EnumerateSteps(main.Finally))
+            .FirstOrDefault(candidate => string.Equals(candidate.Id, stepSegments[0], StringComparison.Ordinal));
+        if (step == null)
+            return false;
+
+        FlowTypeDescriptor? sourceDescriptor = null;
+        if (string.Equals(step.Type, "workflow.call", StringComparison.Ordinal)
+            && stepSegments.Length >= 3
+            && string.Equals(stepSegments[1], "outputs", StringComparison.Ordinal)
+            && ReadWorkflowCallRefNameFromInput(step) is { } leafName)
+        {
+            var producer = leaves.FirstOrDefault(leaf => string.Equals(leaf.Name, leafName, StringComparison.Ordinal));
+            if (producer == null
+                || !BuildLeafOutputSchemaMap(producer).TryGetValue(stepSegments[2], out var outputSchema))
+            {
+                return false;
+            }
+
+            sourceDescriptor = FlowTypeDescriptorConverter.FromJsonSchema(outputSchema);
+            if (stepSegments.Length > 3)
+                sourceDescriptor = sourceDescriptor.ResolvePath(stepSegments.Skip(3).ToArray());
+        }
+        else if (step.OutputSchema != null)
+        {
+            sourceDescriptor = FlowTypeDescriptorConverter.FromJsonSchema(step.OutputSchema)
+                .ResolvePath(stepSegments.Skip(1).ToArray());
+        }
+
+        return TryBuildStrongInputContract(sourceDescriptor, out schema);
+    }
+
+    private static bool TryBuildStrongInputContract(
+        FlowTypeDescriptor? descriptor,
+        [System.Diagnostics.CodeAnalysis.NotNullWhen(true)] out JsonNode? schema)
+    {
+        schema = null;
+        if (descriptor == null || descriptor.IsOpaque || WorkflowPlanContractNormalizer.IsWeakDescriptor(descriptor))
+            return false;
+
+        schema = FlowTypeDescriptorConverter.ToWorkflowContractNode(
+            descriptor,
+            inputStyle: true,
+            allowScalarShortForm: false);
+        return true;
+    }
+
     private static PipelineLeafContractDemand? TryAnalyzePipelineLeafContractDemand(
         Exception exception,
         WorkflowDocument? assembledDocument,
@@ -4465,6 +5199,20 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
         foreach (var diagnostic in EnumeratePipelineDiagnostics(exception))
         {
             var code = GetStringProperty(diagnostic, "code");
+            if (string.Equals(
+                    code,
+                    WorkflowPlanPipelineQualityAnalyzer.UnprovenExternalArtifactCode,
+                    StringComparison.Ordinal)
+                && TryBuildExternalArtifactProducerDemand(
+                    main,
+                    leafNames,
+                    diagnostic,
+                    out var artifactProducerDemand))
+            {
+                demands.Add(artifactProducerDemand);
+                continue;
+            }
+
             if (string.Equals(code, "WEAK_OUTPUT_SCHEMA", StringComparison.Ordinal))
             {
                 var location = GetStringProperty(diagnostic, "location") ?? "";
@@ -4525,6 +5273,95 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
 
         return MergePipelineLeafContractDemands(demands);
     }
+
+    private static bool TryBuildExternalArtifactProducerDemand(
+        WorkflowDef main,
+        IReadOnlySet<string> leafNames,
+        JsonObject diagnostic,
+        [System.Diagnostics.CodeAnalysis.NotNullWhen(true)] out PipelineLeafContractDemand? demand)
+    {
+        demand = null;
+        var consumerLeaf = GetStringProperty(diagnostic, "workflow");
+        var invalidAssignment = GetStringProperty(diagnostic, "invalid_assignment") ?? "";
+        if (string.IsNullOrWhiteSpace(consumerLeaf)
+            || string.Equals(consumerLeaf, "main", StringComparison.Ordinal)
+            || !leafNames.Contains(consumerLeaf)
+            || !TryParseExactPipelineInputReference(invalidAssignment, out var consumerInputName))
+        {
+            return false;
+        }
+
+        PipelineLeafContractDemand? resolved = null;
+        foreach (var consumerCall in EnumerateSteps(main.Steps).Concat(EnumerateSteps(main.Finally)))
+        {
+            if (!string.Equals(consumerCall.Type, "workflow.call", StringComparison.Ordinal)
+                || !string.Equals(ReadWorkflowCallRefNameFromInput(consumerCall), consumerLeaf, StringComparison.Ordinal))
+            {
+                continue;
+            }
+
+            if (consumerCall.Input?["args"] is not JsonObject args
+                || !args.TryGetPropertyValue(consumerInputName, out var argumentNode)
+                || argumentNode is not JsonValue argumentValue
+                || !argumentValue.TryGetValue<string>(out var argument)
+                || !TryParseStepOutputReference(argument, out var producerCallId, out var outputName, out var remainingPath)
+                || remainingPath.Count != 0
+                || !TryGetMainLeafCall(main, leafNames, producerCallId, out var producerLeaf))
+            {
+                return false;
+            }
+
+            var candidate = new PipelineLeafContractDemand(
+                producerLeaf,
+                outputName,
+                consumerCall.Id,
+                GetStringProperty(diagnostic, "field") ?? consumerInputName,
+                argument,
+                WorkflowPlanPipelineQualityAnalyzer.UnprovenExternalArtifactCode,
+                Array.Empty<string>(),
+                "string");
+            if (resolved != null
+                && (!string.Equals(resolved.LeafName, candidate.LeafName, StringComparison.Ordinal)
+                    || !string.Equals(resolved.OutputName, candidate.OutputName, StringComparison.Ordinal)))
+            {
+                return false;
+            }
+
+            resolved = candidate;
+        }
+
+        demand = resolved;
+        return demand != null;
+    }
+
+    private static bool TryParseExactPipelineInputReference(
+        string expression,
+        [System.Diagnostics.CodeAnalysis.NotNullWhen(true)] out string? inputName)
+    {
+        inputName = null;
+        var path = TrimWorkflowExpression(expression);
+        const string prefix = "data.inputs.";
+        if (!path.StartsWith(prefix, StringComparison.Ordinal))
+            return false;
+
+        var suffix = path[prefix.Length..];
+        if (string.IsNullOrWhiteSpace(suffix)
+            || suffix.Contains('.', StringComparison.Ordinal)
+            || !IdentifierRegex().IsMatch(suffix))
+        {
+            return false;
+        }
+
+        inputName = suffix;
+        return true;
+    }
+
+    private static bool IsExternalArtifactProvenanceDemand(PipelineLeafContractDemand demand)
+        => demand.Reason.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .Any(reason => string.Equals(
+                reason,
+                WorkflowPlanPipelineQualityAnalyzer.UnprovenExternalArtifactCode,
+                StringComparison.Ordinal));
 
     private static bool IsLeafContractDemandDiagnosticCode(string? code)
         => code is "OPAQUE_DATA_VARIABLE_DEEP_ACCESS"
@@ -4595,7 +5432,7 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
 
     private static string? TryFindMainLeafCallStepId(WorkflowDef main, string leafName)
     {
-        foreach (var step in EnumerateSteps(main.Steps))
+        foreach (var step in EnumerateSteps(main.Steps).Concat(EnumerateSteps(main.Finally)))
         {
             if (string.Equals(step.Type, "workflow.call", StringComparison.Ordinal)
                 && string.Equals(ReadWorkflowCallRefNameFromInput(step), leafName, StringComparison.Ordinal))
@@ -4793,7 +5630,9 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
         [System.Diagnostics.CodeAnalysis.NotNullWhen(true)] out string? leafName)
     {
         leafName = null;
-        var step = EnumerateSteps(main.Steps).FirstOrDefault(candidate => string.Equals(candidate.Id, stepId, StringComparison.Ordinal));
+        var step = EnumerateSteps(main.Steps)
+            .Concat(EnumerateSteps(main.Finally))
+            .FirstOrDefault(candidate => string.Equals(candidate.Id, stepId, StringComparison.Ordinal));
         if (step?.Input is not JsonObject input
             || !string.Equals(step.Type, "workflow.call", StringComparison.Ordinal)
             || input["ref"] is not JsonObject refObject)
@@ -5127,21 +5966,24 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
         WorkflowPipelineSubworkflowSpec spec,
         string yaml,
         PipelineLeafBlueprint blueprint,
-        IReadOnlyList<PipelineQualityEvent> qualityEvents)
+        IReadOnlyList<PipelineQualityEvent> qualityEvents,
+        PipelineMcpContext pipelineMcpContext)
     {
         var doc = ParseAndValidateGeneratedWorkflow(yaml);
         if (doc.Workflows.Count != 1)
             throw new WorkflowRuntimeException(ErrorCodes.TemplatePlan, $"Leaf workflow '{spec.Name}' must generate exactly one workflow.");
 
         var workflowName = doc.Workflows.Keys.Single();
-        (doc, yaml) = PromoteLeafOutputSchemasFromDirectSources(spec.Name, workflowName, doc, yaml);
+        (doc, yaml) = MaterializeMissingPlannedMcpCallVariants(spec, workflowName, doc, yaml);
+        (doc, yaml) = PromoteLeafOutputSchemasFromDirectSources(spec, workflowName, doc, yaml, pipelineMcpContext);
         var workflow = doc.Workflows[workflowName];
         EnforceStrongObjectSchemas(spec.Name, doc);
         EnforceStrongArrayOutputSchemas(spec.Name, spec, workflowName, doc);
         EnforcePlannedMcpToolsUsed(spec, workflow);
+        EnforcePlannedNativeStepsUsed(spec, workflow);
         EnforcePipelineLeafIntent(spec, workflow);
         EnforceLeafBlueprintImplemented(spec, blueprint, workflow);
-        foreach (var step in EnumerateSteps(workflow.Steps))
+        foreach (var step in EnumerateSteps(workflow.Steps).Concat(EnumerateSteps(workflow.Finally)))
         {
             if (step.Type is "workflow.call" or "workflow.plan")
                 throw new WorkflowRuntimeException(ErrorCodes.TemplatePolicy, $"Leaf workflow '{spec.Name}' must not contain step type '{step.Type}'.");
@@ -5156,20 +5998,32 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
         WorkflowDef workflow)
     {
         var diagnostics = new JsonArray();
-        foreach (var requiredTool in blueprint.Steps
-                     .Where(static step => step.PlannedTool is { Required: true })
-                     .Select(static step => step.PlannedTool!)
-                     .DistinctBy(static tool => $"{tool.Server}/{tool.Kind}/{tool.Method}", StringComparer.Ordinal))
+        var requiredTools = blueprint.Steps
+            .Where(static step => step.PlannedTool is { Required: true })
+            .Select(static step => step.PlannedTool!)
+            .ToArray();
+        foreach (var requiredTool in FindMissingPlannedMcpToolOccurrences(workflow, requiredTools))
         {
-            if (!WorkflowContainsPlannedMcpToolCall(workflow, requiredTool))
-            {
-                AddLeafBlueprintYamlMismatchDiagnostic(
-                    diagnostics,
-                    spec.Name,
-                    "steps",
-                    "PIPELINE_LEAF_BLUEPRINT_YAML_MISSING_PLANNED_TOOL",
-                    $"Generated YAML did not use required planned MCP tool {requiredTool.Server}/{requiredTool.Method} ({requiredTool.Kind}) from the locked blueprint.");
-            }
+            AddLeafBlueprintYamlMismatchDiagnostic(
+                diagnostics,
+                spec.Name,
+                "steps",
+                "PIPELINE_LEAF_BLUEPRINT_YAML_MISSING_PLANNED_TOOL",
+                $"Generated YAML did not use a required occurrence of planned MCP tool {requiredTool.Server}/{requiredTool.Method} ({requiredTool.Kind}) from the locked blueprint with literal request bindings [{FormatBindingsCompact(requiredTool.RequestBindings)}].");
+        }
+
+        var requiredNativeSteps = blueprint.Steps
+            .Where(static step => step.PlannedNativeStep is { Required: true })
+            .Select(static step => step.PlannedNativeStep!)
+            .ToArray();
+        foreach (var requiredNativeStep in FindMissingPlannedNativeStepOccurrences(workflow, requiredNativeSteps))
+        {
+            AddLeafBlueprintYamlMismatchDiagnostic(
+                diagnostics,
+                spec.Name,
+                "steps",
+                "PIPELINE_LEAF_BLUEPRINT_YAML_MISSING_PLANNED_NATIVE_STEP",
+                $"Generated YAML did not use a required occurrence of native Flow step {requiredNativeStep.Method} from the locked blueprint.");
         }
 
         foreach (var output in blueprint.Outputs)
@@ -5228,15 +6082,17 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
     }
 
     private static (WorkflowDocument Document, string Yaml) PromoteLeafOutputSchemasFromDirectSources(
-        string leafName,
+        WorkflowPipelineSubworkflowSpec spec,
         string workflowName,
         WorkflowDocument doc,
-        string yaml)
+        string yaml,
+        PipelineMcpContext pipelineMcpContext)
     {
+        var leafName = spec.Name;
         if (!doc.Workflows.TryGetValue(workflowName, out var workflow) || workflow.Outputs == null || workflow.Outputs.Count == 0)
             return (doc, yaml);
 
-        var stepOutputTypes = BuildLeafStepOutputTypeMap(workflowName, doc, workflow);
+        var stepOutputTypes = BuildLeafStepOutputTypeMap(workflowName, doc, workflow, pipelineMcpContext);
         var workflowOutputTypes = workflow.Outputs
             .ToDictionary(
                 static pair => pair.Key,
@@ -5245,10 +6101,34 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
         var promotions = new Dictionary<string, FlowTypeDescriptor>(StringComparer.Ordinal);
         foreach (var (outputName, output) in workflow.Outputs)
         {
-            if (!ShouldPromoteLeafOutputSchema(output))
+            var generatedType = FlowTypeDescriptorConverter.FromOutputDef(output);
+            var generatedTypeIsWeak = IsWeakPipelineOutputDescriptor(generatedType);
+            FlowTypeDescriptor? lockedType = null;
+
+            if (spec.OutputSchemas.TryGetValue(outputName, out var lockedSchema))
+            {
+                lockedType = FlowTypeDescriptorConverter.FromJsonSchema(lockedSchema);
+                if (!lockedType.IsOpaque
+                    && !IsWeakPipelineOutputDescriptor(lockedType)
+                    && generatedTypeIsWeak)
+                {
+                    promotions[outputName] = string.IsNullOrWhiteSpace(output.Description)
+                        ? lockedType
+                        : lockedType with { Description = output.Description };
+                }
+            }
+
+            if (!TryResolveDirectLeafOutputSource(output.Expr, stepOutputTypes, out var sourceType)
+                || sourceType.IsOpaque
+                || IsWeakPipelineOutputDescriptor(sourceType))
                 continue;
 
-            if (!TryResolveDirectLeafOutputSource(output.Expr, stepOutputTypes, out var sourceType) || sourceType.IsOpaque)
+            // A direct expression cannot transform its nested contract. Prefer the
+            // authoritative registered step/MCP contract whenever a generated or
+            // extracted schema is incompatible with that source. This also covers
+            // extra documented optional fields: claiming a narrower closed object
+            // would be false because the value is passed through without projection.
+            if (!generatedTypeIsWeak && sourceType.FindAssignmentIssue(generatedType) == null)
                 continue;
 
             promotions[outputName] = string.IsNullOrWhiteSpace(output.Description)
@@ -5293,6 +6173,16 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
                 if (outputName is not YamlScalarNode outputKey || string.IsNullOrWhiteSpace(outputKey.Value))
                     continue;
 
+                if (promotions.TryGetValue(outputKey.Value, out var promotedDescriptor)
+                    && workflow.Outputs.TryGetValue(outputKey.Value, out var promotedOutput))
+                {
+                    ReplaceYaml(
+                        skillOutputs,
+                        outputKey.Value,
+                        BuildPromotedLeafOutputYaml(promotedOutput, promotedDescriptor, includeExpr: false));
+                    continue;
+                }
+
                 var currentSkillOutput = currentOutput;
                 if (currentSkillOutput is not YamlScalarNode && !IsWeakYamlOutputSchema(currentSkillOutput))
                     continue;
@@ -5325,6 +6215,428 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
         return (ParseAndValidateGeneratedWorkflow(promotedYaml), promotedYaml);
     }
 
+    private static (WorkflowDocument Document, string Yaml) PromoteGeneratedDirectOutputSchemas(
+        WorkflowDocument document,
+        string yaml,
+        IReadOnlyList<McpServerDiscovery>? discovered,
+        StepExecutorRegistry registry)
+    {
+        var mcpContracts = BuildMcpToolOutputContracts(discovered)
+            .ToDictionary(
+                static contract => (contract.ServerName, contract.ToolName),
+                static contract => contract,
+                EqualityComparer<(string ServerName, string ToolName)>.Default);
+        var stepContracts = registry.GetContracts();
+        var promotionsByWorkflow = new Dictionary<string, Dictionary<string, FlowTypeDescriptor>>(StringComparer.Ordinal);
+
+        foreach (var (workflowName, workflow) in document.Workflows)
+        {
+            if (workflow.Outputs == null || workflow.Outputs.Count == 0)
+                continue;
+
+            var stepOutputTypes = BuildLeafStepOutputTypeMap(
+                workflowName,
+                document,
+                workflow,
+                mcpContracts,
+                stepContracts);
+            var promotions = new Dictionary<string, FlowTypeDescriptor>(StringComparer.Ordinal);
+            foreach (var (outputName, output) in workflow.Outputs)
+            {
+                if (!TryResolveDirectLeafOutputSource(output.Expr, stepOutputTypes, out var sourceType)
+                    || sourceType.IsOpaque
+                    || IsWeakPipelineOutputDescriptor(sourceType))
+                {
+                    continue;
+                }
+
+                var declaredType = FlowTypeDescriptorConverter.FromOutputDef(output);
+                if (!IsWeakPipelineOutputDescriptor(declaredType)
+                    && sourceType.FindAssignmentIssue(declaredType) == null)
+                {
+                    continue;
+                }
+
+                promotions[outputName] = string.IsNullOrWhiteSpace(output.Description)
+                    ? sourceType
+                    : sourceType with { Description = output.Description };
+            }
+
+            if (promotions.Count > 0)
+                promotionsByWorkflow[workflowName] = promotions;
+        }
+
+        if (promotionsByWorkflow.Count == 0)
+            return (document, yaml);
+
+        var root = LoadYamlRoot(yaml);
+        var workflowsNode = root.GetMapping("workflows")
+            ?? throw new WorkflowRuntimeException(ErrorCodes.TemplatePlan, "Generated YAML is missing workflows.");
+        foreach (var (workflowName, promotions) in promotionsByWorkflow)
+        {
+            if (!workflowsNode.Children.TryGetValue(Scalar(workflowName), out var workflowNode)
+                || workflowNode is not YamlMappingNode workflowMap)
+            {
+                continue;
+            }
+
+            var workflowOutputs = workflowMap.GetMapping("outputs") ?? new YamlMappingNode();
+            foreach (var (outputName, descriptor) in promotions)
+            {
+                var output = document.Workflows[workflowName].Outputs![outputName];
+                ReplaceYaml(workflowOutputs, outputName, BuildPromotedLeafOutputYaml(output, descriptor));
+            }
+            if (!ContainsYamlKey(workflowMap, "outputs"))
+                AddYaml(workflowMap, "outputs", workflowOutputs);
+        }
+
+        // A generated leaf exposes its single workflow through the document skill.
+        // Keep that public schema aligned with the exact value returned by the leaf.
+        if (document.Workflows.Count == 1
+            && root.GetMapping("skill")?.GetMapping("outputs") is { } skillOutputs)
+        {
+            var workflowName = document.Workflows.Keys.Single();
+            if (promotionsByWorkflow.TryGetValue(workflowName, out var promotions))
+            {
+                foreach (var (outputName, descriptor) in promotions)
+                {
+                    if (!skillOutputs.Children.ContainsKey(Scalar(outputName)))
+                        continue;
+
+                    var output = document.Workflows[workflowName].Outputs![outputName];
+                    ReplaceYaml(skillOutputs, outputName, BuildPromotedLeafOutputYaml(output, descriptor, includeExpr: false));
+                }
+            }
+        }
+
+        var stream = new YamlStream(new YamlDocument(root));
+        using var writer = new StringWriter();
+        stream.Save(writer, assignAnchors: false);
+        var promotedYaml = writer.ToString();
+        return (ParseAndValidateGeneratedWorkflow(promotedYaml), promotedYaml);
+    }
+
+    private static (WorkflowDocument Document, string Yaml) PromoteGeneratedDirectMcpScalarInputSchemas(
+        WorkflowDocument document,
+        string yaml,
+        IReadOnlyList<McpServerDiscovery>? discovered)
+    {
+        var contracts = BuildMcpToolOutputContracts(discovered)
+            .ToDictionary(
+                static contract => (contract.ServerName, contract.ToolName),
+                static contract => contract,
+                EqualityComparer<(string ServerName, string ToolName)>.Default);
+        if (contracts.Count == 0)
+            return (document, yaml);
+
+        var promotionsByWorkflow = new Dictionary<string, Dictionary<string, string>>(StringComparer.Ordinal);
+        foreach (var (workflowName, workflow) in document.Workflows)
+        {
+            if (workflow.Inputs == null || workflow.Inputs.Count == 0)
+                continue;
+
+            var demands = new Dictionary<string, HashSet<string>>(StringComparer.Ordinal);
+            foreach (var step in EnumerateSteps(workflow.Steps).Concat(EnumerateSteps(workflow.Finally)))
+            {
+                if (!string.Equals(step.Type, "mcp.call", StringComparison.Ordinal)
+                    || step.Input is not JsonObject input
+                    || input["server"] is not JsonValue serverNode
+                    || !serverNode.TryGetValue<string>(out var server)
+                    || input["method"] is not JsonValue methodNode
+                    || !methodNode.TryGetValue<string>(out var method)
+                    || input["request"] is not JsonObject request
+                    || !contracts.TryGetValue((server, method), out var contract)
+                    || contract.InputSchema == null)
+                {
+                    continue;
+                }
+
+                var requestType = FlowTypeDescriptorConverter.FromJsonSchema(contract.InputSchema);
+                CollectDirectMcpScalarInputDemands(request, requestType, Array.Empty<string>(), workflow.Inputs, demands);
+            }
+
+            var promotions = demands
+                .Where(static pair => pair.Value.Count == 1)
+                .ToDictionary(
+                    static pair => pair.Key,
+                    static pair => pair.Value.Single(),
+                    StringComparer.Ordinal);
+            if (promotions.Count > 0)
+                promotionsByWorkflow[workflowName] = promotions;
+        }
+
+        if (promotionsByWorkflow.Count == 0)
+            return (document, yaml);
+
+        var root = LoadYamlRoot(yaml);
+        var workflowsNode = root.GetMapping("workflows")
+            ?? throw new WorkflowRuntimeException(ErrorCodes.TemplatePlan, "Generated YAML is missing workflows.");
+        foreach (var (workflowName, promotions) in promotionsByWorkflow)
+        {
+            if (!workflowsNode.Children.TryGetValue(Scalar(workflowName), out var workflowNode)
+                || workflowNode is not YamlMappingNode workflowMap
+                || workflowMap.GetMapping("inputs") is not { } workflowInputs)
+            {
+                continue;
+            }
+
+            foreach (var (inputName, scalarType) in promotions)
+                PromoteYamlInputScalarType(workflowInputs, inputName, scalarType);
+        }
+
+        if (document.Workflows.Count == 1
+            && root.GetMapping("skill")?.GetMapping("inputs") is { } skillInputs)
+        {
+            var workflowName = document.Workflows.Keys.Single();
+            if (promotionsByWorkflow.TryGetValue(workflowName, out var promotions))
+            {
+                foreach (var (inputName, scalarType) in promotions)
+                    PromoteYamlInputScalarType(skillInputs, inputName, scalarType);
+            }
+        }
+
+        var stream = new YamlStream(new YamlDocument(root));
+        using var writer = new StringWriter();
+        stream.Save(writer, assignAnchors: false);
+        var promotedYaml = writer.ToString();
+        return (ParseAndValidateGeneratedWorkflow(promotedYaml), promotedYaml);
+    }
+
+    private static (WorkflowDocument Document, string Yaml) PromoteGeneratedDirectWorkflowCallObjectInputSchemas(
+        WorkflowDocument document,
+        string yaml,
+        IReadOnlyList<McpServerDiscovery>? discovered,
+        StepExecutorRegistry registry)
+    {
+        var mcpContracts = BuildMcpToolOutputContracts(discovered)
+            .ToDictionary(
+                static contract => (contract.ServerName, contract.ToolName),
+                static contract => contract,
+                EqualityComparer<(string ServerName, string ToolName)>.Default);
+        var stepContracts = registry.GetContracts();
+        var promotions = new Dictionary<(string Workflow, string Input), FlowTypeDescriptor>();
+        var conflicts = new HashSet<(string Workflow, string Input)>();
+
+        foreach (var (callerName, caller) in document.Workflows)
+        {
+            var sourceTypes = BuildLeafStepOutputTypeMap(
+                callerName,
+                document,
+                caller,
+                mcpContracts,
+                stepContracts);
+            foreach (var step in EnumerateSteps(caller.Steps).Concat(EnumerateSteps(caller.Finally)))
+            {
+                if (!string.Equals(step.Type, "workflow.call", StringComparison.Ordinal)
+                    || ReadWorkflowCallRefNameFromInput(step) is not { } targetName
+                    || !document.Workflows.TryGetValue(targetName, out var target)
+                    || target.Inputs == null
+                    || step.Input is not JsonObject callInput
+                    || callInput["args"] is not JsonObject args)
+                {
+                    continue;
+                }
+
+                foreach (var (inputName, argument) in args)
+                {
+                    if (argument is not JsonValue value
+                        || !value.TryGetValue<string>(out var expression)
+                        || string.IsNullOrWhiteSpace(expression)
+                        || !target.Inputs.TryGetValue(inputName, out var destinationInput)
+                        || !TryResolveDirectLeafOutputSource(expression, sourceTypes, out var sourceType)
+                        || sourceType.IsOpaque
+                        || IsWeakPipelineOutputDescriptor(sourceType))
+                    {
+                        continue;
+                    }
+
+                    var destinationType = FlowTypeDescriptorConverter.FromInputDef(destinationInput);
+                    var issue = sourceType.FindAssignmentIssue(destinationType);
+                    if (issue == null
+                        || !string.Equals(issue.ActualType, "declared property", StringComparison.Ordinal)
+                        || !string.Equals(issue.ExpectedType, "closed object without additional properties", StringComparison.Ordinal))
+                    {
+                        continue;
+                    }
+
+                    var key = (targetName, inputName);
+                    if (conflicts.Contains(key))
+                        continue;
+                    if (promotions.TryGetValue(key, out var existing)
+                        && !JsonNode.DeepEquals(
+                            FlowTypeDescriptorConverter.ToRuntimeJsonSchema(existing),
+                            FlowTypeDescriptorConverter.ToRuntimeJsonSchema(sourceType)))
+                    {
+                        promotions.Remove(key);
+                        conflicts.Add(key);
+                        continue;
+                    }
+
+                    promotions[key] = sourceType;
+                }
+            }
+        }
+
+        if (promotions.Count == 0)
+            return (document, yaml);
+
+        var root = LoadYamlRoot(yaml);
+        var workflowsNode = root.GetMapping("workflows")
+            ?? throw new WorkflowRuntimeException(ErrorCodes.TemplatePlan, "Generated YAML is missing workflows.");
+        foreach (var ((workflowName, inputName), descriptor) in promotions)
+        {
+            if (!workflowsNode.Children.TryGetValue(Scalar(workflowName), out var workflowNode)
+                || workflowNode is not YamlMappingNode workflowMap
+                || workflowMap.GetMapping("inputs") is not { } workflowInputs
+                || !workflowInputs.Children.TryGetValue(Scalar(inputName), out var currentInput))
+            {
+                continue;
+            }
+
+            ReplaceYaml(
+                workflowInputs,
+                inputName,
+                BuildPromotedWorkflowInputYaml(currentInput, descriptor));
+        }
+
+        // Generated single-leaf documents mirror workflow inputs in skill.inputs.
+        // Final pipeline documents contain several leaves, so update skill.inputs only
+        // when the promoted workflow is the sole exposed workflow.
+        if (document.Workflows.Count == 1
+            && root.GetMapping("skill")?.GetMapping("inputs") is { } skillInputs)
+        {
+            var workflowName = document.Workflows.Keys.Single();
+            foreach (var ((targetName, inputName), descriptor) in promotions)
+            {
+                if (!string.Equals(targetName, workflowName, StringComparison.Ordinal)
+                    || !skillInputs.Children.TryGetValue(Scalar(inputName), out var currentInput))
+                {
+                    continue;
+                }
+
+                ReplaceYaml(
+                    skillInputs,
+                    inputName,
+                    BuildPromotedWorkflowInputYaml(currentInput, descriptor));
+            }
+        }
+
+        var stream = new YamlStream(new YamlDocument(root));
+        using var writer = new StringWriter();
+        stream.Save(writer, assignAnchors: false);
+        var promotedYaml = writer.ToString();
+        return (ParseAndValidateGeneratedWorkflow(promotedYaml), promotedYaml);
+    }
+
+    private static YamlNode BuildPromotedWorkflowInputYaml(
+        YamlNode currentInput,
+        FlowTypeDescriptor descriptor)
+    {
+        var promoted = JsonToYaml(FlowTypeDescriptorConverter.ToWorkflowContractNode(
+            descriptor,
+            inputStyle: true,
+            allowScalarShortForm: false));
+        if (promoted is not YamlMappingNode promotedMap || currentInput is not YamlMappingNode currentMap)
+            return promoted;
+
+        foreach (var metadataKey in new[] { "description", "required", "default" })
+        {
+            if (currentMap.Children.TryGetValue(Scalar(metadataKey), out var metadata))
+                ReplaceYaml(promotedMap, metadataKey, CloneYamlNode(metadata));
+        }
+        return promotedMap;
+    }
+
+    private static void CollectDirectMcpScalarInputDemands(
+        JsonNode node,
+        FlowTypeDescriptor requestType,
+        IReadOnlyList<string> path,
+        IReadOnlyDictionary<string, InputDef> workflowInputs,
+        Dictionary<string, HashSet<string>> demands)
+    {
+        if (node is JsonObject obj)
+        {
+            foreach (var (name, child) in obj)
+            {
+                if (child != null)
+                    CollectDirectMcpScalarInputDemands(child, requestType, path.Append(name).ToArray(), workflowInputs, demands);
+            }
+            return;
+        }
+
+        if (node is not JsonValue value
+            || !value.TryGetValue<string>(out var expression)
+            || string.IsNullOrWhiteSpace(expression))
+        {
+            return;
+        }
+
+        var match = Regex.Match(
+            expression,
+            @"^\s*\$\{\s*data\.inputs\.(?<name>[A-Za-z_][A-Za-z0-9_-]*)\s*\}\s*$",
+            RegexOptions.CultureInvariant);
+        if (!match.Success)
+            return;
+
+        var inputName = match.Groups["name"].Value;
+        if (!workflowInputs.TryGetValue(inputName, out var inputDef))
+            return;
+
+        var expected = requestType.ResolvePath(path.ToArray());
+        if (!TryGetSingleNonNullScalarType(expected, out var scalarType))
+            return;
+
+        var actual = FlowTypeDescriptorConverter.FromInputDef(inputDef);
+        if (actual.FindAssignmentIssue(expected!) == null)
+            return;
+
+        if (!demands.TryGetValue(inputName, out var inputDemands))
+        {
+            inputDemands = new HashSet<string>(StringComparer.Ordinal);
+            demands[inputName] = inputDemands;
+        }
+        inputDemands.Add(scalarType);
+    }
+
+    private static bool TryGetSingleNonNullScalarType(
+        FlowTypeDescriptor? descriptor,
+        [System.Diagnostics.CodeAnalysis.NotNullWhen(true)] out string? scalarType)
+    {
+        scalarType = null;
+        if (descriptor == null || descriptor.IsOpaque)
+            return false;
+
+        var candidates = descriptor.Kind == FlowTypeKind.Union
+            ? descriptor.Variants.Where(static variant => variant.Kind != FlowTypeKind.Null).ToArray()
+            : [descriptor];
+        if (candidates.Length != 1)
+            return false;
+
+        scalarType = candidates[0].Kind switch
+        {
+            FlowTypeKind.String => "string",
+            FlowTypeKind.Number => "number",
+            FlowTypeKind.Integer => "integer",
+            FlowTypeKind.Boolean => "boolean",
+            _ => null
+        };
+        return scalarType != null;
+    }
+
+    private static void PromoteYamlInputScalarType(
+        YamlMappingNode inputs,
+        string inputName,
+        string scalarType)
+    {
+        if (!inputs.Children.TryGetValue(Scalar(inputName), out var inputNode))
+            return;
+
+        if (inputNode is YamlMappingNode inputMap)
+            ReplaceYaml(inputMap, "type", Scalar(scalarType));
+        else
+            ReplaceYaml(inputs, inputName, Scalar(scalarType));
+    }
+
     private static bool TryBuildSkillOutputFromWorkflowOutputYaml(
         YamlNode workflowOutputYaml,
         [System.Diagnostics.CodeAnalysis.NotNullWhen(true)] out YamlMappingNode? skillOutput)
@@ -5336,15 +6648,36 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
     private static Dictionary<string, FlowTypeDescriptor> BuildLeafStepOutputTypeMap(
         string workflowName,
         WorkflowDocument doc,
-        WorkflowDef workflow)
+        WorkflowDef workflow,
+        PipelineMcpContext pipelineMcpContext)
     {
-        var allStepIds = EnumerateSteps(workflow.Steps)
+        var mcpContracts = BuildMcpToolOutputContracts(pipelineMcpContext.Servers)
+            .ToDictionary(
+                static contract => (contract.ServerName, contract.ToolName),
+                static contract => contract,
+                EqualityComparer<(string ServerName, string ToolName)>.Default);
+        return BuildLeafStepOutputTypeMap(
+            workflowName,
+            doc,
+            workflow,
+            mcpContracts,
+            BuiltInStepContracts.All);
+    }
+
+    private static Dictionary<string, FlowTypeDescriptor> BuildLeafStepOutputTypeMap(
+        string workflowName,
+        WorkflowDocument doc,
+        WorkflowDef workflow,
+        Dictionary<(string ServerName, string ToolName), McpToolOutputContract> mcpContracts,
+        IReadOnlyDictionary<string, StepContract> stepContracts)
+    {
+        var allStepIds = EnumerateSteps(workflow.Steps).Concat(EnumerateSteps(workflow.Finally))
             .Select(static step => step.Id)
             .Where(static id => !string.IsNullOrWhiteSpace(id))
             .ToHashSet(StringComparer.Ordinal);
         var symbols = WorkflowSymbolTable.Create(workflowName, workflow.Inputs, allStepIds);
         var result = new Dictionary<string, FlowTypeDescriptor>(StringComparer.Ordinal);
-        foreach (var step in EnumerateSteps(workflow.Steps))
+        foreach (var step in EnumerateSteps(workflow.Steps).Concat(EnumerateSteps(workflow.Finally)))
         {
             if (string.IsNullOrWhiteSpace(step.Id))
                 continue;
@@ -5353,8 +6686,8 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
                 step,
                 doc.Workflows,
                 symbols,
-                new Dictionary<(string ServerName, string ToolName), McpToolOutputContract>(),
-                BuiltInStepContracts.All);
+                mcpContracts,
+                stepContracts);
             symbols.SetStepOutput(step.Id, outputType);
             result[step.Id] = outputType;
         }
@@ -5411,6 +6744,223 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
     private static bool IsWeakYamlOutputSchema(YamlNode node)
         => WorkflowPlanContractNormalizer.IsWeakYamlOutputSchema(node);
 
+    private static (WorkflowDocument Document, string Yaml) MaterializeMissingPlannedMcpCallVariants(
+        WorkflowPipelineSubworkflowSpec spec,
+        string workflowName,
+        WorkflowDocument document,
+        string yaml)
+    {
+        if (!document.Workflows.TryGetValue(workflowName, out var workflow))
+            return (document, yaml);
+
+        var requiredTools = spec.PlannedTools.Where(static tool => tool.Required).ToArray();
+        var missing = FindMissingPlannedMcpToolOccurrences(workflow, requiredTools);
+        if (missing.Count == 0)
+            return (document, yaml);
+
+        var root = LoadYamlRoot(yaml);
+        var workflows = root.GetMapping("workflows");
+        if (workflows == null
+            || !workflows.Children.TryGetValue(Scalar(workflowName), out var workflowNode)
+            || workflowNode is not YamlMappingNode workflowMap
+            || workflowMap.GetSequence("steps") is not { } rootSteps)
+        {
+            return (document, yaml);
+        }
+
+        var usedStepIds = new HashSet<string>(StringComparer.Ordinal);
+        CollectYamlStepIds(rootSteps, usedStepIds);
+        var added = false;
+        foreach (var plannedTool in missing)
+        {
+            // Never synthesize an unclassified or write-like variant. Cloning is limited to
+            // selector values whose documented literal is conservatively read-only; all other
+            // effects must be generated with their original control-flow and confirmation gate.
+            if (!IsConservativelyReadOnlySelectorVariant(plannedTool))
+                continue;
+            if (!TryFindYamlMcpCallTemplate(rootSteps, plannedTool, out var parentSteps, out var template))
+                continue;
+
+            var clone = CloneYamlMappingNode(template);
+            var input = clone.GetMapping("input");
+            var request = input?.GetMapping("request");
+            if (input == null || request == null
+                || !TryApplyYamlRequestBindings(request, plannedTool.RequestBindings))
+            {
+                continue;
+            }
+
+            var selectorSuffix = plannedTool.RequestBindings.Count == 0
+                ? "variant"
+                : string.Join('_', plannedTool.RequestBindings.Select(binding =>
+                    SanitizeBlueprintIdentifier(binding.Value is JsonValue scalar
+                                                 && scalar.TryGetValue<string>(out var text)
+                        ? text
+                        : binding.Value?.ToJsonString() ?? "value")));
+            ReplaceYaml(
+                clone,
+                "id",
+                Scalar(MakeUniqueBlueprintStepId(
+                    $"call_{SanitizeBlueprintIdentifier(plannedTool.Method)}_{selectorSuffix}",
+                    usedStepIds)));
+            var templateIndex = parentSteps.Children.IndexOf(template);
+            parentSteps.Children.Insert(templateIndex < 0 ? parentSteps.Children.Count : templateIndex + 1, clone);
+            added = true;
+        }
+
+        if (!added)
+            return (document, yaml);
+
+        var stream = new YamlStream(new YamlDocument(root));
+        using var writer = new StringWriter();
+        stream.Save(writer, assignAnchors: false);
+        var normalizedYaml = writer.ToString().Trim();
+        return (ParseAndValidateGeneratedWorkflow(normalizedYaml), normalizedYaml);
+    }
+
+    private static bool IsConservativelyReadOnlySelectorVariant(PipelinePlannedTool plannedTool)
+    {
+        if (plannedTool.RequestBindings.Count == 0)
+            return false;
+
+        foreach (var binding in plannedTool.RequestBindings)
+        {
+            if (binding.Value is not JsonValue scalar || !scalar.TryGetValue<string>(out var value))
+                return false;
+            var normalized = value.Trim().ToLowerInvariant();
+            if (!Regex.IsMatch(
+                    normalized,
+                    @"^(?:get|list|read|fetch|search|find|query|compare|diff|status|check|inspect|describe|show|resolve)(?:_|$)",
+                    RegexOptions.CultureInvariant))
+            {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    private static IReadOnlyList<PipelinePlannedTool> FindMissingPlannedMcpToolOccurrences(
+        WorkflowDef workflow,
+        IReadOnlyList<PipelinePlannedTool> requiredTools)
+    {
+        var steps = EnumerateSteps(workflow.Steps).Concat(EnumerateSteps(workflow.Finally)).ToArray();
+        var consumed = new HashSet<int>();
+        var missing = new List<PipelinePlannedTool>();
+        foreach (var plannedTool in requiredTools)
+        {
+            var matchedIndex = Array.FindIndex(
+                steps,
+                0,
+                steps.Length,
+                step => !consumed.Contains(Array.IndexOf(steps, step))
+                        && WorkflowStepMatchesPlannedMcpToolCall(step, plannedTool));
+            if (matchedIndex < 0)
+                missing.Add(plannedTool);
+            else
+                consumed.Add(matchedIndex);
+        }
+        return missing;
+    }
+
+    private static void CollectYamlStepIds(YamlSequenceNode steps, HashSet<string> ids)
+    {
+        foreach (var child in steps.Children.OfType<YamlMappingNode>())
+        {
+            if (child.GetScalar("id") is { Length: > 0 } id)
+                ids.Add(id);
+            foreach (var nested in EnumerateNestedYamlStepSequences(child))
+                CollectYamlStepIds(nested, ids);
+        }
+    }
+
+    private static bool TryFindYamlMcpCallTemplate(
+        YamlSequenceNode steps,
+        PipelinePlannedTool plannedTool,
+        [System.Diagnostics.CodeAnalysis.NotNullWhen(true)] out YamlSequenceNode? parentSteps,
+        [System.Diagnostics.CodeAnalysis.NotNullWhen(true)] out YamlMappingNode? template)
+    {
+        foreach (var child in steps.Children.OfType<YamlMappingNode>())
+        {
+            var input = child.GetMapping("input");
+            var methodMatches = string.Equals(input?.GetScalar("method"), plannedTool.Method, StringComparison.Ordinal)
+                                || input?.GetSequence("methods")?.Children
+                                    .OfType<YamlScalarNode>()
+                                    .Any(item => string.Equals(item.Value, plannedTool.Method, StringComparison.Ordinal)) == true;
+            if (string.Equals(child.GetScalar("type"), "mcp.call", StringComparison.Ordinal)
+                && string.Equals(input?.GetScalar("server"), plannedTool.Server, StringComparison.Ordinal)
+                && string.Equals(input?.GetScalar("kind") ?? "tool", plannedTool.Kind, StringComparison.Ordinal)
+                && methodMatches
+                && input?.GetMapping("request") != null)
+            {
+                parentSteps = steps;
+                template = child;
+                return true;
+            }
+
+            foreach (var nested in EnumerateNestedYamlStepSequences(child))
+            {
+                if (TryFindYamlMcpCallTemplate(nested, plannedTool, out parentSteps, out template))
+                    return true;
+            }
+        }
+
+        parentSteps = null;
+        template = null;
+        return false;
+    }
+
+    private static IEnumerable<YamlSequenceNode> EnumerateNestedYamlStepSequences(YamlMappingNode step)
+    {
+        if (step.GetSequence("steps") is { } nestedSteps)
+            yield return nestedSteps;
+        if (step.GetSequence("default") is { } defaultSteps)
+            yield return defaultSteps;
+        foreach (var collectionName in new[] { "branches", "cases" })
+        {
+            if (step.GetSequence(collectionName) is not { } collection)
+                continue;
+            foreach (var item in collection.Children.OfType<YamlMappingNode>())
+            {
+                if (item.GetSequence("steps") is { } itemSteps)
+                    yield return itemSteps;
+            }
+        }
+    }
+
+    private static bool TryApplyYamlRequestBindings(
+        YamlMappingNode request,
+        IReadOnlyList<CapabilityRequestBinding> bindings)
+    {
+        foreach (var binding in bindings)
+        {
+            var segments = binding.Path.Split('/', StringSplitOptions.RemoveEmptyEntries)
+                .Select(static segment => segment.Replace("~1", "/", StringComparison.Ordinal)
+                    .Replace("~0", "~", StringComparison.Ordinal))
+                .ToArray();
+            if (segments.Length == 0 || segments.Any(static segment => segment.Length == 0))
+                return false;
+
+            var current = request;
+            for (var index = 0; index < segments.Length - 1; index++)
+            {
+                if (current.Children.TryGetValue(Scalar(segments[index]), out var child))
+                {
+                    if (child is not YamlMappingNode childMap)
+                        return false;
+                    current = childMap;
+                    continue;
+                }
+
+                var created = new YamlMappingNode();
+                AddYaml(current, segments[index], created);
+                current = created;
+            }
+
+            ReplaceYaml(current, segments[^1], JsonToYaml(binding.Value));
+        }
+        return true;
+    }
+
     private static void EnforcePlannedMcpToolsUsed(WorkflowPipelineSubworkflowSpec spec, WorkflowDef workflow)
     {
         var requiredTools = spec.PlannedTools
@@ -5419,9 +6969,8 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
         if (requiredTools.Length == 0)
             return;
 
-        var missing = requiredTools
-            .Where(plannedTool => !WorkflowContainsPlannedMcpToolCall(workflow, plannedTool))
-            .Select(static plannedTool => $"{plannedTool.Server}/{plannedTool.Method} ({plannedTool.Kind})")
+        var missing = FindMissingPlannedMcpToolOccurrences(workflow, requiredTools)
+            .Select(static plannedTool => $"{plannedTool.Server}/{plannedTool.Method} ({plannedTool.Kind}) bindings=[{FormatBindingsCompact(plannedTool.RequestBindings)}]")
             .Order(StringComparer.Ordinal)
             .ToArray();
         if (missing.Length == 0)
@@ -5429,7 +6978,48 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
 
         throw new WorkflowRuntimeException(
             ErrorCodes.TemplatePlan,
-            $"Leaf workflow '{spec.Name}' did not use required planned MCP tool(s): {string.Join(", ", missing)}. Add explicit direct mcp.call step(s) with matching input.server, input.kind, and literal input.method or input.methods.");
+            $"Leaf workflow '{spec.Name}' did not use required planned MCP tool(s): {string.Join(", ", missing)}. Add explicit direct mcp.call step(s) with matching input.server, input.kind, literal input.method, and every locked request binding as a literal input.request value. Dynamic or opaque selector construction cannot satisfy a locked capability.");
+    }
+
+    private static void EnforcePlannedNativeStepsUsed(
+        WorkflowPipelineSubworkflowSpec spec,
+        WorkflowDef workflow)
+    {
+        var requiredSteps = (spec.PlannedNativeSteps ?? Array.Empty<PipelinePlannedNativeStep>())
+            .Where(static step => step.Required)
+            .ToArray();
+        if (requiredSteps.Length == 0)
+            return;
+
+        var missing = FindMissingPlannedNativeStepOccurrences(workflow, requiredSteps)
+            .Select(static step => step.Method)
+            .Order(StringComparer.Ordinal)
+            .ToArray();
+        if (missing.Length == 0)
+            return;
+
+        throw new WorkflowRuntimeException(
+            ErrorCodes.TemplatePlan,
+            $"Leaf workflow '{spec.Name}' did not use required planned native Flow step occurrence(s): {string.Join(", ", missing)}. Add explicit direct steps with the exact locked step type.");
+    }
+
+    private static IReadOnlyList<PipelinePlannedNativeStep> FindMissingPlannedNativeStepOccurrences(
+        WorkflowDef workflow,
+        IReadOnlyList<PipelinePlannedNativeStep> requiredSteps)
+    {
+        var available = EnumerateSteps(workflow.Steps)
+            .Concat(EnumerateSteps(workflow.Finally))
+            .ToList();
+        var missing = new List<PipelinePlannedNativeStep>();
+        foreach (var requiredStep in requiredSteps)
+        {
+            var index = available.FindIndex(step => string.Equals(step.Type, requiredStep.Method, StringComparison.Ordinal));
+            if (index < 0)
+                missing.Add(requiredStep);
+            else
+                available.RemoveAt(index);
+        }
+        return missing;
     }
 
     private static void EnforcePipelineLeafIntent(WorkflowPipelineSubworkflowSpec spec, WorkflowDef workflow)
@@ -5522,7 +7112,9 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
     }
 
     private static bool WorkflowContainsExecutableActionStep(WorkflowDef workflow)
-        => EnumerateSteps(workflow.Steps).Any(static step => IsExecutableActionStepType(step.Type));
+        => EnumerateSteps(workflow.Steps)
+            .Concat(EnumerateSteps(workflow.Finally))
+            .Any(static step => IsExecutableActionStepType(step.Type));
 
     private static bool IsExecutableActionStepType(string? stepType)
         => stepType is "mcp.call" or "llm.call" or "template.render" or "human.input" or "mcp.list";
@@ -5534,7 +7126,7 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
         if (!IsExternalWorkSpec(spec) || WorkflowContainsExecutableActionStep(workflow))
             yield break;
 
-        foreach (var step in EnumerateSteps(workflow.Steps))
+        foreach (var step in EnumerateSteps(workflow.Steps).Concat(EnumerateSteps(workflow.Finally)))
         {
             if (!string.Equals(step.Type, "emit", StringComparison.Ordinal))
                 continue;
@@ -5606,28 +7198,32 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
 
     private static bool WorkflowContainsPlannedMcpToolCall(WorkflowDef workflow, PipelinePlannedTool plannedTool)
     {
-        foreach (var step in EnumerateSteps(workflow.Steps))
+        foreach (var step in EnumerateSteps(workflow.Steps).Concat(EnumerateSteps(workflow.Finally)))
         {
-            if (step.Type != "mcp.call" || step.Input is not JsonObject input)
-                continue;
-
-            var server = GetStringProperty(input, "server");
-            if (!string.Equals(server, plannedTool.Server, StringComparison.Ordinal))
-                continue;
-
-            var kind = GetStringProperty(input, "kind") ?? "tool";
-            if (!string.Equals(kind, plannedTool.Kind, StringComparison.Ordinal))
-                continue;
-
-            if (StringNodeEquals(input["method"], plannedTool.Method))
-                return true;
-
-            if (input["methods"] is JsonArray methods
-                && methods.Any(method => StringNodeEquals(method, plannedTool.Method)))
+            if (WorkflowStepMatchesPlannedMcpToolCall(step, plannedTool))
                 return true;
         }
 
         return false;
+    }
+
+    private static bool WorkflowStepMatchesPlannedMcpToolCall(StepDef step, PipelinePlannedTool plannedTool)
+    {
+        if (step.Type != "mcp.call" || step.Input is not JsonObject input)
+            return false;
+
+        var server = GetStringProperty(input, "server");
+        if (!string.Equals(server, plannedTool.Server, StringComparison.Ordinal))
+            return false;
+
+        var kind = GetStringProperty(input, "kind") ?? "tool";
+        if (!string.Equals(kind, plannedTool.Kind, StringComparison.Ordinal))
+            return false;
+
+        var methodMatches = StringNodeEquals(input["method"], plannedTool.Method)
+                            || input["methods"] is JsonArray methods
+                            && methods.Any(method => StringNodeEquals(method, plannedTool.Method));
+        return methodMatches && RequestContainsLiteralBindings(input["request"], plannedTool.RequestBindings);
     }
 
     private static bool StringNodeEquals(JsonNode? node, string expected)
@@ -5757,7 +7353,16 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
 
     private static void ValidateStrongObjectInputSchema(InputDef schema, string path, List<string> errors)
     {
-        if (string.Equals(schema.Type, "object", StringComparison.OrdinalIgnoreCase)
+        var type = NormalizeWorkflowSchemaType(schema.Type);
+        if (string.Equals(type, "any", StringComparison.Ordinal))
+        {
+            errors.Add($"{path} has type any; declare the concrete public leaf input contract");
+        }
+        else if (string.Equals(type, "array", StringComparison.Ordinal) && schema.Items == null)
+        {
+            errors.Add($"{path} has type array without items");
+        }
+        else if (string.Equals(type, "object", StringComparison.Ordinal)
             && (schema.Properties == null || schema.Properties.Count == 0))
         {
             errors.Add($"{path} has type object without properties");
@@ -5827,11 +7432,131 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
         AddYaml(root, "skill", skillNode);
         AddYaml(root, "entrypoint", Scalar("main"));
         AddYaml(root, "workflows", workflowsNode);
+        PruneWeakNestedOutputProperties(root);
 
         var stream = new YamlStream(new YamlDocument(root));
         using var writer = new StringWriter();
         stream.Save(writer, assignAnchors: false);
         return writer.ToString();
+    }
+
+    private static void PruneWeakNestedOutputProperties(YamlMappingNode root)
+    {
+        NormalizeGeneratedFunctionParameterDocs(root);
+        if (root.GetMapping("skill")?.GetMapping("outputs") is { } skillOutputs)
+        {
+            foreach (var output in skillOutputs.Children.Values)
+                WorkflowPlanContractNormalizer.PruneWeakNestedOutputProperties(output);
+        }
+
+        if (root.GetMapping("workflows") is not { } workflows)
+            return;
+        foreach (var workflowNode in workflows.Children.Values.OfType<YamlMappingNode>())
+        {
+            if (workflowNode.GetMapping("outputs") is { } outputs)
+            {
+                foreach (var output in outputs.Children.Values)
+                    WorkflowPlanContractNormalizer.PruneWeakNestedOutputProperties(output);
+            }
+
+            if (workflowNode.GetSequence("steps") is { } steps)
+                NormalizeSetOutputSchemas(steps);
+            if (workflowNode.GetSequence("finally") is { } finalizers)
+                NormalizeSetOutputSchemas(finalizers);
+        }
+    }
+
+    private static void NormalizeSetOutputSchemas(YamlSequenceNode steps)
+    {
+        foreach (var step in steps.Children.OfType<YamlMappingNode>())
+        {
+            if (string.Equals(step.GetScalar("type"), "set", StringComparison.Ordinal)
+                && step.GetMapping("output_schema") is { } outputSchema)
+            {
+                WorkflowPlanContractNormalizer.NormalizeSetOutputSchema(outputSchema);
+            }
+
+            foreach (var nested in EnumerateNestedYamlStepSequences(step))
+                NormalizeSetOutputSchemas(nested);
+        }
+    }
+
+    private static string PruneWeakNestedOutputProperties(string yaml)
+    {
+        YamlMappingNode root;
+        try
+        {
+            root = LoadYamlRoot(yaml);
+        }
+        catch
+        {
+            // Preserve the original parser diagnostic for malformed YAML.
+            return yaml;
+        }
+
+        var before = SerializeYamlNode(root);
+        PruneWeakNestedOutputProperties(root);
+        var after = SerializeYamlNode(root);
+
+        // Validation and normalization should not become a formatting rewrite.
+        // In particular, repair mode consumers persist the returned YAML and
+        // expect a minimal patch. Preserve the generated text exactly when the
+        // normalized representation did not change.
+        return string.Equals(before, after, StringComparison.Ordinal)
+            ? yaml
+            : after;
+    }
+
+    private static string NormalizeGeneratedFunctionParameterDocs(string yaml)
+    {
+        YamlMappingNode root;
+        try
+        {
+            root = LoadYamlRoot(yaml);
+        }
+        catch
+        {
+            return yaml;
+        }
+
+        var before = SerializeYamlNode(root);
+        NormalizeGeneratedFunctionParameterDocs(root);
+        var after = SerializeYamlNode(root);
+        return string.Equals(before, after, StringComparison.Ordinal)
+            ? yaml
+            : after;
+    }
+
+    private static string SerializeYamlNode(YamlNode node)
+    {
+        var stream = new YamlStream(new YamlDocument(node));
+        using var writer = new StringWriter();
+        stream.Save(writer, assignAnchors: false);
+        return writer.ToString().Trim();
+    }
+
+    private static void NormalizeGeneratedFunctionParameterDocs(YamlMappingNode root)
+    {
+        NormalizeFunctionsScalar(root);
+        if (root.GetMapping("workflows") is not { } workflows)
+            return;
+        foreach (var workflow in workflows.Children.Values.OfType<YamlMappingNode>())
+            NormalizeFunctionsScalar(workflow);
+    }
+
+    private static void NormalizeFunctionsScalar(YamlMappingNode owner)
+    {
+        var key = Scalar("functions");
+        if (!owner.Children.TryGetValue(key, out var functionsNode)
+            || functionsNode is not YamlScalarNode functions
+            || string.IsNullOrWhiteSpace(functions.Value))
+        {
+            return;
+        }
+
+        var normalized = WorkflowPlanSemanticValidator.CompleteInferableFunctionParameterJsDoc(functions.Value);
+        if (!string.Equals(normalized, functions.Value, StringComparison.Ordinal))
+            owner.Children[key] = Scalar(normalized);
     }
 
     private static string BuildMainAssemblyPrompt(
@@ -5853,14 +7578,16 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
         sb.AppendLine("- Graph call nodes must use `leaf: <leaf_name>` and `args`; do not write raw workflow.call refs.");
         sb.AppendLine("- Non-call support nodes may use normal step `type` and `input` when the main orchestration needs derived values, guards, switches, loops, or parallel branches.");
         sb.AppendLine("- Keep simple deterministic work in the main graph: renames, constants, guards, field mapping, routing, aggregation, and loop orchestration.");
-        sb.AppendLine("- The main graph may only use compact leaf calls plus support nodes: `set`, `sequence`, `switch`, `parallel`, `loop.sequential`, and `loop.parallel`.");
-        sb.AppendLine("- The main graph must not emit `mcp.call`, `llm.call`, `template.render`, `human.input`, `workflow.plan`, or inline leaf implementation logic.");
+        sb.AppendLine("- The main graph may only use compact leaf calls plus support nodes: `set`, `sequence`, `switch`, `parallel`, `loop.sequential`, `loop.parallel`, and exact native orchestration steps locked in `main_required_native_steps_json`.");
+        sb.AppendLine("- Emit every required occurrence from `main_required_native_steps_json` as a direct graph step with the exact `type`; preserve its operation/catalog identity semantically and place it at the documented orchestration boundary.");
+        sb.AppendLine("- The main graph must not emit `mcp.call`, `llm.call`, `template.render`, `workflow.plan`, an unlisted `human.input`/`emit`, or inline leaf implementation logic.");
         sb.AppendLine("- The main workflow must never use `workflow.plan`, and graph nodes must not inline leaf logic.");
         sb.AppendLine("- Leaf workflows must never call other workflows.");
         sb.AppendLine("- Preserve the orchestration algorithm from the normalized prompt and the Main workflow orchestration section.");
         sb.AppendLine("- Use conditionals, switches, loops, or parallel branches when the orchestration requires them.");
         sb.AppendLine("- For container support nodes (`sequence`, `switch`, `parallel`, loops), nested graph nodes are allowed in `steps`, `branches[].steps`, `cases[].steps`, and `default`.");
         sb.AppendLine("- Pass leaf arguments from declared `data.inputs.<name>`, earlier step outputs, loop variables, derived values, or constants.");
+        sb.AppendLine("- Route MCP-declared artifact values directly from the producer leaf output to every compatible consumer leaf argument. Reuse one value for fan-out; never derive or fabricate another locator in main.");
         sb.AppendLine("- Every `data.inputs.<name>` reference MUST have an identically named declaration in `graph.inputs` or `document.skill.inputs`.");
         sb.AppendLine("- Leaf input names are call arguments, not automatically public main inputs.");
         sb.AppendLine("- `generated_leaf_contracts_yaml` is authoritative for leaf workflow names, call arguments, and available outputs.");
@@ -5868,7 +7595,15 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
         sb.AppendLine("- Map public user input names to differently named leaf arguments when their meanings match.");
         sb.AppendLine("- Do not expose loop variables, intermediate values, identifiers, flags, or leaf-only implementation details as public inputs unless the user explicitly requested them.");
         sb.AppendLine("- Use `set` support nodes for data shaping in the main graph: renaming fields, building objects/arrays, constants, and safe type conversions.");
+        sb.AppendLine("- Step IDs must be globally unique across the complete main graph, including every nested case, default, branch, loop, and finalizer.");
+        sb.AppendLine("- `output_schema` is supported only on `set` steps. Never attach it to switch, sequence, parallel, loop, workflow.call, or another step type.");
+        sb.AppendLine("- Required public inputs are validated before main starts. Do not generate missing/empty required-input switches or fallback responses unless the normalized user request explicitly requires them.");
+        sb.AppendLine("- A switch case supports only `when` (or `value`) and `steps`; `default` is a step list. Never emit `output` on a case/default item or pretend child fields are flattened onto the switch step.");
+        sb.AppendLine("- A `set` support node whose field is produced by a custom function and later passed to a typed leaf input must declare an `output_schema` for that field matching the destination leaf contract. Custom-function results are otherwise opaque to static type validation.");
+        sb.AppendLine("- Preserve object and array values as expressions under typed `set.output_schema` fields; do not serialize them to JSON strings merely to satisfy a contract.");
         sb.AppendLine("- Keep exact JSON values intact when passing arrays, objects, numbers, or booleans. Do not stringify a structured leaf output unless a downstream leaf explicitly wants a string.");
+        sb.AppendLine("- Keep opaque textual leaf outputs as strings and preserve their raw content when main explicitly parses them; a JSON-decoded string must not be treated as an object or silently normalized to an empty collection.");
+        sb.AppendLine("- Before a Human Input confirmation or external write based on analyzed items, add a fail-closed coverage guard. If upstream metadata reports non-empty records/files but the normalized collection is empty, stop that path instead of using the no-findings/no-comments write branch.");
         sb.AppendLine("- Every generated `document.skill.outputs` and `graph.outputs` entry must be strongly typed: no `any`, no bare `object`, and no bare `array` without `items`.");
         sb.AppendLine("- Array outputs must declare concrete `items`; object outputs and object array items must declare non-empty `properties`.");
         sb.AppendLine("- If a leaf call is inside a switch, loop, parallel branch, or conditional path, do not reference that leaf call step from outside that container/path. Put dependent work in the same path, or expose the container step itself as the output.");
@@ -5900,6 +7635,8 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
         AppendPromptSection(sb, "leaf_input_candidates_yaml", SerializeYamlMapping(generatedLeafInputs));
         AppendPromptSection(sb, "generated_leaf_contracts_yaml", BuildGeneratedLeafContractsYaml(leaves));
         AppendPromptSection(sb, "leaf_manifest_json", BuildGeneratedLeafManifestJson(leaves, extraction).ToJsonString(new JsonSerializerOptions { WriteIndented = true }));
+        AppendPromptSection(sb, "main_required_native_steps_json", BuildPlannedNativeStepsJson(
+            extraction.MainNativeSteps ?? Array.Empty<PipelinePlannedNativeStep>()).ToJsonString(new JsonSerializerOptions { WriteIndented = true }));
         sb.AppendLine();
         sb.AppendLine("Output shape example:");
         sb.AppendLine("document:");
@@ -5919,6 +7656,7 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
         sb.AppendLine("      leaf: example_leaf");
         sb.AppendLine("      args:");
         sb.AppendLine("        query: ${data.inputs.user_query}");
+        sb.AppendLine("  finally: []");
         sb.AppendLine("  outputs:");
         sb.AppendLine("    result: ${data.steps.call_example_leaf.outputs.result}");
         return sb.ToString();
@@ -5965,6 +7703,7 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
              */
             function projectResults(iterations) { return []; }
           steps: []            # ordered graph nodes
+          finally: []          # optional idempotent cleanup nodes; same shape as steps
           outputs:             # public main outputs
             result: ${data.steps.call_leaf.outputs.result}
 
@@ -5998,12 +7737,14 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
         Optional common fields on graph nodes: if, retry, on_error, output.
         Do not emit raw `type: workflow.call`; the runtime renders leaf nodes as local workflow.call steps.
 
-        Support graph nodes may use only these DSL step types in the main graph:
+        Support graph nodes may use only these DSL step types in the main graph (human.input and emit only when listed in main_required_native_steps_json):
         - set: derive constants or mappings.
         - sequence: run nested steps sequentially.
         - switch: choose one branch with cases[].steps and optional default.
         - parallel: run branches[].steps concurrently.
         - loop.sequential or loop.parallel: iterate with input.items or input.over and nested steps.
+        - human.input: pause for a required orchestration confirmation or additional input.
+        - emit: report a required orchestration message/progress event.
 
         Support node outputs and safe references:
         - set output: `${data.steps.<set_id>.<field>}`.
@@ -6011,14 +7752,16 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
         - sequence output: object keyed by nested step id; nested steps also execute in order on the same path.
         - parallel output: `${data.steps.<parallel_id>.branches}` is an array of branch step-output objects. Do not reference branch child step ids outside the branch.
         - loop output: `${data.steps.<loop_id>.results}` is an array of per-iteration step-output objects and `${data.steps.<loop_id>.count}` is the number of iterations. Do not reference loop child step ids after the loop.
-        - loop result item shape: each element of `${data.steps.<loop_id>.results}` is a per-iteration step-output object. If a loop child step `build_issue_result` produced fields, read them as `iteration.build_issue_result.<field>` when flattening/filtering, not `iteration.<field>`.
+        - loop result item shape: each element of `${data.steps.<loop_id>.results}` is a per-iteration step-output object. If a loop child step `build_item_result` produced fields, read them as `iteration.build_item_result.<field>` when flattening/filtering, not `iteration.<field>`.
         - Never expose raw `${data.steps.<loop_id>.results}` as a public business output. It contains full per-iteration step snapshots and will not match a clean public array contract.
         - To flatten loop results, add a post-loop `set` support node with an `output_schema`, project exact declared fields into a clean array, and point graph.outputs at that set field.
         - If flattening needs array map/filter logic, define a deterministic helper in `graph.functions` and call it from the post-loop `set` input. The renderer copies `graph.functions` to the generated main workflow.
         - Every helper in `graph.functions` must have a JSDoc block immediately before the `function` declaration, including `@param` and `@returns`.
-        - Projection helpers must read child step outputs through the iteration snapshot, for example `iteration.build_issue_result.status` or `iteration.route_by_classification.summarize_issue_result_bug.status`.
+        - Projection helpers must read child step outputs through the iteration snapshot, for example `iteration.build_item_result.status` or `iteration.route_by_classification.summarize_item_result_warning.status`.
         - switch output is path-dependent. Do not reference case/default child step ids after the switch unless the reference remains inside that same case/default path.
-        - Do not flatten switch child fields onto the switch step. Invalid: `${data.steps.route.pr_url}` when `pr_url` is produced by a child `set` inside a case/default branch.
+        - Do not flatten switch child fields onto the switch step. Invalid: `${data.steps.route.result_url}` when `result_url` is produced by a child `set` inside a case/default branch.
+        - A switch case has only `when` (or `value`) plus `steps`; it never has an `output` field. The `default` value is only a step list.
+        - Required graph inputs are already validated by Flow. Do not build switches for missing or empty required inputs unless the user explicitly requested custom fallback behavior.
         - For final graph.outputs after containers, return only projected/typed outputs that match the public contract. Do not return raw loop snapshots or raw branch snapshots as business outputs.
 
         set shape:
@@ -6142,9 +7885,10 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
           result: ${data.steps.project_processed_items.result}
 
         Main graph boundaries:
-        - Keep business/tool/LLM work inside leaf workflows. The main graph should only orchestrate, derive values, branch, loop, and call leaves.
+        - Keep business/tool/LLM work inside leaf workflows. The main graph should only orchestrate, derive values, branch, loop, call leaves, and execute exact native orchestration steps listed in main_required_native_steps_json.
+        - Put required resource cleanup in graph.finally. Finalizers may reference inputs, previous step outputs, and data.workflow_error.
         - If a value is required by a generated leaf input contract, pass it in the leaf args or derive it in an earlier support step.
-        - Do not add MCP, LLM, template, human-input, workflow.plan, or raw workflow.call support nodes to the main graph.
+        - Do not add MCP, LLM, template, workflow.plan, raw workflow.call, or native orchestration steps not listed in main_required_native_steps_json to the main graph.
         """);
     }
 
@@ -6226,6 +7970,9 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
             throw new WorkflowRuntimeException(ErrorCodes.TemplatePlan, "Pipeline orchestration graph must include steps or nodes.");
 
         AddYaml(main, "steps", RenderGraphStepSequence(sourceSteps, leafNames));
+
+        if (graph.GetSequence("finally") is { } sourceFinalizers)
+            AddYaml(main, "finally", RenderGraphStepSequence(sourceFinalizers, leafNames));
 
         if (graph.GetMapping("outputs") is { } outputs)
             AddYaml(main, "outputs", outputs);
@@ -6493,7 +8240,13 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
                 ["extraction_score"] = spec?.ExtractionScore == null ? null : BuildPipelineExtractionScoreJson(spec.ExtractionScore),
                 ["extract_reason"] = spec?.ExtractReason ?? "",
                 ["planned_tools"] = spec == null ? new JsonArray() : BuildPlannedToolsJson(spec.PlannedTools),
+                ["planned_native_steps"] = spec == null
+                    ? new JsonArray()
+                    : BuildPlannedNativeStepsJson(spec.PlannedNativeSteps ?? Array.Empty<PipelinePlannedNativeStep>()),
                 ["required_capabilities"] = spec == null ? new JsonArray() : BuildRequiredCapabilitiesJson(spec),
+                ["local_operation_ids"] = spec == null
+                    ? new JsonArray()
+                    : BuildStringArrayJson(spec.LocalOperationIds ?? Array.Empty<string>()),
                 ["blueprint"] = BuildPipelineLeafBlueprintJson(leaf.Blueprint),
                 ["inputs"] = BuildSchemaMapJson(BuildLeafInputSchemaMap(leaf)),
                 ["outputs"] = BuildSchemaMapJson(BuildLeafOutputSchemaMap(leaf))
@@ -6540,6 +8293,8 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
             };
             if (step.PlannedTool != null)
                 obj["planned_tool"] = BuildPlannedToolJson(step.PlannedTool);
+            if (step.PlannedNativeStep != null)
+                obj["planned_native_step"] = BuildPlannedNativeStepJson(step.PlannedNativeStep);
             if (step.OutputSchema != null)
                 obj["output_schema"] = step.OutputSchema.DeepClone();
             array.Add((JsonNode)obj);
@@ -6688,6 +8443,7 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
                 ? new JsonObject()
                 : BuildSchemaMapJson(BuildInputSchemaMap(workflow.Inputs)),
             ["steps"] = BuildStepInspectionArray(workflow.Steps),
+            ["finally"] = BuildStepInspectionArray(workflow.Finally),
             ["outputs"] = workflow.Outputs == null
                 ? new JsonObject()
                 : BuildWorkflowOutputInspectionJson(workflow.Outputs, skillOutputs)
@@ -6798,9 +8554,9 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
         finalDoc.Workflows.TryGetValue("main", out var main);
         var mainSteps = main == null
             ? Array.Empty<StepDef>()
-            : EnumerateSteps(main.Steps).ToArray();
+            : EnumerateSteps(main.Steps).Concat(EnumerateSteps(main.Finally)).ToArray();
         var totalStepCount = finalDoc.Workflows.Values
-            .SelectMany(static workflow => EnumerateSteps(workflow.Steps))
+            .SelectMany(static workflow => EnumerateSteps(workflow.Steps).Concat(EnumerateSteps(workflow.Finally)))
             .Count();
         var warnings = BuildPipelineQualityWarningsJson(extraction);
         var skillOutputSchemas = finalDoc.Skill?.Outputs == null
@@ -6948,7 +8704,7 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
             var workflow = leaf == null ? null : GetGeneratedLeafWorkflow(leaf);
             var steps = workflow == null
                 ? Array.Empty<StepDef>()
-                : EnumerateSteps(workflow.Steps).ToArray();
+                : EnumerateSteps(workflow.Steps).Concat(EnumerateSteps(workflow.Finally)).ToArray();
             var item = new JsonObject
             {
                 ["name"] = spec.Name,
@@ -6960,7 +8716,9 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
                 ["extract_reason"] = spec.ExtractReason,
                 ["extraction_score"] = spec.ExtractionScore == null ? null : BuildPipelineExtractionScoreJson(spec.ExtractionScore),
                 ["planned_tools"] = BuildPlannedToolsJson(spec.PlannedTools),
+                ["planned_native_steps"] = BuildPlannedNativeStepsJson(spec.PlannedNativeSteps ?? Array.Empty<PipelinePlannedNativeStep>()),
                 ["required_capabilities"] = BuildRequiredCapabilitiesJson(spec),
+                ["local_operation_ids"] = BuildStringArrayJson(spec.LocalOperationIds ?? Array.Empty<string>()),
                 ["required_planned_tool_count"] = spec.PlannedTools.Count(static tool => tool.Required),
                 ["declared_input_schemas"] = BuildSchemaMapJson(spec.InputSchemas),
                 ["declared_output_schemas"] = BuildSchemaMapJson(spec.OutputSchemas),
@@ -7760,6 +9518,62 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
         return generatedLeafInputs.ToDictionary(static pair => pair.Key, static pair => pair.Value?.DeepClone(), StringComparer.Ordinal);
     }
 
+    internal static void ValidateInferredMainArtifactInputs(
+        IReadOnlyDictionary<string, JsonNode?> mainInputs,
+        IReadOnlyDictionary<string, JsonNode?> configuredInputs,
+        string rawPrompt)
+    {
+        if (configuredInputs.Count > 0)
+            return;
+
+        var diagnostics = new JsonArray();
+        foreach (var (name, schema) in mainInputs)
+        {
+            var description = schema is JsonObject schemaObject
+                ? GetStringProperty(schemaObject, "description") ?? string.Empty
+                : string.Empty;
+            var field = new CapabilitySchemaField("/" + name, "string", description);
+            var artifactKind = GetOperationalArtifactKind(field);
+            if (artifactKind == null
+                || IsExplicitCallerArtifactInput(rawPrompt, field, artifactKind))
+            {
+                continue;
+            }
+
+            diagnostics.Add((JsonNode)new JsonObject
+            {
+                ["code"] = "PIPELINE_MAIN_UNREQUESTED_ARTIFACT_INPUT",
+                ["phase"] = "pipeline_main_input_validation",
+                ["workflow"] = "main",
+                ["field"] = $"inputs.{name}",
+                ["invalid_path"] = $"data.inputs.{name}",
+                ["message"] = $"The inferred parent contract exposes operational artifact input '{name}', but the user did not request that artifact as a runtime input.",
+                ["expected"] = "Route a documented output from an upstream artifact-producing capability, or keep this input only when the user explicitly requests it.",
+                ["hint"] = "Do not expose leaf-only implementation prerequisites as new public inputs."
+            });
+        }
+
+        if (diagnostics.Count == 0)
+            return;
+
+        var details = new JsonObject
+        {
+            ["ok"] = false,
+            ["phase"] = "pipeline_main_input_validation",
+            ["summary"] = $"{diagnostics.Count} unrequested operational artifact input diagnostic(s)",
+            ["diagnostics"] = diagnostics,
+            ["llm_guidance"] = new JsonArray(
+                (JsonNode)JsonValue.Create("Remove implementation-only artifact inputs from document.skill.inputs and graph.inputs.")!,
+                (JsonNode)JsonValue.Create("Route the artifact from an earlier leaf whose documented external/action output creates or proves it.")!,
+                (JsonNode)JsonValue.Create("Preserve only public runtime inputs explicitly requested by the user.")!)
+        };
+        throw new WorkflowRuntimeException(
+            ErrorCodes.TemplatePlan,
+            "Pipeline main workflow exposed an unrequested operational artifact as a public input. | repair diagnostics: "
+            + WorkflowPlanDiagnostics.ToPromptJson(details),
+            details: details);
+    }
+
     private static Dictionary<string, JsonNode?> ReadYamlSchemaMap(YamlMappingNode? inputMap)
     {
         var schemas = new Dictionary<string, JsonNode?>(StringComparer.Ordinal);
@@ -8065,7 +9879,7 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
                 .ToArray(),
             StringComparer.Ordinal);
 
-        foreach (var step in EnumerateSteps(main.Steps))
+        foreach (var step in EnumerateSteps(main.Steps).Concat(EnumerateSteps(main.Finally)))
         {
             if (step.Type != "workflow.call" || step.Input is not JsonObject input)
                 continue;
@@ -8107,7 +9921,7 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
             StringComparer.Ordinal);
         var diagnostics = new JsonArray();
 
-        foreach (var step in EnumerateSteps(main.Steps))
+        foreach (var step in EnumerateSteps(main.Steps).Concat(EnumerateSteps(main.Finally)))
         {
             foreach (var expression in EnumerateStepExpressionTexts(step))
             {
@@ -8258,7 +10072,7 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
     private static IEnumerable<(string StepId, string Field, string TargetName, string SourceInputName, string Expression)>
         EnumerateSuspiciousUrlToIdentifierAssignments(WorkflowDef main)
     {
-        foreach (var step in EnumerateSteps(main.Steps))
+        foreach (var step in EnumerateSteps(main.Steps).Concat(EnumerateSteps(main.Finally)))
         {
             foreach (var expression in EnumerateJsonExpressionTexts(step.Input, "input"))
             {
@@ -8342,9 +10156,10 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
         if (!doc.Workflows.TryGetValue("main", out var main) || main.Outputs == null || main.Outputs.Count == 0)
             return;
 
-        var stepsById = EnumerateSteps(main.Steps)
+        var stepsById = EnumerateSteps(main.Steps).Concat(EnumerateSteps(main.Finally))
             .Where(static step => !string.IsNullOrWhiteSpace(step.Id))
-            .ToDictionary(static step => step.Id, StringComparer.Ordinal);
+            .GroupBy(static step => step.Id, StringComparer.Ordinal)
+            .ToDictionary(static group => group.Key, static group => group.First(), StringComparer.Ordinal);
         var diagnostics = new JsonArray();
 
         foreach (var (outputName, output) in main.Outputs)
@@ -8770,7 +10585,7 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
 
         foreach (var (workflowName, workflow) in doc.Workflows)
         {
-            foreach (var step in EnumerateSteps(workflow.Steps))
+            foreach (var step in EnumerateSteps(workflow.Steps).Concat(EnumerateSteps(workflow.Finally)))
             {
                 if (step.Type == "workflow.plan")
                     throw new WorkflowRuntimeException(ErrorCodes.TemplatePolicy, "Pipeline final YAML must not contain workflow.plan.");
@@ -8842,6 +10657,8 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
         {
             ["subworkflows"] = subworkflows,
             ["main_workflow_prompt"] = extraction.MainWorkflowPrompt,
+            ["main_local_operation_ids"] = BuildStringArrayJson(extraction.MainLocalOperationIds ?? Array.Empty<string>()),
+            ["main_native_steps"] = BuildPlannedNativeStepsJson(extraction.MainNativeSteps ?? Array.Empty<PipelinePlannedNativeStep>()),
             ["validation"] = BuildValidationJson(extraction.ValidationErrors),
             ["root_causes"] = BuildPipelineRootCausesJson(extraction.RootCauses),
             ["quality_review"] = BuildExtractionQualityReviewJson(extraction.QualityReview),
@@ -8864,7 +10681,9 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
             ["input_schemas"] = BuildSchemaMapJson(spec.InputSchemas),
             ["output_schemas"] = BuildSchemaMapJson(spec.OutputSchemas),
             ["planned_tools"] = BuildPlannedToolsJson(spec.PlannedTools),
+            ["planned_native_steps"] = BuildPlannedNativeStepsJson(spec.PlannedNativeSteps ?? Array.Empty<PipelinePlannedNativeStep>()),
             ["required_capabilities"] = BuildRequiredCapabilitiesJson(spec),
+            ["local_operation_ids"] = BuildStringArrayJson(spec.LocalOperationIds ?? Array.Empty<string>()),
             ["extraction_score"] = spec.ExtractionScore == null ? null : BuildPipelineExtractionScoreJson(spec.ExtractionScore),
             ["extract_reason"] = spec.ExtractReason,
             ["content"] = spec.Content,
@@ -8894,9 +10713,32 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
         var array = new JsonArray();
         foreach (var tool in spec.PlannedTools.Where(static tool => tool.Required))
             array.Add((JsonNode)BuildPlannedToolJson(tool));
+        foreach (var step in (spec.PlannedNativeSteps ?? Array.Empty<PipelinePlannedNativeStep>())
+                     .Where(static step => step.Required))
+            array.Add((JsonNode)BuildPlannedNativeStepJson(step));
 
         return array;
     }
+
+    private static JsonArray BuildPlannedNativeStepsJson(
+        IReadOnlyList<PipelinePlannedNativeStep> plannedNativeSteps)
+    {
+        var array = new JsonArray();
+        foreach (var step in plannedNativeSteps)
+            array.Add((JsonNode)BuildPlannedNativeStepJson(step));
+        return array;
+    }
+
+    private static JsonObject BuildPlannedNativeStepJson(PipelinePlannedNativeStep step)
+        => new()
+        {
+            ["resolution"] = "native",
+            ["method"] = step.Method,
+            ["operation_ids"] = BuildStringArrayJson(step.OperationIds),
+            ["catalog_ids"] = BuildStringArrayJson(step.CatalogIds),
+            ["required"] = step.Required,
+            ["purpose"] = step.Purpose
+        };
 
     private static JsonObject BuildPlannedToolJson(PipelinePlannedTool tool)
         => new()
@@ -8904,6 +10746,9 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
             ["server"] = tool.Server,
             ["kind"] = tool.Kind,
             ["method"] = tool.Method,
+            ["operation_ids"] = BuildStringArrayJson(tool.OperationIds),
+            ["catalog_ids"] = BuildStringArrayJson(tool.CatalogIds),
+            ["request_bindings"] = BuildRequestBindingsJson(tool.RequestBindings),
             ["required"] = tool.Required,
             ["purpose"] = tool.Purpose,
             ["consumes"] = BuildStringArrayJson(tool.Consumes),
@@ -9012,7 +10857,9 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
         IReadOnlyList<string> ValidationErrors,
         IReadOnlyList<PipelineRootCause> RootCauses,
         PipelineExtractionQualityReview? QualityReview = null,
-        IReadOnlyList<string>? QualityWarnings = null);
+        IReadOnlyList<string>? QualityWarnings = null,
+        IReadOnlyList<string>? MainLocalOperationIds = null,
+        IReadOnlyList<PipelinePlannedNativeStep>? MainNativeSteps = null);
 
     private sealed record GeneratedMainAssembly(
         YamlMappingNode MainWorkflowNode,
@@ -9043,7 +10890,9 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
         PipelineExtractionScore? ExtractionScore,
         string ExtractReason,
         string Content,
-        string GenerationPrompt);
+        string GenerationPrompt,
+        IReadOnlyList<string>? LocalOperationIds = null,
+        IReadOnlyList<PipelinePlannedNativeStep>? PlannedNativeSteps = null);
 
     private sealed record PipelinePlannedTool(
         string Server,
@@ -9052,7 +10901,17 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
         bool Required,
         string? Purpose,
         IReadOnlyList<string> Consumes,
-        IReadOnlyList<string> Produces);
+        IReadOnlyList<string> Produces,
+        IReadOnlyList<CapabilityRequestBinding> RequestBindings,
+        IReadOnlyList<string> OperationIds,
+        IReadOnlyList<string> CatalogIds);
+
+    private sealed record PipelinePlannedNativeStep(
+        string Method,
+        bool Required,
+        string? Purpose,
+        IReadOnlyList<string> OperationIds,
+        IReadOnlyList<string> CatalogIds);
 
     private sealed record StructuredPipelineExtractionMetadata(
         IReadOnlyDictionary<string, StructuredPipelineSubworkflowMetadata> Subworkflows,
@@ -9103,6 +10962,9 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
 
     [GeneratedRegex(@"\b(parse|parsing|normalize|normalise|classify|classification|summari[sz]e|summary|synthesi[sz]e|analy[sz]e|analysis|validate|deduplicate|rank|score|calculate|compute|resolve|derive|merge|group|correlate|extract|transform|reconcile|compare|evaluate)\b", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)]
     private static partial Regex AlgorithmicExtractionIntentRegex();
+
+    [GeneratedRegex(@"\b(parse|parsing|validate|validation|normalize|normalise|deduplicate|filter|select|rank|score|sort|classify|classification|map|mapping|shape|shaping|aggregate|aggregation|transform|project|projection)\b", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)]
+    private static partial Regex StrongLocalProcessingLeafRegex();
 
     [GeneratedRegex(@"\b(rename|copy|constant|guard|field\s+mapping|map\s+fields?|route|routing|aggregate|aggregation|filter|sort|select|loop\s+orchestration|fan-?out|fan-?in)\b", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)]
     private static partial Regex TrivialExtractionIntentRegex();

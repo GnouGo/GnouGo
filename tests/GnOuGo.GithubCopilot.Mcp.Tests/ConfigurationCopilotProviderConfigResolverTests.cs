@@ -24,6 +24,51 @@ public sealed class ConfigurationCopilotProviderConfigResolverTests
     }
 
     [Fact]
+    public async Task ResolveAsync_UsesHostDefaultProviderMetadataWhenProviderIsOmitted()
+    {
+        using var services = CreateServices(new Dictionary<string, string?>
+        {
+            ["GNouGo:DefaultLlmProvider"] = "OpenAi",
+            ["GNouGo:DefaultLlmModel"] = "host-default-model",
+            ["Code:Copilot:Providers:OpenAi:url"] = "https://api.openai.com/v1",
+            ["Code:Copilot:Providers:OpenAi:type"] = "openai",
+            ["Code:Copilot:Providers:OpenAi:authType"] = "api_key",
+            ["Code:Copilot:Providers:OpenAi:apiKey"] = "test-secret"
+        });
+        var resolver = CreateResolver(services);
+
+        var result = await resolver.ResolveAsync(null, "copilot-fallback-model", null, CancellationToken.None);
+
+        Assert.NotNull(result);
+        Assert.Equal("OpenAi", result.ProviderName);
+        Assert.Equal("copilot-fallback-model", result.Model);
+        Assert.Equal("copilot-fallback-model", result.Provider.ModelId);
+        Assert.Equal("test-secret", result.Provider.ApiKey);
+    }
+
+    [Fact]
+    public async Task ResolveAsync_UsesHostDefaultWhenCallerEchoesBuiltInPolicyProvider()
+    {
+        using var services = CreateServices(new Dictionary<string, string?>
+        {
+            ["GNouGo:DefaultLlmProvider"] = "OpenAi",
+            ["GNouGo:DefaultLlmModel"] = "host-default-model",
+            ["Code:Copilot:Providers:OpenAi:url"] = "https://api.openai.com/v1",
+            ["Code:Copilot:Providers:OpenAi:type"] = "openai",
+            ["Code:Copilot:Providers:OpenAi:authType"] = "api_key",
+            ["Code:Copilot:Providers:OpenAi:apiKey"] = "test-secret"
+        });
+        var resolver = CreateResolver(services);
+
+        var result = await resolver.ResolveAsync("Copilot", "copilot-policy-model", null, CancellationToken.None);
+
+        Assert.NotNull(result);
+        Assert.Equal("OpenAi", result.ProviderName);
+        Assert.Equal("copilot-policy-model", result.Model);
+        Assert.Equal("test-secret", result.Provider.ApiKey);
+    }
+
+    [Fact]
     public async Task ResolveAsync_LoadsConfiguredProviderSection()
     {
         using var services = CreateServices(new Dictionary<string, string?>
@@ -43,7 +88,7 @@ public sealed class ConfigurationCopilotProviderConfigResolverTests
         Assert.Equal("CustomCopilot", result.ProviderName);
         Assert.Equal("gpt-5.4-mini", result.Model);
         Assert.Equal("openai", result.Provider.Type);
-        Assert.Equal("chat-completions", result.Provider.WireApi);
+        Assert.Equal("completions", result.Provider.WireApi);
         Assert.Equal("https://models.github.ai/inference", result.Provider.BaseUrl);
         Assert.Equal("gpt-5.4-mini", result.Provider.ModelId);
         Assert.Equal("gpt-5.4-mini", result.Provider.WireModel);
@@ -100,6 +145,33 @@ public sealed class ConfigurationCopilotProviderConfigResolverTests
         Assert.Null(result.Provider.BearerToken);
         Assert.NotNull(result.Provider.Headers);
         Assert.Equal("2023-06-01", result.Provider.Headers!["anthropic-version"]);
+    }
+
+    [Fact]
+    public async Task ResolveAsync_MapsVersionedDeploymentUrlToStableSdkAzureRoute()
+    {
+        using var services = CreateServices(new Dictionary<string, string?>
+        {
+            ["Code:Copilot:Providers:Gateway:type"] = "openai",
+            ["Code:Copilot:Providers:Gateway:url"] = "https://gateway.example/providers/openai/deployments/wire-model",
+            ["Code:Copilot:Providers:Gateway:model"] = "known-model",
+            ["Code:Copilot:Providers:Gateway:apiVersion"] = "2025-01-01",
+            ["Code:Copilot:Providers:Gateway:authType"] = "bearer",
+            ["Code:Copilot:Providers:Gateway:bearerToken"] = "gateway-token"
+        });
+        var resolver = CreateResolver(services);
+
+        var result = await resolver.ResolveAsync("Gateway", "fallback-model", null, CancellationToken.None);
+
+        Assert.NotNull(result);
+        Assert.Equal("azure", result.Provider.Type);
+        Assert.Equal("completions", result.Provider.WireApi);
+        Assert.Equal("https://gateway.example/providers/openai/", result.Provider.BaseUrl);
+        Assert.Equal("known-model", result.Provider.ModelId);
+        Assert.Equal("wire-model", result.Provider.WireModel);
+        Assert.Equal("2025-01-01", result.Provider.Azure?.ApiVersion);
+        Assert.Equal("gateway-token", result.Provider.BearerToken);
+        Assert.Null(result.Provider.ApiKey);
     }
 
     [Fact]
@@ -322,5 +394,3 @@ public sealed class ConfigurationCopilotProviderConfigResolverTests
             => Task.FromResult<JsonObject?>(null);
     }
 }
-
-

@@ -61,7 +61,7 @@ scripts/                           # build, publish, and metadata-update scripts
 | **GnOuGo.KeyVault** | `KeyVault.Core`, `KeyVault.Mcp`, `KeyVault.Server` | Encrypted secret storage, tenant-aware. Secrets decrypted in-memory only. |
 | **GnOuGo.OtlpCollector** | `OtlpCollector.Server`, `OtlpCollector.Cli` | Multi-tenant OTLP ingest stack. Embedded in `Agent.Server` on ports 4317/4318. |
 | **MCP servers** | `Agent.Mcp` (HTTP), `KeyVault.Mcp` (HTTP), `Browser.Mcp` (stdio), `Cmd.Mcp` (stdio), `Git.Mcp` (stdio), `Document.Mcp` (stdio), `GithubCopilot.Mcp` (stdio), `DocIngestor.Mcp` (HTTP) | |
-| **Shared libs** | `Auth.Core`, `Mcp.Core`, `Observability.Core`, `VectorDbDisk`, `Workspace` | Cross-cutting helpers. |
+| **Shared libs** | `Auth.Core`, `Mcp.Core`, `Observability.Core`, `Workspace` | Cross-cutting helpers. |
 
 ---
 

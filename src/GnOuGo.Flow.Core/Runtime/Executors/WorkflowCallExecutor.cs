@@ -108,31 +108,148 @@ public sealed class WorkflowCallExecutor : IStepExecutor
             ["env"] = ctx.Data["env"]?.DeepClone() ?? new JsonObject()
         };
 
-        var executionScope = ctx.Engine.CreateExecutionScopeForWorkflow(subWorkflow);
-        await ctx.Engine.ExecuteStepsAsync(
-            subWorkflow.Steps,
-            subData,
-            result,
-            ctx.Limits,
-            ctx.CallDepth + 1,
-            newCallStack,
-            executionScope,
-            ct,
-            ctx.TelemetrySpan);
+        var inheritedFinalization = ctx.EffectiveExecutionScope.IsFinalization;
+        var executionScope = ctx.Engine.CreateExecutionScopeForWorkflow(subWorkflow, inheritedFinalization);
+        var workflowInfo = new WorkflowTelemetryInfo
+        {
+            WorkflowName = resolution.WorkflowName,
+            DocumentName = subWorkflow.Document?.Source?.Name,
+            Inputs = resolvedArgs.DeepClone(),
+            SourceText = subWorkflow.Document?.Source?.RawYaml,
+            SourceFormat = "yaml"
+        };
+        var workflowSpan = ctx.TelemetrySpan is null
+            ? ctx.Engine.Telemetry.WorkflowStart(workflowInfo)
+            : ctx.Engine.Telemetry.WorkflowStart(ctx.TelemetrySpan, workflowInfo);
+        var workflowStopwatch = System.Diagnostics.Stopwatch.StartNew();
+        Exception? outputEvaluationError = null;
+        Exception? unhandledLifecycleError = null;
+        JsonNode? outputs = null;
+        try
+        {
+            WorkflowTelemetryInputAttributes.Apply(workflowSpan, subData["inputs"]);
+            try
+            {
+                await ctx.Engine.ExecuteStepsAsync(
+                    subWorkflow.Steps,
+                    subData,
+                    result,
+                    ctx.Limits,
+                    ctx.CallDepth + 1,
+                    newCallStack,
+                    executionScope,
+                    ct,
+                    workflowSpan);
+            }
+            catch (WorkflowRuntimeException ex)
+            {
+                result.Success = false;
+                result.Error = ex.ToWorkflowError();
+            }
+            catch (OperationCanceledException)
+            {
+                result.Success = false;
+                result.Error = new WorkflowError
+                {
+                    Code = "CANCELLED",
+                    Type = "CANCELLED",
+                    Message = "Workflow execution cancelled",
+                    Retryable = true
+                };
+            }
+            catch (Exception ex)
+            {
+                result.Success = false;
+                result.Error = new WorkflowError
+                {
+                    Code = "INTERNAL_ERROR",
+                    Type = ex.GetType().Name,
+                    Message = ex.Message,
+                    Retryable = false
+                };
+            }
+            finally
+            {
+                await ctx.Engine.ExecuteWorkflowFinalizationAsync(
+                    subWorkflow,
+                    subData,
+                    result,
+                    ctx.Limits,
+                    ctx.CallDepth + 1,
+                    newCallStack,
+                    executionScope,
+                    workflowSpan,
+                    inheritedFinalization ? ct : null);
+            }
 
-        // Evaluate outputs
-        JsonNode? outputs;
-        if (subWorkflow.Outputs != null)
-        {
-            outputs = ctx.Engine.EvaluateWorkflowOutputs(
-                subWorkflow.Outputs,
-                subData,
-                executionScope,
-                resolution.WorkflowName);
+            if (result.Success)
+            {
+                try
+                {
+                    outputs = subWorkflow.Outputs != null
+                        ? ctx.Engine.EvaluateWorkflowOutputs(
+                            subWorkflow.Outputs,
+                            subData,
+                            executionScope,
+                            resolution.WorkflowName)
+                        : subData["steps"]?.DeepClone();
+                }
+                catch (Exception ex)
+                {
+                    outputEvaluationError = ex;
+                }
+            }
         }
-        else
+        catch (Exception ex)
         {
-            outputs = subData["steps"]?.DeepClone();
+            unhandledLifecycleError = ex;
+            throw;
+        }
+        finally
+        {
+            workflowStopwatch.Stop();
+            try
+            {
+                ctx.Engine.Telemetry.WorkflowEnd(workflowSpan, new WorkflowResultInfo
+                {
+                    Success = result.Success
+                              && outputEvaluationError is null
+                              && unhandledLifecycleError is null,
+                    StepsExecuted = result.StepResults.Count,
+                    Duration = workflowStopwatch.Elapsed,
+                    ErrorCode = result.Error?.Code
+                                ?? (outputEvaluationError as WorkflowRuntimeException)?.Code
+                                ?? (unhandledLifecycleError as WorkflowRuntimeException)?.Code
+                                ?? (outputEvaluationError is null && unhandledLifecycleError is null
+                                    ? null
+                                    : "INTERNAL_ERROR"),
+                    ErrorMessage = result.Error?.Message
+                                   ?? outputEvaluationError?.Message
+                                   ?? unhandledLifecycleError?.Message
+                });
+            }
+            finally
+            {
+                workflowSpan.Dispose();
+            }
+        }
+
+        if (outputEvaluationError is not null)
+            System.Runtime.ExceptionServices.ExceptionDispatchInfo.Capture(outputEvaluationError).Throw();
+
+        if (!result.Success)
+        {
+            var error = result.Error ?? new WorkflowError
+            {
+                Code = "INTERNAL_ERROR",
+                Message = "Called workflow failed.",
+                Retryable = false
+            };
+            throw new WorkflowRuntimeException(
+                error.Code,
+                error.Message,
+                error.Retryable,
+                details: EnrichCalledWorkflowFailureDetails(error.Details, result, resolution.WorkflowName));
         }
 
         return new JsonObject
@@ -141,7 +258,27 @@ public sealed class WorkflowCallExecutor : IStepExecutor
             ["workflow"] = resolution.WorkflowName
         };
     }
+
+    private static JsonObject EnrichCalledWorkflowFailureDetails(
+        JsonNode? existingDetails,
+        RunResult result,
+        string workflowName)
+    {
+        var details = existingDetails?.DeepClone() as JsonObject ?? new JsonObject();
+        var failedStep = result.StepResults.LastOrDefault(static item => item.Error is not null);
+
+        // The deepest workflow.call adds these fields first. Parent calls keep
+        // that precise leaf location instead of replacing it with their own
+        // orchestration step, so repair can target one real crashing step.
+        if (details["workflow"] is null)
+            details["workflow"] = workflowName;
+        if (details["step_id"] is null && failedStep is not null)
+            details["step_id"] = failedStep.StepId;
+        if (details["step_type"] is null && failedStep is not null)
+            details["step_type"] = failedStep.StepType;
+        if (details["step_status"] is null && failedStep is not null)
+            details["step_status"] = failedStep.Status.ToString();
+
+        return details;
+    }
 }
-
-
-

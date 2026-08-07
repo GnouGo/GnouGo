@@ -149,16 +149,19 @@ internal sealed class WorkflowExecutionScope
     public WorkflowExecutionScope(
         CompiledWorkflow? workflow,
         ExpressionEvaluator evaluator,
-        StringInterpolator interpolator)
+        StringInterpolator interpolator,
+        bool isFinalization = false)
     {
         Workflow = workflow;
         Evaluator = evaluator;
         Interpolator = interpolator;
+        IsFinalization = isFinalization;
     }
 
     public CompiledWorkflow? Workflow { get; }
     public ExpressionEvaluator Evaluator { get; }
     public StringInterpolator Interpolator { get; }
+    public bool IsFinalization { get; }
 }
 
 /// <summary>

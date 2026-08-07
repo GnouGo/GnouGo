@@ -44,6 +44,21 @@ public sealed class CodeProjectServiceTests : IDisposable
     }
 
     [Fact]
+    public void SummaryAndSearch_OmitReservedGnOuGoTree()
+    {
+        var internalDirectory = Directory.CreateDirectory(Path.Combine(_root, ".GnOuGo"));
+        File.WriteAllText(Path.Combine(internalDirectory.FullName, "Internal.cs"), "ReservedMarker");
+        var service = CreateService();
+
+        var summary = service.GetSummary(".");
+        var results = service.Search(".", "ReservedMarker", "*.cs");
+
+        Assert.DoesNotContain(".GnOuGo", summary.TopLevelDirectories, StringComparer.OrdinalIgnoreCase);
+        Assert.DoesNotContain(summary.ProjectFiles, path => path.Contains(".GnOuGo", StringComparison.OrdinalIgnoreCase));
+        Assert.DoesNotContain(results.Results, result => result.Path.Contains(".GnOuGo", StringComparison.OrdinalIgnoreCase));
+    }
+
+    [Fact]
     public void WriteFile_WritesWhenEnabled()
     {
         var settings = CreateSettings();

@@ -1,5 +1,8 @@
 using System.Text.Json;
 using System.Text.Json.Nodes;
+using System.Security.Cryptography;
+using System.Text;
+using System.Text.RegularExpressions;
 using GnOuGo.Flow.Core.Compilation;
 using GnOuGo.Flow.Core.Expressions;
 using GnOuGo.Flow.Core.Models;
@@ -145,6 +148,121 @@ internal static class WorkflowPlanDiagnostics
         }
 
         return ToPromptJson(root);
+    }
+
+    public static string BuildDiagnosticFingerprint(Exception ex)
+    {
+        var diagnostics = new List<string>();
+        if (ex is WorkflowRuntimeException { Details: not null } runtimeException)
+            CollectDiagnosticIdentities(runtimeException.Details, diagnostics);
+
+        if (diagnostics.Count == 0)
+        {
+            var exceptionCode = ex is WorkflowRuntimeException workflowException
+                ? workflowException.Code
+                : null;
+            diagnostics.Add(InferPlanErrorCode(ex.Message, exceptionCode));
+        }
+
+        diagnostics.Sort(StringComparer.Ordinal);
+        var normalized = string.Join("\n", diagnostics.Distinct(StringComparer.Ordinal));
+        return Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(normalized))).ToLowerInvariant();
+    }
+
+    public static bool IsTransientProviderFailure(Exception exception)
+    {
+        for (var current = exception; current != null; current = current.InnerException!)
+        {
+            if (current is HttpRequestException or TimeoutException)
+                return true;
+
+            var message = current.Message;
+            if (message.Contains("server_error", StringComparison.OrdinalIgnoreCase)
+                || message.Contains("temporarily unavailable", StringComparison.OrdinalIgnoreCase)
+                || message.Contains("connection reset", StringComparison.OrdinalIgnoreCase)
+                || message.Contains("routing failed", StringComparison.OrdinalIgnoreCase))
+            {
+                return true;
+            }
+
+            if (Regex.IsMatch(
+                    message,
+                    @"\b(?:HTTP|status|chat\s+call|provider|request|gateway|service)\b.{0,120}\b(?:408|425|429|500|502|503|504)\b|\b(?:408|425|429|500|502|503|504)\b.{0,120}\b(?:server|gateway|service|timeout|request)\b",
+                    RegexOptions.IgnoreCase | RegexOptions.CultureInvariant | RegexOptions.Singleline))
+            {
+                return true;
+            }
+
+            if (current.InnerException == null)
+                break;
+        }
+
+        return false;
+    }
+
+    private static void CollectDiagnosticIdentities(JsonNode? node, List<string> diagnostics)
+    {
+        switch (node)
+        {
+            case JsonObject obj:
+            {
+                var code = ReadFingerprintValue(obj, "code");
+                if (!string.IsNullOrWhiteSpace(code))
+                {
+                    if (string.Equals(code, "PIPELINE_MAIN_UNPROVEN_EXTERNAL_ARTIFACT", StringComparison.OrdinalIgnoreCase))
+                    {
+                        var requestField = ReadFingerprintValue(obj, "request_field")
+                                           ?? ReadFingerprintValue(obj, "field")
+                                           ?? "artifact";
+                        var leafField = requestField.Split('.', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+                            .LastOrDefault() ?? requestField;
+                        diagnostics.Add(code.Trim().ToUpperInvariant() + "|artifact_field=" + leafField.ToLowerInvariant());
+                        foreach (var property in obj)
+                        {
+                            if (property.Key is "generated_yaml" or "invalid_yaml" or "message" or "legacy_summary")
+                                continue;
+                            CollectDiagnosticIdentities(property.Value, diagnostics);
+                        }
+                        break;
+                    }
+
+                    var identityFields = new[]
+                    {
+                        "phase", "workflow", "workflow_name", "step", "step_id", "field", "location",
+                        "path", "invalid_path", "expected", "actual_type"
+                    };
+                    var identity = new StringBuilder(code.Trim().ToUpperInvariant());
+                    foreach (var field in identityFields)
+                    {
+                        var value = ReadFingerprintValue(obj, field);
+                        if (!string.IsNullOrWhiteSpace(value))
+                            identity.Append('|').Append(field).Append('=').Append(value.Trim());
+                    }
+                    diagnostics.Add(identity.ToString());
+                }
+
+                foreach (var property in obj)
+                {
+                    if (property.Key is "generated_yaml" or "invalid_yaml" or "message" or "legacy_summary")
+                        continue;
+                    CollectDiagnosticIdentities(property.Value, diagnostics);
+                }
+                break;
+            }
+            case JsonArray array:
+                foreach (var item in array)
+                    CollectDiagnosticIdentities(item, diagnostics);
+                break;
+        }
+    }
+
+    private static string? ReadFingerprintValue(JsonObject obj, string name)
+    {
+        if (!obj.TryGetPropertyValue(name, out var node) || node is null)
+            return null;
+        return node is JsonValue value && value.TryGetValue<string>(out var text)
+            ? text
+            : node.ToJsonString();
     }
 
     public static string InferPlanErrorCode(string message, string? exceptionCode = null)
@@ -440,6 +558,13 @@ internal static class WorkflowPlanDiagnostics
 
     private static string BuildSemanticHint(WorkflowSemanticValidationError error)
     {
+        if (error.Code == ErrorCodes.ExprTypeMismatch
+            && error.Message.Contains("incompatible nested contract", StringComparison.OrdinalIgnoreCase)
+            && error.Message.Contains("resolves to null or", StringComparison.OrdinalIgnoreCase))
+        {
+            return "Project the source container through deterministic normalization before assignment. Replace nullable nested values with contract-valid defaults when the destination is non-null, or use a compatible nullable workflow schema when the locked contract permits it; direct container mapping cannot repair a nested mismatch.";
+        }
+
         return error.Code switch
         {
             "STEP_REFERENCE_NOT_AVAILABLE" => "Move the producing step earlier, move the consuming reference later, or create a guaranteed normalization step before reading it.",
@@ -448,9 +573,11 @@ internal static class WorkflowPlanDiagnostics
             "STEP_OUTPUT_PROPERTY_UNKNOWN" => "Use one of the allowed output paths or add a normalizer step that produces the desired property.",
             "MCP_REQUEST_SCHEMA_INVALID" => "Align input.request with the discovered MCP tool input schema.",
             "MCP_REQUEST_EXPR_TYPE_MISMATCH" => "Use only expressions whose resolved type is compatible with the discovered MCP input_schema; nullable sources must be refined, guarded, or normalized before the mcp.call.",
+            "MCP_REQUEST_SELECTOR_NOT_LITERAL" => "Use a documented literal scalar for MCP action selectors; expressions and opaque selector construction are not statically enforceable.",
             "MCP_CALL_INPUT_FIELD_UNKNOWN" => "Move MCP tool arguments under input.request; keep only mcp.call envelope fields at input top level.",
             "MCP_METHOD_UNKNOWN" => "Use one exact MCP tool name from the discovered server catalog.",
             "MCP_SERVER_UNKNOWN" => "Use one exact MCP server name from discovery.",
+            "SET_REQUIRED_STRING_EMPTY" => "A required string must be non-empty on every path. If absence is valid, make the field optional and omit it; otherwise produce or validate a real value before constructing the result.",
             "SET_OUTPUT_SCHEMA_OPAQUE_FUNCTION" => "Closed set output_schema fields must be populated by values with a precise object shape. Project exact declared fields instead of passing through opaque custom-function objects.",
             "EXPRESSION_FUNCTION_UNKNOWN" => "Use only documented built-in functions, or define the custom helper in a document-level or workflow-level `functions:` block before calling it.",
             "FUNCTION_JSDOC_MISSING" => "Add a JSDoc block immediately before the custom function declaration.",
@@ -469,9 +596,11 @@ internal static class WorkflowPlanDiagnostics
             "OPAQUE_RESPONSE_DEEP_ACCESS" or "STEP_OUTPUT_PROPERTY_UNKNOWN" => "documented output path",
             "MCP_REQUEST_SCHEMA_INVALID" => "request matching MCP input_schema",
             "MCP_REQUEST_EXPR_TYPE_MISMATCH" => "non-null MCP request expression matching input_schema",
+            "MCP_REQUEST_SELECTOR_NOT_LITERAL" => "documented literal MCP selector value",
             "MCP_CALL_INPUT_FIELD_UNKNOWN" => "supported mcp.call input envelope",
             "MCP_METHOD_UNKNOWN" => "discovered MCP method",
             "MCP_SERVER_UNKNOWN" => "discovered MCP server",
+            "SET_REQUIRED_STRING_EMPTY" => "non-empty value for every required string field",
             "SET_OUTPUT_SCHEMA_OPAQUE_FUNCTION" => "custom function result projected to the closed output_schema shape",
             "EXPRESSION_FUNCTION_UNKNOWN" => "built-in or declared WFScript function",
             "FUNCTION_JSDOC_MISSING" => "JSDoc immediately preceding the function declaration",
@@ -486,6 +615,9 @@ internal static class WorkflowPlanDiagnostics
     {
         if (error.Code == "SET_OUTPUT_SCHEMA_OPAQUE_FUNCTION")
             return hint + " In the custom function, return new objects containing only the schema properties; do not `push(issue)`, `return item`, or pass source objects through when `additionalProperties: false`.";
+
+        if (error.Code == "SET_REQUIRED_STRING_EMPTY")
+            return hint + " Do not use an empty-string sentinel for a required identifier or result field. Either guarantee a non-empty value or make the property optional and omit it when unavailable.";
 
         if (error.AllowedPaths.Count > 0)
             return $"{hint} Prefer one of allowed_paths when it satisfies the task.";

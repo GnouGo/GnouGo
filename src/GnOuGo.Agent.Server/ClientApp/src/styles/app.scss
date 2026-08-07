@@ -173,12 +173,6 @@ html, body {
   white-space: nowrap;
 }
 
-.gnougo-sidebar__workflow {
-  flex: 0 0 auto;
-  padding: 8px 0 10px;
-  background: #fff;
-}
-
 .gnougo-sidebar__close {
   display: none;
 }
@@ -1383,6 +1377,40 @@ html, body {
   box-shadow: none;
 }
 
+.gnougo-chat__response-animation {
+  margin-top: 18px;
+}
+
+.gnougo-workflow-card__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 8px;
+  color: #4b5563;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.gnougo-workflow-card__status {
+  padding: 3px 8px;
+  border-radius: 999px;
+  background: #eef2f7;
+  color: #526071;
+  font-size: 11px;
+}
+
+.gnougo-chat__response-animation[data-status="Failed"] .gnougo-workflow-card__status,
+.gnougo-chat__response-animation[data-status="Animation error"] .gnougo-workflow-card__status {
+  background: #ffebe9;
+  color: #a40e26;
+}
+
+.gnougo-chat__response-animation[data-status="Completed"] .gnougo-workflow-card__status {
+  background: #dafbe1;
+  color: #116329;
+}
+
 .gnougo-workflow-card__content[hidden] {
   display: none;
 }
@@ -1392,10 +1420,10 @@ html, body {
   position: relative;
   width: 100%;
   min-width: 0;
-  height: clamp(280px, 42vh, 500px);
-  max-height: min(500px, calc(100vh - 320px));
-  height: clamp(280px, 42dvh, 500px);
-  max-height: min(500px, calc(100dvh - 320px));
+  height: clamp(340px, 52vh, 620px);
+  max-height: min(620px, calc(100vh - 220px));
+  height: clamp(340px, 52dvh, 620px);
+  max-height: min(620px, calc(100dvh - 220px));
   overflow: scroll;
   overscroll-behavior: contain;
   scrollbar-color: #9aa7b8 #f3f5f7;
@@ -1476,6 +1504,31 @@ html, body {
   padding: 18px;
   background: linear-gradient(145deg, #ecfeff, #f0fdfa);
   box-shadow: 0 16px 40px rgba(15, 23, 42, .1);
+}
+
+.gnougo-hitl-choice--broad {
+  border-color: rgba(180, 83, 9, .55);
+  background: #b45309;
+}
+
+.gnougo-hitl-choice--broad:hover {
+  background: #92400e;
+}
+
+.gnougo-hitl-choice--persistent {
+  border-color: rgba(153, 27, 27, .6);
+  background: #991b1b;
+}
+
+.gnougo-hitl-choice--persistent:hover,
+.gnougo-hitl-choice--refuse:hover {
+  background: #7f1d1d;
+}
+
+.gnougo-hitl-choice--refuse {
+  border-color: rgba(153, 27, 27, .5);
+  background: transparent;
+  color: #991b1b;
 }
 
 .gnougo-execution-panel__backdrop {

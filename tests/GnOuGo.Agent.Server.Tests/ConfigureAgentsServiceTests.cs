@@ -8,6 +8,7 @@ using Microsoft.Extensions.Logging.Abstractions;
 using GnOuGo.Agent.Mcp;
 using GnOuGo.AI.Core;
 using GnOuGo.Agent.Server.SmartFlow;
+using GnOuGo.Assets.Animation;
 using GnOuGo.Flow.Core.Compilation;
 using GnOuGo.Flow.Core.Models;
 using GnOuGo.Flow.Core.Parsing;
@@ -18,9 +19,76 @@ namespace GnOuGo.Agent.Server.Tests;
 public sealed class ConfigureAgentsServiceTests
 {
     [Fact]
+    public async Task ExecuteAsync_AgentRemove_RevokesPersistentCopilotGrantsForStableAgentId()
+    {
+        var deleted = false;
+        JsonObject? revokeRequest = null;
+        var agentMcp = new FakeMcpSession("GnOuGo.Agent.Mcp")
+            .OnTool("agent_get_by_name", (_, _) => Task.FromResult(new McpCallResult
+            {
+                Content = deleted
+                    ? new JsonObject { ["success"] = false, ["error_code"] = "NOT_FOUND" }
+                    : new JsonObject
+                    {
+                        ["success"] = true,
+                        ["agent"] = SmartFlowTestFactory.AgentSummary(
+                            "stable-agent-id",
+                            "Reviewer",
+                            "2026-08-07T12:00:00Z")
+                    }
+            }))
+            .OnTool("agent_delete", (_, _) =>
+            {
+                deleted = true;
+                return Task.FromResult(new McpCallResult
+                {
+                    Content = new JsonObject { ["success"] = true }
+                });
+            });
+        var copilotMcp = new FakeMcpSession("GnOuGo.GithubCopilot.Mcp")
+            .OnTool("copilot_permission_grants_revoke_agent", (request, _) =>
+            {
+                revokeRequest = request as JsonObject;
+                return Task.FromResult(new McpCallResult
+                {
+                    Content = new JsonObject { ["success"] = true, ["revokedCount"] = 1 }
+                });
+            });
+        var humanInput = new AgentHumanInputProvider();
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(10));
+        var responder = Task.Run(async () =>
+        {
+            await foreach (var request in humanInput.PendingRequests.ReadAllAsync(cts.Token))
+            {
+                humanInput.TrySubmitResponse(
+                    request.RunId,
+                    request.StepId,
+                    new JsonObject { ["response"] = "confirm" });
+                break;
+            }
+        }, cts.Token);
+        var service = CreateConfigureAgentsServiceForStreaming(
+            new RecordingLlmClient(),
+            humanInput,
+            agentMcp,
+            copilotMcp);
+
+        var events = await SmartFlowTestFactory.CollectAsync(
+            service.ExecuteAsync("/gnougo remove Reviewer", cts.Token),
+            cts.Token);
+        await responder;
+
+        Assert.True(deleted);
+        Assert.Contains(events, item => item.Text?.Contains("removed", StringComparison.OrdinalIgnoreCase) == true);
+        Assert.Equal("stable-agent-id", revokeRequest?["agentId"]?.GetValue<string>());
+        Assert.False(string.IsNullOrWhiteSpace(revokeRequest?["tenantId"]?.GetValue<string>()));
+    }
+
+    [Fact]
     public async Task ExecuteAsync_AgentAdd_WhenCreationSucceeds_SelectsCreatedAgentByDefault()
     {
         var llm = new RecordingLlmClient();
+        string? savedOriginalPrompt = null;
         var agentMcp = new FakeMcpSession("GnOuGo.Agent.Mcp")
             .OnTool("agent_get_by_name", (arguments, _) =>
             {
@@ -36,13 +104,21 @@ public sealed class ConfigureAgentsServiceTests
                     }
                 });
             })
-            .OnTool("agent_add", new JsonObject
+            .OnTool("agent_add", (arguments, _) =>
             {
-                ["success"] = true,
-                ["agent"] = SmartFlowTestFactory.AgentSummary(
-                    "12345678-1234-1234-1234-1234567890ab",
-                    "slimfaas",
-                    "2026-04-01T12:35:00+00:00")
+                savedOriginalPrompt = arguments?["originalPrompt"]?.GetValue<string>();
+                return Task.FromResult(new McpCallResult
+                {
+                    IsError = false,
+                    Content = new JsonObject
+                    {
+                        ["success"] = true,
+                        ["agent"] = SmartFlowTestFactory.AgentSummary(
+                            "12345678-1234-1234-1234-1234567890ab",
+                            "slimfaas",
+                            "2026-04-01T12:35:00+00:00")
+                    }
+                });
             });
 
         var humanInput = new AgentHumanInputProvider();
@@ -55,7 +131,7 @@ public sealed class ConfigureAgentsServiceTests
                 JsonNode response = request.StepId.EndsWith("input_name", StringComparison.Ordinal)
                     ? new JsonObject { ["agent_name"] = " slimfaas " }
                     : request.StepId.EndsWith("input_prompt", StringComparison.Ordinal)
-                        ? new JsonObject { ["description"] = "Explain SlimFaas" }
+                        ? new JsonObject { ["description"] = "\nExplain SlimFaas\nwith examples.\n" }
                         : request.StepId.EndsWith("review_workflow", StringComparison.Ordinal)
                             ? new JsonObject { ["response"] = "approve" }
                                 : throw new InvalidOperationException($"Unexpected step id: {request.StepId}");
@@ -79,6 +155,7 @@ public sealed class ConfigureAgentsServiceTests
 
         Assert.True(result.Success, result.Error?.Message);
         Assert.Equal("slimfaas", result.Outputs?["agent_name"]?.GetValue<string>());
+        Assert.Equal("Explain SlimFaas\nwith examples.", savedOriginalPrompt);
         Assert.Contains(events, evt =>
             evt.Type == "thinking:response" &&
             evt.Text == "✅ Agent 'slimfaas' created successfully and is now the active agent for this chat.");
@@ -127,7 +204,16 @@ public sealed class ConfigureAgentsServiceTests
         }, token);
 
         var service = CreateConfigureAgentsServiceForStreaming(llm, humanInput, agentMcp);
-        var events = await SmartFlowTestFactory.CollectAsync(service.ExecuteAsync("/gnougo add", token), TestContext.Current.CancellationToken);
+        var animationEvents = new List<SmartFlowEvent>();
+        var animation = AgentWorkflowAnimationBridge.Create(
+            service.WorkflowSource,
+            "main",
+            "corr-configure-agent",
+            animationEvents.Add,
+            out _);
+        var events = await SmartFlowTestFactory.CollectAsync(
+            service.ExecuteAsync("/gnougo add", animation, token),
+            TestContext.Current.CancellationToken);
         await responder;
 
         var generated = Assert.Single(events, evt =>
@@ -139,6 +225,16 @@ public sealed class ConfigureAgentsServiceTests
         Assert.DoesNotContain(events, evt =>
             evt.Type == "thinking:thinking"
             && evt.Text?.Contains("Generated workflow", StringComparison.OrdinalIgnoreCase) == true);
+        var movedStations = animationEvents
+            .Select(evt => evt.Animation?.Event)
+            .Where(evt => evt?.Type == SimulationEventTypes.ActorMoved && evt.StationId is not null)
+            .Select(evt => evt!.StationId!)
+            .Distinct(StringComparer.Ordinal)
+            .ToArray();
+        Assert.True(movedStations.Length >= 2, "Agent creation should move GnOuGo through multiple workflow stations.");
+        Assert.Contains(animationEvents, evt =>
+            evt.Animation?.Event?.Type == SimulationEventTypes.SimulationCompleted
+            && evt.Animation.Event.Status == SimulationStatus.Succeeded);
     }
 
     [Fact]

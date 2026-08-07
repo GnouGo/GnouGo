@@ -84,7 +84,8 @@ public sealed class WorkflowExecuteExecutor : IStepExecutor
         WorkflowTelemetryInputAttributes.Apply(subWorkflowSpan, subData["inputs"]);
         var subWorkflowSw = System.Diagnostics.Stopwatch.StartNew();
         Exception? subWorkflowError = null;
-        var executionScope = ctx.Engine.CreateExecutionScopeForWorkflow(workflow);
+        var inheritedFinalization = ctx.EffectiveExecutionScope.IsFinalization;
+        var executionScope = ctx.Engine.CreateExecutionScopeForWorkflow(workflow, inheritedFinalization);
         try
         {
             await ctx.Engine.ExecuteStepsAsync(
@@ -102,20 +103,59 @@ public sealed class WorkflowExecuteExecutor : IStepExecutor
         {
             subWorkflowError = ex;
             result.Success = false;
-            throw;
+            result.Error = ex switch
+            {
+                WorkflowRuntimeException workflowRuntimeException => workflowRuntimeException.ToWorkflowError(),
+                OperationCanceledException => new WorkflowError
+                {
+                    Code = "CANCELLED",
+                    Type = "CANCELLED",
+                    Message = "Workflow execution cancelled",
+                    Retryable = true
+                },
+                _ => new WorkflowError
+                {
+                    Code = "INTERNAL_ERROR",
+                    Type = ex.GetType().Name,
+                    Message = ex.Message,
+                    Retryable = false
+                }
+            };
         }
         finally
         {
+            await ctx.Engine.ExecuteWorkflowFinalizationAsync(
+                workflow,
+                subData,
+                result,
+                ctx.Limits,
+                ctx.CallDepth + 1,
+                ctx.CallStack,
+                executionScope,
+                subWorkflowSpan,
+                inheritedFinalization ? ct : null);
             subWorkflowSw.Stop();
             ctx.Engine.Telemetry.WorkflowEnd(subWorkflowSpan, new WorkflowResultInfo
             {
                 Success = result.Success && subWorkflowError is null,
                 StepsExecuted = result.StepResults.Count,
                 Duration = subWorkflowSw.Elapsed,
-                ErrorCode = subWorkflowError is WorkflowRuntimeException wre ? wre.Code : (subWorkflowError is not null ? "INTERNAL_ERROR" : null),
-                ErrorMessage = subWorkflowError?.Message
+                ErrorCode = result.Error?.Code
+                            ?? (subWorkflowError is WorkflowRuntimeException wre ? wre.Code : (subWorkflowError is not null ? "INTERNAL_ERROR" : null)),
+                ErrorMessage = result.Error?.Message ?? subWorkflowError?.Message
             });
             subWorkflowSpan.Dispose();
+        }
+
+        if (!result.Success)
+        {
+            var error = result.Error ?? new WorkflowError
+            {
+                Code = "INTERNAL_ERROR",
+                Message = subWorkflowError?.Message ?? "Generated workflow failed.",
+                Retryable = false
+            };
+            throw new WorkflowRuntimeException(error.Code, error.Message, error.Retryable, subWorkflowError, error.Details);
         }
 
         // Evaluate typed outputs if declared

@@ -23,6 +23,7 @@ builder.Services.AddTransient<DocumentTools>();
 builder.Services
     .AddMcpServer(options =>
     {
+        options.ProtocolVersion = GnOuGoMcpProtocol.RequiredRevision;
         options.ServerInfo = new Implementation
         {
             Name = "GnOuGo.Document.Mcp",

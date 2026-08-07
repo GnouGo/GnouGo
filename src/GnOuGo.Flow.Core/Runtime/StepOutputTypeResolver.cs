@@ -30,7 +30,22 @@ internal static class StepOutputTypeResolver
     private static FlowTypeDescriptor ResolveSet(StepDef step, WorkflowSymbolTable symbols)
     {
         if (step.OutputSchema != null)
-            return FlowTypeDescriptorConverter.FromJsonSchema(step.OutputSchema);
+        {
+            var schemaType = FlowTypeDescriptorConverter.FromJsonSchema(step.OutputSchema);
+            if (schemaType.Kind != FlowTypeKind.Object || step.Input is not JsonObject schemaInput)
+                return schemaType;
+
+            // A set step materializes every key declared in its input. JSON Schema
+            // requiredness still describes nested values, but it must not make an
+            // explicitly assigned top-level output look absent at later use sites.
+            var schemaProperties = schemaType.Properties.ToDictionary(
+                static pair => pair.Key,
+                pair => schemaInput.ContainsKey(pair.Key)
+                    ? pair.Value with { Required = true }
+                    : pair.Value,
+                StringComparer.Ordinal);
+            return schemaType with { Properties = schemaProperties };
+        }
 
         if (step.Input is not JsonObject input)
             return Object();
@@ -167,10 +182,14 @@ internal static class StepOutputTypeResolver
 
     private static FlowTypeDescriptor ResolveHumanInput(StepDef step)
     {
+        var responseType = ResolveHumanInputResponseType(step);
+        var mode = TryGetInputString(step, "mode");
         var properties = new Dictionary<string, FlowPropertyDescriptor>(StringComparer.Ordinal)
         {
-            ["response"] = Property(FlowTypeDescriptor.Any),
-            ["source"] = Property(FlowTypeDescriptor.String)
+            ["response"] = Property(
+                responseType,
+                required: !string.Equals(mode, HumanInputContract.ModeForm, StringComparison.OrdinalIgnoreCase)),
+            ["source"] = Property(FlowTypeDescriptor.String, required: false)
         };
 
         if (step.Input is JsonObject input && input["fields"] is JsonArray fields)
@@ -184,11 +203,45 @@ internal static class StepOutputTypeResolver
                     continue;
 
                 var type = field["type"]?.GetValue<string>() ?? "string";
-                properties[name] = Property(HumanInputFieldType(type));
+                var required = field["required"] is not JsonValue requiredValue
+                               || !requiredValue.TryGetValue<bool>(out var requiredFlag)
+                               || requiredFlag;
+                properties[name] = Property(HumanInputFieldType(type), required);
             }
         }
 
         return FlowTypeDescriptor.Object(properties);
+    }
+
+    private static FlowTypeDescriptor ResolveHumanInputResponseType(StepDef step)
+    {
+        var mode = TryGetInputString(step, "mode");
+        if (string.IsNullOrWhiteSpace(mode) && step.Input is JsonObject input)
+        {
+            if (input["fields"] is JsonArray { Count: > 0 })
+            {
+                mode = HumanInputContract.ModeForm;
+            }
+            else if (input["choices"] is JsonArray choices && choices.Count > 0)
+            {
+                mode = choices.Count == 2
+                       && choices.Any(choice => HumanInputContract.IsAffirmativeConfirmationChoice(TryGetLiteralString(choice)))
+                       && choices.Any(choice => HumanInputContract.IsNegativeConfirmationChoice(TryGetLiteralString(choice)))
+                    ? HumanInputContract.ModeConfirm
+                    : HumanInputContract.ModeChoice;
+            }
+            else
+            {
+                mode = HumanInputContract.ModeText;
+            }
+        }
+
+        return mode?.ToLowerInvariant() switch
+        {
+            HumanInputContract.ModeConfirm => FlowTypeDescriptor.Boolean,
+            HumanInputContract.ModeText or HumanInputContract.ModeChoice => FlowTypeDescriptor.String,
+            _ => FlowTypeDescriptor.Any
+        };
     }
 
     private static FlowTypeDescriptor HumanInputFieldType(string type) =>
@@ -247,7 +300,8 @@ internal static class StepOutputTypeResolver
             static pair => Property(pair.Type),
             StringComparer.Ordinal));
 
-    private static FlowPropertyDescriptor Property(FlowTypeDescriptor type) => new(type);
+    private static FlowPropertyDescriptor Property(FlowTypeDescriptor type, bool required = true) =>
+        new(type, required);
 
     private static string? TryGetInputString(StepDef step, string propertyName)
     {

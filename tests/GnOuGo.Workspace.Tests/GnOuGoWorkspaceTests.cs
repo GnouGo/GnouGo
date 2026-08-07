@@ -159,6 +159,55 @@ public class GnOuGoWorkspaceTests
     }
 
     [Fact]
+    public void ResolveWorkflowWorkspacesDirectory_ReturnsVisibleWorkspaceChildWithoutCreatingIt()
+    {
+        var root = CreateTempDirectory();
+        var expected = Path.Combine(root, GnOuGoWorkspace.WorkflowWorkspacesSubfolder);
+
+        var result = GnOuGoWorkspace.ResolveWorkflowWorkspacesDirectory(root);
+
+        Assert.Equal(Path.GetFullPath(expected), result);
+        Assert.False(Directory.Exists(result));
+    }
+
+    [Theory]
+    [InlineData(".GnOuGo", true)]
+    [InlineData(".GnOuGo/data/app.db", true)]
+    [InlineData(".gnougo/Files/upload.txt", true)]
+    [InlineData(".GnOuGo-other/file.txt", false)]
+    [InlineData("workflows/review/repo", false)]
+    public void IsReservedWorkspacePath_ClassifiesWorkspacePaths(string relativePath, bool expected)
+    {
+        var root = CreateTempDirectory();
+        var path = Path.Combine(root, relativePath.Replace('/', Path.DirectorySeparatorChar));
+
+        Assert.Equal(expected, GnOuGoWorkspace.IsReservedWorkspacePath(path, root));
+    }
+
+    [Fact]
+    public void IsReservedWorkspacePath_ReturnsFalseForOutsidePath()
+    {
+        var root = CreateTempDirectory();
+        var outside = CreateTempDirectory();
+
+        Assert.False(GnOuGoWorkspace.IsReservedWorkspacePath(Path.Combine(outside, ".GnOuGo", "data"), root));
+    }
+
+    [Theory]
+    [InlineData("workflows", true)]
+    [InlineData("workflows/reviews/repo", true)]
+    [InlineData("WORKFLOWS/repo", true)]
+    [InlineData("workflows-other/repo", false)]
+    [InlineData(".GnOuGo/data/reviews/repo", false)]
+    public void IsWorkflowWorkspacePath_ClassifiesWorkspacePaths(string relativePath, bool expected)
+    {
+        var root = CreateTempDirectory();
+        var path = Path.Combine(root, relativePath.Replace('/', Path.DirectorySeparatorChar));
+
+        Assert.Equal(expected, GnOuGoWorkspace.IsWorkflowWorkspacePath(path, root));
+    }
+
+    [Fact]
     public void ResolveDatabasePath_AbsolutePath_ReturnedAsIs()
     {
         var absolutePath = Path.Combine(Path.GetTempPath(), "test.db");

@@ -51,7 +51,16 @@ internal sealed class ConfigurationCopilotProviderConfigResolver : ICopilotProvi
 		string? fallbackBearerToken,
 		CancellationToken ct)
 	{
-		if (string.IsNullOrWhiteSpace(providerName))
+		var hostDefaultProvider = _configuration["GNouGo:DefaultLlmProvider"]
+			?? _configuration["LLM:DefaultProvider"];
+		var useHostDefault = string.IsNullOrWhiteSpace(providerName)
+			|| string.Equals(providerName, "Copilot", StringComparison.OrdinalIgnoreCase)
+			&& !string.IsNullOrWhiteSpace(hostDefaultProvider)
+			&& !string.Equals(hostDefaultProvider, "Copilot", StringComparison.OrdinalIgnoreCase);
+		if (useHostDefault)
+			providerName = hostDefaultProvider;
+		if (string.IsNullOrWhiteSpace(providerName)
+			|| string.Equals(providerName, "Copilot", StringComparison.OrdinalIgnoreCase))
 			return null;
 
 		var normalizedProviderName = providerName.Trim();
@@ -70,7 +79,16 @@ internal sealed class ConfigurationCopilotProviderConfigResolver : ICopilotProvi
 		var providerType = NormalizeSdkProviderType(
 			ReadConfigString(config, "type") ?? ReadConfigString(config, "provider"),
 			url);
-		var wireModel = ReadConfigString(config, "wireModel", "wire_model") ?? model;
+		var apiVersion = ReadConfigString(config, "apiVersion", "api_version");
+		var deploymentRoute = TryNormalizeVersionedDeploymentRoute(url, apiVersion);
+		if (deploymentRoute is not null)
+		{
+			providerType = "azure";
+			url = deploymentRoute.BaseUrl;
+		}
+		var wireModel = ReadConfigString(config, "wireModel", "wire_model")
+			?? deploymentRoute?.Deployment
+			?? model;
 		var authType = ReadConfigString(config, "authType", "auth_type") ?? "none";
 		var apiKey = ReadConfigString(config, "apiKey", "api_key");
 		var bearerToken = await ResolveBearerTokenAsync(config, authType, apiKey, fallbackBearerToken, ct);
@@ -85,7 +103,8 @@ internal sealed class ConfigurationCopilotProviderConfigResolver : ICopilotProvi
 			WireModel = wireModel,
 			ApiKey = ShouldUseApiKey(providerType, url, authType) ? apiKey : null,
 			BearerToken = bearerToken,
-			Headers = BuildProviderHeaders(providerType)
+			Headers = BuildProviderHeaders(providerType),
+			Azure = deploymentRoute is null ? null : new AzureOptions { ApiVersion = apiVersion }
 		};
 
 		_logger.LogInformation(
@@ -284,10 +303,41 @@ internal sealed class ConfigurationCopilotProviderConfigResolver : ICopilotProvi
 			  || url.Contains("claude", StringComparison.OrdinalIgnoreCase) ? "anthropic"
 			: "openai";
 
+	private static VersionedDeploymentRoute? TryNormalizeVersionedDeploymentRoute(string url, string? apiVersion)
+	{
+		if (string.IsNullOrWhiteSpace(apiVersion)
+			|| !Uri.TryCreate(url, UriKind.Absolute, out var endpoint))
+		{
+			return null;
+		}
+
+		const string marker = "/deployments/";
+		var markerIndex = endpoint.AbsolutePath.IndexOf(marker, StringComparison.OrdinalIgnoreCase);
+		if (markerIndex < 0)
+			return null;
+
+		var deploymentStart = markerIndex + marker.Length;
+		var deploymentEnd = endpoint.AbsolutePath.IndexOf('/', deploymentStart);
+		var deployment = deploymentEnd < 0
+			? endpoint.AbsolutePath[deploymentStart..]
+			: endpoint.AbsolutePath[deploymentStart..deploymentEnd];
+		if (string.IsNullOrWhiteSpace(deployment))
+			return null;
+
+		var builder = new UriBuilder(endpoint)
+		{
+			Path = endpoint.AbsolutePath[..markerIndex].TrimEnd('/') + "/",
+			Query = string.Empty,
+			Fragment = string.Empty
+		};
+
+		return new VersionedDeploymentRoute(builder.Uri.AbsoluteUri, Uri.UnescapeDataString(deployment));
+	}
+
 	private static string GetDefaultWireApi(string providerType)
 		=> string.Equals(providerType, "anthropic", StringComparison.OrdinalIgnoreCase)
 			? "messages"
-			: "chat-completions";
+			: "completions";
 
 	private static IDictionary<string, string>? BuildProviderHeaders(string providerType)
 		=> string.Equals(providerType, "anthropic", StringComparison.OrdinalIgnoreCase)
@@ -312,6 +362,6 @@ internal sealed class ConfigurationCopilotProviderConfigResolver : ICopilotProvi
 		   || string.Equals(authType, "bearer_token", StringComparison.OrdinalIgnoreCase)
 		   || url.Contains("models.github.ai", StringComparison.OrdinalIgnoreCase)
 		   || string.Equals(providerType, "copilot", StringComparison.OrdinalIgnoreCase);
+
+	private sealed record VersionedDeploymentRoute(string BaseUrl, string Deployment);
 }
-
-

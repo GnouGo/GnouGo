@@ -85,7 +85,7 @@ public sealed class McpCallExecutor : IStepExecutor
         By default, MCP tool errors raise MCP_CALL_ERROR/MCP_PROMPT_ERROR runtime exceptions so `on_error` handlers can run. Set `raise_on_error: false` only when the workflow intentionally wants to inspect `data.steps.<id>.status == "error"` as normal output.
         Optional `error_policy.detect_result_errors: true` treats common structured failure envelopes like `{ success: false, error_code, error_message }` as MCP errors even when the transport did not set IsError.
         For generated plans, do NOT use `mcp.call` with only `server` as the default next step after `mcp.list` unless calling everything is the explicit goal.
-        Request fields must statically match the discovered MCP input_schema. Do not pass nullable structured_output fields such as `string|null` into required request fields; make the source non-null, refine it with `assert.non_null`, add an exact `if: "${data.steps.x.json.field != null}"` guard on the same mcp.call step, or skip the call.
+        Request fields must statically match the discovered MCP input_schema. Do not pass nullable structured_output fields such as `string|null` into required request fields; make the source non-null, refine it with `assert.non_null`, add an exact `if: "${data.steps.x.json.field != null}"` guard on the same mcp.call step, or skip the call. A request property that is optional in the discovered schema is omitted automatically when its resolved value is null.
 
         Output access patterns:
         - Single tool: `data.steps.<id>.status` ("ok"|"error") and `data.steps.<id>.response` (opaque tool-specific JSON).
@@ -123,16 +123,16 @@ public sealed class McpCallExecutor : IStepExecutor
         - id: discover
           type: mcp.list
           input:
-            server: github
+            server: inventory
             include: ["tools", "prompts"]
 
         - id: choose_and_call
           type: mcp.call
           input:
-            server: github
+            server: inventory
             model: gpt-4o-mini
             temperature: 0.2
-            prompt: "Find the right GitHub capability and call it to summarize my repos"
+            prompt: "Find the right inventory capability and call it to summarize available items"
             tools: "${data.steps.discover.tools}"
             prompts: "${data.steps.discover.prompts}"
             structured_output:
@@ -252,14 +252,15 @@ public sealed class McpCallExecutor : IStepExecutor
         if (errorPolicy.DetectResultErrors)
             ctx.SetTelemetryAttribute("mcp.detect_result_errors", true);
 
+        using var timeoutCts = timeoutMs.HasValue
+            ? new CancellationTokenSource(timeoutMs.Value)
+            : new CancellationTokenSource();
+        using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(ct, timeoutCts.Token);
         try
         {
-            using var timeoutCts = timeoutMs.HasValue
-                ? new CancellationTokenSource(timeoutMs.Value)
-                : new CancellationTokenSource();
-            using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(ct, timeoutCts.Token);
 
-            var correlation = BuildCorrelationContext(ctx, serverName, kind, singleMethod, batchMethods);
+            var requestContext = ValidateAndCloneRequestContext(input["context"]);
+            var correlation = BuildCorrelationContext(ctx, serverName, kind, singleMethod, batchMethods, requestContext);
             ctx.SetTelemetryAttribute("gnougo.correlation_id", correlation.CorrelationId);
             if (!string.IsNullOrWhiteSpace(correlation.TraceId))
                 ctx.SetTelemetryAttribute("gnougo.trace_id", correlation.TraceId);
@@ -273,13 +274,24 @@ public sealed class McpCallExecutor : IStepExecutor
                     realtimeProgressFingerprints.TryAdd(BuildProgressFingerprint(progressEvent.EventKind, progressEvent.Message, progressEvent.File), 0);
                     EmitRealtimeMcpProgressEventAsThinking(ctx, progressEvent, correlation);
                 });
+            using var humanInputScope = ConfiguredMcpClientFactory.PushHumanInputHandler(
+                correlation,
+                signal => EmitRealtimeMcpHumanInputSignal(ctx, signal));
             await using var session = await factory.GetClientAsync(serverName, linkedCts.Token);
 
             IReadOnlyList<McpToolInfo>? runtimeToolCatalog = null;
             if (string.Equals(kind, "tool", StringComparison.Ordinal))
             {
-                runtimeToolCatalog = McpCacheHelper.GetCachedTools(ctx.Engine.McpCache, serverName)
-                    ?? await session.ListToolsAsync(linkedCts.Token);
+                // A process-level catalog is sufficient for validation, but not
+                // for transport behavior. The MCP SDK learns x-mcp-header
+                // annotations from tools/list and uses them to mirror selected
+                // arguments into Mcp-Param-* headers. Always initialize the live
+                // session before calling a tool, even when GnOuGo already has a
+                // cached copy of the same schema from another runtime session.
+                runtimeToolCatalog = session is ILiveMcpToolDiscoverySession liveSession
+                    ? await liveSession.EnsureToolsDiscoveredAsync(linkedCts.Token)
+                    : McpCacheHelper.GetCachedTools(ctx.Engine.McpCache, serverName)
+                      ?? await session.ListToolsAsync(linkedCts.Token);
                 if (runtimeToolCatalog != null)
                     McpCacheHelper.CacheTools(ctx.Engine.McpCache, serverName, runtimeToolCatalog, ctx.Engine.McpCacheSlidingExpiration);
 
@@ -295,7 +307,7 @@ public sealed class McpCallExecutor : IStepExecutor
 
             if (hasPromptSelection)
             {
-                return await ExecuteLlmAssistedAsync(session, input, kind, singleMethod, batchMethods, errorPolicy, runtimeToolCatalog, ctx, realtimeProgressFingerprints, linkedCts.Token);
+                return await ExecuteLlmAssistedAsync(session, input, kind, singleMethod, batchMethods, errorPolicy, runtimeToolCatalog, requestContext, ctx, realtimeProgressFingerprints, linkedCts.Token);
             }
 
             // Auto-discover: list all tools or prompts from the server
@@ -382,11 +394,15 @@ public sealed class McpCallExecutor : IStepExecutor
         {
             throw;
         }
-        catch (OperationCanceledException) when (!ct.IsCancellationRequested)
+        catch (OperationCanceledException) when (timeoutCts.IsCancellationRequested && !ct.IsCancellationRequested)
         {
             var target = batchMethods != null ? string.Join(", ", batchMethods) : singleMethod ?? (hasPromptSelection ? "(llm-selection)" : "(auto)");
             throw new WorkflowRuntimeException(ErrorCodes.McpTimeout,
                 $"mcp.call to '{serverName}/{target}' timed out after {timeoutMs}ms", retryable: true);
+        }
+        catch (OperationCanceledException) when (ct.IsCancellationRequested)
+        {
+            throw;
         }
         catch (Exception ex)
         {
@@ -459,6 +475,7 @@ public sealed class McpCallExecutor : IStepExecutor
         List<string>? batchMethods,
         McpErrorPolicy errorPolicy,
         IReadOnlyList<McpToolInfo>? runtimeToolCatalog,
+        JsonObject? requestContext,
         StepExecutionContext ctx,
         ConcurrentDictionary<string, byte>? realtimeProgressFingerprints,
         CancellationToken ct)
@@ -560,7 +577,7 @@ public sealed class McpCallExecutor : IStepExecutor
                 throw new WorkflowRuntimeException(defaultKind == "prompt" ? ErrorCodes.McpPromptError : ErrorCodes.McpCallError,
                     $"mcp.call prompt mode selected unknown MCP capability '{toolCall.Name}'", retryable: false);
 
-            var correlation = BuildCorrelationContext(ctx, session.ServerName, capability.Kind, capability.MethodName, null);
+            var correlation = BuildCorrelationContext(ctx, session.ServerName, capability.Kind, capability.MethodName, null, requestContext);
             var itemResult = await CallSingleAsync(session, capability.Kind, capability.MethodName, toolCall.Arguments?.DeepClone(), correlation, errorPolicy.DetectResultErrors, runtimeToolCatalog, ctx, realtimeProgressFingerprints, ct);
             var itemObj = (JsonObject)itemResult!;
             itemObj["method"] = capability.MethodName;
@@ -852,6 +869,7 @@ Produce the final answer strictly from the executed MCP results.
                 Name = name,
                 Description = node["description"]?.GetValue<string>(),
                 InputSchema = node["input_schema"]?.DeepClone() ?? node["inputSchema"]?.DeepClone(),
+                Meta = node["meta"]?.DeepClone() ?? node["_meta"]?.DeepClone(),
                 OutputSchema = node["output_schema"]?.DeepClone() ?? node["outputSchema"]?.DeepClone(),
                 ExampleResponse = node["example_response"]?.DeepClone() ?? node["exampleResponse"]?.DeepClone()
             }), usedNames));
@@ -984,6 +1002,9 @@ Produce the final answer strictly from the executed MCP results.
         McpCorrelationContext correlation, bool detectResultErrors, IReadOnlyList<McpToolInfo>? runtimeToolCatalog,
         StepExecutionContext ctx, ConcurrentDictionary<string, byte>? realtimeProgressFingerprints, CancellationToken ct)
     {
+        if (kind == "tool")
+            requestArgs = NormalizeResolvedToolRequest(method, requestArgs, runtimeToolCatalog);
+
         EmitMcpContentEvent(ctx, "gen_ai.content.prompt", "gen_ai.prompt",
             BuildMcpContentEnvelope(session.ServerName, kind, method, requestArgs), correlation);
 
@@ -1044,6 +1065,19 @@ Produce the final answer strictly from the executed MCP results.
                 result, correlation);
             return result;
         }
+    }
+
+    private static JsonNode? NormalizeResolvedToolRequest(
+        string method,
+        JsonNode? requestArgs,
+        IReadOnlyList<McpToolInfo>? tools)
+    {
+        var schema = tools?
+            .FirstOrDefault(candidate => string.Equals(candidate.Name, method, StringComparison.Ordinal))?
+            .InputSchema;
+        return schema == null
+            ? requestArgs
+            : McpRequestSchemaNormalizer.OmitNullOptionalProperties(requestArgs, schema);
     }
 
     private static void ValidateResolvedToolCall(
@@ -1207,6 +1241,71 @@ Produce the final answer strictly from the executed MCP results.
         ctx.AddTelemetryEvent("gnougo-flow.step.thinking", attributes);
     }
 
+    private static void EmitRealtimeMcpHumanInputSignal(
+        StepExecutionContext ctx,
+        McpHumanInputSignal signal)
+    {
+        if (signal.Phase == McpHumanInputSignalPhase.Waiting)
+        {
+            ctx.AddTelemetryEvent("gnougo-flow.step.waiting_for_human", new[]
+            {
+                new KeyValuePair<string, object?>("gnougo-flow.human.prompt", signal.Request.Prompt),
+                new KeyValuePair<string, object?>("gnougo-flow.human.request", BuildHumanInputRequestPayload(signal.Request).ToJsonString()),
+                new KeyValuePair<string, object?>("gnougo-flow.human.phase", "waiting"),
+                new KeyValuePair<string, object?>("mcp.server.name", signal.Correlation.ServerName),
+                new KeyValuePair<string, object?>("mcp.method.name", signal.Correlation.MethodName),
+                new KeyValuePair<string, object?>("mcp.kind", signal.Correlation.Kind)
+            });
+            return;
+        }
+
+        ctx.AddTelemetryEvent("gnougo-flow.step.human_input_resumed", new[]
+        {
+            new KeyValuePair<string, object?>("gnougo-flow.human.run_id", signal.Request.RunId),
+            new KeyValuePair<string, object?>("gnougo-flow.human.step_id", signal.Request.StepId),
+            new KeyValuePair<string, object?>("gnougo-flow.human.phase", signal.Phase.ToString().ToLowerInvariant()),
+            new KeyValuePair<string, object?>("mcp.server.name", signal.Correlation.ServerName),
+            new KeyValuePair<string, object?>("mcp.method.name", signal.Correlation.MethodName),
+            new KeyValuePair<string, object?>("mcp.kind", signal.Correlation.Kind)
+        });
+    }
+
+    private static JsonObject BuildHumanInputRequestPayload(HumanInputRequest request)
+    {
+        var payload = new JsonObject
+        {
+            ["prompt"] = request.Prompt,
+            ["mode"] = request.Mode,
+            ["run_id"] = request.RunId,
+            ["step_id"] = request.StepId,
+            ["timeout_ms"] = request.TimeoutMs
+        };
+        if (request.Context is not null)
+            payload["context"] = request.Context.DeepClone();
+        if (request.Choices is { Count: > 0 })
+            payload["choices"] = new JsonArray(request.Choices.Select(static choice => (JsonNode)JsonValue.Create(choice)!).ToArray());
+        if (request.Fields is { Count: > 0 })
+        {
+            payload["fields"] = new JsonArray(request.Fields.Select(static field =>
+            {
+                var node = new JsonObject
+                {
+                    ["name"] = field.Name,
+                    ["type"] = field.Type,
+                    ["required"] = field.Required
+                };
+                if (field.Description is not null)
+                    node["description"] = field.Description;
+                if (field.Options is { Count: > 0 })
+                    node["options"] = new JsonArray(field.Options.Select(static option => (JsonNode)JsonValue.Create(option)!).ToArray());
+                if (field.Default is not null)
+                    node["default"] = field.Default;
+                return (JsonNode)node;
+            }).ToArray());
+        }
+        return payload;
+    }
+
     private static string BuildProgressFingerprint(string? eventKind, string? message, string? file)
         => string.Join("\u001f", eventKind ?? string.Empty, message ?? string.Empty, file ?? string.Empty);
 
@@ -1310,7 +1409,8 @@ Produce the final answer strictly from the executed MCP results.
         string serverName,
         string kind,
         string? singleMethod,
-        List<string>? batchMethods)
+        List<string>? batchMethods,
+        JsonObject? requestContext)
     {
         var activity = Activity.Current;
         var method = singleMethod ?? (batchMethods is { Count: > 0 } ? string.Join(",", batchMethods) : null);
@@ -1318,8 +1418,12 @@ Produce the final answer strictly from the executed MCP results.
         var spanId = activity?.SpanId.ToString();
         return new McpCorrelationContext
         {
+            TenantId = ctx.Limits.TenantId ?? Environment.GetEnvironmentVariable("GNouGo__TenantId"),
             CorrelationId = ctx.Limits.RunId ?? activity?.TraceId.ToString() ?? Guid.NewGuid().ToString("N"),
             RunId = ctx.Limits.RunId,
+            ExecutionId = ctx.Limits.ExecutionId ?? ctx.Limits.RunId,
+            AgentId = ctx.Limits.AgentId,
+            AgentName = ctx.Limits.AgentName,
             TraceId = traceId,
             SpanId = spanId,
             TraceParent = activity != null ? $"00-{activity.TraceId}-{activity.SpanId}-{(activity.ActivityTraceFlags.HasFlag(ActivityTraceFlags.Recorded) ? "01" : "00")}" : null,
@@ -1327,8 +1431,76 @@ Produce the final answer strictly from the executed MCP results.
             StepType = ctx.Step.Type,
             ServerName = serverName,
             MethodName = method,
-            Kind = kind
+            Kind = kind,
+            Context = requestContext
         };
+    }
+
+    private static readonly HashSet<string> ReservedContextKeys = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "correlationId", "tenantId", "runId", "executionId", "agentId", "agentName", "traceId", "spanId", "parentSpanId",
+        "traceparent", "tracestate", "stepId", "stepType", "mcpServer", "mcpMethod", "mcpKind"
+    };
+
+    private static JsonObject? ValidateAndCloneRequestContext(JsonNode? node)
+    {
+        if (node == null)
+            return null;
+        if (node is not JsonObject context)
+            throw new WorkflowRuntimeException(ErrorCodes.InputValidation, "mcp.call context must be an object.");
+
+        ValidateContextObject(context, "context");
+        return (JsonObject)context.DeepClone();
+    }
+
+    private static void ValidateContextObject(JsonObject context, string path)
+    {
+        foreach (var (key, value) in context)
+        {
+            var fieldPath = path + "." + key;
+            if (ReservedContextKeys.Contains(key))
+                throw new WorkflowRuntimeException(ErrorCodes.InputValidation, $"mcp.call context field '{fieldPath}' is reserved technical metadata.");
+            if (IsSensitiveContextKey(key))
+                throw new WorkflowRuntimeException(ErrorCodes.InputValidation, $"mcp.call context field '{fieldPath}' is not allowed because context must not carry credentials or secrets.");
+            ValidateContextNode(value, fieldPath);
+        }
+    }
+
+    private static void ValidateContextNode(JsonNode? node, string path)
+    {
+        if (node is JsonObject child)
+        {
+            ValidateContextObject(child, path);
+            return;
+        }
+
+        if (node is not JsonArray array)
+            return;
+        for (var index = 0; index < array.Count; index++)
+            ValidateContextNode(array[index], $"{path}[{index}]");
+    }
+
+    private static bool IsSensitiveContextKey(string key)
+    {
+        var normalized = key.Replace("-", string.Empty, StringComparison.Ordinal)
+            .Replace("_", string.Empty, StringComparison.Ordinal)
+            .ToLowerInvariant();
+        return normalized.Contains("secret", StringComparison.Ordinal)
+               || normalized.Contains("token", StringComparison.Ordinal)
+               || normalized.Contains("password", StringComparison.Ordinal)
+               || normalized.Contains("authorization", StringComparison.Ordinal)
+               || normalized.Contains("credential", StringComparison.Ordinal)
+               || normalized.Contains("apikey", StringComparison.Ordinal);
+    }
+
+    private static string? ReadString(JsonObject data, params string[] names)
+    {
+        foreach (var name in names)
+        {
+            if (data[name] is JsonValue value && value.TryGetValue<string>(out var text) && !string.IsNullOrWhiteSpace(text))
+                return text;
+        }
+        return null;
     }
 
     private static JsonObject BuildMcpErrorObject(JsonNode? content, McpCorrelationContext correlation)

@@ -121,7 +121,13 @@ public sealed class WorkflowLiveAnimationSession
             return;
 
         var isRoot = string.IsNullOrWhiteSpace(signal.ParentWorkflowInstanceId);
-        var lane = FindAvailableLane(signal.WorkflowName, isRoot);
+        var parent = isRoot ? null : GetWorkflow(signal.ParentWorkflowInstanceId);
+        var caller = isRoot ? null : GetStep(signal.CallerStepOccurrenceId);
+        var collapsesIntoParent = parent is not null
+                                  && ShouldCollapseCalledWorkflow(signal, caller);
+        var lane = collapsesIntoParent
+            ? parent!.Lane
+            : FindAvailableLane(signal.WorkflowName, isRoot);
         AnimationScenePatch? patch = null;
         if (lane is null)
         {
@@ -138,7 +144,8 @@ public sealed class WorkflowLiveAnimationSession
             updates.Add(new AnimationLiveUpdate { ScenePatch = patch });
         }
 
-        _usedLaneIds.Add(lane.Id);
+        if (!collapsesIntoParent)
+            _usedLaneIds.Add(lane.Id);
         var runtime = new RuntimeWorkflow(
             signal.WorkflowInstanceId,
             signal.WorkflowName ?? lane.WorkflowName,
@@ -148,7 +155,8 @@ public sealed class WorkflowLiveAnimationSession
             patch is not null,
             patch?.Nodes.Any(node =>
                 string.Equals(node.StepId, "dynamic-work", StringComparison.Ordinal)
-                && string.Equals(node.StepType, "runtime.step", StringComparison.Ordinal)) == true);
+                && string.Equals(node.StepType, "runtime.step", StringComparison.Ordinal)) == true,
+            collapsesIntoParent);
         _workflows[signal.WorkflowInstanceId] = runtime;
         var actorHome = AllActors()
             .FirstOrDefault(actor => string.Equals(actor.Id, lane.ActorId, StringComparison.Ordinal))
@@ -170,10 +178,8 @@ public sealed class WorkflowLiveAnimationSession
                 workflow: runtime, actorId: lane.ActorId, taskId: "task-root",
                 message: "The master receives the input parcel.");
         }
-        else
+        else if (!collapsesIntoParent)
         {
-            var parent = GetWorkflow(signal.ParentWorkflowInstanceId);
-            var caller = GetStep(signal.CallerStepOccurrenceId);
             // Runtime-added workflows use the transit pipe beside the caller.
             // Statically known child lanes retain their original meeting-point
             // choreography.
@@ -249,6 +255,25 @@ public sealed class WorkflowLiveAnimationSession
         Add(updates, SimulationEventTypes.WorkflowCompleted,
             workflow: workflow, actorId: workflow.Lane.ActorId, status: status,
             message: signal.Message ?? $"Workflow '{workflow.WorkflowName}' completed.");
+
+        if (workflow.CollapsesIntoParent)
+            return;
+
+        // Failure is a terminal visual state, not a successful delivery. Keep
+        // the actor and parcel at the step/workflow where execution stopped so
+        // the user can see the failed location. Moving to Return/Delivery and
+        // immediately replaying the failure pose made the GnOuGo flash between
+        // walk and fail while hiding the actual crash point.
+        if (status == SimulationStatus.Failed)
+        {
+            if (string.IsNullOrWhiteSpace(workflow.ParentWorkflowInstanceId))
+            {
+                Add(updates, SimulationEventTypes.SimulationCompleted,
+                    workflow: workflow, actorId: workflow.Lane.ActorId, status: status,
+                    message: "Workflow execution failed at the highlighted step.");
+            }
+            return;
+        }
 
         var parent = GetWorkflow(workflow.ParentWorkflowInstanceId);
         if (parent is not null)
@@ -537,7 +562,7 @@ public sealed class WorkflowLiveAnimationSession
 
     private AnimationFlowNode? FindNode(RuntimeWorkflow workflow, string? stepId)
     {
-        if (string.IsNullOrWhiteSpace(stepId))
+        if (workflow.CollapsesIntoParent || string.IsNullOrWhiteSpace(stepId))
             return null;
         if (workflow.RuntimeNodeAliases.TryGetValue(stepId, out var alias))
             return alias;
@@ -678,6 +703,27 @@ public sealed class WorkflowLiveAnimationSession
     private static bool IsRuntimeMaterializableStep(string? stepType) =>
         stepType?.ToLowerInvariant() is not ("sequence" or "parallel" or "loop.sequential" or "loop.parallel" or "switch");
 
+    private static bool ShouldCollapseCalledWorkflow(
+        AnimationExecutionSignal signal,
+        RuntimeStep? caller)
+    {
+        if (!string.Equals(caller?.StepType, "workflow.call", StringComparison.OrdinalIgnoreCase)
+            || string.IsNullOrWhiteSpace(signal.WorkflowName)
+            || string.IsNullOrWhiteSpace(signal.SourceText))
+            return false;
+
+        try
+        {
+            var document = WorkflowPreviewParser.Parse(signal.SourceText);
+            return document.Workflows.TryGetValue(signal.WorkflowName, out var definition)
+                   && !WorkflowVisualFilter.StepsContainVisibleWork(document, definition.Steps);
+        }
+        catch (WorkflowPreviewParseException)
+        {
+            return false;
+        }
+    }
+
     private sealed class RuntimeWorkflow(
         string instanceId,
         string workflowName,
@@ -685,7 +731,8 @@ public sealed class WorkflowLiveAnimationSession
         string? parentWorkflowInstanceId,
         string? callerStepOccurrenceId,
         bool usesDynamicScene,
-        bool usesRuntimeFallback)
+        bool usesRuntimeFallback,
+        bool collapsesIntoParent)
     {
         public string InstanceId { get; } = instanceId;
         public string WorkflowName { get; } = workflowName;
@@ -694,6 +741,7 @@ public sealed class WorkflowLiveAnimationSession
         public string? CallerStepOccurrenceId { get; } = callerStepOccurrenceId;
         public bool UsesDynamicScene { get; } = usesDynamicScene;
         public bool UsesRuntimeFallback { get; } = usesRuntimeFallback;
+        public bool CollapsesIntoParent { get; } = collapsesIntoParent;
         public bool RuntimePlaceholderClaimed { get; set; }
         public int RuntimeStepPatchCount { get; set; }
         public Dictionary<string, AnimationFlowNode> RuntimeNodeAliases { get; } = new(StringComparer.Ordinal);

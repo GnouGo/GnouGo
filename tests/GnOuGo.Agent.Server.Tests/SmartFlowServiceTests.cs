@@ -9,6 +9,7 @@ using GnOuGo.Agent.Mcp.Services;
 using GnOuGo.Agent.Server.SmartFlow;
 using GnOuGo.Agent.Server.Telemetry;
 using GnOuGo.AI.Core;
+using GnOuGo.Assets.Animation;
 using GnOuGo.Flow.Core.Runtime;
 using OtlpTenantCollector.Models;
 
@@ -35,6 +36,11 @@ public sealed class SmartFlowServiceTests
         Assert.Contains("`/mcp add`", answer.Text);
         Assert.Contains("`/gnougo add`", answer.Text);
         Assert.Contains("`/status`", answer.Text);
+        Assert.Contains(events, evt => evt.Type == "animation.prepared");
+        Assert.Contains(events, evt => evt.Animation?.Event?.Type == SimulationEventTypes.ActorMoved);
+        Assert.Contains(events, evt =>
+            evt.Animation?.Event?.Type == SimulationEventTypes.SimulationCompleted
+            && evt.Animation.Event.Status == SimulationStatus.Succeeded);
         Assert.Equal(0, llm.CallCount);
     }
 
@@ -243,6 +249,13 @@ workflows:
         var brokenWorkflow = """
             version: 1
             name: broken-agent
+            skill:
+              description: Test agent.
+              tags: [test]
+              inputs:
+                task: { type: string, description: User task. }
+              outputs:
+                answer: { type: string, description: Final answer. }
             workflows:
               main:
                 inputs:
@@ -266,7 +279,7 @@ workflows:
             version: 1
             name: broken-agent
             skill:
-              description: Repaired test agent.
+              description: Test agent.
               tags: [test]
               inputs:
                 task:
@@ -283,13 +296,16 @@ workflows:
                     type: string
                     required: true
                 steps:
-                  - id: final_answer
-                    type: set
+                  - id: failing_lookup
+                    type: mcp.call
                     input:
-                      answer: "${'REPAIRED: ' + data.inputs.task}"
+                      server: GnOuGo.Agent.Mcp
+                      method: agent_get_by_name
+                      request:
+                        name: broken-agent
                 outputs:
                   answer:
-                    expr: "${data.steps.final_answer.answer}"
+                    expr: "${json(data.steps.failing_lookup.response)}"
                     type: string
             """;
 
@@ -428,6 +444,13 @@ workflows:
         var brokenWorkflow = """
             version: 1
             name: discard-repair-agent
+            skill:
+              description: Test agent.
+              tags: [test]
+              inputs:
+                task: { type: string, description: User task. }
+              outputs:
+                answer: { type: string, description: Final answer. }
             workflows:
               main:
                 inputs:
@@ -444,14 +467,14 @@ workflows:
                         name: missing-agent
                 outputs:
                   answer:
-                    expr: "${data.steps.failing_lookup.response.agent.name}"
+                    expr: "${json(data.steps.failing_lookup.response)}"
                     type: string
             """;
         var repairedWorkflow = """
             version: 1
             name: discard-repair-agent
             skill:
-              description: Repaired test agent.
+              description: Test agent.
               tags: [test]
               inputs:
                 task:
@@ -468,13 +491,16 @@ workflows:
                     type: string
                     required: true
                 steps:
-                  - id: final_answer
-                    type: set
+                  - id: failing_lookup
+                    type: mcp.call
                     input:
-                      answer: "${'REPAIRED: ' + data.inputs.task}"
+                      server: GnOuGo.Agent.Mcp
+                      method: agent_get_by_name
+                      request:
+                        name: discard-repair-agent
                 outputs:
                   answer:
-                    expr: "${data.steps.final_answer.answer}"
+                    expr: "${json(data.steps.failing_lookup.response)}"
                     type: string
             """;
 
@@ -548,6 +574,13 @@ workflows:
         var brokenWorkflow = """
             version: 1
             name: document-agent
+            skill:
+              description: Document workflow.
+              tags: [document]
+              inputs:
+                task: { type: string, description: User task. }
+              outputs:
+                answer: { type: string, description: Final answer. }
             workflows:
               main:
                 inputs:
@@ -571,7 +604,7 @@ workflows:
             version: 1
             name: document-agent
             skill:
-              description: Repaired document workflow.
+              description: Document workflow.
               tags: [document]
               inputs:
                 task:
@@ -588,20 +621,16 @@ workflows:
                     type: string
                     required: true
                 steps:
-                  - id: create_doc
+                  - id: failing_lookup
                     type: mcp.call
                     input:
                       server: GnOuGo.Document.Mcp
                       method: document_create
                       request:
                         title: "${data.inputs.task}"
-                  - id: final_answer
-                    type: set
-                    input:
-                      answer: "${data.steps.create_doc.response.path}"
                 outputs:
                   answer:
-                    expr: "${data.steps.final_answer.answer}"
+                    expr: "${data.steps.failing_lookup.response.path}"
                     type: string
             """;
 
@@ -661,6 +690,13 @@ workflows:
         var handledErrorWorkflow = """
             version: 1
             name: git-agent
+            skill:
+              description: Works with git repositories.
+              tags: [git]
+              inputs:
+                task: { type: string, description: User task. }
+              outputs:
+                answer: { type: string, description: Final answer. }
             workflows:
               main:
                 inputs:
@@ -698,7 +734,7 @@ workflows:
             version: 1
             name: git-agent
             skill:
-              description: Repaired git agent.
+              description: Works with git repositories.
               tags: [git]
               inputs:
                 task:
@@ -715,10 +751,27 @@ workflows:
                     type: string
                     required: true
                 steps:
+                  - id: clone_repo
+                    type: mcp.call
+                    input:
+                      server: GnOuGo.Git.Mcp
+                      method: git_clone
+                      request:
+                        remoteUrl: https://github.com/AxaFrance/oidc-client
+                        targetDirectory: repos/AxaFrance-oidc-client-issue-1679-retry
+                      timeout_ms: 1200000
+                    on_error:
+                      cases:
+                        - if: '${error.code == "MCP_CALL_ERROR"}'
+                          action: continue
+                          set_output:
+                            status: handled
+                            message: "${error.message}"
+                            mcp_message: "${error.details.mcp_error_message}"
                   - id: final_answer
                     type: set
                     input:
-                      answer: "${'REPAIRED GIT: ' + data.inputs.task}"
+                      answer: "${'Clone retry status: ' + data.steps.clone_repo.status}"
                 outputs:
                   answer:
                     expr: "${data.steps.final_answer.answer}"
@@ -839,7 +892,7 @@ workflows:
             version: 1
             name: git-agent
             skill:
-              description: Repaired routed git agent.
+              description: Works with git repositories.
               tags: [git]
               inputs:
                 task:
@@ -856,10 +909,27 @@ workflows:
                     type: string
                     required: true
                 steps:
+                  - id: clone_repo
+                    type: mcp.call
+                    input:
+                      server: GnOuGo.Git.Mcp
+                      method: git_clone
+                      request:
+                        remoteUrl: https://github.com/AxaFrance/oidc-client
+                        targetDirectory: repos/AxaFrance-oidc-client-issue-1679-retry
+                      timeout_ms: 1200000
+                    on_error:
+                      cases:
+                        - if: '${error.code == "MCP_CALL_ERROR"}'
+                          action: continue
+                          set_output:
+                            status: handled
+                            message: "${error.message}"
+                            mcp_message: "${error.details.mcp_error_message}"
                   - id: final_answer
                     type: set
                     input:
-                      answer: "${'REPAIRED ROUTED GIT: ' + data.inputs.task}"
+                      answer: "${'Clone retry status: ' + data.steps.clone_repo.status}"
                 outputs:
                   answer:
                     expr: "${data.steps.final_answer.answer}"

@@ -40,9 +40,19 @@ public sealed class JintSandbox
         {
             throw new WorkflowRuntimeException(ErrorCodes.ScriptError, $"Script error: {ex.Message}");
         }
+        catch (StatementsCountOverflowException ex)
+        {
+            throw new WorkflowRuntimeException(
+                ErrorCodes.ScriptError,
+                $"Script exceeded the configured statement limit ({_maxStatements}).",
+                retryable: false,
+                inner: ex);
+        }
         catch (Jint.Runtime.ExecutionCanceledException)
         {
-            throw new WorkflowRuntimeException(ErrorCodes.ScriptError, "Script execution timed out or exceeded statement limit");
+            throw new WorkflowRuntimeException(
+                ErrorCodes.ScriptError,
+                $"Script execution timed out after {_timeout.TotalSeconds:0.#} seconds.");
         }
 
         var functions = new Dictionary<string, Func<JsonNode?[], JsonNode?>>();
@@ -62,6 +72,22 @@ public sealed class JintSandbox
                 catch (JavaScriptException ex2)
                 {
                     throw new WorkflowRuntimeException(ErrorCodes.ScriptError, $"Function '{capturedName}' error: {ex2.Message}");
+                }
+                catch (StatementsCountOverflowException ex2)
+                {
+                    throw new WorkflowRuntimeException(
+                        ErrorCodes.EvalError,
+                        $"Function '{capturedName}' exceeded the configured statement limit ({_maxStatements}).",
+                        retryable: false,
+                        inner: ex2);
+                }
+                catch (ExecutionCanceledException ex2)
+                {
+                    throw new WorkflowRuntimeException(
+                        ErrorCodes.EvalError,
+                        $"Function '{capturedName}' timed out after {_timeout.TotalSeconds:0.#} seconds.",
+                        retryable: false,
+                        inner: ex2);
                 }
             };
         }
@@ -245,5 +271,4 @@ public sealed class JintSandbox
         return null;
     }
 }
-
 

@@ -96,7 +96,7 @@ public static class WorkflowParser
 
     private static readonly HashSet<string> WorkflowFields = new(StringComparer.Ordinal)
     {
-        "inputs", "skill", "skills", "functions", "steps", "outputs"
+        "inputs", "skill", "skills", "functions", "steps", "finally", "outputs"
     };
 
     private static readonly HashSet<string> StepFields = new(StringComparer.Ordinal)
@@ -149,6 +149,8 @@ public static class WorkflowParser
 
             if (workflowNode.GetSequence("steps") is { } stepsNode)
                 CollectUnknownStepListFields(stepsNode, $"{workflowPath}.steps", unknownFields);
+            if (workflowNode.GetSequence("finally") is { } finallyNode)
+                CollectUnknownStepListFields(finallyNode, $"{workflowPath}.finally", unknownFields);
         }
     }
 
@@ -309,6 +311,10 @@ public static class WorkflowParser
             ?? throw new WorkflowParseException($"Workflow '{name}' missing required 'steps'");
         wf.Steps = ParseStepList(stepsNode);
 
+        // finalization steps
+        if (node.GetSequence("finally") is { } finallyNode)
+            wf.Finally = ParseStepList(finallyNode);
+
         // outputs
         if (node.HasKey("outputs"))
         {
@@ -372,6 +378,7 @@ public static class WorkflowParser
 
         if (node is YamlMappingNode map)
         {
+            var (type, nullable) = ParseWorkflowContractType(map);
             var required = map.Children.TryGetValue(new YamlScalarNode("required"), out var requiredNode)
                 && requiredNode is YamlScalarNode
                     ? map.GetBool("required")
@@ -379,7 +386,8 @@ public static class WorkflowParser
 
             var def = new InputDef
             {
-                Type = map.GetScalar("type") ?? "any",
+                Type = type,
+                Nullable = nullable,
                 Required = required ?? true,
                 Default = map.GetScalar("default"),
                 Description = map.GetScalar("description")
@@ -410,7 +418,7 @@ public static class WorkflowParser
                 def.AdditionalProperties = ParseInputDef(additionalNode);
 
             var requiredProperties = map.GetStringList("required_properties");
-            def.RequiredProperties = requiredProperties.Count > 0 ? requiredProperties : null;
+            def.RequiredProperties = map.HasKey("required_properties") ? requiredProperties : null;
 
             return def;
         }
@@ -432,10 +440,12 @@ public static class WorkflowParser
             // Long form with "expr" key — typed output definition
             if (hasExpr)
             {
+                var (type, nullable) = ParseWorkflowContractType(map);
                 var def = new OutputDef
                 {
                     Expr = map.GetScalar("expr") ?? "",
-                    Type = map.GetScalar("type") ?? "any",
+                    Type = type,
+                    Nullable = nullable,
                     Description = map.GetScalar("description")
                 };
 
@@ -464,7 +474,7 @@ public static class WorkflowParser
                     def.AdditionalProperties = ParseOutputDef(additionalNode);
 
                 var requiredProperties = map.GetStringList("required_properties");
-                def.RequiredProperties = requiredProperties.Count > 0 ? requiredProperties : null;
+                def.RequiredProperties = map.HasKey("required_properties") ? requiredProperties : null;
 
                 return def;
             }
@@ -472,9 +482,11 @@ public static class WorkflowParser
             // Type-only schema (no expr, but has type) — used in nested items/properties
             if (hasType)
             {
+                var (type, nullable) = ParseWorkflowContractType(map);
                 var def = new OutputDef
                 {
-                    Type = map.GetScalar("type") ?? "any",
+                    Type = type,
+                    Nullable = nullable,
                     Description = map.GetScalar("description")
                 };
 
@@ -500,7 +512,7 @@ public static class WorkflowParser
                     def.AdditionalProperties = ParseOutputDef(additionalNode);
 
                 var requiredProperties = map.GetStringList("required_properties");
-                def.RequiredProperties = requiredProperties.Count > 0 ? requiredProperties : null;
+                def.RequiredProperties = map.HasKey("required_properties") ? requiredProperties : null;
 
                 return def;
             }
@@ -516,6 +528,27 @@ public static class WorkflowParser
         }
 
         return OutputDef.FromExpr("");
+    }
+
+    private static (string Type, bool Nullable) ParseWorkflowContractType(YamlMappingNode map)
+    {
+        var nullable = map.GetBool("nullable") == true;
+        if (!map.Children.TryGetValue(new YamlScalarNode("type"), out var typeNode))
+            return ("any", nullable);
+        if (typeNode is YamlScalarNode scalar)
+            return (scalar.Value ?? "any", nullable);
+        if (typeNode is not YamlSequenceNode sequence)
+            return ("any", nullable);
+
+        var types = sequence.Children.OfType<YamlScalarNode>()
+            .Select(static item => item.Value?.Trim().ToLowerInvariant())
+            .Where(static item => !string.IsNullOrWhiteSpace(item))
+            .Distinct(StringComparer.Ordinal)
+            .ToArray();
+        var nonNull = types.Where(static type => !string.Equals(type, "null", StringComparison.Ordinal)).ToArray();
+        return nonNull.Length == 1 && types.Any(static type => string.Equals(type, "null", StringComparison.Ordinal))
+            ? (nonNull[0]!, true)
+            : ("any", nullable);
     }
 
     /// <summary>

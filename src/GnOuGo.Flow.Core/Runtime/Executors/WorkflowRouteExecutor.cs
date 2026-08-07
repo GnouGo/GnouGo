@@ -1448,10 +1448,18 @@ public sealed class WorkflowRouteExecutor : IStepExecutor
         if (outputs is not JsonObject obj)
             return outputs?.ToJsonString();
 
-        return obj["answer"]?.GetValue<string>()
-            ?? obj["text"]?.GetValue<string>()
-            ?? obj["result"]?.GetValue<string>()
-            ?? obj["response"]?.GetValue<string>();
+        foreach (var propertyName in new[] { "answer", "text", "result", "response" })
+        {
+            if (!obj.TryGetPropertyValue(propertyName, out var value))
+                continue;
+
+            if (value is JsonValue scalar && scalar.TryGetValue<string>(out var text))
+                return text;
+
+            return value?.ToJsonString() ?? "null";
+        }
+
+        return null;
     }
 
     private static ExecutionLimits CreateChildLimits(ExecutionLimits parent, RouteCandidate candidate)
@@ -1473,6 +1481,10 @@ public sealed class WorkflowRouteExecutor : IStepExecutor
             MaxSwitchCases = parent.MaxSwitchCases,
             MaxFunctionCallDepth = parent.MaxFunctionCallDepth,
             LogStepContent = parent.LogStepContent,
+            TenantId = parent.TenantId,
+            ExecutionId = parent.ExecutionId ?? parent.RunId,
+            AgentId = parent.AgentId,
+            AgentName = parent.AgentName,
             RunId = $"{parentRunId}:route:{SanitizeRunIdPart(candidate.Id)}:{Guid.NewGuid():N}"
         };
     }

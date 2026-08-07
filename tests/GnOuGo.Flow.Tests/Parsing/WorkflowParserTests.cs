@@ -778,4 +778,31 @@ workflows:
         Assert.Equal(new[] { "title" }, doc.Workflows["main"].Inputs!["payload"].RequiredProperties);
         Assert.Equal(new[] { "title" }, doc.Workflows["main"].Outputs!["result"].RequiredProperties);
     }
+
+    [Fact]
+    public void Parse_NullableWorkflowContracts_SupportsFlagAndTypeUnion()
+    {
+        var doc = WorkflowParser.Parse("""
+version: 1
+workflows:
+  main:
+    inputs:
+      cursor:
+        type: string
+        nullable: true
+    outputs:
+      suggestion:
+        expr: ${data.inputs.cursor}
+        type: [string, "null"]
+    steps:
+      - id: done
+        type: set
+        input: { ok: true }
+""");
+
+        Assert.Equal("string", doc.Workflows["main"].Inputs!["cursor"].Type);
+        Assert.True(doc.Workflows["main"].Inputs!["cursor"].Nullable);
+        Assert.Equal("string", doc.Workflows["main"].Outputs!["suggestion"].Type);
+        Assert.True(doc.Workflows["main"].Outputs!["suggestion"].Nullable);
+    }
 }

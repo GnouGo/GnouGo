@@ -17,6 +17,11 @@ public static class GnOuGoWorkspace
     public const string WorkspaceDataSubfolder = ".GnOuGo";
 
     /// <summary>
+    /// Visible folder used under the GnOuGo workspace for directories materialized by workflows.
+    /// </summary>
+    public const string WorkflowWorkspacesSubfolder = "workflows";
+
+    /// <summary>
     /// Resolves the current user's Desktop directory, with robust fallback for
     /// Native AOT, sandboxed, and headless environments.
     /// </summary>
@@ -145,6 +150,42 @@ public static class GnOuGoWorkspace
         => Path.GetFullPath(Path.Combine(
             ResolveDefaultWorkingDirectorySafe(contentRootPath: baseDirectory),
             WorkspaceDataSubfolder));
+
+    /// <summary>
+    /// Resolves the visible directory reserved for workflow-owned workspaces.
+    /// The directory is not created by this helper.
+    /// </summary>
+    public static string ResolveWorkflowWorkspacesDirectory(string workspaceRoot)
+    {
+        if (string.IsNullOrWhiteSpace(workspaceRoot))
+            throw new ArgumentException("Workspace root must not be empty.", nameof(workspaceRoot));
+
+        return Path.GetFullPath(Path.Combine(workspaceRoot, WorkflowWorkspacesSubfolder));
+    }
+
+    /// <summary>
+    /// Returns whether a path is the hidden GnOuGo directory, or one of its descendants,
+    /// inside the supplied workspace root.
+    /// </summary>
+    public static bool IsReservedWorkspacePath(string path, string workspaceRoot)
+    {
+        if (string.IsNullOrWhiteSpace(path) || string.IsNullOrWhiteSpace(workspaceRoot))
+            return false;
+
+        var reservedRoot = Path.GetFullPath(Path.Combine(workspaceRoot, WorkspaceDataSubfolder));
+        return IsPathWithinRoot(path, reservedRoot);
+    }
+
+    /// <summary>
+    /// Returns whether a path is the visible workflow workspace directory, or one of its descendants.
+    /// </summary>
+    public static bool IsWorkflowWorkspacePath(string path, string workspaceRoot)
+    {
+        if (string.IsNullOrWhiteSpace(path) || string.IsNullOrWhiteSpace(workspaceRoot))
+            return false;
+
+        return IsPathWithinRoot(path, ResolveWorkflowWorkspacesDirectory(workspaceRoot));
+    }
 
     /// <summary>
     /// Walks up the directory tree from <paramref name="startPath"/> looking for a <c>.sln</c> file

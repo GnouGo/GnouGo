@@ -77,6 +77,48 @@ public sealed class LiveWorkflowAnimationTests
     }
 
     [Fact]
+    public void LiveSession_FailedWorkflowStaysAtCrashPointWithoutDeliveryChoreography()
+    {
+        var validation = WorkflowPreviewValidator.ParseAndValidate("""
+            version: 1
+            entrypoint: main
+            workflows:
+              main:
+                steps:
+                  - { id: failing_call, type: mcp.call }
+            """);
+        var plan = GnouGnouAnimationPlanner.BuildLive(validation, new GnouGnouAnimationOptions { Seed = 19 });
+        var session = new WorkflowLiveAnimationSession(plan);
+
+        session.Apply(new AnimationExecutionSignal
+        {
+            Kind = AnimationExecutionSignalKind.WorkflowStarted,
+            WorkflowInstanceId = "run-main",
+            WorkflowName = "main"
+        });
+        var completed = session.Apply(new AnimationExecutionSignal
+        {
+            Kind = AnimationExecutionSignalKind.WorkflowCompleted,
+            WorkflowInstanceId = "run-main",
+            WorkflowName = "main",
+            Status = SimulationStatus.Failed
+        });
+
+        Assert.Contains(completed, update => update.Event is
+        {
+            Type: SimulationEventTypes.WorkflowCompleted,
+            Status: SimulationStatus.Failed
+        });
+        Assert.Contains(completed, update => update.Event is
+        {
+            Type: SimulationEventTypes.SimulationCompleted,
+            Status: SimulationStatus.Failed
+        });
+        Assert.DoesNotContain(completed, update => update.Event?.Type == SimulationEventTypes.ActorMoved);
+        Assert.DoesNotContain(completed, update => update.Event?.Type == SimulationEventTypes.OutputSent);
+    }
+
+    [Fact]
     public void BuildLive_RendersDedicatedOrchestrationStations()
     {
         var validation = WorkflowPreviewValidator.ParseAndValidate("""
@@ -146,6 +188,69 @@ public sealed class LiveWorkflowAnimationTests
         Assert.Equal(station.Id, movement.StationId);
         Assert.Equal(station.Position.X, movement.X);
         Assert.Equal(station.Position.Y, movement.Y);
+    }
+
+    [Fact]
+    public void LiveSession_MovesBeforeEachSequentialVisibleStep()
+    {
+        var validation = WorkflowPreviewValidator.ParseAndValidate("""
+            version: 1
+            entrypoint: main
+            workflows:
+              main:
+                steps:
+                  - { id: draft, type: llm.call }
+                  - { id: send, type: mcp.call }
+            """);
+        var plan = GnouGnouAnimationPlanner.BuildLive(
+            validation,
+            new GnouGnouAnimationOptions { Seed = 23 });
+        var session = new WorkflowLiveAnimationSession(plan);
+        session.Apply(new AnimationExecutionSignal
+        {
+            Kind = AnimationExecutionSignalKind.WorkflowStarted,
+            WorkflowInstanceId = "run-main",
+            WorkflowName = "main"
+        });
+
+        var first = session.Apply(new AnimationExecutionSignal
+        {
+            Kind = AnimationExecutionSignalKind.StepStarted,
+            WorkflowInstanceId = "run-main",
+            StepOccurrenceId = "draft-1",
+            StepId = "draft",
+            StepType = "llm.call"
+        });
+        session.Apply(new AnimationExecutionSignal
+        {
+            Kind = AnimationExecutionSignalKind.StepCompleted,
+            WorkflowInstanceId = "run-main",
+            StepOccurrenceId = "draft-1",
+            StepId = "draft",
+            StepType = "llm.call",
+            Status = SimulationStatus.Succeeded
+        });
+        var second = session.Apply(new AnimationExecutionSignal
+        {
+            Kind = AnimationExecutionSignalKind.StepStarted,
+            WorkflowInstanceId = "run-main",
+            StepOccurrenceId = "send-1",
+            StepId = "send",
+            StepType = "mcp.call"
+        });
+
+        var firstEvents = first.Select(update => update.Event).OfType<SimulationEvent>().ToArray();
+        var secondEvents = second.Select(update => update.Event).OfType<SimulationEvent>().ToArray();
+        var firstMove = Assert.Single(firstEvents, item => item.Type == SimulationEventTypes.ActorMoved);
+        var secondMove = Assert.Single(secondEvents, item => item.Type == SimulationEventTypes.ActorMoved);
+
+        Assert.True(
+            Array.IndexOf(firstEvents, firstMove)
+            < Array.FindIndex(firstEvents, item => item.Type == SimulationEventTypes.StepStarted));
+        Assert.True(
+            Array.IndexOf(secondEvents, secondMove)
+            < Array.FindIndex(secondEvents, item => item.Type == SimulationEventTypes.StepStarted));
+        Assert.NotEqual((firstMove.X, firstMove.Y), (secondMove.X, secondMove.Y));
     }
 
     [Fact]
@@ -317,6 +422,92 @@ public sealed class LiveWorkflowAnimationTests
             && item.ActorId == masterActorId);
         Assert.True(specialistReturn.Sequence < returnHandoff.Sequence);
         Assert.True(returnHandoff.Sequence < masterReturn.Sequence);
+    }
+
+    [Fact]
+    public void LiveSession_CollapsesShortLocalWorkflowCallIntoParentLane()
+    {
+        const string yaml = """
+            version: 1
+            entrypoint: main
+            workflows:
+              main:
+                steps:
+                  - id: delegate
+                    type: workflow.call
+                    input:
+                      ref: { kind: local, name: child }
+              child:
+                steps:
+                  - { id: prepare, type: set }
+                  - { id: format, type: template.render }
+            """;
+        var validation = WorkflowPreviewValidator.ParseAndValidate(yaml);
+        var plan = GnouGnouAnimationPlanner.BuildLive(
+            validation,
+            new GnouGnouAnimationOptions { Seed = 17 });
+        var session = new WorkflowLiveAnimationSession(plan);
+        var parentLane = Assert.Single(plan.Lanes);
+
+        session.Apply(new AnimationExecutionSignal
+        {
+            Kind = AnimationExecutionSignalKind.WorkflowStarted,
+            WorkflowInstanceId = "root",
+            WorkflowName = "main"
+        });
+        session.Apply(new AnimationExecutionSignal
+        {
+            Kind = AnimationExecutionSignalKind.StepStarted,
+            WorkflowInstanceId = "root",
+            StepOccurrenceId = "delegate-1",
+            StepId = "delegate",
+            StepType = "workflow.call"
+        });
+        var childStart = session.Apply(new AnimationExecutionSignal
+        {
+            Kind = AnimationExecutionSignalKind.WorkflowStarted,
+            WorkflowInstanceId = "child-1",
+            ParentWorkflowInstanceId = "root",
+            CallerStepOccurrenceId = "delegate-1",
+            WorkflowName = "child",
+            SourceText = yaml
+        });
+        var shortStep = session.Apply(new AnimationExecutionSignal
+        {
+            Kind = AnimationExecutionSignalKind.StepStarted,
+            WorkflowInstanceId = "child-1",
+            StepOccurrenceId = "prepare-1",
+            StepId = "prepare",
+            StepType = "set"
+        });
+        var childEnd = session.Apply(new AnimationExecutionSignal
+        {
+            Kind = AnimationExecutionSignalKind.WorkflowCompleted,
+            WorkflowInstanceId = "child-1",
+            ParentWorkflowInstanceId = "root",
+            WorkflowName = "child",
+            Status = SimulationStatus.Succeeded
+        });
+
+        Assert.DoesNotContain(childStart, update => update.ScenePatch is not null);
+        Assert.DoesNotContain(childStart, update => update.Event?.Type is
+            SimulationEventTypes.WorkflowDiscovered
+            or SimulationEventTypes.ActorSpawned
+            or SimulationEventTypes.ActorMoved
+            or SimulationEventTypes.TaskHandedOff);
+        var stepStarted = Assert.Single(shortStep, update =>
+            update.Event?.Type == SimulationEventTypes.StepStarted).Event!;
+        Assert.Equal(parentLane.ActorId, stepStarted.ActorId);
+        Assert.Null(stepStarted.NodeId);
+        Assert.Null(stepStarted.StationId);
+        Assert.DoesNotContain(shortStep, update => update.ScenePatch is not null);
+        Assert.DoesNotContain(shortStep, update => update.Event?.Type == SimulationEventTypes.ActorMoved);
+        Assert.Contains(childEnd, update =>
+            update.Event?.Type == SimulationEventTypes.WorkflowCompleted
+            && update.Event.WorkflowName == "child");
+        Assert.DoesNotContain(childEnd, update => update.Event?.Type is
+            SimulationEventTypes.ActorMoved
+            or SimulationEventTypes.TaskHandedOff);
     }
 
     [Fact]

@@ -20,6 +20,57 @@ namespace GnOuGo.Agent.Server.Tests;
 public sealed class ConfigureProvidersServiceTests
 {
     [Fact]
+    public async Task McpCopilotPermissions_ListsAndRevokesTenantScopedPersistentGrants()
+    {
+        JsonObject? revokeRequest = null;
+        var session = new FakeMcpSession("GnOuGo.GithubCopilot.Mcp")
+            .OnTool("copilot_permission_grants_list", new JsonObject
+            {
+                ["success"] = true,
+                ["grants"] = new JsonArray(new JsonObject
+                {
+                    ["id"] = "grant-1",
+                    ["agentId"] = "agent-1",
+                    ["agentName"] = "Reviewer",
+                    ["lastUsedAt"] = "2026-08-07T12:00:00Z"
+                })
+            })
+            .OnTool("copilot_permission_grant_revoke", (request, _) =>
+            {
+                revokeRequest = request as JsonObject;
+                return Task.FromResult(new McpCallResult
+                {
+                    Content = new JsonObject { ["success"] = true, ["grantId"] = "grant-1", ["revokedCount"] = 1 }
+                });
+            });
+        var service = CreatePermissionManagementService(new FakeMcpClientFactory(session));
+
+        var listEvents = await SmartFlowTestFactory.CollectAsync(
+            service.ExecuteAsync("/mcp copilot permissions", TestContext.Current.CancellationToken),
+            TestContext.Current.CancellationToken);
+        var revokeEvents = await SmartFlowTestFactory.CollectAsync(
+            service.ExecuteAsync("/mcp copilot permissions revoke grant-1", TestContext.Current.CancellationToken),
+            TestContext.Current.CancellationToken);
+
+        Assert.Contains(listEvents, item => item.Text?.Contains("Reviewer", StringComparison.Ordinal) == true);
+        Assert.Contains(revokeEvents, item => item.Text?.Contains("revoked", StringComparison.OrdinalIgnoreCase) == true);
+        Assert.Equal("grant-1", revokeRequest?["grantId"]?.GetValue<string>());
+        Assert.Equal("tenant-test", revokeRequest?["tenantId"]?.GetValue<string>());
+    }
+
+    private static ConfigureProvidersService CreatePermissionManagementService(IMcpClientFactory mcpFactory)
+        => new(
+            new RecordingLlmClient(),
+            new AgentHumanInputProvider(),
+            new FakeModelCatalog(),
+            new FakeKeyVaultRuntimeConfigStore(),
+            SmartFlowTestFactory.CreateRuntimeOptionsStore(new LLMOptions()),
+            SmartFlowTestFactory.CreateTelemetryHarness().Telemetry,
+            NullLogger<ConfigureProvidersService>.Instance,
+            mcpFactory: mcpFactory,
+            openTelemetrySettings: Options.Create(new OpenTelemetrySettings { TenantId = "tenant-test" }));
+
+    [Fact]
     public void ShouldUseInjectedModelCatalog_ReturnsFalse_WhenMatchingRuntimeOpenAiHasNoAuthButWizardDoes()
     {
         var llm = new RecordingLlmClient();
@@ -300,6 +351,163 @@ public sealed class ConfigureProvidersServiceTests
         var stored = await keyVaultStore.GetSecretValueAsync("LLM--McpServerOverrides--GnOuGo.Git.Mcp--Git--Token", CancellationToken.None);
         Assert.Equal("ghp-test-token", stored);
         Assert.Equal("tools/GnOuGo.Git.Mcp/GnOuGo.Git.Mcp", runtimeStore.Current.McpServers["GnOuGo.Git.Mcp"].Command);
+    }
+
+    [Fact]
+    public async Task ExecuteAsync_McpEdit_BundledCopilotRendersAndPersistsValidatedRuntimeDefaults()
+    {
+        const string serverName = "GnOuGo.GithubCopilot.Mcp";
+        var settings = CreateBundledCopilotMcpSettings();
+        var keyVaultStore = new FakeKeyVaultRuntimeConfigStore()
+            .AddSecret(
+                "LLM--Models--openai",
+                "{\"provider\":\"openai\",\"url\":\"https://api.openai.com/v1\",\"model\":\"gpt-provider-model\",\"authType\":\"api_key\",\"apiKey\":\"provider-secret\"}");
+        var humanInput = new AgentHumanInputProvider();
+        var runtimeStore = SmartFlowTestFactory.CreateRuntimeOptionsStore(new LLMOptions
+        {
+            McpServers = new Dictionary<string, McpServerOptions>(StringComparer.OrdinalIgnoreCase)
+            {
+                [serverName] = new()
+                {
+                    Type = "stdio",
+                    Command = "tools/GnOuGo.GithubCopilot.Mcp/GnOuGo.GithubCopilot.Mcp",
+                    Args = ["--stdio"]
+                }
+            }
+        });
+
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(10));
+        var token = cts.Token;
+        var responder = Task.Run(async () =>
+        {
+            await foreach (var request in humanInput.PendingRequests.ReadAllAsync(token))
+            {
+                Assert.Equal("mcp_edit.bundled_fields", request.StepId);
+                Assert.NotNull(request.Fields);
+                Assert.Equal(6, request.Fields!.Count);
+                Assert.DoesNotContain(request.Fields!, field => field.Name is "command" or "args" or "allow_writes" or "enable_approve_all");
+                var providerField = Assert.Single(request.Fields!, field => field.Name == "provider");
+                Assert.Contains("Copilot", providerField.Options!);
+                Assert.Contains("openai", providerField.Options!);
+                Assert.Equal("Copilot", providerField.Default);
+
+                humanInput.TrySubmitResponse(request.RunId, request.StepId, new JsonObject
+                {
+                    ["provider"] = "openai",
+                    ["model"] = "fallback-model",
+                    ["reasoning_effort"] = "medium",
+                    ["use_logged_in_user"] = false,
+                    ["request_timeout_seconds"] = 600,
+                    ["managed_session_ttl_seconds"] = 300
+                });
+                break;
+            }
+        }, token);
+
+        var service = new ConfigureProvidersService(
+            new RecordingLlmClient(),
+            humanInput,
+            new FakeModelCatalog(),
+            keyVaultStore,
+            runtimeStore,
+            SmartFlowTestFactory.CreateTelemetryHarness().Telemetry,
+            NullLogger<ConfigureProvidersService>.Instance,
+            bundledMcpSettings: Options.Create(settings));
+
+        var events = await SmartFlowTestFactory.CollectAsync(service.ExecuteAsync($"/mcp edit {serverName}", token), token);
+        await responder;
+
+        Assert.Contains(events, evt => evt.Type == "answer"
+                                      && evt.Text?.Contains("next workflow/MCP process", StringComparison.Ordinal) == true);
+        Assert.Equal("openai", await keyVaultStore.GetSecretValueAsync(CopilotOverrideKey("Provider"), token));
+        Assert.Equal("fallback-model", await keyVaultStore.GetSecretValueAsync(CopilotOverrideKey("Model"), token));
+        Assert.Equal("medium", await keyVaultStore.GetSecretValueAsync(CopilotOverrideKey("ReasoningEffort"), token));
+        Assert.Equal("false", await keyVaultStore.GetSecretValueAsync(CopilotOverrideKey("UseLoggedInUser"), token));
+        Assert.Equal("600", await keyVaultStore.GetSecretValueAsync(CopilotOverrideKey("RequestTimeoutSeconds"), token));
+        Assert.Equal("300", await keyVaultStore.GetSecretValueAsync(CopilotOverrideKey("ManagedSessionTtlSeconds"), token));
+        Assert.Equal("provider-secret", JsonNode.Parse((await keyVaultStore.GetSecretValueAsync("LLM--Models--openai", token))!)?["apiKey"]?.GetValue<string>());
+    }
+
+    [Fact]
+    public async Task ExecuteAsync_McpEdit_BundledCopilotRejectsInvalidValuesWithoutPartialWrites()
+    {
+        const string serverName = "GnOuGo.GithubCopilot.Mcp";
+        var keyVaultStore = new FakeKeyVaultRuntimeConfigStore()
+            .AddSecret(
+                "LLM--Models--openai",
+                "{\"provider\":\"openai\",\"url\":\"https://api.openai.com/v1\",\"model\":\"gpt-provider-model\",\"authType\":\"api_key\",\"apiKey\":\"provider-secret\"}");
+        var humanInput = new AgentHumanInputProvider();
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(10));
+        var token = cts.Token;
+        var responder = Task.Run(async () =>
+        {
+            await foreach (var request in humanInput.PendingRequests.ReadAllAsync(token))
+            {
+                humanInput.TrySubmitResponse(request.RunId, request.StepId, new JsonObject
+                {
+                    ["provider"] = "missing-provider",
+                    ["model"] = "fallback-model",
+                    ["reasoning_effort"] = "extreme",
+                    ["use_logged_in_user"] = "not-a-boolean",
+                    ["request_timeout_seconds"] = 0,
+                    ["managed_session_ttl_seconds"] = -1
+                });
+                break;
+            }
+        }, token);
+        var service = SmartFlowTestFactory.CreateProvidersService(
+            new RecordingLlmClient(),
+            keyVaultStore: keyVaultStore,
+            humanInput: humanInput,
+            bundledMcpSettings: CreateBundledCopilotMcpSettings());
+
+        var events = await SmartFlowTestFactory.CollectAsync(service.ExecuteAsync($"/mcp edit {serverName}", token), token);
+        await responder;
+
+        var answer = Assert.Single(events, evt => evt.Type == "answer");
+        Assert.Contains("were not changed", answer.Text);
+        Assert.Contains("Provider override must be one of", answer.Text);
+        Assert.Null(await keyVaultStore.GetSecretValueAsync(CopilotOverrideKey("Model"), token));
+    }
+
+    [Fact]
+    public async Task ExecuteAsync_McpEdit_BundledCopilotCanDeleteOneOverrideToInheritDefault()
+    {
+        const string serverName = "GnOuGo.GithubCopilot.Mcp";
+        var keyVaultStore = new FakeKeyVaultRuntimeConfigStore()
+            .AddSecret("LLM--Models--openai", "{\"provider\":\"openai\",\"url\":\"https://api.openai.com/v1\",\"model\":\"gpt-4.1\",\"authType\":\"none\"}")
+            .AddSecret(CopilotOverrideKey("Provider"), "openai");
+        var humanInput = new AgentHumanInputProvider();
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(10));
+        var token = cts.Token;
+        var responder = Task.Run(async () =>
+        {
+            await foreach (var request in humanInput.PendingRequests.ReadAllAsync(token))
+            {
+                var inheritField = Assert.Single(request.Fields!, field => field.Name == "inherit_fields");
+                Assert.Contains("provider", inheritField.Options!);
+                var response = new JsonObject
+                {
+                    ["inherit_fields"] = new JsonArray("provider")
+                };
+                foreach (var field in request.Fields!.Where(field => field.Name != "inherit_fields"))
+                    response[field.Name] = field.Default;
+                humanInput.TrySubmitResponse(request.RunId, request.StepId, response);
+                break;
+            }
+        }, token);
+        var service = SmartFlowTestFactory.CreateProvidersService(
+            new RecordingLlmClient(),
+            keyVaultStore: keyVaultStore,
+            humanInput: humanInput,
+            bundledMcpSettings: CreateBundledCopilotMcpSettings());
+
+        var events = await SmartFlowTestFactory.CollectAsync(service.ExecuteAsync($"/mcp edit {serverName}", token), token);
+        await responder;
+
+        Assert.Contains(events, evt => evt.Type == "answer" && evt.Text?.Contains("inherited: Provider override", StringComparison.Ordinal) == true);
+        Assert.Null(await keyVaultStore.GetSecretValueAsync(CopilotOverrideKey("Provider"), token));
+        Assert.Null(await keyVaultStore.GetSecretValueAsync(CopilotOverrideKey("Model"), token));
     }
 
     [Fact]
@@ -1446,6 +1654,7 @@ public sealed class ConfigureProvidersServiceTests
         var keyVaultStore = new FakeKeyVaultRuntimeConfigStore()
             .AddSecret("gnougo_mcp_Github", "{\"name\":\"Github\",\"transport\":\"http\",\"description\":\"Old description\",\"url\":\"https://old.example/mcp\",\"auth_type\":\"api_key\",\"api_key\":\"gh-secret\"}");
         var humanInput = new AgentHumanInputProvider();
+        var requests = new List<HumanInputRequest>();
         using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(10));
         var token = cts.Token;
 
@@ -1453,6 +1662,7 @@ public sealed class ConfigureProvidersServiceTests
         {
             await foreach (var request in humanInput.PendingRequests.ReadAllAsync(token))
             {
+                requests.Add(request);
                 JsonNode response = request.StepId switch
                 {
                     "mcp_edit.http" => new JsonObject
@@ -1460,6 +1670,7 @@ public sealed class ConfigureProvidersServiceTests
                         ["description"] = "Updated description",
                         ["url"] = "https://api.githubcopilot.com/mcp/"
                     },
+                    "mcp_edit.auth_mode" => new JsonObject { ["response"] = "keep_current" },
                     "mcp_edit.confirm_save" => new JsonObject { ["response"] = "save" },
                     _ => throw new InvalidOperationException($"Unexpected step id: {request.StepId}")
                 };
@@ -1488,16 +1699,159 @@ public sealed class ConfigureProvidersServiceTests
         Assert.Equal("api_key", saved["authType"]?.GetValue<string>());
         Assert.Equal("gh-secret", saved["apiKey"]?.GetValue<string>());
         Assert.Null(await keyVaultStore.GetSecretValueAsync("gnougo_mcp_Github", CancellationToken.None));
+        var authModeRequest = Assert.Single(requests, request => request.StepId == "mcp_edit.auth_mode");
+        Assert.Equal(["keep_current", "api_key", "oidc", "none"], authModeRequest.Choices);
+        Assert.Equal("Current: api_key", authModeRequest.Context?.GetValue<string>());
         Assert.Contains(events, evt => evt.Type == "answer" && evt.Text == "✅ MCP server 'Github' updated.");
         Assert.Equal(0, llm.CallCount);
     }
 
     [Fact]
-    public async Task ExecuteAsync_McpRemove_DeletesSecretWithoutKeyVaultMcpCrud()
+    public async Task ExecuteAsync_McpEdit_RotatesApiKey()
+    {
+        var (saved, requests) = await ExecuteHttpMcpEditAsync(
+            "{\"name\":\"Github\",\"transport\":\"http\",\"description\":\"GitHub\",\"url\":\"https://example.com/mcp/\",\"authType\":\"api_key\",\"apiKey\":\"old-secret\"}",
+            "api_key",
+            new JsonObject { ["api_key"] = "new-secret" });
+
+        Assert.Equal("api_key", saved["authType"]?.GetValue<string>());
+        Assert.Equal("new-secret", saved["apiKey"]?.GetValue<string>());
+        Assert.Contains(requests, request => request.StepId == "mcp.auth.api_key");
+    }
+
+    [Fact]
+    public async Task ExecuteAsync_McpEdit_SwitchesApiKeyToOidcAndClearsApiKey()
+    {
+        var (saved, requests) = await ExecuteHttpMcpEditAsync(
+            "{\"name\":\"Github\",\"transport\":\"http\",\"description\":\"GitHub\",\"url\":\"https://example.com/mcp/\",\"authType\":\"api_key\",\"apiKey\":\"old-secret\"}",
+            "oidc",
+            new JsonObject
+            {
+                ["issuer"] = "https://identity.example.com/",
+                ["client_id"] = "mcp-client",
+                ["scopes"] = "mcp.read mcp.write",
+                ["client_secret"] = "oidc-secret"
+            });
+
+        Assert.Equal("oidc", saved["authType"]?.GetValue<string>());
+        Assert.Equal(string.Empty, saved["apiKey"]?.GetValue<string>());
+        Assert.Equal("https://identity.example.com/", saved["oidcIssuer"]?.GetValue<string>());
+        Assert.Equal("mcp-client", saved["oidcClientId"]?.GetValue<string>());
+        Assert.Equal("mcp.read mcp.write", saved["oidcScopes"]?.GetValue<string>());
+        Assert.Equal("oidc-secret", saved["oidcClientSecret"]?.GetValue<string>());
+        Assert.Contains(requests, request => request.StepId == "mcp.auth.oidc");
+    }
+
+    [Fact]
+    public async Task ExecuteAsync_McpEdit_SwitchesOidcToApiKeyAndClearsOidcFields()
+    {
+        var (saved, _) = await ExecuteHttpMcpEditAsync(
+            "{\"name\":\"Github\",\"transport\":\"http\",\"description\":\"GitHub\",\"url\":\"https://example.com/mcp/\",\"authType\":\"oidc\",\"oidcIssuer\":\"https://old.example.com/\",\"oidcClientId\":\"old-client\",\"oidcScopes\":\"old.scope\",\"oidcClientSecret\":\"old-secret\"}",
+            "api_key",
+            new JsonObject { ["api_key"] = "new-api-key" });
+
+        Assert.Equal("api_key", saved["authType"]?.GetValue<string>());
+        Assert.Equal("new-api-key", saved["apiKey"]?.GetValue<string>());
+        Assert.Equal(string.Empty, saved["oidcIssuer"]?.GetValue<string>());
+        Assert.Equal(string.Empty, saved["oidcClientId"]?.GetValue<string>());
+        Assert.Equal(string.Empty, saved["oidcScopes"]?.GetValue<string>());
+        Assert.Equal(string.Empty, saved["oidcClientSecret"]?.GetValue<string>());
+    }
+
+    [Fact]
+    public async Task ExecuteAsync_McpEdit_RemovesAuthenticationAndClearsCredentials()
+    {
+        var (saved, requests) = await ExecuteHttpMcpEditAsync(
+            "{\"name\":\"Github\",\"transport\":\"http\",\"description\":\"GitHub\",\"url\":\"https://example.com/mcp/\",\"authType\":\"oidc\",\"apiKey\":\"stale-api-key\",\"oidcIssuer\":\"https://old.example.com/\",\"oidcClientId\":\"old-client\",\"oidcScopes\":\"old.scope\",\"oidcClientSecret\":\"old-secret\"}",
+            "none");
+
+        Assert.Equal("none", saved["authType"]?.GetValue<string>());
+        Assert.Equal(string.Empty, saved["apiKey"]?.GetValue<string>());
+        Assert.Equal(string.Empty, saved["oidcIssuer"]?.GetValue<string>());
+        Assert.Equal(string.Empty, saved["oidcClientId"]?.GetValue<string>());
+        Assert.Equal(string.Empty, saved["oidcScopes"]?.GetValue<string>());
+        Assert.Equal(string.Empty, saved["oidcClientSecret"]?.GetValue<string>());
+        Assert.DoesNotContain(requests, request => request.StepId.StartsWith("mcp.auth.", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public async Task ExecuteAsync_McpEdit_StdioDoesNotPromptForHttpAuthentication()
+    {
+        var llm = new RecordingLlmClient();
+        var keyVaultStore = new FakeKeyVaultRuntimeConfigStore()
+            .AddSecret("LLM--McpServers--Local", "{\"name\":\"Local\",\"transport\":\"stdio\",\"description\":\"Local MCP\",\"command\":\"dotnet\",\"args\":[\"old.dll\"],\"authType\":\"none\"}");
+        var humanInput = new AgentHumanInputProvider();
+        var requests = new List<HumanInputRequest>();
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(10));
+        var token = cts.Token;
+
+        var responder = Task.Run(async () =>
+        {
+            await foreach (var request in humanInput.PendingRequests.ReadAllAsync(token))
+            {
+                requests.Add(request);
+                JsonNode response = request.StepId switch
+                {
+                    "mcp_edit.stdio" => new JsonObject
+                    {
+                        ["description"] = "Updated local MCP",
+                        ["command"] = "dotnet",
+                        ["args"] = "new.dll,--verbose"
+                    },
+                    "mcp_edit.confirm_save" => new JsonObject { ["response"] = "save" },
+                    _ => throw new InvalidOperationException($"Unexpected step id: {request.StepId}")
+                };
+
+                humanInput.TrySubmitResponse(request.RunId, request.StepId, response);
+                if (request.StepId == "mcp_edit.confirm_save")
+                    break;
+            }
+        }, token);
+
+        var service = SmartFlowTestFactory.CreateProvidersService(
+            llm,
+            humanInput: humanInput,
+            keyVaultStore: keyVaultStore);
+
+        await SmartFlowTestFactory.CollectAsync(service.ExecuteAsync("/mcp edit Local", token), token);
+        await responder;
+
+        var savedJson = await keyVaultStore.GetSecretValueAsync("LLM--McpServers--Local", CancellationToken.None);
+        Assert.NotNull(savedJson);
+        var saved = JsonNode.Parse(savedJson)?.AsObject();
+        Assert.NotNull(saved);
+        Assert.Equal("stdio", saved["transport"]?.GetValue<string>());
+        Assert.Equal("none", saved["authType"]?.GetValue<string>());
+        Assert.Equal("new.dll", saved["args"]?[0]?.GetValue<string>());
+        Assert.Equal("--verbose", saved["args"]?[1]?.GetValue<string>());
+        Assert.DoesNotContain(requests, request => request.StepId == "mcp_edit.auth_mode");
+        Assert.Equal(0, llm.CallCount);
+    }
+
+    [Fact]
+    public async Task ExecuteAsync_McpRemove_DeletesSecretAndRemovesServerFromFutureRuntimeCatalogs()
     {
         var llm = new RecordingLlmClient();
         var keyVaultStore = new FakeKeyVaultRuntimeConfigStore()
             .AddSecret("gnougo_mcp_Github", "{\"name\":\"Github\",\"transport\":\"http\",\"description\":\"GitHub\",\"url\":\"https://api.githubcopilot.com/mcp/\"}");
+        var runtimeOptionsStore = SmartFlowTestFactory.CreateRuntimeOptionsStore(new LLMOptions
+        {
+            McpServers = new Dictionary<string, McpServerOptions>(StringComparer.OrdinalIgnoreCase)
+            {
+                ["Github"] = new()
+                {
+                    Type = "http",
+                    Description = "GitHub",
+                    Url = "https://api.githubcopilot.com/mcp/"
+                },
+                ["StillConfigured"] = new()
+                {
+                    Type = "http",
+                    Description = "Still configured",
+                    Url = "https://example.com/mcp/"
+                }
+            }
+        });
         var humanInput = new AgentHumanInputProvider();
         using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(10));
         var token = cts.Token;
@@ -1517,7 +1871,8 @@ public sealed class ConfigureProvidersServiceTests
         var service = SmartFlowTestFactory.CreateProvidersService(
             llm,
             humanInput: humanInput,
-            keyVaultStore: keyVaultStore);
+            keyVaultStore: keyVaultStore,
+            runtimeOptionsStore: runtimeOptionsStore);
 
         var events = await SmartFlowTestFactory.CollectAsync(service.ExecuteAsync("/mcp remove Github", token), token);
         await responder;
@@ -1525,6 +1880,17 @@ public sealed class ConfigureProvidersServiceTests
         Assert.Contains(events, evt => evt.Type == "answer" && evt.Text == "✅ MCP server 'Github' removed.");
         Assert.Null(await keyVaultStore.GetSecretValueAsync("gnougo_mcp_Github", CancellationToken.None));
         Assert.Null(await keyVaultStore.GetSecretValueAsync("LLM--McpServers--Github", CancellationToken.None));
+        Assert.False(runtimeOptionsStore.Current.McpServers.ContainsKey("Github"));
+        Assert.True(runtimeOptionsStore.Current.McpServers.ContainsKey("StillConfigured"));
+
+        var runtimeFactory = new SecureWorkflowRuntimeFactory(runtimeOptionsStore, keyVaultStore);
+        await using var runtime = await runtimeFactory.CreateAsync(token);
+        Assert.DoesNotContain(
+            runtime.McpClientFactory.ServerMetadata ?? [],
+            server => string.Equals(server.Name, "Github", StringComparison.OrdinalIgnoreCase));
+        Assert.Contains(
+            runtime.McpClientFactory.ServerMetadata ?? [],
+            server => string.Equals(server.Name, "StillConfigured", StringComparison.OrdinalIgnoreCase));
         Assert.Equal(0, llm.CallCount);
     }
 
@@ -1821,6 +2187,8 @@ public sealed class ConfigureProvidersServiceTests
                         ["description"] = "Updated description",
                         ["url"] = "https://api.githubcopilot.com/mcp/"
                     },
+                    "mcp_edit.auth_mode" => new JsonObject { ["response"] = "api_key" },
+                    "mcp.auth.api_key" => new JsonObject { ["api_key"] = "new-gh-secret" },
                     "mcp_edit.confirm_save" => new JsonObject { ["response"] = "save" },
                     _ => throw new InvalidOperationException($"Unexpected step id: {request.StepId}")
                 };
@@ -1852,7 +2220,65 @@ public sealed class ConfigureProvidersServiceTests
         Assert.Contains(spans, span => span.Name == "configure.providers.mcp.edit.interactive");
         Assert.Contains(spans, span => span.Name == "configure.providers.mcp.load_existing");
         Assert.Contains(spans, span => span.Name == "configure.providers.human_input.request");
+        Assert.Contains(spans, span => span.Name == "configure.providers.mcp.auth.collect");
         Assert.Contains(spans, span => span.Name == "configure.providers.mcp.save");
+    }
+
+    private static async Task<(JsonObject Saved, IReadOnlyList<HumanInputRequest> Requests)> ExecuteHttpMcpEditAsync(
+        string existingJson,
+        string authSelection,
+        JsonNode? authResponse = null)
+    {
+        var llm = new RecordingLlmClient();
+        var keyVaultStore = new FakeKeyVaultRuntimeConfigStore()
+            .AddSecret("LLM--McpServers--Github", existingJson);
+        var humanInput = new AgentHumanInputProvider();
+        var requests = new List<HumanInputRequest>();
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(10));
+        var token = cts.Token;
+
+        var responder = Task.Run(async () =>
+        {
+            await foreach (var request in humanInput.PendingRequests.ReadAllAsync(token))
+            {
+                requests.Add(request);
+                JsonNode response = request.StepId switch
+                {
+                    "mcp_edit.http" => new JsonObject
+                    {
+                        ["description"] = "Updated GitHub MCP",
+                        ["url"] = "https://updated.example.com/mcp/"
+                    },
+                    "mcp_edit.auth_mode" => new JsonObject { ["response"] = authSelection },
+                    "mcp.auth.api_key" or "mcp.auth.oidc" => authResponse?.DeepClone()
+                        ?? throw new InvalidOperationException($"No authentication response was provided for {request.StepId}."),
+                    "mcp_edit.confirm_save" => new JsonObject { ["response"] = "save" },
+                    _ => throw new InvalidOperationException($"Unexpected step id: {request.StepId}")
+                };
+
+                humanInput.TrySubmitResponse(request.RunId, request.StepId, response);
+                if (request.StepId == "mcp_edit.confirm_save")
+                    break;
+            }
+        }, token);
+
+        var service = SmartFlowTestFactory.CreateProvidersService(
+            llm,
+            humanInput: humanInput,
+            keyVaultStore: keyVaultStore);
+
+        var events = await SmartFlowTestFactory.CollectAsync(service.ExecuteAsync("/mcp edit Github", token), token);
+        await responder;
+
+        var savedJson = await keyVaultStore.GetSecretValueAsync("LLM--McpServers--Github", CancellationToken.None);
+        Assert.NotNull(savedJson);
+        var saved = JsonNode.Parse(savedJson)?.AsObject();
+        Assert.NotNull(saved);
+        Assert.Equal("Updated GitHub MCP", saved["description"]?.GetValue<string>());
+        Assert.Equal("https://updated.example.com/mcp/", saved["url"]?.GetValue<string>());
+        Assert.Contains(events, evt => evt.Type == "answer" && evt.Text == "✅ MCP server 'Github' updated.");
+        Assert.Equal(0, llm.CallCount);
+        return (saved, requests);
     }
 
     private static List<SpanRow> DrainPersistedSpans(OtlpTenantCollector.Services.TelemetryIngestQueue queue)
@@ -1889,6 +2315,54 @@ public sealed class ConfigureProvidersServiceTests
                 }
             }
         };
+
+    private static BundledMcpSettings CreateBundledCopilotMcpSettings()
+        => new()
+        {
+            Servers = new Dictionary<string, BundledMcpServerSettings>(StringComparer.OrdinalIgnoreCase)
+            {
+                ["GnOuGo.GithubCopilot.Mcp"] = new()
+                {
+                    Listable = true,
+                    EditableFields = new Dictionary<string, BundledMcpEditableFieldSettings>(StringComparer.OrdinalIgnoreCase)
+                    {
+                        ["provider"] = CopilotField("Provider override", "Provider", "select", "Copilot", optionsSource: "llm_providers"),
+                        ["model"] = CopilotField("Fallback model", "Model", "string", "gpt-5.4-mini"),
+                        ["reasoning_effort"] = CopilotField("Reasoning effort", "ReasoningEffort", "select", "high", ["low", "medium", "high", "xhigh"]),
+                        ["use_logged_in_user"] = CopilotField("Use logged-in GitHub user", "UseLoggedInUser", "boolean", "true"),
+                        ["request_timeout_seconds"] = CopilotField("Request timeout (seconds)", "RequestTimeoutSeconds", "integer", "7200", minValue: 1),
+                        ["managed_session_ttl_seconds"] = CopilotField("Managed-session TTL (seconds)", "ManagedSessionTtlSeconds", "integer", "1800", minValue: 1)
+                    }
+                }
+            }
+        };
+
+    private static BundledMcpEditableFieldSettings CopilotField(
+        string displayName,
+        string configurationName,
+        string type,
+        string defaultValue,
+        List<string>? options = null,
+        string? optionsSource = null,
+        int? minValue = null)
+        => new()
+        {
+            DisplayName = displayName,
+            Description = displayName,
+            Type = type,
+            Required = true,
+            Sensitive = false,
+            SecretKey = CopilotOverrideKey(configurationName),
+            Target = $"env:Code__Copilot__{configurationName}",
+            Options = options ?? [],
+            OptionsSource = optionsSource,
+            DefaultValue = defaultValue,
+            AllowInherit = true,
+            MinValue = minValue
+        };
+
+    private static string CopilotOverrideKey(string configurationName)
+        => $"LLM--McpServerOverrides--GnOuGo.GithubCopilot.Mcp--Code--Copilot--{configurationName}";
 
     private static bool IsModelMetadataRequest(HumanInputRequest request)
         => request.StepId.StartsWith("llm_model.metadata.", StringComparison.Ordinal);

@@ -97,16 +97,6 @@ public sealed class WorkflowEngine : IWorkflowRuntime
         {
             await ExecuteStepsAsync(workflow.Steps, data, result, Limits, 0, new HashSet<string>(), executionScope, ct, workflowSpan);
 
-            // Evaluate outputs
-            if (workflow.Outputs != null)
-            {
-                result.Outputs = EvaluateWorkflowOutputs(workflow.Outputs, data, executionScope, workflow.Name);
-            }
-            else
-            {
-                result.Outputs = data["steps"]?.DeepClone();
-            }
-
             Logger.LogInformation("Workflow '{WorkflowName}' completed successfully in {DurationMs:F1}ms ({StepsExecuted} steps)",
                 workflow.Name, workflowSw.Elapsed.TotalMilliseconds, _totalStepsExecuted);
         }
@@ -143,6 +133,16 @@ public sealed class WorkflowEngine : IWorkflowRuntime
         }
         finally
         {
+            await ExecuteWorkflowFinalizationAsync(
+                workflow,
+                data,
+                result,
+                Limits,
+                0,
+                new HashSet<string>(),
+                executionScope,
+                workflowSpan);
+            EvaluateWorkflowOutputsIntoResult(workflow, data, result, executionScope);
             workflowSw.Stop();
             Telemetry.WorkflowEnd(workflowSpan, new WorkflowResultInfo
             {
@@ -205,19 +205,7 @@ public sealed class WorkflowEngine : IWorkflowRuntime
         {
             await ExecuteStepsAsync(workflow.Steps, data, result, Limits, 0, new HashSet<string>(), executionScope, ct, workflowSpan, checkpoint.NextStepIndex);
 
-            // Evaluate outputs
-            if (workflow.Outputs != null)
-            {
-                result.Outputs = EvaluateWorkflowOutputs(workflow.Outputs, data, executionScope, workflow.Name);
-            }
-            else
-            {
-                result.Outputs = data["steps"]?.DeepClone();
-            }
-
-            // Mark checkpoint as completed
             checkpoint.Status = "completed";
-            await Checkpointer.SaveAsync(checkpoint, ct);
 
             Logger.LogInformation("Workflow '{WorkflowName}' resumed and completed in {DurationMs:F1}ms",
                 workflow.Name, workflowSw.Elapsed.TotalMilliseconds);
@@ -227,24 +215,38 @@ public sealed class WorkflowEngine : IWorkflowRuntime
             result.Success = false;
             result.Error = ex.ToWorkflowError();
             checkpoint.Status = "failed";
-            await Checkpointer.SaveAsync(checkpoint, ct);
         }
         catch (OperationCanceledException)
         {
             result.Success = false;
             result.Error = new WorkflowError { Code = "CANCELLED", Message = "Workflow execution cancelled", Retryable = true };
             checkpoint.Status = "paused";
-            await Checkpointer.SaveAsync(checkpoint, ct);
         }
         catch (Exception ex)
         {
             result.Success = false;
             result.Error = new WorkflowError { Code = "INTERNAL_ERROR", Message = ex.Message, Retryable = false };
             checkpoint.Status = "failed";
-            await Checkpointer.SaveAsync(checkpoint, ct);
         }
         finally
         {
+            await ExecuteWorkflowFinalizationAsync(
+                workflow,
+                data,
+                result,
+                Limits,
+                0,
+                new HashSet<string>(),
+                executionScope,
+                workflowSpan);
+            EvaluateWorkflowOutputsIntoResult(workflow, data, result, executionScope);
+            if (!result.Success && string.Equals(checkpoint.Status, "completed", StringComparison.Ordinal))
+                checkpoint.Status = "failed";
+            if (string.Equals(checkpoint.Status, "completed", StringComparison.Ordinal))
+                checkpoint.NextStepIndex = workflow.Steps.Count;
+            checkpoint.StepOutputs = (data["steps"] as JsonObject)?.DeepClone() as JsonObject ?? new JsonObject();
+            checkpoint.Timestamp = DateTimeOffset.UtcNow;
+            await Checkpointer.SaveAsync(checkpoint, CancellationToken.None);
             workflowSw.Stop();
             Telemetry.WorkflowEnd(workflowSpan, new WorkflowResultInfo
             {
@@ -314,15 +316,6 @@ public sealed class WorkflowEngine : IWorkflowRuntime
         {
             await ExecuteStepsAsync(workflow.Steps, data, result, limits, callDepth, callStack, executionScope, ct, workflowSpan);
 
-            if (workflow.Outputs != null)
-            {
-                result.Outputs = EvaluateWorkflowOutputs(workflow.Outputs, data, executionScope, workflow.Name);
-            }
-            else
-            {
-                result.Outputs = data["steps"]?.DeepClone();
-            }
-
             Logger.LogInformation("Child workflow '{WorkflowName}' completed successfully in {DurationMs:F1}ms ({StepsExecuted} steps)",
                 workflow.Name, workflowSw.Elapsed.TotalMilliseconds, _totalStepsExecuted);
         }
@@ -359,6 +352,16 @@ public sealed class WorkflowEngine : IWorkflowRuntime
         }
         finally
         {
+            await ExecuteWorkflowFinalizationAsync(
+                workflow,
+                data,
+                result,
+                limits,
+                callDepth,
+                callStack,
+                executionScope,
+                workflowSpan);
+            EvaluateWorkflowOutputsIntoResult(workflow, data, result, executionScope);
             workflowSw.Stop();
             Telemetry.WorkflowEnd(workflowSpan, new WorkflowResultInfo
             {
@@ -372,6 +375,39 @@ public sealed class WorkflowEngine : IWorkflowRuntime
         }
 
         return result;
+    }
+
+    private void EvaluateWorkflowOutputsIntoResult(
+        CompiledWorkflow workflow,
+        JsonObject data,
+        RunResult result,
+        WorkflowExecutionScope executionScope)
+    {
+        if (!result.Success)
+            return;
+
+        try
+        {
+            result.Outputs = workflow.Outputs != null
+                ? EvaluateWorkflowOutputs(workflow.Outputs, data, executionScope, workflow.Name)
+                : data["steps"]?.DeepClone();
+        }
+        catch (WorkflowRuntimeException ex)
+        {
+            result.Success = false;
+            result.Error = ex.ToWorkflowError();
+        }
+        catch (Exception ex)
+        {
+            result.Success = false;
+            result.Error = new WorkflowError
+            {
+                Code = "INTERNAL_ERROR",
+                Type = ex.GetType().Name,
+                Message = ex.Message,
+                Retryable = false
+            };
+        }
     }
 
     public async Task ExecuteStepsAsync(
@@ -533,7 +569,7 @@ public sealed class WorkflowEngine : IWorkflowRuntime
                 });
 
                 // ── Checkpoint: save progress after each successful top-level step ──
-                if (callDepth == 0 && Checkpointer != null && limits.RunId != null)
+                if (!executionScope.IsFinalization && callDepth == 0 && Checkpointer != null && limits.RunId != null)
                 {
                     var checkpoint = new WorkflowCheckpoint
                     {
@@ -681,6 +717,166 @@ public sealed class WorkflowEngine : IWorkflowRuntime
         throw lastEx ?? new WorkflowRuntimeException(ErrorCodes.EvalError, "Execution failed after retries");
     }
 
+    internal async Task ExecuteWorkflowFinalizationAsync(
+        CompiledWorkflow workflow,
+        JsonObject data,
+        RunResult result,
+        ExecutionLimits limits,
+        int callDepth,
+        HashSet<string> callStack,
+        WorkflowExecutionScope executionScope,
+        ITelemetrySpan? parentSpan,
+        CancellationToken? inheritedFinalizationToken = null)
+    {
+        if (workflow.Finally.Count == 0)
+            return;
+
+        data["workflow_error"] = ToErrorJson(result.Error);
+        var finalizationLimits = inheritedFinalizationToken.HasValue
+            ? limits
+            : CreateFinalizationLimits(limits);
+        var finalizationScope = new WorkflowExecutionScope(
+            workflow,
+            executionScope.Evaluator,
+            executionScope.Interpolator,
+            isFinalization: true);
+        using var timeout = inheritedFinalizationToken.HasValue
+            ? null
+            : new CancellationTokenSource(TimeSpan.FromSeconds(Math.Max(1, limits.FinalizationTimeoutSeconds)));
+        var finalizationToken = inheritedFinalizationToken ?? timeout!.Token;
+
+        WorkflowError? finalizationError = null;
+        try
+        {
+            Logger.LogInformation(
+                "Workflow '{WorkflowName}' running {FinalizationStepCount} finalization step(s)",
+                workflow.Name,
+                workflow.Finally.Count);
+            await ExecuteStepsAsync(
+                workflow.Finally,
+                data,
+                result,
+                finalizationLimits,
+                callDepth,
+                callStack,
+                finalizationScope,
+                finalizationToken,
+                parentSpan);
+        }
+        catch (OperationCanceledException) when (finalizationToken.IsCancellationRequested)
+        {
+            finalizationError = new WorkflowError
+            {
+                Code = ErrorCodes.WorkflowFinalizationTimeout,
+                Type = ErrorCodes.WorkflowFinalizationTimeout,
+                Message = $"Workflow finalization exceeded {Math.Max(1, limits.FinalizationTimeoutSeconds)} seconds.",
+                Retryable = true
+            };
+        }
+        catch (WorkflowRuntimeException ex)
+        {
+            finalizationError = finalizationToken.IsCancellationRequested
+                ? new WorkflowError
+                {
+                    Code = ErrorCodes.WorkflowFinalizationTimeout,
+                    Type = ErrorCodes.WorkflowFinalizationTimeout,
+                    Message = $"Workflow finalization exceeded {Math.Max(1, limits.FinalizationTimeoutSeconds)} seconds.",
+                    Retryable = true
+                }
+                : ex.ToWorkflowError();
+        }
+        catch (Exception ex)
+        {
+            finalizationError = new WorkflowError
+            {
+                Code = ErrorCodes.WorkflowFinalizationFailed,
+                Type = ex.GetType().Name,
+                Message = ex.Message,
+                Retryable = false
+            };
+        }
+
+        if (finalizationError is null)
+            return;
+
+        Logger.LogError(
+            "Workflow '{WorkflowName}' finalization failed: [{ErrorCode}] {ErrorMessage}",
+            workflow.Name,
+            finalizationError.Code,
+            finalizationError.Message);
+        AttachFinalizationError(result, finalizationError);
+    }
+
+    private ExecutionLimits CreateFinalizationLimits(ExecutionLimits source)
+        => new()
+        {
+            MaxTotalStepsExecuted = checked(_totalStepsExecuted + Math.Max(1, source.MaxFinalizationSteps)),
+            MaxCallDepth = source.MaxCallDepth,
+            MaxParallelBranches = source.MaxParallelBranches,
+            MaxLoopIterations = source.MaxLoopIterations,
+            MaxExpressionAstNodes = source.MaxExpressionAstNodes,
+            MaxExpressionStatements = source.MaxExpressionStatements,
+            ExpressionTimeoutSeconds = source.ExpressionTimeoutSeconds,
+            ExpressionMemoryLimitBytes = source.ExpressionMemoryLimitBytes,
+            MaxSwitchCases = source.MaxSwitchCases,
+            MaxFunctionCallDepth = source.MaxFunctionCallDepth,
+            FinalizationTimeoutSeconds = source.FinalizationTimeoutSeconds,
+            MaxFinalizationSteps = source.MaxFinalizationSteps,
+            LogStepContent = source.LogStepContent,
+            RunId = null,
+            ExecutionId = source.ExecutionId,
+            AgentId = source.AgentId,
+            AgentName = source.AgentName,
+            TenantId = source.TenantId
+        };
+
+    private static JsonNode? ToErrorJson(WorkflowError? error)
+    {
+        if (error is null)
+            return null;
+        var node = new JsonObject
+        {
+            ["code"] = error.Code,
+            ["type"] = error.Type,
+            ["message"] = error.Message,
+            ["retryable"] = error.Retryable
+        };
+        if (error.Details != null)
+            node["details"] = error.Details.DeepClone();
+        return node;
+    }
+
+    private static void AttachFinalizationError(RunResult result, WorkflowError finalizationError)
+    {
+        var finalizationNode = ToErrorJson(finalizationError)!;
+        if (result.Success || result.Error is null)
+        {
+            result.Success = false;
+            result.Error = new WorkflowError
+            {
+                Code = ErrorCodes.WorkflowFinalizationFailed,
+                Type = ErrorCodes.WorkflowFinalizationFailed,
+                Message = "Workflow finalization failed.",
+                Retryable = finalizationError.Retryable,
+                Details = new JsonObject
+                {
+                    ["finalization_errors"] = new JsonArray(finalizationNode)
+                }
+            };
+            return;
+        }
+
+        var details = result.Error.Details?.DeepClone() as JsonObject ?? new JsonObject();
+        var errors = details["finalization_errors"] as JsonArray;
+        if (errors == null)
+        {
+            errors = new JsonArray();
+            details["finalization_errors"] = errors;
+        }
+        errors.Add(finalizationNode);
+        result.Error.Details = details;
+    }
+
     private (string action, JsonNode? output) HandleOnError(
         OnErrorDef onError,
         WorkflowRuntimeException ex,
@@ -755,10 +951,15 @@ public sealed class WorkflowEngine : IWorkflowRuntime
     public StringInterpolator Interpolator => _interpolator;
     public StepExecutorRegistry Registry => _registry;
 
-    internal WorkflowExecutionScope CreateExecutionScopeForWorkflow(CompiledWorkflow workflow)
+    internal WorkflowExecutionScope CreateExecutionScopeForWorkflow(
+        CompiledWorkflow workflow,
+        bool isFinalization = false)
     {
         var scriptFunctions = new Dictionary<string, Func<JsonNode?[], JsonNode?>>();
-        var jint = new JintSandbox();
+        var jint = new JintSandbox(
+            maxStatements: Limits.MaxExpressionStatements,
+            timeoutMs: checked(Limits.ExpressionTimeoutSeconds * 1000),
+            memoryLimitBytes: Limits.ExpressionMemoryLimitBytes);
 
         if (workflow.Document?.Source?.Functions != null)
         {
@@ -778,7 +979,7 @@ public sealed class WorkflowEngine : IWorkflowRuntime
             scriptFunctions[kv.Key] = kv.Value;
 
         var evaluator = CreateExpressionEvaluator(scriptFunctions, Limits);
-        return new WorkflowExecutionScope(workflow, evaluator, new StringInterpolator(evaluator));
+        return new WorkflowExecutionScope(workflow, evaluator, new StringInterpolator(evaluator), isFinalization);
     }
 
     private WorkflowExecutionScope PrepareEvaluator(CompiledWorkflow workflow)

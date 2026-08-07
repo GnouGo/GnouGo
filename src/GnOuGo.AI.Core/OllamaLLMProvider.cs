@@ -35,13 +35,22 @@ public sealed class OllamaLLMProvider : ILLMProvider, ILLMModelCatalogProvider
             model, request.Prompt, request.Temperature, tools, jsonMode,
             request.Reasoning);
 
-        using var req = HttpRequestHelper.CreateJsonPost(url, payload);
+        HttpRequestMessage CreateChatRequest()
+        {
+            var requestMessage = HttpRequestHelper.CreateJsonPost(url, payload);
+            // Ollama can also have an API key (e.g. behind a proxy)
+            if (!string.IsNullOrWhiteSpace(provider.ApiKey))
+                HttpRequestHelper.SetBearerAuth(requestMessage, provider.ApiKey);
+            return requestMessage;
+        }
 
-        // Ollama can also have an API key (e.g. behind a proxy)
-        if (!string.IsNullOrWhiteSpace(provider.ApiKey))
-            HttpRequestHelper.SetBearerAuth(req, provider.ApiKey);
-
-        using var resp = await _http.SendAsync(req, HttpCompletionOption.ResponseHeadersRead, ct);
+        using var resp = await HttpRequestHelper.SendWithServerErrorRetryAsync(
+            _http,
+            CreateChatRequest,
+            HttpCompletionOption.ResponseHeadersRead,
+            _logger,
+            "Ollama chat completion",
+            ct);
 
         if (!resp.IsSuccessStatusCode)
         {
@@ -85,12 +94,21 @@ public sealed class OllamaLLMProvider : ILLMProvider, ILLMModelCatalogProvider
     public async Task<IReadOnlyList<LLMModelDescriptor>> ListModelsAsync(ModelProviderOptions provider, CancellationToken ct)
     {
         var url = OllamaEndpoints.Tags(provider.Url);
-        using var req = HttpRequestHelper.CreateGet(url);
+        HttpRequestMessage CreateModelListRequest()
+        {
+            var requestMessage = HttpRequestHelper.CreateGet(url);
+            if (!string.IsNullOrWhiteSpace(provider.ApiKey))
+                HttpRequestHelper.SetBearerAuth(requestMessage, provider.ApiKey);
+            return requestMessage;
+        }
 
-        if (!string.IsNullOrWhiteSpace(provider.ApiKey))
-            HttpRequestHelper.SetBearerAuth(req, provider.ApiKey);
-
-        using var resp = await _http.SendAsync(req, HttpCompletionOption.ResponseHeadersRead, ct);
+        using var resp = await HttpRequestHelper.SendWithServerErrorRetryAsync(
+            _http,
+            CreateModelListRequest,
+            HttpCompletionOption.ResponseHeadersRead,
+            _logger,
+            "Ollama model discovery",
+            ct);
         if (!resp.IsSuccessStatusCode)
         {
             var body = await HttpRequestHelper.ReadErrorBodyAsync(resp, ct);
@@ -123,4 +141,3 @@ public sealed class OllamaLLMProvider : ILLMProvider, ILLMModelCatalogProvider
         return results;
     }
 }
-

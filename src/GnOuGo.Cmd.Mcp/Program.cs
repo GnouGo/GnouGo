@@ -33,6 +33,7 @@ try
     builder.Services
         .AddMcpServer(options =>
         {
+            options.ProtocolVersion = GnOuGoMcpProtocol.RequiredRevision;
             options.ServerInfo = new Implementation
             {
                 Name = "GnOuGo.Cmd.Mcp",

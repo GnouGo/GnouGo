@@ -1,9 +1,11 @@
 using System.Text.Json.Nodes;
+using System.Reflection;
 using Moq;
 using GnOuGo.Flow.Core.Compilation;
 using GnOuGo.Flow.Core.Models;
 using GnOuGo.Flow.Core.Parsing;
 using GnOuGo.Flow.Core.Runtime;
+using Microsoft.Extensions.Caching.Memory;
 using Xunit;
 
 namespace GnOuGo.Flow.Tests.Runtime;
@@ -17,20 +19,124 @@ public class McpCallExecutorTests
     }
 
     private static async Task<RunResult> RunMain(string yaml, JsonObject? inputs = null,
-        IMcpClientFactory? mcpFactory = null, ILLMClient? llm = null, IWorkflowTelemetry? telemetry = null)
+        IMcpClientFactory? mcpFactory = null, ILLMClient? llm = null, IWorkflowTelemetry? telemetry = null,
+        ExecutionLimits? limits = null, IMemoryCache? mcpCache = null, CancellationToken cancellationToken = default)
     {
         var compiled = CompileDoc(yaml);
         var wf = compiled.Workflows[compiled.Entrypoint!];
         var engine = new WorkflowEngine
         {
             McpClientFactory = mcpFactory,
+            McpCache = mcpCache,
             LLMClient = llm,
-            Telemetry = telemetry ?? NullWorkflowTelemetry.Instance
+            Telemetry = telemetry ?? NullWorkflowTelemetry.Instance,
+            Limits = limits ?? new ExecutionLimits()
         };
-        return await engine.ExecuteAsync(wf, inputs ?? new JsonObject(), CancellationToken.None);
+        return await engine.ExecuteAsync(wf, inputs ?? new JsonObject(), cancellationToken);
     }
 
     // ------ Basic mcp.call ------
+
+    [Fact]
+    public async Task McpCall_LiveSessionDiscoveryIsNotSkippedByProcessCatalogCache()
+    {
+        var tools = new List<McpToolInfo>
+        {
+            new()
+            {
+                Name = "pull_request_read",
+                InputSchema = JsonNode.Parse("""
+                    {
+                      "type": "object",
+                      "properties": {
+                        "owner": { "type": "string", "x-mcp-header": true }
+                      },
+                      "required": ["owner"]
+                    }
+                    """)
+            }
+        };
+        using var cache = new MemoryCache(new MemoryCacheOptions());
+        McpCacheHelper.CacheTools(cache, "github", tools);
+
+        var session = new LiveDiscoveryMcpSession(tools);
+
+        var factory = new Mock<IMcpClientFactory>(MockBehavior.Strict);
+        factory.Setup(item => item.GetClientAsync("github", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(session);
+        factory.SetupGet(item => item.ServerMetadata).Returns([
+            new McpServerMetadata { Name = "github" }
+        ]);
+
+        var result = await RunMain("""
+            version: 1
+            workflows:
+              main:
+                steps:
+                  - id: read
+                    type: mcp.call
+                    input:
+                      server: github
+                      method: pull_request_read
+                      request:
+                        owner: AxaFrance
+            """, mcpFactory: factory.Object, mcpCache: cache);
+
+        Assert.True(result.Success, result.Error?.Message);
+        Assert.Equal(1, session.LiveDiscoveryCount);
+        Assert.Equal(0, session.OrdinaryListCount);
+        Assert.Equal("AxaFrance", session.Owner);
+    }
+
+    [Fact]
+    public async Task McpCall_UsesHostTenantMetadata_AndIgnoresWorkflowTenantInput()
+    {
+        JsonObject? capturedMeta = null;
+        var factory = new InMemoryMcpClientFactory();
+        factory.RegisterServer("service", new MockMcpServerConfig
+        {
+            Tools = [new McpToolInfo { Name = "read", InputSchema = JsonNode.Parse("{\"type\":\"object\"}") }],
+            ToolHandlers =
+            {
+                ["read"] = _ =>
+                {
+                    var method = typeof(ConfiguredMcpClientFactory).GetMethod(
+                        "BuildCurrentCorrelationMeta",
+                        BindingFlags.Static | BindingFlags.NonPublic | BindingFlags.Public);
+                    capturedMeta = Assert.IsType<JsonObject>(method!.Invoke(null, []));
+                    return new McpCallResult { Content = new JsonObject { ["ok"] = true } };
+                }
+            }
+        });
+
+        var result = await RunMain("""
+version: 1
+workflows:
+  main:
+    steps:
+      - id: read
+        type: mcp.call
+        input:
+          server: service
+          method: read
+          request: {}
+""", new JsonObject { ["tenantId"] = "workflow-controlled" }, factory,
+            limits: new ExecutionLimits
+            {
+                TenantId = "host-controlled",
+                RunId = "run-1",
+                ExecutionId = "execution-1",
+                AgentId = "agent-1",
+                AgentName = "Reviewer"
+            });
+
+        Assert.True(result.Success, result.Error?.Message);
+        var gnougo = Assert.IsType<JsonObject>(capturedMeta!["gnougo"]);
+        Assert.Equal("host-controlled", gnougo["tenantId"]!.GetValue<string>());
+        Assert.Equal("execution-1", gnougo["executionId"]!.GetValue<string>());
+        Assert.Equal("agent-1", gnougo["agentId"]!.GetValue<string>());
+        Assert.Equal("Reviewer", gnougo["agentName"]!.GetValue<string>());
+    }
 
     [Fact]
     public async Task McpCall_ResolvedRequestIsValidatedAgainstLiveToolSchemaBeforeTransport()
@@ -84,6 +190,131 @@ workflows:
         Assert.Equal(ErrorCodes.InputValidation, result.Error!.Code);
         Assert.Contains("runtime JSON Schema validation", result.Error.Message);
         Assert.Contains("expected integer", result.Error.Message);
+        Assert.False(handlerCalled);
+    }
+
+    [Fact]
+    public async Task McpCall_OmitsResolvedNullForOptionalToolProperty()
+    {
+        JsonObject? capturedArguments = null;
+        var factory = new InMemoryMcpClientFactory();
+        factory.RegisterServer("comments", new MockMcpServerConfig
+        {
+            Tools =
+            [
+                new McpToolInfo
+                {
+                    Name = "add_comment",
+                    InputSchema = JsonNode.Parse("""
+                    {
+                      "type": "object",
+                      "properties": {
+                        "body": { "type": "string" },
+                        "startLine": { "type": "number" }
+                      },
+                      "required": ["body"],
+                      "additionalProperties": false
+                    }
+                    """)
+                }
+            ],
+            ToolHandlers =
+            {
+                ["add_comment"] = arguments =>
+                {
+                    capturedArguments = Assert.IsType<JsonObject>(arguments?.DeepClone());
+                    return new McpCallResult { Content = new JsonObject { ["ok"] = true } };
+                }
+            }
+        });
+
+        var result = await RunMain("""
+version: 1
+workflows:
+  main:
+    steps:
+      - id: comment
+        type: mcp.call
+        input:
+          server: comments
+          method: add_comment
+          request:
+            body: Demonstrable finding.
+            startLine: null
+""", mcpFactory: factory);
+
+        Assert.True(result.Success, result.Error?.Message);
+        Assert.NotNull(capturedArguments);
+        Assert.Equal("Demonstrable finding.", capturedArguments!["body"]!.GetValue<string>());
+        Assert.False(capturedArguments.ContainsKey("startLine"));
+    }
+
+    [Fact]
+    public async Task McpCall_ResolvedRequestEnforcesConditionalSchemaRequirementsBeforeTransport()
+    {
+        var handlerCalled = false;
+        var factory = new InMemoryMcpClientFactory();
+        factory.RegisterServer("inventory", new MockMcpServerConfig
+        {
+            Tools =
+            [
+                new McpToolInfo
+                {
+                    Name = "locate_record",
+                    InputSchema = JsonNode.Parse("""
+                    {
+                      "type": "object",
+                      "properties": {
+                        "mode": { "type": "string", "enum": ["summary", "position"] },
+                        "target": { "type": "string" },
+                        "offset": { "type": "integer" },
+                        "partition": { "type": "string" }
+                      },
+                      "required": ["mode"],
+                      "dependentRequired": {
+                        "target": ["offset"]
+                      },
+                      "if": {
+                        "properties": { "mode": { "const": "position" } },
+                        "required": ["mode"]
+                      },
+                      "then": {
+                        "required": ["target", "partition"]
+                      },
+                      "additionalProperties": false
+                    }
+                    """)
+                }
+            ],
+            ToolHandlers =
+            {
+                ["locate_record"] = _ =>
+                {
+                    handlerCalled = true;
+                    return new McpCallResult { Content = new JsonObject { ["ok"] = true } };
+                }
+            }
+        });
+
+        var result = await RunMain("""
+version: 1
+workflows:
+  main:
+    steps:
+      - id: locate
+        type: mcp.call
+        input:
+          server: inventory
+          method: locate_record
+          request:
+            mode: position
+            target: record-42
+""", mcpFactory: factory);
+
+        Assert.False(result.Success);
+        Assert.Equal(ErrorCodes.InputValidation, result.Error!.Code);
+        Assert.Contains("partition", result.Error.Message, StringComparison.Ordinal);
+        Assert.Contains("offset", result.Error.Message, StringComparison.Ordinal);
         Assert.False(handlerCalled);
     }
 
@@ -259,6 +490,115 @@ workflows:
     }
 
     [Fact]
+    public async Task McpCall_ExplicitContext_ReachesOnlyGnougoContextMetadata()
+    {
+        JsonObject? capturedMeta = null;
+        JsonNode? capturedArguments = null;
+        var factory = new InMemoryMcpClientFactory();
+        factory.RegisterServer("inventory", new MockMcpServerConfig
+        {
+            Tools =
+            [
+                new McpToolInfo { Name = "reserve_items" }
+            ],
+            ToolHandlers =
+            {
+                ["reserve_items"] = arguments =>
+                {
+                    capturedArguments = arguments?.DeepClone();
+                    capturedMeta = ReadCurrentCorrelationMeta();
+                    return new McpCallResult { Content = new JsonObject { ["reserved"] = true } };
+                }
+            }
+        });
+
+        var result = await RunMain("""
+version: 1
+workflows:
+  main:
+    inputs:
+      scope: string
+    steps:
+      - id: reserve
+        type: mcp.call
+        input:
+          server: inventory
+          method: reserve_items
+          context:
+            workspace: "${data.inputs.scope}"
+            operation_revision: 7
+            labels: [priority, batch]
+          request:
+            sku: item-1
+""", new JsonObject { ["scope"] = "catalog-a" }, factory);
+
+        Assert.True(result.Success, result.Error?.Message);
+        Assert.NotNull(capturedArguments);
+        Assert.False(capturedArguments!.AsObject().ContainsKey("context"));
+        var gnougo = Assert.IsType<JsonObject>(capturedMeta!["gnougo"]);
+        var context = Assert.IsType<JsonObject>(gnougo["context"]);
+        Assert.Equal("catalog-a", context["workspace"]!.GetValue<string>());
+        Assert.Equal(7, context["operation_revision"]!.GetValue<int>());
+        Assert.False(gnougo.ContainsKey("workspace"));
+    }
+
+    [Theory]
+    [InlineData("runId")]
+    [InlineData("authorization")]
+    [InlineData("api_token")]
+    [InlineData("servicePassword")]
+    public async Task McpCall_ContextRejectsReservedAndSensitiveKeys(string forbiddenKey)
+    {
+        var handlerCalled = false;
+        var factory = new InMemoryMcpClientFactory();
+        factory.RegisterServer("inventory", new MockMcpServerConfig
+        {
+            Tools = [new McpToolInfo { Name = "reserve_items" }],
+            ToolHandlers =
+            {
+                ["reserve_items"] = _ =>
+                {
+                    handlerCalled = true;
+                    return new McpCallResult { Content = new JsonObject { ["reserved"] = true } };
+                }
+            }
+        });
+
+        var yaml = $$"""
+version: 1
+workflows:
+  main:
+    steps:
+      - id: reserve
+        type: mcp.call
+        input:
+          server: inventory
+          method: reserve_items
+          context:
+            batches:
+              - - metadata:
+                    {{forbiddenKey}}: forbidden
+          request:
+            sku: item-1
+""";
+
+        var result = await RunMain(yaml, mcpFactory: factory);
+
+        Assert.False(result.Success);
+        Assert.Equal(ErrorCodes.InputValidation, result.Error!.Code);
+        Assert.Contains(forbiddenKey, result.Error.Message, StringComparison.OrdinalIgnoreCase);
+        Assert.False(handlerCalled);
+    }
+
+    private static JsonObject? ReadCurrentCorrelationMeta()
+    {
+        var method = typeof(ConfiguredMcpClientFactory).GetMethod(
+            "BuildCurrentCorrelationMeta",
+            System.Reflection.BindingFlags.Static | System.Reflection.BindingFlags.NonPublic);
+        return method?.Invoke(null, null) as JsonObject;
+    }
+
+    [Fact]
     public async Task McpCall_ToolProgressEvents_AreForwardedAsThinkingTelemetry()
     {
         var spanEvents = new List<(string Name, IReadOnlyList<KeyValuePair<string, object?>>? Attributes)>();
@@ -424,6 +764,88 @@ workflows:
             e.Name == "gnougo-flow.step.thinking" &&
             string.Equals(e.Attributes?.FirstOrDefault(kv => kv.Key == "gnougo-flow.thinking.message").Value?.ToString(), "Sending agent edit request to Copilot.", StringComparison.Ordinal) &&
             string.Equals(e.Attributes?.FirstOrDefault(kv => kv.Key == "gnougo-flow.thinking.source").Value?.ToString(), "mcp.realtime_progress", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public async Task McpCall_RealtimeElicitationIsForwardedAsHumanInputTelemetry()
+    {
+        var spanEvents = new List<(string Name, IReadOnlyList<KeyValuePair<string, object?>>? Attributes)>();
+        var workflowSpan = new Mock<IWorkflowSpan>();
+        var stepSpan = new Mock<IStepSpan>();
+        stepSpan
+            .Setup(s => s.AddEvent(It.IsAny<string>(), It.IsAny<IReadOnlyList<KeyValuePair<string, object?>>?>()))
+            .Callback<string, IReadOnlyList<KeyValuePair<string, object?>>?>((name, attributes) => spanEvents.Add((name, attributes)));
+        var telemetry = new Mock<IWorkflowTelemetry>();
+        telemetry.Setup(t => t.WorkflowStart(It.IsAny<WorkflowTelemetryInfo>())).Returns(workflowSpan.Object);
+        telemetry.Setup(t => t.StepStart(It.IsAny<ITelemetrySpan>(), It.IsAny<StepTelemetryInfo>())).Returns(stepSpan.Object);
+
+        var correlation = new McpCorrelationContext
+        {
+            ServerName = "copilot",
+            MethodName = "copilot_interactive_one_shot",
+            Kind = "tool",
+            RunId = "run-1",
+            StepId = "install"
+        };
+        var request = new HumanInputRequest
+        {
+            RunId = "run-1",
+            StepId = "install",
+            Prompt = "Allow this Copilot operation?",
+            Mode = HumanInputContract.ModeChoice,
+            Choices = ["Allow once", "Refuse"],
+            Fields =
+            [
+                new HumanInputFieldDef
+                {
+                    Name = "answer",
+                    Type = "select",
+                    Required = true,
+                    Description = "Shell command: dotnet test",
+                    Options = ["Allow once", "Refuse"]
+                }
+            ]
+        };
+        var mockSession = new Mock<IMcpSession>();
+        mockSession.Setup(s => s.ServerName).Returns("copilot");
+        mockSession.Setup(s => s.CallToolAsync("copilot_interactive_one_shot", It.IsAny<JsonNode?>(), It.IsAny<CancellationToken>()))
+            .Returns(() =>
+            {
+                ConfiguredMcpClientFactory.PublishHumanInput(new McpHumanInputSignal(correlation, request, McpHumanInputSignalPhase.Waiting));
+                ConfiguredMcpClientFactory.PublishHumanInput(new McpHumanInputSignal(correlation, request, McpHumanInputSignalPhase.Resumed));
+                return Task.FromResult(new McpCallResult
+                {
+                    Content = new JsonObject { ["content"] = "done" }
+                });
+            });
+        mockSession.Setup(s => s.DisposeAsync()).Returns(ValueTask.CompletedTask);
+        var mockFactory = new Mock<IMcpClientFactory>();
+        mockFactory.Setup(f => f.GetClientAsync("copilot", It.IsAny<CancellationToken>())).ReturnsAsync(mockSession.Object);
+
+        var result = await RunMain("""
+version: 1
+workflows:
+  main:
+    steps:
+      - id: install
+        type: mcp.call
+        input:
+          server: copilot
+          method: copilot_interactive_one_shot
+          request:
+            projectRoot: workspace
+            prompt: Run tests.
+""", mcpFactory: mockFactory.Object, telemetry: telemetry.Object, limits: new ExecutionLimits { RunId = "run-1" });
+
+        Assert.True(result.Success, result.Error?.Message);
+        var waiting = Assert.Single(spanEvents, static item => item.Name == "gnougo-flow.step.waiting_for_human");
+        var waitingAttributes = waiting.Attributes!.ToDictionary(static item => item.Key, static item => item.Value);
+        var payload = JsonNode.Parse(waitingAttributes["gnougo-flow.human.request"]!.ToString()!)!.AsObject();
+        Assert.Equal("run-1", payload["run_id"]!.GetValue<string>());
+        Assert.Equal("install", payload["step_id"]!.GetValue<string>());
+        Assert.Equal("Allow this Copilot operation?", payload["prompt"]!.GetValue<string>());
+        Assert.Equal("Shell command: dotnet test", payload["fields"]![0]!["description"]!.GetValue<string>());
+        Assert.Contains(spanEvents, static item => item.Name == "gnougo-flow.step.human_input_resumed");
     }
 
     [Fact]
@@ -796,6 +1218,104 @@ workflows:
 
         Assert.True(result.Success);
         Assert.Equal("ok", result.Outputs!["status"]!.GetValue<string>());
+    }
+
+    [Fact]
+    public async Task McpCall_CallerCancellationRemainsWorkflowCancellation()
+    {
+        var mockSession = new Mock<IMcpSession>();
+        mockSession.Setup(s => s.ServerName).Returns("slow");
+        mockSession.Setup(s => s.CallToolAsync("wait", It.IsAny<JsonNode?>(), It.IsAny<CancellationToken>()))
+            .Returns(async (string _, JsonNode? _, CancellationToken ct) =>
+            {
+                await Task.Delay(Timeout.InfiniteTimeSpan, ct);
+                return new McpCallResult();
+            });
+        mockSession.Setup(s => s.DisposeAsync()).Returns(ValueTask.CompletedTask);
+
+        var mockFactory = new Mock<IMcpClientFactory>();
+        mockFactory.Setup(f => f.GetClientAsync("slow", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(mockSession.Object);
+        using var cancellation = new CancellationTokenSource(TimeSpan.FromMilliseconds(30));
+
+        var result = await RunMain("""
+version: 1
+workflows:
+  main:
+    steps:
+      - id: call
+        type: mcp.call
+        input:
+          server: slow
+          method: wait
+          timeout_ms: 60000
+""", mcpFactory: mockFactory.Object, cancellationToken: cancellation.Token);
+
+        Assert.False(result.Success);
+        Assert.Equal("CANCELLED", result.Error?.Code);
+        Assert.DoesNotContain("MCP_CALL_ERROR", result.Error?.Message ?? string.Empty, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task McpCall_DedicatedTimeoutReportsMcpTimeout()
+    {
+        var mockSession = new Mock<IMcpSession>();
+        mockSession.Setup(s => s.ServerName).Returns("slow");
+        mockSession.Setup(s => s.CallToolAsync("wait", It.IsAny<JsonNode?>(), It.IsAny<CancellationToken>()))
+            .Returns(async (string _, JsonNode? _, CancellationToken ct) =>
+            {
+                await Task.Delay(Timeout.InfiniteTimeSpan, ct);
+                return new McpCallResult();
+            });
+        mockSession.Setup(s => s.DisposeAsync()).Returns(ValueTask.CompletedTask);
+        var mockFactory = new Mock<IMcpClientFactory>();
+        mockFactory.Setup(f => f.GetClientAsync("slow", It.IsAny<CancellationToken>())).ReturnsAsync(mockSession.Object);
+
+        var result = await RunMain("""
+version: 1
+workflows:
+  main:
+    steps:
+      - id: call
+        type: mcp.call
+        input:
+          server: slow
+          method: wait
+          timeout_ms: 20
+""", mcpFactory: mockFactory.Object);
+
+        Assert.False(result.Success);
+        Assert.Equal(ErrorCodes.McpTimeout, result.Error?.Code);
+    }
+
+    [Fact]
+    public async Task McpCall_TransportCancellationWithoutCallerOrTimeoutIsMcpCallError()
+    {
+        using var transportCancellation = new CancellationTokenSource();
+        transportCancellation.Cancel();
+        var mockSession = new Mock<IMcpSession>();
+        mockSession.Setup(s => s.ServerName).Returns("broken");
+        mockSession.Setup(s => s.CallToolAsync("wait", It.IsAny<JsonNode?>(), It.IsAny<CancellationToken>()))
+            .Returns(Task.FromCanceled<McpCallResult>(transportCancellation.Token));
+        mockSession.Setup(s => s.DisposeAsync()).Returns(ValueTask.CompletedTask);
+        var mockFactory = new Mock<IMcpClientFactory>();
+        mockFactory.Setup(f => f.GetClientAsync("broken", It.IsAny<CancellationToken>())).ReturnsAsync(mockSession.Object);
+
+        var result = await RunMain("""
+version: 1
+workflows:
+  main:
+    steps:
+      - id: call
+        type: mcp.call
+        input:
+          server: broken
+          method: wait
+          timeout_ms: 60000
+""", mcpFactory: mockFactory.Object);
+
+        Assert.False(result.Success);
+        Assert.Equal(ErrorCodes.McpCallError, result.Error?.Code);
     }
 
 
@@ -2272,5 +2792,47 @@ workflows:
         var promptsResults = promptsOut!["results"] as JsonArray;
         Assert.Single(promptsResults!);
         Assert.Equal("summarize", promptsResults[0]!["method"]!.GetValue<string>());
+    }
+
+    private sealed class LiveDiscoveryMcpSession(IReadOnlyList<McpToolInfo> tools)
+        : IMcpSession, ILiveMcpToolDiscoverySession
+    {
+        public string ServerName => "github";
+        public int LiveDiscoveryCount { get; private set; }
+        public int OrdinaryListCount { get; private set; }
+        public string? Owner { get; private set; }
+
+        public Task<IReadOnlyList<McpToolInfo>> EnsureToolsDiscoveredAsync(CancellationToken ct)
+        {
+            LiveDiscoveryCount++;
+            return Task.FromResult(tools);
+        }
+
+        public Task<IReadOnlyList<McpToolInfo>> ListToolsAsync(CancellationToken ct)
+        {
+            OrdinaryListCount++;
+            return Task.FromResult(tools);
+        }
+
+        public Task<IReadOnlyList<McpResourceInfo>> ListResourcesAsync(CancellationToken ct)
+            => Task.FromResult<IReadOnlyList<McpResourceInfo>>([]);
+
+        public Task<IReadOnlyList<McpPromptInfo>> ListPromptsAsync(CancellationToken ct)
+            => Task.FromResult<IReadOnlyList<McpPromptInfo>>([]);
+
+        public Task<McpCallResult> CallToolAsync(string toolName, JsonNode? arguments, CancellationToken ct)
+        {
+            Assert.Equal("pull_request_read", toolName);
+            Owner = arguments?["owner"]?.GetValue<string>();
+            return Task.FromResult(new McpCallResult
+            {
+                Content = new JsonObject { ["title"] = "Review" }
+            });
+        }
+
+        public Task<McpGetPromptResult> GetPromptAsync(string promptName, JsonNode? arguments, CancellationToken ct)
+            => throw new NotSupportedException();
+
+        public ValueTask DisposeAsync() => ValueTask.CompletedTask;
     }
 }

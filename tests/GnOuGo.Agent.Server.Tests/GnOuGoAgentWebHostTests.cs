@@ -55,6 +55,48 @@ public sealed class GnOuGoAgentWebHostTests
     }
 
     [Fact]
+    public async Task RuntimeFactory_UsesMcpServerSavedAfterFactoryResolution()
+    {
+        var contentRoot = GetServerContentRoot();
+        await using var app = GnOuGoAgentWebHost.Build(
+            TelemetryTestHostArgs.Create(),
+            urls: "http://127.0.0.1:0",
+            contentRoot: contentRoot,
+            enableHttpsRedirection: false);
+
+        await app.StartAsync(TestContext.Current.CancellationToken);
+        try
+        {
+            var runtimeFactory = app.Services.GetRequiredService<SecureWorkflowRuntimeFactory>();
+            Assert.True(runtimeFactory.UsesLiveMcpConfiguration);
+
+            var keyVault = app.Services.GetRequiredService<IKeyVaultRuntimeConfigStore>();
+            await keyVault.SaveSecretValueAsync(
+                "LLM--McpServers--MailRuntime",
+                """
+                {
+                  "name": "MailRuntime",
+                  "transport": "http",
+                  "description": "Sends email messages to recipients.",
+                  "url": "http://127.0.0.1:65530/mcp",
+                  "authType": "none"
+                }
+                """,
+                TestContext.Current.CancellationToken);
+
+            await using var runtime = await runtimeFactory.CreateAsync(TestContext.Current.CancellationToken);
+
+            Assert.Contains(
+                runtime.McpClientFactory.ServerMetadata,
+                server => string.Equals(server.Name, "MailRuntime", StringComparison.Ordinal));
+        }
+        finally
+        {
+            await app.StopAsync(TestContext.Current.CancellationToken);
+        }
+    }
+
+    [Fact]
     public void Build_WhenServerRunsOutsideDevelopment_LoadsBundledStdIoMcpServersFromBaseConfig()
     {
         var contentRoot = GetServerContentRoot();

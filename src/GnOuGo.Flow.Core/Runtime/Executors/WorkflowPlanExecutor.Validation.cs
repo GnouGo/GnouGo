@@ -220,7 +220,7 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
         IReadOnlyList<McpServerDiscovery>? discovered)
     {
         var toolCalls = generatedDoc.Workflows.Values
-            .SelectMany(static workflow => EnumerateSteps(workflow.Steps))
+            .SelectMany(static workflow => EnumerateSteps(workflow.Steps).Concat(EnumerateSteps(workflow.Finally)))
             .Where(static step => string.Equals(step.Type, "mcp.call", StringComparison.Ordinal))
             .Where(static step => !string.Equals(ReadMcpCallInputString(step, "kind"), "prompt", StringComparison.OrdinalIgnoreCase))
             .ToArray();
@@ -364,6 +364,7 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
                     Name = tool.Name,
                     Description = tool.Description,
                     InputSchema = tool.InputSchema?.DeepClone(),
+                    Meta = tool.Meta?.DeepClone(),
                     OutputSchema = tool.OutputSchema?.DeepClone(),
                     ExampleResponse = tool.ExampleResponse?.DeepClone()
                 }).ToList(),

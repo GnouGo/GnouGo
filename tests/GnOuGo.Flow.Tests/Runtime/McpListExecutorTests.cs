@@ -5,6 +5,7 @@ using GnOuGo.Flow.Core.Expressions;
 using GnOuGo.Flow.Core.Models;
 using GnOuGo.Flow.Core.Parsing;
 using GnOuGo.Flow.Core.Runtime;
+using Microsoft.Extensions.Caching.Memory;
 using Xunit;
 
 namespace GnOuGo.Flow.Tests.Runtime;
@@ -18,13 +19,14 @@ public class McpListExecutorTests
     }
 
     private static async Task<RunResult> RunMain(string yaml, JsonObject? inputs = null,
-        IMcpClientFactory? mcpFactory = null)
+        IMcpClientFactory? mcpFactory = null, IMemoryCache? mcpCache = null)
     {
         var compiled = CompileDoc(yaml);
         var wf = compiled.Workflows[compiled.Entrypoint!];
         var engine = new WorkflowEngine
         {
             McpClientFactory = mcpFactory,
+            McpCache = mcpCache,
         };
         return await engine.ExecuteAsync(wf, inputs ?? new JsonObject(), CancellationToken.None);
     }
@@ -565,6 +567,115 @@ workflows:
     }
 
     [Fact]
+    public async Task McpList_PreservesNamespacedToolMetadata()
+    {
+        var meta = JsonNode.Parse("""
+            {"gnougo":{"artifacts":{"version":1,"produces":[{"kind":"workspace.directory","pointer":"/workspaceRoot","mode":"materialize"}]}}}
+            """);
+        var factory = new InMemoryMcpClientFactory();
+        factory.RegisterServer("workspace-provider", new MockMcpServerConfig
+        {
+            Tools =
+            [
+                new McpToolInfo
+                {
+                    Name = "create_workspace",
+                    Meta = meta,
+                    OutputSchema = JsonNode.Parse("""
+                        {"type":"object","properties":{"workspaceRoot":{"type":"string"}},"required":["workspaceRoot"]}
+                        """)
+                }
+            ]
+        });
+
+        var result = await RunMain("""
+            version: 1
+            workflows:
+              main:
+                steps:
+                  - id: list
+                    type: mcp.list
+                    input:
+                      servers: [workspace-provider]
+                      include: [tools]
+            """, mcpFactory: factory);
+
+        Assert.True(result.Success, result.Error?.Message);
+        var output = Assert.IsType<JsonObject>(result.StepResults[0].Output);
+        var tool = Assert.IsType<JsonObject>(Assert.Single(Assert.IsType<JsonArray>(output["tools"])));
+        Assert.True(JsonNode.DeepEquals(meta, tool["meta"]));
+    }
+
+    [Fact]
+    public async Task McpList_PreservesNamespacedToolMetadataFromCache()
+    {
+        var meta = JsonNode.Parse("""
+            {"gnougo":{"artifacts":{"version":1,"consumes":[{"kind":"workspace.directory","pointer":"/projectRoot","required":true}]}}}
+            """);
+        var inputSchema = JsonNode.Parse("""
+            {
+              "type":"object",
+              "properties":{
+                "projectRoot":{"type":"string"},
+                "permissionMode":{
+                  "type":"string",
+                  "enum":["auto_approve_allowlist","deny","approve_all"],
+                  "default":"deny"
+                }
+              },
+              "required":["projectRoot"]
+            }
+            """);
+        var listCalls = 0;
+        var session = new Mock<IMcpSession>();
+        session.SetupGet(item => item.ServerName).Returns("workspace-consumer");
+        session.Setup(item => item.ListToolsAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync(() =>
+            {
+                Interlocked.Increment(ref listCalls);
+                return new List<McpToolInfo>
+                {
+                    new()
+                    {
+                        Name = "inspect_workspace",
+                        Meta = meta,
+                        InputSchema = inputSchema
+                    }
+                }.AsReadOnly();
+            });
+        session.Setup(item => item.DisposeAsync()).Returns(ValueTask.CompletedTask);
+
+        var factory = new Mock<IMcpClientFactory>();
+        factory.Setup(item => item.GetClientAsync("workspace-consumer", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(session.Object);
+        using var cache = new MemoryCache(new MemoryCacheOptions());
+
+        var result = await RunMain("""
+            version: 1
+            workflows:
+              main:
+                steps:
+                  - id: first
+                    type: mcp.list
+                    input:
+                      servers: [workspace-consumer]
+                      include: [tools]
+                  - id: cached
+                    type: mcp.list
+                    input:
+                      servers: [workspace-consumer]
+                      include: [tools]
+            """, mcpFactory: factory.Object, mcpCache: cache);
+
+        Assert.True(result.Success, result.Error?.Message);
+        Assert.Equal(1, listCalls);
+        var output = Assert.IsType<JsonObject>(result.StepResults[1].Output);
+        var tool = Assert.IsType<JsonObject>(Assert.Single(Assert.IsType<JsonArray>(output["tools"])));
+        Assert.True(JsonNode.DeepEquals(meta, tool["meta"]));
+        Assert.True(JsonNode.DeepEquals(inputSchema, tool["input_schema"]));
+    }
+
+    [Fact]
     public async Task McpList_WildcardServers_ListsAllConfiguredServers()
     {
         var factory = new InMemoryMcpClientFactory();
@@ -1023,5 +1134,3 @@ workflows:
         Assert.Contains("summarize", text);
     }
 }
-
-

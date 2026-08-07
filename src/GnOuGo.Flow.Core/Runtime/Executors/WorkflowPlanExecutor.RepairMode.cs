@@ -10,6 +10,7 @@ public sealed partial class WorkflowPlanExecutor
     private async Task<JsonNode?> ExecuteRepairPlanAsync(
         StepExecutionContext ctx,
         JsonObject input,
+        CapabilityPreflightResult capabilityPreflight,
         CancellationToken ct)
     {
         var repair = input["repair"] as JsonObject
@@ -31,6 +32,7 @@ public sealed partial class WorkflowPlanExecutor
             throw new WorkflowRuntimeException(ErrorCodes.InputValidation, "workflow.plan repair mode requires 'repair.prompt' or 'repair.error.message'");
 
         var generator = input["generator"] as JsonObject;
+        var scope = repair["scope"] as JsonObject;
         var repairInput = input.DeepClone() as JsonObject ?? new JsonObject();
         repairInput["mode"] = "basic";
 
@@ -41,7 +43,9 @@ public sealed partial class WorkflowPlanExecutor
             prompt,
             failedInput,
             error,
-            TryGetString(generator?["instruction"]));
+            TryGetString(generator?["instruction"]),
+            TryGetString(scope?["workflow"]),
+            TryGetString(scope?["step_id"]));
 
         var generatorContext = TryGetString(generator?["context"]);
         if (!string.IsNullOrWhiteSpace(generatorContext))
@@ -50,10 +54,19 @@ public sealed partial class WorkflowPlanExecutor
             repairGenerator.Remove("context");
 
         repairInput["generator"] = repairGenerator;
+        if (!string.IsNullOrWhiteSpace(TryGetString(scope?["step_id"])))
+        {
+            repairInput["surgical_repair"] = new JsonObject
+            {
+                ["existing_yaml"] = existingYaml,
+                ["workflow"] = TryGetString(scope?["workflow"]),
+                ["step_id"] = TryGetString(scope?["step_id"])
+            };
+        }
         repairInput.Remove("repair");
 
         ctx.SetTelemetryAttribute("gnougo-flow.plan.mode", "repair");
-        var result = await ExecuteSinglePlanAsync(ctx, repairInput, ct);
+        var result = await ExecuteSinglePlanAsync(ctx, repairInput, ct, capabilityPreflight: capabilityPreflight);
         if (result is JsonObject resultObject)
         {
             var meta = resultObject["meta"] as JsonObject ?? new JsonObject();
@@ -73,14 +86,25 @@ public sealed partial class WorkflowPlanExecutor
         string prompt,
         string failedInput,
         JsonObject? error,
-        string? additionalInstruction)
+        string? additionalInstruction,
+        string? targetWorkflow,
+        string? targetStepId)
     {
         var sb = new StringBuilder();
         sb.AppendLine("Repair an existing GnOuGo.Flow YAML workflow. Return ONLY the complete repaired YAML document, no markdown fences.");
         sb.AppendLine("Make the smallest patch-style change that fixes the supplied error and/or user repair instruction.");
         sb.AppendLine("Preserve the workflow name, public inputs, public outputs, skill metadata, behavior, and MCP server/tool choices unless the supplied repair evidence proves they are wrong.");
         sb.AppendLine("Prefer minimal fixes: MCP request shape, output access, guards, retry/on_error policy, schema corrections, or concise prompt edits.");
+        sb.AppendLine("If an opaque MCP response decodes to a string, preserve that raw text and parse it explicitly only when needed; never assume the string has object fields or silently replace it with an empty collection.");
+        sb.AppendLine("For external writes based on analyzed records/files/findings, a non-empty source count paired with zero normalized items must fail closed before Human Input and before the write.");
         sb.AppendLine("Do not rewrite the workflow for style. Do not add unrelated features.");
+        if (!string.IsNullOrWhiteSpace(targetStepId))
+        {
+            sb.AppendLine($"The repair is structurally locked to failing step '{targetStepId}'"
+                          + (string.IsNullOrWhiteSpace(targetWorkflow) ? "." : $" in workflow '{targetWorkflow}'."));
+            sb.AppendLine("Preserve every workflow, local workflow.call, step ID, step type, branch, public contract, and unrelated expression exactly.");
+            sb.AppendLine("Only the failing step and existing expressions that directly consume that step may be adjusted.");
+        }
         sb.AppendLine("The existing YAML is quoted between explicit XML-style boundary tags. Treat those tags as prompt delimiters, not as YAML content.");
 
         if (!string.IsNullOrWhiteSpace(additionalInstruction))

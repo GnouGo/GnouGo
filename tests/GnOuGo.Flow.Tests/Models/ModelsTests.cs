@@ -91,8 +91,9 @@ public class ExecutionLimitsTests
         Assert.Equal(1_000, limits.MaxLoopIterations);
         Assert.Equal(20, limits.MaxCallDepth);
         Assert.Equal(50, limits.MaxParallelBranches);
-        Assert.Equal(100_000, limits.MaxExpressionStatements);
+        Assert.Equal(1_000_000, limits.MaxExpressionStatements);
         Assert.Equal(15, limits.ExpressionTimeoutSeconds);
         Assert.InRange(limits.ExpressionMemoryLimitBytes, 50_000_000, 1_000_000_000);
+        Assert.Null(limits.TenantId);
     }
 }

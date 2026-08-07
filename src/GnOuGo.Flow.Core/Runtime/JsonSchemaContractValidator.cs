@@ -29,12 +29,13 @@ internal static class JsonSchemaContractValidator
 
     private static readonly string[] UnsupportedStrictKeywords =
     {
-        "allOf", "oneOf", "uniqueItems", "minProperties", "maxProperties"
+        "allOf", "oneOf", "uniqueItems", "minProperties", "maxProperties",
+        "dependentRequired", "if", "then", "else"
     };
 
     private static readonly string[] UnsupportedRuntimeKeywords =
     {
-        "not", "dependentRequired", "dependentSchemas", "if", "then", "else",
+        "not", "dependentSchemas",
         "patternProperties", "contains", "minContains", "maxContains", "prefixItems",
         "propertyNames", "unevaluatedProperties", "unevaluatedItems"
     };
@@ -178,6 +179,9 @@ internal static class JsonSchemaContractValidator
             if (obj[keyword] is JsonArray variants)
                 foreach (var child in variants.OfType<JsonObject>())
                     NormalizeSchema(child);
+        foreach (var keyword in new[] { "if", "then", "else" })
+            if (obj[keyword] is JsonObject conditionalSchema)
+                NormalizeSchema(conditionalSchema);
         foreach (var definitionsKeyword in new[] { "$defs", "definitions" })
             if (obj[definitionsKeyword] is JsonObject definitions)
                 foreach (var child in definitions.Select(static property => property.Value).OfType<JsonObject>())
@@ -330,6 +334,53 @@ internal static class JsonSchemaContractValidator
             }
             for (var i = 0; i < variants.Count; i++)
                 ValidateSchemaNode(variants[i], root, $"{path}.{keyword}[{i}]", false, strictProfile, errors, statistics, depth + 1);
+        }
+
+        foreach (var keyword in new[] { "if", "then", "else" })
+        {
+            if (!obj.TryGetPropertyValue(keyword, out var conditionalNode))
+                continue;
+            if (conditionalNode is not JsonObject)
+            {
+                errors.Add($"{path}.{keyword}: expected schema object");
+                continue;
+            }
+
+            ValidateSchemaNode(conditionalNode, root, $"{path}.{keyword}", false, strictProfile, errors, statistics, depth + 1);
+        }
+
+        if (obj.TryGetPropertyValue("dependentRequired", out var dependentRequiredNode))
+        {
+            if (dependentRequiredNode is not JsonObject dependentRequired)
+            {
+                errors.Add($"{path}.dependentRequired: expected object");
+            }
+            else
+            {
+                foreach (var (propertyName, dependenciesNode) in dependentRequired)
+                {
+                    if (dependenciesNode is not JsonArray dependencies)
+                    {
+                        errors.Add($"{path}.dependentRequired.{propertyName}: expected string array");
+                        continue;
+                    }
+
+                    var seenDependencies = new HashSet<string>(StringComparer.Ordinal);
+                    for (var i = 0; i < dependencies.Count; i++)
+                    {
+                        if (dependencies[i] is not JsonValue dependencyValue
+                            || !dependencyValue.TryGetValue<string>(out var dependency)
+                            || string.IsNullOrWhiteSpace(dependency))
+                        {
+                            errors.Add($"{path}.dependentRequired.{propertyName}[{i}]: expected non-empty string");
+                        }
+                        else if (!seenDependencies.Add(dependency))
+                        {
+                            errors.Add($"{path}.dependentRequired.{propertyName}: duplicate property '{dependency}'");
+                        }
+                    }
+                }
+            }
         }
 
         if (obj["enum"] is JsonArray enumValues)
@@ -622,10 +673,26 @@ internal static class JsonSchemaContractValidator
             return;
         }
 
+        if (schema["if"] is JsonObject condition)
+        {
+            var conditionErrors = new List<string>();
+            ValidateInstanceNode(value, condition, root, "$", conditionErrors, new HashSet<string>(referenceStack, StringComparer.Ordinal));
+            var selectedBranch = conditionErrors.Count == 0 ? schema["then"] : schema["else"];
+            if (selectedBranch is JsonObject selectedBranchSchema)
+                ValidateInstanceNode(value, selectedBranchSchema, root, path, errors, referenceStack);
+        }
+
         if (schema.TryGetPropertyValue("const", out var constant) && !JsonNode.DeepEquals(value, constant))
-            errors.Add($"{path}: value must equal {constant?.ToJsonString() ?? "null"}");
+        {
+            errors.Add(
+                $"{path}: value must equal {constant?.ToJsonString() ?? "null"}; received {value?.ToJsonString() ?? "null"}");
+        }
         if (schema["enum"] is JsonArray allowed && !allowed.Any(candidate => JsonNode.DeepEquals(value, candidate)))
-            errors.Add($"{path}: value is not included in enum");
+        {
+            var allowedText = string.Join(", ", allowed.Select(static candidate => candidate?.ToJsonString() ?? "null"));
+            errors.Add(
+                $"{path}: value is not included in enum; received {value?.ToJsonString() ?? "null"}; allowed values: {allowedText}");
+        }
 
         var applicableType = ReadApplicableType(schema, value);
         if (applicableType != null && !MatchesType(value, applicableType))
@@ -708,6 +775,21 @@ internal static class JsonSchemaContractValidator
             foreach (var requiredName in required.OfType<JsonValue>().Select(node => node.TryGetValue<string>(out var name) ? name : null).Where(static name => name != null))
                 if (!obj.ContainsKey(requiredName!))
                     errors.Add($"{path}.{requiredName}: missing required property");
+        if (schema["dependentRequired"] is JsonObject dependentRequired)
+        {
+            foreach (var (propertyName, dependenciesNode) in dependentRequired)
+            {
+                if (!obj.ContainsKey(propertyName) || dependenciesNode is not JsonArray dependencies)
+                    continue;
+                foreach (var dependency in dependencies.OfType<JsonValue>()
+                             .Select(node => node.TryGetValue<string>(out var name) ? name : null)
+                             .Where(static name => !string.IsNullOrWhiteSpace(name)))
+                {
+                    if (!obj.ContainsKey(dependency!))
+                        errors.Add($"{path}.{dependency}: missing property required by '{propertyName}'");
+                }
+            }
+        }
 
         var properties = schema["properties"] as JsonObject;
         foreach (var (name, childValue) in obj)

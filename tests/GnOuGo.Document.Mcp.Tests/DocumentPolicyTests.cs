@@ -61,6 +61,19 @@ public class DocumentPolicyTests
     }
 
     [Theory]
+    [InlineData(".GnOuGo/agent.yaml")]
+    [InlineData(".GnOuGo/data/internal.json")]
+    public void ResolveFilePath_RejectsReservedGnOuGoPath(string filePath)
+    {
+        var root = CreateTempDir();
+        var policy = CreatePolicy(root);
+
+        var ex = Assert.Throws<InvalidOperationException>(() => policy.ResolveFilePath(filePath));
+
+        Assert.Contains("reserved", ex.Message, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Theory]
     [InlineData("file:///tmp/report.md", "file URI")]
     [InlineData("~/report.md", "home-relative")]
     [InlineData("~\\report.md", "home-relative")]
@@ -149,6 +162,7 @@ public class DocumentPolicyTests
         Assert.Contains(exports, description);
         Assert.Contains("document_get_policy.MaxFileSizeBytes: 1234 bytes", description);
         Assert.Contains("Use relative paths only from the workspace root", description);
+        Assert.Contains("reserved .GnOuGo", description);
     }
 
     [Fact]

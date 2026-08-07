@@ -4,7 +4,7 @@ MCP stdio server for safe Git repository operations on local projects.
 
 ## MCP protocol compatibility
 
-This stdio server uses the stable C# MCP SDK `2.0.0` and targets MCP `2026-07-28`. The SDK retains compatibility with older clients; tool names, request schemas, and structured results are unchanged.
+This stdio server uses the stable C# MCP SDK `2.0.0` and requires MCP `2026-07-28` for GnOuGo-owned peers. External server fallback is handled by the unpinned GnOuGo Flow client.
 
 ## Features
 
@@ -13,10 +13,19 @@ This stdio server uses the stable C# MCP SDK `2.0.0` and targets MCP `2026-07-28
 - Inspect working tree status, diffs, branches, and logs with `git_status`, `git_diff`, `git_branches`, and `git_log`.
 - Perform guarded local mutations with `git_stage`, `git_unstage`, `git_commit`, `git_create_branch`, `git_delete_branch`, `git_checkout`, `git_switch_branch`, `git_merge`, and `git_resolve_conflict` when `Git:AllowMutations=true`.
 - Perform guarded network operations with `git_clone`, `git_fetch`, `git_pull`, `git_push`, and `git_delete_remote_branch` when `Git:AllowNetworkOperations=true`.
+- Compare exact PR revisions with `git_compare_refs`. It resolves base/head/merge-base SHAs, detects renames, reports binaries and submodules, paginates files, and includes per-file truncation metadata without consulting the working tree.
+
+## Read-only review policy
+
+The packaged default remains read/write capable (`AllowMutations=true`, `AllowNetworkOperations=true`, `ReviewReadOnly=false`); actual operations are still root-guarded. The following stricter review policy is opt-in for a dedicated server configuration.
+
+Set `Git:ReviewReadOnly=true`, `Git:AllowMutations=false`, and `Git:AllowNetworkOperations=true` for a dedicated review server. In this mode `git_clone` and `git_fetch` are permitted only below the visible `workflows/` root; checkout, stage, commit, push, pull/merge, and branch deletion remain denied. `git_clone` advertises `response.projectRootRelative` as a materialized `workspace.directory` artifact, while Git operations taking `projectRoot` advertise the matching consumer contract. This policy protects user checkouts while still allowing exact remote revision comparison.
+
+`git_compare_refs` defaults to merge-base-to-head semantics. Follow `nextCursor` until null and preserve every page's `baseSha`, `headSha`, and `mergeBaseSha`. Treat `truncated`, binary, and submodule entries as explicit coverage gaps.
 
 When `git_stage` is called without explicit paths, it stages all current changes except the repository-root `.GnOuGo/` directory. This keeps temporary Copilot SDK working files out of commits by default. Passing explicit paths still stages only the requested paths.
 
-`git_clone` defaults to a minimal clone: one branch, one commit of history, and no tags. Use `branch` to select a specific branch, `historyDepth: 0` to fetch full history, `fetchAllBranches: true` to fetch every remote branch, and `tagFetchMode: "auto"` or `"all"` when tags are required. When `branch` is omitted with `fetchAllBranches: false`, the tool resolves the remote default branch; if that cannot be determined, pass `branch` explicitly or set `fetchAllBranches: true`.
+`git_clone` defaults to a minimal clone: one branch, one commit of history, and no tags. Use `branch` to select a plain branch name, a full 40- or 64-hex commit object ID, or a fully qualified remote `refs/...` value; use `historyDepth: 0` to fetch full history, `fetchAllBranches: true` to fetch every remote branch, and `tagFetchMode: "auto"` or `"all"` when tags are required. A full object ID or fully qualified ref is fetched exactly and checked out detached. When `branch` is omitted with `fetchAllBranches: false`, the tool resolves the remote default branch; if that cannot be determined, pass `branch` explicitly or set `fetchAllBranches: true`.
 
 Git tool failures return structured content in the advertised result type with `success: false`, `ok: false`, `error_code`, and `error_message`.
 
@@ -32,6 +41,8 @@ call `git_fetch` with `remoteName: "origin"` and `refSpec: "refs/heads/<branchNa
 ## Policy and authentication
 
 The tool resolves project roots under `Git:DefaultWorkingDirectory` and `Git:AllowedWorkingRoots`. Relative paths are resolved below the default working directory, which defaults to `GnOuGo` on the current user's Desktop for local desktop usage.
+
+Every `git_clone.targetDirectory` must be a purpose-specific child below `workflows/`, for example `workflows/github-review-123`. Existing repositories used as `projectRoot` may live elsewhere in the visible workspace, but paths under the reserved `.GnOuGo/` internal subtree are rejected. The legacy `.GnOuGo/data/reviews/` location is no longer a valid Git workflow workspace.
 
 Git credentials are optional and are resolved in this order:
 

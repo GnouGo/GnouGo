@@ -563,6 +563,22 @@ public class DocumentOperationHostTests
     }
 
     [Fact]
+    public void ListFiles_Recursive_OmitsReservedGnOuGoTree()
+    {
+        var root = CreateTempDir();
+        var internalDirectory = Directory.CreateDirectory(Path.Combine(root, ".GnOuGo", "traces"));
+        File.WriteAllText(Path.Combine(root, "visible.json"), "{}");
+        File.WriteAllText(Path.Combine(internalDirectory.FullName, "internal.json"), "{}");
+        var host = CreateHost(root);
+
+        var result = host.ListFiles(null, true);
+
+        Assert.True(result.Success);
+        var file = Assert.Single(result.Files);
+        Assert.Equal("visible.json", file.RelativePath);
+    }
+
+    [Fact]
     public void ListFiles_NonExistentDirectory_ReturnsError()
     {
         var root = CreateTempDir();

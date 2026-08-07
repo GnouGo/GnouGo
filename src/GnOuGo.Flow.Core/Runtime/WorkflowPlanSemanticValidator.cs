@@ -80,12 +80,9 @@ internal static class WorkflowPlanSemanticValidator
     private static readonly Regex JsMemberAccessRegex = new(
         @"\b(?<var>[A-Za-z_$][A-Za-z0-9_$]*)\s*\??\.\s*(?<member>[A-Za-z_$][A-Za-z0-9_$]*)\b",
         RegexOptions.Compiled);
-    private static readonly Regex JsDocParamRegex = new(
-        @"@param\s+\{(?<type>[^}\r\n]+)\}\s+(?<name>\[?[A-Za-z_$][A-Za-z0-9_$]*(?:=[^\]\s]+)?\]?)",
-        RegexOptions.Compiled | RegexOptions.IgnoreCase);
-    private static readonly Regex JsDocReturnsRegex = new(
-        @"@returns?\s+\{(?<type>[^}\r\n]+)\}",
-        RegexOptions.Compiled | RegexOptions.IgnoreCase);
+    private static readonly Regex JsDocParameterNameRegex = new(
+        @"\s+(?<name>\[?[A-Za-z_$][A-Za-z0-9_$]*(?:=[^\]\s]+)?\]?)",
+        RegexOptions.Compiled);
     private static readonly HashSet<string> KnownMcpCallInputFields = new(StringComparer.Ordinal)
     {
         "server", "kind", "method", "methods", "request", "request_template", "template_data",
@@ -112,16 +109,17 @@ internal static class WorkflowPlanSemanticValidator
 
         foreach (var (workflowName, workflow) in document.Workflows)
         {
-            var allStepIds = CollectStepIds(workflow.Steps).ToHashSet(StringComparer.Ordinal);
-            var knownEmptyStringReferences = CollectKnownEmptySetStringReferences(workflow.Steps);
+            var allSteps = workflow.Steps.Concat(workflow.Finally).ToList();
+            var allStepIds = CollectStepIds(allSteps).ToHashSet(StringComparer.Ordinal);
+            var knownEmptyStringReferences = CollectKnownEmptySetStringReferences(allSteps);
             var knownContracts = new Dictionary<string, JsonNode?>(StringComparer.Ordinal);
             var symbols = WorkflowSymbolTable.Create(workflowName, workflow.Inputs, allStepIds);
             ValidateFunctionJsDoc(workflow.Functions, workflowName, errors);
             var allowedFunctionNames = BuildAllowedFunctionNames(workflow.Functions, globalFunctionNames);
             var functionDefinitions = BuildFunctionDefinitions(workflow.Functions, $"workflows.{workflowName}.functions", globalFunctionDefinitions);
-            ValidateLoopResultsFunctionCalls(workflow.Steps, workflowName, functionDefinitions, errors);
+            ValidateLoopResultsFunctionCalls(allSteps, workflowName, functionDefinitions, errors);
             ValidateStepList(
-                workflow.Steps,
+                allSteps,
                 workflowName,
                 document.Workflows,
                 workflow.Inputs,
@@ -161,7 +159,10 @@ internal static class WorkflowPlanSemanticValidator
         var changes = 0;
 
         foreach (var workflow in document.Workflows.Values)
+        {
             changes += NormalizeMcpCallInputRequests(workflow.Steps, mcpContracts);
+            changes += NormalizeMcpCallInputRequests(workflow.Finally, mcpContracts);
+        }
 
         return changes;
     }
@@ -382,35 +383,221 @@ internal static class WorkflowPlanSemanticValidator
 
     private static string? FindLeadingJsDoc(string script, int functionIndex)
     {
-        var end = functionIndex;
+        return TryFindLeadingJsDocRange(script, functionIndex, out var start, out var end)
+            ? script[start..end].Trim()
+            : null;
+    }
+
+    private static bool TryFindLeadingJsDocRange(
+        string script,
+        int functionIndex,
+        out int start,
+        out int end)
+    {
+        start = -1;
+        end = functionIndex;
         while (end > 0 && char.IsWhiteSpace(script[end - 1]))
             end--;
 
         if (end < 2 || script[end - 1] != '/' || script[end - 2] != '*')
-            return null;
+            return false;
 
-        var start = script.LastIndexOf("/*", end - 1, StringComparison.Ordinal);
+        start = script.LastIndexOf("/*", end - 1, StringComparison.Ordinal);
         if (start < 0 || start + 2 >= script.Length || script[start + 2] != '*')
-            return null;
+            return false;
 
         var candidate = script[start..end].Trim();
-        return candidate.StartsWith("/**", StringComparison.Ordinal) && candidate.EndsWith("*/", StringComparison.Ordinal)
-            ? candidate
-            : null;
+        return candidate.StartsWith("/**", StringComparison.Ordinal)
+               && candidate.EndsWith("*/", StringComparison.Ordinal);
+    }
+
+    internal static string CompleteInferableFunctionParameterJsDoc(string script)
+    {
+        if (string.IsNullOrWhiteSpace(script))
+            return script;
+
+        var replacements = new List<(int Start, int Length, string Value)>();
+        foreach (var declaration in EnumerateFunctionDeclarations(script))
+        {
+            if (!TryFindLeadingJsDocRange(script, declaration.Index, out var jsDocStart, out var jsDocEnd))
+                continue;
+
+            var jsDoc = script[jsDocStart..jsDocEnd].Trim();
+            var documented = ParseJsDocParamTypes(jsDoc);
+            var body = TryExtractFunctionBody(script, declaration.SignatureEndIndex);
+            if (body == null)
+                continue;
+
+            var additions = new List<string>();
+            foreach (var parameter in declaration.Parameters)
+            {
+                if (documented.TryGetValue(parameter, out var existingType)
+                    && !string.IsNullOrWhiteSpace(existingType))
+                {
+                    continue;
+                }
+
+                var inferredType = InferJsDocParameterType(parameter, body);
+                if (inferredType != null)
+                    additions.Add($" * @param {{{inferredType}}} {parameter} - Type inferred from deterministic function usage.");
+            }
+
+            if (additions.Count == 0)
+                continue;
+
+            var close = jsDoc.LastIndexOf("*/", StringComparison.Ordinal);
+            if (close < 0)
+                continue;
+            var replacement = jsDoc[..close].TrimEnd()
+                              + Environment.NewLine
+                              + string.Join(Environment.NewLine, additions)
+                              + Environment.NewLine
+                              + " */";
+            replacements.Add((jsDocStart, jsDocEnd - jsDocStart, replacement));
+        }
+
+        var normalized = script;
+        foreach (var replacement in replacements.OrderByDescending(static item => item.Start))
+            normalized = normalized.Remove(replacement.Start, replacement.Length).Insert(replacement.Start, replacement.Value);
+        return normalized;
+    }
+
+    private static string? InferJsDocParameterType(string parameter, string body)
+    {
+        var escaped = Regex.Escape(parameter);
+        var options = RegexOptions.CultureInvariant;
+        if (Regex.IsMatch(body, $@"\bArray\.isArray\s*\(\s*{escaped}\s*\)|\b{escaped}\s*\.\s*(?:map|filter|reduce|forEach|some|every|find|push|pop|shift|unshift|concat|join)\s*\(", options))
+            return "Array<object>";
+        if (Regex.IsMatch(body, $@"\bString\s*\(\s*{escaped}\b|\b{escaped}\s*\.\s*(?:trim|toLowerCase|toUpperCase|includes|startsWith|endsWith|replace|split|substring|slice)\s*\(", options))
+            return "string";
+        if (Regex.IsMatch(body, $@"\bNumber\s*\(\s*{escaped}\b|(?:^|[^A-Za-z0-9_$]){escaped}\s*[+\-*/%]|[+\-*/%]\s*{escaped}(?:[^A-Za-z0-9_$]|$)", options))
+            return "number";
+        if (Regex.IsMatch(body, $@"\b{escaped}\s*(?:\.|\[)|\.\.\.\s*{escaped}\b", options))
+            return "object";
+        if (Regex.IsMatch(body, $@"!\s*{escaped}\b|\b{escaped}\s*(?:===?|!==?)\s*(?:true|false)\b", options))
+            return "boolean";
+        return null;
     }
 
     private static Dictionary<string, string> ParseJsDocParamTypes(string jsDoc)
     {
         var parameters = new Dictionary<string, string>(StringComparer.Ordinal);
-        foreach (Match match in JsDocParamRegex.Matches(jsDoc))
+        foreach (var tag in EnumerateTypedJsDocTags(jsDoc, "@param"))
         {
-            var name = NormalizeJsDocParameterName(match.Groups["name"].Value);
-            var type = match.Groups["type"].Value.Trim();
+            var nameMatch = JsDocParameterNameRegex.Match(jsDoc, tag.NextIndex);
+            if (!nameMatch.Success || nameMatch.Index != tag.NextIndex)
+                continue;
+
+            var name = NormalizeJsDocParameterName(nameMatch.Groups["name"].Value);
             if (!string.IsNullOrWhiteSpace(name) && !parameters.ContainsKey(name))
-                parameters[name] = type;
+                parameters[name] = tag.Type;
         }
 
         return parameters;
+    }
+
+    private static IEnumerable<(string Type, int NextIndex)> EnumerateTypedJsDocTags(
+        string jsDoc,
+        params string[] tagNames)
+    {
+        var cursor = 0;
+        while (cursor < jsDoc.Length)
+        {
+            var markerIndex = jsDoc.IndexOf('@', cursor);
+            if (markerIndex < 0)
+                yield break;
+
+            cursor = markerIndex + 1;
+            foreach (var tagName in tagNames)
+            {
+                if (!jsDoc.AsSpan(markerIndex).StartsWith(tagName, StringComparison.OrdinalIgnoreCase))
+                    continue;
+
+                var typeStart = markerIndex + tagName.Length;
+                if (typeStart >= jsDoc.Length || !char.IsWhiteSpace(jsDoc[typeStart]))
+                    continue;
+
+                while (typeStart < jsDoc.Length && char.IsWhiteSpace(jsDoc[typeStart]))
+                    typeStart++;
+
+                if (typeStart >= jsDoc.Length
+                    || jsDoc[typeStart] != '{'
+                    || !TryReadBalancedJsDocType(jsDoc, typeStart, out var type, out var nextIndex))
+                {
+                    continue;
+                }
+
+                cursor = nextIndex;
+                yield return (type, nextIndex);
+                break;
+            }
+        }
+    }
+
+    private static bool TryReadBalancedJsDocType(
+        string jsDoc,
+        int openingBraceIndex,
+        out string type,
+        out int nextIndex)
+    {
+        type = "";
+        nextIndex = openingBraceIndex;
+        var depth = 0;
+        var quote = '\0';
+        var escaped = false;
+
+        for (var index = openingBraceIndex; index < jsDoc.Length; index++)
+        {
+            var current = jsDoc[index];
+            if (current is '\r' or '\n')
+                return false;
+
+            if (quote != '\0')
+            {
+                if (escaped)
+                {
+                    escaped = false;
+                    continue;
+                }
+
+                if (current == '\\')
+                {
+                    escaped = true;
+                    continue;
+                }
+
+                if (current == quote)
+                    quote = '\0';
+                continue;
+            }
+
+            if (current is '\'' or '"' or '`')
+            {
+                quote = current;
+                continue;
+            }
+
+            if (current == '{')
+            {
+                depth++;
+                continue;
+            }
+
+            if (current != '}')
+                continue;
+
+            depth--;
+            if (depth < 0)
+                return false;
+            if (depth != 0)
+                continue;
+
+            type = jsDoc[(openingBraceIndex + 1)..index].Trim();
+            nextIndex = index + 1;
+            return !string.IsNullOrWhiteSpace(type);
+        }
+
+        return false;
     }
 
     private static string NormalizeJsDocParameterName(string name)
@@ -435,8 +622,9 @@ internal static class WorkflowPlanSemanticValidator
 
     private static string? ParseJsDocReturnType(string jsDoc)
     {
-        var match = JsDocReturnsRegex.Match(jsDoc);
-        return match.Success ? match.Groups["type"].Value.Trim() : null;
+        return EnumerateTypedJsDocTags(jsDoc, "@returns", "@return")
+            .Select(static tag => tag.Type)
+            .FirstOrDefault();
     }
 
     private static string BuildFunctionJsDocSuggestion(FunctionDeclaration declaration)
@@ -1484,6 +1672,13 @@ internal static class WorkflowPlanSemanticValidator
 
     private static string BuildExpressionTypeMismatchSuggestion(StepExpressionTypeMismatch mismatch)
     {
+        if (mismatch.Message.Contains("incompatible nested contract", StringComparison.OrdinalIgnoreCase)
+            && mismatch.ActualType.Contains("null", StringComparison.OrdinalIgnoreCase)
+            && !mismatch.ExpectedType.Contains("null", StringComparison.OrdinalIgnoreCase))
+        {
+            return "The source contains a nullable nested value, but the destination requires a non-null value. Project the object or array through a deterministic normalization step and replace null with a contract-valid default, or preserve null with a compatible destination schema when the locked public contract permits it; do not map the incompatible container directly.";
+        }
+
         if (mismatch.ExpectedType.Contains("string", StringComparison.OrdinalIgnoreCase)
             && mismatch.Message.Contains("resolves to boolean", StringComparison.OrdinalIgnoreCase))
         {
@@ -1710,6 +1905,9 @@ internal static class WorkflowPlanSemanticValidator
 
             var requestNode = input["request"];
             var requestValue = requestNode ?? new JsonObject();
+            var normalizedRequestValue = McpRequestSchemaNormalizer.OmitNullOptionalProperties(
+                requestValue,
+                inputSchema) ?? new JsonObject();
             foreach (var mismatch in StepExpressionTypeValidator.ValidateInput(
                          requestValue,
                          FlowTypeDescriptorConverter.FromJsonSchema(inputSchema),
@@ -1718,6 +1916,13 @@ internal static class WorkflowPlanSemanticValidator
                          symbols.DataVariables,
                          nonNullReferences))
             {
+                if (mismatch.ActualType.Split(" or ", StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+                        .Any(static type => string.Equals(type, "null", StringComparison.Ordinal))
+                    && McpRequestSchemaNormalizer.IsOptionalPropertyPath(inputSchema, mismatch.Field))
+                {
+                    continue;
+                }
+
                 var suffix = mismatch.Field.StartsWith("input", StringComparison.Ordinal)
                     ? mismatch.Field["input".Length..]
                     : $".{mismatch.Field}";
@@ -1737,9 +1942,17 @@ internal static class WorkflowPlanSemanticValidator
             }
 
             var schemaErrors = new List<SchemaValidationError>();
-            ValidateJsonNodeAgainstSchema(requestValue, inputSchema, "", schemaErrors);
-            AddRequiredStringLiteralErrors(
+            AddLiteralMcpSelectorErrors(
                 requestValue,
+                inputSchema,
+                workflowName,
+                step.Id,
+                serverName,
+                methodName,
+                errors);
+            ValidateJsonNodeAgainstSchema(normalizedRequestValue, inputSchema, "", schemaErrors);
+            AddRequiredStringLiteralErrors(
+                normalizedRequestValue,
                 inputSchema,
                 "MCP_REQUIRED_STRING_EMPTY",
                 workflowName,
@@ -1751,7 +1964,7 @@ internal static class WorkflowPlanSemanticValidator
                 "mcp.call request",
                 errors);
             AddRequiredStringKnownEmptyReferenceErrors(
-                requestValue,
+                normalizedRequestValue,
                 inputSchema,
                 "MCP_REQUIRED_STRING_EMPTY",
                 workflowName,
@@ -1785,6 +1998,112 @@ internal static class WorkflowPlanSemanticValidator
                 });
             }
         }
+    }
+
+    private static void AddLiteralMcpSelectorErrors(
+        JsonNode? request,
+        JsonNode? schema,
+        string workflowName,
+        string stepId,
+        string serverName,
+        string methodName,
+        List<WorkflowSemanticValidationError> errors,
+        string requestPath = "input.request",
+        int depth = 0)
+    {
+        if (depth > 4 || request is not JsonObject requestObject || schema is not JsonObject schemaObject)
+            return;
+
+        if (schemaObject["properties"] is JsonObject properties)
+        {
+            var discriminatorProperty = (schemaObject["discriminator"] as JsonObject)?["propertyName"]?.GetValue<string>();
+            foreach (var (propertyName, propertyNode) in properties)
+            {
+                if (propertyNode is not JsonObject propertySchema
+                    || !requestObject.TryGetPropertyValue(propertyName, out var requestValue)
+                    || requestValue == null)
+                {
+                    continue;
+                }
+
+                var isSelector = propertySchema.ContainsKey("const")
+                                 || string.Equals(discriminatorProperty, propertyName, StringComparison.Ordinal)
+                                 || IsMcpActionSelectorProperty(propertyName);
+                var documentedValues = isSelector
+                    ? ReadDocumentedMcpSelectorValues(propertySchema)
+                    : Array.Empty<JsonNode>();
+                var field = $"{requestPath}.{propertyName}";
+                if (documentedValues.Count > 0
+                    && requestValue is JsonValue scalar
+                    && scalar.TryGetValue<string>(out var text)
+                    && text.Contains("${", StringComparison.Ordinal)
+                    && !errors.Any(error => string.Equals(error.Code, "MCP_REQUEST_SELECTOR_NOT_LITERAL", StringComparison.Ordinal)
+                                            && string.Equals(error.WorkflowName, workflowName, StringComparison.Ordinal)
+                                            && string.Equals(error.StepId, stepId, StringComparison.Ordinal)
+                                            && string.Equals(error.Field, field, StringComparison.Ordinal)))
+                {
+                    errors.Add(new WorkflowSemanticValidationError
+                    {
+                        Code = "MCP_REQUEST_SELECTOR_NOT_LITERAL",
+                        WorkflowName = workflowName,
+                        StepId = stepId,
+                        Field = field,
+                        InvalidPath = text,
+                        AllowedPaths = documentedValues
+                            .Select(static value => value.ToJsonString())
+                            .Take(64)
+                            .ToArray(),
+                        Suggestion = $"Use one documented literal scalar for selector '{field}' in '{serverName}/{methodName}'; do not construct selectors through expressions.",
+                        Message = $"mcp.call selector '{field}' for '{serverName}/{methodName}' must be a documented literal scalar, but an expression was supplied."
+                    });
+                }
+
+                AddLiteralMcpSelectorErrors(
+                    requestValue,
+                    propertySchema,
+                    workflowName,
+                    stepId,
+                    serverName,
+                    methodName,
+                    errors,
+                    field,
+                    depth + 1);
+            }
+        }
+
+        foreach (var keyword in new[] { "oneOf", "anyOf", "allOf" })
+        {
+            if (schemaObject[keyword] is not JsonArray branches)
+                continue;
+            foreach (var branch in branches)
+            {
+                AddLiteralMcpSelectorErrors(
+                    request,
+                    branch,
+                    workflowName,
+                    stepId,
+                    serverName,
+                    methodName,
+                    errors,
+                    requestPath,
+                    depth + 1);
+            }
+        }
+    }
+
+    private static bool IsMcpActionSelectorProperty(string propertyName)
+        => propertyName is "method" or "action" or "operation" or "command" or "mode" or "event" or "kind";
+
+    private static IReadOnlyList<JsonNode> ReadDocumentedMcpSelectorValues(JsonObject schema)
+    {
+        if (schema["const"] is JsonValue constant)
+            return [constant];
+        if (schema["enum"] is not JsonArray values)
+            return Array.Empty<JsonNode>();
+        return values
+            .Where(static value => value is JsonValue)
+            .Select(static value => value!)
+            .ToArray();
     }
 
     private static string BuildMcpRequestExpressionTypeSuggestion(
@@ -2503,6 +2822,15 @@ internal static class WorkflowPlanSemanticValidator
         if (allowDynamicExpressions && IsDynamicExpressionString(value))
             return;
 
+        if (schemaObject["if"] is JsonObject condition)
+        {
+            var conditionErrors = new List<SchemaValidationError>();
+            ValidateJsonNodeAgainstSchema(value, condition, string.Empty, conditionErrors, allowDynamicExpressions);
+            var selectedBranch = conditionErrors.Count == 0 ? schemaObject["then"] : schemaObject["else"];
+            if (selectedBranch is JsonObject selectedBranchSchema)
+                ValidateJsonNodeAgainstSchema(value, selectedBranchSchema, path, errors, allowDynamicExpressions);
+        }
+
         ValidateConstAndEnum(value, schemaObject, path, errors);
 
         var typeName = ReadApplicableSchemaType(schemaObject, value);
@@ -2591,6 +2919,23 @@ internal static class WorkflowPlanSemanticValidator
                 {
                     var requiredPath = string.IsNullOrEmpty(path) ? requiredName : $"{path}.{requiredName}";
                     errors.Add(new SchemaValidationError(requiredPath, "missing required property"));
+                }
+            }
+        }
+        if (schema["dependentRequired"] is JsonObject dependentRequired)
+        {
+            foreach (var (propertyName, dependenciesNode) in dependentRequired)
+            {
+                if (!obj.ContainsKey(propertyName) || dependenciesNode is not JsonArray dependencies)
+                    continue;
+                foreach (var dependency in dependencies.OfType<JsonValue>()
+                             .Select(node => node.TryGetValue<string>(out var name) ? name : null)
+                             .Where(static name => !string.IsNullOrWhiteSpace(name)))
+                {
+                    if (obj.ContainsKey(dependency!))
+                        continue;
+                    var requiredPath = string.IsNullOrEmpty(path) ? dependency! : $"{path}.{dependency}";
+                    errors.Add(new SchemaValidationError(requiredPath, $"missing property required by '{propertyName}'"));
                 }
             }
         }
@@ -2719,7 +3064,9 @@ internal static class WorkflowPlanSemanticValidator
         if (schema.TryGetPropertyValue("const", out var constant)
             && !JsonNode.DeepEquals(value, constant))
         {
-            errors.Add(new SchemaValidationError(path, $"value must equal {constant?.ToJsonString() ?? "null"}"));
+            errors.Add(new SchemaValidationError(
+                path,
+                $"value must equal {constant?.ToJsonString() ?? "null"}; received {value?.ToJsonString() ?? "null"}"));
         }
 
         if (schema["enum"] is not JsonArray allowedValues)
@@ -2728,7 +3075,9 @@ internal static class WorkflowPlanSemanticValidator
         if (!allowedValues.Any(allowed => JsonNode.DeepEquals(value, allowed)))
         {
             var allowedText = string.Join(", ", allowedValues.Select(static allowed => allowed?.ToJsonString() ?? "null"));
-            errors.Add(new SchemaValidationError(path, $"value must be one of: {allowedText}"));
+            errors.Add(new SchemaValidationError(
+                path,
+                $"value must be one of: {allowedText}; received {value?.ToJsonString() ?? "null"}"));
         }
     }
 

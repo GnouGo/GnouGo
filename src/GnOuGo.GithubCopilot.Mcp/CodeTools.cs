@@ -1,6 +1,8 @@
 ﻿using System.ComponentModel;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using GnOuGo.GithubCopilot.Core;
+using GnOuGo.Mcp.Core;
 using Microsoft.Extensions.Logging;
 using ModelContextProtocol;
 using ModelContextProtocol.Server;
@@ -10,8 +12,8 @@ namespace GnOuGo.GithubCopilot.Mcp;
 [McpServerToolType]
 public sealed class CodeTools
 {
-    private const string RequiredProjectRootDescription = "Required workspace-relative path to an existing project root. Null, omitted, empty, absolute, file URI, home-relative, and parent-traversal values are invalid. After git_clone succeeds, pass git_clone.response.projectRootRelative; do not invent this path before it exists.";
-    private const string RequiredProjectRootToolSuffix = " projectRoot is required and must be a non-empty workspace-relative existing project root; pass git_clone.response.projectRootRelative after cloning.";
+    private const string RequiredProjectRootDescription = "Required workspace-relative path to an existing project root outside the reserved .GnOuGo internal directory. Pass a documented workspace.directory artifact output or a caller-provided existing directory. Null, omitted, empty, absolute, file URI, home-relative, parent-traversal, and invented values are invalid.";
+    private const string RequiredProjectRootToolSuffix = " projectRoot consumes a required workspace.directory artifact and must identify an existing workspace-relative project root.";
 
     private readonly CodeProjectService _projectService;
     private readonly ICodeAssistantClient _assistantClient;
@@ -24,20 +26,23 @@ public sealed class CodeTools
         _logger = logger;
     }
 
-    [McpServerTool(Name = "code_get_policy", UseStructuredContent = true, OutputSchemaType = typeof(CodePolicyInfo)), Description("Returns the active code MCP policy: allowed roots/extensions, write mode, limits, and Copilot/GitHub Models auth source status. Call this first to discover the default workspace.")]
+    [McpServerTool(Name = "code_get_policy", UseStructuredContent = true, OutputSchemaType = typeof(CodePolicyInfo)), Description("Returns policy for the legacy code_* tools: allowed roots/extensions, write mode, limits, and Copilot/GitHub Models auth source status. Use it only when a code_* operation needs the default workspace. Do not use its provider or model fields to configure copilot_* tools; those tools resolve the host default provider internally when their optional overrides are omitted.")]
     public CodePolicyInfo GetPolicy() => _projectService.GetPolicy();
 
     [McpServerTool(Name = "code_project_summary", UseStructuredContent = true, OutputSchemaType = typeof(CodeProjectSummary)), Description("Summarizes and verifies an existing project root: solution files, project files, top-level directories, and approximate allowed code file counts." + RequiredProjectRootToolSuffix)]
+    [McpMeta(McpArtifactContractMetadata.MetaPropertyName, JsonValue = McpArtifactContractMetadata.WorkspaceDirectoryConsumerProjectRootJson)]
     public CodeProjectSummary GetProjectSummary([Description(RequiredProjectRootDescription)] string projectRoot)
         => Execute("code_project_summary", () => _projectService.GetSummary(projectRoot));
 
     [McpServerTool(Name = "code_read_file", UseStructuredContent = true, OutputSchemaType = typeof(CodeFileContent)), Description("Reads one allowlisted text/code file inside an existing project root." + RequiredProjectRootToolSuffix)]
+    [McpMeta(McpArtifactContractMetadata.MetaPropertyName, JsonValue = McpArtifactContractMetadata.WorkspaceDirectoryConsumerProjectRootJson)]
     public CodeFileContent ReadFile(
         [Description(RequiredProjectRootDescription)] string projectRoot,
         [Description("File path relative to the existing projectRoot, for example 'src/Program.cs'.")] string relativePath)
         => Execute("code_read_file", () => _projectService.ReadFile(projectRoot, relativePath));
 
     [McpServerTool(Name = "code_search_text", UseStructuredContent = true, OutputSchemaType = typeof(CodeSearchResults)), Description("Searches text in allowlisted files inside an existing project root." + RequiredProjectRootToolSuffix)]
+    [McpMeta(McpArtifactContractMetadata.MetaPropertyName, JsonValue = McpArtifactContractMetadata.WorkspaceDirectoryConsumerProjectRootJson)]
     public CodeSearchResults SearchText(
         [Description(RequiredProjectRootDescription)] string projectRoot,
         [Description("Literal text to search for.")] string query,
@@ -46,6 +51,7 @@ public sealed class CodeTools
         => Execute("code_search_text", () => _projectService.Search(projectRoot, query, glob, caseSensitive));
 
     [McpServerTool(Name = "code_suggest_change", UseStructuredContent = true, OutputSchemaType = typeof(CodeSuggestionResult)), Description("Asks GitHub Copilot/GitHub Models for a code-change plan or patch suggestion inside an existing project root. This tool does not write files." + RequiredProjectRootToolSuffix)]
+    [McpMeta(McpArtifactContractMetadata.MetaPropertyName, JsonValue = McpArtifactContractMetadata.WorkspaceDirectoryConsumerProjectRootJson)]
     public async Task<CodeSuggestionResult> SuggestChangeAsync(
         [Description(RequiredProjectRootDescription)] string projectRoot,
         [Description("Coding task to perform.")] string task,
@@ -61,6 +67,7 @@ public sealed class CodeTools
         });
 
     [McpServerTool(Name = "code_agent_edit", UseStructuredContent = true, OutputSchemaType = typeof(CodeAgentEditResult)), Description("Runs GitHub Copilot SDK in agent mode with controlled file editing inside an existing project root. Requires Code:AllowWrites=true." + RequiredProjectRootToolSuffix)]
+    [McpMeta(McpArtifactContractMetadata.MetaPropertyName, JsonValue = McpArtifactContractMetadata.WorkspaceDirectoryConsumerProjectRootJson)]
     public async Task<CodeAgentEditResult> AgentEditAsync(
         [Description(RequiredProjectRootDescription)] string projectRoot,
         [Description("Coding task to implement by editing files.")] string task,
@@ -76,6 +83,7 @@ public sealed class CodeTools
         });
 
     [McpServerTool(Name = "code_write_file", UseStructuredContent = true, OutputSchemaType = typeof(CodeWriteResult)), Description("Writes one allowlisted text/code file inside an existing project root. Disabled unless Code:AllowWrites=true." + RequiredProjectRootToolSuffix)]
+    [McpMeta(McpArtifactContractMetadata.MetaPropertyName, JsonValue = McpArtifactContractMetadata.WorkspaceDirectoryConsumerProjectRootJson)]
     public CodeWriteResult WriteFile(
         [Description(RequiredProjectRootDescription)] string projectRoot,
         [Description("File path relative to the existing projectRoot, for example 'src/NewFile.cs'.")] string relativePath,
@@ -243,6 +251,7 @@ internal static class CodeMcpJson
     private static JsonSerializerOptions CreateSerializerOptions()
     {
         var options = new JsonSerializerOptions(JsonSerializerDefaults.Web);
+        options.TypeInfoResolverChain.Insert(0, CopilotCoreJsonContext.Default);
         options.TypeInfoResolverChain.Insert(0, CodeMcpJsonContext.Default);
         return options;
     }
@@ -250,6 +259,7 @@ internal static class CodeMcpJson
 
 [JsonSerializable(typeof(List<string>))]
 [JsonSerializable(typeof(IReadOnlyList<string>))]
+[JsonSerializable(typeof(Dictionary<string, JsonElement>))]
 [JsonSerializable(typeof(CodePolicyInfo))]
 [JsonSerializable(typeof(CodeProjectSummary))]
 [JsonSerializable(typeof(CodeFileContent))]
@@ -267,4 +277,6 @@ internal static class CodeMcpJson
 [JsonSerializable(typeof(CodeServerSettings))]
 [JsonSerializable(typeof(CodeCopilotSettings))]
 [JsonSerializable(typeof(CodeCopilotTelemetrySettings))]
+[JsonSerializable(typeof(CopilotManagedPermissionModeInput))]
+[JsonSerializable(typeof(CopilotOneShotPermissionModeInput))]
 internal sealed partial class CodeMcpJsonContext : JsonSerializerContext;

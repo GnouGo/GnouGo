@@ -50,7 +50,7 @@ public sealed class McpListExecutor : IStepExecutor
         - id: discover
           type: mcp.list
           input:
-            servers: [github, docs]              # required — MCP server names
+            servers: [inventory, docs]           # required — MCP server names
             include: ["tools", "prompts"]      # optional — defaults to ["tools"]
             timeout_ms: 30000                    # optional
 
@@ -373,6 +373,8 @@ public sealed class McpListExecutor : IStepExecutor
                     };
                     if (t.InputSchema != null)
                         serverTool["input_schema"] = t.InputSchema.DeepClone();
+                    if (t.Meta != null)
+                        serverTool["meta"] = t.Meta.DeepClone();
                     if (t.OutputSchema != null)
                         serverTool["output_schema"] = t.OutputSchema.DeepClone();
                     if (t.ExampleResponse != null)

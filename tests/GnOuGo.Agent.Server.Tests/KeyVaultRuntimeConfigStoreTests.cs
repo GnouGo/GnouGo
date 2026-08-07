@@ -229,6 +229,123 @@ public sealed class KeyVaultRuntimeConfigStoreTests
             }
         }
     }
-}
 
+    [Fact]
+    public async Task BuildEffectiveOptionsAsync_HydratesCopilotOverridesWithoutReplacingBundledProcessOrProviderCredentials()
+    {
+        const string serverName = "GnOuGo.GithubCopilot.Mcp";
+        var dbPath = Path.Combine(Path.GetTempPath(), $"gnougo-keyvault-tests-{Guid.NewGuid():N}.db");
+        var targetNames = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+        {
+            ["provider"] = "Provider",
+            ["model"] = "Model",
+            ["reasoning_effort"] = "ReasoningEffort",
+            ["use_logged_in_user"] = "UseLoggedInUser",
+            ["request_timeout_seconds"] = "RequestTimeoutSeconds",
+            ["managed_session_ttl_seconds"] = "ManagedSessionTtlSeconds"
+        };
+        var settings = new BundledMcpSettings
+        {
+            Servers = new Dictionary<string, BundledMcpServerSettings>(StringComparer.OrdinalIgnoreCase)
+            {
+                [serverName] = new()
+                {
+                    Listable = true,
+                    EditableFields = targetNames.ToDictionary(
+                        entry => entry.Key,
+                        entry => new BundledMcpEditableFieldSettings
+                        {
+                            SecretKey = $"LLM--McpServerOverrides--{serverName}--Code--Copilot--{entry.Value}",
+                            Target = $"env:Code__Copilot__{entry.Value}"
+                        },
+                        StringComparer.OrdinalIgnoreCase)
+                }
+            }
+        };
+
+        var services = new ServiceCollection();
+        services.AddLogging();
+        services.AddKeyVaultMcpPersistence(dbPath);
+        services.AddSingleton<IOptions<BundledMcpSettings>>(Options.Create(settings));
+        services.AddSingleton<IKeyVaultRuntimeConfigStore, KeyVaultRuntimeConfigStore>();
+
+        await using var provider = services.BuildServiceProvider();
+        try
+        {
+            await provider.InitializeKeyVaultMcpAsync(ct: TestContext.Current.CancellationToken);
+            await using (var scope = provider.CreateAsyncScope())
+            {
+                var keyVault = scope.ServiceProvider.GetRequiredService<KeyVaultService>();
+                await keyVault.SetSecretAsync(
+                    "LLM--Models--openai",
+                    "{\"provider\":\"openai\",\"url\":\"https://api.openai.com/v1\",\"model\":\"provider-model\",\"authType\":\"api_key\",\"apiKey\":\"provider-secret\"}",
+                    null,
+                    "test",
+                    CancellationToken.None);
+                var values = new Dictionary<string, string>
+                {
+                    ["Provider"] = "openai",
+                    ["Model"] = "fallback-model",
+                    ["ReasoningEffort"] = "medium",
+                    ["UseLoggedInUser"] = "false",
+                    ["RequestTimeoutSeconds"] = "600",
+                    ["ManagedSessionTtlSeconds"] = "300"
+                };
+                foreach (var entry in values)
+                {
+                    await keyVault.SetSecretAsync(
+                        $"LLM--McpServerOverrides--{serverName}--Code--Copilot--{entry.Key}",
+                        entry.Value,
+                        null,
+                        "test",
+                        CancellationToken.None);
+                }
+            }
+
+            var baseOptions = new LLMOptions
+            {
+                DefaultProvider = "openai",
+                DefaultModel = "provider-model",
+                McpServers = new Dictionary<string, McpServerOptions>(StringComparer.OrdinalIgnoreCase)
+                {
+                    [serverName] = new()
+                    {
+                        Type = "stdio",
+                        Command = "tools/GnOuGo.GithubCopilot.Mcp/GnOuGo.GithubCopilot.Mcp",
+                        Args = ["--stdio"]
+                    }
+                }
+            };
+
+            var store = provider.GetRequiredService<IKeyVaultRuntimeConfigStore>();
+            var effective = await store.BuildEffectiveOptionsAsync(baseOptions, CancellationToken.None);
+
+            var copilot = Assert.Contains(serverName, effective.McpServers);
+            Assert.Equal("tools/GnOuGo.GithubCopilot.Mcp/GnOuGo.GithubCopilot.Mcp", copilot.Command);
+            Assert.Equal(["--stdio"], copilot.Args);
+            Assert.Equal("openai", copilot.EnvironmentVariables?["Code__Copilot__Provider"]);
+            Assert.Equal("fallback-model", copilot.EnvironmentVariables?["Code__Copilot__Model"]);
+            Assert.Equal("medium", copilot.EnvironmentVariables?["Code__Copilot__ReasoningEffort"]);
+            Assert.Equal("false", copilot.EnvironmentVariables?["Code__Copilot__UseLoggedInUser"]);
+            Assert.Equal("600", copilot.EnvironmentVariables?["Code__Copilot__RequestTimeoutSeconds"]);
+            Assert.Equal("300", copilot.EnvironmentVariables?["Code__Copilot__ManagedSessionTtlSeconds"]);
+
+            var configuredProvider = Assert.Contains("openai", effective.Models);
+            Assert.Equal("provider-secret", configuredProvider.ApiKey);
+            Assert.Equal("https://api.openai.com/v1", configuredProvider.Url);
+        }
+        finally
+        {
+            try
+            {
+                if (File.Exists(dbPath))
+                    File.Delete(dbPath);
+            }
+            catch (IOException)
+            {
+                // Best-effort cleanup for a temporary SQLite file.
+            }
+        }
+    }
+}
 

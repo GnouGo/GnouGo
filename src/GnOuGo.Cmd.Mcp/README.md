@@ -24,6 +24,8 @@ This is intentionally a **deny-by-default** design to limit risks:
 
 By default, the server now resolves its writable workspace to `Desktop/GnOuGo` for the current user and creates that directory automatically on startup if it does not already exist.
 
+The `.GnOuGo/` subtree is reserved for GnOuGo-managed databases and internal temporary state. Working directories and all bundled path-bearing parameters reject that subtree before shell execution. Workflow-owned files belong below visible paths, with materialized workflow workspaces conventionally placed under `workflows/<purpose-specific-name>`. Bundled recursive search and listing aliases omit `.GnOuGo/`.
+
 ## Cross-Platform Support
 
 The server is designed to work on **Windows**, **Linux**, and **macOS** out of the box.
@@ -54,6 +56,8 @@ Shell availability is auto-detected at runtime. The `cmd_get_environment` tool r
 - required/optional markers and workspace-path hints
 
 This is intended to help planning workflows generate valid `cmd_run` calls directly.
+
+The packaged allowlist includes both read aliases and guarded workspace write aliases such as directory creation, Markdown writing, and recursive deletion. These capabilities are discoverable by default, but `cmd_run` still accepts only named aliases and validates every workspace path and parameter before execution.
 
 `cmd_get_policy` and `cmd_list_allowed_commands` are also enriched during MCP `tools/list`.
 Their descriptions include the returned JSON shape plus the current policy roots, limits, shell availability, and allowlisted command aliases.
@@ -152,6 +156,7 @@ When `IsWorkspacePath` is enabled, the server additionally rejects:
 - `~` home-directory shortcuts
 - wildcard characters such as `*` and `?`
 - any resolved path outside the configured allowed workspace roots
+- `.GnOuGo` or any descendant of that reserved internal subtree
 
 Example:
 

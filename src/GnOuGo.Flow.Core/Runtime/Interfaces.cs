@@ -270,14 +270,18 @@ public interface IMcpClientFactory
 }
 
 /// <summary>
-/// Correlation metadata propagated from workflow MCP steps to MCP transports.
-/// HTTP transports send it as headers; stdio transports expose it as environment
-/// variables when the MCP server process is started.
+/// Technical correlation metadata propagated from workflow MCP steps to MCP transports.
+/// Domain context is explicitly supplied by the workflow and is carried only in
+/// the MCP request metadata envelope.
 /// </summary>
 public sealed record McpCorrelationContext
 {
+    public string? TenantId { get; init; }
     public string? CorrelationId { get; init; }
     public string? RunId { get; init; }
+    public string? ExecutionId { get; init; }
+    public string? AgentId { get; init; }
+    public string? AgentName { get; init; }
     public string? TraceId { get; init; }
     public string? SpanId { get; init; }
     public string? TraceParent { get; init; }
@@ -286,6 +290,7 @@ public sealed record McpCorrelationContext
     public string? ServerName { get; init; }
     public string? MethodName { get; init; }
     public string? Kind { get; init; }
+    public JsonObject? Context { get; init; }
 }
 
 /// <summary>
@@ -326,6 +331,17 @@ public interface IMcpSession : IAsyncDisposable
 }
 
 /// <summary>
+/// Implemented by live MCP transports that must hydrate per-session tool
+/// metadata before calls are sent. Application-level schema caches cannot
+/// replace this registration because the transport consumes x-mcp-header
+/// annotations to build Mcp-Param-* headers.
+/// </summary>
+internal interface ILiveMcpToolDiscoverySession
+{
+    Task<IReadOnlyList<McpToolInfo>> EnsureToolsDiscoveredAsync(CancellationToken ct);
+}
+
+/// <summary>
 /// Describes an MCP tool.
 /// </summary>
 public sealed class McpToolInfo
@@ -333,6 +349,13 @@ public sealed class McpToolInfo
     public string Name { get; set; } = "";
     public string? Description { get; set; }
     public JsonNode? InputSchema { get; set; }
+
+    /// <summary>
+    /// Optional tool metadata advertised by MCP <c>tools/list</c>. GnOuGo-owned
+    /// servers use the namespaced <c>gnougo.artifacts</c> contract to describe
+    /// domain-neutral artifacts produced or consumed by a tool.
+    /// </summary>
+    public JsonNode? Meta { get; set; }
 
     /// <summary>
     /// Optional JSON Schema describing the tool result content returned as

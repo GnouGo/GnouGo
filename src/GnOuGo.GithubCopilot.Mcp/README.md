@@ -4,7 +4,7 @@ MCP stdio server for safe code operations on a local project.
 
 ## MCP protocol compatibility
 
-This stdio server uses the stable C# MCP SDK `2.0.0` and targets MCP `2026-07-28`. The SDK retains compatibility with older clients. The GnOuGo JSONL progress stream remains a stderr side channel and does not alter the MCP wire contract.
+This stdio server uses the stable C# MCP SDK `2.0.0` and requires MCP `2026-07-28` for GnOuGo-owned peers. `GnOuGo.Flow.Core` leaves external connections unpinned, prefers `2026-07-28` discovery, and falls back to `2025-11-25` for older external servers. The GnOuGo JSONL progress stream remains a stderr side channel and does not alter the MCP wire contract.
 
 ## Features
 
@@ -16,8 +16,15 @@ This stdio server uses the stable C# MCP SDK `2.0.0` and targets MCP `2026-07-28
 - Run GitHub Copilot in SDK agent mode with controlled local file edits via `code_agent_edit`.
 - Emit structured GnOuGo progress events in real time on stderr and return them in `progressEvents`, so `GnOuGo.Flow.Core` can surface them as UI thinking/progress messages without depending on Copilot SDK event types.
 - Optionally write files with `code_write_file` when `Code:AllowWrites=true`.
+- Use the additive `copilot_*` tools backed by `GnOuGo.GithubCopilot.Core` for status/auth/models, explicit managed or one-shot sessions, foreground selection, messages/steering/queueing, safe history, abort, plans, modes/models, attachments, workspace files, skills/tool filtering, and stable elicitation callbacks.
+- Run structured reviews with `copilot_review_start`, `copilot_review_analyze_batch`, `copilot_review_finish`, or the one-call `copilot_review` wrapper.
+- Call `copilot_review_publication_gate` after re-reading the PR head SHA and before any GitHub write.
 
 Git repository workflows are provided by the separate `GnOuGo.Git.Mcp` tool.
+
+## Workspace path policy
+
+Code and Copilot `projectRoot` and file paths may target normal visible content below the configured workspace. The `.GnOuGo/` subtree is reserved for GnOuGo-managed state and is rejected. Recursive project summaries, searches, and session file discovery omit that reserved tree. Tools taking `projectRoot` advertise a required `workspace.directory` consumer contract and accept the exact validated workspace-relative value returned by any compatible MCP producer; they do not depend on a particular producer tool.
 
 ## Authentication
 
@@ -31,11 +38,35 @@ For local desktop usage, prefer `Code:Copilot:UseLoggedInUser=true` and keep `Ap
 
 Relevant Copilot settings:
 
-- `Code:Copilot:Model`: model passed to the SDK session, default `gpt-4.1`.
+- `Code:Copilot:Provider`: optional configured provider override. `Copilot` delegates to the current Agent default.
+- `Code:Copilot:Model`: fallback model passed to the SDK session, default `gpt-5.4-mini` in the packaged configuration.
 - `Code:Copilot:Mode`: Copilot mode, one of `ask`, `edit`, or `agent`; legacy `plan` is accepted as an alias for `ask`.
 - `Code:Copilot:ReasoningEffort`: optional reasoning effort, default `high`.
 - `Code:Copilot:UseLoggedInUser`: whether the SDK may use an already logged-in user when no explicit token is provided, default `false` in code defaults and `true` in the local appsettings template.
 - `Code:Copilot:RequestTimeoutSeconds`: wait timeout for a Copilot response, default `120`.
+- `Code:Copilot:ManagedSessionTtlSeconds`: inactivity TTL for an opaque managed handle, default `1800`.
+- `Code:Copilot:EnableApproveAll`: host gate for `approve_all`, default `false`.
+- `Code:Copilot:PermissionDatabasePath`: workspace-resolved SQLite database for persistent future-agent grants, default `.GnOuGo/data/gnougo-copilot-permissions.db`.
+- `Code:Copilot:WorkflowGrantTtlSeconds`: inactivity expiry for in-memory workflow-run grants, default `86400`.
+
+MCP transport sessions are never used as Copilot session identity. Managed calls use a `cps_*` opaque handle bound to `TenantId`; one-shot calls create, execute, disconnect, and permanently delete one SDK session. Request `_meta.gnougo` propagates tenant, correlation, stable execution and agent identity, run, step, repository, PR number, and head SHA. The host owns the execution and agent fields; workflow inputs cannot override them.
+
+Interactive permission, user-input, and nested MCP elicitation callbacks are bridged through stable MCP form elicitation. `copilot_session_create` publishes the managed-session permission enum and defaults to `interactive`. `copilot_one_shot` is deliberately non-interactive, publishes only `auto_approve_allowlist`, `deny`, and `approve_all`, and defaults to `deny`; its `permissionAllowlistJson` argument supplies the explicit allowlist when that mode is selected. Use `copilot_interactive_one_shot` for dependency installation, tests, linting, edits, or other one-turn work that may execute tools: it creates a managed interactive session and permanently deletes it after success, failure, or cancellation. `deny` is appropriate for pure review inference. `auto_approve_allowlist` permits only explicitly named read-only paths/tools. `approve_all` is rejected unless the host gate is enabled and must not be generated without explicit unattended intent and established host availability.
+Interactive permission prompts show the exact operation, warnings, sandbox-bypass status, and remembered scope. They offer **Allow once**, **Refuse**, and **Allow similar operations for this task** only when the SDK marks a matching scope as safe. When `EnableApproveAll` is enabled, the same interactive callback may also offer **Allow all for this Copilot task**, **Allow all for this workflow run**, and **Allow all future runs for this agent** when the required stable identities are available. Future-agent approval requires a second confirmation and is stored by tenant plus stable agent ID, so it follows renames and survives restarts. Workflow grants are tenant/run scoped and expire after inactivity. Sandbox-bypass operations ignore every grant and always show only **Allow once** and **Refuse**.
+Automatically reused permissions do not create an elicitation card. They emit redacted `permission.requested` and `permission.auto_approved` progress entries, while explicit answers emit `permission.granted` or `permission.refused`. Grant revocation emits `permission.grant.revoked`. Raw model reasoning and likely credentials are never included.
+Every interactive elicitation carries the originating `_meta.gnougo` correlation back to the Flow client. The active tool cancellation token is linked to the Copilot callback, so cancelling the workflow releases the pending permission request instead of leaving the stdio server waiting. Interactive one-shot progress includes session creation, request processing, permission requested/resolved, completion or cancellation, and session deletion; it never includes raw reasoning.
+
+The permission database contains grant identity and timestamps only, never credentials. Management-only tools list and revoke future-agent grants; their `gnougo.management.visibility=management_only` metadata excludes them from ordinary workflow generation. Agent Server exposes them as `/mcp copilot permissions` and `/mcp copilot permissions revoke <grant-id>`. Deleting an agent revokes its persistent grants.
+
+When hosted by Agent Server/Desktop, `/mcp edit GnOuGo.GithubCopilot.Mcp` edits only provider, fallback model, reasoning effort, logged-in-user authentication, request timeout, and managed-session TTL. Every override is encrypted separately under `LLM--McpServerOverrides--GnOuGo.GithubCopilot.Mcp--...` and injected into the next MCP process through `Code__Copilot__...` environment keys. Selecting a field under **inherit fields** deletes only that override. Command, arguments, roots, extensions, write policy, credentials, and `EnableApproveAll` remain protected. Provider credentials continue to resolve from `LLM--Models--<provider>` and are never copied into the MCP override entries.
+
+Provider resolution order is an explicit tool argument, the MCP provider override, then the Agent default. Model resolution order is the selected provider's KeyVault model, the MCP fallback model, then the packaged fallback. An existing managed session keeps the configuration captured when it was created; editor changes apply to the next workflow/MCP process.
+
+## Pull-request review contract
+
+Git MCP supplies exact patches. `copilot_review_start` and `copilot_review` accept optional `reviewInstructions` (maximum 32,000 characters) and `existingCommentsJson`. Existing comments contain path, optional side/line range, body, and optional fingerprint; only comments relevant to the current batch are included as bounded untrusted model context. Copilot review results contain fingerprint, severity, category, confidence, path, diff side, line range, evidence, explanation, and optional suggested patch. The server rejects unknown paths and lines outside the supplied diff, removes matching fingerprints or equivalent location/body findings, and reports binary/submodule skips plus truncated files.
+
+The review session has no tools, no configuration discovery, no write permission, and is deleted after completion. Publication is deliberately outside this MCP and belongs to the Flow agent plus the official GitHub MCP. The publication gate fails closed for stale SHAs, dry runs, no findings, and unapproved interactive runs. `auto_comment` can only submit `COMMENT`; automated approval and merge are unsupported.
 
 `code_suggest_change` and `code_agent_edit` also accept an optional `provider` parameter. When omitted, the default GitHub Copilot SDK behavior above is unchanged.
 When provided, the MCP reads the matching provider from configuration and/or the shared GnOuGo KeyVault database, then passes it as a custom Copilot SDK provider for that call. KeyVault reads use a small SQLite/decryption helper from `GnOuGo.KeyVault.Core` instead of constructing the EF Core model inside the Native AOT stdio executable.
@@ -100,6 +131,7 @@ dotnet build "C:\github\GnouGo\src\GnOuGo.GithubCopilot.Mcp\GnOuGo.GithubCopilot
 
 ```powershell
 dotnet test "C:\github\GnouGo\tests\GnOuGo.GithubCopilot.Mcp.Tests\GnOuGo.GithubCopilot.Mcp.Tests.csproj" -p:SkipModelMetadataGeneration=true
+dotnet test "C:\github\GnouGo\tests\GnOuGo.GithubCopilot.Core.Tests\GnOuGo.GithubCopilot.Core.Tests.csproj"
 ```
 
 ## Native AOT publish

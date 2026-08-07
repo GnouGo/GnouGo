@@ -28,6 +28,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\GnOuGo.AI.Core\GnOuGo.AI.Core.csproj" />
+    <ProjectReference Include="..\GnOuGo.Mcp.Core\GnOuGo.Mcp.Core.csproj" />
   </ItemGroup>
 
   <ItemGroup>

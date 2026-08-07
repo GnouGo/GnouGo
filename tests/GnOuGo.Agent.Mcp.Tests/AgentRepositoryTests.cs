@@ -35,6 +35,22 @@ public class AgentRepositoryTests : IDisposable
     }
 
     [Fact]
+    public async Task AddAgent_ReloadsMultilineOriginalPromptWithoutYamlQuotes()
+    {
+        const string prompt = "Create a reusable agent.\nUse the configured capabilities.\nReturn validated results.";
+        await _repo.AddAgentAsync("MultilinePrompt", "step1: hello", prompt, TestContext.Current.CancellationToken);
+
+        var reloaded = await _repo.GetByNameAsync("MultilinePrompt", TestContext.Current.CancellationToken);
+
+        Assert.NotNull(reloaded);
+        Assert.Equal(prompt, reloaded.OriginalPrompt);
+        var yaml = await File.ReadAllTextAsync(
+            Path.Combine(_database.AgentsDirectory, "MultilinePrompt.yaml"),
+            TestContext.Current.CancellationToken);
+        Assert.Contains("originalPrompt: |-", yaml, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public async Task AddAgent_ThrowsOnEmptyName()
     {
         await Assert.ThrowsAsync<ArgumentException>(

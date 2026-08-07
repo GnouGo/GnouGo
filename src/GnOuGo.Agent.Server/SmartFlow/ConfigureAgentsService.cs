@@ -10,6 +10,7 @@ using Microsoft.Extensions.Options;
 using GnOuGo.AI.Core;
 using GnOuGo.Agent.Server.Configuration;
 using GnOuGo.Flow.Core.Compilation;
+using GnOuGo.Flow.Core.Expressions;
 using GnOuGo.Flow.Core.Models;
 using GnOuGo.Flow.Core.Parsing;
 using GnOuGo.Flow.Core.Runtime;
@@ -35,6 +36,9 @@ public sealed class ConfigureAgentsService
     private readonly WorkflowMermaidMarkdownOptions _workflowMermaidOptions;
     private readonly string _workflowYaml;
     private readonly TimeSpan _mcpCacheSlidingExpiration;
+    private readonly string _tenantId;
+
+    internal string WorkflowSource => _workflowYaml;
 
     public ConfigureAgentsService(
         ILLMClient llm,
@@ -48,7 +52,8 @@ public sealed class ConfigureAgentsService
         ILogger<ConfigureAgentsService> logger,
         AgentUserConfigMcpClient? userConfigClient = null,
         IOptions<McpCapabilityCacheSettings>? mcpCapabilityCacheSettings = null,
-        IOptions<WorkflowMermaidMarkdownOptions>? workflowMermaidOptions = null)
+        IOptions<WorkflowMermaidMarkdownOptions>? workflowMermaidOptions = null,
+        IOptions<OpenTelemetrySettings>? openTelemetrySettings = null)
     {
         _llm = llm;
         _mcpFactory = mcpFactory;
@@ -62,6 +67,7 @@ public sealed class ConfigureAgentsService
         _logger = logger;
         _workflowMermaidOptions = workflowMermaidOptions?.Value ?? new WorkflowMermaidMarkdownOptions();
         _mcpCacheSlidingExpiration = (mcpCapabilityCacheSettings?.Value ?? new McpCapabilityCacheSettings()).SlidingExpiration;
+        _tenantId = WorkflowExecutionTenant.Resolve(openTelemetrySettings);
 
         // Load the embedded workflow YAML
         var asm = typeof(ConfigureAgentsService).Assembly;
@@ -87,6 +93,15 @@ public sealed class ConfigureAgentsService
         string command,
         [EnumeratorCancellation] CancellationToken ct)
     {
+        await foreach (var evt in ExecuteAsync(command, animation: null, ct))
+            yield return evt;
+    }
+
+    internal async IAsyncEnumerable<SmartFlowEvent> ExecuteAsync(
+        string command,
+        AgentWorkflowAnimationBridge? animation,
+        [EnumeratorCancellation] CancellationToken ct)
+    {
         var trimmedCommand = command.Trim();
 
         // Wrap the whole /gnougo command in a dedicated trace span so that workflow spans,
@@ -105,6 +120,10 @@ public sealed class ConfigureAgentsService
         // Capture the command activity so we can restore it inside Task.Run continuations
         // (thread-pool threads do not inherit Activity.Current from the calling async flow).
         var parentActivity = commandTrace.Activity;
+        var removalAgentId = string.Equals(descriptor.Action, "remove", StringComparison.Ordinal)
+            && !string.IsNullOrWhiteSpace(descriptor.Argument)
+                ? await TryResolveAgentIdAsync(descriptor.Argument, ct)
+                : null;
 
         if (string.Equals(trimmedCommand, "/gnougo list", StringComparison.OrdinalIgnoreCase))
         {
@@ -156,7 +175,7 @@ public sealed class ConfigureAgentsService
         });
 
         var telemetry = new CompositeWorkflowTelemetry(
-            new AgentStreamingTelemetry(evt => channel.Writer.TryWrite(evt)),
+            new AgentStreamingTelemetry(evt => channel.Writer.TryWrite(evt), animation),
             _otel);
 
         await using var runtime = await _runtimeFactory.CreateAsync(ct);
@@ -178,7 +197,8 @@ public sealed class ConfigureAgentsService
             Limits = new ExecutionLimits
             {
                 LogStepContent = true,
-                RunId = Guid.NewGuid().ToString("N")
+                RunId = Guid.NewGuid().ToString("N"),
+                TenantId = _tenantId
             }
         };
 
@@ -219,10 +239,21 @@ public sealed class ConfigureAgentsService
 
         if (error is not null)
         {
-            commandTrace.SetStatus(ActivityStatusCode.Error, error.Message);
+            var workflowError = error is WorkflowRuntimeException workflowRuntimeException
+                ? workflowRuntimeException.ToWorkflowError()
+                : new WorkflowError
+                {
+                    Code = "INTERNAL_ERROR",
+                    Type = error.GetType().Name,
+                    Message = error.Message,
+                    Retryable = false
+                };
+            var presentation = WorkflowFailureFormatter.Format(workflowError);
+            commandTrace.SetStatus(ActivityStatusCode.Error, presentation.TraceDetails);
             commandTrace.SetTag("error.type", error.GetType().FullName);
-            commandTrace.SetTag("error.message", error.Message);
-            yield return new SmartFlowEvent("error", error.Message);
+            commandTrace.SetTag("error.message", presentation.TraceDetails);
+            RecordFailureDetails(commandTrace.Activity, workflowError, presentation);
+            yield return new SmartFlowEvent("error", presentation.UserMessage);
             yield break;
         }
 
@@ -241,14 +272,50 @@ public sealed class ConfigureAgentsService
 
         if (result is { Success: false })
         {
-            var errMsg = result.Error?.Message ?? "Agent configuration workflow failed";
-            commandTrace.SetStatus(ActivityStatusCode.Error, errMsg);
-            yield return new SmartFlowEvent("error", errMsg);
+            var workflowError = result.Error ?? new WorkflowError
+            {
+                Code = "INTERNAL_ERROR",
+                Message = "Agent configuration workflow failed",
+                Retryable = false
+            };
+            var presentation = WorkflowFailureFormatter.Format(workflowError);
+            commandTrace.SetStatus(ActivityStatusCode.Error, presentation.TraceDetails);
+            RecordFailureDetails(commandTrace.Activity, workflowError, presentation);
+            yield return new SmartFlowEvent("error", presentation.UserMessage);
         }
         else
         {
+            if (!string.IsNullOrWhiteSpace(removalAgentId)
+                && !string.IsNullOrWhiteSpace(descriptor.Argument)
+                && await TryResolveAgentIdAsync(descriptor.Argument, ct) is null)
+            {
+                await TryRevokeDeletedAgentCopilotGrantsAsync(removalAgentId, ct);
+            }
             commandTrace.SetStatus(ActivityStatusCode.Ok);
         }
+    }
+
+    private static void RecordFailureDetails(
+        Activity? activity,
+        WorkflowError error,
+        WorkflowFailurePresentation presentation)
+    {
+        if (activity is null)
+            return;
+
+        activity.SetTag("error.code", error.Code);
+        activity.SetTag("gnougo.agent.workflow.error.unavailable_capability_count", presentation.UnavailableCapabilityCount);
+        activity.SetTag("gnougo.agent.workflow.error.unavailable_server_count", presentation.UnavailableServerCount);
+        activity.SetTag("gnougo.agent.workflow.error.inference_reason_count", presentation.InferenceReasonCount);
+        activity.SetTag("gnougo.agent.workflow.error.matching_issue_count", presentation.MatchingIssueCount);
+        activity.SetTag("gnougo.agent.workflow.error.violated_constraint_count", presentation.ViolatedConstraintCount);
+        activity.AddEvent(new ActivityEvent(
+            "gnougo.agent.workflow.error.details",
+            tags: new ActivityTagsCollection
+            {
+                ["error.code"] = error.Code,
+                ["gnougo.agent.workflow.error.details"] = presentation.TraceDetails
+            }));
     }
 
     private static CommandTraceDescriptor DescribeCommand(string command)
@@ -305,6 +372,44 @@ public sealed class ConfigureAgentsService
         }
 
         return sb.ToString().TrimEnd();
+    }
+
+    private async Task<string?> TryResolveAgentIdAsync(string name, CancellationToken ct)
+    {
+        try
+        {
+            await using var session = await _mcpFactory.GetClientAsync("GnOuGo.Agent.Mcp", ct);
+            var call = await session.CallToolAsync(
+                "agent_get_by_name",
+                new JsonObject { ["name"] = name },
+                ct);
+            if (call.IsError || call.Content is not JsonObject response || response["success"]?.GetValue<bool>() != true)
+                return null;
+            return (response["agent"] as JsonObject)?["id"]?.GetValue<string>();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogDebug(ex, "Could not resolve agent '{AgentName}' while preparing permission-grant cleanup.", name);
+            return null;
+        }
+    }
+
+    private async Task TryRevokeDeletedAgentCopilotGrantsAsync(string agentId, CancellationToken ct)
+    {
+        try
+        {
+            await using var session = await _mcpFactory.GetClientAsync("GnOuGo.GithubCopilot.Mcp", ct);
+            var call = await session.CallToolAsync(
+                "copilot_permission_grants_revoke_agent",
+                new JsonObject { ["agentId"] = agentId, ["tenantId"] = _tenantId },
+                ct);
+            if (call.IsError)
+                _logger.LogWarning("Persistent Copilot permission grants for deleted agent {AgentId} could not be revoked.", agentId);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Persistent Copilot permission grants for deleted agent {AgentId} could not be revoked.", agentId);
+        }
     }
 
     private async Task<AgentLlmSelection?> ResolveAgentLlmSelectionAsync(CancellationToken ct)

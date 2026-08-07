@@ -528,6 +528,41 @@ workflows:
     }
 
     [Fact]
+    public async Task Execute_WorkflowCall_Local_ReportsDeepestFailingWorkflowAndStep()
+    {
+        var workflow = CompileMain("""
+            version: 1
+            workflows:
+              main:
+                steps:
+                  - id: call_helper
+                    type: workflow.call
+                    input:
+                      ref:
+                        kind: local
+                        name: helper
+              helper:
+                steps:
+                  - id: parse_payload
+                    type: template.render
+                    input:
+                      engine: mustache
+                      template: not-json
+                      data: {}
+                      mode: json
+            """);
+
+        var result = await CreateEngine().ExecuteAsync(workflow, new JsonObject(), CancellationToken.None);
+
+        Assert.False(result.Success);
+        var details = Assert.IsType<JsonObject>(result.Error?.Details);
+        Assert.Equal("helper", details["workflow"]?.GetValue<string>());
+        Assert.Equal("parse_payload", details["step_id"]?.GetValue<string>());
+        Assert.Equal("template.render", details["step_type"]?.GetValue<string>());
+        Assert.Equal("Failed", details["step_status"]?.GetValue<string>());
+    }
+
+    [Fact]
     public async Task Execute_WorkflowCall_Local_PreservesDecimalInputAsChildNumber()
     {
         var wf = CompileMain("""
@@ -1166,6 +1201,46 @@ workflows:
     }
 
     // === StepExecutorRegistry Tests ===
+
+    [Fact]
+    public async Task Execute_CustomFunction_UsesConfiguredExpressionStatementLimit()
+    {
+        var wf = CompileMain("""
+version: 1
+workflows:
+  main:
+    functions: |
+      /**
+       * Counts array entries with deterministic iteration.
+       * @param {Array<object>} items - Values to count.
+       * @returns {number} Number of values.
+       */
+      function countItems(items) {
+        var count = 0;
+        for (var i = 0; i < items.length; i++) count++;
+        return count;
+      }
+    steps:
+      - id: count
+        type: set
+        input:
+          value: "${functions.countItems(data.inputs.items)}"
+    outputs:
+      value: "${data.steps.count.value}"
+""");
+        var items = new JsonArray();
+        for (var i = 0; i < 20_000; i++)
+            items.Add(i);
+        var engine = CreateEngine();
+
+        var result = await engine.ExecuteAsync(
+            wf,
+            new JsonObject { ["items"] = items },
+            CancellationToken.None);
+
+        Assert.True(result.Success, result.Error?.Message);
+        Assert.Equal(20_000, result.Outputs!["value"]!.GetValue<int>());
+    }
 
     [Fact]
     public void StepExecutorRegistry_Get_ReturnsExecutor()

@@ -24,6 +24,7 @@ builder.Services.AddTransient<GitTools>();
 builder.Services
     .AddMcpServer(options =>
     {
+        options.ProtocolVersion = GnOuGoMcpProtocol.RequiredRevision;
         options.ServerInfo = new Implementation
         {
             Name = "GnOuGo.Git.Mcp",
@@ -41,7 +42,7 @@ var settings = host.Services.GetRequiredService<IOptions<GitServerSettings>>().V
 var info = policy.DescribePolicy();
 
 logger.LogInformation(
-    "Git MCP configuration: contentRoot={ContentRootPath}, currentDirectory={CurrentDirectory}, baseDirectory={BaseDirectory}, defaultWorkingDirectory={DefaultWorkingDirectory}, allowedRoots={AllowedRoots}, allowMutations={AllowMutations}, allowNetworkOperations={AllowNetworkOperations}, requireCleanWorkingTreeForMerge={RequireCleanWorkingTreeForMerge}, maxDiffCharacters={MaxDiffCharacters}, maxLogCount={MaxLogCount}, defaultRemoteName={DefaultRemoteName}, hasToken={HasToken}",
+    "Git MCP configuration: contentRoot={ContentRootPath}, currentDirectory={CurrentDirectory}, baseDirectory={BaseDirectory}, defaultWorkingDirectory={DefaultWorkingDirectory}, allowedRoots={AllowedRoots}, allowMutations={AllowMutations}, allowNetworkOperations={AllowNetworkOperations}, reviewReadOnly={ReviewReadOnly}, requireCleanWorkingTreeForMerge={RequireCleanWorkingTreeForMerge}, maxDiffCharacters={MaxDiffCharacters}, maxLogCount={MaxLogCount}, defaultRemoteName={DefaultRemoteName}, hasToken={HasToken}",
     builder.Environment.ContentRootPath,
     Environment.CurrentDirectory,
     AppContext.BaseDirectory,
@@ -49,6 +50,7 @@ logger.LogInformation(
     string.Join(", ", info.AllowedWorkingRoots),
     info.AllowMutations,
     info.AllowNetworkOperations,
+    info.ReviewReadOnly,
     info.RequireCleanWorkingTreeForMerge,
     info.MaxDiffCharacters,
     info.MaxLogCount,

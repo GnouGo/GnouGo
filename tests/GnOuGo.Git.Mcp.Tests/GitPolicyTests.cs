@@ -82,16 +82,17 @@ public sealed class GitPolicyTests : IDisposable
         settings.AllowedWorkingRoots = [];
         var policy = new GitPolicy(settings, _root, desktop);
 
-        var target = policy.ResolveCloneTargetDirectory("sample-repository");
+        var target = policy.ResolveCloneTargetDirectory("workflows/sample-repository");
 
-        Assert.Equal(Path.GetFullPath(Path.Combine(desktop, "GnOuGo", "sample-repository")), target);
+        Assert.Equal(Path.GetFullPath(Path.Combine(desktop, "GnOuGo", "workflows", "sample-repository")), target);
+        Assert.True(Directory.Exists(Path.Combine(desktop, "GnOuGo", "workflows")));
     }
 
     [Fact]
     public void ResolveCloneTargetDirectory_AllowsAbsoluteTargetInsideAllowedRoots()
     {
         var policy = new GitPolicy(CreateSettings(), _root);
-        var absoluteTarget = Path.GetFullPath(Path.Combine(_root, "issue-544"));
+        var absoluteTarget = Path.GetFullPath(Path.Combine(_root, "workflows", "issue-544"));
 
         var target = policy.ResolveCloneTargetDirectory(absoluteTarget);
 
@@ -109,11 +110,52 @@ public sealed class GitPolicyTests : IDisposable
         Assert.Contains("outside the allowed roots", ex.Message, StringComparison.OrdinalIgnoreCase);
     }
 
+    [Theory]
+    [InlineData("repository")]
+    [InlineData("reviews/repository")]
+    [InlineData("workflows")]
+    [InlineData(".GnOuGo/data/reviews/repository")]
+    public void ResolveCloneTargetDirectory_RejectsTargetsOutsideWorkflowWorkspace(string relativePath)
+    {
+        var policy = new GitPolicy(CreateSettings(), _root);
+
+        var ex = Assert.Throws<InvalidOperationException>(() => policy.ResolveCloneTargetDirectory(relativePath));
+
+        Assert.True(
+            ex.Message.Contains("workflow workspace", StringComparison.OrdinalIgnoreCase)
+            || ex.Message.Contains("reserved", StringComparison.OrdinalIgnoreCase));
+    }
+
+    [Fact]
+    public void ResolveCloneTargetDirectory_ReportsReservedPolicyBeforeLegacyDirectoryState()
+    {
+        var legacyDirectory = Directory.CreateDirectory(Path.Combine(_root, ".GnOuGo", "data", "reviews", "repository"));
+        File.WriteAllText(Path.Combine(legacyDirectory.FullName, "existing.txt"), "legacy");
+        var policy = new GitPolicy(CreateSettings(), _root);
+
+        var ex = Assert.Throws<InvalidOperationException>(() =>
+            policy.ResolveCloneTargetDirectory(".GnOuGo/data/reviews/repository"));
+
+        Assert.Contains("reserved", ex.Message, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("workflows/<name>", ex.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void ResolveProjectRoot_RejectsReservedGnOuGoDirectory()
+    {
+        var internalRoot = Directory.CreateDirectory(Path.Combine(_root, ".GnOuGo", "data", "project")).FullName;
+        var policy = new GitPolicy(CreateSettings(), _root);
+
+        var ex = Assert.Throws<InvalidOperationException>(() => policy.ResolveProjectRoot(Path.GetRelativePath(_root, internalRoot)));
+
+        Assert.Contains("reserved", ex.Message, StringComparison.OrdinalIgnoreCase);
+    }
+
     [Fact]
     public void ResolveCloneTargetDirectory_RejectsNonEmptyTargetDirectory()
     {
         var policy = new GitPolicy(CreateSettings(), _root);
-        var targetDirectory = Path.Combine(_root, "existing-target");
+        var targetDirectory = Path.Combine(_root, "workflows", "existing-target");
         Directory.CreateDirectory(targetDirectory);
         File.WriteAllText(Path.Combine(targetDirectory, "README.md"), "not empty");
 

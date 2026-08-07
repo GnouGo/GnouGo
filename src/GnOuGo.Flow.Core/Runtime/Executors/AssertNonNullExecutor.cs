@@ -21,28 +21,28 @@ public sealed class AssertNonNullExecutor : IStepExecutor
         Fails if any resolved input value is null, and exposes the same fields as non-null outputs for subsequent steps.
         Use it after deriving nullable values and before passing them to strict workflow or MCP inputs.
         ```yaml
-        - id: derive_repository_identity
+        - id: derive_resource_identity
           type: set
           output_schema:
             type: object
             properties:
-              owner:
+              namespace:
                 anyOf: [{ type: string }, { type: "null" }]
-              repo:
+              item:
                 anyOf: [{ type: string }, { type: "null" }]
-            required: [owner, repo]
+            required: [namespace, item]
             additionalProperties: false
           input:
-            owner: "${functions.extractOwner(data.inputs.repository_url)}"
-            repo: "${functions.extractRepo(data.inputs.repository_url)}"
+            namespace: "${functions.extractNamespace(data.inputs.resource_id)}"
+            item: "${functions.extractItem(data.inputs.resource_id)}"
 
-        - id: require_repository_identity
+        - id: require_resource_identity
           type: assert.non_null
           input:
-            owner: "${data.steps.derive_repository_identity.owner}"
-            repo: "${data.steps.derive_repository_identity.repo}"
+            namespace: "${data.steps.derive_resource_identity.namespace}"
+            item: "${data.steps.derive_resource_identity.item}"
         ```
-        Downstream strict calls should use `data.steps.require_repository_identity.owner`, not the nullable source.
+        Downstream strict calls should use `data.steps.require_resource_identity.namespace`, not the nullable source.
         """;
 
     public Task<JsonNode?> ExecuteAsync(StepExecutionContext ctx, CancellationToken ct)

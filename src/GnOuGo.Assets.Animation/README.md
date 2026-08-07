@@ -160,6 +160,10 @@ timer-driven consumers continue to use `applyEvent(...)` directly. Persistent
 live `step.started` and human-waiting signals are rendered as calm repeated
 action cycles and stop only when the corresponding completion, resume,
 cancellation, or failure event arrives.
+In scroll-camera consumers, an `actor.moved` focus leads only partway toward
+the target while the actor walks. The next step focus completes the centering,
+keeping step-to-step travel visible instead of cancelling it with an equal
+camera movement.
 `human_input.waiting` is an authoritative presentation barrier: the browser
 drains older queued events immediately and settles the actor and parcel on the
 declared Human station. This prevents a delayed previous-step walk from
@@ -179,6 +183,11 @@ For root workflow completion, the live session resolves the delivery
 roundabout's authoritative station position and incoming edge. The Master
 therefore follows the final road all the way to the visible center before the
 parcel is sent.
+
+A failed root workflow does not enter that successful delivery sequence. Its
+GnOuGo remains at the last highlighted step, the parcel is marked failed, and
+the browser applies one de-duplicated terminal failure pose. This keeps the
+crash location visible instead of alternating failure and walking animations.
 
 The controller continues draining queued telemetry after a recoverable visual
 error and exposes `data-animation-event-count`, `data-animation-last-event`,

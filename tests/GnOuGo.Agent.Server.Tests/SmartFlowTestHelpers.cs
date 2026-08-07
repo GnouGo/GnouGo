@@ -65,6 +65,30 @@ internal sealed class RecordingLlmClient : ILLMClient
     {
         CallCount++;
         LastRequest = request;
+        if (request.Prompt.Contains("domain-neutral workflow runtime analyst", StringComparison.OrdinalIgnoreCase))
+        {
+            return Task.FromResult(new LLMResponse
+            {
+                Json = new JsonObject
+                {
+                    ["complete"] = true,
+                    ["incomplete_reasons"] = new JsonArray(),
+                    ["operations"] = new JsonArray(),
+                    ["constraints"] = new JsonArray()
+                }
+            });
+        }
+        if (request.Prompt.Contains("domain-neutral capability matcher", StringComparison.OrdinalIgnoreCase))
+        {
+            return Task.FromResult(new LLMResponse
+            {
+                Json = new JsonObject
+                {
+                    ["operation_matches"] = new JsonArray(),
+                    ["constraint_matches"] = new JsonArray()
+                }
+            });
+        }
         return Task.FromResult(new LLMResponse { Text = BuildResponseText(request) });
     }
 
@@ -282,13 +306,14 @@ internal static class SmartFlowTestFactory
         AgentHumanInputProvider? humanInput = null,
         IKeyVaultRuntimeConfigStore? keyVaultStore = null,
         AgentOTelTelemetry? telemetry = null,
-        BundledMcpSettings? bundledMcpSettings = null)
+        BundledMcpSettings? bundledMcpSettings = null,
+        LLMRuntimeOptionsStore? runtimeOptionsStore = null)
         => new(
             llmClient,
             humanInput ?? new AgentHumanInputProvider(),
             modelCatalog ?? new FakeModelCatalog(),
             keyVaultStore ?? new FakeKeyVaultRuntimeConfigStore(),
-            CreateRuntimeOptionsStore(options),
+            runtimeOptionsStore ?? CreateRuntimeOptionsStore(options),
             telemetry ?? CreateTelemetry(),
             NullLogger<ConfigureProvidersService>.Instance,
             bundledMcpSettings: Options.Create(bundledMcpSettings ?? new BundledMcpSettings()));

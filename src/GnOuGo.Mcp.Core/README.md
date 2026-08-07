@@ -1,6 +1,21 @@
 # GnOuGo.Mcp.Core
 
+GnOuGo-owned MCP servers use stable `ModelContextProtocol` `2.0.0` and require revision `2026-07-28` through `GnOuGoMcpProtocol.RequiredRevision`. GnOuGo clients leave external connections unpinned so the SDK can prefer discovery-first `2026-07-28` and fall back to stable `2025-11-25` initialization.
+
 Shared helpers for GnOuGo MCP servers.
+
+## Artifact metadata contract
+
+MCP tools can describe reusable, externally materialized artifacts through
+`tools/list` metadata at `_meta.gnougo.artifacts`. Version `1` supports
+`produces` entries with `kind`, structured-output instance `pointer`, and
+`mode: materialize`, plus `consumes` entries with `kind`, input instance
+`pointer`, and `required`. `McpArtifactContractParser` validates those pointers
+against the advertised input/output schemas. `workspace.directory` is the
+standard kind for a validated workspace-relative working directory.
+
+The metadata is planning information, not authorization. Producing and
+consuming MCP tools must still validate paths and policies at execution time.
 
 ## MCP protocol compatibility
 

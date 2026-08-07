@@ -122,6 +122,7 @@ public sealed class CommandPolicy
     {
         var sb = new StringBuilder();
         sb.AppendLine("Runs one allowlisted command by name. Raw shell commands are not accepted; only preconfigured aliases may be executed. Commands execute within the default workspace. Returns a structured result with stdout, stderr, exit code, success flag, and error details if any.");
+        sb.AppendLine("Workspace path parameters must stay outside the reserved .GnOuGo internal directory. Use workflows/<name> for workflow-owned working directories.");
 
         if (_settings.AllowedCommands.Count == 0)
         {
@@ -205,7 +206,7 @@ public sealed class CommandPolicy
         sb.AppendLine($"- environment.operatingSystem: {policy.Environment.OperatingSystem}");
         sb.AppendLine($"- environment.architecture: {policy.Environment.Architecture}");
         sb.AppendLine($"- environment.availableShells: {FormatShellAvailabilityForDescription(policy.Environment.AvailableShells)}");
-        sb.Append("Only allowedWorkingRoots are authorized; generated workflows should not use paths outside those roots.");
+        sb.Append("Only allowedWorkingRoots outside the reserved .GnOuGo internal directory are authorized; generated workflows should use workflows/<name> for working directories.");
         return sb.ToString().TrimEnd();
     }
 
@@ -274,6 +275,8 @@ public sealed class CommandPolicy
         if (!allowedRoots.Any(root => IsPathWithinRoot(candidate, root)))
             throw new InvalidOperationException(
                 $"Working directory '{candidate}' is outside the allowed roots: {string.Join(", ", allowedRoots)}.");
+
+        EnsureOutsideReservedWorkspace(candidate, "Working directory");
 
         // Ensure the directory exists (creates it if possible).
         if (!Directory.Exists(candidate))
@@ -535,6 +538,8 @@ public sealed class CommandPolicy
                 $"Parameter '{parameterName}' resolves outside the allowed workspace roots: {string.Join(", ", allowedRoots)}.");
         }
 
+        EnsureOutsideReservedWorkspace(candidatePath, $"Parameter '{parameterName}'");
+
         if (parameterSettings.MustExist)
             EnsureWorkspacePathExists(parameterName, candidatePath, parameterSettings.PathKind);
 
@@ -552,6 +557,17 @@ public sealed class CommandPolicy
 
         if (!exists)
             throw new InvalidOperationException($"Parameter '{parameterName}' points to a missing {pathKind.ToString().ToLowerInvariant()} path '{candidatePath}'.");
+    }
+
+    private void EnsureOutsideReservedWorkspace(string path, string subject)
+    {
+        if (ResolveAllowedWorkingRoots().Any(root => GnOuGoWorkspace.IsReservedWorkspacePath(path, root)))
+        {
+            throw new InvalidOperationException(
+                $"{subject} resolves inside the reserved GnOuGo internal directory "
+                + $"'{GnOuGoWorkspace.WorkspaceDataSubfolder}'. Use '{GnOuGoWorkspace.WorkflowWorkspacesSubfolder}/<name>' "
+                + "for workflow-owned working data.");
+        }
     }
 
     private static bool ContainsParentTraversalSegment(string path)

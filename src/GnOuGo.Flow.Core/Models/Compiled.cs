@@ -20,6 +20,7 @@ public sealed class CompiledWorkflow
     public string Name { get; set; } = "";
     public WorkflowDef Source { get; set; } = null!;
     public List<CompiledStep> Steps { get; set; } = new();
+    public List<CompiledStep> Finally { get; set; } = new();
     public Dictionary<string, OutputDef>? Outputs { get; set; }
 
     /// <summary>Reference to the parent compiled document (for sub-workflow calls).</summary>
@@ -109,11 +110,13 @@ public sealed class ExecutionLimits
     public int MaxParallelBranches { get; set; } = 50;
     public int MaxLoopIterations { get; set; } = 1_000;
     public int MaxExpressionAstNodes { get; set; } = 500;
-    public int MaxExpressionStatements { get; set; } = 100_000;
+    public int MaxExpressionStatements { get; set; } = 1_000_000;
     public int ExpressionTimeoutSeconds { get; set; } = 15;
     public int ExpressionMemoryLimitBytes { get; set; } = 1_000_000_000;
     public int MaxSwitchCases { get; set; } = 100;
     public int MaxFunctionCallDepth { get; set; } = 50;
+    public int FinalizationTimeoutSeconds { get; set; } = 30;
+    public int MaxFinalizationSteps { get; set; } = 50;
 
     /// <summary>
     /// When true, step inputs and outputs are logged as OpenTelemetry span events
@@ -127,5 +130,22 @@ public sealed class ExecutionLimits
     /// providers to route responses to the correct waiting step.
     /// </summary>
     public string? RunId { get; set; }
-}
 
+    /// <summary>
+    /// Stable identifier for the root host execution. Unlike <see cref="RunId"/>,
+    /// this value is preserved when routers create child run identifiers.
+    /// </summary>
+    public string? ExecutionId { get; set; }
+
+    /// <summary>Host-owned identifier of the selected persisted agent.</summary>
+    public string? AgentId { get; set; }
+
+    /// <summary>Host-owned display name of the selected persisted agent.</summary>
+    public string? AgentName { get; set; }
+
+    /// <summary>
+    /// Host-owned tenant identifier propagated as reserved technical metadata to
+    /// external capabilities. Workflow inputs cannot override this value.
+    /// </summary>
+    public string? TenantId { get; set; }
+}

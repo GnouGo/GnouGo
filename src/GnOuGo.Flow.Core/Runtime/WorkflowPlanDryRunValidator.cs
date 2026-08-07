@@ -116,6 +116,22 @@ internal static class WorkflowPlanDryRunValidator
             return;
         }
 
+        if (IsInconclusiveSyntheticInputValidation(code, message, workflow.Source.Inputs?.Keys))
+        {
+            logger?.LogWarning(
+                "Generated workflow dry_run could not satisfy a domain-constrained synthetic input: {DryRunErrorMessage}",
+                message);
+            return;
+        }
+
+        if (IsInconclusiveSyntheticMcpConstraintValidation(code, message, error?.Details))
+        {
+            logger?.LogWarning(
+                "Generated workflow dry_run produced a synthetic value outside a downstream MCP scalar constraint: {DryRunErrorMessage}",
+                message);
+            return;
+        }
+
         var failureDetails = WorkflowPlanDiagnostics.BuildDryRunFailureDetails(
             code,
             message,
@@ -130,6 +146,113 @@ internal static class WorkflowPlanDryRunValidator
 
     private static bool IsInconclusiveInternalError(string code) =>
         string.Equals(code, "INTERNAL_ERROR", StringComparison.Ordinal);
+
+    private static bool IsInconclusiveSyntheticInputValidation(
+        string code,
+        string message,
+        IEnumerable<string>? inputNames)
+    {
+        if (!string.Equals(code, ErrorCodes.ScriptError, StringComparison.Ordinal)
+            || string.IsNullOrWhiteSpace(message)
+            || inputNames is null)
+        {
+            return false;
+        }
+
+        var describesValidation = System.Text.RegularExpressions.Regex.IsMatch(
+            message,
+            @"\b(?:invalid|malformed|valid|required|must|format|absolute|well[- ]formed|match(?:es)?|expected)\b",
+            System.Text.RegularExpressions.RegexOptions.IgnoreCase | System.Text.RegularExpressions.RegexOptions.CultureInvariant);
+        if (!describesValidation)
+            return false;
+
+        return inputNames.Any(name => !string.IsNullOrWhiteSpace(name)
+                                      && System.Text.RegularExpressions.Regex.IsMatch(
+                                          message,
+                                          BuildInputNameDiagnosticPattern(name),
+                                          System.Text.RegularExpressions.RegexOptions.IgnoreCase | System.Text.RegularExpressions.RegexOptions.CultureInvariant));
+    }
+
+    private static string BuildInputNameDiagnosticPattern(string inputName)
+    {
+        var words = System.Text.RegularExpressions.Regex
+            .Split(inputName, @"[_\-\s]+")
+            .Where(static word => !string.IsNullOrWhiteSpace(word))
+            .Select(System.Text.RegularExpressions.Regex.Escape)
+            .ToArray();
+        if (words.Length == 0)
+            return "(?!)";
+
+        // Generated validators commonly turn snake_case input names into labels such
+        // as "pull-request URL". Treat those equivalent spellings as references to
+        // the synthetic input while retaining word boundaries.
+        return $@"(?<![A-Za-z0-9_]){string.Join(@"[\s_-]+", words)}(?![A-Za-z0-9_])";
+    }
+
+    private static bool IsInconclusiveSyntheticMcpConstraintValidation(
+        string code,
+        string message,
+        JsonNode? runtimeDetails)
+    {
+        if (!string.Equals(code, ErrorCodes.InputValidation, StringComparison.Ordinal)
+            || !message.Contains("failed runtime JSON Schema validation", StringComparison.OrdinalIgnoreCase))
+        {
+            return false;
+        }
+
+        var validationErrors = FindValidationErrors(runtimeDetails);
+        if (validationErrors.Count == 0)
+            return false;
+
+        // Structural failures remain conclusive. Only scalar value constraints can
+        // be artifacts of deterministic placeholder inputs (for example the sample
+        // string "dry-run" flowing into an enum-constrained MCP argument). Literal
+        // invalid values have already been rejected by semantic validation.
+        return validationErrors.All(static error =>
+            error.Contains("value must be one of", StringComparison.OrdinalIgnoreCase)
+            || error.Contains("value is not included in enum", StringComparison.OrdinalIgnoreCase)
+            || error.Contains("value must equal", StringComparison.OrdinalIgnoreCase)
+            || error.Contains("string does not match required pattern", StringComparison.OrdinalIgnoreCase)
+            || error.Contains("must contain at least", StringComparison.OrdinalIgnoreCase)
+            || error.Contains("must contain at most", StringComparison.OrdinalIgnoreCase)
+            || error.Contains("number must be greater", StringComparison.OrdinalIgnoreCase)
+            || error.Contains("number must be less", StringComparison.OrdinalIgnoreCase)
+            || error.Contains("number must be a multiple", StringComparison.OrdinalIgnoreCase));
+    }
+
+    private static IReadOnlyList<string> FindValidationErrors(JsonNode? node)
+    {
+        if (node is JsonObject obj)
+        {
+            if (obj["validation_errors"] is JsonArray errors)
+            {
+                return errors
+                    .OfType<JsonValue>()
+                    .Select(static value => value.TryGetValue<string>(out var text) ? text : null)
+                    .Where(static text => !string.IsNullOrWhiteSpace(text))
+                    .Select(static text => text!)
+                    .ToArray();
+            }
+
+            foreach (var (_, child) in obj)
+            {
+                var nested = FindValidationErrors(child);
+                if (nested.Count > 0)
+                    return nested;
+            }
+        }
+        else if (node is JsonArray array)
+        {
+            foreach (var child in array)
+            {
+                var nested = FindValidationErrors(child);
+                if (nested.Count > 0)
+                    return nested;
+            }
+        }
+
+        return Array.Empty<string>();
+    }
 
     internal static JsonNode? CreateSampleFromJsonSchema(JsonNode? schema)
     {
@@ -517,12 +640,12 @@ internal static class WorkflowPlanDryRunValidator
             }
 
             if (string.Equals(request.Mode, HumanInputContract.ModeConfirm, StringComparison.OrdinalIgnoreCase))
-                return Task.FromResult<JsonNode?>(JsonValue.Create(true));
+                return Task.FromResult<JsonNode?>(new JsonObject { ["response"] = true });
 
             if (request.Choices is { Count: > 0 })
-                return Task.FromResult<JsonNode?>(JsonValue.Create(request.Choices[0]));
+                return Task.FromResult<JsonNode?>(new JsonObject { ["response"] = request.Choices[0] });
 
-            return Task.FromResult<JsonNode?>(JsonValue.Create("dry-run human response"));
+            return Task.FromResult<JsonNode?>(new JsonObject { ["response"] = "dry-run human response" });
         }
 
         private static JsonNode? CreateSampleFromHumanField(HumanInputFieldDef field)

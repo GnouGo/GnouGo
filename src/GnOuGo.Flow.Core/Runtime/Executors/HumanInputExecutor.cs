@@ -73,6 +73,21 @@ internal static class HumanInputDslReference
             choices: [approve, reject]
         ```
 
+        A `confirm` response is always boolean. Choice labels are presentation text and do not
+        change that contract. Branch on the boolean directly:
+        ```yaml
+        - id: route_confirmation
+          type: switch
+          cases:
+            - when: "${data.steps.confirm_publish.response}"
+              steps:
+                - id: publish
+                  type: set
+                  input: { approved: true }
+        ```
+        Never compare a `confirm` response to a choice label such as `"approve"`. Use
+        `mode: choice` when the selected label itself is required as a string.
+
         ```yaml
         - id: user_config
           type: human.input
@@ -114,7 +129,8 @@ internal static class HumanInputDslReference
           - Use `date` for ISO date input (`YYYY-MM-DD`); it is returned as a string.
 
         Output access patterns:
-          - text/choice/confirm: `data.steps.<id>.response`
+          - text/choice: `data.steps.<id>.response` (string)
+          - confirm: `data.steps.<id>.response` (boolean)
           - form: `data.steps.<id>.<field_name>` (for example `data.steps.user_config.due_date`)
           - Providers may also include `source`; use `data.steps.<id>.source` only when the provider supplies it.
         """;
@@ -265,13 +281,36 @@ public sealed class HumanInputExecutor : IStepExecutor
                 new KeyValuePair<string, object?>("gnougo-flow.thinking.level", "info"),
             });
 
-            return response ?? new JsonObject { ["response"] = (JsonNode?)null };
+            return NormalizeResponse(mode, response, choices, ctx.Step.Id);
         }
         catch (OperationCanceledException) when (!ct.IsCancellationRequested)
         {
             throw new WorkflowRuntimeException("HUMAN_INPUT_TIMEOUT",
                 $"human.input step '{ctx.Step.Id}' timed out after {timeoutMs}ms waiting for user response.");
         }
+    }
+
+    private static JsonNode? NormalizeResponse(
+        string mode,
+        JsonNode? response,
+        IReadOnlyList<string>? choices,
+        string stepId)
+    {
+        if (!mode.Equals(HumanInputContract.ModeConfirm, StringComparison.OrdinalIgnoreCase))
+            return response ?? new JsonObject { ["response"] = (JsonNode?)null };
+
+        if (!HumanInputContract.TryReadConfirmation(response, choices, out var confirmed))
+        {
+            throw new WorkflowRuntimeException(
+                ErrorCodes.InputValidation,
+                $"human.input confirm step '{stepId}' received a response that could not be normalized to boolean. Return true/false or one of its two configured choices.");
+        }
+
+        var normalized = response is JsonObject responseObject
+            ? (JsonObject)responseObject.DeepClone()
+            : new JsonObject();
+        normalized["response"] = confirmed;
+        return normalized;
     }
 
     private static string ResolveMode(JsonObject input, List<string>? choices, List<HumanInputFieldDef>? fields)
@@ -284,8 +323,8 @@ public sealed class HumanInputExecutor : IStepExecutor
             return HumanInputContract.ModeForm;
         if (choices is { Count: > 0 })
             return choices.Count == 2
-                   && choices.Any(c => IsConfirmChoice(c))
-                   && choices.Any(c => IsRejectChoice(c))
+                   && choices.Any(HumanInputContract.IsAffirmativeConfirmationChoice)
+                   && choices.Any(HumanInputContract.IsNegativeConfirmationChoice)
                 ? HumanInputContract.ModeConfirm
                 : HumanInputContract.ModeChoice;
         return HumanInputContract.ModeText;
@@ -342,19 +381,6 @@ public sealed class HumanInputExecutor : IStepExecutor
                     $"human.input field '{field.Name}' of type '{field.Type}' requires non-empty 'options'.");
         }
     }
-
-    private static bool IsConfirmChoice(string value) =>
-        value.Equals("approve", StringComparison.OrdinalIgnoreCase)
-        || value.Equals("yes", StringComparison.OrdinalIgnoreCase)
-        || value.Equals("true", StringComparison.OrdinalIgnoreCase)
-        || value.Equals("confirm", StringComparison.OrdinalIgnoreCase)
-        || value.Equals("ok", StringComparison.OrdinalIgnoreCase);
-
-    private static bool IsRejectChoice(string value) =>
-        value.Equals("reject", StringComparison.OrdinalIgnoreCase)
-        || value.Equals("no", StringComparison.OrdinalIgnoreCase)
-        || value.Equals("false", StringComparison.OrdinalIgnoreCase)
-        || value.Equals("cancel", StringComparison.OrdinalIgnoreCase);
 
     private static string? ReadString(JsonNode? node)
     {

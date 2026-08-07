@@ -294,11 +294,18 @@ workflows:
               message: "⚙️ Generating workflow YAML from your description using ${data.inputs.agent_llm_provider}/${data.inputs.agent_llm_model}…"
               level: thinking
 
+          - id: normalized_prompt
+            type: set
+            input:
+              description: "${trim(data.steps.input_prompt.description)}"
+
 
           # Step 3: Generate and validate workflow YAML from the description
           - id: generate_workflow
             type: workflow.plan
             input:
+              capability_preflight:
+                mode: infer
               generator:
                 prefilter: true
                 mode: auto
@@ -307,12 +314,22 @@ workflows:
                   Generate a valid GnOuGo.Flow YAML workflow for a persisted chat agent.
 
                   Agent name: ${data.steps.normalized_name.agent_name}
-                  Agent description: ${data.steps.input_prompt.description}
+                  Agent description: ${data.steps.normalized_prompt.description}
 
                 context: >
                   This YAML will be stored by GnOuGo.Agent.Mcp and later executed by GnOuGo.Agent.Server for each user chat message.
                   The stored agent workflow must be self-contained and should not ask the user to review its own YAML.
-                  Prefer direct mcp.call steps with exact server/tool names when the tool names are listed above.
+                  Treat the user's description as an intention, not as a requirement to supply implementation names. Infer runtime inputs, data flow, and technical sequencing from the discovered capability contracts.
+                  Enumerate every required positive external read, write, side effect, explicitly requested resource lifecycle, cleanup, and recovery operation before decomposition.
+                  Preserve local parsing, validation, filtering, transformation, aggregation, and orchestration as explicit blueprint obligations without forcing them onto arbitrary tools.
+                  Classify prohibitions, safety rules, ordering requirements, and invariants as constraints rather than executable operations. A prohibition never requires a tool merely to abstain from an action.
+                  Treat this generated workflow as the runtime boundary: do not inventory host configuration, credential/provider resolution performed inside selected capabilities, or persistence of the generated agent performed by this outer workflow.
+                  Resolve each external operation only to an exact capability discovered from a configured MCP catalog, or to an allowed native Flow step.
+                  Never invent, rename, substitute, or silently omit a required capability. If the preflight inventory is incomplete or a required operation is unavailable, fail before generating or persisting the agent.
+                  Keep operation and capability identifiers locked through decomposition and emit each required external operation as a distinct direct call to the exact discovered server, kind, method, and literal schema selector bindings.
+                  Keep the workspace boundary: `.GnOuGo` is reserved for GnOuGo internal state and must never be used for workflow-facing paths. Put workflow-owned working directories below `workflows/<purpose-specific-name>` and pass materialization outputs such as `projectRootRelative` to later steps.
+                  Unless the user explicitly requests unattended execution, require human confirmation immediately before the first external write. Read capabilities remain available before that gate; rejection must cause zero external writes.
+                  When a selected workflow call explicitly creates a workflow-owned resource and its contract exposes a matching cleanup operation, put that concrete cleanup in the workflow-level finally array so it runs after success, failure, or cancellation. Do not invent cleanup for resources encapsulated inside a high-level capability.
               policy:
                 allowed_step_types:
                   - emit
@@ -408,7 +425,7 @@ workflows:
               request:
                 name: "${data.steps.normalized_name.agent_name}"
                 workflow: "${data.steps.final_workflow.workflow}"
-                originalPrompt: "${data.steps.input_prompt.description}"
+                originalPrompt: "${data.steps.normalized_prompt.description}"
 
           - id: save_agent_branch
             type: switch
@@ -695,7 +712,7 @@ workflows:
                   mode: repair
                   generator:
                     prefilter: true
-                    reasoning: medium
+                    reasoning: low
                     instruction: |
                       Keep the same agent identity unless the user explicitly asks otherwise:
                       - agent name: ${data.steps.find_agent.response.agent.name}
@@ -706,6 +723,7 @@ workflows:
                       - It must accept a user task/prompt input such as `task`.
                       - It must expose an `answer` output string.
                       - It must remain self-contained and must not ask the user to review its own YAML.
+                      - Keep the workspace boundary: `.GnOuGo` is reserved for GnOuGo internal state and must never be used for workflow-facing paths. Put workflow-owned working directories below `workflows/<purpose-specific-name>`.
                     context: |
                       This is a manual `/gnougo reprompt` operation.
                       The replacement YAML will be persisted through GnOuGo.Agent.Mcp `agent_update`.

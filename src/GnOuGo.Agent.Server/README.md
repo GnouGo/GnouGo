@@ -83,12 +83,17 @@ In other words, runtime consumers should treat the mounted MCP endpoints as part
 - `user_config_set` — save updated defaults after `/llm default`, `/llm add` auto-promotion, or `/gnougo select`
 
 The persisted values live in the Agent MCP SQLite database (`Agent:DatabasePath`) rather than only in browser state.
-LLM provider and MCP server definitions are hydrated from encrypted KeyVault secrets at startup; `user-settings.json` is no longer used.
+LLM provider and MCP server definitions are hydrated from encrypted KeyVault secrets; `user-settings.json` is no longer used. Each workflow execution builds its MCP runtime catalog from the latest KeyVault-backed definitions, so a server saved through `/mcp add` is available to the next `/gnougo add` or workflow run without restarting Agent.Server. `/mcp list` and workflow capability preflight therefore use the same persisted configuration source.
+
+For user-configured HTTP servers, `/mcp edit <name>` can keep the current authentication settings, rotate an API key, replace OIDC client credentials, switch between `api_key`, `oidc`, and `none`, or remove authentication. Choosing `keep_current` preserves the encrypted credentials; choosing a named authentication mode collects replacement credentials and clears fields belonging to the previous mode. Bundled MCP servers continue to expose only their allow-listed override fields, and stdio MCP servers do not use this HTTP authentication flow.
+
 `/llm add` can configure `openai`, `ollama`, `copilot`, and `anthropic` providers. The Anthropic provider uses the Anthropic Messages API endpoint `https://api.anthropic.com/v1` and stores the API key encrypted in KeyVault like the other remote providers. The legacy `claude` name is still accepted as an alias for existing configurations.
 
 After model selection, `/llm add` and `/llm edit <provider>` always display an editable review form containing token limits, pricing, structured-output/tool/JSON support, temperature and reasoning behavior, vision/audio/embedding support, supported reasoning efforts, and unsupported request parameters. Exact catalog values remain catalog-backed when accepted unchanged. Edited values and accepted fuzzy/heuristic defaults are persisted as non-secret, provider-qualified overrides such as `openai/model-id`; legacy unqualified overrides remain readable. Approximate matches are restricted to the normalized provider and the UI identifies the source model and similarity before saving.
 
 Bundled MCP servers can also expose selected editable fields through the `BundledMcp` settings section. Each field maps to a KeyVault secret and a runtime target such as `env:Git__Token`, so `/mcp list` can show the bundled server and `/mcp edit <name>` only prompts for the configured fields. The default configuration makes `GnOuGo.Git.Mcp` listable and exposes only the Git token; the token is saved encrypted in KeyVault and injected into the Git MCP process as `Git:Token` when runtime MCP options are hydrated.
+
+`GnOuGo.GithubCopilot.Mcp` is also a listable bundled server. `/mcp edit GnOuGo.GithubCopilot.Mcp` exposes only its provider override, fallback model, reasoning effort, logged-in-user mode, request timeout, and managed-session TTL. Provider choices come from configured KeyVault LLM providers. Values are validated and stored as separate encrypted `LLM--McpServerOverrides--GnOuGo.GithubCopilot.Mcp--...` entries, while per-field inheritance deletes the selected override. Runtime hydration adds `Code__Copilot__...` environment keys without replacing the bundled command or arguments. Credentials stay in their existing `LLM--Models--<provider>` entries, and changes affect the next workflow/MCP process rather than an already-running session.
 
 ## Dynamic workflow input composer
 
@@ -102,25 +107,29 @@ The Blazor chat composer resolves the active/default agent workflow through `Sma
 
 ## Live workflow animation in chat
 
-Regular workflow-backed chat requests render a transient
-`GnOuGo.Assets.Animation` scene in the active conversation's navigation entry.
-The scene follows real workflow telemetry: stable workflow
+Every submitted chat request renders a correlation-owned
+`GnOuGo.Assets.Animation` scene inside its assistant response, including
+workflow/agent creation and slash commands. The **Traces**, **Animation**, and
+**Activity** controls remain available even when a response has no text or
+ends in an error. The scene follows real workflow telemetry: stable workflow
 instances and step occurrences drive walking, roundabout work, parallel clones,
 runtime workflow handoffs, parcel completion, failure, and final delivery. It
-never runs a second synthetic timer.
+never runs a second timer-driven preview. Agent creation/management commands
+reuse their native workflow telemetry and preserve child-workflow identities.
+Direct slash commands without a workflow use a small synthetic command
+lifecycle so their waiting, success, and failure states have the same visual
+contract as workflow-backed messages.
 
 The conversation uses a document-style layout: compact right-aligned user
-prompts and borderless full-width assistant turns. A single live workflow scene
-is hosted directly below the active conversation title in the left navigation
-history, while its Activity and visibility controls remain in the related
-response action row beside Trace. The scene has the same subtle border as the
-rest of the application, a viewport-responsive height capped at 500 px, and
-native horizontal and vertical scrollbars. Follow mode is enabled by default
-and scrolls only this internal panel. Every submitted message allocates a new,
-correlation-keyed animation host before workflow telemetry starts. The previous
-host fades, disposes its browser controller, and is replaced by this clean panel
-so actors, portals, scene layers, and queued events cannot leak between turns.
-No title, lane count, node count, or live-telemetry caption is rendered.
+prompts and borderless full-width assistant turns. Each response keeps its own
+full-width animation panel, with a viewport-responsive height capped at 620 px
+and native horizontal and vertical scrollbars. Follow mode is enabled by
+default and scrolls only that message's panel. During a walk, the camera leads
+only partway toward the next station so GnOuGo remains visibly in motion; the
+step event then completes the centering. Switching conversations disposes
+detached browser controllers; returning to an in-memory conversation remounts
+the SVG and replays its ordered scene patches/events so actors, portals, scene
+layers, and queued events cannot leak between turns.
 
 Human Input cards use the same centered 1160 px conversation column, with an
 860 px maximum card width. While the workflow waits, its GnOuGo retains the
@@ -160,7 +169,8 @@ Both menus close through a shared click-away backdrop and remain compact on
 mobile.
 
 Dynamic planning and routing have dedicated live semantics. `workflow.plan`
-walks the main GnOuGo to a planning roundabout, `workflow.route` uses a routing
+walks the main GnOuGo to a planning roundabout and keeps the `think` action for
+the complete running step, `workflow.route` uses a routing
 roundabout, and `workflow.execute` uses a handoff roundabout. When a generated or
 selected workflow starts, a caller-aware `workflow.discovered` event announces
 the new lane before its GnOuGo spawns and receives the parcel. Short generated
@@ -172,9 +182,14 @@ produce visible walking, working, handoff, and delivery motion without delaying
 the workflow. A long-running real step repeats a calm action cycle until its
 authoritative `step.end` arrives: routing communicates, LLM work types, MCP
 work uses its communication pose, and HITL keeps waiting. Controller mounting
-is acknowledged before events leave the Blazor queue. The card and message bubbles use the full chat width; the SVG
-keeps its complete aspect ratio, has no maximum scene height, and is resized by
-a `ResizeObserver` when the application window changes. When a later question
+is acknowledged before events leave the Blazor queue. Every patch and event
+also verifies that the controller still owns the currently connected Blazor
+host. If streaming replaced that DOM branch, the stale controller is rejected
+and the current panel is remounted from its authoritative event history instead
+of silently animating a detached SVG. The card and message bubbles use the full
+chat width; the SVG keeps its complete aspect ratio, has no maximum scene
+height, and is resized by a `ResizeObserver` when the application window
+changes. When a later question
 creates another animation card, the chat follows it only after its SVG has
 mounted and acquired its final height. Focus events may pan inside their own
 card but cannot scroll the conversation back to an older execution.
@@ -188,7 +203,27 @@ Animation state is also transient and is not restored after a reload.
 alive with calm waiting motion. Text, choice, confirmation, and structured
 controls appear attached to the live card; submitted values are summarized in
 that card instead of becoming chat messages. Timeout, cancellation, and
-failure update the same parcel and execution status.
+failure update the same parcel and execution status. Confirmation buttons use
+their labels only for presentation and submit a Boolean response; Flow.Core also
+normalizes provider labels such as `approve` and `reject` before expressions run.
+MCP elicitation uses this same visible card and wire payload. In particular,
+interactive Copilot permission requests emit the waiting animation before the
+form is streamed, and emit a resumed/refused/cancelled signal afterward. The
+request is correlated to its exact workflow run and MCP step rather than read
+from a shared pending-request queue, so concurrent executions cannot steal one
+another's permission form.
+
+When the Copilot host gate `Code__Copilot__EnableApproveAll=true` is enabled,
+permission cards distinguish **Allow similar operations for this task**,
+**Allow all for this Copilot task**, **Allow all for this workflow run**, and
+**Allow all future runs for this agent**. Persistent approval requires a second
+confirmation. It is keyed by tenant and stable agent ID, survives restarts and
+renames, and is revoked automatically when the agent is deleted. Use
+`/mcp copilot permissions` to list persistent grants and
+`/mcp copilot permissions revoke <grant-id>` to revoke one manually. Sandbox
+bypass always requires its own **Allow once / Refuse** decision. Automatically
+approved operations remain visible in **LIVE WORKFLOW ACTIVITY** and never leave
+a stale human-input card.
 
 `/api/chat/stream` retains its existing SSE event names and text payloads.
 Additional `animation.prepared`, `animation.scene.patch`, and
@@ -196,8 +231,16 @@ Additional `animation.prepared`, `animation.scene.patch`, and
 Workflow YAML and inputs are not included in those animation payloads.
 
 Blazor serializes animation interop through a single guarded queue so
-overlapping post-render callbacks cannot remove or reorder live events. The
-browser controller records its applied-event count, latest event, pending
+overlapping post-render callbacks cannot remove or reorder live events across
+message-owned panels. Mutable conversation and execution collections are
+snapshotted before any JavaScript interop await, preventing streaming updates
+from invalidating an active renderer enumeration and terminating the Blazor
+circuit. Error statuses are normalized and a terminal failed event
+is added when a response-level failure has no matching workflow terminal event.
+On a real workflow failure, the actor stays at the highlighted crashing step
+in a single terminal failure pose; no successful return-to-delivery
+choreography is queued, so the panel does not blink between failure and walking.
+The browser controller records its applied-event count, latest event, pending
 queue size, and recoverable error on the scene host for runtime diagnostics.
 One malformed visual event is logged and skipped without stopping later
 workflow motion.
@@ -216,6 +259,24 @@ known to be current.
 ## Main routing workflow and conversation history
 
 When no explicit/default agent is selected, `SmartFlowService` runs the embedded `SmartFlow/main-routing-agent.yaml` workflow. That workflow uses `workflow.route` to expand all persisted database agents (`ref: { kind: database }`), select one or more relevant sub-workflows, auto-extract structured inputs from the prompt/history, and request any remaining missing or invalid declared inputs through the existing Human Input form before execution. Candidate forms are presented one at a time, then the completed workflows use their configured execution policy. The route also includes a local general fallback workflow so a fresh installation can still answer prompts before any persisted agents exist.
+
+`/gnougo add` runs generic inventory-first capability preflight before workflow decomposition. The first structured call inventories runtime operations and constraints without seeing tools. A compact paged selector then chooses relevant physical MCP tools from one entry per tool, adds MCP-declared artifact producers, and expands authoritative schemas and selector variants only for that selected set before final matching. If inventory or required-candidate selection is incomplete, each stage gets one bounded repair. Complete discovery remains available to dry runs and deterministic validation, and the 256,000-character expanded-catalog guard is unchanged. Documented scalar selectors make logical variants of a multi-action MCP tool distinct and lock their literal request values through decomposition and YAML validation. Host configuration, internal provider/credential resolution, and the outer agent-persistence action are outside the generated workflow inventory. Required resource cleanup is generated under the Flow workflow-level `finally` array.
+
+Read and write capabilities remain discoverable by default; preflight describes availability rather than silently changing an MCP server's execution policy. When preflight fails, the chat response and trace show the sanitized error code, unavailable operation IDs/descriptions, failed catalogs, and a generic configuration action instead of only the summary message.
+
+In inferred mode, matching is reported per operation as `matched`, `composed`, `local`, `ambiguous`, or `unavailable`. One bounded repair can resolve malformed, unknown-ID, ambiguous, or initially unavailable decisions while preserving already valid matches. Remaining failures include sanitized `matching_issues` with the operation, status, concise reason, and at most eight compact candidate cards; full schemas, prompts, repository content, credentials, and model reasoning are not included.
+
+External writes inferred from a short intention are classified separately from reads and AI execution. When the user did not explicitly request unattended execution, `/gnougo add` receives a locked platform confirmation operation and an ordering policy before matching and decomposition. A conditional rule such as “only after confirmation” never becomes a document-wide denied tool, while unconditional prohibitions still reject exact denied calls.
+
+The intention-first live acceptance harness is opt-in because it uses the configured KeyVault-backed provider and external MCP servers:
+
+```bash
+GNOU_GO_LIVE_INTENT_AGENT_E2E=1 dotnet test \
+  tests/GnOuGo.Agent.Server.Tests/GnOuGo.Agent.Server.Tests.csproj \
+  --filter "FullyQualifiedName~LiveIntentAgentGenerationTests.SimpleIntent_GeneratesThreeValidatedAgentsUsingLiveConfiguration"
+```
+
+The harness submits the same short user intention for three independent generations, validates every discovered MCP call and literal selector, executes a read-only review against the configured public acceptance PR while denying publication, and exercises the confirmed write path only against a disposable draft fixture. It restores the previous default-agent setting and removes generated agents and isolated workspaces in `finally`.
 
 The Blazor chat session now carries a server-facing `ConversationId`. The UI keeps its local transcript for display, while `SmartFlowService` loads recent server-side messages into the routing workflow as `history` and appends the user/assistant turn after a successful answer. HTTP clients can also pass `conversationId` and `prompt` on `/api/chat` or `/api/chat/stream`; if omitted, the server creates a new conversation id and returns/emits it.
 
@@ -299,6 +360,7 @@ The desktop workflow publishes a trimmed self-contained `GnOuGo.Agent.Desktop` (
 
 By default, the GnOuGo workspace remains `Desktop/GnOuGo`.
 Persisted agent workflow YAML files are saved in `Desktop/GnOuGo/.GnOuGo/`, uploaded files are saved in `Desktop/GnOuGo/.GnOuGo/Files/`, and SQLite databases are saved in `Desktop/GnOuGo/.GnOuGo/data/`.
+Workflow-owned working directories are separate and visible under `Desktop/GnOuGo/workflows/`, using purpose-specific children such as `workflows/github-review-123`. Every Agent Server `workflow.plan` entrypoint instructs generated workflows to use this visible root and never `.GnOuGo/` for project or file paths. The `.GnOuGo/` subtree remains reserved for GnOuGo-managed internal state.
 The default settings carry these relative paths explicitly:
 
 - agent workflows → `./.GnOuGo/{agent-name}.yaml`
@@ -475,6 +537,19 @@ The cache key includes the active provider configuration fingerprint, so changin
 ## MCP capability cache
 
 Workflow execution uses `IMemoryCache` to cache MCP server capability discovery results: tools, prompts, resources, and their descriptions.
+
+Tool schemas are still discovered once on every newly created live MCP client.
+This per-session initialization is required for SDK transport annotations such
+as `x-mcp-header`; the shared cache cannot replace it. Consequently request
+fields such as GitHub `owner` and `repo` continue to be emitted as
+`Mcp-Param-*` headers after a runtime has been rebuilt.
+
+When an agent run offers **Improve**, the failure details carry the deepest
+failing local workflow and step. The repair planner is structurally locked to
+that location: it may update the failed step and existing direct consumers,
+but it cannot remove or rename sub-workflows, `workflow.call` edges, steps,
+branches, skills, or public contracts. Any broad rewrite is rejected and
+reprompted up to three times before the original workflow is left untouched.
 
 - Service: `WorkflowEngine`
 - Default sliding expiration: `3600` seconds
