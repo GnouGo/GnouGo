@@ -51,6 +51,7 @@ COPY src/GnOuGo.Flow.Server/GnOuGo.Flow.Server.csproj src/GnOuGo.Flow.Server/
 COPY src/GnOuGo.Flow.Core/GnOuGo.Flow.Core.csproj     src/GnOuGo.Flow.Core/
 COPY src/GnOuGo.AI.Core/GnOuGo.AI.Core.csproj         src/GnOuGo.AI.Core/
 COPY src/GnOuGo.Auth.Core/GnOuGo.Auth.Core.csproj     src/GnOuGo.Auth.Core/
+COPY src/GnOuGo.Mcp.Core/GnOuGo.Mcp.Core.csproj       src/GnOuGo.Mcp.Core/
 
 RUN dotnet restore src/GnOuGo.Flow.Server/GnOuGo.Flow.Server.csproj
 
@@ -59,6 +60,7 @@ COPY src/GnOuGo.Flow.Server/ src/GnOuGo.Flow.Server/
 COPY src/GnOuGo.Flow.Core/   src/GnOuGo.Flow.Core/
 COPY src/GnOuGo.AI.Core/     src/GnOuGo.AI.Core/
 COPY src/GnOuGo.Auth.Core/   src/GnOuGo.Auth.Core/
+COPY src/GnOuGo.Mcp.Core/     src/GnOuGo.Mcp.Core/
 
 # Copy pre-built wwwroot from the Node stage
 COPY --from=clientapp /workspace/src/GnOuGo.Flow.Server/wwwroot src/GnOuGo.Flow.Server/wwwroot/
