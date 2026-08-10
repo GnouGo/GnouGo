@@ -3,9 +3,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging.Abstractions;
 using System.Text.Json.Nodes;
 using ModelContextProtocol;
-using GnOuGo.KeyVault.Core.Data;
 using GnOuGo.KeyVault.Core.Services;
-using Microsoft.EntityFrameworkCore;
 using Xunit;
 
 namespace GnOuGo.GithubCopilot.Mcp.Tests;
@@ -224,86 +222,106 @@ public sealed class ConfigurationCopilotProviderConfigResolverTests
     [Fact]
     public async Task ResolveAsync_LoadsProviderConfigFromKeyVault()
     {
-        var databasePath = CreateTempDatabasePath();
-        try
-        {
-            await SeedKeyVaultSecretAsync(
-                databasePath,
-                "LLM--Models--OpenAi",
-                """
-                {
-                  "provider": "OpenAi",
-                  "url": "https://api.openai.com/v1",
-                  "type": "openai",
-                  "model": "gpt-4o-mini",
-                  "authType": "api_key",
-                  "apiKey": "sk-keyvault"
-                }
-                """);
-
-            using var services = CreateServices(new Dictionary<string, string?>
+        var reader = new FakeKeyVaultSecretReader().Add(
+            "LLM--Models--OpenAi",
+            """
             {
-                ["KeyVault:DatabasePath"] = databasePath
-            });
-            var resolver = CreateResolver(services, CreateKeyVaultResolver(services));
+              "provider": "OpenAi",
+              "url": "https://api.openai.com/v1",
+              "type": "openai",
+              "model": "gpt-4o-mini",
+              "authType": "api_key",
+              "apiKey": "sk-keyvault"
+            }
+            """);
+        using var services = CreateServices();
+        var resolver = CreateResolver(services, CreateKeyVaultResolver(reader));
 
-            var result = await resolver.ResolveAsync("OpenAi", "fallback-model", null, CancellationToken.None);
+        var result = await resolver.ResolveAsync("OpenAi", "fallback-model", null, CancellationToken.None);
 
-            Assert.NotNull(result);
-            Assert.Equal("OpenAi", result.ProviderName);
-            Assert.Equal("gpt-4o-mini", result.Model);
-            Assert.Equal("https://api.openai.com/v1", result.Provider.BaseUrl);
-            Assert.Equal("sk-keyvault", result.Provider.ApiKey);
-            Assert.Null(result.Provider.BearerToken);
-        }
-        finally
-        {
-            TryDeleteDatabase(databasePath);
-        }
+        Assert.NotNull(result);
+        Assert.Equal("OpenAi", result.ProviderName);
+        Assert.Equal("gpt-4o-mini", result.Model);
+        Assert.Equal("https://api.openai.com/v1", result.Provider.BaseUrl);
+        Assert.Equal("sk-keyvault", result.Provider.ApiKey);
+        Assert.Null(result.Provider.BearerToken);
     }
 
     [Fact]
     public async Task ResolveAsync_MergesConfiguredProviderWithKeyVaultSecretApiKey()
     {
-        var databasePath = CreateTempDatabasePath();
-        try
-        {
-            await SeedKeyVaultSecretAsync(
-                databasePath,
-                "LLM--Models--OpenAi",
-                """
-                {
-                  "provider": "OpenAi",
-                  "url": "https://api.openai.com/v1",
-                  "type": "openai",
-                  "model": "gpt-4o-mini",
-                  "authType": "api_key",
-                  "apiKey": "sk-keyvault"
-                }
-                """);
-
-            using var services = CreateServices(new Dictionary<string, string?>
+        var reader = new FakeKeyVaultSecretReader().Add(
+            "LLM--Models--OpenAi",
+            """
             {
-                ["KeyVault:DatabasePath"] = databasePath,
-                ["Code:Copilot:Providers:OpenAi:url"] = "https://api.openai.com/v1",
-                ["Code:Copilot:Providers:OpenAi:type"] = "openai",
-                ["Code:Copilot:Providers:OpenAi:model"] = "gpt-4.1-mini",
-                ["Code:Copilot:Providers:OpenAi:authType"] = "api_key",
-                ["Code:Copilot:Providers:OpenAi:apiKey"] = ""
-            });
-            var resolver = CreateResolver(services, CreateKeyVaultResolver(services));
-
-            var result = await resolver.ResolveAsync("OpenAi", "fallback-model", null, CancellationToken.None);
-
-            Assert.NotNull(result);
-            Assert.Equal("gpt-4.1-mini", result.Model);
-            Assert.Equal("gpt-4.1-mini", result.Provider.ModelId);
-            Assert.Equal("sk-keyvault", result.Provider.ApiKey);
-        }
-        finally
+              "provider": "OpenAi",
+              "url": "https://api.openai.com/v1",
+              "type": "openai",
+              "model": "gpt-4o-mini",
+              "authType": "api_key",
+              "apiKey": "sk-keyvault"
+            }
+            """);
+        using var services = CreateServices(new Dictionary<string, string?>
         {
-            TryDeleteDatabase(databasePath);
-        }
+            ["Code:Copilot:Providers:OpenAi:url"] = "https://api.openai.com/v1",
+            ["Code:Copilot:Providers:OpenAi:type"] = "openai",
+            ["Code:Copilot:Providers:OpenAi:model"] = "gpt-4.1-mini",
+            ["Code:Copilot:Providers:OpenAi:authType"] = "api_key",
+            ["Code:Copilot:Providers:OpenAi:apiKey"] = ""
+        });
+        var resolver = CreateResolver(services, CreateKeyVaultResolver(reader));
+
+        var result = await resolver.ResolveAsync("OpenAi", "fallback-model", null, CancellationToken.None);
+
+        Assert.NotNull(result);
+        Assert.Equal("gpt-4.1-mini", result.Model);
+        Assert.Equal("gpt-4.1-mini", result.Provider.ModelId);
+        Assert.Equal("sk-keyvault", result.Provider.ApiKey);
+    }
+
+    [Fact]
+    public async Task KeyVaultResolver_UsesFirstAvailableCandidateKey()
+    {
+        var reader = new FakeKeyVaultSecretReader().Add(
+            "gnougo_llm_OpenAi",
+            """{"url":"https://legacy.example/v1"}""");
+        var resolver = CreateKeyVaultResolver(reader);
+
+        var result = await resolver.ResolveAsync(
+            ["LLM--Models--OpenAi", "gnougo_llm_OpenAi"],
+            "OpenAi",
+            CancellationToken.None);
+
+        Assert.NotNull(result);
+        Assert.Equal("https://legacy.example/v1", result["url"]?.GetValue<string>());
+    }
+
+    [Fact]
+    public async Task KeyVaultResolver_ReturnsNullWhenKeyVaultIsUnavailable()
+    {
+        var resolver = CreateKeyVaultResolver(new FailingKeyVaultSecretReader());
+
+        var result = await resolver.ResolveAsync(
+            ["LLM--Models--OpenAi"],
+            "OpenAi",
+            CancellationToken.None);
+
+        Assert.Null(result);
+    }
+
+    [Fact]
+    public async Task KeyVaultResolver_ThrowsMcpExceptionForInvalidJson()
+    {
+        var reader = new FakeKeyVaultSecretReader().Add("LLM--Models--OpenAi", "{");
+        var resolver = CreateKeyVaultResolver(reader);
+
+        var exception = await Assert.ThrowsAsync<McpException>(() => resolver.ResolveAsync(
+            ["LLM--Models--OpenAi"],
+            "OpenAi",
+            CancellationToken.None));
+
+        Assert.Contains("not valid JSON", exception.Message, StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]
@@ -342,45 +360,62 @@ public sealed class ConfigurationCopilotProviderConfigResolverTests
             keyVaultResolver,
             NullLogger<ConfigurationCopilotProviderConfigResolver>.Instance);
 
-    private static KeyVaultCopilotProviderConfigResolver CreateKeyVaultResolver(ServiceProvider services)
+    private static KeyVaultCopilotProviderConfigResolver CreateKeyVaultResolver(IKeyVaultSecretReader secretReader)
         => new(
-            services.GetRequiredService<IConfiguration>(),
+            secretReader,
             NullLogger<KeyVaultCopilotProviderConfigResolver>.Instance);
 
-    private static string CreateTempDatabasePath()
+    private sealed class FakeKeyVaultSecretReader : IKeyVaultSecretReader
     {
-        var directory = Path.Combine(Path.GetTempPath(), "gnougo-githubcopilot-keyvault-tests", Guid.NewGuid().ToString("N"));
-        Directory.CreateDirectory(directory);
-        return Path.Combine(directory, "gnougo-keyvault.db");
+        private readonly Dictionary<string, string> _values = new(StringComparer.OrdinalIgnoreCase);
+
+        public FakeKeyVaultSecretReader Add(string key, string value)
+        {
+            _values[key] = value;
+            return this;
+        }
+
+        public Task<string?> GetDefaultTenantSecretValueAsync(
+            string key,
+            string? author = null,
+            CancellationToken ct = default)
+        {
+            ct.ThrowIfCancellationRequested();
+            return Task.FromResult(_values.GetValueOrDefault(key));
+        }
+
+        public async Task<KeyVaultSecretLookupResult?> GetFirstDefaultTenantSecretValueAsync(
+            IEnumerable<string> candidateKeys,
+            string? author = null,
+            CancellationToken ct = default)
+        {
+            foreach (var key in candidateKeys)
+            {
+                var value = await GetDefaultTenantSecretValueAsync(key, author, ct);
+                if (value is not null)
+                    return new KeyVaultSecretLookupResult(key, value);
+            }
+
+            return null;
+        }
     }
 
-    private static async Task SeedKeyVaultSecretAsync(string databasePath, string key, string value)
+    private sealed class FailingKeyVaultSecretReader : IKeyVaultSecretReader
     {
-        var services = new ServiceCollection();
-        services.AddDbContext<KeyVaultDbContext>(options => options.UseSqlite($"Data Source={databasePath}"));
-        services.AddScoped<KeyVaultService>();
+        public Task<string?> GetDefaultTenantSecretValueAsync(
+            string key,
+            string? author = null,
+            CancellationToken ct = default)
+            => Task.FromException<string?>(CreateException());
 
-        await using var provider = services.BuildServiceProvider();
-        await using var scope = provider.CreateAsyncScope();
-        var db = scope.ServiceProvider.GetRequiredService<KeyVaultDbContext>();
-        await KeyVaultDatabaseBootstrap.EnsureCreatedAsync(db);
-        var keyVault = scope.ServiceProvider.GetRequiredService<KeyVaultService>();
-        await keyVault.EnsureDefaultKeyPairAsync();
-        await keyVault.SetSecretAsync(key, value, null, "test", CancellationToken.None);
-    }
+        public Task<KeyVaultSecretLookupResult?> GetFirstDefaultTenantSecretValueAsync(
+            IEnumerable<string> candidateKeys,
+            string? author = null,
+            CancellationToken ct = default)
+            => Task.FromException<KeyVaultSecretLookupResult?>(CreateException());
 
-    private static void TryDeleteDatabase(string databasePath)
-    {
-        try
-        {
-            var directory = Path.GetDirectoryName(databasePath);
-            if (!string.IsNullOrWhiteSpace(directory) && Directory.Exists(directory))
-                Directory.Delete(directory, recursive: true);
-        }
-        catch
-        {
-            // Best effort cleanup for temp test files.
-        }
+        private static KeyVaultAccessException CreateException()
+            => new("KeyVault is unavailable.", new IOException("Test failure."));
     }
 
     private sealed class NullKeyVaultCopilotProviderConfigResolver : IKeyVaultCopilotProviderConfigResolver

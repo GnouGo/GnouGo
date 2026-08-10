@@ -1,8 +1,6 @@
 ﻿using System.Text.Json;
 using System.Text.Json.Nodes;
-using GnOuGo.KeyVault.Core;
 using GnOuGo.KeyVault.Core.Services;
-using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using ModelContextProtocol;
 
@@ -20,14 +18,14 @@ internal sealed class KeyVaultCopilotProviderConfigResolver : IKeyVaultCopilotPr
 {
     private const string Author = "GnOuGo.GithubCopilot.Mcp";
 
-    private readonly IConfiguration _configuration;
+    private readonly IKeyVaultSecretReader _secretReader;
     private readonly ILogger<KeyVaultCopilotProviderConfigResolver> _logger;
 
     public KeyVaultCopilotProviderConfigResolver(
-        IConfiguration configuration,
+        IKeyVaultSecretReader secretReader,
         ILogger<KeyVaultCopilotProviderConfigResolver> logger)
     {
-        _configuration = configuration;
+        _secretReader = secretReader;
         _logger = logger;
     }
 
@@ -39,17 +37,14 @@ internal sealed class KeyVaultCopilotProviderConfigResolver : IKeyVaultCopilotPr
         if (candidateSecretKeys.Count == 0)
             return null;
 
-        var databasePath = ResolveDatabasePath();
-        var reader = new KeyVaultSecretReader(databasePath);
-
         KeyVaultSecretLookupResult? secret;
         try
         {
-            secret = await reader.GetFirstDefaultTenantSecretValueAsync(candidateSecretKeys, Author, ct);
+            secret = await _secretReader.GetFirstDefaultTenantSecretValueAsync(candidateSecretKeys, Author, ct);
         }
-        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidOperationException or Microsoft.Data.Sqlite.SqliteException or System.Security.Cryptography.CryptographicException)
+        catch (KeyVaultAccessException ex)
         {
-            _logger.LogDebug(ex, "Could not read Copilot provider '{ProviderName}' from KeyVault database '{KeyVaultDatabasePath}'.", providerName, databasePath);
+            _logger.LogDebug(ex, "Could not read Copilot provider '{ProviderName}' through KeyVault.", providerName);
             return null;
         }
 
@@ -72,13 +67,6 @@ internal sealed class KeyVaultCopilotProviderConfigResolver : IKeyVaultCopilotPr
         {
             throw new McpException($"KeyVault secret '{secret.Key}' for Copilot provider '{providerName}' is not valid JSON.", ex);
         }
-    }
-
-    private string ResolveDatabasePath()
-    {
-        var configuredPath = _configuration["KeyVault:DatabasePath"]
-            ?? KeyVaultDatabasePathResolver.DefaultRelativePath;
-        return KeyVaultDatabasePathResolver.Resolve(configuredPath, AppContext.BaseDirectory);
     }
 }
 

@@ -1,4 +1,5 @@
 ﻿using Microsoft.Data.Sqlite;
+using System.Security.Cryptography;
 using GnOuGo.KeyVault.Core.Models;
 
 namespace GnOuGo.KeyVault.Core.Services;
@@ -8,7 +9,7 @@ namespace GnOuGo.KeyVault.Core.Services;
 /// default-tenant secrets from the shared KeyVault SQLite database without
 /// constructing the EF Core model in a Native AOT process.
 /// </summary>
-public sealed class KeyVaultSecretReader
+public sealed class KeyVaultSecretReader : IKeyVaultSecretReader
 {
     private const string DefaultAuthor = "GnOuGo.KeyVault.Core";
     private readonly string _databasePath;
@@ -26,6 +27,25 @@ public sealed class KeyVaultSecretReader
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(key);
 
+        try
+        {
+            return await GetDefaultTenantSecretValueCoreAsync(key, author, ct);
+        }
+        catch (OperationCanceledException) when (ct.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (Exception ex) when (IsAccessFailure(ex))
+        {
+            throw new KeyVaultAccessException($"KeyVault could not read secret '{key}'.", ex);
+        }
+    }
+
+    private async Task<string?> GetDefaultTenantSecretValueCoreAsync(
+        string key,
+        string? author,
+        CancellationToken ct)
+    {
         if (!File.Exists(_databasePath))
             return null;
 
@@ -123,6 +143,15 @@ public sealed class KeyVaultSecretReader
             // read-only filesystem, a transient lock, or an older database shape.
         }
     }
+
+    private static bool IsAccessFailure(Exception exception)
+        => exception is IOException
+            or UnauthorizedAccessException
+            or InvalidOperationException
+            or ArgumentException
+            or FormatException
+            or SqliteException
+            or CryptographicException;
 
     private readonly record struct EncryptedSecretRow(string EncryptedValue, string PrivateKeyPem, int Version);
 }

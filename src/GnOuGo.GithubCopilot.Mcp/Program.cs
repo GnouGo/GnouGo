@@ -1,6 +1,7 @@
 ﻿using GnOuGo.GithubCopilot.Mcp;
 using GnOuGo.Mcp.Core;
 using GnOuGo.GithubCopilot.Core;
+using GnOuGo.KeyVault.Core.Services;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
@@ -22,6 +23,10 @@ builder.AddGnOuGoOpenTelemetry("GnOuGo.GithubCopilot.Mcp", settings =>
 
 builder.Services.AddSingleton<IConfigureOptions<CodeServerSettings>, CodeServerSettingsOptionsConfigurator>();
 builder.Services.AddHttpClient(nameof(ConfigurationCopilotProviderConfigResolver));
+builder.Services.AddSingleton<IKeyVaultSecretReader>(_ =>
+    KeyVaultSecretReaderFactory.CreateWorkspaceReader(
+        builder.Configuration["KeyVault:DatabasePath"],
+        AppContext.BaseDirectory));
 builder.Services.AddSingleton<IKeyVaultCopilotProviderConfigResolver, KeyVaultCopilotProviderConfigResolver>();
 builder.Services.AddSingleton<ICopilotProviderConfigResolver, ConfigurationCopilotProviderConfigResolver>();
 builder.Services.AddSingleton<ICopilotProviderResolver, CoreCopilotProviderResolver>();
