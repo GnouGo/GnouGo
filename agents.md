@@ -70,7 +70,8 @@ scripts/                           # build, publish, and metadata-update scripts
 - **Observability**: **OpenTelemetry** instrumentation (traces/metrics/logs) with `TenantId` propagation.
 - **Security**:
   - secrets stored **encrypted** in the database via `GnOuGo.KeyVault.Core`,
-  - no sensitive data in plain text at rest.
+  - no sensitive data in plain text at rest,
+  - MCP servers and `GnOuGo.Agent.Server` must never read or write configuration directly through SQL; all configuration access must go through the public abstractions provided by the central `GnOuGo.KeyVault.Core` library. This shared boundary ensures that configuration values managed from `GnOuGo.Agent.Server` can be securely and consistently consumed by MCP servers.
 - **Unit tests**:
   - one test project per library,
   - no mandatory dependency on other libraries for testing.
