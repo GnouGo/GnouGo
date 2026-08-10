@@ -32,7 +32,6 @@ public sealed class CodeCopilotSettings
     public int RequestTimeoutSeconds { get; set; } = 120;
     public int ManagedSessionTtlSeconds { get; set; } = 1800;
     public bool EnableApproveAll { get; set; }
-    public string PermissionDatabasePath { get; set; } = ".GnOuGo/data/gnougo-copilot-permissions.db";
     public int WorkflowGrantTtlSeconds { get; set; } = 86_400;
     public List<string> TokenEnvironmentVariables { get; set; } = ["GITHUB_TOKEN", "COPILOT_API_KEY"];
     public CodeCopilotTelemetrySettings Telemetry { get; set; } = new();

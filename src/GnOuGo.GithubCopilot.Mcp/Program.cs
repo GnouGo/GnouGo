@@ -27,14 +27,18 @@ builder.Services.AddSingleton<IKeyVaultSecretReader>(_ =>
     KeyVaultSecretReaderFactory.CreateWorkspaceReader(
         builder.Configuration["KeyVault:DatabasePath"],
         AppContext.BaseDirectory));
+builder.Services.AddSingleton<IKeyVaultRecordStore>(_ =>
+    KeyVaultRecordStoreFactory.CreateWorkspaceStore(
+        builder.Configuration["KeyVault:DatabasePath"],
+        AppContext.BaseDirectory));
 builder.Services.AddSingleton<IKeyVaultCopilotProviderConfigResolver, KeyVaultCopilotProviderConfigResolver>();
 builder.Services.AddSingleton<ICopilotProviderConfigResolver, ConfigurationCopilotProviderConfigResolver>();
 builder.Services.AddSingleton<ICopilotProviderResolver, CoreCopilotProviderResolver>();
 builder.Services.AddSingleton<ICopilotSdkClientFactory, GitHubCopilotSdkClientFactory>();
 builder.Services.AddSingleton<McpCopilotHumanInputProvider>();
 builder.Services.AddSingleton<ICopilotHumanInputProvider>(sp => sp.GetRequiredService<McpCopilotHumanInputProvider>());
-builder.Services.AddSingleton<SqliteCopilotPermissionGrantStore>();
-builder.Services.AddSingleton<ICopilotPermissionGrantStore>(sp => sp.GetRequiredService<SqliteCopilotPermissionGrantStore>());
+builder.Services.AddSingleton<KeyVaultCopilotPermissionGrantStore>();
+builder.Services.AddSingleton<ICopilotPermissionGrantStore>(sp => sp.GetRequiredService<KeyVaultCopilotPermissionGrantStore>());
 builder.Services.AddSingleton<McpCopilotPermissionEventSink>();
 builder.Services.AddSingleton<ICopilotPermissionEventSink>(sp => sp.GetRequiredService<McpCopilotPermissionEventSink>());
 builder.Services.AddSingleton<CopilotSessionManager>();
