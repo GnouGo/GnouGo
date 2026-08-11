@@ -19,6 +19,7 @@ public sealed class BundledCopilotMcpConfigurationTests
         Assert.NotNull(settings);
         var server = Assert.Contains("GnOuGo.GithubCopilot.Mcp", settings.Servers);
         Assert.True(server.Listable);
+        Assert.True(server.ReadsKeyVaultDirectly);
         Assert.Equal(
             ["managed_session_ttl_seconds", "model", "provider", "reasoning_effort", "request_timeout_seconds", "use_logged_in_user"],
             server.EditableFields.Keys.OrderBy(key => key, StringComparer.Ordinal).ToArray());
@@ -27,7 +28,7 @@ public sealed class BundledCopilotMcpConfigurationTests
             Assert.False(field.Sensitive);
             Assert.True(field.AllowInherit);
             Assert.StartsWith("LLM--McpServerOverrides--GnOuGo.GithubCopilot.Mcp--Code--Copilot--", field.SecretKey);
-            Assert.StartsWith("env:Code__Copilot__", field.Target);
+            Assert.Null(field.Target);
         });
         Assert.Equal("llm_providers", server.EditableFields["provider"].OptionsSource);
         Assert.Equal(["low", "medium", "high", "xhigh"], server.EditableFields["reasoning_effort"].Options);

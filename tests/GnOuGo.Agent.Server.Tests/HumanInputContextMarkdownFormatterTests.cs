@@ -16,7 +16,7 @@ public sealed class HumanInputContextMarkdownFormatterTests
 
         var markdown = HumanInputContextMarkdownFormatter.Format(context);
 
-        Assert.Equal(context, markdown);
+        Assert.Equal(context.ReplaceLineEndings("\n"), markdown);
         Assert.DoesNotContain("```yaml", markdown, StringComparison.Ordinal);
         Assert.DoesNotContain("```mermaid", markdown, StringComparison.Ordinal);
     }

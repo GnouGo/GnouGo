@@ -149,7 +149,7 @@ public sealed class CodePolicyTests : IDisposable
         Directory.CreateDirectory(expectedProjectRoot);
         var settings = CreateSettings();
         settings.DefaultWorkingDirectory = defaultRoot;
-        settings.AllowedWorkingRoots = ["allowed"];
+        settings.AllowedWorkingRoots = [allowedRoot];
         var policy = new CodePolicy(settings, _root);
 
         var projectRoot = policy.ResolveProjectRoot(expectedProjectRoot);

@@ -24,10 +24,10 @@ public sealed class SecureWorkflowRuntimeFactoryTests
 
         Assert.Equal(
             "first-workflow-model",
-            existingSession.Options.McpServers["GnOuGo.GithubCopilot.Mcp"].EnvironmentVariables?["Code__Copilot__Model"]);
+            existingSession.Options.McpServers["GnOuGo.GithubCopilot.Mcp"].EnvironmentVariables?["TEST_WORKFLOW_VALUE"]);
         Assert.Equal(
             "next-workflow-model",
-            nextSession.Options.McpServers["GnOuGo.GithubCopilot.Mcp"].EnvironmentVariables?["Code__Copilot__Model"]);
+            nextSession.Options.McpServers["GnOuGo.GithubCopilot.Mcp"].EnvironmentVariables?["TEST_WORKFLOW_VALUE"]);
     }
 
     private static LLMOptions CopilotOptions(string fallbackModel)
@@ -42,7 +42,7 @@ public sealed class SecureWorkflowRuntimeFactoryTests
                     Args = [],
                     EnvironmentVariables = new Dictionary<string, string?>(StringComparer.OrdinalIgnoreCase)
                     {
-                        ["Code__Copilot__Model"] = fallbackModel
+                        ["TEST_WORKFLOW_VALUE"] = fallbackModel
                     }
                 }
             }

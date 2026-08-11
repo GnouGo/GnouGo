@@ -1,4 +1,6 @@
 ﻿using System.Globalization;
+using System.Text.Json;
+using System.Text.Json.Nodes;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Options;
 
@@ -36,9 +38,11 @@ internal sealed class CodeServerSettingsOptionsConfigurator(IConfiguration confi
         settings.RequestTimeoutSeconds = ReadInt32(section, nameof(CodeCopilotSettings.RequestTimeoutSeconds), settings.RequestTimeoutSeconds);
         settings.ManagedSessionTtlSeconds = ReadInt32(section, nameof(CodeCopilotSettings.ManagedSessionTtlSeconds), settings.ManagedSessionTtlSeconds);
         settings.EnableApproveAll = ReadBoolean(section, nameof(CodeCopilotSettings.EnableApproveAll), settings.EnableApproveAll);
-        settings.PermissionDatabasePath = ReadString(section, nameof(CodeCopilotSettings.PermissionDatabasePath), settings.PermissionDatabasePath);
         settings.WorkflowGrantTtlSeconds = ReadInt32(section, nameof(CodeCopilotSettings.WorkflowGrantTtlSeconds), settings.WorkflowGrantTtlSeconds);
         settings.TokenEnvironmentVariables = ReadStringList(section, nameof(CodeCopilotSettings.TokenEnvironmentVariables), settings.TokenEnvironmentVariables);
+        settings.Providers = ReadProviders(
+            section.GetSection(nameof(CodeCopilotSettings.Providers)),
+            settings.Providers);
 
         ConfigureTelemetry(section.GetSection(nameof(CodeCopilotSettings.Telemetry)), settings.Telemetry);
     }
@@ -82,4 +86,95 @@ internal sealed class CodeServerSettingsOptionsConfigurator(IConfiguration confi
             .Select(value => value!)
             .ToList();
     }
+
+    private static Dictionary<string, CodeCopilotProviderSettings> ReadProviders(
+        IConfigurationSection section,
+        Dictionary<string, CodeCopilotProviderSettings> currentValue)
+    {
+        var providers = new Dictionary<string, CodeCopilotProviderSettings>(
+            currentValue,
+            StringComparer.OrdinalIgnoreCase);
+        foreach (var providerSection in section.GetChildren())
+        {
+            var provider = new CodeCopilotProviderSettings();
+            if (!string.IsNullOrWhiteSpace(providerSection.Value))
+                ApplyRawProviderJson(provider, providerSection.Value, providerSection.Key);
+
+            ApplyProviderSection(provider, providerSection);
+            providers[providerSection.Key] = provider;
+        }
+
+        return providers;
+    }
+
+    private static void ApplyRawProviderJson(
+        CodeCopilotProviderSettings provider,
+        string rawJson,
+        string providerName)
+    {
+        JsonObject config;
+        try
+        {
+            config = JsonNode.Parse(rawJson) as JsonObject
+                ?? throw new InvalidDataException(
+                    $"Copilot provider '{providerName}' configuration must contain a JSON object.");
+        }
+        catch (JsonException exception)
+        {
+            throw new InvalidDataException(
+                $"Copilot provider '{providerName}' configuration contains invalid JSON.",
+                exception);
+        }
+
+        provider.Provider = ReadJsonString(config, "provider");
+        provider.Type = ReadJsonString(config, "type");
+        provider.Url = ReadJsonString(config, "url");
+        provider.Model = ReadJsonString(config, "model");
+        provider.WireApi = ReadJsonString(config, "wireApi", "wire_api");
+        provider.WireModel = ReadJsonString(config, "wireModel", "wire_model");
+        provider.AuthType = ReadJsonString(config, "authType", "auth_type");
+        provider.ApiKey = ReadJsonString(config, "apiKey", "api_key");
+        provider.BearerToken = ReadJsonString(config, "bearerToken", "bearer_token");
+        provider.ApiVersion = ReadJsonString(config, "apiVersion", "api_version");
+        provider.OidcIssuer = ReadJsonString(config, "oidcIssuer", "oidc_issuer");
+        provider.OidcClientId = ReadJsonString(config, "oidcClientId", "oidc_client_id");
+        provider.OidcScopes = ReadJsonString(config, "oidcScopes", "oidc_scopes");
+        provider.OidcClientSecret = ReadJsonString(config, "oidcClientSecret", "oidc_client_secret");
+        provider.OidcPrivateKeyPem = ReadJsonString(config, "oidcPrivateKeyPem", "oidc_private_key_pem");
+    }
+
+    private static void ApplyProviderSection(
+        CodeCopilotProviderSettings provider,
+        IConfiguration providerSection)
+    {
+        provider.Provider = ReadNullableString(providerSection, "provider", provider.Provider);
+        provider.Type = ReadNullableString(providerSection, "type", provider.Type);
+        provider.Url = ReadNullableString(providerSection, "url", provider.Url);
+        provider.Model = ReadNullableString(providerSection, "model", provider.Model);
+        provider.WireApi = ReadNullableString(providerSection, "wireApi", "wire_api", provider.WireApi);
+        provider.WireModel = ReadNullableString(providerSection, "wireModel", "wire_model", provider.WireModel);
+        provider.AuthType = ReadNullableString(providerSection, "authType", "auth_type", provider.AuthType);
+        provider.ApiKey = ReadNullableString(providerSection, "apiKey", "api_key", provider.ApiKey);
+        provider.BearerToken = ReadNullableString(providerSection, "bearerToken", "bearer_token", provider.BearerToken);
+        provider.ApiVersion = ReadNullableString(providerSection, "apiVersion", "api_version", provider.ApiVersion);
+        provider.OidcIssuer = ReadNullableString(providerSection, "oidcIssuer", "oidc_issuer", provider.OidcIssuer);
+        provider.OidcClientId = ReadNullableString(providerSection, "oidcClientId", "oidc_client_id", provider.OidcClientId);
+        provider.OidcScopes = ReadNullableString(providerSection, "oidcScopes", "oidc_scopes", provider.OidcScopes);
+        provider.OidcClientSecret = ReadNullableString(providerSection, "oidcClientSecret", "oidc_client_secret", provider.OidcClientSecret);
+        provider.OidcPrivateKeyPem = ReadNullableString(providerSection, "oidcPrivateKeyPem", "oidc_private_key_pem", provider.OidcPrivateKeyPem);
+    }
+
+    private static string? ReadNullableString(
+        IConfiguration section,
+        string key,
+        string legacyKey,
+        string? currentValue)
+        => section[key] ?? section[legacyKey] ?? currentValue;
+
+    private static string? ReadJsonString(
+        JsonObject config,
+        string key,
+        string? legacyKey = null)
+        => config[key]?.GetValue<string>()
+           ?? (legacyKey is null ? null : config[legacyKey]?.GetValue<string>());
 }

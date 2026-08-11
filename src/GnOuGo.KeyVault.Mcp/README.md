@@ -9,7 +9,7 @@ This server uses the stable C# MCP SDK `2.0.0` and targets MCP `2026-07-28`. Its
 ## Architecture
 
 This component is independently publishable, testable, and deployable per `AGENTS.md` rules.
-It can run as a standalone HTTP MCP host or be mounted inside `GnOuGo.Agent.Server`.
+It can run as a standalone HTTP MCP host or be mounted by any compatible ASP.NET Core host.
 Persistence is handled by `KeyVaultService` from `GnOuGo.KeyVault.Core` using Entity Framework Core
 (`KeyVaultDbContext`) with `AsNoTracking` optimizations for read queries.
 
@@ -61,28 +61,21 @@ Consumer example:
 }
 ```
 
-### Mounted inside `GnOuGo.Agent.Server`
+### Mounted by another host
 
-When the local agent server hosts the KeyVault MCP surface in-process, it is mounted at:
+Compatible hosts may mount the KeyVault MCP surface in-process at their own route, for example:
 
 - `/mcp/keyvault`
 
-Default `GnOuGo.Agent.Server/appsettings.json` placeholder:
+The mounting host owns its route and service-discovery configuration. KeyVault does not depend on
+the host's settings types, namespaces, or MCP catalog schema.
 
 ```json
 {
-  "LLM": {
-    "McpServers": {
-      "GnOuGo.KeyVault.Mcp": {
-        "Type": "http",
-        "Url": "http://127.0.0.1:0/mcp/keyvault"
-      }
-    }
-  }
+  "Type": "http",
+  "Url": "http://127.0.0.1:5000/mcp/keyvault"
 }
 ```
-
-At runtime, `GnOuGo.Agent.Server` replaces port `0` with the actual local listening port.
 
 ## Run
 
