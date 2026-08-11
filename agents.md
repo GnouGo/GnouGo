@@ -72,11 +72,18 @@ scripts/                           # build, publish, and metadata-update scripts
   - secrets stored **encrypted** in the database via `GnOuGo.KeyVault.Core`,
   - no sensitive data in plain text at rest,
   - MCP servers and `GnOuGo.Agent.Server` must never read or write configuration directly through SQL; all configuration access must go through the public abstractions provided by the central `GnOuGo.KeyVault.Core` library. This shared boundary ensures that configuration values managed from `GnOuGo.Agent.Server` can be securely and consistently consumed by MCP servers.
+- **Generic KeyVault boundary**:
+  - every `GnOuGo.KeyVault.*` project may contain only KeyVault-domain types and generic storage, encryption, audit, tenant, secret, and record infrastructure,
+  - KeyVault projects must never reference consumer namespaces, models, constants, secret-key prefixes, configuration paths, or JSON schemas,
+  - consumers own their secret names, serialization formats, typed settings, mapping, validation, precedence, and failure policy,
+  - MCP servers must read configuration only through public `GnOuGo.KeyVault.Core` abstractions, map it into their own configuration namespace before typed options are resolved, and never query the KeyVault database through SQL,
+  - KeyVault configuration is a highest-priority consumer configuration overlay. Unavailable optional KeyVault storage falls back to the consumer's base settings with a redacted warning; a present malformed, ambiguous, or invalid value must fail startup without logging the value,
+  - `GnOuGo.Agent.Server` may manage encrypted values and propagate the KeyVault location. An MCP marked as a direct KeyVault reader receives only that location and must retrieve and interpret its own values through the generic KeyVault API; decrypted configuration must not be injected into its process environment.
 - **Unit tests**:
   - one test project per library,
   - no mandatory dependency on other libraries for testing.
 - **Workspace convention**: default working directory is `Desktop/GnOuGo`; databases under `.GnOuGo/data/`. Always use `GnOuGoWorkspace` helpers (`src/GnOuGo.Workspace`) for path resolution — never hard-code paths.
-- **AOT constraints**: in Native AOT executables, avoid EF Core; use raw `Microsoft.Data.Sqlite` + source-generated `System.Text.Json` contexts instead.
+- **AOT constraints**: in Native AOT executables, avoid EF Core. Raw `Microsoft.Data.Sqlite` is allowed only inside the component that owns the persistence implementation (for example `GnOuGo.KeyVault.Core`); configuration consumers must still use that component's public abstractions. Prefer source-generated `System.Text.Json` contexts.
 
 ---
 

@@ -2353,7 +2353,6 @@ public sealed class ConfigureProvidersServiceTests
             Required = true,
             Sensitive = false,
             SecretKey = CopilotOverrideKey(configurationName),
-            Target = $"env:Code__Copilot__{configurationName}",
             Options = options ?? [],
             OptionsSource = optionsSource,
             DefaultValue = defaultValue,

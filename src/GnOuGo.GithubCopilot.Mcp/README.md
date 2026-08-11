@@ -29,9 +29,9 @@ Code and Copilot `projectRoot` and file paths may target normal visible content 
 ## Authentication
 
 `code_suggest_change` uses `GitHub.Copilot.SDK` and can authenticate with the locally signed-in GitHub user or with an explicit token when supported by the Copilot runtime.
-Token resolution order is:
+Token resolution order after all configuration overlays are applied is:
 
-1. `Code:Copilot:ApiKey` in `appsettings.json` or another configuration provider.
+1. `Code:Copilot:ApiKey` in the effective typed settings.
 2. Environment variables listed in `Code:Copilot:TokenEnvironmentVariables`, by default `GITHUB_TOKEN` then `COPILOT_API_KEY`.
 
 For local desktop usage, prefer `Code:Copilot:UseLoggedInUser=true` and keep `ApiKey` empty. Do not commit real tokens.
@@ -57,7 +57,7 @@ Every interactive elicitation carries the originating `_meta.gnougo` correlation
 
 Future-agent permission grants are encrypted and stored through the storage-agnostic `IKeyVaultRecordStore` contract in `GnOuGo.KeyVault.Core`, using the tenant-isolated `github-copilot.permission-grants` collection. The MCP contains no SQL or storage-path logic. Workflow-run grants remain in memory and expire after inactivity. Management-only tools list and revoke future-agent grants; their `gnougo.management.visibility=management_only` metadata excludes them from ordinary workflow generation. Agent Server exposes them as `/mcp copilot permissions` and `/mcp copilot permissions revoke <grant-id>`. Deleting an agent revokes its persistent grants. Existing grants in the legacy `gnougo-copilot-permissions.db` file are not migrated or deleted; they require explicit approval again.
 
-When hosted by Agent Server/Desktop, `/mcp edit GnOuGo.GithubCopilot.Mcp` edits only provider, fallback model, reasoning effort, logged-in-user authentication, request timeout, and managed-session TTL. Every override is encrypted separately under `LLM--McpServerOverrides--GnOuGo.GithubCopilot.Mcp--...` and injected into the next MCP process through `Code__Copilot__...` environment keys. Selecting a field under **inherit fields** deletes only that override. Command, arguments, roots, extensions, write policy, credentials, and `EnableApproveAll` remain protected. Provider credentials continue to resolve from `LLM--Models--<provider>` and are never copied into the MCP override entries.
+When hosted by Agent Server/Desktop, `/mcp edit GnOuGo.GithubCopilot.Mcp` edits only provider, fallback model, reasoning effort, logged-in-user authentication, request timeout, and managed-session TTL. Every override is encrypted separately under `LLM--McpServerOverrides--GnOuGo.GithubCopilot.Mcp--...`. Selecting a field under **inherit fields** deletes only that override. Command, arguments, roots, extensions, write policy, credentials, and `EnableApproveAll` remain protected. Provider credentials remain in `LLM--Models--<provider>` and are never copied into MCP-specific entries. Agent Server passes only `KeyVault__DatabasePath` to this direct-reader MCP; it never injects decrypted `Code__Copilot__...` values.
 
 Provider resolution order is an explicit tool argument, the MCP provider override, then the Agent default. Model resolution order is the selected provider's KeyVault model, the MCP fallback model, then the packaged fallback. An existing managed session keeps the configuration captured when it was created; editor changes apply to the next workflow/MCP process.
 
@@ -68,16 +68,18 @@ Git MCP supplies exact patches. `copilot_review_start` and `copilot_review` acce
 The review session has no tools, no configuration discovery, no write permission, and is deleted after completion. Publication is deliberately outside this MCP and belongs to the Flow agent plus the official GitHub MCP. The publication gate fails closed for stale SHAs, dry runs, no findings, and unapproved interactive runs. `auto_comment` can only submit `COMMENT`; automated approval and merge are unsupported.
 
 `code_suggest_change` and `code_agent_edit` also accept an optional `provider` parameter. When omitted, the default GitHub Copilot SDK behavior above is unchanged.
-When provided, the MCP reads the matching provider from configuration and/or the shared GnOuGo KeyVault, then passes it as a custom Copilot SDK provider for that call. The MCP depends only on the storage-agnostic `IKeyVaultSecretReader` contract: database paths, SQL, decryption, auditing, and storage-specific failures remain encapsulated by `GnOuGo.KeyVault.Core` for the Native AOT stdio executable.
+When provided, the MCP reads the matching provider from its typed `CodeCopilotSettings.Providers` dictionary and passes it as a custom Copilot SDK provider for that call. At process startup, the MCP uses the storage-agnostic `IKeyVaultSecretCatalogReader` contract to map shared provider secrets and MCP-specific leaf overrides into the `Code:Copilot` configuration namespace before typed settings are created. Database resolution, SQL, decryption, auditing, and storage-specific failures remain encapsulated by `GnOuGo.KeyVault.Core`.
 Supported provider section names are:
 
 - `Code:Copilot:Providers:<provider>`
 - compatibility fallback: `Code:Copilot:Providers:LLM--Models--<provider>`
 - legacy fallback: `Code:Copilot:Providers:gnougo_llm_<provider>`
 
-The section must contain at least `url`; `model` is recommended and falls back to `Code:Copilot:Model` when omitted. Supported provider fields include `type`, `wireApi`, `wireModel`, `authType`, `apiKey`, `bearerToken`, and OIDC fields such as `oidcIssuer`, `oidcClientId`, `oidcScopes`, `oidcClientSecret`, or `oidcPrivateKeyPem`. Keep secret values in environment variables or another secure configuration provider; do not commit real tokens to `appsettings.json`.
+The section must contain at least `url`; `model` is recommended and falls back to `Code:Copilot:Model` when omitted. Supported provider fields include `type`, `wireApi`, `wireModel`, `authType`, `apiKey`, `bearerToken`, and OIDC fields such as `oidcIssuer`, `oidcClientId`, `oidcScopes`, `oidcClientSecret`, or `oidcPrivateKeyPem`. Keep secret values in KeyVault, environment variables, or another secure configuration provider; do not commit real tokens to `appsettings.json`.
 
-For local Agent/Desktop usage, LLM provider secrets saved by `/llm add` are stored through `GnOuGo.KeyVault.Core` with keys such as `LLM--Models--OpenAi` and legacy `gnougo_llm_OpenAi`. The Core-owned reader factory connects the MCP to those same default-tenant values, so configuration managed from `GnOuGo.Agent.Server` is consumed without the MCP accessing SQLite directly. If both configuration and KeyVault define a provider, non-empty configuration values override KeyVault values, while empty configuration values such as `apiKey = ""` allow the KeyVault secret to supply the key.
+For local Agent/Desktop usage, LLM provider secrets saved by `/llm add` are stored through `GnOuGo.KeyVault.Core` with keys such as `LLM--Models--OpenAi` and legacy `gnougo_llm_OpenAi`. Canonical keys win over legacy keys for the same provider. Provider JSON is flattened into `Code:Copilot:Providers:<provider>:...`, and secrets prefixed with `LLM--McpServerOverrides--GnOuGo.GithubCopilot.Mcp--Code--Copilot--` are mapped to the matching `Code:Copilot:...` leaves. Objects and indexed collections are supported.
+
+Configuration precedence is packaged/appsettings/environment/command line, then shared provider secrets, then MCP-specific KeyVault overrides. The complete KeyVault overlay therefore has the highest priority, with MCP-specific values winning over shared provider fields. It is loaded once when the MCP process starts. If optional KeyVault storage is missing or unavailable, the entire overlay is discarded and a redacted warning is logged; if a present value is malformed, ambiguous, or invalid for a typed setting, startup fails without logging the value.
 
 Anthropic providers with `provider`/`type` set to `anthropic` are supported as custom SDK providers. They map to SDK provider type `anthropic` and default `wireApi` to `messages`; API-key auth is passed through as `ApiKey` for the Anthropic Messages API. The legacy `claude` provider/type values are still accepted as compatibility aliases.
 If the requested provider does not exist, the tool returns structured content with `success: false`, `ok: false`, `error_code`, and `error_message`.

@@ -230,8 +230,12 @@ public sealed class KeyVaultRuntimeConfigStoreTests
         }
     }
 
-    [Fact]
-    public async Task BuildEffectiveOptionsAsync_HydratesCopilotOverridesWithoutReplacingBundledProcessOrProviderCredentials()
+    [Theory]
+    [InlineData("custom/keyvault.db", "custom/keyvault.db")]
+    [InlineData(null, ".GnOuGo/data/gnougo-keyvault.db")]
+    public async Task BuildEffectiveOptionsAsync_PropagatesOnlyKeyVaultLocationToDirectReaderMcp(
+        string? configuredDatabasePath,
+        string expectedDatabasePath)
     {
         const string serverName = "GnOuGo.GithubCopilot.Mcp";
         var dbPath = Path.Combine(Path.GetTempPath(), $"gnougo-keyvault-tests-{Guid.NewGuid():N}.db");
@@ -251,12 +255,12 @@ public sealed class KeyVaultRuntimeConfigStoreTests
                 [serverName] = new()
                 {
                     Listable = true,
+                    ReadsKeyVaultDirectly = true,
                     EditableFields = targetNames.ToDictionary(
                         entry => entry.Key,
                         entry => new BundledMcpEditableFieldSettings
                         {
-                            SecretKey = $"LLM--McpServerOverrides--{serverName}--Code--Copilot--{entry.Value}",
-                            Target = $"env:Code__Copilot__{entry.Value}"
+                            SecretKey = $"LLM--McpServerOverrides--{serverName}--Code--Copilot--{entry.Value}"
                         },
                         StringComparer.OrdinalIgnoreCase)
                 }
@@ -267,6 +271,10 @@ public sealed class KeyVaultRuntimeConfigStoreTests
         services.AddLogging();
         services.AddKeyVaultMcpPersistence(dbPath);
         services.AddSingleton<IOptions<BundledMcpSettings>>(Options.Create(settings));
+        services.AddSingleton<IOptions<KeyVaultSettings>>(Options.Create(new KeyVaultSettings
+        {
+            DatabasePath = configuredDatabasePath
+        }));
         services.AddSingleton<IKeyVaultRuntimeConfigStore, KeyVaultRuntimeConfigStore>();
 
         await using var provider = services.BuildServiceProvider();
@@ -323,12 +331,9 @@ public sealed class KeyVaultRuntimeConfigStoreTests
             var copilot = Assert.Contains(serverName, effective.McpServers);
             Assert.Equal("tools/GnOuGo.GithubCopilot.Mcp/GnOuGo.GithubCopilot.Mcp", copilot.Command);
             Assert.Equal(["--stdio"], copilot.Args);
-            Assert.Equal("openai", copilot.EnvironmentVariables?["Code__Copilot__Provider"]);
-            Assert.Equal("fallback-model", copilot.EnvironmentVariables?["Code__Copilot__Model"]);
-            Assert.Equal("medium", copilot.EnvironmentVariables?["Code__Copilot__ReasoningEffort"]);
-            Assert.Equal("false", copilot.EnvironmentVariables?["Code__Copilot__UseLoggedInUser"]);
-            Assert.Equal("600", copilot.EnvironmentVariables?["Code__Copilot__RequestTimeoutSeconds"]);
-            Assert.Equal("300", copilot.EnvironmentVariables?["Code__Copilot__ManagedSessionTtlSeconds"]);
+            var environment = Assert.IsType<Dictionary<string, string?>>(copilot.EnvironmentVariables);
+            Assert.Single(environment);
+            Assert.Equal(expectedDatabasePath, environment["KeyVault__DatabasePath"]);
 
             var configuredProvider = Assert.Contains("openai", effective.Models);
             Assert.Equal("provider-secret", configuredProvider.ApiKey);

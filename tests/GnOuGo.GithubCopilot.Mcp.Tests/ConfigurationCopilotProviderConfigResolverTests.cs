@@ -1,9 +1,8 @@
 ﻿using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging.Abstractions;
-using System.Text.Json.Nodes;
 using ModelContextProtocol;
-using GnOuGo.KeyVault.Core.Services;
+using Microsoft.Extensions.Options;
 using Xunit;
 
 namespace GnOuGo.GithubCopilot.Mcp.Tests;
@@ -220,111 +219,6 @@ public sealed class ConfigurationCopilotProviderConfigResolverTests
     }
 
     [Fact]
-    public async Task ResolveAsync_LoadsProviderConfigFromKeyVault()
-    {
-        var reader = new FakeKeyVaultSecretReader().Add(
-            "LLM--Models--OpenAi",
-            """
-            {
-              "provider": "OpenAi",
-              "url": "https://api.openai.com/v1",
-              "type": "openai",
-              "model": "gpt-4o-mini",
-              "authType": "api_key",
-              "apiKey": "sk-keyvault"
-            }
-            """);
-        using var services = CreateServices();
-        var resolver = CreateResolver(services, CreateKeyVaultResolver(reader));
-
-        var result = await resolver.ResolveAsync("OpenAi", "fallback-model", null, CancellationToken.None);
-
-        Assert.NotNull(result);
-        Assert.Equal("OpenAi", result.ProviderName);
-        Assert.Equal("gpt-4o-mini", result.Model);
-        Assert.Equal("https://api.openai.com/v1", result.Provider.BaseUrl);
-        Assert.Equal("sk-keyvault", result.Provider.ApiKey);
-        Assert.Null(result.Provider.BearerToken);
-    }
-
-    [Fact]
-    public async Task ResolveAsync_MergesConfiguredProviderWithKeyVaultSecretApiKey()
-    {
-        var reader = new FakeKeyVaultSecretReader().Add(
-            "LLM--Models--OpenAi",
-            """
-            {
-              "provider": "OpenAi",
-              "url": "https://api.openai.com/v1",
-              "type": "openai",
-              "model": "gpt-4o-mini",
-              "authType": "api_key",
-              "apiKey": "sk-keyvault"
-            }
-            """);
-        using var services = CreateServices(new Dictionary<string, string?>
-        {
-            ["Code:Copilot:Providers:OpenAi:url"] = "https://api.openai.com/v1",
-            ["Code:Copilot:Providers:OpenAi:type"] = "openai",
-            ["Code:Copilot:Providers:OpenAi:model"] = "gpt-4.1-mini",
-            ["Code:Copilot:Providers:OpenAi:authType"] = "api_key",
-            ["Code:Copilot:Providers:OpenAi:apiKey"] = ""
-        });
-        var resolver = CreateResolver(services, CreateKeyVaultResolver(reader));
-
-        var result = await resolver.ResolveAsync("OpenAi", "fallback-model", null, CancellationToken.None);
-
-        Assert.NotNull(result);
-        Assert.Equal("gpt-4.1-mini", result.Model);
-        Assert.Equal("gpt-4.1-mini", result.Provider.ModelId);
-        Assert.Equal("sk-keyvault", result.Provider.ApiKey);
-    }
-
-    [Fact]
-    public async Task KeyVaultResolver_UsesFirstAvailableCandidateKey()
-    {
-        var reader = new FakeKeyVaultSecretReader().Add(
-            "gnougo_llm_OpenAi",
-            """{"url":"https://legacy.example/v1"}""");
-        var resolver = CreateKeyVaultResolver(reader);
-
-        var result = await resolver.ResolveAsync(
-            ["LLM--Models--OpenAi", "gnougo_llm_OpenAi"],
-            "OpenAi",
-            CancellationToken.None);
-
-        Assert.NotNull(result);
-        Assert.Equal("https://legacy.example/v1", result["url"]?.GetValue<string>());
-    }
-
-    [Fact]
-    public async Task KeyVaultResolver_ReturnsNullWhenKeyVaultIsUnavailable()
-    {
-        var resolver = CreateKeyVaultResolver(new FailingKeyVaultSecretReader());
-
-        var result = await resolver.ResolveAsync(
-            ["LLM--Models--OpenAi"],
-            "OpenAi",
-            CancellationToken.None);
-
-        Assert.Null(result);
-    }
-
-    [Fact]
-    public async Task KeyVaultResolver_ThrowsMcpExceptionForInvalidJson()
-    {
-        var reader = new FakeKeyVaultSecretReader().Add("LLM--Models--OpenAi", "{");
-        var resolver = CreateKeyVaultResolver(reader);
-
-        var exception = await Assert.ThrowsAsync<McpException>(() => resolver.ResolveAsync(
-            ["LLM--Models--OpenAi"],
-            "OpenAi",
-            CancellationToken.None));
-
-        Assert.Contains("not valid JSON", exception.Message, StringComparison.OrdinalIgnoreCase);
-    }
-
-    [Fact]
     public async Task ResolveAsync_ThrowsMcpExceptionWhenProviderDoesNotExist()
     {
         using var services = CreateServices();
@@ -343,89 +237,18 @@ public sealed class ConfigurationCopilotProviderConfigResolverTests
         var configuration = new ConfigurationBuilder()
             .AddInMemoryCollection(settings ?? [])
             .Build();
+        var typedSettings = new CodeServerSettings();
+        new CodeServerSettingsOptionsConfigurator(configuration).Configure(typedSettings);
         services.AddSingleton<IConfiguration>(configuration);
+        services.AddSingleton<IOptions<CodeServerSettings>>(Options.Create(typedSettings));
         services.AddHttpClient(nameof(ConfigurationCopilotProviderConfigResolver));
         return services.BuildServiceProvider();
     }
 
     private static ConfigurationCopilotProviderConfigResolver CreateResolver(ServiceProvider services)
-        => CreateResolver(services, NullKeyVaultCopilotProviderConfigResolver.Instance);
-
-    private static ConfigurationCopilotProviderConfigResolver CreateResolver(
-        ServiceProvider services,
-        IKeyVaultCopilotProviderConfigResolver keyVaultResolver)
         => new(
             services.GetRequiredService<IConfiguration>(),
+            services.GetRequiredService<IOptions<CodeServerSettings>>(),
             services.GetRequiredService<IHttpClientFactory>(),
-            keyVaultResolver,
             NullLogger<ConfigurationCopilotProviderConfigResolver>.Instance);
-
-    private static KeyVaultCopilotProviderConfigResolver CreateKeyVaultResolver(IKeyVaultSecretReader secretReader)
-        => new(
-            secretReader,
-            NullLogger<KeyVaultCopilotProviderConfigResolver>.Instance);
-
-    private sealed class FakeKeyVaultSecretReader : IKeyVaultSecretReader
-    {
-        private readonly Dictionary<string, string> _values = new(StringComparer.OrdinalIgnoreCase);
-
-        public FakeKeyVaultSecretReader Add(string key, string value)
-        {
-            _values[key] = value;
-            return this;
-        }
-
-        public Task<string?> GetDefaultTenantSecretValueAsync(
-            string key,
-            string? author = null,
-            CancellationToken ct = default)
-        {
-            ct.ThrowIfCancellationRequested();
-            return Task.FromResult(_values.GetValueOrDefault(key));
-        }
-
-        public async Task<KeyVaultSecretLookupResult?> GetFirstDefaultTenantSecretValueAsync(
-            IEnumerable<string> candidateKeys,
-            string? author = null,
-            CancellationToken ct = default)
-        {
-            foreach (var key in candidateKeys)
-            {
-                var value = await GetDefaultTenantSecretValueAsync(key, author, ct);
-                if (value is not null)
-                    return new KeyVaultSecretLookupResult(key, value);
-            }
-
-            return null;
-        }
-    }
-
-    private sealed class FailingKeyVaultSecretReader : IKeyVaultSecretReader
-    {
-        public Task<string?> GetDefaultTenantSecretValueAsync(
-            string key,
-            string? author = null,
-            CancellationToken ct = default)
-            => Task.FromException<string?>(CreateException());
-
-        public Task<KeyVaultSecretLookupResult?> GetFirstDefaultTenantSecretValueAsync(
-            IEnumerable<string> candidateKeys,
-            string? author = null,
-            CancellationToken ct = default)
-            => Task.FromException<KeyVaultSecretLookupResult?>(CreateException());
-
-        private static KeyVaultAccessException CreateException()
-            => new("KeyVault is unavailable.", new IOException("Test failure."));
-    }
-
-    private sealed class NullKeyVaultCopilotProviderConfigResolver : IKeyVaultCopilotProviderConfigResolver
-    {
-        public static NullKeyVaultCopilotProviderConfigResolver Instance { get; } = new();
-
-        public Task<JsonObject?> ResolveAsync(
-            IReadOnlyList<string> candidateSecretKeys,
-            string providerName,
-            CancellationToken ct)
-            => Task.FromResult<JsonObject?>(null);
-    }
 }

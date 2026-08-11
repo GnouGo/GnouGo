@@ -11,6 +11,7 @@ public sealed class BundledMcpSettings
 public sealed class BundledMcpServerSettings
 {
     public bool Listable { get; set; }
+    public bool ReadsKeyVaultDirectly { get; set; }
 
     public Dictionary<string, BundledMcpEditableFieldSettings> EditableFields { get; set; } =
         new(StringComparer.OrdinalIgnoreCase);

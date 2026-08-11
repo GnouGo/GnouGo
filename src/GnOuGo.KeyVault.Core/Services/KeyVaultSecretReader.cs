@@ -9,7 +9,7 @@ namespace GnOuGo.KeyVault.Core.Services;
 /// default-tenant secrets from the shared KeyVault SQLite database without
 /// constructing the EF Core model in a Native AOT process.
 /// </summary>
-public sealed class KeyVaultSecretReader : IKeyVaultSecretReader
+public sealed class KeyVaultSecretReader : IKeyVaultSecretCatalogReader
 {
     private const string DefaultAuthor = "GnOuGo.KeyVault.Core";
     private readonly string _databasePath;
@@ -86,6 +86,88 @@ public sealed class KeyVaultSecretReader : IKeyVaultSecretReader
         return null;
     }
 
+    public async Task<IReadOnlyList<KeyVaultSecretLookupResult>> GetDefaultTenantSecretValuesByPrefixAsync(
+        string keyPrefix,
+        string? author = null,
+        CancellationToken ct = default)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(keyPrefix);
+
+        try
+        {
+            return await GetDefaultTenantSecretValuesByPrefixCoreAsync(keyPrefix, author, ct);
+        }
+        catch (OperationCanceledException) when (ct.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (Exception ex) when (IsAccessFailure(ex))
+        {
+            throw new KeyVaultAccessException(
+                $"KeyVault could not read secrets with prefix '{keyPrefix}'.",
+                ex);
+        }
+    }
+
+    private async Task<IReadOnlyList<KeyVaultSecretLookupResult>> GetDefaultTenantSecretValuesByPrefixCoreAsync(
+        string keyPrefix,
+        string? author,
+        CancellationToken ct)
+    {
+        if (!File.Exists(_databasePath))
+            return [];
+
+        var connectionString = new SqliteConnectionStringBuilder
+        {
+            DataSource = _databasePath,
+            Mode = SqliteOpenMode.ReadWrite
+        }.ToString();
+        await using var connection = new SqliteConnection(connectionString);
+        await connection.OpenAsync(ct);
+
+        await using var command = connection.CreateCommand();
+        command.CommandText = """
+            SELECT s.Key, sv.EncryptedValue, dt.PrivateKeyPem, sv.Version
+            FROM Secrets AS s
+            INNER JOIN SecretVersions AS sv ON sv.SecretId = s.Id
+            INNER JOIN Tenants AS dt ON dt.Name = '__default__' AND dt.IsDeleted = 0
+            WHERE substr(s.Key, 1, length($keyPrefix)) = $keyPrefix COLLATE NOCASE
+              AND s.TenantId IS NULL
+              AND s.IsDeleted = 0
+              AND sv.Version = (
+                  SELECT MAX(latest.Version)
+                  FROM SecretVersions AS latest
+                  WHERE latest.SecretId = s.Id
+              )
+            ORDER BY s.Key COLLATE NOCASE, s.Key;
+            """;
+        command.Parameters.AddWithValue("$keyPrefix", keyPrefix);
+
+        var encryptedRows = new List<EncryptedCatalogSecretRow>();
+        await using (var reader = await command.ExecuteReaderAsync(ct))
+        {
+            while (await reader.ReadAsync(ct))
+            {
+                encryptedRows.Add(new EncryptedCatalogSecretRow(
+                    reader.GetString(0),
+                    reader.GetString(1),
+                    reader.GetString(2),
+                    reader.GetInt32(3)));
+            }
+        }
+
+        var results = encryptedRows
+            .Select(row => new KeyVaultSecretLookupResult(
+                row.Key,
+                CryptoService.Decrypt(row.EncryptedValue, row.PrivateKeyPem)))
+            .ToArray();
+
+        foreach (var row in encryptedRows)
+            await TryWriteAuditEntryAsync(connection, row.Key, author, row.Version, ct);
+
+        return results;
+    }
+
     private static async Task<EncryptedSecretRow?> ReadLatestDefaultTenantSecretAsync(
         SqliteConnection connection,
         string key,
@@ -154,6 +236,11 @@ public sealed class KeyVaultSecretReader : IKeyVaultSecretReader
             or CryptographicException;
 
     private readonly record struct EncryptedSecretRow(string EncryptedValue, string PrivateKeyPem, int Version);
+    private readonly record struct EncryptedCatalogSecretRow(
+        string Key,
+        string EncryptedValue,
+        string PrivateKeyPem,
+        int Version);
 }
 
 public sealed record KeyVaultSecretLookupResult(string Key, string Value);

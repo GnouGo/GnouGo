@@ -16,22 +16,22 @@ public sealed class KeyVaultSecretReaderTests
         var service = new KeyVaultService(db);
         await service.EnsureDefaultKeyPairAsync(TestContext.Current.CancellationToken);
         await service.SetSecretAsync(
-            "LLM--Models--OpenAi",
+            "application--config--primary",
             "provider-secret-value",
             tenantId: null,
-            author: "GnOuGo.Agent.Server",
+            author: "generic-writer",
             ct: TestContext.Current.CancellationToken);
 
         IKeyVaultSecretReader reader = KeyVaultSecretReaderFactory.CreateWorkspaceReader(
             database.DatabasePath,
             database.DirectoryPath);
         var result = await reader.GetFirstDefaultTenantSecretValueAsync(
-            ["missing-key", "LLM--Models--OpenAi"],
-            "GnOuGo.GithubCopilot.Mcp",
+            ["missing-key", "application--config--primary"],
+            "generic-reader",
             TestContext.Current.CancellationToken);
 
         Assert.NotNull(result);
-        Assert.Equal("LLM--Models--OpenAi", result.Key);
+        Assert.Equal("application--config--primary", result.Key);
         Assert.Equal("provider-secret-value", result.Value);
 
         db.ChangeTracker.Clear();
@@ -41,8 +41,8 @@ public sealed class KeyVaultSecretReaderTests
 
         var readAudit = await db.AuditEntries.SingleAsync(
             entry => entry.Operation == AuditOperation.GetSecret
-                     && entry.SecretKey == "LLM--Models--OpenAi"
-                     && entry.Author == "GnOuGo.GithubCopilot.Mcp",
+                     && entry.SecretKey == "application--config--primary"
+                     && entry.Author == "generic-reader",
             TestContext.Current.CancellationToken);
         Assert.Equal("Read version 1", readAudit.Details);
     }
@@ -59,7 +59,7 @@ public sealed class KeyVaultSecretReaderTests
 
         var exception = await Assert.ThrowsAsync<KeyVaultAccessException>(() =>
             reader.GetDefaultTenantSecretValueAsync(
-                "LLM--Models--OpenAi",
+                "application--config--primary",
                 "test",
                 TestContext.Current.CancellationToken));
 
@@ -75,7 +75,7 @@ public sealed class KeyVaultSecretReaderTests
         var service = new KeyVaultService(db);
         await service.EnsureDefaultKeyPairAsync(TestContext.Current.CancellationToken);
         await service.SetSecretAsync(
-            "LLM--Models--OpenAi",
+            "application--config--primary",
             "provider-secret-value",
             tenantId: null,
             author: "test",
@@ -87,11 +87,80 @@ public sealed class KeyVaultSecretReaderTests
 
         var exception = await Assert.ThrowsAsync<KeyVaultAccessException>(() =>
             reader.GetDefaultTenantSecretValueAsync(
-                "LLM--Models--OpenAi",
+                "application--config--primary",
                 "test",
                 TestContext.Current.CancellationToken));
 
         Assert.IsType<FormatException>(exception.InnerException);
+    }
+
+    [Fact]
+    public async Task CatalogReader_LoadsLatestDefaultTenantValuesByLiteralCaseInsensitivePrefix()
+    {
+        using var database = new TemporaryKeyVaultDatabase();
+        await using var db = database.CreateDbContext();
+        var ct = TestContext.Current.CancellationToken;
+        await KeyVaultDatabaseBootstrap.EnsureCreatedAsync(db, ct);
+        var service = new KeyVaultService(db);
+        await service.EnsureDefaultKeyPairAsync(ct);
+        await service.SetSecretAsync("application--config--Alpha", "old", null, "writer", ct);
+        await service.SetSecretAsync("application--config--Alpha", "latest", null, "writer", ct);
+        await service.SetSecretAsync("application--config--Beta", "second", null, "writer", ct);
+        await service.SetSecretAsync("application--config%wildcard", "excluded", null, "writer", ct);
+        await service.SetSecretAsync("application--other--Gamma", "excluded", null, "writer", ct);
+        var tenant = await service.CreateTenantAsync("isolated", "writer", ct);
+        await service.SetSecretAsync("application--config--TenantOnly", "excluded", tenant.Id, "writer", ct);
+
+        IKeyVaultSecretCatalogReader reader = KeyVaultSecretReaderFactory.CreateWorkspaceCatalogReader(
+            database.DatabasePath,
+            database.DirectoryPath);
+        var values = await reader.GetDefaultTenantSecretValuesByPrefixAsync(
+            "APPLICATION--CONFIG--",
+            "generic-consumer",
+            ct);
+
+        Assert.Equal(2, values.Count);
+        Assert.Equal("latest", Assert.Single(values, value => value.Key.EndsWith("Alpha", StringComparison.Ordinal)).Value);
+        Assert.Equal("second", Assert.Single(values, value => value.Key.EndsWith("Beta", StringComparison.Ordinal)).Value);
+
+        db.ChangeTracker.Clear();
+        var audits = await db.AuditEntries
+            .Where(entry => entry.Operation == AuditOperation.GetSecret
+                            && entry.Author == "generic-consumer")
+            .ToListAsync(ct);
+        Assert.Equal(2, audits.Count);
+        Assert.Contains(audits, entry => entry.SecretKey == "application--config--Alpha" && entry.Details == "Read version 2");
+    }
+
+    [Fact]
+    public async Task CatalogReader_ReturnsEmptyWhenDatabaseDoesNotExist()
+    {
+        using var database = new TemporaryKeyVaultDatabase();
+        IKeyVaultSecretCatalogReader reader = new KeyVaultSecretReader(database.DatabasePath);
+
+        var values = await reader.GetDefaultTenantSecretValuesByPrefixAsync(
+            "application--",
+            "test",
+            TestContext.Current.CancellationToken);
+
+        Assert.Empty(values);
+    }
+
+    [Fact]
+    public async Task CatalogReader_WrapsStorageFailuresInKeyVaultAccessException()
+    {
+        using var database = new TemporaryKeyVaultDatabase();
+        await File.WriteAllTextAsync(
+            database.DatabasePath,
+            "not a SQLite database",
+            TestContext.Current.CancellationToken);
+        IKeyVaultSecretCatalogReader reader = new KeyVaultSecretReader(database.DatabasePath);
+
+        await Assert.ThrowsAsync<KeyVaultAccessException>(() =>
+            reader.GetDefaultTenantSecretValuesByPrefixAsync(
+                "application--",
+                "test",
+                TestContext.Current.CancellationToken));
     }
 
     private sealed class TemporaryKeyVaultDatabase : IDisposable

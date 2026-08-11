@@ -15,3 +15,15 @@ public interface IKeyVaultSecretReader
         string? author = null,
         CancellationToken ct = default);
 }
+
+/// <summary>
+/// Storage-agnostic catalog access for consumers that own a secret-key prefix.
+/// Key interpretation and configuration mapping remain the consumer's responsibility.
+/// </summary>
+public interface IKeyVaultSecretCatalogReader : IKeyVaultSecretReader
+{
+    Task<IReadOnlyList<KeyVaultSecretLookupResult>> GetDefaultTenantSecretValuesByPrefixAsync(
+        string keyPrefix,
+        string? author = null,
+        CancellationToken ct = default);
+}

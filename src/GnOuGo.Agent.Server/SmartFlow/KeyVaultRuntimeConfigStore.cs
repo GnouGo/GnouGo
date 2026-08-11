@@ -1,6 +1,7 @@
 ﻿using System.Text.Json.Nodes;
 using GnOuGo.AI.Core;
 using GnOuGo.Agent.Server.Configuration;
+using GnOuGo.KeyVault.Core;
 using GnOuGo.KeyVault.Core.Services;
 using Microsoft.Extensions.Options;
 
@@ -24,15 +25,18 @@ public sealed class KeyVaultRuntimeConfigStore : IKeyVaultRuntimeConfigStore
     private readonly IServiceScopeFactory _scopeFactory;
     private readonly ILogger<KeyVaultRuntimeConfigStore> _logger;
     private readonly BundledMcpSettings _bundledMcpSettings;
+    private readonly KeyVaultSettings _keyVaultSettings;
 
     public KeyVaultRuntimeConfigStore(
         IServiceScopeFactory scopeFactory,
         ILogger<KeyVaultRuntimeConfigStore> logger,
-        IOptions<BundledMcpSettings>? bundledMcpSettings = null)
+        IOptions<BundledMcpSettings>? bundledMcpSettings = null,
+        IOptions<KeyVaultSettings>? keyVaultSettings = null)
     {
         _scopeFactory = scopeFactory;
         _logger = logger;
         _bundledMcpSettings = bundledMcpSettings?.Value ?? new BundledMcpSettings();
+        _keyVaultSettings = keyVaultSettings?.Value ?? new KeyVaultSettings();
     }
 
     public async Task<IReadOnlyList<KeyVaultSecretSummary>> ListSecretsAsync(CancellationToken ct)
@@ -157,6 +161,7 @@ public sealed class KeyVaultRuntimeConfigStore : IKeyVaultRuntimeConfigStore
         }
 
         await ApplyBundledMcpFieldOverridesAsync(effective, ct);
+        ApplyDirectKeyVaultLocations(effective);
 
         if (!effective.Models.ContainsKey(effective.DefaultProvider)
             && effective.Models.Count > 0)
@@ -166,6 +171,26 @@ public sealed class KeyVaultRuntimeConfigStore : IKeyVaultRuntimeConfigStore
         }
 
         return effective;
+    }
+
+    private void ApplyDirectKeyVaultLocations(LLMOptions effective)
+    {
+        var configuredPath = string.IsNullOrWhiteSpace(_keyVaultSettings.DatabasePath)
+            ? KeyVaultDatabasePathResolver.DefaultRelativePath
+            : _keyVaultSettings.DatabasePath;
+
+        foreach (var serverEntry in _bundledMcpSettings.Servers)
+        {
+            if (!serverEntry.Value.ReadsKeyVaultDirectly
+                || !effective.McpServers.TryGetValue(serverEntry.Key, out var serverOptions))
+            {
+                continue;
+            }
+
+            serverOptions.EnvironmentVariables ??=
+                new Dictionary<string, string?>(StringComparer.OrdinalIgnoreCase);
+            serverOptions.EnvironmentVariables["KeyVault__DatabasePath"] = configuredPath;
+        }
     }
 
     private async Task<JsonObject?> LoadSecretJsonAsync(string key, CancellationToken ct)

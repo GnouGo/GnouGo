@@ -750,7 +750,7 @@ public sealed class WorkflowTelemetryAdapterTests
             "GnOuGo.Agent.Server",
             "Components",
             "Pages",
-            "ChatPage.razor"));
+            "ChatPage.razor")).ReplaceLineEndings("\n");
 
         Assert.Contains("private IReadOnlyList<ChatExecutionModel> GetActiveExecutions()", chatPage, StringComparison.Ordinal);
         Assert.Contains("var messageSnapshot = active.Messages.ToArray();", chatPage, StringComparison.Ordinal);
@@ -773,8 +773,10 @@ public sealed class WorkflowTelemetryAdapterTests
     {
         var root = FindRepositoryRoot();
         var agentRoot = Path.Combine(root, "src", "GnOuGo.Agent.Server");
-        var chatPage = File.ReadAllText(Path.Combine(agentRoot, "Components", "Pages", "ChatPage.razor"));
-        var styles = File.ReadAllText(Path.Combine(agentRoot, "ClientApp", "src", "styles", "app.scss"));
+        var chatPage = File.ReadAllText(Path.Combine(agentRoot, "Components", "Pages", "ChatPage.razor"))
+            .ReplaceLineEndings("\n");
+        var styles = File.ReadAllText(Path.Combine(agentRoot, "ClientApp", "src", "styles", "app.scss"))
+            .ReplaceLineEndings("\n");
 
         Assert.Contains("_streamingAssistantMessageId = assistantMsg.MessageId;", chatPage, StringComparison.Ordinal);
         Assert.Contains("_finalResponseStartedMessageId = assistantMsg.MessageId;", chatPage, StringComparison.Ordinal);

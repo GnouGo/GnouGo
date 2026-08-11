@@ -7,8 +7,8 @@ namespace GnOuGo.KeyVault.Core.Tests;
 
 public sealed class KeyVaultRecordStoreTests
 {
-    private const string Collection = "github-copilot.permission-grants";
-    private const string Author = "GnOuGo.GithubCopilot.Mcp";
+    private const string Collection = "application.records";
+    private const string Author = "generic-consumer";
 
     [Fact]
     public async Task Store_EncryptsValuesAndWritesAuditEntries()

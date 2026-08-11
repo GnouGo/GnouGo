@@ -34,7 +34,28 @@ public sealed class CodeCopilotSettings
     public bool EnableApproveAll { get; set; }
     public int WorkflowGrantTtlSeconds { get; set; } = 86_400;
     public List<string> TokenEnvironmentVariables { get; set; } = ["GITHUB_TOKEN", "COPILOT_API_KEY"];
+    public Dictionary<string, CodeCopilotProviderSettings> Providers { get; set; } =
+        new(StringComparer.OrdinalIgnoreCase);
     public CodeCopilotTelemetrySettings Telemetry { get; set; } = new();
+}
+
+public sealed class CodeCopilotProviderSettings
+{
+    public string? Provider { get; set; }
+    public string? Type { get; set; }
+    public string? Url { get; set; }
+    public string? Model { get; set; }
+    public string? WireApi { get; set; }
+    public string? WireModel { get; set; }
+    public string? AuthType { get; set; }
+    public string? ApiKey { get; set; }
+    public string? BearerToken { get; set; }
+    public string? ApiVersion { get; set; }
+    public string? OidcIssuer { get; set; }
+    public string? OidcClientId { get; set; }
+    public string? OidcScopes { get; set; }
+    public string? OidcClientSecret { get; set; }
+    public string? OidcPrivateKeyPem { get; set; }
 }
 
 public sealed class CodeCopilotTelemetrySettings

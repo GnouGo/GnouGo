@@ -8,6 +8,7 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using ModelContextProtocol.Protocol;
 using GnOuGo.Observability.Core;
+using Microsoft.Extensions.Configuration;
 
 var builder = CodeHostBootstrap.CreateBuilder(args);
 
@@ -21,17 +22,22 @@ builder.AddGnOuGoOpenTelemetry("GnOuGo.GithubCopilot.Mcp", settings =>
     settings.ActivitySources = [.. settings.ActivitySources, "GnOuGo.GithubCopilot.Mcp.Copilot"];
 });
 
+var keyVaultReader = KeyVaultSecretReaderFactory.CreateWorkspaceCatalogReader(
+    builder.Configuration["KeyVault:DatabasePath"],
+    AppContext.BaseDirectory);
+var keyVaultOverlay = await CopilotKeyVaultConfigurationOverlay.LoadAsync(keyVaultReader);
+if (keyVaultOverlay.Values.Count > 0)
+    builder.Configuration.AddInMemoryCollection(keyVaultOverlay.Values);
+
 builder.Services.AddSingleton<IConfigureOptions<CodeServerSettings>, CodeServerSettingsOptionsConfigurator>();
 builder.Services.AddHttpClient(nameof(ConfigurationCopilotProviderConfigResolver));
-builder.Services.AddSingleton<IKeyVaultSecretReader>(_ =>
-    KeyVaultSecretReaderFactory.CreateWorkspaceReader(
-        builder.Configuration["KeyVault:DatabasePath"],
-        AppContext.BaseDirectory));
+builder.Services.AddSingleton<IKeyVaultSecretCatalogReader>(keyVaultReader);
+builder.Services.AddSingleton<IKeyVaultSecretReader>(sp =>
+    sp.GetRequiredService<IKeyVaultSecretCatalogReader>());
 builder.Services.AddSingleton<IKeyVaultRecordStore>(_ =>
     KeyVaultRecordStoreFactory.CreateWorkspaceStore(
         builder.Configuration["KeyVault:DatabasePath"],
         AppContext.BaseDirectory));
-builder.Services.AddSingleton<IKeyVaultCopilotProviderConfigResolver, KeyVaultCopilotProviderConfigResolver>();
 builder.Services.AddSingleton<ICopilotProviderConfigResolver, ConfigurationCopilotProviderConfigResolver>();
 builder.Services.AddSingleton<ICopilotProviderResolver, CoreCopilotProviderResolver>();
 builder.Services.AddSingleton<ICopilotSdkClientFactory, GitHubCopilotSdkClientFactory>();
@@ -74,6 +80,8 @@ builder.Services
 
 var host = builder.Build();
 var logger = host.Services.GetRequiredService<ILoggerFactory>().CreateLogger("GnOuGo.GithubCopilot.Mcp.Startup");
+if (keyVaultOverlay.Warning is not null)
+    logger.LogWarning("{KeyVaultConfigurationWarning}", keyVaultOverlay.Warning);
 var policy = host.Services.GetRequiredService<CodePolicy>();
 var settings = host.Services.GetRequiredService<IOptions<CodeServerSettings>>().Value;
 var info = policy.DescribePolicy();

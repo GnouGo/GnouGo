@@ -15,4 +15,14 @@ public static class KeyVaultSecretReaderFactory
         var databasePath = KeyVaultDatabasePathResolver.Resolve(configuredPath, baseDirectory);
         return new KeyVaultSecretReader(databasePath);
     }
+
+    public static IKeyVaultSecretCatalogReader CreateWorkspaceCatalogReader(
+        string? configuredPath,
+        string baseDirectory)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(baseDirectory);
+
+        var databasePath = KeyVaultDatabasePathResolver.Resolve(configuredPath, baseDirectory);
+        return new KeyVaultSecretReader(databasePath);
+    }
 }
