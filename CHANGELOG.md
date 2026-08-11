@@ -2,6 +2,11 @@
 
 All notable changes to this project are documented in this file.
 
+## v0.17.3 - 2026-08-11
+
+- refcator: mcp use keyvault instead of sql (release) (#80) (b91e821)
+- docs: update agents.md (e20daf3)
+
 ## v0.17.2 - 2026-08-07
 
 - feature: copilot (release) (#79) (6cc5b13)
@@ -253,9 +258,6 @@ All notable changes to this project are documented in this file.
 ## v0.1.0 - 2026-04-14
 
 - feat(otel): add otel exe to github release (#18) (701b1e2)
-
-## v0.0.1 - 2026-04-14
-
 - feat(otel): add otel exe to github release (#17) (release) (71920f2)
 - feat: switch to pnpm (#16) (532c55d)
 - feat: merge lib together (#14) (dcf3f84)
