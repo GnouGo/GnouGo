@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from .shared import *  # noqa: F401,F403
+from gnougo_flow_core.model_metadata import estimate_cost
 
 
 class _WorkflowPlanTelemetryMixin:
@@ -56,12 +57,27 @@ class _WorkflowPlanTelemetryMixin:
             attrs.append(("gen_ai.usage.output_tokens", int(output_tokens)))
         if total_tokens is not None:
             attrs.append(("gen_ai.usage.total_tokens", int(total_tokens)))
+        cost = estimate_cost(
+            model or "",
+            input_tokens=int(input_tokens or 0),
+            output_tokens=int(output_tokens or 0),
+            options=ctx.engine.llm_options,
+            provider_type=provider,
+        )
+        if cost is not None and (input_tokens is not None or output_tokens is not None):
+            attrs.append(("gen_ai.usage.cost", cost))
 
         ctx.add_telemetry_event(event_name, attrs)
 
 
     @staticmethod
-    def _add_usage_attributes(span: Any, usage: Any) -> None:
+    def _add_usage_attributes(
+        span: Any,
+        usage: Any,
+        model: str,
+        provider: str | None,
+        options: LLMOptions | None = None,
+    ) -> None:
         if not isinstance(usage, dict):
             return
 
@@ -74,3 +90,12 @@ class _WorkflowPlanTelemetryMixin:
             span.set_attribute("gen_ai.usage.output_tokens", int(output_tokens))
         if total_tokens is not None:
             span.set_attribute("gen_ai.usage.total_tokens", int(total_tokens))
+        cost = estimate_cost(
+            model,
+            input_tokens=int(input_tokens or 0),
+            output_tokens=int(output_tokens or 0),
+            options=options,
+            provider_type=provider,
+        )
+        if cost is not None and (input_tokens is not None or output_tokens is not None):
+            span.set_attribute("gen_ai.usage.cost", cost)

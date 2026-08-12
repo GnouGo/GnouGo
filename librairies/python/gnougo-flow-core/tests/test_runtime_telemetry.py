@@ -316,6 +316,7 @@ async def test_workflow_plan_mcp_server_prefilter_emits_genai_telemetry_events()
     assert any(
         name == "gnougo-flow.plan.prefilter.servers.usage"
         and ("gen_ai.usage.total_tokens", 5) in attrs
+        and any(key == "gen_ai.usage.cost" and value > 0 for key, value in attrs)
         for name, attrs in events
     )
     assert any(
@@ -337,6 +338,8 @@ async def test_workflow_plan_mcp_server_prefilter_emits_genai_telemetry_events()
     assert child_spans["workflow.plan.validate"].parent_name == "plan"
     assert child_spans["workflow.plan.mcp_server_prefilter"].attributes["gen_ai.operation.name"] == "chat"
     assert child_spans["workflow.plan.mcp_server_prefilter"].attributes["gen_ai.usage.total_tokens"] == 5
+    assert child_spans["workflow.plan.mcp_server_prefilter"].attributes["gen_ai.usage.cost"] > 0
+    assert spans["plan"].attributes["gen_ai.usage.cost"] > 0
     assert child_spans["workflow.plan.mcp_server_prefilter"].attributes["mcp.servers_selected"] == 1
 
 

@@ -141,8 +141,10 @@ def test_execution_limits_expression_defaults_match_dotnet_runtime() -> None:
     limits = ExecutionLimits()
 
     assert limits.max_total_steps_executed == 10_000
-    assert limits.max_expression_statements == 100_000
+    assert limits.max_expression_statements == 1_000_000
+    assert limits.expression_memory_limit_bytes == 1_000_000_000
+    assert limits.finalization_timeout_seconds == 30
+    assert limits.max_finalization_steps == 50
     assert limits.expression_timeout_seconds == 15
-    assert limits.expression_memory_limit_bytes == 50_000_000
 
 

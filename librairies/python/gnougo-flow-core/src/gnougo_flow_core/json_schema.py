@@ -26,7 +26,7 @@ def input_def_to_schema(definition: InputDef) -> dict[str, Any]:
     if definition.description is not None:
         schema["description"] = definition.description
     if definition.default is not None:
-        schema["default"] = str(definition.default)
+        schema["default"] = definition.default
     if definition.items is not None:
         schema["items"] = input_def_to_schema(definition.items)
 
@@ -38,7 +38,7 @@ def input_def_to_schema(definition: InputDef) -> dict[str, Any]:
             if prop_def.required:
                 inferred_required.append(key)
         schema["properties"] = props
-        if definition.required_properties:
+        if definition.required_properties is not None:
             schema["required"] = list(definition.required_properties)
         elif inferred_required:
             schema["required"] = inferred_required
@@ -46,7 +46,7 @@ def input_def_to_schema(definition: InputDef) -> dict[str, Any]:
     if definition.additional_properties is not None:
         schema["additionalProperties"] = input_def_to_schema(definition.additional_properties)
 
-    return schema
+    return _make_nullable(schema) if definition.nullable else schema
 
 
 def inputs_to_json_schema(inputs: dict[str, InputDef]) -> dict[str, Any]:
@@ -79,13 +79,24 @@ def output_def_to_schema(definition: OutputDef) -> dict[str, Any]:
         schema["properties"] = {
             key: output_def_to_schema(prop_def) for key, prop_def in definition.properties.items()
         }
-        if definition.required_properties:
+        if definition.required_properties is not None:
             schema["required"] = list(definition.required_properties)
 
     if definition.additional_properties is not None:
         schema["additionalProperties"] = output_def_to_schema(definition.additional_properties)
 
-    return schema
+    return _make_nullable(schema) if definition.nullable else schema
+
+
+def _make_nullable(schema: dict[str, Any]) -> dict[str, Any]:
+    description = schema.pop("description", None)
+    default = schema.pop("default", None)
+    result: dict[str, Any] = {"anyOf": [schema, {"type": "null"}]}
+    if description is not None:
+        result["description"] = description
+    if default is not None:
+        result["default"] = default
+    return result
 
 
 def outputs_to_json_schema(outputs: dict[str, OutputDef]) -> dict[str, Any]:

@@ -19,6 +19,7 @@ class McpToolOutputContract:
     input_schema: Any = None
     output_schema: Any = None
     example_response: Any = None
+    meta: Any = None
 
 
 @dataclass(slots=True)
@@ -68,6 +69,7 @@ _KNOWN_MCP_CALL_INPUT_FIELDS = {
     "raise_on_error",
     "raiseOnError",
     "error_policy",
+    "context",
 }
 
 
@@ -81,10 +83,11 @@ def validate_workflow_semantics(
     _validate_function_jsdoc(document.functions, None, errors)
 
     for workflow_name, workflow in document.workflows.items():
-        all_step_ids = set(_collect_step_ids(workflow.steps))
+        all_step_ids = set(_collect_step_ids([*workflow.steps, *workflow.finally_]))
         known_contracts: dict[str, Any] = {}
         _validate_function_jsdoc(workflow.functions, workflow_name, errors)
         _validate_step_list(workflow.steps, workflow_name, known_contracts, all_step_ids, mcp_contracts, workflow_contracts, errors)
+        _validate_step_list(workflow.finally_, workflow_name, known_contracts, all_step_ids, mcp_contracts, workflow_contracts, errors)
         if workflow.outputs:
             for output_name, output_def in workflow.outputs.items():
                 _validate_output_def(output_def, workflow_name, f"outputs.{output_name}", known_contracts, all_step_ids, errors)
@@ -101,6 +104,7 @@ def normalize_mcp_call_input_requests(
     changes = 0
     for workflow in document.workflows.values():
         changes += _normalize_mcp_call_input_requests(workflow.steps, mcp_contracts)
+        changes += _normalize_mcp_call_input_requests(workflow.finally_, mcp_contracts)
     return changes
 
 
@@ -245,9 +249,14 @@ def _find_leading_jsdoc(script: str, function_index: int) -> str | None:
 
 def _parse_jsdoc_param_types(jsdoc: str) -> dict[str, str]:
     parameters: dict[str, str] = {}
-    for match in _JSDOC_PARAM_RE.finditer(jsdoc):
+    for type_name, next_index in _iter_typed_jsdoc_tags(jsdoc, "@param"):
+        match = re.match(
+            r"\s*(?P<name>\[?[A-Za-z_$][A-Za-z0-9_$]*(?:=[^\]\s]+)?\]?)",
+            jsdoc[next_index:],
+        )
+        if not match:
+            continue
         name = _normalize_jsdoc_parameter_name(match.group("name"))
-        type_name = match.group("type").strip()
         if name and name not in parameters:
             parameters[name] = type_name
     return parameters
@@ -265,8 +274,129 @@ def _normalize_jsdoc_parameter_name(name: str) -> str:
 
 
 def _has_typed_jsdoc_return(jsdoc: str) -> bool:
-    match = _JSDOC_RETURNS_RE.search(jsdoc)
-    return bool(match and match.group("type").strip())
+    return next(_iter_typed_jsdoc_tags(jsdoc, "@returns", "@return"), None) is not None
+
+
+def _iter_typed_jsdoc_tags(jsdoc: str, *tag_names: str):
+    cursor = 0
+    lower = jsdoc.lower()
+    while cursor < len(jsdoc):
+        positions = [lower.find(tag.lower(), cursor) for tag in tag_names]
+        positions = [position for position in positions if position >= 0]
+        if not positions:
+            return
+        marker = min(positions)
+        tag = next(tag for tag in tag_names if lower.startswith(tag.lower(), marker))
+        type_start = marker + len(tag)
+        if type_start >= len(jsdoc) or not jsdoc[type_start].isspace():
+            cursor = type_start
+            continue
+        while type_start < len(jsdoc) and jsdoc[type_start].isspace():
+            type_start += 1
+        if type_start >= len(jsdoc) or jsdoc[type_start] != "{":
+            cursor = type_start + 1
+            continue
+        parsed = _read_balanced_jsdoc_type(jsdoc, type_start)
+        if parsed is None:
+            cursor = type_start + 1
+            continue
+        type_name, next_index = parsed
+        cursor = next_index
+        yield type_name, next_index
+
+
+def _read_balanced_jsdoc_type(jsdoc: str, opening: int) -> tuple[str, int] | None:
+    depth = 0
+    quote: str | None = None
+    escaped = False
+    for index in range(opening, len(jsdoc)):
+        current = jsdoc[index]
+        if current in "\r\n":
+            return None
+        if quote is not None:
+            if escaped:
+                escaped = False
+            elif current == "\\":
+                escaped = True
+            elif current == quote:
+                quote = None
+            continue
+        if current in {"'", '"', "`"}:
+            quote = current
+        elif current == "{":
+            depth += 1
+        elif current == "}":
+            depth -= 1
+            if depth == 0:
+                type_name = jsdoc[opening + 1 : index].strip()
+                return (type_name, index + 1) if type_name else None
+            if depth < 0:
+                return None
+    return None
+
+
+def complete_inferable_function_parameter_jsdoc(script: str) -> str:
+    """Safely add only parameter types that deterministic function usage proves."""
+    replacements: list[tuple[int, int, str]] = []
+    for declaration in _iter_function_declarations(script or ""):
+        jsdoc = _find_leading_jsdoc(script, declaration.index)
+        if not jsdoc:
+            continue
+        documented = _parse_jsdoc_param_types(jsdoc)
+        body_start = script.find("{", declaration.index)
+        if body_start < 0:
+            continue
+        depth = 0
+        body_end = -1
+        for index in range(body_start, len(script)):
+            if script[index] == "{":
+                depth += 1
+            elif script[index] == "}":
+                depth -= 1
+                if depth == 0:
+                    body_end = index
+                    break
+        if body_end < 0:
+            continue
+        body = script[body_start + 1 : body_end]
+        additions: list[str] = []
+        for parameter in declaration.parameters:
+            if documented.get(parameter):
+                continue
+            escaped = re.escape(parameter)
+            inferred = None
+            array_usage = (
+                rf"\bArray\.isArray\s*\(\s*{escaped}\s*\)|\b{escaped}\s*\.\s*"
+                r"(?:map|filter|reduce|forEach|some|every|find|push|pop|shift|unshift|concat|join)\s*\("
+            )
+            string_usage = (
+                rf"\bString\s*\(\s*{escaped}\b|\b{escaped}\s*\.\s*"
+                r"(?:trim|toLowerCase|toUpperCase|includes|startsWith|endsWith|replace|split|substring|slice)\s*\("
+            )
+            if re.search(array_usage, body):
+                inferred = "Array<object>"
+            elif re.search(string_usage, body):
+                inferred = "string"
+            elif re.search(rf"\bNumber\s*\(\s*{escaped}\b|(?:^|[^A-Za-z0-9_$]){escaped}\s*[+\-*/%]|[+\-*/%]\s*{escaped}(?:[^A-Za-z0-9_$]|$)", body):
+                inferred = "number"
+            elif re.search(rf"\b{escaped}\s*(?:\.|\[)|\.\.\.\s*{escaped}\b", body):
+                inferred = "object"
+            elif re.search(rf"!\s*{escaped}\b|\b{escaped}\s*(?:===?|!==?)\s*(?:true|false)\b", body):
+                inferred = "boolean"
+            if inferred:
+                additions.append(
+                    f" * @param {{{inferred}}} {parameter} - Type inferred from deterministic function usage."
+                )
+        if additions:
+            start = script.rfind(jsdoc, 0, declaration.index)
+            close = jsdoc.rfind("*/")
+            if start >= 0 and close >= 0:
+                replacement = jsdoc[:close].rstrip() + "\n" + "\n".join(additions) + "\n */"
+                replacements.append((start, len(jsdoc), replacement))
+    normalized = script
+    for start, length, replacement in sorted(replacements, reverse=True):
+        normalized = normalized[:start] + replacement + normalized[start + length :]
+    return normalized
 
 
 def _function_jsdoc_suggestion(declaration: _FunctionDeclaration) -> str:
@@ -1178,7 +1308,12 @@ def _get_schema_at_path(schema: Any, path: list[str]) -> Any:
     properties = schema.get("properties")
     segment = path[0]
     if isinstance(properties, dict) and segment in properties:
-        return _get_schema_at_path(properties[segment], path[1:])
+        result = _get_schema_at_path(properties[segment], path[1:])
+        required = schema.get("required")
+        if result is not None and (not isinstance(required, list) or segment not in required):
+            if not _schema_allows_null(result):
+                result = {"anyOf": [copy.deepcopy(result), {"type": "null"}]}
+        return result
     additional = schema.get("additionalProperties")
     if additional is True:
         return _opaque_schema()
@@ -1411,7 +1546,22 @@ def _build_human_input_output_schema(step: StepDef) -> Any:
                 continue
             field_type = field.get("type", "string")
             properties.append((name, _human_input_field_schema(str(field_type))))
-    return _object_schema(*properties)
+    schema = _object_schema(*properties)
+    input_obj = step.input if isinstance(step.input, dict) else {}
+    required = ["response"]
+    fields = input_obj.get("fields")
+    if isinstance(fields, list):
+        for field in fields:
+            if (
+                isinstance(field, dict)
+                and bool(field.get("required", True))
+                and isinstance(field.get("name"), str)
+            ):
+                required.append(field["name"])
+    schema["required"] = required
+    if str(input_obj.get("mode", "")).lower() == "confirm":
+        schema["properties"]["response"] = _boolean_schema()
+    return schema
 
 
 def _human_input_field_schema(field_type: str) -> Any:
@@ -1428,6 +1578,8 @@ def _human_input_field_schema(field_type: str) -> Any:
 
 
 def _build_set_output_schema(step: StepDef) -> Any:
+    if isinstance(step.output_schema, dict):
+        return copy.deepcopy(step.output_schema)
     if not isinstance(step.input, dict):
         return _object_schema()
     return _object_schema(*[(str(key), _infer_schema_from_example(value) or _opaque_schema()) for key, value in step.input.items()])
@@ -1508,6 +1660,7 @@ def _output_defs_to_json_schema(outputs: dict[str, OutputDef] | None) -> dict[st
     return {
         "type": "object",
         "properties": {name: _output_def_to_json_schema(definition) for name, definition in (outputs or {}).items()},
+        "required": list((outputs or {}).keys()),
         "additionalProperties": False,
     }
 
@@ -1526,12 +1679,20 @@ def _input_def_to_json_schema(definition: InputDef | None) -> dict[str, Any]:
     if schema_type == "object":
         schema["properties"] = {name: _input_def_to_json_schema(child) for name, child in (definition.properties or {}).items()}
         schema["additionalProperties"] = _input_def_to_json_schema(definition.additional_properties) if definition.additional_properties else False
-        if definition.required_properties:
+        if definition.required_properties is not None:
             schema["required"] = list(definition.required_properties)
+        else:
+            required = [
+                name
+                for name, child in (definition.properties or {}).items()
+                if child.required
+            ]
+            if required:
+                schema["required"] = required
     if definition.type.lower() == "dictionary":
         schema["type"] = "object"
         schema["additionalProperties"] = _input_def_to_json_schema(definition.additional_properties) if definition.additional_properties else True
-    return schema
+    return _nullable_schema(schema) if definition.nullable else schema
 
 
 def _output_def_to_json_schema(definition: OutputDef | None) -> dict[str, Any]:
@@ -1546,12 +1707,12 @@ def _output_def_to_json_schema(definition: OutputDef | None) -> dict[str, Any]:
     if schema_type == "object":
         schema["properties"] = {name: _output_def_to_json_schema(child) for name, child in (definition.properties or {}).items()}
         schema["additionalProperties"] = _output_def_to_json_schema(definition.additional_properties) if definition.additional_properties else False
-        if definition.required_properties:
+        if definition.required_properties is not None:
             schema["required"] = list(definition.required_properties)
     if definition.type.lower() == "dictionary":
         schema["type"] = "object"
         schema["additionalProperties"] = _output_def_to_json_schema(definition.additional_properties) if definition.additional_properties else True
-    return schema
+    return _nullable_schema(schema) if definition.nullable else schema
 
 
 def _schema_type_to_json_type(type_name: str | None) -> str | None:
@@ -1585,6 +1746,7 @@ def _infer_schema_from_example(example: Any) -> Any:
         return {
             "type": "object",
             "properties": {str(key): _infer_schema_from_example(value) or _opaque_schema() for key, value in example.items()},
+            "required": [str(key) for key in example],
             "additionalProperties": False,
         }
     if isinstance(example, list):
@@ -1602,8 +1764,13 @@ def _object_schema(*properties: tuple[str, Any]) -> dict[str, Any]:
     return {
         "type": "object",
         "properties": {name: copy.deepcopy(schema) for name, schema in properties},
+        "required": [name for name, _ in properties],
         "additionalProperties": False,
     }
+
+
+def _nullable_schema(schema: dict[str, Any]) -> dict[str, Any]:
+    return {"anyOf": [copy.deepcopy(schema), {"type": "null"}]}
 
 
 def _string_schema() -> dict[str, str]:

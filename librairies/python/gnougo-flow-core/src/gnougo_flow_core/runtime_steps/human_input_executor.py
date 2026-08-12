@@ -182,13 +182,20 @@ class HumanInputExecutor:
             coro = provider.request_input_async(request)
             response = await (asyncio.wait_for(coro, timeout=timeout_ms / 1000) if timeout_ms > 0 else coro)
             ctx.add_telemetry_event(
+                "gnougo-flow.step.human_input_resumed",
+                [
+                    ("gnougo-flow.human.run_id", request.run_id),
+                    ("gnougo-flow.human.step_id", request.step_id),
+                ],
+            )
+            ctx.add_telemetry_event(
                 "gnougo-flow.step.thinking",
                 [
                     ("gnougo-flow.thinking.message", "Human input received."),
                     ("gnougo-flow.thinking.level", "info"),
                 ],
             )
-            return response if response is not None else {"response": None}
+            return _normalize_response(mode, response, choices, ctx.step.id)
         except asyncio.TimeoutError as exc:
             raise WorkflowRuntimeException(
                 "HUMAN_INPUT_TIMEOUT",
@@ -273,3 +280,48 @@ def _is_confirm_choice(value: str) -> bool:
 
 def _is_reject_choice(value: str) -> bool:
     return value.lower() in {"reject", "no", "false", "cancel"}
+
+
+def _normalize_response(
+    mode: str,
+    response: Any,
+    choices: list[str] | None,
+    step_id: str,
+) -> Any:
+    if mode.lower() != HUMAN_INPUT_MODE_CONFIRM:
+        return response if response is not None else {"response": None}
+
+    value = response
+    if isinstance(response, dict):
+        value = next(
+            (response[key] for key in ("response", "confirmed", "approved", "decision") if key in response),
+            None,
+        )
+
+    confirmed: bool | None = None
+    if isinstance(value, bool):
+        confirmed = value
+    elif isinstance(value, int) and value in {0, 1}:
+        confirmed = value == 1
+    elif isinstance(value, str):
+        normalized = value.strip()
+        if normalized.lower() in {"true", "1", "approve", "yes", "confirm", "ok"}:
+            confirmed = True
+        elif normalized.lower() in {"false", "0", "reject", "no", "cancel"}:
+            confirmed = False
+        elif choices and len(choices) == 2:
+            if normalized.lower() == choices[0].lower():
+                confirmed = True
+            elif normalized.lower() == choices[1].lower():
+                confirmed = False
+
+    if confirmed is None:
+        raise WorkflowRuntimeException(
+            ErrorCodes.INPUT_VALIDATION,
+            f"human.input confirm step '{step_id}' received a response that could not be normalized to boolean. "
+            "Return true/false or one of its two configured choices.",
+        )
+
+    normalized_response = dict(response) if isinstance(response, dict) else {}
+    normalized_response["response"] = confirmed
+    return normalized_response

@@ -1,6 +1,8 @@
 from .mcp import (
     ConfiguredMcpClientFactory,
     InMemoryMcpClientFactory,
+    McpHumanInputSignal,
+    McpHumanInputSignalPhase,
     McpRealtimeProgressEvent,
     McpServerOptions,
     McpSessionAdapter,
@@ -14,6 +16,8 @@ __all__ = [
     "ConfiguredMcpClientFactory",
     "InMemoryMcpClientFactory",
     "McpRealtimeProgressEvent",
+    "McpHumanInputSignal",
+    "McpHumanInputSignalPhase",
     "McpServerOptions",
     "McpSessionAdapter",
     "MockMcpServerConfig",

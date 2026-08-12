@@ -11,7 +11,13 @@ from typing import Any
 
 import gnougo_flow_core.runtime as _runtime
 from gnougo_flow_core.errors import ErrorCodes, WorkflowRuntimeException
-from gnougo_flow_core.integrations.mcp import ConfiguredMcpClientFactory, McpRealtimeProgressEvent
+from gnougo_flow_core.integrations.mcp import (
+    ConfiguredMcpClientFactory,
+    McpHumanInputSignal,
+    McpHumanInputSignalPhase,
+    McpRealtimeProgressEvent,
+)
+from gnougo_flow_core.json_schema_contract_validator import validate_instance
 from gnougo_flow_core.mcp_cache import (
     cache_prompts,
     cache_tools,
@@ -26,6 +32,7 @@ from gnougo_flow_core.templating import MustacheEngine
 
 @dataclass(slots=True)
 class McpCorrelationContext:
+    tenant_id: str | None = None
     traceparent: str | None = None
     tracestate: str | None = None
     trace_id: str | None = None
@@ -33,14 +40,19 @@ class McpCorrelationContext:
     parent_span_id: str | None = None
     correlation_id: str | None = None
     run_id: str | None = None
+    execution_id: str | None = None
+    agent_id: str | None = None
+    agent_name: str | None = None
     step_id: str | None = None
     step_type: str | None = None
     mcp_server: str | None = None
     mcp_method: str | None = None
     mcp_kind: str | None = None
+    context: dict[str, Any] | None = None
 
     def to_mcp_meta(self) -> dict[str, Any]:
         gnougo: dict[str, Any] = {}
+        _add_if_present(gnougo, "tenantId", self.tenant_id)
         _add_if_present(gnougo, "traceparent", self.traceparent)
         _add_if_present(gnougo, "tracestate", self.tracestate)
         _add_if_present(gnougo, "traceId", self.trace_id)
@@ -48,11 +60,16 @@ class McpCorrelationContext:
         _add_if_present(gnougo, "parentSpanId", self.parent_span_id)
         _add_if_present(gnougo, "correlationId", self.correlation_id)
         _add_if_present(gnougo, "runId", self.run_id)
+        _add_if_present(gnougo, "executionId", self.execution_id)
+        _add_if_present(gnougo, "agentId", self.agent_id)
+        _add_if_present(gnougo, "agentName", self.agent_name)
         _add_if_present(gnougo, "stepId", self.step_id)
         _add_if_present(gnougo, "stepType", self.step_type)
         _add_if_present(gnougo, "mcpServer", self.mcp_server)
         _add_if_present(gnougo, "mcpMethod", self.mcp_method)
         _add_if_present(gnougo, "mcpKind", self.mcp_kind)
+        if self.context is not None:
+            gnougo["context"] = copy.deepcopy(self.context)
 
         meta: dict[str, Any] = {"gnougo": gnougo}
         _add_if_present(meta, "traceparent", self.traceparent)
@@ -256,7 +273,16 @@ Output access patterns: `data.steps.<id>.status`, `data.steps.<id>.response`, `d
             ctx.set_telemetry_attribute("mcp.detect_result_errors", True)
         target = "(llm-selection)" if has_prompt_selection else "(auto)"
         try:
-            correlation = _build_mcp_correlation_context(ctx, server, kind, method if isinstance(method, str) else (",".join(methods) if methods else None))
+            if hasattr(factory, "human_input_provider"):
+                factory.human_input_provider = ctx.engine.human_input_provider
+            request_context = _validate_mcp_request_context(input_obj.get("context"))
+            correlation = _build_mcp_correlation_context(
+                ctx,
+                server,
+                kind,
+                method if isinstance(method, str) else (",".join(methods) if methods else None),
+                request_context,
+            )
             ctx.set_telemetry_attribute("gnougo.correlation_id", correlation.correlation_id)
             if correlation.trace_id:
                 ctx.set_telemetry_attribute("gnougo.trace_id", correlation.trace_id)
@@ -266,8 +292,33 @@ Output access patterns: `data.steps.<id>.status`, `data.steps.<id>.response`, `d
                 realtime_progress_fingerprints.add(_build_progress_fingerprint(progress_event.event_kind, progress_event.message, progress_event.file))
                 _emit_realtime_mcp_progress_event_as_thinking(ctx, progress_event, correlation)
 
-            with ConfiguredMcpClientFactory.push_progress_handler(correlation, on_realtime_progress):
+            with (
+                ConfiguredMcpClientFactory.push_progress_handler(correlation, on_realtime_progress),
+                ConfiguredMcpClientFactory.push_human_input_handler(
+                    correlation,
+                    lambda signal: _emit_realtime_mcp_human_input_signal(ctx, signal),
+                ),
+            ):
                 session = await _maybe_timeout(factory.get_client_async(server), timeout)
+                if kind == "tool":
+                    live_discovery = getattr(session, "ensure_tools_discovered_async", None)
+                    if callable(live_discovery):
+                        live_tools = await _maybe_timeout(live_discovery(), timeout)
+                    else:
+                        session_key = id(session)
+                        session_lock = ctx.engine._mcp_live_tool_session_locks.setdefault(
+                            session_key, asyncio.Lock()
+                        )
+                        async with session_lock:
+                            initialized_session = ctx.engine._mcp_live_tool_sessions.get(session_key)
+                            if initialized_session is session:
+                                live_tools = get_cached_tools(ctx.engine.mcp_cache, server)
+                            else:
+                                live_tools = await _maybe_timeout(session.list_tools_async(), timeout)
+                                ctx.engine._mcp_live_tool_sessions[session_key] = session
+                            if live_tools is None:
+                                live_tools = await _maybe_timeout(session.list_tools_async(), timeout)
+                    cache_tools(ctx.engine.mcp_cache, server, live_tools)
 
                 if has_prompt_selection:
                     return await self._execute_llm_assisted(
@@ -280,10 +331,13 @@ Output access patterns: `data.steps.<id>.status`, `data.steps.<id>.response`, `d
                         error_policy,
                         timeout,
                         realtime_progress_fingerprints,
+                        request_context,
                     )
 
                 async def single(call_method: str, req: Any) -> dict[str, Any]:
-                    item_correlation = _build_mcp_correlation_context(ctx, server, kind, call_method)
+                    item_correlation = _build_mcp_correlation_context(
+                        ctx, server, kind, call_method, request_context
+                    )
                     return await self._call_single(
                         ctx,
                         session,
@@ -356,6 +410,16 @@ Output access patterns: `data.steps.<id>.status`, `data.steps.<id>.response`, `d
             raise
         except TimeoutError as exc:
             raise WorkflowRuntimeException(ErrorCodes.MCP_TIMEOUT, f"mcp.call to '{server}/{target}' timed out after {timeout_ms}ms", retryable=True) from exc
+        except asyncio.CancelledError as exc:
+            current = asyncio.current_task()
+            if (ctx.ct is not None and ctx.ct.is_set()) or (current is not None and current.cancelling() > 0):
+                raise
+            error_code = ErrorCodes.MCP_PROMPT_ERROR if kind == "prompt" else ErrorCodes.MCP_CALL_ERROR
+            raise WorkflowRuntimeException(
+                error_code,
+                f"mcp.call ({kind}) to '{server}/{target}' was cancelled by the MCP transport.",
+                retryable=True,
+            ) from exc
         except Exception as exc:
             error_code = ErrorCodes.MCP_PROMPT_ERROR if kind == "prompt" else ErrorCodes.MCP_CALL_ERROR
             raise WorkflowRuntimeException(error_code, f"mcp.call ({kind}) to '{server}/{target}' failed: {exc}", retryable=False) from exc
@@ -380,6 +444,7 @@ Output access patterns: `data.steps.<id>.status`, `data.steps.<id>.response`, `d
             text = "\n".join(f"[{m.role}] {m.content}" for m in result.messages)
             return {"status": "ok", "description": result.description, "messages": messages, "text": text}
 
+        request_args = _normalize_and_validate_tool_request(ctx, session, method, request_args)
         op = _call_tool_with_optional_meta(session, method, request_args, correlation.to_mcp_meta())
         result = await (asyncio.wait_for(op, timeout=timeout) if timeout is not None else op)
         _runtime._extract_usage_telemetry(ctx, result.usage, result.model)
@@ -430,6 +495,7 @@ Output access patterns: `data.steps.<id>.status`, `data.steps.<id>.response`, `d
         error_policy: dict[str, bool],
         timeout: float | None,
         realtime_progress_fingerprints: set[str] | None,
+        request_context: dict[str, Any] | None,
     ) -> dict[str, Any]:
         llm_client = ctx.engine.llm_client
         if llm_client is None:
@@ -559,7 +625,7 @@ Output access patterns: `data.steps.<id>.status`, `data.steps.<id>.response`, `d
         finish_reason = "tool_calls" if llm_response.tool_calls else "stop"
         ctx.set_telemetry_attribute("gen_ai.response.model", model)
         ctx.set_telemetry_attribute("gen_ai.response.finish_reason", finish_reason)
-        _runtime._extract_usage_telemetry(ctx, llm_response.usage, model)
+        _runtime._extract_usage_telemetry(ctx, llm_response.usage, model, provider)
 
         if ctx.limits.log_step_content and (llm_response.text or llm_response.json_payload is not None):
             completion_payload = llm_response.text if llm_response.text else json.dumps(llm_response.json_payload, ensure_ascii=False)
@@ -593,6 +659,7 @@ Output access patterns: `data.steps.<id>.status`, `data.steps.<id>.response`, `d
                 getattr(session, "server_name", input_obj.get("server", "")),
                 cap["kind"],
                 cap["method"],
+                request_context,
             )
             result_item = await self._call_single(
                 ctx,
@@ -656,7 +723,7 @@ Output access patterns: `data.steps.<id>.status`, `data.steps.<id>.response`, `d
                 )
             )
             finalize_response = await ctx.engine.call_llm_async(finalize_request)
-            _runtime._extract_usage_telemetry(ctx, finalize_response.usage, model)
+            _runtime._extract_usage_telemetry(ctx, finalize_response.usage, model, provider)
 
             structured_json = finalize_response.json_payload
             if structured_json is None and finalize_response.text:
@@ -770,6 +837,50 @@ def _emit_realtime_mcp_progress_event_as_thinking(
     if progress_event.correlation_id:
         attributes.append(("gnougo.correlation_id", progress_event.correlation_id))
     ctx.add_telemetry_event("gnougo-flow.step.thinking", attributes)
+
+
+def _emit_realtime_mcp_human_input_signal(
+    ctx: StepExecutionContext,
+    signal: McpHumanInputSignal,
+) -> None:
+    correlation = signal.correlation
+    request = signal.request
+    common = [
+        ("mcp.server.name", _first_correlation_value(correlation, "mcp_server", "server_name")),
+        ("mcp.method.name", _first_correlation_value(correlation, "mcp_method", "method_name")),
+        ("mcp.kind", _first_correlation_value(correlation, "mcp_kind", "kind")),
+    ]
+    if signal.phase == McpHumanInputSignalPhase.WAITING:
+        ctx.add_telemetry_event(
+            "gnougo-flow.step.waiting_for_human",
+            [
+                ("gnougo-flow.human.prompt", request.prompt),
+                (
+                    "gnougo-flow.human.request",
+                    json.dumps(request.model_dump(), ensure_ascii=False, default=str),
+                ),
+                ("gnougo-flow.human.phase", "waiting"),
+                *common,
+            ],
+        )
+        return
+    ctx.add_telemetry_event(
+        "gnougo-flow.step.human_input_resumed",
+        [
+            ("gnougo-flow.human.run_id", request.run_id),
+            ("gnougo-flow.human.step_id", request.step_id),
+            ("gnougo-flow.human.phase", signal.phase.value),
+            *common,
+        ],
+    )
+
+
+def _first_correlation_value(correlation: Any, *names: str) -> Any:
+    for name in names:
+        value = getattr(correlation, name, None) if not isinstance(correlation, dict) else correlation.get(name)
+        if value is not None:
+            return value
+    return None
 
 
 def _enumerate_mcp_progress_events(content: Any) -> list[dict[str, Any]]:
@@ -1030,6 +1141,7 @@ def _build_mcp_correlation_context(
     server_name: str,
     kind: str,
     method: str | None,
+    request_context: dict[str, Any] | None = None,
 ) -> McpCorrelationContext:
     trace_context = _capture_current_trace_context(ctx)
     traceparent = trace_context.get("traceparent")
@@ -1038,6 +1150,7 @@ def _build_mcp_correlation_context(
     span_id = trace_context.get("span_id") or parsed_parent_span_id
 
     return McpCorrelationContext(
+        tenant_id=ctx.limits.tenant_id or os.environ.get("GNouGo__TenantId"),
         traceparent=traceparent,
         tracestate=trace_context.get("tracestate"),
         trace_id=trace_id,
@@ -1045,12 +1158,66 @@ def _build_mcp_correlation_context(
         parent_span_id=trace_context.get("parent_span_id") or parsed_parent_span_id or span_id,
         correlation_id=ctx.limits.run_id or trace_id or uuid.uuid4().hex,
         run_id=ctx.limits.run_id,
+        execution_id=ctx.limits.execution_id or ctx.limits.run_id,
+        agent_id=ctx.limits.agent_id,
+        agent_name=ctx.limits.agent_name,
         step_id=ctx.step.id,
         step_type=ctx.step.type,
         mcp_server=server_name,
         mcp_method=method,
         mcp_kind=kind,
+        context=copy.deepcopy(request_context),
     )
+
+
+_RESERVED_MCP_CONTEXT_KEYS = {
+    "correlationid",
+    "tenantid",
+    "runid",
+    "executionid",
+    "agentid",
+    "agentname",
+    "traceid",
+    "spanid",
+    "parentspanid",
+    "traceparent",
+    "tracestate",
+    "stepid",
+    "steptype",
+    "mcpserver",
+    "mcpmethod",
+    "mcpkind",
+}
+
+
+def _validate_mcp_request_context(value: Any) -> dict[str, Any] | None:
+    if value is None:
+        return None
+    if not isinstance(value, dict):
+        raise WorkflowRuntimeException(ErrorCodes.INPUT_VALIDATION, "mcp.call context must be an object.")
+
+    def visit(node: Any, path: str) -> None:
+        if isinstance(node, dict):
+            for key, child in node.items():
+                field_path = f"{path}.{key}"
+                normalized = str(key).replace("-", "").replace("_", "").lower()
+                if normalized in _RESERVED_MCP_CONTEXT_KEYS:
+                    raise WorkflowRuntimeException(
+                        ErrorCodes.INPUT_VALIDATION,
+                        f"mcp.call context field '{field_path}' is reserved technical metadata.",
+                    )
+                if any(part in normalized for part in ("secret", "token", "password", "authorization", "credential", "apikey")):
+                    raise WorkflowRuntimeException(
+                        ErrorCodes.INPUT_VALIDATION,
+                        f"mcp.call context field '{field_path}' is not allowed because context must not carry credentials or secrets.",
+                    )
+                visit(child, field_path)
+        elif isinstance(node, list):
+            for index, child in enumerate(node):
+                visit(child, f"{path}[{index}]")
+
+    visit(value, "context")
+    return copy.deepcopy(value)
 
 
 def _capture_current_trace_context(ctx: StepExecutionContext) -> dict[str, str]:
@@ -1132,6 +1299,66 @@ def _parse_traceparent(traceparent: str | None) -> tuple[str | None, str | None]
     if len(parts) < 4:
         return None, None
     return parts[1], parts[2]
+
+
+def _normalize_and_validate_tool_request(
+    ctx: StepExecutionContext,
+    session: IMcpSession,
+    method: str,
+    request_args: Any,
+) -> Any:
+    server_name = getattr(session, "server_name", "")
+    tools = get_cached_tools(ctx.engine.mcp_cache, server_name)
+    factory_metadata = getattr(ctx.engine.mcp_client_factory, "server_metadata", None)
+    if tools == [] and not factory_metadata:
+        tools = None
+    if tools is None:
+        return request_args
+
+    tool = next((candidate for candidate in tools if candidate.name == method), None)
+    if tool is None:
+        available = sorted(candidate.name for candidate in tools if candidate.name)
+        if not available:
+            raise WorkflowRuntimeException(
+                ErrorCodes.MCP_CALL_ERROR,
+                f"MCP server '{server_name}' exposes no tools; '{method}' cannot be called.",
+            )
+        raise WorkflowRuntimeException(
+            ErrorCodes.MCP_CALL_ERROR,
+            f"MCP tool '{method}' does not exist on server '{server_name}'. Available tools: [{', '.join(available)}].",
+        )
+    schema = tool.input_schema
+    if not isinstance(schema, dict):
+        return request_args
+
+    normalized = _omit_null_optional_properties(copy.deepcopy(request_args), schema)
+    errors = validate_instance(normalized, schema)
+    if errors:
+        raise WorkflowRuntimeException(
+            ErrorCodes.INPUT_VALIDATION,
+            f"mcp.call request for '{server_name}/{method}' failed runtime JSON Schema validation: {'; '.join(errors)}",
+            details={"server": server_name, "method": method, "validation_errors": errors},
+        )
+    return normalized
+
+
+def _omit_null_optional_properties(value: Any, schema: Any) -> Any:
+    if not isinstance(schema, dict):
+        return value
+    if isinstance(value, dict):
+        properties = schema.get("properties") if isinstance(schema.get("properties"), dict) else {}
+        required = {str(item) for item in schema.get("required", []) if isinstance(item, str)}
+        for key in list(value):
+            property_schema = properties.get(key)
+            if value[key] is None and key not in required and property_schema is not None:
+                value.pop(key)
+                continue
+            if property_schema is not None:
+                value[key] = _omit_null_optional_properties(value[key], property_schema)
+        return value
+    if isinstance(value, list) and isinstance(schema.get("items"), dict):
+        return [_omit_null_optional_properties(item, schema["items"]) for item in value]
+    return value
 
 
 async def _call_tool_with_optional_meta(

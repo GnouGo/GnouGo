@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from .shared import *  # noqa: F401,F403
+from gnougo_flow_core.runtime import _extract_usage_telemetry
 
 
 class _WorkflowPlanPipelineCoreMixin:
@@ -17,6 +18,14 @@ class _WorkflowPlanPipelineCoreMixin:
         model = model or "gpt-4"
         reasoning_raw = generator.get("reasoning")
         reasoning = reasoning_raw.strip() if isinstance(reasoning_raw, str) and reasoning_raw.strip() else "medium"
+        preflight = await self._run_capability_preflight_async(
+            ctx,
+            input_obj,
+            raw_prompt,
+            provider,
+            model,
+            reasoning,
+        )
 
         ctx.set_telemetry_attribute("gnougo-flow.plan.mode", "pipeline")
         ctx.add_telemetry_event(
@@ -28,6 +37,9 @@ class _WorkflowPlanPipelineCoreMixin:
         )
 
         normalized_markdown = await self._normalize_user_prompt(ctx, raw_prompt, provider, model, reasoning)
+        locked_prompt = self._build_locked_capability_prompt(preflight)
+        if locked_prompt:
+            normalized_markdown += "\n\n" + locked_prompt
         use_structured_extraction = await self._should_use_structured_pipeline_extraction(ctx, provider, model)
         pipeline_mcp_doc, pipeline_mcp_tool_contracts, pipeline_mcp_server_metadata = await self._build_pipeline_global_mcp_context(
             ctx,
@@ -49,6 +61,17 @@ class _WorkflowPlanPipelineCoreMixin:
             pipeline_mcp_doc,
             pipeline_mcp_tool_contracts,
         )
+        self._attach_pipeline_capability_ownership(extraction, preflight)
+        for spec in extraction.subworkflows:
+            spec.generation_prompt = self._build_subworkflow_generation_prompt(
+                spec.name,
+                spec.goal,
+                spec.inputs,
+                spec.outputs,
+                spec.content,
+                spec.planned_tools,
+                spec.output_schemas,
+            )
 
         generated_leaves = [
             await self._generate_leaf_workflow_async(ctx, input_obj, generator, spec)
@@ -84,15 +107,29 @@ class _WorkflowPlanPipelineCoreMixin:
         for attempt in range(1, max_attempts + 1):
             prompt = base_prompt if previous_error is None else self._build_main_assembly_repair_prompt(base_prompt, previous_response, previous_error)
             try:
-                response = await ctx.engine.call_llm_async(
-                    LLMRequest(
-                        provider=provider,
-                        model=model,
-                        prompt=prompt,
-                        reasoning=reasoning,
-                        use_background_mode=True,
+                with ctx.begin_telemetry_span(
+                    "workflow.plan.pipeline.main_assembly",
+                    "main_assembly",
+                    [
+                        ("gen_ai.operation.name", "chat"),
+                        ("gen_ai.system", provider or "unknown"),
+                        ("gen_ai.request.model", model),
+                        ("gnougo-flow.plan.attempt", attempt),
+                    ],
+                ) as span:
+                    response = await ctx.engine.call_llm_async(
+                        LLMRequest(
+                            provider=provider,
+                            model=model,
+                            prompt=prompt,
+                            reasoning=reasoning,
+                            use_background_mode=True,
+                        )
                     )
-                )
+                    self._add_usage_attributes(
+                        span, response.usage, model, provider, ctx.engine.llm_options
+                    )
+                    _extract_usage_telemetry(ctx, response.usage, model, provider)
                 previous_response = response.text
                 assembly = self._parse_generated_main_assembly(response.text or "")
                 main_inputs = self._resolve_main_input_contract(configured_main_inputs, assembly, generated_leaf_inputs)
@@ -117,6 +154,7 @@ class _WorkflowPlanPipelineCoreMixin:
                 )
                 if bool(validate.get("dry_run", False)):
                     await validate_workflow_plan_dry_run(candidate_doc, validation_mcp_tool_contracts, validation_mcp_server_metadata)
+                self._validate_locked_capabilities(candidate_doc, preflight)
 
                 final_yaml = candidate_yaml
                 final_doc = candidate_doc
@@ -157,6 +195,7 @@ class _WorkflowPlanPipelineCoreMixin:
                 "model": model,
                 "mode": "pipeline",
                 "leaf_subworkflow_count": len(generated_leaves),
+                "capability_preflight": self._capability_preflight_metadata(preflight),
             },
             "diagnostics": [],
             "pipeline": {

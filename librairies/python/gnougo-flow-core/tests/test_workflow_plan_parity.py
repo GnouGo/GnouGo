@@ -857,6 +857,47 @@ async def test_workflow_plan_policy_enforces_denied_types_on_nested_steps() -> N
 
 
 @pytest.mark.asyncio
+async def test_workflow_plan_policy_enforces_denied_types_in_finalizers() -> None:
+    source = """
+    version: 1
+    workflows:
+      main:
+        steps:
+          - id: plan
+            type: workflow.plan
+            input:
+              mode: basic
+              generator:
+                model: fake
+                instruction: "build something"
+              policy:
+                denied_step_types: [mcp.call]
+              validate:
+                compile: false
+    """
+    generated_yaml = """
+    version: 1
+    workflows:
+      generated:
+        steps: []
+        finally:
+          - id: cleanup
+            type: mcp.call
+            input: {server: files, method: delete, request: {}}
+    """
+
+    engine = WorkflowEngine()
+    engine.llm_client = CapturePlanLlm(generated_yaml)
+    compiled = WorkflowCompiler().compile(WorkflowParser.parse(source))
+    result = await engine.execute_async(compiled.workflows["main"], {})
+
+    assert result.success is False
+    assert result.error is not None
+    assert result.error.code == "TEMPLATE_POLICY"
+    assert "mcp.call" in result.error.message
+
+
+@pytest.mark.asyncio
 async def test_workflow_plan_policy_enforces_allowed_types_on_nested_steps() -> None:
     source = """
     version: 1

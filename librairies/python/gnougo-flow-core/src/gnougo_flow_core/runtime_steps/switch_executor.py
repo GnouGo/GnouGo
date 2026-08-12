@@ -86,14 +86,30 @@ Output: merged `data.steps` after selected branch execution.
             if matched:
                 run = RunResult(success=True)
                 await ctx.engine.execute_steps_async(
-                    case.steps, ctx.data, run, ctx.limits, ctx.call_depth, ctx.call_stack, ctx.telemetry_span, ct=ctx.ct,
+                    case.steps,
+                    ctx.data,
+                    run,
+                    ctx.limits,
+                    ctx.call_depth,
+                    ctx.call_stack,
+                    ctx.telemetry_span,
+                    ct=ctx.ct,
+                    is_finalization=ctx.is_finalization,
                 )
                 return dict(ctx.data.get("steps", {}))
 
         if ctx.step.default:
             run = RunResult(success=True)
             await ctx.engine.execute_steps_async(
-                ctx.step.default, ctx.data, run, ctx.limits, ctx.call_depth, ctx.call_stack, ctx.telemetry_span, ct=ctx.ct,
+                ctx.step.default,
+                ctx.data,
+                run,
+                ctx.limits,
+                ctx.call_depth,
+                ctx.call_stack,
+                ctx.telemetry_span,
+                ct=ctx.ct,
+                is_finalization=ctx.is_finalization,
             )
             return dict(ctx.data.get("steps", {}))
         return None

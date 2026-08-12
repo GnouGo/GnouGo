@@ -18,9 +18,9 @@ import yaml
 
 from .compilation import WorkflowCompiler
 from .errors import ErrorCodes, WorkflowRuntimeException
-from .expressions import ExpressionEvaluator, StringInterpolator
+from .expressions import ExpressionEvaluator, StringInterpolator, _scan_expressions
 from .mcp_cache import McpCacheHelper
-from .model_metadata import LLMModelMetadataResolver, sanitize_llm_request
+from .model_metadata import LLMModelMetadataResolver, estimate_cost, sanitize_llm_request
 from .models import (
     CompiledDocument,
     CompiledStep,
@@ -79,6 +79,7 @@ class StepExecutionContext:
     telemetry_span: ITelemetrySpan | None = None
     telemetry_attributes: dict[str, Any] = field(default_factory=dict)
     ct: asyncio.Event | None = None
+    is_finalization: bool = False
 
     def set_telemetry_attribute(self, key: str, value: Any) -> None:
         self.telemetry_attributes[key] = value
@@ -198,7 +199,12 @@ def _coerce_long(value: Any) -> int | None:
         return None
 
 
-def _extract_usage_telemetry(ctx: StepExecutionContext, usage: Any, model: str | None) -> None:
+def _extract_usage_telemetry(
+    ctx: StepExecutionContext,
+    usage: Any,
+    model: str | None,
+    provider: str | None = None,
+) -> None:
     if model and "gen_ai.request.model" not in ctx.telemetry_attributes:
         ctx.set_telemetry_attribute("gen_ai.request.model", model)
 
@@ -230,6 +236,17 @@ def _extract_usage_telemetry(ctx: StepExecutionContext, usage: Any, model: str |
             (_coerce_long(ctx.telemetry_attributes.get("gen_ai.usage.input_tokens")) or 0)
             + (_coerce_long(ctx.telemetry_attributes.get("gen_ai.usage.output_tokens")) or 0),
         )
+    if model and (input_tokens is not None or output_tokens is not None):
+        cost = estimate_cost(
+            model,
+            input_tokens=input_tokens or 0,
+            output_tokens=output_tokens or 0,
+            options=ctx.engine.llm_options,
+            provider_type=provider,
+        )
+        if cost is not None:
+            current_cost = float(ctx.telemetry_attributes.get("gen_ai.usage.cost") or 0.0)
+            ctx.set_telemetry_attribute("gen_ai.usage.cost", current_cost + cost)
 
 
 def _build_llm_selection_prompt(user_prompt: str) -> str:
@@ -364,14 +381,23 @@ def validate_input_types(workflow: WorkflowDef | None, inputs: dict[str, Any]) -
         if depth > 16:
             errors.append(f"'{path}': validation exceeded maximum depth (16).")
             return
+        if node is None:
+            return
         typ = definition.type.lower()
         if typ == "any":
             return
         if typ == "string" and not isinstance(node, str):
             errors.append(f"'{path}': expected string, got {describe(node)}.")
             return
-        if typ == "number" and not isinstance(node, (int, float)):
+        if typ == "number" and (not isinstance(node, (int, float)) or isinstance(node, bool)):
             errors.append(f"'{path}': expected number, got {describe(node)}.")
+            return
+        if typ == "integer" and (
+            isinstance(node, bool)
+            or not isinstance(node, (int, float))
+            or not float(node).is_integer()
+        ):
+            errors.append(f"'{path}': expected integer, got {describe(node)}.")
             return
         if typ == "boolean" and not isinstance(node, bool):
             errors.append(f"'{path}': expected boolean, got {describe(node)}.")
@@ -395,6 +421,8 @@ def validate_input_types(workflow: WorkflowDef | None, inputs: dict[str, Any]) -
                 for prop, prop_def in (definition.properties or {}).items():
                     if prop in node:
                         check(node[prop], prop_def, f"{path}.{prop}", depth + 1)
+                    elif prop_def.required and definition.required_properties is None:
+                        errors.append(f"'{path}': missing required property '{prop}'.")
             if definition.additional_properties:
                 known = set((definition.properties or {}).keys())
                 for key, val in node.items():
@@ -438,6 +466,8 @@ class WorkflowEngine:
         self.human_input_provider: IHumanInputProvider | None = None
         self.checkpointer: IWorkflowCheckpointer | None = None
         self.mcp_cache: McpCacheHelper = McpCacheHelper()
+        self._mcp_live_tool_sessions: dict[int, IMcpSession] = {}
+        self._mcp_live_tool_session_locks: dict[int, asyncio.Lock] = {}
 
         self.telemetry: IWorkflowTelemetry = NullWorkflowTelemetry()
         self.lm_defaults = LlmRuntimeDefaults()
@@ -481,7 +511,7 @@ class WorkflowEngine:
         self.compiled_document = workflow.document
 
         script_functions: dict[str, Any] = {}
-        sandbox = ScriptSandbox()
+        sandbox = ScriptSandbox(self.limits)
         if workflow.document and workflow.document.source.functions:
             script_functions.update(sandbox.load_functions(workflow.document.source.functions))
         if workflow.source.functions:
@@ -558,13 +588,6 @@ class WorkflowEngine:
                 ct=ct,
                 checkpoint_workflow=workflow,
             )
-            if workflow.outputs:
-                outputs: dict[str, Any] = {}
-                for key, out in workflow.outputs.items():
-                    outputs[key] = self.evaluate_output_def(out, data)
-                result.outputs = outputs
-            else:
-                result.outputs = data.get("steps")
             self.logger.info(
                 "Workflow '%s' completed successfully in %.1fms (%d steps)",
                 workflow.name,
@@ -596,6 +619,16 @@ class WorkflowEngine:
                 exc_info=True,
             )
         finally:
+            await self.execute_workflow_finalization_async(
+                workflow,
+                data,
+                result,
+                self.limits,
+                0,
+                set(),
+                span,
+            )
+            self._evaluate_workflow_outputs_into_result(workflow, data, result)
             self.telemetry.workflow_end(
                 span,
                 {
@@ -658,34 +691,30 @@ class WorkflowEngine:
                 ct=ct,
                 checkpoint_workflow=workflow,
             )
-            if workflow.outputs:
-                result.outputs = {k: self.evaluate_output_def(v, data) for k, v in workflow.outputs.items()}
-            else:
-                result.outputs = data.get("steps")
-
-            checkpoint.status = "completed"
-            checkpoint.timestamp = datetime.now(timezone.utc).isoformat()
-            checkpoint.step_outputs = copy.deepcopy(data.get("steps", {}))
-            await self.checkpointer.save_async(checkpoint)
         except WorkflowRuntimeException as exc:
             result.success = False
             result.error = exc.to_workflow_error()
-            checkpoint.status = "failed"
-            checkpoint.timestamp = datetime.now(timezone.utc).isoformat()
-            await self.checkpointer.save_async(checkpoint)
         except asyncio.CancelledError:
             result.success = False
             result.error = WorkflowRuntimeException("CANCELLED", "Workflow execution cancelled", True).to_workflow_error()
-            checkpoint.status = "paused"
-            checkpoint.timestamp = datetime.now(timezone.utc).isoformat()
-            await self.checkpointer.save_async(checkpoint)
         except Exception as exc:
             result.success = False
             result.error = WorkflowRuntimeException("INTERNAL_ERROR", str(exc), False).to_workflow_error()
-            checkpoint.status = "failed"
-            checkpoint.timestamp = datetime.now(timezone.utc).isoformat()
-            await self.checkpointer.save_async(checkpoint)
         finally:
+            await self.execute_workflow_finalization_async(
+                workflow,
+                data,
+                result,
+                self.limits,
+                0,
+                set(),
+                span,
+            )
+            self._evaluate_workflow_outputs_into_result(workflow, data, result)
+            checkpoint.status = "completed" if result.success else ("paused" if result.error and result.error.code == "CANCELLED" else "failed")
+            checkpoint.timestamp = datetime.now(timezone.utc).isoformat()
+            checkpoint.step_outputs = copy.deepcopy(data.get("steps", {}))
+            await self.checkpointer.save_async(checkpoint)
             self.telemetry.workflow_end(
                 span,
                 {
@@ -709,6 +738,7 @@ class WorkflowEngine:
         start_from_index: int = 0,
         ct: asyncio.Event | None = None,
         checkpoint_workflow: CompiledWorkflow | None = None,
+        is_finalization: bool = False,
     ) -> None:
         parent_span = parent_span or self.telemetry.workflow_start({})
         for index in range(start_from_index, len(steps)):
@@ -749,6 +779,11 @@ class WorkflowEngine:
                         resolved_input = resolved
                     else:
                         resolved_input = self._interpolator.resolve_deep(step.source.input, data)
+                        if step.type == "workflow.plan":
+                            resolved_input = self._preserve_literal_repair_yaml(
+                                step.source.input,
+                                resolved_input,
+                            )
 
                 step_span = self.telemetry.step_start(
                     parent_span,
@@ -788,6 +823,7 @@ class WorkflowEngine:
                     call_stack,
                     step_span,
                     ct=ct,
+                    is_finalization=is_finalization,
                 )
 
                 data.setdefault("steps", {})[step.id] = output
@@ -817,7 +853,7 @@ class WorkflowEngine:
                     (time.perf_counter() - started) * 1000.0,
                 )
                 self.telemetry.step_end(step_span, {"status": StepStatus.SUCCEEDED, "output": output})
-                if call_depth == 0 and checkpoint_workflow is not None:
+                if not is_finalization and call_depth == 0 and checkpoint_workflow is not None:
                     await self._save_checkpoint_async(checkpoint_workflow, data, index + 1)
             except WorkflowRuntimeException as exc:
                 step_result.error = exc.to_workflow_error()
@@ -854,6 +890,7 @@ class WorkflowEngine:
         call_stack: set[str],
         step_span: ITelemetrySpan | None,
         ct: asyncio.Event | None = None,
+        is_finalization: bool = False,
     ) -> Any:
         retry = step.source.retry
         max_attempts = retry.max if retry else 1
@@ -877,6 +914,7 @@ class WorkflowEngine:
                     call_stack=call_stack,
                     telemetry_span=step_span,
                     ct=ct,
+                    is_finalization=is_finalization,
                 )
 
                 if resolved_input is not None:
@@ -905,6 +943,138 @@ class WorkflowEngine:
 
         raise last_exc or WorkflowRuntimeException(ErrorCodes.EVAL_ERROR, "Execution failed after retries")
 
+    def _evaluate_workflow_outputs_into_result(
+        self,
+        workflow: CompiledWorkflow,
+        data: dict[str, Any],
+        result: RunResult,
+    ) -> None:
+        if not result.success:
+            return
+        try:
+            if workflow.outputs:
+                result.outputs = {key: self.evaluate_output_def(output, data) for key, output in workflow.outputs.items()}
+            else:
+                result.outputs = copy.deepcopy(data.get("steps", {}))
+        except WorkflowRuntimeException as exc:
+            result.success = False
+            result.error = exc.to_workflow_error()
+        except Exception as exc:
+            result.success = False
+            result.error = WorkflowRuntimeException("INTERNAL_ERROR", str(exc), False).to_workflow_error()
+
+    async def execute_workflow_finalization_async(
+        self,
+        workflow: CompiledWorkflow,
+        data: dict[str, Any],
+        result: RunResult,
+        limits: ExecutionLimits,
+        call_depth: int,
+        call_stack: set[str],
+        parent_span: ITelemetrySpan | None,
+        inherited_finalization_ct: asyncio.Event | None = None,
+    ) -> None:
+        if not workflow.finally_:
+            return
+
+        data["workflow_error"] = self._workflow_error_to_dict(result.error)
+        final_limits = limits
+        final_ct = inherited_finalization_ct
+        if inherited_finalization_ct is None:
+            final_limits = limits.model_copy(deep=True)
+            final_limits.max_total_steps_executed = self._total_steps_executed + max(1, limits.max_finalization_steps)
+            final_limits.run_id = None
+            final_ct = asyncio.Event()
+
+        self.logger.info(
+            "Workflow '%s' running %d finalization step(s)",
+            workflow.name,
+            len(workflow.finally_),
+        )
+
+        finalization_error = None
+        try:
+            execution = self.execute_steps_async(
+                workflow.finally_,
+                data,
+                result,
+                final_limits,
+                call_depth,
+                call_stack,
+                parent_span,
+                ct=final_ct,
+                is_finalization=True,
+            )
+            if inherited_finalization_ct is not None:
+                await execution
+            else:
+                await asyncio.wait_for(execution, timeout=max(1, limits.finalization_timeout_seconds))
+        except asyncio.TimeoutError:
+            finalization_error = WorkflowRuntimeException(
+                ErrorCodes.WORKFLOW_FINALIZATION_TIMEOUT,
+                f"Workflow finalization exceeded {max(1, limits.finalization_timeout_seconds)} seconds.",
+                retryable=True,
+            ).to_workflow_error()
+        except asyncio.CancelledError:
+            if inherited_finalization_ct is not None:
+                raise
+            finalization_error = WorkflowRuntimeException(
+                ErrorCodes.WORKFLOW_FINALIZATION_TIMEOUT,
+                f"Workflow finalization exceeded {max(1, limits.finalization_timeout_seconds)} seconds.",
+                retryable=True,
+            ).to_workflow_error()
+        except WorkflowRuntimeException as exc:
+            finalization_error = exc.to_workflow_error()
+        except Exception as exc:
+            finalization_error = WorkflowRuntimeException(
+                ErrorCodes.WORKFLOW_FINALIZATION_FAILED,
+                str(exc),
+            ).to_workflow_error()
+
+        if finalization_error is not None:
+            self.logger.error(
+                "Workflow '%s' finalization failed: [%s] %s",
+                workflow.name,
+                finalization_error.code,
+                finalization_error.message,
+            )
+            self._attach_finalization_error(result, finalization_error)
+
+    @staticmethod
+    def _workflow_error_to_dict(error: Any) -> dict[str, Any] | None:
+        if error is None:
+            return None
+        value = {
+            "code": error.code,
+            "type": error.type,
+            "message": error.message,
+            "retryable": error.retryable,
+        }
+        if error.details is not None:
+            value["details"] = copy.deepcopy(error.details)
+        return value
+
+    @classmethod
+    def _attach_finalization_error(cls, result: RunResult, finalization_error: Any) -> None:
+        finalization_node = cls._workflow_error_to_dict(finalization_error)
+        if result.success or result.error is None:
+            result.success = False
+            result.error = WorkflowRuntimeException(
+                ErrorCodes.WORKFLOW_FINALIZATION_FAILED,
+                "Workflow finalization failed.",
+                retryable=finalization_error.retryable,
+                details={"finalization_errors": [finalization_node]},
+            ).to_workflow_error()
+            return
+
+        details = copy.deepcopy(result.error.details) if isinstance(result.error.details, dict) else {}
+        errors = details.setdefault("finalization_errors", [])
+        if not isinstance(errors, list):
+            errors = []
+            details["finalization_errors"] = errors
+        errors.append(finalization_node)
+        result.error.details = details
+
     def _handle_on_error(self, on_error: OnErrorDef, exc: WorkflowRuntimeException, step: CompiledStep, data: dict[str, Any]) -> tuple[str, Any]:
         error_ctx = {
             **data,
@@ -930,6 +1100,27 @@ class WorkflowEngine:
         if key in ctx.data.get("steps", {}):
             return ctx.data["steps"][key]
         return ctx.step.source.input
+
+    @staticmethod
+    def _preserve_literal_repair_yaml(source_input: Any, resolved_input: Any) -> Any:
+        if not isinstance(source_input, dict) or not isinstance(resolved_input, dict):
+            return resolved_input
+        source_repair = source_input.get("repair")
+        resolved_repair = resolved_input.get("repair")
+        if not isinstance(source_repair, dict) or not isinstance(resolved_repair, dict):
+            return resolved_input
+        existing_yaml = source_repair.get("existing_yaml")
+        if not isinstance(existing_yaml, str) or "${" not in existing_yaml:
+            return resolved_input
+        expressions = _scan_expressions(existing_yaml)
+        is_exact_expression = (
+            len(expressions) == 1
+            and existing_yaml[: expressions[0][0]].isspace()
+            and existing_yaml[expressions[0][1] :].isspace()
+        )
+        if not is_exact_expression:
+            resolved_repair["existing_yaml"] = existing_yaml
+        return resolved_input
 
     def evaluate_output_def(self, definition: Any, data: dict[str, Any]) -> Any:
         if definition.expr:

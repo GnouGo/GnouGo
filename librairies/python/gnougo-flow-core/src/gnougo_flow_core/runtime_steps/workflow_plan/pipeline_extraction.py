@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from .shared import *  # noqa: F401,F403
+from gnougo_flow_core.runtime import _extract_usage_telemetry
 
 
 class _WorkflowPlanPipelineExtractionMixin:
@@ -134,6 +135,7 @@ class _WorkflowPlanPipelineExtractionMixin:
             "- Structured `planned_tools` must list every MCP server tool or prompt this leaf is expected to call directly.\n"
             "- Mark planned tools as required when omitting that MCP call would violate the leaf goal.\n"
             "- For each relevant MCP tool or prompt, add a structured planned_tools entry with the exact server name, kind, method name, purpose, consumed fields, and produced fields.\n"
+            "- Preserve capability-preflight catalog IDs and locked operation IDs in the corresponding leaf and planned-tool metadata when they are present in the normalized request.\n"
             "- External-work leaves that clone, read/fetch/query/list external data, write, delete, cleanup, report, post, push, or call outside systems must declare concrete planned_tools when matching MCP tools/prompts are documented above.\n"
             "- If no MCP tool or prompt is required for a leaf, use an empty planned_tools array.\n"
             if use_structured_extraction
@@ -308,7 +310,8 @@ class _WorkflowPlanPipelineExtractionMixin:
             response = await ctx.engine.call_llm_async(
                 LLMRequest(provider=provider, model=model, prompt=prompt, reasoning=reasoning, use_background_mode=True)
             )
-            self._add_usage_attributes(span, response.usage)
+            self._add_usage_attributes(span, response.usage, model, provider, ctx.engine.llm_options)
+            _extract_usage_telemetry(ctx, response.usage, model, provider)
         text = self._strip_markdown_code_fence(textwrap.dedent(response.text or "")).strip()
         if not text:
             raise WorkflowRuntimeException(ErrorCodes.TEMPLATE_PLAN, f"workflow.plan pipeline phase '{phase}' returned empty text.")
@@ -350,7 +353,8 @@ class _WorkflowPlanPipelineExtractionMixin:
                     structured_output_strict=True,
                 )
             )
-            self._add_usage_attributes(span, response.usage)
+            self._add_usage_attributes(span, response.usage, model, provider, ctx.engine.llm_options)
+            _extract_usage_telemetry(ctx, response.usage, model, provider)
         payload = response.json_payload
         if not isinstance(payload, dict) and response.text:
             try:
@@ -455,6 +459,8 @@ class _WorkflowPlanPipelineExtractionMixin:
                                 ],
                             },
                             "concrete_outcome": {"type": "string"},
+                            "catalog_ids": {"type": "array", "items": {"type": "string"}},
+                            "locked_operations": {"type": "array", "items": {"type": "string"}},
                             "inputs": {"type": "array", "items": nested_typed_field},
                             "outputs": {"type": "array", "items": nested_typed_field},
                             "extract_reason": {"type": "string"},
@@ -473,6 +479,11 @@ class _WorkflowPlanPipelineExtractionMixin:
                                         "purpose": {"type": "string"},
                                         "consumes": {"type": "array", "items": {"type": "string"}},
                                         "produces": {"type": "array", "items": {"type": "string"}},
+                                        "catalog_ids": {"type": "array", "items": {"type": "string"}},
+                                        "locked_operation_ids": {
+                                            "type": "array",
+                                            "items": {"type": "string"},
+                                        },
                                     },
                                 },
                             },
@@ -509,6 +520,10 @@ class _WorkflowPlanPipelineExtractionMixin:
         spec.work_kind = str(item.get("work_kind") or "")
         spec.contract_role = str(item.get("contract_role") or "")
         spec.concrete_outcome = str(item.get("concrete_outcome") or "")
+        spec.catalog_ids = [str(value) for value in item.get("catalog_ids", []) if isinstance(value, str)]
+        spec.locked_operations = [
+            str(value) for value in item.get("locked_operations", []) if isinstance(value, str)
+        ]
         spec.input_schemas = self._typed_fields_to_schema_map(item.get("inputs"))
         spec.output_schemas = self._typed_fields_to_schema_map(item.get("outputs"))
         if spec.input_schemas:
@@ -533,6 +548,12 @@ class _WorkflowPlanPipelineExtractionMixin:
                     purpose=str(tool.get("purpose") or ""),
                     consumes=[str(value) for value in tool.get("consumes", []) if isinstance(value, str)],
                     produces=[str(value) for value in tool.get("produces", []) if isinstance(value, str)],
+                    catalog_ids=[str(value) for value in tool.get("catalog_ids", []) if isinstance(value, str)],
+                    locked_operation_ids=[
+                        str(value)
+                        for value in tool.get("locked_operation_ids", [])
+                        if isinstance(value, str)
+                    ],
                 )
             )
         spec.planned_tools = planned_tools

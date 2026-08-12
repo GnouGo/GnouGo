@@ -29,6 +29,7 @@ def test_contract_normalizer_builds_workflow_output_from_json_schema_union() -> 
     assert output == {
         "expr": "${data.steps.extract.json}",
         "type": "object",
+        "nullable": True,
         "properties": {
             "title": {"type": "string"},
             "count": {"type": "integer"},

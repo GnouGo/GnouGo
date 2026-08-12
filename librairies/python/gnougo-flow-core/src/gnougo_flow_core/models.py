@@ -29,6 +29,7 @@ class OnErrorDef(BaseModel):
 class InputDef(BaseModel):
     type: str = "any"
     required: bool = True
+    nullable: bool = False
     default: Any = None
     items: "InputDef | None" = None
     properties: dict[str, "InputDef"] | None = None
@@ -40,6 +41,7 @@ class InputDef(BaseModel):
 class OutputDef(BaseModel):
     expr: str = ""
     type: str = "any"
+    nullable: bool = False
     description: str | None = None
     items: "OutputDef | None" = None
     properties: dict[str, "OutputDef"] | None = None
@@ -67,6 +69,7 @@ class StepDef(BaseModel):
     if_: str | None = Field(default=None, alias="if")
     input: Any = None
     output: str | None = None
+    output_schema: Any = None
     retry: RetryPolicy | None = None
     on_error: OnErrorDef | None = None
     steps: list["StepDef"] | None = None
@@ -82,7 +85,10 @@ class WorkflowDef(BaseModel):
     inputs: dict[str, InputDef] | None = None
     functions: str | None = None
     steps: list[StepDef] = Field(default_factory=list)
+    finally_: list[StepDef] = Field(default_factory=list, alias="finally")
     outputs: dict[str, OutputDef] | None = None
+
+    model_config = ConfigDict(populate_by_name=True)
 
 
 class WorkflowSkillDef(BaseModel):
@@ -132,8 +138,11 @@ class CompiledWorkflow(BaseModel):
     name: str
     source: WorkflowDef
     steps: list[CompiledStep] = Field(default_factory=list)
+    finally_: list[CompiledStep] = Field(default_factory=list, alias="finally")
     outputs: dict[str, OutputDef] | None = None
     document: "CompiledDocument | None" = None
+
+    model_config = ConfigDict(populate_by_name=True)
 
 
 class CompiledDocument(BaseModel):
@@ -184,13 +193,19 @@ class ExecutionLimits(BaseModel):
     max_parallel_branches: int = 50
     max_loop_iterations: int = 1000
     max_expression_ast_nodes: int = 500
-    max_expression_statements: int = 100_000
+    max_expression_statements: int = 1_000_000
     expression_timeout_seconds: int = 15
-    expression_memory_limit_bytes: int = 50_000_000
+    expression_memory_limit_bytes: int = 1_000_000_000
     max_switch_cases: int = 100
     max_function_call_depth: int = 50
+    finalization_timeout_seconds: int = 30
+    max_finalization_steps: int = 50
     log_step_content: bool = False
     run_id: str | None = None
+    execution_id: str | None = None
+    agent_id: str | None = None
+    agent_name: str | None = None
+    tenant_id: str | None = None
 
 
 class LlmRuntimeDefaults(BaseModel):
@@ -346,6 +361,7 @@ class McpToolInfo(BaseModel):
     name: str
     description: str | None = None
     input_schema: Any = None
+    meta: Any = None
     output_schema: Any = Field(default=None, alias="outputSchema")
     example_response: Any = Field(default=None, alias="exampleResponse")
 

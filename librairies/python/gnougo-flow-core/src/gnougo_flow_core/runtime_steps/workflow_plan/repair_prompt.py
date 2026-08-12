@@ -89,7 +89,7 @@ class _WorkflowPlanRepairPromptMixin:
 
         calls: list[tuple[str, str, list[str], Any]] = []
         for workflow in doc.workflows.values():
-            for step in cls._enumerate_steps(workflow.steps):
+            for step in cls._enumerate_steps([*workflow.steps, *workflow.finally_]):
                 if step.type != "mcp.call" or not isinstance(step.input, dict):
                     continue
                 server = step.input.get("server")
@@ -235,6 +235,7 @@ class _WorkflowPlanRepairPromptMixin:
 
         for workflow in doc.workflows.values():
             visit(workflow.steps, ())
+            visit(workflow.finally_, ("finally",))
         return lookup
 
 

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from .shared import *  # noqa: F401,F403
+from gnougo_flow_core.runtime import _extract_usage_telemetry
 
 
 class _WorkflowPlanMcpPrefilterMixin:
@@ -168,7 +169,10 @@ class _WorkflowPlanMcpPrefilterMixin:
                         ("gnougo-flow.plan.phase", "mcp_server_prefilter"),
                     ],
                 )
-            self._add_usage_attributes(prefilter_span, response.usage)
+            self._add_usage_attributes(
+                prefilter_span, response.usage, str(model), provider, ctx.engine.llm_options
+            )
+            _extract_usage_telemetry(ctx, response.usage, str(model), provider)
             self._add_prefilter_usage_event(ctx, response.usage, str(model), provider, "mcp_server_prefilter", "gnougo-flow.plan.prefilter.servers.usage")
 
             payload = response.json_payload

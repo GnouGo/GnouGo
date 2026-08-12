@@ -87,7 +87,8 @@ Output: `{ outputs, workflow, run: { steps_executed, success } }`.
             }
         )
         started = time.perf_counter()
-        sub_error: Exception | None = None
+        previous_document = ctx.engine.compiled_document
+        ctx.engine.compiled_document = compiled
         try:
             await ctx.engine.execute_steps_async(
                 workflow.steps,
@@ -98,22 +99,51 @@ Output: `{ outputs, workflow, run: { steps_executed, success } }`.
                 ctx.call_stack,
                 parent_span=sub_span,
                 ct=ctx.ct,
+                is_finalization=ctx.is_finalization,
             )
-        except Exception as exc:
-            sub_error = exc
+        except WorkflowRuntimeException as exc:
             rr.success = False
-            raise
+            rr.error = exc.to_workflow_error()
+        except asyncio.CancelledError:
+            rr.success = False
+            rr.error = WorkflowRuntimeException(
+                "CANCELLED", "Workflow execution cancelled", True
+            ).to_workflow_error()
+        except Exception as exc:
+            rr.success = False
+            rr.error = WorkflowRuntimeException(
+                "INTERNAL_ERROR", str(exc), False
+            ).to_workflow_error()
         finally:
-            ctx.engine.telemetry.workflow_end(
-                sub_span,
-                {
-                    "success": rr.success and sub_error is None,
-                    "steps_executed": len(rr.step_results),
-                    "duration": time.perf_counter() - started,
-                    "error_code": sub_error.code if isinstance(sub_error, WorkflowRuntimeException) else ("INTERNAL_ERROR" if sub_error else None),
-                    "error_message": str(sub_error) if sub_error else None,
-                },
-            )
+            try:
+                await ctx.engine.execute_workflow_finalization_async(
+                    workflow,
+                    sub_data,
+                    rr,
+                    ctx.limits,
+                    ctx.call_depth + 1,
+                    ctx.call_stack,
+                    sub_span,
+                    inherited_finalization_ct=ctx.ct if ctx.is_finalization else None,
+                )
+                ctx.engine.telemetry.workflow_end(
+                    sub_span,
+                    {
+                        "success": rr.success,
+                        "steps_executed": len(rr.step_results),
+                        "duration": time.perf_counter() - started,
+                        "error_code": rr.error.code if rr.error else None,
+                        "error_message": rr.error.message if rr.error else None,
+                    },
+                )
+            finally:
+                ctx.engine.compiled_document = previous_document
+
+        if not rr.success:
+            error = rr.error or WorkflowRuntimeException(
+                "INTERNAL_ERROR", "Generated workflow failed."
+            ).to_workflow_error()
+            raise WorkflowRuntimeException(error.code, error.message, error.retryable, error.details)
 
         outputs = (
             {k: ctx.engine.evaluate_output_def(v, sub_data) for k, v in (workflow.outputs or {}).items()}

@@ -93,8 +93,17 @@ Output: `{ outputs: <workflow outputs>, workflow: <name> }`.
         call_stack = set(ctx.call_stack)
         if resolution.call_stack_key:
             call_stack.add(resolution.call_stack_key)
+        raw_args = copy.deepcopy(args) if isinstance(args, dict) else dict(args or {})
+        resolved_args = apply_workflow_input_defaults(sub.source, raw_args)
+        input_errors = validate_input_types(sub.source, resolved_args)
+        if input_errors:
+            raise WorkflowRuntimeException(
+                ErrorCodes.INPUT_VALIDATION,
+                f"Input validation failed for called workflow '{resolution.workflow_name}': {'; '.join(input_errors)}",
+                details={"workflow": resolution.workflow_name, "validation_errors": input_errors},
+            )
         sub_data = {
-            "inputs": copy.deepcopy(args) if isinstance(args, (dict, list)) else dict(args or {}),
+            "inputs": resolved_args,
             "steps": {},
             "env": copy.deepcopy(ctx.data.get("env", {})),
         }
@@ -102,21 +111,82 @@ Output: `{ outputs: <workflow outputs>, workflow: <name> }`.
         previous_document = ctx.engine.compiled_document
         if sub.document is not None:
             ctx.engine.compiled_document = sub.document
+        sub_span = ctx.engine.telemetry.workflow_start(
+            {
+                "workflow_name": resolution.workflow_name,
+                "document_name": sub.document.source.name if sub.document and sub.document.source else None,
+                "inputs": copy.deepcopy(sub_data["inputs"]),
+                "source_text": sub.document.source.raw_yaml if sub.document and sub.document.source else None,
+                "source_format": "yaml",
+            }
+        )
+        started = time.perf_counter()
         try:
-            await ctx.engine.execute_steps_async(
-                sub.steps,
-                sub_data,
-                rr,
-                ctx.limits,
-                ctx.call_depth + 1,
-                call_stack,
-                ctx.telemetry_span,
-                ct=ctx.ct,
-            )
+            try:
+                await ctx.engine.execute_steps_async(
+                    sub.steps,
+                    sub_data,
+                    rr,
+                    ctx.limits,
+                    ctx.call_depth + 1,
+                    call_stack,
+                    sub_span,
+                    ct=ctx.ct,
+                    is_finalization=ctx.is_finalization,
+                )
+            except WorkflowRuntimeException as exc:
+                rr.success = False
+                rr.error = exc.to_workflow_error()
+            except asyncio.CancelledError:
+                rr.success = False
+                rr.error = WorkflowRuntimeException(
+                    "CANCELLED", "Workflow execution cancelled", True
+                ).to_workflow_error()
+            except Exception as exc:
+                rr.success = False
+                rr.error = WorkflowRuntimeException(
+                    "INTERNAL_ERROR", str(exc), False
+                ).to_workflow_error()
+            finally:
+                await ctx.engine.execute_workflow_finalization_async(
+                    sub,
+                    sub_data,
+                    rr,
+                    ctx.limits,
+                    ctx.call_depth + 1,
+                    call_stack,
+                    sub_span,
+                    inherited_finalization_ct=ctx.ct if ctx.is_finalization else None,
+                )
         finally:
             ctx.engine.compiled_document = previous_document
-        if sub.outputs:
-            outputs = {k: ctx.engine.evaluate_output_def(v, sub_data) for k, v in sub.outputs.items()}
-        else:
-            outputs = copy.deepcopy(sub_data.get("steps", {}))
+            ctx.engine.telemetry.workflow_end(
+                sub_span,
+                {
+                    "success": rr.success,
+                    "steps_executed": len(rr.step_results),
+                    "duration": time.perf_counter() - started,
+                    "error_code": rr.error.code if rr.error else None,
+                    "error_message": rr.error.message if rr.error else None,
+                },
+            )
+
+        if not rr.success:
+            error = rr.error or WorkflowRuntimeException(
+                "INTERNAL_ERROR", "Called workflow failed."
+            ).to_workflow_error()
+            details = copy.deepcopy(error.details) if isinstance(error.details, dict) else {}
+            failed_step = next((item for item in reversed(rr.step_results) if item.error is not None), None)
+            details.setdefault("workflow", resolution.workflow_name)
+            if failed_step is not None:
+                details.setdefault("step_id", failed_step.step_id)
+                details.setdefault("step_type", failed_step.step_type)
+                details.setdefault("step_status", failed_step.status.value)
+            raise WorkflowRuntimeException(error.code, error.message, error.retryable, details)
+
+        outputs = (
+            {k: ctx.engine.evaluate_output_def(v, sub_data) for k, v in sub.outputs.items()}
+            if sub.outputs
+            else copy.deepcopy(sub_data.get("steps", {}))
+        )
         return {"outputs": outputs, "workflow": resolution.workflow_name}

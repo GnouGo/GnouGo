@@ -64,6 +64,7 @@ Output: `{ branches: [<branch_steps_0>, <branch_steps_1>, ...] }` in branch orde
                     set(ctx.call_stack),
                     ctx.telemetry_span,
                     ct=ctx.ct,
+                    is_finalization=ctx.is_finalization,
                 )
                 return branch_index, branch_data
             finally:

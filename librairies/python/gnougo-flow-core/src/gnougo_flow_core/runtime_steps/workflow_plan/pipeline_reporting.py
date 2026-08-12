@@ -32,6 +32,8 @@ class _WorkflowPlanPipelineReportingMixin:
                     "work_kind": spec.work_kind,
                     "contract_role": spec.contract_role,
                     "concrete_outcome": spec.concrete_outcome,
+                    "catalog_ids": list(spec.catalog_ids),
+                    "locked_operations": list(spec.locked_operations),
                     "inputs": spec.inputs,
                     "outputs": spec.outputs,
                     "input_schemas": copy.deepcopy(spec.input_schemas),
@@ -47,6 +49,8 @@ class _WorkflowPlanPipelineReportingMixin:
                             "purpose": tool.purpose,
                             "consumes": list(tool.consumes),
                             "produces": list(tool.produces),
+                            "catalog_ids": list(tool.catalog_ids),
+                            "locked_operation_ids": list(tool.locked_operation_ids),
                         }
                         for tool in spec.planned_tools
                     ],
@@ -77,8 +81,17 @@ class _WorkflowPlanPipelineReportingMixin:
         final_doc: WorkflowDocument,
     ) -> dict[str, Any]:
         main = final_doc.workflows.get("main")
-        main_steps = list(self._enumerate_steps(main.steps)) if main is not None else []
-        total_step_count = sum(1 for workflow in final_doc.workflows.values() for _ in self._enumerate_steps(workflow.steps))
+        main_steps = list(self._enumerate_steps([*main.steps, *main.finally_])) if main is not None else []
+        total_step_count = sum(
+            1
+            for workflow in final_doc.workflows.values()
+            for _ in self._enumerate_steps([*workflow.steps, *workflow.finally_])
+        )
+        finalization_step_count = sum(
+            1
+            for workflow in final_doc.workflows.values()
+            for _ in self._enumerate_steps(workflow.finally_)
+        )
         main_dataflow_diagnostics = analyze_external_artifact_readiness(final_doc)
         root_causes = list(copy.deepcopy(extraction.root_causes))
         if main_dataflow_diagnostics:
@@ -113,6 +126,7 @@ class _WorkflowPlanPipelineReportingMixin:
                 "leaf_blueprint_count": len(leaves),
                 "main_step_count": len(main_steps),
                 "total_step_count": total_step_count,
+                "finalization_step_count": finalization_step_count,
                 "external_work_leaf_count": sum(1 for spec in extraction.subworkflows if spec.work_kind == "external_work"),
                 "deterministic_shaping_leaf_count": sum(1 for spec in extraction.subworkflows if spec.work_kind == "deterministic_shaping"),
                 "orchestration_leaf_count": sum(1 for spec in extraction.subworkflows if spec.work_kind == "orchestration"),
@@ -180,7 +194,12 @@ class _WorkflowPlanPipelineReportingMixin:
                 "main_retry_count": main_retry_count,
                 "repair_count": main_retry_count,
                 "root_cause_count": len(extraction.root_causes),
-                "main_step_count": len(main.steps) if main is not None else 0,
+                "main_step_count": (
+                    len(list(self._enumerate_steps([*main.steps, *main.finally_]))) if main is not None else 0
+                ),
+                "main_finalization_step_count": (
+                    len(list(self._enumerate_steps(main.finally_))) if main is not None else 0
+                ),
                 "workflow_count": len(final_doc.workflows),
             },
             "mcp_context": self._build_pipeline_mcp_context_json(pipeline_mcp_doc, pipeline_mcp_tool_contracts),
@@ -247,6 +266,8 @@ class _WorkflowPlanPipelineReportingMixin:
                 "work_kind": spec.work_kind,
                 "contract_role": spec.contract_role,
                 "concrete_outcome": spec.concrete_outcome,
+                "catalog_ids": list(spec.catalog_ids),
+                "locked_operations": list(spec.locked_operations),
                 "extract_reason": spec.extract_reason,
                 "extraction_score": None,
                 "planned_tools": self._planned_tools_json(spec.planned_tools),
@@ -258,11 +279,14 @@ class _WorkflowPlanPipelineReportingMixin:
             }
             if leaf is not None:
                 workflow = leaf.document.workflows.get(leaf.workflow_name)
-                steps = list(self._enumerate_steps(workflow.steps)) if workflow else []
+                steps = list(self._enumerate_steps([*workflow.steps, *workflow.finally_])) if workflow else []
                 item.update(
                     {
                         "generated_workflow_name": leaf.workflow_name,
                         "step_count": len(steps),
+                        "finalization_step_count": (
+                            len(list(self._enumerate_steps(workflow.finally_))) if workflow else 0
+                        ),
                         "action_step_count": sum(1 for step in steps if self._is_executable_action_step_type(step.type)),
                         "blueprint": self._build_pipeline_leaf_blueprint_json(leaf),
                         "input_contracts": self._build_leaf_input_contracts(leaf),
@@ -307,6 +331,8 @@ class _WorkflowPlanPipelineReportingMixin:
                     "work_kind": spec.work_kind if spec else "",
                     "contract_role": spec.contract_role if spec else "",
                     "concrete_outcome": spec.concrete_outcome if spec else "",
+                    "catalog_ids": list(spec.catalog_ids) if spec else [],
+                    "locked_operations": list(spec.locked_operations) if spec else [],
                     "extraction_score": None,
                     "extract_reason": spec.extract_reason if spec else "",
                     "planned_tools": self._planned_tools_json(spec.planned_tools) if spec else [],
@@ -338,11 +364,13 @@ class _WorkflowPlanPipelineReportingMixin:
     def _build_pipeline_leaf_blueprint_json(self, leaf: _GeneratedLeafWorkflow) -> dict[str, Any]:
         workflow = leaf.document.workflows.get(leaf.workflow_name)
         steps = workflow.steps if workflow is not None else []
+        finalizers = workflow.finally_ if workflow is not None else []
         return {
             "leaf": leaf.name,
             "workflow_name": leaf.workflow_name,
             "summary": (leaf.spec.goal if leaf.spec else leaf.name),
             "steps": [self._build_step_inspection_json(step) for step in steps],
+            "finally": [self._build_step_inspection_json(step) for step in finalizers],
             "outputs": self._build_leaf_output_contracts(leaf),
         }
 
@@ -358,6 +386,7 @@ class _WorkflowPlanPipelineReportingMixin:
             "has_functions": bool(workflow.functions and workflow.functions.strip()),
             "inputs": self._build_input_schema_map(workflow.inputs or {}),
             "steps": [self._build_step_inspection_json(step) for step in workflow.steps],
+            "finally": [self._build_step_inspection_json(step) for step in workflow.finally_],
             "outputs": self._build_workflow_output_inspection_json(workflow.outputs or {}, skill_outputs),
         }
 
@@ -527,6 +556,8 @@ class _WorkflowPlanPipelineReportingMixin:
                 "purpose": tool.purpose,
                 "consumes": list(tool.consumes),
                 "produces": list(tool.produces),
+                "catalog_ids": list(tool.catalog_ids),
+                "locked_operation_ids": list(tool.locked_operation_ids),
             }
             for tool in planned_tools
         ]

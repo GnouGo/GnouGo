@@ -61,6 +61,12 @@ class _WorkflowPlanPipelineGenerationMixin:
                         (
                             f"- {tool.server}/{tool.method} ({tool.kind}, {'required' if tool.required else 'optional'}): "
                             f"{tool.purpose or 'Use this capability when implementing the leaf.'}"
+                            + (
+                                f" [catalog_ids={','.join(tool.catalog_ids)}; "
+                                f"locked_operations={','.join(tool.locked_operation_ids)}]"
+                                if tool.catalog_ids or tool.locked_operation_ids
+                                else ""
+                            )
                         )
                         for tool in planned_tools
                     ],
@@ -256,7 +262,8 @@ class _WorkflowPlanPipelineGenerationMixin:
         self._enforce_required_planned_tools_used(spec, doc)
         self._enforce_leaf_action_quality(spec, doc)
         self._enforce_leaf_public_output_contracts(spec, doc)
-        for step in self._enumerate_steps(doc.workflows[workflow_name].steps):
+        generated_workflow = doc.workflows[workflow_name]
+        for step in self._enumerate_steps([*generated_workflow.steps, *generated_workflow.finally_]):
             if step.type in {"workflow.call", "workflow.plan"}:
                 raise WorkflowRuntimeException(ErrorCodes.TEMPLATE_POLICY, f"Leaf workflow '{spec.name}' must not contain step type '{step.type}'.")
         parsed = yaml.safe_load(yaml_text)
@@ -290,7 +297,7 @@ class _WorkflowPlanPipelineGenerationMixin:
 
     def _workflow_contains_planned_mcp_tool_call(self, doc: WorkflowDocument, planned_tool: _PipelinePlannedTool) -> bool:
         for workflow in doc.workflows.values():
-            for step in self._enumerate_steps(workflow.steps):
+            for step in self._enumerate_steps([*workflow.steps, *workflow.finally_]):
                 if step.type != "mcp.call" or not isinstance(step.input, dict):
                     continue
                 server = step.input.get("server")
@@ -309,7 +316,11 @@ class _WorkflowPlanPipelineGenerationMixin:
     def _enforce_leaf_action_quality(self, spec: _WorkflowPipelineSubworkflowSpec, doc: WorkflowDocument) -> None:
         if spec.work_kind != "external_work" and spec.contract_role != "external_action":
             return
-        steps = [step for workflow in doc.workflows.values() for step in self._enumerate_steps(workflow.steps)]
+        steps = [
+            step
+            for workflow in doc.workflows.values()
+            for step in self._enumerate_steps([*workflow.steps, *workflow.finally_])
+        ]
         external_steps = [step for step in steps if step.type in {"mcp.call", "llm.call", "human.input", "workflow.execute"}]
         if external_steps:
             return

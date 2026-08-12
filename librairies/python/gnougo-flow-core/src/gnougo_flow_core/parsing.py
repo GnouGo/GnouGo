@@ -107,6 +107,11 @@ class WorkflowParser:
             inputs=inputs,
             functions=node.get("functions"),
             steps=[WorkflowParser._parse_step(step) for step in steps_raw],
+            **{
+                "finally": [WorkflowParser._parse_step(step) for step in node.get("finally", [])]
+                if isinstance(node.get("finally"), list)
+                else []
+            },
             outputs=outputs,
         )
 
@@ -146,13 +151,20 @@ class WorkflowParser:
         if not isinstance(node, dict):
             return InputDef()
 
+        type_name, nullable = WorkflowParser._parse_contract_type(node)
         required_node = node.get("required")
         required = required_node if isinstance(required_node, bool) else True
-        required_properties = required_node if isinstance(required_node, list) and required_node else None
+        if "required_properties" in node:
+            raw_required_properties = node.get("required_properties")
+            required_properties = [str(value) for value in raw_required_properties] if isinstance(raw_required_properties, list) else []
+        else:
+            # Preserve the historical Python spelling as a compatible extension.
+            required_properties = [str(value) for value in required_node] if isinstance(required_node, list) else None
 
         return InputDef(
-            type=node.get("type", "any"),
+            type=type_name,
             required=required,
+            nullable=nullable,
             default=node.get("default"),
             items=WorkflowParser._parse_input_def(node["items"]) if "items" in node else None,
             properties={k: WorkflowParser._parse_input_def(v) for k, v in node.get("properties", {}).items()}
@@ -174,9 +186,11 @@ class WorkflowParser:
 
         # Long form with explicit expression.
         if "expr" in node:
+            type_name, nullable = WorkflowParser._parse_contract_type(node)
             return OutputDef(
                 expr=node.get("expr", ""),
-                type=node.get("type", "any"),
+                type=type_name,
+                nullable=nullable,
                 description=node.get("description"),
                 items=WorkflowParser._parse_output_def(node["items"]) if "items" in node else None,
                 properties={k: WorkflowParser._parse_output_def(v) for k, v in node.get("properties", {}).items()}
@@ -185,13 +199,15 @@ class WorkflowParser:
                 additional_properties=WorkflowParser._parse_output_def(node["additional_properties"])
                 if "additional_properties" in node
                 else None,
-                required_properties=node.get("required") if isinstance(node.get("required"), list) else None,
+                required_properties=WorkflowParser._parse_required_properties(node),
             )
 
         # Type-only schema branch (used in nested items/properties in .NET).
         if "type" in node:
+            type_name, nullable = WorkflowParser._parse_contract_type(node)
             return OutputDef(
-                type=node.get("type", "any"),
+                type=type_name,
+                nullable=nullable,
                 description=node.get("description"),
                 items=WorkflowParser._parse_output_def(node["items"]) if "items" in node else None,
                 properties={k: WorkflowParser._parse_output_def(v) for k, v in node.get("properties", {}).items()}
@@ -200,11 +216,38 @@ class WorkflowParser:
                 additional_properties=WorkflowParser._parse_output_def(node["additional_properties"])
                 if "additional_properties" in node
                 else None,
-                required_properties=node.get("required") if isinstance(node.get("required"), list) else None,
+                required_properties=WorkflowParser._parse_required_properties(node),
             )
 
         # Backward-compatible nested mapping without `expr` or `type`.
         return OutputDef(expr="", type="object", properties={k: WorkflowParser._parse_output_def(v) for k, v in node.items()})
+
+    @staticmethod
+    def _parse_contract_type(node: dict[str, Any]) -> tuple[str, bool]:
+        nullable = node.get("nullable") is True
+        raw_type = node.get("type", "any")
+        if isinstance(raw_type, str):
+            return raw_type, nullable
+        if isinstance(raw_type, list):
+            normalized = list(
+                dict.fromkeys(
+                    "null" if value is None else str(value).strip().lower()
+                    for value in raw_type
+                    if value is None or str(value).strip()
+                )
+            )
+            non_null = [value for value in normalized if value != "null"]
+            if len(non_null) == 1 and "null" in normalized:
+                return non_null[0], True
+        return "any", nullable
+
+    @staticmethod
+    def _parse_required_properties(node: dict[str, Any]) -> list[str] | None:
+        if "required_properties" in node:
+            raw = node.get("required_properties")
+            return [str(value) for value in raw] if isinstance(raw, list) else []
+        raw = node.get("required")
+        return [str(value) for value in raw] if isinstance(raw, list) else None
 
     @staticmethod
     def _parse_step(node: Any) -> StepDef:
@@ -274,6 +317,7 @@ class WorkflowParser:
                 "if": node.get("if"),
                 "input": node.get("input"),
                 "output": node.get("output"),
+                "output_schema": node.get("output_schema"),
                 "retry": retry,
                 "on_error": on_error,
                 "steps": [WorkflowParser._parse_step(s) for s in node.get("steps", [])] if isinstance(node.get("steps"), list) else None,

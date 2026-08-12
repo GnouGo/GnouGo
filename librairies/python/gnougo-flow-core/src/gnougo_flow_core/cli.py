@@ -170,6 +170,9 @@ async def _inspect(args: argparse.Namespace) -> int:
                 _print_input_def(input_name, input_def, "      ")
         print(f"    Steps: {len(workflow.steps)}")
         _print_steps(workflow.steps, "    ")
+        if workflow.finally_:
+            print(f"    Finally: {len(workflow.finally_)}")
+            _print_steps(workflow.finally_, "    ")
         if workflow.outputs:
             print("    Outputs:")
             for output_name, output_def in workflow.outputs.items():

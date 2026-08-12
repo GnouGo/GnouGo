@@ -154,7 +154,7 @@ Output: `{ text, json?, usage?, raw? }`.
         finish_reason = "tool_calls" if response.tool_calls else "stop"
         ctx.set_telemetry_attribute("gen_ai.response.model", model)
         ctx.set_telemetry_attribute("gen_ai.response.finish_reason", finish_reason)
-        _runtime._extract_usage_telemetry(ctx, response.usage, model)
+        _runtime._extract_usage_telemetry(ctx, response.usage, model, provider)
 
         if response.text:
             preview = response.text[:120] + ("..." if len(response.text) > 120 else "")
