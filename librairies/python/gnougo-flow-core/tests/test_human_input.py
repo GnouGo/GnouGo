@@ -140,3 +140,46 @@ def test_human_input_rejects_unknown_field_type() -> None:
     errors = WorkflowCompiler().validate(WorkflowParser.parse(yaml_text))
 
     assert any(error.code == ErrorCodes.INPUT_VALIDATION and "unsupported type" in error.message for error in errors)
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("provider_response", "expected"),
+    [
+        ({"response": "Ship it"}, True),
+        ({"response": "Keep editing"}, False),
+        ({"response": "yes"}, True),
+        ({"response": 0}, False),
+    ],
+)
+async def test_human_input_confirm_normalizes_standard_and_custom_labels(provider_response, expected) -> None:
+    class ConfirmProvider:
+        async def request_input_async(self, request):
+            assert request.mode == "confirm"
+            return provider_response
+
+    workflow = WorkflowCompiler().compile(
+        WorkflowParser.parse(
+            """
+            version: 1
+            workflows:
+              main:
+                steps:
+                  - id: confirm
+                    type: human.input
+                    input:
+                      mode: confirm
+                      prompt: Continue?
+                      choices: [Ship it, Keep editing]
+                outputs:
+                  accepted: "${data.steps.confirm.response}"
+            """
+        )
+    ).workflows["main"]
+    engine = WorkflowEngine()
+    engine.human_input_provider = ConfirmProvider()
+
+    result = await engine.execute_async(workflow, {})
+
+    assert result.success
+    assert result.outputs["accepted"] is expected

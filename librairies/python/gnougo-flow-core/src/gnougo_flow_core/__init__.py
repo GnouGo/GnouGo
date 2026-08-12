@@ -15,6 +15,8 @@ from .expressions import BuiltInFunctions, ExpressionEvaluator, StringInterpolat
 from .integrations import (
     ConfiguredMcpClientFactory,
     InMemoryMcpClientFactory,
+    McpHumanInputSignal,
+    McpHumanInputSignalPhase,
     McpServerOptions,
     MockMcpServerConfig,
     RoutingLLMClientAdapter,
@@ -46,6 +48,8 @@ __all__ = [
     "ExpressionEvaluator",
     "ExpressionParseException",
     "InMemoryMcpClientFactory",
+    "McpHumanInputSignal",
+    "McpHumanInputSignalPhase",
     "InMemoryWorkflowCheckpointer",
     "IWorkflowCallResolver",
     "input_def_to_schema",

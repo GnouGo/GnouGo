@@ -119,6 +119,7 @@ def _normalize_for_workflow_contract(schema: Any) -> Any:
 
     variants = _read_union_variants(schema)
     if variants is not None:
+        has_null = any(_read_type(variant) == "null" for variant in variants)
         normalized_variants = [
             _normalize_for_workflow_contract(variant)
             for variant in variants
@@ -127,7 +128,14 @@ def _normalize_for_workflow_contract(schema: Any) -> Any:
         if not normalized_variants:
             return {"type": "any"}
         if len(normalized_variants) == 1:
-            return normalized_variants[0]
+            result = copy.deepcopy(normalized_variants[0])
+            if has_null:
+                result["nullable"] = True
+            if schema.get("description") is not None:
+                result["description"] = copy.deepcopy(schema["description"])
+            if "default" in schema:
+                result["default"] = copy.deepcopy(schema["default"])
+            return result
         variant_types = {_read_type(variant) for variant in normalized_variants}
         if variant_types == {"array"}:
             return {"type": "array", "items": {"anyOf": [variant.get("items", {"type": "any"}) for variant in normalized_variants]}}
@@ -270,6 +278,8 @@ def _output_def_to_schema(output: OutputDef, allow_skill_scalar_type_shorthand: 
         if maybe_type != "any":
             schema_type = maybe_type
     schema: dict[str, Any] = {"type": schema_type}
+    if output.nullable:
+        schema["nullable"] = True
     if output.description:
         schema["description"] = output.description
     if output.items is not None:
@@ -278,7 +288,7 @@ def _output_def_to_schema(output: OutputDef, allow_skill_scalar_type_shorthand: 
         schema["properties"] = {name: _output_def_to_schema(child, False) for name, child in output.properties.items()}
     if output.additional_properties is not None:
         schema["additional_properties"] = _output_def_to_schema(output.additional_properties, False)
-    if output.required_properties:
+    if output.required_properties is not None:
         schema["required_properties"] = list(output.required_properties)
     return schema
 

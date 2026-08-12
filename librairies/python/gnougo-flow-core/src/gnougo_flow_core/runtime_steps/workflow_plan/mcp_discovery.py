@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from .shared import *  # noqa: F401,F403
+from gnougo_flow_core.runtime import _extract_usage_telemetry
 
 
 class _WorkflowPlanMcpDiscoveryMixin:
@@ -87,6 +88,7 @@ class _WorkflowPlanMcpDiscoveryMixin:
                         input_schema=copy.deepcopy(self._get_mcp_field(tool, "input_schema") or self._get_mcp_field(tool, "inputSchema")),
                         output_schema=copy.deepcopy(self._get_mcp_field(tool, "output_schema") or self._get_mcp_field(tool, "outputSchema")),
                         example_response=copy.deepcopy(self._get_mcp_field(tool, "example_response") or self._get_mcp_field(tool, "exampleResponse")),
+                        meta=copy.deepcopy(self._get_mcp_field(tool, "meta") or self._get_mcp_field(tool, "_meta")),
                     )
                 )
         return contracts
@@ -257,7 +259,10 @@ class _WorkflowPlanMcpDiscoveryMixin:
                         ("gnougo-flow.plan.phase", "mcp_capability_prefilter"),
                     ],
                 )
-            self._add_usage_attributes(prefilter_span, response.usage)
+            self._add_usage_attributes(
+                prefilter_span, response.usage, str(model), provider, ctx.engine.llm_options
+            )
+            _extract_usage_telemetry(ctx, response.usage, str(model), provider)
             self._add_prefilter_usage_event(
                 ctx, response.usage, str(model), provider, "mcp_capability_prefilter", "gnougo-flow.plan.prefilter.capabilities.usage"
             )
@@ -360,6 +365,7 @@ class _WorkflowPlanMcpDiscoveryMixin:
                         input_schema = self._get_mcp_field(t, "input_schema") or self._get_mcp_field(t, "inputSchema")
                         output_schema = self._get_mcp_field(t, "output_schema") or self._get_mcp_field(t, "outputSchema")
                         example_response = self._get_mcp_field(t, "example_response") or self._get_mcp_field(t, "exampleResponse")
+                        tool_meta = self._get_mcp_field(t, "meta") or self._get_mcp_field(t, "_meta")
 
                         section.append(f"- {tool_name}: {tool_description or '(no description)'}")
                         if input_schema is not None:
@@ -368,6 +374,8 @@ class _WorkflowPlanMcpDiscoveryMixin:
                             self._append_json_block(section, "  ", "output_schema", output_schema)
                         if example_response is not None:
                             self._append_json_block(section, "  ", "example_response", example_response)
+                        if tool_meta is not None:
+                            self._append_json_block(section, "  ", "meta", tool_meta)
                         if mcp_tool_contracts is not None and tool_name:
                             mcp_tool_contracts.append(
                                 McpToolOutputContract(
@@ -377,6 +385,7 @@ class _WorkflowPlanMcpDiscoveryMixin:
                                     input_schema=copy.deepcopy(input_schema),
                                     output_schema=copy.deepcopy(output_schema),
                                     example_response=copy.deepcopy(example_response),
+                                    meta=copy.deepcopy(tool_meta),
                                 )
                             )
                     section.append(f"Prompts ({len(prompts)}):")

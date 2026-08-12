@@ -95,7 +95,10 @@ class WorkflowValidator:
 
         seen_ids: set[str] = set()
         self._collect_ids(wf.steps, seen_ids, name, errors)
+        self._collect_ids(wf.finally_, seen_ids, name, errors)
         for step in wf.steps:
+            self._validate_step(step, name, doc, errors)
+        for step in wf.finally_:
             self._validate_step(step, name, doc, errors)
 
         if wf.inputs:
@@ -351,6 +354,7 @@ class WorkflowValidator:
         graph: dict[str, set[str]] = {name: set() for name in doc.workflows}
         for wf_name, wf in doc.workflows.items():
             self._collect_local_calls(wf.steps, graph[wf_name])
+            self._collect_local_calls(wf.finally_, graph[wf_name])
 
         visited: set[str] = set()
         stack: set[str] = set()
@@ -537,6 +541,7 @@ class WorkflowCompiler:
             "DSL_VERSION",
             "NO_WORKFLOWS",
             ErrorCodes.WORKFLOW_CYCLE_DETECTED,
+            "DUPLICATE_STEP_ID",
             "INVALID_ENTRYPOINT",
         }
         if any(err.code in hard_fail_codes for err in errors):
@@ -552,6 +557,7 @@ class WorkflowCompiler:
                 name=name,
                 source=wf,
                 steps=self._compile_steps(wf.steps),
+                **{"finally": self._compile_steps(wf.finally_)},
                 outputs=wf.outputs,
             )
             compiled.workflows[name] = compiled_wf

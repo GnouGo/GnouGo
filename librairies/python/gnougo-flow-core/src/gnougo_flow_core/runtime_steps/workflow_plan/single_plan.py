@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from .shared import *  # noqa: F401,F403
+from gnougo_flow_core.runtime import _extract_usage_telemetry
 
 
 class _WorkflowPlanSinglePlanMixin:
@@ -22,12 +23,31 @@ class _WorkflowPlanSinglePlanMixin:
         plan_reasoning_raw = generator.get("reasoning")
         plan_reasoning = plan_reasoning_raw.strip() if isinstance(plan_reasoning_raw, str) and plan_reasoning_raw.strip() else "medium"
 
+        preflight = await self._run_capability_preflight_async(
+            ctx,
+            input_obj,
+            instruction,
+            provider,
+            model,
+            plan_reasoning,
+        )
+
         policy = input_obj.get("policy") if isinstance(input_obj.get("policy"), dict) else {}
         limits = input_obj.get("limits") if isinstance(input_obj.get("limits"), dict) else {}
         validate = input_obj.get("validate") if isinstance(input_obj.get("validate"), dict) else {}
         on_invalid = input_obj.get("on_invalid") if isinstance(input_obj.get("on_invalid"), dict) else {}
-        max_attempts = max(1, int(on_invalid.get("max_attempts", 3)))
-        on_invalid_action = str(on_invalid.get("action", "fail"))
+        max_attempts = max(
+            1,
+            int(
+                on_invalid.get(
+                    "max_attempts",
+                    validate.get("max_repair_attempts", 3),
+                )
+            ),
+        )
+        on_invalid_action = str(
+            on_invalid.get("action", "reprompt" if preflight.mode != "off" else "fail")
+        )
         context_text = str(generator.get("context", ""))
 
         prompt_mcp_tool_contracts: list[McpToolOutputContract] = []
@@ -49,10 +69,15 @@ class _WorkflowPlanSinglePlanMixin:
             prompt_mcp_tool_contracts,
             forced_mcp_server_names,
         )
+        locked_prompt = self._build_locked_capability_prompt(preflight)
+        if locked_prompt:
+            base_prompt += "\n\n" + locked_prompt
         prompt = base_prompt
         last_error: Exception | None = None
         last_invalid_yaml: str | None = None
         last_repair_context: str | None = None
+        last_diagnostic_fingerprint: str | None = None
+        unchanged_repair_attempts = 0
 
         for attempt in range(1, max_attempts + 1):
             if last_error is not None:
@@ -88,7 +113,10 @@ class _WorkflowPlanSinglePlanMixin:
                 response = await ctx.engine.call_llm_async(LLMRequest(provider=provider, model=model, prompt=prompt, reasoning=plan_reasoning))
                 generation_span.set_attribute("gen_ai.response.model", model)
                 generation_span.set_attribute("gen_ai.response.finish_reason", "stop")
-                self._add_usage_attributes(generation_span, response.usage)
+                self._add_usage_attributes(
+                    generation_span, response.usage, model, provider, ctx.engine.llm_options
+                )
+                _extract_usage_telemetry(ctx, response.usage, model, provider)
                 if ctx.limits.log_step_content and response.text:
                     generation_span.add_event(
                         "gen_ai.content.completion",
@@ -130,6 +158,7 @@ class _WorkflowPlanSinglePlanMixin:
                             validation_mcp_tool_contracts,
                             validation_mcp_server_metadata,
                         )
+                    self._validate_locked_capabilities(doc, preflight)
                 return {
                     "yaml": yaml_text,
                     "workflow": {
@@ -137,10 +166,33 @@ class _WorkflowPlanSinglePlanMixin:
                         "name": doc.name,
                         "workflows": list(doc.workflows.keys()),
                     },
-                    "meta": {"model": model, "attempt": attempt},
+                    "meta": {
+                        "model": model,
+                        "attempt": attempt,
+                        "capability_preflight": self._capability_preflight_metadata(preflight),
+                    },
                     "diagnostics": [],
                 }
             except WorkflowRuntimeException as exc:
+                fingerprint = self._normalize_plan_diagnostic_fingerprint(exc)
+                if fingerprint == last_diagnostic_fingerprint:
+                    unchanged_repair_attempts += 1
+                else:
+                    unchanged_repair_attempts = 0
+                    last_diagnostic_fingerprint = fingerprint
+                if unchanged_repair_attempts >= 2:
+                    raise WorkflowRuntimeException(
+                        ErrorCodes.WORKFLOW_PLAN_REPAIR_STALLED,
+                        "workflow.plan repair stalled after two unchanged repair attempts.",
+                        details={
+                            "diagnostic_fingerprint": fingerprint,
+                            "last_error": {
+                                "code": exc.code,
+                                "message": str(exc),
+                                "details": copy.deepcopy(exc.details),
+                            },
+                        },
+                    ) from exc
                 if on_invalid_action != "reprompt" or attempt >= max_attempts:
                     raise
                 last_error = exc
@@ -171,6 +223,19 @@ class _WorkflowPlanSinglePlanMixin:
             ErrorCodes.TEMPLATE_PLAN,
             f"Failed to generate valid workflow after {max_attempts} attempts: {last_error or 'unknown error'}",
         )
+
+
+    @staticmethod
+    def _normalize_plan_diagnostic_fingerprint(exc: Exception) -> str:
+        if isinstance(exc, WorkflowRuntimeException):
+            payload = {
+                "code": exc.code,
+                "message": re.sub(r"\b(attempt|line|column)\s*\d+\b", r"\1", str(exc), flags=re.IGNORECASE),
+                "details": exc.details,
+            }
+        else:
+            payload = {"type": type(exc).__name__, "message": str(exc)}
+        return json.dumps(payload, sort_keys=True, ensure_ascii=False, default=str)
 
 
     @classmethod
@@ -281,6 +346,8 @@ class _WorkflowPlanSinglePlanMixin:
             "<dsl_reference>\n"
             "Use GnOuGo.Flow DSL v1. Root document must contain `version: 1`, `name`, `skill`, and `workflows` map.\n"
             "Step fields: id, type, if, input, output, retry, on_error, steps, branches, cases, expr, default, item_var, index_var.\n"
+            "Workflow fields include `finally`, a step array that runs exactly once after success, failure, or cancellation. "
+            "Finalizers can inspect `data.workflow_error`; workflow outputs are evaluated only after finalization.\n"
             "Retry fields: max, backoff_ms, backoff_mult, jitter_ms.\n"
             "on_error cases: if, action (continue|stop), set_output.\n"
             "</dsl_reference>\n\n"
@@ -344,6 +411,7 @@ class _WorkflowPlanSinglePlanMixin:
             "- When a field expects a string containing JSON, use a YAML literal block (`|`) or single quotes; "
             "do not put unescaped JSON inside a double-quoted YAML string.\n"
             "- Workflow `outputs` should use either the short expression form or the long form with `expr` and `type`.\n"
+            "- Put cleanup, release, and audit operations in workflow-level `finally`; do not duplicate cleanup on every error branch.\n"
             "</generation_validation_checklist>\n\n"
             f"{self._build_user_task_block(instruction, context_text)}\n\n"
             "<available_step_types>\n"

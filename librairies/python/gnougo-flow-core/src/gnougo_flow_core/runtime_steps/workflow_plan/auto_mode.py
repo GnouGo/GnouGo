@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from .shared import *  # noqa: F401,F403
+from gnougo_flow_core.runtime import _extract_usage_telemetry
 
 
 class _WorkflowPlanAutoModeMixin:
@@ -64,7 +65,8 @@ class _WorkflowPlanAutoModeMixin:
                 )
                 span.set_attribute("gen_ai.response.model", model)
                 span.set_attribute("gen_ai.response.finish_reason", "stop")
-                self._add_usage_attributes(span, response.usage)
+                self._add_usage_attributes(span, response.usage, model, provider, ctx.engine.llm_options)
+                _extract_usage_telemetry(ctx, response.usage, model, provider)
                 if ctx.limits.log_step_content and response.text:
                     span.add_event(
                         "gen_ai.content.completion",

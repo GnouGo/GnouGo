@@ -5,11 +5,15 @@ import contextlib
 import contextvars
 import inspect
 import json
+import uuid
 from dataclasses import dataclass, field
+from enum import Enum
 from typing import Any, Awaitable, Callable, Iterator
 
 from ..errors import ErrorCodes, WorkflowRuntimeException
 from ..models import (
+    HumanInputFieldDef,
+    HumanInputRequest,
     McpCallResult,
     McpGetPromptResult,
     McpPromptInfo,
@@ -150,6 +154,20 @@ class McpRealtimeProgressEvent:
     kind: str | None = None
 
 
+class McpHumanInputSignalPhase(str, Enum):
+    WAITING = "waiting"
+    RESUMED = "resumed"
+    REFUSED = "refused"
+    CANCELLED = "cancelled"
+
+
+@dataclass(frozen=True, slots=True)
+class McpHumanInputSignal:
+    correlation: Any
+    request: HumanInputRequest
+    phase: McpHumanInputSignalPhase
+
+
 @dataclass(frozen=True, slots=True)
 class _ProgressSubscription:
     correlation: Any
@@ -161,6 +179,8 @@ _progress_handlers: contextvars.ContextVar[tuple[_ProgressSubscription, ...]] = 
     default=(),
 )
 
+_human_input_handlers: dict[str, _ProgressSubscription] = {}
+
 
 class ConfiguredMcpClientFactory:
     """Configured MCP factory.
@@ -171,12 +191,19 @@ class ConfiguredMcpClientFactory:
     adding a mandatory third-party dependency to the core package.
     """
 
-    def __init__(self, server_configs: dict[str, McpServerOptions | dict[str, Any]]) -> None:
+    def __init__(
+        self,
+        server_configs: dict[str, McpServerOptions | dict[str, Any]],
+        human_input_provider: Any = None,
+    ) -> None:
         self._server_configs = {
             name: (cfg if isinstance(cfg, McpServerOptions) else _coerce_server_options(cfg))
             for name, cfg in server_configs.items()
         }
         self._clients: dict[str, Any] = {}
+        self._sessions: dict[str, McpSessionAdapter] = {}
+        self._client_locks: dict[str, asyncio.Lock] = {}
+        self.human_input_provider = human_input_provider
 
     @property
     def server_metadata(self) -> list[McpServerMetadata]:
@@ -198,19 +225,25 @@ class ConfiguredMcpClientFactory:
                 f"MCP server '{server_name}' not found. Available: [{available}]",
             )
 
-        if server_name not in self._clients:
-            config = self._server_configs[server_name]
-            if config.client is None:
-                raise WorkflowRuntimeException(
-                    ErrorCodes.MCP_CONNECTION_ERROR,
-                    (
-                        f"MCP server '{server_name}' has no injected client. "
-                        "Install/configure a transport adapter before use."
-                    ),
-                )
-            self._clients[server_name] = config.client
-        await asyncio.sleep(0)
-        return McpSessionAdapter(server_name, self._clients[server_name])
+        lock = self._client_locks.setdefault(server_name, asyncio.Lock())
+        async with lock:
+            session = self._sessions.get(server_name)
+            if session is None:
+                config = self._server_configs[server_name]
+                if config.client is None:
+                    raise WorkflowRuntimeException(
+                        ErrorCodes.MCP_CONNECTION_ERROR,
+                        (
+                            f"MCP server '{server_name}' has no injected client. "
+                            "Install/configure a transport adapter before use."
+                        ),
+                    )
+                self._clients[server_name] = config.client
+                self._install_elicitation_handler(config.client, server_name)
+                session = McpSessionAdapter(server_name, config.client)
+                self._sessions[server_name] = session
+            await session.ensure_tools_discovered_async()
+            return session
 
     async def dispose_async(self) -> None:
         for client in self._clients.values():
@@ -221,6 +254,8 @@ class ConfiguredMcpClientFactory:
             if inspect.isawaitable(value):
                 await value
         self._clients.clear()
+        self._sessions.clear()
+        self._client_locks.clear()
 
     @staticmethod
     def is_unexpected_server_exit(exc: BaseException) -> bool:
@@ -279,15 +314,83 @@ class ConfiguredMcpClientFactory:
                 pass
         return delivered
 
+    @staticmethod
+    @contextlib.contextmanager
+    def push_human_input_handler(correlation: Any, handler: Callable[[McpHumanInputSignal], None]) -> Iterator[None]:
+        token = f"{id(correlation)}:{id(handler)}:{len(_human_input_handlers)}"
+        _human_input_handlers[token] = _ProgressSubscription(correlation, handler)
+        try:
+            yield
+        finally:
+            _human_input_handlers.pop(token, None)
+
+    @staticmethod
+    def publish_human_input(signal: McpHumanInputSignal) -> bool:
+        delivered = False
+        for subscription in list(_human_input_handlers.values()):
+            if not _correlation_matches(subscription.correlation, signal.correlation):
+                continue
+            try:
+                subscription.handler(signal)
+                delivered = True
+            except Exception:
+                pass
+        return delivered
+
+    def _install_elicitation_handler(self, client: Any, server_name: str) -> None:
+        async def handler(request: Any) -> Any:
+            return await self.handle_elicitation_async(request, server_name)
+
+        setter = getattr(client, "set_elicitation_handler", None)
+        if callable(setter):
+            setter(handler)
+        elif hasattr(client, "elicitation_handler"):
+            client.elicitation_handler = handler
+
+    async def handle_elicitation_async(self, request: Any, server_name: str | None = None) -> dict[str, Any]:
+        provider = self.human_input_provider
+        if provider is None:
+            return {"action": "decline", "content": None}
+        correlation = _resolve_elicitation_correlation(request, server_name)
+        if correlation is None:
+            raise WorkflowRuntimeException(
+                ErrorCodes.MCP_CALL_ERROR,
+                "MCP elicitation arrived without call correlation metadata while multiple calls were active.",
+            )
+        human_request = _build_elicitation_human_request(request, correlation)
+        self.publish_human_input(McpHumanInputSignal(correlation, human_request, McpHumanInputSignalPhase.WAITING))
+        try:
+            response = await provider.request_input_async(human_request)
+        except (asyncio.CancelledError, TimeoutError):
+            self.publish_human_input(McpHumanInputSignal(correlation, human_request, McpHumanInputSignalPhase.CANCELLED))
+            raise
+
+        if _is_refused_elicitation_response(response):
+            self.publish_human_input(McpHumanInputSignal(correlation, human_request, McpHumanInputSignalPhase.REFUSED))
+            return {"action": "decline", "content": None}
+        content = _normalize_elicitation_response(response, human_request)
+        self.publish_human_input(McpHumanInputSignal(correlation, human_request, McpHumanInputSignalPhase.RESUMED))
+        return {"action": "accept", "content": content}
+
 
 class McpSessionAdapter:
     def __init__(self, server_name: str, client: Any) -> None:
         self.server_name = server_name
         self._client = client
+        self._tools: list[McpToolInfo] | None = None
+        self._tools_lock = asyncio.Lock()
+
+    async def ensure_tools_discovered_async(self) -> list[McpToolInfo]:
+        if self._tools is not None:
+            return list(self._tools)
+        async with self._tools_lock:
+            if self._tools is None:
+                tools = await _maybe_await(_call_first(self._client, ["list_tools_async", "list_tools"]))
+                self._tools = [_coerce_tool(tool) for tool in (tools or [])]
+        return list(self._tools)
 
     async def list_tools_async(self) -> list[McpToolInfo]:
-        tools = await _maybe_await(_call_first(self._client, ["list_tools_async", "list_tools"]))
-        return [_coerce_tool(t) for t in (tools or [])]
+        return await self.ensure_tools_discovered_async()
 
     async def list_resources_async(self) -> list[McpResourceInfo]:
         capabilities = getattr(self._client, "server_capabilities", None) or getattr(self._client, "capabilities", None)
@@ -373,6 +476,106 @@ def _progress_matches(correlation: Any, progress_event: McpRealtimeProgressEvent
     return True
 
 
+def _correlation_matches(expected: Any, actual: Any) -> bool:
+    expected_id = _first_attr(expected, ("correlation_id", "CorrelationId"))
+    actual_id = _first_attr(actual, ("correlation_id", "CorrelationId"))
+    if expected_id and actual_id and str(expected_id).lower() != str(actual_id).lower():
+        return False
+    for names in (
+        ("run_id", "RunId"),
+        ("step_id", "StepId"),
+        ("mcp_server", "server_name", "ServerName"),
+        ("mcp_method", "method_name", "MethodName"),
+    ):
+        left = _first_attr(expected, names)
+        right = _first_attr(actual, names)
+        if left and right and str(left).lower() != str(right).lower():
+            return False
+    return True
+
+
+def _resolve_elicitation_correlation(request: Any, server_name: str | None) -> Any | None:
+    meta = _get(request, "meta", _get(request, "_meta", None))
+    gnougo = _get(meta, "gnougo", None) if meta is not None else None
+    candidates = [subscription.correlation for subscription in _human_input_handlers.values()]
+    if isinstance(gnougo, dict):
+        requested = {
+            "correlation_id": _get(gnougo, "correlationId", _get(gnougo, "correlation_id", None)),
+            "run_id": _get(gnougo, "runId", None),
+            "step_id": _get(gnougo, "stepId", None),
+            "mcp_server": _get(gnougo, "mcpServer", server_name),
+            "mcp_method": _get(gnougo, "mcpMethod", None),
+        }
+        matches = [candidate for candidate in candidates if _correlation_matches(candidate, requested)]
+        return matches[0] if len(matches) == 1 else None
+    if server_name:
+        candidates = [
+            candidate for candidate in candidates
+            if not _first_attr(candidate, ("mcp_server", "server_name", "ServerName"))
+            or str(_first_attr(candidate, ("mcp_server", "server_name", "ServerName"))).lower()
+            == server_name.lower()
+        ]
+    unique = {id(candidate): candidate for candidate in candidates}
+    return next(iter(unique.values())) if len(unique) == 1 else None
+
+
+def _build_elicitation_human_request(request: Any, correlation: Any) -> HumanInputRequest:
+    message = str(_get(request, "message", "MCP tool requires additional input."))
+    schema = _get(request, "requested_schema", _get(request, "requestedSchema", {}))
+    properties = _get(schema, "properties", {}) if schema is not None else {}
+    required = set(_get(schema, "required", []) or [])
+    fields: list[HumanInputFieldDef] = []
+    if isinstance(properties, dict):
+        for name, definition in properties.items():
+            enum_values = _get(definition, "enum", None)
+            type_name = str(_get(definition, "type", "string"))
+            fields.append(
+                HumanInputFieldDef(
+                    name=str(name),
+                    type="select" if isinstance(enum_values, list) and enum_values else type_name,
+                    required=str(name) in required,
+                    description=_get(definition, "description", None),
+                    options=[str(item) for item in enum_values] if isinstance(enum_values, list) else None,
+                )
+            )
+    mode = "form"
+    choices = None
+    if len(fields) == 1 and fields[0].options:
+        mode = "choice"
+        choices = list(fields[0].options)
+    return HumanInputRequest(
+        run_id=str(_first_attr(correlation, ("run_id", "RunId")) or uuid.uuid4().hex),
+        step_id=str(_first_attr(correlation, ("step_id", "StepId")) or "mcp.elicitation"),
+        prompt=message,
+        mode=mode,
+        choices=choices,
+        fields=None if mode == "choice" else fields,
+    )
+
+
+def _is_refused_elicitation_response(response: Any) -> bool:
+    if not isinstance(response, dict):
+        return False
+    action = str(response.get("action", "")).lower()
+    return action in {"decline", "refuse", "refused", "reject", "cancel", "cancelled"}
+
+
+def _normalize_elicitation_response(response: Any, request: HumanInputRequest) -> dict[str, Any]:
+    if isinstance(response, dict):
+        clean = {
+            str(key): value for key, value in response.items()
+            if key not in {"source", "action", "run_id", "step_id"}
+        }
+        if request.mode == "choice" and request.fields is None and "response" in clean:
+            return {"answer": clean["response"]}
+        return clean
+    if request.mode == "choice":
+        return {"answer": response}
+    if request.fields and len(request.fields) == 1:
+        return {request.fields[0].name: response}
+    return {"response": response}
+
+
 def _first_attr(value: Any, names: tuple[str, ...]) -> Any:
     for name in names:
         if isinstance(value, dict):
@@ -444,6 +647,9 @@ def _coerce_tool(value: Any) -> McpToolInfo:
         name=str(_get(value, "name", "")),
         description=_get(value, "description", None),
         input_schema=_get(value, "input_schema", _get(value, "inputSchema", _get(value, "json_schema", None))),
+        meta=_get(value, "meta", _get(value, "_meta", None)),
+        outputSchema=_get(value, "output_schema", _get(value, "outputSchema", None)),
+        exampleResponse=_get(value, "example_response", _get(value, "exampleResponse", None)),
     )
 
 

@@ -98,3 +98,30 @@ def test_pipeline_quality_analyzer_allows_external_leaf_produced_artifact_locato
     )
 
     assert analyze_external_artifact_readiness(document) == []
+
+
+def test_pipeline_quality_analyzer_includes_finalization_steps() -> None:
+    document = WorkflowParser.parse(
+        """
+        version: 1
+        workflows:
+          main:
+            steps:
+              - id: derive
+                type: set
+                input: {project_root: /tmp/generated}
+            finally:
+              - id: cleanup
+                type: mcp.call
+                input:
+                  server: files
+                  method: delete_tree
+                  request:
+                    path: "${data.steps.derive.project_root}"
+        """
+    )
+
+    diagnostics = analyze_external_artifact_readiness(document)
+
+    assert len(diagnostics) == 1
+    assert diagnostics[0]["consumer_step"] == "cleanup"

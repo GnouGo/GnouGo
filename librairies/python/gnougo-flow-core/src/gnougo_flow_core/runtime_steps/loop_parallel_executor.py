@@ -81,6 +81,7 @@ Output: `{ results: [<iteration_steps>...], count: <number> }`.
                     set(ctx.call_stack),
                     ctx.telemetry_span,
                     ct=ctx.ct,
+                    is_finalization=ctx.is_finalization,
                 )
                 return index, iter_data
             finally:

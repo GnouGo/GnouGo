@@ -20,7 +20,7 @@ def analyze_external_artifact_readiness(document: WorkflowDocument) -> list[dict
     if main is None:
         return diagnostics
 
-    steps = list(_enumerate_steps(main.steps))
+    steps = list(_enumerate_steps([*main.steps, *main.finally_]))
     steps_by_id = {step.id: step for step in steps if step.id}
     for step in steps:
         if not _is_external_artifact_consumer_step_type(step.type):

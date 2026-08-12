@@ -94,7 +94,15 @@ Output: `{ iterations: [...], count: <number> }`.
 
                 run = RunResult(success=True)
                 await ctx.engine.execute_steps_async(
-                    ctx.step.steps, ctx.data, run, ctx.limits, ctx.call_depth, ctx.call_stack, ctx.telemetry_span, ct=ctx.ct,
+                    ctx.step.steps,
+                    ctx.data,
+                    run,
+                    ctx.limits,
+                    ctx.call_depth,
+                    ctx.call_stack,
+                    ctx.telemetry_span,
+                    ct=ctx.ct,
+                    is_finalization=ctx.is_finalization,
                 )
                 iterations.append(copy.deepcopy(ctx.data.get("steps", {})))
 
@@ -135,7 +143,15 @@ Output: `{ iterations: [...], count: <number> }`.
 
             run = RunResult(success=True)
             await ctx.engine.execute_steps_async(
-                ctx.step.steps, ctx.data, run, ctx.limits, ctx.call_depth, ctx.call_stack, ctx.telemetry_span, ct=ctx.ct,
+                ctx.step.steps,
+                ctx.data,
+                run,
+                ctx.limits,
+                ctx.call_depth,
+                ctx.call_stack,
+                ctx.telemetry_span,
+                ct=ctx.ct,
+                is_finalization=ctx.is_finalization,
             )
             iterations.append(copy.deepcopy(ctx.data.get("steps", {})))
             i += 1

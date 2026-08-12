@@ -9,11 +9,7 @@ STRUCTURED_OUTPUT_FIELDS = {"schema_inline", "schema_ref", "strict"}
 UNSUPPORTED_STRICT_KEYWORDS = {"allOf", "oneOf", "uniqueItems", "minProperties", "maxProperties"}
 UNSUPPORTED_RUNTIME_KEYWORDS = {
     "not",
-    "dependentRequired",
     "dependentSchemas",
-    "if",
-    "then",
-    "else",
     "patternProperties",
     "contains",
     "minContains",
@@ -96,6 +92,9 @@ def normalize_schema(schema: Any) -> Any:
         for child in properties.values():
             normalize_schema(child)
     for keyword in ("items", "additionalProperties"):
+        if isinstance(schema.get(keyword), dict):
+            normalize_schema(schema[keyword])
+    for keyword in ("if", "then", "else"):
         if isinstance(schema.get(keyword), dict):
             normalize_schema(schema[keyword])
     for keyword in ("anyOf", "oneOf", "allOf"):
@@ -230,6 +229,29 @@ def _validate_schema_node(
         for index, variant in enumerate(variants):
             _validate_schema_node(variant, root, f"{path}.{keyword}[{index}]", False, strict_profile, errors, stats, depth + 1)
 
+    for keyword in ("if", "then", "else"):
+        conditional = schema.get(keyword)
+        if conditional is not None:
+            _validate_schema_node(
+                conditional,
+                root,
+                f"{path}.{keyword}",
+                False,
+                strict_profile,
+                errors,
+                stats,
+                depth + 1,
+            )
+
+    dependent_required = schema.get("dependentRequired")
+    if dependent_required is not None:
+        if not isinstance(dependent_required, dict):
+            errors.append(f"{path}.dependentRequired: expected object")
+        else:
+            for name, dependencies in dependent_required.items():
+                if not isinstance(dependencies, list) or any(not isinstance(item, str) or not item for item in dependencies):
+                    errors.append(f"{path}.dependentRequired.{name}: expected array of property names")
+
     for keyword in ("$defs", "definitions"):
         definitions = schema.get(keyword)
         if definitions is None:
@@ -264,27 +286,43 @@ def _validate_instance_node(instance: Any, schema: Any, root: dict[str, Any], pa
     for keyword in ("anyOf", "oneOf"):
         variants = schema.get(keyword)
         if isinstance(variants, list):
-            if any(not validate_instance(instance, variant) for variant in variants):
-                return
-            errors.append(f"{path}: value does not match any allowed schema variant")
-            return
+            matches = sum(
+                1 for variant in variants
+                if isinstance(variant, dict) and not _validate_instance_against_root(instance, variant, root)
+            )
+            if (keyword == "anyOf" and matches == 0) or (keyword == "oneOf" and matches != 1):
+                errors.append(
+                    f"{path}: value does not match any allowed schema variant"
+                    if keyword == "anyOf"
+                    else f"{path}: value must match exactly one schema variant (matched {matches})"
+                )
 
     all_of = schema.get("allOf")
     if isinstance(all_of, list):
         for variant in all_of:
             _validate_instance_node(instance, variant, root, path, errors, refs_seen)
-        return
+
+    condition = schema.get("if")
+    if isinstance(condition, dict):
+        condition_matches = not _validate_instance_against_root(instance, condition, root)
+        selected = schema.get("then") if condition_matches else schema.get("else")
+        if isinstance(selected, dict):
+            _validate_instance_node(instance, selected, root, path, errors, refs_seen)
 
     if "enum" in schema and isinstance(schema.get("enum"), list) and instance not in schema["enum"]:
-        errors.append(f"{path}: value is not in enum")
+        errors.append(f"{path}: value {instance!r} is not in enum {schema['enum']!r}")
         return
     if "const" in schema and instance != schema.get("const"):
-        errors.append(f"{path}: value does not match const")
+        errors.append(f"{path}: value {instance!r} does not match const {schema.get('const')!r}")
         return
 
     types = _read_schema_types(schema)
     if not types:
-        if isinstance(schema.get("properties"), dict):
+        if (
+            isinstance(schema.get("properties"), dict)
+            or isinstance(schema.get("required"), list)
+            or isinstance(schema.get("dependentRequired"), dict)
+        ):
             types = ["object"]
         else:
             return
@@ -333,6 +371,17 @@ def _validate_object_instance(
             if isinstance(name, str) and name not in instance:
                 errors.append(f"{path}.{name}: missing required property")
 
+    dependent_required = schema.get("dependentRequired")
+    if isinstance(dependent_required, dict):
+        for trigger, dependencies in dependent_required.items():
+            if trigger not in instance or not isinstance(dependencies, list):
+                continue
+            for dependency in dependencies:
+                if isinstance(dependency, str) and dependency not in instance:
+                    errors.append(
+                        f"{path}.{dependency}: missing dependent property required by '{trigger}'"
+                    )
+
     properties = schema.get("properties")
     additional = schema.get("additionalProperties")
     for name, value in instance.items():
@@ -362,6 +411,12 @@ def _matches_primitive_type(value: Any, types: list[str]) -> bool:
         if expected == "null" and value is None:
             return True
     return False
+
+
+def _validate_instance_against_root(instance: Any, schema: dict[str, Any], root: dict[str, Any]) -> list[str]:
+    errors: list[str] = []
+    _validate_instance_node(instance, schema, root, "$", errors, set())
+    return errors
 
 
 def _read_schema_types(schema: dict[str, Any]) -> list[str]:

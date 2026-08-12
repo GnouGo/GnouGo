@@ -126,7 +126,7 @@ class _WorkflowPlanValidationMixin:
         tool_calls = [
             step
             for workflow in doc.workflows.values()
-            for step in cls._enumerate_steps(workflow.steps)
+            for step in cls._enumerate_steps([*workflow.steps, *workflow.finally_])
             if step.type == "mcp.call"
             and isinstance(step.input, dict)
             and str(step.input.get("kind", "tool")).lower() != "prompt"

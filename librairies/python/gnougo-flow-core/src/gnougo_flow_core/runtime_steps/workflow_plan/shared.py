@@ -53,6 +53,8 @@ class _PipelinePlannedTool:
     purpose: str = ""
     consumes: list[str] = field(default_factory=list)
     produces: list[str] = field(default_factory=list)
+    catalog_ids: list[str] = field(default_factory=list)
+    locked_operation_ids: list[str] = field(default_factory=list)
 
 
 @dataclass(slots=True)
@@ -72,6 +74,8 @@ class _WorkflowPipelineSubworkflowSpec:
     output_schemas: dict[str, Any] = field(default_factory=dict)
     planned_tools: list[_PipelinePlannedTool] = field(default_factory=list)
     required_capabilities: list[str] = field(default_factory=list)
+    catalog_ids: list[str] = field(default_factory=list)
+    locked_operations: list[str] = field(default_factory=list)
 
 
 @dataclass(slots=True)

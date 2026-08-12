@@ -550,3 +550,76 @@ async def test_workflow_route_uses_distinct_run_ids_for_parallel_human_input_can
     assert all(request.step_id == "ask_user" for request in human_input.requests)
     assert all(request.run_id.startswith("parent-run:route:") for request in human_input.requests)
     assert len({request.run_id for request in human_input.requests}) == 2
+
+
+@pytest.mark.asyncio
+async def test_workflow_route_human_input_collects_only_invalid_values_retries_and_coerces_json() -> None:
+    class _RetryingProvider:
+        def __init__(self) -> None:
+            self.requests = []
+
+        async def request_input_async(self, request):
+            self.requests.append(request)
+            if len(self.requests) == 1:
+                return {"count": "not-yet", "config": '{"enabled": true}'}
+            return {"count": "3"}
+
+    workflow = _compile(
+        """
+        version: 1
+        workflows:
+          main:
+            inputs:
+              title: {type: string, required: true}
+              count: {type: string, required: true}
+            steps:
+              - id: route
+                type: workflow.route
+                input:
+                  prompt: Run the child
+                  candidates:
+                    - ref: {kind: local, name: child}
+                  args:
+                    passthrough: true
+                    human_input: {enabled: true, timeout_ms: 1000, max_attempts: 2}
+                  execution: {parallel: true}
+                  combine: {strategy: first}
+            outputs:
+              answer: "${data.steps.route.answer}"
+          child:
+            inputs:
+              title: {type: string, required: true}
+              count: {type: integer, required: true}
+              config:
+                type: object
+                required: true
+                properties:
+                  enabled: {type: boolean, required: true}
+                required_properties: [enabled]
+            steps:
+              - id: answer
+                type: set
+                input:
+                  title: "${data.inputs.title}"
+                  count: "${data.inputs.count}"
+                  enabled: "${data.inputs.config.enabled}"
+            outputs:
+              answer:
+                expr: "${data.steps.answer}"
+                type: object
+        """
+    )
+    provider = _RetryingProvider()
+    engine = WorkflowEngine()
+    engine.human_input_provider = provider
+
+    result = await engine.execute_async(workflow, {"title": "Report", "count": "bad"})
+
+    assert result.success, result.error
+    assert [field.name for field in provider.requests[0].fields] == ["count", "config"]
+    assert [field.name for field in provider.requests[1].fields] == ["count"]
+    assert json.loads(result.outputs["answer"]) == {
+        "title": "Report",
+        "count": 3,
+        "enabled": True,
+    }

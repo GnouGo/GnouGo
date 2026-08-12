@@ -56,7 +56,7 @@ def test_input_def_to_schema_uses_default_and_additional_properties() -> None:
 
     assert schema == {
         "type": "object",
-        "default": "42",
+        "default": 42,
         "additionalProperties": {"type": "boolean"},
     }
 

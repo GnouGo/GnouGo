@@ -177,6 +177,7 @@ async def _fetch_server_capabilities(
     session = await _maybe_timeout(factory.get_client_async(server_name), timeout)
     if want_tools and tools is None:
         tools = await _maybe_timeout(session.list_tools_async(), timeout)
+        ctx.engine._mcp_live_tool_sessions[id(session)] = session
         cache_tools(cache, server_name, tools)
     if want_resources and resources is None:
         resources = await _try_list_resources(session, server_name, ctx, timeout)

@@ -10,8 +10,12 @@ from typing import Any
 
 from gnougo_flow_core.json_schema import inputs_to_json_schema
 from gnougo_flow_core.models import (
+    DEFAULT_HUMAN_INPUT_TIMEOUT_MS,
     CompiledWorkflow,
     ExecutionLimits,
+    HumanInputFieldDef,
+    HumanInputRequest,
+    InputDef,
     LLMRequest,
     WorkflowRouteCandidate,
     WorkflowRouteCandidateQuery,
@@ -61,6 +65,9 @@ class _RouteExecutionResult:
     outputs: Any
     error: str | None
     steps_executed: int
+    error_code: str | None = None
+    error_type: str | None = None
+    error_details: Any = None
 
 
 @dataclass(slots=True)
@@ -69,6 +76,29 @@ class _AutoExtractConfig:
     provider: str | None = None
     model: str | None = None
     temperature: float | None = None
+
+
+@dataclass(slots=True)
+class _HumanInputConfig:
+    enabled: bool = False
+    timeout_ms: int = DEFAULT_HUMAN_INPUT_TIMEOUT_MS
+    max_attempts: int = 3
+
+
+@dataclass(slots=True)
+class _RoutedInputIssue:
+    name: str
+    definition: InputDef
+    errors: list[str]
+
+
+@dataclass(slots=True)
+class _PreparedRouteCandidate:
+    candidate: _RouteCandidate
+    workflow_name: str
+    workflow: CompiledWorkflow
+    child_engine: WorkflowEngine
+    resolved_args: dict[str, Any]
 
 
 class WorkflowRouteExecutor:
@@ -142,11 +172,36 @@ Output: `{ selected: [...], results: [...], answer?, text? }`.
 
         args_input = input_obj.get("args") if isinstance(input_obj.get("args"), dict) else None
         args = self._build_workflow_args(ctx, args_input)
+        human_input_config = self._parse_human_input_config(args_input)
         execution_input = input_obj.get("execution") if isinstance(input_obj.get("execution"), dict) else {}
         execute_in_parallel = bool(execution_input.get("parallel", True))
         max_concurrency = min(max(int(execution_input.get("max_concurrency", len(selected))), 1), max(1, len(selected)))
 
-        if execute_in_parallel:
+        if human_input_config.enabled:
+            # Forms must be gathered sequentially so concurrent routed candidates
+            # cannot interleave prompts. Execution may still fan out afterward.
+            prepared = [
+                await self._prepare_candidate_async(
+                    ctx,
+                    input_obj,
+                    candidate,
+                    args,
+                    args_input,
+                    human_input_config,
+                )
+                for candidate in selected
+            ]
+            if execute_in_parallel:
+                semaphore = asyncio.Semaphore(max_concurrency)
+
+                async def run_prepared(item: _PreparedRouteCandidate) -> _RouteExecutionResult:
+                    async with semaphore:
+                        return await self._execute_prepared_candidate_async(ctx, item)
+
+                route_results = list(await asyncio.gather(*(run_prepared(item) for item in prepared)))
+            else:
+                route_results = [await self._execute_prepared_candidate_async(ctx, item) for item in prepared]
+        elif execute_in_parallel:
             route_results = await self._execute_selected_parallel_async(ctx, input_obj, selected, args, args_input, max_concurrency)
         else:
             route_results = await self._execute_selected_sequential_async(ctx, input_obj, selected, args, args_input)
@@ -414,6 +469,211 @@ Output: `{ selected: [...], results: [...], answer?, text? }`.
             )
         raise WorkflowRuntimeException(ErrorCodes.INPUT_VALIDATION, "workflow.route args.auto_extract must be boolean or object")
 
+    @staticmethod
+    def _parse_human_input_config(args_input: dict[str, Any] | None) -> _HumanInputConfig:
+        node = args_input.get("human_input") if isinstance(args_input, dict) else None
+        if node is None:
+            return _HumanInputConfig()
+        if isinstance(node, bool):
+            return _HumanInputConfig(enabled=node)
+        if not isinstance(node, dict):
+            raise WorkflowRuntimeException(
+                ErrorCodes.INPUT_VALIDATION,
+                "workflow.route args.human_input must be boolean or object",
+            )
+        enabled = node.get("enabled", True)
+        timeout_ms = node.get("timeout_ms", DEFAULT_HUMAN_INPUT_TIMEOUT_MS)
+        max_attempts = node.get("max_attempts", 3)
+        if not isinstance(enabled, bool):
+            raise WorkflowRuntimeException(
+                ErrorCodes.INPUT_VALIDATION,
+                "workflow.route args.human_input.enabled must be a boolean",
+            )
+        if not isinstance(timeout_ms, int) or isinstance(timeout_ms, bool) or timeout_ms < 0:
+            raise WorkflowRuntimeException(
+                ErrorCodes.INPUT_VALIDATION,
+                "workflow.route args.human_input.timeout_ms must be zero or greater",
+            )
+        if not isinstance(max_attempts, int) or isinstance(max_attempts, bool) or max_attempts < 1:
+            raise WorkflowRuntimeException(
+                ErrorCodes.INPUT_VALIDATION,
+                "workflow.route args.human_input.max_attempts must be one or greater",
+            )
+        return _HumanInputConfig(enabled, timeout_ms, max_attempts)
+
+    async def _complete_routed_inputs_async(
+        self,
+        ctx: StepExecutionContext,
+        candidate: _RouteCandidate,
+        workflow_name: str,
+        workflow: WorkflowDef | None,
+        resolved_args: dict[str, Any],
+        config: _HumanInputConfig,
+    ) -> dict[str, Any]:
+        if not config.enabled:
+            return resolved_args
+        run_id = ctx.limits.run_id or uuid.uuid4().hex
+        for attempt in range(1, config.max_attempts + 1):
+            issues = self._find_routed_input_issues(workflow, resolved_args)
+            if not issues:
+                return resolved_args
+            provider = ctx.engine.human_input_provider
+            if provider is None:
+                validation_errors = [error for issue in issues for error in issue.errors]
+                raise WorkflowRuntimeException(
+                    "NO_HITL_PROVIDER",
+                    f"Routed workflow '{workflow_name}' requires additional input, but no IHumanInputProvider is configured.",
+                    details={"workflow": workflow_name, "validation_errors": validation_errors},
+                )
+
+            request = self._build_routed_input_request(
+                ctx, candidate, workflow_name, resolved_args, issues, run_id, attempt, config
+            )
+            ctx.add_telemetry_event(
+                "gnougo-flow.step.waiting_for_human",
+                [
+                    ("gnougo-flow.human.prompt", request.prompt),
+                    ("gnougo-flow.human.request", json.dumps(request.model_dump(), ensure_ascii=False, default=str)),
+                    ("gnougo-flow.workflow_route.workflow.name", workflow_name),
+                ],
+            )
+            try:
+                response_coro = provider.request_input_async(request)
+                response = await (
+                    asyncio.wait_for(response_coro, config.timeout_ms / 1000)
+                    if config.timeout_ms > 0
+                    else response_coro
+                )
+            except asyncio.TimeoutError as exc:
+                raise WorkflowRuntimeException(
+                    "HUMAN_INPUT_TIMEOUT",
+                    f"workflow.route timed out after {config.timeout_ms}ms waiting for inputs for workflow '{workflow_name}'.",
+                ) from exc
+            ctx.add_telemetry_event(
+                "gnougo-flow.step.human_input_resumed",
+                [
+                    ("gnougo-flow.human.run_id", request.run_id),
+                    ("gnougo-flow.human.step_id", request.step_id),
+                    ("gnougo-flow.workflow_route.workflow.name", workflow_name),
+                ],
+            )
+            self._merge_human_input_response(resolved_args, response, issues)
+
+        self._validate_routed_inputs(workflow_name, workflow, resolved_args)
+        return resolved_args
+
+    @staticmethod
+    def _find_routed_input_issues(
+        workflow: WorkflowDef | None,
+        resolved_args: dict[str, Any],
+    ) -> list[_RoutedInputIssue]:
+        issues: list[_RoutedInputIssue] = []
+        if not workflow or not workflow.inputs:
+            return issues
+        for name, definition in workflow.inputs.items():
+            value = resolved_args.get(name)
+            probe = WorkflowDef(inputs={name: definition})
+            probe_inputs = {name: value} if name in resolved_args else {}
+            errors = validate_input_types(probe, probe_inputs)
+            if errors:
+                issues.append(_RoutedInputIssue(name, definition, errors))
+        return issues
+
+    @staticmethod
+    def _build_routed_input_request(
+        ctx: StepExecutionContext,
+        candidate: _RouteCandidate,
+        workflow_name: str,
+        resolved_args: dict[str, Any],
+        issues: list[_RoutedInputIssue],
+        run_id: str,
+        attempt: int,
+        config: _HumanInputConfig,
+    ) -> HumanInputRequest:
+        fields: list[HumanInputFieldDef] = []
+        for issue in issues:
+            type_name = issue.definition.type.lower()
+            sensitive = bool(re.search(r"password|secret|token|api_?key|_key$", issue.name, re.IGNORECASE))
+            field_type = "secret" if sensitive else type_name if type_name in {"string", "number", "integer", "boolean"} else "json"
+            current = resolved_args.get(issue.name)
+            default = None
+            if current is not None and not sensitive:
+                default = current if isinstance(current, str) else json.dumps(current, ensure_ascii=False)
+            description = (issue.definition.description or "").strip()
+            expected = f"Expected {issue.definition.type}. {' '.join(issue.errors)}"
+            fields.append(
+                HumanInputFieldDef(
+                    name=issue.name,
+                    type=field_type,
+                    required=issue.definition.required,
+                    description=f"{description} {expected}".strip(),
+                    default=default,
+                )
+            )
+        return HumanInputRequest(
+            run_id=run_id,
+            step_id=f"{ctx.step.id}:inputs:{re.sub(r'[^A-Za-z0-9_.-]', '_', candidate.id)}:{attempt}:{uuid.uuid4().hex}",
+            prompt=f"Additional information is required to run workflow '{workflow_name}'.",
+            mode="form",
+            context={
+                "candidate_id": candidate.id,
+                "candidate_name": candidate.name,
+                "workflow": workflow_name,
+                "attempt": attempt,
+                "max_attempts": config.max_attempts,
+                "requested_inputs": [issue.name for issue in issues],
+                "validation_errors": [error for issue in issues for error in issue.errors],
+            },
+            fields=fields,
+            timeout_ms=config.timeout_ms,
+        )
+
+    @staticmethod
+    def _merge_human_input_response(
+        resolved_args: dict[str, Any], response: Any, issues: list[_RoutedInputIssue]
+    ) -> None:
+        if isinstance(response, dict):
+            for issue in issues:
+                if issue.name in response:
+                    resolved_args[issue.name] = WorkflowRouteExecutor._normalize_human_input_value(
+                        response[issue.name], issue.definition
+                    )
+            return
+        if len(issues) == 1:
+            resolved_args[issues[0].name] = WorkflowRouteExecutor._normalize_human_input_value(
+                response, issues[0].definition
+            )
+
+    @staticmethod
+    def _normalize_human_input_value(value: Any, definition: InputDef) -> Any:
+        if not isinstance(value, str):
+            return copy.deepcopy(value)
+        type_name = definition.type.lower()
+        if type_name == "string":
+            return value
+        if type_name == "integer":
+            try:
+                return int(value)
+            except ValueError:
+                return value
+        if type_name == "number":
+            try:
+                return float(value)
+            except ValueError:
+                return value
+        if type_name == "boolean":
+            if value.lower() in {"true", "1", "yes"}:
+                return True
+            if value.lower() in {"false", "0", "no"}:
+                return False
+            return value
+        if type_name in {"array", "object", "dictionary"}:
+            try:
+                return json.loads(value)
+            except json.JSONDecodeError:
+                return value
+        return value
+
     async def _execute_selected_sequential_async(
         self,
         ctx: StepExecutionContext,
@@ -452,6 +712,25 @@ Output: `{ selected: [...], results: [...], answer?, text? }`.
         args: dict[str, Any],
         args_input: dict[str, Any] | None,
     ) -> _RouteExecutionResult:
+        prepared = await self._prepare_candidate_async(
+            ctx,
+            route_input,
+            candidate,
+            args,
+            args_input,
+            _HumanInputConfig(),
+        )
+        return await self._execute_prepared_candidate_async(ctx, prepared)
+
+    async def _prepare_candidate_async(
+        self,
+        ctx: StepExecutionContext,
+        route_input: dict[str, Any],
+        candidate: _RouteCandidate,
+        args: dict[str, Any],
+        args_input: dict[str, Any] | None,
+        human_input_config: _HumanInputConfig,
+    ) -> _PreparedRouteCandidate:
         kind = str(candidate.ref.get("kind", "local"))
         resolver = ctx.engine.workflow_call_resolver or DefaultWorkflowCallResolver()
         resolution: WorkflowCallResolution = await resolver.resolve_async(
@@ -480,6 +759,14 @@ Output: `{ selected: [...], results: [...], answer?, text? }`.
             candidate_args,
         )
         resolved_args = apply_workflow_input_defaults(resolution.workflow.source, candidate_args)
+        resolved_args = await self._complete_routed_inputs_async(
+            ctx,
+            candidate,
+            resolution.workflow_name,
+            resolution.workflow.source,
+            resolved_args,
+            human_input_config,
+        )
         self._validate_routed_inputs(resolution.workflow_name, resolution.workflow.source, resolved_args)
         self._emit_routed_inputs_telemetry(
             ctx,
@@ -489,14 +776,30 @@ Output: `{ selected: [...], results: [...], answer?, text? }`.
             resolved_args,
             args_input,
         )
-        result = await child_engine.execute_async(resolution.workflow, resolved_args, ctx.ct)
+        return _PreparedRouteCandidate(
+            candidate,
+            resolution.workflow_name,
+            resolution.workflow,
+            child_engine,
+            resolved_args,
+        )
+
+    @staticmethod
+    async def _execute_prepared_candidate_async(
+        ctx: StepExecutionContext,
+        prepared: _PreparedRouteCandidate,
+    ) -> _RouteExecutionResult:
+        result = await prepared.child_engine.execute_async(prepared.workflow, prepared.resolved_args, ctx.ct)
         return _RouteExecutionResult(
-            candidate=candidate,
-            workflow_name=resolution.workflow_name,
+            candidate=prepared.candidate,
+            workflow_name=prepared.workflow_name,
             success=result.success,
             outputs=copy.deepcopy(result.outputs),
             error=result.error.message if result.error else None,
             steps_executed=len(result.step_results),
+            error_code=result.error.code if result.error else None,
+            error_type=result.error.type if result.error else None,
+            error_details=copy.deepcopy(result.error.details) if result.error else None,
         )
 
     @staticmethod
@@ -804,6 +1107,9 @@ Output: `{ selected: [...], results: [...], answer?, text? }`.
                 "success": result.success,
                 "outputs": copy.deepcopy(result.outputs),
                 "error": result.error,
+                "error_code": result.error_code,
+                "error_type": result.error_type,
+                "error_details": copy.deepcopy(result.error_details),
                 "run": {"steps_executed": result.steps_executed},
             }
             for result in results
@@ -828,10 +1134,13 @@ Output: `{ selected: [...], results: [...], answer?, text? }`.
         if not isinstance(outputs, dict):
             return json.dumps(outputs, ensure_ascii=False) if outputs is not None else None
         for key in ("answer", "text", "result", "response"):
+            if key not in outputs:
+                continue
             value = outputs.get(key)
             if isinstance(value, str):
                 return value
-        return json.dumps(outputs, ensure_ascii=False)
+            return json.dumps(value, ensure_ascii=False)
+        return None
 
     @staticmethod
     def _create_child_limits(parent: ExecutionLimits, candidate: _RouteCandidate) -> ExecutionLimits:
@@ -847,8 +1156,14 @@ Output: `{ selected: [...], results: [...], answer?, text? }`.
             expression_memory_limit_bytes=parent.expression_memory_limit_bytes,
             max_switch_cases=parent.max_switch_cases,
             max_function_call_depth=parent.max_function_call_depth,
+            finalization_timeout_seconds=parent.finalization_timeout_seconds,
+            max_finalization_steps=parent.max_finalization_steps,
             log_step_content=parent.log_step_content,
             run_id=f"{parent_run_id}:route:{WorkflowRouteExecutor._sanitize_run_id_part(candidate.id)}:{uuid.uuid4().hex}",
+            execution_id=parent.execution_id,
+            agent_id=parent.agent_id,
+            agent_name=parent.agent_name,
+            tenant_id=parent.tenant_id,
         )
 
     @staticmethod

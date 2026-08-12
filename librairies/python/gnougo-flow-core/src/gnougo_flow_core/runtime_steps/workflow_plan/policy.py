@@ -29,6 +29,7 @@ class _WorkflowPlanPolicyMixin:
         all_steps: list[StepDef] = []
         for wf in doc.workflows.values():
             all_steps.extend(walk(wf.steps))
+            all_steps.extend(walk(wf.finally_))
 
         all_step_types = [s.type for s in all_steps]
 

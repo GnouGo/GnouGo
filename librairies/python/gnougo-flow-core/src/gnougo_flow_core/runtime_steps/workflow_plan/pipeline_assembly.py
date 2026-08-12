@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from .shared import *  # noqa: F401,F403
+from gnougo_flow_core.workflow_plan_semantic_validator import complete_inferable_function_parameter_jsdoc
 
 
 class _WorkflowPlanPipelineAssemblyMixin:
@@ -218,6 +219,8 @@ class _WorkflowPlanPipelineAssemblyMixin:
         document_name = self._resolve_configured_pipeline_document_name(pipeline_input, generator) or assembly.document_name or "generated-pipeline-workflow"
         main_node = copy.deepcopy(assembly.main_workflow_node)
         main_node["inputs"] = copy.deepcopy(main_inputs)
+        if isinstance(main_node.get("functions"), str):
+            main_node["functions"] = complete_inferable_function_parameter_jsdoc(main_node["functions"])
         root = {
             "version": 1,
             "name": document_name,
@@ -226,7 +229,10 @@ class _WorkflowPlanPipelineAssemblyMixin:
             "workflows": {"main": main_node},
         }
         for leaf in leaves:
-            root["workflows"][leaf.name] = copy.deepcopy(leaf.workflow_node)
+            leaf_node = copy.deepcopy(leaf.workflow_node)
+            if isinstance(leaf_node.get("functions"), str):
+                leaf_node["functions"] = complete_inferable_function_parameter_jsdoc(leaf_node["functions"])
+            root["workflows"][leaf.name] = leaf_node
         return yaml.dump(root, Dumper=_NoAliasDumper, sort_keys=False, allow_unicode=False).strip()
 
 
@@ -415,7 +421,7 @@ class _WorkflowPlanPipelineAssemblyMixin:
 
     def _enforce_pipeline_workflow_hierarchy(self, doc: WorkflowDocument, leaf_names: set[str]) -> None:
         for workflow_name, workflow in doc.workflows.items():
-            for step in self._enumerate_steps(workflow.steps):
+            for step in self._enumerate_steps([*workflow.steps, *workflow.finally_]):
                 if workflow_name != "main" and step.type in {"workflow.call", "workflow.plan"}:
                     raise WorkflowRuntimeException(ErrorCodes.TEMPLATE_POLICY, f"Leaf workflow '{workflow_name}' must not contain step type '{step.type}'.")
                 if workflow_name == "main" and step.type == "workflow.call" and isinstance(step.input, dict):
@@ -441,7 +447,7 @@ class _WorkflowPlanPipelineAssemblyMixin:
             for leaf in leaves
         }
 
-        for step in self._enumerate_steps(main.steps):
+        for step in self._enumerate_steps([*main.steps, *main.finally_]):
             if step.type != "workflow.call" or not isinstance(step.input, dict):
                 continue
             ref = step.input.get("ref")
@@ -462,7 +468,7 @@ class _WorkflowPlanPipelineAssemblyMixin:
         if main is None:
             return
         forbidden = {"mcp.call", "llm.call", "template.render", "human.input", "workflow.plan"}
-        for step in self._enumerate_steps(main.steps):
+        for step in self._enumerate_steps([*main.steps, *main.finally_]):
             if step.type in forbidden:
                 raise WorkflowRuntimeException(
                     ErrorCodes.TEMPLATE_POLICY,
@@ -475,7 +481,7 @@ class _WorkflowPlanPipelineAssemblyMixin:
         if main is None:
             return
         leaf_by_name = {leaf.name: leaf for leaf in leaves}
-        for step in self._enumerate_steps(main.steps):
+        for step in self._enumerate_steps([*main.steps, *main.finally_]):
             if step.type != "workflow.call" or not isinstance(step.input, dict):
                 continue
             ref = step.input.get("ref")

@@ -7,6 +7,7 @@ from gnougo_flow_core.errors import ErrorCodes, WorkflowRuntimeException
 from gnougo_flow_core.runtime import StepExecutionContext
 
 from .workflow_plan.auto_mode import _WorkflowPlanAutoModeMixin
+from .workflow_plan.capability_preflight import _WorkflowPlanCapabilityPreflightMixin
 from .workflow_plan.common import _WorkflowPlanCommonMixin
 from .workflow_plan.mcp_discovery import _WorkflowPlanMcpDiscoveryMixin
 from .workflow_plan.mcp_prefilter import _WorkflowPlanMcpPrefilterMixin
@@ -25,6 +26,7 @@ from .workflow_plan.validation import _WorkflowPlanValidationMixin
 
 class WorkflowPlanExecutor(
     _WorkflowPlanCommonMixin,
+    _WorkflowPlanCapabilityPreflightMixin,
     _WorkflowPlanAutoModeMixin,
     _WorkflowPlanRepairModeMixin,
     _WorkflowPlanSinglePlanMixin,
