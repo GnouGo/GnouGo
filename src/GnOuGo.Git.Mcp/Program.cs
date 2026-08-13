@@ -24,7 +24,6 @@ builder.Services.AddTransient<GitTools>();
 builder.Services
     .AddMcpServer(options =>
     {
-        options.ProtocolVersion = GnOuGoMcpProtocol.RequiredRevision;
         options.ServerInfo = new Implementation
         {
             Name = "GnOuGo.Git.Mcp",

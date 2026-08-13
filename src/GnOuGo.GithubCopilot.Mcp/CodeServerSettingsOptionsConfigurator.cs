@@ -38,6 +38,7 @@ internal sealed class CodeServerSettingsOptionsConfigurator(IConfiguration confi
         settings.RequestTimeoutSeconds = ReadInt32(section, nameof(CodeCopilotSettings.RequestTimeoutSeconds), settings.RequestTimeoutSeconds);
         settings.ManagedSessionTtlSeconds = ReadInt32(section, nameof(CodeCopilotSettings.ManagedSessionTtlSeconds), settings.ManagedSessionTtlSeconds);
         settings.EnableApproveAll = ReadBoolean(section, nameof(CodeCopilotSettings.EnableApproveAll), settings.EnableApproveAll);
+        settings.EnableSandboxBypassGrants = ReadBoolean(section, nameof(CodeCopilotSettings.EnableSandboxBypassGrants), settings.EnableSandboxBypassGrants);
         settings.WorkflowGrantTtlSeconds = ReadInt32(section, nameof(CodeCopilotSettings.WorkflowGrantTtlSeconds), settings.WorkflowGrantTtlSeconds);
         settings.TokenEnvironmentVariables = ReadStringList(section, nameof(CodeCopilotSettings.TokenEnvironmentVariables), settings.TokenEnvironmentVariables);
         settings.Providers = ReadProviders(

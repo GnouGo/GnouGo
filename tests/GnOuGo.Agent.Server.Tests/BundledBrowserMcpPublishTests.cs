@@ -3,6 +3,47 @@ namespace GnOuGo.Agent.Server.Tests;
 
 public sealed class BundledBrowserMcpPublishTests
 {
+    [Fact]
+    public void DevelopmentBuild_StagesAllBundledMcpAppHostsAndAvoidsDotnetRunConfiguration()
+    {
+        var root = GetRepositoryRoot();
+        var configuration = new DirectoryInfo(AppContext.BaseDirectory).Parent!.Name;
+        var toolsRoot = Path.Combine(root, "src", "GnOuGo.Agent.Server", "bin", configuration, "net10.0", "tools");
+        var executableExtension = OperatingSystem.IsWindows() ? ".exe" : string.Empty;
+        var toolNames = new[]
+        {
+            "GnOuGo.Browser.Mcp",
+            "GnOuGo.Cmd.Mcp",
+            "GnOuGo.Document.Mcp",
+            "GnOuGo.GithubCopilot.Mcp",
+            "GnOuGo.Git.Mcp"
+        };
+
+        foreach (var toolName in toolNames)
+        {
+            var executable = Path.Combine(toolsRoot, toolName, toolName + executableExtension);
+            Assert.True(File.Exists(executable), $"The staged MCP apphost was not found at '{executable}'.");
+        }
+
+        var developmentSettings = File.ReadAllText(Path.Combine(root, "src", "GnOuGo.Agent.Server", "appsettings.Development.json"));
+        Assert.DoesNotContain("\"Command\"", developmentSettings, StringComparison.Ordinal);
+        Assert.DoesNotContain("\"run\"", developmentSettings, StringComparison.Ordinal);
+
+        var sharedTargets = Path.Combine(root, "build", "GnOuGo.BundledMcpTools.targets");
+        Assert.True(File.Exists(sharedTargets));
+        Assert.Contains("GnOuGo.Browser.Mcp", File.ReadAllText(sharedTargets), StringComparison.Ordinal);
+        Assert.Contains("GnOuGo.Git.Mcp", File.ReadAllText(sharedTargets), StringComparison.Ordinal);
+
+        foreach (var projectFile in new[]
+                 {
+                     Path.Combine(root, "src", "GnOuGo.Agent.Server", "GnOuGo.Agent.Server.csproj"),
+                     Path.Combine(root, "src", "GnOuGo.Agent.Desktop", "GnOuGo.Agent.Desktop.csproj")
+                 })
+        {
+            Assert.Contains("GnOuGo.BundledMcpTools.targets", File.ReadAllText(projectFile), StringComparison.Ordinal);
+        }
+    }
+
     [Theory]
     [InlineData("src", "GnOuGo.Agent.Desktop", "GnOuGo.Agent.Desktop.csproj")]
     [InlineData("src", "GnOuGo.Agent.Server", "GnOuGo.Agent.Server.csproj")]

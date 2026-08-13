@@ -232,7 +232,7 @@ public sealed class GnOuGoAgentWebHostTests
     }
 
     [Fact]
-    public void Build_WhenDesktopHostedInDevelopment_LoadsDotnetRunStdIoMcpServersFromDevelopmentConfig()
+    public void Build_WhenDesktopHostedInDevelopment_UsesBundledStdIoMcpServersWithDevelopmentTimeouts()
     {
         var contentRoot = GetServerContentRoot();
         if (!AgentServerTestEnvironment.HasDevelopmentSettings(contentRoot))
@@ -270,11 +270,11 @@ public sealed class GnOuGoAgentWebHostTests
                 enableHttpsRedirection: false);
 
             var llmOptions = app.Services.GetRequiredService<IOptions<LLMOptions>>().Value;
-            AssertDevelopmentDotnetMcpServer(llmOptions, "GnOuGo.Browser.Mcp", Path.GetFullPath(Path.Combine(contentRoot, "..", "GnOuGo.Browser.Mcp", "GnOuGo.Browser.Mcp.csproj")));
-            AssertDevelopmentDotnetMcpServer(llmOptions, "GnOuGo.Cmd.Mcp", Path.GetFullPath(Path.Combine(contentRoot, "..", "GnOuGo.Cmd.Mcp", "GnOuGo.Cmd.Mcp.csproj")));
-            AssertDevelopmentDotnetMcpServer(llmOptions, "GnOuGo.Document.Mcp", Path.GetFullPath(Path.Combine(contentRoot, "..", "GnOuGo.Document.Mcp", "GnOuGo.Document.Mcp.csproj")));
-            AssertDevelopmentDotnetMcpServer(llmOptions, "GnOuGo.GithubCopilot.Mcp", Path.GetFullPath(Path.Combine(contentRoot, "..", "GnOuGo.GithubCopilot.Mcp", "GnOuGo.GithubCopilot.Mcp.csproj")));
-            AssertDevelopmentDotnetMcpServer(llmOptions, "GnOuGo.Git.Mcp", Path.GetFullPath(Path.Combine(contentRoot, "..", "GnOuGo.Git.Mcp", "GnOuGo.Git.Mcp.csproj")));
+            AssertDevelopmentBundledMcpServer(llmOptions, "GnOuGo.Browser.Mcp");
+            AssertDevelopmentBundledMcpServer(llmOptions, "GnOuGo.Cmd.Mcp");
+            AssertDevelopmentBundledMcpServer(llmOptions, "GnOuGo.Document.Mcp");
+            AssertDevelopmentBundledMcpServer(llmOptions, "GnOuGo.GithubCopilot.Mcp");
+            AssertDevelopmentBundledMcpServer(llmOptions, "GnOuGo.Git.Mcp");
 
             var runtimeOptions = app.Services.GetRequiredService<LLMRuntimeOptionsStore>().Current;
             Assert.True(runtimeOptions.McpServers.TryGetValue("GnOuGo.Git.Mcp", out var runtimeGitServer));
@@ -795,20 +795,18 @@ public sealed class GnOuGoAgentWebHostTests
         Assert.True(server.Args is null or { Count: 0 });
     }
 
-    private static void AssertDevelopmentDotnetMcpServer(LLMOptions llmOptions, string serverName, string expectedProject)
+    private static void AssertDevelopmentBundledMcpServer(LLMOptions llmOptions, string serverName)
     {
         Assert.True(llmOptions.McpServers.TryGetValue(serverName, out var server));
         Assert.NotNull(server);
         Assert.Equal("stdio", server.Type);
-        Assert.Equal("dotnet", Path.GetFileNameWithoutExtension(server.Command));
-        Assert.NotNull(server.Args);
-        Assert.Contains("run", server.Args);
-        var projectArgumentIndex = server.Args.IndexOf("--project");
-        Assert.True(projectArgumentIndex >= 0, $"{serverName} should pass --project to dotnet run.");
-        Assert.True(projectArgumentIndex + 1 < server.Args.Count, $"{serverName} should pass a project path after --project.");
-        Assert.Equal(expectedProject, server.Args[projectArgumentIndex + 1]);
-        Assert.Contains("--no-launch-profile", server.Args);
-        Assert.Contains("quiet", server.Args);
+        Assert.NotNull(server.Command);
+        Assert.EndsWith(
+            Path.Combine("tools", serverName, serverName),
+            server.Command.Replace('/', Path.DirectorySeparatorChar),
+            StringComparison.OrdinalIgnoreCase);
+        Assert.True(server.Args is null or { Count: 0 });
+        Assert.NotEqual("dotnet", Path.GetFileNameWithoutExtension(server.Command));
     }
 
     private static async Task<bool> WaitForAsync(Func<Task<bool>> predicate, TimeSpan timeout)

@@ -171,7 +171,7 @@ public sealed class AgentMcpWebHostTests
     }
 
     [Fact]
-    public async Task Build_McpHttp_RejectsLegacyInitializeForOwnedServerConformance()
+    public async Task Build_McpHttp_SupportsLegacyInitializeAndToolDiscovery()
     {
         var dbPath = Path.Combine(Path.GetTempPath(), $"gnougo-agent-mcp-legacy-{Guid.NewGuid():N}.db");
         var app = AgentMcpWebHost.Build([
@@ -195,21 +195,24 @@ public sealed class AgentMcpWebHostTests
                 Name = "GnOuGo.LegacyCompatibility.Tests"
             });
 
-            await Assert.ThrowsAsync<UnsupportedProtocolVersionException>(async () =>
-            {
-                await using var client = await McpClient.CreateAsync(
-                    transport,
-                    new McpClientOptions
+            await using var client = await McpClient.CreateAsync(
+                transport,
+                new McpClientOptions
+                {
+                    ProtocolVersion = "2025-11-25",
+                    ClientInfo = new Implementation
                     {
-                        ProtocolVersion = "2025-11-25",
-                        ClientInfo = new Implementation
-                        {
-                            Name = "GnOuGo.LegacyCompatibility.Tests",
-                            Version = "1.0.0"
-                        }
-                    },
-                    cancellationToken: CancellationToken.None);
-            });
+                        Name = "GnOuGo.LegacyCompatibility.Tests",
+                        Version = "1.0.0"
+                    }
+                },
+                cancellationToken: CancellationToken.None);
+
+            var tools = await client.ListToolsAsync(cancellationToken: CancellationToken.None);
+
+            Assert.Equal("2025-11-25", client.NegotiatedProtocolVersion);
+            Assert.Contains(tools, tool => tool.Name == "agent_list");
+            Assert.Contains(tools, tool => tool.Name == "user_config_get");
         }
         finally
         {

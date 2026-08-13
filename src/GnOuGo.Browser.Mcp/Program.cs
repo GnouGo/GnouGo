@@ -31,7 +31,6 @@ builder.Services.AddTransient<BrowserTools>();
 builder.Services
     .AddMcpServer(options =>
     {
-        options.ProtocolVersion = GnOuGoMcpProtocol.RequiredRevision;
         options.ServerInfo = new Implementation
         {
             Name = "GnOuGo.Browser.Mcp",

@@ -23,6 +23,7 @@ internal static class CopilotKeyVaultConfigurationOverlay
         "Code:Copilot:UseLoggedInUser",
         "Code:Copilot:ForwardTraceContext",
         "Code:Copilot:EnableApproveAll",
+        "Code:Copilot:EnableSandboxBypassGrants",
         "Code:Copilot:Telemetry:Enabled",
         "Code:Copilot:Telemetry:CaptureContent"
     };

@@ -32,6 +32,7 @@ public sealed class ConfigureProvidersServiceTests
                     ["id"] = "grant-1",
                     ["agentId"] = "agent-1",
                     ["agentName"] = "Reviewer",
+                    ["allowSandboxBypass"] = true,
                     ["lastUsedAt"] = "2026-08-07T12:00:00Z"
                 })
             })
@@ -53,6 +54,7 @@ public sealed class ConfigureProvidersServiceTests
             TestContext.Current.CancellationToken);
 
         Assert.Contains(listEvents, item => item.Text?.Contains("Reviewer", StringComparison.Ordinal) == true);
+        Assert.Contains(listEvents, item => item.Text?.Contains("| yes |", StringComparison.Ordinal) == true);
         Assert.Contains(revokeEvents, item => item.Text?.Contains("revoked", StringComparison.OrdinalIgnoreCase) == true);
         Assert.Equal("grant-1", revokeRequest?["grantId"]?.GetValue<string>());
         Assert.Equal("tenant-test", revokeRequest?["tenantId"]?.GetValue<string>());
@@ -361,7 +363,8 @@ public sealed class ConfigureProvidersServiceTests
         var keyVaultStore = new FakeKeyVaultRuntimeConfigStore()
             .AddSecret(
                 "LLM--Models--openai",
-                "{\"provider\":\"openai\",\"url\":\"https://api.openai.com/v1\",\"model\":\"gpt-provider-model\",\"authType\":\"api_key\",\"apiKey\":\"provider-secret\"}");
+                "{\"provider\":\"openai\",\"url\":\"https://api.openai.com/v1\",\"model\":\"gpt-provider-model\",\"authType\":\"api_key\",\"apiKey\":\"provider-secret\"}")
+            .AddSecret(CopilotOverrideKey("EnableApproveAll"), "false");
         var humanInput = new AgentHumanInputProvider();
         var runtimeStore = SmartFlowTestFactory.CreateRuntimeOptionsStore(new LLMOptions
         {
@@ -384,8 +387,8 @@ public sealed class ConfigureProvidersServiceTests
             {
                 Assert.Equal("mcp_edit.bundled_fields", request.StepId);
                 Assert.NotNull(request.Fields);
-                Assert.Equal(6, request.Fields!.Count);
-                Assert.DoesNotContain(request.Fields!, field => field.Name is "command" or "args" or "allow_writes" or "enable_approve_all");
+                Assert.Equal(9, request.Fields!.Count);
+                Assert.DoesNotContain(request.Fields!, field => field.Name is "command" or "args" or "allow_writes");
                 var providerField = Assert.Single(request.Fields!, field => field.Name == "provider");
                 Assert.Contains("Copilot", providerField.Options!);
                 Assert.Contains("openai", providerField.Options!);
@@ -396,6 +399,8 @@ public sealed class ConfigureProvidersServiceTests
                     ["provider"] = "openai",
                     ["model"] = "fallback-model",
                     ["reasoning_effort"] = "medium",
+                    ["enable_approve_all"] = false,
+                    ["enable_sandbox_bypass_grants"] = true,
                     ["use_logged_in_user"] = false,
                     ["request_timeout_seconds"] = 600,
                     ["managed_session_ttl_seconds"] = 300
@@ -422,6 +427,8 @@ public sealed class ConfigureProvidersServiceTests
         Assert.Equal("openai", await keyVaultStore.GetSecretValueAsync(CopilotOverrideKey("Provider"), token));
         Assert.Equal("fallback-model", await keyVaultStore.GetSecretValueAsync(CopilotOverrideKey("Model"), token));
         Assert.Equal("medium", await keyVaultStore.GetSecretValueAsync(CopilotOverrideKey("ReasoningEffort"), token));
+        Assert.Equal("true", await keyVaultStore.GetSecretValueAsync(CopilotOverrideKey("EnableApproveAll"), token));
+        Assert.Equal("true", await keyVaultStore.GetSecretValueAsync(CopilotOverrideKey("EnableSandboxBypassGrants"), token));
         Assert.Equal("false", await keyVaultStore.GetSecretValueAsync(CopilotOverrideKey("UseLoggedInUser"), token));
         Assert.Equal("600", await keyVaultStore.GetSecretValueAsync(CopilotOverrideKey("RequestTimeoutSeconds"), token));
         Assert.Equal("300", await keyVaultStore.GetSecretValueAsync(CopilotOverrideKey("ManagedSessionTtlSeconds"), token));
@@ -448,6 +455,8 @@ public sealed class ConfigureProvidersServiceTests
                     ["provider"] = "missing-provider",
                     ["model"] = "fallback-model",
                     ["reasoning_effort"] = "extreme",
+                    ["enable_approve_all"] = false,
+                    ["enable_sandbox_bypass_grants"] = false,
                     ["use_logged_in_user"] = "not-a-boolean",
                     ["request_timeout_seconds"] = 0,
                     ["managed_session_ttl_seconds"] = -1
@@ -2329,6 +2338,16 @@ public sealed class ConfigureProvidersServiceTests
                         ["provider"] = CopilotField("Provider override", "Provider", "select", "Copilot", optionsSource: "llm_providers"),
                         ["model"] = CopilotField("Fallback model", "Model", "string", "gpt-5.4-mini"),
                         ["reasoning_effort"] = CopilotField("Reasoning effort", "ReasoningEffort", "select", "high", ["low", "medium", "high", "xhigh"]),
+                        ["enable_approve_all"] = CopilotField("Enable broad approvals", "EnableApproveAll", "boolean", "true"),
+                        ["enable_sandbox_bypass_grants"] = CopilotField(
+                            "Enable reusable sandbox bypass",
+                            "EnableSandboxBypassGrants",
+                            "boolean",
+                            "false",
+                            setValuesWhenTrue: new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+                            {
+                                ["enable_approve_all"] = "true"
+                            }),
                         ["use_logged_in_user"] = CopilotField("Use logged-in GitHub user", "UseLoggedInUser", "boolean", "true"),
                         ["request_timeout_seconds"] = CopilotField("Request timeout (seconds)", "RequestTimeoutSeconds", "integer", "7200", minValue: 1),
                         ["managed_session_ttl_seconds"] = CopilotField("Managed-session TTL (seconds)", "ManagedSessionTtlSeconds", "integer", "1800", minValue: 1)
@@ -2344,7 +2363,8 @@ public sealed class ConfigureProvidersServiceTests
         string defaultValue,
         List<string>? options = null,
         string? optionsSource = null,
-        int? minValue = null)
+        int? minValue = null,
+        Dictionary<string, string>? setValuesWhenTrue = null)
         => new()
         {
             DisplayName = displayName,
@@ -2357,7 +2377,8 @@ public sealed class ConfigureProvidersServiceTests
             OptionsSource = optionsSource,
             DefaultValue = defaultValue,
             AllowInherit = true,
-            MinValue = minValue
+            MinValue = minValue,
+            SetValuesWhenTrue = setValuesWhenTrue ?? new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
         };
 
     private static string CopilotOverrideKey(string configurationName)

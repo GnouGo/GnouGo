@@ -4,7 +4,7 @@
 
 ## MCP protocol compatibility
 
-This stdio server uses the stable C# MCP SDK `2.0.0` and targets MCP `2026-07-28`. The SDK retains compatibility with older clients. The GnOuGo JSONL progress stream remains a stderr side channel and does not alter the MCP wire contract.
+This stdio server uses the stable C# MCP SDK `2.0.0` with automatic protocol negotiation: clients prefer `2026-07-28` discovery and can initialize with stable `2025-11-25`. Launch the built apphost, or use `dotnet GnOuGo.Browser.Mcp.dll`; do not put `dotnet run` on an MCP stdio transport because CLI output can corrupt the JSONL stream. The GnOuGo progress stream remains a stderr side channel and does not alter the MCP wire contract.
 
 ## Exposed Tools
 
@@ -100,7 +100,7 @@ Windows PowerShell example:
 ```powershell
 dotnet build .\src\GnOuGo.Browser.Mcp\GnOuGo.Browser.Mcp.csproj
 powershell -ExecutionPolicy Bypass -File .\src\GnOuGo.Browser.Mcp\bin\Debug\net10.0\playwright.ps1 install chromium
-dotnet run --project .\src\GnOuGo.Browser.Mcp\GnOuGo.Browser.Mcp.csproj
+.\src\GnOuGo.Browser.Mcp\bin\Debug\net10.0\GnOuGo.Browser.Mcp.exe
 ```
 
 ## Visual Debug Mode
@@ -177,5 +177,5 @@ Example MCP configuration in `LLMOptions`:
 - Navigations are restricted to `http` and `https`.
 - `file://`, `data:`, and other non-web schemes are rejected.
 - If `AllowedHosts` is empty, any HTTP/HTTPS destination is allowed.
-- The command `dotnet run --project src/GnOuGo.Browser.Mcp/GnOuGo.Browser.Mcp.csproj` assumes launch from the repository root in development.
+- The direct apphost command above assumes launch from the repository root. A portable alternative after building is `dotnet src/GnOuGo.Browser.Mcp/bin/Debug/net10.0/GnOuGo.Browser.Mcp.dll`.
 - `KeepBrowserOpen=true` is a local debug mode; do not leave it enabled in normal automated runs.

@@ -32,6 +32,7 @@ public sealed class CodeCopilotSettings
     public int RequestTimeoutSeconds { get; set; } = 120;
     public int ManagedSessionTtlSeconds { get; set; } = 1800;
     public bool EnableApproveAll { get; set; }
+    public bool EnableSandboxBypassGrants { get; set; }
     public int WorkflowGrantTtlSeconds { get; set; } = 86_400;
     public List<string> TokenEnvironmentVariables { get; set; } = ["GITHUB_TOKEN", "COPILOT_API_KEY"];
     public Dictionary<string, CodeCopilotProviderSettings> Providers { get; set; } =

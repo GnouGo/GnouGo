@@ -1,0 +1,55 @@
+<Project>
+  <PropertyGroup>
+    <GnOuGoBundledMcpExecutableExtension Condition="'$(OS)' == 'Windows_NT'">.exe</GnOuGoBundledMcpExecutableExtension>
+    <GnOuGoStageBundledMcpTools Condition="'$(GnOuGoStageBundledMcpTools)' == ''">true</GnOuGoStageBundledMcpTools>
+    <GnOuGoStageBundledMcpTools Condition="'$(SkipBundledServerTools)' == 'true'">false</GnOuGoStageBundledMcpTools>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <GnOuGoBundledMcpTool Include="$(MSBuildThisFileDirectory)..\src\GnOuGo.Browser.Mcp\GnOuGo.Browser.Mcp.csproj">
+      <ToolName>GnOuGo.Browser.Mcp</ToolName>
+    </GnOuGoBundledMcpTool>
+    <GnOuGoBundledMcpTool Include="$(MSBuildThisFileDirectory)..\src\GnOuGo.Cmd.Mcp\GnOuGo.Cmd.Mcp.csproj">
+      <ToolName>GnOuGo.Cmd.Mcp</ToolName>
+    </GnOuGoBundledMcpTool>
+    <GnOuGoBundledMcpTool Include="$(MSBuildThisFileDirectory)..\src\GnOuGo.Document.Mcp\GnOuGo.Document.Mcp.csproj">
+      <ToolName>GnOuGo.Document.Mcp</ToolName>
+    </GnOuGoBundledMcpTool>
+    <GnOuGoBundledMcpTool Include="$(MSBuildThisFileDirectory)..\src\GnOuGo.GithubCopilot.Mcp\GnOuGo.GithubCopilot.Mcp.csproj">
+      <ToolName>GnOuGo.GithubCopilot.Mcp</ToolName>
+    </GnOuGoBundledMcpTool>
+    <GnOuGoBundledMcpTool Include="$(MSBuildThisFileDirectory)..\src\GnOuGo.Git.Mcp\GnOuGo.Git.Mcp.csproj">
+      <ToolName>GnOuGo.Git.Mcp</ToolName>
+    </GnOuGoBundledMcpTool>
+
+    <ProjectReference Include="@(GnOuGoBundledMcpTool)"
+                      ReferenceOutputAssembly="false"
+                      AdditionalProperties="SkipPlaywrightBrowserInstall=true" />
+  </ItemGroup>
+
+  <Target Name="StageGnOuGoBundledMcpTools"
+          AfterTargets="Build"
+          Condition="'$(GnOuGoStageBundledMcpTools)' == 'true' and '$(DesignTimeBuild)' != 'true'">
+    <ItemGroup>
+      <_GnOuGoBundledMcpOutput Include="%(GnOuGoBundledMcpTool.RootDir)%(GnOuGoBundledMcpTool.Directory)bin\$(Configuration)\$(TargetFramework)\**\*">
+        <ToolName>%(GnOuGoBundledMcpTool.ToolName)</ToolName>
+      </_GnOuGoBundledMcpOutput>
+    </ItemGroup>
+
+    <Message Importance="high" Text="Staging GnOuGo MCP development tools into $(OutDir)tools..." />
+    <Copy SourceFiles="@(_GnOuGoBundledMcpOutput)"
+          DestinationFiles="@(_GnOuGoBundledMcpOutput-&gt;'$(OutDir)tools\%(ToolName)\%(RecursiveDir)%(Filename)%(Extension)')"
+          SkipUnchangedFiles="true" />
+
+    <Error Condition="!Exists('$(OutDir)tools\GnOuGo.Browser.Mcp\GnOuGo.Browser.Mcp$(GnOuGoBundledMcpExecutableExtension)')"
+           Text="Staged development tools are missing GnOuGo.Browser.Mcp." />
+    <Error Condition="!Exists('$(OutDir)tools\GnOuGo.Cmd.Mcp\GnOuGo.Cmd.Mcp$(GnOuGoBundledMcpExecutableExtension)')"
+           Text="Staged development tools are missing GnOuGo.Cmd.Mcp." />
+    <Error Condition="!Exists('$(OutDir)tools\GnOuGo.Document.Mcp\GnOuGo.Document.Mcp$(GnOuGoBundledMcpExecutableExtension)')"
+           Text="Staged development tools are missing GnOuGo.Document.Mcp." />
+    <Error Condition="!Exists('$(OutDir)tools\GnOuGo.GithubCopilot.Mcp\GnOuGo.GithubCopilot.Mcp$(GnOuGoBundledMcpExecutableExtension)')"
+           Text="Staged development tools are missing GnOuGo.GithubCopilot.Mcp." />
+    <Error Condition="!Exists('$(OutDir)tools\GnOuGo.Git.Mcp\GnOuGo.Git.Mcp$(GnOuGoBundledMcpExecutableExtension)')"
+           Text="Staged development tools are missing GnOuGo.Git.Mcp." />
+  </Target>
+</Project>

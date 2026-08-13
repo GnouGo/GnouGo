@@ -4,7 +4,7 @@ MCP stdio server for safe Git repository operations on local projects.
 
 ## MCP protocol compatibility
 
-This stdio server uses the stable C# MCP SDK `2.0.0` and requires MCP `2026-07-28` for GnOuGo-owned peers. External server fallback is handled by the unpinned GnOuGo Flow client.
+This stdio server uses the stable C# MCP SDK `2.0.0` with automatic protocol negotiation: clients prefer `2026-07-28` discovery and can initialize with stable `2025-11-25`. Launch the built apphost, or use `dotnet GnOuGo.Git.Mcp.dll`; do not put `dotnet run` on an MCP stdio transport because CLI output can corrupt the JSONL stream.
 
 ## Features
 
@@ -54,13 +54,14 @@ Do not commit real tokens.
 ## Run
 
 ```powershell
-dotnet run --project "C:\github\GnouGo\src\GnOuGo.Git.Mcp\GnOuGo.Git.Mcp.csproj"
+dotnet build .\src\GnOuGo.Git.Mcp\GnOuGo.Git.Mcp.csproj
+.\src\GnOuGo.Git.Mcp\bin\Debug\net10.0\GnOuGo.Git.Mcp.exe
 ```
 
 ## Build
 
 ```powershell
-dotnet build "C:\github\GnouGo\src\GnOuGo.Git.Mcp\GnOuGo.Git.Mcp.csproj" -p:SkipModelMetadataGeneration=true
+dotnet build .\src\GnOuGo.Git.Mcp\GnOuGo.Git.Mcp.csproj -p:SkipModelMetadataGeneration=true
 ```
 
 ## Test

@@ -221,4 +221,6 @@
     <Content Include="Assets/**" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
+  <Import Project="..\..\build\GnOuGo.BundledMcpTools.targets" />
+
 </Project>

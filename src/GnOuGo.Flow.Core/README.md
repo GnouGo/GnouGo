@@ -9,7 +9,7 @@ Write YAML workflows that orchestrate LLMs, MCP servers, templates, loops, human
 
 ## MCP protocol compatibility
 
-The runtime uses the stable C# MCP SDK `2.0.0`. HTTP and stdio clients prefer MCP `2026-07-28` discovery with `server/discover` and automatically fall back to `2025-11-25` initialization when an external server is older. GnOuGo-owned servers require `2026-07-28` in conformance tests. Flow does not use `Mcp-Session-Id` for Copilot identity.
+The runtime uses the stable C# MCP SDK `2.0.0`. HTTP and stdio clients prefer MCP `2026-07-28` discovery with `server/discover` and automatically fall back to `2025-11-25` initialization. GnOuGo-owned servers use the same unpinned negotiation policy. Flow does not use `Mcp-Session-Id` for Copilot identity.
 
 Every discovery/tool/resource/prompt request carries reserved technical metadata such as correlation, stable execution and agent identity, run, trace, step, and tenant identifiers under `_meta.gnougo`; HTTP headers and stdio environment receive the same technical identifiers. These host-owned fields cannot be overridden by workflow input. A caller may explicitly add domain-neutral request context through `mcp.call.input.context`, which is propagated only under `_meta.gnougo.context`. Flow never extracts domain fields from workflow data. MCP elicitation is bridged to the workflow `IHumanInputProvider`, enabling stable multi-round-trip HITL without putting credentials in YAML. MCP tools marked `gnougo.management.visibility=management_only` remain discoverable to management clients but are excluded from workflow planning catalogs.
 
