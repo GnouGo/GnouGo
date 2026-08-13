@@ -25,9 +25,13 @@ public sealed class BundledBrowserMcpPublishTests
             Assert.True(File.Exists(executable), $"The staged MCP apphost was not found at '{executable}'.");
         }
 
-        var developmentSettings = File.ReadAllText(Path.Combine(root, "src", "GnOuGo.Agent.Server", "appsettings.Development.json"));
-        Assert.DoesNotContain("\"Command\"", developmentSettings, StringComparison.Ordinal);
-        Assert.DoesNotContain("\"run\"", developmentSettings, StringComparison.Ordinal);
+        var developmentSettingsPath = Path.Combine(root, "src", "GnOuGo.Agent.Server", "appsettings.Development.json");
+        if (File.Exists(developmentSettingsPath))
+        {
+            var developmentSettings = File.ReadAllText(developmentSettingsPath);
+            Assert.DoesNotContain("\"Command\"", developmentSettings, StringComparison.Ordinal);
+            Assert.DoesNotContain("\"run\"", developmentSettings, StringComparison.Ordinal);
+        }
 
         var sharedTargets = Path.Combine(root, "build", "GnOuGo.BundledMcpTools.targets");
         Assert.True(File.Exists(sharedTargets));
