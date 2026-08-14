@@ -4,12 +4,13 @@ HTTP-based MCP server for agent data, chat history, and diff-related tools.
 
 ## MCP protocol compatibility
 
-This server uses the stable C# MCP SDK `2.0.0` with automatic protocol negotiation. Its explicitly stateless Streamable HTTP transport prefers `2026-07-28` discovery through `server/discover` and also accepts clients that initialize with stable `2025-11-25`.
+This server uses the stable C# MCP SDK `2.2.0` with automatic protocol negotiation. Its explicitly stateless Streamable HTTP transport prefers `2026-07-28` discovery through `server/discover` and also accepts clients that initialize with stable `2025-11-25`.
 
 ## Architecture
 
 This component is independently publishable, testable, and deployable per `AGENTS.md` rules.
 It can run as a standalone HTTP MCP host or be mounted inside `GnOuGo.Agent.Server`.
+`WithAgentMcpTools()` is the reusable `IMcpServerBuilder` extension used by both hosting modes; it registers the Agent tool classes and their source-generated JSON metadata without creating a transport or listener.
 
 ## Hosted tools
 
@@ -77,7 +78,7 @@ Consumer example:
 
 ### Mounted inside `GnOuGo.Agent.Server`
 
-When the Blazor agent server hosts the MCP services in-process, the same tools are mounted at:
+When the Blazor agent server hosts the MCP services in-process, the same tools are mapped directly on its single listener at:
 
 - `/mcp/agent`
 

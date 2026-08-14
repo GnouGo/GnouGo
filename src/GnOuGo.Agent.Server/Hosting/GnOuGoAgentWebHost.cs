@@ -28,45 +28,16 @@ using GnOuGo.KeyVault.Core;
 using GnOuGo.KeyVault.Core.Data;
 using GnOuGo.KeyVault.Mcp;
 using GnOuGo.KeyVault.Core.Services;
+using GnOuGo.Mcp.Core;
+using ModelContextProtocol.AspNetCore;
+using ModelContextProtocol.Protocol;
 using OtlpTenantCollector.Hosting;
 using OtlpTenantCollector.Web;
-using System.Net.Http.Headers;
 
 namespace GnOuGo.Agent.Server.Hosting;
 
 public static class GnOuGoAgentWebHost
 {
-    private static readonly HttpClient MountedMcpProxyHttpClient = new(new SocketsHttpHandler
-    {
-        AllowAutoRedirect = false,
-        AutomaticDecompression = DecompressionMethods.None,
-        UseCookies = false,
-        EnableMultipleHttp2Connections = true
-    })
-    {
-        Timeout = Timeout.InfiniteTimeSpan,
-        DefaultRequestVersion = HttpVersion.Version20,
-        DefaultVersionPolicy = HttpVersionPolicy.RequestVersionOrHigher
-    };
-
-    private static readonly MountedMcpRegistration AgentMcpRegistration = new(
-        AgentMcpHostingExtensions.ServerName,
-        "/mcp/agent",
-        "Agent management and chat history via locally mounted MCP HTTP endpoint",
-        "GnOuGo.Agent.Server.AgentMcpMount");
-
-    private static readonly MountedMcpRegistration KeyVaultMcpRegistration = new(
-        KeyVaultMcpHostingExtensions.ServerName,
-        "/mcp/keyvault",
-        "Encrypted secret manager via locally mounted MCP HTTP endpoint",
-        "GnOuGo.Agent.Server.KeyVaultMcpMount");
-
-    private static readonly MountedMcpRegistration DocsIngestorMcpRegistration = new(
-        DocsIngestorMcpHostingExtensions.ServerName,
-        "/mcp/docs-ingestor",
-        "Document ingestion and vector search via locally mounted MCP HTTP endpoint",
-        "GnOuGo.Agent.Server.DocsIngestorMcpMount");
-
     public static WebApplication Build(
         string[] args,
         string? urls = null,
@@ -347,6 +318,25 @@ public static class GnOuGoAgentWebHost
         builder.Services.AddSingleton<AgentUserConfigMcpClient>();
         builder.Services.AddAgentMcpPersistence(agentDbPath);
         builder.Services.AddKeyVaultMcpPersistence(keyVaultDbPath);
+        builder.Services.AddDocsIngestorMcpServices(builder.Configuration, applicationBasePath);
+        builder.Services
+            .AddMcpServer(options =>
+            {
+                options.ServerInfo = new Implementation
+                {
+                    Name = "GnOuGo.Agent.Server.Mcp",
+                    Version = "1.0.0"
+                };
+                options.AddGnOuGoToolErrorNormalizer();
+            })
+            .WithHttpTransport(options =>
+            {
+                options.SessionMode = HttpServerSessionMode.Stateless;
+                options.ConfigureSessionOptions = MountedMcpEndpointCatalog.ConfigureSessionOptionsAsync;
+            })
+            .WithAgentMcpTools()
+            .WithKeyVaultMcpTools()
+            .WithDocsIngestorMcpTools();
         builder.Services.AddSingleton<IKeyVaultRuntimeConfigStore, KeyVaultRuntimeConfigStore>();
         // Do not let DI inject the singleton IMcpClientFactory here. That
         // factory is a startup snapshot, while /mcp add and /mcp edit update
@@ -419,9 +409,6 @@ public static class GnOuGoAgentWebHost
             });
 
         builder.Services.AddSingleton<WordChunker>();
-        var capturedArgs = args;
-        builder.Services.AddSingleton<MountedMcpHostsHolder>(sp => new MountedMcpHostsHolder(capturedArgs, sp, startInBackground: isDesktopHosted));
-        builder.Services.AddHostedService(sp => sp.GetRequiredService<MountedMcpHostsHolder>());
 
         var app = builder.Build();
 
@@ -429,15 +416,13 @@ public static class GnOuGoAgentWebHost
         app.Services.InitializeGnOuGoFilesServerAsync().GetAwaiter().GetResult();
 
         app.Services.InitializeKeyVaultMcpAsync().GetAwaiter().GetResult();
+        app.Services.InitializeDocsIngestorMcpAsync().GetAwaiter().GetResult();
 
         HydrateRuntimeOptionsFromKeyVaultAsync(app.Services).GetAwaiter().GetResult();
 
         app.Services.InitializeOtlpCollectorAsync().GetAwaiter().GetResult();
 
-        // Mounted MCP sub-hosts are started/stopped by the MountedMcpHostsHolder
-        // IHostedService — no direct startup here.
-        var mountedMcpHostsHolder = app.Services.GetRequiredService<MountedMcpHostsHolder>();
-        app.Lifetime.ApplicationStarted.Register(() => _ = InitializeMountedMcpServicesAsync(app, mountedMcpHostsHolder));
+        app.Lifetime.ApplicationStarted.Register(() => _ = InitializeMountedMcpServicesAsync(app));
 
         if (isDesktopHosted)
         {
@@ -550,7 +535,7 @@ public static class GnOuGoAgentWebHost
             telemetryHttp.MapTenantApi();
         }
 
-        MapMountedMcpEndpoints(app, mountedMcpHostsHolder);
+        MountedMcpEndpointCatalog.MapEndpoints(app);
         app.MapGet("/health", () => Results.Text("{\"status\":\"ok\"}", "application/json"));
         app.MapGet("/desktop/boot-log/{token}", (string token, string? step, string? detail) =>
         {
@@ -794,77 +779,30 @@ public static class GnOuGoAgentWebHost
         return null;
     }
 
-    private static Task InitializeMountedMcpServicesAsync(
-        WebApplication app,
-        MountedMcpHostsHolder mountedMcpHostsHolder)
-        => Task.WhenAll(
-            InitializeMountedAgentServicesAsync(app, mountedMcpHostsHolder),
-            InitializeMountedMcpEndpointAsync(
-                app,
-                KeyVaultMcpRegistration,
-                mountedMcpHostsHolder.WaitUntilKeyVaultReadyAsync),
-            InitializeMountedMcpEndpointAsync(
-                app,
-                DocsIngestorMcpRegistration,
-                mountedMcpHostsHolder.WaitUntilDocsIngestorReadyAsync));
-
-    private static async Task InitializeMountedAgentServicesAsync(
-        WebApplication app,
-        MountedMcpHostsHolder mountedMcpHostsHolder)
+    private static async Task InitializeMountedMcpServicesAsync(WebApplication app)
     {
         ArgumentNullException.ThrowIfNull(app);
-        ArgumentNullException.ThrowIfNull(mountedMcpHostsHolder);
 
         try
         {
-            await mountedMcpHostsHolder.WaitUntilAgentReadyAsync(app.Lifetime.ApplicationStopping);
-
             var publishedEndpoints = ResolvePublishedEndpoints(app);
             if (string.IsNullOrWhiteSpace(publishedEndpoints.AppBaseAddress))
                 return;
 
-            TryConfigureMountedMcpServer(app, AgentMcpRegistration, publishedEndpoints.AppBaseAddress);
+            foreach (var registration in MountedMcpEndpointCatalog.Registrations)
+                TryConfigureMountedMcpServer(app, registration, publishedEndpoints.AppBaseAddress);
+
             await InitializeMountedAgentServicesFromServicesAsync(app.Services);
         }
         catch (OperationCanceledException) when (app.Lifetime.ApplicationStopping.IsCancellationRequested)
         {
-            // Normal shutdown while the desktop-hosted MCP sub-hosts are still starting.
+            // Normal shutdown while post-start initialization is running.
         }
         catch (Exception ex)
         {
             var logger = app.Services.GetRequiredService<ILoggerFactory>()
-                .CreateLogger("GnOuGo.Agent.Server.MountedMcpHostsHolder");
-            logger.LogError(ex, "The mounted Agent MCP sub-host did not become ready; its public endpoint was not published.");
-        }
-    }
-
-    private static async Task InitializeMountedMcpEndpointAsync(
-        WebApplication app,
-        MountedMcpRegistration registration,
-        Func<CancellationToken, Task> waitUntilReadyAsync)
-    {
-        try
-        {
-            await waitUntilReadyAsync(app.Lifetime.ApplicationStopping);
-
-            var publishedEndpoints = ResolvePublishedEndpoints(app);
-            if (string.IsNullOrWhiteSpace(publishedEndpoints.AppBaseAddress))
-                return;
-
-            TryConfigureMountedMcpServer(app, registration, publishedEndpoints.AppBaseAddress);
-        }
-        catch (OperationCanceledException) when (app.Lifetime.ApplicationStopping.IsCancellationRequested)
-        {
-            // Normal shutdown while this mounted MCP sub-host is still starting.
-        }
-        catch (Exception ex)
-        {
-            var logger = app.Services.GetRequiredService<ILoggerFactory>()
-                .CreateLogger(registration.LoggerName);
-            logger.LogError(
-                ex,
-                "The mounted MCP sub-host '{ServerName}' did not become ready; its public endpoint was not published.",
-                registration.ServerName);
+                .CreateLogger("GnOuGo.Agent.Server.MountedMcpInitialization");
+            logger.LogError(ex, "The directly mounted MCP endpoints could not be published to runtime configuration.");
         }
     }
 
@@ -931,293 +869,15 @@ public static class GnOuGoAgentWebHost
             ? new Dictionary<string, LLMModelMetadata>(StringComparer.OrdinalIgnoreCase)
             : new Dictionary<string, LLMModelMetadata>(modelOverrides, StringComparer.OrdinalIgnoreCase);
 
-    private static void MapMountedMcpEndpoints(WebApplication app, MountedMcpHostsHolder holder)
-    {
-        MapMountedMcpProxy(app, AgentMcpRegistration.RoutePrefix, () => holder.AgentBaseAddress);
-        MapMountedMcpProxy(app, KeyVaultMcpRegistration.RoutePrefix, () => holder.KeyVaultBaseAddress);
-        MapMountedMcpProxy(app, DocsIngestorMcpRegistration.RoutePrefix, () => holder.DocsIngestorBaseAddress);
-    }
-
-    private static void MapMountedMcpProxy(WebApplication app, string routePrefix, Func<Uri?> resolveTarget)
-    {
-        app.Map(routePrefix, context =>
-            {
-                var target = resolveTarget();
-                return target is null
-                    ? Task.FromResult(Results.StatusCode(503))
-                    : ProxyMountedMcpRequestAsync(context, target, path: null);
-            })
-            .DisableAntiforgery();
-
-        app.Map($"{routePrefix}/{{**path}}", (HttpContext context, string path) =>
-            {
-                var target = resolveTarget();
-                return target is null
-                    ? Task.FromResult(Results.StatusCode(503))
-                    : ProxyMountedMcpRequestAsync(context, target, path);
-            })
-            .DisableAntiforgery();
-    }
-
-    private static async Task ProxyMountedMcpRequestAsync(HttpContext context, Uri targetBaseAddress, string? path)
-    {
-        var relativePath = string.IsNullOrWhiteSpace(path) ? string.Empty : "/" + path.TrimStart('/');
-        var targetUri = new Uri($"{targetBaseAddress.ToString().TrimEnd('/')}{relativePath}{context.Request.QueryString}");
-
-        using var request = new HttpRequestMessage(new HttpMethod(context.Request.Method), targetUri);
-
-        var hasBody = context.Request.ContentLength > 0 || context.Request.Headers.ContainsKey("Transfer-Encoding");
-        if (hasBody)
-        {
-            request.Content = new StreamContent(context.Request.Body);
-            if (!string.IsNullOrWhiteSpace(context.Request.ContentType))
-            {
-                request.Content.Headers.TryAddWithoutValidation("Content-Type", context.Request.ContentType);
-            }
-        }
-
-        foreach (var header in context.Request.Headers)
-        {
-            if (ShouldSkipProxyRequestHeader(header.Key, hasBody))
-            {
-                continue;
-            }
-
-            if (!(request.Content?.Headers.TryAddWithoutValidation(header.Key, header.Value.ToArray()) ?? false))
-            {
-                request.Headers.TryAddWithoutValidation(header.Key, header.Value.ToArray());
-            }
-        }
-
-        using var response = await MountedMcpProxyHttpClient.SendAsync(
-            request,
-            HttpCompletionOption.ResponseHeadersRead,
-            context.RequestAborted);
-
-        context.Response.StatusCode = (int)response.StatusCode;
-
-        foreach (var header in response.Headers)
-        {
-            context.Response.Headers[header.Key] = RewriteProxyResponseHeaderValues(
-                context,
-                targetBaseAddress,
-                header.Key,
-                header.Value).ToArray();
-        }
-
-        foreach (var header in response.Content.Headers)
-        {
-            context.Response.Headers[header.Key] = RewriteProxyResponseHeaderValues(
-                context,
-                targetBaseAddress,
-                header.Key,
-                header.Value).ToArray();
-        }
-
-        context.Response.Headers.Remove("transfer-encoding");
-
-        await response.Content.CopyToAsync(context.Response.Body, context.RequestAborted);
-    }
-
-    internal static bool ShouldSkipProxyRequestHeader(string headerName, bool hasBody)
-    {
-        ArgumentException.ThrowIfNullOrWhiteSpace(headerName);
-
-        if (headerName.Equals("Host", StringComparison.OrdinalIgnoreCase)
-            || headerName.Equals("Connection", StringComparison.OrdinalIgnoreCase)
-            || headerName.Equals("Keep-Alive", StringComparison.OrdinalIgnoreCase)
-            || headerName.Equals("Proxy-Connection", StringComparison.OrdinalIgnoreCase)
-            || headerName.Equals("Transfer-Encoding", StringComparison.OrdinalIgnoreCase)
-            || headerName.Equals("Upgrade", StringComparison.OrdinalIgnoreCase)
-            || headerName.Equals("TE", StringComparison.OrdinalIgnoreCase)
-            || headerName.Equals("Trailer", StringComparison.OrdinalIgnoreCase)
-            || headerName.Equals("Proxy-Authorization", StringComparison.OrdinalIgnoreCase)
-            || headerName.Equals("Proxy-Authenticate", StringComparison.OrdinalIgnoreCase))
-        {
-            return true;
-        }
-
-        if (!hasBody)
-            return false;
-
-        return headerName.Equals("Content-Type", StringComparison.OrdinalIgnoreCase)
-            || headerName.Equals("Content-Length", StringComparison.OrdinalIgnoreCase);
-    }
-
-    private static IEnumerable<string> RewriteProxyResponseHeaderValues(
-        HttpContext context,
-        Uri targetBaseAddress,
-        string headerName,
-        IEnumerable<string> values)
-    {
-        ArgumentNullException.ThrowIfNull(context);
-        ArgumentNullException.ThrowIfNull(targetBaseAddress);
-        ArgumentNullException.ThrowIfNull(headerName);
-        ArgumentNullException.ThrowIfNull(values);
-
-        if (!headerName.Equals("Location", StringComparison.OrdinalIgnoreCase)
-            && !headerName.Equals("Content-Location", StringComparison.OrdinalIgnoreCase))
-        {
-            return values;
-        }
-
-        var publicOrigin = new Uri($"{context.Request.Scheme}://{context.Request.Host}");
-        var upstreamOrigin = new Uri($"{targetBaseAddress.Scheme}://{targetBaseAddress.Authority}");
-
-        return values.Select(value => RewriteProxyResponseHeaderValue(value, upstreamOrigin, publicOrigin));
-    }
-
-    private static string RewriteProxyResponseHeaderValue(string value, Uri upstreamOrigin, Uri publicOrigin)
-    {
-        if (!Uri.TryCreate(value, UriKind.Absolute, out var absolute)
-            || !Uri.Compare(absolute, upstreamOrigin, UriComponents.SchemeAndServer, UriFormat.Unescaped, StringComparison.OrdinalIgnoreCase).Equals(0))
-        {
-            return value;
-        }
-
-        var builder = new UriBuilder(absolute)
-        {
-            Scheme = publicOrigin.Scheme,
-            Host = publicOrigin.Host,
-            Port = publicOrigin.IsDefaultPort ? -1 : publicOrigin.Port
-        };
-
-        return builder.Uri.ToString();
-    }
-
-    private static MountedMcpHosts StartMountedMcpHosts(string[] args)
-    {
-        // Strip OtlpCollector / OpenTelemetry args that only the main host needs.
-        // Sub-hosts do not configure collector endpoints and must not inherit them,
-        // otherwise CreateSlimBuilder(args) may bleed config that causes port
-        // collisions or unwanted listener bindings.
-        var subHostArgs = FilterArgsForSubHosts(args);
-
-        var agentApp = AgentMcpWebHost.Build(subHostArgs, urls: "http://127.0.0.1:0", routePrefix: AgentMcpHostingExtensions.DefaultRoutePrefix);
-        agentApp.StartAsync().GetAwaiter().GetResult();
-
-        var keyVaultApp = KeyVaultMcpWebHost.Build(subHostArgs, urls: "http://127.0.0.1:0", routePrefix: KeyVaultMcpHostingExtensions.DefaultRoutePrefix);
-        keyVaultApp.StartAsync().GetAwaiter().GetResult();
-
-        var docsIngestorApp = DocsIngestorMcpWebHost.Build(subHostArgs, urls: "http://127.0.0.1:0", routePrefix: DocsIngestorMcpHostingExtensions.DefaultRoutePrefix);
-        docsIngestorApp.StartAsync().GetAwaiter().GetResult();
-
-        return new MountedMcpHosts(
-            agentApp,
-            ResolveSingleListeningBaseAddress(agentApp, AgentMcpHostingExtensions.DefaultRoutePrefix),
-            keyVaultApp,
-            ResolveSingleListeningBaseAddress(keyVaultApp, KeyVaultMcpHostingExtensions.DefaultRoutePrefix),
-            docsIngestorApp,
-            ResolveSingleListeningBaseAddress(docsIngestorApp, DocsIngestorMcpHostingExtensions.DefaultRoutePrefix));
-    }
-
-    private static async Task<MountedMcpHosts> StartMountedMcpHostsAsync(
-        string[] args,
-        Action<MountedMcpHostKind, Uri> hostReady,
-        CancellationToken cancellationToken)
-    {
-        var subHostArgs = FilterArgsForSubHosts(args);
-
-        var agentApp = AgentMcpWebHost.Build(subHostArgs, urls: "http://127.0.0.1:0", routePrefix: AgentMcpHostingExtensions.DefaultRoutePrefix);
-        await agentApp.StartAsync(cancellationToken);
-        var agentBaseAddress = ResolveSingleListeningBaseAddress(agentApp, AgentMcpHostingExtensions.DefaultRoutePrefix);
-        hostReady(MountedMcpHostKind.Agent, agentBaseAddress);
-
-        try
-        {
-            var keyVaultApp = KeyVaultMcpWebHost.Build(subHostArgs, urls: "http://127.0.0.1:0", routePrefix: KeyVaultMcpHostingExtensions.DefaultRoutePrefix);
-            await keyVaultApp.StartAsync(cancellationToken);
-            var keyVaultBaseAddress = ResolveSingleListeningBaseAddress(keyVaultApp, KeyVaultMcpHostingExtensions.DefaultRoutePrefix);
-            hostReady(MountedMcpHostKind.KeyVault, keyVaultBaseAddress);
-
-            try
-            {
-                var docsIngestorApp = DocsIngestorMcpWebHost.Build(subHostArgs, urls: "http://127.0.0.1:0", routePrefix: DocsIngestorMcpHostingExtensions.DefaultRoutePrefix);
-                await docsIngestorApp.StartAsync(cancellationToken);
-                var docsIngestorBaseAddress = ResolveSingleListeningBaseAddress(docsIngestorApp, DocsIngestorMcpHostingExtensions.DefaultRoutePrefix);
-                hostReady(MountedMcpHostKind.DocsIngestor, docsIngestorBaseAddress);
-
-                return new MountedMcpHosts(
-                    agentApp,
-                    agentBaseAddress,
-                    keyVaultApp,
-                    keyVaultBaseAddress,
-                    docsIngestorApp,
-                    docsIngestorBaseAddress);
-            }
-            catch
-            {
-                await keyVaultApp.StopAsync(cancellationToken);
-                await keyVaultApp.DisposeAsync();
-                throw;
-            }
-        }
-        catch
-        {
-            await agentApp.StopAsync(cancellationToken);
-            await agentApp.DisposeAsync();
-            throw;
-        }
-    }
-
-    private static async Task StopMountedMcpHostsAsync(MountedMcpHosts mountedMcpHosts)
-    {
-        await mountedMcpHosts.AgentApp.StopAsync();
-        await mountedMcpHosts.KeyVaultApp.StopAsync();
-        await mountedMcpHosts.DocsIngestorApp.StopAsync();
-        await mountedMcpHosts.AgentApp.DisposeAsync();
-        await mountedMcpHosts.KeyVaultApp.DisposeAsync();
-        await mountedMcpHosts.DocsIngestorApp.DisposeAsync();
-    }
-
-    /// <summary>
-    /// Returns a copy of <paramref name="args"/> with OtlpCollector / OpenTelemetry /
-    /// Ingest / TraceDebug args removed and explicit <c>--OtlpCollector:Enabled=false</c>
-    /// / <c>--OpenTelemetry:Enabled=false</c> appended.
-    /// This prevents mounted MCP sub-hosts from inheriting collector configuration
-    /// that only the main host should use.
-    /// </summary>
-    private static string[] FilterArgsForSubHosts(string[] args)
-    {
-        static bool IsMainHostOnlyArg(string arg) =>
-            arg.StartsWith("--OtlpCollector:", StringComparison.OrdinalIgnoreCase) ||
-            arg.StartsWith("--OpenTelemetry:", StringComparison.OrdinalIgnoreCase) ||
-            arg.StartsWith("--Ingest:", StringComparison.OrdinalIgnoreCase) ||
-            arg.StartsWith("--TraceDebug:", StringComparison.OrdinalIgnoreCase) ||
-            arg.StartsWith("--Database:", StringComparison.OrdinalIgnoreCase);
-
-        var filtered = args.Where(a => !IsMainHostOnlyArg(a)).ToList();
-        filtered.Add("--OtlpCollector:Enabled=false");
-        filtered.Add("--OpenTelemetry:Enabled=false");
-        return filtered.ToArray();
-    }
-
-    private static Uri ResolveSingleListeningBaseAddress(WebApplication app, string routePrefix)
-    {
-        var address = app.Services
-            .GetRequiredService<IServer>()
-            .Features
-            .Get<IServerAddressesFeature>()?
-            .Addresses
-            .FirstOrDefault();
-
-        if (!Uri.TryCreate(address, UriKind.Absolute, out var baseAddress))
-        {
-            throw new InvalidOperationException($"Could not resolve a listening address for mounted MCP host '{routePrefix}'.");
-        }
-
-        return new Uri($"{baseAddress.ToString().TrimEnd('/')}{routePrefix}");
-    }
-
     private static void TryConfigureMountedMcpServer(
         WebApplication app,
-        MountedMcpRegistration registration,
+        MountedMcpEndpointRegistration registration,
         string appBaseAddress)
         => TryConfigureMountedMcpServerFromServices(app.Services, registration, appBaseAddress);
 
     private static void TryConfigureMountedMcpServerFromServices(
         IServiceProvider services,
-        MountedMcpRegistration registration,
+        MountedMcpEndpointRegistration registration,
         string appBaseAddress)
     {
         try
@@ -1250,203 +910,6 @@ public static class GnOuGoAgentWebHost
             var logger = services.GetRequiredService<ILoggerFactory>()
                 .CreateLogger(registration.LoggerName);
             logger.LogWarning(ex, "Could not repoint the mounted MCP endpoint '{ServerName}'.", registration.ServerName);
-        }
-    }
-
-    private sealed record MountedMcpRegistration(
-        string ServerName,
-        string RoutePrefix,
-        string DefaultDescription,
-        string LoggerName);
-
-    private enum MountedMcpHostKind
-    {
-        Agent,
-        KeyVault,
-        DocsIngestor
-    }
-
-    private sealed record MountedMcpHosts(
-        WebApplication AgentApp,
-        Uri AgentBaseAddress,
-        WebApplication KeyVaultApp,
-        Uri KeyVaultBaseAddress,
-        WebApplication DocsIngestorApp,
-        Uri DocsIngestorBaseAddress);
-
-    /// <summary>
-    /// Manages the lifecycle of mounted MCP sub-hosts (Agent, KeyVault, DocsIngestor).
-    /// Registered as <see cref="IHostedService"/> so sub-hosts only start when the main app
-    /// starts and are stopped when the main app stops — preventing resource leaks in tests
-    /// that call <c>Build()</c> without <c>StartAsync()</c>.
-    /// </summary>
-    private sealed class MountedMcpHostsHolder : IHostedService
-    {
-        private readonly string[] _args;
-        private readonly IServiceProvider _services;
-        private readonly bool _startInBackground;
-        private readonly TaskCompletionSource<Uri> _agentReadiness =
-            new(TaskCreationOptions.RunContinuationsAsynchronously);
-        private readonly TaskCompletionSource<Uri> _keyVaultReadiness =
-            new(TaskCreationOptions.RunContinuationsAsynchronously);
-        private readonly TaskCompletionSource<Uri> _docsIngestorReadiness =
-            new(TaskCreationOptions.RunContinuationsAsynchronously);
-        private MountedMcpHosts? _hosts;
-        private Uri? _agentBaseAddress;
-        private Uri? _keyVaultBaseAddress;
-        private Uri? _docsIngestorBaseAddress;
-        private Task? _startupTask;
-        private CancellationTokenSource? _startupCancellation;
-
-        public MountedMcpHostsHolder(string[] args, IServiceProvider services, bool startInBackground)
-        {
-            _args = args;
-            _services = services;
-            _startInBackground = startInBackground;
-        }
-
-        public MountedMcpHosts? Hosts => _hosts;
-        public Uri? AgentBaseAddress => Volatile.Read(ref _agentBaseAddress);
-        public Uri? KeyVaultBaseAddress => Volatile.Read(ref _keyVaultBaseAddress);
-        public Uri? DocsIngestorBaseAddress => Volatile.Read(ref _docsIngestorBaseAddress);
-
-        public Task WaitUntilAgentReadyAsync(CancellationToken cancellationToken)
-            => _agentReadiness.Task.WaitAsync(cancellationToken);
-
-        public Task WaitUntilKeyVaultReadyAsync(CancellationToken cancellationToken)
-            => _keyVaultReadiness.Task.WaitAsync(cancellationToken);
-
-        public Task WaitUntilDocsIngestorReadyAsync(CancellationToken cancellationToken)
-            => _docsIngestorReadiness.Task.WaitAsync(cancellationToken);
-
-        public Task StartAsync(CancellationToken cancellationToken)
-        {
-            if (_startInBackground)
-            {
-                _startupCancellation = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-                _startupTask = StartMountedHostsInBackgroundAsync(_startupCancellation.Token);
-                return Task.CompletedTask;
-            }
-
-            try
-            {
-                _hosts = StartMountedMcpHosts(_args);
-                PublishReadyHost(MountedMcpHostKind.Agent, _hosts.AgentBaseAddress);
-                PublishReadyHost(MountedMcpHostKind.KeyVault, _hosts.KeyVaultBaseAddress);
-                PublishReadyHost(MountedMcpHostKind.DocsIngestor, _hosts.DocsIngestorBaseAddress);
-                return Task.CompletedTask;
-            }
-            catch (Exception ex)
-            {
-                FailPendingReadiness(ex);
-                throw;
-            }
-        }
-
-        public async Task StopAsync(CancellationToken cancellationToken)
-        {
-            var logger = _services.GetRequiredService<ILoggerFactory>()
-                .CreateLogger("GnOuGo.Agent.Server.MountedMcpHostsHolder");
-
-            if (_startupCancellation is not null)
-            {
-                try
-                {
-                    await _startupCancellation.CancelAsync();
-                }
-                catch (Exception ex)
-                {
-                    logger.LogDebug(ex, "Failed to cancel mounted MCP host startup.");
-                    // ignore
-                }
-            }
-
-            CancelPendingReadiness(cancellationToken);
-
-            if (_startupTask is not null)
-            {
-                try
-                {
-                    await _startupTask;
-                }
-                catch (OperationCanceledException ex)
-                {
-                    logger.LogDebug(ex, "Mounted MCP host startup task was cancelled during shutdown.");
-                    // ignore
-                }
-            }
-
-            if (_hosts is not null)
-            {
-                await StopMountedMcpHostsAsync(_hosts);
-                _hosts = null;
-            }
-
-            ClearPublishedAddresses();
-        }
-
-        private async Task StartMountedHostsInBackgroundAsync(CancellationToken cancellationToken)
-        {
-            try
-            {
-                _hosts = await StartMountedMcpHostsAsync(_args, PublishReadyHost, cancellationToken);
-            }
-            catch (OperationCanceledException ex)
-            {
-                CancelPendingReadiness(ex.CancellationToken);
-                ClearPublishedAddresses();
-                throw;
-            }
-            catch (Exception ex)
-            {
-                FailPendingReadiness(ex);
-                ClearPublishedAddresses();
-                var logger = _services.GetRequiredService<ILoggerFactory>()
-                    .CreateLogger("GnOuGo.Agent.Server.MountedMcpHostsHolder");
-                logger.LogWarning(ex, "Mounted MCP sub-host startup failed.");
-            }
-        }
-
-        private void PublishReadyHost(MountedMcpHostKind hostKind, Uri baseAddress)
-        {
-            switch (hostKind)
-            {
-                case MountedMcpHostKind.Agent:
-                    Volatile.Write(ref _agentBaseAddress, baseAddress);
-                    _agentReadiness.TrySetResult(baseAddress);
-                    break;
-                case MountedMcpHostKind.KeyVault:
-                    Volatile.Write(ref _keyVaultBaseAddress, baseAddress);
-                    _keyVaultReadiness.TrySetResult(baseAddress);
-                    break;
-                case MountedMcpHostKind.DocsIngestor:
-                    Volatile.Write(ref _docsIngestorBaseAddress, baseAddress);
-                    _docsIngestorReadiness.TrySetResult(baseAddress);
-                    break;
-                default:
-                    throw new ArgumentOutOfRangeException(nameof(hostKind), hostKind, null);
-            }
-        }
-
-        private void FailPendingReadiness(Exception exception)
-        {
-            _agentReadiness.TrySetException(exception);
-            _keyVaultReadiness.TrySetException(exception);
-            _docsIngestorReadiness.TrySetException(exception);
-        }
-
-        private void CancelPendingReadiness(CancellationToken cancellationToken)
-        {
-            _agentReadiness.TrySetCanceled(cancellationToken);
-            _keyVaultReadiness.TrySetCanceled(cancellationToken);
-            _docsIngestorReadiness.TrySetCanceled(cancellationToken);
-        }
-
-        private void ClearPublishedAddresses()
-        {
-            Volatile.Write(ref _agentBaseAddress, null);
-            Volatile.Write(ref _keyVaultBaseAddress, null);
-            Volatile.Write(ref _docsIngestorBaseAddress, null);
         }
     }
 

@@ -4,10 +4,12 @@ using GnOuGo.DocIngestor.Mcp.Services;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using ModelContextProtocol.Server;
+using GnOuGo.Mcp.Core;
 
 namespace GnOuGo.DocIngestor.Mcp;
 
 [McpServerToolType]
+[McpServerToolGroup(DocsIngestorMcpHostingExtensions.ServerName)]
 public sealed class DocsIngestorTools
 {
     private readonly DocsIngestorMcpService _service;

@@ -4,10 +4,12 @@ using GnOuGo.AI.Core;
 using Microsoft.Extensions.Logging;
 using ModelContextProtocol.Server;
 using GnOuGo.Agent.Mcp.Services;
+using GnOuGo.Mcp.Core;
 
 namespace GnOuGo.Agent.Mcp;
 
 [McpServerToolType]
+[McpServerToolGroup(AgentMcpHostingExtensions.ServerName)]
 public sealed class DataTools
 {
     private readonly InMemoryChatHistoryStore _store;

@@ -4,7 +4,7 @@ HTTP-based MCP server for encrypted KeyVault secret management.
 
 ## MCP protocol compatibility
 
-This server uses the stable C# MCP SDK `2.0.0` with automatic protocol negotiation. Its explicitly stateless Streamable HTTP transport prefers `2026-07-28` discovery through `server/discover` and also accepts clients that initialize with stable `2025-11-25`.
+This server uses the stable C# MCP SDK `2.2.0` with automatic protocol negotiation. Its explicitly stateless Streamable HTTP transport prefers `2026-07-28` discovery through `server/discover` and also accepts clients that initialize with stable `2025-11-25`.
 
 ## Architecture
 
@@ -12,6 +12,7 @@ This component is independently publishable, testable, and deployable per `AGENT
 It can run as a standalone HTTP MCP host or be mounted by any compatible ASP.NET Core host.
 Persistence is handled by `KeyVaultService` from `GnOuGo.KeyVault.Core` using Entity Framework Core
 (`KeyVaultDbContext`) with `AsNoTracking` optimizations for read queries.
+`WithKeyVaultMcpTools()` is the reusable `IMcpServerBuilder` extension used by standalone and composed hosts; it registers the KeyVault tool class and source-generated JSON metadata without creating a transport or listener.
 
 ## Hosted tools
 
@@ -63,7 +64,7 @@ Consumer example:
 
 ### Mounted by another host
 
-Compatible hosts may mount the KeyVault MCP surface in-process at their own route, for example:
+Compatible hosts may map the KeyVault MCP surface directly on their own listener and route, for example:
 
 - `/mcp/keyvault`
 

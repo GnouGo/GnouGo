@@ -31,7 +31,6 @@ public static class KeyVaultMcpHostingExtensions
     {
         ArgumentNullException.ThrowIfNull(services);
 
-        services.AddScoped<KeyVaultTools>();
         services
             .AddMcpServer(options =>
             {
@@ -43,9 +42,17 @@ public static class KeyVaultMcpHostingExtensions
                 options.AddGnOuGoToolErrorNormalizer();
             })
             .WithHttpTransport(options => options.Stateless = true)
-            .WithTools<KeyVaultTools>(KeyVaultMcpJson.SerializerOptions);
+            .WithKeyVaultMcpTools();
 
         return services;
+    }
+
+    public static IMcpServerBuilder WithKeyVaultMcpTools(this IMcpServerBuilder builder)
+    {
+        ArgumentNullException.ThrowIfNull(builder);
+
+        builder.Services.AddScoped<KeyVaultTools>();
+        return builder.WithTools<KeyVaultTools>(KeyVaultMcpJson.SerializerOptions);
     }
 
     public static async Task InitializeKeyVaultMcpAsync(this IServiceProvider services, CancellationToken ct = default)

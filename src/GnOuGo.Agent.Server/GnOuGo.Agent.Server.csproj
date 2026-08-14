@@ -33,6 +33,7 @@
     <ProjectReference Include="..\GnOuGo.Files.Server\GnOuGo.Files.Server.csproj" />
     <ProjectReference Include="..\GnOuGo.KeyVault.Core\GnOuGo.KeyVault.Core.csproj" />
     <ProjectReference Include="..\GnOuGo.KeyVault.Mcp\GnOuGo.KeyVault.Mcp.csproj" />
+    <ProjectReference Include="..\GnOuGo.Mcp.Core\GnOuGo.Mcp.Core.csproj" />
     <ProjectReference Include="..\GnOuGo.OtlpCollector.Server\GnOuGo.OtlpCollector.Server.csproj" AdditionalProperties="SkipClientBuild=true" />
     <ProjectReference Include="..\GnOuGo.Workspace\GnOuGo.Workspace.csproj" />
   </ItemGroup>
@@ -41,6 +42,7 @@
   </ItemGroup>
   <ItemGroup>
     <PackageReference Include="Markdig" Version="1.3.2" />
+    <PackageReference Include="ModelContextProtocol.AspNetCore" Version="2.2.0" />
     <PackageReference Include="OpenTelemetry" Version="1.17.0" />
     <PackageReference Include="OpenTelemetry.Exporter.OpenTelemetryProtocol" Version="1.17.0" />
     <PackageReference Include="OpenTelemetry.Extensions.Hosting" Version="1.17.0" />
