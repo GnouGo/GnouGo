@@ -31,14 +31,15 @@ RUN pnpm --dir src/GnOuGo.Agent.Server/ClientApp build
 # ----------------------------------------------
 # Stage 2: Build & publish the .NET application
 # ----------------------------------------------
+FROM --platform=$BUILDPLATFORM node:24-bookworm-slim AS node-runtime
+
 FROM --platform=$BUILDPLATFORM mcr.microsoft.com/dotnet/sdk:10.0 AS build
 ARG TARGETARCH
 ARG TARGETOS
 
 # Node.js is needed when publishing the bundled GnOuGo.Browser.Mcp Playwright tool.
-RUN apt-get update -o Acquire::Retries=5 -o Acquire::http::Timeout=30 \
-    && apt-get install -y --no-install-recommends -o Acquire::Retries=5 nodejs \
-    && rm -rf /var/lib/apt/lists/*
+COPY --from=node-runtime /usr/local/bin/node /usr/local/bin/node
+RUN node --version
 
 WORKDIR /src
 # Copy global.json for SDK version pinning
