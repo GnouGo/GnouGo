@@ -2,6 +2,12 @@
 
 All notable changes to this project are documented in this file.
 
+## v0.18.0 - 2026-08-14
+
+- fix: copilot human in the loop (release) (#84) (2ac97ba)
+- doc: Update LICENSE ownership and remove leftover KEDA boilerplate (#87) (54852c1)
+- feat: upgrade pyhton behavior (#81) (258095b)
+
 ## v0.17.3 - 2026-08-11
 
 - refcator: mcp use keyvault instead of sql (release) (#80) (b91e821)
@@ -254,9 +260,6 @@ All notable changes to this project are documented in this file.
 ## v0.1.1 - 2026-04-20
 
 - fea: continu to merge (#19) (release) (5e32f36)
-
-## v0.1.0 - 2026-04-14
-
 - feat(otel): add otel exe to github release (#18) (701b1e2)
 - feat(otel): add otel exe to github release (#17) (release) (71920f2)
 - feat: switch to pnpm (#16) (532c55d)
