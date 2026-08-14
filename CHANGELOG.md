@@ -2,6 +2,10 @@
 
 All notable changes to this project are documented in this file.
 
+## v0.18.1 - 2026-08-14
+
+- refactor(all): update donet lib (release) (#88) (1fbf44a)
+
 ## v0.18.0 - 2026-08-14
 
 - fix: copilot human in the loop (release) (#84) (2ac97ba)
@@ -256,9 +260,6 @@ All notable changes to this project are documented in this file.
 ## v0.1.2 - 2026-04-26
 
 - Feat(agent): merge continue (#20) (release) (73e9a4f)
-
-## v0.1.1 - 2026-04-20
-
 - fea: continu to merge (#19) (release) (5e32f36)
 - feat(otel): add otel exe to github release (#18) (701b1e2)
 - feat(otel): add otel exe to github release (#17) (release) (71920f2)
