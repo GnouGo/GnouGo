@@ -35,8 +35,28 @@ public sealed class BundledBrowserMcpPublishTests
 
         var sharedTargets = Path.Combine(root, "build", "GnOuGo.BundledMcpTools.targets");
         Assert.True(File.Exists(sharedTargets));
-        Assert.Contains("GnOuGo.Browser.Mcp", File.ReadAllText(sharedTargets), StringComparison.Ordinal);
-        Assert.Contains("GnOuGo.Git.Mcp", File.ReadAllText(sharedTargets), StringComparison.Ordinal);
+        var sharedTargetsContents = File.ReadAllText(sharedTargets);
+        Assert.Contains("GnOuGo.Browser.Mcp", sharedTargetsContents, StringComparison.Ordinal);
+        Assert.Contains("GnOuGo.Git.Mcp", sharedTargetsContents, StringComparison.Ordinal);
+        Assert.Contains(
+            "<GnOuGoBundledMcpOutputRidDirectory Condition=\"'$(RuntimeIdentifier)' != ''\">$(RuntimeIdentifier)\\</GnOuGoBundledMcpOutputRidDirectory>",
+            sharedTargetsContents,
+            StringComparison.Ordinal);
+        Assert.Contains(
+            "$(TargetFramework)\\$(GnOuGoBundledMcpOutputRidDirectory)**\\*",
+            sharedTargetsContents,
+            StringComparison.Ordinal);
+        Assert.Contains(
+            "$(GnOuGoBundledMcpOutputRidDirectory)publish\\**\\*",
+            sharedTargetsContents,
+            StringComparison.Ordinal);
+        Assert.Contains(
+            "Condition=\"'$(RuntimeIdentifier)' == ''\"",
+            sharedTargetsContents,
+            StringComparison.Ordinal);
+        Assert.Contains("$(TargetFramework)\\win-*\\**\\*", sharedTargetsContents, StringComparison.Ordinal);
+        Assert.Contains("$(TargetFramework)\\linux-*\\**\\*", sharedTargetsContents, StringComparison.Ordinal);
+        Assert.Contains("$(TargetFramework)\\osx-*\\**\\*", sharedTargetsContents, StringComparison.Ordinal);
 
         foreach (var projectFile in new[]
                  {
@@ -46,6 +66,30 @@ public sealed class BundledBrowserMcpPublishTests
         {
             Assert.Contains("GnOuGo.BundledMcpTools.targets", File.ReadAllText(projectFile), StringComparison.Ordinal);
         }
+    }
+
+    [Fact]
+    public void DevelopmentBuild_SkipsPlaywrightDownloadWithoutDisablingAppHostOrPublishedBrowserInstall()
+    {
+        var root = GetRepositoryRoot();
+        var sharedTargets = File.ReadAllText(Path.Combine(root, "build", "GnOuGo.BundledMcpTools.targets"));
+        var browserProject = File.ReadAllText(Path.Combine(
+            root,
+            "src",
+            "GnOuGo.Browser.Mcp",
+            "GnOuGo.Browser.Mcp.csproj"));
+
+        Assert.Contains("ReferenceOutputAssembly=\"false\"", sharedTargets, StringComparison.Ordinal);
+        Assert.Contains("AdditionalProperties=\"SkipPlaywrightBrowserInstall=true\"", sharedTargets, StringComparison.Ordinal);
+        Assert.Contains("<OutputType>Exe</OutputType>", browserProject, StringComparison.Ordinal);
+        Assert.Contains(
+            "<Target Name=\"InstallPlaywrightBrowsers\" AfterTargets=\"Build\" Condition=\"'$(SkipPlaywrightBrowserInstall)' != 'true'\">",
+            browserProject,
+            StringComparison.Ordinal);
+        Assert.Contains(
+            "<Target Name=\"InstallPublishedPlaywrightBrowsers\" AfterTargets=\"Publish\"",
+            browserProject,
+            StringComparison.Ordinal);
     }
 
     [Theory]

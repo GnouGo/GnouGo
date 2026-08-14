@@ -1,6 +1,7 @@
 <Project>
   <PropertyGroup>
     <GnOuGoBundledMcpExecutableExtension Condition="'$(OS)' == 'Windows_NT'">.exe</GnOuGoBundledMcpExecutableExtension>
+    <GnOuGoBundledMcpOutputRidDirectory Condition="'$(RuntimeIdentifier)' != ''">$(RuntimeIdentifier)\</GnOuGoBundledMcpOutputRidDirectory>
     <GnOuGoStageBundledMcpTools Condition="'$(GnOuGoStageBundledMcpTools)' == ''">true</GnOuGoStageBundledMcpTools>
     <GnOuGoStageBundledMcpTools Condition="'$(SkipBundledServerTools)' == 'true'">false</GnOuGoStageBundledMcpTools>
   </PropertyGroup>
@@ -31,7 +32,17 @@
           AfterTargets="Build"
           Condition="'$(GnOuGoStageBundledMcpTools)' == 'true' and '$(DesignTimeBuild)' != 'true'">
     <ItemGroup>
-      <_GnOuGoBundledMcpOutput Include="%(GnOuGoBundledMcpTool.RootDir)%(GnOuGoBundledMcpTool.Directory)bin\$(Configuration)\$(TargetFramework)\**\*">
+      <_GnOuGoBundledMcpOutput Condition="'$(RuntimeIdentifier)' != ''"
+                               Include="%(GnOuGoBundledMcpTool.RootDir)%(GnOuGoBundledMcpTool.Directory)bin\$(Configuration)\$(TargetFramework)\$(GnOuGoBundledMcpOutputRidDirectory)**\*"
+                               Exclude="%(GnOuGoBundledMcpTool.RootDir)%(GnOuGoBundledMcpTool.Directory)bin\$(Configuration)\$(TargetFramework)\$(GnOuGoBundledMcpOutputRidDirectory)publish\**\*">
+        <ToolName>%(GnOuGoBundledMcpTool.ToolName)</ToolName>
+      </_GnOuGoBundledMcpOutput>
+      <_GnOuGoBundledMcpOutput Condition="'$(RuntimeIdentifier)' == ''"
+                               Include="%(GnOuGoBundledMcpTool.RootDir)%(GnOuGoBundledMcpTool.Directory)bin\$(Configuration)\$(TargetFramework)\**\*"
+                               Exclude="%(GnOuGoBundledMcpTool.RootDir)%(GnOuGoBundledMcpTool.Directory)bin\$(Configuration)\$(TargetFramework)\publish\**\*;
+                                        %(GnOuGoBundledMcpTool.RootDir)%(GnOuGoBundledMcpTool.Directory)bin\$(Configuration)\$(TargetFramework)\win-*\**\*;
+                                        %(GnOuGoBundledMcpTool.RootDir)%(GnOuGoBundledMcpTool.Directory)bin\$(Configuration)\$(TargetFramework)\linux-*\**\*;
+                                        %(GnOuGoBundledMcpTool.RootDir)%(GnOuGoBundledMcpTool.Directory)bin\$(Configuration)\$(TargetFramework)\osx-*\**\*">
         <ToolName>%(GnOuGoBundledMcpTool.ToolName)</ToolName>
       </_GnOuGoBundledMcpOutput>
     </ItemGroup>

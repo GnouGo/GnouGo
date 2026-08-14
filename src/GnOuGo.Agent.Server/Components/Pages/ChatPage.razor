@@ -5,6 +5,7 @@
 @using System.Text.Json.Nodes
 @using System.Threading
 @using Microsoft.JSInterop
+@using GnOuGo.Agent.Server.Formatting
 @using GnOuGo.Agent.Server.Components.Tracing
 @using GnOuGo.Assets.Animation
 @using GnOuGo.Assets.Bears
@@ -844,7 +845,6 @@
     private const string DefaultWorkflowDisplayName = "Workflow GnOuGo";
     private const int MaxAutomaticAnimationInteropFailures = 3;
 
-    private static readonly JsonSerializerOptions PrettyJsonOptions = new() { WriteIndented = true };
     private static readonly MarkupString SidebarMascotSvg = new(
         GnouGnouBearSvgGenerator.Generate(new GnouGnouBearOptions
         {
@@ -1008,7 +1008,7 @@
     private static string FormatEditableFieldValue(HumanInputFieldModel field, string value)
     {
         var normalized = NormalizeLineEndings(value).Trim();
-        if ((IsJsonField(field) || LooksLikeJson(normalized)) && TryFormatJson(normalized, out var formattedJson))
+        if ((IsJsonField(field) || LooksLikeJson(normalized)) && IndentedJsonFormatter.TryFormat(normalized, out var formattedJson))
             return formattedJson;
 
         return NormalizeLineEndings(value);
@@ -1182,24 +1182,6 @@
         => field.Type.Equals("json", StringComparison.OrdinalIgnoreCase)
            || field.Name.Contains("json", StringComparison.OrdinalIgnoreCase)
            || (field.Description?.Contains("JSON", StringComparison.OrdinalIgnoreCase) ?? false);
-
-    private static bool TryFormatJson(string input, out string prettyJson)
-    {
-        prettyJson = string.Empty;
-        if (!LooksLikeJson(input))
-            return false;
-
-        try
-        {
-            using var document = JsonDocument.Parse(input);
-            prettyJson = JsonSerializer.Serialize(document.RootElement, PrettyJsonOptions);
-            return true;
-        }
-        catch (JsonException)
-        {
-            return false;
-        }
-    }
 
     private static bool LooksLikeJson(string value)
     {
