@@ -1,5 +1,6 @@
 using System.Collections.Concurrent;
 using System.Text.Json;
+using System.Text.Json.Nodes;
 using GnOuGo.GithubCopilot.Core;
 using GnOuGo.KeyVault.Core.Services;
 using Microsoft.Extensions.Options;
@@ -30,7 +31,66 @@ public sealed class KeyVaultCopilotPermissionGrantStoreTests
         Assert.Equal("New name", loaded.AgentName);
         Assert.Equal(clock.GetUtcNow(), loaded.LastUsedAt);
         Assert.Equal(created.CreatedAt, loaded.CreatedAt);
+        Assert.False(loaded.AllowSandboxBypass);
         Assert.Single(records.Records);
+    }
+
+    [Fact]
+    public async Task FutureAgentSandboxBypassGrant_SurvivesRestartAndIsNeverDowngraded()
+    {
+        var records = new FakeRecordStore();
+        var first = CreateStore(records);
+        var created = await first.GrantFutureAgentRunsWithSandboxBypassAsync(
+            Context("tenant-a", "execution-a", "agent-a", "Reviewer"),
+            TestContext.Current.CancellationToken);
+
+        Assert.True(created.AllowSandboxBypass);
+
+        var restarted = CreateStore(records);
+        var ordinaryUpdate = await restarted.GrantFutureAgentRunsAsync(
+            Context("tenant-a", "execution-b", "agent-a", "Renamed"),
+            TestContext.Current.CancellationToken);
+        var loaded = await restarted.FindReusableGrantAsync(
+            Context("tenant-a", "execution-c", "agent-a", "Renamed"),
+            TestContext.Current.CancellationToken);
+
+        Assert.True(ordinaryUpdate.AllowSandboxBypass);
+        Assert.True(loaded?.AllowSandboxBypass);
+        Assert.Equal(created.Id, loaded?.Id);
+    }
+
+    [Fact]
+    public async Task LegacyFutureAgentGrant_WithoutSandboxFieldRemainsNonBypass()
+    {
+        var records = new FakeRecordStore();
+        var store = CreateStore(records);
+        var context = Context("tenant-a", "execution-a", "agent-a", "Reviewer");
+        var recordKey = KeyVaultCopilotPermissionGrantStore.BuildRecordKey("agent-a");
+        var now = DateTimeOffset.UtcNow;
+        var serialized = JsonSerializer.Serialize(
+            new CopilotPermissionGrant(
+                "legacy-grant",
+                "tenant-a",
+                CopilotPermissionGrantScope.FutureAgentRuns,
+                ExecutionId: null,
+                AgentId: "agent-a",
+                AgentName: "Reviewer",
+                now,
+                now),
+            CopilotCoreJsonContext.Default.CopilotPermissionGrant);
+        var legacyPayload = JsonNode.Parse(serialized)!.AsObject();
+        Assert.True(legacyPayload.Remove("allowSandboxBypass"));
+        records.SetRaw("tenant-a", recordKey, legacyPayload.ToJsonString());
+
+        Assert.Null(await store.FindReusableSandboxBypassGrantAsync(
+            context,
+            TestContext.Current.CancellationToken));
+        var ordinary = await store.FindReusableGrantAsync(
+            context,
+            TestContext.Current.CancellationToken);
+
+        Assert.NotNull(ordinary);
+        Assert.False(ordinary.AllowSandboxBypass);
     }
 
     [Fact]
@@ -159,6 +219,68 @@ public sealed class KeyVaultCopilotPermissionGrantStoreTests
         Assert.Null(await store.FindReusableGrantAsync(
             Context("tenant-a", "execution-a", agentId: null, agentName: null),
             TestContext.Current.CancellationToken));
+    }
+
+    [Fact]
+    public async Task WorkflowSandboxBypassGrant_IsReusableAndNeverDowngraded()
+    {
+        var store = CreateStore(new FakeRecordStore());
+        var context = Context("tenant-a", "execution-a", "agent-a", "Reviewer");
+
+        var created = await store.GrantWorkflowRunWithSandboxBypassAsync(
+            context,
+            TestContext.Current.CancellationToken);
+        var ordinaryUpdate = await store.GrantWorkflowRunAsync(
+            context,
+            TestContext.Current.CancellationToken);
+        var loaded = await store.FindReusableGrantAsync(
+            context,
+            TestContext.Current.CancellationToken);
+
+        Assert.True(created.AllowSandboxBypass);
+        Assert.True(ordinaryUpdate.AllowSandboxBypass);
+        Assert.True(loaded?.AllowSandboxBypass);
+    }
+
+    [Fact]
+    public async Task IneligibleWorkflowGrant_BypassLookupDoesNotRefreshExpiry()
+    {
+        var clock = new TestTimeProvider(new DateTimeOffset(2026, 1, 1, 0, 0, 0, TimeSpan.Zero));
+        var store = CreateStore(new FakeRecordStore(), clock, workflowGrantTtlSeconds: 60);
+        var context = Context("tenant-a", "execution-a", "agent-a", "Reviewer");
+        await store.GrantWorkflowRunAsync(context, TestContext.Current.CancellationToken);
+
+        clock.Advance(TimeSpan.FromSeconds(30));
+        Assert.Null(await store.FindReusableSandboxBypassGrantAsync(
+            context,
+            TestContext.Current.CancellationToken));
+
+        clock.Advance(TimeSpan.FromSeconds(31));
+        Assert.Null(await store.FindReusableGrantAsync(
+            context,
+            TestContext.Current.CancellationToken));
+    }
+
+    [Fact]
+    public async Task IneligibleWorkflowGrant_BypassLookupFallsBackToPersistentAgentGrant()
+    {
+        var records = new FakeRecordStore();
+        var store = CreateStore(records);
+        var context = Context("tenant-a", "execution-a", "agent-a", "Reviewer");
+        await store.GrantFutureAgentRunsWithSandboxBypassAsync(
+            context,
+            TestContext.Current.CancellationToken);
+        await store.GrantWorkflowRunAsync(
+            context,
+            TestContext.Current.CancellationToken);
+
+        var loaded = await store.FindReusableSandboxBypassGrantAsync(
+            context,
+            TestContext.Current.CancellationToken);
+
+        Assert.NotNull(loaded);
+        Assert.Equal(CopilotPermissionGrantScope.FutureAgentRuns, loaded.Scope);
+        Assert.True(loaded.AllowSandboxBypass);
     }
 
     private static KeyVaultCopilotPermissionGrantStore CreateStore(

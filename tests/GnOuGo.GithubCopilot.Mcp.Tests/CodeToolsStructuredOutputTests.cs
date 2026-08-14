@@ -164,13 +164,17 @@ public sealed class CodeToolsStructuredOutputTests : IDisposable
             "shell",
             CopilotPermissionGrantScope.WorkflowRun,
             context,
-            Automatic: true);
+            Automatic: true)
+        {
+            SandboxBypass = true
+        };
 
         var message = McpCopilotPermissionEventSink.BuildActivityMessage(permissionEvent);
 
         Assert.Contains("operation=shell", message, StringComparison.Ordinal);
         Assert.Contains("decision=automatic_reuse", message, StringComparison.Ordinal);
         Assert.Contains("scope=workflow_run", message, StringComparison.Ordinal);
+        Assert.Contains("sandbox_bypass=true", message, StringComparison.Ordinal);
         Assert.Contains("agent=Reviewer", message, StringComparison.Ordinal);
         Assert.Contains("repository=org/repository", message, StringComparison.Ordinal);
         Assert.Contains("execution=execution-a", message, StringComparison.Ordinal);

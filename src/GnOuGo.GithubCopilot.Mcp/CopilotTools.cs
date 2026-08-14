@@ -398,7 +398,10 @@ internal sealed class CopilotTools
             ParseStringList(skillDirectoriesJson),
             ParseStringList(disabledSkillsJson),
             McpServers: null,
-            EnableConfigDiscovery: enableConfigDiscovery);
+            EnableConfigDiscovery: enableConfigDiscovery)
+        {
+            EnableSandboxBypassGrants = _settings.Copilot.EnableSandboxBypassGrants
+        };
     }
 
     private CopilotRequestContext BuildContext(string? tenantId)

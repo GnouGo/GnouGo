@@ -50,7 +50,15 @@ public sealed record CopilotRuntimeConfiguration(
     IReadOnlyDictionary<string, McpServerConfig>? McpServers = null,
     bool EnableConfigDiscovery = false,
     string? SystemMessage = null,
-    IReadOnlyDictionary<string, string>? Environment = null);
+    IReadOnlyDictionary<string, string>? Environment = null)
+{
+    /// <summary>
+    /// Host-policy gate for remembering explicitly approved sandbox-bypass operations.
+    /// This remains independent from <see cref="EnableApproveAll"/> so hosts must opt in
+    /// to the higher-risk behavior deliberately.
+    /// </summary>
+    public bool EnableSandboxBypassGrants { get; init; }
+}
 
 public sealed record CopilotProviderResolution(string ProviderName, string Model, ProviderConfig Provider);
 

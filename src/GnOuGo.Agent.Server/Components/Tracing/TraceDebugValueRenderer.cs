@@ -2,9 +2,9 @@ using System.Collections;
 using System.Globalization;
 using System.Net;
 using System.Text;
-using System.Text.Json;
 using System.Text.Json.Nodes;
 using System.Text.RegularExpressions;
+using GnOuGo.Agent.Server.Formatting;
 using Markdig;
 using Microsoft.AspNetCore.Components;
 using YamlDotNet.Serialization;
@@ -97,35 +97,19 @@ internal static class TraceDebugValueRenderer
         if (TryExtractSingleCodeFence(trimmed, out var language, out var fencedContent))
         {
             var content = fencedContent.Trim();
-            if (IsJsonLanguage(language) && TryFormatJson(content, out var fencedJson))
+            if (IsJsonLanguage(language) && IndentedJsonFormatter.TryFormat(content, out var fencedJson))
                 return new DisplayValue(TraceValueFormat.Json, fencedJson);
             if (IsYamlLanguage(language) || LooksLikeYaml(content))
                 return new DisplayValue(TraceValueFormat.Yaml, content);
             return new DisplayValue(TraceValueFormat.Plain, content);
         }
-        if (TryFormatJson(trimmed, out var prettyJson))
+        if (IndentedJsonFormatter.TryFormat(trimmed, out var prettyJson))
             return new DisplayValue(TraceValueFormat.Json, prettyJson);
         if (LooksLikeMarkdown(trimmed) && !LooksLikeYaml(trimmed))
             return new DisplayValue(TraceValueFormat.Markdown, trimmed);
         if (LooksLikeYaml(trimmed))
             return new DisplayValue(TraceValueFormat.Yaml, trimmed);
         return new DisplayValue(TraceValueFormat.Plain, text);
-    }
-    private static bool TryFormatJson(string input, out string prettyJson)
-    {
-        prettyJson = string.Empty;
-        if (!(input.StartsWith('{') || input.StartsWith('[')))
-            return false;
-        try
-        {
-            using var doc = JsonDocument.Parse(input);
-            prettyJson = JsonSerializer.Serialize(doc.RootElement, new JsonSerializerOptions { WriteIndented = true });
-            return true;
-        }
-        catch
-        {
-            return false;
-        }
     }
     private static bool TryExtractSingleCodeFence(string markdown, out string language, out string content)
     {

@@ -69,6 +69,26 @@ public interface ICopilotPermissionGrantStore
         CancellationToken cancellationToken);
 }
 
+/// <summary>
+/// Optional capability implemented by permission stores that can remember an
+/// explicit sandbox-bypass approval. Keeping this separate preserves compatibility
+/// with stores that intentionally support only ordinary broad approvals.
+/// </summary>
+public interface ICopilotSandboxBypassPermissionGrantStore
+{
+    Task<CopilotPermissionGrant?> FindReusableSandboxBypassGrantAsync(
+        CopilotRequestContext context,
+        CancellationToken cancellationToken);
+
+    Task<CopilotPermissionGrant> GrantWorkflowRunWithSandboxBypassAsync(
+        CopilotRequestContext context,
+        CancellationToken cancellationToken);
+
+    Task<CopilotPermissionGrant> GrantFutureAgentRunsWithSandboxBypassAsync(
+        CopilotRequestContext context,
+        CancellationToken cancellationToken);
+}
+
 public sealed record CopilotPermissionEvent(
     string Kind,
     string Level,
@@ -76,7 +96,10 @@ public sealed record CopilotPermissionEvent(
     string OperationKind,
     CopilotPermissionGrantScope? Scope,
     CopilotRequestContext Context,
-    bool Automatic);
+    bool Automatic)
+{
+    public bool SandboxBypass { get; init; }
+}
 
 public interface ICopilotPermissionEventSink
 {

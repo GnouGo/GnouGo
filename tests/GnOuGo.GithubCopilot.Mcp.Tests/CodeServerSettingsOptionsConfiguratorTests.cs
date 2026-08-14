@@ -32,6 +32,7 @@ public sealed class CodeServerSettingsOptionsConfiguratorTests
                 ["Code:Copilot:RequestTimeoutSeconds"] = "42",
                 ["Code:Copilot:ManagedSessionTtlSeconds"] = "84",
                 ["Code:Copilot:EnableApproveAll"] = "true",
+                ["Code:Copilot:EnableSandboxBypassGrants"] = "true",
                 ["Code:Copilot:WorkflowGrantTtlSeconds"] = "3600",
                 ["Code:Copilot:TokenEnvironmentVariables:0"] = "TOKEN_ONE",
                 ["Code:Copilot:Telemetry:Enabled"] = "false",
@@ -65,6 +66,7 @@ public sealed class CodeServerSettingsOptionsConfiguratorTests
         Assert.Equal(42, settings.Copilot.RequestTimeoutSeconds);
         Assert.Equal(84, settings.Copilot.ManagedSessionTtlSeconds);
         Assert.True(settings.Copilot.EnableApproveAll);
+        Assert.True(settings.Copilot.EnableSandboxBypassGrants);
         Assert.Equal(3600, settings.Copilot.WorkflowGrantTtlSeconds);
         Assert.Equal(["TOKEN_ONE"], settings.Copilot.TokenEnvironmentVariables);
         Assert.False(settings.Copilot.Telemetry.Enabled);
@@ -101,5 +103,42 @@ public sealed class CodeServerSettingsOptionsConfiguratorTests
         Assert.Equal(1800, settings.Copilot.ManagedSessionTtlSeconds);
         Assert.Equal(defaultExtensions, settings.AllowedExtensions);
         Assert.Equal(defaultTokenEnvironmentVariables, settings.Copilot.TokenEnvironmentVariables);
+    }
+
+    [Fact]
+    public void Configure_ShippedAppSettingsDisableReusableSandboxBypass()
+    {
+        var configuration = new ConfigurationBuilder()
+            .SetBasePath(AppContext.BaseDirectory)
+            .AddJsonFile("appsettings.json", optional: false)
+            .Build();
+        var settings = new CodeServerSettings();
+
+        new CodeServerSettingsOptionsConfigurator(configuration).Configure(settings);
+
+        Assert.False(settings.Copilot.EnableSandboxBypassGrants);
+    }
+
+    [Fact]
+    public void Configure_ReadsReusableSandboxBypassFromEnvironmentVariables()
+    {
+        const string prefix = "GNOU_GO_COPILOT_SETTINGS_TEST_";
+        const string variable = prefix + "Code__Copilot__EnableSandboxBypassGrants";
+        Environment.SetEnvironmentVariable(variable, "true");
+        try
+        {
+            var configuration = new ConfigurationBuilder()
+                .AddEnvironmentVariables(prefix)
+                .Build();
+            var settings = new CodeServerSettings();
+
+            new CodeServerSettingsOptionsConfigurator(configuration).Configure(settings);
+
+            Assert.True(settings.Copilot.EnableSandboxBypassGrants);
+        }
+        finally
+        {
+            Environment.SetEnvironmentVariable(variable, null);
+        }
     }
 }

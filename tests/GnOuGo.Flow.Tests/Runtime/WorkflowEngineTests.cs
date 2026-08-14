@@ -1,3 +1,4 @@
+using System.Net;
 using System.Text.Json.Nodes;
 using Moq;
 using GnOuGo.Flow.Core.Compilation;
@@ -483,6 +484,44 @@ workflows:
                 && r.Prompt == "Hello defaults"),
             It.IsAny<CancellationToken>()),
             Times.Once);
+    }
+
+    [Theory]
+    [InlineData(408, "LLM_TIMEOUT", true)]
+    [InlineData(504, "LLM_TIMEOUT", true)]
+    [InlineData(429, "LLM_NETWORK", true)]
+    [InlineData(500, "LLM_NETWORK", true)]
+    [InlineData(400, "LLM_PROVIDER", false)]
+    [InlineData(401, "LLM_PROVIDER", false)]
+    public async Task Execute_LlmCall_ClassifiesProviderHttpFailures(
+        int status,
+        string expectedCode,
+        bool retryable)
+    {
+        var mockLlm = new Mock<ILLMClient>();
+        mockLlm.Setup(client => client.CallAsync(It.IsAny<LLMRequest>(), It.IsAny<CancellationToken>()))
+            .ThrowsAsync(new HttpRequestException(
+                "provider failure",
+                inner: null,
+                statusCode: (HttpStatusCode)status));
+        var workflow = CompileMain("""
+            version: 1
+            workflows:
+              main:
+                steps:
+                  - id: ask
+                    type: llm.call
+                    input:
+                      model: gpt-test
+                      prompt: classify this failure
+            """);
+
+        var result = await CreateEngine(mockLlm.Object)
+            .ExecuteAsync(workflow, new JsonObject(), CancellationToken.None);
+
+        Assert.False(result.Success);
+        Assert.Equal(expectedCode, result.Error!.Code);
+        Assert.Equal(retryable, result.Error.Retryable);
     }
 
     // === Workflow Call Tests ===

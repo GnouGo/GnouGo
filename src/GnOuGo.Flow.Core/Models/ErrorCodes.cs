@@ -25,6 +25,7 @@ public static class ErrorCodes
     public const string JsonParse = "JSON_PARSE";
     public const string LlmTimeout = "LLM_TIMEOUT";
     public const string LlmNetwork = "LLM_NETWORK";
+    public const string LlmProvider = "LLM_PROVIDER";
     public const string LlmSchema = "LLM_SCHEMA";
     public const string WorkflowFetchPolicy = "WORKFLOW_FETCH_POLICY";
     public const string WorkflowFetchNetwork = "WORKFLOW_FETCH_NETWORK";

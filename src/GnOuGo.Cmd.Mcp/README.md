@@ -4,7 +4,7 @@
 
 ## MCP protocol compatibility
 
-This stdio server uses the stable C# MCP SDK `2.0.0` and targets MCP `2026-07-28`. The SDK retains compatibility with older clients; tool names, request schemas, and structured results are unchanged.
+This stdio server uses the stable C# MCP SDK `2.0.0` with automatic protocol negotiation: clients prefer `2026-07-28` discovery and can initialize with stable `2025-11-25`. Launch the built apphost, or use `dotnet GnOuGo.Cmd.Mcp.dll`; do not put `dotnet run` on an MCP stdio transport because CLI output can corrupt the JSONL stream. Tool names, request schemas, and structured results are unchanged.
 
 ## Objective
 
@@ -192,7 +192,7 @@ Then on the MCP side:
 ```powershell
 dotnet build .\src\GnOuGo.Cmd.Mcp\GnOuGo.Cmd.Mcp.csproj
 
-dotnet run --project .\src\GnOuGo.Cmd.Mcp\GnOuGo.Cmd.Mcp.csproj
+.\src\GnOuGo.Cmd.Mcp\bin\Debug\net10.0\GnOuGo.Cmd.Mcp.exe
 ```
 
 ## Native AOT Publish (win-x64)

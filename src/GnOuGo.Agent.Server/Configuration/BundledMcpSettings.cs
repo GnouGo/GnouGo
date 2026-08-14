@@ -32,6 +32,8 @@ public sealed class BundledMcpEditableFieldSettings
     public bool AllowInherit { get; set; }
     public int? MinValue { get; set; }
     public int? MaxValue { get; set; }
+    public Dictionary<string, string> SetValuesWhenTrue { get; set; } =
+        new(StringComparer.OrdinalIgnoreCase);
 
     public string ResolveSecretKey(string serverName, string fieldName)
         => string.IsNullOrWhiteSpace(SecretKey)

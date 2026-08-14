@@ -1752,6 +1752,13 @@ public sealed class ConfigureProvidersService
             normalizedValues[fieldName] = normalized;
         }
 
+        ApplyBundledMcpFieldDependencies(
+            serverSettings,
+            fieldOptions,
+            normalizedValues,
+            inheritedFields,
+            validationErrors);
+
         if (validationErrors.Count > 0)
         {
             yield return new SmartFlowEvent(
@@ -2968,6 +2975,55 @@ public sealed class ConfigureProvidersService
         return true;
     }
 
+    private static void ApplyBundledMcpFieldDependencies(
+        BundledMcpServerSettings serverSettings,
+        IReadOnlyDictionary<string, IReadOnlyList<string>> fieldOptions,
+        Dictionary<string, string> normalizedValues,
+        HashSet<string> inheritedFields,
+        List<string> validationErrors)
+    {
+        var pending = new Queue<string>(normalizedValues
+            .Where(static item => string.Equals(item.Value, "true", StringComparison.OrdinalIgnoreCase))
+            .Select(static item => item.Key));
+        var processed = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+        while (pending.TryDequeue(out var sourceName))
+        {
+            if (!processed.Add(sourceName)
+                || !serverSettings.EditableFields.TryGetValue(sourceName, out var sourceField))
+            {
+                continue;
+            }
+
+            foreach (var implied in sourceField.SetValuesWhenTrue)
+            {
+                if (!serverSettings.EditableFields.TryGetValue(implied.Key, out var targetField)
+                    || !fieldOptions.TryGetValue(implied.Key, out var options))
+                {
+                    validationErrors.Add($"{GetMcpEditableFieldDisplayName(sourceName, sourceField)} references unknown dependent field '{implied.Key}'.");
+                    continue;
+                }
+
+                if (!TryValidateBundledMcpFieldValue(
+                        implied.Key,
+                        targetField,
+                        options,
+                        implied.Value,
+                        out var normalized,
+                        out var validationError))
+                {
+                    validationErrors.Add(validationError);
+                    continue;
+                }
+
+                normalizedValues[implied.Key] = normalized;
+                inheritedFields.Remove(implied.Key);
+                if (string.Equals(normalized, "true", StringComparison.OrdinalIgnoreCase))
+                    pending.Enqueue(implied.Key);
+            }
+        }
+    }
+
     private bool TryResolveBundledMcpServer(
         string requestedName,
         out string serverName,
@@ -3216,17 +3272,18 @@ public sealed class ConfigureProvidersService
         var sb = new StringBuilder();
         sb.AppendLine("# Copilot Permission Grants");
         sb.AppendLine();
-        sb.AppendLine("| Agent | Grant ID | Last used |");
-        sb.AppendLine("|---|---|---|");
+        sb.AppendLine("| Agent | Grant ID | Sandbox bypass | Last used |");
+        sb.AppendLine("|---|---|---|---|");
         foreach (var grant in grants.OfType<JsonObject>())
         {
             var agent = grant["agentName"]?.GetValue<string>() ?? grant["agentId"]?.GetValue<string>() ?? "unknown";
             var id = grant["id"]?.GetValue<string>() ?? string.Empty;
+            var sandboxBypass = grant["allowSandboxBypass"]?.GetValue<bool>() == true ? "yes" : "no";
             var lastUsed = grant["lastUsedAt"]?.GetValue<string>() ?? string.Empty;
-            sb.AppendLine($"| {EscapeMarkdownCell(agent)} | `{EscapeBackticks(id)}` | {EscapeMarkdownCell(lastUsed)} |");
+            sb.AppendLine($"| {EscapeMarkdownCell(agent)} | `{EscapeBackticks(id)}` | {sandboxBypass} | {EscapeMarkdownCell(lastUsed)} |");
         }
         sb.AppendLine();
-        sb.Append("Revoke with `/mcp copilot permissions revoke <grant-id>`. Sandbox-bypass requests are never covered by these grants.");
+        sb.Append("Revoke with `/mcp copilot permissions revoke <grant-id>`. Only grants marked `yes` cover sandbox-bypass requests.");
         return sb.ToString();
     }
 

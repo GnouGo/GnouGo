@@ -40,7 +40,11 @@ internal sealed class GitHubCopilotSdkClient : ICopilotSdkClient
     internal const string PermissionAllowAllTaskChoice = "Allow all for this Copilot task";
     internal const string PermissionAllowAllWorkflowChoice = "Allow all for this workflow run";
     internal const string PermissionAllowAllFutureAgentChoice = "Allow all future runs for this agent";
+    internal const string PermissionAllowAllTaskSandboxBypassChoice = "Allow all including sandbox bypass for this Copilot task";
+    internal const string PermissionAllowAllWorkflowSandboxBypassChoice = "Allow all including sandbox bypass for this workflow run";
+    internal const string PermissionAllowAllFutureAgentSandboxBypassChoice = "Allow all including sandbox bypass for future runs of this agent";
     internal const string PermissionConfirmFutureAgentChoice = "Confirm persistent approval";
+    internal const string PermissionConfirmFutureAgentSandboxBypassChoice = "Confirm persistent sandbox-bypass approval";
     internal const string PermissionCancelFutureAgentChoice = "Cancel";
 
     private readonly CopilotClient _client;
@@ -295,33 +299,39 @@ internal sealed class GitHubCopilotSdkClient : ICopilotSdkClient
         if (source.HumanInputProvider is null)
             return PermissionDecision.UserNotAvailable();
 
+        var sandboxBypass = RequestsSandboxBypass(request);
         var operationKind = DescribePermissionKind(request);
         var details = DescribePermission(request);
         var safeDetails = RedactPermissionDetails(details);
-        ReportPermission(source, "permission.requested", "thinking", $"Copilot requested permission for {safeDetails}", operationKind, null, automatic: false);
+        ReportPermission(source, "permission.requested", "thinking", $"Copilot requested permission for {safeDetails}", operationKind, null, automatic: false, sandboxBypass);
 
-        var sandboxBypass = RequestsSandboxBypass(request);
-        if (!sandboxBypass && taskState.AllowAll)
+        if (taskState.AllowAll && (!sandboxBypass || taskState.AllowSandboxBypass))
         {
-            ReportPermission(source, "permission.auto_approved", "info", $"Auto-approved {safeDetails} using the current-task grant.", operationKind, CopilotPermissionGrantScope.CurrentTask, automatic: true);
+            ReportPermission(source, "permission.auto_approved", "info", $"Auto-approved {safeDetails} using the current-task grant.", operationKind, CopilotPermissionGrantScope.CurrentTask, automatic: true, sandboxBypass);
             return PermissionDecision.ApproveOnce();
         }
 
-        if (!sandboxBypass && source.PermissionGrantStore is not null)
+        try
         {
-            try
+            var reusable = !source.Request.Configuration.EnableApproveAll
+                ? null
+                : sandboxBypass
+                ? source.Request.Configuration.EnableSandboxBypassGrants
+                  && source.PermissionGrantStore is ICopilotSandboxBypassPermissionGrantStore bypassLookupStore
+                    ? await bypassLookupStore.FindReusableSandboxBypassGrantAsync(source.Request.Context, CancellationToken.None)
+                    : null
+                : source.PermissionGrantStore is not null
+                    ? await source.PermissionGrantStore.FindReusableGrantAsync(source.Request.Context, CancellationToken.None)
+                    : null;
+            if (reusable is not null && (!sandboxBypass || reusable.AllowSandboxBypass))
             {
-                var reusable = await source.PermissionGrantStore.FindReusableGrantAsync(source.Request.Context, CancellationToken.None);
-                if (reusable is not null)
-                {
-                    ReportPermission(source, "permission.auto_approved", "info", $"Auto-approved {safeDetails} using the {FormatGrantScope(reusable.Scope)} grant.", operationKind, reusable.Scope, automatic: true);
-                    return PermissionDecision.ApproveOnce();
-                }
+                ReportPermission(source, "permission.auto_approved", "info", $"Auto-approved {safeDetails} using the {FormatGrantScope(reusable.Scope)} grant.", operationKind, reusable.Scope, automatic: true, sandboxBypass);
+                return PermissionDecision.ApproveOnce();
             }
-            catch (Exception ex)
-            {
-                ReportPermission(source, "permission.grant_lookup_failed", "warning", $"Could not load a reusable Copilot permission grant; explicit approval is required. {ex.GetType().Name}", operationKind, null, automatic: false);
-            }
+        }
+        catch (Exception ex)
+        {
+            ReportPermission(source, "permission.grant_lookup_failed", "warning", $"Could not load a reusable Copilot permission grant; explicit approval is required. {ex.GetType().Name}", operationKind, null, automatic: false, sandboxBypass);
         }
 
         var hasSessionApproval = TryBuildSessionApproval(request, out var sessionApproval, out var sessionScope);
@@ -336,12 +346,30 @@ internal sealed class GitHubCopilotSdkClient : ICopilotSdkClient
             if (source.PermissionGrantStore is not null && !string.IsNullOrWhiteSpace(source.Request.Context.AgentId))
                 choices.Add(PermissionAllowAllFutureAgentChoice);
         }
+        else if (sandboxBypass
+                 && source.Request.Configuration.EnableApproveAll
+                 && source.Request.Configuration.EnableSandboxBypassGrants)
+        {
+            choices.Add(PermissionAllowAllTaskSandboxBypassChoice);
+            if (source.PermissionGrantStore is ICopilotSandboxBypassPermissionGrantStore
+                && !string.IsNullOrWhiteSpace(source.Request.Context.ExecutionId))
+            {
+                choices.Add(PermissionAllowAllWorkflowSandboxBypassChoice);
+            }
+            if (source.PermissionGrantStore is ICopilotSandboxBypassPermissionGrantStore
+                && !string.IsNullOrWhiteSpace(source.Request.Context.AgentId))
+            {
+                choices.Add(PermissionAllowAllFutureAgentSandboxBypassChoice);
+            }
+        }
         choices.Add(PermissionRefuseChoice);
 
         if (!string.IsNullOrWhiteSpace(sessionScope))
             details += $"\n\nIf allowed for this session: {sessionScope}";
         if (source.Request.Configuration.EnableApproveAll && !sandboxBypass)
             details += "\n\nBroad approvals never include sandbox-bypass requests. Every automatically approved operation remains visible in workflow activity.";
+        if (sandboxBypass && source.Request.Configuration.EnableApproveAll && source.Request.Configuration.EnableSandboxBypassGrants)
+            details += "\n\nA scoped sandbox-bypass approval includes ordinary and bypass operations. Every automatically approved operation remains visible in workflow activity.";
 
         var response = await source.HumanInputProvider.RequestAsync(
             new CopilotHumanInputRequest(
@@ -356,20 +384,20 @@ internal sealed class GitHubCopilotSdkClient : ICopilotSdkClient
         if (!response.Accepted
             || string.Equals(response.Answer, PermissionRefuseChoice, StringComparison.OrdinalIgnoreCase))
         {
-            ReportPermission(source, "permission.refused", "warning", $"Refused {safeDetails}.", operationKind, null, automatic: false);
+            ReportPermission(source, "permission.refused", "warning", $"Refused {safeDetails}.", operationKind, null, automatic: false, sandboxBypass);
             return PermissionDecision.Reject("The user refused the operation.");
         }
 
         if (string.Equals(response.Answer, PermissionAllowOnceChoice, StringComparison.OrdinalIgnoreCase))
         {
-            ReportPermission(source, "permission.granted", "info", $"Allowed once: {safeDetails}.", operationKind, null, automatic: false);
+            ReportPermission(source, "permission.granted", "info", $"Allowed once: {safeDetails}.", operationKind, null, automatic: false, sandboxBypass);
             return PermissionDecision.ApproveOnce();
         }
 
         if (sessionApproval is not null
             && string.Equals(response.Answer, PermissionAllowForSessionChoice, StringComparison.OrdinalIgnoreCase))
         {
-            ReportPermission(source, "permission.granted", "info", $"Allowed similar operations for this task: {safeDetails}.", operationKind, CopilotPermissionGrantScope.CurrentTask, automatic: false);
+            ReportPermission(source, "permission.granted", "info", $"Allowed similar operations for this task: {safeDetails}.", operationKind, CopilotPermissionGrantScope.CurrentTask, automatic: false, sandboxBypass);
             return sessionApproval;
         }
 
@@ -378,7 +406,7 @@ internal sealed class GitHubCopilotSdkClient : ICopilotSdkClient
             && string.Equals(response.Answer, PermissionAllowAllTaskChoice, StringComparison.OrdinalIgnoreCase))
         {
             taskState.AllowAll = true;
-            ReportPermission(source, "permission.granted", "warning", $"Allowed all non-bypass operations for this Copilot task, beginning with {safeDetails}.", operationKind, CopilotPermissionGrantScope.CurrentTask, automatic: false);
+            ReportPermission(source, "permission.granted", "warning", $"Allowed all non-bypass operations for this Copilot task, beginning with {safeDetails}.", operationKind, CopilotPermissionGrantScope.CurrentTask, automatic: false, sandboxBypass);
             return PermissionDecision.ApproveOnce();
         }
 
@@ -388,7 +416,7 @@ internal sealed class GitHubCopilotSdkClient : ICopilotSdkClient
             && string.Equals(response.Answer, PermissionAllowAllWorkflowChoice, StringComparison.OrdinalIgnoreCase))
         {
             var grant = await source.PermissionGrantStore.GrantWorkflowRunAsync(source.Request.Context, CancellationToken.None);
-            ReportPermission(source, "permission.granted", "warning", $"Allowed all non-bypass operations for this workflow run, beginning with {safeDetails}.", operationKind, grant.Scope, automatic: false);
+            ReportPermission(source, "permission.granted", "warning", $"Allowed all non-bypass operations for this workflow run, beginning with {safeDetails}.", operationKind, grant.Scope, automatic: false, sandboxBypass);
             return PermissionDecision.ApproveOnce();
         }
 
@@ -409,16 +437,65 @@ internal sealed class GitHubCopilotSdkClient : ICopilotSdkClient
             if (!confirmation.Accepted
                 || !string.Equals(confirmation.Answer, PermissionConfirmFutureAgentChoice, StringComparison.OrdinalIgnoreCase))
             {
-                ReportPermission(source, "permission.refused", "warning", "Persistent Copilot approval was cancelled; the pending operation was refused.", operationKind, CopilotPermissionGrantScope.FutureAgentRuns, automatic: false);
+                ReportPermission(source, "permission.refused", "warning", "Persistent Copilot approval was cancelled; the pending operation was refused.", operationKind, CopilotPermissionGrantScope.FutureAgentRuns, automatic: false, sandboxBypass);
                 return PermissionDecision.Reject("The user cancelled persistent approval.");
             }
 
             var grant = await source.PermissionGrantStore.GrantFutureAgentRunsAsync(source.Request.Context, CancellationToken.None);
-            ReportPermission(source, "permission.granted", "warning", $"Persisted broad approval for future runs of agent '{grant.AgentName ?? grant.AgentId}', beginning with {safeDetails}.", operationKind, grant.Scope, automatic: false);
+            ReportPermission(source, "permission.granted", "warning", $"Persisted broad approval for future runs of agent '{grant.AgentName ?? grant.AgentId}', beginning with {safeDetails}.", operationKind, grant.Scope, automatic: false, sandboxBypass);
             return PermissionDecision.ApproveOnce();
         }
 
-        ReportPermission(source, "permission.refused", "warning", "The Copilot permission response was not recognized and was rejected.", operationKind, null, automatic: false);
+        if (sandboxBypass
+            && source.Request.Configuration.EnableApproveAll
+            && source.Request.Configuration.EnableSandboxBypassGrants
+            && string.Equals(response.Answer, PermissionAllowAllTaskSandboxBypassChoice, StringComparison.OrdinalIgnoreCase))
+        {
+            taskState.AllowAll = true;
+            taskState.AllowSandboxBypass = true;
+            ReportPermission(source, "permission.granted", "warning", $"Allowed all operations including sandbox bypass for this Copilot task, beginning with {safeDetails}.", operationKind, CopilotPermissionGrantScope.CurrentTask, automatic: false, sandboxBypass: true);
+            return PermissionDecision.ApproveOnce();
+        }
+
+        if (sandboxBypass
+            && source.Request.Configuration.EnableApproveAll
+            && source.Request.Configuration.EnableSandboxBypassGrants
+            && source.PermissionGrantStore is ICopilotSandboxBypassPermissionGrantStore bypassStore
+            && string.Equals(response.Answer, PermissionAllowAllWorkflowSandboxBypassChoice, StringComparison.OrdinalIgnoreCase))
+        {
+            var grant = await bypassStore.GrantWorkflowRunWithSandboxBypassAsync(source.Request.Context, CancellationToken.None);
+            ReportPermission(source, "permission.granted", "warning", $"Allowed all operations including sandbox bypass for this workflow run, beginning with {safeDetails}.", operationKind, grant.Scope, automatic: false, sandboxBypass: true);
+            return PermissionDecision.ApproveOnce();
+        }
+
+        if (sandboxBypass
+            && source.Request.Configuration.EnableApproveAll
+            && source.Request.Configuration.EnableSandboxBypassGrants
+            && source.PermissionGrantStore is ICopilotSandboxBypassPermissionGrantStore persistentBypassStore
+            && string.Equals(response.Answer, PermissionAllowAllFutureAgentSandboxBypassChoice, StringComparison.OrdinalIgnoreCase))
+        {
+            var confirmation = await source.HumanInputProvider.RequestAsync(
+                new CopilotHumanInputRequest(
+                    source.Request.Context,
+                    "permission_persistence_confirmation",
+                    "Persist broad Copilot sandbox-bypass approval for this agent?",
+                    [PermissionConfirmFutureAgentSandboxBypassChoice, PermissionCancelFutureAgentChoice],
+                    false,
+                    $"Agent: {source.Request.Context.AgentName ?? source.Request.Context.AgentId}\nTenant: {source.Request.Context.TenantId}\nThis permits ordinary and sandbox-bypass operations, survives restarts, and remains active until revoked. Sandbox bypass can access resources outside normal isolation and is high risk."),
+                CancellationToken.None);
+            if (!confirmation.Accepted
+                || !string.Equals(confirmation.Answer, PermissionConfirmFutureAgentSandboxBypassChoice, StringComparison.OrdinalIgnoreCase))
+            {
+                ReportPermission(source, "permission.refused", "warning", "Persistent Copilot sandbox-bypass approval was cancelled; the pending operation was refused.", operationKind, CopilotPermissionGrantScope.FutureAgentRuns, automatic: false, sandboxBypass: true);
+                return PermissionDecision.Reject("The user cancelled persistent sandbox-bypass approval.");
+            }
+
+            var grant = await persistentBypassStore.GrantFutureAgentRunsWithSandboxBypassAsync(source.Request.Context, CancellationToken.None);
+            ReportPermission(source, "permission.granted", "warning", $"Persisted broad approval including sandbox bypass for future runs of agent '{grant.AgentName ?? grant.AgentId}', beginning with {safeDetails}.", operationKind, grant.Scope, automatic: false, sandboxBypass: true);
+            return PermissionDecision.ApproveOnce();
+        }
+
+        ReportPermission(source, "permission.refused", "warning", "The Copilot permission response was not recognized and was rejected.", operationKind, null, automatic: false, sandboxBypass);
         return PermissionDecision.Reject("The permission response was not recognized.");
     }
 
@@ -460,7 +537,8 @@ internal sealed class GitHubCopilotSdkClient : ICopilotSdkClient
         string message,
         string operationKind,
         CopilotPermissionGrantScope? scope,
-        bool automatic)
+        bool automatic,
+        bool sandboxBypass = false)
     {
         try
         {
@@ -471,7 +549,10 @@ internal sealed class GitHubCopilotSdkClient : ICopilotSdkClient
                 operationKind,
                 scope,
                 source.Request.Context,
-                automatic));
+                automatic)
+            {
+                SandboxBypass = sandboxBypass
+            });
         }
         catch
         {
@@ -494,6 +575,7 @@ internal sealed class GitHubCopilotSdkClient : ICopilotSdkClient
     internal sealed class InteractivePermissionTaskState
     {
         public bool AllowAll { get; set; }
+        public bool AllowSandboxBypass { get; set; }
     }
 
     internal static PermissionDecision ResolveInteractivePermissionResponse(

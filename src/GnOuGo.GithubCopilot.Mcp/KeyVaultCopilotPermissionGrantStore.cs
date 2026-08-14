@@ -8,7 +8,9 @@ using Microsoft.Extensions.Options;
 
 namespace GnOuGo.GithubCopilot.Mcp;
 
-internal sealed class KeyVaultCopilotPermissionGrantStore : ICopilotPermissionGrantStore
+internal sealed class KeyVaultCopilotPermissionGrantStore :
+    ICopilotPermissionGrantStore,
+    ICopilotSandboxBypassPermissionGrantStore
 {
     internal const string CollectionName = "github-copilot.permission-grants";
     private const string AuditAuthor = "GnOuGo.GithubCopilot.Mcp";
@@ -40,6 +42,17 @@ internal sealed class KeyVaultCopilotPermissionGrantStore : ICopilotPermissionGr
     public async Task<CopilotPermissionGrant?> FindReusableGrantAsync(
         CopilotRequestContext context,
         CancellationToken cancellationToken)
+        => await FindReusableGrantCoreAsync(context, requireSandboxBypass: false, cancellationToken);
+
+    public async Task<CopilotPermissionGrant?> FindReusableSandboxBypassGrantAsync(
+        CopilotRequestContext context,
+        CancellationToken cancellationToken)
+        => await FindReusableGrantCoreAsync(context, requireSandboxBypass: true, cancellationToken);
+
+    private async Task<CopilotPermissionGrant?> FindReusableGrantCoreAsync(
+        CopilotRequestContext context,
+        bool requireSandboxBypass,
+        CancellationToken cancellationToken)
     {
         ValidateTenant(context.TenantId);
         var now = _timeProvider.GetUtcNow();
@@ -48,9 +61,12 @@ internal sealed class KeyVaultCopilotPermissionGrantStore : ICopilotPermissionGr
         if (!string.IsNullOrWhiteSpace(context.ExecutionId)
             && _workflowGrants.TryGetValue(BuildWorkflowKey(context.TenantId, context.ExecutionId), out var workflowGrant))
         {
-            var touched = workflowGrant with { LastUsedAt = now, ExpiresAt = now + _workflowGrantTtl };
-            _workflowGrants[BuildWorkflowKey(context.TenantId, context.ExecutionId)] = touched;
-            return touched;
+            if (!requireSandboxBypass || workflowGrant.AllowSandboxBypass)
+            {
+                var touched = workflowGrant with { LastUsedAt = now, ExpiresAt = now + _workflowGrantTtl };
+                _workflowGrants[BuildWorkflowKey(context.TenantId, context.ExecutionId)] = touched;
+                return touched;
+            }
         }
 
         if (string.IsNullOrWhiteSpace(context.AgentId))
@@ -67,6 +83,8 @@ internal sealed class KeyVaultCopilotPermissionGrantStore : ICopilotPermissionGr
             return null;
 
         var grant = DeserializeAndValidate(record, context.TenantId, context.AgentId);
+        if (requireSandboxBypass && !grant.AllowSandboxBypass)
+            return null;
         var touchedGrant = grant with
         {
             AgentName = context.AgentName ?? grant.AgentName,
@@ -78,6 +96,17 @@ internal sealed class KeyVaultCopilotPermissionGrantStore : ICopilotPermissionGr
 
     public Task<CopilotPermissionGrant> GrantWorkflowRunAsync(
         CopilotRequestContext context,
+        CancellationToken cancellationToken)
+        => GrantWorkflowRunCoreAsync(context, allowSandboxBypass: false, cancellationToken);
+
+    public Task<CopilotPermissionGrant> GrantWorkflowRunWithSandboxBypassAsync(
+        CopilotRequestContext context,
+        CancellationToken cancellationToken)
+        => GrantWorkflowRunCoreAsync(context, allowSandboxBypass: true, cancellationToken);
+
+    private Task<CopilotPermissionGrant> GrantWorkflowRunCoreAsync(
+        CopilotRequestContext context,
+        bool allowSandboxBypass,
         CancellationToken cancellationToken)
     {
         ValidateTenant(context.TenantId);
@@ -98,19 +127,32 @@ internal sealed class KeyVaultCopilotPermissionGrantStore : ICopilotPermissionGr
                 context.AgentName,
                 now,
                 now,
-                now + _workflowGrantTtl),
+                now + _workflowGrantTtl,
+                allowSandboxBypass),
             (_, existing) => existing with
             {
                 AgentId = context.AgentId ?? existing.AgentId,
                 AgentName = context.AgentName ?? existing.AgentName,
                 LastUsedAt = now,
-                ExpiresAt = now + _workflowGrantTtl
+                ExpiresAt = now + _workflowGrantTtl,
+                AllowSandboxBypass = existing.AllowSandboxBypass || allowSandboxBypass
             });
         return Task.FromResult(grant);
     }
 
-    public async Task<CopilotPermissionGrant> GrantFutureAgentRunsAsync(
+    public Task<CopilotPermissionGrant> GrantFutureAgentRunsAsync(
         CopilotRequestContext context,
+        CancellationToken cancellationToken)
+        => GrantFutureAgentRunsCoreAsync(context, allowSandboxBypass: false, cancellationToken);
+
+    public Task<CopilotPermissionGrant> GrantFutureAgentRunsWithSandboxBypassAsync(
+        CopilotRequestContext context,
+        CancellationToken cancellationToken)
+        => GrantFutureAgentRunsCoreAsync(context, allowSandboxBypass: true, cancellationToken);
+
+    private async Task<CopilotPermissionGrant> GrantFutureAgentRunsCoreAsync(
+        CopilotRequestContext context,
+        bool allowSandboxBypass,
         CancellationToken cancellationToken)
     {
         ValidateTenant(context.TenantId);
@@ -137,11 +179,14 @@ internal sealed class KeyVaultCopilotPermissionGrantStore : ICopilotPermissionGr
                 context.AgentId,
                 context.AgentName,
                 now,
-                now)
+                now,
+                ExpiresAt: null,
+                AllowSandboxBypass: allowSandboxBypass)
             : existing with
             {
                 AgentName = context.AgentName ?? existing.AgentName,
-                LastUsedAt = now
+                LastUsedAt = now,
+                AllowSandboxBypass = existing.AllowSandboxBypass || allowSandboxBypass
             };
 
         await SaveAsync(recordKey, grant, cancellationToken);
@@ -239,7 +284,6 @@ internal sealed class KeyVaultCopilotPermissionGrantStore : ICopilotPermissionGr
 
         if (grant is null
             || grant.Scope != CopilotPermissionGrantScope.FutureAgentRuns
-            || grant.AllowSandboxBypass
             || grant.ExecutionId is not null
             || string.IsNullOrWhiteSpace(grant.Id)
             || string.IsNullOrWhiteSpace(grant.AgentId)

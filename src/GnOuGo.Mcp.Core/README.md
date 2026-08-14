@@ -1,6 +1,6 @@
 # GnOuGo.Mcp.Core
 
-GnOuGo-owned MCP servers use stable `ModelContextProtocol` `2.0.0` and require revision `2026-07-28` through `GnOuGoMcpProtocol.RequiredRevision`. GnOuGo clients leave external connections unpinned so the SDK can prefer discovery-first `2026-07-28` and fall back to stable `2025-11-25` initialization.
+GnOuGo-owned MCP servers use stable `ModelContextProtocol` `2.0.0` and leave protocol selection unpinned. The SDK prefers discovery-first `2026-07-28` (`GnOuGoMcpProtocol.PreferredRevision`) and accepts stable `2025-11-25` initialization as a compatibility fallback. `RequiredRevision` remains an obsolete source-compatible alias for the preferred revision.
 
 Shared helpers for GnOuGo MCP servers.
 

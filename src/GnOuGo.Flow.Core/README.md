@@ -9,7 +9,7 @@ Write YAML workflows that orchestrate LLMs, MCP servers, templates, loops, human
 
 ## MCP protocol compatibility
 
-The runtime uses the stable C# MCP SDK `2.0.0`. HTTP and stdio clients prefer MCP `2026-07-28` discovery with `server/discover` and automatically fall back to `2025-11-25` initialization when an external server is older. GnOuGo-owned servers require `2026-07-28` in conformance tests. Flow does not use `Mcp-Session-Id` for Copilot identity.
+The runtime uses the stable C# MCP SDK `2.0.0`. HTTP and stdio clients prefer MCP `2026-07-28` discovery with `server/discover` and automatically fall back to `2025-11-25` initialization. GnOuGo-owned servers use the same unpinned negotiation policy. Flow does not use `Mcp-Session-Id` for Copilot identity.
 
 Every discovery/tool/resource/prompt request carries reserved technical metadata such as correlation, stable execution and agent identity, run, trace, step, and tenant identifiers under `_meta.gnougo`; HTTP headers and stdio environment receive the same technical identifiers. These host-owned fields cannot be overridden by workflow input. A caller may explicitly add domain-neutral request context through `mcp.call.input.context`, which is propagated only under `_meta.gnougo.context`. Flow never extracts domain fields from workflow data. MCP elicitation is bridged to the workflow `IHumanInputProvider`, enabling stable multi-round-trip HITL without putting credentials in YAML. MCP tools marked `gnougo.management.visibility=management_only` remain discoverable to management clients but are excluded from workflow planning catalogs.
 
@@ -1228,6 +1228,12 @@ The most powerful step type: asks an LLM to **generate a complete YAML workflow*
 
 `mode` defaults to `auto`. Auto mode first asks the configured LLM to estimate the request's cyclomatic complexity and choose `basic` or `pipeline`. It chooses `basic` for requests under 10 meaningful branches, and `pipeline` when the request should be decomposed into leaf workflows before assembly.
 
+Every internal planning call is background-capable: automatic mode classification, capability
+inventory and repair, physical candidate selection, capability matching and repair, MCP
+prefiltering, pipeline stages, and final generation. With OpenAI this uses background Responses
+and preserves strict structured-output schemas. Ordinary `llm.call`, chat, and tool-calling
+requests keep their existing routing unless their caller explicitly opts into background mode.
+
 #### Basic usage
 
 ```yaml
@@ -1885,7 +1891,8 @@ on_error:
 |------|-----------|-------------|
 | `INPUT_VALIDATION` | No | Missing or malformed input |
 | `LLM_TIMEOUT` | Yes | LLM request timed out |
-| `LLM_NETWORK` | Yes | Network error reaching the LLM |
+| `LLM_NETWORK` | Yes | Transport failure, HTTP `425`/`429`, or provider `5xx` response |
+| `LLM_PROVIDER` | No | Provider rejected the request with another `4xx` response |
 | `MCP_CONNECTION_ERROR` | Yes | Cannot connect to MCP server |
 | `MCP_TOOL_ERROR` | No | MCP tool returned an error |
 | `CAPABILITY_PREFLIGHT_UNAVAILABLE` | No | A required operation has no exact available capability |

@@ -48,7 +48,7 @@ flowchart TD
 - `GnOuGo.KeyVault.Mcp` → `/mcp/keyvault`
 - `GnOuGo.DocIngestor.Mcp` → `/mcp/docs-ingestor`
 
-All three mounted services use the stable C# MCP SDK `2.0.0`, explicitly stateless Streamable HTTP, and MCP `2026-07-28` discovery. The public proxy forwards the standardized `MCP-Protocol-Version`, `Mcp-Method`, `Mcp-Name`, and `Mcp-Param-*` headers. Mounted URLs are published to runtime configuration only after every private sub-host is listening; older MCP clients remain supported through SDK negotiation.
+All three mounted services use the stable C# MCP SDK `2.0.0`, explicitly stateless Streamable HTTP, and automatic negotiation that prefers MCP `2026-07-28` discovery while accepting stable `2025-11-25` initialization. The public proxy forwards the standardized `MCP-Protocol-Version`, `Mcp-Method`, `Mcp-Name`, and `Mcp-Param-*` headers. Mounted URLs are published to runtime configuration only after every private sub-host is listening.
 
 The default placeholders in `appsettings.json` intentionally use port `0`:
     
@@ -93,7 +93,7 @@ After model selection, `/llm add` and `/llm edit <provider>` always display an e
 
 Bundled MCP servers can also expose selected editable fields through the `BundledMcp` settings section. Each field maps to a KeyVault secret and a runtime target such as `env:Git__Token`, so `/mcp list` can show the bundled server and `/mcp edit <name>` only prompts for the configured fields. The default configuration makes `GnOuGo.Git.Mcp` listable and exposes only the Git token; the token is saved encrypted in KeyVault and injected into the Git MCP process as `Git:Token` when runtime MCP options are hydrated.
 
-`GnOuGo.GithubCopilot.Mcp` is also a listable bundled server. `/mcp edit GnOuGo.GithubCopilot.Mcp` exposes only its provider override, fallback model, reasoning effort, logged-in-user mode, request timeout, and managed-session TTL. Provider choices come from configured KeyVault LLM providers. Values are validated and stored as separate encrypted `LLM--McpServerOverrides--GnOuGo.GithubCopilot.Mcp--...` entries, while per-field inheritance deletes the selected override. The bundled definition is marked with `ReadsKeyVaultDirectly`, so runtime hydration propagates only `KeyVault__DatabasePath`, including a custom path, and never injects decrypted `Code__Copilot__...` values. The MCP retrieves and maps its own configuration through the generic `GnOuGo.KeyVault.Core` abstractions. Credentials stay in their existing `LLM--Models--<provider>` entries, and changes affect the next workflow/MCP process rather than an already-running session.
+`GnOuGo.GithubCopilot.Mcp` is also a listable bundled server. `/mcp edit GnOuGo.GithubCopilot.Mcp` exposes its provider override, fallback model, reasoning effort, logged-in-user mode, request timeout, managed-session TTL, broad-approval gate, and reusable sandbox-bypass gate. Provider choices come from configured KeyVault LLM providers. Values are validated and stored as separate encrypted `LLM--McpServerOverrides--GnOuGo.GithubCopilot.Mcp--...` entries, while per-field inheritance deletes the selected override. Enabling reusable sandbox bypass automatically enables broad approvals through generic editable-field dependency metadata. The bundled definition is marked with `ReadsKeyVaultDirectly`, so runtime hydration propagates only `KeyVault__DatabasePath`, including a custom path, and never injects decrypted `Code__Copilot__...` values. The MCP retrieves and maps its own configuration through the generic `GnOuGo.KeyVault.Core` abstractions. Credentials stay in their existing `LLM--Models--<provider>` entries, and changes affect the next workflow/MCP process rather than an already-running session.
 
 ## Dynamic workflow input composer
 
@@ -220,10 +220,12 @@ permission cards distinguish **Allow similar operations for this task**,
 confirmation. It is keyed by tenant and stable agent ID, survives restarts and
 renames, and is revoked automatically when the agent is deleted. Use
 `/mcp copilot permissions` to list persistent grants and
-`/mcp copilot permissions revoke <grant-id>` to revoke one manually. Sandbox
-bypass always requires its own **Allow once / Refuse** decision. Automatically
-approved operations remain visible in **LIVE WORKFLOW ACTIVITY** and never leave
-a stale human-input card.
+`/mcp copilot permissions revoke <grant-id>` to revoke one manually. When
+`Code__Copilot__EnableSandboxBypassGrants=true` is also enabled, a sandbox-bypass
+request offers separate task, workflow, and future-agent broad choices. The
+future-agent choice requires a second warning confirmation. Ordinary broad grants
+still exclude bypass. Automatically approved operations remain visible in
+**LIVE WORKFLOW ACTIVITY** and never leave a stale human-input card.
 
 `/api/chat/stream` retains its existing SSE event names and text payloads.
 Additional `animation.prepared`, `animation.scene.patch`, and
@@ -261,6 +263,14 @@ known to be current.
 When no explicit/default agent is selected, `SmartFlowService` runs the embedded `SmartFlow/main-routing-agent.yaml` workflow. That workflow uses `workflow.route` to expand all persisted database agents (`ref: { kind: database }`), select one or more relevant sub-workflows, auto-extract structured inputs from the prompt/history, and request any remaining missing or invalid declared inputs through the existing Human Input form before execution. Candidate forms are presented one at a time, then the completed workflows use their configured execution policy. The route also includes a local general fallback workflow so a fresh installation can still answer prompts before any persisted agents exist.
 
 `/gnougo add` runs generic inventory-first capability preflight before workflow decomposition. The first structured call inventories runtime operations and constraints without seeing tools. A compact paged selector then chooses relevant physical MCP tools from one entry per tool, adds MCP-declared artifact producers, and expands authoritative schemas and selector variants only for that selected set before final matching. If inventory or required-candidate selection is incomplete, each stage gets one bounded repair. Complete discovery remains available to dry runs and deterministic validation, and the 256,000-character expanded-catalog guard is unchanged. Documented scalar selectors make logical variants of a multi-action MCP tool distinct and lock their literal request values through decomposition and YAML validation. Host configuration, internal provider/credential resolution, and the outer agent-persistence action are outside the generated workflow inventory. Required resource cleanup is generated under the Flow workflow-level `finally` array.
+
+All `/gnougo add` planning phases request provider-managed background execution. For OpenAI,
+capability preflight and generation use `/v1/responses`, preserve their strict JSON Schema
+contracts, and poll until completion instead of waiting on a long synchronous Chat Completions
+response. The official OpenAI endpoint never falls back to Chat Completions; compatible proxies
+fall back only when they explicitly report that the Responses route or background mode is not
+implemented. `LLM_TIMEOUT` and `LLM_NETWORK` are retryable, while provider request rejections use
+the non-retryable `LLM_PROVIDER` code. User-requested cancellation remains `CANCELLED`.
 
 Read and write capabilities remain discoverable by default; preflight describes availability rather than silently changing an MCP server's execution policy. When preflight fails, the chat response and trace show the sanitized error code, unavailable operation IDs/descriptions, failed catalogs, and a generic configuration action instead of only the summary message.
 
@@ -324,7 +334,7 @@ The base `appsettings.json` now enables `GnOuGo.Browser.Mcp`, `GnOuGo.Cmd.Mcp`, 
 }
 ```
 
-During local source-based development, `appsettings.Development.json` still overrides these entries to use `dotnet run --project ...`.
+Normal `GnOuGo.Agent.Server` and `GnOuGo.Agent.Desktop` builds stage framework-dependent apphosts for these servers under their own `bin/<Configuration>/net10.0/tools/` directories. `appsettings.Development.json` only extends discovery and call timeouts and continues to use these clean direct commands; it never places `dotnet run` on the MCP stdout transport.
 
 Published outputs now bundle the MCP stdio tools under `tools/`:
 

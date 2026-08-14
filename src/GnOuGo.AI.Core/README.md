@@ -69,6 +69,25 @@ count, attempt duration, and total elapsed request time before the provider rais
 the corresponding exception. Non-server HTTP responses such as `400`, `401`,
 `404`, and `429` are returned immediately to the provider's normal error handling.
 
+### OpenAI background Responses
+
+`LLMClientRequest.UseBackgroundMode=true` routes OpenAI calls through the Responses API with
+`background: true`. Structured-output requests keep their normalized JSON Schema, name, and
+strictness under `text.format`; reasoning effort and `max_output_tokens` are preserved as well.
+GnOuGo polls only responses whose status is `queued` or `in_progress`, returns `completed`
+responses, and surfaces terminal or unexpected statuses without silently switching protocols.
+
+The official `api.openai.com` endpoint never falls back from Responses to Chat Completions.
+OpenAI-compatible third-party endpoints fall back only for `405`, `501`, an explicit missing
+`/responses` route reported with `404`, or a `400` that explicitly says Responses/background
+mode is unsupported. Confirmed endpoint incompatibility is cached for the existing bounded
+cache duration; model, authentication, permission, quota, rate-limit, and malformed-request
+errors are never cached as endpoint incompatibility. Provider exceptions preserve the HTTP
+status without logging credentials or request payloads.
+
+An internal `HttpClient` timeout is exposed as `TimeoutException`; cancellation requested by
+the caller remains `OperationCanceledException`.
+
 ### Adding a new provider
 
 1. Create a class implementing `ILLMProvider` in this project.

@@ -4,7 +4,7 @@ MCP (Model Context Protocol) stdio server for reading and writing document files
 
 ## MCP protocol compatibility
 
-This stdio server uses the stable C# MCP SDK `2.0.0` and targets MCP `2026-07-28`. The SDK retains compatibility with older clients; tool names, request schemas, and structured results are unchanged.
+This stdio server uses the stable C# MCP SDK `2.0.0` with automatic protocol negotiation: clients prefer `2026-07-28` discovery and can initialize with stable `2025-11-25`. Launch the built apphost, or use `dotnet GnOuGo.Document.Mcp.dll`; do not put `dotnet run` on an MCP stdio transport because CLI output can corrupt the JSONL stream. Tool names, request schemas, and structured results are unchanged.
 
 ## Supported Formats
 
@@ -84,7 +84,7 @@ dotnet test tests/GnOuGo.Document.Mcp.Tests/
 ## Run
 
 ```bash
-dotnet run --project src/GnOuGo.Document.Mcp/
+dotnet src/GnOuGo.Document.Mcp/bin/Debug/net10.0/GnOuGo.Document.Mcp.dll
 ```
 
 ## Native AOT Publish (win-x64)

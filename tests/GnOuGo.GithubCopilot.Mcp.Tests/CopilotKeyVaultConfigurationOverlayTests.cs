@@ -35,6 +35,9 @@ public sealed class CopilotKeyVaultConfigurationOverlayTests
                 CopilotKeyVaultConfigurationOverlay.McpOverridePrefix + "RequestTimeoutSeconds",
                 "600")
             .Add(
+                CopilotKeyVaultConfigurationOverlay.McpOverridePrefix + "EnableSandboxBypassGrants",
+                "true")
+            .Add(
                 CopilotKeyVaultConfigurationOverlay.McpOverridePrefix + "Telemetry--Enabled",
                 "false")
             .Add(
@@ -66,6 +69,7 @@ public sealed class CopilotKeyVaultConfigurationOverlayTests
         Assert.Null(overlay.Warning);
         Assert.Equal("mcp-model", settings.Copilot.Model);
         Assert.Equal(600, settings.Copilot.RequestTimeoutSeconds);
+        Assert.True(settings.Copilot.EnableSandboxBypassGrants);
         Assert.False(settings.Copilot.Telemetry.Enabled);
         Assert.Equal(["KEYVAULT_TOKEN"], settings.Copilot.TokenEnvironmentVariables);
         var provider = Assert.Contains("OpenAi", settings.Copilot.Providers);
@@ -159,7 +163,7 @@ public sealed class CopilotKeyVaultConfigurationOverlayTests
             .Add(CopilotKeyVaultConfigurationOverlay.McpOverridePrefix + "Model", "first")
             .Add(CopilotKeyVaultConfigurationOverlay.McpOverridePrefix + "model", "second");
         var invalid = new FakeCatalogReader()
-            .Add(CopilotKeyVaultConfigurationOverlay.McpOverridePrefix + "UseLoggedInUser", "not-boolean");
+            .Add(CopilotKeyVaultConfigurationOverlay.McpOverridePrefix + "EnableSandboxBypassGrants", "not-boolean");
 
         await Assert.ThrowsAsync<InvalidDataException>(() =>
             CopilotKeyVaultConfigurationOverlay.LoadAsync(

@@ -31,7 +31,7 @@
   </ItemGroup>
 
   <!-- Automatically install Playwright Chromium browsers after build -->
-  <Target Name="InstallPlaywrightBrowsers" AfterTargets="Build">
+  <Target Name="InstallPlaywrightBrowsers" AfterTargets="Build" Condition="'$(SkipPlaywrightBrowserInstall)' != 'true'">
     <Message Importance="high" Text="Installing Playwright Chromium browsers..." />
     <Exec Command="node &quot;$(TargetDir).playwright/package/cli.js&quot; install chromium" WorkingDirectory="$(TargetDir)" StandardOutputImportance="low" />
   </Target>

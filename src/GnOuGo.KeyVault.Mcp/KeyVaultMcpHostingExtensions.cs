@@ -35,7 +35,6 @@ public static class KeyVaultMcpHostingExtensions
         services
             .AddMcpServer(options =>
             {
-                options.ProtocolVersion = GnOuGoMcpProtocol.RequiredRevision;
                 options.ServerInfo = new Implementation
                 {
                     Name = ServerName,

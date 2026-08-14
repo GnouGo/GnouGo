@@ -146,6 +146,27 @@ public static class ChatRequestBuilder
         string prompt,
         double? temperature = null,
         string? reasoning = null)
+        => OpenAiResponsesBackground(
+            model,
+            prompt,
+            temperature,
+            reasoning,
+            structuredOutputSchema: null,
+            structuredOutputStrict: null,
+            maxOutputTokens: null);
+
+    /// <summary>
+    /// Builds an OpenAI Responses API request body for provider-managed background execution,
+    /// preserving structured-output and output-token constraints when supplied.
+    /// </summary>
+    public static byte[] OpenAiResponsesBackground(
+        string model,
+        string prompt,
+        double? temperature,
+        string? reasoning,
+        JsonNode? structuredOutputSchema,
+        bool? structuredOutputStrict,
+        int? maxOutputTokens)
     {
         using var ms = new MemoryStream();
         using (var w = new Utf8JsonWriter(ms))
@@ -153,6 +174,9 @@ public static class ChatRequestBuilder
             w.WriteStartObject();
             w.WriteString("model", model);
             w.WriteBoolean("background", true);
+
+            if (maxOutputTokens is > 0)
+                w.WriteNumber("max_output_tokens", maxOutputTokens.Value);
 
             if (temperature.HasValue)
                 w.WriteNumber("temperature", temperature.Value);
@@ -171,6 +195,24 @@ public static class ChatRequestBuilder
             w.WriteString("content", prompt);
             w.WriteEndObject();
             w.WriteEndArray();
+
+            if (structuredOutputSchema != null)
+            {
+                var schema = NormalizeJsonSchemaForOpenAi(structuredOutputSchema.DeepClone());
+                if (structuredOutputStrict == true)
+                    schema = PatchAdditionalProperties(schema);
+
+                w.WriteStartObject("text");
+                w.WriteStartObject("format");
+                w.WriteString("type", "json_schema");
+                w.WriteString("name", "output");
+                if (structuredOutputStrict.HasValue)
+                    w.WriteBoolean("strict", structuredOutputStrict.Value);
+                w.WritePropertyName("schema");
+                schema.WriteTo(w);
+                w.WriteEndObject();
+                w.WriteEndObject();
+            }
 
             w.WriteEndObject();
         }

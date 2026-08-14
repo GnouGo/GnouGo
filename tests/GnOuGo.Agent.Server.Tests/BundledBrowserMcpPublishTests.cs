@@ -3,6 +3,96 @@ namespace GnOuGo.Agent.Server.Tests;
 
 public sealed class BundledBrowserMcpPublishTests
 {
+    [Fact]
+    public void DevelopmentBuild_StagesAllBundledMcpAppHostsAndAvoidsDotnetRunConfiguration()
+    {
+        var root = GetRepositoryRoot();
+        var configuration = new DirectoryInfo(AppContext.BaseDirectory).Parent!.Name;
+        var toolsRoot = Path.Combine(root, "src", "GnOuGo.Agent.Server", "bin", configuration, "net10.0", "tools");
+        var executableExtension = OperatingSystem.IsWindows() ? ".exe" : string.Empty;
+        var toolNames = new[]
+        {
+            "GnOuGo.Browser.Mcp",
+            "GnOuGo.Cmd.Mcp",
+            "GnOuGo.Document.Mcp",
+            "GnOuGo.GithubCopilot.Mcp",
+            "GnOuGo.Git.Mcp"
+        };
+
+        foreach (var toolName in toolNames)
+        {
+            var executable = Path.Combine(toolsRoot, toolName, toolName + executableExtension);
+            Assert.True(File.Exists(executable), $"The staged MCP apphost was not found at '{executable}'.");
+        }
+
+        var developmentSettingsPath = Path.Combine(root, "src", "GnOuGo.Agent.Server", "appsettings.Development.json");
+        if (File.Exists(developmentSettingsPath))
+        {
+            var developmentSettings = File.ReadAllText(developmentSettingsPath);
+            Assert.DoesNotContain("\"Command\"", developmentSettings, StringComparison.Ordinal);
+            Assert.DoesNotContain("\"run\"", developmentSettings, StringComparison.Ordinal);
+        }
+
+        var sharedTargets = Path.Combine(root, "build", "GnOuGo.BundledMcpTools.targets");
+        Assert.True(File.Exists(sharedTargets));
+        var sharedTargetsContents = File.ReadAllText(sharedTargets);
+        Assert.Contains("GnOuGo.Browser.Mcp", sharedTargetsContents, StringComparison.Ordinal);
+        Assert.Contains("GnOuGo.Git.Mcp", sharedTargetsContents, StringComparison.Ordinal);
+        Assert.Contains(
+            "<GnOuGoBundledMcpOutputRidDirectory Condition=\"'$(RuntimeIdentifier)' != ''\">$(RuntimeIdentifier)\\</GnOuGoBundledMcpOutputRidDirectory>",
+            sharedTargetsContents,
+            StringComparison.Ordinal);
+        Assert.Contains(
+            "$(TargetFramework)\\$(GnOuGoBundledMcpOutputRidDirectory)**\\*",
+            sharedTargetsContents,
+            StringComparison.Ordinal);
+        Assert.Contains(
+            "$(GnOuGoBundledMcpOutputRidDirectory)publish\\**\\*",
+            sharedTargetsContents,
+            StringComparison.Ordinal);
+        Assert.Contains(
+            "Condition=\"'$(RuntimeIdentifier)' == ''\"",
+            sharedTargetsContents,
+            StringComparison.Ordinal);
+        Assert.Contains("$(TargetFramework)\\win-*\\**\\*", sharedTargetsContents, StringComparison.Ordinal);
+        Assert.Contains("$(TargetFramework)\\linux-*\\**\\*", sharedTargetsContents, StringComparison.Ordinal);
+        Assert.Contains("$(TargetFramework)\\osx-*\\**\\*", sharedTargetsContents, StringComparison.Ordinal);
+
+        foreach (var projectFile in new[]
+                 {
+                     Path.Combine(root, "src", "GnOuGo.Agent.Server", "GnOuGo.Agent.Server.csproj"),
+                     Path.Combine(root, "src", "GnOuGo.Agent.Desktop", "GnOuGo.Agent.Desktop.csproj")
+                 })
+        {
+            Assert.Contains("GnOuGo.BundledMcpTools.targets", File.ReadAllText(projectFile), StringComparison.Ordinal);
+        }
+    }
+
+    [Fact]
+    public void DevelopmentBuild_SkipsPlaywrightDownloadWithoutDisablingAppHostOrPublishedBrowserInstall()
+    {
+        var root = GetRepositoryRoot();
+        var sharedTargets = File.ReadAllText(Path.Combine(root, "build", "GnOuGo.BundledMcpTools.targets"));
+        var browserProject = File.ReadAllText(Path.Combine(
+            root,
+            "src",
+            "GnOuGo.Browser.Mcp",
+            "GnOuGo.Browser.Mcp.csproj"));
+
+        Assert.Contains("ReferenceOutputAssembly=\"false\"", sharedTargets, StringComparison.Ordinal);
+        Assert.Contains("Private=\"false\"", sharedTargets, StringComparison.Ordinal);
+        Assert.Contains("AdditionalProperties=\"SkipPlaywrightBrowserInstall=true\"", sharedTargets, StringComparison.Ordinal);
+        Assert.Contains("<OutputType>Exe</OutputType>", browserProject, StringComparison.Ordinal);
+        Assert.Contains(
+            "<Target Name=\"InstallPlaywrightBrowsers\" AfterTargets=\"Build\" Condition=\"'$(SkipPlaywrightBrowserInstall)' != 'true'\">",
+            browserProject,
+            StringComparison.Ordinal);
+        Assert.Contains(
+            "<Target Name=\"InstallPublishedPlaywrightBrowsers\" AfterTargets=\"Publish\"",
+            browserProject,
+            StringComparison.Ordinal);
+    }
+
     [Theory]
     [InlineData("src", "GnOuGo.Agent.Desktop", "GnOuGo.Agent.Desktop.csproj")]
     [InlineData("src", "GnOuGo.Agent.Server", "GnOuGo.Agent.Server.csproj")]
@@ -311,6 +401,65 @@ public sealed class BundledBrowserMcpPublishTests
     }
 
     [Fact]
+    public void AgentDockerfile_CopiesSharedTargetsAndCompleteProjectGraphBeforeRestore()
+    {
+        var root = GetRepositoryRoot();
+        var dockerfile = File.ReadAllText(Path.Combine(root, "src", "GnOuGo.Agent.Server", "Dockerfile"));
+        var restoreIndex = dockerfile.IndexOf(
+            "&& dotnet restore src/GnOuGo.Agent.Server/GnOuGo.Agent.Server.csproj",
+            StringComparison.Ordinal);
+
+        Assert.True(restoreIndex >= 0, "The Agent.Server restore command was not found in the Dockerfile.");
+        AssertCopiedBeforeRestore(dockerfile, restoreIndex, "build/GnOuGo.BundledMcpTools.targets");
+
+        var sharedTargetsPath = Path.Combine(root, "build", "GnOuGo.BundledMcpTools.targets");
+        var sharedTargets = System.Xml.Linq.XDocument.Load(sharedTargetsPath);
+        var projectQueue = new Queue<string>();
+        projectQueue.Enqueue(Path.Combine(root, "src", "GnOuGo.Agent.Server", "GnOuGo.Agent.Server.csproj"));
+
+        foreach (var bundledProject in sharedTargets
+                     .Descendants()
+                     .Where(element => element.Name.LocalName == "GnOuGoBundledMcpTool")
+                     .Select(element => element.Attribute("Include")?.Value)
+                     .OfType<string>()
+                     .Where(include => !string.IsNullOrWhiteSpace(include)))
+        {
+            const string targetsDirectoryProperty = "$(MSBuildThisFileDirectory)";
+            Assert.StartsWith(targetsDirectoryProperty, bundledProject, StringComparison.Ordinal);
+            projectQueue.Enqueue(ResolveProjectPath(
+                Path.GetDirectoryName(sharedTargetsPath)!,
+                bundledProject[targetsDirectoryProperty.Length..]));
+        }
+
+        var projects = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        while (projectQueue.TryDequeue(out var projectPath))
+        {
+            if (!projects.Add(projectPath))
+            {
+                continue;
+            }
+
+            Assert.True(File.Exists(projectPath), $"Referenced project was not found: {projectPath}");
+            var project = System.Xml.Linq.XDocument.Load(projectPath);
+            foreach (var projectReference in project
+                         .Descendants()
+                         .Where(element => element.Name.LocalName == "ProjectReference")
+                         .Select(element => element.Attribute("Include")?.Value)
+                         .OfType<string>()
+                         .Where(include => !string.IsNullOrWhiteSpace(include)))
+            {
+                projectQueue.Enqueue(ResolveProjectPath(Path.GetDirectoryName(projectPath)!, projectReference));
+            }
+        }
+
+        foreach (var projectPath in projects)
+        {
+            var repositoryPath = Path.GetRelativePath(root, projectPath).Replace('\\', '/');
+            AssertCopiedBeforeRestore(dockerfile, restoreIndex, repositoryPath);
+        }
+    }
+
+    [Fact]
     public void OtlpCollectorDockerfile_BuildsClientAppAndPublishesGeneratedWwwroot()
     {
         var dockerfile = File.ReadAllText(Path.Combine(GetRepositoryRoot(), "src", "GnOuGo.OtlpCollector.Server", "Dockerfile"));
@@ -335,4 +484,19 @@ public sealed class BundledBrowserMcpPublishTests
         => xml
             .Split(['\r', '\n'], StringSplitOptions.RemoveEmptyEntries)
             .SingleOrDefault(line => line.Contains($"dotnet publish &quot;$({bundledToolProjectProperty})&quot;", StringComparison.Ordinal));
+
+    private static string ResolveProjectPath(string baseDirectory, string relativePath)
+    {
+        var normalizedPath = relativePath
+            .Replace('\\', Path.DirectorySeparatorChar)
+            .Replace('/', Path.DirectorySeparatorChar);
+        return Path.GetFullPath(Path.Combine(baseDirectory, normalizedPath));
+    }
+
+    private static void AssertCopiedBeforeRestore(string dockerfile, int restoreIndex, string repositoryPath)
+    {
+        var copyIndex = dockerfile.IndexOf(repositoryPath, StringComparison.Ordinal);
+        Assert.True(copyIndex >= 0, $"The Docker restore layer does not copy '{repositoryPath}'.");
+        Assert.True(copyIndex < restoreIndex, $"The Docker restore layer copies '{repositoryPath}' after restore.");
+    }
 }

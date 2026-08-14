@@ -1,4 +1,4 @@
-using System.Text.Json;
+using GnOuGo.Agent.Server.Formatting;
 
 namespace GnOuGo.Agent.Server.SmartFlow;
 
@@ -10,8 +10,6 @@ namespace GnOuGo.Agent.Server.SmartFlow;
 /// </summary>
 internal static class HumanInputContextMarkdownFormatter
 {
-    private static readonly JsonSerializerOptions PrettyJsonOptions = new() { WriteIndented = true };
-
     public static string Format(string? context)
     {
         if (string.IsNullOrWhiteSpace(context))
@@ -22,39 +20,20 @@ internal static class HumanInputContextMarkdownFormatter
         if (TryExtractSingleCodeFence(normalized, out var language, out var fencedContent))
         {
             var content = NormalizeLineEndings(fencedContent).Trim();
-            if (IsJsonLanguage(language) && TryFormatJson(content, out var prettyJson))
+            if (IsJsonLanguage(language) && IndentedJsonFormatter.TryFormat(content, out var prettyJson))
                 return BuildFencedCode("json", prettyJson);
             if (IsYamlLanguage(language) || (string.IsNullOrWhiteSpace(language) && LooksLikeYamlDocument(content)))
                 return BuildFencedCode(string.IsNullOrWhiteSpace(language) ? "yaml" : language, content);
             return BuildFencedCode(language, content);
         }
 
-        if (TryFormatJson(normalized, out var formattedJson))
+        if (IndentedJsonFormatter.TryFormat(normalized, out var formattedJson))
             return BuildFencedCode("json", formattedJson);
 
         if (LooksLikeYamlDocument(normalized))
             return BuildFencedCode("yaml", normalized);
 
         return normalized;
-    }
-
-    private static bool TryFormatJson(string input, out string prettyJson)
-    {
-        prettyJson = string.Empty;
-        var trimmed = input.TrimStart();
-        if (!trimmed.StartsWith('{') && !trimmed.StartsWith('['))
-            return false;
-
-        try
-        {
-            using var document = JsonDocument.Parse(input);
-            prettyJson = JsonSerializer.Serialize(document.RootElement, PrettyJsonOptions);
-            return true;
-        }
-        catch (JsonException)
-        {
-            return false;
-        }
     }
 
     private static bool LooksLikeYamlDocument(string value)

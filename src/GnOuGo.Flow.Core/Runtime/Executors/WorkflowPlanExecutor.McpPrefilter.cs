@@ -156,6 +156,7 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
                 Model = model,
                 Prompt = prefilterPrompt,
                 Temperature = temperature,
+                UseBackgroundMode = true,
                 StructuredOutputSchema = JsonNode.Parse("""
                 {
                   "type": "object",
@@ -317,6 +318,9 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
         catch (Exception ex)
         {
             prefilterSpan.Fail(ex);
+            if (LlmFailureClassifier.Classify(ex) != null)
+                throw;
+
             // On any failure, fall back to the full unfiltered list
             ctx.Engine.Logger.LogWarning(ex, "workflow.plan: MCP prefilter failed, falling back to full server list");
             ctx.AddTelemetryEvent("gnougo-flow.plan.prefilter.fallback", Array.Empty<KeyValuePair<string, object?>>());

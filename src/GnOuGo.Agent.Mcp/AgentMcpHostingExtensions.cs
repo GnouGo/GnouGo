@@ -86,7 +86,6 @@ public static class AgentMcpHostingExtensions
         services
             .AddMcpServer(options =>
             {
-                options.ProtocolVersion = GnOuGoMcpProtocol.RequiredRevision;
                 options.ServerInfo = new Implementation
                 {
                     Name = ServerName,

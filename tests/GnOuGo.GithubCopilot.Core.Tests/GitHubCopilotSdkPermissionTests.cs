@@ -260,6 +260,99 @@ public sealed class GitHubCopilotSdkPermissionTests
     }
 
     [Fact]
+    public async Task SandboxBypassGate_OffersThreeExplicitScopesWhenStableIdentitiesAreAvailable()
+    {
+        var human = new QueueHumanInputProvider(GitHubCopilotSdkClient.PermissionRefuseChoice);
+        var source = CreateSource(
+            human,
+            new MemoryPermissionGrantStore(),
+            new RecordingPermissionEventSink(),
+            enableSandboxBypassGrants: true);
+        var request = Shell("dotnet test");
+        request.RequestSandboxBypass = true;
+
+        Assert.IsType<PermissionDecisionReject>(await GitHubCopilotSdkClient.RequestInteractivePermissionAsync(
+            request,
+            source,
+            new GitHubCopilotSdkClient.InteractivePermissionTaskState()));
+
+        Assert.Equal(
+            [
+                GitHubCopilotSdkClient.PermissionAllowOnceChoice,
+                GitHubCopilotSdkClient.PermissionAllowAllTaskSandboxBypassChoice,
+                GitHubCopilotSdkClient.PermissionAllowAllWorkflowSandboxBypassChoice,
+                GitHubCopilotSdkClient.PermissionAllowAllFutureAgentSandboxBypassChoice,
+                GitHubCopilotSdkClient.PermissionRefuseChoice
+            ],
+            human.Requests[0].Choices);
+    }
+
+    [Fact]
+    public async Task CurrentTaskSandboxBypassGrant_AutoApprovesNormalAndBypassOperations()
+    {
+        var human = new QueueHumanInputProvider(GitHubCopilotSdkClient.PermissionAllowAllTaskSandboxBypassChoice);
+        var events = new RecordingPermissionEventSink();
+        var source = CreateSource(
+            human,
+            new MemoryPermissionGrantStore(),
+            events,
+            enableSandboxBypassGrants: true);
+        var state = new GitHubCopilotSdkClient.InteractivePermissionTaskState();
+        var first = Shell("dotnet restore");
+        first.RequestSandboxBypass = true;
+        var second = Shell("dotnet test");
+        second.RequestSandboxBypass = true;
+
+        Assert.IsType<PermissionDecisionApproveOnce>(await GitHubCopilotSdkClient.RequestInteractivePermissionAsync(first, source, state));
+        Assert.IsType<PermissionDecisionApproveOnce>(await GitHubCopilotSdkClient.RequestInteractivePermissionAsync(second, source, state));
+        Assert.IsType<PermissionDecisionApproveOnce>(await GitHubCopilotSdkClient.RequestInteractivePermissionAsync(Shell("dotnet build"), source, state));
+
+        Assert.Single(human.Requests);
+        Assert.Contains(events.Events, item => item.Kind == "permission.auto_approved"
+                                               && item.Scope == CopilotPermissionGrantScope.CurrentTask
+                                               && item.SandboxBypass);
+    }
+
+    [Fact]
+    public async Task WorkflowSandboxBypassGrant_AutoApprovesAnotherInteractiveTask()
+    {
+        var store = new MemoryPermissionGrantStore();
+        var firstHuman = new QueueHumanInputProvider(GitHubCopilotSdkClient.PermissionAllowAllWorkflowSandboxBypassChoice);
+        var first = CreateSource(
+            firstHuman,
+            store,
+            new RecordingPermissionEventSink(),
+            enableSandboxBypassGrants: true);
+        var firstRequest = Shell("dotnet restore");
+        firstRequest.RequestSandboxBypass = true;
+
+        Assert.IsType<PermissionDecisionApproveOnce>(await GitHubCopilotSdkClient.RequestInteractivePermissionAsync(
+            firstRequest,
+            first,
+            new GitHubCopilotSdkClient.InteractivePermissionTaskState()));
+
+        var secondHuman = new QueueHumanInputProvider();
+        var secondEvents = new RecordingPermissionEventSink();
+        var second = CreateSource(
+            secondHuman,
+            store,
+            secondEvents,
+            enableSandboxBypassGrants: true);
+        var secondRequest = Shell("dotnet test");
+        secondRequest.RequestSandboxBypass = true;
+
+        Assert.IsType<PermissionDecisionApproveOnce>(await GitHubCopilotSdkClient.RequestInteractivePermissionAsync(
+            secondRequest,
+            second,
+            new GitHubCopilotSdkClient.InteractivePermissionTaskState()));
+        Assert.Empty(secondHuman.Requests);
+        Assert.True(store.Reusable?.AllowSandboxBypass);
+        Assert.Contains(secondEvents.Events, item => item.Kind == "permission.auto_approved"
+                                                    && item.Scope == CopilotPermissionGrantScope.WorkflowRun
+                                                    && item.SandboxBypass);
+    }
+
+    [Fact]
     public async Task FutureAgentGrant_RequiresSecondConfirmation()
     {
         var store = new MemoryPermissionGrantStore();
@@ -275,6 +368,59 @@ public sealed class GitHubCopilotSdkPermissionTests
         Assert.Equal("permission_persistence_confirmation", human.Requests[1].Kind);
         Assert.NotNull(store.Reusable);
         Assert.Equal(CopilotPermissionGrantScope.FutureAgentRuns, store.Reusable!.Scope);
+    }
+
+    [Fact]
+    public async Task FutureAgentSandboxBypassGrant_RequiresExplicitSecondConfirmation()
+    {
+        var store = new MemoryPermissionGrantStore();
+        var human = new QueueHumanInputProvider(
+            GitHubCopilotSdkClient.PermissionAllowAllFutureAgentSandboxBypassChoice,
+            GitHubCopilotSdkClient.PermissionConfirmFutureAgentSandboxBypassChoice);
+        var source = CreateSource(
+            human,
+            store,
+            new RecordingPermissionEventSink(),
+            enableSandboxBypassGrants: true);
+        var request = Shell("dotnet test");
+        request.RequestSandboxBypass = true;
+
+        Assert.IsType<PermissionDecisionApproveOnce>(await GitHubCopilotSdkClient.RequestInteractivePermissionAsync(
+            request,
+            source,
+            new GitHubCopilotSdkClient.InteractivePermissionTaskState()));
+
+        Assert.Equal(2, human.Requests.Count);
+        Assert.Equal("permission_persistence_confirmation", human.Requests[1].Kind);
+        Assert.Contains("survives restarts", human.Requests[1].Details, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("Tenant: tenant-a", human.Requests[1].Details, StringComparison.Ordinal);
+        Assert.Contains("Agent: Reviewer", human.Requests[1].Details, StringComparison.Ordinal);
+        Assert.Contains("high risk", human.Requests[1].Details, StringComparison.OrdinalIgnoreCase);
+        Assert.True(store.Reusable?.AllowSandboxBypass);
+        Assert.Equal(CopilotPermissionGrantScope.FutureAgentRuns, store.Reusable?.Scope);
+    }
+
+    [Fact]
+    public async Task FutureAgentSandboxBypassGrant_CancelledConfirmationRejectsWithoutPersisting()
+    {
+        var store = new MemoryPermissionGrantStore();
+        var human = new QueueHumanInputProvider(
+            GitHubCopilotSdkClient.PermissionAllowAllFutureAgentSandboxBypassChoice,
+            GitHubCopilotSdkClient.PermissionCancelFutureAgentChoice);
+        var source = CreateSource(
+            human,
+            store,
+            new RecordingPermissionEventSink(),
+            enableSandboxBypassGrants: true);
+        var request = Shell("dotnet test");
+        request.RequestSandboxBypass = true;
+
+        Assert.IsType<PermissionDecisionReject>(await GitHubCopilotSdkClient.RequestInteractivePermissionAsync(
+            request,
+            source,
+            new GitHubCopilotSdkClient.InteractivePermissionTaskState()));
+
+        Assert.Null(store.Reusable);
     }
 
     [Fact]
@@ -314,7 +460,7 @@ public sealed class GitHubCopilotSdkPermissionTests
     }
 
     [Fact]
-    public async Task SandboxBypass_NeverUsesOrOffersReusableBroadGrants()
+    public async Task SandboxBypass_OrdinaryGrantsDoNotAutoApproveWhenBypassGateIsDisabled()
     {
         var store = new MemoryPermissionGrantStore
         {
@@ -347,6 +493,50 @@ public sealed class GitHubCopilotSdkPermissionTests
     }
 
     [Fact]
+    public async Task ReusableGrant_IsIgnoredWhenBroadApprovalGateIsDisabled()
+    {
+        var store = new MemoryPermissionGrantStore
+        {
+            Reusable = Grant(CopilotPermissionGrantScope.FutureAgentRuns)
+        };
+        var human = new QueueHumanInputProvider(GitHubCopilotSdkClient.PermissionAllowOnceChoice);
+        var source = CreateSource(
+            human,
+            store,
+            new RecordingPermissionEventSink(),
+            enableApproveAll: false);
+
+        Assert.IsType<PermissionDecisionApproveOnce>(await GitHubCopilotSdkClient.RequestInteractivePermissionAsync(
+            Shell("dotnet test"),
+            source,
+            new GitHubCopilotSdkClient.InteractivePermissionTaskState()));
+
+        Assert.Single(human.Requests);
+        Assert.Equal(0, store.FindCount);
+    }
+
+    [Fact]
+    public async Task SandboxBypassGrant_IsIgnoredWhenBypassGrantGateIsDisabled()
+    {
+        var store = new MemoryPermissionGrantStore
+        {
+            Reusable = Grant(CopilotPermissionGrantScope.FutureAgentRuns, allowSandboxBypass: true)
+        };
+        var human = new QueueHumanInputProvider(GitHubCopilotSdkClient.PermissionAllowOnceChoice);
+        var source = CreateSource(human, store, new RecordingPermissionEventSink());
+        var request = Shell("dotnet test");
+        request.RequestSandboxBypass = true;
+
+        Assert.IsType<PermissionDecisionApproveOnce>(await GitHubCopilotSdkClient.RequestInteractivePermissionAsync(
+            request,
+            source,
+            new GitHubCopilotSdkClient.InteractivePermissionTaskState()));
+
+        Assert.Single(human.Requests);
+        Assert.Equal(0, store.SandboxBypassFindCount);
+    }
+
+    [Fact]
     public async Task PermissionActivity_RedactsLikelyCredentialsFromCommandSummary()
     {
         var human = new QueueHumanInputProvider(GitHubCopilotSdkClient.PermissionAllowOnceChoice);
@@ -362,13 +552,33 @@ public sealed class GitHubCopilotSdkPermissionTests
         Assert.Contains(events.Events, item => item.Message.Contains("token=<redacted>", StringComparison.OrdinalIgnoreCase));
     }
 
+    [Fact]
+    public async Task AutomaticPermissionActivity_RedactsLikelyCredentialsWithoutRequestingHumanInput()
+    {
+        var human = new QueueHumanInputProvider();
+        var events = new RecordingPermissionEventSink();
+        var source = CreateSource(human, new MemoryPermissionGrantStore(), events);
+        var state = new GitHubCopilotSdkClient.InteractivePermissionTaskState { AllowAll = true };
+
+        Assert.IsType<PermissionDecisionApproveOnce>(await GitHubCopilotSdkClient.RequestInteractivePermissionAsync(
+            Shell("tool --token=super-secret-value"),
+            source,
+            state));
+
+        Assert.Empty(human.Requests);
+        var automatic = Assert.Single(events.Events, item => item.Kind == "permission.auto_approved");
+        Assert.DoesNotContain("super-secret-value", automatic.Message, StringComparison.Ordinal);
+        Assert.Contains("token=<redacted>", automatic.Message, StringComparison.OrdinalIgnoreCase);
+    }
+
     private static CopilotSdkSessionConfiguration CreateSource(
         ICopilotHumanInputProvider human,
         ICopilotPermissionGrantStore store,
         ICopilotPermissionEventSink sink,
         bool enableApproveAll = true,
         string? executionId = "execution-a",
-        string? agentId = "agent-a")
+        string? agentId = "agent-a",
+        bool enableSandboxBypassGrants = false)
     {
         var context = new CopilotRequestContext(
             "tenant-a",
@@ -380,7 +590,10 @@ public sealed class GitHubCopilotSdkPermissionTests
         return new CopilotSdkSessionConfiguration(
             new CopilotSessionCreateRequest(
                 context,
-                new CopilotRuntimeConfiguration(Path.GetTempPath(), "model", EnableApproveAll: enableApproveAll),
+                new CopilotRuntimeConfiguration(Path.GetTempPath(), "model", EnableApproveAll: enableApproveAll)
+                {
+                    EnableSandboxBypassGrants = enableSandboxBypassGrants
+                },
                 CopilotSessionKind.Managed,
                 CopilotPermissionMode.Interactive),
             null,
@@ -402,10 +615,10 @@ public sealed class GitHubCopilotSdkPermissionTests
             RequestSandboxBypass = false
         };
 
-    private static CopilotPermissionGrant Grant(CopilotPermissionGrantScope scope)
+    private static CopilotPermissionGrant Grant(CopilotPermissionGrantScope scope, bool allowSandboxBypass = false)
     {
         var now = DateTimeOffset.UtcNow;
-        return new CopilotPermissionGrant("grant", "tenant-a", scope, "execution-a", "agent-a", "Reviewer", now, now);
+        return new CopilotPermissionGrant("grant", "tenant-a", scope, "execution-a", "agent-a", "Reviewer", now, now, AllowSandboxBypass: allowSandboxBypass);
     }
 
     private sealed class QueueHumanInputProvider(params string[] answers) : ICopilotHumanInputProvider
@@ -427,10 +640,13 @@ public sealed class GitHubCopilotSdkPermissionTests
         public void Report(CopilotPermissionEvent permissionEvent) => Events.Add(permissionEvent);
     }
 
-    private sealed class MemoryPermissionGrantStore : ICopilotPermissionGrantStore
+    private sealed class MemoryPermissionGrantStore :
+        ICopilotPermissionGrantStore,
+        ICopilotSandboxBypassPermissionGrantStore
     {
         public CopilotPermissionGrant? Reusable { get; set; }
         public int FindCount { get; private set; }
+        public int SandboxBypassFindCount { get; private set; }
 
         public Task<CopilotPermissionGrant?> FindReusableGrantAsync(CopilotRequestContext context, CancellationToken cancellationToken)
         {
@@ -447,6 +663,24 @@ public sealed class GitHubCopilotSdkPermissionTests
         public Task<CopilotPermissionGrant> GrantFutureAgentRunsAsync(CopilotRequestContext context, CancellationToken cancellationToken)
         {
             Reusable = Grant(CopilotPermissionGrantScope.FutureAgentRuns);
+            return Task.FromResult(Reusable);
+        }
+
+        public Task<CopilotPermissionGrant?> FindReusableSandboxBypassGrantAsync(CopilotRequestContext context, CancellationToken cancellationToken)
+        {
+            SandboxBypassFindCount++;
+            return Task.FromResult(Reusable?.AllowSandboxBypass == true ? Reusable : null);
+        }
+
+        public Task<CopilotPermissionGrant> GrantWorkflowRunWithSandboxBypassAsync(CopilotRequestContext context, CancellationToken cancellationToken)
+        {
+            Reusable = Grant(CopilotPermissionGrantScope.WorkflowRun, allowSandboxBypass: true);
+            return Task.FromResult(Reusable);
+        }
+
+        public Task<CopilotPermissionGrant> GrantFutureAgentRunsWithSandboxBypassAsync(CopilotRequestContext context, CancellationToken cancellationToken)
+        {
+            Reusable = Grant(CopilotPermissionGrantScope.FutureAgentRuns, allowSandboxBypass: true);
             return Task.FromResult(Reusable);
         }
 

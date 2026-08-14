@@ -139,4 +139,6 @@
   <ItemGroup>
     <Content Update="ClientApp\package.json;ClientApp\tsconfig.json;ClientApp\tsconfig.*.json;ClientApp\vite.config.*" CopyToPublishDirectory="Never" />
   </ItemGroup>
+
+  <Import Project="..\..\build\GnOuGo.BundledMcpTools.targets" />
 </Project>

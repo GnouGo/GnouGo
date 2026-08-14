@@ -18,7 +18,8 @@ public sealed class LlmCallExecutor : IStepExecutor
         new(ErrorCodes.InputValidation, false, "The input object is malformed or the required `prompt` field is missing, and no runtime default `model` is available."),
         new(ErrorCodes.LlmTimeout, true, "The LLM request timed out. This is retryable and is a good candidate for `retry`."),
         new(ErrorCodes.LlmNetwork, true, "A transient network failure occurred while calling the LLM provider."),
-        new(ErrorCodes.LlmNetwork, false, "The LLM client is not configured or the provider failed in a non-transient way."),
+        new(ErrorCodes.LlmProvider, false, "The LLM provider rejected the request with a non-retryable client error."),
+        new(ErrorCodes.LlmNetwork, false, "The LLM client is not configured or failed without a provider HTTP response."),
         new(ErrorCodes.LlmSchema, false, "The structured_output envelope/schema is invalid, or the returned JSON does not conform to that schema.")
     };
 
@@ -262,22 +263,31 @@ public sealed class LlmCallExecutor : IStepExecutor
 
             return result;
         }
-        catch (TimeoutException ex)
+        catch (WorkflowRuntimeException ex)
         {
-            ctx.Engine.Logger.LogError(ex, "llm.call timed out for model '{Model}'", model);
-            throw new WorkflowRuntimeException(ErrorCodes.LlmTimeout, ex.Message, retryable: true);
+            var classified = LlmFailureClassifier.Classify(ex);
+            if (classified != null && !ReferenceEquals(classified, ex))
+                throw classified;
+
+            throw;
         }
-        catch (HttpRequestException ex)
-        {
-            ctx.Engine.Logger.LogError(ex, "llm.call network error for model '{Model}'", model);
-            throw new WorkflowRuntimeException(ErrorCodes.LlmNetwork, ex.Message, retryable: true);
-        }
-        catch (WorkflowRuntimeException)
+        catch (OperationCanceledException) when (ct.IsCancellationRequested)
         {
             throw;
         }
         catch (Exception ex)
         {
+            var classified = LlmFailureClassifier.Classify(ex);
+            if (classified != null)
+            {
+                ctx.Engine.Logger.LogError(
+                    ex,
+                    "llm.call failed for model '{Model}' with code '{ErrorCode}'",
+                    model,
+                    classified.Code);
+                throw classified;
+            }
+
             ctx.Engine.Logger.LogError(ex, "llm.call failed for model '{Model}'", model);
             throw new WorkflowRuntimeException(ErrorCodes.LlmNetwork, $"LLM call failed: {ex.Message}", retryable: false);
         }

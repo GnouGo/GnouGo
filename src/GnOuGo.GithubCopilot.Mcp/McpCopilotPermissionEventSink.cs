@@ -22,7 +22,8 @@ internal sealed class McpCopilotPermissionEventSink(CodeProgressReporter progres
         {
             "operation=" + Safe(permissionEvent.OperationKind),
             "decision=" + DecisionName(permissionEvent),
-            "scope=" + ScopeName(permissionEvent.Scope)
+            "scope=" + ScopeName(permissionEvent.Scope),
+            "sandbox_bypass=" + permissionEvent.SandboxBypass.ToString().ToLowerInvariant()
         };
 
         Add(correlation, "agent", context.AgentName ?? context.AgentId);

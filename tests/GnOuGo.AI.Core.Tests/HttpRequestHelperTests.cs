@@ -110,6 +110,50 @@ public sealed class HttpRequestHelperTests
         Assert.Equal(1, attempts);
     }
 
+    [Fact]
+    public async Task SendWithServerErrorRetryAsync_InternalHttpClientTimeoutBecomesTimeoutException()
+    {
+        using var http = new HttpClient(new StubHttpMessageHandler(_ =>
+            Task.FromException<HttpResponseMessage>(new TaskCanceledException("The request timed out."))))
+        {
+            Timeout = TimeSpan.FromSeconds(17)
+        };
+
+        var failure = await Assert.ThrowsAsync<TimeoutException>(() =>
+            HttpRequestHelper.SendWithServerErrorRetryAsync(
+                http,
+                () => HttpRequestHelper.CreateGet("https://provider.example/models"),
+                HttpCompletionOption.ResponseHeadersRead,
+                NullLogger.Instance,
+                "test provider call",
+                static (_, _) => Task.CompletedTask,
+                CancellationToken.None));
+
+        Assert.Contains("17 seconds", failure.Message, StringComparison.Ordinal);
+        Assert.IsType<TaskCanceledException>(failure.InnerException);
+    }
+
+    [Fact]
+    public async Task SendWithServerErrorRetryAsync_CallerCancellationRemainsCancellation()
+    {
+        using var http = new HttpClient(new StubHttpMessageHandler(_ =>
+            throw new InvalidOperationException("No request should be sent.")));
+        using var cancellation = new CancellationTokenSource();
+        cancellation.Cancel();
+
+        var failure = await Assert.ThrowsAnyAsync<OperationCanceledException>(() =>
+            HttpRequestHelper.SendWithServerErrorRetryAsync(
+                http,
+                () => HttpRequestHelper.CreateGet("https://provider.example/models"),
+                HttpCompletionOption.ResponseHeadersRead,
+                NullLogger.Instance,
+                "test provider call",
+                static (_, _) => Task.CompletedTask,
+                cancellation.Token));
+
+        Assert.IsNotType<TimeoutException>(failure);
+    }
+
     private sealed class StubHttpMessageHandler : HttpMessageHandler
     {
         private readonly Func<HttpRequestMessage, Task<HttpResponseMessage>> _handler;

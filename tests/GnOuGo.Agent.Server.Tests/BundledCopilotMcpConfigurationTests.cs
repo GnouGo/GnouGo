@@ -21,7 +21,7 @@ public sealed class BundledCopilotMcpConfigurationTests
         Assert.True(server.Listable);
         Assert.True(server.ReadsKeyVaultDirectly);
         Assert.Equal(
-            ["managed_session_ttl_seconds", "model", "provider", "reasoning_effort", "request_timeout_seconds", "use_logged_in_user"],
+            ["enable_approve_all", "enable_sandbox_bypass_grants", "managed_session_ttl_seconds", "model", "provider", "reasoning_effort", "request_timeout_seconds", "use_logged_in_user"],
             server.EditableFields.Keys.OrderBy(key => key, StringComparer.Ordinal).ToArray());
         Assert.All(server.EditableFields.Values, field =>
         {
@@ -34,9 +34,13 @@ public sealed class BundledCopilotMcpConfigurationTests
         Assert.Equal(["low", "medium", "high", "xhigh"], server.EditableFields["reasoning_effort"].Options);
         Assert.Equal(1, server.EditableFields["request_timeout_seconds"].MinValue);
         Assert.Equal(1, server.EditableFields["managed_session_ttl_seconds"].MinValue);
+        Assert.Equal("true", server.EditableFields["enable_approve_all"].DefaultValue);
+        Assert.Equal("false", server.EditableFields["enable_sandbox_bypass_grants"].DefaultValue);
+        Assert.Equal(
+            "true",
+            Assert.Contains("enable_approve_all", server.EditableFields["enable_sandbox_bypass_grants"].SetValuesWhenTrue));
         Assert.DoesNotContain(server.EditableFields.Keys, key =>
-            key.Contains("approve", StringComparison.OrdinalIgnoreCase)
-            || key.Contains("write", StringComparison.OrdinalIgnoreCase)
+            key.Contains("write", StringComparison.OrdinalIgnoreCase)
             || key.Contains("credential", StringComparison.OrdinalIgnoreCase)
             || key is "command" or "args" or "roots" or "extensions");
     }

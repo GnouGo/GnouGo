@@ -59,7 +59,6 @@ builder.Services.AddTransient<CopilotTools>();
 builder.Services
     .AddMcpServer(options =>
     {
-        options.ProtocolVersion = GnOuGoMcpProtocol.RequiredRevision;
         options.ServerInfo = new Implementation
         {
             Name = "GnOuGo.GithubCopilot.Mcp",

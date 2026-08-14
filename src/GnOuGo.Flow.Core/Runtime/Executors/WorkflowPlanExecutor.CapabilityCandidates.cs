@@ -218,6 +218,7 @@ public sealed partial class WorkflowPlanExecutor
                     targetOperationIds,
                     targetConstraintIds),
                 Reasoning = reasoning,
+                UseBackgroundMode = true,
                 StructuredOutputSchema = BuildPhysicalCapabilitySelectionSchema(),
                 StructuredOutputStrict = true
             }, ct);
