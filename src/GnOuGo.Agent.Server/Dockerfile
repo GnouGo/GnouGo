@@ -47,11 +47,16 @@ COPY global.json ./
 # Copy scripts used by local metadata generation; Docker publish skips this target.
 COPY scripts/ scripts/
 
+# Copy shared build targets imported by Agent.Server before restoring its project graph.
+COPY build/GnOuGo.BundledMcpTools.targets build/
+
 # Copy csproj files for layer caching (server + shared/project dependencies)
 COPY src/GnOuGo.Agent.Server/GnOuGo.Agent.Server.csproj src/GnOuGo.Agent.Server/
 COPY src/GnOuGo.Agent.Shared/GnOuGo.Agent.Shared.csproj src/GnOuGo.Agent.Shared/
 COPY src/GnOuGo.Agent.Mcp/GnOuGo.Agent.Mcp.csproj src/GnOuGo.Agent.Mcp/
 COPY src/GnOuGo.AI.Core/GnOuGo.AI.Core.csproj src/GnOuGo.AI.Core/
+COPY src/GnOuGo.Assets.Animation/GnOuGo.Assets.Animation.csproj src/GnOuGo.Assets.Animation/
+COPY src/GnOuGo.Assets.Bears/GnOuGo.Assets.Bears.csproj src/GnOuGo.Assets.Bears/
 COPY src/GnOuGo.Auth.Core/GnOuGo.Auth.Core.csproj src/GnOuGo.Auth.Core/
 COPY src/GnOuGo.Browser.Mcp/GnOuGo.Browser.Mcp.csproj src/GnOuGo.Browser.Mcp/
 COPY ["src/GnOuGo.Cmd.Mcp/GnOuGo.Cmd.Mcp.csproj", "src/GnOuGo.Cmd.Mcp/"]
@@ -61,8 +66,13 @@ COPY src/GnOuGo.DocIngestor.Core/GnOuGo.DocIngestor.Core.csproj src/GnOuGo.DocIn
 COPY src/GnOuGo.DocIngestor.Mcp/GnOuGo.DocIngestor.Mcp.csproj src/GnOuGo.DocIngestor.Mcp/
 COPY src/GnOuGo.Files.Server/GnOuGo.Files.Server.csproj src/GnOuGo.Files.Server/
 COPY src/GnOuGo.Flow.Core/GnOuGo.Flow.Core.csproj src/GnOuGo.Flow.Core/
+COPY src/GnOuGo.Flow.Mermaid/GnOuGo.Flow.Mermaid.csproj src/GnOuGo.Flow.Mermaid/
+COPY src/GnOuGo.Git.Mcp/GnOuGo.Git.Mcp.csproj src/GnOuGo.Git.Mcp/
+COPY src/GnOuGo.GithubCopilot.Core/GnOuGo.GithubCopilot.Core.csproj src/GnOuGo.GithubCopilot.Core/
+COPY src/GnOuGo.GithubCopilot.Mcp/GnOuGo.GithubCopilot.Mcp.csproj src/GnOuGo.GithubCopilot.Mcp/
 COPY src/GnOuGo.KeyVault.Core/GnOuGo.KeyVault.Core.csproj src/GnOuGo.KeyVault.Core/
 COPY src/GnOuGo.KeyVault.Mcp/GnOuGo.KeyVault.Mcp.csproj src/GnOuGo.KeyVault.Mcp/
+COPY src/GnOuGo.Mcp.Core/GnOuGo.Mcp.Core.csproj src/GnOuGo.Mcp.Core/
 COPY src/GnOuGo.Observability.Core/GnOuGo.Observability.Core.csproj src/GnOuGo.Observability.Core/
 COPY src/GnOuGo.OtlpCollector.Server/GnOuGo.OtlpCollector.Server.csproj src/GnOuGo.OtlpCollector.Server/
 COPY src/GnOuGo.Workspace/GnOuGo.Workspace.csproj src/GnOuGo.Workspace/

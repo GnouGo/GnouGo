@@ -80,6 +80,7 @@ public sealed class BundledBrowserMcpPublishTests
             "GnOuGo.Browser.Mcp.csproj"));
 
         Assert.Contains("ReferenceOutputAssembly=\"false\"", sharedTargets, StringComparison.Ordinal);
+        Assert.Contains("Private=\"false\"", sharedTargets, StringComparison.Ordinal);
         Assert.Contains("AdditionalProperties=\"SkipPlaywrightBrowserInstall=true\"", sharedTargets, StringComparison.Ordinal);
         Assert.Contains("<OutputType>Exe</OutputType>", browserProject, StringComparison.Ordinal);
         Assert.Contains(
@@ -400,6 +401,63 @@ public sealed class BundledBrowserMcpPublishTests
     }
 
     [Fact]
+    public void AgentDockerfile_CopiesSharedTargetsAndCompleteProjectGraphBeforeRestore()
+    {
+        var root = GetRepositoryRoot();
+        var dockerfile = File.ReadAllText(Path.Combine(root, "src", "GnOuGo.Agent.Server", "Dockerfile"));
+        var restoreIndex = dockerfile.IndexOf(
+            "&& dotnet restore src/GnOuGo.Agent.Server/GnOuGo.Agent.Server.csproj",
+            StringComparison.Ordinal);
+
+        Assert.True(restoreIndex >= 0, "The Agent.Server restore command was not found in the Dockerfile.");
+        AssertCopiedBeforeRestore(dockerfile, restoreIndex, "build/GnOuGo.BundledMcpTools.targets");
+
+        var sharedTargetsPath = Path.Combine(root, "build", "GnOuGo.BundledMcpTools.targets");
+        var sharedTargets = System.Xml.Linq.XDocument.Load(sharedTargetsPath);
+        var projectQueue = new Queue<string>();
+        projectQueue.Enqueue(Path.Combine(root, "src", "GnOuGo.Agent.Server", "GnOuGo.Agent.Server.csproj"));
+
+        foreach (var bundledProject in sharedTargets
+                     .Descendants()
+                     .Where(element => element.Name.LocalName == "GnOuGoBundledMcpTool")
+                     .Select(element => element.Attribute("Include")?.Value)
+                     .Where(include => !string.IsNullOrWhiteSpace(include)))
+        {
+            const string targetsDirectoryProperty = "$(MSBuildThisFileDirectory)";
+            Assert.StartsWith(targetsDirectoryProperty, bundledProject, StringComparison.Ordinal);
+            projectQueue.Enqueue(ResolveProjectPath(
+                Path.GetDirectoryName(sharedTargetsPath)!,
+                bundledProject[targetsDirectoryProperty.Length..]));
+        }
+
+        var projects = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        while (projectQueue.TryDequeue(out var projectPath))
+        {
+            if (!projects.Add(projectPath))
+            {
+                continue;
+            }
+
+            Assert.True(File.Exists(projectPath), $"Referenced project was not found: {projectPath}");
+            var project = System.Xml.Linq.XDocument.Load(projectPath);
+            foreach (var projectReference in project
+                         .Descendants()
+                         .Where(element => element.Name.LocalName == "ProjectReference")
+                         .Select(element => element.Attribute("Include")?.Value)
+                         .Where(include => !string.IsNullOrWhiteSpace(include)))
+            {
+                projectQueue.Enqueue(ResolveProjectPath(Path.GetDirectoryName(projectPath)!, projectReference));
+            }
+        }
+
+        foreach (var projectPath in projects)
+        {
+            var repositoryPath = Path.GetRelativePath(root, projectPath).Replace('\\', '/');
+            AssertCopiedBeforeRestore(dockerfile, restoreIndex, repositoryPath);
+        }
+    }
+
+    [Fact]
     public void OtlpCollectorDockerfile_BuildsClientAppAndPublishesGeneratedWwwroot()
     {
         var dockerfile = File.ReadAllText(Path.Combine(GetRepositoryRoot(), "src", "GnOuGo.OtlpCollector.Server", "Dockerfile"));
@@ -424,4 +482,19 @@ public sealed class BundledBrowserMcpPublishTests
         => xml
             .Split(['\r', '\n'], StringSplitOptions.RemoveEmptyEntries)
             .SingleOrDefault(line => line.Contains($"dotnet publish &quot;$({bundledToolProjectProperty})&quot;", StringComparison.Ordinal));
+
+    private static string ResolveProjectPath(string baseDirectory, string relativePath)
+    {
+        var normalizedPath = relativePath
+            .Replace('\\', Path.DirectorySeparatorChar)
+            .Replace('/', Path.DirectorySeparatorChar);
+        return Path.GetFullPath(Path.Combine(baseDirectory, normalizedPath));
+    }
+
+    private static void AssertCopiedBeforeRestore(string dockerfile, int restoreIndex, string repositoryPath)
+    {
+        var copyIndex = dockerfile.IndexOf(repositoryPath, StringComparison.Ordinal);
+        Assert.True(copyIndex >= 0, $"The Docker restore layer does not copy '{repositoryPath}'.");
+        Assert.True(copyIndex < restoreIndex, $"The Docker restore layer copies '{repositoryPath}' after restore.");
+    }
 }

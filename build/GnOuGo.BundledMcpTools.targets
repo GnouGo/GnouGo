@@ -25,6 +25,7 @@
 
     <ProjectReference Include="@(GnOuGoBundledMcpTool)"
                       ReferenceOutputAssembly="false"
+                      Private="false"
                       AdditionalProperties="SkipPlaywrightBrowserInstall=true" />
   </ItemGroup>
 
