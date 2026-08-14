@@ -421,6 +421,7 @@ public sealed class BundledBrowserMcpPublishTests
                      .Descendants()
                      .Where(element => element.Name.LocalName == "GnOuGoBundledMcpTool")
                      .Select(element => element.Attribute("Include")?.Value)
+                     .OfType<string>()
                      .Where(include => !string.IsNullOrWhiteSpace(include)))
         {
             const string targetsDirectoryProperty = "$(MSBuildThisFileDirectory)";
@@ -444,6 +445,7 @@ public sealed class BundledBrowserMcpPublishTests
                          .Descendants()
                          .Where(element => element.Name.LocalName == "ProjectReference")
                          .Select(element => element.Attribute("Include")?.Value)
+                         .OfType<string>()
                          .Where(include => !string.IsNullOrWhiteSpace(include)))
             {
                 projectQueue.Enqueue(ResolveProjectPath(Path.GetDirectoryName(projectPath)!, projectReference));
