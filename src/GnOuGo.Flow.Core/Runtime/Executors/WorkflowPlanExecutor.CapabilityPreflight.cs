@@ -447,6 +447,7 @@ public sealed partial class WorkflowPlanExecutor
                 Model = model,
                 Prompt = BuildCapabilityInventoryPrompt(instruction, generatorContext),
                 Reasoning = reasoning,
+                UseBackgroundMode = true,
                 StructuredOutputSchema = BuildCapabilityInventorySchema(),
                 StructuredOutputStrict = true
             }, ct);
@@ -487,6 +488,7 @@ public sealed partial class WorkflowPlanExecutor
                     Model = model,
                     Prompt = BuildCapabilityInventoryRepairPrompt(instruction, generatorContext, inventory),
                     Reasoning = reasoning,
+                    UseBackgroundMode = true,
                     StructuredOutputSchema = BuildCapabilityInventorySchema(),
                     StructuredOutputStrict = true
                 }, ct);
@@ -552,6 +554,7 @@ public sealed partial class WorkflowPlanExecutor
                 Model = model,
                 Prompt = BuildCapabilityMatchingPrompt(inventory, catalog),
                 Reasoning = reasoning,
+                UseBackgroundMode = true,
                 StructuredOutputSchema = BuildCapabilityMatchingSchema(),
                 StructuredOutputStrict = true
             }, ct);
@@ -585,6 +588,7 @@ public sealed partial class WorkflowPlanExecutor
                     Model = model,
                     Prompt = BuildCapabilityMatchingRepairPrompt(inventory, catalog, evaluation),
                     Reasoning = reasoning,
+                    UseBackgroundMode = true,
                     StructuredOutputSchema = BuildCapabilityMatchingSchema(),
                     StructuredOutputStrict = true
                 }, ct);

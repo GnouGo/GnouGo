@@ -264,6 +264,14 @@ When no explicit/default agent is selected, `SmartFlowService` runs the embedded
 
 `/gnougo add` runs generic inventory-first capability preflight before workflow decomposition. The first structured call inventories runtime operations and constraints without seeing tools. A compact paged selector then chooses relevant physical MCP tools from one entry per tool, adds MCP-declared artifact producers, and expands authoritative schemas and selector variants only for that selected set before final matching. If inventory or required-candidate selection is incomplete, each stage gets one bounded repair. Complete discovery remains available to dry runs and deterministic validation, and the 256,000-character expanded-catalog guard is unchanged. Documented scalar selectors make logical variants of a multi-action MCP tool distinct and lock their literal request values through decomposition and YAML validation. Host configuration, internal provider/credential resolution, and the outer agent-persistence action are outside the generated workflow inventory. Required resource cleanup is generated under the Flow workflow-level `finally` array.
 
+All `/gnougo add` planning phases request provider-managed background execution. For OpenAI,
+capability preflight and generation use `/v1/responses`, preserve their strict JSON Schema
+contracts, and poll until completion instead of waiting on a long synchronous Chat Completions
+response. The official OpenAI endpoint never falls back to Chat Completions; compatible proxies
+fall back only when they explicitly report that the Responses route or background mode is not
+implemented. `LLM_TIMEOUT` and `LLM_NETWORK` are retryable, while provider request rejections use
+the non-retryable `LLM_PROVIDER` code. User-requested cancellation remains `CANCELLED`.
+
 Read and write capabilities remain discoverable by default; preflight describes availability rather than silently changing an MCP server's execution policy. When preflight fails, the chat response and trace show the sanitized error code, unavailable operation IDs/descriptions, failed catalogs, and a generic configuration action instead of only the summary message.
 
 In inferred mode, matching is reported per operation as `matched`, `composed`, `local`, `ambiguous`, or `unavailable`. One bounded repair can resolve malformed, unknown-ID, ambiguous, or initially unavailable decisions while preserving already valid matches. Remaining failures include sanitized `matching_issues` with the operation, status, concise reason, and at most eight compact candidate cards; full schemas, prompts, repository content, credentials, and model reasoning are not included.

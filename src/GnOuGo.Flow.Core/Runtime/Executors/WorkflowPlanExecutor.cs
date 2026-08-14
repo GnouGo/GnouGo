@@ -53,10 +53,37 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
         new(ErrorCodes.CapabilityPreflightDiscoveryFailed, false, "A configured MCP catalog required for fail-closed capability validation could not be discovered."),
         new(ErrorCodes.CapabilityPreflightInferenceFailed, false, "Capability inference returned an invalid, uncertain, or incomplete operation inventory."),
         new(ErrorCodes.CapabilityPreflightRedundantArtifactProducer, false, "The generated workflow materializes an MCP artifact more times than capability preflight authorized."),
-        new(ErrorCodes.WorkflowPlanRepairStalled, false, "The same normalized validation diagnostics survived two repair attempts.")
+        new(ErrorCodes.WorkflowPlanRepairStalled, false, "The same normalized validation diagnostics survived two repair attempts."),
+        new(ErrorCodes.LlmTimeout, true, "A planning LLM request timed out."),
+        new(ErrorCodes.LlmNetwork, true, "A transient transport, rate-limit, or provider service failure interrupted planning."),
+        new(ErrorCodes.LlmProvider, false, "The LLM provider rejected a planning request with a non-retryable client error.")
     };
 
     public async Task<JsonNode?> ExecuteAsync(StepExecutionContext ctx, CancellationToken ct)
+    {
+        try
+        {
+            return await ExecuteCoreAsync(ctx, ct);
+        }
+        catch (OperationCanceledException) when (ct.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            var classified = LlmFailureClassifier.Classify(ex);
+            if (classified != null)
+            {
+                if (ReferenceEquals(classified, ex))
+                    throw;
+                throw classified;
+            }
+
+            throw;
+        }
+    }
+
+    private async Task<JsonNode?> ExecuteCoreAsync(StepExecutionContext ctx, CancellationToken ct)
     {
         var input = ctx.Engine.GetResolvedInput(ctx) as JsonObject
             ?? throw new WorkflowRuntimeException(ErrorCodes.InputValidation, "workflow.plan input must be object");

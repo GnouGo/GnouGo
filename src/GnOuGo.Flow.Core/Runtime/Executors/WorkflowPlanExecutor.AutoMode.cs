@@ -82,6 +82,7 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
                 Model = model,
                 Prompt = prompt,
                 Reasoning = reasoning,
+                UseBackgroundMode = true,
                 StructuredOutputStrict = true,
                 StructuredOutputSchema = JsonNode.Parse("""
                 {
@@ -132,6 +133,9 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
             span.Fail(ex);
+            if (LlmFailureClassifier.Classify(ex) != null)
+                throw;
+
             ctx.Engine.Logger.LogWarning(ex, "workflow.plan auto mode classification failed, falling back to basic mode");
             var fallback = new WorkflowPlanModeSelection(
                 "basic",

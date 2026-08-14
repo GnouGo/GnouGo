@@ -1517,7 +1517,7 @@ workflows:
         Assert.Equal(2, requests.Count);
         Assert.Contains("cyclomatic complexity is less than 10", requests[0].Prompt);
         Assert.Contains("Build a simple greeting workflow", requests[0].Prompt);
-        Assert.False(requests[0].UseBackgroundMode);
+        Assert.True(requests[0].UseBackgroundMode);
         Assert.Equal("low", requests[0].Reasoning);
         Assert.True(requests[1].UseBackgroundMode);
 
@@ -1529,6 +1529,39 @@ workflows:
         Assert.Equal("basic", selection["selected_mode"]!.GetValue<string>());
         Assert.Equal(4, selection["cyclomatic_complexity"]!.GetValue<int>());
         Assert.Equal(10, selection["threshold"]!.GetValue<int>());
+    }
+
+    [Fact]
+    public async Task WorkflowPlan_DefaultAutoMode_TimeoutIsRetryableLlmTimeoutInsteadOfBasicFallback()
+    {
+        LLMRequest? capturedRequest = null;
+        var mockLlm = new Mock<ILLMClient>();
+        mockLlm.Setup(client => client.CallAsync(It.IsAny<LLMRequest>(), It.IsAny<CancellationToken>()))
+            .Callback<LLMRequest, CancellationToken>((request, _) => capturedRequest = request)
+            .ThrowsAsync(new TimeoutException("classification timed out"));
+        var workflow = CompileMain("""
+            version: 1
+            workflows:
+              main:
+                steps:
+                  - id: plan
+                    type: workflow.plan
+                    input:
+                      generator:
+                        model: gpt-test
+                        instruction: Build a workflow
+            """);
+
+        var result = await new WorkflowEngine { LLMClient = mockLlm.Object }
+            .ExecuteAsync(workflow, new JsonObject(), CancellationToken.None);
+
+        Assert.False(result.Success);
+        Assert.Equal(ErrorCodes.LlmTimeout, result.Error!.Code);
+        Assert.True(result.Error.Retryable);
+        Assert.True(capturedRequest!.UseBackgroundMode);
+        mockLlm.Verify(
+            client => client.CallAsync(It.IsAny<LLMRequest>(), It.IsAny<CancellationToken>()),
+            Times.Once);
     }
 
     [Fact]

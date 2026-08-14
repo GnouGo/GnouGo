@@ -110,8 +110,11 @@ public sealed class OpenAiLLMProvider : ILLMProvider, ILLMModelCatalogProvider
             if (!resp.IsSuccessStatusCode)
             {
                 var body = await HttpRequestHelper.ReadErrorBodyAsync(resp, ct);
+                var safeBody = FormatProviderErrorBody(body, provider, bearerToken, request.Prompt);
                 throw new HttpRequestException(
-                    $"OpenAI chat call failed: {(int)resp.StatusCode} {resp.ReasonPhrase ?? ""} - {body}");
+                    $"OpenAI chat call failed: {(int)resp.StatusCode} {resp.ReasonPhrase ?? ""} - {safeBody}",
+                    inner: null,
+                    statusCode: resp.StatusCode);
             }
 
             await using var stream = await resp.Content.ReadAsStreamAsync(ct);
@@ -169,7 +172,13 @@ public sealed class OpenAiLLMProvider : ILLMProvider, ILLMModelCatalogProvider
             _http.DefaultRequestVersion);
 
         byte[] payload = ChatRequestBuilder.OpenAiResponsesBackground(
-            model, request.Prompt, request.Temperature, request.Reasoning);
+            model,
+            request.Prompt,
+            request.Temperature,
+            request.Reasoning,
+            request.StructuredOutputSchema,
+            request.StructuredOutputStrict,
+            request.MaxOutputTokens);
 
         HttpRequestMessage CreateBackgroundRequest()
         {
@@ -190,10 +199,10 @@ public sealed class OpenAiLLMProvider : ILLMProvider, ILLMModelCatalogProvider
 
         if (!resp.IsSuccessStatusCode)
         {
-            if (IsBackgroundUnsupported(resp.StatusCode, body))
+            if (IsBackgroundUnsupported(resp.StatusCode, body, provider.Url))
             {
-                if (resp.StatusCode == System.Net.HttpStatusCode.NotFound)
-                    CacheBackgroundUnsupported(cacheKey, url, model, resp.StatusCode);
+                CacheBackgroundUnsupported(cacheKey, url, model, resp.StatusCode);
+                var fallbackSafeBody = FormatProviderErrorBody(body, provider, bearerToken, request.Prompt);
 
                 _logger.LogWarning(
                     "OpenAI Responses background API not available, falling back to Chat Completions. " +
@@ -202,12 +211,15 @@ public sealed class OpenAiLLMProvider : ILLMProvider, ILLMModelCatalogProvider
                     model,
                     (int)resp.StatusCode,
                     resp.ReasonPhrase ?? "",
-                    FormatLogBody(body));
+                    fallbackSafeBody);
                 return await CallChatCompletionsAsync(model, provider, request, ct);
             }
 
+            var safeBody = FormatProviderErrorBody(body, provider, bearerToken, request.Prompt);
             throw new HttpRequestException(
-                $"OpenAI background response call failed: {(int)resp.StatusCode} {resp.ReasonPhrase ?? ""} - {body}");
+                $"OpenAI background response call failed: {(int)resp.StatusCode} {resp.ReasonPhrase ?? ""} - {safeBody}",
+                inner: null,
+                statusCode: resp.StatusCode);
         }
 
         return await AwaitResponsesApiCompletionAsync(url, bearerToken, body, request, ct);
@@ -268,11 +280,23 @@ public sealed class OpenAiLLMProvider : ILLMProvider, ILLMModelCatalogProvider
             }
 
             if (IsTerminalResponsesStatus(status))
-                throw new HttpRequestException($"OpenAI background response ended with status '{status}': {responseBody}");
+                throw new HttpRequestException(
+                    $"OpenAI background response ended with status '{status}': "
+                    + FormatProviderErrorBody(responseBody, sensitiveValues: [request.Prompt]));
+
+            if (!status.Equals("queued", StringComparison.OrdinalIgnoreCase)
+                && !status.Equals("in_progress", StringComparison.OrdinalIgnoreCase))
+            {
+                throw new HttpRequestException(
+                    $"OpenAI background response returned an unexpected status '{status}': "
+                    + FormatProviderErrorBody(responseBody, sensitiveValues: [request.Prompt]));
+            }
 
             var id = root.TryGetProperty("id", out var idElement) ? idElement.GetString() : null;
             if (string.IsNullOrWhiteSpace(id))
-                throw new HttpRequestException($"OpenAI background response did not include an id: {responseBody}");
+                throw new HttpRequestException(
+                    "OpenAI background response did not include an id: "
+                    + FormatProviderErrorBody(responseBody, sensitiveValues: [request.Prompt]));
 
             await Task.Delay(delay, ct);
             if (delay < BackgroundMaxPollDelay)
@@ -303,8 +327,13 @@ public sealed class OpenAiLLMProvider : ILLMProvider, ILLMModelCatalogProvider
             responseBody = await pollResp.Content.ReadAsStringAsync(ct);
 
             if (!pollResp.IsSuccessStatusCode)
+            {
+                var safeBody = FormatProviderErrorBody(responseBody, sensitiveValues: [bearerToken, request.Prompt]);
                 throw new HttpRequestException(
-                    $"OpenAI background response polling failed: {(int)pollResp.StatusCode} {pollResp.ReasonPhrase ?? ""} - {responseBody}");
+                    $"OpenAI background response polling failed: {(int)pollResp.StatusCode} {pollResp.ReasonPhrase ?? ""} - {safeBody}",
+                    inner: null,
+                    statusCode: pollResp.StatusCode);
+            }
         }
     }
 
@@ -339,14 +368,145 @@ public sealed class OpenAiLLMProvider : ILLMProvider, ILLMModelCatalogProvider
                || status.Equals("canceled", StringComparison.OrdinalIgnoreCase)
                || status.Equals("incomplete", StringComparison.OrdinalIgnoreCase));
 
-    private static bool IsBackgroundUnsupported(System.Net.HttpStatusCode statusCode, string body)
-        => statusCode is System.Net.HttpStatusCode.NotFound
-               or System.Net.HttpStatusCode.MethodNotAllowed
-               or System.Net.HttpStatusCode.NotImplemented
-           || ((int)statusCode == 400
-               && (body.Contains("background", StringComparison.OrdinalIgnoreCase)
-                   || body.Contains("responses", StringComparison.OrdinalIgnoreCase)
-                   || body.Contains("unsupported", StringComparison.OrdinalIgnoreCase)));
+    private static bool IsBackgroundUnsupported(
+        System.Net.HttpStatusCode statusCode,
+        string body,
+        string? endpointBase)
+    {
+        if (IsOfficialOpenAiEndpoint(endpointBase))
+            return false;
+
+        if (ReportsRequestSpecificProviderFailure(
+                body,
+                allowBackgroundParameter: statusCode == System.Net.HttpStatusCode.BadRequest,
+                allowResponsesEndpointParameter: statusCode == System.Net.HttpStatusCode.NotFound))
+        {
+            return false;
+        }
+
+        if (statusCode is System.Net.HttpStatusCode.MethodNotAllowed
+            or System.Net.HttpStatusCode.NotImplemented)
+        {
+            return true;
+        }
+
+        if (statusCode == System.Net.HttpStatusCode.NotFound)
+            return ExplicitlyReportsMissingResponsesEndpoint(body);
+
+        return statusCode == System.Net.HttpStatusCode.BadRequest
+               && ExplicitlyReportsUnsupportedBackgroundMode(body);
+    }
+
+    private static bool IsOfficialOpenAiEndpoint(string? endpointBase)
+        => Uri.TryCreate(endpointBase, UriKind.Absolute, out var uri)
+           && string.Equals(uri.Host, "api.openai.com", StringComparison.OrdinalIgnoreCase);
+
+    private static bool ExplicitlyReportsMissingResponsesEndpoint(string body)
+    {
+        if (string.IsNullOrWhiteSpace(body))
+            return false;
+
+        var mentionsResponsesEndpoint = body.Contains("/responses", StringComparison.OrdinalIgnoreCase)
+                                        || body.Contains("responses endpoint", StringComparison.OrdinalIgnoreCase)
+                                        || body.Contains("responses route", StringComparison.OrdinalIgnoreCase);
+        var reportsMissingRoute = body.Contains("not found", StringComparison.OrdinalIgnoreCase)
+                                  || body.Contains("unknown route", StringComparison.OrdinalIgnoreCase)
+                                  || body.Contains("no route", StringComparison.OrdinalIgnoreCase)
+                                  || body.Contains("cannot post", StringComparison.OrdinalIgnoreCase);
+        return mentionsResponsesEndpoint && reportsMissingRoute;
+    }
+
+    private static bool ExplicitlyReportsUnsupportedBackgroundMode(string body)
+    {
+        if (string.IsNullOrWhiteSpace(body))
+            return false;
+
+        var reportsUnsupported = body.Contains("unsupported", StringComparison.OrdinalIgnoreCase)
+                                 || body.Contains("not supported", StringComparison.OrdinalIgnoreCase)
+                                 || body.Contains("not implemented", StringComparison.OrdinalIgnoreCase)
+                                 || body.Contains("unrecognized", StringComparison.OrdinalIgnoreCase)
+                                 || body.Contains("unknown parameter", StringComparison.OrdinalIgnoreCase);
+        var identifiesBackgroundCapability = body.Contains("background", StringComparison.OrdinalIgnoreCase)
+                                             || body.Contains("responses api", StringComparison.OrdinalIgnoreCase)
+                                             || body.Contains("responses endpoint", StringComparison.OrdinalIgnoreCase);
+        return reportsUnsupported && identifiesBackgroundCapability;
+    }
+
+    private static bool ReportsRequestSpecificProviderFailure(
+        string body,
+        bool allowBackgroundParameter = false,
+        bool allowResponsesEndpointParameter = false)
+    {
+        try
+        {
+            using var json = JsonDocument.Parse(body);
+            var error = json.RootElement.TryGetProperty("error", out var errorElement)
+                ? errorElement
+                : json.RootElement;
+            if (error.ValueKind == JsonValueKind.Object)
+            {
+                var parameter = error.TryGetProperty("param", out var paramElement)
+                    ? paramElement.GetString()
+                    : null;
+                var isAllowedBackgroundParameter = allowBackgroundParameter
+                                                   && string.Equals(
+                                                       parameter,
+                                                       "background",
+                                                       StringComparison.OrdinalIgnoreCase);
+                var isAllowedResponsesEndpointParameter = allowResponsesEndpointParameter
+                                                          && parameter is not null
+                                                          && (parameter.Equals("responses", StringComparison.OrdinalIgnoreCase)
+                                                              || parameter.EndsWith("/responses", StringComparison.OrdinalIgnoreCase)
+                                                              || parameter.Equals("route", StringComparison.OrdinalIgnoreCase)
+                                                              || parameter.Equals("path", StringComparison.OrdinalIgnoreCase)
+                                                              || parameter.Equals("endpoint", StringComparison.OrdinalIgnoreCase));
+                if (!string.IsNullOrWhiteSpace(parameter)
+                    && !isAllowedBackgroundParameter
+                    && !isAllowedResponsesEndpointParameter)
+                {
+                    return true;
+                }
+
+                var code = error.TryGetProperty("code", out var codeElement) ? codeElement.GetString() : null;
+                var type = error.TryGetProperty("type", out var typeElement) ? typeElement.GetString() : null;
+                var allowInvalidRequest = isAllowedBackgroundParameter || isAllowedResponsesEndpointParameter;
+                if (ContainsRequestSpecificErrorMarker(code, allowInvalidRequest)
+                    || ContainsRequestSpecificErrorMarker(type, allowInvalidRequest))
+                    return true;
+            }
+        }
+        catch (JsonException)
+        {
+            // Compatible proxies frequently return plain text. Inspect bounded markers below.
+        }
+
+        return body.Contains("model not found", StringComparison.OrdinalIgnoreCase)
+               || body.Contains("model does not exist", StringComparison.OrdinalIgnoreCase)
+               || body.Contains("this model", StringComparison.OrdinalIgnoreCase)
+               || body.Contains("requested model", StringComparison.OrdinalIgnoreCase)
+               || body.Contains("model", StringComparison.OrdinalIgnoreCase)
+               || body.Contains("malformed", StringComparison.OrdinalIgnoreCase)
+               || body.Contains("invalid api key", StringComparison.OrdinalIgnoreCase)
+               || body.Contains("unauthorized", StringComparison.OrdinalIgnoreCase)
+               || body.Contains("forbidden", StringComparison.OrdinalIgnoreCase)
+               || body.Contains("authentication", StringComparison.OrdinalIgnoreCase)
+               || body.Contains("insufficient quota", StringComparison.OrdinalIgnoreCase)
+               || body.Contains("rate limit", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static bool ContainsRequestSpecificErrorMarker(string? value, bool allowInvalidRequest = false)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+            return false;
+
+        return value.Contains("model", StringComparison.OrdinalIgnoreCase)
+               || value.Contains("auth", StringComparison.OrdinalIgnoreCase)
+               || value.Contains("permission", StringComparison.OrdinalIgnoreCase)
+               || value.Contains("quota", StringComparison.OrdinalIgnoreCase)
+               || value.Contains("rate_limit", StringComparison.OrdinalIgnoreCase)
+               || (!allowInvalidRequest
+                   && value.Contains("invalid_request", StringComparison.OrdinalIgnoreCase));
+    }
 
     internal static string FormatLogBody(string? body, int maxLength = 4096)
     {
@@ -362,6 +522,32 @@ public sealed class OpenAiLLMProvider : ILLMProvider, ILLMModelCatalogProvider
             return sanitized;
 
         return sanitized[..maxLength] + $"... (truncated, {sanitized.Length} chars total)";
+    }
+
+    private static string FormatProviderErrorBody(
+        string? body,
+        ModelProviderOptions provider,
+        string? bearerToken,
+        string? prompt)
+        => FormatProviderErrorBody(
+            body,
+            [provider.ApiKey, provider.ClientSecret, provider.PrivateKeyPem, bearerToken, prompt]);
+
+    private static string FormatProviderErrorBody(string? body, IReadOnlyList<string?> sensitiveValues)
+    {
+        var sanitized = body ?? string.Empty;
+        foreach (var sensitiveValue in sensitiveValues)
+        {
+            if (string.IsNullOrWhiteSpace(sensitiveValue))
+                continue;
+
+            sanitized = sanitized.Replace(sensitiveValue, "<redacted>", StringComparison.Ordinal);
+            var jsonEncodedValue = JsonEncodedText.Encode(sensitiveValue).ToString();
+            if (!string.Equals(jsonEncodedValue, sensitiveValue, StringComparison.Ordinal))
+                sanitized = sanitized.Replace(jsonEncodedValue, "<redacted>", StringComparison.Ordinal);
+        }
+
+        return FormatLogBody(sanitized);
     }
 
     private static List<LLMToolDef>? MapTools(IReadOnlyList<LLMToolDef>? tools)
@@ -390,8 +576,11 @@ public sealed class OpenAiLLMProvider : ILLMProvider, ILLMModelCatalogProvider
         if (!resp.IsSuccessStatusCode)
         {
             var body = await HttpRequestHelper.ReadErrorBodyAsync(resp, ct);
+            var safeBody = FormatProviderErrorBody(body, provider, bearerToken, prompt: null);
             throw new HttpRequestException(
-                $"OpenAI model list call failed: {(int)resp.StatusCode} {resp.ReasonPhrase ?? ""} - {body}");
+                $"OpenAI model list call failed: {(int)resp.StatusCode} {resp.ReasonPhrase ?? ""} - {safeBody}",
+                inner: null,
+                statusCode: resp.StatusCode);
         }
 
         await using var stream = await resp.Content.ReadAsStreamAsync(ct);

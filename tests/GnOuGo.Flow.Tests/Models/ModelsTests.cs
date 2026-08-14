@@ -20,6 +20,7 @@ public class ErrorCodesTests
         Assert.Equal("JSON_PARSE", ErrorCodes.JsonParse);
         Assert.Equal("LLM_TIMEOUT", ErrorCodes.LlmTimeout);
         Assert.Equal("LLM_NETWORK", ErrorCodes.LlmNetwork);
+        Assert.Equal("LLM_PROVIDER", ErrorCodes.LlmProvider);
         Assert.Equal("LLM_SCHEMA", ErrorCodes.LlmSchema);
         Assert.Equal("WORKFLOW_FETCH_POLICY", ErrorCodes.WorkflowFetchPolicy);
         Assert.Equal("WORKFLOW_FETCH_NETWORK", ErrorCodes.WorkflowFetchNetwork);

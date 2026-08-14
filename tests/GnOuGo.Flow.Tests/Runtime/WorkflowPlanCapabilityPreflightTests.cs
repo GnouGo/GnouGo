@@ -2255,11 +2255,13 @@ public sealed class WorkflowPlanCapabilityPreflightTests
     public async Task InferredPreflight_UnavailableRequiredOperationFailsBeforeYamlGeneration()
     {
         var calls = 0;
+        var requests = new List<LLMRequest>();
         var llm = new Mock<ILLMClient>();
         llm.Setup(client => client.CallAsync(It.IsAny<LLMRequest>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync((LLMRequest request, CancellationToken _) =>
             {
                 calls++;
+                requests.Add(request);
                 if (request.Prompt.Contains("domain-neutral capability matcher", StringComparison.Ordinal))
                     return MatchResponse(("remove_expired_record", "unavailable", ""));
                 return new LLMResponse
@@ -2286,6 +2288,52 @@ public sealed class WorkflowPlanCapabilityPreflightTests
         Assert.False(result.Success);
         Assert.Equal(ErrorCodes.CapabilityPreflightUnavailable, result.Error!.Code);
         Assert.Equal(3, calls);
+        Assert.All(requests, request =>
+        {
+            Assert.True(request.UseBackgroundMode);
+            Assert.True(request.StructuredOutputStrict);
+            Assert.NotNull(request.StructuredOutputSchema);
+        });
+    }
+
+    [Fact]
+    public async Task InferredPreflight_TimeoutUsesRetryableLlmTimeoutAndPreservesPhaseDetails()
+    {
+        var llm = new Mock<ILLMClient>();
+        llm.Setup(client => client.CallAsync(It.IsAny<LLMRequest>(), It.IsAny<CancellationToken>()))
+            .ThrowsAsync(new TimeoutException("planner request timed out"));
+
+        var result = await ExecuteAsync(InferredPlan(), llm.Object, CreateNeutralFactory());
+
+        Assert.False(result.Success);
+        Assert.Equal(ErrorCodes.LlmTimeout, result.Error!.Code);
+        Assert.True(result.Error.Retryable);
+        Assert.Equal("capability_inventory_call", result.Error.Details!["inference_phase"]!.GetValue<string>());
+        Assert.Equal("capability_inference", result.Error.Details["phase"]!.GetValue<string>());
+    }
+
+    [Theory]
+    [InlineData(401, "LLM_PROVIDER", false)]
+    [InlineData(429, "LLM_NETWORK", true)]
+    [InlineData(503, "LLM_NETWORK", true)]
+    public async Task InferredPreflight_ProviderHttpFailureUsesStableLlmContract(
+        int status,
+        string expectedCode,
+        bool retryable)
+    {
+        var llm = new Mock<ILLMClient>();
+        llm.Setup(client => client.CallAsync(It.IsAny<LLMRequest>(), It.IsAny<CancellationToken>()))
+            .ThrowsAsync(new HttpRequestException(
+                "provider rejected capability inventory",
+                inner: null,
+                statusCode: (System.Net.HttpStatusCode)status));
+
+        var result = await ExecuteAsync(InferredPlan(), llm.Object, CreateNeutralFactory());
+
+        Assert.False(result.Success);
+        Assert.Equal(expectedCode, result.Error!.Code);
+        Assert.Equal(retryable, result.Error.Retryable);
+        Assert.Equal("capability_inventory_call", result.Error.Details!["inference_phase"]!.GetValue<string>());
     }
 
     [Fact]

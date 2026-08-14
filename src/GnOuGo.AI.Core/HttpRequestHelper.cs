@@ -106,7 +106,9 @@ public static class HttpRequestHelper
                     retry + 1,
                     attemptStopwatch.Elapsed.TotalMilliseconds,
                     totalStopwatch.Elapsed.TotalMilliseconds);
-                throw;
+                throw new TimeoutException(
+                    $"{operationName} timed out after {http.Timeout.TotalSeconds:0.###} seconds.",
+                    ex);
             }
 
             if (!IsServerError(response.StatusCode))
