@@ -2,6 +2,10 @@
 
 All notable changes to this project are documented in this file.
 
+## v0.18.3 - 2026-08-15
+
+- fix: handle union types in OpenAI strict schemas (#91) (release) (dd9bdb7)
+
 ## v0.18.2 - 2026-08-15
 
 - fix: mcp same ports (#90) (release) (15430cc)
@@ -256,9 +260,6 @@ All notable changes to this project are documented in this file.
 ## v0.3.0 - 2026-05-01
 
 - feat(python): invalid charatere to publish (#22) (release) (728dc2b)
-
-## v0.2.0 - 2026-04-30
-
 - feat(agent): add embedding (#21) (release) (89310e1)
 - Feat(agent): merge continue (#20) (release) (73e9a4f)
 - fea: continu to merge (#19) (release) (5e32f36)
