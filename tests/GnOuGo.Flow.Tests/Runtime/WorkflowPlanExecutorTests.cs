@@ -3287,6 +3287,11 @@ workflows:
         Assert.Contains(requiredFields, field => field!.GetValue<string>() == "work_kind");
         Assert.Contains(requiredFields, field => field!.GetValue<string>() == "contract_role");
         Assert.Contains(requiredFields, field => field!.GetValue<string>() == "concrete_outcome");
+        var plannedToolItems = Assert.IsType<JsonObject>(subworkflowItems["properties"]!["planned_tools"]!["items"]);
+        var plannedToolRequiredFields = Assert.IsType<JsonArray>(plannedToolItems["required"]);
+        Assert.Contains(plannedToolRequiredFields, field => field!.GetValue<string>() == "operation_ids");
+        Assert.Contains(plannedToolRequiredFields, field => field!.GetValue<string>() == "catalog_ids");
+        Assert.Contains(plannedToolRequiredFields, field => field!.GetValue<string>() == "request_bindings");
 
         var pipeline = Assert.IsType<JsonObject>(planOutput["pipeline"]);
         var specs = Assert.IsType<JsonObject>(pipeline["specs"]);

@@ -452,9 +452,9 @@ public static class ChatRequestBuilder
     {
         if (schema is not JsonObject obj) return schema;
 
-        // If this node describes an object type, inject additionalProperties: false
-        var typeVal = obj["type"]?.GetValue<string>();
-        if (typeVal == "object")
+        // If this node describes an object type, inject additionalProperties: false.
+        // JSON Schema permits either a scalar type or a union expressed as an array.
+        if (IncludesSchemaType(obj["type"], "object"))
         {
             obj["additionalProperties"] = false;
         }
@@ -487,6 +487,30 @@ public static class ChatRequestBuilder
         }
 
         return obj;
+    }
+
+    private static bool IncludesSchemaType(JsonNode? typeNode, string expectedType)
+    {
+        if (typeNode is JsonValue scalar)
+        {
+            return scalar.TryGetValue<string>(out var type)
+                && string.Equals(type, expectedType, StringComparison.Ordinal);
+        }
+
+        if (typeNode is JsonArray union)
+        {
+            foreach (var member in union)
+            {
+                if (member is JsonValue value
+                    && value.TryGetValue<string>(out var type)
+                    && string.Equals(type, expectedType, StringComparison.Ordinal))
+                {
+                    return true;
+                }
+            }
+        }
+
+        return false;
     }
 }
 

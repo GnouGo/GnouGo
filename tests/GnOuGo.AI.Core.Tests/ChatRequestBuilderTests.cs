@@ -183,5 +183,59 @@ public sealed class ChatRequestBuilderTests
         Assert.Null(anyOf[1]!["type"]);
         Assert.False(schema.AsObject().ContainsKey("additionalProperties"));
     }
+
+    [Fact]
+    public void OpenAiResponsesBackground_PreservesUnionTypesAndPatchesObjectUnionsWithoutMutation()
+    {
+        var schema = JsonNode.Parse("""
+        {
+          "type": ["object", "null"],
+          "properties": {
+            "entry": {
+              "type": "object",
+              "properties": {
+                "value": {
+                  "type": ["string", "number", "boolean", "null"]
+                }
+              },
+              "required": ["value"]
+            }
+          },
+          "required": ["entry"]
+        }
+        """)!;
+
+        var original = schema.ToJsonString();
+
+        var payload = ChatRequestBuilder.OpenAiResponsesBackground(
+            model: "gpt-4o-mini",
+            prompt: "Extract values",
+            temperature: null,
+            reasoning: null,
+            structuredOutputSchema: schema,
+            structuredOutputStrict: true,
+            maxOutputTokens: null);
+
+        using var doc = JsonDocument.Parse(payload);
+        var responseSchema = doc.RootElement
+            .GetProperty("text")
+            .GetProperty("format")
+            .GetProperty("schema");
+        var rootTypes = responseSchema.GetProperty("type").EnumerateArray().Select(type => type.GetString()!).ToArray();
+        var entry = responseSchema.GetProperty("properties").GetProperty("entry");
+        var valueTypes = entry
+            .GetProperty("properties")
+            .GetProperty("value")
+            .GetProperty("type")
+            .EnumerateArray()
+            .Select(type => type.GetString()!)
+            .ToArray();
+
+        Assert.Equal(["object", "null"], rootTypes);
+        Assert.Equal(["string", "number", "boolean", "null"], valueTypes);
+        Assert.False(responseSchema.GetProperty("additionalProperties").GetBoolean());
+        Assert.False(entry.GetProperty("additionalProperties").GetBoolean());
+        Assert.Equal(original, schema.ToJsonString());
+    }
 }
 
