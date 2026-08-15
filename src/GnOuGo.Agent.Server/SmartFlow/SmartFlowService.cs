@@ -53,6 +53,7 @@ public sealed class SmartFlowService
     private readonly SecureWorkflowRuntimeFactory _runtimeFactory;
     private readonly ConfigureProvidersService _configureProviders;
     private readonly ConfigureAgentsService _configureAgents;
+    private readonly LocalModelsService? _localModels;
     private readonly AgentHumanInputProvider _humanInput;
     private readonly AgentUserConfigMcpClient? _userConfigClient;
     private readonly IWorkflowCandidateProvider? _candidateProvider;
@@ -87,13 +88,15 @@ public sealed class SmartFlowService
         IWorkflowTraceFileExporter? traceFileExporter = null,
         IOptions<McpCapabilityCacheSettings>? mcpCapabilityCacheSettings = null,
         IOptions<WorkflowMermaidMarkdownOptions>? workflowMermaidOptions = null,
-        IOptions<OpenTelemetrySettings>? openTelemetrySettings = null)
+        IOptions<OpenTelemetrySettings>? openTelemetrySettings = null,
+        LocalModelsService? localModels = null)
     {
         _llm = llm;
         _mcpCache = mcpCache;
         _runtimeFactory = runtimeFactory;
         _configureProviders = configureProviders;
         _configureAgents = configureAgents;
+        _localModels = localModels;
         _humanInput = humanInput;
         _userConfigClient = userConfigClient;
         _candidateProvider = candidateProvider;
@@ -299,6 +302,22 @@ public sealed class SmartFlowService
                 await foreach (var evt in ExecuteAnimatedAgentCommandAsync(
                                    trimmed,
                                    correlationId,
+                                   ct))
+                    yield return evt;
+                yield break;
+            }
+
+            if (IsCommand(trimmed, "/models"))
+            {
+                if (_localModels is null)
+                {
+                    yield return new SmartFlowEvent("error", "Embedded local model management is unavailable.");
+                    yield break;
+                }
+                await foreach (var evt in ExecuteAnimatedCommandAsync(
+                                   _localModels.ExecuteAsync(trimmed, ct),
+                                   correlationId,
+                                   "local-models",
                                    ct))
                     yield return evt;
                 yield break;
@@ -875,6 +894,9 @@ public sealed class SmartFlowService
         sb.AppendLine("| `/llm default [name]` | Set or change the default LLM provider/model |");
         sb.AppendLine("| `/llm edit <name>` | Edit an existing LLM provider |");
         sb.AppendLine("| `/llm remove <name>` | Remove an LLM provider |");
+        sb.AppendLine("| `/models list` | List embedded local models and installation state |");
+        sb.AppendLine("| `/models install qwen3:0.6b` | Download and verify the portable local model |");
+        sb.AppendLine("| `/models remove qwen3:0.6b` | Remove the downloaded local model |");
         sb.AppendLine("| `/embedding` | Show embedding model commands |");
         sb.AppendLine("| `/embedding list` | List configured embedding models |");
         sb.AppendLine("| `/embedding add` | Configure a new embedding model |");

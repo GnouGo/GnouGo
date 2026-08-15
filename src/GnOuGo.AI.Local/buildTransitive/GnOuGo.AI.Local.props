@@ -1,0 +1,8 @@
+<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <!-- NuGet excludes dependency build assets when packing a project dependency.
+       Import the pinned backend props explicitly so package consumers receive the
+       same RID-specific native llama.cpp assets as repository project references. -->
+  <Import
+    Project="$(NuGetPackageRoot)llamasharp.backend.cpu/0.27.0/build/netstandard2.0/LLamaSharp.Backend.Cpu.props"
+    Condition="Exists('$(NuGetPackageRoot)llamasharp.backend.cpu/0.27.0/build/netstandard2.0/LLamaSharp.Backend.Cpu.props')" />
+</Project>

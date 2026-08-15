@@ -28,6 +28,7 @@ public sealed class ConfigureProvidersService
     private readonly ILogger<ConfigureProvidersService> _logger;
     private readonly IMcpClientFactory? _mcpFactory;
     private readonly string _tenantId;
+    private readonly ILocalModelManager? _localModels;
 
     public ConfigureProvidersService(
         ILLMClient llm,
@@ -40,7 +41,8 @@ public sealed class ConfigureProvidersService
         AgentUserConfigMcpClient? userConfigClient = null,
         IOptions<BundledMcpSettings>? bundledMcpSettings = null,
         IMcpClientFactory? mcpFactory = null,
-        IOptions<OpenTelemetrySettings>? openTelemetrySettings = null)
+        IOptions<OpenTelemetrySettings>? openTelemetrySettings = null,
+        ILocalModelManager? localModels = null)
     {
         _llm = llm;
         _humanInput = humanInput;
@@ -53,6 +55,7 @@ public sealed class ConfigureProvidersService
         _logger = logger;
         _mcpFactory = mcpFactory;
         _tenantId = WorkflowExecutionTenant.Resolve(openTelemetrySettings);
+        _localModels = localModels;
     }
 
     /// <summary>
@@ -70,6 +73,14 @@ public sealed class ConfigureProvidersService
         {
             yield return new SmartFlowEvent("thinking:thinking", "🧠 Loading live model catalog…");
             yield return new SmartFlowEvent("answer", await RenderModelsCommandResponseAsync(requestedModelProvider, ct));
+            yield break;
+        }
+
+        if (TryParseLocalDefaultCommand(trimmedCommand, out var localProvider, out var localModel))
+        {
+            yield return new SmartFlowEvent(
+                "answer",
+                await SetLocalDefaultAsync(localProvider, localModel, ct).ConfigureAwait(false));
             yield break;
         }
 
@@ -3444,7 +3455,9 @@ public sealed class ConfigureProvidersService
     private async Task<string> RenderConfiguredLlmProvidersAsync(CancellationToken ct)
     {
         var providers = await LoadConfiguredLlmProvidersAsync(ct);
-        if (providers.Count == 0)
+        var localProvider = _optionsStore.Current.Models.FirstOrDefault(entry =>
+            string.Equals(entry.Value.ResolvedType, LocalLLMProvider.Type, StringComparison.OrdinalIgnoreCase));
+        if (providers.Count == 0 && string.IsNullOrWhiteSpace(localProvider.Key))
             return "# 🤖 Configured LLM Providers\n\nNo LLM providers configured yet. Use `/llm add` to get started.";
 
         var currentDefaultProvider = _optionsStore.Current.DefaultProvider;
@@ -3467,7 +3480,73 @@ public sealed class ConfigureProvidersService
                 $"| {EscapeMarkdownCell(provider.Provider)} | {(isDefault ? "✅ yes" : "") } | {EscapeMarkdownCell(model)} | `{EscapeBackticks(provider.Secret.Key)}` | {provider.Secret.LatestVersion} | {EscapeMarkdownCell(FormatTimestamp(provider.Secret.CreatedAt))} |");
         }
 
+        if (!string.IsNullOrWhiteSpace(localProvider.Key))
+        {
+            var isDefault = string.Equals(localProvider.Key, currentDefaultProvider, StringComparison.OrdinalIgnoreCase);
+            var installed = _localModels is null
+                ? []
+                : await _localModels.ListAsync(ct).ConfigureAwait(false);
+            var model = isDefault
+                ? currentDefaultModel
+                : installed.FirstOrDefault(static item => item.Status == LocalModelStatus.Installed)?.Id ?? "not installed";
+            sb.AppendLine(
+                $"| {EscapeMarkdownCell(localProvider.Key)} | {(isDefault ? "✅ yes" : "")} | {EscapeMarkdownCell(model)} | `(built-in)` | — | host asset |");
+        }
+
         return sb.ToString().TrimEnd();
+    }
+
+    private bool TryParseLocalDefaultCommand(string command, out string provider, out string model)
+    {
+        provider = string.Empty;
+        model = string.Empty;
+        var parts = command.Split(' ', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+        if (parts.Length < 3
+            || !string.Equals(parts[0], "/llm", StringComparison.OrdinalIgnoreCase)
+            || !string.Equals(parts[1], "default", StringComparison.OrdinalIgnoreCase))
+            return false;
+
+        var configured = _optionsStore.Current.Models.FirstOrDefault(entry =>
+            string.Equals(entry.Key, parts[2], StringComparison.OrdinalIgnoreCase)
+            && string.Equals(entry.Value.ResolvedType, LocalLLMProvider.Type, StringComparison.OrdinalIgnoreCase));
+        if (string.IsNullOrWhiteSpace(configured.Key))
+            return false;
+
+        provider = configured.Key;
+        model = parts.Length >= 4 ? parts[3] : "qwen3:0.6b";
+        return true;
+    }
+
+    private async Task<string> SetLocalDefaultAsync(
+        string provider,
+        string model,
+        CancellationToken ct)
+    {
+        if (_localModels is null)
+            return "❌ Embedded local model management is unavailable.";
+
+        IReadOnlyList<LocalModelInfo> installed;
+        try
+        {
+            installed = await _localModels.ListAsync(ct).ConfigureAwait(false);
+        }
+        catch (ArgumentException ex)
+        {
+            return $"❌ {ex.Message}";
+        }
+
+        if (!installed.Any(item =>
+                item.Status == LocalModelStatus.Installed
+                && string.Equals(item.Id, model, StringComparison.OrdinalIgnoreCase)))
+            return $"❌ Local model `{model}` is not installed. Run `/models install {model}` first.";
+
+        if (!_optionsStore.SetDefaultProvider(provider, model))
+            return "❌ The built-in local provider is not available in runtime configuration.";
+
+        if (_userConfigClient is not null)
+            await _userConfigClient.SetAsync(provider, model, ct: ct).ConfigureAwait(false);
+
+        return $"✅ Default LLM provider set to `{provider}` with model `{model}`.";
     }
 
     private static string RenderSecretTable(

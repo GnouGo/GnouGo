@@ -12,7 +12,7 @@ namespace GnOuGo.Agent.Server.Hosting;
 /// The cache key includes the current provider configuration fingerprint so runtime updates
 /// invalidate cached entries automatically.
 /// </summary>
-internal sealed class CachedLlmModelCatalog : ILLMModelCatalog
+internal sealed class CachedLlmModelCatalog : ILLMModelCatalog, ILlmModelCatalogCacheInvalidator
 {
     private readonly ILLMModelCatalog _inner;
     private readonly LLMRuntimeOptionsStore _store;
@@ -62,6 +62,13 @@ internal sealed class CachedLlmModelCatalog : ILLMModelCatalog
                 _settings.AbsoluteExpirationSeconds);
             return (IReadOnlyList<LLMModelDescriptor>)snapshot;
         }) ?? [];
+    }
+
+    public void Invalidate(string provider)
+    {
+        var cacheKey = TryBuildCacheKey(provider);
+        if (cacheKey is not null)
+            _cache.Remove(cacheKey);
     }
 
     private string? TryBuildCacheKey(string provider)

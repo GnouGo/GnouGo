@@ -324,6 +324,10 @@ public sealed class LLMRuntimeOptionsStore
         {
             DefaultProvider = src.DefaultProvider,
             DefaultModel = src.DefaultModel,
+            Fallback = src.Fallback is null
+                ? null
+                : new LLMFallbackOptions { Provider = src.Fallback.Provider, Model = src.Fallback.Model },
+            DangerousAcceptAnyServerCertificate = src.DangerousAcceptAnyServerCertificate,
             ModelMetadataFiles = [.. src.ModelMetadataFiles],
         };
         foreach (var kv in src.Models)

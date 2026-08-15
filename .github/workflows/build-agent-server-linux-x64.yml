@@ -75,6 +75,19 @@ jobs:
             throw "Missing server executable: $serverExecutable"
           }
 
+          $nativeRoot = "artifacts/publish/server/linux-x64/runtimes/linux-x64/native"
+          if (-not (Test-Path $nativeRoot)) {
+            throw "Missing LLamaSharp native runtime directory: $nativeRoot"
+          }
+
+          foreach ($nativeName in @('libggml-base.so', 'libggml-cpu.so', 'libggml.so', 'libllama.so')) {
+            if (-not (Get-ChildItem $nativeRoot -Recurse -File -Filter $nativeName)) {
+              throw "Missing LLamaSharp native asset '$nativeName' under: $nativeRoot"
+            }
+          }
+
+          Write-Host 'Validated LLamaSharp native CPU assets for the trimmed single-file Server publish.'
+
           $requiredTools = @(
             "artifacts/publish/server/linux-x64/tools/GnOuGo.Browser.Mcp/GnOuGo.Browser.Mcp",
             "artifacts/publish/server/linux-x64/tools/GnOuGo.Cmd.Mcp/GnOuGo.Cmd.Mcp",

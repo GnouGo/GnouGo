@@ -56,6 +56,7 @@ COPY src/GnOuGo.Agent.Server/GnOuGo.Agent.Server.csproj src/GnOuGo.Agent.Server/
 COPY src/GnOuGo.Agent.Shared/GnOuGo.Agent.Shared.csproj src/GnOuGo.Agent.Shared/
 COPY src/GnOuGo.Agent.Mcp/GnOuGo.Agent.Mcp.csproj src/GnOuGo.Agent.Mcp/
 COPY src/GnOuGo.AI.Core/GnOuGo.AI.Core.csproj src/GnOuGo.AI.Core/
+COPY src/GnOuGo.AI.Local/GnOuGo.AI.Local.csproj src/GnOuGo.AI.Local/
 COPY src/GnOuGo.Assets.Animation/GnOuGo.Assets.Animation.csproj src/GnOuGo.Assets.Animation/
 COPY src/GnOuGo.Assets.Bears/GnOuGo.Assets.Bears.csproj src/GnOuGo.Assets.Bears/
 COPY src/GnOuGo.Auth.Core/GnOuGo.Auth.Core.csproj src/GnOuGo.Auth.Core/

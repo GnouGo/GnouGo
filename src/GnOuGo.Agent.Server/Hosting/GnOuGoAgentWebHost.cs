@@ -22,6 +22,7 @@ using GnOuGo.Agent.Server.SmartFlow;
 using GnOuGo.Agent.Server.Telemetry;
 using GnOuGo.Agent.Shared;
 using GnOuGo.AI.Core;
+using GnOuGo.AI.Local;
 using GnOuGo.DocIngestor.Mcp;
 using GnOuGo.Flow.Core.Runtime;
 using GnOuGo.Files.Server;
@@ -30,6 +31,7 @@ using GnOuGo.KeyVault.Core.Data;
 using GnOuGo.KeyVault.Mcp;
 using GnOuGo.KeyVault.Core.Services;
 using GnOuGo.Mcp.Core;
+using GnOuGo.Workspace;
 using ModelContextProtocol.AspNetCore;
 using ModelContextProtocol.Protocol;
 using OtlpTenantCollector.Hosting;
@@ -159,6 +161,18 @@ public static class GnOuGoAgentWebHost
 
         // LLM + MCP configuration (same structure as GnOuGo.Flow.Server)
         var llmOptions = builder.Configuration.GetSection(LLMOptions.SectionName).Get<LLMOptions>() ?? new LLMOptions();
+        if (!llmOptions.Models.Values.Any(static provider =>
+                string.Equals(provider.ResolvedType, LocalLLMProvider.Type, StringComparison.OrdinalIgnoreCase)))
+        {
+            llmOptions.Models["Local"] = new ModelProviderOptions
+            {
+                Type = LocalLLMProvider.Type,
+                Url = "embedded://llamasharp"
+            };
+        }
+        llmOptions.ModelOverrides.TryAdd(
+            LocalModelCatalog.Qwen3Id,
+            LocalModelCatalog.CreateMetadata(LocalModelCatalog.Qwen3));
 
         // Resolve the dotnet executable used by this process so stdio MCP servers are spawned
         // with the SAME dotnet installation that's running the agent server.
@@ -212,7 +226,10 @@ public static class GnOuGoAgentWebHost
                 {
                     tracing
                         .SetResourceBuilder(resourceBuilder)
-                        .AddSource(AgentOTelTelemetry.ActivitySourceName);
+                        .AddSource(AgentOTelTelemetry.ActivitySourceName)
+                        .AddSource("GnOuGo.AI.Core.Routing")
+                        .AddSource("GnOuGo.AI.Local.Models")
+                        .AddSource("GnOuGo.AI.Local.Inference");
 
                     if (otelSettings.IncludeAspNetCoreTraces)
                     {
@@ -240,6 +257,9 @@ public static class GnOuGoAgentWebHost
                     metrics
                         .SetResourceBuilder(resourceBuilder)
                         .AddMeter(AgentOTelTelemetry.MeterName)
+                        .AddMeter("GnOuGo.AI.Core.Routing")
+                        .AddMeter("GnOuGo.AI.Local.Models")
+                        .AddMeter("GnOuGo.AI.Local.Inference")
                         .AddAspNetCoreInstrumentation()
                         .AddHttpClientInstrumentation()
                         .AddOtlpExporter(o =>
@@ -289,6 +309,8 @@ public static class GnOuGoAgentWebHost
             builder.Configuration.GetSection(BundledMcpSettings.SectionName));
         builder.Services.Configure<KeyVaultSettings>(
             builder.Configuration.GetSection(KeyVaultSettings.SectionName));
+        builder.Services.Configure<LocalLLMOptions>(
+            builder.Configuration.GetSection(LocalLLMOptions.SectionName));
         builder.Services.AddOtlpCollectorCore(builder.Configuration);
         builder.Services.AddGnOuGoFilesServer(builder.Configuration);
 
@@ -308,6 +330,21 @@ public static class GnOuGoAgentWebHost
         {
             client.Timeout = Timeout.InfiniteTimeSpan;
         });
+        builder.Services.AddHttpClient("GnOuGo.AI.Local.Models", client =>
+        {
+            client.Timeout = Timeout.InfiniteTimeSpan;
+        });
+        var localModelsDirectory = GnOuGoWorkspace.ResolveLocalModelsDirectory(applicationBasePath);
+        builder.Services.AddSingleton<ILocalLLMRuntime>(sp => new LlamaSharpLocalLLMRuntime(
+            localModelsDirectory,
+            sp.GetRequiredService<IOptions<LocalLLMOptions>>(),
+            sp.GetRequiredService<ILogger<LlamaSharpLocalLLMRuntime>>()));
+        builder.Services.AddSingleton<ILocalModelManager>(sp => new LocalModelManager(
+            sp.GetRequiredService<IHttpClientFactory>().CreateClient("GnOuGo.AI.Local.Models"),
+            localModelsDirectory,
+            ((LlamaSharpLocalLLMRuntime)sp.GetRequiredService<ILocalLLMRuntime>()).UnloadAsync,
+            sp.GetRequiredService<ILogger<LocalModelManager>>()));
+        builder.Services.AddSingleton<LocalLLMModelCatalogProvider>();
         builder.Services.AddSingleton<AppVersionInfo>();
         builder.Services.AddSingleton<LocalTraceDebugStore>();
         builder.Services.AddSingleton<IWorkflowTraceFileExporter, WorkflowTraceFileExporter>();
@@ -353,7 +390,8 @@ public static class GnOuGoAgentWebHost
             mcpClientFactoryOverride: null,
             backgroundModeCache: sp.GetRequiredService<IMemoryCache>(),
             llmCapabilityResolver: sp.GetService<ILLMCapabilityResolver>(),
-            humanInputProvider: sp.GetRequiredService<AgentHumanInputProvider>()));
+            humanInputProvider: sp.GetRequiredService<AgentHumanInputProvider>(),
+            localRuntime: sp.GetRequiredService<ILocalLLMRuntime>()));
         builder.Services.AddSingleton<CollectorTracePersistence>();
         builder.Services.AddSingleton<ILoggerProvider, CollectorLoggerProvider>();
 
@@ -368,9 +406,14 @@ public static class GnOuGoAgentWebHost
             var http = LLMHttpClientFactory.Create(dangerousCert, LLMHttpClientDefaults.MinimumTimeout, sslLogger);
             // DynamicRoutingLLMClientAdapter reads the LATEST options from the store on every call,
             // so a /llm wizard update takes effect for the very next message.
-            return new DynamicRoutingLLMClientAdapter(http, store, loggerFactory, cache);
+            return new DynamicRoutingLLMClientAdapter(
+                http,
+                store,
+                loggerFactory,
+                cache,
+                sp.GetRequiredService<ILocalLLMRuntime>());
         });
-        builder.Services.AddSingleton<ILLMModelCatalog>(sp =>
+        builder.Services.AddSingleton<CachedLlmModelCatalog>(sp =>
         {
             var store = sp.GetRequiredService<LLMRuntimeOptionsStore>();
             var cache = sp.GetRequiredService<IMemoryCache>();
@@ -380,9 +423,15 @@ public static class GnOuGoAgentWebHost
             var sslLogger = loggerFactory.CreateLogger("GnOuGo.AI.Core.SSL");
             var dangerousCert = store.Current.DangerousAcceptAnyServerCertificate;
             var http = LLMHttpClientFactory.Create(dangerousCert, TimeSpan.FromMinutes(2), sslLogger);
-            var innerCatalog = new DynamicRoutingLLMModelCatalogAdapter(http, store, loggerFactory);
+            var innerCatalog = new DynamicRoutingLLMModelCatalogAdapter(
+                http,
+                store,
+                loggerFactory,
+                sp.GetRequiredService<LocalLLMModelCatalogProvider>());
             return new CachedLlmModelCatalog(innerCatalog, store, cache, settings, logger);
         });
+        builder.Services.AddSingleton<ILLMModelCatalog>(sp => sp.GetRequiredService<CachedLlmModelCatalog>());
+        builder.Services.AddSingleton<ILlmModelCatalogCacheInvalidator>(sp => sp.GetRequiredService<CachedLlmModelCatalog>());
         builder.Services.AddSingleton<ILLMCapabilityResolver, FlowLlmCapabilityResolver>();
         builder.Services.AddSingleton<IMcpClientFactory>(sp =>
         {
@@ -399,6 +448,7 @@ public static class GnOuGoAgentWebHost
         builder.Services.AddSingleton<AgentOTelTelemetry>();
         builder.Services.AddSingleton<IWorkflowCandidateProvider, DatabaseAgentWorkflowCandidateProvider>();
         builder.Services.AddSingleton<ConfigureProvidersService>();
+        builder.Services.AddSingleton<LocalModelsService>();
         builder.Services.AddSingleton<ConfigureAgentsService>();
         builder.Services.AddSingleton<SmartFlowService>();
         builder.Services.AddSingleton<TraceDebugService>();
@@ -416,6 +466,7 @@ public static class GnOuGoAgentWebHost
         app.Services.InitializeDocsIngestorMcpAsync().GetAwaiter().GetResult();
 
         HydrateRuntimeOptionsFromKeyVaultAsync(app.Services).GetAwaiter().GetResult();
+        ValidateLocalFallback(app.Services.GetRequiredService<LLMRuntimeOptionsStore>().Current);
 
         app.Services.InitializeOtlpCollectorAsync().GetAwaiter().GetResult();
 
@@ -1092,6 +1143,27 @@ public static class GnOuGoAgentWebHost
         }
 
         return null;
+    }
+
+    internal static void ValidateLocalFallback(LLMOptions options)
+    {
+        if (options.Fallback is null)
+            return;
+        if (string.IsNullOrWhiteSpace(options.Fallback.Provider)
+            || string.IsNullOrWhiteSpace(options.Fallback.Model))
+            throw new InvalidOperationException("LLM fallback configuration requires both Provider and Model.");
+
+        var matchingProviderKeys = options.Models.Keys.Count(key =>
+            string.Equals(key, options.Fallback.Provider, StringComparison.OrdinalIgnoreCase));
+        if (matchingProviderKeys > 1)
+            throw new InvalidOperationException("The configured LLM fallback provider is ambiguous.");
+
+        var fallbackProvider = options.ResolveProvider(options.Fallback.Provider)
+            ?? throw new InvalidOperationException("The configured LLM fallback provider does not exist.");
+        if (string.IsNullOrWhiteSpace(fallbackProvider.Url))
+            throw new InvalidOperationException("The configured LLM fallback provider has no endpoint.");
+        if (string.Equals(fallbackProvider.ResolvedType, LocalLLMProvider.Type, StringComparison.OrdinalIgnoreCase))
+            throw new InvalidOperationException("The configured LLM fallback must use a non-local provider.");
     }
 
     private sealed class DelegateLogger(string categoryName, Action<string> write) : ILogger

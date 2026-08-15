@@ -269,10 +269,37 @@ jobs:
         shell: pwsh
         run: |
           $toolExtension = if ('${{ matrix.rid }}' -like 'win-*') { '.exe' } else { '' }
-          $desktopExecutable = "artifacts/publish/desktop/${{ matrix.rid }}/GnOuGo.Agent$toolExtension"
+          $rid = '${{ matrix.rid }}'
+          $publishRoot = "artifacts/publish/desktop/$rid"
+          $desktopExecutable = "$publishRoot/GnOuGo.Agent$toolExtension"
           if (-not (Test-Path $desktopExecutable)) {
             throw "Missing desktop executable: $desktopExecutable"
           }
+
+          $nativeRoot = Join-Path $publishRoot "runtimes/$rid/native"
+          if (-not (Test-Path $nativeRoot)) {
+            throw "Missing LLamaSharp native runtime directory: $nativeRoot"
+          }
+
+          $requiredNativeNames = if ($rid -like 'win-*') {
+            @('ggml-base.dll', 'ggml-cpu.dll', 'ggml.dll', 'llama.dll')
+          } elseif ($rid -like 'osx-*') {
+            @('libggml-base.dylib', 'libggml-cpu.dylib', 'libggml.dylib', 'libllama.dylib')
+          } else {
+            @('libggml-base.so', 'libggml-cpu.so', 'libggml.so', 'libllama.so')
+          }
+
+          foreach ($nativeName in $requiredNativeNames) {
+            if (-not (Get-ChildItem $nativeRoot -Recurse -File -Filter $nativeName)) {
+              throw "Missing LLamaSharp native asset '$nativeName' under: $nativeRoot"
+            }
+          }
+
+          if ($rid -eq 'osx-arm64' -and -not (Get-ChildItem $nativeRoot -Recurse -File -Filter 'libggml-metal.dylib')) {
+            throw "Missing LLamaSharp Metal backend under: $nativeRoot"
+          }
+
+          Write-Host "Validated LLamaSharp native CPU assets for $rid."
 
 
           $requiredTools = @(
@@ -395,6 +422,68 @@ jobs:
               throw "Missing required desktop UI asset: $path"
             }
           }
+
+      - name: Cache pinned Qwen3 smoke-test model
+        if: matrix.rid == 'linux-x64' || matrix.rid == 'win-x64' || matrix.rid == 'osx-arm64'
+        uses: actions/cache@v4
+        with:
+          path: artifacts/models/Qwen3-0.6B-Q4_0.gguf
+          key: qwen3-0.6b-${{ matrix.rid }}-da2572f16c06133561ce56accaa822216f2391ef4d37fba427801cd6736417d4
+
+      - name: Acquire and verify pinned Qwen3 smoke-test model
+        if: matrix.rid == 'linux-x64' || matrix.rid == 'win-x64' || matrix.rid == 'osx-arm64'
+        shell: pwsh
+        run: |
+          $modelRoot = 'artifacts/models'
+          $modelPath = Join-Path $modelRoot 'Qwen3-0.6B-Q4_0.gguf'
+          $partialPath = "$modelPath.partial"
+          $expectedSize = 428970080
+          $expectedSha = 'da2572f16c06133561ce56accaa822216f2391ef4d37fba427801cd6736417d4'
+          $url = 'https://huggingface.co/ggml-org/Qwen3-0.6B-GGUF/resolve/a41486f827d17edd055fe6b3b0ba3f8d427c0519/Qwen3-0.6B-Q4_0.gguf'
+
+          New-Item -ItemType Directory -Path $modelRoot -Force | Out-Null
+          if (-not (Test-Path $modelPath)) {
+            $client = [System.Net.Http.HttpClient]::new()
+            $client.Timeout = [System.Threading.Timeout]::InfiniteTimeSpan
+            try {
+              $response = $client.GetAsync($url, [System.Net.Http.HttpCompletionOption]::ResponseHeadersRead).GetAwaiter().GetResult()
+              $response.EnsureSuccessStatusCode()
+              $input = $response.Content.ReadAsStream()
+              $output = [System.IO.File]::Create($partialPath)
+              try {
+                $input.CopyTo($output)
+              } finally {
+                $output.Dispose()
+                $input.Dispose()
+                $response.Dispose()
+              }
+              Move-Item -LiteralPath $partialPath -Destination $modelPath -Force
+            } finally {
+              $client.Dispose()
+            }
+          }
+
+          $model = Get-Item -LiteralPath $modelPath
+          if ($model.Length -ne $expectedSize) {
+            throw "Pinned model size mismatch. Expected $expectedSize bytes, got $($model.Length)."
+          }
+
+          $actualSha = (Get-FileHash -LiteralPath $modelPath -Algorithm SHA256).Hash.ToLowerInvariant()
+          if ($actualSha -ne $expectedSha) {
+            throw "Pinned model SHA-256 mismatch. Expected $expectedSha, got $actualSha."
+          }
+
+      - name: Run embedded Qwen3 structured-output smoke test
+        if: matrix.rid == 'linux-x64' || matrix.rid == 'win-x64' || matrix.rid == 'osx-arm64'
+        shell: pwsh
+        env:
+          GNOUOGO_LOCAL_MODEL_SMOKE: '1'
+          GNOUOGO_LOCAL_MODEL_PATH: ${{ github.workspace }}/artifacts/models/Qwen3-0.6B-Q4_0.gguf
+        run: |
+          dotnet test tests/GnOuGo.AI.Local.Tests/GnOuGo.AI.Local.Tests.csproj `
+            -c Release `
+            --filter 'Category=LocalModelSmoke' `
+            /p:SkipClientBuild=true
 
       - name: Package Desktop Artifact
         shell: pwsh
