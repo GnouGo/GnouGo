@@ -2,6 +2,10 @@
 
 All notable changes to this project are documented in this file.
 
+## v0.18.4 - 2026-08-15
+
+- refactor: Remove build warnings (#92) (release) (edd2a70)
+
 ## v0.18.3 - 2026-08-15
 
 - fix: handle union types in OpenAI strict schemas (#91) (release) (dd9bdb7)
@@ -256,9 +260,6 @@ All notable changes to this project are documented in this file.
 ## v0.4.0 - 2026-05-02
 
 - feat(models): models configuration (#23) (release) (2b6f4ea)
-
-## v0.3.0 - 2026-05-01
-
 - feat(python): invalid charatere to publish (#22) (release) (728dc2b)
 - feat(agent): add embedding (#21) (release) (89310e1)
 - Feat(agent): merge continue (#20) (release) (73e9a4f)
