@@ -44,6 +44,9 @@
 
   <ItemGroup>
     <ProjectReference Include="..\GnOuGo.Agent.Server\GnOuGo.Agent.Server.csproj" />
+    <!-- Keep the local runtime as a direct distribution dependency so the
+         LLamaSharp native backend content reaches the Desktop publish output. -->
+    <ProjectReference Include="..\GnOuGo.AI.Local\GnOuGo.AI.Local.csproj" />
   </ItemGroup>
 
   <ItemGroup>
