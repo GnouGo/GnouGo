@@ -234,6 +234,25 @@
     <Message Importance="high" Text="Removed @(_PublishPdbFiles->Count()) PDB file(s) from publish output." />
   </Target>
 
+  <!-- Single-file publish may consume package Content even when it is marked for
+       publish. Copy the pinned backend after publishing so distributions retain
+       the LLamaSharp loader's expected runtimes/<RID>/native layout. -->
+  <Target Name="CopyLlamaSharpNativeAssetsToPublish"
+          AfterTargets="PublishBundledDesktopTools"
+          BeforeTargets="RemovePdbFilesFromPublish"
+          Condition="'$(PublishDir)' != '' and '$(RuntimeIdentifier)' != ''">
+    <ItemGroup>
+      <_LlamaSharpNativeAsset Include="$(PkgLLamaSharp_Backend_Cpu)/LLamaSharpRuntimes/$(RuntimeIdentifier)/**/*" />
+    </ItemGroup>
+    <Error Condition="'@(_LlamaSharpNativeAsset)' == ''"
+           Text="LLamaSharp.Backend.Cpu 0.27.0 has no native assets for $(RuntimeIdentifier)." />
+    <Copy SourceFiles="@(_LlamaSharpNativeAsset)"
+          DestinationFiles="@(_LlamaSharpNativeAsset->'$(PublishDir)runtimes/$(RuntimeIdentifier)/%(RecursiveDir)%(Filename)%(Extension)')"
+          SkipUnchangedFiles="true" />
+    <Message Importance="high"
+             Text="Copied @(_LlamaSharpNativeAsset->Count()) LLamaSharp native asset(s) for $(RuntimeIdentifier) into the Desktop publish output." />
+  </Target>
+
 
   <ItemGroup>
     <Content Include="Assets/**" CopyToOutputDirectory="PreserveNewest" />
