@@ -3,6 +3,7 @@ using Microsoft.Extensions.Logging;
 using ModelContextProtocol.Server;
 using GnOuGo.KeyVault.Core.Models;
 using GnOuGo.KeyVault.Core.Services;
+using GnOuGo.Mcp.Core;
 
 namespace GnOuGo.KeyVault.Mcp;
 
@@ -12,6 +13,7 @@ namespace GnOuGo.KeyVault.Mcp;
 /// and direct access to the latest decrypted secret value.
 /// </summary>
 [McpServerToolType]
+[McpServerToolGroup(KeyVaultMcpHostingExtensions.ServerName)]
 public sealed class KeyVaultTools
 {
     private readonly KeyVaultService _service;

@@ -16,29 +16,23 @@ flowchart TD
 
 	Main --> UI[Blazor UI\n/]
 	Main --> Api[Minimal APIs\n/api/chat\n/api/chat/stream\n/health]
-	Main --> AgentProxy[Mounted MCP public route\n/mcp/agent]
-	Main --> KeyVaultProxy[Mounted MCP public route\n/mcp/keyvault]
-	Main --> DocsIngestorProxy[Mounted MCP public route\n/mcp/docs-ingestor]
-
-	AgentProxy -. current internal proxy .-> AgentInternal[GnOuGo.Agent.Mcp internal loopback host\nhttp://127.0.0.1:<ephemeral-port>/mcp]
-	KeyVaultProxy -. current internal proxy .-> KeyVaultInternal[GnOuGo.KeyVault.Mcp internal loopback host\nhttp://127.0.0.1:<ephemeral-port>/mcp]
-	DocsIngestorProxy -. current internal proxy .-> DocsIngestorInternal[GnOuGo.DocIngestor.Mcp internal loopback host\nhttp://127.0.0.1:<ephemeral-port>/mcp]
+	Main --> AgentMcp[GnOuGo.Agent.Mcp tools\n/mcp/agent]
+	Main --> KeyVaultMcp[GnOuGo.KeyVault.Mcp tools\n/mcp/keyvault]
+	Main --> DocsIngestorMcp[GnOuGo.DocIngestor.Mcp tools\n/mcp/docs-ingestor]
 
 	Main --> OtlpGrpc[Embedded OTLP gRPC\nhttp://127.0.0.1:4317]
 	Main --> OtlpHttp[Embedded OTLP HTTP + tenant/debug APIs\nhttp://127.0.0.1:4318]
 ```
 
-#### Public vs internal ports
+#### Single application listener
 
 - The **public application port** is the main `GnOuGo.Agent.Server` listener, for example `http://127.0.0.1:58443`.
 - The mounted MCP routes that the UI and runtime services should use are:
   - `http://127.0.0.1:58443/mcp/agent`
   - `http://127.0.0.1:58443/mcp/keyvault`
   - `http://127.0.0.1:58443/mcp/docs-ingestor`
-- Ports such as `60183`, `60683`, `61914`, or `61915` are **ephemeral internal loopback ports** currently used by the mounted MCP implementation.
-- Those ephemeral ports are **used** today, but only as a private implementation detail behind the main server proxy. They are not intended as user-facing endpoints.
-
-> Design note: the current implementation already exposes all HTTP MCP traffic through the main server URL. The extra loopback ports exist only because the mounted MCP routes proxy to internal sub-hosts.
+- All three routes are mapped directly by the main ASP.NET Core host. No private MCP loopback listeners, reverse proxy, or helper-host lifecycle is created.
+- The embedded OTLP listeners on ports `4317` and `4318` are unchanged.
 
 ## Mounted MCP endpoints
 
@@ -48,7 +42,7 @@ flowchart TD
 - `GnOuGo.KeyVault.Mcp` → `/mcp/keyvault`
 - `GnOuGo.DocIngestor.Mcp` → `/mcp/docs-ingestor`
 
-All three mounted services use the stable C# MCP SDK `2.0.0`, explicitly stateless Streamable HTTP, and automatic negotiation that prefers MCP `2026-07-28` discovery while accepting stable `2025-11-25` initialization. The public proxy forwards the standardized `MCP-Protocol-Version`, `Mcp-Method`, `Mcp-Name`, and `Mcp-Param-*` headers. Mounted URLs are published to runtime configuration only after every private sub-host is listening.
+All three mounted services use the stable C# MCP SDK `2.2.0` and one stateless Streamable HTTP transport. Each route carries its logical server identity as endpoint metadata. The SDK's request-local `ConfigureSessionOptions` hook sets the exact server name/version and replaces the request's tool collection with only tools marked for that route; missing or unknown metadata fails closed. Because the options are request-local, concurrent discovery cannot leak one route's catalog into another.
 
 The default placeholders in `appsettings.json` intentionally use port `0`:
     
@@ -73,9 +67,7 @@ The default placeholders in `appsettings.json` intentionally use port `0`:
 }
 ```
 
-At startup, the server replaces port `0` with the actual bound local address and republishes those URLs through the runtime MCP configuration store.
-
-In other words, runtime consumers should treat the mounted MCP endpoints as part of the **same public server** as the Blazor UI and Minimal APIs, even though the current implementation uses private loopback helper listeners internally.
+After startup, the server replaces port `0` with the actual bound local address and republishes those URLs through the runtime MCP configuration store before running the existing Agent user-configuration bootstrap. Runtime consumers therefore use the same listener as the Blazor UI and Minimal APIs.
 
 `GnOuGo.Agent.Server` also uses the mounted `GnOuGo.Agent.Mcp` endpoint as the persistence API for local user defaults:
 

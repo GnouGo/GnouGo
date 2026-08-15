@@ -1,6 +1,6 @@
 # GnOuGo.Mcp.Core
 
-GnOuGo-owned MCP servers use stable `ModelContextProtocol` `2.0.0` and leave protocol selection unpinned. The SDK prefers discovery-first `2026-07-28` (`GnOuGoMcpProtocol.PreferredRevision`) and accepts stable `2025-11-25` initialization as a compatibility fallback. `RequiredRevision` remains an obsolete source-compatible alias for the preferred revision.
+GnOuGo-owned MCP servers use stable `ModelContextProtocol` `2.2.0` and leave protocol selection unpinned. The SDK prefers discovery-first `2026-07-28` (`GnOuGoMcpProtocol.PreferredRevision`) and accepts stable `2025-11-25` initialization as a compatibility fallback. `RequiredRevision` remains an obsolete source-compatible alias for the preferred revision.
 
 Shared helpers for GnOuGo MCP servers.
 
@@ -19,7 +19,22 @@ consuming MCP tools must still validate paths and policies at execution time.
 
 ## MCP protocol compatibility
 
-The library targets the stable C# MCP SDK `2.0.0` and is shared by both MCP `2026-07-28` servers and down-level connections negotiated by the SDK. It does not add Tasks, MCP Apps, Roots, Sampling, or MCP Logging dependencies.
+The library targets the stable C# MCP SDK `2.2.0` and is shared by both MCP `2026-07-28` servers and down-level connections negotiated by the SDK. It does not add Tasks, MCP Apps, Roots, Sampling, or MCP Logging dependencies.
+
+## Composed HTTP tool groups
+
+`McpServerToolGroupAttribute` is an AOT-safe class-level marker for hosts that compose several independently packaged tool sets into one stateless HTTP transport. Each MCP package marks its tool classes with its logical server name. A composing host can read that metadata in the SDK's request-local `ConfigureSessionOptions` callback and replace `McpServerOptions.ToolCollection` with the matching group.
+
+```csharp
+[McpServerToolType]
+[McpServerToolGroup("GnOuGo.Example.Mcp")]
+public sealed class ExampleTools
+{
+    // MCP tools
+}
+```
+
+The marker only declares group membership. Route mapping, exact server identity, and fail-closed selection remain the composing host's responsibility.
 
 ## Build
 

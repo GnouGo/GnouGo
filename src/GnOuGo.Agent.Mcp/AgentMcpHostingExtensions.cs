@@ -81,8 +81,6 @@ public static class AgentMcpHostingExtensions
     {
         ArgumentNullException.ThrowIfNull(services);
 
-        services.AddTransient<DataTools>();
-        services.AddTransient<AgentTools>();
         services
             .AddMcpServer(options =>
             {
@@ -94,10 +92,21 @@ public static class AgentMcpHostingExtensions
                 options.AddGnOuGoToolErrorNormalizer();
             })
             .WithHttpTransport(options => options.Stateless = true)
-            .WithTools<DataTools>(AgentMcpJson.SerializerOptions)
-            .WithTools<AgentTools>(AgentMcpJson.SerializerOptions);
+            .WithAgentMcpTools();
 
         return services;
+    }
+
+    public static IMcpServerBuilder WithAgentMcpTools(this IMcpServerBuilder builder)
+    {
+        ArgumentNullException.ThrowIfNull(builder);
+
+        builder.Services.AddTransient<DataTools>();
+        builder.Services.AddTransient<AgentTools>();
+
+        return builder
+            .WithTools<DataTools>(AgentMcpJson.SerializerOptions)
+            .WithTools<AgentTools>(AgentMcpJson.SerializerOptions);
     }
 
     [UnconditionalSuppressMessage("AOT", "IL3050",
