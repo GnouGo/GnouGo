@@ -2,6 +2,10 @@
 
 All notable changes to this project are documented in this file.
 
+## v0.18.2 - 2026-08-15
+
+- fix: mcp same ports (#90) (release) (15430cc)
+
 ## v0.18.1 - 2026-08-14
 
 - refactor(all): update donet lib (release) (#88) (1fbf44a)
@@ -256,9 +260,6 @@ All notable changes to this project are documented in this file.
 ## v0.2.0 - 2026-04-30
 
 - feat(agent): add embedding (#21) (release) (89310e1)
-
-## v0.1.2 - 2026-04-26
-
 - Feat(agent): merge continue (#20) (release) (73e9a4f)
 - fea: continu to merge (#19) (release) (5e32f36)
 - feat(otel): add otel exe to github release (#18) (701b1e2)
