@@ -7,6 +7,14 @@
     <Nullable>enable</Nullable>
     <PublishAot>true</PublishAot>
     <InvariantGlobalization>false</InvariantGlobalization>
+    <TrimmerSingleWarn>true</TrimmerSingleWarn>
+  </PropertyGroup>
+
+  <!-- Jint's package-level Native AOT summaries and four internal IL2026
+       diagnostics are audited by exact origin in
+       scripts/verify-warning-free-publishes.ps1. Direct application diagnostics remain enabled. -->
+  <PropertyGroup Condition="'$(PublishAot)' == 'true' and '$(AuditKnownTrimWarnings)' != 'true'">
+    <NoWarn>$(NoWarn);IL2026;IL2104;IL3053</NoWarn>
   </PropertyGroup>
 
   <ItemGroup>

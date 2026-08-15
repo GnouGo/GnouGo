@@ -17,7 +17,7 @@ Use English only.
 ## Technology Stack
 
 - **Runtime**: .NET 10 (`global.json` pins SDK `10.0.300`, `rollForward: latestFeature`)
-- **Persistence**: Entity Framework Core + SQLite (HTTP MCP and Server components); plain `Microsoft.Data.Sqlite` in Native AOT contexts
+- **Persistence**: Entity Framework Core + SQLite is mandatory for HTTP MCP and Server components that already own EF-backed persistence; plain `Microsoft.Data.Sqlite` is reserved for components explicitly designed around an owner-scoped raw persistence implementation
 - **Frontend**: Vite + pnpm (workspace managed via `pnpm-workspace.yaml`); built into `wwwroot/ui/`
 - **Python libraries**: located under `librairies/python/` (note the non-standard spelling) and `clients/python/`
 - **MCP SDK**: `ModelContextProtocol` NuGet package; shared helpers in `GnOuGo.Mcp.Core`
@@ -83,7 +83,9 @@ scripts/                           # build, publish, and metadata-update scripts
   - one test project per library,
   - no mandatory dependency on other libraries for testing.
 - **Workspace convention**: default working directory is `Desktop/GnOuGo`; databases under `.GnOuGo/data/`. Always use `GnOuGoWorkspace` helpers (`src/GnOuGo.Workspace`) for path resolution — never hard-code paths.
-- **AOT constraints**: in Native AOT executables, avoid EF Core. Raw `Microsoft.Data.Sqlite` is allowed only inside the component that owns the persistence implementation (for example `GnOuGo.KeyVault.Core`); configuration consumers must still use that component's public abstractions. Prefer source-generated `System.Text.Json` contexts.
+- **EF Core persistence is an important architectural requirement**: HTTP MCP and Server components that currently own EF Core persistence must continue using EF Core and SQLite. Do not replace EF Core with raw `Microsoft.Data.Sqlite` merely to remove compiler, trimming, single-file, or Native AOT warnings. AOT-exposed EF Core components must use compiled models and precompiled queries where applicable, narrowly documented suppressions for verified framework limitations, and published-binary persistence smoke tests.
+- **AOT constraints**: raw `Microsoft.Data.Sqlite` is allowed only inside components already explicitly designed to own raw persistence (for example, the KeyVault Native AOT record-store implementation); it is not an authorized substitute for an existing EF Core implementation. Configuration consumers must still use the owning component's public abstractions. Prefer source-generated `System.Text.Json` contexts.
+- **Warning-free builds**: do not leave warnings in solution builds, invoked frontend builds, trimmed publishes, or Native AOT publishes. Fix source or contract root causes and do not blanket-disable analyzers. Any unavoidable third-party or framework trim/AOT exception must be publish-local, documented with the exact dependency and reason, and covered by a published-binary smoke test.
 
 ---
 

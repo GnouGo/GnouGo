@@ -6,14 +6,16 @@ namespace GnOuGo.Diff.Core.Data;
 
 public class DiffDbContext : DbContext
 {
-    [UnconditionalSuppressMessage("AOT", "IL3050", Justification = "DiffDbContext is configured with the generated compiled model DiffDbContextModel for NativeAOT consumers.")]
-    [UnconditionalSuppressMessage("Trimming", "IL2026", Justification = "DiffDbContext is configured with the generated compiled model DiffDbContextModel for trimmed consumers.")]
+    [UnconditionalSuppressMessage("Trimming", "IL2026:RequiresUnreferencedCode", Justification = "Diff persistence deliberately uses EF Core with DiffDbContextModel and is exercised by the Document MCP publish path.")]
+    [UnconditionalSuppressMessage("AOT", "IL3050:RequiresDynamicCode", Justification = "Diff persistence deliberately uses EF Core with DiffDbContextModel and is exercised by the Document MCP Native AOT publish path.")]
     public DiffDbContext(DbContextOptions<DiffDbContext> options) : base(options)
     {
     }
 
     public DbSet<DiffEntry> DiffEntries => Set<DiffEntry>();
 
+    [UnconditionalSuppressMessage("AOT", "IL3050:RequiresDynamicCode", Justification = "DiffDbContext is configured with the generated compiled model DiffDbContextModel for Native AOT consumers.")]
+    [UnconditionalSuppressMessage("Trimming", "IL2026:RequiresUnreferencedCode", Justification = "DiffDbContext is configured with the generated compiled model DiffDbContextModel for trimmed consumers.")]
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         modelBuilder.Entity<DiffEntry>(entity =>

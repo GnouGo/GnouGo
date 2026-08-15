@@ -12,15 +12,23 @@ public sealed class KeyVaultDbContext : DbContext
     public DbSet<AuditEntry> AuditEntries => Set<AuditEntry>();
 
     [UnconditionalSuppressMessage(
-        "AOT",
-        "IL2026",
-        Justification = "KeyVault SQLite access is a shared optional service. The final Native AOT executable is published and smoke-tested to validate this EF Core usage.")]
+        "Trimming",
+        "IL2026:RequiresUnreferencedCode",
+        Justification = "Hosted KeyVault persistence intentionally retains this EF Core SQLite context and covers it through repository and published-host tests.")]
     [UnconditionalSuppressMessage(
         "AOT",
-        "IL3050",
-        Justification = "KeyVault SQLite access is a shared optional service. The final Native AOT executable is published and smoke-tested to validate this EF Core usage.")]
+        "IL3050:RequiresDynamicCode",
+        Justification = "Native AOT consumers use KeyVault's owner-scoped record-store abstraction; this EF Core context is activated only by managed hosts.")]
     public KeyVaultDbContext(DbContextOptions<KeyVaultDbContext> options) : base(options) { }
 
+    [UnconditionalSuppressMessage(
+        "Trimming",
+        "IL2026:RequiresUnreferencedCode",
+        Justification = "Hosted KeyVault components deliberately retain EF Core under partial trimming and cover the complete model through persistence tests.")]
+    [UnconditionalSuppressMessage(
+        "AOT",
+        "IL3050:RequiresDynamicCode",
+        Justification = "Native AOT consumers use KeyVault's existing owner-scoped record-store abstraction; the hosted EF model is not activated in those executables.")]
     protected override void OnModelCreating(ModelBuilder m)
     {
         // ── Tenant ───────────────────────────────────────────────────

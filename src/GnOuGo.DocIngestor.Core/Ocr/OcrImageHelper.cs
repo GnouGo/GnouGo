@@ -19,7 +19,9 @@ internal static class OcrImageHelper
     /// </summary>
     internal static byte[] ResizeIfNeeded(byte[] imageBytes, int maxDimension = DefaultMaxDimension)
     {
-        if (imageBytes is null || imageBytes.Length == 0)
+        ArgumentNullException.ThrowIfNull(imageBytes);
+
+        if (imageBytes.Length == 0)
             return imageBytes;
 
         SKBitmap? original;

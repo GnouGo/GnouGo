@@ -4,6 +4,7 @@ using DocIngestor.Core.Models;
 
 namespace DocIngestor.Core.Metadata;
 
+/// <summary>Creates and enriches the standard metadata attached to extracted documents.</summary>
 public static class MetadataDefaults
 {
     /// <summary>

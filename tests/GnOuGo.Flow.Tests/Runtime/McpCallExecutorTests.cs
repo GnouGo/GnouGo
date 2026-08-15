@@ -18,9 +18,20 @@ public class McpCallExecutorTests
         return new WorkflowCompiler().Compile(doc);
     }
 
-    private static async Task<RunResult> RunMain(string yaml, JsonObject? inputs = null,
+    private static Task<RunResult> RunMain(string yaml, JsonObject? inputs = null,
         IMcpClientFactory? mcpFactory = null, ILLMClient? llm = null, IWorkflowTelemetry? telemetry = null,
-        ExecutionLimits? limits = null, IMemoryCache? mcpCache = null, CancellationToken cancellationToken = default)
+        ExecutionLimits? limits = null, IMemoryCache? mcpCache = null)
+        => RunMainCore(TestContext.Current.CancellationToken, yaml, inputs, mcpFactory, llm, telemetry, limits, mcpCache);
+
+    private static async Task<RunResult> RunMainCore(
+        CancellationToken cancellationToken,
+        string yaml,
+        JsonObject? inputs = null,
+        IMcpClientFactory? mcpFactory = null,
+        ILLMClient? llm = null,
+        IWorkflowTelemetry? telemetry = null,
+        ExecutionLimits? limits = null,
+        IMemoryCache? mcpCache = null)
     {
         var compiled = CompileDoc(yaml);
         var wf = compiled.Workflows[compiled.Entrypoint!];
@@ -1238,7 +1249,7 @@ workflows:
             .ReturnsAsync(mockSession.Object);
         using var cancellation = new CancellationTokenSource(TimeSpan.FromMilliseconds(30));
 
-        var result = await RunMain("""
+        var result = await RunMainCore(cancellation.Token, """
 version: 1
 workflows:
   main:
@@ -1249,7 +1260,7 @@ workflows:
           server: slow
           method: wait
           timeout_ms: 60000
-""", mcpFactory: mockFactory.Object, cancellationToken: cancellation.Token);
+""", mcpFactory: mockFactory.Object);
 
         Assert.False(result.Success);
         Assert.Equal("CANCELLED", result.Error?.Code);
@@ -2413,12 +2424,11 @@ workflows:
 """, mcpFactory: mockFactory.Object);
 
         Assert.True(result.Success);
-        var stepOut = result.StepResults[0].Output as JsonObject;
+        var stepOut = Assert.IsType<JsonObject>(result.StepResults[0].Output);
         // Even with one method, batch mode returns results array
-        Assert.NotNull(stepOut!["results"]);
-        var results = stepOut["results"] as JsonArray;
-        Assert.Single(results!);
-        Assert.Equal("ping", results[0]!["method"]!.GetValue<string>());
+        var results = Assert.IsType<JsonArray>(stepOut["results"]);
+        var firstResult = Assert.IsType<JsonObject>(Assert.Single(results));
+        Assert.Equal("ping", firstResult["method"]!.GetValue<string>());
     }
 
     [Fact]
@@ -2781,17 +2791,17 @@ workflows:
         Assert.Equal("ok", toolResult.Outputs["prompts_status"]!.GetValue<string>());
 
         // Verify tools results
-        var toolsOut = toolResult.StepResults[0].Output as JsonObject;
-        var toolsResults = toolsOut!["results"] as JsonArray;
-        Assert.Equal(2, toolsResults!.Count);
-        Assert.Equal("get_weather", toolsResults[0]!["method"]!.GetValue<string>());
-        Assert.Equal("search", toolsResults[1]!["method"]!.GetValue<string>());
+        var toolsOut = Assert.IsType<JsonObject>(toolResult.StepResults[0].Output);
+        var toolsResults = Assert.IsType<JsonArray>(toolsOut["results"]);
+        Assert.Equal(2, toolsResults.Count);
+        Assert.Equal("get_weather", Assert.IsType<JsonObject>(toolsResults[0])["method"]!.GetValue<string>());
+        Assert.Equal("search", Assert.IsType<JsonObject>(toolsResults[1])["method"]!.GetValue<string>());
 
         // Verify prompts results
-        var promptsOut = toolResult.StepResults[1].Output as JsonObject;
-        var promptsResults = promptsOut!["results"] as JsonArray;
-        Assert.Single(promptsResults!);
-        Assert.Equal("summarize", promptsResults[0]!["method"]!.GetValue<string>());
+        var promptsOut = Assert.IsType<JsonObject>(toolResult.StepResults[1].Output);
+        var promptsResults = Assert.IsType<JsonArray>(promptsOut["results"]);
+        var promptResult = Assert.IsType<JsonObject>(Assert.Single(promptsResults));
+        Assert.Equal("summarize", promptResult["method"]!.GetValue<string>());
     }
 
     private sealed class LiveDiscoveryMcpSession(IReadOnlyList<McpToolInfo> tools)

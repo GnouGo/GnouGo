@@ -8,9 +8,12 @@ using DocIngestor.Core.Telemetry;
 
 namespace DocIngestor.Core.Embeddings;
 
+/// <summary>Generates embeddings through an OpenAI-compatible HTTP endpoint.</summary>
 public sealed class OpenAiCompatibleEmbeddingModel : IEmbeddingModel
 {
+    /// <inheritdoc />
     public string Name { get; }
+    /// <inheritdoc />
     public int Dimensions => _dims > 0 ? _dims : _defaultDims;
 
     private readonly HttpClient _http;
@@ -21,6 +24,14 @@ public sealed class OpenAiCompatibleEmbeddingModel : IEmbeddingModel
     private int _dims;
     private readonly GenAiTelemetry? _telemetry;
 
+    /// <summary>Initializes an OpenAI-compatible embedding client.</summary>
+    /// <param name="name">Stable router name.</param>
+    /// <param name="endpointUrl">Embedding endpoint URL of the compatible API.</param>
+    /// <param name="model">Remote embedding model name.</param>
+    /// <param name="apiKeyProvider">Provider for the API credential.</param>
+    /// <param name="http">HTTP client used for requests.</param>
+    /// <param name="defaultDims">Vector size used until the service reports one.</param>
+    /// <param name="telemetry">Optional telemetry recorder.</param>
     public OpenAiCompatibleEmbeddingModel(
         string name,
         string endpointUrl,
@@ -39,6 +50,7 @@ public sealed class OpenAiCompatibleEmbeddingModel : IEmbeddingModel
         _telemetry = telemetry;
     }
 
+    /// <inheritdoc />
     public async ValueTask<float[]> EmbedAsync(string text, CancellationToken ct = default)
     {
         if (string.IsNullOrWhiteSpace(_endpointUrl))
@@ -116,6 +128,7 @@ public sealed class OpenAiCompatibleEmbeddingModel : IEmbeddingModel
     /// </summary>
     private const int MaxBatchSize = 2048;
 
+    /// <inheritdoc />
     public async ValueTask<IReadOnlyList<float[]>> EmbedBatchAsync(IReadOnlyList<string> texts, CancellationToken ct = default)
     {
         if (texts.Count == 0) return Array.Empty<float[]>();

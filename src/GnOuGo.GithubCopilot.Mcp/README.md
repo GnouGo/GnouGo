@@ -139,7 +139,7 @@ dotnet test "C:\github\GnouGo\tests\GnOuGo.GithubCopilot.Core.Tests\GnOuGo.Githu
 
 ## Native AOT publish
 
-The project is configured for Native AOT and trimming analysis. `IL2026`, `IL3050`, `IL3053`, and `IL3055` are treated as build errors. Publish a self-contained native binary for a runtime identifier with:
+The project is configured for Native AOT and trimming analysis. Source-level `IL2026`, `IL3050`, and `IL3055` diagnostics are treated as build errors. The tool consumes the EF Core-backed KeyVault boundary, so normal publishes suppress only the pinned EF package summaries `IL2104` and `IL3053`; `verify-warning-free-publishes.ps1 -AuditKnownTrimWarnings` re-enables them and verifies their exact origins.
 
 ```powershell
 dotnet publish "C:\github\GnouGo\src\GnOuGo.GithubCopilot.Mcp\GnOuGo.GithubCopilot.Mcp.csproj" -c Release -r win-x64 --self-contained true -p:PublishAot=true -p:PublishTrimmed=true -p:InvariantGlobalization=false -p:SkipModelMetadataGeneration=true

@@ -199,11 +199,11 @@ runCommand.SetAction(async (ParseResult parseResult, CancellationToken cancellat
                 : new InMemoryMcpClientFactory();
         }
 
-        var otelEndpoint = appConfig?.GetValue<string>("OpenTelemetry:OtlpEndpoint");
-        var otelEnabled = appConfig?.GetValue<bool>("OpenTelemetry:Enabled") ?? false;
-        var otelServiceName = appConfig?.GetValue<string>("OpenTelemetry:ServiceName") ?? "GnOuGo.Flow.Cli";
-        var otelProtocolStr = appConfig?.GetValue<string>("OpenTelemetry:Protocol") ?? "HttpProtobuf";
-        var otelTenantId = appConfig?.GetValue<string>("OpenTelemetry:TenantId");
+        var otelEndpoint = appConfig?["OpenTelemetry:OtlpEndpoint"];
+        var otelEnabled = bool.TryParse(appConfig?["OpenTelemetry:Enabled"], out var configuredOtelEnabled) && configuredOtelEnabled;
+        var otelServiceName = appConfig?["OpenTelemetry:ServiceName"] ?? "GnOuGo.Flow.Cli";
+        var otelProtocolStr = appConfig?["OpenTelemetry:Protocol"] ?? "HttpProtobuf";
+        var otelTenantId = appConfig?["OpenTelemetry:TenantId"];
 
         var otelProtocol = otelProtocolStr.Equals("Grpc", StringComparison.OrdinalIgnoreCase)
             ? OtlpExportProtocol.Grpc

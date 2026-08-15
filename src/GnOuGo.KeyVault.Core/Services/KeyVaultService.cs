@@ -171,7 +171,7 @@ public sealed class KeyVaultService
 
     public async Task<List<AuditEntryDto>> GetAuditLogAsync(Guid? tenantId, string? secretKey, int skip, int take, CancellationToken ct = default)
     {
-        var query = _db.AuditEntries.AsNoTracking().AsQueryable();
+        var query = _db.AuditEntries.AsNoTracking();
 
         if (tenantId.HasValue)
             query = query.Where(a => a.TenantId == tenantId.Value);

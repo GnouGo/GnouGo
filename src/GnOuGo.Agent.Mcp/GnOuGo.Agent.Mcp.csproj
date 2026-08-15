@@ -13,12 +13,19 @@
     <EnableConfigurationBindingGenerator>true</EnableConfigurationBindingGenerator>
     <JsonSerializerIsReflectionEnabledByDefault>false</JsonSerializerIsReflectionEnabledByDefault>
     <TrimMode>partial</TrimMode>
+    <TrimmerSingleWarn>true</TrimmerSingleWarn>
   </PropertyGroup>
 
   <PropertyGroup Condition="'$(Configuration)' == 'Release'">
     <PublishAot>false</PublishAot>
     <PublishTrimmed>true</PublishTrimmed>
     <ILLinkTreatWarningsAsErrors>false</ILLinkTreatWarningsAsErrors>
+  </PropertyGroup>
+
+  <!-- ASP.NET Core and EF Core are intentionally retained under partial trimming.
+       AuditKnownTrimWarnings re-enables linker output for fingerprint verification. -->
+  <PropertyGroup Condition="'$(PublishTrimmed)' == 'true' and '$(PublishAot)' != 'true' and '$(AuditKnownTrimWarnings)' != 'true'">
+    <SuppressTrimAnalysisWarnings>true</SuppressTrimAnalysisWarnings>
   </PropertyGroup>
 
   <ItemGroup>

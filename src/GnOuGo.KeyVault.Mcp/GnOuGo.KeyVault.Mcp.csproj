@@ -7,6 +7,13 @@
     <Nullable>enable</Nullable>
     <LangVersion>preview</LangVersion>
     <InvariantGlobalization>false</InvariantGlobalization>
+    <TrimmerSingleWarn>true</TrimmerSingleWarn>
+  </PropertyGroup>
+
+  <!-- KeyVault MCP deliberately uses EF Core SQLite in managed trimmed publishes.
+       AuditKnownTrimWarnings re-enables linker output for fingerprint verification. -->
+  <PropertyGroup Condition="'$(PublishTrimmed)' == 'true' and '$(PublishAot)' != 'true' and '$(AuditKnownTrimWarnings)' != 'true'">
+    <SuppressTrimAnalysisWarnings>true</SuppressTrimAnalysisWarnings>
   </PropertyGroup>
 
   <ItemGroup>

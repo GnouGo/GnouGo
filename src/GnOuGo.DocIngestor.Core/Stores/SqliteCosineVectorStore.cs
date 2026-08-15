@@ -12,10 +12,13 @@ namespace DocIngestor.Core.Stores;
 /// </summary>
 public sealed class SqliteCosineVectorStore : IVectorSearchStore, IVectorStoreAdmin
 {
+    /// <inheritdoc />
     public string Name => "sqlite";
 
     private readonly string _dbPath;
 
+    /// <summary>Initializes a SQLite vector store at the supplied database path.</summary>
+    /// <param name="dbPath">SQLite database file path.</param>
     public SqliteCosineVectorStore(string dbPath)
     {
         _dbPath = dbPath;
@@ -23,6 +26,7 @@ public sealed class SqliteCosineVectorStore : IVectorSearchStore, IVectorStoreAd
         Initialize();
     }
 
+    /// <inheritdoc />
     public async ValueTask UpsertAsync(string collection, IReadOnlyList<EmbeddedChunk> chunks, CancellationToken ct = default)
     {
         if (string.IsNullOrWhiteSpace(collection)) throw new ArgumentException("collection is required", nameof(collection));
@@ -79,6 +83,7 @@ public sealed class SqliteCosineVectorStore : IVectorSearchStore, IVectorStoreAd
         await tx.CommitAsync(ct);
     }
 
+    /// <inheritdoc />
     public async ValueTask<IReadOnlyList<VectorSearchResult>> SearchAsync(string collection, float[] queryVector, int topK = 10, CancellationToken ct = default)
     {
         if (string.IsNullOrWhiteSpace(collection)) throw new ArgumentException("collection is required", nameof(collection));

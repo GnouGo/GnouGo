@@ -13,11 +13,15 @@ public sealed class RecursiveChunker : IChunker
 {
     private readonly ITokenCounter _tokens;
 
+    /// <summary>Initializes a recursive chunker with the supplied token counter.</summary>
+    /// <param name="tokenCounter">Token counter used to enforce chunk sizes.</param>
     public RecursiveChunker(ITokenCounter tokenCounter)
         => _tokens = tokenCounter;
 
+    /// <inheritdoc />
     public ChunkingMode Mode => ChunkingMode.Recursive;
 
+    /// <inheritdoc />
     public ValueTask<IReadOnlyList<TextChunk>> ChunkAsync(ExtractedDocument doc, ChunkSizePolicy policy, CancellationToken ct = default)
     {
         var chunks = new List<TextChunk>();

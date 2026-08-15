@@ -8,6 +8,7 @@ namespace DocIngestor.Core.Ocr;
 /// </summary>
 public sealed class FakeOcrEngine : IOcrEngine
 {
+    /// <inheritdoc />
     public ValueTask<string> RecognizeAsync(byte[] imageBytes, OcrOptions options, CancellationToken ct = default)
         => ValueTask.FromResult(string.Empty);
 }

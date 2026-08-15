@@ -57,7 +57,9 @@ internal static class OfficeAssetFactory
             );
             slidePart.Slide.Save();
 
-            var slideIdList = presPart.Presentation.SlideIdList!;
+            var presentation = presPart.Presentation
+                ?? throw new InvalidOperationException("The test presentation part must contain a presentation.");
+            var slideIdList = presentation.SlideIdList ?? presentation.AppendChild(new P.SlideIdList());
             uint maxId = 256;
             if (slideIdList.ChildElements.Count > 0)
                 maxId = slideIdList.ChildElements.OfType<P.SlideId>().Max(s => s.Id!.Value) + 1;
@@ -89,15 +91,16 @@ internal static class OfficeAssetFactory
         using var doc = SpreadsheetDocument.Create(path, SpreadsheetDocumentType.Workbook);
 
         var wbPart = doc.AddWorkbookPart();
-        wbPart.Workbook = new Workbook();
+        var workbook = new Workbook();
+        wbPart.Workbook = workbook;
 
         var wsPart = wbPart.AddNewPart<WorksheetPart>();
         wsPart.Worksheet = new Worksheet(new SheetData());
 
-        var sheets = doc.WorkbookPart!.Workbook.AppendChild(new Sheets());
+        var sheets = workbook.AppendChild(new Sheets());
         var sheet = new Sheet()
         {
-            Id = doc.WorkbookPart.GetIdOfPart(wsPart),
+            Id = wbPart.GetIdOfPart(wsPart),
             SheetId = 1,
             Name = "Sheet1"
         };

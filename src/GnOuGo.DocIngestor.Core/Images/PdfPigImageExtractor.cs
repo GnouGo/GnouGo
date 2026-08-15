@@ -7,14 +7,17 @@ using UglyToad.PdfPig.Rendering.Skia;
 
 namespace DocIngestor.Core.Extractors;
 
+/// <summary>Extracts embedded PDF images and rendered-page fallbacks for OCR.</summary>
 public sealed class PdfPigImageExtractor : IImageExtractor
 {
     private const int RenderFallbackDpi = 200;
 
+    /// <inheritdoc />
     public bool CanHandle(string fileName, string? contentType = null)
         => fileName.EndsWith(".pdf", StringComparison.OrdinalIgnoreCase)
            || string.Equals(contentType, "application/pdf", StringComparison.OrdinalIgnoreCase);
 
+    /// <inheritdoc />
     public ValueTask<IReadOnlyList<ImageArtifact>> ExtractImagesAsync(DocumentSource source, ImageExtractionOptions options, CancellationToken ct = default)
     {
         return new ValueTask<IReadOnlyList<ImageArtifact>>(Task.Run(() =>
@@ -104,10 +107,10 @@ public sealed class PdfPigImageExtractor : IImageExtractor
                     {
                         ["page"] = page.Number.ToString(),
                         ["imageIndex"] = idx.ToString(),
-                        ["bounds.left"] = img.Bounds.Left.ToString(System.Globalization.CultureInfo.InvariantCulture),
-                        ["bounds.bottom"] = img.Bounds.Bottom.ToString(System.Globalization.CultureInfo.InvariantCulture),
-                        ["bounds.right"] = img.Bounds.Right.ToString(System.Globalization.CultureInfo.InvariantCulture),
-                        ["bounds.top"] = img.Bounds.Top.ToString(System.Globalization.CultureInfo.InvariantCulture),
+                        ["bounds.left"] = img.BoundingBox.Left.ToString(System.Globalization.CultureInfo.InvariantCulture),
+                        ["bounds.bottom"] = img.BoundingBox.Bottom.ToString(System.Globalization.CultureInfo.InvariantCulture),
+                        ["bounds.right"] = img.BoundingBox.Right.ToString(System.Globalization.CultureInfo.InvariantCulture),
+                        ["bounds.top"] = img.BoundingBox.Top.ToString(System.Globalization.CultureInfo.InvariantCulture),
                         ["widthInSamples"] = img.WidthInSamples.ToString(),
                         ["heightInSamples"] = img.HeightInSamples.ToString(),
                         ["source"] = "pdfpig"

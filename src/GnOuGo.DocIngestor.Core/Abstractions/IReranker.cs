@@ -31,7 +31,12 @@ public sealed record RerankerOptions(
 /// <summary>Routes to a named <see cref="IReranker"/> implementation.</summary>
 public interface IRerankerRouter
 {
+    /// <summary>Gets the reranker registered under <paramref name="name"/>.</summary>
+    /// <param name="name">Registered reranker name.</param>
+    /// <returns>The matching reranker.</returns>
     IReranker Get(string name);
+
+    /// <summary>Gets the available reranker names.</summary>
     IReadOnlyList<string> Available { get; }
 }
 

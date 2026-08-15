@@ -30,17 +30,16 @@ internal static class DiffQueries
                 db.DiffEntries.FirstOrDefault(e => e.Id == id));
 
     public static readonly Func<DiffDbContext, string, string, IAsyncEnumerable<DiffEntry>> GetRevisionsByEntity =
-        EF.CompileAsyncQuery(
+        EF.CompileAsyncQuery<DiffDbContext, string, string, DiffEntry>(
             (DiffDbContext db, string entityType, string entityId) =>
                 db.DiffEntries
                     .Where(e => e.EntityType == entityType && e.EntityId == entityId)
-                    .OrderByDescending(e => e.TimestampTicks)
-                    .AsQueryable());
+                    .OrderByDescending(e => e.TimestampTicks));
 
     public static readonly Func<DiffDbContext, string, IAsyncEnumerable<DiffEntry>> GetEntriesByType =
-        EF.CompileAsyncQuery(
+        EF.CompileAsyncQuery<DiffDbContext, string, DiffEntry>(
             (DiffDbContext db, string entityType) =>
-                db.DiffEntries.Where(e => e.EntityType == entityType).AsQueryable());
+                db.DiffEntries.Where(e => e.EntityType == entityType));
 }
 
 

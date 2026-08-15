@@ -7,13 +7,13 @@ using GnOuGo.KeyVault.Core.Services;
 
 var builder = WebApplication.CreateSlimBuilder(args);
 
-var dbRelativePath = builder.Configuration.GetValue<string>("KeyVault:DatabasePath")
+var dbRelativePath = builder.Configuration["KeyVault:DatabasePath"]
     ?? KeyVaultDatabasePathResolver.DefaultRelativePath;
 var dbPath = KeyVaultDatabasePathResolver.Resolve(dbRelativePath, AppContext.BaseDirectory);
 Directory.CreateDirectory(Path.GetDirectoryName(dbPath)!);
 
 builder.Services.AddDbContext<KeyVaultDbContext>(o =>
-    o.UseSqlite($"Data Source={dbPath}"));
+    o.UseKeyVaultSqlite($"Data Source={dbPath}"));
 builder.Services.AddScoped<KeyVaultService>();
 
 var app = builder.Build();

@@ -12,6 +12,7 @@
     <!-- Trimming-friendly defaults (no AOT — EF Core is not AOT-compatible). -->
     <PublishTrimmed>true</PublishTrimmed>
     <TrimMode>partial</TrimMode>
+    <TrimmerSingleWarn>true</TrimmerSingleWarn>
     <EnableTrimAnalyzer>true</EnableTrimAnalyzer>
     <EnableConfigurationBindingGenerator>true</EnableConfigurationBindingGenerator>
     <JsonSerializerIsReflectionEnabledByDefault>true</JsonSerializerIsReflectionEnabledByDefault>
@@ -33,6 +34,12 @@
   <PropertyGroup Condition="'$(Configuration)' == 'Release'">
     <DebugType>None</DebugType>
     <DebugSymbols>false</DebugSymbols>
+  </PropertyGroup>
+
+  <!-- ASP.NET Core, gRPC, and EF Core remain intentional partial-trim boundaries.
+       AuditKnownTrimWarnings re-enables linker output for fingerprint verification. -->
+  <PropertyGroup Condition="'$(PublishTrimmed)' == 'true' and '$(PublishAot)' != 'true' and '$(AuditKnownTrimWarnings)' != 'true'">
+    <SuppressTrimAnalysisWarnings>true</SuppressTrimAnalysisWarnings>
   </PropertyGroup>
 
   <!-- ═══════════════════════════════════════════════════════════════════════

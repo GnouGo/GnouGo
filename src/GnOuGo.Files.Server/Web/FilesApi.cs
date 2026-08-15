@@ -62,7 +62,7 @@ public static class FilesApi
             }
 
             var storage = context.RequestServices.GetRequiredService<FileStorageService>();
-            var record = await storage.GetAvailableFileAsync(id, context.RequestAborted);
+            var record = await storage.GetAvailableFileAsync(id, context.Request, context.RequestAborted);
             if (record is null)
             {
                 context.Response.StatusCode = StatusCodes.Status404NotFound;

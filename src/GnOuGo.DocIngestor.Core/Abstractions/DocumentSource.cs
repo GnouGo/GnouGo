@@ -25,6 +25,13 @@ public sealed class DocumentSource : IDisposable, IAsyncDisposable
 
     private readonly bool _ownsStream;
 
+    /// <summary>Initializes a logical document source over the supplied content stream.</summary>
+    /// <param name="content">Stream containing the document bytes.</param>
+    /// <param name="fileName">Logical file name used for routing and metadata.</param>
+    /// <param name="contentType">Optional MIME content type.</param>
+    /// <param name="length">Optional known content length.</param>
+    /// <param name="presetMetadata">Optional metadata supplied by the caller.</param>
+    /// <param name="ownsStream">Whether disposing this instance also disposes <paramref name="content"/>.</param>
     public DocumentSource(
         Stream content,
         string fileName,
@@ -79,12 +86,14 @@ public sealed class DocumentSource : IDisposable, IAsyncDisposable
         return Convert.ToHexString(hash).ToLowerInvariant();
     }
 
+    /// <inheritdoc />
     public void Dispose()
     {
         if (_ownsStream)
             Content.Dispose();
     }
 
+    /// <inheritdoc />
     public async ValueTask DisposeAsync()
     {
         if (_ownsStream)

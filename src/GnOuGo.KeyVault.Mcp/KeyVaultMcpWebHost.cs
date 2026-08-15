@@ -20,7 +20,7 @@ public static class KeyVaultMcpWebHost
         builder.Logging.AddConsole();
         builder.AddGnOuGoOpenTelemetry("GnOuGo.KeyVault.Mcp");
 
-        var dbRelativePath = builder.Configuration.GetValue<string>("KeyVault:DatabasePath")
+        var dbRelativePath = builder.Configuration["KeyVault:DatabasePath"]
             ?? KeyVaultDatabasePathResolver.DefaultRelativePath;
         var dbPath = KeyVaultDatabasePathResolver.Resolve(dbRelativePath, AppContext.BaseDirectory);
         Directory.CreateDirectory(Path.GetDirectoryName(dbPath)!);

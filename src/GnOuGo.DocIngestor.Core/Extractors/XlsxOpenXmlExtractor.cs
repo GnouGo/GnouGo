@@ -10,19 +10,24 @@ using Microsoft.Extensions.Logging.Abstractions;
 
 namespace DocIngestor.Core.Extractors;
 
+/// <summary>Extracts worksheet tables and metadata from Open XML workbooks.</summary>
 public sealed class XlsxOpenXmlExtractor : IDocumentTextExtractor
 {
     private readonly ILogger<XlsxOpenXmlExtractor> _logger;
 
+    /// <summary>Initializes the XLSX extractor.</summary>
+    /// <param name="logger">Optional diagnostic logger.</param>
     public XlsxOpenXmlExtractor(ILogger<XlsxOpenXmlExtractor>? logger = null)
     {
         _logger = logger ?? NullLogger<XlsxOpenXmlExtractor>.Instance;
     }
 
+    /// <inheritdoc />
     public bool CanHandle(string fileName, string? contentType = null)
         => fileName.EndsWith(".xlsx", StringComparison.OrdinalIgnoreCase)
            || string.Equals(contentType, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", StringComparison.OrdinalIgnoreCase);
 
+    /// <inheritdoc />
     public ValueTask<ExtractedDocument> ExtractAsync(DocumentSource source, CancellationToken ct = default)
     {
         return new ValueTask<ExtractedDocument>(Task.Run(() =>
@@ -58,7 +63,15 @@ public sealed class XlsxOpenXmlExtractor : IDocumentTextExtractor
             
 foreach (var sheet in sheets)
 {
-    var worksheetPart = (WorksheetPart?)wbPart.GetPartById(sheet.Id!);
+    var relationshipId = sheet.Id?.Value;
+    if (string.IsNullOrWhiteSpace(relationshipId) ||
+        wbPart is null ||
+        !wbPart.TryGetPartById(relationshipId, out var part) ||
+        part is not WorksheetPart worksheetPart)
+    {
+        continue;
+    }
+
     var sheetData = worksheetPart?.Worksheet?.Elements<SheetData>().FirstOrDefault();
     if (sheetData is null) continue;
 

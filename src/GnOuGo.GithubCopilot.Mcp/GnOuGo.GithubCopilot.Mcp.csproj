@@ -11,10 +11,17 @@
     <PublishTrimmed>true</PublishTrimmed>
     <IsAotCompatible>true</IsAotCompatible>
     <JsonSerializerIsReflectionEnabledByDefault>false</JsonSerializerIsReflectionEnabledByDefault>
-    <WarningsAsErrors>$(WarningsAsErrors);IL2026;IL3050;IL3053;IL3055</WarningsAsErrors>
+    <WarningsAsErrors>$(WarningsAsErrors);IL2026;IL3050;IL3055</WarningsAsErrors>
     <NoWarn>$(NoWarn);GHCP001</NoWarn>
     <!-- Pin the GA CLI runtime explicitly so Native AOT publication is deterministic. -->
     <CopilotCliVersion>1.0.52</CopilotCliVersion>
+  </PropertyGroup>
+
+  <!-- This Native AOT tool intentionally consumes the EF Core-backed KeyVault
+       boundary. Only pinned package summaries are hidden in normal publish;
+       audit mode re-enables them and verifies their exact origins. -->
+  <PropertyGroup Condition="'$(PublishAot)' == 'true' and '$(AuditKnownTrimWarnings)' != 'true'">
+    <NoWarn>$(NoWarn);IL2104;IL3053</NoWarn>
   </PropertyGroup>
 
   <ItemGroup>

@@ -15,15 +15,19 @@ public sealed class XlsxImageExtractor : IImageExtractor
 {
     private readonly ILogger<XlsxImageExtractor> _logger;
 
+    /// <summary>Initializes the XLSX image extractor.</summary>
+    /// <param name="logger">Optional diagnostic logger.</param>
     public XlsxImageExtractor(ILogger<XlsxImageExtractor>? logger = null)
     {
         _logger = logger ?? NullLogger<XlsxImageExtractor>.Instance;
     }
 
+    /// <inheritdoc />
     public bool CanHandle(string fileName, string? contentType = null)
         => fileName.EndsWith(".xlsx", StringComparison.OrdinalIgnoreCase)
            || string.Equals(contentType, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", StringComparison.OrdinalIgnoreCase);
 
+    /// <inheritdoc />
     public ValueTask<IReadOnlyList<ImageArtifact>> ExtractImagesAsync(DocumentSource source, ImageExtractionOptions options, CancellationToken ct = default)
     {
         if (!options.EnableImageDiscovery)

@@ -11,19 +11,24 @@ using P = DocumentFormat.OpenXml.Presentation;
 
 namespace DocIngestor.Core.Extractors;
 
+/// <summary>Extracts slide text and metadata from Open XML presentations.</summary>
 public sealed class PptxOpenXmlExtractor : IDocumentTextExtractor
 {
     private readonly ILogger<PptxOpenXmlExtractor> _logger;
 
+    /// <summary>Initializes the PPTX extractor.</summary>
+    /// <param name="logger">Optional diagnostic logger.</param>
     public PptxOpenXmlExtractor(ILogger<PptxOpenXmlExtractor>? logger = null)
     {
         _logger = logger ?? NullLogger<PptxOpenXmlExtractor>.Instance;
     }
 
+    /// <inheritdoc />
     public bool CanHandle(string fileName, string? contentType = null)
         => fileName.EndsWith(".pptx", StringComparison.OrdinalIgnoreCase)
            || string.Equals(contentType, "application/vnd.openxmlformats-officedocument.presentationml.presentation", StringComparison.OrdinalIgnoreCase);
 
+    /// <inheritdoc />
     public ValueTask<ExtractedDocument> ExtractAsync(DocumentSource source, CancellationToken ct = default)
     {
         return new ValueTask<ExtractedDocument>(Task.Run(() =>
@@ -54,10 +59,16 @@ public sealed class PptxOpenXmlExtractor : IDocumentTextExtractor
 
             foreach (var slideId in slideIds)
             {
-                var relId = slideId.RelationshipId;
-                if (relId is null) continue;
+                var relId = slideId.RelationshipId?.Value;
+                if (string.IsNullOrWhiteSpace(relId) ||
+                    presPart is null ||
+                    !presPart.TryGetPartById(relId, out var part) ||
+                    part is not SlidePart slidePart ||
+                    slidePart.Slide is null)
+                {
+                    continue;
+                }
 
-                var slidePart = (SlidePart)presPart!.GetPartById(relId);
                 var lines = new List<string>();
 
 // Prefer paragraph-level concatenation so we don't glue words across runs

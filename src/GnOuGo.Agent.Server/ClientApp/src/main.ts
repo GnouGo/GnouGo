@@ -1,6 +1,5 @@
 import 'github-markdown-css/github-markdown.css';
 import './styles/app.scss';
-import mermaid from 'mermaid';
 import {
   GnouGnouWorkflowAnimationController,
   type WorkflowAnimationPrepared,
@@ -47,37 +46,45 @@ window.addEventListener('unhandledrejection', (event) => {
   console.error('[GnOuGo.Agent] window.unhandledrejection', event.reason);
 });
 
-mermaid.initialize({
-  startOnLoad: false,
-  securityLevel: 'strict',
-  theme: 'base',
-  flowchart: {
-    htmlLabels: false,
-  },
-  themeVariables: {
-    background: '#ffffff',
-    mainBkg: '#f8fafc',
-    nodeBkg: '#f8fafc',
-    primaryColor: '#e0f2fe',
-    primaryTextColor: '#0f172a',
-    primaryBorderColor: '#0284c7',
-    secondaryColor: '#ecfdf5',
-    secondaryTextColor: '#064e3b',
-    secondaryBorderColor: '#16a34a',
-    tertiaryColor: '#fff7ed',
-    tertiaryTextColor: '#7c2d12',
-    tertiaryBorderColor: '#f97316',
-    lineColor: '#334155',
-    defaultLinkColor: '#334155',
-    arrowheadColor: '#334155',
-    textColor: '#0f172a',
-    nodeTextColor: '#0f172a',
-    edgeLabelBackground: '#ffffff',
-    clusterBkg: '#f8fafc',
-    clusterBorder: '#cbd5e1',
-    fontFamily: 'Inter, Segoe UI, Arial, sans-serif',
-  },
-});
+let mermaidPromise: Promise<(typeof import('mermaid'))['default']> | undefined;
+
+function loadMermaid() {
+  mermaidPromise ??= import('mermaid').then(({ default: mermaid }) => {
+    mermaid.initialize({
+      startOnLoad: false,
+      securityLevel: 'strict',
+      theme: 'base',
+      flowchart: {
+        htmlLabels: false,
+      },
+      themeVariables: {
+        background: '#ffffff',
+        mainBkg: '#f8fafc',
+        nodeBkg: '#f8fafc',
+        primaryColor: '#e0f2fe',
+        primaryTextColor: '#0f172a',
+        primaryBorderColor: '#0284c7',
+        secondaryColor: '#ecfdf5',
+        secondaryTextColor: '#064e3b',
+        secondaryBorderColor: '#16a34a',
+        tertiaryColor: '#fff7ed',
+        tertiaryTextColor: '#7c2d12',
+        tertiaryBorderColor: '#f97316',
+        lineColor: '#334155',
+        defaultLinkColor: '#334155',
+        arrowheadColor: '#334155',
+        textColor: '#0f172a',
+        nodeTextColor: '#0f172a',
+        edgeLabelBackground: '#ffffff',
+        clusterBkg: '#f8fafc',
+        clusterBorder: '#cbd5e1',
+        fontFamily: 'Inter, Segoe UI, Arial, sans-serif',
+      },
+    });
+    return mermaid;
+  });
+  return mermaidPromise;
+}
 
 const el = (id: string) => document.getElementById(id);
 let mermaidRenderIndex = 0;
@@ -141,6 +148,7 @@ async function renderMermaid(id: string) {
   }
 
   if (nodes.length) {
+    const mermaid = await loadMermaid();
     let rendered = 0;
     for (const node of nodes) {
       const source = (node.dataset.mermaidSource || node.textContent || '').trim();

@@ -1,3 +1,4 @@
+using System.Diagnostics.CodeAnalysis;
 using System.Text.Json.Nodes;
 using Jint;
 using Jint.Native;
@@ -109,9 +110,16 @@ public sealed class ExpressionEvaluator
         }
     }
 
+    [UnconditionalSuppressMessage(
+        "Trimming",
+        "IL2026:RequiresUnreferencedCode",
+        Justification = "Jint receives a statically declared dispatcher delegate and every callable target remains directly referenced; Native AOT smoke tests execute this path.")]
+    [UnconditionalSuppressMessage(
+        "Trimming",
+        "IL2111:DynamicallyAccessedMembers",
+        Justification = "Jint delegate reflection is restricted to the preserved Func<string, string, string> dispatcher signature.")]
     private void RegisterFunctions(Engine engine)
     {
-#pragma warning disable IL2026, IL2111 // Jint delegate interop
         engine.SetValue("__dispatch", new Func<string, string, string>((name, argsJson) =>
         {
             if (!_functions.TryGetValue(name, out var func))
@@ -124,7 +132,6 @@ public sealed class ExpressionEvaluator
             var result = func(jsonArgs);
             return result?.ToJsonString() ?? "null";
         }));
-#pragma warning restore IL2026, IL2111
 
         foreach (var funcName in _functions.Keys)
         {

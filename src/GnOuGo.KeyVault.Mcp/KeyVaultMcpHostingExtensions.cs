@@ -22,7 +22,7 @@ public static class KeyVaultMcpHostingExtensions
         ArgumentNullException.ThrowIfNull(services);
         ArgumentException.ThrowIfNullOrWhiteSpace(databasePath);
 
-        services.AddDbContext<KeyVaultDbContext>(o => o.UseSqlite($"Data Source={databasePath}"));
+        services.AddDbContext<KeyVaultDbContext>(o => o.UseKeyVaultSqlite($"Data Source={databasePath}"));
         services.AddScoped<KeyVaultService>();
         return services;
     }

@@ -23,6 +23,12 @@ public sealed class SemanticChunker : IChunker
     /// <summary>Maximum texts per single EmbedBatchAsync call (matches OpenAI limit).</summary>
     private const int MaxTextsPerBatch = 2048;
 
+    /// <summary>Initializes a semantic chunker and its embedding dependency.</summary>
+    /// <param name="tokenCounter">Token counter used to enforce chunk sizes.</param>
+    /// <param name="embeddingRouter">Router used to resolve the embedding model.</param>
+    /// <param name="embeddingModelName">Embedding model used to compare adjacent text.</param>
+    /// <param name="similarityThreshold">Similarity below which a semantic boundary is created.</param>
+    /// <param name="telemetry">Optional telemetry recorder.</param>
     public SemanticChunker(
         ITokenCounter tokenCounter,
         IEmbeddingRouter embeddingRouter,
@@ -39,8 +45,10 @@ public sealed class SemanticChunker : IChunker
         _ = telemetry;
     }
 
+    /// <inheritdoc />
     public ChunkingMode Mode => ChunkingMode.Semantic;
 
+    /// <inheritdoc />
     public async ValueTask<IReadOnlyList<TextChunk>> ChunkAsync(ExtractedDocument doc, ChunkSizePolicy policy, CancellationToken ct = default)
     {
         var model = _router.Get(_modelName);

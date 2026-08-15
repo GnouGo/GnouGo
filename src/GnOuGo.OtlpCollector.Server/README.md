@@ -131,6 +131,8 @@ dotnet publish src/GnOuGo.OtlpCollector.Server/GnOuGo.OtlpCollector.Server.cspro
 
 The Windows publish output must contain `GnOuGo.OtlpCollector.Server.exe`; Unix-like RIDs publish `GnOuGo.OtlpCollector.Server`.
 
+OTLP metadata remains EF Core + SQLite backed. Its hosted, partially trimmed publish profile scopes unavoidable ASP.NET Core/EF Core linker diagnostics to the publish boundary; it does not disable compile-time trim analysis or authorize a raw-SQL persistence rewrite. Use `pwsh scripts/verify-warning-free-publishes.ps1 -RuntimeIdentifier win-x64` for warning-free publish verification and add `-AuditKnownTrimWarnings` to re-enable and fingerprint the known framework diagnostics.
+
 Example macOS arm64 publish:
 
 ```powershell

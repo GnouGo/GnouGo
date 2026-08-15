@@ -2,6 +2,7 @@ using DocIngestor.Core.Models;
 
 namespace DocIngestor.Core.Abstractions;
 
+/// <summary>Extracts normalized text and structure from a supported document format.</summary>
 public interface IDocumentTextExtractor
 {
     /// <summary>Returns true when this extractor supports the given file name (and optional content type).</summary>

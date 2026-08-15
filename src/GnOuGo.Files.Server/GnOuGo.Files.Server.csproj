@@ -3,11 +3,16 @@
     <TargetFramework>net10.0</TargetFramework>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
-    <LangVersion>preview</LangVersion>
+    <!-- EF Core 10 precompiled queries emit the C# 13 interceptor-location contract. -->
+    <LangVersion>13.0</LangVersion>
     <IsAotCompatible>true</IsAotCompatible>
     <TrimMode>partial</TrimMode>
     <InvariantGlobalization>true</InvariantGlobalization>
     <JsonSerializerIsReflectionEnabledByDefault>false</JsonSerializerIsReflectionEnabledByDefault>
+    <InterceptorsNamespaces>$(InterceptorsNamespaces);Microsoft.EntityFrameworkCore.GeneratedInterceptors</InterceptorsNamespaces>
+    <EFScaffoldModelStage>disabled</EFScaffoldModelStage>
+    <EFPrecompileQueriesStage>publish</EFPrecompileQueriesStage>
+    <TrimmerSingleWarn>true</TrimmerSingleWarn>
     <StaticWebAssetBasePath>_gnougo-files-server</StaticWebAssetBasePath>
     <ClientAppDir>ClientApp</ClientAppDir>
     <PnpmCommand Condition="'$(OS)' == 'Windows_NT'">corepack.cmd pnpm</PnpmCommand>
@@ -19,11 +24,22 @@
     <PublishTrimmed>true</PublishTrimmed>
   </PropertyGroup>
 
+  <!-- EF Core persistence is mandatory for Files Server. These package/compiler
+       summaries are audited separately and the published Native AOT binary executes
+       schema creation and CRUD against SQLite. Source-level AOT analyzers stay enabled. -->
+  <PropertyGroup Condition="'$(PublishAot)' == 'true' and '$(AuditKnownTrimWarnings)' != 'true'">
+    <NoWarn>$(NoWarn);IL2104;IL3053;IL3002;CS8669;CS9270</NoWarn>
+  </PropertyGroup>
+
   <ItemGroup>
     <PackageReference Include="Microsoft.Data.Sqlite" Version="10.0.11" />
     <PackageReference Include="SQLitePCLRaw.bundle_e_sqlite3" Version="3.0.5" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.Sqlite" Version="10.0.11" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="10.0.11">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    </PackageReference>
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Tasks" Version="10.0.11">
       <PrivateAssets>all</PrivateAssets>
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
     </PackageReference>
