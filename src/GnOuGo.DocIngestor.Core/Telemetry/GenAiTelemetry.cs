@@ -20,6 +20,7 @@ public sealed class GenAiTelemetry : IDisposable
     private readonly Counter<long> _requestCounter;
     private readonly Counter<double> _costCounter;
 
+    /// <summary>Initializes instruments for document-ingestion generative AI operations.</summary>
     public GenAiTelemetry()
     {
         // gen_ai.client.token.usage (nombre de tokens)
@@ -310,12 +311,18 @@ public sealed class GenAiTelemetry : IDisposable
         }
     }
 
+    /// <inheritdoc />
     public void Dispose()
     {
         // Les ActivitySource et Meter sont statiques, pas besoin de dispose
     }
 
+    /// <summary>Gets the shared ingestion activity source.</summary>
+    /// <returns>The activity source.</returns>
     public static ActivitySource GetActivitySource() => ActivitySource;
+
+    /// <summary>Gets the shared ingestion metrics meter.</summary>
+    /// <returns>The meter.</returns>
     public static Meter GetMeter() => Meter;
 }
 

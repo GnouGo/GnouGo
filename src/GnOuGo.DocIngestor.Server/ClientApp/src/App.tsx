@@ -1,6 +1,10 @@
-import { useState, useEffect } from 'react';
+import { lazy, Suspense, useState, useEffect } from 'react';
 import { IngestPage } from './pages/IngestPage';
-import { SearchPage } from './pages/SearchPage';
+
+const SearchPage = lazy(async () => {
+  const module = await import('./pages/SearchPage');
+  return { default: module.SearchPage };
+});
 
 type Page = 'ingest' | 'search';
 
@@ -26,7 +30,11 @@ export function App() {
         <a className={`nav__link ${page === 'search' ? 'nav__link--active' : ''}`} href="#search">Search</a>
       </nav>
       <main className="main">
-        {page === 'search' ? <SearchPage /> : <IngestPage />}
+        {page === 'search' ? (
+          <Suspense fallback={<section className="search"><p>Loading search…</p></section>}>
+            <SearchPage />
+          </Suspense>
+        ) : <IngestPage />}
       </main>
     </>
   );

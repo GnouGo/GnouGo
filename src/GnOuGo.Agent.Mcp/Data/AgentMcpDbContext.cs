@@ -10,14 +10,22 @@ namespace GnOuGo.Agent.Mcp.Data;
 /// </summary>
 public sealed class AgentMcpDbContext : DbContext
 {
-    [UnconditionalSuppressMessage("AOT", "IL2026",
-        Justification = "Agent MCP uses EF Core with SQLite. TrimMode=partial preserves EF Core assemblies.")]
-    [UnconditionalSuppressMessage("AOT", "IL3050",
-        Justification = "Agent MCP uses EF Core with SQLite. TrimMode=partial preserves EF Core assemblies.")]
+    [UnconditionalSuppressMessage(
+        "Trimming",
+        "IL2026:RequiresUnreferencedCode",
+        Justification = "Agent MCP intentionally retains its EF Core SQLite context in the managed partial-trim profile and verifies it through repository and published-host tests.")]
     public AgentMcpDbContext(DbContextOptions<AgentMcpDbContext> options) : base(options) { }
 
     public DbSet<UserConfigRecord> UserConfigs => Set<UserConfigRecord>();
 
+    [UnconditionalSuppressMessage(
+        "Trimming",
+        "IL2026:RequiresUnreferencedCode",
+        Justification = "Agent MCP deliberately retains EF Core under partial trimming; its model and persistence paths are covered by published-host smoke tests.")]
+    [UnconditionalSuppressMessage(
+        "AOT",
+        "IL3050:RequiresDynamicCode",
+        Justification = "Agent MCP is not a Native AOT target; this annotation documents the EF model boundary for transitive analyzer consumers.")]
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
 

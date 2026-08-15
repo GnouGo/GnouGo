@@ -12,6 +12,7 @@
   <!-- Keep Debug fast & friendly; enable trimming in Release/publish only. -->
   <PropertyGroup Condition="'$(Configuration)' == 'Release'">
     <PublishTrimmed>true</PublishTrimmed>
+    <TrimmerSingleWarn>true</TrimmerSingleWarn>
 
     <!-- PublishTrimmed disables reflection-based System.Text.Json by default.
          Blazor SSR/interactive endpoints still rely on internal JSON serialization, so keep it enabled. -->
@@ -19,6 +20,12 @@
 
     <TrimMode>partial</TrimMode>
     <InvariantGlobalization>true</InvariantGlobalization>
+  </PropertyGroup>
+
+  <!-- Interactive Server Blazor, MVC, and EF Core are intentional partial-trim
+       boundaries. AuditKnownTrimWarnings re-enables linker output for verification. -->
+  <PropertyGroup Condition="'$(PublishTrimmed)' == 'true' and '$(PublishAot)' != 'true' and '$(AuditKnownTrimWarnings)' != 'true'">
+    <SuppressTrimAnalysisWarnings>true</SuppressTrimAnalysisWarnings>
   </PropertyGroup>
 
   <ItemGroup>

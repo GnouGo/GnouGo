@@ -344,7 +344,14 @@ The linux-x64 CI and Docker paths publish `GnOuGo.Agent.Server` as a trimmed sel
 - `/p:PublishTrimmed=true`
 - `/p:PublishSingleFile=true`
 
-The server uses Entity Framework Core for all persistence (Agent, KeyVault, OTLP Collector, Diff, Files). Blazor Interactive Server components are fully included.
+The server uses Entity Framework Core for all persistence (Agent, KeyVault, OTLP Collector, Diff, Files). That EF Core + SQLite boundary is mandatory: publish-warning work must retain the existing contexts, repositories, schemas, tenant behavior, and compiled models where the component has one. Blazor Interactive Server components are fully included. Verified framework-only trim diagnostics are isolated to these publish profiles; compile-time trim analysis stays enabled.
+
+Run the repository publish verification for the current platform, or audit the exact package/framework warning boundaries with their normal suppressions disabled:
+
+```powershell
+pwsh scripts/verify-warning-free-publishes.ps1 -RuntimeIdentifier win-x64
+pwsh scripts/verify-warning-free-publishes.ps1 -RuntimeIdentifier win-x64 -AuditKnownTrimWarnings
+```
 
 The Docker image is built from `mcr.microsoft.com/dotnet/aspnet:10.0` and starts the executable directly:
 

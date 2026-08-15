@@ -338,10 +338,10 @@ workflows:
 
         // object output with properties and required
         Assert.Equal("object", outputs["details"].Type);
-        Assert.NotNull(outputs["details"].Properties);
-        Assert.Equal(2, outputs["details"].Properties!.Count);
-        Assert.Equal("string", outputs["details"].Properties["name"].Type);
-        Assert.Equal("number", outputs["details"].Properties["score"].Type);
+        var properties = Assert.IsAssignableFrom<IReadOnlyDictionary<string, OutputDef>>(outputs["details"].Properties);
+        Assert.Equal(2, properties.Count);
+        Assert.Equal("string", properties["name"].Type);
+        Assert.Equal("number", properties["score"].Type);
         Assert.NotNull(outputs["details"].RequiredProperties);
         Assert.Contains("name", outputs["details"].RequiredProperties!);
     }

@@ -20,6 +20,7 @@ internal readonly record struct ResolvedPipelineServices(
     IEmbeddingModel? EmbeddingModel,
     IVectorStore? VectorStore);
 
+/// <summary>Coordinates extraction, OCR, chunking, embedding, and optional vector persistence.</summary>
 public sealed class DocumentIngestionPipeline
 {
     private readonly DocumentRouter _router;
@@ -29,6 +30,13 @@ public sealed class DocumentIngestionPipeline
     private readonly IOcrEngine? _ocrEngine;
     private readonly GenAiTelemetry? _telemetry;
 
+    /// <summary>Initializes the ingestion pipeline and its independently routed services.</summary>
+    /// <param name="router">Document and image extractor router.</param>
+    /// <param name="tokenCounter">Token counter used by chunkers.</param>
+    /// <param name="embeddingRouter">Embedding model router.</param>
+    /// <param name="storeRouter">Vector store router.</param>
+    /// <param name="ocrEngine">Optional OCR engine.</param>
+    /// <param name="telemetry">Optional telemetry recorder.</param>
     public DocumentIngestionPipeline(
         DocumentRouter router,
         ITokenCounter tokenCounter,
@@ -249,7 +257,10 @@ public sealed class DocumentIngestionPipeline
         if (images.Count > 0)
         {
             var updatedImages = new List<ImageArtifact>(images.Count);
-            var byPage = images.GroupBy(i => i.PageNumber).ToDictionary(g => g.Key, g => g.ToList());
+            var byPage = images
+                .Where(i => i.PageNumber.HasValue)
+                .GroupBy(i => i.PageNumber!.Value)
+                .ToDictionary(g => g.Key, g => g.ToList());
             var newSections = new List<ExtractedSection>(doc.Sections.Count);
 
             foreach (var s in doc.Sections)

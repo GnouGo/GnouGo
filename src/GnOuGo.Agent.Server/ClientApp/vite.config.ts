@@ -11,7 +11,10 @@ export default defineConfig({
     emptyOutDir: true,
     sourcemap: false,
     cssCodeSplit: false,
-    rollupOptions: {
+    // Mermaid's optional architecture grammar is a single upstream module and
+    // cannot be split further. It is loaded only when a diagram is rendered.
+    chunkSizeWarningLimit: 700,
+    rolldownOptions: {
       input: path.resolve(import.meta.dirname, 'src/main.ts'),
       output: {
         entryFileNames: 'app.js',

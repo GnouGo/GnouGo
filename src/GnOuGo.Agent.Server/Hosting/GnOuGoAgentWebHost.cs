@@ -5,6 +5,7 @@ using Microsoft.AspNetCore.Server.Kestrel.Core;
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
+using System.Diagnostics.CodeAnalysis;
 using System.Net;
 using GnOuGo.Agent.Mcp;
 using GnOuGo.Agent.Mcp.Services;
@@ -185,7 +186,8 @@ public static class GnOuGoAgentWebHost
         var otelSettings = builder.Configuration
             .GetSection(OpenTelemetrySettings.SectionName)
             .Get<OpenTelemetrySettings>() ?? new OpenTelemetrySettings();
-        var devModeEnabled = builder.Configuration.GetValue<bool>("DevMode:Enabled");
+        var devModeEnabled = bool.TryParse(builder.Configuration["DevMode:Enabled"], out var configuredDevMode)
+            && configuredDevMode;
 
         if (otelSettings.Enabled)
         {
@@ -290,10 +292,10 @@ public static class GnOuGoAgentWebHost
         builder.Services.AddOtlpCollectorCore(builder.Configuration);
         builder.Services.AddGnOuGoFilesServer(builder.Configuration);
 
-        var agentDbRelativePath = builder.Configuration.GetValue<string>("Agent:DatabasePath")
+        var agentDbRelativePath = builder.Configuration["Agent:DatabasePath"]
             ?? AgentMcpHostingExtensions.DefaultDatabasePath;
         var agentDbPath = AgentMcpHostingExtensions.ResolveDatabasePath(agentDbRelativePath, applicationBasePath);
-        var keyVaultDbRelativePath = builder.Configuration.GetValue<string>("KeyVault:DatabasePath")
+        var keyVaultDbRelativePath = builder.Configuration["KeyVault:DatabasePath"]
             ?? ".GnOuGo/data/gnougo-keyvault.db";
         var keyVaultDbPath = KeyVaultDatabasePathResolver.Resolve(keyVaultDbRelativePath, applicationBasePath);
         Directory.CreateDirectory(Path.GetDirectoryName(agentDbPath)!);
@@ -401,12 +403,7 @@ public static class GnOuGoAgentWebHost
         builder.Services.AddSingleton<SmartFlowService>();
         builder.Services.AddSingleton<TraceDebugService>();
 
-        builder.Services.AddRazorComponents()
-            .AddInteractiveServerComponents(options =>
-            {
-                options.DisconnectedCircuitRetentionPeriod = TimeSpan.FromHours(12);
-                options.DisconnectedCircuitMaxRetained = 256;
-            });
+        AddAgentRazorComponents(builder.Services);
 
         builder.Services.AddSingleton<WordChunker>();
 
@@ -606,6 +603,20 @@ public static class GnOuGoAgentWebHost
     }
 
     // ── Dotnet resolution helpers ─────────────────────────────────────────────
+
+    [UnconditionalSuppressMessage(
+        "Trimming",
+        "IL2026:RequiresUnreferencedCode",
+        Justification = "Interactive Server Blazor is intentionally retained in partial-trim publishes and its health, static assets, and negotiate endpoint are verified from the published application.")]
+    private static void AddAgentRazorComponents(IServiceCollection services)
+    {
+        services.AddRazorComponents()
+            .AddInteractiveServerComponents(options =>
+            {
+                options.DisconnectedCircuitRetentionPeriod = TimeSpan.FromHours(12);
+                options.DisconnectedCircuitMaxRetained = 256;
+            });
+    }
 
     /// <summary>
     /// Returns the full path to the dotnet executable that is running this process.

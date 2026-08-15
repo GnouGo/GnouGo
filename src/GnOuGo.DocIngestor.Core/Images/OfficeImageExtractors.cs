@@ -13,19 +13,24 @@ using Microsoft.Extensions.Logging.Abstractions;
 
 namespace DocIngestor.Core.Images;
 
+/// <summary>Discovers images referenced by PowerPoint slides, layouts, masters, and notes.</summary>
 public sealed class PptxImageExtractor : IImageExtractor
 {
     private readonly ILogger<PptxImageExtractor> _logger;
 
+    /// <summary>Initializes the PPTX image extractor.</summary>
+    /// <param name="logger">Optional diagnostic logger.</param>
     public PptxImageExtractor(ILogger<PptxImageExtractor>? logger = null)
     {
         _logger = logger ?? NullLogger<PptxImageExtractor>.Instance;
     }
 
+    /// <inheritdoc />
     public bool CanHandle(string fileName, string? contentType = null)
         => fileName.EndsWith(".pptx", StringComparison.OrdinalIgnoreCase)
            || string.Equals(contentType, "application/vnd.openxmlformats-officedocument.presentationml.presentation", StringComparison.OrdinalIgnoreCase);
 
+    /// <inheritdoc />
     public ValueTask<IReadOnlyList<ImageArtifact>> ExtractImagesAsync(
         DocumentSource source,
         ImageExtractionOptions options,
@@ -57,14 +62,19 @@ public sealed class PptxImageExtractor : IImageExtractor
             {
                 ct.ThrowIfCancellationRequested();
 
-                var relId = slideId.RelationshipId;
+                var relId = slideId.RelationshipId?.Value;
                 if (string.IsNullOrWhiteSpace(relId))
                 {
                     slideNo++;
                     continue;
                 }
 
-                var slidePart = (SlidePart)presPart.GetPartById(relId);
+                if (!presPart.TryGetPartById(relId, out var part) || part is not SlidePart slidePart)
+                {
+                    slideNo++;
+                    continue;
+                }
+
                 string sectionId = $"pptx:{slideNo}";
 
                 // IMPORTANT:
@@ -171,19 +181,24 @@ public sealed class PptxImageExtractor : IImageExtractor
     }
 }
 
+/// <summary>Discovers images referenced by Word document bodies, headers, footers, and notes.</summary>
 public sealed class DocxImageExtractor : IImageExtractor
 {
     private readonly ILogger<DocxImageExtractor> _logger;
 
+    /// <summary>Initializes the DOCX image extractor.</summary>
+    /// <param name="logger">Optional diagnostic logger.</param>
     public DocxImageExtractor(ILogger<DocxImageExtractor>? logger = null)
     {
         _logger = logger ?? NullLogger<DocxImageExtractor>.Instance;
     }
 
+    /// <inheritdoc />
     public bool CanHandle(string fileName, string? contentType = null)
         => fileName.EndsWith(".docx", StringComparison.OrdinalIgnoreCase)
            || string.Equals(contentType, "application/vnd.openxmlformats-officedocument.wordprocessingml.document", StringComparison.OrdinalIgnoreCase);
 
+    /// <inheritdoc />
     public ValueTask<IReadOnlyList<ImageArtifact>> ExtractImagesAsync(
         DocumentSource source,
         ImageExtractionOptions options,

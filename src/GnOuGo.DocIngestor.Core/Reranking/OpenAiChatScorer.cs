@@ -13,6 +13,7 @@ namespace DocIngestor.Core.Reranking;
 /// </summary>
 public sealed class OpenAiChatScorer : IChatScorer
 {
+    /// <inheritdoc />
     public string Name => "openai";
 
     private readonly HttpClient _http;
@@ -21,6 +22,12 @@ public sealed class OpenAiChatScorer : IChatScorer
     private readonly string _model;
     private readonly GenAiTelemetry? _telemetry;
 
+    /// <summary>Initializes an OpenAI-compatible passage relevance scorer.</summary>
+    /// <param name="endpointUrl">Compatible chat-completions endpoint URL.</param>
+    /// <param name="model">Chat model name.</param>
+    /// <param name="apiKeyProvider">Provider for the API credential.</param>
+    /// <param name="http">HTTP client used for requests.</param>
+    /// <param name="telemetry">Optional telemetry recorder.</param>
     public OpenAiChatScorer(
         string endpointUrl,
         string model,
@@ -35,6 +42,7 @@ public sealed class OpenAiChatScorer : IChatScorer
         _telemetry = telemetry;
     }
 
+    /// <inheritdoc />
     public async Task<double> ScoreAsync(string query, string passage, CancellationToken ct = default)
     {
         var url = OpenAiEndpoints.ChatCompletions(_endpointUrl);

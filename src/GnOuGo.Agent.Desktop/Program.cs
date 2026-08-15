@@ -13,7 +13,7 @@ using Microsoft.Extensions.Logging;
 using Photino.NET;
 using GnOuGo.Agent.Server.Hosting;
 
-internal static class Program
+internal static class DesktopProgram
 {
     private const string RequestedServerUrl = "http://127.0.0.1:58443";
     private static readonly string DiagnosticsDir = Path.Combine(
@@ -710,7 +710,7 @@ internal static class Program
             if (exception is not null)
                 message = string.IsNullOrWhiteSpace(message) ? exception.ToString() : $"{message} {exception}";
 
-            Program.Log($"[{logLevel}] GnOuGo.Agent.Desktop: {message}");
+            DesktopProgram.Log($"[{logLevel}] GnOuGo.Agent.Desktop: {message}");
         }
     }
 

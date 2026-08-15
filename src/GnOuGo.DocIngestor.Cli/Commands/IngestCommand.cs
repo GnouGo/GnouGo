@@ -39,9 +39,7 @@ public static class IngestCommand
 
         try
         {
-            Directory.CreateDirectory(options.Store.StoreName == "sqlite" 
-                ? Path.GetDirectoryName(Path.Combine(config.DocIngestor.Store.StoreDirectory, "vectors.sqlite"))! 
-                : config.DocIngestor.Store.StoreDirectory);
+            Directory.CreateDirectory(config.DocIngestor.Store.StoreDirectory);
 
             // Récupérer le pipeline depuis le ServiceProvider
             var pipeline = serviceProvider.GetRequiredService<DocumentIngestionPipeline>();

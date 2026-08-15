@@ -11,8 +11,18 @@ This server uses the stable C# MCP SDK `2.2.0` with automatic protocol negotiati
 This component is independently publishable, testable, and deployable per `AGENTS.md` rules.
 It can run as a standalone HTTP MCP host or be mounted by any compatible ASP.NET Core host.
 Persistence is handled by `KeyVaultService` from `GnOuGo.KeyVault.Core` using Entity Framework Core
-(`KeyVaultDbContext`) with `AsNoTracking` optimizations for read queries.
+(`KeyVaultDbContext`) with `AsNoTracking` optimizations for read queries. Trimmed hosts register the
+committed `KeyVaultDbContextModel` compiled model; EF Core and SQLite are mandatory and must not be
+replaced with raw SQL to avoid publish diagnostics.
 `WithKeyVaultMcpTools()` is the reusable `IMcpServerBuilder` extension used by standalone and composed hosts; it registers the KeyVault tool class and source-generated JSON metadata without creating a transport or listener.
+
+Regenerate the compiled model whenever `KeyVaultDbContext.OnModelCreating` or a persisted entity changes:
+
+```powershell
+dotnet ef dbcontext optimize --project src/GnOuGo.KeyVault.Core/GnOuGo.KeyVault.Core.csproj --startup-project src/GnOuGo.KeyVault.Core/GnOuGo.KeyVault.Core.csproj --context GnOuGo.KeyVault.Core.Data.KeyVaultDbContext --output-dir Data/CompiledModels --namespace GnOuGo.KeyVault.Core.Data.CompiledModels
+```
+
+The startup bootstrap carries DDL generated from that same EF model because the EF relational table creator requires a design-time model that trimmed hosts do not retain. This is schema creation only: secret, tenant, version, and audit persistence remains EF Core-backed, and the DDL must stay schema-compatible with the compiled model.
 
 ## Hosted tools
 

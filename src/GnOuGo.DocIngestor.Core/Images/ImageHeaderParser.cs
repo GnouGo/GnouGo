@@ -1,7 +1,12 @@
 namespace DocIngestor.Core.Images;
 
+/// <summary>Reads common image dimensions directly from encoded headers.</summary>
 public static class ImageHeaderParser
 {
+    /// <summary>Attempts to determine encoded image dimensions without fully decoding the image.</summary>
+    /// <param name="contentType">Image MIME type.</param>
+    /// <param name="bytes">Encoded image bytes.</param>
+    /// <returns>The discovered width and height, or null values when unavailable.</returns>
     public static (int? width, int? height) TryGetSize(string contentType, ReadOnlySpan<byte> bytes)
     {
         if (bytes.Length < 10) return (null, null);

@@ -12,19 +12,24 @@ using Microsoft.Extensions.Logging.Abstractions;
 
 namespace DocIngestor.Core.Extractors;
 
+/// <summary>Extracts page text, layout markers, and metadata from PDF documents.</summary>
 public sealed class PdfPigExtractor : IDocumentTextExtractor
 {
     private readonly ILogger<PdfPigExtractor> _logger;
 
+    /// <summary>Initializes the PDF extractor.</summary>
+    /// <param name="logger">Optional diagnostic logger.</param>
     public PdfPigExtractor(ILogger<PdfPigExtractor>? logger = null)
     {
         _logger = logger ?? NullLogger<PdfPigExtractor>.Instance;
     }
 
+    /// <inheritdoc />
     public bool CanHandle(string fileName, string? contentType = null)
         => fileName.EndsWith(".pdf", StringComparison.OrdinalIgnoreCase)
            || string.Equals(contentType, "application/pdf", StringComparison.OrdinalIgnoreCase);
 
+    /// <inheritdoc />
     public ValueTask<ExtractedDocument> ExtractAsync(DocumentSource source, CancellationToken ct = default)
     {
         // PdfPig is synchronous; run in Task.Run so API callers are not blocked.
@@ -180,7 +185,7 @@ public sealed class PdfPigExtractor : IDocumentTextExtractor
         foreach (var img in page.GetImages())
         {
             imgIdx++;
-            var y = img.Bounds.Top;
+            var y = img.BoundingBox.Top;
             blocks.Add((y, $"[[PDF_IMAGE id=pdf:{page.Number}:img:{imgIdx}]]"));
         }
 

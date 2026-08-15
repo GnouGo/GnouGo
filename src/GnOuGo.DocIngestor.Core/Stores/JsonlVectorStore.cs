@@ -12,16 +12,20 @@ namespace DocIngestor.Core.Stores;
 /// </summary>
 public sealed class JsonlVectorStore : IVectorStore
 {
+    /// <inheritdoc />
     public string Name => "jsonl";
 
     private readonly string _directory;
 
+    /// <summary>Initializes a JSON Lines vector store rooted at a directory.</summary>
+    /// <param name="directory">Directory containing collection files.</param>
     public JsonlVectorStore(string directory)
     {
         _directory = directory;
         Directory.CreateDirectory(_directory);
     }
 
+    /// <inheritdoc />
     public async ValueTask UpsertAsync(string collection, IReadOnlyList<EmbeddedChunk> chunks, CancellationToken ct = default)
     {
         if (string.IsNullOrWhiteSpace(collection)) throw new ArgumentException("collection is required", nameof(collection));

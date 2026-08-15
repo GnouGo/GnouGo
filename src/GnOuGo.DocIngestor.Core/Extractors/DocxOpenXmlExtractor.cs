@@ -10,19 +10,24 @@ using Microsoft.Extensions.Logging.Abstractions;
 
 namespace DocIngestor.Core.Extractors;
 
+/// <summary>Extracts paragraphs and metadata from Open XML Word documents.</summary>
 public sealed class DocxOpenXmlExtractor : IDocumentTextExtractor
 {
     private readonly ILogger<DocxOpenXmlExtractor> _logger;
 
+    /// <summary>Initializes the DOCX extractor.</summary>
+    /// <param name="logger">Optional diagnostic logger.</param>
     public DocxOpenXmlExtractor(ILogger<DocxOpenXmlExtractor>? logger = null)
     {
         _logger = logger ?? NullLogger<DocxOpenXmlExtractor>.Instance;
     }
 
+    /// <inheritdoc />
     public bool CanHandle(string fileName, string? contentType = null)
         => fileName.EndsWith(".docx", StringComparison.OrdinalIgnoreCase)
            || string.Equals(contentType, "application/vnd.openxmlformats-officedocument.wordprocessingml.document", StringComparison.OrdinalIgnoreCase);
 
+    /// <inheritdoc />
     public ValueTask<ExtractedDocument> ExtractAsync(DocumentSource source, CancellationToken ct = default)
     {
         return new ValueTask<ExtractedDocument>(Task.Run(() =>

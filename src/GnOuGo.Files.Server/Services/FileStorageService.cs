@@ -82,10 +82,10 @@ public sealed class FileStorageService
         }
     }
 
-    public async Task<FileRecord?> GetAvailableFileAsync(string id, CancellationToken cancellationToken)
+    public async Task<FileRecord?> GetAvailableFileAsync(string id, HttpRequest request, CancellationToken cancellationToken)
     {
         var now = DateTimeOffset.UtcNow;
-        var record = await _metadata.GetAsync(id, cancellationToken);
+        var record = await _metadata.GetAsync(id, ResolveTenantId(request), cancellationToken);
         if (record is null)
             return null;
 
@@ -98,7 +98,7 @@ public sealed class FileStorageService
     public async Task<FileListResponse> ListAvailableAsync(HttpRequest request, CancellationToken cancellationToken)
     {
         var now = DateTimeOffset.UtcNow;
-        var records = await _metadata.ListAsync(cancellationToken);
+        var records = await _metadata.ListAsync(ResolveTenantId(request), cancellationToken);
 
         var files = records
             .Where(file => file.ExpiresUtc > now && File.Exists(file.StoredPath))

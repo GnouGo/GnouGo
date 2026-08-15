@@ -1,3 +1,4 @@
+using System.Diagnostics.CodeAnalysis;
 using System.Text.Json.Nodes;
 using Jint;
 using Jint.Native;
@@ -117,6 +118,14 @@ public sealed class JintSandbox
         }
     }
 
+    [UnconditionalSuppressMessage(
+        "Trimming",
+        "IL2026:RequiresUnreferencedCode",
+        Justification = "Jint receives a statically declared Func<string, string, string>; Native AOT smoke tests execute this dispatcher and all target methods are statically referenced.")]
+    [UnconditionalSuppressMessage(
+        "Trimming",
+        "IL2111:DynamicallyAccessedMembers",
+        Justification = "Jint delegate reflection is limited to the concrete dispatcher signature, which is preserved and exercised by the Native AOT Flow smoke test.")]
     private Engine CreateEngine(JsonNode? dataContext)
     {
         var engine = new Engine(options =>
@@ -137,7 +146,6 @@ public sealed class JintSandbox
 
         // Register built-in functions via a dispatcher + JS wrappers
         // This avoids Jint delegate signature issues
-#pragma warning disable IL2026, IL2111 // Jint delegate interop
         engine.SetValue("__dispatch", new Func<string, string, string>((name, argsJson) =>
         {
             if (!BuiltInFunctions.All.TryGetValue(name, out var func))
@@ -150,7 +158,6 @@ public sealed class JintSandbox
             var result = func(jsonArgs);
             return result?.ToJsonString() ?? "null";
         }));
-#pragma warning restore IL2026, IL2111
 
         // Define each built-in as a JS function that marshals through JSON
         foreach (var funcName in BuiltInFunctions.All.Keys)

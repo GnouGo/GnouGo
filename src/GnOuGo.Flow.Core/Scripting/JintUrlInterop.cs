@@ -1,3 +1,4 @@
+using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
 using System.Text.Json.Nodes;
 using Jint;
@@ -41,11 +42,17 @@ internal static class JintUrlInterop
         })(globalThis);
         """;
 
+    [UnconditionalSuppressMessage(
+        "Trimming",
+        "IL2026:RequiresUnreferencedCode",
+        Justification = "Jint receives the statically referenced ParseUrl delegate, whose concrete signature is exercised by Native AOT Flow tests.")]
+    [UnconditionalSuppressMessage(
+        "Trimming",
+        "IL2111:DynamicallyAccessedMembers",
+        Justification = "Jint delegate reflection is limited to the preserved Func<string, string, string> ParseUrl target.")]
     public static void Install(Engine engine)
     {
-#pragma warning disable IL2026, IL2111 // Jint delegate interop
         engine.SetValue(ParseUrlFunctionName, new Func<string, string, string>(ParseUrl));
-#pragma warning restore IL2026, IL2111
         engine.Execute(UrlPolyfillScript);
     }
 

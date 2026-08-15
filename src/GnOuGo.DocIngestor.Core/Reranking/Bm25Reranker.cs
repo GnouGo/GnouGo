@@ -9,6 +9,7 @@ namespace DocIngestor.Core.Reranking;
 /// </summary>
 public sealed class Bm25Reranker : IReranker
 {
+    /// <inheritdoc />
     public string Name => "bm25";
 
     /// <summary>BM25 term-frequency saturation parameter (typically 1.2–2.0).</summary>
@@ -17,12 +18,16 @@ public sealed class Bm25Reranker : IReranker
     /// <summary>BM25 length-normalization parameter (typically 0.75).</summary>
     private readonly double _b;
 
+    /// <summary>Initializes the BM25 reranker.</summary>
+    /// <param name="k1">Term-frequency saturation parameter.</param>
+    /// <param name="b">Document-length normalization parameter.</param>
     public Bm25Reranker(double k1 = 1.5, double b = 0.75)
     {
         _k1 = k1;
         _b = b;
     }
 
+    /// <inheritdoc />
     public ValueTask<IReadOnlyList<VectorSearchResult>> RerankAsync(
         string query,
         IReadOnlyList<VectorSearchResult> candidates,

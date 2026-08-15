@@ -16,12 +16,11 @@ internal static class KeyVaultQueries
                 db.Tenants.FirstOrDefault(t => t.Name == name));
 
     public static readonly Func<KeyVaultDbContext, IAsyncEnumerable<Tenant>> GetActiveNonDefaultTenants =
-        EF.CompileAsyncQuery(
+        EF.CompileAsyncQuery<KeyVaultDbContext, Tenant>(
             (KeyVaultDbContext db) =>
                 db.Tenants
                     .Where(t => !t.IsDeleted && t.Name != "__default__")
-                    .OrderBy(t => t.Name)
-                    .AsQueryable());
+                    .OrderBy(t => t.Name));
 
     // ── Secret queries ───────────────────────────────────────────────
 
@@ -41,12 +40,11 @@ internal static class KeyVaultQueries
     // ── Audit queries ────────────────────────────────────────────────
 
     public static readonly Func<KeyVaultDbContext, Guid, IAsyncEnumerable<AuditEntry>> GetAuditByTenant =
-        EF.CompileAsyncQuery(
+        EF.CompileAsyncQuery<KeyVaultDbContext, Guid, AuditEntry>(
             (KeyVaultDbContext db, Guid tenantId) =>
                 db.AuditEntries
                     .Where(a => a.TenantId == tenantId)
-                    .OrderByDescending(a => a.TimestampTicks)
-                    .AsQueryable());
+                    .OrderByDescending(a => a.TimestampTicks));
 }
 
 

@@ -20,6 +20,13 @@
   <PropertyGroup Condition="'$(Configuration)' == 'Release'">
     <PublishAot>true</PublishAot>
     <PublishTrimmed>true</PublishTrimmed>
+    <TrimmerSingleWarn>true</TrimmerSingleWarn>
+  </PropertyGroup>
+
+  <!-- This server uses YamlDotNet's representation model only. Its package-level
+       Native AOT summaries are audited and the published YAML parser is smoke-tested. -->
+  <PropertyGroup Condition="'$(PublishAot)' == 'true' and '$(AuditKnownTrimWarnings)' != 'true'">
+    <NoWarn>$(NoWarn);IL2104;IL3053</NoWarn>
   </PropertyGroup>
 
   <ItemGroup>

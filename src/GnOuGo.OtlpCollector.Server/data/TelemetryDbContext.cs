@@ -8,14 +8,18 @@ public sealed class TelemetryDbContext : DbContext
 {
     [UnconditionalSuppressMessage(
         "Trimming",
-        "IL2026",
-        Justification = "OtlpCollector.Server is published with partial trimming only; EF Core SQLite storage is validated by the collector test suite.")]
+        "IL2026:RequiresUnreferencedCode",
+        Justification = "The managed partial-trim OTLP host intentionally retains its EF Core SQLite context and verifies it through collector persistence tests.")]
     public TelemetryDbContext(DbContextOptions<TelemetryDbContext> options) : base(options) { }
 
     public DbSet<TenantEntity> Tenants => Set<TenantEntity>();
     public DbSet<SpanRecordEntity> SpanRecords => Set<SpanRecordEntity>();
     public DbSet<LogRecordEntity> LogRecords => Set<LogRecordEntity>();
 
+    [UnconditionalSuppressMessage(
+        "Trimming",
+        "IL2026:RequiresUnreferencedCode",
+        Justification = "OtlpCollector.Server deliberately retains EF Core under partial trimming and validates the complete SQLite model through collector tests.")]
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         modelBuilder.Entity<TenantEntity>(e =>

@@ -12,6 +12,7 @@ namespace DocIngestor.Core.Reranking;
 /// </summary>
 public sealed class OllamaChatScorer : IChatScorer
 {
+    /// <inheritdoc />
     public string Name => "ollama";
 
     private readonly HttpClient _http;
@@ -19,6 +20,11 @@ public sealed class OllamaChatScorer : IChatScorer
     private readonly string _model;
     private readonly GenAiTelemetry? _telemetry;
 
+    /// <summary>Initializes an Ollama-backed passage relevance scorer.</summary>
+    /// <param name="baseUrl">Ollama server base URL.</param>
+    /// <param name="model">Chat model name.</param>
+    /// <param name="http">HTTP client used for requests.</param>
+    /// <param name="telemetry">Optional telemetry recorder.</param>
     public OllamaChatScorer(
         string baseUrl,
         string model,
@@ -31,6 +37,7 @@ public sealed class OllamaChatScorer : IChatScorer
         _telemetry = telemetry;
     }
 
+    /// <inheritdoc />
     public async Task<double> ScoreAsync(string query, string passage, CancellationToken ct = default)
     {
         var url = OllamaEndpoints.Chat(_baseUrl);
