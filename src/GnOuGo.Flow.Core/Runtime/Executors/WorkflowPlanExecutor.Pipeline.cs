@@ -2320,7 +2320,7 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
                     "items": {
                       "type": "object",
                       "additionalProperties": false,
-                      "required": ["server", "kind", "method", "required", "purpose", "consumes", "produces"],
+                      "required": ["server", "kind", "method", "operation_ids", "catalog_ids", "request_bindings", "required", "purpose", "consumes", "produces"],
                       "properties": {
                         "server": { "type": "string" },
                         "kind": { "type": "string", "enum": ["tool", "prompt"] },

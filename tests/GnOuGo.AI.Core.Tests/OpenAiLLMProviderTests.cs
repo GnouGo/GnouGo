@@ -72,9 +72,17 @@ public sealed class OpenAiLlmProviderTests
                 {
                   "type": "object",
                   "properties": {
-                    "name": { "type": "string" }
+                    "name": { "type": "string" },
+                    "value": { "type": ["string", "number", "boolean", "null"] },
+                    "metadata": {
+                      "type": ["object", "null"],
+                      "properties": {
+                        "source": { "type": "string" }
+                      },
+                      "required": ["source"]
+                    }
                   },
-                  "required": ["name"]
+                  "required": ["name", "value", "metadata"]
                 }
                 """)
             },
@@ -98,8 +106,18 @@ public sealed class OpenAiLlmProviderTests
         Assert.Equal("json_schema", format.GetProperty("type").GetString());
         Assert.Equal("output", format.GetProperty("name").GetString());
         Assert.True(format.GetProperty("strict").GetBoolean());
-        Assert.Equal("object", format.GetProperty("schema").GetProperty("type").GetString());
-        Assert.False(format.GetProperty("schema").GetProperty("additionalProperties").GetBoolean());
+        var responseSchema = format.GetProperty("schema");
+        Assert.Equal("object", responseSchema.GetProperty("type").GetString());
+        Assert.False(responseSchema.GetProperty("additionalProperties").GetBoolean());
+        Assert.Equal(
+            ["string", "number", "boolean", "null"],
+            responseSchema.GetProperty("properties").GetProperty("value").GetProperty("type")
+                .EnumerateArray().Select(type => type.GetString()!).ToArray());
+        var metadata = responseSchema.GetProperty("properties").GetProperty("metadata");
+        Assert.Equal(
+            ["object", "null"],
+            metadata.GetProperty("type").EnumerateArray().Select(type => type.GetString()!).ToArray());
+        Assert.False(metadata.GetProperty("additionalProperties").GetBoolean());
         Assert.Contains(logger.Entries, e => e.Level == LogLevel.Information
             && e.Message.Contains("UseBackgroundMode=True", StringComparison.Ordinal));
         Assert.Contains(logger.Entries, e => e.Level == LogLevel.Information
