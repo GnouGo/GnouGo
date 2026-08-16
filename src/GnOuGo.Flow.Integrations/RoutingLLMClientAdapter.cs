@@ -1,7 +1,8 @@
 using System.Text.Json.Nodes;
 using GnOuGo.AI.Core;
+using GnOuGo.Flow.Core.Runtime;
 
-namespace GnOuGo.Flow.Core.Runtime;
+namespace GnOuGo.Flow.Integrations;
 
 /// <summary>
 /// Real LLM client that routes requests to OpenAI or Ollama using <see cref="RoutingLLMClient"/>.

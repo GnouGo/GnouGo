@@ -441,6 +441,8 @@ class _WorkflowPlanPipelineExtractionMixin:
                             "extract_reason",
                             "content",
                             "planned_tools",
+                            "catalog_ids",
+                            "locked_operations",
                         ],
                         "properties": {
                             "name": {"type": "string"},
@@ -470,7 +472,17 @@ class _WorkflowPlanPipelineExtractionMixin:
                                 "items": {
                                     "type": "object",
                                     "additionalProperties": False,
-                                    "required": ["server", "kind", "method", "required", "purpose", "consumes", "produces"],
+                                    "required": [
+                                        "server",
+                                        "kind",
+                                        "method",
+                                        "required",
+                                        "purpose",
+                                        "consumes",
+                                        "produces",
+                                        "catalog_ids",
+                                        "locked_operation_ids",
+                                    ],
                                     "properties": {
                                         "server": {"type": "string"},
                                         "kind": {"type": "string", "enum": ["tool", "prompt"]},

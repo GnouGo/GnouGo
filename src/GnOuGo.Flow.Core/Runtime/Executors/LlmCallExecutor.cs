@@ -1,6 +1,5 @@
 using System.Text.Json.Nodes;
 using Microsoft.Extensions.Logging;
-using GnOuGo.AI.Core;
 using GnOuGo.Flow.Core.Expressions;
 using GnOuGo.Flow.Core.Models;
 
@@ -205,7 +204,11 @@ public sealed class LlmCallExecutor : IStepExecutor
                 if (usage.TryGetPropertyValue("total_tokens", out var tt) && tt != null)
                     ctx.SetTelemetryAttribute("gen_ai.usage.total_tokens", tt.GetValue<int>());
 
-                var estimatedCost = ModelMetadataCatalog.EstimateCost(model, inputTokens, outputTokens, providerType: provider);
+                var estimatedCost = ctx.Engine.ModelUsageCostEstimator?.EstimateCost(
+                    model,
+                    inputTokens,
+                    outputTokens,
+                    provider);
                 if (estimatedCost.HasValue)
                     ctx.SetTelemetryAttribute("gen_ai.usage.cost", (double)estimatedCost.Value);
             }

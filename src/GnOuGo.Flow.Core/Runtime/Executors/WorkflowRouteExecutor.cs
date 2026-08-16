@@ -991,6 +991,7 @@ public sealed class WorkflowRouteExecutor : IStepExecutor
         var childEngine = new WorkflowEngine(ctx.Engine.Registry)
         {
             LLMClient = ctx.Engine.LLMClient,
+            ModelUsageCostEstimator = ctx.Engine.ModelUsageCostEstimator,
             WorkflowFetcher = ctx.Engine.WorkflowFetcher,
             TemplateEngine = ctx.Engine.TemplateEngine,
             McpClientFactory = ctx.Engine.McpClientFactory,

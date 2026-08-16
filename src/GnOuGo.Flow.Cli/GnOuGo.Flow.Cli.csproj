@@ -33,6 +33,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\GnOuGo.Flow.Core\GnOuGo.Flow.Core.csproj" />
+    <ProjectReference Include="..\GnOuGo.Flow.Integrations\GnOuGo.Flow.Integrations.csproj" />
     <ProjectReference Include="..\GnOuGo.AI.Core\GnOuGo.AI.Core.csproj" />
   </ItemGroup>
 

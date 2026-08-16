@@ -1,7 +1,9 @@
 from __future__ import annotations
 
-from .shared import *  # noqa: F401,F403
+from gnougo_flow_core.llm_failure_classifier import classify_llm_failure
 from gnougo_flow_core.runtime import _extract_usage_telemetry
+
+from .shared import *  # noqa: F401,F403
 
 
 class _WorkflowPlanMcpDiscoveryMixin:
@@ -228,6 +230,7 @@ class _WorkflowPlanMcpDiscoveryMixin:
                     model=model,
                     prompt=prompt,
                     temperature=temperature,
+                    use_background_mode=True,
                     structured_output_schema={
                         "type": "object",
                         "properties": {"filtered": {"type": "string"}},
@@ -302,6 +305,9 @@ class _WorkflowPlanMcpDiscoveryMixin:
                     return filtered
         except Exception as exc:
             prefilter_span.fail(exc)
+            if classify_llm_failure(exc) is not None:
+                prefilter_span.end()
+                raise
             ctx.add_telemetry_event(
                 "gnougo-flow.plan.prefilter.capabilities.fallback",
                 [

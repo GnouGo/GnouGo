@@ -3,13 +3,11 @@ using System.Collections;
 using System.Runtime.CompilerServices;
 using System.Text.RegularExpressions;
 using System.Text.Json.Nodes;
-using GnOuGo.AI.Core;
 using GnOuGo.Flow.Core.Compilation;
 using GnOuGo.Flow.Core.Models;
 using GnOuGo.Flow.Core.Parsing;
 using GnOuGo.Flow.Core.Runtime;
 using GnOuGo.Flow.Core.Runtime.Executors;
-using GnOuGo.Mcp.Core;
 using Moq;
 using Xunit;
 
@@ -2886,21 +2884,25 @@ public sealed class WorkflowPlanCapabilityPreflightTests
 
     private static InMemoryMcpClientFactory CreateArtifactFactory(
         bool invalidProducerPointer = false,
-        string consumerArtifactKind = McpArtifactContractMetadata.WorkspaceDirectoryKind)
+        string consumerArtifactKind = McpArtifactContractConventions.WorkspaceDirectoryKind)
     {
-        static JsonObject Meta(string json) => new()
-        {
-            [McpArtifactContractMetadata.MetaPropertyName] = JsonNode.Parse(json)
-        };
-
-        var producerMetadata = invalidProducerPointer
-            ? """{"artifacts":{"version":1,"produces":[{"kind":"workspace.directory","pointer":"/missing","mode":"materialize"}]}}"""
-            : McpArtifactContractMetadata.WorkspaceDirectoryProducerProjectRootRelativeJson;
+        var producerPointer = invalidProducerPointer ? "/missing" : "/projectRootRelative";
+        var producerContract = new McpArtifactContract(
+            1,
+            [new McpProducedArtifact(
+                McpArtifactContractConventions.WorkspaceDirectoryKind,
+                producerPointer,
+                McpArtifactContractConventions.MaterializeMode)],
+            []);
         var producer = new McpToolInfo
         {
             Name = "create_workspace",
             Description = "Materialize a workspace from a source URL.",
-            Meta = Meta(producerMetadata),
+            ArtifactContract = new McpArtifactContractResolution(
+                producerContract,
+                invalidProducerPointer
+                    ? ["artifacts.produces[0].pointer '/missing' does not resolve to a schema property."]
+                    : []),
             InputSchema = JsonNode.Parse("""
                 {
                   "type": "object",
@@ -2926,10 +2928,12 @@ public sealed class WorkflowPlanCapabilityPreflightTests
               "additionalProperties": false
             }
             """);
-        var consumerMetadata = McpArtifactContractMetadata.WorkspaceDirectoryConsumerProjectRootJson.Replace(
-            McpArtifactContractMetadata.WorkspaceDirectoryKind,
-            consumerArtifactKind,
-            StringComparison.Ordinal);
+        var consumerContract = new McpArtifactContractResolution(
+            new McpArtifactContract(
+                1,
+                [],
+                [new McpConsumedArtifact(consumerArtifactKind, "/projectRoot", true)]),
+            []);
         var factory = new InMemoryMcpClientFactory();
         factory.RegisterServer("workspace-provider", new MockMcpServerConfig { Tools = [producer] });
         factory.RegisterServer("workspace-consumer", new MockMcpServerConfig
@@ -2940,14 +2944,14 @@ public sealed class WorkflowPlanCapabilityPreflightTests
                 {
                     Name = "inspect_workspace",
                     Description = "Inspect a materialized workspace.",
-                    Meta = Meta(consumerMetadata),
+                    ArtifactContract = consumerContract,
                     InputSchema = consumerSchema!.DeepClone()
                 },
                 new McpToolInfo
                 {
                     Name = "verify_workspace",
                     Description = "Verify a materialized workspace.",
-                    Meta = Meta(consumerMetadata),
+                    ArtifactContract = consumerContract,
                     InputSchema = consumerSchema.DeepClone()
                 }
             ]

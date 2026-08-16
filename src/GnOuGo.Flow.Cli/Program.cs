@@ -15,6 +15,7 @@ using GnOuGo.Flow.Core.Compilation;
 using GnOuGo.Flow.Core.Models;
 using GnOuGo.Flow.Core.Parsing;
 using GnOuGo.Flow.Core.Runtime;
+using GnOuGo.Flow.Integrations;
 
 // Root command
 var rootCommand = new RootCommand("GnOuGo.Flow — YAML Workflow DSL Engine");
@@ -268,6 +269,7 @@ runCommand.SetAction(async (ParseResult parseResult, CancellationToken cancellat
         var engine = new WorkflowEngine
         {
             LLMClient = llmClient,
+            ModelUsageCostEstimator = new ModelMetadataUsageCostEstimator(),
             McpClientFactory = mcpFactory,
             McpCache = new MemoryCache(new MemoryCacheOptions()),
             HumanInputProvider = new ConsoleHumanInputProvider(),

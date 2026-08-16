@@ -1,5 +1,6 @@
 ﻿using GnOuGo.AI.Core;
 using GnOuGo.Flow.Core.Runtime;
+using GnOuGo.Flow.Integrations;
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;

@@ -4,7 +4,6 @@ using System.Text;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using Microsoft.Extensions.Logging;
-using GnOuGo.AI.Core;
 using GnOuGo.Flow.Core.Expressions;
 using GnOuGo.Flow.Core.Models;
 using GnOuGo.Flow.Core.Runtime;
@@ -256,6 +255,7 @@ public sealed class McpCallExecutor : IStepExecutor
             ? new CancellationTokenSource(timeoutMs.Value)
             : new CancellationTokenSource();
         using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(ct, timeoutCts.Token);
+        var executionHooks = factory as IMcpExecutionHooks;
         try
         {
 
@@ -266,17 +266,14 @@ public sealed class McpCallExecutor : IStepExecutor
                 ctx.SetTelemetryAttribute("gnougo.trace_id", correlation.TraceId);
 
             var realtimeProgressFingerprints = new ConcurrentDictionary<string, byte>(StringComparer.Ordinal);
-            using var correlationScope = ConfiguredMcpClientFactory.PushCorrelationContext(correlation);
-            using var progressScope = ConfiguredMcpClientFactory.PushProgressHandler(
+            using var callScope = executionHooks?.BeginCall(new McpCallExecutionContext(
                 correlation,
                 progressEvent =>
                 {
                     realtimeProgressFingerprints.TryAdd(BuildProgressFingerprint(progressEvent.EventKind, progressEvent.Message, progressEvent.File), 0);
                     EmitRealtimeMcpProgressEventAsThinking(ctx, progressEvent, correlation);
-                });
-            using var humanInputScope = ConfiguredMcpClientFactory.PushHumanInputHandler(
-                correlation,
-                signal => EmitRealtimeMcpHumanInputSignal(ctx, signal));
+                },
+                signal => EmitRealtimeMcpHumanInputSignal(ctx, signal)));
             await using var session = await factory.GetClientAsync(serverName, linkedCts.Token);
 
             IReadOnlyList<McpToolInfo>? runtimeToolCatalog = null;
@@ -408,7 +405,7 @@ public sealed class McpCallExecutor : IStepExecutor
         {
             var errorCode = kind == "prompt" ? ErrorCodes.McpPromptError : ErrorCodes.McpCallError;
             var target = batchMethods != null ? string.Join(", ", batchMethods) : singleMethod ?? (hasPromptSelection ? "(llm-selection)" : "(auto)");
-            var diagnostics = ConfiguredMcpClientFactory.FormatMcpFailureDiagnostics(serverName, ex);
+            var diagnostics = executionHooks?.FormatFailureDiagnostics(serverName, ex) ?? ex.Message;
             throw new WorkflowRuntimeException(errorCode,
                 $"mcp.call ({kind}) to '{serverName}/{target}' failed: {diagnostics}", retryable: false, inner: ex);
         }
@@ -1730,11 +1727,11 @@ Produce the final answer strictly from the executed MCP results.
             : ctx.TelemetryAttributes.TryGetValue("gen_ai.system", out var currentProvider) ? currentProvider?.ToString() : null;
         if (!string.IsNullOrWhiteSpace(effectiveModel) && (inputTokens.HasValue || outputTokens.HasValue))
         {
-            var estimatedCost = ModelMetadataCatalog.EstimateCost(
+            var estimatedCost = ctx.Engine.ModelUsageCostEstimator?.EstimateCost(
                 effectiveModel,
                 inputTokens ?? 0,
                 outputTokens ?? 0,
-                providerType: effectiveProvider);
+                effectiveProvider);
             if (estimatedCost.HasValue)
                 AddTelemetryDecimal(ctx, "gen_ai.usage.cost", estimatedCost.Value);
         }

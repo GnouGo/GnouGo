@@ -140,7 +140,7 @@ public sealed class StepExecutionContext
             CallDepth = CallDepth,
             Attributes = allAttributes
         });
-        return new TelemetrySpanScope(Engine.Telemetry, span);
+        return new TelemetrySpanScope(Engine.Telemetry, span, Engine.ModelUsageCostEstimator);
     }
 }
 
@@ -177,10 +177,14 @@ public sealed class TelemetrySpanScope : IDisposable
     private string? _errorType;
     private string? _errorMessage;
 
-    internal TelemetrySpanScope(IWorkflowTelemetry telemetry, ITelemetrySpan span)
+    internal TelemetrySpanScope(
+        IWorkflowTelemetry telemetry,
+        ITelemetrySpan span,
+        IModelUsageCostEstimator? modelUsageCostEstimator)
     {
         _telemetry = telemetry;
         _span = span;
+        ModelUsageCostEstimator = modelUsageCostEstimator;
     }
 
     public void SetAttribute(string key, object? value) => _span.SetAttribute(key, value);
@@ -189,6 +193,7 @@ public sealed class TelemetrySpanScope : IDisposable
         => _span.AddEvent(name, attributes);
 
     internal ITelemetrySpan Span => _span;
+    internal IModelUsageCostEstimator? ModelUsageCostEstimator { get; }
 
     public void Fail(Exception ex)
     {

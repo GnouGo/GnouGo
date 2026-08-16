@@ -25,6 +25,7 @@ using GnOuGo.AI.Core;
 using GnOuGo.AI.Local;
 using GnOuGo.DocIngestor.Mcp;
 using GnOuGo.Flow.Core.Runtime;
+using GnOuGo.Flow.Integrations;
 using GnOuGo.Files.Server;
 using GnOuGo.KeyVault.Core;
 using GnOuGo.KeyVault.Core.Data;

@@ -11,7 +11,7 @@ Write YAML workflows that orchestrate LLMs, MCP servers, templates, loops, human
 
 ## Package Status and Parity
 
-The .NET library at [`src/GnOuGo.Flow.Core/`](../../../src/GnOuGo.Flow.Core/) is the **source of truth**. The current Python parity baseline is commit `6cc5b13`, verified against its 926 passing Flow tests. See [`PORTING_TODO.md`](PORTING_TODO.md) for the implemented feature ledger, compatible Python extensions, and validation commands.
+The .NET library at [`src/GnOuGo.Flow.Core/`](../../../src/GnOuGo.Flow.Core/) is the **source of truth**. The current Python parity baseline is commit `c4b069a`, verified against 919 Flow.Core tests and 33 Flow.Integrations tests; the independent Python suite contains 360 passing tests. See [`PORTING_TODO.md`](PORTING_TODO.md) for the implemented feature ledger, compatible Python extensions, and validation commands.
 
 | Area | Status |
 |---|---|
@@ -1100,6 +1100,8 @@ The most powerful step type: asks an LLM to **generate a complete YAML workflow*
 
 `mode` defaults to `auto`. Auto mode first asks the configured LLM to estimate the request's cyclomatic complexity and choose `basic` or `pipeline`. It chooses `basic` for requests under 10 meaningful branches, and `pipeline` when the request should be decomposed into leaf workflows before assembly.
 
+Every internal planning call is background-capable: auto-mode classification, capability inventory and repair, capability matching and repair, MCP server and capability prefiltering, pipeline stages, and final basic generation. Structured capability and pipeline calls use strict OpenAI-compatible schemas in which every declared object property is required. Ordinary `llm.call`, routing, and tool-calling requests keep their existing foreground behavior unless their caller explicitly enables background mode.
+
 #### Basic usage
 
 ```yaml
@@ -1642,7 +1644,8 @@ on_error:
 |------|-----------|-------------|
 | `INPUT_VALIDATION` | No | Missing or malformed input |
 | `LLM_TIMEOUT` | Yes | LLM request timed out |
-| `LLM_NETWORK` | Yes | Network error reaching the LLM |
+| `LLM_NETWORK` | Yes | Transport failure, HTTP `425`/`429`, or provider `5xx` response |
+| `LLM_PROVIDER` | No | Provider rejected the request with another `4xx` response |
 | `MCP_CONNECTION_ERROR` | Yes | Cannot connect to MCP server |
 | `MCP_CALL_ERROR` / `MCP_PROMPT_ERROR` | Depends | MCP tool/prompt failure or transport cancellation |
 | `MCP_TIMEOUT` | Yes | Configured MCP call timeout elapsed |

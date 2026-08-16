@@ -4,7 +4,6 @@ using System.Text.Json.Nodes;
 using System.Text.RegularExpressions;
 using System.Diagnostics.CodeAnalysis;
 using Microsoft.Extensions.Logging;
-using GnOuGo.AI.Core;
 using GnOuGo.Flow.Core.Compilation;
 using GnOuGo.Flow.Core.Expressions;
 using GnOuGo.Flow.Core.Models;
@@ -366,7 +365,8 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
                     InputSchema = tool.InputSchema?.DeepClone(),
                     Meta = tool.Meta?.DeepClone(),
                     OutputSchema = tool.OutputSchema?.DeepClone(),
-                    ExampleResponse = tool.ExampleResponse?.DeepClone()
+                    ExampleResponse = tool.ExampleResponse?.DeepClone(),
+                    ArtifactContract = tool.ArtifactContract
                 }).ToList(),
                 Prompts = server.Prompts.Select(prompt => new McpPromptInfo
                 {

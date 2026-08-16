@@ -15,6 +15,7 @@ using GnOuGo.Flow.Core.Expressions;
 using GnOuGo.Flow.Core.Models;
 using GnOuGo.Flow.Core.Parsing;
 using GnOuGo.Flow.Core.Runtime;
+using GnOuGo.Flow.Integrations;
 using GnOuGo.Flow.Server.Configuration;
 using GnOuGo.Flow.Server.HumanInput;
 using GnOuGo.Flow.Server.Telemetry;
@@ -257,6 +258,7 @@ app.MapPost("/api/workflow/resume/{runId}", async (
         var engine = new WorkflowEngine
         {
             LLMClient = llm,
+            ModelUsageCostEstimator = new ModelMetadataUsageCostEstimator(),
             McpClientFactory = mcpFactory,
             McpCache = mcpCache,
             HumanInputProvider = hitlProvider,
@@ -460,6 +462,7 @@ static Task<RunResult> ExecuteWorkflowAsync(
     var engine = new WorkflowEngine
     {
         LLMClient = llm,
+        ModelUsageCostEstimator = new ModelMetadataUsageCostEstimator(),
         McpClientFactory = mcpFactory,
         McpCache = mcpCache,
         HumanInputProvider = hitlProvider,

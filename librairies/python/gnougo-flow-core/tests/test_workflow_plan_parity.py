@@ -8,6 +8,22 @@ from gnougo_flow_core.runtime import WorkflowEngine
 from gnougo_flow_core.runtime_steps import SequenceExecutor
 
 
+def assert_openai_strict_schema(schema: object, path: str = "$") -> None:
+    if isinstance(schema, list):
+        for index, item in enumerate(schema):
+            assert_openai_strict_schema(item, f"{path}[{index}]")
+        return
+    if not isinstance(schema, dict):
+        return
+    if schema.get("type") == "object" and isinstance(schema.get("properties"), dict):
+        properties = set(schema["properties"])
+        required = set(schema.get("required", []))
+        assert required == properties, f"{path}: required={sorted(required)} properties={sorted(properties)}"
+        assert schema.get("additionalProperties") is False, f"{path}: additionalProperties must be false"
+    for key, value in schema.items():
+        assert_openai_strict_schema(value, f"{path}.{key}")
+
+
 def ensure_generated_skill(yaml_text: str) -> str:
     try:
         parsed = yaml.safe_load(yaml_text)
@@ -296,8 +312,8 @@ async def test_workflow_plan_default_auto_mode_classifies_and_runs_basic_plan() 
     assert len(llm.requests) == 2
     assert "cyclomatic complexity is less than 10" in llm.requests[0].prompt
     assert llm.requests[0].reasoning == "low"
-    assert llm.requests[0].use_background_mode is False
-    assert llm.requests[1].use_background_mode is False
+    assert llm.requests[0].use_background_mode is True
+    assert llm.requests[1].use_background_mode is True
     plan_output = result.outputs["plan"]
     assert plan_output["meta"]["mode"] == "basic"
     assert plan_output["meta"]["mode_selection"]["source"] == "auto"
@@ -2766,6 +2782,9 @@ async def test_workflow_plan_pipeline_mode_uses_structured_extraction_when_suppo
     structured_requests = [request for request in llm.requests if request.structured_output_schema is not None]
     assert len(structured_requests) == 2
     assert all(request.structured_output_strict is True for request in structured_requests)
+    assert all(request.use_background_mode is True for request in llm.requests)
+    for request in structured_requests:
+        assert_openai_strict_schema(request.structured_output_schema)
     plan = result.outputs["plan"]
     spec = plan["pipeline"]["specs"]["subworkflows"][0]
     assert spec["work_kind"] == "external_work"

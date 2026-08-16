@@ -1,7 +1,9 @@
 from __future__ import annotations
 
-from .shared import *  # noqa: F401,F403
+from gnougo_flow_core.llm_failure_classifier import classify_llm_failure
 from gnougo_flow_core.runtime import _extract_usage_telemetry
+
+from .shared import *  # noqa: F401,F403
 
 
 class _WorkflowPlanAutoModeMixin:
@@ -48,6 +50,7 @@ class _WorkflowPlanAutoModeMixin:
                         model=model,
                         prompt=prompt,
                         reasoning=reasoning,
+                        use_background_mode=True,
                         structured_output_strict=True,
                         structured_output_schema={
                             "type": "object",
@@ -92,7 +95,9 @@ class _WorkflowPlanAutoModeMixin:
             ctx.set_telemetry_attribute("gnougo-flow.plan.mode", selection.selected_mode)
             ctx.set_telemetry_attribute("gnougo-flow.plan.mode.source", "auto_fallback" if selection.used_fallback else "auto")
             return selection
-        except Exception:
+        except Exception as exc:
+            if classify_llm_failure(exc) is not None:
+                raise
             fallback = _WorkflowPlanModeSelection(
                 selected_mode="basic",
                 reason="Classifier failed or returned invalid JSON; defaulted to basic mode.",

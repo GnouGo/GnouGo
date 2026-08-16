@@ -14,6 +14,7 @@ using GnOuGo.Flow.Core.Expressions;
 using GnOuGo.Flow.Core.Models;
 using GnOuGo.Flow.Core.Parsing;
 using GnOuGo.Flow.Core.Runtime;
+using GnOuGo.Flow.Integrations;
 
 namespace GnOuGo.Agent.Server.SmartFlow;
 
@@ -182,6 +183,7 @@ public sealed class ConfigureAgentsService
         var engine = new WorkflowEngine
         {
             LLMClient = runtime.LlmClient,
+            ModelUsageCostEstimator = new ModelMetadataUsageCostEstimator(),
             LLMCapabilities = runtime.LlmCapabilityResolver,
             LlmDefaults = new LlmRuntimeDefaults
             {

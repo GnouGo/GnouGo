@@ -1,10 +1,8 @@
 using System.Text;
 using System.Text.Json.Nodes;
 using System.Text.RegularExpressions;
-using GnOuGo.AI.Core;
 using GnOuGo.Flow.Core.Expressions;
 using GnOuGo.Flow.Core.Models;
-using GnOuGo.Mcp.Core;
 
 namespace GnOuGo.Flow.Core.Runtime.Executors;
 
@@ -725,7 +723,7 @@ public sealed partial class WorkflowPlanExecutor
         => entry.ArtifactContract != null
             ? entry.ArtifactContract.Produces.Any(artifact =>
                 string.Equals(artifact.Kind, kind, StringComparison.Ordinal)
-                && string.Equals(artifact.Mode, McpArtifactContractMetadata.MaterializeMode, StringComparison.Ordinal))
+                && string.Equals(artifact.Mode, McpArtifactContractConventions.MaterializeMode, StringComparison.Ordinal))
             : entry.Outputs.Any(field => string.Equals(GetOperationalArtifactKind(field), kind, StringComparison.Ordinal)
                                          && ArtifactOutputDescriptionProvesExistence(field.Description));
 
@@ -775,13 +773,13 @@ public sealed partial class WorkflowPlanExecutor
             || normalized.Contains("workspaceroot", StringComparison.Ordinal)
             || normalized is "workdir" or "cwd")
         {
-            return McpArtifactContractMetadata.WorkspaceDirectoryKind;
+            return McpArtifactContractConventions.WorkspaceDirectoryKind;
         }
 
         if (normalized.Contains("directory", StringComparison.Ordinal)
             || normalized.Contains("folder", StringComparison.Ordinal))
         {
-            return McpArtifactContractMetadata.WorkspaceDirectoryKind;
+            return McpArtifactContractConventions.WorkspaceDirectoryKind;
         }
 
         if (normalized.EndsWith("handle", StringComparison.Ordinal))
@@ -1826,7 +1824,7 @@ public sealed partial class WorkflowPlanExecutor
         => entry.ArtifactContract?.Produces
                .Where(static artifact => string.Equals(
                    artifact.Mode,
-                   McpArtifactContractMetadata.MaterializeMode,
+                   McpArtifactContractConventions.MaterializeMode,
                    StringComparison.Ordinal))
                .Select(static artifact => artifact.Kind)
                .Distinct(StringComparer.Ordinal)
@@ -2080,7 +2078,7 @@ public sealed partial class WorkflowPlanExecutor
         return contract != null
             ? contract.Produces.Any(artifact =>
                 string.Equals(artifact.Kind, kind, StringComparison.Ordinal)
-                && string.Equals(artifact.Mode, McpArtifactContractMetadata.MaterializeMode, StringComparison.Ordinal))
+                && string.Equals(artifact.Mode, McpArtifactContractConventions.MaterializeMode, StringComparison.Ordinal))
             : BuildCapabilitySchemaFields(tool.OutputSchema, requiredOnly: false)
                 .Any(field => string.Equals(GetOperationalArtifactKind(field), kind, StringComparison.Ordinal)
                               && ArtifactOutputDescriptionProvesExistence(field.Description));
@@ -2116,10 +2114,9 @@ public sealed partial class WorkflowPlanExecutor
         McpToolInfo tool,
         string? serverName = null)
     {
-        var validation = McpArtifactContractParser.ParseAndValidate(
-            tool.Meta,
-            tool.InputSchema,
-            tool.OutputSchema);
+        var validation = tool.ArtifactContract;
+        if (validation == null)
+            return null;
         if (validation.Errors.Count == 0)
             return validation.Contract;
 
@@ -2423,7 +2420,7 @@ public sealed partial class WorkflowPlanExecutor
         var materializers = preflight.DiscoveredServers
             .SelectMany(server => server.Tools.Select(tool => (Server: server.Name, Tool: tool)))
             .Where(item => GetValidatedMcpArtifactContract(item.Tool, item.Server)?.Produces.Any(artifact =>
-                string.Equals(artifact.Mode, McpArtifactContractMetadata.MaterializeMode, StringComparison.Ordinal)) == true)
+                string.Equals(artifact.Mode, McpArtifactContractConventions.MaterializeMode, StringComparison.Ordinal)) == true)
             .ToDictionary(
                 static item => (item.Server, item.Tool.Name),
                 static item => item.Tool,
@@ -2563,7 +2560,7 @@ public sealed partial class WorkflowPlanExecutor
                 producers.AddRange(contract.Produces
                     .Where(static artifact => string.Equals(
                         artifact.Mode,
-                        McpArtifactContractMetadata.MaterializeMode,
+                        McpArtifactContractConventions.MaterializeMode,
                         StringComparison.Ordinal))
                     .Select(artifact => new PlannedArtifactProducer(
                         workflowName,

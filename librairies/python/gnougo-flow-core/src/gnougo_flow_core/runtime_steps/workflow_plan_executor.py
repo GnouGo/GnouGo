@@ -1,9 +1,11 @@
 from __future__ import annotations
 
+import asyncio
 import copy
 from typing import Any
 
 from gnougo_flow_core.errors import ErrorCodes, WorkflowRuntimeException
+from gnougo_flow_core.llm_failure_classifier import classify_llm_failure
 from gnougo_flow_core.runtime import StepExecutionContext
 
 from .workflow_plan.auto_mode import _WorkflowPlanAutoModeMixin
@@ -96,6 +98,9 @@ Output: `{ workflow, yaml, meta, diagnostics }`.
         (ErrorCodes.TEMPLATE_PLAN, False, "planning LLM output could not be validated."),
         (ErrorCodes.TEMPLATE_POLICY, False, "planned workflow violates policy/limits."),
         (ErrorCodes.WORKFLOW_FETCH_POLICY, False, "planned workflow uses a remote workflow reference forbidden by policy."),
+        (ErrorCodes.LLM_TIMEOUT, True, "a planning LLM request timed out."),
+        (ErrorCodes.LLM_NETWORK, True, "a transient transport, rate-limit, or provider service failure interrupted planning."),
+        (ErrorCodes.LLM_PROVIDER, False, "the LLM provider rejected a planning request with a non-retryable client error."),
     ]
     _MCP_INPUT_CONTRACT_CHECKLIST = [
         "1. Inspect every MCP tool used by this workflow.",
@@ -108,6 +113,17 @@ Output: `{ workflow, yaml, meta, diagnostics }`.
     ]
 
     async def execute_async(self, ctx: StepExecutionContext) -> Any:
+        try:
+            return await self._execute_core_async(ctx)
+        except asyncio.CancelledError:
+            raise
+        except Exception as exc:
+            classified = classify_llm_failure(exc)
+            if classified is None or classified is exc:
+                raise
+            raise classified from exc
+
+    async def _execute_core_async(self, ctx: StepExecutionContext) -> Any:
         input_obj = ctx.engine.get_resolved_input(ctx)
         if not isinstance(input_obj, dict):
             raise WorkflowRuntimeException(ErrorCodes.INPUT_VALIDATION, "workflow.plan input must be object")
