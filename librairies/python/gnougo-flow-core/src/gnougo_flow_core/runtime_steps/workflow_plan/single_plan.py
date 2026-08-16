@@ -110,7 +110,15 @@ class _WorkflowPlanSinglePlanMixin:
                             ("gnougo-flow.plan.phase", "generation"),
                         ],
                     )
-                response = await ctx.engine.call_llm_async(LLMRequest(provider=provider, model=model, prompt=prompt, reasoning=plan_reasoning))
+                response = await ctx.engine.call_llm_async(
+                    LLMRequest(
+                        provider=provider,
+                        model=model,
+                        prompt=prompt,
+                        reasoning=plan_reasoning,
+                        use_background_mode=True,
+                    )
+                )
                 generation_span.set_attribute("gen_ai.response.model", model)
                 generation_span.set_attribute("gen_ai.response.finish_reason", "stop")
                 self._add_usage_attributes(

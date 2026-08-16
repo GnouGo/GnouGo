@@ -1,7 +1,10 @@
 from __future__ import annotations
 
+import asyncio
+
 import gnougo_flow_core.runtime as _runtime
 from gnougo_flow_core.json_schema_contract_validator import validate_instance, validate_structured_output
+from gnougo_flow_core.llm_failure_classifier import classify_llm_failure
 from gnougo_flow_core.runtime import *  # noqa: F401,F403
 
 
@@ -74,6 +77,7 @@ Output: `{ text, json?, usage?, raw? }`.
         (ErrorCodes.INPUT_VALIDATION, False, "llm.call input/model/prompt is invalid."),
         (ErrorCodes.LLM_TIMEOUT, True, "transient timeout while calling LLM provider."),
         (ErrorCodes.LLM_NETWORK, True, "transient network failure while calling LLM provider."),
+        (ErrorCodes.LLM_PROVIDER, False, "the LLM provider rejected the request with a non-retryable client error."),
         (ErrorCodes.LLM_SCHEMA, False, "structured_output response was not valid JSON for the requested schema."),
     ]
 
@@ -146,9 +150,16 @@ Output: `{ text, json?, usage?, raw? }`.
 
         try:
             response = await ctx.engine.call_llm_async(request)
-        except TimeoutError as exc:
-            raise WorkflowRuntimeException(ErrorCodes.LLM_TIMEOUT, str(exc), True) from exc
+        except asyncio.CancelledError:
+            raise
         except Exception as exc:
+            classified = classify_llm_failure(exc)
+            if classified is not None:
+                if classified is exc:
+                    raise
+                raise classified from exc
+            if isinstance(exc, WorkflowRuntimeException):
+                raise
             raise WorkflowRuntimeException(ErrorCodes.LLM_NETWORK, f"LLM call failed: {exc}") from exc
 
         finish_reason = "tool_calls" if response.tool_calls else "stop"

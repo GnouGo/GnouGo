@@ -21,6 +21,8 @@ class RoutingLLMClientAdapter:
             "structured_output_schema": request.structured_output_schema,
             "structured_output_strict": request.structured_output_strict,
             "reasoning": request.reasoning,
+            "use_background_mode": request.use_background_mode,
+            "max_output_tokens": request.max_tokens,
         }
         if request.tools:
             inner_request["tools"] = [

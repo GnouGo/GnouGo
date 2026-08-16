@@ -17,6 +17,10 @@ class _Llm:
         return self.response
 
 
+def test_llm_provider_error_code_is_stable() -> None:
+    assert ErrorCodes.LLM_PROVIDER == "LLM_PROVIDER"
+
+
 def _compile_main(yaml_text: str):
     compiled = WorkflowCompiler().compile(WorkflowParser.parse(yaml_text))
     return compiled.workflows[compiled.entrypoint]

@@ -2,8 +2,9 @@
 
 ## Reference baseline
 
-- Behavioral source of truth: `src/GnOuGo.Flow.Core/` at commit `6cc5b13`.
-- Reference verification: 926 passing tests in `tests/GnOuGo.Flow.Tests/`.
+- Behavioral source of truth: `src/GnOuGo.Flow.Core/` at commit `c4b069a`.
+- Reference verification: 919 passing tests in `tests/GnOuGo.Flow.Tests/` and 33 passing tests in `tests/GnOuGo.Flow.Integrations.Tests/`.
+- Python verification: 360 passing tests in `librairies/python/gnougo-flow-core/tests/`.
 - Target: this independent Python 3.10+ package. It does not load or execute .NET binaries.
 - Conflict rule: preserve compatible Python extensions, but follow the .NET behavior when contracts conflict.
 
@@ -21,6 +22,8 @@ The parity work represented by this ledger is complete for the baseline above. A
 | WFScript | Balanced nested JSDoc types, safe parameter completion, distinct timeout and statement-limit failures | `test_contract_parity.py`, `test_scripting.py` |
 | Human input | Boolean confirm normalization including custom labels, waiting/resumed telemetry | `test_human_input.py`, `test_phase5_mcp_human.py` |
 | Routing | Missing/invalid-only HITL forms, retry/coercion, sequential form collection before parallel execution, non-string answer serialization, nested failure details | `test_workflow_route_executor.py` |
+| LLM failures | Timeout and HTTP provider failures use stable retryable `LLM_TIMEOUT` / `LLM_NETWORK` and non-retryable `LLM_PROVIDER` contracts without converting caller cancellation | `test_llm_failure_classifier.py` |
+| LLM integration | Routing adapters preserve background mode, maximum output tokens, tools, structured output, and response fields | `test_routing_llm_adapter.py` |
 | MCP discovery | Tool `_meta`/`meta`, `output_schema`, and examples survive adapters and cache; one live `tools/list`; concurrency-safe session reuse | `test_mcp_context_elicitation_parity.py`, `test_mcp_factory.py` |
 | MCP calls | Optional-null omission, conditional-schema validation, host-owned correlation metadata, domain-neutral context isolation, recursive reserved/secret-key rejection | `test_mcp_context_elicitation_parity.py` |
 | MCP elicitation | Adapter-to-HITL bridge, exact-call correlation, safe sole-active fallback, waiting/resumed/refused/cancelled phases, concurrent-call isolation | `test_mcp_context_elicitation_parity.py` |
@@ -28,11 +31,12 @@ The parity work represented by this ledger is complete for the baseline above. A
 | Capability preflight | `off`, `explicit`, and `infer`; exact alternatives, RFC 6901 bindings, selector-aware denials, optional/repeated operations, fail-closed discovery, bounded catalogs | `test_capability_preflight_parity.py` |
 | Planning safety | Mandatory confirmation before inferred external writes unless unattended, multiset capability locks, exact call/binding validation, artifact provenance, redundant producer errors | `test_capability_preflight_parity.py` |
 | Planning repair | Structured diagnostic fingerprints, two-unchanged-attempt stall detection, scoped surgical repair of a target and its direct consumers | `test_capability_preflight_parity.py`, `test_workflow_plan_repair_scope_parity.py` |
-| Pipeline planning | `work_kind`, `contract_role`, `concrete_outcome`, catalog IDs, locked-operation ownership, planned tools, finalizers, and typed contracts retained through extraction, leaf generation, assembly, validation, and reporting | `test_workflow_plan_parity.py`, `test_workflow_plan_pipeline_quality_analyzer.py` |
+| Pipeline planning | Background-capable planning, strict provider schemas, `work_kind`, `contract_role`, `concrete_outcome`, catalog IDs, locked-operation ownership, planned tools, finalizers, and typed contracts retained through extraction, leaf generation, assembly, validation, and reporting | `test_workflow_plan_parity.py`, `test_workflow_plan_pipeline_quality_analyzer.py` |
 | Telemetry | Planning usage/cost attributes, nested lifecycle events, MCP correlation, human-input phases, finalization errors | planner, runtime, MCP, and route test modules |
 
 ## Stable error additions
 
+- `LLM_PROVIDER`
 - `CAPABILITY_PREFLIGHT_UNAVAILABLE`
 - `CAPABILITY_PREFLIGHT_DISCOVERY_FAILED`
 - `CAPABILITY_PREFLIGHT_INFERENCE_FAILED`
@@ -47,6 +51,7 @@ The existing structured plan, schema, MCP, HITL, cancellation, and runtime error
 
 - `loop.sequential.input.over` remains available as a Python extension alongside the shared `times` and `while` modes.
 - MCP transports remain injected adapters. The core package deliberately has no mandatory MCP SDK and does not own HTTP or stdio processes.
+- Unlike the .NET package split, the Python integration adapters remain in the single `gnougo-flow-core` distribution to preserve its existing public imports; this is a packaging-only divergence, not a workflow behavior divergence.
 - Python protocols and in-memory adapters remain public test seams.
 - Snake-case Python model fields remain canonical in Python; accepted .NET/MCP aliases are normalized at boundaries.
 

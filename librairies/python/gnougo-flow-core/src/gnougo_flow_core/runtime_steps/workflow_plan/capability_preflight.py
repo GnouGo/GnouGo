@@ -465,16 +465,33 @@ class _WorkflowPlanCapabilityPreflightMixin:
                 ("gen_ai.request.model", model),
             ],
         ) as span:
-            response = await ctx.engine.call_llm_async(
-                LLMRequest(
-                    provider=provider,
-                    model=model,
-                    reasoning=reasoning,
-                    prompt=prompt,
-                    structured_output_strict=False,
-                    structured_output_schema=schema,
+            try:
+                response = await ctx.engine.call_llm_async(
+                    LLMRequest(
+                        provider=provider,
+                        model=model,
+                        reasoning=reasoning,
+                        prompt=prompt,
+                        use_background_mode=True,
+                        structured_output_strict=True,
+                        structured_output_schema=schema,
+                    )
                 )
-            )
+            except asyncio.CancelledError:
+                raise
+            except WorkflowRuntimeException:
+                raise
+            except Exception as exc:
+                raise WorkflowRuntimeException(
+                    ErrorCodes.CAPABILITY_PREFLIGHT_INFERENCE_FAILED,
+                    "Capability inference returned an invalid or incomplete contract.",
+                    details={
+                        "phase": "capability_inference",
+                        "inference_phase": f"{phase}_call",
+                        "inference_error": str(exc)[:1000],
+                        "reason": type(exc).__name__,
+                    },
+                ) from exc
             self._add_usage_attributes(span, response.usage, model, provider, ctx.engine.llm_options)
             _extract_usage_telemetry(ctx, response.usage, model, provider)
             return response
@@ -700,17 +717,25 @@ class _WorkflowPlanCapabilityPreflightMixin:
     def _capability_inventory_schema() -> dict[str, Any]:
         operation = {
             "type": "object",
+            "additionalProperties": False,
             "properties": {
                 "id": {"type": "string"},
                 "description": {"type": "string"},
                 "required": {"type": "boolean"},
-                "execution_kind": {"type": "string"},
-                "external_effect_kind": {"type": "string"},
+                "execution_kind": {
+                    "type": "string",
+                    "enum": ["external_effect", "human_interaction", "local_processing"],
+                },
+                "external_effect_kind": {
+                    "type": "string",
+                    "enum": ["read", "write", "execute", "lifecycle", "none"],
+                },
             },
             "required": ["id", "description", "required", "execution_kind", "external_effect_kind"],
         }
         constraint = {
             "type": "object",
+            "additionalProperties": False,
             "properties": {
                 "id": {"type": "string"},
                 "description": {"type": "string"},
@@ -720,9 +745,21 @@ class _WorkflowPlanCapabilityPreflightMixin:
         }
         return {
             "type": "object",
+            "additionalProperties": False,
             "properties": {
                 "complete": {"type": "boolean"},
-                "incomplete_reasons": {"type": "array", "items": {"type": "string"}},
+                "incomplete_reasons": {
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "additionalProperties": False,
+                        "properties": {
+                            "id": {"type": "string"},
+                            "description": {"type": "string"},
+                        },
+                        "required": ["id", "description"],
+                    },
+                },
                 "operations": {"type": "array", "items": operation},
                 "constraints": {"type": "array", "items": constraint},
             },
@@ -731,11 +768,39 @@ class _WorkflowPlanCapabilityPreflightMixin:
 
     @staticmethod
     def _capability_match_schema() -> dict[str, Any]:
+        operation_match = {
+            "type": "object",
+            "additionalProperties": False,
+            "properties": {
+                "operation_id": {"type": "string"},
+                "status": {
+                    "type": "string",
+                    "enum": ["matched", "composed", "local", "ambiguous", "unavailable"],
+                },
+                "catalog_ids": {"type": "array", "items": {"type": "string"}},
+                "candidate_catalog_ids": {"type": "array", "items": {"type": "string"}},
+                "reason": {"type": "string"},
+            },
+            "required": ["operation_id", "status", "catalog_ids", "candidate_catalog_ids", "reason"],
+        }
+        constraint_match = {
+            "type": "object",
+            "additionalProperties": False,
+            "properties": {
+                "constraint_id": {"type": "string"},
+                "status": {"type": "string", "enum": ["enforced", "policy_only", "ambiguous"]},
+                "denied_catalog_ids": {"type": "array", "items": {"type": "string"}},
+                "candidate_catalog_ids": {"type": "array", "items": {"type": "string"}},
+                "reason": {"type": "string"},
+            },
+            "required": ["constraint_id", "status", "denied_catalog_ids", "candidate_catalog_ids", "reason"],
+        }
         return {
             "type": "object",
+            "additionalProperties": False,
             "properties": {
-                "operation_matches": {"type": "array", "items": {"type": "object"}},
-                "constraint_matches": {"type": "array", "items": {"type": "object"}},
+                "operation_matches": {"type": "array", "items": operation_match},
+                "constraint_matches": {"type": "array", "items": constraint_match},
             },
             "required": ["operation_matches", "constraint_matches"],
         }

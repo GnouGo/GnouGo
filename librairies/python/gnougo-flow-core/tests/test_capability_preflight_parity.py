@@ -3,6 +3,7 @@ from __future__ import annotations
 import pytest
 
 from gnougo_flow_core.compilation import WorkflowCompiler
+from gnougo_flow_core.errors import ErrorCodes
 from gnougo_flow_core.integrations import InMemoryMcpClientFactory, MockMcpServerConfig
 from gnougo_flow_core.models import LLMResponse, McpToolInfo
 from gnougo_flow_core.parsing import WorkflowParser
@@ -82,6 +83,38 @@ class _RepairingPreflightLlm:
         if "domain-neutral capability matcher" in request.prompt:
             return LLMResponse(json=self.match_responses.pop(0))
         return LLMResponse(text=self.generated_yaml)
+
+
+class _StatusFailure(Exception):
+    def __init__(self, status_code: int) -> None:
+        super().__init__("provider rejected capability inventory")
+        self.status_code = status_code
+
+
+class _FailingPreflightLlm:
+    def __init__(self, status_code: int) -> None:
+        self.failure = _StatusFailure(status_code)
+        self.requests = []
+
+    async def call_async(self, request):
+        self.requests.append(request)
+        raise self.failure
+
+
+def _assert_openai_strict_schema(schema: object, path: str = "$") -> None:
+    if isinstance(schema, list):
+        for index, item in enumerate(schema):
+            _assert_openai_strict_schema(item, f"{path}[{index}]")
+        return
+    if not isinstance(schema, dict):
+        return
+    if schema.get("type") == "object" and isinstance(schema.get("properties"), dict):
+        properties = set(schema["properties"])
+        required = set(schema.get("required", []))
+        assert required == properties, f"{path}: required={sorted(required)} properties={sorted(properties)}"
+        assert schema.get("additionalProperties") is False, f"{path}: additionalProperties must be false"
+    for key, value in schema.items():
+        _assert_openai_strict_schema(value, f"{path}.{key}")
 
 
 def _inventory_factory(*tools: McpToolInfo) -> InMemoryMcpClientFactory:
@@ -349,6 +382,45 @@ async def test_inferred_preflight_repairs_inventory_and_candidates_at_most_once_
     assert result.success, result.error
     assert len(llm.requests) == 5
     assert sum("previous structured response was invalid" in request.prompt for request in llm.requests) == 2
+    assert all(request.use_background_mode is True for request in llm.requests)
+    inference_requests = [request for request in llm.requests if request.structured_output_schema is not None]
+    assert len(inference_requests) == 4
+    assert all(request.structured_output_strict is True for request in inference_requests)
+    for request in inference_requests:
+        _assert_openai_strict_schema(request.structured_output_schema)
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("status", "expected_code", "retryable"),
+    [
+        (401, ErrorCodes.LLM_PROVIDER, False),
+        (429, ErrorCodes.LLM_NETWORK, True),
+        (503, ErrorCodes.LLM_NETWORK, True),
+    ],
+)
+async def test_inferred_preflight_classifies_provider_failure_and_preserves_phase(
+    status: int,
+    expected_code: str,
+    retryable: bool,
+) -> None:
+    llm = _FailingPreflightLlm(status)
+    engine = WorkflowEngine()
+    engine.llm_client = llm
+    engine.mcp_client_factory = _inventory_factory(McpToolInfo(name="read"))
+
+    result = await engine.execute_async(
+        _plan_workflow("                      capability_preflight:\n                        mode: infer"), {}
+    )
+
+    assert result.success is False
+    assert result.error is not None
+    assert result.error.code == expected_code
+    assert result.error.retryable is retryable
+    assert result.error.details["phase"] == "capability_inference"
+    assert result.error.details["inference_phase"] == "capability_inventory_call"
+    assert len(llm.requests) == 1
+    assert llm.requests[0].use_background_mode is True
 
 
 @pytest.mark.asyncio
