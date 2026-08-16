@@ -2,6 +2,10 @@
 
 All notable changes to this project are documented in this file.
 
+## v0.19.0 - 2026-08-16
+
+- feat: add embedded local Qwen3 runtime (release) (#93) (9faad22)
+
 ## v0.18.4 - 2026-08-15
 
 - refactor: Remove build warnings (#92) (release) (edd2a70)
@@ -256,9 +260,6 @@ All notable changes to this project are documented in this file.
 
 - fix(agent): publish browser mcp (#24) (release) (3fcedcb)
 - doc: update main readme with mcp servers list (d4d86cd)
-
-## v0.4.0 - 2026-05-02
-
 - feat(models): models configuration (#23) (release) (2b6f4ea)
 - feat(python): invalid charatere to publish (#22) (release) (728dc2b)
 - feat(agent): add embedding (#21) (release) (89310e1)
