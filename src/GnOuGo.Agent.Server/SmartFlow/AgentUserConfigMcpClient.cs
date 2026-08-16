@@ -3,6 +3,7 @@ using System.Text.Json.Nodes;
 using GnOuGo.AI.Core;
 using GnOuGo.Agent.Mcp;
 using GnOuGo.Flow.Core.Runtime;
+using GnOuGo.Flow.Integrations;
 
 namespace GnOuGo.Agent.Server.SmartFlow;
 

@@ -6,6 +6,7 @@ using System.Text.Json.Nodes;
 
 using GnOuGo.AI.Core;
 using GnOuGo.Flow.Core.Runtime;
+using GnOuGo.Flow.Integrations;
 using ModelContextProtocol;
 using ModelContextProtocol.Client;
 using ModelContextProtocol.Protocol;
@@ -16,7 +17,7 @@ using McpProtocolServerToolCreateOptions = ModelContextProtocol.Server.McpServer
 using McpStreamServerTransport = ModelContextProtocol.Server.StreamServerTransport;
 using Xunit;
 
-namespace GnOuGo.Flow.Tests.Runtime;
+namespace GnOuGo.Flow.Integrations.Tests;
 
 public class ConfiguredMcpClientFactoryTests
 {
@@ -831,7 +832,7 @@ public class ConfiguredMcpClientFactoryTests
 
     private static Dictionary<string, object?> InvokeConvertArguments(JsonNode arguments)
     {
-        var adapterType = typeof(ConfiguredMcpClientFactory).Assembly.GetType("GnOuGo.Flow.Core.Runtime.McpSessionAdapter");
+        var adapterType = typeof(ConfiguredMcpClientFactory).Assembly.GetType("GnOuGo.Flow.Integrations.McpSessionAdapter");
         Assert.NotNull(adapterType);
 
         var method = adapterType.GetMethod(
@@ -845,7 +846,7 @@ public class ConfiguredMcpClientFactoryTests
 
     private static JsonNode? InvokeBuildContent(CallToolResult result)
     {
-        var adapterType = typeof(ConfiguredMcpClientFactory).Assembly.GetType("GnOuGo.Flow.Core.Runtime.McpSessionAdapter");
+        var adapterType = typeof(ConfiguredMcpClientFactory).Assembly.GetType("GnOuGo.Flow.Integrations.McpSessionAdapter");
         Assert.NotNull(adapterType);
 
         var method = adapterType.GetMethod(

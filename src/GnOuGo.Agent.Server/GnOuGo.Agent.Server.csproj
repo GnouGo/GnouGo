@@ -37,6 +37,7 @@
     <ProjectReference Include="..\GnOuGo.Assets.Bears\GnOuGo.Assets.Bears.csproj" />
     <ProjectReference Include="..\GnOuGo.DocIngestor.Mcp\GnOuGo.DocIngestor.Mcp.csproj" />
     <ProjectReference Include="..\GnOuGo.Flow.Core\GnOuGo.Flow.Core.csproj" />
+    <ProjectReference Include="..\GnOuGo.Flow.Integrations\GnOuGo.Flow.Integrations.csproj" />
     <ProjectReference Include="..\GnOuGo.Flow.Mermaid\GnOuGo.Flow.Mermaid.csproj" />
     <ProjectReference Include="..\GnOuGo.Files.Server\GnOuGo.Files.Server.csproj" />
     <ProjectReference Include="..\GnOuGo.KeyVault.Core\GnOuGo.KeyVault.Core.csproj" />

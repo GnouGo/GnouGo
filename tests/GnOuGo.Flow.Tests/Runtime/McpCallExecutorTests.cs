@@ -1,5 +1,4 @@
 using System.Text.Json.Nodes;
-using System.Reflection;
 using Moq;
 using GnOuGo.Flow.Core.Compilation;
 using GnOuGo.Flow.Core.Models;
@@ -102,19 +101,17 @@ public class McpCallExecutorTests
     [Fact]
     public async Task McpCall_UsesHostTenantMetadata_AndIgnoresWorkflowTenantInput()
     {
-        JsonObject? capturedMeta = null;
-        var factory = new InMemoryMcpClientFactory();
-        factory.RegisterServer("service", new MockMcpServerConfig
+        McpCorrelationContext? capturedCorrelation = null;
+        var innerFactory = new InMemoryMcpClientFactory();
+        var factory = new HookedMcpClientFactory(innerFactory);
+        innerFactory.RegisterServer("service", new MockMcpServerConfig
         {
             Tools = [new McpToolInfo { Name = "read", InputSchema = JsonNode.Parse("{\"type\":\"object\"}") }],
             ToolHandlers =
             {
                 ["read"] = _ =>
                 {
-                    var method = typeof(ConfiguredMcpClientFactory).GetMethod(
-                        "BuildCurrentCorrelationMeta",
-                        BindingFlags.Static | BindingFlags.NonPublic | BindingFlags.Public);
-                    capturedMeta = Assert.IsType<JsonObject>(method!.Invoke(null, []));
+                    capturedCorrelation = factory.CurrentContext?.Correlation;
                     return new McpCallResult { Content = new JsonObject { ["ok"] = true } };
                 }
             }
@@ -142,11 +139,11 @@ workflows:
             });
 
         Assert.True(result.Success, result.Error?.Message);
-        var gnougo = Assert.IsType<JsonObject>(capturedMeta!["gnougo"]);
-        Assert.Equal("host-controlled", gnougo["tenantId"]!.GetValue<string>());
-        Assert.Equal("execution-1", gnougo["executionId"]!.GetValue<string>());
-        Assert.Equal("agent-1", gnougo["agentId"]!.GetValue<string>());
-        Assert.Equal("Reviewer", gnougo["agentName"]!.GetValue<string>());
+        Assert.NotNull(capturedCorrelation);
+        Assert.Equal("host-controlled", capturedCorrelation.TenantId);
+        Assert.Equal("execution-1", capturedCorrelation.ExecutionId);
+        Assert.Equal("agent-1", capturedCorrelation.AgentId);
+        Assert.Equal("Reviewer", capturedCorrelation.AgentName);
     }
 
     [Fact]
@@ -503,10 +500,11 @@ workflows:
     [Fact]
     public async Task McpCall_ExplicitContext_ReachesOnlyGnougoContextMetadata()
     {
-        JsonObject? capturedMeta = null;
+        McpCorrelationContext? capturedCorrelation = null;
         JsonNode? capturedArguments = null;
-        var factory = new InMemoryMcpClientFactory();
-        factory.RegisterServer("inventory", new MockMcpServerConfig
+        var innerFactory = new InMemoryMcpClientFactory();
+        var factory = new HookedMcpClientFactory(innerFactory);
+        innerFactory.RegisterServer("inventory", new MockMcpServerConfig
         {
             Tools =
             [
@@ -517,7 +515,7 @@ workflows:
                 ["reserve_items"] = arguments =>
                 {
                     capturedArguments = arguments?.DeepClone();
-                    capturedMeta = ReadCurrentCorrelationMeta();
+                    capturedCorrelation = factory.CurrentContext?.Correlation;
                     return new McpCallResult { Content = new JsonObject { ["reserved"] = true } };
                 }
             }
@@ -546,11 +544,9 @@ workflows:
         Assert.True(result.Success, result.Error?.Message);
         Assert.NotNull(capturedArguments);
         Assert.False(capturedArguments!.AsObject().ContainsKey("context"));
-        var gnougo = Assert.IsType<JsonObject>(capturedMeta!["gnougo"]);
-        var context = Assert.IsType<JsonObject>(gnougo["context"]);
+        var context = Assert.IsType<JsonObject>(capturedCorrelation!.Context);
         Assert.Equal("catalog-a", context["workspace"]!.GetValue<string>());
         Assert.Equal(7, context["operation_revision"]!.GetValue<int>());
-        Assert.False(gnougo.ContainsKey("workspace"));
     }
 
     [Theory]
@@ -601,14 +597,6 @@ workflows:
         Assert.False(handlerCalled);
     }
 
-    private static JsonObject? ReadCurrentCorrelationMeta()
-    {
-        var method = typeof(ConfiguredMcpClientFactory).GetMethod(
-            "BuildCurrentCorrelationMeta",
-            System.Reflection.BindingFlags.Static | System.Reflection.BindingFlags.NonPublic);
-        return method?.Invoke(null, null) as JsonObject;
-    }
-
     [Fact]
     public async Task McpCall_ToolProgressEvents_AreForwardedAsThinkingTelemetry()
     {
@@ -656,7 +644,6 @@ workflows:
         var mockFactory = new Mock<IMcpClientFactory>();
         mockFactory.Setup(f => f.GetClientAsync("code", It.IsAny<CancellationToken>()))
             .ReturnsAsync(mockSession.Object);
-
         var result = await RunMain("""
 version: 1
 workflows:
@@ -712,12 +699,13 @@ workflows:
         telemetry.Setup(t => t.WorkflowStart(It.IsAny<WorkflowTelemetryInfo>())).Returns(workflowSpan.Object);
         telemetry.Setup(t => t.StepStart(It.IsAny<ITelemetrySpan>(), It.IsAny<StepTelemetryInfo>())).Returns(stepSpan.Object);
 
+        HookedMcpClientFactory? hookedFactory = null;
         var mockSession = new Mock<IMcpSession>();
         mockSession.Setup(s => s.ServerName).Returns("code");
         mockSession.Setup(s => s.CallToolAsync("code_agent_edit", It.IsAny<JsonNode?>(), It.IsAny<CancellationToken>()))
             .Returns(async () =>
             {
-                ConfiguredMcpClientFactory.PublishProgress(new McpRealtimeProgressEvent
+                hookedFactory!.PublishProgress(new McpRealtimeProgressEvent
                 {
                     ServerName = "code",
                     MethodName = "code_agent_edit",
@@ -751,6 +739,7 @@ workflows:
         var mockFactory = new Mock<IMcpClientFactory>();
         mockFactory.Setup(f => f.GetClientAsync("code", It.IsAny<CancellationToken>()))
             .ReturnsAsync(mockSession.Object);
+        hookedFactory = new HookedMcpClientFactory(mockFactory.Object);
 
         var result = await RunMain("""
 version: 1
@@ -764,7 +753,7 @@ workflows:
           method: code_agent_edit
           request:
             task: Update the program.
-""", mcpFactory: mockFactory.Object, telemetry: telemetry.Object);
+""", mcpFactory: hookedFactory, telemetry: telemetry.Object);
 
         Assert.True(result.Success);
         Assert.True(realtimeEventObservedBeforeReturn);
@@ -817,13 +806,14 @@ workflows:
                 }
             ]
         };
+        HookedMcpClientFactory? hookedFactory = null;
         var mockSession = new Mock<IMcpSession>();
         mockSession.Setup(s => s.ServerName).Returns("copilot");
         mockSession.Setup(s => s.CallToolAsync("copilot_interactive_one_shot", It.IsAny<JsonNode?>(), It.IsAny<CancellationToken>()))
             .Returns(() =>
             {
-                ConfiguredMcpClientFactory.PublishHumanInput(new McpHumanInputSignal(correlation, request, McpHumanInputSignalPhase.Waiting));
-                ConfiguredMcpClientFactory.PublishHumanInput(new McpHumanInputSignal(correlation, request, McpHumanInputSignalPhase.Resumed));
+                hookedFactory!.PublishHumanInput(new McpHumanInputSignal(correlation, request, McpHumanInputSignalPhase.Waiting));
+                hookedFactory.PublishHumanInput(new McpHumanInputSignal(correlation, request, McpHumanInputSignalPhase.Resumed));
                 return Task.FromResult(new McpCallResult
                 {
                     Content = new JsonObject { ["content"] = "done" }
@@ -832,6 +822,7 @@ workflows:
         mockSession.Setup(s => s.DisposeAsync()).Returns(ValueTask.CompletedTask);
         var mockFactory = new Mock<IMcpClientFactory>();
         mockFactory.Setup(f => f.GetClientAsync("copilot", It.IsAny<CancellationToken>())).ReturnsAsync(mockSession.Object);
+        hookedFactory = new HookedMcpClientFactory(mockFactory.Object);
 
         var result = await RunMain("""
 version: 1
@@ -846,7 +837,7 @@ workflows:
           request:
             projectRoot: workspace
             prompt: Run tests.
-""", mcpFactory: mockFactory.Object, telemetry: telemetry.Object, limits: new ExecutionLimits { RunId = "run-1" });
+""", mcpFactory: hookedFactory, telemetry: telemetry.Object, limits: new ExecutionLimits { RunId = "run-1" });
 
         Assert.True(result.Success, result.Error?.Message);
         var waiting = Assert.Single(spanEvents, static item => item.Name == "gnougo-flow.step.waiting_for_human");
@@ -2844,5 +2835,44 @@ workflows:
             => throw new NotSupportedException();
 
         public ValueTask DisposeAsync() => ValueTask.CompletedTask;
+    }
+
+    private sealed class HookedMcpClientFactory(IMcpClientFactory inner)
+        : IMcpClientFactory, IMcpExecutionHooks
+    {
+        public McpCallExecutionContext? CurrentContext { get; private set; }
+
+        public IReadOnlyList<McpServerMetadata> ServerMetadata => inner.ServerMetadata;
+
+        public Task<IMcpSession> GetClientAsync(string serverName, CancellationToken ct)
+            => inner.GetClientAsync(serverName, ct);
+
+        public IDisposable BeginCall(McpCallExecutionContext context)
+        {
+            CurrentContext = context;
+            return new CallbackScope(() => CurrentContext = null);
+        }
+
+        public string FormatFailureDiagnostics(string serverName, Exception exception)
+            => exception.Message;
+
+        public void PublishProgress(McpRealtimeProgressEvent progressEvent)
+            => CurrentContext?.ProgressHandler(progressEvent);
+
+        public void PublishHumanInput(McpHumanInputSignal signal)
+            => CurrentContext?.HumanInputHandler(signal);
+    }
+
+    private sealed class CallbackScope(Action callback) : IDisposable
+    {
+        private bool _disposed;
+
+        public void Dispose()
+        {
+            if (_disposed)
+                return;
+            _disposed = true;
+            callback();
+        }
     }
 }

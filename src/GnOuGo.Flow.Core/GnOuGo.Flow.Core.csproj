@@ -21,14 +21,8 @@
   <ItemGroup>
     <PackageReference Include="Microsoft.Extensions.Caching.Abstractions" Version="10.0.11" />
     <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="10.0.11" />
-    <PackageReference Include="ModelContextProtocol" Version="2.2.0" />
     <PackageReference Include="YamlDotNet" Version="18.1.0" />
     <PackageReference Include="Jint" Version="4.16.0" />
-  </ItemGroup>
-
-  <ItemGroup>
-    <ProjectReference Include="..\GnOuGo.AI.Core\GnOuGo.AI.Core.csproj" />
-    <ProjectReference Include="..\GnOuGo.Mcp.Core\GnOuGo.Mcp.Core.csproj" />
   </ItemGroup>
 
   <ItemGroup>

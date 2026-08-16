@@ -5,26 +5,31 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <IsAotCompatible>true</IsAotCompatible>
-    <EnableTrimAnalyzer>true</EnableTrimAnalyzer>
-    <EnableAotAnalyzer>true</EnableAotAnalyzer>
-    <EnableSingleFileAnalyzer>true</EnableSingleFileAnalyzer>
-    <JsonSerializerIsReflectionEnabledByDefault>false</JsonSerializerIsReflectionEnabledByDefault>
-    <WarningsAsErrors>$(WarningsAsErrors);IL2026;IL3050;IL3053;IL3055</WarningsAsErrors>
     <IsPackable>true</IsPackable>
-    <PackageId>GnOuGo.Mcp.Core</PackageId>
+    <PackageId>GnOuGo.Flow.Integrations</PackageId>
     <Authors>GnOuGo</Authors>
     <Company>GnOuGo</Company>
-    <Description>AOT-compatible shared MCP protocol contracts and helpers for GnOuGo components.</Description>
+    <Description>AI provider and MCP transport integrations for the autonomous GnOuGo.Flow.Core workflow engine.</Description>
     <PackageLicenseExpression>Apache-2.0</PackageLicenseExpression>
     <PackageProjectUrl>https://github.com/GnouGo/GnouGo/</PackageProjectUrl>
     <RepositoryUrl>https://github.com/GnouGo/GnouGo/</RepositoryUrl>
     <RepositoryType>git</RepositoryType>
     <PackageReadmeFile>README.md</PackageReadmeFile>
-    <PackageTags>gnougo;mcp;protocol;nativeaot</PackageTags>
+    <PackageTags>gnougo;workflow;llm;mcp;integration;nativeaot</PackageTags>
   </PropertyGroup>
 
   <ItemGroup>
+    <InternalsVisibleTo Include="GnOuGo.Flow.Integrations.Tests" />
+  </ItemGroup>
+
+  <ItemGroup>
     <PackageReference Include="ModelContextProtocol" Version="2.2.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\GnOuGo.AI.Core\GnOuGo.AI.Core.csproj" />
+    <ProjectReference Include="..\GnOuGo.Flow.Core\GnOuGo.Flow.Core.csproj" />
+    <ProjectReference Include="..\GnOuGo.Mcp.Core\GnOuGo.Mcp.Core.csproj" />
   </ItemGroup>
 
   <ItemGroup>

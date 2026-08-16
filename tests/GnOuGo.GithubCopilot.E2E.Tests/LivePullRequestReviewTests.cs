@@ -2,6 +2,7 @@ using System.Text.Json.Nodes;
 using System.Text.RegularExpressions;
 using GnOuGo.AI.Core;
 using GnOuGo.Flow.Core.Runtime;
+using GnOuGo.Flow.Integrations;
 using GnOuGo.Git.Mcp;
 using GnOuGo.KeyVault.Core;
 using GnOuGo.KeyVault.Core.Services;

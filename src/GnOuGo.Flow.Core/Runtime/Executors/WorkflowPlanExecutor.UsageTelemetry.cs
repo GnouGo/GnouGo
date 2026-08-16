@@ -3,7 +3,6 @@ using System.Text.Json;
 using System.Text.Json.Nodes;
 using System.Text.RegularExpressions;
 using Microsoft.Extensions.Logging;
-using GnOuGo.AI.Core;
 using GnOuGo.Flow.Core.Compilation;
 using GnOuGo.Flow.Core.Expressions;
 using GnOuGo.Flow.Core.Models;
@@ -42,7 +41,12 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
         if (totalTokens.HasValue)
             attrs.Add(new("gen_ai.usage.total_tokens", totalTokens.Value));
 
-        var estimatedCost = EstimateUsageCost(model, provider, inputTokens, outputTokens);
+        var estimatedCost = EstimateUsageCost(
+            ctx.Engine.ModelUsageCostEstimator,
+            model,
+            provider,
+            inputTokens,
+            outputTokens);
         if (estimatedCost.HasValue)
             attrs.Add(new("gen_ai.usage.cost", (double)estimatedCost.Value));
 
@@ -65,7 +69,12 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
         if (totalTokens.HasValue)
             span.SetAttribute("gen_ai.usage.total_tokens", totalTokens.Value);
 
-        var estimatedCost = EstimateUsageCost(model, provider, inputTokens, outputTokens);
+        var estimatedCost = EstimateUsageCost(
+            span.ModelUsageCostEstimator,
+            model,
+            provider,
+            inputTokens,
+            outputTokens);
         if (estimatedCost.HasValue)
             span.SetAttribute("gen_ai.usage.cost", (double)estimatedCost.Value);
     }
@@ -88,17 +97,27 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
         else if (inputTokens.HasValue || outputTokens.HasValue)
             ctx.SetTelemetryAttribute("gen_ai.usage.total_tokens", (inputTokens ?? 0) + (outputTokens ?? 0));
 
-        var estimatedCost = EstimateUsageCost(model, provider, inputTokens, outputTokens);
+        var estimatedCost = EstimateUsageCost(
+            ctx.Engine.ModelUsageCostEstimator,
+            model,
+            provider,
+            inputTokens,
+            outputTokens);
         if (estimatedCost.HasValue)
             ctx.SetTelemetryAttribute("gen_ai.usage.cost", (double)estimatedCost.Value);
     }
 
-    private static decimal? EstimateUsageCost(string model, string? provider, long? inputTokens, long? outputTokens)
+    private static decimal? EstimateUsageCost(
+        IModelUsageCostEstimator? estimator,
+        string model,
+        string? provider,
+        long? inputTokens,
+        long? outputTokens)
     {
         if (inputTokens is null && outputTokens is null)
             return null;
 
-        return ModelMetadataCatalog.EstimateCost(model, inputTokens ?? 0, outputTokens ?? 0, providerType: provider);
+        return estimator?.EstimateCost(model, inputTokens ?? 0, outputTokens ?? 0, provider);
     }
 
     private static long? ReadUsageLong(JsonObject usageObject, string primaryKey, string? secondaryKey)

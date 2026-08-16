@@ -45,11 +45,13 @@ jobs:
           $projects = @(
             'src/GnOuGo.Auth.Core/GnOuGo.Auth.Core.csproj',
             'src/GnOuGo.AI.Core/GnOuGo.AI.Core.csproj',
+            'src/GnOuGo.Mcp.Core/GnOuGo.Mcp.Core.csproj',
             'src/GnOuGo.Workspace/GnOuGo.Workspace.csproj',
             'src/GnOuGo.AI.Local/GnOuGo.AI.Local.csproj',
             'src/GnOuGo.Assets.Bears/GnOuGo.Assets.Bears.csproj',
             'src/GnOuGo.Assets.Animation/GnOuGo.Assets.Animation.csproj',
             'src/GnOuGo.Flow.Core/GnOuGo.Flow.Core.csproj',
+            'src/GnOuGo.Flow.Integrations/GnOuGo.Flow.Integrations.csproj',
             'src/GnOuGo.Flow.Mermaid/GnOuGo.Flow.Mermaid.csproj'
           )
 

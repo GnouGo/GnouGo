@@ -1,4 +1,4 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
     <TargetFramework>net10.0</TargetFramework>
@@ -9,22 +9,16 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\..\src\GnOuGo.Agent.Server\GnOuGo.Agent.Server.csproj" />
     <ProjectReference Include="..\..\src\GnOuGo.Flow.Integrations\GnOuGo.Flow.Integrations.csproj" />
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="bunit" Version="2.9.0" />
     <PackageReference Include="Microsoft.NET.Test.Sdk" Version="18.9.0" />
     <PackageReference Include="xunit.v3" Version="3.2.2" />
     <PackageReference Include="xunit.runner.visualstudio" Version="3.1.5">
-      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers</IncludeAssets>
       <PrivateAssets>all</PrivateAssets>
     </PackageReference>
-  </ItemGroup>
-
-  <ItemGroup>
-    <Using Include="Xunit" />
   </ItemGroup>
 
 </Project>

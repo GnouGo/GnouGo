@@ -29,6 +29,18 @@ public interface ILLMCapabilityResolver
 }
 
 /// <summary>
+/// Optional provider-owned estimator for model usage costs.
+/// </summary>
+public interface IModelUsageCostEstimator
+{
+    decimal? EstimateCost(
+        string? model,
+        long? inputTokens = null,
+        long? outputTokens = null,
+        string? providerType = null);
+}
+
+/// <summary>
 /// LLM request.
 /// </summary>
 public sealed class LLMRequest
@@ -270,6 +282,22 @@ public interface IMcpClientFactory
 }
 
 /// <summary>
+/// Optional transport hooks used around one MCP call. Implementations can
+/// propagate correlation metadata and surface realtime progress or elicitation.
+/// </summary>
+public interface IMcpExecutionHooks
+{
+    IDisposable BeginCall(McpCallExecutionContext context);
+
+    string FormatFailureDiagnostics(string serverName, Exception exception);
+}
+
+public sealed record McpCallExecutionContext(
+    McpCorrelationContext Correlation,
+    Action<McpRealtimeProgressEvent> ProgressHandler,
+    Action<McpHumanInputSignal> HumanInputHandler);
+
+/// <summary>
 /// Technical correlation metadata propagated from workflow MCP steps to MCP transports.
 /// Domain context is explicitly supplied by the workflow and is carried only in
 /// the MCP request metadata envelope.
@@ -295,7 +323,7 @@ public sealed record McpCorrelationContext
 
 /// <summary>
 /// Abstraction over an MCP session (client connected to a server).
-/// Wraps the ModelContextProtocol.Client.IMcpClient for testability.
+/// Represents a provider-neutral MCP session for transport-independent execution and testing.
 /// </summary>
 public interface IMcpSession : IAsyncDisposable
 {
@@ -336,10 +364,29 @@ public interface IMcpSession : IAsyncDisposable
 /// replace this registration because the transport consumes x-mcp-header
 /// annotations to build Mcp-Param-* headers.
 /// </summary>
-internal interface ILiveMcpToolDiscoverySession
+public interface ILiveMcpToolDiscoverySession
 {
     Task<IReadOnlyList<McpToolInfo>> EnsureToolsDiscoveredAsync(CancellationToken ct);
 }
+
+public static class McpArtifactContractConventions
+{
+    public const string WorkspaceDirectoryKind = "workspace.directory";
+    public const string MaterializeMode = "materialize";
+}
+
+public sealed record McpProducedArtifact(string Kind, string Pointer, string Mode);
+
+public sealed record McpConsumedArtifact(string Kind, string Pointer, bool Required);
+
+public sealed record McpArtifactContract(
+    int Version,
+    IReadOnlyList<McpProducedArtifact> Produces,
+    IReadOnlyList<McpConsumedArtifact> Consumes);
+
+public sealed record McpArtifactContractResolution(
+    McpArtifactContract? Contract,
+    IReadOnlyList<string> Errors);
 
 /// <summary>
 /// Describes an MCP tool.
@@ -356,6 +403,12 @@ public sealed class McpToolInfo
     /// domain-neutral artifacts produced or consumed by a tool.
     /// </summary>
     public JsonNode? Meta { get; set; }
+
+    /// <summary>
+    /// Optional consumer-resolved semantic artifact contract. MCP transport
+    /// implementations populate this from their protocol-specific metadata.
+    /// </summary>
+    public McpArtifactContractResolution? ArtifactContract { get; set; }
 
     /// <summary>
     /// Optional JSON Schema describing the tool result content returned as

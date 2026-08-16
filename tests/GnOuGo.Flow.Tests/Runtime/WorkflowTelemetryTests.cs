@@ -1,6 +1,5 @@
 using System.Text.Json.Nodes;
 using Moq;
-using GnOuGo.AI.Core;
 using GnOuGo.Flow.Core.Compilation;
 using GnOuGo.Flow.Core.Models;
 using GnOuGo.Flow.Core.Parsing;
@@ -11,6 +10,7 @@ namespace GnOuGo.Flow.Tests.Runtime;
 
 public class WorkflowTelemetryTests
 {
+    private static readonly IModelUsageCostEstimator UsageCostEstimator = new TestUsageCostEstimator();
     private const string ValidGeneratedTemplateWorkflowYaml = """
         version: 1
         name: generated-workflow
@@ -32,7 +32,7 @@ public class WorkflowTelemetryTests
 
     private static double ExpectedCost(string model, long inputTokens, long outputTokens, string? providerType = null)
     {
-        var cost = ModelMetadataCatalog.EstimateCost(model, inputTokens, outputTokens, providerType: providerType);
+        var cost = UsageCostEstimator.EstimateCost(model, inputTokens, outputTokens, providerType);
         Assert.True(cost.HasValue, $"Expected pricing metadata for model '{model}' provider '{providerType ?? "<default>"}'.");
         return (double)cost.Value;
     }
@@ -469,6 +469,7 @@ workflows:
         var engine = new WorkflowEngine
         {
             LLMClient = mockLlm.Object,
+            ModelUsageCostEstimator = UsageCostEstimator,
             Telemetry = recording
         };
         var result = await engine.ExecuteAsync(wf, new JsonObject(), CancellationToken.None);
@@ -593,6 +594,7 @@ workflows:
         var engine = new WorkflowEngine
         {
             LLMClient = mockLlm.Object,
+            ModelUsageCostEstimator = UsageCostEstimator,
             McpClientFactory = factory,
             Telemetry = recording,
             Limits = new ExecutionLimits { LogStepContent = true }
@@ -946,6 +948,7 @@ workflows:
         var engine = new WorkflowEngine
         {
             McpClientFactory = factory,
+            ModelUsageCostEstimator = UsageCostEstimator,
             Telemetry = recording
         };
         var result = await engine.ExecuteAsync(wf, new JsonObject(), CancellationToken.None);
@@ -1076,6 +1079,7 @@ workflows:
         var engine = new WorkflowEngine
         {
             McpClientFactory = factory,
+            ModelUsageCostEstimator = UsageCostEstimator,
             Telemetry = recording
         };
         var result = await engine.ExecuteAsync(wf, new JsonObject(), CancellationToken.None);
@@ -1190,6 +1194,7 @@ workflows:
         var engine = new WorkflowEngine
         {
             LLMClient = mockLlm.Object,
+            ModelUsageCostEstimator = UsageCostEstimator,
             McpClientFactory = mockFactory.Object,
             Telemetry = recording
         };
@@ -1491,5 +1496,15 @@ workflows:
         // No span events should be emitted
         var greetSpan = recording.StepSpans.Single(s => s.Name == "greet");
         Assert.Empty(greetSpan.SpanEvents);
+    }
+    private sealed class TestUsageCostEstimator : IModelUsageCostEstimator
+    {
+        public decimal? EstimateCost(
+            string? model,
+            long? inputTokens = null,
+            long? outputTokens = null,
+            string? providerType = null)
+            => inputTokens.GetValueOrDefault() * 0.000001m
+               + outputTokens.GetValueOrDefault() * 0.000002m;
     }
 }

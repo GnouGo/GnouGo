@@ -2,6 +2,7 @@ using GnOuGo.AI.Core;
 using GnOuGo.Agent.Server.Hosting;
 using GnOuGo.Agent.Server.SmartFlow;
 using GnOuGo.Flow.Core.Runtime;
+using GnOuGo.Flow.Integrations;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace GnOuGo.Agent.Server.Tests;

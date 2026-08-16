@@ -3,7 +3,7 @@ using System.Text.Json.Nodes;
 
 namespace GnOuGo.Flow.Core.Runtime;
 
-internal static class McpToolContractEnricher
+public static class McpToolContractEnricher
 {
     private static readonly Regex ResponseFieldRegex = new(
         @"\bresponse\.([A-Za-z_][A-Za-z0-9_]*)\b",
@@ -41,7 +41,8 @@ internal static class McpToolContractEnricher
             InputSchema = tool.InputSchema?.DeepClone(),
             Meta = tool.Meta?.DeepClone(),
             OutputSchema = inferredOutputSchema,
-            ExampleResponse = tool.ExampleResponse?.DeepClone()
+            ExampleResponse = tool.ExampleResponse?.DeepClone(),
+            ArtifactContract = tool.ArtifactContract
         };
     }
 

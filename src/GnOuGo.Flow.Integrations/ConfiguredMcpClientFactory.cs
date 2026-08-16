@@ -10,8 +10,10 @@ using ModelContextProtocol.Protocol;
 using GnOuGo.AI.Core;
 using GnOuGo.Flow.Core.Expressions;
 using GnOuGo.Flow.Core.Models;
+using GnOuGo.Flow.Core.Runtime;
+using McpArtifactContractParser = GnOuGo.Mcp.Core.McpArtifactContractParser;
 
-namespace GnOuGo.Flow.Core.Runtime;
+namespace GnOuGo.Flow.Integrations;
 
 /// <summary>
 /// Real <see cref="IMcpClientFactory"/> implementation that connects to MCP servers
@@ -19,7 +21,7 @@ namespace GnOuGo.Flow.Core.Runtime;
 /// Reads configuration from a dictionary of <see cref="McpServerOptions"/>.
 /// Shared by both GnOuGo.Flow.Cli and GnOuGo.Flow.Server.
 /// </summary>
-public sealed class ConfiguredMcpClientFactory : IMcpClientFactory, IAsyncDisposable
+public sealed class ConfiguredMcpClientFactory : IMcpClientFactory, IMcpExecutionHooks, IAsyncDisposable
 {
     private const string ProgressEnvelopeMarker = "gnougo.mcp.progress";
     private static readonly AsyncLocal<McpCorrelationContext?> CurrentCorrelation = new();
@@ -61,6 +63,15 @@ public sealed class ConfiguredMcpClientFactory : IMcpClientFactory, IAsyncDispos
     }
 
     public IReadOnlyList<McpServerMetadata> ServerMetadata => _serverMetadata;
+
+    IDisposable IMcpExecutionHooks.BeginCall(McpCallExecutionContext context)
+        => new McpExecutionScope(
+            PushCorrelationContext(context.Correlation),
+            PushProgressHandler(context.Correlation, context.ProgressHandler),
+            PushHumanInputHandler(context.Correlation, context.HumanInputHandler));
+
+    string IMcpExecutionHooks.FormatFailureDiagnostics(string serverName, Exception exception)
+        => FormatMcpFailureDiagnostics(serverName, exception);
 
     public static IDisposable PushCorrelationContext(McpCorrelationContext context)
     {
@@ -865,6 +876,30 @@ public sealed class ConfiguredMcpClientFactory : IMcpClientFactory, IAsyncDispos
         }
     }
 
+    private sealed class McpExecutionScope : IDisposable
+    {
+        private readonly IDisposable _correlationScope;
+        private readonly IDisposable _progressScope;
+        private readonly IDisposable _humanInputScope;
+
+        public McpExecutionScope(
+            IDisposable correlationScope,
+            IDisposable progressScope,
+            IDisposable humanInputScope)
+        {
+            _correlationScope = correlationScope;
+            _progressScope = progressScope;
+            _humanInputScope = humanInputScope;
+        }
+
+        public void Dispose()
+        {
+            _humanInputScope.Dispose();
+            _progressScope.Dispose();
+            _correlationScope.Dispose();
+        }
+    }
+
     private sealed class ProgressHandlerScope : IDisposable
     {
         private readonly Guid _registrationId;
@@ -1008,35 +1043,6 @@ public sealed class ConfiguredMcpClientFactory : IMcpClientFactory, IAsyncDispos
     }
 }
 
-public sealed class McpRealtimeProgressEvent
-{
-    public string? ServerName { get; init; }
-    public string? MethodName { get; init; }
-    public string? Kind { get; init; }
-    public string? CorrelationId { get; init; }
-    public string? RunId { get; init; }
-    public string? StepId { get; init; }
-    public string? StepType { get; init; }
-    public string? EventKind { get; init; }
-    public string? Level { get; init; }
-    public string Message { get; init; } = "";
-    public string? File { get; init; }
-    public string? Timestamp { get; init; }
-}
-
-public enum McpHumanInputSignalPhase
-{
-    Waiting,
-    Resumed,
-    Refused,
-    Cancelled
-}
-
-public sealed record McpHumanInputSignal(
-    McpCorrelationContext Correlation,
-    HumanInputRequest Request,
-    McpHumanInputSignalPhase Phase);
-
 /// <summary>
 /// Adapts a <see cref="McpClient"/> from the Microsoft library
 /// to the <see cref="IMcpSession"/> interface used by GnOuGo.Flow.Core executors.
@@ -1081,19 +1087,52 @@ internal sealed class McpSessionAdapter : IMcpSession, ILiveMcpToolDiscoverySess
     private async Task<IReadOnlyList<McpToolInfo>> ListToolsCoreAsync(CancellationToken ct)
     {
         var tools = await _client.ListToolsAsync(CreateRequestOptions(), ct);
-        var mappedTools = tools.Select(t => new McpToolInfo
+        var mappedTools = tools.Select(t =>
         {
-            Name = t.Name,
-            Description = t.Description,
-            Meta = t.ProtocolTool.Meta?.DeepClone(),
-            InputSchema = t.JsonSchema.ValueKind != JsonValueKind.Undefined
-                ? JsonNode.Parse(t.JsonSchema.GetRawText())
-                : null,
-            OutputSchema = t.ReturnJsonSchema.HasValue
-                ? JsonNode.Parse(t.ReturnJsonSchema.Value.GetRawText())
-                : null
+            var mapped = new McpToolInfo
+            {
+                Name = t.Name,
+                Description = t.Description,
+                Meta = t.ProtocolTool.Meta?.DeepClone(),
+                InputSchema = t.JsonSchema.ValueKind != JsonValueKind.Undefined
+                    ? JsonNode.Parse(t.JsonSchema.GetRawText())
+                    : null,
+                OutputSchema = t.ReturnJsonSchema.HasValue
+                    ? JsonNode.Parse(t.ReturnJsonSchema.Value.GetRawText())
+                    : null
+            };
+            mapped.ArtifactContract = ResolveArtifactContract(mapped);
+            return mapped;
         }).ToList().AsReadOnly();
         return McpToolContractEnricher.EnrichTools(mappedTools);
+    }
+
+    private static McpArtifactContractResolution? ResolveArtifactContract(McpToolInfo tool)
+    {
+        var validation = McpArtifactContractParser.ParseAndValidate(
+            tool.Meta,
+            tool.InputSchema,
+            tool.OutputSchema);
+        if (!validation.IsDeclared)
+            return null;
+
+        var contract = validation.Contract == null
+            ? null
+            : new GnOuGo.Flow.Core.Runtime.McpArtifactContract(
+                validation.Contract.Version,
+                validation.Contract.Produces
+                    .Select(static artifact => new GnOuGo.Flow.Core.Runtime.McpProducedArtifact(
+                        artifact.Kind,
+                        artifact.Pointer,
+                        artifact.Mode))
+                    .ToArray(),
+                validation.Contract.Consumes
+                    .Select(static artifact => new GnOuGo.Flow.Core.Runtime.McpConsumedArtifact(
+                        artifact.Kind,
+                        artifact.Pointer,
+                        artifact.Required))
+                    .ToArray());
+        return new McpArtifactContractResolution(contract, validation.Errors);
     }
 
     public async Task<IReadOnlyList<McpResourceInfo>> ListResourcesAsync(CancellationToken ct)

@@ -132,7 +132,7 @@ internal static class JsonSchemaContractValidator
     }
 
     internal static IReadOnlyList<string> ValidateInstance(JsonNode? instance, JsonNode? schema)
-        => GnOuGo.AI.Core.LLMStructuredOutputValidator.ValidateInstance(instance, schema);
+        => JsonSchemaInstanceValidator.ValidateInstance(instance, schema);
 
     private static JsonNode NormalizeSchema(JsonNode schema)
     {
