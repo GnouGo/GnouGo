@@ -356,6 +356,10 @@ public sealed class KeyVaultRuntimeConfigStore : IKeyVaultRuntimeConfigStore
         {
             DefaultProvider = source.DefaultProvider,
             DefaultModel = source.DefaultModel,
+            Fallback = source.Fallback is null
+                ? null
+                : new LLMFallbackOptions { Provider = source.Fallback.Provider, Model = source.Fallback.Model },
+            DangerousAcceptAnyServerCertificate = source.DangerousAcceptAnyServerCertificate,
             Models = new Dictionary<string, ModelProviderOptions>(StringComparer.OrdinalIgnoreCase),
             McpServers = new Dictionary<string, McpServerOptions>(StringComparer.OrdinalIgnoreCase),
             ModelMetadataFiles = [.. source.ModelMetadataFiles],
@@ -373,7 +377,8 @@ public sealed class KeyVaultRuntimeConfigStore : IKeyVaultRuntimeConfigStore
                 ClientId = kv.Value.ClientId,
                 ClientSecret = kv.Value.ClientSecret,
                 PrivateKeyPem = kv.Value.PrivateKeyPem,
-                Scopes = kv.Value.Scopes
+                Scopes = kv.Value.Scopes,
+                ApiVersion = kv.Value.ApiVersion
             };
         }
 

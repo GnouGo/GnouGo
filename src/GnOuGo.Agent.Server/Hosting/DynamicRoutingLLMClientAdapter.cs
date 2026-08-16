@@ -18,24 +18,30 @@ internal sealed class DynamicRoutingLLMClientAdapter : ILLMClient
     private readonly LLMRuntimeOptionsStore _store;
     private readonly ILoggerFactory _loggerFactory;
     private readonly IMemoryCache _backgroundModeCache;
+    private readonly ILocalLLMRuntime? _localRuntime;
 
     public DynamicRoutingLLMClientAdapter(
         HttpClient http,
         LLMRuntimeOptionsStore store,
         ILoggerFactory loggerFactory,
-        IMemoryCache backgroundModeCache)
+        IMemoryCache backgroundModeCache,
+        ILocalLLMRuntime? localRuntime = null)
     {
         _http = http;
         _store = store;
         _loggerFactory = loggerFactory;
         _backgroundModeCache = backgroundModeCache;
+        _localRuntime = localRuntime;
     }
 
     public async Task<LLMResponse> CallAsync(LLMRequest request, CancellationToken ct)
     {
         // Always read the LATEST options — picks up any /llm wizard changes.
         var options = _store.Current;
-        var routingClient = new RoutingLLMClient(_http, options, _loggerFactory, _backgroundModeCache);
+        var providers = RoutingLLMClient.CreateDefaultProviders(_http, _loggerFactory, _backgroundModeCache).AsEnumerable();
+        if (_localRuntime is not null)
+            providers = providers.Append(new LocalLLMProvider(_localRuntime));
+        var routingClient = new RoutingLLMClient(options, providers);
 
         var aiRequest = new LLMClientRequest
         {

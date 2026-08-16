@@ -32,6 +32,7 @@
     <ProjectReference Include="..\GnOuGo.Agent.Shared\GnOuGo.Agent.Shared.csproj" />
     <ProjectReference Include="..\GnOuGo.Agent.Mcp\GnOuGo.Agent.Mcp.csproj" />
     <ProjectReference Include="..\GnOuGo.AI.Core\GnOuGo.AI.Core.csproj" />
+    <ProjectReference Include="..\GnOuGo.AI.Local\GnOuGo.AI.Local.csproj" />
     <ProjectReference Include="..\GnOuGo.Assets.Animation\GnOuGo.Assets.Animation.csproj" />
     <ProjectReference Include="..\GnOuGo.Assets.Bears\GnOuGo.Assets.Bears.csproj" />
     <ProjectReference Include="..\GnOuGo.DocIngestor.Mcp\GnOuGo.DocIngestor.Mcp.csproj" />

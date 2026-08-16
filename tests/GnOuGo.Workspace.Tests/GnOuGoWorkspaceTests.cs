@@ -170,6 +170,19 @@ public class GnOuGoWorkspaceTests
         Assert.False(Directory.Exists(result));
     }
 
+    [Fact]
+    public void ResolveLocalModelsDirectory_ReturnsHiddenWorkspaceModelDirectory()
+    {
+        var result = GnOuGoWorkspace.ResolveLocalModelsDirectory(Path.GetTempPath());
+
+        Assert.Equal(
+            Path.Combine(GnOuGoWorkspace.ResolveWorkspaceDataDirectory(Path.GetTempPath()), "models"),
+            result);
+        Assert.True(GnOuGoWorkspace.IsReservedWorkspacePath(
+            result,
+            GnOuGoWorkspace.ResolveDefaultWorkingDirectorySafe(contentRootPath: Path.GetTempPath())));
+    }
+
     [Theory]
     [InlineData(".GnOuGo", true)]
     [InlineData(".GnOuGo/data/app.db", true)]

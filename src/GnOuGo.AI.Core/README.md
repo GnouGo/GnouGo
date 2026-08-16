@@ -15,6 +15,7 @@ Provides a **provider-agnostic routing layer** so that the rest of the system ne
 | `Ollama`    | `ollama`  | Local Ollama server                              |
 | `Copilot`   | `copilot` | GitHub Copilot / GitHub Models API               |
 | `Anthropic` | `anthropic` | Anthropic Claude Messages API                  |
+| `Local`     | `local`   | Embedded runtime supplied by `GnOuGo.AI.Local`   |
 
 ## Model Catalog Behavior
 
@@ -57,6 +58,19 @@ ILLMProvider  (interface — one per backend)
 
 RoutingLLMClient  (routes requests to the right ILLMProvider based on config)
 ```
+
+`AI.Core` owns only the stable local-runtime boundary: `ILocalLLMRuntime`,
+`ILocalModelManager`, model lifecycle/progress DTOs, typed local failures, and
+`LocalLLMProvider`. Native LLamaSharp implementation details remain isolated in the
+separately publishable `GnOuGo.AI.Local` package.
+
+`LLMStructuredOutputValidator` is the shared AOT-friendly JSON-schema instance
+validator used by both `GnOuGo.Flow.Core` and local inference. When the selected
+provider is `local`, routing performs at most two local attempts. A structured
+second attempt receives sanitized validation feedback. A configured non-local
+`LLM.Fallback` is then called at most once for load, inference, or structured-output
+failure. Caller cancellation is never retried or sent to a fallback, and a fallback
+cannot point back to `local`.
 
 ## HTTP resilience
 
@@ -101,6 +115,10 @@ the caller remains `OperationCanceledException`.
   "LLM": {
     "DefaultProvider": "Copilot",
     "DefaultModel": "gpt-4.1",
+    "Fallback": {
+      "Provider": "Copilot",
+      "Model": "gpt-4.1"
+    },
     "Models": {
       "OpenAi": {
         "Url": "https://api.openai.com/v1",
@@ -255,7 +273,9 @@ dotnet test tests/GnOuGo.AI.Core.Tests/GnOuGo.AI.Core.Tests.csproj
 | Type | Role |
 |------|------|
 | `ILLMProvider` | Interface — implement to add a new backend |
+| `ILocalLLMRuntime` / `ILocalModelManager` | Stable embedded-runtime and model-lifecycle contracts |
 | `RoutingLLMClient` | Routes `LLMClientRequest` to the correct provider |
+| `LLMStructuredOutputValidator` | Shared AOT-friendly JSON-schema instance validation |
 | `LLMOptions` / `ModelProviderOptions` | Configuration model |
 | `LLMModelMetadataResolver` | Merges metadata and resolves exact, alias, same-provider fuzzy, or heuristic matches |
 | `LLMModelMetadataResolution` | Metadata plus match provenance, matched model/provider, and fuzzy similarity |

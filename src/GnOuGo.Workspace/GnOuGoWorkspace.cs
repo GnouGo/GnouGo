@@ -16,6 +16,9 @@ public static class GnOuGoWorkspace
     /// </summary>
     public const string WorkspaceDataSubfolder = ".GnOuGo";
 
+    /// <summary>Folder used for immutable, host-scoped local model assets.</summary>
+    public const string LocalModelsSubfolder = "models";
+
     /// <summary>
     /// Visible folder used under the GnOuGo workspace for directories materialized by workflows.
     /// </summary>
@@ -150,6 +153,15 @@ public static class GnOuGoWorkspace
         => Path.GetFullPath(Path.Combine(
             ResolveDefaultWorkingDirectorySafe(contentRootPath: baseDirectory),
             WorkspaceDataSubfolder));
+
+    /// <summary>
+    /// Resolves the host-scoped local model directory under <c>.GnOuGo/models</c>.
+    /// The directory is not created by this helper.
+    /// </summary>
+    public static string ResolveLocalModelsDirectory(string baseDirectory)
+        => Path.GetFullPath(Path.Combine(
+            ResolveWorkspaceDataDirectory(baseDirectory),
+            LocalModelsSubfolder));
 
     /// <summary>
     /// Resolves the visible directory reserved for workflow-owned workspaces.

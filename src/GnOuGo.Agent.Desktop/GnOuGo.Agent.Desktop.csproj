@@ -39,11 +39,22 @@
 
 
   <ItemGroup>
+    <PackageReference Include="LLamaSharp.Backend.Cpu" Version="0.27.0" GeneratePathProperty="true" />
     <PackageReference Include="Photino.NET" Version="4.0.16" />
+  </ItemGroup>
+
+  <!-- LLamaSharp's backend package marks native files for build output only.
+       Desktop distributions must also retain the selected RID in publish output. -->
+  <ItemGroup Condition="'$(RuntimeIdentifier)' != ''">
+    <Content Update="$(PkgLLamaSharp_Backend_Cpu)/LLamaSharpRuntimes/$(RuntimeIdentifier)/**/*"
+             CopyToPublishDirectory="PreserveNewest" />
   </ItemGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\GnOuGo.Agent.Server\GnOuGo.Agent.Server.csproj" />
+    <!-- Keep the local runtime as a direct distribution dependency so the
+         LLamaSharp native backend content reaches the Desktop publish output. -->
+    <ProjectReference Include="..\GnOuGo.AI.Local\GnOuGo.AI.Local.csproj" />
   </ItemGroup>
 
   <ItemGroup>
@@ -221,6 +232,25 @@
     </ItemGroup>
     <Delete Files="@(_PublishPdbFiles)" Condition="'@(_PublishPdbFiles)' != ''" />
     <Message Importance="high" Text="Removed @(_PublishPdbFiles->Count()) PDB file(s) from publish output." />
+  </Target>
+
+  <!-- Single-file publish may consume package Content even when it is marked for
+       publish. Copy the pinned backend after publishing so distributions retain
+       the LLamaSharp loader's expected runtimes/<RID>/native layout. -->
+  <Target Name="CopyLlamaSharpNativeAssetsToPublish"
+          AfterTargets="PublishBundledDesktopTools"
+          BeforeTargets="RemovePdbFilesFromPublish"
+          Condition="'$(PublishDir)' != '' and '$(RuntimeIdentifier)' != ''">
+    <ItemGroup>
+      <_LlamaSharpNativeAsset Include="$(PkgLLamaSharp_Backend_Cpu)/LLamaSharpRuntimes/$(RuntimeIdentifier)/**/*" />
+    </ItemGroup>
+    <Error Condition="'@(_LlamaSharpNativeAsset)' == ''"
+           Text="LLamaSharp.Backend.Cpu 0.27.0 has no native assets for $(RuntimeIdentifier)." />
+    <Copy SourceFiles="@(_LlamaSharpNativeAsset)"
+          DestinationFiles="@(_LlamaSharpNativeAsset->'$(PublishDir)runtimes/$(RuntimeIdentifier)/%(RecursiveDir)%(Filename)%(Extension)')"
+          SkipUnchangedFiles="true" />
+    <Message Importance="high"
+             Text="Copied @(_LlamaSharpNativeAsset->Count()) LLamaSharp native asset(s) for $(RuntimeIdentifier) into the Desktop publish output." />
   </Target>
 
 

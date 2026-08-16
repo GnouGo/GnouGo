@@ -16,6 +16,7 @@ public sealed class SecureWorkflowRuntimeFactory
     private readonly IMemoryCache? _backgroundModeCache;
     private readonly ILLMCapabilityResolver? _llmCapabilityResolver;
     private readonly IHumanInputProvider? _humanInputProvider;
+    private readonly ILocalLLMRuntime? _localRuntime;
 
     internal bool UsesLiveMcpConfiguration => _mcpClientFactoryOverride is null;
 
@@ -27,7 +28,8 @@ public sealed class SecureWorkflowRuntimeFactory
         IMcpClientFactory? mcpClientFactoryOverride = null,
         IMemoryCache? backgroundModeCache = null,
         ILLMCapabilityResolver? llmCapabilityResolver = null,
-        IHumanInputProvider? humanInputProvider = null)
+        IHumanInputProvider? humanInputProvider = null,
+        ILocalLLMRuntime? localRuntime = null)
     {
         _optionsStore = optionsStore;
         _keyVaultStore = keyVaultStore;
@@ -37,6 +39,7 @@ public sealed class SecureWorkflowRuntimeFactory
         _backgroundModeCache = backgroundModeCache;
         _llmCapabilityResolver = llmCapabilityResolver;
         _humanInputProvider = humanInputProvider;
+        _localRuntime = localRuntime;
     }
 
     internal async Task<SecureWorkflowRuntimeSession> CreateAsync(CancellationToken ct)
@@ -53,7 +56,7 @@ public sealed class SecureWorkflowRuntimeFactory
             : new InMemoryMcpClientFactory());
 
         var llmClient = _llmClientOverride
-            ?? new SnapshotRoutingLlmClientAdapter(http, options, _loggerFactory, _backgroundModeCache);
+            ?? new SnapshotRoutingLlmClientAdapter(http, options, _loggerFactory, _backgroundModeCache, _localRuntime);
 
         return new SecureWorkflowRuntimeSession(
             llmClient,
@@ -105,22 +108,28 @@ internal sealed class SnapshotRoutingLlmClientAdapter : ILLMClient
     private readonly LLMOptions _options;
     private readonly ILoggerFactory _loggerFactory;
     private readonly IMemoryCache? _backgroundModeCache;
+    private readonly ILocalLLMRuntime? _localRuntime;
 
     public SnapshotRoutingLlmClientAdapter(
         HttpClient http,
         LLMOptions options,
         ILoggerFactory loggerFactory,
-        IMemoryCache? backgroundModeCache = null)
+        IMemoryCache? backgroundModeCache = null,
+        ILocalLLMRuntime? localRuntime = null)
     {
         _http = http;
         _options = options;
         _loggerFactory = loggerFactory;
         _backgroundModeCache = backgroundModeCache;
+        _localRuntime = localRuntime;
     }
 
     public async Task<LLMResponse> CallAsync(LLMRequest request, CancellationToken ct)
     {
-        var routingClient = new RoutingLLMClient(_http, _options, _loggerFactory, _backgroundModeCache);
+        var providers = RoutingLLMClient.CreateDefaultProviders(_http, _loggerFactory, _backgroundModeCache).AsEnumerable();
+        if (_localRuntime is not null)
+            providers = providers.Append(new LocalLLMProvider(_localRuntime));
+        var routingClient = new RoutingLLMClient(_options, providers);
         var aiRequest = new LLMClientRequest
         {
             Provider = request.Provider,

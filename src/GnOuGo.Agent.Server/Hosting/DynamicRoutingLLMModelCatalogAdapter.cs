@@ -14,17 +14,26 @@ internal sealed class DynamicRoutingLLMModelCatalogAdapter : ILLMModelCatalog
     private readonly HttpClient _http;
     private readonly LLMRuntimeOptionsStore _store;
     private readonly ILoggerFactory _loggerFactory;
+    private readonly ILLMModelCatalogProvider? _localCatalog;
 
-    public DynamicRoutingLLMModelCatalogAdapter(HttpClient http, LLMRuntimeOptionsStore store, ILoggerFactory loggerFactory)
+    public DynamicRoutingLLMModelCatalogAdapter(
+        HttpClient http,
+        LLMRuntimeOptionsStore store,
+        ILoggerFactory loggerFactory,
+        ILLMModelCatalogProvider? localCatalog = null)
     {
         _http = http;
         _store = store;
         _loggerFactory = loggerFactory;
+        _localCatalog = localCatalog;
     }
 
     public Task<IReadOnlyList<LLMModelDescriptor>> ListModelsAsync(string provider, CancellationToken ct = default)
     {
-        var catalog = new RoutingLLMModelCatalog(_http, _store.Current, _loggerFactory);
+        var providers = RoutingLLMModelCatalog.CreateDefaultProviders(_http, _loggerFactory).AsEnumerable();
+        if (_localCatalog is not null)
+            providers = providers.Append(_localCatalog);
+        var catalog = new RoutingLLMModelCatalog(_store.Current, providers);
         return catalog.ListModelsAsync(provider, ct);
     }
 }

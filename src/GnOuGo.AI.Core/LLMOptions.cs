@@ -20,6 +20,11 @@ public sealed class LLMOptions
     public Dictionary<string, ModelProviderOptions> Models { get; set; } = new();
 
     /// <summary>
+    /// Optional cloud fallback used only after the embedded local provider exhausts its bounded retry.
+    /// </summary>
+    public LLMFallbackOptions? Fallback { get; set; }
+
+    /// <summary>
     /// Named MCP server configurations (key = logical server name, e.g. "Github").
     /// </summary>
     public Dictionary<string, McpServerOptions> McpServers { get; set; } = new();
@@ -91,7 +96,7 @@ public sealed class ModelProviderOptions
     /// <summary>API key (optional for local providers like Ollama). Also checked via {KEY}_API_KEY env var.</summary>
     public string? ApiKey { get; set; }
 
-    /// <summary>Provider type hint: "openai", "ollama", "copilot", or "anthropic". The legacy alias "claude" is also accepted. Inferred from URL if not set.</summary>
+    /// <summary>Provider type hint: "openai", "ollama", "copilot", "anthropic", or "local". The legacy alias "claude" is also accepted. Inferred from URL if not set.</summary>
     public string? Type { get; set; }
 
     /// <summary>OAuth2 issuer URL for token-based auth.</summary>
@@ -117,7 +122,7 @@ public sealed class ModelProviderOptions
 
     /// <summary>
     /// Returns the effective provider type: explicit <see cref="Type"/>, or inferred from URL.
-    /// Supported values: "openai", "ollama", "copilot", "anthropic". The legacy alias "claude" is accepted.
+    /// Supported values: "openai", "ollama", "copilot", "anthropic", "local". The legacy alias "claude" is accepted.
     /// </summary>
     public string ResolvedType =>
         !string.IsNullOrWhiteSpace(Type) ? NormalizeType(Type!)
@@ -134,6 +139,14 @@ public sealed class ModelProviderOptions
             "claude" => "anthropic",
             var normalized => normalized
         };
+}
+
+/// <summary>Optional provider/model pair used after local retry exhaustion.</summary>
+public sealed class LLMFallbackOptions
+{
+    public string Provider { get; set; } = "";
+
+    public string Model { get; set; } = "";
 }
 
 /// <summary>

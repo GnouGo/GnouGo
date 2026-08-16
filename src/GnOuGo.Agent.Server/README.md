@@ -81,6 +81,31 @@ For user-configured HTTP servers, `/mcp edit <name>` can keep the current authen
 
 `/llm add` can configure `openai`, `ollama`, `copilot`, and `anthropic` providers. The Anthropic provider uses the Anthropic Messages API endpoint `https://api.anthropic.com/v1` and stores the API key encrypted in KeyVault like the other remote providers. The legacy `claude` name is still accepted as an alias for existing configurations.
 
+The built-in `local` provider runs Qwen3 directly inside Agent.Server through
+LLamaSharp; it needs no API key, HTTP model server, Python, Docker, or child
+process. The model is deliberately not bundled in release archives. Manage the
+pinned and checksum-verified catalog with:
+
+```text
+/models list
+/models install qwen3:0.6b
+/models remove qwen3:0.6b
+/models remove qwen3:0.6b --force
+```
+
+An install preserves an existing usable default. If the current default is absent
+or incompletely authenticated (including the untouched empty OpenAI placeholder),
+Agent persists `local / qwen3:0.6b` through its tenant-aware Agent MCP configuration
+boundary. Removing the active default requires `--force`. `/llm list` includes the
+built-in model and `/llm default local qwen3:0.6b` selects an installed model.
+
+The immutable catalog entry is Apache-2.0
+`Qwen3-0.6B-Q4_0.gguf`, revision
+`a41486f827d17edd055fe6b3b0ba3f8d427c0519`, size `428,970,080`, and
+SHA-256 `da2572f16c06133561ce56accaa822216f2391ef4d37fba427801cd6736417d4`.
+Downloads are resumable and complete atomically only after exact size and checksum
+verification.
+
 After model selection, `/llm add` and `/llm edit <provider>` always display an editable review form containing token limits, pricing, structured-output/tool/JSON support, temperature and reasoning behavior, vision/audio/embedding support, supported reasoning efforts, and unsupported request parameters. Exact catalog values remain catalog-backed when accepted unchanged. Edited values and accepted fuzzy/heuristic defaults are persisted as non-secret, provider-qualified overrides such as `openai/model-id`; legacy unqualified overrides remain readable. Approximate matches are restricted to the normalized provider and the UI identifies the source model and similarity before saving.
 
 Bundled MCP servers can also expose selected editable fields through the `BundledMcp` settings section. Each field maps to a KeyVault secret and a runtime target such as `env:Git__Token`, so `/mcp list` can show the bundled server and `/mcp edit <name>` only prompts for the configured fields. The default configuration makes `GnOuGo.Git.Mcp` listable and exposes only the Git token; the token is saved encrypted in KeyVault and injected into the Git MCP process as `Git:Token` when runtime MCP options are hydrated.
@@ -344,6 +369,9 @@ The linux-x64 CI and Docker paths publish `GnOuGo.Agent.Server` as a trimmed sel
 - `/p:PublishTrimmed=true`
 - `/p:PublishSingleFile=true`
 
+The publish retains the LLamaSharp linux-x64 CPU native assets beside the
+single-file host; CI explicitly verifies these files.
+
 The server uses Entity Framework Core for all persistence (Agent, KeyVault, OTLP Collector, Diff, Files). That EF Core + SQLite boundary is mandatory: publish-warning work must retain the existing contexts, repositories, schemas, tenant behavior, and compiled models where the component has one. Blazor Interactive Server components are fully included. Verified framework-only trim diagnostics are isolated to these publish profiles; compile-time trim analysis stays enabled.
 
 Run the repository publish verification for the current platform, or audit the exact package/framework warning boundaries with their normal suppressions disabled:
@@ -365,6 +393,11 @@ docker run --rm -p 5000:5000 gnougo-agent
 
 The desktop workflow publishes a trimmed self-contained `GnOuGo.Agent.Desktop` (Photino) with bundled stdio MCP tools. The bundled stdio tools (`GnOuGo.Cmd.Mcp`, `GnOuGo.Document.Mcp`, `GnOuGo.Git.Mcp`, `GnOuGo.GithubCopilot.Mcp`, `GnOuGo.DocIngestor.Mcp`) are published as Native AOT executables for maximum startup performance.
 
+All six desktop RIDs include their LLamaSharp CPU native assets: `linux-x64`,
+`linux-arm64`, `win-x64`, `win-arm64`, `osx-arm64`, and `osx-x64`. macOS ARM64
+automatically uses Metal layers; Windows and Linux use CPU execution. CUDA and
+Vulkan acceleration remain follow-up work.
+
 ## Default Local Data Locations
 
 By default, the GnOuGo workspace remains `Desktop/GnOuGo`.
@@ -380,6 +413,7 @@ The default settings carry these relative paths explicitly:
 - `DocsIngestorMcp:VectorDatabasePath` → `./.GnOuGo/data/gnougo-docs-ingestor-vectors.sqlite`
 - `DocsIngestorMcp:OriginalsDirectory` → `./.GnOuGo/data/docs-ingestor/originals/`
 - `Database:Path` (embedded OTLP collector) → `./.GnOuGo/data/gnougo-telemetry.db`
+- local GGUF models → `./.GnOuGo/models/`
 
 If you explicitly configure an absolute path, that override is preserved.
 
