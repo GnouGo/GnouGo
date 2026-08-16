@@ -2,6 +2,10 @@
 
 All notable changes to this project are documented in this file.
 
+## v0.19.1 - 2026-08-16
+
+- refactor: decouple Flow.Core integrations (release) (#95) (da31865)
+
 ## v0.19.0 - 2026-08-16
 
 - feat: add embedded local Qwen3 runtime (release) (#93) (9faad22)
@@ -255,9 +259,6 @@ All notable changes to this project are documented in this file.
 ## v0.4.2 - 2026-05-02
 
 - fix(agent): browser mcp crash at start (release) (12370a4)
-
-## v0.4.1 - 2026-05-02
-
 - fix(agent): publish browser mcp (#24) (release) (3fcedcb)
 - doc: update main readme with mcp servers list (d4d86cd)
 - feat(models): models configuration (#23) (release) (2b6f4ea)
