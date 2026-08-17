@@ -35,6 +35,13 @@ public sealed class LiveIntentAgentGenerationTests
         """;
 
     [Fact]
+    public void ProviderIncompleteAtOutputLimit_IsRetriedAsTransient()
+    {
+        Assert.True(IsTransientProviderFailure(
+            "OpenAI background response ended with status 'incomplete': {\"incomplete_details\":{\"reason\":\"max_output_tokens\"}}"));
+    }
+
+    [Fact]
     [Trait("Category", "Live")]
     public async Task SimpleIntent_GeneratesThreeValidatedAgentsUsingLiveConfiguration()
     {
@@ -66,6 +73,7 @@ public sealed class LiveIntentAgentGenerationTests
             var userConfig = services.GetRequiredService<AgentUserConfigMcpClient>();
             var mcpFactory = services.GetRequiredService<IMcpClientFactory>();
             previousConfig = await userConfig.GetAsync(timeout.Token);
+            await AssertLiveReviewCompositionContractAsync(services, timeout.Token);
 
             var runId = DateTimeOffset.UtcNow.ToString("yyyyMMddHHmmss");
             (string Name, GeneratedAgentContract Contract)? publicationAgent = null;
@@ -175,7 +183,31 @@ public sealed class LiveIntentAgentGenerationTests
                || message.Contains("server_error", StringComparison.OrdinalIgnoreCase)
                || message.Contains("ESG121", StringComparison.Ordinal)
                || message.Contains("Routing failed", StringComparison.OrdinalIgnoreCase)
-               || message.Contains("CAPIError: Connection error", StringComparison.OrdinalIgnoreCase));
+               || message.Contains("CAPIError: Connection error", StringComparison.OrdinalIgnoreCase)
+               || message.Contains("status 'incomplete'", StringComparison.OrdinalIgnoreCase)
+                  && message.Contains("max_output_tokens", StringComparison.OrdinalIgnoreCase));
+
+    private static async Task AssertLiveReviewCompositionContractAsync(
+        IServiceProvider services,
+        CancellationToken ct)
+    {
+        var runtimeFactory = services.GetRequiredService<SecureWorkflowRuntimeFactory>();
+        await using var runtime = await runtimeFactory.CreateAsync(ct);
+        var server = Assert.Single(runtime.McpClientFactory.ServerMetadata!, static metadata =>
+            metadata.Name.Contains("GithubCopilot", StringComparison.OrdinalIgnoreCase));
+        await using var client = await runtime.McpClientFactory.GetClientAsync(server.Name, ct);
+        var review = Assert.Single(await client.ListToolsAsync(ct), static tool =>
+            string.Equals(tool.Name, "copilot_review", StringComparison.Ordinal));
+        var transportContract = McpCapabilityCompositionParser.ParseAndValidate(review.Meta);
+        Assert.True(transportContract.IsDeclared, $"copilot_review metadata did not declare composition: {review.Meta?.ToJsonString() ?? "null"}");
+        Assert.True(transportContract.IsValid, string.Join("; ", transportContract.Errors));
+        Assert.True(review.CompositionContract is not null,
+            $"Configured adapter dropped valid composition metadata: {review.Meta?.ToJsonString() ?? "null"}");
+        Assert.Empty(review.CompositionContract.Errors);
+        Assert.Equal(
+            McpCapabilityCompositionConventions.CompleteOperationKind,
+            review.CompositionContract.Contract?.Kind);
+    }
 
     private static async Task RespondToAgentCreationAsync(
         AgentHumanInputProvider humanInput,
@@ -188,6 +220,8 @@ public sealed class LiveIntentAgentGenerationTests
                 ? new JsonObject { ["agent_name"] = agentName }
                 : request.StepId.EndsWith("input_prompt", StringComparison.Ordinal)
                     ? new JsonObject { ["description"] = AcceptancePrompt }
+                    : request.StepId.Contains(":capability_clarification:", StringComparison.Ordinal)
+                        ? BuildCapabilityClarificationResponse(request)
                     : request.StepId.EndsWith("review_workflow", StringComparison.Ordinal)
                         ? new JsonObject { ["response"] = "approve" }
                         : throw new InvalidOperationException($"Unexpected agent-generation human input step '{request.StepId}'.");
@@ -195,6 +229,40 @@ public sealed class LiveIntentAgentGenerationTests
             if (request.StepId.EndsWith("review_workflow", StringComparison.Ordinal))
                 return;
         }
+    }
+
+    private static JsonObject BuildCapabilityClarificationResponse(HumanInputRequest request)
+    {
+        Assert.Equal(HumanInputContract.ModeForm, request.Mode);
+        Assert.NotEmpty(request.Fields!);
+        var fields = request.Fields!;
+        Assert.All(fields, static field => Assert.True(field.Required));
+        Assert.Equal(fields.Count, fields.Select(static field => field.Name).Distinct(StringComparer.Ordinal).Count());
+        Assert.NotNull(request.Context);
+        var response = new JsonObject();
+        foreach (var field in fields)
+        {
+            response[field.Name] = field.Name switch
+            {
+                var name when name.StartsWith("unresolved_intent_", StringComparison.Ordinal)
+                    => "The intended operation is the complete one-shot review; start/analyse/finish primitives are implementation phases, not separate requested effects.",
+                var name when name.StartsWith("unresolved_choice_", StringComparison.Ordinal)
+                    => "Use the complete one-shot review capability. Publication is runtime-dependent and must use the exact selector branch corresponding to the computed review result.",
+                "intended_outcome_and_scope"
+                    => "Review the disposable pull request completely, publish one explained review decision, and clean only resources created by this test.",
+                "runtime_decision_rules"
+                    => "Compute the decision from runtime dependency restoration, tests, lint, changed-code coverage, and findings; execute exactly one matching publication branch and never ask the human to predict that result.",
+                "external_effect_boundaries"
+                    => "Allow reads for the disposable pull request and confirmed writes only to that pull request. Reject every other target or write.",
+                "success_criteria"
+                    => "All changed code is covered, required checks are represented, one decision branch executes, and its body matches the generated explanation.",
+                "failure_policy"
+                    => "Fail closed and abandon generation when intent, capability support, decision provenance, or safe cleanup remains unresolved after clarification.",
+                _ => throw new InvalidOperationException($"Unexpected capability clarification field '{field.Name}'.")
+            };
+        }
+
+        return response;
     }
 
     private static async Task<JsonObject> GetAgentAsync(IMcpClientFactory factory, string name, CancellationToken ct)
@@ -589,7 +657,8 @@ public sealed class LiveIntentAgentGenerationTests
             };
 
             using var responderCancellation = CancellationTokenSource.CreateLinkedTokenSource(ct);
-            var responder = ApprovePublicationAsync(humanInput, responderCancellation.Token);
+            var expectedPullRequestUrl = $"https://github.com/{owner}/{repository}/pull/{pullNumber.Value}";
+            var responder = ApprovePublicationAsync(humanInput, expectedPullRequestUrl, responderCancellation.Token);
             var events = await CollectAsync(
                 smartFlow.ExecuteAsync(
                     "Review and publish the validated finding for the disposable fixture.",
@@ -666,10 +735,20 @@ public sealed class LiveIntentAgentGenerationTests
         }
     }
 
-    private static async Task ApprovePublicationAsync(AgentHumanInputProvider humanInput, CancellationToken ct)
+    private static async Task ApprovePublicationAsync(
+        AgentHumanInputProvider humanInput,
+        string expectedPullRequestUrl,
+        CancellationToken ct)
     {
         await foreach (var request in humanInput.PendingRequests.ReadAllAsync(ct))
         {
+            Assert.True(request.Mode is HumanInputContract.ModeConfirm or HumanInputContract.ModeChoice,
+                $"Unexpected publication approval mode '{request.Mode}' for step '{request.StepId}'.");
+            var visibleContext = request.Prompt + "\n" + (request.Context?.ToJsonString() ?? string.Empty);
+            var mentionedUrls = Regex.Matches(visibleContext, "https://github\\.com/[^\\s\\\"'<>]+/pull/\\d+", RegexOptions.IgnoreCase)
+                .Select(static match => match.Value.TrimEnd('.', ',', ')'))
+                .ToArray();
+            Assert.All(mentionedUrls, url => Assert.Equal(expectedPullRequestUrl, url));
             var affirmativeChoice = request.Choices?.FirstOrDefault(static choice =>
                 choice.Contains("approve", StringComparison.OrdinalIgnoreCase)
                 || choice.Contains("publish", StringComparison.OrdinalIgnoreCase)
@@ -682,6 +761,7 @@ public sealed class LiveIntentAgentGenerationTests
                 ["decision"] = "approve"
             };
             Assert.True(humanInput.TrySubmitResponse(request.RunId, request.StepId, response));
+            return;
         }
     }
 
@@ -892,6 +972,7 @@ public sealed class LiveIntentAgentGenerationTests
                 ["decision"] = "reject"
             };
             Assert.True(humanInput.TrySubmitResponse(request.RunId, request.StepId, response));
+            return;
         }
     }
 

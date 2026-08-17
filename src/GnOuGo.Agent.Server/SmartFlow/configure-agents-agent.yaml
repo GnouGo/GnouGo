@@ -306,10 +306,13 @@ workflows:
             input:
               capability_preflight:
                 mode: infer
+                clarification:
+                  enabled: true
+                  timeout_ms: 36000000
               generator:
                 prefilter: true
                 mode: auto
-                reasoning: low
+                reasoning: medium
                 instruction: >
                   Generate a valid GnOuGo.Flow YAML workflow for a persisted chat agent.
 

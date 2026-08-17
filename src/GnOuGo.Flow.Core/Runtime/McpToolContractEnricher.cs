@@ -42,7 +42,8 @@ public static class McpToolContractEnricher
             Meta = tool.Meta?.DeepClone(),
             OutputSchema = inferredOutputSchema,
             ExampleResponse = tool.ExampleResponse?.DeepClone(),
-            ArtifactContract = tool.ArtifactContract
+            ArtifactContract = tool.ArtifactContract,
+            CompositionContract = tool.CompositionContract
         };
     }
 

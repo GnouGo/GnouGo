@@ -51,6 +51,9 @@ public sealed class EmbeddedWorkflowResourcesTests
 
         Assert.Contains("capability_preflight:", yaml, StringComparison.Ordinal);
         Assert.Contains("mode: infer", yaml, StringComparison.Ordinal);
+        Assert.Contains("clarification:", yaml, StringComparison.Ordinal);
+        Assert.Contains("enabled: true", yaml, StringComparison.Ordinal);
+        Assert.Contains("reasoning: medium", yaml, StringComparison.Ordinal);
         Assert.Contains("Enumerate every required positive external read, write, side effect", yaml, StringComparison.Ordinal);
         Assert.Contains("Classify prohibitions, safety rules, ordering requirements, and invariants as constraints", yaml, StringComparison.Ordinal);
         Assert.Contains("workflow-level finally array", yaml, StringComparison.Ordinal);

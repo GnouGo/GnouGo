@@ -91,9 +91,12 @@ public sealed class CodeToolsStructuredOutputTests : IDisposable
         {
             var attribute = Assert.Single(method.GetCustomAttributes<McpMetaAttribute>());
             Assert.Equal(McpArtifactContractMetadata.MetaPropertyName, attribute.Name);
+            var advertised = Assert.IsType<JsonObject>(JsonNode.Parse(attribute.JsonValue!));
+            var expected = Assert.IsType<JsonObject>(JsonNode.Parse(
+                McpArtifactContractMetadata.WorkspaceDirectoryConsumerProjectRootJson));
             Assert.True(JsonNode.DeepEquals(
-                JsonNode.Parse(McpArtifactContractMetadata.WorkspaceDirectoryConsumerProjectRootJson),
-                JsonNode.Parse(attribute.JsonValue!)), method.Name);
+                expected[McpArtifactContractMetadata.ArtifactsPropertyName],
+                advertised[McpArtifactContractMetadata.ArtifactsPropertyName]), method.Name);
 
             var description = method.GetParameters()
                 .Single(parameter => string.Equals(parameter.Name, "projectRoot", StringComparison.Ordinal))
@@ -101,6 +104,19 @@ public sealed class CodeToolsStructuredOutputTests : IDisposable
             Assert.Contains("workspace.directory", description, StringComparison.Ordinal);
             Assert.DoesNotContain("git_clone", description, StringComparison.Ordinal);
         }
+    }
+
+    [Fact]
+    public void CompleteCopilotReview_AdvertisesEncapsulatedReviewPhases()
+    {
+        var review = DiscoverCopilotTools()["copilot_review"];
+        var validation = McpCapabilityCompositionParser.ParseAndValidate(review.ProtocolTool.Meta);
+
+        Assert.True(validation.IsValid, string.Join(Environment.NewLine, validation.Errors));
+        Assert.Equal(McpCapabilityCompositionMetadata.CompleteOperationKind, validation.Contract!.Kind);
+        Assert.Equal(
+            ["copilot_review_start", "copilot_review_analyze_batch", "copilot_review_finish"],
+            validation.Contract.Encapsulates.Select(static capability => capability.Method).ToArray());
     }
 
     [Fact]
@@ -229,6 +245,17 @@ public sealed class CodeToolsStructuredOutputTests : IDisposable
         Assert.True(JsonNode.DeepEquals(
             JsonNode.Parse(McpArtifactContractMetadata.WorkspaceDirectoryConsumerProjectRootJson),
             interactive.ProtocolTool.Meta?[McpArtifactContractMetadata.MetaPropertyName]));
+        var reviewMetadata = tools["copilot_review"].ProtocolTool.Meta?[McpCapabilityCompositionMetadata.MetaPropertyName];
+        var reviewComposition = Assert.IsType<JsonObject>(
+            reviewMetadata?[McpCapabilityCompositionMetadata.CompositionPropertyName]);
+        Assert.Equal(
+            McpCapabilityCompositionMetadata.CompleteOperationKind,
+            reviewComposition["kind"]?.GetValue<string>());
+        Assert.Equal(
+            ["copilot_review_start", "copilot_review_analyze_batch", "copilot_review_finish"],
+            Assert.IsType<JsonArray>(reviewComposition["encapsulates"])
+                .Select(static item => item!["method"]!.GetValue<string>())
+                .ToArray());
         Assert.Equal(
             "management_only",
             tools["copilot_permission_grants_list"].ProtocolTool.Meta?["gnougo"]?["management"]?["visibility"]?.GetValue<string>());

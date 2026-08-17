@@ -27,4 +27,6 @@
     <Using Include="Xunit" />
   </ItemGroup>
 
+  <Import Project="..\..\build\GnOuGo.BundledMcpTools.targets" />
+
 </Project>

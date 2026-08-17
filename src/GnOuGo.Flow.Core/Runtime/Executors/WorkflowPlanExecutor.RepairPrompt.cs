@@ -161,6 +161,8 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
         sb.AppendLine("- `loop.sequential` and `loop.parallel` output `{ results, count }`; every `results[]` item is a per-iteration `data.steps` snapshot, not the direct output of the last loop child step.");
         sb.AppendLine("- If a loop child step `build_item_result` emits `{ processed, label, ... }`, post-loop filtering must read `iteration.build_item_result.processed`, not `iteration.processed`.");
         sb.AppendLine("- To produce a flat array after a loop, make the loop body end with a `set` step that has `output_schema`, then map/filter `data.steps.<loop_id>.results` through that child step id.");
+        sb.AppendLine("- Invalid projection: `iterations.map(function (item) { return item.directory; })`. Valid when the typed child is `record_deletion`: `iterations.map(function (iteration) { return iteration.record_deletion.directory; })`.");
+        sb.AppendLine("- Keep exactly one non-empty workflow during repair. Never append an empty workflow entry as a replacement or fallback.");
         sb.AppendLine("- If that flat array feeds a closed output_schema, custom functions must push new projected objects with exactly the declared fields. Do not push/pass through the original source object because it may contain extra properties.");
         sb.AppendLine("Switch output shape:");
         sb.AppendLine("- `switch` output is a path-dependent step snapshot. Do not read flattened child fields such as `data.steps.route.result_url` when `result_url` is produced inside a case/default child step.");

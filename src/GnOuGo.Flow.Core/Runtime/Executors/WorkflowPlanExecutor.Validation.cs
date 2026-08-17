@@ -32,6 +32,69 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
         return trimmed;
     }
 
+    private static string NormalizeGeneratedSwitchDefaultStepLists(string yaml)
+    {
+        if (string.IsNullOrWhiteSpace(yaml)
+            || !yaml.Contains("default:", StringComparison.Ordinal)
+            || !yaml.Contains("type: switch", StringComparison.Ordinal))
+        {
+            return yaml;
+        }
+
+        var newline = yaml.Contains("\r\n", StringComparison.Ordinal) ? "\r\n" : "\n";
+        var lines = yaml.Replace("\r\n", "\n", StringComparison.Ordinal).Replace('\r', '\n').Split('\n');
+        var changed = false;
+        for (var index = 0; index < lines.Length; index++)
+        {
+            var line = lines[index];
+            var trimmed = line.Trim();
+            if (!Regex.IsMatch(trimmed, @"^default:\s*[|>][+-]?\s*$", RegexOptions.CultureInvariant))
+                continue;
+
+            var indent = CountLeadingYamlSpaces(line);
+            var belongsToSwitch = false;
+            for (var previous = index - 1; previous >= 0; previous--)
+            {
+                if (string.IsNullOrWhiteSpace(lines[previous]))
+                    continue;
+                var previousIndent = CountLeadingYamlSpaces(lines[previous]);
+                if (previousIndent < indent)
+                    break;
+                if (previousIndent == indent
+                    && string.Equals(lines[previous].Trim(), "type: switch", StringComparison.Ordinal))
+                {
+                    belongsToSwitch = true;
+                    break;
+                }
+            }
+            if (!belongsToSwitch)
+                continue;
+
+            var firstContent = index + 1;
+            while (firstContent < lines.Length && string.IsNullOrWhiteSpace(lines[firstContent]))
+                firstContent++;
+            if (firstContent >= lines.Length
+                || CountLeadingYamlSpaces(lines[firstContent]) <= indent
+                || !lines[firstContent].TrimStart().StartsWith("- id:", StringComparison.Ordinal))
+            {
+                continue;
+            }
+
+            lines[index] = line[..indent] + "default:";
+            changed = true;
+        }
+
+        return changed ? string.Join(newline, lines) : yaml;
+    }
+
+    private static int CountLeadingYamlSpaces(string value)
+    {
+        var count = 0;
+        while (count < value.Length && value[count] == ' ')
+            count++;
+        return count;
+    }
+
     private static WorkflowDocument ParseAndValidateGeneratedWorkflow(string yaml)
     {
         WorkflowDocument generatedDoc;

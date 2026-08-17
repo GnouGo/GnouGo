@@ -234,6 +234,153 @@ public class WorkflowPlanExecutorTests
     }
 
     [Fact]
+    public void GeneratedMainNormalization_RenamesDuplicateNestedStepIdsAndLocalReferences()
+    {
+        var method = typeof(WorkflowPlanExecutor).GetMethod(
+            "NormalizeGeneratedStepIds",
+            BindingFlags.NonPublic | BindingFlags.Static,
+            binder: null,
+            types: [typeof(string)],
+            modifiers: null);
+        Assert.NotNull(method);
+        const string yaml = """
+            version: 1
+            workflows:
+              main:
+                steps:
+                  - id: choose_result
+                    type: switch
+                    expr: ${data.inputs.mode}
+                    cases:
+                      - value: approve
+                        steps:
+                          - id: public_result
+                            type: set
+                            input:
+                              value: approved
+                      - value: changes
+                        steps:
+                          - id: public_result
+                            type: set
+                            input:
+                              value: changes
+                          - id: expose_result
+                            type: emit
+                            input:
+                              message: ${data.steps.public_result.value}
+            """;
+
+        var normalized = Assert.IsType<string>(method!.Invoke(null, [yaml]));
+
+        Assert.Contains("id: public_result_2", normalized);
+        Assert.Contains("data.steps.public_result_2.value", normalized);
+        var errors = new WorkflowValidator().Validate(WorkflowParser.Parse(normalized));
+        Assert.DoesNotContain(errors, static error => error.Code == "DUPLICATE_STEP_ID");
+    }
+
+    [Fact]
+    public void MarkExtractableBlocksStructuredSchema_DeclaresRecursiveContractFields()
+    {
+        var method = typeof(WorkflowPlanExecutor).GetMethod(
+            "BuildMarkExtractableBlocksStructuredOutputSchema",
+            BindingFlags.NonPublic | BindingFlags.Static)!;
+
+        var schema = Assert.IsType<JsonObject>(method.Invoke(null, null));
+        Assert.Empty(JsonSchemaContractValidator.ValidateSchema(schema, strictProfile: true));
+
+        var fieldDefinition = Assert.IsType<JsonObject>(schema["$defs"]!["contract_field"]);
+        var nestedField = Assert.IsType<JsonObject>(fieldDefinition["properties"]!["properties"]!["items"]);
+        Assert.Equal("#/$defs/contract_field", nestedField["$ref"]!.GetValue<string>());
+
+        var subworkflow = Assert.IsType<JsonObject>(schema["properties"]!["subworkflows"]!["items"]);
+        Assert.Equal(
+            "#/$defs/contract_field",
+            subworkflow["properties"]!["outputs"]!["items"]!["$ref"]!.GetValue<string>());
+    }
+
+    [Fact]
+    public void StructuredExtractionFieldParser_PreservesNestedObjectArrayContracts()
+    {
+        var method = typeof(WorkflowPlanExecutor).GetMethod(
+            "BuildStructuredFieldSchema",
+            BindingFlags.NonPublic | BindingFlags.Static)!;
+        var field = JsonNode.Parse("""
+            {
+              "name": "dependency_report",
+              "type": "object",
+              "description": "Dependency restore results.",
+              "required": true,
+              "item_type": "",
+              "properties": [
+                {
+                  "name": "projects",
+                  "type": "array",
+                  "description": "Restored projects.",
+                  "required": true,
+                  "item_type": "object",
+                  "properties": [
+                    {
+                      "name": "path",
+                      "type": "string",
+                      "description": "Project path.",
+                      "required": true,
+                      "item_type": "",
+                      "properties": []
+                    },
+                    {
+                      "name": "status",
+                      "type": "object",
+                      "description": "Restore status.",
+                      "required": true,
+                      "item_type": "",
+                      "properties": [
+                        {
+                          "name": "succeeded",
+                          "type": "boolean",
+                          "description": "Whether restore succeeded.",
+                          "required": true,
+                          "item_type": "",
+                          "properties": []
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+            """)!.AsObject();
+
+        var schema = Assert.IsType<JsonObject>(method.Invoke(null, new object[] { field }));
+        var projects = Assert.IsType<JsonObject>(schema["properties"]!["projects"]);
+        var projectItems = Assert.IsType<JsonObject>(projects["items"]);
+        Assert.Equal("string", projectItems["properties"]!["path"]!["type"]!.GetValue<string>());
+        Assert.Equal(
+            "boolean",
+            projectItems["properties"]!["status"]!["properties"]!["succeeded"]!["type"]!.GetValue<string>());
+        Assert.Equal(
+            "status",
+            projectItems["required_properties"]![1]!.GetValue<string>());
+    }
+
+    [Fact]
+    public void PipelineYamlDomLoader_PreservesMalformedYamlLocation()
+    {
+        var method = typeof(WorkflowPlanExecutor).GetMethod(
+            "LoadYamlRoot",
+            BindingFlags.NonPublic | BindingFlags.Static)!;
+
+        var invocation = Assert.Throws<TargetInvocationException>(() => method.Invoke(
+            null,
+            ["version: 1\nworkflows:\n  main:\n    steps:\n      - id: first\n        type: set\n      id: missing_dash\n        type: set\n"]));
+        var exception = Assert.IsType<WorkflowParseException>(invocation.InnerException);
+        Assert.True(exception.Line > 0);
+        Assert.True(exception.Column > 0);
+        Assert.Contains($"[{exception.Line}:{exception.Column}]", exception.Message, StringComparison.Ordinal);
+        Assert.Contains("Near YAML line", exception.Message, StringComparison.Ordinal);
+        Assert.Contains("missing_dash", exception.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public async Task WorkflowPlan_RepairMode_WithPromptOnly_ReturnsValidatedReplacementYaml()
     {
         string? capturedPrompt = null;
@@ -3029,9 +3176,17 @@ workflows:
                     :::subworkflow name="list_issues"
                     goal: List repository issues.
                     inputs:
-                      repository_url: string
+                      repository_url:
+                        type: string
                     outputs:
-                      issues: array
+                      issues:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            number: { type: number }
+                            title: { type: string }
+                            html_url: { type: string }
                     extract_reason: This leaf performs tool orchestration against GitHub.
                     content:
                       Call the GitHub list_issues MCP tool for the repository and expose the issue list.
@@ -3652,6 +3807,8 @@ workflows:
         Assert.False(leafGenerationRequested);
         Assert.NotNull(result.Error);
         Assert.Contains("PIPELINE_EXTRACTION_MISSING_REQUIRED_LEAF_TOOL", result.Error!.Message);
+        Assert.Equal("cannot_plan_safely", result.Error.Details!["planning_outcome"]!.GetValue<string>());
+        Assert.Equal("clarify_or_abandon", result.Error.Details["recommended_action"]!.GetValue<string>());
         var rootCauses = result.Error.Details!["root_causes"]!.AsArray();
         Assert.Contains(rootCauses, cause =>
             cause!["category"]!.GetValue<string>() == "missing_required_leaf_tool"
@@ -4715,6 +4872,7 @@ workflows:
         Assert.Equal(2, markAttempts);
         Assert.Equal(2, markRequests.Count);
         Assert.Equal(2, judgeRequests.Count);
+        Assert.Contains("only normalized_prompt defines generated-workflow behavior", judgeRequests[0].Prompt);
         Assert.Null(markRequests[0].StructuredOutputSchema);
         Assert.Null(markRequests[1].StructuredOutputSchema);
         Assert.Contains("MISSING_CLASSIFICATION_OUTPUT", markRequests[1].Prompt);
@@ -4722,6 +4880,99 @@ workflows:
         var qualityReview = result.Outputs!["plan"]!["pipeline"]!["quality_report"]!["extraction"]!["quality_review"]!;
         Assert.Equal(90, qualityReview["score"]!.GetValue<int>());
         Assert.Equal("pass", qualityReview["verdict"]!.GetValue<string>());
+    }
+
+    [Fact]
+    public async Task WorkflowPlan_PipelineMode_ClassifiesExhaustedExtractionQualityReviewAsCannotPlanSafely()
+    {
+        var leafGenerationRequested = false;
+        var mockLlm = new Mock<ILLMClient>();
+        mockLlm.Setup(l => l.CallAsync(It.IsAny<LLMRequest>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((LLMRequest request, CancellationToken _) =>
+            {
+                if (request.Prompt.Contains("preparing a raw user automation prompt", StringComparison.Ordinal))
+                    return new LLMResponse { Text = "# Automation\n\nClassify the supplied record." };
+
+                if (request.Prompt.Contains("annotate normalized automation Markdown", StringComparison.Ordinal))
+                    return new LLMResponse
+                    {
+                        Text = """
+                        # Automation
+
+                        :::subworkflow name="classify_record"
+                        goal: Classify the supplied record.
+                        inputs:
+                          record: string
+                        outputs:
+                          classification: string
+                        extract_reason: This is a nontrivial classification transform.
+                        content:
+                          Classify the supplied record and return a typed classification.
+                        :::
+
+                        ## Main workflow orchestration
+
+                        Call classify_record and expose the classification.
+                        """
+                    };
+
+                if (request.Prompt.Contains("reviewing the quality of a `workflow.plan` pipeline", StringComparison.Ordinal))
+                    return new LLMResponse
+                    {
+                        Text = CreateExtractionQualityReviewResponse(
+                            30,
+                            "retry",
+                            new JsonArray
+                            {
+                                new JsonObject
+                                {
+                                    ["code"] = "INCOMPLETE_CONTRACT",
+                                    ["severity"] = "critical",
+                                    ["leaf_name"] = "classify_record",
+                                    ["message"] = "The extracted contract omits a required result field.",
+                                    ["recommendation"] = "Revise the extraction contract before generation."
+                                }
+                            },
+                            "Return a complete typed contract.").Text
+                    };
+
+                if (request.Prompt.Contains("Generate exactly one leaf", StringComparison.Ordinal))
+                    leafGenerationRequested = true;
+
+                throw new InvalidOperationException("Unexpected LLM prompt: " + request.Prompt);
+            });
+
+        var wf = CompileMain("""
+        version: 1
+        workflows:
+          main:
+            steps:
+              - id: plan
+                type: workflow.plan
+                input:
+                  mode: pipeline
+                  raw_prompt: "Classify the supplied record."
+                  generator:
+                    model: gpt-4
+                    prefilter: false
+                  validate:
+                    compile: false
+                    max_repair_attempts: 1
+        """);
+
+        var result = await new WorkflowEngine
+        {
+            LLMClient = mockLlm.Object,
+            LLMCapabilities = new StaticLlmCapabilityResolver(false)
+        }
+            .ExecuteAsync(wf, new JsonObject(), CancellationToken.None);
+
+        Assert.False(result.Success);
+        Assert.False(leafGenerationRequested);
+        Assert.NotNull(result.Error);
+        Assert.Contains("pipeline extraction quality review failed", result.Error!.Message);
+        Assert.Equal("cannot_plan_safely", result.Error.Details!["planning_outcome"]!.GetValue<string>());
+        Assert.Equal("clarify_or_abandon", result.Error.Details["recommended_action"]!.GetValue<string>());
     }
 
     [Fact]
@@ -13976,10 +14227,289 @@ workflows:
             {
                 ErrorCodes.ScriptError,
                 "Invalid pull-request URL: expected an absolute URL.",
-                new[] { "pull_request_url", "instructions" }
+                new Dictionary<string, InputDef>
+                {
+                    ["pull_request_url"] = new() { Type = "string" },
+                    ["instructions"] = new() { Type = "string" }
+                }
             })!;
 
         Assert.True(inconclusive);
+    }
+
+    [Fact]
+    public void WorkflowPlan_DryRun_UsesProviderNeutralUrlSample()
+    {
+        var validatorType = typeof(WorkflowEngine).Assembly.GetType(
+            "GnOuGo.Flow.Core.Runtime.WorkflowPlanDryRunValidator",
+            throwOnError: true)!;
+        var method = validatorType.GetMethod(
+            "BuildSampleInputs",
+            BindingFlags.NonPublic | BindingFlags.Static)!;
+        var inputs = new Dictionary<string, InputDef>
+        {
+            ["resource_url"] = new()
+            {
+                Type = "url",
+                Description = "An absolute resource URL."
+            }
+        };
+
+        var sample = Assert.IsType<JsonObject>(method.Invoke(null, [inputs]));
+
+        Assert.Equal(
+            "https://example.invalid/dry-run",
+            sample["resource_url"]!.GetValue<string>());
+    }
+
+    [Fact]
+    public void WorkflowPlan_NormalizesOnlySwitchDefaultBlockScalarsContainingStepLists()
+    {
+        var method = typeof(WorkflowPlanExecutor).GetMethod(
+            "NormalizeGeneratedSwitchDefaultStepLists",
+            BindingFlags.NonPublic | BindingFlags.Static)!;
+        const string malformed = """
+            version: 1
+            name: generated-switch
+            skill:
+              description: Route a value.
+              tags: [generated]
+              inputs: {}
+              outputs: {}
+            workflows:
+              main:
+                steps:
+                  - id: route
+                    type: switch
+                    cases:
+                      - when: ${true}
+                        steps: []
+                    default: |
+                      - id: fallback
+                        type: set
+                        input:
+                          used: true
+            """;
+
+        var normalized = Assert.IsType<string>(method.Invoke(null, [malformed]));
+
+        Assert.DoesNotContain("default: |", normalized, StringComparison.Ordinal);
+        Assert.Matches(@"default:\r?\n\s+- id: fallback", normalized);
+        Assert.NotNull(WorkflowParser.Parse(normalized));
+
+        const string ordinaryLiteral = """
+            type: switch
+            note:
+              default: |
+                - id: documentation-example
+            """;
+        Assert.Equal(ordinaryLiteral, Assert.IsType<string>(method.Invoke(null, [ordinaryLiteral])));
+    }
+
+    [Fact]
+    public void WorkflowPlan_Diagnostics_ExplainsThatOrdinaryMcpCallsHaveNoJsonOutput()
+    {
+        var semanticError = new WorkflowSemanticValidationError
+        {
+            Code = "STEP_OUTPUT_PROPERTY_UNKNOWN",
+            WorkflowName = "discover_projects",
+            Field = "outputs.modified_projects",
+            InvalidPath = "data.steps.call_cmd_run.json.modified_projects",
+            AllowedPaths =
+            [
+                "data.steps.call_cmd_run.response.stdout",
+                "data.steps.call_cmd_run.response.success"
+            ],
+            Message = "Property 'json' is not defined by the output schema."
+        };
+
+        var details = WorkflowPlanDiagnostics.BuildValidationFailureDetails(
+            [],
+            new WorkflowSemanticValidationException([semanticError]),
+            compilationException: null);
+        var diagnostic = Assert.IsType<JsonObject>(Assert.IsType<JsonArray>(details["diagnostics"])[0]);
+
+        Assert.Contains(
+            "ordinary mcp.call",
+            diagnostic["llm_guidance"]!.GetValue<string>(),
+            StringComparison.Ordinal);
+        Assert.Contains(
+            "separate llm.call with strict structured_output",
+            diagnostic["llm_guidance"]!.GetValue<string>(),
+            StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task WorkflowRuntime_ReportsFailingStepForExpressionErrors()
+    {
+        var workflow = CompileMain("""
+            version: 1
+            workflows:
+              main:
+                steps:
+                  - id: project_missing_value
+                    type: set
+                    input:
+                      id: ${data.inputs.missing.id}
+            """);
+
+        var result = await new WorkflowEngine().ExecuteAsync(workflow, new JsonObject(), CancellationToken.None);
+
+        Assert.False(result.Success);
+        Assert.Equal(ErrorCodes.EvalError, result.Error!.Code);
+        Assert.Equal("project_missing_value", result.Error.Details!["failed_step_id"]!.GetValue<string>());
+        Assert.Equal("step", result.Error.Details["execution_phase"]!.GetValue<string>());
+        Assert.Contains("step 'project_missing_value'", result.Error.Message, StringComparison.Ordinal);
+
+        var dryRunDetails = WorkflowPlanDiagnostics.BuildDryRunFailureDetails(
+            result.Error.Code,
+            result.Error.Message,
+            "execution",
+            runtimeDetails: result.Error.Details);
+        var diagnostic = Assert.IsType<JsonObject>(Assert.IsType<JsonArray>(dryRunDetails["diagnostics"])[0]);
+        Assert.Equal("workflow:main/step:project_missing_value", diagnostic["location"]!.GetValue<string>());
+        Assert.Contains("Repair step 'project_missing_value'", diagnostic["llm_guidance"]!.GetValue<string>(), StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task WorkflowRuntime_ReportsFailingFinalizerStepForExpressionErrors()
+    {
+        var workflow = CompileMain("""
+            version: 1
+            workflows:
+              main:
+                steps:
+                  - id: prepare
+                    type: set
+                    input: { ready: true }
+                finally:
+                  - id: cleanup_created_directories
+                    type: set
+                    input:
+                      directories: ${data.steps.missing.created_directories}
+            """);
+
+        var result = await new WorkflowEngine().ExecuteAsync(workflow, new JsonObject(), CancellationToken.None);
+
+        Assert.False(result.Success);
+        var finalizationError = Assert.IsType<JsonObject>(
+            Assert.IsType<JsonArray>(result.Error!.Details!["finalization_errors"])[0]);
+        Assert.Equal(
+            "cleanup_created_directories",
+            finalizationError["details"]!["failed_step_id"]!.GetValue<string>());
+        Assert.Equal("finalization", finalizationError["details"]!["execution_phase"]!.GetValue<string>());
+    }
+
+    [Fact]
+    public async Task WorkflowPlan_DryRun_AllowsRepresentativeBoundedFinalizationLoop()
+    {
+        var validatorType = typeof(WorkflowEngine).Assembly.GetType(
+            "GnOuGo.Flow.Core.Runtime.WorkflowPlanDryRunValidator",
+            throwOnError: true)!;
+        var method = validatorType.GetMethod(
+            "ValidateAsync",
+            BindingFlags.Public | BindingFlags.Static)!;
+        var document = WorkflowParser.Parse("""
+            version: 1
+            skill:
+              description: Clean up all workflow-owned directories.
+              tags: [cleanup]
+              inputs: {}
+              outputs: {}
+            workflows:
+              main:
+                steps:
+                  - id: prepare
+                    type: set
+                    input:
+                      value: ready
+                finally:
+                  - id: cleanup_directories
+                    type: loop.sequential
+                    input:
+                      items: [checkout, dependencies, tests, review]
+                    item_var: directory
+                    steps:
+                      - id: record_cleanup
+                        type: set
+                        input:
+                          directory: "${data._loop.directory}"
+            """);
+
+        var validation = Assert.IsAssignableFrom<Task>(method.Invoke(
+            null,
+            [document, null, null, CancellationToken.None]));
+
+        await validation;
+    }
+
+    [Fact]
+    public void WorkflowPlan_Pipeline_PreservesNullableContractForDirectSetPassThrough()
+    {
+        const string yaml = """
+            version: 1
+            skill:
+              description: Assess typed review findings.
+              tags: [review]
+              inputs: {}
+              outputs: {}
+            workflows:
+              main:
+                steps:
+                  - id: review_changed_code
+                    type: set
+                    output_schema:
+                      type: object
+                      properties:
+                        findings:
+                          type: array
+                          items:
+                            type: object
+                            properties:
+                              suggestedPatch:
+                                type: [string, "null"]
+                            required: [suggestedPatch]
+                            additionalProperties: false
+                      required: [findings]
+                      additionalProperties: false
+                    input:
+                      findings:
+                        - suggestedPatch: null
+                  - id: assess_review
+                    type: set
+                    output_schema:
+                      type: object
+                      properties:
+                        findings:
+                          type: array
+                          items:
+                            type: object
+                            properties:
+                              suggestedPatch: { type: string }
+                            required: [suggestedPatch]
+                            additionalProperties: false
+                      required: [findings]
+                      additionalProperties: false
+                    input:
+                      findings: "${data.steps.review_changed_code.findings}"
+            """;
+        var document = WorkflowParser.Parse(yaml);
+        var method = typeof(WorkflowPlanExecutor).GetMethod(
+            "PromoteGeneratedDirectSetOutputSchemas",
+            BindingFlags.NonPublic | BindingFlags.Static)!;
+
+        var result = method.Invoke(
+            null,
+            [document, yaml, null, new WorkflowEngine().Registry])!;
+        var promotedYaml = Assert.IsType<string>(result.GetType().GetField("Item2")!.GetValue(result));
+        var promoted = WorkflowParser.Parse(promotedYaml);
+
+        WorkflowPlanSemanticValidator.Validate(promoted);
+        var schema = Assert.IsType<JsonObject>(promoted.Workflows["main"].Steps[1].OutputSchema);
+        var promotedType = FlowTypeDescriptorConverter.FromJsonSchema(schema);
+        var suggestedPatch = promotedType.Properties["findings"].Type.Items!.Properties["suggestedPatch"].Type;
+        Assert.Equal(FlowTypeKind.Union, suggestedPatch.Kind);
+        Assert.Contains(suggestedPatch.Variants, static variant => variant.Kind == FlowTypeKind.Null);
     }
 
     [Fact]

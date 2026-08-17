@@ -1,5 +1,6 @@
 using System.Text.Json.Nodes;
 using GnOuGo.Flow.Core.Models;
+using YamlDotNet.Core;
 using YamlDotNet.RepresentationModel;
 
 namespace GnOuGo.Flow.Core.Runtime;
@@ -537,7 +538,7 @@ internal static class WorkflowPlanContractNormalizer
         {
             JsonObject obj => JsonObjectToYaml(obj),
             JsonArray array => JsonArrayToYaml(array),
-            JsonValue value when value.TryGetValue<string>(out var s) => Scalar(s),
+            JsonValue value when value.TryGetValue<string>(out var s) => JsonStringScalar(s),
             JsonValue value when value.TryGetValue<bool>(out var b) => Scalar(b ? "true" : "false"),
             JsonValue value when value.TryGetValue<int>(out var i) => Scalar(i.ToString(System.Globalization.CultureInfo.InvariantCulture)),
             JsonValue value when value.TryGetValue<long>(out var l) => Scalar(l.ToString(System.Globalization.CultureInfo.InvariantCulture)),
@@ -546,6 +547,24 @@ internal static class WorkflowPlanContractNormalizer
             null => Scalar(""),
             _ => Scalar(node.ToJsonString())
         };
+    }
+
+    private static YamlScalarNode JsonStringScalar(string value)
+    {
+        var scalar = Scalar(value);
+        if (value is "null" or "~" or "true" or "True" or "false" or "False"
+            || int.TryParse(
+                value,
+                System.Globalization.NumberStyles.Integer,
+                System.Globalization.CultureInfo.InvariantCulture,
+                out _)
+            || double.TryParse(value, System.Globalization.CultureInfo.InvariantCulture, out _))
+        {
+            // Keep JSON strings as strings across the YAML round trip. In particular,
+            // JSON Schema's `type: "null"` must not become a YAML null value.
+            scalar.Style = ScalarStyle.DoubleQuoted;
+        }
+        return scalar;
     }
 
     public static YamlNode CloneYamlNode(YamlNode node)

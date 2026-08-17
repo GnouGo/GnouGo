@@ -17,8 +17,13 @@ public sealed partial class WorkflowPlanExecutor
         string Description,
         bool Required,
         string ExecutionKind,
-        string ExternalEffectKind);
-    private sealed record CapabilityInventoryConstraint(string Id, string Description, bool Required);
+        string ExternalEffectKind,
+        string DecisionSourceOperationId = "");
+    private sealed record CapabilityInventoryConstraint(
+        string Id,
+        string Description,
+        bool Required,
+        string EnforcementKind = "exact_denial");
     private sealed record CapabilityInventoryIncompleteReason(string Id, string Description);
     private sealed record CapabilityInventory(
         bool Complete,
@@ -32,11 +37,13 @@ public sealed partial class WorkflowPlanExecutor
         string? Server,
         string? Kind,
         string Method,
+        string Description,
         IReadOnlyList<CapabilityRequestBinding> RequestBindings,
         string Card,
         IReadOnlyList<CapabilitySchemaField> RequiredInputs,
         IReadOnlyList<CapabilitySchemaField> Outputs,
-        McpArtifactContract? ArtifactContract);
+        McpArtifactContract? ArtifactContract,
+        McpCapabilityComposition? CompositionContract);
 
     private sealed record CapabilitySchemaField(
         string Path,
@@ -56,7 +63,8 @@ public sealed partial class WorkflowPlanExecutor
         string Status,
         string Reason,
         IReadOnlyList<string> CatalogIds,
-        IReadOnlyList<string> CandidateCatalogIds);
+        IReadOnlyList<string> CandidateCatalogIds,
+        string? DecisionOperationId = null);
 
     private sealed record CapabilityConstraintMatch(
         CapabilityInventoryConstraint Constraint,
@@ -82,12 +90,12 @@ public sealed partial class WorkflowPlanExecutor
         IReadOnlySet<string> nativeStepTypes,
         IReadOnlyList<McpServerDiscovery>? completeDiscovery = null)
     {
-        var pending = new List<(string Resolution, string? Server, string? Kind, string Method, string Description, IReadOnlyList<CapabilityRequestBinding> Bindings, string Card, IReadOnlyList<CapabilitySchemaField> RequiredInputs, IReadOnlyList<CapabilitySchemaField> Outputs, McpArtifactContract? ArtifactContract)>();
+        var pending = new List<(string Resolution, string? Server, string? Kind, string Method, string Description, IReadOnlyList<CapabilityRequestBinding> Bindings, string Card, IReadOnlyList<CapabilitySchemaField> RequiredInputs, IReadOnlyList<CapabilitySchemaField> Outputs, McpArtifactContract? ArtifactContract, McpCapabilityComposition? CompositionContract)>();
 
         foreach (var native in nativeStepTypes.OrderBy(static value => value, StringComparer.Ordinal))
         {
             pending.Add(("native", null, null, native, $"Native Flow step type {native}.", Array.Empty<CapabilityRequestBinding>(),
-                $"resolution=native method={native}", Array.Empty<CapabilitySchemaField>(), Array.Empty<CapabilitySchemaField>(), null));
+                $"resolution=native method={native}", Array.Empty<CapabilitySchemaField>(), Array.Empty<CapabilitySchemaField>(), null, null));
         }
 
         foreach (var server in discovered.OrderBy(static item => item.Name, StringComparer.Ordinal))
@@ -102,7 +110,7 @@ public sealed partial class WorkflowPlanExecutor
                     : "none";
                 pending.Add(("mcp", server.Name, "prompt", prompt.Name, description, Array.Empty<CapabilityRequestBinding>(),
                     $"resolution=mcp server={server.Name} kind=prompt method={prompt.Name} description={description} arguments=[{arguments}]",
-                    Array.Empty<CapabilitySchemaField>(), Array.Empty<CapabilitySchemaField>(), null));
+                    Array.Empty<CapabilitySchemaField>(), Array.Empty<CapabilitySchemaField>(), null, null));
             }
 
             foreach (var tool in server.Tools.OrderBy(static item => item.Name, StringComparer.Ordinal))
@@ -114,17 +122,19 @@ public sealed partial class WorkflowPlanExecutor
                 var outputFields = BuildCapabilitySchemaFields(tool.OutputSchema, requiredOnly: false);
                 var artifactContract = GetValidatedMcpArtifactContract(tool, server.Name);
                 var artifactSummary = FormatArtifactContractSummary(artifactContract);
+                var compositionContract = GetValidatedMcpCompositionContract(tool, server.Name);
+                var compositionSummary = FormatCompositionContractSummary(compositionContract);
                 var variants = ExtractSelectorVariants(tool.InputSchema);
                 pending.Add(("mcp", server.Name, "tool", tool.Name, description, Array.Empty<CapabilityRequestBinding>(),
-                    $"resolution=mcp server={server.Name} kind=tool method={tool.Name} description={description} arguments=[{arguments}] outputs=[{outputs}]{artifactSummary}",
-                    requiredInputs, outputFields, artifactContract));
+                    $"resolution=mcp server={server.Name} kind=tool method={tool.Name} description={description} arguments=[{arguments}] outputs=[{outputs}]{artifactSummary}{compositionSummary}",
+                    requiredInputs, outputFields, artifactContract, compositionContract));
 
                 foreach (var variant in variants.OrderBy(static item => CanonicalizeBindings(item.Bindings), StringComparer.Ordinal))
                 {
                     var bindings = FormatBindingsCompact(variant.Bindings);
                     pending.Add(("mcp", server.Name, "tool", tool.Name, description, variant.Bindings,
                         $"resolution=mcp server={server.Name} kind=tool method={tool.Name} variant_of={server.Name}/tool/{tool.Name} request_bindings=[{bindings}]",
-                        requiredInputs, outputFields, artifactContract));
+                        requiredInputs, outputFields, artifactContract, compositionContract));
                 }
             }
         }
@@ -213,11 +223,13 @@ public sealed partial class WorkflowPlanExecutor
                 item.Server,
                 item.Kind,
                 item.Method,
+                item.Description,
                 item.Bindings,
                 item.Card,
                 item.RequiredInputs,
                 item.Outputs,
-                item.ArtifactContract));
+                item.ArtifactContract,
+                item.CompositionContract));
         }
 
         return new CapabilityCatalog(entries, text.ToString());
@@ -233,6 +245,16 @@ public sealed partial class WorkflowPlanExecutor
         var consumes = string.Join(",", contract.Consumes.Select(static artifact =>
             $"{artifact.Kind}:{artifact.Pointer}:{(artifact.Required ? "required" : "optional")}"));
         return $" artifacts=[produces({produces}) consumes({consumes})]";
+    }
+
+    private static string FormatCompositionContractSummary(McpCapabilityComposition? contract)
+    {
+        if (contract == null)
+            return string.Empty;
+
+        var encapsulates = string.Join(",", contract.Encapsulates
+            .Select(static capability => capability.Kind + "/" + capability.Method));
+        return $" composition=[kind={contract.Kind};encapsulates={encapsulates}]";
     }
 
     private static string LimitCapabilityDescription(string? description)
@@ -750,6 +772,49 @@ public sealed partial class WorkflowPlanExecutor
     private static string CanonicalizeBindings(IReadOnlyList<CapabilityRequestBinding> bindings)
         => string.Join("|", bindings.OrderBy(static binding => binding.Path, StringComparer.Ordinal)
             .Select(static binding => binding.Path + "=" + CanonicalScalar(binding.Value)));
+
+    private static bool TryBuildConditionalBranchValues(
+        IReadOnlyList<CapabilityCatalogEntry> entries,
+        out IReadOnlyDictionary<string, string> branchValues)
+    {
+        branchValues = new Dictionary<string, string>(StringComparer.Ordinal);
+        if (entries.Count < 2
+            || entries.Any(static entry => entry.Resolution != "mcp" || entry.RequestBindings.Count == 0)
+            || entries.Select(static entry => (entry.Server, entry.Kind, entry.Method)).Distinct().Count() != 1)
+        {
+            return false;
+        }
+
+        var bindingMaps = entries.Select(entry => entry.RequestBindings
+            .ToDictionary(static binding => binding.Path, static binding => binding.Value, StringComparer.Ordinal)).ToArray();
+        var paths = bindingMaps[0].Keys.Order(StringComparer.Ordinal).ToArray();
+        if (bindingMaps.Any(map => map.Count != paths.Length || paths.Any(path => !map.ContainsKey(path))))
+            return false;
+
+        var varyingPaths = paths.Where(path => bindingMaps
+            .Select(map => CanonicalScalar(map[path]))
+            .Distinct(StringComparer.Ordinal)
+            .Count() > 1).ToArray();
+        if (varyingPaths.Length != 1)
+            return false;
+
+        var varyingPath = varyingPaths[0];
+        var values = new Dictionary<string, string>(StringComparer.Ordinal);
+        var seenValues = new HashSet<string>(StringComparer.Ordinal);
+        for (var index = 0; index < entries.Count; index++)
+        {
+            var node = bindingMaps[index][varyingPath];
+            var value = node is JsonValue scalar && scalar.TryGetValue<string>(out var text)
+                ? text
+                : CanonicalScalar(node);
+            if (!seenValues.Add(value))
+                return false;
+            values[entries[index].Id] = value;
+        }
+
+        branchValues = values;
+        return true;
+    }
 
     private static string FormatBindingsCompact(IReadOnlyList<CapabilityRequestBinding> bindings)
         => string.Join(",", bindings.OrderBy(static binding => binding.Path, StringComparer.Ordinal)

@@ -8,6 +8,12 @@ namespace GnOuGo.Flow.Core.Runtime.Executors;
 
 public sealed partial class WorkflowPlanExecutor
 {
+    private const string PlatformExternalWriteConfirmationOperationDescription = "Require explicit human confirmation immediately before the first external write.";
+    private const string PlatformExternalWriteConfirmationConstraintDescription = "No external write may execute before explicit human confirmation.";
+
+    private sealed record CapabilityClarificationConfig(bool Enabled, int TimeoutMs);
+    private sealed record CapabilityClarificationQuestion(string Name, string Description);
+
     private sealed record CapabilityRequestBinding(string Path, JsonNode? Value);
 
     private sealed record CapabilityAlternative(
@@ -40,7 +46,10 @@ public sealed partial class WorkflowPlanExecutor
         string? OperationId = null,
         string? CatalogId = null,
         string MatchStatus = "matched",
-        string? ExecutionKind = null);
+        string? ExecutionKind = null,
+        string? ExternalEffectKind = null,
+        McpCapabilityActivation? Activation = null,
+        string? CapabilityDescription = null);
 
     private sealed record CapabilityPreflightResult(
         string Mode,
@@ -96,6 +105,7 @@ public sealed partial class WorkflowPlanExecutor
                           ?? generator["instruction"]?.GetValue<string>()
                           ?? string.Empty;
         var generatorContext = generator["context"]?.GetValue<string>() ?? string.Empty;
+        _ = ParseCapabilityClarificationConfig(preflight);
 
         using var span = ctx.BeginTelemetrySpan("workflow.plan.capability_preflight", "capability_preflight", new[]
         {
@@ -213,7 +223,10 @@ public sealed partial class WorkflowPlanExecutor
         foreach (var server in discovered)
         {
             foreach (var tool in server.Tools)
+            {
                 _ = GetValidatedMcpArtifactContract(tool, server.Name);
+                _ = GetValidatedMcpCompositionContract(tool, server.Name);
+            }
         }
     }
 
@@ -416,7 +429,8 @@ public sealed partial class WorkflowPlanExecutor
         string generatorContext,
         IReadOnlyList<McpServerDiscovery> discovered,
         ITelemetrySpan? parentSpan,
-        CancellationToken ct)
+        CancellationToken ct,
+        bool clarificationAllowed = true)
     {
         var llmClient = ctx.Engine.LLMClient
             ?? throw new WorkflowRuntimeException(ErrorCodes.CapabilityPreflightInferenceFailed, "Capability inference requires an LLM client.");
@@ -509,7 +523,34 @@ public sealed partial class WorkflowPlanExecutor
                             SanitizeCapabilityInferenceDiagnostic(ex.Message, 1_000))]);
                 }
                 if (!inventory.Complete)
+                {
+                    if (clarificationAllowed
+                        && IsInventoryClarificationEligible(inventory)
+                        && ParseCapabilityClarificationConfig(input["capability_preflight"] as JsonObject).Enabled)
+                    {
+                        var clarification = await RequestCapabilityClarificationAsync(
+                            ctx,
+                            input,
+                            inventory,
+                            evaluation: null,
+                            catalog: null,
+                            ct);
+                        inferenceSpan.SetAttribute("gnougo-flow.plan.capability_clarification.requested", true);
+                        inferenceSpan.Complete();
+                        return await InferCapabilitiesAsync(
+                            ctx,
+                            input,
+                            generator,
+                            AppendCapabilityClarification(instruction, clarification),
+                            generatorContext,
+                            discovered,
+                            parentSpan,
+                            ct,
+                            clarificationAllowed: false);
+                    }
+
                     ThrowIncompleteCapabilityInventory(inventory);
+                }
             }
             else
             {
@@ -563,7 +604,12 @@ public sealed partial class WorkflowPlanExecutor
             {
                 evaluation = ParseCapabilityMatchingEvaluation(
                     ParseStructuredObject(matchingResponse, "capability matching"), inventory, catalog);
+                evaluation = NormalizeLocalProcessingMatches(evaluation);
+                evaluation = NormalizeCapabilityCompositionMatches(evaluation, catalog);
+                evaluation = NormalizeExactSelectorMatches(evaluation, catalog);
+                evaluation = NormalizeConditionalSelectorMatches(evaluation, catalog, inventory);
                 evaluation = EnforceCapabilityPrerequisiteClosure(evaluation, catalog, instruction);
+                evaluation = NormalizePlatformSafetyMatches(evaluation, catalog);
             }
             catch (Exception ex) when (ex is not OperationCanceledException)
             {
@@ -597,13 +643,43 @@ public sealed partial class WorkflowPlanExecutor
                 {
                     repaired = ParseCapabilityMatchingEvaluation(
                         ParseStructuredObject(repairedMatchingResponse, "capability matching repair"), inventory, catalog);
+                    repaired = NormalizeLocalProcessingMatches(repaired);
+                    repaired = NormalizeCapabilityCompositionMatches(repaired, catalog);
+                    repaired = NormalizeExactSelectorMatches(repaired, catalog);
+                    repaired = NormalizeConditionalSelectorMatches(repaired, catalog, inventory);
                     repaired = EnforceCapabilityPrerequisiteClosure(repaired, catalog, instruction);
+                    repaired = NormalizePlatformSafetyMatches(repaired, catalog);
                 }
                 catch (Exception ex) when (ex is not OperationCanceledException)
                 {
                     repaired = BuildMalformedCapabilityMatchingEvaluation(inventory, ex.Message);
                 }
                 evaluation = PreserveValidCapabilityMatches(evaluation, repaired);
+            }
+
+            if (clarificationAllowed
+                && IsMatchingClarificationEligible(evaluation)
+                && ParseCapabilityClarificationConfig(input["capability_preflight"] as JsonObject).Enabled)
+            {
+                var clarification = await RequestCapabilityClarificationAsync(
+                    ctx,
+                    input,
+                    inventory,
+                    evaluation,
+                    catalog,
+                    ct);
+                inferenceSpan.SetAttribute("gnougo-flow.plan.capability_clarification.requested", true);
+                inferenceSpan.Complete();
+                return await InferCapabilitiesAsync(
+                    ctx,
+                    input,
+                    generator,
+                    AppendCapabilityClarification(instruction, clarification),
+                    generatorContext,
+                    discovered,
+                    parentSpan,
+                    ct,
+                    clarificationAllowed: false);
             }
 
             ThrowForUnresolvedCapabilityMatches(evaluation, catalog, repairRequired);
@@ -649,7 +725,7 @@ public sealed partial class WorkflowPlanExecutor
 
         foreach (var match in evaluation.OperationMatches)
         {
-            if (match.Status is not ("matched" or "composed"))
+            if (match.Status is not ("matched" or "composed" or "conditional"))
             {
                 operationMatches.Add(match);
                 continue;
@@ -718,6 +794,629 @@ public sealed partial class WorkflowPlanExecutor
             .ToArray();
         return evaluation with { OperationMatches = operationMatches, Issues = issues };
     }
+
+    private static CapabilityMatchingEvaluation NormalizeCapabilityCompositionMatches(
+        CapabilityMatchingEvaluation evaluation,
+        CapabilityCatalog catalog)
+    {
+        var entries = catalog.Entries.ToDictionary(static entry => entry.Id, StringComparer.Ordinal);
+        var normalizedOperationIds = new HashSet<string>(StringComparer.Ordinal);
+        var operationMatches = evaluation.OperationMatches.Select(match =>
+        {
+            var referenced = match.CatalogIds.Concat(match.CandidateCatalogIds)
+                .Distinct(StringComparer.Ordinal)
+                .Where(entries.ContainsKey)
+                .Select(id => entries[id])
+                .ToArray();
+            if (referenced.Length == 0)
+                return match;
+
+            var wrappers = referenced
+                .Where(static entry => entry.CompositionContract is
+                {
+                    Kind: McpCapabilityCompositionConventions.CompleteOperationKind,
+                    Encapsulates.Count: > 0
+                })
+                .ToArray();
+            if (wrappers.Length != 1)
+                return match;
+
+            var wrapper = wrappers[0];
+            var requiredKinds = GetRequiredArtifactFields(wrapper)
+                .Select(GetOperationalArtifactKind)
+                .Where(static kind => kind != null)
+                .Cast<string>()
+                .ToHashSet(StringComparer.Ordinal);
+            var retainedProducers = referenced
+                .Where(candidate => !string.Equals(candidate.Id, wrapper.Id, StringComparison.Ordinal))
+                .Where(candidate => requiredKinds.Any(kind => CapabilityProducesArtifactKind(candidate, kind)))
+                .ToArray();
+            var unrelated = referenced
+                .Where(candidate => !string.Equals(candidate.Id, wrapper.Id, StringComparison.Ordinal))
+                .Where(candidate => retainedProducers.All(producer => !string.Equals(producer.Id, candidate.Id, StringComparison.Ordinal)))
+                .Where(candidate => !string.Equals(candidate.Resolution, "mcp", StringComparison.Ordinal)
+                                    || !string.Equals(candidate.Server, wrapper.Server, StringComparison.Ordinal)
+                                    || !wrapper.CompositionContract!.Encapsulates.Any(encapsulated =>
+                                        string.Equals(encapsulated.Kind, candidate.Kind, StringComparison.Ordinal)
+                                        && string.Equals(encapsulated.Method, candidate.Method, StringComparison.Ordinal)))
+                .ToArray();
+            if (unrelated.Length > 0 && match.Status is not ("ambiguous" or "invalid"))
+                return match;
+
+            var normalizedIds = new[] { wrapper.Id }
+                .Concat(retainedProducers.Select(static producer => producer.Id))
+                .Distinct(StringComparer.Ordinal)
+                .ToArray();
+
+            normalizedOperationIds.Add(match.Operation.Id);
+            return match with
+            {
+                Status = normalizedIds.Length == 1 ? "matched" : "composed",
+                Reason = "The selected complete-operation capability encapsulates the referenced lower-level phases.",
+                CatalogIds = normalizedIds,
+                CandidateCatalogIds = Array.Empty<string>()
+            };
+        }).ToArray();
+
+        if (normalizedOperationIds.Count == 0)
+            return evaluation;
+
+        var issues = evaluation.Issues
+            .Where(issue => !normalizedOperationIds.Contains(issue.OperationId))
+            .ToArray();
+        var contractValid = operationMatches.All(static match => match.Status != "invalid")
+                            && evaluation.ConstraintMatches.All(static match => match.Status != "invalid")
+                            && issues.All(static issue => issue.Status != "invalid");
+        return evaluation with
+        {
+            OperationMatches = operationMatches,
+            Issues = issues,
+            ContractValid = contractValid
+        };
+    }
+
+    private static CapabilityMatchingEvaluation NormalizeLocalProcessingMatches(
+        CapabilityMatchingEvaluation evaluation)
+    {
+        var normalizedOperationIds = evaluation.OperationMatches
+            .Where(static match => string.Equals(
+                match.Operation.ExecutionKind,
+                "local_processing",
+                StringComparison.Ordinal))
+            .Select(static match => match.Operation.Id)
+            .ToHashSet(StringComparer.Ordinal);
+        if (normalizedOperationIds.Count == 0)
+            return evaluation;
+
+        var operations = evaluation.OperationMatches.Select(match =>
+            normalizedOperationIds.Contains(match.Operation.Id)
+                ? match with
+                {
+                    Status = "local",
+                    Reason = "The locked inventory classifies this operation as provider-neutral local processing.",
+                    CatalogIds = Array.Empty<string>(),
+                    CandidateCatalogIds = Array.Empty<string>(),
+                    DecisionOperationId = null
+                }
+                : match).ToArray();
+        var issues = evaluation.Issues
+            .Where(issue => !normalizedOperationIds.Contains(issue.OperationId))
+            .ToArray();
+        var contractValid = operations.All(static match => match.Status != "invalid")
+                            && evaluation.ConstraintMatches.All(static match => match.Status != "invalid")
+                            && issues.All(static issue => issue.Status != "invalid");
+        return evaluation with
+        {
+            OperationMatches = operations,
+            Issues = issues,
+            ContractValid = contractValid
+        };
+    }
+
+    private static CapabilityMatchingEvaluation NormalizeExactSelectorMatches(
+        CapabilityMatchingEvaluation evaluation,
+        CapabilityCatalog catalog)
+    {
+        var entries = catalog.Entries.ToDictionary(static entry => entry.Id, StringComparer.Ordinal);
+        var normalizedOperationIds = new HashSet<string>(StringComparer.Ordinal);
+        var operationMatches = evaluation.OperationMatches.Select(match =>
+        {
+            if (match.Status is not ("composed" or "ambiguous" or "invalid"))
+                return match;
+
+            var referenced = match.CatalogIds.Concat(match.CandidateCatalogIds)
+                .Distinct(StringComparer.Ordinal)
+                .Where(entries.ContainsKey)
+                .Select(id => entries[id])
+                .ToArray();
+            var referencedPhysicalCapabilities = referenced
+                .Select(static entry => (entry.Resolution, entry.Server, entry.Kind, entry.Method))
+                .ToHashSet();
+            var exactSelectors = catalog.Entries
+                .Where(entry => referencedPhysicalCapabilities.Contains((entry.Resolution, entry.Server, entry.Kind, entry.Method)))
+                .Where(static entry => entry.RequestBindings.Count > 0)
+                .Where(entry => SelectorBindingsMatchOperationIntent(entry.RequestBindings, match.Operation.Description))
+                .ToArray();
+            if (exactSelectors.Length != 1)
+                return match;
+
+            var selector = exactSelectors[0];
+            var requiredKinds = GetRequiredArtifactFields(selector)
+                .Select(GetOperationalArtifactKind)
+                .Where(static kind => kind != null)
+                .Cast<string>()
+                .ToHashSet(StringComparer.Ordinal);
+            var retainedProducers = referenced
+                .Where(candidate => !string.Equals(candidate.Id, selector.Id, StringComparison.Ordinal))
+                .Where(candidate => requiredKinds.Any(kind => CapabilityProducesArtifactKind(candidate, kind)))
+                .ToArray();
+            var normalizedIds = new[] { selector.Id }
+                .Concat(retainedProducers.Select(static producer => producer.Id))
+                .Distinct(StringComparer.Ordinal)
+                .ToArray();
+
+            normalizedOperationIds.Add(match.Operation.Id);
+            return match with
+            {
+                Status = normalizedIds.Length == 1 ? "matched" : "composed",
+                Reason = "The exact documented selector satisfies the operation; unrelated whole-tool candidates were removed.",
+                CatalogIds = normalizedIds,
+                CandidateCatalogIds = Array.Empty<string>()
+            };
+        }).ToArray();
+
+        if (normalizedOperationIds.Count == 0)
+            return evaluation;
+
+        var issues = evaluation.Issues
+            .Where(issue => !normalizedOperationIds.Contains(issue.OperationId))
+            .ToArray();
+        var contractValid = operationMatches.All(static match => match.Status != "invalid")
+                            && evaluation.ConstraintMatches.All(static match => match.Status != "invalid")
+                            && issues.All(static issue => issue.Status != "invalid");
+        return evaluation with
+        {
+            OperationMatches = operationMatches,
+            Issues = issues,
+            ContractValid = contractValid
+        };
+    }
+
+    private static CapabilityMatchingEvaluation NormalizeConditionalSelectorMatches(
+        CapabilityMatchingEvaluation evaluation,
+        CapabilityCatalog catalog,
+        CapabilityInventory inventory)
+    {
+        var entries = catalog.Entries.ToDictionary(static entry => entry.Id, StringComparer.Ordinal);
+        var normalizedOperationIds = new HashSet<string>(StringComparer.Ordinal);
+        var operationMatches = evaluation.OperationMatches.Select(match =>
+        {
+            if (match.Status is "matched" or "conditional" or "local")
+                return match;
+            if (match.Operation.DecisionSourceOperationId.Length == 0)
+                return match;
+
+            var referenced = match.CatalogIds.Concat(match.CandidateCatalogIds)
+                .Distinct(StringComparer.Ordinal)
+                .Where(entries.ContainsKey)
+                .Select(id => entries[id])
+                .ToArray();
+            var variants = referenced
+                .Where(static entry => entry.RequestBindings.Count > 0)
+                .GroupBy(static entry => (entry.Resolution, entry.Server, entry.Kind, entry.Method))
+                .Select(static group => group.ToArray())
+                .Where(static group => group.Length >= 2)
+                .Where(group => TryBuildConditionalBranchValues(group, out _))
+                .ToArray();
+            if (variants.Length != 1)
+                return match;
+
+            var decisionOperationId = match.Operation.DecisionSourceOperationId;
+            if (inventory.Operations.All(operation => !string.Equals(
+                    operation.Id,
+                    decisionOperationId,
+                    StringComparison.Ordinal)))
+                return match;
+
+            var branchVariants = variants[0];
+            normalizedOperationIds.Add(match.Operation.Id);
+            return match with
+            {
+                Status = "conditional",
+                Reason = "The exact selector variants are mutually exclusive runtime branches selected by an earlier workflow result.",
+                CatalogIds = branchVariants.Select(static entry => entry.Id)
+                    .ToArray(),
+                CandidateCatalogIds = Array.Empty<string>(),
+                DecisionOperationId = decisionOperationId
+            };
+        }).ToArray();
+
+        if (normalizedOperationIds.Count == 0)
+            return evaluation;
+
+        var issues = evaluation.Issues
+            .Where(issue => !normalizedOperationIds.Contains(issue.OperationId))
+            .ToArray();
+        var contractValid = operationMatches.All(static match => match.Status != "invalid")
+                            && evaluation.ConstraintMatches.All(static match => match.Status != "invalid")
+                            && issues.All(static issue => issue.Status != "invalid");
+        return evaluation with
+        {
+            OperationMatches = operationMatches,
+            Issues = issues,
+            ContractValid = contractValid
+        };
+    }
+
+    private static CapabilityMatchingEvaluation NormalizePlatformSafetyMatches(
+        CapabilityMatchingEvaluation evaluation,
+        CapabilityCatalog catalog)
+    {
+        var confirmation = catalog.Entries.FirstOrDefault(static entry =>
+            string.Equals(entry.Resolution, "native", StringComparison.Ordinal)
+            && string.Equals(entry.Method, "human.input", StringComparison.Ordinal));
+        if (confirmation == null)
+            return evaluation;
+
+        var normalizedOperationIds = new HashSet<string>(StringComparer.Ordinal);
+        var operations = evaluation.OperationMatches.Select(match =>
+        {
+            if (!match.Operation.Id.StartsWith("platform_confirm_external_write", StringComparison.Ordinal)
+                || !string.Equals(
+                    match.Operation.Description,
+                    PlatformExternalWriteConfirmationOperationDescription,
+                    StringComparison.Ordinal))
+            {
+                return match;
+            }
+
+            normalizedOperationIds.Add(match.Operation.Id);
+            return match with
+            {
+                Status = "matched",
+                Reason = "The platform-owned external-write safety gate uses the registered native human.input step.",
+                CatalogIds = [confirmation.Id],
+                CandidateCatalogIds = Array.Empty<string>(),
+                DecisionOperationId = null
+            };
+        }).ToArray();
+
+        var normalizedConstraintIds = new HashSet<string>(StringComparer.Ordinal);
+        var constraints = evaluation.ConstraintMatches.Select(match =>
+        {
+            if (!match.Constraint.Id.StartsWith("platform_external_write_after_confirmation", StringComparison.Ordinal)
+                || !string.Equals(
+                    match.Constraint.Description,
+                    PlatformExternalWriteConfirmationConstraintDescription,
+                    StringComparison.Ordinal))
+            {
+                return match;
+            }
+
+            normalizedConstraintIds.Add(match.Constraint.Id);
+            return match with
+            {
+                Status = "policy_only",
+                Reason = "The platform-owned confirmation ordering rule is enforced by workflow topology.",
+                DeniedCatalogIds = Array.Empty<string>(),
+                CandidateCatalogIds = Array.Empty<string>()
+            };
+        }).ToArray();
+
+        if (normalizedOperationIds.Count == 0 && normalizedConstraintIds.Count == 0)
+            return evaluation;
+
+        var issues = evaluation.Issues.Where(issue =>
+                !normalizedOperationIds.Contains(issue.OperationId)
+                && !normalizedConstraintIds.Contains(issue.OperationId))
+            .ToArray();
+        var contractValid = operations.All(static match => match.Status != "invalid")
+                            && constraints.All(static match => match.Status != "invalid")
+                            && issues.All(static issue => issue.Status != "invalid");
+        return evaluation with
+        {
+            OperationMatches = operations,
+            ConstraintMatches = constraints,
+            Issues = issues,
+            ContractValid = contractValid
+        };
+    }
+
+    private static bool SelectorBindingsMatchOperationIntent(
+        IReadOnlyList<CapabilityRequestBinding> bindings,
+        string operationDescription)
+    {
+        var selectorText = string.Join(' ', bindings
+            .Select(static binding => binding.Value is JsonValue value && value.TryGetValue<string>(out var text)
+                ? text.Replace('_', ' ').Replace('-', ' ')
+                : string.Empty));
+        var selectorTokens = ExtractIntentTokens(selectorText);
+        if (selectorTokens.Count == 0)
+            return false;
+        var operationTokens = ExtractIntentTokens(operationDescription.Replace('_', ' ').Replace('-', ' '));
+        return selectorTokens.All(operationTokens.Contains);
+    }
+
+    private static CapabilityClarificationConfig ParseCapabilityClarificationConfig(JsonObject? preflight)
+    {
+        if (preflight?["clarification"] is null)
+            return new CapabilityClarificationConfig(false, HumanInputContract.DefaultTimeoutMs);
+        if (preflight["clarification"] is not JsonObject clarification)
+        {
+            throw new WorkflowRuntimeException(
+                ErrorCodes.InputValidation,
+                "workflow.plan capability_preflight.clarification must be an object.");
+        }
+
+        var enabled = clarification["enabled"] switch
+        {
+            null => false,
+            JsonValue value when value.TryGetValue<bool>(out var parsed) => parsed,
+            _ => throw new WorkflowRuntimeException(
+                ErrorCodes.InputValidation,
+                "workflow.plan capability_preflight.clarification.enabled must be a boolean.")
+        };
+        var timeoutMs = clarification["timeout_ms"] switch
+        {
+            null => HumanInputContract.DefaultTimeoutMs,
+            JsonValue value when value.TryGetValue<int>(out var parsed) && parsed > 0 => parsed,
+            _ => throw new WorkflowRuntimeException(
+                ErrorCodes.InputValidation,
+                "workflow.plan capability_preflight.clarification.timeout_ms must be a positive 32-bit integer.")
+        };
+        return new CapabilityClarificationConfig(enabled, timeoutMs);
+    }
+
+    private static bool IsInventoryClarificationEligible(CapabilityInventory inventory)
+        => !inventory.Complete
+           && inventory.IncompleteReasons.Count > 0
+           && inventory.IncompleteReasons.All(static reason =>
+               !string.Equals(reason.Id, "inventory_contract_invalid", StringComparison.Ordinal));
+
+    private static bool IsMatchingClarificationEligible(CapabilityMatchingEvaluation evaluation)
+    {
+        var blocking = evaluation.Issues.Where(static issue => issue.Required).ToArray();
+        return evaluation.ContractValid
+               && blocking.Length > 0
+               && blocking.All(static issue => issue.Status == "ambiguous");
+    }
+
+    private static string AppendCapabilityClarification(string instruction, JsonObject clarification)
+    {
+        var payload = clarification.ToJsonString();
+        return $"{instruction}\n\n<user_capability_clarification_json>\n{payload}\n</user_capability_clarification_json>";
+    }
+
+    private static async Task<JsonObject> RequestCapabilityClarificationAsync(
+        StepExecutionContext ctx,
+        JsonObject input,
+        CapabilityInventory inventory,
+        CapabilityMatchingEvaluation? evaluation,
+        CapabilityCatalog? catalog,
+        CancellationToken ct)
+    {
+        var config = ParseCapabilityClarificationConfig(input["capability_preflight"] as JsonObject);
+        var provider = ctx.Engine.HumanInputProvider
+            ?? throw BuildCapabilityClarificationFailure(
+                "clarification_provider_unavailable",
+                "Capability inference needs user clarification, but no human-input provider is configured.");
+
+        var context = BuildCapabilityClarificationContext(inventory, evaluation, catalog);
+        var questions = BuildCapabilityClarificationQuestions(inventory, evaluation);
+        var request = new HumanInputRequest
+        {
+            RunId = string.IsNullOrWhiteSpace(ctx.Limits.RunId) ? Guid.NewGuid().ToString("N") : ctx.Limits.RunId!,
+            StepId = $"{ctx.Step.Id}:capability_clarification:{Guid.NewGuid():N}",
+            Prompt = "Clarify every unresolved design-time aspect in this single form. Define runtime rules and decision sources, but never predict a result that will only be known while the workflow runs. You may state that planning should be abandoned if the requested behavior is unsupported or unsafe.",
+            Mode = HumanInputContract.ModeForm,
+            Context = context,
+            Fields = questions.Select(static question => new HumanInputFieldDef
+            {
+                Name = question.Name,
+                Type = "textarea",
+                Required = true,
+                Description = question.Description
+            }).ToList(),
+            TimeoutMs = config.TimeoutMs
+        };
+
+        var requestPayload = new JsonObject
+        {
+            ["prompt"] = request.Prompt,
+            ["mode"] = request.Mode,
+            ["run_id"] = request.RunId,
+            ["step_id"] = request.StepId,
+            ["timeout_ms"] = request.TimeoutMs,
+            ["context"] = request.Context?.DeepClone(),
+            ["fields"] = new JsonArray(request.Fields.Select(static field => (JsonNode)new JsonObject
+            {
+                ["name"] = field.Name,
+                ["type"] = field.Type,
+                ["required"] = field.Required,
+                ["description"] = field.Description
+            }).ToArray())
+        };
+        ctx.AddTelemetryEvent("gnougo-flow.step.waiting_for_human", new[]
+        {
+            new KeyValuePair<string, object?>("gnougo-flow.human.prompt", request.Prompt),
+            new KeyValuePair<string, object?>("gnougo-flow.human.request", requestPayload.ToJsonString()),
+            new KeyValuePair<string, object?>("gnougo-flow.human.purpose", "capability_clarification")
+        });
+
+        using var timeout = CancellationTokenSource.CreateLinkedTokenSource(ct);
+        timeout.CancelAfter(config.TimeoutMs);
+        JsonNode? response;
+        try
+        {
+            response = await provider.RequestInputAsync(request, timeout.Token);
+        }
+        catch (OperationCanceledException) when (!ct.IsCancellationRequested)
+        {
+            throw BuildCapabilityClarificationFailure(
+                "clarification_timeout",
+                $"Capability clarification timed out after {config.TimeoutMs}ms.");
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            throw BuildCapabilityClarificationFailure(
+                "clarification_provider_failed",
+                "Capability clarification failed closed because the human-input provider returned an error.",
+                ex);
+        }
+
+        if (response is not JsonObject responseObject)
+        {
+            throw BuildCapabilityClarificationFailure(
+                "clarification_invalid_response",
+                "Capability clarification must return the complete structured form.");
+        }
+
+        var answers = new JsonObject();
+        var totalCharacters = 0;
+        foreach (var question in questions)
+        {
+            var answer = responseObject[question.Name] is JsonValue value
+                         && value.TryGetValue<string>(out var text)
+                ? text.Trim()
+                : string.Empty;
+            if (answer.Length == 0 || answer.Length > 8_000)
+            {
+                throw BuildCapabilityClarificationFailure(
+                    "clarification_invalid_response",
+                    $"Capability clarification field '{question.Name}' must contain a non-empty answer of at most 8000 characters.");
+            }
+
+            totalCharacters += answer.Length;
+            answers[question.Name] = answer;
+        }
+        if (totalCharacters > 32_000)
+        {
+            throw BuildCapabilityClarificationFailure(
+                "clarification_invalid_response",
+                "Capability clarification exceeds the 32000-character total limit.");
+        }
+
+        ctx.AddTelemetryEvent("gnougo-flow.step.human_input_resumed", new[]
+        {
+            new KeyValuePair<string, object?>("gnougo-flow.human.run_id", request.RunId),
+            new KeyValuePair<string, object?>("gnougo-flow.human.step_id", request.StepId),
+            new KeyValuePair<string, object?>("gnougo-flow.human.purpose", "capability_clarification")
+        });
+        ctx.AddTelemetryEvent("gnougo-flow.step.thinking", new[]
+        {
+            new KeyValuePair<string, object?>("gnougo-flow.thinking.message", "Capability clarification received; restarting bounded inference once."),
+            new KeyValuePair<string, object?>("gnougo-flow.thinking.level", "info")
+        });
+        return answers;
+    }
+
+    private static IReadOnlyList<CapabilityClarificationQuestion> BuildCapabilityClarificationQuestions(
+        CapabilityInventory inventory,
+        CapabilityMatchingEvaluation? evaluation)
+    {
+        var questions = new List<CapabilityClarificationQuestion>();
+        if (evaluation == null)
+        {
+            var index = 1;
+            foreach (var reason in inventory.IncompleteReasons)
+            {
+                questions.Add(new CapabilityClarificationQuestion(
+                    $"unresolved_intent_{index++}",
+                    $"Clarify this missing design-time intent: {SanitizeCapabilityInferenceDiagnostic(reason.Description, 1_000)}"));
+            }
+        }
+        else
+        {
+            var index = 1;
+            foreach (var issue in evaluation.Issues
+                         .Where(static issue => issue.Required && issue.Status == "ambiguous"))
+            {
+                questions.Add(new CapabilityClarificationQuestion(
+                    $"unresolved_choice_{index++}",
+                    $"For this unresolved requirement, specify the intended implementation or runtime rule using the candidates shown in context: {SanitizeCapabilityInferenceDiagnostic(issue.Description, 1_000)}"));
+            }
+        }
+
+        questions.AddRange([
+            new CapabilityClarificationQuestion(
+                "intended_outcome_and_scope",
+                "State the observable final outcome, required scope, and anything explicitly outside scope."),
+            new CapabilityClarificationQuestion(
+                "runtime_decision_rules",
+                "Identify choices that depend on future runtime data and the earlier result that must drive each choice. Describe the rule, not the future result."),
+            new CapabilityClarificationQuestion(
+                "external_effect_boundaries",
+                "List allowed external reads and writes, the condition for each write, and any external effect that must never occur."),
+            new CapabilityClarificationQuestion(
+                "success_criteria",
+                "State measurable completion, quality, coverage, cardinality, ordering, and exclusivity criteria that the workflow must enforce."),
+            new CapabilityClarificationQuestion(
+                "failure_policy",
+                "State what should happen when planning or execution cannot safely satisfy a required capability: stop, ask again, retry, compensate, or abandon.")
+        ]);
+
+        return questions;
+    }
+
+    private static JsonObject BuildCapabilityClarificationContext(
+        CapabilityInventory inventory,
+        CapabilityMatchingEvaluation? evaluation,
+        CapabilityCatalog? catalog)
+    {
+        if (evaluation == null)
+        {
+            return new JsonObject
+            {
+                ["phase"] = "capability_inventory",
+                ["planning_outcome"] = "clarification_required",
+                ["issues"] = new JsonArray(inventory.IncompleteReasons.Select(static reason => (JsonNode)new JsonObject
+                {
+                    ["id"] = SanitizeCapabilityInferenceDiagnostic(reason.Id, 160),
+                    ["description"] = SanitizeCapabilityInferenceDiagnostic(reason.Description, 1_000)
+                }).ToArray())
+            };
+        }
+
+        var entries = catalog!.Entries.ToDictionary(static entry => entry.Id, StringComparer.Ordinal);
+        return new JsonObject
+        {
+            ["phase"] = "capability_matching",
+            ["planning_outcome"] = "clarification_required",
+            ["issues"] = new JsonArray(evaluation.Issues
+                .Where(static issue => issue.Required && issue.Status == "ambiguous")
+                .Select(issue => (JsonNode)new JsonObject
+                {
+                    ["id"] = SanitizeCapabilityInferenceDiagnostic(issue.OperationId, 160),
+                    ["description"] = SanitizeCapabilityInferenceDiagnostic(issue.Description, 1_000),
+                    ["reason"] = SanitizeCapabilityInferenceDiagnostic(issue.Reason, 1_000),
+                    ["candidate_capabilities"] = new JsonArray(issue.CandidateCatalogIds
+                        .Where(entries.ContainsKey)
+                        .Select(id => (JsonNode)BuildCapabilityCandidateCard(entries[id]))
+                        .ToArray())
+                }).ToArray())
+        };
+    }
+
+    private static WorkflowRuntimeException BuildCapabilityClarificationFailure(
+        string reason,
+        string message,
+        Exception? inner = null)
+        => new(
+            ErrorCodes.CapabilityPreflightInferenceFailed,
+            message,
+            inner: inner,
+            details: new JsonObject
+            {
+                ["phase"] = "capability_clarification",
+                ["reason"] = reason,
+                ["fail_closed"] = true,
+                ["planning_outcome"] = "cannot_plan_safely",
+                ["recommended_action"] = "clarify_or_abandon"
+            });
 
     private static bool CapabilityProducesArtifactKind(CapabilityCatalogEntry entry, string kind)
         => entry.ArtifactContract != null
@@ -862,6 +1561,12 @@ public sealed partial class WorkflowPlanExecutor
         - none: required for human_interaction and local_processing.
         Use write for every operation whose intended result changes an external system, even when a later confirmation is expected.
 
+        Set decision_source_operation_id to the ID of the earlier operation whose runtime result exclusively selects this operation's outcome or selector branch. Use an empty string when the operation is unconditional. Do not guess a future result; describe the dependency between operations. If the user requires a runtime-dependent choice but the deciding operation cannot be identified, set complete=false and request that relationship as user clarification.
+
+        Classify every constraint by enforcement_kind:
+        - exact_denial: an unconditional prohibition that can safely ban exact external capabilities throughout the generated workflow;
+        - workflow_policy: a conditional, ordering, cardinality, coverage, quality, confirmation, or other invariant that must be enforced by workflow structure rather than a document-wide capability denial.
+
         Runtime boundary rules:
         - Exclude host configuration already supplied to the workflow runtime.
         - Treat declared workflow inputs supplied when execution starts as the public input contract, not as a separate human-interaction operation. Use human_interaction only when execution must pause after it starts for confirmation or additional information.
@@ -896,6 +1601,8 @@ public sealed partial class WorkflowPlanExecutor
         - Keep prohibitions, ordering requirements, safety rules, and invariants as constraints rather than positive operations.
         - Inventory only intentions expressed in the user task. Do not copy, paraphrase, or restate these repair or runtime-boundary instructions as operations or constraints.
         - Preserve execution_kind and external_effect_kind for every operation. External writes use external_effect/write; external reads use external_effect/read; AI or other non-mutating execution uses external_effect/execute; owned resource setup/cleanup uses external_effect/lifecycle; human and local work use none.
+        - Preserve decision_source_operation_id for runtime-dependent operations. It identifies the earlier operation whose result selects the branch; use an empty string for unconditional operations.
+        - Classify constraints with enforcement_kind=exact_denial only for unconditional document-wide prohibitions. Conditional, ordering, cardinality, coverage, quality, confirmation, and other structural invariants use workflow_policy.
         - Include conditional and optional runtime intentions and mark optional enrichment required=false.
         - Return complete=true and an empty incomplete_reasons array when all requested effects are represented.
         - If the user's requested runtime behavior itself remains genuinely under-specified, return complete=false and concise incomplete_reasons stating what user intent must be clarified. Never cite missing tools, catalogs, selectors, credentials, or implementation knowledge.
@@ -948,9 +1655,10 @@ public sealed partial class WorkflowPlanExecutor
                         {
                             ["type"] = "string",
                             ["enum"] = new JsonArray("read", "write", "execute", "lifecycle", "none")
-                        }
+                        },
+                        ["decision_source_operation_id"] = new JsonObject { ["type"] = "string" }
                     },
-                    ["required"] = new JsonArray("id", "description", "required", "execution_kind", "external_effect_kind"),
+                    ["required"] = new JsonArray("id", "description", "required", "execution_kind", "external_effect_kind", "decision_source_operation_id"),
                     ["additionalProperties"] = false
                 }
             },
@@ -964,9 +1672,14 @@ public sealed partial class WorkflowPlanExecutor
                     {
                         ["id"] = new JsonObject { ["type"] = "string" },
                         ["description"] = new JsonObject { ["type"] = "string" },
-                        ["required"] = new JsonObject { ["type"] = "boolean" }
+                        ["required"] = new JsonObject { ["type"] = "boolean" },
+                        ["enforcement_kind"] = new JsonObject
+                        {
+                            ["type"] = "string",
+                            ["enum"] = new JsonArray("exact_denial", "workflow_policy")
+                        }
                     },
-                    ["required"] = new JsonArray("id", "description", "required"),
+                    ["required"] = new JsonArray("id", "description", "required", "enforcement_kind"),
                     ["additionalProperties"] = false
                 }
             }
@@ -999,13 +1712,41 @@ public sealed partial class WorkflowPlanExecutor
             {
                 throw new InvalidOperationException($"Capability inventory operation '{id}' has incompatible external_effect_kind '{externalEffectKind}'.");
             }
-            return new CapabilityInventoryOperation(id, description, required, executionKind, externalEffectKind);
+            var decisionSourceOperationId = (node as JsonObject)?["decision_source_operation_id"]?.GetValue<string>()?.Trim()
+                                            ?? string.Empty;
+            if (decisionSourceOperationId.Length > 160)
+                throw new InvalidOperationException($"Capability inventory operation '{id}' has an invalid decision_source_operation_id.");
+            return new CapabilityInventoryOperation(
+                id,
+                description,
+                required,
+                executionKind,
+                externalEffectKind,
+                decisionSourceOperationId);
         }).ToArray();
         var constraints = constraintNodes.Select(node =>
         {
             var (id, description, required) = ParseInventoryItem(node, identifiers, "constraint");
-            return new CapabilityInventoryConstraint(id, description, required);
+            var enforcementKind = (node as JsonObject)?["enforcement_kind"]?.GetValue<string>()?.Trim().ToLowerInvariant()
+                                  ?? "exact_denial";
+            if (enforcementKind is not ("exact_denial" or "workflow_policy"))
+                throw new InvalidOperationException($"Capability inventory constraint '{id}' has invalid enforcement_kind '{enforcementKind}'.");
+            return new CapabilityInventoryConstraint(id, description, required, enforcementKind);
         }).ToArray();
+        foreach (var operation in operations)
+        {
+            if (operation.DecisionSourceOperationId.Length == 0)
+                continue;
+            if (string.Equals(operation.Id, operation.DecisionSourceOperationId, StringComparison.Ordinal)
+                || operations.All(candidate => !string.Equals(
+                    candidate.Id,
+                    operation.DecisionSourceOperationId,
+                    StringComparison.Ordinal)))
+            {
+                throw new InvalidOperationException(
+                    $"Capability inventory operation '{operation.Id}' references an unknown or self decision source '{operation.DecisionSourceOperationId}'.");
+            }
+        }
         var reasons = ParseCapabilityInventoryReasons(json["incomplete_reasons"] as JsonArray);
         if (complete && reasons.Count > 0)
             throw new InvalidOperationException("A complete capability inventory cannot contain incomplete reasons.");
@@ -1024,9 +1765,10 @@ public sealed partial class WorkflowPlanExecutor
         var constraints = inventory.Constraints
             .Where(constraint => CountPlannerBoundaryConcepts(constraint.Description) < 2 || userConcepts >= 2)
             .ToArray();
-        return constraints.Length == inventory.Constraints.Count && operations.Length == inventory.Operations.Count
+        var filtered = constraints.Length == inventory.Constraints.Count && operations.Length == inventory.Operations.Count
             ? inventory
             : inventory with { Operations = operations, Constraints = constraints };
+        return filtered;
     }
 
     private static bool IsHostInputContractArtifact(CapabilityInventoryOperation operation)
@@ -1112,7 +1854,7 @@ public sealed partial class WorkflowPlanExecutor
             Operations = inventory.Operations.Concat([
                 new CapabilityInventoryOperation(
                     operationId,
-                    "Require explicit human confirmation immediately before the first external write.",
+                    PlatformExternalWriteConfirmationOperationDescription,
                     true,
                     "human_interaction",
                     "none")
@@ -1120,8 +1862,9 @@ public sealed partial class WorkflowPlanExecutor
             Constraints = inventory.Constraints.Concat([
                 new CapabilityInventoryConstraint(
                     constraintId,
-                    "No external write may execute before explicit human confirmation.",
-                    true)
+                    PlatformExternalWriteConfirmationConstraintDescription,
+                    true,
+                    "workflow_policy")
             ]).ToArray()
         };
     }
@@ -1191,13 +1934,15 @@ public sealed partial class WorkflowPlanExecutor
             ["description"] = operation.Description,
             ["required"] = operation.Required,
             ["execution_kind"] = operation.ExecutionKind,
-            ["external_effect_kind"] = operation.ExternalEffectKind
+            ["external_effect_kind"] = operation.ExternalEffectKind,
+            ["decision_source_operation_id"] = operation.DecisionSourceOperationId
         }).ToArray());
         var constraints = new JsonArray(inventory.Constraints.Select(static constraint => (JsonNode)new JsonObject
         {
             ["id"] = constraint.Id,
             ["description"] = constraint.Description,
-            ["required"] = constraint.Required
+            ["required"] = constraint.Required,
+            ["enforcement_kind"] = constraint.EnforcementKind
         }).ToArray());
         var reasons = new JsonArray(inventory.IncompleteReasons.Select(static reason => (JsonNode)new JsonObject
         {
@@ -1236,7 +1981,9 @@ public sealed partial class WorkflowPlanExecutor
                 ["attempts"] = 2,
                 ["operation_count"] = inventory.Operations.Count,
                 ["constraint_count"] = inventory.Constraints.Count,
-                ["incomplete_reasons"] = reasonArray
+                ["incomplete_reasons"] = reasonArray,
+                ["planning_outcome"] = "cannot_plan_safely",
+                ["recommended_action"] = "clarify_or_abandon"
             });
     }
 
@@ -1254,13 +2001,15 @@ public sealed partial class WorkflowPlanExecutor
             ["description"] = operation.Description,
             ["required"] = operation.Required,
             ["execution_kind"] = operation.ExecutionKind,
-            ["external_effect_kind"] = operation.ExternalEffectKind
+            ["external_effect_kind"] = operation.ExternalEffectKind,
+            ["decision_source_operation_id"] = operation.DecisionSourceOperationId
         }).ToArray());
         var constraints = new JsonArray(inventory.Constraints.Select(static constraint => (JsonNode)new JsonObject
         {
             ["id"] = constraint.Id,
             ["description"] = constraint.Description,
-            ["required"] = constraint.Required
+            ["required"] = constraint.Required,
+            ["enforcement_kind"] = constraint.EnforcementKind
         }).ToArray());
         return $$"""
             You are a domain-neutral capability matcher. Return only the requested structured JSON.
@@ -1269,12 +2018,15 @@ public sealed partial class WorkflowPlanExecutor
             - matched: exactly one catalog capability is sufficient;
             - composed: two or more complementary catalog capabilities are jointly required;
             - local: the inventory classified the operation as local_processing, so no catalog capability is selected;
+            - conditional: two or more selector-specific variants of one physical capability are all required as mutually exclusive runtime branches, and another inventory operation determines which branch executes;
             - ambiguous: more than one plausible implementation remains and the catalog does not establish which is correct;
             - unavailable: the catalog contains no sufficient implementation.
 
             Prefer the smallest sufficient composition. A composition is valid only when every selected capability is necessary for the one operation. For a multi-action tool, choose selector-specific entries whose request_bindings describe the logical operation. Different selector values are distinct capabilities.
             A selector entry with variant_of inherits the description, arguments, outputs, and artifact contract from the whole-tool entry identified by the same server, kind, and method; its compact row intentionally contains only the distinguishing literal request_bindings.
             A whole-tool entry without request_bindings is appropriate when enum-valued arguments are runtime data rather than a fixed logical action. Prefer a combined selector entry over several single-selector entries when one physical call requires all of those fixed literal values.
+            When an operation has a non-empty decision_source_operation_id, select every exact selector variant required by that runtime-dependent outcome with status conditional. Copy the locked decision_source_operation_id into decision_operation_id. Conditional variants must belong to one physical capability, share every fixed selector except one mutually exclusive selector path, and use distinct values on that path. This is runtime control flow, not user ambiguity. Never ask the user to predict a future runtime result.
+            A complete_operation composition entry encapsulates its listed lower-level phases. Select the complete operation alone when it is sufficient; never compose it with a phase it already encapsulates.
 
             Capability sufficiency includes input provenance and data flow:
             - Read each selected card's required arguments and bounded output fields. A required argument must be supplied by a semantically compatible workflow runtime input, a documented host-internal/default value, a literal selector binding, or an output of a selected producer capability.
@@ -1283,14 +2035,15 @@ public sealed partial class WorkflowPlanExecutor
             - Use documented output fields to identify producers. Do not assume that local parsing, transformation, a URL, an identifier, or an invented string can create or prove an external artifact.
             - A high-level capability may stand alone only when its documented contract encapsulates its prerequisites. Otherwise select the smallest prerequisite-closed composition.
 
-            For each constraint, use enforced with every exact MCP catalog capability it unconditionally prohibits, policy_only when it is an invariant that cannot be expressed as an exact denial, or ambiguous when several exact denials are plausible. Conditional and ordering constraints (for example, an effect allowed after confirmation or forbidden only before a gate) must always be policy_only: an exact denial is document-wide and would also reject the valid guarded call. Do not deny a whole multi-action tool when only one selector-specific operation is prohibited.
+            For each constraint classified enforcement_kind=exact_denial, use enforced with every exact MCP catalog capability it unconditionally prohibits, or ambiguous when several exact denials are plausible. For enforcement_kind=workflow_policy, always use policy_only with no catalog IDs because the invariant must be enforced by workflow structure. Do not reinterpret constraint prose or deny a whole multi-action tool when only one selector-specific operation is prohibited.
             Native Flow catalog IDs are never denied_catalog_ids or constraint candidate_catalog_ids. A constraint involving native orchestration remains policy_only; positive required interaction belongs in operation_matches.
 
             Rules:
             - Return only catalog IDs shown below; never invent server, tool, prompt, method, or selector names.
             - Do not infer behavior from server names, product names, URLs, brands, or undocumented semantics.
             - Every inventory operation and constraint ID must occur exactly once.
-            - matched requires one catalog_ids value; composed requires at least two; local and unavailable require none. candidate_catalog_ids are advisory and are ignored for a final matched or composed decision.
+            - matched requires one catalog_ids value; composed requires at least two; conditional requires at least two selector-specific catalog_ids; local and unavailable require none. candidate_catalog_ids are advisory and are ignored for a final matched, composed, or conditional decision.
+            - decision_operation_id is required only for conditional and must exactly equal that operation's non-empty decision_source_operation_id; return an empty string for all other statuses.
             - local is valid only for execution_kind=local_processing. External effects and human interaction must use a documented catalog or be unresolved.
             - candidate_catalog_ids contain at most eight alternatives. They are required for ambiguous decisions and advisory for final decisions; catalog_ids alone define the selected implementation.
             - Give a concise decision reason. Do not expose hidden reasoning or repeat task/repository content.
@@ -1319,12 +2072,13 @@ public sealed partial class WorkflowPlanExecutor
                     ["properties"] = new JsonObject
                     {
                         ["operation_id"] = new JsonObject { ["type"] = "string" },
-                        ["status"] = new JsonObject { ["type"] = "string", ["enum"] = new JsonArray("matched", "composed", "local", "ambiguous", "unavailable") },
+                        ["status"] = new JsonObject { ["type"] = "string", ["enum"] = new JsonArray("matched", "composed", "conditional", "local", "ambiguous", "unavailable") },
                         ["catalog_ids"] = new JsonObject { ["type"] = "array", ["items"] = new JsonObject { ["type"] = "string" } },
                         ["candidate_catalog_ids"] = new JsonObject { ["type"] = "array", ["items"] = new JsonObject { ["type"] = "string" } },
+                        ["decision_operation_id"] = new JsonObject { ["type"] = "string" },
                         ["reason"] = new JsonObject { ["type"] = "string" }
                     },
-                    ["required"] = new JsonArray("operation_id", "status", "catalog_ids", "candidate_catalog_ids", "reason"),
+                    ["required"] = new JsonArray("operation_id", "status", "catalog_ids", "candidate_catalog_ids", "decision_operation_id", "reason"),
                     ["additionalProperties"] = false
                 }
             },
@@ -1357,6 +2111,12 @@ public sealed partial class WorkflowPlanExecutor
         CapabilityCatalog catalog)
     {
         var entries = catalog.Entries.ToDictionary(static entry => entry.Id, StringComparer.Ordinal);
+        var operationIds = inventory.Operations.Select(static operation => operation.Id).ToArray();
+        var constraintIds = inventory.Constraints.Select(static constraint => constraint.Id).ToArray();
+        string ReadOperationId(JsonObject node)
+            => ResolveMatchingInventoryId(ReadMatchingString(node, "operation_id"), operationIds);
+        string ReadConstraintId(JsonObject node)
+            => ResolveMatchingInventoryId(ReadMatchingString(node, "constraint_id"), constraintIds);
         var issues = new List<CapabilityMatchingIssue>();
         var contractValid = true;
         var operationNodes = json["operation_matches"] as JsonArray;
@@ -1369,7 +2129,7 @@ public sealed partial class WorkflowPlanExecutor
         if (operationObjects.Length != operationNodes.Count)
             contractValid = false;
         foreach (var unknown in operationObjects
-                     .Select(static node => ReadMatchingString(node, "operation_id"))
+                     .Select(ReadOperationId)
                      .Where(id => id.Length > 0 && inventory.Operations.All(operation => !string.Equals(operation.Id, id, StringComparison.Ordinal)))
                      .Distinct(StringComparer.Ordinal))
         {
@@ -1381,7 +2141,7 @@ public sealed partial class WorkflowPlanExecutor
         var operationMatches = new List<CapabilityOperationMatch>(inventory.Operations.Count);
         foreach (var operation in inventory.Operations)
         {
-            var nodes = operationObjects.Where(node => string.Equals(ReadMatchingString(node, "operation_id"), operation.Id, StringComparison.Ordinal)).ToArray();
+            var nodes = operationObjects.Where(node => string.Equals(ReadOperationId(node), operation.Id, StringComparison.Ordinal)).ToArray();
             if (nodes.Length != 1)
             {
                 contractValid = false;
@@ -1397,18 +2157,69 @@ public sealed partial class WorkflowPlanExecutor
             var status = ReadMatchingString(node, "status").ToLowerInvariant();
             var selected = ReadMatchingIds(node["catalog_ids"], 32, out var selectedValid);
             var candidates = ReadMatchingIds(node["candidate_catalog_ids"], 8, out var candidatesValid);
+            var decisionOperationId = ResolveMatchingInventoryId(
+                ReadMatchingString(node, "decision_operation_id"),
+                operationIds);
             var reasonText = SanitizeCapabilityInferenceDiagnostic(ReadMatchingString(node, "reason"), 1_000);
-            var validStatus = status is "matched" or "composed" or "local" or "ambiguous" or "unavailable";
+            var validStatus = status is "matched" or "composed" or "conditional" or "local" or "ambiguous" or "unavailable";
+
+            // Structured model responses occasionally repeat advisory candidates in
+            // catalog_ids, or place an explicit ambiguous set in catalog_ids. Preserve
+            // the declared semantic status while normalizing that bounded field-placement
+            // error; unknown IDs and every other malformed shape still fail closed.
+            if (status == "matched" && selected.Count == 0 && candidates.Count == 1)
+            {
+                selected = candidates;
+                candidates = Array.Empty<string>();
+                selectedValid = candidatesValid;
+                candidatesValid = true;
+            }
+            else if (status is ("composed" or "conditional") && selected.Count == 0 && candidates.Count >= 2)
+            {
+                selected = candidates;
+                candidates = Array.Empty<string>();
+                selectedValid = candidatesValid;
+                candidatesValid = true;
+            }
+            else if (status is ("matched" or "composed" or "conditional") && selected.Count > 0)
+            {
+                candidates = Array.Empty<string>();
+                candidatesValid = true;
+            }
+            else if (status == "ambiguous" && selected.Count > 0)
+            {
+                var mergedCandidates = selected.Concat(candidates)
+                    .Distinct(StringComparer.Ordinal)
+                    .Take(9)
+                    .ToArray();
+                if (mergedCandidates.Length <= 8)
+                {
+                    selected = Array.Empty<string>();
+                    candidates = mergedCandidates;
+                    selectedValid = true;
+                    candidatesValid = true;
+                }
+            }
+
             var knownSelected = selected.All(entries.ContainsKey);
             var knownCandidates = candidates.All(entries.ContainsKey);
             var shapeValid = validStatus && selectedValid && candidatesValid && knownSelected && knownCandidates && reasonText.Length > 0;
             shapeValid = shapeValid && status switch
             {
-                "matched" => selected.Count == 1,
-                "composed" => selected.Count >= 2,
-                "local" => selected.Count == 0 && candidates.Count == 0 && operation.ExecutionKind == "local_processing",
-                "ambiguous" => selected.Count == 0 && candidates.Count > 0,
-                "unavailable" => selected.Count == 0 && candidates.Count == 0,
+                "matched" => selected.Count == 1 && decisionOperationId.Length == 0,
+                "composed" => selected.Count >= 2 && decisionOperationId.Length == 0,
+                "conditional" => selected.Count >= 2
+                                 && candidates.Count == 0
+                                 && decisionOperationId.Length > 0
+                                 && string.Equals(
+                                     decisionOperationId,
+                                     operation.DecisionSourceOperationId,
+                                     StringComparison.Ordinal)
+                                 && inventory.Operations.Any(candidate => string.Equals(candidate.Id, decisionOperationId, StringComparison.Ordinal))
+                                 && TryBuildConditionalBranchValues(selected.Select(id => entries[id]).ToArray(), out _),
+                "local" => selected.Count == 0 && candidates.Count == 0 && decisionOperationId.Length == 0 && operation.ExecutionKind == "local_processing",
+                "ambiguous" => selected.Count == 0 && candidates.Count > 0 && decisionOperationId.Length == 0,
+                "unavailable" => selected.Count == 0 && candidates.Count == 0 && decisionOperationId.Length == 0,
                 _ => false
             };
             if (operation.ExecutionKind != "local_processing" && status == "local"
@@ -1421,7 +2232,8 @@ public sealed partial class WorkflowPlanExecutor
                 status = "invalid";
                 reasonText = BuildInvalidMatchingReason(validStatus, selectedValid && candidatesValid, knownSelected && knownCandidates, operation.ExecutionKind);
             }
-            operationMatches.Add(new CapabilityOperationMatch(operation, status, reasonText, selected, candidates));
+            operationMatches.Add(new CapabilityOperationMatch(operation, status, reasonText, selected, candidates,
+                decisionOperationId.Length > 0 ? decisionOperationId : null));
             if (status is "ambiguous" or "unavailable" or "invalid")
                 issues.Add(new CapabilityMatchingIssue(operation.Id, operation.Description, operation.Required, status, reasonText,
                     status == "ambiguous" ? candidates : selected.Concat(candidates).Where(entries.ContainsKey).Take(8).ToArray()));
@@ -1439,9 +2251,21 @@ public sealed partial class WorkflowPlanExecutor
         var constraintMatches = new List<CapabilityConstraintMatch>(inventory.Constraints.Count);
         foreach (var constraint in inventory.Constraints)
         {
-            var nodes = constraintObjects.Where(node => string.Equals(ReadMatchingString(node, "constraint_id"), constraint.Id, StringComparison.Ordinal)).ToArray();
+            var nodes = constraintObjects.Where(node => string.Equals(ReadConstraintId(node), constraint.Id, StringComparison.Ordinal)).ToArray();
             if (nodes.Length != 1)
             {
+                if (nodes.Length == 0
+                    && string.Equals(constraint.EnforcementKind, "workflow_policy", StringComparison.Ordinal))
+                {
+                    constraintMatches.Add(new CapabilityConstraintMatch(
+                        constraint,
+                        "policy_only",
+                        "The omitted match is normalized to policy_only because this locked conditional, ordering, or coverage rule cannot be represented as an unconditional exact capability denial.",
+                        Array.Empty<string>(),
+                        Array.Empty<string>()));
+                    continue;
+                }
+
                 contractValid = false;
                 var reason = nodes.Length == 0
                     ? "The matching response omitted this locked constraint."
@@ -1462,7 +2286,8 @@ public sealed partial class WorkflowPlanExecutor
                                                        && referencedIds.Length > 0
                                                        && referencedIds.All(id => entries.TryGetValue(id, out var entry)
                                                                                   && entry.Resolution == "native");
-            if (referencesOnlyKnownNativeCapabilities)
+            if (referencesOnlyKnownNativeCapabilities
+                && string.Equals(constraint.EnforcementKind, "workflow_policy", StringComparison.Ordinal))
             {
                 // Constraint denial contracts intentionally lock only exact MCP alternatives.
                 // Native orchestration restrictions remain policy text; treating a native-only
@@ -1472,7 +2297,7 @@ public sealed partial class WorkflowPlanExecutor
                 candidates = Array.Empty<string>();
                 reasonText = "The constraint is preserved as an orchestration policy because native Flow steps are not exact denied MCP alternatives.";
             }
-            if (IsConditionalOrOrderingConstraint(constraint.Description))
+            if (string.Equals(constraint.EnforcementKind, "workflow_policy", StringComparison.Ordinal))
             {
                 // Exact denied alternatives are unconditional document-wide bans. They cannot
                 // represent a capability that is allowed after a gate, before a deadline, or
@@ -1489,7 +2314,12 @@ public sealed partial class WorkflowPlanExecutor
             shapeValid = shapeValid && status switch
             {
                 "enforced" => denied.Count > 0,
-                "policy_only" => denied.Count == 0 && candidates.Count == 0,
+                "policy_only" => denied.Count == 0
+                                 && candidates.Count == 0
+                                 && string.Equals(
+                                     constraint.EnforcementKind,
+                                     "workflow_policy",
+                                     StringComparison.Ordinal),
                 "ambiguous" => denied.Count == 0 && candidates.Count > 0,
                 _ => false
             };
@@ -1506,7 +2336,7 @@ public sealed partial class WorkflowPlanExecutor
         }
 
         var expectedConstraintIds = inventory.Constraints.Select(static item => item.Id).ToHashSet(StringComparer.Ordinal);
-        foreach (var unknown in constraintObjects.Select(static node => ReadMatchingString(node, "constraint_id"))
+        foreach (var unknown in constraintObjects.Select(ReadConstraintId)
                      .Where(id => id.Length > 0 && !expectedConstraintIds.Contains(id)).Distinct(StringComparer.Ordinal))
         {
             contractValid = false;
@@ -1517,11 +2347,46 @@ public sealed partial class WorkflowPlanExecutor
         return new CapabilityMatchingEvaluation(operationMatches, constraintMatches, issues, contractValid);
     }
 
-    private static bool IsConditionalOrOrderingConstraint(string description)
-        => Regex.IsMatch(
-            description,
-            @"\b(before|after|unless|until|without|whenever|once|subject\s+to)\b|\bonly\b.{0,60}\b(if|when|after|before|with)\b",
-            RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
+    private static string ResolveMatchingInventoryId(string candidate, IReadOnlyList<string> knownIds)
+    {
+        if (candidate.Length == 0 || knownIds.Contains(candidate, StringComparer.Ordinal))
+            return candidate;
+
+        var canonical = CanonicalizeMatchingInventoryId(candidate);
+        if (canonical.Length == 0)
+            return candidate;
+        var matches = knownIds.Where(id => string.Equals(
+                CanonicalizeMatchingInventoryId(id),
+                canonical,
+                StringComparison.Ordinal))
+            .Take(2)
+            .ToArray();
+        if (matches.Length == 1)
+            return matches[0];
+
+        var stem = StripMatchingInventoryKindPrefix(canonical);
+        var stemMatches = knownIds.Where(id => string.Equals(
+                StripMatchingInventoryKindPrefix(CanonicalizeMatchingInventoryId(id)),
+                stem,
+                StringComparison.Ordinal))
+            .Take(2)
+            .ToArray();
+        return stemMatches.Length == 1 ? stemMatches[0] : candidate;
+    }
+
+    private static string CanonicalizeMatchingInventoryId(string value)
+        => Regex.Replace(value, "[^A-Za-z0-9]", string.Empty).ToLowerInvariant();
+
+    private static string StripMatchingInventoryKindPrefix(string value)
+    {
+        foreach (var prefix in new[] { "operation", "constraint", "policy" })
+        {
+            if (value.StartsWith(prefix, StringComparison.Ordinal) && value.Length > prefix.Length)
+                return value[prefix.Length..];
+        }
+
+        return value;
+    }
 
     private static CapabilityMatchingEvaluation BuildMalformedCapabilityMatchingEvaluation(
         CapabilityInventory inventory,
@@ -1589,7 +2454,7 @@ public sealed partial class WorkflowPlanExecutor
         CapabilityMatchingEvaluation repaired)
     {
         var lockedOperationIds = initial.OperationMatches
-            .Where(static match => match.Status is "matched" or "composed" or "local")
+            .Where(static match => match.Status is "matched" or "composed" or "conditional" or "local")
             .Select(static match => match.Operation.Id)
             .ToHashSet(StringComparer.Ordinal);
         var lockedConstraintIds = initial.ConstraintMatches
@@ -1607,7 +2472,10 @@ public sealed partial class WorkflowPlanExecutor
         var issues = repaired.Issues
             .Where(issue => !lockedOperationIds.Contains(issue.OperationId) && !lockedConstraintIds.Contains(issue.OperationId))
             .ToArray();
-        return new CapabilityMatchingEvaluation(operations, constraints, issues, repaired.ContractValid);
+        var mergedContractValid = operations.All(static match => match.Status != "invalid")
+                                  && constraints.All(static match => match.Status != "invalid")
+                                  && issues.All(static issue => issue.Status != "invalid");
+        return new CapabilityMatchingEvaluation(operations, constraints, issues, mergedContractValid);
     }
 
     private static string BuildCapabilityMatchingRepairPrompt(
@@ -1616,12 +2484,13 @@ public sealed partial class WorkflowPlanExecutor
         CapabilityMatchingEvaluation previous)
     {
         var lockedOperations = previous.OperationMatches
-            .Where(static match => match.Status is "matched" or "composed" or "local")
+            .Where(static match => match.Status is "matched" or "composed" or "conditional" or "local")
             .Select(static match => (JsonNode)new JsonObject
             {
                 ["operation_id"] = match.Operation.Id,
                 ["status"] = match.Status,
-                ["catalog_ids"] = new JsonArray(match.CatalogIds.Select(static id => (JsonNode?)JsonValue.Create(id)).ToArray())
+                ["catalog_ids"] = new JsonArray(match.CatalogIds.Select(static id => (JsonNode?)JsonValue.Create(id)).ToArray()),
+                ["decision_operation_id"] = match.DecisionOperationId ?? string.Empty
             }).ToArray();
         var lockedConstraints = previous.ConstraintMatches
             .Where(static match => match.Status is "enforced" or "policy_only")
@@ -1641,7 +2510,7 @@ public sealed partial class WorkflowPlanExecutor
         return $$"""
             You are a domain-neutral capability matcher repairing a previous matching contract. Return only the requested structured JSON.
 
-            Return every operation and constraint exactly once. Preserve all locked decisions exactly. Resolve each reported issue from the documented catalog only. For operations use matched for one sufficient ID, composed for two or more necessary complementary IDs, local only for local_processing, ambiguous for unresolved candidates, and unavailable only when no sufficient implementation exists. For constraints use enforced only for unconditional exact denied MCP IDs, policy_only for invariants without an exact denial and for every conditional or ordering rule, and ambiguous only for unresolved unconditional denial candidates. An effect that becomes allowed after confirmation or another gate must never be denied document-wide. Select the smallest sufficient composition and never invent IDs.
+            Return every operation and constraint exactly once. Preserve all locked decisions exactly. Resolve each reported issue from the documented catalog only. For operations use matched for one sufficient ID, composed for two or more necessary complementary IDs, conditional for mutually exclusive selector variants chosen by the locked decision_source_operation_id, local only for local_processing, ambiguous for unresolved user intent, and unavailable only when no sufficient implementation exists. For conditional, copy decision_source_operation_id exactly into decision_operation_id; otherwise leave decision_operation_id empty. A runtime-dependent result is not user ambiguity. A complete_operation wrapper replaces its encapsulated phases. For constraints use enforced only when enforcement_kind=exact_denial and exact denied MCP IDs are established; use policy_only only when enforcement_kind=workflow_policy; use ambiguous only for unresolved exact-denial candidates. Select the smallest sufficient composition and never invent IDs.
 
             A repaired match must also be prerequisite-closed. Check required arguments and bounded output fields on every selected catalog card. If a capability requires an existing external artifact that is not a semantically compatible workflow runtime input or documented host-internal/default value, include the producer capability whose documented output supplies it. Local processing, URLs, identifiers, and invented strings do not create or prove workspaces, project roots, directories, files, handles, or exact comparison payloads. A high-level capability is sufficient alone only when its documented contract encapsulates those prerequisites.
 
@@ -1712,7 +2581,9 @@ public sealed partial class WorkflowPlanExecutor
                 ["repair_attempted"] = repairAttempted,
                 ["attempts"] = repairAttempted ? 2 : 1,
                 ["matching_issues"] = issueNodes,
-                ["unavailable_capabilities"] = new JsonArray(unavailable)
+                ["unavailable_capabilities"] = new JsonArray(unavailable),
+                ["planning_outcome"] = onlyUnavailable ? "unsupported" : "cannot_plan_safely",
+                ["recommended_action"] = onlyUnavailable ? "configure_capability_or_revise_request" : "clarify_or_abandon"
             });
     }
 
@@ -1738,15 +2609,26 @@ public sealed partial class WorkflowPlanExecutor
             if (match.Status == "local")
             {
                 resolved.Add(new ResolvedCapability(match.Operation.Id, match.Operation.Description, match.Operation.Required,
-                    "local", null, null, null, Array.Empty<CapabilityRequestBinding>(), match.Operation.Id, null, match.Status, match.Operation.ExecutionKind));
+                    "local", null, null, null, Array.Empty<CapabilityRequestBinding>(), match.Operation.Id, null, match.Status,
+                    match.Operation.ExecutionKind, match.Operation.ExternalEffectKind));
                 continue;
             }
             if (match.Status == "unavailable")
             {
                 resolved.Add(new ResolvedCapability(match.Operation.Id, match.Operation.Description, match.Operation.Required,
-                    "unavailable", null, null, null, Array.Empty<CapabilityRequestBinding>(), match.Operation.Id, null, match.Status, match.Operation.ExecutionKind));
+                    "unavailable", null, null, null, Array.Empty<CapabilityRequestBinding>(), match.Operation.Id, null, match.Status,
+                    match.Operation.ExecutionKind, match.Operation.ExternalEffectKind));
                 continue;
             }
+            IReadOnlyDictionary<string, string> conditionalBranches = new Dictionary<string, string>(StringComparer.Ordinal);
+            if (match.Status == "conditional"
+                && !TryBuildConditionalBranchValues(match.CatalogIds.Select(id => entries[id]).ToArray(), out conditionalBranches))
+            {
+                throw new WorkflowRuntimeException(
+                    ErrorCodes.CapabilityPreflightInferenceFailed,
+                    $"Conditional capability operation '{match.Operation.Id}' does not contain valid mutually exclusive selector variants.");
+            }
+
             foreach (var catalogId in match.CatalogIds)
             {
                 var entry = entries[catalogId];
@@ -1756,9 +2638,17 @@ public sealed partial class WorkflowPlanExecutor
                     continue;
                 }
                 var id = match.CatalogIds.Count == 1 ? match.Operation.Id : $"{match.Operation.Id}::{catalogId}";
+                var activation = match.Status == "conditional"
+                    ? new McpCapabilityActivation(
+                        "exactly_one",
+                        match.Operation.Id,
+                        match.DecisionOperationId!,
+                        conditionalBranches[catalogId])
+                    : null;
                 resolved.Add(new ResolvedCapability(id, match.Operation.Description, match.Operation.Required,
                     entry.Resolution, entry.Server, entry.Kind, entry.Method, entry.RequestBindings,
-                    match.Operation.Id, catalogId, match.Status, match.Operation.ExecutionKind));
+                    match.Operation.Id, catalogId, match.Status, match.Operation.ExecutionKind,
+                    match.Operation.ExternalEffectKind, activation, entry.Description));
             }
         }
 
@@ -1779,7 +2669,7 @@ public sealed partial class WorkflowPlanExecutor
         IReadOnlyDictionary<string, CapabilityCatalogEntry> entries)
     {
         var occurrences = new Dictionary<string, List<(string OperationId, bool IsOwnedSource)>>(StringComparer.Ordinal);
-        foreach (var match in evaluation.OperationMatches.Where(static match => match.Status is "matched" or "composed"))
+        foreach (var match in evaluation.OperationMatches.Where(static match => match.Status is "matched" or "composed" or "conditional"))
         {
             var selected = match.CatalogIds
                 .Where(entries.ContainsKey)
@@ -1946,7 +2836,9 @@ public sealed partial class WorkflowPlanExecutor
             {
                 ["phase"] = "capability_preflight",
                 ["unavailable_servers"] = serverArray,
-                ["unavailable_capabilities"] = capabilityArray
+                ["unavailable_capabilities"] = capabilityArray,
+                ["planning_outcome"] = "unsupported",
+                ["recommended_action"] = "configure_capability_or_revise_request"
             });
     }
 
@@ -2135,6 +3027,45 @@ public sealed partial class WorkflowPlanExecutor
             });
     }
 
+    private static McpCapabilityComposition? GetValidatedMcpCompositionContract(
+        McpToolInfo tool,
+        string? serverName = null)
+    {
+        var validation = tool.CompositionContract;
+        if (validation == null)
+            return null;
+        if (validation.Errors.Count == 0 && validation.Contract is { } contract)
+        {
+            if (contract.Encapsulates.Any(capability =>
+                    string.Equals(capability.Kind, "tool", StringComparison.Ordinal)
+                    && string.Equals(capability.Method, tool.Name, StringComparison.Ordinal)))
+            {
+                validation = validation with
+                {
+                    Errors = ["A composition contract cannot encapsulate the declaring tool itself."]
+                };
+            }
+            else
+            {
+                return contract;
+            }
+        }
+
+        var identity = string.IsNullOrWhiteSpace(serverName)
+            ? tool.Name
+            : serverName + "/" + tool.Name;
+        throw new WorkflowRuntimeException(
+            ErrorCodes.CapabilityPreflightUnavailable,
+            $"MCP tool '{identity}' advertises an invalid GnOuGo composition contract.",
+            details: new JsonObject
+            {
+                ["phase"] = "mcp_composition_contract",
+                ["server"] = serverName,
+                ["tool"] = tool.Name,
+                ["errors"] = new JsonArray(validation.Errors.Select(static error => (JsonNode)JsonValue.Create(error)!).ToArray())
+            });
+    }
+
     private static bool AddToolToDiscovery(
         List<McpServerDiscovery> result,
         McpServerDiscovery source,
@@ -2259,7 +3190,8 @@ public sealed partial class WorkflowPlanExecutor
             return string.Empty;
 
         var sb = new StringBuilder();
-        sb.AppendLine("The following operation and capability decisions are locked by preflight. Required MCP capabilities must appear as exact direct mcp.call operations; do not omit, collapse, rename, or replace them. Repeated entries are separate invocation obligations even when they select the same physical capability.");
+        sb.AppendLine("The following operation and capability decisions are locked by preflight. Required MCP capabilities must appear as exact direct mcp.call operations; do not omit, collapse, rename, or replace them. Repeated unconditional entries are separate invocation obligations even when they select the same physical capability.");
+        sb.AppendLine("Capabilities with activation mode exactly_one are mutually exclusive alternatives, not sequential calls. Put every member of one activation group in a distinct literal-value case of one expression-based switch driven by the named decision operation. Use each branch_value as the exact case value, execute exactly one matching call per case, and do not put any external write in the default branch. The decision must be computed from runtime results; never ask the human to predict it during generation.");
         foreach (var capability in preflight.Capabilities.Where(static item => item.Required))
         {
             sb.Append("- ").Append(capability.Id).Append(": ").Append(capability.Resolution);
@@ -2272,6 +3204,13 @@ public sealed partial class WorkflowPlanExecutor
                 sb.Append(' ').Append(capability.Server).Append('/').Append(capability.Method).Append(" (").Append(capability.Kind).Append(')');
                 if (capability.RequestBindings.Count > 0)
                     sb.Append(" request_bindings=[").Append(FormatBindingsCompact(capability.RequestBindings)).Append(']');
+                if (capability.Activation is { } activation)
+                {
+                    sb.Append(" activation=[mode=").Append(activation.Mode)
+                        .Append(" group=").Append(activation.Group)
+                        .Append(" decision_operation_id=").Append(activation.DecisionOperationId)
+                        .Append(" branch_value=").Append(activation.BranchValue).Append(']');
+                }
             }
             else if (capability.Resolution == "native")
                 sb.Append(' ').Append(capability.Method);
@@ -2311,10 +3250,20 @@ public sealed partial class WorkflowPlanExecutor
                 ["catalog_id"] = capability.CatalogId,
                 ["match_status"] = capability.MatchStatus,
                 ["execution_kind"] = capability.ExecutionKind,
+                ["external_effect_kind"] = capability.ExternalEffectKind,
                 ["server"] = capability.Server,
                 ["kind"] = capability.Kind,
                 ["method"] = capability.Method,
-                ["request_bindings"] = BuildRequestBindingsJson(capability.RequestBindings)
+                ["request_bindings"] = BuildRequestBindingsJson(capability.RequestBindings),
+                ["activation"] = capability.Activation == null
+                    ? null
+                    : new JsonObject
+                    {
+                        ["mode"] = capability.Activation.Mode,
+                        ["group"] = capability.Activation.Group,
+                        ["decision_operation_id"] = capability.Activation.DecisionOperationId,
+                        ["branch_value"] = capability.Activation.BranchValue
+                    }
             });
         }
 
@@ -2380,6 +3329,7 @@ public sealed partial class WorkflowPlanExecutor
 
         ValidateNoRedundantArtifactMaterializers(preflight, calls);
         ValidateMcpArtifactDataflow(document, preflight);
+        ValidateConditionalCapabilityActivation(document, preflight);
 
         var deniedCalls = preflight.Constraints
             .Where(static constraint => constraint.Required)
@@ -2494,6 +3444,294 @@ public sealed partial class WorkflowPlanExecutor
                 ["redundant_calls"] = new JsonArray(redundant.Select(static item => (JsonNode)item).ToArray())
             });
     }
+
+    private static void ValidateConditionalCapabilityActivation(
+        WorkflowDocument document,
+        CapabilityPreflightResult preflight)
+    {
+        var groups = preflight.RequiredMcpCapabilities
+            .Where(static capability => capability.Activation is not null)
+            .GroupBy(static capability => capability.Activation!.Group, StringComparer.Ordinal)
+            .ToArray();
+        if (groups.Length == 0)
+            return;
+
+        var workflows = document.Workflows.Values.ToArray();
+        var allSteps = workflows
+            .SelectMany(static workflow => EnumerateSteps(workflow.Steps).Concat(EnumerateSteps(workflow.Finally)))
+            .ToArray();
+        var allCalls = allSteps.Where(static step => string.Equals(step.Type, "mcp.call", StringComparison.Ordinal)).ToArray();
+
+        foreach (var group in groups)
+        {
+            var capabilities = group.ToArray();
+            if (capabilities.Length < 2
+                || capabilities.Any(static capability => capability.Activation?.Mode != "exactly_one")
+                || capabilities.Select(static capability => capability.Activation!.BranchValue)
+                    .Distinct(StringComparer.Ordinal).Count() != capabilities.Length)
+            {
+                ThrowInvalidConditionalActivation(group.Key,
+                    "The locked conditional capability group is malformed or does not contain distinct branches.");
+            }
+
+            var groupCalls = allCalls.Where(call => capabilities.Any(capability => McpStepMatchesCapability(
+                call,
+                capability.Server!,
+                capability.Kind!,
+                capability.Method!,
+                capability.RequestBindings))).ToArray();
+            if (groupCalls.Length != capabilities.Length)
+            {
+                ThrowInvalidConditionalActivation(group.Key,
+                    "Every conditional selector variant must occur exactly once in the generated workflow.");
+            }
+
+            var validSwitches = allSteps
+                .Where(static step => string.Equals(step.Type, "switch", StringComparison.Ordinal))
+                .Where(step => ConditionalSwitchMatches(document, step, capabilities, groupCalls, preflight))
+                .ToArray();
+            if (validSwitches.Length != 1)
+            {
+                ThrowInvalidConditionalActivation(group.Key,
+                    validSwitches.Length == 0
+                        ? "Conditional selector variants must be placed in distinct cases of one expression-based switch with no mutating default branch."
+                        : "Conditional selector variants were associated with more than one switch.");
+            }
+        }
+    }
+
+    private static bool ConditionalSwitchMatches(
+        WorkflowDocument document,
+        StepDef step,
+        IReadOnlyList<ResolvedCapability> capabilities,
+        IReadOnlyList<StepDef> groupCalls,
+        CapabilityPreflightResult preflight)
+    {
+        if (string.IsNullOrWhiteSpace(step.Expr)
+            || step.Cases == null
+            || step.Cases.Any(static @case => !string.IsNullOrWhiteSpace(@case.When)))
+        {
+            return false;
+        }
+
+        var matchedCalls = new HashSet<StepDef>(ReferenceEqualityComparer.Instance);
+        foreach (var capability in capabilities)
+        {
+            var matchingCases = step.Cases.Where(@case =>
+                    string.Equals(@case.Value, capability.Activation!.BranchValue, StringComparison.Ordinal)
+                    && EnumerateSteps(@case.Steps).Any(call =>
+                        string.Equals(call.Type, "mcp.call", StringComparison.Ordinal)
+                        && McpStepMatchesCapability(
+                            call,
+                            capability.Server!,
+                            capability.Kind!,
+                            capability.Method!,
+                            capability.RequestBindings)))
+                .ToArray();
+            if (matchingCases.Length != 1)
+                return false;
+
+            var calls = EnumerateSteps(matchingCases[0].Steps)
+                .Where(call => string.Equals(call.Type, "mcp.call", StringComparison.Ordinal)
+                               && McpStepMatchesCapability(
+                                   call,
+                                   capability.Server!,
+                                   capability.Kind!,
+                                   capability.Method!,
+                                   capability.RequestBindings))
+                .ToArray();
+            if (calls.Length != 1)
+                return false;
+            matchedCalls.Add(calls[0]);
+        }
+
+        if (matchedCalls.Count != groupCalls.Count || groupCalls.Any(call => !matchedCalls.Contains(call)))
+            return false;
+
+        var mutatingCapabilities = preflight.RequiredMcpCapabilities
+            .Where(static capability => capability.ExternalEffectKind is "write" or "lifecycle")
+            .ToArray();
+        if (EnumerateSteps(step.Default ?? []).Any(call =>
+                string.Equals(call.Type, "mcp.call", StringComparison.Ordinal)
+                && mutatingCapabilities.Any(capability => McpStepMatchesCapability(
+                    call,
+                    capability.Server!,
+                    capability.Kind!,
+                    capability.Method!,
+                    capability.RequestBindings))))
+        {
+            return false;
+        }
+
+        var decisionOperationId = capabilities[0].Activation!.DecisionOperationId;
+        var decisionCapabilities = preflight.Capabilities
+            .Where(capability => string.Equals(capability.OperationId, decisionOperationId, StringComparison.Ordinal)
+                                 && capability.Resolution == "mcp")
+            .ToArray();
+        if (decisionCapabilities.Length == 0)
+            return true;
+
+        var decisionSteps = groupCalls
+            .Concat(step.Cases.SelectMany(static @case => EnumerateSteps(@case.Steps)))
+            .Concat(EnumerateSteps(step.Default ?? []))
+            .ToHashSet(ReferenceEqualityComparer.Instance);
+        var sources = document.Workflows
+            .SelectMany(workflow => EnumerateSteps(workflow.Value.Steps)
+                .Concat(EnumerateSteps(workflow.Value.Finally))
+                .Where(candidate => !decisionSteps.Contains(candidate)
+                                    && decisionCapabilities.Any(capability => McpStepMatchesCapability(
+                                        candidate,
+                                        capability.Server!,
+                                        capability.Kind!,
+                                        capability.Method!,
+                                        capability.RequestBindings)))
+                .Select(candidate => (Workflow: workflow.Key, Step: candidate)))
+            .ToArray();
+        if (sources.Length == 0)
+            return true;
+
+        var owner = document.Workflows.FirstOrDefault(workflow =>
+            EnumerateSteps(workflow.Value.Steps)
+                .Concat(EnumerateSteps(workflow.Value.Finally))
+                .Any(candidate => ReferenceEquals(candidate, step)));
+        return !string.IsNullOrWhiteSpace(owner.Key)
+               && ConditionalDecisionExpressionDependsOnSource(
+                   document,
+                   BuildWorkflowArtifactCallerIndex(document),
+                   sources,
+                   owner.Key,
+                   step.Expr!,
+                   []);
+    }
+
+    private static bool ConditionalDecisionExpressionDependsOnSource(
+        WorkflowDocument document,
+        IReadOnlyDictionary<string, IReadOnlyList<(string Workflow, StepDef Call)>> workflowCallers,
+        IReadOnlyList<(string Workflow, StepDef Step)> sources,
+        string workflowName,
+        string expression,
+        IReadOnlyList<string> appendedPath,
+        HashSet<string>? visited = null)
+    {
+        var path = TrimWorkflowExpression(expression);
+        if (appendedPath.Count > 0)
+            path += "." + string.Join('.', appendedPath);
+        visited ??= new HashSet<string>(StringComparer.Ordinal);
+        var visitKey = workflowName + "\u001f" + path;
+        if (!visited.Add(visitKey))
+            return false;
+
+        try
+        {
+            const string inputPrefix = "data.inputs.";
+            if (path.StartsWith(inputPrefix, StringComparison.Ordinal))
+            {
+                var inputPath = path[inputPrefix.Length..]
+                    .Split('.', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+                if (inputPath.Length == 0
+                    || !workflowCallers.TryGetValue(workflowName, out var callers)
+                    || callers.Count == 0)
+                {
+                    return false;
+                }
+
+                return callers.All(caller =>
+                    caller.Call.Input?["args"]?[inputPath[0]] is JsonValue argument
+                    && argument.TryGetValue<string>(out var argumentExpression)
+                    && !string.IsNullOrWhiteSpace(argumentExpression)
+                    && ConditionalDecisionExpressionDependsOnSource(
+                        document,
+                        workflowCallers,
+                        sources,
+                        caller.Workflow,
+                        argumentExpression,
+                        inputPath.Skip(1).ToArray(),
+                        visited));
+            }
+
+            const string stepPrefix = "data.steps.";
+            if (!path.StartsWith(stepPrefix, StringComparison.Ordinal)
+                || !document.Workflows.TryGetValue(workflowName, out var workflow))
+            {
+                return false;
+            }
+
+            var stepPath = path[stepPrefix.Length..]
+                .Split('.', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+            if (stepPath.Length < 2)
+                return false;
+            var sourceStep = EnumerateSteps(workflow.Steps)
+                .Concat(EnumerateSteps(workflow.Finally))
+                .FirstOrDefault(candidate => string.Equals(candidate.Id, stepPath[0], StringComparison.Ordinal)
+                                             || string.Equals(candidate.Output, stepPath[0], StringComparison.Ordinal));
+            if (sourceStep == null)
+                return false;
+            if (sources.Any(source => string.Equals(source.Workflow, workflowName, StringComparison.Ordinal)
+                                      && ReferenceEquals(source.Step, sourceStep)))
+            {
+                return true;
+            }
+
+            var remainingPath = stepPath.Skip(1).ToArray();
+            if (string.Equals(sourceStep.Type, "set", StringComparison.Ordinal))
+            {
+                var value = ResolveInstancePath(sourceStep.Input, remainingPath);
+                return value is JsonValue setValue
+                       && setValue.TryGetValue<string>(out var setExpression)
+                       && !string.IsNullOrWhiteSpace(setExpression)
+                       && ConditionalDecisionExpressionDependsOnSource(
+                           document,
+                           workflowCallers,
+                           sources,
+                           workflowName,
+                           setExpression,
+                           [],
+                           visited);
+            }
+
+            if (!string.Equals(sourceStep.Type, "workflow.call", StringComparison.Ordinal))
+                return false;
+            var targetName = ReadWorkflowCallRefNameFromInput(sourceStep);
+            if (string.IsNullOrWhiteSpace(targetName)
+                || !document.Workflows.TryGetValue(targetName, out var target))
+            {
+                return false;
+            }
+
+            var outputIndex = string.Equals(remainingPath[0], "outputs", StringComparison.Ordinal) ? 1 : 0;
+            if (remainingPath.Length <= outputIndex
+                || target.Outputs == null
+                || !target.Outputs.TryGetValue(remainingPath[outputIndex], out var output))
+            {
+                return false;
+            }
+
+            return ConditionalDecisionExpressionDependsOnSource(
+                document,
+                workflowCallers,
+                sources,
+                targetName,
+                output.Expr,
+                remainingPath.Skip(outputIndex + 1).ToArray(),
+                visited);
+        }
+        finally
+        {
+            visited.Remove(visitKey);
+        }
+    }
+
+    private static void ThrowInvalidConditionalActivation(string group, string reason)
+        => throw new WorkflowRuntimeException(
+            ErrorCodes.CapabilityPreflightUnavailable,
+            $"Generated workflow does not safely implement conditional capability group '{group}'.",
+            details: new JsonObject
+            {
+                ["phase"] = "capability_preflight",
+                ["reason"] = "conditional_activation_invalid",
+                ["activation_group"] = group,
+                ["message"] = reason
+            });
 
     private sealed record PlannedArtifactProducer(
         string Workflow,
@@ -2950,24 +4188,41 @@ public sealed partial class WorkflowPlanExecutor
         if (remaining.Count == 0)
             return metadata;
 
-        foreach (var capability in remaining)
+        foreach (var capabilityGroup in remaining.GroupBy(
+                     static capability => GetPipelineCapabilityCompositionGroup(capability),
+                     StringComparer.Ordinal))
         {
-            var targetName = SelectPipelineCapabilityTarget([capability], specsByName, updated);
+            var capabilities = capabilityGroup.ToArray();
+            var targetName = capabilities
+                .Select(static capability => capability.Activation?.Group)
+                .Where(static group => !string.IsNullOrWhiteSpace(group))
+                .SelectMany(group => updated
+                    .Where(item => item.Value.PlannedTools.Any(tool => string.Equals(
+                        tool.Activation?.Group,
+                        group,
+                        StringComparison.Ordinal)))
+                    .Select(static item => item.Key))
+                .FirstOrDefault()
+                ?? SelectPipelineCapabilityTarget(capabilities, specsByName, updated);
             if (targetName == null)
                 continue;
             var target = updated[targetName];
             var planned = target.PlannedTools.ToList();
-            planned.Add(new PipelinePlannedTool(
-                capability.Server!,
-                capability.Kind!,
-                capability.Method!,
-                true,
-                capability.Description,
-                Array.Empty<string>(),
-                Array.Empty<string>(),
-                capability.RequestBindings,
-                string.IsNullOrWhiteSpace(capability.OperationId) ? [capability.Id] : [capability.OperationId],
-                string.IsNullOrWhiteSpace(capability.CatalogId) ? Array.Empty<string>() : [capability.CatalogId]));
+            foreach (var capability in capabilities)
+            {
+                planned.Add(new PipelinePlannedTool(
+                    capability.Server!,
+                    capability.Kind!,
+                    capability.Method!,
+                    true,
+                    capability.Description,
+                    Array.Empty<string>(),
+                    Array.Empty<string>(),
+                    capability.RequestBindings,
+                    string.IsNullOrWhiteSpace(capability.OperationId) ? [capability.Id] : [capability.OperationId],
+                    string.IsNullOrWhiteSpace(capability.CatalogId) ? Array.Empty<string>() : [capability.CatalogId],
+                    capability.Activation));
+            }
             updated[targetName] = target with { PlannedTools = planned };
         }
 
@@ -2989,8 +4244,10 @@ public sealed partial class WorkflowPlanExecutor
         var localOnlySpecIndices = specs
             .Select((spec, index) => new { spec, index })
             .Where(item => DeclaresNoExternalCalls(BuildPipelineSpecIntentText(item.spec))
+                           && !ContainsExternalWorkIntent(BuildPipelineSpecIntentText(item.spec))
                            || HasStrongLocalProcessingIntent(item.spec)
                            && !SpecMentionsExactDiscoveredCapability(item.spec, pipelineMcpContext)
+                           && !ContainsExternalWorkIntent(BuildPipelineSpecIntentText(item.spec))
                            || localOperationAssignments.LeafAssignments.ContainsKey(item.index)
                            && (item.spec.PlannedNativeSteps?.Count ?? 0) == 0
                            && !SpecMentionsExactDiscoveredCapability(item.spec, pipelineMcpContext)
@@ -3056,20 +4313,26 @@ public sealed partial class WorkflowPlanExecutor
                 string.IsNullOrWhiteSpace(capability.CatalogId) ? Array.Empty<string>() : [capability.CatalogId]));
         }
 
-        foreach (var capability in preflight.RequiredMcpCapabilities)
+        foreach (var capabilityGroup in preflight.RequiredMcpCapabilities
+                     .GroupBy(GetPipelineCapabilityCompositionGroup, StringComparer.Ordinal))
         {
-            var targetIndex = SelectPipelineCapabilityTargetIndex([capability], specs, tools, localOnlySpecIndices);
-            tools[targetIndex].Add(new PipelinePlannedTool(
-                capability.Server!,
-                capability.Kind!,
-                capability.Method!,
-                true,
-                capability.Description,
-                Array.Empty<string>(),
-                Array.Empty<string>(),
-                capability.RequestBindings,
-                string.IsNullOrWhiteSpace(capability.OperationId) ? [capability.Id] : [capability.OperationId],
-                string.IsNullOrWhiteSpace(capability.CatalogId) ? Array.Empty<string>() : [capability.CatalogId]));
+            var capabilities = capabilityGroup.ToArray();
+            var targetIndex = SelectPipelineCapabilityTargetIndex(capabilities, specs, tools, localOnlySpecIndices);
+            foreach (var capability in capabilities)
+            {
+                tools[targetIndex].Add(new PipelinePlannedTool(
+                    capability.Server!,
+                    capability.Kind!,
+                    capability.Method!,
+                    true,
+                    capability.Description,
+                    Array.Empty<string>(),
+                    Array.Empty<string>(),
+                    capability.RequestBindings,
+                    string.IsNullOrWhiteSpace(capability.OperationId) ? [capability.Id] : [capability.OperationId],
+                    string.IsNullOrWhiteSpace(capability.CatalogId) ? Array.Empty<string>() : [capability.CatalogId],
+                    capability.Activation));
+            }
         }
 
         // Technical decomposition may introduce an exact call that was not an independent
@@ -3080,7 +4343,12 @@ public sealed partial class WorkflowPlanExecutor
             if (!localOnlySpecIndices.Contains(index)
                 && !DeclaresNoExternalCalls(BuildPipelineSpecIntentText(specs[index])))
                 AddExplicitDiscoveredCapabilityMentions(specs[index], tools[index], pipelineMcpContext);
+            RemoveEncapsulatedUnlockedToolPlans(
+                tools[index],
+                preflight.RequiredMcpCapabilities,
+                pipelineMcpContext);
             RemoveRedundantUnlockedWholeToolPlans(tools[index], preflight.RequiredMcpCapabilities);
+            RemoveDuplicateLockedToolOccurrences(tools[index]);
         }
 
         var updated = specs.Select((spec, index) =>
@@ -3090,10 +4358,23 @@ public sealed partial class WorkflowPlanExecutor
                                      || tools[index].Count == 0
                                      && nativeSteps[index].Count == 0
                                      && HasStrongLocalProcessingIntent(spec);
+            var conditionalActivations = tools[index]
+                .Where(static tool => tool.Activation is not null)
+                .Select(static tool => tool.Activation!)
+                .ToArray();
+            var conditionalGuidance = conditionalActivations.Length == 0
+                ? null
+                : string.Join(' ', conditionalActivations
+                    .GroupBy(static activation => activation.Group, StringComparer.Ordinal)
+                    .Select(group =>
+                        $"This leaf owns conditional capability group '{group.Key}': drive exactly one '{string.Join("' or '", group.Select(static activation => activation.BranchValue).Distinct(StringComparer.Ordinal))}' branch from decision operation '{group.First().DecisionOperationId}' in one switch, with no mutating default branch."));
             var withTools = spec with
             {
                 PlannedTools = tools[index],
                 PlannedNativeSteps = nativeSteps[index],
+                Content = conditionalGuidance == null
+                    ? spec.Content
+                    : spec.Content.TrimEnd() + Environment.NewLine + conditionalGuidance,
                 LocalOperationIds = localOperationAssignments.LeafAssignments.TryGetValue(index, out var operationIds)
                     ? operationIds
                     : spec.LocalOperationIds,
@@ -3114,14 +4395,32 @@ public sealed partial class WorkflowPlanExecutor
         var validationErrors = extraction.ValidationErrors.ToList();
         foreach (var spec in updated)
             ValidatePlannedToolsAgainstMcpContext(spec.Name, spec.PlannedTools, pipelineMcpContext, validationErrors);
+        var conditionalOwners = updated
+            .SelectMany(spec => spec.PlannedTools
+                .Where(static tool => tool.Activation is not null)
+                .Select(tool => (Spec: spec, Activation: tool.Activation!)))
+            .GroupBy(static item => item.Activation.Group, StringComparer.Ordinal)
+            .Select(group =>
+                $"Main computes decision operation '{group.First().Activation.DecisionOperationId}' and passes its result to leaf '{group.First().Spec.Name}'; that leaf executes exactly one branch of conditional capability group '{group.Key}'.")
+            .ToArray();
         return extraction with
         {
             Subworkflows = updated,
             ValidationErrors = validationErrors,
+            MainWorkflowPrompt = conditionalOwners.Length == 0
+                ? extraction.MainWorkflowPrompt
+                : extraction.MainWorkflowPrompt.TrimEnd() + Environment.NewLine + string.Join(Environment.NewLine, conditionalOwners),
             MainLocalOperationIds = localOperationAssignments.MainOperationIds,
             MainNativeSteps = mainNativeSteps
         };
     }
+
+    private static string GetPipelineCapabilityCompositionGroup(ResolvedCapability capability)
+        => capability.Activation?.Group
+           ?? (string.Equals(capability.ExternalEffectKind, "write", StringComparison.Ordinal)
+               && !string.IsNullOrWhiteSpace(capability.OperationId)
+               ? capability.OperationId
+               : capability.Id);
 
     private static bool IsMainOrchestrationNativeCapability(ResolvedCapability capability)
         => capability.Method is "human.input" or "emit";
@@ -3148,6 +4447,50 @@ public sealed partial class WorkflowPlanExecutor
                                                                                 && string.Equals(locked.Server, candidate.Server, StringComparison.Ordinal)
                                                                                 && string.Equals(locked.Kind, candidate.Kind, StringComparison.Ordinal)
                                                                                 && string.Equals(locked.Method, candidate.Method, StringComparison.Ordinal)));
+    }
+
+    private static void RemoveDuplicateLockedToolOccurrences(List<PipelinePlannedTool> plannedTools)
+    {
+        var seen = new HashSet<string>(StringComparer.Ordinal);
+        plannedTools.RemoveAll(tool =>
+        {
+            if (tool.OperationIds.Count != 1 || tool.CatalogIds.Count != 1)
+                return false;
+            var identity = tool.OperationIds[0] + "\u001f" + tool.CatalogIds[0];
+            return !seen.Add(identity);
+        });
+    }
+
+    private static void RemoveEncapsulatedUnlockedToolPlans(
+        List<PipelinePlannedTool> plannedTools,
+        IReadOnlyList<ResolvedCapability> lockedCapabilities,
+        PipelineMcpContext pipelineMcpContext)
+    {
+        foreach (var wrapper in lockedCapabilities.Where(static capability =>
+                     string.Equals(capability.Resolution, "mcp", StringComparison.Ordinal)
+                     && string.Equals(capability.Kind, "tool", StringComparison.Ordinal)))
+        {
+            var server = pipelineMcpContext.Servers.FirstOrDefault(candidate =>
+                string.Equals(candidate.Name, wrapper.Server, StringComparison.Ordinal));
+            var wrapperTool = server?.Tools.FirstOrDefault(candidate =>
+                string.Equals(candidate.Name, wrapper.Method, StringComparison.Ordinal));
+            if (wrapperTool == null
+                || GetValidatedMcpCompositionContract(wrapperTool, server!.Name) is not
+                {
+                    Kind: McpCapabilityCompositionConventions.CompleteOperationKind,
+                    Encapsulates.Count: > 0
+                } composition)
+            {
+                continue;
+            }
+
+            plannedTools.RemoveAll(candidate =>
+                string.Equals(candidate.Server, wrapper.Server, StringComparison.Ordinal)
+                && composition.Encapsulates.Any(encapsulated =>
+                    string.Equals(encapsulated.Kind, candidate.Kind, StringComparison.Ordinal)
+                    && string.Equals(encapsulated.Method, candidate.Method, StringComparison.Ordinal))
+                && !lockedCapabilities.Any(locked => PlannedToolMatchesCapability(candidate, locked)));
+        }
     }
 
     private static (
@@ -3581,6 +4924,34 @@ public sealed partial class WorkflowPlanExecutor
         return Regex.IsMatch(text, assignment, RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
     }
 
+    private static bool ContainsPositiveLiteralSelectorAssignment(string text, CapabilityRequestBinding binding)
+        => SplitCapabilityMentionClauses(text).Any(clause =>
+            ContainsLiteralSelectorAssignment(clause, binding)
+            && !Regex.IsMatch(
+                clause,
+                @"\b(?:no|not|never|without|avoid|forbid|prohibit|exclude|cannot|can't|don't|doesn't|mustn't|shouldn't)\b|\b(?:do|does|must|should)\s+not\b",
+                RegexOptions.IgnoreCase | RegexOptions.CultureInvariant));
+
+    private static bool ContainsPositiveSelectorValueMention(string text, CapabilityRequestBinding binding)
+    {
+        if (binding.Value is not JsonValue scalar || !scalar.TryGetValue<string>(out var value)
+            || string.IsNullOrWhiteSpace(value))
+        {
+            return false;
+        }
+
+        var normalizedValue = value.Replace('_', ' ').Replace('-', ' ');
+        var escapedValue = Regex.Escape(normalizedValue)
+            .Replace("\\ ", "\\s+", StringComparison.Ordinal);
+        var pattern = $@"(?<![A-Za-z0-9]){escapedValue}(?![A-Za-z0-9])";
+        return SplitCapabilityMentionClauses(text.Replace('_', ' ').Replace('-', ' ')).Any(clause =>
+            Regex.IsMatch(clause, pattern, RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)
+            && !Regex.IsMatch(
+                clause,
+                @"\b(?:no|not|never|without|avoid|forbid|prohibit|exclude|cannot|can't|don't|doesn't|mustn't|shouldn't)\b|\b(?:do|does|must|should)\s+not\b",
+                RegexOptions.IgnoreCase | RegexOptions.CultureInvariant));
+    }
+
     private static bool IsBindingSubset(
         IReadOnlyList<CapabilityRequestBinding> subset,
         IReadOnlyList<CapabilityRequestBinding> superset)
@@ -3660,6 +5031,14 @@ public sealed partial class WorkflowPlanExecutor
         IReadOnlyList<List<PipelinePlannedTool>> tools,
         IReadOnlySet<int> localSpecIndices)
     {
+        var operationIntentText = string.Join(' ', capabilities
+            .Select(static capability => capability.Description)
+            .Where(static value => !string.IsNullOrWhiteSpace(value)));
+        var concreteCapabilityText = string.Join(' ', capabilities.SelectMany(static capability => new[]
+        {
+            capability.Method,
+            capability.CapabilityDescription
+        }).Where(static value => !string.IsNullOrWhiteSpace(value))!);
         var operationText = string.Join(' ', capabilities.SelectMany(static capability => new[]
         {
             capability.OperationId,
@@ -3668,9 +5047,16 @@ public sealed partial class WorkflowPlanExecutor
             capability.Server,
             capability.Kind,
             capability.Method,
+            capability.CapabilityDescription,
             capability.RequestBindings.Count == 0 ? null : FormatBindingsCompact(capability.RequestBindings)
         }).Where(static value => !string.IsNullOrWhiteSpace(value))!);
         var operationTokens = ExtractIntentTokens(operationText);
+        var operationIntentTokens = ExtractIntentTokens(operationIntentText);
+        var semanticOperationTokens = operationIntentTokens.Count > 0 ? operationIntentTokens : operationTokens;
+        var concreteActionFamilyCount = CapabilityActionFamilyPatterns.Count(pattern => Regex.IsMatch(
+            concreteCapabilityText.Replace('_', ' ').Replace('-', ' '),
+            pattern,
+            RegexOptions.IgnoreCase | RegexOptions.CultureInvariant));
         var candidates = specs.Select((spec, index) =>
             {
                 var intent = BuildPipelineSpecIntentText(spec);
@@ -3679,14 +5065,32 @@ public sealed partial class WorkflowPlanExecutor
                     .Where(static value => !string.IsNullOrWhiteSpace(value))!));
                 var contentTokens = ExtractIntentTokens(string.Join(' ', new[] { spec.ExtractReason, spec.Content }
                     .Where(static value => !string.IsNullOrWhiteSpace(value))!));
-                var nameOverlap = nameTokens.Count(operationTokens.Contains);
-                var goalOverlap = goalTokens.Count(operationTokens.Contains);
+                var nameOverlap = nameTokens.Count(semanticOperationTokens.Contains);
+                var goalOverlap = goalTokens.Count(semanticOperationTokens.Contains);
                 var contentOverlap = contentTokens.Count(operationTokens.Contains);
-                var actionOverlap = CountPositiveCapabilityActionFamilyMatches(
-                    operationText,
+                var actionOverlap = CountFocusedCapabilityActionFamilyMatches(
+                    operationIntentText,
+                    concreteCapabilityText,
                     intent);
-                var sameServer = tools[index].Any(tool => capabilities.Any(capability =>
-                    string.Equals(tool.Server, capability.Server, StringComparison.Ordinal)));
+                var extraneousActionFamilies = CountExtraneousFocusedCapabilityActionFamilies(
+                    operationIntentText,
+                    concreteCapabilityText,
+                    intent);
+                var normalizedName = spec.Name.Replace('_', ' ').Replace('-', ' ');
+                var nameActionOverlap = CountFocusedCapabilityActionFamilyMatches(
+                    operationIntentText,
+                    concreteCapabilityText,
+                    normalizedName);
+                var concreteNameActionOverlap = CountPositiveCapabilityActionFamilyMatches(
+                    concreteCapabilityText,
+                    normalizedName);
+                var concreteActionOverlap = CountPositiveCapabilityActionFamilyMatches(
+                    concreteCapabilityText,
+                    intent);
+                var nameExtraneousActionFamilies = CountExtraneousFocusedCapabilityActionFamilies(
+                    operationIntentText,
+                    concreteCapabilityText,
+                    normalizedName);
                 var clauses = SplitCapabilityMentionClauses(intent);
                 var exactCapabilityMentions = capabilities.Count(capability =>
                     !string.IsNullOrWhiteSpace(capability.Method)
@@ -3694,22 +5098,34 @@ public sealed partial class WorkflowPlanExecutor
                                              && IsPositiveCapabilityInvocationClause(clause, capability.Method!)));
                 var selectorMatches = capabilities.Count(capability =>
                     capability.RequestBindings.Count > 0
-                    && capability.RequestBindings.All(binding => ContainsLiteralSelectorAssignment(intent, binding)));
+                    && capability.RequestBindings.All(binding =>
+                        ContainsPositiveLiteralSelectorAssignment(intent, binding)
+                        || ContainsPositiveSelectorValueMention(
+                            string.Join(' ', new[] { spec.Name, spec.Goal, spec.Description, spec.ConcreteOutcome }
+                                .Where(static value => !string.IsNullOrWhiteSpace(value))!),
+                            binding)));
                 var lockedIdentityMentions = capabilities.Count(capability =>
                     ContainsLockedCapabilityIdentity(intent, capability.Id, capability.CatalogId));
                 var external = IsExternalWorkSpec(spec) || tools[index].Count > 0;
                 var explicitlyInternal = localSpecIndices.Contains(index)
-                                         || DeclaresNoExternalCalls(intent);
+                                         && !ContainsExternalWorkIntent(intent)
+                                         || DeclaresNoExternalCalls(intent) && !ContainsExternalWorkIntent(intent);
                 return new
                 {
                     Index = index,
                     LockedIdentityMentions = lockedIdentityMentions,
                     SelectorMatches = selectorMatches,
                     ExactCapabilityMentions = exactCapabilityMentions,
-                    Score = lockedIdentityMentions * 10000 + selectorMatches * 1000
-                            + exactCapabilityMentions * 160 + actionOverlap * 90
-                            + nameOverlap * 30 + goalOverlap * 15 + contentOverlap * 2
-                            + (sameServer ? 10 : 0) + (external ? 3 : 0) - (explicitlyInternal ? 100 : 0),
+                    NameIntentOverlap = nameOverlap,
+                    ConcreteNameActionOverlap = concreteNameActionOverlap,
+                    ConcreteActionOverlap = concreteActionOverlap,
+                    NameActionOverlap = nameActionOverlap,
+                    NameExtraneousActionFamilies = nameExtraneousActionFamilies,
+                    ActionOverlap = actionOverlap,
+                    ExtraneousActionFamilies = extraneousActionFamilies,
+                    Score = nameOverlap * 100 + goalOverlap * 20 + contentOverlap
+                            + (external ? 3 : 0)
+                            - (explicitlyInternal ? 100 : 0),
                     PlannedCount = tools[index].Count,
                     ExplicitlyInternal = explicitlyInternal,
                     spec.Name
@@ -3719,14 +5135,7 @@ public sealed partial class WorkflowPlanExecutor
         var eligible = candidates.Any(static item => !item.ExplicitlyInternal)
             ? candidates.Where(static item => !item.ExplicitlyInternal)
             : candidates.AsEnumerable();
-        if (eligible.Any(static item => item.LockedIdentityMentions > 0))
-        {
-            // Structured decomposition carries opaque occurrence IDs specifically so a
-            // composed operation can distribute its capabilities across cohesive leaves.
-            // An exact occurrence reference is authoritative and avoids regrouping every
-            // member on the leaf that merely resembles the broad operation description.
-            eligible = eligible.Where(static item => item.LockedIdentityMentions > 0);
-        }
+        var hasSemanticOwnershipEvidence = false;
         var selectorCapabilityCount = capabilities.Count(static capability => capability.RequestBindings.Count > 0);
         if (selectorCapabilityCount > 0
             && eligible.Any(item => item.SelectorMatches == selectorCapabilityCount))
@@ -3734,14 +5143,61 @@ public sealed partial class WorkflowPlanExecutor
             // A documented literal selector is stronger than lexical similarity. This is
             // what keeps logical variants of one multi-action MCP tool on distinct leaves.
             eligible = eligible.Where(item => item.SelectorMatches == selectorCapabilityCount);
+            hasSemanticOwnershipEvidence = true;
         }
-        if (eligible.Any(static item => item.ExactCapabilityMentions > 0))
+        var maximumConcreteNameActionOverlap = eligible.Max(static item => item.ConcreteNameActionOverlap);
+        if (concreteActionFamilyCount == 1 && maximumConcreteNameActionOverlap > 0)
+        {
+            // Concrete physical capability semantics own prerequisite placement. A broad
+            // operation such as review may require read capabilities, but those reads
+            // still belong to the dedicated read/context leaf when one exists.
+            eligible = eligible.Where(item => item.ConcreteNameActionOverlap == maximumConcreteNameActionOverlap);
+            hasSemanticOwnershipEvidence = true;
+        }
+        var maximumConcreteActionOverlap = eligible.Max(static item => item.ConcreteActionOverlap);
+        if (concreteActionFamilyCount == 1 && maximumConcreteActionOverlap > 0)
+        {
+            eligible = eligible.Where(item => item.ConcreteActionOverlap == maximumConcreteActionOverlap);
+            hasSemanticOwnershipEvidence = true;
+        }
+        var maximumNameIntentOverlap = eligible.Max(static item => item.NameIntentOverlap);
+        if (maximumNameIntentOverlap > 0)
+        {
+            // A workflow leaf name is its most cohesive ownership boundary. Prefer it
+            // before broader prose, which can legitimately mention downstream consumers
+            // and several operations owned by neighboring leaves.
+            eligible = eligible.Where(item => item.NameIntentOverlap == maximumNameIntentOverlap);
+            hasSemanticOwnershipEvidence = true;
+        }
+        var maximumNameActionOverlap = eligible.Max(static item => item.NameActionOverlap);
+        if (maximumNameActionOverlap > 0)
+        {
+            eligible = eligible.Where(item => item.NameActionOverlap == maximumNameActionOverlap);
+            var minimumNameExtraneousActionFamilies = eligible.Min(static item => item.NameExtraneousActionFamilies);
+            eligible = eligible.Where(item => item.NameExtraneousActionFamilies == minimumNameExtraneousActionFamilies);
+            hasSemanticOwnershipEvidence = true;
+        }
+        var maximumActionOverlap = eligible.Max(static item => item.ActionOverlap);
+        if (maximumActionOverlap > 0)
+        {
+            // Capability occurrence IDs are model-authored extraction hints. Prefer a
+            // cohesive leaf whose action family matches the locked operation before
+            // trusting an opaque ID that may have been grouped under a broad review leaf.
+            eligible = eligible.Where(item => item.ActionOverlap == maximumActionOverlap);
+            var minimumExtraneousActionFamilies = eligible.Min(static item => item.ExtraneousActionFamilies);
+            eligible = eligible.Where(item => item.ExtraneousActionFamilies == minimumExtraneousActionFamilies);
+            hasSemanticOwnershipEvidence = true;
+        }
+        if (!hasSemanticOwnershipEvidence && eligible.Any(static item => item.ExactCapabilityMentions > 0))
         {
             // An explicit positive invocation is authoritative. Consumer references and
             // prohibitions were removed clause-by-clause before this point, so lexical
             // similarity must not move the call to a leaf that merely discusses its data.
             eligible = eligible.Where(static item => item.ExactCapabilityMentions > 0);
+            hasSemanticOwnershipEvidence = true;
         }
+        if (!hasSemanticOwnershipEvidence && eligible.Any(static item => item.LockedIdentityMentions > 0))
+            eligible = eligible.Where(static item => item.LockedIdentityMentions > 0);
         return eligible
             .OrderByDescending(static item => item.Score)
             .ThenBy(static item => item.PlannedCount)
@@ -3753,24 +5209,71 @@ public sealed partial class WorkflowPlanExecutor
     {
         var capability = capabilityText.Replace('_', ' ').Replace('-', ' ');
         var leafClauses = SplitCapabilityMentionClauses(leafText.Replace('_', ' ').Replace('-', ' '));
-        var families = new[]
-        {
-            @"\b(clone|materiali[sz]e|checkout|download|copy)\w*\b",
-            @"\b(compare|comparison|diff|patch)\w*\b",
-            @"\b(read|retrieve|get|list|fetch|query|check|status)\w*\b",
-            @"\b(analy[sz]e|analysis|inspect|evaluate|review)\w*\b",
-            @"\b(publish|post|comment|submit|write|add|create|send)\w*\b",
-            @"\b(delete|remove|cleanup|clean\s+up|dispose)\w*\b",
-            @"\b(start|open|resume|connect|disconnect|abort|cancel|close)\w*\b",
-            @"\b(parse|validate|normalize|deduplicate|filter|map|shape|project)\w*\b"
-        };
-
-        return families.Count(pattern => Regex.IsMatch(
+        return CapabilityActionFamilyPatterns.Count(pattern => Regex.IsMatch(
                                              capability,
                                              pattern,
                                              RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)
                                          && leafClauses.Any(clause => ContainsPositiveActionFamilyMention(clause, pattern)));
     }
+
+    private static int CountFocusedCapabilityActionFamilyMatches(
+        string operationIntentText,
+        string concreteCapabilityText,
+        string leafText)
+    {
+        var leafClauses = SplitCapabilityMentionClauses(leafText.Replace('-', ' '));
+        return SelectFocusedCapabilityActionFamilies(operationIntentText, concreteCapabilityText)
+            .Count(pattern => leafClauses.Any(clause => ContainsPositiveActionFamilyMention(clause, pattern)));
+    }
+
+    private static int CountExtraneousFocusedCapabilityActionFamilies(
+        string operationIntentText,
+        string concreteCapabilityText,
+        string leafText)
+    {
+        var focused = SelectFocusedCapabilityActionFamilies(operationIntentText, concreteCapabilityText)
+            .ToHashSet(StringComparer.Ordinal);
+        var leafClauses = SplitCapabilityMentionClauses(leafText.Replace('-', ' '));
+        return CapabilityActionFamilyPatterns.Count(pattern => !focused.Contains(pattern)
+            && leafClauses.Any(clause => ContainsPositiveActionFamilyMention(clause, pattern)));
+    }
+
+    private static IReadOnlyList<string> SelectFocusedCapabilityActionFamilies(
+        string operationIntentText,
+        string concreteCapabilityText)
+    {
+        var operation = operationIntentText.Replace('_', ' ').Replace('-', ' ');
+        var concrete = concreteCapabilityText.Replace('_', ' ').Replace('-', ' ');
+        var operationFamilies = CapabilityActionFamilyPatterns
+            .Where(pattern => Regex.IsMatch(operation, pattern, RegexOptions.IgnoreCase | RegexOptions.CultureInvariant))
+            .ToArray();
+        var shared = operationFamilies
+            .Where(pattern => Regex.IsMatch(concrete, pattern, RegexOptions.IgnoreCase | RegexOptions.CultureInvariant))
+            .ToArray();
+        if (shared.Length > 0)
+            return shared;
+        if (operationFamilies.Length > 0)
+            return operationFamilies;
+        return CapabilityActionFamilyPatterns
+            .Where(pattern => Regex.IsMatch(concrete, pattern, RegexOptions.IgnoreCase | RegexOptions.CultureInvariant))
+            .ToArray();
+    }
+
+    private static readonly string[] CapabilityActionFamilyPatterns =
+    [
+        @"\b(clone|materiali[sz]e|checkout|download|copy)\w*\b",
+        @"\b(compare|comparison|diff|patch)\w*\b",
+        @"\b(read|retrieve|get|list|fetch|query|check|status)\w*\b",
+        @"\b(analy[sz]e|analysis|inspect|evaluate|review)\w*\b",
+        @"\b(publish|post|comment|submit|write|add|create|send)\w*\b",
+        @"\b(delete|remove|cleanup|clean\s+up|dispose)\w*\b",
+        @"\b(start|open|resume|connect|disconnect|abort|cancel|close)\w*\b",
+        @"\b(install|restore|dependency|dependencies|package|packages)\w*\b",
+        @"\b(test|tests|testing|unit\s+test|integration\s+test)\w*\b",
+        @"\b(lint|linter|format|formatter|static\s+analysis)\w*\b",
+        @"\b(build|compile|compilation)\w*\b",
+        @"\b(parse|validate|normalize|deduplicate|filter|map|shape|project)\w*\b"
+    ];
 
     private static bool ContainsLockedCapabilityIdentity(
         string text,
@@ -3853,6 +5356,8 @@ public sealed partial class WorkflowPlanExecutor
                      pattern,
                      RegexOptions.IgnoreCase | RegexOptions.CultureInvariant))
         {
+            if (match.Value.Contains('_', StringComparison.Ordinal))
+                continue;
             var prefixStart = Math.Max(0, match.Index - 160);
             var prefix = clause[prefixStart..match.Index];
             if (!Regex.IsMatch(
@@ -3919,6 +5424,14 @@ public sealed partial class WorkflowPlanExecutor
         IReadOnlyDictionary<string, WorkflowPipelineSubworkflowSpec> specs,
         IReadOnlyDictionary<string, StructuredPipelineSubworkflowMetadata> metadata)
     {
+        var operationIntentText = string.Join(' ', capabilities
+            .Select(static capability => capability.Description)
+            .Where(static value => !string.IsNullOrWhiteSpace(value)));
+        var concreteCapabilityText = string.Join(' ', capabilities.SelectMany(static capability => new[]
+        {
+            capability.Method,
+            capability.CapabilityDescription
+        }).Where(static value => !string.IsNullOrWhiteSpace(value))!);
         var operationText = string.Join(' ', capabilities.SelectMany(static capability => new[]
         {
             capability.OperationId,
@@ -3927,9 +5440,12 @@ public sealed partial class WorkflowPlanExecutor
             capability.Server,
             capability.Kind,
             capability.Method,
+            capability.CapabilityDescription,
             capability.RequestBindings.Count == 0 ? null : FormatBindingsCompact(capability.RequestBindings)
         }).Where(static value => !string.IsNullOrWhiteSpace(value))!);
         var operationTokens = ExtractIntentTokens(operationText);
+        var operationIntentTokens = ExtractIntentTokens(operationIntentText);
+        var semanticOperationTokens = operationIntentTokens.Count > 0 ? operationIntentTokens : operationTokens;
         var candidates = metadata.Values
             .Where(item => specs.ContainsKey(item.Name))
             .Select(item =>
@@ -3938,15 +5454,31 @@ public sealed partial class WorkflowPlanExecutor
                 var intent = BuildPipelineSpecIntentText(spec);
                 var tokens = ExtractIntentTokens(intent);
                 var overlap = tokens.Count(operationTokens.Contains);
-                var actionOverlap = CountPositiveCapabilityActionFamilyMatches(
-                    operationText,
+                var nameOverlap = ExtractIntentTokens(spec.Name).Count(semanticOperationTokens.Contains);
+                var goalOverlap = ExtractIntentTokens(string.Join(' ', new[] { spec.Goal, spec.Description }
+                    .Where(static value => !string.IsNullOrWhiteSpace(value))!)).Count(semanticOperationTokens.Contains);
+                var actionOverlap = CountFocusedCapabilityActionFamilyMatches(
+                    operationIntentText,
+                    concreteCapabilityText,
                     intent);
+                var extraneousActionFamilies = CountExtraneousFocusedCapabilityActionFamilies(
+                    operationIntentText,
+                    concreteCapabilityText,
+                    intent);
+                var normalizedName = spec.Name.Replace('_', ' ').Replace('-', ' ');
+                var nameActionOverlap = CountFocusedCapabilityActionFamilyMatches(
+                    operationIntentText,
+                    concreteCapabilityText,
+                    normalizedName);
+                var nameExtraneousActionFamilies = CountExtraneousFocusedCapabilityActionFamilies(
+                    operationIntentText,
+                    concreteCapabilityText,
+                    normalizedName);
                 var external = string.Equals(item.WorkKind, PipelineWorkKindExternalWork, StringComparison.Ordinal)
                                || string.Equals(item.ContractRole, PipelineContractRoleExternalAction, StringComparison.Ordinal)
                                || IsExternalWorkSpec(spec)
+                               || ContainsExternalWorkIntent(intent)
                                || item.PlannedTools.Count > 0;
-                var sameServer = item.PlannedTools.Any(tool => capabilities.Any(capability =>
-                    string.Equals(tool.Server, capability.Server, StringComparison.Ordinal)));
                 var clauses = SplitCapabilityMentionClauses(intent);
                 var exactCapabilityMentions = capabilities.Count(capability =>
                     !string.IsNullOrWhiteSpace(capability.Method)
@@ -3954,7 +5486,12 @@ public sealed partial class WorkflowPlanExecutor
                                              && IsPositiveCapabilityInvocationClause(clause, capability.Method!)));
                 var selectorMatches = capabilities.Count(capability =>
                     capability.RequestBindings.Count > 0
-                    && capability.RequestBindings.All(binding => ContainsLiteralSelectorAssignment(intent, binding)));
+                    && capability.RequestBindings.All(binding =>
+                        ContainsPositiveLiteralSelectorAssignment(intent, binding)
+                        || ContainsPositiveSelectorValueMention(
+                            string.Join(' ', new[] { spec.Name, spec.Goal, spec.Description, spec.ConcreteOutcome }
+                                .Where(static value => !string.IsNullOrWhiteSpace(value))!),
+                            binding)));
                 var lockedIdentityMentions = capabilities.Count(capability =>
                     ContainsLockedCapabilityIdentity(intent, capability.Id, capability.CatalogId));
                 return new
@@ -3963,9 +5500,12 @@ public sealed partial class WorkflowPlanExecutor
                     LockedIdentityMentions = lockedIdentityMentions,
                     SelectorMatches = selectorMatches,
                     ExactCapabilityMentions = exactCapabilityMentions,
-                    Score = lockedIdentityMentions * 10000 + selectorMatches * 1000
-                            + exactCapabilityMentions * 160 + actionOverlap * 90
-                            + overlap * 10 + (sameServer ? 5 : 0) + (external ? 1 : 0),
+                    NameIntentOverlap = nameOverlap,
+                    NameActionOverlap = nameActionOverlap,
+                    NameExtraneousActionFamilies = nameExtraneousActionFamilies,
+                    ActionOverlap = actionOverlap,
+                    ExtraneousActionFamilies = extraneousActionFamilies,
+                    Score = nameOverlap * 100 + goalOverlap * 20 + overlap + (external ? 1 : 0),
                     External = external,
                     PlannedCount = item.PlannedTools.Count
                 };
@@ -3977,10 +5517,39 @@ public sealed partial class WorkflowPlanExecutor
                        && candidates.Any(item => item.SelectorMatches == selectorCapabilityCount)
             ? candidates.Where(item => item.SelectorMatches == selectorCapabilityCount)
             : candidates.AsEnumerable();
-        if (eligible.Any(static item => item.LockedIdentityMentions > 0))
-            eligible = eligible.Where(static item => item.LockedIdentityMentions > 0);
-        if (eligible.Any(static item => item.ExactCapabilityMentions > 0))
+        var hasSemanticOwnershipEvidence = selectorCapabilityCount > 0
+                                           && candidates.Any(item => item.SelectorMatches == selectorCapabilityCount);
+        if (!eligible.Any())
+            return null;
+        var maximumNameIntentOverlap = eligible.Max(static item => item.NameIntentOverlap);
+        if (maximumNameIntentOverlap > 0)
+        {
+            eligible = eligible.Where(item => item.NameIntentOverlap == maximumNameIntentOverlap);
+            hasSemanticOwnershipEvidence = true;
+        }
+        var maximumNameActionOverlap = eligible.Max(static item => item.NameActionOverlap);
+        if (maximumNameActionOverlap > 0)
+        {
+            eligible = eligible.Where(item => item.NameActionOverlap == maximumNameActionOverlap);
+            var minimumNameExtraneousActionFamilies = eligible.Min(static item => item.NameExtraneousActionFamilies);
+            eligible = eligible.Where(item => item.NameExtraneousActionFamilies == minimumNameExtraneousActionFamilies);
+            hasSemanticOwnershipEvidence = true;
+        }
+        var maximumActionOverlap = eligible.Max(static item => item.ActionOverlap);
+        if (maximumActionOverlap > 0)
+        {
+            eligible = eligible.Where(item => item.ActionOverlap == maximumActionOverlap);
+            var minimumExtraneousActionFamilies = eligible.Min(static item => item.ExtraneousActionFamilies);
+            eligible = eligible.Where(item => item.ExtraneousActionFamilies == minimumExtraneousActionFamilies);
+            hasSemanticOwnershipEvidence = true;
+        }
+        if (!hasSemanticOwnershipEvidence && eligible.Any(static item => item.ExactCapabilityMentions > 0))
+        {
             eligible = eligible.Where(static item => item.ExactCapabilityMentions > 0);
+            hasSemanticOwnershipEvidence = true;
+        }
+        if (!hasSemanticOwnershipEvidence && eligible.Any(static item => item.LockedIdentityMentions > 0))
+            eligible = eligible.Where(static item => item.LockedIdentityMentions > 0);
         return eligible
             .OrderByDescending(static candidate => candidate.Score)
             .ThenBy(static candidate => candidate.PlannedCount)

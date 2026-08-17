@@ -17,6 +17,16 @@ standard kind for a validated workspace-relative working directory.
 The metadata is planning information, not authorization. Producing and
 consuming MCP tools must still validate paths and policies at execution time.
 
+## Capability composition metadata
+
+High-level tools can advertise `_meta.gnougo.composition` version `1` with
+`kind: complete_operation` and an `encapsulates` array of same-server
+`{ kind, method }` capabilities. `McpCapabilityCompositionParser` validates
+the bounded contract. Flow consumers use it to prefer a complete wrapper over
+its start/analyse/finish primitives and prevent redundant mixed-level plans.
+The metadata describes orchestration semantics only; it does not grant tool
+authorization.
+
 ## MCP protocol compatibility
 
 The library targets the stable C# MCP SDK `2.2.0` and is shared by both MCP `2026-07-28` servers and down-level connections negotiated by the SDK. It does not add Tasks, MCP Apps, Roots, Sampling, or MCP Logging dependencies.

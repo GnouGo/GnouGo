@@ -625,7 +625,8 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
 
             try
             {
-                var yaml = StripMarkdownFences(response.Text ?? string.Empty);
+                var yaml = NormalizeGeneratedSwitchDefaultStepLists(
+                    StripMarkdownFences(response.Text ?? string.Empty));
                 if (string.IsNullOrWhiteSpace(pipelineLeafName) && surgicalRepair is null)
                     yaml = PruneWeakNestedOutputProperties(yaml);
                 else if (!string.IsNullOrWhiteSpace(pipelineLeafName))
@@ -750,7 +751,8 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
                         ctx);
 
                 lastError = BuildStructuredPlanError(ex, attempt + 1);
-                lastInvalidYaml = StripMarkdownFences(response.Text ?? string.Empty);
+                lastInvalidYaml = NormalizeGeneratedSwitchDefaultStepLists(
+                    StripMarkdownFences(response.Text ?? string.Empty));
                 lastRepairContext = BuildMinimalRepairContext(
                     ctx.Engine.Registry,
                     allowedTypes,

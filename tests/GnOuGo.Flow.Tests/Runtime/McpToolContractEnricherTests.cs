@@ -16,7 +16,19 @@ public sealed class McpToolContractEnricherTests
         {
             Name = "create_workspace",
             Description = "Returns response.workspaceRoot for an existing materialized directory.",
-            Meta = meta
+            Meta = meta,
+            ArtifactContract = new McpArtifactContractResolution(
+                new McpArtifactContract(
+                    1,
+                    [new McpProducedArtifact("workspace.directory", "/workspaceRoot", "materialize")],
+                    []),
+                []),
+            CompositionContract = new McpCapabilityCompositionResolution(
+                new McpCapabilityComposition(
+                    1,
+                    McpCapabilityCompositionConventions.CompleteOperationKind,
+                    [new McpEncapsulatedCapability("tool", "create_workspace_start")]),
+                [])
         };
 
         var enriched = McpToolContractEnricher.EnrichTool(tool);
@@ -25,5 +37,7 @@ public sealed class McpToolContractEnricherTests
         Assert.True(JsonNode.DeepEquals(meta, enriched.Meta));
         Assert.NotSame(meta, enriched.Meta);
         Assert.NotNull(enriched.OutputSchema);
+        Assert.Same(tool.ArtifactContract, enriched.ArtifactContract);
+        Assert.Same(tool.CompositionContract, enriched.CompositionContract);
     }
 }

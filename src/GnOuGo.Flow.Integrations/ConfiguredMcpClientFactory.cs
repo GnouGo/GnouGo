@@ -12,6 +12,7 @@ using GnOuGo.Flow.Core.Expressions;
 using GnOuGo.Flow.Core.Models;
 using GnOuGo.Flow.Core.Runtime;
 using McpArtifactContractParser = GnOuGo.Mcp.Core.McpArtifactContractParser;
+using McpCapabilityCompositionParser = GnOuGo.Mcp.Core.McpCapabilityCompositionParser;
 
 namespace GnOuGo.Flow.Integrations;
 
@@ -1102,6 +1103,7 @@ internal sealed class McpSessionAdapter : IMcpSession, ILiveMcpToolDiscoverySess
                     : null
             };
             mapped.ArtifactContract = ResolveArtifactContract(mapped);
+            mapped.CompositionContract = ResolveCompositionContract(mapped);
             return mapped;
         }).ToList().AsReadOnly();
         return McpToolContractEnricher.EnrichTools(mappedTools);
@@ -1133,6 +1135,25 @@ internal sealed class McpSessionAdapter : IMcpSession, ILiveMcpToolDiscoverySess
                         artifact.Required))
                     .ToArray());
         return new McpArtifactContractResolution(contract, validation.Errors);
+    }
+
+    private static McpCapabilityCompositionResolution? ResolveCompositionContract(McpToolInfo tool)
+    {
+        var validation = McpCapabilityCompositionParser.ParseAndValidate(tool.Meta);
+        if (!validation.IsDeclared)
+            return null;
+
+        var contract = validation.Contract == null
+            ? null
+            : new GnOuGo.Flow.Core.Runtime.McpCapabilityComposition(
+                validation.Contract.Version,
+                validation.Contract.Kind,
+                validation.Contract.Encapsulates
+                    .Select(static capability => new GnOuGo.Flow.Core.Runtime.McpEncapsulatedCapability(
+                        capability.Kind,
+                        capability.Method))
+                    .ToArray());
+        return new McpCapabilityCompositionResolution(contract, validation.Errors);
     }
 
     public async Task<IReadOnlyList<McpResourceInfo>> ListResourcesAsync(CancellationToken ct)

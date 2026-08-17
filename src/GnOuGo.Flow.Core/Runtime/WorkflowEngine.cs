@@ -642,7 +642,7 @@ public sealed class WorkflowEngine : IWorkflowRuntime
                     ErrorMessage = ex.Message,
                     GenAiFinishReason = "error"
                 });
-                throw;
+                throw EnrichStepExecutionError(ex, executionScope, step);
             }
             finally
             {
@@ -1038,12 +1038,64 @@ public sealed class WorkflowEngine : IWorkflowRuntime
         var outputObj = new JsonObject();
         foreach (var (name, definition) in outputs)
         {
-            var value = EvaluateOutputDef(definition, data, executionScope);
-            ValidateWorkflowOutputValue(workflowName, name, definition, value);
-            outputObj[name] = value?.DeepClone();
+            try
+            {
+                var value = EvaluateOutputDef(definition, data, executionScope);
+                ValidateWorkflowOutputValue(workflowName, name, definition, value);
+                outputObj[name] = value?.DeepClone();
+            }
+            catch (WorkflowRuntimeException ex)
+            {
+                throw EnrichWorkflowOutputError(ex, workflowName, name);
+            }
         }
 
         return outputObj;
+    }
+
+    private static WorkflowRuntimeException EnrichStepExecutionError(
+        WorkflowRuntimeException error,
+        WorkflowExecutionScope executionScope,
+        CompiledStep step)
+    {
+        var details = error.Details?.DeepClone() as JsonObject ?? new JsonObject();
+        if (details.ContainsKey("failed_step_id"))
+            return error;
+
+        var workflowName = executionScope.Workflow?.Name;
+        details["failed_workflow"] = workflowName;
+        details["failed_step_id"] = step.Id;
+        details["failed_step_type"] = step.Type;
+        details["execution_phase"] = executionScope.IsFinalization ? "finalization" : "step";
+        var location = string.IsNullOrWhiteSpace(workflowName)
+            ? $"step '{step.Id}'"
+            : $"workflow '{workflowName}', step '{step.Id}'";
+        return new WorkflowRuntimeException(
+            error.Code,
+            $"{error.Message} [{location}]",
+            error.Retryable,
+            error,
+            details);
+    }
+
+    private static WorkflowRuntimeException EnrichWorkflowOutputError(
+        WorkflowRuntimeException error,
+        string workflowName,
+        string outputName)
+    {
+        var details = error.Details?.DeepClone() as JsonObject ?? new JsonObject();
+        if (details.ContainsKey("failed_output"))
+            return error;
+
+        details["failed_workflow"] = workflowName;
+        details["failed_output"] = outputName;
+        details["execution_phase"] = "workflow_output";
+        return new WorkflowRuntimeException(
+            error.Code,
+            $"{error.Message} [workflow '{workflowName}', output '{outputName}']",
+            error.Retryable,
+            error,
+            details);
     }
 
     private static void ValidateWorkflowOutputValue(

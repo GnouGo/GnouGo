@@ -97,6 +97,40 @@ public sealed class IntegrationAdapterTests
         Assert.Equal("/projectRootRelative", produced.Pointer);
     }
 
+    [Fact]
+    public void ConfiguredFactory_MapsDeclaredCompositionMetadataToFlowContract()
+    {
+        var tool = new McpToolInfo
+        {
+            Name = "review_complete",
+            Meta = JsonNode.Parse("""
+                {
+                  "gnougo": {
+                    "composition": {
+                      "version": 1,
+                      "kind": "complete_operation",
+                      "encapsulates": [
+                        { "kind": "tool", "method": "review_start" },
+                        { "kind": "tool", "method": "review_finish" }
+                      ]
+                    }
+                  }
+                }
+                """)
+        };
+        var adapterType = typeof(ConfiguredMcpClientFactory).Assembly.GetType(
+            "GnOuGo.Flow.Integrations.McpSessionAdapter");
+        var method = adapterType!.GetMethod(
+            "ResolveCompositionContract",
+            BindingFlags.Static | BindingFlags.NonPublic);
+
+        var resolution = Assert.IsType<McpCapabilityCompositionResolution>(method!.Invoke(null, [tool]));
+
+        Assert.Empty(resolution.Errors);
+        Assert.Equal(McpCapabilityCompositionConventions.CompleteOperationKind, resolution.Contract!.Kind);
+        Assert.Equal(2, resolution.Contract.Encapsulates.Count);
+    }
+
     private sealed class RecordingProvider : ILLMProvider
     {
         public string ProviderType => "fake";

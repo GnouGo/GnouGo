@@ -388,6 +388,28 @@ public sealed record McpArtifactContractResolution(
     McpArtifactContract? Contract,
     IReadOnlyList<string> Errors);
 
+public static class McpCapabilityCompositionConventions
+{
+    public const string CompleteOperationKind = "complete_operation";
+}
+
+public sealed record McpEncapsulatedCapability(string Kind, string Method);
+
+public sealed record McpCapabilityComposition(
+    int Version,
+    string Kind,
+    IReadOnlyList<McpEncapsulatedCapability> Encapsulates);
+
+public sealed record McpCapabilityCompositionResolution(
+    McpCapabilityComposition? Contract,
+    IReadOnlyList<string> Errors);
+
+public sealed record McpCapabilityActivation(
+    string Mode,
+    string Group,
+    string DecisionOperationId,
+    string BranchValue);
+
 /// <summary>
 /// Describes an MCP tool.
 /// </summary>
@@ -409,6 +431,12 @@ public sealed class McpToolInfo
     /// implementations populate this from their protocol-specific metadata.
     /// </summary>
     public McpArtifactContractResolution? ArtifactContract { get; set; }
+
+    /// <summary>
+    /// Optional consumer-resolved semantic composition contract. A complete
+    /// operation can advertise lower-level capabilities that it encapsulates.
+    /// </summary>
+    public McpCapabilityCompositionResolution? CompositionContract { get; set; }
 
     /// <summary>
     /// Optional JSON Schema describing the tool result content returned as

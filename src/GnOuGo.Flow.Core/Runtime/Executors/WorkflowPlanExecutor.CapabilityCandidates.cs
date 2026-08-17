@@ -17,7 +17,8 @@ public sealed partial class WorkflowPlanExecutor
         string Server,
         string Kind,
         string Method,
-        string Card);
+        string Card,
+        IReadOnlyList<string> SelectorIntentValues);
 
     private sealed record PhysicalCapabilityCatalog(
         IReadOnlyList<PhysicalCapabilityEntry> Entries,
@@ -139,6 +140,11 @@ public sealed partial class WorkflowPlanExecutor
                 ct);
         }
 
+        AugmentPhysicalCandidatesWithExactSelectors(
+            externalOperations,
+            catalog,
+            operationSelections);
+
         var selection = new PhysicalCandidateSelection(
             operationSelections.ToDictionary(
                 static pair => pair.Key,
@@ -161,6 +167,7 @@ public sealed partial class WorkflowPlanExecutor
             selectedDiscovery,
             completeDiscovery,
             instruction);
+        selectedDiscovery = ExpandSelectedCompositionWrappers(selectedDiscovery, completeDiscovery);
 
         inferenceSpan.SetAttribute("gnougo-flow.plan.capability_candidates.selected_server_count", selectedDiscovery.Count);
         inferenceSpan.SetAttribute("gnougo-flow.plan.capability_candidates.selected_tool_count", selectedDiscovery.Sum(static server => server.Tools.Count));
@@ -287,7 +294,7 @@ public sealed partial class WorkflowPlanExecutor
     private static PhysicalCapabilityCatalog BuildPhysicalCapabilityCatalog(
         IReadOnlyList<McpServerDiscovery> discovery)
     {
-        var pending = new List<(string Server, string Kind, string Method, string Card)>();
+        var pending = new List<(string Server, string Kind, string Method, string Card, IReadOnlyList<string> SelectorIntentValues)>();
         foreach (var server in discovery.OrderBy(static item => item.Name, StringComparer.Ordinal))
         {
             foreach (var prompt in server.Prompts.OrderBy(static item => item.Name, StringComparer.Ordinal))
@@ -298,7 +305,8 @@ public sealed partial class WorkflowPlanExecutor
                     : "none";
                 var description = LimitPhysicalCapabilityDescription(prompt.Description);
                 pending.Add((server.Name, "prompt", prompt.Name,
-                    $"server={server.Name} kind=prompt method={prompt.Name} description={description} arguments=[{arguments}]"));
+                    $"server={server.Name} kind=prompt method={prompt.Name} description={description} arguments=[{arguments}]",
+                    Array.Empty<string>()));
             }
 
             foreach (var tool in server.Tools.OrderBy(static item => item.Name, StringComparer.Ordinal))
@@ -310,8 +318,21 @@ public sealed partial class WorkflowPlanExecutor
                 var outputs = BuildPhysicalSchemaSummary(tool.OutputSchema);
                 var artifactContract = GetValidatedMcpArtifactContract(tool, server.Name);
                 var artifactSummary = FormatArtifactContractSummary(artifactContract);
+                var compositionContract = GetValidatedMcpCompositionContract(tool, server.Name);
+                var compositionSummary = FormatCompositionContractSummary(compositionContract);
+                var selectorIntentValues = ExtractSelectorVariants(tool.InputSchema)
+                    .SelectMany(static variant => variant.Bindings)
+                    .Select(static binding => binding.Value is JsonValue value && value.TryGetValue<string>(out var text)
+                        ? text
+                        : null)
+                    .Where(static value => !string.IsNullOrWhiteSpace(value))
+                    .Cast<string>()
+                    .Distinct(StringComparer.OrdinalIgnoreCase)
+                    .Take(CapabilitySelectorMaxValues)
+                    .ToArray();
                 pending.Add((server.Name, "tool", tool.Name,
-                    $"server={server.Name} kind=tool method={tool.Name} description={description} arguments=[{arguments}] outputs=[{outputs}]{artifactSummary}"));
+                    $"server={server.Name} kind=tool method={tool.Name} description={description} arguments=[{arguments}] outputs=[{outputs}]{artifactSummary}{compositionSummary}",
+                    selectorIntentValues));
             }
         }
 
@@ -324,7 +345,8 @@ public sealed partial class WorkflowPlanExecutor
                 item.Server,
                 item.Kind,
                 item.Method,
-                item.Card))
+                item.Card,
+                item.SelectorIntentValues))
             .ToArray();
         var lines = ordered.Select(static entry => $"{entry.Id} {entry.Card}").ToArray();
         var totalCharacters = lines.Sum(static line => line.Length + Environment.NewLine.Length);
@@ -377,6 +399,66 @@ public sealed partial class WorkflowPlanExecutor
         return new PhysicalCapabilityCatalog(ordered, pages, totalCharacters);
     }
 
+    private static void AugmentPhysicalCandidatesWithExactSelectors(
+        IReadOnlyList<CapabilityInventoryOperation> operations,
+        PhysicalCapabilityCatalog catalog,
+        Dictionary<string, HashSet<string>> selections)
+    {
+        foreach (var operation in operations.Where(static operation => operation.Required))
+        {
+            if (!selections.TryGetValue(operation.Id, out var selected))
+                continue;
+            var operationTokens = ExtractIntentTokens(operation.Description.Replace('_', ' ').Replace('-', ' '));
+            foreach (var entry in catalog.Entries)
+            {
+                if (selected.Count >= PhysicalCapabilityMaxCandidatesPerInventoryItem)
+                    break;
+                if (entry.SelectorIntentValues.Any(value =>
+                    {
+                        var selectorTokens = ExtractIntentTokens(value.Replace('_', ' ').Replace('-', ' '));
+                        return selectorTokens.Count > 0 && selectorTokens.All(operationTokens.Contains);
+                    }))
+                {
+                    selected.Add(entry.Id);
+                }
+            }
+        }
+    }
+
+    private static List<McpServerDiscovery> ExpandSelectedCompositionWrappers(
+        List<McpServerDiscovery> selected,
+        IReadOnlyList<McpServerDiscovery> complete)
+    {
+        var selectedCapabilities = selected
+            .SelectMany(server => server.Tools.Select(tool => (Server: server.Name, Kind: "tool", Method: tool.Name)))
+            .ToArray();
+        foreach (var server in complete)
+        {
+            foreach (var wrapper in server.Tools)
+            {
+                var composition = GetValidatedMcpCompositionContract(wrapper, server.Name);
+                if (composition is not
+                    {
+                        Kind: McpCapabilityCompositionConventions.CompleteOperationKind,
+                        Encapsulates.Count: > 0
+                    })
+                {
+                    continue;
+                }
+
+                if (composition.Encapsulates.Any(encapsulated => selectedCapabilities.Any(selectedCapability =>
+                        string.Equals(selectedCapability.Server, server.Name, StringComparison.Ordinal)
+                        && string.Equals(selectedCapability.Kind, encapsulated.Kind, StringComparison.Ordinal)
+                        && string.Equals(selectedCapability.Method, encapsulated.Method, StringComparison.Ordinal))))
+                {
+                    _ = AddToolToDiscovery(selected, server, wrapper);
+                }
+            }
+        }
+
+        return selected;
+    }
+
     private static string BuildPhysicalSchemaSummary(JsonNode? schema)
     {
         if (schema is not JsonObject root)
@@ -389,10 +471,18 @@ public sealed partial class WorkflowPlanExecutor
             .OrderBy(static item => item.Key, StringComparer.Ordinal)
             .Take(24)
             .Select(property => property.Value is JsonObject propertySchema
-                ? $"/{EncodeJsonPointerToken(property.Key)}:{ReadPhysicalSchemaType(propertySchema)}{(required.Contains(property.Key) ? "(required)" : string.Empty)}"
+                ? $"/{EncodeJsonPointerToken(property.Key)}:{ReadPhysicalSchemaType(propertySchema)}{(required.Contains(property.Key) ? "(required)" : string.Empty)}{FormatPhysicalSelectorValues(propertySchema, "/" + EncodeJsonPointerToken(property.Key))}"
                 : $"/{EncodeJsonPointerToken(property.Key)}:unknown")
             .ToArray();
         return string.Join(",", fields);
+    }
+
+    private static string FormatPhysicalSelectorValues(JsonObject schema, string path)
+    {
+        var values = ReadDocumentedScalarValues(schema, path);
+        return values.Count == 0
+            ? string.Empty
+            : $"{{allowed={string.Join('|', values.Select(CanonicalScalar))}}}";
     }
 
     private static string ReadPhysicalSchemaType(JsonObject schema)
@@ -454,7 +544,7 @@ public sealed partial class WorkflowPlanExecutor
         IReadOnlySet<string> targetConstraintIds) => $$"""
         You are a domain-neutral physical capability candidate selector. Return only the requested structured JSON.
 
-        This is {{(repair ? "the single bounded repair pass" : "the initial selection pass")}}, page {{pageNumber}} of {{pageCount}}. The catalog contains exactly one compact row per physical MCP tool or prompt. It intentionally omits enum, const, discriminator, and selector variants; those authoritative contracts are expanded and validated only after physical candidates are selected.
+        This is {{(repair ? "the single bounded repair pass" : "the initial selection pass")}}, page {{pageNumber}} of {{pageCount}}. The catalog contains exactly one compact row per physical MCP tool or prompt. It keeps bounded selector literals inline for intent matching but does not expand them into separate rows; authoritative variants are expanded and validated only after physical candidates are selected.
 
         For each target external operation, select zero or more plausible physical catalog IDs from this page. Select complementary prerequisite, lifecycle, and cleanup capabilities when their descriptions or artifact contracts make them relevant. For each target constraint, select exact physical capabilities only when they may be unconditionally prohibited by that constraint. Do not select tools for local processing or human interaction. Do not invent IDs. An empty list is valid when this page contains no plausible candidate. Keep at most {{PhysicalCapabilityMaxCandidatesPerInventoryItem}} candidates per inventory item across the catalog.
 

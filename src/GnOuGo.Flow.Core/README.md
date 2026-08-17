@@ -1269,6 +1269,9 @@ requests keep their existing routing unless their caller explicitly opts into ba
     mode: auto                    # auto | basic | pipeline | repair
     capability_preflight:
       mode: infer                 # off (default) | infer | explicit
+      clarification:
+        enabled: true             # opt-in; default false
+        timeout_ms: 36000000      # one batched human clarification form
     generator:
       model: gpt-4o                 # LLM model for planning
       provider: openai              # Optional — LLM provider
@@ -1326,7 +1329,7 @@ The inventory excludes configuration already supplied by the host, provider or c
 
 Schema-aware catalog traversal is bounded to four schema levels, 64 selector values per property, 512 description characters, and 256,000 expanded characters. The limit remains a fail-closed safety boundary. Oversize diagnostics include total characters, selected and full server/tool counts, base and variant counts, and the largest contributing tools. No catalog is silently truncated.
 
-Each operation is classified as `external_effect`, `human_interaction`, or `local_processing`; external effects are additionally classified as `read`, `write`, `execute`, or owned-resource `lifecycle`. Matching can select one capability, the smallest complementary composition, or no capability for local work. Operation and opaque catalog IDs remain locked through pipeline extraction, leaf blueprints, repair, and final validation. Required capability occurrences are a multiset: two operations selecting the same tool still require two statically verifiable calls. Local operations remain semantic blueprint obligations instead of being forced onto an arbitrary native step.
+Each operation is classified as `external_effect`, `human_interaction`, or `local_processing`; external effects are additionally classified as `read`, `write`, `execute`, or owned-resource `lifecycle`. Runtime-dependent operations carry a provider-neutral `decision_source_operation_id` instead of relying on domain words or provider names to guess their source. Constraints are independently classified as `exact_denial` or `workflow_policy`; conditional, ordering, cardinality, coverage, confirmation, and quality rules are structural policies rather than document-wide denials. Matching can select one capability, the smallest complementary composition, a conditional set of selector variants, or no capability for local work. A conditional set is emitted under one expression-based `switch`: every variant has a distinct literal case value, exactly one case runs, and a mutating default is rejected. Runtime results therefore choose outcomes such as success/failure publication without turning that future result into user ambiguity. Operation and opaque catalog IDs remain locked through pipeline extraction, leaf blueprints, repair, and final validation. Required unconditional capability occurrences are a multiset: two operations selecting the same tool still require two statically verifiable calls. Local operations remain semantic blueprint obligations instead of being forced onto an arbitrary native step.
 
 MCP tools may advertise the versioned `_meta.gnougo.artifacts` contract. Flow
 uses its domain-neutral artifact kinds and JSON pointers to compose producers
@@ -1341,7 +1344,15 @@ materializer with no remaining locked capability occurrence fails with
 `CAPABILITY_PREFLIGHT_REDUNDANT_ARTIFACT_PRODUCER`. Multiple explicitly
 requested source operations still produce multiple locked occurrences.
 
-The matcher computes completeness deterministically and performs at most one repair while retaining valid decisions. Confirmed required omissions use `CAPABILITY_PREFLIGHT_UNAVAILABLE`; malformed, unknown-ID, or unresolved ambiguous decisions use `CAPABILITY_PREFLIGHT_INFERENCE_FAILED`. Both expose bounded, sanitized matching diagnostics. Unless unattended execution was explicitly requested, inferred generation deterministically adds a required `human_interaction` operation and ordering constraint before the first external write; this safety gate is no longer optional prompt guidance. Conditional and ordering constraints remain policy-only because an exact denied capability would incorrectly ban its valid post-gate use.
+MCP tools may also advertise `_meta.gnougo.composition` version `1`. A
+`complete_operation` lists lower-level tools or prompts from the same server
+that it encapsulates. Candidate expansion keeps the wrapper visible when a
+phase is selected, and matching normalizes wrapper-plus-phase ambiguity to the
+complete operation so generated workflows do not start a session they never
+finish or invoke both layers redundantly. Invalid or self-referential metadata
+fails closed.
+
+The matcher computes completeness deterministically and performs at most one repair while retaining valid decisions. When `clarification.enabled` is true and only genuine user-intent ambiguity remains, Flow presents one form with a required question for every unresolved issue plus outcome/scope, runtime-decision rules, external-effect boundaries, success criteria, and failure policy. It then reruns the complete inventory and matching sequence once against the already discovered catalogs. Missing providers, timeouts, incomplete forms, malformed contracts, unavailable tools, or ambiguity after that retry fail closed; raw answers are not written to telemetry. Flow never asks the user to predict a runtime-dependent branch. Failure details classify the result as `cannot_plan_safely` or `unsupported` and recommend clarification/abandonment or capability configuration/request revision. Confirmed required omissions use `CAPABILITY_PREFLIGHT_UNAVAILABLE`; malformed, unknown-ID, or unresolved ambiguous decisions use `CAPABILITY_PREFLIGHT_INFERENCE_FAILED`. Both expose bounded, sanitized matching diagnostics. Unless unattended execution was explicitly requested, inferred generation deterministically adds a required `human_interaction` operation and ordering constraint before the first external write; this safety gate is no longer optional prompt guidance. Conditional and ordering constraints remain policy-only because an exact denied capability would incorrectly ban its valid post-gate use.
 
 Ordinary `workflow.plan` callers remain compatible because the default is `off`. `explicit` mode performs the same deterministic validation without an inference call:
 
