@@ -3771,6 +3771,59 @@ public sealed class WorkflowPlanCapabilityPreflightTests
     }
 
     [Fact]
+    public async Task IntentClarification_SharesBudgetWithCapabilityAmbiguityAndRestartsCompletePreflight()
+    {
+        var inventoryCalls = 0;
+        var matchingCalls = 0;
+        var human = new RecordingHumanInputProvider(new JsonObject
+        {
+            ["scope"] = "Use the recommended focused scope.",
+            ["capability_choice"] = "Use the exact read behavior.",
+            [HumanInputContract.ActionProperty] = HumanInputContract.ActionSubmit
+        });
+        var llm = new Mock<ILLMClient>();
+        llm.Setup(client => client.CallAsync(It.IsAny<LLMRequest>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((LLMRequest request, CancellationToken _) =>
+            {
+                if (request.Prompt.Contains("provider-neutral workflow intent clarification analyst", StringComparison.Ordinal))
+                {
+                    if (request.Prompt.Contains("Clarification stage: up_front", StringComparison.Ordinal))
+                        return IntentQuestionsResponse("Clarify the intended scope.", "scope");
+                    if (request.Prompt.Contains("Clarification stage: post_answer", StringComparison.Ordinal))
+                        return IntentAssessmentResponse("sufficient", "The initial intent is complete.");
+                    if (request.Prompt.Contains("Clarification stage: capability_matching", StringComparison.Ordinal))
+                        return IntentQuestionsResponse("Clarify the remaining capability behavior.", "capability_choice");
+                }
+                if (request.Prompt.Contains("domain-neutral workflow runtime analyst", StringComparison.Ordinal))
+                {
+                    inventoryCalls++;
+                    return InventoryResponse(("load_object", "Load the requested object.", true));
+                }
+                if (request.Prompt.Contains("domain-neutral capability matcher", StringComparison.Ordinal))
+                {
+                    matchingCalls++;
+                    var candidate = CatalogIdForMethod(request.Prompt, "get_object");
+                    return matchingCalls <= 2
+                        ? MatchingResponse(("load_object", "ambiguous", new[] { candidate }, new[] { candidate }, "User intent remains ambiguous."))
+                        : MatchResponse(("load_object", "mcp", candidate));
+                }
+                return new LLMResponse { Text = ValidStorageWorkflow };
+            });
+
+        var result = await ExecuteAsync(IntentClarifyingInferredPlan(), llm.Object, CreateNeutralFactory(), human);
+
+        Assert.True(result.Success, result.Error?.Message);
+        Assert.Equal(2, human.Requests.Count);
+        Assert.All(human.Requests, static request =>
+        {
+            Assert.True(request.AllowAbandon);
+            Assert.All(request.Fields!, static field => Assert.True(field.AllowCustomAnswer));
+        });
+        Assert.Equal(2, inventoryCalls);
+        Assert.Equal(3, matchingCalls);
+    }
+
+    [Fact]
     public async Task InferredPreflight_ClarificationFailsClosedWithoutProvider()
     {
         var llm = new Mock<ILLMClient>();
@@ -4089,6 +4142,50 @@ public sealed class WorkflowPlanCapabilityPreflightTests
         ["success_criteria"] = "Return exactly one requested result.",
         ["failure_policy"] = "Stop and report unsupported planning; do not guess."
     };
+
+    private static LLMResponse IntentAssessmentResponse(string outcome, string reason)
+        => new()
+        {
+            Json = new JsonObject
+            {
+                ["outcome"] = outcome,
+                ["reason"] = reason,
+                ["questions"] = new JsonArray()
+            }
+        };
+
+    private static LLMResponse IntentQuestionsResponse(string reason, string id)
+        => new()
+        {
+            Json = new JsonObject
+            {
+                ["outcome"] = "questions",
+                ["reason"] = reason,
+                ["questions"] = new JsonArray
+                {
+                    new JsonObject
+                    {
+                        ["id"] = id,
+                        ["prompt"] = "Which observable behavior is intended?",
+                        ["options"] = new JsonArray
+                        {
+                            new JsonObject
+                            {
+                                ["value"] = "Focused behavior",
+                                ["description"] = "Apply only the explicitly requested behavior.",
+                                ["recommended"] = true
+                            },
+                            new JsonObject
+                            {
+                                ["value"] = "Expanded behavior",
+                                ["description"] = "Include related behavior beyond the explicit request.",
+                                ["recommended"] = false
+                            }
+                        }
+                    }
+                }
+            }
+        };
 
     private static LLMResponse ConditionalMatchingResponse(
         string analyzeCatalogId,
@@ -4606,6 +4703,30 @@ public sealed class WorkflowPlanCapabilityPreflightTests
                     clarification:
                       enabled: true
                       timeout_ms: 60000
+                  generator:
+                    model: gpt-4
+                    prefilter: false
+                    instruction: Load the intended configured object.
+        """;
+
+    private static string IntentClarifyingInferredPlan() => """
+        version: 1
+        workflows:
+          main:
+            steps:
+              - id: plan
+                type: workflow.plan
+                input:
+                  mode: basic
+                  raw_prompt: Load one configured object.
+                  intent_clarification:
+                    mode: always
+                    timeout_ms: 60000
+                    max_rounds: 2
+                    max_questions: 8
+                    max_questions_per_round: 5
+                  capability_preflight:
+                    mode: infer
                   generator:
                     model: gpt-4
                     prefilter: false

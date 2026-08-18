@@ -65,6 +65,48 @@ internal sealed class RecordingLlmClient : ILLMClient
     {
         CallCount++;
         LastRequest = request;
+        if (request.Prompt.Contains("provider-neutral workflow intent clarification analyst", StringComparison.OrdinalIgnoreCase))
+        {
+            var hasAnswers = request.Prompt.Contains("<clarification_answers_json>", StringComparison.Ordinal);
+            return Task.FromResult(new LLMResponse
+            {
+                Json = hasAnswers
+                    ? new JsonObject
+                    {
+                        ["outcome"] = "sufficient",
+                        ["reason"] = "The workflow intent is complete.",
+                        ["questions"] = new JsonArray()
+                    }
+                    : new JsonObject
+                    {
+                        ["outcome"] = "questions",
+                        ["reason"] = "Confirm the intended response style.",
+                        ["questions"] = new JsonArray
+                        {
+                            new JsonObject
+                            {
+                                ["id"] = "response_style",
+                                ["prompt"] = "How should the agent format its response?",
+                                ["options"] = new JsonArray
+                                {
+                                    new JsonObject
+                                    {
+                                        ["value"] = "Concise response",
+                                        ["description"] = "Return a focused response with the essential details.",
+                                        ["recommended"] = true
+                                    },
+                                    new JsonObject
+                                    {
+                                        ["value"] = "Detailed response",
+                                        ["description"] = "Return a more extensive response with supporting detail.",
+                                        ["recommended"] = false
+                                    }
+                                }
+                            }
+                        }
+                    }
+            });
+        }
         if (request.Prompt.Contains("domain-neutral workflow runtime analyst", StringComparison.OrdinalIgnoreCase))
         {
             return Task.FromResult(new LLMResponse

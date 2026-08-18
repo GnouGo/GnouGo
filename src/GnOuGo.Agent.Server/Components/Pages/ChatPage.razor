@@ -439,6 +439,14 @@
                                             @c
                                         </button>
                                     }
+                                    @if (_pendingHumanInput.AllowAbandon)
+                                    {
+                                        <button class="gnougo-hitl-abandon"
+                                                type="button"
+                                                @onclick="AbandonHumanInput">
+                                            @AbandonHumanInputLabel
+                                        </button>
+                                    }
                                 </div>
                             }
                             else if (_pendingHumanInput.Fields is { Count: > 0 })
@@ -448,10 +456,10 @@
                                     {
                                         <div class="gnougo-hitl-field">
                                             <label class="gnougo-hitl-field__label">
-                                                @field.Name
+                                                @GetHumanInputFieldLabel(field)
                                                 @if (field.Required) { <span class="gnougo-hitl-field__required">*</span> }
                                             </label>
-                                            @if (!string.IsNullOrWhiteSpace(field.Description))
+                                            @if (!HasRichOptions(field) && !string.IsNullOrWhiteSpace(field.Description))
                                             {
                                                 <div class="gnougo-hitl-field__description">@field.Description</div>
                                             }
@@ -472,15 +480,49 @@
                                                     @foreach (var option in field.Options)
                                                     {
                                                         var radioId = HumanInputOptionDomId(field, option);
-                                                        <label class="gnougo-hitl-option" for="@radioId">
+                                                        var optionDefinition = GetHumanInputOptionDefinition(field, option);
+                                                        <label class="gnougo-hitl-option @(optionDefinition?.Recommended == true ? "gnougo-hitl-option--recommended" : "")" for="@radioId">
                                                             <input id="@radioId"
                                                                    name="@HumanInputFieldDomName(field)"
                                                                    type="radio"
                                                                    value="@option"
                                                                    checked="@string.Equals(GetFieldValue(field.Name), option, StringComparison.Ordinal)"
-                                                                   @onchange="@(e => SetFieldValue(field.Name, option))" />
-                                                            <span>@option</span>
+                                                                   @onchange="@(_ => SelectFieldOption(field.Name, option))" />
+                                                            <span class="gnougo-hitl-option__body">
+                                                                <span class="gnougo-hitl-option__title">
+                                                                    @option
+                                                                    @if (optionDefinition?.Recommended == true)
+                                                                    {
+                                                                        <span class="gnougo-hitl-option__badge">@RecommendedHumanInputLabel</span>
+                                                                    }
+                                                                </span>
+                                                                @if (!string.IsNullOrWhiteSpace(optionDefinition?.Description))
+                                                                {
+                                                                    <span class="gnougo-hitl-option__description">@optionDefinition.Description</span>
+                                                                }
+                                                            </span>
                                                         </label>
+                                                    }
+                                                    @if (field.AllowCustomAnswer)
+                                                    {
+                                                        var otherId = HumanInputOptionDomId(field, "other");
+                                                        <label class="gnougo-hitl-option" for="@otherId">
+                                                            <input id="@otherId"
+                                                                   name="@HumanInputFieldDomName(field)"
+                                                                   type="radio"
+                                                                   checked="@IsCustomFieldSelected(field.Name)"
+                                                                   @onchange="@(_ => SelectCustomField(field.Name))" />
+                                                            <span class="gnougo-hitl-option__body">
+                                                                <span class="gnougo-hitl-option__title">@OtherHumanInputLabel</span>
+                                                            </span>
+                                                        </label>
+                                                        @if (IsCustomFieldSelected(field.Name))
+                                                        {
+                                                            <textarea class="gnougo-composer__input gnougo-hitl-field__textarea gnougo-hitl-field__custom"
+                                                                      placeholder="@CustomAnswerHumanInputLabel"
+                                                                      value="@GetFieldValue(field.Name)"
+                                                                      @oninput="@(e => SetFieldValue(field.Name, e.Value?.ToString() ?? ""))"></textarea>
+                                                        }
                                                     }
                                                 </div>
                                             }
@@ -525,12 +567,22 @@
                                             }
                                         </div>
                                     }
-                                    <button class="gnougo-composer__send"
-                                            type="button"
-                                            style="margin-top: 8px;"
-                                            @onclick="SubmitHumanInputFields">
-                                        Submit
-                                    </button>
+                                    <div class="gnougo-hitl-actions">
+                                        <button class="gnougo-composer__send"
+                                                type="button"
+                                                disabled="@(!CanSubmitHumanInputFields())"
+                                                @onclick="SubmitHumanInputFields">
+                                            @SubmitHumanInputLabel
+                                        </button>
+                                        @if (_pendingHumanInput.AllowAbandon)
+                                        {
+                                            <button class="gnougo-hitl-abandon"
+                                                    type="button"
+                                                    @onclick="AbandonHumanInput">
+                                                @AbandonHumanInputLabel
+                                            </button>
+                                        }
+                                    </div>
                                 </div>
                             }
                             else
@@ -545,8 +597,16 @@
                                             style="margin-top: 8px;"
                                             disabled="@string.IsNullOrWhiteSpace(_pendingHumanInput.ResponseText)"
                                             @onclick="SubmitHumanInputText">
-                                        Submit
+                                        @SubmitHumanInputLabel
                                     </button>
+                                    @if (_pendingHumanInput.AllowAbandon)
+                                    {
+                                        <button class="gnougo-hitl-abandon"
+                                                type="button"
+                                                @onclick="AbandonHumanInput">
+                                            @AbandonHumanInputLabel
+                                        </button>
+                                    }
                                 </div>
                             }
                         </div>
@@ -794,6 +854,7 @@
         public string Mode { get; set; } = "text";
         public string ContextMarkdown { get; set; } = "";
         public string ResponseText { get; set; } = "";
+        public bool AllowAbandon { get; set; }
         public List<string>? Choices { get; set; }
         public List<HumanInputFieldModel>? Fields { get; set; }
     }
@@ -805,7 +866,16 @@
         public bool Required { get; set; }
         public string? Description { get; set; }
         public List<string>? Options { get; set; }
+        public List<HumanInputOptionModel>? OptionDefinitions { get; set; }
+        public bool AllowCustomAnswer { get; set; }
         public string? Default { get; set; }
+    }
+
+    private sealed class HumanInputOptionModel
+    {
+        public string Value { get; set; } = "";
+        public string? Description { get; set; }
+        public bool Recommended { get; set; }
     }
 
     private sealed record ExecutionActivityItem(
@@ -895,6 +965,7 @@
     private HumanInputModel? _pendingHumanInput;
     private readonly Dictionary<string, string> _fieldValues = new();
     private readonly Dictionary<string, HashSet<string>> _multiFieldValues = new(StringComparer.Ordinal);
+    private readonly HashSet<string> _customHumanInputFields = new(StringComparer.Ordinal);
     private bool _traceSidebarOpen;
     private ChatMessageDto? _selectedTraceMessage;
     private readonly Dictionary<string, ChatExecutionModel> _executions = new(StringComparer.Ordinal);
@@ -1050,6 +1121,33 @@
     private static bool IsRadioField(HumanInputFieldModel field)
         => field.Type.Equals("radio", StringComparison.OrdinalIgnoreCase);
 
+    private static bool HasRichOptions(HumanInputFieldModel field)
+        => field.OptionDefinitions is { Count: > 0 };
+
+    private static string GetHumanInputFieldLabel(HumanInputFieldModel field)
+        => HasRichOptions(field) && !string.IsNullOrWhiteSpace(field.Description)
+            ? field.Description
+            : field.Name;
+
+    private static HumanInputOptionModel? GetHumanInputOptionDefinition(
+        HumanInputFieldModel field,
+        string option)
+        => field.OptionDefinitions?.FirstOrDefault(candidate => string.Equals(
+            candidate.Value,
+            option,
+            StringComparison.Ordinal));
+
+    private static string RecommendedHumanInputLabel => LocalizedHumanInputLabel("Recommended", "Recommandé");
+    private static string OtherHumanInputLabel => LocalizedHumanInputLabel("Other", "Autre");
+    private static string CustomAnswerHumanInputLabel => LocalizedHumanInputLabel("Enter your answer", "Saisissez votre réponse");
+    private static string SubmitHumanInputLabel => LocalizedHumanInputLabel("Submit", "Envoyer");
+    private static string AbandonHumanInputLabel => LocalizedHumanInputLabel("Abandon", "Abandonner");
+
+    private static string LocalizedHumanInputLabel(string english, string french)
+        => CultureInfo.CurrentUICulture.TwoLetterISOLanguageName.Equals("fr", StringComparison.OrdinalIgnoreCase)
+            ? french
+            : english;
+
     private static bool IsMultiOptionField(HumanInputFieldModel field)
         => field.Type.Equals("multiselect", StringComparison.OrdinalIgnoreCase)
            || field.Type.Equals("checkbox", StringComparison.OrdinalIgnoreCase);
@@ -1091,10 +1189,44 @@
             ? selected.ToArray()
             : Array.Empty<string>();
 
+    private bool IsCustomFieldSelected(string name) => _customHumanInputFields.Contains(name);
+
+    private void SelectCustomField(string name)
+    {
+        _customHumanInputFields.Add(name);
+        _fieldValues[name] = string.Empty;
+    }
+
+    private void SelectFieldOption(string name, string value)
+    {
+        _customHumanInputFields.Remove(name);
+        _fieldValues[name] = value;
+    }
+
+    private bool CanSubmitHumanInputFields()
+    {
+        if (_pendingHumanInput?.Fields is not { Count: > 0 } fields)
+            return false;
+
+        foreach (var field in fields.Where(static field => field.Required))
+        {
+            if (IsMultiOptionField(field))
+            {
+                if (GetSelectedFieldOptions(field).Count == 0)
+                    return false;
+                continue;
+            }
+            if (string.IsNullOrWhiteSpace(GetFieldValue(field.Name)))
+                return false;
+        }
+        return true;
+    }
+
     private void SeedHumanInputFieldDefaults(IReadOnlyList<HumanInputFieldModel>? fields)
     {
         _fieldValues.Clear();
         _multiFieldValues.Clear();
+        _customHumanInputFields.Clear();
         if (fields is null)
             return;
 
@@ -1167,6 +1299,7 @@
         _pendingHumanInput = null;
         _fieldValues.Clear();
         _multiFieldValues.Clear();
+        _customHumanInputFields.Clear();
     }
 
     private static bool LooksLikeCodeField(HumanInputFieldModel field)
@@ -1934,6 +2067,7 @@
                             StepId = ReadHumanInputString(requestJson["step_id"]) ?? "",
                             Prompt = ReadHumanInputString(requestJson["prompt"]) ?? "",
                             Mode = ReadHumanInputString(requestJson["mode"]) ?? "text",
+                            AllowAbandon = ReadHumanInputBool(requestJson["allow_abandon"], defaultValue: false),
                             // Prepare once when the request arrives. Razor rendering must stay cheap
                             // while the workflow and its persistent waiting animation remain active.
                             ContextMarkdown = HumanInputContextMarkdownFormatter.Format(context),
@@ -1957,6 +2091,8 @@
                                     Options = fObj["options"] is JsonArray optionsArr
                                         ? optionsArr.Select(o => ReadHumanInputString(o) ?? "").Where(o => !string.IsNullOrWhiteSpace(o)).ToList()
                                         : null,
+                                    OptionDefinitions = ParseHumanInputOptionDefinitions(fObj["option_definitions"] as JsonArray),
+                                    AllowCustomAnswer = ReadHumanInputBool(fObj["allow_custom_answer"], defaultValue: false),
                                     Default = ReadHumanInputString(fObj["default"]),
                                 };
                                 model.Fields.Add(field);
@@ -2457,7 +2593,11 @@
             responseValue = JsonValue.Create(confirmed);
         }
 
-        var response = new JsonObject { ["response"] = responseValue };
+        var response = new JsonObject
+        {
+            ["response"] = responseValue,
+            [HumanInputContract.ActionProperty] = HumanInputContract.ActionSubmit
+        };
         HumanInputProvider.TrySubmitResponse(_pendingHumanInput.RunId, _pendingHumanInput.StepId, response);
 
         var summaryQuestion = _pendingHumanInput.Prompt;
@@ -2493,7 +2633,11 @@
         var answer = _pendingHumanInput.ResponseText.Trim();
         if (string.IsNullOrWhiteSpace(answer)) return;
 
-        var response = new JsonObject { ["response"] = answer };
+        var response = new JsonObject
+        {
+            ["response"] = answer,
+            [HumanInputContract.ActionProperty] = HumanInputContract.ActionSubmit
+        };
         HumanInputProvider.TrySubmitResponse(_pendingHumanInput.RunId, _pendingHumanInput.StepId, response);
 
         RecordHumanInput(_pendingHumanInput.Prompt, answer);
@@ -2506,7 +2650,10 @@
     {
         if (_pendingHumanInput is null) return;
 
-        var response = new JsonObject();
+        var response = new JsonObject
+        {
+            [HumanInputContract.ActionProperty] = HumanInputContract.ActionSubmit
+        };
         if (_pendingHumanInput.Fields is not null)
         {
             foreach (var field in _pendingHumanInput.Fields)
@@ -2533,6 +2680,21 @@
             }
         }
 
+        ResetHumanInputState();
+        StateHasChanged();
+    }
+
+    private void AbandonHumanInput()
+    {
+        if (_pendingHumanInput is null || !_pendingHumanInput.AllowAbandon)
+            return;
+
+        var response = new JsonObject
+        {
+            [HumanInputContract.ActionProperty] = HumanInputContract.ActionAbandon
+        };
+        HumanInputProvider.TrySubmitResponse(_pendingHumanInput.RunId, _pendingHumanInput.StepId, response);
+        RecordHumanInput(_pendingHumanInput.Prompt, AbandonHumanInputLabel);
         ResetHumanInputState();
         StateHasChanged();
     }
@@ -2673,6 +2835,23 @@
         if (value.TryGetValue<long>(out var longValue))
             return longValue != 0L;
         return defaultValue;
+    }
+
+    private static List<HumanInputOptionModel>? ParseHumanInputOptionDefinitions(JsonArray? definitions)
+    {
+        if (definitions is null)
+            return null;
+
+        return definitions
+            .OfType<JsonObject>()
+            .Select(static definition => new HumanInputOptionModel
+            {
+                Value = ReadHumanInputString(definition["value"]) ?? string.Empty,
+                Description = ReadHumanInputString(definition["description"]),
+                Recommended = ReadHumanInputBool(definition["recommended"], defaultValue: false)
+            })
+            .Where(static definition => !string.IsNullOrWhiteSpace(definition.Value))
+            .ToList();
     }
 
     private string GetFieldValue(string name)

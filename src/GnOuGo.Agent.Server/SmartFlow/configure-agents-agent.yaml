@@ -304,11 +304,15 @@ workflows:
           - id: generate_workflow
             type: workflow.plan
             input:
+              raw_prompt: "${data.steps.normalized_prompt.description}"
+              intent_clarification:
+                mode: always
+                timeout_ms: 36000000
+                max_rounds: 2
+                max_questions: 8
+                max_questions_per_round: 5
               capability_preflight:
                 mode: infer
-                clarification:
-                  enabled: true
-                  timeout_ms: 36000000
               generator:
                 prefilter: true
                 mode: auto

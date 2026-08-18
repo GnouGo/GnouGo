@@ -1397,44 +1397,7 @@ public sealed class SmartFlowService
     }
 
     private static JsonObject BuildHumanInputPayload(HumanInputRequest request)
-    {
-        var payload = new JsonObject
-        {
-            ["prompt"] = request.Prompt,
-            ["mode"] = request.Mode,
-            ["run_id"] = request.RunId,
-            ["step_id"] = request.StepId,
-            ["timeout_ms"] = request.TimeoutMs
-        };
-
-        if (request.Context is not null)
-            payload["context"] = request.Context.DeepClone();
-
-        if (request.Choices is not null)
-            payload["choices"] = new JsonArray(request.Choices.Select(choice => (JsonNode?)JsonValue.Create(choice)).ToArray());
-
-        if (request.Fields is not null)
-        {
-            payload["fields"] = new JsonArray(request.Fields.Select(field =>
-            {
-                var fieldObject = new JsonObject
-                {
-                    ["name"] = field.Name,
-                    ["type"] = field.Type,
-                    ["required"] = field.Required
-                };
-                if (!string.IsNullOrWhiteSpace(field.Description))
-                    fieldObject["description"] = field.Description;
-                if (field.Options is not null)
-                    fieldObject["options"] = new JsonArray(field.Options.Select(option => (JsonNode?)JsonValue.Create(option)).ToArray());
-                if (!string.IsNullOrWhiteSpace(field.Default))
-                    fieldObject["default"] = field.Default;
-                return (JsonNode?)fieldObject;
-            }).ToArray());
-        }
-
-        return payload;
-    }
+        => HumanInputContract.BuildRequestPayload(request);
 
     private static bool IsImproveDecision(JsonNode? response)
     {

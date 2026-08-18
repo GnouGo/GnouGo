@@ -52,6 +52,9 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
         new(ErrorCodes.CapabilityPreflightDiscoveryFailed, false, "A configured MCP catalog required for fail-closed capability validation could not be discovered."),
         new(ErrorCodes.CapabilityPreflightInferenceFailed, false, "Capability inference returned an invalid, uncertain, or incomplete operation inventory."),
         new(ErrorCodes.CapabilityPreflightRedundantArtifactProducer, false, "The generated workflow materializes an MCP artifact more times than capability preflight authorized."),
+        new(ErrorCodes.WorkflowPlanClarificationFailed, false, "Intent clarification could not produce a complete validated response."),
+        new(ErrorCodes.WorkflowPlanCannotPlanSafely, false, "The request remains intrinsically impossible, contradictory, unsafe, or ambiguous after the clarification budget."),
+        new(ErrorCodes.WorkflowPlanAborted, false, "The user explicitly abandoned workflow planning."),
         new(ErrorCodes.WorkflowPlanRepairStalled, false, "The same normalized validation diagnostics survived two repair attempts."),
         new(ErrorCodes.LlmTimeout, true, "A planning LLM request timed out."),
         new(ErrorCodes.LlmNetwork, true, "A transient transport, rate-limit, or provider service failure interrupted planning."),
@@ -84,11 +87,49 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
 
     private async Task<JsonNode?> ExecuteCoreAsync(StepExecutionContext ctx, CancellationToken ct)
     {
-        var input = ctx.Engine.GetResolvedInput(ctx) as JsonObject
+        var originalInput = ctx.Engine.GetResolvedInput(ctx) as JsonObject
             ?? throw new WorkflowRuntimeException(ErrorCodes.InputValidation, "workflow.plan input must be object");
+        var clarificationSession = await PrepareIntentClarificationAsync(ctx, originalInput, ct);
+
+        while (true)
+        {
+            var input = ApplyIntentClarification(originalInput, clarificationSession);
+            try
+            {
+                return await ExecutePlanningAttemptAsync(ctx, input, clarificationSession, ct);
+            }
+            catch (WorkflowPlanClarificationRestartException)
+            {
+                ctx.AddTelemetryEvent("gnougo-flow.step.thinking", new[]
+                {
+                    new KeyValuePair<string, object?>("gnougo-flow.thinking.message", "Intent clarification received; restarting the complete planning attempt."),
+                    new KeyValuePair<string, object?>("gnougo-flow.thinking.level", "info")
+                });
+            }
+            catch (WorkflowRuntimeException ex) when (
+                clarificationSession != null
+                && TryGetExtractionIntentAmbiguity(ex, out var ambiguityContext))
+            {
+                await RequestReactiveIntentClarificationAsync(
+                    ctx,
+                    input,
+                    clarificationSession,
+                    "extraction_quality",
+                    ambiguityContext,
+                    ct);
+            }
+        }
+    }
+
+    private async Task<JsonNode?> ExecutePlanningAttemptAsync(
+        StepExecutionContext ctx,
+        JsonObject input,
+        IntentClarificationSession? clarificationSession,
+        CancellationToken ct)
+    {
 
         var mode = GetConfiguredPlanMode(input);
-        var capabilityPreflight = await RunCapabilityPreflightAsync(ctx, input, ct);
+        var capabilityPreflight = await RunCapabilityPreflightAsync(ctx, input, clarificationSession, ct);
 
         if (string.Equals(mode, "repair", StringComparison.OrdinalIgnoreCase))
         {

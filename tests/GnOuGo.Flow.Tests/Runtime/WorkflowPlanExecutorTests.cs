@@ -72,6 +72,44 @@ public class WorkflowPlanExecutorTests
         return count;
     }
 
+    [Theory]
+    [InlineData("intent_ambiguity", true)]
+    [InlineData("plan_defect", false)]
+    [InlineData("capability_unavailable", false)]
+    [InlineData("contract_violation", false)]
+    public void ExtractionClarificationEligibility_RequiresOnlyBlockingIntentAmbiguity(
+        string diagnosticKind,
+        bool expected)
+    {
+        var method = typeof(WorkflowPlanExecutor).GetMethod(
+            "TryGetExtractionIntentAmbiguity",
+            BindingFlags.Static | BindingFlags.NonPublic);
+        Assert.NotNull(method);
+        var exception = new GnOuGo.Flow.Core.Expressions.WorkflowRuntimeException(
+            ErrorCodes.TemplatePlan,
+            "Extraction review failed.",
+            details: new JsonObject
+            {
+                ["quality_review"] = new JsonObject
+                {
+                    ["diagnostics"] = new JsonArray
+                    {
+                        new JsonObject
+                        {
+                            ["kind"] = diagnosticKind,
+                            ["severity"] = "critical"
+                        }
+                    }
+                }
+            });
+        object?[] arguments = [exception, null];
+
+        var actual = Assert.IsType<bool>(method.Invoke(null, arguments));
+
+        Assert.Equal(expected, actual);
+        Assert.NotNull(arguments[1]);
+    }
+
     private static async Task<string> GeneratePipelineWithMainAssemblyAsync(string mainAssemblyYaml)
     {
         var mockLlm = new Mock<ILLMClient>();
@@ -219,11 +257,14 @@ public class WorkflowPlanExecutorTests
         JsonArray? diagnostics = null,
         string retryGuidance = "")
     {
+        diagnostics ??= new JsonArray();
+        foreach (var diagnostic in diagnostics.OfType<JsonObject>())
+            diagnostic["kind"] ??= "plan_defect";
         var json = new JsonObject
         {
             ["score"] = score,
             ["verdict"] = verdict,
-            ["diagnostics"] = diagnostics ?? new JsonArray(),
+            ["diagnostics"] = diagnostics,
             ["retry_guidance"] = retryGuidance
         };
         return new LLMResponse
@@ -231,6 +272,44 @@ public class WorkflowPlanExecutorTests
             Json = json,
             Text = json.ToJsonString()
         };
+    }
+
+    private static LLMResponse CreateIntentClarificationAssessment(
+        string outcome,
+        string reason,
+        string? questionId = null)
+    {
+        var questions = new JsonArray();
+        if (questionId != null)
+        {
+            questions.Add((JsonNode)new JsonObject
+            {
+                ["id"] = questionId,
+                ["prompt"] = "Which observable result is intended?",
+                ["options"] = new JsonArray
+                {
+                    new JsonObject
+                    {
+                        ["value"] = "Return both values",
+                        ["description"] = "Preserve both requested outputs.",
+                        ["recommended"] = true
+                    },
+                    new JsonObject
+                    {
+                        ["value"] = "Return one value",
+                        ["description"] = "Limit the result to one output.",
+                        ["recommended"] = false
+                    }
+                }
+            });
+        }
+        var json = new JsonObject
+        {
+            ["outcome"] = outcome,
+            ["reason"] = reason,
+            ["questions"] = questions
+        };
+        return new LLMResponse { Json = json, Text = json.ToJsonString() };
     }
 
     [Fact]
@@ -4973,6 +5052,203 @@ workflows:
         Assert.Contains("pipeline extraction quality review failed", result.Error!.Message);
         Assert.Equal("cannot_plan_safely", result.Error.Details!["planning_outcome"]!.GetValue<string>());
         Assert.Equal("clarify_or_abandon", result.Error.Details["recommended_action"]!.GetValue<string>());
+    }
+
+    [Fact]
+    public async Task WorkflowPlan_PipelineMode_ClarifiesOnlyIntentExtractionDiagnosticAndRestartsCompletely()
+    {
+        var normalizeCalls = 0;
+        var reviewCalls = 0;
+        var clarificationCalls = 0;
+        var humanRequests = new List<HumanInputRequest>();
+        var human = new Mock<IHumanInputProvider>();
+        human.Setup(provider => provider.RequestInputAsync(It.IsAny<HumanInputRequest>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((HumanInputRequest request, CancellationToken _) =>
+            {
+                humanRequests.Add(request);
+                return new JsonObject
+                {
+                    ["result_shape"] = request.Fields![0].Default,
+                    [HumanInputContract.ActionProperty] = HumanInputContract.ActionSubmit
+                };
+            });
+
+        var mockLlm = new Mock<ILLMClient>();
+        mockLlm.Setup(client => client.CallAsync(It.IsAny<LLMRequest>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((LLMRequest request, CancellationToken _) =>
+            {
+                if (request.Prompt.Contains("provider-neutral workflow intent clarification analyst", StringComparison.Ordinal))
+                {
+                    clarificationCalls++;
+                    return request.Prompt.Contains("Clarification stage: extraction_quality", StringComparison.Ordinal)
+                        ? CreateIntentClarificationAssessment("questions", "Clarify the result shape.", "result_shape")
+                        : CreateIntentClarificationAssessment("sufficient", "The initial request is complete.");
+                }
+                if (request.Prompt.Contains("preparing a raw user automation prompt", StringComparison.Ordinal))
+                {
+                    normalizeCalls++;
+                    return new LLMResponse { Text = "# Issue analysis\n\nSummarize and classify an issue." };
+                }
+                if (request.Prompt.Contains("annotate normalized automation Markdown", StringComparison.Ordinal))
+                {
+                    return new LLMResponse
+                    {
+                        Text = """
+                        # Issue analysis
+
+                        :::subworkflow name="analyze_issue_need"
+                        goal: Summarize and classify the issue need.
+                        inputs:
+                          issue_body: string
+                        outputs:
+                          summary: string
+                          classification: string
+                        extract_reason: This is a nontrivial LLM analysis transform.
+                        content:
+                          Use an LLM to summarize the issue and return a typed classification.
+                        :::
+
+                        ## Main workflow orchestration
+
+                        Call analyze_issue_need and expose both values.
+                        """
+                    };
+                }
+                if (request.Prompt.Contains("reviewing the quality of a `workflow.plan` pipeline", StringComparison.Ordinal))
+                {
+                    reviewCalls++;
+                    return reviewCalls == 1
+                        ? CreateExtractionQualityReviewResponse(
+                            40,
+                            "retry",
+                            new JsonArray
+                            {
+                                new JsonObject
+                                {
+                                    ["code"] = "RESULT_SHAPE_UNRESOLVED",
+                                    ["kind"] = "intent_ambiguity",
+                                    ["severity"] = "critical",
+                                    ["leaf_name"] = "analyze_issue_need",
+                                    ["message"] = "The user has not selected the observable result shape.",
+                                    ["recommendation"] = "Ask which result shape is intended."
+                                }
+                            },
+                            "Clarify the observable result shape.")
+                        : CreateExtractionQualityReviewResponse(95, "pass");
+                }
+                if (request.Prompt.Contains("Generate exactly one leaf GnOuGo workflow named `analyze_issue_need`.", StringComparison.Ordinal))
+                {
+                    return new LLMResponse
+                    {
+                        Text = """
+                        version: 1
+                        name: analyze-issue-need-leaf
+                        skill:
+                          description: Analyze issue need.
+                          tags: [generated, leaf]
+                          inputs:
+                            issue_body: string
+                          outputs:
+                            summary: string
+                            classification: string
+                        workflows:
+                          main:
+                            inputs:
+                              issue_body: string
+                            steps:
+                              - id: analyze
+                                type: llm.call
+                                input:
+                                  model: gpt-4
+                                  prompt: ${data.inputs.issue_body}
+                                  structured_output:
+                                    strict: true
+                                    schema_inline:
+                                      type: object
+                                      additionalProperties: false
+                                      required: [summary, classification]
+                                      properties:
+                                        summary: { type: string }
+                                        classification: { type: string }
+                            outputs:
+                              summary:
+                                expr: ${data.steps.analyze.json.summary}
+                                type: string
+                              classification:
+                                expr: ${data.steps.analyze.json.classification}
+                                type: string
+                        """
+                    };
+                }
+                if (request.Prompt.Contains("assembling the parent `main` workflow", StringComparison.Ordinal))
+                {
+                    return new LLMResponse
+                    {
+                        Text = """
+                        document:
+                          name: issue_analysis_pipeline
+                          skill:
+                            description: Analyze issue need.
+                            inputs:
+                              issue_body: string
+                            outputs:
+                              result: object
+                        graph:
+                          inputs:
+                            issue_body: string
+                          steps:
+                            - id: call_analyze_issue_need
+                              leaf: analyze_issue_need
+                              args:
+                                issue_body: ${data.inputs.issue_body}
+                          outputs:
+                            result:
+                              expr: ${data.steps.call_analyze_issue_need.outputs}
+                              type: object
+                        """
+                    };
+                }
+                throw new InvalidOperationException("Unexpected LLM prompt: " + request.Prompt);
+            });
+
+        var wf = CompileMain("""
+        version: 1
+        workflows:
+          main:
+            steps:
+              - id: plan
+                type: workflow.plan
+                input:
+                  mode: pipeline
+                  raw_prompt: "Summarize and classify an issue."
+                  intent_clarification:
+                    mode: when_needed
+                    timeout_ms: 60000
+                    max_rounds: 2
+                    max_questions: 8
+                    max_questions_per_round: 5
+                  generator:
+                    model: gpt-4
+                    prefilter: false
+                  validate:
+                    compile: false
+                    max_repair_attempts: 1
+        """);
+
+        var result = await new WorkflowEngine
+        {
+            LLMClient = mockLlm.Object,
+            LLMCapabilities = new StaticLlmCapabilityResolver(false),
+            HumanInputProvider = human.Object
+        }.ExecuteAsync(wf, new JsonObject(), CancellationToken.None);
+
+        Assert.True(result.Success, result.Error?.Message);
+        Assert.Equal(2, normalizeCalls);
+        Assert.Equal(2, reviewCalls);
+        Assert.Equal(2, clarificationCalls);
+        var humanRequest = Assert.Single(humanRequests);
+        Assert.True(humanRequest.AllowAbandon);
+        Assert.Equal("result_shape", Assert.Single(humanRequest.Fields!).Name);
     }
 
     [Fact]

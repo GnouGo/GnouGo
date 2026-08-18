@@ -13,6 +13,9 @@ public static class HumanInputContract
     public const string ModeChoice = "choice";
     public const string ModeForm = "form";
     public const string ModeConfirm = "confirm";
+    public const string ActionProperty = "_action";
+    public const string ActionSubmit = "submit";
+    public const string ActionAbandon = "abandon";
 
     public static readonly string[] KnownModesForDsl =
     [
@@ -55,6 +58,67 @@ public static class HumanInputContract
         || fieldType.Equals("radio", StringComparison.OrdinalIgnoreCase)
         || fieldType.Equals("multiselect", StringComparison.OrdinalIgnoreCase)
         || fieldType.Equals("checkbox", StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>Returns whether a structured response explicitly abandons the request.</summary>
+    public static bool IsAbandoned(JsonNode? response) =>
+        response is JsonObject obj
+        && obj[ActionProperty] is JsonValue value
+        && value.TryGetValue<string>(out var action)
+        && action.Equals(ActionAbandon, StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>
+    /// Builds the stable JSON payload transported by telemetry and HTTP hosts.
+    /// Keeping this mapping in Flow.Core prevents host-specific drift.
+    /// </summary>
+    public static JsonObject BuildRequestPayload(HumanInputRequest request)
+    {
+        var payload = new JsonObject
+        {
+            ["prompt"] = request.Prompt,
+            ["mode"] = request.Mode,
+            ["run_id"] = request.RunId,
+            ["step_id"] = request.StepId,
+            ["timeout_ms"] = request.TimeoutMs,
+            ["allow_abandon"] = request.AllowAbandon
+        };
+
+        if (request.Context != null)
+            payload["context"] = request.Context.DeepClone();
+        if (request.Choices != null)
+            payload["choices"] = new JsonArray(request.Choices.Select(static choice => (JsonNode?)JsonValue.Create(choice)).ToArray());
+        if (request.Fields != null)
+        {
+            payload["fields"] = new JsonArray(request.Fields.Select(static field =>
+            {
+                var fieldPayload = new JsonObject
+                {
+                    ["name"] = field.Name,
+                    ["type"] = field.Type,
+                    ["required"] = field.Required,
+                    ["allow_custom_answer"] = field.AllowCustomAnswer
+                };
+                if (field.Description != null)
+                    fieldPayload["description"] = field.Description;
+                if (field.Options != null)
+                    fieldPayload["options"] = new JsonArray(field.Options.Select(static option => (JsonNode?)JsonValue.Create(option)).ToArray());
+                if (field.OptionDefinitions != null)
+                {
+                    fieldPayload["option_definitions"] = new JsonArray(field.OptionDefinitions.Select(static option =>
+                        (JsonNode)new JsonObject
+                        {
+                            ["value"] = option.Value,
+                            ["description"] = option.Description,
+                            ["recommended"] = option.Recommended
+                        }).ToArray());
+                }
+                if (field.Default != null)
+                    fieldPayload["default"] = field.Default;
+                return (JsonNode)fieldPayload;
+            }).ToArray());
+        }
+
+        return payload;
+    }
 
     /// <summary>Returns whether a choice label represents confirmation.</summary>
     public static bool IsAffirmativeConfirmationChoice(string? value) =>
@@ -146,6 +210,17 @@ public static class HumanInputContract
 }
 
 /// <summary>
+/// Rich presentation metadata for one finite human-input option. The value is
+/// both user-visible and the value returned by legacy and rich hosts.
+/// </summary>
+public sealed class HumanInputOptionDef
+{
+    public string Value { get; set; } = "";
+    public string? Description { get; set; }
+    public bool Recommended { get; set; }
+}
+
+/// <summary>
 /// Describes a single field expected from the human.
 /// </summary>
 public sealed class HumanInputFieldDef
@@ -155,6 +230,8 @@ public sealed class HumanInputFieldDef
     public bool Required { get; set; } = true;
     public string? Description { get; set; }
     public List<string>? Options { get; set; }
+    public List<HumanInputOptionDef>? OptionDefinitions { get; set; }
+    public bool AllowCustomAnswer { get; set; }
     public string? Default { get; set; }
 }
 
@@ -183,6 +260,9 @@ public sealed class HumanInputRequest
 
     /// <summary>Optional structured fields for richer forms.</summary>
     public List<HumanInputFieldDef>? Fields { get; set; }
+
+    /// <summary>Whether the host should expose an explicit abandon action.</summary>
+    public bool AllowAbandon { get; set; }
 
     /// <summary>Timeout in milliseconds (0 = no timeout).</summary>
     public int TimeoutMs { get; set; } = HumanInputContract.DefaultTimeoutMs;

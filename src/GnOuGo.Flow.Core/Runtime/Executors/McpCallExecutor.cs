@@ -1268,40 +1268,7 @@ Produce the final answer strictly from the executed MCP results.
     }
 
     private static JsonObject BuildHumanInputRequestPayload(HumanInputRequest request)
-    {
-        var payload = new JsonObject
-        {
-            ["prompt"] = request.Prompt,
-            ["mode"] = request.Mode,
-            ["run_id"] = request.RunId,
-            ["step_id"] = request.StepId,
-            ["timeout_ms"] = request.TimeoutMs
-        };
-        if (request.Context is not null)
-            payload["context"] = request.Context.DeepClone();
-        if (request.Choices is { Count: > 0 })
-            payload["choices"] = new JsonArray(request.Choices.Select(static choice => (JsonNode)JsonValue.Create(choice)!).ToArray());
-        if (request.Fields is { Count: > 0 })
-        {
-            payload["fields"] = new JsonArray(request.Fields.Select(static field =>
-            {
-                var node = new JsonObject
-                {
-                    ["name"] = field.Name,
-                    ["type"] = field.Type,
-                    ["required"] = field.Required
-                };
-                if (field.Description is not null)
-                    node["description"] = field.Description;
-                if (field.Options is { Count: > 0 })
-                    node["options"] = new JsonArray(field.Options.Select(static option => (JsonNode)JsonValue.Create(option)!).ToArray());
-                if (field.Default is not null)
-                    node["default"] = field.Default;
-                return (JsonNode)node;
-            }).ToArray());
-        }
-        return payload;
-    }
+        => HumanInputContract.BuildRequestPayload(request);
 
     private static string BuildProgressFingerprint(string? eventKind, string? message, string? file)
         => string.Join("\u001f", eventKind ?? string.Empty, message ?? string.Empty, file ?? string.Empty);

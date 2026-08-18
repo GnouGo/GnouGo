@@ -142,6 +142,7 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
 
     private sealed record PipelineExtractionQualityDiagnostic(
         string Code,
+        string Kind,
         string Severity,
         string? LeafName,
         string Message,
@@ -1422,7 +1423,8 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
             - Mark planned tools as required when omitting that MCP call would violate the leaf goal.
             - For each relevant MCP tool or prompt, add a structured planned_tools entry with the exact server name, kind, method name, purpose, consumed fields, produced fields, and any locked request_bindings.
             - Treat each locked capability as a separate invocation obligation, even when multiple operations use the same physical tool. Copy supplied operation_id and catalog_id values into operation_ids and catalog_ids for traceability.
-            - request_bindings are JSON Pointer/scalar pairs that must later appear as exact literal values under mcp.call.input.request. Do not omit, merge, or dynamically construct them.
+            - request_bindings are only immutable selector literals explicitly documented by a selected capability contract. They are not ordinary tool arguments. Use an empty array unless the MCP context explicitly supplies a locked JSON Pointer/scalar pair; never put runtime commands, paths, URLs, identifiers, or other dynamic inputs in request_bindings.
+            - Never return an `external_work` or `external_action` leaf with an empty planned_tools array. Select the exact documented capability, or keep the work in main when it is orchestration/glue, or classify it as an algorithmic transform only when it operates exclusively on declared inputs without external calls or state inspection.
             - External-work leaves that clone, read/fetch/query/list external data, write, delete, cleanup, report, post, push, or call outside systems must declare concrete planned_tools when matching MCP tools/prompts are documented above.
             - Do not invent planned tools. Only use MCP servers, tools, and prompts documented in the global MCP tool context.
             - If no MCP tool or prompt is required for a leaf, use an empty planned_tools array.
@@ -1506,6 +1508,8 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
             sb.AppendLine("- Contract-field `properties` are recursive. For every object property, dictionary object value, or object array item named by a validation error, add its own non-empty nested `properties` entries; never stop at `type: object`.");
             sb.AppendLine("- External-work leaves with matching MCP capabilities must include concrete planned_tools entries.");
             sb.AppendLine("- Structured planned_tools must use exact MCP server/tool/prompt names from the global MCP context.");
+            sb.AppendLine("- request_bindings must be empty unless the MCP context explicitly documents the exact selector pointer and literal; normal runtime tool inputs never belong in request_bindings.");
+            sb.AppendLine("- Never leave an external_work/external_action leaf without planned_tools: select an exact documented tool, move orchestration/glue back to main, or make it an input-only algorithmic transform with no external inspection.");
             sb.AppendLine("- Fix low extraction scores by either making the leaf a meaningful external/algorithmic unit with concrete planned_tools/contracts, or moving trivial shaping/orchestration back to the main workflow.");
         }
         sb.AppendLine("- The document must include `## Main workflow orchestration` after the leaf blocks.");
@@ -1678,6 +1682,7 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
         sb.AppendLine("- when extractor prose names a concrete discovered MCP method and selector, planned_tools must contain that literal discovered call or the prose must be removed.");
         sb.AppendLine("- capability names mentioned only inside a prohibition are not calls and must not appear in planned_tools.");
         sb.AppendLine("- only normalized_prompt defines generated-workflow behavior. Agent names, descriptions, persistence identifiers, and configuration supplied by the surrounding host are host metadata, not workflow inputs or obligations, unless normalized_prompt explicitly asks the generated workflow itself to use them.");
+        sb.AppendLine("- classify every diagnostic kind as intent_ambiguity, plan_defect, capability_unavailable, or contract_violation. Use intent_ambiguity only when a user preference or design-time requirement is genuinely missing; never use it for malformed output, invalid identifiers, unavailable tools, schema violations, or decisions driven by future runtime results.");
         sb.AppendLine();
         AppendPromptSection(sb, "normalized_prompt", normalizedMarkdown);
         AppendPromptSection(sb, "mcp_context_json", BuildPipelineMcpContextJson(pipelineMcpContext).ToJsonString(PromptJsonOptions));
@@ -1700,9 +1705,10 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
               "items": {
                 "type": "object",
                 "additionalProperties": false,
-                "required": ["code", "severity", "leaf_name", "message", "recommendation"],
+                "required": ["code", "kind", "severity", "leaf_name", "message", "recommendation"],
                 "properties": {
                   "code": { "type": "string" },
+                  "kind": { "type": "string", "enum": ["intent_ambiguity", "plan_defect", "capability_unavailable", "contract_violation"] },
                   "severity": { "type": "string", "enum": ["info", "warning", "critical"] },
                   "leaf_name": { "type": "string" },
                   "message": { "type": "string" },
@@ -2043,6 +2049,7 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
                 code = "PIPELINE_EXTRACTION_QUALITY_DIAGNOSTIC";
 
             var severity = NormalizeExtractionQualitySeverity(GetStringProperty(diagnostic, "severity"));
+            var kind = NormalizeExtractionQualityDiagnosticKind(GetStringProperty(diagnostic, "kind"));
             var leafName = GetStringProperty(diagnostic, "leaf_name");
             if (string.IsNullOrWhiteSpace(leafName))
                 leafName = null;
@@ -2053,6 +2060,7 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
 
             parsed.Add(new PipelineExtractionQualityDiagnostic(
                 code,
+                kind,
                 severity,
                 leafName,
                 message,
@@ -2578,6 +2586,21 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
         return (annotatedMarkdown, metadata, validationErrors);
     }
 
+    private static string NormalizeExtractionQualityDiagnosticKind(string? kind)
+    {
+        var normalized = kind?.Trim().ToLowerInvariant();
+        return normalized switch
+        {
+            "intent_ambiguity" => "intent_ambiguity",
+            "plan_defect" => "plan_defect",
+            "capability_unavailable" => "capability_unavailable",
+            "contract_violation" => "contract_violation",
+            _ => throw new WorkflowRuntimeException(
+                ErrorCodes.TemplatePlan,
+                $"review_extraction_quality diagnostic kind '{kind}' is invalid.")
+        };
+    }
+
     private static string NormalizeAnnotatedMarkdownContractSections(
         string annotatedMarkdown,
         StructuredPipelineExtractionMetadata metadata)
@@ -2998,7 +3021,9 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
 
             var inputSchemas = MergeStructuredSchemas(spec.InputSchemas, structured?.Inputs);
             var outputSchemas = MergeStructuredSchemas(spec.OutputSchemas, structured?.Outputs);
-            var plannedTools = structured?.PlannedTools ?? Array.Empty<PipelinePlannedTool>();
+            var plannedTools = NormalizeAdvisoryPlannedToolRequestBindings(
+                structured?.PlannedTools ?? Array.Empty<PipelinePlannedTool>(),
+                pipelineMcpContext);
             var workKind = NormalizePipelineWorkKind(structured?.WorkKind) ?? InferPipelineWorkKind(spec);
             var contractRole = NormalizePipelineContractRole(structured?.ContractRole);
             var structuredIntent = string.Join(' ', new[]
@@ -6696,6 +6721,87 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
         return (ParseAndValidateGeneratedWorkflow(promotedYaml), promotedYaml);
     }
 
+    private static IReadOnlyList<PipelinePlannedTool> NormalizeAdvisoryPlannedToolRequestBindings(
+        IReadOnlyList<PipelinePlannedTool> plannedTools,
+        PipelineMcpContext pipelineMcpContext)
+    {
+        List<PipelinePlannedTool>? normalized = null;
+        for (var index = 0; index < plannedTools.Count; index++)
+        {
+            var plannedTool = plannedTools[index];
+            if (plannedTool.RequestBindings.Count == 0)
+                continue;
+
+            var server = pipelineMcpContext.Servers.FirstOrDefault(candidate => string.Equals(
+                candidate.Name,
+                plannedTool.Server,
+                StringComparison.Ordinal));
+            if (server == null
+                || !TryClassifyPlannedToolBindings(
+                    plannedTool,
+                    server,
+                    out var bindingsAreExplicitSelectors)
+                || AlternativeBindingsMatchSchema(
+                        new CapabilityAlternative(
+                            plannedTool.Server,
+                            plannedTool.Kind,
+                            plannedTool.Method,
+                            plannedTool.RequestBindings),
+                        server)
+                || bindingsAreExplicitSelectors)
+            {
+                continue;
+            }
+
+            normalized ??= plannedTools.ToList();
+            normalized[index] = plannedTool with
+            {
+                RequestBindings = Array.Empty<CapabilityRequestBinding>()
+            };
+        }
+
+        return normalized ?? plannedTools;
+    }
+
+    private static bool TryClassifyPlannedToolBindings(
+        PipelinePlannedTool plannedTool,
+        McpServerDiscovery server,
+        out bool bindingsAreExplicitSelectors)
+    {
+        bindingsAreExplicitSelectors = false;
+        if (!string.Equals(plannedTool.Kind, "tool", StringComparison.Ordinal)
+            || server.Tools.FirstOrDefault(candidate => string.Equals(
+                candidate.Name,
+                plannedTool.Method,
+                StringComparison.Ordinal))?.InputSchema is not JsonObject inputSchema)
+        {
+            return false;
+        }
+
+        foreach (var binding in plannedTool.RequestBindings)
+        {
+            JsonObject? schema = inputSchema;
+            foreach (var token in binding.Path.Split('/').Skip(1).Select(DecodeJsonPointerToken))
+            {
+                schema = schema?["properties"]?[token] as JsonObject;
+                if (schema == null)
+                    return false;
+            }
+
+            var documentedValues = ReadDocumentedScalarValues(schema, binding.Path);
+            if (!documentedValues.Any(value => string.Equals(
+                    CanonicalScalar(value),
+                    CanonicalScalar(binding.Value),
+                    StringComparison.Ordinal)))
+            {
+                return true;
+            }
+        }
+
+        bindingsAreExplicitSelectors = true;
+        return true;
+    }
+
     private static (WorkflowDocument Document, string Yaml) PromoteGeneratedDirectSetOutputSchemas(
         WorkflowDocument document,
         string yaml,
@@ -9399,6 +9505,7 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
             diagnostics.Add((JsonNode)new JsonObject
             {
                 ["code"] = diagnostic.Code,
+                ["kind"] = diagnostic.Kind,
                 ["severity"] = diagnostic.Severity,
                 ["leaf_name"] = diagnostic.LeafName ?? "",
                 ["message"] = diagnostic.Message,

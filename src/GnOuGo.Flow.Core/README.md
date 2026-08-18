@@ -758,14 +758,21 @@ choices; the runtime normalizes the first choice to `true` and the second to
         required: true
         description: Your API key
       - name: region
-        type: select
+        type: radio
         options: [us-east, eu-west, ap-south]
+        option_definitions:
+          - { value: us-east, description: "Lowest latency for the primary workload.", recommended: true }
+          - { value: eu-west, description: "Keep processing in the European region.", recommended: false }
+          - { value: ap-south, description: "Keep processing in the Asia-Pacific region.", recommended: false }
+        allow_custom_answer: true
         default: us-east
       - name: max_retries
         type: string
         required: false
         default: "3"
 ```
+
+Rich `option_definitions` preserve the legacy string `options` values while adding descriptions and one optional recommendation marker. `allow_custom_answer: true` asks compatible hosts to render a native Other control. Set form-level `allow_abandon: true` to expose an explicit exit; providers then return `{ "_action": "abandon" }`. Successful rich hosts include `_action: submit`, while existing provider responses without `_action` remain valid.
 
 **Output:** The user's response as a JSON object (e.g., `{ "response": "approve" }` for `choice`, `{ "response": true }` for `confirm`, or `{ "api_key": "...", "region": "eu-west", "max_retries": "3" }` for `form`).
 
@@ -1267,6 +1274,13 @@ requests keep their existing routing unless their caller explicitly opts into ba
   type: workflow.plan
   input:
     mode: auto                    # auto | basic | pipeline | repair
+    raw_prompt: "${data.inputs.request}"
+    intent_clarification:
+      mode: always                # off (default) | when_needed | always
+      timeout_ms: 36000000
+      max_rounds: 2
+      max_questions: 8
+      max_questions_per_round: 5
     capability_preflight:
       mode: infer                 # off (default) | infer | explicit
       clarification:
@@ -1321,6 +1335,16 @@ requests keep their existing routing unless their caller explicitly opts into ba
       max_attempts: 3               # Legacy repair attempt budget when validate.max_repair_attempts is absent
 ```
 
+#### Generic intent clarification
+
+`intent_clarification` is disabled by default. `always` requires an up-front form before discovery or generation unless the structured analyst classifies the request as intrinsically contradictory, unsafe, or impossible to clarify. `when_needed` first permits the analyst to classify an already decision-complete request as `sufficient` without displaying a form.
+
+Each form contains one to `max_questions_per_round` single-choice questions, with two or three mutually exclusive described options. The AI recommendation is first, marked recommended, and preselected, but the user must submit explicitly. Rich hosts add a custom Other answer and an Abandon action. Generated question content follows the raw request language; fixed controls are localized by the host and fall back to English.
+
+The round and question limits are shared by the complete `workflow.plan` run. After the initial form, one remaining round may be used for genuine intent ambiguity discovered after bounded capability or extraction repair. A later answer restarts the complete preflight and planning attempt with a structured clarification envelope. Runtime-dependent outcomes remain conditional workflow branches and are never sent to the human for prediction.
+
+Malformed model contracts, invalid catalog IDs, unavailable capabilities, schema violations, and ordinary generation defects are not clarification-eligible. They retain their normal fail-closed errors. Intent clarification uses `WORKFLOW_PLAN_CLARIFICATION_FAILED` for provider, timeout, response, or analyst-contract failures; `WORKFLOW_PLAN_CANNOT_PLAN_SAFELY` for intrinsic or budget-exhausted ambiguity; and `WORKFLOW_PLAN_ABORTED` for explicit abandonment. Failure metadata contains only stage, classification, counts, reason, and recommended action—not submitted answers.
+
 #### Generic capability preflight
 
 `capability_preflight.mode: infer` discovers every configured MCP catalog and starts by inventorying positive runtime operations and constraints without exposing tools. When `generator.prefilter` is enabled (the default), Flow then pages through a compact one-entry-per-physical-tool catalog to select relevant candidates, adds compatible MCP-declared artifact producers, and only then builds the schema-aware matching catalog. Enum, `const`, nested selector, discriminator, `oneOf`, and `anyOf` variants reference their base physical contract and carry only their exact request bindings. Required unavailable operations fail before classification, decomposition, or YAML generation. Prohibitions, safety rules, ordering requirements, and invariants are constraints rather than executable operations, so abstaining never requires a tool.
@@ -1352,7 +1376,7 @@ complete operation so generated workflows do not start a session they never
 finish or invoke both layers redundantly. Invalid or self-referential metadata
 fails closed.
 
-The matcher computes completeness deterministically and performs at most one repair while retaining valid decisions. When `clarification.enabled` is true and only genuine user-intent ambiguity remains, Flow presents one form with a required question for every unresolved issue plus outcome/scope, runtime-decision rules, external-effect boundaries, success criteria, and failure policy. It then reruns the complete inventory and matching sequence once against the already discovered catalogs. Missing providers, timeouts, incomplete forms, malformed contracts, unavailable tools, or ambiguity after that retry fail closed; raw answers are not written to telemetry. Flow never asks the user to predict a runtime-dependent branch. Failure details classify the result as `cannot_plan_safely` or `unsupported` and recommend clarification/abandonment or capability configuration/request revision. Confirmed required omissions use `CAPABILITY_PREFLIGHT_UNAVAILABLE`; malformed, unknown-ID, or unresolved ambiguous decisions use `CAPABILITY_PREFLIGHT_INFERENCE_FAILED`. Both expose bounded, sanitized matching diagnostics. Unless unattended execution was explicitly requested, inferred generation deterministically adds a required `human_interaction` operation and ordering constraint before the first external write; this safety gate is no longer optional prompt guidance. Conditional and ordering constraints remain policy-only because an exact denied capability would incorrectly ban its valid post-gate use.
+The matcher computes completeness deterministically and performs at most one repair while retaining valid decisions. When the top-level intent clarification session is active and only genuine user-intent ambiguity remains, it may spend its remaining shared form budget and then restart complete discovery, inventory, matching, and generation. The legacy `capability_preflight.clarification.enabled` contract remains available when top-level clarification is off; it presents the existing capability-only form and reruns complete inference once. Missing providers, timeouts, incomplete forms, malformed contracts, unavailable tools, or ambiguity after the applicable retry fail closed. Flow never asks the user to predict a runtime-dependent branch. Confirmed required omissions use `CAPABILITY_PREFLIGHT_UNAVAILABLE`; malformed, unknown-ID, or unresolved ambiguous decisions use `CAPABILITY_PREFLIGHT_INFERENCE_FAILED`. Both expose bounded, sanitized matching diagnostics. Unless unattended execution was explicitly requested, inferred generation deterministically adds a required `human_interaction` operation and ordering constraint before the first external write; this safety gate is no longer optional prompt guidance. Conditional and ordering constraints remain policy-only because an exact denied capability would incorrectly ban its valid post-gate use.
 
 Ordinary `workflow.plan` callers remain compatible because the default is `off`. `explicit` mode performs the same deterministic validation without an inference call:
 

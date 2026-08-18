@@ -217,18 +217,68 @@ public sealed class LiveIntentAgentGenerationTests
         await foreach (var request in humanInput.PendingRequests.ReadAllAsync(ct))
         {
             JsonNode response = request.StepId.EndsWith("input_name", StringComparison.Ordinal)
-                ? new JsonObject { ["agent_name"] = agentName }
+                ? new JsonObject
+                {
+                    ["agent_name"] = agentName,
+                    [HumanInputContract.ActionProperty] = HumanInputContract.ActionSubmit
+                }
                 : request.StepId.EndsWith("input_prompt", StringComparison.Ordinal)
-                    ? new JsonObject { ["description"] = AcceptancePrompt }
-                    : request.StepId.Contains(":capability_clarification:", StringComparison.Ordinal)
+                    ? new JsonObject
+                    {
+                        ["description"] = AcceptancePrompt,
+                        [HumanInputContract.ActionProperty] = HumanInputContract.ActionSubmit
+                    }
+                    : request.StepId.Contains(":intent_clarification:", StringComparison.Ordinal)
+                        ? BuildIntentClarificationResponse(request)
+                        : request.StepId.Contains(":capability_clarification:", StringComparison.Ordinal)
                         ? BuildCapabilityClarificationResponse(request)
                     : request.StepId.EndsWith("review_workflow", StringComparison.Ordinal)
-                        ? new JsonObject { ["response"] = "approve" }
+                        ? new JsonObject
+                        {
+                            ["response"] = "approve",
+                            [HumanInputContract.ActionProperty] = HumanInputContract.ActionSubmit
+                        }
                         : throw new InvalidOperationException($"Unexpected agent-generation human input step '{request.StepId}'.");
             Assert.True(humanInput.TrySubmitResponse(request.RunId, request.StepId, response));
             if (request.StepId.EndsWith("review_workflow", StringComparison.Ordinal))
                 return;
         }
+    }
+
+    private static JsonObject BuildIntentClarificationResponse(HumanInputRequest request)
+    {
+        Assert.Equal(HumanInputContract.ModeForm, request.Mode);
+        Assert.True(request.AllowAbandon);
+        Assert.InRange(request.Fields?.Count ?? 0, 1, 5);
+        var response = new JsonObject
+        {
+            [HumanInputContract.ActionProperty] = HumanInputContract.ActionSubmit
+        };
+        var usedCustomAnswer = false;
+        foreach (var field in request.Fields!)
+        {
+            Assert.True(field.Required);
+            Assert.Equal("radio", field.Type);
+            Assert.True(field.AllowCustomAnswer);
+            Assert.InRange(field.Options?.Count ?? 0, 2, 3);
+            Assert.Equal(field.Options![0], field.Default);
+            Assert.Equal(field.Options.Count, field.OptionDefinitions?.Count);
+            Assert.True(field.OptionDefinitions![0].Recommended);
+            Assert.False(string.IsNullOrWhiteSpace(field.OptionDefinitions[0].Description));
+            Assert.All(field.OptionDefinitions.Skip(1), static option => Assert.False(option.Recommended));
+
+            if (!usedCustomAnswer)
+            {
+                response[field.Name] = "The complete review operation is intended. Approval versus request-changes is decided only at runtime from restoration, tests, lint, changed-code coverage, and blocking findings; execute exactly one matching publication branch.";
+                usedCustomAnswer = true;
+            }
+            else
+            {
+                response[field.Name] = field.Default;
+            }
+        }
+        Assert.True(usedCustomAnswer);
+        return response;
     }
 
     private static JsonObject BuildCapabilityClarificationResponse(HumanInputRequest request)
@@ -239,7 +289,10 @@ public sealed class LiveIntentAgentGenerationTests
         Assert.All(fields, static field => Assert.True(field.Required));
         Assert.Equal(fields.Count, fields.Select(static field => field.Name).Distinct(StringComparer.Ordinal).Count());
         Assert.NotNull(request.Context);
-        var response = new JsonObject();
+        var response = new JsonObject
+        {
+            [HumanInputContract.ActionProperty] = HumanInputContract.ActionSubmit
+        };
         foreach (var field in fields)
         {
             response[field.Name] = field.Name switch

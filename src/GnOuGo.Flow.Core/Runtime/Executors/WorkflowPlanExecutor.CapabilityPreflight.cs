@@ -88,6 +88,7 @@ public sealed partial class WorkflowPlanExecutor
     private async Task<CapabilityPreflightResult> RunCapabilityPreflightAsync(
         StepExecutionContext ctx,
         JsonObject input,
+        IntentClarificationSession? intentClarification,
         CancellationToken ct)
     {
         var preflight = input["capability_preflight"] as JsonObject;
@@ -172,6 +173,7 @@ public sealed partial class WorkflowPlanExecutor
                     generatorContext,
                     discovered,
                     span.Span,
+                    intentClarification,
                     ct);
             }
 
@@ -194,6 +196,11 @@ public sealed partial class WorkflowPlanExecutor
         }
         catch (OperationCanceledException)
         {
+            throw;
+        }
+        catch (WorkflowPlanClarificationRestartException)
+        {
+            span.Complete();
             throw;
         }
         catch (WorkflowRuntimeException ex)
@@ -429,6 +436,7 @@ public sealed partial class WorkflowPlanExecutor
         string generatorContext,
         IReadOnlyList<McpServerDiscovery> discovered,
         ITelemetrySpan? parentSpan,
+        IntentClarificationSession? intentClarification,
         CancellationToken ct,
         bool clarificationAllowed = true)
     {
@@ -525,6 +533,21 @@ public sealed partial class WorkflowPlanExecutor
                 if (!inventory.Complete)
                 {
                     if (clarificationAllowed
+                        && intentClarification != null
+                        && IsInventoryClarificationEligible(inventory))
+                    {
+                        await RequestReactiveIntentClarificationAsync(
+                            ctx,
+                            input,
+                            intentClarification,
+                            "capability_inventory",
+                            BuildCapabilityClarificationContext(inventory, evaluation: null, catalog: null),
+                            ct);
+                        throw new WorkflowPlanClarificationRestartException();
+                    }
+
+                    if (clarificationAllowed
+                        && intentClarification == null
                         && IsInventoryClarificationEligible(inventory)
                         && ParseCapabilityClarificationConfig(input["capability_preflight"] as JsonObject).Enabled)
                     {
@@ -545,6 +568,7 @@ public sealed partial class WorkflowPlanExecutor
                             generatorContext,
                             discovered,
                             parentSpan,
+                            intentClarification,
                             ct,
                             clarificationAllowed: false);
                     }
@@ -658,6 +682,21 @@ public sealed partial class WorkflowPlanExecutor
             }
 
             if (clarificationAllowed
+                && intentClarification != null
+                && IsMatchingClarificationEligible(evaluation))
+            {
+                await RequestReactiveIntentClarificationAsync(
+                    ctx,
+                    input,
+                    intentClarification,
+                    "capability_matching",
+                    BuildCapabilityClarificationContext(inventory, evaluation, catalog),
+                    ct);
+                throw new WorkflowPlanClarificationRestartException();
+            }
+
+            if (clarificationAllowed
+                && intentClarification == null
                 && IsMatchingClarificationEligible(evaluation)
                 && ParseCapabilityClarificationConfig(input["capability_preflight"] as JsonObject).Enabled)
             {
@@ -678,6 +717,7 @@ public sealed partial class WorkflowPlanExecutor
                     generatorContext,
                     discovered,
                     parentSpan,
+                    intentClarification,
                     ct,
                     clarificationAllowed: false);
             }
@@ -690,6 +730,11 @@ public sealed partial class WorkflowPlanExecutor
         }
         catch (OperationCanceledException)
         {
+            throw;
+        }
+        catch (WorkflowPlanClarificationRestartException)
+        {
+            inferenceSpan.Complete();
             throw;
         }
         catch (WorkflowRuntimeException ex)
@@ -1217,25 +1262,11 @@ public sealed partial class WorkflowPlanExecutor
                 Required = true,
                 Description = question.Description
             }).ToList(),
-            TimeoutMs = config.TimeoutMs
+            TimeoutMs = config.TimeoutMs,
+            AllowAbandon = true
         };
 
-        var requestPayload = new JsonObject
-        {
-            ["prompt"] = request.Prompt,
-            ["mode"] = request.Mode,
-            ["run_id"] = request.RunId,
-            ["step_id"] = request.StepId,
-            ["timeout_ms"] = request.TimeoutMs,
-            ["context"] = request.Context?.DeepClone(),
-            ["fields"] = new JsonArray(request.Fields.Select(static field => (JsonNode)new JsonObject
-            {
-                ["name"] = field.Name,
-                ["type"] = field.Type,
-                ["required"] = field.Required,
-                ["description"] = field.Description
-            }).ToArray())
-        };
+        var requestPayload = HumanInputContract.BuildRequestPayload(request);
         ctx.AddTelemetryEvent("gnougo-flow.step.waiting_for_human", new[]
         {
             new KeyValuePair<string, object?>("gnougo-flow.human.prompt", request.Prompt),
@@ -1266,6 +1297,19 @@ public sealed partial class WorkflowPlanExecutor
                 "clarification_provider_failed",
                 "Capability clarification failed closed because the human-input provider returned an error.",
                 ex);
+        }
+
+        if (HumanInputContract.IsAbandoned(response))
+        {
+            throw new WorkflowRuntimeException(
+                ErrorCodes.WorkflowPlanAborted,
+                "Workflow planning was explicitly abandoned by the user.",
+                details: new JsonObject
+                {
+                    ["planning_outcome"] = "aborted",
+                    ["clarification_stage"] = "capability_preflight",
+                    ["recommended_action"] = "none"
+                });
         }
 
         if (response is not JsonObject responseObject)
@@ -4343,6 +4387,10 @@ public sealed partial class WorkflowPlanExecutor
             if (!localOnlySpecIndices.Contains(index)
                 && !DeclaresNoExternalCalls(BuildPipelineSpecIntentText(specs[index])))
                 AddExplicitDiscoveredCapabilityMentions(specs[index], tools[index], pipelineMcpContext);
+            tools[index] = NormalizeAdvisoryPlannedToolRequestBindings(
+                    tools[index],
+                    pipelineMcpContext)
+                .ToList();
             RemoveEncapsulatedUnlockedToolPlans(
                 tools[index],
                 preflight.RequiredMcpCapabilities,

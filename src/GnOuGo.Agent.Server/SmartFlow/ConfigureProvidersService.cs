@@ -2188,27 +2188,7 @@ public sealed class ConfigureProvidersService
     }
 
     private static JsonNode BuildHumanInputPayload(HumanInputRequest request)
-        => new JsonObject
-        {
-            ["prompt"] = request.Prompt,
-            ["mode"] = request.Mode,
-            ["run_id"] = request.RunId,
-            ["step_id"] = request.StepId,
-            ["timeout_ms"] = request.TimeoutMs,
-            ["context"] = request.Context?.DeepClone(),
-            ["choices"] = request.Choices is null ? null : new JsonArray(request.Choices.Select(choice => (JsonNode?)JsonValue.Create(choice)).ToArray()),
-            ["fields"] = request.Fields is null
-                ? null
-                : new JsonArray(request.Fields.Select(field => new JsonObject
-                {
-                    ["name"] = field.Name,
-                    ["type"] = field.Type,
-                    ["required"] = field.Required,
-                    ["description"] = field.Description,
-                    ["default"] = field.Default,
-                    ["options"] = field.Options is null ? null : new JsonArray(field.Options.Select(option => (JsonNode?)JsonValue.Create(option)).ToArray())
-                }).ToArray())
-        };
+        => HumanInputContract.BuildRequestPayload(request);
 
     private static string? ReadChoiceResponse(JsonNode? response)
         => response?["response"]?.GetValue<string>();

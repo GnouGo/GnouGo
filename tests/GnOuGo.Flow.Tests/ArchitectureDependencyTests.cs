@@ -36,6 +36,34 @@ public sealed class ArchitectureDependencyTests
         Assert.Empty(forbiddenAssemblyReferences);
     }
 
+    [Fact]
+    public void WorkflowPlanner_DoesNotEmbedKnownProviderOrUseCaseIdentifiers()
+    {
+        var repositoryRoot = FindRepositoryRoot();
+        var executorDirectory = Path.Combine(
+            repositoryRoot,
+            "src",
+            "GnOuGo.Flow.Core",
+            "Runtime",
+            "Executors");
+        var plannerSource = string.Join(
+            '\n',
+            Directory.EnumerateFiles(executorDirectory, "WorkflowPlanExecutor*.cs")
+                .Order(StringComparer.Ordinal)
+                .Select(File.ReadAllText));
+
+        var forbiddenIdentifiers = new[]
+        {
+            "copilot_review",
+            "GithubCopilot",
+            "pull_request_read",
+            "pull_request_review_write",
+            "cap_000"
+        };
+        foreach (var identifier in forbiddenIdentifiers)
+            Assert.DoesNotContain(identifier, plannerSource, StringComparison.OrdinalIgnoreCase);
+    }
+
     private static string FindRepositoryRoot()
     {
         for (var directory = new DirectoryInfo(AppContext.BaseDirectory);
