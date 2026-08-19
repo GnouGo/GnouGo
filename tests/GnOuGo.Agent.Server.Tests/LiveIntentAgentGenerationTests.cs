@@ -247,6 +247,7 @@ public sealed class LiveIntentAgentGenerationTests
 
     private static JsonObject BuildIntentClarificationResponse(HumanInputRequest request)
     {
+        const string completeIntent = "Treat environment preparation and check execution as an observable effect distinct from changed-code review. Perform the changed-code review as one complete action, without exposing its internal start, batch, or finish phases. Inputs are one pull-request URL and review instructions. Use one disposable checkout and never push changes. Return typed preparation, test, lint, coverage, findings, runtime APPROVE or REQUEST_CHANGES, and justification results. Publish only high-confidence findings with valid anchors after one human confirmation, submit one matching runtime decision, fail closed on unresolved evidence, and always clean workflow-created directories.";
         Assert.Equal(HumanInputContract.ModeForm, request.Mode);
         Assert.True(request.AllowAbandon);
         Assert.InRange(request.Fields?.Count ?? 0, 1, 5);
@@ -255,8 +256,26 @@ public sealed class LiveIntentAgentGenerationTests
             [HumanInputContract.ActionProperty] = HumanInputContract.ActionSubmit
         };
         var usedCustomAnswer = false;
-        foreach (var field in request.Fields!)
+        var usedRecommendedAnswer = false;
+        var customFieldIndex = request.Fields!.Count > 1
+            ? Enumerable.Range(0, request.Fields.Count)
+            .Select(index => new
+            {
+                Index = index,
+                Text = $"{request.Fields[index].Description} {request.Fields[index].Default}".ToLowerInvariant()
+            })
+            .OrderByDescending(static candidate =>
+                (candidate.Text.Contains("review", StringComparison.Ordinal) ? 8 : 0)
+                + (candidate.Text.Contains("analysis", StringComparison.Ordinal) ? 7 : 0)
+                + (candidate.Text.Contains("scope", StringComparison.Ordinal) ? 5 : 0)
+                + (candidate.Text.Contains("operation", StringComparison.Ordinal) ? 4 : 0)
+                + (candidate.Text.Contains("policy", StringComparison.Ordinal) ? 3 : 0))
+            .ThenBy(static candidate => candidate.Index)
+            .First().Index
+            : -1;
+        for (var fieldIndex = 0; fieldIndex < request.Fields!.Count; fieldIndex++)
         {
+            var field = request.Fields[fieldIndex];
             Assert.True(field.Required);
             Assert.Equal("radio", field.Type);
             Assert.True(field.AllowCustomAnswer);
@@ -267,17 +286,20 @@ public sealed class LiveIntentAgentGenerationTests
             Assert.False(string.IsNullOrWhiteSpace(field.OptionDefinitions[0].Description));
             Assert.All(field.OptionDefinitions.Skip(1), static option => Assert.False(option.Recommended));
 
-            if (!usedCustomAnswer)
+            if (fieldIndex == customFieldIndex)
             {
-                response[field.Name] = "The complete review operation is intended. Approval versus request-changes is decided only at runtime from restoration, tests, lint, changed-code coverage, and blocking findings; execute exactly one matching publication branch.";
+                response[field.Name] = completeIntent;
                 usedCustomAnswer = true;
             }
             else
             {
                 response[field.Name] = field.Default;
+                usedRecommendedAnswer = true;
             }
         }
-        Assert.True(usedCustomAnswer);
+        if (request.Fields.Count > 1)
+            Assert.True(usedCustomAnswer);
+        Assert.True(usedRecommendedAnswer);
         return response;
     }
 

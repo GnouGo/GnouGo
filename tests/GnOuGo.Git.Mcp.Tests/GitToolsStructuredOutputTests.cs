@@ -76,9 +76,15 @@ public sealed class GitToolsStructuredOutputTests
                 string.Equals(parameter.Name, "projectRoot", StringComparison.Ordinal)))
             .ToArray();
         Assert.NotEmpty(consumers);
-        Assert.All(consumers, method => AssertArtifactMetadata(
-            method,
-            McpArtifactContractMetadata.WorkspaceDirectoryConsumerProjectRootJson));
+        Assert.All(consumers, method => AssertWorkspaceConsumer(method));
+
+        var compare = Assert.Single(consumers, method =>
+            string.Equals(method.GetCustomAttribute<McpServerToolAttribute>()!.Name, "git_compare_refs", StringComparison.Ordinal));
+        var compareMetadata = ReadArtifactMetadata(compare);
+        var produced = Assert.Single(Assert.IsType<JsonArray>(compareMetadata["produces"]));
+        Assert.Equal(McpArtifactContractMetadata.RevisionComparisonFilesKind, produced!["kind"]!.GetValue<string>());
+        Assert.Equal("/filesJson", produced["pointer"]!.GetValue<string>());
+        Assert.Equal(McpArtifactContractMetadata.MaterializeMode, produced["mode"]!.GetValue<string>());
     }
 
     private static void AssertArtifactMetadata(MethodInfo method, string expectedGnougoJson)
@@ -86,5 +92,24 @@ public sealed class GitToolsStructuredOutputTests
         var attribute = Assert.Single(method.GetCustomAttributes<McpMetaAttribute>());
         Assert.Equal(McpArtifactContractMetadata.MetaPropertyName, attribute.Name);
         Assert.True(JsonNode.DeepEquals(JsonNode.Parse(expectedGnougoJson), JsonNode.Parse(attribute.JsonValue!)));
+    }
+
+    private static void AssertWorkspaceConsumer(MethodInfo method)
+    {
+        var artifacts = ReadArtifactMetadata(method);
+        Assert.Contains(
+            Assert.IsType<JsonArray>(artifacts["consumes"]),
+            item => item is JsonObject consume
+                    && consume["kind"]?.GetValue<string>() == McpArtifactContractMetadata.WorkspaceDirectoryKind
+                    && consume["pointer"]?.GetValue<string>() == "/projectRoot"
+                    && consume["required"]?.GetValue<bool>() == true);
+    }
+
+    private static JsonObject ReadArtifactMetadata(MethodInfo method)
+    {
+        var attribute = Assert.Single(method.GetCustomAttributes<McpMetaAttribute>());
+        Assert.Equal(McpArtifactContractMetadata.MetaPropertyName, attribute.Name);
+        var gnougo = Assert.IsType<JsonObject>(JsonNode.Parse(attribute.JsonValue!));
+        return Assert.IsType<JsonObject>(gnougo[McpArtifactContractMetadata.ArtifactsPropertyName]);
     }
 }

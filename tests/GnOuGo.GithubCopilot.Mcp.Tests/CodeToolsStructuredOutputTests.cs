@@ -92,11 +92,14 @@ public sealed class CodeToolsStructuredOutputTests : IDisposable
             var attribute = Assert.Single(method.GetCustomAttributes<McpMetaAttribute>());
             Assert.Equal(McpArtifactContractMetadata.MetaPropertyName, attribute.Name);
             var advertised = Assert.IsType<JsonObject>(JsonNode.Parse(attribute.JsonValue!));
-            var expected = Assert.IsType<JsonObject>(JsonNode.Parse(
-                McpArtifactContractMetadata.WorkspaceDirectoryConsumerProjectRootJson));
-            Assert.True(JsonNode.DeepEquals(
-                expected[McpArtifactContractMetadata.ArtifactsPropertyName],
-                advertised[McpArtifactContractMetadata.ArtifactsPropertyName]), method.Name);
+            var artifacts = Assert.IsType<JsonObject>(
+                advertised[McpArtifactContractMetadata.ArtifactsPropertyName]);
+            Assert.Contains(
+                Assert.IsType<JsonArray>(artifacts["consumes"]),
+                item => item is JsonObject consume
+                        && consume["kind"]?.GetValue<string>() == McpArtifactContractMetadata.WorkspaceDirectoryKind
+                        && consume["pointer"]?.GetValue<string>() == "/projectRoot"
+                        && consume["required"]?.GetValue<bool>() == true);
 
             var description = method.GetParameters()
                 .Single(parameter => string.Equals(parameter.Name, "projectRoot", StringComparison.Ordinal))
@@ -117,6 +120,19 @@ public sealed class CodeToolsStructuredOutputTests : IDisposable
         Assert.Equal(
             ["copilot_review_start", "copilot_review_analyze_batch", "copilot_review_finish"],
             validation.Contract.Encapsulates.Select(static capability => capability.Method).ToArray());
+        var artifactMetadata = Assert.IsType<JsonObject>(
+            review.ProtocolTool.Meta?[McpArtifactContractMetadata.MetaPropertyName]?[McpArtifactContractMetadata.ArtifactsPropertyName]);
+        Assert.Contains(
+            Assert.IsType<JsonArray>(artifactMetadata["consumes"]),
+            item => item is JsonObject consume
+                    && consume["kind"]?.GetValue<string>() == McpArtifactContractMetadata.RevisionComparisonFilesKind
+                    && consume["pointer"]?.GetValue<string>() == "/filesJson"
+                    && consume["required"]?.GetValue<bool>() == true);
+        var artifactValidation = McpArtifactContractParser.ParseAndValidate(
+            review.ProtocolTool.Meta,
+            JsonNode.Parse(review.ProtocolTool.InputSchema.GetRawText()),
+            JsonNode.Parse(review.ProtocolTool.OutputSchema!.Value.GetRawText()));
+        Assert.True(artifactValidation.IsValid, string.Join(Environment.NewLine, artifactValidation.Errors));
     }
 
     [Fact]

@@ -221,34 +221,29 @@ public sealed partial class WorkflowPlanExecutor
             config,
             rawRequest,
             generator["context"]?.GetValue<string>() ?? string.Empty);
-        var stage = "up_front";
         var requireQuestions = string.Equals(config.Mode, "always", StringComparison.Ordinal);
+        const string stage = "up_front";
+        var assessment = await AnalyzeIntentClarificationAsync(
+            ctx,
+            input,
+            session,
+            stage,
+            issueContext: null,
+            requireQuestions,
+            ct);
 
-        while (true)
-        {
-            var assessment = await AnalyzeIntentClarificationAsync(
-                ctx,
-                input,
+        if (assessment.Outcome == "sufficient")
+            return session;
+        if (assessment.Outcome == "cannot_plan_safely")
+            throw BuildCannotPlanSafely(session, stage, assessment.Reason);
+        if (!session.CanAsk(assessment.Questions.Count))
+            throw BuildCannotPlanSafely(
                 session,
                 stage,
-                issueContext: null,
-                requireQuestions,
-                ct);
-            requireQuestions = false;
+                "The request still needs clarification, but the configured clarification budget is exhausted.");
 
-            if (assessment.Outcome == "sufficient")
-                return session;
-            if (assessment.Outcome == "cannot_plan_safely")
-                throw BuildCannotPlanSafely(session, stage, assessment.Reason);
-            if (!session.CanAsk(assessment.Questions.Count))
-                throw BuildCannotPlanSafely(
-                    session,
-                    stage,
-                    "The request still needs clarification, but the configured clarification budget is exhausted.");
-
-            await RequestIntentClarificationFormAsync(ctx, session, stage, assessment, ct);
-            stage = "post_answer";
-        }
+        await RequestIntentClarificationFormAsync(ctx, session, stage, assessment, ct);
+        return session;
     }
 
     private async Task RequestReactiveIntentClarificationAsync(
@@ -387,6 +382,7 @@ public sealed partial class WorkflowPlanExecutor
         sb.AppendLine("Never ask for MCP server names, tool names, catalog identifiers, implementation details discoverable from contracts, repair of malformed model output, or a decision whose value will only be known while the workflow runs.");
         sb.AppendLine("For runtime-dependent behavior, preserve the decision rule and future data source; do not ask the human to predict the future result.");
         sb.AppendLine("Each question must have two or three mutually exclusive proposed answers. Put the best AI recommendation first, mark only it recommended, and explain the impact of every answer.");
+        sb.AppendLine("Question ids must be unique lower-snake-case identifiers and must not reuse an id already present in clarification_answers_json.");
         sb.AppendLine("Do not add an Other option; the host adds a native custom-answer control.");
         sb.AppendLine("Write question and option content in the same language as the raw request. Fall back to English only if its language cannot be determined.");
         sb.AppendLine($"This form may contain at most {session.CurrentRoundQuestionLimit} questions. There are {session.RemainingRounds} form round(s) and {session.RemainingQuestions} question(s) left in the shared budget.");
@@ -507,11 +503,9 @@ public sealed partial class WorkflowPlanExecutor
             if (questionNode is not JsonObject questionObject)
                 throw new InvalidOperationException("Every intent clarification question must be an object.");
             var id = questionObject["id"]?.GetValue<string>()?.Trim() ?? string.Empty;
-            if (!Regex.IsMatch(id, "^[a-z][a-z0-9_]{0,63}$", RegexOptions.CultureInvariant)
-                || !knownIds.Add(id))
-            {
-                throw new InvalidOperationException("Intent clarification question ids must be unique lower-snake-case identifiers.");
-            }
+            if (!Regex.IsMatch(id, "^[a-z][a-z0-9_]{0,63}$", RegexOptions.CultureInvariant))
+                throw new InvalidOperationException("Intent clarification question ids must be lower-snake-case identifiers.");
+            id = EnsureUniqueIntentClarificationQuestionId(id, knownIds);
             var prompt = questionObject["prompt"]?.GetValue<string>()?.Trim() ?? string.Empty;
             if (prompt.Length is < 1 or > 1_000)
                 throw new InvalidOperationException($"Intent clarification question '{id}' requires a prompt of at most 1000 characters.");
@@ -539,6 +533,25 @@ public sealed partial class WorkflowPlanExecutor
         }
 
         return new IntentClarificationAssessment(outcome, reason, questions);
+    }
+
+    private static string EnsureUniqueIntentClarificationQuestionId(
+        string proposedId,
+        HashSet<string> knownIds)
+    {
+        if (knownIds.Add(proposedId))
+            return proposedId;
+
+        for (var suffix = 2; suffix < int.MaxValue; suffix++)
+        {
+            var suffixText = $"_{suffix}";
+            var prefixLength = Math.Min(proposedId.Length, 64 - suffixText.Length);
+            var candidate = proposedId[..prefixLength] + suffixText;
+            if (knownIds.Add(candidate))
+                return candidate;
+        }
+
+        throw new InvalidOperationException("Intent clarification could not allocate a unique question id.");
     }
 
     private static async Task RequestIntentClarificationFormAsync(
@@ -757,13 +770,37 @@ public sealed partial class WorkflowPlanExecutor
                           ["planning_outcome"] = "clarification_failed",
                           ["clarification_stage"] = stage,
                           ["recommended_action"] = "retry_or_refine_request"
-                      };
+        };
         details["classification"] = classification;
+        if (inner is not null)
+            details["reason"] = BuildSafeIntentClarificationFailureReason(inner);
         return new WorkflowRuntimeException(
             ErrorCodes.WorkflowPlanClarificationFailed,
             message,
             inner: inner,
             details: details);
+    }
+
+    private static string BuildSafeIntentClarificationFailureReason(Exception exception)
+    {
+        for (Exception? current = exception; current is not null; current = current.InnerException)
+        {
+            if (current is System.Text.Json.JsonException)
+                return "The clarification analyst returned invalid JSON.";
+
+            var message = current.Message.Trim();
+            if (message.StartsWith("Intent clarification", StringComparison.Ordinal)
+                || message.StartsWith("Every intent clarification", StringComparison.Ordinal)
+                || message.StartsWith("Only the questions outcome", StringComparison.Ordinal)
+                || message.StartsWith("This clarification stage", StringComparison.Ordinal)
+                || message.StartsWith("cannot_plan_safely", StringComparison.Ordinal)
+                || message.StartsWith("Capability intent clarification", StringComparison.Ordinal))
+            {
+                return TruncateIntentClarificationText(message, 2_000);
+            }
+        }
+
+        return "The clarification analyst did not satisfy the validated structured-output contract.";
     }
 
     private static WorkflowRuntimeException BuildCannotPlanSafely(

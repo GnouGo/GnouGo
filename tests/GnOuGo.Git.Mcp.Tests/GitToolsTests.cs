@@ -1,6 +1,8 @@
 ﻿using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
+using GnOuGo.Mcp.Core;
+using System.Text.Json.Nodes;
 using ModelContextProtocol.Protocol;
 using ModelContextProtocol.Server;
 using Xunit;
@@ -98,6 +100,13 @@ public sealed class GitToolsTests : IDisposable
 
         Assert.NotEmpty(tools);
         Assert.All(tools, tool => Assert.NotNull(tool.ProtocolTool.OutputSchema));
+        var compare = Assert.Single(tools, static tool =>
+            string.Equals(tool.ProtocolTool.Name, "git_compare_refs", StringComparison.Ordinal));
+        var artifactValidation = McpArtifactContractParser.ParseAndValidate(
+            compare.ProtocolTool.Meta,
+            JsonNode.Parse(compare.ProtocolTool.InputSchema.GetRawText()),
+            JsonNode.Parse(compare.ProtocolTool.OutputSchema!.Value.GetRawText()));
+        Assert.True(artifactValidation.IsValid, string.Join(Environment.NewLine, artifactValidation.Errors));
     }
 
     private GitServerSettings CreateSettings() => new()

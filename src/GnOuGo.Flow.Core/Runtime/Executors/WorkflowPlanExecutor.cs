@@ -668,6 +668,7 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
             {
                 var yaml = NormalizeGeneratedSwitchDefaultStepLists(
                     StripMarkdownFences(response.Text ?? string.Empty));
+                yaml = NormalizeGeneratedSetOutputSchemas(yaml);
                 if (string.IsNullOrWhiteSpace(pipelineLeafName) && surgicalRepair is null)
                     yaml = PruneWeakNestedOutputProperties(yaml);
                 else if (!string.IsNullOrWhiteSpace(pipelineLeafName))
@@ -694,6 +695,11 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
                                 generatedDoc,
                                 yaml,
                                 validationDiscovered);
+                            (generatedDoc, yaml) = PromoteGeneratedDirectSetOutputSchemas(
+                                generatedDoc,
+                                yaml,
+                                validationDiscovered,
+                                ctx.Engine.Registry);
                             (generatedDoc, yaml) = PromoteGeneratedDirectOutputSchemas(
                                 generatedDoc,
                                 yaml,

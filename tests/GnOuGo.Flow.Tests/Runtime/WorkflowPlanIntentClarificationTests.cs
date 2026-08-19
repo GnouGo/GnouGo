@@ -187,7 +187,7 @@ public sealed class WorkflowPlanIntentClarificationTests
     }
 
     [Fact]
-    public async Task AlwaysMode_TwoFormsShareEightQuestionBudget()
+    public async Task AlwaysMode_InitialPhaseReservesFollowUpBudget()
     {
         var human = new RecordingHumanInputProvider();
         var clarificationCalls = 0;
@@ -197,19 +197,37 @@ public sealed class WorkflowPlanIntentClarificationTests
                 return new LLMResponse { Text = ValidGeneratedWorkflow };
 
             clarificationCalls++;
-            return clarificationCalls switch
-            {
-                1 => QuestionsAssessment("Clarify the primary intent.", 5, "primary"),
-                2 => QuestionsAssessment("Clarify the remaining intent.", 3, "follow_up"),
-                _ => Assessment("sufficient", "The request is decision-complete.")
-            };
+            return QuestionsAssessment("Clarify the primary intent.", 5, "primary");
         });
 
         var result = await ExecuteAsync("always", llm, human, cancellationToken: TestContext.Current.CancellationToken);
 
         Assert.True(result.Success, result.Error?.Message);
-        Assert.Equal(2, human.Requests.Count);
-        Assert.Equal(8, human.Requests.Sum(static request => request.Fields!.Count));
+        Assert.Single(human.Requests);
+        Assert.Equal(5, human.Requests[0].Fields!.Count);
+        Assert.Equal(1, clarificationCalls);
+    }
+
+    [Fact]
+    public async Task AlwaysMode_ReusedQuestionIdIsDisambiguatedWithinForm()
+    {
+        var human = new RecordingHumanInputProvider();
+        var llm = CreateLlm(request =>
+        {
+            if (!IsClarificationRequest(request))
+                return new LLMResponse { Text = ValidGeneratedWorkflow };
+
+            var response = QuestionsAssessment("Clarify the primary intent.", 2, "scope");
+            response.Json!["questions"]![1]!["id"] = "scope_1";
+            return response;
+        });
+
+        var result = await ExecuteAsync("always", llm, human, cancellationToken: TestContext.Current.CancellationToken);
+
+        Assert.True(result.Success, result.Error?.Message);
+        var fields = Assert.Single(human.Requests).Fields!;
+        Assert.Equal("scope_1", fields[0].Name);
+        Assert.Equal("scope_1_2", fields[1].Name);
     }
 
     [Fact]
@@ -229,6 +247,9 @@ public sealed class WorkflowPlanIntentClarificationTests
 
         Assert.False(result.Success);
         Assert.Equal(ErrorCodes.WorkflowPlanClarificationFailed, result.Error!.Code);
+        Assert.Equal(
+            "The clarification analyst returned invalid JSON.",
+            result.Error.Details!["reason"]!.GetValue<string>());
         Assert.Equal(2, calls);
         Assert.Empty(human.Requests);
     }

@@ -171,6 +171,7 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
         sb.AppendLine("- Emit booleans and numbers as unquoted YAML scalars: `required: false`, `strict: true`, `timeout_ms: 1200000`, `append: false`. Do not emit `\"false\"`, `\"true\"`, or `\"1200000\"` for typed scalar fields.");
         sb.AppendLine("- Use single quotes inside expressions that compare strings, for example `${data.steps.close.status == 'ok'}`.");
         sb.AppendLine("- Use YAML literal block scalars (`|`) for multiline prompts/templates or strings containing JSON/double quotes; do not put unescaped nested double quotes inside a double-quoted YAML scalar.");
+        sb.AppendLine("- Block scalar markers (`|` or `>`) are only for string content. A key containing workflow steps or any YAML collection must use `key:` followed by correctly indented list/mapping entries, never `key: |` followed by `- id:`.");
         sb.AppendLine("MCP request rules:");
         sb.AppendLine("- Follow the discovered MCP schema and tool description exactly; do not add Flow-specific conventions for request fields.");
         sb.AppendLine("- Treat opaque custom-function results as untrusted shapes: project exact declared fields into new objects before assigning them to closed output schemas.");
@@ -353,6 +354,30 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
             sb.AppendLine(expressionTypeDoc);
         }
 
+        var stepOutputPropertyDoc = BuildStepOutputPropertyRepairContext(exception.Message);
+        if (!string.IsNullOrWhiteSpace(stepOutputPropertyDoc))
+        {
+            sb.AppendLine();
+            sb.AppendLine("Step output property repair guidance:");
+            sb.AppendLine(stepOutputPropertyDoc);
+        }
+
+        var conditionalActivationDoc = BuildConditionalActivationRepairContext(exception);
+        if (!string.IsNullOrWhiteSpace(conditionalActivationDoc))
+        {
+            sb.AppendLine();
+            sb.AppendLine("Conditional capability activation repair guidance:");
+            sb.AppendLine(conditionalActivationDoc);
+        }
+
+        var yamlParseDoc = BuildYamlParseRepairContext(exception);
+        if (!string.IsNullOrWhiteSpace(yamlParseDoc))
+        {
+            sb.AppendLine();
+            sb.AppendLine("YAML syntax repair guidance:");
+            sb.AppendLine(yamlParseDoc);
+        }
+
         if (selectedTypes.Count > 0)
         {
             var snippets = registry.GetDslSnippets(selectedTypes).ToList();
@@ -372,6 +397,118 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
             sb.AppendLine(mcpDoc);
         }
 
+        return sb.ToString().TrimEnd();
+    }
+
+    private static string? BuildYamlParseRepairContext(Exception exception)
+    {
+        var messages = new List<string>();
+        for (var current = exception; current != null; current = current.InnerException)
+        {
+            if (!string.IsNullOrWhiteSpace(current.Message))
+                messages.Add(current.Message);
+        }
+
+        var combined = string.Join("\n", messages);
+        if (!combined.Contains("YAML_PARSE_ERROR", StringComparison.OrdinalIgnoreCase)
+            && !combined.Contains("Generated workflow parse failed", StringComparison.OrdinalIgnoreCase)
+            && !combined.Contains("while parsing", StringComparison.OrdinalIgnoreCase))
+        {
+            return null;
+        }
+
+        var sb = new StringBuilder();
+        sb.AppendLine("Repair YAML syntax before changing workflow behavior or contracts. Re-emit the complete valid YAML document; do not copy the malformed fragment unchanged.");
+        sb.AppendLine("A YAML block scalar marker (`|`, `|-`, `|+`, `>`, `>-`, or `>+`) declares string content only. Never put workflow step objects or another YAML collection under a key that has a block scalar marker.");
+        sb.AppendLine("When a mapping key owns a list, write `key:` with no scalar marker, then indent every `-` list item farther than that key. Sibling list items must use the same indentation and each item must retain its leading `-`.");
+        sb.AppendLine("When a key truly owns multiline text, keep the block scalar marker and indent every text line farther than the key; do not let a later `- id:` line become part of that text accidentally.");
+        sb.AppendLine("In particular, a switch `default` containing steps is a step list (`default:` followed by indented `- id:` entries), not a literal string (`default: |`). An empty non-mutating switch fallback is `default: []`.");
+        sb.AppendLine("Inspect the reported line together with its parent and adjacent siblings, then rebuild that whole local mapping/list so its indentation is internally consistent.");
+        return sb.ToString().TrimEnd();
+    }
+
+    private static string? BuildConditionalActivationRepairContext(Exception exception)
+    {
+        JsonObject? details = null;
+        for (var current = exception; current != null; current = current.InnerException)
+        {
+            if (current is WorkflowRuntimeException { Details: JsonObject candidate }
+                && string.Equals(
+                    GetStringProperty(candidate, "reason"),
+                    "conditional_activation_invalid",
+                    StringComparison.Ordinal))
+            {
+                details = candidate;
+                break;
+            }
+        }
+        if (details == null)
+            return null;
+
+        var group = GetStringProperty(details, "activation_group") ?? "conditional_group";
+        var decisionOperationId = GetStringProperty(details, "decision_operation_id") ?? "the locked decision source";
+        var branchValues = details["branches"] is JsonArray branches
+            ? branches.OfType<JsonObject>()
+                .Select(static branch => GetStringProperty(branch, "branch_value"))
+                .Where(static value => !string.IsNullOrWhiteSpace(value))
+                .Distinct(StringComparer.Ordinal)
+                .ToArray()
+            : Array.Empty<string>();
+        var sb = new StringBuilder();
+        sb.AppendLine($"Rebuild conditional capability group `{group}` as exactly one discriminator-style `switch` driven by decision operation `{decisionOperationId}`.");
+        sb.AppendLine("Use `switch.expr` for the scalar runtime decision and `cases[].value` for literal branch values. Do not use `cases[].when` for this exactly-one capability group.");
+        if (branchValues.Length > 0)
+            sb.AppendLine("Required case values: " + string.Join(", ", branchValues.Select(static value => $"`{value}`")) + ".");
+        sb.AppendLine("Place exactly one matching conditional mcp.call in each corresponding case, and place no matching variant before, after, or in another switch.");
+        sb.AppendLine("Keep unconditional prerequisite calls outside the switch and execute them once. Use `default: []` or only non-mutating failure handling; the default must never perform a write or lifecycle action.");
+        sb.AppendLine("The switch expression must trace to the declared runtime decision input or an earlier decision-producing step. Do not hard-code a branch and do not ask the human for a future runtime outcome.");
+        sb.AppendLine("Canonical shape:");
+        sb.AppendLine("- id: choose_terminal_action");
+        sb.AppendLine("  type: switch");
+        sb.AppendLine("  expr: ${data.inputs.runtime_decision}");
+        sb.AppendLine("  cases:");
+        sb.AppendLine("    - value: first_branch_value");
+        sb.AppendLine("      steps:");
+        sb.AppendLine("        - id: execute_first_variant");
+        sb.AppendLine("          type: mcp.call");
+        sb.AppendLine("          input: { ... exact locked call ... }");
+        sb.AppendLine("  default: []");
+        return sb.ToString().TrimEnd();
+    }
+
+    private static string? BuildStepOutputPropertyRepairContext(string errorMessage)
+    {
+        if (string.IsNullOrWhiteSpace(errorMessage)
+            || !errorMessage.Contains("STEP_OUTPUT_PROPERTY_UNKNOWN", StringComparison.Ordinal)
+            || !errorMessage.Contains(".json", StringComparison.Ordinal))
+        {
+            return null;
+        }
+
+        var invalidPaths = ExtractJsonStringValues(errorMessage, "invalid_path")
+            .Where(static path => path.StartsWith("data.steps.", StringComparison.Ordinal)
+                                  && path.Contains(".json", StringComparison.Ordinal))
+            .Distinct(StringComparer.Ordinal)
+            .Take(24)
+            .ToArray();
+        if (invalidPaths.Length == 0)
+            return null;
+
+        var affectedSteps = invalidPaths
+            .Select(static path => path["data.steps.".Length..])
+            .Select(static path => path[..path.IndexOf('.', StringComparison.Ordinal)])
+            .Distinct(StringComparer.Ordinal)
+            .ToArray();
+        var sb = new StringBuilder();
+        sb.AppendLine("The affected producer step(s) do not declare a `json` output: "
+                      + string.Join(", ", affectedSteps.Select(static step => $"`{step}`")) + ".");
+        sb.AppendLine("Remove every `data.steps.<affected_step>.json...` reference in the complete workflow; fixing only the first reported field will repeat the same failure.");
+        sb.AppendLine("An ordinary `mcp.call` exposes only paths listed by semantic validation, typically `response`, `status`, `error`, `results`, and tracing fields. It does not expose domain fields through `.json`.");
+        sb.AppendLine("When typed domain fields must be derived from an ordinary MCP response, add one separate `llm.call` normalization step with strict `structured_output`, pass the documented MCP `response` (or a documented response child) into that normalizer, and read typed fields only from the normalizer's `.json` output.");
+        sb.AppendLine("Delete and rebuild any invalid per-field normalization input that merely copies nonexistent MCP `.json` children; do not rename the bad references or invent response properties.");
+        sb.AppendLine("Affected invalid paths:");
+        foreach (var path in invalidPaths)
+            sb.AppendLine("- `" + path + "`");
         return sb.ToString().TrimEnd();
     }
 
@@ -417,6 +554,18 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
                 .ToArray();
             if (outputFields.Length > 0)
                 sb.AppendLine("Affected output field(s): " + string.Join(", ", outputFields.Select(static field => $"`{field}`")));
+        }
+
+        if (lower.Contains("resolves to null or", StringComparison.Ordinal)
+            || lower.Contains("nullable", StringComparison.Ordinal))
+        {
+            sb.AppendLine("A nullable producer cannot be assigned directly to a non-null destination schema.");
+            if (fields.Length > 0)
+                sb.AppendLine("Repair every affected destination field together: " + string.Join(", ", fields.Select(static field => $"`{field}`")) + ".");
+            sb.AppendLine("If the authoritative public/blueprint contract permits absence, preserve it with `nullable: true` at the exact scalar or nested property. Do not make the whole containing object opaque.");
+            sb.AppendLine("If the authoritative destination is intentionally non-null, add a deterministic projection that gives each nullable scalar a documented total representation (for example `coalesce(value, '')` only when empty string means absent). Do not keep the incompatible direct assignment.");
+            sb.AppendLine("For arrays of objects, project fresh items and repair each nullable nested property; mapping the original array expression into the same non-null output_schema will repeat the error.");
+            sb.AppendLine("Do not invent a non-empty fallback, path, status, identifier, or success value. Use only a neutral absence representation allowed by the destination semantics, otherwise fail closed.");
         }
 
         if (lower.Contains("incompatible nested contract", StringComparison.Ordinal)

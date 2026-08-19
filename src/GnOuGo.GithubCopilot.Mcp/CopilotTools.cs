@@ -16,7 +16,7 @@ internal sealed class CopilotTools
     private const string ReviewProjectRootDescription = "Required workspace-relative path to an existing project root outside the reserved .GnOuGo internal directory. Pass a documented workspace.directory artifact output or a caller-provided existing directory; a URL, repository identifier, absolute path, or invented path is invalid.";
     private const string ReviewFilesJsonDescription = "Required JSON array of per-file exact comparison patches returned by a documented revision-comparison capability. A raw aggregate diff or invented file list is invalid.";
     private const string ManagementOnlyMetadataJson = """{"management":{"version":1,"visibility":"management_only"}}""";
-    private const string CompleteReviewMetadataJson = """{"artifacts":{"version":1,"consumes":[{"kind":"workspace.directory","pointer":"/projectRoot","required":true}]},"composition":{"version":1,"kind":"complete_operation","encapsulates":[{"kind":"tool","method":"copilot_review_start"},{"kind":"tool","method":"copilot_review_analyze_batch"},{"kind":"tool","method":"copilot_review_finish"}]}}""";
+    private const string CompleteReviewMetadataJson = """{"artifacts":{"version":1,"consumes":[{"kind":"workspace.directory","pointer":"/projectRoot","required":true},{"kind":"revision.comparison.files","pointer":"/filesJson","required":true}]},"composition":{"version":1,"kind":"complete_operation","encapsulates":[{"kind":"tool","method":"copilot_review_start"},{"kind":"tool","method":"copilot_review_analyze_batch"},{"kind":"tool","method":"copilot_review_finish"}]}}""";
 
     private readonly CopilotSessionManager _sessions;
     private readonly CopilotReviewManager _reviews;

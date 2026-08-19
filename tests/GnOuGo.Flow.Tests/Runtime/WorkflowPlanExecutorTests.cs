@@ -4,6 +4,7 @@ using System.Text.RegularExpressions;
 using Microsoft.Extensions.Logging;
 using Moq;
 using GnOuGo.Flow.Core.Compilation;
+using GnOuGo.Flow.Core.Expressions;
 using GnOuGo.Flow.Core.Models;
 using GnOuGo.Flow.Core.Parsing;
 using GnOuGo.Flow.Core.Runtime;
@@ -32,6 +33,677 @@ public class WorkflowPlanExecutorTests
                   template: ok
                   mode: text
         """;
+
+    [Fact]
+    public void PipelineExtraction_PrunesOnlyOptionalUnprovenSchemaMembers()
+    {
+        var method = typeof(WorkflowPlanExecutor).GetMethods(BindingFlags.Static | BindingFlags.NonPublic)
+            .Single(candidate => candidate.Name == "PruneOptionalWeakContractMembers"
+                                 && candidate.GetParameters() is [{ ParameterType: var parameterType }]
+                                 && parameterType == typeof(JsonNode));
+        var schema = JsonNode.Parse("""
+            {
+              "type": "object",
+              "properties": {
+                "name": { "type": "string" },
+                "optional_unknown": {},
+                "optional_collection": { "type": "array", "items": {} },
+                "required_unknown": {}
+              },
+              "required": ["name", "required_unknown"]
+            }
+            """);
+
+        var normalized = Assert.IsType<JsonObject>(method.Invoke(null, [schema]));
+        var properties = Assert.IsType<JsonObject>(normalized["properties"]);
+
+        Assert.True(properties.ContainsKey("name"));
+        Assert.True(properties.ContainsKey("required_unknown"));
+        Assert.False(properties.ContainsKey("optional_unknown"));
+        Assert.False(properties.ContainsKey("optional_collection"));
+        Assert.Contains(
+            Assert.IsType<JsonArray>(normalized["required"]),
+            static value => value?.GetValue<string>() == "required_unknown");
+    }
+
+    [Fact]
+    public void PipelineExtraction_PreservesStructuredNullableContractFields()
+    {
+        var method = typeof(WorkflowPlanExecutor).GetMethod(
+            "BuildStructuredFieldSchema",
+            BindingFlags.Static | BindingFlags.NonPublic);
+        Assert.NotNull(method);
+
+        var field = JsonNode.Parse("""
+            {
+              "name": "finding",
+              "type": "object",
+              "description": "A finding with an optional anchor.",
+              "required": true,
+              "nullable": false,
+              "item_type": "",
+              "properties": [
+                {
+                  "name": "line",
+                  "type": "number",
+                  "description": "Nullable source line.",
+                  "required": true,
+                  "nullable": true,
+                  "item_type": "",
+                  "properties": []
+                }
+              ]
+            }
+            """)!.AsObject();
+
+        var schema = Assert.IsType<JsonObject>(method!.Invoke(null, [field]));
+        var properties = Assert.IsType<JsonObject>(schema["properties"]);
+        var line = Assert.IsType<JsonObject>(properties["line"]);
+
+        Assert.True(line["nullable"]!.GetValue<bool>());
+        Assert.Contains(
+            Assert.IsType<JsonArray>(schema["required_properties"]),
+            static value => value?.GetValue<string>() == "line");
+    }
+
+    [Fact]
+    public void PipelineExtraction_PreservesPreviouslyValidatedSchemasWhenARepairRegressesThem()
+    {
+        var method = typeof(WorkflowPlanExecutor).GetMethod(
+            "PreservePreviouslyValidatedContractSchemas",
+            BindingFlags.Static | BindingFlags.NonPublic);
+        Assert.NotNull(method);
+
+        IReadOnlyDictionary<string, JsonNode?> previous = new Dictionary<string, JsonNode?>(StringComparer.Ordinal)
+        {
+            ["records"] = JsonNode.Parse("""
+                {
+                  "type": "array",
+                  "description": "Previously validated records.",
+                  "required": true,
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "id": { "type": "string" }
+                    },
+                    "required_properties": ["id"]
+                  }
+                }
+                """),
+            ["evidence"] = JsonNode.Parse("""
+                {
+                  "type": "object",
+                  "properties": {
+                    "summary": { "type": "string" },
+                    "diagnostics": {
+                      "type": "array",
+                      "items": { "type": "string" }
+                    }
+                  },
+                  "required_properties": ["summary", "diagnostics"]
+                }
+                """),
+            ["unrelated"] = JsonNode.Parse("""{ "type": "string" }""")
+        };
+        IReadOnlyDictionary<string, JsonNode?> current = new Dictionary<string, JsonNode?>(StringComparer.Ordinal)
+        {
+            ["records"] = JsonNode.Parse("""
+                {
+                  "type": "array",
+                  "description": "Updated description.",
+                  "required": false,
+                  "nullable": true,
+                  "items": { "type": "object" }
+                }
+                """),
+            ["evidence"] = JsonNode.Parse("""
+                {
+                  "type": "object",
+                  "properties": {
+                    "summary": { "type": "string", "description": "Improved summary." }
+                  },
+                  "required_properties": ["summary"]
+                }
+                """),
+            ["new_weak_field"] = JsonNode.Parse("""{ "type": "object" }""")
+        };
+
+        var preserved = Assert.IsAssignableFrom<IReadOnlyDictionary<string, JsonNode?>>(
+            method!.Invoke(null, [current, previous]));
+        var records = Assert.IsType<JsonObject>(preserved["records"]);
+        var items = Assert.IsType<JsonObject>(records["items"]);
+        var properties = Assert.IsType<JsonObject>(items["properties"]);
+
+        Assert.Equal("string", properties["id"]!["type"]!.GetValue<string>());
+        Assert.Equal("Updated description.", records["description"]!.GetValue<string>());
+        Assert.False(records["required"]!.GetValue<bool>());
+        Assert.True(records["nullable"]!.GetValue<bool>());
+        var evidence = Assert.IsType<JsonObject>(preserved["evidence"]);
+        var evidenceProperties = Assert.IsType<JsonObject>(evidence["properties"]);
+        Assert.Equal("Improved summary.", evidenceProperties["summary"]!["description"]!.GetValue<string>());
+        Assert.Equal("array", evidenceProperties["diagnostics"]!["type"]!.GetValue<string>());
+        Assert.Contains(
+            Assert.IsType<JsonArray>(evidence["required_properties"]),
+            static value => value?.GetValue<string>() == "diagnostics");
+        Assert.False(preserved.ContainsKey("unrelated"));
+        Assert.Null(preserved["new_weak_field"]!["properties"]);
+    }
+
+    [Fact]
+    public void PipelineExtraction_DiscardsOnlyCompletelyUnboundOptionalPlannedToolPlaceholders()
+    {
+        var method = typeof(WorkflowPlanExecutor).GetMethod(
+            "ParseStructuredPlannedTools",
+            BindingFlags.Static | BindingFlags.NonPublic);
+        Assert.NotNull(method);
+
+        var tools = JsonNode.Parse("""
+            [
+              {
+                "server": "",
+                "kind": "prompt",
+                "method": "",
+                "required": false,
+                "operation_ids": [],
+                "catalog_ids": [],
+                "request_bindings": [],
+                "purpose": "A non-executable planner note.",
+                "consumes": ["records"],
+                "produces": ["summary"]
+              },
+              {
+                "server": "",
+                "kind": "tool",
+                "method": "",
+                "required": true,
+                "operation_ids": ["required_operation"],
+                "catalog_ids": ["catalog_entry"],
+                "request_bindings": [],
+                "purpose": "Malformed required invocation.",
+                "consumes": [],
+                "produces": []
+              }
+            ]
+            """)!.AsArray();
+        var errors = new List<string>();
+
+        var parsed = Assert.IsAssignableFrom<System.Collections.IEnumerable>(
+            method!.Invoke(null, [tools, "summarize_records", errors]));
+        var retained = parsed.Cast<object>().ToArray();
+
+        var plannedTool = Assert.Single(retained);
+        Assert.True((bool)plannedTool.GetType().GetProperty("Required")!.GetValue(plannedTool)!);
+        Assert.Empty(errors);
+    }
+
+    [Fact]
+    public async Task WorkflowPlan_PipelineExtractionRepair_PreservesPreviouslyValidatedContractsEndToEnd()
+    {
+        var markAttempts = 0;
+        var reviewAttempts = 0;
+        var mockLlm = new Mock<ILLMClient>();
+        mockLlm.Setup(client => client.CallAsync(It.IsAny<LLMRequest>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((LLMRequest request, CancellationToken _) =>
+            {
+                if (request.Prompt.Contains("preparing a raw user automation prompt", StringComparison.Ordinal))
+                    return new LLMResponse { Text = "# Records\n\nParse a query into canonical records." };
+
+                if (request.Prompt.Contains("annotate normalized automation Markdown", StringComparison.Ordinal))
+                {
+                    markAttempts++;
+                    const string annotatedMarkdown = """
+                        # Records
+
+                        :::subworkflow name="parse_records"
+                        goal: Parse a query into canonical records.
+                        inputs:
+                          query: string
+                        outputs:
+                          records: array
+                        extract_reason: This is a cohesive typed record parsing operation.
+                        content:
+                          Parse the query, normalize each distinct record identifier, reject empty identifiers, preserve deterministic ordering, and return canonical typed records for downstream processing.
+                        :::
+
+                        ## Main workflow orchestration
+
+                        Call parse_records and expose its canonical records.
+                        """;
+                    var recordProperties = markAttempts == 1
+                        ? new JsonArray
+                        {
+                            new JsonObject
+                            {
+                                ["name"] = "id",
+                                ["type"] = "string",
+                                ["description"] = "Canonical record identifier.",
+                                ["required"] = true,
+                                ["nullable"] = false,
+                                ["item_type"] = "",
+                                ["properties"] = new JsonArray()
+                            }
+                        }
+                        : new JsonArray();
+                    var plannedTools = markAttempts == 1
+                        ? new JsonArray()
+                        : new JsonArray
+                        {
+                            new JsonObject
+                            {
+                                ["server"] = "",
+                                ["kind"] = "prompt",
+                                ["method"] = "",
+                                ["operation_ids"] = new JsonArray(),
+                                ["catalog_ids"] = new JsonArray(),
+                                ["request_bindings"] = new JsonArray(),
+                                ["required"] = false,
+                                ["purpose"] = "A non-executable planner note.",
+                                ["consumes"] = new JsonArray("query"),
+                                ["produces"] = new JsonArray("records")
+                            }
+                        };
+
+                    return CreateStructuredMarkExtractableBlocksResponse(
+                        annotatedMarkdown,
+                        new JsonArray
+                        {
+                            new JsonObject
+                            {
+                                ["name"] = "parse_records",
+                                ["goal"] = "Parse a query into canonical records.",
+                                ["description"] = "Produces typed canonical records.",
+                                ["work_kind"] = "deterministic_shaping",
+                                ["contract_role"] = "algorithmic_transform",
+                                ["concrete_outcome"] = "A typed collection of canonical records.",
+                                ["inputs"] = new JsonArray
+                                {
+                                    new JsonObject
+                                    {
+                                        ["name"] = "query",
+                                        ["type"] = "string",
+                                        ["description"] = "Record query.",
+                                        ["required"] = true,
+                                        ["nullable"] = false,
+                                        ["item_type"] = "",
+                                        ["properties"] = new JsonArray()
+                                    }
+                                },
+                                ["outputs"] = new JsonArray
+                                {
+                                    new JsonObject
+                                    {
+                                        ["name"] = "records",
+                                        ["type"] = "array",
+                                        ["description"] = markAttempts == 1
+                                            ? "Validated canonical records."
+                                            : "Updated canonical records.",
+                                        ["required"] = true,
+                                        ["nullable"] = false,
+                                        ["item_type"] = "object",
+                                        ["properties"] = recordProperties
+                                    }
+                                },
+                                ["extract_reason"] = "This is a cohesive typed record parsing operation.",
+                                ["content"] = "Parse the query, normalize each distinct record identifier, reject empty identifiers, preserve deterministic ordering, and return canonical typed records for downstream processing.",
+                                ["planned_tools"] = plannedTools
+                            }
+                        },
+                        "Call parse_records and expose its canonical records.");
+                }
+
+                if (request.Prompt.Contains("reviewing the quality", StringComparison.Ordinal))
+                {
+                    reviewAttempts++;
+                    if (reviewAttempts == 1)
+                    {
+                        return CreateExtractionQualityReviewResponse(
+                            60,
+                            "retry",
+                            new JsonArray
+                            {
+                                new JsonObject
+                                {
+                                    ["code"] = "MISSING_NORMALIZATION_DETAIL",
+                                    ["kind"] = "plan_defect",
+                                    ["severity"] = "critical",
+                                    ["leaf_name"] = "parse_records",
+                                    ["message"] = "The parsing contract needs one additional normalization detail.",
+                                    ["recommendation"] = "Clarify deterministic ordering without weakening existing contracts."
+                                }
+                            },
+                            "Clarify deterministic ordering without weakening existing contracts.");
+                    }
+
+                    Assert.Contains("Updated canonical records.", request.Prompt);
+                    Assert.Contains("Canonical record identifier.", request.Prompt);
+                    return CreateExtractionQualityReviewResponse(90, "pass");
+                }
+
+                if (request.Prompt.Contains("Generate exactly one leaf GnOuGo workflow named `parse_records`.", StringComparison.Ordinal))
+                {
+                    return new LLMResponse
+                    {
+                        Text = """
+                            version: 1
+                            name: parse-records-leaf
+                            skill:
+                              description: Parse canonical records.
+                              tags: [generated, leaf]
+                              inputs:
+                                query: string
+                              outputs:
+                                records:
+                                  type: array
+                                  items:
+                                    type: object
+                                    properties:
+                                      id: { type: string }
+                                    required_properties: [id]
+                            workflows:
+                              main:
+                                inputs:
+                                  query: string
+                                steps:
+                                  - id: parsed
+                                    type: set
+                                    output_schema:
+                                      type: object
+                                      properties:
+                                        records:
+                                          type: array
+                                          items:
+                                            type: object
+                                            properties:
+                                              id: { type: string }
+                                            required_properties: [id]
+                                    input:
+                                      records: []
+                                outputs:
+                                  records:
+                                    expr: ${data.steps.parsed.records}
+                                    type: array
+                                    items:
+                                      type: object
+                                      properties:
+                                        id: { type: string }
+                                      required_properties: [id]
+                            """
+                    };
+                }
+
+                if (request.Prompt.Contains("assembling the parent `main` workflow", StringComparison.Ordinal))
+                {
+                    return new LLMResponse
+                    {
+                        Text = """
+                            document:
+                              name: parse-records-pipeline
+                              skill:
+                                description: Parse canonical records.
+                                inputs:
+                                  query: string
+                                outputs:
+                                  records:
+                                    type: array
+                                    items:
+                                      type: object
+                                      properties:
+                                        id: { type: string }
+                                      required_properties: [id]
+                            graph:
+                              inputs:
+                                query: string
+                              steps:
+                                - id: call_parse_records
+                                  leaf: parse_records
+                                  args:
+                                    query: ${data.inputs.query}
+                              outputs:
+                                records: ${data.steps.call_parse_records.outputs.records}
+                            """
+                    };
+                }
+
+                throw new InvalidOperationException("Unexpected LLM prompt: " + request.Prompt);
+            });
+
+        var workflow = CompileMain("""
+            version: 1
+            workflows:
+              main:
+                steps:
+                  - id: plan
+                    type: workflow.plan
+                    input:
+                      mode: pipeline
+                      raw_prompt: "Parse a query into canonical records."
+                      generator:
+                        model: gpt-4
+                        prefilter: false
+                      validate:
+                        compile: false
+                        max_repair_attempts: 2
+            """);
+
+        var result = await new WorkflowEngine
+        {
+            LLMClient = mockLlm.Object,
+            LLMCapabilities = new StaticLlmCapabilityResolver(true)
+        }.ExecuteAsync(workflow, new JsonObject(), CancellationToken.None);
+
+        Assert.True(result.Success, result.Error?.Message);
+        Assert.Equal(2, markAttempts);
+        Assert.Equal(2, reviewAttempts);
+        var yaml = result.Outputs!["plan"]!["yaml"]!.GetValue<string>();
+        Assert.Contains("required_properties:", yaml);
+    }
+
+    [Fact]
+    public async Task WorkflowPlan_PipelineLeaf_ReusesDeclaredInputForCaseSeparatorAlias()
+    {
+        var mockLlm = new Mock<ILLMClient>();
+        mockLlm.Setup(client => client.CallAsync(It.IsAny<LLMRequest>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((LLMRequest request, CancellationToken _) =>
+            {
+                if (request.Prompt.Contains("preparing a raw user automation prompt", StringComparison.Ordinal))
+                    return new LLMResponse { Text = "# Record\n\nNormalize one record identifier." };
+
+                if (request.Prompt.Contains("annotate normalized automation Markdown", StringComparison.Ordinal))
+                {
+                    const string annotatedMarkdown = """
+                        # Record
+
+                        :::subworkflow name="normalize_record"
+                        goal: Normalize one record identifier.
+                        inputs:
+                          record_id: string
+                        outputs:
+                          normalized_id: string
+                        extract_reason: This is a cohesive identifier normalization operation.
+                        content:
+                          Trim surrounding whitespace, validate that the identifier remains non-empty, normalize its casing deterministically, and return the canonical identifier.
+                        :::
+
+                        ## Main workflow orchestration
+
+                        Call normalize_record and expose its canonical identifier.
+                        """;
+                    return CreateStructuredMarkExtractableBlocksResponse(
+                        annotatedMarkdown,
+                        new JsonArray
+                        {
+                            new JsonObject
+                            {
+                                ["name"] = "normalize_record",
+                                ["goal"] = "Normalize one record identifier.",
+                                ["description"] = "Produces a canonical identifier.",
+                                ["work_kind"] = "deterministic_shaping",
+                                ["contract_role"] = "algorithmic_transform",
+                                ["concrete_outcome"] = "One canonical record identifier.",
+                                ["inputs"] = new JsonArray
+                                {
+                                    new JsonObject
+                                    {
+                                        ["name"] = "record_id",
+                                        ["type"] = "string",
+                                        ["description"] = "Record identifier.",
+                                        ["required"] = true,
+                                        ["nullable"] = false,
+                                        ["item_type"] = "",
+                                        ["properties"] = new JsonArray()
+                                    }
+                                },
+                                ["outputs"] = new JsonArray
+                                {
+                                    new JsonObject
+                                    {
+                                        ["name"] = "normalized_id",
+                                        ["type"] = "string",
+                                        ["description"] = "Canonical identifier.",
+                                        ["required"] = true,
+                                        ["nullable"] = false,
+                                        ["item_type"] = "",
+                                        ["properties"] = new JsonArray()
+                                    }
+                                },
+                                ["extract_reason"] = "This is a cohesive identifier normalization operation.",
+                                ["content"] = "Trim surrounding whitespace, validate that the identifier remains non-empty, normalize its casing deterministically, and return the canonical identifier.",
+                                ["planned_tools"] = new JsonArray()
+                            }
+                        },
+                        "Call normalize_record and expose its canonical identifier.");
+                }
+
+                if (request.Prompt.Contains("reviewing the quality", StringComparison.Ordinal))
+                    return CreateExtractionQualityReviewResponse(90, "pass");
+
+                if (request.Prompt.Contains("Generate exactly one leaf GnOuGo workflow named `normalize_record`.", StringComparison.Ordinal))
+                {
+                    return new LLMResponse
+                    {
+                        Text = """
+                            version: 1
+                            name: normalize-record-leaf
+                            skill:
+                              description: Normalize a record identifier.
+                              tags: [generated, leaf]
+                              inputs:
+                                record_id: string
+                                recordId: string
+                              outputs:
+                                normalized_id: string
+                            workflows:
+                              main:
+                                inputs:
+                                  record_id: string
+                                  recordId: string
+                                steps:
+                                  - id: normalized
+                                    type: set
+                                    output_schema:
+                                      type: object
+                                      properties:
+                                        normalized_id: { type: string }
+                                      required: [normalized_id]
+                                      additionalProperties: false
+                                    input:
+                                      normalized_id: ${data.inputs.recordId}
+                                outputs:
+                                  normalized_id:
+                                    expr: ${data.steps.normalized.normalized_id}
+                                    type: string
+                            """
+                    };
+                }
+
+                if (request.Prompt.Contains("assembling the parent `main` workflow", StringComparison.Ordinal))
+                {
+                    return new LLMResponse
+                    {
+                        Text = """
+                            document:
+                              name: normalize-record-pipeline
+                              skill:
+                                description: Normalize a record identifier.
+                                inputs:
+                                  record_id: string
+                                outputs:
+                                  result:
+                                    type: object
+                                    properties:
+                                      normalized_id: { type: string }
+                                      valid: { type: boolean }
+                                    required_properties: [normalized_id, valid]
+                            graph:
+                              inputs:
+                                record_id: string
+                              steps:
+                                - id: call_normalize_record
+                                  leaf: normalize_record
+                                  args:
+                                    record_id: ${data.inputs.record_id}
+                              outputs:
+                                result:
+                                  normalized_id: ${data.steps.call_normalize_record.outputs.normalized_id}
+                                  valid: true
+                            """
+                    };
+                }
+
+                throw new InvalidOperationException("Unexpected LLM prompt: " + request.Prompt);
+            });
+        var workflow = CompileMain("""
+            version: 1
+            workflows:
+              main:
+                steps:
+                  - id: plan
+                    type: workflow.plan
+                    input:
+                      mode: pipeline
+                      raw_prompt: "Normalize one record identifier."
+                      generator:
+                        model: test-model
+                        prefilter: false
+                      validate:
+                        compile: false
+                        max_repair_attempts: 1
+            """);
+
+        var result = await new WorkflowEngine
+        {
+            LLMClient = mockLlm.Object,
+            LLMCapabilities = new StaticLlmCapabilityResolver(true)
+        }.ExecuteAsync(workflow, new JsonObject(), CancellationToken.None);
+
+        Assert.True(result.Success, result.Error?.Message);
+        var yaml = result.Outputs!["plan"]!["yaml"]!.GetValue<string>();
+        Assert.DoesNotContain("recordId", yaml, StringComparison.Ordinal);
+        Assert.Contains("data.inputs.record_id", yaml, StringComparison.Ordinal);
+        Assert.Contains("project_main_output_result", yaml, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void PipelineMainRepair_ReconcilesUndeclaredAliasesWithTheExistingPublicContract()
+    {
+        var method = typeof(WorkflowPlanExecutor).GetMethod(
+            "BuildMainAssemblyRepairPrompt",
+            BindingFlags.Static | BindingFlags.NonPublic);
+        Assert.NotNull(method);
+
+        var prompt = Assert.IsType<string>(method!.Invoke(null,
+        [
+            "Assemble the main graph.",
+            "document:\n  skill:\n    inputs:\n      resource_url: string\ngraph:\n  inputs:\n    resource_url: string\n  steps: []",
+            "Pipeline main workflow references undeclared inputs: target_url"
+        ]));
+
+        Assert.Contains("Undeclared input reference repair", prompt);
+        Assert.Contains("replace every reference with the existing declared name", prompt);
+        Assert.Contains("Do not add a duplicate public input alias", prompt);
+        Assert.Contains("map that leaf argument from the semantically matching public input", prompt);
+        Assert.Contains("<invalid_main_assembly_yaml>", prompt);
+    }
 
     private static CompiledWorkflow CompileMain(string yaml)
     {
@@ -4720,6 +5392,9 @@ workflows:
         Assert.Equal(2, markRequests.Count);
         Assert.Contains("MISSING_CLONE_WORK", markRequests[1].Prompt);
         Assert.Contains("Add a clone-producing leaf", markRequests[1].Prompt);
+        Assert.Contains("<invalid_extraction_json>", markRequests[1].Prompt);
+        Assert.Contains("prose in main is not a data contract", markRequests[1].Prompt);
+        Assert.Contains("Every required external invocation must belong to a cohesive leaf", markRequests[1].Prompt);
         var qualityReview = result.Outputs!["plan"]!["pipeline"]!["quality_report"]!["extraction"]!["quality_review"]!;
         Assert.Equal(91, qualityReview["score"]!.GetValue<int>());
         Assert.Equal("pass", qualityReview["verdict"]!.GetValue<string>());
@@ -14616,6 +15291,104 @@ workflows:
     }
 
     [Fact]
+    public void WorkflowPlan_RepairContext_RebuildsAllOrdinaryMcpJsonReferencesThroughOneNormalizer()
+    {
+        var method = typeof(WorkflowPlanExecutor).GetMethod(
+            "BuildStepOutputPropertyRepairContext",
+            BindingFlags.Static | BindingFlags.NonPublic);
+        Assert.NotNull(method);
+        const string error = """
+            {"errors":[
+              {"code":"STEP_OUTPUT_PROPERTY_UNKNOWN","invalid_path":"data.steps.fetch_record.json.title"},
+              {"code":"STEP_OUTPUT_PROPERTY_UNKNOWN","invalid_path":"data.steps.fetch_record.json.status"},
+              {"code":"STEP_OUTPUT_PROPERTY_UNKNOWN","invalid_path":"data.steps.fetch_other.json.items"}
+            ]}
+            """;
+
+        var guidance = Assert.IsType<string>(method!.Invoke(null, [error]));
+
+        Assert.Contains("`fetch_record`, `fetch_other`", guidance);
+        Assert.Contains("Remove every `data.steps.<affected_step>.json...` reference", guidance);
+        Assert.Contains("one separate `llm.call` normalization step", guidance);
+        Assert.Contains("data.steps.fetch_record.json.title", guidance);
+        Assert.Contains("data.steps.fetch_record.json.status", guidance);
+        Assert.Contains("data.steps.fetch_other.json.items", guidance);
+    }
+
+    [Fact]
+    public void WorkflowPlan_RepairContext_RepairsNullableNestedAssignmentsWithoutWeakeningContainers()
+    {
+        var method = typeof(WorkflowPlanExecutor).GetMethod(
+            "BuildExpressionTypeMismatchRepairContext",
+            BindingFlags.Static | BindingFlags.NonPublic);
+        Assert.NotNull(method);
+        const string error = """
+            {"errors":[
+              {"code":"EXPR_TYPE_MISMATCH","field":"input.records","invalid_path":"${data.steps.fetch.response.records}","message":"input.records[].previousPath resolves to null or string, but output_schema requires string"},
+              {"code":"EXPR_TYPE_MISMATCH","field":"input.error","invalid_path":"${data.steps.fetch.response.error}","message":"input.error resolves to null or string, but output_schema requires string"}
+            ]}
+            """;
+
+        var guidance = Assert.IsType<string>(method!.Invoke(null, [error]));
+
+        Assert.Contains("A nullable producer cannot be assigned directly", guidance);
+        Assert.Contains("`input.records`, `input.error`", guidance);
+        Assert.Contains("`nullable: true` at the exact scalar or nested property", guidance);
+        Assert.Contains("project fresh items", guidance);
+        Assert.Contains("Do not invent a non-empty fallback", guidance);
+    }
+
+    [Fact]
+    public void WorkflowPlan_RepairContext_UsesOneDiscriminatorSwitchForConditionalCapabilities()
+    {
+        var method = typeof(WorkflowPlanExecutor).GetMethod(
+            "BuildConditionalActivationRepairContext",
+            BindingFlags.Static | BindingFlags.NonPublic);
+        Assert.NotNull(method);
+        var exception = new WorkflowRuntimeException(
+            ErrorCodes.CapabilityPreflightUnavailable,
+            "Conditional activation failed.",
+            details: new JsonObject
+            {
+                ["reason"] = "conditional_activation_invalid",
+                ["activation_group"] = "finalize_record",
+                ["decision_operation_id"] = "classify_record",
+                ["branches"] = new JsonArray(
+                    new JsonObject { ["branch_value"] = "accept" },
+                    new JsonObject { ["branch_value"] = "reject" })
+            });
+
+        var guidance = Assert.IsType<string>(method!.Invoke(null, [exception]));
+
+        Assert.Contains("`finalize_record`", guidance);
+        Assert.Contains("`classify_record`", guidance);
+        Assert.Contains("`switch.expr`", guidance);
+        Assert.Contains("`cases[].value`", guidance);
+        Assert.Contains("Do not use `cases[].when`", guidance);
+        Assert.Contains("`accept`, `reject`", guidance);
+        Assert.Contains("default: []", guidance);
+    }
+
+    [Fact]
+    public void WorkflowPlan_RepairContext_DistinguishesYamlBlockScalarsFromStepLists()
+    {
+        var method = typeof(WorkflowPlanExecutor).GetMethod(
+            "BuildYamlParseRepairContext",
+            BindingFlags.Static | BindingFlags.NonPublic);
+        Assert.NotNull(method);
+        var exception = new WorkflowRuntimeException(
+            ErrorCodes.TemplatePlan,
+            "Generated workflow parse failed: While parsing a block collection, did not find expected '-' indicator. Near YAML line 18: previous: default: | marked: - id: expose_failure");
+
+        var guidance = Assert.IsType<string>(method!.Invoke(null, [exception]));
+
+        Assert.Contains("declares string content only", guidance);
+        Assert.Contains("`default:` followed by indented `- id:` entries", guidance);
+        Assert.Contains("`default: []`", guidance);
+        Assert.Contains("rebuild that whole local mapping/list", guidance);
+    }
+
+    [Fact]
     public async Task WorkflowRuntime_ReportsFailingStepForExpressionErrors()
     {
         var workflow = CompileMain("""
@@ -14786,6 +15559,238 @@ workflows:
         var suggestedPatch = promotedType.Properties["findings"].Type.Items!.Properties["suggestedPatch"].Type;
         Assert.Equal(FlowTypeKind.Union, suggestedPatch.Kind);
         Assert.Contains(suggestedPatch.Variants, static variant => variant.Kind == FlowTypeKind.Null);
+    }
+
+    [Fact]
+    public void WorkflowPlan_Pipeline_WidensDirectWorkflowCallIntegerInputToAuthoritativeNumberSource()
+    {
+        const string yaml = """
+            version: 1
+            skill:
+              description: Route one numeric result.
+              tags: [generated]
+              inputs: {}
+              outputs: {}
+            workflows:
+              main:
+                steps:
+                  - id: source
+                    type: set
+                    output_schema:
+                      type: object
+                      properties:
+                        count: { type: number }
+                      required: [count]
+                      additionalProperties: false
+                    input:
+                      count: 1.5
+                  - id: call_consumer
+                    type: workflow.call
+                    input:
+                      ref:
+                        kind: local
+                        name: consumer
+                      args:
+                        count: ${data.steps.source.count}
+              consumer:
+                inputs:
+                  count: integer
+                steps:
+                  - id: result
+                    type: set
+                    output_schema:
+                      type: object
+                      properties:
+                        count: { type: number }
+                      required: [count]
+                      additionalProperties: false
+                    input:
+                      count: ${data.inputs.count}
+            """;
+        var document = WorkflowParser.Parse(yaml);
+        var method = typeof(WorkflowPlanExecutor).GetMethod(
+            "PromoteGeneratedDirectWorkflowCallObjectInputSchemas",
+            BindingFlags.NonPublic | BindingFlags.Static);
+        Assert.NotNull(method);
+
+        var result = method!.Invoke(null, [document, yaml, null, new WorkflowEngine().Registry])!;
+        var promotedYaml = Assert.IsType<string>(result.GetType().GetField("Item2")!.GetValue(result));
+        var promoted = WorkflowParser.Parse(promotedYaml);
+
+        WorkflowPlanSemanticValidator.Validate(promoted);
+        Assert.Equal("number", promoted.Workflows["consumer"].Inputs!["count"].Type);
+    }
+
+    [Fact]
+    public async Task WorkflowPlan_PipelineLeaf_PromotesDirectSetNullableSourceBeforeSemanticValidation()
+    {
+        var mockLlm = new Mock<ILLMClient>();
+        mockLlm.Setup(client => client.CallAsync(It.IsAny<LLMRequest>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new LLMResponse
+            {
+                Text = """
+                    version: 1
+                    name: neutral-leaf
+                    skill:
+                      description: Materialize and normalize one neutral record.
+                      tags: [generated, leaf]
+                      inputs: {}
+                      outputs: {}
+                    workflows:
+                      main:
+                        steps:
+                          - id: materialize
+                            type: mcp.call
+                            input:
+                              server: neutral
+                              kind: tool
+                              method: materialize
+                              request: {}
+                          - id: normalize
+                            type: set
+                            output_schema:
+                              type: object
+                              properties:
+                                error:
+                                  type: string
+                              required: [error]
+                              additionalProperties: false
+                            input:
+                              error: "${data.steps.materialize.response.error_message}"
+                    """
+            });
+        var mcpFactory = new InMemoryMcpClientFactory();
+        mcpFactory.RegisterServer("neutral", new MockMcpServerConfig
+        {
+            Tools =
+            [
+                new McpToolInfo
+                {
+                    Name = "materialize",
+                    Description = "Materialize one neutral record and report an optional error.",
+                    InputSchema = JsonNode.Parse("""
+                        {"type":"object","properties":{},"additionalProperties":false}
+                        """),
+                    OutputSchema = JsonNode.Parse("""
+                        {
+                          "type": "object",
+                          "properties": {
+                            "error_message": {
+                              "anyOf": [
+                                { "type": "string" },
+                                { "type": "null" }
+                              ]
+                            }
+                          },
+                          "required": ["error_message"],
+                          "additionalProperties": false
+                        }
+                        """)
+                }
+            ]
+        });
+        var workflow = CompileMain("""
+            version: 1
+            workflows:
+              main:
+                steps:
+                  - id: plan
+                    type: workflow.plan
+                    input:
+                      mode: basic
+                      generator:
+                        model: test-model
+                        instruction: Materialize and normalize one neutral record.
+                        pipeline_leaf_name: neutral_leaf
+                        prefilter: false
+                      validate:
+                        compile: true
+            """);
+        var engine = new WorkflowEngine
+        {
+            LLMClient = mockLlm.Object,
+            McpClientFactory = mcpFactory
+        };
+
+        var result = await engine.ExecuteAsync(workflow, new JsonObject(), CancellationToken.None);
+
+        Assert.True(result.Success, result.Error?.Message);
+        var yaml = result.Outputs!["plan"]!["yaml"]!.GetValue<string>();
+        var generated = WorkflowParser.Parse(yaml);
+        var normalize = generated.Workflows["main"].Steps.Single(static step => step.Id == "normalize");
+        var schema = Assert.IsType<JsonObject>(normalize.OutputSchema);
+        var errorType = FlowTypeDescriptorConverter.FromJsonSchema(schema).Properties["error"].Type;
+        Assert.Equal(FlowTypeKind.Union, errorType.Kind);
+        Assert.Contains(errorType.Variants, static variant => variant.Kind == FlowTypeKind.Null);
+    }
+
+    [Fact]
+    public async Task WorkflowPlan_PipelineLeaf_NormalizesNullableSetShorthandBeforeSemanticValidation()
+    {
+        var mockLlm = new Mock<ILLMClient>();
+        mockLlm.Setup(client => client.CallAsync(It.IsAny<LLMRequest>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new LLMResponse
+            {
+                Text = """
+                    version: 1
+                    name: conditional-result-leaf
+                    skill:
+                      description: Produce a conditional result.
+                      tags: [generated, leaf]
+                      inputs: {}
+                      outputs:
+                        decision:
+                          type: string
+                          nullable: true
+                    workflows:
+                      main:
+                        steps:
+                          - id: no_decision
+                            type: set
+                            output_schema:
+                              type: object
+                              properties:
+                                decision:
+                                  type: string
+                                  nullable: true
+                              required_properties: [decision]
+                              additional_properties: false
+                            input:
+                              decision: null
+                        outputs:
+                          decision:
+                            expr: ${data.steps.no_decision.decision}
+                            type: string
+                            nullable: true
+                    """
+            });
+        var workflow = CompileMain("""
+            version: 1
+            workflows:
+              main:
+                steps:
+                  - id: plan
+                    type: workflow.plan
+                    input:
+                      mode: basic
+                      generator:
+                        model: test-model
+                        instruction: Produce a conditional result.
+                        pipeline_leaf_name: conditional_result
+                        prefilter: false
+                      validate:
+                        compile: true
+            """);
+
+        var result = await new WorkflowEngine { LLMClient = mockLlm.Object }
+            .ExecuteAsync(workflow, new JsonObject(), CancellationToken.None);
+
+        Assert.True(result.Success, result.Error?.Message);
+        var generated = WorkflowParser.Parse(result.Outputs!["plan"]!["yaml"]!.GetValue<string>());
+        var outputSchema = Assert.IsType<JsonObject>(generated.Workflows["main"].Steps[0].OutputSchema);
+        var decisionType = FlowTypeDescriptorConverter.FromJsonSchema(outputSchema).Properties["decision"].Type;
+        Assert.Equal(FlowTypeKind.Union, decisionType.Kind);
+        Assert.Contains(decisionType.Variants, static variant => variant.Kind == FlowTypeKind.Null);
     }
 
     [Fact]

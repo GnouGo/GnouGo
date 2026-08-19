@@ -816,6 +816,36 @@ public sealed partial class WorkflowPlanExecutor
         return true;
     }
 
+    private static bool TryBuildConditionalCompositionBranchValues(
+        IReadOnlyList<CapabilityCatalogEntry> entries,
+        out IReadOnlyDictionary<string, string> branchValues)
+    {
+        branchValues = new Dictionary<string, string>(StringComparer.Ordinal);
+        if (entries.Count < 2)
+            return false;
+
+        var variants = entries
+            .Where(static entry => entry.RequestBindings.Count > 0)
+            .GroupBy(static entry => (
+                entry.Resolution,
+                entry.Server,
+                entry.Kind,
+                entry.Method,
+                Paths: string.Join("\u001f", entry.RequestBindings
+                    .Select(static binding => binding.Path)
+                    .Order(StringComparer.Ordinal))))
+            .Select(static group => group.ToArray())
+            .Where(static group => group.Length >= 2)
+            .Select(group => TryBuildConditionalBranchValues(group, out var values) ? values : null)
+            .Where(static values => values is not null)
+            .ToArray();
+        if (variants.Length != 1)
+            return false;
+
+        branchValues = variants[0]!;
+        return true;
+    }
+
     private static string FormatBindingsCompact(IReadOnlyList<CapabilityRequestBinding> bindings)
         => string.Join(",", bindings.OrderBy(static binding => binding.Path, StringComparer.Ordinal)
             .Select(static binding => binding.Path + "=" + CanonicalScalar(binding.Value)));

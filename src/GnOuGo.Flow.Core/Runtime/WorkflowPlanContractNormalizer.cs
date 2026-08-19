@@ -188,6 +188,8 @@ internal static class WorkflowPlanContractNormalizer
             }
         }
 
+        changed |= NormalizeJsonSchemaNullableKeyword(mapping);
+
         if (mapping.Children.TryGetValue(Scalar("properties"), out var propertiesNode)
             && propertiesNode is YamlMappingNode properties)
         {
@@ -254,6 +256,74 @@ internal static class WorkflowPlanContractNormalizer
         }
 
         return mapping;
+    }
+
+    private static bool NormalizeJsonSchemaNullableKeyword(YamlMappingNode schema)
+    {
+        var nullableKey = Scalar("nullable");
+        if (!schema.Children.TryGetValue(nullableKey, out var nullableNode)
+            || nullableNode is not YamlScalarNode nullableScalar
+            || !bool.TryParse(nullableScalar.Value, out var nullable))
+        {
+            return false;
+        }
+
+        schema.Children.Remove(nullableKey);
+        if (!nullable)
+            return true;
+
+        var typeKey = Scalar("type");
+        if (schema.Children.TryGetValue(typeKey, out var typeNode))
+        {
+            if (typeNode is YamlScalarNode typeScalar)
+            {
+                if (!string.Equals(typeScalar.Value, "null", StringComparison.OrdinalIgnoreCase))
+                {
+                    schema.Children[typeKey] = new YamlSequenceNode(
+                        CloneYamlNode(typeScalar),
+                        JsonStringScalar("null"));
+                }
+
+                return true;
+            }
+
+            if (typeNode is YamlSequenceNode typeSequence
+                && !typeSequence.Children.OfType<YamlScalarNode>().Any(static candidate =>
+                    string.Equals(candidate.Value, "null", StringComparison.OrdinalIgnoreCase)))
+            {
+                typeSequence.Add(JsonStringScalar("null"));
+            }
+
+            return true;
+        }
+
+        foreach (var unionKeyword in new[] { "anyOf", "oneOf" })
+        {
+            if (!schema.Children.TryGetValue(Scalar(unionKeyword), out var variantsNode)
+                || variantsNode is not YamlSequenceNode variants)
+            {
+                continue;
+            }
+
+            if (!variants.Children.OfType<YamlMappingNode>().Any(static variant =>
+                    variant.Children.TryGetValue(Scalar("type"), out var variantType)
+                    && variantType is YamlScalarNode variantTypeScalar
+                    && string.Equals(variantTypeScalar.Value, "null", StringComparison.OrdinalIgnoreCase)))
+            {
+                variants.Add(new YamlMappingNode { { Scalar("type"), JsonStringScalar("null") } });
+            }
+
+            return true;
+        }
+
+        var nonNullableSchema = CloneYamlMappingNode(schema);
+        schema.Children.Clear();
+        schema.Add(
+            Scalar("anyOf"),
+            new YamlSequenceNode(
+                nonNullableSchema,
+                new YamlMappingNode { { Scalar("type"), JsonStringScalar("null") } }));
+        return true;
     }
 
     private static bool RenameJsonSchemaKeyword(YamlMappingNode mapping, string workflowName, string jsonName)

@@ -330,6 +330,8 @@ public sealed class WorkflowPlanCapabilityPreflightTests
         Assert.DoesNotContain("pull request", prompt, StringComparison.OrdinalIgnoreCase);
         Assert.DoesNotContain("APPROVE", prompt, StringComparison.Ordinal);
         Assert.DoesNotContain("REQUEST_CHANGES", prompt, StringComparison.Ordinal);
+        Assert.Contains("independently observable requested effects", prompt, StringComparison.Ordinal);
+        Assert.Contains("one atomic effect", prompt, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -816,6 +818,301 @@ public sealed class WorkflowPlanCapabilityPreflightTests
         var remaining = plannedTools.Cast<object>().ToArray();
         Assert.Single(remaining);
         Assert.Equal("review_complete", plannedToolType!.GetProperty("Method")!.GetValue(remaining[0]));
+    }
+
+    [Fact]
+    public void LockedComposition_RemovesMalformedIdentityClaimBeforeCanonicalRebuild()
+    {
+        var executorType = typeof(WorkflowPlanExecutor);
+        var method = executorType.GetMethod(
+            "RemoveClaimedOrMatchingLockedToolPlans",
+            BindingFlags.Static | BindingFlags.NonPublic);
+        var plannedToolType = executorType.GetNestedType("PipelinePlannedTool", BindingFlags.NonPublic);
+        var resolvedCapabilityType = executorType.GetNestedType("ResolvedCapability", BindingFlags.NonPublic);
+        var requestBindingType = executorType.GetNestedType("CapabilityRequestBinding", BindingFlags.NonPublic);
+        Assert.NotNull(method);
+        Assert.NotNull(plannedToolType);
+        Assert.NotNull(resolvedCapabilityType);
+        Assert.NotNull(requestBindingType);
+
+        var emptyBindings = Array.CreateInstance(requestBindingType!, 0);
+        object PlannedTool(string toolMethod, string[] operationIds, string[] catalogIds) =>
+            Activator.CreateInstance(plannedToolType!,
+            [
+                "neutral", "tool", toolMethod, true, "External work",
+                Array.Empty<string>(), Array.Empty<string>(), emptyBindings,
+                operationIds, catalogIds, null
+            ])!;
+
+        var plannedTools = Assert.IsAssignableFrom<IList>(Activator.CreateInstance(
+            typeof(List<>).MakeGenericType(plannedToolType!)));
+        plannedTools.Add(PlannedTool("incorrect_member", ["op-work"], ["cap-wrapper"]));
+        plannedTools.Add(PlannedTool("complete_work", [], []));
+        plannedTools.Add(PlannedTool("unrelated_work", [], []));
+
+        var wrapperCapability = Activator.CreateInstance(resolvedCapabilityType!,
+        [
+            "op-work::cap-wrapper", "Perform the complete operation.", true, "mcp",
+            "neutral", "tool", "complete_work", emptyBindings,
+            "op-work", "cap-wrapper", "composed", "external_effect", "execute", null,
+            "Run every phase as one complete operation."
+        ]);
+        Assert.NotNull(wrapperCapability);
+        var lockedCapabilities = Array.CreateInstance(resolvedCapabilityType!, 1);
+        lockedCapabilities.SetValue(wrapperCapability, 0);
+
+        method!.Invoke(null, [plannedTools, lockedCapabilities]);
+
+        var remaining = plannedTools.Cast<object>()
+            .Select(tool => plannedToolType!.GetProperty("Method")!.GetValue(tool)!.ToString()!)
+            .ToArray();
+        Assert.Equal(["unrelated_work"], remaining);
+    }
+
+    [Fact]
+    public void ConditionalComposition_ConsolidatesExtractorSplitVariantsIntoOneLeaf()
+    {
+        var executorType = typeof(WorkflowPlanExecutor);
+        var method = executorType.GetMethod(
+            "ConsolidateSplitConditionalVariantSpecs",
+            BindingFlags.Static | BindingFlags.NonPublic);
+        var specType = executorType.GetNestedType("WorkflowPipelineSubworkflowSpec", BindingFlags.NonPublic);
+        var plannedToolType = executorType.GetNestedType("PipelinePlannedTool", BindingFlags.NonPublic);
+        var nativeStepType = executorType.GetNestedType("PipelinePlannedNativeStep", BindingFlags.NonPublic);
+        var resolvedCapabilityType = executorType.GetNestedType("ResolvedCapability", BindingFlags.NonPublic);
+        var requestBindingType = executorType.GetNestedType("CapabilityRequestBinding", BindingFlags.NonPublic);
+        Assert.NotNull(method);
+        Assert.NotNull(specType);
+        Assert.NotNull(plannedToolType);
+        Assert.NotNull(nativeStepType);
+        Assert.NotNull(resolvedCapabilityType);
+        Assert.NotNull(requestBindingType);
+
+        object Binding(string value) => Activator.CreateInstance(
+            requestBindingType!, ["/outcome", JsonValue.Create(value)])!;
+        object Bindings(string value)
+        {
+            var result = Array.CreateInstance(requestBindingType!, 1);
+            result.SetValue(Binding(value), 0);
+            return result;
+        }
+        var acceptActivation = new McpCapabilityActivation("exactly_one", "finalize", "classify", "accept");
+        var rejectActivation = new McpCapabilityActivation("exactly_one", "finalize", "classify", "reject");
+        object PlannedTool(string value, string catalogId, McpCapabilityActivation? activation)
+            => Activator.CreateInstance(plannedToolType!,
+            [
+                "neutral", "tool", "finalize", true, $"Finalize {value}.",
+                Array.Empty<string>(), Array.Empty<string>(), Bindings(value),
+                new[] { "finalize" }, new[] { catalogId }, activation
+            ])!;
+
+        var acceptOriginalTool = PlannedTool("accept", "cap-accept", null);
+        var rejectOriginalTool = PlannedTool("reject", "cap-reject", null);
+        var acceptReassignedTool = PlannedTool("accept", "cap-accept", acceptActivation);
+        var rejectReassignedTool = PlannedTool("reject", "cap-reject", rejectActivation);
+
+        object Tools(params object[] values)
+        {
+            var result = Array.CreateInstance(plannedToolType!, values.Length);
+            for (var index = 0; index < values.Length; index++)
+                result.SetValue(values[index], index);
+            return result;
+        }
+        var emptyNativeSteps = Array.CreateInstance(nativeStepType!, 0);
+        object Spec(string name, object plannedTools, string content)
+            => Activator.CreateInstance(specType!,
+            [
+                name, $"Execute {name}.", "A conditional variant.", "external_work", "external_action",
+                "One finalized result.",
+                new Dictionary<string, string>(StringComparer.Ordinal) { ["decision"] = "string" },
+                new Dictionary<string, string>(StringComparer.Ordinal) { ["result"] = "string" },
+                new Dictionary<string, JsonNode?>(StringComparer.Ordinal) { ["decision"] = JsonNode.Parse("{\"type\":\"string\"}") },
+                new Dictionary<string, JsonNode?>(StringComparer.Ordinal) { ["result"] = JsonNode.Parse("{\"type\":\"string\"}") },
+                plannedTools, null, "Conditional external effect.", content, "Generate the variant.",
+                Array.Empty<string>(), emptyNativeSteps
+            ])!;
+
+        var originalSpecs = Array.CreateInstance(specType!, 2);
+        originalSpecs.SetValue(Spec("accept_leaf", Tools(acceptOriginalTool), "Accept the record."), 0);
+        originalSpecs.SetValue(Spec("reject_leaf", Tools(rejectOriginalTool), "Reject the record."), 1);
+        var reassignedSpecs = Array.CreateInstance(specType!, 2);
+        reassignedSpecs.SetValue(Spec(
+            "accept_leaf",
+            Tools(acceptReassignedTool, rejectReassignedTool),
+            "Accept the record."), 0);
+        reassignedSpecs.SetValue(Spec("reject_leaf", Tools(), "Reject the record."), 1);
+
+        object Capability(string value, string catalogId, McpCapabilityActivation activation)
+            => Activator.CreateInstance(resolvedCapabilityType!,
+            [
+                $"finalize::{catalogId}", $"Finalize {value}.", true, "mcp",
+                "neutral", "tool", "finalize", Bindings(value),
+                "finalize", catalogId, "conditional", "external_effect", "write", activation,
+                $"Finalize with {value}."
+            ])!;
+        var capabilities = Array.CreateInstance(resolvedCapabilityType!, 2);
+        capabilities.SetValue(Capability("accept", "cap-accept", acceptActivation), 0);
+        capabilities.SetValue(Capability("reject", "cap-reject", rejectActivation), 1);
+
+        var result = method!.Invoke(null,
+        [
+            originalSpecs,
+            reassignedSpecs,
+            capabilities,
+            "Call accept_leaf or reject_leaf according to the runtime decision."
+        ])!;
+        var consolidated = Assert.IsAssignableFrom<IEnumerable>(
+            result.GetType().GetField("Item1")!.GetValue(result)).Cast<object>().ToArray();
+        var mainPrompt = Assert.IsType<string>(result.GetType().GetField("Item2")!.GetValue(result));
+
+        var owner = Assert.Single(consolidated);
+        Assert.Equal("accept_leaf", specType!.GetProperty("Name")!.GetValue(owner));
+        Assert.Contains("Reject the record.", specType.GetProperty("Content")!.GetValue(owner)!.ToString());
+        Assert.DoesNotContain("reject_leaf", mainPrompt, StringComparison.Ordinal);
+        Assert.Contains("accept_leaf", mainPrompt, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void ConditionalComposition_SeparatesExclusiveVariantsFromUnconditionalPrerequisites()
+    {
+        var executorType = typeof(WorkflowPlanExecutor);
+        var method = executorType.GetMethod(
+            "TryBuildConditionalCompositionBranchValues",
+            BindingFlags.Static | BindingFlags.NonPublic);
+        var entryType = executorType.GetNestedType("CapabilityCatalogEntry", BindingFlags.NonPublic);
+        var bindingType = executorType.GetNestedType("CapabilityRequestBinding", BindingFlags.NonPublic);
+        var fieldType = executorType.GetNestedType("CapabilitySchemaField", BindingFlags.NonPublic);
+        Assert.NotNull(method);
+        Assert.NotNull(entryType);
+        Assert.NotNull(bindingType);
+        Assert.NotNull(fieldType);
+
+        object Bindings(params (string Path, string Value)[] values)
+        {
+            var result = Array.CreateInstance(bindingType!, values.Length);
+            for (var index = 0; index < values.Length; index++)
+            {
+                result.SetValue(Activator.CreateInstance(
+                    bindingType!, values[index].Path, JsonValue.Create(values[index].Value)), index);
+            }
+            return result;
+        }
+
+        object Entry(string id, string methodName, object bindings)
+            => Activator.CreateInstance(entryType!,
+            [
+                id, "mcp", "neutral", "tool", methodName, "Neutral external operation.", bindings, string.Empty,
+                Array.CreateInstance(fieldType!, 0), Array.CreateInstance(fieldType!, 0), null, null
+            ])!;
+
+        var entries = Array.CreateInstance(entryType!, 4);
+        entries.SetValue(Entry("cap_prepare", "finalize_work", Bindings(("/method", "prepare"))), 0);
+        entries.SetValue(Entry("cap_note", "add_note", Bindings()), 1);
+        entries.SetValue(Entry("cap_accept", "finalize_work", Bindings(("/method", "submit"), ("/state", "accept"))), 2);
+        entries.SetValue(Entry("cap_reject", "finalize_work", Bindings(("/method", "submit"), ("/state", "reject"))), 3);
+        object?[] arguments = [entries, null];
+
+        var success = Assert.IsType<bool>(method!.Invoke(null, arguments));
+
+        Assert.True(success);
+        var branches = Assert.IsAssignableFrom<IReadOnlyDictionary<string, string>>(arguments[1]);
+        Assert.Equal(2, branches.Count);
+        Assert.Equal("accept", branches["cap_accept"]);
+        Assert.Equal("reject", branches["cap_reject"]);
+        Assert.DoesNotContain("cap_prepare", branches.Keys);
+        Assert.DoesNotContain("cap_note", branches.Keys);
+    }
+
+    [Fact]
+    public void SharedWriteComposition_RetainsOneOwnedPreparationAndDistinctDependentActions()
+    {
+        var executorType = typeof(WorkflowPlanExecutor);
+        var method = executorType.GetMethod(
+            "SelectRetainedSharedWriteOccurrences",
+            BindingFlags.Static | BindingFlags.NonPublic);
+        var occurrenceType = executorType.GetNestedType("SharedWriteOccurrence", BindingFlags.NonPublic);
+        Assert.NotNull(method);
+        Assert.NotNull(occurrenceType);
+
+        object Occurrence(string operationId, string catalogId, bool owned) =>
+            Activator.CreateInstance(occurrenceType!, operationId, catalogId, owned)!;
+
+        var occurrences = Array.CreateInstance(occurrenceType!, 6);
+        occurrences.SetValue(Occurrence("op_prepare", "cap_prepare", true), 0);
+        occurrences.SetValue(Occurrence("op_comment", "cap_prepare", false), 1);
+        occurrences.SetValue(Occurrence("op_submit", "cap_prepare", false), 2);
+        occurrences.SetValue(Occurrence("op_comment", "cap_comment", false), 3);
+        occurrences.SetValue(Occurrence("op_submit", "cap_accept", true), 4);
+        occurrences.SetValue(Occurrence("op_submit", "cap_reject", true), 5);
+
+        var retained = Assert.IsAssignableFrom<IEnumerable>(method!.Invoke(null, [occurrences]))
+            .Cast<ITuple>()
+            .Select(static tuple => ($"{tuple[0]}", $"{tuple[1]}"))
+            .ToHashSet();
+
+        Assert.Contains(("op_prepare", "cap_prepare"), retained);
+        Assert.DoesNotContain(("op_comment", "cap_prepare"), retained);
+        Assert.DoesNotContain(("op_submit", "cap_prepare"), retained);
+        Assert.Contains(("op_comment", "cap_comment"), retained);
+        Assert.Contains(("op_submit", "cap_accept"), retained);
+        Assert.Contains(("op_submit", "cap_reject"), retained);
+    }
+
+    [Theory]
+    [InlineData(3, 1, true)]
+    [InlineData(1, 1, false)]
+    [InlineData(0, -1, false)]
+    public void CapabilityOwnership_OverridesAdvisoryLocalClassificationOnlyForStrongerNamedOwner(
+        int strongestOverall,
+        int strongestExternal,
+        bool expected)
+    {
+        var method = typeof(WorkflowPlanExecutor).GetMethod(
+            "ShouldOverrideAdvisoryLocalClassification",
+            BindingFlags.Static | BindingFlags.NonPublic);
+        Assert.NotNull(method);
+
+        Assert.Equal(expected, Assert.IsType<bool>(method!.Invoke(null, [strongestOverall, strongestExternal])));
+    }
+
+    [Fact]
+    public void CapabilityOwnership_DistinguishesCleanupActionFromSharedResourceNouns()
+    {
+        var method = typeof(WorkflowPlanExecutor).GetMethod(
+            "CountFocusedCapabilityActionFamilyMatches",
+            BindingFlags.Static | BindingFlags.NonPublic);
+        Assert.NotNull(method);
+
+        var cleanup = Assert.IsType<int>(method!.Invoke(null,
+            ["Delete every workflow-created directory.", "Run an allowlisted command.", "cleanup workflow paths"]));
+        var materializer = Assert.IsType<int>(method.Invoke(null,
+            ["Delete every workflow-created directory.", "Run an allowlisted command.", "clone shared checkout"]));
+
+        Assert.True(cleanup > materializer);
+    }
+
+    [Theory]
+    [InlineData("Run project verification but do not clone or create another checkout.", "git_clone", "external_effect", "Clone a checkout.", true)]
+    [InlineData("Normalize findings locally with no side effects.", "publish_result", "write", "Publish the result.", true)]
+    [InlineData("Do not invoke opaque_action in this leaf.", "opaque_action", "external_effect", "Perform an opaque action.", true)]
+    [InlineData("Read current state with no external writes.", "read_state", "read", "Read current state.", false)]
+    [InlineData("Publish the result without external reads.", "publish_result", "write", "Publish the result.", false)]
+    [InlineData("Clone one checkout and run its checks.", "git_clone", "external_effect", "Clone a checkout.", false)]
+    public void CapabilityOwnership_RejectsOnlyExplicitlyContradictedCapabilityClaims(
+        string intent,
+        string methodName,
+        string effectKind,
+        string capabilityText,
+        bool expected)
+    {
+        var method = typeof(WorkflowPlanExecutor).GetMethod(
+            "ExplicitlyRejectsCapabilityOwnership",
+            BindingFlags.Static | BindingFlags.NonPublic);
+        Assert.NotNull(method);
+
+        Assert.Equal(expected, Assert.IsType<bool>(method!.Invoke(
+            null,
+            [intent, methodName, effectKind, capabilityText])));
     }
 
     [Fact]
@@ -2132,6 +2429,72 @@ public sealed class WorkflowPlanCapabilityPreflightTests
     }
 
     [Fact]
+    public void ArtifactRequirements_PreserveDeclaredKindInsteadOfInferringItFromPointerNames()
+    {
+        const string artifactKind = "neutral.record.batch";
+        var consumer = new McpToolInfo
+        {
+            Name = "consume_records",
+            ArtifactContract = new McpArtifactContractResolution(
+                new McpArtifactContract(
+                    1,
+                    [],
+                    [new McpConsumedArtifact(artifactKind, "/payloadText", true)]),
+                [])
+        };
+        var method = typeof(WorkflowPlanExecutor).GetMethod(
+            "GetRequiredArtifactRequirements",
+            BindingFlags.Static | BindingFlags.NonPublic,
+            binder: null,
+            types: [typeof(McpToolInfo)],
+            modifiers: null);
+
+        var requirements = Assert.IsAssignableFrom<IEnumerable>(method!.Invoke(null, [consumer]));
+        var requirement = Assert.Single(requirements.Cast<object>());
+        var kind = requirement.GetType().GetProperty("Kind")?.GetValue(requirement);
+        var field = requirement.GetType().GetProperty("Field")?.GetValue(requirement);
+        var path = field?.GetType().GetProperty("Path")?.GetValue(field);
+
+        Assert.Equal(artifactKind, kind);
+        Assert.Equal("/payloadText", path);
+    }
+
+    [Fact]
+    public void AdvisorySelectorRefinement_UsesOneExplicitlyMentionedDocumentedValue()
+    {
+        var schema = new JsonObject
+        {
+            ["type"] = "object",
+            ["properties"] = new JsonObject
+            {
+                ["operation"] = new JsonObject
+                {
+                    ["type"] = "string",
+                    ["enum"] = new JsonArray("inspect", "compare")
+                }
+            },
+            ["required"] = new JsonArray("operation")
+        };
+        var method = typeof(WorkflowPlanExecutor).GetMethod(
+            "SelectAdvisorySelectorVariants",
+            BindingFlags.Static | BindingFlags.NonPublic);
+
+        var variants = Assert.IsAssignableFrom<IEnumerable>(method!.Invoke(
+            null,
+            [schema, "Perform a fresh catalog read using inspect before publishing."]));
+        var variant = Assert.Single(variants.Cast<object>());
+        var bindings = Assert.IsAssignableFrom<IEnumerable>(
+            variant.GetType().GetProperty("Bindings")!.GetValue(variant));
+        var binding = Assert.Single(bindings.Cast<object>());
+
+        Assert.Equal("/operation", binding.GetType().GetProperty("Path")!.GetValue(binding));
+        Assert.Equal(
+            "inspect",
+            Assert.IsAssignableFrom<JsonValue>(binding.GetType().GetProperty("Value")!.GetValue(binding))
+                .GetValue<string>());
+    }
+
+    [Fact]
     public async Task InferredPreflight_RejectsPhaseSpecificCopiesOfOneSharedMaterializer()
     {
         var generated = ValidWorkspaceWorkflow.Replace(
@@ -2301,6 +2664,8 @@ public sealed class WorkflowPlanCapabilityPreflightTests
         Assert.Contains("declared workflow inputs supplied when execution starts", prompts[0], StringComparison.Ordinal);
         Assert.Contains("provider selection, secret-vault lookup", prompts[0], StringComparison.Ordinal);
         Assert.Contains("persistence, registration, or provisioning", prompts[0], StringComparison.Ordinal);
+        Assert.Contains("reuses the original operation's capability", prompts[0], StringComparison.Ordinal);
+        Assert.Contains("depends on a target, input value, resource instance", prompts[0], StringComparison.Ordinal);
         Assert.Contains("method=get_object", prompts[1], StringComparison.Ordinal);
         Assert.Contains("outputs=[/record:object, /record/content:string, /record/version:number]", prompts[1], StringComparison.Ordinal);
         Assert.Contains("locked by preflight", prompts[2], StringComparison.Ordinal);
@@ -2516,14 +2881,13 @@ public sealed class WorkflowPlanCapabilityPreflightTests
                 if (request.Prompt.Contains("domain-neutral capability matcher", StringComparison.Ordinal))
                 {
                     var get = CatalogIdForMethod(request.Prompt, "get_object");
-                    var confirm = CatalogIdForMethod(request.Prompt, "human.input");
                     return new LLMResponse
                     {
                         Json = new JsonObject
                         {
                             ["operation_matches"] = new JsonArray
                             {
-                                MatchingNode("confirm_load", "matched", [confirm], "The native confirmation step is sufficient."),
+                                MatchingNode("confirm_load", "unavailable", [], "The model incorrectly claims no human interaction capability exists."),
                                 MatchingNode("load_object", "matched", [get], "The read capability is sufficient.")
                             },
                             ["constraint_matches"] = new JsonArray
@@ -2845,6 +3209,85 @@ public sealed class WorkflowPlanCapabilityPreflightTests
         Assert.True(result.Success, result.Error?.Message);
         Assert.Equal(2, matchingCalls);
         Assert.True(repairPromptContainedProducerCandidates);
+    }
+
+    [Fact]
+    public async Task InferredPreflight_NormalizesMatchedCardinalityWhenMetadataProvesUniqueArtifactComposition()
+    {
+        var matchingCalls = 0;
+        var llm = new Mock<ILLMClient>();
+        llm.Setup(client => client.CallAsync(It.IsAny<LLMRequest>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((LLMRequest request, CancellationToken _) =>
+            {
+                if (request.Prompt.Contains("domain-neutral workflow runtime analyst", StringComparison.Ordinal))
+                    return InventoryResponse(("inspect_workspace", "Inspect one materialized workspace.", true));
+                if (request.Prompt.Contains("domain-neutral capability matcher", StringComparison.Ordinal))
+                {
+                    matchingCalls++;
+                    return MatchingResponse((
+                        "inspect_workspace",
+                        "matched",
+                        new[]
+                        {
+                            CatalogIdForMethod(request.Prompt, "create_workspace"),
+                            CatalogIdForMethod(request.Prompt, "inspect_workspace")
+                        },
+                        Array.Empty<string>(),
+                        "The materializer supplies the artifact required by the inspector."));
+                }
+
+                return new LLMResponse { Text = ValidWorkspaceWorkflow };
+            });
+
+        var result = await ExecuteAsync(
+            InferredPlan().Replace(
+                "Load a configured object and optionally notify a consumer.",
+                "Inspect one materialized workspace.",
+                StringComparison.Ordinal),
+            llm.Object,
+            CreateArtifactFactory());
+
+        Assert.True(result.Success, result.Error?.Message);
+        Assert.Equal(1, matchingCalls);
+        var capabilities = Assert.IsType<JsonArray>(result.Outputs!["plan"]!["meta"]!["capability_preflight"]!["capabilities"]);
+        Assert.Equal(2, capabilities.Count);
+        Assert.All(capabilities.OfType<JsonObject>(), static capability =>
+            Assert.Equal("composed", capability["match_status"]!.GetValue<string>()));
+    }
+
+    [Fact]
+    public async Task InferredPreflight_DoesNotNormalizeUnrelatedCapabilitiesAsAComposition()
+    {
+        var matchingCalls = 0;
+        var llm = new Mock<ILLMClient>();
+        llm.Setup(client => client.CallAsync(It.IsAny<LLMRequest>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((LLMRequest request, CancellationToken _) =>
+            {
+                if (request.Prompt.Contains("domain-neutral workflow runtime analyst", StringComparison.Ordinal))
+                    return InventoryResponse(("load_object", "Load one configured object.", true));
+                if (request.Prompt.Contains("domain-neutral capability matcher", StringComparison.Ordinal))
+                {
+                    matchingCalls++;
+                    return MatchingResponse((
+                        "load_object",
+                        "matched",
+                        new[]
+                        {
+                            CatalogIdForMethod(request.Prompt, "get_object"),
+                            CatalogIdForMethod(request.Prompt, "delete_object")
+                        },
+                        Array.Empty<string>(),
+                        "The response incorrectly labels two unrelated effects as one match."));
+                }
+
+                throw new InvalidOperationException("Generation must not run for an invalid matching contract.");
+            });
+
+        var result = await ExecuteAsync(InferredPlan(), llm.Object, CreateNeutralFactory());
+
+        Assert.False(result.Success);
+        Assert.Equal(ErrorCodes.CapabilityPreflightInferenceFailed, result.Error!.Code);
+        Assert.Equal(2, matchingCalls);
     }
 
     [Fact]

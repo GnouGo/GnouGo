@@ -617,7 +617,7 @@ internal static partial class WorkflowPlanPipelineQualityAnalyzer
         var outputPath = path.Count > 0 && string.Equals(path[0], "outputs", StringComparison.Ordinal)
             ? path.Skip(1).ToArray()
             : path.ToArray();
-        if (outputPath.Length != 1
+        if (outputPath.Length == 0
             || workflow.Outputs == null
             || !workflow.Outputs.TryGetValue(outputPath[0], out var output)
             || string.IsNullOrWhiteSpace(output.Expr))
@@ -625,8 +625,16 @@ internal static partial class WorkflowPlanPipelineQualityAnalyzer
             return false;
         }
 
-        outputExpression = output.Expr;
-        return true;
+        if (outputPath.Length == 1)
+        {
+            outputExpression = output.Expr;
+            return true;
+        }
+
+        return TryAppendExactExpressionPath(
+            output.Expr,
+            outputPath.Skip(1).ToArray(),
+            out outputExpression);
     }
 
     private static bool TryGetLocalWorkflowCallTarget(

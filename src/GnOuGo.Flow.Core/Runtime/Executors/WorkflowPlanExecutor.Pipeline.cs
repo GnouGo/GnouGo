@@ -1078,7 +1078,9 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
     {
         var maxAttempts = GetPipelineGenerationMaxAttempts(pipelineInput);
         string? previousAnnotatedMarkdown = null;
+        string? previousExtractionJson = null;
         IReadOnlyList<string>? previousValidationErrors = null;
+        StructuredPipelineExtractionMetadata? previousValidatedStructuredMetadata = null;
         Exception? lastException = null;
 
         for (var attempt = 1; attempt <= maxAttempts; attempt++)
@@ -1091,10 +1093,12 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
                     normalizedMarkdown,
                     pipelineMcpContext.ServersDoc,
                     previousAnnotatedMarkdown,
+                    previousExtractionJson,
                     previousValidationErrors,
                     useStructuredExtraction);
 
             string annotatedMarkdown;
+            string? currentExtractionJson = null;
             StructuredPipelineExtractionMetadata structuredMetadata;
             IReadOnlyList<string> responseValidationErrors;
             try
@@ -1160,6 +1164,13 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
             {
                 if (structuredMetadata.IsStructuredResponse)
                 {
+                    if (previousValidatedStructuredMetadata != null)
+                    {
+                        structuredMetadata = PreservePreviouslyValidatedStructuredContracts(
+                            structuredMetadata,
+                            previousValidatedStructuredMetadata);
+                    }
+
                     annotatedMarkdown = NormalizeAnnotatedMarkdownContractSections(
                         annotatedMarkdown,
                         structuredMetadata);
@@ -1177,12 +1188,16 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
                     extraction,
                     pipelineMcpContext,
                     normalizedMarkdown);
+                currentExtractionJson = BuildExtractionJson(extraction).ToJsonString(PromptJsonOptions);
                 extractionSpan.SetAttribute("gnougo-flow.plan.pipeline.subworkflow_count", extraction.Subworkflows.Count);
                 extractionSpan.SetAttribute("gnougo-flow.plan.pipeline.validation_error_count", extraction.ValidationErrors.Count);
                 extractionSpan.SetAttribute("gnougo-flow.plan.pipeline.planned_tool_count", extraction.Subworkflows.Sum(static spec => spec.PlannedTools.Count));
 
                 if (extraction.ValidationErrors.Count == 0)
                 {
+                    if (structuredMetadata.IsStructuredResponse)
+                        previousValidatedStructuredMetadata = structuredMetadata;
+
                     extraction = await ReviewPipelineExtractionQualityAsync(
                         llmClient,
                         normalizedMarkdown,
@@ -1221,6 +1236,7 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
 
                         lastException = reviewException;
                         previousAnnotatedMarkdown = annotatedMarkdown;
+                        previousExtractionJson = currentExtractionJson;
                         previousValidationErrors = BuildExtractionQualityReviewRetryFeedback(extraction.QualityReview);
                         extractionSpan.SetAttribute("gnougo-flow.plan.pipeline.extraction_status", "retrying");
                         extractionSpan.Fail(reviewException);
@@ -1246,6 +1262,7 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
 
                 lastException = validationException;
                 previousAnnotatedMarkdown = annotatedMarkdown;
+                previousExtractionJson = currentExtractionJson;
                 previousValidationErrors = extraction.ValidationErrors;
                 extractionSpan.SetAttribute("gnougo-flow.plan.pipeline.extraction_status", "retrying");
                 extractionSpan.Fail(validationException);
@@ -1259,6 +1276,7 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
             {
                 lastException = ex;
                 previousAnnotatedMarkdown = annotatedMarkdown;
+                previousExtractionJson = currentExtractionJson ?? previousExtractionJson;
                 previousValidationErrors = new[] { ex.Message };
                 extractionSpan.AddEvent(
                     "gnougo-flow.plan.pipeline.extraction.error",
@@ -1371,6 +1389,7 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
             - wording rules;
             - tiny isolated actions that do not deserve a workflow.
             Leave simple deterministic orchestration in the main workflow. The main workflow can use `set`, `sequence`, `switch`, `parallel`, `loop.sequential`, and `loop.parallel` support nodes for shaping, guards, routing, aggregation, and loops.
+            Main cannot call MCP, LLM, file, rendering, command, or other external capabilities directly. Every required external invocation must belong to a cohesive leaf even when it is a single call; only its ordering, guard, loop, native human confirmation, and data routing stay in main.
 
             Keep extracted blocks focused:
             - Do not create one large block that mixes several responsibilities.
@@ -1400,9 +1419,16 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
             - For a subworkflow that calls or prepares a tool call, include required request variables from the tool schema as inputs only when they must come from the caller or an upstream block.
             - If a required tool variable can be derived internally from semantic inputs, keep it inside the block content instead of exposing it as a public subworkflow input.
             - If a later block needs a documented tool response field, expose that field as an output of the producing block using the documented type.
+            - When a typed output is passed into a later tool request, preserve every field that the downstream request contract or block prose actually uses. Do not replace a structured record with a lossy projection that omits required locations, evidence, ranges, discriminators, or explanations.
+            - Build an explicit typed dataflow across every leaf boundary. If main passes a producer result to a consumer, declare a named output on the producer and a compatible named input on the consumer; an instruction in prose is not a substitute for the contract.
+            - A consumer that validates, filters, classifies, explains, or branches on an upstream result must receive the complete typed evidence it reads. Do not expose only one sibling field such as changed items when the consumer also needs status, coverage, failures, rejected items, diagnostics, locations, or explanations.
+            - Every outcome promised by a leaf's goal, content, or concrete_outcome and consumed downstream must be a typed output. Include negative and unresolved states needed for fail-closed behavior, not only the successful subset.
+            - A leaf that owns conditionally activated calls must receive or derive the activation decision source as typed runtime data. Never ask the user for a future runtime outcome and never add a mutating default branch.
+            - For a field that must always be present but may legitimately contain no value, set `required: true` and `nullable: true`. This is especially important for locations, ranges, evidence anchors, optional external metadata, and runtime diagnostics that distinguish null from omission.
             - When a planned tool requires an existing operational artifact that the user did not explicitly supply, plan a documented producer tool and expose its compatible response field through an upstream leaf. Never invent an artifact path, handle, directory, or workspace input.
             - MCP artifact_contract metadata is authoritative. Materialize one artifact per locked producer occurrence, expose the exact declared response pointer, and route that value unchanged through main to every compatible consumer leaf.
             - Do not repeat a materializer merely because preparation, validation, analysis, or publication are separate leaves.
+            - When cleanup is required and a materializer accepts a caller-chosen creation target, derive that exact target before the materializer call and register it for cleanup before execution. Reconcile the returned artifact after success without duplicating the registry entry. Never invent a creation target when the documented tool contract does not accept one.
             - Required workflow inputs are validated by the runtime before execution. Do not add missing/empty required-input decision trees or user-facing fallback branches unless the user explicitly requested that behavior.
             - Do not copy every MCP field into every block; include only the variables needed for that block boundary.
             - Do not use placeholders for missing required variables. If they are not derivable, make them explicit inputs.
@@ -1425,6 +1451,7 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
             - Treat each locked capability as a separate invocation obligation, even when multiple operations use the same physical tool. Copy supplied operation_id and catalog_id values into operation_ids and catalog_ids for traceability.
             - request_bindings are only immutable selector literals explicitly documented by a selected capability contract. They are not ordinary tool arguments. Use an empty array unless the MCP context explicitly supplies a locked JSON Pointer/scalar pair; never put runtime commands, paths, URLs, identifiers, or other dynamic inputs in request_bindings.
             - Never return an `external_work` or `external_action` leaf with an empty planned_tools array. Select the exact documented capability, or keep the work in main when it is orchestration/glue, or classify it as an algorithmic transform only when it operates exclusively on declared inputs without external calls or state inspection.
+            - Do not invent a separate external inspection, preparation, or analysis leaf that has no corresponding requested/locked capability occurrence. Fold that obligation into the cohesive leaf that owns the compatible locked external operation, or rewrite it as deterministic processing of an already materialized typed input with no external session or state inspection.
             - External-work leaves that clone, read/fetch/query/list external data, write, delete, cleanup, report, post, push, or call outside systems must declare concrete planned_tools when matching MCP tools/prompts are documented above.
             - Do not invent planned tools. Only use MCP servers, tools, and prompts documented in the global MCP tool context.
             - If no MCP tool or prompt is required for a leaf, use an empty planned_tools array.
@@ -1443,6 +1470,7 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
             - Only the main workflow can call subworkflows.
             - Every subworkflow is a leaf workflow.
             - A subworkflow must never call another subworkflow.
+            - Main contains only workflow.call, native human confirmation, and deterministic support nodes. It must never own or inline an MCP, LLM, command, file, rendering, or other external step.
             - Main may order independent leaves and pass a typed output from an earlier producer leaf into one or more later consumer leaves.
             - The final YAML will contain the main workflow and all leaf subworkflows in the same local YAML file.
             - The main workflow calls leaf workflows with local workflow.call.
@@ -1473,6 +1501,7 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
         string normalizedMarkdown,
         string? pipelineMcpServersDoc,
         string? previousAnnotatedMarkdown,
+        string? previousExtractionJson,
         IReadOnlyList<string> validationErrors,
         bool useStructuredExtraction)
     {
@@ -1505,11 +1534,19 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
             sb.AppendLine("- Only external_action, typed_data_producer, and algorithmic_transform can remain as leaf blocks; move deterministic_glue, orchestration, and abstract_policy back to the main workflow.");
             sb.AppendLine("- Every remaining leaf must have a concrete_outcome and strongly typed input and output schemas.");
             sb.AppendLine("- Public leaf boundaries must never use `type: any`, bare objects, or arrays without concrete items. Model the fields consumed from another leaf explicitly.");
+            sb.AppendLine("- Treat the prior extraction JSON below as the contract snapshot being repaired. Apply every diagnostic to its named leaf and preserve unrelated valid contracts and capability ownership.");
+            sb.AppendLine("- Every value that main passes from one leaf to another must be a named producer output and a named consumer input with compatible complete schemas; prose in main is not a data contract.");
+            sb.AppendLine("- If a consumer's goal, content, or decision reads fields from an upstream result, accept the complete typed result or explicitly model every consumed field. Never pass only one convenient sibling field.");
+            sb.AppendLine("- Every result promised by a leaf's goal, content, or concrete_outcome and used by main or another leaf must be a typed output, including status, coverage/completeness, unresolved/failure state, rejected items, diagnostics, explanations, and branch decisions when applicable.");
+            sb.AppendLine("- A leaf that owns conditionally activated tools must accept or derive the declared runtime decision source through its typed contract. Future runtime outcomes stay runtime data and must never become generation-time clarification or a mutating default.");
+            sb.AppendLine("- Represent a field whose presence is required but value may be absent with `required: true` and `nullable: true`; do not make location, range, discriminator, or evidence fields optional when downstream logic distinguishes null from omission.");
             sb.AppendLine("- Contract-field `properties` are recursive. For every object property, dictionary object value, or object array item named by a validation error, add its own non-empty nested `properties` entries; never stop at `type: object`.");
             sb.AppendLine("- External-work leaves with matching MCP capabilities must include concrete planned_tools entries.");
             sb.AppendLine("- Structured planned_tools must use exact MCP server/tool/prompt names from the global MCP context.");
             sb.AppendLine("- request_bindings must be empty unless the MCP context explicitly documents the exact selector pointer and literal; normal runtime tool inputs never belong in request_bindings.");
             sb.AppendLine("- Never leave an external_work/external_action leaf without planned_tools: select an exact documented tool, move orchestration/glue back to main, or make it an input-only algorithmic transform with no external inspection.");
+            sb.AppendLine("- Remove or merge every invented external inspection/preparation/analysis leaf that has no requested or locked capability occurrence. A deterministic_shaping leaf may process declared typed inputs but must not require an external session, filesystem inspection, or external state in prose.");
+            sb.AppendLine("- For every unlocked selector-based planned tool, preserve an exact literal request binding whenever its purpose or prose names the selector. If that selector is not actually required, remove the invented call instead of leaving a selector-incomplete whole-tool entry.");
             sb.AppendLine("- Fix low extraction scores by either making the leaf a meaningful external/algorithmic unit with concrete planned_tools/contracts, or moving trivial shaping/orchestration back to the main workflow.");
         }
         sb.AppendLine("- The document must include `## Main workflow orchestration` after the leaf blocks.");
@@ -1519,6 +1556,12 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
         {
             sb.AppendLine();
             AppendPromptSection(sb, "invalid_annotated_markdown", previousAnnotatedMarkdown);
+        }
+
+        if (!string.IsNullOrWhiteSpace(previousExtractionJson))
+        {
+            sb.AppendLine();
+            AppendPromptSection(sb, "invalid_extraction_json", previousExtractionJson);
         }
 
         sb.AppendLine();
@@ -1670,15 +1713,19 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
         sb.AppendLine();
         sb.AppendLine("Authoritative platform rules:");
         sb.AppendLine("- locked capability operations, selector bindings, local-processing obligations, and constraints in extraction_json are authoritative;");
+        sb.AppendLine("- main can call leaves, perform native human confirmation, and use deterministic support nodes only; it cannot own a direct MCP, LLM, command, file, rendering, or other external step. If an external capability lacks a compatible owner, require a cohesive external-action leaf rather than moving the call into main;");
         sb.AppendLine("- required=true on a locked planned tool means the generated workflow must contain that call; it does not mean the call is unconditional, so preserve any documented guard or branch;");
         sb.AppendLine("- never recommend removing or downgrading a planned tool carrying locked operation_ids or catalog_ids;");
         sb.AppendLine("- locked capabilities are an exact multiset: deterministic validation has already assigned each required occurrence once; an additional technical call may intentionally have empty operation_ids/catalog_ids, and you must not ask to duplicate an identity already assigned to another call;");
         sb.AppendLine("- occurrence identity is the `(operation_id, catalog_id)` pair. A composed operation intentionally repeats one operation_id across multiple distinct catalog_ids, and those complementary calls may belong to different cohesive leaves; do not report that as duplication;");
+        sb.AppendLine("- a documented unconditional draft/preparation write followed by exactly one conditional terminal finalization is not a duplicate final decision. Count terminal effect selectors, not every prerequisite write; still reject multiple unconditional or independently activated terminal effects.");
         sb.AppendLine("- work_kind is intentionally limited to orchestration, deterministic_shaping, or external_work; contract_role is intentionally limited to external_action, typed_data_producer, algorithmic_transform, deterministic_glue, orchestration, or abstract_policy. Do not request unsupported semantic subtypes such as external_read, llm_work, or analysis;");
         sb.AppendLine("- a human confirmation before the first external write is a generic platform safety policy unless unattended execution was explicitly requested, and is not a behavioral overconstraint;");
+        sb.AppendLine("- confirmation may guard the mutating workflow.call in main. When that call is reachable only from the submitted/confirmed branch, do not require a redundant confirmation boolean in the leaf contract; require one only when the leaf itself evaluates that value.");
         sb.AppendLine("- do not require an optional external action mentioned only in extractor prose unless it is required by the normalized request or a locked capability operation;");
         sb.AppendLine("- deterministic shaping may group, classify, select, or derive typed subsets from already materialized producer outputs such as records, paths, and manifests. Do not demand a new external inspection action merely to process those supplied values; require an external read only when information absent from every input must be fetched from external state.");
         sb.AppendLine("- cleanup obligations follow authoritative artifact_contract materializers. Do not assume every external leaf creates a directory, and do not demand created-directory outputs from capabilities whose artifact contracts materialize none.");
+        sb.AppendLine("- when cleanup is required and a materializer has a documented caller-chosen creation target, main must register that exact target before invoking the materializer so partial failures remain cleanable, then reconcile the returned artifact after success without duplication. Do not demand pre-registration when no such documented input exists.");
         sb.AppendLine("- when extractor prose names a concrete discovered MCP method and selector, planned_tools must contain that literal discovered call or the prose must be removed.");
         sb.AppendLine("- capability names mentioned only inside a prohibition are not calls and must not appear in planned_tools.");
         sb.AppendLine("- only normalized_prompt defines generated-workflow behavior. Agent names, descriptions, persistence identifiers, and configuration supplied by the surrounding host are host metadata, not workflow inputs or obligations, unless normalized_prompt explicitly asks the generated workflow itself to use them.");
@@ -1764,7 +1811,11 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
                                       || diagnosticText.Contains("incorrectly includes", StringComparison.Ordinal)
                                       || diagnosticText.Contains("move ", StringComparison.Ordinal)
                                       || diagnosticText.Contains("assign", StringComparison.Ordinal)
-                                         && diagnosticText.Contains(" leaf", StringComparison.Ordinal);
+                                         && diagnosticText.Contains(" leaf", StringComparison.Ordinal)
+                                      || Regex.IsMatch(
+                                          diagnosticText,
+                                          @"\b(?:remove|keep|reassign|relocate)\b[^.;\n]{0,120}\b(?:capabilit(?:y|ies)|calls?|operations?|writes?|reads?)\b[^.;\n]{0,100}\b(?:leaf|main|owner)\b|\b(?:belong|belongs|owned|ownership)\b[^.;\n]{0,120}\b(?:leaf|main|owner)\b|\b(?:before|after)\b[^.;\n]{0,80}\bconfirmation\b",
+                                          RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
             var challengesValidatedOccurrenceIdentity = mentionsOccurrenceIdentity
                                                          && asksToAddOccurrenceIdentity
                                                          && !challengesPlacement
@@ -2146,6 +2197,7 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
     {
         var feedback = BuildExtractionQualityReviewRetryFeedback(extraction.QualityReview);
         var rootCauses = BuildExtractionQualityReviewRootCauses(extraction.QualityReview);
+        var lockedCapabilityOwnership = BuildLockedCapabilityOwnershipSummary(extraction);
         var details = new JsonObject
         {
             ["planning_outcome"] = "cannot_plan_safely",
@@ -2153,6 +2205,7 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
             ["quality_review"] = BuildExtractionQualityReviewJson(extraction.QualityReview),
             ["validation"] = BuildValidationJson(feedback),
             ["root_causes"] = BuildPipelineRootCausesJson(rootCauses),
+            ["locked_capability_ownership"] = lockedCapabilityOwnership,
             ["pipeline_inspection"] = new JsonObject
             {
                 ["summary"] = new JsonObject
@@ -2171,9 +2224,31 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
 
         return new WorkflowRuntimeException(
             ErrorCodes.TemplatePlan,
-            "workflow.plan pipeline extraction quality review failed: " + string.Join("; ", feedback),
+            "workflow.plan pipeline extraction quality review failed: " + string.Join("; ", feedback)
+            + (lockedCapabilityOwnership.Count == 0
+                ? string.Empty
+                : "; Locked capability ownership: " + string.Join(", ", lockedCapabilityOwnership
+                    .OfType<JsonObject>()
+                    .Select(static item => $"{item["leaf"]?.GetValue<string>()}={item["server"]?.GetValue<string>()}/{item["method"]?.GetValue<string>()} [{item["operation_id"]?.GetValue<string>()}::{item["catalog_id"]?.GetValue<string>()}]"))),
             details: details);
     }
+
+    private static JsonArray BuildLockedCapabilityOwnershipSummary(WorkflowPipelineExtraction extraction)
+        => new(extraction.Subworkflows
+            .SelectMany(spec => spec.PlannedTools
+                .Where(static tool => tool.Required && tool.OperationIds.Count > 0)
+                .SelectMany(tool => tool.OperationIds.SelectMany(operationId =>
+                    (tool.CatalogIds.Count == 0 ? new string?[] { null } : tool.CatalogIds.Cast<string?>())
+                    .Select(catalogId => (JsonNode)new JsonObject
+                    {
+                        ["leaf"] = spec.Name,
+                        ["server"] = tool.Server,
+                        ["method"] = tool.Method,
+                        ["operation_id"] = operationId,
+                        ["catalog_id"] = catalogId
+                    }))))
+            .Take(64)
+            .ToArray());
 
     private static IReadOnlyList<PipelineRootCause> BuildExtractionQualityReviewRootCauses(PipelineExtractionQualityReview? review)
     {
@@ -2442,12 +2517,13 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
             "contract_field": {
               "type": "object",
               "additionalProperties": false,
-              "required": ["name", "type", "description", "required", "item_type", "properties"],
+              "required": ["name", "type", "description", "required", "nullable", "item_type", "properties"],
               "properties": {
                 "name": { "type": "string" },
                 "type": { "type": "string", "enum": ["string", "number", "boolean", "array", "object", "dictionary", "any"] },
                 "description": { "type": "string" },
                 "required": { "type": "boolean" },
+                "nullable": { "type": "boolean" },
                 "item_type": { "type": "string" },
                 "properties": {
                   "type": "array",
@@ -2715,6 +2791,13 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
             schema["required"] = required;
         }
 
+        if (field["nullable"] is JsonValue nullableValue
+            && nullableValue.TryGetValue<bool>(out var nullable)
+            && nullable)
+        {
+            schema["nullable"] = true;
+        }
+
         var properties = BuildStructuredFieldProperties(field["properties"] as JsonArray);
         if (properties.Count > 0)
         {
@@ -2797,6 +2880,158 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
         return result;
     }
 
+    private static StructuredPipelineExtractionMetadata PreservePreviouslyValidatedStructuredContracts(
+        StructuredPipelineExtractionMetadata current,
+        StructuredPipelineExtractionMetadata previous)
+    {
+        if (!current.IsStructuredResponse || !previous.IsStructuredResponse)
+            return current;
+
+        var subworkflows = current.Subworkflows.ToDictionary(static pair => pair.Key, static pair => pair.Value, StringComparer.Ordinal);
+        foreach (var (name, currentSpec) in current.Subworkflows)
+        {
+            if (!previous.Subworkflows.TryGetValue(name, out var previousSpec))
+                continue;
+
+            subworkflows[name] = currentSpec with
+            {
+                Inputs = PreservePreviouslyValidatedContractSchemas(currentSpec.Inputs, previousSpec.Inputs),
+                Outputs = PreservePreviouslyValidatedContractSchemas(currentSpec.Outputs, previousSpec.Outputs)
+            };
+        }
+
+        return current with { Subworkflows = subworkflows };
+    }
+
+    private static IReadOnlyDictionary<string, JsonNode?> PreservePreviouslyValidatedContractSchemas(
+        IReadOnlyDictionary<string, JsonNode?> current,
+        IReadOnlyDictionary<string, JsonNode?> previous)
+    {
+        var preserved = current.ToDictionary(
+            static pair => pair.Key,
+            static pair => pair.Value?.DeepClone(),
+            StringComparer.Ordinal);
+
+        foreach (var (name, currentSchema) in current)
+        {
+            if (!previous.TryGetValue(name, out var previousSchema)
+                || IsWeakExtractionContractSchema(previousSchema)
+                || previousSchema is not JsonObject previousObject)
+            {
+                continue;
+            }
+
+            JsonObject replacement;
+            if (IsWeakExtractionContractSchema(currentSchema))
+            {
+                replacement = (JsonObject)previousObject.DeepClone();
+                if (currentSchema is JsonObject currentObject)
+                {
+                    PreserveCurrentContractAnnotation(currentObject, replacement, "description");
+                    PreserveCurrentContractAnnotation(currentObject, replacement, "required");
+                    PreserveCurrentContractAnnotation(currentObject, replacement, "nullable");
+                }
+            }
+            else if (currentSchema is JsonObject currentObject)
+            {
+                replacement = (JsonObject)currentObject.DeepClone();
+                PreservePreviouslyValidatedSchemaMembers(replacement, previousObject);
+            }
+            else
+            {
+                continue;
+            }
+
+            preserved[name] = replacement;
+        }
+
+        return preserved;
+    }
+
+    private static void PreservePreviouslyValidatedSchemaMembers(JsonObject current, JsonObject previous)
+    {
+        var currentType = GetStringProperty(current, "type");
+        var previousType = GetStringProperty(previous, "type");
+        if (!string.Equals(currentType, previousType, StringComparison.Ordinal))
+            return;
+
+        if (previous["properties"] is JsonObject previousProperties
+            && current["properties"] is JsonObject currentProperties)
+        {
+            foreach (var (propertyName, previousProperty) in previousProperties)
+            {
+                if (!currentProperties.TryGetPropertyValue(propertyName, out var currentProperty))
+                {
+                    currentProperties[propertyName] = previousProperty?.DeepClone();
+                    continue;
+                }
+
+                if (currentProperty is JsonObject currentPropertyObject
+                    && previousProperty is JsonObject previousPropertyObject)
+                {
+                    PreservePreviouslyValidatedSchemaMembers(currentPropertyObject, previousPropertyObject);
+                }
+            }
+
+            PreservePreviouslyValidatedRequiredProperties(current, previous, currentProperties);
+        }
+
+        PreservePreviouslyValidatedNestedSchema(current, previous, "items");
+        PreservePreviouslyValidatedNestedSchema(current, previous, "additional_properties");
+    }
+
+    private static void PreservePreviouslyValidatedNestedSchema(
+        JsonObject current,
+        JsonObject previous,
+        string propertyName)
+    {
+        if (current[propertyName] is JsonObject currentNested
+            && previous[propertyName] is JsonObject previousNested)
+        {
+            PreservePreviouslyValidatedSchemaMembers(currentNested, previousNested);
+        }
+    }
+
+    private static void PreservePreviouslyValidatedRequiredProperties(
+        JsonObject current,
+        JsonObject previous,
+        JsonObject currentProperties)
+    {
+        if (previous["required_properties"] is not JsonArray previousRequired)
+            return;
+
+        var currentRequired = current["required_properties"] as JsonArray ?? new JsonArray();
+        var requiredNames = currentRequired
+            .OfType<JsonValue>()
+            .Select(static value => value.TryGetValue<string>(out var name) ? name : null)
+            .Where(static name => !string.IsNullOrWhiteSpace(name))
+            .ToHashSet(StringComparer.Ordinal);
+        foreach (var node in previousRequired.OfType<JsonValue>())
+        {
+            if (!node.TryGetValue<string>(out var name)
+                || string.IsNullOrWhiteSpace(name)
+                || !currentProperties.ContainsKey(name)
+                || !requiredNames.Add(name))
+            {
+                continue;
+            }
+
+            currentRequired.Add((JsonNode)JsonValue.Create(name)!);
+        }
+
+        if (currentRequired.Count > 0)
+            current["required_properties"] = currentRequired;
+    }
+
+    private static bool IsWeakExtractionContractSchema(JsonNode? schema)
+        => EnumerateWeakExtractionSchemaDiagnostics(schema, "contract", isInput: false).Any();
+
+    private static void PreserveCurrentContractAnnotation(JsonObject current, JsonObject replacement, string propertyName)
+    {
+        if (current.TryGetPropertyValue(propertyName, out var value))
+            replacement[propertyName] = value?.DeepClone();
+    }
+
     private static JsonObject BuildStructuredNestedPropertySchema(JsonObject property)
     {
         var type = NormalizeWorkflowSchemaType(GetStringProperty(property, "type") ?? "any");
@@ -2806,6 +3041,12 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
         };
         if (GetStringProperty(property, "description") is { } description)
             schema["description"] = description;
+        if (property["nullable"] is JsonValue nullableValue
+            && nullableValue.TryGetValue<bool>(out var nullable)
+            && nullable)
+        {
+            schema["nullable"] = true;
+        }
 
         var nestedProperties = BuildStructuredFieldProperties(property["properties"] as JsonArray);
         if (nestedProperties.Count > 0)
@@ -2908,6 +3149,16 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
                            && requiredBool;
             var operationIds = GetStringArray(tool["operation_ids"] as JsonArray);
             var catalogIds = GetStringArray(tool["catalog_ids"] as JsonArray);
+            if (!required
+                && string.IsNullOrWhiteSpace(server)
+                && string.IsNullOrWhiteSpace(method)
+                && operationIds.Count == 0
+                && catalogIds.Count == 0
+                && requestBindingVariants.All(static variant => variant.Count == 0))
+            {
+                continue;
+            }
+
             foreach (var requestBindings in requestBindingVariants)
             {
                 result.Add(new PipelinePlannedTool(
@@ -3019,8 +3270,10 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
             if (structured != null)
                 ValidateStructuredContractNames(spec, structured, validationErrors);
 
-            var inputSchemas = MergeStructuredSchemas(spec.InputSchemas, structured?.Inputs);
-            var outputSchemas = MergeStructuredSchemas(spec.OutputSchemas, structured?.Outputs);
+            var inputSchemas = PruneOptionalWeakContractMembers(
+                MergeStructuredSchemas(spec.InputSchemas, structured?.Inputs));
+            var outputSchemas = PruneOptionalWeakContractMembers(
+                MergeStructuredSchemas(spec.OutputSchemas, structured?.Outputs));
             var plannedTools = NormalizeAdvisoryPlannedToolRequestBindings(
                 structured?.PlannedTools ?? Array.Empty<PipelinePlannedTool>(),
                 pipelineMcpContext);
@@ -3111,6 +3364,62 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
         foreach (var (name, schema) in structured)
             merged[name] = schema?.DeepClone();
         return merged;
+    }
+
+    private static IReadOnlyDictionary<string, JsonNode?> PruneOptionalWeakContractMembers(
+        IReadOnlyDictionary<string, JsonNode?> schemas)
+        => schemas.ToDictionary(
+            static pair => pair.Key,
+            static pair => PruneOptionalWeakContractMembers(pair.Value),
+            StringComparer.Ordinal);
+
+    private static JsonNode? PruneOptionalWeakContractMembers(JsonNode? schema)
+    {
+        if (schema is not JsonObject source)
+            return schema?.DeepClone();
+
+        var normalized = (JsonObject)source.DeepClone();
+        foreach (var unionName in new[] { "anyOf", "oneOf" })
+        {
+            if (normalized[unionName] is not JsonArray variants)
+                continue;
+            for (var index = 0; index < variants.Count; index++)
+                variants[index] = PruneOptionalWeakContractMembers(variants[index]);
+        }
+
+        if (normalized["items"] is { } items)
+            normalized["items"] = PruneOptionalWeakContractMembers(items);
+        foreach (var additionalPropertiesName in new[] { "additional_properties", "additionalProperties" })
+        {
+            if (normalized[additionalPropertiesName] is { } additionalProperties)
+                normalized[additionalPropertiesName] = PruneOptionalWeakContractMembers(additionalProperties);
+        }
+
+        if (normalized["properties"] is not JsonObject properties)
+            return normalized;
+
+        var required = normalized["required"] is JsonArray requiredNames
+            ? requiredNames
+                .OfType<JsonValue>()
+                .Select(static value => value.TryGetValue<string>(out var name) ? name : string.Empty)
+                .Where(static name => name.Length > 0)
+                .ToHashSet(StringComparer.Ordinal)
+            : new HashSet<string>(StringComparer.Ordinal);
+        foreach (var propertyName in properties.Select(static pair => pair.Key).ToArray())
+        {
+            var refined = PruneOptionalWeakContractMembers(properties[propertyName]);
+            if (!required.Contains(propertyName)
+                && WorkflowPlanContractNormalizer.IsWeakDescriptor(
+                    FlowTypeDescriptorConverter.FromJsonSchema(refined)))
+            {
+                properties.Remove(propertyName);
+                continue;
+            }
+
+            properties[propertyName] = refined;
+        }
+
+        return normalized;
     }
 
     private static WorkflowPipelineExtraction PreserveSharedPipelineBoundaryContracts(
@@ -4033,6 +4342,8 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
         sb.AppendLine("- Do not use workflow.plan.");
         sb.AppendLine("- Do not call or inspect another subworkflow directly. This leaf may consume typed values that main passes from an earlier producer leaf.");
         sb.AppendLine("- Treat the declared input/output contract as a draft when MCP tools require additional arguments.");
+        sb.AppendLine("- An MCP request field name does not automatically become a public leaf input. Map it from an existing compatible declared input whenever possible.");
+        sb.AppendLine("- Never add a second public input that differs from a declared input only by case or separators; reuse the declared input and map it to the exact request field name.");
         AppendMcpInputContractChecklist(sb);
         AppendExpressionFunctionRules(sb);
         sb.AppendLine("- Workflow outputs must match their declared contract type exactly. A string output must resolve to a string; a boolean output must resolve to a boolean.");
@@ -4047,6 +4358,7 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
             sb.AppendLine("- Required planned MCP tools must appear as explicit direct `mcp.call` steps in this leaf.");
             sb.AppendLine("- For planned MCP tools, use exact `input.server`, `input.kind`, and literal `input.method`/`input.methods`; do not satisfy required planned tools through LLM-assisted MCP selection.");
             sb.AppendLine("- Planned tools with activation metadata in one group are mutually exclusive runtime branches: place every branch in a distinct case of exactly one expression-based switch driven by `decision_operation_id`, execute exactly one `branch_value`, and keep the default non-mutating.");
+            sb.AppendLine("- Implement an exactly-one capability group with `switch.expr` plus literal `cases[].value`; do not use `cases[].when`. Put exactly one matching variant call in each case, keep unconditional prerequisites outside the switch exactly once, and emit `default: []` unless non-mutating failure handling is required.");
             sb.AppendLine("- A switch `default` is a YAML step sequence. Never emit `default: |` or `default: >`; emit `default:` followed directly by `- id:` step items, or `default: []` when no default action is needed.");
         }
         if (plannedNativeSteps.Count > 0)
@@ -4854,8 +5166,10 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
         sb.AppendLine("Cumulative leaf retry requirements:");
         sb.AppendLine("- Preserve all fixes made for earlier validation failures; do not regress one MCP request or output while fixing another.");
         sb.AppendLine("- Re-check every mcp.call in the leaf against its discovered input_schema, not only the step named in the latest error.");
+        sb.AppendLine("- Re-check every ordinary mcp.call output reference too: it has no `.json` domain object. Consume only documented `response` fields, or pass the documented response into one separate llm.call with strict structured_output and read that normalizer's `.json` fields.");
         sb.AppendLine("- If a required MCP request field is numeric/integer/boolean, emit an explicit YAML scalar of that type when the validator requires it.");
         sb.AppendLine("- If a required MCP request field is string/number/boolean, do not pass a nullable structured_output field into it; make the source non-null, refine it with assert.non_null, add an exact non-null step guard, or skip the mcp.call.");
+        sb.AppendLine("- Never assign a `null|T` producer directly to a non-null set/output schema. Preserve nullable at the exact property when the public contract allows it, or project a documented neutral absence representation for an intentionally non-null contract; for object arrays, repair every nullable nested property in fresh projected items.");
         sb.AppendLine("- Never satisfy missing MCP arguments with `data.env.*`, empty strings, fake values, casts, or string-to-number conversions.");
         sb.AppendLine("- Do not reference an `if`-guarded step from an unconditional later step unless a guaranteed value has first been produced on every path.");
         sb.AppendLine("- Workflow outputs must resolve to their declared type on every path.");
@@ -6379,6 +6693,7 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
             throw new WorkflowRuntimeException(ErrorCodes.TemplatePlan, $"Leaf workflow '{spec.Name}' must generate exactly one workflow.");
 
         var workflowName = doc.Workflows.Keys.Single();
+        (doc, yaml) = NormalizeGeneratedLeafInputAliases(spec, workflowName, doc, yaml);
         (doc, yaml) = MaterializeMissingPlannedMcpCallVariants(spec, workflowName, doc, yaml);
         (doc, yaml) = PromoteLeafOutputSchemasFromDirectSources(spec, workflowName, doc, yaml, pipelineMcpContext);
         var workflow = doc.Workflows[workflowName];
@@ -6395,6 +6710,118 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
         }
 
         return new GeneratedLeafWorkflow(spec.Name, workflowName, doc, yaml, blueprint, qualityEvents.ToArray());
+    }
+
+    private static (WorkflowDocument Document, string Yaml) NormalizeGeneratedLeafInputAliases(
+        WorkflowPipelineSubworkflowSpec spec,
+        string workflowName,
+        WorkflowDocument document,
+        string yaml)
+    {
+        if (!document.Workflows.TryGetValue(workflowName, out var workflow)
+            || workflow.Inputs == null
+            || workflow.Inputs.Count == 0
+            || spec.InputSchemas.Count == 0)
+        {
+            return (document, yaml);
+        }
+
+        var declaredByCanonicalName = spec.InputSchemas.Keys
+            .GroupBy(CanonicalizeContractAliasName, StringComparer.Ordinal)
+            .Where(static group => !string.IsNullOrWhiteSpace(group.Key) && group.Count() == 1)
+            .ToDictionary(static group => group.Key, static group => group.Single(), StringComparer.Ordinal);
+        var generatedSchemas = BuildInputSchemaMap(workflow.Inputs);
+        var aliases = new List<(string Alias, string Declared)>();
+        foreach (var (inputName, aliasSchema) in generatedSchemas)
+        {
+            if (spec.InputSchemas.ContainsKey(inputName)
+                || !declaredByCanonicalName.TryGetValue(CanonicalizeContractAliasName(inputName), out var declaredName)
+                || string.Equals(inputName, declaredName, StringComparison.Ordinal))
+            {
+                continue;
+            }
+
+            var declaredSchema = generatedSchemas.TryGetValue(declaredName, out var generatedDeclaredSchema)
+                ? generatedDeclaredSchema
+                : spec.InputSchemas[declaredName];
+            if (!AreEquivalentLeafInputSchemas(aliasSchema, declaredSchema))
+                continue;
+
+            aliases.Add((inputName, declaredName));
+        }
+
+        if (aliases.Count == 0)
+            return (document, yaml);
+
+        var root = LoadYamlRoot(yaml);
+        if (root.GetMapping("workflows") is not { } workflows
+            || !workflows.Children.TryGetValue(Scalar(workflowName), out var workflowNode)
+            || workflowNode is not YamlMappingNode workflowMap
+            || workflowMap.GetMapping("inputs") is not { } workflowInputs)
+        {
+            return (document, yaml);
+        }
+
+        var skillInputs = root.GetMapping("skill")?.GetMapping("inputs");
+        foreach (var (alias, declaredName) in aliases)
+        {
+            RewriteGeneratedLeafInputReferences(root, alias, declaredName);
+            RenameOrRemoveGeneratedLeafInput(workflowInputs, alias, declaredName);
+            if (skillInputs != null)
+                RenameOrRemoveGeneratedLeafInput(skillInputs, alias, declaredName);
+        }
+
+        var normalizedYaml = SerializeYamlNode(root);
+        return (ParseAndValidateGeneratedWorkflow(normalizedYaml), normalizedYaml);
+    }
+
+    private static bool AreEquivalentLeafInputSchemas(JsonNode? first, JsonNode? second)
+    {
+        var firstType = FlowTypeDescriptorConverter.FromJsonSchema(first);
+        var secondType = FlowTypeDescriptorConverter.FromJsonSchema(second);
+        return firstType.FindAssignmentIssue(secondType) == null
+               && secondType.FindAssignmentIssue(firstType) == null;
+    }
+
+    private static string CanonicalizeContractAliasName(string name)
+        => string.Concat(name.Where(char.IsLetterOrDigit)).ToLowerInvariant();
+
+    private static void RenameOrRemoveGeneratedLeafInput(
+        YamlMappingNode inputs,
+        string alias,
+        string declaredName)
+    {
+        var aliasKey = Scalar(alias);
+        if (!inputs.Children.TryGetValue(aliasKey, out var aliasSchema))
+            return;
+
+        if (!inputs.Children.ContainsKey(Scalar(declaredName)))
+            inputs.Add(Scalar(declaredName), CloneYamlNode(aliasSchema));
+        inputs.Children.Remove(aliasKey);
+    }
+
+    private static void RewriteGeneratedLeafInputReferences(YamlNode node, string alias, string declaredName)
+    {
+        switch (node)
+        {
+            case YamlScalarNode scalar when scalar.Value != null:
+                scalar.Value = Regex.Replace(
+                    scalar.Value,
+                    $@"(?<![A-Za-z0-9_-])data\.inputs\.{Regex.Escape(alias)}(?![A-Za-z0-9_-])",
+                    $"data.inputs.{declaredName}",
+                    RegexOptions.CultureInvariant);
+                break;
+
+            case YamlSequenceNode sequence:
+                foreach (var child in sequence.Children)
+                    RewriteGeneratedLeafInputReferences(child, alias, declaredName);
+                break;
+
+            case YamlMappingNode mapping:
+                foreach (var (_, child) in mapping.Children)
+                    RewriteGeneratedLeafInputReferences(child, alias, declaredName);
+                break;
+        }
     }
 
     private static void EnforceLeafBlueprintImplemented(
@@ -7063,9 +7490,13 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
 
                     var destinationType = FlowTypeDescriptorConverter.FromInputDef(destinationInput);
                     var issue = sourceType.FindAssignmentIssue(destinationType);
-                    if (issue == null
-                        || !string.Equals(issue.ActualType, "declared property", StringComparison.Ordinal)
-                        || !string.Equals(issue.ExpectedType, "closed object without additional properties", StringComparison.Ordinal))
+                    var widensClosedObject = issue != null
+                                              && string.Equals(issue.ActualType, "declared property", StringComparison.Ordinal)
+                                              && string.Equals(issue.ExpectedType, "closed object without additional properties", StringComparison.Ordinal);
+                    var widensIntegerToAuthoritativeNumber = issue != null
+                                                             && sourceType.Kind == FlowTypeKind.Number
+                                                             && destinationType.Kind == FlowTypeKind.Integer;
+                    if (!widensClosedObject && !widensIntegerToAuthoritativeNumber)
                     {
                         continue;
                     }
@@ -8028,6 +8459,8 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
         var mainWorkflowNode = assembly?.MainWorkflowNode ?? BuildMainWorkflowNode(extraction.Subworkflows, mainInputs);
         var mainStepOutputTypes = AnalyzePipelineMainStepOutputs(mainWorkflowNode, leaves);
         var skillNode = BuildPipelineSkillNode(documentName, pipelineInput, generator, extraction, leaves, mainWorkflowNode, mainStepOutputTypes, mainInputs, assembly?.SkillNode);
+        MaterializeCompositeMainWorkflowOutputs(mainWorkflowNode, skillNode.GetMapping("outputs"));
+        mainStepOutputTypes = AnalyzePipelineMainStepOutputs(mainWorkflowNode, leaves);
         StrengthenPipelineSkillOutputsFromMainWorkflow(skillNode, mainWorkflowNode, mainStepOutputTypes);
         StrengthenMainWorkflowOutputsFromSkill(mainWorkflowNode, skillNode.GetMapping("outputs"));
         StrengthenMainWorkflowOutputsFromAnalyzedSteps(mainWorkflowNode, mainStepOutputTypes);
@@ -8220,6 +8653,36 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
             : after;
     }
 
+    private static string NormalizeGeneratedSetOutputSchemas(string yaml)
+    {
+        YamlMappingNode root;
+        try
+        {
+            root = LoadYamlRoot(yaml);
+        }
+        catch
+        {
+            return yaml;
+        }
+
+        var before = SerializeYamlNode(root);
+        if (root.GetMapping("workflows") is { } workflows)
+        {
+            foreach (var workflow in workflows.Children.Values.OfType<YamlMappingNode>())
+            {
+                if (workflow.GetSequence("steps") is { } steps)
+                    NormalizeSetOutputSchemas(steps);
+                if (workflow.GetSequence("finally") is { } finalizers)
+                    NormalizeSetOutputSchemas(finalizers);
+            }
+        }
+
+        var after = SerializeYamlNode(root);
+        return string.Equals(before, after, StringComparison.Ordinal)
+            ? yaml
+            : after;
+    }
+
     private static string SerializeYamlNode(YamlNode node)
     {
         var stream = new YamlStream(new YamlDocument(node));
@@ -8282,6 +8745,7 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
         sb.AppendLine("- Pass leaf arguments from declared `data.inputs.<name>`, earlier step outputs, loop variables, derived values, or constants.");
         sb.AppendLine("- Route MCP-declared artifact values directly from the producer leaf output to every compatible consumer leaf argument. Reuse one value for fan-out; never derive or fabricate another locator in main.");
         sb.AppendLine("- Every `data.inputs.<name>` reference MUST have an identically named declaration in `graph.inputs` or `document.skill.inputs`.");
+        sb.AppendLine("- Keep `graph.inputs` and `document.skill.inputs` synchronized as one public contract. Before returning, scan every `data.inputs.<name>` reference and use only exact declared names; map a public input to a differently named leaf argument instead of inventing an alias input.");
         sb.AppendLine("- Leaf input names are call arguments, not automatically public main inputs.");
         sb.AppendLine("- `generated_leaf_contracts_yaml` is authoritative for leaf workflow names, call arguments, and available outputs.");
         sb.AppendLine("- If `leaf_input_candidates_yaml` or `leaf_manifest_json` disagree with `generated_leaf_contracts_yaml`, follow `generated_leaf_contracts_yaml`.");
@@ -8582,7 +9046,8 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
         - Keep business/tool/LLM work inside leaf workflows. The main graph should only orchestrate, derive values, branch, loop, call leaves, and execute exact native orchestration steps listed in main_required_native_steps_json.
         - Put required resource cleanup in graph.finally. Finalizers may reference inputs, previous step outputs, and data.workflow_error.
         - Every finalizer expression must be total on success, failure, and partial execution. Never dereference a switch child, failed/skipped call, or optional result directly; first create a guaranteed top-level support value with an empty cleanup collection default.
-        - Cleanup may consume only exact artifact/materializer outputs declared in generated_leaf_contracts_yaml. Never invent generic fields such as `created_directories`, `paths`, or `resources` on a leaf that does not declare them.
+        - Cleanup may consume exact artifact/materializer outputs declared in generated_leaf_contracts_yaml and exact caller-chosen creation targets documented by a selected materializer input contract. Never invent generic fields such as `created_directories`, `paths`, or `resources` on a leaf that does not declare them.
+        - When cleanup is required for a caller-chosen creation target, derive and register that exact target before invoking the materializer, then reconcile its returned materialized artifact after success without duplicate registry entries. This keeps partial materialization failures cleanable.
         - If a value is required by a generated leaf input contract, pass it in the leaf args or derive it in an earlier support step.
         - Do not add MCP, LLM, template, workflow.plan, raw workflow.call, or native orchestration steps not listed in main_required_native_steps_json to the main graph.
         """);
@@ -8599,6 +9064,15 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
         sb.AppendLine("The previous main workflow assembly failed final validation.");
         sb.AppendLine("Return a complete corrected `document` and `graph` YAML mapping that still follows every rule above.");
         sb.AppendLine("Fix the reported error without changing the user's public contract or orchestration intent.");
+        if (structuredError.Contains("Pipeline main workflow references undeclared inputs", StringComparison.Ordinal))
+        {
+            sb.AppendLine("Undeclared input reference repair:");
+            sb.AppendLine("- Scan the complete corrected graph for every `data.inputs.<name>` reference, including nested branches, loops, and finalizers.");
+            sb.AppendLine("- Each referenced name must exactly match one name in both `graph.inputs` and `document.skill.inputs`; use the declared names and allowed paths from the structured diagnostic below.");
+            sb.AppendLine("- When an undeclared name is merely an alias, abbreviation, spelling variant, or renamed form of an existing public input, replace every reference with the existing declared name. Do not add a duplicate public input alias.");
+            sb.AppendLine("- Add a new public input declaration only when the normalized user request requires a genuinely distinct caller-supplied value. Never add an input merely because a leaf argument uses a different name; map that leaf argument from the semantically matching public input.");
+            sb.AppendLine("- After repair, re-check document.skill.inputs, graph.inputs, every leaf args mapping, and every finalizer as one consistent contract.");
+        }
         if (!string.IsNullOrWhiteSpace(previousResponse))
             AppendPromptSection(sb, "invalid_main_assembly_yaml", StripMarkdownFences(previousResponse));
         AppendPromptSection(sb, "main_assembly_validation_error", structuredError);
@@ -10012,6 +10486,83 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
         }
     }
 
+    private static void MaterializeCompositeMainWorkflowOutputs(
+        YamlMappingNode mainWorkflowNode,
+        YamlMappingNode? skillOutputs)
+    {
+        if (skillOutputs == null
+            || mainWorkflowNode.GetSequence("steps") is not { } steps
+            || mainWorkflowNode.GetMapping("outputs") is not { } outputs)
+        {
+            return;
+        }
+
+        var usedStepIds = new HashSet<string>(StringComparer.Ordinal);
+        CollectYamlStepIds(steps, usedStepIds);
+        if (mainWorkflowNode.GetSequence("finally") is { } finalizers)
+            CollectYamlStepIds(finalizers, usedStepIds);
+
+        foreach (var (keyNode, outputValue) in outputs.Children.ToArray())
+        {
+            if (keyNode is not YamlScalarNode { Value.Length: > 0 } key
+                || outputValue is not YamlMappingNode composite
+                || composite.GetScalar("expr") != null
+                || !skillOutputs.Children.TryGetValue(Scalar(key.Value), out var skillOutputSchema))
+            {
+                continue;
+            }
+
+            var outputType = FlowTypeDescriptorConverter.FromJsonSchema(WorkflowParser.YamlToJson(skillOutputSchema));
+            if (outputType.Kind != FlowTypeKind.Object
+                || outputType.Properties.Count == 0
+                || composite.Children.Keys.OfType<YamlScalarNode>().Any(property =>
+                    string.IsNullOrWhiteSpace(property.Value)
+                    || !outputType.Properties.ContainsKey(property.Value)))
+            {
+                continue;
+            }
+
+            var propertySchema = CloneYamlNode(skillOutputSchema);
+            WorkflowPlanContractNormalizer.NormalizeSetOutputSchema(propertySchema);
+            if (WorkflowPlanContractNormalizer.IsWeakYamlOutputSchema(propertySchema))
+                continue;
+
+            var normalizedName = Regex.Replace(
+                key.Value,
+                "[^A-Za-z0-9_]+",
+                "_",
+                RegexOptions.CultureInvariant).Trim('_');
+            if (normalizedName.Length == 0)
+                normalizedName = "value";
+            var baseStepId = $"project_main_output_{normalizedName}";
+            var stepId = baseStepId;
+            for (var suffix = 2; !usedStepIds.Add(stepId); suffix++)
+                stepId = $"{baseStepId}_{suffix}";
+
+            var outputProperties = new YamlMappingNode { { Scalar(key.Value), propertySchema } };
+            var outputSchema = new YamlMappingNode
+            {
+                { Scalar("type"), Scalar("object") },
+                { Scalar("properties"), outputProperties },
+                { Scalar("required"), new YamlSequenceNode(Scalar(key.Value)) },
+                { Scalar("additionalProperties"), Scalar("false") }
+            };
+            var input = new YamlMappingNode { { Scalar(key.Value), CloneYamlNode(composite) } };
+            var projection = new YamlMappingNode
+            {
+                { Scalar("id"), Scalar(stepId) },
+                { Scalar("type"), Scalar("set") },
+                { Scalar("output_schema"), outputSchema },
+                { Scalar("input"), input }
+            };
+            steps.Add(projection);
+
+            var expression = $"${{data.steps.{stepId}.{key.Value}}}";
+            if (BuildWorkflowOutputFromSkillSchema(skillOutputSchema, expression) is { } strengthened)
+                ReplaceYaml(outputs, key.Value, strengthened);
+        }
+    }
+
     private static bool TryBuildWorkflowOutputFromAnalyzedStepExpression(
         string expr,
         IReadOnlyDictionary<string, FlowTypeDescriptor> mainStepOutputTypes,
@@ -10427,9 +10978,42 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
         if (undeclared.Length == 0)
             return;
 
+        var allowedPaths = new JsonArray(mainInputs.Keys
+            .Order(StringComparer.Ordinal)
+            .Select(static name => (JsonNode)JsonValue.Create("data.inputs." + name)!)
+            .ToArray());
+        var diagnostics = new JsonArray(undeclared.Select(name => (JsonNode)new JsonObject
+        {
+            ["code"] = "PIPELINE_MAIN_UNDECLARED_INPUT_REFERENCE",
+            ["phase"] = "pipeline_main_input_validation",
+            ["workflow"] = "main",
+            ["field"] = "graph",
+            ["invalid_path"] = "data.inputs." + name,
+            ["allowed_paths"] = allowedPaths.DeepClone(),
+            ["message"] = $"Main references undeclared public input '{name}'.",
+            ["expected"] = "Reference an exactly declared public input name, or declare a genuinely distinct caller input required by the normalized request.",
+            ["hint"] = "Prefer mapping an existing public input to differently named leaf arguments; do not create duplicate aliases."
+        }).ToArray());
+        var details = new JsonObject
+        {
+            ["ok"] = false,
+            ["phase"] = "pipeline_main_input_validation",
+            ["summary"] = $"{undeclared.Length} undeclared main input reference(s)",
+            ["declared_inputs"] = new JsonArray(mainInputs.Keys
+                .Order(StringComparer.Ordinal)
+                .Select(static name => (JsonNode)JsonValue.Create(name)!)
+                .ToArray()),
+            ["diagnostics"] = diagnostics,
+            ["llm_guidance"] = new JsonArray(
+                (JsonNode)JsonValue.Create("Rename alias/spelling-variant references to an existing declared public input and map that value into differently named leaf arguments.")!,
+                (JsonNode)JsonValue.Create("Add a new declaration only for a genuinely distinct caller value required by the normalized request.")!,
+                (JsonNode)JsonValue.Create("Keep document.skill.inputs and graph.inputs identical after repair.")!)
+        };
         throw new WorkflowRuntimeException(
             ErrorCodes.TemplatePlan,
-            "Pipeline main workflow references undeclared inputs: " + string.Join(", ", undeclared));
+            "Pipeline main workflow references undeclared inputs: " + string.Join(", ", undeclared)
+            + " | repair diagnostics: " + WorkflowPlanDiagnostics.ToPromptJson(details),
+            details: details);
     }
 
     private static Dictionary<string, string> BuildGeneratedMainInputContract(IReadOnlyList<WorkflowPipelineSubworkflowSpec> specs)
