@@ -18,7 +18,9 @@ public sealed partial class WorkflowPlanExecutor
         bool Required,
         string ExecutionKind,
         string ExternalEffectKind,
-        string DecisionSourceOperationId = "");
+        string DecisionSourceOperationId = "",
+        string IntentOrigin = "requested_effect",
+        string DerivationSourceOperationId = "");
     private sealed record CapabilityInventoryConstraint(
         string Id,
         string Description,

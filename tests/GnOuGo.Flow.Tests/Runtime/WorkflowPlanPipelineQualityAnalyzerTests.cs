@@ -337,6 +337,37 @@ public sealed class WorkflowPlanPipelineQualityAnalyzerTests
     }
 
     [Fact]
+    public void ExternalArtifactReadiness_PreservesProvenanceThroughNonNullRefinement()
+    {
+        var document = WorkflowParser.Parse(
+            """
+            version: 1
+            name: artifact_readiness_allows_non_null_refinement
+            workflows:
+              main:
+                inputs:
+                  project_root:
+                    type: string
+                    nullable: true
+                steps:
+                  - id: require_project_root
+                    type: assert.non_null
+                    input:
+                      project_root: "${data.inputs.project_root}"
+                  - id: suggest_change
+                    type: mcp.call
+                    input:
+                      server: Neutral.Consumer
+                      kind: tool
+                      method: inspect
+                      request:
+                        projectRoot: "${data.steps.require_project_root.project_root}"
+            """);
+
+        WorkflowPlanPipelineQualityAnalyzer.ValidateExternalArtifactReadiness(document);
+    }
+
+    [Fact]
     public void ExternalArtifactReadiness_TracksNestedFieldOfObjectValuedWorkflowOutput()
     {
         var document = WorkflowParser.Parse(

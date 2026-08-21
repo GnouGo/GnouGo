@@ -382,6 +382,7 @@ public sealed partial class WorkflowPlanExecutor
         sb.AppendLine("Never ask for MCP server names, tool names, catalog identifiers, implementation details discoverable from contracts, repair of malformed model output, or a decision whose value will only be known while the workflow runs.");
         sb.AppendLine("For runtime-dependent behavior, preserve the decision rule and future data source; do not ask the human to predict the future result.");
         sb.AppendLine("Each question must have two or three mutually exclusive proposed answers. Put the best AI recommendation first, mark only it recommended, and explain the impact of every answer.");
+        sb.AppendLine("Every option value is a short visible answer label: 1-300 characters, non-empty after trimming, and pairwise distinct after trimming within its question. Never repeat the same value for two options; descriptions do not make duplicate values distinct.");
         sb.AppendLine("Question ids must be unique lower-snake-case identifiers and must not reuse an id already present in clarification_answers_json.");
         sb.AppendLine("Do not add an Other option; the host adds a native custom-answer control.");
         sb.AppendLine("Write question and option content in the same language as the raw request. Fall back to English only if its language cannot be determined.");
@@ -416,6 +417,7 @@ public sealed partial class WorkflowPlanExecutor
         {
             sb.AppendLine("The previous response violated the contract. Correct every reported issue without changing the request:");
             sb.AppendLine(previousError);
+            sb.AppendLine("Return one complete corrected object. Recheck all question ids, option value lengths, trimmed option value uniqueness, option counts, and that only the first option is recommended before responding.");
             sb.AppendLine("<invalid_previous_response>");
             sb.AppendLine(TruncateIntentClarificationText(previousResponse ?? string.Empty, 8_000));
             sb.AppendLine("</invalid_previous_response>");
@@ -521,8 +523,10 @@ public sealed partial class WorkflowPlanExecutor
                 var value = optionObject["value"]?.GetValue<string>()?.Trim() ?? string.Empty;
                 var description = optionObject["description"]?.GetValue<string>()?.Trim() ?? string.Empty;
                 var recommended = optionObject["recommended"]?.GetValue<bool>() ?? false;
-                if (value.Length is < 1 or > 300 || !values.Add(value))
-                    throw new InvalidOperationException($"Intent clarification question '{id}' option values must be unique and at most 300 characters.");
+                if (value.Length is < 1 or > 300)
+                    throw new InvalidOperationException($"Intent clarification question '{id}' option value {optionIndex + 1} must contain between 1 and 300 characters after trimming.");
+                if (!values.Add(value))
+                    throw new InvalidOperationException($"Intent clarification question '{id}' option value {optionIndex + 1} duplicates an earlier value after trimming; every option value must be distinct.");
                 if (description.Length is < 1 or > 1_000)
                     throw new InvalidOperationException($"Intent clarification question '{id}' option descriptions must be non-empty and at most 1000 characters.");
                 if (recommended != (optionIndex == 0))
@@ -729,18 +733,9 @@ public sealed partial class WorkflowPlanExecutor
             .Where(static diagnostic => string.Equals(
                 diagnostic["severity"]?.GetValue<string>(),
                 "critical",
-                StringComparison.Ordinal))
+                StringComparison.Ordinal)
+                && diagnostic["evidence_qualified"]?.GetValue<bool>() == true)
             .ToArray();
-        if (blocking.Length == 0)
-        {
-            blocking = diagnostics
-                .OfType<JsonObject>()
-                .Where(static diagnostic => string.Equals(
-                    diagnostic["severity"]?.GetValue<string>(),
-                    "warning",
-                    StringComparison.Ordinal))
-                .ToArray();
-        }
         if (blocking.Length == 0
             || blocking.Any(static diagnostic => !string.Equals(
                 diagnostic["kind"]?.GetValue<string>(),

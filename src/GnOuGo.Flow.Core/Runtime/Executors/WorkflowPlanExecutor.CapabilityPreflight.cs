@@ -51,7 +51,8 @@ public sealed partial class WorkflowPlanExecutor
         string? ExecutionKind = null,
         string? ExternalEffectKind = null,
         McpCapabilityActivation? Activation = null,
-        string? CapabilityDescription = null);
+        string? CapabilityDescription = null,
+        IReadOnlyList<string>? OperationIds = null);
 
     private sealed record CapabilityPreflightResult(
         string Mode,
@@ -1617,11 +1618,14 @@ public sealed partial class WorkflowPlanExecutor
         Set decision_source_operation_id to the ID of the earlier operation whose runtime result exclusively selects this operation's outcome or selector branch. Use an empty string when the operation is unconditional. Do not guess a future result; describe the dependency between operations. If the user requires a runtime-dependent choice but the deciding operation cannot be identified, set complete=false and request that relationship as user clarification.
         Represent all mutually exclusive outcomes of one runtime choice as one conditional external operation with that decision source. Never inventory one positive operation per possible branch value, because those branches are alternative implementations of one runtime effect rather than independently required effects.
 
+        Classify every operation's intent_origin. Use requested_effect only for an independently observable runtime effect requested by the user or caller context. Use derived_failure_handling when an operation is introduced only as implementation handling for another operation's failure and is not an independently requested effect; set derivation_source_operation_id to that existing operation ID. Notifications, logging, escalation, compensation, retries, and fallback actions are not requested effects merely because the workflow must fail safely. Use an empty derivation_source_operation_id for requested_effect. Derived failure handling is not a positive capability requirement and will be removed from the locked inventory.
+
         Classify every constraint by enforcement_kind:
         - exact_denial: an unconditional prohibition that can safely ban exact external capabilities throughout the generated workflow;
         - workflow_policy: a conditional, ordering, cardinality, coverage, quality, confirmation, or other invariant that must be enforced by workflow structure rather than a document-wide capability denial.
 
         Runtime boundary rules:
+        - When the task supplies only an external resource locator or identifier, separate literal local parsing from external state resolution. If a requested downstream effect requires current content, revisions, attributes, status, or other state not literally encoded in that locator, inventory one required external read that resolves the state. Never classify retrieval of external state as local parsing.
         - Preserve independently observable requested effects as distinct operations even when the same actor, AI, or external service may perform several of them. A user enumeration of preparation, execution, verification, analysis, publication, and cleanup outcomes must not be collapsed into one operation merely because a future capability could be prompted to attempt all of them.
         - Keep one operation when the task requests one atomic effect whose internal phases are not independently requested outcomes. Pass 2 may select a declared complete-operation wrapper or one prerequisite-closed composition; Pass 1 must neither decompose documented internals nor merge separate user-visible outcomes.
         - Exclude host configuration already supplied to the workflow runtime.
@@ -1630,7 +1634,7 @@ public sealed partial class WorkflowPlanExecutor
         - Exclude persistence, registration, or provisioning of the generated workflow/agent when that happens outside the generated workflow after planning.
         - Include cleanup only when the user explicitly requests cleanup as runtime behavior. Do not invent a generic cleanup operation merely because an unknown future implementation might allocate a resource; cleanup encapsulated inside a selected capability is not a separate workflow operation.
         - When the task names one external source, inventory at most one owned resource-materialization operation for that source. Preparation, analysis, verification, and publication phases consume the same resource; they are not separate requests to materialize phase-specific copies. Inventory multiple materializations only when the user explicitly requests distinct source resources.
-        - A retry, backoff, fallback, or failure-handling rule for an already inventoried external operation is local_processing or a workflow_policy. It reuses the original operation's capability and is never a second external effect that requires a separate retry capability.
+        - A deterministic retry, backoff, fallback, or failure-handling policy for an already inventoried external operation is local_processing or a workflow_policy and reuses the original operation's capability. However, a separately requested runtime action performed by an AI, agent, service, or tool during that fallback remains external_effect/execute. Distinguish the local rule that decides when fallback is needed from the external actor that must inspect, choose, analyze, or generate a new runtime value; do not classify the latter as local processing merely because it occurs on a fallback path.
         - A restriction whose applicability depends on a target, input value, resource instance, runtime condition, or selected branch is workflow_policy even when it uses words such as only or never. Use exact_denial only when the prohibited capability must be banned for every possible invocation throughout the workflow.
         - Mark optional enrichment required=false.
         - Set complete=true once every explicit runtime intention is represented, including conditional and optional intentions.
@@ -1651,6 +1655,7 @@ public sealed partial class WorkflowPlanExecutor
         Completeness is about enumerating requested runtime intent only. It is not a claim that an implementation, tool, selector, credential, or available capability is known. Capability availability and exact matching happen later. Unknown implementation details, tool availability, selector choice, or capability support must never make this inventory incomplete. Represent the intended effect in domain-neutral language instead.
 
         Preserve the runtime boundary:
+        - When the task supplies only an external resource locator or identifier, separate literal local parsing from external state resolution. If a downstream requested effect needs current content, revisions, attributes, status, or other state not literally encoded in that locator, preserve one required external read that resolves the state. Never replace that external read with local parsing.
         - Split independently observable requested effects into distinct operations even when one actor, AI, or service could attempt several. Do not collapse separate preparation, execution, verification, analysis, publication, or cleanup outcomes into one unmatchable compound operation.
         - Do not split one atomic requested effect into speculative implementation phases. Later capability metadata decides whether a complete-operation wrapper replaces internal phases.
         - Exclude host configuration already supplied to the workflow runtime.
@@ -1658,11 +1663,12 @@ public sealed partial class WorkflowPlanExecutor
         - Exclude persistence, registration, or provisioning performed outside the generated workflow after planning.
         - Preserve cleanup only when the user explicitly requested it as runtime behavior. Never invent generic cleanup for resources that are not part of the user's intention.
         - Preserve one owned materialization for one external source and let later operations consume it. Do not turn workflow phases into additional source-materialization intentions unless the user explicitly requested distinct source resources.
-        - Classify retry, backoff, fallback, and failure-handling rules for an existing external operation as local_processing or workflow_policy. They reuse the original capability rather than requiring a separate external retry capability.
+        - Classify deterministic retry, backoff, fallback, and failure-handling policies for an existing external operation as local_processing or workflow_policy. A separately requested fallback action performed at runtime by an AI, agent, service, or tool remains external_effect/execute. Preserve the distinction between the local rule that selects the fallback path and the external actor that inspects, chooses, analyzes, or generates a new runtime value.
         - Keep prohibitions, ordering requirements, safety rules, and invariants as constraints rather than positive operations.
         - Inventory only intentions expressed in the user task. Do not copy, paraphrase, or restate these repair or runtime-boundary instructions as operations or constraints.
         - Preserve execution_kind and external_effect_kind for every operation. External writes use external_effect/write; external reads use external_effect/read; AI or other non-mutating execution uses external_effect/execute; owned resource setup/cleanup uses external_effect/lifecycle; human and local work use none.
-            - Preserve decision_source_operation_id for runtime-dependent operations. It identifies the earlier operation whose result selects the branch; use an empty string for unconditional operations. Merge mutually exclusive outcome-specific operations into one conditional operation instead of treating every possible branch value as an independently required effect.
+        - Preserve decision_source_operation_id for runtime-dependent operations. It identifies the earlier operation whose result selects the branch; use an empty string for unconditional operations. Merge mutually exclusive outcome-specific operations into one conditional operation instead of treating every possible branch value as an independently required effect.
+        - Preserve intent_origin and derivation_source_operation_id. requested_effect requires an empty derivation source. derived_failure_handling requires the ID of the existing operation whose failure it handles and is never a substitute for a user-requested external effect.
         - Classify constraints with enforcement_kind=exact_denial only for unconditional document-wide prohibitions. Target-, input-, resource-instance-, data-, or branch-dependent restrictions and conditional, ordering, cardinality, coverage, quality, confirmation, and other structural invariants use workflow_policy.
         - Include conditional and optional runtime intentions and mark optional enrichment required=false.
         - Return complete=true and an empty incomplete_reasons array when all requested effects are represented.
@@ -1717,9 +1723,15 @@ public sealed partial class WorkflowPlanExecutor
                             ["type"] = "string",
                             ["enum"] = new JsonArray("read", "write", "execute", "lifecycle", "none")
                         },
-                        ["decision_source_operation_id"] = new JsonObject { ["type"] = "string" }
+                        ["decision_source_operation_id"] = new JsonObject { ["type"] = "string" },
+                        ["intent_origin"] = new JsonObject
+                        {
+                            ["type"] = "string",
+                            ["enum"] = new JsonArray("requested_effect", "derived_failure_handling")
+                        },
+                        ["derivation_source_operation_id"] = new JsonObject { ["type"] = "string" }
                     },
-                    ["required"] = new JsonArray("id", "description", "required", "execution_kind", "external_effect_kind", "decision_source_operation_id"),
+                    ["required"] = new JsonArray("id", "description", "required", "execution_kind", "external_effect_kind", "decision_source_operation_id", "intent_origin", "derivation_source_operation_id"),
                     ["additionalProperties"] = false
                 }
             },
@@ -1777,13 +1789,27 @@ public sealed partial class WorkflowPlanExecutor
                                             ?? string.Empty;
             if (decisionSourceOperationId.Length > 160)
                 throw new InvalidOperationException($"Capability inventory operation '{id}' has an invalid decision_source_operation_id.");
+            var intentOrigin = (node as JsonObject)?["intent_origin"]?.GetValue<string>()?.Trim().ToLowerInvariant()
+                               ?? "requested_effect";
+            if (intentOrigin is not ("requested_effect" or "derived_failure_handling"))
+                throw new InvalidOperationException($"Capability inventory operation '{id}' has invalid intent_origin '{intentOrigin}'.");
+            var derivationSourceOperationId = (node as JsonObject)?["derivation_source_operation_id"]?.GetValue<string>()?.Trim()
+                                              ?? string.Empty;
+            if (derivationSourceOperationId.Length > 160
+                || intentOrigin == "requested_effect" && derivationSourceOperationId.Length > 0
+                || intentOrigin == "derived_failure_handling" && derivationSourceOperationId.Length == 0)
+            {
+                throw new InvalidOperationException($"Capability inventory operation '{id}' has an incompatible derivation_source_operation_id.");
+            }
             return new CapabilityInventoryOperation(
                 id,
                 description,
                 required,
                 executionKind,
                 externalEffectKind,
-                decisionSourceOperationId);
+                decisionSourceOperationId,
+                intentOrigin,
+                derivationSourceOperationId);
         }).ToArray();
         var constraints = constraintNodes.Select(node =>
         {
@@ -1796,16 +1822,25 @@ public sealed partial class WorkflowPlanExecutor
         }).ToArray();
         foreach (var operation in operations)
         {
-            if (operation.DecisionSourceOperationId.Length == 0)
-                continue;
-            if (string.Equals(operation.Id, operation.DecisionSourceOperationId, StringComparison.Ordinal)
+            if (operation.DecisionSourceOperationId.Length > 0
+                && (string.Equals(operation.Id, operation.DecisionSourceOperationId, StringComparison.Ordinal)
                 || operations.All(candidate => !string.Equals(
                     candidate.Id,
                     operation.DecisionSourceOperationId,
-                    StringComparison.Ordinal)))
+                    StringComparison.Ordinal))))
             {
                 throw new InvalidOperationException(
                     $"Capability inventory operation '{operation.Id}' references an unknown or self decision source '{operation.DecisionSourceOperationId}'.");
+            }
+            if (operation.DerivationSourceOperationId.Length > 0
+                && (string.Equals(operation.Id, operation.DerivationSourceOperationId, StringComparison.Ordinal)
+                    || operations.All(candidate => !string.Equals(
+                        candidate.Id,
+                        operation.DerivationSourceOperationId,
+                        StringComparison.Ordinal))))
+            {
+                throw new InvalidOperationException(
+                    $"Capability inventory operation '{operation.Id}' references an unknown or self derivation source '{operation.DerivationSourceOperationId}'.");
             }
         }
         var reasons = ParseCapabilityInventoryReasons(json["incomplete_reasons"] as JsonArray);
@@ -1820,6 +1855,10 @@ public sealed partial class WorkflowPlanExecutor
     {
         var userConcepts = CountPlannerBoundaryConcepts(userInstruction);
         var operations = inventory.Operations
+            .Where(static operation => !string.Equals(
+                operation.IntentOrigin,
+                "derived_failure_handling",
+                StringComparison.Ordinal))
             .Where(static operation => !IsHostInputContractArtifact(operation))
             .Where(operation => !IsUngroundedCleanupArtifact(operation, userInstruction))
             .ToArray();
@@ -1996,7 +2035,9 @@ public sealed partial class WorkflowPlanExecutor
             ["required"] = operation.Required,
             ["execution_kind"] = operation.ExecutionKind,
             ["external_effect_kind"] = operation.ExternalEffectKind,
-            ["decision_source_operation_id"] = operation.DecisionSourceOperationId
+            ["decision_source_operation_id"] = operation.DecisionSourceOperationId,
+            ["intent_origin"] = operation.IntentOrigin,
+            ["derivation_source_operation_id"] = operation.DerivationSourceOperationId
         }).ToArray());
         var constraints = new JsonArray(inventory.Constraints.Select(static constraint => (JsonNode)new JsonObject
         {
@@ -2797,8 +2838,59 @@ public sealed partial class WorkflowPlanExecutor
                 : Array.Empty<CapabilityAlternative>();
             constraints.Add(new CapabilityConstraint(match.Constraint.Id, match.Constraint.Description, match.Constraint.Required, alternatives));
         }
-        return (resolved, constraints);
+        return (CoalescePlatformConfirmationCapabilities(resolved), constraints);
     }
+
+    private static IReadOnlyList<ResolvedCapability> CoalescePlatformConfirmationCapabilities(
+        IReadOnlyList<ResolvedCapability> capabilities)
+    {
+        var platformConfirmations = capabilities
+            .Where(static capability => capability.Required
+                                        && string.Equals(capability.Resolution, "native", StringComparison.Ordinal)
+                                        && capability.OperationId?.StartsWith(
+                                            "platform_confirm_external_write",
+                                            StringComparison.Ordinal) == true
+                                        && string.Equals(
+                                            capability.Description,
+                                            PlatformExternalWriteConfirmationOperationDescription,
+                                            StringComparison.Ordinal))
+            .ToArray();
+        if (platformConfirmations.Length != 1)
+            return capabilities;
+
+        var platformConfirmation = platformConfirmations[0];
+        var compatibleExisting = capabilities
+            .Where(capability => !ReferenceEquals(capability, platformConfirmation)
+                                 && capability.Required
+                                 && string.Equals(capability.Resolution, "native", StringComparison.Ordinal)
+                                 && string.Equals(capability.Method, platformConfirmation.Method, StringComparison.Ordinal)
+                                 && string.Equals(capability.CatalogId, platformConfirmation.CatalogId, StringComparison.Ordinal)
+                                 && capability.Activation == null
+                                 && (string.Equals(capability.ExecutionKind, "human_interaction", StringComparison.Ordinal)
+                                     || string.Equals(capability.ExternalEffectKind, "write", StringComparison.Ordinal)))
+            .ToArray();
+        if (compatibleExisting.Length != 1)
+            return capabilities;
+
+        var existing = compatibleExisting[0];
+        var operationIds = GetResolvedCapabilityOperationIds(existing)
+            .Concat(GetResolvedCapabilityOperationIds(platformConfirmation))
+            .Distinct(StringComparer.Ordinal)
+            .ToArray();
+        var coalesced = existing with { OperationIds = operationIds };
+        return capabilities
+            .Where(capability => !ReferenceEquals(capability, existing)
+                                 && !ReferenceEquals(capability, platformConfirmation))
+            .Append(coalesced)
+            .ToArray();
+    }
+
+    private static IReadOnlyList<string> GetResolvedCapabilityOperationIds(ResolvedCapability capability)
+        => capability.OperationIds is { Count: > 0 }
+            ? capability.OperationIds
+            : !string.IsNullOrWhiteSpace(capability.OperationId)
+                ? [capability.OperationId]
+                : [capability.Id];
 
     private static HashSet<(string OperationId, string CatalogId)> FindRetainedSharedWriteOccurrences(
         CapabilityMatchingEvaluation evaluation,
@@ -3384,8 +3476,11 @@ public sealed partial class WorkflowPlanExecutor
         foreach (var capability in preflight.Capabilities.Where(static item => item.Required))
         {
             sb.Append("- ").Append(capability.Id).Append(": ").Append(capability.Resolution);
-            if (!string.IsNullOrWhiteSpace(capability.OperationId))
-                sb.Append(" operation_id=").Append(capability.OperationId);
+            var operationIds = GetResolvedCapabilityOperationIds(capability);
+            if (operationIds.Count == 1)
+                sb.Append(" operation_id=").Append(operationIds[0]);
+            else if (operationIds.Count > 1)
+                sb.Append(" operation_ids=[").Append(string.Join(",", operationIds)).Append(']');
             if (!string.IsNullOrWhiteSpace(capability.CatalogId))
                 sb.Append(" catalog_id=").Append(capability.CatalogId);
             if (capability.Resolution == "mcp")
@@ -3436,6 +3531,7 @@ public sealed partial class WorkflowPlanExecutor
                 ["required"] = capability.Required,
                 ["resolution"] = capability.Resolution,
                 ["operation_id"] = capability.OperationId,
+                ["operation_ids"] = BuildStringArrayJson(GetResolvedCapabilityOperationIds(capability)),
                 ["catalog_id"] = capability.CatalogId,
                 ["match_status"] = capability.MatchStatus,
                 ["execution_kind"] = capability.ExecutionKind,
@@ -4300,11 +4396,17 @@ public sealed partial class WorkflowPlanExecutor
         var missingLocal = preflight.RequiredLocalOperations
             .Where(operation => !declaredLocalOperationIds.Contains(operation.OperationId ?? operation.Id))
             .ToArray();
-        if (missingMcp.Count == 0 && missingNative.Count == 0 && missingLocal.Length == 0)
-            return boundExtraction;
-
         var errors = boundExtraction.ValidationErrors.ToList();
         var rootCauses = boundExtraction.RootCauses.ToList();
+        ValidateConditionalDecisionBoundaries(boundExtraction, errors, rootCauses);
+        if (missingMcp.Count == 0
+            && missingNative.Count == 0
+            && missingLocal.Length == 0
+            && errors.Count == boundExtraction.ValidationErrors.Count)
+        {
+            return boundExtraction;
+        }
+
         foreach (var capability in missingMcp)
         {
             var bindingText = capability.RequestBindings.Count == 0
@@ -4357,9 +4459,99 @@ public sealed partial class WorkflowPlanExecutor
 
         return boundExtraction with
         {
-            ValidationErrors = errors,
+            ValidationErrors = errors.Distinct(StringComparer.Ordinal).ToArray(),
             RootCauses = rootCauses
+                .DistinctBy(static cause => string.Join(
+                    "|",
+                    cause.Category,
+                    cause.Phase,
+                    cause.LeafName,
+                    cause.OutputName,
+                    cause.InvalidPath,
+                    cause.Code,
+                    cause.Message,
+                    cause.Primary), StringComparer.Ordinal)
+                .ToArray()
         };
+    }
+
+    private static void ValidateConditionalDecisionBoundaries(
+        WorkflowPipelineExtraction extraction,
+        ICollection<string> errors,
+        ICollection<PipelineRootCause> rootCauses)
+    {
+        var leafOwners = extraction.Subworkflows
+            .SelectMany(static leaf => (leaf.LocalOperationIds ?? Array.Empty<string>())
+                .Select(operationId => (OperationId: operationId, Leaf: leaf)))
+            .GroupBy(static owner => owner.OperationId, StringComparer.Ordinal)
+            .ToDictionary(static group => group.Key, static group => group.Select(static owner => owner.Leaf).ToArray(), StringComparer.Ordinal);
+        var mainOwners = (extraction.MainLocalOperationIds ?? Array.Empty<string>())
+            .ToHashSet(StringComparer.Ordinal);
+
+        foreach (var activationLeaf in extraction.Subworkflows)
+        {
+            foreach (var decisionOperationId in activationLeaf.PlannedTools
+                         .Where(static tool => tool.Activation != null)
+                         .Select(static tool => tool.Activation!.DecisionOperationId)
+                         .Distinct(StringComparer.Ordinal))
+            {
+                leafOwners.TryGetValue(decisionOperationId, out var owners);
+                owners ??= Array.Empty<WorkflowPipelineSubworkflowSpec>();
+                var ownerCount = owners.Length + (mainOwners.Contains(decisionOperationId) ? 1 : 0);
+                if (ownerCount != 1)
+                {
+                    var ownershipMessage = $"CAPABILITY_PREFLIGHT_CONDITIONAL_DECISION_OWNER_INVALID: Conditional activation operation '{decisionOperationId}' must have exactly one immutable local owner; found {ownerCount}.";
+                    errors.Add(ownershipMessage);
+                    rootCauses.Add(new PipelineRootCause(
+                        "conditional_decision_owner_invalid",
+                        "pipeline_extraction",
+                        activationLeaf.Name,
+                        null,
+                        $"subworkflows.{activationLeaf.Name}.planned_tools.activation.decision_operation_id",
+                        "CAPABILITY_PREFLIGHT_CONDITIONAL_DECISION_OWNER_INVALID",
+                        ownershipMessage,
+                        true));
+                    continue;
+                }
+
+                if (mainOwners.Contains(decisionOperationId)
+                    || string.Equals(owners[0].Name, activationLeaf.Name, StringComparison.Ordinal))
+                {
+                    continue;
+                }
+
+                var decisionOwner = owners[0];
+                var sharedFields = decisionOwner.Outputs.Keys
+                    .Intersect(activationLeaf.Inputs.Keys, StringComparer.Ordinal)
+                    .Where(field => PipelineBoundaryTypesAreCompatible(
+                        decisionOwner.Outputs[field],
+                        activationLeaf.Inputs[field]))
+                    .ToArray();
+                if (sharedFields.Length > 0)
+                    continue;
+
+                var boundaryMessage = $"CAPABILITY_PREFLIGHT_CONDITIONAL_DECISION_BOUNDARY_MISSING: Conditional activation operation '{decisionOperationId}' is owned by leaf '{decisionOwner.Name}' and consumed by leaf '{activationLeaf.Name}', but those leaves have no same-named compatible output/input field for the runtime decision. Add that typed boundary and route it through main without recomputing the decision.";
+                errors.Add(boundaryMessage);
+                rootCauses.Add(new PipelineRootCause(
+                    "conditional_decision_boundary_missing",
+                    "pipeline_extraction",
+                    activationLeaf.Name,
+                    null,
+                    $"subworkflows.{activationLeaf.Name}.inputs",
+                    "CAPABILITY_PREFLIGHT_CONDITIONAL_DECISION_BOUNDARY_MISSING",
+                    boundaryMessage,
+                    true));
+            }
+        }
+    }
+
+    private static bool PipelineBoundaryTypesAreCompatible(string producerType, string consumerType)
+    {
+        var producer = NormalizeWorkflowSchemaType(producerType);
+        var consumer = NormalizeWorkflowSchemaType(consumerType);
+        return string.Equals(producer, consumer, StringComparison.Ordinal)
+               || string.Equals(producer, "any", StringComparison.Ordinal)
+               || string.Equals(consumer, "any", StringComparison.Ordinal);
     }
 
     private static StructuredPipelineExtractionMetadata ComposeLockedCapabilitiesIntoPipelineMetadata(
@@ -4476,6 +4668,10 @@ public sealed partial class WorkflowPlanExecutor
             .Select(static spec => (spec.PlannedNativeSteps ?? Array.Empty<PipelinePlannedNativeStep>()).ToList())
             .ToArray();
         var mainNativeSteps = (extraction.MainNativeSteps ?? Array.Empty<PipelinePlannedNativeStep>()).ToList();
+        NormalizeCoalescedMainNativeCapabilityPlans(
+            nativeSteps,
+            mainNativeSteps,
+            preflight.RequiredNativeCapabilities);
         var remainingNative = preflight.RequiredNativeCapabilities.ToList();
         for (var specIndex = 0; specIndex < nativeSteps.Length; specIndex++)
         {
@@ -4503,7 +4699,7 @@ public sealed partial class WorkflowPlanExecutor
                     capability.Method!,
                     true,
                     capability.Description,
-                    string.IsNullOrWhiteSpace(capability.OperationId) ? [capability.Id] : [capability.OperationId],
+                    GetResolvedCapabilityOperationIds(capability),
                     string.IsNullOrWhiteSpace(capability.CatalogId) ? Array.Empty<string>() : [capability.CatalogId]));
                 continue;
             }
@@ -4515,7 +4711,7 @@ public sealed partial class WorkflowPlanExecutor
                 capability.Method!,
                 true,
                 capability.Description,
-                string.IsNullOrWhiteSpace(capability.OperationId) ? [capability.Id] : [capability.OperationId],
+                GetResolvedCapabilityOperationIds(capability),
                 string.IsNullOrWhiteSpace(capability.CatalogId) ? Array.Empty<string>() : [capability.CatalogId]));
         }
 
@@ -4649,7 +4845,25 @@ public sealed partial class WorkflowPlanExecutor
                 .Select(tool => (Spec: spec, Activation: tool.Activation!)))
             .GroupBy(static item => item.Activation.Group, StringComparer.Ordinal)
             .Select(group =>
-                $"Main computes decision operation '{group.First().Activation.DecisionOperationId}' and passes its result to leaf '{group.First().Spec.Name}'; that leaf executes exactly one branch of conditional capability group '{group.Key}'.")
+            {
+                var activationOwner = group.First().Spec.Name;
+                var decisionOperationId = group.First().Activation.DecisionOperationId;
+                var decisionLeafOwners = updated
+                    .Where(spec => (spec.LocalOperationIds ?? Array.Empty<string>())
+                        .Contains(decisionOperationId, StringComparer.Ordinal))
+                    .Select(static spec => spec.Name)
+                    .Distinct(StringComparer.Ordinal)
+                    .ToArray();
+                var mainOwnsDecision = localOperationAssignments.MainOperationIds.Contains(
+                    decisionOperationId,
+                    StringComparer.Ordinal);
+                return BuildConditionalDecisionRoutingGuidance(
+                    group.Key,
+                    decisionOperationId,
+                    activationOwner,
+                    decisionLeafOwners,
+                    mainOwnsDecision);
+            })
             .ToArray();
         return extraction with
         {
@@ -4663,6 +4877,75 @@ public sealed partial class WorkflowPlanExecutor
             MainNativeSteps = mainNativeSteps
         };
     }
+
+    private static string BuildConditionalDecisionRoutingGuidance(
+        string group,
+        string decisionOperationId,
+        string activationOwner,
+        IReadOnlyList<string> decisionLeafOwners,
+        bool mainOwnsDecision)
+    {
+        if (mainOwnsDecision && decisionLeafOwners.Count == 0)
+        {
+            return $"Main owns and computes decision operation '{decisionOperationId}', then passes its typed result to leaf '{activationOwner}'; that leaf executes exactly one branch of conditional capability group '{group}'.";
+        }
+
+        if (!mainOwnsDecision && decisionLeafOwners.Count == 1)
+        {
+            var decisionOwner = decisionLeafOwners[0];
+            if (string.Equals(decisionOwner, activationOwner, StringComparison.Ordinal))
+            {
+                return $"Leaf '{decisionOwner}' owns and derives decision operation '{decisionOperationId}', then uses that typed result directly to execute exactly one branch of conditional capability group '{group}'; main must not recompute it.";
+            }
+
+            return $"Leaf '{decisionOwner}' owns and derives decision operation '{decisionOperationId}' and exposes its typed result; main routes that result unchanged to leaf '{activationOwner}', which executes exactly one branch of conditional capability group '{group}', without recomputing the decision.";
+        }
+
+        return $"Decision operation '{decisionOperationId}' for conditional capability group '{group}' must be derived by its exactly one immutable owner and routed unchanged to leaf '{activationOwner}'; main must not claim ownership unless the immutable main operation contract assigns it there.";
+    }
+
+    private static void NormalizeCoalescedMainNativeCapabilityPlans(
+        IReadOnlyList<List<PipelinePlannedNativeStep>> leafNativeSteps,
+        List<PipelinePlannedNativeStep> mainNativeSteps,
+        IReadOnlyList<ResolvedCapability> requiredNativeCapabilities)
+    {
+        foreach (var capability in requiredNativeCapabilities.Where(static capability =>
+                     capability.OperationIds is { Count: > 1 }))
+        {
+            if (!IsMainOrchestrationNativeCapability(capability))
+                continue;
+
+            var operationIds = GetResolvedCapabilityOperationIds(capability);
+            foreach (var steps in leafNativeSteps)
+            {
+                steps.RemoveAll(step => PlannedNativeStepClaimsCoalescedCapability(
+                    step,
+                    capability,
+                    operationIds));
+            }
+            mainNativeSteps.RemoveAll(step => PlannedNativeStepClaimsCoalescedCapability(
+                step,
+                capability,
+                operationIds));
+            mainNativeSteps.Add(new PipelinePlannedNativeStep(
+                capability.Method!,
+                true,
+                capability.Description,
+                operationIds,
+                string.IsNullOrWhiteSpace(capability.CatalogId)
+                    ? Array.Empty<string>()
+                    : [capability.CatalogId]));
+        }
+    }
+
+    private static bool PlannedNativeStepClaimsCoalescedCapability(
+        PipelinePlannedNativeStep step,
+        ResolvedCapability capability,
+        IReadOnlyList<string> operationIds)
+        => string.Equals(step.Method, capability.Method, StringComparison.Ordinal)
+           && (step.OperationIds.Any(operationIds.Contains)
+               || !string.IsNullOrWhiteSpace(capability.CatalogId)
+               && step.CatalogIds.Contains(capability.CatalogId, StringComparer.Ordinal));
 
     private static (IReadOnlyList<WorkflowPipelineSubworkflowSpec> Specs, string MainWorkflowPrompt)
         ConsolidateSplitConditionalVariantSpecs(

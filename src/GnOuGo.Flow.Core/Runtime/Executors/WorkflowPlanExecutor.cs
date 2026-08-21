@@ -76,6 +76,7 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
             var classified = LlmFailureClassifier.Classify(ex);
             if (classified != null)
             {
+                AddLlmFailureTelemetry(ctx, classified);
                 if (ReferenceEquals(classified, ex))
                     throw;
                 throw classified;
@@ -413,6 +414,7 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
         AppendMcpInputContractChecklist(basePrompt);
         AppendExpressionFunctionRules(basePrompt);
         basePrompt.AppendLine("- When a field expects a string containing JSON, use a YAML literal block (`|`) or single quotes; do not put unescaped JSON inside a double-quoted YAML string.");
+        basePrompt.AppendLine("- Quote a complete `${...}` expression when it is used as a YAML scalar. This is mandatory when the expression contains mapping-significant characters such as the colon in a ternary expression.");
         basePrompt.AppendLine("- Workflow `outputs` should use either the short expression form or the long form with `expr` and `type`. Do not map arbitrary objects there unless using nested expression properties intentionally.");
         basePrompt.AppendLine("- Every generated `skill.outputs.*` and `workflows.*.outputs.*` entry must be strongly typed. Never emit `type: any`, bare `type: object`, or bare `type: array`.");
         basePrompt.AppendLine("- Array outputs must declare `items`; if items are objects, `items.properties` must list the concrete fields. Object outputs must declare non-empty `properties`.");
@@ -666,8 +668,11 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
 
             try
             {
-                var yaml = NormalizeGeneratedSwitchDefaultStepLists(
+                var yaml = NormalizeGeneratedExactExpressionScalars(
                     StripMarkdownFences(response.Text ?? string.Empty));
+                yaml = NormalizeGeneratedUnsafePlainMappingScalars(yaml);
+                yaml = NormalizeGeneratedSwitchDefaultStepLists(yaml);
+                yaml = NormalizeGeneratedFlowNullableSchemas(yaml);
                 yaml = NormalizeGeneratedSetOutputSchemas(yaml);
                 if (string.IsNullOrWhiteSpace(pipelineLeafName) && surgicalRepair is null)
                     yaml = PruneWeakNestedOutputProperties(yaml);
@@ -706,6 +711,16 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
                                 validationDiscovered,
                                 ctx.Engine.Registry);
                         }
+                        var documentedPathNormalization = NormalizeGeneratedDocumentedStepOutputPaths(
+                            generatedDoc,
+                            yaml,
+                            validationDiscovered,
+                            ctx.Engine.Registry);
+                        generatedDoc = documentedPathNormalization.Document;
+                        yaml = documentedPathNormalization.Yaml;
+                        validationSpan.SetAttribute(
+                            "gnougo-flow.plan.validation.documented_output_path_replacement_count",
+                            documentedPathNormalization.ReplacementCount);
                         validationSpan.SetAttribute("gnougo-flow.plan.workflow_count", generatedDoc.Workflows.Count);
 
                         await RunStandardPlanValidationSequenceAsync(
@@ -798,8 +813,11 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
                         ctx);
 
                 lastError = BuildStructuredPlanError(ex, attempt + 1);
-                lastInvalidYaml = NormalizeGeneratedSwitchDefaultStepLists(
+                lastInvalidYaml = NormalizeGeneratedExactExpressionScalars(
                     StripMarkdownFences(response.Text ?? string.Empty));
+                lastInvalidYaml = NormalizeGeneratedUnsafePlainMappingScalars(lastInvalidYaml);
+                lastInvalidYaml = NormalizeGeneratedSwitchDefaultStepLists(lastInvalidYaml);
+                lastInvalidYaml = NormalizeGeneratedFlowNullableSchemas(lastInvalidYaml);
                 lastRepairContext = BuildMinimalRepairContext(
                     ctx.Engine.Registry,
                     allowedTypes,

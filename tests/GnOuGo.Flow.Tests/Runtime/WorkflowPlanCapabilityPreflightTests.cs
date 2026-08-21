@@ -215,6 +215,41 @@ public sealed class WorkflowPlanCapabilityPreflightTests
         """;
 
     [Fact]
+    public void CapabilityInventoryPrompt_DistinguishesLocalFallbackPolicyFromExternalFallbackAction()
+    {
+        var method = typeof(WorkflowPlanExecutor).GetMethod(
+            "BuildCapabilityInventoryPrompt",
+            BindingFlags.NonPublic | BindingFlags.Static)!;
+
+        var prompt = Assert.IsType<string>(method.Invoke(null, [
+            "Apply a fallback when the primary operation cannot produce a value.",
+            ""
+        ]));
+
+        Assert.Contains("deterministic retry, backoff, fallback", prompt, StringComparison.Ordinal);
+        Assert.Contains("separately requested runtime action performed by an AI, agent, service, or tool", prompt, StringComparison.Ordinal);
+        Assert.Contains("do not classify the latter as local processing", prompt, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void CapabilityInventoryPrompt_SeparatesExternalStateResolutionFromLocatorParsing()
+    {
+        var method = typeof(WorkflowPlanExecutor).GetMethod(
+            "BuildCapabilityInventoryPrompt",
+            BindingFlags.NonPublic | BindingFlags.Static)!;
+
+        var prompt = Assert.IsType<string>(method.Invoke(null, [
+            "Inspect a referenced external resource and process its current revision.",
+            ""
+        ]));
+
+        Assert.Contains("external resource locator or identifier", prompt, StringComparison.Ordinal);
+        Assert.Contains("state not literally encoded", prompt, StringComparison.Ordinal);
+        Assert.Contains("one required external read", prompt, StringComparison.Ordinal);
+        Assert.Contains("Never classify retrieval of external state as local parsing", prompt, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void CapabilityOwnershipScoring_UsesPositiveActionFamiliesAndIgnoresProhibitions()
     {
         var method = typeof(WorkflowPlanExecutor).GetMethod(
@@ -783,7 +818,7 @@ public sealed class WorkflowPlanCapabilityPreflightTests
             "op-review::cap-wrapper", "Perform the complete review.", true, "mcp",
             "reviewer", "tool", "review_complete", emptyBindings,
             "op-review", "cap-wrapper", "matched", "external_effect", "execute", null,
-            "Run every review phase as one complete operation."
+            "Run every review phase as one complete operation.", null
         ]);
         Assert.NotNull(wrapperCapability);
         var lockedCapabilities = Array.CreateInstance(resolvedCapabilityType!, 1);
@@ -855,7 +890,7 @@ public sealed class WorkflowPlanCapabilityPreflightTests
             "op-work::cap-wrapper", "Perform the complete operation.", true, "mcp",
             "neutral", "tool", "complete_work", emptyBindings,
             "op-work", "cap-wrapper", "composed", "external_effect", "execute", null,
-            "Run every phase as one complete operation."
+            "Run every phase as one complete operation.", null
         ]);
         Assert.NotNull(wrapperCapability);
         var lockedCapabilities = Array.CreateInstance(resolvedCapabilityType!, 1);
@@ -948,7 +983,7 @@ public sealed class WorkflowPlanCapabilityPreflightTests
                 $"finalize::{catalogId}", $"Finalize {value}.", true, "mcp",
                 "neutral", "tool", "finalize", Bindings(value),
                 "finalize", catalogId, "conditional", "external_effect", "write", activation,
-                $"Finalize with {value}."
+                $"Finalize with {value}.", null
             ])!;
         var capabilities = Array.CreateInstance(resolvedCapabilityType!, 2);
         capabilities.SetValue(Capability("accept", "cap-accept", acceptActivation), 0);
@@ -2330,6 +2365,96 @@ public sealed class WorkflowPlanCapabilityPreflightTests
     }
 
     [Fact]
+    public async Task InferredPreflight_RepairsOmittedRequiredExactDenialCandidateAgainstCompactCatalog()
+    {
+        var selectorCalls = 0;
+        var prompts = new List<string>();
+        var llm = new Mock<ILLMClient>();
+        llm.Setup(client => client.CallAsync(It.IsAny<LLMRequest>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((LLMRequest request, CancellationToken _) =>
+            {
+                prompts.Add(request.Prompt);
+                if (request.Prompt.Contains("domain-neutral workflow runtime analyst", StringComparison.Ordinal))
+                {
+                    return InventoryResponseWithConstraints(
+                        [("load_object", "Load the requested object.", true)],
+                        [("never_delete", "Never delete stored objects.", true, "exact_denial")]);
+                }
+                if (request.Prompt.Contains("physical capability candidate selector", StringComparison.Ordinal))
+                {
+                    selectorCalls++;
+                    return selectorCalls == 1
+                        ? PhysicalCandidateResponseWithConstraints(
+                            [("load_object", [CatalogIdForMethod(request.Prompt, "get_object")])],
+                            [("never_delete", Array.Empty<string>())])
+                        : PhysicalCandidateResponseWithConstraints(
+                            Array.Empty<(string, string[])>(),
+                            [("never_delete", [CatalogIdForMethod(request.Prompt, "delete_object")])]);
+                }
+                if (request.Prompt.Contains("domain-neutral capability matcher", StringComparison.Ordinal))
+                {
+                    return MatchResponseWithConstraints(
+                        [("load_object", "mcp", CatalogIdForMethod(request.Prompt, "get_object"))],
+                        [("never_delete", [CatalogIdForMethod(request.Prompt, "delete_object")])]);
+                }
+                if (request.Prompt.Contains("tool-selection assistant", StringComparison.OrdinalIgnoreCase))
+                    return McpPrefilterResponse(("object-storage", ["get_object"]));
+                return new LLMResponse { Text = ValidStorageWorkflow };
+            });
+
+        var result = await ExecuteAsync(
+            InferredPlan().Replace("prefilter: false", "prefilter: true", StringComparison.Ordinal),
+            llm.Object,
+            CreateNeutralFactory());
+
+        Assert.True(result.Success, result.Error?.Message);
+        Assert.Equal(2, selectorCalls);
+        var repairPrompt = Assert.Single(prompts, prompt => prompt.Contains("single bounded repair pass", StringComparison.Ordinal));
+        Assert.Contains("never_delete", repairPrompt, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task InferredPreflight_DoesNotDemandPhysicalCandidateForWorkflowPolicyConstraint()
+    {
+        var selectorCalls = 0;
+        var llm = new Mock<ILLMClient>();
+        llm.Setup(client => client.CallAsync(It.IsAny<LLMRequest>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((LLMRequest request, CancellationToken _) =>
+            {
+                if (request.Prompt.Contains("domain-neutral workflow runtime analyst", StringComparison.Ordinal))
+                {
+                    return InventoryResponseWithConstraints(
+                        [("load_object", "Load the requested object.", true)],
+                        [("load_once", "Load the object exactly once.", true, "workflow_policy")]);
+                }
+                if (request.Prompt.Contains("physical capability candidate selector", StringComparison.Ordinal))
+                {
+                    selectorCalls++;
+                    return PhysicalCandidateResponseWithConstraints(
+                        [("load_object", [CatalogIdForMethod(request.Prompt, "get_object")])],
+                        [("load_once", Array.Empty<string>())]);
+                }
+                if (request.Prompt.Contains("domain-neutral capability matcher", StringComparison.Ordinal))
+                {
+                    return MatchResponseWithConstraints(
+                        [("load_object", "mcp", CatalogIdForMethod(request.Prompt, "get_object"))],
+                        [("load_once", Array.Empty<string>())]);
+                }
+                if (request.Prompt.Contains("tool-selection assistant", StringComparison.OrdinalIgnoreCase))
+                    return McpPrefilterResponse(("object-storage", ["get_object"]));
+                return new LLMResponse { Text = ValidStorageWorkflow };
+            });
+
+        var result = await ExecuteAsync(
+            InferredPlan().Replace("prefilter: false", "prefilter: true", StringComparison.Ordinal),
+            llm.Object,
+            CreateNeutralFactory());
+
+        Assert.True(result.Success, result.Error?.Message);
+        Assert.Equal(1, selectorCalls);
+    }
+
+    [Fact]
     public async Task InferredPreflight_ReportsUnavailableCleanupOnlyAfterCompactCandidateRepair()
     {
         var selectorCalls = 0;
@@ -2729,6 +2854,63 @@ public sealed class WorkflowPlanCapabilityPreflightTests
     }
 
     [Fact]
+    public async Task InferredPreflight_RemovesDerivedFailureHandlingFromPositiveCapabilityInventory()
+    {
+        var llm = new Mock<ILLMClient>();
+        llm.Setup(client => client.CallAsync(It.IsAny<LLMRequest>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((LLMRequest request, CancellationToken _) =>
+            {
+                if (request.Prompt.Contains("domain-neutral workflow runtime analyst", StringComparison.Ordinal))
+                {
+                    return new LLMResponse
+                    {
+                        Json = new JsonObject
+                        {
+                            ["complete"] = true,
+                            ["incomplete_reasons"] = new JsonArray(),
+                            ["operations"] = new JsonArray
+                            {
+                                new JsonObject
+                                {
+                                    ["id"] = "load_object",
+                                    ["description"] = "Load the requested object.",
+                                    ["required"] = true,
+                                    ["execution_kind"] = "external_effect",
+                                    ["external_effect_kind"] = "read",
+                                    ["decision_source_operation_id"] = "",
+                                    ["intent_origin"] = "requested_effect",
+                                    ["derivation_source_operation_id"] = ""
+                                },
+                                new JsonObject
+                                {
+                                    ["id"] = "report_load_failure",
+                                    ["description"] = "Report an unsuccessful load through an additional external effect.",
+                                    ["required"] = true,
+                                    ["execution_kind"] = "external_effect",
+                                    ["external_effect_kind"] = "write",
+                                    ["decision_source_operation_id"] = "",
+                                    ["intent_origin"] = "derived_failure_handling",
+                                    ["derivation_source_operation_id"] = "load_object"
+                                }
+                            },
+                            ["constraints"] = new JsonArray()
+                        }
+                    };
+                }
+                if (request.Prompt.Contains("domain-neutral capability matcher", StringComparison.Ordinal))
+                {
+                    Assert.DoesNotContain("report_load_failure", request.Prompt, StringComparison.Ordinal);
+                    return MatchResponse(("load_object", "mcp", CatalogIdForMethod(request.Prompt, "get_object")));
+                }
+                return new LLMResponse { Text = ValidStorageWorkflow };
+            });
+
+        var result = await ExecuteAsync(InferredPlan(), llm.Object, CreateNeutralFactory());
+
+        Assert.True(result.Success, result.Error?.Message);
+    }
+
+    [Fact]
     public async Task InferredPreflight_RemovesHostRuntimeInputCollectionArtifactBeforeMatching()
     {
         var llm = new Mock<ILLMClient>();
@@ -2963,6 +3145,65 @@ public sealed class WorkflowPlanCapabilityPreflightTests
 
         Assert.True(result.Success, result.Error?.Message);
         Assert.True(matcherSawInjectedGate);
+    }
+
+    [Fact]
+    public async Task InferredPreflight_CoalescesPlatformGateWithSameNativeConfirmationContract()
+    {
+        var llm = new Mock<ILLMClient>();
+        llm.Setup(client => client.CallAsync(It.IsAny<LLMRequest>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((LLMRequest request, CancellationToken _) =>
+            {
+                if (request.Prompt.Contains("domain-neutral workflow runtime analyst", StringComparison.Ordinal))
+                {
+                    return InventoryResponseWithEffects(
+                        ("confirm_change", "Obtain consent for the pending change.", true, "external_effect", "write"),
+                        ("remove_object", "Remove the configured object.", true, "external_effect", "write"));
+                }
+                if (request.Prompt.Contains("domain-neutral capability matcher", StringComparison.Ordinal))
+                {
+                    var remove = CatalogIdForMethod(request.Prompt, "delete_object");
+                    var confirm = CatalogIdForMethod(request.Prompt, "human.input");
+                    return new LLMResponse
+                    {
+                        Json = new JsonObject
+                        {
+                            ["operation_matches"] = new JsonArray
+                            {
+                                MatchingNode("confirm_change", "matched", [confirm], "The native interaction implements the consent boundary."),
+                                MatchingNode("remove_object", "matched", [remove], "The exact write is sufficient."),
+                                MatchingNode("platform_confirm_external_write", "matched", [confirm], "The platform safety gate uses the same native interaction contract.")
+                            },
+                            ["constraint_matches"] = new JsonArray
+                            {
+                                new JsonObject
+                                {
+                                    ["constraint_id"] = "platform_external_write_after_confirmation",
+                                    ["status"] = "policy_only",
+                                    ["denied_catalog_ids"] = new JsonArray(),
+                                    ["candidate_catalog_ids"] = new JsonArray(),
+                                    ["reason"] = "This ordering invariant remains enforced by workflow topology."
+                                }
+                            }
+                        }
+                    };
+                }
+
+                return new LLMResponse { Text = ValidGatedStorageWriteWorkflow };
+            });
+
+        var result = await ExecuteAsync(InferredPlan(), llm.Object, CreateNeutralFactory());
+
+        Assert.True(result.Success, result.Error?.Message);
+        var capabilities = result.Outputs!["plan"]!["meta"]!["capability_preflight"]!["capabilities"]!.AsArray();
+        var nativeConfirmation = Assert.Single(capabilities, static capability =>
+            capability!["resolution"]!.GetValue<string>() == "native"
+            && capability["method"]!.GetValue<string>() == "human.input");
+        var operationIds = nativeConfirmation!["operation_ids"]!.AsArray()
+            .Select(static value => value!.GetValue<string>())
+            .ToArray();
+        Assert.Contains("confirm_change", operationIds);
+        Assert.Contains("platform_confirm_external_write", operationIds);
     }
 
     [Fact]
@@ -4382,6 +4623,13 @@ public sealed class WorkflowPlanCapabilityPreflightTests
 
     private static LLMResponse PhysicalCandidateResponse(
         params (string OperationId, string[] CatalogIds)[] operations)
+        => PhysicalCandidateResponseWithConstraints(
+            operations,
+            Array.Empty<(string ConstraintId, string[] CatalogIds)>());
+
+    private static LLMResponse PhysicalCandidateResponseWithConstraints(
+        IReadOnlyList<(string OperationId, string[] CatalogIds)> operations,
+        IReadOnlyList<(string ConstraintId, string[] CatalogIds)> constraints)
         => new()
         {
             Json = new JsonObject
@@ -4391,7 +4639,11 @@ public sealed class WorkflowPlanCapabilityPreflightTests
                     ["operation_id"] = operation.OperationId,
                     ["catalog_ids"] = new JsonArray(operation.CatalogIds.Select(static id => (JsonNode?)JsonValue.Create(id)).ToArray())
                 }).ToArray()),
-                ["constraint_candidates"] = new JsonArray()
+                ["constraint_candidates"] = new JsonArray(constraints.Select(static constraint => (JsonNode)new JsonObject
+                {
+                    ["constraint_id"] = constraint.ConstraintId,
+                    ["catalog_ids"] = new JsonArray(constraint.CatalogIds.Select(static id => (JsonNode?)JsonValue.Create(id)).ToArray())
+                }).ToArray())
             }
         };
 
@@ -4562,6 +4814,31 @@ public sealed class WorkflowPlanCapabilityPreflightTests
                         ["decision_source_operation_id"] = "analyze"
                     }),
                 ["constraints"] = new JsonArray()
+            }
+        };
+
+    private static LLMResponse InventoryResponseWithConstraints(
+        IReadOnlyList<(string Id, string Description, bool Required)> operations,
+        IReadOnlyList<(string Id, string Description, bool Required, string EnforcementKind)> constraints)
+        => new()
+        {
+            Json = new JsonObject
+            {
+                ["complete"] = true,
+                ["incomplete_reasons"] = new JsonArray(),
+                ["operations"] = new JsonArray(operations.Select(static operation => (JsonNode)new JsonObject
+                {
+                    ["id"] = operation.Id,
+                    ["description"] = operation.Description,
+                    ["required"] = operation.Required
+                }).ToArray()),
+                ["constraints"] = new JsonArray(constraints.Select(static constraint => (JsonNode)new JsonObject
+                {
+                    ["id"] = constraint.Id,
+                    ["description"] = constraint.Description,
+                    ["required"] = constraint.Required,
+                    ["enforcement_kind"] = constraint.EnforcementKind
+                }).ToArray())
             }
         };
 

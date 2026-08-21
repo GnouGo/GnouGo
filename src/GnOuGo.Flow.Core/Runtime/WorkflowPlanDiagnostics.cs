@@ -2,7 +2,6 @@ using System.Text.Json;
 using System.Text.Json.Nodes;
 using System.Security.Cryptography;
 using System.Text;
-using System.Text.RegularExpressions;
 using GnOuGo.Flow.Core.Compilation;
 using GnOuGo.Flow.Core.Expressions;
 using GnOuGo.Flow.Core.Models;
@@ -170,35 +169,7 @@ internal static class WorkflowPlanDiagnostics
     }
 
     public static bool IsTransientProviderFailure(Exception exception)
-    {
-        for (var current = exception; current != null; current = current.InnerException!)
-        {
-            if (current is HttpRequestException or TimeoutException)
-                return true;
-
-            var message = current.Message;
-            if (message.Contains("server_error", StringComparison.OrdinalIgnoreCase)
-                || message.Contains("temporarily unavailable", StringComparison.OrdinalIgnoreCase)
-                || message.Contains("connection reset", StringComparison.OrdinalIgnoreCase)
-                || message.Contains("routing failed", StringComparison.OrdinalIgnoreCase))
-            {
-                return true;
-            }
-
-            if (Regex.IsMatch(
-                    message,
-                    @"\b(?:HTTP|status|chat\s+call|provider|request|gateway|service)\b.{0,120}\b(?:408|425|429|500|502|503|504)\b|\b(?:408|425|429|500|502|503|504)\b.{0,120}\b(?:server|gateway|service|timeout|request)\b",
-                    RegexOptions.IgnoreCase | RegexOptions.CultureInvariant | RegexOptions.Singleline))
-            {
-                return true;
-            }
-
-            if (current.InnerException == null)
-                break;
-        }
-
-        return false;
-    }
+        => LlmFailureClassifier.Classify(exception)?.Retryable == true;
 
     private static void CollectDiagnosticIdentities(JsonNode? node, List<string> diagnostics)
     {

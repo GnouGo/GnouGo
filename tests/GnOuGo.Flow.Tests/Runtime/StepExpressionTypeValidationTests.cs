@@ -2,12 +2,294 @@ using System.Reflection;
 using GnOuGo.Flow.Core.Models;
 using GnOuGo.Flow.Core.Parsing;
 using GnOuGo.Flow.Core.Runtime;
+using GnOuGo.Flow.Core.Runtime.Executors;
 using Xunit;
 
 namespace GnOuGo.Flow.Tests.Runtime;
 
 public sealed class StepExpressionTypeValidationTests
 {
+    [Fact]
+    public void LeafPreparation_RejectsEvidenceBackedOutputTypeMismatch()
+    {
+        var document = WorkflowParser.Parse("""
+        version: 1
+        workflows:
+          main:
+            steps:
+              - id: inspect
+                type: mcp.call
+                input:
+                  server: neutral-server
+                  kind: tool
+                  method: inspect
+                  request: {}
+            outputs:
+              items:
+                expr: ${data.steps.inspect.response}
+                type: array
+                items: string
+        """);
+        var contracts = new[]
+        {
+            new McpToolOutputContract(
+                "neutral-server",
+                "inspect",
+                InputSchema: null,
+                OutputSchema: System.Text.Json.Nodes.JsonNode.Parse("""{"type":"object","properties":{"summary":{"type":"string"}}}"""),
+                ExampleResponse: null)
+        };
+
+        var exception = Assert.Throws<WorkflowSemanticValidationException>(() =>
+            WorkflowPlanExecutor.ValidateKnownLeafOutputAssignments(
+                document,
+                contracts,
+                new WorkflowEngine().Registry.GetContracts()));
+
+        var error = Assert.Single(exception.Errors);
+        Assert.Equal(ErrorCodes.ExprTypeMismatch, error.Code);
+        Assert.Equal("outputs.items", error.Field);
+    }
+
+    [Fact]
+    public void LeafPreparation_DoesNotPromoteOpaqueFieldClaimsIntoTypeEvidence()
+    {
+        var document = WorkflowParser.Parse("""
+        version: 1
+        workflows:
+          main:
+            steps:
+              - id: inspect
+                type: mcp.call
+                input:
+                  server: randomized-neutral-server
+                  kind: tool
+                  method: randomized-neutral-method
+                  request: {}
+            outputs:
+              summary:
+                expr: ${data.steps.inspect.response.unproven_field}
+                type: string
+        """);
+        var contracts = new[]
+        {
+            new McpToolOutputContract(
+                "randomized-neutral-server",
+                "randomized-neutral-method",
+                InputSchema: null,
+                OutputSchema: null,
+                ExampleResponse: null)
+        };
+
+        WorkflowPlanExecutor.ValidateKnownLeafOutputAssignments(
+            document,
+            contracts,
+            new WorkflowEngine().Registry.GetContracts());
+    }
+
+    [Fact]
+    public void FinalComposition_RoutesLeafOutputMismatchBackToOwningLeafContract()
+    {
+        var document = WorkflowParser.Parse("""
+        version: 1
+        workflows:
+          randomized_leaf_workflow:
+            steps:
+              - id: produce
+                type: set
+                input:
+                  evidence:
+                    guaranteed: true
+            outputs:
+              evidence:
+                expr: ${data.steps.produce.evidence}
+                type: object
+                properties:
+                  guaranteed: { type: boolean }
+                required_properties: [guaranteed]
+        """);
+        var diagnostic = new System.Text.Json.Nodes.JsonObject
+        {
+            ["code"] = ErrorCodes.ExprTypeMismatch,
+            ["workflow"] = "randomized_leaf_workflow",
+            ["field"] = "outputs.evidence",
+            ["invalid_path"] = "${data.steps.produce}"
+        };
+
+        var classification = WorkflowPlanExecutor.ClassifyLeafInternalOutputMismatch(
+            document,
+            "randomized_leaf_workflow",
+            diagnostic);
+
+        Assert.True(classification.HasValue);
+        Assert.Equal("evidence", classification.Value.OutputName);
+        Assert.Contains("object", classification.Value.ExpectedType, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void FinalComposition_DoesNotRouteNonOutputOrNonTypeDiagnosticsAsLeafContractRepairs()
+    {
+        var document = WorkflowParser.Parse("""
+        version: 1
+        workflows:
+          neutral_leaf:
+            steps:
+              - id: produce
+                type: set
+                input: { value: ok }
+            outputs:
+              value:
+                expr: ${data.steps.produce.value}
+                type: string
+        """);
+        var diagnostic = new System.Text.Json.Nodes.JsonObject
+        {
+            ["code"] = "STEP_OUTPUT_PROPERTY_UNKNOWN",
+            ["workflow"] = "neutral_leaf",
+            ["field"] = "input.value"
+        };
+
+        Assert.Null(WorkflowPlanExecutor.ClassifyLeafInternalOutputMismatch(
+            document,
+            "neutral_leaf",
+            diagnostic));
+    }
+
+    [Theory]
+    [InlineData("neutral_leaf", "main", "neutral_leaf")]
+    [InlineData("neutral_leaf", "main", "main")]
+    public void FinalComposition_ResolvesLeafOwnerBeforeAndAfterCompositionRename(
+        string leafName,
+        string generatedWorkflowName,
+        string diagnosticWorkflowName)
+    {
+        Assert.True(WorkflowPlanExecutor.MatchesGeneratedLeafWorkflow(
+            leafName,
+            generatedWorkflowName,
+            diagnosticWorkflowName));
+    }
+
+    [Fact]
+    public void LeafPreparation_ProjectsUniquelyMatchedDocumentedResponseProperties()
+    {
+        var yaml = """
+        version: 1
+        workflows:
+          main:
+            steps:
+              - id: inspect
+                type: mcp.call
+                input:
+                  server: neutral-projection-server
+                  kind: tool
+                  method: inspect
+                  request: {}
+            outputs:
+              review_findings:
+                expr: ${data.steps.inspect.response}
+                type: array
+                items: string
+              review_summary:
+                expr: ${data.steps.inspect.response}
+                type: string
+              comparison:
+                expr: ${data.steps.inspect.response}
+                type: object
+                properties:
+                  base_sha: { type: string }
+                  head_sha: { type: string }
+                required_properties: [base_sha, head_sha]
+        """;
+        var contracts = new[]
+        {
+            new McpToolOutputContract(
+                "neutral-projection-server",
+                "inspect",
+                InputSchema: null,
+                OutputSchema: System.Text.Json.Nodes.JsonNode.Parse("""
+                {
+                  "type": "object",
+                  "properties": {
+                    "baseSha": { "type": "string" },
+                    "headSha": { "type": "string" },
+                    "findings": { "type": "array", "items": { "type": "string" } },
+                    "summary": { "type": "string" }
+                  },
+                  "required": ["baseSha", "headSha", "findings", "summary"]
+                }
+                """),
+                ExampleResponse: null)
+        };
+        var registry = new WorkflowEngine().Registry;
+
+        var normalized = WorkflowPlanExecutor.NormalizeGeneratedEvidenceBackedLeafOutputProjections(
+            WorkflowParser.Parse(yaml),
+            yaml,
+            contracts,
+            registry);
+
+        Assert.Equal(3, normalized.ReplacementCount);
+        Assert.Contains("${data.steps.inspect.response.findings}", normalized.Yaml);
+        Assert.Contains("${data.steps.inspect.response.summary}", normalized.Yaml);
+        Assert.Contains("project_output_comparison", normalized.Yaml);
+        Assert.Contains("${data.steps.inspect.response.baseSha}", normalized.Yaml);
+        Assert.Contains("${data.steps.inspect.response.headSha}", normalized.Yaml);
+        WorkflowPlanExecutor.ValidateKnownLeafOutputAssignments(
+            normalized.Document,
+            contracts,
+            registry.GetContracts());
+    }
+
+    [Fact]
+    public void LeafPreparation_DoesNotGuessUndocumentedOrAmbiguousResponseProjection()
+    {
+        var yaml = """
+        version: 1
+        workflows:
+          main:
+            steps:
+              - id: inspect
+                type: mcp.call
+                input:
+                  server: neutral-ambiguous-server
+                  kind: tool
+                  method: inspect
+                  request: {}
+            outputs:
+              items:
+                expr: ${data.steps.inspect.response}
+                type: array
+                items: string
+        """;
+        var contracts = new[]
+        {
+            new McpToolOutputContract(
+                "neutral-ambiguous-server",
+                "inspect",
+                InputSchema: null,
+                OutputSchema: System.Text.Json.Nodes.JsonNode.Parse("""
+                {
+                  "type": "object",
+                  "properties": {
+                    "primaryItems": { "type": "array", "items": { "type": "string" } },
+                    "secondaryItems": { "type": "array", "items": { "type": "string" } }
+                  },
+                  "required": ["primaryItems", "secondaryItems"]
+                }
+                """),
+                ExampleResponse: null)
+        };
+
+        var normalized = WorkflowPlanExecutor.NormalizeGeneratedEvidenceBackedLeafOutputProjections(
+            WorkflowParser.Parse(yaml),
+            yaml,
+            contracts,
+            new WorkflowEngine().Registry);
+
+        Assert.Equal(0, normalized.ReplacementCount);
+        Assert.Equal(yaml, normalized.Yaml);
+    }
+
     [Fact]
     public void SemanticValidation_RejectsWorkflowStringAssignedToIntegerField()
     {

@@ -1506,6 +1506,28 @@ Pipeline mode runs five traced phases:
 4. `generate_subworkflows` runs the normal `workflow.plan` generator for each leaf workflow in parallel. Each leaf prompt contains only that leaf's goal, input/output contract, and content; leaf generation forbids `workflow.call` and `workflow.plan`, preserves the configured MCP prefilter behavior, forces validation, retries failed leaf generation up to the parent repair attempt budget, and rejects bare `type: object` schemas unless they define non-empty `properties`.
 5. `assemble_main_workflow` sends a compact leaf manifest, the generated leaf contracts, and a minimal main-graph DSL context to the LLM. The LLM returns only a `document` plus orchestration `graph`; the runtime renders the real `main` workflow deterministically and grafts the validated leaf workflows before final validation.
 
+Structured extraction generates one complete initial candidate. Later deterministic or
+extraction-quality repairs are bounded patches against the best structurally valid candidate:
+`add_leaf`, `replace_leaf`,
+`remove_leaf`, `merge_leaves`, or `replace_main_orchestration`. Every patch carries the
+exact SHA-256 candidate fingerprint. Replacements retain immutable capability ownership;
+merges atomically union it; required ownership prevents removal; and new leaves cannot
+invent external capabilities. Deterministic validation is rerun after every patch. Valid
+candidates are ranked by evidence-qualified critical findings, warnings, semantic score,
+and patch size, with the earlier candidate retained on ties. Two repeated diagnostic
+fingerprints or non-improving patches stop with `WORKFLOW_PLAN_REPAIR_STALLED` without
+emitting a rejected candidate. Legacy non-structured extraction retains complete bounded
+regeneration for compatibility.
+
+The extraction quality reviewer must attach request substrings or RFC 6901 pointers into
+the canonical extraction or locked capability contract to critical diagnostics. Only a
+verifiable critical finding can block. Unsupported claims are downgraded to advisory,
+and a score or retry verdict alone cannot reject a deterministically valid candidate. A
+malformed structured review receives one retry against the unchanged candidate and then
+fails closed as a contract defect. Human clarification is considered only when every
+remaining evidence-qualified blocker is `intent_ambiguity`; plan, capability, contract,
+provider, and malformed-output defects are never delegated to the user.
+
 Generated public outputs must remain concrete. Before final validation, Flow strengthens outputs from locked producer contracts where possible and removes only unverifiable or nullable nested properties (including their `required_properties` entries) when the Flow contract cannot represent their exact value set. It never narrows nullable values to non-null scalars and never invents array item or root-output types; a weak root contract still fails with `WEAK_OUTPUT_SCHEMA` diagnostics.
 
 The final YAML has exactly one hierarchy level: `main` may call local leaf workflows with `workflow.call`, while leaf workflows must never contain `workflow.call` or `workflow.plan`. The returned `pipeline` object includes `normalized_markdown`, `annotated_markdown`, and parsed `specs`; each spec includes `description`, `input_schemas`, `output_schemas`, and `planned_tools`.
@@ -1952,6 +1974,13 @@ on_error:
 | `TEMPLATE_POLICY` | No | Generated workflow violates policy constraints |
 | `HUMAN_INPUT_TIMEOUT` | No | User didn't respond within `timeout_ms` |
 | `NO_HITL_PROVIDER` | No | No human input provider configured |
+
+Injected `ILLMClient` implementations can throw the provider-neutral, redacted
+`LLMClientException`. Its failure kind, retryability, optional status code, and safe
+provider code are mapped to the stable errors above. Legacy clients remain supported
+through HTTP-status classification only; message text never determines retryability.
+Workflow error metadata includes stage, classification, retryability, status when known,
+attempt count, and a recommended action.
 
 ### Full example — resilient LLM call with fallback
 

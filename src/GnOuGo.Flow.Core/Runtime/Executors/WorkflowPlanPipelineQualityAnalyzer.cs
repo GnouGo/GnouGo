@@ -204,7 +204,7 @@ internal static partial class WorkflowPlanPipelineQualityAnalyzer
             return true;
         }
 
-        if (!string.Equals(producer.Type, "set", StringComparison.Ordinal))
+        if (producer.Type is not ("set" or "assert.non_null"))
         {
             sourceDescription = $"non-transparent step `{stepId}` of type `{producer.Type}`";
             return false;
@@ -273,7 +273,7 @@ internal static partial class WorkflowPlanPipelineQualityAnalyzer
             && stepsById.TryGetValue(stepId, out var producer))
         {
             return new ArtifactProvenance(
-                string.Equals(producer.Type, "set", StringComparison.Ordinal)
+                producer.Type is "set" or "assert.non_null"
                     ? "main_set"
                     : "main_support_step",
                 stepId,
@@ -391,7 +391,7 @@ internal static partial class WorkflowPlanPipelineQualityAnalyzer
             return proven;
         }
 
-        if (!string.Equals(producer.Type, "set", StringComparison.Ordinal))
+        if (producer.Type is not ("set" or "assert.non_null"))
             return false;
 
         var setPath = workflowName + ":" + stepId + "." + string.Join('.', path);

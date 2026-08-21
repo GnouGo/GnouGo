@@ -158,8 +158,8 @@ public sealed class McpCallExecutor : IStepExecutor
           input:
             server: my-server
         ```
-        Output (single): `{ status, response }` (tool) or `{ status, text, messages }` (prompt)
-        Output (batch/auto): `{ status, results: [{ method, status, response|text }] }`
+        Output (single): `{ status, response, json? }` (tool) or `{ status, text, messages, json? }` (prompt)
+        Output (batch/auto): `{ status, results: [{ method, status, response|text }], json? }`
         Output (LLM-assisted): `{ status, selection_mode: "llm", text, tool_calls: [...], results: [...], json?: {...} }`
         """;
 
@@ -336,11 +336,20 @@ public sealed class McpCallExecutor : IStepExecutor
                 if (batchMethods.Count == 0)
                 {
                     ctx.SetTelemetryAttribute("gen_ai.response.finish_reason", "stop");
-                    return new JsonObject
+                    var emptyResult = new JsonObject
                     {
                         ["status"] = "ok",
                         ["results"] = new JsonArray()
                     };
+                    return await ApplyDirectStructuredOutputAsync(
+                        input,
+                        emptyResult,
+                        serverName,
+                        kind,
+                        Array.Empty<string>(),
+                        requestArgs,
+                        ctx,
+                        linkedCts.Token);
                 }
             }
 
@@ -373,7 +382,15 @@ public sealed class McpCallExecutor : IStepExecutor
                 };
                 if (errorPolicy.RaiseOnError && hasError)
                     ThrowMcpBatchError(kind, serverName, batchMethods!, batchResult);
-                return batchResult;
+                return await ApplyDirectStructuredOutputAsync(
+                    input,
+                    batchResult,
+                    serverName,
+                    kind,
+                    batchMethods!,
+                    requestArgs,
+                    ctx,
+                    linkedCts.Token);
             }
             else
             {
@@ -384,7 +401,15 @@ public sealed class McpCallExecutor : IStepExecutor
                 ctx.SetTelemetryAttribute("gen_ai.response.finish_reason", statusStr == "error" ? "error" : "stop");
                 if (errorPolicy.RaiseOnError && statusStr == "error")
                     ThrowMcpSingleError(kind, serverName, singleMethod!, (JsonObject)singleResult!);
-                return singleResult;
+                return await ApplyDirectStructuredOutputAsync(
+                    input,
+                    (JsonObject)singleResult!,
+                    serverName,
+                    kind,
+                    new[] { singleMethod! },
+                    requestArgs,
+                    ctx,
+                    linkedCts.Token);
             }
         }
         catch (WorkflowRuntimeException)
@@ -702,6 +727,93 @@ public sealed class McpCallExecutor : IStepExecutor
             });
         }
 
+        return response;
+    }
+
+    private static async Task<JsonObject> ApplyDirectStructuredOutputAsync(
+        JsonObject input,
+        JsonObject response,
+        string serverName,
+        string kind,
+        IReadOnlyList<string> methods,
+        JsonNode? requestArgs,
+        StepExecutionContext ctx,
+        CancellationToken ct)
+    {
+        var (structuredOutputSchema, structuredOutputStrict) = GetStructuredOutputConfig(input);
+        if (structuredOutputSchema == null)
+            return response;
+
+        var llmClient = ctx.Engine.LLMClient
+            ?? throw new WorkflowRuntimeException(
+                ErrorCodes.LlmNetwork,
+                "mcp.call structured_output requires an LLM client");
+        var requestedProvider = input["provider"]?.GetValue<string>();
+        var requestedModel = input["model"]?.GetValue<string>();
+        var (provider, model) = ctx.Engine.ResolveLlmTarget(requestedProvider, requestedModel);
+        if (string.IsNullOrWhiteSpace(model))
+        {
+            throw new WorkflowRuntimeException(
+                ErrorCodes.InputValidation,
+                "mcp.call structured_output requires 'model' unless WorkflowEngine.LlmDefaults.Model is configured");
+        }
+
+        double? temperature = null;
+        if (input.TryGetPropertyValue("temperature", out var temperatureNode) && temperatureNode != null)
+            temperature = ExpressionEvaluator.GetNumber(temperatureNode);
+
+        var toolCalls = new JsonArray(methods.Select(method => (JsonNode)new JsonObject
+        {
+            ["server"] = serverName,
+            ["kind"] = kind,
+            ["method"] = method,
+            ["arguments"] = requestArgs?.DeepClone()
+        }).ToArray());
+        var results = response["results"] is JsonArray batchResults
+            ? (JsonArray)batchResults.DeepClone()
+            : new JsonArray(response.DeepClone());
+        var structuredResponse = await RunStructuredPostProcessAsync(
+            llmClient,
+            provider,
+            model,
+            temperature,
+            "Normalize the direct MCP execution result into the requested structured output contract.",
+            toolCalls,
+            results,
+            structuredOutputSchema,
+            structuredOutputStrict,
+            ctx,
+            ct);
+
+        var structuredJson = structuredResponse.Json;
+        if (structuredJson == null && !string.IsNullOrWhiteSpace(structuredResponse.Text))
+        {
+            var textToParse = LlmCallExecutor.StripMarkdownCodeFences(structuredResponse.Text);
+            try { structuredJson = JsonNode.Parse(textToParse); }
+            catch (JsonException ex)
+            {
+                ctx.Engine.Logger.LogDebug(ex, "mcp.call direct structured post-process response was not valid JSON for model '{Model}'.", model);
+            }
+        }
+
+        if (structuredJson == null)
+        {
+            throw new WorkflowRuntimeException(
+                ErrorCodes.LlmSchema,
+                "mcp.call structured_output expected valid JSON but the LLM returned an incompatible response",
+                retryable: true);
+        }
+
+        var outputErrors = JsonSchemaContractValidator.ValidateInstance(structuredJson, structuredOutputSchema);
+        if (outputErrors.Count > 0)
+        {
+            throw new WorkflowRuntimeException(
+                ErrorCodes.LlmSchema,
+                "mcp.call returned JSON that does not conform to structured_output: " + string.Join("; ", outputErrors),
+                retryable: true);
+        }
+
+        response["json"] = structuredJson.DeepClone();
         return response;
     }
 

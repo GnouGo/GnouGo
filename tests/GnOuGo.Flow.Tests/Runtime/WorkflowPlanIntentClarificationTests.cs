@@ -231,6 +231,39 @@ public sealed class WorkflowPlanIntentClarificationTests
     }
 
     [Fact]
+    public async Task AlwaysMode_DuplicateOptionValueRepairRequiresDistinctTrimmedLabels()
+    {
+        var human = new RecordingHumanInputProvider();
+        var clarificationPrompts = new List<string>();
+        var clarificationCalls = 0;
+        var llm = CreateLlm(request =>
+        {
+            if (!IsClarificationRequest(request))
+                return new LLMResponse { Text = ValidGeneratedWorkflow };
+
+            clarificationPrompts.Add(request.Prompt);
+            clarificationCalls++;
+            if (clarificationCalls == 2)
+                return QuestionsAssessment("Choose the intended scope.", 1, "scope");
+
+            var response = QuestionsAssessment("Choose the intended scope.", 1, "scope");
+            response.Json!["questions"]![0]!["options"]![1]!["value"] = " Recommended 1 ";
+            return response;
+        });
+
+        var result = await ExecuteAsync("always", llm, human, cancellationToken: TestContext.Current.CancellationToken);
+
+        Assert.True(result.Success, result.Error?.Message);
+        Assert.Equal(2, clarificationCalls);
+        Assert.Single(human.Requests);
+        Assert.Contains(
+            "duplicates an earlier value after trimming",
+            clarificationPrompts[1],
+            StringComparison.Ordinal);
+        Assert.Contains("Return one complete corrected object", clarificationPrompts[1], StringComparison.Ordinal);
+    }
+
+    [Fact]
     public async Task AlwaysMode_InvalidAnalysisAfterRepairFailsClosed()
     {
         var human = new RecordingHumanInputProvider();

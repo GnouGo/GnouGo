@@ -110,7 +110,17 @@ public sealed partial class WorkflowPlanExecutor
             .Where(operation => operationSelections[operation.Id].Count == 0)
             .Select(static operation => operation.Id)
             .ToHashSet(StringComparer.Ordinal);
-        var repairAttempted = missingRequiredOperationIds.Count > 0;
+        var missingRequiredExactDenialIds = constraints
+            .Where(static constraint => constraint.Required)
+            .Where(static constraint => string.Equals(
+                constraint.EnforcementKind,
+                "exact_denial",
+                StringComparison.Ordinal))
+            .Where(constraint => constraintSelections[constraint.Id].Count == 0)
+            .Select(static constraint => constraint.Id)
+            .ToHashSet(StringComparer.Ordinal);
+        var repairAttempted = missingRequiredOperationIds.Count > 0
+                              || missingRequiredExactDenialIds.Count > 0;
         inferenceSpan.SetAttribute("gnougo-flow.plan.capability_candidates.repair_attempted", repairAttempted);
 
         if (repairAttempted)
@@ -132,7 +142,7 @@ public sealed partial class WorkflowPlanExecutor
                 reasoning,
                 repair: true,
                 missingRequiredOperationIds,
-                targetConstraintIds: new HashSet<string>(StringComparer.Ordinal),
+                missingRequiredExactDenialIds,
                 knownCatalogIds,
                 operationSelections,
                 constraintSelections,
@@ -174,6 +184,8 @@ public sealed partial class WorkflowPlanExecutor
         inferenceSpan.SetAttribute("gnougo-flow.plan.capability_candidates.selected_prompt_count", selectedDiscovery.Sum(static server => server.Prompts.Count));
         inferenceSpan.SetAttribute("gnougo-flow.plan.capability_candidates.unresolved_required_operation_count",
             missingRequiredOperationIds.Count(id => operationSelections[id].Count == 0));
+        inferenceSpan.SetAttribute("gnougo-flow.plan.capability_candidates.unresolved_required_exact_denial_count",
+            missingRequiredExactDenialIds.Count(id => constraintSelections[id].Count == 0));
 
         ctx.AddTelemetryEvent("gnougo-flow.plan.capability_candidates.result", new[]
         {

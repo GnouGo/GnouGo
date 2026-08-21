@@ -15,6 +15,7 @@ using GnOuGo.Agent.Server.Telemetry;
 using GnOuGo.AI.Core;
 using GnOuGo.Assets.Animation;
 using GnOuGo.Flow.Core.Compilation;
+using GnOuGo.Flow.Core.Expressions;
 using GnOuGo.Flow.Core.Models;
 using GnOuGo.Flow.Core.Parsing;
 using GnOuGo.Flow.Core.Runtime;
@@ -31,7 +32,9 @@ public sealed record SmartFlowEvent(
     string? CorrelationId = null,
     string? TraceId = null,
     string? ConversationId = null,
-    AnimationStreamPayload? Animation = null)
+    AnimationStreamPayload? Animation = null,
+    string? ErrorCode = null,
+    bool? Retryable = null)
 {
     public static SmartFlowEvent TraceStarted(string correlationId, string traceId)
         => new("trace.started", null, correlationId, traceId);
@@ -479,7 +482,12 @@ public sealed class SmartFlowService
                 if (repaired)
                     yield break;
 
-                yield return new SmartFlowEvent("error", error.Message);
+                var runtimeError = error as WorkflowRuntimeException;
+                yield return new SmartFlowEvent(
+                    "error",
+                    error.Message,
+                    ErrorCode: runtimeError?.Code,
+                    Retryable: runtimeError?.Retryable);
                 yield break;
             }
 
@@ -560,7 +568,11 @@ public sealed class SmartFlowService
                 if (repaired)
                     yield break;
 
-                yield return new SmartFlowEvent("error", errMsg);
+                yield return new SmartFlowEvent(
+                    "error",
+                    errMsg,
+                    ErrorCode: result.Error?.Code,
+                    Retryable: result.Error?.Retryable);
             }
         }
         finally

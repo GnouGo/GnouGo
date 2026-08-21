@@ -9,14 +9,23 @@ namespace GnOuGo.Flow.Tests.Runtime;
 public sealed class WorkflowPlanDiagnosticsTests
 {
     [Theory]
-    [InlineData("OpenAI chat call failed: 504 - { \"error\": { \"type\": \"server_error\" } }")]
-    [InlineData("Provider request failed with HTTP 429 Too Many Requests.")]
-    [InlineData("The upstream service is temporarily unavailable.")]
-    [InlineData("Routing failed while selecting an endpoint.")]
-    public void IsTransientProviderFailure_RecognizesUpstreamFailures(string message)
+    [InlineData(408)]
+    [InlineData(425)]
+    [InlineData(429)]
+    [InlineData(500)]
+    [InlineData(503)]
+    public void IsTransientProviderFailure_RecognizesTypedOrStatusBasedUpstreamFailures(int status)
     {
-        Assert.True(WorkflowPlanDiagnostics.IsTransientProviderFailure(new InvalidOperationException(message)));
+        Assert.True(WorkflowPlanDiagnostics.IsTransientProviderFailure(new HttpRequestException(
+            "redacted provider failure",
+            inner: null,
+            statusCode: (System.Net.HttpStatusCode)status)));
     }
+
+    [Fact]
+    public void IsTransientProviderFailure_DoesNotInferDispositionFromMessageText()
+        => Assert.False(WorkflowPlanDiagnostics.IsTransientProviderFailure(
+            new InvalidOperationException("server_error 503 routing failed")));
 
     [Fact]
     public void IsTransientProviderFailure_DoesNotTreatStableWorkflowDiagnosticsAsTransient()

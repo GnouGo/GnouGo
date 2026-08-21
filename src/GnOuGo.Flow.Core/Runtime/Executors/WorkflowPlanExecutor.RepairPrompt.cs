@@ -5,6 +5,7 @@ using Microsoft.Extensions.Logging;
 using GnOuGo.Flow.Core.Compilation;
 using GnOuGo.Flow.Core.Expressions;
 using GnOuGo.Flow.Core.Models;
+using GnOuGo.Flow.Core.Parsing;
 using GnOuGo.Flow.Core.Runtime;
 
 namespace GnOuGo.Flow.Core.Runtime.Executors;
@@ -378,6 +379,14 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
             sb.AppendLine(yamlParseDoc);
         }
 
+        var scriptCompilationDoc = BuildScriptCompilationRepairContext(exception, invalidYaml);
+        if (!string.IsNullOrWhiteSpace(scriptCompilationDoc))
+        {
+            sb.AppendLine();
+            sb.AppendLine("WFScript compilation repair guidance:");
+            sb.AppendLine(scriptCompilationDoc);
+        }
+
         if (selectedTypes.Count > 0)
         {
             var snippets = registry.GetDslSnippets(selectedTypes).ToList();
@@ -398,6 +407,88 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
         }
 
         return sb.ToString().TrimEnd();
+    }
+
+    private static string? BuildScriptCompilationRepairContext(Exception exception, string? invalidYaml)
+    {
+        var messages = new List<string>();
+        for (var current = exception; current != null; current = current.InnerException)
+        {
+            if (!string.IsNullOrWhiteSpace(current.Message))
+                messages.Add(current.Message);
+        }
+
+        var combined = string.Join("\n", messages);
+        if (!combined.Contains("Script error:", StringComparison.OrdinalIgnoreCase))
+            return null;
+
+        var unexpectedIdentifier = ExtractUnexpectedScriptIdentifier(combined);
+        var sb = new StringBuilder();
+        sb.AppendLine("The failure is JavaScript syntax inside a YAML `functions: |` block, not a YAML schema or capability-selection failure.");
+        sb.AppendLine("Repair only the malformed JavaScript statement and its directly enclosing expression/object literal. Preserve workflow contracts, step topology, output names, and every locked operation or capability identifier.");
+        sb.AppendLine("In a JavaScript object literal, property separators are comma tokens outside string literals. A comma placed inside a quoted value does not separate the next property.");
+        sb.AppendLine("Return actual JavaScript values. Do not quote JavaScript source such as a ternary, boolean expression, function call, array expression, or object expression when the property must contain that expression's evaluated value.");
+        sb.AppendLine("Balance every quote, parenthesis, bracket, brace, and template literal, then parse the complete `functions` block before returning the workflow.");
+        if (!string.IsNullOrWhiteSpace(unexpectedIdentifier))
+        {
+            sb.AppendLine($"The parser stopped at identifier `{unexpectedIdentifier}`. Treat it as location evidence; do not rename or remove it merely to hide the syntax error immediately before it.");
+            AppendScriptFunctionExcerpts(sb, invalidYaml, unexpectedIdentifier);
+        }
+
+        return sb.ToString().TrimEnd();
+    }
+
+    private static string? ExtractUnexpectedScriptIdentifier(string message)
+    {
+        const string marker = "Unexpected identifier '";
+        var start = message.IndexOf(marker, StringComparison.OrdinalIgnoreCase);
+        if (start < 0)
+            return null;
+        start += marker.Length;
+        var end = message.IndexOf('\'', start);
+        if (end <= start)
+            return null;
+
+        var identifier = message[start..end].Trim();
+        return identifier.Length is > 0 and <= 128
+            && identifier.All(static character => char.IsLetterOrDigit(character) || character is '_' or '-' or '.')
+                ? identifier
+                : null;
+    }
+
+    private static void AppendScriptFunctionExcerpts(StringBuilder sb, string? invalidYaml, string identifier)
+    {
+        if (string.IsNullOrWhiteSpace(invalidYaml))
+            return;
+
+        try
+        {
+            var document = WorkflowParser.Parse(invalidYaml);
+            var scripts = new List<(string Scope, string Script)>();
+            if (!string.IsNullOrWhiteSpace(document.Functions))
+                scripts.Add(("document.functions", document.Functions));
+            scripts.AddRange(document.Workflows
+                .Where(static pair => !string.IsNullOrWhiteSpace(pair.Value.Functions))
+                .Select(static pair => ($"workflows.{pair.Key}.functions", pair.Value.Functions!)));
+
+            foreach (var (scope, script) in scripts)
+            {
+                var lines = script.Replace("\r\n", "\n", StringComparison.Ordinal).Replace('\r', '\n').Split('\n');
+                var hit = Array.FindIndex(lines, line => line.Contains(identifier, StringComparison.Ordinal));
+                if (hit < 0)
+                    continue;
+
+                sb.AppendLine($"Relevant source excerpt from `{scope}` (line numbers are relative to this functions block):");
+                sb.AppendLine("```javascript");
+                for (var index = Math.Max(0, hit - 4); index <= Math.Min(lines.Length - 1, hit + 4); index++)
+                    sb.AppendLine($"{index + 1,4}: {lines[index]}");
+                sb.AppendLine("```");
+            }
+        }
+        catch
+        {
+            // The structured validation error and complete invalid YAML remain available to the repair model.
+        }
     }
 
     private static string? BuildYamlParseRepairContext(Exception exception)

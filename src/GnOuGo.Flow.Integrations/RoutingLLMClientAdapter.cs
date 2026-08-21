@@ -43,7 +43,15 @@ public sealed class RoutingLLMClientAdapter : ILLMClient
             }).ToList();
         }
 
-        var aiResponse = await _inner.CallAsync(aiRequest, ct);
+        LLMClientResponse aiResponse;
+        try
+        {
+            aiResponse = await _inner.CallAsync(aiRequest, ct);
+        }
+        catch (LLMProviderException ex)
+        {
+            throw LLMProviderFailureMapper.Map(ex);
+        }
 
         var response = new LLMResponse
         {

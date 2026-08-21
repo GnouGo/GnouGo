@@ -83,6 +83,15 @@ count, attempt duration, and total elapsed request time before the provider rais
 the corresponding exception. Non-server HTTP responses such as `400`, `401`,
 `404`, and `429` are returned immediately to the provider's normal error handling.
 
+`RoutingLLMClient` exposes provider failures through the redacted
+`LLMProviderException` contract. `LLMProviderFailureKind` distinguishes transport,
+timeout, ordinary rate limiting, service unavailability, authentication,
+authorization, quota or billing exhaustion, invalid requests, unavailable models,
+and unknown terminal failures. Transport, timeout, rate-limit, and service failures
+are retryable; the remaining categories fail immediately. Exception metadata may
+contain an HTTP status and a safe provider error code, but never a response body,
+credential, request prompt, or raw user content.
+
 ### OpenAI background Responses
 
 `LLMClientRequest.UseBackgroundMode=true` routes OpenAI calls through the Responses API with
