@@ -263,4 +263,31 @@ public sealed class WorkflowFailureFormatterTests
         Assert.Contains("Phase: capability_matching_parse", presentation.UserMessage, StringComparison.Ordinal);
         Assert.Contains("operation_matches was missing", presentation.UserMessage, StringComparison.Ordinal);
     }
+
+    [Fact]
+    public void Format_ExplainsCannotPlanSafelyWithoutExposingAnswers()
+    {
+        var error = new WorkflowError
+        {
+            Code = ErrorCodes.WorkflowPlanCannotPlanSafely,
+            Message = "The request remains ambiguous.",
+            Details = new JsonObject
+            {
+                ["planning_outcome"] = "cannot_plan_safely",
+                ["clarification_stage"] = "capability_matching",
+                ["clarification_rounds"] = 2,
+                ["clarification_questions"] = 8,
+                ["reason"] = "Two mutually exclusive design-time outcomes remain required.",
+                ["recommended_action"] = "refine_request_or_abandon"
+            }
+        };
+
+        var presentation = WorkflowFailureFormatter.Format(error);
+
+        Assert.Contains("Intent clarification outcome", presentation.UserMessage, StringComparison.Ordinal);
+        Assert.Contains("Outcome: cannot_plan_safely", presentation.UserMessage, StringComparison.Ordinal);
+        Assert.Contains("Stage: capability_matching", presentation.UserMessage, StringComparison.Ordinal);
+        Assert.Contains("Two mutually exclusive", presentation.UserMessage, StringComparison.Ordinal);
+        Assert.DoesNotContain("clarification_answers", presentation.UserMessage, StringComparison.Ordinal);
+    }
 }

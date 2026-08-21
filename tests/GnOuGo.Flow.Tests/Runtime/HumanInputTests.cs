@@ -49,6 +49,86 @@ public class HumanInputTests
     // ------------------------------------------------------------------
 
     [Fact]
+    public async Task HumanInput_RichOptionsPreserveLegacyValuesAndPresentationMetadata()
+    {
+        var wf = CompileMain("""
+        version: 1
+        workflows:
+          main:
+            steps:
+              - id: clarify
+                type: human.input
+                input:
+                  mode: form
+                  prompt: Clarify the intent.
+                  allow_abandon: true
+                  fields:
+                    - name: scope
+                      type: radio
+                      required: true
+                      options: [focused, broad]
+                      option_definitions:
+                        - value: focused
+                          description: Limit the behavior to the requested target.
+                          recommended: true
+                        - value: broad
+                          description: Apply the behavior to every target.
+                          recommended: false
+                      allow_custom_answer: true
+                      default: focused
+        """);
+        var provider = new FakeHumanInputProvider(new JsonObject
+        {
+            ["scope"] = "custom scope",
+            [HumanInputContract.ActionProperty] = HumanInputContract.ActionSubmit
+        });
+
+        var result = await new WorkflowEngine { HumanInputProvider = provider }
+            .ExecuteAsync(wf, new JsonObject(), CancellationToken.None);
+
+        Assert.True(result.Success, result.Error?.Message);
+        Assert.True(provider.LastRequest!.AllowAbandon);
+        var field = Assert.Single(provider.LastRequest.Fields!);
+        Assert.Equal(["focused", "broad"], field.Options);
+        Assert.True(field.AllowCustomAnswer);
+        Assert.True(field.OptionDefinitions![0].Recommended);
+        Assert.False(field.OptionDefinitions[1].Recommended);
+        var payload = HumanInputContract.BuildRequestPayload(provider.LastRequest);
+        Assert.True(payload["allow_abandon"]!.GetValue<bool>());
+        Assert.True(payload["fields"]![0]!["allow_custom_answer"]!.GetValue<bool>());
+        Assert.Equal("Limit the behavior to the requested target.", payload["fields"]![0]!["option_definitions"]![0]!["description"]!.GetValue<string>());
+    }
+
+    [Fact]
+    public async Task HumanInput_AllowedAbandonReturnsStandardAction()
+    {
+        var wf = CompileMain("""
+        version: 1
+        workflows:
+          main:
+            steps:
+              - id: clarify
+                type: human.input
+                input:
+                  mode: text
+                  prompt: Clarify the intent.
+                  allow_abandon: true
+        """);
+        var provider = new FakeHumanInputProvider(new JsonObject
+        {
+            [HumanInputContract.ActionProperty] = HumanInputContract.ActionAbandon
+        });
+
+        var result = await new WorkflowEngine { HumanInputProvider = provider }
+            .ExecuteAsync(wf, new JsonObject(), CancellationToken.None);
+
+        Assert.True(result.Success, result.Error?.Message);
+        Assert.Equal(
+            HumanInputContract.ActionAbandon,
+            result.StepResults[0].Output![HumanInputContract.ActionProperty]!.GetValue<string>());
+    }
+
+    [Fact]
     public async Task HumanInput_BasicPrompt_ReturnsUserResponse()
     {
         var wf = CompileMain(@"

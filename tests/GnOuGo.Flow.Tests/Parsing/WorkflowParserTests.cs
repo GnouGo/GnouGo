@@ -8,6 +8,27 @@ namespace GnOuGo.Flow.Tests.Parsing;
 public class WorkflowParserTests
 {
     [Fact]
+    public void Parse_MalformedYamlReportsOneBasedLineAndColumn()
+    {
+        var exception = Assert.Throws<WorkflowParseException>(() => WorkflowParser.Parse("""
+            version: 1
+            workflows:
+              main:
+                steps:
+                  - id: first
+                    type: set
+                  id: missing_dash
+                    type: set
+            """));
+
+        Assert.True(exception.Line > 0);
+        Assert.True(exception.Column > 0);
+        Assert.Contains($"[{exception.Line}:{exception.Column}]", exception.Message, StringComparison.Ordinal);
+        Assert.Contains("Near YAML line", exception.Message, StringComparison.Ordinal);
+        Assert.Contains("missing_dash", exception.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void Parse_MinimalDocument_ReturnsDocument()
     {
         var yaml = "version: 1\nworkflows:\n  main:\n    steps:\n      - id: s1\n        type: template.render\n        input:\n          engine: mustache\n          template: hello\n          mode: text\n";

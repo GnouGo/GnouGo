@@ -52,6 +52,9 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
         new(ErrorCodes.CapabilityPreflightDiscoveryFailed, false, "A configured MCP catalog required for fail-closed capability validation could not be discovered."),
         new(ErrorCodes.CapabilityPreflightInferenceFailed, false, "Capability inference returned an invalid, uncertain, or incomplete operation inventory."),
         new(ErrorCodes.CapabilityPreflightRedundantArtifactProducer, false, "The generated workflow materializes an MCP artifact more times than capability preflight authorized."),
+        new(ErrorCodes.WorkflowPlanClarificationFailed, false, "Intent clarification could not produce a complete validated response."),
+        new(ErrorCodes.WorkflowPlanCannotPlanSafely, false, "The request remains intrinsically impossible, contradictory, unsafe, or ambiguous after the clarification budget."),
+        new(ErrorCodes.WorkflowPlanAborted, false, "The user explicitly abandoned workflow planning."),
         new(ErrorCodes.WorkflowPlanRepairStalled, false, "The same normalized validation diagnostics survived two repair attempts."),
         new(ErrorCodes.LlmTimeout, true, "A planning LLM request timed out."),
         new(ErrorCodes.LlmNetwork, true, "A transient transport, rate-limit, or provider service failure interrupted planning."),
@@ -73,6 +76,7 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
             var classified = LlmFailureClassifier.Classify(ex);
             if (classified != null)
             {
+                AddLlmFailureTelemetry(ctx, classified);
                 if (ReferenceEquals(classified, ex))
                     throw;
                 throw classified;
@@ -84,11 +88,49 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
 
     private async Task<JsonNode?> ExecuteCoreAsync(StepExecutionContext ctx, CancellationToken ct)
     {
-        var input = ctx.Engine.GetResolvedInput(ctx) as JsonObject
+        var originalInput = ctx.Engine.GetResolvedInput(ctx) as JsonObject
             ?? throw new WorkflowRuntimeException(ErrorCodes.InputValidation, "workflow.plan input must be object");
+        var clarificationSession = await PrepareIntentClarificationAsync(ctx, originalInput, ct);
+
+        while (true)
+        {
+            var input = ApplyIntentClarification(originalInput, clarificationSession);
+            try
+            {
+                return await ExecutePlanningAttemptAsync(ctx, input, clarificationSession, ct);
+            }
+            catch (WorkflowPlanClarificationRestartException)
+            {
+                ctx.AddTelemetryEvent("gnougo-flow.step.thinking", new[]
+                {
+                    new KeyValuePair<string, object?>("gnougo-flow.thinking.message", "Intent clarification received; restarting the complete planning attempt."),
+                    new KeyValuePair<string, object?>("gnougo-flow.thinking.level", "info")
+                });
+            }
+            catch (WorkflowRuntimeException ex) when (
+                clarificationSession != null
+                && TryGetExtractionIntentAmbiguity(ex, out var ambiguityContext))
+            {
+                await RequestReactiveIntentClarificationAsync(
+                    ctx,
+                    input,
+                    clarificationSession,
+                    "extraction_quality",
+                    ambiguityContext,
+                    ct);
+            }
+        }
+    }
+
+    private async Task<JsonNode?> ExecutePlanningAttemptAsync(
+        StepExecutionContext ctx,
+        JsonObject input,
+        IntentClarificationSession? clarificationSession,
+        CancellationToken ct)
+    {
 
         var mode = GetConfiguredPlanMode(input);
-        var capabilityPreflight = await RunCapabilityPreflightAsync(ctx, input, ct);
+        var capabilityPreflight = await RunCapabilityPreflightAsync(ctx, input, clarificationSession, ct);
 
         if (string.Equals(mode, "repair", StringComparison.OrdinalIgnoreCase))
         {
@@ -372,6 +414,7 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
         AppendMcpInputContractChecklist(basePrompt);
         AppendExpressionFunctionRules(basePrompt);
         basePrompt.AppendLine("- When a field expects a string containing JSON, use a YAML literal block (`|`) or single quotes; do not put unescaped JSON inside a double-quoted YAML string.");
+        basePrompt.AppendLine("- Quote a complete `${...}` expression when it is used as a YAML scalar. This is mandatory when the expression contains mapping-significant characters such as the colon in a ternary expression.");
         basePrompt.AppendLine("- Workflow `outputs` should use either the short expression form or the long form with `expr` and `type`. Do not map arbitrary objects there unless using nested expression properties intentionally.");
         basePrompt.AppendLine("- Every generated `skill.outputs.*` and `workflows.*.outputs.*` entry must be strongly typed. Never emit `type: any`, bare `type: object`, or bare `type: array`.");
         basePrompt.AppendLine("- Array outputs must declare `items`; if items are objects, `items.properties` must list the concrete fields. Object outputs must declare non-empty `properties`.");
@@ -625,7 +668,12 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
 
             try
             {
-                var yaml = StripMarkdownFences(response.Text ?? string.Empty);
+                var yaml = NormalizeGeneratedExactExpressionScalars(
+                    StripMarkdownFences(response.Text ?? string.Empty));
+                yaml = NormalizeGeneratedUnsafePlainMappingScalars(yaml);
+                yaml = NormalizeGeneratedSwitchDefaultStepLists(yaml);
+                yaml = NormalizeGeneratedFlowNullableSchemas(yaml);
+                yaml = NormalizeGeneratedSetOutputSchemas(yaml);
                 if (string.IsNullOrWhiteSpace(pipelineLeafName) && surgicalRepair is null)
                     yaml = PruneWeakNestedOutputProperties(yaml);
                 else if (!string.IsNullOrWhiteSpace(pipelineLeafName))
@@ -652,12 +700,27 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
                                 generatedDoc,
                                 yaml,
                                 validationDiscovered);
+                            (generatedDoc, yaml) = PromoteGeneratedDirectSetOutputSchemas(
+                                generatedDoc,
+                                yaml,
+                                validationDiscovered,
+                                ctx.Engine.Registry);
                             (generatedDoc, yaml) = PromoteGeneratedDirectOutputSchemas(
                                 generatedDoc,
                                 yaml,
                                 validationDiscovered,
                                 ctx.Engine.Registry);
                         }
+                        var documentedPathNormalization = NormalizeGeneratedDocumentedStepOutputPaths(
+                            generatedDoc,
+                            yaml,
+                            validationDiscovered,
+                            ctx.Engine.Registry);
+                        generatedDoc = documentedPathNormalization.Document;
+                        yaml = documentedPathNormalization.Yaml;
+                        validationSpan.SetAttribute(
+                            "gnougo-flow.plan.validation.documented_output_path_replacement_count",
+                            documentedPathNormalization.ReplacementCount);
                         validationSpan.SetAttribute("gnougo-flow.plan.workflow_count", generatedDoc.Workflows.Count);
 
                         await RunStandardPlanValidationSequenceAsync(
@@ -750,7 +813,11 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
                         ctx);
 
                 lastError = BuildStructuredPlanError(ex, attempt + 1);
-                lastInvalidYaml = StripMarkdownFences(response.Text ?? string.Empty);
+                lastInvalidYaml = NormalizeGeneratedExactExpressionScalars(
+                    StripMarkdownFences(response.Text ?? string.Empty));
+                lastInvalidYaml = NormalizeGeneratedUnsafePlainMappingScalars(lastInvalidYaml);
+                lastInvalidYaml = NormalizeGeneratedSwitchDefaultStepLists(lastInvalidYaml);
+                lastInvalidYaml = NormalizeGeneratedFlowNullableSchemas(lastInvalidYaml);
                 lastRepairContext = BuildMinimalRepairContext(
                     ctx.Engine.Registry,
                     allowedTypes,

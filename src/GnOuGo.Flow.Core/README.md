@@ -758,14 +758,21 @@ choices; the runtime normalizes the first choice to `true` and the second to
         required: true
         description: Your API key
       - name: region
-        type: select
+        type: radio
         options: [us-east, eu-west, ap-south]
+        option_definitions:
+          - { value: us-east, description: "Lowest latency for the primary workload.", recommended: true }
+          - { value: eu-west, description: "Keep processing in the European region.", recommended: false }
+          - { value: ap-south, description: "Keep processing in the Asia-Pacific region.", recommended: false }
+        allow_custom_answer: true
         default: us-east
       - name: max_retries
         type: string
         required: false
         default: "3"
 ```
+
+Rich `option_definitions` preserve the legacy string `options` values while adding descriptions and one optional recommendation marker. `allow_custom_answer: true` asks compatible hosts to render a native Other control. Set form-level `allow_abandon: true` to expose an explicit exit; providers then return `{ "_action": "abandon" }`. Successful rich hosts include `_action: submit`, while existing provider responses without `_action` remain valid.
 
 **Output:** The user's response as a JSON object (e.g., `{ "response": "approve" }` for `choice`, `{ "response": true }` for `confirm`, or `{ "api_key": "...", "region": "eu-west", "max_retries": "3" }` for `form`).
 
@@ -1267,8 +1274,18 @@ requests keep their existing routing unless their caller explicitly opts into ba
   type: workflow.plan
   input:
     mode: auto                    # auto | basic | pipeline | repair
+    raw_prompt: "${data.inputs.request}"
+    intent_clarification:
+      mode: always                # off (default) | when_needed | always
+      timeout_ms: 36000000
+      max_rounds: 2
+      max_questions: 8
+      max_questions_per_round: 5
     capability_preflight:
       mode: infer                 # off (default) | infer | explicit
+      clarification:
+        enabled: true             # opt-in; default false
+        timeout_ms: 36000000      # one batched human clarification form
     generator:
       model: gpt-4o                 # LLM model for planning
       provider: openai              # Optional — LLM provider
@@ -1318,6 +1335,16 @@ requests keep their existing routing unless their caller explicitly opts into ba
       max_attempts: 3               # Legacy repair attempt budget when validate.max_repair_attempts is absent
 ```
 
+#### Generic intent clarification
+
+`intent_clarification` is disabled by default. `always` requires an up-front form before discovery or generation unless the structured analyst classifies the request as intrinsically contradictory, unsafe, or impossible to clarify. `when_needed` first permits the analyst to classify an already decision-complete request as `sufficient` without displaying a form.
+
+Each form contains one to `max_questions_per_round` single-choice questions, with two or three mutually exclusive described options. The AI recommendation is first, marked recommended, and preselected, but the user must submit explicitly. Rich hosts add a custom Other answer and an Abandon action. Generated question content follows the raw request language; fixed controls are localized by the host and fall back to English.
+
+The round and question limits are shared by the complete `workflow.plan` run. After the initial form, one remaining round may be used for genuine intent ambiguity discovered after bounded capability or extraction repair. A later answer restarts the complete preflight and planning attempt with a structured clarification envelope. Runtime-dependent outcomes remain conditional workflow branches and are never sent to the human for prediction.
+
+Malformed model contracts, invalid catalog IDs, unavailable capabilities, schema violations, and ordinary generation defects are not clarification-eligible. They retain their normal fail-closed errors. Intent clarification uses `WORKFLOW_PLAN_CLARIFICATION_FAILED` for provider, timeout, response, or analyst-contract failures; `WORKFLOW_PLAN_CANNOT_PLAN_SAFELY` for intrinsic or budget-exhausted ambiguity; and `WORKFLOW_PLAN_ABORTED` for explicit abandonment. Failure metadata contains only stage, classification, counts, reason, and recommended action—not submitted answers.
+
 #### Generic capability preflight
 
 `capability_preflight.mode: infer` discovers every configured MCP catalog and starts by inventorying positive runtime operations and constraints without exposing tools. When `generator.prefilter` is enabled (the default), Flow then pages through a compact one-entry-per-physical-tool catalog to select relevant candidates, adds compatible MCP-declared artifact producers, and only then builds the schema-aware matching catalog. Enum, `const`, nested selector, discriminator, `oneOf`, and `anyOf` variants reference their base physical contract and carry only their exact request bindings. Required unavailable operations fail before classification, decomposition, or YAML generation. Prohibitions, safety rules, ordering requirements, and invariants are constraints rather than executable operations, so abstaining never requires a tool.
@@ -1326,7 +1353,7 @@ The inventory excludes configuration already supplied by the host, provider or c
 
 Schema-aware catalog traversal is bounded to four schema levels, 64 selector values per property, 512 description characters, and 256,000 expanded characters. The limit remains a fail-closed safety boundary. Oversize diagnostics include total characters, selected and full server/tool counts, base and variant counts, and the largest contributing tools. No catalog is silently truncated.
 
-Each operation is classified as `external_effect`, `human_interaction`, or `local_processing`; external effects are additionally classified as `read`, `write`, `execute`, or owned-resource `lifecycle`. Matching can select one capability, the smallest complementary composition, or no capability for local work. Operation and opaque catalog IDs remain locked through pipeline extraction, leaf blueprints, repair, and final validation. Required capability occurrences are a multiset: two operations selecting the same tool still require two statically verifiable calls. Local operations remain semantic blueprint obligations instead of being forced onto an arbitrary native step.
+Each operation is classified as `external_effect`, `human_interaction`, or `local_processing`; external effects are additionally classified as `read`, `write`, `execute`, or owned-resource `lifecycle`. Runtime-dependent operations carry a provider-neutral `decision_source_operation_id` instead of relying on domain words or provider names to guess their source. Constraints are independently classified as `exact_denial` or `workflow_policy`; conditional, ordering, cardinality, coverage, confirmation, and quality rules are structural policies rather than document-wide denials. Matching can select one capability, the smallest complementary composition, a conditional set of selector variants, or no capability for local work. A conditional set is emitted under one expression-based `switch`: every variant has a distinct literal case value, exactly one case runs, and a mutating default is rejected. Runtime results therefore choose outcomes such as success/failure publication without turning that future result into user ambiguity. Operation and opaque catalog IDs remain locked through pipeline extraction, leaf blueprints, repair, and final validation. Required unconditional capability occurrences are a multiset: two operations selecting the same tool still require two statically verifiable calls. Local operations remain semantic blueprint obligations instead of being forced onto an arbitrary native step.
 
 MCP tools may advertise the versioned `_meta.gnougo.artifacts` contract. Flow
 uses its domain-neutral artifact kinds and JSON pointers to compose producers
@@ -1341,7 +1368,15 @@ materializer with no remaining locked capability occurrence fails with
 `CAPABILITY_PREFLIGHT_REDUNDANT_ARTIFACT_PRODUCER`. Multiple explicitly
 requested source operations still produce multiple locked occurrences.
 
-The matcher computes completeness deterministically and performs at most one repair while retaining valid decisions. Confirmed required omissions use `CAPABILITY_PREFLIGHT_UNAVAILABLE`; malformed, unknown-ID, or unresolved ambiguous decisions use `CAPABILITY_PREFLIGHT_INFERENCE_FAILED`. Both expose bounded, sanitized matching diagnostics. Unless unattended execution was explicitly requested, inferred generation deterministically adds a required `human_interaction` operation and ordering constraint before the first external write; this safety gate is no longer optional prompt guidance. Conditional and ordering constraints remain policy-only because an exact denied capability would incorrectly ban its valid post-gate use.
+MCP tools may also advertise `_meta.gnougo.composition` version `1`. A
+`complete_operation` lists lower-level tools or prompts from the same server
+that it encapsulates. Candidate expansion keeps the wrapper visible when a
+phase is selected, and matching normalizes wrapper-plus-phase ambiguity to the
+complete operation so generated workflows do not start a session they never
+finish or invoke both layers redundantly. Invalid or self-referential metadata
+fails closed.
+
+The matcher computes completeness deterministically and performs at most one repair while retaining valid decisions. When the top-level intent clarification session is active and only genuine user-intent ambiguity remains, it may spend its remaining shared form budget and then restart complete discovery, inventory, matching, and generation. The legacy `capability_preflight.clarification.enabled` contract remains available when top-level clarification is off; it presents the existing capability-only form and reruns complete inference once. Missing providers, timeouts, incomplete forms, malformed contracts, unavailable tools, or ambiguity after the applicable retry fail closed. Flow never asks the user to predict a runtime-dependent branch. Confirmed required omissions use `CAPABILITY_PREFLIGHT_UNAVAILABLE`; malformed, unknown-ID, or unresolved ambiguous decisions use `CAPABILITY_PREFLIGHT_INFERENCE_FAILED`. Both expose bounded, sanitized matching diagnostics. Unless unattended execution was explicitly requested, inferred generation deterministically adds a required `human_interaction` operation and ordering constraint before the first external write; this safety gate is no longer optional prompt guidance. Conditional and ordering constraints remain policy-only because an exact denied capability would incorrectly ban its valid post-gate use.
 
 Ordinary `workflow.plan` callers remain compatible because the default is `off`. `explicit` mode performs the same deterministic validation without an inference call:
 
@@ -1470,6 +1505,28 @@ Pipeline mode runs five traced phases:
 3. `extract_subworkflow_specs` parses those blocks as-is, builds generation prompts, and reports validation errors for nested blocks or subworkflow-call mentions.
 4. `generate_subworkflows` runs the normal `workflow.plan` generator for each leaf workflow in parallel. Each leaf prompt contains only that leaf's goal, input/output contract, and content; leaf generation forbids `workflow.call` and `workflow.plan`, preserves the configured MCP prefilter behavior, forces validation, retries failed leaf generation up to the parent repair attempt budget, and rejects bare `type: object` schemas unless they define non-empty `properties`.
 5. `assemble_main_workflow` sends a compact leaf manifest, the generated leaf contracts, and a minimal main-graph DSL context to the LLM. The LLM returns only a `document` plus orchestration `graph`; the runtime renders the real `main` workflow deterministically and grafts the validated leaf workflows before final validation.
+
+Structured extraction generates one complete initial candidate. Later deterministic or
+extraction-quality repairs are bounded patches against the best structurally valid candidate:
+`add_leaf`, `replace_leaf`,
+`remove_leaf`, `merge_leaves`, or `replace_main_orchestration`. Every patch carries the
+exact SHA-256 candidate fingerprint. Replacements retain immutable capability ownership;
+merges atomically union it; required ownership prevents removal; and new leaves cannot
+invent external capabilities. Deterministic validation is rerun after every patch. Valid
+candidates are ranked by evidence-qualified critical findings, warnings, semantic score,
+and patch size, with the earlier candidate retained on ties. Two repeated diagnostic
+fingerprints or non-improving patches stop with `WORKFLOW_PLAN_REPAIR_STALLED` without
+emitting a rejected candidate. Legacy non-structured extraction retains complete bounded
+regeneration for compatibility.
+
+The extraction quality reviewer must attach request substrings or RFC 6901 pointers into
+the canonical extraction or locked capability contract to critical diagnostics. Only a
+verifiable critical finding can block. Unsupported claims are downgraded to advisory,
+and a score or retry verdict alone cannot reject a deterministically valid candidate. A
+malformed structured review receives one retry against the unchanged candidate and then
+fails closed as a contract defect. Human clarification is considered only when every
+remaining evidence-qualified blocker is `intent_ambiguity`; plan, capability, contract,
+provider, and malformed-output defects are never delegated to the user.
 
 Generated public outputs must remain concrete. Before final validation, Flow strengthens outputs from locked producer contracts where possible and removes only unverifiable or nullable nested properties (including their `required_properties` entries) when the Flow contract cannot represent their exact value set. It never narrows nullable values to non-null scalars and never invents array item or root-output types; a weak root contract still fails with `WEAK_OUTPUT_SCHEMA` diagnostics.
 
@@ -1917,6 +1974,13 @@ on_error:
 | `TEMPLATE_POLICY` | No | Generated workflow violates policy constraints |
 | `HUMAN_INPUT_TIMEOUT` | No | User didn't respond within `timeout_ms` |
 | `NO_HITL_PROVIDER` | No | No human input provider configured |
+
+Injected `ILLMClient` implementations can throw the provider-neutral, redacted
+`LLMClientException`. Its failure kind, retryability, optional status code, and safe
+provider code are mapped to the stable errors above. Legacy clients remain supported
+through HTTP-status classification only; message text never determines retryability.
+Workflow error metadata includes stage, classification, retryability, status when known,
+attempt count, and a recommended action.
 
 ### Full example — resilient LLM call with fallback
 

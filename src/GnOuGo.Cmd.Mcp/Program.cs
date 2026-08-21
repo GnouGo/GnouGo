@@ -55,6 +55,8 @@ try
                         "cmd_list_allowed_commands" => policy.BuildListAllowedCommandsToolDescription(),
                         _ => tool.Description
                     };
+                    if (string.Equals(tool.Name, "cmd_run", StringComparison.Ordinal))
+                        tool.InputSchema = policy.BuildCmdRunInputSchema(tool.InputSchema);
                 }
 
                 return result;

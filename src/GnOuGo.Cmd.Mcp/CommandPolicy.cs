@@ -1,4 +1,5 @@
 using System.Text;
+using System.Text.Json;
 using System.Text.Json.Nodes;
 using System.Text.RegularExpressions;
 using GnOuGo.Workspace;
@@ -150,6 +151,24 @@ public sealed class CommandPolicy
 
         sb.Append("Pass parametersJson as a JSON object string using only the declared parameter names.");
         return sb.ToString().TrimEnd();
+    }
+
+    public JsonElement BuildCmdRunInputSchema(JsonElement inputSchema)
+    {
+        var root = JsonNode.Parse(inputSchema.GetRawText()) as JsonObject
+                   ?? throw new InvalidOperationException("The generated cmd_run input schema must be a JSON object.");
+        if (root["properties"] is not JsonObject properties
+            || properties["commandName"] is not JsonObject commandName)
+        {
+            throw new InvalidOperationException("The generated cmd_run input schema must declare commandName.");
+        }
+
+        commandName["enum"] = new JsonArray(_settings.AllowedCommands.Keys
+            .Order(StringComparer.Ordinal)
+            .Select(static name => (JsonNode?)JsonValue.Create(name))
+            .ToArray());
+        using var document = JsonDocument.Parse(root.ToJsonString());
+        return document.RootElement.Clone();
     }
 
     public string BuildListAllowedCommandsToolDescription()

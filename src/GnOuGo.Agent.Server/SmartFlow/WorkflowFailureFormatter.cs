@@ -18,6 +18,31 @@ internal static class WorkflowFailureFormatter
             builder.Append('[').Append(error.Code.Trim()).Append("] ");
         builder.AppendLine(string.IsNullOrWhiteSpace(error.Message) ? "Workflow execution failed." : error.Message.Trim());
 
+        var planningOutcome = ReadBoundedStringDeep(error.Details, "planning_outcome", 80);
+        if (!string.IsNullOrWhiteSpace(planningOutcome)
+            && (error.Code == ErrorCodes.WorkflowPlanClarificationFailed
+                || error.Code == ErrorCodes.WorkflowPlanCannotPlanSafely
+                || error.Code == ErrorCodes.WorkflowPlanAborted))
+        {
+            var stage = ReadBoundedStringDeep(error.Details, "clarification_stage", 120);
+            var classification = ReadBoundedStringDeep(error.Details, "classification", 160);
+            var reason = ReadBoundedStringDeep(error.Details, "reason", 2_000);
+            var recommendedAction = ReadBoundedStringDeep(error.Details, "recommended_action", 160);
+            builder.AppendLine().AppendLine("Intent clarification outcome:");
+            builder.Append("- Outcome: ").AppendLine(Sanitize(planningOutcome, 80));
+            if (!string.IsNullOrWhiteSpace(stage))
+                builder.Append("- Stage: ").AppendLine(Sanitize(stage, 120));
+            if (!string.IsNullOrWhiteSpace(classification))
+                builder.Append("- Classification: ").AppendLine(Sanitize(classification, 160));
+            if (!string.IsNullOrWhiteSpace(reason))
+                builder.Append("- Reason: ").AppendLine(Sanitize(reason, 2_000));
+            if (!string.IsNullOrWhiteSpace(recommendedAction)
+                && !string.Equals(recommendedAction, "none", StringComparison.Ordinal))
+            {
+                builder.Append("- Recommended action: ").AppendLine(Sanitize(recommendedAction, 160));
+            }
+        }
+
         var unavailable = ReadObjectArrayDeep(error.Details, "unavailable_capabilities");
         if (unavailable.Count > 0)
         {

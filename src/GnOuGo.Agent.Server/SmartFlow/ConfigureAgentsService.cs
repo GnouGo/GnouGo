@@ -255,7 +255,11 @@ public sealed class ConfigureAgentsService
             commandTrace.SetTag("error.type", error.GetType().FullName);
             commandTrace.SetTag("error.message", presentation.TraceDetails);
             RecordFailureDetails(commandTrace.Activity, workflowError, presentation);
-            yield return new SmartFlowEvent("error", presentation.UserMessage);
+            yield return new SmartFlowEvent(
+                "error",
+                presentation.UserMessage,
+                ErrorCode: workflowError.Code,
+                Retryable: workflowError.Retryable);
             yield break;
         }
 
@@ -283,7 +287,11 @@ public sealed class ConfigureAgentsService
             var presentation = WorkflowFailureFormatter.Format(workflowError);
             commandTrace.SetStatus(ActivityStatusCode.Error, presentation.TraceDetails);
             RecordFailureDetails(commandTrace.Activity, workflowError, presentation);
-            yield return new SmartFlowEvent("error", presentation.UserMessage);
+            yield return new SmartFlowEvent(
+                "error",
+                presentation.UserMessage,
+                ErrorCode: workflowError.Code,
+                Retryable: workflowError.Retryable);
         }
         else
         {

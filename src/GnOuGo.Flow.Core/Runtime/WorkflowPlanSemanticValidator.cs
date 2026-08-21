@@ -869,7 +869,13 @@ internal static class WorkflowPlanSemanticValidator
             if (invalidAccess == null)
                 continue;
 
-            var firstAllowed = allowedFields.OrderBy(static fieldName => fieldName, StringComparer.Ordinal).First();
+            var firstAllowed = allowedFields
+                .OrderByDescending(static fieldName => Regex.IsMatch(
+                    fieldName,
+                    @"(?:record|result|shape|build)",
+                    RegexOptions.IgnoreCase | RegexOptions.CultureInvariant))
+                .ThenBy(static fieldName => fieldName, StringComparer.Ordinal)
+                .First();
             errors.Add(new WorkflowSemanticValidationError
             {
                 Code = "LOOP_RESULTS_FUNCTION_FIELD_ACCESS",
@@ -881,7 +887,7 @@ internal static class WorkflowPlanSemanticValidator
                     .OrderBy(static fieldName => fieldName, StringComparer.Ordinal)
                     .Select(static fieldName => $"iteration.{fieldName}")
                     .ToArray(),
-                Suggestion = $"Loop result items are per-iteration step output snapshots. Read fields under the child step id, for example `iteration.{firstAllowed}.<field>`, or flatten the loop output with a typed set step before filtering.",
+                Suggestion = $"Loop result items are per-iteration step output snapshots. Replace direct `{invalidAccess.Value.Parameter}.{invalidAccess.Value.Member}` access with `{invalidAccess.Value.Parameter}.{firstAllowed}.{invalidAccess.Value.Member}` when that typed child exposes the field, and make every other projection read through a child step id. Otherwise add a typed set child before projecting.",
                 Message = $"Function `{functionName}` is called with `data.steps.{loopStepId}.results` but reads `{invalidAccess.Value.Parameter}.{invalidAccess.Value.Member}` directly. Loop result items expose child step outputs such as `{firstAllowed}`, not direct item fields."
             });
         }

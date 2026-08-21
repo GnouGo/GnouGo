@@ -300,4 +300,41 @@ public class WorkflowPlanContractNormalizerTests
         Assert.Null(normalized["required_properties"]);
         Assert.Empty(JsonSchemaContractValidator.ValidateSchema(normalized, strictProfile: false));
     }
+
+    [Fact]
+    public void NormalizeSetOutputSchema_ConvertsNestedNullableShorthandToJsonSchemaUnion()
+    {
+        var schema = Assert.IsType<YamlMappingNode>(WorkflowPlanContractNormalizer.JsonToYaml(JsonNode.Parse("""
+        {
+          "type": "object",
+          "properties": {
+            "status": { "type": "string" },
+            "decision": {
+              "type": "string",
+              "nullable": true
+            }
+          },
+          "required_properties": ["status", "decision"],
+          "additional_properties": false
+        }
+        """)));
+
+        Assert.True(WorkflowPlanContractNormalizer.NormalizeSetOutputSchema(schema));
+
+        var normalized = Assert.IsType<JsonObject>(WorkflowParser.YamlToJson(schema));
+        var properties = Assert.IsType<JsonObject>(normalized["properties"]);
+        var decision = Assert.IsType<JsonObject>(properties["decision"]);
+        var types = Assert.IsType<JsonArray>(decision["type"]);
+
+        Assert.Contains(types, static type => type?.GetValue<string>() == "string");
+        Assert.Contains(types, static type => type?.GetValue<string>() == "null");
+        Assert.Null(decision["nullable"]);
+        Assert.NotNull(normalized["required"]);
+        Assert.Null(normalized["required_properties"]);
+        Assert.Empty(JsonSchemaContractValidator.ValidateSchema(normalized, strictProfile: false));
+        var descriptor = FlowTypeDescriptorConverter.FromJsonSchema(normalized);
+        var decisionType = descriptor.Properties["decision"].Type;
+        Assert.Equal(FlowTypeKind.Union, decisionType.Kind);
+        Assert.Contains(decisionType.Variants, static variant => variant.Kind == FlowTypeKind.Null);
+    }
 }

@@ -716,37 +716,7 @@ public sealed class WorkflowRouteExecutor : IStepExecutor
     }
 
     private static JsonObject BuildHumanInputRequestPayload(HumanInputRequest request)
-    {
-        var payload = new JsonObject
-        {
-            ["prompt"] = request.Prompt,
-            ["mode"] = request.Mode,
-            ["run_id"] = request.RunId,
-            ["step_id"] = request.StepId,
-            ["timeout_ms"] = request.TimeoutMs,
-            ["context"] = request.Context?.DeepClone()
-        };
-
-        if (request.Fields is { Count: > 0 })
-        {
-            var fields = new JsonArray();
-            foreach (var field in request.Fields)
-            {
-                fields.Add((JsonNode)new JsonObject
-                {
-                    ["name"] = field.Name,
-                    ["type"] = field.Type,
-                    ["required"] = field.Required,
-                    ["description"] = field.Description,
-                    ["options"] = field.Options is null ? null : ToJsonArray(field.Options),
-                    ["default"] = field.Default
-                });
-            }
-            payload["fields"] = fields;
-        }
-
-        return payload;
-    }
+        => HumanInputContract.BuildRequestPayload(request);
 
     private static void MergeHumanInputResponse(
         JsonObject resolvedArgs,

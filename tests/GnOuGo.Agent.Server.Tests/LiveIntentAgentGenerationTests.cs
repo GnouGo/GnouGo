@@ -21,6 +21,8 @@ namespace GnOuGo.Agent.Server.Tests;
 public sealed class LiveIntentAgentGenerationTests
 {
     private const string EnableVariable = "GNOU_GO_LIVE_INTENT_AGENT_E2E";
+    private const string ProgressPathVariable = "GNOU_GO_LIVE_INTENT_AGENT_PROGRESS_PATH";
+    private static readonly object ProgressFileLock = new();
     private const string AcceptancePrompt = """
         Create a reusable agent that accepts a GitHub pull-request URL and review instructions.
 
@@ -41,6 +43,7 @@ public sealed class LiveIntentAgentGenerationTests
         if (!string.Equals(Environment.GetEnvironmentVariable(EnableVariable), "1", StringComparison.Ordinal))
             return;
 
+        WriteLiveProgress("test_started");
         var sourceRoot = FindSourceRoot();
         var previousDirectory = Directory.GetCurrentDirectory();
         var workspaceRoot = GnOuGoWorkspace.ResolveDefaultWorkingDirectory();
@@ -59,6 +62,7 @@ public sealed class LiveIntentAgentGenerationTests
                 contentRoot: Path.Combine(sourceRoot, "src", "GnOuGo.Agent.Server"),
                 enableHttpsRedirection: false);
             await app.StartAsync(timeout.Token);
+            WriteLiveProgress("host_started");
 
             var services = app.Services;
             var configureAgents = services.GetRequiredService<ConfigureAgentsService>();
@@ -66,6 +70,8 @@ public sealed class LiveIntentAgentGenerationTests
             var userConfig = services.GetRequiredService<AgentUserConfigMcpClient>();
             var mcpFactory = services.GetRequiredService<IMcpClientFactory>();
             previousConfig = await userConfig.GetAsync(timeout.Token);
+            await AssertLiveReviewCompositionContractAsync(services, timeout.Token);
+            WriteLiveProgress("composition_contract_validated");
 
             var runId = DateTimeOffset.UtcNow.ToString("yyyyMMddHHmmss");
             (string Name, GeneratedAgentContract Contract)? publicationAgent = null;
@@ -77,12 +83,22 @@ public sealed class LiveIntentAgentGenerationTests
             for (var attempt = 1; attempt <= generationCount; attempt++)
             {
                 var name = $"e2e-intent-pr-review-{runId}-{attempt}";
+                WriteLiveProgress("generation_started", generation: attempt);
                 List<SmartFlowEvent>? events = null;
                 for (var providerAttempt = 1; providerAttempt <= 2; providerAttempt++)
                 {
+                    WriteLiveProgress("provider_attempt_started", generation: attempt, providerAttempt: providerAttempt);
                     using var responderCancellation = CancellationTokenSource.CreateLinkedTokenSource(timeout.Token);
                     var responder = RespondToAgentCreationAsync(humanInput, name, responderCancellation.Token);
-                    events = await CollectAsync(configureAgents.ExecuteAsync("/gnougo add", timeout.Token), timeout.Token);
+                    events = await CollectAsync(
+                        configureAgents.ExecuteAsync("/gnougo add", timeout.Token),
+                        timeout.Token,
+                        item => WriteLiveProgress(
+                            "generation_event",
+                            generation: attempt,
+                            providerAttempt: providerAttempt,
+                            flowEvent: item));
+                    WriteLiveProgress("provider_attempt_completed", generation: attempt, providerAttempt: providerAttempt);
                     responderCancellation.Cancel();
                     try
                     {
@@ -93,7 +109,7 @@ public sealed class LiveIntentAgentGenerationTests
                         // The command can fail before requesting or completing all interactive forms.
                     }
                     var providerFailure = events.FirstOrDefault(static item => item.Type == "error");
-                    if (providerAttempt < 2 && IsTransientProviderFailure(providerFailure?.Text))
+                    if (providerAttempt < 2 && providerFailure?.Retryable == true)
                         continue;
                     break;
                 }
@@ -106,8 +122,11 @@ public sealed class LiveIntentAgentGenerationTests
                 var agent = await GetAgentAsync(mcpFactory, name, timeout.Token);
                 generatedAgents.Add((RequireString(agent, "id"), name));
                 var workflow = RequireString(agent, "workflow");
-                Assert.Equal(AcceptancePrompt.Trim(), RequireString(agent, "original_prompt").Trim());
+                Assert.Equal(
+                    AcceptancePrompt.Trim().ReplaceLineEndings("\n"),
+                    RequireString(agent, "original_prompt").Trim().ReplaceLineEndings("\n"));
                 var contract = await ValidateGeneratedAgentAsync(workflow, mcpFactory, timeout.Token);
+                WriteLiveProgress("generation_validated", generation: attempt);
                 if (attempt == 1)
                 {
                     await ExecuteReadOnlyAcceptanceAsync(
@@ -128,9 +147,11 @@ public sealed class LiveIntentAgentGenerationTests
                 publicationAgent.Value.Contract,
                 sourceRoot,
                 timeout.Token);
+            WriteLiveProgress("publication_acceptance_completed");
         }
         finally
         {
+            WriteLiveProgress("cleanup_started");
             if (app is not null)
             {
                 var services = app.Services;
@@ -163,19 +184,31 @@ public sealed class LiveIntentAgentGenerationTests
             }
             Directory.SetCurrentDirectory(previousDirectory);
             DeleteNewWorkflowWorkspaces(workflowWorkspacesRoot, existingWorkflowWorkspaces);
+            WriteLiveProgress("cleanup_completed");
         }
     }
 
-    private static bool IsTransientProviderFailure(string? message)
-        => !string.IsNullOrWhiteSpace(message)
-           && (message.Contains(" 502 ", StringComparison.Ordinal)
-               || message.Contains(" 504 ", StringComparison.Ordinal)
-               || message.Contains("502 Bad Gateway", StringComparison.OrdinalIgnoreCase)
-               || message.Contains("504 Gateway", StringComparison.OrdinalIgnoreCase)
-               || message.Contains("server_error", StringComparison.OrdinalIgnoreCase)
-               || message.Contains("ESG121", StringComparison.Ordinal)
-               || message.Contains("Routing failed", StringComparison.OrdinalIgnoreCase)
-               || message.Contains("CAPIError: Connection error", StringComparison.OrdinalIgnoreCase));
+    private static async Task AssertLiveReviewCompositionContractAsync(
+        IServiceProvider services,
+        CancellationToken ct)
+    {
+        var runtimeFactory = services.GetRequiredService<SecureWorkflowRuntimeFactory>();
+        await using var runtime = await runtimeFactory.CreateAsync(ct);
+        var server = Assert.Single(runtime.McpClientFactory.ServerMetadata!, static metadata =>
+            metadata.Name.Contains("GithubCopilot", StringComparison.OrdinalIgnoreCase));
+        await using var client = await runtime.McpClientFactory.GetClientAsync(server.Name, ct);
+        var review = Assert.Single(await client.ListToolsAsync(ct), static tool =>
+            string.Equals(tool.Name, "copilot_review", StringComparison.Ordinal));
+        var transportContract = McpCapabilityCompositionParser.ParseAndValidate(review.Meta);
+        Assert.True(transportContract.IsDeclared, $"copilot_review metadata did not declare composition: {review.Meta?.ToJsonString() ?? "null"}");
+        Assert.True(transportContract.IsValid, string.Join("; ", transportContract.Errors));
+        Assert.True(review.CompositionContract is not null,
+            $"Configured adapter dropped valid composition metadata: {review.Meta?.ToJsonString() ?? "null"}");
+        Assert.Empty(review.CompositionContract.Errors);
+        Assert.Equal(
+            McpCapabilityCompositionConventions.CompleteOperationKind,
+            review.CompositionContract.Contract?.Kind);
+    }
 
     private static async Task RespondToAgentCreationAsync(
         AgentHumanInputProvider humanInput,
@@ -185,16 +218,127 @@ public sealed class LiveIntentAgentGenerationTests
         await foreach (var request in humanInput.PendingRequests.ReadAllAsync(ct))
         {
             JsonNode response = request.StepId.EndsWith("input_name", StringComparison.Ordinal)
-                ? new JsonObject { ["agent_name"] = agentName }
+                ? new JsonObject
+                {
+                    ["agent_name"] = agentName,
+                    [HumanInputContract.ActionProperty] = HumanInputContract.ActionSubmit
+                }
                 : request.StepId.EndsWith("input_prompt", StringComparison.Ordinal)
-                    ? new JsonObject { ["description"] = AcceptancePrompt }
+                    ? new JsonObject
+                    {
+                        ["description"] = AcceptancePrompt,
+                        [HumanInputContract.ActionProperty] = HumanInputContract.ActionSubmit
+                    }
+                    : request.StepId.Contains(":intent_clarification:", StringComparison.Ordinal)
+                        ? BuildIntentClarificationResponse(request)
+                        : request.StepId.Contains(":capability_clarification:", StringComparison.Ordinal)
+                        ? BuildCapabilityClarificationResponse(request)
                     : request.StepId.EndsWith("review_workflow", StringComparison.Ordinal)
-                        ? new JsonObject { ["response"] = "approve" }
+                        ? new JsonObject
+                        {
+                            ["response"] = "approve",
+                            [HumanInputContract.ActionProperty] = HumanInputContract.ActionSubmit
+                        }
                         : throw new InvalidOperationException($"Unexpected agent-generation human input step '{request.StepId}'.");
             Assert.True(humanInput.TrySubmitResponse(request.RunId, request.StepId, response));
             if (request.StepId.EndsWith("review_workflow", StringComparison.Ordinal))
                 return;
         }
+    }
+
+    private static JsonObject BuildIntentClarificationResponse(HumanInputRequest request)
+    {
+        const string completeIntent = "Treat environment preparation and check execution as an observable effect distinct from changed-code review. Perform the changed-code review as one complete action, without exposing its internal start, batch, or finish phases. Inputs are one pull-request URL and review instructions. Use one disposable checkout and never push changes. Return typed preparation, test, lint, coverage, findings, runtime APPROVE or REQUEST_CHANGES, and justification results. Publish only high-confidence findings with valid anchors after one human confirmation, submit one matching runtime decision, fail closed on unresolved evidence, and always clean workflow-created directories.";
+        Assert.Equal(HumanInputContract.ModeForm, request.Mode);
+        Assert.True(request.AllowAbandon);
+        Assert.InRange(request.Fields?.Count ?? 0, 1, 5);
+        var response = new JsonObject
+        {
+            [HumanInputContract.ActionProperty] = HumanInputContract.ActionSubmit
+        };
+        var usedCustomAnswer = false;
+        var usedRecommendedAnswer = false;
+        var customFieldIndex = request.Fields!.Count > 1
+            ? Enumerable.Range(0, request.Fields.Count)
+            .Select(index => new
+            {
+                Index = index,
+                Text = $"{request.Fields[index].Description} {request.Fields[index].Default}".ToLowerInvariant()
+            })
+            .OrderByDescending(static candidate =>
+                (candidate.Text.Contains("review", StringComparison.Ordinal) ? 8 : 0)
+                + (candidate.Text.Contains("analysis", StringComparison.Ordinal) ? 7 : 0)
+                + (candidate.Text.Contains("scope", StringComparison.Ordinal) ? 5 : 0)
+                + (candidate.Text.Contains("operation", StringComparison.Ordinal) ? 4 : 0)
+                + (candidate.Text.Contains("policy", StringComparison.Ordinal) ? 3 : 0))
+            .ThenBy(static candidate => candidate.Index)
+            .First().Index
+            : -1;
+        for (var fieldIndex = 0; fieldIndex < request.Fields!.Count; fieldIndex++)
+        {
+            var field = request.Fields[fieldIndex];
+            Assert.True(field.Required);
+            Assert.Equal("radio", field.Type);
+            Assert.True(field.AllowCustomAnswer);
+            Assert.InRange(field.Options?.Count ?? 0, 2, 3);
+            Assert.Equal(field.Options![0], field.Default);
+            Assert.Equal(field.Options.Count, field.OptionDefinitions?.Count);
+            Assert.True(field.OptionDefinitions![0].Recommended);
+            Assert.False(string.IsNullOrWhiteSpace(field.OptionDefinitions[0].Description));
+            Assert.All(field.OptionDefinitions.Skip(1), static option => Assert.False(option.Recommended));
+
+            if (fieldIndex == customFieldIndex)
+            {
+                response[field.Name] = completeIntent;
+                usedCustomAnswer = true;
+            }
+            else
+            {
+                response[field.Name] = field.Default;
+                usedRecommendedAnswer = true;
+            }
+        }
+        if (request.Fields.Count > 1)
+            Assert.True(usedCustomAnswer);
+        Assert.True(usedRecommendedAnswer);
+        return response;
+    }
+
+    private static JsonObject BuildCapabilityClarificationResponse(HumanInputRequest request)
+    {
+        Assert.Equal(HumanInputContract.ModeForm, request.Mode);
+        Assert.NotEmpty(request.Fields!);
+        var fields = request.Fields!;
+        Assert.All(fields, static field => Assert.True(field.Required));
+        Assert.Equal(fields.Count, fields.Select(static field => field.Name).Distinct(StringComparer.Ordinal).Count());
+        Assert.NotNull(request.Context);
+        var response = new JsonObject
+        {
+            [HumanInputContract.ActionProperty] = HumanInputContract.ActionSubmit
+        };
+        foreach (var field in fields)
+        {
+            response[field.Name] = field.Name switch
+            {
+                var name when name.StartsWith("unresolved_intent_", StringComparison.Ordinal)
+                    => "The intended operation is the complete one-shot review; start/analyse/finish primitives are implementation phases, not separate requested effects.",
+                var name when name.StartsWith("unresolved_choice_", StringComparison.Ordinal)
+                    => "Use the complete one-shot review capability. Publication is runtime-dependent and must use the exact selector branch corresponding to the computed review result.",
+                "intended_outcome_and_scope"
+                    => "Review the disposable pull request completely, publish one explained review decision, and clean only resources created by this test.",
+                "runtime_decision_rules"
+                    => "Compute the decision from runtime dependency restoration, tests, lint, changed-code coverage, and findings; execute exactly one matching publication branch and never ask the human to predict that result.",
+                "external_effect_boundaries"
+                    => "Allow reads for the disposable pull request and confirmed writes only to that pull request. Reject every other target or write.",
+                "success_criteria"
+                    => "All changed code is covered, required checks are represented, one decision branch executes, and its body matches the generated explanation.",
+                "failure_policy"
+                    => "Fail closed and abandon generation when intent, capability support, decision provenance, or safe cleanup remains unresolved after clarification.",
+                _ => throw new InvalidOperationException($"Unexpected capability clarification field '{field.Name}'.")
+            };
+        }
+
+        return response;
     }
 
     private static async Task<JsonObject> GetAgentAsync(IMcpClientFactory factory, string name, CancellationToken ct)
@@ -303,9 +447,13 @@ public sealed class LiveIntentAgentGenerationTests
         Assert.Contains(interactiveCopilotCalls, static call =>
         {
             var prompt = call.Input?["request"]?["prompt"]?.GetValue<string>();
-            return prompt?.Contains("test", StringComparison.OrdinalIgnoreCase) == true
-                   && (prompt.Contains("lint", StringComparison.OrdinalIgnoreCase)
-                       || prompt.Contains("format", StringComparison.OrdinalIgnoreCase));
+            return prompt?.Contains("test", StringComparison.OrdinalIgnoreCase) == true;
+        });
+        Assert.Contains(interactiveCopilotCalls, static call =>
+        {
+            var prompt = call.Input?["request"]?["prompt"]?.GetValue<string>();
+            return prompt?.Contains("lint", StringComparison.OrdinalIgnoreCase) == true
+                   || prompt?.Contains("format", StringComparison.OrdinalIgnoreCase) == true;
         });
 
         var reviewEvents = calls
@@ -473,7 +621,7 @@ public sealed class LiveIntentAgentGenerationTests
             }
 
             var attemptFailure = events.FirstOrDefault(static item => item.Type == "error");
-            if (executionAttempt < 2 && IsTransientProviderFailure(attemptFailure?.Text))
+            if (executionAttempt < 2 && attemptFailure?.Retryable == true)
                 continue;
             break;
         }
@@ -589,7 +737,8 @@ public sealed class LiveIntentAgentGenerationTests
             };
 
             using var responderCancellation = CancellationTokenSource.CreateLinkedTokenSource(ct);
-            var responder = ApprovePublicationAsync(humanInput, responderCancellation.Token);
+            var expectedPullRequestUrl = $"https://github.com/{owner}/{repository}/pull/{pullNumber.Value}";
+            var responder = ApprovePublicationAsync(humanInput, expectedPullRequestUrl, responderCancellation.Token);
             var events = await CollectAsync(
                 smartFlow.ExecuteAsync(
                     "Review and publish the validated finding for the disposable fixture.",
@@ -666,10 +815,20 @@ public sealed class LiveIntentAgentGenerationTests
         }
     }
 
-    private static async Task ApprovePublicationAsync(AgentHumanInputProvider humanInput, CancellationToken ct)
+    private static async Task ApprovePublicationAsync(
+        AgentHumanInputProvider humanInput,
+        string expectedPullRequestUrl,
+        CancellationToken ct)
     {
         await foreach (var request in humanInput.PendingRequests.ReadAllAsync(ct))
         {
+            Assert.True(request.Mode is HumanInputContract.ModeConfirm or HumanInputContract.ModeChoice,
+                $"Unexpected publication approval mode '{request.Mode}' for step '{request.StepId}'.");
+            var visibleContext = request.Prompt + "\n" + (request.Context?.ToJsonString() ?? string.Empty);
+            var mentionedUrls = Regex.Matches(visibleContext, "https://github\\.com/[^\\s\\\"'<>]+/pull/\\d+", RegexOptions.IgnoreCase)
+                .Select(static match => match.Value.TrimEnd('.', ',', ')'))
+                .ToArray();
+            Assert.All(mentionedUrls, url => Assert.Equal(expectedPullRequestUrl, url));
             var affirmativeChoice = request.Choices?.FirstOrDefault(static choice =>
                 choice.Contains("approve", StringComparison.OrdinalIgnoreCase)
                 || choice.Contains("publish", StringComparison.OrdinalIgnoreCase)
@@ -682,6 +841,7 @@ public sealed class LiveIntentAgentGenerationTests
                 ["decision"] = "approve"
             };
             Assert.True(humanInput.TrySubmitResponse(request.RunId, request.StepId, response));
+            return;
         }
     }
 
@@ -892,6 +1052,7 @@ public sealed class LiveIntentAgentGenerationTests
                 ["decision"] = "reject"
             };
             Assert.True(humanInput.TrySubmitResponse(request.RunId, request.StepId, response));
+            return;
         }
     }
 
@@ -945,12 +1106,62 @@ public sealed class LiveIntentAgentGenerationTests
 
     private static async Task<List<SmartFlowEvent>> CollectAsync(
         IAsyncEnumerable<SmartFlowEvent> events,
-        CancellationToken ct)
+        CancellationToken ct,
+        Action<SmartFlowEvent>? observer = null)
     {
         var result = new List<SmartFlowEvent>();
         await foreach (var item in events.WithCancellation(ct))
+        {
+            observer?.Invoke(item);
             result.Add(item);
+        }
         return result;
+    }
+
+    private static void WriteLiveProgress(
+        string stage,
+        int? generation = null,
+        int? providerAttempt = null,
+        SmartFlowEvent? flowEvent = null)
+    {
+        var path = Environment.GetEnvironmentVariable(ProgressPathVariable);
+        if (string.IsNullOrWhiteSpace(path))
+            return;
+
+        var entry = new JsonObject
+        {
+            ["timestamp"] = DateTimeOffset.UtcNow.ToString("O"),
+            ["stage"] = stage
+        };
+        if (generation.HasValue)
+            entry["generation"] = generation.Value;
+        if (providerAttempt.HasValue)
+            entry["provider_attempt"] = providerAttempt.Value;
+        if (flowEvent != null)
+        {
+            entry["event_type"] = flowEvent.Type;
+            entry["error_code"] = flowEvent.ErrorCode;
+            entry["retryable"] = flowEvent.Retryable;
+        }
+
+        try
+        {
+            lock (ProgressFileLock)
+            {
+                var directory = Path.GetDirectoryName(path);
+                if (!string.IsNullOrWhiteSpace(directory))
+                    Directory.CreateDirectory(directory);
+                File.AppendAllText(path, entry.ToJsonString() + Environment.NewLine);
+            }
+        }
+        catch (IOException)
+        {
+            // Optional live-test diagnostics must not change the acceptance result.
+        }
+        catch (UnauthorizedAccessException)
+        {
+            // Optional live-test diagnostics must not change the acceptance result.
+        }
     }
 
     private static string RequireString(JsonObject value, string property)

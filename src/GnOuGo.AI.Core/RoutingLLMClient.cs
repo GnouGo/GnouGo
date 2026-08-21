@@ -88,10 +88,21 @@ public sealed class RoutingLLMClient
 
         var metadata = _metadataResolver.Resolve(resolvedType, model);
         var sanitizedRequest = LLMRequestSanitizer.Sanitize(request, metadata);
-        if (!string.Equals(resolvedType, LocalLLMProvider.Type, StringComparison.OrdinalIgnoreCase))
-            return await provider.CallAsync(model, providerOpts, sanitizedRequest, ct).ConfigureAwait(false);
+        try
+        {
+            if (!string.Equals(resolvedType, LocalLLMProvider.Type, StringComparison.OrdinalIgnoreCase))
+                return await provider.CallAsync(model, providerOpts, sanitizedRequest, ct).ConfigureAwait(false);
 
-        return await CallLocalWithFallbackAsync(provider, model, providerOpts, sanitizedRequest, ct).ConfigureAwait(false);
+            return await CallLocalWithFallbackAsync(provider, model, providerOpts, sanitizedRequest, ct).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException) when (ct.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            throw LLMProviderFailureClassifier.Classify(ex);
+        }
     }
 
     private async Task<LLMClientResponse> CallLocalWithFallbackAsync(

@@ -76,12 +76,14 @@ public sealed partial class WorkflowPlanExecutor
 
     private static bool IsExternalWorkSpec(WorkflowPipelineSubworkflowSpec spec)
     {
-        if (string.Equals(spec.WorkKind, PipelineWorkKindDeterministicShaping, StringComparison.Ordinal))
+        var intentText = BuildPipelineSpecIntentText(spec);
+        if (string.Equals(spec.WorkKind, PipelineWorkKindDeterministicShaping, StringComparison.Ordinal)
+            && !ContainsExternalExecutionOrStateInspectionIntent(intentText))
             return false;
         if (spec.PlannedTools.Count > 0 || (spec.PlannedNativeSteps?.Count ?? 0) > 0)
             return true;
         return string.Equals(spec.WorkKind, PipelineWorkKindExternalWork, StringComparison.Ordinal)
-               || ContainsExternalWorkIntent(BuildPipelineSpecIntentText(spec));
+               || ContainsExternalWorkIntent(intentText);
     }
 
     private static bool HasStrongLocalProcessingIntent(WorkflowPipelineSubworkflowSpec spec)
@@ -107,7 +109,29 @@ public sealed partial class WorkflowPlanExecutor
             .Where(static value => !string.IsNullOrWhiteSpace(value)))!;
 
     private static bool ContainsExternalWorkIntent(string text)
-        => ExternalWorkIntentRegex().IsMatch(text);
+        => ContainsPositiveExternalWorkKeyword(text)
+           || ContainsPositiveExternalInvocationIntent(text);
+
+    private static bool ContainsPositiveExternalWorkKeyword(string text)
+        => SplitCapabilityMentionClauses(text).Any(clause => ExternalWorkIntentRegex().Matches(clause)
+            .Any(match => !Regex.IsMatch(
+                clause[Math.Max(0, match.Index - 160)..match.Index],
+                @"\b(?:no|not|never|without|avoid|forbid|prohibit|exclude|cannot|can't|don't|doesn't|mustn't|shouldn't)\b|\b(?:do|does|must|should)\s+not\b",
+                RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)));
+
+    private static bool ContainsPositiveExternalInvocationIntent(string text)
+        => ContainsPositiveRegexIntent(text, DelegatedExternalWorkIntentRegex())
+           || ContainsPositiveRegexIntent(text, ExplicitExternalCapabilityInvocationRegex());
+
+    private static bool ContainsExternalExecutionOrStateInspectionIntent(string text)
+        => ContainsPositiveRegexIntent(text, ExternalExecutionOrStateInspectionRegex());
+
+    private static bool ContainsPositiveRegexIntent(string text, Regex intentRegex)
+        => SplitCapabilityMentionClauses(text).Any(clause => intentRegex.Matches(clause)
+            .Any(match => !Regex.IsMatch(
+                clause[Math.Max(0, match.Index - 160)..match.Index],
+                @"\b(?:no|not|never|without|avoid|forbid|prohibit|exclude|cannot|can't|don't|doesn't|mustn't|shouldn't)\b|\b(?:do|does|must|should)\s+not\b",
+                RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)));
 
     private static bool ContainsDeterministicShapingIntent(string text)
         => DeterministicShapingIntentRegex().IsMatch(text);

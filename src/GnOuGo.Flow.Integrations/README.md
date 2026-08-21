@@ -20,3 +20,8 @@ For cost telemetry, also assign a `ModelMetadataUsageCostEstimator` to
 
 The integration package owns provider and transport mappings. Flow.Core never
 references this package or another GnOuGo component.
+
+`RoutingLLMClientAdapter` maps AI.Core's redacted `LLMProviderException` and every
+`LLMProviderFailureKind` to Flow.Core's independent `LLMClientException` and
+`LLMClientFailureKind`. It preserves retryability, HTTP status, and safe provider code
+without copying raw provider response bodies.

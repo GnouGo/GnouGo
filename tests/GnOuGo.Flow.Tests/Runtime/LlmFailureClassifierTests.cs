@@ -39,6 +39,9 @@ public sealed class LlmFailureClassifierTests
         Assert.NotNull(classified);
         Assert.Equal(expectedCode, classified.Code);
         Assert.Equal(retryable, classified.Retryable);
+        Assert.DoesNotContain("provider failure", classified.Message, StringComparison.Ordinal);
+        Assert.Equal(status, classified.Details!["status_code"]!.GetValue<int>());
+        Assert.Equal(1, classified.Details["attempt_count"]!.GetValue<int>());
     }
 
     [Fact]
@@ -49,5 +52,36 @@ public sealed class LlmFailureClassifierTests
         Assert.NotNull(classified);
         Assert.Equal(ErrorCodes.LlmNetwork, classified.Code);
         Assert.True(classified.Retryable);
+    }
+
+    [Theory]
+    [InlineData(LLMClientFailureKind.Transport, true, "LLM_NETWORK")]
+    [InlineData(LLMClientFailureKind.Timeout, true, "LLM_TIMEOUT")]
+    [InlineData(LLMClientFailureKind.RateLimited, true, "LLM_NETWORK")]
+    [InlineData(LLMClientFailureKind.ServiceUnavailable, true, "LLM_NETWORK")]
+    [InlineData(LLMClientFailureKind.QuotaOrBilling, false, "LLM_PROVIDER")]
+    [InlineData(LLMClientFailureKind.Authentication, false, "LLM_PROVIDER")]
+    [InlineData(LLMClientFailureKind.Authorization, false, "LLM_PROVIDER")]
+    [InlineData(LLMClientFailureKind.InvalidRequest, false, "LLM_PROVIDER")]
+    [InlineData(LLMClientFailureKind.ModelUnavailable, false, "LLM_PROVIDER")]
+    [InlineData(LLMClientFailureKind.Unknown, false, "LLM_PROVIDER")]
+    public void Classify_TypedClientFailure_PreservesDispositionAndRedactedMetadata(
+        LLMClientFailureKind kind,
+        bool retryable,
+        string expectedCode)
+    {
+        var classified = LlmFailureClassifier.Classify(new LLMClientException(
+            kind,
+            "redacted failure",
+            retryable,
+            statusCode: 400,
+            safeProviderCode: "safe_code"));
+
+        Assert.NotNull(classified);
+        Assert.Equal(expectedCode, classified.Code);
+        Assert.Equal(retryable, classified.Retryable);
+        Assert.Equal(400, classified.Details!["status_code"]!.GetValue<int>());
+        Assert.Equal("safe_code", classified.Details["provider_code"]!.GetValue<string>());
+        Assert.Equal(1, classified.Details["attempt_count"]!.GetValue<int>());
     }
 }

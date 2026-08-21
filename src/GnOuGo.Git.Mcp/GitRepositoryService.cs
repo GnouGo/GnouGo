@@ -2,6 +2,7 @@
 using LibGit2Sharp.Handlers;
 using GnOuGo.Workspace;
 using Microsoft.Extensions.Options;
+using System.Text.Json;
 
 namespace GnOuGo.Git.Mcp;
 
@@ -150,6 +151,9 @@ public sealed class GitRepositoryService
             mergeBase?.Sha,
             comparedFrom.Sha,
             files,
+            JsonSerializer.Serialize<IReadOnlyList<GitCompareFile>>(
+                files,
+                GitMcpJsonContext.Default.IReadOnlyListGitCompareFile),
             allEntries.Length,
             offset,
             boundedPageSize,

@@ -8,6 +8,7 @@ using GnOuGo.Flow.Core.Compilation;
 using GnOuGo.Flow.Core.Expressions;
 using GnOuGo.Flow.Core.Models;
 using GnOuGo.Flow.Core.Runtime;
+using YamlDotNet.RepresentationModel;
 
 namespace GnOuGo.Flow.Core.Runtime.Executors;
 
@@ -30,6 +31,415 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
                 trimmed = trimmed[..^3].TrimEnd();
         }
         return trimmed;
+    }
+
+    private static string NormalizeGeneratedSwitchDefaultStepLists(string yaml)
+    {
+        if (string.IsNullOrWhiteSpace(yaml)
+            || !yaml.Contains("default:", StringComparison.Ordinal)
+            || !yaml.Contains("type: switch", StringComparison.Ordinal))
+        {
+            return yaml;
+        }
+
+        var newline = yaml.Contains("\r\n", StringComparison.Ordinal) ? "\r\n" : "\n";
+        var lines = yaml.Replace("\r\n", "\n", StringComparison.Ordinal).Replace('\r', '\n').Split('\n');
+        var changed = false;
+        for (var index = 0; index < lines.Length; index++)
+        {
+            var line = lines[index];
+            var trimmed = line.Trim();
+            if (!Regex.IsMatch(trimmed, @"^default:\s*[|>][+-]?\s*$", RegexOptions.CultureInvariant))
+                continue;
+
+            var indent = CountLeadingYamlSpaces(line);
+            var belongsToSwitch = false;
+            for (var previous = index - 1; previous >= 0; previous--)
+            {
+                if (string.IsNullOrWhiteSpace(lines[previous]))
+                    continue;
+                var previousIndent = CountLeadingYamlSpaces(lines[previous]);
+                if (previousIndent < indent)
+                    break;
+                if (previousIndent == indent
+                    && string.Equals(lines[previous].Trim(), "type: switch", StringComparison.Ordinal))
+                {
+                    belongsToSwitch = true;
+                    break;
+                }
+            }
+            if (!belongsToSwitch)
+                continue;
+
+            var firstContent = index + 1;
+            while (firstContent < lines.Length && string.IsNullOrWhiteSpace(lines[firstContent]))
+                firstContent++;
+            if (firstContent >= lines.Length
+                || CountLeadingYamlSpaces(lines[firstContent]) <= indent
+                || !lines[firstContent].TrimStart().StartsWith("- id:", StringComparison.Ordinal))
+            {
+                continue;
+            }
+
+            lines[index] = line[..indent] + "default:";
+            changed = true;
+        }
+
+        for (var index = 0; index < lines.Length; index++)
+        {
+            var line = lines[index];
+            if (!string.Equals(line.Trim(), "default:", StringComparison.Ordinal))
+                continue;
+
+            var defaultIndent = CountLeadingYamlSpaces(line);
+            var casesIndex = FindOwningSwitchCasesLine(lines, index, defaultIndent);
+            if (casesIndex < 0)
+                continue;
+
+            var casesIndent = CountLeadingYamlSpaces(lines[casesIndex]);
+            if (defaultIndent <= casesIndent)
+                continue;
+
+            var firstContent = index + 1;
+            while (firstContent < lines.Length && string.IsNullOrWhiteSpace(lines[firstContent]))
+                firstContent++;
+            if (firstContent >= lines.Length
+                || CountLeadingYamlSpaces(lines[firstContent]) <= defaultIndent
+                || !lines[firstContent].TrimStart().StartsWith("- id:", StringComparison.Ordinal))
+            {
+                continue;
+            }
+
+            var dedent = defaultIndent - casesIndent;
+            for (var nested = index; nested < lines.Length; nested++)
+            {
+                if (nested > index
+                    && !string.IsNullOrWhiteSpace(lines[nested])
+                    && CountLeadingYamlSpaces(lines[nested]) <= casesIndent)
+                {
+                    break;
+                }
+
+                if (string.IsNullOrWhiteSpace(lines[nested]))
+                    continue;
+
+                var nestedIndent = CountLeadingYamlSpaces(lines[nested]);
+                if (nestedIndent < dedent)
+                    break;
+                lines[nested] = lines[nested][dedent..];
+            }
+            changed = true;
+        }
+
+        return changed ? string.Join(newline, lines) : yaml;
+    }
+
+    private static int FindOwningSwitchCasesLine(string[] lines, int defaultIndex, int defaultIndent)
+    {
+        for (var previous = defaultIndex - 1; previous >= 0; previous--)
+        {
+            if (string.IsNullOrWhiteSpace(lines[previous]))
+                continue;
+
+            var previousIndent = CountLeadingYamlSpaces(lines[previous]);
+            if (previousIndent < defaultIndent
+                && string.Equals(lines[previous].Trim(), "cases:", StringComparison.Ordinal))
+            {
+                return HasSwitchTypeAtIndent(lines, previous, previousIndent) ? previous : -1;
+            }
+
+            if (previousIndent < defaultIndent - 2)
+                break;
+        }
+
+        return -1;
+    }
+
+    private static bool HasSwitchTypeAtIndent(string[] lines, int casesIndex, int indent)
+    {
+        for (var previous = casesIndex - 1; previous >= 0; previous--)
+        {
+            if (string.IsNullOrWhiteSpace(lines[previous]))
+                continue;
+
+            var previousIndent = CountLeadingYamlSpaces(lines[previous]);
+            if (previousIndent < indent)
+                return false;
+            if (previousIndent == indent
+                && string.Equals(lines[previous].Trim(), "type: switch", StringComparison.Ordinal))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private static string NormalizeGeneratedExactExpressionScalars(string yaml)
+        => NormalizeGeneratedExactExpressionScalarsCore(yaml, static _ => true);
+
+    private static string NormalizeGeneratedYamlUnsafeExactExpressionScalars(string yaml)
+        => NormalizeGeneratedExactExpressionScalarsCore(yaml, IsYamlPlainScalarUnsafeExpression);
+
+    private static string NormalizeGeneratedUnsafePlainMappingScalars(string yaml)
+    {
+        if (string.IsNullOrWhiteSpace(yaml) || !yaml.Contains(": ", StringComparison.Ordinal))
+            return yaml;
+
+        var newline = yaml.Contains("\r\n", StringComparison.Ordinal) ? "\r\n" : "\n";
+        var lines = yaml.Replace("\r\n", "\n", StringComparison.Ordinal).Replace('\r', '\n').Split('\n');
+        var changed = false;
+        int? blockScalarHeaderIndent = null;
+        for (var index = 0; index < lines.Length; index++)
+        {
+            if (IsYamlBlockScalarContentLine(lines[index], ref blockScalarHeaderIndent))
+                continue;
+
+            var match = Regex.Match(
+                lines[index],
+                @"^(?<prefix>\s*(?:-\s+)?[A-Za-z_][A-Za-z0-9_.-]*:\s+)(?<value>.+)$",
+                RegexOptions.CultureInvariant);
+            if (!match.Success)
+                continue;
+
+            var value = match.Groups["value"].Value.TrimEnd();
+            if (!value.Contains(": ", StringComparison.Ordinal)
+                || value.StartsWith('"')
+                || value.StartsWith('\'')
+                || value.StartsWith('[')
+                || value.StartsWith('{')
+                || value.StartsWith('|')
+                || value.StartsWith('>')
+                || value.StartsWith('&')
+                || value.StartsWith('*')
+                || value.StartsWith('!')
+                || value.StartsWith("${", StringComparison.Ordinal))
+            {
+                continue;
+            }
+
+            lines[index] = match.Groups["prefix"].Value
+                           + "'"
+                           + value.Replace("'", "''", StringComparison.Ordinal)
+                           + "'";
+            changed = true;
+        }
+
+        return changed ? string.Join(newline, lines) : yaml;
+    }
+
+    private static string NormalizeGeneratedExactExpressionScalarsCore(
+        string yaml,
+        Func<string, bool> shouldQuote)
+    {
+        if (string.IsNullOrWhiteSpace(yaml) || !yaml.Contains("${", StringComparison.Ordinal))
+            return yaml;
+
+        var newline = yaml.Contains("\r\n", StringComparison.Ordinal) ? "\r\n" : "\n";
+        var lines = yaml.Replace("\r\n", "\n", StringComparison.Ordinal).Replace('\r', '\n').Split('\n');
+        var changed = false;
+        int? blockScalarHeaderIndent = null;
+        for (var index = 0; index < lines.Length; index++)
+        {
+            if (IsYamlBlockScalarContentLine(lines[index], ref blockScalarHeaderIndent))
+                continue;
+
+            var match = GeneratedExactExpressionMappingScalarRegex().Match(lines[index]);
+            if (!match.Success)
+                match = GeneratedExactExpressionSequenceScalarRegex().Match(lines[index]);
+            if (!match.Success)
+                continue;
+
+            var expression = match.Groups["expression"].Value;
+            if (!shouldQuote(expression))
+                continue;
+
+            lines[index] = match.Groups["prefix"].Value
+                           + "'"
+                           + expression.Replace("'", "''", StringComparison.Ordinal)
+                           + "'"
+                           + match.Groups["suffix"].Value;
+            changed = true;
+        }
+
+        return changed ? string.Join(newline, lines) : yaml;
+    }
+
+    private static bool IsYamlBlockScalarContentLine(
+        string line,
+        ref int? blockScalarHeaderIndent)
+    {
+        if (blockScalarHeaderIndent is int headerIndent)
+        {
+            if (string.IsNullOrWhiteSpace(line)
+                || CountLeadingYamlSpaces(line) > headerIndent)
+            {
+                return true;
+            }
+
+            blockScalarHeaderIndent = null;
+        }
+
+        if (!YamlBlockScalarHeaderRegex().IsMatch(line))
+            return false;
+
+        blockScalarHeaderIndent = CountLeadingYamlSpaces(line);
+        return true;
+    }
+
+    private static bool IsYamlPlainScalarUnsafeExpression(string expression)
+    {
+        for (var index = 0; index < expression.Length; index++)
+        {
+            var current = expression[index];
+            if (current == '#'
+                && (index == 0 || char.IsWhiteSpace(expression[index - 1])))
+            {
+                return true;
+            }
+
+            if (current != ':' || index + 1 >= expression.Length)
+                continue;
+
+            var next = expression[index + 1];
+            if (char.IsWhiteSpace(next) || next is '[' or ']' or '{' or '}' or ',')
+                return true;
+        }
+
+        return false;
+    }
+
+    private static (WorkflowDocument Document, string Yaml, int ReplacementCount)
+        NormalizeGeneratedDocumentedStepOutputPaths(
+            WorkflowDocument document,
+            string yaml,
+            IReadOnlyList<McpServerDiscovery>? discovered,
+            StepExecutorRegistry registry)
+    {
+        WorkflowSemanticValidationException semanticException;
+        try
+        {
+            WorkflowPlanSemanticValidator.ValidateWithStepContracts(
+                document,
+                BuildMcpToolOutputContracts(discovered),
+                registry.GetContracts());
+            return (document, yaml, 0);
+        }
+        catch (WorkflowSemanticValidationException ex)
+        {
+            semanticException = ex;
+        }
+
+        var replacements = semanticException.Errors
+            .Where(static error => string.Equals(
+                error.Code,
+                "STEP_OUTPUT_PROPERTY_UNKNOWN",
+                StringComparison.Ordinal))
+            .Select(TryBuildDocumentedStepOutputPathReplacement)
+            .Where(static replacement => replacement.HasValue)
+            .Select(static replacement => replacement!.Value)
+            .Distinct()
+            .OrderByDescending(static replacement => replacement.InvalidPath.Length)
+            .ToArray();
+        if (replacements.Length == 0)
+            return (document, yaml, 0);
+
+        var root = LoadYamlRoot(yaml);
+        var replacementCount = ReplaceGeneratedExpressionPaths(root, replacements);
+        if (replacementCount == 0)
+            return (document, yaml, 0);
+
+        var normalizedYaml = SerializeYamlNode(root);
+        return (ParseAndValidateGeneratedWorkflow(normalizedYaml), normalizedYaml, replacementCount);
+    }
+
+    private static (string InvalidPath, string ReplacementPath)? TryBuildDocumentedStepOutputPathReplacement(
+        WorkflowSemanticValidationError error)
+    {
+        const string stepsPrefix = "data.steps.";
+        if (string.IsNullOrWhiteSpace(error.InvalidPath)
+            || !error.InvalidPath.StartsWith(stepsPrefix, StringComparison.Ordinal))
+        {
+            return null;
+        }
+
+        var separator = error.InvalidPath.IndexOf('.', stepsPrefix.Length);
+        if (separator < 0)
+            return null;
+        var producerRoot = error.InvalidPath[..separator];
+        var invalidEnvelopePrefix = producerRoot + ".json";
+        if (!error.InvalidPath.StartsWith(invalidEnvelopePrefix + ".", StringComparison.Ordinal))
+            return null;
+
+        var responseRoot = producerRoot + ".response";
+        var suffix = error.InvalidPath[invalidEnvelopePrefix.Length..];
+        var exactDocumentedPath = responseRoot + suffix;
+        var replacement = error.AllowedPaths.Contains(exactDocumentedPath, StringComparer.Ordinal)
+            ? exactDocumentedPath
+            : error.AllowedPaths.Contains(responseRoot, StringComparer.Ordinal)
+                ? responseRoot
+                : null;
+        return replacement == null
+            ? null
+            : (error.InvalidPath, replacement);
+    }
+
+    private static int ReplaceGeneratedExpressionPaths(
+        YamlNode node,
+        IReadOnlyList<(string InvalidPath, string ReplacementPath)> replacements)
+    {
+        var replacementCount = 0;
+        switch (node)
+        {
+            case YamlScalarNode scalar when scalar.Value?.Contains("${", StringComparison.Ordinal) == true:
+                foreach (var replacement in replacements)
+                {
+                    var pattern = Regex.Escape(replacement.InvalidPath) + "(?![A-Za-z0-9_.-])";
+                    var matches = Regex.Matches(scalar.Value, pattern, RegexOptions.CultureInvariant).Count;
+                    if (matches == 0)
+                        continue;
+                    scalar.Value = Regex.Replace(
+                        scalar.Value,
+                        pattern,
+                        replacement.ReplacementPath,
+                        RegexOptions.CultureInvariant);
+                    replacementCount += matches;
+                }
+                break;
+            case YamlSequenceNode sequence:
+                foreach (var child in sequence.Children)
+                    replacementCount += ReplaceGeneratedExpressionPaths(child, replacements);
+                break;
+            case YamlMappingNode mapping:
+                foreach (var child in mapping.Children.Values)
+                    replacementCount += ReplaceGeneratedExpressionPaths(child, replacements);
+                break;
+        }
+
+        return replacementCount;
+    }
+
+    [GeneratedRegex(
+        @"^(?<prefix>\s*(?:-\s+)?[^:#\r\n][^:\r\n]*:\s*)(?<expression>\$\{.*\})(?<suffix>\s*)$",
+        RegexOptions.CultureInvariant)]
+    private static partial Regex GeneratedExactExpressionMappingScalarRegex();
+
+    [GeneratedRegex(
+        @"^(?<prefix>\s*-\s+)(?<expression>\$\{.*\})(?<suffix>\s*)$",
+        RegexOptions.CultureInvariant)]
+    private static partial Regex GeneratedExactExpressionSequenceScalarRegex();
+
+    [GeneratedRegex(
+        @"^\s*(?:-\s+)?[A-Za-z_][A-Za-z0-9_.-]*:\s*[|>][0-9+-]{0,2}\s*(?:#.*)?$",
+        RegexOptions.CultureInvariant)]
+    private static partial Regex YamlBlockScalarHeaderRegex();
+
+    private static int CountLeadingYamlSpaces(string value)
+    {
+        var count = 0;
+        while (count < value.Length && value[count] == ' ')
+            count++;
+        return count;
     }
 
     private static WorkflowDocument ParseAndValidateGeneratedWorkflow(string yaml)

@@ -126,6 +126,16 @@ internal static class StepOutputTypeResolver
 
         if (string.Equals(kind, "prompt", StringComparison.OrdinalIgnoreCase))
         {
+            if (structuredJsonType != null)
+            {
+                return Object(
+                    ("status", FlowTypeDescriptor.String),
+                    ("description", FlowTypeDescriptor.String),
+                    ("messages", FlowTypeDescriptor.Array()),
+                    ("text", FlowTypeDescriptor.String),
+                    ("json", structuredJsonType));
+            }
+
             return Object(
                 ("status", FlowTypeDescriptor.String),
                 ("description", FlowTypeDescriptor.String),
@@ -143,6 +153,18 @@ internal static class StepOutputTypeResolver
             responseType = contract.OutputSchema == null
                 ? InferFromExample(contract.ExampleResponse)
                 : FlowTypeDescriptorConverter.FromJsonSchema(contract.OutputSchema);
+        }
+
+        if (structuredJsonType != null)
+        {
+            return Object(
+                ("status", FlowTypeDescriptor.String),
+                ("response", responseType),
+                ("error", Object()),
+                ("correlation_id", FlowTypeDescriptor.String),
+                ("trace_id", FlowTypeDescriptor.String),
+                ("results", FlowTypeDescriptor.Array()),
+                ("json", structuredJsonType));
         }
 
         return Object(
