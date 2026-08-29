@@ -171,6 +171,23 @@ internal static class WorkflowPlanDiagnostics
     public static bool IsTransientProviderFailure(Exception exception)
         => LlmFailureClassifier.Classify(exception)?.Retryable == true;
 
+    public static bool IsNonRepairableLlmFailure(Exception exception)
+    {
+        if (LlmFailureClassifier.Classify(exception) != null)
+            return true;
+
+        for (Exception? current = exception; current != null; current = current.InnerException)
+        {
+            if (current is WorkflowRuntimeException runtime
+                && runtime.Code is ErrorCodes.LlmBudgetExceeded or ErrorCodes.LlmBudgetUnverifiable)
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
     private static void CollectDiagnosticIdentities(JsonNode? node, List<string> diagnostics)
     {
         switch (node)

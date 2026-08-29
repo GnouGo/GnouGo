@@ -64,7 +64,9 @@ public sealed class McpCallExecutor : IStepExecutor
         new(ErrorCodes.McpTimeout, true, "The MCP call timed out. This is retryable."),
         new(ErrorCodes.McpCallError, false, "A tool call failed, or LLM-assisted selection chose no valid MCP tool."),
         new(ErrorCodes.McpPromptError, false, "A prompt call failed, or LLM-assisted selection chose no valid MCP prompt."),
-        new(ErrorCodes.LlmNetwork, false, "LLM-assisted MCP selection was requested but no LLM client is configured.")
+        new(ErrorCodes.LlmNetwork, false, "LLM-assisted MCP selection was requested but no LLM client is configured."),
+        new(ErrorCodes.LlmBudgetExceeded, false, "The active host or workflow LLM usage budget was exceeded during assisted selection or synthesis."),
+        new(ErrorCodes.LlmBudgetUnverifiable, false, "The active LLM usage budget could not be verified during assisted selection or synthesis.")
     };
 
     public string DslSnippet => """
@@ -558,14 +560,14 @@ public sealed class McpCallExecutor : IStepExecutor
             });
         }
 
-        var llmResponse = await llmClient.CallAsync(new LLMRequest
+        var llmResponse = await ctx.CallLLMAsync(llmClient, new LLMRequest
         {
             Provider = provider,
             Model = model,
             Prompt = BuildLlmSelectionPrompt(prompt),
             Temperature = temperature,
             Tools = BuildToolsList(capabilities, input)
-        }, ct);
+        }, "mcp.call.selection", ct);
 
         var finishReason = llmResponse.ToolCalls is { Count: > 0 } ? "tool_calls" : "stop";
         ctx.SetTelemetryAttribute("gen_ai.response.model", model);
@@ -704,7 +706,7 @@ public sealed class McpCallExecutor : IStepExecutor
             });
         }
 
-        var response = await llmClient.CallAsync(new LLMRequest
+        var response = await ctx.CallLLMAsync(llmClient, new LLMRequest
         {
             Provider = provider,
             Model = model,
@@ -712,7 +714,7 @@ public sealed class McpCallExecutor : IStepExecutor
             Temperature = temperature,
             StructuredOutputSchema = structuredOutputSchema,
             StructuredOutputStrict = structuredOutputStrict
-        }, ct);
+        }, "mcp.call.synthesis", ct);
 
         ExtractUsageTelemetry(ctx, response.Usage as JsonObject, model, provider);
 

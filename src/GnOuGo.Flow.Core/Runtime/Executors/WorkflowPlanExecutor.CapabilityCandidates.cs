@@ -88,6 +88,7 @@ public sealed partial class WorkflowPlanExecutor
         var knownCatalogIds = catalog.Entries.Select(static entry => entry.Id).ToHashSet(StringComparer.Ordinal);
 
         await RunPhysicalCandidateSelectionPassAsync(
+            ctx,
             llmClient,
             inventory,
             catalog,
@@ -132,6 +133,7 @@ public sealed partial class WorkflowPlanExecutor
                 new KeyValuePair<string, object?>("gnougo-flow.thinking.level", "info")
             });
             await RunPhysicalCandidateSelectionPassAsync(
+                ctx,
                 llmClient,
                 inventory,
                 catalog,
@@ -199,6 +201,7 @@ public sealed partial class WorkflowPlanExecutor
     }
 
     private static async Task RunPhysicalCandidateSelectionPassAsync(
+        StepExecutionContext ctx,
         ILLMClient llmClient,
         CapabilityInventory inventory,
         PhysicalCapabilityCatalog catalog,
@@ -221,7 +224,7 @@ public sealed partial class WorkflowPlanExecutor
 
         for (var pageIndex = 0; pageIndex < catalog.Pages.Count; pageIndex++)
         {
-            var response = await llmClient.CallAsync(new LLMRequest
+            var response = await ctx.CallLLMAsync(llmClient, new LLMRequest
             {
                 Provider = provider,
                 Model = model,
@@ -239,7 +242,7 @@ public sealed partial class WorkflowPlanExecutor
                 UseBackgroundMode = true,
                 StructuredOutputSchema = BuildPhysicalCapabilitySelectionSchema(),
                 StructuredOutputStrict = true
-            }, ct);
+            }, "workflow.plan.capability_candidates", ct);
             AddUsageAttributes(inferenceSpan, response.Usage, model, provider);
 
             try

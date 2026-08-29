@@ -68,7 +68,7 @@ internal sealed class RecordingLlmClient : ILLMClient
         if (request.Prompt.Contains("provider-neutral workflow intent clarification analyst", StringComparison.OrdinalIgnoreCase))
         {
             var hasAnswers = request.Prompt.Contains("<clarification_answers_json>", StringComparison.Ordinal);
-            return Task.FromResult(new LLMResponse
+            return Task.FromResult(WithUsage(new LLMResponse
             {
                 Json = hasAnswers
                     ? new JsonObject
@@ -105,11 +105,11 @@ internal sealed class RecordingLlmClient : ILLMClient
                             }
                         }
                     }
-            });
+            }));
         }
         if (request.Prompt.Contains("domain-neutral workflow runtime analyst", StringComparison.OrdinalIgnoreCase))
         {
-            return Task.FromResult(new LLMResponse
+            return Task.FromResult(WithUsage(new LLMResponse
             {
                 Json = new JsonObject
                 {
@@ -118,20 +118,31 @@ internal sealed class RecordingLlmClient : ILLMClient
                     ["operations"] = new JsonArray(),
                     ["constraints"] = new JsonArray()
                 }
-            });
+            }));
         }
         if (request.Prompt.Contains("domain-neutral capability matcher", StringComparison.OrdinalIgnoreCase))
         {
-            return Task.FromResult(new LLMResponse
+            return Task.FromResult(WithUsage(new LLMResponse
             {
                 Json = new JsonObject
                 {
                     ["operation_matches"] = new JsonArray(),
                     ["constraint_matches"] = new JsonArray()
                 }
-            });
+            }));
         }
-        return Task.FromResult(new LLMResponse { Text = BuildResponseText(request) });
+        return Task.FromResult(WithUsage(new LLMResponse { Text = BuildResponseText(request) }));
+    }
+
+    private static LLMResponse WithUsage(LLMResponse response)
+    {
+        response.Usage = new JsonObject
+        {
+            ["prompt_tokens"] = 8,
+            ["completion_tokens"] = 8,
+            ["total_tokens"] = 16
+        };
+        return response;
     }
 
     private static string BuildResponseText(LLMRequest request)

@@ -46,7 +46,8 @@ public static class GnOuGoAgentWebHost
         string[] args,
         string? urls = null,
         string? contentRoot = null,
-        bool enableHttpsRedirection = true)
+        bool enableHttpsRedirection = true,
+        Action<IServiceCollection>? configureServices = null)
     {
         WebApplicationBuilder builder;
         var isDesktopHosted = !string.IsNullOrWhiteSpace(contentRoot);
@@ -458,6 +459,7 @@ public static class GnOuGoAgentWebHost
 
         builder.Services.AddSingleton<WordChunker>();
 
+        configureServices?.Invoke(builder.Services);
         var app = builder.Build();
 
         app.Services.InitializeAgentMcpAsync().GetAwaiter().GetResult();

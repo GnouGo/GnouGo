@@ -314,7 +314,7 @@ public sealed partial class WorkflowPlanExecutor
                 previousError);
             try
             {
-                var response = await llmClient.CallAsync(new LLMRequest
+                var response = await ctx.CallLLMAsync(llmClient, new LLMRequest
                 {
                     Provider = provider,
                     Model = model,
@@ -323,7 +323,7 @@ public sealed partial class WorkflowPlanExecutor
                     UseBackgroundMode = true,
                     StructuredOutputSchema = BuildIntentClarificationSchema(session.CurrentRoundQuestionLimit),
                     StructuredOutputStrict = true
-                }, ct);
+                }, "workflow.plan.intent_clarification", ct);
                 previousResponse = response.Text;
                 var assessment = ParseIntentClarificationAssessment(
                     ParseStructuredObject(response, "intent clarification"),
@@ -336,6 +336,10 @@ public sealed partial class WorkflowPlanExecutor
                 return assessment;
             }
             catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception ex) when (WorkflowPlanDiagnostics.IsNonRepairableLlmFailure(ex))
             {
                 throw;
             }

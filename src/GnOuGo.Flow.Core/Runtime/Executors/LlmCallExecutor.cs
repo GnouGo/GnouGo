@@ -19,6 +19,8 @@ public sealed class LlmCallExecutor : IStepExecutor
         new(ErrorCodes.LlmNetwork, true, "A transient network failure occurred while calling the LLM provider."),
         new(ErrorCodes.LlmProvider, false, "The LLM provider rejected the request with a non-retryable client error."),
         new(ErrorCodes.LlmNetwork, false, "The LLM client is not configured or failed without a provider HTTP response."),
+        new(ErrorCodes.LlmBudgetExceeded, false, "The active host or workflow LLM usage budget was exceeded."),
+        new(ErrorCodes.LlmBudgetUnverifiable, false, "The active LLM usage budget could not be verified from provider-neutral usage or pricing data."),
         new(ErrorCodes.LlmSchema, false, "The structured_output envelope/schema is invalid, or the returned JSON does not conform to that schema.")
     };
 
@@ -162,7 +164,7 @@ public sealed class LlmCallExecutor : IStepExecutor
 
         try
         {
-            var response = await llmClient.CallAsync(request, ct);
+            var response = await ctx.CallLLMAsync(llmClient, request, "llm.call", ct);
 
 
             // ── Thinking: preview first 120 chars of the LLM response ──

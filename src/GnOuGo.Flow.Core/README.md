@@ -1281,6 +1281,12 @@ requests keep their existing routing unless their caller explicitly opts into ba
       max_rounds: 2
       max_questions: 8
       max_questions_per_round: 5
+    llm_budget:                   # Optional; absent preserves legacy behavior
+      max_calls: 40
+      max_total_tokens: 1500000
+      max_elapsed_ms: 1800000
+      max_estimated_cost_usd: 25  # Optional; requires usage and pricing metadata
+      unverifiable: fail
     capability_preflight:
       mode: infer                 # off (default) | infer | explicit
       clarification:
@@ -1344,6 +1350,14 @@ Each form contains one to `max_questions_per_round` single-choice questions, wit
 The round and question limits are shared by the complete `workflow.plan` run. After the initial form, one remaining round may be used for genuine intent ambiguity discovered after bounded capability or extraction repair. A later answer restarts the complete preflight and planning attempt with a structured clarification envelope. Runtime-dependent outcomes remain conditional workflow branches and are never sent to the human for prediction.
 
 Malformed model contracts, invalid catalog IDs, unavailable capabilities, schema violations, and ordinary generation defects are not clarification-eligible. They retain their normal fail-closed errors. Intent clarification uses `WORKFLOW_PLAN_CLARIFICATION_FAILED` for provider, timeout, response, or analyst-contract failures; `WORKFLOW_PLAN_CANNOT_PLAN_SAFELY` for intrinsic or budget-exhausted ambiguity; and `WORKFLOW_PLAN_ABORTED` for explicit abandonment. Failure metadata contains only stage, classification, counts, reason, and recommended action—not submitted answers.
+
+#### Provider-neutral LLM usage budgets
+
+`llm_budget` bounds every LLM call made by the `workflow.plan` step, including clarification, discovery filtering, capability inference, extraction, quality review, generation, and repair. The contract is disabled when absent. Configured call and elapsed limits are checked before dispatch; token and estimated-cost totals are recorded from provider-neutral response usage before a response can be accepted. Missing usage or pricing required by an active limit fails closed with `LLM_BUDGET_UNVERIFIABLE`.
+
+Hosts may attach a parent `LLMUsageBudgetScope` to `WorkflowEngine.LLMUsageBudget`. A plan scope becomes its child, so it can tighten but never loosen the host allowance; routed child workflows inherit the same parent. Monetary scopes serialize unaccounted calls, limiting local estimation overshoot to one in-flight request. A provider-side hard spend limit is still required when an exact monetary ceiling matters.
+
+Budget snapshots and `gnougo-flow.llm_budget.updated` telemetry contain only call counts, token totals, estimated USD cost, elapsed time, stage, status, and a random call identifier. They never contain prompts, responses, credentials, provider bodies, or human answers.
 
 #### Generic capability preflight
 
@@ -1963,6 +1977,8 @@ on_error:
 | `LLM_TIMEOUT` | Yes | LLM request timed out |
 | `LLM_NETWORK` | Yes | Transport failure, HTTP `425`/`429`, or provider `5xx` response |
 | `LLM_PROVIDER` | No | Provider rejected the request with another `4xx` response |
+| `LLM_BUDGET_EXCEEDED` | No | An LLM call, token, elapsed-time, or estimated-cost budget was exceeded |
+| `LLM_BUDGET_UNVERIFIABLE` | No | Usage, pricing, or a configured durable ledger could not verify an active budget safely |
 | `MCP_CONNECTION_ERROR` | Yes | Cannot connect to MCP server |
 | `MCP_TOOL_ERROR` | No | MCP tool returned an error |
 | `CAPABILITY_PREFLIGHT_UNAVAILABLE` | No | A required operation has no exact available capability |

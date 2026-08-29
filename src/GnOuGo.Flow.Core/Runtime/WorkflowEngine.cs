@@ -22,6 +22,7 @@ public sealed class WorkflowEngine : IWorkflowRuntime
     public ILLMClient? LLMClient { get; set; }
     public ILLMCapabilityResolver? LLMCapabilities { get; set; }
     public IModelUsageCostEstimator? ModelUsageCostEstimator { get; set; }
+    public LLMUsageBudgetScope? LLMUsageBudget { get; set; }
     public IWorkflowFetcher? WorkflowFetcher { get; set; }
     public ITemplateEngine? TemplateEngine { get; set; }
     public IMcpClientFactory? McpClientFactory { get; set; }
@@ -686,6 +687,7 @@ public sealed class WorkflowEngine : IWorkflowRuntime
                     Limits = limits,
                     CallDepth = callDepth,
                     CallStack = callStack,
+                    LLMUsageBudget = LLMUsageBudget,
                     ExecutionScope = executionScope,
                     TelemetrySpan = stepSpan
                 };

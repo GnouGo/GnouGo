@@ -363,14 +363,14 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
 
                     try
                     {
-                        var mainResponse = await llmClient.CallAsync(new LLMRequest
+                        var mainResponse = await ctx.CallLLMAsync(llmClient, new LLMRequest
                         {
                             Provider = provider,
                             Model = model,
                             Prompt = mainAssemblyPrompt,
                             Reasoning = reasoning,
                             UseBackgroundMode = true
-                        }, ct);
+                        }, "workflow.plan.pipeline.main_assembly", ct);
                         previousAssemblyResponse = mainResponse.Text;
                         candidateAssemblyFingerprint = BuildPipelineMainAssemblyFingerprint(mainResponse.Text);
                         attemptSpan.SetAttribute(
@@ -499,7 +499,7 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
                     }
                     catch (Exception ex)
                     {
-                        if (WorkflowPlanDiagnostics.IsTransientProviderFailure(ex))
+                        if (WorkflowPlanDiagnostics.IsNonRepairableLlmFailure(ex))
                         {
                             attemptSpan.Fail(ex);
                             throw;
@@ -1370,7 +1370,7 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
             }
             catch (Exception ex) when (attempt < maxAttempts)
             {
-                if (LlmFailureClassifier.Classify(ex) != null)
+                if (WorkflowPlanDiagnostics.IsNonRepairableLlmFailure(ex))
                     throw;
                 if (IsPipelineExtractionRepairStalled(ex))
                     throw;
@@ -1699,7 +1699,7 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
             }
             catch (Exception ex) when (attempt < maxAttempts)
             {
-                if (LlmFailureClassifier.Classify(ex) != null)
+                if (WorkflowPlanDiagnostics.IsNonRepairableLlmFailure(ex))
                     throw;
                 if (IsPipelineExtractionRepairStalled(ex))
                     throw;
@@ -2128,7 +2128,7 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
             }
             catch (Exception ex)
             {
-                if (LlmFailureClassifier.Classify(ex) != null)
+                if (WorkflowPlanDiagnostics.IsNonRepairableLlmFailure(ex))
                     throw;
                 if (!useStructuredOutput)
                 {
@@ -2892,14 +2892,14 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
 
         try
         {
-            var response = await llmClient.CallAsync(new LLMRequest
+            var response = await ctx.CallLLMAsync(llmClient, new LLMRequest
             {
                 Provider = provider,
                 Model = model,
                 Prompt = prompt,
                 Reasoning = reasoning,
                 UseBackgroundMode = true
-            }, ct);
+            }, "workflow.plan.pipeline.extraction", ct);
 
             span.SetAttribute("gen_ai.response.model", model);
             span.SetAttribute("gen_ai.response.finish_reason", "stop");
@@ -2976,7 +2976,7 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
 
         try
         {
-            var response = await llmClient.CallAsync(new LLMRequest
+            var response = await ctx.CallLLMAsync(llmClient, new LLMRequest
             {
                 Provider = provider,
                 Model = model,
@@ -2985,7 +2985,7 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
                 UseBackgroundMode = true,
                 StructuredOutputSchema = structuredOutputSchema,
                 StructuredOutputStrict = true
-            }, ct);
+            }, "workflow.plan.pipeline.quality_review", ct);
 
             span.SetAttribute("gen_ai.response.model", model);
             span.SetAttribute("gen_ai.response.finish_reason", "stop");
@@ -5505,6 +5505,7 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
                     Limits = parentCtx.Limits,
                     CallDepth = parentCtx.CallDepth,
                     CallStack = new HashSet<string>(parentCtx.CallStack),
+                    LLMUsageBudget = parentCtx.LLMUsageBudget,
                     ExecutionScope = parentCtx.ExecutionScope,
                     TelemetrySpan = parentCtx.TelemetrySpan
                 };
@@ -5537,7 +5538,7 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
             }
             catch (Exception ex) when (attempt < maxAttempts)
             {
-                if (WorkflowPlanDiagnostics.IsTransientProviderFailure(ex))
+                if (WorkflowPlanDiagnostics.IsNonRepairableLlmFailure(ex))
                     throw;
 
                 var stalled = DetectRepairStall(
@@ -5826,6 +5827,7 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
             Limits = parentCtx.Limits,
             CallDepth = parentCtx.CallDepth,
             CallStack = new HashSet<string>(parentCtx.CallStack),
+            LLMUsageBudget = parentCtx.LLMUsageBudget,
             ExecutionScope = parentCtx.ExecutionScope,
             TelemetrySpan = parentCtx.TelemetrySpan
         };
@@ -5906,6 +5908,7 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
             Limits = parentCtx.Limits,
             CallDepth = parentCtx.CallDepth,
             CallStack = new HashSet<string>(parentCtx.CallStack),
+            LLMUsageBudget = parentCtx.LLMUsageBudget,
             ExecutionScope = parentCtx.ExecutionScope,
             TelemetrySpan = parentCtx.TelemetrySpan
         };
@@ -5984,6 +5987,7 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
             Limits = parentCtx.Limits,
             CallDepth = parentCtx.CallDepth,
             CallStack = new HashSet<string>(parentCtx.CallStack),
+            LLMUsageBudget = parentCtx.LLMUsageBudget,
             ExecutionScope = parentCtx.ExecutionScope,
             TelemetrySpan = parentCtx.TelemetrySpan
         };

@@ -16,7 +16,9 @@ Create a `RoutingLLMClientAdapter` from a `GnOuGo.AI.Core.RoutingLLMClient` and
 a `ConfiguredMcpClientFactory` from the host-owned MCP settings. Inject them
 through `WorkflowEngine.LLMClient` and `WorkflowEngine.McpClientFactory`.
 For cost telemetry, also assign a `ModelMetadataUsageCostEstimator` to
-`WorkflowEngine.ModelUsageCostEstimator`.
+`WorkflowEngine.ModelUsageCostEstimator`. Pass the effective `LLMOptions` snapshot to
+the estimator when host-configured model pricing overrides must participate in telemetry
+or an enforced `LLMUsageBudgetScope`.
 
 The integration package owns provider and transport mappings. Flow.Core never
 references this package or another GnOuGo component.

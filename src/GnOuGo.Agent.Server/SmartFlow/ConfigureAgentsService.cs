@@ -38,6 +38,7 @@ public sealed class ConfigureAgentsService
     private readonly string _workflowYaml;
     private readonly TimeSpan _mcpCacheSlidingExpiration;
     private readonly string _tenantId;
+    private readonly ILLMUsageBudgetScopeFactory? _llmUsageBudgetScopeFactory;
 
     internal string WorkflowSource => _workflowYaml;
 
@@ -54,7 +55,8 @@ public sealed class ConfigureAgentsService
         AgentUserConfigMcpClient? userConfigClient = null,
         IOptions<McpCapabilityCacheSettings>? mcpCapabilityCacheSettings = null,
         IOptions<WorkflowMermaidMarkdownOptions>? workflowMermaidOptions = null,
-        IOptions<OpenTelemetrySettings>? openTelemetrySettings = null)
+        IOptions<OpenTelemetrySettings>? openTelemetrySettings = null,
+        ILLMUsageBudgetScopeFactory? llmUsageBudgetScopeFactory = null)
     {
         _llm = llm;
         _mcpFactory = mcpFactory;
@@ -69,6 +71,7 @@ public sealed class ConfigureAgentsService
         _workflowMermaidOptions = workflowMermaidOptions?.Value ?? new WorkflowMermaidMarkdownOptions();
         _mcpCacheSlidingExpiration = (mcpCapabilityCacheSettings?.Value ?? new McpCapabilityCacheSettings()).SlidingExpiration;
         _tenantId = WorkflowExecutionTenant.Resolve(openTelemetrySettings);
+        _llmUsageBudgetScopeFactory = llmUsageBudgetScopeFactory;
 
         // Load the embedded workflow YAML
         var asm = typeof(ConfigureAgentsService).Assembly;
@@ -183,7 +186,8 @@ public sealed class ConfigureAgentsService
         var engine = new WorkflowEngine
         {
             LLMClient = runtime.LlmClient,
-            ModelUsageCostEstimator = new ModelMetadataUsageCostEstimator(),
+            ModelUsageCostEstimator = new ModelMetadataUsageCostEstimator(runtime.Options),
+            LLMUsageBudget = _llmUsageBudgetScopeFactory?.CreateScope(),
             LLMCapabilities = runtime.LlmCapabilityResolver,
             LlmDefaults = new LlmRuntimeDefaults
             {

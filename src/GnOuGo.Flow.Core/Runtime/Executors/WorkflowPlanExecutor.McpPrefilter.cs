@@ -149,7 +149,7 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
                 });
             }
 
-            var response = await llmClient.CallAsync(new LLMRequest
+            var response = await ctx.CallLLMAsync(llmClient, new LLMRequest
             {
                 Provider = provider,
                 Model = model,
@@ -180,7 +180,7 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
                 """),
                 StructuredOutputStrict = true,
                 Reasoning = planReasoning,
-            }, ct);
+            }, "workflow.plan.mcp_prefilter", ct);
 
             // ── GenAI: log prefilter completion + usage ──
             if (ctx.Limits.LogStepContent && !string.IsNullOrWhiteSpace(response.Text))
@@ -317,7 +317,7 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
         catch (Exception ex)
         {
             prefilterSpan.Fail(ex);
-            if (LlmFailureClassifier.Classify(ex) != null)
+            if (WorkflowPlanDiagnostics.IsNonRepairableLlmFailure(ex))
                 throw;
 
             // On any failure, fall back to the full unfiltered list

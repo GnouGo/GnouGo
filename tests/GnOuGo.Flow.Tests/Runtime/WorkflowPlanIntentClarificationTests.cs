@@ -288,6 +288,72 @@ public sealed class WorkflowPlanIntentClarificationTests
     }
 
     [Fact]
+    public async Task AlwaysMode_UnverifiableBudgetStopsWithoutClarificationRepair()
+    {
+        var calls = 0;
+        var llm = CreateLlm(_ =>
+        {
+            calls++;
+            return Assessment("sufficient", "The request is complete.");
+        });
+        var workflow = CompileMain("""
+            version: 1
+            workflows:
+              main:
+                steps:
+                  - id: plan
+                    type: workflow.plan
+                    input:
+                      mode: basic
+                      raw_prompt: "Create one deterministic result."
+                      intent_clarification:
+                        mode: always
+                      llm_budget:
+                        max_total_tokens: 1000
+                      generator:
+                        model: neutral-model
+                        instruction: "Create one deterministic result."
+                      validate:
+                        compile: false
+            """);
+
+        var result = await new WorkflowEngine { LLMClient = llm }
+            .ExecuteAsync(workflow, new JsonObject(), TestContext.Current.CancellationToken);
+
+        Assert.False(result.Success);
+        Assert.Equal(ErrorCodes.LlmBudgetUnverifiable, result.Error!.Code);
+        Assert.Equal(1, calls);
+    }
+
+    [Fact]
+    public async Task AlwaysMode_TerminalProviderFailureStopsWithoutClarificationRepair()
+    {
+        var calls = 0;
+        var llm = CreateLlm(_ =>
+        {
+            calls++;
+            throw new LLMClientException(
+                LLMClientFailureKind.QuotaOrBilling,
+                "redacted quota failure",
+                retryable: false,
+                statusCode: 429,
+                safeProviderCode: "insufficient_quota");
+        });
+
+        var result = await ExecuteAsync(
+            "always",
+            llm,
+            human: null,
+            cancellationToken: TestContext.Current.CancellationToken);
+
+        Assert.False(result.Success);
+        Assert.Equal(ErrorCodes.LlmProvider, result.Error!.Code);
+        Assert.False(result.Error.Retryable);
+        Assert.Equal("quota_or_billing", result.Error.Details!["classification"]!.GetValue<string>());
+        Assert.Equal(1, calls);
+    }
+
+    [Fact]
     public async Task AlwaysMode_RequiredFormWithoutProviderReturnsClarificationFailure()
     {
         var llm = CreateLlm(request => IsClarificationRequest(request)

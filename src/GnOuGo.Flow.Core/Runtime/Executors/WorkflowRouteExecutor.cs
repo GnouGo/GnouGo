@@ -22,6 +22,8 @@ public sealed class WorkflowRouteExecutor : IStepExecutor
         new(ErrorCodes.TemplatePlan, false, "The routing LLM is unavailable or did not return a valid selection."),
         new(ErrorCodes.WorkflowFetchNetwork, false, "A dynamic candidate source or selected workflow could not be resolved."),
         new(ErrorCodes.WorkflowCycleDetected, false, "A selected workflow call would exceed route call-depth limits or create a call cycle."),
+        new(ErrorCodes.LlmBudgetExceeded, false, "The active host or workflow LLM usage budget was exceeded during routing, argument extraction, or synthesis."),
+        new(ErrorCodes.LlmBudgetUnverifiable, false, "The active LLM usage budget could not be verified during routing, argument extraction, or synthesis."),
         new("NO_HITL_PROVIDER", false, "Interactive routed-input completion is enabled but no IHumanInputProvider is configured."),
         new("HUMAN_INPUT_TIMEOUT", false, "The human did not complete the selected workflow inputs before the configured timeout.")
     };
@@ -229,7 +231,7 @@ public sealed class WorkflowRouteExecutor : IStepExecutor
         var (provider, model) = ctx.Engine.ResolveLlmTarget(requestedProvider, requestedModel);
 
         var selectionPrompt = BuildSelectionPrompt(prompt, input["history"], candidates, minSelected, maxSelected);
-        var response = await llm.CallAsync(new LLMRequest
+        var response = await ctx.CallLLMAsync(llm, new LLMRequest
         {
             Provider = provider,
             Model = model ?? "",
@@ -237,7 +239,7 @@ public sealed class WorkflowRouteExecutor : IStepExecutor
             Temperature = selectionInput?["temperature"]?.GetValue<double>() ?? 0,
             StructuredOutputStrict = false,
             StructuredOutputSchema = BuildSelectionSchema()
-        }, ct);
+        }, "workflow.route.selection", ct);
 
         var json = response.Json ?? TryParseJsonObject(response.Text)
             ?? throw new WorkflowRuntimeException(ErrorCodes.TemplatePlan, "workflow.route selection did not return JSON");
@@ -329,7 +331,7 @@ public sealed class WorkflowRouteExecutor : IStepExecutor
             ?? throw new WorkflowRuntimeException(ErrorCodes.TemplatePlan, "workflow.route args.auto_extract requires an LLM client");
 
         var (provider, model) = ctx.Engine.ResolveLlmTarget(config.Provider, config.Model);
-        var response = await llm.CallAsync(new LLMRequest
+        var response = await ctx.CallLLMAsync(llm, new LLMRequest
         {
             Provider = provider,
             Model = model ?? "",
@@ -337,7 +339,7 @@ public sealed class WorkflowRouteExecutor : IStepExecutor
             Prompt = BuildArgumentExtractionPrompt(routeInput, candidate, workflow, mappedArgs, schema),
             StructuredOutputStrict = false,
             StructuredOutputSchema = BuildArgumentExtractionSchema(schema)
-        }, ct);
+        }, "workflow.route.argument_extraction", ct);
 
         var json = response.Json ?? TryParseJsonObject(response.Text)
             ?? throw new WorkflowRuntimeException(ErrorCodes.TemplatePlan, "workflow.route auto_extract did not return JSON");
@@ -962,6 +964,7 @@ public sealed class WorkflowRouteExecutor : IStepExecutor
         {
             LLMClient = ctx.Engine.LLMClient,
             ModelUsageCostEstimator = ctx.Engine.ModelUsageCostEstimator,
+            LLMUsageBudget = ctx.LLMUsageBudget ?? ctx.Engine.LLMUsageBudget,
             WorkflowFetcher = ctx.Engine.WorkflowFetcher,
             TemplateEngine = ctx.Engine.TemplateEngine,
             McpClientFactory = ctx.Engine.McpClientFactory,
@@ -1115,13 +1118,13 @@ public sealed class WorkflowRouteExecutor : IStepExecutor
         var requestedModel = combineInput?["model"]?.GetValue<string>();
         var (provider, model) = ctx.Engine.ResolveLlmTarget(requestedProvider, requestedModel);
 
-        var response = await llm.CallAsync(new LLMRequest
+        var response = await ctx.CallLLMAsync(llm, new LLMRequest
         {
             Provider = provider,
             Model = model ?? "",
             Temperature = combineInput?["temperature"]?.GetValue<double>() ?? 0.2,
             Prompt = BuildSynthesisPrompt(prompt, input["history"], results)
-        }, ct);
+        }, "workflow.route.synthesis", ct);
 
         return response.Text.Trim();
     }

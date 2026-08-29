@@ -297,15 +297,28 @@ In inferred mode, matching is reported per operation as `matched`, `composed`, `
 
 External writes inferred from a short intention are classified separately from reads and AI execution. When the user did not explicitly request unattended execution, `/gnougo add` receives a locked platform confirmation operation and an ordering policy before matching and decomposition. A conditional rule such as “only after confirmation” never becomes a document-wide denied tool, while unconditional prohibitions still reject exact denied calls.
 
-The intention-first live acceptance harness is opt-in because it uses the configured KeyVault-backed provider and external MCP servers:
+The intention-first live acceptance harness is opt-in because it uses the configured KeyVault-backed provider and external MCP servers. It requires a dedicated validation project with a provider-side USD 25 hard limit. The two environment variables below are an explicit operator attestation; the harness does not modify or query provider billing configuration.
 
-```bash
-GNOU_GO_LIVE_INTENT_AGENT_E2E=1 dotnet test \
-  tests/GnOuGo.Agent.Server.Tests/GnOuGo.Agent.Server.Tests.csproj \
+```powershell
+$env:GNOU_GO_LIVE_INTENT_AGENT_E2E = "1"
+$env:GNOU_GO_LIVE_INTENT_AGENT_PROVIDER_PROJECT_ISOLATED = "1"
+$env:GNOU_GO_LIVE_INTENT_AGENT_PROVIDER_HARD_LIMIT_USD = "25"
+$env:GNOU_GO_LIVE_INTENT_AGENT_BUDGET_STATE_PATH = Join-Path $env:TEMP "gnougo-live-intent-budget.json"
+
+# Gate 1: provider probe plus one diagnostic generation.
+$env:GNOU_GO_LIVE_INTENT_AGENT_GENERATIONS = "1"
+dotnet test tests/GnOuGo.Agent.Server.Tests/GnOuGo.Agent.Server.Tests.csproj `
+  --filter "FullyQualifiedName~LiveIntentAgentGenerationTests.SimpleIntent_GeneratesThreeValidatedAgentsUsingLiveConfiguration"
+
+# Gate 2: only after Gate 1 succeeds, consume the remaining shared budget.
+Remove-Item Env:GNOU_GO_LIVE_INTENT_AGENT_GENERATIONS
+dotnet test tests/GnOuGo.Agent.Server.Tests/GnOuGo.Agent.Server.Tests.csproj `
   --filter "FullyQualifiedName~LiveIntentAgentGenerationTests.SimpleIntent_GeneratesThreeValidatedAgentsUsingLiveConfiguration"
 ```
 
-The harness submits the same short user intention for three independent generations and simulates the human for initial inputs, every up-front or follow-up clarification form, generated-YAML approval, publication rejection, and the scoped confirmation for the disposable fixture. It exercises both an AI-recommended answer and a native custom answer, validates every discovered MCP call and literal selector, executes a read-only review against the configured public acceptance PR while denying publication, and exercises the confirmed write path only against a disposable draft fixture. Unexpected human prompts fail the test. It restores the previous default-agent setting and removes the fixture PR/branch, generated agents, and isolated workspaces in `finally`.
+The first process performs one minimal provider probe and one diagnostic generation. The second process requires the successful redacted ledger from that gate and performs three independent generations. Together they share 120 LLM calls, five million tokens, 120 minutes, and USD 25 estimated cost. Terminal provider failures and deterministic generation failures stop the cycle; only typed transient provider failures receive one retry. The ledger stores only cumulative usage and phase flags, and is removed after any failed phase or after final acceptance.
+
+The harness submits the same short user intention and simulates the human for initial inputs, every up-front or follow-up clarification form, generated-YAML approval, publication rejection, and the scoped confirmation for the disposable fixture. It exercises both an AI-recommended answer and a native custom answer, validates every discovered MCP call and literal selector, executes a read-only review against the configured public acceptance PR while denying publication, and exercises the confirmed write path only against a disposable draft fixture. Unexpected human prompts fail the test. It restores the previous default-agent setting and removes the fixture PR/branch, generated agents, isolated workspaces, and final budget ledger in `finally`.
 
 The Blazor chat session now carries a server-facing `ConversationId`. The UI keeps its local transcript for display, while `SmartFlowService` loads recent server-side messages into the routing workflow as `history` and appends the user/assistant turn after a successful answer. HTTP clients can also pass `conversationId` and `prompt` on `/api/chat` or `/api/chat/stream`; if omitted, the server creates a new conversation id and returns/emits it.
 

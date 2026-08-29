@@ -67,6 +67,7 @@ public sealed class SmartFlowService
     private readonly AgentOTelTelemetry _otel;
     private readonly ILogger<SmartFlowService> _logger;
     private readonly IWorkflowTraceFileExporter? _traceFileExporter;
+    private readonly ILLMUsageBudgetScopeFactory? _llmUsageBudgetScopeFactory;
     private readonly WorkflowMermaidMarkdownOptions _workflowMermaidOptions;
     private readonly string _routingWorkflowYaml;
     private readonly TimeSpan _mcpCacheSlidingExpiration;
@@ -93,7 +94,8 @@ public sealed class SmartFlowService
         IOptions<McpCapabilityCacheSettings>? mcpCapabilityCacheSettings = null,
         IOptions<WorkflowMermaidMarkdownOptions>? workflowMermaidOptions = null,
         IOptions<OpenTelemetrySettings>? openTelemetrySettings = null,
-        LocalModelsService? localModels = null)
+        LocalModelsService? localModels = null,
+        ILLMUsageBudgetScopeFactory? llmUsageBudgetScopeFactory = null)
     {
         _llm = llm;
         _mcpCache = mcpCache;
@@ -107,6 +109,7 @@ public sealed class SmartFlowService
         _historyStore = historyStore;
         _scopeFactory = scopeFactory;
         _traceFileExporter = traceFileExporter;
+        _llmUsageBudgetScopeFactory = llmUsageBudgetScopeFactory;
         _workflowMermaidOptions = workflowMermaidOptions?.Value ?? new WorkflowMermaidMarkdownOptions();
         _otel = otel;
         _logger = logger;
@@ -404,7 +407,8 @@ public sealed class SmartFlowService
             var engine = new WorkflowEngine
             {
                 LLMClient = runtime.LlmClient,
-                ModelUsageCostEstimator = new ModelMetadataUsageCostEstimator(),
+                ModelUsageCostEstimator = new ModelMetadataUsageCostEstimator(runtime.Options),
+                LLMUsageBudget = _llmUsageBudgetScopeFactory?.CreateScope(),
                 LLMCapabilities = runtime.LlmCapabilityResolver,
                 LlmDefaults = new LlmRuntimeDefaults
                 {
@@ -1270,7 +1274,8 @@ public sealed class SmartFlowService
         var repairEngine = new WorkflowEngine
         {
             LLMClient = runtime.LlmClient,
-            ModelUsageCostEstimator = new ModelMetadataUsageCostEstimator(),
+            ModelUsageCostEstimator = new ModelMetadataUsageCostEstimator(runtime.Options),
+            LLMUsageBudget = _llmUsageBudgetScopeFactory?.CreateScope(),
             LLMCapabilities = runtime.LlmCapabilityResolver,
             LlmDefaults = new LlmRuntimeDefaults
             {

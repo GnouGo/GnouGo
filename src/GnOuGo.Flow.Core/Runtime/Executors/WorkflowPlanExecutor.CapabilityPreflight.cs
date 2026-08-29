@@ -464,7 +464,7 @@ public sealed partial class WorkflowPlanExecutor
         var inferencePhase = "capability_inventory_call";
         try
         {
-            var inventoryResponse = await llmClient.CallAsync(new LLMRequest
+            var inventoryResponse = await ctx.CallLLMAsync(llmClient, new LLMRequest
             {
                 Provider = provider,
                 Model = model,
@@ -473,7 +473,7 @@ public sealed partial class WorkflowPlanExecutor
                 UseBackgroundMode = true,
                 StructuredOutputSchema = BuildCapabilityInventorySchema(),
                 StructuredOutputStrict = true
-            }, ct);
+            }, "workflow.plan.capability_inventory", ct);
             AddUsageAttributes(inferenceSpan, inventoryResponse.Usage, model, provider);
             inferencePhase = "capability_inventory_parse";
             CapabilityInventory inventory;
@@ -505,7 +505,7 @@ public sealed partial class WorkflowPlanExecutor
                 });
 
                 inferencePhase = "capability_inventory_repair_call";
-                var repairedInventoryResponse = await llmClient.CallAsync(new LLMRequest
+                var repairedInventoryResponse = await ctx.CallLLMAsync(llmClient, new LLMRequest
                 {
                     Provider = provider,
                     Model = model,
@@ -514,7 +514,7 @@ public sealed partial class WorkflowPlanExecutor
                     UseBackgroundMode = true,
                     StructuredOutputSchema = BuildCapabilityInventorySchema(),
                     StructuredOutputStrict = true
-                }, ct);
+                }, "workflow.plan.capability_inventory_repair", ct);
                 AddUsageAttributes(inferenceSpan, repairedInventoryResponse.Usage, model, provider);
                 inferencePhase = "capability_inventory_repair_parse";
                 try
@@ -614,7 +614,7 @@ public sealed partial class WorkflowPlanExecutor
             inferenceSpan.SetAttribute("gnougo-flow.plan.capability_catalog.selected_prompt_count", matchingDiscovery.Sum(static server => server.Prompts.Count));
 
             inferencePhase = "capability_matching_call";
-            var matchingResponse = await llmClient.CallAsync(new LLMRequest
+            var matchingResponse = await ctx.CallLLMAsync(llmClient, new LLMRequest
             {
                 Provider = provider,
                 Model = model,
@@ -623,7 +623,7 @@ public sealed partial class WorkflowPlanExecutor
                 UseBackgroundMode = true,
                 StructuredOutputSchema = BuildCapabilityMatchingSchema(),
                 StructuredOutputStrict = true
-            }, ct);
+            }, "workflow.plan.capability_matching", ct);
             AddUsageAttributes(inferenceSpan, matchingResponse.Usage, model, provider);
             inferencePhase = "capability_matching_parse";
             CapabilityMatchingEvaluation evaluation;
@@ -653,7 +653,7 @@ public sealed partial class WorkflowPlanExecutor
                     new KeyValuePair<string, object?>("gnougo-flow.thinking.level", "info")
                 });
                 inferencePhase = "capability_matching_repair_call";
-                var repairedMatchingResponse = await llmClient.CallAsync(new LLMRequest
+                var repairedMatchingResponse = await ctx.CallLLMAsync(llmClient, new LLMRequest
                 {
                     Provider = provider,
                     Model = model,
@@ -662,7 +662,7 @@ public sealed partial class WorkflowPlanExecutor
                     UseBackgroundMode = true,
                     StructuredOutputSchema = BuildCapabilityMatchingSchema(),
                     StructuredOutputStrict = true
-                }, ct);
+                }, "workflow.plan.capability_matching_repair", ct);
                 AddUsageAttributes(inferenceSpan, repairedMatchingResponse.Usage, model, provider);
                 inferencePhase = "capability_matching_repair_parse";
                 CapabilityMatchingEvaluation repaired;

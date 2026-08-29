@@ -56,6 +56,8 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
         new(ErrorCodes.WorkflowPlanCannotPlanSafely, false, "The request remains intrinsically impossible, contradictory, unsafe, or ambiguous after the clarification budget."),
         new(ErrorCodes.WorkflowPlanAborted, false, "The user explicitly abandoned workflow planning."),
         new(ErrorCodes.WorkflowPlanRepairStalled, false, "The same normalized validation diagnostics survived two repair attempts."),
+        new(ErrorCodes.LlmBudgetExceeded, false, "The configured planning LLM call, token, elapsed-time, or estimated-cost budget was exceeded."),
+        new(ErrorCodes.LlmBudgetUnverifiable, false, "The configured planning LLM budget could not be verified from provider-neutral usage or pricing data."),
         new(ErrorCodes.LlmTimeout, true, "A planning LLM request timed out."),
         new(ErrorCodes.LlmNetwork, true, "A transient transport, rate-limit, or provider service failure interrupted planning."),
         new(ErrorCodes.LlmProvider, false, "The LLM provider rejected a planning request with a non-retryable client error.")
@@ -90,6 +92,7 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
     {
         var originalInput = ctx.Engine.GetResolvedInput(ctx) as JsonObject
             ?? throw new WorkflowRuntimeException(ErrorCodes.InputValidation, "workflow.plan input must be object");
+        AttachLLMUsageBudget(ctx, originalInput);
         var clarificationSession = await PrepareIntentClarificationAsync(ctx, originalInput, ct);
 
         while (true)
@@ -604,14 +607,14 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
                         maxAttempts,
                         planReasoning ?? "(provider default)");
 
-                    response = await llmClient.CallAsync(new LLMRequest
+                    response = await ctx.CallLLMAsync(llmClient, new LLMRequest
                     {
                         Provider = provider,
                         Model = model,
                         Prompt = promptText,
                         Reasoning = planReasoning,
                         UseBackgroundMode = true,
-                    }, ct);
+                    }, "workflow.plan.generation", ct);
                     generationSpan.SetAttribute("gen_ai.response.model", model);
                     generationSpan.SetAttribute("gen_ai.response.finish_reason", "stop");
                     AddUsageAttributes(generationSpan, response.Usage, model, provider);
@@ -778,7 +781,7 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
             }
             catch (Exception ex)
             {
-                if (WorkflowPlanDiagnostics.IsTransientProviderFailure(ex))
+                if (WorkflowPlanDiagnostics.IsNonRepairableLlmFailure(ex))
                 {
                     generationSpan.Fail(ex);
                     throw;

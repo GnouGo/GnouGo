@@ -21074,6 +21074,144 @@ workflows:
     }
 
     [Fact]
+    public async Task WorkflowPlan_LlmBudget_StopsRepairBeforeSecondProviderCall()
+    {
+        var calls = 0;
+        var mockLlm = new Mock<ILLMClient>();
+        mockLlm.Setup(client => client.CallAsync(It.IsAny<LLMRequest>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(() =>
+            {
+                calls++;
+                return new LLMResponse
+                {
+                    Text = "not valid yaml",
+                    Usage = new JsonObject
+                    {
+                        ["input_tokens"] = 10,
+                        ["output_tokens"] = 5,
+                        ["total_tokens"] = 15
+                    }
+                };
+            });
+        var workflow = CompileMain("""
+            version: 1
+            workflows:
+              main:
+                steps:
+                  - id: plan
+                    type: workflow.plan
+                    input:
+                      mode: basic
+                      llm_budget:
+                        max_calls: 1
+                        max_total_tokens: 1000
+                        max_elapsed_ms: 60000
+                        unverifiable: fail
+                      generator:
+                        model: neutral-model
+                        instruction: Generate a neutral workflow.
+                      validate:
+                        compile: false
+                        max_repair_attempts: 3
+            """);
+
+        var result = await new WorkflowEngine { LLMClient = mockLlm.Object }
+            .ExecuteAsync(workflow, new JsonObject(), TestContext.Current.CancellationToken);
+
+        Assert.False(result.Success);
+        Assert.Equal(ErrorCodes.LlmBudgetExceeded, result.Error!.Code);
+        Assert.Equal("calls", result.Error.Details!["limit_kind"]!.GetValue<string>());
+        Assert.Equal(1, calls);
+    }
+
+    [Fact]
+    public async Task WorkflowPlan_LlmBudget_MissingUsageFailsClosed()
+    {
+        var workflow = CompileMain("""
+            version: 1
+            workflows:
+              main:
+                steps:
+                  - id: plan
+                    type: workflow.plan
+                    input:
+                      mode: basic
+                      llm_budget:
+                        max_total_tokens: 1000
+                      generator:
+                        model: neutral-model
+                        instruction: Generate a neutral workflow.
+                      validate:
+                        compile: false
+            """);
+        var mockLlm = new Mock<ILLMClient>();
+        mockLlm.Setup(client => client.CallAsync(It.IsAny<LLMRequest>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new LLMResponse { Text = ValidGeneratedTemplateWorkflowYaml });
+
+        var result = await new WorkflowEngine { LLMClient = mockLlm.Object }
+            .ExecuteAsync(workflow, new JsonObject(), TestContext.Current.CancellationToken);
+
+        Assert.False(result.Success);
+        Assert.Equal(ErrorCodes.LlmBudgetUnverifiable, result.Error!.Code);
+        Assert.Equal("usage", result.Error.Details!["limit_kind"]!.GetValue<string>());
+    }
+
+    [Fact]
+    public async Task WorkflowPlan_LlmBudget_OutOfRangeCostFailsInputValidation()
+    {
+        var workflow = CompileMain("""
+            version: 1
+            workflows:
+              main:
+                steps:
+                  - id: plan
+                    type: workflow.plan
+                    input:
+                      mode: basic
+                      llm_budget:
+                        max_estimated_cost_usd: 1.0e300
+                      generator:
+                        model: neutral-model
+                        instruction: Generate a neutral workflow.
+            """);
+
+        var result = await new WorkflowEngine()
+            .ExecuteAsync(workflow, new JsonObject(), TestContext.Current.CancellationToken);
+
+        Assert.False(result.Success);
+        Assert.Equal(ErrorCodes.InputValidation, result.Error!.Code);
+        Assert.Contains("supported numeric range", result.Error.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task WorkflowPlan_WithoutLlmBudget_RemainsBackwardCompatibleWithoutUsage()
+    {
+        var workflow = CompileMain("""
+            version: 1
+            workflows:
+              main:
+                steps:
+                  - id: plan
+                    type: workflow.plan
+                    input:
+                      mode: basic
+                      generator:
+                        model: neutral-model
+                        instruction: Generate a neutral workflow.
+                      validate:
+                        compile: false
+            """);
+        var mockLlm = new Mock<ILLMClient>();
+        mockLlm.Setup(client => client.CallAsync(It.IsAny<LLMRequest>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new LLMResponse { Text = ValidGeneratedTemplateWorkflowYaml });
+
+        var result = await new WorkflowEngine { LLMClient = mockLlm.Object }
+            .ExecuteAsync(workflow, new JsonObject(), TestContext.Current.CancellationToken);
+
+        Assert.True(result.Success, result.Error?.Message);
+    }
+
+    [Fact]
     public void McpExecutors_DslSnippets_ContainDiscoveryGuidance()
     {
         var engine = new WorkflowEngine();

@@ -65,6 +65,43 @@ public sealed class IntegrationAdapterTests
     }
 
     [Fact]
+    public void CostEstimator_UsesConfiguredProviderNeutralModelOverride()
+    {
+        var options = new LLMOptions();
+        options.ModelOverrides["neutral/custom-model"] = new LLMModelMetadata
+        {
+            Pricing = new ModelPricingMetadata
+            {
+                InputPer1MTokens = 2m,
+                OutputPer1MTokens = 4m
+            }
+        };
+        var estimator = new ModelMetadataUsageCostEstimator(options);
+
+        var cost = estimator.EstimateCost("custom-model", 1_000_000, 500_000, "neutral");
+
+        Assert.Equal(4m, cost);
+    }
+
+    [Fact]
+    public void CostEstimator_ReturnsNullWhenConfiguredPricingIsIncomplete()
+    {
+        var options = new LLMOptions();
+        options.ModelOverrides["neutral/partial-price-model"] = new LLMModelMetadata
+        {
+            Pricing = new ModelPricingMetadata
+            {
+                InputPer1MTokens = 2m
+            }
+        };
+        var estimator = new ModelMetadataUsageCostEstimator(options);
+
+        var cost = estimator.EstimateCost("partial-price-model", 1_000, 500, "neutral");
+
+        Assert.Null(cost);
+    }
+
+    [Fact]
     public void ConfiguredFactory_MapsDeclaredArtifactMetadataToFlowContract()
     {
         var tool = new McpToolInfo

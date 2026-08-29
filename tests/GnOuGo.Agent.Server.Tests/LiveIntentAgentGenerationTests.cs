@@ -1,13 +1,19 @@
 using System.Diagnostics;
+using System.Globalization;
+using System.Security.Cryptography;
+using System.Runtime.ExceptionServices;
+using System.Text;
 using System.Text.Json.Nodes;
 using System.Text.RegularExpressions;
 using GnOuGo.Agent.Mcp;
 using GnOuGo.Agent.Server.Hosting;
 using GnOuGo.Agent.Server.SmartFlow;
 using GnOuGo.Flow.Core.Compilation;
+using GnOuGo.Flow.Core.Expressions;
 using GnOuGo.Flow.Core.Models;
 using GnOuGo.Flow.Core.Parsing;
 using GnOuGo.Flow.Core.Runtime;
+using GnOuGo.Flow.Integrations;
 using GnOuGo.Mcp.Core;
 using GnOuGo.Workspace;
 using Microsoft.AspNetCore.Builder;
@@ -22,6 +28,12 @@ public sealed class LiveIntentAgentGenerationTests
 {
     private const string EnableVariable = "GNOU_GO_LIVE_INTENT_AGENT_E2E";
     private const string ProgressPathVariable = "GNOU_GO_LIVE_INTENT_AGENT_PROGRESS_PATH";
+    private const string GenerationCountVariable = "GNOU_GO_LIVE_INTENT_AGENT_GENERATIONS";
+    private const string BudgetStatePathVariable = "GNOU_GO_LIVE_INTENT_AGENT_BUDGET_STATE_PATH";
+    private const string IsolatedProjectVariable = "GNOU_GO_LIVE_INTENT_AGENT_PROVIDER_PROJECT_ISOLATED";
+    private const string ProviderHardLimitVariable = "GNOU_GO_LIVE_INTENT_AGENT_PROVIDER_HARD_LIMIT_USD";
+    private const decimal LiveCycleCostLimitUsd = 25m;
+    private static readonly TimeSpan LiveCycleElapsedLimit = TimeSpan.FromMinutes(120);
     private static readonly object ProgressFileLock = new();
     private const string AcceptancePrompt = """
         Create a reusable agent that accepts a GitHub pull-request URL and review instructions.
@@ -43,16 +55,39 @@ public sealed class LiveIntentAgentGenerationTests
         if (!string.Equals(Environment.GetEnvironmentVariable(EnableVariable), "1", StringComparison.Ordinal))
             return;
 
+        ValidateDedicatedProviderProjectAttestation();
+        var generationCount = ResolveGenerationCount();
         WriteLiveProgress("test_started");
         var sourceRoot = FindSourceRoot();
+        var budgetLedger = LiveBudgetLedger.Open(ResolveBudgetStatePath(sourceRoot));
+        ValidateLivePhase(budgetLedger, generationCount);
+        var cycleBudget = new LLMUsageBudgetScope(
+            new LLMUsageBudgetLimits
+            {
+                MaxCalls = 120,
+                MaxTotalTokens = 5_000_000,
+                MaxElapsed = LiveCycleElapsedLimit,
+                MaxEstimatedCostUsd = LiveCycleCostLimitUsd
+            },
+            initialSnapshot: budgetLedger.Snapshot,
+            sink: budgetLedger);
+        var remainingCycleTime = LiveCycleElapsedLimit - (DateTimeOffset.UtcNow - budgetLedger.Snapshot.StartedAtUtc);
+        if (remainingCycleTime <= TimeSpan.Zero)
+        {
+            budgetLedger.Delete();
+            throw new InvalidOperationException("The shared live-validation elapsed-time budget is exhausted. Start a new dedicated provider project and validation cycle.");
+        }
+
         var previousDirectory = Directory.GetCurrentDirectory();
         var workspaceRoot = GnOuGoWorkspace.ResolveDefaultWorkingDirectory();
         var workflowWorkspacesRoot = GnOuGoWorkspace.ResolveWorkflowWorkspacesDirectory(workspaceRoot);
         var existingWorkflowWorkspaces = SnapshotWorkflowWorkspaces(workflowWorkspacesRoot);
-        var generatedAgents = new List<(string Id, string Name)>();
+        var attemptedAgentNames = new HashSet<string>(StringComparer.Ordinal);
         AgentUserConfigSnapshot? previousConfig = null;
         WebApplication? app = null;
-        using var timeout = new CancellationTokenSource(TimeSpan.FromMinutes(90));
+        var runSucceeded = false;
+        var failures = new List<Exception>();
+        using var timeout = new CancellationTokenSource(remainingCycleTime);
         try
         {
             Directory.SetCurrentDirectory(sourceRoot);
@@ -60,11 +95,19 @@ public sealed class LiveIntentAgentGenerationTests
                 ["--OtlpCollector:Enabled=false", "--OpenTelemetry:Enabled=false"],
                 urls: "http://127.0.0.1:0",
                 contentRoot: Path.Combine(sourceRoot, "src", "GnOuGo.Agent.Server"),
-                enableHttpsRedirection: false);
+                enableHttpsRedirection: false,
+                configureServices: services => services.AddSingleton<ILLMUsageBudgetScopeFactory>(
+                    new SharedLLMUsageBudgetScopeFactory(cycleBudget)));
             await app.StartAsync(timeout.Token);
             WriteLiveProgress("host_started");
 
             var services = app.Services;
+            if (!budgetLedger.ProbeCompleted)
+            {
+                await ProbeLiveProviderAsync(services, cycleBudget, timeout.Token);
+                budgetLedger.MarkProbeCompleted(cycleBudget.Snapshot);
+                WriteLiveProgress("provider_probe_completed");
+            }
             var configureAgents = services.GetRequiredService<ConfigureAgentsService>();
             var humanInput = services.GetRequiredService<AgentHumanInputProvider>();
             var userConfig = services.GetRequiredService<AgentUserConfigMcpClient>();
@@ -75,14 +118,10 @@ public sealed class LiveIntentAgentGenerationTests
 
             var runId = DateTimeOffset.UtcNow.ToString("yyyyMMddHHmmss");
             (string Name, GeneratedAgentContract Contract)? publicationAgent = null;
-            var generationCount = int.TryParse(
-                Environment.GetEnvironmentVariable("GNOU_GO_LIVE_INTENT_AGENT_GENERATIONS"),
-                out var configuredCount)
-                ? Math.Clamp(configuredCount, 1, 3)
-                : 3;
             for (var attempt = 1; attempt <= generationCount; attempt++)
             {
                 var name = $"e2e-intent-pr-review-{runId}-{attempt}";
+                attemptedAgentNames.Add(name);
                 WriteLiveProgress("generation_started", generation: attempt);
                 List<SmartFlowEvent>? events = null;
                 for (var providerAttempt = 1; providerAttempt <= 2; providerAttempt++)
@@ -120,7 +159,6 @@ public sealed class LiveIntentAgentGenerationTests
                     && item.Text?.StartsWith("❌", StringComparison.Ordinal) == true);
                 Assert.True(failure is null && answerFailure is null, failure?.Text ?? answerFailure?.Text);
                 var agent = await GetAgentAsync(mcpFactory, name, timeout.Token);
-                generatedAgents.Add((RequireString(agent, "id"), name));
                 var workflow = RequireString(agent, "workflow");
                 Assert.Equal(
                     AcceptancePrompt.Trim().ReplaceLineEndings("\n"),
@@ -148,44 +186,126 @@ public sealed class LiveIntentAgentGenerationTests
                 sourceRoot,
                 timeout.Token);
             WriteLiveProgress("publication_acceptance_completed");
+            runSucceeded = true;
+        }
+        catch (Exception ex)
+        {
+            failures.Add(ex);
         }
         finally
         {
-            WriteLiveProgress("cleanup_started");
-            if (app is not null)
+            var failureCountBeforeCleanup = failures.Count;
+            try
             {
-                var services = app.Services;
-                var mcpFactory = services.GetService<IMcpClientFactory>();
-                if (mcpFactory is not null)
+                WriteLiveProgress("cleanup_started");
+                if (app is not null)
                 {
-                    foreach (var agent in generatedAgents)
+                    var services = app.Services;
+                    var mcpFactory = services.GetService<IMcpClientFactory>();
+                    if (mcpFactory is not null)
+                    {
+                        foreach (var agentName in attemptedAgentNames)
+                        {
+                            try
+                            {
+                                var lookup = await CallAgentToolAsync(
+                                    mcpFactory,
+                                    "agent_get_by_name",
+                                    new JsonObject { ["name"] = agentName },
+                                    CancellationToken.None);
+                                if (lookup["success"]?.GetValue<bool>() != true)
+                                    continue;
+                                var persistedAgent = Assert.IsType<JsonObject>(lookup["agent"]);
+                                var deleted = await CallAgentToolAsync(
+                                    mcpFactory,
+                                    "agent_delete",
+                                    new JsonObject { ["id"] = RequireString(persistedAgent, "id") },
+                                    CancellationToken.None);
+                                Assert.True(deleted["success"]?.GetValue<bool>() == true, deleted.ToJsonString());
+                                var afterDelete = await CallAgentToolAsync(
+                                    mcpFactory,
+                                    "agent_get_by_name",
+                                    new JsonObject { ["name"] = agentName },
+                                    CancellationToken.None);
+                                Assert.False(afterDelete["success"]?.GetValue<bool>() == true, afterDelete.ToJsonString());
+                            }
+                            catch (Exception ex)
+                            {
+                                failures.Add(ex);
+                            }
+                        }
+                    }
+
+                    var userConfig = services.GetService<AgentUserConfigMcpClient>();
+                    if (userConfig is not null && previousConfig is not null)
                     {
                         try
                         {
-                            await CallAgentToolAsync(mcpFactory, "agent_delete", new JsonObject { ["id"] = agent.Id }, CancellationToken.None);
+                            if (string.IsNullOrWhiteSpace(previousConfig.DefaultAgent))
+                                await userConfig.SetAsync(clearDefaultAgent: true, ct: CancellationToken.None);
+                            else
+                                await userConfig.SetAsync(defaultAgent: previousConfig.DefaultAgent, ct: CancellationToken.None);
+                            var restored = await userConfig.GetAsync(CancellationToken.None);
+                            Assert.Equal(previousConfig.DefaultAgent, restored.DefaultAgent);
                         }
-                        catch
+                        catch (Exception ex)
                         {
-                            // Cleanup is best effort; the assertion failure remains primary.
+                            failures.Add(ex);
                         }
                     }
+                    try
+                    {
+                        await app.StopAsync(CancellationToken.None);
+                    }
+                    catch (Exception ex)
+                    {
+                        failures.Add(ex);
+                    }
+                    try
+                    {
+                        await app.DisposeAsync();
+                    }
+                    catch (Exception ex)
+                    {
+                        failures.Add(ex);
+                    }
                 }
-
-                var userConfig = services.GetService<AgentUserConfigMcpClient>();
-                if (userConfig is not null && previousConfig is not null)
+                try
                 {
-                    if (string.IsNullOrWhiteSpace(previousConfig.DefaultAgent))
-                        await userConfig.SetAsync(clearDefaultAgent: true, ct: CancellationToken.None);
-                    else
-                        await userConfig.SetAsync(defaultAgent: previousConfig.DefaultAgent, ct: CancellationToken.None);
+                    Directory.SetCurrentDirectory(previousDirectory);
                 }
-                await app.StopAsync(CancellationToken.None);
-                await app.DisposeAsync();
+                catch (Exception ex)
+                {
+                    failures.Add(ex);
+                }
+                try
+                {
+                    DeleteNewWorkflowWorkspaces(workflowWorkspacesRoot, existingWorkflowWorkspaces);
+                    Assert.Empty(SnapshotWorkflowWorkspaces(workflowWorkspacesRoot).Except(existingWorkflowWorkspaces, StringComparer.Ordinal));
+                }
+                catch (Exception ex)
+                {
+                    failures.Add(ex);
+                }
+                WriteLiveProgress(failures.Count == failureCountBeforeCleanup ? "cleanup_completed" : "cleanup_failed");
             }
-            Directory.SetCurrentDirectory(previousDirectory);
-            DeleteNewWorkflowWorkspaces(workflowWorkspacesRoot, existingWorkflowWorkspaces);
-            WriteLiveProgress("cleanup_completed");
+            finally
+            {
+                try
+                {
+                    if (runSucceeded && failures.Count == failureCountBeforeCleanup && generationCount == 1)
+                        budgetLedger.MarkDiagnosticGenerationCompleted(cycleBudget.Snapshot);
+                    else
+                        budgetLedger.Delete();
+                }
+                catch (Exception ex)
+                {
+                    failures.Add(ex);
+                }
+            }
         }
+
+        ThrowCapturedFailures(failures);
     }
 
     private static async Task AssertLiveReviewCompositionContractAsync(
@@ -208,6 +328,188 @@ public sealed class LiveIntentAgentGenerationTests
         Assert.Equal(
             McpCapabilityCompositionConventions.CompleteOperationKind,
             review.CompositionContract.Contract?.Kind);
+    }
+
+    private static void ValidateDedicatedProviderProjectAttestation()
+    {
+        if (!string.Equals(Environment.GetEnvironmentVariable(IsolatedProjectVariable), "1", StringComparison.Ordinal))
+            throw new InvalidOperationException(
+                $"Live intent acceptance requires a dedicated provider project. Set {IsolatedProjectVariable}=1 only after isolating the test API key.");
+
+        var configuredLimit = Environment.GetEnvironmentVariable(ProviderHardLimitVariable);
+        if (!decimal.TryParse(configuredLimit, NumberStyles.Number, CultureInfo.InvariantCulture, out var hardLimit)
+            || hardLimit != LiveCycleCostLimitUsd)
+            throw new InvalidOperationException(
+                $"Live intent acceptance requires an attested ${LiveCycleCostLimitUsd:0.##} provider-side hard limit. Set {ProviderHardLimitVariable}={LiveCycleCostLimitUsd.ToString(CultureInfo.InvariantCulture)} after configuring it.");
+    }
+
+    private static int ResolveGenerationCount()
+    {
+        var configured = Environment.GetEnvironmentVariable(GenerationCountVariable);
+        if (string.IsNullOrWhiteSpace(configured))
+            return 3;
+        if (string.Equals(configured, "1", StringComparison.Ordinal))
+            return 1;
+        if (string.Equals(configured, "3", StringComparison.Ordinal))
+            return 3;
+        throw new InvalidOperationException($"{GenerationCountVariable} must be 1 for the diagnostic phase or 3 for final acceptance.");
+    }
+
+    private static string ResolveBudgetStatePath(string sourceRoot)
+    {
+        var configured = Environment.GetEnvironmentVariable(BudgetStatePathVariable);
+        if (!string.IsNullOrWhiteSpace(configured))
+            return Path.GetFullPath(configured);
+
+        var workspaceHash = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(sourceRoot)))[..16];
+        return Path.Combine(Path.GetTempPath(), $"gnougo-live-intent-budget-{workspaceHash}.json");
+    }
+
+    private static void ValidateLivePhase(LiveBudgetLedger ledger, int generationCount)
+    {
+        if (generationCount == 1 && ledger.Exists)
+            throw new InvalidOperationException(
+                "A live-validation budget ledger already exists. Complete its final three-generation phase, or start a new dedicated provider project before deleting the stale ledger.");
+        if (generationCount == 3 && (!ledger.Exists || !ledger.ProbeCompleted || !ledger.DiagnosticGenerationCompleted))
+            throw new InvalidOperationException(
+                $"The final live acceptance requires a successful one-generation diagnostic phase using the same {BudgetStatePathVariable} ledger.");
+    }
+
+    private static async Task ProbeLiveProviderAsync(
+        IServiceProvider services,
+        LLMUsageBudgetScope cycleBudget,
+        CancellationToken ct)
+    {
+        var runtimeFactory = services.GetRequiredService<SecureWorkflowRuntimeFactory>();
+        for (var attempt = 1; attempt <= 2; attempt++)
+        {
+            await using var runtime = await runtimeFactory.CreateAsync(ct);
+            var provider = runtime.Options.DefaultProvider;
+            var model = runtime.Options.DefaultModel;
+            if (string.IsNullOrWhiteSpace(model))
+                throw new InvalidOperationException("The live provider probe requires a configured default model.");
+
+            var supportsStructuredOutput = runtime.LlmCapabilityResolver is null
+                || await runtime.LlmCapabilityResolver.SupportsStructuredOutputAsync(provider, model, ct) != false;
+            var request = new LLMRequest
+            {
+                Provider = provider,
+                Model = model,
+                Prompt = supportsStructuredOutput
+                    ? "Return a JSON object with ok set to true."
+                    : "Reply with exactly READY.",
+                MaxTokens = 64,
+                StructuredOutputSchema = supportsStructuredOutput
+                    ? new JsonObject
+                    {
+                        ["type"] = "object",
+                        ["properties"] = new JsonObject
+                        {
+                            ["ok"] = new JsonObject { ["type"] = "boolean" }
+                        },
+                        ["required"] = new JsonArray("ok"),
+                        ["additionalProperties"] = false
+                    }
+                    : null,
+                StructuredOutputStrict = supportsStructuredOutput ? true : null
+            };
+
+            try
+            {
+                var response = await cycleBudget.CallAsync(
+                    runtime.LlmClient,
+                    new ModelMetadataUsageCostEstimator(runtime.Options),
+                    request,
+                    "live.provider_probe",
+                    ct);
+                if (supportsStructuredOutput)
+                    Assert.True(response.Json?["ok"]?.GetValue<bool>() == true, "The live provider probe returned an invalid structured response.");
+                else
+                    Assert.Equal("READY", response.Text.Trim());
+                return;
+            }
+            catch (WorkflowRuntimeException ex) when (
+                ex.Code is ErrorCodes.LlmBudgetExceeded or ErrorCodes.LlmBudgetUnverifiable)
+            {
+                WriteLiveProgress("provider_probe_failed", errorCode: ex.Code, retryable: false, budget: cycleBudget.Snapshot);
+                throw;
+            }
+            catch (OperationCanceledException) when (ct.IsCancellationRequested)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                var classified = ClassifyProbeFailure(ex, attempt);
+                WriteLiveProgress(
+                    "provider_probe_failed",
+                    providerAttempt: attempt,
+                    errorCode: classified.Code,
+                    retryable: classified.Retryable,
+                    budget: cycleBudget.Snapshot);
+                if (attempt < 2 && classified.Retryable)
+                    continue;
+                throw classified;
+            }
+        }
+    }
+
+    private static WorkflowRuntimeException ClassifyProbeFailure(Exception exception, int attempt)
+    {
+        for (Exception? current = exception; current is not null; current = current.InnerException)
+        {
+            if (current is WorkflowRuntimeException runtime)
+                return runtime;
+            if (current is LLMClientException clientFailure)
+            {
+                var code = clientFailure.Kind == LLMClientFailureKind.Timeout
+                    ? ErrorCodes.LlmTimeout
+                    : clientFailure.Retryable
+                        ? ErrorCodes.LlmNetwork
+                        : ErrorCodes.LlmProvider;
+                return new WorkflowRuntimeException(
+                    code,
+                    "The live provider probe failed with a typed, redacted provider error.",
+                    clientFailure.Retryable,
+                    details: new JsonObject
+                    {
+                        ["stage"] = "live.provider_probe",
+                        ["classification"] = clientFailure.Kind.ToString().ToLowerInvariant(),
+                        ["status_code"] = clientFailure.StatusCode,
+                        ["provider_code"] = clientFailure.SafeProviderCode,
+                        ["attempt_count"] = attempt,
+                        ["recommended_action"] = clientFailure.Retryable
+                            ? "Retry the minimal provider probe once."
+                            : "Correct provider access, model availability, quota, or billing before continuing."
+                    });
+            }
+            if (current is TimeoutException)
+            {
+                return new WorkflowRuntimeException(
+                    ErrorCodes.LlmTimeout,
+                    "The live provider probe timed out.",
+                    retryable: true,
+                    details: new JsonObject
+                    {
+                        ["stage"] = "live.provider_probe",
+                        ["classification"] = "timeout",
+                        ["attempt_count"] = attempt,
+                        ["recommended_action"] = "Retry the minimal provider probe once."
+                    });
+            }
+        }
+
+        return new WorkflowRuntimeException(
+            ErrorCodes.LlmProvider,
+            "The live provider probe failed without a typed provider classification.",
+            retryable: false,
+            details: new JsonObject
+            {
+                ["stage"] = "live.provider_probe",
+                ["classification"] = "unknown",
+                ["attempt_count"] = attempt,
+                ["recommended_action"] = "Inspect the provider configuration without retrying automatically."
+            });
     }
 
     private static async Task RespondToAgentCreationAsync(
@@ -600,7 +902,10 @@ public sealed class LiveIntentAgentGenerationTests
         for (var executionAttempt = 1; executionAttempt <= 2; executionAttempt++)
         {
             using var responderCancellation = CancellationTokenSource.CreateLinkedTokenSource(ct);
-            var responder = RejectPublicationAsync(humanInput, responderCancellation.Token);
+            var responder = RejectPublicationAsync(
+                humanInput,
+                inputs[contract.PullRequestUrlInput]!.GetValue<string>(),
+                responderCancellation.Token);
             events = await CollectAsync(
                 smartFlow.ExecuteAsync(
                     "Review the supplied pull request using the supplied review instructions.",
@@ -664,6 +969,7 @@ public sealed class LiveIntentAgentGenerationTests
         string? fixtureProjectRoot = null;
         int? pullNumber = null;
         var branchPushed = false;
+        var fixtureFailures = new List<Exception>();
 
         var fixtureGitServer = await ResolveFixtureGitServerAsync(factory, contract.GitServer, ct);
         await using var git = await factory.GetClientAsync(fixtureGitServer, ct);
@@ -773,23 +1079,40 @@ public sealed class LiveIntentAgentGenerationTests
                 || call.Method.Contains("push", StringComparison.OrdinalIgnoreCase)
                 || string.Equals((call.Arguments as JsonObject)?["event"]?.GetValue<string>(), "APPROVE", StringComparison.OrdinalIgnoreCase));
         }
+        catch (Exception ex)
+        {
+            fixtureFailures.Add(ex);
+        }
         finally
         {
             if (pullNumber is not null)
             {
                 try
                 {
-                    await github.CallToolAsync("update_pull_request", new JsonObject
+                    await CallSessionToolAsync(github, "update_pull_request", new JsonObject
                     {
                         ["owner"] = owner,
                         ["repo"] = repository,
                         ["pullNumber"] = pullNumber.Value,
                         ["state"] = "closed"
                     }, CancellationToken.None);
+                    var closed = await CallSessionToolAsync(github, "pull_request_read", new JsonObject
+                    {
+                        ["method"] = "get",
+                        ["owner"] = owner,
+                        ["repo"] = repository,
+                        ["pullNumber"] = pullNumber.Value
+                    }, CancellationToken.None);
+                    Assert.Contains(
+                        EnumerateNodes(closed).OfType<JsonObject>(),
+                        static value => string.Equals(
+                            value["state"]?.GetValue<string>(),
+                            "closed",
+                            StringComparison.OrdinalIgnoreCase));
                 }
-                catch
+                catch (Exception ex)
                 {
-                    // Cleanup is best effort; the original live assertion remains primary.
+                    fixtureFailures.Add(ex);
                 }
             }
 
@@ -797,22 +1120,40 @@ public sealed class LiveIntentAgentGenerationTests
             {
                 try
                 {
-                    await git.CallToolAsync("git_delete_remote_branch", new JsonObject
+                    await CallSessionToolAsync(git, "git_delete_remote_branch", new JsonObject
                     {
                         ["projectRoot"] = fixtureProjectRoot,
                         ["remoteName"] = "origin",
                         ["branchName"] = branchName
                     }, CancellationToken.None);
                 }
-                catch
+                catch (Exception ex)
                 {
-                    // Cleanup is best effort; the original live assertion remains primary.
+                    fixtureFailures.Add(ex);
                 }
             }
 
-            DeleteIsolatedDirectory(workspaceRoot, fixtureCloneRelative, "workflows/e2e");
-            DeleteNewWorkflowWorkspaces(workflowWorkspacesRoot, existingWorkflowWorkspaces);
+            try
+            {
+                DeleteIsolatedDirectory(workspaceRoot, fixtureCloneRelative, "workflows/e2e");
+                Assert.False(Directory.Exists(Path.GetFullPath(Path.Combine(workspaceRoot, fixtureCloneRelative))));
+            }
+            catch (Exception ex)
+            {
+                fixtureFailures.Add(ex);
+            }
+            try
+            {
+                DeleteNewWorkflowWorkspaces(workflowWorkspacesRoot, existingWorkflowWorkspaces);
+                Assert.Empty(SnapshotWorkflowWorkspaces(workflowWorkspacesRoot).Except(existingWorkflowWorkspaces, StringComparer.Ordinal));
+            }
+            catch (Exception ex)
+            {
+                fixtureFailures.Add(ex);
+            }
         }
+
+        ThrowCapturedFailures(fixtureFailures);
     }
 
     private static async Task ApprovePublicationAsync(
@@ -828,6 +1169,7 @@ public sealed class LiveIntentAgentGenerationTests
             var mentionedUrls = Regex.Matches(visibleContext, "https://github\\.com/[^\\s\\\"'<>]+/pull/\\d+", RegexOptions.IgnoreCase)
                 .Select(static match => match.Value.TrimEnd('.', ',', ')'))
                 .ToArray();
+            Assert.NotEmpty(mentionedUrls);
             Assert.All(mentionedUrls, url => Assert.Equal(expectedPullRequestUrl, url));
             var affirmativeChoice = request.Choices?.FirstOrDefault(static choice =>
                 choice.Contains("approve", StringComparison.OrdinalIgnoreCase)
@@ -1034,10 +1376,21 @@ public sealed class LiveIntentAgentGenerationTests
                 .ToHashSet(StringComparer.Ordinal)
             : new HashSet<string>(StringComparer.Ordinal);
 
-    private static async Task RejectPublicationAsync(AgentHumanInputProvider humanInput, CancellationToken ct)
+    private static async Task RejectPublicationAsync(
+        AgentHumanInputProvider humanInput,
+        string expectedPullRequestUrl,
+        CancellationToken ct)
     {
         await foreach (var request in humanInput.PendingRequests.ReadAllAsync(ct))
         {
+            Assert.True(request.Mode is HumanInputContract.ModeConfirm or HumanInputContract.ModeChoice,
+                $"Unexpected publication rejection mode '{request.Mode}' for step '{request.StepId}'.");
+            var visibleContext = request.Prompt + "\n" + (request.Context?.ToJsonString() ?? string.Empty);
+            var mentionedUrls = Regex.Matches(visibleContext, "https://github\\.com/[^\\s\\\"'<>]+/pull/\\d+", RegexOptions.IgnoreCase)
+                .Select(static match => match.Value.TrimEnd('.', ',', ')'))
+                .ToArray();
+            Assert.NotEmpty(mentionedUrls);
+            Assert.All(mentionedUrls, url => Assert.Equal(expectedPullRequestUrl, url));
             var negativeChoice = request.Choices?.FirstOrDefault(static choice =>
                 choice.Contains("reject", StringComparison.OrdinalIgnoreCase)
                 || choice.Contains("cancel", StringComparison.OrdinalIgnoreCase)
@@ -1122,7 +1475,10 @@ public sealed class LiveIntentAgentGenerationTests
         string stage,
         int? generation = null,
         int? providerAttempt = null,
-        SmartFlowEvent? flowEvent = null)
+        SmartFlowEvent? flowEvent = null,
+        string? errorCode = null,
+        bool? retryable = null,
+        LLMUsageBudgetSnapshot? budget = null)
     {
         var path = Environment.GetEnvironmentVariable(ProgressPathVariable);
         if (string.IsNullOrWhiteSpace(path))
@@ -1142,6 +1498,16 @@ public sealed class LiveIntentAgentGenerationTests
             entry["event_type"] = flowEvent.Type;
             entry["error_code"] = flowEvent.ErrorCode;
             entry["retryable"] = flowEvent.Retryable;
+        }
+        if (!string.IsNullOrWhiteSpace(errorCode))
+            entry["error_code"] = errorCode;
+        if (retryable.HasValue)
+            entry["retryable"] = retryable.Value;
+        if (budget is not null)
+        {
+            entry["budget_calls"] = budget.Calls;
+            entry["budget_total_tokens"] = budget.TotalTokens;
+            entry["budget_estimated_cost_usd"] = budget.EstimatedCostUsd;
         }
 
         try
@@ -1168,6 +1534,18 @@ public sealed class LiveIntentAgentGenerationTests
         => value[property]?.GetValue<string>()
            ?? throw new InvalidOperationException($"Live Agent MCP response omitted '{property}'.");
 
+    private static void ThrowCapturedFailures(IReadOnlyList<Exception> failures)
+    {
+        if (failures.Count == 0)
+            return;
+        if (failures.Count == 1)
+            ExceptionDispatchInfo.Capture(failures[0]).Throw();
+
+        throw new AggregateException(
+            "Live acceptance and/or its mandatory cleanup failed.",
+            failures);
+    }
+
     private static string FindSourceRoot()
     {
         var directory = new DirectoryInfo(AppContext.BaseDirectory);
@@ -1178,6 +1556,172 @@ public sealed class LiveIntentAgentGenerationTests
             directory = directory.Parent;
         }
         throw new DirectoryNotFoundException("Could not locate the GnOuGo source root.");
+    }
+
+    private sealed class SharedLLMUsageBudgetScopeFactory(LLMUsageBudgetScope scope) : ILLMUsageBudgetScopeFactory
+    {
+        public LLMUsageBudgetScope CreateScope() => scope;
+    }
+
+    internal sealed class LiveBudgetLedger : ILLMUsageBudgetSink
+    {
+        private const int CurrentVersion = 1;
+        private readonly object _gate = new();
+        private readonly string _path;
+
+        private LiveBudgetLedger(
+            string path,
+            bool exists,
+            LLMUsageBudgetSnapshot snapshot,
+            bool probeCompleted,
+            bool diagnosticGenerationCompleted)
+        {
+            _path = path;
+            Exists = exists;
+            Snapshot = snapshot;
+            ProbeCompleted = probeCompleted;
+            DiagnosticGenerationCompleted = diagnosticGenerationCompleted;
+        }
+
+        public bool Exists { get; private set; }
+        public LLMUsageBudgetSnapshot Snapshot { get; private set; }
+        public bool ProbeCompleted { get; private set; }
+        public bool DiagnosticGenerationCompleted { get; private set; }
+
+        public static LiveBudgetLedger Open(string path)
+        {
+            if (!File.Exists(path))
+                return new LiveBudgetLedger(
+                    path,
+                    exists: false,
+                    new LLMUsageBudgetSnapshot { StartedAtUtc = DateTimeOffset.UtcNow },
+                    probeCompleted: false,
+                    diagnosticGenerationCompleted: false);
+
+            JsonObject root;
+            try
+            {
+                root = JsonNode.Parse(File.ReadAllText(path)) as JsonObject
+                    ?? throw new InvalidDataException();
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or System.Text.Json.JsonException or InvalidDataException)
+            {
+                throw new InvalidOperationException("The redacted live-validation budget ledger is unreadable or malformed. Do not continue against the existing provider budget.");
+            }
+
+            if (ReadRequiredInt32(root, "version") != CurrentVersion)
+                throw new InvalidOperationException("The redacted live-validation budget ledger version is unsupported.");
+
+            var snapshot = new LLMUsageBudgetSnapshot
+            {
+                StartedAtUtc = DateTimeOffset.Parse(ReadRequiredString(root, "started_at_utc"), CultureInfo.InvariantCulture, DateTimeStyles.RoundtripKind),
+                Calls = ReadRequiredInt64(root, "calls"),
+                InputTokens = ReadRequiredInt64(root, "input_tokens"),
+                OutputTokens = ReadRequiredInt64(root, "output_tokens"),
+                TotalTokens = ReadRequiredInt64(root, "total_tokens"),
+                EstimatedCostUsd = ReadRequiredDecimal(root, "estimated_cost_usd")
+            };
+            return new LiveBudgetLedger(
+                path,
+                exists: true,
+                snapshot,
+                ReadRequiredBoolean(root, "probe_completed"),
+                ReadRequiredBoolean(root, "diagnostic_generation_completed"));
+        }
+
+        public ValueTask PersistAsync(LLMUsageBudgetSnapshot snapshot, CancellationToken ct)
+        {
+            ct.ThrowIfCancellationRequested();
+            lock (_gate)
+            {
+                Snapshot = snapshot with { };
+                PersistLocked();
+            }
+            return ValueTask.CompletedTask;
+        }
+
+        public void MarkProbeCompleted(LLMUsageBudgetSnapshot snapshot)
+        {
+            lock (_gate)
+            {
+                Snapshot = snapshot with { };
+                ProbeCompleted = true;
+                PersistLocked();
+            }
+        }
+
+        public void MarkDiagnosticGenerationCompleted(LLMUsageBudgetSnapshot snapshot)
+        {
+            lock (_gate)
+            {
+                Snapshot = snapshot with { };
+                DiagnosticGenerationCompleted = true;
+                PersistLocked();
+            }
+        }
+
+        public void Delete()
+        {
+            lock (_gate)
+            {
+                if (File.Exists(_path))
+                    File.Delete(_path);
+                Exists = false;
+            }
+        }
+
+        private void PersistLocked()
+        {
+            var directory = Path.GetDirectoryName(_path);
+            if (!string.IsNullOrWhiteSpace(directory))
+                Directory.CreateDirectory(directory);
+
+            var root = new JsonObject
+            {
+                ["version"] = CurrentVersion,
+                ["started_at_utc"] = Snapshot.StartedAtUtc.ToString("O", CultureInfo.InvariantCulture),
+                ["calls"] = Snapshot.Calls,
+                ["input_tokens"] = Snapshot.InputTokens,
+                ["output_tokens"] = Snapshot.OutputTokens,
+                ["total_tokens"] = Snapshot.TotalTokens,
+                ["estimated_cost_usd"] = Snapshot.EstimatedCostUsd,
+                ["probe_completed"] = ProbeCompleted,
+                ["diagnostic_generation_completed"] = DiagnosticGenerationCompleted
+            };
+
+            var temporaryPath = _path + $".{Environment.ProcessId}.tmp";
+            try
+            {
+                File.WriteAllText(temporaryPath, root.ToJsonString());
+                File.Move(temporaryPath, _path, overwrite: true);
+                Exists = true;
+            }
+            finally
+            {
+                if (File.Exists(temporaryPath))
+                    File.Delete(temporaryPath);
+            }
+        }
+
+        private static string ReadRequiredString(JsonObject root, string property)
+            => root[property]?.GetValue<string>()
+               ?? throw new InvalidOperationException("The redacted live-validation budget ledger is incomplete.");
+
+        private static int ReadRequiredInt32(JsonObject root, string property)
+            => root[property]?.GetValue<int>()
+               ?? throw new InvalidOperationException("The redacted live-validation budget ledger is incomplete.");
+
+        private static long ReadRequiredInt64(JsonObject root, string property)
+            => root[property]?.GetValue<long>()
+               ?? throw new InvalidOperationException("The redacted live-validation budget ledger is incomplete.");
+
+        private static decimal ReadRequiredDecimal(JsonObject root, string property)
+            => root[property]?.GetValue<decimal>()
+               ?? throw new InvalidOperationException("The redacted live-validation budget ledger is incomplete.");
+
+        private static bool ReadRequiredBoolean(JsonObject root, string property)
+            => root[property]?.GetValue<bool>()
+               ?? throw new InvalidOperationException("The redacted live-validation budget ledger is incomplete.");
     }
 
     private sealed record GeneratedAgentContract(
