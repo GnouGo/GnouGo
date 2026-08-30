@@ -97,6 +97,7 @@ internal static class WorkflowPlanDryRunValidator
                 "before_execution",
                 ex,
                 ex is WorkflowRuntimeException workflowEx ? workflowEx.Details : null);
+            details["sample_inputs"] = inputs.DeepClone();
 
             throw new WorkflowRuntimeException(
                 ErrorCodes.TemplatePlan,
@@ -141,11 +142,92 @@ internal static class WorkflowPlanDryRunValidator
             message,
             "execution",
             runtimeDetails: error?.Details);
+        failureDetails["sample_inputs"] = inputs.DeepClone();
+        var failedStepId = error?.Details is JsonObject runtimeDetails
+            ? runtimeDetails["failed_step_id"]?.GetValue<string>()
+            : null;
+        if (!string.IsNullOrWhiteSpace(failedStepId))
+        {
+            failureDetails["selected_container_path"] = BuildStepContainerPath(
+                workflow.Source.Steps,
+                failedStepId!);
+        }
 
         throw new WorkflowRuntimeException(
             ErrorCodes.TemplatePlan,
             $"Generated workflow dry_run failed: [{code}] {message} | repair diagnostics: {WorkflowPlanDiagnostics.ToPromptJson(failureDetails)}",
             details: failureDetails);
+    }
+
+    private static JsonArray BuildStepContainerPath(IReadOnlyList<StepDef> steps, string failedStepId)
+    {
+        var path = new List<JsonObject>();
+        return TryBuildStepContainerPath(steps, failedStepId, path)
+            ? new JsonArray(path.Select(static item => (JsonNode)item).ToArray())
+            : new JsonArray();
+    }
+
+    private static bool TryBuildStepContainerPath(
+        IReadOnlyList<StepDef> steps,
+        string failedStepId,
+        List<JsonObject> path)
+    {
+        foreach (var step in steps)
+        {
+            if (string.Equals(step.Id, failedStepId, StringComparison.Ordinal))
+                return true;
+
+            if (TryDescend(step.Steps, step, "steps", null, failedStepId, path)
+                || TryDescend(step.Default, step, "default", null, failedStepId, path))
+            {
+                return true;
+            }
+
+            if (step.Cases != null)
+            {
+                foreach (var @case in step.Cases)
+                {
+                    if (TryDescend(@case.Steps, step, "case", @case.Value ?? @case.When, failedStepId, path))
+                        return true;
+                }
+            }
+
+            if (step.Branches != null)
+            {
+                foreach (var branch in step.Branches)
+                {
+                    if (TryDescend(branch.Steps, step, "parallel_branch", null, failedStepId, path))
+                        return true;
+                }
+            }
+        }
+
+        return false;
+    }
+
+    private static bool TryDescend(
+        IReadOnlyList<StepDef>? children,
+        StepDef container,
+        string branchKind,
+        string? branchValue,
+        string failedStepId,
+        List<JsonObject> path)
+    {
+        if (children == null || children.Count == 0)
+            return false;
+
+        path.Add(new JsonObject
+        {
+            ["step_id"] = container.Id,
+            ["step_type"] = container.Type,
+            ["branch_kind"] = branchKind,
+            ["branch_value"] = branchValue,
+            ["source_expression"] = container.Expr
+        });
+        if (TryBuildStepContainerPath(children, failedStepId, path))
+            return true;
+        path.RemoveAt(path.Count - 1);
+        return false;
     }
 
     private static bool IsInconclusiveInternalError(string code) =>
@@ -341,6 +423,9 @@ internal static class WorkflowPlanDryRunValidator
 
         if (def.Default != null)
             return InputDefaultValueConverter.ConvertToNode(def.Default, def);
+
+        if (def.Enum is { Count: > 0 })
+            return JsonValue.Create(def.Enum[0]);
 
         return (def.Type ?? "any").Trim().ToLowerInvariant() switch
         {

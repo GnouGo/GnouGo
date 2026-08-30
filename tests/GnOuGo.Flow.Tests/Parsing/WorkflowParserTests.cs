@@ -826,4 +826,30 @@ workflows:
         Assert.Equal("string", doc.Workflows["main"].Outputs!["suggestion"].Type);
         Assert.True(doc.Workflows["main"].Outputs!["suggestion"].Nullable);
     }
+
+    [Fact]
+    public void Parse_WorkflowContracts_PreservesStringEnums()
+    {
+        var doc = WorkflowParser.Parse("""
+version: 1
+workflows:
+  main:
+    inputs:
+      mode:
+        type: string
+        enum: [first, second]
+    outputs:
+      selected:
+        expr: ${data.inputs.mode}
+        type: string
+        enum: [first, second]
+    steps:
+      - id: done
+        type: set
+        input: { ok: true }
+""");
+
+        Assert.Equal(["first", "second"], doc.Workflows["main"].Inputs!["mode"].Enum);
+        Assert.Equal(["first", "second"], doc.Workflows["main"].Outputs!["selected"].Enum);
+    }
 }

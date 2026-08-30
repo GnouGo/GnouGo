@@ -609,6 +609,27 @@ public sealed class WorkflowValidator
             });
 
         var typeLc = def.Type.ToLowerInvariant();
+        ValidateStringEnum(def.Enum, typeLc, wfName, path, "Input", "INVALID_INPUT_SCHEMA", errors);
+
+        if (def.Default != null)
+        {
+            var defaultErrors = new List<string>();
+            InputTypeValidator.ValidateNode(
+                InputDefaultValueConverter.ConvertToNode(def.Default, def),
+                def,
+                path + ".default",
+                defaultErrors,
+                0);
+            foreach (var error in defaultErrors)
+            {
+                errors.Add(new ValidationError
+                {
+                    Code = "INVALID_INPUT_SCHEMA",
+                    WorkflowName = wfName,
+                    Message = $"Input '{path}' has an invalid default: {error}"
+                });
+            }
+        }
 
         // items only valid on array
         if (def.Items != null && typeLc != "array")
@@ -686,6 +707,7 @@ public sealed class WorkflowValidator
             });
 
         var typeLc = def.Type.ToLowerInvariant();
+        ValidateStringEnum(def.Enum, typeLc, wfName, path, "Output", "INVALID_OUTPUT_SCHEMA", errors);
 
         // items only valid on array
         if (def.Items != null && typeLc != "array")
@@ -754,5 +776,41 @@ public sealed class WorkflowValidator
 
         if (def.AdditionalProperties != null)
             ValidateOutputDef(def.AdditionalProperties, wfName, $"{path}.additional_properties", errors);
+    }
+
+    private static void ValidateStringEnum(
+        IReadOnlyList<string>? values,
+        string type,
+        string workflowName,
+        string path,
+        string contractKind,
+        string errorCode,
+        ICollection<ValidationError> errors)
+    {
+        if (values == null)
+            return;
+
+        if (!string.Equals(type, "string", StringComparison.Ordinal))
+        {
+            errors.Add(new ValidationError
+            {
+                Code = errorCode,
+                WorkflowName = workflowName,
+                Message = $"{contractKind} '{path}': 'enum' is only valid when type is 'string', got '{type}'."
+            });
+            return;
+        }
+
+        if (values.Count == 0
+            || values.Any(string.IsNullOrWhiteSpace)
+            || values.Distinct(StringComparer.Ordinal).Count() != values.Count)
+        {
+            errors.Add(new ValidationError
+            {
+                Code = errorCode,
+                WorkflowName = workflowName,
+                Message = $"{contractKind} '{path}': 'enum' must contain unique non-empty string values."
+            });
+        }
     }
 }

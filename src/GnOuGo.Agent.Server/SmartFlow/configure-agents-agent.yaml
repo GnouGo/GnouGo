@@ -312,9 +312,9 @@ workflows:
                 max_questions: 8
                 max_questions_per_round: 5
               llm_budget:
-                max_calls: 40
-                max_total_tokens: 1500000
-                max_elapsed_ms: 1800000
+                max_calls: 100
+                max_total_tokens: 15000000
+                max_elapsed_ms: 18000000
                 unverifiable: fail
               capability_preflight:
                 mode: infer

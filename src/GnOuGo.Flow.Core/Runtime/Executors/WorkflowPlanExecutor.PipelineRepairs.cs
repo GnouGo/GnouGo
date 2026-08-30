@@ -697,7 +697,13 @@ public sealed partial class WorkflowPlanExecutor
                                    changedLeaves,
                                    mainChanged,
                                    allowQualifiedGlobalEvidence: false);
-                stabilized.Add(affected ? diagnostic : baselineDiagnostic);
+                var deterministicallyResolved = IsBaselineQualityDiagnosticDeterministicallyResolved(
+                    baselineDiagnostic,
+                    candidate,
+                    addressedDiagnosticCodes,
+                    changedLeaves,
+                    mainChanged);
+                stabilized.Add(affected && deterministicallyResolved ? diagnostic : baselineDiagnostic);
                 continue;
             }
 
@@ -725,14 +731,12 @@ public sealed partial class WorkflowPlanExecutor
         foreach (var baselineDiagnostic in baselineByCode.Values)
         {
             if (observedCodes.Contains(baselineDiagnostic.Code)
-                || (addressedDiagnosticCodes.Contains(baselineDiagnostic.Code)
-                    && (mainChanged || changedLeaves.Count > 0))
-                || IsQualityDiagnosticAffectedByChangedExtractionSurface(
+                || IsBaselineQualityDiagnosticDeterministicallyResolved(
                     baselineDiagnostic,
-                    baseline,
+                    candidate,
+                    addressedDiagnosticCodes,
                     changedLeaves,
-                    mainChanged,
-                    allowQualifiedGlobalEvidence: true))
+                    mainChanged))
             {
                 continue;
             }
@@ -750,6 +754,87 @@ public sealed partial class WorkflowPlanExecutor
             Verdict = hasBlocking ? "retry" : "pass",
             Diagnostics = stabilized
         };
+    }
+
+    private static bool IsBaselineQualityDiagnosticDeterministicallyResolved(
+        PipelineExtractionQualityDiagnostic diagnostic,
+        WorkflowPipelineExtraction candidate,
+        IReadOnlySet<string> addressedDiagnosticCodes,
+        IReadOnlySet<string> changedLeaves,
+        bool mainChanged)
+    {
+        if (!addressedDiagnosticCodes.Contains(diagnostic.Code)
+            || !IsQualityDiagnosticAffectedByChangedExtractionSurface(
+                diagnostic,
+                candidate,
+                changedLeaves,
+                mainChanged,
+                allowQualifiedGlobalEvidence: true))
+        {
+            return false;
+        }
+
+        // A named extraction surface is itself the stable remediation path. Once the
+        // patch explicitly addresses the code and changes that exact surface, the
+        // subsequent deterministic extraction validation and delta review decide
+        // whether the diagnostic remains. Unrelated leaf/main changes cannot clear it.
+        if (!string.IsNullOrWhiteSpace(diagnostic.LeafName))
+        {
+            return string.Equals(diagnostic.LeafName, "main", StringComparison.Ordinal)
+                ? mainChanged
+                : changedLeaves.Contains(diagnostic.LeafName);
+        }
+
+        var extractionEvidence = (diagnostic.Evidence ?? Array.Empty<PipelineExtractionQualityEvidence>())
+            .Where(static evidence => string.Equals(evidence.Source, "extraction", StringComparison.Ordinal))
+            .ToArray();
+        if (extractionEvidence.Length == 0)
+        {
+            // Request/capability evidence establishes the obligation, while the
+            // extraction surface establishes whether its representation changed.
+            // The follow-up deterministic validation and delta review must still
+            // pass before the baseline diagnostic can disappear.
+            return diagnostic.EvidenceQualified && (mainChanged || changedLeaves.Count > 0);
+        }
+
+        var candidateJson = BuildExtractionJson(candidate);
+        return extractionEvidence.All(evidence =>
+        {
+            if (!TryResolveEvidenceJsonPointer(candidateJson, evidence.Reference, out var resolved)
+                || resolved == null)
+            {
+                return true;
+            }
+
+            if (string.IsNullOrWhiteSpace(evidence.Excerpt))
+            {
+                return (mainChanged && evidence.Reference.StartsWith("/main_workflow_prompt", StringComparison.Ordinal))
+                       || EvidencePointerTargetsChangedLeaf(evidence.Reference, candidate, changedLeaves);
+            }
+
+            var canonicalValue = resolved is JsonValue scalar
+                                 && scalar.TryGetValue<string>(out var text)
+                ? text
+                : resolved.ToJsonString(PromptJsonOptions);
+            return !canonicalValue.Contains(evidence.Excerpt, StringComparison.Ordinal);
+        });
+    }
+
+    private static bool EvidencePointerTargetsChangedLeaf(
+        string reference,
+        WorkflowPipelineExtraction extraction,
+        IReadOnlySet<string> changedLeaves)
+    {
+        var segments = reference.Split('/').Skip(1)
+            .Select(static segment => segment.Replace("~1", "/", StringComparison.Ordinal)
+                .Replace("~0", "~", StringComparison.Ordinal))
+            .ToArray();
+        return segments.Length >= 2
+               && string.Equals(segments[0], "subworkflows", StringComparison.Ordinal)
+               && int.TryParse(segments[1], out var index)
+               && index >= 0
+               && index < extraction.Subworkflows.Count
+               && changedLeaves.Contains(extraction.Subworkflows[index].Name);
     }
 
     private static JsonObject BuildPipelineExtractionChangedSurfacesJson(

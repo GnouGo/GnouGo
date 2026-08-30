@@ -408,7 +408,14 @@ public sealed record McpCapabilityActivation(
     string Mode,
     string Group,
     string DecisionOperationId,
-    string BranchValue);
+    string BranchValue)
+{
+    /// <summary>Provider-neutral JSON Pointer to the decision producer's enum field.</summary>
+    public string DecisionOutputPath { get; init; } = "";
+
+    /// <summary>Closed set of values accepted by every branch in this activation group.</summary>
+    public IReadOnlyList<string> AllowedValues { get; init; } = Array.Empty<string>();
+}
 
 /// <summary>
 /// Describes an MCP tool.

@@ -1092,6 +1092,33 @@ workflows:
     }
 
     [Fact]
+    public async Task Execute_DeclaredWorkflowOutputEnumMismatch_FailsAtOutputBoundary()
+    {
+        var wf = CompileMain("""
+            version: 1
+            workflows:
+              main:
+                steps:
+                  - id: value
+                    type: set
+                    input:
+                      decision: unknown
+                outputs:
+                  decision:
+                    expr: ${data.steps.value.decision}
+                    type: string
+                    enum: [accept, reject]
+            """);
+
+        var result = await CreateEngine().ExecuteAsync(wf, new JsonObject(), CancellationToken.None);
+
+        Assert.False(result.Success);
+        Assert.Equal(ErrorCodes.InputValidation, result.Error!.Code);
+        Assert.Contains("output 'decision'", result.Error.Message, StringComparison.Ordinal);
+        Assert.Contains("enum", result.Error.Message, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
     public async Task Execute_DeclaredWorkflowOutputWithOptionalExpression_AllowsNull()
     {
         var wf = CompileMain(@"

@@ -430,7 +430,8 @@ public static class WorkflowParser
                 Nullable = nullable,
                 Required = required ?? true,
                 Default = map.GetScalar("default"),
-                Description = map.GetScalar("description")
+                Description = map.GetScalar("description"),
+                Enum = map.HasKey("enum") ? map.GetStringList("enum") : null
             };
 
             // Array element type
@@ -486,7 +487,8 @@ public static class WorkflowParser
                     Expr = map.GetScalar("expr") ?? "",
                     Type = type,
                     Nullable = nullable,
-                    Description = map.GetScalar("description")
+                    Description = map.GetScalar("description"),
+                    Enum = map.HasKey("enum") ? map.GetStringList("enum") : null
                 };
 
                 // Array element type
@@ -527,7 +529,8 @@ public static class WorkflowParser
                 {
                     Type = type,
                     Nullable = nullable,
-                    Description = map.GetScalar("description")
+                    Description = map.GetScalar("description"),
+                    Enum = map.HasKey("enum") ? map.GetStringList("enum") : null
                 };
 
                 var itemsNode = map.Children

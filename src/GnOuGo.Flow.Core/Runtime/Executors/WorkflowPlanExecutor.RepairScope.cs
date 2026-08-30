@@ -495,6 +495,7 @@ public sealed partial class WorkflowPlanExecutor
     private static bool EquivalentOutputContractCore(OutputDef left, OutputDef right)
         => string.Equals(left.Type, right.Type, StringComparison.Ordinal)
            && left.Nullable == right.Nullable
+           && EquivalentStrings(left.Enum, right.Enum)
            && string.Equals(left.Description, right.Description, StringComparison.Ordinal)
            && EquivalentOutputContract(left.Items, right.Items)
            && EquivalentOutputContracts(left.Properties, right.Properties)
@@ -580,6 +581,7 @@ public sealed partial class WorkflowPlanExecutor
            && left.Required == right.Required
            && left.Nullable == right.Nullable
            && Equals(left.Default, right.Default)
+           && EquivalentStrings(left.Enum, right.Enum)
            && string.Equals(left.Description, right.Description, StringComparison.Ordinal)
            && (left.Items is null || right.Items is null
                ? left.Items is null && right.Items is null

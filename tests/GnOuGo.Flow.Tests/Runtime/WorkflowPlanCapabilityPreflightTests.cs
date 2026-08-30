@@ -1382,6 +1382,195 @@ public sealed class WorkflowPlanCapabilityPreflightTests
     }
 
     [Fact]
+    public async Task ExplicitPreflight_PullRequestReviewReadsMetadataAndDiffBeforeConfirmedWrite()
+    {
+        const string generatedWorkflow = """
+            version: 1
+            name: generated-pull-request-review
+            skill:
+              description: Read and review one pull request.
+              tags: [generated, review]
+              inputs:
+                pull_request_url:
+                  type: string
+                  default: https://example.invalid/sample/repository/pull/17
+              outputs:
+                state: string
+                base_ref: string
+                head_ref: string
+                diff: string
+            functions: |
+              /**
+               * Parses and validates an absolute pull request URL.
+               *
+               * @param {string} url - Pull request URL.
+               * @returns {object} URL-derived owner, repository, pull number, and normalized URL.
+               */
+              function parsePullRequestUrl(url) {
+                var normalized = String(url || "").replace(/\/$/, "");
+                var parts = normalized.split("/");
+                if (parts.length < 7 || parts[parts.length - 2] !== "pull") {
+                  throw new Error("Invalid pull request URL.");
+                }
+                var pullNumber = Number(parts[parts.length - 1]);
+                if (!Number.isInteger(pullNumber) || pullNumber < 1) {
+                  throw new Error("Invalid pull request number.");
+                }
+                return {
+                  owner: parts[parts.length - 4],
+                  repository: parts[parts.length - 3],
+                  pull_number: pullNumber,
+                  normalized_url: normalized
+                };
+              }
+            workflows:
+              main:
+                inputs:
+                  pull_request_url:
+                    type: string
+                    default: https://example.invalid/sample/repository/pull/17
+                steps:
+                  - id: validate_url
+                    type: set
+                    input:
+                      owner: "${functions.parsePullRequestUrl(data.inputs.pull_request_url).owner}"
+                      repository: "${functions.parsePullRequestUrl(data.inputs.pull_request_url).repository}"
+                      pull_number: "${functions.parsePullRequestUrl(data.inputs.pull_request_url).pull_number}"
+                      normalized_url: "${functions.parsePullRequestUrl(data.inputs.pull_request_url).normalized_url}"
+                    output_schema:
+                      type: object
+                      additionalProperties: false
+                      required: [owner, repository, pull_number, normalized_url]
+                      properties:
+                        owner: { type: string }
+                        repository: { type: string }
+                        pull_number: { type: integer, minimum: 1 }
+                        normalized_url: { type: string }
+                  - id: read_metadata
+                    type: mcp.call
+                    input:
+                      server: review-data
+                      kind: tool
+                      method: pull_request_read
+                      request:
+                        method: get
+                        owner: ${data.steps.validate_url.owner}
+                        repository: ${data.steps.validate_url.repository}
+                        pull_number: ${data.steps.validate_url.pull_number}
+                  - id: read_diff
+                    type: mcp.call
+                    input:
+                      server: review-data
+                      kind: tool
+                      method: pull_request_read
+                      request:
+                        method: get_diff
+                        owner: ${data.steps.validate_url.owner}
+                        repository: ${data.steps.validate_url.repository}
+                        pull_number: ${data.steps.validate_url.pull_number}
+                  - id: build_context
+                    type: set
+                    input:
+                      state: ${data.steps.read_metadata.response.state}
+                      base_ref: ${data.steps.read_metadata.response.base_ref}
+                      head_ref: ${data.steps.read_metadata.response.head_ref}
+                      diff: ${data.steps.read_diff.response.diff}
+                    output_schema:
+                      type: object
+                      additionalProperties: false
+                      required: [state, base_ref, head_ref, diff]
+                      properties:
+                        state: { type: string }
+                        base_ref: { type: string }
+                        head_ref: { type: string }
+                        diff: { type: string }
+                  - id: confirm_write
+                    type: human.input
+                    input:
+                      mode: confirm
+                      prompt: Publish the validated review comment?
+                      choices: [confirm, cancel]
+                  - id: publish_comment
+                    type: mcp.call
+                    input:
+                      server: review-data
+                      kind: tool
+                      method: pull_request_write
+                      request:
+                        method: comment
+                        owner: ${data.steps.validate_url.owner}
+                        repository: ${data.steps.validate_url.repository}
+                        pull_number: ${data.steps.validate_url.pull_number}
+                        body: ${data.steps.build_context.diff}
+                outputs:
+                  state:
+                    expr: ${data.steps.build_context.state}
+                    type: string
+                  base_ref:
+                    expr: ${data.steps.build_context.base_ref}
+                    type: string
+                  head_ref:
+                    expr: ${data.steps.build_context.head_ref}
+                    type: string
+                  diff:
+                    expr: ${data.steps.build_context.diff}
+                    type: string
+            """;
+        var plan = ExplicitPlan("""
+            - id: read_metadata
+              description: Read pull request metadata and refs.
+              required: true
+              alternatives:
+                - server: review-data
+                  kind: tool
+                  method: pull_request_read
+                  request_bindings:
+                    - path: /method
+                      value: get
+            - id: read_diff
+              description: Read pull request diff content.
+              required: true
+              alternatives:
+                - server: review-data
+                  kind: tool
+                  method: pull_request_read
+                  request_bindings:
+                    - path: /method
+                      value: get_diff
+            - id: publish_comment
+              description: Publish the review comment after confirmation.
+              required: true
+              alternatives:
+                - server: review-data
+                  kind: tool
+                  method: pull_request_write
+                  request_bindings:
+                    - path: /method
+                      value: comment
+            """)
+            .Replace("validate:\n        max_repair_attempts: 3", "validate:\n        dry_run: true\n        max_repair_attempts: 1", StringComparison.Ordinal);
+
+        var result = await ExecuteAsync(
+            plan,
+            ConstantLlm(generatedWorkflow).Object,
+            CreatePullRequestReviewFactory());
+
+        Assert.True(result.Success, result.Error?.Message);
+        var yaml = result.Outputs!["plan"]!["yaml"]!.GetValue<string>();
+        Assert.Single(Regex.Matches(yaml, "method: get$", RegexOptions.Multiline).Cast<System.Text.RegularExpressions.Match>());
+        Assert.Single(Regex.Matches(yaml, "method: get_diff$", RegexOptions.Multiline).Cast<System.Text.RegularExpressions.Match>());
+        var generated = WorkflowParser.Parse(yaml);
+        var contextInput = Assert.IsType<JsonObject>(generated.Workflows["main"].Steps
+            .Single(static step => step.Id == "build_context").Input);
+        Assert.Equal("${data.steps.read_metadata.response.base_ref}", contextInput["base_ref"]!.GetValue<string>());
+        Assert.Equal("${data.steps.read_metadata.response.head_ref}", contextInput["head_ref"]!.GetValue<string>());
+        Assert.Equal("${data.steps.read_diff.response.diff}", contextInput["diff"]!.GetValue<string>());
+        Assert.True(
+            yaml.IndexOf("id: confirm_write", StringComparison.Ordinal)
+            < yaml.IndexOf("id: publish_comment", StringComparison.Ordinal));
+    }
+
+    [Fact]
     public async Task ExplicitPreflight_UnavailableRequiredOperationFailsBeforeGeneration()
     {
         var llm = new Mock<ILLMClient>(MockBehavior.Strict);
@@ -4328,6 +4517,96 @@ public sealed class WorkflowPlanCapabilityPreflightTests
             capability["match_status"]?.GetValue<string>() == "conditional"));
     }
 
+    [Fact]
+    public async Task InferredPreflight_ComposesRequiredReadVariantsWhenDecisionSourceIsUngrounded()
+    {
+        var llm = new Mock<ILLMClient>();
+        llm.Setup(client => client.CallAsync(It.IsAny<LLMRequest>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((LLMRequest request, CancellationToken _) =>
+            {
+                if (request.Prompt.Contains("domain-neutral workflow runtime analyst", StringComparison.Ordinal))
+                {
+                    return new LLMResponse
+                    {
+                        Json = new JsonObject
+                        {
+                            ["complete"] = true,
+                            ["incomplete_reasons"] = new JsonArray(),
+                            ["operations"] = new JsonArray(
+                                new JsonObject
+                                {
+                                    ["id"] = "choose_read",
+                                    ["description"] = "Locally choose which required read to execute.",
+                                    ["required"] = true,
+                                    ["execution_kind"] = "local_processing",
+                                    ["external_effect_kind"] = "none",
+                                    ["decision_source_operation_id"] = string.Empty
+                                },
+                                new JsonObject
+                                {
+                                    ["id"] = "read_inventory",
+                                    ["description"] = "Read both required inventory representations.",
+                                    ["required"] = true,
+                                    ["execution_kind"] = "external_effect",
+                                    ["external_effect_kind"] = "read",
+                                    ["decision_source_operation_id"] = "choose_read"
+                                }),
+                            ["constraints"] = new JsonArray()
+                        }
+                    };
+                }
+
+                if (request.Prompt.Contains("domain-neutral capability matcher", StringComparison.Ordinal))
+                {
+                    var list = CatalogIdForBinding(request.Prompt, "/method", "list_items");
+                    var status = CatalogIdForBinding(request.Prompt, "/method", "get_status");
+                    return new LLMResponse
+                    {
+                        Json = new JsonObject
+                        {
+                            ["operation_matches"] = new JsonArray(
+                                new JsonObject
+                                {
+                                    ["operation_id"] = "choose_read",
+                                    ["status"] = "local",
+                                    ["catalog_ids"] = new JsonArray(),
+                                    ["candidate_catalog_ids"] = new JsonArray(),
+                                    ["decision_operation_id"] = string.Empty,
+                                    ["reason"] = "The choice is an invented local value."
+                                },
+                                new JsonObject
+                                {
+                                    ["operation_id"] = "read_inventory",
+                                    ["status"] = "conditional",
+                                    ["catalog_ids"] = new JsonArray(list, status),
+                                    ["candidate_catalog_ids"] = new JsonArray(),
+                                    ["decision_operation_id"] = "choose_read",
+                                    ["reason"] = "The local choice selects one read."
+                                }),
+                            ["constraint_matches"] = new JsonArray()
+                        }
+                    };
+                }
+
+                return new LLMResponse { Text = ValidMultiActionWorkflow };
+            });
+
+        var result = await ExecuteAsync(InferredPlan(), llm.Object, CreateMultiActionFactory());
+
+        Assert.True(result.Success, result.Error?.Message);
+        var capabilities = Assert.IsType<JsonArray>(
+            result.Outputs!["plan"]!["meta"]!["capability_preflight"]!["capabilities"]);
+        var readCapabilities = capabilities.OfType<JsonObject>()
+            .Where(static capability => capability["operation_id"]?.GetValue<string>() == "read_inventory")
+            .ToArray();
+        Assert.Equal(2, readCapabilities.Length);
+        Assert.All(readCapabilities, static capability =>
+        {
+            Assert.Equal("composed", capability["match_status"]!.GetValue<string>());
+            Assert.Null(capability["activation"]);
+        });
+    }
+
     [Theory]
     [InlineData("unconditional")]
     [InlineData("duplicate")]
@@ -5073,6 +5352,69 @@ public sealed class WorkflowPlanCapabilityPreflightTests
                             }
                           },
                           "required": ["method"],
+                          "additionalProperties": false
+                        }
+                        """)
+                }
+            ]
+        });
+        return factory;
+    }
+
+    private static InMemoryMcpClientFactory CreatePullRequestReviewFactory()
+    {
+        var commonRequestProperties = """
+            "method": { "type": "string" },
+            "owner": { "type": "string" },
+            "repository": { "type": "string" },
+            "pull_number": { "type": "integer", "minimum": 1 }
+            """;
+        var factory = new InMemoryMcpClientFactory();
+        factory.RegisterServer("review-data", new MockMcpServerConfig
+        {
+            Description = "Reads review data and publishes confirmed review comments.",
+            Tools =
+            [
+                new McpToolInfo
+                {
+                    Name = "pull_request_read",
+                    Description = "Read either metadata or diff content for one review target.",
+                    InputSchema = JsonNode.Parse($$"""
+                        {
+                          "type": "object",
+                          "properties": {
+                            {{commonRequestProperties.Replace("\"method\": { \"type\": \"string\" }", "\"method\": { \"type\": \"string\", \"enum\": [\"get\", \"get_diff\"] }")}}
+                          },
+                          "required": ["method", "owner", "repository", "pull_number"],
+                          "additionalProperties": false
+                        }
+                        """),
+                    OutputSchema = JsonNode.Parse("""
+                        {
+                          "type": "object",
+                          "properties": {
+                            "state": { "type": "string" },
+                            "base_ref": { "type": "string" },
+                            "head_ref": { "type": "string" },
+                            "diff": { "type": "string" }
+                          },
+                          "required": ["state", "base_ref", "head_ref", "diff"],
+                          "additionalProperties": false
+                        }
+                        """)
+                },
+                new McpToolInfo
+                {
+                    Name = "pull_request_write",
+                    Description = "Publish one confirmed review comment.",
+                    InputSchema = JsonNode.Parse($$"""
+                        {
+                          "type": "object",
+                          "properties": {
+                            {{commonRequestProperties.Replace("\"method\": { \"type\": \"string\" }", "\"method\": { \"type\": \"string\", \"const\": \"comment\" }")}},
+                            "body": { "type": "string", "minLength": 1 }
+                          },
+                          "required": ["method", "owner", "repository", "pull_number", "body"],
                           "additionalProperties": false
                         }
                         """)

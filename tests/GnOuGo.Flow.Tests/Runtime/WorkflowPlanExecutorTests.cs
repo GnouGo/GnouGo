@@ -2213,6 +2213,59 @@ public class WorkflowPlanExecutorTests
     }
 
     [Fact]
+    public void PipelineLeafBlueprint_RejectsPublicOutputBoundToConditionalBranchCall()
+    {
+        var extraction = CreatePrivateConditionalBoundaryCandidate(includeSharedBoundary: true);
+        var subworkflows = Assert.IsAssignableFrom<System.Collections.IEnumerable>(
+            extraction.GetType().GetProperty("Subworkflows")!.GetValue(extraction));
+        var activationLeaf = subworkflows.Cast<object>().Single(leaf => string.Equals(
+            leaf.GetType().GetProperty("Name")!.GetValue(leaf) as string,
+            "publish_outcome",
+            StringComparison.Ordinal));
+        var build = typeof(WorkflowPlanExecutor).GetMethod(
+            "BuildLeafBlueprint",
+            BindingFlags.Static | BindingFlags.NonPublic)!;
+        var blueprint = build.Invoke(null, [activationLeaf])!;
+        var steps = Assert.IsAssignableFrom<System.Collections.IEnumerable>(
+            blueprint.GetType().GetProperty("Steps")!.GetValue(blueprint)).Cast<object>().ToArray();
+        var branchStep = steps.First(step => step.GetType().GetProperty("PlannedTool")!.GetValue(step) != null);
+        var branchStepId = Assert.IsType<string>(branchStep.GetType().GetProperty("Id")!.GetValue(branchStep));
+        Assert.Contains(steps, step => string.Equals(
+            step.GetType().GetProperty("Id")!.GetValue(step) as string,
+            "project_outputs",
+            StringComparison.Ordinal));
+
+        var outputType = GetPrivatePipelineType("PipelineLeafBlueprintOutput");
+        var invalidOutput = CreatePrivatePipelineValue(
+            outputType,
+            "result",
+            $"${{data.steps.{branchStepId}.result}}",
+            branchStepId,
+            JsonNode.Parse("{\"type\":\"string\"}"));
+        var invalidBlueprint = CreatePrivatePipelineValue(
+            GetPrivatePipelineType("PipelineLeafBlueprint"),
+            "publish_outcome",
+            "publish_outcome",
+            "Publish one outcome.",
+            CreatePrivatePipelineArray(GetPrivatePipelineType("PipelineLeafBlueprintStep"), steps),
+            CreatePrivatePipelineArray(outputType, invalidOutput));
+        var validate = typeof(WorkflowPlanExecutor).GetMethod(
+            "ValidateLeafBlueprint",
+            BindingFlags.Static | BindingFlags.NonPublic)!;
+
+        var failure = Assert.Throws<TargetInvocationException>(() =>
+            validate.Invoke(null, [activationLeaf, invalidBlueprint]));
+
+        var runtimeFailure = Assert.IsType<WorkflowRuntimeException>(failure.InnerException);
+        Assert.Contains(
+            Assert.IsType<JsonArray>(runtimeFailure.Details!["diagnostics"]).OfType<JsonObject>(),
+            static diagnostic => string.Equals(
+                diagnostic["code"]?.GetValue<string>(),
+                "PIPELINE_LEAF_BLUEPRINT_PATH_DEPENDENT_OUTPUT",
+                StringComparison.Ordinal));
+    }
+
+    [Fact]
     public void PipelineExtractionPatch_ReplaceLeafDropsAdvisoryCallsButRetainsImmutableLocks()
     {
         var candidate = CreatePrivatePatchCandidateWithOwnership(
@@ -2387,7 +2440,7 @@ public class WorkflowPlanExecutorTests
             new Dictionary<string, string>(StringComparer.Ordinal) { ["evidence"] = "string" },
             new Dictionary<string, string>(StringComparer.Ordinal) { ["decision"] = "string" },
             new Dictionary<string, JsonNode?>(StringComparer.Ordinal) { ["evidence"] = JsonNode.Parse("{\"type\":\"string\"}") },
-            new Dictionary<string, JsonNode?>(StringComparer.Ordinal) { ["decision"] = JsonNode.Parse("{\"type\":\"string\"}") },
+            new Dictionary<string, JsonNode?>(StringComparer.Ordinal) { ["decision"] = JsonNode.Parse("{\"type\":\"string\",\"enum\":[\"selected\",\"rejected\"]}") },
             CreatePrivatePipelineArray(plannedToolType),
             null,
             "The runtime decision is local shaping.",
@@ -2400,9 +2453,23 @@ public class WorkflowPlanExecutorTests
             : new Dictionary<string, string>(StringComparer.Ordinal) { ["payload"] = "string" };
         var consumerInputSchemas = consumerInputs.ToDictionary(
             static pair => pair.Key,
-            static _ => (JsonNode?)JsonNode.Parse("{\"type\":\"string\"}"),
+            static pair => (JsonNode?)JsonNode.Parse(pair.Key == "decision"
+                ? "{\"type\":\"string\",\"enum\":[\"selected\",\"rejected\"]}"
+                : "{\"type\":\"string\"}"),
             StringComparer.Ordinal);
-        var conditionalTool = CreatePrivatePipelineValue(
+        var selectedActivation = new McpCapabilityActivation(
+            "exactly_one", "publish-group", "choose-operation", "selected")
+        {
+            DecisionOutputPath = "/decision",
+            AllowedValues = ["selected", "rejected"]
+        };
+        var rejectedActivation = new McpCapabilityActivation(
+            "exactly_one", "publish-group", "choose-operation", "rejected")
+        {
+            DecisionOutputPath = "/decision",
+            AllowedValues = ["selected", "rejected"]
+        };
+        var selectedTool = CreatePrivatePipelineValue(
             plannedToolType,
             "neutral-server",
             "tool",
@@ -2414,7 +2481,20 @@ public class WorkflowPlanExecutorTests
             CreatePrivatePipelineArray(bindingType),
             new[] { "publish-operation" },
             new[] { "publish-catalog" },
-            new McpCapabilityActivation("exactly_one", "publish-group", "choose-operation", "selected"));
+            selectedActivation);
+        var rejectedTool = CreatePrivatePipelineValue(
+            plannedToolType,
+            "neutral-server",
+            "tool",
+            "neutral-action",
+            true,
+            "Apply exactly one runtime-selected effect.",
+            Array.Empty<string>(),
+            Array.Empty<string>(),
+            CreatePrivatePipelineArray(bindingType),
+            new[] { "publish-operation" },
+            new[] { "publish-catalog" },
+            rejectedActivation);
         var consumer = CreatePrivatePipelineValue(
             leafType,
             "publish_outcome",
@@ -2427,7 +2507,7 @@ public class WorkflowPlanExecutorTests
             new Dictionary<string, string>(StringComparer.Ordinal) { ["result"] = "string" },
             consumerInputSchemas,
             new Dictionary<string, JsonNode?>(StringComparer.Ordinal) { ["result"] = JsonNode.Parse("{\"type\":\"string\"}") },
-            CreatePrivatePipelineArray(plannedToolType, conditionalTool),
+            CreatePrivatePipelineArray(plannedToolType, selectedTool, rejectedTool),
             null,
             "The external effect owns conditional variants.",
             "Route the supplied decision to exactly one branch.",
@@ -16985,6 +17065,87 @@ workflows:
         Assert.Equal(
             "https://example.invalid/dry-run",
             sample["resource_url"]!.GetValue<string>());
+    }
+
+    [Fact]
+    public void WorkflowPlan_DryRun_UsesFirstDeclaredEnumValue()
+    {
+        var validatorType = typeof(WorkflowEngine).Assembly.GetType(
+            "GnOuGo.Flow.Core.Runtime.WorkflowPlanDryRunValidator",
+            throwOnError: true)!;
+        var method = validatorType.GetMethod(
+            "BuildSampleInputs",
+            BindingFlags.NonPublic | BindingFlags.Static)!;
+        var inputs = new Dictionary<string, InputDef>
+        {
+            ["mode"] = new()
+            {
+                Type = "string",
+                Enum = ["first", "second"]
+            }
+        };
+
+        var sample = Assert.IsType<JsonObject>(method.Invoke(null, [inputs]));
+
+        Assert.Equal("first", sample["mode"]!.GetValue<string>());
+    }
+
+    [Fact]
+    public void WorkflowPlan_LeafRepairCycle_StopsOnRepeatedDiagnosticStructure()
+    {
+        var method = typeof(WorkflowPlanExecutor).GetMethod(
+            "DetectLeafRepairCycle",
+            BindingFlags.NonPublic | BindingFlags.Static)!;
+        var diagnosticHistory = new List<string>();
+        var yamlHistory = new List<string>();
+        const string yamlA = """
+            version: 1
+            workflows:
+              main:
+                steps:
+                  - id: value
+                    type: set
+                    input: { result: first }
+            """;
+        const string yamlB = """
+            version: 1
+            workflows:
+              main:
+                steps:
+                  - id: value
+                    type: assert.non_null
+                    input: { value: second }
+            """;
+        var errorA = new WorkflowRuntimeException(ErrorCodes.InputValidation, "Missing required result.");
+        var errorB = new WorkflowRuntimeException(ErrorCodes.ScriptError, "Invalid result expression.");
+
+        Assert.Null(method.Invoke(null, [errorA, "test_leaf", 1, false, yamlA, diagnosticHistory, yamlHistory]));
+        Assert.Null(method.Invoke(null, [errorB, "test_leaf", 2, true, yamlB, diagnosticHistory, yamlHistory]));
+        var stalled = Assert.IsType<WorkflowRuntimeException>(
+            method.Invoke(null, [errorA, "test_leaf", 3, true, yamlA, diagnosticHistory, yamlHistory]));
+
+        Assert.Equal(ErrorCodes.WorkflowPlanRepairStalled, stalled.Code);
+        Assert.Equal("diagnostic_and_yaml_structure", stalled.Details!["cycle_kind"]!.GetValue<string>());
+        Assert.InRange(stalled.Details["diagnostic_history"]!.AsArray().Count, 1, 6);
+        Assert.Equal("test_leaf", stalled.Details["leaf"]!.GetValue<string>());
+        Assert.Equal("extraction_or_blueprint", stalled.Details["repair_scope"]!.GetValue<string>());
+        Assert.Equal(3, stalled.Details["attempt"]!.GetValue<int>());
+
+        var tryGetCycle = typeof(WorkflowPlanExecutor).GetMethod(
+            "TryGetLeafRepairCycle",
+            BindingFlags.NonPublic | BindingFlags.Static)!;
+        object?[] cycleArgs = [stalled, null];
+        Assert.True(Assert.IsType<bool>(tryGetCycle.Invoke(null, cycleArgs)));
+        Assert.Equal("test_leaf", cycleArgs[1]);
+
+        var addDiagnostic = typeof(WorkflowPlanExecutor).GetMethod(
+            "AddLeafRepairCycleDiagnostic",
+            BindingFlags.NonPublic | BindingFlags.Static)!;
+        var extraction = addDiagnostic.Invoke(null, [CreatePrivatePatchCandidate("test_leaf"), "test_leaf", stalled])!;
+        var qualityDiagnostic = Assert.Single(
+            BuildPrivateExtractionJson(extraction)["quality_review"]!["diagnostics"]!.AsArray());
+        Assert.Equal("PIPELINE_LEAF_REPAIR_CYCLE", qualityDiagnostic!["code"]!.GetValue<string>());
+        Assert.Equal("critical", qualityDiagnostic["severity"]!.GetValue<string>());
     }
 
     [Fact]

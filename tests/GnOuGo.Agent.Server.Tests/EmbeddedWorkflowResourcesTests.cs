@@ -56,9 +56,9 @@ public sealed class EmbeddedWorkflowResourcesTests
         Assert.Contains("max_rounds: 2", yaml, StringComparison.Ordinal);
         Assert.Contains("max_questions: 8", yaml, StringComparison.Ordinal);
         Assert.Contains("llm_budget:", yaml, StringComparison.Ordinal);
-        Assert.Contains("max_calls: 40", yaml, StringComparison.Ordinal);
-        Assert.Contains("max_total_tokens: 1500000", yaml, StringComparison.Ordinal);
-        Assert.Contains("max_elapsed_ms: 1800000", yaml, StringComparison.Ordinal);
+        Assert.Contains("max_calls: 100", yaml, StringComparison.Ordinal);
+        Assert.Contains("max_total_tokens: 15000000", yaml, StringComparison.Ordinal);
+        Assert.Contains("max_elapsed_ms: 18000000", yaml, StringComparison.Ordinal);
         Assert.Contains("unverifiable: fail", yaml, StringComparison.Ordinal);
         Assert.Contains("raw_prompt: \"${data.steps.normalized_prompt.description}\"", yaml, StringComparison.Ordinal);
         Assert.Contains("reasoning: medium", yaml, StringComparison.Ordinal);

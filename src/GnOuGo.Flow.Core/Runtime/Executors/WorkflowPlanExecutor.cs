@@ -225,6 +225,10 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
         var instruction = generator["instruction"]?.GetValue<string>() ?? "";
         var generatorContext = generator["context"]?.GetValue<string>() ?? "";
         var pipelineLeafName = generator["pipeline_leaf_name"]?.GetValue<string>();
+        var pipelineLeafAttempt = generator["pipeline_leaf_attempt"] is JsonValue pipelineAttemptValue
+                                  && pipelineAttemptValue.TryGetValue<int>(out var parsedPipelineAttempt)
+            ? parsedPipelineAttempt
+            : (int?)null;
 
         // Reasoning effort: workflow planning is reasoning-heavy, default to "medium".
         // Authors can override via `generator.reasoning: auto|minimal|low|medium|high|max`.
@@ -294,6 +298,8 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
         };
         if (!string.IsNullOrWhiteSpace(pipelineLeafName))
             generationAttributes.Add(new KeyValuePair<string, object?>("gnougo-flow.plan.pipeline.leaf_name", pipelineLeafName));
+        if (pipelineLeafAttempt.HasValue)
+            generationAttributes.Add(new KeyValuePair<string, object?>("gnougo-flow.plan.pipeline.outer_attempt", pipelineLeafAttempt.Value));
 
         using var generationSpan = parentSpan == null
             ? ctx.BeginTelemetrySpan("workflow.plan.generate", "generation", generationAttributes)
@@ -591,6 +597,8 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
             };
             if (!string.IsNullOrWhiteSpace(pipelineLeafName))
                 llmCallAttributes.Add(new KeyValuePair<string, object?>("gnougo-flow.plan.pipeline.leaf_name", pipelineLeafName));
+            if (pipelineLeafAttempt.HasValue)
+                llmCallAttributes.Add(new KeyValuePair<string, object?>("gnougo-flow.plan.pipeline.outer_attempt", pipelineLeafAttempt.Value));
 
             using (var llmCallSpan = ctx.BeginTelemetrySpan(generationSpan.Span, "workflow.plan.generate.llm_call", "generation_llm", llmCallAttributes))
             {

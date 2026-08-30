@@ -50,7 +50,8 @@ public sealed partial class WorkflowPlanExecutor
     private sealed record CapabilitySchemaField(
         string Path,
         string Type,
-        string Description);
+        string Description,
+        IReadOnlyList<string> EnumValues);
 
     private sealed record CapabilityMatchingIssue(
         string OperationId,
@@ -66,7 +67,9 @@ public sealed partial class WorkflowPlanExecutor
         string Reason,
         IReadOnlyList<string> CatalogIds,
         IReadOnlyList<string> CandidateCatalogIds,
-        string? DecisionOperationId = null);
+        string? DecisionOperationId = null,
+        string? DecisionOutputPath = null,
+        IReadOnlyList<string>? DecisionAllowedValues = null);
 
     private sealed record CapabilityConstraintMatch(
         CapabilityInventoryConstraint Constraint,
@@ -337,7 +340,8 @@ public sealed partial class WorkflowPlanExecutor
                 fields.Add(new CapabilitySchemaField(
                     path,
                     ReadCompactSchemaType(propertySchema),
-                    ReadCapabilitySchemaFieldDescription(propertySchema)));
+                    ReadCapabilitySchemaFieldDescription(propertySchema),
+                    ReadCapabilitySchemaStringValues(propertySchema)));
             }
 
             CollectCapabilitySchemaFields(
@@ -357,6 +361,27 @@ public sealed partial class WorkflowPlanExecutor
             ? LimitCapabilityDescription(description)
             : string.Empty;
 
+    private static IReadOnlyList<string> ReadCapabilitySchemaStringValues(JsonObject schema)
+    {
+        if (schema["const"] is JsonValue constant
+            && constant.TryGetValue<string>(out var constantValue)
+            && !string.IsNullOrWhiteSpace(constantValue))
+        {
+            return [constantValue];
+        }
+
+        if (schema["enum"] is not JsonArray values)
+            return Array.Empty<string>();
+
+        return values
+            .OfType<JsonValue>()
+            .Select(static value => value.TryGetValue<string>(out var text) ? text : null)
+            .Where(static value => !string.IsNullOrWhiteSpace(value))
+            .Cast<string>()
+            .Distinct(StringComparer.Ordinal)
+            .ToArray();
+    }
+
     private static void CollectOutputSummaries(JsonObject schema, string pointer, int depth, List<string> values)
     {
         if (depth >= 2 || schema["properties"] is not JsonObject properties)
@@ -368,7 +393,8 @@ public sealed partial class WorkflowPlanExecutor
             var path = pointer + "/" + EncodeJsonPointerToken(property.Key);
             if (IsSensitiveSelectorPath(path))
                 continue;
-            values.Add($"{path}:{ReadCompactSchemaType(propertySchema)}");
+            var enumValues = ReadCapabilitySchemaStringValues(propertySchema);
+            values.Add($"{path}:{ReadCompactSchemaType(propertySchema)}{(enumValues.Count == 0 ? string.Empty : $" enum=[{string.Join("|", enumValues)}]")}");
             CollectOutputSummaries(propertySchema, path, depth + 1, values);
         }
     }
