@@ -208,26 +208,23 @@ public sealed class LiveIntentAgentGenerationTests
                         {
                             try
                             {
-                                var lookup = await CallAgentToolAsync(
+                                var persistedAgent = await TryGetAgentForCleanupAsync(
                                     mcpFactory,
-                                    "agent_get_by_name",
-                                    new JsonObject { ["name"] = agentName },
+                                    agentName,
                                     CancellationToken.None);
-                                if (lookup["success"]?.GetValue<bool>() != true)
+                                if (persistedAgent is null)
                                     continue;
-                                var persistedAgent = Assert.IsType<JsonObject>(lookup["agent"]);
                                 var deleted = await CallAgentToolAsync(
                                     mcpFactory,
                                     "agent_delete",
                                     new JsonObject { ["id"] = RequireString(persistedAgent, "id") },
                                     CancellationToken.None);
                                 Assert.True(deleted["success"]?.GetValue<bool>() == true, deleted.ToJsonString());
-                                var afterDelete = await CallAgentToolAsync(
+                                var afterDelete = await TryGetAgentForCleanupAsync(
                                     mcpFactory,
-                                    "agent_get_by_name",
-                                    new JsonObject { ["name"] = agentName },
+                                    agentName,
                                     CancellationToken.None);
-                                Assert.False(afterDelete["success"]?.GetValue<bool>() == true, afterDelete.ToJsonString());
+                                Assert.Null(afterDelete);
                             }
                             catch (Exception ex)
                             {
@@ -660,6 +657,28 @@ public sealed class LiveIntentAgentGenerationTests
         var result = await session.CallToolAsync(method, arguments, ct);
         Assert.False(result.IsError);
         return Assert.IsType<JsonObject>(result.Content);
+    }
+
+    private static async Task<JsonObject?> TryGetAgentForCleanupAsync(
+        IMcpClientFactory factory,
+        string name,
+        CancellationToken ct)
+    {
+        await using var session = await factory.GetClientAsync(AgentMcpHostingExtensions.ServerName, ct);
+        var result = await session.CallToolAsync(
+            "agent_get_by_name",
+            new JsonObject { ["name"] = name },
+            ct);
+        var payload = Assert.IsType<JsonObject>(result.Content);
+        if (payload["success"]?.GetValue<bool>() == true)
+        {
+            Assert.False(result.IsError, payload.ToJsonString());
+            return Assert.IsType<JsonObject>(payload["agent"]);
+        }
+
+        Assert.True(result.IsError, payload.ToJsonString());
+        Assert.Equal("NOT_FOUND", payload["error_code"]?.GetValue<string>());
+        return null;
     }
 
     private static async Task<GeneratedAgentContract> ValidateGeneratedAgentAsync(

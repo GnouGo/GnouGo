@@ -203,7 +203,8 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
         JsonObject input,
         CancellationToken ct,
         ITelemetrySpan? parentSpan = null,
-        CapabilityPreflightResult? capabilityPreflight = null)
+        CapabilityPreflightResult? capabilityPreflight = null,
+        IReadOnlyList<McpServerDiscovery>? preselectedMcpServers = null)
     {
         var llmClient = ctx.Engine.LLMClient
             ?? throw new WorkflowRuntimeException(ErrorCodes.TemplatePlan, "No LLM client configured");
@@ -299,7 +300,8 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
             : ctx.BeginTelemetrySpan(parentSpan, "workflow.plan.generate", "generation", generationAttributes);
 
         capabilityPreflight ??= CapabilityPreflightResult.Off;
-        var candidateMcpServers = capabilityPreflight.Enabled
+        var selectedMcpServers = preselectedMcpServers?.Select(CloneDiscovery).ToList();
+        var candidateMcpServers = selectedMcpServers is not null || capabilityPreflight.Enabled
             ? null
             : shouldPrefilter
             ? await PrefilterMcpServerMetadataAsync(
@@ -314,20 +316,24 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
             ctx);
 
         var validateDryRun = validate?["dry_run"]?.GetValue<bool>() ?? false;
-        var validationDiscovered = capabilityPreflight.Enabled
+        var validationDiscovered = selectedMcpServers is not null
+            ? selectedMcpServers.Select(CloneDiscovery).ToList()
+            : capabilityPreflight.Enabled
             ? capabilityPreflight.DiscoveredServers.Select(CloneDiscovery).ToList()
             : validateDryRun
             ? await DiscoverMcpServersAsync(
                 ctx.Engine.McpClientFactory, ctx.Engine.McpCache, ctx.Engine.Logger, ctx, candidateServers: null, generationSpan.Span, ct)
             : null;
 
-        var discovered = capabilityPreflight.Enabled
+        var discovered = selectedMcpServers is not null
+            ? selectedMcpServers.Select(CloneDiscovery).ToList()
+            : capabilityPreflight.Enabled
             ? capabilityPreflight.DiscoveredServers.Select(CloneDiscovery).ToList()
             : SelectDiscoveredServers(validationDiscovered, candidateMcpServers)
             ?? await DiscoverMcpServersAsync(
             ctx.Engine.McpClientFactory, ctx.Engine.McpCache, ctx.Engine.Logger, ctx, candidateMcpServers, generationSpan.Span, ct);
 
-        if (shouldPrefilter && discovered != null && discovered.Count > 0)
+        if (selectedMcpServers is null && shouldPrefilter && discovered != null && discovered.Count > 0)
         {
             var prefilterSource = discovered;
             discovered = await PrefilterMcpServersAsync(

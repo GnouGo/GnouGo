@@ -11857,8 +11857,8 @@ workflows:
         var result = await engine.ExecuteAsync(wf, new JsonObject(), CancellationToken.None);
 
         Assert.True(result.Success, result.Error?.Message);
-        Assert.Contains(requests, request => request.Prompt.Contains("MCP server-selection assistant", StringComparison.Ordinal));
-        Assert.Contains(requests, request => request.Prompt.Contains("tool-selection assistant", StringComparison.Ordinal));
+        Assert.Single(requests, request => request.Prompt.Contains("MCP server-selection assistant", StringComparison.Ordinal));
+        Assert.Single(requests, request => request.Prompt.Contains("tool-selection assistant", StringComparison.Ordinal));
         var generationRequest = Assert.Single(requests, request =>
             request.Prompt.StartsWith("You are a GnOuGo.Flow YAML workflow generator.", StringComparison.Ordinal)
             && request.Prompt.Contains("Generate exactly one leaf GnOuGo workflow named `list_repositories`.", StringComparison.Ordinal));

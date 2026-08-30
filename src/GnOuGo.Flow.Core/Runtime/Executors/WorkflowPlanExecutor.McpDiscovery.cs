@@ -474,7 +474,7 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
                 """),
                 StructuredOutputStrict = true,
                 Reasoning = planReasoning,
-            }, "workflow.plan.mcp_discovery_repair", ct);
+            }, "workflow.plan.mcp_server_prefilter", ct);
 
             if (ctx.Limits.LogStepContent && !string.IsNullOrWhiteSpace(response.Text))
             {

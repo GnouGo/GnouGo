@@ -2985,7 +2985,7 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
                 UseBackgroundMode = true,
                 StructuredOutputSchema = structuredOutputSchema,
                 StructuredOutputStrict = true
-            }, "workflow.plan.pipeline.quality_review", ct);
+            }, $"workflow.plan.pipeline.{phase}", ct);
 
             span.SetAttribute("gen_ai.response.model", model);
             span.SetAttribute("gen_ai.response.finish_reason", "stop");
@@ -5510,7 +5510,14 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
                     TelemetrySpan = parentCtx.TelemetrySpan
                 };
 
-                var result = await ExecuteSinglePlanAsync(leafCtx, leafInput, ct, leafAttemptSpan.Span) as JsonObject
+                var result = await ExecuteSinglePlanAsync(
+                    leafCtx,
+                    leafInput,
+                    ct,
+                    leafAttemptSpan.Span,
+                    preselectedMcpServers: pipelineMcpContext.Servers.Count > 0
+                        ? pipelineMcpContext.Servers
+                        : null) as JsonObject
                     ?? throw new WorkflowRuntimeException(ErrorCodes.TemplatePlan, $"Leaf workflow '{spec.Name}' generation did not return an object.");
                 var yaml = result["yaml"]?.GetValue<string>()
                     ?? throw new WorkflowRuntimeException(ErrorCodes.TemplatePlan, $"Leaf workflow '{spec.Name}' generation did not return YAML.");
@@ -5832,7 +5839,14 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
             TelemetrySpan = parentCtx.TelemetrySpan
         };
 
-        var result = await ExecuteSinglePlanAsync(leafCtx, leafInput, ct, leafRepairSpan.Span) as JsonObject
+        var result = await ExecuteSinglePlanAsync(
+            leafCtx,
+            leafInput,
+            ct,
+            leafRepairSpan.Span,
+            preselectedMcpServers: pipelineMcpContext.Servers.Count > 0
+                ? pipelineMcpContext.Servers
+                : null) as JsonObject
             ?? throw new WorkflowRuntimeException(ErrorCodes.TemplatePlan, $"Leaf workflow '{spec.Name}' contract repair did not return an object.");
         var yaml = result["yaml"]?.GetValue<string>()
             ?? throw new WorkflowRuntimeException(ErrorCodes.TemplatePlan, $"Leaf workflow '{spec.Name}' contract repair did not return YAML.");
@@ -5913,7 +5927,14 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
             TelemetrySpan = parentCtx.TelemetrySpan
         };
 
-        var result = await ExecuteSinglePlanAsync(leafCtx, leafInput, ct, leafRepairSpan.Span) as JsonObject
+        var result = await ExecuteSinglePlanAsync(
+            leafCtx,
+            leafInput,
+            ct,
+            leafRepairSpan.Span,
+            preselectedMcpServers: pipelineMcpContext.Servers.Count > 0
+                ? pipelineMcpContext.Servers
+                : null) as JsonObject
             ?? throw new WorkflowRuntimeException(ErrorCodes.TemplatePlan, $"Leaf workflow '{spec.Name}' input contract repair did not return an object.");
         var yaml = result["yaml"]?.GetValue<string>()
             ?? throw new WorkflowRuntimeException(ErrorCodes.TemplatePlan, $"Leaf workflow '{spec.Name}' input contract repair did not return YAML.");
@@ -5992,7 +6013,14 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
             TelemetrySpan = parentCtx.TelemetrySpan
         };
 
-        var result = await ExecuteSinglePlanAsync(leafCtx, leafInput, ct, leafRepairSpan.Span) as JsonObject
+        var result = await ExecuteSinglePlanAsync(
+            leafCtx,
+            leafInput,
+            ct,
+            leafRepairSpan.Span,
+            preselectedMcpServers: pipelineMcpContext.Servers.Count > 0
+                ? pipelineMcpContext.Servers
+                : null) as JsonObject
             ?? throw new WorkflowRuntimeException(ErrorCodes.TemplatePlan, $"Leaf workflow '{leafName}' runtime validation repair did not return an object.");
         var yaml = result["yaml"]?.GetValue<string>()
             ?? throw new WorkflowRuntimeException(ErrorCodes.TemplatePlan, $"Leaf workflow '{leafName}' runtime validation repair did not return YAML.");
