@@ -172,6 +172,38 @@ public sealed class WorkflowFailureFormatterTests
     }
 
     [Fact]
+    public void Format_ExplainsInventoryModelContractFailureWithoutRequestingIntentClarification()
+    {
+        var error = new WorkflowError
+        {
+            Code = ErrorCodes.CapabilityPreflightInferenceFailed,
+            Message = "Capability inventory inference violated its deterministic evidence contract after one repair attempt.",
+            Details = new JsonObject
+            {
+                ["classification"] = "model_contract_violation",
+                ["recommended_action"] = "retry_or_change_planning_model",
+                ["contract_issues"] = new JsonArray(new JsonObject
+                {
+                    ["code"] = "excerpt_not_found",
+                    ["operation_id"] = "op_analyze",
+                    ["field"] = "coverage_requirements",
+                    ["source_id"] = "clarification_0001",
+                    ["evidence_id"] = "evidence_123"
+                })
+            }
+        };
+
+        var presentation = WorkflowFailureFormatter.Format(error);
+
+        Assert.Contains("Capability inventory evidence contract issues", presentation.UserMessage, StringComparison.Ordinal);
+        Assert.Contains("excerpt_not_found: op_analyze/coverage_requirements", presentation.UserMessage, StringComparison.Ordinal);
+        Assert.Contains("does not need clarification", presentation.UserMessage, StringComparison.Ordinal);
+        Assert.Contains("select a planning model", presentation.UserMessage, StringComparison.Ordinal);
+        Assert.DoesNotContain("Clarify the requested runtime behavior", presentation.UserMessage, StringComparison.Ordinal);
+        Assert.Equal(1, presentation.InferenceReasonCount);
+    }
+
+    [Fact]
     public void Format_RedactsSensitiveIncompleteReasonValues()
     {
         var error = new WorkflowError

@@ -12,6 +12,26 @@ public sealed partial class WorkflowPlanExecutor
     private const int CapabilityDescriptionMaxCharacters = 512;
     private const int CapabilityCatalogMaxCharacters = 256_000;
 
+    private sealed record CapabilityEvidenceSource(
+        string Id,
+        string Kind,
+        string Text);
+
+    private sealed record CapabilityEvidenceAnchor(
+        string Id,
+        string SourceId,
+        int Start,
+        int Length,
+        string Excerpt);
+
+    private sealed record CapabilityInventoryContractIssue(
+        string Code,
+        string OperationId,
+        string Field,
+        int? Index,
+        string SourceId,
+        string EvidenceId);
+
     private sealed record CapabilityInventoryOperation(
         string Id,
         string Description,
@@ -26,6 +46,8 @@ public sealed partial class WorkflowPlanExecutor
     {
         public IReadOnlyList<string> InputOperationIds { get; init; } = Array.Empty<string>();
         public IReadOnlyList<string> CoverageRequirements { get; init; } = Array.Empty<string>();
+        public IReadOnlyList<CapabilityEvidenceAnchor> CoverageRequirementEvidence { get; init; } = Array.Empty<CapabilityEvidenceAnchor>();
+        public CapabilityEvidenceAnchor? OptionalityEvidenceAnchor { get; init; }
     }
     private sealed record CapabilityInventoryConstraint(
         string Id,
@@ -39,7 +61,10 @@ public sealed partial class WorkflowPlanExecutor
         IReadOnlyList<CapabilityInventoryConstraint> Constraints,
         IReadOnlyList<CapabilityInventoryIncompleteReason> IncompleteReasons,
         string ExternalWriteConfirmationPolicy = "unspecified",
-        string ExternalWriteConfirmationEvidence = "");
+        string ExternalWriteConfirmationEvidence = "")
+    {
+        public CapabilityEvidenceAnchor? ExternalWriteConfirmationEvidenceAnchor { get; init; }
+    }
 
     private sealed record CapabilityCatalogEntry(
         string Id,
@@ -98,12 +123,14 @@ public sealed partial class WorkflowPlanExecutor
 
     private sealed record CapabilityCoverageEvidence(
         string CatalogId,
+        string RequirementId,
         string RequirementExcerpt,
         string CatalogExcerpt);
 
     private sealed record CapabilityCoverageDiagnostic(
         string OperationId,
         string Status,
+        string UnsupportedRequirementId,
         string UnsupportedRequirement,
         string SupportedWeakerBehavior,
         IReadOnlyList<string> CandidateCatalogIds,

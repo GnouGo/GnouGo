@@ -84,6 +84,26 @@ internal static class WorkflowFailureFormatter
                 .Append("Clarify the requested runtime behavior described above and retry. Tool availability and exact capability matching are evaluated separately.");
         }
 
+        var contractIssues = ReadObjectArrayDeep(error.Details, "contract_issues");
+        if (contractIssues.Count > 0)
+        {
+            builder.AppendLine().AppendLine("Capability inventory evidence contract issues:");
+            foreach (var issue in contractIssues)
+            {
+                var code = Sanitize(ReadBoundedString(issue, "code", 160) ?? "inventory_contract_invalid", 160);
+                var operationId = Sanitize(ReadBoundedString(issue, "operation_id", 160) ?? "inventory", 160);
+                var field = Sanitize(ReadBoundedString(issue, "field", 240) ?? "$", 240);
+                var sourceId = Sanitize(ReadBoundedString(issue, "source_id", 160) ?? string.Empty, 160);
+                builder.Append("- ").Append(code).Append(": ").Append(operationId).Append('/').Append(field);
+                if (!string.IsNullOrWhiteSpace(sourceId))
+                    builder.Append(" (source ").Append(sourceId).Append(')');
+                builder.AppendLine();
+            }
+
+            builder.AppendLine()
+                .Append("The request itself does not need clarification for this failure. Retry planning or select a planning model that can satisfy the structured evidence contract.");
+        }
+
         var matchingIssues = ReadObjectArrayDeep(error.Details, "matching_issues");
         if (matchingIssues.Count > 0)
         {
@@ -161,7 +181,7 @@ internal static class WorkflowFailureFormatter
             formatted.Text,
             unavailable.Count,
             servers.Count,
-            inferenceReasons.Count,
+            inferenceReasons.Count + contractIssues.Count,
             matchingIssues.Count,
             violatedConstraints.Count);
     }

@@ -1,6 +1,7 @@
 using System.Reflection;
 using System.Collections;
 using System.Runtime.CompilerServices;
+using System.Text;
 using System.Text.RegularExpressions;
 using System.Text.Json.Nodes;
 using GnOuGo.Flow.Core.Compilation;
@@ -471,10 +472,16 @@ public sealed class WorkflowPlanCapabilityPreflightTests
             properties["external_write_confirmation_policy"]!["enum"]!.AsArray()
                 .Select(static item => item!.GetValue<string>()));
         Assert.Contains(requiredProperties, static item => item?.GetValue<string>() == "external_write_confirmation_evidence");
+        Assert.Equal("object", properties["external_write_confirmation_evidence"]!["type"]!.GetValue<string>());
         Assert.NotNull(operationProperties["input_operation_ids"]);
         Assert.Contains(requiredOperationProperties, static item => item?.GetValue<string>() == "input_operation_ids");
         Assert.NotNull(operationProperties["optionality_evidence"]);
+        Assert.Equal("object", operationProperties["optionality_evidence"]!["type"]!.GetValue<string>());
         Assert.Contains(requiredOperationProperties, static item => item?.GetValue<string>() == "optionality_evidence");
+        var coverageItemProperties = Assert.IsType<JsonObject>(
+            operationProperties["coverage_requirements"]!["items"]!["properties"]);
+        Assert.NotNull(coverageItemProperties["source_id"]);
+        Assert.NotNull(coverageItemProperties["excerpt"]);
         Assert.NotNull(operationProperties["decision_source_operation_id"]);
         Assert.Equal(
             ["exact_denial", "workflow_policy"],
@@ -1273,6 +1280,7 @@ public sealed class WorkflowPlanCapabilityPreflightTests
             "ParseCapabilityCoverageReview",
             BindingFlags.Static | BindingFlags.NonPublic);
         var operationType = executorType.GetNestedType("CapabilityInventoryOperation", BindingFlags.NonPublic);
+        var evidenceType = executorType.GetNestedType("CapabilityEvidenceAnchor", BindingFlags.NonPublic);
         var matchType = executorType.GetNestedType("CapabilityOperationMatch", BindingFlags.NonPublic);
         var catalogType = executorType.GetNestedType("CapabilityCatalog", BindingFlags.NonPublic);
         var entryType = executorType.GetNestedType("CapabilityCatalogEntry", BindingFlags.NonPublic);
@@ -1280,6 +1288,7 @@ public sealed class WorkflowPlanCapabilityPreflightTests
         var fieldType = executorType.GetNestedType("CapabilitySchemaField", BindingFlags.NonPublic);
         Assert.NotNull(method);
         Assert.NotNull(operationType);
+        Assert.NotNull(evidenceType);
         Assert.NotNull(matchType);
         Assert.NotNull(catalogType);
         Assert.NotNull(entryType);
@@ -1294,6 +1303,11 @@ public sealed class WorkflowPlanCapabilityPreflightTests
             string.Empty, "requested_effect", string.Empty, false, string.Empty
         ])!;
         operationType!.GetProperty("CoverageRequirements")!.SetValue(operation, new[] { requirement });
+        var requirementEvidence = Activator.CreateInstance(evidenceType!,
+            ["requirement-1", "user_request", 0, requirement.Length, requirement])!;
+        var requirementEvidenceArray = Array.CreateInstance(evidenceType!, 1);
+        requirementEvidenceArray.SetValue(requirementEvidence, 0);
+        operationType.GetProperty("CoverageRequirementEvidence")!.SetValue(operation, requirementEvidenceArray);
 
         var match = Activator.CreateInstance(matchType!,
         [
@@ -1318,13 +1332,13 @@ public sealed class WorkflowPlanCapabilityPreflightTests
                 {
                   "operation_id": "publish_summary",
                   "status": "incomplete",
-                  "unsupported_requirement": {{JsonValue.Create(requirement)!.ToJsonString()}},
+                  "unsupported_requirement_id": "requirement-1",
                   "supported_weaker_behavior": "Adds one new record.",
                   "candidate_catalog_ids": ["cap-create"],
                   "evidence": [
                     {
                       "catalog_id": "cap-create",
-                      "requirement_excerpt": {{JsonValue.Create(requirement)!.ToJsonString()}},
+                      "requirement_id": "requirement-1",
                       "catalog_excerpt": "Adds one new record."
                     }
                   ]
@@ -3295,7 +3309,9 @@ public sealed class WorkflowPlanCapabilityPreflightTests
                                     ["id"] = "notify",
                                     ["description"] = "Optionally notify a consumer.",
                                     ["required"] = false,
-                                    ["optionality_evidence"] = "optionally notify a consumer"
+                                    ["optionality_evidence"] = Evidence(
+                                        "user_request",
+                                        "optionally notify a consumer")
                                 }
                             },
                             ["constraints"] = new JsonArray()
@@ -3808,7 +3824,9 @@ public sealed class WorkflowPlanCapabilityPreflightTests
                     var response = InventoryResponseWithEffects(
                         ("remove_object", "Remove the configured object.", true, "external_effect", "write"));
                     response.Json!["external_write_confirmation_policy"] = "forbidden";
-                    response.Json["external_write_confirmation_evidence"] = "Aucune confirmation humaine";
+                    response.Json["external_write_confirmation_evidence"] = Evidence(
+                        "user_request",
+                        "Aucune confirmation humaine");
                     return response;
                 }
                 if (request.Prompt.Contains("domain-neutral capability matcher", StringComparison.Ordinal))
@@ -3842,7 +3860,9 @@ public sealed class WorkflowPlanCapabilityPreflightTests
                     var response = InventoryResponseWithEffects(
                         ("remove_object", "Remove the configured object.", true, "external_effect", "write"));
                     response.Json!["external_write_confirmation_policy"] = "forbidden";
-                    response.Json["external_write_confirmation_evidence"] = "without human confirmation";
+                    response.Json["external_write_confirmation_evidence"] = Evidence(
+                        "user_request",
+                        "without human confirmation");
                     response.Json["constraints"] = new JsonArray(new JsonObject
                     {
                         ["id"] = "no_runtime_confirmation",
@@ -5621,6 +5641,248 @@ public sealed class WorkflowPlanCapabilityPreflightTests
     }
 
     [Fact]
+    public async Task CapabilityInventoryEvidence_AcceptsDecodedUnicodeAndWhitespaceNormalizedClarification()
+    {
+        const string answer = "L’analyse d’une pull request.\r\nPublier un résumé.";
+        var modelExcerpt = "L’analyse d’une pull request.   Publier un résumé."
+            .Normalize(NormalizationForm.FormD);
+        var inventoryCalls = 0;
+        var matchingCalls = 0;
+        var human = new RecordingHumanInputProvider(new JsonObject
+        {
+            ["review_scope"] = answer
+        });
+        var llm = new Mock<ILLMClient>();
+        llm.Setup(client => client.CallAsync(It.IsAny<LLMRequest>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((LLMRequest request, CancellationToken _) =>
+            {
+                if (request.Prompt.Contains("provider-neutral workflow intent clarification analyst", StringComparison.Ordinal))
+                    return IntentQuestionsResponse("Préciser la portée de l’analyse.", "review_scope");
+                if (request.Prompt.Contains("domain-neutral workflow runtime analyst", StringComparison.Ordinal))
+                {
+                    inventoryCalls++;
+                    Assert.Contains("clarification_0001", request.Prompt, StringComparison.Ordinal);
+                    return EvidenceInventoryResponse(
+                        "op_analyze_pull_request",
+                        "Analyser la modification demandée.",
+                        "clarification_0001",
+                        modelExcerpt);
+                }
+                if (request.Prompt.Contains("domain-neutral capability matcher", StringComparison.Ordinal))
+                {
+                    matchingCalls++;
+                    return MatchResponse(("op_analyze_pull_request", "unavailable", string.Empty));
+                }
+                throw new InvalidOperationException("Planning must stop at unavailable capability matching.");
+            });
+
+        var result = await ExecuteAsync(
+            UnicodeClarificationPlan(),
+            llm.Object,
+            CreateNeutralFactory(),
+            human);
+
+        Assert.False(result.Success);
+        Assert.Equal(ErrorCodes.CapabilityPreflightUnavailable, result.Error!.Code);
+        Assert.Equal(1, inventoryCalls);
+        Assert.Equal(2, matchingCalls);
+        Assert.Single(human.Requests);
+    }
+
+    [Fact]
+    public async Task CapabilityInventoryEvidence_RepairReceivesRejectedCandidateAndPreciseIssue()
+    {
+        var inventoryCalls = 0;
+        string? repairPrompt = null;
+        var human = new RecordingHumanInputProvider(new JsonObject());
+        var llm = new Mock<ILLMClient>();
+        llm.Setup(client => client.CallAsync(It.IsAny<LLMRequest>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((LLMRequest request, CancellationToken _) =>
+            {
+                if (request.Prompt.Contains("domain-neutral workflow runtime analyst", StringComparison.Ordinal))
+                {
+                    inventoryCalls++;
+                    return EvidenceInventoryResponse(
+                        "load_object",
+                        "Load the requested object.",
+                        "user_request",
+                        "load a configured object");
+                }
+                if (request.Prompt.Contains("inventory repair analyst", StringComparison.Ordinal))
+                {
+                    inventoryCalls++;
+                    repairPrompt = request.Prompt;
+                    return EvidenceInventoryResponse(
+                        "load_object",
+                        "Load the requested object.",
+                        "user_request",
+                        "Load a configured object");
+                }
+                if (request.Prompt.Contains("domain-neutral capability matcher", StringComparison.Ordinal))
+                    return MatchResponse(("load_object", "unavailable", string.Empty));
+                throw new InvalidOperationException("Planning must stop at unavailable capability matching.");
+            });
+
+        var result = await ExecuteAsync(InferredPlan(), llm.Object, CreateNeutralFactory(), human);
+
+        Assert.False(result.Success);
+        Assert.Equal(ErrorCodes.CapabilityPreflightUnavailable, result.Error!.Code);
+        Assert.Equal(2, inventoryCalls);
+        Assert.Empty(human.Requests);
+        Assert.NotNull(repairPrompt);
+        Assert.Contains("excerpt_not_found", repairPrompt, StringComparison.Ordinal);
+        Assert.Contains("load a configured object", repairPrompt, StringComparison.Ordinal);
+        Assert.Contains("user_request", repairPrompt, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task CapabilityInventoryEvidence_RepeatedInvalidContractFailsWithoutClarifyingUser()
+    {
+        var matchingCalls = 0;
+        var human = new RecordingHumanInputProvider(new JsonObject { ["unused"] = "unused" });
+        var telemetry = new Mock<IWorkflowTelemetry>();
+        var workflowSpan = new Mock<IWorkflowSpan>();
+        var stepSpan = new Mock<IStepSpan>();
+        var internalSpan = new Mock<ITelemetrySpan>();
+        var contractEvents = new List<IReadOnlyList<KeyValuePair<string, object?>>>();
+        telemetry.Setup(value => value.WorkflowStart(It.IsAny<WorkflowTelemetryInfo>()))
+            .Returns(workflowSpan.Object);
+        telemetry.Setup(value => value.WorkflowStart(It.IsAny<ITelemetrySpan>(), It.IsAny<WorkflowTelemetryInfo>()))
+            .Returns(workflowSpan.Object);
+        telemetry.Setup(value => value.StepStart(It.IsAny<ITelemetrySpan>(), It.IsAny<StepTelemetryInfo>()))
+            .Returns(stepSpan.Object);
+        telemetry.Setup(value => value.SpanStart(It.IsAny<ITelemetrySpan>(), It.IsAny<TelemetrySpanInfo>()))
+            .Returns(internalSpan.Object);
+        internalSpan.Setup(value => value.AddEvent(
+                "gnougo-flow.plan.capability_inventory.contract_issue",
+                It.IsAny<IReadOnlyList<KeyValuePair<string, object?>>?>()))
+            .Callback((string _, IReadOnlyList<KeyValuePair<string, object?>>? attributes) =>
+                contractEvents.Add(attributes ?? []));
+        var llm = new Mock<ILLMClient>();
+        llm.Setup(client => client.CallAsync(It.IsAny<LLMRequest>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((LLMRequest request, CancellationToken _) =>
+            {
+                if (request.Prompt.Contains("workflow runtime analyst", StringComparison.Ordinal)
+                    || request.Prompt.Contains("inventory repair analyst", StringComparison.Ordinal))
+                {
+                    return EvidenceInventoryResponse(
+                        "load_object",
+                        "Load the requested object.",
+                        "user_request",
+                        "load a configured object");
+                }
+                if (request.Prompt.Contains("capability matcher", StringComparison.Ordinal))
+                    matchingCalls++;
+                throw new InvalidOperationException("No later planning stage may run.");
+            });
+
+        var result = await ExecuteAsync(
+            InferredPlan(),
+            llm.Object,
+            CreateNeutralFactory(),
+            human,
+            telemetry.Object);
+
+        Assert.False(result.Success);
+        Assert.Equal(ErrorCodes.CapabilityPreflightInferenceFailed, result.Error!.Code);
+        Assert.Equal("model_contract_violation", result.Error.Details!["classification"]!.GetValue<string>());
+        Assert.Equal("retry_or_change_planning_model", result.Error.Details["recommended_action"]!.GetValue<string>());
+        var issue = Assert.IsType<JsonObject>(Assert.Single(Assert.IsType<JsonArray>(
+            result.Error.Details["contract_issues"])));
+        Assert.Equal("excerpt_not_found", issue["code"]!.GetValue<string>());
+        Assert.Equal("load_object", issue["operation_id"]!.GetValue<string>());
+        Assert.Equal("coverage_requirements", issue["field"]!.GetValue<string>());
+        Assert.Equal("user_request", issue["source_id"]!.GetValue<string>());
+        Assert.DoesNotContain("load a configured object", result.Error.Details.ToJsonString(), StringComparison.Ordinal);
+        Assert.Empty(human.Requests);
+        Assert.Equal(0, matchingCalls);
+        Assert.Equal(2, contractEvents.Count);
+        Assert.All(contractEvents, attributes =>
+        {
+            var values = attributes.ToDictionary(static item => item.Key, static item => item.Value);
+            Assert.Equal("excerpt_not_found", values["gnougo-flow.plan.capability_inventory.contract_issue.code"]);
+            Assert.Equal("user_request", values["gnougo-flow.plan.capability_inventory.contract_issue.source_id"]);
+            Assert.StartsWith(
+                "evidence_",
+                Assert.IsType<string>(values["gnougo-flow.plan.capability_inventory.contract_issue.evidence_id"]),
+                StringComparison.Ordinal);
+            Assert.DoesNotContain(values.Values, static value => string.Equals(
+                value as string,
+                "load a configured object",
+                StringComparison.Ordinal));
+        });
+    }
+
+    [Theory]
+    [InlineData("unknown_source", "Load a configured object", "source_unknown")]
+    [InlineData("user_request", "load a configured object", "excerpt_not_found")]
+    [InlineData("user_request", "Load a configured object!", "excerpt_not_found")]
+    [InlineData("user_request", "Retrieve the configured object", "excerpt_not_found")]
+    public async Task CapabilityInventoryEvidence_RejectsUnknownOrInexactEvidence(
+        string sourceId,
+        string excerpt,
+        string expectedCode)
+    {
+        var llm = new Mock<ILLMClient>();
+        llm.Setup(client => client.CallAsync(It.IsAny<LLMRequest>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(EvidenceInventoryResponse(
+                "load_object",
+                "Load the requested object.",
+                sourceId,
+                excerpt));
+
+        var result = await ExecuteAsync(InferredPlan(), llm.Object, CreateNeutralFactory());
+
+        Assert.False(result.Success);
+        Assert.Equal(ErrorCodes.CapabilityPreflightInferenceFailed, result.Error!.Code);
+        var issue = Assert.IsType<JsonObject>(Assert.Single(Assert.IsType<JsonArray>(
+            result.Error.Details!["contract_issues"])));
+        Assert.Equal(expectedCode, issue["code"]!.GetValue<string>());
+    }
+
+    [Fact]
+    public async Task CapabilityInventoryEvidence_RejectsExcerptSpanningDifferentSources()
+    {
+        var llm = new Mock<ILLMClient>();
+        llm.Setup(client => client.CallAsync(It.IsAny<LLMRequest>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(EvidenceInventoryResponse(
+                "load_object",
+                "Load the configured object.",
+                "user_request",
+                "Load a configured object"));
+
+        var result = await ExecuteAsync(SplitEvidencePlan(), llm.Object, CreateNeutralFactory());
+
+        Assert.False(result.Success);
+        Assert.Equal(ErrorCodes.CapabilityPreflightInferenceFailed, result.Error!.Code);
+        var issue = Assert.IsType<JsonObject>(Assert.Single(Assert.IsType<JsonArray>(
+            result.Error.Details!["contract_issues"])));
+        Assert.Equal("excerpt_not_found", issue["code"]!.GetValue<string>());
+    }
+
+    [Theory]
+    [InlineData("Optionally notify a consumer", "without human confirmation", "optionality_evidence")]
+    [InlineData("optionally notify a consumer", "Without human confirmation", "external_write_confirmation_evidence")]
+    public async Task CapabilityInventoryEvidence_AppliesExactResolverToOptionalityAndConfirmation(
+        string optionalityExcerpt,
+        string confirmationExcerpt,
+        string expectedField)
+    {
+        var llm = new Mock<ILLMClient>();
+        llm.Setup(client => client.CallAsync(It.IsAny<LLMRequest>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(EvidencePolicyInventoryResponse(optionalityExcerpt, confirmationExcerpt));
+
+        var result = await ExecuteAsync(EvidencePolicyPlan(), llm.Object, CreateNeutralFactory());
+
+        Assert.False(result.Success);
+        Assert.Equal(ErrorCodes.CapabilityPreflightInferenceFailed, result.Error!.Code);
+        var issue = Assert.IsType<JsonObject>(Assert.Single(Assert.IsType<JsonArray>(
+            result.Error.Details!["contract_issues"])));
+        Assert.Equal("excerpt_not_found", issue["code"]!.GetValue<string>());
+        Assert.Equal(expectedField, issue["field"]!.GetValue<string>());
+    }
+
+    [Fact]
     public async Task InferredPreflight_ClarificationFailsClosedWithoutProvider()
     {
         var llm = new Mock<ILLMClient>();
@@ -5734,6 +5996,12 @@ public sealed class WorkflowPlanCapabilityPreflightTests
     private static LLMResponse MatchResponse(params (string OperationId, string Resolution, string CatalogId)[] matches)
         => MatchResponseWithConstraints(matches, Array.Empty<(string ConstraintId, string[] CatalogIds)>());
 
+    private static JsonObject Evidence(string sourceId, string excerpt) => new()
+    {
+        ["source_id"] = sourceId,
+        ["excerpt"] = excerpt
+    };
+
     private static LLMResponse PhysicalCandidateResponse(
         params (string OperationId, string[] CatalogIds)[] operations)
         => PhysicalCandidateResponseWithConstraints(
@@ -5831,6 +6099,74 @@ public sealed class WorkflowPlanCapabilityPreflightTests
             }
         };
 
+    private static LLMResponse EvidenceInventoryResponse(
+        string operationId,
+        string description,
+        string sourceId,
+        string excerpt)
+        => new()
+        {
+            Json = new JsonObject
+            {
+                ["complete"] = true,
+                ["external_write_confirmation_policy"] = "unspecified",
+                ["external_write_confirmation_evidence"] = Evidence(string.Empty, string.Empty),
+                ["incomplete_reasons"] = new JsonArray(),
+                ["operations"] = new JsonArray(new JsonObject
+                {
+                    ["id"] = operationId,
+                    ["description"] = description,
+                    ["required"] = true,
+                    ["execution_kind"] = "external_effect",
+                    ["external_effect_kind"] = "execute",
+                    ["input_operation_ids"] = new JsonArray(),
+                    ["coverage_requirements"] = new JsonArray(Evidence(sourceId, excerpt)),
+                    ["optionality_evidence"] = Evidence(string.Empty, string.Empty),
+                    ["decision_source_operation_id"] = string.Empty,
+                    ["allow_no_effect_outcome"] = false,
+                    ["intent_origin"] = "requested_effect",
+                    ["derivation_source_operation_id"] = string.Empty
+                }),
+                ["constraints"] = new JsonArray()
+            }
+        };
+
+    private static LLMResponse EvidencePolicyInventoryResponse(
+        string optionalityExcerpt,
+        string confirmationExcerpt)
+        => new()
+        {
+            Json = new JsonObject
+            {
+                ["complete"] = true,
+                ["external_write_confirmation_policy"] = "forbidden",
+                ["external_write_confirmation_evidence"] = Evidence(
+                    "user_request",
+                    confirmationExcerpt),
+                ["incomplete_reasons"] = new JsonArray(),
+                ["operations"] = new JsonArray(new JsonObject
+                {
+                    ["id"] = "load_object",
+                    ["description"] = "Optionally load the configured object.",
+                    ["required"] = false,
+                    ["execution_kind"] = "external_effect",
+                    ["external_effect_kind"] = "execute",
+                    ["input_operation_ids"] = new JsonArray(),
+                    ["coverage_requirements"] = new JsonArray(Evidence(
+                        "user_request",
+                        "Load a configured object")),
+                    ["optionality_evidence"] = Evidence(
+                        "user_request",
+                        optionalityExcerpt),
+                    ["decision_source_operation_id"] = string.Empty,
+                    ["allow_no_effect_outcome"] = false,
+                    ["intent_origin"] = "requested_effect",
+                    ["derivation_source_operation_id"] = string.Empty
+                }),
+                ["constraints"] = new JsonArray()
+            }
+        };
+
     private static LLMResponse MatchingResponse(
         params (string OperationId, string Status, string[] CatalogIds, string[] CandidateCatalogIds, string Reason)[] matches)
         => new()
@@ -5909,7 +6245,9 @@ public sealed class WorkflowPlanCapabilityPreflightTests
             {
                 ["complete"] = true,
                 ["external_write_confirmation_policy"] = "forbidden",
-                ["external_write_confirmation_evidence"] = "without human confirmation",
+                ["external_write_confirmation_evidence"] = Evidence(
+                    "user_request",
+                    "without human confirmation"),
                 ["incomplete_reasons"] = new JsonArray(),
                 ["operations"] = new JsonArray(new JsonObject
                 {
@@ -5921,8 +6259,10 @@ public sealed class WorkflowPlanCapabilityPreflightTests
                     ["execution_kind"] = "external_effect",
                     ["external_effect_kind"] = "write",
                     ["input_operation_ids"] = new JsonArray(),
-                    ["coverage_requirements"] = new JsonArray(requirement),
-                    ["optionality_evidence"] = string.Empty,
+                    ["coverage_requirements"] = new JsonArray(Evidence(
+                        relaxed ? "clarification_0001" : "user_request",
+                        requirement)),
+                    ["optionality_evidence"] = Evidence(string.Empty, string.Empty),
                     ["decision_source_operation_id"] = string.Empty,
                     ["allow_no_effect_outcome"] = false,
                     ["intent_origin"] = "requested_effect",
@@ -5940,9 +6280,11 @@ public sealed class WorkflowPlanCapabilityPreflightTests
             "\\\"selected_catalog_ids\\\":\\[\\\"(?<id>cap_[0-9]+)\\\"",
             RegexOptions.CultureInvariant).Groups["id"].Value;
         Assert.False(string.IsNullOrWhiteSpace(catalogId));
-        var requirement = supported
-            ? "Create one new summary record."
-            : "Create or update one unique summary record";
+        var requirementId = Regex.Match(
+            prompt,
+            "\\\"requirement_id\\\":\\\"(?<id>evidence_[a-f0-9]+)\\\"",
+            RegexOptions.CultureInvariant).Groups["id"].Value;
+        Assert.False(string.IsNullOrWhiteSpace(requirementId));
         return new LLMResponse
         {
             Json = new JsonObject
@@ -5951,7 +6293,7 @@ public sealed class WorkflowPlanCapabilityPreflightTests
                 {
                     ["operation_id"] = "publish_summary",
                     ["status"] = supported ? "supported" : "incomplete",
-                    ["unsupported_requirement"] = supported ? string.Empty : requirement,
+                    ["unsupported_requirement_id"] = supported ? string.Empty : requirementId,
                     ["supported_weaker_behavior"] = supported
                         ? string.Empty
                         : "Create one new summary record.",
@@ -5959,7 +6301,7 @@ public sealed class WorkflowPlanCapabilityPreflightTests
                     ["evidence"] = new JsonArray(new JsonObject
                     {
                         ["catalog_id"] = catalogId,
-                        ["requirement_excerpt"] = requirement,
+                        ["requirement_id"] = requirementId,
                         ["catalog_excerpt"] = "Create one new summary record."
                     })
                 })
@@ -5978,7 +6320,9 @@ public sealed class WorkflowPlanCapabilityPreflightTests
                 ["complete"] = true,
                 ["incomplete_reasons"] = new JsonArray(),
                 ["external_write_confirmation_policy"] = "forbidden",
-                ["external_write_confirmation_evidence"] = "without human confirmation",
+                ["external_write_confirmation_evidence"] = Evidence(
+                    "user_request",
+                    "without human confirmation"),
                 ["operations"] = new JsonArray(
                     new JsonObject
                     {
@@ -6137,7 +6481,9 @@ public sealed class WorkflowPlanCapabilityPreflightTests
             Json = new JsonObject
             {
                 ["external_write_confirmation_policy"] = "forbidden",
-                ["external_write_confirmation_evidence"] = "without human confirmation",
+                ["external_write_confirmation_evidence"] = Evidence(
+                    "user_request",
+                    "without human confirmation"),
                 ["operations"] = new JsonArray(
                     new JsonObject
                     {
@@ -6918,6 +7264,69 @@ public sealed class WorkflowPlanCapabilityPreflightTests
                     instruction: Create or update one unique summary record without human confirmation.
                   on_invalid:
                     max_attempts: 1
+        """;
+
+    private static string UnicodeClarificationPlan() => """
+        version: 1
+        workflows:
+          main:
+            steps:
+              - id: plan
+                type: workflow.plan
+                input:
+                  mode: basic
+                  raw_prompt: Analyser automatiquement une modification et expliquer la décision.
+                  intent_clarification:
+                    mode: always
+                    timeout_ms: 60000
+                    max_rounds: 2
+                    max_questions: 8
+                    max_questions_per_round: 5
+                  capability_preflight:
+                    mode: infer
+                  generator:
+                    model: gpt-4
+                    prefilter: false
+                    instruction: Analyser automatiquement une modification et expliquer la décision.
+                  on_invalid:
+                    max_attempts: 1
+        """;
+
+    private static string SplitEvidencePlan() => """
+        version: 1
+        workflows:
+          main:
+            steps:
+              - id: plan
+                type: workflow.plan
+                input:
+                  mode: basic
+                  raw_prompt: Load a
+                  capability_preflight:
+                    mode: infer
+                  generator:
+                    model: gpt-4
+                    prefilter: false
+                    context: configured object
+                    instruction: This instruction is not selected while raw_prompt is present.
+        """;
+
+    private static string EvidencePolicyPlan() => """
+        version: 1
+        workflows:
+          main:
+            steps:
+              - id: plan
+                type: workflow.plan
+                input:
+                  mode: basic
+                  raw_prompt: Load a configured object, optionally notify a consumer, and continue without human confirmation.
+                  capability_preflight:
+                    mode: infer
+                  generator:
+                    model: gpt-4
+                    prefilter: false
+                    instruction: Load a configured object, optionally notify a consumer, and continue without human confirmation.
         """;
 
     private static string Indent(string text, int spaces)
