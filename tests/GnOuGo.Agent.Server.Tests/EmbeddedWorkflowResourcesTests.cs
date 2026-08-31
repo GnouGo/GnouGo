@@ -53,8 +53,8 @@ public sealed class EmbeddedWorkflowResourcesTests
         Assert.Contains("mode: infer", yaml, StringComparison.Ordinal);
         Assert.Contains("intent_clarification:", yaml, StringComparison.Ordinal);
         Assert.Contains("mode: always", yaml, StringComparison.Ordinal);
-        Assert.Contains("max_rounds: 2", yaml, StringComparison.Ordinal);
-        Assert.Contains("max_questions: 8", yaml, StringComparison.Ordinal);
+        Assert.Contains("max_rounds: 3", yaml, StringComparison.Ordinal);
+        Assert.Contains("max_questions: 15", yaml, StringComparison.Ordinal);
         Assert.Contains("llm_budget:", yaml, StringComparison.Ordinal);
         Assert.Contains("max_calls: 100", yaml, StringComparison.Ordinal);
         Assert.Contains("max_total_tokens: 15000000", yaml, StringComparison.Ordinal);
