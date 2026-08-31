@@ -415,6 +415,21 @@ public sealed record McpCapabilityActivation(
 
     /// <summary>Closed set of values accepted by every branch in this activation group.</summary>
     public IReadOnlyList<string> AllowedValues { get; init; } = Array.Empty<string>();
+
+    /// <summary>
+    /// Values in <see cref="AllowedValues"/> that intentionally execute no external-effect
+    /// branch. Final workflow validation proves that each such value has a non-mutating path.
+    /// </summary>
+    public IReadOnlyList<string> NoEffectValues { get; init; } = Array.Empty<string>();
+
+    /// <summary>
+    /// Provider-neutral source of the decision contract: either a discovered capability
+    /// output schema or a strict Flow structured-output projection.
+    /// </summary>
+    public string DecisionContractSource { get; init; } = "capability_output";
+
+    /// <summary>Catalog capability that produces or projects the decision value.</summary>
+    public string DecisionProducerCatalogId { get; init; } = "";
 }
 
 /// <summary>

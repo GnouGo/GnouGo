@@ -122,11 +122,16 @@ public sealed class WorkflowValidator
         }
     }
 
-    private void CollectStepIds(List<StepDef> steps, HashSet<string> ids, string wfName, List<ValidationError> errors)
+    private void CollectStepIds(
+        List<StepDef> steps,
+        HashSet<string> ids,
+        string wfName,
+        List<ValidationError> errors,
+        IReadOnlySet<StepDef>? allowedDuplicateSteps = null)
     {
         foreach (var step in steps)
         {
-            if (!ids.Add(step.Id))
+            if (!ids.Add(step.Id) && allowedDuplicateSteps?.Contains(step) != true)
                 errors.Add(new ValidationError
                 {
                     Code = "DUPLICATE_STEP_ID",
@@ -135,16 +140,75 @@ public sealed class WorkflowValidator
                     Message = $"Duplicate step ID: '{step.Id}'"
                 });
 
-            if (step.Steps != null) CollectStepIds(step.Steps, ids, wfName, errors);
+            var nestedAllowedDuplicateSteps = allowedDuplicateSteps;
+            if (TryGetSharedSwitchProjectionSteps(step, ids, out var sharedProjectionSteps))
+            {
+                var combined = allowedDuplicateSteps == null
+                    ? new HashSet<StepDef>(ReferenceEqualityComparer.Instance)
+                    : new HashSet<StepDef>(allowedDuplicateSteps, ReferenceEqualityComparer.Instance);
+                combined.UnionWith(sharedProjectionSteps);
+                nestedAllowedDuplicateSteps = combined;
+            }
+
+            if (step.Steps != null)
+                CollectStepIds(step.Steps, ids, wfName, errors, nestedAllowedDuplicateSteps);
             if (step.Branches != null)
                 foreach (var b in step.Branches)
-                    CollectStepIds(b.Steps, ids, wfName, errors);
+                    CollectStepIds(b.Steps, ids, wfName, errors, nestedAllowedDuplicateSteps);
             if (step.Cases != null)
                 foreach (var c in step.Cases)
-                    CollectStepIds(c.Steps, ids, wfName, errors);
+                    CollectStepIds(c.Steps, ids, wfName, errors, nestedAllowedDuplicateSteps);
             if (step.Default != null)
-                CollectStepIds(step.Default, ids, wfName, errors);
+                CollectStepIds(step.Default, ids, wfName, errors, nestedAllowedDuplicateSteps);
         }
+    }
+
+    private static bool TryGetSharedSwitchProjectionSteps(
+        StepDef step,
+        IReadOnlySet<string> ids,
+        out IReadOnlyList<StepDef> projections)
+    {
+        projections = Array.Empty<StepDef>();
+        if (!string.Equals(step.Type, "switch", StringComparison.Ordinal)
+            || step.Cases is not { Count: > 0 }
+            || step.Default is not { Count: > 0 })
+        {
+            return false;
+        }
+
+        var branches = step.Cases.Select(static @case => @case.Steps)
+            .Append(step.Default)
+            .ToArray();
+        if (branches.Any(static branch => branch.Count == 0))
+            return false;
+
+        var candidates = branches.Select(static branch => branch[^1]).ToArray();
+        var first = candidates[0];
+        if (string.IsNullOrWhiteSpace(first.Id)
+            || ids.Contains(first.Id)
+            || !string.Equals(first.Type, "set", StringComparison.Ordinal)
+            || first.OutputSchema is not JsonObject firstSchema
+            || firstSchema["properties"] is not JsonObject { Count: > 0 })
+        {
+            return false;
+        }
+
+        for (var index = 0; index < branches.Length; index++)
+        {
+            var branch = branches[index];
+            var candidate = candidates[index];
+            if (!string.Equals(candidate.Id, first.Id, StringComparison.Ordinal)
+                || !string.Equals(candidate.Type, "set", StringComparison.Ordinal)
+                || candidate.OutputSchema is not JsonObject candidateSchema
+                || !JsonNode.DeepEquals(firstSchema, candidateSchema)
+                || branch.Take(branch.Count - 1).Any(item => string.Equals(item.Id, first.Id, StringComparison.Ordinal)))
+            {
+                return false;
+            }
+        }
+
+        projections = candidates;
+        return true;
     }
 
     private static void ValidateHumanInputStep(StepDef step, string wfName, List<ValidationError> errors)

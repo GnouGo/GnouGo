@@ -10,6 +10,9 @@ public sealed partial class WorkflowPlanExecutor
 {
     private const string PlatformExternalWriteConfirmationOperationDescription = "Require explicit human confirmation immediately before the first external write.";
     private const string PlatformExternalWriteConfirmationConstraintDescription = "No external write may execute before explicit human confirmation.";
+    private const string SynthesizedNoEffectDecisionValue = "NO_EFFECT";
+    private const string CapabilityDecisionContractSource = "capability_output";
+    private const string StructuredDecisionContractSource = "structured_output";
 
     private sealed record CapabilityClarificationConfig(bool Enabled, int TimeoutMs);
     private sealed record CapabilityClarificationQuestion(string Name, string Description);
@@ -480,7 +483,10 @@ public sealed partial class WorkflowPlanExecutor
             try
             {
                 inventory = RemovePlannerBoundaryArtifacts(
-                    ParseCapabilityInventory(ParseStructuredObject(inventoryResponse, "operation inventory")),
+                    ParseCapabilityInventory(
+                        ParseStructuredObject(inventoryResponse, "operation inventory"),
+                        instruction,
+                        generatorContext),
                     instruction);
             }
             catch (Exception ex) when (ex is not OperationCanceledException)
@@ -520,7 +526,10 @@ public sealed partial class WorkflowPlanExecutor
                 try
                 {
                     inventory = RemovePlannerBoundaryArtifacts(
-                        ParseCapabilityInventory(ParseStructuredObject(repairedInventoryResponse, "operation inventory repair")),
+                        ParseCapabilityInventory(
+                            ParseStructuredObject(repairedInventoryResponse, "operation inventory repair"),
+                            instruction,
+                            generatorContext),
                         instruction);
                 }
                 catch (Exception ex) when (ex is not OperationCanceledException)
@@ -584,7 +593,7 @@ public sealed partial class WorkflowPlanExecutor
                 inferenceSpan.SetAttribute("gnougo-flow.plan.capability_inventory.repair_attempted", false);
             }
 
-            inventory = ApplyDefaultExternalWriteConfirmation(inventory, instruction);
+            inventory = ApplyDefaultExternalWriteConfirmation(inventory);
 
             inferenceSpan.SetAttribute("gnougo-flow.plan.capability_inventory.operation_count", inventory.Operations.Count);
             inferenceSpan.SetAttribute("gnougo-flow.plan.capability_inventory.constraint_count", inventory.Constraints.Count);
@@ -637,6 +646,7 @@ public sealed partial class WorkflowPlanExecutor
                 evaluation = NormalizeConditionalSelectorMatches(evaluation, catalog, inventory);
                 evaluation = EnforceCapabilityPrerequisiteClosure(evaluation, catalog, instruction);
                 evaluation = NormalizePlatformSafetyMatches(evaluation, catalog);
+                RecordConditionalGroundingTelemetry(inferenceSpan.Span, evaluation, "initial");
             }
             catch (Exception ex) when (ex is not OperationCanceledException)
             {
@@ -676,6 +686,7 @@ public sealed partial class WorkflowPlanExecutor
                     repaired = NormalizeConditionalSelectorMatches(repaired, catalog, inventory);
                     repaired = EnforceCapabilityPrerequisiteClosure(repaired, catalog, instruction);
                     repaired = NormalizePlatformSafetyMatches(repaired, catalog);
+                    RecordConditionalGroundingTelemetry(inferenceSpan.Span, repaired, "repair");
                 }
                 catch (Exception ex) when (ex is not OperationCanceledException)
                 {
@@ -1038,7 +1049,8 @@ public sealed partial class WorkflowPlanExecutor
         CapabilityInventory inventory)
     {
         var entries = catalog.Entries.ToDictionary(static entry => entry.Id, StringComparer.Ordinal);
-        var normalizedOperationIds = new HashSet<string>(StringComparer.Ordinal);
+        var changedOperationIds = new HashSet<string>(StringComparer.Ordinal);
+        var contractGapIssues = new List<CapabilityMatchingIssue>();
         var operationMatches = evaluation.OperationMatches.Select(match =>
         {
             if (match.Status is "matched" or "conditional" or "local")
@@ -1068,35 +1080,63 @@ public sealed partial class WorkflowPlanExecutor
                     conditionalCandidate,
                     entries,
                     out var decisionOutputPath,
-                    out var decisionAllowedValues))
+                    out var decisionAllowedValues,
+                    out var decisionNoEffectValues,
+                    out var decisionContractSource,
+                    out var decisionProducerCatalogId,
+                    out var decisionProducerOperationId,
+                    out var failureCode))
             {
                 // Multiple read selectors are safe to keep as an unconditional composition
                 // when no declared runtime discriminator proves that they are alternatives.
-                return match;
+                if (string.Equals(match.Operation.ExternalEffectKind, "read", StringComparison.Ordinal))
+                    return match;
+
+                changedOperationIds.Add(match.Operation.Id);
+                const string reason = "Conditional activation has no provider-neutral decision contract that covers every effect branch and declared no-effect outcome.";
+                contractGapIssues.Add(new CapabilityMatchingIssue(
+                    match.Operation.Id,
+                    match.Operation.Description,
+                    match.Operation.Required,
+                    "contract_gap",
+                    reason,
+                    referenced.Select(static entry => entry.Id).Take(8).ToArray()));
+                return match with
+                {
+                    Status = "invalid",
+                    Reason = reason,
+                    DecisionOperationId = decisionProducerOperationId,
+                    DecisionGroundingFailureCode = failureCode
+                };
             }
 
-            normalizedOperationIds.Add(match.Operation.Id);
+            changedOperationIds.Add(match.Operation.Id);
             return match with
             {
                 Status = "conditional",
                 Reason = "The exact selector subset contains mutually exclusive runtime branches selected by an earlier workflow result; complementary selected capabilities remain unconditional prerequisites.",
                 CatalogIds = referenced.Select(static entry => entry.Id).ToArray(),
                 CandidateCatalogIds = Array.Empty<string>(),
-                DecisionOperationId = decisionOperationId,
+                DecisionOperationId = decisionProducerOperationId,
                 DecisionOutputPath = decisionOutputPath,
-                DecisionAllowedValues = decisionAllowedValues
+                DecisionAllowedValues = decisionAllowedValues,
+                DecisionNoEffectValues = decisionNoEffectValues,
+                DecisionContractSource = decisionContractSource,
+                DecisionProducerCatalogId = decisionProducerCatalogId,
+                DecisionGroundingFailureCode = null
             };
         }).ToArray();
 
-        if (normalizedOperationIds.Count == 0)
+        if (changedOperationIds.Count == 0)
             return evaluation;
 
         var issues = evaluation.Issues
-            .Where(issue => !normalizedOperationIds.Contains(issue.OperationId))
+            .Where(issue => !changedOperationIds.Contains(issue.OperationId))
+            .Concat(contractGapIssues)
             .ToArray();
         var contractValid = operationMatches.All(static match => match.Status != "invalid")
                             && evaluation.ConstraintMatches.All(static match => match.Status != "invalid")
-                            && issues.All(static issue => issue.Status != "invalid");
+                            && issues.All(static issue => issue.Status is not ("invalid" or "contract_gap"));
         return evaluation with
         {
             OperationMatches = operationMatches,
@@ -1631,7 +1671,16 @@ public sealed partial class WorkflowPlanExecutor
         - none: required for human_interaction and local_processing.
         Use write for every operation whose intended result changes an external system, even when a later confirmation is expected.
 
-        Set decision_source_operation_id to the ID of the earlier operation whose declared runtime result exclusively selects this operation's outcome or selector branch. Use an empty string when the operation is unconditional. Do not invent a discriminator as a local parsing result and do not use an identifier or locator as evidence of a future choice. If the user requires a runtime-dependent choice but the deciding operation cannot be identified, set complete=false and request that relationship as user clarification.
+        Set input_operation_ids to the IDs of every earlier operation whose declared runtime output this operation consumes. Use an empty array when it consumes no earlier operation output. A local validation, normalization, or projection of an external result must name that producer here. Declare only data flow stated by the task; never infer dependencies from descriptions, operation order, provider names, or likely implementations.
+        Set decision_source_operation_id to the ID of the earlier operation whose declared runtime result exclusively selects this operation's outcome or selector branch. Use an empty string when the operation is unconditional. A conditional operation may point to a local validation operation, and that local operation must use input_operation_ids to declare the upstream producer whose result it validates. Do not invent a discriminator as a local parsing result and do not use an identifier or locator as evidence of a future choice. If the user requires a runtime-dependent choice but the deciding operation cannot be identified, set complete=false and request that relationship as user clarification.
+        Set allow_no_effect_outcome=true only when the user's requested runtime behavior explicitly requires at least one result of that decision source to execute none of this operation's external-effect alternatives, such as abstaining, skipping publication, or performing no decision write when evidence is insufficient. Otherwise set it to false. It is invalid on unconditional operations. This field permits a safe non-mutating branch; it never permits omission of an independently required effect.
+        `required` means that the capability or local obligation must exist in every valid generated plan; it does not mean that its runtime call is unconditional. A conditional operation remains required when any of its branches is required by the task, including when another branch is a no-effect outcome. Set required=false only for enrichment that the user or caller explicitly made optional. For required=false, set optionality_evidence to one exact non-empty substring from the supplied user task or caller context that explicitly establishes that optionality. For required=true, set optionality_evidence to an empty string.
+
+        Classify the user/caller policy for human confirmation immediately before external writes in external_write_confirmation_policy:
+        - required: the supplied task explicitly requires that confirmation;
+        - forbidden: the supplied task explicitly requires unattended execution or prohibits that confirmation;
+        - unspecified: neither rule is explicit, so the platform safety default may add confirmation.
+        For required or forbidden, copy one exact non-empty proving substring from the supplied user task or caller context into external_write_confirmation_evidence. For unspecified, use an empty string. This policy is about the generated workflow's external writes only; do not derive it from provider, tool, domain, or selector names.
         Represent all mutually exclusive outcomes of one runtime choice as one conditional external operation with that decision source. Never inventory one positive operation per possible branch value, because those branches are alternative implementations of one runtime effect rather than independently required effects.
 
         Classify every operation's intent_origin. Use requested_effect only for an independently observable runtime effect requested by the user or caller context. Use derived_failure_handling when an operation is introduced only as implementation handling for another operation's failure and is not an independently requested effect; set derivation_source_operation_id to that existing operation ID. Notifications, logging, escalation, compensation, retries, and fallback actions are not requested effects merely because the workflow must fail safely. Use an empty derivation_source_operation_id for requested_effect. Derived failure handling is not a positive capability requirement and will be removed from the locked inventory.
@@ -1683,7 +1732,10 @@ public sealed partial class WorkflowPlanExecutor
         - Keep prohibitions, ordering requirements, safety rules, and invariants as constraints rather than positive operations.
         - Inventory only intentions expressed in the user task. Do not copy, paraphrase, or restate these repair or runtime-boundary instructions as operations or constraints.
         - Preserve execution_kind and external_effect_kind for every operation. External writes use external_effect/write; external reads use external_effect/read; AI or other non-mutating execution uses external_effect/execute; owned resource setup/cleanup uses external_effect/lifecycle; human and local work use none.
-        - Preserve decision_source_operation_id for runtime-dependent operations. It identifies the earlier operation whose result selects the branch; use an empty string for unconditional operations. Merge mutually exclusive outcome-specific operations into one conditional operation instead of treating every possible branch value as an independently required effect.
+        - Preserve required=true for every planning obligation, including runtime-conditional operations and branches. required=false is valid only for explicitly optional enrichment and requires optionality_evidence copied exactly from the supplied user task or caller context. Required operations use an empty optionality_evidence.
+        - Preserve external_write_confirmation_policy and its exact evidence. Use required or forbidden only when the supplied user task or caller context explicitly proves that policy; otherwise use unspecified with empty evidence.
+        - Preserve input_operation_ids as the exact earlier-operation data-flow edges. A local validation, normalization, or projection of an external result must identify that producer. Use an empty array when no earlier output is consumed, and never reconstruct a dependency from descriptions, provider names, or operation order alone.
+        - Preserve decision_source_operation_id for runtime-dependent operations. It identifies the earlier operation whose result selects the branch; use an empty string for unconditional operations. A local decision source declares its upstream producer through input_operation_ids. Preserve allow_no_effect_outcome=true only when the user explicitly requires a non-mutating outcome for that conditional operation; it must be false for unconditional operations. Merge mutually exclusive outcome-specific operations into one conditional operation instead of treating every possible branch value as an independently required effect.
         - Preserve intent_origin and derivation_source_operation_id. requested_effect requires an empty derivation source. derived_failure_handling requires the ID of the existing operation whose failure it handles and is never a substitute for a user-requested external effect.
         - Classify constraints with enforcement_kind=exact_denial only for unconditional document-wide prohibitions. Target-, input-, resource-instance-, data-, or branch-dependent restrictions and conditional, ordering, cardinality, coverage, quality, confirmation, and other structural invariants use workflow_policy.
         - Include conditional and optional runtime intentions and mark optional enrichment required=false.
@@ -1703,6 +1755,12 @@ public sealed partial class WorkflowPlanExecutor
         ["properties"] = new JsonObject
         {
             ["complete"] = new JsonObject { ["type"] = "boolean" },
+            ["external_write_confirmation_policy"] = new JsonObject
+            {
+                ["type"] = "string",
+                ["enum"] = new JsonArray("required", "forbidden", "unspecified")
+            },
+            ["external_write_confirmation_evidence"] = new JsonObject { ["type"] = "string" },
             ["incomplete_reasons"] = new JsonObject
             {
                 ["type"] = "array",
@@ -1739,7 +1797,14 @@ public sealed partial class WorkflowPlanExecutor
                             ["type"] = "string",
                             ["enum"] = new JsonArray("read", "write", "execute", "lifecycle", "none")
                         },
+                        ["input_operation_ids"] = new JsonObject
+                        {
+                            ["type"] = "array",
+                            ["items"] = new JsonObject { ["type"] = "string" }
+                        },
+                        ["optionality_evidence"] = new JsonObject { ["type"] = "string" },
                         ["decision_source_operation_id"] = new JsonObject { ["type"] = "string" },
+                        ["allow_no_effect_outcome"] = new JsonObject { ["type"] = "boolean" },
                         ["intent_origin"] = new JsonObject
                         {
                             ["type"] = "string",
@@ -1747,7 +1812,7 @@ public sealed partial class WorkflowPlanExecutor
                         },
                         ["derivation_source_operation_id"] = new JsonObject { ["type"] = "string" }
                     },
-                    ["required"] = new JsonArray("id", "description", "required", "execution_kind", "external_effect_kind", "decision_source_operation_id", "intent_origin", "derivation_source_operation_id"),
+                    ["required"] = new JsonArray("id", "description", "required", "execution_kind", "external_effect_kind", "input_operation_ids", "optionality_evidence", "decision_source_operation_id", "allow_no_effect_outcome", "intent_origin", "derivation_source_operation_id"),
                     ["additionalProperties"] = false
                 }
             },
@@ -1773,11 +1838,14 @@ public sealed partial class WorkflowPlanExecutor
                 }
             }
         },
-        ["required"] = new JsonArray("complete", "incomplete_reasons", "operations", "constraints"),
+        ["required"] = new JsonArray("complete", "external_write_confirmation_policy", "external_write_confirmation_evidence", "incomplete_reasons", "operations", "constraints"),
         ["additionalProperties"] = false
     };
 
-    private static CapabilityInventory ParseCapabilityInventory(JsonObject json)
+    private static CapabilityInventory ParseCapabilityInventory(
+        JsonObject json,
+        string instruction,
+        string context)
     {
         if (!TryReadComplete(json, out var complete))
             throw new InvalidOperationException("Capability inventory is missing its completeness decision.");
@@ -1805,6 +1873,27 @@ public sealed partial class WorkflowPlanExecutor
                                             ?? string.Empty;
             if (decisionSourceOperationId.Length > 160)
                 throw new InvalidOperationException($"Capability inventory operation '{id}' has an invalid decision_source_operation_id.");
+            var inputOperationIds = ((node as JsonObject)?["input_operation_ids"] as JsonArray)?
+                .Select(static input => input?.GetValue<string>()?.Trim() ?? string.Empty)
+                .Where(static input => input.Length > 0)
+                .Distinct(StringComparer.Ordinal)
+                .ToArray() ?? Array.Empty<string>();
+            if (inputOperationIds.Any(static input => input.Length > 160))
+                throw new InvalidOperationException($"Capability inventory operation '{id}' has an invalid input_operation_ids entry.");
+            var optionalityEvidence = (node as JsonObject)?["optionality_evidence"]?.GetValue<string>()?.Trim()
+                                      ?? string.Empty;
+            if (optionalityEvidence.Length > CapabilityDescriptionMaxCharacters
+                || required && optionalityEvidence.Length > 0
+                || !required && (optionalityEvidence.Length == 0
+                    || !instruction.Contains(optionalityEvidence, StringComparison.Ordinal)
+                    && !context.Contains(optionalityEvidence, StringComparison.Ordinal)))
+            {
+                throw new InvalidOperationException(
+                    $"Capability inventory operation '{id}' has invalid optionality evidence for required={required.ToString().ToLowerInvariant()}.");
+            }
+            var allowNoEffectOutcome = (node as JsonObject)?["allow_no_effect_outcome"]?.GetValue<bool>() ?? false;
+            if (allowNoEffectOutcome && decisionSourceOperationId.Length == 0)
+                throw new InvalidOperationException($"Capability inventory operation '{id}' cannot allow a no-effect outcome without a decision source.");
             var intentOrigin = (node as JsonObject)?["intent_origin"]?.GetValue<string>()?.Trim().ToLowerInvariant()
                                ?? "requested_effect";
             if (intentOrigin is not ("requested_effect" or "derived_failure_handling"))
@@ -1825,7 +1914,12 @@ public sealed partial class WorkflowPlanExecutor
                 externalEffectKind,
                 decisionSourceOperationId,
                 intentOrigin,
-                derivationSourceOperationId);
+                derivationSourceOperationId,
+                allowNoEffectOutcome,
+                optionalityEvidence)
+            {
+                InputOperationIds = inputOperationIds
+            };
         }).ToArray();
         var constraints = constraintNodes.Select(node =>
         {
@@ -1836,6 +1930,9 @@ public sealed partial class WorkflowPlanExecutor
                 throw new InvalidOperationException($"Capability inventory constraint '{id}' has invalid enforcement_kind '{enforcementKind}'.");
             return new CapabilityInventoryConstraint(id, description, required, enforcementKind);
         }).ToArray();
+        var operationIndexes = operations
+            .Select(static (operation, index) => (operation.Id, Index: index))
+            .ToDictionary(static item => item.Id, static item => item.Index, StringComparer.Ordinal);
         foreach (var operation in operations)
         {
             if (operation.DecisionSourceOperationId.Length > 0
@@ -1858,11 +1955,40 @@ public sealed partial class WorkflowPlanExecutor
                 throw new InvalidOperationException(
                     $"Capability inventory operation '{operation.Id}' references an unknown or self derivation source '{operation.DerivationSourceOperationId}'.");
             }
+            foreach (var inputOperationId in operation.InputOperationIds)
+            {
+                if (!operationIndexes.TryGetValue(inputOperationId, out var inputIndex)
+                    || inputIndex >= operationIndexes[operation.Id])
+                {
+                    throw new InvalidOperationException(
+                        $"Capability inventory operation '{operation.Id}' references an unknown, self, or later input operation '{inputOperationId}'.");
+                }
+            }
         }
+        var confirmationPolicy = json["external_write_confirmation_policy"]?.GetValue<string>()?.Trim().ToLowerInvariant()
+                                 ?? "unspecified";
+        var confirmationEvidence = json["external_write_confirmation_evidence"]?.GetValue<string>()?.Trim()
+                                   ?? string.Empty;
+        if (confirmationPolicy is not ("required" or "forbidden" or "unspecified")
+            || confirmationEvidence.Length > CapabilityDescriptionMaxCharacters
+            || confirmationPolicy == "unspecified" && confirmationEvidence.Length > 0
+            || confirmationPolicy != "unspecified" && (confirmationEvidence.Length == 0
+                || !instruction.Contains(confirmationEvidence, StringComparison.Ordinal)
+                && !context.Contains(confirmationEvidence, StringComparison.Ordinal)))
+        {
+            throw new InvalidOperationException("Capability inventory has an invalid external-write confirmation policy contract.");
+        }
+
         var reasons = ParseCapabilityInventoryReasons(json["incomplete_reasons"] as JsonArray);
         if (complete && reasons.Count > 0)
             throw new InvalidOperationException("A complete capability inventory cannot contain incomplete reasons.");
-        return new CapabilityInventory(complete, operations, constraints, reasons);
+        return new CapabilityInventory(
+            complete,
+            operations,
+            constraints,
+            reasons,
+            confirmationPolicy,
+            confirmationEvidence);
     }
 
     private static CapabilityInventory RemovePlannerBoundaryArtifacts(
@@ -1944,17 +2070,15 @@ public sealed partial class WorkflowPlanExecutor
     }
 
     private static CapabilityInventory ApplyDefaultExternalWriteConfirmation(
-        CapabilityInventory inventory,
-        string userInstruction)
+        CapabilityInventory inventory)
     {
         if (!inventory.Complete
-            || IsUnattendedExecutionExplicitlyRequested(userInstruction)
+            || string.Equals(
+                inventory.ExternalWriteConfirmationPolicy,
+                "forbidden",
+                StringComparison.Ordinal)
             || !inventory.Operations.Any(static operation => operation.ExecutionKind == "external_effect"
-                && operation.ExternalEffectKind == "write")
-            || inventory.Operations.Any(static operation => operation.Required
-                && operation.ExecutionKind == "human_interaction"
-                && Regex.IsMatch(operation.Description, @"\b(confirm|confirmation|approve|approval|authoriz|consent)\w*\b", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)
-                && Regex.IsMatch(operation.Description, @"\b(external|write|publish|post|send|submit|create|update|delete|change|mutat)\w*\b", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)))
+                && operation.ExternalEffectKind == "write"))
         {
             return inventory;
         }
@@ -1997,12 +2121,6 @@ public sealed partial class WorkflowPlanExecutor
         }
         throw new InvalidOperationException("Capability inventory contains too many colliding platform policy identifiers.");
     }
-
-    private static bool IsUnattendedExecutionExplicitlyRequested(string instruction)
-        => Regex.IsMatch(
-            instruction,
-            @"\b(unattended|headless)\b|\bwithout\s+(human\s+)?(confirmation|approval)\b|\b(no|disable|skip)\s+(human\s+)?(confirmation|approval)\b",
-            RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
 
     private static (string Id, string Description, bool Required) ParseInventoryItem(
         JsonNode? node,
@@ -2051,7 +2169,10 @@ public sealed partial class WorkflowPlanExecutor
             ["required"] = operation.Required,
             ["execution_kind"] = operation.ExecutionKind,
             ["external_effect_kind"] = operation.ExternalEffectKind,
+            ["input_operation_ids"] = new JsonArray(operation.InputOperationIds.Select(static id => (JsonNode?)JsonValue.Create(id)).ToArray()),
+            ["optionality_evidence"] = operation.OptionalityEvidence,
             ["decision_source_operation_id"] = operation.DecisionSourceOperationId,
+            ["allow_no_effect_outcome"] = operation.AllowNoEffectOutcome,
             ["intent_origin"] = operation.IntentOrigin,
             ["derivation_source_operation_id"] = operation.DerivationSourceOperationId
         }).ToArray());
@@ -2070,6 +2191,8 @@ public sealed partial class WorkflowPlanExecutor
         return new JsonObject
         {
             ["complete"] = inventory.Complete,
+            ["external_write_confirmation_policy"] = inventory.ExternalWriteConfirmationPolicy,
+            ["external_write_confirmation_evidence"] = inventory.ExternalWriteConfirmationEvidence,
             ["incomplete_reasons"] = reasons,
             ["operations"] = operations,
             ["constraints"] = constraints
@@ -2120,7 +2243,9 @@ public sealed partial class WorkflowPlanExecutor
             ["required"] = operation.Required,
             ["execution_kind"] = operation.ExecutionKind,
             ["external_effect_kind"] = operation.ExternalEffectKind,
-            ["decision_source_operation_id"] = operation.DecisionSourceOperationId
+            ["input_operation_ids"] = new JsonArray(operation.InputOperationIds.Select(static id => (JsonNode?)JsonValue.Create(id)).ToArray()),
+            ["decision_source_operation_id"] = operation.DecisionSourceOperationId,
+            ["allow_no_effect_outcome"] = operation.AllowNoEffectOutcome
         }).ToArray());
         var constraints = new JsonArray(inventory.Constraints.Select(static constraint => (JsonNode)new JsonObject
         {
@@ -2143,7 +2268,7 @@ public sealed partial class WorkflowPlanExecutor
             Prefer the smallest sufficient composition. A composition is valid only when every selected capability is necessary for the one operation. For a multi-action tool, choose selector-specific entries whose request_bindings describe the logical operation. Different selector values are distinct capabilities.
             A selector entry with variant_of inherits the description, arguments, outputs, and artifact contract from the whole-tool entry identified by the same server, kind, and method; its compact row intentionally contains only the distinguishing literal request_bindings.
             A whole-tool entry without request_bindings is appropriate when enum-valued arguments are runtime data rather than a fixed logical action. Prefer a combined selector entry over several single-selector entries when one physical call requires all of those fixed literal values.
-            When an operation has a non-empty decision_source_operation_id, use status conditional only when the selected capability for that decision operation documents exactly one string enum output whose values exactly equal the selector branch values. Copy the locked decision_source_operation_id into decision_operation_id. Conditional variants must belong to one physical capability, share the same selector paths and every fixed selector except one mutually exclusive selector path, and use distinct values on that path. If no such enum output exists, keep independently required read variants as composed; never invent a discriminator. For writes, lifecycle effects, and executions, leave the match ambiguous when the conditional decision is not grounded. Include complementary unconditional prerequisite capabilities in the same conditional catalog_ids only when they are necessary for that operation; they execute once outside the exclusive branch. This is runtime control flow, not user ambiguity. Never ask the user to predict a future runtime result.
+            When an operation has a non-empty decision_source_operation_id, select the mutually exclusive selector variants with status conditional and copy the locked decision_source_operation_id into decision_operation_id. Trace a local decision source only through its declared input_operation_ids; never infer the producer from descriptions or adjacency. Prefer a selected decision capability that documents one string enum output containing every selector branch value. When allow_no_effect_outcome=true, that enum may contain additional values that intentionally execute no external-effect branch. If no suitable discovered output exists, Flow may synthesize a strict provider-neutral structured-output projection for one selected MCP capability or native llm.call and will validate it after generation. Conditional variants must belong to one physical capability, share the same selector paths and every fixed selector except one mutually exclusive selector path, and use distinct values on that path. Keep independently required read variants as composed when no runtime discriminator can be grounded. Include complementary unconditional prerequisites in the same conditional catalog_ids only when necessary; they execute once outside the exclusive branch. This is runtime control flow, not user ambiguity. Never ask the user to predict a future runtime result.
             A complete_operation composition entry encapsulates its listed lower-level phases. Select the complete operation alone when it is sufficient; never compose it with a phase it already encapsulates.
 
             Capability sufficiency includes input provenance and data flow:
@@ -2427,12 +2552,13 @@ public sealed partial class WorkflowPlanExecutor
                                                        && referencedIds.Length > 0
                                                        && referencedIds.All(id => entries.TryGetValue(id, out var entry)
                                                                                   && entry.Resolution == "native");
-            if (referencesOnlyKnownNativeCapabilities
-                && string.Equals(constraint.EnforcementKind, "workflow_policy", StringComparison.Ordinal))
+            var normalizedNativePolicyOnly = referencesOnlyKnownNativeCapabilities;
+            if (normalizedNativePolicyOnly)
             {
                 // Constraint denial contracts intentionally lock only exact MCP alternatives.
-                // Native orchestration restrictions remain policy text; treating a native-only
-                // candidate as policy_only is lossless and avoids an unnecessary inference repair.
+                // Native orchestration restrictions remain provider-neutral policy text even
+                // when the inventory over-classified one as exact_denial. A native catalog ID
+                // can never become an MCP denied alternative.
                 status = "policy_only";
                 denied = Array.Empty<string>();
                 candidates = Array.Empty<string>();
@@ -2457,10 +2583,10 @@ public sealed partial class WorkflowPlanExecutor
                 "enforced" => denied.Count > 0,
                 "policy_only" => denied.Count == 0
                                  && candidates.Count == 0
-                                 && string.Equals(
+                                 && (normalizedNativePolicyOnly || string.Equals(
                                      constraint.EnforcementKind,
                                      "workflow_policy",
-                                     StringComparison.Ordinal),
+                                     StringComparison.Ordinal)),
                 "ambiguous" => denied.Count == 0 && candidates.Count > 0,
                 _ => false
             };
@@ -2468,7 +2594,7 @@ public sealed partial class WorkflowPlanExecutor
             {
                 contractValid = false;
                 status = "invalid";
-                reasonText = "The constraint match used an invalid status, unknown catalog ID, duplicate ID, or incompatible denial shape.";
+                reasonText = "The constraint match used an invalid status, unknown catalog ID, malformed catalog ID, or incompatible denial shape.";
             }
             constraintMatches.Add(new CapabilityConstraintMatch(constraint, status, reasonText, denied, candidates));
             if (status is "ambiguous" or "invalid")
@@ -2506,12 +2632,22 @@ public sealed partial class WorkflowPlanExecutor
                     match,
                     entries,
                     out var decisionOutputPath,
-                    out var decisionAllowedValues))
+                    out var decisionAllowedValues,
+                    out var decisionNoEffectValues,
+                    out var decisionContractSource,
+                    out var decisionProducerCatalogId,
+                    out var decisionProducerOperationId,
+                    out var decisionGroundingFailureCode))
             {
                 return match with
                 {
+                    DecisionOperationId = decisionProducerOperationId,
                     DecisionOutputPath = decisionOutputPath,
-                    DecisionAllowedValues = decisionAllowedValues
+                    DecisionAllowedValues = decisionAllowedValues,
+                    DecisionNoEffectValues = decisionNoEffectValues,
+                    DecisionContractSource = decisionContractSource,
+                    DecisionProducerCatalogId = decisionProducerCatalogId,
+                    DecisionGroundingFailureCode = null
                 };
             }
 
@@ -2523,24 +2659,33 @@ public sealed partial class WorkflowPlanExecutor
                     Reason = "No provider-neutral enum output proves that the selected read variants are mutually exclusive, so every selected read remains an unconditional required call.",
                     DecisionOperationId = null,
                     DecisionOutputPath = null,
-                    DecisionAllowedValues = null
+                    DecisionAllowedValues = null,
+                    DecisionNoEffectValues = null,
+                    DecisionContractSource = null,
+                    DecisionProducerCatalogId = null,
+                    DecisionGroundingFailureCode = decisionGroundingFailureCode
                 };
             }
 
-            var reason = "Conditional activation is not grounded in one declared provider-neutral enum output whose values exactly cover the selected branches.";
+            var reason = "Conditional activation has no provider-neutral decision contract that covers every effect branch and declared no-effect outcome.";
             issues.Add(new CapabilityMatchingIssue(
                 match.Operation.Id,
                 match.Operation.Description,
                 match.Operation.Required,
-                "invalid",
+                "contract_gap",
                 reason,
                 match.CatalogIds));
             return match with
             {
                 Status = "invalid",
                 Reason = reason,
+                DecisionOperationId = decisionProducerOperationId,
                 DecisionOutputPath = null,
-                DecisionAllowedValues = null
+                DecisionAllowedValues = null,
+                DecisionNoEffectValues = null,
+                DecisionContractSource = null,
+                DecisionProducerCatalogId = null,
+                DecisionGroundingFailureCode = decisionGroundingFailureCode
             };
         }).ToArray();
 
@@ -2557,17 +2702,34 @@ public sealed partial class WorkflowPlanExecutor
         CapabilityOperationMatch conditionalMatch,
         IReadOnlyDictionary<string, CapabilityCatalogEntry> entries,
         out string decisionOutputPath,
-        out IReadOnlyList<string> allowedValues)
+        out IReadOnlyList<string> allowedValues,
+        out IReadOnlyList<string> noEffectValues,
+        out string decisionContractSource,
+        out string decisionProducerCatalogId,
+        out string decisionProducerOperationId,
+        out string failureCode)
     {
         decisionOutputPath = string.Empty;
         allowedValues = Array.Empty<string>();
+        noEffectValues = Array.Empty<string>();
+        decisionContractSource = string.Empty;
+        decisionProducerCatalogId = string.Empty;
+        decisionProducerOperationId = string.Empty;
+        failureCode = string.Empty;
         var decisionOperationId = conditionalMatch.DecisionOperationId
                                   ?? conditionalMatch.Operation.DecisionSourceOperationId;
-        if (string.IsNullOrWhiteSpace(decisionOperationId)
-            || !TryBuildConditionalCompositionBranchValues(
+        if (string.IsNullOrWhiteSpace(decisionOperationId))
+        {
+            failureCode = "decision_source_missing";
+            return false;
+        }
+        decisionProducerOperationId = decisionOperationId;
+
+        if (!TryBuildConditionalCompositionBranchValues(
                 conditionalMatch.CatalogIds.Where(entries.ContainsKey).Select(id => entries[id]).ToArray(),
                 out var branches))
         {
+            failureCode = "conditional_branch_topology_invalid";
             return false;
         }
 
@@ -2575,29 +2737,184 @@ public sealed partial class WorkflowPlanExecutor
             .Distinct(StringComparer.Ordinal)
             .Order(StringComparer.Ordinal)
             .ToArray();
-        var decisionMatch = evaluation.OperationMatches.SingleOrDefault(match => string.Equals(
-            match.Operation.Id,
-            decisionOperationId,
-            StringComparison.Ordinal));
+        var decisionMatch = ResolveConditionalDecisionProducer(
+            evaluation,
+            decisionOperationId);
+        if (decisionMatch != null)
+            decisionProducerOperationId = decisionMatch.Operation.Id;
         if (decisionMatch == null || decisionMatch.CatalogIds.Count == 0)
+        {
+            failureCode = "decision_source_unmatched";
             return false;
+        }
 
         var candidates = decisionMatch.CatalogIds
             .Where(entries.ContainsKey)
-            .SelectMany(id => entries[id].Outputs)
-            .Where(field => field.EnumValues.Count > 0
-                            && field.EnumValues.Distinct(StringComparer.Ordinal).Order(StringComparer.Ordinal)
-                                .SequenceEqual(branchValues, StringComparer.Ordinal))
-            .GroupBy(static field => field.Path, StringComparer.Ordinal)
+            .SelectMany(id => entries[id].Outputs.Select(field => (CatalogId: id, Field: field)))
+            .Where(candidate => ConditionalDecisionEnumCoversBranches(
+                candidate.Field.EnumValues,
+                branchValues,
+                conditionalMatch.Operation.AllowNoEffectOutcome))
+            .GroupBy(static candidate => (candidate.CatalogId, candidate.Field.Path))
             .Select(static group => group.First())
             .Take(2)
             .ToArray();
-        if (candidates.Length != 1)
+        if (candidates.Length == 1)
+        {
+            var declaredValues = candidates[0].Field.EnumValues
+                .Distinct(StringComparer.Ordinal)
+                .Order(StringComparer.Ordinal)
+                .ToArray();
+            decisionOutputPath = candidates[0].Field.Path;
+            allowedValues = declaredValues;
+            noEffectValues = declaredValues.Except(branchValues, StringComparer.Ordinal)
+                .Order(StringComparer.Ordinal)
+                .ToArray();
+            decisionContractSource = CapabilityDecisionContractSource;
+            decisionProducerCatalogId = candidates[0].CatalogId;
+            return true;
+        }
+
+        if (decisionMatch.CatalogIds.Count == 1
+            && entries.TryGetValue(decisionMatch.CatalogIds[0], out var decisionEntry)
+            && SupportsStructuredDecisionProjection(decisionEntry))
+        {
+            var synthesizedNoEffectValues = conditionalMatch.Operation.AllowNoEffectOutcome
+                ? new[] { CreateUniqueNoEffectDecisionValue(branchValues) }
+                : Array.Empty<string>();
+            decisionOutputPath = "/json/decision";
+            allowedValues = branchValues.Concat(synthesizedNoEffectValues)
+                .Distinct(StringComparer.Ordinal)
+                .Order(StringComparer.Ordinal)
+                .ToArray();
+            noEffectValues = synthesizedNoEffectValues;
+            decisionContractSource = StructuredDecisionContractSource;
+            decisionProducerCatalogId = decisionEntry.Id;
+            return true;
+        }
+
+        failureCode = candidates.Length > 1
+            ? "decision_output_enum_ambiguous"
+            : decisionMatch.CatalogIds.Count != 1
+                ? "decision_source_composition_not_projectable"
+                : "decision_output_contract_unavailable";
+        return false;
+    }
+
+    private static CapabilityOperationMatch? ResolveConditionalDecisionProducer(
+        CapabilityMatchingEvaluation evaluation,
+        string decisionOperationId)
+    {
+        var matches = evaluation.OperationMatches.ToDictionary(
+            static match => match.Operation.Id,
+            StringComparer.Ordinal);
+        return ResolveConditionalDecisionProducer(
+            matches,
+            decisionOperationId,
+            new HashSet<string>(StringComparer.Ordinal));
+    }
+
+    private static CapabilityOperationMatch? ResolveConditionalDecisionProducer(
+        IReadOnlyDictionary<string, CapabilityOperationMatch> matches,
+        string operationId,
+        HashSet<string> visited)
+    {
+        if (!visited.Add(operationId) || !matches.TryGetValue(operationId, out var current))
+            return null;
+        if (current.CatalogIds.Count > 0)
+            return current;
+        if (!string.Equals(current.Status, "local", StringComparison.Ordinal)
+            || !string.Equals(current.Operation.ExecutionKind, "local_processing", StringComparison.Ordinal))
+        {
+            return current;
+        }
+
+        IReadOnlyList<string> declaredDependencies = string.IsNullOrWhiteSpace(current.Operation.DecisionSourceOperationId)
+            ? current.Operation.InputOperationIds
+            : [current.Operation.DecisionSourceOperationId];
+        if (declaredDependencies.Count == 0)
+            return current;
+
+        var producers = declaredDependencies
+            .Select(dependencyId => ResolveConditionalDecisionProducer(
+                matches,
+                dependencyId,
+                new HashSet<string>(visited, StringComparer.Ordinal)))
+            .Where(static match => match is { CatalogIds.Count: > 0 })
+            .GroupBy(static match => match!.Operation.Id, StringComparer.Ordinal)
+            .Select(static group => group.First()!)
+            .Take(2)
+            .ToArray();
+        return producers.Length == 1 ? producers[0] : null;
+    }
+
+    private static bool ConditionalDecisionEnumCoversBranches(
+        IReadOnlyList<string> enumValues,
+        IReadOnlyList<string> branchValues,
+        bool allowNoEffectOutcome)
+    {
+        var declared = enumValues.Distinct(StringComparer.Ordinal).Order(StringComparer.Ordinal).ToArray();
+        if (declared.Length == 0 || branchValues.Any(value => !declared.Contains(value, StringComparer.Ordinal)))
             return false;
 
-        decisionOutputPath = candidates[0].Path;
-        allowedValues = branchValues;
-        return true;
+        return allowNoEffectOutcome
+            ? declared.Length > branchValues.Count
+            : declared.SequenceEqual(branchValues.Order(StringComparer.Ordinal), StringComparer.Ordinal);
+    }
+
+    private static bool SupportsStructuredDecisionProjection(CapabilityCatalogEntry entry)
+        => string.Equals(entry.Resolution, "mcp", StringComparison.Ordinal)
+           || string.Equals(entry.Resolution, "native", StringComparison.Ordinal)
+           && string.Equals(entry.Method, "llm.call", StringComparison.Ordinal);
+
+    private static string CreateUniqueNoEffectDecisionValue(IReadOnlyList<string> branchValues)
+    {
+        var candidate = SynthesizedNoEffectDecisionValue;
+        var suffix = 2;
+        while (branchValues.Contains(candidate, StringComparer.Ordinal))
+            candidate = $"{SynthesizedNoEffectDecisionValue}_{suffix++}";
+        return candidate;
+    }
+
+    private static void RecordConditionalGroundingTelemetry(
+        ITelemetrySpan span,
+        CapabilityMatchingEvaluation evaluation,
+        string attempt)
+    {
+        var conditionalMatches = evaluation.OperationMatches
+            .Where(static match => !string.IsNullOrWhiteSpace(match.DecisionOperationId)
+                                   || !string.IsNullOrWhiteSpace(match.Operation.DecisionSourceOperationId))
+            .ToArray();
+        span.SetAttribute($"gnougo-flow.plan.capability_matching.{attempt}.conditional_count", conditionalMatches.Length);
+        span.SetAttribute(
+            $"gnougo-flow.plan.capability_matching.{attempt}.conditional_grounded_count",
+            conditionalMatches.Count(static match => !string.IsNullOrWhiteSpace(match.DecisionOutputPath)));
+        span.SetAttribute(
+            $"gnougo-flow.plan.capability_matching.{attempt}.conditional_contract_gap_count",
+            conditionalMatches.Count(static match => !string.IsNullOrWhiteSpace(match.DecisionGroundingFailureCode)));
+
+        foreach (var match in conditionalMatches.Take(32))
+        {
+            var decisionOperationId = match.DecisionOperationId ?? match.Operation.DecisionSourceOperationId;
+            var decisionMatch = evaluation.OperationMatches.FirstOrDefault(candidate => string.Equals(
+                candidate.Operation.Id,
+                decisionOperationId,
+                StringComparison.Ordinal));
+            span.AddEvent("gnougo-flow.plan.capability_matching.conditional_grounding", new[]
+            {
+                new KeyValuePair<string, object?>("gnougo-flow.plan.capability_matching.attempt", attempt),
+                new KeyValuePair<string, object?>("gnougo-flow.plan.capability_matching.operation_id", SanitizeCapabilityInferenceDiagnostic(match.Operation.Id, 160)),
+                new KeyValuePair<string, object?>("gnougo-flow.plan.capability_matching.decision_operation_id", SanitizeCapabilityInferenceDiagnostic(decisionOperationId, 160)),
+                new KeyValuePair<string, object?>("gnougo-flow.plan.capability_matching.decision_catalog_ids", string.Join(',', decisionMatch?.CatalogIds.Take(8) ?? Array.Empty<string>())),
+                new KeyValuePair<string, object?>("gnougo-flow.plan.capability_matching.branch_catalog_ids", string.Join(',', match.CatalogIds.Take(8))),
+                new KeyValuePair<string, object?>("gnougo-flow.plan.capability_matching.decision_output_path", match.DecisionOutputPath ?? string.Empty),
+                new KeyValuePair<string, object?>("gnougo-flow.plan.capability_matching.allowed_values", string.Join('|', match.DecisionAllowedValues ?? Array.Empty<string>())),
+                new KeyValuePair<string, object?>("gnougo-flow.plan.capability_matching.no_effect_values", string.Join('|', match.DecisionNoEffectValues ?? Array.Empty<string>())),
+                new KeyValuePair<string, object?>("gnougo-flow.plan.capability_matching.contract_source", match.DecisionContractSource ?? string.Empty),
+                new KeyValuePair<string, object?>("gnougo-flow.plan.capability_matching.producer_catalog_id", match.DecisionProducerCatalogId ?? string.Empty),
+                new KeyValuePair<string, object?>("gnougo-flow.plan.capability_matching.grounding_failure_code", match.DecisionGroundingFailureCode ?? string.Empty)
+            });
+        }
     }
 
     private static bool IsDeclaredArtifactComposition(IReadOnlyList<CapabilityCatalogEntry> selected)
@@ -2721,12 +3038,15 @@ public sealed partial class WorkflowPlanExecutor
         foreach (var value in values)
         {
             if (value is not JsonValue scalar || !scalar.TryGetValue<string>(out var id)
-                || string.IsNullOrWhiteSpace(id) || !seen.Add(id.Trim()))
+                || string.IsNullOrWhiteSpace(id))
             {
                 valid = false;
                 continue;
             }
-            result.Add(id.Trim());
+
+            var normalized = id.Trim();
+            if (seen.Add(normalized))
+                result.Add(normalized);
         }
         return result;
     }
@@ -2736,7 +3056,7 @@ public sealed partial class WorkflowPlanExecutor
         if (!validStatus)
             return "The operation match returned an unsupported status.";
         if (!arraysValid)
-            return "The operation match returned malformed, duplicate, or excessive catalog IDs.";
+            return "The operation match returned malformed or excessive catalog IDs.";
         if (!idsKnown)
             return "The operation match referenced one or more unknown catalog IDs.";
         if (executionKind == "local_processing")
@@ -2751,8 +3071,10 @@ public sealed partial class WorkflowPlanExecutor
         CapabilityMatchingEvaluation initial,
         CapabilityMatchingEvaluation repaired)
     {
+        var dependencyUnlockedOperationIds = GetDependencyUnlockedDecisionOperationIds(initial);
         var lockedOperationIds = initial.OperationMatches
             .Where(static match => match.Status is "matched" or "composed" or "conditional" or "local")
+            .Where(match => !dependencyUnlockedOperationIds.Contains(match.Operation.Id))
             .Select(static match => match.Operation.Id)
             .ToHashSet(StringComparer.Ordinal);
         var lockedConstraintIds = initial.ConstraintMatches
@@ -2776,13 +3098,41 @@ public sealed partial class WorkflowPlanExecutor
         return new CapabilityMatchingEvaluation(operations, constraints, issues, mergedContractValid);
     }
 
+    private static HashSet<string> GetDependencyUnlockedDecisionOperationIds(
+        CapabilityMatchingEvaluation evaluation)
+    {
+        var matches = evaluation.OperationMatches.ToDictionary(
+            static match => match.Operation.Id,
+            StringComparer.Ordinal);
+        var pending = new Stack<string>(evaluation.OperationMatches
+            .Where(static match => string.Equals(match.Status, "invalid", StringComparison.Ordinal)
+                                   && !string.IsNullOrWhiteSpace(match.DecisionGroundingFailureCode))
+            .Select(static match => match.DecisionOperationId ?? match.Operation.DecisionSourceOperationId)
+            .Where(static operationId => !string.IsNullOrWhiteSpace(operationId))!);
+        var unlocked = new HashSet<string>(StringComparer.Ordinal);
+        while (pending.TryPop(out var operationId))
+        {
+            if (!unlocked.Add(operationId) || !matches.TryGetValue(operationId, out var match))
+                continue;
+
+            if (!string.IsNullOrWhiteSpace(match.Operation.DecisionSourceOperationId))
+                pending.Push(match.Operation.DecisionSourceOperationId);
+            foreach (var inputOperationId in match.Operation.InputOperationIds)
+                pending.Push(inputOperationId);
+        }
+
+        return unlocked;
+    }
+
     private static string BuildCapabilityMatchingRepairPrompt(
         CapabilityInventory inventory,
         CapabilityCatalog catalog,
         CapabilityMatchingEvaluation previous)
     {
+        var dependencyUnlockedOperationIds = GetDependencyUnlockedDecisionOperationIds(previous);
         var lockedOperations = previous.OperationMatches
             .Where(static match => match.Status is "matched" or "composed" or "conditional" or "local")
+            .Where(match => !dependencyUnlockedOperationIds.Contains(match.Operation.Id))
             .Select(static match => (JsonNode)new JsonObject
             {
                 ["operation_id"] = match.Operation.Id,
@@ -2798,17 +3148,24 @@ public sealed partial class WorkflowPlanExecutor
                 ["status"] = match.Status,
                 ["denied_catalog_ids"] = new JsonArray(match.DeniedCatalogIds.Select(static id => (JsonNode?)JsonValue.Create(id)).ToArray())
             }).ToArray();
-        var issues = previous.Issues.Select(static issue => (JsonNode)new JsonObject
+        var previousMatches = previous.OperationMatches.ToDictionary(static match => match.Operation.Id, StringComparer.Ordinal);
+        var issues = previous.Issues.Select(issue => (JsonNode)new JsonObject
         {
             ["operation_id"] = issue.OperationId,
             ["status"] = issue.Status,
             ["reason"] = issue.Reason,
+            ["decision_operation_id"] = previousMatches.TryGetValue(issue.OperationId, out var match)
+                ? match.DecisionOperationId ?? match.Operation.DecisionSourceOperationId
+                : string.Empty,
+            ["grounding_failure_code"] = previousMatches.TryGetValue(issue.OperationId, out match)
+                ? match.DecisionGroundingFailureCode ?? string.Empty
+                : string.Empty,
             ["candidate_catalog_ids"] = new JsonArray(issue.CandidateCatalogIds.Select(static id => (JsonNode?)JsonValue.Create(id)).ToArray())
         }).ToArray();
         return $$"""
             You are a domain-neutral capability matcher repairing a previous matching contract. Return only the requested structured JSON.
 
-            Return every operation and constraint exactly once. Preserve all locked decisions exactly. Resolve each reported issue from the documented catalog only. For operations use matched for one sufficient ID, composed for two or more necessary complementary IDs, conditional for one mutually exclusive selector subset chosen by the locked decision_source_operation_id plus any necessary complementary unconditional prerequisites, local only for local_processing, ambiguous for unresolved user intent, and unavailable only when no sufficient implementation exists. For conditional, copy decision_source_operation_id exactly into decision_operation_id; otherwise leave decision_operation_id empty. Conditional variants share one physical capability and the same selector paths, differing on exactly one selector; prerequisites execute once outside the branch. A runtime-dependent result is not user ambiguity. A complete_operation wrapper replaces its encapsulated phases. For constraints use enforced only when enforcement_kind=exact_denial and exact denied MCP IDs are established; use policy_only only when enforcement_kind=workflow_policy; use ambiguous only for unresolved exact-denial candidates. Select the smallest sufficient composition and never invent IDs.
+            Return every operation and constraint exactly once. Preserve all locked decisions exactly. A decision-source operation and every producer reached through its declared input_operation_ids are deliberately absent from the locked set when coupled to a reported conditional grounding issue: repair that declared chain together with the dependent conditional operation, selecting a better typed producer when the catalog provides one. Never infer an undeclared producer from descriptions or adjacency. Resolve each reported issue from the documented catalog only. For operations use matched for one sufficient ID, composed for two or more necessary complementary IDs, conditional for one mutually exclusive selector subset chosen by the locked decision_source_operation_id plus any necessary complementary unconditional prerequisites, local only for local_processing, ambiguous for unresolved user intent, and unavailable only when no sufficient implementation exists. For conditional, copy decision_source_operation_id exactly into decision_operation_id; otherwise leave decision_operation_id empty. Conditional variants share one physical capability and the same selector paths, differing on exactly one selector; prerequisites execute once outside the branch. A runtime-dependent result is not user ambiguity. A complete_operation wrapper replaces its encapsulated phases. For constraints use enforced only when enforcement_kind=exact_denial and exact denied MCP IDs are established; use policy_only only when enforcement_kind=workflow_policy; use ambiguous only for unresolved exact-denial candidates. Select the smallest sufficient composition and never invent IDs.
 
             A repaired match must also be prerequisite-closed. Check required arguments and bounded output fields on every selected catalog card. If a capability requires an existing external artifact that is not a semantically compatible workflow runtime input or documented host-internal/default value, include the producer capability whose documented output supplies it. Local processing, URLs, identifiers, and invented strings do not create or prove workspaces, project roots, directories, files, handles, or exact comparison payloads. Ordinary scalar values and identifiers may still be parsed from declared inputs or reused from an already selected upstream read, so never repeat a read in every match merely to resupply them. Retain a complementary producer only for a documented artifact dependency or concrete multi-call prerequisite, and prefer the unique most-specific exact selector over its broader or partial selector entries. A high-level capability is sufficient alone only when its documented contract encapsulates those prerequisites.
 
@@ -2858,30 +3215,44 @@ public sealed partial class WorkflowPlanExecutor
                 .Select(id => (JsonNode)BuildCapabilityCandidateCard(entryMap[id])).ToArray())
         }).ToArray());
         var onlyUnavailable = evaluation.ContractValid && blocking.All(static issue => issue.Status == "unavailable");
-        var unavailable = onlyUnavailable
-            ? evaluation.OperationMatches.Where(static match => match.Operation.Required && match.Status == "unavailable")
+        var onlyContractGaps = blocking.All(static issue => issue.Status == "contract_gap");
+        var unsupported = onlyUnavailable || onlyContractGaps;
+        var unavailable = unsupported
+            ? evaluation.OperationMatches.Where(match => match.Operation.Required
+                                                         && (match.Status == "unavailable"
+                                                             || onlyContractGaps && !string.IsNullOrWhiteSpace(match.DecisionGroundingFailureCode)))
                 .Select(static match => (JsonNode)new JsonObject
                 {
                     ["id"] = match.Operation.Id,
                     ["description"] = match.Operation.Description,
                     ["required"] = true,
-                    ["reason"] = "no_matching_discovered_capability"
+                    ["reason"] = match.Status == "unavailable"
+                        ? "no_matching_discovered_capability"
+                        : "conditional_decision_contract_gap",
+                    ["grounding_failure_code"] = match.DecisionGroundingFailureCode
                 }).ToArray()
             : Array.Empty<JsonNode>();
         throw new WorkflowRuntimeException(
-            onlyUnavailable ? ErrorCodes.CapabilityPreflightUnavailable : ErrorCodes.CapabilityPreflightInferenceFailed,
-            onlyUnavailable
-                ? "One or more required runtime operations have no matching discovered capability."
-                : "Capability matching remained ambiguous or invalid after one bounded repair attempt.",
+            unsupported ? ErrorCodes.CapabilityPreflightUnavailable : ErrorCodes.CapabilityPreflightInferenceFailed,
+            onlyContractGaps
+                ? "One or more conditional runtime operations have no safe provider-neutral decision contract."
+                : onlyUnavailable
+                    ? "One or more required runtime operations have no matching discovered capability."
+                    : "Capability matching remained ambiguous or invalid after one bounded repair attempt.",
             details: new JsonObject
             {
                 ["phase"] = "capability_matching",
+                ["reason"] = onlyContractGaps ? "conditional_decision_contract_gap" : null,
                 ["repair_attempted"] = repairAttempted,
                 ["attempts"] = repairAttempted ? 2 : 1,
                 ["matching_issues"] = issueNodes,
                 ["unavailable_capabilities"] = new JsonArray(unavailable),
-                ["planning_outcome"] = onlyUnavailable ? "unsupported" : "cannot_plan_safely",
-                ["recommended_action"] = onlyUnavailable ? "configure_capability_or_revise_request" : "clarify_or_abandon"
+                ["planning_outcome"] = unsupported ? "unsupported" : "cannot_plan_safely",
+                ["recommended_action"] = onlyContractGaps
+                    ? "configure_decision_contract_or_enable_structured_projection"
+                    : onlyUnavailable
+                        ? "configure_capability_or_revise_request"
+                        : "clarify_or_abandon"
             });
     }
 
@@ -2951,7 +3322,10 @@ public sealed partial class WorkflowPlanExecutor
                         conditionalBranches[catalogId])
                     {
                         DecisionOutputPath = match.DecisionOutputPath ?? string.Empty,
-                        AllowedValues = match.DecisionAllowedValues ?? Array.Empty<string>()
+                        AllowedValues = match.DecisionAllowedValues ?? Array.Empty<string>(),
+                        NoEffectValues = match.DecisionNoEffectValues ?? Array.Empty<string>(),
+                        DecisionContractSource = match.DecisionContractSource ?? CapabilityDecisionContractSource,
+                        DecisionProducerCatalogId = match.DecisionProducerCatalogId ?? string.Empty
                     }
                     : null;
                 resolved.Add(new ResolvedCapability(id, match.Operation.Description, match.Operation.Required,
@@ -3605,7 +3979,7 @@ public sealed partial class WorkflowPlanExecutor
 
         var sb = new StringBuilder();
         sb.AppendLine("The following operation and capability decisions are locked by preflight. Required MCP capabilities must appear as exact direct mcp.call operations; do not omit, collapse, rename, or replace them. Repeated unconditional entries are separate invocation obligations even when they select the same physical capability.");
-        sb.AppendLine("Capabilities with activation mode exactly_one are mutually exclusive alternatives, not sequential calls. Put every member of one activation group in a distinct literal-value case of one expression-based switch driven by the named decision operation. Use each branch_value as the exact case value, execute exactly one matching call per case, and do not put any external write in the default branch. The decision must be computed from runtime results; never ask the human to predict it during generation.");
+        sb.AppendLine("Capabilities with activation mode exactly_one are mutually exclusive alternatives, not sequential calls. Put every member of one activation group in a distinct literal-value case of one expression-based switch driven by the named decision operation. Use each branch_value as the exact case value and execute exactly one matching call per effect case. Emit every no_effect_value as an explicit non-mutating case and do not put any external write in the default branch. When decision_contract_source=structured_output, the exact producer capability must declare strict structured_output.schema_inline with the decision field and allowed_values enum at decision_output_path. The decision must be computed from runtime results; never ask the human to predict it during generation.");
         foreach (var capability in preflight.Capabilities.Where(static item => item.Required))
         {
             sb.Append("- ").Append(capability.Id).Append(": ").Append(capability.Resolution);
@@ -3628,6 +4002,9 @@ public sealed partial class WorkflowPlanExecutor
                         .Append(" decision_operation_id=").Append(activation.DecisionOperationId)
                         .Append(" decision_output_path=").Append(activation.DecisionOutputPath)
                         .Append(" allowed_values=").Append(string.Join('|', activation.AllowedValues))
+                        .Append(" no_effect_values=").Append(string.Join('|', activation.NoEffectValues))
+                        .Append(" contract_source=").Append(activation.DecisionContractSource)
+                        .Append(" producer_catalog_id=").Append(activation.DecisionProducerCatalogId)
                         .Append(" branch_value=").Append(activation.BranchValue).Append(']');
                 }
             }
@@ -3685,6 +4062,10 @@ public sealed partial class WorkflowPlanExecutor
                         ["decision_output_path"] = capability.Activation.DecisionOutputPath,
                         ["allowed_values"] = new JsonArray(capability.Activation.AllowedValues
                             .Select(static value => (JsonNode?)JsonValue.Create(value)).ToArray()),
+                        ["no_effect_values"] = new JsonArray(capability.Activation.NoEffectValues
+                            .Select(static value => (JsonNode?)JsonValue.Create(value)).ToArray()),
+                        ["decision_contract_source"] = capability.Activation.DecisionContractSource,
+                        ["decision_producer_catalog_id"] = capability.Activation.DecisionProducerCatalogId,
                         ["branch_value"] = capability.Activation.BranchValue
                     }
             });
@@ -3892,6 +4273,10 @@ public sealed partial class WorkflowPlanExecutor
                 .Distinct(StringComparer.Ordinal)
                 .Order(StringComparer.Ordinal)
                 .ToArray() ?? Array.Empty<string>();
+            var declaredNoEffectValues = capabilities[0].Activation?.NoEffectValues
+                .Distinct(StringComparer.Ordinal)
+                .Order(StringComparer.Ordinal)
+                .ToArray() ?? Array.Empty<string>();
             var branchValues = capabilities.Select(static capability => capability.Activation!.BranchValue)
                 .Distinct(StringComparer.Ordinal)
                 .Order(StringComparer.Ordinal)
@@ -3901,8 +4286,14 @@ public sealed partial class WorkflowPlanExecutor
                 || capabilities.Any(static capability => string.IsNullOrWhiteSpace(capability.Activation?.DecisionOutputPath))
                 || capabilities.Select(static capability => capability.Activation!.DecisionOutputPath)
                     .Distinct(StringComparer.Ordinal).Count() != 1
+                || capabilities.Select(static capability => capability.Activation!.DecisionContractSource)
+                    .Distinct(StringComparer.Ordinal).Count() != 1
+                || capabilities.Select(static capability => capability.Activation!.DecisionProducerCatalogId)
+                    .Distinct(StringComparer.Ordinal).Count() != 1
                 || branchValues.Length != capabilities.Length
-                || !branchValues.SequenceEqual(declaredAllowedValues, StringComparer.Ordinal))
+                || declaredNoEffectValues.Any(value => branchValues.Contains(value, StringComparer.Ordinal))
+                || !branchValues.Concat(declaredNoEffectValues).Order(StringComparer.Ordinal)
+                    .SequenceEqual(declaredAllowedValues, StringComparer.Ordinal))
             {
                 ThrowInvalidConditionalActivation(group.Key,
                     "The locked conditional capability group is malformed or does not contain distinct branches.",
@@ -3991,6 +4382,31 @@ public sealed partial class WorkflowPlanExecutor
         var mutatingCapabilities = preflight.RequiredMcpCapabilities
             .Where(static capability => capability.ExternalEffectKind is "write" or "lifecycle")
             .ToArray();
+        var activation = capabilities[0].Activation!;
+        var allowedValues = activation.AllowedValues.ToHashSet(StringComparer.Ordinal);
+        if (step.Cases.Any(@case => string.IsNullOrWhiteSpace(@case.Value) || !allowedValues.Contains(@case.Value)))
+            return false;
+
+        foreach (var noEffectValue in activation.NoEffectValues)
+        {
+            var noEffectCases = step.Cases.Where(@case => string.Equals(
+                @case.Value,
+                noEffectValue,
+                StringComparison.Ordinal)).ToArray();
+            if (noEffectCases.Length != 1
+                || EnumerateSteps(noEffectCases[0].Steps).Any(call =>
+                    string.Equals(call.Type, "mcp.call", StringComparison.Ordinal)
+                    && mutatingCapabilities.Any(capability => McpStepMatchesCapability(
+                        call,
+                        capability.Server!,
+                        capability.Kind!,
+                        capability.Method!,
+                        capability.RequestBindings))))
+            {
+                return false;
+            }
+        }
+
         if (EnumerateSteps(step.Default ?? []).Any(call =>
                 string.Equals(call.Type, "mcp.call", StringComparison.Ordinal)
                 && mutatingCapabilities.Any(capability => McpStepMatchesCapability(
@@ -4003,13 +4419,16 @@ public sealed partial class WorkflowPlanExecutor
             return false;
         }
 
-        var decisionOperationId = capabilities[0].Activation!.DecisionOperationId;
+        var decisionOperationId = activation.DecisionOperationId;
         var decisionCapabilities = preflight.Capabilities
             .Where(capability => string.Equals(capability.OperationId, decisionOperationId, StringComparison.Ordinal)
-                                 && capability.Resolution == "mcp")
+                                 && string.Equals(
+                                     capability.CatalogId,
+                                     activation.DecisionProducerCatalogId,
+                                     StringComparison.Ordinal))
             .ToArray();
         if (decisionCapabilities.Length == 0)
-            return true;
+            return false;
 
         var decisionSteps = groupCalls
             .Concat(step.Cases.SelectMany(static @case => EnumerateSteps(@case.Steps)))
@@ -4019,16 +4438,13 @@ public sealed partial class WorkflowPlanExecutor
             .SelectMany(workflow => EnumerateSteps(workflow.Value.Steps)
                 .Concat(EnumerateSteps(workflow.Value.Finally))
                 .Where(candidate => !decisionSteps.Contains(candidate)
-                                    && decisionCapabilities.Any(capability => McpStepMatchesCapability(
+                                    && decisionCapabilities.Any(capability => StepMatchesDecisionProducer(
                                         candidate,
-                                        capability.Server!,
-                                        capability.Kind!,
-                                        capability.Method!,
-                                        capability.RequestBindings)))
+                                        capability)))
                 .Select(candidate => (Workflow: workflow.Key, Step: candidate)))
             .ToArray();
         if (sources.Length == 0)
-            return true;
+            return false;
 
         var owner = document.Workflows.FirstOrDefault(workflow =>
             EnumerateSteps(workflow.Value.Steps)
@@ -4041,7 +4457,22 @@ public sealed partial class WorkflowPlanExecutor
                    sources,
                    owner.Key,
                    step.Expr!,
-                   []);
+                   [],
+                   activation);
+    }
+
+    private static bool StepMatchesDecisionProducer(StepDef step, ResolvedCapability capability)
+    {
+        if (string.Equals(capability.Resolution, "native", StringComparison.Ordinal))
+            return string.Equals(step.Type, capability.Method, StringComparison.Ordinal);
+
+        return string.Equals(capability.Resolution, "mcp", StringComparison.Ordinal)
+               && McpStepMatchesCapability(
+                   step,
+                   capability.Server!,
+                   capability.Kind!,
+                   capability.Method!,
+                   capability.RequestBindings);
     }
 
     private static bool ConditionalDecisionExpressionMatchesDeclaredPath(
@@ -4061,8 +4492,11 @@ public sealed partial class WorkflowPlanExecutor
             return false;
 
         var path = TrimWorkflowExpression(expression);
+        var boundaryField = GetDecisionBoundaryFieldName(decisionOutputPath);
         return string.Equals(path, suffix, StringComparison.Ordinal)
-               || path.EndsWith('.' + suffix, StringComparison.Ordinal);
+               || path.EndsWith('.' + suffix, StringComparison.Ordinal)
+               || boundaryField.Length > 0
+               && string.Equals(path, "data.inputs." + boundaryField, StringComparison.Ordinal);
     }
 
     private static bool ConditionalDecisionExpressionDependsOnSource(
@@ -4072,6 +4506,7 @@ public sealed partial class WorkflowPlanExecutor
         string workflowName,
         string expression,
         IReadOnlyList<string> appendedPath,
+        McpCapabilityActivation activation,
         HashSet<string>? visited = null)
     {
         var path = TrimWorkflowExpression(expression);
@@ -4107,6 +4542,7 @@ public sealed partial class WorkflowPlanExecutor
                         caller.Workflow,
                         argumentExpression,
                         inputPath.Skip(1).ToArray(),
+                        activation,
                         visited));
             }
 
@@ -4127,13 +4563,26 @@ public sealed partial class WorkflowPlanExecutor
                                              || string.Equals(candidate.Output, stepPath[0], StringComparison.Ordinal));
             if (sourceStep == null)
                 return false;
+            var remainingPath = stepPath.Skip(1).ToArray();
             if (sources.Any(source => string.Equals(source.Workflow, workflowName, StringComparison.Ordinal)
                                       && ReferenceEquals(source.Step, sourceStep)))
             {
-                return true;
+                var declaredPath = activation.DecisionOutputPath.Split('/')
+                    .Skip(1)
+                    .Select(DecodeJsonPointerToken)
+                    .Where(static token => token.Length > 0)
+                    .ToArray();
+                if (string.Equals(
+                        activation.DecisionContractSource,
+                        CapabilityDecisionContractSource,
+                        StringComparison.Ordinal))
+                {
+                    declaredPath = ["response", .. declaredPath];
+                }
+                return remainingPath.SequenceEqual(declaredPath, StringComparer.Ordinal)
+                       && DecisionSourceStepDeclaresContract(sourceStep, activation);
             }
 
-            var remainingPath = stepPath.Skip(1).ToArray();
             if (string.Equals(sourceStep.Type, "set", StringComparison.Ordinal))
             {
                 var value = ResolveInstancePath(sourceStep.Input, remainingPath);
@@ -4147,6 +4596,7 @@ public sealed partial class WorkflowPlanExecutor
                            workflowName,
                            setExpression,
                            [],
+                           activation,
                            visited);
             }
 
@@ -4174,12 +4624,181 @@ public sealed partial class WorkflowPlanExecutor
                 targetName,
                 output.Expr,
                 remainingPath.Skip(outputIndex + 1).ToArray(),
+                activation,
                 visited);
         }
         finally
         {
             visited.Remove(visitKey);
         }
+    }
+
+    private static bool DecisionSourceStepDeclaresContract(
+        StepDef sourceStep,
+        McpCapabilityActivation activation)
+    {
+        if (!string.Equals(
+                activation.DecisionContractSource,
+                StructuredDecisionContractSource,
+                StringComparison.Ordinal))
+        {
+            return true;
+        }
+
+        if (sourceStep.Input is not JsonObject input
+            || input["structured_output"] is not JsonObject structuredOutput
+            || structuredOutput["strict"] is not JsonValue strictValue
+            || !strictValue.TryGetValue<bool>(out var strict)
+            || !strict
+            || structuredOutput["schema_inline"] is not JsonObject schema)
+        {
+            return false;
+        }
+
+        var pointerTokens = activation.DecisionOutputPath.Split('/')
+            .Skip(1)
+            .Select(DecodeJsonPointerToken)
+            .ToArray();
+        if (pointerTokens.Length < 2
+            || !string.Equals(pointerTokens[0], "json", StringComparison.Ordinal))
+        {
+            return false;
+        }
+
+        JsonNode? current = schema;
+        foreach (var token in pointerTokens.Skip(1))
+        {
+            if (current is not JsonObject currentObject
+                || currentObject["properties"] is not JsonObject properties
+                || !properties.TryGetPropertyValue(token, out current)
+                || currentObject["required"] is not JsonArray required
+                || !required.OfType<JsonValue>().Any(value =>
+                    value.TryGetValue<string>(out var requiredName)
+                    && string.Equals(requiredName, token, StringComparison.Ordinal)))
+            {
+                return false;
+            }
+        }
+
+        return PipelineConditionalBoundarySchemaMatches(current, activation.AllowedValues);
+    }
+
+    private static IReadOnlyList<PipelineStructuredDecisionRequirement> BuildPipelineStructuredDecisionRequirements(
+        WorkflowPipelineSubworkflowSpec spec,
+        CapabilityPreflightResult preflight)
+    {
+        if (!preflight.Enabled)
+            return Array.Empty<PipelineStructuredDecisionRequirement>();
+
+        var requirements = new List<PipelineStructuredDecisionRequirement>();
+        foreach (var group in preflight.RequiredMcpCapabilities
+                     .Where(static capability => capability.Activation is not null)
+                     .GroupBy(static capability => capability.Activation!.Group, StringComparer.Ordinal))
+        {
+            var activation = group.First().Activation!;
+            if (!string.Equals(
+                    activation.DecisionContractSource,
+                    StructuredDecisionContractSource,
+                    StringComparison.Ordinal)
+                || !PipelineSpecOwnsOperation(spec, activation.DecisionOperationId))
+            {
+                continue;
+            }
+
+            var producer = preflight.Capabilities.FirstOrDefault(capability =>
+                capability.Required
+                && string.Equals(capability.OperationId, activation.DecisionOperationId, StringComparison.Ordinal)
+                && string.Equals(capability.CatalogId, activation.DecisionProducerCatalogId, StringComparison.Ordinal));
+            if (producer is null)
+            {
+                throw new WorkflowRuntimeException(
+                    ErrorCodes.CapabilityPreflightUnavailable,
+                    $"CAPABILITY_PREFLIGHT_CONDITIONAL_DECISION_PRODUCER_UNAVAILABLE: Decision operation '{activation.DecisionOperationId}' has no locked producer capability '{activation.DecisionProducerCatalogId}'.",
+                    details: new JsonObject
+                    {
+                        ["phase"] = "capability_preflight",
+                        ["reason"] = "conditional_decision_producer_unavailable"
+                    });
+            }
+
+            requirements.Add(new PipelineStructuredDecisionRequirement(producer, activation));
+        }
+
+        return requirements;
+    }
+
+    private static void EnforceStructuredDecisionProducerContracts(
+        WorkflowPipelineSubworkflowSpec spec,
+        string workflowName,
+        WorkflowDocument document,
+        IReadOnlyList<PipelineStructuredDecisionRequirement> requirements)
+    {
+        if (requirements.Count == 0)
+            return;
+
+        var workflow = document.Workflows[workflowName];
+        var allSteps = EnumerateSteps(workflow.Steps)
+            .Concat(EnumerateSteps(workflow.Finally))
+            .ToArray();
+        foreach (var requirement in requirements)
+        {
+            var sources = allSteps
+                .Where(step => StepMatchesDecisionProducer(step, requirement.Producer))
+                .ToArray();
+            if (sources.Length == 1
+                && StructuredDecisionProducerLeafContractIsValid(
+                    document,
+                    workflowName,
+                    sources[0],
+                    requirement.Activation))
+            {
+                continue;
+            }
+
+            var fieldName = GetDecisionBoundaryFieldName(requirement.Activation.DecisionOutputPath);
+            throw new WorkflowRuntimeException(
+                ErrorCodes.TemplatePlan,
+                $"CAPABILITY_PREFLIGHT_CONDITIONAL_DECISION_PRODUCER_CONTRACT_INVALID: Leaf '{spec.Name}' must contain exactly one '{requirement.Producer.Method}' producer for decision operation '{requirement.Activation.DecisionOperationId}'. Its input.structured_output must be strict, field '{fieldName}' must be required with the exact enum [{string.Join(", ", requirement.Activation.AllowedValues)}], and workflow output '{fieldName}' must expose exact path '{requirement.Activation.DecisionOutputPath}' unchanged through only direct expressions or pure set projections.",
+                details: new JsonObject
+                {
+                    ["phase"] = "pipeline_leaf_generation",
+                    ["reason"] = "conditional_decision_producer_contract_invalid",
+                    ["leaf"] = spec.Name,
+                    ["source_count"] = sources.Length
+                });
+        }
+    }
+
+    internal static bool StructuredDecisionProducerLeafContractIsValid(
+        WorkflowDocument document,
+        string workflowName,
+        StepDef sourceStep,
+        McpCapabilityActivation activation)
+    {
+        if (!document.Workflows.TryGetValue(workflowName, out var workflow))
+            return false;
+        var fieldName = GetDecisionBoundaryFieldName(activation.DecisionOutputPath);
+        if (fieldName.Length == 0
+            || workflow.Outputs == null
+            || !workflow.Outputs.TryGetValue(fieldName, out var output)
+            || !string.Equals(output.Type, "string", StringComparison.Ordinal)
+            || output.Enum == null
+            || !output.Enum.Distinct(StringComparer.Ordinal).Order(StringComparer.Ordinal)
+                .SequenceEqual(
+                    activation.AllowedValues.Distinct(StringComparer.Ordinal).Order(StringComparer.Ordinal),
+                    StringComparer.Ordinal))
+        {
+            return false;
+        }
+
+        return ConditionalDecisionExpressionDependsOnSource(
+            document,
+            BuildWorkflowArtifactCallerIndex(document),
+            [(workflowName, sourceStep)],
+            workflowName,
+            output.Expr,
+            [],
+            activation);
     }
 
     private static void ThrowInvalidConditionalActivation(
@@ -4711,10 +5330,9 @@ public sealed partial class WorkflowPlanExecutor
 
                 if (string.IsNullOrWhiteSpace(activation.DecisionOutputPath)
                     || activation.AllowedValues.Count < 2
-                    || activationGroup.Select(static item => item.BranchValue)
-                        .Distinct(StringComparer.Ordinal)
-                        .Order(StringComparer.Ordinal)
-                        .SequenceEqual(activation.AllowedValues.Distinct(StringComparer.Ordinal).Order(StringComparer.Ordinal), StringComparer.Ordinal) == false)
+                    || !ConditionalActivationValuesAreValid(
+                        activation,
+                        activationGroup.Select(static item => item.BranchValue)))
                 {
                     var contractMessage = $"CAPABILITY_PREFLIGHT_CONDITIONAL_DECISION_CONTRACT_INVALID: Conditional activation group '{activation.Group}' has no grounded enum path or its allowed values do not exactly cover every branch.";
                     errors.Add(contractMessage);
@@ -4781,6 +5399,19 @@ public sealed partial class WorkflowPlanExecutor
         return actual.SequenceEqual(
             allowedValues.Distinct(StringComparer.Ordinal).Order(StringComparer.Ordinal),
             StringComparer.Ordinal);
+    }
+
+    private static bool ConditionalActivationValuesAreValid(
+        McpCapabilityActivation activation,
+        IEnumerable<string> branchValues)
+    {
+        var branches = branchValues.Distinct(StringComparer.Ordinal).Order(StringComparer.Ordinal).ToArray();
+        var noEffect = activation.NoEffectValues.Distinct(StringComparer.Ordinal).Order(StringComparer.Ordinal).ToArray();
+        var allowed = activation.AllowedValues.Distinct(StringComparer.Ordinal).Order(StringComparer.Ordinal).ToArray();
+        return branches.Length >= 2
+               && noEffect.All(value => !branches.Contains(value, StringComparer.Ordinal))
+               && branches.Concat(noEffect).Order(StringComparer.Ordinal)
+                   .SequenceEqual(allowed, StringComparer.Ordinal);
     }
 
     private static bool PipelineBoundaryTypesAreCompatible(string producerType, string consumerType)
@@ -4900,6 +5531,10 @@ public sealed partial class WorkflowPlanExecutor
         foreach (var planned in tools)
         {
             RemoveClaimedOrMatchingLockedToolPlans(planned, preflight.RequiredMcpCapabilities);
+            RemoveClaimedNativeCapabilityToolPlans(
+                planned,
+                preflight.RequiredNativeCapabilities,
+                pipelineMcpContext);
         }
 
         var nativeSteps = specs
@@ -5032,8 +5667,7 @@ public sealed partial class WorkflowPlanExecutor
                 ? null
                 : string.Join(' ', conditionalActivations
                     .GroupBy(static activation => activation.Group, StringComparer.Ordinal)
-                    .Select(group =>
-                        $"This leaf owns conditional capability group '{group.Key}': drive exactly one '{string.Join("' or '", group.Select(static activation => activation.BranchValue).Distinct(StringComparer.Ordinal))}' branch from enum field '{group.First().DecisionOutputPath}' produced by decision operation '{group.First().DecisionOperationId}' in one switch, with no mutating default branch."));
+                    .Select(BuildConditionalLeafGuidance));
             var withTools = spec with
             {
                 PlannedTools = tools[index],
@@ -5085,7 +5719,9 @@ public sealed partial class WorkflowPlanExecutor
             .Select(group =>
             {
                 var activationOwner = group.First().Spec.Name;
-                var decisionOperationId = group.First().Activation.DecisionOperationId;
+                var activation = group.First().Activation;
+                var decisionOperationId = activation.DecisionOperationId;
+                var decisionFieldName = GetDecisionBoundaryFieldName(activation.DecisionOutputPath);
                 var decisionLeafOwners = updated
                     .Where(spec => PipelineSpecOwnsOperation(spec, decisionOperationId))
                     .Select(static spec => spec.Name)
@@ -5097,6 +5733,7 @@ public sealed partial class WorkflowPlanExecutor
                 return BuildConditionalDecisionRoutingGuidance(
                     group.Key,
                     decisionOperationId,
+                    decisionFieldName,
                     activationOwner,
                     decisionLeafOwners,
                     mainOwnsDecision);
@@ -5113,6 +5750,25 @@ public sealed partial class WorkflowPlanExecutor
             MainLocalOperationIds = localOperationAssignments.MainOperationIds,
             MainNativeSteps = mainNativeSteps
         };
+    }
+
+    private static string BuildConditionalLeafGuidance(
+        IGrouping<string, McpCapabilityActivation> group)
+    {
+        var activation = group.First();
+        var effectValues = string.Join("' or '", group
+            .Select(static item => item.BranchValue)
+            .Distinct(StringComparer.Ordinal));
+        var noEffectGuidance = activation.NoEffectValues.Count == 0
+            ? string.Empty
+            : $" Emit explicit non-mutating cases for no-effect values '{string.Join("' and '", activation.NoEffectValues)}'.";
+        var structuredGuidance = string.Equals(
+                activation.DecisionContractSource,
+                StructuredDecisionContractSource,
+                StringComparison.Ordinal)
+            ? $" The unique owner of decision operation '{activation.DecisionOperationId}' implements producer catalog capability '{activation.DecisionProducerCatalogId}' and must declare strict structured_output.schema_inline whose '{GetDecisionBoundaryFieldName(activation.DecisionOutputPath)}' property is a required string enum containing exactly '{string.Join("' and '", activation.AllowedValues)}'. Do not duplicate that producer in this leaf when another leaf owns it; consume the exact typed decision routed through the declared leaf input instead."
+            : string.Empty;
+        return $"This leaf owns conditional capability group '{group.Key}': drive exactly one '{effectValues}' effect branch from enum field '{activation.DecisionOutputPath}' produced by decision operation '{activation.DecisionOperationId}' in one switch, with no mutating default branch.{noEffectGuidance}{structuredGuidance}";
     }
 
     private static IReadOnlyList<WorkflowPipelineSubworkflowSpec> ApplyConditionalDecisionBoundaryContracts(
@@ -5219,13 +5875,17 @@ public sealed partial class WorkflowPlanExecutor
     private static string BuildConditionalDecisionRoutingGuidance(
         string group,
         string decisionOperationId,
+        string decisionFieldName,
         string activationOwner,
         IReadOnlyList<string> decisionLeafOwners,
         bool mainOwnsDecision)
     {
+        var fieldGuidance = string.IsNullOrWhiteSpace(decisionFieldName)
+            ? "the declared typed decision field"
+            : $"the exact typed field '{decisionFieldName}'";
         if (mainOwnsDecision && decisionLeafOwners.Count == 0)
         {
-            return $"Main owns and computes decision operation '{decisionOperationId}', then passes its typed result to leaf '{activationOwner}'; that leaf executes exactly one branch of conditional capability group '{group}'.";
+            return $"Main owns and computes decision operation '{decisionOperationId}', then passes {fieldGuidance} unchanged to the identically named input of leaf '{activationOwner}'; that leaf executes exactly one branch of conditional capability group '{group}'. Do not alias this boundary as 'result'.";
         }
 
         if (!mainOwnsDecision && decisionLeafOwners.Count == 1)
@@ -5233,13 +5893,38 @@ public sealed partial class WorkflowPlanExecutor
             var decisionOwner = decisionLeafOwners[0];
             if (string.Equals(decisionOwner, activationOwner, StringComparison.Ordinal))
             {
-                return $"Leaf '{decisionOwner}' owns and derives decision operation '{decisionOperationId}', then uses that typed result directly to execute exactly one branch of conditional capability group '{group}'; main must not recompute it.";
+                return $"Leaf '{decisionOwner}' owns and derives decision operation '{decisionOperationId}', then uses {fieldGuidance} directly to execute exactly one branch of conditional capability group '{group}'; main must not recompute or rename it.";
             }
 
-            return $"Leaf '{decisionOwner}' owns and derives decision operation '{decisionOperationId}' and exposes its typed result; main routes that result unchanged to leaf '{activationOwner}', which executes exactly one branch of conditional capability group '{group}', without recomputing the decision.";
+            return $"Leaf '{decisionOwner}' owns and derives decision operation '{decisionOperationId}' and exposes {fieldGuidance}; main routes that exact field unchanged to the identically named input of leaf '{activationOwner}', which executes exactly one branch of conditional capability group '{group}', without recomputing or aliasing the decision as 'result'.";
         }
 
-        return $"Decision operation '{decisionOperationId}' for conditional capability group '{group}' must be derived by its exactly one immutable owner and routed unchanged to leaf '{activationOwner}'; main must not claim ownership unless the immutable main operation contract assigns it there.";
+        return $"Decision operation '{decisionOperationId}' for conditional capability group '{group}' must be derived by its exactly one immutable owner and {fieldGuidance} must be routed unchanged to the identically named input of leaf '{activationOwner}'; main must not claim ownership or alias the field as 'result' unless the immutable main operation contract assigns it there.";
+    }
+
+    private static void AppendLockedMainNativeStepGuidance(
+        StringBuilder sb,
+        CapabilityPreflightResult capabilityPreflight)
+    {
+        var lockedMainSteps = capabilityPreflight.RequiredNativeCapabilities
+            .Where(IsMainOrchestrationNativeCapability)
+            .ToArray();
+        sb.AppendLine();
+        if (lockedMainSteps.Length == 0)
+        {
+            sb.AppendLine("No native main-orchestration step is locked. Do not add human confirmation, emit, or another native interaction to main.");
+            return;
+        }
+
+        sb.AppendLine("The following native main-orchestration steps are locked and exact; include every occurrence and do not invent another:");
+        foreach (var capability in lockedMainSteps)
+        {
+            sb.Append("- ").Append(capability.Method);
+            var operationIds = GetResolvedCapabilityOperationIds(capability);
+            if (operationIds.Count > 0)
+                sb.Append(" (operation_ids: ").Append(string.Join(", ", operationIds)).Append(')');
+            sb.AppendLine();
+        }
     }
 
     private static void NormalizeCoalescedMainNativeCapabilityPlans(
@@ -5584,6 +6269,26 @@ public sealed partial class WorkflowPlanExecutor
         => plannedTools.RemoveAll(tool => lockedCapabilities.Any(capability =>
             PlannedToolMatchesCapability(tool, capability)
             || PlannedToolCarriesCapabilityIdentity(tool, capability)));
+
+    private static void RemoveClaimedNativeCapabilityToolPlans(
+        List<PipelinePlannedTool> plannedTools,
+        IReadOnlyList<ResolvedCapability> lockedCapabilities,
+        PipelineMcpContext pipelineMcpContext)
+    {
+        plannedTools.RemoveAll(tool => lockedCapabilities.Any(capability =>
+            string.Equals(capability.Resolution, "native", StringComparison.Ordinal)
+            && (IsClaimedNativeCapability(tool, capability)
+                || string.Equals(tool.Method, capability.Method, StringComparison.Ordinal)
+                && !PlannedToolExistsInMcpContext(tool, pipelineMcpContext))));
+    }
+
+    private static bool IsClaimedNativeCapability(
+        PipelinePlannedTool tool,
+        ResolvedCapability capability)
+        => !string.IsNullOrWhiteSpace(capability.CatalogId)
+           && tool.CatalogIds.Contains(capability.CatalogId, StringComparer.Ordinal)
+           || string.Equals(tool.Method, capability.Method, StringComparison.Ordinal)
+           && tool.OperationIds.Any(GetResolvedCapabilityOperationIds(capability).Contains);
 
     private static void RemoveRedundantUnlockedWholeToolPlans(
         List<PipelinePlannedTool> plannedTools,

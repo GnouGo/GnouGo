@@ -20,7 +20,12 @@ public sealed partial class WorkflowPlanExecutor
         string ExternalEffectKind,
         string DecisionSourceOperationId = "",
         string IntentOrigin = "requested_effect",
-        string DerivationSourceOperationId = "");
+        string DerivationSourceOperationId = "",
+        bool AllowNoEffectOutcome = false,
+        string OptionalityEvidence = "")
+    {
+        public IReadOnlyList<string> InputOperationIds { get; init; } = Array.Empty<string>();
+    }
     private sealed record CapabilityInventoryConstraint(
         string Id,
         string Description,
@@ -31,7 +36,9 @@ public sealed partial class WorkflowPlanExecutor
         bool Complete,
         IReadOnlyList<CapabilityInventoryOperation> Operations,
         IReadOnlyList<CapabilityInventoryConstraint> Constraints,
-        IReadOnlyList<CapabilityInventoryIncompleteReason> IncompleteReasons);
+        IReadOnlyList<CapabilityInventoryIncompleteReason> IncompleteReasons,
+        string ExternalWriteConfirmationPolicy = "unspecified",
+        string ExternalWriteConfirmationEvidence = "");
 
     private sealed record CapabilityCatalogEntry(
         string Id,
@@ -69,7 +76,11 @@ public sealed partial class WorkflowPlanExecutor
         IReadOnlyList<string> CandidateCatalogIds,
         string? DecisionOperationId = null,
         string? DecisionOutputPath = null,
-        IReadOnlyList<string>? DecisionAllowedValues = null);
+        IReadOnlyList<string>? DecisionAllowedValues = null,
+        IReadOnlyList<string>? DecisionNoEffectValues = null,
+        string? DecisionContractSource = null,
+        string? DecisionProducerCatalogId = null,
+        string? DecisionGroundingFailureCode = null);
 
     private sealed record CapabilityConstraintMatch(
         CapabilityInventoryConstraint Constraint,

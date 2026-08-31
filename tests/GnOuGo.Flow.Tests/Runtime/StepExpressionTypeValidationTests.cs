@@ -2028,6 +2028,80 @@ workflows:
         InvokeSemanticValidation(doc);
     }
 
+    [Fact]
+    public void SemanticValidation_AcceptsPathTotalResultAfterNestedSwitch()
+    {
+        var doc = Parse("""
+steps:
+  - id: guard_inputs
+    type: switch
+    cases:
+      - when: ${true}
+        steps:
+          - id: route_decision
+            type: switch
+            cases:
+              - when: ${true}
+                steps:
+                  - id: selected_value
+                    type: set
+                    input:
+                      decision: APPROVE
+            default:
+              - id: default_value
+                type: set
+                input:
+                  decision: NO_EFFECT
+          - id: result
+            type: set
+            output_schema:
+              type: object
+              properties:
+                result:
+                  type: object
+                  properties:
+                    decision: { type: string }
+                    summary: { type: string }
+                  required_properties: [decision, summary]
+              required_properties: [result]
+            input:
+              result:
+                decision: APPROVE
+                summary: Complete
+    default:
+      - id: missing_value
+        type: set
+        input:
+          decision: NO_EFFECT
+      - id: result
+        type: set
+        output_schema:
+          type: object
+          properties:
+            result:
+              type: object
+              properties:
+                decision: { type: string }
+                summary: { type: string }
+              required_properties: [decision, summary]
+          required_properties: [result]
+        input:
+          result:
+            decision: NO_EFFECT
+            summary: Missing
+outputs:
+  result:
+    type: object
+    properties:
+      decision: { type: string }
+      summary: { type: string }
+    required_properties: [decision, summary]
+    expr: ${data.steps.guard_inputs.result.result}
+""");
+
+        InvokeSemanticValidation(doc);
+    }
+
     private static WorkflowDocument Parse(string workflowBody) => WorkflowParser.Parse($$"""
 version: 1
 skill:

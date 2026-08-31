@@ -2174,14 +2174,54 @@ public class WorkflowPlanExecutorTests
             BindingFlags.Static | BindingFlags.NonPublic)!;
 
         var leafOwned = Assert.IsType<string>(method.Invoke(null,
-            ["neutral-group", "neutral-decision", "effect_leaf", new[] { "decision_leaf" }, false]));
+            ["neutral-group", "neutral-decision", "decision", "effect_leaf", new[] { "decision_leaf" }, false]));
         Assert.Contains("Leaf 'decision_leaf' owns and derives decision operation 'neutral-decision'", leafOwned, StringComparison.Ordinal);
-        Assert.Contains("main routes that result unchanged", leafOwned, StringComparison.Ordinal);
+        Assert.Contains("main routes that exact field unchanged", leafOwned, StringComparison.Ordinal);
+        Assert.Contains("the exact typed field 'decision'", leafOwned, StringComparison.Ordinal);
+        Assert.Contains("without recomputing or aliasing the decision as 'result'", leafOwned, StringComparison.Ordinal);
         Assert.DoesNotContain("Main owns and computes", leafOwned, StringComparison.Ordinal);
 
         var mainOwned = Assert.IsType<string>(method.Invoke(null,
-            ["neutral-group", "neutral-decision", "effect_leaf", Array.Empty<string>(), true]));
+            ["neutral-group", "neutral-decision", "decision", "effect_leaf", Array.Empty<string>(), true]));
         Assert.Contains("Main owns and computes decision operation 'neutral-decision'", mainOwned, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void PipelineExternalLeaf_RequiredNativeCapabilitySatisfiesExecutableOwnership()
+    {
+        var candidate = CreatePrivatePatchCandidateWithOwnership(
+            includeImmutableTool: false,
+            includeAdvisoryTool: false,
+            includeLocalOperation: false,
+            includeNativeStep: true,
+            "native_leaf");
+        var specs = ((System.Collections.IEnumerable)candidate.GetType()
+                .GetProperty("Subworkflows")!
+                .GetValue(candidate)!)
+            .Cast<object>()
+            .ToArray();
+        var spec = Assert.Single(specs);
+        var contextType = GetPrivatePipelineType("PipelineMcpContext");
+        var context = contextType.GetProperty("Empty", BindingFlags.Static | BindingFlags.Public)!
+            .GetValue(null)!;
+        var errors = new List<string>();
+        var rootCauseListType = typeof(List<>).MakeGenericType(GetPrivatePipelineType("PipelineRootCause"));
+        var rootCauses = Activator.CreateInstance(rootCauseListType)!;
+        var validate = typeof(WorkflowPlanExecutor).GetMethod(
+            "ValidateRequiredLeafToolContracts",
+            BindingFlags.Static | BindingFlags.NonPublic)!;
+
+        validate.Invoke(null, [spec, context, errors, rootCauses]);
+
+        Assert.Empty(errors);
+        var scoreMethod = typeof(WorkflowPlanExecutor).GetMethod(
+            "ScorePipelineExtractionSpec",
+            BindingFlags.Static | BindingFlags.NonPublic)!;
+        var score = scoreMethod.Invoke(null, [spec, context])!;
+        var reasons = Assert.IsAssignableFrom<IReadOnlyList<string>>(
+            score.GetType().GetProperty("Reasons")!.GetValue(score));
+        Assert.Contains("declares required native Flow step calls", reasons);
+        Assert.DoesNotContain("external work has matching MCP capabilities but no planned_tools", reasons);
     }
 
     [Theory]
@@ -2759,6 +2799,65 @@ public class WorkflowPlanExecutorTests
         Assert.Contains("id: public_result_2", normalized);
         Assert.Contains("data.steps.public_result_2.value", normalized);
         var errors = new WorkflowValidator().Validate(WorkflowParser.Parse(normalized));
+        Assert.DoesNotContain(errors, static error => error.Code == "DUPLICATE_STEP_ID");
+    }
+
+    [Fact]
+    public void GeneratedMainNormalization_PreservesCompatiblePathTotalSwitchProjectionIds()
+    {
+        var method = typeof(WorkflowPlanExecutor).GetMethod(
+            "NormalizeGeneratedStepIds",
+            BindingFlags.NonPublic | BindingFlags.Static,
+            binder: null,
+            types: [typeof(string)],
+            modifiers: null);
+        Assert.NotNull(method);
+        const string yaml = """
+            version: 1
+            skill:
+              description: Shared switch projection test.
+              tags: [test]
+              inputs: {}
+              outputs: {}
+            workflows:
+              main:
+                steps:
+                  - id: choose_result
+                    type: switch
+                    cases:
+                      - when: ${true}
+                        steps:
+                          - id: public_result
+                            type: set
+                            output_schema:
+                              type: object
+                              properties:
+                                value: { type: string }
+                              required_properties: [value]
+                            input:
+                              value: selected
+                    default:
+                      - id: public_result
+                        type: set
+                        output_schema:
+                          type: object
+                          properties:
+                            value: { type: string }
+                          required_properties: [value]
+                        input:
+                          value: default
+                outputs:
+                  value:
+                    type: string
+                    expr: ${data.steps.choose_result.public_result.value}
+            """;
+
+        var normalized = Assert.IsType<string>(method!.Invoke(null, [yaml]));
+
+        Assert.DoesNotContain("public_result_2", normalized, StringComparison.Ordinal);
+        Assert.Equal(2, Regex.Matches(normalized, "id: public_result(?:\\r?\\n|$)").Count);
+        var document = WorkflowParser.Parse(normalized);
+        var errors = new WorkflowValidator().Validate(document);
         Assert.DoesNotContain(errors, static error => error.Code == "DUPLICATE_STEP_ID");
     }
 
@@ -4522,6 +4621,12 @@ workflows:
         Assert.Contains("simple renames, constants, guards, field mapping, routing, aggregation, or loop orchestration", requests[1].Prompt);
         Assert.Contains("Leave simple deterministic orchestration in the main workflow", requests[1].Prompt);
         Assert.Contains("Extraction scoring rubric", requests[1].Prompt);
+        Assert.Contains("No native main-orchestration step is locked.", requests[1].Prompt);
+        Assert.Contains("Do not add human confirmation, emit, or another native interaction to main.", requests[1].Prompt);
+        var extractionQualityRequest = Assert.Single(requests, request =>
+            request.Prompt.Contains("reviewing the quality of a `workflow.plan` pipeline", StringComparison.Ordinal));
+        Assert.Contains("human confirmation is permitted only when extraction_json `/main_native_steps` contains a required `human.input`", extractionQualityRequest.Prompt);
+        Assert.Contains("Never infer an unlisted confirmation merely from the presence of an external write", extractionQualityRequest.Prompt);
         var mainAssemblyRequest = Assert.Single(requests, request =>
             request.Prompt.Contains("assembling the parent `main` workflow", StringComparison.Ordinal));
         Assert.Contains("Keep simple deterministic work in the main graph", mainAssemblyRequest.Prompt);
