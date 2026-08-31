@@ -297,6 +297,7 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
                     repair.Extraction,
                     capabilityPreflight,
                     globalMcpContext);
+                AddConditionalCapabilityOwnershipTelemetry(ctx, repairedExtraction);
                 repairedExtraction = ReconcileRequiredLeafToolValidationAfterCapabilityComposition(repairedExtraction);
                 repairedExtraction = RevalidatePatchedPipelineExtraction(repairedExtraction, globalMcpContext);
                 repairedExtraction = PreserveSharedPipelineBoundaryContracts(repairedExtraction);
@@ -1364,7 +1365,10 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
         int bestRepairablePatchOperationCount = 0;
         string? previousQualityDiagnosticFingerprint = null;
         var unchangedQualityRepairAttempts = 0;
-        var nonImprovingPatchAttempts = 0;
+        var rejectedPatchAttempts = 0;
+        var qualityNonImprovingPatchAttempts = 0;
+        var deterministicRegressionPatchAttempts = 0;
+        var validationNonImprovingPatchAttempts = 0;
         string? previousPatchFailureFingerprint = null;
         var repeatedPatchFailureAttempts = 0;
         Exception? lastException = null;
@@ -1540,6 +1544,7 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
                     extraction,
                     capabilityPreflight,
                     pipelineMcpContext);
+                AddConditionalCapabilityOwnershipTelemetry(ctx, extraction);
                 extraction = ReconcileRequiredLeafToolValidationAfterCapabilityComposition(extraction);
                 if (repairApplication != null)
                     extraction = RevalidatePatchedPipelineExtraction(extraction, pipelineMcpContext);
@@ -1617,20 +1622,28 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
                         bestRepairableCandidate = null;
                         bestRepairableAnnotatedMarkdown = null;
                         bestRepairablePatchOperationCount = 0;
-                        nonImprovingPatchAttempts = 0;
+                        rejectedPatchAttempts = 0;
+                        qualityNonImprovingPatchAttempts = 0;
+                        deterministicRegressionPatchAttempts = 0;
+                        validationNonImprovingPatchAttempts = 0;
                         extractionSpan.SetAttribute("gnougo-flow.plan.pipeline.patch.accepted", repairApplication != null);
                     }
                     else if (repairApplication != null)
                     {
-                        nonImprovingPatchAttempts++;
+                        rejectedPatchAttempts++;
+                        qualityNonImprovingPatchAttempts++;
                         extractionSpan.SetAttribute("gnougo-flow.plan.pipeline.patch.accepted", false);
-                        extractionSpan.SetAttribute("gnougo-flow.plan.pipeline.patch.non_improving_attempts", nonImprovingPatchAttempts);
-                        if (nonImprovingPatchAttempts >= 2)
+                        extractionSpan.SetAttribute("gnougo-flow.plan.pipeline.patch.rejected_attempts", rejectedPatchAttempts);
+                        extractionSpan.SetAttribute("gnougo-flow.plan.pipeline.patch.quality_non_improving_attempts", qualityNonImprovingPatchAttempts);
+                        if (rejectedPatchAttempts >= 2)
                         {
                             var stalled = BuildPipelineExtractionRepairStalledException(
                                 attempt,
-                                "Two targeted patches failed to improve the best deterministically valid extraction.",
-                                bestValidatedCandidate!);
+                                "Targeted patches did not improve the best deterministically valid extraction.",
+                                bestValidatedCandidate!,
+                                qualityNonImprovingPatchAttempts,
+                                deterministicRegressionPatchAttempts,
+                                validationNonImprovingPatchAttempts);
                             extractionSpan.SetAttribute("gnougo-flow.plan.pipeline.patch.stall_reason", "repeated_non_improvement");
                             extractionSpan.Fail(stalled);
                             throw stalled;
@@ -1688,9 +1701,11 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
 
                 if (repairApplication != null && bestValidatedCandidate != null)
                 {
-                    nonImprovingPatchAttempts++;
+                    rejectedPatchAttempts++;
+                    deterministicRegressionPatchAttempts++;
                     extractionSpan.SetAttribute("gnougo-flow.plan.pipeline.patch.accepted", false);
-                    extractionSpan.SetAttribute("gnougo-flow.plan.pipeline.patch.non_improving_attempts", nonImprovingPatchAttempts);
+                    extractionSpan.SetAttribute("gnougo-flow.plan.pipeline.patch.rejected_attempts", rejectedPatchAttempts);
+                    extractionSpan.SetAttribute("gnougo-flow.plan.pipeline.patch.deterministic_regression_attempts", deterministicRegressionPatchAttempts);
                     var regressionException = BuildPipelineExtractionException(
                         extraction,
                         annotatedMarkdown,
@@ -1698,12 +1713,16 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
                     extractionSpan.AddEvent(
                         "gnougo-flow.plan.pipeline.extraction.validation_error",
                         BuildPlanErrorTelemetryAttributes(regressionException, attempt, "extract_subworkflow_specs"));
-                    if (nonImprovingPatchAttempts >= 2)
+                    if (rejectedPatchAttempts >= 2)
                     {
                         var stalled = BuildPipelineExtractionRepairStalledException(
                             attempt,
-                            "Two targeted patches failed to preserve deterministic validation of the best candidate.",
-                            bestValidatedCandidate);
+                            "Targeted patches were rejected before a better candidate could be emitted.",
+                            bestValidatedCandidate,
+                            qualityNonImprovingPatchAttempts,
+                            deterministicRegressionPatchAttempts,
+                            validationNonImprovingPatchAttempts,
+                            extraction.ValidationErrors);
                         extractionSpan.SetAttribute("gnougo-flow.plan.pipeline.patch.stall_reason", "deterministic_validation_regression");
                         extractionSpan.Fail(stalled);
                         throw stalled;
@@ -1734,20 +1753,29 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
                         bestRepairableCandidate = extraction;
                         bestRepairableAnnotatedMarkdown = annotatedMarkdown;
                         bestRepairablePatchOperationCount = repairApplication?.OperationCount ?? 0;
-                        nonImprovingPatchAttempts = 0;
+                        rejectedPatchAttempts = 0;
+                        qualityNonImprovingPatchAttempts = 0;
+                        deterministicRegressionPatchAttempts = 0;
+                        validationNonImprovingPatchAttempts = 0;
                         extractionSpan.SetAttribute("gnougo-flow.plan.pipeline.patch.accepted", repairApplication != null);
                     }
                     else if (repairApplication != null)
                     {
-                        nonImprovingPatchAttempts++;
+                        rejectedPatchAttempts++;
+                        validationNonImprovingPatchAttempts++;
                         extractionSpan.SetAttribute("gnougo-flow.plan.pipeline.patch.accepted", false);
-                        extractionSpan.SetAttribute("gnougo-flow.plan.pipeline.patch.non_improving_attempts", nonImprovingPatchAttempts);
-                        if (nonImprovingPatchAttempts >= 2)
+                        extractionSpan.SetAttribute("gnougo-flow.plan.pipeline.patch.rejected_attempts", rejectedPatchAttempts);
+                        extractionSpan.SetAttribute("gnougo-flow.plan.pipeline.patch.validation_non_improving_attempts", validationNonImprovingPatchAttempts);
+                        if (rejectedPatchAttempts >= 2)
                         {
                             var stalled = BuildPipelineExtractionRepairStalledException(
                                 attempt,
-                                "Two targeted patches failed to reduce deterministic extraction validation errors.",
-                                bestRepairableCandidate!);
+                                "Targeted patches did not reduce deterministic extraction validation errors.",
+                                bestRepairableCandidate!,
+                                qualityNonImprovingPatchAttempts,
+                                deterministicRegressionPatchAttempts,
+                                validationNonImprovingPatchAttempts,
+                                extraction.ValidationErrors);
                             extractionSpan.SetAttribute("gnougo-flow.plan.pipeline.patch.stall_reason", "repeated_validation_non_improvement");
                             extractionSpan.Fail(stalled);
                             throw stalled;

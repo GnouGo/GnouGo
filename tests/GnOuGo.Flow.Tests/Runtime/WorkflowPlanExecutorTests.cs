@@ -190,6 +190,84 @@ public class WorkflowPlanExecutorTests
     }
 
     [Fact]
+    public void TargetedPipelinePatch_CannotRemoveOrWeakenValidatedContractFields()
+    {
+        var method = typeof(WorkflowPlanExecutor).GetMethod(
+            "PreserveTargetedPatchContractSchemaSet",
+            BindingFlags.Static | BindingFlags.NonPublic);
+        Assert.NotNull(method);
+
+        IReadOnlyDictionary<string, JsonNode?> previous = new Dictionary<string, JsonNode?>(StringComparer.Ordinal)
+        {
+            ["analysis_result"] = JsonNode.Parse("""
+                {
+                  "type": "object",
+                  "properties": {
+                    "non_blocking_issues": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": { "message": { "type": "string" } },
+                        "required_properties": ["message"]
+                      }
+                    }
+                  },
+                  "required_properties": ["non_blocking_issues"]
+                }
+                """),
+            ["decision"] = JsonNode.Parse("""{ "type": "string", "enum": ["accept", "reject"] }""")
+        };
+        IReadOnlyDictionary<string, JsonNode?> current = new Dictionary<string, JsonNode?>(StringComparer.Ordinal)
+        {
+            ["analysis_result"] = JsonNode.Parse("""
+                {
+                  "type": "object",
+                  "properties": {
+                    "non_blocking_issues": { "type": "array" }
+                  }
+                }
+                """)
+        };
+
+        var preserved = Assert.IsAssignableFrom<IReadOnlyDictionary<string, JsonNode?>>(
+            method!.Invoke(null, [current, previous]));
+        var result = Assert.IsType<JsonObject>(preserved["analysis_result"]);
+        var issues = Assert.IsType<JsonObject>(Assert.IsType<JsonObject>(result["properties"])["non_blocking_issues"]);
+        var items = Assert.IsType<JsonObject>(issues["items"]);
+
+        Assert.Equal("object", items["type"]!.GetValue<string>());
+        Assert.Contains(
+            Assert.IsType<JsonArray>(result["required_properties"]),
+            static item => item?.GetValue<string>() == "non_blocking_issues");
+        Assert.True(preserved.ContainsKey("decision"));
+    }
+
+    [Fact]
+    public void IntentClarification_CapabilityRelaxationFingerprintCanBeHandledOnlyOnce()
+    {
+        var executorType = typeof(WorkflowPlanExecutor);
+        var configType = executorType.GetNestedType("IntentClarificationConfig", BindingFlags.NonPublic);
+        var sessionType = executorType.GetNestedType("IntentClarificationSession", BindingFlags.NonPublic);
+        Assert.NotNull(configType);
+        Assert.NotNull(sessionType);
+
+        var config = Activator.CreateInstance(configType!, ["when_needed", 30_000, 3, 15, 5])!;
+        var session = Activator.CreateInstance(
+            sessionType!,
+            BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic,
+            binder: null,
+            args: [config, "Perform one externally visible effect.", string.Empty],
+            culture: null)!;
+        var method = sessionType!.GetMethod(
+            "TryBeginCapabilityRelaxation",
+            BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
+        Assert.NotNull(method);
+
+        Assert.True(Assert.IsType<bool>(method!.Invoke(session, ["stable-gap-fingerprint"])));
+        Assert.False(Assert.IsType<bool>(method.Invoke(session, ["stable-gap-fingerprint"])));
+    }
+
+    [Fact]
     public void PipelineExtraction_DiscardsOnlyCompletelyUnboundOptionalPlannedToolPlaceholders()
     {
         var method = typeof(WorkflowPlanExecutor).GetMethod(
@@ -1813,7 +1891,7 @@ public class WorkflowPlanExecutorTests
     }
 
     [Fact]
-    public async Task WorkflowPlan_PipelineMode_RejectsDeterministicValidationRegressionAndKeepsBestCandidate()
+    public async Task WorkflowPlan_PipelineMode_PreservesSchemaAndRejectsNonImprovingPatch()
     {
         var patchCalls = 0;
         var mockLlm = new Mock<ILLMClient>();
@@ -1848,7 +1926,7 @@ public class WorkflowPlanExecutorTests
                     if (patchCalls == 2)
                     {
                         Assert.Contains(
-                            "introduced deterministic validation defects",
+                            "did not strictly improve",
                             request.Prompt,
                             StringComparison.Ordinal);
                     }
@@ -1878,6 +1956,96 @@ public class WorkflowPlanExecutorTests
         Assert.False(result.Success);
         Assert.Equal(ErrorCodes.WorkflowPlanRepairStalled, result.Error!.Code);
         Assert.Equal(2, patchCalls);
+    }
+
+    [Fact]
+    public async Task WorkflowPlan_PipelineMode_ReportsMixedPatchRejectionCategoriesAccurately()
+    {
+        var patchCalls = 0;
+        var mockLlm = new Mock<ILLMClient>();
+        mockLlm.Setup(client => client.CallAsync(It.IsAny<LLMRequest>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((LLMRequest request, CancellationToken _) =>
+            {
+                if (request.Prompt.Contains("preparing a raw user automation prompt", StringComparison.Ordinal))
+                    return new LLMResponse { Text = "# Normalize\n\nParse and normalize a typed value." };
+                if (request.Prompt.Contains("annotate normalized automation Markdown", StringComparison.Ordinal))
+                    return CreatePatchTestExtractionResponse("normalize_alpha");
+                if (request.Prompt.Contains("reviewing the quality of a `workflow.plan` pipeline", StringComparison.Ordinal))
+                {
+                    return CreateExtractionQualityReviewResponse(
+                        40,
+                        "retry",
+                        new JsonArray
+                        {
+                            new JsonObject
+                            {
+                                ["code"] = "PATCH_REQUIRED",
+                                ["kind"] = "plan_defect",
+                                ["severity"] = "critical",
+                                ["leaf_name"] = "normalize_alpha",
+                                ["message"] = "The valid leaf needs a bounded semantic correction.",
+                                ["recommendation"] = "Preserve deterministic validation."
+                            }
+                        });
+                }
+                if (request.Prompt.Contains("repairing one validated workflow pipeline extraction", StringComparison.Ordinal))
+                {
+                    patchCalls++;
+                    if (patchCalls == 1)
+                    {
+                        return CreatePipelineExtractionPatchResponse(
+                            request,
+                            new JsonArray
+                            {
+                                new JsonObject
+                                {
+                                    ["op"] = "replace_main_orchestration",
+                                    ["target"] = "",
+                                    ["sources"] = new JsonArray(),
+                                    ["main_orchestration"] = "Normalize the supplied value without changing the diagnosed leaf contract.",
+                                    ["leaf"] = null
+                                }
+                            });
+                    }
+
+                    var invalidLeaf = CreatePatchTestLeafPayload("normalize_alpha", "Add an underspecified output contract.");
+                    invalidLeaf["outputs"]!.AsArray().Add(new JsonObject
+                    {
+                        ["name"] = "weak_payload",
+                        ["type"] = "object",
+                        ["description"] = "An underspecified payload.",
+                        ["required"] = true,
+                        ["nullable"] = false,
+                        ["item_type"] = "",
+                        ["properties"] = new JsonArray()
+                    });
+                    return CreatePipelineExtractionPatchResponse(
+                        request,
+                        new JsonArray
+                        {
+                            new JsonObject
+                            {
+                                ["op"] = "replace_leaf",
+                                ["target"] = "normalize_alpha",
+                                ["sources"] = new JsonArray(),
+                                ["main_orchestration"] = "",
+                                ["leaf"] = invalidLeaf
+                            }
+                        });
+                }
+                throw new InvalidOperationException("Unexpected LLM prompt: " + request.Prompt);
+            });
+
+        var result = await ExecuteMinimalStructuredPatchPlanAsync(mockLlm.Object, maxRepairAttempts: 4);
+
+        Assert.False(result.Success);
+        Assert.Equal(ErrorCodes.WorkflowPlanRepairStalled, result.Error!.Code);
+        Assert.Equal(1, result.Error.Details!["quality_non_improving_attempts"]!.GetValue<int>());
+        Assert.Equal(1, result.Error.Details["deterministic_regression_attempts"]!.GetValue<int>());
+        Assert.Equal(0, result.Error.Details["validation_non_improving_attempts"]!.GetValue<int>());
+        Assert.Contains("quality non-improvement=1", result.Error.Message, StringComparison.Ordinal);
+        Assert.Contains("deterministic regression=1", result.Error.Message, StringComparison.Ordinal);
+        Assert.NotEmpty(result.Error.Details["last_deterministic_validation_codes"]!.AsArray());
     }
 
     [Fact]

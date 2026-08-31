@@ -1226,6 +1226,130 @@ public sealed class WorkflowPlanCapabilityPreflightTests
     }
 
     [Fact]
+    public void ConditionalComposition_SelectsEarliestExactVariantOwnerInsteadOfDecisionProducer()
+    {
+        var executorType = typeof(WorkflowPlanExecutor);
+        var method = executorType.GetMethod(
+            "SelectDeclaredLockedCapabilityOwnerIndex",
+            BindingFlags.Static | BindingFlags.NonPublic);
+        var resolvedCapabilityType = executorType.GetNestedType("ResolvedCapability", BindingFlags.NonPublic);
+        var requestBindingType = executorType.GetNestedType("CapabilityRequestBinding", BindingFlags.NonPublic);
+        Assert.NotNull(method);
+        Assert.NotNull(resolvedCapabilityType);
+        Assert.NotNull(requestBindingType);
+
+        object Bindings(string value)
+        {
+            var result = Array.CreateInstance(requestBindingType!, 1);
+            result.SetValue(Activator.CreateInstance(
+                requestBindingType!, ["/outcome", JsonValue.Create(value)]), 0);
+            return result;
+        }
+
+        object Capability(string value, string catalogId)
+            => Activator.CreateInstance(resolvedCapabilityType!,
+            [
+                $"finalize::{catalogId}", $"Finalize {value}.", true, "mcp",
+                "neutral", "tool", "finalize", Bindings(value),
+                "finalize", catalogId, "conditional", "external_effect", "write",
+                new McpCapabilityActivation("exactly_one", "finalize", "classify", value),
+                $"Finalize with {value}.", null
+            ])!;
+
+        var capabilities = Array.CreateInstance(resolvedCapabilityType!, 2);
+        capabilities.SetValue(Capability("accept", "cap-accept"), 0);
+        capabilities.SetValue(Capability("reject", "cap-reject"), 1);
+
+        var selected = method!.Invoke(null, [capabilities, new[] { 1, 2 }]);
+
+        Assert.Equal(1, Assert.IsType<int>(selected));
+    }
+
+    [Fact]
+    public void CapabilityCoverageReview_AcceptsOnlyEvidenceGroundedIncompleteMatch()
+    {
+        var executorType = typeof(WorkflowPlanExecutor);
+        var method = executorType.GetMethod(
+            "ParseCapabilityCoverageReview",
+            BindingFlags.Static | BindingFlags.NonPublic);
+        var operationType = executorType.GetNestedType("CapabilityInventoryOperation", BindingFlags.NonPublic);
+        var matchType = executorType.GetNestedType("CapabilityOperationMatch", BindingFlags.NonPublic);
+        var catalogType = executorType.GetNestedType("CapabilityCatalog", BindingFlags.NonPublic);
+        var entryType = executorType.GetNestedType("CapabilityCatalogEntry", BindingFlags.NonPublic);
+        var bindingType = executorType.GetNestedType("CapabilityRequestBinding", BindingFlags.NonPublic);
+        var fieldType = executorType.GetNestedType("CapabilitySchemaField", BindingFlags.NonPublic);
+        Assert.NotNull(method);
+        Assert.NotNull(operationType);
+        Assert.NotNull(matchType);
+        Assert.NotNull(catalogType);
+        Assert.NotNull(entryType);
+        Assert.NotNull(bindingType);
+        Assert.NotNull(fieldType);
+
+        const string requirement = "create or update one unique external record";
+        const string card = "Adds one new record. Updating an existing record is not documented.";
+        var operation = Activator.CreateInstance(operationType!,
+        [
+            "publish_summary", "Publish the requested summary.", true, "external_effect", "write",
+            string.Empty, "requested_effect", string.Empty, false, string.Empty
+        ])!;
+        operationType!.GetProperty("CoverageRequirements")!.SetValue(operation, new[] { requirement });
+
+        var match = Activator.CreateInstance(matchType!,
+        [
+            operation, "matched", "One catalog entry was selected.", new[] { "cap-create" }, Array.Empty<string>(),
+            null, null, null, null, null, null, null
+        ])!;
+        var matches = Array.CreateInstance(matchType!, 1);
+        matches.SetValue(match, 0);
+
+        var entry = Activator.CreateInstance(entryType!,
+        [
+            "cap-create", "mcp", "neutral", "tool", "add_record", "Adds one new record.",
+            Array.CreateInstance(bindingType!, 0), card,
+            Array.CreateInstance(fieldType!, 0), Array.CreateInstance(fieldType!, 0), null, null
+        ])!;
+        var entries = Array.CreateInstance(entryType!, 1);
+        entries.SetValue(entry, 0);
+        var catalog = Activator.CreateInstance(catalogType!, [entries, card])!;
+        var response = JsonNode.Parse($$"""
+            {
+              "diagnostics": [
+                {
+                  "operation_id": "publish_summary",
+                  "status": "incomplete",
+                  "unsupported_requirement": {{JsonValue.Create(requirement)!.ToJsonString()}},
+                  "supported_weaker_behavior": "Adds one new record.",
+                  "candidate_catalog_ids": ["cap-create"],
+                  "evidence": [
+                    {
+                      "catalog_id": "cap-create",
+                      "requirement_excerpt": {{JsonValue.Create(requirement)!.ToJsonString()}},
+                      "catalog_excerpt": "Adds one new record."
+                    }
+                  ]
+                }
+              ]
+            }
+            """)!.AsObject();
+
+        var review = method!.Invoke(null, [response, catalog, matches])!;
+        var contractValid = Assert.IsType<bool>(review.GetType().GetProperty("ContractValid")!.GetValue(review));
+        var diagnostics = Assert.IsAssignableFrom<IEnumerable>(
+            review.GetType().GetProperty("Diagnostics")!.GetValue(review)).Cast<object>().ToArray();
+
+        Assert.True(contractValid);
+        var diagnostic = Assert.Single(diagnostics);
+        Assert.Equal("incomplete", diagnostic.GetType().GetProperty("Status")!.GetValue(diagnostic));
+        Assert.True(Assert.IsType<bool>(diagnostic.GetType().GetProperty("EvidenceQualified")!.GetValue(diagnostic)));
+
+        response["diagnostics"]![0]!["evidence"]![0]!["catalog_excerpt"] = "Invented unsupported excerpt.";
+        var invalidReview = method.Invoke(null, [response, catalog, matches])!;
+        Assert.False(Assert.IsType<bool>(
+            invalidReview.GetType().GetProperty("ContractValid")!.GetValue(invalidReview)));
+    }
+
+    [Fact]
     public void ConditionalComposition_SeparatesExclusiveVariantsFromUnconditionalPrerequisites()
     {
         var executorType = typeof(WorkflowPlanExecutor);
@@ -5409,6 +5533,93 @@ public sealed class WorkflowPlanCapabilityPreflightTests
         Assert.Equal(3, matchingCalls);
     }
 
+    [Theory]
+    [InlineData(0, false)]
+    [InlineData(1, true)]
+    public async Task CapabilityCoverageRelaxation_PreservesOrExplicitlyRelaxesRequirement(
+        int selectedOption,
+        bool expectSuccess)
+    {
+        var inventoryCalls = 0;
+        var coverageCalls = 0;
+        var matchingCalls = 0;
+        var human = new OptionSelectingHumanInputProvider(selectedOption);
+        var llm = new Mock<ILLMClient>();
+        llm.Setup(client => client.CallAsync(It.IsAny<LLMRequest>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((LLMRequest request, CancellationToken _) =>
+            {
+                if (request.Prompt.Contains("provider-neutral workflow intent clarification analyst", StringComparison.Ordinal))
+                    return IntentAssessmentResponse("sufficient", "The initial intent is complete.");
+                if (request.Prompt.Contains("domain-neutral workflow runtime analyst", StringComparison.Ordinal))
+                {
+                    inventoryCalls++;
+                    return CoverageInventoryResponse(relaxed: inventoryCalls > 1);
+                }
+                if (request.Prompt.Contains("domain-neutral capability matcher", StringComparison.Ordinal)
+                    || request.Prompt.Contains("repairing one provider-neutral capability matching contract", StringComparison.Ordinal))
+                {
+                    matchingCalls++;
+                    return MatchResponse((
+                        "publish_summary",
+                        "mcp",
+                        CatalogIdForMethod(request.Prompt, "add_record")));
+                }
+                if (request.Prompt.Contains("provider-neutral capability coverage reviewer", StringComparison.Ordinal))
+                {
+                    coverageCalls++;
+                    return CapabilityCoverageResponse(
+                        request.Prompt,
+                        supported: inventoryCalls > 1);
+                }
+                return new LLMResponse
+                {
+                    Text = """
+                        version: 1
+                        name: generated-summary
+                        skill:
+                          description: Create one summary record.
+                          inputs: {}
+                          outputs: {}
+                        workflows:
+                          main:
+                            steps:
+                              - id: publish
+                                type: mcp.call
+                                input:
+                                  server: neutral-records
+                                  kind: tool
+                                  method: add_record
+                        """
+                };
+            });
+
+        var result = await ExecuteAsync(CoverageRelaxationPlan(), llm.Object, CreateCoverageFactory(), human);
+
+        Assert.True(
+            result.Success == expectSuccess,
+            $"Unexpected result: {result.Error?.Code}: {result.Error?.Message} {result.Error?.Details}");
+        var request = Assert.Single(human.Requests);
+        var field = Assert.Single(request.Fields!);
+        Assert.Equal("Preserve the original requirement and stop", field.Options![0]);
+        Assert.True(field.OptionDefinitions![0].Recommended);
+        Assert.False(field.OptionDefinitions[1].Recommended);
+        if (expectSuccess)
+        {
+            Assert.Equal(2, inventoryCalls);
+            Assert.Equal(3, matchingCalls);
+            Assert.Equal(3, coverageCalls);
+            Assert.Contains("method: add_record", result.Outputs!["plan"]!["yaml"]!.GetValue<string>(), StringComparison.Ordinal);
+        }
+        else
+        {
+            Assert.Equal(ErrorCodes.CapabilityPreflightUnavailable, result.Error!.Code);
+            Assert.Equal("incomplete_effect_coverage", result.Error.Details!["reason"]!.GetValue<string>());
+            Assert.Equal(1, inventoryCalls);
+            Assert.Equal(2, matchingCalls);
+            Assert.Equal(2, coverageCalls);
+        }
+    }
+
     [Fact]
     public async Task InferredPreflight_ClarificationFailsClosedWithoutProvider()
     {
@@ -5686,6 +5897,75 @@ public sealed class WorkflowPlanCapabilityPreflightTests
                 }).ToArray())
             }
         };
+
+    private static LLMResponse CoverageInventoryResponse(bool relaxed)
+    {
+        var requirement = relaxed
+            ? "Create one new summary record."
+            : "Create or update one unique summary record";
+        return new LLMResponse
+        {
+            Json = new JsonObject
+            {
+                ["complete"] = true,
+                ["external_write_confirmation_policy"] = "forbidden",
+                ["external_write_confirmation_evidence"] = "without human confirmation",
+                ["incomplete_reasons"] = new JsonArray(),
+                ["operations"] = new JsonArray(new JsonObject
+                {
+                    ["id"] = "publish_summary",
+                    ["description"] = relaxed
+                        ? "Create one new summary record."
+                        : "Create or update one unique summary record.",
+                    ["required"] = true,
+                    ["execution_kind"] = "external_effect",
+                    ["external_effect_kind"] = "write",
+                    ["input_operation_ids"] = new JsonArray(),
+                    ["coverage_requirements"] = new JsonArray(requirement),
+                    ["optionality_evidence"] = string.Empty,
+                    ["decision_source_operation_id"] = string.Empty,
+                    ["allow_no_effect_outcome"] = false,
+                    ["intent_origin"] = "requested_effect",
+                    ["derivation_source_operation_id"] = string.Empty
+                }),
+                ["constraints"] = new JsonArray()
+            }
+        };
+    }
+
+    private static LLMResponse CapabilityCoverageResponse(string prompt, bool supported)
+    {
+        var catalogId = Regex.Match(
+            prompt,
+            "\\\"selected_catalog_ids\\\":\\[\\\"(?<id>cap_[0-9]+)\\\"",
+            RegexOptions.CultureInvariant).Groups["id"].Value;
+        Assert.False(string.IsNullOrWhiteSpace(catalogId));
+        var requirement = supported
+            ? "Create one new summary record."
+            : "Create or update one unique summary record";
+        return new LLMResponse
+        {
+            Json = new JsonObject
+            {
+                ["diagnostics"] = new JsonArray(new JsonObject
+                {
+                    ["operation_id"] = "publish_summary",
+                    ["status"] = supported ? "supported" : "incomplete",
+                    ["unsupported_requirement"] = supported ? string.Empty : requirement,
+                    ["supported_weaker_behavior"] = supported
+                        ? string.Empty
+                        : "Create one new summary record.",
+                    ["candidate_catalog_ids"] = new JsonArray(catalogId),
+                    ["evidence"] = new JsonArray(new JsonObject
+                    {
+                        ["catalog_id"] = catalogId,
+                        ["requirement_excerpt"] = requirement,
+                        ["catalog_excerpt"] = "Create one new summary record."
+                    })
+                })
+            }
+        };
+    }
 
     private static LLMResponse ConditionalInventoryResponse(
         string decisionDescription,
@@ -6086,6 +6366,24 @@ public sealed class WorkflowPlanCapabilityPreflightTests
                           "additionalProperties": false
                         }
                         """)
+                }
+            ]
+        });
+        return factory;
+    }
+
+    private static InMemoryMcpClientFactory CreateCoverageFactory()
+    {
+        var factory = new InMemoryMcpClientFactory();
+        factory.RegisterServer("neutral-records", new MockMcpServerConfig
+        {
+            Description = "Stores summary records.",
+            Tools =
+            [
+                new McpToolInfo
+                {
+                    Name = "add_record",
+                    Description = "Create one new summary record."
                 }
             ]
         });
@@ -6596,6 +6894,32 @@ public sealed class WorkflowPlanCapabilityPreflightTests
                     instruction: Load the intended configured object.
         """;
 
+    private static string CoverageRelaxationPlan() => """
+        version: 1
+        workflows:
+          main:
+            steps:
+              - id: plan
+                type: workflow.plan
+                input:
+                  mode: basic
+                  raw_prompt: Create or update one unique summary record without human confirmation.
+                  intent_clarification:
+                    mode: when_needed
+                    timeout_ms: 60000
+                    max_rounds: 3
+                    max_questions: 15
+                    max_questions_per_round: 5
+                  capability_preflight:
+                    mode: infer
+                  generator:
+                    model: gpt-4
+                    prefilter: false
+                    instruction: Create or update one unique summary record without human confirmation.
+                  on_invalid:
+                    max_attempts: 1
+        """;
+
     private static string Indent(string text, int spaces)
     {
         var prefix = new string(' ', spaces);
@@ -6630,6 +6954,23 @@ public sealed class WorkflowPlanCapabilityPreflightTests
         {
             Requests.Add(request);
             return Task.FromResult(response?.DeepClone());
+        }
+    }
+
+    private sealed class OptionSelectingHumanInputProvider(int optionIndex) : IHumanInputProvider
+    {
+        public List<HumanInputRequest> Requests { get; } = [];
+
+        public Task<JsonNode?> RequestInputAsync(HumanInputRequest request, CancellationToken ct)
+        {
+            Requests.Add(request);
+            var field = Assert.Single(request.Fields!);
+            var options = Assert.IsAssignableFrom<IReadOnlyList<string>>(field.Options);
+            return Task.FromResult<JsonNode?>(new JsonObject
+            {
+                [field.Name] = options[optionIndex],
+                [HumanInputContract.ActionProperty] = HumanInputContract.ActionSubmit
+            });
         }
     }
 

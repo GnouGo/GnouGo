@@ -308,8 +308,8 @@ workflows:
               intent_clarification:
                 mode: always
                 timeout_ms: 36000000
-                max_rounds: 2
-                max_questions: 8
+                max_rounds: 3
+                max_questions: 15
                 max_questions_per_round: 5
               llm_budget:
                 max_calls: 100

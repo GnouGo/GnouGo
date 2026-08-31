@@ -60,6 +60,7 @@ public sealed partial class WorkflowPlanExecutor
         public string RawRequest { get; }
         public string CallerContext { get; }
         public List<IntentClarificationAnswer> Answers { get; } = [];
+        private HashSet<string> HandledCapabilityRelaxations { get; } = new(StringComparer.Ordinal);
         public int FormsUsed { get; private set; }
         public int QuestionsUsed { get; private set; }
         public int RemainingRounds => Math.Max(0, Config.MaxRounds - FormsUsed);
@@ -73,6 +74,9 @@ public sealed partial class WorkflowPlanExecutor
             RemainingRounds > 0
             && questionCount > 0
             && questionCount <= CurrentRoundQuestionLimit;
+
+        public bool TryBeginCapabilityRelaxation(string fingerprint)
+            => HandledCapabilityRelaxations.Add(fingerprint);
 
         public void AddAnswers(
             IReadOnlyList<IntentClarificationQuestion> questions,

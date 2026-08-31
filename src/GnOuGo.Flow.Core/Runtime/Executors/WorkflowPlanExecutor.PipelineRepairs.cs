@@ -347,7 +347,7 @@ public sealed partial class WorkflowPlanExecutor
                         existing.PlannedNativeSteps ?? Array.Empty<PipelinePlannedNativeStep>());
                     if (!string.Equals(replacement.Name, target, StringComparison.Ordinal))
                         throw BuildPipelinePatchFailure("replace_leaf must preserve the target leaf name.");
-                    leaves[index] = replacement;
+                    leaves[index] = PreserveTargetedPatchContractSchemas(replacement, existing);
                     break;
                 }
                 case "remove_leaf":
@@ -377,6 +377,8 @@ public sealed partial class WorkflowPlanExecutor
                         .DistinctBy(static step => BuildPlannedNativeStepJson(step).ToJsonString(), StringComparer.Ordinal)
                         .ToArray();
                     var merged = ParsePatchedLeaf(leafNode, plannedTools, localOperations, nativeSteps);
+                    foreach (var sourceLeaf in sourceLeaves)
+                        merged = PreserveTargetedPatchContractSchemas(merged, sourceLeaf);
                     if (leaves.Any(candidate => !sources.Contains(candidate.Name, StringComparer.Ordinal)
                                                 && string.Equals(candidate.Name, merged.Name, StringComparison.Ordinal)))
                     {
@@ -487,6 +489,49 @@ public sealed partial class WorkflowPlanExecutor
             nativeSteps);
         return result with { GenerationPrompt = BuildSubworkflowGenerationPrompt(result) };
     }
+
+    private static WorkflowPipelineSubworkflowSpec PreserveTargetedPatchContractSchemas(
+        WorkflowPipelineSubworkflowSpec replacement,
+        WorkflowPipelineSubworkflowSpec previous)
+    {
+        var inputSchemas = PreserveTargetedPatchContractSchemaSet(
+            replacement.InputSchemas,
+            previous.InputSchemas);
+        var outputSchemas = PreserveTargetedPatchContractSchemaSet(
+            replacement.OutputSchemas,
+            previous.OutputSchemas);
+        var preserved = replacement with
+        {
+            Inputs = BuildPipelineContractTypeMap(inputSchemas),
+            Outputs = BuildPipelineContractTypeMap(outputSchemas),
+            InputSchemas = inputSchemas,
+            OutputSchemas = outputSchemas
+        };
+        return preserved with { GenerationPrompt = BuildSubworkflowGenerationPrompt(preserved) };
+    }
+
+    private static IReadOnlyDictionary<string, JsonNode?> PreserveTargetedPatchContractSchemaSet(
+        IReadOnlyDictionary<string, JsonNode?> current,
+        IReadOnlyDictionary<string, JsonNode?> previous)
+    {
+        var preserved = PreservePreviouslyValidatedContractSchemas(current, previous)
+            .ToDictionary(static pair => pair.Key, static pair => pair.Value?.DeepClone(), StringComparer.Ordinal);
+        foreach (var (name, schema) in previous)
+        {
+            if (!preserved.ContainsKey(name))
+                preserved[name] = schema?.DeepClone();
+        }
+        return preserved;
+    }
+
+    private static IReadOnlyDictionary<string, string> BuildPipelineContractTypeMap(
+        IReadOnlyDictionary<string, JsonNode?> schemas)
+        => schemas.ToDictionary(
+            static pair => pair.Key,
+            static pair => pair.Value is JsonObject schema
+                ? NormalizeWorkflowSchemaType(GetStringProperty(schema, "type") ?? "any")
+                : "any",
+            StringComparer.Ordinal);
 
     private static IReadOnlyList<string> ReadPatchSources(JsonArray? sources)
         => sources?.OfType<JsonValue>()
@@ -1070,7 +1115,11 @@ public sealed partial class WorkflowPlanExecutor
     private static WorkflowRuntimeException BuildPipelineExtractionRepairStalledException(
         int attempt,
         string reason,
-        WorkflowPipelineExtraction bestCandidate)
+        WorkflowPipelineExtraction bestCandidate,
+        int qualityNonImprovingAttempts = 0,
+        int deterministicRegressionAttempts = 0,
+        int validationNonImprovingAttempts = 0,
+        IReadOnlyList<string>? lastDeterministicValidationErrors = null)
     {
         var diagnostics = bestCandidate.QualityReview?.Diagnostics
             .Select(static diagnostic => (JsonNode)new JsonObject
@@ -1101,9 +1150,21 @@ public sealed partial class WorkflowPlanExecutor
             : string.Join(", ", validationCodes
                 .OfType<JsonValue>()
                 .Select(static value => value.GetValue<string>()));
+        var lastDeterministicValidationCodes = (lastDeterministicValidationErrors ?? Array.Empty<string>())
+            .Select(static error => error.Split(':', 2)[0].Trim())
+            .Where(static code => code.Length > 0)
+            .Distinct(StringComparer.Ordinal)
+            .Select(static code => (JsonNode?)JsonValue.Create(code))
+            .ToArray();
+        var rejectionSummary = qualityNonImprovingAttempts == 0
+                               && deterministicRegressionAttempts == 0
+                               && validationNonImprovingAttempts == 0
+            ? string.Empty
+            : $" Rejections: quality non-improvement={qualityNonImprovingAttempts}, deterministic regression={deterministicRegressionAttempts}, validation non-improvement={validationNonImprovingAttempts}.";
         return new WorkflowRuntimeException(
             ErrorCodes.WorkflowPlanRepairStalled,
             "Workflow extraction repair stopped without emitting a regressed candidate. " + reason
+            + rejectionSummary
             + (diagnosticSummary.Length == 0 ? string.Empty : " Remaining diagnostic codes: " + diagnosticSummary + "."),
             details: new JsonObject
             {
@@ -1114,6 +1175,10 @@ public sealed partial class WorkflowPlanExecutor
                 ["best_candidate_score"] = bestCandidate.QualityReview?.Score,
                 ["best_candidate_diagnostics"] = new JsonArray(diagnostics),
                 ["best_candidate_validation_codes"] = new JsonArray(validationCodes),
+                ["quality_non_improving_attempts"] = qualityNonImprovingAttempts,
+                ["deterministic_regression_attempts"] = deterministicRegressionAttempts,
+                ["validation_non_improving_attempts"] = validationNonImprovingAttempts,
+                ["last_deterministic_validation_codes"] = new JsonArray(lastDeterministicValidationCodes),
                 ["leaf_ownership"] = BuildPipelinePatchOwnershipSummary(bestCandidate),
                 ["recommended_action"] = "revise_request_contract_or_use_more_capable_model"
             });

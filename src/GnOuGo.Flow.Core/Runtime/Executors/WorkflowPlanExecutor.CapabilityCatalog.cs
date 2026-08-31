@@ -25,6 +25,7 @@ public sealed partial class WorkflowPlanExecutor
         string OptionalityEvidence = "")
     {
         public IReadOnlyList<string> InputOperationIds { get; init; } = Array.Empty<string>();
+        public IReadOnlyList<string> CoverageRequirements { get; init; } = Array.Empty<string>();
     }
     private sealed record CapabilityInventoryConstraint(
         string Id,
@@ -93,6 +94,24 @@ public sealed partial class WorkflowPlanExecutor
         IReadOnlyList<CapabilityOperationMatch> OperationMatches,
         IReadOnlyList<CapabilityConstraintMatch> ConstraintMatches,
         IReadOnlyList<CapabilityMatchingIssue> Issues,
+        bool ContractValid);
+
+    private sealed record CapabilityCoverageEvidence(
+        string CatalogId,
+        string RequirementExcerpt,
+        string CatalogExcerpt);
+
+    private sealed record CapabilityCoverageDiagnostic(
+        string OperationId,
+        string Status,
+        string UnsupportedRequirement,
+        string SupportedWeakerBehavior,
+        IReadOnlyList<string> CandidateCatalogIds,
+        IReadOnlyList<CapabilityCoverageEvidence> Evidence,
+        bool EvidenceQualified);
+
+    private sealed record CapabilityCoverageReview(
+        IReadOnlyList<CapabilityCoverageDiagnostic> Diagnostics,
         bool ContractValid);
 
     private sealed record CapabilityCatalog(

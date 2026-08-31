@@ -1,6 +1,7 @@
 using System.Text;
 using System.Text.Json.Nodes;
 using System.Text.RegularExpressions;
+using System.Security.Cryptography;
 using GnOuGo.Flow.Core.Expressions;
 using GnOuGo.Flow.Core.Models;
 
@@ -13,6 +14,8 @@ public sealed partial class WorkflowPlanExecutor
     private const string SynthesizedNoEffectDecisionValue = "NO_EFFECT";
     private const string CapabilityDecisionContractSource = "capability_output";
     private const string StructuredDecisionContractSource = "structured_output";
+    private const string CapabilityRelaxationPreserveAnswer = "Preserve the original requirement and stop";
+    private const string CapabilityRelaxationAcceptAnswer = "Accept the supported weaker behavior";
 
     private sealed record CapabilityClarificationConfig(bool Enabled, int TimeoutMs);
     private sealed record CapabilityClarificationQuestion(string Name, string Description);
@@ -737,6 +740,20 @@ public sealed partial class WorkflowPlanExecutor
             }
 
             ThrowForUnresolvedCapabilityMatches(evaluation, catalog, repairRequired);
+            inferencePhase = "capability_coverage_review";
+            evaluation = await ReviewCapabilityCoverageAndRematchAsync(
+                ctx,
+                input,
+                llmClient,
+                inventory,
+                catalog,
+                evaluation,
+                provider,
+                model,
+                reasoning,
+                inferenceSpan,
+                intentClarification,
+                ct);
             var (resolved, constraints) = ResolveCapabilityMatches(evaluation, catalog);
 
             inferenceSpan.Complete();
@@ -1671,6 +1688,8 @@ public sealed partial class WorkflowPlanExecutor
         - none: required for human_interaction and local_processing.
         Use write for every operation whose intended result changes an external system, even when a later confirmation is expected.
 
+        For every external_effect or human_interaction operation, set coverage_requirements to one or more distinct exact substrings copied from the supplied user task or caller context that state its observable effect, cardinality, uniqueness, update, ordering, or other required guarantee. Keep combined guarantees together when splitting the quoted text would change their meaning. Local-processing operations use an empty array. These excerpts are evidence for a later provider-neutral capability sufficiency review; do not paraphrase them and do not derive them from provider or tool knowledge.
+
         Set input_operation_ids to the IDs of every earlier operation whose declared runtime output this operation consumes. Use an empty array when it consumes no earlier operation output. A local validation, normalization, or projection of an external result must name that producer here. Declare only data flow stated by the task; never infer dependencies from descriptions, operation order, provider names, or likely implementations.
         Set decision_source_operation_id to the ID of the earlier operation whose declared runtime result exclusively selects this operation's outcome or selector branch. Use an empty string when the operation is unconditional. A conditional operation may point to a local validation operation, and that local operation must use input_operation_ids to declare the upstream producer whose result it validates. Do not invent a discriminator as a local parsing result and do not use an identifier or locator as evidence of a future choice. If the user requires a runtime-dependent choice but the deciding operation cannot be identified, set complete=false and request that relationship as user clarification.
         Set allow_no_effect_outcome=true only when the user's requested runtime behavior explicitly requires at least one result of that decision source to execute none of this operation's external-effect alternatives, such as abstaining, skipping publication, or performing no decision write when evidence is insufficient. Otherwise set it to false. It is invalid on unconditional operations. This field permits a safe non-mutating branch; it never permits omission of an independently required effect.
@@ -1732,6 +1751,7 @@ public sealed partial class WorkflowPlanExecutor
         - Keep prohibitions, ordering requirements, safety rules, and invariants as constraints rather than positive operations.
         - Inventory only intentions expressed in the user task. Do not copy, paraphrase, or restate these repair or runtime-boundary instructions as operations or constraints.
         - Preserve execution_kind and external_effect_kind for every operation. External writes use external_effect/write; external reads use external_effect/read; AI or other non-mutating execution uses external_effect/execute; owned resource setup/cleanup uses external_effect/lifecycle; human and local work use none.
+        - Preserve coverage_requirements as exact user-task or caller-context excerpts for every external or human operation. Local-processing operations use an empty array.
         - Preserve required=true for every planning obligation, including runtime-conditional operations and branches. required=false is valid only for explicitly optional enrichment and requires optionality_evidence copied exactly from the supplied user task or caller context. Required operations use an empty optionality_evidence.
         - Preserve external_write_confirmation_policy and its exact evidence. Use required or forbidden only when the supplied user task or caller context explicitly proves that policy; otherwise use unspecified with empty evidence.
         - Preserve input_operation_ids as the exact earlier-operation data-flow edges. A local validation, normalization, or projection of an external result must identify that producer. Use an empty array when no earlier output is consumed, and never reconstruct a dependency from descriptions, provider names, or operation order alone.
@@ -1802,6 +1822,12 @@ public sealed partial class WorkflowPlanExecutor
                             ["type"] = "array",
                             ["items"] = new JsonObject { ["type"] = "string" }
                         },
+                        ["coverage_requirements"] = new JsonObject
+                        {
+                            ["type"] = "array",
+                            ["maxItems"] = 8,
+                            ["items"] = new JsonObject { ["type"] = "string" }
+                        },
                         ["optionality_evidence"] = new JsonObject { ["type"] = "string" },
                         ["decision_source_operation_id"] = new JsonObject { ["type"] = "string" },
                         ["allow_no_effect_outcome"] = new JsonObject { ["type"] = "boolean" },
@@ -1812,7 +1838,7 @@ public sealed partial class WorkflowPlanExecutor
                         },
                         ["derivation_source_operation_id"] = new JsonObject { ["type"] = "string" }
                     },
-                    ["required"] = new JsonArray("id", "description", "required", "execution_kind", "external_effect_kind", "input_operation_ids", "optionality_evidence", "decision_source_operation_id", "allow_no_effect_outcome", "intent_origin", "derivation_source_operation_id"),
+                    ["required"] = new JsonArray("id", "description", "required", "execution_kind", "external_effect_kind", "input_operation_ids", "coverage_requirements", "optionality_evidence", "decision_source_operation_id", "allow_no_effect_outcome", "intent_origin", "derivation_source_operation_id"),
                     ["additionalProperties"] = false
                 }
             },
@@ -1880,6 +1906,26 @@ public sealed partial class WorkflowPlanExecutor
                 .ToArray() ?? Array.Empty<string>();
             if (inputOperationIds.Any(static input => input.Length > 160))
                 throw new InvalidOperationException($"Capability inventory operation '{id}' has an invalid input_operation_ids entry.");
+            var hasCoverageRequirements = node is JsonObject operationObject
+                                          && operationObject.ContainsKey("coverage_requirements");
+            var coverageRequirements = ((node as JsonObject)?["coverage_requirements"] as JsonArray)?
+                .Select(static item => item?.GetValue<string>()?.Trim() ?? string.Empty)
+                .Where(static item => item.Length > 0)
+                .Distinct(StringComparer.Ordinal)
+                .ToArray() ?? Array.Empty<string>();
+            if (coverageRequirements.Length > 8
+                || coverageRequirements.Any(requirement =>
+                    requirement.Length > CapabilityDescriptionMaxCharacters
+                    || !instruction.Contains(requirement, StringComparison.Ordinal)
+                    && !context.Contains(requirement, StringComparison.Ordinal))
+                || executionKind == "local_processing" && coverageRequirements.Length > 0
+                || hasCoverageRequirements
+                   && executionKind is "external_effect" or "human_interaction"
+                   && coverageRequirements.Length == 0)
+            {
+                throw new InvalidOperationException(
+                    $"Capability inventory operation '{id}' has invalid coverage_requirements evidence.");
+            }
             var optionalityEvidence = (node as JsonObject)?["optionality_evidence"]?.GetValue<string>()?.Trim()
                                       ?? string.Empty;
             if (optionalityEvidence.Length > CapabilityDescriptionMaxCharacters
@@ -1918,7 +1964,8 @@ public sealed partial class WorkflowPlanExecutor
                 allowNoEffectOutcome,
                 optionalityEvidence)
             {
-                InputOperationIds = inputOperationIds
+                InputOperationIds = inputOperationIds,
+                CoverageRequirements = coverageRequirements
             };
         }).ToArray();
         var constraints = constraintNodes.Select(node =>
@@ -2170,6 +2217,7 @@ public sealed partial class WorkflowPlanExecutor
             ["execution_kind"] = operation.ExecutionKind,
             ["external_effect_kind"] = operation.ExternalEffectKind,
             ["input_operation_ids"] = new JsonArray(operation.InputOperationIds.Select(static id => (JsonNode?)JsonValue.Create(id)).ToArray()),
+            ["coverage_requirements"] = new JsonArray(operation.CoverageRequirements.Select(static requirement => (JsonNode?)JsonValue.Create(requirement)).ToArray()),
             ["optionality_evidence"] = operation.OptionalityEvidence,
             ["decision_source_operation_id"] = operation.DecisionSourceOperationId,
             ["allow_no_effect_outcome"] = operation.AllowNoEffectOutcome,
@@ -2244,6 +2292,7 @@ public sealed partial class WorkflowPlanExecutor
             ["execution_kind"] = operation.ExecutionKind,
             ["external_effect_kind"] = operation.ExternalEffectKind,
             ["input_operation_ids"] = new JsonArray(operation.InputOperationIds.Select(static id => (JsonNode?)JsonValue.Create(id)).ToArray()),
+            ["coverage_requirements"] = new JsonArray(operation.CoverageRequirements.Select(static requirement => (JsonNode?)JsonValue.Create(requirement)).ToArray()),
             ["decision_source_operation_id"] = operation.DecisionSourceOperationId,
             ["allow_no_effect_outcome"] = operation.AllowNoEffectOutcome
         }).ToArray());
@@ -2915,6 +2964,601 @@ public sealed partial class WorkflowPlanExecutor
                 new KeyValuePair<string, object?>("gnougo-flow.plan.capability_matching.grounding_failure_code", match.DecisionGroundingFailureCode ?? string.Empty)
             });
         }
+    }
+
+    private async Task<CapabilityMatchingEvaluation> ReviewCapabilityCoverageAndRematchAsync(
+        StepExecutionContext ctx,
+        JsonObject input,
+        ILLMClient llmClient,
+        CapabilityInventory inventory,
+        CapabilityCatalog catalog,
+        CapabilityMatchingEvaluation evaluation,
+        string? provider,
+        string model,
+        string reasoning,
+        TelemetrySpanScope inferenceSpan,
+        IntentClarificationSession? intentClarification,
+        CancellationToken ct)
+    {
+        var reviewTargets = evaluation.OperationMatches
+            .Where(static match => match.Operation.Required
+                                   && match.Operation.CoverageRequirements.Count > 0
+                                   && match.Status is "matched" or "composed" or "conditional")
+            .ToArray();
+        if (reviewTargets.Length == 0)
+        {
+            inferenceSpan.SetAttribute("gnougo-flow.plan.capability_coverage.reviewed_count", 0);
+            return evaluation;
+        }
+
+        var review = await RequestCapabilityCoverageReviewAsync(
+            ctx,
+            llmClient,
+            catalog,
+            reviewTargets,
+            provider,
+            model,
+            reasoning,
+            inferenceSpan,
+            ct);
+        var gaps = review.Diagnostics
+            .Where(static diagnostic => string.Equals(diagnostic.Status, "incomplete", StringComparison.Ordinal))
+            .ToArray();
+        RecordCapabilityCoverageTelemetry(ctx, review.Diagnostics, "initial");
+        inferenceSpan.SetAttribute("gnougo-flow.plan.capability_coverage.reviewed_count", reviewTargets.Length);
+        inferenceSpan.SetAttribute("gnougo-flow.plan.capability_coverage.incomplete_count", gaps.Length);
+        if (gaps.Length == 0)
+            return evaluation;
+
+        ctx.AddTelemetryEvent("gnougo-flow.step.thinking", new[]
+        {
+            new KeyValuePair<string, object?>("gnougo-flow.thinking.message",
+                $"Capability coverage review found {gaps.Length} incomplete operation match(es); performing one targeted rematch."),
+            new KeyValuePair<string, object?>("gnougo-flow.thinking.level", "info")
+        });
+
+        var affectedOperationIds = gaps
+            .Select(static gap => gap.OperationId)
+            .ToHashSet(StringComparer.Ordinal);
+        var rematchResponse = await ctx.CallLLMAsync(llmClient, new LLMRequest
+        {
+            Provider = provider,
+            Model = model,
+            Prompt = BuildCapabilityCoverageRematchPrompt(inventory, catalog, evaluation, gaps),
+            Reasoning = reasoning,
+            UseBackgroundMode = true,
+            StructuredOutputSchema = BuildCapabilityMatchingSchema(),
+            StructuredOutputStrict = true
+        }, "workflow.plan.capability_coverage_rematch", ct);
+        AddUsageAttributes(inferenceSpan, rematchResponse.Usage, model, provider);
+
+        CapabilityMatchingEvaluation rematched;
+        try
+        {
+            rematched = ParseCapabilityMatchingEvaluation(
+                ParseStructuredObject(rematchResponse, "capability coverage rematch"),
+                inventory,
+                catalog);
+            rematched = NormalizeLocalProcessingMatches(rematched);
+            rematched = NormalizeCapabilityCompositionMatches(rematched, catalog);
+            rematched = NormalizeExactSelectorMatches(rematched, catalog);
+            rematched = NormalizeConditionalSelectorMatches(rematched, catalog, inventory);
+            var userInstruction = input["raw_prompt"]?.GetValue<string>()
+                                  ?? (input["generator"] as JsonObject)?["raw_prompt"]?.GetValue<string>()
+                                  ?? (input["generator"] as JsonObject)?["instruction"]?.GetValue<string>()
+                                  ?? string.Empty;
+            rematched = EnforceCapabilityPrerequisiteClosure(rematched, catalog, userInstruction);
+            rematched = NormalizePlatformSafetyMatches(rematched, catalog);
+            rematched = PreserveUnaffectedCapabilityMatches(evaluation, rematched, affectedOperationIds);
+            RecordConditionalGroundingTelemetry(inferenceSpan.Span, rematched, "coverage_rematch");
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            throw new WorkflowRuntimeException(
+                ErrorCodes.CapabilityPreflightInferenceFailed,
+                "Capability coverage rematching returned an invalid contract.",
+                inner: ex,
+                details: new JsonObject
+                {
+                    ["phase"] = "capability_coverage_rematch",
+                    ["classification"] = "contract_violation"
+                });
+        }
+
+        if (!rematched.ContractValid)
+            ThrowForUnresolvedCapabilityMatches(rematched, catalog, repairAttempted: true);
+
+        var unresolvedAffected = rematched.OperationMatches
+            .Where(match => affectedOperationIds.Contains(match.Operation.Id)
+                            && match.Status is not ("matched" or "composed" or "conditional"))
+            .ToArray();
+        if (unresolvedAffected.Length == 0)
+        {
+            var rematchedTargets = rematched.OperationMatches
+                .Where(match => affectedOperationIds.Contains(match.Operation.Id))
+                .ToArray();
+            review = await RequestCapabilityCoverageReviewAsync(
+                ctx,
+                llmClient,
+                catalog,
+                rematchedTargets,
+                provider,
+                model,
+                reasoning,
+                inferenceSpan,
+                ct);
+            gaps = review.Diagnostics
+                .Where(static diagnostic => string.Equals(diagnostic.Status, "incomplete", StringComparison.Ordinal))
+                .ToArray();
+            RecordCapabilityCoverageTelemetry(ctx, review.Diagnostics, "rematch");
+        }
+
+        if (gaps.Length > 0 || unresolvedAffected.Length > 0)
+        {
+            await RequestCapabilityRelaxationOrThrowAsync(
+                ctx,
+                intentClarification,
+                gaps,
+                unresolvedAffected,
+                evaluation,
+                ct);
+        }
+
+        return rematched;
+    }
+
+    private static void RecordCapabilityCoverageTelemetry(
+        StepExecutionContext ctx,
+        IReadOnlyList<CapabilityCoverageDiagnostic> diagnostics,
+        string stage)
+    {
+        foreach (var diagnostic in diagnostics)
+        {
+            ctx.AddTelemetryEvent("gnougo-flow.plan.capability_coverage.review", new[]
+            {
+                new KeyValuePair<string, object?>("gnougo-flow.plan.capability_coverage.stage", stage),
+                new KeyValuePair<string, object?>("gnougo-flow.plan.capability_coverage.operation_id", diagnostic.OperationId),
+                new KeyValuePair<string, object?>("gnougo-flow.plan.capability_coverage.status", diagnostic.Status),
+                new KeyValuePair<string, object?>("gnougo-flow.plan.capability_coverage.candidate_catalog_ids", string.Join(',', diagnostic.CandidateCatalogIds)),
+                new KeyValuePair<string, object?>("gnougo-flow.plan.capability_coverage.evidence_qualified", diagnostic.EvidenceQualified)
+            });
+        }
+    }
+
+    private async Task<CapabilityCoverageReview> RequestCapabilityCoverageReviewAsync(
+        StepExecutionContext ctx,
+        ILLMClient llmClient,
+        CapabilityCatalog catalog,
+        IReadOnlyList<CapabilityOperationMatch> targets,
+        string? provider,
+        string model,
+        string reasoning,
+        TelemetrySpanScope inferenceSpan,
+        CancellationToken ct)
+    {
+        CapabilityCoverageReview? lastReview = null;
+        for (var attempt = 1; attempt <= 2; attempt++)
+        {
+            var response = await ctx.CallLLMAsync(llmClient, new LLMRequest
+            {
+                Provider = provider,
+                Model = model,
+                Prompt = BuildCapabilityCoverageReviewPrompt(catalog, targets, lastReview),
+                Reasoning = reasoning,
+                UseBackgroundMode = true,
+                StructuredOutputSchema = BuildCapabilityCoverageReviewSchema(),
+                StructuredOutputStrict = true
+            }, attempt == 1
+                ? "workflow.plan.capability_coverage_review"
+                : "workflow.plan.capability_coverage_review_repair", ct);
+            AddUsageAttributes(inferenceSpan, response.Usage, model, provider);
+            try
+            {
+                var review = ParseCapabilityCoverageReview(
+                    ParseStructuredObject(response, "capability coverage review"),
+                    catalog,
+                    targets);
+                if (review.ContractValid)
+                    return review;
+                lastReview = review;
+            }
+            catch (Exception ex) when (ex is not OperationCanceledException)
+            {
+                lastReview = new CapabilityCoverageReview(
+                    Array.Empty<CapabilityCoverageDiagnostic>(),
+                    false);
+            }
+        }
+
+        throw new WorkflowRuntimeException(
+            ErrorCodes.CapabilityPreflightInferenceFailed,
+            "Capability coverage review remained invalid after one bounded repair attempt.",
+            details: new JsonObject
+            {
+                ["phase"] = "capability_coverage_review",
+                ["classification"] = "contract_violation",
+                ["attempts"] = 2
+            });
+    }
+
+    private static string BuildCapabilityCoverageReviewPrompt(
+        CapabilityCatalog catalog,
+        IReadOnlyList<CapabilityOperationMatch> targets,
+        CapabilityCoverageReview? previous)
+    {
+        var entries = catalog.Entries.ToDictionary(static entry => entry.Id, StringComparer.Ordinal);
+        var operations = new JsonArray(targets.Select(match => (JsonNode)new JsonObject
+        {
+            ["operation_id"] = match.Operation.Id,
+            ["description"] = match.Operation.Description,
+            ["coverage_requirements"] = new JsonArray(match.Operation.CoverageRequirements
+                .Select(static requirement => (JsonNode?)JsonValue.Create(requirement)).ToArray()),
+            ["selected_catalog_ids"] = new JsonArray(match.CatalogIds
+                .Select(static id => (JsonNode?)JsonValue.Create(id)).ToArray()),
+            ["selected_cards"] = new JsonArray(match.CatalogIds
+                .Where(entries.ContainsKey)
+                .Select(id => (JsonNode)new JsonObject
+                {
+                    ["catalog_id"] = id,
+                    ["card"] = BuildCapabilityCoverageCard(entries[id], catalog)
+                }).ToArray())
+        }).ToArray());
+        var previousNotice = previous is { ContractValid: false }
+            ? "The previous review violated the evidence contract. Return every operation exactly once and use only exact excerpts from the supplied requirements and catalog cards."
+            : string.Empty;
+        return $$"""
+            You are a provider-neutral capability coverage reviewer. Return only the requested structured JSON.
+
+            Independently verify whether the exact selected capability cards fully implement every observable coverage requirement of each operation. Matching a general topic or supporting only one side of a create-or-update, uniqueness, cardinality, ordering, or other combined guarantee is incomplete. Do not infer behavior from provider, server, tool, method, product, URL, or domain names. Use only documented card text, schemas, selectors, outputs, artifact contracts, and composition metadata.
+
+            Return supported only when every requirement is documented by the selected cards. Return incomplete when any requirement is absent or only a weaker behavior is documented. For incomplete, unsupported_requirement must be one exact value from coverage_requirements. supported_weaker_behavior must be one exact non-empty catalog_excerpt copied from the selected capability description that states the weaker observable behavior, or be empty when no meaningful relaxation exists. Never use a server, tool, method, selector, or catalog identifier as the weaker behavior. candidate_catalog_ids may identify up to eight catalog entries worth considering during one targeted rematch.
+
+            Evidence is mandatory. requirement_excerpt must exactly equal one coverage_requirements value. catalog_excerpt must be a non-empty exact substring of the referenced catalog card. Supported decisions need evidence covering every requirement. Incomplete decisions need evidence for the unsupported requirement showing the selected card's narrower documented behavior. Never invent an identifier or paraphrase an excerpt.
+
+            {{previousNotice}}
+            <coverage_review_operations>
+            {{operations.ToJsonString()}}
+            </coverage_review_operations>
+            <capability_catalog>
+            {{catalog.Text}}
+            </capability_catalog>
+            """;
+    }
+
+    private static JsonObject BuildCapabilityCoverageReviewSchema() => new()
+    {
+        ["type"] = "object",
+        ["properties"] = new JsonObject
+        {
+            ["diagnostics"] = new JsonObject
+            {
+                ["type"] = "array",
+                ["items"] = new JsonObject
+                {
+                    ["type"] = "object",
+                    ["properties"] = new JsonObject
+                    {
+                        ["operation_id"] = new JsonObject { ["type"] = "string" },
+                        ["status"] = new JsonObject { ["type"] = "string", ["enum"] = new JsonArray("supported", "incomplete") },
+                        ["unsupported_requirement"] = new JsonObject { ["type"] = "string" },
+                        ["supported_weaker_behavior"] = new JsonObject { ["type"] = "string" },
+                        ["candidate_catalog_ids"] = new JsonObject
+                        {
+                            ["type"] = "array",
+                            ["maxItems"] = 8,
+                            ["items"] = new JsonObject { ["type"] = "string" }
+                        },
+                        ["evidence"] = new JsonObject
+                        {
+                            ["type"] = "array",
+                            ["minItems"] = 1,
+                            ["items"] = new JsonObject
+                            {
+                                ["type"] = "object",
+                                ["properties"] = new JsonObject
+                                {
+                                    ["catalog_id"] = new JsonObject { ["type"] = "string" },
+                                    ["requirement_excerpt"] = new JsonObject { ["type"] = "string" },
+                                    ["catalog_excerpt"] = new JsonObject { ["type"] = "string" }
+                                },
+                                ["required"] = new JsonArray("catalog_id", "requirement_excerpt", "catalog_excerpt"),
+                                ["additionalProperties"] = false
+                            }
+                        }
+                    },
+                    ["required"] = new JsonArray("operation_id", "status", "unsupported_requirement", "supported_weaker_behavior", "candidate_catalog_ids", "evidence"),
+                    ["additionalProperties"] = false
+                }
+            }
+        },
+        ["required"] = new JsonArray("diagnostics"),
+        ["additionalProperties"] = false
+    };
+
+    private static CapabilityCoverageReview ParseCapabilityCoverageReview(
+        JsonObject json,
+        CapabilityCatalog catalog,
+        IReadOnlyList<CapabilityOperationMatch> targets)
+    {
+        var entries = catalog.Entries.ToDictionary(static entry => entry.Id, StringComparer.Ordinal);
+        var targetById = targets.ToDictionary(static target => target.Operation.Id, StringComparer.Ordinal);
+        if (json["diagnostics"] is not JsonArray nodes)
+            return new CapabilityCoverageReview(Array.Empty<CapabilityCoverageDiagnostic>(), false);
+
+        var diagnostics = new List<CapabilityCoverageDiagnostic>();
+        var contractValid = nodes.Count == targets.Count;
+        foreach (var target in targets)
+        {
+            var matches = nodes.OfType<JsonObject>()
+                .Where(node => string.Equals(
+                    node["operation_id"]?.GetValue<string>()?.Trim(),
+                    target.Operation.Id,
+                    StringComparison.Ordinal))
+                .ToArray();
+            if (matches.Length != 1)
+            {
+                contractValid = false;
+                continue;
+            }
+
+            var node = matches[0];
+            var status = node["status"]?.GetValue<string>()?.Trim().ToLowerInvariant() ?? string.Empty;
+            var unsupported = node["unsupported_requirement"]?.GetValue<string>()?.Trim() ?? string.Empty;
+            var weaker = SanitizeCapabilityInferenceDiagnostic(
+                node["supported_weaker_behavior"]?.GetValue<string>()?.Trim() ?? string.Empty,
+                1_000);
+            var candidates = ReadMatchingIds(node["candidate_catalog_ids"], 8, out var candidatesValid);
+            var evidence = new List<CapabilityCoverageEvidence>();
+            var evidenceValid = node["evidence"] is JsonArray evidenceNodes && evidenceNodes.Count > 0;
+            if (node["evidence"] is JsonArray evidenceArray)
+            {
+                foreach (var evidenceNode in evidenceArray.OfType<JsonObject>())
+                {
+                    var catalogId = evidenceNode["catalog_id"]?.GetValue<string>()?.Trim() ?? string.Empty;
+                    var requirementExcerpt = evidenceNode["requirement_excerpt"]?.GetValue<string>()?.Trim() ?? string.Empty;
+                    var catalogExcerpt = evidenceNode["catalog_excerpt"]?.GetValue<string>()?.Trim() ?? string.Empty;
+                    var valid = entries.TryGetValue(catalogId, out var entry)
+                                && target.CatalogIds.Contains(catalogId, StringComparer.Ordinal)
+                                && target.Operation.CoverageRequirements.Contains(requirementExcerpt, StringComparer.Ordinal)
+                                && catalogExcerpt.Length > 0
+                                && BuildCapabilityCoverageCard(entry, catalog).Contains(catalogExcerpt, StringComparison.Ordinal);
+                    evidenceValid &= valid;
+                    if (valid)
+                        evidence.Add(new CapabilityCoverageEvidence(catalogId, requirementExcerpt, catalogExcerpt));
+                }
+                evidenceValid &= evidence.Count == evidenceArray.Count;
+            }
+
+            var coveredRequirements = evidence
+                .Select(static item => item.RequirementExcerpt)
+                .ToHashSet(StringComparer.Ordinal);
+            var evidencedCatalogExcerpts = evidence
+                .Select(static item => item.CatalogExcerpt)
+                .ToHashSet(StringComparer.Ordinal);
+            var weakerBehaviorGrounded = weaker.Length == 0
+                                         || evidence.Any(item => string.Equals(
+                                                 item.CatalogExcerpt,
+                                                 weaker,
+                                                 StringComparison.Ordinal)
+                                             && entries[item.CatalogId].Description.Contains(
+                                                 weaker,
+                                                 StringComparison.Ordinal));
+            var shapeValid = status is "supported" or "incomplete"
+                             && candidatesValid
+                             && candidates.All(entries.ContainsKey)
+                             && evidenceValid
+                             && (status == "supported"
+                                 ? unsupported.Length == 0
+                                   && weaker.Length == 0
+                                   && target.Operation.CoverageRequirements.All(coveredRequirements.Contains)
+                                 : target.Operation.CoverageRequirements.Contains(unsupported, StringComparer.Ordinal)
+                                   && (weaker.Length == 0
+                                       || evidencedCatalogExcerpts.Contains(weaker)
+                                       && weakerBehaviorGrounded));
+            contractValid &= shapeValid;
+            diagnostics.Add(new CapabilityCoverageDiagnostic(
+                target.Operation.Id,
+                status,
+                unsupported,
+                weaker,
+                candidates,
+                evidence,
+                shapeValid));
+        }
+
+        contractValid &= nodes.OfType<JsonObject>().All(node =>
+            targetById.ContainsKey(node["operation_id"]?.GetValue<string>()?.Trim() ?? string.Empty));
+        return new CapabilityCoverageReview(diagnostics, contractValid);
+    }
+
+    private static string BuildCapabilityCoverageCard(
+        CapabilityCatalogEntry entry,
+        CapabilityCatalog catalog)
+    {
+        if (entry.RequestBindings.Count == 0)
+            return entry.Card;
+        var baseEntry = catalog.Entries.FirstOrDefault(candidate =>
+            candidate.RequestBindings.Count == 0
+            && string.Equals(candidate.Resolution, entry.Resolution, StringComparison.Ordinal)
+            && string.Equals(candidate.Server, entry.Server, StringComparison.Ordinal)
+            && string.Equals(candidate.Kind, entry.Kind, StringComparison.Ordinal)
+            && string.Equals(candidate.Method, entry.Method, StringComparison.Ordinal));
+        return baseEntry is null ? entry.Card : baseEntry.Card + Environment.NewLine + entry.Card;
+    }
+
+    private static string BuildCapabilityCoverageRematchPrompt(
+        CapabilityInventory inventory,
+        CapabilityCatalog catalog,
+        CapabilityMatchingEvaluation evaluation,
+        IReadOnlyList<CapabilityCoverageDiagnostic> gaps)
+    {
+        var affectedIds = gaps.Select(static gap => gap.OperationId).ToHashSet(StringComparer.Ordinal);
+        var current = new JsonArray(evaluation.OperationMatches.Select(match => (JsonNode)new JsonObject
+        {
+            ["operation_id"] = match.Operation.Id,
+            ["status"] = match.Status,
+            ["catalog_ids"] = new JsonArray(match.CatalogIds.Select(static id => (JsonNode?)JsonValue.Create(id)).ToArray()),
+            ["candidate_catalog_ids"] = new JsonArray(match.CandidateCatalogIds.Select(static id => (JsonNode?)JsonValue.Create(id)).ToArray()),
+            ["decision_operation_id"] = match.DecisionOperationId ?? string.Empty,
+            ["reason"] = match.Reason,
+            ["locked_unless_affected"] = !affectedIds.Contains(match.Operation.Id)
+        }).ToArray());
+        var diagnostics = new JsonArray(gaps.Select(static gap => (JsonNode)new JsonObject
+        {
+            ["operation_id"] = gap.OperationId,
+            ["unsupported_requirement"] = gap.UnsupportedRequirement,
+            ["supported_weaker_behavior"] = gap.SupportedWeakerBehavior,
+            ["candidate_catalog_ids"] = new JsonArray(gap.CandidateCatalogIds.Select(static id => (JsonNode?)JsonValue.Create(id)).ToArray())
+        }).ToArray());
+        return $$"""
+            You are repairing one provider-neutral capability matching contract after an evidence-qualified coverage review. Return the complete capability matching JSON required by the supplied schema.
+
+            Change only operation IDs listed in coverage_gaps. Copy every other operation and every constraint decision exactly. For each affected operation, select the smallest documented capability or prerequisite-closed composition that fully implements every coverage_requirements value. Do not retain the previous selection merely because it implements a weaker behavior. Use unavailable when the catalog contains no sufficient implementation. Never infer behavior from provider, server, tool, method, product, URL, or domain names.
+
+            <runtime_inventory>
+            {{BuildCapabilityInventoryJson(inventory)}}
+            </runtime_inventory>
+            <current_matching>
+            {{current.ToJsonString()}}
+            </current_matching>
+            <coverage_gaps>
+            {{diagnostics.ToJsonString()}}
+            </coverage_gaps>
+            <capability_catalog>
+            {{catalog.Text}}
+            </capability_catalog>
+            """;
+    }
+
+    private static CapabilityMatchingEvaluation PreserveUnaffectedCapabilityMatches(
+        CapabilityMatchingEvaluation current,
+        CapabilityMatchingEvaluation rematched,
+        IReadOnlySet<string> affectedOperationIds)
+    {
+        var currentOperations = current.OperationMatches.ToDictionary(static match => match.Operation.Id, StringComparer.Ordinal);
+        var operations = rematched.OperationMatches
+            .Select(match => affectedOperationIds.Contains(match.Operation.Id)
+                ? match
+                : currentOperations[match.Operation.Id])
+            .ToArray();
+        var affectedIssues = rematched.Issues
+            .Where(issue => affectedOperationIds.Contains(issue.OperationId))
+            .ToArray();
+        var preservedIssues = current.Issues
+            .Where(issue => !affectedOperationIds.Contains(issue.OperationId))
+            .ToArray();
+        return new CapabilityMatchingEvaluation(
+            operations,
+            current.ConstraintMatches,
+            preservedIssues.Concat(affectedIssues).ToArray(),
+            rematched.ContractValid);
+    }
+
+    private async Task RequestCapabilityRelaxationOrThrowAsync(
+        StepExecutionContext ctx,
+        IntentClarificationSession? session,
+        IReadOnlyList<CapabilityCoverageDiagnostic> gaps,
+        IReadOnlyList<CapabilityOperationMatch> unresolvedAffected,
+        CapabilityMatchingEvaluation originalEvaluation,
+        CancellationToken ct)
+    {
+        var gap = gaps.FirstOrDefault(static diagnostic => diagnostic.EvidenceQualified)
+                  ?? gaps.FirstOrDefault();
+        if (gap is not null
+            && !string.IsNullOrWhiteSpace(gap.SupportedWeakerBehavior)
+            && session is not null)
+        {
+            var originalMatch = originalEvaluation.OperationMatches.First(match => string.Equals(
+                match.Operation.Id,
+                gap.OperationId,
+                StringComparison.Ordinal));
+            var fingerprint = BuildCapabilityRelaxationFingerprint(gap, originalMatch.CatalogIds);
+            if (session.TryBeginCapabilityRelaxation(fingerprint)
+                && session.CanAsk(1))
+            {
+                var question = new IntentClarificationQuestion(
+                    "capability_relaxation_" + fingerprint[..12],
+                    TruncateIntentClarificationText(
+                        "The available capability does not fully support this requested behavior: "
+                        + gap.UnsupportedRequirement
+                        + ". The documented weaker behavior is: "
+                        + gap.SupportedWeakerBehavior
+                        + ". Choose whether the workflow may use it.",
+                        1_000),
+                    [
+                        new IntentClarificationOption(
+                            CapabilityRelaxationPreserveAnswer,
+                            "Keep the requested guarantee. Planning will stop until a capability that fully supports it is available.",
+                            true),
+                        new IntentClarificationOption(
+                            CapabilityRelaxationAcceptAnswer,
+                            gap.SupportedWeakerBehavior,
+                            false)
+                    ]);
+                var assessment = new IntentClarificationAssessment(
+                    "questions",
+                    "A required observable behavior is not fully supported by the available capability catalog.",
+                    [question]);
+                ctx.SetTelemetryAttribute("gnougo-flow.plan.capability_relaxation.requested", true);
+                ctx.SetTelemetryAttribute("gnougo-flow.plan.capability_relaxation.fingerprint", fingerprint);
+                await RequestIntentClarificationFormAsync(ctx, session, "capability_relaxation", assessment, ct);
+                if (!string.Equals(
+                    session.Answers[^1].Answer,
+                    CapabilityRelaxationAcceptAnswer,
+                    StringComparison.Ordinal))
+                {
+                    ctx.SetTelemetryAttribute("gnougo-flow.plan.capability_relaxation.outcome", "preserved");
+                    throw BuildCapabilityCoverageUnavailable(gaps, unresolvedAffected, session);
+                }
+                ctx.SetTelemetryAttribute("gnougo-flow.plan.capability_relaxation.outcome", "relaxed");
+                throw new WorkflowPlanClarificationRestartException();
+            }
+        }
+
+        throw BuildCapabilityCoverageUnavailable(gaps, unresolvedAffected, session);
+    }
+
+    private static string BuildCapabilityRelaxationFingerprint(
+        CapabilityCoverageDiagnostic gap,
+        IReadOnlyList<string> selectedCatalogIds)
+    {
+        var canonical = gap.UnsupportedRequirement.Trim()
+                        + "\n"
+                        + string.Join("\n", selectedCatalogIds.Order(StringComparer.Ordinal));
+        return Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(canonical))).ToLowerInvariant();
+    }
+
+    private static WorkflowRuntimeException BuildCapabilityCoverageUnavailable(
+        IReadOnlyList<CapabilityCoverageDiagnostic> gaps,
+        IReadOnlyList<CapabilityOperationMatch> unresolvedAffected,
+        IntentClarificationSession? session)
+    {
+        var details = new JsonObject
+        {
+            ["phase"] = "capability_coverage_review",
+            ["reason"] = "incomplete_effect_coverage",
+            ["planning_outcome"] = "cannot_plan_safely",
+            ["recommended_action"] = "install_or_expose_a_sufficient_capability_or_explicitly_relax_the_requirement",
+            ["coverage_gaps"] = new JsonArray(gaps.Select(static gap => (JsonNode)new JsonObject
+            {
+                ["operation_id"] = gap.OperationId,
+                ["unsupported_requirement"] = gap.UnsupportedRequirement,
+                ["supported_weaker_behavior"] = gap.SupportedWeakerBehavior,
+                ["candidate_catalog_ids"] = new JsonArray(gap.CandidateCatalogIds.Select(static id => (JsonNode?)JsonValue.Create(id)).ToArray()),
+                ["evidence_qualified"] = gap.EvidenceQualified
+            }).ToArray()),
+            ["unresolved_operation_ids"] = new JsonArray(unresolvedAffected
+                .Select(static match => (JsonNode?)JsonValue.Create(match.Operation.Id)).ToArray())
+        };
+        if (session is not null)
+        {
+            details["clarification_rounds"] = session.FormsUsed;
+            details["clarification_questions"] = session.QuestionsUsed;
+        }
+        return new WorkflowRuntimeException(
+            ErrorCodes.CapabilityPreflightUnavailable,
+            "A required operation is only partially supported by the available capability catalog. The requested guarantee was preserved and planning stopped.",
+            details: details);
     }
 
     private static bool IsDeclaredArtifactComposition(IReadOnlyList<CapabilityCatalogEntry> selected)
@@ -5524,6 +6168,7 @@ public sealed partial class WorkflowPlanExecutor
         var tools = specs.Select((spec, index) => localOnlySpecIndices.Contains(index)
             ? new List<PipelinePlannedTool>()
             : spec.PlannedTools.ToList()).ToArray();
+        var compositionValidationErrors = new List<string>();
         // The extractor may place all members of a composed operation on every leaf that
         // discusses the overall operation. Rebuild locked occurrences deterministically:
         // a composition is a multiset of (operation, catalog) pairs and each pair is placed
@@ -5577,8 +6222,16 @@ public sealed partial class WorkflowPlanExecutor
                 continue;
             }
 
-            var targetIndex = SelectPipelineCapabilityTargetIndex(
-                [capability], specs, tools, localOnlySpecIndices);
+            var declaredOwners = FindDeclaredNativeCapabilityOwnerIndices(capability, specs);
+            if (declaredOwners.Length != 1)
+            {
+                compositionValidationErrors.Add(
+                    "PIPELINE_EXTRACTION_LOCKED_CAPABILITY_OWNER_UNRESOLVED: Native operation(s) "
+                    + string.Join(", ", GetResolvedCapabilityOperationIds(capability).Order(StringComparer.Ordinal))
+                    + " require exactly one extractor-authored owner before capability locking.");
+                continue;
+            }
+            var targetIndex = declaredOwners[0];
             localOnlySpecIndices.Remove(targetIndex);
             nativeSteps[targetIndex].Add(new PipelinePlannedNativeStep(
                 capability.Method!,
@@ -5592,22 +6245,28 @@ public sealed partial class WorkflowPlanExecutor
                      .GroupBy(GetPipelineCapabilityCompositionGroup, StringComparer.Ordinal))
         {
             var capabilities = capabilityGroup.ToArray();
-            var explicitlyRejectedOwners = specs
-                .Select((spec, index) => new { spec, index })
-                .Where(item => ExplicitlyRejectsLockedCapabilityOwnership(capabilities, item.spec))
-                .Select(static item => item.index)
-                .ToHashSet();
-            var targetIndex = FindUniqueDeclaredLockedCapabilityOwnerIndex(capabilities, specs)
-                              ?? SelectPipelineCapabilityTargetIndex(
-                                  capabilities,
-                                  specs,
-                                  tools,
-                                  localOnlySpecIndices,
-                                  explicitlyRejectedOwners);
-            localOnlySpecIndices.Remove(targetIndex);
+            var declaredOwners = FindDeclaredLockedCapabilityOwnerIndices(capabilities, specs);
+            var targetIndex = SelectDeclaredLockedCapabilityOwnerIndex(capabilities, declaredOwners);
+            if (targetIndex is null)
+            {
+                var operationIds = capabilities
+                    .SelectMany(GetResolvedCapabilityOperationIds)
+                    .Distinct(StringComparer.Ordinal)
+                    .Order(StringComparer.Ordinal);
+                var reason = declaredOwners.Length == 0
+                    ? "no leaf declared the exact locked capability identity"
+                    : "multiple leaves declared a non-conditional locked capability composition";
+                compositionValidationErrors.Add(
+                    "PIPELINE_EXTRACTION_LOCKED_CAPABILITY_OWNER_UNRESOLVED: Operation(s) "
+                    + string.Join(", ", operationIds)
+                    + $" have no unambiguous extractor-authored owner because {reason}. Repair the extraction ownership claims before capability locking.");
+                continue;
+            }
+
+            localOnlySpecIndices.Remove(targetIndex.Value);
             foreach (var capability in capabilities)
             {
-                tools[targetIndex].Add(new PipelinePlannedTool(
+                tools[targetIndex.Value].Add(new PipelinePlannedTool(
                     capability.Server!,
                     capability.Kind!,
                     capability.Method!,
@@ -5704,6 +6363,7 @@ public sealed partial class WorkflowPlanExecutor
         updated = ApplyConditionalDecisionBoundaryContracts(consolidated.Specs);
 
         var validationErrors = extraction.ValidationErrors.ToList();
+        validationErrors.AddRange(compositionValidationErrors);
         var rootCauses = extraction.RootCauses.ToList();
         foreach (var spec in updated)
         {
@@ -5750,6 +6410,37 @@ public sealed partial class WorkflowPlanExecutor
             MainLocalOperationIds = localOperationAssignments.MainOperationIds,
             MainNativeSteps = mainNativeSteps
         };
+    }
+
+    private static void AddConditionalCapabilityOwnershipTelemetry(
+        StepExecutionContext ctx,
+        WorkflowPipelineExtraction extraction)
+    {
+        foreach (var group in extraction.Subworkflows
+                     .SelectMany(spec => spec.PlannedTools
+                         .Where(static tool => tool.Activation is not null)
+                         .Select(tool => (Owner: spec.Name, Activation: tool.Activation!)))
+                     .GroupBy(static item => item.Activation.Group, StringComparer.Ordinal))
+        {
+            var activation = group.First().Activation;
+            var effectOwners = group.Select(static item => item.Owner)
+                .Distinct(StringComparer.Ordinal)
+                .Order(StringComparer.Ordinal)
+                .ToArray();
+            var decisionOwners = extraction.Subworkflows
+                .Where(spec => PipelineSpecOwnsOperation(spec, activation.DecisionOperationId))
+                .Select(static spec => spec.Name)
+                .Distinct(StringComparer.Ordinal)
+                .Order(StringComparer.Ordinal)
+                .ToArray();
+            ctx.AddTelemetryEvent("gnougo-flow.plan.pipeline.conditional_ownership", new[]
+            {
+                new KeyValuePair<string, object?>("gnougo-flow.plan.pipeline.conditional_group", group.Key),
+                new KeyValuePair<string, object?>("gnougo-flow.plan.pipeline.effect_owners", string.Join(',', effectOwners)),
+                new KeyValuePair<string, object?>("gnougo-flow.plan.pipeline.decision_operation_id", activation.DecisionOperationId),
+                new KeyValuePair<string, object?>("gnougo-flow.plan.pipeline.decision_owners", string.Join(',', decisionOwners))
+            });
+        }
     }
 
     private static string BuildConditionalLeafGuidance(
@@ -6183,22 +6874,43 @@ public sealed partial class WorkflowPlanExecutor
            && string.Equals(tool.Method, capability.Method, StringComparison.Ordinal)
            && RequestBindingsEqual(tool.RequestBindings, capability.RequestBindings);
 
-    private static int? FindUniqueDeclaredLockedCapabilityOwnerIndex(
+    private static int[] FindDeclaredLockedCapabilityOwnerIndices(
         IReadOnlyList<ResolvedCapability> capabilities,
         IReadOnlyList<WorkflowPipelineSubworkflowSpec> specs)
     {
-        var owners = specs
+        return specs
             .Select((spec, index) => new { spec, index })
             .Where(item => item.spec.PlannedTools.Any(tool => capabilities.Any(capability =>
                 PlannedToolMatchesCapability(tool, capability)
                 && PlannedToolCarriesCapabilityIdentity(tool, capability))))
-            .Where(item => !ExplicitlyRejectsLockedCapabilityOwnership(capabilities, item.spec))
             .Select(static item => item.index)
             .Distinct()
-            .Take(2)
             .ToArray();
-        return owners.Length == 1 ? owners[0] : null;
     }
+
+    private static int[] FindDeclaredNativeCapabilityOwnerIndices(
+        ResolvedCapability capability,
+        IReadOnlyList<WorkflowPipelineSubworkflowSpec> specs)
+    {
+        var operationIds = GetResolvedCapabilityOperationIds(capability);
+        return specs
+            .Select((spec, index) => new { spec, index })
+            .Where(item => (item.spec.PlannedNativeSteps ?? Array.Empty<PipelinePlannedNativeStep>())
+                               .Any(step => PlannedNativeStepClaimsCoalescedCapability(step, capability, operationIds))
+                           || item.spec.PlannedTools.Any(tool => IsClaimedNativeCapability(tool, capability)))
+            .Select(static item => item.index)
+            .Distinct()
+            .ToArray();
+    }
+
+    private static int? SelectDeclaredLockedCapabilityOwnerIndex(
+        IReadOnlyList<ResolvedCapability> capabilities,
+        IReadOnlyList<int> declaredOwnerIndices)
+        => capabilities.Any(static capability => capability.Activation is not null)
+            ? declaredOwnerIndices.Order().Cast<int?>().FirstOrDefault()
+            : declaredOwnerIndices.Count == 1
+                ? declaredOwnerIndices[0]
+                : null;
 
     private static bool ExplicitlyRejectsLockedCapabilityOwnership(
         IReadOnlyList<ResolvedCapability> capabilities,
