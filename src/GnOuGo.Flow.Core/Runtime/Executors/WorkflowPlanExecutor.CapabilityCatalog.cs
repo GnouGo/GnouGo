@@ -137,9 +137,18 @@ public sealed partial class WorkflowPlanExecutor
         IReadOnlyList<CapabilityCoverageEvidence> Evidence,
         bool EvidenceQualified);
 
+    private sealed record CapabilityCoverageContractIssue(
+        string Code,
+        string OperationId,
+        string Field,
+        int? Index,
+        string CatalogId = "",
+        string RequirementId = "");
+
     private sealed record CapabilityCoverageReview(
         IReadOnlyList<CapabilityCoverageDiagnostic> Diagnostics,
-        bool ContractValid);
+        bool ContractValid,
+        IReadOnlyList<CapabilityCoverageContractIssue> Issues);
 
     private sealed record CapabilityCatalog(
         IReadOnlyList<CapabilityCatalogEntry> Entries,

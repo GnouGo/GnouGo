@@ -3651,17 +3651,24 @@ public sealed partial class WorkflowPlanExecutor
         TelemetrySpanScope inferenceSpan,
         CancellationToken ct)
     {
+        var accepted = new Dictionary<string, CapabilityCoverageDiagnostic>(StringComparer.Ordinal);
+        IReadOnlyList<CapabilityOperationMatch> pendingTargets = targets;
         CapabilityCoverageReview? lastReview = null;
+        JsonObject? lastCandidate = null;
         for (var attempt = 1; attempt <= 2; attempt++)
         {
             var response = await ctx.CallLLMAsync(llmClient, new LLMRequest
             {
                 Provider = provider,
                 Model = model,
-                Prompt = BuildCapabilityCoverageReviewPrompt(catalog, targets, lastReview),
+                Prompt = BuildCapabilityCoverageReviewPrompt(
+                    catalog,
+                    pendingTargets,
+                    lastReview,
+                    lastCandidate),
                 Reasoning = reasoning,
                 UseBackgroundMode = true,
-                StructuredOutputSchema = BuildCapabilityCoverageReviewSchema(),
+                StructuredOutputSchema = BuildCapabilityCoverageReviewSchema(catalog, pendingTargets),
                 StructuredOutputStrict = true
             }, attempt == 1
                 ? "workflow.plan.capability_coverage_review"
@@ -3669,19 +3676,55 @@ public sealed partial class WorkflowPlanExecutor
             AddUsageAttributes(inferenceSpan, response.Usage, model, provider);
             try
             {
+                lastCandidate = ParseStructuredObject(response, "capability coverage review");
                 var review = ParseCapabilityCoverageReview(
-                    ParseStructuredObject(response, "capability coverage review"),
+                    lastCandidate,
                     catalog,
-                    targets);
+                    pendingTargets);
+                RecordCapabilityCoverageContractTelemetry(
+                    inferenceSpan,
+                    attempt == 1 ? "initial" : "repair",
+                    review.Issues);
+                foreach (var diagnostic in review.Diagnostics.Where(static diagnostic => diagnostic.EvidenceQualified))
+                    accepted[diagnostic.OperationId] = diagnostic;
                 if (review.ContractValid)
-                    return review;
+                {
+                    var diagnostics = targets
+                        .Select(target => accepted[target.Operation.Id])
+                        .ToArray();
+                    return new CapabilityCoverageReview(
+                        diagnostics,
+                        true,
+                        Array.Empty<CapabilityCoverageContractIssue>());
+                }
                 lastReview = review;
+                pendingTargets = targets
+                    .Where(target => !accepted.ContainsKey(target.Operation.Id))
+                    .ToArray();
+                if (pendingTargets.Count == 0)
+                    pendingTargets = targets;
             }
             catch (Exception ex) when (ex is not OperationCanceledException)
             {
+                var issue = new CapabilityCoverageContractIssue(
+                    "structured_response_invalid",
+                    string.Empty,
+                    "$",
+                    null,
+                    RequirementId: BuildCapabilityEvidenceId(
+                        ex.GetType().Name,
+                        -1,
+                        0,
+                        ex.Message));
                 lastReview = new CapabilityCoverageReview(
                     Array.Empty<CapabilityCoverageDiagnostic>(),
-                    false);
+                    false,
+                    [issue]);
+                RecordCapabilityCoverageContractTelemetry(
+                    inferenceSpan,
+                    attempt == 1 ? "initial" : "repair",
+                    lastReview.Issues);
+                pendingTargets = targets;
             }
         }
 
@@ -3691,15 +3734,22 @@ public sealed partial class WorkflowPlanExecutor
             details: new JsonObject
             {
                 ["phase"] = "capability_coverage_review",
-                ["classification"] = "contract_violation",
-                ["attempts"] = 2
+                ["classification"] = "model_contract_violation",
+                ["attempts"] = 2,
+                ["contract_issues"] = new JsonArray((lastReview?.Issues
+                        ?? Array.Empty<CapabilityCoverageContractIssue>())
+                    .Select(static issue => (JsonNode)BuildCapabilityCoverageContractIssueJson(issue))
+                    .ToArray()),
+                ["planning_outcome"] = "cannot_plan_safely",
+                ["recommended_action"] = "retry_or_change_planning_model"
             });
     }
 
     private static string BuildCapabilityCoverageReviewPrompt(
         CapabilityCatalog catalog,
         IReadOnlyList<CapabilityOperationMatch> targets,
-        CapabilityCoverageReview? previous)
+        CapabilityCoverageReview? previous,
+        JsonObject? rejectedCandidate)
     {
         var entries = catalog.Entries.ToDictionary(static entry => entry.Id, StringComparer.Ordinal);
         var operations = new JsonArray(targets.Select(match => (JsonNode)new JsonObject
@@ -3723,76 +3773,139 @@ public sealed partial class WorkflowPlanExecutor
                 }).ToArray())
         }).ToArray());
         var previousNotice = previous is { ContractValid: false }
-            ? "The previous review violated the evidence contract. Return every operation exactly once and use only exact excerpts from the supplied requirements and catalog cards."
+            ? $$"""
+                The previous review violated the deterministic evidence contract. Repair only the operations supplied below. The issue list is authoritative: correct every listed field, return every supplied operation exactly once, and do not repeat operations that are absent from this repair request.
+                <previous_contract_issues>
+                {{BuildCapabilityCoverageContractIssuesJson(previous.Issues)}}
+                </previous_contract_issues>
+                <rejected_coverage_candidate>
+                {{BuildRejectedCapabilityCoverageCandidate(rejectedCandidate, previous.Issues)}}
+                </rejected_coverage_candidate>
+                """
             : string.Empty;
         return $$"""
             You are a provider-neutral capability coverage reviewer. Return only the requested structured JSON.
 
             Independently verify whether the exact selected capability cards fully implement every observable coverage requirement of each operation. Matching a general topic or supporting only one side of a create-or-update, uniqueness, cardinality, ordering, or other combined guarantee is incomplete. Do not infer behavior from provider, server, tool, method, product, URL, or domain names. Use only documented card text, schemas, selectors, outputs, artifact contracts, and composition metadata.
 
-            Return supported only when every requirement is documented by the selected cards. Return incomplete when any requirement is absent or only a weaker behavior is documented. For incomplete, unsupported_requirement_id must be one exact requirement_id from coverage_requirements. supported_weaker_behavior must be one exact non-empty catalog_excerpt copied from the selected capability description that states the weaker observable behavior, or be empty when no meaningful relaxation exists. Never use a server, tool, method, selector, or catalog identifier as the weaker behavior. candidate_catalog_ids may identify up to eight catalog entries worth considering during one targeted rematch.
+            Return exactly one diagnostic for every supplied operation_id and no others. Return supported only when every requirement is documented by the selected cards. Return incomplete when any requirement is absent or only a weaker behavior is documented. For incomplete, unsupported_requirement_id must be one exact requirement_id from coverage_requirements. supported_weaker_behavior must be one exact non-empty catalog_excerpt copied from a selected card that states the weaker observable behavior, or be empty when no meaningful relaxation exists. Never use a server, tool, method, selector, or catalog identifier as the weaker behavior. candidate_catalog_ids is advisory only: use an empty array unless one of the supplied selected_catalog_ids is also worth reconsidering. Do not invent or cite an unavailable catalog ID.
 
-            Evidence is mandatory. requirement_id must exactly equal one supplied coverage requirement ID. catalog_excerpt must be a non-empty exact substring of the referenced catalog card. Supported decisions need evidence covering every requirement. Incomplete decisions need evidence for the unsupported requirement showing the selected card's narrower documented behavior. Never invent an identifier or paraphrase an excerpt.
+            Evidence is mandatory. requirement_id must exactly equal one supplied coverage requirement ID. catalog_id must exactly equal one selected_catalog_id for the same operation. catalog_excerpt must be copied verbatim with the same case and punctuation from that catalog_id's selected card; keep it short and do not paraphrase it. Supported decisions need evidence covering every requirement. Incomplete decisions need evidence for the unsupported requirement showing the selected card's narrower documented behavior. For supported, unsupported_requirement_id and supported_weaker_behavior must both be empty. Never invent an identifier or paraphrase an excerpt.
 
             {{previousNotice}}
             <coverage_review_operations>
             {{operations.ToJsonString()}}
             </coverage_review_operations>
-            <capability_catalog>
-            {{catalog.Text}}
-            </capability_catalog>
             """;
     }
 
-    private static JsonObject BuildCapabilityCoverageReviewSchema() => new()
+    private static JsonObject BuildCapabilityCoverageReviewSchema(
+        CapabilityCatalog catalog,
+        IReadOnlyList<CapabilityOperationMatch> targets)
     {
-        ["type"] = "object",
-        ["properties"] = new JsonObject
+        var targetIds = targets
+            .Select(static target => target.Operation.Id)
+            .Distinct(StringComparer.Ordinal)
+            .Select(static id => (JsonNode?)JsonValue.Create(id))
+            .ToArray();
+        var requirementIds = targets
+            .SelectMany(static target => target.Operation.CoverageRequirementEvidence)
+            .Select(static requirement => requirement.Id)
+            .Distinct(StringComparer.Ordinal)
+            .Select(static id => (JsonNode?)JsonValue.Create(id))
+            .ToArray();
+        var selectedCatalogIds = targets
+            .SelectMany(static target => target.CatalogIds)
+            .Where(id => catalog.Entries.Any(entry => string.Equals(entry.Id, id, StringComparison.Ordinal)))
+            .Distinct(StringComparer.Ordinal)
+            .Select(static id => (JsonNode?)JsonValue.Create(id))
+            .ToArray();
+        return new JsonObject
         {
-            ["diagnostics"] = new JsonObject
+            ["type"] = "object",
+            ["properties"] = new JsonObject
             {
-                ["type"] = "array",
-                ["items"] = new JsonObject
+                ["diagnostics"] = new JsonObject
                 {
-                    ["type"] = "object",
-                    ["properties"] = new JsonObject
+                    ["type"] = "array",
+                    ["minItems"] = targets.Count,
+                    ["maxItems"] = targets.Count,
+                    ["items"] = new JsonObject
                     {
-                        ["operation_id"] = new JsonObject { ["type"] = "string" },
-                        ["status"] = new JsonObject { ["type"] = "string", ["enum"] = new JsonArray("supported", "incomplete") },
-                        ["unsupported_requirement_id"] = new JsonObject { ["type"] = "string" },
-                        ["supported_weaker_behavior"] = new JsonObject { ["type"] = "string" },
-                        ["candidate_catalog_ids"] = new JsonObject
+                        ["type"] = "object",
+                        ["properties"] = new JsonObject
                         {
-                            ["type"] = "array",
-                            ["maxItems"] = 8,
-                            ["items"] = new JsonObject { ["type"] = "string" }
-                        },
-                        ["evidence"] = new JsonObject
-                        {
-                            ["type"] = "array",
-                            ["minItems"] = 1,
-                            ["items"] = new JsonObject
+                            ["operation_id"] = new JsonObject
                             {
-                                ["type"] = "object",
-                                ["properties"] = new JsonObject
+                                ["type"] = "string",
+                                ["enum"] = new JsonArray(targetIds)
+                            },
+                            ["status"] = new JsonObject { ["type"] = "string", ["enum"] = new JsonArray("supported", "incomplete") },
+                            ["unsupported_requirement_id"] = new JsonObject
+                            {
+                                ["type"] = "string",
+                                ["enum"] = new JsonArray(
+                                    new JsonNode?[] { JsonValue.Create(string.Empty) }
+                                        .Concat(requirementIds.Select(static value => value?.DeepClone()))
+                                        .ToArray())
+                            },
+                            ["supported_weaker_behavior"] = new JsonObject
+                            {
+                                ["type"] = "string",
+                                ["maxLength"] = CapabilityDescriptionMaxCharacters
+                            },
+                            ["candidate_catalog_ids"] = new JsonObject
+                            {
+                                ["type"] = "array",
+                                ["maxItems"] = 8,
+                                ["items"] = new JsonObject
                                 {
-                                    ["catalog_id"] = new JsonObject { ["type"] = "string" },
-                                    ["requirement_id"] = new JsonObject { ["type"] = "string" },
-                                    ["catalog_excerpt"] = new JsonObject { ["type"] = "string" }
-                                },
-                                ["required"] = new JsonArray("catalog_id", "requirement_id", "catalog_excerpt"),
-                                ["additionalProperties"] = false
+                                    ["type"] = "string",
+                                    ["enum"] = new JsonArray(selectedCatalogIds.Select(static value => value?.DeepClone()).ToArray())
+                                }
+                            },
+                            ["evidence"] = new JsonObject
+                            {
+                                ["type"] = "array",
+                                ["minItems"] = 1,
+                                ["maxItems"] = Math.Max(1, targets.Sum(static target =>
+                                    target.Operation.CoverageRequirementEvidence.Count * Math.Max(1, target.CatalogIds.Count))),
+                                ["items"] = new JsonObject
+                                {
+                                    ["type"] = "object",
+                                    ["properties"] = new JsonObject
+                                    {
+                                        ["catalog_id"] = new JsonObject
+                                        {
+                                            ["type"] = "string",
+                                            ["enum"] = new JsonArray(selectedCatalogIds.Select(static value => value?.DeepClone()).ToArray())
+                                        },
+                                        ["requirement_id"] = new JsonObject
+                                        {
+                                            ["type"] = "string",
+                                            ["enum"] = new JsonArray(requirementIds.Select(static value => value?.DeepClone()).ToArray())
+                                        },
+                                        ["catalog_excerpt"] = new JsonObject
+                                        {
+                                            ["type"] = "string",
+                                            ["minLength"] = 1,
+                                            ["maxLength"] = CapabilityDescriptionMaxCharacters
+                                        }
+                                    },
+                                    ["required"] = new JsonArray("catalog_id", "requirement_id", "catalog_excerpt"),
+                                    ["additionalProperties"] = false
+                                }
                             }
-                        }
-                    },
-                    ["required"] = new JsonArray("operation_id", "status", "unsupported_requirement_id", "supported_weaker_behavior", "candidate_catalog_ids", "evidence"),
-                    ["additionalProperties"] = false
+                        },
+                        ["required"] = new JsonArray("operation_id", "status", "unsupported_requirement_id", "supported_weaker_behavior", "candidate_catalog_ids", "evidence"),
+                        ["additionalProperties"] = false
+                    }
                 }
-            }
-        },
-        ["required"] = new JsonArray("diagnostics"),
-        ["additionalProperties"] = false
-    };
+            },
+            ["required"] = new JsonArray("diagnostics"),
+            ["additionalProperties"] = false
+        };
+    }
 
     private static JsonObject BuildCapabilityEvidenceReferenceSchema() => new()
     {
@@ -3814,60 +3927,217 @@ public sealed partial class WorkflowPlanExecutor
         var entries = catalog.Entries.ToDictionary(static entry => entry.Id, StringComparer.Ordinal);
         var targetById = targets.ToDictionary(static target => target.Operation.Id, StringComparer.Ordinal);
         if (json["diagnostics"] is not JsonArray nodes)
-            return new CapabilityCoverageReview(Array.Empty<CapabilityCoverageDiagnostic>(), false);
+        {
+            return new CapabilityCoverageReview(
+                Array.Empty<CapabilityCoverageDiagnostic>(),
+                false,
+                [new CapabilityCoverageContractIssue(
+                    "diagnostics_shape_invalid",
+                    string.Empty,
+                    "diagnostics",
+                    null)]);
+        }
 
         var diagnostics = new List<CapabilityCoverageDiagnostic>();
-        var contractValid = nodes.Count == targets.Count;
+        var issues = new List<CapabilityCoverageContractIssue>();
+        if (nodes.Count != targets.Count)
+        {
+            issues.Add(new CapabilityCoverageContractIssue(
+                "diagnostic_count_mismatch",
+                string.Empty,
+                "diagnostics",
+                null));
+        }
+
+        for (var nodeIndex = 0; nodeIndex < nodes.Count; nodeIndex++)
+        {
+            if (nodes[nodeIndex] is not JsonObject node)
+            {
+                issues.Add(new CapabilityCoverageContractIssue(
+                    "diagnostic_shape_invalid",
+                    string.Empty,
+                    "diagnostics",
+                    nodeIndex));
+                continue;
+            }
+
+            var operationId = ReadCapabilityCoverageString(node, "operation_id");
+            if (!targetById.ContainsKey(operationId))
+            {
+                issues.Add(new CapabilityCoverageContractIssue(
+                    "operation_unknown",
+                    operationId,
+                    "operation_id",
+                    nodeIndex));
+            }
+        }
+
         foreach (var target in targets)
         {
-            var matches = nodes.OfType<JsonObject>()
-                .Where(node => string.Equals(
-                    node["operation_id"]?.GetValue<string>()?.Trim(),
+            var matches = nodes
+                .Select(static (node, index) => (Node: node as JsonObject, Index: index))
+                .Where(item => item.Node is not null && string.Equals(
+                    ReadCapabilityCoverageString(item.Node, "operation_id"),
                     target.Operation.Id,
                     StringComparison.Ordinal))
                 .ToArray();
             if (matches.Length != 1)
             {
-                contractValid = false;
+                issues.Add(new CapabilityCoverageContractIssue(
+                    matches.Length == 0 ? "operation_missing" : "operation_duplicate",
+                    target.Operation.Id,
+                    "operation_id",
+                    null));
                 continue;
             }
 
-            var node = matches[0];
-            var status = node["status"]?.GetValue<string>()?.Trim().ToLowerInvariant() ?? string.Empty;
+            var node = matches[0].Node!;
+            var diagnosticIndex = matches[0].Index;
+            var diagnosticIssues = new List<CapabilityCoverageContractIssue>();
+            var status = ReadCapabilityCoverageString(node, "status").ToLowerInvariant();
+            if (status is not ("supported" or "incomplete"))
+            {
+                diagnosticIssues.Add(new CapabilityCoverageContractIssue(
+                    "status_invalid",
+                    target.Operation.Id,
+                    "status",
+                    diagnosticIndex));
+            }
             var requirementsById = target.Operation.CoverageRequirementEvidence
                 .ToDictionary(static requirement => requirement.Id, StringComparer.Ordinal);
-            var unsupportedId = node["unsupported_requirement_id"]?.GetValue<string>()?.Trim() ?? string.Empty;
+            var unsupportedId = ReadCapabilityCoverageString(node, "unsupported_requirement_id");
             var unsupported = requirementsById.TryGetValue(unsupportedId, out var unsupportedRequirement)
                 ? unsupportedRequirement.Excerpt
                 : string.Empty;
-            var weaker = SanitizeCapabilityInferenceDiagnostic(
-                node["supported_weaker_behavior"]?.GetValue<string>()?.Trim() ?? string.Empty,
-                1_000);
-            var candidates = ReadMatchingIds(node["candidate_catalog_ids"], 8, out var candidatesValid);
+            var weaker = CanonicalizeCapabilityEvidenceText(
+                ReadCapabilityCoverageString(node, "supported_weaker_behavior"));
+            if (weaker.Length > CapabilityDescriptionMaxCharacters)
+            {
+                diagnosticIssues.Add(new CapabilityCoverageContractIssue(
+                    "weaker_behavior_limit_exceeded",
+                    target.Operation.Id,
+                    "supported_weaker_behavior",
+                    diagnosticIndex));
+            }
+
+            var candidates = ReadCapabilityCoverageIds(
+                node["candidate_catalog_ids"],
+                8,
+                out var candidatesValid);
+            if (!candidatesValid)
+            {
+                diagnosticIssues.Add(new CapabilityCoverageContractIssue(
+                    "candidate_catalog_ids_invalid",
+                    target.Operation.Id,
+                    "candidate_catalog_ids",
+                    diagnosticIndex));
+            }
+            foreach (var candidate in candidates.Where(candidate => !entries.ContainsKey(candidate)))
+            {
+                diagnosticIssues.Add(new CapabilityCoverageContractIssue(
+                    "candidate_catalog_id_unknown",
+                    target.Operation.Id,
+                    "candidate_catalog_ids",
+                    diagnosticIndex,
+                    candidate));
+            }
+            foreach (var candidate in candidates.Where(candidate =>
+                         entries.ContainsKey(candidate)
+                         && !target.CatalogIds.Contains(candidate, StringComparer.Ordinal)))
+            {
+                diagnosticIssues.Add(new CapabilityCoverageContractIssue(
+                    "candidate_catalog_id_not_selected",
+                    target.Operation.Id,
+                    "candidate_catalog_ids",
+                    diagnosticIndex,
+                    candidate));
+            }
+
             var evidence = new List<CapabilityCoverageEvidence>();
-            var evidenceValid = node["evidence"] is JsonArray evidenceNodes && evidenceNodes.Count > 0;
+            var evidenceValid = true;
             if (node["evidence"] is JsonArray evidenceArray)
             {
-                foreach (var evidenceNode in evidenceArray.OfType<JsonObject>())
+                if (evidenceArray.Count == 0)
                 {
-                    var catalogId = evidenceNode["catalog_id"]?.GetValue<string>()?.Trim() ?? string.Empty;
-                    var requirementId = evidenceNode["requirement_id"]?.GetValue<string>()?.Trim() ?? string.Empty;
-                    var catalogExcerpt = evidenceNode["catalog_excerpt"]?.GetValue<string>()?.Trim() ?? string.Empty;
+                    evidenceValid = false;
+                    diagnosticIssues.Add(new CapabilityCoverageContractIssue(
+                        "evidence_missing",
+                        target.Operation.Id,
+                        "evidence",
+                        diagnosticIndex));
+                }
+
+                for (var evidenceIndex = 0; evidenceIndex < evidenceArray.Count; evidenceIndex++)
+                {
+                    if (evidenceArray[evidenceIndex] is not JsonObject evidenceNode)
+                    {
+                        evidenceValid = false;
+                        diagnosticIssues.Add(new CapabilityCoverageContractIssue(
+                            "evidence_shape_invalid",
+                            target.Operation.Id,
+                            "evidence",
+                            evidenceIndex));
+                        continue;
+                    }
+
+                    var catalogId = ReadCapabilityCoverageString(evidenceNode, "catalog_id");
+                    var requirementId = ReadCapabilityCoverageString(evidenceNode, "requirement_id");
+                    var catalogExcerpt = CanonicalizeCapabilityEvidenceText(
+                        ReadCapabilityCoverageString(evidenceNode, "catalog_excerpt"));
                     var requirementValid = requirementsById.TryGetValue(requirementId, out var requirement);
-                    var valid = entries.TryGetValue(catalogId, out var entry)
-                                && target.CatalogIds.Contains(catalogId, StringComparer.Ordinal)
+                    var catalogKnown = entries.TryGetValue(catalogId, out var entry);
+                    var catalogSelected = target.CatalogIds.Contains(catalogId, StringComparer.Ordinal);
+                    var excerptPresent = catalogExcerpt.Length > 0;
+                    var excerptGrounded = catalogKnown
+                                          && excerptPresent
+                                          && CanonicalizeCapabilityEvidenceText(
+                                                  BuildCapabilityCoverageCard(entry!, catalog))
+                                              .Contains(catalogExcerpt, StringComparison.Ordinal);
+                    var valid = catalogKnown
+                                && catalogSelected
                                 && requirementValid
-                                && catalogExcerpt.Length > 0
-                                && BuildCapabilityCoverageCard(entry, catalog).Contains(catalogExcerpt, StringComparison.Ordinal);
+                                && excerptPresent
+                                && catalogExcerpt.Length <= CapabilityDescriptionMaxCharacters
+                                && excerptGrounded;
                     evidenceValid &= valid;
                     if (valid)
+                    {
                         evidence.Add(new CapabilityCoverageEvidence(
                             catalogId,
                             requirementId,
                             requirementsById[requirementId].Excerpt,
                             catalogExcerpt));
+                        continue;
+                    }
+
+                    var issueCode = !catalogKnown
+                        ? "evidence_catalog_id_unknown"
+                        : !catalogSelected
+                            ? "evidence_catalog_id_not_selected"
+                            : !requirementValid
+                                ? "evidence_requirement_id_unknown"
+                                : !excerptPresent
+                                    ? "evidence_excerpt_missing"
+                                    : catalogExcerpt.Length > CapabilityDescriptionMaxCharacters
+                                        ? "evidence_excerpt_limit_exceeded"
+                                        : "evidence_excerpt_not_found";
+                    diagnosticIssues.Add(new CapabilityCoverageContractIssue(
+                        issueCode,
+                        target.Operation.Id,
+                        "evidence",
+                        evidenceIndex,
+                        catalogId,
+                        requirementId));
                 }
-                evidenceValid &= evidence.Count == evidenceArray.Count;
+            }
+            else
+            {
+                evidenceValid = false;
+                diagnosticIssues.Add(new CapabilityCoverageContractIssue(
+                    "evidence_shape_invalid",
+                    target.Operation.Id,
+                    "evidence",
+                    diagnosticIndex));
             }
 
             var coveredRequirements = evidence
@@ -3877,26 +4147,77 @@ public sealed partial class WorkflowPlanExecutor
                 .Select(static item => item.CatalogExcerpt)
                 .ToHashSet(StringComparer.Ordinal);
             var weakerBehaviorGrounded = weaker.Length == 0
-                                         || evidence.Any(item => string.Equals(
-                                                 item.CatalogExcerpt,
-                                                 weaker,
-                                                 StringComparison.Ordinal)
-                                             && entries[item.CatalogId].Description.Contains(
-                                                 weaker,
-                                                 StringComparison.Ordinal));
-            var shapeValid = status is "supported" or "incomplete"
+                                         || evidencedCatalogExcerpts.Contains(weaker);
+            if (status == "supported")
+            {
+                if (unsupportedId.Length > 0)
+                {
+                    diagnosticIssues.Add(new CapabilityCoverageContractIssue(
+                        "unsupported_requirement_forbidden",
+                        target.Operation.Id,
+                        "unsupported_requirement_id",
+                        diagnosticIndex,
+                        RequirementId: unsupportedId));
+                }
+                if (weaker.Length > 0)
+                {
+                    diagnosticIssues.Add(new CapabilityCoverageContractIssue(
+                        "weaker_behavior_forbidden",
+                        target.Operation.Id,
+                        "supported_weaker_behavior",
+                        diagnosticIndex));
+                }
+                foreach (var requirementId in requirementsById.Keys.Where(id => !coveredRequirements.Contains(id)))
+                {
+                    diagnosticIssues.Add(new CapabilityCoverageContractIssue(
+                        "requirement_not_evidenced",
+                        target.Operation.Id,
+                        "evidence",
+                        diagnosticIndex,
+                        RequirementId: requirementId));
+                }
+            }
+            else if (status == "incomplete")
+            {
+                if (!requirementsById.ContainsKey(unsupportedId))
+                {
+                    diagnosticIssues.Add(new CapabilityCoverageContractIssue(
+                        "unsupported_requirement_id_unknown",
+                        target.Operation.Id,
+                        "unsupported_requirement_id",
+                        diagnosticIndex,
+                        RequirementId: unsupportedId));
+                }
+                if (weaker.Length > 0 && !weakerBehaviorGrounded)
+                {
+                    diagnosticIssues.Add(new CapabilityCoverageContractIssue(
+                        "weaker_behavior_not_evidenced",
+                        target.Operation.Id,
+                        "supported_weaker_behavior",
+                        diagnosticIndex));
+                }
+                if (requirementsById.ContainsKey(unsupportedId)
+                    && evidence.All(item => !string.Equals(
+                        item.RequirementId,
+                        unsupportedId,
+                        StringComparison.Ordinal)))
+                {
+                    diagnosticIssues.Add(new CapabilityCoverageContractIssue(
+                        "unsupported_requirement_not_evidenced",
+                        target.Operation.Id,
+                        "evidence",
+                        diagnosticIndex,
+                        RequirementId: unsupportedId));
+                }
+            }
+
+            var shapeValid = diagnosticIssues.Count == 0
                              && candidatesValid
-                             && candidates.All(entries.ContainsKey)
-                             && evidenceValid
-                             && (status == "supported"
-                                 ? unsupportedId.Length == 0
-                                   && weaker.Length == 0
-                                   && requirementsById.Keys.All(coveredRequirements.Contains)
-                                 : requirementsById.ContainsKey(unsupportedId)
-                                   && (weaker.Length == 0
-                                       || evidencedCatalogExcerpts.Contains(weaker)
-                                       && weakerBehaviorGrounded));
-            contractValid &= shapeValid;
+                             && candidates.All(candidate =>
+                                 entries.ContainsKey(candidate)
+                                 && target.CatalogIds.Contains(candidate, StringComparer.Ordinal))
+                             && evidenceValid;
+            issues.AddRange(diagnosticIssues);
             diagnostics.Add(new CapabilityCoverageDiagnostic(
                 target.Operation.Id,
                 status,
@@ -3908,9 +4229,114 @@ public sealed partial class WorkflowPlanExecutor
                 shapeValid));
         }
 
-        contractValid &= nodes.OfType<JsonObject>().All(node =>
-            targetById.ContainsKey(node["operation_id"]?.GetValue<string>()?.Trim() ?? string.Empty));
-        return new CapabilityCoverageReview(diagnostics, contractValid);
+        return new CapabilityCoverageReview(
+            diagnostics,
+            issues.Count == 0 && diagnostics.Count == targets.Count,
+            issues);
+    }
+
+    private static string ReadCapabilityCoverageString(JsonObject node, string property)
+        => node[property] is JsonValue value && value.TryGetValue<string>(out var text)
+            ? text.Trim()
+            : string.Empty;
+
+    private static IReadOnlyList<string> ReadCapabilityCoverageIds(
+        JsonNode? node,
+        int maximum,
+        out bool valid)
+    {
+        valid = node is JsonArray;
+        if (node is not JsonArray array)
+            return Array.Empty<string>();
+
+        valid &= array.Count <= maximum;
+        var result = new List<string>(Math.Min(array.Count, maximum));
+        foreach (var item in array.Take(maximum))
+        {
+            if (item is not JsonValue value
+                || !value.TryGetValue<string>(out var text)
+                || string.IsNullOrWhiteSpace(text))
+            {
+                valid = false;
+                continue;
+            }
+            var id = text.Trim();
+            if (!result.Contains(id, StringComparer.Ordinal))
+                result.Add(id);
+        }
+        valid &= result.Count == array.Count;
+        return result;
+    }
+
+    private static void RecordCapabilityCoverageContractTelemetry(
+        TelemetrySpanScope span,
+        string stage,
+        IReadOnlyList<CapabilityCoverageContractIssue> issues)
+    {
+        span.SetAttribute($"gnougo-flow.plan.capability_coverage.{stage}_contract_issue_count", issues.Count);
+        span.SetAttribute(
+            $"gnougo-flow.plan.capability_coverage.{stage}_contract_issue_codes",
+            string.Join(',', issues.Select(static issue => issue.Code)
+                .Distinct(StringComparer.Ordinal)
+                .Order(StringComparer.Ordinal)));
+        foreach (var issue in issues.Take(32))
+        {
+            span.AddEvent("gnougo-flow.plan.capability_coverage.contract_issue", new[]
+            {
+                new KeyValuePair<string, object?>("gnougo-flow.plan.capability_coverage.contract_issue.stage", stage),
+                new KeyValuePair<string, object?>("gnougo-flow.plan.capability_coverage.contract_issue.code", issue.Code),
+                new KeyValuePair<string, object?>("gnougo-flow.plan.capability_coverage.contract_issue.operation_id", issue.OperationId),
+                new KeyValuePair<string, object?>("gnougo-flow.plan.capability_coverage.contract_issue.field", issue.Field),
+                new KeyValuePair<string, object?>("gnougo-flow.plan.capability_coverage.contract_issue.index", issue.Index),
+                new KeyValuePair<string, object?>("gnougo-flow.plan.capability_coverage.contract_issue.catalog_id", issue.CatalogId),
+                new KeyValuePair<string, object?>("gnougo-flow.plan.capability_coverage.contract_issue.requirement_id", issue.RequirementId)
+            });
+        }
+    }
+
+    private static string BuildCapabilityCoverageContractIssuesJson(
+        IReadOnlyList<CapabilityCoverageContractIssue> issues)
+        => new JsonArray(issues
+            .Take(32)
+            .Select(static issue => (JsonNode)BuildCapabilityCoverageContractIssueJson(issue))
+            .ToArray()).ToJsonString();
+
+    private static JsonObject BuildCapabilityCoverageContractIssueJson(
+        CapabilityCoverageContractIssue issue)
+        => new()
+        {
+            ["code"] = issue.Code,
+            ["operation_id"] = issue.OperationId,
+            ["field"] = issue.Field,
+            ["index"] = issue.Index,
+            ["catalog_id"] = issue.CatalogId,
+            ["requirement_id"] = issue.RequirementId
+        };
+
+    private static string BuildRejectedCapabilityCoverageCandidate(
+        JsonObject? rejectedCandidate,
+        IReadOnlyList<CapabilityCoverageContractIssue> issues)
+    {
+        if (rejectedCandidate is null)
+            return "{}";
+        var serialized = rejectedCandidate.ToJsonString();
+        if (serialized.Length <= CapabilityInventoryRepairCandidateMaxCharacters)
+            return serialized;
+
+        var affectedOperationIds = issues
+            .Select(static issue => issue.OperationId)
+            .Where(static operationId => operationId.Length > 0)
+            .ToHashSet(StringComparer.Ordinal);
+        return new JsonObject
+        {
+            ["diagnostics"] = new JsonArray((rejectedCandidate["diagnostics"] as JsonArray)?
+                .OfType<JsonObject>()
+                .Where(diagnostic => affectedOperationIds.Contains(
+                    ReadCapabilityCoverageString(diagnostic, "operation_id")))
+                .Take(32)
+                .Select(static diagnostic => (JsonNode)diagnostic.DeepClone())
+                .ToArray() ?? [])
+        }.ToJsonString();
     }
 
     private static string BuildCapabilityCoverageCard(

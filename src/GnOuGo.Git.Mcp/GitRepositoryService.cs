@@ -840,17 +840,18 @@ public sealed class GitRepositoryService
     private Repository OpenRepository(string projectRoot, out string repositoryRoot)
     {
         var root = _policy.ResolveProjectRoot(projectRoot);
-        var discovered = Repository.Discover(root);
-        if (string.IsNullOrWhiteSpace(discovered) || !Repository.IsValid(discovered))
-            throw new InvalidOperationException($"'{root}' is not inside a Git repository.");
-
-        repositoryRoot = Path.GetFullPath(Path.GetDirectoryName(Path.TrimEndingDirectorySeparator(discovered)) ?? root);
         try
         {
+            var discovered = Repository.Discover(root);
+            if (string.IsNullOrWhiteSpace(discovered) || !Repository.IsValid(discovered))
+                throw new InvalidOperationException($"'{root}' is not inside a Git repository.");
+
+            repositoryRoot = Path.GetFullPath(Path.GetDirectoryName(Path.TrimEndingDirectorySeparator(discovered)) ?? root);
             return new Repository(discovered);
         }
         catch (LibGit2SharpException ex)
         {
+            repositoryRoot = string.Empty;
             throw new InvalidOperationException($"'{root}' is not inside a Git repository or the repository cannot be opened: {ex.Message}", ex);
         }
     }

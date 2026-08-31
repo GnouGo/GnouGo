@@ -87,16 +87,28 @@ internal static class WorkflowFailureFormatter
         var contractIssues = ReadObjectArrayDeep(error.Details, "contract_issues");
         if (contractIssues.Count > 0)
         {
-            builder.AppendLine().AppendLine("Capability inventory evidence contract issues:");
+            var contractPhase = ReadBoundedStringDeep(error.Details, "phase", 160);
+            builder.AppendLine().AppendLine(string.Equals(
+                contractPhase,
+                "capability_coverage_review",
+                StringComparison.Ordinal)
+                ? "Capability coverage review contract issues:"
+                : "Capability inventory evidence contract issues:");
             foreach (var issue in contractIssues)
             {
                 var code = Sanitize(ReadBoundedString(issue, "code", 160) ?? "inventory_contract_invalid", 160);
                 var operationId = Sanitize(ReadBoundedString(issue, "operation_id", 160) ?? "inventory", 160);
                 var field = Sanitize(ReadBoundedString(issue, "field", 240) ?? "$", 240);
                 var sourceId = Sanitize(ReadBoundedString(issue, "source_id", 160) ?? string.Empty, 160);
+                var catalogId = Sanitize(ReadBoundedString(issue, "catalog_id", 160) ?? string.Empty, 160);
+                var requirementId = Sanitize(ReadBoundedString(issue, "requirement_id", 160) ?? string.Empty, 160);
                 builder.Append("- ").Append(code).Append(": ").Append(operationId).Append('/').Append(field);
                 if (!string.IsNullOrWhiteSpace(sourceId))
                     builder.Append(" (source ").Append(sourceId).Append(')');
+                if (!string.IsNullOrWhiteSpace(catalogId))
+                    builder.Append(" (catalog ").Append(catalogId).Append(')');
+                if (!string.IsNullOrWhiteSpace(requirementId))
+                    builder.Append(" (requirement ").Append(requirementId).Append(')');
                 builder.AppendLine();
             }
 

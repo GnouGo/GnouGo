@@ -1357,6 +1357,18 @@ public sealed class WorkflowPlanCapabilityPreflightTests
         Assert.Equal("incomplete", diagnostic.GetType().GetProperty("Status")!.GetValue(diagnostic));
         Assert.True(Assert.IsType<bool>(diagnostic.GetType().GetProperty("EvidenceQualified")!.GetValue(diagnostic)));
 
+        response["diagnostics"]![0]!["supported_weaker_behavior"] = "Adds one\r\nnew record.";
+        response["diagnostics"]![0]!["evidence"]![0]!["catalog_excerpt"] = "Adds one\r\nnew record.";
+        var normalizedReview = method.Invoke(null, [response, catalog, matches])!;
+        Assert.True(Assert.IsType<bool>(
+            normalizedReview.GetType().GetProperty("ContractValid")!.GetValue(normalizedReview)));
+
+        response["diagnostics"]![0]!["supported_weaker_behavior"] = "adds one new record.";
+        response["diagnostics"]![0]!["evidence"]![0]!["catalog_excerpt"] = "adds one new record.";
+        var caseDriftReview = method.Invoke(null, [response, catalog, matches])!;
+        Assert.False(Assert.IsType<bool>(
+            caseDriftReview.GetType().GetProperty("ContractValid")!.GetValue(caseDriftReview)));
+
         response["diagnostics"]![0]!["evidence"]![0]!["catalog_excerpt"] = "Invented unsupported excerpt.";
         var invalidReview = method.Invoke(null, [response, catalog, matches])!;
         Assert.False(Assert.IsType<bool>(
@@ -5641,6 +5653,80 @@ public sealed class WorkflowPlanCapabilityPreflightTests
     }
 
     [Fact]
+    public async Task CapabilityCoverageReview_RepairsInvalidEvidenceWithPreciseDiagnostics()
+    {
+        var coverageCalls = 0;
+        string? repairPrompt = null;
+        var llm = new Mock<ILLMClient>();
+        llm.Setup(client => client.CallAsync(It.IsAny<LLMRequest>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((LLMRequest request, CancellationToken _) =>
+            {
+                if (request.Prompt.Contains("provider-neutral workflow intent clarification analyst", StringComparison.Ordinal))
+                    return IntentAssessmentResponse("sufficient", "The requested behavior is explicit.");
+                if (request.Prompt.Contains("domain-neutral workflow runtime analyst", StringComparison.Ordinal))
+                    return CoverageInventoryResponse(relaxed: false);
+                if (request.Prompt.Contains("domain-neutral capability matcher", StringComparison.Ordinal))
+                {
+                    return MatchResponse((
+                        "publish_summary",
+                        "mcp",
+                        CatalogIdForMethod(request.Prompt, "add_record")));
+                }
+                if (request.Prompt.Contains("provider-neutral capability coverage reviewer", StringComparison.Ordinal))
+                {
+                    coverageCalls++;
+                    var response = CapabilityCoverageResponse(
+                        request.Prompt,
+                        supported: true,
+                        catalogExcerpt: "Create or update one unique summary record.");
+                    if (coverageCalls == 1)
+                    {
+                        response.Json!["diagnostics"]![0]!["evidence"]![0]!["catalog_excerpt"]
+                            = "create or update one unique summary record.";
+                    }
+                    else
+                    {
+                        repairPrompt = request.Prompt;
+                    }
+                    return response;
+                }
+                return new LLMResponse
+                {
+                    Text = """
+                        version: 1
+                        name: generated-summary
+                        skill:
+                          description: Create or update one unique summary record.
+                          inputs: {}
+                          outputs: {}
+                        workflows:
+                          main:
+                            steps:
+                              - id: publish
+                                type: mcp.call
+                                input:
+                                  server: neutral-records
+                                  kind: tool
+                                  method: add_record
+                        """
+                };
+            });
+
+        var result = await ExecuteAsync(
+            CoverageRelaxationPlan(),
+            llm.Object,
+            CreateExactCoverageFactory());
+
+        Assert.True(result.Success, $"{result.Error?.Code}: {result.Error?.Message} {result.Error?.Details}");
+        Assert.Equal(2, coverageCalls);
+        Assert.NotNull(repairPrompt);
+        Assert.Contains("evidence_excerpt_not_found", repairPrompt, StringComparison.Ordinal);
+        Assert.Contains("rejected_coverage_candidate", repairPrompt, StringComparison.Ordinal);
+        Assert.DoesNotContain("<capability_catalog>", repairPrompt, StringComparison.Ordinal);
+        Assert.Contains("method: add_record", result.Outputs!["plan"]!["yaml"]!.GetValue<string>(), StringComparison.Ordinal);
+    }
+
+    [Fact]
     public async Task CapabilityInventoryEvidence_AcceptsDecodedUnicodeAndWhitespaceNormalizedClarification()
     {
         const string answer = "L’analyse d’une pull request.\r\nPublier un résumé.";
@@ -6273,7 +6359,10 @@ public sealed class WorkflowPlanCapabilityPreflightTests
         };
     }
 
-    private static LLMResponse CapabilityCoverageResponse(string prompt, bool supported)
+    private static LLMResponse CapabilityCoverageResponse(
+        string prompt,
+        bool supported,
+        string catalogExcerpt = "Create one new summary record.")
     {
         var catalogId = Regex.Match(
             prompt,
@@ -6296,13 +6385,13 @@ public sealed class WorkflowPlanCapabilityPreflightTests
                     ["unsupported_requirement_id"] = supported ? string.Empty : requirementId,
                     ["supported_weaker_behavior"] = supported
                         ? string.Empty
-                        : "Create one new summary record.",
+                        : catalogExcerpt,
                     ["candidate_catalog_ids"] = new JsonArray(catalogId),
                     ["evidence"] = new JsonArray(new JsonObject
                     {
                         ["catalog_id"] = catalogId,
                         ["requirement_id"] = requirementId,
-                        ["catalog_excerpt"] = "Create one new summary record."
+                        ["catalog_excerpt"] = catalogExcerpt
                     })
                 })
             }
@@ -6730,6 +6819,24 @@ public sealed class WorkflowPlanCapabilityPreflightTests
                 {
                     Name = "add_record",
                     Description = "Create one new summary record."
+                }
+            ]
+        });
+        return factory;
+    }
+
+    private static InMemoryMcpClientFactory CreateExactCoverageFactory()
+    {
+        var factory = new InMemoryMcpClientFactory();
+        factory.RegisterServer("neutral-records", new MockMcpServerConfig
+        {
+            Description = "Stores summary records.",
+            Tools =
+            [
+                new McpToolInfo
+                {
+                    Name = "add_record",
+                    Description = "Create or update one unique summary record."
                 }
             ]
         });

@@ -274,9 +274,9 @@ public sealed class ReviewValidationTests
         var batch = Assert.Single(ReviewValidation.CreateBatches(request.Files, 60_000));
 
         var prompt = CopilotReviewManager.BuildBatchPrompt(request, batch);
-        const string openingTag = "<untrusted_existing_comments_json>\n";
+        var openingTag = $"<untrusted_existing_comments_json>{Environment.NewLine}";
         var start = prompt.IndexOf(openingTag, StringComparison.Ordinal) + openingTag.Length;
-        var end = prompt.IndexOf("\n</untrusted_existing_comments_json>", start, StringComparison.Ordinal);
+        var end = prompt.IndexOf($"{Environment.NewLine}</untrusted_existing_comments_json>", start, StringComparison.Ordinal);
         var serializedComments = prompt[start..end];
 
         Assert.InRange(serializedComments.Length, 1, 64_000);

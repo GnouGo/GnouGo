@@ -204,6 +204,39 @@ public sealed class WorkflowFailureFormatterTests
     }
 
     [Fact]
+    public void Format_ExplainsCoverageReviewContractFailureWithGroundingIds()
+    {
+        var error = new WorkflowError
+        {
+            Code = ErrorCodes.CapabilityPreflightInferenceFailed,
+            Message = "Capability coverage review remained invalid after one bounded repair attempt.",
+            Details = new JsonObject
+            {
+                ["phase"] = "capability_coverage_review",
+                ["classification"] = "model_contract_violation",
+                ["recommended_action"] = "retry_or_change_planning_model",
+                ["contract_issues"] = new JsonArray(new JsonObject
+                {
+                    ["code"] = "evidence_excerpt_not_found",
+                    ["operation_id"] = "op_publish",
+                    ["field"] = "evidence",
+                    ["catalog_id"] = "cap_000123",
+                    ["requirement_id"] = "evidence_456"
+                })
+            }
+        };
+
+        var presentation = WorkflowFailureFormatter.Format(error);
+
+        Assert.Contains("Capability coverage review contract issues", presentation.UserMessage, StringComparison.Ordinal);
+        Assert.Contains("evidence_excerpt_not_found: op_publish/evidence", presentation.UserMessage, StringComparison.Ordinal);
+        Assert.Contains("catalog cap_000123", presentation.UserMessage, StringComparison.Ordinal);
+        Assert.Contains("requirement evidence_456", presentation.UserMessage, StringComparison.Ordinal);
+        Assert.Contains("does not need clarification", presentation.UserMessage, StringComparison.Ordinal);
+        Assert.Equal(1, presentation.InferenceReasonCount);
+    }
+
+    [Fact]
     public void Format_RedactsSensitiveIncompleteReasonValues()
     {
         var error = new WorkflowError
