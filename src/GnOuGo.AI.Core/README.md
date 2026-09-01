@@ -101,12 +101,22 @@ GnOuGo polls only responses whose status is `queued` or `in_progress`, returns `
 responses, and surfaces terminal or unexpected statuses without silently switching protocols.
 
 The official `api.openai.com` endpoint never falls back from Responses to Chat Completions.
-OpenAI-compatible third-party endpoints fall back only for `405`, `501`, an explicit missing
-`/responses` route reported with `404`, or a `400` that explicitly says Responses/background
-mode is unsupported. Confirmed endpoint incompatibility is cached for the existing bounded
-cache duration; model, authentication, permission, quota, rate-limit, and malformed-request
-errors are never cached as endpoint incompatibility. Provider exceptions preserve the HTTP
-status without logging credentials or request payloads.
+For OpenAI-compatible third-party endpoints, any `404` from the Responses route triggers one
+standards-compliant Chat Completions fallback because compatible gateways commonly return only a
+generic not-found response for an unsupported route. Compatible endpoints also fall back for
+request-safe `405` and `501` responses, or a `400` that explicitly says Responses/background
+mode is unsupported.
+
+The Chat request first preserves strict JSON Schema output, reasoning effort, tools, and the
+output-token limit through `max_completion_tokens`. A non-official endpoint that returns `400`
+or `422` for that request gets one legacy-compatible retry that omits only
+`max_completion_tokens`, provided the error is generic or identifies that token parameter rather
+than another explicit parameter. Official OpenAI endpoints never use this legacy retry. Successful
+compatibility results are cached for 65 minutes: Responses support is keyed by endpoint, while the
+legacy Chat requirement is keyed by endpoint, API version, and model. Each result is cached only
+after a Chat variant succeeds; failed fallbacks poison neither cache. Provider exceptions and
+compatibility logs preserve the HTTP status and sanitized provider details without exposing
+credentials or request payloads.
 
 An internal `HttpClient` timeout is exposed as `TimeoutException`; cancellation requested by
 the caller remains `OperationCanceledException`.

@@ -286,10 +286,16 @@ After clarification, the first capability structured call inventories runtime op
 All `/gnougo add` planning phases request provider-managed background execution. For OpenAI,
 capability preflight and generation use `/v1/responses`, preserve their strict JSON Schema
 contracts, and poll until completion instead of waiting on a long synchronous Chat Completions
-response. The official OpenAI endpoint never falls back to Chat Completions; compatible proxies
-fall back only when they explicitly report that the Responses route or background mode is not
-implemented. `LLM_TIMEOUT` and `LLM_NETWORK` are retryable, while provider request rejections use
-the non-retryable `LLM_PROVIDER` code. User-requested cancellation remains `CANCELLED`.
+response. The official OpenAI endpoint never falls back to Chat Completions. When a compatible
+proxy returns `404` for its Responses route, Agent.Server retries the same planning call through
+standards-compliant Chat Completions. If that compatible proxy returns `400` or `422` for a generic
+request rejection or specifically rejects `max_completion_tokens`, Agent.Server retries once more
+with a legacy-compatible Chat request that omits only that optional field. Strict structured
+output, reasoning effort, tools, model selection, authentication, and API version remain unchanged.
+Successful route and legacy-payload compatibility results are cached for 65 minutes; failed
+fallbacks poison neither cache. Official OpenAI endpoints never use either compatibility downgrade.
+`LLM_TIMEOUT` and `LLM_NETWORK` are retryable, while provider request rejections use the
+non-retryable `LLM_PROVIDER` code. User-requested cancellation remains `CANCELLED`.
 
 Read and write capabilities remain discoverable by default; preflight describes availability rather than silently changing an MCP server's execution policy. When preflight fails, the chat response and trace show the sanitized error code, unavailable operation IDs/descriptions, failed catalogs, and a generic configuration action instead of only the summary message.
 
