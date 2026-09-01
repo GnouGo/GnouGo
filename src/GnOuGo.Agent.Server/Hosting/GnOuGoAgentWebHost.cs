@@ -175,6 +175,7 @@ public static class GnOuGoAgentWebHost
         llmOptions.ModelOverrides.TryAdd(
             LocalModelCatalog.Qwen3Id,
             LocalModelCatalog.CreateMetadata(LocalModelCatalog.Qwen3));
+        LLMOptionsValidation.ValidateAndThrow(llmOptions);
 
         // Resolve the dotnet executable used by this process so stdio MCP servers are spawned
         // with the SAME dotnet installation that's running the agent server.

@@ -41,14 +41,22 @@ public sealed class OpenAiLLMProvider : ILLMProvider, ILLMModelCatalogProvider
         string model, ModelProviderOptions provider, LLMClientRequest request, CancellationToken ct)
     {
         _logger.LogInformation(
-            "OpenAI provider call mode selected. Model={Model}; ProviderType={ProviderType}; UseBackgroundMode={UseBackgroundMode}; EndpointBase={EndpointBase}",
+            "OpenAI provider call mode selected. Model={Model}; ProviderType={ProviderType}; UseBackgroundMode={UseBackgroundMode}",
             model,
             provider.ResolvedType,
-            request.UseBackgroundMode,
-            provider.Url);
+            request.UseBackgroundMode);
 
         if (request.UseBackgroundMode)
-            return await CallResponsesBackgroundAsync(model, provider, request, ct);
+        {
+            return provider.RequestPolicy.BackgroundProtocol switch
+            {
+                LLMBackgroundProtocolMode.ChatCompletions =>
+                    await CallChatCompletionsAsync(model, provider, request, ct),
+                LLMBackgroundProtocolMode.Responses =>
+                    await CallResponsesBackgroundAsync(model, provider, request, allowFallback: false, ct),
+                _ => await CallResponsesBackgroundAsync(model, provider, request, allowFallback: true, ct)
+            };
+        }
 
         return await CallChatCompletionsAsync(model, provider, request, ct);
     }
@@ -68,8 +76,7 @@ public sealed class OpenAiLLMProvider : ILLMProvider, ILLMModelCatalogProvider
         {
             _logger.LogInformation(
                 "OpenAI-compatible endpoint previously required legacy Chat Completions; omitting max_completion_tokens. " +
-                "ChatUrl={ChatUrl}; Model={Model}; CacheDuration={CacheDuration}",
-                url,
+                "Model={Model}; CacheDuration={CacheDuration}",
                 model,
                 BackgroundUnsupportedCacheDuration);
         }
@@ -92,12 +99,10 @@ public sealed class OpenAiLLMProvider : ILLMProvider, ILLMModelCatalogProvider
         {
             _logger.LogWarning(
                 "OpenAI-compatible Chat Completions rejected max_completion_tokens; retrying once without only that optional field. " +
-                "ChatUrl={ChatUrl}; Model={Model}; StatusCode={StatusCode}; ReasonPhrase={ReasonPhrase}; ResponseBody={ResponseBody}",
-                url,
+                "Model={Model}; StatusCode={StatusCode}; ReasonPhrase={ReasonPhrase}",
                 model,
                 (int)attempt.StatusCode,
-                attempt.ReasonPhrase,
-                safeBody);
+                attempt.ReasonPhrase);
 
             ChatCompletionAttempt legacyAttempt;
             try
@@ -116,8 +121,7 @@ public sealed class OpenAiLLMProvider : ILLMProvider, ILLMModelCatalogProvider
             {
                 _logger.LogWarning(
                     "Legacy-compatible OpenAI Chat Completions fallback failed before receiving a response. " +
-                    "ChatUrl={ChatUrl}; Model={Model}; FailureType={FailureType}",
-                    url,
+                    "Model={Model}; FailureType={FailureType}",
                     model,
                     ex.GetType().Name);
                 throw;
@@ -128,8 +132,7 @@ public sealed class OpenAiLLMProvider : ILLMProvider, ILLMModelCatalogProvider
                 CacheLegacyChatRequired(legacyCacheKey, url, model, attempt.StatusCode);
                 _logger.LogWarning(
                     "Legacy-compatible OpenAI Chat Completions fallback succeeded after omitting max_completion_tokens. " +
-                    "ChatUrl={ChatUrl}; Model={Model}; StandardStatusCode={StandardStatusCode}",
-                    url,
+                    "Model={Model}; StandardStatusCode={StandardStatusCode}",
                     model,
                     (int)attempt.StatusCode);
                 return legacyAttempt.Response!;
@@ -142,12 +145,10 @@ public sealed class OpenAiLLMProvider : ILLMProvider, ILLMModelCatalogProvider
                 request.Prompt);
             _logger.LogWarning(
                 "Legacy-compatible OpenAI Chat Completions fallback failed; compatibility result was not cached. " +
-                "ChatUrl={ChatUrl}; Model={Model}; StatusCode={StatusCode}; ReasonPhrase={ReasonPhrase}; ResponseBody={ResponseBody}",
-                url,
+                "Model={Model}; StatusCode={StatusCode}; ReasonPhrase={ReasonPhrase}",
                 model,
                 (int)legacyAttempt.StatusCode,
-                legacyAttempt.ReasonPhrase,
-                legacySafeBody);
+                legacyAttempt.ReasonPhrase);
             throw BuildChatCompletionsFailure(legacyAttempt, legacySafeBody);
         }
 
@@ -168,8 +169,7 @@ public sealed class OpenAiLLMProvider : ILLMProvider, ILLMModelCatalogProvider
             ? "standard"
             : "legacy_without_max_completion_tokens";
         _logger.LogInformation(
-            "OpenAI ChatCompletions call: url={Url}, model={Model}, providerType={ProviderType}, protocolMode={ProtocolMode}, httpVersion={HttpVersion}",
-            url,
+            "OpenAI ChatCompletions call: model={Model}, providerType={ProviderType}, protocolMode={ProtocolMode}, httpVersion={HttpVersion}",
             model,
             provider.ResolvedType,
             protocolMode,
@@ -200,15 +200,6 @@ public sealed class OpenAiLLMProvider : ILLMProvider, ILLMModelCatalogProvider
             return requestMessage;
         }
 
-        using (var loggingRequest = CreateChatRequest())
-        {
-            _logger.LogInformation("OpenAI request headers: {Headers}",
-                string.Join("; ", loggingRequest.Headers.Select(h =>
-                    string.Equals(h.Key, "Authorization", StringComparison.OrdinalIgnoreCase)
-                        ? $"{h.Key}=<redacted>"
-                        : $"{h.Key}={string.Join(",", h.Value)}")));
-        }
-
         HttpResponseMessage resp;
         try
         {
@@ -218,12 +209,15 @@ public sealed class OpenAiLLMProvider : ILLMProvider, ILLMModelCatalogProvider
                 HttpCompletionOption.ResponseHeadersRead,
                 _logger,
                 "OpenAI chat completion",
+                provider.RetryPolicy,
                 ct);
         }
         catch (HttpRequestException ex)
         {
-            throw new HttpRequestException(
-                $"OpenAI chat call to '{url}' failed: {ex.Message}", ex, ex.StatusCode);
+            _logger.LogWarning(
+                "OpenAI Chat Completions transport failed before a response was available. FailureType={FailureType}",
+                ex.GetType().Name);
+            throw;
         }
 
         using (resp)
@@ -234,7 +228,8 @@ public sealed class OpenAiLLMProvider : ILLMProvider, ILLMModelCatalogProvider
                 return ChatCompletionAttempt.Failed(
                     resp.StatusCode,
                     resp.ReasonPhrase ?? "",
-                    body);
+                    body,
+                    HttpRequestHelper.GetRetryMetadata(resp));
             }
 
             await using var stream = await resp.Content.ReadAsStreamAsync(ct);
@@ -269,21 +264,24 @@ public sealed class OpenAiLLMProvider : ILLMProvider, ILLMModelCatalogProvider
     private static HttpRequestException BuildChatCompletionsFailure(
         ChatCompletionAttempt attempt,
         string safeBody)
-        => new(
+        => HttpRequestHelper.CreateFailure(
             $"OpenAI chat call failed: {(int)attempt.StatusCode} {attempt.ReasonPhrase} - {safeBody}",
-            inner: null,
-            statusCode: attempt.StatusCode);
+            attempt.StatusCode,
+            attempt.RetryMetadata);
 
     private async Task<LLMClientResponse> CallResponsesBackgroundAsync(
-        string model, ModelProviderOptions provider, LLMClientRequest request, CancellationToken ct)
+        string model,
+        ModelProviderOptions provider,
+        LLMClientRequest request,
+        bool allowFallback,
+        CancellationToken ct)
     {
         var url = OpenAiEndpoints.Responses(provider.Url, provider.ApiVersion);
         var cacheKey = BuildBackgroundUnsupportedCacheKey(provider, url);
-        if (IsBackgroundUnsupportedCached(cacheKey))
+        if (allowFallback && IsBackgroundUnsupportedCached(cacheKey))
         {
             _logger.LogInformation(
-                "OpenAI Responses background API previously returned unsupported; skipping background mode and using Chat Completions. ResponsesUrl={ResponsesUrl}; Model={Model}; CacheDuration={CacheDuration}",
-                url,
+                "OpenAI Responses background API previously returned unsupported; skipping background mode and using Chat Completions. Model={Model}; CacheDuration={CacheDuration}",
                 model,
                 BackgroundUnsupportedCacheDuration);
             return await CallChatCompletionsAsync(model, provider, request, ct);
@@ -292,8 +290,7 @@ public sealed class OpenAiLLMProvider : ILLMProvider, ILLMModelCatalogProvider
         var bearerToken = await ProviderAuthenticationResolver.ResolveBearerTokenAsync(_http, provider, ResolveApiKey, ct);
 
         _logger.LogInformation(
-            "OpenAI Responses background call starting. ResponsesUrl={ResponsesUrl}; Model={Model}; ProviderType={ProviderType}; HttpTimeout={HttpTimeout}; HttpVersion={HttpVersion}",
-            url,
+            "OpenAI Responses background call starting. Model={Model}; ProviderType={ProviderType}; HttpTimeout={HttpTimeout}; HttpVersion={HttpVersion}",
             model,
             provider.ResolvedType,
             _http.Timeout,
@@ -322,6 +319,7 @@ public sealed class OpenAiLLMProvider : ILLMProvider, ILLMModelCatalogProvider
             HttpCompletionOption.ResponseHeadersRead,
             _logger,
             "OpenAI background response creation",
+            provider.RetryPolicy,
             ct);
         var body = await resp.Content.ReadAsStringAsync(ct);
 
@@ -329,29 +327,43 @@ public sealed class OpenAiLLMProvider : ILLMProvider, ILLMModelCatalogProvider
         {
             if (IsBackgroundUnsupported(resp.StatusCode, body, provider.Url))
             {
-                var fallbackSafeBody = FormatProviderErrorBody(body, provider, bearerToken, request.Prompt);
+                if (!allowFallback)
+                {
+                    var forcedSafeBody = FormatProviderErrorBody(body, provider, bearerToken, request.Prompt);
+                    throw HttpRequestHelper.CreateFailure(
+                        $"OpenAI background response call failed: {(int)resp.StatusCode} {resp.ReasonPhrase ?? ""} - {forcedSafeBody}",
+                        resp);
+                }
+
+                var deterministicRouteFailure = IsDeterministicallyUnsupportedResponsesRoute(resp.StatusCode);
+                if (deterministicRouteFailure)
+                    CacheBackgroundUnsupported(cacheKey, url, model, resp.StatusCode);
                 var fallbackResponse = await CallChatCompletionsAsync(model, provider, request, ct);
 
-                CacheBackgroundUnsupported(cacheKey, url, model, resp.StatusCode);
+                if (!deterministicRouteFailure)
+                    CacheBackgroundUnsupported(cacheKey, url, model, resp.StatusCode);
                 _logger.LogWarning(
                     "OpenAI Responses background API not available; Chat Completions fallback succeeded. " +
-                    "ResponsesUrl={ResponsesUrl}; Model={Model}; StatusCode={StatusCode}; ReasonPhrase={ReasonPhrase}; ResponseBody={ResponseBody}",
-                    url,
+                    "Model={Model}; StatusCode={StatusCode}; ReasonPhrase={ReasonPhrase}",
                     model,
                     (int)resp.StatusCode,
-                    resp.ReasonPhrase ?? "",
-                    fallbackSafeBody);
+                    resp.ReasonPhrase ?? "");
                 return fallbackResponse;
             }
 
             var safeBody = FormatProviderErrorBody(body, provider, bearerToken, request.Prompt);
-            throw new HttpRequestException(
+            throw HttpRequestHelper.CreateFailure(
                 $"OpenAI background response call failed: {(int)resp.StatusCode} {resp.ReasonPhrase ?? ""} - {safeBody}",
-                inner: null,
-                statusCode: resp.StatusCode);
+                resp);
         }
 
-        return await AwaitResponsesApiCompletionAsync(url, bearerToken, body, request, ct);
+        return await AwaitResponsesApiCompletionAsync(
+            url,
+            bearerToken,
+            body,
+            request,
+            provider.RetryPolicy,
+            ct);
     }
 
     private bool IsBackgroundUnsupportedCached(string cacheKey)
@@ -367,8 +379,7 @@ public sealed class OpenAiLLMProvider : ILLMProvider, ILLMModelCatalogProvider
             AbsoluteExpirationRelativeToNow = BackgroundUnsupportedCacheDuration
         });
         _logger.LogInformation(
-            "Cached OpenAI Responses background unsupported result. ResponsesUrl={ResponsesUrl}; Model={Model}; StatusCode={StatusCode}; CacheDuration={CacheDuration}",
-            url,
+            "Cached OpenAI Responses background unsupported result. Model={Model}; StatusCode={StatusCode}; CacheDuration={CacheDuration}",
             model,
             (int)statusCode,
             BackgroundUnsupportedCacheDuration);
@@ -399,8 +410,7 @@ public sealed class OpenAiLLMProvider : ILLMProvider, ILLMModelCatalogProvider
             AbsoluteExpirationRelativeToNow = BackgroundUnsupportedCacheDuration
         });
         _logger.LogInformation(
-            "Cached legacy-compatible OpenAI Chat Completions requirement. ChatUrl={ChatUrl}; Model={Model}; StatusCode={StatusCode}; CacheDuration={CacheDuration}",
-            url,
+            "Cached legacy-compatible OpenAI Chat Completions requirement. Model={Model}; StatusCode={StatusCode}; CacheDuration={CacheDuration}",
             model,
             (int)statusCode,
             BackgroundUnsupportedCacheDuration);
@@ -423,6 +433,7 @@ public sealed class OpenAiLLMProvider : ILLMProvider, ILLMModelCatalogProvider
         string? bearerToken,
         string responseBody,
         LLMClientRequest request,
+        LLMProviderRetryPolicyOptions retryPolicy,
         CancellationToken ct)
     {
         var delay = BackgroundInitialPollDelay;
@@ -488,16 +499,16 @@ public sealed class OpenAiLLMProvider : ILLMProvider, ILLMModelCatalogProvider
                 HttpCompletionOption.ResponseHeadersRead,
                 _logger,
                 "OpenAI background response polling",
+                retryPolicy,
                 ct);
             responseBody = await pollResp.Content.ReadAsStringAsync(ct);
 
             if (!pollResp.IsSuccessStatusCode)
             {
                 var safeBody = FormatProviderErrorBody(responseBody, sensitiveValues: [bearerToken, request.Prompt]);
-                throw new HttpRequestException(
+                throw HttpRequestHelper.CreateFailure(
                     $"OpenAI background response polling failed: {(int)pollResp.StatusCode} {pollResp.ReasonPhrase ?? ""} - {safeBody}",
-                    inner: null,
-                    statusCode: pollResp.StatusCode);
+                    pollResp);
             }
         }
     }
@@ -541,20 +552,19 @@ public sealed class OpenAiLLMProvider : ILLMProvider, ILLMModelCatalogProvider
         if (IsOfficialOpenAiEndpoint(endpointBase))
             return false;
 
-        // A compatible proxy may expose Chat Completions for a deployment without exposing
-        // the Responses route. Try the foreground protocol for every proxy Responses 404 and
-        // cache the incompatibility only after that fallback succeeds. A genuine model,
-        // authentication, or routing failure therefore remains uncached and is surfaced by
-        // the Chat Completions request.
-        if (statusCode == System.Net.HttpStatusCode.NotFound)
-            return true;
-
         if (ReportsRequestSpecificProviderFailure(
                 body,
-                allowBackgroundParameter: statusCode == System.Net.HttpStatusCode.BadRequest))
+                allowBackgroundParameter: statusCode is System.Net.HttpStatusCode.BadRequest
+                    or System.Net.HttpStatusCode.UnprocessableEntity,
+                allowRouteParameter: IsDeterministicallyUnsupportedResponsesRoute(statusCode)))
         {
             return false;
         }
+
+        // Route-level 404/405/501 responses are deterministic protocol incompatibilities.
+        // Request-specific errors above are never cached as route capability evidence.
+        if (IsDeterministicallyUnsupportedResponsesRoute(statusCode))
+            return true;
 
         if (statusCode is System.Net.HttpStatusCode.MethodNotAllowed
             or System.Net.HttpStatusCode.NotImplemented)
@@ -562,9 +572,14 @@ public sealed class OpenAiLLMProvider : ILLMProvider, ILLMModelCatalogProvider
             return true;
         }
 
-        return statusCode == System.Net.HttpStatusCode.BadRequest
-               && ExplicitlyReportsUnsupportedBackgroundMode(body);
+        return statusCode is System.Net.HttpStatusCode.BadRequest
+            or System.Net.HttpStatusCode.UnprocessableEntity;
     }
+
+    private static bool IsDeterministicallyUnsupportedResponsesRoute(System.Net.HttpStatusCode statusCode)
+        => statusCode is System.Net.HttpStatusCode.NotFound
+            or System.Net.HttpStatusCode.MethodNotAllowed
+            or System.Net.HttpStatusCode.NotImplemented;
 
     private static bool IsOfficialOpenAiEndpoint(string? endpointBase)
         => Uri.TryCreate(endpointBase, UriKind.Absolute, out var uri)
@@ -644,25 +659,10 @@ public sealed class OpenAiLLMProvider : ILLMProvider, ILLMModelCatalogProvider
            || body.Contains("model does not exist", StringComparison.OrdinalIgnoreCase)
            || body.Contains("requested model", StringComparison.OrdinalIgnoreCase);
 
-    private static bool ExplicitlyReportsUnsupportedBackgroundMode(string body)
-    {
-        if (string.IsNullOrWhiteSpace(body))
-            return false;
-
-        var reportsUnsupported = body.Contains("unsupported", StringComparison.OrdinalIgnoreCase)
-                                 || body.Contains("not supported", StringComparison.OrdinalIgnoreCase)
-                                 || body.Contains("not implemented", StringComparison.OrdinalIgnoreCase)
-                                 || body.Contains("unrecognized", StringComparison.OrdinalIgnoreCase)
-                                 || body.Contains("unknown parameter", StringComparison.OrdinalIgnoreCase);
-        var identifiesBackgroundCapability = body.Contains("background", StringComparison.OrdinalIgnoreCase)
-                                             || body.Contains("responses api", StringComparison.OrdinalIgnoreCase)
-                                             || body.Contains("responses endpoint", StringComparison.OrdinalIgnoreCase);
-        return reportsUnsupported && identifiesBackgroundCapability;
-    }
-
     private static bool ReportsRequestSpecificProviderFailure(
         string body,
-        bool allowBackgroundParameter = false)
+        bool allowBackgroundParameter = false,
+        bool allowRouteParameter = false)
     {
         try
         {
@@ -680,15 +680,20 @@ public sealed class OpenAiLLMProvider : ILLMProvider, ILLMModelCatalogProvider
                                                        parameter,
                                                        "background",
                                                        StringComparison.OrdinalIgnoreCase);
+                var isAllowedRouteParameter = allowRouteParameter
+                                              && (string.Equals(parameter, "route", StringComparison.OrdinalIgnoreCase)
+                                                  || string.Equals(parameter, "endpoint", StringComparison.OrdinalIgnoreCase)
+                                                  || string.Equals(parameter, "path", StringComparison.OrdinalIgnoreCase));
                 if (!string.IsNullOrWhiteSpace(parameter)
-                    && !isAllowedBackgroundParameter)
+                    && !isAllowedBackgroundParameter
+                    && !isAllowedRouteParameter)
                 {
                     return true;
                 }
 
                 var code = error.TryGetProperty("code", out var codeElement) ? codeElement.GetString() : null;
                 var type = error.TryGetProperty("type", out var typeElement) ? typeElement.GetString() : null;
-                var allowInvalidRequest = isAllowedBackgroundParameter;
+                var allowInvalidRequest = isAllowedBackgroundParameter || isAllowedRouteParameter;
                 if (ContainsRequestSpecificErrorMarker(code, allowInvalidRequest)
                     || ContainsRequestSpecificErrorMarker(type, allowInvalidRequest))
                     return true;
@@ -773,18 +778,20 @@ public sealed class OpenAiLLMProvider : ILLMProvider, ILLMModelCatalogProvider
         LLMClientResponse? Response,
         System.Net.HttpStatusCode StatusCode,
         string ReasonPhrase,
-        string ErrorBody)
+        string ErrorBody,
+        LLMHttpRetryMetadata? RetryMetadata)
     {
         public bool IsSuccess => Response is not null;
 
         public static ChatCompletionAttempt Succeeded(LLMClientResponse response)
-            => new(response, System.Net.HttpStatusCode.OK, "", "");
+            => new(response, System.Net.HttpStatusCode.OK, "", "", null);
 
         public static ChatCompletionAttempt Failed(
             System.Net.HttpStatusCode statusCode,
             string reasonPhrase,
-            string errorBody)
-            => new(null, statusCode, reasonPhrase, errorBody);
+            string errorBody,
+            LLMHttpRetryMetadata? retryMetadata)
+            => new(null, statusCode, reasonPhrase, errorBody, retryMetadata);
     }
 
     private static List<LLMToolDef>? MapTools(IReadOnlyList<LLMToolDef>? tools)
@@ -809,15 +816,15 @@ public sealed class OpenAiLLMProvider : ILLMProvider, ILLMModelCatalogProvider
             HttpCompletionOption.ResponseHeadersRead,
             _logger,
             "OpenAI model discovery",
+            provider.RetryPolicy,
             ct);
         if (!resp.IsSuccessStatusCode)
         {
             var body = await HttpRequestHelper.ReadErrorBodyAsync(resp, ct);
             var safeBody = FormatProviderErrorBody(body, provider, bearerToken, prompt: null);
-            throw new HttpRequestException(
+            throw HttpRequestHelper.CreateFailure(
                 $"OpenAI model list call failed: {(int)resp.StatusCode} {resp.ReasonPhrase ?? ""} - {safeBody}",
-                inner: null,
-                statusCode: resp.StatusCode);
+                resp);
         }
 
         await using var stream = await resp.Content.ReadAsStreamAsync(ct);

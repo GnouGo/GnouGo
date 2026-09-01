@@ -19,7 +19,10 @@ public static class LLMProviderFailureMapper
             failure.Message,
             failure.Retryable,
             failure.StatusCode,
-            failure.SafeProviderCode);
+            failure.SafeProviderCode,
+            failure.AttemptCount,
+            failure.RetryExhausted,
+            failure.RetryAfterMilliseconds);
     }
 
     public static LLMClientFailureKind MapKind(LLMProviderFailureKind kind)

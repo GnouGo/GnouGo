@@ -202,7 +202,10 @@ public sealed class IntegrationAdapterTests
             "The LLM provider rejected the request as invalid.",
             retryable: false,
             statusCode: 400,
-            safeProviderCode: "invalid_request_error");
+            safeProviderCode: "invalid_request_error",
+            attemptCount: 4,
+            retryExhausted: true,
+            retryAfterMilliseconds: 2_000);
 
         var failure = LLMProviderFailureMapper.Map(providerFailure);
 
@@ -210,6 +213,9 @@ public sealed class IntegrationAdapterTests
         Assert.False(failure.Retryable);
         Assert.Equal(400, failure.StatusCode);
         Assert.Equal("invalid_request_error", failure.SafeProviderCode);
+        Assert.Equal(4, failure.AttemptCount);
+        Assert.True(failure.RetryExhausted);
+        Assert.Equal(2_000, failure.RetryAfterMilliseconds);
         Assert.Null(failure.InnerException);
     }
 

@@ -33,6 +33,7 @@ public sealed class LiveIntentAgentGenerationTests
     private const string IsolatedProjectVariable = "GNOU_GO_LIVE_INTENT_AGENT_PROVIDER_PROJECT_ISOLATED";
     private const string ProviderHardLimitVariable = "GNOU_GO_LIVE_INTENT_AGENT_PROVIDER_HARD_LIMIT_USD";
     private const decimal LiveCycleCostLimitUsd = 25m;
+    private const int LiveProviderAttemptCount = 1;
     private static readonly TimeSpan LiveCycleElapsedLimit = TimeSpan.FromMinutes(120);
     private static readonly object ProgressFileLock = new();
     private const string AcceptancePrompt = """
@@ -131,7 +132,7 @@ public sealed class LiveIntentAgentGenerationTests
                 attemptedAgentNames.Add(name);
                 WriteLiveProgress("generation_started", generation: attempt);
                 List<SmartFlowEvent>? events = null;
-                for (var providerAttempt = 1; providerAttempt <= 2; providerAttempt++)
+                for (var providerAttempt = 1; providerAttempt <= LiveProviderAttemptCount; providerAttempt++)
                 {
                     WriteLiveProgress("provider_attempt_started", generation: attempt, providerAttempt: providerAttempt);
                     using var responderCancellation = CancellationTokenSource.CreateLinkedTokenSource(timeout.Token);
@@ -155,7 +156,7 @@ public sealed class LiveIntentAgentGenerationTests
                         // The command can fail before requesting or completing all interactive forms.
                     }
                     var providerFailure = events.FirstOrDefault(static item => item.Type == "error");
-                    if (providerAttempt < 2 && providerFailure?.Retryable == true)
+                    if (providerAttempt < LiveProviderAttemptCount && providerFailure?.Retryable == true)
                         continue;
                     break;
                 }
@@ -373,6 +374,9 @@ public sealed class LiveIntentAgentGenerationTests
                     ["classification"] = "ratelimited",
                     ["status_code"] = 429,
                     ["provider_code"] = "safe_code",
+                    ["attempt_count"] = 4,
+                    ["retry_exhausted"] = true,
+                    ["retry_after_ms"] = 5_000,
                     ["endpoint"] = "https://must-not-be-recorded.invalid",
                     ["prompt"] = "must-not-be-recorded"
                 });
@@ -381,6 +385,9 @@ public sealed class LiveIntentAgentGenerationTests
             Assert.Equal("ratelimited", entry["classification"]!.GetValue<string>());
             Assert.Equal(429, entry["status_code"]!.GetValue<int>());
             Assert.Equal("safe_code", entry["provider_code"]!.GetValue<string>());
+            Assert.Equal(4, entry["attempt_count"]!.GetValue<int>());
+            Assert.True(entry["retry_exhausted"]!.GetValue<bool>());
+            Assert.Equal(5_000, entry["retry_after_ms"]!.GetValue<int>());
             Assert.Null(entry["endpoint"]);
             Assert.Null(entry["prompt"]);
         }
@@ -465,7 +472,7 @@ public sealed class LiveIntentAgentGenerationTests
         CancellationToken ct)
     {
         var runtimeFactory = services.GetRequiredService<SecureWorkflowRuntimeFactory>();
-        for (var attempt = 1; attempt <= 2; attempt++)
+        for (var attempt = 1; attempt <= LiveProviderAttemptCount; attempt++)
         {
             await using var runtime = await runtimeFactory.CreateAsync(ct);
             var provider = runtime.Options.DefaultProvider;
@@ -537,7 +544,7 @@ public sealed class LiveIntentAgentGenerationTests
                     retryable: classified.Retryable,
                     budget: cycleBudget.Snapshot,
                     providerDiagnostics: classified.Details as JsonObject);
-                if (attempt < 2 && classified.Retryable)
+                if (attempt < LiveProviderAttemptCount && classified.Retryable)
                     continue;
                 throw classified;
             }
@@ -567,9 +574,11 @@ public sealed class LiveIntentAgentGenerationTests
                         ["classification"] = clientFailure.Kind.ToString().ToLowerInvariant(),
                         ["status_code"] = clientFailure.StatusCode,
                         ["provider_code"] = clientFailure.SafeProviderCode,
-                        ["attempt_count"] = attempt,
+                        ["attempt_count"] = clientFailure.AttemptCount,
+                        ["retry_exhausted"] = clientFailure.RetryExhausted,
+                        ["retry_after_ms"] = clientFailure.RetryAfterMilliseconds,
                         ["recommended_action"] = clientFailure.Retryable
-                            ? "Retry the minimal provider probe once."
+                            ? "Retry later after the provider recovery window."
                             : "Correct provider access, model availability, quota, or billing before continuing."
                     });
             }
@@ -584,7 +593,7 @@ public sealed class LiveIntentAgentGenerationTests
                         ["stage"] = "live.provider_probe",
                         ["classification"] = "timeout",
                         ["attempt_count"] = attempt,
-                        ["recommended_action"] = "Retry the minimal provider probe once."
+                        ["recommended_action"] = "Retry later after the provider recovery window."
                     });
             }
         }
@@ -1624,7 +1633,15 @@ public sealed class LiveIntentAgentGenerationTests
         }
         if (providerDiagnostics is not null)
         {
-            foreach (var property in new[] { "classification", "status_code", "provider_code" })
+            foreach (var property in new[]
+                     {
+                         "classification",
+                         "status_code",
+                         "provider_code",
+                         "attempt_count",
+                         "retry_exhausted",
+                         "retry_after_ms"
+                     })
             {
                 if (providerDiagnostics[property] is JsonValue value)
                     entry[property] = value.DeepClone();

@@ -97,6 +97,50 @@ public sealed class LLMProviderFailureTests
         Assert.DoesNotContain(secret, failure.Message, StringComparison.Ordinal);
     }
 
+    [Fact]
+    public async Task RoutingClient_PreservesRetryExhaustionAndAcceptedRetryAfter()
+    {
+        var handler = new StubHttpMessageHandler(_ =>
+        {
+            var response = new HttpResponseMessage(HttpStatusCode.TooManyRequests)
+            {
+                Content = new StringContent("{\"error\":{\"code\":\"rate_limit_exceeded\"}}")
+            };
+            response.Headers.TryAddWithoutValidation("Retry-After", "120");
+            return Task.FromResult(response);
+        });
+        using var http = new HttpClient(handler);
+        var client = new RoutingLLMClient(
+            http,
+            new LLMOptions
+            {
+                DefaultProvider = "gateway",
+                DefaultModel = "model",
+                Models =
+                {
+                    ["gateway"] = new ModelProviderOptions
+                    {
+                        Type = "openai",
+                        Url = "https://gateway.example/v1",
+                        RetryPolicy = new LLMProviderRetryPolicyOptions()
+                    }
+                }
+            });
+
+        var failure = await Assert.ThrowsAsync<LLMProviderException>(() => client.CallAsync(
+            new LLMClientRequest { Provider = "gateway", Model = "model", Prompt = "secret prompt" },
+            TestContext.Current.CancellationToken));
+
+        Assert.Equal(LLMProviderFailureKind.RateLimited, failure.Kind);
+        Assert.Equal(429, failure.StatusCode);
+        Assert.Equal(1, failure.AttemptCount);
+        Assert.True(failure.RetryExhausted);
+        Assert.Equal(120_000, failure.RetryAfterMilliseconds);
+        Assert.Equal("rate_limit_exceeded", failure.SafeProviderCode);
+        Assert.DoesNotContain("secret prompt", failure.Message, StringComparison.Ordinal);
+        Assert.DoesNotContain("gateway.example", failure.Message, StringComparison.Ordinal);
+    }
+
     private static RoutingLLMClient CreateClient(ILLMProvider provider)
         => new(
             new LLMOptions
@@ -117,5 +161,14 @@ public sealed class LLMProviderFailureTests
             LLMClientRequest request,
             CancellationToken ct)
             => Task.FromException<LLMClientResponse>(exception);
+    }
+
+    private sealed class StubHttpMessageHandler(
+        Func<HttpRequestMessage, Task<HttpResponseMessage>> handler) : HttpMessageHandler
+    {
+        protected override Task<HttpResponseMessage> SendAsync(
+            HttpRequestMessage request,
+            CancellationToken cancellationToken)
+            => handler(request);
     }
 }

@@ -7,7 +7,15 @@
 public static class LLMRequestSanitizer
 {
     public static LLMClientRequest Sanitize(LLMClientRequest request, LLMModelMetadata metadata)
+        => Sanitize(request, metadata, requestPolicy: null);
+
+    public static LLMClientRequest Sanitize(
+        LLMClientRequest request,
+        LLMModelMetadata metadata,
+        LLMProviderRequestPolicyOptions? requestPolicy)
     {
+        requestPolicy ??= new LLMProviderRequestPolicyOptions();
+        var maxOutputTokens = ResolveMaxOutputTokens(request.MaxOutputTokens, metadata, requestPolicy);
         var sanitized = new LLMClientRequest
         {
             Provider = request.Provider,
@@ -19,7 +27,7 @@ public static class LLMRequestSanitizer
             Reasoning = request.Reasoning,
             UseBackgroundMode = request.UseBackgroundMode,
             Tools = request.Tools,
-            MaxOutputTokens = request.MaxOutputTokens ?? metadata.MaxOutputTokens
+            MaxOutputTokens = maxOutputTokens
         };
 
         var capabilities = metadata.Capabilities ?? new ModelCapabilityMetadata();
@@ -47,7 +55,37 @@ public static class LLMRequestSanitizer
         return sanitized;
     }
 
+    private static int? ResolveMaxOutputTokens(
+        int? explicitLimit,
+        LLMModelMetadata metadata,
+        LLMProviderRequestPolicyOptions requestPolicy)
+    {
+        int? resolved;
+        if (explicitLimit.HasValue)
+        {
+            resolved = explicitLimit is > 0 ? explicitLimit : null;
+        }
+        else
+        {
+            resolved = requestPolicy.UnspecifiedOutputTokens switch
+            {
+                LLMUnspecifiedOutputTokensMode.Configured => requestPolicy.DefaultMaxOutputTokens,
+                LLMUnspecifiedOutputTokensMode.ModelMaximum => metadata.MaxOutputTokens,
+                _ => null
+            };
+        }
+
+        if (resolved is not > 0)
+            return null;
+
+        if (metadata.MaxOutputTokens is > 0)
+            resolved = Math.Min(resolved.Value, metadata.MaxOutputTokens.Value);
+        if (requestPolicy.MaxOutputTokensCap is > 0)
+            resolved = Math.Min(resolved.Value, requestPolicy.MaxOutputTokensCap.Value);
+
+        return resolved;
+    }
+
     private static bool Contains(IEnumerable<string> values, string value)
         => values.Any(v => string.Equals(v, value, StringComparison.OrdinalIgnoreCase));
 }
-

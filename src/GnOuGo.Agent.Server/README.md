@@ -283,19 +283,31 @@ When no explicit/default agent is selected, `SmartFlowService` runs the embedded
 
 After clarification, the first capability structured call inventories runtime operations and constraints without seeing tools. `required` means the generated plan must implement an obligation, including every requested conditional branch; only explicitly optional enrichment may be omitted, and that classification requires exact request/context evidence. A compact paged selector then chooses relevant physical MCP tools from one entry per tool, adds MCP-declared artifact producers and complete-operation wrappers, and expands authoritative schemas and selector variants only for that selected set before final matching. If inventory or required-candidate selection is incomplete, each stage gets one bounded repair. Complete discovery remains available to dry runs and deterministic validation, and the 256,000-character expanded-catalog guard is unchanged. Documented scalar selectors make logical variants of a multi-action MCP tool distinct and lock their literal request values through decomposition and YAML validation. Mutually exclusive runtime outcomes are locked as one exact-value switch rather than reported as creation-time ambiguity. A requested uncertain outcome is represented by an explicit non-mutating switch case. When the selected decision producer has no usable enum output, planning may impose a strict provider-neutral `/json/decision` structured-output contract whose enum covers every effect branch and the no-effect value. The owning analysis leaf is now validated and repaired before parent assembly: it must contain one locked producer and expose that exact enum output unchanged, without custom-function normalization or fallback. When that value crosses leaf boundaries, Flow canonicalizes the producer output and consumer inputs to the same enum and recomputes validation diagnostics after each bounded extraction repair. The parent calls the leaf that owns the conditional switch once instead of duplicating it across cases. Host configuration, internal provider/credential resolution, and the outer agent-persistence action are outside the generated workflow inventory. Required resource cleanup is generated under the Flow workflow-level `finally` array.
 
-All `/gnougo add` planning phases request provider-managed background execution. For OpenAI,
-capability preflight and generation use `/v1/responses`, preserve their strict JSON Schema
-contracts, and poll until completion instead of waiting on a long synchronous Chat Completions
-response. The official OpenAI endpoint never falls back to Chat Completions. When a compatible
-proxy returns `404` for its Responses route, Agent.Server retries the same planning call through
-standards-compliant Chat Completions. If that compatible proxy returns `400` or `422` for a generic
-request rejection or specifically rejects `max_completion_tokens`, Agent.Server retries once more
-with a legacy-compatible Chat request that omits only that optional field. Strict structured
-output, reasoning effort, tools, model selection, authentication, and API version remain unchanged.
-Successful route and legacy-payload compatibility results are cached for 65 minutes; failed
-fallbacks poison neither cache. Official OpenAI endpoints never use either compatibility downgrade.
-`LLM_TIMEOUT` and `LLM_NETWORK` are retryable, while provider request rejections use the
-non-retryable `LLM_PROVIDER` code. User-requested cancellation remains `CANCELLED`.
+All `/gnougo add` planning phases request provider-managed background execution. OpenAI providers
+use the configured `RequestPolicy.BackgroundProtocol`: `Auto` probes Responses,
+`ChatCompletions` bypasses it, and `Responses` requires it. In `Auto`, deterministic route-level
+`404`, `405`, or `501` incompatibility is cached immediately, so a transient failure in the first
+Chat fallback does not repeat a known-invalid Responses probe. Request-specific errors are not
+cached; ambiguous `400`/`422` compatibility is cached only after Chat succeeds. A compatible
+endpoint that specifically rejects `max_completion_tokens` still receives one payload-compatible
+retry omitting only that field. Strict structured output, reasoning effort, tools, model selection,
+authentication, and API version remain unchanged.
+
+Model metadata `MaxOutputTokens` is a ceiling rather than a request default. With the default
+`UnspecifiedOutputTokens: Omit`, an unspecified workflow allowance sends no output-token field;
+explicit limits are clamped to the model ceiling and optional provider cap. The credential probe
+explicitly requests at most 64 tokens. Provider policy survives runtime snapshots and encrypted
+credential overlays, while malformed policy combinations fail startup.
+
+HTTP recovery makes at most four attempts for `425`, `429`, `500`, `502`, `503`, and `504`, honors
+valid `Retry-After`, and otherwise uses bounded full-jitter exponential backoff. Quota/billing and
+authentication/authorization envelopes are terminal even when carried as `429`; transport errors,
+timeouts, cancellation, and other `4xx` are not replayed. `LLM_TIMEOUT` and `LLM_NETWORK` remain
+retryable workflow codes, while request/configuration rejections use `LLM_PROVIDER`. The workflow
+failure presentation includes only sanitized classification, HTTP status, actual attempts,
+exhaustion, accepted `Retry-After`, provider-safe code, and recommended action. It never renders
+the endpoint, response body, prompt, credential, client identity, or scope. This technical recovery
+does not consume the human-input budget. User-requested cancellation remains `CANCELLED`.
 
 Read and write capabilities remain discoverable by default; preflight describes availability rather than silently changing an MCP server's execution policy. When preflight fails, the chat response and trace show the sanitized error code, unavailable operation IDs/descriptions, failed catalogs, and a generic configuration action instead of only the summary message.
 
@@ -322,9 +334,9 @@ dotnet test tests/GnOuGo.Agent.Server.Tests/GnOuGo.Agent.Server.Tests.csproj `
   --filter "FullyQualifiedName~LiveIntentAgentGenerationTests.SimpleIntent_GeneratesThreeValidatedAgentsUsingLiveConfiguration"
 ```
 
-The first process performs one minimal provider probe and one diagnostic generation. The second process requires the successful redacted ledger from that gate and performs three independent generations. Together they share 120 LLM calls, five million tokens, 120 minutes, and USD 25 estimated cost. Terminal provider failures and deterministic generation failures stop the cycle; only typed transient provider failures receive one retry. The ledger stores only cumulative usage and phase flags, and is removed after any failed phase or after final acceptance.
+The first process performs one minimal provider probe and one diagnostic generation. The second process requires the successful redacted ledger from that gate and performs three independent generations. Together they share 120 LLM calls, five million tokens, 120 minutes, and USD 25 estimated cost. Runtime HTTP recovery is the only automatic provider retry layer; a persistent rate limit or any terminal/deterministic failure stops the live cycle instead of starting another planning call. The ledger stores only cumulative usage and phase flags, and is removed after any failed phase or after final acceptance.
 
-The harness uses a unique temporary SQLite database for its disabled embedded telemetry store and removes the database plus WAL/SHM sidecars during cleanup. When `GNOU_GO_LIVE_INTENT_AGENT_PROGRESS_PATH` is set, typed provider failures record only the provider-neutral classification, HTTP status, and provider-safe error code in addition to budget counters. Endpoints, prompts, models, response bodies, and credentials are never written to the progress log.
+The harness uses a unique temporary SQLite database for its disabled embedded telemetry store and removes the database plus WAL/SHM sidecars during cleanup. When `GNOU_GO_LIVE_INTENT_AGENT_PROGRESS_PATH` is set, typed provider failures record only the provider-neutral classification, HTTP status, actual attempt count, exhaustion flag, accepted retry delay, and provider-safe error code in addition to budget counters. Endpoints, prompts, models, response bodies, and credentials are never written to the progress log.
 
 The harness submits the same short user intention and simulates the human for initial inputs, every up-front or follow-up clarification form, generated-YAML approval, publication rejection, and the scoped confirmation for the disposable fixture. It exercises both an AI-recommended answer and a native custom answer, validates every discovered MCP call and literal selector, executes a read-only review against the configured public acceptance PR while denying publication, and exercises the confirmed write path only against a disposable draft fixture. Unexpected human prompts fail the test. It restores the previous default-agent setting and removes the fixture PR/branch, generated agents, isolated workspaces, and final budget ledger in `finally`.
 

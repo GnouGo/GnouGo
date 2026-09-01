@@ -286,15 +286,20 @@ public sealed class LlmCallExecutor : IStepExecutor
             if (classified != null)
             {
                 ctx.Engine.Logger.LogError(
-                    ex,
                     "llm.call failed for model '{Model}' with code '{ErrorCode}'",
                     model,
                     classified.Code);
                 throw classified;
             }
 
-            ctx.Engine.Logger.LogError(ex, "llm.call failed for model '{Model}'", model);
-            throw new WorkflowRuntimeException(ErrorCodes.LlmNetwork, $"LLM call failed: {ex.Message}", retryable: false);
+            ctx.Engine.Logger.LogError(
+                "llm.call failed for model '{Model}' with unclassified failure type '{FailureType}'",
+                model,
+                ex.GetType().Name);
+            throw new WorkflowRuntimeException(
+                ErrorCodes.LlmNetwork,
+                "The LLM call failed without a provider-neutral classification.",
+                retryable: false);
         }
     }
 

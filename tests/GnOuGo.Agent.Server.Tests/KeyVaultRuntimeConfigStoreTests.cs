@@ -53,7 +53,28 @@ public sealed class KeyVaultRuntimeConfigStoreTests
             {
                 DefaultProvider = "openai",
                 DefaultModel = "gpt-4o-mini",
-                Models = new Dictionary<string, ModelProviderOptions>(StringComparer.OrdinalIgnoreCase),
+                Models = new Dictionary<string, ModelProviderOptions>(StringComparer.OrdinalIgnoreCase)
+                {
+                    ["openai"] = new()
+                    {
+                        Url = "https://placeholder.invalid",
+                        Type = "openai",
+                        RequestPolicy = new LLMProviderRequestPolicyOptions
+                        {
+                            BackgroundProtocol = LLMBackgroundProtocolMode.ChatCompletions,
+                            UnspecifiedOutputTokens = LLMUnspecifiedOutputTokensMode.Configured,
+                            DefaultMaxOutputTokens = 4_096,
+                            MaxOutputTokensCap = 8_192
+                        },
+                        RetryPolicy = new LLMProviderRetryPolicyOptions
+                        {
+                            MaxAttempts = 2,
+                            BaseDelayMilliseconds = 250,
+                            MaxDelayMilliseconds = 2_000,
+                            MaxTotalDelayMilliseconds = 5_000
+                        }
+                    }
+                },
                 McpServers = new Dictionary<string, McpServerOptions>(StringComparer.OrdinalIgnoreCase)
                 {
                     ["GnOuGo.KeyVault.Mcp"] = new()
@@ -73,6 +94,10 @@ public sealed class KeyVaultRuntimeConfigStoreTests
             Assert.Equal("https://api.openai.com/v1", providerConfig.Url);
             Assert.Equal("top-secret", providerConfig.ApiKey);
             Assert.Equal("gpt-4.1", effective.DefaultModel);
+            Assert.Equal(LLMBackgroundProtocolMode.ChatCompletions, providerConfig.RequestPolicy.BackgroundProtocol);
+            Assert.Equal(4_096, providerConfig.RequestPolicy.DefaultMaxOutputTokens);
+            Assert.Equal(2, providerConfig.RetryPolicy.MaxAttempts);
+            Assert.Equal(5_000, providerConfig.RetryPolicy.MaxTotalDelayMilliseconds);
 
             Assert.True(effective.McpServers.TryGetValue("Github", out var github));
             Assert.NotNull(github);
@@ -353,4 +378,3 @@ public sealed class KeyVaultRuntimeConfigStoreTests
         }
     }
 }
-

@@ -18,6 +18,37 @@ internal static class WorkflowFailureFormatter
             builder.Append('[').Append(error.Code.Trim()).Append("] ");
         builder.AppendLine(string.IsNullOrWhiteSpace(error.Message) ? "Workflow execution failed." : error.Message.Trim());
 
+        if (error.Code is ErrorCodes.LlmNetwork or ErrorCodes.LlmTimeout or ErrorCodes.LlmProvider)
+        {
+            var classification = ReadBoundedStringDeep(error.Details, "classification", 80);
+            var statusCode = ReadIntDeep(error.Details, "status_code");
+            var attemptCount = ReadIntDeep(error.Details, "attempt_count");
+            var retryExhausted = ReadBoolDeep(error.Details, "retry_exhausted");
+            var retryAfterMilliseconds = ReadIntDeep(error.Details, "retry_after_ms");
+            var providerCode = ReadBoundedStringDeep(error.Details, "provider_code", 120);
+            var recommendedAction = ReadBoundedStringDeep(error.Details, "recommended_action", 120);
+
+            builder.AppendLine().AppendLine("LLM provider request outcome:");
+            if (!string.IsNullOrWhiteSpace(classification))
+                builder.Append("- Classification: ").AppendLine(Sanitize(classification, 80));
+            if (statusCode != null)
+                builder.Append("- HTTP status: ").AppendLine(statusCode.Value.ToString(System.Globalization.CultureInfo.InvariantCulture));
+            if (attemptCount != null)
+                builder.Append("- Attempts: ").AppendLine(attemptCount.Value.ToString(System.Globalization.CultureInfo.InvariantCulture));
+            if (retryExhausted != null)
+                builder.Append("- Retry exhausted: ").AppendLine(retryExhausted.Value ? "yes" : "no");
+            if (retryAfterMilliseconds != null)
+            {
+                builder.Append("- Accepted Retry-After: ")
+                    .Append(retryAfterMilliseconds.Value.ToString(System.Globalization.CultureInfo.InvariantCulture))
+                    .AppendLine(" ms");
+            }
+            if (!string.IsNullOrWhiteSpace(providerCode))
+                builder.Append("- Provider code: ").AppendLine(Sanitize(providerCode, 120));
+            if (!string.IsNullOrWhiteSpace(recommendedAction))
+                builder.Append("- Recommended action: ").AppendLine(Sanitize(recommendedAction, 120));
+        }
+
         var planningOutcome = ReadBoundedStringDeep(error.Details, "planning_outcome", 80);
         if (!string.IsNullOrWhiteSpace(planningOutcome)
             && (error.Code == ErrorCodes.WorkflowPlanClarificationFailed
@@ -273,6 +304,34 @@ internal static class WorkflowFailureFormatter
         {
             if (scope is JsonObject obj && ReadBoundedString(obj, property, limit) is { } value)
                 return value;
+        }
+        return null;
+    }
+
+    private static int? ReadIntDeep(JsonNode? details, string property)
+    {
+        foreach (var scope in EnumerateDiagnosticScopes(details))
+        {
+            if (scope is JsonObject obj
+                && obj[property] is JsonValue value
+                && value.TryGetValue<int>(out var result))
+            {
+                return result;
+            }
+        }
+        return null;
+    }
+
+    private static bool? ReadBoolDeep(JsonNode? details, string property)
+    {
+        foreach (var scope in EnumerateDiagnosticScopes(details))
+        {
+            if (scope is JsonObject obj
+                && obj[property] is JsonValue value
+                && value.TryGetValue<bool>(out var result))
+            {
+                return result;
+            }
         }
         return null;
     }

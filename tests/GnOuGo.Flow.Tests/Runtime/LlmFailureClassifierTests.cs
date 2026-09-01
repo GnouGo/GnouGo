@@ -75,13 +75,18 @@ public sealed class LlmFailureClassifierTests
             "redacted failure",
             retryable,
             statusCode: 400,
-            safeProviderCode: "safe_code"));
+            safeProviderCode: "safe_code",
+            attemptCount: 4,
+            retryExhausted: true,
+            retryAfterMilliseconds: 2_000));
 
         Assert.NotNull(classified);
         Assert.Equal(expectedCode, classified.Code);
         Assert.Equal(retryable, classified.Retryable);
         Assert.Equal(400, classified.Details!["status_code"]!.GetValue<int>());
         Assert.Equal("safe_code", classified.Details["provider_code"]!.GetValue<string>());
-        Assert.Equal(1, classified.Details["attempt_count"]!.GetValue<int>());
+        Assert.Equal(4, classified.Details["attempt_count"]!.GetValue<int>());
+        Assert.True(classified.Details["retry_exhausted"]!.GetValue<bool>());
+        Assert.Equal(2_000, classified.Details["retry_after_ms"]!.GetValue<int>());
     }
 }

@@ -8,6 +8,67 @@ namespace GnOuGo.AI.Core.Tests;
 public sealed class OpenAiLlmProviderTests
 {
     [Fact]
+    public async Task RoutingClient_LargeModelCeilingDoesNotBecomeImplicitWireLimit()
+    {
+        var bodies = new List<string>();
+        var handler = new StubHttpMessageHandler(async request =>
+        {
+            bodies.Add(await request.Content!.ReadAsStringAsync());
+            return JsonResponse("""
+            {
+              "choices": [ { "message": { "content": "ok" } } ]
+            }
+            """);
+        });
+        var options = new LLMOptions
+        {
+            DefaultProvider = "gateway",
+            DefaultModel = "large-model",
+            Models =
+            {
+                ["gateway"] = new ModelProviderOptions
+                {
+                    Url = "https://gateway.example/v1",
+                    Type = "openai",
+                    ApiKey = "secret"
+                }
+            },
+            ModelOverrides =
+            {
+                ["openai/large-model"] = new LLMModelMetadata
+                {
+                    Id = "large-model",
+                    ProviderType = "openai",
+                    ContextWindowTokens = 1_050_000,
+                    MaxInputTokens = 1_050_000,
+                    MaxOutputTokens = 128_000
+                }
+            }
+        };
+        using var http = new HttpClient(handler);
+        var client = new RoutingLLMClient(http, options);
+
+        await client.CallAsync(new LLMClientRequest
+        {
+            Provider = "gateway",
+            Model = "large-model",
+            Prompt = "test"
+        }, TestContext.Current.CancellationToken);
+        await client.CallAsync(new LLMClientRequest
+        {
+            Provider = "gateway",
+            Model = "large-model",
+            Prompt = "test",
+            MaxOutputTokens = 4_096
+        }, TestContext.Current.CancellationToken);
+
+        using var unspecified = JsonDocument.Parse(bodies[0]);
+        using var explicitLimit = JsonDocument.Parse(bodies[1]);
+        Assert.False(unspecified.RootElement.TryGetProperty("max_completion_tokens", out _));
+        Assert.Equal(4_096, explicitLimit.RootElement.GetProperty("max_completion_tokens").GetInt32());
+    }
+
+    [Fact]
     public async Task CallAsync_WithStructuredBackgroundMode_PreservesContractAndParsesPolledJson()
     {
         var requests = new List<(HttpMethod Method, string Url, string? Body)>();
@@ -121,8 +182,9 @@ public sealed class OpenAiLlmProviderTests
         Assert.Contains(logger.Entries, e => e.Level == LogLevel.Information
             && e.Message.Contains("UseBackgroundMode=True", StringComparison.Ordinal));
         Assert.Contains(logger.Entries, e => e.Level == LogLevel.Information
-            && e.Message.Contains("OpenAI Responses background call starting", StringComparison.Ordinal)
-            && e.Message.Contains("https://api.openai.test/v1/responses", StringComparison.Ordinal));
+            && e.Message.Contains("OpenAI Responses background call starting", StringComparison.Ordinal));
+        Assert.DoesNotContain(logger.Entries, e =>
+            e.Message.Contains("https://api.openai.test", StringComparison.Ordinal));
         Assert.Contains(logger.Entries, e => e.Level == LogLevel.Information
             && e.Message.Contains("OpenAI Responses background call completed", StringComparison.Ordinal)
             && e.Message.Contains("resp_123", StringComparison.Ordinal));
@@ -132,8 +194,8 @@ public sealed class OpenAiLlmProviderTests
     [InlineData(HttpStatusCode.NotFound, "not found")]
     [InlineData(HttpStatusCode.NotFound, "responses endpoint not found")]
     [InlineData(HttpStatusCode.NotFound, "{\"error\":{\"message\":\"/responses route not found\",\"type\":\"invalid_request_error\",\"param\":\"route\",\"code\":\"route_not_found\"}}")]
-    [InlineData(HttpStatusCode.NotFound, "{\"error\":{\"message\":\"model not found\",\"type\":\"invalid_request_error\",\"param\":\"model\",\"code\":\"model_not_found\"}}")]
     [InlineData(HttpStatusCode.BadRequest, "{\"error\":{\"message\":\"Unsupported parameter: background\",\"type\":\"invalid_request_error\",\"param\":\"background\",\"code\":\"unsupported_parameter\"}}")]
+    [InlineData(HttpStatusCode.UnprocessableEntity, "unprocessable response contract")]
     public async Task CallAsync_WithProxyBackgroundIncompatibility_CachesOnlyAfterSuccessfulFallback(
         HttpStatusCode statusCode,
         string responseBody)
@@ -194,8 +256,9 @@ public sealed class OpenAiLlmProviderTests
         Assert.Contains(logger.Entries, e => e.Level == LogLevel.Warning
             && e.Message.Contains("OpenAI Responses background API not available", StringComparison.Ordinal)
             && e.Message.Contains("Chat Completions fallback succeeded", StringComparison.Ordinal)
-            && e.Message.Contains($"StatusCode={(int)statusCode}", StringComparison.Ordinal)
-            && e.Message.Contains(responseBody, StringComparison.Ordinal));
+            && e.Message.Contains($"StatusCode={(int)statusCode}", StringComparison.Ordinal));
+        Assert.DoesNotContain(logger.Entries, e =>
+            e.Message.Contains(responseBody, StringComparison.Ordinal));
         Assert.Contains(logger.Entries, e => e.Level == LogLevel.Information
             && e.Message.Contains("previously returned unsupported", StringComparison.Ordinal)
             && e.Message.Contains("skipping background mode", StringComparison.Ordinal));
@@ -236,7 +299,7 @@ public sealed class OpenAiLlmProviderTests
     }
 
     [Fact]
-    public async Task CallAsync_WithFailedProxyFallback_DoesNotCacheResponsesIncompatibility()
+    public async Task CallAsync_WithFailedProxyFallback_CachesDeterministicResponsesIncompatibility()
     {
         var requests = new List<string>();
         var handler = new StubHttpMessageHandler(req =>
@@ -268,11 +331,11 @@ public sealed class OpenAiLlmProviderTests
         }
 
         Assert.Equal(
-            ["/v1/responses", "/v1/chat/completions", "/v1/responses", "/v1/chat/completions"],
+            ["/v1/responses", "/v1/chat/completions", "/v1/chat/completions"],
             requests);
-        Assert.DoesNotContain(logger.Entries, entry =>
+        Assert.Single(logger.Entries, entry =>
             entry.Message.Contains("Cached OpenAI Responses background unsupported result", StringComparison.Ordinal));
-        Assert.DoesNotContain(logger.Entries, entry =>
+        Assert.Contains(logger.Entries, entry =>
             entry.Message.Contains("previously returned unsupported", StringComparison.Ordinal));
     }
 
@@ -550,7 +613,7 @@ public sealed class OpenAiLlmProviderTests
     }
 
     [Fact]
-    public async Task CallAsync_WithFailedLegacyChatFallback_DoesNotCacheEitherCompatibilityResult()
+    public async Task CallAsync_WithFailedLegacyChatFallback_CachesOnlyDeterministicResponsesRouteFailure()
     {
         const string prompt = "private planning prompt";
         const string apiKey = "secret-api-key";
@@ -611,12 +674,11 @@ public sealed class OpenAiLlmProviderTests
                 ("/v1/responses", false),
                 ("/v1/chat/completions", true),
                 ("/v1/chat/completions", false),
-                ("/v1/responses", false),
                 ("/v1/chat/completions", true),
                 ("/v1/chat/completions", false)
             ],
             requests);
-        Assert.DoesNotContain(logger.Entries, entry =>
+        Assert.Single(logger.Entries, entry =>
             entry.Message.Contains("Cached OpenAI Responses background unsupported result", StringComparison.Ordinal));
         Assert.DoesNotContain(logger.Entries, entry =>
             entry.Message.Contains("Cached legacy-compatible OpenAI Chat Completions requirement", StringComparison.Ordinal));
@@ -625,6 +687,117 @@ public sealed class OpenAiLlmProviderTests
         Assert.DoesNotContain(logger.Entries, entry =>
             entry.Message.Contains(prompt, StringComparison.Ordinal)
             || entry.Message.Contains(apiKey, StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public async Task CallAsync_DeterministicResponses404IsCachedWhenChatFallbackIsRateLimited()
+    {
+        var requests = new List<string>();
+        var handler = new StubHttpMessageHandler(req =>
+        {
+            requests.Add(req.RequestUri!.AbsolutePath);
+            return Task.FromResult(req.RequestUri.AbsolutePath.EndsWith("/responses", StringComparison.Ordinal)
+                ? new HttpResponseMessage(HttpStatusCode.NotFound)
+                {
+                    Content = new StringContent("route not found")
+                }
+                : new HttpResponseMessage(HttpStatusCode.TooManyRequests)
+                {
+                    Content = new StringContent("{\"error\":{\"code\":\"rate_limit_exceeded\"}}")
+                });
+        });
+
+        using var http = new HttpClient(handler);
+        using var cache = new MemoryCache(new MemoryCacheOptions());
+        var provider = new OpenAiLLMProvider(http, backgroundModeCache: cache);
+        var options = new ModelProviderOptions
+        {
+            Url = "https://proxy.example",
+            ApiKey = "secret",
+            Type = "openai",
+            RetryPolicy = new LLMProviderRetryPolicyOptions { MaxAttempts = 1 }
+        };
+
+        for (var attempt = 0; attempt < 2; attempt++)
+        {
+            var failure = await Assert.ThrowsAsync<HttpRequestException>(() => provider.CallAsync(
+                "model",
+                options,
+                new LLMClientRequest { Prompt = "Hello", UseBackgroundMode = true },
+                CancellationToken.None));
+            Assert.Equal(HttpStatusCode.TooManyRequests, failure.StatusCode);
+        }
+
+        Assert.Equal(
+            ["/v1/responses", "/v1/chat/completions", "/v1/chat/completions"],
+            requests);
+    }
+
+    [Fact]
+    public async Task CallAsync_RequestSpecificResponses404IsNotCachedOrRoutedToChat()
+    {
+        var requests = new List<string>();
+        var handler = new StubHttpMessageHandler(req =>
+        {
+            requests.Add(req.RequestUri!.AbsolutePath);
+            return Task.FromResult(new HttpResponseMessage(HttpStatusCode.NotFound)
+            {
+                Content = new StringContent("{\"error\":{\"code\":\"model_not_found\",\"message\":\"requested model does not exist\"}}")
+            });
+        });
+
+        using var http = new HttpClient(handler);
+        using var cache = new MemoryCache(new MemoryCacheOptions());
+        var provider = new OpenAiLLMProvider(http, backgroundModeCache: cache);
+        var options = new ModelProviderOptions { Url = "https://proxy.example", ApiKey = "secret", Type = "openai" };
+
+        for (var attempt = 0; attempt < 2; attempt++)
+        {
+            var failure = await Assert.ThrowsAsync<HttpRequestException>(() => provider.CallAsync(
+                "missing-model",
+                options,
+                new LLMClientRequest { Prompt = "Hello", UseBackgroundMode = true },
+                CancellationToken.None));
+            Assert.Equal(HttpStatusCode.NotFound, failure.StatusCode);
+        }
+
+        Assert.Equal(["/v1/responses", "/v1/responses"], requests);
+    }
+
+    [Fact]
+    public async Task CallAsync_ChatCompletionsBackgroundPolicyBypassesResponsesRoute()
+    {
+        var requests = new List<string>();
+        var handler = new StubHttpMessageHandler(req =>
+        {
+            requests.Add(req.RequestUri!.AbsolutePath);
+            return Task.FromResult(JsonResponse("""
+            {
+              "choices": [ { "message": { "content": "ok" } } ]
+            }
+            """));
+        });
+
+        using var http = new HttpClient(handler);
+        var provider = new OpenAiLLMProvider(http);
+        var options = new ModelProviderOptions
+        {
+            Url = "https://proxy.example",
+            ApiKey = "secret",
+            Type = "openai",
+            RequestPolicy = new LLMProviderRequestPolicyOptions
+            {
+                BackgroundProtocol = LLMBackgroundProtocolMode.ChatCompletions
+            }
+        };
+
+        await provider.CallAsync(
+            "model",
+            options,
+            new LLMClientRequest { Prompt = "Hello", UseBackgroundMode = true },
+            CancellationToken.None);
+
+        Assert.Equal(["/v1/chat/completions"], requests);
     }
 
     [Theory]

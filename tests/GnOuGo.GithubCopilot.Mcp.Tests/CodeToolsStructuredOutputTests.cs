@@ -286,7 +286,8 @@ public sealed class CodeToolsStructuredOutputTests : IDisposable
             EnvironmentVariables = new Dictionary<string, string?>
             {
                 ["Code__DefaultWorkingDirectory"] = _root,
-                ["Code__AllowedWorkingRoots__0"] = _root
+                ["Code__AllowedWorkingRoots__0"] = _root,
+                ["KeyVault__DatabasePath"] = Path.Combine(_root, "isolated-keyvault.db")
             }
         });
         await using var client = await McpClient.CreateAsync(

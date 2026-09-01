@@ -192,6 +192,9 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
                          "retryable",
                          "status_code",
                          "attempt_count",
+                         "retry_exhausted",
+                         "retry_after_ms",
+                         "provider_code",
                          "recommended_action"
                      })
             {

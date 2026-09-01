@@ -3837,6 +3837,7 @@ public sealed class ConfigureProvidersService
                 Provider    = provider,
                 Model       = string.IsNullOrWhiteSpace(model) ? "gpt-4o-mini" : model,
                 Prompt      = "Reply with the single word: ok",
+                MaxTokens   = 64,
             }, ct);
         }
         catch (Exception ex)

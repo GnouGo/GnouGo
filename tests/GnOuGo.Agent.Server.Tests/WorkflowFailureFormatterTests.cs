@@ -7,6 +7,40 @@ namespace GnOuGo.Agent.Server.Tests;
 public sealed class WorkflowFailureFormatterTests
 {
     [Fact]
+    public void Format_RendersOnlySanitizedLlmRecoveryDiagnostics()
+    {
+        var error = new WorkflowError
+        {
+            Code = ErrorCodes.LlmNetwork,
+            Message = "The LLM provider temporarily rate-limited the request.",
+            Details = new JsonObject
+            {
+                ["classification"] = "rate_limited",
+                ["status_code"] = 429,
+                ["attempt_count"] = 4,
+                ["retry_exhausted"] = true,
+                ["retry_after_ms"] = 5_000,
+                ["provider_code"] = "rate_limit_exceeded",
+                ["recommended_action"] = "retry",
+                ["endpoint"] = "https://secret.example/responses",
+                ["response_body"] = "private provider body"
+            }
+        };
+
+        var presentation = WorkflowFailureFormatter.Format(error);
+
+        Assert.Contains("LLM provider request outcome", presentation.UserMessage, StringComparison.Ordinal);
+        Assert.Contains("Classification: rate_limited", presentation.UserMessage, StringComparison.Ordinal);
+        Assert.Contains("HTTP status: 429", presentation.UserMessage, StringComparison.Ordinal);
+        Assert.Contains("Attempts: 4", presentation.UserMessage, StringComparison.Ordinal);
+        Assert.Contains("Retry exhausted: yes", presentation.UserMessage, StringComparison.Ordinal);
+        Assert.Contains("Accepted Retry-After: 5000 ms", presentation.UserMessage, StringComparison.Ordinal);
+        Assert.Contains("Provider code: rate_limit_exceeded", presentation.UserMessage, StringComparison.Ordinal);
+        Assert.DoesNotContain("secret.example", presentation.UserMessage, StringComparison.Ordinal);
+        Assert.DoesNotContain("private provider body", presentation.UserMessage, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void Format_ListsUnavailableOperationsAndDiscoveryFailures()
     {
         var error = new WorkflowError

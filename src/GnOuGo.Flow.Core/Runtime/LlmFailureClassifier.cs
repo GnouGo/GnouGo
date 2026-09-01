@@ -95,12 +95,15 @@ internal static class LlmFailureClassifier
         details["stage"] = "llm_call";
         details["classification"] = ToContractValue(failure.Kind);
         details["retryable"] = failure.Retryable;
-        details["attempt_count"] = 1;
+        details["attempt_count"] = failure.AttemptCount;
+        details["retry_exhausted"] = failure.RetryExhausted;
         details["recommended_action"] = failure.Retryable ? "retry" : "correct_configuration_or_request";
         if (failure.StatusCode != null)
             details["status_code"] = failure.StatusCode.Value;
         if (!string.IsNullOrWhiteSpace(failure.SafeProviderCode))
             details["provider_code"] = failure.SafeProviderCode;
+        if (failure.RetryAfterMilliseconds != null)
+            details["retry_after_ms"] = failure.RetryAfterMilliseconds.Value;
 
         return new WorkflowRuntimeException(
             code,

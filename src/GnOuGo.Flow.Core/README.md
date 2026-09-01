@@ -2010,7 +2010,7 @@ on_error:
 |------|-----------|-------------|
 | `INPUT_VALIDATION` | No | Missing or malformed input |
 | `LLM_TIMEOUT` | Yes | LLM request timed out |
-| `LLM_NETWORK` | Yes | Transport failure, HTTP `425`/`429`, or provider `5xx` response |
+| `LLM_NETWORK` | Yes | Typed transport/rate-limit/service failure, including bounded HTTP `425`, `429`, `500`, `502`, or `503` recovery exhaustion |
 | `LLM_PROVIDER` | No | Provider rejected the request with another `4xx` response |
 | `LLM_BUDGET_EXCEEDED` | No | An LLM call, token, elapsed-time, or estimated-cost budget was exceeded |
 | `LLM_BUDGET_UNVERIFIABLE` | No | Usage, pricing, or a configured durable ledger could not verify an active budget safely |
@@ -2027,11 +2027,13 @@ on_error:
 | `NO_HITL_PROVIDER` | No | No human input provider configured |
 
 Injected `ILLMClient` implementations can throw the provider-neutral, redacted
-`LLMClientException`. Its failure kind, retryability, optional status code, and safe
-provider code are mapped to the stable errors above. Legacy clients remain supported
-through HTTP-status classification only; message text never determines retryability.
-Workflow error metadata includes stage, classification, retryability, status when known,
-attempt count, and a recommended action.
+`LLMClientException`. Its failure kind, retryability, optional status code, safe provider
+code, actual attempt count, retry-exhaustion flag, and accepted `Retry-After` are mapped to
+the stable errors above. Legacy clients remain supported through HTTP-status classification
+only; message text never determines retryability. Workflow error metadata includes only
+sanitized stage, classification, retryability, status, attempts, exhaustion, retry timing,
+safe provider code, and recommended action. It does not carry endpoints, response bodies,
+prompts, credentials, client identities, or scopes.
 
 ### Full example — resilient LLM call with fallback
 

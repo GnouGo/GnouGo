@@ -29,12 +29,36 @@ public sealed class LLMProviderException : Exception
         bool retryable,
         int? statusCode = null,
         string? safeProviderCode = null)
+        : this(
+            kind,
+            message,
+            retryable,
+            statusCode,
+            safeProviderCode,
+            attemptCount: 1,
+            retryExhausted: false,
+            retryAfterMilliseconds: null)
+    {
+    }
+
+    public LLMProviderException(
+        LLMProviderFailureKind kind,
+        string message,
+        bool retryable,
+        int? statusCode,
+        string? safeProviderCode,
+        int attemptCount,
+        bool retryExhausted,
+        int? retryAfterMilliseconds)
         : base(message)
     {
         Kind = kind;
         Retryable = retryable;
         StatusCode = statusCode;
         SafeProviderCode = safeProviderCode;
+        AttemptCount = Math.Max(1, attemptCount);
+        RetryExhausted = retryExhausted;
+        RetryAfterMilliseconds = retryAfterMilliseconds is >= 0 ? retryAfterMilliseconds : null;
     }
 
     public LLMProviderFailureKind Kind { get; }
@@ -44,7 +68,18 @@ public sealed class LLMProviderException : Exception
     public int? StatusCode { get; }
 
     public string? SafeProviderCode { get; }
+
+    public int AttemptCount { get; }
+
+    public bool RetryExhausted { get; }
+
+    public int? RetryAfterMilliseconds { get; }
 }
+
+internal sealed record LLMHttpFailureClassification(
+    LLMProviderFailureKind Kind,
+    bool Retryable,
+    string? SafeProviderCode);
 
 internal static partial class LLMProviderFailureClassifier
 {
@@ -54,10 +89,16 @@ internal static partial class LLMProviderFailureClassifier
         ("insufficient_quota", LLMProviderFailureKind.QuotaOrBilling, "insufficient_quota"),
         ("insufficient quota", LLMProviderFailureKind.QuotaOrBilling, "insufficient_quota"),
         ("billing_hard_limit_reached", LLMProviderFailureKind.QuotaOrBilling, "billing_hard_limit_reached"),
+        ("billing_error", LLMProviderFailureKind.QuotaOrBilling, "billing_error"),
+        ("billing limit", LLMProviderFailureKind.QuotaOrBilling, "billing_limit"),
         ("payment_required", LLMProviderFailureKind.QuotaOrBilling, "payment_required"),
         ("invalid_api_key", LLMProviderFailureKind.Authentication, "invalid_api_key"),
         ("invalid api key", LLMProviderFailureKind.Authentication, "invalid_api_key"),
         ("authentication_error", LLMProviderFailureKind.Authentication, "authentication_error"),
+        ("unauthorized", LLMProviderFailureKind.Authentication, "unauthorized"),
+        ("authorization_error", LLMProviderFailureKind.Authorization, "authorization_error"),
+        ("access_denied", LLMProviderFailureKind.Authorization, "access_denied"),
+        ("forbidden", LLMProviderFailureKind.Authorization, "forbidden"),
         ("permission_denied", LLMProviderFailureKind.Authorization, "permission_denied"),
         ("model_not_found", LLMProviderFailureKind.ModelUnavailable, "model_not_found"),
         ("model not found", LLMProviderFailureKind.ModelUnavailable, "model_not_found"),
@@ -100,6 +141,23 @@ internal static partial class LLMProviderFailureClassifier
 
     private static LLMProviderException ClassifyHttp(HttpRequestException exception)
     {
+        if (HttpRequestHelper.GetRetryMetadata(exception) is { } metadata)
+        {
+            var kind = metadata.FailureKind ?? ClassifyStatus(exception.StatusCode).Kind;
+            var retryable = kind is LLMProviderFailureKind.Transport
+                or LLMProviderFailureKind.Timeout
+                or LLMProviderFailureKind.RateLimited
+                or LLMProviderFailureKind.ServiceUnavailable;
+            return Create(
+                kind,
+                retryable,
+                exception.StatusCode,
+                metadata.SafeProviderCode,
+                metadata.AttemptCount,
+                metadata.RetryExhausted,
+                metadata.RetryAfterMilliseconds);
+        }
+
         var marker = FindKnownMarker(exception.Message);
         if (marker != null)
         {
@@ -130,6 +188,43 @@ internal static partial class LLMProviderFailureClassifier
         };
     }
 
+    internal static LLMHttpFailureClassification ClassifyResponse(HttpStatusCode statusCode, string errorBody)
+    {
+        var marker = FindKnownMarker(errorBody);
+        if (marker != null)
+        {
+            return new LLMHttpFailureClassification(
+                marker.Value.Kind,
+                marker.Value.Kind == LLMProviderFailureKind.RateLimited,
+                marker.Value.Code);
+        }
+
+        return ClassifyStatus(statusCode);
+    }
+
+    private static LLMHttpFailureClassification ClassifyStatus(HttpStatusCode? statusCode)
+        => statusCode switch
+        {
+            null => new(LLMProviderFailureKind.Transport, true, null),
+            HttpStatusCode.RequestTimeout or HttpStatusCode.GatewayTimeout =>
+                new(LLMProviderFailureKind.Timeout, true, null),
+            (HttpStatusCode)425 or HttpStatusCode.TooManyRequests =>
+                new(LLMProviderFailureKind.RateLimited, true, null),
+            HttpStatusCode.PaymentRequired =>
+                new(LLMProviderFailureKind.QuotaOrBilling, false, null),
+            HttpStatusCode.Unauthorized =>
+                new(LLMProviderFailureKind.Authentication, false, null),
+            HttpStatusCode.Forbidden =>
+                new(LLMProviderFailureKind.Authorization, false, null),
+            HttpStatusCode.NotFound =>
+                new(LLMProviderFailureKind.ModelUnavailable, false, null),
+            { } status when (int)status >= 500 =>
+                new(LLMProviderFailureKind.ServiceUnavailable, true, null),
+            { } status when (int)status >= 400 =>
+                new(LLMProviderFailureKind.InvalidRequest, false, null),
+            _ => new(LLMProviderFailureKind.Unknown, false, null)
+        };
+
     private static (LLMProviderFailureKind Kind, string Code)? FindKnownMarker(string message)
     {
         foreach (var marker in KnownMarkers)
@@ -145,13 +240,19 @@ internal static partial class LLMProviderFailureClassifier
         LLMProviderFailureKind kind,
         bool retryable,
         HttpStatusCode? statusCode = null,
-        string? safeProviderCode = null)
+        string? safeProviderCode = null,
+        int attemptCount = 1,
+        bool retryExhausted = false,
+        int? retryAfterMilliseconds = null)
         => new(
             kind,
             BuildSafeMessage(kind),
             retryable,
             statusCode == null ? null : (int)statusCode.Value,
-            safeProviderCode);
+            safeProviderCode,
+            attemptCount,
+            retryExhausted,
+            retryAfterMilliseconds);
 
     private static string BuildSafeMessage(LLMProviderFailureKind kind)
         => kind switch
