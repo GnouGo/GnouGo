@@ -2421,6 +2421,67 @@ public class WorkflowPlanExecutorTests
     }
 
     [Fact]
+    public void PipelineConditionalDecisionBoundary_CanonicalizationOverridesIncompatibleExtractorSchemas()
+    {
+        var candidate = CreatePrivateConditionalBoundaryCandidate(
+            includeSharedBoundary: true,
+            incompatibleBoundary: true);
+        var leafType = GetPrivatePipelineType("WorkflowPipelineSubworkflowSpec");
+        var leaves = Assert.IsAssignableFrom<System.Collections.IEnumerable>(
+                candidate.GetType().GetProperty("Subworkflows")!.GetValue(candidate))
+            .Cast<object>()
+            .ToArray();
+        var apply = typeof(WorkflowPlanExecutor).GetMethod(
+            "ApplyConditionalDecisionBoundaryContracts",
+            BindingFlags.Static | BindingFlags.NonPublic)!;
+
+        var canonicalized = Assert.IsAssignableFrom<System.Collections.IEnumerable>(
+                apply.Invoke(null, [CreatePrivatePipelineArray(leafType, leaves)]))
+            .Cast<object>()
+            .ToArray();
+
+        var owner = canonicalized.Single(leaf => string.Equals(
+            leaf.GetType().GetProperty("Name")!.GetValue(leaf) as string,
+            "choose_outcome",
+            StringComparison.Ordinal));
+        var consumer = canonicalized.Single(leaf => string.Equals(
+            leaf.GetType().GetProperty("Name")!.GetValue(leaf) as string,
+            "publish_outcome",
+            StringComparison.Ordinal));
+        var outputSchemas = Assert.IsAssignableFrom<IReadOnlyDictionary<string, JsonNode?>>(
+            owner.GetType().GetProperty("OutputSchemas")!.GetValue(owner));
+        var inputSchemas = Assert.IsAssignableFrom<IReadOnlyDictionary<string, JsonNode?>>(
+            consumer.GetType().GetProperty("InputSchemas")!.GetValue(consumer));
+
+        Assert.Equal("string", outputSchemas["decision"]!["type"]!.GetValue<string>());
+        Assert.Equal("string", inputSchemas["decision"]!["type"]!.GetValue<string>());
+        Assert.Equal(
+            ["rejected", "selected"],
+            outputSchemas["decision"]!["enum"]!.AsArray()
+                .Select(static value => value!.GetValue<string>())
+                .Order(StringComparer.Ordinal));
+        Assert.True(JsonNode.DeepEquals(outputSchemas["decision"], inputSchemas["decision"]));
+    }
+
+    [Fact]
+    public void PipelineConditionalDecisionBoundary_RetryDropsStaleTechnicalDiagnostics()
+    {
+        var candidate = CreatePrivateConditionalBoundaryCandidate(
+            includeSharedBoundary: true,
+            includeStaleConditionalDiagnostic: true);
+        var remove = typeof(WorkflowPlanExecutor).GetMethod(
+            "RemoveStaleConditionalDecisionDiagnostics",
+            BindingFlags.Static | BindingFlags.NonPublic)!;
+
+        var current = remove.Invoke(null, [candidate])!;
+
+        Assert.Empty(Assert.IsAssignableFrom<IReadOnlyList<string>>(
+            current.GetType().GetProperty("ValidationErrors")!.GetValue(current)));
+        Assert.Empty(Assert.IsAssignableFrom<System.Collections.IEnumerable>(
+            current.GetType().GetProperty("RootCauses")!.GetValue(current)));
+    }
+
+    [Fact]
     public void PipelineLeafBlueprint_RejectsPublicOutputBoundToConditionalBranchCall()
     {
         var extraction = CreatePrivateConditionalBoundaryCandidate(includeSharedBoundary: true);
@@ -2630,7 +2691,10 @@ public class WorkflowPlanExecutorTests
             includeNativeStep: true,
             leafNames);
 
-    private static object CreatePrivateConditionalBoundaryCandidate(bool includeSharedBoundary)
+    private static object CreatePrivateConditionalBoundaryCandidate(
+        bool includeSharedBoundary,
+        bool incompatibleBoundary = false,
+        bool includeStaleConditionalDiagnostic = false)
     {
         var bindingType = GetPrivatePipelineType("CapabilityRequestBinding");
         var plannedToolType = GetPrivatePipelineType("PipelinePlannedTool");
@@ -2648,7 +2712,12 @@ public class WorkflowPlanExecutorTests
             new Dictionary<string, string>(StringComparer.Ordinal) { ["evidence"] = "string" },
             new Dictionary<string, string>(StringComparer.Ordinal) { ["decision"] = "string" },
             new Dictionary<string, JsonNode?>(StringComparer.Ordinal) { ["evidence"] = JsonNode.Parse("{\"type\":\"string\"}") },
-            new Dictionary<string, JsonNode?>(StringComparer.Ordinal) { ["decision"] = JsonNode.Parse("{\"type\":\"string\",\"enum\":[\"selected\",\"rejected\"]}") },
+            new Dictionary<string, JsonNode?>(StringComparer.Ordinal)
+            {
+                ["decision"] = incompatibleBoundary
+                    ? JsonNode.Parse("{\"type\":\"object\",\"properties\":{\"value\":{\"type\":\"string\"}}}")
+                    : JsonNode.Parse("{\"type\":\"string\",\"enum\":[\"selected\",\"rejected\"]}")
+            },
             CreatePrivatePipelineArray(plannedToolType),
             null,
             "The runtime decision is local shaping.",
@@ -2661,8 +2730,10 @@ public class WorkflowPlanExecutorTests
             : new Dictionary<string, string>(StringComparer.Ordinal) { ["payload"] = "string" };
         var consumerInputSchemas = consumerInputs.ToDictionary(
             static pair => pair.Key,
-            static pair => (JsonNode?)JsonNode.Parse(pair.Key == "decision"
-                ? "{\"type\":\"string\",\"enum\":[\"selected\",\"rejected\"]}"
+            pair => (JsonNode?)JsonNode.Parse(pair.Key == "decision"
+                ? incompatibleBoundary
+                    ? "{\"type\":\"array\",\"items\":{\"type\":\"string\"}}"
+                    : "{\"type\":\"string\",\"enum\":[\"selected\",\"rejected\"]}"
                 : "{\"type\":\"string\"}"),
             StringComparer.Ordinal);
         var selectedActivation = new McpCapabilityActivation(
@@ -2725,12 +2796,27 @@ public class WorkflowPlanExecutorTests
         var leaves = Array.CreateInstance(leafType, 2);
         leaves.SetValue(owner, 0);
         leaves.SetValue(consumer, 1);
+        var rootCauseType = GetPrivatePipelineType("PipelineRootCause");
+        var staleRootCause = CreatePrivatePipelineValue(
+            rootCauseType,
+            "conditional_decision_boundary_missing",
+            "pipeline_extraction",
+            "publish_outcome",
+            null,
+            "subworkflows.publish_outcome.inputs",
+            "CAPABILITY_PREFLIGHT_CONDITIONAL_DECISION_BOUNDARY_MISSING",
+            "Stale conditional boundary diagnostic.",
+            true);
         return CreatePrivatePipelineValue(
             extractionType,
             leaves,
             "Call choose_outcome, pass its decision to publish_outcome, and route without recomputing.",
-            Array.Empty<string>(),
-            CreatePrivatePipelineArray(GetPrivatePipelineType("PipelineRootCause")),
+            includeStaleConditionalDiagnostic
+                ? new[] { "CAPABILITY_PREFLIGHT_CONDITIONAL_DECISION_BOUNDARY_MISSING: stale" }
+                : Array.Empty<string>(),
+            includeStaleConditionalDiagnostic
+                ? CreatePrivatePipelineArray(rootCauseType, staleRootCause)
+                : CreatePrivatePipelineArray(rootCauseType),
             null,
             null,
             Array.Empty<string>(),
@@ -3044,6 +3130,12 @@ public class WorkflowPlanExecutorTests
         Assert.Equal("#/$defs/contract_field", nestedField["$ref"]!.GetValue<string>());
 
         var subworkflow = Assert.IsType<JsonObject>(schema["properties"]!["subworkflows"]!["items"]);
+        Assert.Contains(
+            Assert.IsType<JsonArray>(subworkflow["required"]),
+            static item => string.Equals(item?.GetValue<string>(), "owned_operation_ids", StringComparison.Ordinal));
+        var ownedOperations = Assert.IsType<JsonObject>(subworkflow["properties"]!["owned_operation_ids"]);
+        Assert.Equal("array", ownedOperations["type"]!.GetValue<string>());
+        Assert.Equal("string", ownedOperations["items"]!["type"]!.GetValue<string>());
         Assert.Equal(
             "#/$defs/contract_field",
             subworkflow["properties"]!["outputs"]!["items"]!["$ref"]!.GetValue<string>());
@@ -8910,6 +9002,19 @@ workflows:
         Assert.All(
             patchRequests,
             request => Assert.Contains("separately requested runtime fallback action", request.Prompt));
+    }
+
+    [Fact]
+    public void WorkflowPlan_PipelineMode_InferredPreflightProvesStructuredExtraction()
+    {
+        var method = typeof(WorkflowPlanExecutor).GetMethod(
+            "CapabilityPreflightProvesStructuredPipelineExtraction",
+            BindingFlags.NonPublic | BindingFlags.Static);
+
+        Assert.NotNull(method);
+        Assert.True(Assert.IsType<bool>(method!.Invoke(null, ["infer"])));
+        Assert.False(Assert.IsType<bool>(method.Invoke(null, ["explicit"])));
+        Assert.False(Assert.IsType<bool>(method.Invoke(null, ["off"])));
     }
 
     [Fact]

@@ -305,6 +305,43 @@ public sealed class WorkflowFailureFormatterTests
         Assert.Contains("read_feedback [ambiguous]", presentation.UserMessage, StringComparison.Ordinal);
         Assert.Contains("cap_000123: feedback/feedback_read (tool)", presentation.UserMessage, StringComparison.Ordinal);
         Assert.Contains("/method=\"list_threads\"", presentation.UserMessage, StringComparison.Ordinal);
+        Assert.Contains("Clarify the observable behavior", presentation.UserMessage, StringComparison.Ordinal);
+        Assert.Equal(1, presentation.MatchingIssueCount);
+    }
+
+    [Fact]
+    public void Format_DoesNotSendMalformedCapabilityMatchingToIntentClarification()
+    {
+        var error = new WorkflowError
+        {
+            Code = ErrorCodes.CapabilityPreflightInferenceFailed,
+            Message = "Capability matching remained invalid after one bounded repair attempt.",
+            Details = new JsonObject
+            {
+                ["planning_outcome"] = "cannot_plan_safely",
+                ["classification"] = "model_contract_violation",
+                ["recommended_action"] = "retry_or_change_planning_model",
+                ["matching_issues"] = new JsonArray
+                {
+                    new JsonObject
+                    {
+                        ["operation_id"] = "cleanup",
+                        ["description"] = "Clean up temporary resources.",
+                        ["status"] = "invalid",
+                        ["reason"] = "The selected capability cardinality is inconsistent.",
+                        ["reason_code"] = "matching_cardinality_invalid"
+                    }
+                }
+            }
+        };
+
+        var presentation = WorkflowFailureFormatter.Format(error);
+
+        Assert.Contains("Classification: model_contract_violation", presentation.UserMessage, StringComparison.Ordinal);
+        Assert.Contains("Diagnostic: matching_cardinality_invalid", presentation.UserMessage, StringComparison.Ordinal);
+        Assert.Contains("request itself does not need clarification", presentation.UserMessage, StringComparison.Ordinal);
+        Assert.Contains("select a planning model", presentation.UserMessage, StringComparison.Ordinal);
+        Assert.DoesNotContain("Clarify the observable behavior", presentation.UserMessage, StringComparison.Ordinal);
         Assert.Equal(1, presentation.MatchingIssueCount);
     }
 

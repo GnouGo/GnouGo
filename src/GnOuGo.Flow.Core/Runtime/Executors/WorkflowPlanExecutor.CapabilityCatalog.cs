@@ -47,7 +47,9 @@ public sealed partial class WorkflowPlanExecutor
         public IReadOnlyList<string> InputOperationIds { get; init; } = Array.Empty<string>();
         public IReadOnlyList<string> CoverageRequirements { get; init; } = Array.Empty<string>();
         public IReadOnlyList<CapabilityEvidenceAnchor> CoverageRequirementEvidence { get; init; } = Array.Empty<CapabilityEvidenceAnchor>();
+        public IReadOnlySet<string> WorkflowStructureCoverageRequirementIds { get; init; } = new HashSet<string>(StringComparer.Ordinal);
         public CapabilityEvidenceAnchor? OptionalityEvidenceAnchor { get; init; }
+        public CapabilityEvidenceAnchor? NoEffectOutcomeEvidenceAnchor { get; init; }
     }
     private sealed record CapabilityInventoryConstraint(
         string Id,
@@ -92,7 +94,10 @@ public sealed partial class WorkflowPlanExecutor
         bool Required,
         string Status,
         string Reason,
-        IReadOnlyList<string> CandidateCatalogIds);
+        IReadOnlyList<string> CandidateCatalogIds)
+    {
+        public string ReasonCode { get; init; } = "";
+    }
 
     private sealed record CapabilityOperationMatch(
         CapabilityInventoryOperation Operation,
@@ -106,7 +111,12 @@ public sealed partial class WorkflowPlanExecutor
         IReadOnlyList<string>? DecisionNoEffectValues = null,
         string? DecisionContractSource = null,
         string? DecisionProducerCatalogId = null,
-        string? DecisionGroundingFailureCode = null);
+        string? DecisionGroundingFailureCode = null)
+    {
+        public string? NormalizationReasonCode { get; init; }
+        public string? DecisionOutputPathNormalizationReasonCode { get; init; }
+        public string ConditionalActivationMode { get; init; } = "";
+    }
 
     private sealed record CapabilityConstraintMatch(
         CapabilityInventoryConstraint Constraint,
@@ -147,6 +157,20 @@ public sealed partial class WorkflowPlanExecutor
 
     private sealed record CapabilityCoverageReview(
         IReadOnlyList<CapabilityCoverageDiagnostic> Diagnostics,
+        bool ContractValid,
+        IReadOnlyList<CapabilityCoverageContractIssue> Issues);
+
+    private sealed record CapabilityCoverageGapAdjudication(
+        string OperationId,
+        string RequirementId,
+        string Classification,
+        IReadOnlyList<string> StructuralFacets,
+        string CatalogId,
+        string CatalogExcerpt,
+        bool EvidenceQualified);
+
+    private sealed record CapabilityCoverageGapAdjudicationReview(
+        IReadOnlyList<CapabilityCoverageGapAdjudication> Adjudications,
         bool ContractValid,
         IReadOnlyList<CapabilityCoverageContractIssue> Issues);
 
@@ -913,8 +937,22 @@ public sealed partial class WorkflowPlanExecutor
     private static bool TryBuildConditionalCompositionBranchValues(
         IReadOnlyList<CapabilityCatalogEntry> entries,
         out IReadOnlyDictionary<string, string> branchValues)
+        => TryBuildConditionalActivation(
+            entries,
+            allowNoEffectOutcome: false,
+            requestedActivationMode: string.Empty,
+            out branchValues,
+            out _);
+
+    private static bool TryBuildConditionalActivation(
+        IReadOnlyList<CapabilityCatalogEntry> entries,
+        bool allowNoEffectOutcome,
+        string requestedActivationMode,
+        out IReadOnlyDictionary<string, string> branchValues,
+        out string activationMode)
     {
         branchValues = new Dictionary<string, string>(StringComparer.Ordinal);
+        activationMode = string.Empty;
         if (entries.Count < 2)
             return false;
 
@@ -933,10 +971,73 @@ public sealed partial class WorkflowPlanExecutor
             .Select(group => TryBuildConditionalBranchValues(group, out var values) ? values : null)
             .Where(static values => values is not null)
             .ToArray();
-        if (variants.Length != 1)
+        var requestedExactlyOne = string.Equals(
+            requestedActivationMode,
+            ConditionalExactlyOneActivationMode,
+            StringComparison.Ordinal);
+        var requestedAllOnValue = string.Equals(
+            requestedActivationMode,
+            ConditionalAllOnValueActivationMode,
+            StringComparison.Ordinal);
+        if (requestedActivationMode.Length > 0 && !requestedExactlyOne && !requestedAllOnValue)
             return false;
 
-        branchValues = variants[0]!;
+        if (!requestedAllOnValue && variants.Length == 1)
+        {
+            branchValues = variants[0]!;
+            activationMode = ConditionalExactlyOneActivationMode;
+            return true;
+        }
+
+        if (requestedExactlyOne
+            || !requestedAllOnValue && variants.Length > 1
+            || !allowNoEffectOutcome
+            || entries.Any(static entry => !string.Equals(entry.Resolution, "mcp", StringComparison.Ordinal))
+            || !ConditionalCompositionInvocationsAreDistinct(entries))
+        {
+            return false;
+        }
+
+        branchValues = entries.ToDictionary(
+            static entry => entry.Id,
+            static _ => SynthesizedEffectDecisionValue,
+            StringComparer.Ordinal);
+        activationMode = ConditionalAllOnValueActivationMode;
+        return true;
+    }
+
+    private static bool ConditionalCompositionInvocationsAreDistinct(
+        IReadOnlyList<CapabilityCatalogEntry> entries)
+    {
+        for (var leftIndex = 0; leftIndex < entries.Count; leftIndex++)
+        {
+            for (var rightIndex = leftIndex + 1; rightIndex < entries.Count; rightIndex++)
+            {
+                var left = entries[leftIndex];
+                var right = entries[rightIndex];
+                if (!string.Equals(left.Server, right.Server, StringComparison.Ordinal)
+                    || !string.Equals(left.Kind, right.Kind, StringComparison.Ordinal)
+                    || !string.Equals(left.Method, right.Method, StringComparison.Ordinal))
+                {
+                    continue;
+                }
+
+                var leftBindings = left.RequestBindings.ToDictionary(
+                    static binding => binding.Path,
+                    static binding => CanonicalScalar(binding.Value),
+                    StringComparer.Ordinal);
+                var rightBindings = right.RequestBindings.ToDictionary(
+                    static binding => binding.Path,
+                    static binding => CanonicalScalar(binding.Value),
+                    StringComparer.Ordinal);
+                var conflicts = leftBindings.Any(binding =>
+                    rightBindings.TryGetValue(binding.Key, out var value)
+                    && !string.Equals(binding.Value, value, StringComparison.Ordinal));
+                if (!conflicts)
+                    return false;
+            }
+        }
+
         return true;
     }
 

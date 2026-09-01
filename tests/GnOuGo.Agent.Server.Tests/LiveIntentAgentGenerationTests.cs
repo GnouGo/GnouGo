@@ -83,6 +83,9 @@ public sealed class LiveIntentAgentGenerationTests
         var workflowWorkspacesRoot = GnOuGoWorkspace.ResolveWorkflowWorkspacesDirectory(workspaceRoot);
         var existingWorkflowWorkspaces = SnapshotWorkflowWorkspaces(workflowWorkspacesRoot);
         var attemptedAgentNames = new HashSet<string>(StringComparer.Ordinal);
+        var telemetryDatabasePath = Path.Combine(
+            Path.GetTempPath(),
+            $"gnougo-live-telemetry-{Guid.NewGuid():N}.db");
         AgentUserConfigSnapshot? previousConfig = null;
         WebApplication? app = null;
         var runSucceeded = false;
@@ -92,7 +95,11 @@ public sealed class LiveIntentAgentGenerationTests
         {
             Directory.SetCurrentDirectory(sourceRoot);
             app = GnOuGoAgentWebHost.Build(
-                ["--OtlpCollector:Enabled=false", "--OpenTelemetry:Enabled=false"],
+                [
+                    "--OtlpCollector:Enabled=false",
+                    "--OpenTelemetry:Enabled=false",
+                    $"--Database:Path={telemetryDatabasePath}"
+                ],
                 urls: "http://127.0.0.1:0",
                 contentRoot: Path.Combine(sourceRoot, "src", "GnOuGo.Agent.Server"),
                 enableHttpsRedirection: false,
@@ -284,6 +291,14 @@ public sealed class LiveIntentAgentGenerationTests
                 {
                     failures.Add(ex);
                 }
+                try
+                {
+                    DeleteSqliteFiles(telemetryDatabasePath);
+                }
+                catch (Exception ex)
+                {
+                    failures.Add(ex);
+                }
                 WriteLiveProgress(failures.Count == failureCountBeforeCleanup ? "cleanup_completed" : "cleanup_failed");
             }
             finally
@@ -303,6 +318,78 @@ public sealed class LiveIntentAgentGenerationTests
         }
 
         ThrowCapturedFailures(failures);
+    }
+
+    private static void DeleteSqliteFiles(string databasePath)
+    {
+        foreach (var path in new[] { databasePath, $"{databasePath}-wal", $"{databasePath}-shm" })
+        {
+            if (File.Exists(path))
+                File.Delete(path);
+            Assert.False(File.Exists(path), $"Temporary live telemetry database file was not deleted: {path}");
+        }
+    }
+
+    [Fact]
+    public void LiveTelemetryDatabaseCleanup_RemovesDatabaseAndSidecars()
+    {
+        var databasePath = Path.Combine(
+            Path.GetTempPath(),
+            $"gnougo-live-telemetry-cleanup-{Guid.NewGuid():N}.db");
+        var paths = new[] { databasePath, $"{databasePath}-wal", $"{databasePath}-shm" };
+        try
+        {
+            foreach (var path in paths)
+                File.WriteAllText(path, "test");
+
+            DeleteSqliteFiles(databasePath);
+
+            Assert.All(paths, static path => Assert.False(File.Exists(path)));
+        }
+        finally
+        {
+            foreach (var path in paths)
+            {
+                if (File.Exists(path))
+                    File.Delete(path);
+            }
+        }
+    }
+
+    [Fact]
+    public void LiveProgress_WhitelistsSanitizedProviderDiagnostics()
+    {
+        var path = Path.Combine(Path.GetTempPath(), $"gnougo-live-progress-{Guid.NewGuid():N}.jsonl");
+        var previousPath = Environment.GetEnvironmentVariable(ProgressPathVariable);
+        try
+        {
+            Environment.SetEnvironmentVariable(ProgressPathVariable, path);
+            WriteLiveProgress(
+                "provider_probe_failed",
+                errorCode: ErrorCodes.LlmNetwork,
+                retryable: true,
+                providerDiagnostics: new JsonObject
+                {
+                    ["classification"] = "ratelimited",
+                    ["status_code"] = 429,
+                    ["provider_code"] = "safe_code",
+                    ["endpoint"] = "https://must-not-be-recorded.invalid",
+                    ["prompt"] = "must-not-be-recorded"
+                });
+
+            var entry = Assert.IsType<JsonObject>(JsonNode.Parse(File.ReadAllText(path).Trim()));
+            Assert.Equal("ratelimited", entry["classification"]!.GetValue<string>());
+            Assert.Equal(429, entry["status_code"]!.GetValue<int>());
+            Assert.Equal("safe_code", entry["provider_code"]!.GetValue<string>());
+            Assert.Null(entry["endpoint"]);
+            Assert.Null(entry["prompt"]);
+        }
+        finally
+        {
+            Environment.SetEnvironmentVariable(ProgressPathVariable, previousPath);
+            if (File.Exists(path))
+                File.Delete(path);
+        }
     }
 
     private static async Task AssertLiveReviewCompositionContractAsync(
@@ -428,7 +515,12 @@ public sealed class LiveIntentAgentGenerationTests
             catch (WorkflowRuntimeException ex) when (
                 ex.Code is ErrorCodes.LlmBudgetExceeded or ErrorCodes.LlmBudgetUnverifiable)
             {
-                WriteLiveProgress("provider_probe_failed", errorCode: ex.Code, retryable: false, budget: cycleBudget.Snapshot);
+                WriteLiveProgress(
+                    "provider_probe_failed",
+                    errorCode: ex.Code,
+                    retryable: false,
+                    budget: cycleBudget.Snapshot,
+                    providerDiagnostics: ex.Details as JsonObject);
                 throw;
             }
             catch (OperationCanceledException) when (ct.IsCancellationRequested)
@@ -443,7 +535,8 @@ public sealed class LiveIntentAgentGenerationTests
                     providerAttempt: attempt,
                     errorCode: classified.Code,
                     retryable: classified.Retryable,
-                    budget: cycleBudget.Snapshot);
+                    budget: cycleBudget.Snapshot,
+                    providerDiagnostics: classified.Details as JsonObject);
                 if (attempt < 2 && classified.Retryable)
                     continue;
                 throw classified;
@@ -1497,7 +1590,8 @@ public sealed class LiveIntentAgentGenerationTests
         SmartFlowEvent? flowEvent = null,
         string? errorCode = null,
         bool? retryable = null,
-        LLMUsageBudgetSnapshot? budget = null)
+        LLMUsageBudgetSnapshot? budget = null,
+        JsonObject? providerDiagnostics = null)
     {
         var path = Environment.GetEnvironmentVariable(ProgressPathVariable);
         if (string.IsNullOrWhiteSpace(path))
@@ -1527,6 +1621,14 @@ public sealed class LiveIntentAgentGenerationTests
             entry["budget_calls"] = budget.Calls;
             entry["budget_total_tokens"] = budget.TotalTokens;
             entry["budget_estimated_cost_usd"] = budget.EstimatedCostUsd;
+        }
+        if (providerDiagnostics is not null)
+        {
+            foreach (var property in new[] { "classification", "status_code", "provider_code" })
+            {
+                if (providerDiagnostics[property] is JsonValue value)
+                    entry[property] = value.DeepClone();
+            }
         }
 
         try

@@ -222,13 +222,22 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
         var reasoning = generator["reasoning"]?.GetValue<string>();
         if (string.IsNullOrWhiteSpace(reasoning))
             reasoning = "medium";
-        var useStructuredExtraction = await ShouldUseStructuredPipelineExtractionAsync(ctx, provider, model, ct);
+        var capabilityPreflightProvesStructuredExtraction =
+            CapabilityPreflightProvesStructuredPipelineExtraction(capabilityPreflight.Mode);
+        var useStructuredExtraction = capabilityPreflightProvesStructuredExtraction
+            || await ShouldUseStructuredPipelineExtractionAsync(ctx, provider, model, ct);
+        var structuredExtractionSource = capabilityPreflightProvesStructuredExtraction
+            ? "capability_preflight_proven"
+            : useStructuredExtraction
+                ? "provider_capability"
+                : "annotated_markdown_fallback";
 
         ctx.SetTelemetryAttribute("gnougo-flow.plan.mode", "pipeline");
         ctx.SetTelemetryAttribute("gen_ai.operation.name", "chat");
         ctx.SetTelemetryAttribute("gen_ai.system", provider ?? "unspecified");
         ctx.SetTelemetryAttribute("gen_ai.request.model", model);
         ctx.SetTelemetryAttribute("gnougo-flow.plan.pipeline.structured_extraction", useStructuredExtraction);
+        ctx.SetTelemetryAttribute("gnougo-flow.plan.pipeline.structured_extraction_source", structuredExtractionSource);
 
         ctx.AddTelemetryEvent("gnougo-flow.step.thinking", new[]
         {
@@ -1182,6 +1191,9 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
         }
     }
 
+    private static bool CapabilityPreflightProvesStructuredPipelineExtraction(string mode)
+        => string.Equals(mode, "infer", StringComparison.Ordinal);
+
     private static async Task<PipelineMcpContext> BuildPipelineGlobalMcpContextAsync(
         ILLMClient llmClient,
         JsonObject generator,
@@ -1440,7 +1452,7 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
                         ct,
                         attempt,
                         maxAttempts,
-                        BuildMarkExtractableBlocksStructuredOutputSchema());
+                        BuildMarkExtractableBlocksStructuredOutputSchemaForCapabilities(capabilityPreflight));
 
                     (annotatedMarkdown, structuredMetadata, responseValidationErrors) =
                         ParseMarkExtractableBlocksResponse(response, allowAnnotatedMarkdownFallback: false);
@@ -2000,6 +2012,7 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
             - Structured subworkflow metadata must also declare `contract_role`: `external_action`, `typed_data_producer`, `algorithmic_transform`, `deterministic_glue`, `orchestration`, or `abstract_policy`.
             - Only `external_action`, `typed_data_producer`, and `algorithmic_transform` are valid leaf roles. `deterministic_glue`, `orchestration`, and `abstract_policy` must stay in `## Main workflow orchestration`.
             - Structured subworkflow metadata must include `concrete_outcome`: the exact concrete value, side effect, or typed data product this leaf owns.
+            - Structured subworkflow metadata must include `owned_operation_ids`. Copy each supplied locked operation ID to exactly one cohesive leaf that owns its implementation. This ownership declaration is independent from `planned_tools`: it remains required even if a planned-tool entry is accidentally omitted, and it must never be inferred from leaf wording, provider/tool names, catalog numbering, or document order.
             - Structured output fields should declare concrete object properties and array item types when later workflow steps need field-level access.
             - Avoid `any`, bare `object`, and bare `array` outputs. If an output may be looped over or inspected by the main workflow, declare concrete `items` and object `properties`.
             - Structured `planned_tools` must list every MCP server tool or prompt this leaf is expected to call directly.
@@ -2008,6 +2021,7 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
             - Mark planned tools as required when omitting that MCP call would violate the leaf goal.
             - For each relevant MCP tool or prompt, add a structured planned_tools entry with the exact server name, kind, method name, purpose, consumed fields, produced fields, and any locked request_bindings.
             - Treat each locked capability as a separate invocation obligation, even when multiple operations use the same physical tool. Copy supplied operation_id and catalog_id values into operation_ids and catalog_ids for traceability.
+            - Every planned tool carrying a locked operation_id must belong to the leaf whose `owned_operation_ids` contains that exact ID. A composed or conditional operation keeps one leaf owner while listing each distinct locked catalog occurrence as its own planned tool.
             - request_bindings are only immutable selector literals explicitly documented by a selected capability contract. They are not ordinary tool arguments. Use an empty array unless the MCP context explicitly supplies a locked JSON Pointer/scalar pair; never put runtime commands, paths, URLs, identifiers, or other dynamic inputs in request_bindings.
             - Never return an `external_work` or `external_action` leaf with both an empty planned_tools array and an empty planned_native_steps array. Select the exact documented MCP or native capability, or keep the work in main when it is orchestration/glue, or classify it as an algorithmic transform only when it operates exclusively on declared inputs without external calls or state inspection.
             - Do not invent a separate external inspection, preparation, or analysis leaf that has no corresponding requested/locked capability occurrence. Fold that obligation into the cohesive leaf that owns the compatible locked external operation, or rewrite it as deterministic processing of an already materialized typed input with no external session or state inspection.
@@ -2097,6 +2111,7 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
             sb.AppendLine("- Structured inputs and outputs must use names declared in the matching annotated block.");
             sb.AppendLine("- Structured work_kind must match the leaf role: orchestration, deterministic_shaping, or external_work.");
             sb.AppendLine("- Structured contract_role must be one of external_action, typed_data_producer, algorithmic_transform, deterministic_glue, orchestration, or abstract_policy.");
+            sb.AppendLine("- Preserve `owned_operation_ids` as exact locked ownership claims. Assign each supplied non-main operation ID to exactly one cohesive leaf, independently of planned_tools; never choose ownership from wording, names, catalog numbering, or leaf order.");
             sb.AppendLine("- Only external_action, typed_data_producer, and algorithmic_transform can remain as leaf blocks; move deterministic_glue, orchestration, and abstract_policy back to the main workflow.");
             sb.AppendLine("- Every remaining leaf must have a concrete_outcome and strongly typed input and output schemas.");
             sb.AppendLine("- Public leaf boundaries must never use `type: any`, bare objects, or arrays without concrete items. Model the fields consumed from another leaf explicitly.");
@@ -3156,7 +3171,13 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
         }
     }
 
-    private static JsonNode BuildMarkExtractableBlocksStructuredOutputSchema() => JsonNode.Parse("""
+    private static JsonNode BuildMarkExtractableBlocksStructuredOutputSchema()
+        => BuildMarkExtractableBlocksStructuredOutputSchemaForCapabilities(CapabilityPreflightResult.Off);
+
+    private static JsonNode BuildMarkExtractableBlocksStructuredOutputSchemaForCapabilities(
+        CapabilityPreflightResult capabilityPreflight)
+    {
+        var schema = JsonNode.Parse("""
         {
           "type": "object",
           "additionalProperties": false,
@@ -3189,7 +3210,7 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
               "items": {
                 "type": "object",
                 "additionalProperties": false,
-                "required": ["name", "goal", "description", "work_kind", "contract_role", "concrete_outcome", "inputs", "outputs", "extract_reason", "content", "planned_tools"],
+                "required": ["name", "goal", "description", "work_kind", "contract_role", "concrete_outcome", "owned_operation_ids", "inputs", "outputs", "extract_reason", "content", "planned_tools"],
                 "properties": {
                   "name": { "type": "string" },
                   "goal": { "type": "string" },
@@ -3197,6 +3218,7 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
                   "work_kind": { "type": "string", "enum": ["orchestration", "deterministic_shaping", "external_work"] },
                   "contract_role": { "type": "string", "enum": ["external_action", "typed_data_producer", "algorithmic_transform", "deterministic_glue", "orchestration", "abstract_policy"] },
                   "concrete_outcome": { "type": "string" },
+                  "owned_operation_ids": { "type": "array", "items": { "type": "string" } },
                   "inputs": {
                     "type": "array",
                     "items": { "$ref": "#/$defs/contract_field" }
@@ -3244,6 +3266,20 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
           }
         }
         """)!;
+        var operationIds = capabilityPreflight.Capabilities
+            .Where(static capability => capability.Required && !IsMainOrchestrationNativeCapability(capability))
+            .SelectMany(GetResolvedCapabilityOperationIds)
+            .Distinct(StringComparer.Ordinal)
+            .Order(StringComparer.Ordinal)
+            .Select(static operationId => (JsonNode?)JsonValue.Create(operationId))
+            .ToArray();
+        if (operationIds.Length > 0)
+        {
+            schema["properties"]!["subworkflows"]!["items"]!["properties"]!
+                ["owned_operation_ids"]!["items"]!["enum"] = new JsonArray(operationIds);
+        }
+        return schema;
+    }
 
     private static (string AnnotatedMarkdown, StructuredPipelineExtractionMetadata Metadata, IReadOnlyList<string> ValidationErrors)
         ParseMarkExtractableBlocksResponse(LLMResponse response, bool allowAnnotatedMarkdownFallback)
@@ -3384,6 +3420,7 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
             NormalizePipelineWorkKind(GetStringProperty(subworkflow, "work_kind")),
             NormalizePipelineContractRole(GetStringProperty(subworkflow, "contract_role")),
             GetStringProperty(subworkflow, "concrete_outcome"),
+            GetStringArray(subworkflow["owned_operation_ids"] as JsonArray),
             ParseStructuredContractFields(subworkflow["inputs"] as JsonArray, name, "inputs", validationErrors),
             ParseStructuredContractFields(subworkflow["outputs"] as JsonArray, name, "outputs", validationErrors),
             ParseStructuredPlannedTools(subworkflow["planned_tools"] as JsonArray, name, validationErrors));
@@ -3994,6 +4031,7 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
                 Description = structured?.Description,
                 ContractRole = contractRole,
                 ConcreteOutcome = structured?.ConcreteOutcome,
+                OwnedOperationIds = structured?.OwnedOperationIds ?? Array.Empty<string>(),
                 InputSchemas = inputSchemas,
                 OutputSchemas = outputSchemas,
                 PlannedTools = plannedTools,
@@ -13807,6 +13845,7 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
             ["work_kind"] = spec.WorkKind,
             ["contract_role"] = spec.ContractRole,
             ["concrete_outcome"] = spec.ConcreteOutcome,
+            ["owned_operation_ids"] = BuildStringArrayJson(spec.OwnedOperationIds ?? Array.Empty<string>()),
             ["inputs"] = BuildStringMapJson(spec.Inputs),
             ["outputs"] = BuildStringMapJson(spec.Outputs),
             ["input_schemas"] = BuildSchemaMapJson(spec.InputSchemas),
@@ -14046,7 +14085,10 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
         string Content,
         string GenerationPrompt,
         IReadOnlyList<string>? LocalOperationIds = null,
-        IReadOnlyList<PipelinePlannedNativeStep>? PlannedNativeSteps = null);
+        IReadOnlyList<PipelinePlannedNativeStep>? PlannedNativeSteps = null)
+    {
+        public IReadOnlyList<string> OwnedOperationIds { get; init; } = Array.Empty<string>();
+    }
 
     private sealed record PipelinePlannedTool(
         string Server,
@@ -14085,6 +14127,7 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
         string? WorkKind,
         string? ContractRole,
         string? ConcreteOutcome,
+        IReadOnlyList<string> OwnedOperationIds,
         IReadOnlyDictionary<string, JsonNode?> Inputs,
         IReadOnlyDictionary<string, JsonNode?> Outputs,
         IReadOnlyList<PipelinePlannedTool> PlannedTools);

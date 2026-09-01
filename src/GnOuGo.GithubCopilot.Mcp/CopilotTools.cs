@@ -16,6 +16,9 @@ internal sealed class CopilotTools
     private const string ReviewProjectRootDescription = "Required workspace-relative path to an existing project root outside the reserved .GnOuGo internal directory. Pass a documented workspace.directory artifact output or a caller-provided existing directory; a URL, repository identifier, absolute path, or invented path is invalid.";
     private const string ReviewFilesJsonDescription = "Required JSON array of per-file exact comparison patches returned by a documented revision-comparison capability. A raw aggregate diff or invented file list is invalid.";
     private const string ManagementOnlyMetadataJson = """{"management":{"version":1,"visibility":"management_only"}}""";
+    private const string ManagedSessionCreateMetadataJson = """{"artifacts":{"version":1,"produces":[{"kind":"session.handle","pointer":"/handle","mode":"materialize"}],"consumes":[{"kind":"workspace.directory","pointer":"/projectRoot","required":true}]}}""";
+    private const string SessionHandleConsumerMetadataJson = """{"artifacts":{"version":1,"consumes":[{"kind":"session.handle","pointer":"/handle","required":true}]}}""";
+    private const string CompleteOneShotMetadataJson = """{"artifacts":{"version":1,"consumes":[{"kind":"workspace.directory","pointer":"/projectRoot","required":true}]},"composition":{"version":1,"kind":"complete_operation","encapsulates":[{"kind":"tool","method":"copilot_session_create"},{"kind":"tool","method":"copilot_session_send"},{"kind":"tool","method":"copilot_session_disconnect"},{"kind":"tool","method":"copilot_session_delete"}]}}""";
     private const string CompleteReviewMetadataJson = """{"artifacts":{"version":1,"consumes":[{"kind":"workspace.directory","pointer":"/projectRoot","required":true},{"kind":"revision.comparison.files","pointer":"/filesJson","required":true}]},"composition":{"version":1,"kind":"complete_operation","encapsulates":[{"kind":"tool","method":"copilot_review_start"},{"kind":"tool","method":"copilot_review_analyze_batch"},{"kind":"tool","method":"copilot_review_finish"}]}}""";
 
     private readonly CopilotSessionManager _sessions;
@@ -129,7 +132,7 @@ internal sealed class CopilotTools
         => ExecuteAsync(() => _sessions.ListModelsAsync(BuildConfiguration(null), cancellationToken));
 
     [McpServerTool(Name = "copilot_session_create", UseStructuredContent = true, OutputSchemaType = typeof(CopilotSessionDescriptor)), Description("Creates a tenant-bound managed Copilot session and returns an opaque handle. MCP transport/session IDs are never used as Copilot session identity.")]
-    [McpMeta(McpArtifactContractMetadata.MetaPropertyName, JsonValue = McpArtifactContractMetadata.WorkspaceDirectoryConsumerProjectRootJson)]
+    [McpMeta(McpArtifactContractMetadata.MetaPropertyName, JsonValue = ManagedSessionCreateMetadataJson)]
     public Task<CopilotSessionDescriptor> CreateSessionAsync(
         RequestContext<CallToolRequestParams> requestContext,
         [Description(ReviewProjectRootDescription)] string projectRoot,
@@ -171,14 +174,17 @@ internal sealed class CopilotTools
         => _sessions.DescribeConfiguration(BuildContext(tenantId), handle);
 
     [McpServerTool(Name = "copilot_session_disconnect", UseStructuredContent = true, OutputSchemaType = typeof(CopilotOperationResult)), Description("Disconnects a managed session while preserving resumable Copilot state until its TTL expires.")]
+    [McpMeta(McpArtifactContractMetadata.MetaPropertyName, JsonValue = SessionHandleConsumerMetadataJson)]
     public Task<CopilotOperationResult> DisconnectSessionAsync(string handle, string? tenantId = null, CancellationToken cancellationToken = default)
         => ExecuteAsync(() => _sessions.DisconnectAsync(BuildContext(tenantId), handle, cancellationToken));
 
     [McpServerTool(Name = "copilot_session_delete", UseStructuredContent = true, OutputSchemaType = typeof(CopilotOperationResult)), Description("Permanently deletes a tenant-owned Copilot session and its persisted SDK state.")]
+    [McpMeta(McpArtifactContractMetadata.MetaPropertyName, JsonValue = SessionHandleConsumerMetadataJson)]
     public Task<CopilotOperationResult> DeleteSessionAsync(string handle, string? tenantId = null, CancellationToken cancellationToken = default)
         => ExecuteAsync(() => _sessions.DeleteAsync(BuildContext(tenantId), handle, cancellationToken));
 
     [McpServerTool(Name = "copilot_session_send", UseStructuredContent = true, OutputSchemaType = typeof(CopilotSendResult)), Description("Sends a serialized message to a managed session. deliveryMode enqueue queues a turn; immediate steers an active turn. Streaming progress excludes raw model reasoning.")]
+    [McpMeta(McpArtifactContractMetadata.MetaPropertyName, JsonValue = SessionHandleConsumerMetadataJson)]
     public Task<CopilotSendResult> SendAsync(
         RequestContext<CallToolRequestParams> requestContext,
         string handle,
@@ -193,7 +199,7 @@ internal sealed class CopilotTools
             cancellationToken));
 
     [McpServerTool(Name = "copilot_one_shot", UseStructuredContent = true, OutputSchemaType = typeof(CopilotSendResult)), Description("Runs one non-interactive call in one ephemeral Copilot session, then disconnects and permanently deletes it. The deny default is appropriate for inference that needs no tool execution. Use copilot_interactive_one_shot for work that may install dependencies, run commands, edit files, or otherwise require user permission. approve_all is host-policy gated and generated workflows must not select it unless unattended execution was explicitly requested and availability is established.")]
-    [McpMeta(McpArtifactContractMetadata.MetaPropertyName, JsonValue = McpArtifactContractMetadata.WorkspaceDirectoryConsumerProjectRootJson)]
+    [McpMeta(McpArtifactContractMetadata.MetaPropertyName, JsonValue = CompleteOneShotMetadataJson)]
     public Task<CopilotSendResult> OneShotAsync(
         RequestContext<CallToolRequestParams> requestContext,
         [Description(ReviewProjectRootDescription)] string projectRoot,
@@ -212,7 +218,7 @@ internal sealed class CopilotTools
             cancellationToken));
 
     [McpServerTool(Name = "copilot_interactive_one_shot", UseStructuredContent = true, OutputSchemaType = typeof(CopilotSendResult)), Description("Runs one turn in an ephemeral managed Copilot session with interactive MCP permission and elicitation callbacks, then permanently deletes the session after success, failure, or cancellation. Use this capability for work that may install dependencies, run commands, edit files, or otherwise require user permission.")]
-    [McpMeta(McpArtifactContractMetadata.MetaPropertyName, JsonValue = McpArtifactContractMetadata.WorkspaceDirectoryConsumerProjectRootJson)]
+    [McpMeta(McpArtifactContractMetadata.MetaPropertyName, JsonValue = CompleteOneShotMetadataJson)]
     public Task<CopilotSendResult> InteractiveOneShotAsync(
         RequestContext<CallToolRequestParams> requestContext,
         [Description(ReviewProjectRootDescription)] string projectRoot,

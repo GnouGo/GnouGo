@@ -122,6 +122,7 @@ public sealed partial class WorkflowPlanExecutor
             ["native_capability_count"] = leaf.PlannedNativeSteps?.Count ?? 0,
             ["local_operation_count"] = leaf.LocalOperationIds?.Count ?? 0,
             ["local_operation_ids"] = BuildStringArrayJson(leaf.LocalOperationIds ?? Array.Empty<string>()),
+            ["owned_operation_ids"] = BuildStringArrayJson(leaf.OwnedOperationIds ?? Array.Empty<string>()),
             ["removable"] = !leaf.PlannedTools.Any(IsImmutablePipelinePlannedTool)
                             && (leaf.PlannedNativeSteps?.Count ?? 0) == 0
                             && (leaf.LocalOperationIds?.Count ?? 0) == 0
@@ -319,7 +320,12 @@ public sealed partial class WorkflowPlanExecutor
             {
                 case "add_leaf":
                 {
-                    var added = ParsePatchedLeaf(leafNode, Array.Empty<PipelinePlannedTool>(), Array.Empty<string>(), Array.Empty<PipelinePlannedNativeStep>());
+                    var added = ParsePatchedLeaf(
+                        leafNode,
+                        Array.Empty<PipelinePlannedTool>(),
+                        Array.Empty<string>(),
+                        Array.Empty<PipelinePlannedNativeStep>(),
+                        Array.Empty<string>());
                     if (!string.Equals(added.WorkKind, PipelineWorkKindDeterministicShaping, StringComparison.Ordinal)
                         || !string.Equals(added.ContractRole, PipelineContractRoleAlgorithmicTransform, StringComparison.Ordinal))
                     {
@@ -344,7 +350,8 @@ public sealed partial class WorkflowPlanExecutor
                         leafNode,
                         GetImmutablePipelinePlannedTools(existing.PlannedTools),
                         existing.LocalOperationIds ?? Array.Empty<string>(),
-                        existing.PlannedNativeSteps ?? Array.Empty<PipelinePlannedNativeStep>());
+                        existing.PlannedNativeSteps ?? Array.Empty<PipelinePlannedNativeStep>(),
+                        existing.OwnedOperationIds ?? Array.Empty<string>());
                     if (!string.Equals(replacement.Name, target, StringComparison.Ordinal))
                         throw BuildPipelinePatchFailure("replace_leaf must preserve the target leaf name.");
                     leaves[index] = PreserveTargetedPatchContractSchemas(replacement, existing);
@@ -376,7 +383,16 @@ public sealed partial class WorkflowPlanExecutor
                         .SelectMany(static source => source.PlannedNativeSteps ?? Array.Empty<PipelinePlannedNativeStep>())
                         .DistinctBy(static step => BuildPlannedNativeStepJson(step).ToJsonString(), StringComparer.Ordinal)
                         .ToArray();
-                    var merged = ParsePatchedLeaf(leafNode, plannedTools, localOperations, nativeSteps);
+                    var ownedOperations = sourceLeaves
+                        .SelectMany(static source => source.OwnedOperationIds ?? Array.Empty<string>())
+                        .Distinct(StringComparer.Ordinal)
+                        .ToArray();
+                    var merged = ParsePatchedLeaf(
+                        leafNode,
+                        plannedTools,
+                        localOperations,
+                        nativeSteps,
+                        ownedOperations);
                     foreach (var sourceLeaf in sourceLeaves)
                         merged = PreserveTargetedPatchContractSchemas(merged, sourceLeaf);
                     if (leaves.Any(candidate => !sources.Contains(candidate.Name, StringComparer.Ordinal)
@@ -435,7 +451,8 @@ public sealed partial class WorkflowPlanExecutor
         JsonObject? leaf,
         IReadOnlyList<PipelinePlannedTool> plannedTools,
         IReadOnlyList<string> localOperationIds,
-        IReadOnlyList<PipelinePlannedNativeStep> nativeSteps)
+        IReadOnlyList<PipelinePlannedNativeStep> nativeSteps,
+        IReadOnlyList<string> ownedOperationIds)
     {
         if (leaf == null)
             throw BuildPipelinePatchFailure("This patch operation requires a complete leaf payload.");
@@ -486,7 +503,10 @@ public sealed partial class WorkflowPlanExecutor
             content,
             GenerationPrompt: "",
             localOperationIds,
-            nativeSteps);
+            nativeSteps)
+        {
+            OwnedOperationIds = ownedOperationIds
+        };
         return result with { GenerationPrompt = BuildSubworkflowGenerationPrompt(result) };
     }
 

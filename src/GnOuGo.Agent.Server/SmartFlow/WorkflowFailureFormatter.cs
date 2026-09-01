@@ -22,13 +22,16 @@ internal static class WorkflowFailureFormatter
         if (!string.IsNullOrWhiteSpace(planningOutcome)
             && (error.Code == ErrorCodes.WorkflowPlanClarificationFailed
                 || error.Code == ErrorCodes.WorkflowPlanCannotPlanSafely
-                || error.Code == ErrorCodes.WorkflowPlanAborted))
+                || error.Code == ErrorCodes.WorkflowPlanAborted
+                || error.Code == ErrorCodes.CapabilityPreflightInferenceFailed))
         {
             var stage = ReadBoundedStringDeep(error.Details, "clarification_stage", 120);
             var classification = ReadBoundedStringDeep(error.Details, "classification", 160);
             var reason = ReadBoundedStringDeep(error.Details, "reason", 2_000);
             var recommendedAction = ReadBoundedStringDeep(error.Details, "recommended_action", 160);
-            builder.AppendLine().AppendLine("Intent clarification outcome:");
+            builder.AppendLine().AppendLine(error.Code == ErrorCodes.CapabilityPreflightInferenceFailed
+                ? "Capability planning outcome:"
+                : "Intent clarification outcome:");
             builder.Append("- Outcome: ").AppendLine(Sanitize(planningOutcome, 80));
             if (!string.IsNullOrWhiteSpace(stage))
                 builder.Append("- Stage: ").AppendLine(Sanitize(stage, 120));
@@ -119,6 +122,15 @@ internal static class WorkflowFailureFormatter
         var matchingIssues = ReadObjectArrayDeep(error.Details, "matching_issues");
         if (matchingIssues.Count > 0)
         {
+            var matchingClassification = ReadBoundedStringDeep(error.Details, "classification", 160);
+            var containsInvalidMatch = matchingIssues.Any(static issue => string.Equals(
+                ReadBoundedString(issue, "status", 40),
+                "invalid",
+                StringComparison.Ordinal));
+            var onlyAmbiguousMatches = matchingIssues.All(static issue => string.Equals(
+                ReadBoundedString(issue, "status", 40),
+                "ambiguous",
+                StringComparison.Ordinal));
             builder.AppendLine().AppendLine("Capability matching issues:");
             foreach (var issue in matchingIssues)
             {
@@ -126,8 +138,11 @@ internal static class WorkflowFailureFormatter
                 var status = Sanitize(ReadBoundedString(issue, "status", 40) ?? "unresolved", 40);
                 var description = Sanitize(ReadBoundedString(issue, "description", 1_000) ?? "No description was provided.", 1_000);
                 var reason = Sanitize(ReadBoundedString(issue, "reason", 1_000) ?? "No matching reason was provided.", 1_000);
+                var reasonCode = Sanitize(ReadBoundedString(issue, "reason_code", 160) ?? string.Empty, 160);
                 builder.Append("- ").Append(id).Append(" [").Append(status).Append("]: ").AppendLine(description);
                 builder.Append("  Reason: ").AppendLine(reason);
+                if (!string.IsNullOrWhiteSpace(reasonCode))
+                    builder.Append("  Diagnostic: ").AppendLine(reasonCode);
 
                 var candidates = ReadObjectArray(issue, "candidate_capabilities").Take(8).ToArray();
                 if (candidates.Length == 0)
@@ -148,8 +163,22 @@ internal static class WorkflowFailureFormatter
                     builder.AppendLine();
                 }
             }
-            builder.AppendLine()
-                .Append("Resolve the reported ambiguity by configuring a more specific capability contract or clarifying the runtime intention; catalog IDs and selector values above are the exact discovered candidates.");
+            builder.AppendLine();
+            if (containsInvalidMatch || string.Equals(
+                    matchingClassification,
+                    "model_contract_violation",
+                    StringComparison.Ordinal))
+            {
+                builder.Append("The request itself does not need clarification for this failure. Retry planning or select a planning model that can satisfy the capability matching contract.");
+            }
+            else if (onlyAmbiguousMatches)
+            {
+                builder.Append("Clarify the observable behavior, scope, or runtime policy that distinguishes the remaining capability choices.");
+            }
+            else
+            {
+                builder.Append("Revise the capability contracts or configure the missing compatible capability before retrying.");
+            }
         }
 
         var violatedConstraints = ReadObjectArrayDeep(error.Details, "violated_constraints");
