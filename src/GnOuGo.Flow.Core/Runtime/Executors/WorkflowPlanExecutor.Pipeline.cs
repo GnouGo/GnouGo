@@ -612,6 +612,7 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
                             ? TryGetPipelineLeafRuntimeValidationFailure(
                                 ex,
                                 currentLeaves.Select(static leaf => leaf.Name).ToArray())
+                              ?? TryGetConditionalActivationLeafTopologyFailure(ex, currentLeaves)
                             : null;
                         if (inputContractDemand == null && contractDemand == null && runtimeValidationLeaf == null)
                         {
@@ -5489,7 +5490,6 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
                 .Order(StringComparer.Ordinal)
                 .ToArray();
             if (string.IsNullOrWhiteSpace(activation.DecisionOutputPath)
-                || branches.Length < 2
                 || !ConditionalActivationValuesAreValid(activation, branches))
             {
                 AddLeafBlueprintDiagnostic(
@@ -6317,6 +6317,9 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
         var currentLeaf = leaves[leafIndex];
         var previousError = BuildStructuredPlanError(mainValidationException, attempt);
         var repairContext = BuildLeafRuntimeValidationRepairContext(leafName);
+        var conditionalRepairContext = BuildConditionalActivationRepairContext(mainValidationException);
+        if (!string.IsNullOrWhiteSpace(conditionalRepairContext))
+            repairContext += Environment.NewLine + Environment.NewLine + conditionalRepairContext;
         var leafInput = BuildLeafPlanInput(
             pipelineInput,
             generator,
@@ -6585,6 +6588,37 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
                 if (!string.IsNullOrWhiteSpace(failedWorkflow) && names.Contains(failedWorkflow))
                     return failedWorkflow;
             }
+        }
+
+        return null;
+    }
+
+    private static string? TryGetConditionalActivationLeafTopologyFailure(
+        Exception exception,
+        IReadOnlyList<GeneratedLeafWorkflow> leaves)
+    {
+        for (var current = exception; current != null; current = current.InnerException)
+        {
+            if (current is not WorkflowRuntimeException { Details: JsonObject details }
+                || !string.Equals(
+                    GetStringProperty(details, "reason"),
+                    "conditional_activation_invalid",
+                    StringComparison.Ordinal)
+                || !string.Equals(
+                    GetStringProperty(details, "repair_scope"),
+                    "leaf_topology",
+                    StringComparison.Ordinal))
+            {
+                continue;
+            }
+
+            var workflow = GetStringProperty(details, "workflow");
+            if (string.IsNullOrWhiteSpace(workflow))
+                return null;
+            var leaf = leaves.FirstOrDefault(candidate =>
+                string.Equals(candidate.GeneratedWorkflowName, workflow, StringComparison.Ordinal)
+                || string.Equals(candidate.Name, workflow, StringComparison.Ordinal));
+            return leaf?.Name;
         }
 
         return null;
@@ -8016,6 +8050,7 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
         EnforceStrongObjectSchemas(spec.Name, doc);
         EnforceStrongArrayOutputSchemas(spec.Name, spec, workflowName, doc);
         EnforcePlannedMcpToolsUsed(spec, workflow);
+        ValidateConditionalCapabilityTopologyInLeaf(spec, workflowName, doc);
         EnforcePlannedNativeStepsUsed(spec, workflow);
         EnforceStructuredDecisionProducerContracts(
             spec,
@@ -10886,6 +10921,13 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
             sb.AppendLine("- When an undeclared name is merely an alias, abbreviation, spelling variant, or renamed form of an existing public input, replace every reference with the existing declared name. Do not add a duplicate public input alias.");
             sb.AppendLine("- Add a new public input declaration only when the normalized user request requires a genuinely distinct caller-supplied value. Never add an input merely because a leaf argument uses a different name; map that leaf argument from the semantically matching public input.");
             sb.AppendLine("- After repair, re-check document.skill.inputs, graph.inputs, every leaf args mapping, and every finalizer as one consistent contract.");
+        }
+        if (structuredError.Contains("conditional_decision_lineage_unproven", StringComparison.Ordinal))
+        {
+            sb.AppendLine("Conditional decision routing repair:");
+            sb.AppendLine("- Preserve the already valid conditional switch and its owning leaf. Repair only the parent workflow.call args and output routing that carry the declared decision field from its producer leaf to its consumer leaf.");
+            sb.AppendLine("- Keep the declared decision boundary field name unchanged at every workflow boundary. Use only a direct expression, a same-named `set` projection, or a same-named `assert.non_null` refinement.");
+            sb.AppendLine("- Do not alias, recompute, coerce, concatenate, default, or source the decision from an unproven caller input.");
         }
         if (!string.IsNullOrWhiteSpace(previousResponse))
             AppendPromptSection(sb, "invalid_main_assembly_yaml", StripMarkdownFences(previousResponse));
@@ -14101,7 +14143,10 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
         IReadOnlyList<CapabilityRequestBinding> RequestBindings,
         IReadOnlyList<string> OperationIds,
         IReadOnlyList<string> CatalogIds,
-        McpCapabilityActivation? Activation = null);
+        McpCapabilityActivation? Activation = null)
+    {
+        public string? ExternalEffectKind { get; init; }
+    }
 
     private sealed record PipelinePlannedNativeStep(
         string Method,

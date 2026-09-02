@@ -3701,6 +3701,46 @@ public sealed class WorkflowPlanCapabilityPreflightTests
     }
 
     [Fact]
+    public async Task InferredPreflight_ReusesStandaloneMaterializerSelectedAgainInUnrelatedComposition()
+    {
+        var llm = new Mock<ILLMClient>();
+        llm.Setup(client => client.CallAsync(It.IsAny<LLMRequest>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((LLMRequest request, CancellationToken _) =>
+            {
+                if (request.Prompt.Contains("domain-neutral workflow runtime analyst", StringComparison.Ordinal))
+                {
+                    return InventoryResponseWithEffects(
+                        ("materialize_source", "Materialize the one requested source workspace.", true, "external_effect", "lifecycle"),
+                        ("inspect_source", "Inspect the materialized source workspace.", true, "external_effect", "execute"),
+                        ("finalize_source", "Apply one independent final operation.", true, "external_effect", "execute"));
+                }
+                if (request.Prompt.Contains("domain-neutral capability matcher", StringComparison.Ordinal))
+                {
+                    var producer = CatalogIdForMethod(request.Prompt, "create_workspace");
+                    return MatchingResponse(
+                        ("materialize_source", "matched", [producer], Array.Empty<string>(), "The producer materializes the source."),
+                        ("inspect_source", "composed", [producer, CatalogIdForMethod(request.Prompt, "inspect_workspace")], Array.Empty<string>(), "Inspection consumes the produced workspace."),
+                        ("finalize_source", "composed", [producer, CatalogIdForMethod(request.Prompt, "verify_workspace")], Array.Empty<string>(), "The repeated producer is not part of the independent final operation."));
+                }
+                return new LLMResponse { Text = ValidWorkspaceWorkflow };
+            });
+
+        var result = await ExecuteAsync(
+            InferredPlan().Replace(
+                "Load a configured object and optionally notify a consumer.",
+                "Materialize one source workspace, inspect it, then apply one independent final operation without creating another workspace.",
+                StringComparison.Ordinal),
+            llm.Object,
+            CreateArtifactFactory(verifyConsumesArtifact: false));
+
+        Assert.True(result.Success, result.Error?.Message);
+        var capabilities = Assert.IsType<JsonArray>(
+            result.Outputs!["plan"]!["meta"]!["capability_preflight"]!["capabilities"]);
+        Assert.Single(capabilities.OfType<JsonObject>(), static capability =>
+            capability["method"]?.GetValue<string>() == "create_workspace");
+    }
+
+    [Fact]
     public async Task InferredPreflight_UsesDiscoveredNeutralCatalogBeforeGeneration()
     {
         var prompts = new List<string>();
@@ -6453,13 +6493,64 @@ public sealed class WorkflowPlanCapabilityPreflightTests
         Assert.True(result.Success, result.Error?.Message);
     }
 
+    [Theory]
+    [InlineData("set")]
+    [InlineData("assert.non_null")]
+    public async Task InferredPreflight_ValidatesConditionalDecisionThroughTransparentSameNamedProjection(
+        string projectionType)
+    {
+        var projectedWorkflow = AddConditionalDecisionProjection(
+            ValidCrossWorkflowConditionalWorkflow,
+            projectionType,
+            "decision",
+            "${data.inputs.decision}");
+
+        var result = await ExecuteAsync(
+            ConditionalInferredPlan(),
+            CreateConditionalLlm(projectedWorkflow).Object,
+            CreateConditionalReviewFactory());
+
+        Assert.True(result.Success, result.Error?.Message);
+    }
+
+    [Theory]
+    [InlineData("routed_decision", "${data.inputs.decision}")]
+    [InlineData("decision", "APPROVE")]
+    public async Task InferredPreflight_RejectsConditionalDecisionThroughUnprovenProjection(
+        string projectedField,
+        string projectedValue)
+    {
+        var projectedWorkflow = AddConditionalDecisionProjection(
+            ValidCrossWorkflowConditionalWorkflow,
+            "assert.non_null",
+            projectedField,
+            projectedValue);
+
+        var result = await ExecuteAsync(
+            ConditionalInferredPlan(),
+            CreateConditionalLlm(projectedWorkflow).Object,
+            CreateConditionalReviewFactory());
+
+        Assert.False(result.Success);
+        Assert.Equal(ErrorCodes.CapabilityPreflightUnavailable, result.Error!.Code);
+        Assert.Equal("conditional_activation_invalid", result.Error.Details!["reason"]!.GetValue<string>());
+        Assert.Equal("conditional_decision_lineage_unproven", result.Error.Details["validation_issue"]!.GetValue<string>());
+        Assert.Equal("main_decision_routing", result.Error.Details["repair_scope"]!.GetValue<string>());
+        Assert.Equal("publish_review", result.Error.Details["workflow"]!.GetValue<string>());
+        Assert.Equal("publish_decision", result.Error.Details["switch_id"]!.GetValue<string>());
+    }
+
     [Fact]
     public async Task InferredPreflight_RejectsConditionalDecisionFromUnprovenCallerInput()
     {
-        var unsafeWorkflow = ValidCrossWorkflowConditionalWorkflow.Replace(
+        var unsafeWorkflow = AddConditionalDecisionProjection(
+            ValidCrossWorkflowConditionalWorkflow.Replace(
             "decision: ${data.steps.review.outputs.decision}",
             "decision: ${data.inputs.forced_decision}",
-            StringComparison.Ordinal);
+            StringComparison.Ordinal),
+            "assert.non_null",
+            "decision",
+            "${data.inputs.decision}");
 
         var result = await ExecuteAsync(
             ConditionalInferredPlan(),
@@ -6469,7 +6560,19 @@ public sealed class WorkflowPlanCapabilityPreflightTests
         Assert.False(result.Success);
         Assert.Equal(ErrorCodes.CapabilityPreflightUnavailable, result.Error!.Code);
         Assert.Equal("conditional_activation_invalid", result.Error.Details!["reason"]!.GetValue<string>());
+        Assert.Equal("conditional_decision_lineage_unproven", result.Error.Details["validation_issue"]!.GetValue<string>());
+        Assert.Equal("main_decision_routing", result.Error.Details["repair_scope"]!.GetValue<string>());
     }
+
+    private static string AddConditionalDecisionProjection(
+        string workflow,
+        string projectionType,
+        string projectedField,
+        string projectedValue)
+        => workflow.Replace(
+            "    steps:\n      - id: publish_decision\n        type: switch\n        expr: ${data.inputs.decision}",
+            $"    steps:\n      - id: refine_decision\n        type: {projectionType}\n        input:\n          {projectedField}: {projectedValue}\n      - id: publish_decision\n        type: switch\n        expr: ${{data.steps.refine_decision.{projectedField}}}",
+            StringComparison.Ordinal);
 
     [Fact]
     public async Task InferredPreflight_IgnoresRepeatedAdvisoryIdsForFinalConditionalMatches()
@@ -6897,6 +7000,8 @@ public sealed class WorkflowPlanCapabilityPreflightTests
     [InlineData("unconditional")]
     [InlineData("duplicate")]
     [InlineData("mutating_default")]
+    [InlineData("when_predicate")]
+    [InlineData("wrong_case")]
     public async Task InferredPreflight_RejectsUnsafeConditionalSelectorTopology(string failure)
     {
         var invalid = failure switch
@@ -6909,9 +7014,17 @@ public sealed class WorkflowPlanCapabilityPreflightTests
                 "                    body: ${data.steps.analyze.response.justification}\n          - value: REQUEST_CHANGES",
                 "                    body: ${data.steps.analyze.response.justification}\n              - id: publish_approve_again\n                type: mcp.call\n                input:\n                  server: github\n                  kind: tool\n                  method: publish_review\n                  request:\n                    method: create\n                    event: APPROVE\n                    body: ${data.steps.analyze.response.justification}\n          - value: REQUEST_CHANGES",
                 StringComparison.Ordinal),
-            _ => ValidConditionalWorkflow.Replace(
+            "mutating_default" => ValidConditionalWorkflow.Replace(
                 "        default: []",
                 "        default:\n          - id: publish_default\n            type: mcp.call\n            input:\n              server: github\n              kind: tool\n              method: publish_review\n              request:\n                method: create\n                event: APPROVE\n                body: ${data.steps.analyze.response.justification}",
+                StringComparison.Ordinal),
+            "when_predicate" => ValidConditionalWorkflow.Replace(
+                "          - value: APPROVE",
+                "          - when: ${data.steps.analyze.response.decision == 'APPROVE'}",
+                StringComparison.Ordinal),
+            _ => ValidConditionalWorkflow.Replace(
+                "          - value: REQUEST_CHANGES",
+                "          - value: UNDECLARED_VALUE",
                 StringComparison.Ordinal)
         };
 
@@ -6923,6 +7036,10 @@ public sealed class WorkflowPlanCapabilityPreflightTests
         Assert.False(result.Success);
         Assert.Equal(ErrorCodes.CapabilityPreflightUnavailable, result.Error!.Code);
         Assert.Equal("conditional_activation_invalid", result.Error.Details!["reason"]!.GetValue<string>());
+        Assert.Equal("leaf_topology", result.Error.Details["repair_scope"]!.GetValue<string>());
+        Assert.False(string.IsNullOrWhiteSpace(result.Error.Details["validation_issue"]!.GetValue<string>()));
+        if (string.Equals(failure, "mutating_default", StringComparison.Ordinal))
+            Assert.Equal("conditional_default_mutates", result.Error.Details["validation_issue"]!.GetValue<string>());
     }
 
     [Fact]
@@ -9432,7 +9549,8 @@ public sealed class WorkflowPlanCapabilityPreflightTests
 
     private static InMemoryMcpClientFactory CreateArtifactFactory(
         bool invalidProducerPointer = false,
-        string consumerArtifactKind = McpArtifactContractConventions.WorkspaceDirectoryKind)
+        string consumerArtifactKind = McpArtifactContractConventions.WorkspaceDirectoryKind,
+        bool verifyConsumesArtifact = true)
     {
         var producerPointer = invalidProducerPointer ? "/missing" : "/projectRootRelative";
         var producerContract = new McpArtifactContract(
@@ -9499,7 +9617,7 @@ public sealed class WorkflowPlanCapabilityPreflightTests
                 {
                     Name = "verify_workspace",
                     Description = "Verify a materialized workspace.",
-                    ArtifactContract = consumerContract,
+                    ArtifactContract = verifyConsumesArtifact ? consumerContract : null,
                     InputSchema = consumerSchema.DeepClone()
                 }
             ]

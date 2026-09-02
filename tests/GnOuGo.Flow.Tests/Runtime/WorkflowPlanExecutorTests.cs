@@ -243,6 +243,32 @@ public class WorkflowPlanExecutorTests
     }
 
     [Fact]
+    public void TargetedPipelinePatch_AllowsRemovingObsoleteLeafInputsButPreservesRemainingSchemas()
+    {
+        var method = typeof(WorkflowPlanExecutor).GetMethod(
+            "PreserveTargetedPatchInputContractSchemaSet",
+            BindingFlags.Static | BindingFlags.NonPublic)!;
+        IReadOnlyDictionary<string, JsonNode?> previous = new Dictionary<string, JsonNode?>(StringComparer.Ordinal)
+        {
+            ["upstream_value"] = JsonNode.Parse("""{ "type": "string", "enum": ["one", "two"] }"""),
+            ["self_produced_value"] = JsonNode.Parse("""{ "type": "object", "properties": { "result": { "type": "string" } }, "required_properties": ["result"] }""")
+        };
+        IReadOnlyDictionary<string, JsonNode?> current = new Dictionary<string, JsonNode?>(StringComparer.Ordinal)
+        {
+            ["upstream_value"] = JsonNode.Parse("""{ "type": "string" }""")
+        };
+
+        var preserved = Assert.IsAssignableFrom<IReadOnlyDictionary<string, JsonNode?>>(
+            method.Invoke(null, [current, previous]));
+
+        Assert.False(preserved.ContainsKey("self_produced_value"));
+        Assert.Equal(
+            new[] { "one", "two" },
+            Assert.IsType<JsonArray>(preserved["upstream_value"]!["enum"])
+                .Select(static value => value!.GetValue<string>()));
+    }
+
+    [Fact]
     public void IntentClarification_CapabilityRelaxationFingerprintCanBeHandledOnlyOnce()
     {
         var executorType = typeof(WorkflowPlanExecutor);
@@ -2535,6 +2561,31 @@ public class WorkflowPlanExecutorTests
     }
 
     [Fact]
+    public void PipelineLeafBlueprint_AcceptsAllOnValueActivationWithExplicitNoEffectValue()
+    {
+        var extraction = CreatePrivateConditionalBoundaryCandidate(
+            includeSharedBoundary: true,
+            useAllOnValueActivation: true);
+        var subworkflows = Assert.IsAssignableFrom<System.Collections.IEnumerable>(
+            extraction.GetType().GetProperty("Subworkflows")!.GetValue(extraction));
+        var activationLeaf = subworkflows.Cast<object>().Single(leaf => string.Equals(
+            leaf.GetType().GetProperty("Name")!.GetValue(leaf) as string,
+            "publish_outcome",
+            StringComparison.Ordinal));
+        var build = typeof(WorkflowPlanExecutor).GetMethod(
+            "BuildLeafBlueprint",
+            BindingFlags.Static | BindingFlags.NonPublic)!;
+        var validate = typeof(WorkflowPlanExecutor).GetMethod(
+            "ValidateLeafBlueprint",
+            BindingFlags.Static | BindingFlags.NonPublic)!;
+
+        var blueprint = build.Invoke(null, [activationLeaf]);
+        validate.Invoke(null, [activationLeaf, blueprint]);
+
+        Assert.NotNull(blueprint);
+    }
+
+    [Fact]
     public void PipelineExtractionPatch_ReplaceLeafDropsAdvisoryCallsButRetainsImmutableLocks()
     {
         var candidate = CreatePrivatePatchCandidateWithOwnership(
@@ -2694,7 +2745,8 @@ public class WorkflowPlanExecutorTests
     private static object CreatePrivateConditionalBoundaryCandidate(
         bool includeSharedBoundary,
         bool incompatibleBoundary = false,
-        bool includeStaleConditionalDiagnostic = false)
+        bool includeStaleConditionalDiagnostic = false,
+        bool useAllOnValueActivation = false)
     {
         var bindingType = GetPrivatePipelineType("CapabilityRequestBinding");
         var plannedToolType = GetPrivatePipelineType("PipelinePlannedTool");
@@ -2737,16 +2789,24 @@ public class WorkflowPlanExecutorTests
                 : "{\"type\":\"string\"}"),
             StringComparer.Ordinal);
         var selectedActivation = new McpCapabilityActivation(
-            "exactly_one", "publish-group", "choose-operation", "selected")
+            useAllOnValueActivation ? "all_on_value" : "exactly_one",
+            "publish-group",
+            "choose-operation",
+            "selected")
         {
             DecisionOutputPath = "/decision",
-            AllowedValues = ["selected", "rejected"]
+            AllowedValues = ["selected", "rejected"],
+            NoEffectValues = useAllOnValueActivation ? ["rejected"] : Array.Empty<string>()
         };
         var rejectedActivation = new McpCapabilityActivation(
-            "exactly_one", "publish-group", "choose-operation", "rejected")
+            useAllOnValueActivation ? "all_on_value" : "exactly_one",
+            "publish-group",
+            "choose-operation",
+            useAllOnValueActivation ? "selected" : "rejected")
         {
             DecisionOutputPath = "/decision",
-            AllowedValues = ["selected", "rejected"]
+            AllowedValues = ["selected", "rejected"],
+            NoEffectValues = useAllOnValueActivation ? ["rejected"] : Array.Empty<string>()
         };
         var selectedTool = CreatePrivatePipelineValue(
             plannedToolType,
@@ -17826,6 +17886,100 @@ workflows:
     }
 
     [Fact]
+    public void WorkflowPlan_PipelineConditionalRepair_RejectsMalformedLeafBeforeAssemblyAndRoutesItToOwner()
+    {
+        var extraction = CreatePrivateConditionalBoundaryCandidate(includeSharedBoundary: true);
+        var leafSpecs = Assert.IsAssignableFrom<System.Collections.IEnumerable>(
+                extraction.GetType().GetProperty("Subworkflows")!.GetValue(extraction))
+            .Cast<object>()
+            .ToArray();
+        var consumerSpec = leafSpecs.Single(spec => string.Equals(
+            spec.GetType().GetProperty("Name")!.GetValue(spec) as string,
+            "publish_outcome",
+            StringComparison.Ordinal));
+        const string malformedLeafYaml = """
+            version: 1
+            workflows:
+              publish_review:
+                inputs:
+                  decision: { type: string }
+                steps:
+                  - id: publish_decision
+                    type: switch
+                    expr: ${data.inputs.decision}
+                    cases:
+                      - when: ${data.inputs.decision == 'selected'}
+                        steps:
+                          - id: publish_selected
+                            type: mcp.call
+                            input:
+                              server: neutral-server
+                              kind: tool
+                              method: neutral-action
+                      - value: rejected
+                        steps:
+                          - id: publish_rejected
+                            type: mcp.call
+                            input:
+                              server: neutral-server
+                              kind: tool
+                              method: neutral-action
+                    default: []
+            """;
+        var document = WorkflowParser.Parse(malformedLeafYaml);
+        var validateMethod = typeof(WorkflowPlanExecutor).GetMethod(
+            "ValidateConditionalCapabilityTopologyInLeaf",
+            BindingFlags.NonPublic | BindingFlags.Static)!;
+
+        var invocation = Assert.Throws<TargetInvocationException>(() => validateMethod.Invoke(
+            null,
+            [consumerSpec, "publish_review", document]));
+        var validationException = Assert.IsType<WorkflowRuntimeException>(invocation.InnerException);
+        Assert.Equal("conditional_activation_invalid", validationException.Details!["reason"]!.GetValue<string>());
+        Assert.Equal("conditional_switch_shape_invalid", validationException.Details["validation_issue"]!.GetValue<string>());
+        Assert.Equal("leaf_topology", validationException.Details["repair_scope"]!.GetValue<string>());
+        Assert.Equal("publish_review", validationException.Details["workflow"]!.GetValue<string>());
+        Assert.Equal("publish_decision", validationException.Details["switch_id"]!.GetValue<string>());
+
+        var blueprintType = GetPrivatePipelineType("PipelineLeafBlueprint");
+        var generatedLeafType = GetPrivatePipelineType("GeneratedLeafWorkflow");
+        var blueprint = CreatePrivatePipelineValue(
+            blueprintType,
+            "publish_outcome",
+            "publish_review",
+            "Publish one selected outcome.",
+            CreatePrivatePipelineArray(GetPrivatePipelineType("PipelineLeafBlueprintStep")),
+            CreatePrivatePipelineArray(GetPrivatePipelineType("PipelineLeafBlueprintOutput")));
+        var generatedLeaf = CreatePrivatePipelineValue(
+            generatedLeafType,
+            "publish_outcome",
+            "publish_review",
+            document,
+            malformedLeafYaml,
+            blueprint,
+            CreatePrivatePipelineArray(GetPrivatePipelineType("PipelineQualityEvent")),
+            CreatePrivatePipelineArray(GetPrivatePipelineType("PipelineStructuredDecisionRequirement")));
+        var generatedLeaves = CreatePrivatePipelineArray(generatedLeafType, generatedLeaf);
+        var routeMethod = typeof(WorkflowPlanExecutor).GetMethod(
+            "TryGetConditionalActivationLeafTopologyFailure",
+            BindingFlags.NonPublic | BindingFlags.Static)!;
+
+        Assert.Equal("publish_outcome", routeMethod.Invoke(null, [validationException, generatedLeaves]));
+
+        var lineageException = new WorkflowRuntimeException(
+            ErrorCodes.CapabilityPreflightUnavailable,
+            "Conditional decision lineage is unproven.",
+            details: new JsonObject
+            {
+                ["reason"] = "conditional_activation_invalid",
+                ["validation_issue"] = "conditional_decision_lineage_unproven",
+                ["repair_scope"] = "main_decision_routing",
+                ["workflow"] = "publish_review"
+            });
+        Assert.Null(routeMethod.Invoke(null, [lineageException, generatedLeaves]));
+    }
+
+    [Fact]
     public async Task WorkflowPlan_NormalizesGeneratedTernaryScalarWithoutSpendingRepairAttempt()
     {
         var calls = 0;
@@ -17994,6 +18148,46 @@ workflows:
         Assert.Contains("Do not use `cases[].when`", guidance);
         Assert.Contains("`accept`, `reject`", guidance);
         Assert.Contains("default: []", guidance);
+    }
+
+    [Fact]
+    public void WorkflowPlan_RepairContext_PreservesValidSwitchWhenDecisionLineageIsUnproven()
+    {
+        var method = typeof(WorkflowPlanExecutor).GetMethod(
+            "BuildConditionalActivationRepairContext",
+            BindingFlags.Static | BindingFlags.NonPublic)!;
+        var exception = new WorkflowRuntimeException(
+            ErrorCodes.CapabilityPreflightUnavailable,
+            "Conditional decision lineage is unproven.",
+            details: new JsonObject
+            {
+                ["reason"] = "conditional_activation_invalid",
+                ["validation_issue"] = "conditional_decision_lineage_unproven",
+                ["repair_scope"] = "main_decision_routing",
+                ["activation_group"] = "finalize_record",
+                ["decision_operation_id"] = "classify_record",
+                ["decision_field"] = "decision"
+            });
+
+        var guidance = Assert.IsType<string>(method.Invoke(null, [exception]));
+
+        Assert.Contains("Preserve the existing switch", guidance);
+        Assert.Contains("same-named `assert.non_null`", guidance);
+        Assert.Contains("Do not rename the field", guidance);
+        Assert.DoesNotContain("Rebuild conditional capability group", guidance);
+
+        var mainPromptMethod = typeof(WorkflowPlanExecutor).GetMethod(
+            "BuildMainAssemblyRepairPrompt",
+            BindingFlags.Static | BindingFlags.NonPublic)!;
+        var mainPrompt = Assert.IsType<string>(mainPromptMethod.Invoke(null,
+        [
+            "Assemble the main graph.",
+            "document: {}\ngraph: { steps: [] }",
+            "{\"validation_issue\":\"conditional_decision_lineage_unproven\"}"
+        ]));
+        Assert.Contains("Preserve the already valid conditional switch", mainPrompt);
+        Assert.Contains("same-named `assert.non_null` refinement", mainPrompt);
+        Assert.Contains("unproven caller input", mainPrompt);
     }
 
     [Fact]

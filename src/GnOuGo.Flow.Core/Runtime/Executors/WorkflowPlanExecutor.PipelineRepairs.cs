@@ -70,6 +70,7 @@ public sealed partial class WorkflowPlanExecutor
         sb.AppendLine("- addressed_diagnostic_codes must contain only exact codes from addressable_diagnostic_codes and must identify every blocker this patch claims to resolve. A code claim never overrides deterministic validation or a reviewer that still reports the defect.");
         sb.AppendLine("- Supported operations are add_leaf, replace_leaf, remove_leaf, merge_leaves, and replace_main_orchestration.");
         sb.AppendLine("- replace_leaf preserves all capability and native-step ownership of its target and must keep the same name.");
+        sb.AppendLine("- replace_leaf may remove an obsolete public input only when a blocking diagnostic proves the leaf itself produces that value. Preserve every genuine caller/upstream input and every established output contract.");
         sb.AppendLine("- merge_leaves atomically replaces two or more named sources and inherits their complete immutable ownership multiset.");
         sb.AppendLine("- remove_leaf is valid only for a leaf with no immutable capability, native-step, or local-operation ownership.");
         sb.AppendLine("- add_leaf creates local algorithmic work only and cannot invent an external capability.");
@@ -514,7 +515,7 @@ public sealed partial class WorkflowPlanExecutor
         WorkflowPipelineSubworkflowSpec replacement,
         WorkflowPipelineSubworkflowSpec previous)
     {
-        var inputSchemas = PreserveTargetedPatchContractSchemaSet(
+        var inputSchemas = PreserveTargetedPatchInputContractSchemaSet(
             replacement.InputSchemas,
             previous.InputSchemas);
         var outputSchemas = PreserveTargetedPatchContractSchemaSet(
@@ -529,6 +530,12 @@ public sealed partial class WorkflowPlanExecutor
         };
         return preserved with { GenerationPrompt = BuildSubworkflowGenerationPrompt(preserved) };
     }
+
+    private static IReadOnlyDictionary<string, JsonNode?> PreserveTargetedPatchInputContractSchemaSet(
+        IReadOnlyDictionary<string, JsonNode?> current,
+        IReadOnlyDictionary<string, JsonNode?> previous)
+        => PreservePreviouslyValidatedContractSchemas(current, previous)
+            .ToDictionary(static pair => pair.Key, static pair => pair.Value?.DeepClone(), StringComparer.Ordinal);
 
     private static IReadOnlyDictionary<string, JsonNode?> PreserveTargetedPatchContractSchemaSet(
         IReadOnlyDictionary<string, JsonNode?> current,

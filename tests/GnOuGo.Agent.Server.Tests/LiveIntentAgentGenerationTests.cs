@@ -306,10 +306,19 @@ public sealed class LiveIntentAgentGenerationTests
             {
                 try
                 {
-                    if (runSucceeded && failures.Count == failureCountBeforeCleanup && generationCount == 1)
+                    var acceptanceSucceeded = runSucceeded && failures.Count == failureCountBeforeCleanup;
+                    if (acceptanceSucceeded && generationCount == 1)
+                    {
                         budgetLedger.MarkDiagnosticGenerationCompleted(cycleBudget.Snapshot);
-                    else
+                    }
+                    else if (acceptanceSucceeded)
+                    {
                         budgetLedger.Delete();
+                    }
+                    else
+                    {
+                        await budgetLedger.PersistAsync(cycleBudget.Snapshot, CancellationToken.None);
+                    }
                 }
                 catch (Exception ex)
                 {
@@ -458,9 +467,9 @@ public sealed class LiveIntentAgentGenerationTests
 
     private static void ValidateLivePhase(LiveBudgetLedger ledger, int generationCount)
     {
-        if (generationCount == 1 && ledger.Exists)
+        if (generationCount == 1 && ledger.Exists && ledger.DiagnosticGenerationCompleted)
             throw new InvalidOperationException(
-                "A live-validation budget ledger already exists. Complete its final three-generation phase, or start a new dedicated provider project before deleting the stale ledger.");
+                "The one-generation diagnostic phase already succeeded. Complete the final three-generation phase with this ledger, or attest a new dedicated provider project before starting another cycle.");
         if (generationCount == 3 && (!ledger.Exists || !ledger.ProbeCompleted || !ledger.DiagnosticGenerationCompleted))
             throw new InvalidOperationException(
                 $"The final live acceptance requires a successful one-generation diagnostic phase using the same {BudgetStatePathVariable} ledger.");
@@ -726,11 +735,11 @@ public sealed class LiveIntentAgentGenerationTests
                 var name when name.StartsWith("unresolved_choice_", StringComparison.Ordinal)
                     => "Use the complete one-shot review capability. Publication is runtime-dependent and must use the exact selector branch corresponding to the computed review result.",
                 "intended_outcome_and_scope"
-                    => "Review the disposable pull request completely, publish one explained review decision, and clean only resources created by this test.",
+                    => "Review the caller-supplied pull request completely, publish one explained review decision, and clean only resources created by that workflow run.",
                 "runtime_decision_rules"
                     => "Compute the decision from runtime dependency restoration, tests, lint, changed-code coverage, and findings; execute exactly one matching publication branch and never ask the human to predict that result.",
                 "external_effect_boundaries"
-                    => "Allow reads for the disposable pull request and confirmed writes only to that pull request. Reject every other target or write.",
+                    => "Allow reads for the caller-supplied pull request and confirmed writes only to that same pull request. Reject every other target or write.",
                 "success_criteria"
                     => "All changed code is covered, required checks are represented, one decision branch executes, and its body matches the generated explanation.",
                 "failure_policy"

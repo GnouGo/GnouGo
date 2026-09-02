@@ -6399,18 +6399,18 @@ public sealed partial class WorkflowPlanExecutor
                 .ToArray();
             foreach (var materializer in selected.Where(IsArtifactMaterializer))
             {
-                var producedKinds = GetMaterializedArtifactKinds(materializer);
-                var isPrerequisite = selected.Any(other =>
-                    !string.Equals(other.Id, materializer.Id, StringComparison.Ordinal)
-                    && producedKinds.Any(kind => CapabilityRequiresArtifactKind(other, kind)));
                 if (!occurrences.TryGetValue(materializer.Id, out var values))
                 {
                     values = [];
                     occurrences[materializer.Id] = values;
                 }
+                // A standalone match proves an independently requested materialization.
+                // Inside a larger composition the same catalog entry may be a repeated
+                // prerequisite or an unrelated model-selected extra; retain it there only
+                // when no standalone owner or stronger declared data-flow owner exists.
                 values.Add(new ArtifactMaterializerOccurrence(
                     match.Operation.Id,
-                    !isPrerequisite,
+                    selected.Length == 1,
                     selected.SelectMany(GetRequiredArtifactRequirements)
                         .Select(static requirement => requirement.Kind)
                         .ToHashSet(StringComparer.Ordinal)));
@@ -7262,10 +7262,12 @@ public sealed partial class WorkflowPlanExecutor
         if (groups.Length == 0)
             return;
 
-        var workflows = document.Workflows.Values.ToArray();
-        var allSteps = workflows
-            .SelectMany(static workflow => EnumerateSteps(workflow.Steps).Concat(EnumerateSteps(workflow.Finally)))
+        var workflowSteps = document.Workflows
+            .SelectMany(workflow => EnumerateSteps(workflow.Value.Steps)
+                .Concat(EnumerateSteps(workflow.Value.Finally))
+                .Select(step => (Workflow: workflow.Key, Step: step)))
             .ToArray();
+        var allSteps = workflowSteps.Select(static item => item.Step).ToArray();
         var allCalls = allSteps.Where(static step => string.Equals(step.Type, "mcp.call", StringComparison.Ordinal)).ToArray();
 
         foreach (var group in groups)
@@ -7309,7 +7311,9 @@ public sealed partial class WorkflowPlanExecutor
             {
                 ThrowInvalidConditionalActivation(group.Key,
                     "The locked conditional capability group is malformed or has an invalid activation topology.",
-                    capabilities);
+                    capabilities,
+                    validationIssue: "conditional_capability_contract_invalid",
+                    repairScope: "capability_contract");
             }
 
             var groupCalls = allCalls.Where(call => capabilities.Any(capability => McpStepMatchesCapability(
@@ -7318,149 +7322,115 @@ public sealed partial class WorkflowPlanExecutor
                 capability.Kind!,
                 capability.Method!,
                 capability.RequestBindings))).ToArray();
+            var mutatingDefault = workflowSteps
+                .Where(static item => string.Equals(item.Step.Type, "switch", StringComparison.Ordinal))
+                .Select(item => EvaluateMutatingConditionalDefault(
+                    item.Workflow,
+                    item.Step,
+                    groupCalls,
+                    call => preflight.RequiredMcpCapabilities
+                        .Where(static capability => capability.ExternalEffectKind is "write" or "lifecycle")
+                        .Any(capability => McpStepMatchesCapability(
+                            call,
+                            capability.Server!,
+                            capability.Kind!,
+                            capability.Method!,
+                            capability.RequestBindings))))
+                .FirstOrDefault(static evaluation => evaluation != null);
+            if (mutatingDefault != null)
+            {
+                ThrowInvalidConditionalActivation(
+                    group.Key,
+                    mutatingDefault.Message,
+                    capabilities,
+                    mutatingDefault.ValidationIssue,
+                    mutatingDefault.RepairScope,
+                    mutatingDefault.Workflow,
+                    mutatingDefault.SwitchId);
+            }
             if (groupCalls.Length != capabilities.Length)
             {
+                var callOwners = workflowSteps
+                    .Where(item => groupCalls.Contains(item.Step, ReferenceEqualityComparer.Instance))
+                    .Select(static item => item.Workflow)
+                    .Distinct(StringComparer.Ordinal)
+                    .ToArray();
                 ThrowInvalidConditionalActivation(group.Key,
                     "Every conditional capability must occur exactly once in the generated workflow.",
-                    capabilities);
+                    capabilities,
+                    validationIssue: "conditional_call_cardinality_invalid",
+                    repairScope: callOwners.Length == 1 ? "leaf_topology" : "workflow_topology",
+                    workflow: callOwners.Length == 1 ? callOwners[0] : null);
             }
 
-            var validSwitches = allSteps
-                .Where(static step => string.Equals(step.Type, "switch", StringComparison.Ordinal))
-                .Where(step => ConditionalSwitchMatches(document, step, capabilities, groupCalls, preflight))
+            var evaluations = workflowSteps
+                .Where(static item => string.Equals(item.Step.Type, "switch", StringComparison.Ordinal))
+                .Select(item => EvaluateConditionalSwitch(
+                    document,
+                    item.Workflow,
+                    item.Step,
+                    capabilities,
+                    groupCalls,
+                    preflight))
                 .ToArray();
+            var validSwitches = evaluations.Where(static evaluation => evaluation.IsValid).ToArray();
             if (validSwitches.Length != 1)
             {
+                var failure = evaluations
+                    .Where(static evaluation => evaluation.ContainedGroupCallCount > 0)
+                    .OrderByDescending(static evaluation => evaluation.ContainedGroupCallCount)
+                    .ThenByDescending(static evaluation => evaluation.ValidationProgress)
+                    .FirstOrDefault();
                 ThrowInvalidConditionalActivation(group.Key,
                     validSwitches.Length == 0
-                        ? "Conditional capabilities must be placed in the declared cases of one expression-based switch with no mutating default branch."
+                        ? failure?.Message
+                          ?? "Conditional capabilities must be placed in the declared cases of one expression-based switch with no mutating default branch."
                         : "Conditional capabilities were associated with more than one switch.",
-                    capabilities);
+                    capabilities,
+                    validationIssue: validSwitches.Length == 0
+                        ? failure?.ValidationIssue ?? "conditional_switch_missing"
+                        : "conditional_switch_ambiguous",
+                    repairScope: validSwitches.Length == 0
+                        ? failure?.RepairScope ?? "leaf_topology"
+                        : "workflow_topology",
+                    workflow: validSwitches.Length == 0 ? failure?.Workflow : null,
+                    switchId: validSwitches.Length == 0 ? failure?.SwitchId : null);
             }
         }
     }
 
-    private static bool ConditionalSwitchMatches(
+    private static ConditionalSwitchEvaluation EvaluateConditionalSwitch(
         WorkflowDocument document,
+        string workflowName,
         StepDef step,
         IReadOnlyList<ResolvedCapability> capabilities,
         IReadOnlyList<StepDef> groupCalls,
         CapabilityPreflightResult preflight)
     {
-        if (string.IsNullOrWhiteSpace(step.Expr)
-            || step.Cases == null
-            || step.Cases.Any(static @case => !string.IsNullOrWhiteSpace(@case.When))
-            || !ConditionalDecisionExpressionMatchesDeclaredPath(
-                step.Expr,
-                capabilities[0].Activation!.DecisionOutputPath))
-        {
-            return false;
-        }
-
-        var matchedCalls = new HashSet<StepDef>(ReferenceEqualityComparer.Instance);
-        foreach (var capability in capabilities)
-        {
-            var matchingCases = step.Cases.Where(@case =>
-                    string.Equals(@case.Value, capability.Activation!.BranchValue, StringComparison.Ordinal)
-                    && EnumerateSteps(@case.Steps).Any(call =>
-                        string.Equals(call.Type, "mcp.call", StringComparison.Ordinal)
-                        && McpStepMatchesCapability(
-                            call,
-                            capability.Server!,
-                            capability.Kind!,
-                            capability.Method!,
-                            capability.RequestBindings)))
-                .ToArray();
-            if (matchingCases.Length != 1)
-                return false;
-
-            var calls = EnumerateSteps(matchingCases[0].Steps)
-                .Where(call => string.Equals(call.Type, "mcp.call", StringComparison.Ordinal)
-                               && McpStepMatchesCapability(
-                                   call,
-                                   capability.Server!,
-                                   capability.Kind!,
-                                   capability.Method!,
-                                   capability.RequestBindings))
-                .ToArray();
-            if (calls.Length != 1)
-                return false;
-            matchedCalls.Add(calls[0]);
-        }
-
-        if (matchedCalls.Count != groupCalls.Count || groupCalls.Any(call => !matchedCalls.Contains(call)))
-            return false;
-
-        var activationMode = capabilities[0].Activation!.Mode;
-        if (string.Equals(activationMode, ConditionalAllOnValueActivationMode, StringComparison.Ordinal))
-        {
-            var effectValue = capabilities[0].Activation!.BranchValue;
-            var effectCases = step.Cases.Where(@case => string.Equals(
-                @case.Value,
-                effectValue,
-                StringComparison.Ordinal)).ToArray();
-            if (effectCases.Length != 1)
-                return false;
-            var orderedCalls = EnumerateSteps(effectCases[0].Steps)
-                .Where(candidate => groupCalls.Contains(candidate, ReferenceEqualityComparer.Instance))
-                .ToArray();
-            if (orderedCalls.Length != capabilities.Count)
-                return false;
-            for (var index = 0; index < capabilities.Count; index++)
-            {
-                var capability = capabilities[index];
-                if (!McpStepMatchesCapability(
-                        orderedCalls[index],
-                        capability.Server!,
-                        capability.Kind!,
-                        capability.Method!,
-                        capability.RequestBindings))
-                {
-                    return false;
-                }
-            }
-        }
-
-        var mutatingCapabilities = preflight.RequiredMcpCapabilities
-            .Where(static capability => capability.ExternalEffectKind is "write" or "lifecycle")
-            .ToArray();
-        var activation = capabilities[0].Activation!;
-        var allowedValues = activation.AllowedValues.ToHashSet(StringComparer.Ordinal);
-        if (step.Cases.Any(@case => string.IsNullOrWhiteSpace(@case.Value) || !allowedValues.Contains(@case.Value)))
-            return false;
-
-        foreach (var noEffectValue in activation.NoEffectValues)
-        {
-            var noEffectCases = step.Cases.Where(@case => string.Equals(
-                @case.Value,
-                noEffectValue,
-                StringComparison.Ordinal)).ToArray();
-            if (noEffectCases.Length != 1
-                || EnumerateSteps(noEffectCases[0].Steps).Any(call =>
-                    string.Equals(call.Type, "mcp.call", StringComparison.Ordinal)
-                    && mutatingCapabilities.Any(capability => McpStepMatchesCapability(
-                        call,
-                        capability.Server!,
-                        capability.Kind!,
-                        capability.Method!,
-                        capability.RequestBindings))))
-            {
-                return false;
-            }
-        }
-
-        if (EnumerateSteps(step.Default ?? []).Any(call =>
-                string.Equals(call.Type, "mcp.call", StringComparison.Ordinal)
-                && mutatingCapabilities.Any(capability => McpStepMatchesCapability(
+        var structure = EvaluateConditionalSwitchStructure(
+            workflowName,
+            step,
+            capabilities,
+            groupCalls,
+            static (call, capability) => McpStepMatchesCapability(
+                call,
+                capability.Server!,
+                capability.Kind!,
+                capability.Method!,
+                capability.RequestBindings),
+            static capability => capability.Activation!,
+            call => preflight.RequiredMcpCapabilities
+                .Where(static capability => capability.ExternalEffectKind is "write" or "lifecycle")
+                .Any(capability => McpStepMatchesCapability(
                     call,
                     capability.Server!,
                     capability.Kind!,
                     capability.Method!,
-                    capability.RequestBindings))))
-        {
-            return false;
-        }
+                    capability.RequestBindings)));
+        if (!structure.IsValid)
+            return structure;
 
+        var activation = capabilities[0].Activation!;
         var decisionOperationId = activation.DecisionOperationId;
         var decisionCapabilities = preflight.Capabilities
             .Where(capability => string.Equals(capability.OperationId, decisionOperationId, StringComparison.Ordinal)
@@ -7470,10 +7440,19 @@ public sealed partial class WorkflowPlanExecutor
                                      StringComparison.Ordinal))
             .ToArray();
         if (decisionCapabilities.Length == 0)
-            return false;
+        {
+            return structure with
+            {
+                IsValid = false,
+                ValidationIssue = "conditional_decision_producer_missing",
+                RepairScope = "decision_producer",
+                Message = "The declared conditional decision producer is not present in the generated workflow.",
+                ValidationProgress = 70
+            };
+        }
 
         var decisionSteps = groupCalls
-            .Concat(step.Cases.SelectMany(static @case => EnumerateSteps(@case.Steps)))
+            .Concat(step.Cases!.SelectMany(static @case => EnumerateSteps(@case.Steps)))
             .Concat(EnumerateSteps(step.Default ?? []))
             .ToHashSet(ReferenceEqualityComparer.Instance);
         var sources = document.Workflows
@@ -7486,22 +7465,404 @@ public sealed partial class WorkflowPlanExecutor
                 .Select(candidate => (Workflow: workflow.Key, Step: candidate)))
             .ToArray();
         if (sources.Length == 0)
-            return false;
+        {
+            return structure with
+            {
+                IsValid = false,
+                ValidationIssue = "conditional_decision_producer_missing",
+                RepairScope = "decision_producer",
+                Message = "The conditional switch has no generated step matching its declared decision producer.",
+                ValidationProgress = 80
+            };
+        }
 
-        var owner = document.Workflows.FirstOrDefault(workflow =>
-            EnumerateSteps(workflow.Value.Steps)
-                .Concat(EnumerateSteps(workflow.Value.Finally))
-                .Any(candidate => ReferenceEquals(candidate, step)));
-        return !string.IsNullOrWhiteSpace(owner.Key)
-               && ConditionalDecisionExpressionDependsOnSource(
-                   document,
-                   BuildWorkflowArtifactCallerIndex(document),
-                   sources,
-                   owner.Key,
-                   step.Expr!,
-                   [],
-                   activation);
+        if (!ConditionalDecisionExpressionDependsOnSource(
+                document,
+                BuildWorkflowArtifactCallerIndex(document),
+                sources,
+                workflowName,
+                step.Expr!,
+                [],
+                activation))
+        {
+            return structure with
+            {
+                IsValid = false,
+                ValidationIssue = "conditional_decision_lineage_unproven",
+                RepairScope = "main_decision_routing",
+                Message = "The switch shape is valid, but its discriminator does not trace unchanged through declared workflow inputs and transparent projections to the locked decision producer.",
+                ValidationProgress = 90
+            };
+        }
+
+        return structure with { ValidationProgress = 100 };
     }
+
+    private static ConditionalSwitchEvaluation EvaluateConditionalSwitchStructure<TCapability>(
+        string workflowName,
+        StepDef step,
+        IReadOnlyList<TCapability> capabilities,
+        IReadOnlyList<StepDef> groupCalls,
+        Func<StepDef, TCapability, bool> matchesCapability,
+        Func<TCapability, McpCapabilityActivation> getActivation,
+        Func<StepDef, bool> isMutatingCall)
+    {
+        var nestedCalls = (step.Cases ?? [])
+            .SelectMany(static @case => EnumerateSteps(@case.Steps))
+            .Concat(EnumerateSteps(step.Default ?? []))
+            .Where(static candidate => string.Equals(candidate.Type, "mcp.call", StringComparison.Ordinal))
+            .ToHashSet(ReferenceEqualityComparer.Instance);
+        var containedGroupCallCount = groupCalls.Count(nestedCalls.Contains);
+        var initial = new ConditionalSwitchEvaluation(
+            false,
+            "conditional_switch_shape_invalid",
+            "leaf_topology",
+            "The conditional capability group requires one expression-based switch with literal value cases.",
+            workflowName,
+            step.Id,
+            containedGroupCallCount,
+            10);
+
+        if (string.IsNullOrWhiteSpace(step.Expr)
+            || step.Cases == null
+            || step.Cases.Any(static @case => !string.IsNullOrWhiteSpace(@case.When)))
+        {
+            return initial;
+        }
+
+        var activation = getActivation(capabilities[0]);
+        if (!ConditionalDecisionExpressionMatchesDeclaredPath(step.Expr, activation.DecisionOutputPath))
+        {
+            return initial with
+            {
+                ValidationIssue = "conditional_decision_lineage_unproven",
+                RepairScope = "main_decision_routing",
+                Message = "The switch discriminator does not preserve the declared decision boundary field name.",
+                ValidationProgress = 20
+            };
+        }
+
+        var matchedCalls = new HashSet<StepDef>(ReferenceEqualityComparer.Instance);
+        foreach (var capability in capabilities)
+        {
+            var capabilityActivation = getActivation(capability);
+            var matchingCases = step.Cases.Where(@case =>
+                    string.Equals(@case.Value, capabilityActivation.BranchValue, StringComparison.Ordinal)
+                    && EnumerateSteps(@case.Steps).Any(call =>
+                        string.Equals(call.Type, "mcp.call", StringComparison.Ordinal)
+                        && matchesCapability(call, capability)))
+                .ToArray();
+            if (matchingCases.Length != 1)
+            {
+                return initial with
+                {
+                    ValidationIssue = "conditional_branch_placement_invalid",
+                    Message = "Each conditional capability must occur in exactly one case whose literal value matches its declared branch value.",
+                    ValidationProgress = 30
+                };
+            }
+
+            var calls = EnumerateSteps(matchingCases[0].Steps)
+                .Where(call => string.Equals(call.Type, "mcp.call", StringComparison.Ordinal)
+                               && matchesCapability(call, capability))
+                .ToArray();
+            if (calls.Length != 1)
+            {
+                return initial with
+                {
+                    ValidationIssue = "conditional_branch_placement_invalid",
+                    Message = "Each conditional case must contain exactly one occurrence of its matching capability.",
+                    ValidationProgress = 30
+                };
+            }
+            matchedCalls.Add(calls[0]);
+        }
+
+        if (matchedCalls.Count != groupCalls.Count || groupCalls.Any(call => !matchedCalls.Contains(call)))
+        {
+            return initial with
+            {
+                ValidationIssue = "conditional_branch_placement_invalid",
+                Message = "Conditional capability calls must not occur outside their one declared switch case.",
+                ValidationProgress = 40
+            };
+        }
+
+        var activationMode = activation.Mode;
+        if (string.Equals(activationMode, ConditionalAllOnValueActivationMode, StringComparison.Ordinal))
+        {
+            var effectValue = activation.BranchValue;
+            var effectCases = step.Cases.Where(@case => string.Equals(
+                @case.Value,
+                effectValue,
+                StringComparison.Ordinal)).ToArray();
+            if (effectCases.Length != 1)
+                return initial with
+                {
+                    ValidationIssue = "conditional_branch_placement_invalid",
+                    Message = "The ordered conditional composition must have exactly one declared effect case.",
+                    ValidationProgress = 40
+                };
+            var orderedCalls = EnumerateSteps(effectCases[0].Steps)
+                .Where(candidate => groupCalls.Contains(candidate, ReferenceEqualityComparer.Instance))
+                .ToArray();
+            if (orderedCalls.Length != capabilities.Count)
+                return initial with
+                {
+                    ValidationIssue = "conditional_branch_placement_invalid",
+                    Message = "The ordered conditional composition does not contain every declared capability exactly once.",
+                    ValidationProgress = 40
+                };
+            for (var index = 0; index < capabilities.Count; index++)
+            {
+                var capability = capabilities[index];
+                if (!matchesCapability(orderedCalls[index], capability))
+                {
+                    return initial with
+                    {
+                        ValidationIssue = "conditional_branch_order_invalid",
+                        Message = "The ordered conditional composition does not preserve its declared capability order.",
+                        ValidationProgress = 40
+                    };
+                }
+            }
+        }
+
+        var allowedValues = activation.AllowedValues.ToHashSet(StringComparer.Ordinal);
+        if (step.Cases.Any(@case => string.IsNullOrWhiteSpace(@case.Value) || !allowedValues.Contains(@case.Value)))
+        {
+            return initial with
+            {
+                ValidationIssue = "conditional_case_value_invalid",
+                Message = "Every switch case must use one literal value from the declared decision enum.",
+                ValidationProgress = 50
+            };
+        }
+        if (allowedValues.Any(value => step.Cases.Count(@case => string.Equals(
+                @case.Value,
+                value,
+                StringComparison.Ordinal)) != 1))
+        {
+            return initial with
+            {
+                ValidationIssue = "conditional_case_coverage_invalid",
+                Message = "The switch must contain exactly one literal case for every declared decision value.",
+                ValidationProgress = 50
+            };
+        }
+
+        foreach (var noEffectValue in activation.NoEffectValues)
+        {
+            var noEffectCases = step.Cases.Where(@case => string.Equals(
+                @case.Value,
+                noEffectValue,
+                StringComparison.Ordinal)).ToArray();
+            if (noEffectCases.Length != 1
+                || EnumerateSteps(noEffectCases[0].Steps).Any(call =>
+                    string.Equals(call.Type, "mcp.call", StringComparison.Ordinal)
+                    && isMutatingCall(call)))
+            {
+                return initial with
+                {
+                    ValidationIssue = "conditional_no_effect_branch_mutates",
+                    Message = "Every declared no-effect value must have exactly one case containing no write or lifecycle capability.",
+                    ValidationProgress = 60
+                };
+            }
+        }
+
+        if (EnumerateSteps(step.Default ?? []).Any(call =>
+                string.Equals(call.Type, "mcp.call", StringComparison.Ordinal)
+                && isMutatingCall(call)))
+        {
+            return initial with
+            {
+                ValidationIssue = "conditional_default_mutates",
+                Message = "The conditional switch default branch must not execute a write or lifecycle capability.",
+                ValidationProgress = 60
+            };
+        }
+
+        return initial with
+        {
+            IsValid = true,
+            ValidationIssue = string.Empty,
+            Message = string.Empty,
+            ValidationProgress = 70
+        };
+    }
+
+    private static ConditionalSwitchEvaluation? EvaluateMutatingConditionalDefault(
+        string workflowName,
+        StepDef step,
+        IReadOnlyList<StepDef> groupCalls,
+        Func<StepDef, bool> isMutatingCall)
+    {
+        var nestedCalls = (step.Cases ?? [])
+            .SelectMany(static @case => EnumerateSteps(@case.Steps))
+            .Concat(EnumerateSteps(step.Default ?? []))
+            .Where(static candidate => string.Equals(candidate.Type, "mcp.call", StringComparison.Ordinal))
+            .ToHashSet(ReferenceEqualityComparer.Instance);
+        var containedGroupCallCount = groupCalls.Count(nestedCalls.Contains);
+        if (containedGroupCallCount == 0
+            || !EnumerateSteps(step.Default ?? []).Any(call =>
+                string.Equals(call.Type, "mcp.call", StringComparison.Ordinal)
+                && isMutatingCall(call)))
+        {
+            return null;
+        }
+
+        return new ConditionalSwitchEvaluation(
+            false,
+            "conditional_default_mutates",
+            "leaf_topology",
+            "The conditional switch default branch must not execute a write or lifecycle capability.",
+            workflowName,
+            step.Id,
+            containedGroupCallCount,
+            60);
+    }
+
+    private sealed record ConditionalSwitchEvaluation(
+        bool IsValid,
+        string ValidationIssue,
+        string RepairScope,
+        string Message,
+        string Workflow,
+        string SwitchId,
+        int ContainedGroupCallCount,
+        int ValidationProgress);
+
+    private static void ValidateConditionalCapabilityTopologyInLeaf(
+        WorkflowPipelineSubworkflowSpec spec,
+        string workflowName,
+        WorkflowDocument document)
+    {
+        var groups = spec.PlannedTools
+            .Where(static tool => tool.Required && tool.Activation != null)
+            .GroupBy(static tool => tool.Activation!.Group, StringComparer.Ordinal)
+            .ToArray();
+        if (groups.Length == 0)
+            return;
+
+        var workflow = document.Workflows[workflowName];
+        var allSteps = EnumerateSteps(workflow.Steps)
+            .Concat(EnumerateSteps(workflow.Finally))
+            .ToArray();
+        var allCalls = allSteps
+            .Where(static step => string.Equals(step.Type, "mcp.call", StringComparison.Ordinal))
+            .ToArray();
+        var mutatingTools = spec.PlannedTools
+            .Where(static tool => tool.Required && tool.ExternalEffectKind is "write" or "lifecycle")
+            .ToArray();
+
+        foreach (var group in groups)
+        {
+            var capabilities = group.ToArray();
+            var groupCalls = allCalls
+                .Where(call => capabilities.Any(capability => WorkflowStepMatchesPlannedMcpToolCall(
+                    call,
+                    capability)))
+                .ToArray();
+            var mutatingDefault = allSteps
+                .Where(static step => string.Equals(step.Type, "switch", StringComparison.Ordinal))
+                .Select(step => EvaluateMutatingConditionalDefault(
+                    workflowName,
+                    step,
+                    groupCalls,
+                    call => mutatingTools.Any(tool => WorkflowStepMatchesPlannedMcpToolCall(call, tool))))
+                .FirstOrDefault(static evaluation => evaluation != null);
+            if (mutatingDefault != null)
+            {
+                ThrowInvalidLeafConditionalActivation(
+                    group.Key,
+                    mutatingDefault.Message,
+                    capabilities,
+                    mutatingDefault.ValidationIssue,
+                    workflowName,
+                    mutatingDefault.SwitchId);
+            }
+            if (groupCalls.Length != capabilities.Length)
+            {
+                ThrowInvalidLeafConditionalActivation(
+                    group.Key,
+                    "Every conditional capability must occur exactly once in the generated leaf.",
+                    capabilities,
+                    "conditional_call_cardinality_invalid",
+                    workflowName);
+            }
+
+            var evaluations = allSteps
+                .Where(static step => string.Equals(step.Type, "switch", StringComparison.Ordinal))
+                .Select(step => EvaluateConditionalSwitchStructure(
+                    workflowName,
+                    step,
+                    capabilities,
+                    groupCalls,
+                    static (call, capability) => WorkflowStepMatchesPlannedMcpToolCall(call, capability),
+                    static capability => capability.Activation!,
+                    call => mutatingTools.Any(tool => WorkflowStepMatchesPlannedMcpToolCall(call, tool))))
+                .ToArray();
+            var validSwitches = evaluations.Where(static evaluation => evaluation.IsValid).ToArray();
+            if (validSwitches.Length == 1)
+                continue;
+
+            var failure = evaluations
+                .Where(static evaluation => evaluation.ContainedGroupCallCount > 0)
+                .OrderByDescending(static evaluation => evaluation.ContainedGroupCallCount)
+                .ThenByDescending(static evaluation => evaluation.ValidationProgress)
+                .FirstOrDefault();
+            ThrowInvalidLeafConditionalActivation(
+                group.Key,
+                validSwitches.Length == 0
+                    ? failure?.Message
+                      ?? "Conditional capabilities must be placed in one expression-based switch with exact literal cases and a non-mutating default branch."
+                    : "Conditional capabilities were associated with more than one switch.",
+                capabilities,
+                validSwitches.Length == 0
+                    ? failure?.ValidationIssue ?? "conditional_switch_missing"
+                    : "conditional_switch_ambiguous",
+                workflowName,
+                validSwitches.Length == 0 ? failure?.SwitchId : null);
+        }
+    }
+
+    private static void ThrowInvalidLeafConditionalActivation(
+        string group,
+        string reason,
+        IReadOnlyList<PipelinePlannedTool> capabilities,
+        string validationIssue,
+        string workflow,
+        string? switchId = null)
+        => throw new WorkflowRuntimeException(
+            ErrorCodes.TemplatePlan,
+            $"Generated leaf workflow does not safely implement conditional capability group '{group}': {reason}",
+            details: new JsonObject
+            {
+                ["phase"] = "pipeline_leaf_generation",
+                ["reason"] = "conditional_activation_invalid",
+                ["validation_issue"] = validationIssue,
+                ["repair_scope"] = "leaf_topology",
+                ["activation_group"] = group,
+                ["workflow"] = workflow,
+                ["switch_id"] = switchId,
+                ["decision_operation_id"] = capabilities
+                    .Select(static capability => capability.Activation?.DecisionOperationId)
+                    .FirstOrDefault(static value => !string.IsNullOrWhiteSpace(value)),
+                ["decision_field"] = capabilities
+                    .Select(static capability => GetDecisionBoundaryFieldName(
+                        capability.Activation?.DecisionOutputPath ?? string.Empty))
+                    .FirstOrDefault(static value => !string.IsNullOrWhiteSpace(value)),
+                ["message"] = reason,
+                ["branches"] = new JsonArray(capabilities.Select(capability => (JsonNode)new JsonObject
+                {
+                    ["branch_value"] = capability.Activation?.BranchValue,
+                    ["server"] = capability.Server,
+                    ["kind"] = capability.Kind,
+                    ["method"] = capability.Method,
+                    ["request_bindings"] = BuildRequestBindingsJson(capability.RequestBindings)
+                }).ToArray())
+            });
 
     private static bool StepMatchesDecisionProducer(StepDef step, ResolvedCapability capability)
     {
@@ -7538,7 +7899,8 @@ public sealed partial class WorkflowPlanExecutor
         return string.Equals(path, suffix, StringComparison.Ordinal)
                || path.EndsWith('.' + suffix, StringComparison.Ordinal)
                || boundaryField.Length > 0
-               && string.Equals(path, "data.inputs." + boundaryField, StringComparison.Ordinal);
+               && (string.Equals(path, "data.inputs." + boundaryField, StringComparison.Ordinal)
+                   || path.EndsWith('.' + boundaryField, StringComparison.Ordinal));
     }
 
     private static bool ConditionalDecisionExpressionDependsOnSource(
@@ -7625,7 +7987,7 @@ public sealed partial class WorkflowPlanExecutor
                        && DecisionSourceStepDeclaresContract(sourceStep, activation);
             }
 
-            if (string.Equals(sourceStep.Type, "set", StringComparison.Ordinal))
+            if (sourceStep.Type is "set" or "assert.non_null")
             {
                 var value = ResolveInstancePath(sourceStep.Input, remainingPath);
                 return value is JsonValue setValue
@@ -7846,7 +8208,11 @@ public sealed partial class WorkflowPlanExecutor
     private static void ThrowInvalidConditionalActivation(
         string group,
         string reason,
-        IReadOnlyList<ResolvedCapability> capabilities)
+        IReadOnlyList<ResolvedCapability> capabilities,
+        string validationIssue,
+        string repairScope,
+        string? workflow = null,
+        string? switchId = null)
         => throw new WorkflowRuntimeException(
             ErrorCodes.CapabilityPreflightUnavailable,
             $"Generated workflow does not safely implement conditional capability group '{group}': {reason}",
@@ -7854,9 +8220,17 @@ public sealed partial class WorkflowPlanExecutor
             {
                 ["phase"] = "capability_preflight",
                 ["reason"] = "conditional_activation_invalid",
+                ["validation_issue"] = validationIssue,
+                ["repair_scope"] = repairScope,
                 ["activation_group"] = group,
+                ["workflow"] = workflow,
+                ["switch_id"] = switchId,
                 ["decision_operation_id"] = capabilities
                     .Select(static capability => capability.Activation?.DecisionOperationId)
+                    .FirstOrDefault(static value => !string.IsNullOrWhiteSpace(value)),
+                ["decision_field"] = capabilities
+                    .Select(static capability => GetDecisionBoundaryFieldName(
+                        capability.Activation?.DecisionOutputPath ?? string.Empty))
                     .FirstOrDefault(static value => !string.IsNullOrWhiteSpace(value)),
                 ["message"] = reason,
                 ["branches"] = new JsonArray(capabilities.Select(capability => (JsonNode)new JsonObject
@@ -8561,7 +8935,10 @@ public sealed partial class WorkflowPlanExecutor
                     capability.RequestBindings,
                     string.IsNullOrWhiteSpace(capability.OperationId) ? [capability.Id] : [capability.OperationId],
                     string.IsNullOrWhiteSpace(capability.CatalogId) ? Array.Empty<string>() : [capability.CatalogId],
-                    capability.Activation));
+                    capability.Activation)
+                {
+                    ExternalEffectKind = capability.ExternalEffectKind
+                });
             }
             updated[targetName] = target with { PlannedTools = planned };
         }
@@ -8732,7 +9109,10 @@ public sealed partial class WorkflowPlanExecutor
                     capability.RequestBindings,
                     string.IsNullOrWhiteSpace(capability.OperationId) ? [capability.Id] : [capability.OperationId],
                     string.IsNullOrWhiteSpace(capability.CatalogId) ? Array.Empty<string>() : [capability.CatalogId],
-                    capability.Activation));
+                    capability.Activation)
+                {
+                    ExternalEffectKind = capability.ExternalEffectKind
+                });
             }
         }
 

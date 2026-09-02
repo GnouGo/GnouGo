@@ -538,6 +538,8 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
 
         var group = GetStringProperty(details, "activation_group") ?? "conditional_group";
         var decisionOperationId = GetStringProperty(details, "decision_operation_id") ?? "the locked decision source";
+        var validationIssue = GetStringProperty(details, "validation_issue");
+        var decisionField = GetStringProperty(details, "decision_field") ?? "the declared decision field";
         var branchValues = details["branches"] is JsonArray branches
             ? branches.OfType<JsonObject>()
                 .Select(static branch => GetStringProperty(branch, "branch_value"))
@@ -546,13 +548,22 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
                 .ToArray()
             : Array.Empty<string>();
         var sb = new StringBuilder();
+        if (string.Equals(validationIssue, "conditional_decision_lineage_unproven", StringComparison.Ordinal))
+        {
+            sb.AppendLine($"Preserve the existing switch for conditional capability group `{group}` and repair only the decision lineage from operation `{decisionOperationId}`.");
+            sb.AppendLine($"Carry boundary field `{decisionField}` unchanged through workflow.call arguments and outputs. A direct expression, a same-named `set` field, or a same-named `assert.non_null` field is transparent.");
+            sb.AppendLine("Do not rename the field, source it from an unproven caller input, or use a literal, function, fallback, coercion, concatenation, or recomputation.");
+            sb.AppendLine("The final switch expression must refer to that exact routed field. Do not rebuild a switch whose cases and default already satisfy the locked activation contract.");
+            return sb.ToString().TrimEnd();
+        }
+
         sb.AppendLine($"Rebuild conditional capability group `{group}` as exactly one discriminator-style `switch` driven by decision operation `{decisionOperationId}`.");
         sb.AppendLine("Use `switch.expr` for the scalar runtime decision and `cases[].value` for literal branch values. Do not use `cases[].when` for this exactly-one capability group.");
         if (branchValues.Length > 0)
             sb.AppendLine("Required case values: " + string.Join(", ", branchValues.Select(static value => $"`{value}`")) + ".");
         sb.AppendLine("Place exactly one matching conditional mcp.call in each corresponding case, and place no matching variant before, after, or in another switch.");
         sb.AppendLine("Keep unconditional prerequisite calls outside the switch and execute them once. Use `default: []` or only non-mutating failure handling; the default must never perform a write or lifecycle action.");
-        sb.AppendLine("The switch expression must trace to the declared runtime decision input or an earlier decision-producing step. Do not hard-code a branch and do not ask the human for a future runtime outcome.");
+        sb.AppendLine($"The switch expression must trace to the declared runtime decision field `{decisionField}` or an earlier decision-producing step. Exact same-named `set` and `assert.non_null` projections are allowed. Do not hard-code a branch and do not ask the human for a future runtime outcome.");
         sb.AppendLine("Canonical shape:");
         sb.AppendLine("- id: choose_terminal_action");
         sb.AppendLine("  type: switch");

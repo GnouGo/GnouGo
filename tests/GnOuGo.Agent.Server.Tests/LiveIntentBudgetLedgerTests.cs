@@ -1,3 +1,4 @@
+using System.Reflection;
 using GnOuGo.Flow.Core.Runtime;
 
 namespace GnOuGo.Agent.Server.Tests;
@@ -59,6 +60,42 @@ public sealed class LiveIntentBudgetLedgerTests
                 LiveIntentAgentGenerationTests.LiveBudgetLedger.Open(path));
 
             Assert.Contains("unreadable or malformed", failure.Message, StringComparison.Ordinal);
+        }
+        finally
+        {
+            if (File.Exists(path))
+                File.Delete(path);
+        }
+    }
+
+    [Fact]
+    public async Task LivePhase_AllowsFailedDiagnosticRetryWithoutResettingSharedLedger()
+    {
+        var path = Path.Combine(Path.GetTempPath(), $"gnougo-live-budget-{Guid.NewGuid():N}.json");
+        try
+        {
+            var ledger = LiveIntentAgentGenerationTests.LiveBudgetLedger.Open(path);
+            var snapshot = new LLMUsageBudgetSnapshot
+            {
+                StartedAtUtc = DateTimeOffset.UtcNow,
+                Calls = 7,
+                InputTokens = 101,
+                OutputTokens = 23,
+                TotalTokens = 124,
+                EstimatedCostUsd = 1.25m
+            };
+            await ledger.PersistAsync(snapshot, TestContext.Current.CancellationToken);
+            ledger.MarkProbeCompleted(snapshot);
+            var method = typeof(LiveIntentAgentGenerationTests).GetMethod(
+                "ValidateLivePhase",
+                BindingFlags.Static | BindingFlags.NonPublic)!;
+
+            method.Invoke(null, [ledger, 1]);
+
+            ledger.MarkDiagnosticGenerationCompleted(snapshot);
+            var repeatedDiagnostic = Assert.Throws<TargetInvocationException>(() => method.Invoke(null, [ledger, 1]));
+            Assert.IsType<InvalidOperationException>(repeatedDiagnostic.InnerException);
+            method.Invoke(null, [ledger, 3]);
         }
         finally
         {
