@@ -39,6 +39,8 @@ public sealed class ConfigureAgentsService
     private readonly TimeSpan _mcpCacheSlidingExpiration;
     private readonly string _tenantId;
     private readonly ILLMUsageBudgetScopeFactory? _llmUsageBudgetScopeFactory;
+    private readonly IExchangeRateProvider? _exchangeRateProvider;
+    private readonly WorkflowPlanningBudgetSettings _workflowPlanningBudget;
 
     internal string WorkflowSource => _workflowYaml;
 
@@ -56,7 +58,9 @@ public sealed class ConfigureAgentsService
         IOptions<McpCapabilityCacheSettings>? mcpCapabilityCacheSettings = null,
         IOptions<WorkflowMermaidMarkdownOptions>? workflowMermaidOptions = null,
         IOptions<OpenTelemetrySettings>? openTelemetrySettings = null,
-        ILLMUsageBudgetScopeFactory? llmUsageBudgetScopeFactory = null)
+        ILLMUsageBudgetScopeFactory? llmUsageBudgetScopeFactory = null,
+        IExchangeRateProvider? exchangeRateProvider = null,
+        IOptions<WorkflowPlanningBudgetSettings>? workflowPlanningBudget = null)
     {
         _llm = llm;
         _mcpFactory = mcpFactory;
@@ -72,6 +76,9 @@ public sealed class ConfigureAgentsService
         _mcpCacheSlidingExpiration = (mcpCapabilityCacheSettings?.Value ?? new McpCapabilityCacheSettings()).SlidingExpiration;
         _tenantId = WorkflowExecutionTenant.Resolve(openTelemetrySettings);
         _llmUsageBudgetScopeFactory = llmUsageBudgetScopeFactory;
+        _exchangeRateProvider = exchangeRateProvider;
+        _workflowPlanningBudget = workflowPlanningBudget?.Value ?? new WorkflowPlanningBudgetSettings();
+        _workflowPlanningBudget.Validate();
 
         // Load the embedded workflow YAML
         var asm = typeof(ConfigureAgentsService).Assembly;
@@ -163,6 +170,8 @@ public sealed class ConfigureAgentsService
 
             inputs["agent_llm_provider"] = selection.Provider;
             inputs["agent_llm_model"] = selection.Model;
+            inputs["planning_budget_amount"] = _workflowPlanningBudget.Amount;
+            inputs["planning_budget_currency"] = _workflowPlanningBudget.Currency;
 
             yield return new SmartFlowEvent(
                 "thinking:info",
@@ -187,6 +196,7 @@ public sealed class ConfigureAgentsService
         {
             LLMClient = runtime.LlmClient,
             ModelUsageCostEstimator = new ModelMetadataUsageCostEstimator(runtime.Options),
+            ExchangeRateProvider = _exchangeRateProvider,
             LLMUsageBudget = _llmUsageBudgetScopeFactory?.CreateScope(),
             LLMCapabilities = runtime.LlmCapabilityResolver,
             LlmDefaults = new LlmRuntimeDefaults

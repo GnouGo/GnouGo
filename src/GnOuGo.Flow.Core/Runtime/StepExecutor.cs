@@ -112,6 +112,8 @@ public sealed class StepExecutionContext
             new KeyValuePair<string, object?>("gnougo-flow.llm_budget.input_tokens", snapshot.InputTokens),
             new KeyValuePair<string, object?>("gnougo-flow.llm_budget.output_tokens", snapshot.OutputTokens),
             new KeyValuePair<string, object?>("gnougo-flow.llm_budget.total_tokens", snapshot.TotalTokens),
+            new KeyValuePair<string, object?>("gnougo-flow.llm_budget.estimated_cost", snapshot.EstimatedCost),
+            new KeyValuePair<string, object?>("gnougo-flow.llm_budget.estimated_cost_currency", snapshot.EstimatedCostCurrency),
             new KeyValuePair<string, object?>("gnougo-flow.llm_budget.estimated_cost_usd", snapshot.EstimatedCostUsd),
             new KeyValuePair<string, object?>("gnougo-flow.llm_budget.elapsed_ms", Math.Max(0, (DateTimeOffset.UtcNow - snapshot.StartedAtUtc).TotalMilliseconds))
         });

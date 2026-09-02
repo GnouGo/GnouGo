@@ -84,6 +84,32 @@ public sealed class IntegrationAdapterTests
     }
 
     [Fact]
+    public void CostEstimator_ReturnsDeclaredPricingCurrency()
+    {
+        var options = new LLMOptions();
+        options.ModelOverrides["neutral/currency-model"] = new LLMModelMetadata
+        {
+            Pricing = new ModelPricingMetadata
+            {
+                InputPer1MTokens = 2m,
+                OutputPer1MTokens = 4m,
+                Currency = "eur"
+            }
+        };
+        var estimator = new ModelMetadataUsageCostEstimator(options);
+
+        var estimate = estimator.EstimateCostWithCurrency(
+            "currency-model",
+            1_000_000,
+            500_000,
+            "neutral");
+
+        Assert.NotNull(estimate);
+        Assert.Equal(4m, estimate.Amount);
+        Assert.Equal("EUR", estimate.Currency);
+    }
+
+    [Fact]
     public void CostEstimator_ReturnsNullWhenConfiguredPricingIsIncomplete()
     {
         var options = new LLMOptions();

@@ -5629,6 +5629,129 @@ public sealed class WorkflowPlanCapabilityPreflightTests
         });
     }
 
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task InferredPreflight_GuardsSingleConditionalEffectWithNoEffectOutcomeWithoutRepair(
+        bool advisoryFieldPlacement)
+    {
+        const string generated = """
+            version: 1
+            name: generated-single-conditional-effect
+            skill:
+              description: Analyze and conditionally apply one effect.
+              tags: [generated]
+              inputs: {}
+              outputs: {}
+            workflows:
+              main:
+                steps:
+                  - id: analyze
+                    type: mcp.call
+                    input:
+                      server: reviewer
+                      kind: tool
+                      method: analyze_change
+                      structured_output:
+                        schema_inline:
+                          type: object
+                          properties:
+                            decision:
+                              type: string
+                              enum: [EFFECT, NO_EFFECT]
+                          required: [decision]
+                          additionalProperties: false
+                        strict: true
+                  - id: apply_decision
+                    type: switch
+                    expr: ${data.steps.analyze.json.decision}
+                    cases:
+                      - value: EFFECT
+                        steps:
+                          - id: apply_effect
+                            type: mcp.call
+                            input:
+                              server: writer
+                              kind: tool
+                              method: add_detail
+                      - value: NO_EFFECT
+                        steps:
+                          - id: record_no_effect
+                            type: set
+                            input:
+                              status: skipped
+                    default: []
+            """;
+        var matcherCalls = 0;
+        var llm = new Mock<ILLMClient>();
+        llm.Setup(client => client.CallAsync(It.IsAny<LLMRequest>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((LLMRequest request, CancellationToken _) =>
+            {
+                if (request.Prompt.Contains("domain-neutral workflow runtime analyst", StringComparison.Ordinal))
+                {
+                    return ConditionalInventoryResponse(
+                        "Analyze the runtime input and prepare an effect decision.",
+                        "Apply one effect when selected or perform no effect.",
+                        allowNoEffectOutcome: true);
+                }
+                if (request.Prompt.Contains("domain-neutral capability matcher", StringComparison.Ordinal))
+                {
+                    matcherCalls++;
+                    var effectCatalogId = CatalogIdForMethod(request.Prompt, "add_detail");
+                    return new LLMResponse
+                    {
+                        Json = new JsonObject
+                        {
+                            ["operation_matches"] = new JsonArray(
+                                new JsonObject
+                                {
+                                    ["operation_id"] = "analyze",
+                                    ["status"] = "matched",
+                                    ["catalog_ids"] = new JsonArray(CatalogIdForMethod(request.Prompt, "analyze_change")),
+                                    ["candidate_catalog_ids"] = new JsonArray(),
+                                    ["decision_operation_id"] = string.Empty,
+                                    ["conditional_mode"] = string.Empty,
+                                    ["reason"] = "The selected capability provides the runtime analysis."
+                                },
+                                new JsonObject
+                                {
+                                    ["operation_id"] = "publish",
+                                    ["status"] = "conditional",
+                                    ["catalog_ids"] = advisoryFieldPlacement
+                                        ? new JsonArray()
+                                        : new JsonArray(effectCatalogId),
+                                    ["candidate_catalog_ids"] = advisoryFieldPlacement
+                                        ? new JsonArray(effectCatalogId)
+                                        : new JsonArray(),
+                                    ["decision_operation_id"] = "analyze",
+                                    ["conditional_mode"] = "all_on_value",
+                                    ["reason"] = "The one effect executes only for the effect value."
+                                }),
+                            ["constraint_matches"] = new JsonArray()
+                        }
+                    };
+                }
+                return new LLMResponse { Text = generated };
+            });
+
+        var result = await ExecuteAsync(
+            ConditionalInferredPlan(),
+            llm.Object,
+            CreateConditionalCompositionFactory());
+
+        Assert.True(result.Success, result.Error?.Message);
+        Assert.Equal(1, matcherCalls);
+        var capabilities = Assert.IsType<JsonArray>(
+            result.Outputs!["plan"]!["meta"]!["capability_preflight"]!["capabilities"]);
+        var activation = Assert.IsType<JsonObject>(Assert.Single(
+            capabilities.OfType<JsonObject>(),
+            static capability => capability["activation"] is JsonObject)["activation"]);
+        Assert.Equal("all_on_value", activation["mode"]!.GetValue<string>());
+        Assert.Equal("EFFECT", activation["branch_value"]!.GetValue<string>());
+        Assert.Equal("NO_EFFECT", Assert.Single(Assert.IsType<JsonArray>(
+            activation["no_effect_values"]))!.GetValue<string>());
+    }
+
     [Fact]
     public async Task InferredPreflight_RecoversReviewDecisionSourceFromDeclaredArtifactComposition()
     {
@@ -7879,12 +8002,17 @@ public sealed class WorkflowPlanCapabilityPreflightTests
                 It.IsAny<IReadOnlyList<KeyValuePair<string, object?>>?>()))
             .Callback((string _, IReadOnlyList<KeyValuePair<string, object?>>? attributes) =>
                 failureEvents.Add(attributes ?? []));
+        string? repairPrompt = null;
         var llm = new Mock<ILLMClient>();
         llm.Setup(client => client.CallAsync(It.IsAny<LLMRequest>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync((LLMRequest request, CancellationToken _) =>
-                request.Prompt.Contains("domain-neutral workflow runtime analyst", StringComparison.Ordinal)
+            {
+                if (request.Prompt.Contains("repairing a previous matching contract", StringComparison.Ordinal))
+                    repairPrompt = request.Prompt;
+                return request.Prompt.Contains("domain-neutral workflow runtime analyst", StringComparison.Ordinal)
                     ? InventoryResponse(("load_object", "Load the requested object.", true))
-                    : MatchResponse(("load_object", "mcp", "cap_999999")));
+                    : MatchResponse(("load_object", "mcp", "cap_999999"));
+            });
 
         var result = await ExecuteAsync(
             ClarifyingInferredPlan(),
@@ -7901,6 +8029,12 @@ public sealed class WorkflowPlanCapabilityPreflightTests
         var matchingIssue = Assert.IsType<JsonObject>(Assert.Single(Assert.IsType<JsonArray>(
             result.Error.Details["matching_issues"])));
         Assert.Equal("model_repair_exhausted", matchingIssue["reason_code"]!.GetValue<string>());
+        Assert.Equal("catalog_id_unknown", matchingIssue["validation_issue"]!.GetValue<string>());
+        Assert.Equal("matched", matchingIssue["reported_status"]!.GetValue<string>());
+        Assert.Equal(1, matchingIssue["selected_catalog_id_count"]!.GetValue<int>());
+        Assert.NotNull(repairPrompt);
+        Assert.Contains("\"validation_issue\":\"catalog_id_unknown\"", repairPrompt, StringComparison.Ordinal);
+        Assert.Contains("\"reported_status\":\"matched\"", repairPrompt, StringComparison.Ordinal);
         var exhaustionEvent = Assert.Single(failureEvents);
         var eventAttributes = exhaustionEvent.ToDictionary(static item => item.Key, static item => item.Value);
         Assert.Equal("model_repair_exhausted", eventAttributes["gnougo-flow.plan.capability_matching.reason_code"]);

@@ -13,6 +13,7 @@ using GnOuGo.Flow.Core.Compilation;
 using GnOuGo.Flow.Core.Models;
 using GnOuGo.Flow.Core.Parsing;
 using GnOuGo.Flow.Core.Runtime;
+using GnOuGo.Flow.Integrations;
 
 namespace GnOuGo.Agent.Server.Tests;
 
@@ -1030,7 +1031,8 @@ public sealed class ConfigureAgentsServiceTests
             runtimeFactory,
             runtimeStore,
             SmartFlowTestFactory.CreateTelemetryHarness().Telemetry,
-            NullLogger<ConfigureAgentsService>.Instance);
+            NullLogger<ConfigureAgentsService>.Instance,
+            exchangeRateProvider: new TestExchangeRateProvider());
     }
 
     private static async Task<(RunResult Result, List<SmartFlowEvent> Events)> ExecuteConfigureAgentsWorkflowByNameAsync(
@@ -1056,6 +1058,8 @@ public sealed class ConfigureAgentsServiceTests
         var engine = new WorkflowEngine
         {
             LLMClient = llm,
+            ModelUsageCostEstimator = new ModelMetadataUsageCostEstimator(),
+            ExchangeRateProvider = new TestExchangeRateProvider(),
             LlmDefaults = new LlmRuntimeDefaults
             {
                 Provider = "openai",
@@ -1068,6 +1072,12 @@ public sealed class ConfigureAgentsServiceTests
             Logger = NullLogger<ConfigureAgentsService>.Instance,
             Limits = new ExecutionLimits { LogStepContent = true }
         };
+
+        if (string.Equals(workflowName, "agent_add", StringComparison.Ordinal))
+        {
+            inputs.TryAdd("planning_budget_amount", 50m);
+            inputs.TryAdd("planning_budget_currency", "EUR");
+        }
 
         var resolvedInputs = WorkflowInputDefaults.Apply(workflow.Source, inputs);
 

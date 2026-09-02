@@ -38,6 +38,30 @@ public interface IModelUsageCostEstimator
         long? inputTokens = null,
         long? outputTokens = null,
         string? providerType = null);
+
+    /// <summary>
+    /// Estimates model usage with its pricing currency. Existing estimators are
+    /// treated as USD estimators until they override this currency-aware method.
+    /// </summary>
+    ModelUsageCostEstimate? EstimateCostWithCurrency(
+        string? model,
+        long? inputTokens = null,
+        long? outputTokens = null,
+        string? providerType = null)
+        => EstimateCost(model, inputTokens, outputTokens, providerType) is { } amount
+            ? new ModelUsageCostEstimate(amount, "USD")
+            : null;
+}
+
+/// <summary>
+/// Provider-neutral source of bounded exchange-rate quotes.
+/// </summary>
+public interface IExchangeRateProvider
+{
+    ValueTask<CurrencyExchangeQuote?> GetQuoteAsync(
+        string sourceCurrency,
+        string targetCurrency,
+        CancellationToken ct);
 }
 
 /// <summary>

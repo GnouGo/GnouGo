@@ -31,8 +31,12 @@ public sealed class LiveIntentAgentGenerationTests
     private const string GenerationCountVariable = "GNOU_GO_LIVE_INTENT_AGENT_GENERATIONS";
     private const string BudgetStatePathVariable = "GNOU_GO_LIVE_INTENT_AGENT_BUDGET_STATE_PATH";
     private const string IsolatedProjectVariable = "GNOU_GO_LIVE_INTENT_AGENT_PROVIDER_PROJECT_ISOLATED";
-    private const string ProviderHardLimitVariable = "GNOU_GO_LIVE_INTENT_AGENT_PROVIDER_HARD_LIMIT_USD";
-    private const decimal LiveCycleCostLimitUsd = 25m;
+    private const string BudgetAmountVariable = "GNOU_GO_LIVE_INTENT_AGENT_BUDGET_AMOUNT";
+    private const string BudgetCurrencyVariable = "GNOU_GO_LIVE_INTENT_AGENT_BUDGET_CURRENCY";
+    private const string ProviderHardLimitAmountVariable = "GNOU_GO_LIVE_INTENT_AGENT_PROVIDER_HARD_LIMIT_AMOUNT";
+    private const string ProviderHardLimitCurrencyVariable = "GNOU_GO_LIVE_INTENT_AGENT_PROVIDER_HARD_LIMIT_CURRENCY";
+    private const decimal DefaultLiveCycleCostLimit = 50m;
+    private const string DefaultLiveCycleCurrency = "EUR";
     private const int LiveProviderAttemptCount = 1;
     private static readonly TimeSpan LiveCycleElapsedLimit = TimeSpan.FromMinutes(120);
     private static readonly object ProgressFileLock = new();
@@ -57,10 +61,18 @@ public sealed class LiveIntentAgentGenerationTests
             return;
 
         ValidateDedicatedProviderProjectAttestation();
+        var budgetDefinition = ResolveLiveBudgetDefinition();
         var generationCount = ResolveGenerationCount();
         WriteLiveProgress("test_started");
         var sourceRoot = FindSourceRoot();
-        var budgetLedger = LiveBudgetLedger.Open(ResolveBudgetStatePath(sourceRoot));
+        var budgetLedger = LiveBudgetLedger.Open(ResolveBudgetStatePath(sourceRoot), budgetDefinition);
+        using var exchangeHttpClient = new HttpClient { Timeout = TimeSpan.FromSeconds(10) };
+        var exchangeRateProvider = new EcbExchangeRateProvider(exchangeHttpClient);
+        await ValidateProviderHardLimitAsync(
+            budgetLedger,
+            budgetDefinition,
+            exchangeRateProvider,
+            TestContext.Current.CancellationToken);
         ValidateLivePhase(budgetLedger, generationCount);
         var cycleBudget = new LLMUsageBudgetScope(
             new LLMUsageBudgetLimits
@@ -68,14 +80,14 @@ public sealed class LiveIntentAgentGenerationTests
                 MaxCalls = 120,
                 MaxTotalTokens = 5_000_000,
                 MaxElapsed = LiveCycleElapsedLimit,
-                MaxEstimatedCostUsd = LiveCycleCostLimitUsd
+                MaxEstimatedCost = budgetDefinition.AuthorizedBudget
             },
             initialSnapshot: budgetLedger.Snapshot,
-            sink: budgetLedger);
+            sink: budgetLedger,
+            exchangeRateProvider: exchangeRateProvider);
         var remainingCycleTime = LiveCycleElapsedLimit - (DateTimeOffset.UtcNow - budgetLedger.Snapshot.StartedAtUtc);
         if (remainingCycleTime <= TimeSpan.Zero)
         {
-            budgetLedger.Delete();
             throw new InvalidOperationException("The shared live-validation elapsed-time budget is exhausted. Start a new dedicated provider project and validation cycle.");
         }
 
@@ -99,7 +111,9 @@ public sealed class LiveIntentAgentGenerationTests
                 [
                     "--OtlpCollector:Enabled=false",
                     "--OpenTelemetry:Enabled=false",
-                    $"--Database:Path={telemetryDatabasePath}"
+                    $"--Database:Path={telemetryDatabasePath}",
+                    $"--WorkflowPlanningBudget:Amount={budgetDefinition.AuthorizedBudget.Amount.ToString(CultureInfo.InvariantCulture)}",
+                    $"--WorkflowPlanningBudget:Currency={budgetDefinition.AuthorizedBudget.Currency}"
                 ],
                 urls: "http://127.0.0.1:0",
                 contentRoot: Path.Combine(sourceRoot, "src", "GnOuGo.Agent.Server"),
@@ -435,12 +449,94 @@ public sealed class LiveIntentAgentGenerationTests
         if (!string.Equals(Environment.GetEnvironmentVariable(IsolatedProjectVariable), "1", StringComparison.Ordinal))
             throw new InvalidOperationException(
                 $"Live intent acceptance requires a dedicated provider project. Set {IsolatedProjectVariable}=1 only after isolating the test API key.");
+    }
 
-        var configuredLimit = Environment.GetEnvironmentVariable(ProviderHardLimitVariable);
-        if (!decimal.TryParse(configuredLimit, NumberStyles.Number, CultureInfo.InvariantCulture, out var hardLimit)
-            || hardLimit != LiveCycleCostLimitUsd)
+    private static LiveBudgetDefinition ResolveLiveBudgetDefinition()
+    {
+        var authorizedAmountText = Environment.GetEnvironmentVariable(BudgetAmountVariable);
+        var authorizedAmount = string.IsNullOrWhiteSpace(authorizedAmountText)
+            ? DefaultLiveCycleCostLimit
+            : ParsePositiveAmount(authorizedAmountText, BudgetAmountVariable);
+        var authorizedCurrency = NormalizeCurrency(
+            Environment.GetEnvironmentVariable(BudgetCurrencyVariable) ?? DefaultLiveCycleCurrency,
+            BudgetCurrencyVariable);
+
+        var providerAmountText = Environment.GetEnvironmentVariable(ProviderHardLimitAmountVariable);
+        if (string.IsNullOrWhiteSpace(providerAmountText))
             throw new InvalidOperationException(
-                $"Live intent acceptance requires an attested ${LiveCycleCostLimitUsd:0.##} provider-side hard limit. Set {ProviderHardLimitVariable}={LiveCycleCostLimitUsd.ToString(CultureInfo.InvariantCulture)} after configuring it.");
+                $"Live intent acceptance requires an explicit provider-side hard limit. Set {ProviderHardLimitAmountVariable} after configuring it.");
+        var providerCurrencyText = Environment.GetEnvironmentVariable(ProviderHardLimitCurrencyVariable);
+        if (string.IsNullOrWhiteSpace(providerCurrencyText))
+            throw new InvalidOperationException(
+                $"Live intent acceptance requires the provider-side hard-limit currency. Set {ProviderHardLimitCurrencyVariable} after configuring it.");
+
+        return new LiveBudgetDefinition(
+            new MonetaryAmount(authorizedAmount, authorizedCurrency),
+            new MonetaryAmount(
+                ParsePositiveAmount(providerAmountText, ProviderHardLimitAmountVariable),
+                NormalizeCurrency(providerCurrencyText, ProviderHardLimitCurrencyVariable)));
+    }
+
+    private static async Task ValidateProviderHardLimitAsync(
+        LiveBudgetLedger ledger,
+        LiveBudgetDefinition definition,
+        IExchangeRateProvider exchangeRateProvider,
+        CancellationToken ct)
+    {
+        var providerLimit = definition.ProviderHardLimit;
+        var authorized = definition.AuthorizedBudget;
+        decimal normalizedProviderLimit;
+        if (string.Equals(providerLimit.Currency, authorized.Currency, StringComparison.Ordinal))
+        {
+            normalizedProviderLimit = providerLimit.Amount;
+        }
+        else
+        {
+            var quote = ledger.Snapshot.ExchangeRates.FirstOrDefault(candidate =>
+                string.Equals(candidate.SourceCurrency, providerLimit.Currency, StringComparison.Ordinal)
+                && string.Equals(candidate.TargetCurrency, authorized.Currency, StringComparison.Ordinal));
+            quote ??= await exchangeRateProvider.GetQuoteAsync(
+                providerLimit.Currency,
+                authorized.Currency,
+                ct);
+            if (quote is null || quote.Rate <= 0)
+                throw new InvalidOperationException("The provider hard limit cannot be converted into the authorized live-budget currency.");
+            ledger.PinExchangeRate(quote);
+            try
+            {
+                normalizedProviderLimit = checked(providerLimit.Amount * quote.Rate);
+            }
+            catch (OverflowException ex)
+            {
+                throw new InvalidOperationException("The converted provider hard limit exceeds the supported numeric range.", ex);
+            }
+        }
+
+        if (normalizedProviderLimit <= 0)
+            throw new InvalidOperationException("The converted provider hard limit must remain positive.");
+        if (normalizedProviderLimit > authorized.Amount)
+        {
+            throw new InvalidOperationException(
+                $"The attested provider-side hard limit exceeds the authorized {authorized.Amount.ToString(CultureInfo.InvariantCulture)} {authorized.Currency} live budget.");
+        }
+    }
+
+    private static decimal ParsePositiveAmount(string value, string variable)
+    {
+        if (!decimal.TryParse(value, NumberStyles.Number, CultureInfo.InvariantCulture, out var parsed)
+            || parsed <= 0)
+        {
+            throw new InvalidOperationException($"{variable} must be a positive decimal amount.");
+        }
+        return parsed;
+    }
+
+    private static string NormalizeCurrency(string value, string variable)
+    {
+        var normalized = value.Trim().ToUpperInvariant();
+        if (normalized.Length != 3 || normalized.Any(static character => character is < 'A' or > 'Z'))
+            throw new InvalidOperationException($"{variable} must contain exactly three ASCII letters.");
+        return normalized;
     }
 
     private static int ResolveGenerationCount()
@@ -1638,6 +1734,8 @@ public sealed class LiveIntentAgentGenerationTests
         {
             entry["budget_calls"] = budget.Calls;
             entry["budget_total_tokens"] = budget.TotalTokens;
+            entry["budget_estimated_cost"] = budget.EstimatedCost;
+            entry["budget_estimated_cost_currency"] = budget.EstimatedCostCurrency;
             entry["budget_estimated_cost_usd"] = budget.EstimatedCostUsd;
         }
         if (providerDiagnostics is not null)
@@ -1710,20 +1808,27 @@ public sealed class LiveIntentAgentGenerationTests
         public LLMUsageBudgetScope CreateScope() => scope;
     }
 
+    internal sealed record LiveBudgetDefinition(
+        MonetaryAmount AuthorizedBudget,
+        MonetaryAmount ProviderHardLimit);
+
     internal sealed class LiveBudgetLedger : ILLMUsageBudgetSink
     {
-        private const int CurrentVersion = 1;
+        private const int CurrentVersion = 2;
         private readonly object _gate = new();
         private readonly string _path;
+        private readonly LiveBudgetDefinition _definition;
 
         private LiveBudgetLedger(
             string path,
+            LiveBudgetDefinition definition,
             bool exists,
             LLMUsageBudgetSnapshot snapshot,
             bool probeCompleted,
             bool diagnosticGenerationCompleted)
         {
             _path = path;
+            _definition = definition;
             Exists = exists;
             Snapshot = snapshot;
             ProbeCompleted = probeCompleted;
@@ -1735,13 +1840,18 @@ public sealed class LiveIntentAgentGenerationTests
         public bool ProbeCompleted { get; private set; }
         public bool DiagnosticGenerationCompleted { get; private set; }
 
-        public static LiveBudgetLedger Open(string path)
+        public static LiveBudgetLedger Open(string path, LiveBudgetDefinition definition)
         {
             if (!File.Exists(path))
                 return new LiveBudgetLedger(
                     path,
+                    definition,
                     exists: false,
-                    new LLMUsageBudgetSnapshot { StartedAtUtc = DateTimeOffset.UtcNow },
+                    new LLMUsageBudgetSnapshot
+                    {
+                        StartedAtUtc = DateTimeOffset.UtcNow,
+                        EstimatedCostCurrency = definition.AuthorizedBudget.Currency
+                    },
                     probeCompleted: false,
                     diagnosticGenerationCompleted: false);
 
@@ -1757,7 +1867,17 @@ public sealed class LiveIntentAgentGenerationTests
             }
 
             if (ReadRequiredInt32(root, "version") != CurrentVersion)
-                throw new InvalidOperationException("The redacted live-validation budget ledger version is unsupported.");
+                throw new InvalidOperationException("The redacted live-validation budget ledger version is unsupported. Start a fresh ledger only with a newly attested provider project.");
+
+            var persistedDefinition = new LiveBudgetDefinition(
+                new MonetaryAmount(
+                    ReadRequiredDecimal(root, "authorized_budget_amount"),
+                    ReadRequiredString(root, "authorized_budget_currency")),
+                new MonetaryAmount(
+                    ReadRequiredDecimal(root, "provider_hard_limit_amount"),
+                    ReadRequiredString(root, "provider_hard_limit_currency")));
+            if (persistedDefinition != definition)
+                throw new InvalidOperationException("The redacted live-validation budget ledger does not match the configured budget or provider hard-limit attestation.");
 
             var snapshot = new LLMUsageBudgetSnapshot
             {
@@ -1766,14 +1886,38 @@ public sealed class LiveIntentAgentGenerationTests
                 InputTokens = ReadRequiredInt64(root, "input_tokens"),
                 OutputTokens = ReadRequiredInt64(root, "output_tokens"),
                 TotalTokens = ReadRequiredInt64(root, "total_tokens"),
+                EstimatedCost = ReadRequiredDecimal(root, "estimated_cost"),
+                EstimatedCostCurrency = ReadRequiredString(root, "estimated_cost_currency"),
+                ExchangeRates = ReadExchangeRates(root["exchange_rates"]),
                 EstimatedCostUsd = ReadRequiredDecimal(root, "estimated_cost_usd")
             };
             return new LiveBudgetLedger(
                 path,
+                definition,
                 exists: true,
                 snapshot,
                 ReadRequiredBoolean(root, "probe_completed"),
                 ReadRequiredBoolean(root, "diagnostic_generation_completed"));
+        }
+
+        public void PinExchangeRate(CurrencyExchangeQuote quote)
+        {
+            lock (_gate)
+            {
+                var existing = Snapshot.ExchangeRates.FirstOrDefault(candidate =>
+                    string.Equals(candidate.SourceCurrency, quote.SourceCurrency, StringComparison.Ordinal)
+                    && string.Equals(candidate.TargetCurrency, quote.TargetCurrency, StringComparison.Ordinal));
+                if (existing is not null && existing != quote)
+                    throw new InvalidOperationException("The live-validation ledger already pins a different exchange-rate quote for this currency pair.");
+                if (existing is null)
+                {
+                    Snapshot = Snapshot with
+                    {
+                        ExchangeRates = Snapshot.ExchangeRates.Append(quote).ToArray()
+                    };
+                    PersistLocked();
+                }
+            }
         }
 
         public ValueTask PersistAsync(LLMUsageBudgetSnapshot snapshot, CancellationToken ct)
@@ -1781,7 +1925,7 @@ public sealed class LiveIntentAgentGenerationTests
             ct.ThrowIfCancellationRequested();
             lock (_gate)
             {
-                Snapshot = snapshot with { };
+                Snapshot = snapshot with { ExchangeRates = snapshot.ExchangeRates.ToArray() };
                 PersistLocked();
             }
             return ValueTask.CompletedTask;
@@ -1791,7 +1935,7 @@ public sealed class LiveIntentAgentGenerationTests
         {
             lock (_gate)
             {
-                Snapshot = snapshot with { };
+                Snapshot = snapshot with { ExchangeRates = snapshot.ExchangeRates.ToArray() };
                 ProbeCompleted = true;
                 PersistLocked();
             }
@@ -1801,7 +1945,7 @@ public sealed class LiveIntentAgentGenerationTests
         {
             lock (_gate)
             {
-                Snapshot = snapshot with { };
+                Snapshot = snapshot with { ExchangeRates = snapshot.ExchangeRates.ToArray() };
                 DiagnosticGenerationCompleted = true;
                 PersistLocked();
             }
@@ -1826,12 +1970,26 @@ public sealed class LiveIntentAgentGenerationTests
             var root = new JsonObject
             {
                 ["version"] = CurrentVersion,
+                ["authorized_budget_amount"] = _definition.AuthorizedBudget.Amount,
+                ["authorized_budget_currency"] = _definition.AuthorizedBudget.Currency,
+                ["provider_hard_limit_amount"] = _definition.ProviderHardLimit.Amount,
+                ["provider_hard_limit_currency"] = _definition.ProviderHardLimit.Currency,
                 ["started_at_utc"] = Snapshot.StartedAtUtc.ToString("O", CultureInfo.InvariantCulture),
                 ["calls"] = Snapshot.Calls,
                 ["input_tokens"] = Snapshot.InputTokens,
                 ["output_tokens"] = Snapshot.OutputTokens,
                 ["total_tokens"] = Snapshot.TotalTokens,
+                ["estimated_cost"] = Snapshot.EstimatedCost,
+                ["estimated_cost_currency"] = Snapshot.EstimatedCostCurrency,
                 ["estimated_cost_usd"] = Snapshot.EstimatedCostUsd,
+                ["exchange_rates"] = new JsonArray(Snapshot.ExchangeRates.Select(static quote => (JsonNode)new JsonObject
+                {
+                    ["source_currency"] = quote.SourceCurrency,
+                    ["target_currency"] = quote.TargetCurrency,
+                    ["rate"] = quote.Rate,
+                    ["as_of_utc"] = quote.AsOfUtc.ToString("O", CultureInfo.InvariantCulture),
+                    ["source"] = quote.Source
+                }).ToArray()),
                 ["probe_completed"] = ProbeCompleted,
                 ["diagnostic_generation_completed"] = DiagnosticGenerationCompleted
             };
@@ -1869,6 +2027,26 @@ public sealed class LiveIntentAgentGenerationTests
         private static bool ReadRequiredBoolean(JsonObject root, string property)
             => root[property]?.GetValue<bool>()
                ?? throw new InvalidOperationException("The redacted live-validation budget ledger is incomplete.");
+
+        private static IReadOnlyList<CurrencyExchangeQuote> ReadExchangeRates(JsonNode? node)
+        {
+            if (node is not JsonArray values)
+                throw new InvalidOperationException("The redacted live-validation budget ledger is incomplete.");
+            return values.Select(value =>
+            {
+                if (value is not JsonObject quote)
+                    throw new InvalidOperationException("The redacted live-validation budget ledger contains an invalid exchange-rate quote.");
+                return new CurrencyExchangeQuote(
+                    ReadRequiredString(quote, "source_currency"),
+                    ReadRequiredString(quote, "target_currency"),
+                    ReadRequiredDecimal(quote, "rate"),
+                    DateTimeOffset.Parse(
+                        ReadRequiredString(quote, "as_of_utc"),
+                        CultureInfo.InvariantCulture,
+                        DateTimeStyles.RoundtripKind),
+                    ReadRequiredString(quote, "source"));
+            }).ToArray();
+        }
     }
 
     private sealed record GeneratedAgentContract(

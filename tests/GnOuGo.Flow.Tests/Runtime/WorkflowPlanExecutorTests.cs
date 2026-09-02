@@ -21917,6 +21917,80 @@ workflows:
     }
 
     [Fact]
+    public async Task WorkflowPlan_LlmBudget_AcceptsCanonicalCurrencyLimit()
+    {
+        var workflow = CompileMain("""
+            version: 1
+            workflows:
+              main:
+                steps:
+                  - id: plan
+                    type: workflow.plan
+                    input:
+                      mode: basic
+                      llm_budget:
+                        max_estimated_cost:
+                          amount: 10
+                          currency: EUR
+                      generator:
+                        model: neutral-model
+                        instruction: Generate a neutral workflow.
+                      validate:
+                        compile: false
+            """);
+        var mockLlm = new Mock<ILLMClient>();
+        mockLlm.Setup(client => client.CallAsync(It.IsAny<LLMRequest>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new LLMResponse
+            {
+                Text = ValidGeneratedTemplateWorkflowYaml,
+                Usage = new JsonObject
+                {
+                    ["input_tokens"] = 1,
+                    ["output_tokens"] = 1,
+                    ["total_tokens"] = 2
+                }
+            });
+
+        var result = await new WorkflowEngine
+        {
+            LLMClient = mockLlm.Object,
+            ModelUsageCostEstimator = new CurrencyCostEstimator(1m, "EUR")
+        }.ExecuteAsync(workflow, new JsonObject(), TestContext.Current.CancellationToken);
+
+        Assert.True(result.Success, result.Error?.Message);
+    }
+
+    [Fact]
+    public async Task WorkflowPlan_LlmBudget_RejectsCanonicalAndLegacyCostLimits()
+    {
+        var workflow = CompileMain("""
+            version: 1
+            workflows:
+              main:
+                steps:
+                  - id: plan
+                    type: workflow.plan
+                    input:
+                      mode: basic
+                      llm_budget:
+                        max_estimated_cost:
+                          amount: 10
+                          currency: EUR
+                        max_estimated_cost_usd: 10
+                      generator:
+                        model: neutral-model
+                        instruction: Generate a neutral workflow.
+            """);
+
+        var result = await new WorkflowEngine()
+            .ExecuteAsync(workflow, new JsonObject(), TestContext.Current.CancellationToken);
+
+        Assert.False(result.Success);
+        Assert.Equal(ErrorCodes.InputValidation, result.Error!.Code);
+        Assert.Contains("cannot both be set", result.Error.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public async Task WorkflowPlan_WithoutLlmBudget_RemainsBackwardCompatibleWithoutUsage()
     {
         var workflow = CompileMain("""
@@ -22002,5 +22076,24 @@ workflows:
     {
         var engine = new WorkflowEngine();
         Assert.False(engine.Registry.Has("template.execute"));
+    }
+
+    private sealed class CurrencyCostEstimator(decimal ratePerToken, string currency) : IModelUsageCostEstimator
+    {
+        public decimal? EstimateCost(
+            string? model,
+            long? inputTokens = null,
+            long? outputTokens = null,
+            string? providerType = null)
+            => ((inputTokens ?? 0) + (outputTokens ?? 0)) * ratePerToken;
+
+        public ModelUsageCostEstimate? EstimateCostWithCurrency(
+            string? model,
+            long? inputTokens = null,
+            long? outputTokens = null,
+            string? providerType = null)
+            => new(
+                ((inputTokens ?? 0) + (outputTokens ?? 0)) * ratePerToken,
+                currency);
     }
 }

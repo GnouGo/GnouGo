@@ -22,6 +22,7 @@ public sealed class WorkflowEngine : IWorkflowRuntime
     public ILLMClient? LLMClient { get; set; }
     public ILLMCapabilityResolver? LLMCapabilities { get; set; }
     public IModelUsageCostEstimator? ModelUsageCostEstimator { get; set; }
+    public IExchangeRateProvider? ExchangeRateProvider { get; set; }
     public LLMUsageBudgetScope? LLMUsageBudget { get; set; }
     public IWorkflowFetcher? WorkflowFetcher { get; set; }
     public ITemplateEngine? TemplateEngine { get; set; }

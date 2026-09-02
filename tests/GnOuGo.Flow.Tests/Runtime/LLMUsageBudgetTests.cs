@@ -102,6 +102,143 @@ public sealed class LLMUsageBudgetTests
     }
 
     [Fact]
+    public async Task CurrencyBudget_ConvertsAndPinsFirstQuote()
+    {
+        var quote = new CurrencyExchangeQuote(
+            "USD",
+            "EUR",
+            0.8m,
+            DateTimeOffset.UtcNow,
+            "test_reference");
+        var exchange = new RecordingExchangeRateProvider(quote);
+        var sink = new RecordingSink();
+        var scope = new LLMUsageBudgetScope(
+            new LLMUsageBudgetLimits
+            {
+                MaxEstimatedCost = new MonetaryAmount(10m, "EUR")
+            },
+            sink: sink,
+            exchangeRateProvider: exchange);
+        var estimator = new CurrencyCostEstimator(1m, "USD");
+        var client = new StubClient(Usage(1, 1));
+
+        await scope.CallAsync(client, estimator, Request(), "neutral.stage", TestContext.Current.CancellationToken);
+        await scope.CallAsync(client, estimator, Request(), "neutral.stage", TestContext.Current.CancellationToken);
+
+        Assert.Equal(3.2m, scope.Snapshot.EstimatedCost);
+        Assert.Equal("EUR", scope.Snapshot.EstimatedCostCurrency);
+        Assert.Equal(4m, scope.Snapshot.EstimatedCostUsd);
+        Assert.Equal(1, exchange.CallCount);
+        Assert.Equal(quote, Assert.Single(scope.Snapshot.ExchangeRates));
+        Assert.Equal(quote, Assert.Single(sink.Snapshots[^1].ExchangeRates));
+    }
+
+    [Fact]
+    public async Task CurrencyBudget_ChildInheritsExchangeProviderAndAccountsParentCurrency()
+    {
+        var exchange = new RecordingExchangeRateProvider(new CurrencyExchangeQuote(
+            "USD",
+            "EUR",
+            0.8m,
+            DateTimeOffset.UtcNow,
+            "test_reference"));
+        var parent = new LLMUsageBudgetScope(
+            new LLMUsageBudgetLimits { MaxEstimatedCostUsd = 10m },
+            exchangeRateProvider: exchange);
+        var child = parent.CreateChild(new LLMUsageBudgetLimits
+        {
+            MaxEstimatedCost = new MonetaryAmount(10m, "EUR")
+        });
+
+        await child.CallAsync(
+            new StubClient(Usage(1, 1)),
+            new CurrencyCostEstimator(1m, "USD"),
+            Request(),
+            "neutral.stage",
+            TestContext.Current.CancellationToken);
+
+        Assert.Equal(2m, parent.Snapshot.EstimatedCost);
+        Assert.Equal("USD", parent.Snapshot.EstimatedCostCurrency);
+        Assert.Equal(1.6m, child.Snapshot.EstimatedCost);
+        Assert.Equal("EUR", child.Snapshot.EstimatedCostCurrency);
+        Assert.Equal(1, exchange.CallCount);
+    }
+
+    [Fact]
+    public async Task CurrencyBudget_ConversionOverflowFailsBeforeDispatch()
+    {
+        var client = new StubClient(Usage(1, 1));
+        var scope = new LLMUsageBudgetScope(
+            new LLMUsageBudgetLimits
+            {
+                MaxEstimatedCost = new MonetaryAmount(10m, "EUR")
+            },
+            exchangeRateProvider: new RecordingExchangeRateProvider(new CurrencyExchangeQuote(
+                "USD",
+                "EUR",
+                2m,
+                DateTimeOffset.UtcNow,
+                "test_reference")));
+
+        var failure = await Assert.ThrowsAsync<WorkflowRuntimeException>(() =>
+            scope.CallAsync(
+                client,
+                new FixedCurrencyCostEstimator(decimal.MaxValue, "USD"),
+                Request(),
+                "neutral.stage",
+                TestContext.Current.CancellationToken));
+
+        Assert.Equal(ErrorCodes.LlmBudgetUnverifiable, failure.Code);
+        Assert.Equal("exchange_rate", failure.Details!["limit_kind"]!.GetValue<string>());
+        Assert.Equal(0, client.CallCount);
+    }
+
+    [Fact]
+    public async Task CurrencyBudget_MissingExchangeRateFailsBeforeDispatch()
+    {
+        var client = new StubClient(Usage(1, 1));
+        var scope = new LLMUsageBudgetScope(new LLMUsageBudgetLimits
+        {
+            MaxEstimatedCost = new MonetaryAmount(10m, "EUR")
+        });
+
+        var failure = await Assert.ThrowsAsync<WorkflowRuntimeException>(() =>
+            scope.CallAsync(
+                client,
+                new CurrencyCostEstimator(1m, "USD"),
+                Request(),
+                "neutral.stage",
+                TestContext.Current.CancellationToken));
+
+        Assert.Equal(ErrorCodes.LlmBudgetUnverifiable, failure.Code);
+        Assert.Equal("exchange_rate", failure.Details!["limit_kind"]!.GetValue<string>());
+        Assert.Equal(0, client.CallCount);
+    }
+
+    [Fact]
+    public void CurrencyBudget_RejectsCanonicalAndLegacyLimitsTogether()
+    {
+        var limits = new LLMUsageBudgetLimits
+        {
+            MaxEstimatedCost = new MonetaryAmount(10m, "EUR"),
+            MaxEstimatedCostUsd = 10m
+        };
+
+        Assert.Throws<ArgumentException>(limits.Validate);
+    }
+
+    [Fact]
+    public void CurrencyBudget_RejectsNonCanonicalCurrency()
+    {
+        var limits = new LLMUsageBudgetLimits
+        {
+            MaxEstimatedCost = new MonetaryAmount(10m, " eur ")
+        };
+
+        Assert.Throws<ArgumentException>(limits.Validate);
+    }
+
+    [Fact]
     public async Task ChildBudget_AlsoConsumesParentBudget()
     {
         var parent = Scope(maxCalls: 2);
@@ -375,6 +512,56 @@ public sealed class LLMUsageBudgetTests
             long? outputTokens = null,
             string? providerType = null)
             => ((inputTokens ?? 0) + (outputTokens ?? 0)) * ratePerToken;
+    }
+
+    private sealed class CurrencyCostEstimator(decimal ratePerToken, string currency) : IModelUsageCostEstimator
+    {
+        public decimal? EstimateCost(
+            string? model,
+            long? inputTokens = null,
+            long? outputTokens = null,
+            string? providerType = null)
+            => ((inputTokens ?? 0) + (outputTokens ?? 0)) * ratePerToken;
+
+        public ModelUsageCostEstimate? EstimateCostWithCurrency(
+            string? model,
+            long? inputTokens = null,
+            long? outputTokens = null,
+            string? providerType = null)
+            => new(
+                ((inputTokens ?? 0) + (outputTokens ?? 0)) * ratePerToken,
+                currency);
+    }
+
+    private sealed class FixedCurrencyCostEstimator(decimal amount, string currency) : IModelUsageCostEstimator
+    {
+        public decimal? EstimateCost(
+            string? model,
+            long? inputTokens = null,
+            long? outputTokens = null,
+            string? providerType = null)
+            => amount;
+
+        public ModelUsageCostEstimate? EstimateCostWithCurrency(
+            string? model,
+            long? inputTokens = null,
+            long? outputTokens = null,
+            string? providerType = null)
+            => new(amount, currency);
+    }
+
+    private sealed class RecordingExchangeRateProvider(CurrencyExchangeQuote? quote) : IExchangeRateProvider
+    {
+        public int CallCount { get; private set; }
+
+        public ValueTask<CurrencyExchangeQuote?> GetQuoteAsync(
+            string sourceCurrency,
+            string targetCurrency,
+            CancellationToken ct)
+        {
+            CallCount++;
+            return ValueTask.FromResult(quote);
+        }
     }
 
     private sealed class RecordingSink : ILLMUsageBudgetSink

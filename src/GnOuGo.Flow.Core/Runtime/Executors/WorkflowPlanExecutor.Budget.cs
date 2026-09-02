@@ -20,11 +20,30 @@ public sealed partial class WorkflowPlanExecutor
                 ErrorCodes.InputValidation,
                 "workflow.plan llm_budget.unverifiable must be 'fail'.");
 
+        MonetaryAmount? maxEstimatedCost = null;
+        if (budget["max_estimated_cost"] is JsonObject monetaryCost)
+        {
+            var currency = monetaryCost["currency"] is JsonValue currencyNode
+                           && currencyNode.TryGetValue<string>(out var configuredCurrency)
+                ? configuredCurrency
+                : string.Empty;
+            maxEstimatedCost = new MonetaryAmount(
+                ReadRequiredPositiveDecimal(monetaryCost, "amount", "max_estimated_cost.amount"),
+                currency);
+        }
+        else if (budget["max_estimated_cost"] is not null)
+        {
+            throw new WorkflowRuntimeException(
+                ErrorCodes.InputValidation,
+                "workflow.plan llm_budget.max_estimated_cost must be an object.");
+        }
+
         var limits = new LLMUsageBudgetLimits
         {
             MaxCalls = ReadPositiveInt32(budget, "max_calls"),
             MaxTotalTokens = ReadPositiveInt64(budget, "max_total_tokens"),
             MaxElapsed = ReadPositiveTimeSpan(budget, "max_elapsed_ms"),
+            MaxEstimatedCost = maxEstimatedCost,
             MaxEstimatedCostUsd = ReadPositiveDecimal(budget, "max_estimated_cost_usd")
         };
 
@@ -103,6 +122,15 @@ public sealed partial class WorkflowPlanExecutor
         return parsed;
     }
 
+    private static decimal ReadRequiredPositiveDecimal(
+        JsonObject source,
+        string property,
+        string diagnosticProperty)
+        => ReadPositiveDecimal(source, property)
+           ?? throw new WorkflowRuntimeException(
+               ErrorCodes.InputValidation,
+               $"workflow.plan llm_budget.{diagnosticProperty} is required.");
+
     private static TimeSpan? ReadPositiveTimeSpan(JsonObject source, string property)
     {
         var milliseconds = ReadPositiveInt64(source, property);
@@ -133,12 +161,14 @@ public sealed partial class WorkflowPlanExecutor
             return;
 
         ctx.LLMUsageBudget = ctx.LLMUsageBudget is null
-            ? new LLMUsageBudgetScope(limits)
+            ? new LLMUsageBudgetScope(limits, exchangeRateProvider: ctx.Engine.ExchangeRateProvider)
             : ctx.LLMUsageBudget.CreateChild(limits);
 
         ctx.SetTelemetryAttribute("gnougo-flow.llm_budget.max_calls", limits.MaxCalls);
         ctx.SetTelemetryAttribute("gnougo-flow.llm_budget.max_total_tokens", limits.MaxTotalTokens);
         ctx.SetTelemetryAttribute("gnougo-flow.llm_budget.max_elapsed_ms", limits.MaxElapsed?.TotalMilliseconds);
+        ctx.SetTelemetryAttribute("gnougo-flow.llm_budget.max_estimated_cost", limits.MaxEstimatedCost?.Amount);
+        ctx.SetTelemetryAttribute("gnougo-flow.llm_budget.max_estimated_cost_currency", limits.MaxEstimatedCost?.Currency);
         ctx.SetTelemetryAttribute("gnougo-flow.llm_budget.max_estimated_cost_usd", limits.MaxEstimatedCostUsd);
         ctx.SetTelemetryAttribute("gnougo-flow.llm_budget.unverifiable", "fail");
     }

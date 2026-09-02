@@ -240,6 +240,20 @@ internal sealed class RecordingLlmClient : ILLMClient
     }
 }
 
+internal sealed class TestExchangeRateProvider(decimal rate = 1m) : IExchangeRateProvider
+{
+    public ValueTask<CurrencyExchangeQuote?> GetQuoteAsync(
+        string sourceCurrency,
+        string targetCurrency,
+        CancellationToken ct)
+        => ValueTask.FromResult<CurrencyExchangeQuote?>(new CurrencyExchangeQuote(
+            sourceCurrency.Trim().ToUpperInvariant(),
+            targetCurrency.Trim().ToUpperInvariant(),
+            rate,
+            DateTimeOffset.UtcNow,
+            "deterministic_test_rate"));
+}
+
 internal sealed class FakeModelCatalog : ILLMModelCatalog
 {
     private readonly Dictionary<string, IReadOnlyList<LLMModelDescriptor>> _results =
@@ -394,7 +408,8 @@ internal static class SmartFlowTestFactory
             runtimeFactory,
             runtimeStore,
             CreateTelemetry(),
-            NullLogger<ConfigureAgentsService>.Instance);
+            NullLogger<ConfigureAgentsService>.Instance,
+            exchangeRateProvider: new TestExchangeRateProvider());
     }
 
     public static SmartFlowService CreateSmartFlowService(

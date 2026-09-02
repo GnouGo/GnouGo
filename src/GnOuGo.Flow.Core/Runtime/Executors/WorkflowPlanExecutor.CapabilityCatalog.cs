@@ -97,7 +97,17 @@ public sealed partial class WorkflowPlanExecutor
         IReadOnlyList<string> CandidateCatalogIds)
     {
         public string ReasonCode { get; init; } = "";
+        public string ValidationIssue { get; init; } = "";
+        public string ReportedStatus { get; init; } = "";
+        public int SelectedCatalogIdCount { get; init; }
+        public int CandidateCatalogIdCount { get; init; }
+        public IReadOnlyList<string> InvalidFields { get; init; } = Array.Empty<string>();
     }
+
+    private sealed record CapabilityMatchingShapeDiagnostic(
+        string Code,
+        string Reason,
+        IReadOnlyList<string> InvalidFields);
 
     private sealed record CapabilityOperationMatch(
         CapabilityInventoryOperation Operation,
@@ -970,7 +980,20 @@ public sealed partial class WorkflowPlanExecutor
     {
         branchValues = new Dictionary<string, string>(StringComparer.Ordinal);
         activationMode = string.Empty;
-        if (entries.Count < 2)
+        if (entries.Count == 0)
+            return false;
+
+        var requestedExactlyOne = string.Equals(
+            requestedActivationMode,
+            ConditionalExactlyOneActivationMode,
+            StringComparison.Ordinal);
+        var requestedAllOnValue = string.Equals(
+            requestedActivationMode,
+            ConditionalAllOnValueActivationMode,
+            StringComparison.Ordinal);
+        if (requestedActivationMode.Length > 0 && !requestedExactlyOne && !requestedAllOnValue)
+            return false;
+        if (entries.Count == 1 && !requestedAllOnValue)
             return false;
 
         var variants = entries
@@ -988,17 +1011,6 @@ public sealed partial class WorkflowPlanExecutor
             .Select(group => TryBuildConditionalBranchValues(group, out var values) ? values : null)
             .Where(static values => values is not null)
             .ToArray();
-        var requestedExactlyOne = string.Equals(
-            requestedActivationMode,
-            ConditionalExactlyOneActivationMode,
-            StringComparison.Ordinal);
-        var requestedAllOnValue = string.Equals(
-            requestedActivationMode,
-            ConditionalAllOnValueActivationMode,
-            StringComparison.Ordinal);
-        if (requestedActivationMode.Length > 0 && !requestedExactlyOne && !requestedAllOnValue)
-            return false;
-
         if (!requestedAllOnValue && variants.Length == 1)
         {
             branchValues = variants[0]!;

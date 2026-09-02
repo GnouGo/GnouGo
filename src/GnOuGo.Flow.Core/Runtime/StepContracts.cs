@@ -189,6 +189,10 @@ public static class BuiltInStepContracts
             ("max_calls", PositiveInteger()),
             ("max_total_tokens", PositiveInteger()),
             ("max_elapsed_ms", PositiveInteger()),
+            ("max_estimated_cost", Object(
+                new[] { "amount", "currency" },
+                ("amount", Number()),
+                ("currency", String()))),
             ("max_estimated_cost_usd", Number()),
             ("unverifiable", Enum("fail")))),
         ("capability_preflight", Object(

@@ -3300,7 +3300,7 @@ public sealed partial class WorkflowPlanExecutor
             - matched: exactly one catalog capability is sufficient;
             - composed: two or more complementary catalog capabilities are jointly required;
             - local: the inventory classified the operation as local_processing, so no catalog capability is selected;
-            - conditional: another inventory operation determines whether or which external effect executes; select either two or more selector-specific variants as mutually exclusive branches, or—only when allow_no_effect_outcome=true—two or more complementary capabilities that must all execute in catalog_ids order for the single effect value;
+            - conditional: another inventory operation determines whether or which external effect executes; select either two or more selector-specific variants as mutually exclusive branches, or—only when allow_no_effect_outcome=true—one or more capabilities that must all execute in catalog_ids order for the single effect value;
             - ambiguous: more than one plausible implementation remains and the catalog does not establish which is correct;
             - unavailable: the catalog contains no sufficient implementation.
 
@@ -3328,7 +3328,7 @@ public sealed partial class WorkflowPlanExecutor
             - Return only catalog IDs shown below; never invent server, tool, prompt, method, or selector names.
             - Do not infer behavior from server names, product names, URLs, brands, or undocumented semantics.
             - Every inventory operation and constraint ID must occur exactly once.
-            - matched requires one catalog_ids value; composed requires at least two; conditional requires either exactly one mutually exclusive selector subset of at least two entries plus any necessary complementary prerequisites, or, when allow_no_effect_outcome=true, at least two structurally distinct complementary entries that all execute in catalog_ids order for the single effect value; local and unavailable require none. candidate_catalog_ids are advisory and are ignored for a final matched, composed, or conditional decision.
+            - matched requires one catalog_ids value; composed requires at least two; conditional requires either exactly one mutually exclusive selector subset of at least two entries plus any necessary complementary prerequisites, or, when allow_no_effect_outcome=true and conditional_mode=all_on_value, one or more entries that all execute in catalog_ids order for the single effect value; local and unavailable require none. candidate_catalog_ids are advisory and are ignored for a final matched, composed, or conditional decision.
             - decision_operation_id is required only for conditional and must exactly equal that operation's non-empty decision_source_operation_id; return an empty string for all other statuses.
             - conditional_mode is required: use exactly_one or all_on_value only for conditional, and an empty string otherwise.
             - local is valid only for execution_kind=local_processing. External effects and human interaction must use a documented catalog or be unresolved.
@@ -3441,7 +3441,11 @@ public sealed partial class WorkflowPlanExecutor
                     ? "The matching response omitted this locked operation."
                     : "The matching response returned this locked operation more than once.";
                 operationMatches.Add(new CapabilityOperationMatch(operation, "invalid", reason, Array.Empty<string>(), Array.Empty<string>()));
-                issues.Add(new CapabilityMatchingIssue(operation.Id, operation.Description, operation.Required, "invalid", reason, Array.Empty<string>()));
+                issues.Add(new CapabilityMatchingIssue(operation.Id, operation.Description, operation.Required, "invalid", reason, Array.Empty<string>())
+                {
+                    ValidationIssue = "operation_occurrence_invalid",
+                    InvalidFields = ["operation_id"]
+                });
                 continue;
             }
 
@@ -3449,6 +3453,13 @@ public sealed partial class WorkflowPlanExecutor
             var status = ReadMatchingString(node, "status").ToLowerInvariant();
             var selected = ReadMatchingIds(node["catalog_ids"], 32, out var selectedValid);
             var candidates = ReadMatchingIds(node["candidate_catalog_ids"], 8, out var candidatesValid);
+            var reportedStatus = status;
+            var reportedSelectedCount = selected.Count;
+            var reportedCandidateCount = candidates.Count;
+            var reportedSelectedValid = selectedValid;
+            var reportedCandidatesValid = candidatesValid;
+            var reportedSelectedIdsKnown = selected.All(entries.ContainsKey);
+            var reportedCandidateIdsKnown = candidates.All(entries.ContainsKey);
             var decisionOperationId = ResolveMatchingInventoryId(
                 ReadMatchingString(node, "decision_operation_id"),
                 operationIds);
@@ -3468,7 +3479,9 @@ public sealed partial class WorkflowPlanExecutor
                 selectedValid = candidatesValid;
                 candidatesValid = true;
             }
-            else if (status is ("composed" or "conditional") && selected.Count == 0 && candidates.Count >= 2)
+            else if (selected.Count == 0
+                     && (status == "composed" && candidates.Count >= 2
+                         || status == "conditional" && candidates.Count >= 1))
             {
                 selected = candidates;
                 candidates = Array.Empty<string>();
@@ -3558,7 +3571,16 @@ public sealed partial class WorkflowPlanExecutor
                 knownCandidates = true;
                 status = "composed";
             }
-            var shapeValid = validStatus && selectedValid && candidatesValid && knownSelected && knownCandidates && reasonText.Length > 0;
+            var shapeValid = validStatus
+                             && reportedSelectedValid
+                             && reportedCandidatesValid
+                             && reportedSelectedIdsKnown
+                             && reportedCandidateIdsKnown
+                             && selectedValid
+                             && candidatesValid
+                             && knownSelected
+                             && knownCandidates
+                             && reasonText.Length > 0;
             var conditionalActivationMode = string.Empty;
             var conditionalTopologyValid = status == "conditional"
                                            && selected.All(entries.ContainsKey)
@@ -3572,7 +3594,7 @@ public sealed partial class WorkflowPlanExecutor
             {
                 "matched" => selected.Count == 1 && decisionOperationId.Length == 0 && requestedConditionalMode.Length == 0,
                 "composed" => selected.Count >= 2 && decisionOperationId.Length == 0 && requestedConditionalMode.Length == 0,
-                "conditional" => selected.Count >= 2
+                "conditional" => selected.Count >= 1
                                   && candidates.Count == 0
                                   && decisionOperationId.Length > 0
                                  && string.Equals(
@@ -3593,8 +3615,36 @@ public sealed partial class WorkflowPlanExecutor
             if (!shapeValid)
             {
                 contractValid = false;
+                var diagnostic = BuildInvalidMatchingDiagnostic(
+                    reportedStatus,
+                    reportedSelectedValid,
+                    reportedCandidatesValid,
+                    reportedSelectedIdsKnown,
+                    reportedCandidateIdsKnown,
+                    reasonText.Length > 0,
+                    selected.Count,
+                    candidates.Count,
+                    decisionOperationId,
+                    requestedConditionalMode,
+                    conditionalTopologyValid,
+                    operation);
                 status = "invalid";
-                reasonText = BuildInvalidMatchingReason(validStatus, selectedValid && candidatesValid, knownSelected && knownCandidates, operation.ExecutionKind);
+                reasonText = diagnostic.Reason;
+                var issue = new CapabilityMatchingIssue(
+                    operation.Id,
+                    operation.Description,
+                    operation.Required,
+                    status,
+                    reasonText,
+                    selected.Concat(candidates).Where(entries.ContainsKey).Take(8).ToArray())
+                {
+                    ValidationIssue = diagnostic.Code,
+                    ReportedStatus = reportedStatus,
+                    SelectedCatalogIdCount = reportedSelectedCount,
+                    CandidateCatalogIdCount = reportedCandidateCount,
+                    InvalidFields = diagnostic.InvalidFields
+                };
+                issues.Add(issue);
             }
             else if (string.Equals(
                          conditionalActivationMode,
@@ -3609,7 +3659,7 @@ public sealed partial class WorkflowPlanExecutor
                 NormalizationReasonCode = normalizationReasonCode,
                 ConditionalActivationMode = shapeValid ? conditionalActivationMode : requestedConditionalMode
             });
-            if (status is "ambiguous" or "unavailable" or "invalid")
+            if (status is "ambiguous" or "unavailable")
                 issues.Add(new CapabilityMatchingIssue(operation.Id, operation.Description, operation.Required, status, reasonText,
                     status == "ambiguous" ? candidates : selected.Concat(candidates).Where(entries.ContainsKey).Take(8).ToArray()));
         }
@@ -5922,7 +5972,11 @@ public sealed partial class WorkflowPlanExecutor
         var constraintMatches = inventory.Constraints.Select(constraint =>
             new CapabilityConstraintMatch(constraint, "invalid", sanitized, Array.Empty<string>(), Array.Empty<string>())).ToArray();
         var issues = inventory.Operations.Select(operation =>
-                new CapabilityMatchingIssue(operation.Id, operation.Description, operation.Required, "invalid", sanitized, Array.Empty<string>()))
+                new CapabilityMatchingIssue(operation.Id, operation.Description, operation.Required, "invalid", sanitized, Array.Empty<string>())
+                {
+                    ValidationIssue = "matching_response_malformed",
+                    InvalidFields = ["$"]
+                })
             .Concat(inventory.Constraints.Select(constraint =>
                 new CapabilityMatchingIssue(constraint.Id, constraint.Description, constraint.Required, "invalid", sanitized, Array.Empty<string>())))
             .ToArray();
@@ -5958,17 +6012,87 @@ public sealed partial class WorkflowPlanExecutor
         return result;
     }
 
-    private static string BuildInvalidMatchingReason(bool validStatus, bool arraysValid, bool idsKnown, string executionKind)
+    private static CapabilityMatchingShapeDiagnostic BuildInvalidMatchingDiagnostic(
+        string status,
+        bool selectedArrayValid,
+        bool candidateArrayValid,
+        bool selectedIdsKnown,
+        bool candidateIdsKnown,
+        bool reasonPresent,
+        int selectedCount,
+        int candidateCount,
+        string decisionOperationId,
+        string conditionalMode,
+        bool conditionalTopologyValid,
+        CapabilityInventoryOperation operation)
     {
-        if (!validStatus)
-            return "The operation match returned an unsupported status.";
-        if (!arraysValid)
-            return "The operation match returned malformed or excessive catalog IDs.";
-        if (!idsKnown)
-            return "The operation match referenced one or more unknown catalog IDs.";
-        if (executionKind == "local_processing")
-            return "A local-processing operation must use status local with no catalog IDs.";
-        return "The operation status and selected or candidate catalog ID counts are inconsistent.";
+        static CapabilityMatchingShapeDiagnostic Diagnostic(string code, string reason, params string[] fields)
+            => new(code, reason, fields);
+
+        if (status is not ("matched" or "composed" or "conditional" or "local" or "ambiguous" or "unavailable"))
+            return Diagnostic("operation_status_invalid", "The operation match returned an unsupported status.", "status");
+        if (!selectedArrayValid)
+            return Diagnostic("catalog_ids_invalid", "The operation match returned malformed or excessive selected catalog IDs.", "catalog_ids");
+        if (!candidateArrayValid)
+            return Diagnostic("candidate_catalog_ids_invalid", "The operation match returned malformed or excessive candidate catalog IDs.", "candidate_catalog_ids");
+        if (!selectedIdsKnown || !candidateIdsKnown)
+            return Diagnostic(
+                "catalog_id_unknown",
+                "The operation match referenced one or more unknown catalog IDs.",
+                !selectedIdsKnown ? "catalog_ids" : "candidate_catalog_ids");
+        if (!reasonPresent)
+            return Diagnostic("reason_missing", "The operation match omitted its required bounded reason.", "reason");
+        if (operation.ExecutionKind == "local_processing" && status != "local"
+            || operation.ExecutionKind != "local_processing" && status == "local")
+        {
+            return Diagnostic(
+                "local_status_invalid",
+                "The operation status is inconsistent with its locked local-processing classification.",
+                "status",
+                "catalog_ids",
+                "candidate_catalog_ids");
+        }
+
+        var decisionExpected = status == "conditional";
+        var decisionValid = decisionExpected
+            ? decisionOperationId.Length > 0
+              && string.Equals(decisionOperationId, operation.DecisionSourceOperationId, StringComparison.Ordinal)
+            : decisionOperationId.Length == 0;
+        if (!decisionValid)
+            return Diagnostic("decision_reference_invalid", "The operation match returned an invalid conditional decision reference.", "decision_operation_id");
+
+        var conditionalModeRecognized = conditionalMode is ConditionalExactlyOneActivationMode or ConditionalAllOnValueActivationMode;
+        if (decisionExpected ? !conditionalModeRecognized : conditionalMode.Length > 0)
+            return Diagnostic("conditional_mode_invalid", "The operation match returned an invalid conditional activation mode.", "conditional_mode");
+
+        var cardinalityValid = status switch
+        {
+            "matched" => selectedCount == 1 && candidateCount == 0,
+            "composed" => selectedCount >= 2 && candidateCount == 0,
+            "conditional" => selectedCount >= 1 && candidateCount == 0,
+            "local" or "unavailable" => selectedCount == 0 && candidateCount == 0,
+            "ambiguous" => selectedCount == 0 && candidateCount > 0,
+            _ => false
+        };
+        if (!cardinalityValid)
+        {
+            return Diagnostic(
+                "selection_cardinality_invalid",
+                "The operation status and selected or candidate catalog ID counts are inconsistent.",
+                "status",
+                "catalog_ids",
+                "candidate_catalog_ids");
+        }
+        if (status == "conditional" && !conditionalTopologyValid)
+        {
+            return Diagnostic(
+                "conditional_topology_invalid",
+                "The selected capabilities do not form the declared conditional activation topology.",
+                "catalog_ids",
+                "conditional_mode");
+        }
+
+        return Diagnostic("matching_shape_invalid", "The operation match violated its structured matching contract.", "operation_match");
     }
 
     private static bool RequiresCapabilityMatchingRepair(CapabilityMatchingEvaluation evaluation)
@@ -6061,7 +6185,14 @@ public sealed partial class WorkflowPlanExecutor
         {
             ["operation_id"] = issue.OperationId,
             ["status"] = issue.Status,
+            ["reported_status"] = issue.ReportedStatus,
             ["reason"] = issue.Reason,
+            ["validation_issue"] = issue.ValidationIssue,
+            ["selected_catalog_id_count"] = issue.SelectedCatalogIdCount,
+            ["candidate_catalog_id_count"] = issue.CandidateCatalogIdCount,
+            ["invalid_fields"] = new JsonArray(issue.InvalidFields
+                .Take(8)
+                .Select(static field => (JsonNode?)JsonValue.Create(field)).ToArray()),
             ["decision_operation_id"] = previousMatches.TryGetValue(issue.OperationId, out var match)
                 ? match.DecisionOperationId ?? match.Operation.DecisionSourceOperationId
                 : string.Empty,
@@ -6073,7 +6204,7 @@ public sealed partial class WorkflowPlanExecutor
         return $$"""
             You are a domain-neutral capability matcher repairing a previous matching contract. Return only the requested structured JSON.
 
-            Return every operation and constraint exactly once. Preserve all locked decisions exactly. A decision-source operation and every producer reached through its declared input_operation_ids are deliberately absent from the locked set when coupled to a reported conditional grounding issue: repair that declared chain together with the dependent conditional operation, selecting a better typed producer when the catalog provides one. Never infer an undeclared producer from descriptions or adjacency. Resolve each reported issue from the documented catalog only. For operations use matched for one sufficient ID, composed for two or more necessary complementary IDs, conditional for either one mutually exclusive selector subset chosen by the locked decision_source_operation_id plus any necessary complementary unconditional prerequisites, or—only when allow_no_effect_outcome=true—two or more necessary structurally distinct capabilities that all execute in catalog_ids order for the single effect value; use local only for local_processing, ambiguous for unresolved user intent, and unavailable only when no sufficient implementation exists. For conditional, copy decision_source_operation_id exactly into decision_operation_id and set conditional_mode=exactly_one for selector alternatives or conditional_mode=all_on_value for the ordered complementary composition; otherwise leave decision_operation_id and conditional_mode empty. Conditional selector variants share one physical capability and the same selector paths, differing on exactly one selector; prerequisites execute once outside the branch. A conditional complementary composition executes every selected capability in order inside its one effect branch and none in its no-effect branch. A runtime-dependent result is not user ambiguity. A complete_operation wrapper replaces its encapsulated phases. For constraints use enforced only when enforcement_kind=exact_denial and exact denied MCP IDs are established; use policy_only only when enforcement_kind=workflow_policy; use ambiguous only for unresolved exact-denial candidates. Select the smallest sufficient composition and never invent IDs.
+            Return every operation and constraint exactly once. Preserve all locked decisions exactly. A decision-source operation and every producer reached through its declared input_operation_ids are deliberately absent from the locked set when coupled to a reported conditional grounding issue: repair that declared chain together with the dependent conditional operation, selecting a better typed producer when the catalog provides one. Never infer an undeclared producer from descriptions or adjacency. Resolve each reported issue from the documented catalog only. For operations use matched for one sufficient ID, composed for two or more necessary complementary IDs, conditional for either one mutually exclusive selector subset chosen by the locked decision_source_operation_id plus any necessary complementary unconditional prerequisites, or—only when allow_no_effect_outcome=true—one or more necessary capabilities that all execute in catalog_ids order for the single effect value; use local only for local_processing, ambiguous for unresolved user intent, and unavailable only when no sufficient implementation exists. For conditional, copy decision_source_operation_id exactly into decision_operation_id and set conditional_mode=exactly_one for selector alternatives or conditional_mode=all_on_value for the ordered effect composition; otherwise leave decision_operation_id and conditional_mode empty. Conditional selector variants share one physical capability and the same selector paths, differing on exactly one selector; prerequisites execute once outside the branch. An all_on_value conditional executes every selected capability in order inside its one effect branch and none in its no-effect branch. A runtime-dependent result is not user ambiguity. A complete_operation wrapper replaces its encapsulated phases. For constraints use enforced only when enforcement_kind=exact_denial and exact denied MCP IDs are established; use policy_only only when enforcement_kind=workflow_policy; use ambiguous only for unresolved exact-denial candidates. Select the smallest sufficient composition and never invent IDs.
 
             A repaired match must also be prerequisite-closed. Check required arguments and bounded output fields on every selected catalog card. If a capability requires an existing external artifact that is not a semantically compatible workflow runtime input or documented host-internal/default value, include the producer capability whose documented output supplies it. Local processing, URLs, identifiers, and invented strings do not create or prove workspaces, project roots, directories, files, handles, or exact comparison payloads. Ordinary scalar values and identifiers may still be parsed from declared inputs or reused from an already selected upstream read, so never repeat a read in every match merely to resupply them. Retain a complementary producer only for a documented artifact dependency or concrete multi-call prerequisite, and prefer the unique most-specific exact selector over its broader or partial selector entries. A high-level capability is sufficient alone only when its documented contract encapsulates those prerequisites.
 
@@ -6117,6 +6248,14 @@ public sealed partial class WorkflowPlanExecutor
             ["required"] = issue.Required,
             ["status"] = issue.Status,
             ["reason"] = SanitizeCapabilityInferenceDiagnostic(issue.Reason, 1_000),
+            ["validation_issue"] = issue.ValidationIssue.Length > 0 ? issue.ValidationIssue : null,
+            ["reported_status"] = issue.ReportedStatus.Length > 0 ? issue.ReportedStatus : null,
+            ["selected_catalog_id_count"] = issue.SelectedCatalogIdCount,
+            ["candidate_catalog_id_count"] = issue.CandidateCatalogIdCount,
+            ["invalid_fields"] = new JsonArray(issue.InvalidFields
+                .Take(8)
+                .Select(static field => (JsonNode?)JsonValue.Create(
+                    SanitizeCapabilityInferenceDiagnostic(field, 80))).ToArray()),
             ["reason_code"] = issue.ReasonCode.Length > 0
                 ? issue.ReasonCode
                 : repairAttempted && issue.Status == "invalid"
@@ -7296,8 +7435,7 @@ public sealed partial class WorkflowPlanExecutor
                 ConditionalAllOnValueActivationMode => branchValues.Length == 1 && declaredNoEffectValues.Length > 0,
                 _ => false
             };
-            if (capabilities.Length < 2
-                || !topologyValid
+            if (!topologyValid
                 || capabilities.Any(static capability => string.IsNullOrWhiteSpace(capability.Activation?.DecisionOutputPath))
                 || capabilities.Select(static capability => capability.Activation!.DecisionOutputPath)
                     .Distinct(StringComparer.Ordinal).Count() != 1

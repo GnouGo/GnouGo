@@ -5,13 +5,17 @@ namespace GnOuGo.Agent.Server.Tests;
 
 public sealed class LiveIntentBudgetLedgerTests
 {
+    private static readonly LiveIntentAgentGenerationTests.LiveBudgetDefinition BudgetDefinition = new(
+        new MonetaryAmount(50m, "EUR"),
+        new MonetaryAmount(50m, "EUR"));
+
     [Fact]
     public async Task Ledger_PersistsOnlyRedactedBudgetAndPhaseState()
     {
         var path = Path.Combine(Path.GetTempPath(), $"gnougo-live-budget-{Guid.NewGuid():N}.json");
         try
         {
-            var ledger = LiveIntentAgentGenerationTests.LiveBudgetLedger.Open(path);
+            var ledger = LiveIntentAgentGenerationTests.LiveBudgetLedger.Open(path, BudgetDefinition);
             Assert.False(ledger.Exists);
 
             var snapshot = new LLMUsageBudgetSnapshot
@@ -21,13 +25,15 @@ public sealed class LiveIntentBudgetLedgerTests
                 InputTokens = 101,
                 OutputTokens = 23,
                 TotalTokens = 124,
+                EstimatedCost = 1.10m,
+                EstimatedCostCurrency = "EUR",
                 EstimatedCostUsd = 1.25m
             };
             await ledger.PersistAsync(snapshot, TestContext.Current.CancellationToken);
             ledger.MarkProbeCompleted(snapshot);
             ledger.MarkDiagnosticGenerationCompleted(snapshot);
 
-            var reloaded = LiveIntentAgentGenerationTests.LiveBudgetLedger.Open(path);
+            var reloaded = LiveIntentAgentGenerationTests.LiveBudgetLedger.Open(path, BudgetDefinition);
             Assert.True(reloaded.Exists);
             Assert.True(reloaded.ProbeCompleted);
             Assert.True(reloaded.DiagnosticGenerationCompleted);
@@ -35,8 +41,10 @@ public sealed class LiveIntentBudgetLedgerTests
 
             var raw = await File.ReadAllTextAsync(path, TestContext.Current.CancellationToken);
             Assert.DoesNotContain("prompt", raw, StringComparison.OrdinalIgnoreCase);
-            Assert.DoesNotContain("provider", raw, StringComparison.OrdinalIgnoreCase);
             Assert.DoesNotContain("model", raw, StringComparison.OrdinalIgnoreCase);
+            Assert.DoesNotContain("credential", raw, StringComparison.OrdinalIgnoreCase);
+            Assert.DoesNotContain("response", raw, StringComparison.OrdinalIgnoreCase);
+            Assert.Contains("provider_hard_limit_amount", raw, StringComparison.Ordinal);
 
             reloaded.Delete();
             Assert.False(File.Exists(path));
@@ -57,9 +65,82 @@ public sealed class LiveIntentBudgetLedgerTests
             await File.WriteAllTextAsync(path, "{malformed", TestContext.Current.CancellationToken);
 
             var failure = Assert.Throws<InvalidOperationException>(() =>
-                LiveIntentAgentGenerationTests.LiveBudgetLedger.Open(path));
+                LiveIntentAgentGenerationTests.LiveBudgetLedger.Open(path, BudgetDefinition));
 
             Assert.Contains("unreadable or malformed", failure.Message, StringComparison.Ordinal);
+        }
+        finally
+        {
+            if (File.Exists(path))
+                File.Delete(path);
+        }
+    }
+
+    [Fact]
+    public async Task Ledger_RejectsChangedBudgetDefinition()
+    {
+        var path = Path.Combine(Path.GetTempPath(), $"gnougo-live-budget-{Guid.NewGuid():N}.json");
+        try
+        {
+            var ledger = LiveIntentAgentGenerationTests.LiveBudgetLedger.Open(path, BudgetDefinition);
+            await ledger.PersistAsync(ledger.Snapshot, TestContext.Current.CancellationToken);
+            var changed = new LiveIntentAgentGenerationTests.LiveBudgetDefinition(
+                new MonetaryAmount(49m, "EUR"),
+                BudgetDefinition.ProviderHardLimit);
+
+            var failure = Assert.Throws<InvalidOperationException>(() =>
+                LiveIntentAgentGenerationTests.LiveBudgetLedger.Open(path, changed));
+
+            Assert.Contains("does not match", failure.Message, StringComparison.Ordinal);
+        }
+        finally
+        {
+            if (File.Exists(path))
+                File.Delete(path);
+        }
+    }
+
+    [Fact]
+    public async Task Ledger_RejectsLegacyVersionOneCycle()
+    {
+        var path = Path.Combine(Path.GetTempPath(), $"gnougo-live-budget-{Guid.NewGuid():N}.json");
+        try
+        {
+            await File.WriteAllTextAsync(path, "{\"version\":1}", TestContext.Current.CancellationToken);
+
+            var failure = Assert.Throws<InvalidOperationException>(() =>
+                LiveIntentAgentGenerationTests.LiveBudgetLedger.Open(path, BudgetDefinition));
+
+            Assert.Contains("newly attested provider project", failure.Message, StringComparison.Ordinal);
+        }
+        finally
+        {
+            if (File.Exists(path))
+                File.Delete(path);
+        }
+    }
+
+    [Fact]
+    public void Ledger_PinsOneImmutableQuotePerCurrencyPair()
+    {
+        var path = Path.Combine(Path.GetTempPath(), $"gnougo-live-budget-{Guid.NewGuid():N}.json");
+        try
+        {
+            var ledger = LiveIntentAgentGenerationTests.LiveBudgetLedger.Open(path, BudgetDefinition);
+            var quote = new CurrencyExchangeQuote(
+                "USD",
+                "EUR",
+                0.9m,
+                DateTimeOffset.UtcNow.AddHours(-1),
+                "test_reference");
+            ledger.PinExchangeRate(quote);
+            ledger.PinExchangeRate(quote);
+
+            var changedQuote = quote with { Rate = 0.8m };
+            var failure = Assert.Throws<InvalidOperationException>(() => ledger.PinExchangeRate(changedQuote));
+
+            Assert.Contains("different exchange-rate quote", failure.Message, StringComparison.Ordinal);
+            Assert.Equal(quote, Assert.Single(ledger.Snapshot.ExchangeRates));
         }
         finally
         {
@@ -74,7 +155,7 @@ public sealed class LiveIntentBudgetLedgerTests
         var path = Path.Combine(Path.GetTempPath(), $"gnougo-live-budget-{Guid.NewGuid():N}.json");
         try
         {
-            var ledger = LiveIntentAgentGenerationTests.LiveBudgetLedger.Open(path);
+            var ledger = LiveIntentAgentGenerationTests.LiveBudgetLedger.Open(path, BudgetDefinition);
             var snapshot = new LLMUsageBudgetSnapshot
             {
                 StartedAtUtc = DateTimeOffset.UtcNow,
@@ -82,6 +163,8 @@ public sealed class LiveIntentBudgetLedgerTests
                 InputTokens = 101,
                 OutputTokens = 23,
                 TotalTokens = 124,
+                EstimatedCost = 1.10m,
+                EstimatedCostCurrency = "EUR",
                 EstimatedCostUsd = 1.25m
             };
             await ledger.PersistAsync(snapshot, TestContext.Current.CancellationToken);
