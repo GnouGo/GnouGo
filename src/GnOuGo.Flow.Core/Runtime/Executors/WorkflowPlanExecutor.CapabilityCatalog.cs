@@ -187,7 +187,9 @@ public sealed partial class WorkflowPlanExecutor
     {
         var pending = new List<(string Resolution, string? Server, string? Kind, string Method, string Description, IReadOnlyList<CapabilityRequestBinding> Bindings, string Card, IReadOnlyList<CapabilitySchemaField> RequiredInputs, IReadOnlyList<CapabilitySchemaField> Outputs, McpArtifactContract? ArtifactContract, McpCapabilityComposition? CompositionContract)>();
 
-        foreach (var native in nativeStepTypes.OrderBy(static value => value, StringComparer.Ordinal))
+        foreach (var native in nativeStepTypes
+                     .Where(static value => !IsWorkflowStructureNativeStepType(value))
+                     .OrderBy(static value => value, StringComparer.Ordinal))
         {
             pending.Add(("native", null, null, native, $"Native Flow step type {native}.", Array.Empty<CapabilityRequestBinding>(),
                 $"resolution=native method={native}", Array.Empty<CapabilitySchemaField>(), Array.Empty<CapabilitySchemaField>(), null, null));
@@ -329,6 +331,21 @@ public sealed partial class WorkflowPlanExecutor
 
         return new CapabilityCatalog(entries, text.ToString());
     }
+
+    private static bool IsWorkflowStructureNativeStepType(string stepType)
+        => stepType is "sequence"
+            or "parallel"
+            or "loop.sequential"
+            or "loop.parallel"
+            or "switch"
+            or "set"
+            or "assert.non_null"
+            or "template.render"
+            or "workflow.call"
+            or "workflow.route"
+            or "mcp.call"
+            or "mcp.list"
+            or "emit";
 
     private static string FormatArtifactContractSummary(McpArtifactContract? contract)
     {

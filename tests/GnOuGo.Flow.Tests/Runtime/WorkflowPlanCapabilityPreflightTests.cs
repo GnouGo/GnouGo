@@ -2810,6 +2810,8 @@ public sealed class WorkflowPlanCapabilityPreflightTests
         Assert.Contains("/request/action=\"search\"", prompts[1], StringComparison.Ordinal);
         Assert.Contains("/mode=\"read\"", prompts[1], StringComparison.Ordinal);
         Assert.Contains("/mode=\"write\"", prompts[1], StringComparison.Ordinal);
+        Assert.DoesNotContain("resolution=native method=loop.parallel", prompts[1], StringComparison.Ordinal);
+        Assert.Contains("resolution=native method=human.input", prompts[1], StringComparison.Ordinal);
         Assert.Contains("description=Destination record locator.", prompts[1], StringComparison.Ordinal);
         Assert.Contains("when /mode=\"write\" require /payload", prompts[1], StringComparison.Ordinal);
         Assert.Contains("when /target is present require /offset", prompts[1], StringComparison.Ordinal);
@@ -5924,7 +5926,7 @@ public sealed class WorkflowPlanCapabilityPreflightTests
                         {
                             CatalogIdForMethod(request.Prompt, scenario switch
                             {
-                                "missing" => "emit",
+                                "missing" => "human.input",
                                 "materializer" => "create_workspace",
                                 _ => "analyze_change"
                             })
@@ -5948,7 +5950,9 @@ public sealed class WorkflowPlanCapabilityPreflightTests
         var result = await ExecuteAsync(ClarifyingConditionalInferredPlan(), llm.Object, factory, human);
 
         Assert.False(result.Success);
-        Assert.Equal(ErrorCodes.CapabilityPreflightUnavailable, result.Error!.Code);
+        Assert.True(
+            string.Equals(result.Error!.Code, ErrorCodes.CapabilityPreflightUnavailable, StringComparison.Ordinal),
+            $"{result.Error.Code}: {result.Error.Message} {result.Error.Details}");
         Assert.Equal("conditional_decision_contract_gap", result.Error.Details!["reason"]!.GetValue<string>());
         Assert.Equal(2, matchingCalls);
         Assert.Empty(human.Requests);
@@ -6362,6 +6366,83 @@ public sealed class WorkflowPlanCapabilityPreflightTests
     }
 
     [Fact]
+    public async Task InferredPreflight_ReportsMixedUnavailableAndDecisionContractGapAsUnsupported()
+    {
+        var matcherCalls = 0;
+        var llm = new Mock<ILLMClient>();
+        llm.Setup(client => client.CallAsync(It.IsAny<LLMRequest>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((LLMRequest request, CancellationToken _) =>
+            {
+                if (request.Prompt.Contains("domain-neutral workflow runtime analyst", StringComparison.Ordinal))
+                {
+                    return ConditionalInventoryResponse(
+                        "Analyze the change and determine a decision.",
+                        "Apply whichever effect was determined at runtime.");
+                }
+
+                if (request.Prompt.Contains("domain-neutral capability matcher", StringComparison.Ordinal))
+                {
+                    matcherCalls++;
+                    var firstBranch = CatalogIdForBindings(
+                        request.Prompt,
+                        ("/event", "APPROVE"),
+                        ("/method", "create"));
+                    var secondBranch = CatalogIdForBindings(
+                        request.Prompt,
+                        ("/event", "REQUEST_CHANGES"),
+                        ("/method", "create"));
+                    return new LLMResponse
+                    {
+                        Json = new JsonObject
+                        {
+                            ["operation_matches"] = new JsonArray(
+                                new JsonObject
+                                {
+                                    ["operation_id"] = "analyze",
+                                    ["status"] = "unavailable",
+                                    ["catalog_ids"] = new JsonArray(),
+                                    ["candidate_catalog_ids"] = new JsonArray(),
+                                    ["decision_operation_id"] = string.Empty,
+                                    ["reason"] = "No selected capability safely produces the required decision."
+                                },
+                                new JsonObject
+                                {
+                                    ["operation_id"] = "publish",
+                                    ["status"] = "conditional",
+                                    ["catalog_ids"] = new JsonArray(firstBranch, secondBranch),
+                                    ["candidate_catalog_ids"] = new JsonArray(),
+                                    ["decision_operation_id"] = "analyze",
+                                    ["reason"] = "The unavailable producer was declared as the decision source."
+                                }),
+                            ["constraint_matches"] = new JsonArray()
+                        }
+                    };
+                }
+
+                return new LLMResponse { Text = ValidConditionalWorkflow };
+            });
+
+        var result = await ExecuteAsync(
+            ConditionalInferredPlan(),
+            llm.Object,
+            CreateConditionalReviewFactory());
+
+        Assert.False(result.Success);
+        Assert.Equal(2, matcherCalls);
+        Assert.Equal(ErrorCodes.CapabilityPreflightUnavailable, result.Error!.Code);
+        Assert.Equal("unsupported", result.Error.Details!["planning_outcome"]!.GetValue<string>());
+        Assert.Equal(
+            "configure_capability_or_decision_contract_or_revise_request",
+            result.Error.Details["recommended_action"]!.GetValue<string>());
+        var issues = Assert.IsType<JsonArray>(result.Error.Details["matching_issues"])
+            .OfType<JsonObject>()
+            .Select(static issue => issue["status"]!.GetValue<string>())
+            .ToHashSet(StringComparer.Ordinal);
+        Assert.Contains("unavailable", issues);
+        Assert.Contains("contract_gap", issues);
+    }
+
+    [Fact]
     public async Task InferredPreflight_ValidatesConditionalDecisionAcrossLocalWorkflowContracts()
     {
         var result = await ExecuteAsync(
@@ -6441,6 +6522,226 @@ public sealed class WorkflowPlanCapabilityPreflightTests
         var result = await ExecuteAsync(ConditionalInferredPlan(), llm.Object, CreateConditionalReviewFactory());
 
         Assert.True(result.Success, result.Error?.Message);
+    }
+
+    [Fact]
+    public async Task InferredPreflight_CanonicalizesAdvisorySelectorFamilyWithWholeToolParent()
+    {
+        var matcherCalls = 0;
+        var llm = new Mock<ILLMClient>();
+        llm.Setup(client => client.CallAsync(It.IsAny<LLMRequest>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((LLMRequest request, CancellationToken _) =>
+            {
+                if (request.Prompt.Contains("domain-neutral workflow runtime analyst", StringComparison.Ordinal))
+                {
+                    return ConditionalInventoryResponse(
+                        "Analyze the input and determine a closed decision.",
+                        "Apply whichever effect was determined at runtime.");
+                }
+                if (request.Prompt.Contains("domain-neutral capability matcher", StringComparison.Ordinal))
+                {
+                    matcherCalls++;
+                    var analyze = CatalogIdForMethod(request.Prompt, "analyze_change");
+                    var wholeTool = CatalogIdForWholeTool(request.Prompt, "publish_review");
+                    var firstBranch = CatalogIdForBindings(request.Prompt, ("/event", "APPROVE"), ("/method", "create"));
+                    var secondBranch = CatalogIdForBindings(request.Prompt, ("/event", "REQUEST_CHANGES"), ("/method", "create"));
+                    return new LLMResponse
+                    {
+                        Json = new JsonObject
+                        {
+                            ["operation_matches"] = new JsonArray(
+                                new JsonObject
+                                {
+                                    ["operation_id"] = "analyze",
+                                    ["status"] = "matched",
+                                    ["catalog_ids"] = new JsonArray(analyze),
+                                    ["candidate_catalog_ids"] = new JsonArray(),
+                                    ["decision_operation_id"] = string.Empty,
+                                    ["reason"] = "The selected capability produces the decision."
+                                },
+                                new JsonObject
+                                {
+                                    ["operation_id"] = "publish",
+                                    ["status"] = "matched",
+                                    ["catalog_ids"] = new JsonArray(),
+                                    ["candidate_catalog_ids"] = new JsonArray(wholeTool, firstBranch, secondBranch),
+                                    ["decision_operation_id"] = "analyze",
+                                    ["reason"] = "The physical capability and its exact alternatives implement the runtime choice."
+                                }),
+                            ["constraint_matches"] = new JsonArray()
+                        }
+                    };
+                }
+                return new LLMResponse { Text = ValidConditionalWorkflow };
+            });
+
+        var result = await ExecuteAsync(
+            ConditionalInferredPlan(),
+            llm.Object,
+            CreateConditionalReviewFactory());
+
+        Assert.True(result.Success, result.Error?.Message);
+        Assert.Equal(1, matcherCalls);
+        var capabilities = Assert.IsType<JsonArray>(
+            result.Outputs!["plan"]!["meta"]!["capability_preflight"]!["capabilities"]);
+        var conditional = capabilities.OfType<JsonObject>()
+            .Where(static capability => capability["operation_id"]?.GetValue<string>() == "publish")
+            .ToArray();
+        Assert.Equal(2, conditional.Length);
+        Assert.All(conditional, static capability =>
+        {
+            Assert.Equal("conditional", capability["match_status"]!.GetValue<string>());
+            Assert.NotEmpty(Assert.IsType<JsonArray>(capability["request_bindings"]));
+        });
+    }
+
+    [Fact]
+    public async Task InferredPreflight_CanonicalizesAdvisorySelectorAncestorChainToUniqueMaximum()
+    {
+        var matcherCalls = 0;
+        var llm = new Mock<ILLMClient>();
+        llm.Setup(client => client.CallAsync(It.IsAny<LLMRequest>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((LLMRequest request, CancellationToken _) =>
+            {
+                if (request.Prompt.Contains("domain-neutral workflow runtime analyst", StringComparison.Ordinal))
+                {
+                    return ConditionalInventoryResponse(
+                        "Analyze the input and determine a closed decision.",
+                        "Apply the documented effect for the selected result.");
+                }
+                if (request.Prompt.Contains("domain-neutral capability matcher", StringComparison.Ordinal))
+                {
+                    matcherCalls++;
+                    var analyze = CatalogIdForMethod(request.Prompt, "analyze_change");
+                    var wholeTool = CatalogIdForWholeTool(request.Prompt, "publish_review");
+                    var partialSelector = CatalogIdForBinding(request.Prompt, "/event", "REQUEST_CHANGES");
+                    var combinedSelector = CatalogIdForBindings(
+                        request.Prompt,
+                        ("/event", "REQUEST_CHANGES"),
+                        ("/method", "create"));
+                    return new LLMResponse
+                    {
+                        Json = new JsonObject
+                        {
+                            ["operation_matches"] = new JsonArray(
+                                new JsonObject
+                                {
+                                    ["operation_id"] = "analyze",
+                                    ["status"] = "matched",
+                                    ["catalog_ids"] = new JsonArray(analyze),
+                                    ["candidate_catalog_ids"] = new JsonArray(),
+                                    ["decision_operation_id"] = string.Empty,
+                                    ["reason"] = "The selected capability produces the result."
+                                },
+                                new JsonObject
+                                {
+                                    ["operation_id"] = "publish",
+                                    ["status"] = "matched",
+                                    ["catalog_ids"] = new JsonArray(),
+                                    ["candidate_catalog_ids"] = new JsonArray(
+                                        wholeTool,
+                                        partialSelector,
+                                        combinedSelector),
+                                    ["decision_operation_id"] = string.Empty,
+                                    ["reason"] = "The most-specific selector implements the selected effect."
+                                }),
+                            ["constraint_matches"] = new JsonArray()
+                        }
+                    };
+                }
+                return new LLMResponse { Text = ValidConditionalWorkflow };
+            });
+
+        var result = await ExecuteAsync(
+            ConditionalInferredPlan(),
+            llm.Object,
+            CreateConditionalReviewFactory());
+
+        Assert.True(result.Success, result.Error?.Message);
+        Assert.Equal(1, matcherCalls);
+        var capabilities = Assert.IsType<JsonArray>(
+            result.Outputs!["plan"]!["meta"]!["capability_preflight"]!["capabilities"]);
+        var selected = Assert.Single(
+            capabilities.OfType<JsonObject>(),
+            static capability => capability["operation_id"]?.GetValue<string>() == "publish");
+        Assert.Equal("matched", selected["match_status"]!.GetValue<string>());
+        Assert.Equal(2, Assert.IsType<JsonArray>(selected["request_bindings"]).Count);
+    }
+
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task InferredPreflight_ClassifiesInsufficientConditionalSelectorSetAsUnavailable(
+        bool includeAncestor)
+    {
+        var matcherCalls = 0;
+        var llm = new Mock<ILLMClient>();
+        llm.Setup(client => client.CallAsync(It.IsAny<LLMRequest>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((LLMRequest request, CancellationToken _) =>
+            {
+                if (request.Prompt.Contains("domain-neutral workflow runtime analyst", StringComparison.Ordinal))
+                {
+                    return ConditionalInventoryResponse(
+                        "Analyze the input and determine a closed decision.",
+                        "Apply whichever of the required effects was determined at runtime.");
+                }
+                if (request.Prompt.Contains("domain-neutral capability matcher", StringComparison.Ordinal))
+                {
+                    matcherCalls++;
+                    var analyze = CatalogIdForMethod(request.Prompt, "analyze_change");
+                    var wholeTool = CatalogIdForWholeTool(request.Prompt, "publish_review");
+                    var oneBranch = CatalogIdForBindings(
+                        request.Prompt,
+                        ("/event", "REQUEST_CHANGES"),
+                        ("/method", "create"));
+                    var publishIds = includeAncestor
+                        ? new JsonArray(wholeTool, oneBranch)
+                        : new JsonArray(oneBranch);
+                    return new LLMResponse
+                    {
+                        Json = new JsonObject
+                        {
+                            ["operation_matches"] = new JsonArray(
+                                new JsonObject
+                                {
+                                    ["operation_id"] = "analyze",
+                                    ["status"] = "matched",
+                                    ["catalog_ids"] = new JsonArray(analyze),
+                                    ["candidate_catalog_ids"] = new JsonArray(),
+                                    ["decision_operation_id"] = string.Empty,
+                                    ["reason"] = "The selected capability produces the decision."
+                                },
+                                new JsonObject
+                                {
+                                    ["operation_id"] = "publish",
+                                    ["status"] = "conditional",
+                                    ["catalog_ids"] = publishIds,
+                                    ["candidate_catalog_ids"] = new JsonArray(),
+                                    ["decision_operation_id"] = "analyze",
+                                    ["reason"] = "The parent and descendant were presented as separate alternatives."
+                                }),
+                            ["constraint_matches"] = new JsonArray()
+                        }
+                    };
+                }
+                return new LLMResponse { Text = ValidConditionalWorkflow };
+            });
+
+        var result = await ExecuteAsync(
+            ConditionalInferredPlan(),
+            llm.Object,
+            CreateConditionalReviewFactory(publicationValues: ["REQUEST_CHANGES"]));
+
+        Assert.False(result.Success);
+        Assert.Equal(2, matcherCalls);
+        Assert.Equal(ErrorCodes.CapabilityPreflightUnavailable, result.Error!.Code);
+        Assert.Equal("unsupported", result.Error.Details!["planning_outcome"]!.GetValue<string>());
+        Assert.Equal(
+            "configure_capability_or_revise_request",
+            result.Error.Details["recommended_action"]!.GetValue<string>());
+        var issue = Assert.IsType<JsonObject>(Assert.Single(Assert.IsType<JsonArray>(
+            result.Error.Details["matching_issues"])));
+        Assert.Equal("unavailable", issue["status"]!.GetValue<string>());
     }
 
     [Fact]
@@ -8730,9 +9031,11 @@ public sealed class WorkflowPlanCapabilityPreflightTests
 
     private static InMemoryMcpClientFactory CreateConditionalReviewFactory(
         IReadOnlyList<string>? decisionValues = null,
-        bool exposeDecisionOutput = true)
+        bool exposeDecisionOutput = true,
+        IReadOnlyList<string>? publicationValues = null)
     {
         decisionValues ??= ["APPROVE", "REQUEST_CHANGES"];
+        publicationValues ??= ["APPROVE", "REQUEST_CHANGES"];
         var factory = new InMemoryMcpClientFactory();
         factory.RegisterServer("reviewer", new MockMcpServerConfig
         {
@@ -8764,12 +9067,12 @@ public sealed class WorkflowPlanCapabilityPreflightTests
                 {
                     Name = "publish_review",
                     Description = "Create a pull request review with one exact event and explanatory body.",
-                    InputSchema = JsonNode.Parse("""
+                    InputSchema = JsonNode.Parse($$"""
                         {
                           "type": "object",
                           "properties": {
                             "method": { "type": "string", "const": "create" },
-                            "event": { "type": "string", "enum": ["APPROVE", "REQUEST_CHANGES"] },
+                            "event": { "type": "string", "enum": [{{string.Join(", ", publicationValues.Select(static value => $"\"{value}\""))}}] },
                             "body": { "type": "string" }
                           },
                           "required": ["method", "event", "body"],

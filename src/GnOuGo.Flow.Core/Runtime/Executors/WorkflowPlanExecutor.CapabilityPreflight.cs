@@ -1255,7 +1255,7 @@ public sealed partial class WorkflowPlanExecutor
         };
     }
 
-    private static IReadOnlyList<string> RemoveStructurallyRedundantWholeToolEntries(
+    private static IReadOnlyList<string> RemoveStructurallyRedundantSelectorAncestorEntries(
         IReadOnlyList<string> selected,
         IReadOnlyDictionary<string, CapabilityCatalogEntry> entries,
         out bool normalized)
@@ -1266,19 +1266,34 @@ public sealed partial class WorkflowPlanExecutor
             .Where(entries.ContainsKey)
             .Select(id => entries[id])
             .ToArray();
-        var redundantBaseIds = referenced
+        var redundantAncestorIds = referenced
             .GroupBy(static entry => (entry.Resolution, entry.Server, entry.Kind, entry.Method))
-            .Where(static group => group.Count(entry => entry.RequestBindings.Count > 0) == 1)
             .SelectMany(static group => group
-                .Where(static entry => entry.RequestBindings.Count == 0)
+                .Where(entry => group.Any(candidate => IsStrictSelectorAncestor(entry, candidate)))
                 .Select(static entry => entry.Id))
             .ToHashSet(StringComparer.Ordinal);
-        if (redundantBaseIds.Count == 0)
+        if (redundantAncestorIds.Count == 0)
             return selected;
 
-        var result = selected.Where(id => !redundantBaseIds.Contains(id)).ToArray();
+        var result = selected.Where(id => !redundantAncestorIds.Contains(id)).ToArray();
         normalized = result.Length != selected.Count;
         return result;
+    }
+
+    private static bool IsStrictSelectorAncestor(
+        CapabilityCatalogEntry possibleAncestor,
+        CapabilityCatalogEntry possibleDescendant)
+    {
+        if (possibleAncestor.RequestBindings.Count >= possibleDescendant.RequestBindings.Count)
+            return false;
+
+        var descendantBindings = possibleDescendant.RequestBindings.ToDictionary(
+            static binding => binding.Path,
+            static binding => binding.Value,
+            StringComparer.Ordinal);
+        return possibleAncestor.RequestBindings.All(binding =>
+            descendantBindings.TryGetValue(binding.Path, out var descendantValue)
+            && JsonNode.DeepEquals(binding.Value, descendantValue));
     }
 
     private static void RecordCapabilityMatchingNormalizationTelemetry(
@@ -1373,7 +1388,7 @@ public sealed partial class WorkflowPlanExecutor
     {
         var entries = catalog.Entries.ToDictionary(static entry => entry.Id, StringComparer.Ordinal);
         var changedOperationIds = new HashSet<string>(StringComparer.Ordinal);
-        var contractGapIssues = new List<CapabilityMatchingIssue>();
+        var normalizedIssues = new List<CapabilityMatchingIssue>();
         var operationMatches = evaluation.OperationMatches.Select(match =>
         {
             if (match.Status is "matched" or "conditional" or "local")
@@ -1381,14 +1396,78 @@ public sealed partial class WorkflowPlanExecutor
             if (match.Operation.DecisionSourceOperationId.Length == 0)
                 return match;
 
-            var referenced = match.CatalogIds.Concat(match.CandidateCatalogIds)
+            var referencedIds = match.CatalogIds.Concat(match.CandidateCatalogIds)
                 .Distinct(StringComparer.Ordinal)
-                .Where(entries.ContainsKey)
-                .Select(id => entries[id])
                 .ToArray();
-            if (match.CatalogIds.Count < 2
-                || !TryBuildConditionalActivation(
-                    referenced,
+            if (referencedIds.Length == 1
+                && entries.TryGetValue(referencedIds[0], out var soleEntry)
+                && soleEntry.RequestBindings.Count > 0
+                && !HasCompatibleConditionalSelectorSibling(
+                    soleEntry,
+                    entries.Values,
+                    match.Operation.AllowNoEffectOutcome))
+            {
+                changedOperationIds.Add(match.Operation.Id);
+                const string reason = "Only one exact selector capability remains, so the discovered catalog cannot implement the declared set of runtime alternatives.";
+                normalizedIssues.Add(new CapabilityMatchingIssue(
+                    match.Operation.Id,
+                    match.Operation.Description,
+                    match.Operation.Required,
+                    "unavailable",
+                    reason,
+                    referencedIds));
+                return match with
+                {
+                    Status = "unavailable",
+                    Reason = reason,
+                    CatalogIds = Array.Empty<string>(),
+                    CandidateCatalogIds = Array.Empty<string>(),
+                    DecisionOperationId = null,
+                    ConditionalActivationMode = string.Empty,
+                    NormalizationReasonCode = "conditional_selector_set_insufficient"
+                };
+            }
+            if (referencedIds.Length < 2 || referencedIds.Any(id => !entries.ContainsKey(id)))
+                return match;
+            var canonicalReferencedIds = RemoveStructurallyRedundantSelectorAncestorEntries(
+                referencedIds,
+                entries,
+                out var selectorAncestorRemoved);
+            var canonicalReferenced = canonicalReferencedIds.Select(id => entries[id]).ToArray();
+            if (canonicalReferenced.Length < 2)
+            {
+                if (!selectorAncestorRemoved)
+                    return match;
+
+                var soleCanonicalEntry = canonicalReferenced.Single();
+                if (HasCompatibleConditionalSelectorSibling(
+                        soleCanonicalEntry,
+                        entries.Values,
+                        match.Operation.AllowNoEffectOutcome))
+                    return match;
+
+                changedOperationIds.Add(match.Operation.Id);
+                const string reason = "The referenced selector entries collapse to one logical capability, so they cannot implement the declared set of runtime alternatives.";
+                normalizedIssues.Add(new CapabilityMatchingIssue(
+                    match.Operation.Id,
+                    match.Operation.Description,
+                    match.Operation.Required,
+                    "unavailable",
+                    reason,
+                    canonicalReferencedIds.Take(8).ToArray()));
+                return match with
+                {
+                    Status = "unavailable",
+                    Reason = reason,
+                    CatalogIds = Array.Empty<string>(),
+                    CandidateCatalogIds = Array.Empty<string>(),
+                    DecisionOperationId = null,
+                    ConditionalActivationMode = string.Empty,
+                    NormalizationReasonCode = "selector_ancestor_chain_insufficient"
+                };
+            }
+            if (!TryBuildConditionalActivation(
+                    canonicalReferenced,
                     match.Operation.AllowNoEffectOutcome,
                     match.ConditionalActivationMode,
                     out _,
@@ -1402,7 +1481,14 @@ public sealed partial class WorkflowPlanExecutor
                     StringComparison.Ordinal)))
                 return match;
 
-            var conditionalCandidate = match with { DecisionOperationId = decisionOperationId };
+            var conditionalCandidate = match with
+            {
+                Status = "conditional",
+                CatalogIds = canonicalReferenced.Select(static entry => entry.Id).ToArray(),
+                CandidateCatalogIds = Array.Empty<string>(),
+                DecisionOperationId = decisionOperationId,
+                ConditionalActivationMode = conditionalActivationMode
+            };
             if (!TryGroundConditionalDecision(
                     evaluation,
                     conditionalCandidate,
@@ -1422,13 +1508,13 @@ public sealed partial class WorkflowPlanExecutor
 
                 changedOperationIds.Add(match.Operation.Id);
                 const string reason = "Conditional activation has no provider-neutral decision contract that covers every effect branch and declared no-effect outcome.";
-                contractGapIssues.Add(new CapabilityMatchingIssue(
+                normalizedIssues.Add(new CapabilityMatchingIssue(
                     match.Operation.Id,
                     match.Operation.Description,
                     match.Operation.Required,
                     "contract_gap",
                     reason,
-                    referenced.Select(static entry => entry.Id).Take(8).ToArray())
+                    canonicalReferenced.Select(static entry => entry.Id).Take(8).ToArray())
                 {
                     ReasonCode = failureCode
                 });
@@ -1446,7 +1532,7 @@ public sealed partial class WorkflowPlanExecutor
             {
                 Status = "conditional",
                 Reason = "The exact selector subset contains mutually exclusive runtime branches selected by an earlier workflow result; complementary selected capabilities remain unconditional prerequisites.",
-                CatalogIds = referenced.Select(static entry => entry.Id).ToArray(),
+                CatalogIds = canonicalReferenced.Select(static entry => entry.Id).ToArray(),
                 CandidateCatalogIds = Array.Empty<string>(),
                 DecisionOperationId = decisionProducerOperationId,
                 DecisionOutputPath = decisionOutputPath,
@@ -1465,7 +1551,9 @@ public sealed partial class WorkflowPlanExecutor
                         ConditionalAllOnValueActivationMode,
                         StringComparison.Ordinal)
                         ? "conditional_composition_canonicalized"
-                        : match.NormalizationReasonCode
+                        : selectorAncestorRemoved || match.CandidateCatalogIds.Count > 0
+                            ? "conditional_selector_family_canonicalized"
+                            : match.NormalizationReasonCode
                     : "conditional_decision_source_canonicalized"
             };
         }).ToArray();
@@ -1475,7 +1563,7 @@ public sealed partial class WorkflowPlanExecutor
 
         var issues = evaluation.Issues
             .Where(issue => !changedOperationIds.Contains(issue.OperationId))
-            .Concat(contractGapIssues)
+            .Concat(normalizedIssues)
             .ToArray();
         var contractValid = operationMatches.All(static match => match.Status != "invalid")
                             && evaluation.ConstraintMatches.All(static match => match.Status != "invalid")
@@ -1487,6 +1575,24 @@ public sealed partial class WorkflowPlanExecutor
             ContractValid = contractValid
         });
     }
+
+    private static bool HasCompatibleConditionalSelectorSibling(
+        CapabilityCatalogEntry entry,
+        IEnumerable<CapabilityCatalogEntry> candidates,
+        bool allowNoEffectOutcome)
+        => candidates.Any(candidate =>
+            !string.Equals(candidate.Id, entry.Id, StringComparison.Ordinal)
+            && string.Equals(candidate.Resolution, entry.Resolution, StringComparison.Ordinal)
+            && string.Equals(candidate.Server, entry.Server, StringComparison.Ordinal)
+            && string.Equals(candidate.Kind, entry.Kind, StringComparison.Ordinal)
+            && string.Equals(candidate.Method, entry.Method, StringComparison.Ordinal)
+            && candidate.RequestBindings.Count > 0
+            && TryBuildConditionalActivation(
+                [entry, candidate],
+                allowNoEffectOutcome,
+                string.Empty,
+                out _,
+                out _));
 
     private static CapabilityMatchingEvaluation NormalizePlatformSafetyMatches(
         CapabilityMatchingEvaluation evaluation,
@@ -3201,6 +3307,7 @@ public sealed partial class WorkflowPlanExecutor
             Prefer the smallest sufficient composition. A composition is valid only when every selected capability is necessary for the one operation. For a multi-action tool, choose selector-specific entries whose request_bindings describe the logical operation. Different selector values are distinct capabilities.
             A selector entry with variant_of inherits the description, arguments, outputs, and artifact contract from the whole-tool entry identified by the same server, kind, and method; its compact row intentionally contains only the distinguishing literal request_bindings.
             A whole-tool entry without request_bindings is appropriate when enum-valued arguments are runtime data rather than a fixed logical action. Prefer a combined selector entry over several single-selector entries when one physical call requires all of those fixed literal values.
+            Selector bindings form a structural specificity order for one physical capability. When every binding of one entry appears with the same value in a more-specific entry, the broader entry is only an ancestor representation: never select or retain it beside that descendant. Keep every incomparable maximal entry when they are genuine alternatives; keep only the unique maximal entry when all other referenced entries are its ancestors.
             When an operation has a non-empty decision_source_operation_id, use status conditional and copy the locked decision_source_operation_id into decision_operation_id. Trace a local decision source only through its declared input_operation_ids; never infer the producer from descriptions or adjacency. Prefer a selected decision capability that documents one string enum output containing every selector branch value. When allow_no_effect_outcome=true, that enum may contain additional values that intentionally execute no external-effect branch. If no suitable discovered output exists, Flow may synthesize a strict provider-neutral structured-output projection for one selected MCP capability or native llm.call and will validate it after generation. Conditional variants must belong to one physical capability, share the same selector paths and every fixed selector except one mutually exclusive selector path, and use distinct values on that path. A conditional complementary composition is valid only when allow_no_effect_outcome=true: every selected capability is necessary for the single effect outcome, all selected invocations are structurally distinct, catalog_ids order is execution order, and the alternative is the declared no-effect outcome. Keep independently required read variants as composed when no runtime discriminator can be grounded. Include complementary unconditional prerequisites with selector alternatives only when necessary; they execute once outside the exclusive branch. This is runtime control flow, not user ambiguity. Never ask the user to predict a future runtime result.
             Set conditional_mode=exactly_one for mutually exclusive selector variants. Set conditional_mode=all_on_value for a conditional complementary composition whose selected capabilities all execute in catalog_ids order. Use an empty conditional_mode for every non-conditional status.
             A complete_operation composition entry encapsulates its listed lower-level phases. Select the complete operation alone when it is sufficient; never compose it with a phase it already encapsulates.
@@ -3390,11 +3497,45 @@ public sealed partial class WorkflowPlanExecutor
 
             var knownSelected = selected.All(entries.ContainsKey);
             var knownCandidates = candidates.All(entries.ContainsKey);
+            if (status == "matched" && selected.Count == 0 && candidates.Count > 1 && knownCandidates)
+            {
+                var originalCandidates = candidates;
+                candidates = RemoveStructurallyRedundantSelectorAncestorEntries(
+                    candidates,
+                    entries,
+                    out var candidateSelectorCanonicalized);
+                if (candidateSelectorCanonicalized)
+                {
+                    normalizationReasonCode = originalCandidates
+                        .Except(candidates, StringComparer.Ordinal)
+                        .Any(id => entries[id].RequestBindings.Count > 0)
+                        ? "selector_ancestor_chain_canonicalized"
+                        : "selector_base_variant_canonicalized";
+                }
+                if (candidates.Count == 1)
+                {
+                    selected = candidates;
+                    candidates = Array.Empty<string>();
+                    selectedValid = candidatesValid;
+                    candidatesValid = true;
+                    knownSelected = true;
+                }
+            }
             if (status == "matched" && knownSelected)
             {
-                selected = RemoveStructurallyRedundantWholeToolEntries(selected, entries, out var selectorCanonicalized);
+                var originalSelected = selected;
+                selected = RemoveStructurallyRedundantSelectorAncestorEntries(
+                    selected,
+                    entries,
+                    out var selectorCanonicalized);
                 if (selectorCanonicalized)
-                    normalizationReasonCode = "selector_base_variant_canonicalized";
+                {
+                    normalizationReasonCode = originalSelected
+                        .Except(selected, StringComparer.Ordinal)
+                        .Any(id => entries[id].RequestBindings.Count > 0)
+                        ? "selector_ancestor_chain_canonicalized"
+                        : "selector_base_variant_canonicalized";
+                }
             }
             if (status == "matched"
                 && selected.Count > 1
@@ -5986,14 +6127,19 @@ public sealed partial class WorkflowPlanExecutor
                 .Take(8)
                 .Select(id => (JsonNode)BuildCapabilityCandidateCard(entryMap[id])).ToArray())
         }).ToArray());
-        var onlyUnavailable = evaluation.ContractValid && blocking.All(static issue => issue.Status == "unavailable");
+        var onlyUnavailable = blocking.All(static issue => issue.Status == "unavailable");
         var onlyContractGaps = blocking.All(static issue => issue.Status == "contract_gap");
+        var onlyUnsupported = blocking.All(static issue => issue.Status is "unavailable" or "contract_gap");
         var containsInvalidContract = blocking.Any(static issue => issue.Status == "invalid");
-        var unsupported = onlyUnavailable || onlyContractGaps;
+        var unsupported = onlyUnsupported;
+        var contractGapOperationIds = blocking
+            .Where(static issue => issue.Status == "contract_gap")
+            .Select(static issue => issue.OperationId)
+            .ToHashSet(StringComparer.Ordinal);
         var unavailable = unsupported
             ? evaluation.OperationMatches.Where(match => match.Operation.Required
                                                          && (match.Status == "unavailable"
-                                                             || onlyContractGaps && !string.IsNullOrWhiteSpace(match.DecisionGroundingFailureCode)))
+                                                             || contractGapOperationIds.Contains(match.Operation.Id)))
                 .Select(static match => (JsonNode)new JsonObject
                 {
                     ["id"] = match.Operation.Id,
@@ -6011,6 +6157,8 @@ public sealed partial class WorkflowPlanExecutor
                 ? "One or more conditional runtime operations have no safe provider-neutral decision contract."
                 : onlyUnavailable
                     ? "One or more required runtime operations have no matching discovered capability."
+                    : unsupported
+                        ? "One or more required runtime operations have no matching capability or safe provider-neutral decision contract."
                     : "Capability matching remained ambiguous or invalid after one bounded repair attempt.",
             details: new JsonObject
             {
@@ -6027,6 +6175,8 @@ public sealed partial class WorkflowPlanExecutor
                     ? "configure_decision_contract_or_enable_structured_projection"
                     : onlyUnavailable
                         ? "configure_capability_or_revise_request"
+                        : unsupported
+                            ? "configure_capability_or_decision_contract_or_revise_request"
                         : containsInvalidContract
                             ? "retry_or_change_planning_model"
                             : "clarify_or_abandon"

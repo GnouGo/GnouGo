@@ -17,10 +17,36 @@ public sealed class LiveAgentAddSmokeTests
     private const string SmokeIntent = """
         Create a reusable agent that returns the fixed greeting text "Hello" to the caller.
         """;
+    private const string ConditionalRuntimeChoiceIntent = """
+        Create a reusable agent that accepts a pull-request URL and review instructions.
+
+        For the supplied change:
+        1. Materialize the project once.
+        2. Restore dependencies for every modified project.
+        3. Run all relevant unit tests and linters.
+        4. Review all changed code and retain only high-confidence findings.
+        5. Publish an approval only when restoration, tests, lint, complete coverage, and the review all succeed without findings; otherwise request changes with a functional-then-technical summary. Publish nothing when the result cannot be established safely.
+
+        Always remove every directory created by the workflow at the end.
+        """;
 
     [Fact]
     [Trait("Category", "Live")]
     public async Task GenericNoExternalEffectIntent_GeneratesValidPersistedAgent()
+        => await RunAgentAddAsync(SmokeIntent, "fixed-output");
+
+    [Fact]
+    [Trait("Category", "Live")]
+    public async Task ConditionalRuntimeChoiceIntent_FailsClosedWhenCatalogLacksEveryRequiredEffectBranch()
+        => await RunAgentAddAsync(
+            ConditionalRuntimeChoiceIntent,
+            "conditional-choice",
+            ErrorCodes.CapabilityPreflightUnavailable);
+
+    private static async Task RunAgentAddAsync(
+        string intent,
+        string nameQualifier,
+        string? expectedErrorCode = null)
     {
         if (!string.Equals(Environment.GetEnvironmentVariable(EnableVariable), "1", StringComparison.Ordinal))
             return;
@@ -28,7 +54,7 @@ public sealed class LiveAgentAddSmokeTests
         using var timeout = new CancellationTokenSource(TimeSpan.FromMinutes(30));
         var ct = timeout.Token;
         var sourceRoot = FindSourceRoot();
-        var agentName = $"live-agent-add-smoke-{DateTimeOffset.UtcNow:yyyyMMddHHmmss}-{Guid.NewGuid():N}";
+        var agentName = $"live-agent-add-{nameQualifier}-{DateTimeOffset.UtcNow:yyyyMMddHHmmss}-{Guid.NewGuid():N}";
         var telemetryDatabasePath = Path.Combine(
             Path.GetTempPath(),
             $"gnougo-live-agent-add-smoke-{Guid.NewGuid():N}.db");
@@ -62,6 +88,7 @@ public sealed class LiveAgentAddSmokeTests
             var responder = RespondToAgentCreationAsync(
                 humanInput,
                 agentName,
+                intent,
                 responderCancellation.Token);
             var events = await CollectAsync(configureAgents.ExecuteAsync("/gnougo add", ct), ct);
             responderCancellation.Cancel();
@@ -77,6 +104,21 @@ public sealed class LiveAgentAddSmokeTests
             var failure = events.FirstOrDefault(static item => item.Type == "error");
             var answerFailure = events.FirstOrDefault(static item => item.Type == "answer"
                 && item.Text?.StartsWith("❌", StringComparison.Ordinal) == true);
+            if (expectedErrorCode is not null)
+            {
+                var expectedFailure = failure ?? answerFailure;
+                Assert.NotNull(expectedFailure);
+                Assert.True(
+                    string.Equals(expectedErrorCode, expectedFailure.ErrorCode, StringComparison.Ordinal),
+                    expectedFailure.Text ?? $"Expected {expectedErrorCode}, received {expectedFailure.ErrorCode}.");
+                Assert.DoesNotContain(events, static item => string.Equals(
+                    item.ErrorCode,
+                    ErrorCodes.CapabilityPreflightInferenceFailed,
+                    StringComparison.Ordinal));
+                Assert.False(await AgentExistsAsync(mcpFactory, agentName, ct));
+                return;
+            }
+
             Assert.True(failure is null && answerFailure is null, failure?.Text ?? answerFailure?.Text);
             Assert.DoesNotContain(events, static item => string.Equals(
                 item.ErrorCode,
@@ -84,7 +126,7 @@ public sealed class LiveAgentAddSmokeTests
                 StringComparison.Ordinal));
 
             var persisted = await GetAgentAsync(mcpFactory, agentName, ct);
-            Assert.Equal(SmokeIntent.Trim().ReplaceLineEndings("\n"),
+            Assert.Equal(intent.Trim().ReplaceLineEndings("\n"),
                 RequireString(persisted, "original_prompt").Trim().ReplaceLineEndings("\n"));
             var yaml = RequireString(persisted, "workflow");
             var document = WorkflowParser.Parse(yaml);
@@ -169,6 +211,7 @@ public sealed class LiveAgentAddSmokeTests
     private static async Task RespondToAgentCreationAsync(
         AgentHumanInputProvider humanInput,
         string agentName,
+        string intent,
         CancellationToken ct)
     {
         await foreach (var request in humanInput.PendingRequests.ReadAllAsync(ct))
@@ -176,7 +219,7 @@ public sealed class LiveAgentAddSmokeTests
             JsonNode response = request.StepId.EndsWith("input_name", StringComparison.Ordinal)
                 ? Submit(new JsonObject { ["agent_name"] = agentName })
                 : request.StepId.EndsWith("input_prompt", StringComparison.Ordinal)
-                    ? Submit(new JsonObject { ["description"] = SmokeIntent })
+                    ? Submit(new JsonObject { ["description"] = intent })
                     : request.StepId.Contains(":intent_clarification:", StringComparison.Ordinal)
                         ? BuildRecommendedResponse(request)
                         : request.StepId.Contains(":capability_clarification:", StringComparison.Ordinal)
@@ -199,7 +242,7 @@ public sealed class LiveAgentAddSmokeTests
             response[field.Name] = field.Default
                                    ?? field.OptionDefinitions?.FirstOrDefault(static option => option.Recommended)?.Value
                                    ?? field.Options?.FirstOrDefault()
-                                   ?? "Return the fixed greeting exactly as requested.";
+                                   ?? "Preserve the observable behavior, effect boundaries, and failure policy from the original request.";
         }
         return Submit(response);
     }
@@ -209,7 +252,10 @@ public sealed class LiveAgentAddSmokeTests
         var response = new JsonObject();
         foreach (var field in request.Fields ?? [])
         {
-            response[field.Name] = "Return exactly one fixed greeting value, Hello, to the caller without any external effect.";
+            response[field.Name] = field.Default
+                                   ?? field.OptionDefinitions?.FirstOrDefault(static option => option.Recommended)?.Value
+                                   ?? field.Options?.FirstOrDefault()
+                                   ?? "Preserve the original requested behavior without weakening its guarantees.";
         }
         return Submit(response);
     }
@@ -244,6 +290,20 @@ public sealed class LiveAgentAddSmokeTests
         var payload = Assert.IsType<JsonObject>(result.Content);
         Assert.True(payload["success"]?.GetValue<bool>() == true, payload.ToJsonString());
         return Assert.IsType<JsonObject>(payload["agent"]);
+    }
+
+    private static async Task<bool> AgentExistsAsync(
+        IMcpClientFactory factory,
+        string name,
+        CancellationToken ct)
+    {
+        await using var session = await factory.GetClientAsync(AgentMcpHostingExtensions.ServerName, ct);
+        var result = await session.CallToolAsync(
+            "agent_get_by_name",
+            new JsonObject { ["name"] = name },
+            ct);
+        var payload = Assert.IsType<JsonObject>(result.Content);
+        return !result.IsError && payload["success"]?.GetValue<bool>() == true;
     }
 
     private static async Task DeleteAgentIfPresentAsync(
