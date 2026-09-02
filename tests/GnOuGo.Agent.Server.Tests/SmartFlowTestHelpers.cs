@@ -14,9 +14,11 @@ namespace GnOuGo.Agent.Server.Tests;
 
 internal sealed class FakeKeyVaultRuntimeConfigStore : IKeyVaultRuntimeConfigStore
 {
-    private readonly Dictionary<string, string> _values = new(StringComparer.OrdinalIgnoreCase);
-    private readonly Dictionary<string, KeyVaultSecretSummary> _summaries = new(StringComparer.OrdinalIgnoreCase);
+    private readonly Dictionary<string, string> _values = new(StringComparer.Ordinal);
+    private readonly Dictionary<string, KeyVaultSecretSummary> _summaries = new(StringComparer.Ordinal);
     private LLMOptions? _effectiveOptions;
+
+    public IReadOnlyCollection<string> SecretKeys => _values.Keys;
 
     public FakeKeyVaultRuntimeConfigStore WithEffectiveOptions(LLMOptions options)
     {

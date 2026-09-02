@@ -97,7 +97,13 @@ internal static class WorkflowFailureFormatter
                 builder.Append("- ").AppendLine(server);
         }
 
-        if (unavailable.Count > 0 || servers.Count > 0)
+        if (servers.Count > 0)
+        {
+            builder.AppendLine()
+                .Append("Restore the failed MCP server's startup, connectivity, or configuration, or remove it from the configured catalog before retrying.");
+        }
+
+        if (unavailable.Count > 0)
         {
             builder.AppendLine()
                 .Append("Configure a matching discovered capability, alter the requirement, or mark the operation optional before retrying.");

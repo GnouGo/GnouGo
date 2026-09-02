@@ -66,8 +66,30 @@ public sealed class WorkflowFailureFormatterTests
         Assert.Contains(ErrorCodes.CapabilityPreflightUnavailable, presentation.UserMessage, StringComparison.Ordinal);
         Assert.Contains("archive_record: Archive a record in durable storage.", presentation.UserMessage, StringComparison.Ordinal);
         Assert.Contains("inventory-service", presentation.UserMessage, StringComparison.Ordinal);
+        Assert.Contains("Restore the failed MCP server's startup, connectivity, or configuration", presentation.UserMessage, StringComparison.Ordinal);
         Assert.Contains("Configure a matching discovered capability", presentation.UserMessage, StringComparison.Ordinal);
         Assert.Equal(1, presentation.UnavailableCapabilityCount);
+        Assert.Equal(1, presentation.UnavailableServerCount);
+    }
+
+    [Fact]
+    public void Format_DiscoveryFailureUsesCatalogRecoveryGuidanceOnly()
+    {
+        var error = new WorkflowError
+        {
+            Code = ErrorCodes.CapabilityPreflightDiscoveryFailed,
+            Message = "Capability discovery failed.",
+            Details = new JsonObject
+            {
+                ["unavailable_servers"] = new JsonArray("inventory-service")
+            }
+        };
+
+        var presentation = WorkflowFailureFormatter.Format(error);
+
+        Assert.Contains("Restore the failed MCP server's startup, connectivity, or configuration", presentation.UserMessage, StringComparison.Ordinal);
+        Assert.DoesNotContain("Configure a matching discovered capability", presentation.UserMessage, StringComparison.Ordinal);
+        Assert.Equal(0, presentation.UnavailableCapabilityCount);
         Assert.Equal(1, presentation.UnavailableServerCount);
     }
 
