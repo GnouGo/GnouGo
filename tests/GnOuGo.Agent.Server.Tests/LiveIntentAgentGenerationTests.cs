@@ -36,9 +36,15 @@ public sealed class LiveIntentAgentGenerationTests
     private const string ProviderHardLimitAmountVariable = "GNOU_GO_LIVE_INTENT_AGENT_PROVIDER_HARD_LIMIT_AMOUNT";
     private const string ProviderHardLimitCurrencyVariable = "GNOU_GO_LIVE_INTENT_AGENT_PROVIDER_HARD_LIMIT_CURRENCY";
     private const string ElapsedLimitMinutesVariable = "GNOU_GO_LIVE_INTENT_AGENT_MAX_ELAPSED_MINUTES";
+    private const string MaxCallsVariable = "GNOU_GO_LIVE_INTENT_AGENT_MAX_CALLS";
+    private const string MaxTotalTokensVariable = "GNOU_GO_LIVE_INTENT_AGENT_MAX_TOTAL_TOKENS";
     private const decimal DefaultLiveCycleCostLimit = 50m;
     private const string DefaultLiveCycleCurrency = "EUR";
     private const int DefaultLiveCycleElapsedMinutes = 120;
+    private const int DefaultLiveCycleMaxCalls = 120;
+    private const long DefaultLiveCycleMaxTotalTokens = 5_000_000;
+    private const int MaximumLiveCycleMaxCalls = 1_000;
+    private const long MaximumLiveCycleMaxTotalTokens = 50_000_000;
     private const int LiveProviderAttemptCount = 1;
     private static readonly object ProgressFileLock = new();
     private const string AcceptancePrompt = """
@@ -79,8 +85,8 @@ public sealed class LiveIntentAgentGenerationTests
         var cycleBudget = new LLMUsageBudgetScope(
             new LLMUsageBudgetLimits
             {
-                MaxCalls = 120,
-                MaxTotalTokens = 5_000_000,
+                MaxCalls = budgetDefinition.MaxCalls,
+                MaxTotalTokens = budgetDefinition.MaxTotalTokens,
                 MaxElapsed = liveCycleElapsedLimit,
                 MaxEstimatedCost = budgetDefinition.AuthorizedBudget
             },
@@ -476,7 +482,15 @@ public sealed class LiveIntentAgentGenerationTests
             new MonetaryAmount(authorizedAmount, authorizedCurrency),
             new MonetaryAmount(
                 ParsePositiveAmount(providerAmountText, ProviderHardLimitAmountVariable),
-                NormalizeCurrency(providerCurrencyText, ProviderHardLimitCurrencyVariable)));
+                NormalizeCurrency(providerCurrencyText, ProviderHardLimitCurrencyVariable)),
+            ResolvePositiveInt32Limit(
+                MaxCallsVariable,
+                DefaultLiveCycleMaxCalls,
+                MaximumLiveCycleMaxCalls),
+            ResolvePositiveInt64Limit(
+                MaxTotalTokensVariable,
+                DefaultLiveCycleMaxTotalTokens,
+                MaximumLiveCycleMaxTotalTokens));
     }
 
     private static async Task ValidateProviderHardLimitAsync(
@@ -567,6 +581,38 @@ public sealed class LiveIntentAgentGenerationTests
         }
 
         return TimeSpan.FromMinutes(minutes);
+    }
+
+    private static int ResolvePositiveInt32Limit(string variable, int defaultValue, int maximum)
+    {
+        var configured = Environment.GetEnvironmentVariable(variable);
+        if (string.IsNullOrWhiteSpace(configured))
+            return defaultValue;
+        if (!int.TryParse(configured, NumberStyles.None, CultureInfo.InvariantCulture, out var value)
+            || value <= 0
+            || value > maximum)
+        {
+            throw new InvalidOperationException(
+                $"{variable} must be a whole number from 1 through {maximum.ToString(CultureInfo.InvariantCulture)}.");
+        }
+
+        return value;
+    }
+
+    private static long ResolvePositiveInt64Limit(string variable, long defaultValue, long maximum)
+    {
+        var configured = Environment.GetEnvironmentVariable(variable);
+        if (string.IsNullOrWhiteSpace(configured))
+            return defaultValue;
+        if (!long.TryParse(configured, NumberStyles.None, CultureInfo.InvariantCulture, out var value)
+            || value <= 0
+            || value > maximum)
+        {
+            throw new InvalidOperationException(
+                $"{variable} must be a whole number from 1 through {maximum.ToString(CultureInfo.InvariantCulture)}.");
+        }
+
+        return value;
     }
 
     private static string ResolveBudgetStatePath(string sourceRoot)
@@ -1828,11 +1874,13 @@ public sealed class LiveIntentAgentGenerationTests
 
     internal sealed record LiveBudgetDefinition(
         MonetaryAmount AuthorizedBudget,
-        MonetaryAmount ProviderHardLimit);
+        MonetaryAmount ProviderHardLimit,
+        int MaxCalls = DefaultLiveCycleMaxCalls,
+        long MaxTotalTokens = DefaultLiveCycleMaxTotalTokens);
 
     internal sealed class LiveBudgetLedger : ILLMUsageBudgetSink
     {
-        private const int CurrentVersion = 2;
+        private const int CurrentVersion = 3;
         private readonly object _gate = new();
         private readonly string _path;
         private readonly LiveBudgetDefinition _definition;
@@ -1893,7 +1941,9 @@ public sealed class LiveIntentAgentGenerationTests
                     ReadRequiredString(root, "authorized_budget_currency")),
                 new MonetaryAmount(
                     ReadRequiredDecimal(root, "provider_hard_limit_amount"),
-                    ReadRequiredString(root, "provider_hard_limit_currency")));
+                    ReadRequiredString(root, "provider_hard_limit_currency")),
+                ReadRequiredInt32(root, "max_calls"),
+                ReadRequiredInt64(root, "max_total_tokens"));
             if (persistedDefinition != definition)
                 throw new InvalidOperationException("The redacted live-validation budget ledger does not match the configured budget or provider hard-limit attestation.");
 
@@ -1992,6 +2042,8 @@ public sealed class LiveIntentAgentGenerationTests
                 ["authorized_budget_currency"] = _definition.AuthorizedBudget.Currency,
                 ["provider_hard_limit_amount"] = _definition.ProviderHardLimit.Amount,
                 ["provider_hard_limit_currency"] = _definition.ProviderHardLimit.Currency,
+                ["max_calls"] = _definition.MaxCalls,
+                ["max_total_tokens"] = _definition.MaxTotalTokens,
                 ["started_at_utc"] = Snapshot.StartedAtUtc.ToString("O", CultureInfo.InvariantCulture),
                 ["calls"] = Snapshot.Calls,
                 ["input_tokens"] = Snapshot.InputTokens,

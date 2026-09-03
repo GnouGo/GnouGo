@@ -83,6 +83,8 @@ public sealed partial class WorkflowPlanExecutor
         sb.AppendLine("- Conditional decision_operation_id ownership is immutable. The leaf or main contract listed as that local operation's owner must derive the runtime decision. A different orchestration surface may only route the typed decision output; it must not claim to recompute or own it.");
         sb.AppendLine("- Main native-step ownership is exact. Preserve every entry in candidate_extraction.main_native_steps and remove any human confirmation or other native interaction described by main when no matching entry is locked there.");
         sb.AppendLine("- Address every compatible blocking diagnostic in this one patch; do not make cosmetic edits that leave a reported ownership or schema defect unchanged.");
+        sb.AppendLine("- A cross-leaf value route is one atomic contract edge: the source leaf must expose a typed output, the destination leaf must accept a compatible typed input, and main orchestration must pass that exact value between them. When a diagnostic reports a missing route, combine replace_leaf and replace_main_orchestration operations in the same patch whenever both surfaces are incomplete; changing prose on only one side does not repair the edge.");
+        sb.AppendLine("- Reuse the exact existing producer output field name and schema for a missing consumer input when they are compatible. Do not rename, recompute, summarize, or substitute a sibling field while repairing a cross-leaf edge.");
         sb.AppendLine("- For every reported weak object or object-array schema, add nested properties only when the normalized request, locked capability contract, or an existing typed boundary proves those fields. Otherwise simplify an unused opaque object boundary to an evidence-supported scalar or array of scalars, or remove that unused output and update orchestration; never invent domain fields merely to satisfy validation.");
         sb.AppendLine("- Make the smallest cohesive correction that addresses the blocking diagnostics and preserve unrelated contracts.");
         sb.AppendLine("- Every leaf payload is complete and strongly typed. Use an empty string only for target/main_orchestration fields unused by that operation, an empty sources array when unused, and null leaf when unused.");
@@ -93,6 +95,10 @@ public sealed partial class WorkflowPlanExecutor
             "addressable_diagnostic_codes",
             BuildStringArrayJson(GetAddressablePipelineDiagnosticCodes(bestCandidate)).ToJsonString(PromptJsonOptions));
         AppendPromptSection(sb, "blocking_diagnostics", string.Join("\n", diagnostics.Select(static value => "- " + value)));
+        AppendPromptSection(
+            sb,
+            "blocking_diagnostics_json",
+            BuildPipelinePatchBlockingDiagnosticsJson(bestCandidate.QualityReview).ToJsonString(PromptJsonOptions));
         AppendPromptSection(sb, "normalized_prompt", normalizedMarkdown);
         AppendPromptSection(
             sb,
@@ -102,6 +108,18 @@ public sealed partial class WorkflowPlanExecutor
         AppendPromptSection(sb, "conditional_decision_ownership", BuildPipelineConditionalDecisionOwnershipSummary(bestCandidate).ToJsonString(PromptJsonOptions));
         AppendPromptSection(sb, "capability_contract", BuildPipelineMcpContextJson(pipelineMcpContext).ToJsonString(PromptJsonOptions));
         return sb.ToString();
+    }
+
+    private static JsonArray BuildPipelinePatchBlockingDiagnosticsJson(
+        PipelineExtractionQualityReview? review)
+    {
+        if (BuildExtractionQualityReviewJson(review) is not JsonObject reviewJson
+            || reviewJson["diagnostics"] is not JsonArray diagnostics)
+        {
+            return [];
+        }
+
+        return (JsonArray)diagnostics.DeepClone();
     }
 
     private static string? ResolvePipelinePatchReasoning(string? configuredReasoning, int attempt)
@@ -847,10 +865,32 @@ public sealed partial class WorkflowPlanExecutor
             return false;
         }
 
-        // A named extraction surface is itself the stable remediation path. Once the
-        // patch explicitly addresses the code and changes that exact surface, the
-        // subsequent deterministic extraction validation and delta review decide
-        // whether the diagnostic remains. Unrelated leaf/main changes cannot clear it.
+        var preciseExtractionEvidence = (diagnostic.Evidence ?? Array.Empty<PipelineExtractionQualityEvidence>())
+            .Where(static evidence => string.Equals(evidence.Source, "extraction", StringComparison.Ordinal)
+                                      && !string.IsNullOrWhiteSpace(evidence.Excerpt))
+            .ToArray();
+        if (preciseExtractionEvidence.Length > 0)
+        {
+            var candidateJson = BuildExtractionJson(candidate);
+            return preciseExtractionEvidence.All(evidence =>
+            {
+                if (!TryResolveEvidenceJsonPointer(candidateJson, evidence.Reference, out var resolved)
+                    || resolved == null)
+                {
+                    return true;
+                }
+
+                var canonicalValue = resolved is JsonValue scalar
+                                     && scalar.TryGetValue<string>(out var text)
+                    ? text
+                    : resolved.ToJsonString(PromptJsonOptions);
+                return !canonicalValue.Contains(evidence.Excerpt!, StringComparison.Ordinal);
+            });
+        }
+
+        // The leaf label is a fallback remediation surface only when the diagnostic
+        // did not cite a more precise extraction pointer. Exact evidence must win
+        // when a leaf-level symptom is corrected in parent orchestration.
         if (!string.IsNullOrWhiteSpace(diagnostic.LeafName))
         {
             return string.Equals(diagnostic.LeafName, "main", StringComparison.Ordinal)
@@ -858,39 +898,11 @@ public sealed partial class WorkflowPlanExecutor
                 : changedLeaves.Contains(diagnostic.LeafName);
         }
 
-        var extractionEvidence = (diagnostic.Evidence ?? Array.Empty<PipelineExtractionQualityEvidence>())
-            .Where(static evidence => string.Equals(evidence.Source, "extraction", StringComparison.Ordinal))
-            .ToArray();
-        if (extractionEvidence.Length == 0)
-        {
-            // Request/capability evidence establishes the obligation, while the
-            // extraction surface establishes whether its representation changed.
-            // The follow-up deterministic validation and delta review must still
-            // pass before the baseline diagnostic can disappear.
-            return diagnostic.EvidenceQualified && (mainChanged || changedLeaves.Count > 0);
-        }
-
-        var candidateJson = BuildExtractionJson(candidate);
-        return extractionEvidence.All(evidence =>
-        {
-            if (!TryResolveEvidenceJsonPointer(candidateJson, evidence.Reference, out var resolved)
-                || resolved == null)
-            {
-                return true;
-            }
-
-            if (string.IsNullOrWhiteSpace(evidence.Excerpt))
-            {
-                return (mainChanged && evidence.Reference.StartsWith("/main_workflow_prompt", StringComparison.Ordinal))
-                       || EvidencePointerTargetsChangedLeaf(evidence.Reference, candidate, changedLeaves);
-            }
-
-            var canonicalValue = resolved is JsonValue scalar
-                                 && scalar.TryGetValue<string>(out var text)
-                ? text
-                : resolved.ToJsonString(PromptJsonOptions);
-            return !canonicalValue.Contains(evidence.Excerpt, StringComparison.Ordinal);
-        });
+        // Request/capability evidence establishes the obligation, while the
+        // extraction surface establishes whether its representation changed.
+        // The follow-up deterministic validation and delta review must still
+        // pass before the baseline diagnostic can disappear.
+        return diagnostic.EvidenceQualified && (mainChanged || changedLeaves.Count > 0);
     }
 
     private static bool EvidencePointerTargetsChangedLeaf(
@@ -1154,6 +1166,7 @@ public sealed partial class WorkflowPlanExecutor
                 ["code"] = diagnostic.Code,
                 ["kind"] = diagnostic.Kind,
                 ["severity"] = diagnostic.Severity,
+                ["remediation_surface"] = diagnostic.RemediationSurface,
                 ["evidence_qualified"] = diagnostic.EvidenceQualified
             })
             .ToArray() ?? Array.Empty<JsonNode>();

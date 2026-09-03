@@ -2664,6 +2664,10 @@ public sealed class WorkflowPlanCapabilityPreflightTests
                 if (request.Prompt.Contains("domain-neutral capability matcher", StringComparison.Ordinal))
                 {
                     matcherCalls++;
+                    Assert.Contains(
+                        "request_bindings=[/action=\"delete_directory\"] description=Delete one existing directory recursively.",
+                        request.Prompt,
+                        StringComparison.Ordinal);
                     return MatchingResponse((
                         "cleanup",
                         "matched",
@@ -9926,6 +9930,18 @@ public sealed class WorkflowPlanCapabilityPreflightTests
                             }
                           },
                           "required": ["action"],
+                          "oneOf": [
+                            {
+                              "description": "Archive one existing directory without deleting it.",
+                              "properties": { "action": { "const": "archive_directory" } },
+                              "required": ["action"]
+                            },
+                            {
+                              "description": "Delete one existing directory recursively.",
+                              "properties": { "action": { "const": "delete_directory" } },
+                              "required": ["action"]
+                            }
+                          ],
                           "additionalProperties": false
                         }
                         """)

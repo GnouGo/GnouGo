@@ -167,8 +167,37 @@ public sealed class CommandPolicy
             .Order(StringComparer.Ordinal)
             .Select(static name => (JsonNode?)JsonValue.Create(name))
             .ToArray());
+        root["oneOf"] = new JsonArray(_settings.AllowedCommands
+            .OrderBy(static entry => entry.Key, StringComparer.Ordinal)
+            .Select(entry =>
+            {
+                var command = ApplyOsOverride(entry.Value);
+                var selector = new JsonObject
+                {
+                    ["const"] = entry.Key
+                };
+                var branch = new JsonObject
+                {
+                    ["description"] = BuildCommandSelectorDescription(command),
+                    ["properties"] = new JsonObject
+                    {
+                        ["commandName"] = selector
+                    },
+                    ["required"] = new JsonArray("commandName")
+                };
+                return (JsonNode?)branch;
+            })
+            .ToArray());
         using var document = JsonDocument.Parse(root.ToJsonString());
         return document.RootElement.Clone();
+    }
+
+    private static string BuildCommandSelectorDescription(AllowedCommandSettings command)
+    {
+        var description = string.IsNullOrWhiteSpace(command.Description)
+            ? "Execute this configured allowlisted operation."
+            : SingleLine(command.Description);
+        return $"{description} Parameters: {FormatParametersForDescription(command.Parameters)}";
     }
 
     public string BuildListAllowedCommandsToolDescription()

@@ -485,6 +485,9 @@ public class WorkflowPlanExecutorTests
 
                 if (request.Prompt.Contains("repairing one validated workflow pipeline extraction", StringComparison.Ordinal))
                 {
+                    Assert.Contains("cross-leaf value route is one atomic contract edge", request.Prompt, StringComparison.Ordinal);
+                    Assert.Contains("<blocking_diagnostics_json>", request.Prompt, StringComparison.Ordinal);
+                    Assert.Contains("MISSING_NORMALIZATION_DETAIL", request.Prompt, StringComparison.Ordinal);
                     return CreatePipelineExtractionPatchResponse(
                         request,
                         new JsonArray
@@ -1147,6 +1150,7 @@ public class WorkflowPlanExecutorTests
         foreach (var diagnostic in diagnostics.OfType<JsonObject>())
         {
             diagnostic["kind"] ??= "plan_defect";
+            diagnostic["remediation_surface"] ??= "extraction_contract";
             diagnostic["evidence"] ??= new JsonArray
             {
                 new JsonObject
@@ -2490,6 +2494,66 @@ public class WorkflowPlanExecutorTests
     }
 
     [Fact]
+    public void PipelineLocalDecisionInputs_CanonicalizeTypedUpstreamBoundaryAndRouting()
+    {
+        var candidate = CreatePrivateConditionalBoundaryCandidate(
+            includeSharedBoundary: true,
+            includeDecisionInputSource: true);
+        var leafType = GetPrivatePipelineType("WorkflowPipelineSubworkflowSpec");
+        var leaves = Assert.IsAssignableFrom<System.Collections.IEnumerable>(
+                candidate.GetType().GetProperty("Subworkflows")!.GetValue(candidate))
+            .Cast<object>()
+            .ToArray();
+        var apply = typeof(WorkflowPlanExecutor).GetMethod(
+            "ApplyLocalDecisionInputBoundaryContracts",
+            BindingFlags.Static | BindingFlags.NonPublic)!;
+
+        var canonicalized = Assert.IsAssignableFrom<System.Collections.IEnumerable>(
+                apply.Invoke(null, [CreatePrivatePipelineArray(leafType, leaves)]))
+            .Cast<object>()
+            .ToArray();
+
+        var owner = canonicalized.Single(leaf => string.Equals(
+            leaf.GetType().GetProperty("Name")!.GetValue(leaf) as string,
+            "choose_outcome",
+            StringComparison.Ordinal));
+        var inputs = Assert.IsAssignableFrom<IReadOnlyDictionary<string, string>>(
+            owner.GetType().GetProperty("Inputs")!.GetValue(owner));
+        var schemas = Assert.IsAssignableFrom<IReadOnlyDictionary<string, JsonNode?>>(
+            owner.GetType().GetProperty("InputSchemas")!.GetValue(owner));
+        var boundaries = inputs.Where(static pair => pair.Key.StartsWith(
+                "decision_input_",
+                StringComparison.Ordinal))
+            .ToArray();
+        Assert.Equal(2, boundaries.Length);
+        Assert.Equal(2, boundaries.Select(static pair => pair.Key).Distinct(StringComparer.Ordinal).Count());
+        Assert.All(boundaries, boundary =>
+        {
+            Assert.Equal("boolean", boundary.Value);
+            Assert.Equal("boolean", schemas[boundary.Key]!["type"]!.GetValue<string>());
+            Assert.True(schemas[boundary.Key]!["required"]!.GetValue<bool>());
+        });
+
+        var routing = typeof(WorkflowPlanExecutor).GetMethod(
+            "BuildLocalDecisionInputRoutingGuidance",
+            BindingFlags.Static | BindingFlags.NonPublic)!;
+        var guidance = Assert.IsAssignableFrom<IReadOnlyList<string>>(
+            routing.Invoke(null, [CreatePrivatePipelineArray(leafType, canonicalized)]));
+        Assert.Equal(2, guidance.Count);
+        Assert.Contains(guidance, static route =>
+            route.Contains("leaf 'analyze_input'", StringComparison.Ordinal)
+            && route.Contains("output 'signal'", StringComparison.Ordinal)
+            && route.Contains("upstream operation 'analyze-operation'", StringComparison.Ordinal));
+        Assert.Contains(guidance, static route =>
+            route.Contains("leaf 'verify_input'", StringComparison.Ordinal)
+            && route.Contains("output 'signal'", StringComparison.Ordinal)
+            && route.Contains("upstream operation 'verify-operation'", StringComparison.Ordinal));
+        Assert.All(boundaries, boundary => Assert.Contains(
+            guidance,
+            route => route.Contains($"input '{boundary.Key}'", StringComparison.Ordinal)));
+    }
+
+    [Fact]
     public void PipelineConditionalDecisionBoundary_RetryDropsStaleTechnicalDiagnostics()
     {
         var candidate = CreatePrivateConditionalBoundaryCandidate(
@@ -2734,6 +2798,217 @@ public class WorkflowPlanExecutorTests
         Assert.Contains("modified more than once", duplicate.InnerException!.Message);
     }
 
+    [Fact]
+    public void PipelineCapabilityComposition_RemovesUnlockedPlanAlreadySatisfiedByConditionalLock()
+    {
+        var bindingType = GetPrivatePipelineType("CapabilityRequestBinding");
+        var plannedToolType = GetPrivatePipelineType("PipelinePlannedTool");
+        var resolvedCapabilityType = GetPrivatePipelineType("ResolvedCapability");
+        var lockedBinding = CreatePrivatePipelineValue(bindingType, "/method", JsonValue.Create("publish"));
+        var extraBinding = CreatePrivatePipelineValue(bindingType, "/mode", JsonValue.Create("inline"));
+        var lockedBindings = CreatePrivatePipelineArray(bindingType, lockedBinding);
+        var advisoryBindings = CreatePrivatePipelineArray(bindingType, lockedBinding, extraBinding);
+        var activation = new McpCapabilityActivation(
+            "all_on_value",
+            "conditional-group",
+            "decision-operation",
+            "publish")
+        {
+            DecisionOutputPath = "/decision",
+            AllowedValues = ["publish", "no_effect"],
+            NoEffectValues = ["no_effect"]
+        };
+        var lockedPlan = CreatePrivatePipelineValue(
+            plannedToolType,
+            "neutral-server",
+            "tool",
+            "neutral-action",
+            true,
+            "Apply the locked conditional effect.",
+            Array.Empty<string>(),
+            Array.Empty<string>(),
+            lockedBindings,
+            new[] { "effect-operation" },
+            new[] { "effect-catalog" },
+            activation);
+        var unlockedPlan = CreatePrivatePipelineValue(
+            plannedToolType,
+            "neutral-server",
+            "tool",
+            "neutral-action",
+            true,
+            "Extractor advisory duplicate.",
+            Array.Empty<string>(),
+            Array.Empty<string>(),
+            advisoryBindings,
+            Array.Empty<string>(),
+            Array.Empty<string>(),
+            null);
+        var capability = CreatePrivatePipelineValue(
+            resolvedCapabilityType,
+            "effect-operation",
+            "Apply the locked conditional effect.",
+            true,
+            "mcp",
+            "neutral-server",
+            "tool",
+            "neutral-action",
+            lockedBindings,
+            "effect-operation",
+            "effect-catalog",
+            "conditional",
+            "external_effect",
+            "write",
+            activation,
+            "Neutral conditional effect.",
+            null);
+        var plans = Assert.IsAssignableFrom<System.Collections.IList>(
+            Activator.CreateInstance(typeof(List<>).MakeGenericType(plannedToolType)));
+        plans.Add(lockedPlan);
+        plans.Add(unlockedPlan);
+        var capabilities = CreatePrivatePipelineArray(resolvedCapabilityType, capability);
+        var method = typeof(WorkflowPlanExecutor).GetMethod(
+            "RemoveUnlockedPlansSatisfiedByLockedCapabilities",
+            BindingFlags.NonPublic | BindingFlags.Static)!;
+
+        method.Invoke(null, [plans, capabilities]);
+
+        var remaining = Assert.Single(plans.Cast<object>());
+        var operationIds = Assert.IsAssignableFrom<IReadOnlyList<string>>(
+            plannedToolType.GetProperty("OperationIds")!.GetValue(remaining));
+        Assert.Equal("effect-operation", Assert.Single(operationIds));
+    }
+
+    [Fact]
+    public void PipelineQualityStabilization_UsesExactMainEvidenceBeforeLeafLabel()
+    {
+        var extractionType = GetPrivatePipelineType("WorkflowPipelineExtraction");
+        var reviewType = GetPrivatePipelineType("PipelineExtractionQualityReview");
+        var diagnosticType = GetPrivatePipelineType("PipelineExtractionQualityDiagnostic");
+        var evidenceType = GetPrivatePipelineType("PipelineExtractionQualityEvidence");
+        var baselineWithoutReview = CreatePrivatePatchCandidate("conditional_effect_leaf");
+        var originalMain = Assert.IsType<string>(
+            extractionType.GetProperty("MainWorkflowPrompt")!.GetValue(baselineWithoutReview));
+        var evidence = CreatePrivatePipelineValue(
+            evidenceType,
+            "extraction",
+            "/main_workflow_prompt",
+            originalMain);
+        var diagnostic = CreatePrivatePipelineValue(
+            diagnosticType,
+            "PARENT_ROUTING_DEFECT",
+            "plan_defect",
+            "critical",
+            "conditional_effect_leaf",
+            "The leaf symptom is caused by parent routing.",
+            "Correct the cited parent orchestration.",
+            CreatePrivatePipelineArray(evidenceType, evidence),
+            true,
+            "extraction_contract");
+        var baselineReview = CreatePrivatePipelineValue(
+            reviewType,
+            40,
+            "retry",
+            CreatePrivatePipelineArray(diagnosticType, diagnostic),
+            "Correct parent routing.");
+        var subworkflows = extractionType.GetProperty("Subworkflows")!.GetValue(baselineWithoutReview);
+        var validationErrors = extractionType.GetProperty("ValidationErrors")!.GetValue(baselineWithoutReview);
+        var rootCauses = extractionType.GetProperty("RootCauses")!.GetValue(baselineWithoutReview);
+        var mainLocalOperationIds = extractionType.GetProperty("MainLocalOperationIds")!.GetValue(baselineWithoutReview);
+        var mainNativeSteps = extractionType.GetProperty("MainNativeSteps")!.GetValue(baselineWithoutReview);
+        var baseline = CreatePrivatePipelineValue(
+            extractionType,
+            subworkflows,
+            originalMain,
+            validationErrors,
+            rootCauses,
+            baselineReview,
+            null,
+            mainLocalOperationIds,
+            mainNativeSteps);
+        var candidate = CreatePrivatePipelineValue(
+            extractionType,
+            subworkflows,
+            "Call the conditional effect leaf only after its typed decision is available.",
+            validationErrors,
+            rootCauses,
+            null,
+            null,
+            mainLocalOperationIds,
+            mainNativeSteps);
+        var deltaReview = CreatePrivatePipelineValue(
+            reviewType,
+            95,
+            "pass",
+            CreatePrivatePipelineArray(diagnosticType),
+            "");
+        var stabilize = typeof(WorkflowPlanExecutor).GetMethod(
+            "StabilizePipelineExtractionQualityReviewAgainstBaseline",
+            BindingFlags.NonPublic | BindingFlags.Static)!;
+
+        var stabilized = stabilize.Invoke(
+            null,
+            [baseline, candidate, deltaReview, new HashSet<string>(["PARENT_ROUTING_DEFECT"], StringComparer.Ordinal)])!;
+
+        var diagnostics = Assert.IsAssignableFrom<System.Collections.IEnumerable>(
+                reviewType.GetProperty("Diagnostics")!.GetValue(stabilized))
+            .Cast<object>();
+        Assert.Empty(diagnostics);
+        Assert.Equal("pass", reviewType.GetProperty("Verdict")!.GetValue(stabilized));
+    }
+
+    [Theory]
+    [InlineData("locked_ownership")]
+    [InlineData("generated_workflow_topology")]
+    public void PipelineQualityReview_DefersDiagnosticsOwnedByDeterministicPhases(
+        string remediationSurface)
+    {
+        var extraction = CreatePrivatePatchCandidate("conditional_effect_leaf");
+        var reviewType = GetPrivatePipelineType("PipelineExtractionQualityReview");
+        var diagnosticType = GetPrivatePipelineType("PipelineExtractionQualityDiagnostic");
+        var evidenceType = GetPrivatePipelineType("PipelineExtractionQualityEvidence");
+        var contextType = GetPrivatePipelineType("PipelineMcpContext");
+        var context = contextType.GetProperty("Empty", BindingFlags.Static | BindingFlags.Public)!
+            .GetValue(null)!;
+        var evidence = CreatePrivatePipelineValue(
+            evidenceType,
+            "request",
+            "Normalize",
+            "Normalize");
+        var diagnostic = CreatePrivatePipelineValue(
+            diagnosticType,
+            "DEFERRED_PHASE_CHECK",
+            "plan_defect",
+            "critical",
+            "conditional_effect_leaf",
+            "The issue belongs to another authoritative validation phase.",
+            "Defer the check.",
+            CreatePrivatePipelineArray(evidenceType, evidence),
+            false,
+            remediationSurface);
+        var review = CreatePrivatePipelineValue(
+            reviewType,
+            40,
+            "retry",
+            CreatePrivatePipelineArray(diagnosticType, diagnostic),
+            "Defer the check.");
+        var normalize = typeof(WorkflowPlanExecutor).GetMethod(
+            "NormalizeExtractionQualityReviewAgainstLockedContracts",
+            BindingFlags.NonPublic | BindingFlags.Static)!;
+
+        var normalized = normalize.Invoke(
+            null,
+            ["Normalize the supplied value.", extraction, context, review])!;
+
+        Assert.Equal("pass", reviewType.GetProperty("Verdict")!.GetValue(normalized));
+        Assert.True((int)reviewType.GetProperty("Score")!.GetValue(normalized)! >= 75);
+        var diagnostics = Assert.IsAssignableFrom<System.Collections.IEnumerable>(
+                reviewType.GetProperty("Diagnostics")!.GetValue(normalized))
+            .Cast<object>();
+        var normalizedDiagnostic = Assert.Single(diagnostics);
+        Assert.Equal("info", diagnosticType.GetProperty("Severity")!.GetValue(normalizedDiagnostic));
+    }
+
     private static object CreatePrivatePatchCandidate(params string[] leafNames)
         => CreatePrivatePatchCandidateWithOwnership(
             includeImmutableTool: true,
@@ -2746,7 +3021,8 @@ public class WorkflowPlanExecutorTests
         bool includeSharedBoundary,
         bool incompatibleBoundary = false,
         bool includeStaleConditionalDiagnostic = false,
-        bool useAllOnValueActivation = false)
+        bool useAllOnValueActivation = false,
+        bool includeDecisionInputSource = false)
     {
         var bindingType = GetPrivatePipelineType("CapabilityRequestBinding");
         var plannedToolType = GetPrivatePipelineType("PipelinePlannedTool");
@@ -2796,7 +3072,11 @@ public class WorkflowPlanExecutorTests
         {
             DecisionOutputPath = "/decision",
             AllowedValues = ["selected", "rejected"],
-            NoEffectValues = useAllOnValueActivation ? ["rejected"] : Array.Empty<string>()
+            NoEffectValues = useAllOnValueActivation ? ["rejected"] : Array.Empty<string>(),
+            DecisionContractSource = includeDecisionInputSource ? "local_decision" : "capability_output",
+            DecisionInputOperationIds = includeDecisionInputSource
+                ? ["analyze-operation", "verify-operation"]
+                : Array.Empty<string>()
         };
         var rejectedActivation = new McpCapabilityActivation(
             useAllOnValueActivation ? "all_on_value" : "exactly_one",
@@ -2806,7 +3086,11 @@ public class WorkflowPlanExecutorTests
         {
             DecisionOutputPath = "/decision",
             AllowedValues = ["selected", "rejected"],
-            NoEffectValues = useAllOnValueActivation ? ["rejected"] : Array.Empty<string>()
+            NoEffectValues = useAllOnValueActivation ? ["rejected"] : Array.Empty<string>(),
+            DecisionContractSource = includeDecisionInputSource ? "local_decision" : "capability_output",
+            DecisionInputOperationIds = includeDecisionInputSource
+                ? ["analyze-operation", "verify-operation"]
+                : Array.Empty<string>()
         };
         var selectedTool = CreatePrivatePipelineValue(
             plannedToolType,
@@ -2853,9 +3137,53 @@ public class WorkflowPlanExecutorTests
             "Generate the publication leaf.",
             Array.Empty<string>(),
             CreatePrivatePipelineArray(nativeStepType));
-        var leaves = Array.CreateInstance(leafType, 2);
-        leaves.SetValue(owner, 0);
-        leaves.SetValue(consumer, 1);
+        var leaves = Array.CreateInstance(leafType, includeDecisionInputSource ? 4 : 2);
+        var leafOffset = 0;
+        if (includeDecisionInputSource)
+        {
+            var source = CreatePrivatePipelineValue(
+                leafType,
+                "analyze_input",
+                "Analyze one runtime input.",
+                "Produce typed runtime evidence.",
+                "deterministic_shaping",
+                "algorithmic_transform",
+                "One typed signal.",
+                new Dictionary<string, string>(StringComparer.Ordinal) { ["value"] = "string" },
+                new Dictionary<string, string>(StringComparer.Ordinal) { ["signal"] = "boolean" },
+                new Dictionary<string, JsonNode?>(StringComparer.Ordinal) { ["value"] = JsonNode.Parse("{\"type\":\"string\"}") },
+                new Dictionary<string, JsonNode?>(StringComparer.Ordinal) { ["signal"] = JsonNode.Parse("{\"type\":\"boolean\"}") },
+                CreatePrivatePipelineArray(plannedToolType),
+                null,
+                "The runtime analysis is local shaping.",
+                "Analyze and return the typed signal.",
+                "Generate the analysis leaf.",
+                new[] { "analyze-operation" },
+                CreatePrivatePipelineArray(nativeStepType));
+            leaves.SetValue(source, leafOffset++);
+            var secondSource = CreatePrivatePipelineValue(
+                leafType,
+                "verify_input",
+                "Verify one runtime input.",
+                "Produce a second typed runtime signal.",
+                "deterministic_shaping",
+                "algorithmic_transform",
+                "One typed verification signal.",
+                new Dictionary<string, string>(StringComparer.Ordinal) { ["value"] = "string" },
+                new Dictionary<string, string>(StringComparer.Ordinal) { ["signal"] = "boolean" },
+                new Dictionary<string, JsonNode?>(StringComparer.Ordinal) { ["value"] = JsonNode.Parse("{\"type\":\"string\"}") },
+                new Dictionary<string, JsonNode?>(StringComparer.Ordinal) { ["signal"] = JsonNode.Parse("{\"type\":\"boolean\"}") },
+                CreatePrivatePipelineArray(plannedToolType),
+                null,
+                "The runtime verification is local shaping.",
+                "Verify and return the typed signal.",
+                "Generate the verification leaf.",
+                new[] { "verify-operation" },
+                CreatePrivatePipelineArray(nativeStepType));
+            leaves.SetValue(secondSource, leafOffset++);
+        }
+        leaves.SetValue(owner, leafOffset++);
+        leaves.SetValue(consumer, leafOffset);
         var rootCauseType = GetPrivatePipelineType("PipelineRootCause");
         var staleRootCause = CreatePrivatePipelineValue(
             rootCauseType,
@@ -12881,7 +13209,32 @@ workflows:
                 if (req.Prompt.Contains("assembling the parent `main` workflow", StringComparison.Ordinal))
                     return new LLMResponse
                     {
-                        Text = """
+                        Text = artifactRepairRequested
+                            ? """
+                        document:
+                          name: artifact_provenance_pipeline
+                          skill:
+                            description: Materialize and analyze a workspace.
+                            inputs: { source_url: string }
+                            outputs: { result: string }
+                        graph:
+                          inputs: { source_url: string }
+                          steps:
+                            - id: materialize
+                              leaf: materialize_workspace
+                              args: { source_url: "${data.inputs.source_url}" }
+                            - id: route_workspace_artifact
+                              type: set
+                              input:
+                                workspace_root: not-a-materialized-artifact
+                            - id: analyze
+                              leaf: analyze_workspace
+                              args:
+                                workspace_root: "${data.steps.route_workspace_artifact.workspace_root}"
+                          outputs:
+                            result: "${data.steps.analyze.outputs.result}"
+                        """
+                            : """
                         document:
                           name: artifact_provenance_pipeline
                           skill:
@@ -12920,7 +13273,13 @@ workflows:
                     """),
                     OutputSchema = JsonNode.Parse("""
                     {"type":"object","properties":{"workspaceRoot":{"type":"string"}},"required":["workspaceRoot"]}
-                    """)
+                    """),
+                    ArtifactContract = new McpArtifactContractResolution(
+                        new McpArtifactContract(
+                            1,
+                            [new McpProducedArtifact("workspace.directory", "/workspaceRoot", "materialize")],
+                            []),
+                        [])
                 }
             }
         });
@@ -12937,7 +13296,13 @@ workflows:
                     """),
                     OutputSchema = JsonNode.Parse("""
                     {"type":"object","properties":{"result":{"type":"string"}},"required":["result"]}
-                    """)
+                    """),
+                    ArtifactContract = new McpArtifactContractResolution(
+                        new McpArtifactContract(
+                            1,
+                            [],
+                            [new McpConsumedArtifact("workspace.directory", "/workspaceRoot", true)]),
+                        [])
                 }
             }
         });
@@ -17978,6 +18343,176 @@ workflows:
                 ["workflow"] = "publish_review"
             });
         Assert.Null(routeMethod.Invoke(null, [lineageException, generatedLeaves]));
+    }
+
+    [Fact]
+    public void WorkflowPlan_PipelineConditionalRepair_NormalizesUniqueConsumerSwitchToLockedDecisionInput()
+    {
+        var extraction = CreatePrivateConditionalBoundaryCandidate(includeSharedBoundary: true);
+        var consumerSpec = Assert.IsAssignableFrom<System.Collections.IEnumerable>(
+                extraction.GetType().GetProperty("Subworkflows")!.GetValue(extraction))
+            .Cast<object>()
+            .Single(spec => string.Equals(
+                spec.GetType().GetProperty("Name")!.GetValue(spec) as string,
+                "publish_outcome",
+                StringComparison.Ordinal));
+        const string generatedYaml = """
+            version: 1
+            workflows:
+              publish_review:
+                inputs:
+                  decision: { type: string, enum: [selected, rejected] }
+                  renamed_decision: { type: string, enum: [selected, rejected] }
+                steps:
+                  - id: publish_decision
+                    type: switch
+                    expr: ${data.inputs.renamed_decision}
+                    cases:
+                      - value: selected
+                        steps:
+                          - id: publish_selected
+                            type: mcp.call
+                            input:
+                              server: neutral-server
+                              kind: tool
+                              method: neutral-action
+                      - value: rejected
+                        steps:
+                          - id: publish_rejected
+                            type: mcp.call
+                            input:
+                              server: neutral-server
+                              kind: tool
+                              method: neutral-action
+                    default: []
+            """;
+        var document = WorkflowParser.Parse(generatedYaml);
+        var normalize = typeof(WorkflowPlanExecutor).GetMethod(
+            "NormalizeGeneratedLeafConditionalDecisionInputs",
+            BindingFlags.NonPublic | BindingFlags.Static)!;
+
+        var normalized = Assert.IsType<ValueTuple<WorkflowDocument, string>>(
+            normalize.Invoke(null, [consumerSpec, "publish_review", document, generatedYaml]));
+
+        Assert.Equal(
+            "${data.inputs.decision}",
+            normalized.Item1.Workflows["publish_review"].Steps.Single().Expr);
+        Assert.Contains("data.inputs.decision", normalized.Item2, StringComparison.Ordinal);
+        Assert.DoesNotContain("expr: ${data.inputs.renamed_decision}", normalized.Item2, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void WorkflowPlan_PipelineConditionalRepair_NormalizesUniqueTypedDecisionInputAlias()
+    {
+        var extraction = CreatePrivateConditionalBoundaryCandidate(includeSharedBoundary: true);
+        var consumerSpec = Assert.IsAssignableFrom<System.Collections.IEnumerable>(
+                extraction.GetType().GetProperty("Subworkflows")!.GetValue(extraction))
+            .Cast<object>()
+            .Single(spec => string.Equals(
+                spec.GetType().GetProperty("Name")!.GetValue(spec) as string,
+                "publish_outcome",
+                StringComparison.Ordinal));
+        const string generatedYaml = """
+            version: 1
+            workflows:
+              publish_review:
+                inputs:
+                  renamed_decision: { type: string, enum: [selected, rejected] }
+                steps:
+                  - id: publish_decision
+                    type: switch
+                    expr: ${data.inputs.renamed_decision}
+                    cases:
+                      - value: selected
+                        steps:
+                          - id: publish_selected
+                            type: mcp.call
+                            input:
+                              server: neutral-server
+                              kind: tool
+                              method: neutral-action
+                      - value: rejected
+                        steps:
+                          - id: publish_rejected
+                            type: mcp.call
+                            input:
+                              server: neutral-server
+                              kind: tool
+                              method: neutral-action
+                    default: []
+            """;
+        var document = WorkflowParser.Parse(generatedYaml);
+        var normalize = typeof(WorkflowPlanExecutor).GetMethod(
+            "NormalizeGeneratedLeafConditionalDecisionInputs",
+            BindingFlags.NonPublic | BindingFlags.Static)!;
+
+        var normalized = Assert.IsType<ValueTuple<WorkflowDocument, string>>(
+            normalize.Invoke(null, [consumerSpec, "publish_review", document, generatedYaml]));
+        var normalizedWorkflow = normalized.Item1.Workflows["publish_review"];
+
+        Assert.True(normalizedWorkflow.Inputs!.ContainsKey("decision"));
+        Assert.False(normalizedWorkflow.Inputs.ContainsKey("renamed_decision"));
+        Assert.Equal("${data.inputs.decision}", normalizedWorkflow.Steps.Single().Expr);
+    }
+
+    [Fact]
+    public void WorkflowPlan_PipelineConditionalRepair_DoesNotGuessAcrossAmbiguousSwitches()
+    {
+        var extraction = CreatePrivateConditionalBoundaryCandidate(includeSharedBoundary: true);
+        var consumerSpec = Assert.IsAssignableFrom<System.Collections.IEnumerable>(
+                extraction.GetType().GetProperty("Subworkflows")!.GetValue(extraction))
+            .Cast<object>()
+            .Single(spec => string.Equals(
+                spec.GetType().GetProperty("Name")!.GetValue(spec) as string,
+                "publish_outcome",
+                StringComparison.Ordinal));
+        const string generatedYaml = """
+            version: 1
+            workflows:
+              publish_review:
+                inputs:
+                  decision: { type: string, enum: [selected, rejected] }
+                  renamed_decision: { type: string, enum: [selected, rejected] }
+                steps:
+                  - id: publish_selected_switch
+                    type: switch
+                    expr: ${data.inputs.renamed_decision}
+                    cases:
+                      - value: selected
+                        steps:
+                          - id: publish_selected
+                            type: mcp.call
+                            input:
+                              server: neutral-server
+                              kind: tool
+                              method: neutral-action
+                    default: []
+                  - id: publish_rejected_switch
+                    type: switch
+                    expr: ${data.inputs.renamed_decision}
+                    cases:
+                      - value: rejected
+                        steps:
+                          - id: publish_rejected
+                            type: mcp.call
+                            input:
+                              server: neutral-server
+                              kind: tool
+                              method: neutral-action
+                    default: []
+            """;
+        var document = WorkflowParser.Parse(generatedYaml);
+        var normalize = typeof(WorkflowPlanExecutor).GetMethod(
+            "NormalizeGeneratedLeafConditionalDecisionInputs",
+            BindingFlags.NonPublic | BindingFlags.Static)!;
+
+        var normalized = Assert.IsType<ValueTuple<WorkflowDocument, string>>(
+            normalize.Invoke(null, [consumerSpec, "publish_review", document, generatedYaml]));
+
+        Assert.All(
+            normalized.Item1.Workflows["publish_review"].Steps,
+            static step => Assert.Equal("${data.inputs.renamed_decision}", step.Expr));
+        Assert.Equal(generatedYaml, normalized.Item2);
     }
 
     [Fact]

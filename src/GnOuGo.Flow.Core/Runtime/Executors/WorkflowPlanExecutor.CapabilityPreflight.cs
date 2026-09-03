@@ -4,6 +4,8 @@ using System.Text.RegularExpressions;
 using System.Security.Cryptography;
 using GnOuGo.Flow.Core.Expressions;
 using GnOuGo.Flow.Core.Models;
+using GnOuGo.Flow.Core.Parsing;
+using YamlDotNet.RepresentationModel;
 
 namespace GnOuGo.Flow.Core.Runtime.Executors;
 
@@ -9252,6 +9254,352 @@ public sealed partial class WorkflowPlanExecutor
             StringComparer.Ordinal);
     }
 
+    private sealed record ArtifactCallerBindingRepair(
+        string CallerWorkflow,
+        string CallerStep,
+        IReadOnlyList<string> ArgumentPath,
+        string ProducerExpression);
+
+    private sealed record ArtifactCallerProducerCandidate(
+        string CallerStep,
+        string OutputName,
+        string ProducerIdentity)
+    {
+        public string Expression => $"${{data.steps.{CallerStep}.outputs.{OutputName}}}";
+    }
+
+    private static (WorkflowDocument Document, string Yaml, int ReplacementCount)
+        NormalizeGeneratedMcpArtifactCallerBindings(
+            WorkflowDocument document,
+            string yaml,
+            IReadOnlyList<McpServerDiscovery>? discovered)
+    {
+        if (discovered == null || discovered.Count == 0)
+            return (document, yaml, 0);
+
+        var tools = discovered
+            .SelectMany(server => server.Tools.Select(tool => (Server: server.Name, Tool: tool)))
+            .ToDictionary(
+                static item => (item.Server, item.Tool.Name),
+                static item => item.Tool,
+                EqualityComparer<(string Server, string Name)>.Default);
+        if (tools.Count == 0)
+            return (document, yaml, 0);
+
+        var stepsByWorkflow = document.Workflows.ToDictionary(
+            static workflow => workflow.Key,
+            static workflow => EnumerateSteps(workflow.Value.Steps)
+                .Concat(EnumerateSteps(workflow.Value.Finally))
+                .Where(static step => !string.IsNullOrWhiteSpace(step.Id))
+                .GroupBy(static step => step.Id, StringComparer.Ordinal)
+                .ToDictionary(static group => group.Key, static group => group.First(), StringComparer.Ordinal),
+            StringComparer.Ordinal);
+        var workflowCallers = BuildWorkflowArtifactCallerIndex(document);
+        var producers = new List<PlannedArtifactProducer>();
+        var consumers = new List<(string Workflow, McpConsumedArtifact Artifact, JsonNode? Value)>();
+
+        foreach (var (workflowName, workflowSteps) in stepsByWorkflow)
+        {
+            foreach (var step in workflowSteps.Values.Where(static item =>
+                         string.Equals(item.Type, "mcp.call", StringComparison.Ordinal)))
+            {
+                var server = ReadMcpCallInputString(step, "server");
+                var kind = ReadMcpCallInputString(step, "kind") ?? "tool";
+                var method = ReadMcpCallInputString(step, "method");
+                if (!string.Equals(kind, "tool", StringComparison.Ordinal)
+                    || string.IsNullOrWhiteSpace(server)
+                    || string.IsNullOrWhiteSpace(method)
+                    || !tools.TryGetValue((server, method), out var tool))
+                {
+                    continue;
+                }
+
+                var contract = GetValidatedMcpArtifactContract(tool, server);
+                if (contract == null)
+                    continue;
+
+                producers.AddRange(contract.Produces
+                    .Where(static artifact => string.Equals(
+                        artifact.Mode,
+                        McpArtifactContractConventions.MaterializeMode,
+                        StringComparison.Ordinal))
+                    .Select(artifact => new PlannedArtifactProducer(
+                        workflowName,
+                        step.Id,
+                        artifact.Kind,
+                        artifact.Pointer)));
+                consumers.AddRange(contract.Consumes
+                    .Where(static artifact => artifact.Required)
+                    .Select(artifact => (
+                        workflowName,
+                        artifact,
+                        ResolveInstancePointer(step.Input?["request"], artifact.Pointer))));
+            }
+        }
+
+        if (producers.Count == 0 || consumers.Count == 0)
+            return (document, yaml, 0);
+
+        var repairs = new Dictionary<string, ArtifactCallerBindingRepair>(StringComparer.Ordinal);
+        var ambiguousRepairKeys = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var consumer in consumers)
+        {
+            if (ResolveArtifactValue(
+                    document,
+                    stepsByWorkflow,
+                    workflowCallers,
+                    producers,
+                    consumer.Workflow,
+                    consumer.Value,
+                    consumer.Artifact.Kind,
+                    new HashSet<string>(StringComparer.Ordinal)).Proven
+                || !TryParseArtifactWorkflowInputPath(consumer.Value, out var inputPath)
+                || !workflowCallers.TryGetValue(consumer.Workflow, out var callers))
+            {
+                continue;
+            }
+
+            foreach (var caller in callers)
+            {
+                var currentArgument = ResolveInstancePath(caller.Call.Input?["args"], inputPath);
+                if (!IsUnprovenTransparentArtifactSetAlias(
+                        caller.Workflow,
+                        currentArgument,
+                        stepsByWorkflow,
+                        document,
+                        workflowCallers,
+                        producers,
+                        consumer.Artifact.Kind)
+                    || FindUniqueEarlierArtifactProducerCandidate(
+                        document,
+                        stepsByWorkflow,
+                        workflowCallers,
+                        producers,
+                        caller.Workflow,
+                        caller.Call,
+                        consumer.Artifact.Kind) is not { } candidate)
+                {
+                    continue;
+                }
+
+                var key = caller.Workflow + "\u001f" + caller.Call.Id + "\u001f" + string.Join('\u001f', inputPath);
+                if (ambiguousRepairKeys.Contains(key))
+                    continue;
+
+                var repair = new ArtifactCallerBindingRepair(
+                    caller.Workflow,
+                    caller.Call.Id,
+                    inputPath,
+                    candidate.Expression);
+                if (repairs.TryGetValue(key, out var existing)
+                    && !string.Equals(existing.ProducerExpression, repair.ProducerExpression, StringComparison.Ordinal))
+                {
+                    repairs.Remove(key);
+                    ambiguousRepairKeys.Add(key);
+                    continue;
+                }
+
+                repairs[key] = repair;
+            }
+        }
+
+        if (repairs.Count == 0)
+            return (document, yaml, 0);
+
+        var root = LoadYamlRoot(yaml);
+        var workflows = root.GetMapping("workflows");
+        var replacementCount = 0;
+        if (workflows == null)
+            return (document, yaml, 0);
+
+        foreach (var repair in repairs.Values
+                     .OrderBy(static item => item.CallerWorkflow, StringComparer.Ordinal)
+                     .ThenBy(static item => item.CallerStep, StringComparer.Ordinal)
+                     .ThenBy(static item => string.Join('.', item.ArgumentPath), StringComparer.Ordinal))
+        {
+            if (!workflows.Children.TryGetValue(Scalar(repair.CallerWorkflow), out var workflowNode)
+                || workflowNode is not YamlMappingNode workflow
+                || FindGeneratedYamlStepById(workflow, repair.CallerStep) is not { } callerStep
+                || callerStep.GetMapping("input")?.GetMapping("args") is not { } args
+                || !TryReplaceYamlMappingPath(args, repair.ArgumentPath, Scalar(repair.ProducerExpression)))
+            {
+                continue;
+            }
+
+            replacementCount++;
+        }
+
+        if (replacementCount == 0)
+            return (document, yaml, 0);
+
+        var normalizedYaml = SerializeYamlNode(root);
+        return (ParseAndValidateGeneratedWorkflow(normalizedYaml), normalizedYaml, replacementCount);
+    }
+
+    private static bool TryParseArtifactWorkflowInputPath(
+        JsonNode? value,
+        out IReadOnlyList<string> inputPath)
+    {
+        inputPath = Array.Empty<string>();
+        if (value is not JsonValue scalar
+            || !scalar.TryGetValue<string>(out var expression))
+        {
+            return false;
+        }
+
+        var path = TrimWorkflowExpression(expression);
+        const string prefix = "data.inputs.";
+        if (!path.StartsWith(prefix, StringComparison.Ordinal))
+            return false;
+
+        var segments = path[prefix.Length..]
+            .Split('.', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+        if (segments.Length == 0)
+            return false;
+
+        inputPath = segments;
+        return true;
+    }
+
+    private static bool IsUnprovenTransparentArtifactSetAlias(
+        string workflowName,
+        JsonNode? value,
+        IReadOnlyDictionary<string, Dictionary<string, StepDef>> stepsByWorkflow,
+        WorkflowDocument document,
+        IReadOnlyDictionary<string, IReadOnlyList<(string Workflow, StepDef Call)>> workflowCallers,
+        IReadOnlyList<PlannedArtifactProducer> producers,
+        string artifactKind)
+    {
+        if (value is not JsonValue scalar
+            || !scalar.TryGetValue<string>(out var expression))
+        {
+            return false;
+        }
+
+        var path = TrimWorkflowExpression(expression);
+        const string prefix = "data.steps.";
+        if (!path.StartsWith(prefix, StringComparison.Ordinal)
+            || !stepsByWorkflow.TryGetValue(workflowName, out var workflowSteps))
+        {
+            return false;
+        }
+
+        var segments = path[prefix.Length..]
+            .Split('.', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+        if (segments.Length < 2
+            || !workflowSteps.TryGetValue(segments[0], out var sourceStep)
+            || !string.Equals(sourceStep.Type, "set", StringComparison.Ordinal)
+            || ResolveInstancePath(sourceStep.Input, segments.Skip(1).ToArray()) == null)
+        {
+            return false;
+        }
+
+        return !ResolveArtifactValue(
+            document,
+            stepsByWorkflow,
+            workflowCallers,
+            producers,
+            workflowName,
+            value,
+            artifactKind,
+            new HashSet<string>(StringComparer.Ordinal)).Proven;
+    }
+
+    private static ArtifactCallerProducerCandidate? FindUniqueEarlierArtifactProducerCandidate(
+        WorkflowDocument document,
+        IReadOnlyDictionary<string, Dictionary<string, StepDef>> stepsByWorkflow,
+        IReadOnlyDictionary<string, IReadOnlyList<(string Workflow, StepDef Call)>> workflowCallers,
+        IReadOnlyList<PlannedArtifactProducer> producers,
+        string callerWorkflowName,
+        StepDef consumerCaller,
+        string artifactKind)
+    {
+        if (!document.Workflows.TryGetValue(callerWorkflowName, out var callerWorkflow))
+            return null;
+
+        var consumerIndex = callerWorkflow.Steps.FindIndex(step => ReferenceEquals(step, consumerCaller));
+        if (consumerIndex <= 0)
+            return null;
+
+        var candidates = new List<ArtifactCallerProducerCandidate>();
+        foreach (var candidateCall in callerWorkflow.Steps.Take(consumerIndex).Where(static step =>
+                     string.Equals(step.Type, "workflow.call", StringComparison.Ordinal)))
+        {
+            var targetName = ReadWorkflowCallRefNameFromInput(candidateCall);
+            if (string.IsNullOrWhiteSpace(targetName)
+                || !document.Workflows.TryGetValue(targetName, out var targetWorkflow)
+                || targetWorkflow.Outputs == null)
+            {
+                continue;
+            }
+
+            foreach (var (outputName, output) in targetWorkflow.Outputs)
+            {
+                var resolution = ResolveArtifactValue(
+                    document,
+                    stepsByWorkflow,
+                    workflowCallers,
+                    producers,
+                    targetName,
+                    JsonValue.Create(output.Expr),
+                    artifactKind,
+                    new HashSet<string>(StringComparer.Ordinal));
+                if (!resolution.Proven || resolution.UsesCallerInput || resolution.Producers.Count == 0)
+                    continue;
+
+                var producerIdentity = candidateCall.Id + "\u001e" + string.Join(
+                    "\u001e",
+                    resolution.Producers
+                        .OrderBy(static item => item.Workflow, StringComparer.Ordinal)
+                        .ThenBy(static item => item.StepId, StringComparer.Ordinal)
+                        .ThenBy(static item => item.Pointer, StringComparer.Ordinal)
+                        .Select(static item => item.Workflow + "\u001d" + item.StepId + "\u001d" + item.Pointer));
+                candidates.Add(new ArtifactCallerProducerCandidate(
+                    candidateCall.Id,
+                    outputName,
+                    producerIdentity));
+            }
+        }
+
+        var producerGroups = candidates
+            .GroupBy(static candidate => candidate.ProducerIdentity, StringComparer.Ordinal)
+            .ToArray();
+        if (producerGroups.Length != 1)
+            return null;
+
+        return producerGroups[0]
+            .OrderBy(static candidate => candidate.OutputName, StringComparer.Ordinal)
+            .First();
+    }
+
+    private static bool TryReplaceYamlMappingPath(
+        YamlMappingNode mapping,
+        IReadOnlyList<string> path,
+        YamlNode replacement)
+    {
+        if (path.Count == 0)
+            return false;
+
+        var current = mapping;
+        for (var index = 0; index < path.Count - 1; index++)
+        {
+            if (!current.Children.TryGetValue(Scalar(path[index]), out var child)
+                || child is not YamlMappingNode childMapping)
+            {
+                return false;
+            }
+
+            current = childMapping;
+        }
+
+        var key = Scalar(path[^1]);
+        if (!current.Children.ContainsKey(key))
+            return false;
+
+        current.Children[key] = replacement;
+        return true;
+    }
+
     private static ArtifactResolution ResolveArtifactValue(
         WorkflowDocument document,
         IReadOnlyDictionary<string, Dictionary<string, StepDef>> stepsByWorkflow,
@@ -9983,6 +10331,9 @@ public sealed partial class WorkflowPlanExecutor
                     tools[index],
                     pipelineMcpContext)
                 .ToList();
+            RemoveUnlockedPlansSatisfiedByLockedCapabilities(
+                tools[index],
+                preflight.RequiredMcpCapabilities);
             RemoveEncapsulatedUnlockedToolPlans(
                 tools[index],
                 preflight.RequiredMcpCapabilities,
@@ -10047,6 +10398,7 @@ public sealed partial class WorkflowPlanExecutor
             preflight.RequiredMcpCapabilities,
             extraction.MainWorkflowPrompt);
         updated = ApplyConditionalDecisionBoundaryContracts(consolidated.Specs);
+        updated = ApplyLocalDecisionInputBoundaryContracts(updated);
 
         var validationErrors = extraction.ValidationErrors.ToList();
         validationErrors.AddRange(compositionValidationErrors);
@@ -10084,6 +10436,7 @@ public sealed partial class WorkflowPlanExecutor
                     decisionLeafOwners,
                     mainOwnsDecision);
             })
+            .Concat(BuildLocalDecisionInputRoutingGuidance(updated))
             .ToArray();
         return extraction with
         {
@@ -10210,6 +10563,171 @@ public sealed partial class WorkflowPlanExecutor
         {
             GenerationPrompt = BuildSubworkflowGenerationPrompt(spec)
         }).ToArray();
+    }
+
+    private sealed record LocalDecisionInputBoundary(
+        string DecisionOperationId,
+        string InputOperationId,
+        string ProducerLeaf,
+        string ProducerOutput,
+        string DecisionOwnerLeaf,
+        string DecisionOwnerInput,
+        string Type,
+        JsonNode? Schema);
+
+    private static IReadOnlyList<WorkflowPipelineSubworkflowSpec> ApplyLocalDecisionInputBoundaryContracts(
+        IReadOnlyList<WorkflowPipelineSubworkflowSpec> specs)
+    {
+        var boundaries = BuildLocalDecisionInputBoundaries(specs);
+        if (boundaries.Count == 0)
+            return specs;
+
+        var updated = specs.ToArray();
+        foreach (var ownerGroup in boundaries.GroupBy(static boundary => boundary.DecisionOwnerLeaf, StringComparer.Ordinal))
+        {
+            var ownerIndex = Array.FindIndex(updated, spec => string.Equals(
+                spec.Name,
+                ownerGroup.Key,
+                StringComparison.Ordinal));
+            if (ownerIndex < 0)
+                continue;
+
+            var owner = updated[ownerIndex];
+            var inputs = owner.Inputs.ToDictionary(static pair => pair.Key, static pair => pair.Value, StringComparer.Ordinal);
+            var inputSchemas = owner.InputSchemas.ToDictionary(
+                static pair => pair.Key,
+                static pair => pair.Value?.DeepClone(),
+                StringComparer.Ordinal);
+            var guidance = new List<string>();
+            foreach (var boundary in ownerGroup
+                         .OrderBy(static item => item.InputOperationId, StringComparer.Ordinal)
+                         .ThenBy(static item => item.ProducerLeaf, StringComparer.Ordinal)
+                         .ThenBy(static item => item.ProducerOutput, StringComparer.Ordinal))
+            {
+                inputs[boundary.DecisionOwnerInput] = boundary.Type;
+                var schema = boundary.Schema is JsonObject sourceSchema
+                    ? (JsonObject)sourceSchema.DeepClone()
+                    : new JsonObject { ["type"] = boundary.Type };
+                schema["required"] = true;
+                schema["nullable"] = false;
+                inputSchemas[boundary.DecisionOwnerInput] = schema;
+                guidance.Add(
+                    $"Input '{boundary.DecisionOwnerInput}' is the unchanged typed result of locked upstream operation '{boundary.InputOperationId}' from leaf '{boundary.ProducerLeaf}' output '{boundary.ProducerOutput}'; every decision.evaluate condition set must use this input as runtime evidence.");
+            }
+
+            var guidanceText = string.Join(' ', guidance);
+            var content = owner.Content.Contains(guidanceText, StringComparison.Ordinal)
+                ? owner.Content
+                : owner.Content.TrimEnd() + Environment.NewLine + guidanceText;
+            updated[ownerIndex] = owner with
+            {
+                Inputs = inputs,
+                InputSchemas = inputSchemas,
+                Content = content
+            };
+        }
+
+        return updated.Select(spec => spec with
+        {
+            GenerationPrompt = BuildSubworkflowGenerationPrompt(spec)
+        }).ToArray();
+    }
+
+    private static IReadOnlyList<string> BuildLocalDecisionInputRoutingGuidance(
+        IReadOnlyList<WorkflowPipelineSubworkflowSpec> specs)
+        => BuildLocalDecisionInputBoundaries(specs)
+            .OrderBy(static boundary => boundary.DecisionOperationId, StringComparer.Ordinal)
+            .ThenBy(static boundary => boundary.InputOperationId, StringComparer.Ordinal)
+            .ThenBy(static boundary => boundary.ProducerLeaf, StringComparer.Ordinal)
+            .ThenBy(static boundary => boundary.ProducerOutput, StringComparer.Ordinal)
+            .Select(static boundary =>
+                $"Call leaf '{boundary.ProducerLeaf}' before decision owner leaf '{boundary.DecisionOwnerLeaf}' and route output '{boundary.ProducerOutput}' unchanged to its exact input '{boundary.DecisionOwnerInput}'. This typed edge supplies locked upstream operation '{boundary.InputOperationId}' to decision operation '{boundary.DecisionOperationId}'.")
+            .Distinct(StringComparer.Ordinal)
+            .ToArray();
+
+    private static IReadOnlyList<LocalDecisionInputBoundary> BuildLocalDecisionInputBoundaries(
+        IReadOnlyList<WorkflowPipelineSubworkflowSpec> specs)
+    {
+        var boundaries = new List<LocalDecisionInputBoundary>();
+        foreach (var activation in specs
+                     .SelectMany(static spec => spec.PlannedTools)
+                     .Where(static tool => string.Equals(
+                         tool.Activation?.DecisionContractSource,
+                         LocalDecisionContractSource,
+                         StringComparison.Ordinal))
+                     .Select(static tool => tool.Activation!)
+                     .GroupBy(static activation => activation.DecisionOperationId, StringComparer.Ordinal)
+                     .Select(static group => group.First()))
+        {
+            var decisionOwners = specs
+                .Where(spec => PipelineSpecOwnsOperation(spec, activation.DecisionOperationId))
+                .ToArray();
+            if (decisionOwners.Length != 1)
+                continue;
+            var decisionOwner = decisionOwners[0];
+
+            foreach (var inputOperationId in activation.DecisionInputOperationIds
+                         .Distinct(StringComparer.Ordinal)
+                         .Order(StringComparer.Ordinal))
+            {
+                var producerOwners = specs
+                    .Where(spec => PipelineSpecOwnsOperation(spec, inputOperationId))
+                    .ToArray();
+                if (producerOwners.Length != 1
+                    || string.Equals(producerOwners[0].Name, decisionOwner.Name, StringComparison.Ordinal))
+                {
+                    continue;
+                }
+
+                var producer = producerOwners[0];
+                var output = producer.OutputSchemas
+                    .Where(static pair => pair.Value is JsonObject schema
+                                          && !string.Equals(
+                                              GetStringProperty(schema, "type"),
+                                              "any",
+                                              StringComparison.Ordinal))
+                    .OrderBy(static pair => pair.Key, StringComparer.Ordinal)
+                    .FirstOrDefault();
+                if (string.IsNullOrWhiteSpace(output.Key))
+                    continue;
+
+                var type = producer.Outputs.TryGetValue(output.Key, out var declaredType)
+                    ? declaredType
+                    : GetStringProperty((JsonObject)output.Value!, "type") ?? "any";
+                boundaries.Add(new LocalDecisionInputBoundary(
+                    activation.DecisionOperationId,
+                    inputOperationId,
+                    producer.Name,
+                    output.Key,
+                    decisionOwner.Name,
+                    BuildStableLocalDecisionInputFieldName(
+                        activation.DecisionOperationId,
+                        inputOperationId,
+                        producer.Name,
+                        output.Key),
+                    type,
+                    output.Value?.DeepClone()));
+            }
+        }
+
+        return boundaries;
+    }
+
+    private static string BuildStableLocalDecisionInputFieldName(
+        string decisionOperationId,
+        string inputOperationId,
+        string producerLeaf,
+        string producerOutput)
+    {
+        var identity = string.Join(
+            '\u001f',
+            decisionOperationId,
+            inputOperationId,
+            producerLeaf,
+            producerOutput);
+        var digest = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(identity)))
+            .ToLowerInvariant();
+        return "decision_input_" + digest[..16];
     }
 
     private static WorkflowPipelineSubworkflowSpec AddOrStrengthenConditionalBoundaryField(
@@ -10722,6 +11240,26 @@ public sealed partial class WorkflowPlanExecutor
         => plannedTools.RemoveAll(tool => lockedCapabilities.Any(capability =>
             PlannedToolMatchesCapability(tool, capability)
             || PlannedToolCarriesCapabilityIdentity(tool, capability)));
+
+    private static void RemoveUnlockedPlansSatisfiedByLockedCapabilities(
+        List<PipelinePlannedTool> plannedTools,
+        IReadOnlyList<ResolvedCapability> lockedCapabilities)
+    {
+        plannedTools.RemoveAll(tool => tool.OperationIds.Count == 0
+                                       && tool.CatalogIds.Count == 0
+                                       && lockedCapabilities.Any(capability =>
+                                           PlannedToolWouldSatisfyCapability(tool, capability)));
+    }
+
+    private static bool PlannedToolWouldSatisfyCapability(
+        PipelinePlannedTool tool,
+        ResolvedCapability capability)
+        => string.Equals(tool.Server, capability.Server, StringComparison.Ordinal)
+           && string.Equals(tool.Kind, capability.Kind, StringComparison.Ordinal)
+           && string.Equals(tool.Method, capability.Method, StringComparison.Ordinal)
+           && capability.RequestBindings.All(required => tool.RequestBindings.Any(actual =>
+               string.Equals(actual.Path, required.Path, StringComparison.Ordinal)
+               && JsonNode.DeepEquals(actual.Value, required.Value)));
 
     private static void RemoveClaimedNativeCapabilityToolPlans(
         List<PipelinePlannedTool> plannedTools,

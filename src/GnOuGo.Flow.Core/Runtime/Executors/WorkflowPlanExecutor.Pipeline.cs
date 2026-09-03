@@ -150,7 +150,8 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
         string Message,
         string? Recommendation,
         IReadOnlyList<PipelineExtractionQualityEvidence>? Evidence = null,
-        bool EvidenceQualified = false);
+        bool EvidenceQualified = false,
+        string RemediationSurface = "extraction_contract");
 
     private sealed record PipelineExtractionQualityEvidence(
         string Source,
@@ -549,6 +550,20 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
                                     assembledYaml,
                                     validationDiscovered,
                                     ctx.Engine.Registry);
+                                var artifactRoutingNormalization = NormalizeGeneratedMcpArtifactCallerBindings(
+                                    assembledDocument,
+                                    assembledYaml,
+                                    validationDiscovered);
+                                assembledDocument = artifactRoutingNormalization.Document;
+                                assembledYaml = artifactRoutingNormalization.Yaml;
+                                if (artifactRoutingNormalization.ReplacementCount > 0)
+                                {
+                                    validationSpan.AddEvent(
+                                        "gnougo-flow.plan.pipeline.artifact_routing.normalized",
+                                        [new KeyValuePair<string, object?>(
+                                            "gnougo-flow.plan.pipeline.artifact_routing.replacement_count",
+                                            artifactRoutingNormalization.ReplacementCount)]);
+                                }
                                 candidateAssemblyValidationProgress = 60;
                                 validationSpan.SetAttribute("gnougo-flow.plan.workflow_count", assembledDocument.Workflows.Count);
                                 EnforcePipelineWorkflowHierarchy(
@@ -2325,6 +2340,7 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
         sb.AppendLine("- `verdict`: `pass` or `retry`.");
         sb.AppendLine("- `diagnostics`: array of objects with `code`, `kind`, `severity`, `leaf_name`, `message`, `recommendation`, and `evidence`.");
         sb.AppendLine("- `retry_guidance`: concise summary of evidence-qualified critical diagnostics only, or an empty string. It is advisory metadata and is never an independent repair instruction.");
+        sb.AppendLine("Each diagnostic also requires `remediation_surface`: `extraction_contract`, `locked_ownership`, or `generated_workflow_topology`. Use `locked_ownership` when questioning an operation/capability owner already declared by the locked extraction contract. Use `generated_workflow_topology` for exact selector expressions, switch cases, or intra-leaf ordering that do not exist until YAML generation. Only `extraction_contract` can block this review; the other surfaces are validated authoritatively in their owning phase.");
         sb.AppendLine("Every critical diagnostic must cite machine-verifiable evidence. Every evidence item has `source`, `reference`, and `excerpt`. For source `request`, both reference and excerpt must be the same exact non-empty substring from normalized_prompt. For sources `extraction` and `capability_contract`, reference is an RFC 6901 JSON Pointer into the supplied JSON section and excerpt is an exact non-empty substring of the resolved canonical value. A pointer that merely exists does not prove a claim when its excerpt is absent from the resolved value. Unsupported critical claims are advisory and cannot force repair.");
         sb.AppendLine("Diagnostic `severity` must be `info`, `warning`, or `critical`.");
         sb.AppendLine();
@@ -2357,6 +2373,7 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
         sb.AppendLine("- distinguish a deterministic fallback policy from a separately requested runtime fallback action: the policy may reuse its governed operation's capability, while an AI, agent, service, or tool that must inspect, choose, analyze, or generate a new runtime value requires concrete external ownership. If compatible ownership already exists on another leaf, recommend moving the action and its typed boundary to that owner instead of inventing a capability or leaving external work as prose.");
         sb.AppendLine("- a cohesive locked external action may perform non-observable prerequisite inspection, selection, or preparation needed to execute that action when the declared schema and provider-neutral metadata support the context. Do not require a second external capability solely for such an internal prerequisite. Require a separate owner only when the request makes the prerequisite an independently observable effect or another workflow boundary consumes its typed result.");
         sb.AppendLine("- conditional activation decision_operation_id values refer to immutable local-operation ownership. The owning leaf must derive and expose that runtime decision unless the operation is explicitly owned by main; main may route a typed decision but must not claim to recompute an operation owned by a leaf.");
+        sb.AppendLine("- review extraction contracts, not not-yet-generated step topology. A critical extraction diagnostic may require the declared decision owner, typed boundary, upstream operation dependencies, or parent routing to be represented, but must not require an exact switch expression, selector implementation, or intra-leaf step order that deterministic validation proves only after YAML generation.");
         sb.AppendLine("- cleanup obligations follow authoritative artifact_contract materializers. Do not assume every external leaf creates a directory, and do not demand created-directory outputs from capabilities whose artifact contracts materialize none.");
         sb.AppendLine("- when cleanup is required and a materializer has a documented caller-chosen creation target, main must register that exact target before invoking the materializer so partial failures remain cleanable, then reconcile the returned artifact after success without duplication. Do not demand pre-registration when no such documented input exists.");
         sb.AppendLine("- when extractor prose names a concrete discovered MCP method and selector, planned_tools must contain that literal discovered call or the prose must be removed.");
@@ -2404,11 +2421,12 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
               "items": {
                 "type": "object",
                 "additionalProperties": false,
-                "required": ["code", "kind", "severity", "leaf_name", "message", "recommendation", "evidence"],
+                "required": ["code", "kind", "severity", "remediation_surface", "leaf_name", "message", "recommendation", "evidence"],
                 "properties": {
                   "code": { "type": "string" },
                   "kind": { "type": "string", "enum": ["intent_ambiguity", "plan_defect", "capability_unavailable", "contract_violation"] },
                   "severity": { "type": "string", "enum": ["info", "warning", "critical"] },
+                  "remediation_surface": { "type": "string", "enum": ["extraction_contract", "locked_ownership", "generated_workflow_topology"] },
                   "leaf_name": { "type": "string" },
                   "message": { "type": "string" },
                   "recommendation": { "type": "string" },
@@ -2450,6 +2468,31 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
         var correctedCritical = false;
         var diagnostics = review.Diagnostics.Select(diagnostic =>
         {
+            if (string.Equals(
+                    diagnostic.RemediationSurface,
+                    "generated_workflow_topology",
+                    StringComparison.Ordinal)
+                || string.Equals(
+                    diagnostic.RemediationSurface,
+                    "locked_ownership",
+                    StringComparison.Ordinal)
+                && ExtractionHasAuthoritativeLockedOwnership(extraction))
+            {
+                correctedCritical |= string.Equals(diagnostic.Severity, "critical", StringComparison.Ordinal);
+                return diagnostic with
+                {
+                    Severity = "info",
+                    Message = diagnostic.Message
+                              + (string.Equals(
+                                      diagnostic.RemediationSurface,
+                                      "locked_ownership",
+                                      StringComparison.Ordinal)
+                                  ? " Deterministic capability composition and extraction validation own this immutable assignment."
+                                  : " Generated-workflow topology is validated after leaf and main YAML generation."),
+                    Recommendation = "Preserve the extraction contract and defer this check to its authoritative deterministic validation phase."
+                };
+            }
+
             var diagnosticText = string.Join(' ', new[]
             {
                 diagnostic.Code,
@@ -2640,6 +2683,14 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
             review with { Score = score, Verdict = verdict, Diagnostics = diagnostics });
     }
 
+    private static bool ExtractionHasAuthoritativeLockedOwnership(WorkflowPipelineExtraction extraction)
+        => extraction.Subworkflows.Any(static spec =>
+               spec.PlannedTools.Any(IsImmutablePipelinePlannedTool)
+               || (spec.PlannedNativeSteps?.Count ?? 0) > 0
+               || (spec.LocalOperationIds?.Count ?? 0) > 0)
+           || (extraction.MainNativeSteps?.Count ?? 0) > 0
+           || (extraction.MainLocalOperationIds?.Count ?? 0) > 0;
+
     private static bool HasCompleteConditionalCapabilityGroup(WorkflowPipelineSubworkflowSpec spec)
         => spec.PlannedTools
             .Where(static tool => tool.Required && tool.Activation != null)
@@ -2771,6 +2822,8 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
 
             var severity = NormalizeExtractionQualitySeverity(GetStringProperty(diagnostic, "severity"));
             var kind = NormalizeExtractionQualityDiagnosticKind(GetStringProperty(diagnostic, "kind"));
+            var remediationSurface = NormalizeExtractionQualityRemediationSurface(
+                GetStringProperty(diagnostic, "remediation_surface"));
             var leafName = GetStringProperty(diagnostic, "leaf_name");
             if (string.IsNullOrWhiteSpace(leafName))
                 leafName = null;
@@ -2787,10 +2840,25 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
                 leafName,
                 message,
                 string.IsNullOrWhiteSpace(recommendation) ? null : recommendation,
-                evidence));
+                evidence,
+                RemediationSurface: remediationSurface));
         }
 
         return parsed;
+    }
+
+    private static string NormalizeExtractionQualityRemediationSurface(string? surface)
+    {
+        var normalized = surface?.Trim().ToLowerInvariant();
+        return normalized switch
+        {
+            null or "" or "extraction_contract" => "extraction_contract",
+            "locked_ownership" => "locked_ownership",
+            "generated_workflow_topology" => "generated_workflow_topology",
+            _ => throw new WorkflowRuntimeException(
+                ErrorCodes.TemplatePlan,
+                $"review_extraction_quality remediation_surface '{surface}' is invalid.")
+        };
     }
 
     private static int GetRequiredIntegerProperty(JsonObject obj, string propertyName, string phase)
@@ -8035,6 +8103,7 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
 
         var workflowName = doc.Workflows.Keys.Single();
         (doc, yaml) = NormalizeGeneratedLeafInputAliases(spec, workflowName, doc, yaml);
+        (doc, yaml) = NormalizeGeneratedLeafConditionalDecisionInputs(spec, workflowName, doc, yaml);
         (doc, yaml) = MaterializeMissingPlannedMcpCallVariants(spec, workflowName, doc, yaml);
         (doc, yaml, _) = NormalizeGeneratedEvidenceBackedLeafOutputProjections(
             doc,
@@ -8441,6 +8510,251 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
 
         var normalizedYaml = SerializeYamlNode(root);
         return (ParseAndValidateGeneratedWorkflow(normalizedYaml), normalizedYaml);
+    }
+
+    private static (WorkflowDocument Document, string Yaml) NormalizeGeneratedLeafConditionalDecisionInputs(
+        WorkflowPipelineSubworkflowSpec spec,
+        string workflowName,
+        WorkflowDocument document,
+        string yaml)
+    {
+        (document, yaml) = NormalizeGeneratedLeafConditionalDecisionInputAliases(
+            spec,
+            workflowName,
+            document,
+            yaml);
+        if (!document.Workflows.TryGetValue(workflowName, out var workflow)
+            || workflow.Inputs == null
+            || workflow.Inputs.Count == 0)
+        {
+            return (document, yaml);
+        }
+
+        var allSteps = EnumerateSteps(workflow.Steps)
+            .Concat(EnumerateSteps(workflow.Finally))
+            .ToArray();
+        var switches = allSteps
+            .Where(static step => string.Equals(step.Type, "switch", StringComparison.Ordinal)
+                                  && !string.IsNullOrWhiteSpace(step.Id))
+            .ToArray();
+        var rewrites = new List<(string SwitchId, string Expression)>();
+
+        foreach (var group in spec.PlannedTools
+                     .Where(static tool => tool.Activation != null)
+                     .GroupBy(static tool => tool.Activation!.Group, StringComparer.Ordinal))
+        {
+            var activation = group.First().Activation!;
+            if (PipelineSpecOwnsOperation(spec, activation.DecisionOperationId))
+                continue;
+
+            var fieldName = GetDecisionBoundaryFieldName(activation.DecisionOutputPath);
+            if (!GeneratedLeafDeclaresExactConditionalDecisionInput(
+                    spec,
+                    workflow.Inputs,
+                    fieldName,
+                    activation.AllowedValues))
+            {
+                continue;
+            }
+
+            var groupTools = group.ToArray();
+            var groupCalls = allSteps
+                .Where(static step => string.Equals(step.Type, "mcp.call", StringComparison.Ordinal))
+                .Where(step => groupTools.Any(tool => WorkflowStepMatchesPlannedMcpToolCall(step, tool)))
+                .ToArray();
+            if (groupCalls.Length != groupTools.Length
+                || groupCalls.Any(call => spec.PlannedTools
+                    .Where(tool => WorkflowStepMatchesPlannedMcpToolCall(call, tool))
+                    .Any(tool => !string.Equals(
+                        tool.Activation?.Group,
+                        group.Key,
+                        StringComparison.Ordinal))))
+            {
+                continue;
+            }
+
+            var owners = switches.Where(candidate =>
+            {
+                var nested = (candidate.Cases ?? [])
+                    .SelectMany(static @case => EnumerateSteps(@case.Steps))
+                    .Concat(EnumerateSteps(candidate.Default ?? []))
+                    .ToHashSet(ReferenceEqualityComparer.Instance);
+                return groupCalls.All(nested.Contains);
+            }).ToArray();
+            if (owners.Length != 1
+                || ConditionalDecisionExpressionMatchesDeclaredPath(
+                    owners[0].Expr ?? string.Empty,
+                    activation.DecisionOutputPath))
+            {
+                continue;
+            }
+
+            rewrites.Add((owners[0].Id, $"${{data.inputs.{fieldName}}}"));
+        }
+
+        var unambiguousRewrites = rewrites
+            .GroupBy(static rewrite => rewrite.SwitchId, StringComparer.Ordinal)
+            .Where(static group => group.Select(static rewrite => rewrite.Expression)
+                .Distinct(StringComparer.Ordinal).Count() == 1)
+            .Select(static group => group.First())
+            .ToArray();
+        if (unambiguousRewrites.Length == 0)
+            return (document, yaml);
+
+        var root = LoadYamlRoot(yaml);
+        if (root.GetMapping("workflows") is not { } workflows
+            || !workflows.Children.TryGetValue(Scalar(workflowName), out var workflowNode)
+            || workflowNode is not YamlMappingNode workflowMap
+            || workflowMap.GetSequence("steps") is not { } rootSteps)
+        {
+            return (document, yaml);
+        }
+
+        var rewritten = 0;
+        foreach (var (switchId, expression) in unambiguousRewrites)
+            rewritten += RewriteGeneratedLeafSwitchExpression(rootSteps, switchId, expression);
+        if (rewritten != unambiguousRewrites.Length)
+            return (document, yaml);
+
+        var normalizedYaml = SerializeYamlNode(root);
+        return (ParseAndValidateGeneratedWorkflow(normalizedYaml), normalizedYaml);
+    }
+
+    private static (WorkflowDocument Document, string Yaml) NormalizeGeneratedLeafConditionalDecisionInputAliases(
+        WorkflowPipelineSubworkflowSpec spec,
+        string workflowName,
+        WorkflowDocument document,
+        string yaml)
+    {
+        if (!document.Workflows.TryGetValue(workflowName, out var workflow)
+            || workflow.Inputs == null
+            || workflow.Inputs.Count == 0)
+        {
+            return (document, yaml);
+        }
+
+        var aliases = new List<(string Alias, string Declared)>();
+        foreach (var activation in spec.PlannedTools
+                     .Where(static tool => tool.Activation != null)
+                     .Select(static tool => tool.Activation!)
+                     .GroupBy(static activation => activation.Group, StringComparer.Ordinal)
+                     .Select(static group => group.First()))
+        {
+            if (PipelineSpecOwnsOperation(spec, activation.DecisionOperationId))
+                continue;
+
+            var fieldName = GetDecisionBoundaryFieldName(activation.DecisionOutputPath);
+            if (fieldName.Length == 0
+                || workflow.Inputs.ContainsKey(fieldName)
+                || !SpecDeclaresExactConditionalDecisionInput(spec, fieldName, activation.AllowedValues))
+            {
+                continue;
+            }
+
+            var candidates = workflow.Inputs
+                .Where(pair => !spec.InputSchemas.ContainsKey(pair.Key)
+                               && GeneratedLeafInputMatchesConditionalDecision(
+                                   pair.Value,
+                                   activation.AllowedValues))
+                .Select(static pair => pair.Key)
+                .ToArray();
+            if (candidates.Length == 1)
+                aliases.Add((candidates[0], fieldName));
+        }
+
+        var unambiguousAliases = aliases
+            .GroupBy(static alias => alias.Alias, StringComparer.Ordinal)
+            .Where(static group => group.Select(static alias => alias.Declared)
+                .Distinct(StringComparer.Ordinal).Count() == 1)
+            .Select(static group => group.First())
+            .ToArray();
+        if (unambiguousAliases.Length == 0)
+            return (document, yaml);
+
+        var root = LoadYamlRoot(yaml);
+        if (root.GetMapping("workflows") is not { } workflows
+            || !workflows.Children.TryGetValue(Scalar(workflowName), out var workflowNode)
+            || workflowNode is not YamlMappingNode workflowMap
+            || workflowMap.GetMapping("inputs") is not { } workflowInputs)
+        {
+            return (document, yaml);
+        }
+
+        var skillInputs = root.GetMapping("skill")?.GetMapping("inputs");
+        foreach (var (alias, declared) in unambiguousAliases)
+        {
+            RewriteGeneratedLeafInputReferences(root, alias, declared);
+            RenameOrRemoveGeneratedLeafInput(workflowInputs, alias, declared);
+            if (skillInputs != null)
+                RenameOrRemoveGeneratedLeafInput(skillInputs, alias, declared);
+        }
+
+        var normalizedYaml = SerializeYamlNode(root);
+        return (ParseAndValidateGeneratedWorkflow(normalizedYaml), normalizedYaml);
+    }
+
+    private static bool GeneratedLeafDeclaresExactConditionalDecisionInput(
+        WorkflowPipelineSubworkflowSpec spec,
+        IReadOnlyDictionary<string, InputDef> workflowInputs,
+        string fieldName,
+        IReadOnlyList<string> allowedValues)
+    {
+        if (fieldName.Length == 0
+            || !SpecDeclaresExactConditionalDecisionInput(spec, fieldName, allowedValues)
+            || !workflowInputs.TryGetValue(fieldName, out var workflowInput))
+        {
+            return false;
+        }
+
+        return GeneratedLeafInputMatchesConditionalDecision(workflowInput, allowedValues);
+    }
+
+    private static bool SpecDeclaresExactConditionalDecisionInput(
+        WorkflowPipelineSubworkflowSpec spec,
+        string fieldName,
+        IReadOnlyList<string> allowedValues)
+    {
+        if (!spec.InputSchemas.TryGetValue(fieldName, out var specSchema))
+            return false;
+        var expected = FlowTypeDescriptorConverter.FromJsonSchema(specSchema);
+        return expected.Kind == FlowTypeKind.String
+               && expected.EnumValues.Distinct(StringComparer.Ordinal).Order(StringComparer.Ordinal)
+                   .SequenceEqual(allowedValues.Distinct(StringComparer.Ordinal).Order(StringComparer.Ordinal), StringComparer.Ordinal);
+    }
+
+    private static bool GeneratedLeafInputMatchesConditionalDecision(
+        InputDef workflowInput,
+        IReadOnlyList<string> allowedValues)
+    {
+        var actual = FlowTypeDescriptorConverter.FromInputDef(workflowInput);
+        return actual.Kind == FlowTypeKind.String
+               && workflowInput.Required
+               && !workflowInput.Nullable
+               && actual.EnumValues.Distinct(StringComparer.Ordinal).Order(StringComparer.Ordinal)
+                   .SequenceEqual(allowedValues.Distinct(StringComparer.Ordinal).Order(StringComparer.Ordinal), StringComparer.Ordinal)
+               && actual.EnumValues.Count > 0;
+    }
+
+    private static int RewriteGeneratedLeafSwitchExpression(
+        YamlSequenceNode steps,
+        string switchId,
+        string expression)
+    {
+        var rewritten = 0;
+        foreach (var step in steps.Children.OfType<YamlMappingNode>())
+        {
+            if (string.Equals(step.GetScalar("type"), "switch", StringComparison.Ordinal)
+                && string.Equals(step.GetScalar("id"), switchId, StringComparison.Ordinal))
+            {
+                ReplaceYaml(step, "expr", Scalar(expression));
+                rewritten++;
+            }
+
+            foreach (var nested in EnumerateNestedYamlStepSequences(step))
+                rewritten += RewriteGeneratedLeafSwitchExpression(nested, switchId, expression);
+        }
+
+        return rewritten;
     }
 
     private static bool AreEquivalentLeafInputSchemas(JsonNode? first, JsonNode? second)
@@ -11880,6 +12194,7 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
                 ["code"] = diagnostic.Code,
                 ["kind"] = diagnostic.Kind,
                 ["severity"] = diagnostic.Severity,
+                ["remediation_surface"] = diagnostic.RemediationSurface,
                 ["leaf_name"] = diagnostic.LeafName ?? "",
                 ["message"] = diagnostic.Message,
                 ["recommendation"] = diagnostic.Recommendation ?? "",

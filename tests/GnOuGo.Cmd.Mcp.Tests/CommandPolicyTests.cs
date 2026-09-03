@@ -116,7 +116,12 @@ public class CommandPolicyTests
             AllowedShells = ["powershell"],
             AllowedCommands = new Dictionary<string, AllowedCommandSettings>(StringComparer.OrdinalIgnoreCase)
             {
-                ["delete_directory"] = new() { Shell = "powershell", Script = "Remove-Item {{path}}" },
+                ["delete_directory"] = new()
+                {
+                    Description = "Delete one existing workspace directory recursively.",
+                    Shell = "powershell",
+                    Script = "Remove-Item {{path}}"
+                },
                 ["dotnet_test"] = new() { Shell = "powershell", Script = "dotnet test" }
             }
         }, root);
@@ -140,6 +145,15 @@ public class CommandPolicyTests
             .Select(static value => value.GetString()!)
             .ToArray();
         Assert.Equal(["delete_directory", "dotnet_test"], values);
+        var selectorBranches = enriched.GetProperty("oneOf").EnumerateArray().ToArray();
+        Assert.Equal(2, selectorBranches.Length);
+        var deleteBranch = Assert.Single(selectorBranches, static branch =>
+            branch.GetProperty("properties").GetProperty("commandName").GetProperty("const").GetString()
+            == "delete_directory");
+        Assert.Contains(
+            "Delete one existing workspace directory recursively.",
+            deleteBranch.GetProperty("description").GetString(),
+            StringComparison.Ordinal);
         Assert.Equal("string", enriched.GetProperty("properties")
             .GetProperty("parametersJson")
             .GetProperty("type")[0]

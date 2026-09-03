@@ -188,7 +188,9 @@ public sealed partial class WorkflowPlanExecutor
         IReadOnlyList<CapabilityCatalogEntry> Entries,
         string Text);
 
-    private sealed record SelectorVariant(IReadOnlyList<CapabilityRequestBinding> Bindings);
+    private sealed record SelectorVariant(
+        IReadOnlyList<CapabilityRequestBinding> Bindings,
+        string? Description = null);
 
     private static CapabilityCatalog BuildSchemaAwareCapabilityCatalog(
         IReadOnlyList<McpServerDiscovery> discovered,
@@ -239,8 +241,11 @@ public sealed partial class WorkflowPlanExecutor
                 foreach (var variant in variants.OrderBy(static item => CanonicalizeBindings(item.Bindings), StringComparer.Ordinal))
                 {
                     var bindings = FormatBindingsCompact(variant.Bindings);
+                    var variantDescription = string.IsNullOrWhiteSpace(variant.Description)
+                        ? string.Empty
+                        : $" description={LimitCapabilityDescription(variant.Description)}";
                     pending.Add(("mcp", server.Name, "tool", tool.Name, description, variant.Bindings,
-                        $"resolution=mcp server={server.Name} kind=tool method={tool.Name} variant_of={server.Name}/tool/{tool.Name} request_bindings=[{bindings}]",
+                        $"resolution=mcp server={server.Name} kind=tool method={tool.Name} variant_of={server.Name}/tool/{tool.Name} request_bindings=[{bindings}]{variantDescription}",
                         requiredInputs, outputFields, artifactContract, compositionContract));
                 }
             }
@@ -652,7 +657,9 @@ public sealed partial class WorkflowPlanExecutor
         CollectBoundedIndependentSelectorCombination(root, variants);
         return variants
             .GroupBy(static variant => CanonicalizeBindings(variant.Bindings), StringComparer.Ordinal)
-            .Select(static group => group.First())
+            .Select(static group => group
+                .OrderByDescending(static variant => !string.IsNullOrWhiteSpace(variant.Description))
+                .First())
             .ToArray();
     }
 
@@ -812,7 +819,10 @@ public sealed partial class WorkflowPlanExecutor
                     return next;
                 })).ToList();
             }
-            variants.AddRange(combinations.Where(static bindings => bindings.Count > 0).Select(static bindings => new SelectorVariant(bindings)));
+            var description = branch["description"]?.GetValue<string>();
+            variants.AddRange(combinations
+                .Where(static bindings => bindings.Count > 0)
+                .Select(bindings => new SelectorVariant(bindings, description)));
         }
     }
 
