@@ -17,7 +17,18 @@ public sealed class LlmRuntimeOptionsStoreTests
                 DefaultModel = "gpt-4o-mini",
                 Models = new Dictionary<string, ModelProviderOptions>(StringComparer.OrdinalIgnoreCase)
                 {
-                    ["openai"] = new() { Url = "https://api.openai.com/v1", Type = "openai" }
+                    ["openai"] = new()
+                    {
+                        Url = "https://api.openai.com/v1",
+                        Type = "openai",
+                        RequestPolicy = new LLMProviderRequestPolicyOptions
+                        {
+                            BackgroundProtocol = LLMBackgroundProtocolMode.ChatCompletions,
+                            UnspecifiedOutputTokens = LLMUnspecifiedOutputTokensMode.Configured,
+                            DefaultMaxOutputTokens = 4_096
+                        },
+                        RetryPolicy = new LLMProviderRetryPolicyOptions { MaxAttempts = 2 }
+                    }
                 },
                 McpServers = new Dictionary<string, McpServerOptions>(StringComparer.OrdinalIgnoreCase)
                 {
@@ -37,6 +48,10 @@ public sealed class LlmRuntimeOptionsStoreTests
         var gitMcp = store.Current.McpServers["GnOuGo.Git.Mcp"];
         Assert.Equal(120, gitMcp.DiscoveryTimeoutSeconds);
         Assert.Equal(1200, gitMcp.CallTimeoutSeconds);
+        var provider = store.Current.Models["openai"];
+        Assert.Equal(LLMBackgroundProtocolMode.ChatCompletions, provider.RequestPolicy.BackgroundProtocol);
+        Assert.Equal(4_096, provider.RequestPolicy.DefaultMaxOutputTokens);
+        Assert.Equal(2, provider.RetryPolicy.MaxAttempts);
     }
 
     [Fact]

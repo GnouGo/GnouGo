@@ -14,6 +14,7 @@ public sealed class GitTools
 {
     private const string RequiredProjectRootDescription = "Required workspace-relative path to an existing project root outside the reserved .GnOuGo internal directory. Pass a documented workspace.directory artifact output or a caller-provided existing directory. Null, omitted, empty, absolute, file URI, home-relative, parent-traversal, and invented values are invalid.";
     private const string RequiredProjectRootToolSuffix = " projectRoot consumes a required workspace.directory artifact and must identify an existing workspace-relative project root.";
+    private const string CompareRefsMetadataJson = """{"artifacts":{"version":1,"produces":[{"kind":"revision.comparison.files","pointer":"/filesJson","mode":"materialize"}],"consumes":[{"kind":"workspace.directory","pointer":"/projectRoot","required":true}]}}""";
 
     private readonly GitPolicy _policy;
     private readonly GitRepositoryService _gitRepositoryService;
@@ -48,7 +49,7 @@ public sealed class GitTools
         => Execute("git_diff", () => _gitRepositoryService.GetDiff(projectRoot, relativePath, staged));
 
     [McpServerTool(Name = "git_compare_refs", UseStructuredContent = true, OutputSchemaType = typeof(GitCompareRefsResult)), Description("Resolves exact base/head/merge-base commits and returns a paginated per-file patch comparison with rename, binary, submodule, and truncation metadata. This is read-only and does not depend on the working tree." + RequiredProjectRootToolSuffix)]
-    [McpMeta(McpArtifactContractMetadata.MetaPropertyName, JsonValue = McpArtifactContractMetadata.WorkspaceDirectoryConsumerProjectRootJson)]
+    [McpMeta(McpArtifactContractMetadata.MetaPropertyName, JsonValue = CompareRefsMetadataJson)]
     public GitCompareRefsResult GitCompareRefs(
         [Description(RequiredProjectRootDescription)] string projectRoot,
         [Description("Exact base commit SHA or fetched ref.")] string baseRef,
@@ -288,6 +289,7 @@ internal static class GitToolFailure
                 MergeBaseSha: null,
                 ComparedFromSha: string.Empty,
                 Files: [],
+                FilesJson: "[]",
                 TotalFiles: 0,
                 Offset: 0,
                 PageSize: 0,

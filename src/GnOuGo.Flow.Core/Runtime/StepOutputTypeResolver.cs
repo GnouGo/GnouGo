@@ -21,10 +21,34 @@ internal static class StepOutputTypeResolver
             "mcp.call" => ResolveMcpCall(step, mcpContracts),
             "workflow.call" => ResolveWorkflowCall(step, workflows),
             "human.input" => ResolveHumanInput(step),
+            "decision.evaluate" => ResolveDecisionEvaluate(step),
             _ => stepContracts.TryGetValue(step.Type, out var contract)
                 ? contract.OutputType
                 : FlowTypeDescriptor.Any
         };
+    }
+
+    private static FlowTypeDescriptor ResolveDecisionEvaluate(StepDef step)
+    {
+        if (step.Input?["decisions"] is not JsonObject decisions)
+            return Object();
+
+        var properties = new Dictionary<string, FlowPropertyDescriptor>(StringComparer.Ordinal);
+        foreach (var (field, node) in decisions)
+        {
+            var values = (node as JsonObject)?["allowed_values"] is JsonArray allowedValues
+                ? allowedValues.OfType<JsonValue>()
+                    .Select(static value => value.TryGetValue<string>(out var text) ? text : null)
+                    .Where(static value => !string.IsNullOrWhiteSpace(value))
+                    .Select(static value => value!)
+                    .Distinct(StringComparer.Ordinal)
+                    .ToArray()
+                : Array.Empty<string>();
+            properties[field] = Property(values.Length > 0
+                ? FlowTypeDescriptor.Enum(values)
+                : FlowTypeDescriptor.String);
+        }
+        return FlowTypeDescriptor.Object(properties);
     }
 
     private static FlowTypeDescriptor ResolveSet(StepDef step, WorkflowSymbolTable symbols)
@@ -126,6 +150,16 @@ internal static class StepOutputTypeResolver
 
         if (string.Equals(kind, "prompt", StringComparison.OrdinalIgnoreCase))
         {
+            if (structuredJsonType != null)
+            {
+                return Object(
+                    ("status", FlowTypeDescriptor.String),
+                    ("description", FlowTypeDescriptor.String),
+                    ("messages", FlowTypeDescriptor.Array()),
+                    ("text", FlowTypeDescriptor.String),
+                    ("json", structuredJsonType));
+            }
+
             return Object(
                 ("status", FlowTypeDescriptor.String),
                 ("description", FlowTypeDescriptor.String),
@@ -143,6 +177,18 @@ internal static class StepOutputTypeResolver
             responseType = contract.OutputSchema == null
                 ? InferFromExample(contract.ExampleResponse)
                 : FlowTypeDescriptorConverter.FromJsonSchema(contract.OutputSchema);
+        }
+
+        if (structuredJsonType != null)
+        {
+            return Object(
+                ("status", FlowTypeDescriptor.String),
+                ("response", responseType),
+                ("error", Object()),
+                ("correlation_id", FlowTypeDescriptor.String),
+                ("trace_id", FlowTypeDescriptor.String),
+                ("results", FlowTypeDescriptor.Array()),
+                ("json", structuredJsonType));
         }
 
         return Object(

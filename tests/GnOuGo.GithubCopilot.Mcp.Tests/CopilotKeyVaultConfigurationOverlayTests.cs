@@ -175,6 +175,23 @@ public sealed class CopilotKeyVaultConfigurationOverlayTests
                 TestContext.Current.CancellationToken));
     }
 
+    [Fact]
+    public async Task LoadAsync_FailsClosedForCanonicalProviderKeysThatDifferOnlyByCase()
+    {
+        var reader = new FakeCatalogReader()
+            .Add("LLM--Models--OpenAi", """{"provider":"OpenAi","url":"https://first.example/v1"}""")
+            .Add("LLM--Models--openai", """{"provider":"openai","url":"https://second.example/v1"}""");
+
+        var exception = await Assert.ThrowsAsync<InvalidDataException>(() =>
+            CopilotKeyVaultConfigurationOverlay.LoadAsync(
+                reader,
+                TestContext.Current.CancellationToken));
+
+        Assert.Equal("KeyVault contains ambiguous provider configuration keys.", exception.Message);
+        Assert.DoesNotContain("first.example", exception.Message, StringComparison.Ordinal);
+        Assert.DoesNotContain("second.example", exception.Message, StringComparison.Ordinal);
+    }
+
     private sealed class FakeCatalogReader : IKeyVaultSecretCatalogReader
     {
         private readonly List<KeyVaultSecretLookupResult> _values = [];

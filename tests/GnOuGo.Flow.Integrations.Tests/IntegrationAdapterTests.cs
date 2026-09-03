@@ -65,6 +65,69 @@ public sealed class IntegrationAdapterTests
     }
 
     [Fact]
+    public void CostEstimator_UsesConfiguredProviderNeutralModelOverride()
+    {
+        var options = new LLMOptions();
+        options.ModelOverrides["neutral/custom-model"] = new LLMModelMetadata
+        {
+            Pricing = new ModelPricingMetadata
+            {
+                InputPer1MTokens = 2m,
+                OutputPer1MTokens = 4m
+            }
+        };
+        var estimator = new ModelMetadataUsageCostEstimator(options);
+
+        var cost = estimator.EstimateCost("custom-model", 1_000_000, 500_000, "neutral");
+
+        Assert.Equal(4m, cost);
+    }
+
+    [Fact]
+    public void CostEstimator_ReturnsDeclaredPricingCurrency()
+    {
+        var options = new LLMOptions();
+        options.ModelOverrides["neutral/currency-model"] = new LLMModelMetadata
+        {
+            Pricing = new ModelPricingMetadata
+            {
+                InputPer1MTokens = 2m,
+                OutputPer1MTokens = 4m,
+                Currency = "eur"
+            }
+        };
+        var estimator = new ModelMetadataUsageCostEstimator(options);
+
+        var estimate = estimator.EstimateCostWithCurrency(
+            "currency-model",
+            1_000_000,
+            500_000,
+            "neutral");
+
+        Assert.NotNull(estimate);
+        Assert.Equal(4m, estimate.Amount);
+        Assert.Equal("EUR", estimate.Currency);
+    }
+
+    [Fact]
+    public void CostEstimator_ReturnsNullWhenConfiguredPricingIsIncomplete()
+    {
+        var options = new LLMOptions();
+        options.ModelOverrides["neutral/partial-price-model"] = new LLMModelMetadata
+        {
+            Pricing = new ModelPricingMetadata
+            {
+                InputPer1MTokens = 2m
+            }
+        };
+        var estimator = new ModelMetadataUsageCostEstimator(options);
+
+        var cost = estimator.EstimateCost("partial-price-model", 1_000, 500, "neutral");
+
+        Assert.Null(cost);
+    }
+
+    [Fact]
     public void ConfiguredFactory_MapsDeclaredArtifactMetadataToFlowContract()
     {
         var tool = new McpToolInfo
@@ -97,6 +160,125 @@ public sealed class IntegrationAdapterTests
         Assert.Equal("/projectRootRelative", produced.Pointer);
     }
 
+    [Fact]
+    public async Task RoutingAdapter_MapsTypedProviderFailureWithoutRawBody()
+    {
+        var routingClient = new RoutingLLMClient(
+            new LLMOptions
+            {
+                DefaultProvider = "failing",
+                DefaultModel = "model",
+                Models = { ["failing"] = new ModelProviderOptions { Type = "failing" } }
+            },
+            [new FailingProvider()]);
+        var adapter = new RoutingLLMClientAdapter(routingClient);
+
+        var failure = await Assert.ThrowsAsync<LLMClientException>(() => adapter.CallAsync(
+            new LLMRequest { Provider = "failing", Model = "model", Prompt = "secret prompt" },
+            TestContext.Current.CancellationToken));
+
+        Assert.Equal(LLMClientFailureKind.QuotaOrBilling, failure.Kind);
+        Assert.False(failure.Retryable);
+        Assert.Equal(400, failure.StatusCode);
+        Assert.Equal("credit_balance_exhausted", failure.SafeProviderCode);
+        Assert.DoesNotContain("raw-provider-body", failure.Message, StringComparison.Ordinal);
+    }
+
+    [Theory]
+    [InlineData(LLMProviderFailureKind.Transport, LLMClientFailureKind.Transport, true)]
+    [InlineData(LLMProviderFailureKind.Timeout, LLMClientFailureKind.Timeout, true)]
+    [InlineData(LLMProviderFailureKind.RateLimited, LLMClientFailureKind.RateLimited, true)]
+    [InlineData(LLMProviderFailureKind.ServiceUnavailable, LLMClientFailureKind.ServiceUnavailable, true)]
+    [InlineData(LLMProviderFailureKind.Authentication, LLMClientFailureKind.Authentication, false)]
+    [InlineData(LLMProviderFailureKind.Authorization, LLMClientFailureKind.Authorization, false)]
+    [InlineData(LLMProviderFailureKind.QuotaOrBilling, LLMClientFailureKind.QuotaOrBilling, false)]
+    [InlineData(LLMProviderFailureKind.InvalidRequest, LLMClientFailureKind.InvalidRequest, false)]
+    [InlineData(LLMProviderFailureKind.ModelUnavailable, LLMClientFailureKind.ModelUnavailable, false)]
+    [InlineData(LLMProviderFailureKind.Unknown, LLMClientFailureKind.Unknown, false)]
+    public async Task RoutingAdapter_MapsEveryTypedFailureKind(
+        LLMProviderFailureKind providerKind,
+        LLMClientFailureKind expectedKind,
+        bool retryable)
+    {
+        var routingClient = new RoutingLLMClient(
+            new LLMOptions
+            {
+                DefaultProvider = "typed-failing",
+                DefaultModel = "model",
+                Models = { ["typed-failing"] = new ModelProviderOptions { Type = "typed-failing" } }
+            },
+            [new TypedFailingProvider(providerKind, retryable)]);
+        var adapter = new RoutingLLMClientAdapter(routingClient);
+
+        var failure = await Assert.ThrowsAsync<LLMClientException>(() => adapter.CallAsync(
+            new LLMRequest { Provider = "typed-failing", Model = "model", Prompt = "secret prompt" },
+            TestContext.Current.CancellationToken));
+
+        Assert.Equal(expectedKind, failure.Kind);
+        Assert.Equal(retryable, failure.Retryable);
+        Assert.Equal(418, failure.StatusCode);
+        Assert.Equal("safe_code", failure.SafeProviderCode);
+    }
+
+    [Fact]
+    public void ProviderFailureMapper_PreservesOnlyTheRedactedFailureContract()
+    {
+        var providerFailure = new LLMProviderException(
+            LLMProviderFailureKind.InvalidRequest,
+            "The LLM provider rejected the request as invalid.",
+            retryable: false,
+            statusCode: 400,
+            safeProviderCode: "invalid_request_error",
+            attemptCount: 4,
+            retryExhausted: true,
+            retryAfterMilliseconds: 2_000);
+
+        var failure = LLMProviderFailureMapper.Map(providerFailure);
+
+        Assert.Equal(LLMClientFailureKind.InvalidRequest, failure.Kind);
+        Assert.False(failure.Retryable);
+        Assert.Equal(400, failure.StatusCode);
+        Assert.Equal("invalid_request_error", failure.SafeProviderCode);
+        Assert.Equal(4, failure.AttemptCount);
+        Assert.True(failure.RetryExhausted);
+        Assert.Equal(2_000, failure.RetryAfterMilliseconds);
+        Assert.Null(failure.InnerException);
+    }
+
+    [Fact]
+    public void ConfiguredFactory_MapsDeclaredCompositionMetadataToFlowContract()
+    {
+        var tool = new McpToolInfo
+        {
+            Name = "review_complete",
+            Meta = JsonNode.Parse("""
+                {
+                  "gnougo": {
+                    "composition": {
+                      "version": 1,
+                      "kind": "complete_operation",
+                      "encapsulates": [
+                        { "kind": "tool", "method": "review_start" },
+                        { "kind": "tool", "method": "review_finish" }
+                      ]
+                    }
+                  }
+                }
+                """)
+        };
+        var adapterType = typeof(ConfiguredMcpClientFactory).Assembly.GetType(
+            "GnOuGo.Flow.Integrations.McpSessionAdapter");
+        var method = adapterType!.GetMethod(
+            "ResolveCompositionContract",
+            BindingFlags.Static | BindingFlags.NonPublic);
+
+        var resolution = Assert.IsType<McpCapabilityCompositionResolution>(method!.Invoke(null, [tool]));
+
+        Assert.Empty(resolution.Errors);
+        Assert.Equal(McpCapabilityCompositionConventions.CompleteOperationKind, resolution.Contract!.Kind);
+        Assert.Equal(2, resolution.Contract.Encapsulates.Count);
+    }
+
     private sealed class RecordingProvider : ILLMProvider
     {
         public string ProviderType => "fake";
@@ -123,5 +305,39 @@ public sealed class IntegrationAdapterTests
                 ]
             });
         }
+    }
+
+    private sealed class FailingProvider : ILLMProvider
+    {
+        public string ProviderType => "failing";
+
+        public Task<LLMClientResponse> CallAsync(
+            string model,
+            ModelProviderOptions provider,
+            LLMClientRequest request,
+            CancellationToken ct)
+            => Task.FromException<LLMClientResponse>(new HttpRequestException(
+                "raw-provider-body credit_balance_exhausted",
+                inner: null,
+                statusCode: System.Net.HttpStatusCode.BadRequest));
+    }
+
+    private sealed class TypedFailingProvider(
+        LLMProviderFailureKind kind,
+        bool retryable) : ILLMProvider
+    {
+        public string ProviderType => "typed-failing";
+
+        public Task<LLMClientResponse> CallAsync(
+            string model,
+            ModelProviderOptions provider,
+            LLMClientRequest request,
+            CancellationToken ct)
+            => Task.FromException<LLMClientResponse>(new LLMProviderException(
+                kind,
+                "redacted typed failure",
+                retryable,
+                statusCode: 418,
+                safeProviderCode: "safe_code"));
     }
 }

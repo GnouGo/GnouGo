@@ -444,7 +444,7 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
                 });
             }
 
-            var response = await llmClient.CallAsync(new LLMRequest
+            var response = await ctx.CallLLMAsync(llmClient, new LLMRequest
             {
                 Provider = provider,
                 Model = model,
@@ -474,7 +474,7 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
                 """),
                 StructuredOutputStrict = true,
                 Reasoning = planReasoning,
-            }, ct);
+            }, "workflow.plan.mcp_server_prefilter", ct);
 
             if (ctx.Limits.LogStepContent && !string.IsNullOrWhiteSpace(response.Text))
             {
@@ -541,7 +541,7 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
         catch (Exception ex)
         {
             prefilterSpan.Fail(ex);
-            if (LlmFailureClassifier.Classify(ex) != null)
+            if (WorkflowPlanDiagnostics.IsNonRepairableLlmFailure(ex))
                 throw;
 
             ctx.Engine.Logger.LogWarning(ex, "workflow.plan: MCP server prefilter failed, falling back to full server list");

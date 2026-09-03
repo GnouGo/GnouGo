@@ -839,9 +839,7 @@ public sealed class ConfigureProvidersService
             yield break;
         }
 
-        var secretKey = await ResolveSecretKeyAsync(KeyVaultConfigSecretKind.LlmProvider, provider, ct)
-            ?? KeyVaultConfigNaming.BuildSecretKey(KeyVaultConfigSecretKind.LlmProvider, provider);
-        var deleted = await _keyVaultStore.DeleteSecretAsync(secretKey, ct);
+        var deleted = await DeleteConfigSecretsAsync(KeyVaultConfigSecretKind.LlmProvider, provider, ct);
         if (!deleted)
         {
             yield return new SmartFlowEvent("answer", $"❌ LLM provider '{provider}' could not be removed because it no longer exists.");
@@ -1084,9 +1082,7 @@ public sealed class ConfigureProvidersService
             yield break;
         }
 
-        var secretKey = await ResolveSecretKeyAsync(KeyVaultConfigSecretKind.EmbeddingConfig, existing.Name, ct)
-            ?? KeyVaultConfigNaming.BuildSecretKey(KeyVaultConfigSecretKind.EmbeddingConfig, existing.Name);
-        var deleted = await _keyVaultStore.DeleteSecretAsync(secretKey, ct);
+        var deleted = await DeleteConfigSecretsAsync(KeyVaultConfigSecretKind.EmbeddingConfig, existing.Name, ct);
         if (!deleted)
         {
             yield return new SmartFlowEvent("answer", $"❌ Embedding config '{existing.Name}' could not be removed because it no longer exists.");
@@ -1180,15 +1176,11 @@ public sealed class ConfigureProvidersService
             ["dimensions"] = config.Dimensions
         };
 
-        var preferredSecretKey = KeyVaultConfigNaming.BuildSecretKey(KeyVaultConfigSecretKind.EmbeddingConfig, config.Name);
-        var existingSecretKey = await ResolveSecretKeyAsync(KeyVaultConfigSecretKind.EmbeddingConfig, config.Name, ct);
-        await _keyVaultStore.SaveSecretValueAsync(preferredSecretKey, payload.ToJsonString(), ct);
-
-        if (!string.IsNullOrWhiteSpace(existingSecretKey)
-            && !string.Equals(existingSecretKey, preferredSecretKey, StringComparison.OrdinalIgnoreCase))
-        {
-            await _keyVaultStore.DeleteSecretAsync(existingSecretKey, ct);
-        }
+        await SaveConfigSecretAsync(
+            KeyVaultConfigSecretKind.EmbeddingConfig,
+            config.Name,
+            payload.ToJsonString(),
+            ct);
     }
 
     private async Task<EmbeddingProviderConfig?> LoadEmbeddingConfigAsync(string name, CancellationToken ct)
@@ -1270,7 +1262,11 @@ public sealed class ConfigureProvidersService
     private async Task SaveDefaultEmbeddingNameAsync(string name, CancellationToken ct)
     {
         var payload = new JsonObject { ["defaultEmbeddingConfig"] = name };
-        await _keyVaultStore.SaveSecretValueAsync(KeyVaultConfigNaming.BuildSecretKey(KeyVaultConfigSecretKind.EmbeddingDefault, "default"), payload.ToJsonString(), ct);
+        await SaveConfigSecretAsync(
+            KeyVaultConfigSecretKind.EmbeddingDefault,
+            "default",
+            payload.ToJsonString(),
+            ct);
     }
 
     private async Task<string?> LoadDefaultEmbeddingNameAsync(CancellationToken ct)
@@ -1288,9 +1284,7 @@ public sealed class ConfigureProvidersService
 
     private async Task DeleteDefaultEmbeddingNameAsync(CancellationToken ct)
     {
-        var secretKey = await ResolveSecretKeyAsync(KeyVaultConfigSecretKind.EmbeddingDefault, "default", ct)
-            ?? KeyVaultConfigNaming.BuildSecretKey(KeyVaultConfigSecretKind.EmbeddingDefault, "default");
-        await _keyVaultStore.DeleteSecretAsync(secretKey, ct);
+        await DeleteConfigSecretsAsync(KeyVaultConfigSecretKind.EmbeddingDefault, "default", ct);
     }
 
     private static int ReadInt(string? value, int fallback)
@@ -1857,9 +1851,7 @@ public sealed class ConfigureProvidersService
             yield break;
         }
 
-        var secretKey = await ResolveSecretKeyAsync(KeyVaultConfigSecretKind.McpServer, existing.Name, ct)
-            ?? KeyVaultConfigNaming.BuildSecretKey(KeyVaultConfigSecretKind.McpServer, existing.Name);
-        var deleted = await _keyVaultStore.DeleteSecretAsync(secretKey, ct);
+        var deleted = await DeleteConfigSecretsAsync(KeyVaultConfigSecretKind.McpServer, existing.Name, ct);
         if (!deleted)
         {
             yield return new SmartFlowEvent("answer", $"❌ MCP server '{existing.Name}' could not be removed because it no longer exists.");
@@ -2188,27 +2180,7 @@ public sealed class ConfigureProvidersService
     }
 
     private static JsonNode BuildHumanInputPayload(HumanInputRequest request)
-        => new JsonObject
-        {
-            ["prompt"] = request.Prompt,
-            ["mode"] = request.Mode,
-            ["run_id"] = request.RunId,
-            ["step_id"] = request.StepId,
-            ["timeout_ms"] = request.TimeoutMs,
-            ["context"] = request.Context?.DeepClone(),
-            ["choices"] = request.Choices is null ? null : new JsonArray(request.Choices.Select(choice => (JsonNode?)JsonValue.Create(choice)).ToArray()),
-            ["fields"] = request.Fields is null
-                ? null
-                : new JsonArray(request.Fields.Select(field => new JsonObject
-                {
-                    ["name"] = field.Name,
-                    ["type"] = field.Type,
-                    ["required"] = field.Required,
-                    ["description"] = field.Description,
-                    ["default"] = field.Default,
-                    ["options"] = field.Options is null ? null : new JsonArray(field.Options.Select(option => (JsonNode?)JsonValue.Create(option)).ToArray())
-                }).ToArray())
-        };
+        => HumanInputContract.BuildRequestPayload(request);
 
     private static string? ReadChoiceResponse(JsonNode? response)
         => response?["response"]?.GetValue<string>();
@@ -2410,18 +2382,25 @@ public sealed class ConfigureProvidersService
             ["apiVersion"] = auth.ApiVersion
         };
 
-        var preferredSecretKey = KeyVaultConfigNaming.BuildSecretKey(KeyVaultConfigSecretKind.LlmProvider, provider);
-        var existingSecretKey = await ResolveSecretKeyAsync(KeyVaultConfigSecretKind.LlmProvider, provider, ct);
-        span.SetTag("keyvault.secret.key", preferredSecretKey);
-        span.SetTag("gnougo.agent.configure.overwrite", !string.IsNullOrWhiteSpace(existingSecretKey));
+        var existingSecrets = await _keyVaultStore.ListSecretsAsync(ct);
+        var targetSecretKey = KeyVaultConfigNaming.ResolveWriteSecretKey(
+            existingSecrets,
+            KeyVaultConfigSecretKind.LlmProvider,
+            provider);
+        span.SetTag("keyvault.secret.key", targetSecretKey);
+        span.SetTag(
+            "gnougo.agent.configure.overwrite",
+            KeyVaultConfigNaming.FindEquivalentSecrets(
+                existingSecrets,
+                KeyVaultConfigSecretKind.LlmProvider,
+                provider).Count > 0);
 
-        await _keyVaultStore.SaveSecretValueAsync(preferredSecretKey, payload.ToJsonString(), ct);
-
-        if (!string.IsNullOrWhiteSpace(existingSecretKey)
-            && !string.Equals(existingSecretKey, preferredSecretKey, StringComparison.OrdinalIgnoreCase))
-        {
-            await _keyVaultStore.DeleteSecretAsync(existingSecretKey, ct);
-        }
+        await SaveConfigSecretAsync(
+            KeyVaultConfigSecretKind.LlmProvider,
+            provider,
+            payload.ToJsonString(),
+            ct,
+            existingSecrets);
 
         span.SetStatus(ActivityStatusCode.Ok);
     }
@@ -2765,18 +2744,25 @@ public sealed class ConfigureProvidersService
             ["oidcClientSecret"] = config.OidcClientSecret
         };
 
-        var preferredSecretKey = KeyVaultConfigNaming.BuildSecretKey(KeyVaultConfigSecretKind.McpServer, config.Name);
-        var existingSecretKey = await ResolveSecretKeyAsync(KeyVaultConfigSecretKind.McpServer, config.Name, ct);
-        span.SetTag("keyvault.secret.key", preferredSecretKey);
-        span.SetTag("gnougo.agent.configure.overwrite", !string.IsNullOrWhiteSpace(existingSecretKey));
+        var existingSecrets = await _keyVaultStore.ListSecretsAsync(ct);
+        var targetSecretKey = KeyVaultConfigNaming.ResolveWriteSecretKey(
+            existingSecrets,
+            KeyVaultConfigSecretKind.McpServer,
+            config.Name);
+        span.SetTag("keyvault.secret.key", targetSecretKey);
+        span.SetTag(
+            "gnougo.agent.configure.overwrite",
+            KeyVaultConfigNaming.FindEquivalentSecrets(
+                existingSecrets,
+                KeyVaultConfigSecretKind.McpServer,
+                config.Name).Count > 0);
 
-        await _keyVaultStore.SaveSecretValueAsync(preferredSecretKey, payload.ToJsonString(), ct);
-
-        if (!string.IsNullOrWhiteSpace(existingSecretKey)
-            && !string.Equals(existingSecretKey, preferredSecretKey, StringComparison.OrdinalIgnoreCase))
-        {
-            await _keyVaultStore.DeleteSecretAsync(existingSecretKey, ct);
-        }
+        await SaveConfigSecretAsync(
+            KeyVaultConfigSecretKind.McpServer,
+            config.Name,
+            payload.ToJsonString(),
+            ct,
+            existingSecrets);
 
         span.SetStatus(ActivityStatusCode.Ok);
     }
@@ -3059,6 +3045,45 @@ public sealed class ConfigureProvidersService
     {
         var secrets = await _keyVaultStore.ListSecretsAsync(ct);
         return KeyVaultConfigNaming.ResolveExistingSecretKey(secrets, kind, logicalName);
+    }
+
+    internal async Task<string> SaveConfigSecretAsync(
+        KeyVaultConfigSecretKind kind,
+        string logicalName,
+        string value,
+        CancellationToken ct,
+        IReadOnlyList<KeyVaultSecretSummary>? existingSecrets = null)
+    {
+        existingSecrets ??= await _keyVaultStore.ListSecretsAsync(ct);
+        var targetKey = KeyVaultConfigNaming.ResolveWriteSecretKey(existingSecrets, kind, logicalName);
+        var aliases = KeyVaultConfigNaming.FindEquivalentSecrets(existingSecrets, kind, logicalName)
+            .Where(secret => !string.Equals(secret.Key, targetKey, StringComparison.Ordinal))
+            .Select(secret => secret.Key)
+            .Distinct(StringComparer.Ordinal)
+            .ToArray();
+
+        await _keyVaultStore.SaveSecretValueAsync(targetKey, value, ct);
+        foreach (var alias in aliases)
+            await _keyVaultStore.DeleteSecretAsync(alias, ct);
+
+        return targetKey;
+    }
+
+    internal async Task<bool> DeleteConfigSecretsAsync(
+        KeyVaultConfigSecretKind kind,
+        string logicalName,
+        CancellationToken ct)
+    {
+        var secrets = await _keyVaultStore.ListSecretsAsync(ct);
+        var keys = KeyVaultConfigNaming.FindEquivalentSecrets(secrets, kind, logicalName)
+            .Select(secret => secret.Key)
+            .Distinct(StringComparer.Ordinal)
+            .ToArray();
+        var deleted = false;
+        foreach (var key in keys)
+            deleted |= await _keyVaultStore.DeleteSecretAsync(key, ct);
+
+        return deleted;
     }
 
     private sealed record ProviderDefaults(string Url, string Model, IReadOnlyList<string> AuthModes);
@@ -3857,6 +3882,7 @@ public sealed class ConfigureProvidersService
                 Provider    = provider,
                 Model       = string.IsNullOrWhiteSpace(model) ? "gpt-4o-mini" : model,
                 Prompt      = "Reply with the single word: ok",
+                MaxTokens   = 64,
             }, ct);
         }
         catch (Exception ex)

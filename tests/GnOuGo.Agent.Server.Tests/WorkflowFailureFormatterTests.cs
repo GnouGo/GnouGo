@@ -7,6 +7,40 @@ namespace GnOuGo.Agent.Server.Tests;
 public sealed class WorkflowFailureFormatterTests
 {
     [Fact]
+    public void Format_RendersOnlySanitizedLlmRecoveryDiagnostics()
+    {
+        var error = new WorkflowError
+        {
+            Code = ErrorCodes.LlmNetwork,
+            Message = "The LLM provider temporarily rate-limited the request.",
+            Details = new JsonObject
+            {
+                ["classification"] = "rate_limited",
+                ["status_code"] = 429,
+                ["attempt_count"] = 4,
+                ["retry_exhausted"] = true,
+                ["retry_after_ms"] = 5_000,
+                ["provider_code"] = "rate_limit_exceeded",
+                ["recommended_action"] = "retry",
+                ["endpoint"] = "https://secret.example/responses",
+                ["response_body"] = "private provider body"
+            }
+        };
+
+        var presentation = WorkflowFailureFormatter.Format(error);
+
+        Assert.Contains("LLM provider request outcome", presentation.UserMessage, StringComparison.Ordinal);
+        Assert.Contains("Classification: rate_limited", presentation.UserMessage, StringComparison.Ordinal);
+        Assert.Contains("HTTP status: 429", presentation.UserMessage, StringComparison.Ordinal);
+        Assert.Contains("Attempts: 4", presentation.UserMessage, StringComparison.Ordinal);
+        Assert.Contains("Retry exhausted: yes", presentation.UserMessage, StringComparison.Ordinal);
+        Assert.Contains("Accepted Retry-After: 5000 ms", presentation.UserMessage, StringComparison.Ordinal);
+        Assert.Contains("Provider code: rate_limit_exceeded", presentation.UserMessage, StringComparison.Ordinal);
+        Assert.DoesNotContain("secret.example", presentation.UserMessage, StringComparison.Ordinal);
+        Assert.DoesNotContain("private provider body", presentation.UserMessage, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void Format_ListsUnavailableOperationsAndDiscoveryFailures()
     {
         var error = new WorkflowError
@@ -32,8 +66,30 @@ public sealed class WorkflowFailureFormatterTests
         Assert.Contains(ErrorCodes.CapabilityPreflightUnavailable, presentation.UserMessage, StringComparison.Ordinal);
         Assert.Contains("archive_record: Archive a record in durable storage.", presentation.UserMessage, StringComparison.Ordinal);
         Assert.Contains("inventory-service", presentation.UserMessage, StringComparison.Ordinal);
+        Assert.Contains("Restore the failed MCP server's startup, connectivity, or configuration", presentation.UserMessage, StringComparison.Ordinal);
         Assert.Contains("Configure a matching discovered capability", presentation.UserMessage, StringComparison.Ordinal);
         Assert.Equal(1, presentation.UnavailableCapabilityCount);
+        Assert.Equal(1, presentation.UnavailableServerCount);
+    }
+
+    [Fact]
+    public void Format_DiscoveryFailureUsesCatalogRecoveryGuidanceOnly()
+    {
+        var error = new WorkflowError
+        {
+            Code = ErrorCodes.CapabilityPreflightDiscoveryFailed,
+            Message = "Capability discovery failed.",
+            Details = new JsonObject
+            {
+                ["unavailable_servers"] = new JsonArray("inventory-service")
+            }
+        };
+
+        var presentation = WorkflowFailureFormatter.Format(error);
+
+        Assert.Contains("Restore the failed MCP server's startup, connectivity, or configuration", presentation.UserMessage, StringComparison.Ordinal);
+        Assert.DoesNotContain("Configure a matching discovered capability", presentation.UserMessage, StringComparison.Ordinal);
+        Assert.Equal(0, presentation.UnavailableCapabilityCount);
         Assert.Equal(1, presentation.UnavailableServerCount);
     }
 
@@ -172,6 +228,71 @@ public sealed class WorkflowFailureFormatterTests
     }
 
     [Fact]
+    public void Format_ExplainsInventoryModelContractFailureWithoutRequestingIntentClarification()
+    {
+        var error = new WorkflowError
+        {
+            Code = ErrorCodes.CapabilityPreflightInferenceFailed,
+            Message = "Capability inventory inference violated its deterministic evidence contract after one repair attempt.",
+            Details = new JsonObject
+            {
+                ["classification"] = "model_contract_violation",
+                ["recommended_action"] = "retry_or_change_planning_model",
+                ["contract_issues"] = new JsonArray(new JsonObject
+                {
+                    ["code"] = "excerpt_not_found",
+                    ["operation_id"] = "op_analyze",
+                    ["field"] = "coverage_requirements",
+                    ["source_id"] = "clarification_0001",
+                    ["evidence_id"] = "evidence_123"
+                })
+            }
+        };
+
+        var presentation = WorkflowFailureFormatter.Format(error);
+
+        Assert.Contains("Capability inventory evidence contract issues", presentation.UserMessage, StringComparison.Ordinal);
+        Assert.Contains("excerpt_not_found: op_analyze/coverage_requirements", presentation.UserMessage, StringComparison.Ordinal);
+        Assert.Contains("does not need clarification", presentation.UserMessage, StringComparison.Ordinal);
+        Assert.Contains("select a planning model", presentation.UserMessage, StringComparison.Ordinal);
+        Assert.DoesNotContain("Clarify the requested runtime behavior", presentation.UserMessage, StringComparison.Ordinal);
+        Assert.Equal(1, presentation.InferenceReasonCount);
+    }
+
+    [Fact]
+    public void Format_ExplainsCoverageReviewContractFailureWithGroundingIds()
+    {
+        var error = new WorkflowError
+        {
+            Code = ErrorCodes.CapabilityPreflightInferenceFailed,
+            Message = "Capability coverage review remained invalid after one bounded repair attempt.",
+            Details = new JsonObject
+            {
+                ["phase"] = "capability_coverage_review",
+                ["classification"] = "model_contract_violation",
+                ["recommended_action"] = "retry_or_change_planning_model",
+                ["contract_issues"] = new JsonArray(new JsonObject
+                {
+                    ["code"] = "evidence_excerpt_not_found",
+                    ["operation_id"] = "op_publish",
+                    ["field"] = "evidence",
+                    ["catalog_id"] = "cap_000123",
+                    ["requirement_id"] = "evidence_456"
+                })
+            }
+        };
+
+        var presentation = WorkflowFailureFormatter.Format(error);
+
+        Assert.Contains("Capability coverage review contract issues", presentation.UserMessage, StringComparison.Ordinal);
+        Assert.Contains("evidence_excerpt_not_found: op_publish/evidence", presentation.UserMessage, StringComparison.Ordinal);
+        Assert.Contains("catalog cap_000123", presentation.UserMessage, StringComparison.Ordinal);
+        Assert.Contains("requirement evidence_456", presentation.UserMessage, StringComparison.Ordinal);
+        Assert.Contains("does not need clarification", presentation.UserMessage, StringComparison.Ordinal);
+        Assert.Equal(1, presentation.InferenceReasonCount);
+    }
+
+    [Fact]
     public void Format_RedactsSensitiveIncompleteReasonValues()
     {
         var error = new WorkflowError
@@ -240,7 +361,76 @@ public sealed class WorkflowFailureFormatterTests
         Assert.Contains("read_feedback [ambiguous]", presentation.UserMessage, StringComparison.Ordinal);
         Assert.Contains("cap_000123: feedback/feedback_read (tool)", presentation.UserMessage, StringComparison.Ordinal);
         Assert.Contains("/method=\"list_threads\"", presentation.UserMessage, StringComparison.Ordinal);
+        Assert.Contains("Clarify the observable behavior", presentation.UserMessage, StringComparison.Ordinal);
         Assert.Equal(1, presentation.MatchingIssueCount);
+    }
+
+    [Fact]
+    public void Format_DoesNotSendMalformedCapabilityMatchingToIntentClarification()
+    {
+        var error = new WorkflowError
+        {
+            Code = ErrorCodes.CapabilityPreflightInferenceFailed,
+            Message = "Capability matching remained invalid after one bounded repair attempt.",
+            Details = new JsonObject
+            {
+                ["planning_outcome"] = "cannot_plan_safely",
+                ["classification"] = "model_contract_violation",
+                ["recommended_action"] = "retry_or_change_planning_model",
+                ["matching_issues"] = new JsonArray
+                {
+                    new JsonObject
+                    {
+                        ["operation_id"] = "cleanup",
+                        ["description"] = "Clean up temporary resources.",
+                        ["status"] = "invalid",
+                        ["reason"] = "The selected capability cardinality is inconsistent.",
+                        ["reason_code"] = "matching_cardinality_invalid"
+                    }
+                }
+            }
+        };
+
+        var presentation = WorkflowFailureFormatter.Format(error);
+
+        Assert.Contains("Classification: model_contract_violation", presentation.UserMessage, StringComparison.Ordinal);
+        Assert.Contains("Diagnostic: matching_cardinality_invalid", presentation.UserMessage, StringComparison.Ordinal);
+        Assert.Contains("request itself does not need clarification", presentation.UserMessage, StringComparison.Ordinal);
+        Assert.Contains("select a planning model", presentation.UserMessage, StringComparison.Ordinal);
+        Assert.DoesNotContain("Clarify the observable behavior", presentation.UserMessage, StringComparison.Ordinal);
+        Assert.Equal(1, presentation.MatchingIssueCount);
+    }
+
+    [Fact]
+    public void Format_DistinguishesTerminalDecisionGapAfterBehavioralRelaxationWasPreserved()
+    {
+        var error = new WorkflowError
+        {
+            Code = ErrorCodes.CapabilityPreflightUnavailable,
+            Message = "A conditional external write has no safe runtime decision contract.",
+            Details = new JsonObject
+            {
+                ["planning_outcome"] = "unsupported",
+                ["clarification_rounds"] = 1,
+                ["clarification_questions"] = 1,
+                ["matching_issues"] = new JsonArray(new JsonObject
+                {
+                    ["operation_id"] = "publish_result",
+                    ["description"] = "Publish one selected runtime result.",
+                    ["status"] = "contract_gap",
+                    ["reason"] = "No safe provider-neutral decision contract is available.",
+                    ["reason_code"] = "conditional_decision_source_ambiguous"
+                })
+            }
+        };
+
+        var presentation = WorkflowFailureFormatter.Format(error);
+
+        Assert.Contains("Terminal capability failure", presentation.UserMessage, StringComparison.Ordinal);
+        Assert.Contains("Submitted clarification forms: 1", presentation.UserMessage, StringComparison.Ordinal);
+        Assert.Contains("Submitted clarification questions: 1", presentation.UserMessage, StringComparison.Ordinal);
+        Assert.Contains("Automatic contract repair was exhausted", presentation.UserMessage, StringComparison.Ordinal);
+        Assert.Contains("planning stopped before generation and persistence", presentation.UserMessage, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -262,5 +452,32 @@ public sealed class WorkflowFailureFormatterTests
         Assert.Contains("Capability inference contract failure", presentation.UserMessage, StringComparison.Ordinal);
         Assert.Contains("Phase: capability_matching_parse", presentation.UserMessage, StringComparison.Ordinal);
         Assert.Contains("operation_matches was missing", presentation.UserMessage, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Format_ExplainsCannotPlanSafelyWithoutExposingAnswers()
+    {
+        var error = new WorkflowError
+        {
+            Code = ErrorCodes.WorkflowPlanCannotPlanSafely,
+            Message = "The request remains ambiguous.",
+            Details = new JsonObject
+            {
+                ["planning_outcome"] = "cannot_plan_safely",
+                ["clarification_stage"] = "capability_matching",
+                ["clarification_rounds"] = 2,
+                ["clarification_questions"] = 8,
+                ["reason"] = "Two mutually exclusive design-time outcomes remain required.",
+                ["recommended_action"] = "refine_request_or_abandon"
+            }
+        };
+
+        var presentation = WorkflowFailureFormatter.Format(error);
+
+        Assert.Contains("Intent clarification outcome", presentation.UserMessage, StringComparison.Ordinal);
+        Assert.Contains("Outcome: cannot_plan_safely", presentation.UserMessage, StringComparison.Ordinal);
+        Assert.Contains("Stage: capability_matching", presentation.UserMessage, StringComparison.Ordinal);
+        Assert.Contains("Two mutually exclusive", presentation.UserMessage, StringComparison.Ordinal);
+        Assert.DoesNotContain("clarification_answers", presentation.UserMessage, StringComparison.Ordinal);
     }
 }

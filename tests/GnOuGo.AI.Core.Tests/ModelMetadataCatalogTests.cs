@@ -334,6 +334,82 @@ public sealed class ModelMetadataCatalogTests
     }
 
     [Fact]
+    public void Sanitize_OmitsUnspecifiedOutputLimitEvenWhenModelCeilingIsLarge()
+    {
+        var metadata = new LLMModelMetadata
+        {
+            Id = "large-output-model",
+            MaxOutputTokens = 128_000
+        };
+
+        var sanitized = LLMRequestSanitizer.Sanitize(
+            new LLMClientRequest { Prompt = "test" },
+            metadata,
+            new LLMProviderRequestPolicyOptions());
+        var payload = ChatRequestBuilder.OpenAiFull(
+            "large-output-model",
+            sanitized.Prompt,
+            sanitized.Temperature,
+            tools: null,
+            sanitized.StructuredOutputSchema,
+            sanitized.StructuredOutputStrict,
+            sanitized.Reasoning,
+            sanitized.MaxOutputTokens);
+
+        using var json = System.Text.Json.JsonDocument.Parse(payload);
+        Assert.Null(sanitized.MaxOutputTokens);
+        Assert.False(json.RootElement.TryGetProperty("max_completion_tokens", out _));
+    }
+
+    [Fact]
+    public void Sanitize_PreservesExplicitLimitAndClampsToProviderAndModelCeilings()
+    {
+        var metadata = new LLMModelMetadata
+        {
+            Id = "bounded-model",
+            MaxOutputTokens = 8_000
+        };
+        var policy = new LLMProviderRequestPolicyOptions { MaxOutputTokensCap = 6_000 };
+
+        var preserved = LLMRequestSanitizer.Sanitize(
+            new LLMClientRequest { Prompt = "test", MaxOutputTokens = 4_096 },
+            metadata,
+            policy);
+        var clamped = LLMRequestSanitizer.Sanitize(
+            new LLMClientRequest { Prompt = "test", MaxOutputTokens = 12_000 },
+            metadata,
+            policy);
+
+        Assert.Equal(4_096, preserved.MaxOutputTokens);
+        Assert.Equal(6_000, clamped.MaxOutputTokens);
+    }
+
+    [Fact]
+    public void Sanitize_LegacyModelMaximumAndConfiguredDefaultRemainExplicitOptIns()
+    {
+        var metadata = new LLMModelMetadata { Id = "model", MaxOutputTokens = 128_000 };
+
+        var legacy = LLMRequestSanitizer.Sanitize(
+            new LLMClientRequest { Prompt = "test" },
+            metadata,
+            new LLMProviderRequestPolicyOptions
+            {
+                UnspecifiedOutputTokens = LLMUnspecifiedOutputTokensMode.ModelMaximum
+            });
+        var configured = LLMRequestSanitizer.Sanitize(
+            new LLMClientRequest { Prompt = "test" },
+            metadata,
+            new LLMProviderRequestPolicyOptions
+            {
+                UnspecifiedOutputTokens = LLMUnspecifiedOutputTokensMode.Configured,
+                DefaultMaxOutputTokens = 4_096
+            });
+
+        Assert.Equal(128_000, legacy.MaxOutputTokens);
+        Assert.Equal(4_096, configured.MaxOutputTokens);
+    }
+
+    [Fact]
     public void Resolve_DoesNotTreatNonProviderSlashPrefixAsVendorPrefix()
     {
         var resolver = new LLMModelMetadataResolver(new LLMOptions());

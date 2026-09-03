@@ -13,6 +13,8 @@ public static class McpArtifactContractMetadata
     public const string ArtifactsPropertyName = "artifacts";
     public const int CurrentVersion = 1;
     public const string WorkspaceDirectoryKind = "workspace.directory";
+    public const string RevisionComparisonFilesKind = "revision.comparison.files";
+    public const string SessionHandleKind = "session.handle";
     public const string MaterializeMode = "materialize";
 
     public const string WorkspaceDirectoryProducerProjectRootRelativeJson =

@@ -13,6 +13,7 @@ using GnOuGo.Flow.Core.Compilation;
 using GnOuGo.Flow.Core.Models;
 using GnOuGo.Flow.Core.Parsing;
 using GnOuGo.Flow.Core.Runtime;
+using GnOuGo.Flow.Integrations;
 
 namespace GnOuGo.Agent.Server.Tests;
 
@@ -132,6 +133,8 @@ public sealed class ConfigureAgentsServiceTests
                     ? new JsonObject { ["agent_name"] = " slimfaas " }
                     : request.StepId.EndsWith("input_prompt", StringComparison.Ordinal)
                         ? new JsonObject { ["description"] = "\nExplain SlimFaas\nwith examples.\n" }
+                        : request.StepId.Contains(":intent_clarification:", StringComparison.Ordinal)
+                            ? BuildRecommendedIntentClarificationResponse(request)
                         : request.StepId.EndsWith("review_workflow", StringComparison.Ordinal)
                             ? new JsonObject { ["response"] = "approve" }
                                 : throw new InvalidOperationException($"Unexpected step id: {request.StepId}");
@@ -192,6 +195,8 @@ public sealed class ConfigureAgentsServiceTests
                     ? new JsonObject { ["agent_name"] = "slimfaas" }
                     : request.StepId.EndsWith("input_prompt", StringComparison.Ordinal)
                         ? new JsonObject { ["description"] = "Explain SlimFaas" }
+                        : request.StepId.Contains(":intent_clarification:", StringComparison.Ordinal)
+                            ? BuildRecommendedIntentClarificationResponse(request)
                         : request.StepId.EndsWith("review_workflow", StringComparison.Ordinal)
                             ? new JsonObject { ["response"] = "approve" }
                             : throw new InvalidOperationException($"Unexpected step id: {request.StepId}");
@@ -331,6 +336,8 @@ public sealed class ConfigureAgentsServiceTests
                     ? new JsonObject { ["agent_name"] = "slimfaas" }
                     : request.StepId.EndsWith("input_prompt", StringComparison.Ordinal)
                         ? new JsonObject { ["description"] = "Explain SlimFaas" }
+                        : request.StepId.Contains(":intent_clarification:", StringComparison.Ordinal)
+                            ? BuildRecommendedIntentClarificationResponse(request)
                         : request.StepId.EndsWith("review_workflow", StringComparison.Ordinal)
                             ? new JsonObject { ["response"] = "approve" }
                                 : throw new InvalidOperationException($"Unexpected step id: {request.StepId}");
@@ -969,6 +976,28 @@ public sealed class ConfigureAgentsServiceTests
             humanInput,
             sessions);
 
+    private static JsonObject BuildRecommendedIntentClarificationResponse(HumanInputRequest request)
+    {
+        Assert.True(request.AllowAbandon);
+        var fields = Assert.IsAssignableFrom<IReadOnlyCollection<HumanInputFieldDef>>(request.Fields);
+        Assert.NotEmpty(fields);
+
+        var response = new JsonObject
+        {
+            [HumanInputContract.ActionProperty] = HumanInputContract.ActionSubmit
+        };
+        foreach (var field in fields)
+        {
+            var recommended = Assert.Single(
+                Assert.IsAssignableFrom<IReadOnlyCollection<HumanInputOptionDef>>(field.OptionDefinitions),
+                static option => option.Recommended);
+            Assert.Equal(recommended.Value, field.Default);
+            response[field.Name] = recommended.Value;
+        }
+
+        return response;
+    }
+
     private static ConfigureAgentsService CreateConfigureAgentsServiceForStreaming(
         RecordingLlmClient llm,
         AgentHumanInputProvider humanInput,
@@ -1002,7 +1031,8 @@ public sealed class ConfigureAgentsServiceTests
             runtimeFactory,
             runtimeStore,
             SmartFlowTestFactory.CreateTelemetryHarness().Telemetry,
-            NullLogger<ConfigureAgentsService>.Instance);
+            NullLogger<ConfigureAgentsService>.Instance,
+            exchangeRateProvider: new TestExchangeRateProvider());
     }
 
     private static async Task<(RunResult Result, List<SmartFlowEvent> Events)> ExecuteConfigureAgentsWorkflowByNameAsync(
@@ -1028,6 +1058,8 @@ public sealed class ConfigureAgentsServiceTests
         var engine = new WorkflowEngine
         {
             LLMClient = llm,
+            ModelUsageCostEstimator = new ModelMetadataUsageCostEstimator(),
+            ExchangeRateProvider = new TestExchangeRateProvider(),
             LlmDefaults = new LlmRuntimeDefaults
             {
                 Provider = "openai",
@@ -1040,6 +1072,12 @@ public sealed class ConfigureAgentsServiceTests
             Logger = NullLogger<ConfigureAgentsService>.Instance,
             Limits = new ExecutionLimits { LogStepContent = true }
         };
+
+        if (string.Equals(workflowName, "agent_add", StringComparison.Ordinal))
+        {
+            inputs.TryAdd("planning_budget_amount", 50m);
+            inputs.TryAdd("planning_budget_currency", "EUR");
+        }
 
         var resolvedInputs = WorkflowInputDefaults.Apply(workflow.Source, inputs);
 

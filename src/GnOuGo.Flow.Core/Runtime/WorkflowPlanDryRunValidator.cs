@@ -71,7 +71,11 @@ internal static class WorkflowPlanDryRunValidator
             Limits = new ExecutionLimits
             {
                 MaxTotalStepsExecuted = 250,
-                MaxLoopIterations = 2,
+                // Exercise a representative bounded collection instead of rejecting
+                // ordinary generated fan-out (for example cleanup of several owned
+                // work directories). This remains far below the runtime default and
+                // is also bounded by MaxTotalStepsExecuted.
+                MaxLoopIterations = 10,
                 MaxParallelBranches = 10,
                 MaxCallDepth = 10,
                 RunId = "workflow-plan-dry-run"
@@ -93,6 +97,7 @@ internal static class WorkflowPlanDryRunValidator
                 "before_execution",
                 ex,
                 ex is WorkflowRuntimeException workflowEx ? workflowEx.Details : null);
+            details["sample_inputs"] = inputs.DeepClone();
 
             throw new WorkflowRuntimeException(
                 ErrorCodes.TemplatePlan,
@@ -116,7 +121,7 @@ internal static class WorkflowPlanDryRunValidator
             return;
         }
 
-        if (IsInconclusiveSyntheticInputValidation(code, message, workflow.Source.Inputs?.Keys))
+        if (IsInconclusiveSyntheticInputValidation(code, message, workflow.Source.Inputs))
         {
             logger?.LogWarning(
                 "Generated workflow dry_run could not satisfy a domain-constrained synthetic input: {DryRunErrorMessage}",
@@ -137,11 +142,92 @@ internal static class WorkflowPlanDryRunValidator
             message,
             "execution",
             runtimeDetails: error?.Details);
+        failureDetails["sample_inputs"] = inputs.DeepClone();
+        var failedStepId = error?.Details is JsonObject runtimeDetails
+            ? runtimeDetails["failed_step_id"]?.GetValue<string>()
+            : null;
+        if (!string.IsNullOrWhiteSpace(failedStepId))
+        {
+            failureDetails["selected_container_path"] = BuildStepContainerPath(
+                workflow.Source.Steps,
+                failedStepId!);
+        }
 
         throw new WorkflowRuntimeException(
             ErrorCodes.TemplatePlan,
             $"Generated workflow dry_run failed: [{code}] {message} | repair diagnostics: {WorkflowPlanDiagnostics.ToPromptJson(failureDetails)}",
             details: failureDetails);
+    }
+
+    private static JsonArray BuildStepContainerPath(IReadOnlyList<StepDef> steps, string failedStepId)
+    {
+        var path = new List<JsonObject>();
+        return TryBuildStepContainerPath(steps, failedStepId, path)
+            ? new JsonArray(path.Select(static item => (JsonNode)item).ToArray())
+            : new JsonArray();
+    }
+
+    private static bool TryBuildStepContainerPath(
+        IReadOnlyList<StepDef> steps,
+        string failedStepId,
+        List<JsonObject> path)
+    {
+        foreach (var step in steps)
+        {
+            if (string.Equals(step.Id, failedStepId, StringComparison.Ordinal))
+                return true;
+
+            if (TryDescend(step.Steps, step, "steps", null, failedStepId, path)
+                || TryDescend(step.Default, step, "default", null, failedStepId, path))
+            {
+                return true;
+            }
+
+            if (step.Cases != null)
+            {
+                foreach (var @case in step.Cases)
+                {
+                    if (TryDescend(@case.Steps, step, "case", @case.Value ?? @case.When, failedStepId, path))
+                        return true;
+                }
+            }
+
+            if (step.Branches != null)
+            {
+                foreach (var branch in step.Branches)
+                {
+                    if (TryDescend(branch.Steps, step, "parallel_branch", null, failedStepId, path))
+                        return true;
+                }
+            }
+        }
+
+        return false;
+    }
+
+    private static bool TryDescend(
+        IReadOnlyList<StepDef>? children,
+        StepDef container,
+        string branchKind,
+        string? branchValue,
+        string failedStepId,
+        List<JsonObject> path)
+    {
+        if (children == null || children.Count == 0)
+            return false;
+
+        path.Add(new JsonObject
+        {
+            ["step_id"] = container.Id,
+            ["step_type"] = container.Type,
+            ["branch_kind"] = branchKind,
+            ["branch_value"] = branchValue,
+            ["source_expression"] = container.Expr
+        });
+        if (TryBuildStepContainerPath(children, failedStepId, path))
+            return true;
+        path.RemoveAt(path.Count - 1);
+        return false;
     }
 
     private static bool IsInconclusiveInternalError(string code) =>
@@ -150,11 +236,11 @@ internal static class WorkflowPlanDryRunValidator
     private static bool IsInconclusiveSyntheticInputValidation(
         string code,
         string message,
-        IEnumerable<string>? inputNames)
+        IReadOnlyDictionary<string, InputDef>? inputs)
     {
         if (!string.Equals(code, ErrorCodes.ScriptError, StringComparison.Ordinal)
             || string.IsNullOrWhiteSpace(message)
-            || inputNames is null)
+            || inputs is null)
         {
             return false;
         }
@@ -166,11 +252,35 @@ internal static class WorkflowPlanDryRunValidator
         if (!describesValidation)
             return false;
 
-        return inputNames.Any(name => !string.IsNullOrWhiteSpace(name)
-                                      && System.Text.RegularExpressions.Regex.IsMatch(
-                                          message,
-                                          BuildInputNameDiagnosticPattern(name),
-                                          System.Text.RegularExpressions.RegexOptions.IgnoreCase | System.Text.RegularExpressions.RegexOptions.CultureInvariant));
+        return inputs.Any(input => InputDiagnosticReferencesSyntheticValue(message, input.Key, input.Value));
+    }
+
+    private static bool InputDiagnosticReferencesSyntheticValue(string message, string inputName, InputDef definition)
+    {
+        if (string.IsNullOrWhiteSpace(inputName))
+            return false;
+        if (System.Text.RegularExpressions.Regex.IsMatch(
+                message,
+                BuildInputNameDiagnosticPattern(inputName),
+                System.Text.RegularExpressions.RegexOptions.IgnoreCase | System.Text.RegularExpressions.RegexOptions.CultureInvariant))
+        {
+            return true;
+        }
+
+        var semanticTypes = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+        {
+            "url", "email", "date", "file", "directory", "json", "yaml", "markdown"
+        };
+        var declaredType = definition.Type?.Trim();
+        if (!string.IsNullOrWhiteSpace(declaredType) && semanticTypes.Contains(declaredType))
+            return System.Text.RegularExpressions.Regex.IsMatch(message, $@"\b{System.Text.RegularExpressions.Regex.Escape(declaredType)}\b", System.Text.RegularExpressions.RegexOptions.IgnoreCase | System.Text.RegularExpressions.RegexOptions.CultureInvariant);
+
+        var terminalNameToken = System.Text.RegularExpressions.Regex
+            .Split(inputName, @"[_\-\s]+")
+            .LastOrDefault(static token => !string.IsNullOrWhiteSpace(token));
+        return terminalNameToken is not null
+               && semanticTypes.Contains(terminalNameToken)
+               && System.Text.RegularExpressions.Regex.IsMatch(message, $@"\b{System.Text.RegularExpressions.Regex.Escape(terminalNameToken)}\b", System.Text.RegularExpressions.RegexOptions.IgnoreCase | System.Text.RegularExpressions.RegexOptions.CultureInvariant);
     }
 
     private static string BuildInputNameDiagnosticPattern(string inputName)
@@ -183,9 +293,9 @@ internal static class WorkflowPlanDryRunValidator
         if (words.Length == 0)
             return "(?!)";
 
-        // Generated validators commonly turn snake_case input names into labels such
-        // as "pull-request URL". Treat those equivalent spellings as references to
-        // the synthetic input while retaining word boundaries.
+        // Generated validators commonly turn snake_case input names into humanized
+        // labels. Treat equivalent separators as references to the synthetic input
+        // while retaining word boundaries.
         return $@"(?<![A-Za-z0-9_]){string.Join(@"[\s_-]+", words)}(?![A-Za-z0-9_])";
     }
 
@@ -301,12 +411,12 @@ internal static class WorkflowPlanDryRunValidator
             return sample;
 
         foreach (var (name, def) in inputs)
-            sample[name] = CreateSampleFromInputDef(def);
+            sample[name] = CreateSampleFromInputDef(def, name);
 
         return sample;
     }
 
-    private static JsonNode? CreateSampleFromInputDef(InputDef? def)
+    private static JsonNode? CreateSampleFromInputDef(InputDef? def, string? semanticName = null)
     {
         if (def == null)
             return JsonValue.Create("dry-run");
@@ -314,17 +424,33 @@ internal static class WorkflowPlanDryRunValidator
         if (def.Default != null)
             return InputDefaultValueConverter.ConvertToNode(def.Default, def);
 
+        if (def.Enum is { Count: > 0 })
+            return JsonValue.Create(def.Enum[0]);
+
         return (def.Type ?? "any").Trim().ToLowerInvariant() switch
         {
             "string" or "text" or "markdown" or "yaml" or "json" or "url" or "email" or "date" or "file" or "directory"
-                => JsonValue.Create("dry-run"),
+                => CreateSemanticStringSample(def),
             "integer" => JsonValue.Create(1),
             "number" => JsonValue.Create(1.25),
             "boolean" or "bool" => JsonValue.Create(true),
-            "array" => new JsonArray(CreateSampleFromInputDef(def.Items)),
+            "array" => new JsonArray(CreateSampleFromInputDef(def.Items, semanticName)),
             "object" => CreateSampleObjectFromInputDef(def),
-            "dictionary" => new JsonObject { ["key"] = CreateSampleFromInputDef(def.AdditionalProperties) },
+            "dictionary" => new JsonObject { ["key"] = CreateSampleFromInputDef(def.AdditionalProperties, "key") },
             _ => JsonValue.Create("dry-run")
+        };
+    }
+
+    private static JsonNode CreateSemanticStringSample(InputDef def)
+    {
+        var type = (def.Type ?? "string").Trim().ToLowerInvariant();
+        return type switch
+        {
+            "url" => JsonValue.Create("https://example.invalid/dry-run")!,
+            "email" => JsonValue.Create("dry-run@example.invalid")!,
+            "date" => JsonValue.Create("2000-01-01")!,
+            "json" => JsonValue.Create("{}")!,
+            _ => JsonValue.Create("dry-run")!
         };
     }
 
@@ -335,7 +461,7 @@ internal static class WorkflowPlanDryRunValidator
             return obj;
 
         foreach (var (name, propertyDef) in def.Properties)
-            obj[name] = CreateSampleFromInputDef(propertyDef);
+            obj[name] = CreateSampleFromInputDef(propertyDef, name);
 
         return obj;
     }

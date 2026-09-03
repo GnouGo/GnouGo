@@ -18,6 +18,75 @@ internal static class WorkflowFailureFormatter
             builder.Append('[').Append(error.Code.Trim()).Append("] ");
         builder.AppendLine(string.IsNullOrWhiteSpace(error.Message) ? "Workflow execution failed." : error.Message.Trim());
 
+        if (error.Code is ErrorCodes.LlmNetwork or ErrorCodes.LlmTimeout or ErrorCodes.LlmProvider)
+        {
+            var classification = ReadBoundedStringDeep(error.Details, "classification", 80);
+            var statusCode = ReadIntDeep(error.Details, "status_code");
+            var attemptCount = ReadIntDeep(error.Details, "attempt_count");
+            var retryExhausted = ReadBoolDeep(error.Details, "retry_exhausted");
+            var retryAfterMilliseconds = ReadIntDeep(error.Details, "retry_after_ms");
+            var providerCode = ReadBoundedStringDeep(error.Details, "provider_code", 120);
+            var recommendedAction = ReadBoundedStringDeep(error.Details, "recommended_action", 120);
+
+            builder.AppendLine().AppendLine("LLM provider request outcome:");
+            if (!string.IsNullOrWhiteSpace(classification))
+                builder.Append("- Classification: ").AppendLine(Sanitize(classification, 80));
+            if (statusCode != null)
+                builder.Append("- HTTP status: ").AppendLine(statusCode.Value.ToString(System.Globalization.CultureInfo.InvariantCulture));
+            if (attemptCount != null)
+                builder.Append("- Attempts: ").AppendLine(attemptCount.Value.ToString(System.Globalization.CultureInfo.InvariantCulture));
+            if (retryExhausted != null)
+                builder.Append("- Retry exhausted: ").AppendLine(retryExhausted.Value ? "yes" : "no");
+            if (retryAfterMilliseconds != null)
+            {
+                builder.Append("- Accepted Retry-After: ")
+                    .Append(retryAfterMilliseconds.Value.ToString(System.Globalization.CultureInfo.InvariantCulture))
+                    .AppendLine(" ms");
+            }
+            if (!string.IsNullOrWhiteSpace(providerCode))
+                builder.Append("- Provider code: ").AppendLine(Sanitize(providerCode, 120));
+            if (!string.IsNullOrWhiteSpace(recommendedAction))
+                builder.Append("- Recommended action: ").AppendLine(Sanitize(recommendedAction, 120));
+        }
+
+        var planningOutcome = ReadBoundedStringDeep(error.Details, "planning_outcome", 80);
+        if (!string.IsNullOrWhiteSpace(planningOutcome)
+            && (error.Code == ErrorCodes.WorkflowPlanClarificationFailed
+                || error.Code == ErrorCodes.WorkflowPlanCannotPlanSafely
+                || error.Code == ErrorCodes.WorkflowPlanAborted
+                || error.Code == ErrorCodes.CapabilityPreflightInferenceFailed
+                || error.Code == ErrorCodes.CapabilityPreflightUnavailable))
+        {
+            var stage = ReadBoundedStringDeep(error.Details, "clarification_stage", 120);
+            var classification = ReadBoundedStringDeep(error.Details, "classification", 160);
+            var reason = ReadBoundedStringDeep(error.Details, "reason", 2_000);
+            var recommendedAction = ReadBoundedStringDeep(error.Details, "recommended_action", 160);
+            var clarificationRounds = ReadIntDeep(error.Details, "clarification_rounds");
+            var clarificationQuestions = ReadIntDeep(error.Details, "clarification_questions");
+            builder.AppendLine().AppendLine(error.Code switch
+            {
+                ErrorCodes.CapabilityPreflightUnavailable => "Terminal capability failure:",
+                ErrorCodes.CapabilityPreflightInferenceFailed => "Automatic capability-contract repair outcome:",
+                _ => "Intent clarification outcome:"
+            });
+            builder.Append("- Outcome: ").AppendLine(Sanitize(planningOutcome, 80));
+            if (!string.IsNullOrWhiteSpace(stage))
+                builder.Append("- Stage: ").AppendLine(Sanitize(stage, 120));
+            if (!string.IsNullOrWhiteSpace(classification))
+                builder.Append("- Classification: ").AppendLine(Sanitize(classification, 160));
+            if (!string.IsNullOrWhiteSpace(reason))
+                builder.Append("- Reason: ").AppendLine(Sanitize(reason, 2_000));
+            if (clarificationRounds != null)
+                builder.Append("- Submitted clarification forms: ").AppendLine(clarificationRounds.Value.ToString(System.Globalization.CultureInfo.InvariantCulture));
+            if (clarificationQuestions != null)
+                builder.Append("- Submitted clarification questions: ").AppendLine(clarificationQuestions.Value.ToString(System.Globalization.CultureInfo.InvariantCulture));
+            if (!string.IsNullOrWhiteSpace(recommendedAction)
+                && !string.Equals(recommendedAction, "none", StringComparison.Ordinal))
+            {
+                builder.Append("- Recommended action: ").AppendLine(Sanitize(recommendedAction, 160));
+            }
+        }
+
         var unavailable = ReadObjectArrayDeep(error.Details, "unavailable_capabilities");
         if (unavailable.Count > 0)
         {
@@ -38,7 +107,13 @@ internal static class WorkflowFailureFormatter
                 builder.Append("- ").AppendLine(server);
         }
 
-        if (unavailable.Count > 0 || servers.Count > 0)
+        if (servers.Count > 0)
+        {
+            builder.AppendLine()
+                .Append("Restore the failed MCP server's startup, connectivity, or configuration, or remove it from the configured catalog before retrying.");
+        }
+
+        if (unavailable.Count > 0)
         {
             builder.AppendLine()
                 .Append("Configure a matching discovered capability, alter the requirement, or mark the operation optional before retrying.");
@@ -59,9 +134,54 @@ internal static class WorkflowFailureFormatter
                 .Append("Clarify the requested runtime behavior described above and retry. Tool availability and exact capability matching are evaluated separately.");
         }
 
+        var contractIssues = ReadObjectArrayDeep(error.Details, "contract_issues");
+        if (contractIssues.Count > 0)
+        {
+            var contractPhase = ReadBoundedStringDeep(error.Details, "phase", 160);
+            builder.AppendLine().AppendLine(string.Equals(
+                contractPhase,
+                "capability_coverage_review",
+                StringComparison.Ordinal)
+                ? "Capability coverage review contract issues:"
+                : "Capability inventory evidence contract issues:");
+            foreach (var issue in contractIssues)
+            {
+                var code = Sanitize(ReadBoundedString(issue, "code", 160) ?? "inventory_contract_invalid", 160);
+                var operationId = Sanitize(ReadBoundedString(issue, "operation_id", 160) ?? "inventory", 160);
+                var field = Sanitize(ReadBoundedString(issue, "field", 240) ?? "$", 240);
+                var sourceId = Sanitize(ReadBoundedString(issue, "source_id", 160) ?? string.Empty, 160);
+                var catalogId = Sanitize(ReadBoundedString(issue, "catalog_id", 160) ?? string.Empty, 160);
+                var requirementId = Sanitize(ReadBoundedString(issue, "requirement_id", 160) ?? string.Empty, 160);
+                builder.Append("- ").Append(code).Append(": ").Append(operationId).Append('/').Append(field);
+                if (!string.IsNullOrWhiteSpace(sourceId))
+                    builder.Append(" (source ").Append(sourceId).Append(')');
+                if (!string.IsNullOrWhiteSpace(catalogId))
+                    builder.Append(" (catalog ").Append(catalogId).Append(')');
+                if (!string.IsNullOrWhiteSpace(requirementId))
+                    builder.Append(" (requirement ").Append(requirementId).Append(')');
+                builder.AppendLine();
+            }
+
+            builder.AppendLine()
+                .Append("The request itself does not need clarification for this failure. Retry planning or select a planning model that can satisfy the structured evidence contract.");
+        }
+
         var matchingIssues = ReadObjectArrayDeep(error.Details, "matching_issues");
         if (matchingIssues.Count > 0)
         {
+            var matchingClassification = ReadBoundedStringDeep(error.Details, "classification", 160);
+            var containsInvalidMatch = matchingIssues.Any(static issue => string.Equals(
+                ReadBoundedString(issue, "status", 40),
+                "invalid",
+                StringComparison.Ordinal));
+            var onlyAmbiguousMatches = matchingIssues.All(static issue => string.Equals(
+                ReadBoundedString(issue, "status", 40),
+                "ambiguous",
+                StringComparison.Ordinal));
+            var onlyContractGaps = matchingIssues.All(static issue => string.Equals(
+                ReadBoundedString(issue, "status", 40),
+                "contract_gap",
+                StringComparison.Ordinal));
             builder.AppendLine().AppendLine("Capability matching issues:");
             foreach (var issue in matchingIssues)
             {
@@ -69,8 +189,11 @@ internal static class WorkflowFailureFormatter
                 var status = Sanitize(ReadBoundedString(issue, "status", 40) ?? "unresolved", 40);
                 var description = Sanitize(ReadBoundedString(issue, "description", 1_000) ?? "No description was provided.", 1_000);
                 var reason = Sanitize(ReadBoundedString(issue, "reason", 1_000) ?? "No matching reason was provided.", 1_000);
+                var reasonCode = Sanitize(ReadBoundedString(issue, "reason_code", 160) ?? string.Empty, 160);
                 builder.Append("- ").Append(id).Append(" [").Append(status).Append("]: ").AppendLine(description);
                 builder.Append("  Reason: ").AppendLine(reason);
+                if (!string.IsNullOrWhiteSpace(reasonCode))
+                    builder.Append("  Diagnostic: ").AppendLine(reasonCode);
 
                 var candidates = ReadObjectArray(issue, "candidate_capabilities").Take(8).ToArray();
                 if (candidates.Length == 0)
@@ -91,8 +214,26 @@ internal static class WorkflowFailureFormatter
                     builder.AppendLine();
                 }
             }
-            builder.AppendLine()
-                .Append("Resolve the reported ambiguity by configuring a more specific capability contract or clarifying the runtime intention; catalog IDs and selector values above are the exact discovered candidates.");
+            builder.AppendLine();
+            if (containsInvalidMatch || string.Equals(
+                    matchingClassification,
+                    "model_contract_violation",
+                    StringComparison.Ordinal))
+            {
+                builder.Append("The request itself does not need clarification for this failure. Retry planning or select a planning model that can satisfy the capability matching contract.");
+            }
+            else if (onlyAmbiguousMatches)
+            {
+                builder.Append("Clarify the observable behavior, scope, or runtime policy that distinguishes the remaining capability choices.");
+            }
+            else if (onlyContractGaps)
+            {
+                builder.Append("Automatic contract repair was exhausted. A safe behavior-only relaxation was unavailable, declined, or outside the remaining clarification budget; planning stopped before generation and persistence.");
+            }
+            else
+            {
+                builder.Append("Revise the capability contracts or configure the missing compatible capability before retrying.");
+            }
         }
 
         var violatedConstraints = ReadObjectArrayDeep(error.Details, "violated_constraints");
@@ -136,7 +277,7 @@ internal static class WorkflowFailureFormatter
             formatted.Text,
             unavailable.Count,
             servers.Count,
-            inferenceReasons.Count,
+            inferenceReasons.Count + contractIssues.Count,
             matchingIssues.Count,
             violatedConstraints.Count);
     }
@@ -187,6 +328,34 @@ internal static class WorkflowFailureFormatter
         {
             if (scope is JsonObject obj && ReadBoundedString(obj, property, limit) is { } value)
                 return value;
+        }
+        return null;
+    }
+
+    private static int? ReadIntDeep(JsonNode? details, string property)
+    {
+        foreach (var scope in EnumerateDiagnosticScopes(details))
+        {
+            if (scope is JsonObject obj
+                && obj[property] is JsonValue value
+                && value.TryGetValue<int>(out var result))
+            {
+                return result;
+            }
+        }
+        return null;
+    }
+
+    private static bool? ReadBoolDeep(JsonNode? details, string property)
+    {
+        foreach (var scope in EnumerateDiagnosticScopes(details))
+        {
+            if (scope is JsonObject obj
+                && obj[property] is JsonValue value
+                && value.TryGetValue<bool>(out var result))
+            {
+                return result;
+            }
         }
         return null;
     }

@@ -43,6 +43,10 @@ public static class BuiltInStepContracts
                 Object(("results", Array(Any())), ("count", Integer())),
                 inputRequired: true),
             ["switch"] = Contract(ClosedObject(), OpenObject()),
+            ["decision.evaluate"] = Contract(
+                Object(new[] { "decisions" }, ("decisions", OpenObject())),
+                OpenObject(),
+                inputRequired: true),
             ["set"] = Contract(OpenObject(), OpenObject(), inputRequired: true),
             ["assert.non_null"] = Contract(OpenObject(), OpenObject(), inputRequired: true),
             ["template.render"] = Contract(
@@ -179,8 +183,27 @@ public static class BuiltInStepContracts
         ("workflow_name", String()),
         ("document_name", String()),
         ("description", String()),
+        ("intent_clarification", Object(
+            ("mode", Enum("off", "when_needed", "always")),
+            ("timeout_ms", PositiveInteger()),
+            ("max_rounds", PositiveInteger()),
+            ("max_questions", PositiveInteger()),
+            ("max_questions_per_round", PositiveInteger()))),
+        ("llm_budget", Object(
+            ("max_calls", PositiveInteger()),
+            ("max_total_tokens", PositiveInteger()),
+            ("max_elapsed_ms", PositiveInteger()),
+            ("max_estimated_cost", Object(
+                new[] { "amount", "currency" },
+                ("amount", Number()),
+                ("currency", String()))),
+            ("max_estimated_cost_usd", Number()),
+            ("unverifiable", Enum("fail")))),
         ("capability_preflight", Object(
             ("mode", Enum("off", "infer", "explicit")),
+            ("clarification", Object(
+                ("enabled", Boolean()),
+                ("timeout_ms", PositiveInteger()))),
             ("requirements", Array(Object(
                 new[] { "id", "description", "required", "alternatives" },
                 ("id", String()),

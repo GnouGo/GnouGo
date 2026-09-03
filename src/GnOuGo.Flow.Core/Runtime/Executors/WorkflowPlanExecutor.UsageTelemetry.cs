@@ -173,4 +173,36 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
 
         return attrs;
     }
+
+    private static void AddLlmFailureTelemetry(
+        StepExecutionContext ctx,
+        WorkflowRuntimeException failure)
+    {
+        var attributes = new List<KeyValuePair<string, object?>>
+        {
+            new("error.code", failure.Code),
+            new("error.retryable", failure.Retryable)
+        };
+        if (failure.Details is JsonObject details)
+        {
+            foreach (var property in new[]
+                     {
+                         "stage",
+                         "classification",
+                         "retryable",
+                         "status_code",
+                         "attempt_count",
+                         "retry_exhausted",
+                         "retry_after_ms",
+                         "provider_code",
+                         "recommended_action"
+                     })
+            {
+                if (details[property] is JsonValue value)
+                    attributes.Add(new KeyValuePair<string, object?>("gnougo-flow.plan.llm_failure." + property, value.ToJsonString()));
+            }
+        }
+
+        ctx.AddTelemetryEvent("gnougo-flow.plan.llm_failure", attributes);
+    }
 }

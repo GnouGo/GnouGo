@@ -1,5 +1,6 @@
 using System.Text.Json.Nodes;
 using GnOuGo.Flow.Core.Models;
+using YamlDotNet.Core;
 using YamlDotNet.RepresentationModel;
 
 namespace GnOuGo.Flow.Core.Runtime;
@@ -187,6 +188,8 @@ internal static class WorkflowPlanContractNormalizer
             }
         }
 
+        changed |= NormalizeJsonSchemaNullableKeyword(mapping);
+
         if (mapping.Children.TryGetValue(Scalar("properties"), out var propertiesNode)
             && propertiesNode is YamlMappingNode properties)
         {
@@ -253,6 +256,74 @@ internal static class WorkflowPlanContractNormalizer
         }
 
         return mapping;
+    }
+
+    private static bool NormalizeJsonSchemaNullableKeyword(YamlMappingNode schema)
+    {
+        var nullableKey = Scalar("nullable");
+        if (!schema.Children.TryGetValue(nullableKey, out var nullableNode)
+            || nullableNode is not YamlScalarNode nullableScalar
+            || !bool.TryParse(nullableScalar.Value, out var nullable))
+        {
+            return false;
+        }
+
+        schema.Children.Remove(nullableKey);
+        if (!nullable)
+            return true;
+
+        var typeKey = Scalar("type");
+        if (schema.Children.TryGetValue(typeKey, out var typeNode))
+        {
+            if (typeNode is YamlScalarNode typeScalar)
+            {
+                if (!string.Equals(typeScalar.Value, "null", StringComparison.OrdinalIgnoreCase))
+                {
+                    schema.Children[typeKey] = new YamlSequenceNode(
+                        CloneYamlNode(typeScalar),
+                        JsonStringScalar("null"));
+                }
+
+                return true;
+            }
+
+            if (typeNode is YamlSequenceNode typeSequence
+                && !typeSequence.Children.OfType<YamlScalarNode>().Any(static candidate =>
+                    string.Equals(candidate.Value, "null", StringComparison.OrdinalIgnoreCase)))
+            {
+                typeSequence.Add(JsonStringScalar("null"));
+            }
+
+            return true;
+        }
+
+        foreach (var unionKeyword in new[] { "anyOf", "oneOf" })
+        {
+            if (!schema.Children.TryGetValue(Scalar(unionKeyword), out var variantsNode)
+                || variantsNode is not YamlSequenceNode variants)
+            {
+                continue;
+            }
+
+            if (!variants.Children.OfType<YamlMappingNode>().Any(static variant =>
+                    variant.Children.TryGetValue(Scalar("type"), out var variantType)
+                    && variantType is YamlScalarNode variantTypeScalar
+                    && string.Equals(variantTypeScalar.Value, "null", StringComparison.OrdinalIgnoreCase)))
+            {
+                variants.Add(new YamlMappingNode { { Scalar("type"), JsonStringScalar("null") } });
+            }
+
+            return true;
+        }
+
+        var nonNullableSchema = CloneYamlMappingNode(schema);
+        schema.Children.Clear();
+        schema.Add(
+            Scalar("anyOf"),
+            new YamlSequenceNode(
+                nonNullableSchema,
+                new YamlMappingNode { { Scalar("type"), JsonStringScalar("null") } }));
+        return true;
     }
 
     private static bool RenameJsonSchemaKeyword(YamlMappingNode mapping, string workflowName, string jsonName)
@@ -537,7 +608,7 @@ internal static class WorkflowPlanContractNormalizer
         {
             JsonObject obj => JsonObjectToYaml(obj),
             JsonArray array => JsonArrayToYaml(array),
-            JsonValue value when value.TryGetValue<string>(out var s) => Scalar(s),
+            JsonValue value when value.TryGetValue<string>(out var s) => JsonStringScalar(s),
             JsonValue value when value.TryGetValue<bool>(out var b) => Scalar(b ? "true" : "false"),
             JsonValue value when value.TryGetValue<int>(out var i) => Scalar(i.ToString(System.Globalization.CultureInfo.InvariantCulture)),
             JsonValue value when value.TryGetValue<long>(out var l) => Scalar(l.ToString(System.Globalization.CultureInfo.InvariantCulture)),
@@ -546,6 +617,24 @@ internal static class WorkflowPlanContractNormalizer
             null => Scalar(""),
             _ => Scalar(node.ToJsonString())
         };
+    }
+
+    private static YamlScalarNode JsonStringScalar(string value)
+    {
+        var scalar = Scalar(value);
+        if (value is "null" or "~" or "true" or "True" or "false" or "False"
+            || int.TryParse(
+                value,
+                System.Globalization.NumberStyles.Integer,
+                System.Globalization.CultureInfo.InvariantCulture,
+                out _)
+            || double.TryParse(value, System.Globalization.CultureInfo.InvariantCulture, out _))
+        {
+            // Keep JSON strings as strings across the YAML round trip. In particular,
+            // JSON Schema's `type: "null"` must not become a YAML null value.
+            scalar.Style = ScalarStyle.DoubleQuoted;
+        }
+        return scalar;
     }
 
     public static YamlNode CloneYamlNode(YamlNode node)

@@ -76,7 +76,7 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
 
         try
         {
-            var response = await llmClient.CallAsync(new LLMRequest
+            var response = await ctx.CallLLMAsync(llmClient, new LLMRequest
             {
                 Provider = provider,
                 Model = model,
@@ -98,7 +98,7 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
                   }
                 }
                 """)
-            }, ct);
+            }, "workflow.plan.mode_classification", ct);
 
             span.SetAttribute("gen_ai.response.model", model);
             span.SetAttribute("gen_ai.response.finish_reason", "stop");
@@ -133,7 +133,7 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
             span.Fail(ex);
-            if (LlmFailureClassifier.Classify(ex) != null)
+            if (WorkflowPlanDiagnostics.IsNonRepairableLlmFailure(ex))
                 throw;
 
             ctx.Engine.Logger.LogWarning(ex, "workflow.plan auto mode classification failed, falling back to basic mode");

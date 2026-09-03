@@ -2,7 +2,6 @@ using System.Text.Json;
 using System.Text.Json.Nodes;
 using System.Security.Cryptography;
 using System.Text;
-using System.Text.RegularExpressions;
 using GnOuGo.Flow.Core.Compilation;
 using GnOuGo.Flow.Core.Expressions;
 using GnOuGo.Flow.Core.Models;
@@ -170,31 +169,20 @@ internal static class WorkflowPlanDiagnostics
     }
 
     public static bool IsTransientProviderFailure(Exception exception)
+        => LlmFailureClassifier.Classify(exception)?.Retryable == true;
+
+    public static bool IsNonRepairableLlmFailure(Exception exception)
     {
-        for (var current = exception; current != null; current = current.InnerException!)
+        if (LlmFailureClassifier.Classify(exception) != null)
+            return true;
+
+        for (Exception? current = exception; current != null; current = current.InnerException)
         {
-            if (current is HttpRequestException or TimeoutException)
-                return true;
-
-            var message = current.Message;
-            if (message.Contains("server_error", StringComparison.OrdinalIgnoreCase)
-                || message.Contains("temporarily unavailable", StringComparison.OrdinalIgnoreCase)
-                || message.Contains("connection reset", StringComparison.OrdinalIgnoreCase)
-                || message.Contains("routing failed", StringComparison.OrdinalIgnoreCase))
+            if (current is WorkflowRuntimeException runtime
+                && runtime.Code is ErrorCodes.LlmBudgetExceeded or ErrorCodes.LlmBudgetUnverifiable)
             {
                 return true;
             }
-
-            if (Regex.IsMatch(
-                    message,
-                    @"\b(?:HTTP|status|chat\s+call|provider|request|gateway|service)\b.{0,120}\b(?:408|425|429|500|502|503|504)\b|\b(?:408|425|429|500|502|503|504)\b.{0,120}\b(?:server|gateway|service|timeout|request)\b",
-                    RegexOptions.IgnoreCase | RegexOptions.CultureInvariant | RegexOptions.Singleline))
-            {
-                return true;
-            }
-
-            if (current.InnerException == null)
-                break;
         }
 
         return false;
@@ -440,7 +428,7 @@ internal static class WorkflowPlanDiagnostics
         JsonNode? runtimeDetails)
     {
         var diagnosticCode = InferPlanErrorCode(message, code);
-        var hint = BuildDryRunHint(diagnosticCode, message);
+        var hint = BuildDryRunHint(diagnosticCode, message, runtimeDetails);
         var obj = new JsonObject
         {
             ["code"] = diagnosticCode,
@@ -465,7 +453,7 @@ internal static class WorkflowPlanDiagnostics
     {
         var diagnosticCode = InferPlanErrorCode(message, code);
         var hint = exception is WorkflowParseException
-            ? "Fix YAML syntax at the reported line and column before changing workflow logic."
+            ? BuildYamlParseHint(message)
             : "Inspect the message and repair the generated workflow shape or contract that triggered this exception.";
 
         var obj = new JsonObject
@@ -485,6 +473,12 @@ internal static class WorkflowPlanDiagnostics
 
         return obj;
     }
+
+    private static string BuildYamlParseHint(string message)
+        => message.Contains("plain scalar", StringComparison.OrdinalIgnoreCase)
+           || message.Contains("invalid mapping", StringComparison.OrdinalIgnoreCase)
+            ? "Fix YAML syntax at the reported line and column. The marked plain scalar contains mapping-like syntax; quote the complete scalar or replace it with a correctly indented YAML literal block (`|`) while preserving its value."
+            : "Fix YAML syntax at the reported line and column before changing workflow logic.";
 
     private static string BuildLocation(string? workflowName, string? stepId, string? field)
     {
@@ -565,6 +559,13 @@ internal static class WorkflowPlanDiagnostics
             return "Project the source container through deterministic normalization before assignment. Replace nullable nested values with contract-valid defaults when the destination is non-null, or use a compatible nullable workflow schema when the locked contract permits it; direct container mapping cannot repair a nested mismatch.";
         }
 
+        if (error.Code == "STEP_OUTPUT_PROPERTY_UNKNOWN"
+            && error.InvalidPath?.Contains(".json.", StringComparison.Ordinal) == true
+            && error.AllowedPaths.Any(static path => path.Contains(".response", StringComparison.Ordinal)))
+        {
+            return "The referenced producer is an ordinary mcp.call, so it has documented response fields but no .json output. Read an allowed response path directly. If typed domain fields must be derived from response text, add a separate llm.call with strict structured_output and read that normalizer's .json fields; never invent .json fields on the MCP call.";
+        }
+
         return error.Code switch
         {
             "STEP_REFERENCE_NOT_AVAILABLE" => "Move the producing step earlier, move the consuming reference later, or create a guaranteed normalization step before reading it.",
@@ -625,8 +626,23 @@ internal static class WorkflowPlanDiagnostics
         return hint;
     }
 
-    private static string BuildDryRunHint(string code, string message)
+    private static string BuildDryRunHint(string code, string message, JsonNode? runtimeDetails)
     {
+        if (runtimeDetails is JsonObject details
+            && GetString(details, "failed_step_id") is { } failedStep)
+        {
+            var phase = GetString(details, "execution_phase");
+            return phase == "finalization"
+                ? $"Repair finalization step '{failedStep}': one of its input, guard, or nested expressions reads a value that is not guaranteed to exist. Use the previous YAML and this step id to replace the exact reference with an earlier guaranteed output or a safe empty cleanup collection."
+                : $"Repair step '{failedStep}': one of its input, guard, or nested expressions reads a value that is not guaranteed to exist. Use the previous YAML and this step id to replace the exact reference with an earlier guaranteed output.";
+        }
+
+        if (runtimeDetails is JsonObject outputDetails
+            && GetString(outputDetails, "failed_output") is { } failedOutput)
+        {
+            return $"Repair workflow output '{failedOutput}' so its expression reads an earlier guaranteed step output with the declared shape.";
+        }
+
         if (code == ErrorCodes.ExprTypeMismatch || message.Contains("requires", StringComparison.OrdinalIgnoreCase))
             return "Change the expression or declared contract so the runtime value type matches the expected type.";
 
@@ -654,6 +670,24 @@ internal static class WorkflowPlanDiagnostics
     {
         if (runtimeDetails is not JsonObject obj)
             return null;
+
+        var failedStep = GetString(obj, "failed_step_id");
+        if (!string.IsNullOrWhiteSpace(failedStep))
+        {
+            var workflow = GetString(obj, "failed_workflow");
+            return string.IsNullOrWhiteSpace(workflow)
+                ? $"step:{failedStep}"
+                : $"workflow:{workflow}/step:{failedStep}";
+        }
+
+        var failedOutput = GetString(obj, "failed_output");
+        if (!string.IsNullOrWhiteSpace(failedOutput))
+        {
+            var workflow = GetString(obj, "failed_workflow");
+            return string.IsNullOrWhiteSpace(workflow)
+                ? $"output:{failedOutput}"
+                : $"workflow:{workflow}/output:{failedOutput}";
+        }
 
         var field = GetString(obj, "field")
             ?? GetString(obj, "invalid_path")

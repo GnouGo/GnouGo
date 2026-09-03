@@ -62,8 +62,11 @@ public static class InputTypeValidator
                 break; // anything is valid
 
             case "string":
-                if (node is not JsonValue sv || !sv.TryGetValue(out string? _))
+                if (node is not JsonValue sv || !sv.TryGetValue(out string? stringValue))
                     errors.Add($"'{path}': expected string, got {DescribeKind(node)}.");
+                else if (def.Enum is { Count: > 0 }
+                         && !def.Enum.Contains(stringValue, StringComparer.Ordinal))
+                    errors.Add($"'{path}': value '{stringValue}' is not one of the allowed values [{string.Join(", ", def.Enum)}].");
                 break;
 
             case "number":

@@ -64,6 +64,7 @@ The .NET library at [`src/GnOuGo.Flow.Core/`](../../../src/GnOuGo.Flow.Core/) is
   - [loop.sequential](#loopsequential--iterate-sequentially)
   - [loop.parallel](#loopparallel--iterate-in-parallel)
   - [switch](#switch--conditional-branching)
+  - [decision.evaluate](#decisionevaluate--finite-runtime-decisions)
   - [workflow.call](#workflowcall--call-a-sub-workflow)
   - [workflow.plan](#workflowplan--generate-a-workflow-dynamically-via-llm)
   - [workflow.execute](#workflowexecute--execute-a-planned-workflow)
@@ -898,6 +899,27 @@ Two forms: expression-based and when-based.
 
 ---
 
+### `decision.evaluate` — Finite Runtime Decisions
+
+`decision.evaluate` atomically reduces multiple runtime results to finite provider-neutral values:
+
+```yaml
+- id: compute_decisions
+  type: decision.evaluate
+  input:
+    decisions:
+      publication:
+        allowed_values: [PUBLISH_A, PUBLISH_B, NO_EFFECT]
+        cases:
+          - { when: "${data.steps.first.is_valid}", value: PUBLISH_A }
+          - { when: "${data.steps.second.needs_attention}", value: PUBLISH_B }
+        default: NO_EFFECT
+```
+
+Values and case values must be non-empty and unique, conditions must resolve to booleans, and defaults must be allowed. Overlapping matches or no match/default fail with non-retryable `DECISION_EVALUATION_UNRESOLVED`; malformed or over-limit contracts use `INPUT_VALIDATION`. Decision and case counts use `max_switch_cases`. A failure exposes no partial field map.
+
+---
+
 ### `workflow.call` — Call a Sub-Workflow
 
 Calls another workflow through one canonical shape:
@@ -1147,6 +1169,7 @@ Every internal planning call is background-capable: auto-mode classification, ca
         - mcp.list
         - template.render
         - set
+        - decision.evaluate
         - emit
         - sequence
       denied_step_types:            # Blacklist (takes precedence)
@@ -1643,6 +1666,7 @@ on_error:
 | Code | Retryable | Description |
 |------|-----------|-------------|
 | `INPUT_VALIDATION` | No | Missing or malformed input |
+| `DECISION_EVALUATION_UNRESOLVED` | No | A finite decision has overlapping matches or no match/default |
 | `LLM_TIMEOUT` | Yes | LLM request timed out |
 | `LLM_NETWORK` | Yes | Transport failure, HTTP `425`/`429`, or provider `5xx` response |
 | `LLM_PROVIDER` | No | Provider rejected the request with another `4xx` response |

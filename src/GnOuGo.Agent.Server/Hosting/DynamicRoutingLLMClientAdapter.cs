@@ -2,6 +2,7 @@ using System.Text.Json.Nodes;
 using GnOuGo.AI.Core;
 using GnOuGo.Agent.Server.SmartFlow;
 using GnOuGo.Flow.Core.Runtime;
+using GnOuGo.Flow.Integrations;
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Logging;
 
@@ -53,6 +54,7 @@ internal sealed class DynamicRoutingLLMClientAdapter : ILLMClient
             StructuredOutputStrict = request.StructuredOutputStrict,
             Reasoning = request.Reasoning,
             UseBackgroundMode = request.UseBackgroundMode,
+            MaxOutputTokens = request.MaxTokens,
         };
 
         if (request.Tools is { Count: > 0 })
@@ -65,7 +67,15 @@ internal sealed class DynamicRoutingLLMClientAdapter : ILLMClient
             }).ToList();
         }
 
-        var aiResponse = await routingClient.CallAsync(aiRequest, ct);
+        LLMClientResponse aiResponse;
+        try
+        {
+            aiResponse = await routingClient.CallAsync(aiRequest, ct);
+        }
+        catch (LLMProviderException ex)
+        {
+            throw LLMProviderFailureMapper.Map(ex);
+        }
 
         var response = new LLMResponse
         {

@@ -27,6 +27,14 @@ workflows:
         default: ""
         description: >
           Full slash-command, e.g. /gnougo, /gnougo list, /gnougo add, /gnougo select mybot.
+      planning_budget_amount:
+        type: number
+        required: false
+        default: 50
+      planning_budget_currency:
+        type: string
+        required: false
+        default: EUR
 
     steps:
       - id: parse_cmd
@@ -72,7 +80,9 @@ workflows:
                 type: workflow.call
                 input:
                   ref: { kind: local, name: agent_add }
-                  args: {}
+                  args:
+                    planning_budget_amount: "${data.inputs.planning_budget_amount}"
+                    planning_budget_currency: "${data.inputs.planning_budget_currency}"
 
           - value: "edit"
             steps:
@@ -199,7 +209,13 @@ workflows:
   # /gnougo add — Interactive agent creation with workflow generation
   # ══════════════════════════════════════════════════════════════════
   agent_add:
-    inputs: {}
+    inputs:
+      planning_budget_amount:
+        type: number
+        required: true
+      planning_budget_currency:
+        type: string
+        required: true
 
     steps:
       - id: think_start
@@ -304,12 +320,27 @@ workflows:
           - id: generate_workflow
             type: workflow.plan
             input:
+              raw_prompt: "${data.steps.normalized_prompt.description}"
+              intent_clarification:
+                mode: always
+                timeout_ms: 36000000
+                max_rounds: 3
+                max_questions: 15
+                max_questions_per_round: 5
+              llm_budget:
+                max_calls: 100
+                max_total_tokens: 15000000
+                max_elapsed_ms: 18000000
+                max_estimated_cost:
+                  amount: "${data.inputs.planning_budget_amount}"
+                  currency: "${data.inputs.planning_budget_currency}"
+                unverifiable: fail
               capability_preflight:
                 mode: infer
               generator:
                 prefilter: true
                 mode: auto
-                reasoning: low
+                reasoning: medium
                 instruction: >
                   Generate a valid GnOuGo.Flow YAML workflow for a persisted chat agent.
 
@@ -343,6 +374,7 @@ workflows:
                   - loop.sequential
                   - loop.parallel
                   - switch
+                  - decision.evaluate
                   - human.input
                   - workflow.call
                 denied_step_types:
@@ -747,6 +779,7 @@ workflows:
                       - loop.sequential
                       - loop.parallel
                       - switch
+                      - decision.evaluate
                       - human.input
                       - workflow.call
                     denied_step_types:

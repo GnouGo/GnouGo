@@ -14,9 +14,11 @@ namespace GnOuGo.Agent.Server.Tests;
 
 internal sealed class FakeKeyVaultRuntimeConfigStore : IKeyVaultRuntimeConfigStore
 {
-    private readonly Dictionary<string, string> _values = new(StringComparer.OrdinalIgnoreCase);
-    private readonly Dictionary<string, KeyVaultSecretSummary> _summaries = new(StringComparer.OrdinalIgnoreCase);
+    private readonly Dictionary<string, string> _values = new(StringComparer.Ordinal);
+    private readonly Dictionary<string, KeyVaultSecretSummary> _summaries = new(StringComparer.Ordinal);
     private LLMOptions? _effectiveOptions;
+
+    public IReadOnlyCollection<string> SecretKeys => _values.Keys;
 
     public FakeKeyVaultRuntimeConfigStore WithEffectiveOptions(LLMOptions options)
     {
@@ -65,9 +67,51 @@ internal sealed class RecordingLlmClient : ILLMClient
     {
         CallCount++;
         LastRequest = request;
+        if (request.Prompt.Contains("provider-neutral workflow intent clarification analyst", StringComparison.OrdinalIgnoreCase))
+        {
+            var hasAnswers = request.Prompt.Contains("<clarification_answers_json>", StringComparison.Ordinal);
+            return Task.FromResult(WithUsage(new LLMResponse
+            {
+                Json = hasAnswers
+                    ? new JsonObject
+                    {
+                        ["outcome"] = "sufficient",
+                        ["reason"] = "The workflow intent is complete.",
+                        ["questions"] = new JsonArray()
+                    }
+                    : new JsonObject
+                    {
+                        ["outcome"] = "questions",
+                        ["reason"] = "Confirm the intended response style.",
+                        ["questions"] = new JsonArray
+                        {
+                            new JsonObject
+                            {
+                                ["id"] = "response_style",
+                                ["prompt"] = "How should the agent format its response?",
+                                ["options"] = new JsonArray
+                                {
+                                    new JsonObject
+                                    {
+                                        ["value"] = "Concise response",
+                                        ["description"] = "Return a focused response with the essential details.",
+                                        ["recommended"] = true
+                                    },
+                                    new JsonObject
+                                    {
+                                        ["value"] = "Detailed response",
+                                        ["description"] = "Return a more extensive response with supporting detail.",
+                                        ["recommended"] = false
+                                    }
+                                }
+                            }
+                        }
+                    }
+            }));
+        }
         if (request.Prompt.Contains("domain-neutral workflow runtime analyst", StringComparison.OrdinalIgnoreCase))
         {
-            return Task.FromResult(new LLMResponse
+            return Task.FromResult(WithUsage(new LLMResponse
             {
                 Json = new JsonObject
                 {
@@ -76,20 +120,31 @@ internal sealed class RecordingLlmClient : ILLMClient
                     ["operations"] = new JsonArray(),
                     ["constraints"] = new JsonArray()
                 }
-            });
+            }));
         }
         if (request.Prompt.Contains("domain-neutral capability matcher", StringComparison.OrdinalIgnoreCase))
         {
-            return Task.FromResult(new LLMResponse
+            return Task.FromResult(WithUsage(new LLMResponse
             {
                 Json = new JsonObject
                 {
                     ["operation_matches"] = new JsonArray(),
                     ["constraint_matches"] = new JsonArray()
                 }
-            });
+            }));
         }
-        return Task.FromResult(new LLMResponse { Text = BuildResponseText(request) });
+        return Task.FromResult(WithUsage(new LLMResponse { Text = BuildResponseText(request) }));
+    }
+
+    private static LLMResponse WithUsage(LLMResponse response)
+    {
+        response.Usage = new JsonObject
+        {
+            ["prompt_tokens"] = 8,
+            ["completion_tokens"] = 8,
+            ["total_tokens"] = 16
+        };
+        return response;
     }
 
     private static string BuildResponseText(LLMRequest request)
@@ -183,6 +238,20 @@ internal sealed class RecordingLlmClient : ILLMClient
 
         return "stub-response";
     }
+}
+
+internal sealed class TestExchangeRateProvider(decimal rate = 1m) : IExchangeRateProvider
+{
+    public ValueTask<CurrencyExchangeQuote?> GetQuoteAsync(
+        string sourceCurrency,
+        string targetCurrency,
+        CancellationToken ct)
+        => ValueTask.FromResult<CurrencyExchangeQuote?>(new CurrencyExchangeQuote(
+            sourceCurrency.Trim().ToUpperInvariant(),
+            targetCurrency.Trim().ToUpperInvariant(),
+            rate,
+            DateTimeOffset.UtcNow,
+            "deterministic_test_rate"));
 }
 
 internal sealed class FakeModelCatalog : ILLMModelCatalog
@@ -339,7 +408,8 @@ internal static class SmartFlowTestFactory
             runtimeFactory,
             runtimeStore,
             CreateTelemetry(),
-            NullLogger<ConfigureAgentsService>.Instance);
+            NullLogger<ConfigureAgentsService>.Instance,
+            exchangeRateProvider: new TestExchangeRateProvider());
     }
 
     public static SmartFlowService CreateSmartFlowService(

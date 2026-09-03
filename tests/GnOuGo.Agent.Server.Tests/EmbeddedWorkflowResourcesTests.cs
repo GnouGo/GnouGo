@@ -51,6 +51,21 @@ public sealed class EmbeddedWorkflowResourcesTests
 
         Assert.Contains("capability_preflight:", yaml, StringComparison.Ordinal);
         Assert.Contains("mode: infer", yaml, StringComparison.Ordinal);
+        Assert.Contains("intent_clarification:", yaml, StringComparison.Ordinal);
+        Assert.Contains("mode: always", yaml, StringComparison.Ordinal);
+        Assert.Contains("max_rounds: 3", yaml, StringComparison.Ordinal);
+        Assert.Contains("max_questions: 15", yaml, StringComparison.Ordinal);
+        Assert.Contains("llm_budget:", yaml, StringComparison.Ordinal);
+        Assert.Contains("max_calls: 100", yaml, StringComparison.Ordinal);
+        Assert.Contains("max_total_tokens: 15000000", yaml, StringComparison.Ordinal);
+        Assert.Contains("max_elapsed_ms: 18000000", yaml, StringComparison.Ordinal);
+        Assert.Contains("max_estimated_cost:", yaml, StringComparison.Ordinal);
+        Assert.Contains("amount: \"${data.inputs.planning_budget_amount}\"", yaml, StringComparison.Ordinal);
+        Assert.Contains("currency: \"${data.inputs.planning_budget_currency}\"", yaml, StringComparison.Ordinal);
+        Assert.DoesNotContain("max_estimated_cost_usd:", yaml, StringComparison.Ordinal);
+        Assert.Contains("unverifiable: fail", yaml, StringComparison.Ordinal);
+        Assert.Contains("raw_prompt: \"${data.steps.normalized_prompt.description}\"", yaml, StringComparison.Ordinal);
+        Assert.Contains("reasoning: medium", yaml, StringComparison.Ordinal);
         Assert.Contains("Enumerate every required positive external read, write, side effect", yaml, StringComparison.Ordinal);
         Assert.Contains("Classify prohibitions, safety rules, ordering requirements, and invariants as constraints", yaml, StringComparison.Ordinal);
         Assert.Contains("workflow-level finally array", yaml, StringComparison.Ordinal);

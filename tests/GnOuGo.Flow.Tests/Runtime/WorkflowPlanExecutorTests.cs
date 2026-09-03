@@ -4,6 +4,7 @@ using System.Text.RegularExpressions;
 using Microsoft.Extensions.Logging;
 using Moq;
 using GnOuGo.Flow.Core.Compilation;
+using GnOuGo.Flow.Core.Expressions;
 using GnOuGo.Flow.Core.Models;
 using GnOuGo.Flow.Core.Parsing;
 using GnOuGo.Flow.Core.Runtime;
@@ -32,6 +33,891 @@ public class WorkflowPlanExecutorTests
                   template: ok
                   mode: text
         """;
+
+    [Fact]
+    public void PipelineExtraction_PrunesOnlyOptionalUnprovenSchemaMembers()
+    {
+        var method = typeof(WorkflowPlanExecutor).GetMethods(BindingFlags.Static | BindingFlags.NonPublic)
+            .Single(candidate => candidate.Name == "PruneOptionalWeakContractMembers"
+                                 && candidate.GetParameters() is [{ ParameterType: var parameterType }]
+                                 && parameterType == typeof(JsonNode));
+        var schema = JsonNode.Parse("""
+            {
+              "type": "object",
+              "properties": {
+                "name": { "type": "string" },
+                "optional_unknown": {},
+                "optional_collection": { "type": "array", "items": {} },
+                "required_unknown": {}
+              },
+              "required": ["name", "required_unknown"]
+            }
+            """);
+
+        var normalized = Assert.IsType<JsonObject>(method.Invoke(null, [schema]));
+        var properties = Assert.IsType<JsonObject>(normalized["properties"]);
+
+        Assert.True(properties.ContainsKey("name"));
+        Assert.True(properties.ContainsKey("required_unknown"));
+        Assert.False(properties.ContainsKey("optional_unknown"));
+        Assert.False(properties.ContainsKey("optional_collection"));
+        Assert.Contains(
+            Assert.IsType<JsonArray>(normalized["required"]),
+            static value => value?.GetValue<string>() == "required_unknown");
+    }
+
+    [Fact]
+    public void PipelineExtraction_PreservesStructuredNullableContractFields()
+    {
+        var method = typeof(WorkflowPlanExecutor).GetMethod(
+            "BuildStructuredFieldSchema",
+            BindingFlags.Static | BindingFlags.NonPublic);
+        Assert.NotNull(method);
+
+        var field = JsonNode.Parse("""
+            {
+              "name": "finding",
+              "type": "object",
+              "description": "A finding with an optional anchor.",
+              "required": true,
+              "nullable": false,
+              "item_type": "",
+              "properties": [
+                {
+                  "name": "line",
+                  "type": "number",
+                  "description": "Nullable source line.",
+                  "required": true,
+                  "nullable": true,
+                  "item_type": "",
+                  "properties": []
+                }
+              ]
+            }
+            """)!.AsObject();
+
+        var schema = Assert.IsType<JsonObject>(method!.Invoke(null, [field]));
+        var properties = Assert.IsType<JsonObject>(schema["properties"]);
+        var line = Assert.IsType<JsonObject>(properties["line"]);
+
+        Assert.True(line["nullable"]!.GetValue<bool>());
+        Assert.Contains(
+            Assert.IsType<JsonArray>(schema["required_properties"]),
+            static value => value?.GetValue<string>() == "line");
+    }
+
+    [Fact]
+    public void PipelineExtraction_PreservesPreviouslyValidatedSchemasWhenARepairRegressesThem()
+    {
+        var method = typeof(WorkflowPlanExecutor).GetMethod(
+            "PreservePreviouslyValidatedContractSchemas",
+            BindingFlags.Static | BindingFlags.NonPublic);
+        Assert.NotNull(method);
+
+        IReadOnlyDictionary<string, JsonNode?> previous = new Dictionary<string, JsonNode?>(StringComparer.Ordinal)
+        {
+            ["records"] = JsonNode.Parse("""
+                {
+                  "type": "array",
+                  "description": "Previously validated records.",
+                  "required": true,
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "id": { "type": "string" }
+                    },
+                    "required_properties": ["id"]
+                  }
+                }
+                """),
+            ["evidence"] = JsonNode.Parse("""
+                {
+                  "type": "object",
+                  "properties": {
+                    "summary": { "type": "string" },
+                    "diagnostics": {
+                      "type": "array",
+                      "items": { "type": "string" }
+                    }
+                  },
+                  "required_properties": ["summary", "diagnostics"]
+                }
+                """),
+            ["unrelated"] = JsonNode.Parse("""{ "type": "string" }""")
+        };
+        IReadOnlyDictionary<string, JsonNode?> current = new Dictionary<string, JsonNode?>(StringComparer.Ordinal)
+        {
+            ["records"] = JsonNode.Parse("""
+                {
+                  "type": "array",
+                  "description": "Updated description.",
+                  "required": false,
+                  "nullable": true,
+                  "items": { "type": "object" }
+                }
+                """),
+            ["evidence"] = JsonNode.Parse("""
+                {
+                  "type": "object",
+                  "properties": {
+                    "summary": { "type": "string", "description": "Improved summary." }
+                  },
+                  "required_properties": ["summary"]
+                }
+                """),
+            ["new_weak_field"] = JsonNode.Parse("""{ "type": "object" }""")
+        };
+
+        var preserved = Assert.IsAssignableFrom<IReadOnlyDictionary<string, JsonNode?>>(
+            method!.Invoke(null, [current, previous]));
+        var records = Assert.IsType<JsonObject>(preserved["records"]);
+        var items = Assert.IsType<JsonObject>(records["items"]);
+        var properties = Assert.IsType<JsonObject>(items["properties"]);
+
+        Assert.Equal("string", properties["id"]!["type"]!.GetValue<string>());
+        Assert.Equal("Updated description.", records["description"]!.GetValue<string>());
+        Assert.False(records["required"]!.GetValue<bool>());
+        Assert.True(records["nullable"]!.GetValue<bool>());
+        var evidence = Assert.IsType<JsonObject>(preserved["evidence"]);
+        var evidenceProperties = Assert.IsType<JsonObject>(evidence["properties"]);
+        Assert.Equal("Improved summary.", evidenceProperties["summary"]!["description"]!.GetValue<string>());
+        Assert.Equal("array", evidenceProperties["diagnostics"]!["type"]!.GetValue<string>());
+        Assert.Contains(
+            Assert.IsType<JsonArray>(evidence["required_properties"]),
+            static value => value?.GetValue<string>() == "diagnostics");
+        Assert.False(preserved.ContainsKey("unrelated"));
+        Assert.Null(preserved["new_weak_field"]!["properties"]);
+    }
+
+    [Fact]
+    public void TargetedPipelinePatch_CannotRemoveOrWeakenValidatedContractFields()
+    {
+        var method = typeof(WorkflowPlanExecutor).GetMethod(
+            "PreserveTargetedPatchContractSchemaSet",
+            BindingFlags.Static | BindingFlags.NonPublic);
+        Assert.NotNull(method);
+
+        IReadOnlyDictionary<string, JsonNode?> previous = new Dictionary<string, JsonNode?>(StringComparer.Ordinal)
+        {
+            ["analysis_result"] = JsonNode.Parse("""
+                {
+                  "type": "object",
+                  "properties": {
+                    "non_blocking_issues": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": { "message": { "type": "string" } },
+                        "required_properties": ["message"]
+                      }
+                    }
+                  },
+                  "required_properties": ["non_blocking_issues"]
+                }
+                """),
+            ["decision"] = JsonNode.Parse("""{ "type": "string", "enum": ["accept", "reject"] }""")
+        };
+        IReadOnlyDictionary<string, JsonNode?> current = new Dictionary<string, JsonNode?>(StringComparer.Ordinal)
+        {
+            ["analysis_result"] = JsonNode.Parse("""
+                {
+                  "type": "object",
+                  "properties": {
+                    "non_blocking_issues": { "type": "array" }
+                  }
+                }
+                """)
+        };
+
+        var preserved = Assert.IsAssignableFrom<IReadOnlyDictionary<string, JsonNode?>>(
+            method!.Invoke(null, [current, previous]));
+        var result = Assert.IsType<JsonObject>(preserved["analysis_result"]);
+        var issues = Assert.IsType<JsonObject>(Assert.IsType<JsonObject>(result["properties"])["non_blocking_issues"]);
+        var items = Assert.IsType<JsonObject>(issues["items"]);
+
+        Assert.Equal("object", items["type"]!.GetValue<string>());
+        Assert.Contains(
+            Assert.IsType<JsonArray>(result["required_properties"]),
+            static item => item?.GetValue<string>() == "non_blocking_issues");
+        Assert.True(preserved.ContainsKey("decision"));
+    }
+
+    [Fact]
+    public void TargetedPipelinePatch_AllowsRemovingObsoleteLeafInputsButPreservesRemainingSchemas()
+    {
+        var method = typeof(WorkflowPlanExecutor).GetMethod(
+            "PreserveTargetedPatchInputContractSchemaSet",
+            BindingFlags.Static | BindingFlags.NonPublic)!;
+        IReadOnlyDictionary<string, JsonNode?> previous = new Dictionary<string, JsonNode?>(StringComparer.Ordinal)
+        {
+            ["upstream_value"] = JsonNode.Parse("""{ "type": "string", "enum": ["one", "two"] }"""),
+            ["self_produced_value"] = JsonNode.Parse("""{ "type": "object", "properties": { "result": { "type": "string" } }, "required_properties": ["result"] }""")
+        };
+        IReadOnlyDictionary<string, JsonNode?> current = new Dictionary<string, JsonNode?>(StringComparer.Ordinal)
+        {
+            ["upstream_value"] = JsonNode.Parse("""{ "type": "string" }""")
+        };
+
+        var preserved = Assert.IsAssignableFrom<IReadOnlyDictionary<string, JsonNode?>>(
+            method.Invoke(null, [current, previous]));
+
+        Assert.False(preserved.ContainsKey("self_produced_value"));
+        Assert.Equal(
+            new[] { "one", "two" },
+            Assert.IsType<JsonArray>(preserved["upstream_value"]!["enum"])
+                .Select(static value => value!.GetValue<string>()));
+    }
+
+    [Fact]
+    public void IntentClarification_CapabilityRelaxationFingerprintCanBeHandledOnlyOnce()
+    {
+        var executorType = typeof(WorkflowPlanExecutor);
+        var configType = executorType.GetNestedType("IntentClarificationConfig", BindingFlags.NonPublic);
+        var sessionType = executorType.GetNestedType("IntentClarificationSession", BindingFlags.NonPublic);
+        Assert.NotNull(configType);
+        Assert.NotNull(sessionType);
+
+        var config = Activator.CreateInstance(configType!, ["when_needed", 30_000, 3, 15, 5])!;
+        var session = Activator.CreateInstance(
+            sessionType!,
+            BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic,
+            binder: null,
+            args: [config, "Perform one externally visible effect.", string.Empty],
+            culture: null)!;
+        var method = sessionType!.GetMethod(
+            "TryBeginCapabilityRelaxation",
+            BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
+        Assert.NotNull(method);
+
+        Assert.True(Assert.IsType<bool>(method!.Invoke(session, ["stable-gap-fingerprint"])));
+        Assert.False(Assert.IsType<bool>(method.Invoke(session, ["stable-gap-fingerprint"])));
+    }
+
+    [Fact]
+    public void PipelineExtraction_DiscardsOnlyCompletelyUnboundOptionalPlannedToolPlaceholders()
+    {
+        var method = typeof(WorkflowPlanExecutor).GetMethod(
+            "ParseStructuredPlannedTools",
+            BindingFlags.Static | BindingFlags.NonPublic);
+        Assert.NotNull(method);
+
+        var tools = JsonNode.Parse("""
+            [
+              {
+                "server": "",
+                "kind": "prompt",
+                "method": "",
+                "required": false,
+                "operation_ids": [],
+                "catalog_ids": [],
+                "request_bindings": [],
+                "purpose": "A non-executable planner note.",
+                "consumes": ["records"],
+                "produces": ["summary"]
+              },
+              {
+                "server": "",
+                "kind": "tool",
+                "method": "",
+                "required": true,
+                "operation_ids": ["required_operation"],
+                "catalog_ids": ["catalog_entry"],
+                "request_bindings": [],
+                "purpose": "Malformed required invocation.",
+                "consumes": [],
+                "produces": []
+              }
+            ]
+            """)!.AsArray();
+        var errors = new List<string>();
+
+        var parsed = Assert.IsAssignableFrom<System.Collections.IEnumerable>(
+            method!.Invoke(null, [tools, "summarize_records", errors]));
+        var retained = parsed.Cast<object>().ToArray();
+
+        var plannedTool = Assert.Single(retained);
+        Assert.True((bool)plannedTool.GetType().GetProperty("Required")!.GetValue(plannedTool)!);
+        Assert.Empty(errors);
+    }
+
+    [Fact]
+    public async Task WorkflowPlan_PipelineExtractionRepair_PreservesPreviouslyValidatedContractsEndToEnd()
+    {
+        var markAttempts = 0;
+        var reviewAttempts = 0;
+        var mockLlm = new Mock<ILLMClient>();
+        mockLlm.Setup(client => client.CallAsync(It.IsAny<LLMRequest>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((LLMRequest request, CancellationToken _) =>
+            {
+                if (request.Prompt.Contains("preparing a raw user automation prompt", StringComparison.Ordinal))
+                    return new LLMResponse { Text = "# Records\n\nParse a query into canonical records." };
+
+                if (request.Prompt.Contains("annotate normalized automation Markdown", StringComparison.Ordinal))
+                {
+                    markAttempts++;
+                    const string annotatedMarkdown = """
+                        # Records
+
+                        :::subworkflow name="parse_records"
+                        goal: Parse a query into canonical records.
+                        inputs:
+                          query: string
+                        outputs:
+                          records: array
+                        extract_reason: This is a cohesive typed record parsing operation.
+                        content:
+                          Parse the query, normalize each distinct record identifier, reject empty identifiers, preserve deterministic ordering, and return canonical typed records for downstream processing.
+                        :::
+
+                        ## Main workflow orchestration
+
+                        Call parse_records and expose its canonical records.
+                        """;
+                    var recordProperties = markAttempts == 1
+                        ? new JsonArray
+                        {
+                            new JsonObject
+                            {
+                                ["name"] = "id",
+                                ["type"] = "string",
+                                ["description"] = "Canonical record identifier.",
+                                ["required"] = true,
+                                ["nullable"] = false,
+                                ["item_type"] = "",
+                                ["properties"] = new JsonArray()
+                            }
+                        }
+                        : new JsonArray();
+                    var plannedTools = markAttempts == 1
+                        ? new JsonArray()
+                        : new JsonArray
+                        {
+                            new JsonObject
+                            {
+                                ["server"] = "",
+                                ["kind"] = "prompt",
+                                ["method"] = "",
+                                ["operation_ids"] = new JsonArray(),
+                                ["catalog_ids"] = new JsonArray(),
+                                ["request_bindings"] = new JsonArray(),
+                                ["required"] = false,
+                                ["purpose"] = "A non-executable planner note.",
+                                ["consumes"] = new JsonArray("query"),
+                                ["produces"] = new JsonArray("records")
+                            }
+                        };
+
+                    return CreateStructuredMarkExtractableBlocksResponse(
+                        annotatedMarkdown,
+                        new JsonArray
+                        {
+                            new JsonObject
+                            {
+                                ["name"] = "parse_records",
+                                ["goal"] = "Parse a query into canonical records.",
+                                ["description"] = "Produces typed canonical records.",
+                                ["work_kind"] = "deterministic_shaping",
+                                ["contract_role"] = "algorithmic_transform",
+                                ["concrete_outcome"] = "A typed collection of canonical records.",
+                                ["inputs"] = new JsonArray
+                                {
+                                    new JsonObject
+                                    {
+                                        ["name"] = "query",
+                                        ["type"] = "string",
+                                        ["description"] = "Record query.",
+                                        ["required"] = true,
+                                        ["nullable"] = false,
+                                        ["item_type"] = "",
+                                        ["properties"] = new JsonArray()
+                                    }
+                                },
+                                ["outputs"] = new JsonArray
+                                {
+                                    new JsonObject
+                                    {
+                                        ["name"] = "records",
+                                        ["type"] = "array",
+                                        ["description"] = markAttempts == 1
+                                            ? "Validated canonical records."
+                                            : "Updated canonical records.",
+                                        ["required"] = true,
+                                        ["nullable"] = false,
+                                        ["item_type"] = "object",
+                                        ["properties"] = recordProperties
+                                    }
+                                },
+                                ["extract_reason"] = "This is a cohesive typed record parsing operation.",
+                                ["content"] = "Parse the query, normalize each distinct record identifier, reject empty identifiers, preserve deterministic ordering, and return canonical typed records for downstream processing.",
+                                ["planned_tools"] = plannedTools
+                            }
+                        },
+                        "Call parse_records and expose its canonical records.");
+                }
+
+                if (request.Prompt.Contains("reviewing the quality", StringComparison.Ordinal))
+                {
+                    reviewAttempts++;
+                    if (reviewAttempts == 1)
+                    {
+                        return CreateExtractionQualityReviewResponse(
+                            60,
+                            "retry",
+                            new JsonArray
+                            {
+                                new JsonObject
+                                {
+                                    ["code"] = "MISSING_NORMALIZATION_DETAIL",
+                                    ["kind"] = "plan_defect",
+                                    ["severity"] = "critical",
+                                    ["leaf_name"] = "parse_records",
+                                    ["message"] = "The parsing contract needs one additional normalization detail.",
+                                    ["recommendation"] = "Clarify deterministic ordering without weakening existing contracts."
+                                }
+                            },
+                            "Clarify deterministic ordering without weakening existing contracts.");
+                    }
+
+                    Assert.Contains("Updated canonical records.", request.Prompt);
+                    Assert.Contains("Canonical record identifier.", request.Prompt);
+                    return CreateExtractionQualityReviewResponse(90, "pass");
+                }
+
+                if (request.Prompt.Contains("repairing one validated workflow pipeline extraction", StringComparison.Ordinal))
+                {
+                    Assert.Contains("cross-leaf value route is one atomic contract edge", request.Prompt, StringComparison.Ordinal);
+                    Assert.Contains("<blocking_diagnostics_json>", request.Prompt, StringComparison.Ordinal);
+                    Assert.Contains("MISSING_NORMALIZATION_DETAIL", request.Prompt, StringComparison.Ordinal);
+                    return CreatePipelineExtractionPatchResponse(
+                        request,
+                        new JsonArray
+                        {
+                            new JsonObject
+                            {
+                                ["op"] = "replace_leaf",
+                                ["target"] = "parse_records",
+                                ["sources"] = new JsonArray(),
+                                ["main_orchestration"] = "",
+                                ["leaf"] = new JsonObject
+                                {
+                                    ["name"] = "parse_records",
+                                    ["goal"] = "Parse a query into canonical records.",
+                                    ["description"] = "Produces typed canonical records.",
+                                    ["work_kind"] = "deterministic_shaping",
+                                    ["contract_role"] = "algorithmic_transform",
+                                    ["concrete_outcome"] = "A typed collection of canonical records.",
+                                    ["inputs"] = new JsonArray
+                                    {
+                                        new JsonObject
+                                        {
+                                            ["name"] = "query",
+                                            ["type"] = "string",
+                                            ["description"] = "Record query.",
+                                            ["required"] = true,
+                                            ["nullable"] = false,
+                                            ["item_type"] = "",
+                                            ["properties"] = new JsonArray()
+                                        }
+                                    },
+                                    ["outputs"] = new JsonArray
+                                    {
+                                        new JsonObject
+                                        {
+                                            ["name"] = "records",
+                                            ["type"] = "array",
+                                            ["description"] = "Updated canonical records.",
+                                            ["required"] = true,
+                                            ["nullable"] = false,
+                                            ["item_type"] = "object",
+                                            ["properties"] = new JsonArray
+                                            {
+                                                new JsonObject
+                                                {
+                                                    ["name"] = "id",
+                                                    ["type"] = "string",
+                                                    ["description"] = "Canonical record identifier.",
+                                                    ["required"] = true,
+                                                    ["nullable"] = false,
+                                                    ["item_type"] = "",
+                                                    ["properties"] = new JsonArray()
+                                                }
+                                            }
+                                        }
+                                    },
+                                    ["extract_reason"] = "This is a cohesive typed record parsing operation.",
+                                    ["content"] = "Parse the query, normalize each distinct record identifier, reject empty identifiers, preserve deterministic ordering, and return canonical typed records for downstream processing."
+                                }
+                            }
+                        });
+                }
+
+                if (request.Prompt.Contains("Generate exactly one leaf GnOuGo workflow named `parse_records`.", StringComparison.Ordinal))
+                {
+                    return new LLMResponse
+                    {
+                        Text = """
+                            version: 1
+                            name: parse-records-leaf
+                            skill:
+                              description: Parse canonical records.
+                              tags: [generated, leaf]
+                              inputs:
+                                query: string
+                              outputs:
+                                records:
+                                  type: array
+                                  items:
+                                    type: object
+                                    properties:
+                                      id: { type: string }
+                                    required_properties: [id]
+                            workflows:
+                              main:
+                                inputs:
+                                  query: string
+                                steps:
+                                  - id: parsed
+                                    type: set
+                                    output_schema:
+                                      type: object
+                                      properties:
+                                        records:
+                                          type: array
+                                          items:
+                                            type: object
+                                            properties:
+                                              id: { type: string }
+                                            required_properties: [id]
+                                    input:
+                                      records: []
+                                outputs:
+                                  records:
+                                    expr: ${data.steps.parsed.records}
+                                    type: array
+                                    items:
+                                      type: object
+                                      properties:
+                                        id: { type: string }
+                                      required_properties: [id]
+                            """
+                    };
+                }
+
+                if (request.Prompt.Contains("assembling the parent `main` workflow", StringComparison.Ordinal))
+                {
+                    return new LLMResponse
+                    {
+                        Text = """
+                            document:
+                              name: parse-records-pipeline
+                              skill:
+                                description: Parse canonical records.
+                                inputs:
+                                  query: string
+                                outputs:
+                                  records:
+                                    type: array
+                                    items:
+                                      type: object
+                                      properties:
+                                        id: { type: string }
+                                      required_properties: [id]
+                            graph:
+                              inputs:
+                                query: string
+                              steps:
+                                - id: call_parse_records
+                                  leaf: parse_records
+                                  args:
+                                    query: ${data.inputs.query}
+                              outputs:
+                                records: ${data.steps.call_parse_records.outputs.records}
+                            """
+                    };
+                }
+
+                throw new InvalidOperationException("Unexpected LLM prompt: " + request.Prompt);
+            });
+
+        var workflow = CompileMain("""
+            version: 1
+            workflows:
+              main:
+                steps:
+                  - id: plan
+                    type: workflow.plan
+                    input:
+                      mode: pipeline
+                      raw_prompt: "Parse a query into canonical records."
+                      generator:
+                        model: gpt-4
+                        prefilter: false
+                      validate:
+                        compile: false
+                        max_repair_attempts: 2
+            """);
+
+        var result = await new WorkflowEngine
+        {
+            LLMClient = mockLlm.Object,
+            LLMCapabilities = new StaticLlmCapabilityResolver(true)
+        }.ExecuteAsync(workflow, new JsonObject(), CancellationToken.None);
+
+        Assert.True(result.Success, result.Error?.Message);
+        Assert.Equal(1, markAttempts);
+        Assert.Equal(2, reviewAttempts);
+        var yaml = result.Outputs!["plan"]!["yaml"]!.GetValue<string>();
+        Assert.Contains("required_properties:", yaml);
+    }
+
+    [Fact]
+    public async Task WorkflowPlan_PipelineLeaf_ReusesDeclaredInputForCaseSeparatorAlias()
+    {
+        var mockLlm = new Mock<ILLMClient>();
+        mockLlm.Setup(client => client.CallAsync(It.IsAny<LLMRequest>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((LLMRequest request, CancellationToken _) =>
+            {
+                if (request.Prompt.Contains("preparing a raw user automation prompt", StringComparison.Ordinal))
+                    return new LLMResponse { Text = "# Record\n\nNormalize one record identifier." };
+
+                if (request.Prompt.Contains("annotate normalized automation Markdown", StringComparison.Ordinal))
+                {
+                    const string annotatedMarkdown = """
+                        # Record
+
+                        :::subworkflow name="normalize_record"
+                        goal: Normalize one record identifier.
+                        inputs:
+                          record_id: string
+                        outputs:
+                          normalized_id: string
+                        extract_reason: This is a cohesive identifier normalization operation.
+                        content:
+                          Trim surrounding whitespace, validate that the identifier remains non-empty, normalize its casing deterministically, and return the canonical identifier.
+                        :::
+
+                        ## Main workflow orchestration
+
+                        Call normalize_record and expose its canonical identifier.
+                        """;
+                    return CreateStructuredMarkExtractableBlocksResponse(
+                        annotatedMarkdown,
+                        new JsonArray
+                        {
+                            new JsonObject
+                            {
+                                ["name"] = "normalize_record",
+                                ["goal"] = "Normalize one record identifier.",
+                                ["description"] = "Produces a canonical identifier.",
+                                ["work_kind"] = "deterministic_shaping",
+                                ["contract_role"] = "algorithmic_transform",
+                                ["concrete_outcome"] = "One canonical record identifier.",
+                                ["inputs"] = new JsonArray
+                                {
+                                    new JsonObject
+                                    {
+                                        ["name"] = "record_id",
+                                        ["type"] = "string",
+                                        ["description"] = "Record identifier.",
+                                        ["required"] = true,
+                                        ["nullable"] = false,
+                                        ["item_type"] = "",
+                                        ["properties"] = new JsonArray()
+                                    }
+                                },
+                                ["outputs"] = new JsonArray
+                                {
+                                    new JsonObject
+                                    {
+                                        ["name"] = "normalized_id",
+                                        ["type"] = "string",
+                                        ["description"] = "Canonical identifier.",
+                                        ["required"] = true,
+                                        ["nullable"] = false,
+                                        ["item_type"] = "",
+                                        ["properties"] = new JsonArray()
+                                    }
+                                },
+                                ["extract_reason"] = "This is a cohesive identifier normalization operation.",
+                                ["content"] = "Trim surrounding whitespace, validate that the identifier remains non-empty, normalize its casing deterministically, and return the canonical identifier.",
+                                ["planned_tools"] = new JsonArray()
+                            }
+                        },
+                        "Call normalize_record and expose its canonical identifier.");
+                }
+
+                if (request.Prompt.Contains("reviewing the quality", StringComparison.Ordinal))
+                    return CreateExtractionQualityReviewResponse(90, "pass");
+
+                if (request.Prompt.Contains("Generate exactly one leaf GnOuGo workflow named `normalize_record`.", StringComparison.Ordinal))
+                {
+                    return new LLMResponse
+                    {
+                        Text = """
+                            version: 1
+                            name: normalize-record-leaf
+                            skill:
+                              description: Normalize a record identifier.
+                              tags: [generated, leaf]
+                              inputs:
+                                record_id: string
+                                recordId: string
+                              outputs:
+                                normalized_id: string
+                            workflows:
+                              main:
+                                inputs:
+                                  record_id: string
+                                  recordId: string
+                                steps:
+                                  - id: normalized
+                                    type: set
+                                    output_schema:
+                                      type: object
+                                      properties:
+                                        normalized_id: { type: string }
+                                      required: [normalized_id]
+                                      additionalProperties: false
+                                    input:
+                                      normalized_id: ${data.inputs.recordId}
+                                outputs:
+                                  normalized_id:
+                                    expr: ${data.steps.normalized.normalized_id}
+                                    type: string
+                            """
+                    };
+                }
+
+                if (request.Prompt.Contains("assembling the parent `main` workflow", StringComparison.Ordinal))
+                {
+                    return new LLMResponse
+                    {
+                        Text = """
+                            document:
+                              name: normalize-record-pipeline
+                              skill:
+                                description: Normalize a record identifier.
+                                inputs:
+                                  record_id: string
+                                outputs:
+                                  result:
+                                    type: object
+                                    properties:
+                                      normalized_id: { type: string }
+                                      valid: { type: boolean }
+                                    required_properties: [normalized_id, valid]
+                            graph:
+                              inputs:
+                                record_id: string
+                              steps:
+                                - id: call_normalize_record
+                                  leaf: normalize_record
+                                  args:
+                                    record_id: ${data.inputs.record_id}
+                              outputs:
+                                result:
+                                  normalized_id: ${data.steps.call_normalize_record.outputs.normalized_id}
+                                  valid: true
+                            """
+                    };
+                }
+
+                throw new InvalidOperationException("Unexpected LLM prompt: " + request.Prompt);
+            });
+        var workflow = CompileMain("""
+            version: 1
+            workflows:
+              main:
+                steps:
+                  - id: plan
+                    type: workflow.plan
+                    input:
+                      mode: pipeline
+                      raw_prompt: "Normalize one record identifier."
+                      generator:
+                        model: test-model
+                        prefilter: false
+                      validate:
+                        compile: false
+                        max_repair_attempts: 1
+            """);
+
+        var result = await new WorkflowEngine
+        {
+            LLMClient = mockLlm.Object,
+            LLMCapabilities = new StaticLlmCapabilityResolver(true)
+        }.ExecuteAsync(workflow, new JsonObject(), CancellationToken.None);
+
+        Assert.True(result.Success, result.Error?.Message);
+        var yaml = result.Outputs!["plan"]!["yaml"]!.GetValue<string>();
+        Assert.DoesNotContain("recordId", yaml, StringComparison.Ordinal);
+        Assert.Contains("data.inputs.record_id", yaml, StringComparison.Ordinal);
+        Assert.Contains("project_main_output_result", yaml, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void PipelineMainRepair_ReconcilesUndeclaredAliasesWithTheExistingPublicContract()
+    {
+        var method = typeof(WorkflowPlanExecutor).GetMethod(
+            "BuildMainAssemblyRepairPrompt",
+            BindingFlags.Static | BindingFlags.NonPublic);
+        Assert.NotNull(method);
+
+        var prompt = Assert.IsType<string>(method!.Invoke(null,
+        [
+            "Assemble the main graph.",
+            "document:\n  skill:\n    inputs:\n      resource_url: string\ngraph:\n  inputs:\n    resource_url: string\n  steps: []",
+            "Pipeline main workflow references undeclared inputs: target_url"
+        ]));
+
+        Assert.Contains("Undeclared input reference repair", prompt);
+        Assert.Contains("replace every reference with the existing declared name", prompt);
+        Assert.Contains("Do not add a duplicate public input alias", prompt);
+        Assert.Contains("map that leaf argument from the semantically matching public input", prompt);
+        Assert.Contains("exact repair base", prompt);
+        Assert.Contains("smallest changes directly justified", prompt);
+        Assert.Contains("project its shared result into a direct child result step", prompt);
+        Assert.Contains("<base_candidate_fingerprint>", prompt);
+        Assert.Contains("<invalid_main_assembly_yaml>", prompt);
+    }
+
+    [Fact]
+    public void PipelineMainAssemblyFingerprint_NormalizesSafeYamlRepairsDeterministically()
+    {
+        var method = typeof(WorkflowPlanExecutor).GetMethod(
+            "BuildPipelineMainAssemblyFingerprint",
+            BindingFlags.Static | BindingFlags.NonPublic);
+        Assert.NotNull(method);
+
+        const string fenced = """
+            ```yaml
+            document:
+              name: neutral
+            graph:
+              steps:
+                - id: decide
+                  type: set
+                  input:
+                    prompt: Confirm action: continue?
+            ```
+            """;
+        const string normalized = """
+            document:
+              name: neutral
+            graph:
+              steps:
+                - id: decide
+                  type: set
+                  input:
+                    prompt: 'Confirm action: continue?'
+            """;
+
+        var first = Assert.IsType<string>(method!.Invoke(null, [fenced]));
+        var second = Assert.IsType<string>(method.Invoke(null, [normalized]));
+
+        Assert.Equal(first, second);
+        Assert.Matches("^[0-9a-f]{64}$", first);
+    }
 
     private static CompiledWorkflow CompileMain(string yaml)
     {
@@ -70,6 +956,47 @@ public class WorkflowPlanExecutorTests
         }
 
         return count;
+    }
+
+    [Theory]
+    [InlineData("intent_ambiguity", true, true)]
+    [InlineData("intent_ambiguity", false, false)]
+    [InlineData("plan_defect", true, false)]
+    [InlineData("capability_unavailable", true, false)]
+    [InlineData("contract_violation", true, false)]
+    public void ExtractionClarificationEligibility_RequiresOnlyBlockingIntentAmbiguity(
+        string diagnosticKind,
+        bool evidenceQualified,
+        bool expected)
+    {
+        var method = typeof(WorkflowPlanExecutor).GetMethod(
+            "TryGetExtractionIntentAmbiguity",
+            BindingFlags.Static | BindingFlags.NonPublic);
+        Assert.NotNull(method);
+        var exception = new GnOuGo.Flow.Core.Expressions.WorkflowRuntimeException(
+            ErrorCodes.TemplatePlan,
+            "Extraction review failed.",
+            details: new JsonObject
+            {
+                ["quality_review"] = new JsonObject
+                {
+                    ["diagnostics"] = new JsonArray
+                    {
+                        new JsonObject
+                        {
+                            ["kind"] = diagnosticKind,
+                            ["severity"] = "critical",
+                            ["evidence_qualified"] = evidenceQualified
+                        }
+                    }
+                }
+            });
+        object?[] arguments = [exception, null];
+
+        var actual = Assert.IsType<bool>(method.Invoke(null, arguments));
+
+        Assert.Equal(expected, actual);
+        Assert.NotNull(arguments[1]);
     }
 
     private static async Task<string> GeneratePipelineWithMainAssemblyAsync(string mainAssemblyYaml)
@@ -219,11 +1146,25 @@ public class WorkflowPlanExecutorTests
         JsonArray? diagnostics = null,
         string retryGuidance = "")
     {
+        diagnostics ??= new JsonArray();
+        foreach (var diagnostic in diagnostics.OfType<JsonObject>())
+        {
+            diagnostic["kind"] ??= "plan_defect";
+            diagnostic["remediation_surface"] ??= "extraction_contract";
+            diagnostic["evidence"] ??= new JsonArray
+            {
+                new JsonObject
+                {
+                    ["source"] = "extraction",
+                    ["reference"] = "/main_workflow_prompt"
+                }
+            };
+        }
         var json = new JsonObject
         {
             ["score"] = score,
             ["verdict"] = verdict,
-            ["diagnostics"] = diagnostics ?? new JsonArray(),
+            ["diagnostics"] = diagnostics,
             ["retry_guidance"] = retryGuidance
         };
         return new LLMResponse
@@ -231,6 +1172,2443 @@ public class WorkflowPlanExecutorTests
             Json = json,
             Text = json.ToJsonString()
         };
+    }
+
+    private static LLMResponse CreatePipelineExtractionPatchResponse(
+        LLMRequest request,
+        JsonArray operations)
+    {
+        Assert.NotNull(request.StructuredOutputSchema);
+        Assert.DoesNotContain("uniqueItems", request.StructuredOutputSchema!.ToJsonString(), StringComparison.Ordinal);
+
+        const string startTag = "<base_fingerprint>";
+        const string endTag = "</base_fingerprint>";
+        var start = request.Prompt.IndexOf(startTag, StringComparison.Ordinal);
+        var end = request.Prompt.IndexOf(endTag, StringComparison.Ordinal);
+        Assert.True(start >= 0 && end > start, "Targeted patch prompt did not contain a base fingerprint.");
+        var fingerprint = request.Prompt[(start + startTag.Length)..end].Trim();
+        var schemaFingerprintValues = request.StructuredOutputSchema["properties"]!["base_fingerprint"]!["enum"]!.AsArray();
+        Assert.Equal(fingerprint, Assert.Single(schemaFingerprintValues)!.GetValue<string>());
+        const string codesStartTag = "<addressable_diagnostic_codes>";
+        const string codesEndTag = "</addressable_diagnostic_codes>";
+        var codesStart = request.Prompt.IndexOf(codesStartTag, StringComparison.Ordinal);
+        var codesEnd = request.Prompt.IndexOf(codesEndTag, StringComparison.Ordinal);
+        Assert.True(codesStart >= 0 && codesEnd > codesStart, "Targeted patch prompt did not contain addressable diagnostic codes.");
+        var codesJson = request.Prompt[(codesStart + codesStartTag.Length)..codesEnd].Trim();
+        var addressedCodes = Assert.IsType<JsonArray>(JsonNode.Parse(codesJson));
+        var schemaDiagnosticValues = request.StructuredOutputSchema["properties"]!["addressed_diagnostic_codes"]!["items"]!["enum"]!.AsArray();
+        Assert.Equal(
+            addressedCodes.Select(static code => code!.GetValue<string>()).Order(StringComparer.Ordinal),
+            schemaDiagnosticValues.Select(static code => code!.GetValue<string>()).Order(StringComparer.Ordinal));
+        var json = new JsonObject
+        {
+            ["base_fingerprint"] = fingerprint,
+            ["addressed_diagnostic_codes"] = addressedCodes.DeepClone(),
+            ["operations"] = operations
+        };
+        return new LLMResponse { Json = json, Text = json.ToJsonString() };
+    }
+
+    private static JsonObject CreatePatchTestLeaf(string name, string description = "Normalize a typed value.")
+        => new()
+        {
+            ["name"] = name,
+            ["goal"] = "Parse and normalize a typed value.",
+            ["description"] = description,
+            ["work_kind"] = "deterministic_shaping",
+            ["contract_role"] = "algorithmic_transform",
+            ["concrete_outcome"] = "One canonical typed value.",
+            ["inputs"] = new JsonArray
+            {
+                new JsonObject
+                {
+                    ["name"] = "value",
+                    ["type"] = "string",
+                    ["description"] = "Raw value.",
+                    ["required"] = true,
+                    ["nullable"] = false,
+                    ["item_type"] = "",
+                    ["properties"] = new JsonArray()
+                }
+            },
+            ["outputs"] = new JsonArray
+            {
+                new JsonObject
+                {
+                    ["name"] = "value",
+                    ["type"] = "string",
+                    ["description"] = "Canonical value.",
+                    ["required"] = true,
+                    ["nullable"] = false,
+                    ["item_type"] = "",
+                    ["properties"] = new JsonArray()
+                }
+            },
+            ["extract_reason"] = "This is a cohesive parsing and normalization operation.",
+            ["content"] = "Parse the supplied value, trim whitespace, normalize its casing deterministically, validate that it remains non-empty, and return the canonical typed value.",
+            ["planned_tools"] = new JsonArray()
+        };
+
+    private static JsonObject CreatePatchTestLeafPayload(string name, string description = "Normalize a typed value.")
+    {
+        var payload = Assert.IsType<JsonObject>(CreatePatchTestLeaf(name, description).DeepClone());
+        payload.Remove("planned_tools");
+        return payload;
+    }
+
+    private static LLMResponse CreatePatchTestExtractionResponse(params string[] names)
+    {
+        var metadata = new JsonArray(names.Select(name => (JsonNode)CreatePatchTestLeaf(name)).ToArray());
+        var blocks = string.Join("\n\n", names.Select(name => $$"""
+            :::subworkflow name="{{name}}"
+            goal: Parse and normalize a typed value.
+            inputs:
+              value: string
+            outputs:
+              value: string
+            extract_reason: This is a cohesive parsing and normalization operation.
+            content:
+              Parse the supplied value, trim whitespace, normalize its casing deterministically, validate that it remains non-empty, and return the canonical typed value.
+            :::
+            """));
+        return CreateStructuredMarkExtractableBlocksResponse(
+            "# Normalize\n\n" + blocks + "\n\n## Main workflow orchestration\n\nNormalize the supplied value.",
+            metadata,
+            "Normalize the supplied value.");
+    }
+
+    private static LLMResponse CreatePatchTestLeafWorkflow(string name)
+        => new()
+        {
+            Text = $$"""
+                version: 1
+                name: {{name}}-leaf
+                skill:
+                  description: Normalize a typed value.
+                  inputs:
+                    value: string
+                  outputs:
+                    value: string
+                workflows:
+                  main:
+                    inputs:
+                      value: string
+                    steps:
+                      - id: normalize
+                        type: set
+                        input:
+                          value: ${data.inputs.value}
+                    outputs:
+                      value:
+                        expr: ${data.steps.normalize.value}
+                        type: string
+                """
+        };
+
+    private static LLMResponse CreatePatchTestMainWorkflow(IReadOnlyList<string> leafNames)
+    {
+        var steps = new List<string>();
+        string source = "${data.inputs.value}";
+        foreach (var leafName in leafNames)
+        {
+            var id = "call_" + leafName;
+            steps.Add($$"""
+                    - id: {{id}}
+                      leaf: {{leafName}}
+                      args:
+                        value: {{source}}
+                """);
+            source = "${data.steps." + id + ".outputs.value}";
+        }
+
+        return new LLMResponse
+        {
+            Text = $$"""
+                document:
+                  name: targeted_patch_pipeline
+                  skill:
+                    description: Normalize a typed value.
+                    inputs:
+                      value: string
+                    outputs:
+                      value: string
+                graph:
+                  inputs:
+                    value: string
+                  steps:
+                {{string.Join("\n", steps)}}
+                  outputs:
+                    value: {{source}}
+                """
+        };
+    }
+
+    [Theory]
+    [InlineData("add_leaf")]
+    [InlineData("replace_leaf")]
+    [InlineData("remove_leaf")]
+    [InlineData("merge_leaves")]
+    [InlineData("replace_main_orchestration")]
+    public async Task WorkflowPlan_PipelineMode_AppliesBoundedTargetedPatchOperation(string operation)
+    {
+        var initialNames = operation is "remove_leaf" or "merge_leaves"
+            ? new[] { "normalize_alpha", "normalize_beta" }
+            : new[] { "normalize_alpha" };
+        var finalNames = operation switch
+        {
+            "add_leaf" => new[] { "normalize_alpha", "normalize_beta" },
+            "remove_leaf" => new[] { "normalize_alpha" },
+            "merge_leaves" => new[] { "normalize_combined" },
+            _ => new[] { "normalize_alpha" }
+        };
+        var reviewCalls = 0;
+        var patchCalls = 0;
+        var mockLlm = new Mock<ILLMClient>();
+        mockLlm.Setup(client => client.CallAsync(It.IsAny<LLMRequest>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((LLMRequest request, CancellationToken _) =>
+            {
+                if (request.Prompt.Contains("preparing a raw user automation prompt", StringComparison.Ordinal))
+                    return new LLMResponse { Text = "# Normalize\n\nParse and normalize a typed value." };
+                if (request.Prompt.Contains("annotate normalized automation Markdown", StringComparison.Ordinal))
+                {
+                    var metadata = new JsonArray(initialNames.Select(name => (JsonNode)CreatePatchTestLeaf(name)).ToArray());
+                    var blocks = string.Join("\n\n", initialNames.Select(name => $$"""
+                        :::subworkflow name="{{name}}"
+                        goal: Parse and normalize a typed value.
+                        inputs:
+                          value: string
+                        outputs:
+                          value: string
+                        extract_reason: This is a cohesive parsing and normalization operation.
+                        content:
+                          Parse the supplied value, trim whitespace, normalize its casing deterministically, validate that it remains non-empty, and return the canonical typed value.
+                        :::
+                        """));
+                    return CreateStructuredMarkExtractableBlocksResponse(
+                        "# Normalize\n\n" + blocks + "\n\n## Main workflow orchestration\n\nNormalize the supplied value.",
+                        metadata,
+                        "Normalize the supplied value.");
+                }
+                if (request.Prompt.Contains("reviewing the quality of a `workflow.plan` pipeline", StringComparison.Ordinal))
+                {
+                    reviewCalls++;
+                    return reviewCalls == 1
+                        ? CreateExtractionQualityReviewResponse(
+                            55,
+                            "retry",
+                            new JsonArray
+                            {
+                                new JsonObject
+                                {
+                                    ["code"] = "PATCH_REQUIRED",
+                                    ["kind"] = "plan_defect",
+                                    ["severity"] = "critical",
+                                    ["leaf_name"] = operation switch
+                                    {
+                                        "add_leaf" or "remove_leaf" => "normalize_beta",
+                                        "merge_leaves" => "normalize_alpha",
+                                        "replace_main_orchestration" => "",
+                                        _ => "normalize_alpha"
+                                    },
+                                    ["message"] = "The candidate requires one bounded structural correction.",
+                                    ["recommendation"] = "Apply the requested leaf-level correction."
+                                }
+                            })
+                        : CreateExtractionQualityReviewResponse(95, "pass");
+                }
+                if (request.Prompt.Contains("repairing one validated workflow pipeline extraction", StringComparison.Ordinal))
+                {
+                    patchCalls++;
+                    JsonObject patchOperation = operation switch
+                    {
+                        "add_leaf" => new JsonObject
+                        {
+                            ["op"] = operation,
+                            ["target"] = "",
+                            ["sources"] = new JsonArray(),
+                            ["main_orchestration"] = "",
+                            ["leaf"] = CreatePatchTestLeafPayload("normalize_beta")
+                        },
+                        "replace_leaf" => new JsonObject
+                        {
+                            ["op"] = operation,
+                            ["target"] = "normalize_alpha",
+                            ["sources"] = new JsonArray(),
+                            ["main_orchestration"] = "",
+                            ["leaf"] = CreatePatchTestLeafPayload("normalize_alpha", "Improved canonical normalization contract.")
+                        },
+                        "remove_leaf" => new JsonObject
+                        {
+                            ["op"] = operation,
+                            ["target"] = "normalize_beta",
+                            ["sources"] = new JsonArray(),
+                            ["main_orchestration"] = "",
+                            ["leaf"] = null
+                        },
+                        "merge_leaves" => new JsonObject
+                        {
+                            ["op"] = operation,
+                            ["target"] = "",
+                            ["sources"] = new JsonArray("normalize_alpha", "normalize_beta"),
+                            ["main_orchestration"] = "",
+                            ["leaf"] = CreatePatchTestLeafPayload("normalize_combined")
+                        },
+                        _ => new JsonObject
+                        {
+                            ["op"] = operation,
+                            ["target"] = "",
+                            ["sources"] = new JsonArray(),
+                            ["main_orchestration"] = "Call normalize_alpha and expose its canonical value.",
+                            ["leaf"] = null
+                        }
+                    };
+                    return CreatePipelineExtractionPatchResponse(request, new JsonArray(patchOperation));
+                }
+                var leafMatch = Regex.Match(request.Prompt, "Generate exactly one leaf GnOuGo workflow named `(?<name>[a-z0-9_]+)`\\.");
+                if (leafMatch.Success)
+                    return CreatePatchTestLeafWorkflow(leafMatch.Groups["name"].Value);
+                if (request.Prompt.Contains("assembling the parent `main` workflow", StringComparison.Ordinal))
+                    return CreatePatchTestMainWorkflow(finalNames);
+                throw new InvalidOperationException("Unexpected LLM prompt: " + request.Prompt);
+            });
+
+        var workflow = CompileMain("""
+            version: 1
+            workflows:
+              main:
+                steps:
+                  - id: plan
+                    type: workflow.plan
+                    input:
+                      mode: pipeline
+                      raw_prompt: "Parse and normalize a typed value."
+                      generator:
+                        model: gpt-4
+                        prefilter: false
+                      validate:
+                        compile: false
+                        max_repair_attempts: 2
+            """);
+
+        var result = await new WorkflowEngine
+        {
+            LLMClient = mockLlm.Object,
+            LLMCapabilities = new StaticLlmCapabilityResolver(true)
+        }.ExecuteAsync(workflow, new JsonObject(), CancellationToken.None);
+
+        Assert.True(result.Success, result.Error?.Message);
+        Assert.Equal(2, reviewCalls);
+        Assert.Equal(1, patchCalls);
+        var specs = result.Outputs!["plan"]!["pipeline"]!["specs"]!["subworkflows"]!.AsArray();
+        Assert.Equal(finalNames.Order(), specs.Select(spec => spec!["name"]!.GetValue<string>()).Order());
+    }
+
+    [Fact]
+    public async Task WorkflowPlan_PipelineMode_RejectsStaleTargetedPatchFingerprint()
+    {
+        var mockLlm = new Mock<ILLMClient>();
+        mockLlm.Setup(client => client.CallAsync(It.IsAny<LLMRequest>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((LLMRequest request, CancellationToken _) =>
+            {
+                if (request.Prompt.Contains("preparing a raw user automation prompt", StringComparison.Ordinal))
+                    return new LLMResponse { Text = "# Normalize\n\nParse and normalize a typed value." };
+                if (request.Prompt.Contains("annotate normalized automation Markdown", StringComparison.Ordinal))
+                    return CreatePatchTestExtractionResponse("normalize_alpha");
+                if (request.Prompt.Contains("reviewing the quality of a `workflow.plan` pipeline", StringComparison.Ordinal))
+                {
+                    return CreateExtractionQualityReviewResponse(
+                        40,
+                        "retry",
+                        new JsonArray
+                        {
+                            new JsonObject
+                            {
+                                ["code"] = "PATCH_REQUIRED",
+                                ["kind"] = "plan_defect",
+                                ["severity"] = "critical",
+                                ["leaf_name"] = "normalize_alpha",
+                                ["message"] = "The leaf contract requires a bounded correction.",
+                                ["recommendation"] = "Replace the leaf contract."
+                            }
+                        });
+                }
+                if (request.Prompt.Contains("repairing one validated workflow pipeline extraction", StringComparison.Ordinal))
+                {
+                    var json = new JsonObject
+                    {
+                        ["base_fingerprint"] = "stale-fingerprint",
+                        ["operations"] = new JsonArray
+                        {
+                            new JsonObject
+                            {
+                                ["op"] = "replace_main_orchestration",
+                                ["target"] = "",
+                                ["sources"] = new JsonArray(),
+                                ["main_orchestration"] = "Call normalize_alpha.",
+                                ["leaf"] = null
+                            }
+                        }
+                    };
+                    return new LLMResponse { Json = json, Text = json.ToJsonString() };
+                }
+                throw new InvalidOperationException("Unexpected LLM prompt: " + request.Prompt);
+            });
+
+        var result = await ExecuteMinimalStructuredPatchPlanAsync(mockLlm.Object, maxRepairAttempts: 2);
+
+        Assert.False(result.Success);
+        Assert.Contains("base_fingerprint does not match", result.Error!.Message);
+    }
+
+    [Fact]
+    public async Task WorkflowPlan_PipelineMode_StopsAfterTwoRepeatedPatchContractDiagnostics()
+    {
+        var patchCalls = 0;
+        var mockLlm = new Mock<ILLMClient>();
+        mockLlm.Setup(client => client.CallAsync(It.IsAny<LLMRequest>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((LLMRequest request, CancellationToken _) =>
+            {
+                if (request.Prompt.Contains("preparing a raw user automation prompt", StringComparison.Ordinal))
+                    return new LLMResponse { Text = "# Normalize\n\nParse and normalize a typed value." };
+                if (request.Prompt.Contains("annotate normalized automation Markdown", StringComparison.Ordinal))
+                    return CreatePatchTestExtractionResponse("normalize_alpha");
+                if (request.Prompt.Contains("reviewing the quality of a `workflow.plan` pipeline", StringComparison.Ordinal))
+                {
+                    return CreateExtractionQualityReviewResponse(
+                        40,
+                        "retry",
+                        new JsonArray
+                        {
+                            new JsonObject
+                            {
+                                ["code"] = "PATCH_REQUIRED",
+                                ["kind"] = "plan_defect",
+                                ["severity"] = "critical",
+                                ["leaf_name"] = "normalize_alpha",
+                                ["message"] = "The leaf contract requires correction.",
+                                ["recommendation"] = "Replace the leaf contract."
+                            }
+                        });
+                }
+                if (request.Prompt.Contains("repairing one validated workflow pipeline extraction", StringComparison.Ordinal))
+                {
+                    patchCalls++;
+                    var json = new JsonObject
+                    {
+                        ["base_fingerprint"] = "stale-fingerprint",
+                        ["addressed_diagnostic_codes"] = new JsonArray("PATCH_REQUIRED"),
+                        ["operations"] = new JsonArray
+                        {
+                            new JsonObject
+                            {
+                                ["op"] = "replace_main_orchestration",
+                                ["target"] = "",
+                                ["sources"] = new JsonArray(),
+                                ["main_orchestration"] = "Call normalize_alpha.",
+                                ["leaf"] = null
+                            }
+                        }
+                    };
+                    return new LLMResponse { Json = json, Text = json.ToJsonString() };
+                }
+                throw new InvalidOperationException("Unexpected LLM prompt: " + request.Prompt);
+            });
+
+        var result = await ExecuteMinimalStructuredPatchPlanAsync(mockLlm.Object, maxRepairAttempts: 4);
+
+        Assert.False(result.Success);
+        Assert.Equal(ErrorCodes.WorkflowPlanRepairStalled, result.Error!.Code);
+        Assert.Equal(2, patchCalls);
+    }
+
+    [Fact]
+    public async Task WorkflowPlan_PipelineMode_DowngradesUnsupportedQualityClaimToAdvisory()
+    {
+        var patchCalls = 0;
+        var mockLlm = new Mock<ILLMClient>();
+        mockLlm.Setup(client => client.CallAsync(It.IsAny<LLMRequest>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((LLMRequest request, CancellationToken _) =>
+            {
+                if (request.Prompt.Contains("preparing a raw user automation prompt", StringComparison.Ordinal))
+                    return new LLMResponse { Text = "# Normalize\n\nParse and normalize a typed value." };
+                if (request.Prompt.Contains("annotate normalized automation Markdown", StringComparison.Ordinal))
+                    return CreatePatchTestExtractionResponse("normalize_alpha");
+                if (request.Prompt.Contains("reviewing the quality of a `workflow.plan` pipeline", StringComparison.Ordinal))
+                {
+                    return CreateExtractionQualityReviewResponse(
+                        20,
+                        "retry",
+                        new JsonArray
+                        {
+                            new JsonObject
+                            {
+                                ["code"] = "UNSUPPORTED_CLAIM",
+                                ["kind"] = "plan_defect",
+                                ["severity"] = "critical",
+                                ["leaf_name"] = "",
+                                ["message"] = "An unsupported missing obligation was claimed.",
+                                ["recommendation"] = "Do not block without evidence.",
+                                ["evidence"] = new JsonArray
+                                {
+                                    new JsonObject
+                                    {
+                                        ["source"] = "request",
+                                        ["reference"] = "text that is not in the request"
+                                    }
+                                }
+                            }
+                        });
+                }
+                if (request.Prompt.Contains("repairing one validated workflow pipeline extraction", StringComparison.Ordinal))
+                {
+                    patchCalls++;
+                    throw new InvalidOperationException("An unsupported claim must not request a patch.");
+                }
+                var leafMatch = Regex.Match(request.Prompt, "Generate exactly one leaf GnOuGo workflow named `(?<name>[a-z0-9_]+)`\\.");
+                if (leafMatch.Success)
+                    return CreatePatchTestLeafWorkflow(leafMatch.Groups["name"].Value);
+                if (request.Prompt.Contains("assembling the parent `main` workflow", StringComparison.Ordinal))
+                    return CreatePatchTestMainWorkflow(["normalize_alpha"]);
+                throw new InvalidOperationException("Unexpected LLM prompt: " + request.Prompt);
+            });
+
+        var result = await ExecuteMinimalStructuredPatchPlanAsync(mockLlm.Object, maxRepairAttempts: 2);
+
+        Assert.True(result.Success, result.Error?.Message);
+        Assert.Equal(0, patchCalls);
+        var diagnostic = Assert.Single(result.Outputs!["plan"]!["pipeline"]!["quality_report"]!["extraction"]!["quality_review"]!["diagnostics"]!.AsArray());
+        Assert.Equal("warning", diagnostic!["severity"]!.GetValue<string>());
+        Assert.False(diagnostic["evidence_qualified"]!.GetValue<bool>());
+    }
+
+    [Fact]
+    public async Task WorkflowPlan_PipelineMode_DowngradesExistingPointerWithUnsupportedExcerpt()
+    {
+        var patchCalls = 0;
+        var mockLlm = new Mock<ILLMClient>();
+        mockLlm.Setup(client => client.CallAsync(It.IsAny<LLMRequest>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((LLMRequest request, CancellationToken _) =>
+            {
+                if (request.Prompt.Contains("preparing a raw user automation prompt", StringComparison.Ordinal))
+                    return new LLMResponse { Text = "# Normalize\n\nParse and normalize a typed value." };
+                if (request.Prompt.Contains("annotate normalized automation Markdown", StringComparison.Ordinal))
+                    return CreatePatchTestExtractionResponse("normalize_alpha");
+                if (request.Prompt.Contains("reviewing the quality of a `workflow.plan` pipeline", StringComparison.Ordinal))
+                {
+                    Assert.Contains("A pointer that merely exists does not prove a claim", request.Prompt, StringComparison.Ordinal);
+                    return CreateExtractionQualityReviewResponse(
+                        20,
+                        "retry",
+                        new JsonArray
+                        {
+                            new JsonObject
+                            {
+                                ["code"] = "UNSUPPORTED_MAIN_CLAIM",
+                                ["kind"] = "plan_defect",
+                                ["severity"] = "critical",
+                                ["leaf_name"] = "main",
+                                ["message"] = "Main allegedly recomputes a leaf-owned decision.",
+                                ["recommendation"] = "Route the leaf output.",
+                                ["evidence"] = new JsonArray
+                                {
+                                    new JsonObject
+                                    {
+                                        ["source"] = "extraction",
+                                        ["reference"] = "/main_workflow_prompt",
+                                        ["excerpt"] = "Main computes decision operation 'op10'"
+                                    }
+                                }
+                            }
+                        });
+                }
+                if (request.Prompt.Contains("repairing one validated workflow pipeline extraction", StringComparison.Ordinal))
+                {
+                    patchCalls++;
+                    throw new InvalidOperationException("An unsupported claim must not request a patch.");
+                }
+                var leafMatch = Regex.Match(request.Prompt, "Generate exactly one leaf GnOuGo workflow named `(?<name>[a-z0-9_]+)`\\.");
+                if (leafMatch.Success)
+                    return CreatePatchTestLeafWorkflow(leafMatch.Groups["name"].Value);
+                if (request.Prompt.Contains("assembling the parent `main` workflow", StringComparison.Ordinal))
+                    return CreatePatchTestMainWorkflow(["normalize_alpha"]);
+                throw new InvalidOperationException("Unexpected LLM prompt: " + request.Prompt);
+            });
+
+        var result = await ExecuteMinimalStructuredPatchPlanAsync(mockLlm.Object, maxRepairAttempts: 2);
+
+        Assert.True(result.Success, result.Error?.Message);
+        Assert.Equal(0, patchCalls);
+        var diagnostic = Assert.Single(result.Outputs!["plan"]!["pipeline"]!["quality_report"]!["extraction"]!["quality_review"]!["diagnostics"]!.AsArray());
+        Assert.Equal("warning", diagnostic!["severity"]!.GetValue<string>());
+        Assert.False(diagnostic["evidence_qualified"]!.GetValue<bool>());
+    }
+
+    [Fact]
+    public async Task WorkflowPlan_PipelineMode_DeltaReviewCannotEscalateUntouchedExtractionSurface()
+    {
+        var reviewCalls = 0;
+        var mockLlm = new Mock<ILLMClient>();
+        mockLlm.Setup(client => client.CallAsync(It.IsAny<LLMRequest>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((LLMRequest request, CancellationToken _) =>
+            {
+                if (request.Prompt.Contains("preparing a raw user automation prompt", StringComparison.Ordinal))
+                    return new LLMResponse { Text = "# Normalize\n\nParse and normalize a typed value." };
+                if (request.Prompt.Contains("annotate normalized automation Markdown", StringComparison.Ordinal))
+                    return CreatePatchTestExtractionResponse("normalize_alpha", "normalize_beta");
+                if (request.Prompt.Contains("reviewing the quality of a `workflow.plan` pipeline", StringComparison.Ordinal))
+                {
+                    reviewCalls++;
+                    if (reviewCalls == 1)
+                    {
+                        return CreateExtractionQualityReviewResponse(
+                            40,
+                            "retry",
+                            new JsonArray
+                            {
+                                new JsonObject
+                                {
+                                    ["code"] = "ALPHA_CONTRACT_DEFECT",
+                                    ["kind"] = "plan_defect",
+                                    ["severity"] = "critical",
+                                    ["leaf_name"] = "normalize_alpha",
+                                    ["message"] = "The first leaf contract needs correction.",
+                                    ["recommendation"] = "Replace the first leaf.",
+                                    ["evidence"] = new JsonArray(new JsonObject
+                                    {
+                                        ["source"] = "extraction",
+                                        ["reference"] = "/subworkflows/0/content"
+                                    })
+                                },
+                                new JsonObject
+                                {
+                                    ["code"] = "BASELINE_BETA_ADVISORY",
+                                    ["kind"] = "plan_defect",
+                                    ["severity"] = "warning",
+                                    ["leaf_name"] = "normalize_beta",
+                                    ["message"] = "The second leaf has an advisory observation.",
+                                    ["recommendation"] = "Preserve the existing boundary.",
+                                    ["evidence"] = new JsonArray(new JsonObject
+                                    {
+                                        ["source"] = "extraction",
+                                        ["reference"] = "/subworkflows/1/content"
+                                    })
+                                }
+                            });
+                    }
+
+                    Assert.Contains("<baseline_quality_review_json>", request.Prompt, StringComparison.Ordinal);
+                    Assert.Contains("<changed_extraction_surfaces_json>", request.Prompt, StringComparison.Ordinal);
+                    Assert.Contains("normalize_alpha", request.Prompt, StringComparison.Ordinal);
+                    return CreateExtractionQualityReviewResponse(
+                        82,
+                        "retry",
+                        new JsonArray
+                        {
+                            new JsonObject
+                            {
+                                ["code"] = "NEW_BETA_BLOCKER",
+                                ["kind"] = "contract_violation",
+                                ["severity"] = "critical",
+                                ["leaf_name"] = "normalize_beta",
+                                ["message"] = "A new blocker was claimed only on the unchanged second leaf.",
+                                ["recommendation"] = "Do not alter an unchanged surface.",
+                                ["evidence"] = new JsonArray(new JsonObject
+                                {
+                                    ["source"] = "extraction",
+                                    ["reference"] = "/subworkflows/1/content"
+                                })
+                            }
+                        });
+                }
+                if (request.Prompt.Contains("repairing one validated workflow pipeline extraction", StringComparison.Ordinal))
+                {
+                    return CreatePipelineExtractionPatchResponse(
+                        request,
+                        new JsonArray
+                        {
+                            new JsonObject
+                            {
+                                ["op"] = "replace_leaf",
+                                ["target"] = "normalize_alpha",
+                                ["sources"] = new JsonArray(),
+                                ["main_orchestration"] = "",
+                                ["leaf"] = CreatePatchTestLeafPayload("normalize_alpha", "Corrected first contract.")
+                            }
+                        });
+                }
+                var leafMatch = Regex.Match(request.Prompt, "Generate exactly one leaf GnOuGo workflow named `(?<name>[a-z0-9_]+)`\\.");
+                if (leafMatch.Success)
+                    return CreatePatchTestLeafWorkflow(leafMatch.Groups["name"].Value);
+                if (request.Prompt.Contains("assembling the parent `main` workflow", StringComparison.Ordinal))
+                    return CreatePatchTestMainWorkflow(["normalize_alpha", "normalize_beta"]);
+                throw new InvalidOperationException("Unexpected LLM prompt: " + request.Prompt);
+            });
+
+        var result = await ExecuteMinimalStructuredPatchPlanAsync(mockLlm.Object, maxRepairAttempts: 2);
+
+        Assert.True(result.Success, result.Error?.Message);
+        Assert.Equal(2, reviewCalls);
+        var diagnostics = result.Outputs!["plan"]!["pipeline"]!["quality_report"]!["extraction"]!["quality_review"]!["diagnostics"]!.AsArray();
+        var newClaim = Assert.Single(diagnostics, static item => item!["code"]!.GetValue<string>() == "NEW_BETA_BLOCKER");
+        Assert.Equal("info", newClaim!["severity"]!.GetValue<string>());
+        Assert.False(newClaim["evidence_qualified"]!.GetValue<bool>());
+        Assert.Single(diagnostics, static item => item!["code"]!.GetValue<string>() == "BASELINE_BETA_ADVISORY");
+    }
+
+    [Fact]
+    public async Task WorkflowPlan_PipelineMode_StopsAfterTwoNonImprovingTargetedPatches()
+    {
+        var reviewCalls = 0;
+        var patchCalls = 0;
+        var patchReasoning = new List<string?>();
+        var mockLlm = new Mock<ILLMClient>();
+        mockLlm.Setup(client => client.CallAsync(It.IsAny<LLMRequest>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((LLMRequest request, CancellationToken _) =>
+            {
+                if (request.Prompt.Contains("preparing a raw user automation prompt", StringComparison.Ordinal))
+                    return new LLMResponse { Text = "# Normalize\n\nParse and normalize a typed value." };
+                if (request.Prompt.Contains("annotate normalized automation Markdown", StringComparison.Ordinal))
+                    return CreatePatchTestExtractionResponse("normalize_alpha");
+                if (request.Prompt.Contains("reviewing the quality of a `workflow.plan` pipeline", StringComparison.Ordinal))
+                {
+                    reviewCalls++;
+                    return CreateExtractionQualityReviewResponse(
+                        40,
+                        "retry",
+                        new JsonArray
+                        {
+                            new JsonObject
+                            {
+                                ["code"] = "UNCHANGED_DEFECT",
+                                ["kind"] = "plan_defect",
+                                ["severity"] = "critical",
+                                ["leaf_name"] = "normalize_alpha",
+                                ["message"] = "The same contract defect remains.",
+                                ["recommendation"] = "Apply a materially improving correction."
+                            }
+                        },
+                        retryGuidance: "UNQUALIFIED_RETRY_SUMMARY_MUST_NOT_DRIVE_PATCHING");
+                }
+                if (request.Prompt.Contains("repairing one validated workflow pipeline extraction", StringComparison.Ordinal))
+                {
+                    patchCalls++;
+                    patchReasoning.Add(request.Reasoning);
+                    Assert.DoesNotContain("UNQUALIFIED_RETRY_SUMMARY_MUST_NOT_DRIVE_PATCHING", request.Prompt, StringComparison.Ordinal);
+                    return CreatePipelineExtractionPatchResponse(
+                        request,
+                        new JsonArray
+                        {
+                            new JsonObject
+                            {
+                                ["op"] = "replace_main_orchestration",
+                                ["target"] = "",
+                                ["sources"] = new JsonArray(),
+                                ["main_orchestration"] = "Normalize the supplied value without changing the diagnosed leaf contract.",
+                                ["leaf"] = null
+                            }
+                        });
+                }
+                throw new InvalidOperationException("Unexpected LLM prompt: " + request.Prompt);
+            });
+
+        var result = await ExecuteMinimalStructuredPatchPlanAsync(mockLlm.Object, maxRepairAttempts: 5);
+
+        Assert.False(result.Success);
+        Assert.Equal(ErrorCodes.WorkflowPlanRepairStalled, result.Error!.Code);
+        Assert.Equal(3, reviewCalls);
+        Assert.Equal(2, patchCalls);
+        Assert.Equal("high", patchReasoning[1]);
+    }
+
+    [Fact]
+    public async Task WorkflowPlan_PipelineMode_PreservesSchemaAndRejectsNonImprovingPatch()
+    {
+        var patchCalls = 0;
+        var mockLlm = new Mock<ILLMClient>();
+        mockLlm.Setup(client => client.CallAsync(It.IsAny<LLMRequest>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((LLMRequest request, CancellationToken _) =>
+            {
+                if (request.Prompt.Contains("preparing a raw user automation prompt", StringComparison.Ordinal))
+                    return new LLMResponse { Text = "# Normalize\n\nParse and normalize a typed value." };
+                if (request.Prompt.Contains("annotate normalized automation Markdown", StringComparison.Ordinal))
+                    return CreatePatchTestExtractionResponse("normalize_alpha");
+                if (request.Prompt.Contains("reviewing the quality of a `workflow.plan` pipeline", StringComparison.Ordinal))
+                {
+                    return CreateExtractionQualityReviewResponse(
+                        40,
+                        "retry",
+                        new JsonArray
+                        {
+                            new JsonObject
+                            {
+                                ["code"] = "PATCH_REQUIRED",
+                                ["kind"] = "plan_defect",
+                                ["severity"] = "critical",
+                                ["leaf_name"] = "normalize_alpha",
+                                ["message"] = "The valid leaf needs a bounded semantic correction.",
+                                ["recommendation"] = "Preserve its validated schema."
+                            }
+                        });
+                }
+                if (request.Prompt.Contains("repairing one validated workflow pipeline extraction", StringComparison.Ordinal))
+                {
+                    patchCalls++;
+                    if (patchCalls == 2)
+                    {
+                        Assert.Contains(
+                            "did not strictly improve",
+                            request.Prompt,
+                            StringComparison.Ordinal);
+                    }
+                    var invalidLeaf = CreatePatchTestLeafPayload("normalize_alpha");
+                    var invalidInput = invalidLeaf["inputs"]!.AsArray()[0]!.AsObject();
+                    invalidInput["type"] = "object";
+                    invalidInput["properties"] = new JsonArray();
+                    return CreatePipelineExtractionPatchResponse(
+                        request,
+                        new JsonArray
+                        {
+                            new JsonObject
+                            {
+                                ["op"] = "replace_leaf",
+                                ["target"] = "normalize_alpha",
+                                ["sources"] = new JsonArray(),
+                                ["main_orchestration"] = "",
+                                ["leaf"] = invalidLeaf
+                            }
+                        });
+                }
+                throw new InvalidOperationException("Unexpected LLM prompt: " + request.Prompt);
+            });
+
+        var result = await ExecuteMinimalStructuredPatchPlanAsync(mockLlm.Object, maxRepairAttempts: 4);
+
+        Assert.False(result.Success);
+        Assert.Equal(ErrorCodes.WorkflowPlanRepairStalled, result.Error!.Code);
+        Assert.Equal(2, patchCalls);
+    }
+
+    [Fact]
+    public async Task WorkflowPlan_PipelineMode_ReportsMixedPatchRejectionCategoriesAccurately()
+    {
+        var patchCalls = 0;
+        var mockLlm = new Mock<ILLMClient>();
+        mockLlm.Setup(client => client.CallAsync(It.IsAny<LLMRequest>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((LLMRequest request, CancellationToken _) =>
+            {
+                if (request.Prompt.Contains("preparing a raw user automation prompt", StringComparison.Ordinal))
+                    return new LLMResponse { Text = "# Normalize\n\nParse and normalize a typed value." };
+                if (request.Prompt.Contains("annotate normalized automation Markdown", StringComparison.Ordinal))
+                    return CreatePatchTestExtractionResponse("normalize_alpha");
+                if (request.Prompt.Contains("reviewing the quality of a `workflow.plan` pipeline", StringComparison.Ordinal))
+                {
+                    return CreateExtractionQualityReviewResponse(
+                        40,
+                        "retry",
+                        new JsonArray
+                        {
+                            new JsonObject
+                            {
+                                ["code"] = "PATCH_REQUIRED",
+                                ["kind"] = "plan_defect",
+                                ["severity"] = "critical",
+                                ["leaf_name"] = "normalize_alpha",
+                                ["message"] = "The valid leaf needs a bounded semantic correction.",
+                                ["recommendation"] = "Preserve deterministic validation."
+                            }
+                        });
+                }
+                if (request.Prompt.Contains("repairing one validated workflow pipeline extraction", StringComparison.Ordinal))
+                {
+                    patchCalls++;
+                    if (patchCalls == 1)
+                    {
+                        return CreatePipelineExtractionPatchResponse(
+                            request,
+                            new JsonArray
+                            {
+                                new JsonObject
+                                {
+                                    ["op"] = "replace_main_orchestration",
+                                    ["target"] = "",
+                                    ["sources"] = new JsonArray(),
+                                    ["main_orchestration"] = "Normalize the supplied value without changing the diagnosed leaf contract.",
+                                    ["leaf"] = null
+                                }
+                            });
+                    }
+
+                    var invalidLeaf = CreatePatchTestLeafPayload("normalize_alpha", "Add an underspecified output contract.");
+                    invalidLeaf["outputs"]!.AsArray().Add(new JsonObject
+                    {
+                        ["name"] = "weak_payload",
+                        ["type"] = "object",
+                        ["description"] = "An underspecified payload.",
+                        ["required"] = true,
+                        ["nullable"] = false,
+                        ["item_type"] = "",
+                        ["properties"] = new JsonArray()
+                    });
+                    return CreatePipelineExtractionPatchResponse(
+                        request,
+                        new JsonArray
+                        {
+                            new JsonObject
+                            {
+                                ["op"] = "replace_leaf",
+                                ["target"] = "normalize_alpha",
+                                ["sources"] = new JsonArray(),
+                                ["main_orchestration"] = "",
+                                ["leaf"] = invalidLeaf
+                            }
+                        });
+                }
+                throw new InvalidOperationException("Unexpected LLM prompt: " + request.Prompt);
+            });
+
+        var result = await ExecuteMinimalStructuredPatchPlanAsync(mockLlm.Object, maxRepairAttempts: 4);
+
+        Assert.False(result.Success);
+        Assert.Equal(ErrorCodes.WorkflowPlanRepairStalled, result.Error!.Code);
+        Assert.Equal(1, result.Error.Details!["quality_non_improving_attempts"]!.GetValue<int>());
+        Assert.Equal(1, result.Error.Details["deterministic_regression_attempts"]!.GetValue<int>());
+        Assert.Equal(0, result.Error.Details["validation_non_improving_attempts"]!.GetValue<int>());
+        Assert.Contains("quality non-improvement=1", result.Error.Message, StringComparison.Ordinal);
+        Assert.Contains("deterministic regression=1", result.Error.Message, StringComparison.Ordinal);
+        Assert.NotEmpty(result.Error.Details["last_deterministic_validation_codes"]!.AsArray());
+    }
+
+    [Fact]
+    public async Task WorkflowPlan_PipelineMode_TargetsStructurallyValidInitialExtractionDefect()
+    {
+        var markCalls = 0;
+        var patchCalls = 0;
+        var externalLeaf = CreatePatchTestLeaf("observe_external", "Observe one external value.");
+        externalLeaf["goal"] = "Observe one external value.";
+        externalLeaf["work_kind"] = "external_work";
+        externalLeaf["contract_role"] = "external_action";
+        externalLeaf["concrete_outcome"] = "One observed external value.";
+        externalLeaf["content"] = "Read one external value and return it.";
+        externalLeaf["planned_tools"] = new JsonArray();
+
+        var mockLlm = new Mock<ILLMClient>();
+        mockLlm.Setup(client => client.CallAsync(It.IsAny<LLMRequest>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((LLMRequest request, CancellationToken _) =>
+            {
+                if (request.Prompt.Contains("preparing a raw user automation prompt", StringComparison.Ordinal))
+                    return new LLMResponse { Text = "# Normalize\n\nNormalize a typed value and do not perform external work." };
+                if (request.Prompt.Contains("annotate normalized automation Markdown", StringComparison.Ordinal))
+                {
+                    markCalls++;
+                    const string annotated = """
+                        # Normalize
+
+                        :::subworkflow name="normalize_alpha"
+                        goal: Parse and normalize a typed value.
+                        inputs:
+                          value: string
+                        outputs:
+                          value: string
+                        extract_reason: This is a cohesive parsing and normalization operation.
+                        content:
+                          Parse the supplied value, trim whitespace, normalize its casing deterministically, validate that it remains non-empty, and return the canonical typed value.
+                        :::
+
+                        :::subworkflow name="observe_external"
+                        goal: Observe one external value.
+                        inputs:
+                          value: string
+                        outputs:
+                          value: string
+                        extract_reason: This claims an external observation.
+                        content:
+                          Read one external value and return it.
+                        :::
+
+                        ## Main workflow orchestration
+
+                        Call normalize_alpha, then call observe_external.
+                        """;
+                    return CreateStructuredMarkExtractableBlocksResponse(
+                        annotated,
+                        new JsonArray(CreatePatchTestLeaf("normalize_alpha"), externalLeaf.DeepClone()),
+                        "Call normalize_alpha, then call observe_external.");
+                }
+                if (request.Prompt.Contains("repairing one validated workflow pipeline extraction", StringComparison.Ordinal))
+                {
+                    patchCalls++;
+                    return CreatePipelineExtractionPatchResponse(
+                        request,
+                        new JsonArray
+                        {
+                            new JsonObject
+                            {
+                                ["op"] = "remove_leaf",
+                                ["target"] = "observe_external",
+                                ["sources"] = new JsonArray(),
+                                ["main_orchestration"] = "",
+                                ["leaf"] = null
+                            },
+                            new JsonObject
+                            {
+                                ["op"] = "replace_main_orchestration",
+                                ["target"] = "",
+                                ["sources"] = new JsonArray(),
+                                ["main_orchestration"] = "Call normalize_alpha and expose its value.",
+                                ["leaf"] = null
+                            }
+                        });
+                }
+                if (request.Prompt.Contains("reviewing the quality of a `workflow.plan` pipeline", StringComparison.Ordinal))
+                    return CreateExtractionQualityReviewResponse(95, "pass");
+                var leafMatch = Regex.Match(request.Prompt, "Generate exactly one leaf GnOuGo workflow named `(?<name>[a-z0-9_]+)`\\.");
+                if (leafMatch.Success)
+                    return CreatePatchTestLeafWorkflow(leafMatch.Groups["name"].Value);
+                if (request.Prompt.Contains("assembling the parent `main` workflow", StringComparison.Ordinal))
+                    return CreatePatchTestMainWorkflow(["normalize_alpha"]);
+                throw new InvalidOperationException("Unexpected LLM prompt: " + request.Prompt);
+            });
+
+        var result = await ExecuteMinimalStructuredPatchPlanAsync(mockLlm.Object, maxRepairAttempts: 2);
+
+        Assert.True(result.Success, result.Error?.Message);
+        Assert.Equal(1, markCalls);
+        Assert.Equal(1, patchCalls);
+        var specs = result.Outputs!["plan"]!["pipeline"]!["specs"]!["subworkflows"]!.AsArray();
+        Assert.Equal("normalize_alpha", Assert.Single(specs)!["name"]!.GetValue<string>());
+    }
+
+    [Fact]
+    public async Task WorkflowPlan_PipelineMode_TargetsWeakNestedLeafSchemaWithoutRegeneration()
+    {
+        var markCalls = 0;
+        var patchCalls = 0;
+        var weakLeaf = CreatePatchTestLeaf("normalize_alpha");
+        var weakOutput = Assert.IsType<JsonObject>(Assert.Single(Assert.IsType<JsonArray>(weakLeaf["outputs"])));
+        weakOutput["type"] = "object";
+        weakOutput["properties"] = new JsonArray();
+
+        var mockLlm = new Mock<ILLMClient>();
+        mockLlm.Setup(client => client.CallAsync(It.IsAny<LLMRequest>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((LLMRequest request, CancellationToken _) =>
+            {
+                if (request.Prompt.Contains("preparing a raw user automation prompt", StringComparison.Ordinal))
+                    return new LLMResponse { Text = "# Normalize\n\nParse and normalize a typed value." };
+                if (request.Prompt.Contains("annotate normalized automation Markdown", StringComparison.Ordinal))
+                {
+                    markCalls++;
+                    return CreateStructuredMarkExtractableBlocksResponse(
+                        """
+                        # Normalize
+
+                        :::subworkflow name="normalize_alpha"
+                        goal: Parse and normalize a typed value.
+                        inputs:
+                          value: string
+                        outputs:
+                          value: object
+                        extract_reason: This is a cohesive parsing and normalization operation.
+                        content:
+                          Parse the supplied value, trim whitespace, normalize its casing deterministically, validate that it remains non-empty, and return the canonical typed value.
+                        :::
+
+                        ## Main workflow orchestration
+
+                        Call normalize_alpha and expose its value.
+                        """,
+                        new JsonArray(weakLeaf.DeepClone()),
+                        "Call normalize_alpha and expose its value.");
+                }
+                if (request.Prompt.Contains("repairing one validated workflow pipeline extraction", StringComparison.Ordinal))
+                {
+                    patchCalls++;
+                    Assert.Contains("WEAK_EXTRACTION_OUTPUT_SCHEMA", request.Prompt, StringComparison.Ordinal);
+                    return CreatePipelineExtractionPatchResponse(
+                        request,
+                        new JsonArray
+                        {
+                            new JsonObject
+                            {
+                                ["op"] = "replace_leaf",
+                                ["target"] = "normalize_alpha",
+                                ["sources"] = new JsonArray(),
+                                ["main_orchestration"] = "",
+                                ["leaf"] = CreatePatchTestLeafPayload("normalize_alpha")
+                            }
+                        });
+                }
+                if (request.Prompt.Contains("reviewing the quality of a `workflow.plan` pipeline", StringComparison.Ordinal))
+                    return CreateExtractionQualityReviewResponse(95, "pass");
+                var leafMatch = Regex.Match(request.Prompt, "Generate exactly one leaf GnOuGo workflow named `(?<name>[a-z0-9_]+)`\\.");
+                if (leafMatch.Success)
+                    return CreatePatchTestLeafWorkflow(leafMatch.Groups["name"].Value);
+                if (request.Prompt.Contains("assembling the parent `main` workflow", StringComparison.Ordinal))
+                    return CreatePatchTestMainWorkflow(["normalize_alpha"]);
+                throw new InvalidOperationException("Unexpected LLM prompt: " + request.Prompt);
+            });
+
+        var result = await ExecuteMinimalStructuredPatchPlanAsync(mockLlm.Object, maxRepairAttempts: 2);
+
+        Assert.True(result.Success, result.Error?.Message);
+        Assert.Equal(1, markCalls);
+        Assert.Equal(1, patchCalls);
+        var leaf = Assert.Single(result.Outputs!["plan"]!["pipeline"]!["quality_report"]!["leaves"]!.AsArray());
+        Assert.Equal("acceptable", leaf!["extraction_score"]!["rating"]!.GetValue<string>());
+    }
+
+    private static Task<RunResult> ExecuteMinimalStructuredPatchPlanAsync(
+        ILLMClient llmClient,
+        int maxRepairAttempts)
+    {
+        var workflow = CompileMain($$"""
+            version: 1
+            workflows:
+              main:
+                steps:
+                  - id: plan
+                    type: workflow.plan
+                    input:
+                      mode: pipeline
+                      raw_prompt: "Parse and normalize a typed value."
+                      generator:
+                        model: gpt-4
+                        prefilter: false
+                      validate:
+                        compile: false
+                        max_repair_attempts: {{maxRepairAttempts}}
+            """);
+        return new WorkflowEngine
+        {
+            LLMClient = llmClient,
+            LLMCapabilities = new StaticLlmCapabilityResolver(true)
+        }.ExecuteAsync(workflow, new JsonObject(), CancellationToken.None);
+    }
+
+    [Fact]
+    public void PipelineExtractionPatch_ReplaceLeafPreservesEveryImmutableLock()
+    {
+        var candidate = CreatePrivatePatchCandidate("locked_leaf");
+        var patched = ApplyPrivateExtractionPatch(
+            candidate,
+            new JsonArray
+            {
+                new JsonObject
+                {
+                    ["op"] = "replace_leaf",
+                    ["target"] = "locked_leaf",
+                    ["sources"] = new JsonArray(),
+                    ["main_orchestration"] = "",
+                    ["leaf"] = CreatePatchTestLeafPayload("locked_leaf", "Corrected contract.")
+                }
+            });
+
+        var extractionJson = BuildPrivateExtractionJson(patched);
+        var leaf = extractionJson["subworkflows"]![0]!;
+        var tool = leaf["planned_tools"]![0]!;
+        Assert.Equal("neutral-server", tool["server"]!.GetValue<string>());
+        Assert.Equal("neutral-action", tool["method"]!.GetValue<string>());
+        Assert.Equal("operation-locked_leaf", tool["operation_ids"]![0]!.GetValue<string>());
+        Assert.Equal("catalog-locked_leaf", tool["catalog_ids"]![0]!.GetValue<string>());
+        Assert.Equal("/mode", tool["request_bindings"]![0]!["path"]!.GetValue<string>());
+        Assert.Equal("bounded", tool["request_bindings"]![0]!["value"]!.GetValue<string>());
+        Assert.Equal("exclusive", tool["activation"]!["mode"]!.GetValue<string>());
+        Assert.Equal("decision-group", tool["activation"]!["group"]!.GetValue<string>());
+        Assert.Equal("local-locked_leaf", tool["activation"]!["decision_operation_id"]!.GetValue<string>());
+        Assert.Equal("locked_leaf", tool["activation"]!["branch_value"]!.GetValue<string>());
+        Assert.Equal("local-locked_leaf", leaf["local_operation_ids"]![0]!.GetValue<string>());
+        Assert.Equal("native-operation-locked_leaf", leaf["planned_native_steps"]![0]!["operation_ids"]![0]!.GetValue<string>());
+        var ownershipMethod = typeof(WorkflowPlanExecutor).GetMethod(
+            "BuildPipelineConditionalDecisionOwnershipSummary",
+            BindingFlags.Static | BindingFlags.NonPublic)!;
+        var ownership = Assert.IsType<JsonArray>(ownershipMethod.Invoke(null, [patched]));
+        var decision = Assert.Single(ownership);
+        Assert.Equal("local-locked_leaf", decision!["decision_operation_id"]!.GetValue<string>());
+        Assert.Equal("locked_leaf", decision["decision_owners"]![0]!["owner"]!.GetValue<string>());
+        Assert.Equal("leaf", decision["decision_owners"]![0]!["owner_kind"]!.GetValue<string>());
+    }
+
+    [Fact]
+    public void PipelineExtractionPatch_MergeLeafAtomicallyUnionsImmutableLocks()
+    {
+        var candidate = CreatePrivatePatchCandidateWithOwnership(
+            includeImmutableTool: true,
+            includeAdvisoryTool: true,
+            includeLocalOperation: true,
+            includeNativeStep: true,
+            "first_leaf",
+            "second_leaf");
+        var patched = ApplyPrivateExtractionPatch(
+            candidate,
+            new JsonArray
+            {
+                new JsonObject
+                {
+                    ["op"] = "merge_leaves",
+                    ["target"] = "",
+                    ["sources"] = new JsonArray("first_leaf", "second_leaf"),
+                    ["main_orchestration"] = "",
+                    ["leaf"] = CreatePatchTestLeafPayload("combined_leaf", "Combined contract.")
+                }
+            });
+
+        var extractionJson = BuildPrivateExtractionJson(patched);
+        var leaf = Assert.Single(extractionJson["subworkflows"]!.AsArray());
+        Assert.Equal("combined_leaf", leaf!["name"]!.GetValue<string>());
+        Assert.Equal(2, leaf["planned_tools"]!.AsArray().Count);
+        Assert.Equal(2, leaf["local_operation_ids"]!.AsArray().Count);
+        Assert.Equal(2, leaf["planned_native_steps"]!.AsArray().Count);
+        Assert.Equal(
+            ["catalog-first_leaf", "catalog-second_leaf"],
+            leaf["planned_tools"]!.AsArray()
+                .Select(item => item!["catalog_ids"]![0]!.GetValue<string>())
+                .Order(StringComparer.Ordinal));
+    }
+
+    [Fact]
+    public void PipelineConditionalDecisionGuidance_RespectsImmutableOwner()
+    {
+        var method = typeof(WorkflowPlanExecutor).GetMethod(
+            "BuildConditionalDecisionRoutingGuidance",
+            BindingFlags.Static | BindingFlags.NonPublic)!;
+
+        var leafOwned = Assert.IsType<string>(method.Invoke(null,
+            ["neutral-group", "neutral-decision", "decision", "effect_leaf", new[] { "decision_leaf" }, false]));
+        Assert.Contains("Leaf 'decision_leaf' owns and derives decision operation 'neutral-decision'", leafOwned, StringComparison.Ordinal);
+        Assert.Contains("main routes that exact field unchanged", leafOwned, StringComparison.Ordinal);
+        Assert.Contains("the exact typed field 'decision'", leafOwned, StringComparison.Ordinal);
+        Assert.Contains("without recomputing or aliasing the decision as 'result'", leafOwned, StringComparison.Ordinal);
+        Assert.DoesNotContain("Main owns and computes", leafOwned, StringComparison.Ordinal);
+
+        var mainOwned = Assert.IsType<string>(method.Invoke(null,
+            ["neutral-group", "neutral-decision", "decision", "effect_leaf", Array.Empty<string>(), true]));
+        Assert.Contains("Main owns and computes decision operation 'neutral-decision'", mainOwned, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void PipelineExternalLeaf_RequiredNativeCapabilitySatisfiesExecutableOwnership()
+    {
+        var candidate = CreatePrivatePatchCandidateWithOwnership(
+            includeImmutableTool: false,
+            includeAdvisoryTool: false,
+            includeLocalOperation: false,
+            includeNativeStep: true,
+            "native_leaf");
+        var specs = ((System.Collections.IEnumerable)candidate.GetType()
+                .GetProperty("Subworkflows")!
+                .GetValue(candidate)!)
+            .Cast<object>()
+            .ToArray();
+        var spec = Assert.Single(specs);
+        var contextType = GetPrivatePipelineType("PipelineMcpContext");
+        var context = contextType.GetProperty("Empty", BindingFlags.Static | BindingFlags.Public)!
+            .GetValue(null)!;
+        var errors = new List<string>();
+        var rootCauseListType = typeof(List<>).MakeGenericType(GetPrivatePipelineType("PipelineRootCause"));
+        var rootCauses = Activator.CreateInstance(rootCauseListType)!;
+        var validate = typeof(WorkflowPlanExecutor).GetMethod(
+            "ValidateRequiredLeafToolContracts",
+            BindingFlags.Static | BindingFlags.NonPublic)!;
+
+        validate.Invoke(null, [spec, context, errors, rootCauses]);
+
+        Assert.Empty(errors);
+        var scoreMethod = typeof(WorkflowPlanExecutor).GetMethod(
+            "ScorePipelineExtractionSpec",
+            BindingFlags.Static | BindingFlags.NonPublic)!;
+        var score = scoreMethod.Invoke(null, [spec, context])!;
+        var reasons = Assert.IsAssignableFrom<IReadOnlyList<string>>(
+            score.GetType().GetProperty("Reasons")!.GetValue(score));
+        Assert.Contains("declares required native Flow step calls", reasons);
+        Assert.DoesNotContain("external work has matching MCP capabilities but no planned_tools", reasons);
+    }
+
+    [Theory]
+    [InlineData(false, 1)]
+    [InlineData(true, 0)]
+    public void PipelineConditionalDecisionBoundary_RequiresCompatibleOwnerOutputAndConsumerInput(
+        bool includeSharedBoundary,
+        int expectedErrors)
+    {
+        var candidate = CreatePrivateConditionalBoundaryCandidate(includeSharedBoundary);
+        var errors = new List<string>();
+        var rootCauseListType = typeof(List<>).MakeGenericType(GetPrivatePipelineType("PipelineRootCause"));
+        var rootCauses = Activator.CreateInstance(rootCauseListType)!;
+        var method = typeof(WorkflowPlanExecutor).GetMethod(
+            "ValidateConditionalDecisionBoundaries",
+            BindingFlags.Static | BindingFlags.NonPublic)!;
+
+        method.Invoke(null, [candidate, errors, rootCauses]);
+
+        Assert.Equal(expectedErrors, errors.Count);
+        if (!includeSharedBoundary)
+        {
+            Assert.Contains(
+                errors,
+                static error => error.StartsWith(
+                    "CAPABILITY_PREFLIGHT_CONDITIONAL_DECISION_BOUNDARY_MISSING:",
+                    StringComparison.Ordinal));
+        }
+    }
+
+    [Fact]
+    public void PipelineConditionalDecisionBoundary_CanonicalizationOverridesIncompatibleExtractorSchemas()
+    {
+        var candidate = CreatePrivateConditionalBoundaryCandidate(
+            includeSharedBoundary: true,
+            incompatibleBoundary: true);
+        var leafType = GetPrivatePipelineType("WorkflowPipelineSubworkflowSpec");
+        var leaves = Assert.IsAssignableFrom<System.Collections.IEnumerable>(
+                candidate.GetType().GetProperty("Subworkflows")!.GetValue(candidate))
+            .Cast<object>()
+            .ToArray();
+        var apply = typeof(WorkflowPlanExecutor).GetMethod(
+            "ApplyConditionalDecisionBoundaryContracts",
+            BindingFlags.Static | BindingFlags.NonPublic)!;
+
+        var canonicalized = Assert.IsAssignableFrom<System.Collections.IEnumerable>(
+                apply.Invoke(null, [CreatePrivatePipelineArray(leafType, leaves)]))
+            .Cast<object>()
+            .ToArray();
+
+        var owner = canonicalized.Single(leaf => string.Equals(
+            leaf.GetType().GetProperty("Name")!.GetValue(leaf) as string,
+            "choose_outcome",
+            StringComparison.Ordinal));
+        var consumer = canonicalized.Single(leaf => string.Equals(
+            leaf.GetType().GetProperty("Name")!.GetValue(leaf) as string,
+            "publish_outcome",
+            StringComparison.Ordinal));
+        var outputSchemas = Assert.IsAssignableFrom<IReadOnlyDictionary<string, JsonNode?>>(
+            owner.GetType().GetProperty("OutputSchemas")!.GetValue(owner));
+        var inputSchemas = Assert.IsAssignableFrom<IReadOnlyDictionary<string, JsonNode?>>(
+            consumer.GetType().GetProperty("InputSchemas")!.GetValue(consumer));
+
+        Assert.Equal("string", outputSchemas["decision"]!["type"]!.GetValue<string>());
+        Assert.Equal("string", inputSchemas["decision"]!["type"]!.GetValue<string>());
+        Assert.Equal(
+            ["rejected", "selected"],
+            outputSchemas["decision"]!["enum"]!.AsArray()
+                .Select(static value => value!.GetValue<string>())
+                .Order(StringComparer.Ordinal));
+        Assert.True(JsonNode.DeepEquals(outputSchemas["decision"], inputSchemas["decision"]));
+    }
+
+    [Fact]
+    public void PipelineLocalDecisionInputs_CanonicalizeTypedUpstreamBoundaryAndRouting()
+    {
+        var candidate = CreatePrivateConditionalBoundaryCandidate(
+            includeSharedBoundary: true,
+            includeDecisionInputSource: true);
+        var leafType = GetPrivatePipelineType("WorkflowPipelineSubworkflowSpec");
+        var leaves = Assert.IsAssignableFrom<System.Collections.IEnumerable>(
+                candidate.GetType().GetProperty("Subworkflows")!.GetValue(candidate))
+            .Cast<object>()
+            .ToArray();
+        var apply = typeof(WorkflowPlanExecutor).GetMethod(
+            "ApplyLocalDecisionInputBoundaryContracts",
+            BindingFlags.Static | BindingFlags.NonPublic)!;
+
+        var canonicalized = Assert.IsAssignableFrom<System.Collections.IEnumerable>(
+                apply.Invoke(null, [CreatePrivatePipelineArray(leafType, leaves)]))
+            .Cast<object>()
+            .ToArray();
+
+        var owner = canonicalized.Single(leaf => string.Equals(
+            leaf.GetType().GetProperty("Name")!.GetValue(leaf) as string,
+            "choose_outcome",
+            StringComparison.Ordinal));
+        var inputs = Assert.IsAssignableFrom<IReadOnlyDictionary<string, string>>(
+            owner.GetType().GetProperty("Inputs")!.GetValue(owner));
+        var schemas = Assert.IsAssignableFrom<IReadOnlyDictionary<string, JsonNode?>>(
+            owner.GetType().GetProperty("InputSchemas")!.GetValue(owner));
+        var boundaries = inputs.Where(static pair => pair.Key.StartsWith(
+                "decision_input_",
+                StringComparison.Ordinal))
+            .ToArray();
+        Assert.Equal(2, boundaries.Length);
+        Assert.Equal(2, boundaries.Select(static pair => pair.Key).Distinct(StringComparer.Ordinal).Count());
+        Assert.All(boundaries, boundary =>
+        {
+            Assert.Equal("boolean", boundary.Value);
+            Assert.Equal("boolean", schemas[boundary.Key]!["type"]!.GetValue<string>());
+            Assert.True(schemas[boundary.Key]!["required"]!.GetValue<bool>());
+        });
+
+        var routing = typeof(WorkflowPlanExecutor).GetMethod(
+            "BuildLocalDecisionInputRoutingGuidance",
+            BindingFlags.Static | BindingFlags.NonPublic)!;
+        var guidance = Assert.IsAssignableFrom<IReadOnlyList<string>>(
+            routing.Invoke(null, [CreatePrivatePipelineArray(leafType, canonicalized)]));
+        Assert.Equal(2, guidance.Count);
+        Assert.Contains(guidance, static route =>
+            route.Contains("leaf 'analyze_input'", StringComparison.Ordinal)
+            && route.Contains("output 'signal'", StringComparison.Ordinal)
+            && route.Contains("upstream operation 'analyze-operation'", StringComparison.Ordinal));
+        Assert.Contains(guidance, static route =>
+            route.Contains("leaf 'verify_input'", StringComparison.Ordinal)
+            && route.Contains("output 'signal'", StringComparison.Ordinal)
+            && route.Contains("upstream operation 'verify-operation'", StringComparison.Ordinal));
+        Assert.All(boundaries, boundary => Assert.Contains(
+            guidance,
+            route => route.Contains($"input '{boundary.Key}'", StringComparison.Ordinal)));
+    }
+
+    [Fact]
+    public void PipelineConditionalDecisionBoundary_RetryDropsStaleTechnicalDiagnostics()
+    {
+        var candidate = CreatePrivateConditionalBoundaryCandidate(
+            includeSharedBoundary: true,
+            includeStaleConditionalDiagnostic: true);
+        var remove = typeof(WorkflowPlanExecutor).GetMethod(
+            "RemoveStaleConditionalDecisionDiagnostics",
+            BindingFlags.Static | BindingFlags.NonPublic)!;
+
+        var current = remove.Invoke(null, [candidate])!;
+
+        Assert.Empty(Assert.IsAssignableFrom<IReadOnlyList<string>>(
+            current.GetType().GetProperty("ValidationErrors")!.GetValue(current)));
+        Assert.Empty(Assert.IsAssignableFrom<System.Collections.IEnumerable>(
+            current.GetType().GetProperty("RootCauses")!.GetValue(current)));
+    }
+
+    [Fact]
+    public void PipelineLeafBlueprint_RejectsPublicOutputBoundToConditionalBranchCall()
+    {
+        var extraction = CreatePrivateConditionalBoundaryCandidate(includeSharedBoundary: true);
+        var subworkflows = Assert.IsAssignableFrom<System.Collections.IEnumerable>(
+            extraction.GetType().GetProperty("Subworkflows")!.GetValue(extraction));
+        var activationLeaf = subworkflows.Cast<object>().Single(leaf => string.Equals(
+            leaf.GetType().GetProperty("Name")!.GetValue(leaf) as string,
+            "publish_outcome",
+            StringComparison.Ordinal));
+        var build = typeof(WorkflowPlanExecutor).GetMethod(
+            "BuildLeafBlueprint",
+            BindingFlags.Static | BindingFlags.NonPublic)!;
+        var blueprint = build.Invoke(null, [activationLeaf])!;
+        var steps = Assert.IsAssignableFrom<System.Collections.IEnumerable>(
+            blueprint.GetType().GetProperty("Steps")!.GetValue(blueprint)).Cast<object>().ToArray();
+        var branchStep = steps.First(step => step.GetType().GetProperty("PlannedTool")!.GetValue(step) != null);
+        var branchStepId = Assert.IsType<string>(branchStep.GetType().GetProperty("Id")!.GetValue(branchStep));
+        Assert.Contains(steps, step => string.Equals(
+            step.GetType().GetProperty("Id")!.GetValue(step) as string,
+            "project_outputs",
+            StringComparison.Ordinal));
+
+        var outputType = GetPrivatePipelineType("PipelineLeafBlueprintOutput");
+        var invalidOutput = CreatePrivatePipelineValue(
+            outputType,
+            "result",
+            $"${{data.steps.{branchStepId}.result}}",
+            branchStepId,
+            JsonNode.Parse("{\"type\":\"string\"}"));
+        var invalidBlueprint = CreatePrivatePipelineValue(
+            GetPrivatePipelineType("PipelineLeafBlueprint"),
+            "publish_outcome",
+            "publish_outcome",
+            "Publish one outcome.",
+            CreatePrivatePipelineArray(GetPrivatePipelineType("PipelineLeafBlueprintStep"), steps),
+            CreatePrivatePipelineArray(outputType, invalidOutput));
+        var validate = typeof(WorkflowPlanExecutor).GetMethod(
+            "ValidateLeafBlueprint",
+            BindingFlags.Static | BindingFlags.NonPublic)!;
+
+        var failure = Assert.Throws<TargetInvocationException>(() =>
+            validate.Invoke(null, [activationLeaf, invalidBlueprint]));
+
+        var runtimeFailure = Assert.IsType<WorkflowRuntimeException>(failure.InnerException);
+        Assert.Contains(
+            Assert.IsType<JsonArray>(runtimeFailure.Details!["diagnostics"]).OfType<JsonObject>(),
+            static diagnostic => string.Equals(
+                diagnostic["code"]?.GetValue<string>(),
+                "PIPELINE_LEAF_BLUEPRINT_PATH_DEPENDENT_OUTPUT",
+                StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void PipelineLeafBlueprint_AcceptsAllOnValueActivationWithExplicitNoEffectValue()
+    {
+        var extraction = CreatePrivateConditionalBoundaryCandidate(
+            includeSharedBoundary: true,
+            useAllOnValueActivation: true);
+        var subworkflows = Assert.IsAssignableFrom<System.Collections.IEnumerable>(
+            extraction.GetType().GetProperty("Subworkflows")!.GetValue(extraction));
+        var activationLeaf = subworkflows.Cast<object>().Single(leaf => string.Equals(
+            leaf.GetType().GetProperty("Name")!.GetValue(leaf) as string,
+            "publish_outcome",
+            StringComparison.Ordinal));
+        var build = typeof(WorkflowPlanExecutor).GetMethod(
+            "BuildLeafBlueprint",
+            BindingFlags.Static | BindingFlags.NonPublic)!;
+        var validate = typeof(WorkflowPlanExecutor).GetMethod(
+            "ValidateLeafBlueprint",
+            BindingFlags.Static | BindingFlags.NonPublic)!;
+
+        var blueprint = build.Invoke(null, [activationLeaf]);
+        validate.Invoke(null, [activationLeaf, blueprint]);
+
+        Assert.NotNull(blueprint);
+    }
+
+    [Fact]
+    public void PipelineExtractionPatch_ReplaceLeafDropsAdvisoryCallsButRetainsImmutableLocks()
+    {
+        var candidate = CreatePrivatePatchCandidateWithOwnership(
+            includeImmutableTool: true,
+            includeAdvisoryTool: true,
+            includeLocalOperation: false,
+            includeNativeStep: false,
+            "locked_leaf");
+        var patched = ApplyPrivateExtractionPatch(
+            candidate,
+            new JsonArray
+            {
+                new JsonObject
+                {
+                    ["op"] = "replace_leaf",
+                    ["target"] = "locked_leaf",
+                    ["sources"] = new JsonArray(),
+                    ["main_orchestration"] = "",
+                    ["leaf"] = CreatePatchTestLeafPayload("locked_leaf", "Corrected contract.")
+                }
+            });
+
+        var leaf = Assert.Single(BuildPrivateExtractionJson(patched)["subworkflows"]!.AsArray());
+        var tool = Assert.Single(leaf!["planned_tools"]!.AsArray());
+        Assert.Equal("catalog-locked_leaf", tool!["catalog_ids"]![0]!.GetValue<string>());
+    }
+
+    [Fact]
+    public void PipelineExtractionPatch_RemoveLeafAllowsAdvisoryCallWithoutImmutableOwnership()
+    {
+        var candidate = CreatePrivatePatchCandidateWithOwnership(
+            includeImmutableTool: false,
+            includeAdvisoryTool: true,
+            includeLocalOperation: false,
+            includeNativeStep: false,
+            "advisory_leaf");
+        var patched = ApplyPrivateExtractionPatch(
+            candidate,
+            new JsonArray
+            {
+                new JsonObject
+                {
+                    ["op"] = "remove_leaf",
+                    ["target"] = "advisory_leaf",
+                    ["sources"] = new JsonArray(),
+                    ["main_orchestration"] = "",
+                    ["leaf"] = null
+                }
+            });
+
+        Assert.Empty(BuildPrivateExtractionJson(patched)["subworkflows"]!.AsArray());
+    }
+
+    [Fact]
+    public void PipelineExtractionPatch_RejectsAddedLeafThatClaimsExternalOwnership()
+    {
+        var candidate = CreatePrivatePatchCandidate("locked_leaf");
+        var externalLeaf = CreatePatchTestLeafPayload("invented_external_leaf");
+        externalLeaf["work_kind"] = "external_work";
+        externalLeaf["contract_role"] = "external_action";
+
+        var failure = Assert.Throws<TargetInvocationException>(() => ApplyPrivateExtractionPatch(
+            candidate,
+            new JsonArray
+            {
+                new JsonObject
+                {
+                    ["op"] = "add_leaf",
+                    ["target"] = "",
+                    ["sources"] = new JsonArray(),
+                    ["main_orchestration"] = "",
+                    ["leaf"] = externalLeaf
+                }
+            }));
+
+        Assert.Contains("cannot invent external ownership", failure.InnerException!.Message, StringComparison.Ordinal);
+    }
+
+    [Theory]
+    [InlineData(false, "unknown or stale codes")]
+    [InlineData(true, "contains duplicates")]
+    public void PipelineExtractionPatch_RejectsInvalidAddressedDiagnosticCodes(bool duplicate, string expectedMessage)
+    {
+        var candidate = CreatePrivatePatchCandidate("locked_leaf");
+        var addressedCodes = duplicate
+            ? new JsonArray("UNKNOWN_CODE", "UNKNOWN_CODE")
+            : new JsonArray("UNKNOWN_CODE");
+        var failure = Assert.Throws<TargetInvocationException>(() => ApplyPrivateExtractionPatch(
+            candidate,
+            new JsonArray
+            {
+                new JsonObject
+                {
+                    ["op"] = "replace_main_orchestration",
+                    ["target"] = "",
+                    ["sources"] = new JsonArray(),
+                    ["main_orchestration"] = "Call locked_leaf once.",
+                    ["leaf"] = null
+                }
+            },
+            addressedCodes));
+
+        Assert.Contains(expectedMessage, failure.InnerException!.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void PipelineExtractionPatch_RejectsRemovalAndDuplicateTargetsForOwnedLeaf()
+    {
+        var candidate = CreatePrivatePatchCandidate("locked_leaf");
+        var removal = Assert.Throws<TargetInvocationException>(() => ApplyPrivateExtractionPatch(
+            candidate,
+            new JsonArray
+            {
+                new JsonObject
+                {
+                    ["op"] = "remove_leaf",
+                    ["target"] = "locked_leaf",
+                    ["sources"] = new JsonArray(),
+                    ["main_orchestration"] = "",
+                    ["leaf"] = null
+                }
+            }));
+        Assert.Contains("owns immutable capabilities or operations", removal.InnerException!.Message);
+
+        var duplicate = Assert.Throws<TargetInvocationException>(() => ApplyPrivateExtractionPatch(
+            candidate,
+            new JsonArray
+            {
+                new JsonObject
+                {
+                    ["op"] = "replace_leaf",
+                    ["target"] = "locked_leaf",
+                    ["sources"] = new JsonArray(),
+                    ["main_orchestration"] = "",
+                    ["leaf"] = CreatePatchTestLeafPayload("locked_leaf")
+                },
+                new JsonObject
+                {
+                    ["op"] = "replace_leaf",
+                    ["target"] = "locked_leaf",
+                    ["sources"] = new JsonArray(),
+                    ["main_orchestration"] = "",
+                    ["leaf"] = CreatePatchTestLeafPayload("locked_leaf")
+                }
+            }));
+        Assert.Contains("modified more than once", duplicate.InnerException!.Message);
+    }
+
+    [Fact]
+    public void PipelineCapabilityComposition_RemovesUnlockedPlanAlreadySatisfiedByConditionalLock()
+    {
+        var bindingType = GetPrivatePipelineType("CapabilityRequestBinding");
+        var plannedToolType = GetPrivatePipelineType("PipelinePlannedTool");
+        var resolvedCapabilityType = GetPrivatePipelineType("ResolvedCapability");
+        var lockedBinding = CreatePrivatePipelineValue(bindingType, "/method", JsonValue.Create("publish"));
+        var extraBinding = CreatePrivatePipelineValue(bindingType, "/mode", JsonValue.Create("inline"));
+        var lockedBindings = CreatePrivatePipelineArray(bindingType, lockedBinding);
+        var advisoryBindings = CreatePrivatePipelineArray(bindingType, lockedBinding, extraBinding);
+        var activation = new McpCapabilityActivation(
+            "all_on_value",
+            "conditional-group",
+            "decision-operation",
+            "publish")
+        {
+            DecisionOutputPath = "/decision",
+            AllowedValues = ["publish", "no_effect"],
+            NoEffectValues = ["no_effect"]
+        };
+        var lockedPlan = CreatePrivatePipelineValue(
+            plannedToolType,
+            "neutral-server",
+            "tool",
+            "neutral-action",
+            true,
+            "Apply the locked conditional effect.",
+            Array.Empty<string>(),
+            Array.Empty<string>(),
+            lockedBindings,
+            new[] { "effect-operation" },
+            new[] { "effect-catalog" },
+            activation);
+        var unlockedPlan = CreatePrivatePipelineValue(
+            plannedToolType,
+            "neutral-server",
+            "tool",
+            "neutral-action",
+            true,
+            "Extractor advisory duplicate.",
+            Array.Empty<string>(),
+            Array.Empty<string>(),
+            advisoryBindings,
+            Array.Empty<string>(),
+            Array.Empty<string>(),
+            null);
+        var capability = CreatePrivatePipelineValue(
+            resolvedCapabilityType,
+            "effect-operation",
+            "Apply the locked conditional effect.",
+            true,
+            "mcp",
+            "neutral-server",
+            "tool",
+            "neutral-action",
+            lockedBindings,
+            "effect-operation",
+            "effect-catalog",
+            "conditional",
+            "external_effect",
+            "write",
+            activation,
+            "Neutral conditional effect.",
+            null);
+        var plans = Assert.IsAssignableFrom<System.Collections.IList>(
+            Activator.CreateInstance(typeof(List<>).MakeGenericType(plannedToolType)));
+        plans.Add(lockedPlan);
+        plans.Add(unlockedPlan);
+        var capabilities = CreatePrivatePipelineArray(resolvedCapabilityType, capability);
+        var method = typeof(WorkflowPlanExecutor).GetMethod(
+            "RemoveUnlockedPlansSatisfiedByLockedCapabilities",
+            BindingFlags.NonPublic | BindingFlags.Static)!;
+
+        method.Invoke(null, [plans, capabilities]);
+
+        var remaining = Assert.Single(plans.Cast<object>());
+        var operationIds = Assert.IsAssignableFrom<IReadOnlyList<string>>(
+            plannedToolType.GetProperty("OperationIds")!.GetValue(remaining));
+        Assert.Equal("effect-operation", Assert.Single(operationIds));
+    }
+
+    [Fact]
+    public void PipelineQualityStabilization_UsesExactMainEvidenceBeforeLeafLabel()
+    {
+        var extractionType = GetPrivatePipelineType("WorkflowPipelineExtraction");
+        var reviewType = GetPrivatePipelineType("PipelineExtractionQualityReview");
+        var diagnosticType = GetPrivatePipelineType("PipelineExtractionQualityDiagnostic");
+        var evidenceType = GetPrivatePipelineType("PipelineExtractionQualityEvidence");
+        var baselineWithoutReview = CreatePrivatePatchCandidate("conditional_effect_leaf");
+        var originalMain = Assert.IsType<string>(
+            extractionType.GetProperty("MainWorkflowPrompt")!.GetValue(baselineWithoutReview));
+        var evidence = CreatePrivatePipelineValue(
+            evidenceType,
+            "extraction",
+            "/main_workflow_prompt",
+            originalMain);
+        var diagnostic = CreatePrivatePipelineValue(
+            diagnosticType,
+            "PARENT_ROUTING_DEFECT",
+            "plan_defect",
+            "critical",
+            "conditional_effect_leaf",
+            "The leaf symptom is caused by parent routing.",
+            "Correct the cited parent orchestration.",
+            CreatePrivatePipelineArray(evidenceType, evidence),
+            true,
+            "extraction_contract");
+        var baselineReview = CreatePrivatePipelineValue(
+            reviewType,
+            40,
+            "retry",
+            CreatePrivatePipelineArray(diagnosticType, diagnostic),
+            "Correct parent routing.");
+        var subworkflows = extractionType.GetProperty("Subworkflows")!.GetValue(baselineWithoutReview);
+        var validationErrors = extractionType.GetProperty("ValidationErrors")!.GetValue(baselineWithoutReview);
+        var rootCauses = extractionType.GetProperty("RootCauses")!.GetValue(baselineWithoutReview);
+        var mainLocalOperationIds = extractionType.GetProperty("MainLocalOperationIds")!.GetValue(baselineWithoutReview);
+        var mainNativeSteps = extractionType.GetProperty("MainNativeSteps")!.GetValue(baselineWithoutReview);
+        var baseline = CreatePrivatePipelineValue(
+            extractionType,
+            subworkflows,
+            originalMain,
+            validationErrors,
+            rootCauses,
+            baselineReview,
+            null,
+            mainLocalOperationIds,
+            mainNativeSteps);
+        var candidate = CreatePrivatePipelineValue(
+            extractionType,
+            subworkflows,
+            "Call the conditional effect leaf only after its typed decision is available.",
+            validationErrors,
+            rootCauses,
+            null,
+            null,
+            mainLocalOperationIds,
+            mainNativeSteps);
+        var deltaReview = CreatePrivatePipelineValue(
+            reviewType,
+            95,
+            "pass",
+            CreatePrivatePipelineArray(diagnosticType),
+            "");
+        var stabilize = typeof(WorkflowPlanExecutor).GetMethod(
+            "StabilizePipelineExtractionQualityReviewAgainstBaseline",
+            BindingFlags.NonPublic | BindingFlags.Static)!;
+
+        var stabilized = stabilize.Invoke(
+            null,
+            [baseline, candidate, deltaReview, new HashSet<string>(["PARENT_ROUTING_DEFECT"], StringComparer.Ordinal)])!;
+
+        var diagnostics = Assert.IsAssignableFrom<System.Collections.IEnumerable>(
+                reviewType.GetProperty("Diagnostics")!.GetValue(stabilized))
+            .Cast<object>();
+        Assert.Empty(diagnostics);
+        Assert.Equal("pass", reviewType.GetProperty("Verdict")!.GetValue(stabilized));
+    }
+
+    [Theory]
+    [InlineData("locked_ownership")]
+    [InlineData("generated_workflow_topology")]
+    public void PipelineQualityReview_DefersDiagnosticsOwnedByDeterministicPhases(
+        string remediationSurface)
+    {
+        var extraction = CreatePrivatePatchCandidate("conditional_effect_leaf");
+        var reviewType = GetPrivatePipelineType("PipelineExtractionQualityReview");
+        var diagnosticType = GetPrivatePipelineType("PipelineExtractionQualityDiagnostic");
+        var evidenceType = GetPrivatePipelineType("PipelineExtractionQualityEvidence");
+        var contextType = GetPrivatePipelineType("PipelineMcpContext");
+        var context = contextType.GetProperty("Empty", BindingFlags.Static | BindingFlags.Public)!
+            .GetValue(null)!;
+        var evidence = CreatePrivatePipelineValue(
+            evidenceType,
+            "request",
+            "Normalize",
+            "Normalize");
+        var diagnostic = CreatePrivatePipelineValue(
+            diagnosticType,
+            "DEFERRED_PHASE_CHECK",
+            "plan_defect",
+            "critical",
+            "conditional_effect_leaf",
+            "The issue belongs to another authoritative validation phase.",
+            "Defer the check.",
+            CreatePrivatePipelineArray(evidenceType, evidence),
+            false,
+            remediationSurface);
+        var review = CreatePrivatePipelineValue(
+            reviewType,
+            40,
+            "retry",
+            CreatePrivatePipelineArray(diagnosticType, diagnostic),
+            "Defer the check.");
+        var normalize = typeof(WorkflowPlanExecutor).GetMethod(
+            "NormalizeExtractionQualityReviewAgainstLockedContracts",
+            BindingFlags.NonPublic | BindingFlags.Static)!;
+
+        var normalized = normalize.Invoke(
+            null,
+            ["Normalize the supplied value.", extraction, context, review])!;
+
+        Assert.Equal("pass", reviewType.GetProperty("Verdict")!.GetValue(normalized));
+        Assert.True((int)reviewType.GetProperty("Score")!.GetValue(normalized)! >= 75);
+        var diagnostics = Assert.IsAssignableFrom<System.Collections.IEnumerable>(
+                reviewType.GetProperty("Diagnostics")!.GetValue(normalized))
+            .Cast<object>();
+        var normalizedDiagnostic = Assert.Single(diagnostics);
+        Assert.Equal("info", diagnosticType.GetProperty("Severity")!.GetValue(normalizedDiagnostic));
+    }
+
+    private static object CreatePrivatePatchCandidate(params string[] leafNames)
+        => CreatePrivatePatchCandidateWithOwnership(
+            includeImmutableTool: true,
+            includeAdvisoryTool: false,
+            includeLocalOperation: true,
+            includeNativeStep: true,
+            leafNames);
+
+    private static object CreatePrivateConditionalBoundaryCandidate(
+        bool includeSharedBoundary,
+        bool incompatibleBoundary = false,
+        bool includeStaleConditionalDiagnostic = false,
+        bool useAllOnValueActivation = false,
+        bool includeDecisionInputSource = false)
+    {
+        var bindingType = GetPrivatePipelineType("CapabilityRequestBinding");
+        var plannedToolType = GetPrivatePipelineType("PipelinePlannedTool");
+        var nativeStepType = GetPrivatePipelineType("PipelinePlannedNativeStep");
+        var leafType = GetPrivatePipelineType("WorkflowPipelineSubworkflowSpec");
+        var extractionType = GetPrivatePipelineType("WorkflowPipelineExtraction");
+        var owner = CreatePrivatePipelineValue(
+            leafType,
+            "choose_outcome",
+            "Choose one runtime outcome.",
+            "Own the runtime decision.",
+            "deterministic_shaping",
+            "algorithmic_transform",
+            "One typed decision.",
+            new Dictionary<string, string>(StringComparer.Ordinal) { ["evidence"] = "string" },
+            new Dictionary<string, string>(StringComparer.Ordinal) { ["decision"] = "string" },
+            new Dictionary<string, JsonNode?>(StringComparer.Ordinal) { ["evidence"] = JsonNode.Parse("{\"type\":\"string\"}") },
+            new Dictionary<string, JsonNode?>(StringComparer.Ordinal)
+            {
+                ["decision"] = incompatibleBoundary
+                    ? JsonNode.Parse("{\"type\":\"object\",\"properties\":{\"value\":{\"type\":\"string\"}}}")
+                    : JsonNode.Parse("{\"type\":\"string\",\"enum\":[\"selected\",\"rejected\"]}")
+            },
+            CreatePrivatePipelineArray(plannedToolType),
+            null,
+            "The runtime decision is local shaping.",
+            "Derive and return the decision.",
+            "Generate the decision leaf.",
+            new[] { "choose-operation" },
+            CreatePrivatePipelineArray(nativeStepType));
+        var consumerInputs = includeSharedBoundary
+            ? new Dictionary<string, string>(StringComparer.Ordinal) { ["decision"] = "string" }
+            : new Dictionary<string, string>(StringComparer.Ordinal) { ["payload"] = "string" };
+        var consumerInputSchemas = consumerInputs.ToDictionary(
+            static pair => pair.Key,
+            pair => (JsonNode?)JsonNode.Parse(pair.Key == "decision"
+                ? incompatibleBoundary
+                    ? "{\"type\":\"array\",\"items\":{\"type\":\"string\"}}"
+                    : "{\"type\":\"string\",\"enum\":[\"selected\",\"rejected\"]}"
+                : "{\"type\":\"string\"}"),
+            StringComparer.Ordinal);
+        var selectedActivation = new McpCapabilityActivation(
+            useAllOnValueActivation ? "all_on_value" : "exactly_one",
+            "publish-group",
+            "choose-operation",
+            "selected")
+        {
+            DecisionOutputPath = "/decision",
+            AllowedValues = ["selected", "rejected"],
+            NoEffectValues = useAllOnValueActivation ? ["rejected"] : Array.Empty<string>(),
+            DecisionContractSource = includeDecisionInputSource ? "local_decision" : "capability_output",
+            DecisionInputOperationIds = includeDecisionInputSource
+                ? ["analyze-operation", "verify-operation"]
+                : Array.Empty<string>()
+        };
+        var rejectedActivation = new McpCapabilityActivation(
+            useAllOnValueActivation ? "all_on_value" : "exactly_one",
+            "publish-group",
+            "choose-operation",
+            useAllOnValueActivation ? "selected" : "rejected")
+        {
+            DecisionOutputPath = "/decision",
+            AllowedValues = ["selected", "rejected"],
+            NoEffectValues = useAllOnValueActivation ? ["rejected"] : Array.Empty<string>(),
+            DecisionContractSource = includeDecisionInputSource ? "local_decision" : "capability_output",
+            DecisionInputOperationIds = includeDecisionInputSource
+                ? ["analyze-operation", "verify-operation"]
+                : Array.Empty<string>()
+        };
+        var selectedTool = CreatePrivatePipelineValue(
+            plannedToolType,
+            "neutral-server",
+            "tool",
+            "neutral-action",
+            true,
+            "Apply exactly one runtime-selected effect.",
+            Array.Empty<string>(),
+            Array.Empty<string>(),
+            CreatePrivatePipelineArray(bindingType),
+            new[] { "publish-operation" },
+            new[] { "publish-catalog" },
+            selectedActivation);
+        var rejectedTool = CreatePrivatePipelineValue(
+            plannedToolType,
+            "neutral-server",
+            "tool",
+            "neutral-action",
+            true,
+            "Apply exactly one runtime-selected effect.",
+            Array.Empty<string>(),
+            Array.Empty<string>(),
+            CreatePrivatePipelineArray(bindingType),
+            new[] { "publish-operation" },
+            new[] { "publish-catalog" },
+            rejectedActivation);
+        var consumer = CreatePrivatePipelineValue(
+            leafType,
+            "publish_outcome",
+            "Publish the selected outcome.",
+            "Consume and route the immutable runtime decision.",
+            "external_work",
+            "external_action",
+            "One selected external effect.",
+            consumerInputs,
+            new Dictionary<string, string>(StringComparer.Ordinal) { ["result"] = "string" },
+            consumerInputSchemas,
+            new Dictionary<string, JsonNode?>(StringComparer.Ordinal) { ["result"] = JsonNode.Parse("{\"type\":\"string\"}") },
+            CreatePrivatePipelineArray(plannedToolType, selectedTool, rejectedTool),
+            null,
+            "The external effect owns conditional variants.",
+            "Route the supplied decision to exactly one branch.",
+            "Generate the publication leaf.",
+            Array.Empty<string>(),
+            CreatePrivatePipelineArray(nativeStepType));
+        var leaves = Array.CreateInstance(leafType, includeDecisionInputSource ? 4 : 2);
+        var leafOffset = 0;
+        if (includeDecisionInputSource)
+        {
+            var source = CreatePrivatePipelineValue(
+                leafType,
+                "analyze_input",
+                "Analyze one runtime input.",
+                "Produce typed runtime evidence.",
+                "deterministic_shaping",
+                "algorithmic_transform",
+                "One typed signal.",
+                new Dictionary<string, string>(StringComparer.Ordinal) { ["value"] = "string" },
+                new Dictionary<string, string>(StringComparer.Ordinal) { ["signal"] = "boolean" },
+                new Dictionary<string, JsonNode?>(StringComparer.Ordinal) { ["value"] = JsonNode.Parse("{\"type\":\"string\"}") },
+                new Dictionary<string, JsonNode?>(StringComparer.Ordinal) { ["signal"] = JsonNode.Parse("{\"type\":\"boolean\"}") },
+                CreatePrivatePipelineArray(plannedToolType),
+                null,
+                "The runtime analysis is local shaping.",
+                "Analyze and return the typed signal.",
+                "Generate the analysis leaf.",
+                new[] { "analyze-operation" },
+                CreatePrivatePipelineArray(nativeStepType));
+            leaves.SetValue(source, leafOffset++);
+            var secondSource = CreatePrivatePipelineValue(
+                leafType,
+                "verify_input",
+                "Verify one runtime input.",
+                "Produce a second typed runtime signal.",
+                "deterministic_shaping",
+                "algorithmic_transform",
+                "One typed verification signal.",
+                new Dictionary<string, string>(StringComparer.Ordinal) { ["value"] = "string" },
+                new Dictionary<string, string>(StringComparer.Ordinal) { ["signal"] = "boolean" },
+                new Dictionary<string, JsonNode?>(StringComparer.Ordinal) { ["value"] = JsonNode.Parse("{\"type\":\"string\"}") },
+                new Dictionary<string, JsonNode?>(StringComparer.Ordinal) { ["signal"] = JsonNode.Parse("{\"type\":\"boolean\"}") },
+                CreatePrivatePipelineArray(plannedToolType),
+                null,
+                "The runtime verification is local shaping.",
+                "Verify and return the typed signal.",
+                "Generate the verification leaf.",
+                new[] { "verify-operation" },
+                CreatePrivatePipelineArray(nativeStepType));
+            leaves.SetValue(secondSource, leafOffset++);
+        }
+        leaves.SetValue(owner, leafOffset++);
+        leaves.SetValue(consumer, leafOffset);
+        var rootCauseType = GetPrivatePipelineType("PipelineRootCause");
+        var staleRootCause = CreatePrivatePipelineValue(
+            rootCauseType,
+            "conditional_decision_boundary_missing",
+            "pipeline_extraction",
+            "publish_outcome",
+            null,
+            "subworkflows.publish_outcome.inputs",
+            "CAPABILITY_PREFLIGHT_CONDITIONAL_DECISION_BOUNDARY_MISSING",
+            "Stale conditional boundary diagnostic.",
+            true);
+        return CreatePrivatePipelineValue(
+            extractionType,
+            leaves,
+            "Call choose_outcome, pass its decision to publish_outcome, and route without recomputing.",
+            includeStaleConditionalDiagnostic
+                ? new[] { "CAPABILITY_PREFLIGHT_CONDITIONAL_DECISION_BOUNDARY_MISSING: stale" }
+                : Array.Empty<string>(),
+            includeStaleConditionalDiagnostic
+                ? CreatePrivatePipelineArray(rootCauseType, staleRootCause)
+                : CreatePrivatePipelineArray(rootCauseType),
+            null,
+            null,
+            Array.Empty<string>(),
+            CreatePrivatePipelineArray(nativeStepType));
+    }
+
+    private static object CreatePrivatePatchCandidateWithOwnership(
+        bool includeImmutableTool,
+        bool includeAdvisoryTool,
+        bool includeLocalOperation,
+        bool includeNativeStep,
+        params string[] leafNames)
+    {
+        var bindingType = GetPrivatePipelineType("CapabilityRequestBinding");
+        var plannedToolType = GetPrivatePipelineType("PipelinePlannedTool");
+        var nativeStepType = GetPrivatePipelineType("PipelinePlannedNativeStep");
+        var leafType = GetPrivatePipelineType("WorkflowPipelineSubworkflowSpec");
+        var extractionType = GetPrivatePipelineType("WorkflowPipelineExtraction");
+        var leaves = Array.CreateInstance(leafType, leafNames.Length);
+
+        for (var index = 0; index < leafNames.Length; index++)
+        {
+            var name = leafNames[index];
+            var binding = CreatePrivatePipelineValue(bindingType, "/mode", JsonValue.Create("bounded"));
+            var bindings = CreatePrivatePipelineArray(bindingType, binding);
+            var tool = CreatePrivatePipelineValue(
+                plannedToolType,
+                "neutral-server",
+                "tool",
+                "neutral-action",
+                true,
+                "Apply one neutral action.",
+                new[] { "value" },
+                new[] { "result" },
+                bindings,
+                new[] { "operation-" + name },
+                new[] { "catalog-" + name },
+                new McpCapabilityActivation("exclusive", "decision-group", "local-" + name, name));
+            var advisoryTool = CreatePrivatePipelineValue(
+                plannedToolType,
+                "neutral-server",
+                "tool",
+                "neutral-action",
+                true,
+                "Advisory extractor-proposed action.",
+                new[] { "value" },
+                new[] { "result" },
+                bindings,
+                Array.Empty<string>(),
+                Array.Empty<string>(),
+                null);
+            var native = CreatePrivatePipelineValue(
+                nativeStepType,
+                "human.input",
+                true,
+                "Confirm the neutral action.",
+                new[] { "native-operation-" + name },
+                new[] { "native-catalog-" + name });
+            var leaf = CreatePrivatePipelineValue(
+                leafType,
+                name,
+                "Apply one neutral action.",
+                "Neutral owned leaf.",
+                "external_work",
+                "external_action",
+                "One neutral result.",
+                new Dictionary<string, string>(StringComparer.Ordinal) { ["value"] = "string" },
+                new Dictionary<string, string>(StringComparer.Ordinal) { ["result"] = "string" },
+                new Dictionary<string, JsonNode?>(StringComparer.Ordinal) { ["value"] = JsonNode.Parse("{\"type\":\"string\"}") },
+                new Dictionary<string, JsonNode?>(StringComparer.Ordinal) { ["result"] = JsonNode.Parse("{\"type\":\"string\"}") },
+                CreatePrivatePipelineArray(
+                    plannedToolType,
+                    (includeImmutableTool, includeAdvisoryTool) switch
+                    {
+                        (true, true) => [tool, advisoryTool],
+                        (true, false) => [tool],
+                        (false, true) => [advisoryTool],
+                        _ => []
+                    }),
+                null,
+                "External ownership requires a leaf.",
+                "Apply the neutral action and return its result.",
+                "Generate the owned leaf.",
+                includeLocalOperation ? new[] { "local-" + name } : Array.Empty<string>(),
+                includeNativeStep
+                    ? CreatePrivatePipelineArray(nativeStepType, native)
+                    : CreatePrivatePipelineArray(nativeStepType));
+            leaves.SetValue(leaf, index);
+        }
+
+        return CreatePrivatePipelineValue(
+            extractionType,
+            leaves,
+            "Call each leaf exactly once.",
+            Array.Empty<string>(),
+            CreatePrivatePipelineArray(GetPrivatePipelineType("PipelineRootCause")),
+            null,
+            null,
+            Array.Empty<string>(),
+            CreatePrivatePipelineArray(nativeStepType));
+    }
+
+    private static object ApplyPrivateExtractionPatch(
+        object candidate,
+        JsonArray operations,
+        JsonArray? addressedDiagnosticCodes = null)
+    {
+        var fingerprintMethod = typeof(WorkflowPlanExecutor).GetMethod(
+            "BuildPipelineExtractionFingerprint",
+            BindingFlags.Static | BindingFlags.NonPublic)!;
+        var fingerprint = Assert.IsType<string>(fingerprintMethod.Invoke(null, [candidate]));
+        var response = new LLMResponse
+        {
+            Json = new JsonObject
+            {
+                ["base_fingerprint"] = fingerprint,
+                ["addressed_diagnostic_codes"] = addressedDiagnosticCodes?.DeepClone() ?? new JsonArray(),
+                ["operations"] = operations
+            }
+        };
+        var applyMethod = typeof(WorkflowPlanExecutor).GetMethod(
+            "ApplyPipelineExtractionPatch",
+            BindingFlags.Static | BindingFlags.NonPublic)!;
+        var application = applyMethod.Invoke(null, [candidate, response, fingerprint])!;
+        return application.GetType().GetProperty("Extraction")!.GetValue(application)!;
+    }
+
+    private static JsonObject BuildPrivateExtractionJson(object extraction)
+    {
+        var method = typeof(WorkflowPlanExecutor).GetMethod(
+            "BuildExtractionJson",
+            BindingFlags.Static | BindingFlags.NonPublic)!;
+        return Assert.IsType<JsonObject>(method.Invoke(null, [extraction]));
+    }
+
+    private static Type GetPrivatePipelineType(string name)
+        => typeof(WorkflowPlanExecutor).GetNestedType(name, BindingFlags.NonPublic)
+           ?? throw new InvalidOperationException($"Missing private pipeline type '{name}'.");
+
+    private static object CreatePrivatePipelineValue(Type type, params object?[] arguments)
+        => Activator.CreateInstance(
+               type,
+               BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic,
+               binder: null,
+               args: arguments,
+               culture: null)
+           ?? throw new InvalidOperationException($"Could not create private pipeline type '{type.Name}'.");
+
+    private static Array CreatePrivatePipelineArray(Type elementType, params object[] values)
+    {
+        var array = Array.CreateInstance(elementType, values.Length);
+        for (var index = 0; index < values.Length; index++)
+            array.SetValue(values[index], index);
+        return array;
+    }
+
+    private static LLMResponse CreateIntentClarificationAssessment(
+        string outcome,
+        string reason,
+        string? questionId = null)
+    {
+        var questions = new JsonArray();
+        if (questionId != null)
+        {
+            questions.Add((JsonNode)new JsonObject
+            {
+                ["id"] = questionId,
+                ["prompt"] = "Which observable result is intended?",
+                ["options"] = new JsonArray
+                {
+                    new JsonObject
+                    {
+                        ["value"] = "Return both values",
+                        ["description"] = "Preserve both requested outputs.",
+                        ["recommended"] = true
+                    },
+                    new JsonObject
+                    {
+                        ["value"] = "Return one value",
+                        ["description"] = "Limit the result to one output.",
+                        ["recommended"] = false
+                    }
+                }
+            });
+        }
+        var json = new JsonObject
+        {
+            ["outcome"] = outcome,
+            ["reason"] = reason,
+            ["questions"] = questions
+        };
+        return new LLMResponse { Json = json, Text = json.ToJsonString() };
+    }
+
+    [Fact]
+    public void GeneratedMainNormalization_RenamesDuplicateNestedStepIdsAndLocalReferences()
+    {
+        var method = typeof(WorkflowPlanExecutor).GetMethod(
+            "NormalizeGeneratedStepIds",
+            BindingFlags.NonPublic | BindingFlags.Static,
+            binder: null,
+            types: [typeof(string)],
+            modifiers: null);
+        Assert.NotNull(method);
+        const string yaml = """
+            version: 1
+            workflows:
+              main:
+                steps:
+                  - id: choose_result
+                    type: switch
+                    expr: ${data.inputs.mode}
+                    cases:
+                      - value: approve
+                        steps:
+                          - id: public_result
+                            type: set
+                            input:
+                              value: approved
+                      - value: changes
+                        steps:
+                          - id: public_result
+                            type: set
+                            input:
+                              value: changes
+                          - id: expose_result
+                            type: emit
+                            input:
+                              message: ${data.steps.public_result.value}
+            """;
+
+        var normalized = Assert.IsType<string>(method!.Invoke(null, [yaml]));
+
+        Assert.Contains("id: public_result_2", normalized);
+        Assert.Contains("data.steps.public_result_2.value", normalized);
+        var errors = new WorkflowValidator().Validate(WorkflowParser.Parse(normalized));
+        Assert.DoesNotContain(errors, static error => error.Code == "DUPLICATE_STEP_ID");
+    }
+
+    [Fact]
+    public void GeneratedMainNormalization_PreservesCompatiblePathTotalSwitchProjectionIds()
+    {
+        var method = typeof(WorkflowPlanExecutor).GetMethod(
+            "NormalizeGeneratedStepIds",
+            BindingFlags.NonPublic | BindingFlags.Static,
+            binder: null,
+            types: [typeof(string)],
+            modifiers: null);
+        Assert.NotNull(method);
+        const string yaml = """
+            version: 1
+            skill:
+              description: Shared switch projection test.
+              tags: [test]
+              inputs: {}
+              outputs: {}
+            workflows:
+              main:
+                steps:
+                  - id: choose_result
+                    type: switch
+                    cases:
+                      - when: ${true}
+                        steps:
+                          - id: public_result
+                            type: set
+                            output_schema:
+                              type: object
+                              properties:
+                                value: { type: string }
+                              required_properties: [value]
+                            input:
+                              value: selected
+                    default:
+                      - id: public_result
+                        type: set
+                        output_schema:
+                          type: object
+                          properties:
+                            value: { type: string }
+                          required_properties: [value]
+                        input:
+                          value: default
+                outputs:
+                  value:
+                    type: string
+                    expr: ${data.steps.choose_result.public_result.value}
+            """;
+
+        var normalized = Assert.IsType<string>(method!.Invoke(null, [yaml]));
+
+        Assert.DoesNotContain("public_result_2", normalized, StringComparison.Ordinal);
+        Assert.Equal(2, Regex.Matches(normalized, "id: public_result(?:\\r?\\n|$)").Count);
+        var document = WorkflowParser.Parse(normalized);
+        var errors = new WorkflowValidator().Validate(document);
+        Assert.DoesNotContain(errors, static error => error.Code == "DUPLICATE_STEP_ID");
+    }
+
+    [Fact]
+    public void MarkExtractableBlocksStructuredSchema_DeclaresRecursiveContractFields()
+    {
+        var method = typeof(WorkflowPlanExecutor).GetMethod(
+            "BuildMarkExtractableBlocksStructuredOutputSchema",
+            BindingFlags.NonPublic | BindingFlags.Static)!;
+
+        var schema = Assert.IsType<JsonObject>(method.Invoke(null, null));
+        Assert.Empty(JsonSchemaContractValidator.ValidateSchema(schema, strictProfile: true));
+
+        var fieldDefinition = Assert.IsType<JsonObject>(schema["$defs"]!["contract_field"]);
+        var nestedField = Assert.IsType<JsonObject>(fieldDefinition["properties"]!["properties"]!["items"]);
+        Assert.Equal("#/$defs/contract_field", nestedField["$ref"]!.GetValue<string>());
+
+        var subworkflow = Assert.IsType<JsonObject>(schema["properties"]!["subworkflows"]!["items"]);
+        Assert.Contains(
+            Assert.IsType<JsonArray>(subworkflow["required"]),
+            static item => string.Equals(item?.GetValue<string>(), "owned_operation_ids", StringComparison.Ordinal));
+        var ownedOperations = Assert.IsType<JsonObject>(subworkflow["properties"]!["owned_operation_ids"]);
+        Assert.Equal("array", ownedOperations["type"]!.GetValue<string>());
+        Assert.Equal("string", ownedOperations["items"]!["type"]!.GetValue<string>());
+        Assert.Equal(
+            "#/$defs/contract_field",
+            subworkflow["properties"]!["outputs"]!["items"]!["$ref"]!.GetValue<string>());
+    }
+
+    [Fact]
+    public void StructuredExtractionFieldParser_PreservesNestedObjectArrayContracts()
+    {
+        var method = typeof(WorkflowPlanExecutor).GetMethod(
+            "BuildStructuredFieldSchema",
+            BindingFlags.NonPublic | BindingFlags.Static)!;
+        var field = JsonNode.Parse("""
+            {
+              "name": "dependency_report",
+              "type": "object",
+              "description": "Dependency restore results.",
+              "required": true,
+              "item_type": "",
+              "properties": [
+                {
+                  "name": "projects",
+                  "type": "array",
+                  "description": "Restored projects.",
+                  "required": true,
+                  "item_type": "object",
+                  "properties": [
+                    {
+                      "name": "path",
+                      "type": "string",
+                      "description": "Project path.",
+                      "required": true,
+                      "item_type": "",
+                      "properties": []
+                    },
+                    {
+                      "name": "status",
+                      "type": "object",
+                      "description": "Restore status.",
+                      "required": true,
+                      "item_type": "",
+                      "properties": [
+                        {
+                          "name": "succeeded",
+                          "type": "boolean",
+                          "description": "Whether restore succeeded.",
+                          "required": true,
+                          "item_type": "",
+                          "properties": []
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+            """)!.AsObject();
+
+        var schema = Assert.IsType<JsonObject>(method.Invoke(null, new object[] { field }));
+        var projects = Assert.IsType<JsonObject>(schema["properties"]!["projects"]);
+        var projectItems = Assert.IsType<JsonObject>(projects["items"]);
+        Assert.Equal("string", projectItems["properties"]!["path"]!["type"]!.GetValue<string>());
+        Assert.Equal(
+            "boolean",
+            projectItems["properties"]!["status"]!["properties"]!["succeeded"]!["type"]!.GetValue<string>());
+        Assert.Equal(
+            "status",
+            projectItems["required_properties"]![1]!.GetValue<string>());
+    }
+
+    [Fact]
+    public void PipelineYamlDomLoader_PreservesMalformedYamlLocation()
+    {
+        var method = typeof(WorkflowPlanExecutor).GetMethod(
+            "LoadYamlRoot",
+            BindingFlags.NonPublic | BindingFlags.Static)!;
+
+        var invocation = Assert.Throws<TargetInvocationException>(() => method.Invoke(
+            null,
+            ["version: 1\nworkflows:\n  main:\n    steps:\n      - id: first\n        type: set\n      id: missing_dash\n        type: set\n"]));
+        var exception = Assert.IsType<WorkflowParseException>(invocation.InnerException);
+        Assert.True(exception.Line > 0);
+        Assert.True(exception.Column > 0);
+        Assert.Contains($"[{exception.Line}:{exception.Column}]", exception.Message, StringComparison.Ordinal);
+        Assert.Contains("Near YAML line", exception.Message, StringComparison.Ordinal);
+        Assert.Contains("missing_dash", exception.Message, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -1891,6 +5269,12 @@ workflows:
         Assert.Contains("simple renames, constants, guards, field mapping, routing, aggregation, or loop orchestration", requests[1].Prompt);
         Assert.Contains("Leave simple deterministic orchestration in the main workflow", requests[1].Prompt);
         Assert.Contains("Extraction scoring rubric", requests[1].Prompt);
+        Assert.Contains("No native main-orchestration step is locked.", requests[1].Prompt);
+        Assert.Contains("Do not add human confirmation, emit, or another native interaction to main.", requests[1].Prompt);
+        var extractionQualityRequest = Assert.Single(requests, request =>
+            request.Prompt.Contains("reviewing the quality of a `workflow.plan` pipeline", StringComparison.Ordinal));
+        Assert.Contains("human confirmation is permitted only when extraction_json `/main_native_steps` contains a required `human.input`", extractionQualityRequest.Prompt);
+        Assert.Contains("Never infer an unlisted confirmation merely from the presence of an external write", extractionQualityRequest.Prompt);
         var mainAssemblyRequest = Assert.Single(requests, request =>
             request.Prompt.Contains("assembling the parent `main` workflow", StringComparison.Ordinal));
         Assert.Contains("Keep simple deterministic work in the main graph", mainAssemblyRequest.Prompt);
@@ -2958,6 +6342,7 @@ workflows:
         Assert.Contains("To flatten loop results", assemblyPrompt);
         Assert.Contains("Do not add MCP, LLM, template, workflow.plan, raw workflow.call, or native orchestration steps not listed in main_required_native_steps_json", assemblyPrompt);
         Assert.Contains("Put required resource cleanup in graph.finally.", assemblyPrompt);
+        Assert.Contains("Preserve operational artifact provenance across leaf calls.", assemblyPrompt);
         Assert.DoesNotContain("generated_leaf_workflows_yaml", assemblyPrompt);
         Assert.DoesNotContain("version: 1\nname: list-issues-leaf", assemblyPrompt);
     }
@@ -3029,9 +6414,17 @@ workflows:
                     :::subworkflow name="list_issues"
                     goal: List repository issues.
                     inputs:
-                      repository_url: string
+                      repository_url:
+                        type: string
                     outputs:
-                      issues: array
+                      issues:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            number: { type: number }
+                            title: { type: string }
+                            html_url: { type: string }
                     extract_reason: This leaf performs tool orchestration against GitHub.
                     content:
                       Call the GitHub list_issues MCP tool for the repository and expose the issue list.
@@ -3128,6 +6521,9 @@ workflows:
                         },
                         "Call list_issues with repository_url and expose issues.");
                 }
+
+                if (request.Prompt.Contains("reviewing the quality of a `workflow.plan` pipeline", StringComparison.Ordinal))
+                    return CreateExtractionQualityReviewResponse(92, "pass");
 
                 if (request.Prompt.Contains("Generate exactly one leaf GnOuGo workflow named `list_issues`.", StringComparison.Ordinal))
                 {
@@ -3424,6 +6820,9 @@ workflows:
                         "Call list_issues with repository_url and expose issues.");
                 }
 
+                if (request.Prompt.Contains("reviewing the quality of a `workflow.plan` pipeline", StringComparison.Ordinal))
+                    return CreateExtractionQualityReviewResponse(92, "pass");
+
                 if (request.Prompt.Contains("Generate exactly one leaf GnOuGo workflow named `list_issues`.", StringComparison.Ordinal))
                 {
                     return new LLMResponse
@@ -3652,6 +7051,8 @@ workflows:
         Assert.False(leafGenerationRequested);
         Assert.NotNull(result.Error);
         Assert.Contains("PIPELINE_EXTRACTION_MISSING_REQUIRED_LEAF_TOOL", result.Error!.Message);
+        Assert.Equal("cannot_plan_safely", result.Error.Details!["planning_outcome"]!.GetValue<string>());
+        Assert.Equal("clarify_or_abandon", result.Error.Details["recommended_action"]!.GetValue<string>());
         var rootCauses = result.Error.Details!["root_causes"]!.AsArray();
         Assert.Contains(rootCauses, cause =>
             cause!["category"]!.GetValue<string>() == "missing_required_leaf_tool"
@@ -3944,6 +7345,9 @@ workflows:
                         },
                         "Call clone_repository.");
                 }
+
+                if (request.Prompt.Contains("reviewing the quality of a `workflow.plan` pipeline", StringComparison.Ordinal))
+                    return CreateExtractionQualityReviewResponse(92, "pass");
 
                 if (request.Prompt.Contains("Generate exactly one leaf GnOuGo workflow named `clone_repository`.", StringComparison.Ordinal))
                 {
@@ -4281,6 +7685,7 @@ workflows:
     {
         var markAttempts = 0;
         var markRequests = new List<LLMRequest>();
+        var patchRequests = new List<LLMRequest>();
         var judgeCalls = 0;
         var mockLlm = new Mock<ILLMClient>();
         mockLlm.Setup(l => l.CallAsync(It.IsAny<LLMRequest>(), It.IsAny<CancellationToken>()))
@@ -4288,6 +7693,8 @@ workflows:
             {
                 if (request.Prompt.Contains("annotate normalized automation Markdown", StringComparison.Ordinal))
                     markRequests.Add(request);
+                if (request.Prompt.Contains("repairing one validated workflow pipeline extraction", StringComparison.Ordinal))
+                    patchRequests.Add(request);
             })
             .ReturnsAsync((LLMRequest request, CancellationToken _) =>
             {
@@ -4376,13 +7783,38 @@ workflows:
                                     ["severity"] = "critical",
                                     ["leaf_name"] = "",
                                     ["message"] = "The original prompt requires clone and cleanup work, but extraction only classifies the issue.",
-                                    ["recommendation"] = "Add a clone-producing leaf and cleanup leaf, or explicitly keep simple orchestration in main while preserving these obligations."
+                                    ["recommendation"] = "Preserve the unresolved obligations explicitly in main orchestration.",
+                                    ["evidence"] = new JsonArray
+                                    {
+                                        new JsonObject
+                                        {
+                                            ["source"] = "request",
+                                            ["reference"] = "Clone a repository"
+                                        }
+                                    }
                                 }
                             },
                             "Add a clone-producing leaf before classification and preserve cleanup after processing.");
                     }
 
                     return CreateExtractionQualityReviewResponse(91, "pass", retryGuidance: "Corrected extraction can proceed.");
+                }
+
+                if (request.Prompt.Contains("repairing one validated workflow pipeline extraction", StringComparison.Ordinal))
+                {
+                    return CreatePipelineExtractionPatchResponse(
+                        request,
+                        new JsonArray
+                        {
+                            new JsonObject
+                            {
+                                ["op"] = "replace_main_orchestration",
+                                ["target"] = "",
+                                ["sources"] = new JsonArray(),
+                                ["main_orchestration"] = "Call classify_issue_need and preserve the explicitly requested clone and cleanup obligations for capability validation.",
+                                ["leaf"] = null
+                            }
+                        });
                 }
 
                 if (request.Prompt.Contains("Generate exactly one leaf GnOuGo workflow named `classify_issue_need`.", StringComparison.Ordinal))
@@ -4479,11 +7911,13 @@ workflows:
             .ExecuteAsync(wf, new JsonObject(), CancellationToken.None);
 
         Assert.True(result.Success, result.Error?.Message);
-        Assert.Equal(2, markAttempts);
+        Assert.Equal(1, markAttempts);
         Assert.Equal(2, judgeCalls);
-        Assert.Equal(2, markRequests.Count);
-        Assert.Contains("MISSING_CLONE_WORK", markRequests[1].Prompt);
-        Assert.Contains("Add a clone-producing leaf", markRequests[1].Prompt);
+        Assert.Single(markRequests);
+        var patchRequest = Assert.Single(patchRequests);
+        Assert.Contains("MISSING_CLONE_WORK", patchRequest.Prompt);
+        Assert.Contains("<base_fingerprint>", patchRequest.Prompt);
+        Assert.Contains("Do not regenerate the complete extraction", patchRequest.Prompt);
         var qualityReview = result.Outputs!["plan"]!["pipeline"]!["quality_report"]!["extraction"]!["quality_review"]!;
         Assert.Equal(91, qualityReview["score"]!.GetValue<int>());
         Assert.Equal("pass", qualityReview["verdict"]!.GetValue<string>());
@@ -4715,6 +8149,7 @@ workflows:
         Assert.Equal(2, markAttempts);
         Assert.Equal(2, markRequests.Count);
         Assert.Equal(2, judgeRequests.Count);
+        Assert.Contains("only normalized_prompt defines generated-workflow behavior", judgeRequests[0].Prompt);
         Assert.Null(markRequests[0].StructuredOutputSchema);
         Assert.Null(markRequests[1].StructuredOutputSchema);
         Assert.Contains("MISSING_CLASSIFICATION_OUTPUT", markRequests[1].Prompt);
@@ -4722,6 +8157,296 @@ workflows:
         var qualityReview = result.Outputs!["plan"]!["pipeline"]!["quality_report"]!["extraction"]!["quality_review"]!;
         Assert.Equal(90, qualityReview["score"]!.GetValue<int>());
         Assert.Equal("pass", qualityReview["verdict"]!.GetValue<string>());
+    }
+
+    [Fact]
+    public async Task WorkflowPlan_PipelineMode_ClassifiesExhaustedExtractionQualityReviewAsCannotPlanSafely()
+    {
+        var leafGenerationRequested = false;
+        var mockLlm = new Mock<ILLMClient>();
+        mockLlm.Setup(l => l.CallAsync(It.IsAny<LLMRequest>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((LLMRequest request, CancellationToken _) =>
+            {
+                if (request.Prompt.Contains("preparing a raw user automation prompt", StringComparison.Ordinal))
+                    return new LLMResponse { Text = "# Automation\n\nClassify the supplied record." };
+
+                if (request.Prompt.Contains("annotate normalized automation Markdown", StringComparison.Ordinal))
+                    return new LLMResponse
+                    {
+                        Text = """
+                        # Automation
+
+                        :::subworkflow name="classify_record"
+                        goal: Classify the supplied record.
+                        inputs:
+                          record: string
+                        outputs:
+                          classification: string
+                        extract_reason: This is a nontrivial classification transform.
+                        content:
+                          Classify the supplied record and return a typed classification.
+                        :::
+
+                        ## Main workflow orchestration
+
+                        Call classify_record and expose the classification.
+                        """
+                    };
+
+                if (request.Prompt.Contains("reviewing the quality of a `workflow.plan` pipeline", StringComparison.Ordinal))
+                    return new LLMResponse
+                    {
+                        Text = CreateExtractionQualityReviewResponse(
+                            30,
+                            "retry",
+                            new JsonArray
+                            {
+                                new JsonObject
+                                {
+                                    ["code"] = "INCOMPLETE_CONTRACT",
+                                    ["severity"] = "critical",
+                                    ["leaf_name"] = "classify_record",
+                                    ["message"] = "The extracted contract omits a required result field.",
+                                    ["recommendation"] = "Revise the extraction contract before generation."
+                                }
+                            },
+                            "Return a complete typed contract.").Text
+                    };
+
+                if (request.Prompt.Contains("Generate exactly one leaf", StringComparison.Ordinal))
+                    leafGenerationRequested = true;
+
+                throw new InvalidOperationException("Unexpected LLM prompt: " + request.Prompt);
+            });
+
+        var wf = CompileMain("""
+        version: 1
+        workflows:
+          main:
+            steps:
+              - id: plan
+                type: workflow.plan
+                input:
+                  mode: pipeline
+                  raw_prompt: "Classify the supplied record."
+                  generator:
+                    model: gpt-4
+                    prefilter: false
+                  validate:
+                    compile: false
+                    max_repair_attempts: 1
+        """);
+
+        var result = await new WorkflowEngine
+        {
+            LLMClient = mockLlm.Object,
+            LLMCapabilities = new StaticLlmCapabilityResolver(false)
+        }
+            .ExecuteAsync(wf, new JsonObject(), CancellationToken.None);
+
+        Assert.False(result.Success);
+        Assert.False(leafGenerationRequested);
+        Assert.NotNull(result.Error);
+        Assert.Contains("pipeline extraction quality review failed", result.Error!.Message);
+        Assert.Equal("cannot_plan_safely", result.Error.Details!["planning_outcome"]!.GetValue<string>());
+        Assert.Equal("clarify_or_abandon", result.Error.Details["recommended_action"]!.GetValue<string>());
+    }
+
+    [Fact]
+    public async Task WorkflowPlan_PipelineMode_ClarifiesOnlyIntentExtractionDiagnosticAndRestartsCompletely()
+    {
+        var normalizeCalls = 0;
+        var reviewCalls = 0;
+        var clarificationCalls = 0;
+        var humanRequests = new List<HumanInputRequest>();
+        var human = new Mock<IHumanInputProvider>();
+        human.Setup(provider => provider.RequestInputAsync(It.IsAny<HumanInputRequest>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((HumanInputRequest request, CancellationToken _) =>
+            {
+                humanRequests.Add(request);
+                return new JsonObject
+                {
+                    ["result_shape"] = request.Fields![0].Default,
+                    [HumanInputContract.ActionProperty] = HumanInputContract.ActionSubmit
+                };
+            });
+
+        var mockLlm = new Mock<ILLMClient>();
+        mockLlm.Setup(client => client.CallAsync(It.IsAny<LLMRequest>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((LLMRequest request, CancellationToken _) =>
+            {
+                if (request.Prompt.Contains("provider-neutral workflow intent clarification analyst", StringComparison.Ordinal))
+                {
+                    clarificationCalls++;
+                    return request.Prompt.Contains("Clarification stage: extraction_quality", StringComparison.Ordinal)
+                        ? CreateIntentClarificationAssessment("questions", "Clarify the result shape.", "result_shape")
+                        : CreateIntentClarificationAssessment("sufficient", "The initial request is complete.");
+                }
+                if (request.Prompt.Contains("preparing a raw user automation prompt", StringComparison.Ordinal))
+                {
+                    normalizeCalls++;
+                    return new LLMResponse { Text = "# Issue analysis\n\nSummarize and classify an issue." };
+                }
+                if (request.Prompt.Contains("annotate normalized automation Markdown", StringComparison.Ordinal))
+                {
+                    return new LLMResponse
+                    {
+                        Text = """
+                        # Issue analysis
+
+                        :::subworkflow name="analyze_issue_need"
+                        goal: Summarize and classify the issue need.
+                        inputs:
+                          issue_body: string
+                        outputs:
+                          summary: string
+                          classification: string
+                        extract_reason: This is a nontrivial LLM analysis transform.
+                        content:
+                          Use an LLM to summarize the issue and return a typed classification.
+                        :::
+
+                        ## Main workflow orchestration
+
+                        Call analyze_issue_need and expose both values.
+                        """
+                    };
+                }
+                if (request.Prompt.Contains("reviewing the quality of a `workflow.plan` pipeline", StringComparison.Ordinal))
+                {
+                    reviewCalls++;
+                    return reviewCalls == 1
+                        ? CreateExtractionQualityReviewResponse(
+                            40,
+                            "retry",
+                            new JsonArray
+                            {
+                                new JsonObject
+                                {
+                                    ["code"] = "RESULT_SHAPE_UNRESOLVED",
+                                    ["kind"] = "intent_ambiguity",
+                                    ["severity"] = "critical",
+                                    ["leaf_name"] = "analyze_issue_need",
+                                    ["message"] = "The user has not selected the observable result shape.",
+                                    ["recommendation"] = "Ask which result shape is intended."
+                                }
+                            },
+                            "Clarify the observable result shape.")
+                        : CreateExtractionQualityReviewResponse(95, "pass");
+                }
+                if (request.Prompt.Contains("Generate exactly one leaf GnOuGo workflow named `analyze_issue_need`.", StringComparison.Ordinal))
+                {
+                    return new LLMResponse
+                    {
+                        Text = """
+                        version: 1
+                        name: analyze-issue-need-leaf
+                        skill:
+                          description: Analyze issue need.
+                          tags: [generated, leaf]
+                          inputs:
+                            issue_body: string
+                          outputs:
+                            summary: string
+                            classification: string
+                        workflows:
+                          main:
+                            inputs:
+                              issue_body: string
+                            steps:
+                              - id: analyze
+                                type: llm.call
+                                input:
+                                  model: gpt-4
+                                  prompt: ${data.inputs.issue_body}
+                                  structured_output:
+                                    strict: true
+                                    schema_inline:
+                                      type: object
+                                      additionalProperties: false
+                                      required: [summary, classification]
+                                      properties:
+                                        summary: { type: string }
+                                        classification: { type: string }
+                            outputs:
+                              summary:
+                                expr: ${data.steps.analyze.json.summary}
+                                type: string
+                              classification:
+                                expr: ${data.steps.analyze.json.classification}
+                                type: string
+                        """
+                    };
+                }
+                if (request.Prompt.Contains("assembling the parent `main` workflow", StringComparison.Ordinal))
+                {
+                    return new LLMResponse
+                    {
+                        Text = """
+                        document:
+                          name: issue_analysis_pipeline
+                          skill:
+                            description: Analyze issue need.
+                            inputs:
+                              issue_body: string
+                            outputs:
+                              result: object
+                        graph:
+                          inputs:
+                            issue_body: string
+                          steps:
+                            - id: call_analyze_issue_need
+                              leaf: analyze_issue_need
+                              args:
+                                issue_body: ${data.inputs.issue_body}
+                          outputs:
+                            result:
+                              expr: ${data.steps.call_analyze_issue_need.outputs}
+                              type: object
+                        """
+                    };
+                }
+                throw new InvalidOperationException("Unexpected LLM prompt: " + request.Prompt);
+            });
+
+        var wf = CompileMain("""
+        version: 1
+        workflows:
+          main:
+            steps:
+              - id: plan
+                type: workflow.plan
+                input:
+                  mode: pipeline
+                  raw_prompt: "Summarize and classify an issue."
+                  intent_clarification:
+                    mode: when_needed
+                    timeout_ms: 60000
+                    max_rounds: 2
+                    max_questions: 8
+                    max_questions_per_round: 5
+                  generator:
+                    model: gpt-4
+                    prefilter: false
+                  validate:
+                    compile: false
+                    max_repair_attempts: 1
+        """);
+
+        var result = await new WorkflowEngine
+        {
+            LLMClient = mockLlm.Object,
+            LLMCapabilities = new StaticLlmCapabilityResolver(false),
+            HumanInputProvider = human.Object
+        }.ExecuteAsync(wf, new JsonObject(), CancellationToken.None);
+
+        Assert.True(result.Success, result.Error?.Message);
+        Assert.Equal(2, normalizeCalls);
+        Assert.Equal(2, reviewCalls);
+        Assert.Equal(2, clarificationCalls);
+        var humanRequest = Assert.Single(humanRequests);
+        Assert.True(humanRequest.AllowAbandon);
+        Assert.Equal("result_shape", Assert.Single(humanRequest.Fields!).Name);
     }
 
     [Fact]
@@ -4899,13 +8624,12 @@ workflows:
         }
             .ExecuteAsync(wf, new JsonObject(), CancellationToken.None);
 
-        Assert.True(result.Success, result.Error?.Message);
-        Assert.Equal(1, judgeCalls);
-        var qualityReport = result.Outputs!["plan"]!["pipeline"]!["quality_report"]!;
-        Assert.False(qualityReport["checks"]!["extraction_quality_reviewed"]!.GetValue<bool>());
-        var warning = Assert.Single(qualityReport["warnings"]!.AsArray());
-        Assert.Equal("PIPELINE_EXTRACTION_QUALITY_REVIEW_WARNING", warning!["code"]!.GetValue<string>());
-        Assert.Contains("review_extraction_quality failed", warning["message"]!.GetValue<string>());
+        Assert.False(result.Success);
+        Assert.Equal(2, judgeCalls);
+        Assert.NotNull(result.Error);
+        Assert.Equal(ErrorCodes.TemplatePlan, result.Error!.Code);
+        Assert.Equal("review_extraction_quality", result.Error.Details!["stage"]!.GetValue<string>());
+        Assert.Equal("contract_violation", result.Error.Details["classification"]!.GetValue<string>());
     }
 
     [Fact]
@@ -5047,6 +8771,9 @@ workflows:
                         },
                         "Parse the repository URL first, then pass parsed owner and repo to analysis.");
                 }
+
+                if (request.Prompt.Contains("reviewing the quality of a `workflow.plan` pipeline", StringComparison.Ordinal))
+                    return CreateExtractionQualityReviewResponse(92, "pass");
 
                 if (request.Prompt.Contains("Generate exactly one leaf GnOuGo workflow named `parse_repository_identity`.", StringComparison.Ordinal))
                     return new LLMResponse
@@ -5405,9 +9132,10 @@ workflows:
     }
 
     [Fact]
-    public async Task WorkflowPlan_PipelineMode_RepromptsStructuredExtractionWhenExternalWorkOmitsPlannedTools()
+    public async Task WorkflowPlan_PipelineMode_FailsClosedWhenTargetedRepairCannotInventExternalCapability()
     {
         var markRequests = new List<LLMRequest>();
+        var patchRequests = new List<LLMRequest>();
         var markAttempts = 0;
         var mcpFactory = new InMemoryMcpClientFactory();
         mcpFactory.RegisterServer("git", new MockMcpServerConfig
@@ -5450,6 +9178,8 @@ workflows:
             {
                 if (request.Prompt.Contains("annotate normalized automation Markdown", StringComparison.Ordinal))
                     markRequests.Add(request);
+                if (request.Prompt.Contains("repairing one validated workflow pipeline extraction", StringComparison.Ordinal))
+                    patchRequests.Add(request);
             })
             .ReturnsAsync((LLMRequest request, CancellationToken _) =>
             {
@@ -5473,21 +9203,6 @@ workflows:
                 if (request.Prompt.Contains("annotate normalized automation Markdown", StringComparison.Ordinal))
                 {
                     markAttempts++;
-                    var plannedTools = markAttempts == 1
-                        ? new JsonArray()
-                        : new JsonArray
-                        {
-                            new JsonObject
-                            {
-                                ["server"] = "git",
-                                ["kind"] = "tool",
-                                ["method"] = "git_clone",
-                                ["required"] = true,
-                                ["purpose"] = "Clone the repository.",
-                                ["consumes"] = new JsonArray { "repository_url" },
-                                ["produces"] = new JsonArray { "project_root" }
-                            }
-                        };
 
                     const string annotatedMarkdown = """
                     # Clone
@@ -5544,11 +9259,31 @@ workflows:
                                 },
                                 ["extract_reason"] = "This performs external repository clone work.",
                                 ["content"] = "Clone the repository into a local workspace directory.",
-                                ["planned_tools"] = plannedTools
+                                ["planned_tools"] = new JsonArray()
                             }
                         },
                         "Call clone_repository.");
                 }
+
+                if (request.Prompt.Contains("repairing one validated workflow pipeline extraction", StringComparison.Ordinal))
+                {
+                    return CreatePipelineExtractionPatchResponse(
+                        request,
+                        new JsonArray
+                        {
+                            new JsonObject
+                            {
+                                ["op"] = "replace_main_orchestration",
+                                ["target"] = "",
+                                ["sources"] = new JsonArray(),
+                                ["main_orchestration"] = $"Call clone_repository and expose its typed project root after bounded repair {patchRequests.Count}.",
+                                ["leaf"] = null
+                            }
+                        });
+                }
+
+                if (request.Prompt.Contains("reviewing the quality of a `workflow.plan` pipeline", StringComparison.Ordinal))
+                    return CreateExtractionQualityReviewResponse(92, "pass");
 
                 if (request.Prompt.Contains("Generate exactly one leaf GnOuGo workflow named `clone_repository`.", StringComparison.Ordinal))
                     return new LLMResponse
@@ -5626,7 +9361,7 @@ workflows:
                     model: gpt-4
                   validate:
                     compile: false
-                    max_repair_attempts: 2
+                    max_repair_attempts: 4
         """);
 
         var result = await new WorkflowEngine
@@ -5637,31 +9372,45 @@ workflows:
         }
             .ExecuteAsync(wf, new JsonObject(), CancellationToken.None);
 
-        Assert.True(result.Success, result.Error?.Message);
-        Assert.Equal(2, markAttempts);
-        Assert.Equal(2, markRequests.Count);
-        Assert.Contains("declares no planned_tools", markRequests[1].Prompt);
-        Assert.Contains("git/git_clone", markRequests[1].Prompt);
-        var planOutput = Assert.IsType<JsonObject>(result.Outputs!["plan"]);
-        var pipeline = Assert.IsType<JsonObject>(planOutput["pipeline"]);
-        var qualityReport = Assert.IsType<JsonObject>(pipeline["quality_report"]);
-        var qualityMcpContext = Assert.IsType<JsonObject>(qualityReport["mcp_context"]);
-        Assert.Equal(1, qualityMcpContext["selected_server_count"]!.GetValue<int>());
-        Assert.Equal(1, qualityMcpContext["selected_tool_count"]!.GetValue<int>());
-        var qualityToolNames = Assert.IsType<JsonArray>(qualityMcpContext["tool_names"]);
-        Assert.Contains(qualityToolNames, tool => tool!.GetValue<string>() == "git/git_clone");
+        Assert.False(result.Success);
+        Assert.True(
+            string.Equals("WORKFLOW_PLAN_REPAIR_STALLED", result.Error?.Code, StringComparison.Ordinal),
+            $"Unexpected failure: {result.Error?.Code}: {result.Error?.Message}");
+        Assert.Equal(1, markAttempts);
+        Assert.Single(markRequests);
+        Assert.Equal(2, patchRequests.Count);
+        Assert.Contains("PIPELINE_EXTRACTION_MISSING_REQUIRED_LEAF_TOOL", patchRequests[0].Prompt);
+        Assert.Contains("zero immutable external ownership", patchRequests[0].Prompt, StringComparison.Ordinal);
+        Assert.Contains("<immutable_leaf_ownership>", patchRequests[0].Prompt, StringComparison.Ordinal);
+        Assert.Contains("<conditional_decision_ownership>", patchRequests[0].Prompt, StringComparison.Ordinal);
+        Assert.Contains("non-observable prerequisite inspection", patchRequests[0].Prompt, StringComparison.Ordinal);
+        Assert.Contains("local_operation_ids", patchRequests[0].Prompt, StringComparison.Ordinal);
+        Assert.All(
+            patchRequests,
+            request => Assert.Contains("cannot invent an external capability", request.Prompt));
+        Assert.All(
+            patchRequests,
+            request => Assert.Contains("separately requested runtime fallback action", request.Prompt));
+    }
 
-        var inspection = Assert.IsType<JsonObject>(pipeline["inspection"]);
-        var inspectionMcpContext = Assert.IsType<JsonObject>(inspection["mcp_context"]);
-        Assert.Equal(1, inspectionMcpContext["selected_server_count"]!.GetValue<int>());
-        var inspectionServerNames = Assert.IsType<JsonArray>(inspectionMcpContext["server_names"]);
-        Assert.Contains(inspectionServerNames, server => server!.GetValue<string>() == "git");
+    [Fact]
+    public void WorkflowPlan_PipelineMode_InferredPreflightProvesStructuredExtraction()
+    {
+        var method = typeof(WorkflowPlanExecutor).GetMethod(
+            "CapabilityPreflightProvesStructuredPipelineExtraction",
+            BindingFlags.NonPublic | BindingFlags.Static);
+
+        Assert.NotNull(method);
+        Assert.True(Assert.IsType<bool>(method!.Invoke(null, ["infer"])));
+        Assert.False(Assert.IsType<bool>(method.Invoke(null, ["explicit"])));
+        Assert.False(Assert.IsType<bool>(method.Invoke(null, ["off"])));
     }
 
     [Fact]
     public async Task WorkflowPlan_PipelineMode_RepromptsStructuredExtractionWhenScoreIsWeak()
     {
         var markRequests = new List<LLMRequest>();
+        var patchRequests = new List<LLMRequest>();
         var markAttempts = 0;
         var mockLlm = new Mock<ILLMClient>();
         mockLlm.Setup(l => l.CallAsync(It.IsAny<LLMRequest>(), It.IsAny<CancellationToken>()))
@@ -5669,6 +9418,8 @@ workflows:
             {
                 if (request.Prompt.Contains("annotate normalized automation Markdown", StringComparison.Ordinal))
                     markRequests.Add(request);
+                if (request.Prompt.Contains("repairing one validated workflow pipeline extraction", StringComparison.Ordinal))
+                    patchRequests.Add(request);
             })
             .ReturnsAsync((LLMRequest request, CancellationToken _) =>
             {
@@ -5678,9 +9429,7 @@ workflows:
                 if (request.Prompt.Contains("annotate normalized automation Markdown", StringComparison.Ordinal))
                 {
                     markAttempts++;
-                    if (markAttempts == 1)
-                    {
-                        const string weakAnnotatedMarkdown = """
+                    const string weakAnnotatedMarkdown = """
                         # Identifier
 
                         :::subworkflow name="rename_identifier"
@@ -5699,76 +9448,15 @@ workflows:
                         Call rename_identifier.
                         """;
 
-                        return CreateStructuredMarkExtractableBlocksResponse(
-                            weakAnnotatedMarkdown,
-                            new JsonArray
-                            {
-                                new JsonObject
-                                {
-                                    ["name"] = "rename_identifier",
-                                    ["goal"] = "Rename raw_id to id.",
-                                    ["description"] = "Simple field rename.",
-                                    ["work_kind"] = "deterministic_shaping",
-                                    ["inputs"] = new JsonArray
-                                    {
-                                        new JsonObject
-                                        {
-                                            ["name"] = "raw_id",
-                                            ["type"] = "string",
-                                            ["description"] = "Raw identifier.",
-                                            ["required"] = true,
-                                            ["item_type"] = "",
-                                            ["properties"] = new JsonArray()
-                                        }
-                                    },
-                                    ["outputs"] = new JsonArray
-                                    {
-                                        new JsonObject
-                                        {
-                                            ["name"] = "id",
-                                            ["type"] = "string",
-                                            ["description"] = "Renamed identifier.",
-                                            ["required"] = true,
-                                            ["item_type"] = "",
-                                            ["properties"] = new JsonArray()
-                                        }
-                                    },
-                                    ["extract_reason"] = "This maps fields.",
-                                    ["content"] = "Rename raw_id to id.",
-                                    ["planned_tools"] = new JsonArray()
-                                }
-                            },
-                            "Call rename_identifier.");
-                    }
-
-                    const string strongAnnotatedMarkdown = """
-                    # Identifier
-
-                    :::subworkflow name="parse_identifier"
-                    goal: Parse and normalize the raw identifier.
-                    inputs:
-                      raw_id: string
-                    outputs:
-                      id: string
-                    extract_reason: This is a reusable parsing and normalization operation.
-                    content:
-                      Parse the raw identifier, trim whitespace, split any optional prefix, normalize the casing, validate that a non-empty canonical identifier remains, and return the canonical id.
-                    :::
-
-                    ## Main workflow orchestration
-
-                    Call parse_identifier, then expose the canonical id.
-                    """;
-
                     return CreateStructuredMarkExtractableBlocksResponse(
-                        strongAnnotatedMarkdown,
+                        weakAnnotatedMarkdown,
                         new JsonArray
                         {
                             new JsonObject
                             {
-                                ["name"] = "parse_identifier",
-                                ["goal"] = "Parse and normalize the raw identifier.",
-                                ["description"] = "Produce a canonical identifier.",
+                                ["name"] = "rename_identifier",
+                                ["goal"] = "Rename raw_id to id.",
+                                ["description"] = "Simple field rename.",
                                 ["work_kind"] = "deterministic_shaping",
                                 ["inputs"] = new JsonArray
                                 {
@@ -5788,26 +9476,90 @@ workflows:
                                     {
                                         ["name"] = "id",
                                         ["type"] = "string",
-                                        ["description"] = "Canonical identifier.",
+                                        ["description"] = "Renamed identifier.",
                                         ["required"] = true,
                                         ["item_type"] = "",
                                         ["properties"] = new JsonArray()
                                     }
                                 },
-                                ["extract_reason"] = "This is a reusable parsing and normalization operation.",
-                                ["content"] = "Parse the raw identifier, trim whitespace, split any optional prefix, normalize the casing, validate that a non-empty canonical identifier remains, and return the canonical id.",
+                                ["extract_reason"] = "This maps fields.",
+                                ["content"] = "Rename raw_id to id.",
                                 ["planned_tools"] = new JsonArray()
                             }
                         },
-                        "Call parse_identifier, then expose the canonical id.");
+                        "Call rename_identifier.");
                 }
 
-                if (request.Prompt.Contains("Generate exactly one leaf GnOuGo workflow named `parse_identifier`.", StringComparison.Ordinal))
+                if (request.Prompt.Contains("repairing one validated workflow pipeline extraction", StringComparison.Ordinal))
+                {
+                    return CreatePipelineExtractionPatchResponse(
+                        request,
+                        new JsonArray
+                        {
+                            new JsonObject
+                            {
+                                ["op"] = "replace_leaf",
+                                ["target"] = "rename_identifier",
+                                ["sources"] = new JsonArray(),
+                                ["main_orchestration"] = "",
+                                ["leaf"] = new JsonObject
+                                {
+                                    ["name"] = "rename_identifier",
+                                    ["goal"] = "Parse and normalize the raw identifier.",
+                                    ["description"] = "Produce a canonical identifier.",
+                                    ["work_kind"] = "deterministic_shaping",
+                                    ["contract_role"] = "algorithmic_transform",
+                                    ["concrete_outcome"] = "A validated canonical identifier.",
+                                    ["inputs"] = new JsonArray
+                                    {
+                                        new JsonObject
+                                        {
+                                            ["name"] = "raw_id",
+                                            ["type"] = "string",
+                                            ["description"] = "Raw identifier.",
+                                            ["required"] = true,
+                                            ["nullable"] = false,
+                                            ["item_type"] = "",
+                                            ["properties"] = new JsonArray()
+                                        }
+                                    },
+                                    ["outputs"] = new JsonArray
+                                    {
+                                        new JsonObject
+                                        {
+                                            ["name"] = "id",
+                                            ["type"] = "string",
+                                            ["description"] = "Canonical identifier.",
+                                            ["required"] = true,
+                                            ["nullable"] = false,
+                                            ["item_type"] = "",
+                                            ["properties"] = new JsonArray()
+                                        }
+                                    },
+                                    ["extract_reason"] = "This is a reusable parsing and normalization operation.",
+                                    ["content"] = "Parse the raw identifier, trim whitespace, split any optional prefix, normalize the casing, validate that a non-empty canonical identifier remains, and return the canonical id."
+                                }
+                            },
+                            new JsonObject
+                            {
+                                ["op"] = "replace_main_orchestration",
+                                ["target"] = "",
+                                ["sources"] = new JsonArray(),
+                                ["main_orchestration"] = "Call rename_identifier, then expose the canonical id.",
+                                ["leaf"] = null
+                            }
+                        });
+                }
+
+                if (request.Prompt.Contains("reviewing the quality of a `workflow.plan` pipeline", StringComparison.Ordinal))
+                    return CreateExtractionQualityReviewResponse(92, "pass");
+
+                if (request.Prompt.Contains("Generate exactly one leaf GnOuGo workflow named `rename_identifier`.", StringComparison.Ordinal))
                     return new LLMResponse
                     {
                         Text = """
                         version: 1
-                        name: parse-identifier-leaf
+                        name: rename-identifier-leaf
                         skill:
                           description: Parse identifier.
                           tags: [generated, leaf]
@@ -5836,7 +9588,7 @@ workflows:
                     {
                         Text = """
                         document:
-                          name: parse_identifier_pipeline
+                          name: rename_identifier_pipeline
                           skill:
                             description: Parse identifier.
                             inputs:
@@ -5847,12 +9599,12 @@ workflows:
                           inputs:
                             raw_id: string
                           steps:
-                            - id: call_parse_identifier
-                              leaf: parse_identifier
+                            - id: call_rename_identifier
+                              leaf: rename_identifier
                               args:
                                 raw_id: ${data.inputs.raw_id}
                           outputs:
-                            id: ${data.steps.call_parse_identifier.outputs.id}
+                            id: ${data.steps.call_rename_identifier.outputs.id}
                         """
                     };
 
@@ -5885,17 +9637,18 @@ workflows:
             .ExecuteAsync(wf, new JsonObject(), CancellationToken.None);
 
         Assert.True(result.Success, result.Error?.Message);
-        Assert.Equal(2, markAttempts);
-        Assert.Equal(2, markRequests.Count);
-        Assert.Contains("PIPELINE_EXTRACTION_TRIVIAL_LEAF", markRequests[1].Prompt);
-        Assert.Contains("PIPELINE_EXTRACTION_LOW_SCORE", markRequests[1].Prompt);
-        Assert.Contains("Fix low extraction scores", markRequests[1].Prompt);
+        Assert.Equal(1, markAttempts);
+        Assert.Single(markRequests);
+        var patchRequest = Assert.Single(patchRequests);
+        Assert.Contains("PIPELINE_EXTRACTION_TRIVIAL_LEAF", patchRequest.Prompt);
+        Assert.Contains("PIPELINE_EXTRACTION_LOW_SCORE", patchRequest.Prompt);
+        Assert.Contains("Make the smallest cohesive correction", patchRequest.Prompt);
 
         var qualityReport = result.Outputs!["plan"]!["pipeline"]!["quality_report"]!;
         Assert.Equal(1, qualityReport["summary"]!["extraction_scored_leaf_count"]!.GetValue<int>());
         Assert.True(qualityReport["summary"]!["min_extraction_score"]!.GetValue<int>() >= 45);
         var leaf = Assert.Single(qualityReport["leaves"]!.AsArray());
-        Assert.Equal("parse_identifier", leaf!["name"]!.GetValue<string>());
+        Assert.Equal("rename_identifier", leaf!["name"]!.GetValue<string>());
         Assert.Equal("acceptable", leaf["extraction_score"]!["rating"]!.GetValue<string>());
     }
 
@@ -8951,8 +12704,8 @@ workflows:
         var result = await engine.ExecuteAsync(wf, new JsonObject(), CancellationToken.None);
 
         Assert.True(result.Success, result.Error?.Message);
-        Assert.Contains(requests, request => request.Prompt.Contains("MCP server-selection assistant", StringComparison.Ordinal));
-        Assert.Contains(requests, request => request.Prompt.Contains("tool-selection assistant", StringComparison.Ordinal));
+        Assert.Single(requests, request => request.Prompt.Contains("MCP server-selection assistant", StringComparison.Ordinal));
+        Assert.Single(requests, request => request.Prompt.Contains("tool-selection assistant", StringComparison.Ordinal));
         var generationRequest = Assert.Single(requests, request =>
             request.Prompt.StartsWith("You are a GnOuGo.Flow YAML workflow generator.", StringComparison.Ordinal)
             && request.Prompt.Contains("Generate exactly one leaf GnOuGo workflow named `list_repositories`.", StringComparison.Ordinal));
@@ -9456,7 +13209,32 @@ workflows:
                 if (req.Prompt.Contains("assembling the parent `main` workflow", StringComparison.Ordinal))
                     return new LLMResponse
                     {
-                        Text = """
+                        Text = artifactRepairRequested
+                            ? """
+                        document:
+                          name: artifact_provenance_pipeline
+                          skill:
+                            description: Materialize and analyze a workspace.
+                            inputs: { source_url: string }
+                            outputs: { result: string }
+                        graph:
+                          inputs: { source_url: string }
+                          steps:
+                            - id: materialize
+                              leaf: materialize_workspace
+                              args: { source_url: "${data.inputs.source_url}" }
+                            - id: route_workspace_artifact
+                              type: set
+                              input:
+                                workspace_root: not-a-materialized-artifact
+                            - id: analyze
+                              leaf: analyze_workspace
+                              args:
+                                workspace_root: "${data.steps.route_workspace_artifact.workspace_root}"
+                          outputs:
+                            result: "${data.steps.analyze.outputs.result}"
+                        """
+                            : """
                         document:
                           name: artifact_provenance_pipeline
                           skill:
@@ -9495,7 +13273,13 @@ workflows:
                     """),
                     OutputSchema = JsonNode.Parse("""
                     {"type":"object","properties":{"workspaceRoot":{"type":"string"}},"required":["workspaceRoot"]}
-                    """)
+                    """),
+                    ArtifactContract = new McpArtifactContractResolution(
+                        new McpArtifactContract(
+                            1,
+                            [new McpProducedArtifact("workspace.directory", "/workspaceRoot", "materialize")],
+                            []),
+                        [])
                 }
             }
         });
@@ -9512,7 +13296,13 @@ workflows:
                     """),
                     OutputSchema = JsonNode.Parse("""
                     {"type":"object","properties":{"result":{"type":"string"}},"required":["result"]}
-                    """)
+                    """),
+                    ArtifactContract = new McpArtifactContractResolution(
+                        new McpArtifactContract(
+                            1,
+                            [],
+                            [new McpConsumedArtifact("workspace.directory", "/workspaceRoot", true)]),
+                        [])
                 }
             }
         });
@@ -12963,6 +16753,76 @@ workflows:
     }
 
     [Fact]
+    public async Task WorkflowPlan_SemanticValidation_NormalizesMcpJsonAliasToDocumentedResponsePath()
+    {
+        var generationCalls = 0;
+        var mockLlm = new Mock<ILLMClient>();
+        mockLlm.Setup(client => client.CallAsync(It.IsAny<LLMRequest>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(() =>
+            {
+                generationCalls++;
+                return new LLMResponse
+                {
+                    Text = """
+                        version: 1
+                        skill:
+                          description: Normalize one opaque external result.
+                          tags: [generated]
+                          inputs: {}
+                          outputs: {}
+                        workflows:
+                          main:
+                            steps:
+                              - id: fetch
+                                type: mcp.call
+                                input:
+                                  server: neutral
+                                  kind: tool
+                                  method: observe
+                                  request: {}
+                              - id: normalize
+                                type: llm.call
+                                input:
+                                  model: gpt-test
+                                  prompt: "Normalize ${data.steps.fetch.json.pending_value}"
+                        """
+                };
+            });
+
+        var factory = new InMemoryMcpClientFactory();
+        factory.RegisterServer("neutral", new MockMcpServerConfig
+        {
+            Tools = [new McpToolInfo { Name = "observe", Description = "Observe one opaque value." }]
+        });
+        var workflow = CompileMain("""
+            version: 1
+            workflows:
+              main:
+                steps:
+                  - id: plan
+                    type: workflow.plan
+                    input:
+                      mode: basic
+                      generator:
+                        model: gpt-test
+                        instruction: Observe and normalize one value.
+                        prefilter: false
+            """);
+
+        var result = await new WorkflowEngine
+        {
+            LLMClient = mockLlm.Object,
+            McpClientFactory = factory
+        }.ExecuteAsync(workflow, new JsonObject(), CancellationToken.None);
+
+        Assert.True(result.Success, result.Error?.Message);
+        Assert.Equal(1, generationCalls);
+        var yaml = result.Outputs!["plan"]!["yaml"]!.GetValue<string>();
+        Assert.Contains("data.steps.fetch.response", yaml, StringComparison.Ordinal);
+        Assert.DoesNotContain("data.steps.fetch.json.pending_value", yaml, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public async Task WorkflowPlan_SemanticValidation_RejectsDeepAccessIntoOpaqueMcpResponse()
     {
         var mockLlm = new Mock<ILLMClient>();
@@ -13976,10 +17836,1353 @@ workflows:
             {
                 ErrorCodes.ScriptError,
                 "Invalid pull-request URL: expected an absolute URL.",
-                new[] { "pull_request_url", "instructions" }
+                new Dictionary<string, InputDef>
+                {
+                    ["pull_request_url"] = new() { Type = "string" },
+                    ["instructions"] = new() { Type = "string" }
+                }
             })!;
 
         Assert.True(inconclusive);
+    }
+
+    [Fact]
+    public void WorkflowPlan_DryRun_UsesProviderNeutralUrlSample()
+    {
+        var validatorType = typeof(WorkflowEngine).Assembly.GetType(
+            "GnOuGo.Flow.Core.Runtime.WorkflowPlanDryRunValidator",
+            throwOnError: true)!;
+        var method = validatorType.GetMethod(
+            "BuildSampleInputs",
+            BindingFlags.NonPublic | BindingFlags.Static)!;
+        var inputs = new Dictionary<string, InputDef>
+        {
+            ["resource_url"] = new()
+            {
+                Type = "url",
+                Description = "An absolute resource URL."
+            }
+        };
+
+        var sample = Assert.IsType<JsonObject>(method.Invoke(null, [inputs]));
+
+        Assert.Equal(
+            "https://example.invalid/dry-run",
+            sample["resource_url"]!.GetValue<string>());
+    }
+
+    [Fact]
+    public void WorkflowPlan_DryRun_UsesFirstDeclaredEnumValue()
+    {
+        var validatorType = typeof(WorkflowEngine).Assembly.GetType(
+            "GnOuGo.Flow.Core.Runtime.WorkflowPlanDryRunValidator",
+            throwOnError: true)!;
+        var method = validatorType.GetMethod(
+            "BuildSampleInputs",
+            BindingFlags.NonPublic | BindingFlags.Static)!;
+        var inputs = new Dictionary<string, InputDef>
+        {
+            ["mode"] = new()
+            {
+                Type = "string",
+                Enum = ["first", "second"]
+            }
+        };
+
+        var sample = Assert.IsType<JsonObject>(method.Invoke(null, [inputs]));
+
+        Assert.Equal("first", sample["mode"]!.GetValue<string>());
+    }
+
+    [Fact]
+    public void WorkflowPlan_LeafRepairCycle_StopsOnRepeatedDiagnosticStructure()
+    {
+        var method = typeof(WorkflowPlanExecutor).GetMethod(
+            "DetectLeafRepairCycle",
+            BindingFlags.NonPublic | BindingFlags.Static)!;
+        var diagnosticHistory = new List<string>();
+        var yamlHistory = new List<string>();
+        const string yamlA = """
+            version: 1
+            workflows:
+              main:
+                steps:
+                  - id: value
+                    type: set
+                    input: { result: first }
+            """;
+        const string yamlB = """
+            version: 1
+            workflows:
+              main:
+                steps:
+                  - id: value
+                    type: assert.non_null
+                    input: { value: second }
+            """;
+        var errorA = new WorkflowRuntimeException(ErrorCodes.InputValidation, "Missing required result.");
+        var errorB = new WorkflowRuntimeException(ErrorCodes.ScriptError, "Invalid result expression.");
+
+        Assert.Null(method.Invoke(null, [errorA, "test_leaf", 1, false, yamlA, diagnosticHistory, yamlHistory]));
+        Assert.Null(method.Invoke(null, [errorB, "test_leaf", 2, true, yamlB, diagnosticHistory, yamlHistory]));
+        var stalled = Assert.IsType<WorkflowRuntimeException>(
+            method.Invoke(null, [errorA, "test_leaf", 3, true, yamlA, diagnosticHistory, yamlHistory]));
+
+        Assert.Equal(ErrorCodes.WorkflowPlanRepairStalled, stalled.Code);
+        Assert.Equal("diagnostic_and_yaml_structure", stalled.Details!["cycle_kind"]!.GetValue<string>());
+        Assert.InRange(stalled.Details["diagnostic_history"]!.AsArray().Count, 1, 6);
+        Assert.Equal("test_leaf", stalled.Details["leaf"]!.GetValue<string>());
+        Assert.Equal("extraction_or_blueprint", stalled.Details["repair_scope"]!.GetValue<string>());
+        Assert.Equal(3, stalled.Details["attempt"]!.GetValue<int>());
+
+        var tryGetCycle = typeof(WorkflowPlanExecutor).GetMethod(
+            "TryGetLeafRepairCycle",
+            BindingFlags.NonPublic | BindingFlags.Static)!;
+        object?[] cycleArgs = [stalled, null];
+        Assert.True(Assert.IsType<bool>(tryGetCycle.Invoke(null, cycleArgs)));
+        Assert.Equal("test_leaf", cycleArgs[1]);
+
+        var addDiagnostic = typeof(WorkflowPlanExecutor).GetMethod(
+            "AddLeafRepairCycleDiagnostic",
+            BindingFlags.NonPublic | BindingFlags.Static)!;
+        var extraction = addDiagnostic.Invoke(null, [CreatePrivatePatchCandidate("test_leaf"), "test_leaf", stalled])!;
+        var qualityDiagnostic = Assert.Single(
+            BuildPrivateExtractionJson(extraction)["quality_review"]!["diagnostics"]!.AsArray());
+        Assert.Equal("PIPELINE_LEAF_REPAIR_CYCLE", qualityDiagnostic!["code"]!.GetValue<string>());
+        Assert.Equal("critical", qualityDiagnostic["severity"]!.GetValue<string>());
+    }
+
+    [Fact]
+    public void WorkflowPlan_NormalizesOnlySwitchDefaultBlockScalarsContainingStepLists()
+    {
+        var method = typeof(WorkflowPlanExecutor).GetMethod(
+            "NormalizeGeneratedSwitchDefaultStepLists",
+            BindingFlags.NonPublic | BindingFlags.Static)!;
+        const string malformed = """
+            version: 1
+            name: generated-switch
+            skill:
+              description: Route a value.
+              tags: [generated]
+              inputs: {}
+              outputs: {}
+            workflows:
+              main:
+                steps:
+                  - id: route
+                    type: switch
+                    cases:
+                      - when: ${true}
+                        steps: []
+                    default: |
+                      - id: fallback
+                        type: set
+                        input:
+                          used: true
+            """;
+
+        var normalized = Assert.IsType<string>(method.Invoke(null, [malformed]));
+
+        Assert.DoesNotContain("default: |", normalized, StringComparison.Ordinal);
+        Assert.Matches(@"default:\r?\n\s+- id: fallback", normalized);
+        Assert.NotNull(WorkflowParser.Parse(normalized));
+
+        const string ordinaryLiteral = """
+            type: switch
+            note:
+              default: |
+                - id: documentation-example
+            """;
+        Assert.Equal(ordinaryLiteral, Assert.IsType<string>(method.Invoke(null, [ordinaryLiteral])));
+    }
+
+    [Fact]
+    public void WorkflowPlan_NormalizesMisindentedSwitchDefaultStepLists()
+    {
+        var method = typeof(WorkflowPlanExecutor).GetMethod(
+            "NormalizeGeneratedSwitchDefaultStepLists",
+            BindingFlags.NonPublic | BindingFlags.Static)!;
+        const string malformed = """
+            graph:
+              steps:
+                - id: route
+                  type: switch
+                  cases:
+                    - when: ${true}
+                      steps:
+                        - id: selected
+                          type: set
+                          input:
+                            result: selected
+                    default:
+                      - id: fallback
+                        type: set
+                        input:
+                          result: fallback
+                - id: after_route
+                  type: set
+                  input:
+                    completed: true
+            """;
+
+        var normalized = Assert.IsType<string>(method.Invoke(null, [malformed]));
+
+        Assert.Matches(@"(?m)^      default:\r?$", normalized);
+        Assert.Matches(@"(?m)^        - id: fallback\r?$", normalized);
+        Assert.Matches(@"(?m)^    - id: after_route\r?$", normalized);
+
+        var stream = new YamlDotNet.RepresentationModel.YamlStream();
+        stream.Load(new StringReader(normalized));
+        var root = Assert.IsType<YamlDotNet.RepresentationModel.YamlMappingNode>(stream.Documents[0].RootNode);
+        var graph = Assert.IsType<YamlDotNet.RepresentationModel.YamlMappingNode>(root.Children[new YamlDotNet.RepresentationModel.YamlScalarNode("graph")]);
+        var steps = Assert.IsType<YamlDotNet.RepresentationModel.YamlSequenceNode>(graph.Children[new YamlDotNet.RepresentationModel.YamlScalarNode("steps")]);
+        var route = Assert.IsType<YamlDotNet.RepresentationModel.YamlMappingNode>(steps.Children[0]);
+        Assert.IsType<YamlDotNet.RepresentationModel.YamlSequenceNode>(route.Children[new YamlDotNet.RepresentationModel.YamlScalarNode("default")]);
+    }
+
+    [Fact]
+    public void WorkflowPlan_QuotesUnsafePlainMappingScalarsWithoutChangingStructuredValues()
+    {
+        var method = typeof(WorkflowPlanExecutor).GetMethod(
+            "NormalizeGeneratedUnsafePlainMappingScalars",
+            BindingFlags.NonPublic | BindingFlags.Static)!;
+        const string malformed = """
+            prompt: Confirm the operation: publish the result?
+            request: { method: create, enabled: true }
+            endpoint: https://example.invalid/resource
+            expression: ${data.inputs.enabled}
+            functions: |
+              function project(item) {
+                return {
+                  start_line: item.start_line == null ? null : item.start_line,
+                  start_side: item.start_side == null ? null : item.start_side
+                };
+              }
+            """;
+
+        var normalized = Assert.IsType<string>(method.Invoke(null, [malformed]));
+
+        Assert.Contains("prompt: 'Confirm the operation: publish the result?'", normalized, StringComparison.Ordinal);
+        Assert.Contains("request: { method: create, enabled: true }", normalized, StringComparison.Ordinal);
+        Assert.Contains("endpoint: https://example.invalid/resource", normalized, StringComparison.Ordinal);
+        Assert.Contains("expression: ${data.inputs.enabled}", normalized, StringComparison.Ordinal);
+        Assert.Contains("start_line: item.start_line == null ? null : item.start_line,", normalized, StringComparison.Ordinal);
+        Assert.DoesNotContain("start_line: 'item.start_line", normalized, StringComparison.Ordinal);
+
+        var stream = new YamlDotNet.RepresentationModel.YamlStream();
+        stream.Load(new StringReader(normalized));
+    }
+
+    [Fact]
+    public void WorkflowPlan_NormalizesExactNullableUnionsOnlyInFlowContracts()
+    {
+        var method = typeof(WorkflowPlanExecutor).GetMethod(
+            "NormalizeGeneratedFlowNullableSchemas",
+            BindingFlags.NonPublic | BindingFlags.Static)!;
+        const string generated = """
+            version: 1
+            name: nullable-contract
+            skill:
+              description: Preserve nullable values.
+              inputs:
+                records:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      start_line:
+                        anyOf:
+                          - type: number
+                          - type: "null"
+                    required_properties: [start_line]
+              outputs: {}
+            workflows:
+              main:
+                inputs:
+                  optional_label:
+                    type: [string, "null"]
+                steps:
+                  - id: result
+                    type: set
+                    output_schema:
+                      type: object
+                      properties:
+                        start_line:
+                          anyOf:
+                            - type: number
+                            - type: "null"
+                      required: [start_line]
+                      additionalProperties: false
+                    input:
+                      start_line: null
+            """;
+
+        var normalized = Assert.IsType<string>(method.Invoke(null, [generated]));
+
+        Assert.Single(Regex.Matches(normalized, "anyOf:", RegexOptions.CultureInvariant).Cast<System.Text.RegularExpressions.Match>());
+        var document = WorkflowParser.Parse(normalized);
+        var startLine = document.Skill!.Inputs!["records"].Items!.Properties!["start_line"];
+        Assert.Equal("number", startLine.Type);
+        Assert.True(startLine.Nullable);
+        Assert.Equal("string", document.Workflows["main"].Inputs!["optional_label"].Type);
+        Assert.True(document.Workflows["main"].Inputs!["optional_label"].Nullable);
+        Assert.NotNull(document.Workflows["main"].Steps[0].OutputSchema!["properties"]!["start_line"]!["anyOf"]);
+    }
+
+    [Fact]
+    public void WorkflowPlan_NormalizesExactExpressionScalarsBeforeYamlParsing()
+    {
+        var method = typeof(WorkflowPlanExecutor).GetMethod(
+            "NormalizeGeneratedExactExpressionScalars",
+            BindingFlags.NonPublic | BindingFlags.Static)!;
+        const string malformed = """
+            version: 1
+            name: generated-expression
+            skill:
+              description: Select an outcome.
+              tags: [generated]
+              inputs: {}
+              outputs: {}
+            workflows:
+              main:
+                steps:
+                  - id: choose
+                    type: set
+                    input:
+                      event: ${data.inputs.accepted ? "ACCEPTED" : "REJECTED"}
+                      label: ${data.inputs.accepted ? 'primary' : 'secondary'}
+                      values:
+                        - ${data.inputs.accepted ? "one" : "two"}
+            """;
+
+        var normalized = Assert.IsType<string>(method.Invoke(null, [malformed]));
+
+        Assert.Contains("event: '${data.inputs.accepted ? \"ACCEPTED\" : \"REJECTED\"}'", normalized);
+        Assert.Contains("label: '${data.inputs.accepted ? ''primary'' : ''secondary''}'", normalized);
+        Assert.Contains("- '${data.inputs.accepted ? \"one\" : \"two\"}'", normalized);
+        var document = WorkflowParser.Parse(normalized);
+        var input = Assert.IsType<JsonObject>(document.Workflows["main"].Steps[0].Input);
+        Assert.Equal(
+            "${data.inputs.accepted ? \"ACCEPTED\" : \"REJECTED\"}",
+            input["event"]!.GetValue<string>());
+        Assert.Equal(
+            "${data.inputs.accepted ? 'primary' : 'secondary'}",
+            input["label"]!.GetValue<string>());
+    }
+
+    [Fact]
+    public void WorkflowPlan_LeavesQuotedEmbeddedAndLiteralBlockExpressionsUnchanged()
+    {
+        var method = typeof(WorkflowPlanExecutor).GetMethod(
+            "NormalizeGeneratedExactExpressionScalars",
+            BindingFlags.NonPublic | BindingFlags.Static)!;
+        const string yaml = """
+            quoted: "${data.inputs.value}"
+            embedded: prefix-${data.inputs.value}
+            literal: |
+              ${data.inputs.value ? "one" : "two"}
+            """;
+
+        Assert.Equal(yaml, Assert.IsType<string>(method.Invoke(null, [yaml])));
+    }
+
+    [Fact]
+    public void WorkflowPlan_NormalizesExactExpressionScalarsInStructuredMainAssembly()
+    {
+        var method = typeof(WorkflowPlanExecutor).GetMethod(
+            "ParseGeneratedMainAssembly",
+            BindingFlags.NonPublic | BindingFlags.Static)!;
+        var leafType = method.GetParameters()[1].ParameterType.GetGenericArguments().Single();
+        var emptyLeaves = Activator.CreateInstance(typeof(List<>).MakeGenericType(leafType));
+        const string malformed = """
+            document:
+              name: generated-expression
+              skill:
+                description: Select an outcome.
+                tags: [generated]
+                inputs:
+                  accepted: boolean
+                outputs: {}
+            graph:
+              inputs:
+                accepted: boolean
+              steps:
+                - id: choose
+                  type: set
+                  input:
+                    event: ${data.inputs.accepted ? 'APPROVE' : 'REQUEST_CHANGES'}
+            """;
+
+        var assembly = method.Invoke(null, [malformed, emptyLeaves]);
+
+        Assert.NotNull(assembly);
+    }
+
+    [Fact]
+    public void WorkflowPlan_RoutesStructuredDryRunFailureToExactGeneratedLeaf()
+    {
+        var method = typeof(WorkflowPlanExecutor).GetMethod(
+            "TryGetPipelineLeafRuntimeValidationFailure",
+            BindingFlags.NonPublic | BindingFlags.Static)!;
+        var exception = new WorkflowRuntimeException(
+            ErrorCodes.TemplatePlan,
+            "Generated workflow dry-run failed.",
+            details: new JsonObject
+            {
+                ["phase"] = "dry_run",
+                ["diagnostics"] = new JsonArray
+                {
+                    new JsonObject
+                    {
+                        ["phase"] = "dry_run",
+                        ["runtime_details"] = new JsonObject
+                        {
+                            ["failed_workflow"] = "neutral_leaf",
+                            ["failed_step_id"] = "project_result"
+                        }
+                    }
+                }
+            });
+
+        var matched = method.Invoke(null, [exception, new[] { "neutral_leaf", "another_leaf" }]);
+        var unmatched = method.Invoke(null, [exception, new[] { "another_leaf" }]);
+
+        Assert.Equal("neutral_leaf", matched);
+        Assert.Null(unmatched);
+    }
+
+    [Fact]
+    public void WorkflowPlan_PipelineConditionalRepair_RejectsMalformedLeafBeforeAssemblyAndRoutesItToOwner()
+    {
+        var extraction = CreatePrivateConditionalBoundaryCandidate(includeSharedBoundary: true);
+        var leafSpecs = Assert.IsAssignableFrom<System.Collections.IEnumerable>(
+                extraction.GetType().GetProperty("Subworkflows")!.GetValue(extraction))
+            .Cast<object>()
+            .ToArray();
+        var consumerSpec = leafSpecs.Single(spec => string.Equals(
+            spec.GetType().GetProperty("Name")!.GetValue(spec) as string,
+            "publish_outcome",
+            StringComparison.Ordinal));
+        const string malformedLeafYaml = """
+            version: 1
+            workflows:
+              publish_review:
+                inputs:
+                  decision: { type: string }
+                steps:
+                  - id: publish_decision
+                    type: switch
+                    expr: ${data.inputs.decision}
+                    cases:
+                      - when: ${data.inputs.decision == 'selected'}
+                        steps:
+                          - id: publish_selected
+                            type: mcp.call
+                            input:
+                              server: neutral-server
+                              kind: tool
+                              method: neutral-action
+                      - value: rejected
+                        steps:
+                          - id: publish_rejected
+                            type: mcp.call
+                            input:
+                              server: neutral-server
+                              kind: tool
+                              method: neutral-action
+                    default: []
+            """;
+        var document = WorkflowParser.Parse(malformedLeafYaml);
+        var validateMethod = typeof(WorkflowPlanExecutor).GetMethod(
+            "ValidateConditionalCapabilityTopologyInLeaf",
+            BindingFlags.NonPublic | BindingFlags.Static)!;
+
+        var invocation = Assert.Throws<TargetInvocationException>(() => validateMethod.Invoke(
+            null,
+            [consumerSpec, "publish_review", document]));
+        var validationException = Assert.IsType<WorkflowRuntimeException>(invocation.InnerException);
+        Assert.Equal("conditional_activation_invalid", validationException.Details!["reason"]!.GetValue<string>());
+        Assert.Equal("conditional_switch_shape_invalid", validationException.Details["validation_issue"]!.GetValue<string>());
+        Assert.Equal("leaf_topology", validationException.Details["repair_scope"]!.GetValue<string>());
+        Assert.Equal("publish_review", validationException.Details["workflow"]!.GetValue<string>());
+        Assert.Equal("publish_decision", validationException.Details["switch_id"]!.GetValue<string>());
+
+        var blueprintType = GetPrivatePipelineType("PipelineLeafBlueprint");
+        var generatedLeafType = GetPrivatePipelineType("GeneratedLeafWorkflow");
+        var blueprint = CreatePrivatePipelineValue(
+            blueprintType,
+            "publish_outcome",
+            "publish_review",
+            "Publish one selected outcome.",
+            CreatePrivatePipelineArray(GetPrivatePipelineType("PipelineLeafBlueprintStep")),
+            CreatePrivatePipelineArray(GetPrivatePipelineType("PipelineLeafBlueprintOutput")));
+        var generatedLeaf = CreatePrivatePipelineValue(
+            generatedLeafType,
+            "publish_outcome",
+            "publish_review",
+            document,
+            malformedLeafYaml,
+            blueprint,
+            CreatePrivatePipelineArray(GetPrivatePipelineType("PipelineQualityEvent")),
+            CreatePrivatePipelineArray(GetPrivatePipelineType("PipelineStructuredDecisionRequirement")));
+        var generatedLeaves = CreatePrivatePipelineArray(generatedLeafType, generatedLeaf);
+        var routeMethod = typeof(WorkflowPlanExecutor).GetMethod(
+            "TryGetConditionalActivationLeafTopologyFailure",
+            BindingFlags.NonPublic | BindingFlags.Static)!;
+
+        Assert.Equal("publish_outcome", routeMethod.Invoke(null, [validationException, generatedLeaves]));
+
+        var lineageException = new WorkflowRuntimeException(
+            ErrorCodes.CapabilityPreflightUnavailable,
+            "Conditional decision lineage is unproven.",
+            details: new JsonObject
+            {
+                ["reason"] = "conditional_activation_invalid",
+                ["validation_issue"] = "conditional_decision_lineage_unproven",
+                ["repair_scope"] = "main_decision_routing",
+                ["workflow"] = "publish_review"
+            });
+        Assert.Null(routeMethod.Invoke(null, [lineageException, generatedLeaves]));
+    }
+
+    [Fact]
+    public void WorkflowPlan_PipelineConditionalRepair_NormalizesUniqueConsumerSwitchToLockedDecisionInput()
+    {
+        var extraction = CreatePrivateConditionalBoundaryCandidate(includeSharedBoundary: true);
+        var consumerSpec = Assert.IsAssignableFrom<System.Collections.IEnumerable>(
+                extraction.GetType().GetProperty("Subworkflows")!.GetValue(extraction))
+            .Cast<object>()
+            .Single(spec => string.Equals(
+                spec.GetType().GetProperty("Name")!.GetValue(spec) as string,
+                "publish_outcome",
+                StringComparison.Ordinal));
+        const string generatedYaml = """
+            version: 1
+            workflows:
+              publish_review:
+                inputs:
+                  decision: { type: string, enum: [selected, rejected] }
+                  renamed_decision: { type: string, enum: [selected, rejected] }
+                steps:
+                  - id: publish_decision
+                    type: switch
+                    expr: ${data.inputs.renamed_decision}
+                    cases:
+                      - value: selected
+                        steps:
+                          - id: publish_selected
+                            type: mcp.call
+                            input:
+                              server: neutral-server
+                              kind: tool
+                              method: neutral-action
+                      - value: rejected
+                        steps:
+                          - id: publish_rejected
+                            type: mcp.call
+                            input:
+                              server: neutral-server
+                              kind: tool
+                              method: neutral-action
+                    default: []
+            """;
+        var document = WorkflowParser.Parse(generatedYaml);
+        var normalize = typeof(WorkflowPlanExecutor).GetMethod(
+            "NormalizeGeneratedLeafConditionalDecisionInputs",
+            BindingFlags.NonPublic | BindingFlags.Static)!;
+
+        var normalized = Assert.IsType<ValueTuple<WorkflowDocument, string>>(
+            normalize.Invoke(null, [consumerSpec, "publish_review", document, generatedYaml]));
+
+        Assert.Equal(
+            "${data.inputs.decision}",
+            normalized.Item1.Workflows["publish_review"].Steps.Single().Expr);
+        Assert.Contains("data.inputs.decision", normalized.Item2, StringComparison.Ordinal);
+        Assert.DoesNotContain("expr: ${data.inputs.renamed_decision}", normalized.Item2, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void WorkflowPlan_PipelineConditionalRepair_NormalizesUniqueTypedDecisionInputAlias()
+    {
+        var extraction = CreatePrivateConditionalBoundaryCandidate(includeSharedBoundary: true);
+        var consumerSpec = Assert.IsAssignableFrom<System.Collections.IEnumerable>(
+                extraction.GetType().GetProperty("Subworkflows")!.GetValue(extraction))
+            .Cast<object>()
+            .Single(spec => string.Equals(
+                spec.GetType().GetProperty("Name")!.GetValue(spec) as string,
+                "publish_outcome",
+                StringComparison.Ordinal));
+        const string generatedYaml = """
+            version: 1
+            workflows:
+              publish_review:
+                inputs:
+                  renamed_decision: { type: string, enum: [selected, rejected] }
+                steps:
+                  - id: publish_decision
+                    type: switch
+                    expr: ${data.inputs.renamed_decision}
+                    cases:
+                      - value: selected
+                        steps:
+                          - id: publish_selected
+                            type: mcp.call
+                            input:
+                              server: neutral-server
+                              kind: tool
+                              method: neutral-action
+                      - value: rejected
+                        steps:
+                          - id: publish_rejected
+                            type: mcp.call
+                            input:
+                              server: neutral-server
+                              kind: tool
+                              method: neutral-action
+                    default: []
+            """;
+        var document = WorkflowParser.Parse(generatedYaml);
+        var normalize = typeof(WorkflowPlanExecutor).GetMethod(
+            "NormalizeGeneratedLeafConditionalDecisionInputs",
+            BindingFlags.NonPublic | BindingFlags.Static)!;
+
+        var normalized = Assert.IsType<ValueTuple<WorkflowDocument, string>>(
+            normalize.Invoke(null, [consumerSpec, "publish_review", document, generatedYaml]));
+        var normalizedWorkflow = normalized.Item1.Workflows["publish_review"];
+
+        Assert.True(normalizedWorkflow.Inputs!.ContainsKey("decision"));
+        Assert.False(normalizedWorkflow.Inputs.ContainsKey("renamed_decision"));
+        Assert.Equal("${data.inputs.decision}", normalizedWorkflow.Steps.Single().Expr);
+    }
+
+    [Fact]
+    public void WorkflowPlan_PipelineConditionalRepair_DoesNotGuessAcrossAmbiguousSwitches()
+    {
+        var extraction = CreatePrivateConditionalBoundaryCandidate(includeSharedBoundary: true);
+        var consumerSpec = Assert.IsAssignableFrom<System.Collections.IEnumerable>(
+                extraction.GetType().GetProperty("Subworkflows")!.GetValue(extraction))
+            .Cast<object>()
+            .Single(spec => string.Equals(
+                spec.GetType().GetProperty("Name")!.GetValue(spec) as string,
+                "publish_outcome",
+                StringComparison.Ordinal));
+        const string generatedYaml = """
+            version: 1
+            workflows:
+              publish_review:
+                inputs:
+                  decision: { type: string, enum: [selected, rejected] }
+                  renamed_decision: { type: string, enum: [selected, rejected] }
+                steps:
+                  - id: publish_selected_switch
+                    type: switch
+                    expr: ${data.inputs.renamed_decision}
+                    cases:
+                      - value: selected
+                        steps:
+                          - id: publish_selected
+                            type: mcp.call
+                            input:
+                              server: neutral-server
+                              kind: tool
+                              method: neutral-action
+                    default: []
+                  - id: publish_rejected_switch
+                    type: switch
+                    expr: ${data.inputs.renamed_decision}
+                    cases:
+                      - value: rejected
+                        steps:
+                          - id: publish_rejected
+                            type: mcp.call
+                            input:
+                              server: neutral-server
+                              kind: tool
+                              method: neutral-action
+                    default: []
+            """;
+        var document = WorkflowParser.Parse(generatedYaml);
+        var normalize = typeof(WorkflowPlanExecutor).GetMethod(
+            "NormalizeGeneratedLeafConditionalDecisionInputs",
+            BindingFlags.NonPublic | BindingFlags.Static)!;
+
+        var normalized = Assert.IsType<ValueTuple<WorkflowDocument, string>>(
+            normalize.Invoke(null, [consumerSpec, "publish_review", document, generatedYaml]));
+
+        Assert.All(
+            normalized.Item1.Workflows["publish_review"].Steps,
+            static step => Assert.Equal("${data.inputs.renamed_decision}", step.Expr));
+        Assert.Equal(generatedYaml, normalized.Item2);
+    }
+
+    [Fact]
+    public async Task WorkflowPlan_NormalizesGeneratedTernaryScalarWithoutSpendingRepairAttempt()
+    {
+        var calls = 0;
+        var llm = new Mock<ILLMClient>();
+        llm.Setup(client => client.CallAsync(It.IsAny<LLMRequest>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(() =>
+            {
+                calls++;
+                return new LLMResponse
+                {
+                    Text = """
+                        version: 1
+                        name: generated-expression
+                        skill:
+                          description: Select an outcome.
+                          tags: [generated]
+                          inputs:
+                            accepted: boolean
+                          outputs: {}
+                        workflows:
+                          main:
+                            inputs:
+                              accepted: boolean
+                            steps:
+                              - id: choose
+                                type: set
+                                input:
+                                  event: ${data.inputs.accepted ? "ACCEPTED" : "REJECTED"}
+                        """
+                };
+            });
+        var workflow = CompileMain("""
+            version: 1
+            workflows:
+              main:
+                steps:
+                  - id: plan
+                    type: workflow.plan
+                    input:
+                      mode: basic
+                      generator:
+                        model: gpt-test
+                        instruction: Select one neutral outcome.
+                        prefilter: false
+                      validate:
+                        max_repair_attempts: 3
+            """);
+
+        var result = await new WorkflowEngine { LLMClient = llm.Object }
+            .ExecuteAsync(workflow, new JsonObject(), CancellationToken.None);
+
+        Assert.True(result.Success, result.Error?.Message);
+        Assert.Equal(1, calls);
+        Assert.Contains(
+            "event: '${data.inputs.accepted ? \"ACCEPTED\" : \"REJECTED\"}'",
+            result.Outputs!["plan"]!["yaml"]!.GetValue<string>());
+    }
+
+    [Fact]
+    public void WorkflowPlan_Diagnostics_ExplainsThatOrdinaryMcpCallsHaveNoJsonOutput()
+    {
+        var semanticError = new WorkflowSemanticValidationError
+        {
+            Code = "STEP_OUTPUT_PROPERTY_UNKNOWN",
+            WorkflowName = "discover_projects",
+            Field = "outputs.modified_projects",
+            InvalidPath = "data.steps.call_cmd_run.json.modified_projects",
+            AllowedPaths =
+            [
+                "data.steps.call_cmd_run.response.stdout",
+                "data.steps.call_cmd_run.response.success"
+            ],
+            Message = "Property 'json' is not defined by the output schema."
+        };
+
+        var details = WorkflowPlanDiagnostics.BuildValidationFailureDetails(
+            [],
+            new WorkflowSemanticValidationException([semanticError]),
+            compilationException: null);
+        var diagnostic = Assert.IsType<JsonObject>(Assert.IsType<JsonArray>(details["diagnostics"])[0]);
+
+        Assert.Contains(
+            "ordinary mcp.call",
+            diagnostic["llm_guidance"]!.GetValue<string>(),
+            StringComparison.Ordinal);
+        Assert.Contains(
+            "separate llm.call with strict structured_output",
+            diagnostic["llm_guidance"]!.GetValue<string>(),
+            StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void WorkflowPlan_RepairContext_RebuildsAllOrdinaryMcpJsonReferencesThroughOneNormalizer()
+    {
+        var method = typeof(WorkflowPlanExecutor).GetMethod(
+            "BuildStepOutputPropertyRepairContext",
+            BindingFlags.Static | BindingFlags.NonPublic);
+        Assert.NotNull(method);
+        const string error = """
+            {"errors":[
+              {"code":"STEP_OUTPUT_PROPERTY_UNKNOWN","invalid_path":"data.steps.fetch_record.json.title"},
+              {"code":"STEP_OUTPUT_PROPERTY_UNKNOWN","invalid_path":"data.steps.fetch_record.json.status"},
+              {"code":"STEP_OUTPUT_PROPERTY_UNKNOWN","invalid_path":"data.steps.fetch_other.json.items"}
+            ]}
+            """;
+
+        var guidance = Assert.IsType<string>(method!.Invoke(null, [error]));
+
+        Assert.Contains("`fetch_record`, `fetch_other`", guidance);
+        Assert.Contains("Remove every `data.steps.<affected_step>.json...` reference", guidance);
+        Assert.Contains("one separate `llm.call` normalization step", guidance);
+        Assert.Contains("data.steps.fetch_record.json.title", guidance);
+        Assert.Contains("data.steps.fetch_record.json.status", guidance);
+        Assert.Contains("data.steps.fetch_other.json.items", guidance);
+    }
+
+    [Fact]
+    public void WorkflowPlan_RepairContext_RepairsNullableNestedAssignmentsWithoutWeakeningContainers()
+    {
+        var method = typeof(WorkflowPlanExecutor).GetMethod(
+            "BuildExpressionTypeMismatchRepairContext",
+            BindingFlags.Static | BindingFlags.NonPublic);
+        Assert.NotNull(method);
+        const string error = """
+            {"errors":[
+              {"code":"EXPR_TYPE_MISMATCH","field":"input.records","invalid_path":"${data.steps.fetch.response.records}","message":"input.records[].previousPath resolves to null or string, but output_schema requires string"},
+              {"code":"EXPR_TYPE_MISMATCH","field":"input.error","invalid_path":"${data.steps.fetch.response.error}","message":"input.error resolves to null or string, but output_schema requires string"}
+            ]}
+            """;
+
+        var guidance = Assert.IsType<string>(method!.Invoke(null, [error]));
+
+        Assert.Contains("A nullable producer cannot be assigned directly", guidance);
+        Assert.Contains("`input.records`, `input.error`", guidance);
+        Assert.Contains("`nullable: true` at the exact scalar or nested property", guidance);
+        Assert.Contains("project fresh items", guidance);
+        Assert.Contains("Do not invent a non-empty fallback", guidance);
+    }
+
+    [Fact]
+    public void WorkflowPlan_RepairContext_UsesOneDiscriminatorSwitchForConditionalCapabilities()
+    {
+        var method = typeof(WorkflowPlanExecutor).GetMethod(
+            "BuildConditionalActivationRepairContext",
+            BindingFlags.Static | BindingFlags.NonPublic);
+        Assert.NotNull(method);
+        var exception = new WorkflowRuntimeException(
+            ErrorCodes.CapabilityPreflightUnavailable,
+            "Conditional activation failed.",
+            details: new JsonObject
+            {
+                ["reason"] = "conditional_activation_invalid",
+                ["activation_group"] = "finalize_record",
+                ["decision_operation_id"] = "classify_record",
+                ["branches"] = new JsonArray(
+                    new JsonObject { ["branch_value"] = "accept" },
+                    new JsonObject { ["branch_value"] = "reject" })
+            });
+
+        var guidance = Assert.IsType<string>(method!.Invoke(null, [exception]));
+
+        Assert.Contains("`finalize_record`", guidance);
+        Assert.Contains("`classify_record`", guidance);
+        Assert.Contains("`switch.expr`", guidance);
+        Assert.Contains("`cases[].value`", guidance);
+        Assert.Contains("Do not use `cases[].when`", guidance);
+        Assert.Contains("`accept`, `reject`", guidance);
+        Assert.Contains("default: []", guidance);
+    }
+
+    [Fact]
+    public void WorkflowPlan_RepairContext_PreservesValidSwitchWhenDecisionLineageIsUnproven()
+    {
+        var method = typeof(WorkflowPlanExecutor).GetMethod(
+            "BuildConditionalActivationRepairContext",
+            BindingFlags.Static | BindingFlags.NonPublic)!;
+        var exception = new WorkflowRuntimeException(
+            ErrorCodes.CapabilityPreflightUnavailable,
+            "Conditional decision lineage is unproven.",
+            details: new JsonObject
+            {
+                ["reason"] = "conditional_activation_invalid",
+                ["validation_issue"] = "conditional_decision_lineage_unproven",
+                ["repair_scope"] = "main_decision_routing",
+                ["activation_group"] = "finalize_record",
+                ["decision_operation_id"] = "classify_record",
+                ["decision_field"] = "decision"
+            });
+
+        var guidance = Assert.IsType<string>(method.Invoke(null, [exception]));
+
+        Assert.Contains("Preserve the existing switch", guidance);
+        Assert.Contains("same-named `assert.non_null`", guidance);
+        Assert.Contains("Do not rename the field", guidance);
+        Assert.DoesNotContain("Rebuild conditional capability group", guidance);
+
+        var mainPromptMethod = typeof(WorkflowPlanExecutor).GetMethod(
+            "BuildMainAssemblyRepairPrompt",
+            BindingFlags.Static | BindingFlags.NonPublic)!;
+        var mainPrompt = Assert.IsType<string>(mainPromptMethod.Invoke(null,
+        [
+            "Assemble the main graph.",
+            "document: {}\ngraph: { steps: [] }",
+            "{\"validation_issue\":\"conditional_decision_lineage_unproven\"}"
+        ]));
+        Assert.Contains("Preserve the already valid conditional switch", mainPrompt);
+        Assert.Contains("same-named `assert.non_null` refinement", mainPrompt);
+        Assert.Contains("unproven caller input", mainPrompt);
+    }
+
+    [Fact]
+    public void WorkflowPlan_RepairContext_DistinguishesYamlBlockScalarsFromStepLists()
+    {
+        var method = typeof(WorkflowPlanExecutor).GetMethod(
+            "BuildYamlParseRepairContext",
+            BindingFlags.Static | BindingFlags.NonPublic);
+        Assert.NotNull(method);
+        var exception = new WorkflowRuntimeException(
+            ErrorCodes.TemplatePlan,
+            "Generated workflow parse failed: While parsing a block collection, did not find expected '-' indicator. Near YAML line 18: previous: default: | marked: - id: expose_failure");
+
+        var guidance = Assert.IsType<string>(method!.Invoke(null, [exception]));
+
+        Assert.Contains("declares string content only", guidance);
+        Assert.Contains("`default:` followed by indented `- id:` entries", guidance);
+        Assert.Contains("`default: []`", guidance);
+        Assert.Contains("rebuild that whole local mapping/list", guidance);
+    }
+
+    [Fact]
+    public void WorkflowPlan_RepairContext_TargetsMalformedFunctionsObjectLiteralWithoutRenamingContracts()
+    {
+        var method = typeof(WorkflowPlanExecutor).GetMethod(
+            "BuildScriptCompilationRepairContext",
+            BindingFlags.Static | BindingFlags.NonPublic);
+        Assert.NotNull(method);
+        var exception = new WorkflowRuntimeException(
+            ErrorCodes.ScriptError,
+            "Script error: Unexpected identifier 'decision_output' (<anonymous>:8:5)");
+        const string invalidYaml = """
+            version: 1
+            workflows:
+              main:
+                functions: |
+                  function project(enabled) {
+                    return {
+                      routing_output: 'enabled ? "first" : "second",'
+                      decision_output: 'enabled ? "accept" : "reject"'
+                    };
+                  }
+                steps: []
+            """;
+
+        var guidance = Assert.IsType<string>(method!.Invoke(null, [exception, invalidYaml]));
+
+        Assert.Contains("JavaScript syntax", guidance);
+        Assert.Contains("comma tokens outside string literals", guidance);
+        Assert.Contains("Do not quote JavaScript source", guidance);
+        Assert.Contains("`decision_output`", guidance);
+        Assert.Contains("do not rename or remove it", guidance);
+        Assert.Contains("routing_output: 'enabled ?", guidance);
+        Assert.Contains("decision_output: 'enabled ?", guidance);
+    }
+
+    [Fact]
+    public async Task WorkflowRuntime_ReportsFailingStepForExpressionErrors()
+    {
+        var workflow = CompileMain("""
+            version: 1
+            workflows:
+              main:
+                steps:
+                  - id: project_missing_value
+                    type: set
+                    input:
+                      id: ${data.inputs.missing.id}
+            """);
+
+        var result = await new WorkflowEngine().ExecuteAsync(workflow, new JsonObject(), CancellationToken.None);
+
+        Assert.False(result.Success);
+        Assert.Equal(ErrorCodes.EvalError, result.Error!.Code);
+        Assert.Equal("project_missing_value", result.Error.Details!["failed_step_id"]!.GetValue<string>());
+        Assert.Equal("step", result.Error.Details["execution_phase"]!.GetValue<string>());
+        Assert.Contains("step 'project_missing_value'", result.Error.Message, StringComparison.Ordinal);
+
+        var dryRunDetails = WorkflowPlanDiagnostics.BuildDryRunFailureDetails(
+            result.Error.Code,
+            result.Error.Message,
+            "execution",
+            runtimeDetails: result.Error.Details);
+        var diagnostic = Assert.IsType<JsonObject>(Assert.IsType<JsonArray>(dryRunDetails["diagnostics"])[0]);
+        Assert.Equal("workflow:main/step:project_missing_value", diagnostic["location"]!.GetValue<string>());
+        Assert.Contains("Repair step 'project_missing_value'", diagnostic["llm_guidance"]!.GetValue<string>(), StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task WorkflowRuntime_ReportsFailingFinalizerStepForExpressionErrors()
+    {
+        var workflow = CompileMain("""
+            version: 1
+            workflows:
+              main:
+                steps:
+                  - id: prepare
+                    type: set
+                    input: { ready: true }
+                finally:
+                  - id: cleanup_created_directories
+                    type: set
+                    input:
+                      directories: ${data.steps.missing.created_directories}
+            """);
+
+        var result = await new WorkflowEngine().ExecuteAsync(workflow, new JsonObject(), CancellationToken.None);
+
+        Assert.False(result.Success);
+        var finalizationError = Assert.IsType<JsonObject>(
+            Assert.IsType<JsonArray>(result.Error!.Details!["finalization_errors"])[0]);
+        Assert.Equal(
+            "cleanup_created_directories",
+            finalizationError["details"]!["failed_step_id"]!.GetValue<string>());
+        Assert.Equal("finalization", finalizationError["details"]!["execution_phase"]!.GetValue<string>());
+    }
+
+    [Fact]
+    public async Task WorkflowPlan_DryRun_AllowsRepresentativeBoundedFinalizationLoop()
+    {
+        var validatorType = typeof(WorkflowEngine).Assembly.GetType(
+            "GnOuGo.Flow.Core.Runtime.WorkflowPlanDryRunValidator",
+            throwOnError: true)!;
+        var method = validatorType.GetMethod(
+            "ValidateAsync",
+            BindingFlags.Public | BindingFlags.Static)!;
+        var document = WorkflowParser.Parse("""
+            version: 1
+            skill:
+              description: Clean up all workflow-owned directories.
+              tags: [cleanup]
+              inputs: {}
+              outputs: {}
+            workflows:
+              main:
+                steps:
+                  - id: prepare
+                    type: set
+                    input:
+                      value: ready
+                finally:
+                  - id: cleanup_directories
+                    type: loop.sequential
+                    input:
+                      items: [checkout, dependencies, tests, review]
+                    item_var: directory
+                    steps:
+                      - id: record_cleanup
+                        type: set
+                        input:
+                          directory: "${data._loop.directory}"
+            """);
+
+        var validation = Assert.IsAssignableFrom<Task>(method.Invoke(
+            null,
+            [document, null, null, CancellationToken.None]));
+
+        await validation;
+    }
+
+    [Fact]
+    public void WorkflowPlan_Pipeline_PreservesNullableContractForDirectSetPassThrough()
+    {
+        const string yaml = """
+            version: 1
+            skill:
+              description: Assess typed review findings.
+              tags: [review]
+              inputs: {}
+              outputs: {}
+            workflows:
+              main:
+                steps:
+                  - id: review_changed_code
+                    type: set
+                    output_schema:
+                      type: object
+                      properties:
+                        findings:
+                          type: array
+                          items:
+                            type: object
+                            properties:
+                              suggestedPatch:
+                                type: [string, "null"]
+                            required: [suggestedPatch]
+                            additionalProperties: false
+                      required: [findings]
+                      additionalProperties: false
+                    input:
+                      findings:
+                        - suggestedPatch: null
+                  - id: assess_review
+                    type: set
+                    output_schema:
+                      type: object
+                      properties:
+                        findings:
+                          type: array
+                          items:
+                            type: object
+                            properties:
+                              suggestedPatch: { type: string }
+                            required: [suggestedPatch]
+                            additionalProperties: false
+                      required: [findings]
+                      additionalProperties: false
+                    input:
+                      findings: "${data.steps.review_changed_code.findings}"
+            """;
+        var document = WorkflowParser.Parse(yaml);
+        var method = typeof(WorkflowPlanExecutor).GetMethod(
+            "PromoteGeneratedDirectSetOutputSchemas",
+            BindingFlags.NonPublic | BindingFlags.Static)!;
+
+        var result = method.Invoke(
+            null,
+            [document, yaml, null, new WorkflowEngine().Registry])!;
+        var promotedYaml = Assert.IsType<string>(result.GetType().GetField("Item2")!.GetValue(result));
+        var promoted = WorkflowParser.Parse(promotedYaml);
+
+        WorkflowPlanSemanticValidator.Validate(promoted);
+        var schema = Assert.IsType<JsonObject>(promoted.Workflows["main"].Steps[1].OutputSchema);
+        var promotedType = FlowTypeDescriptorConverter.FromJsonSchema(schema);
+        var suggestedPatch = promotedType.Properties["findings"].Type.Items!.Properties["suggestedPatch"].Type;
+        Assert.Equal(FlowTypeKind.Union, suggestedPatch.Kind);
+        Assert.Contains(suggestedPatch.Variants, static variant => variant.Kind == FlowTypeKind.Null);
+    }
+
+    [Fact]
+    public void WorkflowPlan_Pipeline_WidensDirectWorkflowCallIntegerInputToAuthoritativeNumberSource()
+    {
+        const string yaml = """
+            version: 1
+            skill:
+              description: Route one numeric result.
+              tags: [generated]
+              inputs: {}
+              outputs: {}
+            workflows:
+              main:
+                steps:
+                  - id: source
+                    type: set
+                    output_schema:
+                      type: object
+                      properties:
+                        count: { type: number }
+                      required: [count]
+                      additionalProperties: false
+                    input:
+                      count: 1.5
+                  - id: call_consumer
+                    type: workflow.call
+                    input:
+                      ref:
+                        kind: local
+                        name: consumer
+                      args:
+                        count: ${data.steps.source.count}
+              consumer:
+                inputs:
+                  count: integer
+                steps:
+                  - id: result
+                    type: set
+                    output_schema:
+                      type: object
+                      properties:
+                        count: { type: number }
+                      required: [count]
+                      additionalProperties: false
+                    input:
+                      count: ${data.inputs.count}
+            """;
+        var document = WorkflowParser.Parse(yaml);
+        var method = typeof(WorkflowPlanExecutor).GetMethod(
+            "PromoteGeneratedDirectWorkflowCallObjectInputSchemas",
+            BindingFlags.NonPublic | BindingFlags.Static);
+        Assert.NotNull(method);
+
+        var result = method!.Invoke(null, [document, yaml, null, new WorkflowEngine().Registry])!;
+        var promotedYaml = Assert.IsType<string>(result.GetType().GetField("Item2")!.GetValue(result));
+        var promoted = WorkflowParser.Parse(promotedYaml);
+
+        WorkflowPlanSemanticValidator.Validate(promoted);
+        Assert.Equal("number", promoted.Workflows["consumer"].Inputs!["count"].Type);
+    }
+
+    [Fact]
+    public async Task WorkflowPlan_PipelineLeaf_PromotesDirectSetNullableSourceBeforeSemanticValidation()
+    {
+        var mockLlm = new Mock<ILLMClient>();
+        mockLlm.Setup(client => client.CallAsync(It.IsAny<LLMRequest>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new LLMResponse
+            {
+                Text = """
+                    version: 1
+                    name: neutral-leaf
+                    skill:
+                      description: Materialize and normalize one neutral record.
+                      tags: [generated, leaf]
+                      inputs: {}
+                      outputs: {}
+                    workflows:
+                      main:
+                        steps:
+                          - id: materialize
+                            type: mcp.call
+                            input:
+                              server: neutral
+                              kind: tool
+                              method: materialize
+                              request: {}
+                          - id: normalize
+                            type: set
+                            output_schema:
+                              type: object
+                              properties:
+                                error:
+                                  type: string
+                              required: [error]
+                              additionalProperties: false
+                            input:
+                              error: "${data.steps.materialize.response.error_message}"
+                    """
+            });
+        var mcpFactory = new InMemoryMcpClientFactory();
+        mcpFactory.RegisterServer("neutral", new MockMcpServerConfig
+        {
+            Tools =
+            [
+                new McpToolInfo
+                {
+                    Name = "materialize",
+                    Description = "Materialize one neutral record and report an optional error.",
+                    InputSchema = JsonNode.Parse("""
+                        {"type":"object","properties":{},"additionalProperties":false}
+                        """),
+                    OutputSchema = JsonNode.Parse("""
+                        {
+                          "type": "object",
+                          "properties": {
+                            "error_message": {
+                              "anyOf": [
+                                { "type": "string" },
+                                { "type": "null" }
+                              ]
+                            }
+                          },
+                          "required": ["error_message"],
+                          "additionalProperties": false
+                        }
+                        """)
+                }
+            ]
+        });
+        var workflow = CompileMain("""
+            version: 1
+            workflows:
+              main:
+                steps:
+                  - id: plan
+                    type: workflow.plan
+                    input:
+                      mode: basic
+                      generator:
+                        model: test-model
+                        instruction: Materialize and normalize one neutral record.
+                        pipeline_leaf_name: neutral_leaf
+                        prefilter: false
+                      validate:
+                        compile: true
+            """);
+        var engine = new WorkflowEngine
+        {
+            LLMClient = mockLlm.Object,
+            McpClientFactory = mcpFactory
+        };
+
+        var result = await engine.ExecuteAsync(workflow, new JsonObject(), CancellationToken.None);
+
+        Assert.True(result.Success, result.Error?.Message);
+        var yaml = result.Outputs!["plan"]!["yaml"]!.GetValue<string>();
+        var generated = WorkflowParser.Parse(yaml);
+        var normalize = generated.Workflows["main"].Steps.Single(static step => step.Id == "normalize");
+        var schema = Assert.IsType<JsonObject>(normalize.OutputSchema);
+        var errorType = FlowTypeDescriptorConverter.FromJsonSchema(schema).Properties["error"].Type;
+        Assert.Equal(FlowTypeKind.Union, errorType.Kind);
+        Assert.Contains(errorType.Variants, static variant => variant.Kind == FlowTypeKind.Null);
+    }
+
+    [Fact]
+    public async Task WorkflowPlan_PipelineLeaf_NormalizesNullableSetShorthandBeforeSemanticValidation()
+    {
+        var mockLlm = new Mock<ILLMClient>();
+        mockLlm.Setup(client => client.CallAsync(It.IsAny<LLMRequest>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new LLMResponse
+            {
+                Text = """
+                    version: 1
+                    name: conditional-result-leaf
+                    skill:
+                      description: Produce a conditional result.
+                      tags: [generated, leaf]
+                      inputs: {}
+                      outputs:
+                        decision:
+                          type: string
+                          nullable: true
+                    workflows:
+                      main:
+                        steps:
+                          - id: no_decision
+                            type: set
+                            output_schema:
+                              type: object
+                              properties:
+                                decision:
+                                  type: string
+                                  nullable: true
+                              required_properties: [decision]
+                              additional_properties: false
+                            input:
+                              decision: null
+                        outputs:
+                          decision:
+                            expr: ${data.steps.no_decision.decision}
+                            type: string
+                            nullable: true
+                    """
+            });
+        var workflow = CompileMain("""
+            version: 1
+            workflows:
+              main:
+                steps:
+                  - id: plan
+                    type: workflow.plan
+                    input:
+                      mode: basic
+                      generator:
+                        model: test-model
+                        instruction: Produce a conditional result.
+                        pipeline_leaf_name: conditional_result
+                        prefilter: false
+                      validate:
+                        compile: true
+            """);
+
+        var result = await new WorkflowEngine { LLMClient = mockLlm.Object }
+            .ExecuteAsync(workflow, new JsonObject(), CancellationToken.None);
+
+        Assert.True(result.Success, result.Error?.Message);
+        var generated = WorkflowParser.Parse(result.Outputs!["plan"]!["yaml"]!.GetValue<string>());
+        var outputSchema = Assert.IsType<JsonObject>(generated.Workflows["main"].Steps[0].OutputSchema);
+        var decisionType = FlowTypeDescriptorConverter.FromJsonSchema(outputSchema).Properties["decision"].Type;
+        Assert.Equal(FlowTypeKind.Union, decisionType.Kind);
+        Assert.Contains(decisionType.Variants, static variant => variant.Kind == FlowTypeKind.Null);
     }
 
     [Fact]
@@ -17140,6 +22343,218 @@ workflows:
     }
 
     [Fact]
+    public async Task WorkflowPlan_LlmBudget_StopsRepairBeforeSecondProviderCall()
+    {
+        var calls = 0;
+        var mockLlm = new Mock<ILLMClient>();
+        mockLlm.Setup(client => client.CallAsync(It.IsAny<LLMRequest>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(() =>
+            {
+                calls++;
+                return new LLMResponse
+                {
+                    Text = "not valid yaml",
+                    Usage = new JsonObject
+                    {
+                        ["input_tokens"] = 10,
+                        ["output_tokens"] = 5,
+                        ["total_tokens"] = 15
+                    }
+                };
+            });
+        var workflow = CompileMain("""
+            version: 1
+            workflows:
+              main:
+                steps:
+                  - id: plan
+                    type: workflow.plan
+                    input:
+                      mode: basic
+                      llm_budget:
+                        max_calls: 1
+                        max_total_tokens: 1000
+                        max_elapsed_ms: 60000
+                        unverifiable: fail
+                      generator:
+                        model: neutral-model
+                        instruction: Generate a neutral workflow.
+                      validate:
+                        compile: false
+                        max_repair_attempts: 3
+            """);
+
+        var result = await new WorkflowEngine { LLMClient = mockLlm.Object }
+            .ExecuteAsync(workflow, new JsonObject(), TestContext.Current.CancellationToken);
+
+        Assert.False(result.Success);
+        Assert.Equal(ErrorCodes.LlmBudgetExceeded, result.Error!.Code);
+        Assert.Equal("calls", result.Error.Details!["limit_kind"]!.GetValue<string>());
+        Assert.Equal(1, calls);
+    }
+
+    [Fact]
+    public async Task WorkflowPlan_LlmBudget_MissingUsageFailsClosed()
+    {
+        var workflow = CompileMain("""
+            version: 1
+            workflows:
+              main:
+                steps:
+                  - id: plan
+                    type: workflow.plan
+                    input:
+                      mode: basic
+                      llm_budget:
+                        max_total_tokens: 1000
+                      generator:
+                        model: neutral-model
+                        instruction: Generate a neutral workflow.
+                      validate:
+                        compile: false
+            """);
+        var mockLlm = new Mock<ILLMClient>();
+        mockLlm.Setup(client => client.CallAsync(It.IsAny<LLMRequest>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new LLMResponse { Text = ValidGeneratedTemplateWorkflowYaml });
+
+        var result = await new WorkflowEngine { LLMClient = mockLlm.Object }
+            .ExecuteAsync(workflow, new JsonObject(), TestContext.Current.CancellationToken);
+
+        Assert.False(result.Success);
+        Assert.Equal(ErrorCodes.LlmBudgetUnverifiable, result.Error!.Code);
+        Assert.Equal("usage", result.Error.Details!["limit_kind"]!.GetValue<string>());
+    }
+
+    [Fact]
+    public async Task WorkflowPlan_LlmBudget_OutOfRangeCostFailsInputValidation()
+    {
+        var workflow = CompileMain("""
+            version: 1
+            workflows:
+              main:
+                steps:
+                  - id: plan
+                    type: workflow.plan
+                    input:
+                      mode: basic
+                      llm_budget:
+                        max_estimated_cost_usd: 1.0e300
+                      generator:
+                        model: neutral-model
+                        instruction: Generate a neutral workflow.
+            """);
+
+        var result = await new WorkflowEngine()
+            .ExecuteAsync(workflow, new JsonObject(), TestContext.Current.CancellationToken);
+
+        Assert.False(result.Success);
+        Assert.Equal(ErrorCodes.InputValidation, result.Error!.Code);
+        Assert.Contains("supported numeric range", result.Error.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task WorkflowPlan_LlmBudget_AcceptsCanonicalCurrencyLimit()
+    {
+        var workflow = CompileMain("""
+            version: 1
+            workflows:
+              main:
+                steps:
+                  - id: plan
+                    type: workflow.plan
+                    input:
+                      mode: basic
+                      llm_budget:
+                        max_estimated_cost:
+                          amount: 10
+                          currency: EUR
+                      generator:
+                        model: neutral-model
+                        instruction: Generate a neutral workflow.
+                      validate:
+                        compile: false
+            """);
+        var mockLlm = new Mock<ILLMClient>();
+        mockLlm.Setup(client => client.CallAsync(It.IsAny<LLMRequest>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new LLMResponse
+            {
+                Text = ValidGeneratedTemplateWorkflowYaml,
+                Usage = new JsonObject
+                {
+                    ["input_tokens"] = 1,
+                    ["output_tokens"] = 1,
+                    ["total_tokens"] = 2
+                }
+            });
+
+        var result = await new WorkflowEngine
+        {
+            LLMClient = mockLlm.Object,
+            ModelUsageCostEstimator = new CurrencyCostEstimator(1m, "EUR")
+        }.ExecuteAsync(workflow, new JsonObject(), TestContext.Current.CancellationToken);
+
+        Assert.True(result.Success, result.Error?.Message);
+    }
+
+    [Fact]
+    public async Task WorkflowPlan_LlmBudget_RejectsCanonicalAndLegacyCostLimits()
+    {
+        var workflow = CompileMain("""
+            version: 1
+            workflows:
+              main:
+                steps:
+                  - id: plan
+                    type: workflow.plan
+                    input:
+                      mode: basic
+                      llm_budget:
+                        max_estimated_cost:
+                          amount: 10
+                          currency: EUR
+                        max_estimated_cost_usd: 10
+                      generator:
+                        model: neutral-model
+                        instruction: Generate a neutral workflow.
+            """);
+
+        var result = await new WorkflowEngine()
+            .ExecuteAsync(workflow, new JsonObject(), TestContext.Current.CancellationToken);
+
+        Assert.False(result.Success);
+        Assert.Equal(ErrorCodes.InputValidation, result.Error!.Code);
+        Assert.Contains("cannot both be set", result.Error.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task WorkflowPlan_WithoutLlmBudget_RemainsBackwardCompatibleWithoutUsage()
+    {
+        var workflow = CompileMain("""
+            version: 1
+            workflows:
+              main:
+                steps:
+                  - id: plan
+                    type: workflow.plan
+                    input:
+                      mode: basic
+                      generator:
+                        model: neutral-model
+                        instruction: Generate a neutral workflow.
+                      validate:
+                        compile: false
+            """);
+        var mockLlm = new Mock<ILLMClient>();
+        mockLlm.Setup(client => client.CallAsync(It.IsAny<LLMRequest>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new LLMResponse { Text = ValidGeneratedTemplateWorkflowYaml });
+
+        var result = await new WorkflowEngine { LLMClient = mockLlm.Object }
+            .ExecuteAsync(workflow, new JsonObject(), TestContext.Current.CancellationToken);
+
+        Assert.True(result.Success, result.Error?.Message);
+    }
+
+    [Fact]
     public void McpExecutors_DslSnippets_ContainDiscoveryGuidance()
     {
         var engine = new WorkflowEngine();
@@ -17197,5 +22612,24 @@ workflows:
     {
         var engine = new WorkflowEngine();
         Assert.False(engine.Registry.Has("template.execute"));
+    }
+
+    private sealed class CurrencyCostEstimator(decimal ratePerToken, string currency) : IModelUsageCostEstimator
+    {
+        public decimal? EstimateCost(
+            string? model,
+            long? inputTokens = null,
+            long? outputTokens = null,
+            string? providerType = null)
+            => ((inputTokens ?? 0) + (outputTokens ?? 0)) * ratePerToken;
+
+        public ModelUsageCostEstimate? EstimateCostWithCurrency(
+            string? model,
+            long? inputTokens = null,
+            long? outputTokens = null,
+            string? providerType = null)
+            => new(
+                ((inputTokens ?? 0) + (outputTokens ?? 0)) * ratePerToken,
+                currency);
     }
 }

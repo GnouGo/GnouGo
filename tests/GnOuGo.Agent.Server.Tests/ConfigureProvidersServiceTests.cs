@@ -1501,7 +1501,7 @@ public sealed class ConfigureProvidersServiceTests
     }
 
     [Fact]
-    public async Task ExecuteAsync_LlmAdd_ValidationOmitsTemperatureForSavedProvider()
+    public async Task ExecuteAsync_LlmAdd_ValidationUsesSanitizedParametersAndSmallOutputAllowance()
     {   
         var llm = new RecordingLlmClient();
         var keyVaultStore = new FakeKeyVaultRuntimeConfigStore();
@@ -1556,6 +1556,7 @@ public sealed class ConfigureProvidersServiceTests
         Assert.Equal("openai", llm.LastRequest!.Provider);
         Assert.Equal("gpt-5-search-api", llm.LastRequest.Model);
         Assert.Null(llm.LastRequest.Temperature);
+        Assert.Equal(64, llm.LastRequest.MaxTokens);
         Assert.Contains(events, evt => evt.Type == "thinking:response" && evt.Text == "✅ Credentials validated. Provider 'openai' is ready.");
     }
 

@@ -379,6 +379,33 @@ public class InputTypeValidatorTests
 
     // ── Helper ──
 
+    [Fact]
+    public void Validate_StringEnum_RejectsUnknownValue()
+    {
+        var wf = MakeWorkflow(new InputDef
+        {
+            Type = "string",
+            Enum = ["first", "second"]
+        });
+
+        var errors = InputTypeValidator.Validate(wf, new JsonObject { ["x"] = "third" });
+
+        var error = Assert.Single(errors);
+        Assert.Contains("allowed values", error, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Validate_StringEnum_AcceptsDeclaredValue()
+    {
+        var wf = MakeWorkflow(new InputDef
+        {
+            Type = "string",
+            Enum = ["first", "second"]
+        });
+
+        Assert.Empty(InputTypeValidator.Validate(wf, new JsonObject { ["x"] = "second" }));
+    }
+
     private static WorkflowDef MakeWorkflow(InputDef def)
     {
         return new WorkflowDef

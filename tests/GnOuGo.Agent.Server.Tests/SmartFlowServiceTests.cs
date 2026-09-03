@@ -138,6 +138,74 @@ workflows:
     }
 
     [Fact]
+    public async Task ExecuteAsync_WithHostBudget_AccountsPersistedAgentLlmCalls()
+    {
+        const string agentName = "budgeted-agent";
+        const string agentWorkflow = """
+            version: 1
+            name: budgeted-agent
+            workflows:
+              main:
+                inputs:
+                  task: { type: string, required: true }
+                steps:
+                  - id: answer
+                    type: llm.call
+                    input:
+                      prompt: "${data.inputs.task}"
+                outputs:
+                  answer:
+                    expr: "${data.steps.answer.text}"
+                    type: string
+            """;
+
+        var llm = new RecordingLlmClient();
+        var agentMcp = new FakeMcpSession(AgentMcpHostingExtensions.ServerName)
+            .OnTool("agent_get_by_name", new JsonObject
+            {
+                ["success"] = true,
+                ["agent"] = new JsonObject
+                {
+                    ["id"] = "12345678-1234-1234-1234-1234567890ab",
+                    ["name"] = agentName,
+                    ["workflow"] = agentWorkflow,
+                    ["original_prompt"] = "Answer through the model.",
+                    ["created_at"] = "2026-04-01T12:34:00+00:00",
+                    ["updated_at"] = "2026-04-01T12:35:00+00:00"
+                }
+            });
+        var runtimeStore = SmartFlowTestFactory.CreateRuntimeOptionsStore();
+        var runtimeFactory = new SecureWorkflowRuntimeFactory(
+            runtimeStore,
+            new FakeKeyVaultRuntimeConfigStore(),
+            llmClientOverride: llm,
+            mcpClientFactoryOverride: new FakeMcpClientFactory(agentMcp));
+        var budget = new LLMUsageBudgetScope(new LLMUsageBudgetLimits
+        {
+            MaxCalls = 4,
+            MaxTotalTokens = 100
+        });
+        var smartFlow = new SmartFlowService(
+            llm,
+            new Microsoft.Extensions.Caching.Memory.MemoryCache(new Microsoft.Extensions.Caching.Memory.MemoryCacheOptions()),
+            runtimeFactory,
+            SmartFlowTestFactory.CreateProvidersService(llm),
+            SmartFlowTestFactory.CreateAgentsService(llm, new FakeMcpClientFactory()),
+            new AgentHumanInputProvider(),
+            SmartFlowTestFactory.CreateTelemetryHarness().Telemetry,
+            NullLogger<SmartFlowService>.Instance,
+            llmUsageBudgetScopeFactory: new FixedBudgetScopeFactory(budget));
+
+        var events = await SmartFlowTestFactory.CollectAsync(
+            smartFlow.ExecuteAsync("answer this", correlationId: "corr-budget", agentName, CancellationToken.None),
+            TestContext.Current.CancellationToken);
+
+        Assert.Contains(events, static evt => evt.Type == "answer" && evt.Text == "stub-response");
+        Assert.Equal(1, budget.Snapshot.Calls);
+        Assert.Equal(16, budget.Snapshot.TotalTokens);
+    }
+
+    [Fact]
     public async Task ExecuteAsync_AfterCompletion_ExportsAssociatedTrace()
     {
         var llm = new RecordingLlmClient();
@@ -171,6 +239,11 @@ workflows:
             Exports.Add((traceId, correlationId));
             return Task.CompletedTask;
         }
+    }
+
+    private sealed class FixedBudgetScopeFactory(LLMUsageBudgetScope scope) : ILLMUsageBudgetScopeFactory
+    {
+        public LLMUsageBudgetScope CreateScope() => scope;
     }
 
     [Fact]

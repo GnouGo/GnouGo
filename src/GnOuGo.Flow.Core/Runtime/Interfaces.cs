@@ -38,6 +38,30 @@ public interface IModelUsageCostEstimator
         long? inputTokens = null,
         long? outputTokens = null,
         string? providerType = null);
+
+    /// <summary>
+    /// Estimates model usage with its pricing currency. Existing estimators are
+    /// treated as USD estimators until they override this currency-aware method.
+    /// </summary>
+    ModelUsageCostEstimate? EstimateCostWithCurrency(
+        string? model,
+        long? inputTokens = null,
+        long? outputTokens = null,
+        string? providerType = null)
+        => EstimateCost(model, inputTokens, outputTokens, providerType) is { } amount
+            ? new ModelUsageCostEstimate(amount, "USD")
+            : null;
+}
+
+/// <summary>
+/// Provider-neutral source of bounded exchange-rate quotes.
+/// </summary>
+public interface IExchangeRateProvider
+{
+    ValueTask<CurrencyExchangeQuote?> GetQuoteAsync(
+        string sourceCurrency,
+        string targetCurrency,
+        CancellationToken ct);
 }
 
 /// <summary>
@@ -388,6 +412,53 @@ public sealed record McpArtifactContractResolution(
     McpArtifactContract? Contract,
     IReadOnlyList<string> Errors);
 
+public static class McpCapabilityCompositionConventions
+{
+    public const string CompleteOperationKind = "complete_operation";
+}
+
+public sealed record McpEncapsulatedCapability(string Kind, string Method);
+
+public sealed record McpCapabilityComposition(
+    int Version,
+    string Kind,
+    IReadOnlyList<McpEncapsulatedCapability> Encapsulates);
+
+public sealed record McpCapabilityCompositionResolution(
+    McpCapabilityComposition? Contract,
+    IReadOnlyList<string> Errors);
+
+public sealed record McpCapabilityActivation(
+    string Mode,
+    string Group,
+    string DecisionOperationId,
+    string BranchValue)
+{
+    /// <summary>Provider-neutral JSON Pointer to the decision producer's enum field.</summary>
+    public string DecisionOutputPath { get; init; } = "";
+
+    /// <summary>Closed set of values accepted by every branch in this activation group.</summary>
+    public IReadOnlyList<string> AllowedValues { get; init; } = Array.Empty<string>();
+
+    /// <summary>
+    /// Values in <see cref="AllowedValues"/> that intentionally execute no external-effect
+    /// branch. Final workflow validation proves that each such value has a non-mutating path.
+    /// </summary>
+    public IReadOnlyList<string> NoEffectValues { get; init; } = Array.Empty<string>();
+
+    /// <summary>
+    /// Provider-neutral source of the decision contract: a discovered capability output
+    /// schema, a strict Flow structured-output projection, or a local finite decision.
+    /// </summary>
+    public string DecisionContractSource { get; init; } = "capability_output";
+
+    /// <summary>Catalog capability that produces or projects the decision value.</summary>
+    public string DecisionProducerCatalogId { get; init; } = "";
+
+    /// <summary>Locked upstream operations that the local decision must evaluate.</summary>
+    public IReadOnlyList<string> DecisionInputOperationIds { get; init; } = Array.Empty<string>();
+}
+
 /// <summary>
 /// Describes an MCP tool.
 /// </summary>
@@ -409,6 +480,12 @@ public sealed class McpToolInfo
     /// implementations populate this from their protocol-specific metadata.
     /// </summary>
     public McpArtifactContractResolution? ArtifactContract { get; set; }
+
+    /// <summary>
+    /// Optional consumer-resolved semantic composition contract. A complete
+    /// operation can advertise lower-level capabilities that it encapsulates.
+    /// </summary>
+    public McpCapabilityCompositionResolution? CompositionContract { get; set; }
 
     /// <summary>
     /// Optional JSON Schema describing the tool result content returned as

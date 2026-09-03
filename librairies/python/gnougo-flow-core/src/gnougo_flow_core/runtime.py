@@ -1133,6 +1133,7 @@ class WorkflowEngine:
     def _create_default_registry() -> StepExecutorRegistry:
         from .runtime_steps import (
             AssertNonNullExecutor,
+            DecisionEvaluateExecutor,
             EmitExecutor,
             HumanInputExecutor,
             LlmCallExecutor,
@@ -1153,6 +1154,7 @@ class WorkflowEngine:
 
         registry = StepExecutorRegistry()
         registry.register(AssertNonNullExecutor())
+        registry.register(DecisionEvaluateExecutor())
         registry.register(SequenceExecutor())
         registry.register(ParallelExecutor())
         registry.register(LoopSequentialExecutor())

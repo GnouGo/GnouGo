@@ -12,19 +12,61 @@ public sealed partial class WorkflowPlanExecutor
     private const int CapabilityDescriptionMaxCharacters = 512;
     private const int CapabilityCatalogMaxCharacters = 256_000;
 
+    private sealed record CapabilityEvidenceSource(
+        string Id,
+        string Kind,
+        string Text);
+
+    private sealed record CapabilityEvidenceAnchor(
+        string Id,
+        string SourceId,
+        int Start,
+        int Length,
+        string Excerpt);
+
+    private sealed record CapabilityInventoryContractIssue(
+        string Code,
+        string OperationId,
+        string Field,
+        int? Index,
+        string SourceId,
+        string EvidenceId);
+
     private sealed record CapabilityInventoryOperation(
         string Id,
         string Description,
         bool Required,
         string ExecutionKind,
-        string ExternalEffectKind);
-    private sealed record CapabilityInventoryConstraint(string Id, string Description, bool Required);
+        string ExternalEffectKind,
+        string DecisionSourceOperationId = "",
+        string IntentOrigin = "requested_effect",
+        string DerivationSourceOperationId = "",
+        bool AllowNoEffectOutcome = false,
+        string OptionalityEvidence = "")
+    {
+        public IReadOnlyList<string> InputOperationIds { get; init; } = Array.Empty<string>();
+        public IReadOnlyList<string> CoverageRequirements { get; init; } = Array.Empty<string>();
+        public IReadOnlyList<CapabilityEvidenceAnchor> CoverageRequirementEvidence { get; init; } = Array.Empty<CapabilityEvidenceAnchor>();
+        public IReadOnlySet<string> WorkflowStructureCoverageRequirementIds { get; init; } = new HashSet<string>(StringComparer.Ordinal);
+        public CapabilityEvidenceAnchor? OptionalityEvidenceAnchor { get; init; }
+        public CapabilityEvidenceAnchor? NoEffectOutcomeEvidenceAnchor { get; init; }
+    }
+    private sealed record CapabilityInventoryConstraint(
+        string Id,
+        string Description,
+        bool Required,
+        string EnforcementKind = "exact_denial");
     private sealed record CapabilityInventoryIncompleteReason(string Id, string Description);
     private sealed record CapabilityInventory(
         bool Complete,
         IReadOnlyList<CapabilityInventoryOperation> Operations,
         IReadOnlyList<CapabilityInventoryConstraint> Constraints,
-        IReadOnlyList<CapabilityInventoryIncompleteReason> IncompleteReasons);
+        IReadOnlyList<CapabilityInventoryIncompleteReason> IncompleteReasons,
+        string ExternalWriteConfirmationPolicy = "unspecified",
+        string ExternalWriteConfirmationEvidence = "")
+    {
+        public CapabilityEvidenceAnchor? ExternalWriteConfirmationEvidenceAnchor { get; init; }
+    }
 
     private sealed record CapabilityCatalogEntry(
         string Id,
@@ -32,16 +74,19 @@ public sealed partial class WorkflowPlanExecutor
         string? Server,
         string? Kind,
         string Method,
+        string Description,
         IReadOnlyList<CapabilityRequestBinding> RequestBindings,
         string Card,
         IReadOnlyList<CapabilitySchemaField> RequiredInputs,
         IReadOnlyList<CapabilitySchemaField> Outputs,
-        McpArtifactContract? ArtifactContract);
+        McpArtifactContract? ArtifactContract,
+        McpCapabilityComposition? CompositionContract);
 
     private sealed record CapabilitySchemaField(
         string Path,
         string Type,
-        string Description);
+        string Description,
+        IReadOnlyList<string> EnumValues);
 
     private sealed record CapabilityMatchingIssue(
         string OperationId,
@@ -49,14 +94,39 @@ public sealed partial class WorkflowPlanExecutor
         bool Required,
         string Status,
         string Reason,
-        IReadOnlyList<string> CandidateCatalogIds);
+        IReadOnlyList<string> CandidateCatalogIds)
+    {
+        public string ReasonCode { get; init; } = "";
+        public string ValidationIssue { get; init; } = "";
+        public string ReportedStatus { get; init; } = "";
+        public int SelectedCatalogIdCount { get; init; }
+        public int CandidateCatalogIdCount { get; init; }
+        public IReadOnlyList<string> InvalidFields { get; init; } = Array.Empty<string>();
+    }
+
+    private sealed record CapabilityMatchingShapeDiagnostic(
+        string Code,
+        string Reason,
+        IReadOnlyList<string> InvalidFields);
 
     private sealed record CapabilityOperationMatch(
         CapabilityInventoryOperation Operation,
         string Status,
         string Reason,
         IReadOnlyList<string> CatalogIds,
-        IReadOnlyList<string> CandidateCatalogIds);
+        IReadOnlyList<string> CandidateCatalogIds,
+        string? DecisionOperationId = null,
+        string? DecisionOutputPath = null,
+        IReadOnlyList<string>? DecisionAllowedValues = null,
+        IReadOnlyList<string>? DecisionNoEffectValues = null,
+        string? DecisionContractSource = null,
+        string? DecisionProducerCatalogId = null,
+        string? DecisionGroundingFailureCode = null)
+    {
+        public string? NormalizationReasonCode { get; init; }
+        public string? DecisionOutputPathNormalizationReasonCode { get; init; }
+        public string ConditionalActivationMode { get; init; } = "";
+    }
 
     private sealed record CapabilityConstraintMatch(
         CapabilityInventoryConstraint Constraint,
@@ -71,23 +141,70 @@ public sealed partial class WorkflowPlanExecutor
         IReadOnlyList<CapabilityMatchingIssue> Issues,
         bool ContractValid);
 
+    private sealed record CapabilityCoverageEvidence(
+        string CatalogId,
+        string RequirementId,
+        string RequirementExcerpt,
+        string CatalogExcerpt);
+
+    private sealed record CapabilityCoverageDiagnostic(
+        string OperationId,
+        string Status,
+        string UnsupportedRequirementId,
+        string UnsupportedRequirement,
+        string SupportedWeakerBehavior,
+        IReadOnlyList<string> CandidateCatalogIds,
+        IReadOnlyList<CapabilityCoverageEvidence> Evidence,
+        bool EvidenceQualified);
+
+    private sealed record CapabilityCoverageContractIssue(
+        string Code,
+        string OperationId,
+        string Field,
+        int? Index,
+        string CatalogId = "",
+        string RequirementId = "");
+
+    private sealed record CapabilityCoverageReview(
+        IReadOnlyList<CapabilityCoverageDiagnostic> Diagnostics,
+        bool ContractValid,
+        IReadOnlyList<CapabilityCoverageContractIssue> Issues);
+
+    private sealed record CapabilityCoverageGapAdjudication(
+        string OperationId,
+        string RequirementId,
+        string Classification,
+        IReadOnlyList<string> StructuralFacets,
+        string CatalogId,
+        string CatalogExcerpt,
+        bool EvidenceQualified);
+
+    private sealed record CapabilityCoverageGapAdjudicationReview(
+        IReadOnlyList<CapabilityCoverageGapAdjudication> Adjudications,
+        bool ContractValid,
+        IReadOnlyList<CapabilityCoverageContractIssue> Issues);
+
     private sealed record CapabilityCatalog(
         IReadOnlyList<CapabilityCatalogEntry> Entries,
         string Text);
 
-    private sealed record SelectorVariant(IReadOnlyList<CapabilityRequestBinding> Bindings);
+    private sealed record SelectorVariant(
+        IReadOnlyList<CapabilityRequestBinding> Bindings,
+        string? Description = null);
 
     private static CapabilityCatalog BuildSchemaAwareCapabilityCatalog(
         IReadOnlyList<McpServerDiscovery> discovered,
         IReadOnlySet<string> nativeStepTypes,
         IReadOnlyList<McpServerDiscovery>? completeDiscovery = null)
     {
-        var pending = new List<(string Resolution, string? Server, string? Kind, string Method, string Description, IReadOnlyList<CapabilityRequestBinding> Bindings, string Card, IReadOnlyList<CapabilitySchemaField> RequiredInputs, IReadOnlyList<CapabilitySchemaField> Outputs, McpArtifactContract? ArtifactContract)>();
+        var pending = new List<(string Resolution, string? Server, string? Kind, string Method, string Description, IReadOnlyList<CapabilityRequestBinding> Bindings, string Card, IReadOnlyList<CapabilitySchemaField> RequiredInputs, IReadOnlyList<CapabilitySchemaField> Outputs, McpArtifactContract? ArtifactContract, McpCapabilityComposition? CompositionContract)>();
 
-        foreach (var native in nativeStepTypes.OrderBy(static value => value, StringComparer.Ordinal))
+        foreach (var native in nativeStepTypes
+                     .Where(static value => !IsWorkflowStructureNativeStepType(value))
+                     .OrderBy(static value => value, StringComparer.Ordinal))
         {
             pending.Add(("native", null, null, native, $"Native Flow step type {native}.", Array.Empty<CapabilityRequestBinding>(),
-                $"resolution=native method={native}", Array.Empty<CapabilitySchemaField>(), Array.Empty<CapabilitySchemaField>(), null));
+                $"resolution=native method={native}", Array.Empty<CapabilitySchemaField>(), Array.Empty<CapabilitySchemaField>(), null, null));
         }
 
         foreach (var server in discovered.OrderBy(static item => item.Name, StringComparer.Ordinal))
@@ -102,7 +219,7 @@ public sealed partial class WorkflowPlanExecutor
                     : "none";
                 pending.Add(("mcp", server.Name, "prompt", prompt.Name, description, Array.Empty<CapabilityRequestBinding>(),
                     $"resolution=mcp server={server.Name} kind=prompt method={prompt.Name} description={description} arguments=[{arguments}]",
-                    Array.Empty<CapabilitySchemaField>(), Array.Empty<CapabilitySchemaField>(), null));
+                    Array.Empty<CapabilitySchemaField>(), Array.Empty<CapabilitySchemaField>(), null, null));
             }
 
             foreach (var tool in server.Tools.OrderBy(static item => item.Name, StringComparer.Ordinal))
@@ -114,17 +231,22 @@ public sealed partial class WorkflowPlanExecutor
                 var outputFields = BuildCapabilitySchemaFields(tool.OutputSchema, requiredOnly: false);
                 var artifactContract = GetValidatedMcpArtifactContract(tool, server.Name);
                 var artifactSummary = FormatArtifactContractSummary(artifactContract);
+                var compositionContract = GetValidatedMcpCompositionContract(tool, server.Name);
+                var compositionSummary = FormatCompositionContractSummary(compositionContract);
                 var variants = ExtractSelectorVariants(tool.InputSchema);
                 pending.Add(("mcp", server.Name, "tool", tool.Name, description, Array.Empty<CapabilityRequestBinding>(),
-                    $"resolution=mcp server={server.Name} kind=tool method={tool.Name} description={description} arguments=[{arguments}] outputs=[{outputs}]{artifactSummary}",
-                    requiredInputs, outputFields, artifactContract));
+                    $"resolution=mcp server={server.Name} kind=tool method={tool.Name} description={description} arguments=[{arguments}] outputs=[{outputs}]{artifactSummary}{compositionSummary}",
+                    requiredInputs, outputFields, artifactContract, compositionContract));
 
                 foreach (var variant in variants.OrderBy(static item => CanonicalizeBindings(item.Bindings), StringComparer.Ordinal))
                 {
                     var bindings = FormatBindingsCompact(variant.Bindings);
+                    var variantDescription = string.IsNullOrWhiteSpace(variant.Description)
+                        ? string.Empty
+                        : $" description={LimitCapabilityDescription(variant.Description)}";
                     pending.Add(("mcp", server.Name, "tool", tool.Name, description, variant.Bindings,
-                        $"resolution=mcp server={server.Name} kind=tool method={tool.Name} variant_of={server.Name}/tool/{tool.Name} request_bindings=[{bindings}]",
-                        requiredInputs, outputFields, artifactContract));
+                        $"resolution=mcp server={server.Name} kind=tool method={tool.Name} variant_of={server.Name}/tool/{tool.Name} request_bindings=[{bindings}]{variantDescription}",
+                        requiredInputs, outputFields, artifactContract, compositionContract));
                 }
             }
         }
@@ -213,15 +335,32 @@ public sealed partial class WorkflowPlanExecutor
                 item.Server,
                 item.Kind,
                 item.Method,
+                item.Description,
                 item.Bindings,
                 item.Card,
                 item.RequiredInputs,
                 item.Outputs,
-                item.ArtifactContract));
+                item.ArtifactContract,
+                item.CompositionContract));
         }
 
         return new CapabilityCatalog(entries, text.ToString());
     }
+
+    private static bool IsWorkflowStructureNativeStepType(string stepType)
+        => stepType is "sequence"
+            or "parallel"
+            or "loop.sequential"
+            or "loop.parallel"
+            or "switch"
+            or "set"
+            or "assert.non_null"
+            or "template.render"
+            or "workflow.call"
+            or "workflow.route"
+            or "mcp.call"
+            or "mcp.list"
+            or "emit";
 
     private static string FormatArtifactContractSummary(McpArtifactContract? contract)
     {
@@ -233,6 +372,16 @@ public sealed partial class WorkflowPlanExecutor
         var consumes = string.Join(",", contract.Consumes.Select(static artifact =>
             $"{artifact.Kind}:{artifact.Pointer}:{(artifact.Required ? "required" : "optional")}"));
         return $" artifacts=[produces({produces}) consumes({consumes})]";
+    }
+
+    private static string FormatCompositionContractSummary(McpCapabilityComposition? contract)
+    {
+        if (contract == null)
+            return string.Empty;
+
+        var encapsulates = string.Join(",", contract.Encapsulates
+            .Select(static capability => capability.Kind + "/" + capability.Method));
+        return $" composition=[kind={contract.Kind};encapsulates={encapsulates}]";
     }
 
     private static string LimitCapabilityDescription(string? description)
@@ -313,7 +462,8 @@ public sealed partial class WorkflowPlanExecutor
                 fields.Add(new CapabilitySchemaField(
                     path,
                     ReadCompactSchemaType(propertySchema),
-                    ReadCapabilitySchemaFieldDescription(propertySchema)));
+                    ReadCapabilitySchemaFieldDescription(propertySchema),
+                    ReadCapabilitySchemaStringValues(propertySchema)));
             }
 
             CollectCapabilitySchemaFields(
@@ -333,6 +483,27 @@ public sealed partial class WorkflowPlanExecutor
             ? LimitCapabilityDescription(description)
             : string.Empty;
 
+    private static IReadOnlyList<string> ReadCapabilitySchemaStringValues(JsonObject schema)
+    {
+        if (schema["const"] is JsonValue constant
+            && constant.TryGetValue<string>(out var constantValue)
+            && !string.IsNullOrWhiteSpace(constantValue))
+        {
+            return [constantValue];
+        }
+
+        if (schema["enum"] is not JsonArray values)
+            return Array.Empty<string>();
+
+        return values
+            .OfType<JsonValue>()
+            .Select(static value => value.TryGetValue<string>(out var text) ? text : null)
+            .Where(static value => !string.IsNullOrWhiteSpace(value))
+            .Cast<string>()
+            .Distinct(StringComparer.Ordinal)
+            .ToArray();
+    }
+
     private static void CollectOutputSummaries(JsonObject schema, string pointer, int depth, List<string> values)
     {
         if (depth >= 2 || schema["properties"] is not JsonObject properties)
@@ -344,7 +515,8 @@ public sealed partial class WorkflowPlanExecutor
             var path = pointer + "/" + EncodeJsonPointerToken(property.Key);
             if (IsSensitiveSelectorPath(path))
                 continue;
-            values.Add($"{path}:{ReadCompactSchemaType(propertySchema)}");
+            var enumValues = ReadCapabilitySchemaStringValues(propertySchema);
+            values.Add($"{path}:{ReadCompactSchemaType(propertySchema)}{(enumValues.Count == 0 ? string.Empty : $" enum=[{string.Join("|", enumValues)}]")}");
             CollectOutputSummaries(propertySchema, path, depth + 1, values);
         }
     }
@@ -485,7 +657,9 @@ public sealed partial class WorkflowPlanExecutor
         CollectBoundedIndependentSelectorCombination(root, variants);
         return variants
             .GroupBy(static variant => CanonicalizeBindings(variant.Bindings), StringComparer.Ordinal)
-            .Select(static group => group.First())
+            .Select(static group => group
+                .OrderByDescending(static variant => !string.IsNullOrWhiteSpace(variant.Description))
+                .First())
             .ToArray();
     }
 
@@ -645,7 +819,10 @@ public sealed partial class WorkflowPlanExecutor
                     return next;
                 })).ToList();
             }
-            variants.AddRange(combinations.Where(static bindings => bindings.Count > 0).Select(static bindings => new SelectorVariant(bindings)));
+            var description = branch["description"]?.GetValue<string>();
+            variants.AddRange(combinations
+                .Where(static bindings => bindings.Count > 0)
+                .Select(bindings => new SelectorVariant(bindings, description)));
         }
     }
 
@@ -750,6 +927,158 @@ public sealed partial class WorkflowPlanExecutor
     private static string CanonicalizeBindings(IReadOnlyList<CapabilityRequestBinding> bindings)
         => string.Join("|", bindings.OrderBy(static binding => binding.Path, StringComparer.Ordinal)
             .Select(static binding => binding.Path + "=" + CanonicalScalar(binding.Value)));
+
+    private static bool TryBuildConditionalBranchValues(
+        IReadOnlyList<CapabilityCatalogEntry> entries,
+        out IReadOnlyDictionary<string, string> branchValues)
+    {
+        branchValues = new Dictionary<string, string>(StringComparer.Ordinal);
+        if (entries.Count < 2
+            || entries.Any(static entry => entry.Resolution != "mcp" || entry.RequestBindings.Count == 0)
+            || entries.Select(static entry => (entry.Server, entry.Kind, entry.Method)).Distinct().Count() != 1)
+        {
+            return false;
+        }
+
+        var bindingMaps = entries.Select(entry => entry.RequestBindings
+            .ToDictionary(static binding => binding.Path, static binding => binding.Value, StringComparer.Ordinal)).ToArray();
+        var paths = bindingMaps[0].Keys.Order(StringComparer.Ordinal).ToArray();
+        if (bindingMaps.Any(map => map.Count != paths.Length || paths.Any(path => !map.ContainsKey(path))))
+            return false;
+
+        var varyingPaths = paths.Where(path => bindingMaps
+            .Select(map => CanonicalScalar(map[path]))
+            .Distinct(StringComparer.Ordinal)
+            .Count() > 1).ToArray();
+        if (varyingPaths.Length != 1)
+            return false;
+
+        var varyingPath = varyingPaths[0];
+        var values = new Dictionary<string, string>(StringComparer.Ordinal);
+        var seenValues = new HashSet<string>(StringComparer.Ordinal);
+        for (var index = 0; index < entries.Count; index++)
+        {
+            var node = bindingMaps[index][varyingPath];
+            var value = node is JsonValue scalar && scalar.TryGetValue<string>(out var text)
+                ? text
+                : CanonicalScalar(node);
+            if (!seenValues.Add(value))
+                return false;
+            values[entries[index].Id] = value;
+        }
+
+        branchValues = values;
+        return true;
+    }
+
+    private static bool TryBuildConditionalCompositionBranchValues(
+        IReadOnlyList<CapabilityCatalogEntry> entries,
+        out IReadOnlyDictionary<string, string> branchValues)
+        => TryBuildConditionalActivation(
+            entries,
+            allowNoEffectOutcome: false,
+            requestedActivationMode: string.Empty,
+            out branchValues,
+            out _);
+
+    private static bool TryBuildConditionalActivation(
+        IReadOnlyList<CapabilityCatalogEntry> entries,
+        bool allowNoEffectOutcome,
+        string requestedActivationMode,
+        out IReadOnlyDictionary<string, string> branchValues,
+        out string activationMode)
+    {
+        branchValues = new Dictionary<string, string>(StringComparer.Ordinal);
+        activationMode = string.Empty;
+        if (entries.Count == 0)
+            return false;
+
+        var requestedExactlyOne = string.Equals(
+            requestedActivationMode,
+            ConditionalExactlyOneActivationMode,
+            StringComparison.Ordinal);
+        var requestedAllOnValue = string.Equals(
+            requestedActivationMode,
+            ConditionalAllOnValueActivationMode,
+            StringComparison.Ordinal);
+        if (requestedActivationMode.Length > 0 && !requestedExactlyOne && !requestedAllOnValue)
+            return false;
+        if (entries.Count == 1 && !requestedAllOnValue)
+            return false;
+
+        var variants = entries
+            .Where(static entry => entry.RequestBindings.Count > 0)
+            .GroupBy(static entry => (
+                entry.Resolution,
+                entry.Server,
+                entry.Kind,
+                entry.Method,
+                Paths: string.Join("\u001f", entry.RequestBindings
+                    .Select(static binding => binding.Path)
+                    .Order(StringComparer.Ordinal))))
+            .Select(static group => group.ToArray())
+            .Where(static group => group.Length >= 2)
+            .Select(group => TryBuildConditionalBranchValues(group, out var values) ? values : null)
+            .Where(static values => values is not null)
+            .ToArray();
+        if (!requestedAllOnValue && variants.Length == 1)
+        {
+            branchValues = variants[0]!;
+            activationMode = ConditionalExactlyOneActivationMode;
+            return true;
+        }
+
+        if (requestedExactlyOne
+            || !requestedAllOnValue && variants.Length > 1
+            || !allowNoEffectOutcome
+            || entries.Any(static entry => !string.Equals(entry.Resolution, "mcp", StringComparison.Ordinal))
+            || !ConditionalCompositionInvocationsAreDistinct(entries))
+        {
+            return false;
+        }
+
+        branchValues = entries.ToDictionary(
+            static entry => entry.Id,
+            static _ => SynthesizedEffectDecisionValue,
+            StringComparer.Ordinal);
+        activationMode = ConditionalAllOnValueActivationMode;
+        return true;
+    }
+
+    private static bool ConditionalCompositionInvocationsAreDistinct(
+        IReadOnlyList<CapabilityCatalogEntry> entries)
+    {
+        for (var leftIndex = 0; leftIndex < entries.Count; leftIndex++)
+        {
+            for (var rightIndex = leftIndex + 1; rightIndex < entries.Count; rightIndex++)
+            {
+                var left = entries[leftIndex];
+                var right = entries[rightIndex];
+                if (!string.Equals(left.Server, right.Server, StringComparison.Ordinal)
+                    || !string.Equals(left.Kind, right.Kind, StringComparison.Ordinal)
+                    || !string.Equals(left.Method, right.Method, StringComparison.Ordinal))
+                {
+                    continue;
+                }
+
+                var leftBindings = left.RequestBindings.ToDictionary(
+                    static binding => binding.Path,
+                    static binding => CanonicalScalar(binding.Value),
+                    StringComparer.Ordinal);
+                var rightBindings = right.RequestBindings.ToDictionary(
+                    static binding => binding.Path,
+                    static binding => CanonicalScalar(binding.Value),
+                    StringComparer.Ordinal);
+                var conflicts = leftBindings.Any(binding =>
+                    rightBindings.TryGetValue(binding.Key, out var value)
+                    && !string.Equals(binding.Value, value, StringComparison.Ordinal));
+                if (!conflicts)
+                    return false;
+            }
+        }
+
+        return true;
+    }
 
     private static string FormatBindingsCompact(IReadOnlyList<CapabilityRequestBinding> bindings)
         => string.Join(",", bindings.OrderBy(static binding => binding.Path, StringComparer.Ordinal)

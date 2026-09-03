@@ -50,6 +50,7 @@ public sealed class StepExecutionContext
     public ExecutionLimits Limits { get; init; } = new();
     public int CallDepth { get; init; }
     public HashSet<string> CallStack { get; init; } = new();
+    internal LLMUsageBudgetScope? LLMUsageBudget { get; set; }
     internal WorkflowExecutionScope? ExecutionScope { get; init; }
     internal WorkflowExecutionScope EffectiveExecutionScope =>
         ExecutionScope ?? new WorkflowExecutionScope(null, Engine.Evaluator, Engine.Interpolator);
@@ -57,6 +58,66 @@ public sealed class StepExecutionContext
     public ExpressionEvaluator Evaluator => ExecutionScope?.Evaluator ?? Engine.Evaluator;
     public StringInterpolator Interpolator => ExecutionScope?.Interpolator ?? Engine.Interpolator;
     public CompiledDocument? ActiveDocument => ExecutionScope?.Workflow?.Document ?? Engine.CompiledDocument;
+
+    /// <summary>
+    /// Executes an LLM call through the active provider-neutral usage budget, when configured.
+    /// </summary>
+    public async Task<LLMResponse> CallLLMAsync(
+        ILLMClient client,
+        LLMRequest request,
+        string stage,
+        CancellationToken ct)
+    {
+        ArgumentNullException.ThrowIfNull(client);
+        ArgumentNullException.ThrowIfNull(request);
+
+        if (LLMUsageBudget is null)
+            return await client.CallAsync(request, ct).ConfigureAwait(false);
+
+        var callId = Guid.NewGuid().ToString("N");
+        try
+        {
+            var response = await LLMUsageBudget.CallAsync(
+                client,
+                Engine.ModelUsageCostEstimator,
+                request,
+                stage,
+                ct).ConfigureAwait(false);
+            EmitLLMBudgetEvent(callId, stage, "recorded", null);
+            return response;
+        }
+        catch (WorkflowRuntimeException ex) when (
+            ex.Code is ErrorCodes.LlmBudgetExceeded or ErrorCodes.LlmBudgetUnverifiable)
+        {
+            EmitLLMBudgetEvent(callId, stage, "rejected", ex.Code);
+            throw;
+        }
+        catch
+        {
+            EmitLLMBudgetEvent(callId, stage, "call_failed", null);
+            throw;
+        }
+    }
+
+    private void EmitLLMBudgetEvent(string callId, string stage, string status, string? errorCode)
+    {
+        var snapshot = LLMUsageBudget!.Snapshot;
+        AddTelemetryEvent("gnougo-flow.llm_budget.updated", new[]
+        {
+            new KeyValuePair<string, object?>("gnougo-flow.llm_budget.call_id", callId),
+            new KeyValuePair<string, object?>("gnougo-flow.llm_budget.stage", stage),
+            new KeyValuePair<string, object?>("gnougo-flow.llm_budget.status", status),
+            new KeyValuePair<string, object?>("gnougo-flow.llm_budget.error_code", errorCode),
+            new KeyValuePair<string, object?>("gnougo-flow.llm_budget.calls", snapshot.Calls),
+            new KeyValuePair<string, object?>("gnougo-flow.llm_budget.input_tokens", snapshot.InputTokens),
+            new KeyValuePair<string, object?>("gnougo-flow.llm_budget.output_tokens", snapshot.OutputTokens),
+            new KeyValuePair<string, object?>("gnougo-flow.llm_budget.total_tokens", snapshot.TotalTokens),
+            new KeyValuePair<string, object?>("gnougo-flow.llm_budget.estimated_cost", snapshot.EstimatedCost),
+            new KeyValuePair<string, object?>("gnougo-flow.llm_budget.estimated_cost_currency", snapshot.EstimatedCostCurrency),
+            new KeyValuePair<string, object?>("gnougo-flow.llm_budget.estimated_cost_usd", snapshot.EstimatedCostUsd),
+            new KeyValuePair<string, object?>("gnougo-flow.llm_budget.elapsed_ms", Math.Max(0, (DateTimeOffset.UtcNow - snapshot.StartedAtUtc).TotalMilliseconds))
+        });
+    }
 
     /// <summary>
     /// The active telemetry span for this step.

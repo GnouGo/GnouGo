@@ -5,6 +5,7 @@ using Microsoft.Extensions.Logging;
 using GnOuGo.Flow.Core.Compilation;
 using GnOuGo.Flow.Core.Expressions;
 using GnOuGo.Flow.Core.Models;
+using GnOuGo.Flow.Core.Parsing;
 using GnOuGo.Flow.Core.Runtime;
 
 namespace GnOuGo.Flow.Core.Runtime.Executors;
@@ -161,6 +162,8 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
         sb.AppendLine("- `loop.sequential` and `loop.parallel` output `{ results, count }`; every `results[]` item is a per-iteration `data.steps` snapshot, not the direct output of the last loop child step.");
         sb.AppendLine("- If a loop child step `build_item_result` emits `{ processed, label, ... }`, post-loop filtering must read `iteration.build_item_result.processed`, not `iteration.processed`.");
         sb.AppendLine("- To produce a flat array after a loop, make the loop body end with a `set` step that has `output_schema`, then map/filter `data.steps.<loop_id>.results` through that child step id.");
+        sb.AppendLine("- Invalid projection: `iterations.map(function (item) { return item.directory; })`. Valid when the typed child is `record_deletion`: `iterations.map(function (iteration) { return iteration.record_deletion.directory; })`.");
+        sb.AppendLine("- Keep exactly one non-empty workflow during repair. Never append an empty workflow entry as a replacement or fallback.");
         sb.AppendLine("- If that flat array feeds a closed output_schema, custom functions must push new projected objects with exactly the declared fields. Do not push/pass through the original source object because it may contain extra properties.");
         sb.AppendLine("Switch output shape:");
         sb.AppendLine("- `switch` output is a path-dependent step snapshot. Do not read flattened child fields such as `data.steps.route.result_url` when `result_url` is produced inside a case/default child step.");
@@ -169,6 +172,7 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
         sb.AppendLine("- Emit booleans and numbers as unquoted YAML scalars: `required: false`, `strict: true`, `timeout_ms: 1200000`, `append: false`. Do not emit `\"false\"`, `\"true\"`, or `\"1200000\"` for typed scalar fields.");
         sb.AppendLine("- Use single quotes inside expressions that compare strings, for example `${data.steps.close.status == 'ok'}`.");
         sb.AppendLine("- Use YAML literal block scalars (`|`) for multiline prompts/templates or strings containing JSON/double quotes; do not put unescaped nested double quotes inside a double-quoted YAML scalar.");
+        sb.AppendLine("- Block scalar markers (`|` or `>`) are only for string content. A key containing workflow steps or any YAML collection must use `key:` followed by correctly indented list/mapping entries, never `key: |` followed by `- id:`.");
         sb.AppendLine("MCP request rules:");
         sb.AppendLine("- Follow the discovered MCP schema and tool description exactly; do not add Flow-specific conventions for request fields.");
         sb.AppendLine("- Treat opaque custom-function results as untrusted shapes: project exact declared fields into new objects before assigning them to closed output schemas.");
@@ -351,6 +355,38 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
             sb.AppendLine(expressionTypeDoc);
         }
 
+        var stepOutputPropertyDoc = BuildStepOutputPropertyRepairContext(exception.Message);
+        if (!string.IsNullOrWhiteSpace(stepOutputPropertyDoc))
+        {
+            sb.AppendLine();
+            sb.AppendLine("Step output property repair guidance:");
+            sb.AppendLine(stepOutputPropertyDoc);
+        }
+
+        var conditionalActivationDoc = BuildConditionalActivationRepairContext(exception);
+        if (!string.IsNullOrWhiteSpace(conditionalActivationDoc))
+        {
+            sb.AppendLine();
+            sb.AppendLine("Conditional capability activation repair guidance:");
+            sb.AppendLine(conditionalActivationDoc);
+        }
+
+        var yamlParseDoc = BuildYamlParseRepairContext(exception);
+        if (!string.IsNullOrWhiteSpace(yamlParseDoc))
+        {
+            sb.AppendLine();
+            sb.AppendLine("YAML syntax repair guidance:");
+            sb.AppendLine(yamlParseDoc);
+        }
+
+        var scriptCompilationDoc = BuildScriptCompilationRepairContext(exception, invalidYaml);
+        if (!string.IsNullOrWhiteSpace(scriptCompilationDoc))
+        {
+            sb.AppendLine();
+            sb.AppendLine("WFScript compilation repair guidance:");
+            sb.AppendLine(scriptCompilationDoc);
+        }
+
         if (selectedTypes.Count > 0)
         {
             var snippets = registry.GetDslSnippets(selectedTypes).ToList();
@@ -370,6 +406,211 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
             sb.AppendLine(mcpDoc);
         }
 
+        return sb.ToString().TrimEnd();
+    }
+
+    private static string? BuildScriptCompilationRepairContext(Exception exception, string? invalidYaml)
+    {
+        var messages = new List<string>();
+        for (var current = exception; current != null; current = current.InnerException)
+        {
+            if (!string.IsNullOrWhiteSpace(current.Message))
+                messages.Add(current.Message);
+        }
+
+        var combined = string.Join("\n", messages);
+        if (!combined.Contains("Script error:", StringComparison.OrdinalIgnoreCase))
+            return null;
+
+        var unexpectedIdentifier = ExtractUnexpectedScriptIdentifier(combined);
+        var sb = new StringBuilder();
+        sb.AppendLine("The failure is JavaScript syntax inside a YAML `functions: |` block, not a YAML schema or capability-selection failure.");
+        sb.AppendLine("Repair only the malformed JavaScript statement and its directly enclosing expression/object literal. Preserve workflow contracts, step topology, output names, and every locked operation or capability identifier.");
+        sb.AppendLine("In a JavaScript object literal, property separators are comma tokens outside string literals. A comma placed inside a quoted value does not separate the next property.");
+        sb.AppendLine("Return actual JavaScript values. Do not quote JavaScript source such as a ternary, boolean expression, function call, array expression, or object expression when the property must contain that expression's evaluated value.");
+        sb.AppendLine("Balance every quote, parenthesis, bracket, brace, and template literal, then parse the complete `functions` block before returning the workflow.");
+        if (!string.IsNullOrWhiteSpace(unexpectedIdentifier))
+        {
+            sb.AppendLine($"The parser stopped at identifier `{unexpectedIdentifier}`. Treat it as location evidence; do not rename or remove it merely to hide the syntax error immediately before it.");
+            AppendScriptFunctionExcerpts(sb, invalidYaml, unexpectedIdentifier);
+        }
+
+        return sb.ToString().TrimEnd();
+    }
+
+    private static string? ExtractUnexpectedScriptIdentifier(string message)
+    {
+        const string marker = "Unexpected identifier '";
+        var start = message.IndexOf(marker, StringComparison.OrdinalIgnoreCase);
+        if (start < 0)
+            return null;
+        start += marker.Length;
+        var end = message.IndexOf('\'', start);
+        if (end <= start)
+            return null;
+
+        var identifier = message[start..end].Trim();
+        return identifier.Length is > 0 and <= 128
+            && identifier.All(static character => char.IsLetterOrDigit(character) || character is '_' or '-' or '.')
+                ? identifier
+                : null;
+    }
+
+    private static void AppendScriptFunctionExcerpts(StringBuilder sb, string? invalidYaml, string identifier)
+    {
+        if (string.IsNullOrWhiteSpace(invalidYaml))
+            return;
+
+        try
+        {
+            var document = WorkflowParser.Parse(invalidYaml);
+            var scripts = new List<(string Scope, string Script)>();
+            if (!string.IsNullOrWhiteSpace(document.Functions))
+                scripts.Add(("document.functions", document.Functions));
+            scripts.AddRange(document.Workflows
+                .Where(static pair => !string.IsNullOrWhiteSpace(pair.Value.Functions))
+                .Select(static pair => ($"workflows.{pair.Key}.functions", pair.Value.Functions!)));
+
+            foreach (var (scope, script) in scripts)
+            {
+                var lines = script.Replace("\r\n", "\n", StringComparison.Ordinal).Replace('\r', '\n').Split('\n');
+                var hit = Array.FindIndex(lines, line => line.Contains(identifier, StringComparison.Ordinal));
+                if (hit < 0)
+                    continue;
+
+                sb.AppendLine($"Relevant source excerpt from `{scope}` (line numbers are relative to this functions block):");
+                sb.AppendLine("```javascript");
+                for (var index = Math.Max(0, hit - 4); index <= Math.Min(lines.Length - 1, hit + 4); index++)
+                    sb.AppendLine($"{index + 1,4}: {lines[index]}");
+                sb.AppendLine("```");
+            }
+        }
+        catch
+        {
+            // The structured validation error and complete invalid YAML remain available to the repair model.
+        }
+    }
+
+    private static string? BuildYamlParseRepairContext(Exception exception)
+    {
+        var messages = new List<string>();
+        for (var current = exception; current != null; current = current.InnerException)
+        {
+            if (!string.IsNullOrWhiteSpace(current.Message))
+                messages.Add(current.Message);
+        }
+
+        var combined = string.Join("\n", messages);
+        if (!combined.Contains("YAML_PARSE_ERROR", StringComparison.OrdinalIgnoreCase)
+            && !combined.Contains("Generated workflow parse failed", StringComparison.OrdinalIgnoreCase)
+            && !combined.Contains("while parsing", StringComparison.OrdinalIgnoreCase))
+        {
+            return null;
+        }
+
+        var sb = new StringBuilder();
+        sb.AppendLine("Repair YAML syntax before changing workflow behavior or contracts. Re-emit the complete valid YAML document; do not copy the malformed fragment unchanged.");
+        sb.AppendLine("A YAML block scalar marker (`|`, `|-`, `|+`, `>`, `>-`, or `>+`) declares string content only. Never put workflow step objects or another YAML collection under a key that has a block scalar marker.");
+        sb.AppendLine("When a mapping key owns a list, write `key:` with no scalar marker, then indent every `-` list item farther than that key. Sibling list items must use the same indentation and each item must retain its leading `-`.");
+        sb.AppendLine("When a key truly owns multiline text, keep the block scalar marker and indent every text line farther than the key; do not let a later `- id:` line become part of that text accidentally.");
+        sb.AppendLine("In particular, a switch `default` containing steps is a step list (`default:` followed by indented `- id:` entries), not a literal string (`default: |`). An empty non-mutating switch fallback is `default: []`.");
+        sb.AppendLine("Inspect the reported line together with its parent and adjacent siblings, then rebuild that whole local mapping/list so its indentation is internally consistent.");
+        return sb.ToString().TrimEnd();
+    }
+
+    private static string? BuildConditionalActivationRepairContext(Exception exception)
+    {
+        JsonObject? details = null;
+        for (var current = exception; current != null; current = current.InnerException)
+        {
+            if (current is WorkflowRuntimeException { Details: JsonObject candidate }
+                && string.Equals(
+                    GetStringProperty(candidate, "reason"),
+                    "conditional_activation_invalid",
+                    StringComparison.Ordinal))
+            {
+                details = candidate;
+                break;
+            }
+        }
+        if (details == null)
+            return null;
+
+        var group = GetStringProperty(details, "activation_group") ?? "conditional_group";
+        var decisionOperationId = GetStringProperty(details, "decision_operation_id") ?? "the locked decision source";
+        var validationIssue = GetStringProperty(details, "validation_issue");
+        var decisionField = GetStringProperty(details, "decision_field") ?? "the declared decision field";
+        var branchValues = details["branches"] is JsonArray branches
+            ? branches.OfType<JsonObject>()
+                .Select(static branch => GetStringProperty(branch, "branch_value"))
+                .Where(static value => !string.IsNullOrWhiteSpace(value))
+                .Distinct(StringComparer.Ordinal)
+                .ToArray()
+            : Array.Empty<string>();
+        var sb = new StringBuilder();
+        if (string.Equals(validationIssue, "conditional_decision_lineage_unproven", StringComparison.Ordinal))
+        {
+            sb.AppendLine($"Preserve the existing switch for conditional capability group `{group}` and repair only the decision lineage from operation `{decisionOperationId}`.");
+            sb.AppendLine($"Carry boundary field `{decisionField}` unchanged through workflow.call arguments and outputs. A direct expression, a same-named `set` field, or a same-named `assert.non_null` field is transparent.");
+            sb.AppendLine("Do not rename the field, source it from an unproven caller input, or use a literal, function, fallback, coercion, concatenation, or recomputation.");
+            sb.AppendLine("The final switch expression must refer to that exact routed field. Do not rebuild a switch whose cases and default already satisfy the locked activation contract.");
+            return sb.ToString().TrimEnd();
+        }
+
+        sb.AppendLine($"Rebuild conditional capability group `{group}` as exactly one discriminator-style `switch` driven by decision operation `{decisionOperationId}`.");
+        sb.AppendLine("Use `switch.expr` for the scalar runtime decision and `cases[].value` for literal branch values. Do not use `cases[].when` for this exactly-one capability group.");
+        if (branchValues.Length > 0)
+            sb.AppendLine("Required case values: " + string.Join(", ", branchValues.Select(static value => $"`{value}`")) + ".");
+        sb.AppendLine("Place exactly one matching conditional mcp.call in each corresponding case, and place no matching variant before, after, or in another switch.");
+        sb.AppendLine("Keep unconditional prerequisite calls outside the switch and execute them once. Use `default: []` or only non-mutating failure handling; the default must never perform a write or lifecycle action.");
+        sb.AppendLine($"The switch expression must trace to the declared runtime decision field `{decisionField}` or an earlier decision-producing step. Exact same-named `set` and `assert.non_null` projections are allowed. Do not hard-code a branch and do not ask the human for a future runtime outcome.");
+        sb.AppendLine("Canonical shape:");
+        sb.AppendLine("- id: choose_terminal_action");
+        sb.AppendLine("  type: switch");
+        sb.AppendLine("  expr: ${data.inputs.runtime_decision}");
+        sb.AppendLine("  cases:");
+        sb.AppendLine("    - value: first_branch_value");
+        sb.AppendLine("      steps:");
+        sb.AppendLine("        - id: execute_first_variant");
+        sb.AppendLine("          type: mcp.call");
+        sb.AppendLine("          input: { ... exact locked call ... }");
+        sb.AppendLine("  default: []");
+        return sb.ToString().TrimEnd();
+    }
+
+    private static string? BuildStepOutputPropertyRepairContext(string errorMessage)
+    {
+        if (string.IsNullOrWhiteSpace(errorMessage)
+            || !errorMessage.Contains("STEP_OUTPUT_PROPERTY_UNKNOWN", StringComparison.Ordinal)
+            || !errorMessage.Contains(".json", StringComparison.Ordinal))
+        {
+            return null;
+        }
+
+        var invalidPaths = ExtractJsonStringValues(errorMessage, "invalid_path")
+            .Where(static path => path.StartsWith("data.steps.", StringComparison.Ordinal)
+                                  && path.Contains(".json", StringComparison.Ordinal))
+            .Distinct(StringComparer.Ordinal)
+            .Take(24)
+            .ToArray();
+        if (invalidPaths.Length == 0)
+            return null;
+
+        var affectedSteps = invalidPaths
+            .Select(static path => path["data.steps.".Length..])
+            .Select(static path => path[..path.IndexOf('.', StringComparison.Ordinal)])
+            .Distinct(StringComparer.Ordinal)
+            .ToArray();
+        var sb = new StringBuilder();
+        sb.AppendLine("The affected producer step(s) do not declare a `json` output: "
+                      + string.Join(", ", affectedSteps.Select(static step => $"`{step}`")) + ".");
+        sb.AppendLine("Remove every `data.steps.<affected_step>.json...` reference in the complete workflow; fixing only the first reported field will repeat the same failure.");
+        sb.AppendLine("An ordinary `mcp.call` exposes only paths listed by semantic validation, typically `response`, `status`, `error`, `results`, and tracing fields. It does not expose domain fields through `.json`.");
+        sb.AppendLine("When typed domain fields must be derived from an ordinary MCP response, add one separate `llm.call` normalization step with strict `structured_output`, pass the documented MCP `response` (or a documented response child) into that normalizer, and read typed fields only from the normalizer's `.json` output.");
+        sb.AppendLine("Delete and rebuild any invalid per-field normalization input that merely copies nonexistent MCP `.json` children; do not rename the bad references or invent response properties.");
+        sb.AppendLine("Affected invalid paths:");
+        foreach (var path in invalidPaths)
+            sb.AppendLine("- `" + path + "`");
         return sb.ToString().TrimEnd();
     }
 
@@ -415,6 +656,18 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
                 .ToArray();
             if (outputFields.Length > 0)
                 sb.AppendLine("Affected output field(s): " + string.Join(", ", outputFields.Select(static field => $"`{field}`")));
+        }
+
+        if (lower.Contains("resolves to null or", StringComparison.Ordinal)
+            || lower.Contains("nullable", StringComparison.Ordinal))
+        {
+            sb.AppendLine("A nullable producer cannot be assigned directly to a non-null destination schema.");
+            if (fields.Length > 0)
+                sb.AppendLine("Repair every affected destination field together: " + string.Join(", ", fields.Select(static field => $"`{field}`")) + ".");
+            sb.AppendLine("If the authoritative public/blueprint contract permits absence, preserve it with `nullable: true` at the exact scalar or nested property. Do not make the whole containing object opaque.");
+            sb.AppendLine("If the authoritative destination is intentionally non-null, add a deterministic projection that gives each nullable scalar a documented total representation (for example `coalesce(value, '')` only when empty string means absent). Do not keep the incompatible direct assignment.");
+            sb.AppendLine("For arrays of objects, project fresh items and repair each nullable nested property; mapping the original array expression into the same non-null output_schema will repeat the error.");
+            sb.AppendLine("Do not invent a non-empty fallback, path, status, identifier, or success value. Use only a neutral absence representation allowed by the destination semantics, otherwise fail closed.");
         }
 
         if (lower.Contains("incompatible nested contract", StringComparison.Ordinal)

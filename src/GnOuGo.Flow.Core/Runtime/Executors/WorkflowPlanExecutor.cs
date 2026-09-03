@@ -52,7 +52,12 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
         new(ErrorCodes.CapabilityPreflightDiscoveryFailed, false, "A configured MCP catalog required for fail-closed capability validation could not be discovered."),
         new(ErrorCodes.CapabilityPreflightInferenceFailed, false, "Capability inference returned an invalid, uncertain, or incomplete operation inventory."),
         new(ErrorCodes.CapabilityPreflightRedundantArtifactProducer, false, "The generated workflow materializes an MCP artifact more times than capability preflight authorized."),
+        new(ErrorCodes.WorkflowPlanClarificationFailed, false, "Intent clarification could not produce a complete validated response."),
+        new(ErrorCodes.WorkflowPlanCannotPlanSafely, false, "The request remains intrinsically impossible, contradictory, unsafe, or ambiguous after the clarification budget."),
+        new(ErrorCodes.WorkflowPlanAborted, false, "The user explicitly abandoned workflow planning."),
         new(ErrorCodes.WorkflowPlanRepairStalled, false, "The same normalized validation diagnostics survived two repair attempts."),
+        new(ErrorCodes.LlmBudgetExceeded, false, "The configured planning LLM call, token, elapsed-time, or estimated-cost budget was exceeded."),
+        new(ErrorCodes.LlmBudgetUnverifiable, false, "The configured planning LLM budget could not be verified from provider-neutral usage or pricing data."),
         new(ErrorCodes.LlmTimeout, true, "A planning LLM request timed out."),
         new(ErrorCodes.LlmNetwork, true, "A transient transport, rate-limit, or provider service failure interrupted planning."),
         new(ErrorCodes.LlmProvider, false, "The LLM provider rejected a planning request with a non-retryable client error.")
@@ -73,6 +78,7 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
             var classified = LlmFailureClassifier.Classify(ex);
             if (classified != null)
             {
+                AddLlmFailureTelemetry(ctx, classified);
                 if (ReferenceEquals(classified, ex))
                     throw;
                 throw classified;
@@ -84,11 +90,50 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
 
     private async Task<JsonNode?> ExecuteCoreAsync(StepExecutionContext ctx, CancellationToken ct)
     {
-        var input = ctx.Engine.GetResolvedInput(ctx) as JsonObject
+        var originalInput = ctx.Engine.GetResolvedInput(ctx) as JsonObject
             ?? throw new WorkflowRuntimeException(ErrorCodes.InputValidation, "workflow.plan input must be object");
+        AttachLLMUsageBudget(ctx, originalInput);
+        var clarificationSession = await PrepareIntentClarificationAsync(ctx, originalInput, ct);
+
+        while (true)
+        {
+            var input = ApplyIntentClarification(originalInput, clarificationSession);
+            try
+            {
+                return await ExecutePlanningAttemptAsync(ctx, input, clarificationSession, ct);
+            }
+            catch (WorkflowPlanClarificationRestartException)
+            {
+                ctx.AddTelemetryEvent("gnougo-flow.step.thinking", new[]
+                {
+                    new KeyValuePair<string, object?>("gnougo-flow.thinking.message", "Intent clarification received; restarting the complete planning attempt."),
+                    new KeyValuePair<string, object?>("gnougo-flow.thinking.level", "info")
+                });
+            }
+            catch (WorkflowRuntimeException ex) when (
+                clarificationSession != null
+                && TryGetExtractionIntentAmbiguity(ex, out var ambiguityContext))
+            {
+                await RequestReactiveIntentClarificationAsync(
+                    ctx,
+                    input,
+                    clarificationSession,
+                    "extraction_quality",
+                    ambiguityContext,
+                    ct);
+            }
+        }
+    }
+
+    private async Task<JsonNode?> ExecutePlanningAttemptAsync(
+        StepExecutionContext ctx,
+        JsonObject input,
+        IntentClarificationSession? clarificationSession,
+        CancellationToken ct)
+    {
 
         var mode = GetConfiguredPlanMode(input);
-        var capabilityPreflight = await RunCapabilityPreflightAsync(ctx, input, ct);
+        var capabilityPreflight = await RunCapabilityPreflightAsync(ctx, input, clarificationSession, ct);
 
         if (string.Equals(mode, "repair", StringComparison.OrdinalIgnoreCase))
         {
@@ -158,7 +203,8 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
         JsonObject input,
         CancellationToken ct,
         ITelemetrySpan? parentSpan = null,
-        CapabilityPreflightResult? capabilityPreflight = null)
+        CapabilityPreflightResult? capabilityPreflight = null,
+        IReadOnlyList<McpServerDiscovery>? preselectedMcpServers = null)
     {
         var llmClient = ctx.Engine.LLMClient
             ?? throw new WorkflowRuntimeException(ErrorCodes.TemplatePlan, "No LLM client configured");
@@ -179,6 +225,10 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
         var instruction = generator["instruction"]?.GetValue<string>() ?? "";
         var generatorContext = generator["context"]?.GetValue<string>() ?? "";
         var pipelineLeafName = generator["pipeline_leaf_name"]?.GetValue<string>();
+        var pipelineLeafAttempt = generator["pipeline_leaf_attempt"] is JsonValue pipelineAttemptValue
+                                  && pipelineAttemptValue.TryGetValue<int>(out var parsedPipelineAttempt)
+            ? parsedPipelineAttempt
+            : (int?)null;
 
         // Reasoning effort: workflow planning is reasoning-heavy, default to "medium".
         // Authors can override via `generator.reasoning: auto|minimal|low|medium|high|max`.
@@ -248,13 +298,16 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
         };
         if (!string.IsNullOrWhiteSpace(pipelineLeafName))
             generationAttributes.Add(new KeyValuePair<string, object?>("gnougo-flow.plan.pipeline.leaf_name", pipelineLeafName));
+        if (pipelineLeafAttempt.HasValue)
+            generationAttributes.Add(new KeyValuePair<string, object?>("gnougo-flow.plan.pipeline.outer_attempt", pipelineLeafAttempt.Value));
 
         using var generationSpan = parentSpan == null
             ? ctx.BeginTelemetrySpan("workflow.plan.generate", "generation", generationAttributes)
             : ctx.BeginTelemetrySpan(parentSpan, "workflow.plan.generate", "generation", generationAttributes);
 
         capabilityPreflight ??= CapabilityPreflightResult.Off;
-        var candidateMcpServers = capabilityPreflight.Enabled
+        var selectedMcpServers = preselectedMcpServers?.Select(CloneDiscovery).ToList();
+        var candidateMcpServers = selectedMcpServers is not null || capabilityPreflight.Enabled
             ? null
             : shouldPrefilter
             ? await PrefilterMcpServerMetadataAsync(
@@ -269,20 +322,24 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
             ctx);
 
         var validateDryRun = validate?["dry_run"]?.GetValue<bool>() ?? false;
-        var validationDiscovered = capabilityPreflight.Enabled
+        var validationDiscovered = selectedMcpServers is not null
+            ? selectedMcpServers.Select(CloneDiscovery).ToList()
+            : capabilityPreflight.Enabled
             ? capabilityPreflight.DiscoveredServers.Select(CloneDiscovery).ToList()
             : validateDryRun
             ? await DiscoverMcpServersAsync(
                 ctx.Engine.McpClientFactory, ctx.Engine.McpCache, ctx.Engine.Logger, ctx, candidateServers: null, generationSpan.Span, ct)
             : null;
 
-        var discovered = capabilityPreflight.Enabled
+        var discovered = selectedMcpServers is not null
+            ? selectedMcpServers.Select(CloneDiscovery).ToList()
+            : capabilityPreflight.Enabled
             ? capabilityPreflight.DiscoveredServers.Select(CloneDiscovery).ToList()
             : SelectDiscoveredServers(validationDiscovered, candidateMcpServers)
             ?? await DiscoverMcpServersAsync(
             ctx.Engine.McpClientFactory, ctx.Engine.McpCache, ctx.Engine.Logger, ctx, candidateMcpServers, generationSpan.Span, ct);
 
-        if (shouldPrefilter && discovered != null && discovered.Count > 0)
+        if (selectedMcpServers is null && shouldPrefilter && discovered != null && discovered.Count > 0)
         {
             var prefilterSource = discovered;
             discovered = await PrefilterMcpServersAsync(
@@ -372,6 +429,7 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
         AppendMcpInputContractChecklist(basePrompt);
         AppendExpressionFunctionRules(basePrompt);
         basePrompt.AppendLine("- When a field expects a string containing JSON, use a YAML literal block (`|`) or single quotes; do not put unescaped JSON inside a double-quoted YAML string.");
+        basePrompt.AppendLine("- Quote a complete `${...}` expression when it is used as a YAML scalar. This is mandatory when the expression contains mapping-significant characters such as the colon in a ternary expression.");
         basePrompt.AppendLine("- Workflow `outputs` should use either the short expression form or the long form with `expr` and `type`. Do not map arbitrary objects there unless using nested expression properties intentionally.");
         basePrompt.AppendLine("- Every generated `skill.outputs.*` and `workflows.*.outputs.*` entry must be strongly typed. Never emit `type: any`, bare `type: object`, or bare `type: array`.");
         basePrompt.AppendLine("- Array outputs must declare `items`; if items are objects, `items.properties` must list the concrete fields. Object outputs must declare non-empty `properties`.");
@@ -539,6 +597,8 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
             };
             if (!string.IsNullOrWhiteSpace(pipelineLeafName))
                 llmCallAttributes.Add(new KeyValuePair<string, object?>("gnougo-flow.plan.pipeline.leaf_name", pipelineLeafName));
+            if (pipelineLeafAttempt.HasValue)
+                llmCallAttributes.Add(new KeyValuePair<string, object?>("gnougo-flow.plan.pipeline.outer_attempt", pipelineLeafAttempt.Value));
 
             using (var llmCallSpan = ctx.BeginTelemetrySpan(generationSpan.Span, "workflow.plan.generate.llm_call", "generation_llm", llmCallAttributes))
             {
@@ -561,14 +621,14 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
                         maxAttempts,
                         planReasoning ?? "(provider default)");
 
-                    response = await llmClient.CallAsync(new LLMRequest
+                    response = await ctx.CallLLMAsync(llmClient, new LLMRequest
                     {
                         Provider = provider,
                         Model = model,
                         Prompt = promptText,
                         Reasoning = planReasoning,
                         UseBackgroundMode = true,
-                    }, ct);
+                    }, "workflow.plan.generation", ct);
                     generationSpan.SetAttribute("gen_ai.response.model", model);
                     generationSpan.SetAttribute("gen_ai.response.finish_reason", "stop");
                     AddUsageAttributes(generationSpan, response.Usage, model, provider);
@@ -625,7 +685,12 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
 
             try
             {
-                var yaml = StripMarkdownFences(response.Text ?? string.Empty);
+                var yaml = NormalizeGeneratedExactExpressionScalars(
+                    StripMarkdownFences(response.Text ?? string.Empty));
+                yaml = NormalizeGeneratedUnsafePlainMappingScalars(yaml);
+                yaml = NormalizeGeneratedSwitchDefaultStepLists(yaml);
+                yaml = NormalizeGeneratedFlowNullableSchemas(yaml);
+                yaml = NormalizeGeneratedSetOutputSchemas(yaml);
                 if (string.IsNullOrWhiteSpace(pipelineLeafName) && surgicalRepair is null)
                     yaml = PruneWeakNestedOutputProperties(yaml);
                 else if (!string.IsNullOrWhiteSpace(pipelineLeafName))
@@ -652,12 +717,27 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
                                 generatedDoc,
                                 yaml,
                                 validationDiscovered);
+                            (generatedDoc, yaml) = PromoteGeneratedDirectSetOutputSchemas(
+                                generatedDoc,
+                                yaml,
+                                validationDiscovered,
+                                ctx.Engine.Registry);
                             (generatedDoc, yaml) = PromoteGeneratedDirectOutputSchemas(
                                 generatedDoc,
                                 yaml,
                                 validationDiscovered,
                                 ctx.Engine.Registry);
                         }
+                        var documentedPathNormalization = NormalizeGeneratedDocumentedStepOutputPaths(
+                            generatedDoc,
+                            yaml,
+                            validationDiscovered,
+                            ctx.Engine.Registry);
+                        generatedDoc = documentedPathNormalization.Document;
+                        yaml = documentedPathNormalization.Yaml;
+                        validationSpan.SetAttribute(
+                            "gnougo-flow.plan.validation.documented_output_path_replacement_count",
+                            documentedPathNormalization.ReplacementCount);
                         validationSpan.SetAttribute("gnougo-flow.plan.workflow_count", generatedDoc.Workflows.Count);
 
                         await RunStandardPlanValidationSequenceAsync(
@@ -715,7 +795,7 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
             }
             catch (Exception ex)
             {
-                if (WorkflowPlanDiagnostics.IsTransientProviderFailure(ex))
+                if (WorkflowPlanDiagnostics.IsNonRepairableLlmFailure(ex))
                 {
                     generationSpan.Fail(ex);
                     throw;
@@ -750,7 +830,11 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
                         ctx);
 
                 lastError = BuildStructuredPlanError(ex, attempt + 1);
-                lastInvalidYaml = StripMarkdownFences(response.Text ?? string.Empty);
+                lastInvalidYaml = NormalizeGeneratedExactExpressionScalars(
+                    StripMarkdownFences(response.Text ?? string.Empty));
+                lastInvalidYaml = NormalizeGeneratedUnsafePlainMappingScalars(lastInvalidYaml);
+                lastInvalidYaml = NormalizeGeneratedSwitchDefaultStepLists(lastInvalidYaml);
+                lastInvalidYaml = NormalizeGeneratedFlowNullableSchemas(lastInvalidYaml);
                 lastRepairContext = BuildMinimalRepairContext(
                     ctx.Engine.Registry,
                     allowedTypes,

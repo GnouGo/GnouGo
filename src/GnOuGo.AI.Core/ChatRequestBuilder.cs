@@ -55,7 +55,7 @@ public static class ChatRequestBuilder
 
     /// <summary>
     /// Builds an OpenAI-compatible chat completion request with full control over parameters.
-    /// Supports tools, structured output, and temperature as double.
+    /// Supports tools, structured output, reasoning, output-token limits, and temperature as double.
     /// </summary>
     public static byte[] OpenAiFull(
         string model,
@@ -64,7 +64,8 @@ public static class ChatRequestBuilder
         IReadOnlyList<LLMToolDef>? tools = null,
         JsonNode? structuredOutputSchema = null,
         bool? structuredOutputStrict = null,
-        string? reasoning = null)
+        string? reasoning = null,
+        int? maxOutputTokens = null)
     {
         using var ms = new MemoryStream();
         using (var w = new Utf8JsonWriter(ms))
@@ -74,6 +75,9 @@ public static class ChatRequestBuilder
 
             if (temperature.HasValue)
                 w.WriteNumber("temperature", temperature.Value);
+
+            if (maxOutputTokens is > 0)
+                w.WriteNumber("max_completion_tokens", maxOutputTokens.Value);
 
             // Reasoning effort (OpenAI o-series / gpt-5, GitHub Models, Anthropic via Copilot)
             var reasoningEffort = NormalizeOpenAiReasoning(reasoning);

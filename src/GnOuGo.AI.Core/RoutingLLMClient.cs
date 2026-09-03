@@ -29,6 +29,7 @@ public sealed class RoutingLLMClient
     /// <param name="providers">Registered provider implementations.</param>
     public RoutingLLMClient(LLMOptions options, IEnumerable<ILLMProvider> providers)
     {
+        LLMOptionsValidation.ValidateAndThrow(options);
         _options = options;
         _metadataResolver = new LLMModelMetadataResolver(options);
         _providers = new Dictionary<string, ILLMProvider>(StringComparer.OrdinalIgnoreCase);
@@ -87,11 +88,22 @@ public sealed class RoutingLLMClient
         }
 
         var metadata = _metadataResolver.Resolve(resolvedType, model);
-        var sanitizedRequest = LLMRequestSanitizer.Sanitize(request, metadata);
-        if (!string.Equals(resolvedType, LocalLLMProvider.Type, StringComparison.OrdinalIgnoreCase))
-            return await provider.CallAsync(model, providerOpts, sanitizedRequest, ct).ConfigureAwait(false);
+        var sanitizedRequest = LLMRequestSanitizer.Sanitize(request, metadata, providerOpts.RequestPolicy);
+        try
+        {
+            if (!string.Equals(resolvedType, LocalLLMProvider.Type, StringComparison.OrdinalIgnoreCase))
+                return await provider.CallAsync(model, providerOpts, sanitizedRequest, ct).ConfigureAwait(false);
 
-        return await CallLocalWithFallbackAsync(provider, model, providerOpts, sanitizedRequest, ct).ConfigureAwait(false);
+            return await CallLocalWithFallbackAsync(provider, model, providerOpts, sanitizedRequest, ct).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException) when (ct.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            throw LLMProviderFailureClassifier.Classify(ex);
+        }
     }
 
     private async Task<LLMClientResponse> CallLocalWithFallbackAsync(
@@ -154,7 +166,7 @@ public sealed class RoutingLLMClient
         fallbackRequest.Provider = fallbackKey;
         fallbackRequest.Model = fallbackModel;
         var metadata = _metadataResolver.Resolve(fallbackOptions.ResolvedType, fallbackModel);
-        fallbackRequest = LLMRequestSanitizer.Sanitize(fallbackRequest, metadata);
+        fallbackRequest = LLMRequestSanitizer.Sanitize(fallbackRequest, metadata, fallbackOptions.RequestPolicy);
 
         using var fallbackActivity = ActivitySource.StartActivity("local_llm.fallback");
         fallbackActivity?.SetTag("gen_ai.provider.name", fallbackOptions.ResolvedType);

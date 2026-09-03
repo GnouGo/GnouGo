@@ -141,6 +141,7 @@ internal sealed class SnapshotRoutingLlmClientAdapter : ILLMClient
             StructuredOutputStrict = request.StructuredOutputStrict,
             Reasoning = request.Reasoning,
             UseBackgroundMode = request.UseBackgroundMode,
+            MaxOutputTokens = request.MaxTokens,
         };
 
         if (request.Tools is { Count: > 0 })
@@ -153,7 +154,15 @@ internal sealed class SnapshotRoutingLlmClientAdapter : ILLMClient
             }).ToList();
         }
 
-        var aiResponse = await routingClient.CallAsync(aiRequest, ct);
+        LLMClientResponse aiResponse;
+        try
+        {
+            aiResponse = await routingClient.CallAsync(aiRequest, ct);
+        }
+        catch (LLMProviderException ex)
+        {
+            throw LLMProviderFailureMapper.Map(ex);
+        }
         var response = new LLMResponse
         {
             Text = aiResponse.Text,

@@ -121,6 +121,16 @@ public sealed class ModelProviderOptions
     public string? ApiVersion { get; set; }
 
     /// <summary>
+    /// Provider-scoped request-shaping policy. Model metadata limits remain capability ceilings;
+    /// they are not request defaults unless <see cref="LLMUnspecifiedOutputTokensMode.ModelMaximum"/>
+    /// is explicitly selected.
+    /// </summary>
+    public LLMProviderRequestPolicyOptions RequestPolicy { get; set; } = new();
+
+    /// <summary>Provider-scoped bounded transient HTTP retry policy.</summary>
+    public LLMProviderRetryPolicyOptions RetryPolicy { get; set; } = new();
+
+    /// <summary>
     /// Returns the effective provider type: explicit <see cref="Type"/>, or inferred from URL.
     /// Supported values: "openai", "ollama", "copilot", "anthropic", "local". The legacy alias "claude" is accepted.
     /// </summary>
@@ -139,6 +149,120 @@ public sealed class ModelProviderOptions
             "claude" => "anthropic",
             var normalized => normalized
         };
+}
+
+/// <summary>Protocol used when a caller requests background execution.</summary>
+public enum LLMBackgroundProtocolMode
+{
+    Auto,
+    Responses,
+    ChatCompletions
+}
+
+/// <summary>How an omitted per-request output-token limit is represented on the wire.</summary>
+public enum LLMUnspecifiedOutputTokensMode
+{
+    Omit,
+    Configured,
+    ModelMaximum
+}
+
+/// <summary>Provider-neutral request shaping policy for a configured model provider.</summary>
+public sealed class LLMProviderRequestPolicyOptions
+{
+    /// <summary>
+    /// Protocol selection for background calls. Auto probes Responses and falls back when the
+    /// route is contractually unsupported; ChatCompletions bypasses that probe.
+    /// </summary>
+    public LLMBackgroundProtocolMode BackgroundProtocol { get; set; } = LLMBackgroundProtocolMode.Auto;
+
+    /// <summary>Behavior when the caller does not set a maximum output-token count.</summary>
+    public LLMUnspecifiedOutputTokensMode UnspecifiedOutputTokens { get; set; } = LLMUnspecifiedOutputTokensMode.Omit;
+
+    /// <summary>Default used only when <see cref="UnspecifiedOutputTokens"/> is Configured.</summary>
+    public int? DefaultMaxOutputTokens { get; set; }
+
+    /// <summary>Optional provider-specific ceiling applied after the model capability ceiling.</summary>
+    public int? MaxOutputTokensCap { get; set; }
+}
+
+/// <summary>Bounded recovery policy for safely retryable HTTP responses.</summary>
+public sealed class LLMProviderRetryPolicyOptions
+{
+    /// <summary>Total attempts, including the initial request.</summary>
+    public int MaxAttempts { get; set; } = 4;
+
+    /// <summary>Initial full-jitter exponential-backoff bound.</summary>
+    public int BaseDelayMilliseconds { get; set; } = 1_000;
+
+    /// <summary>Maximum delay for one retry.</summary>
+    public int MaxDelayMilliseconds { get; set; } = 30_000;
+
+    /// <summary>Maximum cumulative retry delay for one HTTP operation.</summary>
+    public int MaxTotalDelayMilliseconds { get; set; } = 60_000;
+
+    /// <summary>Whether valid Retry-After response headers take precedence over jitter backoff.</summary>
+    public bool HonorRetryAfter { get; set; } = true;
+}
+
+/// <summary>Deterministic validation for provider request and retry policy configuration.</summary>
+public static class LLMOptionsValidation
+{
+    public static void ValidateAndThrow(LLMOptions options)
+    {
+        ArgumentNullException.ThrowIfNull(options);
+
+        foreach (var (providerName, provider) in options.Models)
+        {
+            if (provider is null)
+                throw new InvalidOperationException($"LLM provider '{providerName}' configuration is missing.");
+
+            ValidateProvider(providerName, provider);
+        }
+    }
+
+    public static void ValidateProvider(string providerName, ModelProviderOptions provider)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(providerName);
+        ArgumentNullException.ThrowIfNull(provider);
+
+        var requestPolicy = provider.RequestPolicy
+            ?? throw new InvalidOperationException($"LLM provider '{providerName}' RequestPolicy cannot be null.");
+        if (!Enum.IsDefined(requestPolicy.BackgroundProtocol))
+            throw new InvalidOperationException($"LLM provider '{providerName}' has an invalid BackgroundProtocol.");
+        if (!Enum.IsDefined(requestPolicy.UnspecifiedOutputTokens))
+            throw new InvalidOperationException($"LLM provider '{providerName}' has an invalid UnspecifiedOutputTokens mode.");
+        if (requestPolicy.DefaultMaxOutputTokens is <= 0)
+            throw new InvalidOperationException($"LLM provider '{providerName}' DefaultMaxOutputTokens must be positive when set.");
+        if (requestPolicy.MaxOutputTokensCap is <= 0)
+            throw new InvalidOperationException($"LLM provider '{providerName}' MaxOutputTokensCap must be positive when set.");
+        if (requestPolicy.UnspecifiedOutputTokens == LLMUnspecifiedOutputTokensMode.Configured
+            && requestPolicy.DefaultMaxOutputTokens is null)
+        {
+            throw new InvalidOperationException(
+                $"LLM provider '{providerName}' requires DefaultMaxOutputTokens when UnspecifiedOutputTokens is Configured.");
+        }
+        if (requestPolicy.DefaultMaxOutputTokens is { } configuredDefault
+            && requestPolicy.MaxOutputTokensCap is { } configuredCap
+            && configuredDefault > configuredCap)
+        {
+            throw new InvalidOperationException(
+                $"LLM provider '{providerName}' DefaultMaxOutputTokens cannot exceed MaxOutputTokensCap.");
+        }
+
+        var retryPolicy = provider.RetryPolicy
+            ?? throw new InvalidOperationException($"LLM provider '{providerName}' RetryPolicy cannot be null.");
+        if (retryPolicy.MaxAttempts is < 1 or > 20)
+            throw new InvalidOperationException($"LLM provider '{providerName}' RetryPolicy.MaxAttempts must be between 1 and 20.");
+        if (retryPolicy.BaseDelayMilliseconds <= 0)
+            throw new InvalidOperationException($"LLM provider '{providerName}' RetryPolicy.BaseDelayMilliseconds must be positive.");
+        if (retryPolicy.MaxDelayMilliseconds <= 0)
+            throw new InvalidOperationException($"LLM provider '{providerName}' RetryPolicy.MaxDelayMilliseconds must be positive.");
+        if (retryPolicy.MaxTotalDelayMilliseconds < 0)
+            throw new InvalidOperationException($"LLM provider '{providerName}' RetryPolicy.MaxTotalDelayMilliseconds cannot be negative.");
+        if (retryPolicy.BaseDelayMilliseconds > retryPolicy.MaxDelayMilliseconds)
+            throw new InvalidOperationException($"LLM provider '{providerName}' retry base delay cannot exceed its maximum delay.");
+    }
 }
 
 /// <summary>Optional provider/model pair used after local retry exhaustion.</summary>
