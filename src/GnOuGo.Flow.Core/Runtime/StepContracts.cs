@@ -43,6 +43,10 @@ public static class BuiltInStepContracts
                 Object(("results", Array(Any())), ("count", Integer())),
                 inputRequired: true),
             ["switch"] = Contract(ClosedObject(), OpenObject()),
+            ["decision.evaluate"] = Contract(
+                Object(new[] { "decisions" }, ("decisions", OpenObject())),
+                OpenObject(),
+                inputRequired: true),
             ["set"] = Contract(OpenObject(), OpenObject(), inputRequired: true),
             ["assert.non_null"] = Contract(OpenObject(), OpenObject(), inputRequired: true),
             ["template.render"] = Contract(

@@ -8,6 +8,7 @@ STEP_TYPES = frozenset(
         "loop.sequential",
         "loop.parallel",
         "switch",
+        "decision.evaluate",
         "set",
         "assert.non_null",
         "template.render",

@@ -1633,6 +1633,32 @@ steps:
     }
 
     [Fact]
+    public void SemanticValidation_UsesDecisionEvaluateFiniteOutputContract()
+    {
+        var doc = Parse("""
+steps:
+  - id: decide
+    type: decision.evaluate
+    input:
+      decisions:
+        outcome:
+          allowed_values: [ACCEPT, REJECT]
+          cases:
+            - { when: true, value: ACCEPT }
+  - id: consume
+    type: template.render
+    input:
+      template: "Decision ${data.steps.decide.missing}"
+""");
+
+        var exception = Assert.Throws<TargetInvocationException>(() => InvokeSemanticValidation(doc));
+
+        Assert.Contains("STEP_OUTPUT_PROPERTY_UNKNOWN", exception.InnerException!.Message);
+        Assert.Contains("data.steps.decide.missing", exception.InnerException.Message);
+        Assert.Contains("data.steps.decide.outcome", exception.InnerException.Message);
+    }
+
+    [Fact]
     public void SemanticValidation_TypesLoopItemFromStructuredOutput()
     {
         var doc = WorkflowParser.Parse("""

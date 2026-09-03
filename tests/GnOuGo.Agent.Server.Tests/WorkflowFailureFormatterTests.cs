@@ -402,6 +402,38 @@ public sealed class WorkflowFailureFormatterTests
     }
 
     [Fact]
+    public void Format_DistinguishesTerminalDecisionGapAfterBehavioralRelaxationWasPreserved()
+    {
+        var error = new WorkflowError
+        {
+            Code = ErrorCodes.CapabilityPreflightUnavailable,
+            Message = "A conditional external write has no safe runtime decision contract.",
+            Details = new JsonObject
+            {
+                ["planning_outcome"] = "unsupported",
+                ["clarification_rounds"] = 1,
+                ["clarification_questions"] = 1,
+                ["matching_issues"] = new JsonArray(new JsonObject
+                {
+                    ["operation_id"] = "publish_result",
+                    ["description"] = "Publish one selected runtime result.",
+                    ["status"] = "contract_gap",
+                    ["reason"] = "No safe provider-neutral decision contract is available.",
+                    ["reason_code"] = "conditional_decision_source_ambiguous"
+                })
+            }
+        };
+
+        var presentation = WorkflowFailureFormatter.Format(error);
+
+        Assert.Contains("Terminal capability failure", presentation.UserMessage, StringComparison.Ordinal);
+        Assert.Contains("Submitted clarification forms: 1", presentation.UserMessage, StringComparison.Ordinal);
+        Assert.Contains("Submitted clarification questions: 1", presentation.UserMessage, StringComparison.Ordinal);
+        Assert.Contains("Automatic contract repair was exhausted", presentation.UserMessage, StringComparison.Ordinal);
+        Assert.Contains("planning stopped before generation and persistence", presentation.UserMessage, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void Format_ExplainsStructuredInferenceContractPhase()
     {
         var error = new WorkflowError

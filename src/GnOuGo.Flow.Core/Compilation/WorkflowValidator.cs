@@ -1,4 +1,4 @@
-﻿﻿using System.Globalization;
+﻿using System.Globalization;
 using GnOuGo.Flow.Core.Expressions;
 using GnOuGo.Flow.Core.Models;
 using GnOuGo.Flow.Core.Runtime;
@@ -17,7 +17,7 @@ public sealed class WorkflowValidator
     {
         "sequence", "parallel",
         "loop.sequential", "loop.parallel",
-        "switch", "set", "assert.non_null",
+        "switch", "decision.evaluate", "set", "assert.non_null",
         "template.render",
         "llm.call",
         "workflow.call", "workflow.route", "workflow.plan", "workflow.execute",

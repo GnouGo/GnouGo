@@ -10,6 +10,7 @@ public static class ErrorCodes
     public const string ExprTypeMismatch = "EXPR_TYPE_MISMATCH";
     public const string EvalError = "EVAL_ERROR";
     public const string InputValidation = "INPUT_VALIDATION";
+    public const string DecisionEvaluationUnresolved = "DECISION_EVALUATION_UNRESOLVED";
     public const string TemplatePlan = "TEMPLATE_PLAN";
     public const string TemplatePolicy = "TEMPLATE_POLICY";
     public const string TemplateSyntax = "TEMPLATE_SYNTAX";

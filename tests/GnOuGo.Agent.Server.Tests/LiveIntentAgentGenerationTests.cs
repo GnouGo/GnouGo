@@ -35,10 +35,11 @@ public sealed class LiveIntentAgentGenerationTests
     private const string BudgetCurrencyVariable = "GNOU_GO_LIVE_INTENT_AGENT_BUDGET_CURRENCY";
     private const string ProviderHardLimitAmountVariable = "GNOU_GO_LIVE_INTENT_AGENT_PROVIDER_HARD_LIMIT_AMOUNT";
     private const string ProviderHardLimitCurrencyVariable = "GNOU_GO_LIVE_INTENT_AGENT_PROVIDER_HARD_LIMIT_CURRENCY";
+    private const string ElapsedLimitMinutesVariable = "GNOU_GO_LIVE_INTENT_AGENT_MAX_ELAPSED_MINUTES";
     private const decimal DefaultLiveCycleCostLimit = 50m;
     private const string DefaultLiveCycleCurrency = "EUR";
+    private const int DefaultLiveCycleElapsedMinutes = 120;
     private const int LiveProviderAttemptCount = 1;
-    private static readonly TimeSpan LiveCycleElapsedLimit = TimeSpan.FromMinutes(120);
     private static readonly object ProgressFileLock = new();
     private const string AcceptancePrompt = """
         Create a reusable agent that accepts a GitHub pull-request URL and review instructions.
@@ -63,6 +64,7 @@ public sealed class LiveIntentAgentGenerationTests
         ValidateDedicatedProviderProjectAttestation();
         var budgetDefinition = ResolveLiveBudgetDefinition();
         var generationCount = ResolveGenerationCount();
+        var liveCycleElapsedLimit = ResolveLiveCycleElapsedLimit();
         WriteLiveProgress("test_started");
         var sourceRoot = FindSourceRoot();
         var budgetLedger = LiveBudgetLedger.Open(ResolveBudgetStatePath(sourceRoot), budgetDefinition);
@@ -79,13 +81,13 @@ public sealed class LiveIntentAgentGenerationTests
             {
                 MaxCalls = 120,
                 MaxTotalTokens = 5_000_000,
-                MaxElapsed = LiveCycleElapsedLimit,
+                MaxElapsed = liveCycleElapsedLimit,
                 MaxEstimatedCost = budgetDefinition.AuthorizedBudget
             },
             initialSnapshot: budgetLedger.Snapshot,
             sink: budgetLedger,
             exchangeRateProvider: exchangeRateProvider);
-        var remainingCycleTime = LiveCycleElapsedLimit - (DateTimeOffset.UtcNow - budgetLedger.Snapshot.StartedAtUtc);
+        var remainingCycleTime = liveCycleElapsedLimit - (DateTimeOffset.UtcNow - budgetLedger.Snapshot.StartedAtUtc);
         if (remainingCycleTime <= TimeSpan.Zero)
         {
             throw new InvalidOperationException("The shared live-validation elapsed-time budget is exhausted. Start a new dedicated provider project and validation cycle.");
@@ -549,6 +551,22 @@ public sealed class LiveIntentAgentGenerationTests
         if (string.Equals(configured, "3", StringComparison.Ordinal))
             return 3;
         throw new InvalidOperationException($"{GenerationCountVariable} must be 1 for the diagnostic phase or 3 for final acceptance.");
+    }
+
+    private static TimeSpan ResolveLiveCycleElapsedLimit()
+    {
+        var configured = Environment.GetEnvironmentVariable(ElapsedLimitMinutesVariable);
+        if (string.IsNullOrWhiteSpace(configured))
+            return TimeSpan.FromMinutes(DefaultLiveCycleElapsedMinutes);
+        if (!int.TryParse(configured, NumberStyles.None, CultureInfo.InvariantCulture, out var minutes)
+            || minutes <= 0
+            || minutes > 1_440)
+        {
+            throw new InvalidOperationException(
+                $"{ElapsedLimitMinutesVariable} must be a whole number from 1 through 1440.");
+        }
+
+        return TimeSpan.FromMinutes(minutes);
     }
 
     private static string ResolveBudgetStatePath(string sourceRoot)
@@ -1265,7 +1283,7 @@ public sealed class LiveIntentAgentGenerationTests
             var inputs = new JsonObject
             {
                 [contract.PullRequestUrlInput] = $"https://github.com/{owner}/{repository}/pull/{pullNumber.Value}",
-            ["review_instructions"] = "Report the demonstrable division-by-zero correctness defect introduced by the changed fixture line. Publish it as a high-confidence inline finding and submit REQUEST_CHANGES."
+                ["review_instructions"] = "Report the demonstrable division-by-zero correctness defect introduced by the changed fixture line. Publish it as a high-confidence inline finding and submit REQUEST_CHANGES."
             };
 
             using var responderCancellation = CancellationTokenSource.CreateLinkedTokenSource(ct);
@@ -1559,8 +1577,8 @@ public sealed class LiveIntentAgentGenerationTests
             _ => []
         };
         foreach (var child in children)
-        foreach (var nested in EnumerateNodes(child))
-            yield return nested;
+            foreach (var nested in EnumerateNodes(child))
+                yield return nested;
     }
 
     private static void DeleteIsolatedDirectory(string workspaceRoot, string relativePath, string requiredParent)
@@ -1643,11 +1661,11 @@ public sealed class LiveIntentAgentGenerationTests
             foreach (var nested in EnumerateSteps(step.Steps ?? []))
                 yield return nested;
             foreach (var branch in step.Branches ?? [])
-            foreach (var nested in EnumerateSteps(branch.Steps))
-                yield return nested;
+                foreach (var nested in EnumerateSteps(branch.Steps))
+                    yield return nested;
             foreach (var item in step.Cases ?? [])
-            foreach (var nested in EnumerateSteps(item.Steps))
-                yield return nested;
+                foreach (var nested in EnumerateSteps(item.Steps))
+                    yield return nested;
             foreach (var nested in EnumerateSteps(step.Default ?? []))
                 yield return nested;
         }

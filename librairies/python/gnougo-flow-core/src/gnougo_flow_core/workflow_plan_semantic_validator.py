@@ -1530,7 +1530,26 @@ def _build_step_output_schema(
         return _object_schema(("event", _opaque_schema()), ("status", _string_schema()))
     if step.type == "human.input":
         return _build_human_input_output_schema(step)
+    if step.type == "decision.evaluate":
+        return _build_decision_evaluate_output_schema(step)
     return _opaque_schema()
+
+
+def _build_decision_evaluate_output_schema(step: StepDef) -> Any:
+    input_obj = step.input if isinstance(step.input, dict) else {}
+    decisions = input_obj.get("decisions")
+    if not isinstance(decisions, dict):
+        return _object_schema()
+
+    properties: list[tuple[str, Any]] = []
+    for field, contract in decisions.items():
+        allowed_values = contract.get("allowed_values") if isinstance(contract, dict) else None
+        values = [value for value in allowed_values or [] if isinstance(value, str) and value.strip()]
+        schema: dict[str, Any] = _string_schema()
+        if values:
+            schema["enum"] = list(dict.fromkeys(values))
+        properties.append((str(field), schema))
+    return _object_schema(*properties)
 
 
 def _build_human_input_output_schema(step: StepDef) -> Any:

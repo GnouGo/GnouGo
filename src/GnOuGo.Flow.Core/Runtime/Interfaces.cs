@@ -447,13 +447,16 @@ public sealed record McpCapabilityActivation(
     public IReadOnlyList<string> NoEffectValues { get; init; } = Array.Empty<string>();
 
     /// <summary>
-    /// Provider-neutral source of the decision contract: either a discovered capability
-    /// output schema or a strict Flow structured-output projection.
+    /// Provider-neutral source of the decision contract: a discovered capability output
+    /// schema, a strict Flow structured-output projection, or a local finite decision.
     /// </summary>
     public string DecisionContractSource { get; init; } = "capability_output";
 
     /// <summary>Catalog capability that produces or projects the decision value.</summary>
     public string DecisionProducerCatalogId { get; init; } = "";
+
+    /// <summary>Locked upstream operations that the local decision must evaluate.</summary>
+    public IReadOnlyList<string> DecisionInputOperationIds { get; init; } = Array.Empty<string>();
 }
 
 /// <summary>

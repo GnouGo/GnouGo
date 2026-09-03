@@ -2443,79 +2443,40 @@ public sealed class WorkflowPlanCapabilityPreflightTests
     {
         var result = await ExecuteAsync(
             WorkspacePlan(includeSecondMaterializerRequirement: false),
-            ConstantLlm("""
-                version: 1
-                name: generated-workspace-pipeline
-                skill:
-                  description: Materialize and analyze one workspace.
-                  tags: [generated]
-                  inputs: {}
-                  outputs: {}
-                workflows:
-                  main:
-                    steps:
-                      - id: produce
-                        type: workflow.call
-                        input:
-                          ref: { kind: local, name: materialize_workspace }
-                          args:
-                            source_url: https://example.invalid/source
-                      - id: inspect
-                        type: workflow.call
-                        input:
-                          ref: { kind: local, name: inspect_workspace }
-                          args:
-                            project_root: ${data.steps.produce.outputs.project_root}
-                      - id: verify
-                        type: workflow.call
-                        input:
-                          ref: { kind: local, name: verify_workspace }
-                          args:
-                            project_root: ${data.steps.produce.outputs.project_root}
-                  materialize_workspace:
-                    inputs:
-                      source_url: { type: string, required: true }
-                    steps:
-                      - id: materialize
-                        type: mcp.call
-                        input:
-                          server: workspace-provider
-                          kind: tool
-                          method: create_workspace
-                          request:
-                            sourceUrl: ${data.inputs.source_url}
-                    outputs:
-                      project_root:
-                        expr: ${data.steps.materialize.response.projectRootRelative}
-                        type: string
-                  inspect_workspace:
-                    inputs:
-                      project_root: { type: string, required: true }
-                    steps:
-                      - id: inspect_call
-                        type: mcp.call
-                        input:
-                          server: workspace-consumer
-                          kind: tool
-                          method: inspect_workspace
-                          request:
-                            projectRoot: ${data.inputs.project_root}
-                  verify_workspace:
-                    inputs:
-                      project_root: { type: string, required: true }
-                    steps:
-                      - id: verify_call
-                        type: mcp.call
-                        input:
-                          server: workspace-consumer
-                          kind: tool
-                          method: verify_workspace
-                          request:
-                            projectRoot: ${data.inputs.project_root}
-                """).Object,
+            ConstantLlm(CrossWorkflowWorkspaceWorkflow(
+                "${data.steps.produce.outputs.project_root}",
+                "${data.steps.produce.outputs.project_root}")).Object,
             CreateArtifactFactory());
 
         Assert.True(result.Success, result.Error?.Message);
+    }
+
+    [Fact]
+    public async Task ExplicitPreflight_ReportsUnprovenCrossWorkflowArtifactCallerBinding()
+    {
+        var result = await ExecuteAsync(
+            WorkspacePlan(includeSecondMaterializerRequirement: false),
+            ConstantLlm(CrossWorkflowWorkspaceWorkflow(
+                "workspaces/invented-directory",
+                "${data.steps.produce.outputs.project_root}")).Object,
+            CreateArtifactFactory());
+
+        Assert.False(result.Success);
+        Assert.Equal(ErrorCodes.TemplatePlan, result.Error!.Code);
+        Assert.Equal("mcp_artifact_dataflow", result.Error.Details!["phase"]!.GetValue<string>());
+        var diagnostics = Assert.IsType<JsonArray>(result.Error.Details["diagnostics"]);
+        var diagnostic = Assert.Single(
+            diagnostics.OfType<JsonObject>(),
+            static item => string.Equals(
+                item["workflow"]?.GetValue<string>(),
+                "inspect_workspace",
+                StringComparison.Ordinal));
+        var binding = Assert.Single(Assert.IsType<JsonArray>(diagnostic["caller_bindings"]));
+        var bindingObject = Assert.IsType<JsonObject>(binding);
+        Assert.Equal("main", bindingObject["caller_workflow"]!.GetValue<string>());
+        Assert.Equal("inspect", bindingObject["caller_step"]!.GetValue<string>());
+        Assert.Equal("project_root", bindingObject["argument_path"]!.GetValue<string>());
+        Assert.Equal("workspaces/invented-directory", bindingObject["argument_value"]!.GetValue<string>());
     }
 
     [Fact]
@@ -5903,6 +5864,290 @@ public sealed class WorkflowPlanCapabilityPreflightTests
     }
 
     [Fact]
+    public async Task InferredPreflight_SynthesizesLocalDecisionForMultipleDeclaredSources()
+    {
+        const string decisionField = "conditional_decision_a5d47a4311d759db";
+        var matchingCalls = 0;
+        var generationCalls = 0;
+        var human = new RecordingHumanInputProvider(new JsonObject());
+        var normalizationEvents = new List<IReadOnlyList<KeyValuePair<string, object?>>>();
+        var telemetry = CreateNormalizationTelemetry(normalizationEvents);
+        var llm = new Mock<ILLMClient>();
+        llm.Setup(client => client.CallAsync(It.IsAny<LLMRequest>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((LLMRequest request, CancellationToken _) =>
+            {
+                if (request.Prompt.Contains("domain-neutral workflow runtime analyst", StringComparison.Ordinal))
+                    return MultiSourceLocalDecisionInventoryResponse();
+                if (request.Prompt.Contains("domain-neutral capability matcher", StringComparison.Ordinal))
+                {
+                    matchingCalls++;
+                    return MultiSourceLocalDecisionMatchingResponse(request.Prompt);
+                }
+
+                generationCalls++;
+                return new LLMResponse { Text = MultiSourceLocalDecisionWorkflow(decisionField) };
+            });
+
+        var result = await ExecuteAsync(
+            ConditionalInferredPlan(),
+            llm.Object,
+            CreateMultiSourceLocalDecisionFactory(),
+            human,
+            telemetry);
+
+        Assert.True(result.Success, $"{result.Error?.Code}: {result.Error?.Message} {result.Error?.Details}");
+        Assert.Equal(1, matchingCalls);
+        Assert.Equal(1, generationCalls);
+        Assert.Empty(human.Requests);
+        var capabilities = Assert.IsType<JsonArray>(
+            result.Outputs!["plan"]!["meta"]!["capability_preflight"]!["capabilities"]);
+        var evaluator = Assert.Single(capabilities.OfType<JsonObject>(), capability =>
+            capability["method"]?.GetValue<string>() == "decision.evaluate");
+        Assert.Equal("compute_decisions", evaluator["operation_id"]!.GetValue<string>());
+        Assert.Equal(2, Assert.IsType<JsonArray>(evaluator["input_operation_ids"]).Count);
+        var activations = capabilities.OfType<JsonObject>()
+            .Where(static capability => capability["activation"] is JsonObject)
+            .Select(static capability => (JsonObject)capability["activation"]!)
+            .ToArray();
+        Assert.Equal(2, activations.Length);
+        Assert.All(activations, activation =>
+        {
+            Assert.Equal("local_decision", activation["decision_contract_source"]!.GetValue<string>());
+            Assert.Equal($"/{decisionField}", activation["decision_output_path"]!.GetValue<string>());
+            Assert.Equal(2, Assert.IsType<JsonArray>(activation["decision_input_operation_ids"]).Count);
+        });
+
+        var synthesized = Assert.Single(normalizationEvents, attributes => attributes.Any(item =>
+            item.Key == "gnougo-flow.plan.capability_matching.reason_code"
+            && Equals(item.Value, "conditional_local_decision_contract_synthesized")));
+        Assert.DoesNotContain(synthesized, static item =>
+            item.Key.Contains("catalog_id", StringComparison.Ordinal)
+            || item.Key.Contains("description", StringComparison.Ordinal)
+            || item.Key.Contains("prompt", StringComparison.Ordinal)
+            || item.Key.Contains("answer", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public async Task InferredPreflight_UsesOneLocalEvaluatorForSelectorAndOrderedEffectDecisions()
+    {
+        const string publishField = "conditional_decision_a5d47a4311d759db";
+        const string notifyField = "conditional_decision_6cd6f41455d78245";
+        var llm = new Mock<ILLMClient>();
+        llm.Setup(client => client.CallAsync(It.IsAny<LLMRequest>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((LLMRequest request, CancellationToken _) =>
+            {
+                if (request.Prompt.Contains("domain-neutral workflow runtime analyst", StringComparison.Ordinal))
+                    return MultiFieldLocalDecisionInventoryResponse();
+                if (request.Prompt.Contains("domain-neutral capability matcher", StringComparison.Ordinal))
+                    return MultiFieldLocalDecisionMatchingResponse(request.Prompt);
+                return new LLMResponse
+                {
+                    Text = MultiFieldLocalDecisionWorkflow(publishField, notifyField)
+                };
+            });
+
+        var result = await ExecuteAsync(
+            ConditionalInferredPlan(),
+            llm.Object,
+            CreateMultiFieldLocalDecisionFactory());
+
+        Assert.True(result.Success, $"{result.Error?.Code}: {result.Error?.Message} {result.Error?.Details}");
+        var capabilities = Assert.IsType<JsonArray>(
+            result.Outputs!["plan"]!["meta"]!["capability_preflight"]!["capabilities"]);
+        Assert.Single(capabilities.OfType<JsonObject>(), capability =>
+            capability["method"]?.GetValue<string>() == "decision.evaluate");
+        var activations = capabilities.OfType<JsonObject>()
+            .Where(static capability => capability["activation"] is JsonObject)
+            .Select(static capability => (JsonObject)capability["activation"]!)
+            .ToArray();
+        Assert.Equal(4, activations.Length);
+        Assert.Equal(
+            new[] { $"/{notifyField}", $"/{publishField}" },
+            activations.Select(static activation => activation["decision_output_path"]!.GetValue<string>())
+                .Distinct(StringComparer.Ordinal)
+                .Order(StringComparer.Ordinal));
+        Assert.Equal(2, activations.Count(static activation =>
+            activation["mode"]?.GetValue<string>() == "exactly_one"));
+        Assert.Equal(2, activations.Count(static activation =>
+            activation["mode"]?.GetValue<string>() == "all_on_value"));
+        Assert.All(activations, activation => Assert.Equal(
+            "local_decision",
+            activation["decision_contract_source"]!.GetValue<string>()));
+    }
+
+    [Fact]
+    public async Task InferredPreflight_ValidatesLocalDecisionThroughTypedWorkflowBoundaries()
+    {
+        const string decisionField = "conditional_decision_a5d47a4311d759db";
+        var llm = new Mock<ILLMClient>();
+        llm.Setup(client => client.CallAsync(It.IsAny<LLMRequest>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((LLMRequest request, CancellationToken _) =>
+            {
+                if (request.Prompt.Contains("domain-neutral workflow runtime analyst", StringComparison.Ordinal))
+                    return MultiSourceLocalDecisionInventoryResponse();
+                if (request.Prompt.Contains("domain-neutral capability matcher", StringComparison.Ordinal))
+                    return MultiSourceLocalDecisionMatchingResponse(request.Prompt);
+                return new LLMResponse
+                {
+                    Text = CrossWorkflowLocalDecisionWorkflow(decisionField)
+                };
+            });
+
+        var result = await ExecuteAsync(
+            ConditionalInferredPlan(),
+            llm.Object,
+            CreateMultiSourceLocalDecisionFactory());
+
+        Assert.True(result.Success, $"{result.Error?.Code}: {result.Error?.Message} {result.Error?.Details}");
+    }
+
+    [Fact]
+    public async Task InferredPreflight_RejectsLocalDecisionThatOmitsADeclaredUpstreamOperation()
+    {
+        const string decisionField = "conditional_decision_a5d47a4311d759db";
+        var unsafeWorkflow = CrossWorkflowLocalDecisionWorkflow(decisionField).Replace(
+            "when: ${data.inputs.secondary_signal}",
+            "when: ${data.inputs.primary_signal}",
+            StringComparison.Ordinal);
+        var llm = new Mock<ILLMClient>();
+        llm.Setup(client => client.CallAsync(It.IsAny<LLMRequest>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((LLMRequest request, CancellationToken _) =>
+            {
+                if (request.Prompt.Contains("domain-neutral workflow runtime analyst", StringComparison.Ordinal))
+                    return MultiSourceLocalDecisionInventoryResponse();
+                if (request.Prompt.Contains("domain-neutral capability matcher", StringComparison.Ordinal))
+                    return MultiSourceLocalDecisionMatchingResponse(request.Prompt);
+                return new LLMResponse { Text = unsafeWorkflow };
+            });
+
+        var result = await ExecuteAsync(
+            ConditionalInferredPlan(),
+            llm.Object,
+            CreateMultiSourceLocalDecisionFactory());
+
+        Assert.False(result.Success);
+        Assert.Equal(ErrorCodes.CapabilityPreflightUnavailable, result.Error!.Code);
+        Assert.Equal(
+            "conditional_local_decision_inputs_unproven",
+            result.Error.Details!["validation_issue"]!.GetValue<string>());
+    }
+
+    [Theory]
+    [InlineData(0, false)]
+    [InlineData(1, true)]
+    public async Task InferredPreflight_OffersOnlyBehavioralReadOnlyRelaxationForConditionalWrites(
+        int selectedOption,
+        bool expectSuccess)
+    {
+        const string readOnlyAnswer = "Continue read-only without the unresolved external writes";
+        var human = new OptionSelectingHumanInputProvider(selectedOption);
+        var clarificationTelemetry = CreateStepAttributeTelemetry(out var telemetryAttributes);
+        var llm = new Mock<ILLMClient>();
+        llm.Setup(client => client.CallAsync(It.IsAny<LLMRequest>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((LLMRequest request, CancellationToken _) =>
+            {
+                if (request.Prompt.Contains("workflow intent clarification analyst", StringComparison.Ordinal))
+                {
+                    return new LLMResponse
+                    {
+                        Json = new JsonObject
+                        {
+                            ["outcome"] = "sufficient",
+                            ["reason"] = "The requested behavior is initially clear.",
+                            ["questions"] = new JsonArray()
+                        }
+                    };
+                }
+
+                var relaxed = request.Prompt.Contains(readOnlyAnswer, StringComparison.Ordinal);
+                if (request.Prompt.Contains("domain-neutral workflow runtime analyst", StringComparison.Ordinal))
+                    return relaxed ? ReadOnlyInventoryResponse() : MultiSourceLocalDecisionInventoryResponse();
+                if (request.Prompt.Contains("domain-neutral capability matcher", StringComparison.Ordinal))
+                {
+                    return relaxed || !request.Prompt.Contains("compute_decisions", StringComparison.Ordinal)
+                        ? ReadOnlyMatchingResponse(request.Prompt)
+                        : MultiSourceLocalDecisionMatchingResponse(request.Prompt);
+                }
+
+                return new LLMResponse { Text = ReadOnlyWorkflow() };
+            });
+
+        var result = await ExecuteAsync(
+            ConditionalWriteRelaxationPlan(),
+            llm.Object,
+            CreateMultiSourceLocalDecisionFactory(),
+            human,
+            clarificationTelemetry);
+
+        Assert.True(
+            result.Success == expectSuccess,
+            $"{result.Error?.Code}: {result.Error?.Message} {result.Error?.Details}");
+        var request = Assert.Single(human.Requests);
+        Assert.Contains("safe read-only result", request.Prompt, StringComparison.Ordinal);
+        var field = Assert.Single(request.Fields!);
+        Assert.Equal(
+            new[]
+            {
+                "Preserve the requested write behavior and stop",
+                readOnlyAnswer
+            },
+            field.Options);
+        var serializedForm = HumanInputContract.BuildRequestPayload(request).ToJsonString();
+        Assert.DoesNotContain("cap_", serializedForm, StringComparison.Ordinal);
+        Assert.DoesNotContain("catalog", serializedForm, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("server", serializedForm, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("tool", serializedForm, StringComparison.OrdinalIgnoreCase);
+        Assert.Equal(1, telemetryAttributes["gnougo-flow.plan.intent_clarification.forms_used"]);
+        Assert.Equal(1, telemetryAttributes["gnougo-flow.plan.intent_clarification.questions_used"]);
+        Assert.Equal(
+            "conditional_write_relaxation",
+            telemetryAttributes["gnougo-flow.plan.intent_clarification.last_stage"]);
+
+        if (expectSuccess)
+        {
+            var capabilities = Assert.IsType<JsonArray>(
+                result.Outputs!["plan"]!["meta"]!["capability_preflight"]!["capabilities"]);
+            Assert.DoesNotContain(capabilities.OfType<JsonObject>(), capability =>
+                string.Equals(capability["external_effect_kind"]?.GetValue<string>(), "write", StringComparison.Ordinal));
+        }
+        else
+        {
+            Assert.Equal(ErrorCodes.CapabilityPreflightUnavailable, result.Error!.Code);
+            Assert.Equal(1, result.Error.Details!["clarification_rounds"]!.GetValue<int>());
+            Assert.Equal(1, result.Error.Details["clarification_questions"]!.GetValue<int>());
+        }
+    }
+
+    [Fact]
+    public async Task InferredPreflight_FailsClosedWhenLocalDecisionEvaluatorIsPolicyDenied()
+    {
+        var human = new RecordingHumanInputProvider(new JsonObject());
+        var llm = new Mock<ILLMClient>();
+        llm.Setup(client => client.CallAsync(It.IsAny<LLMRequest>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((LLMRequest request, CancellationToken _) =>
+            {
+                if (request.Prompt.Contains("domain-neutral workflow runtime analyst", StringComparison.Ordinal))
+                    return MultiSourceLocalDecisionInventoryResponse();
+                if (request.Prompt.Contains("domain-neutral capability matcher", StringComparison.Ordinal))
+                    return MultiSourceLocalDecisionMatchingResponse(request.Prompt);
+                throw new InvalidOperationException("Generation must not run without a policy-allowed decision evaluator.");
+            });
+
+        var result = await ExecuteAsync(
+            PolicyDeniedLocalDecisionPlan(),
+            llm.Object,
+            CreateMultiSourceLocalDecisionFactory(),
+            human);
+
+        Assert.False(result.Success);
+        Assert.True(
+            string.Equals(result.Error!.Code, ErrorCodes.CapabilityPreflightUnavailable, StringComparison.Ordinal),
+            $"{result.Error.Code}: {result.Error.Message} {result.Error.Details}");
+        Assert.Equal("conditional_decision_contract_gap", result.Error.Details!["reason"]!.GetValue<string>());
+        Assert.Empty(human.Requests);
+    }
+
+    [Fact]
     public async Task InferredPreflight_RecoversUniqueMaximalArtifactSemanticRoot()
     {
         const string generatedWorkflow = """
@@ -8786,6 +9031,546 @@ public sealed class WorkflowPlanCapabilityPreflightTests
         };
     }
 
+    private static LLMResponse MultiSourceLocalDecisionInventoryResponse()
+        => new()
+        {
+            Json = new JsonObject
+            {
+                ["complete"] = true,
+                ["incomplete_reasons"] = new JsonArray(),
+                ["external_write_confirmation_policy"] = "forbidden",
+                ["external_write_confirmation_evidence"] = Evidence(
+                    "user_request",
+                    "without human confirmation"),
+                ["operations"] = new JsonArray(
+                    DecisionRecoveryOperation("analyze_primary", "external_effect", "execute", []),
+                    DecisionRecoveryOperation("analyze_secondary", "external_effect", "execute", []),
+                    new JsonObject
+                    {
+                        ["id"] = "compute_decisions",
+                        ["description"] = "Compute finite runtime decisions from both declared analysis results.",
+                        ["required"] = true,
+                        ["execution_kind"] = "local_processing",
+                        ["external_effect_kind"] = "none",
+                        ["input_operation_ids"] = new JsonArray("analyze_primary", "analyze_secondary"),
+                        ["decision_source_operation_id"] = string.Empty,
+                        ["allow_no_effect_outcome"] = false,
+                        ["intent_origin"] = "requested_effect",
+                        ["derivation_source_operation_id"] = string.Empty
+                    },
+                    new JsonObject
+                    {
+                        ["id"] = "publish",
+                        ["description"] = "Publish one selected runtime effect or perform no external effect.",
+                        ["required"] = true,
+                        ["execution_kind"] = "external_effect",
+                        ["external_effect_kind"] = "write",
+                        ["input_operation_ids"] = new JsonArray("compute_decisions"),
+                        ["decision_source_operation_id"] = "compute_decisions",
+                        ["allow_no_effect_outcome"] = true,
+                        ["intent_origin"] = "requested_effect",
+                        ["derivation_source_operation_id"] = string.Empty
+                    }),
+                ["constraints"] = new JsonArray()
+            }
+        };
+
+    private static LLMResponse MultiSourceLocalDecisionMatchingResponse(string prompt)
+        => new()
+        {
+            Json = new JsonObject
+            {
+                ["operation_matches"] = new JsonArray(
+                    MatchedOperation("analyze_primary", CatalogIdForMethod(prompt, "analyze_primary")),
+                    MatchedOperation("analyze_secondary", CatalogIdForMethod(prompt, "analyze_secondary")),
+                    new JsonObject
+                    {
+                        ["operation_id"] = "compute_decisions",
+                        ["status"] = "local",
+                        ["catalog_ids"] = new JsonArray(),
+                        ["candidate_catalog_ids"] = new JsonArray(),
+                        ["decision_operation_id"] = string.Empty,
+                        ["conditional_mode"] = string.Empty,
+                        ["reason"] = "This is declared local processing."
+                    },
+                    new JsonObject
+                    {
+                        ["operation_id"] = "publish",
+                        ["status"] = "conditional",
+                        ["catalog_ids"] = new JsonArray(
+                            CatalogIdForBindings(prompt, ("/event", "APPROVE"), ("/method", "create")),
+                            CatalogIdForBindings(prompt, ("/event", "REQUEST_CHANGES"), ("/method", "create"))),
+                        ["candidate_catalog_ids"] = new JsonArray(),
+                        ["decision_operation_id"] = "compute_decisions",
+                        ["conditional_mode"] = "exactly_one",
+                        ["reason"] = "The local decision selects one effect or the declared no-effect result."
+                    }),
+                ["constraint_matches"] = new JsonArray()
+            }
+        };
+
+    private static LLMResponse MultiFieldLocalDecisionInventoryResponse()
+    {
+        var response = MultiSourceLocalDecisionInventoryResponse();
+        var operations = Assert.IsType<JsonArray>(response.Json!["operations"]);
+        operations.Add(new JsonObject
+        {
+            ["id"] = "notify",
+            ["description"] = "Execute both ordered publication details or perform no external effect.",
+            ["required"] = true,
+            ["execution_kind"] = "external_effect",
+            ["external_effect_kind"] = "write",
+            ["input_operation_ids"] = new JsonArray("compute_decisions"),
+            ["decision_source_operation_id"] = "compute_decisions",
+            ["allow_no_effect_outcome"] = true,
+            ["intent_origin"] = "requested_effect",
+            ["derivation_source_operation_id"] = string.Empty
+        });
+        return response;
+    }
+
+    private static LLMResponse MultiFieldLocalDecisionMatchingResponse(string prompt)
+    {
+        var response = MultiSourceLocalDecisionMatchingResponse(prompt);
+        var operations = Assert.IsType<JsonArray>(response.Json!["operation_matches"]);
+        operations.Add(new JsonObject
+        {
+            ["operation_id"] = "notify",
+            ["status"] = "conditional",
+            ["catalog_ids"] = new JsonArray(
+                CatalogIdForMethod(prompt, "record_summary"),
+                CatalogIdForMethod(prompt, "record_evidence")),
+            ["candidate_catalog_ids"] = new JsonArray(),
+            ["decision_operation_id"] = "compute_decisions",
+            ["conditional_mode"] = "all_on_value",
+            ["reason"] = "Both ordered effects execute for the finite effect value."
+        });
+        return response;
+    }
+
+    private static JsonObject MatchedOperation(string operationId, string catalogId)
+        => new()
+        {
+            ["operation_id"] = operationId,
+            ["status"] = "matched",
+            ["catalog_ids"] = new JsonArray(catalogId),
+            ["candidate_catalog_ids"] = new JsonArray(),
+            ["decision_operation_id"] = string.Empty,
+            ["conditional_mode"] = string.Empty,
+            ["reason"] = "The selected capability satisfies the operation."
+        };
+
+    private static string MultiSourceLocalDecisionWorkflow(string field) => """
+        version: 1
+        name: generated-local-decision
+        skill:
+          description: Compute and publish one finite runtime decision.
+          tags: [generated]
+          inputs: {}
+          outputs: {}
+        workflows:
+          main:
+            steps:
+              - id: analyze_primary
+                type: mcp.call
+                input:
+                  server: reviewer
+                  kind: tool
+                  method: analyze_primary
+              - id: analyze_secondary
+                type: mcp.call
+                input:
+                  server: reviewer
+                  kind: tool
+                  method: analyze_secondary
+              - id: compute_decisions
+                type: decision.evaluate
+                input:
+                  decisions:
+                    DECISION_FIELD:
+                      allowed_values: [APPROVE, REQUEST_CHANGES, NO_EFFECT]
+                      cases:
+                        - when: ${data.steps.analyze_primary.response.should_approve}
+                          value: APPROVE
+                        - when: ${data.steps.analyze_secondary.response.should_request_changes}
+                          value: REQUEST_CHANGES
+                      default: NO_EFFECT
+              - id: publish
+                type: switch
+                expr: ${data.steps.compute_decisions.DECISION_FIELD}
+                cases:
+                  - value: APPROVE
+                    steps:
+                      - id: publish_approve
+                        type: mcp.call
+                        input:
+                          server: github
+                          kind: tool
+                          method: publish_review
+                          request:
+                            method: create
+                            event: APPROVE
+                            body: Approved.
+                  - value: REQUEST_CHANGES
+                    steps:
+                      - id: publish_changes
+                        type: mcp.call
+                        input:
+                          server: github
+                          kind: tool
+                          method: publish_review
+                          request:
+                            method: create
+                            event: REQUEST_CHANGES
+                            body: Changes requested.
+                  - value: NO_EFFECT
+                    steps:
+                      - id: record_no_effect
+                        type: set
+                        input: { status: no_effect }
+                default: []
+        """.Replace("DECISION_FIELD", field, StringComparison.Ordinal);
+
+    private static string MultiFieldLocalDecisionWorkflow(string publishField, string notifyField) => """
+        version: 1
+        name: generated-multi-field-local-decision
+        skill:
+          description: Compute two finite decisions and conditionally execute their effects.
+          tags: [generated]
+          inputs: {}
+          outputs: {}
+        workflows:
+          main:
+            steps:
+              - id: analyze_primary
+                type: mcp.call
+                input:
+                  server: reviewer
+                  kind: tool
+                  method: analyze_primary
+              - id: analyze_secondary
+                type: mcp.call
+                input:
+                  server: reviewer
+                  kind: tool
+                  method: analyze_secondary
+              - id: compute_decisions
+                type: decision.evaluate
+                input:
+                  decisions:
+                    PUBLISH_FIELD:
+                      allowed_values: [APPROVE, REQUEST_CHANGES, NO_EFFECT]
+                      cases:
+                        - when: ${data.steps.analyze_primary.response.should_approve}
+                          value: APPROVE
+                        - when: ${data.steps.analyze_secondary.response.should_request_changes}
+                          value: REQUEST_CHANGES
+                      default: NO_EFFECT
+                    NOTIFY_FIELD:
+                      allowed_values: [EFFECT, NO_EFFECT]
+                      cases:
+                        - when: ${data.steps.analyze_primary.response.should_approve}
+                          value: EFFECT
+                      default: NO_EFFECT
+              - id: publish
+                type: switch
+                expr: ${data.steps.compute_decisions.PUBLISH_FIELD}
+                cases:
+                  - value: APPROVE
+                    steps:
+                      - id: publish_approve
+                        type: mcp.call
+                        input:
+                          server: github
+                          kind: tool
+                          method: publish_review
+                          request: { method: create, event: APPROVE, body: Approved. }
+                  - value: REQUEST_CHANGES
+                    steps:
+                      - id: publish_changes
+                        type: mcp.call
+                        input:
+                          server: github
+                          kind: tool
+                          method: publish_review
+                          request: { method: create, event: REQUEST_CHANGES, body: Changes requested. }
+                  - value: NO_EFFECT
+                    steps:
+                      - id: publish_no_effect
+                        type: set
+                        input: { status: no_effect }
+                default: []
+              - id: notify
+                type: switch
+                expr: ${data.steps.compute_decisions.NOTIFY_FIELD}
+                cases:
+                  - value: EFFECT
+                    steps:
+                      - id: record_summary
+                        type: mcp.call
+                        input:
+                          server: audit
+                          kind: tool
+                          method: record_summary
+                      - id: record_evidence
+                        type: mcp.call
+                        input:
+                          server: audit
+                          kind: tool
+                          method: record_evidence
+                  - value: NO_EFFECT
+                    steps:
+                      - id: notify_no_effect
+                        type: set
+                        input: { status: no_effect }
+                default: []
+        """
+        .Replace("PUBLISH_FIELD", publishField, StringComparison.Ordinal)
+        .Replace("NOTIFY_FIELD", notifyField, StringComparison.Ordinal);
+
+    private static string CrossWorkflowLocalDecisionWorkflow(string field) => """
+        version: 1
+        name: generated-cross-workflow-local-decision
+        skill:
+          description: Route two typed analysis results through one local decision and one conditional effect.
+          tags: [generated]
+          inputs: {}
+          outputs: {}
+        workflows:
+          main:
+            steps:
+              - id: analysis
+                type: workflow.call
+                input:
+                  ref: { kind: local, name: analyze_inputs }
+                  args: {}
+              - id: decision
+                type: workflow.call
+                input:
+                  ref: { kind: local, name: evaluate_decision }
+                  args:
+                    primary_signal: ${data.steps.analysis.outputs.primary_signal}
+                    secondary_signal: ${data.steps.analysis.outputs.secondary_signal}
+              - id: publication
+                type: workflow.call
+                input:
+                  ref: { kind: local, name: publish_decision }
+                  args:
+                    DECISION_FIELD: ${data.steps.decision.outputs.DECISION_FIELD}
+          analyze_inputs:
+            steps:
+              - id: analyze_primary
+                type: mcp.call
+                input:
+                  server: reviewer
+                  kind: tool
+                  method: analyze_primary
+              - id: analyze_secondary
+                type: mcp.call
+                input:
+                  server: reviewer
+                  kind: tool
+                  method: analyze_secondary
+            outputs:
+              primary_signal:
+                expr: ${data.steps.analyze_primary.response.should_approve}
+                type: boolean
+              secondary_signal:
+                expr: ${data.steps.analyze_secondary.response.should_request_changes}
+                type: boolean
+          evaluate_decision:
+            inputs:
+              primary_signal: { type: boolean }
+              secondary_signal: { type: boolean }
+            steps:
+              - id: compute_decisions
+                type: decision.evaluate
+                input:
+                  decisions:
+                    DECISION_FIELD:
+                      allowed_values: [APPROVE, REQUEST_CHANGES, NO_EFFECT]
+                      cases:
+                        - when: ${data.inputs.primary_signal}
+                          value: APPROVE
+                        - when: ${data.inputs.secondary_signal}
+                          value: REQUEST_CHANGES
+                      default: NO_EFFECT
+            outputs:
+              DECISION_FIELD:
+                expr: ${data.steps.compute_decisions.DECISION_FIELD}
+                type: string
+                enum: [APPROVE, REQUEST_CHANGES, NO_EFFECT]
+          publish_decision:
+            inputs:
+              DECISION_FIELD: { type: string }
+            steps:
+              - id: publish
+                type: switch
+                expr: ${data.inputs.DECISION_FIELD}
+                cases:
+                  - value: APPROVE
+                    steps:
+                      - id: publish_approve
+                        type: mcp.call
+                        input:
+                          server: github
+                          kind: tool
+                          method: publish_review
+                          request: { method: create, event: APPROVE, body: Approved. }
+                  - value: REQUEST_CHANGES
+                    steps:
+                      - id: publish_changes
+                        type: mcp.call
+                        input:
+                          server: github
+                          kind: tool
+                          method: publish_review
+                          request: { method: create, event: REQUEST_CHANGES, body: Changes requested. }
+                  - value: NO_EFFECT
+                    steps:
+                      - id: publish_no_effect
+                        type: set
+                        input: { status: no_effect }
+                default: []
+        """.Replace("DECISION_FIELD", field, StringComparison.Ordinal);
+
+    private static InMemoryMcpClientFactory CreateMultiSourceLocalDecisionFactory()
+    {
+        var booleanOutput = JsonNode.Parse("""
+            {
+              "type": "object",
+              "properties": {
+                "should_approve": { "type": "boolean" },
+                "should_request_changes": { "type": "boolean" }
+              },
+              "required": ["should_approve", "should_request_changes"],
+              "additionalProperties": false
+            }
+            """);
+        var factory = new InMemoryMcpClientFactory();
+        factory.RegisterServer("reviewer", new MockMcpServerConfig
+        {
+            Tools =
+            [
+                new McpToolInfo { Name = "analyze_primary", Description = "Produce the first boolean signals.", OutputSchema = booleanOutput!.DeepClone() },
+                new McpToolInfo { Name = "analyze_secondary", Description = "Produce the second boolean signals.", OutputSchema = booleanOutput.DeepClone() }
+            ]
+        });
+        RegisterDecisionWriter(factory);
+        return factory;
+    }
+
+    private static InMemoryMcpClientFactory CreateMultiFieldLocalDecisionFactory()
+    {
+        var factory = CreateMultiSourceLocalDecisionFactory();
+        factory.RegisterServer("audit", new MockMcpServerConfig
+        {
+            Tools =
+            [
+                new McpToolInfo
+                {
+                    Name = "record_summary",
+                    Description = "Record the first ordered effect."
+                },
+                new McpToolInfo
+                {
+                    Name = "record_evidence",
+                    Description = "Record the second ordered effect."
+                }
+            ]
+        });
+        return factory;
+    }
+
+    private static IWorkflowTelemetry CreateNormalizationTelemetry(
+        List<IReadOnlyList<KeyValuePair<string, object?>>> normalizationEvents)
+    {
+        var telemetry = new Mock<IWorkflowTelemetry>();
+        var workflowSpan = new Mock<IWorkflowSpan>();
+        var stepSpan = new Mock<IStepSpan>();
+        var internalSpan = new Mock<ITelemetrySpan>();
+        telemetry.Setup(value => value.WorkflowStart(It.IsAny<WorkflowTelemetryInfo>()))
+            .Returns(workflowSpan.Object);
+        telemetry.Setup(value => value.WorkflowStart(It.IsAny<ITelemetrySpan>(), It.IsAny<WorkflowTelemetryInfo>()))
+            .Returns(workflowSpan.Object);
+        telemetry.Setup(value => value.StepStart(It.IsAny<ITelemetrySpan>(), It.IsAny<StepTelemetryInfo>()))
+            .Returns(stepSpan.Object);
+        telemetry.Setup(value => value.SpanStart(It.IsAny<ITelemetrySpan>(), It.IsAny<TelemetrySpanInfo>()))
+            .Returns(internalSpan.Object);
+        internalSpan.Setup(value => value.AddEvent(
+                "gnougo-flow.plan.capability_matching.normalization",
+                It.IsAny<IReadOnlyList<KeyValuePair<string, object?>>?>()))
+            .Callback((string _, IReadOnlyList<KeyValuePair<string, object?>>? attributes) =>
+                normalizationEvents.Add(attributes ?? []));
+        return telemetry.Object;
+    }
+
+    private static IWorkflowTelemetry CreateStepAttributeTelemetry(
+        out Dictionary<string, object?> attributes)
+    {
+        attributes = new Dictionary<string, object?>(StringComparer.Ordinal);
+        var captured = attributes;
+        var telemetry = new Mock<IWorkflowTelemetry>();
+        var workflowSpan = new Mock<IWorkflowSpan>();
+        var stepSpan = new Mock<IStepSpan>();
+        var internalSpan = new Mock<ITelemetrySpan>();
+        telemetry.Setup(value => value.WorkflowStart(It.IsAny<WorkflowTelemetryInfo>()))
+            .Returns(workflowSpan.Object);
+        telemetry.Setup(value => value.WorkflowStart(It.IsAny<ITelemetrySpan>(), It.IsAny<WorkflowTelemetryInfo>()))
+            .Returns(workflowSpan.Object);
+        telemetry.Setup(value => value.StepStart(It.IsAny<ITelemetrySpan>(), It.IsAny<StepTelemetryInfo>()))
+            .Returns(stepSpan.Object);
+        telemetry.Setup(value => value.SpanStart(It.IsAny<ITelemetrySpan>(), It.IsAny<TelemetrySpanInfo>()))
+            .Returns(internalSpan.Object);
+        stepSpan.Setup(value => value.SetAttribute(It.IsAny<string>(), It.IsAny<object?>()))
+            .Callback((string key, object? value) => captured[key] = value);
+        return telemetry.Object;
+    }
+
+    private static LLMResponse ReadOnlyInventoryResponse()
+        => new()
+        {
+            Json = new JsonObject
+            {
+                ["complete"] = true,
+                ["incomplete_reasons"] = new JsonArray(),
+                ["external_write_confirmation_policy"] = "unspecified",
+                ["operations"] = new JsonArray(
+                    DecisionRecoveryOperation("analyze_primary", "external_effect", "read", [])),
+                ["constraints"] = new JsonArray()
+            }
+        };
+
+    private static LLMResponse ReadOnlyMatchingResponse(string prompt)
+        => new()
+        {
+            Json = new JsonObject
+            {
+                ["operation_matches"] = new JsonArray(
+                    MatchedOperation("analyze_primary", CatalogIdForMethod(prompt, "analyze_primary"))),
+                ["constraint_matches"] = new JsonArray()
+            }
+        };
+
+    private static string ReadOnlyWorkflow() => """
+        version: 1
+        name: generated-read-only-result
+        skill:
+          description: Return the requested read-only analysis result.
+          tags: [generated]
+          inputs: {}
+          outputs: {}
+        workflows:
+          main:
+            steps:
+              - id: analyze_primary
+                type: mcp.call
+                input:
+                  server: reviewer
+                  kind: tool
+                  method: analyze_primary
+        """;
+
     private static JsonObject DecisionRecoveryOperation(
         string id,
         string executionKind,
@@ -10056,6 +10841,79 @@ public sealed class WorkflowPlanCapabilityPreflightTests
             .Replace("max_repair_attempts: 3", "max_repair_attempts: 1", StringComparison.Ordinal);
     }
 
+    private static string CrossWorkflowWorkspaceWorkflow(
+        string inspectProjectRoot,
+        string verifyProjectRoot) => $$"""
+        version: 1
+        name: generated-workspace-pipeline
+        skill:
+          description: Materialize and analyze one workspace.
+          tags: [generated]
+          inputs: {}
+          outputs: {}
+        workflows:
+          main:
+            steps:
+              - id: produce
+                type: workflow.call
+                input:
+                  ref: { kind: local, name: materialize_workspace }
+                  args:
+                    source_url: https://example.invalid/source
+              - id: inspect
+                type: workflow.call
+                input:
+                  ref: { kind: local, name: inspect_workspace }
+                  args:
+                    project_root: {{inspectProjectRoot}}
+              - id: verify
+                type: workflow.call
+                input:
+                  ref: { kind: local, name: verify_workspace }
+                  args:
+                    project_root: {{verifyProjectRoot}}
+          materialize_workspace:
+            inputs:
+              source_url: { type: string, required: true }
+            steps:
+              - id: materialize
+                type: mcp.call
+                input:
+                  server: workspace-provider
+                  kind: tool
+                  method: create_workspace
+                  request:
+                    sourceUrl: ${data.inputs.source_url}
+            outputs:
+              project_root:
+                expr: ${data.steps.materialize.response.projectRootRelative}
+                type: string
+          inspect_workspace:
+            inputs:
+              project_root: { type: string, required: true }
+            steps:
+              - id: inspect_call
+                type: mcp.call
+                input:
+                  server: workspace-consumer
+                  kind: tool
+                  method: inspect_workspace
+                  request:
+                    projectRoot: ${data.inputs.project_root}
+          verify_workspace:
+            inputs:
+              project_root: { type: string, required: true }
+            steps:
+              - id: verify_call
+                type: mcp.call
+                input:
+                  server: workspace-consumer
+                  kind: tool
+                  method: verify_workspace
+                  request:
+                    projectRoot: ${data.inputs.project_root}
+        """;
+
     private static string ExplicitPlan(string requirements) => $$"""
         version: 1
         workflows:
@@ -10113,11 +10971,64 @@ public sealed class WorkflowPlanCapabilityPreflightTests
                     max_attempts: 1
         """;
 
+    private static string PolicyDeniedLocalDecisionPlan() => """
+        version: 1
+        workflows:
+          main:
+            steps:
+              - id: plan
+                type: workflow.plan
+                input:
+                  mode: basic
+                  capability_preflight:
+                    mode: infer
+                  generator:
+                    model: gpt-4
+                    prefilter: false
+                    instruction: Review a change and publish whichever decision is determined at runtime without human confirmation.
+                  policy:
+                    allowed_step_types: [mcp.call, switch, set]
+                    denied_step_types: [decision.evaluate]
+                    allow_remote_workflow_refs: false
+                  on_invalid:
+                    max_attempts: 1
+        """;
+
     private static string ClarifyingConditionalInferredPlan()
         => ConditionalInferredPlan().Replace(
             "mode: infer\n                  generator:",
             "mode: infer\n                    clarification:\n                      enabled: true\n                      timeout_ms: 60000\n                  generator:",
             StringComparison.Ordinal);
+
+    private static string ConditionalWriteRelaxationPlan() => """
+        version: 1
+        workflows:
+          main:
+            steps:
+              - id: plan
+                type: workflow.plan
+                input:
+                  mode: basic
+                  raw_prompt: Analyze two runtime results and conditionally publish one outcome without human confirmation.
+                  intent_clarification:
+                    mode: when_needed
+                    timeout_ms: 60000
+                    max_rounds: 3
+                    max_questions: 15
+                    max_questions_per_round: 5
+                  capability_preflight:
+                    mode: infer
+                  generator:
+                    model: gpt-4
+                    prefilter: false
+                    instruction: Analyze two runtime results and conditionally publish one outcome without human confirmation.
+                  policy:
+                    allowed_step_types: [mcp.call, switch, set]
+                    denied_step_types: [decision.evaluate, workflow.plan, workflow.execute]
+                    allow_remote_workflow_refs: false
+                  on_invalid:
+                    max_attempts: 1
+        """;
 
     private static string ClarifyingInferredPlan() => """
         version: 1

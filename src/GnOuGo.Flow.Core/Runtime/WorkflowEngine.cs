@@ -1142,6 +1142,7 @@ public sealed class WorkflowEngine : IWorkflowRuntime
         registry.Register(new Executors.LoopSequentialExecutor());
         registry.Register(new Executors.LoopParallelExecutor());
         registry.Register(new Executors.SwitchExecutor());
+        registry.Register(new Executors.DecisionEvaluateExecutor());
         registry.Register(new Executors.SetExecutor());
         registry.Register(new Executors.AssertNonNullExecutor());
         registry.Register(new Executors.TemplateRenderExecutor());

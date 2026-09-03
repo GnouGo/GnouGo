@@ -680,6 +680,9 @@ public sealed partial class WorkflowPlanExecutor
                 $"Intent clarification exceeds the {MaxIntentClarificationTotalAnswerCharacters}-character total limit.");
 
         session.AddAnswers(assessment.Questions, answers);
+        ctx.SetTelemetryAttribute("gnougo-flow.plan.intent_clarification.forms_used", session.FormsUsed);
+        ctx.SetTelemetryAttribute("gnougo-flow.plan.intent_clarification.questions_used", session.QuestionsUsed);
+        ctx.SetTelemetryAttribute("gnougo-flow.plan.intent_clarification.last_stage", stage);
         ctx.AddTelemetryEvent("gnougo-flow.step.human_input_resumed", new[]
         {
             new KeyValuePair<string, object?>("gnougo-flow.human.run_id", request.RunId),
@@ -773,7 +776,7 @@ public sealed partial class WorkflowPlanExecutor
                           ["planning_outcome"] = "clarification_failed",
                           ["clarification_stage"] = stage,
                           ["recommended_action"] = "retry_or_refine_request"
-        };
+                      };
         details["classification"] = classification;
         if (inner is not null)
             details["reason"] = BuildSafeIntentClarificationFailureReason(inner);

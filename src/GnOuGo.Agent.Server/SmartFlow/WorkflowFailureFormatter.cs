@@ -54,15 +54,21 @@ internal static class WorkflowFailureFormatter
             && (error.Code == ErrorCodes.WorkflowPlanClarificationFailed
                 || error.Code == ErrorCodes.WorkflowPlanCannotPlanSafely
                 || error.Code == ErrorCodes.WorkflowPlanAborted
-                || error.Code == ErrorCodes.CapabilityPreflightInferenceFailed))
+                || error.Code == ErrorCodes.CapabilityPreflightInferenceFailed
+                || error.Code == ErrorCodes.CapabilityPreflightUnavailable))
         {
             var stage = ReadBoundedStringDeep(error.Details, "clarification_stage", 120);
             var classification = ReadBoundedStringDeep(error.Details, "classification", 160);
             var reason = ReadBoundedStringDeep(error.Details, "reason", 2_000);
             var recommendedAction = ReadBoundedStringDeep(error.Details, "recommended_action", 160);
-            builder.AppendLine().AppendLine(error.Code == ErrorCodes.CapabilityPreflightInferenceFailed
-                ? "Capability planning outcome:"
-                : "Intent clarification outcome:");
+            var clarificationRounds = ReadIntDeep(error.Details, "clarification_rounds");
+            var clarificationQuestions = ReadIntDeep(error.Details, "clarification_questions");
+            builder.AppendLine().AppendLine(error.Code switch
+            {
+                ErrorCodes.CapabilityPreflightUnavailable => "Terminal capability failure:",
+                ErrorCodes.CapabilityPreflightInferenceFailed => "Automatic capability-contract repair outcome:",
+                _ => "Intent clarification outcome:"
+            });
             builder.Append("- Outcome: ").AppendLine(Sanitize(planningOutcome, 80));
             if (!string.IsNullOrWhiteSpace(stage))
                 builder.Append("- Stage: ").AppendLine(Sanitize(stage, 120));
@@ -70,6 +76,10 @@ internal static class WorkflowFailureFormatter
                 builder.Append("- Classification: ").AppendLine(Sanitize(classification, 160));
             if (!string.IsNullOrWhiteSpace(reason))
                 builder.Append("- Reason: ").AppendLine(Sanitize(reason, 2_000));
+            if (clarificationRounds != null)
+                builder.Append("- Submitted clarification forms: ").AppendLine(clarificationRounds.Value.ToString(System.Globalization.CultureInfo.InvariantCulture));
+            if (clarificationQuestions != null)
+                builder.Append("- Submitted clarification questions: ").AppendLine(clarificationQuestions.Value.ToString(System.Globalization.CultureInfo.InvariantCulture));
             if (!string.IsNullOrWhiteSpace(recommendedAction)
                 && !string.Equals(recommendedAction, "none", StringComparison.Ordinal))
             {
@@ -168,6 +178,10 @@ internal static class WorkflowFailureFormatter
                 ReadBoundedString(issue, "status", 40),
                 "ambiguous",
                 StringComparison.Ordinal));
+            var onlyContractGaps = matchingIssues.All(static issue => string.Equals(
+                ReadBoundedString(issue, "status", 40),
+                "contract_gap",
+                StringComparison.Ordinal));
             builder.AppendLine().AppendLine("Capability matching issues:");
             foreach (var issue in matchingIssues)
             {
@@ -211,6 +225,10 @@ internal static class WorkflowFailureFormatter
             else if (onlyAmbiguousMatches)
             {
                 builder.Append("Clarify the observable behavior, scope, or runtime policy that distinguishes the remaining capability choices.");
+            }
+            else if (onlyContractGaps)
+            {
+                builder.Append("Automatic contract repair was exhausted. A safe behavior-only relaxation was unavailable, declined, or outside the remaining clarification budget; planning stopped before generation and persistence.");
             }
             else
             {

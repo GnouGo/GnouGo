@@ -2225,22 +2225,8 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
                   + firstContractFailure!.Message;
             try
             {
-            var response = useStructuredOutput
-                ? await ExecutePipelineLlmStructuredPhaseAsync(
-                    llmClient,
-                    "review_extraction_quality",
-                    prompt,
-                    provider,
-                    model,
-                    reasoning,
-                    ctx,
-                    ct,
-                    attempt,
-                    maxAttempts,
-                    BuildExtractionQualityReviewStructuredOutputSchema())
-                : new LLMResponse
-                {
-                    Text = await ExecutePipelineLlmTextPhaseAsync(
+                var response = useStructuredOutput
+                    ? await ExecutePipelineLlmStructuredPhaseAsync(
                         llmClient,
                         "review_extraction_quality",
                         prompt,
@@ -2250,26 +2236,40 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
                         ctx,
                         ct,
                         attempt,
-                        maxAttempts)
-                };
+                        maxAttempts,
+                        BuildExtractionQualityReviewStructuredOutputSchema())
+                    : new LLMResponse
+                    {
+                        Text = await ExecutePipelineLlmTextPhaseAsync(
+                            llmClient,
+                            "review_extraction_quality",
+                            prompt,
+                            provider,
+                            model,
+                            reasoning,
+                            ctx,
+                            ct,
+                            attempt,
+                            maxAttempts)
+                    };
 
-            var review = NormalizeExtractionQualityReviewAgainstLockedContracts(
-                normalizedMarkdown,
-                extraction,
-                pipelineMcpContext,
-                ParseExtractionQualityReviewResponse(response));
-            if (reviewBaseline?.QualityReview != null)
-            {
-                review = StabilizePipelineExtractionQualityReviewAgainstBaseline(
-                    reviewBaseline,
+                var review = NormalizeExtractionQualityReviewAgainstLockedContracts(
+                    normalizedMarkdown,
                     extraction,
-                    review,
-                    addressedDiagnosticCodes ?? new HashSet<string>(StringComparer.Ordinal));
-            }
-            ctx.SetTelemetryAttribute("gnougo-flow.plan.pipeline.extraction_quality.score", review.Score);
-            ctx.SetTelemetryAttribute("gnougo-flow.plan.pipeline.extraction_quality.verdict", review.Verdict);
-            ctx.SetTelemetryAttribute("gnougo-flow.plan.pipeline.extraction_quality.diagnostic_count", review.Diagnostics.Count);
-            return extraction with { QualityReview = review };
+                    pipelineMcpContext,
+                    ParseExtractionQualityReviewResponse(response));
+                if (reviewBaseline?.QualityReview != null)
+                {
+                    review = StabilizePipelineExtractionQualityReviewAgainstBaseline(
+                        reviewBaseline,
+                        extraction,
+                        review,
+                        addressedDiagnosticCodes ?? new HashSet<string>(StringComparer.Ordinal));
+                }
+                ctx.SetTelemetryAttribute("gnougo-flow.plan.pipeline.extraction_quality.score", review.Score);
+                ctx.SetTelemetryAttribute("gnougo-flow.plan.pipeline.extraction_quality.verdict", review.Verdict);
+                ctx.SetTelemetryAttribute("gnougo-flow.plan.pipeline.extraction_quality.diagnostic_count", review.Diagnostics.Count);
+                return extraction with { QualityReview = review };
             }
             catch (OperationCanceledException)
             {
@@ -4588,47 +4588,47 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
                 yield break;
 
             case "array":
-            {
-                if (obj["items"] is not JsonObject items)
                 {
-                    yield return WeakExtractionSchemaDiagnostic($"{path}.items", "array contract must declare concrete items", isInput);
+                    if (obj["items"] is not JsonObject items)
+                    {
+                        yield return WeakExtractionSchemaDiagnostic($"{path}.items", "array contract must declare concrete items", isInput);
+                        yield break;
+                    }
+
+                    foreach (var diagnostic in EnumerateWeakExtractionSchemaDiagnostics(items, $"{path}.items", isInput))
+                        yield return diagnostic;
                     yield break;
                 }
-
-                foreach (var diagnostic in EnumerateWeakExtractionSchemaDiagnostics(items, $"{path}.items", isInput))
-                    yield return diagnostic;
-                yield break;
-            }
 
             case "object":
-            {
-                if (obj["properties"] is not JsonObject properties || properties.Count == 0)
                 {
-                    yield return WeakExtractionSchemaDiagnostic($"{path}.properties", "object contract must declare non-empty properties", isInput);
+                    if (obj["properties"] is not JsonObject properties || properties.Count == 0)
+                    {
+                        yield return WeakExtractionSchemaDiagnostic($"{path}.properties", "object contract must declare non-empty properties", isInput);
+                        yield break;
+                    }
+
+                    foreach (var (propertyName, propertySchema) in properties)
+                    {
+                        foreach (var diagnostic in EnumerateWeakExtractionSchemaDiagnostics(propertySchema, $"{path}.properties.{propertyName}", isInput))
+                            yield return diagnostic;
+                    }
                     yield break;
                 }
-
-                foreach (var (propertyName, propertySchema) in properties)
-                {
-                    foreach (var diagnostic in EnumerateWeakExtractionSchemaDiagnostics(propertySchema, $"{path}.properties.{propertyName}", isInput))
-                        yield return diagnostic;
-                }
-                yield break;
-            }
 
             case "dictionary":
-            {
-                var additionalProperties = obj["additional_properties"] ?? obj["additionalProperties"];
-                if (additionalProperties is not JsonObject additionalPropertiesObject)
                 {
-                    yield return WeakExtractionSchemaDiagnostic($"{path}.additional_properties", "dictionary contract must declare concrete additional_properties", isInput);
+                    var additionalProperties = obj["additional_properties"] ?? obj["additionalProperties"];
+                    if (additionalProperties is not JsonObject additionalPropertiesObject)
+                    {
+                        yield return WeakExtractionSchemaDiagnostic($"{path}.additional_properties", "dictionary contract must declare concrete additional_properties", isInput);
+                        yield break;
+                    }
+
+                    foreach (var diagnostic in EnumerateWeakExtractionSchemaDiagnostics(additionalPropertiesObject, $"{path}.additional_properties", isInput))
+                        yield return diagnostic;
                     yield break;
                 }
-
-                foreach (var diagnostic in EnumerateWeakExtractionSchemaDiagnostics(additionalPropertiesObject, $"{path}.additional_properties", isInput))
-                    yield return diagnostic;
-                yield break;
-            }
         }
     }
 
@@ -9894,14 +9894,14 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
 
             case JsonObject obj:
                 foreach (var (_, child) in obj)
-                foreach (var item in EnumerateJsonScalarStrings(child))
-                    yield return item;
+                    foreach (var item in EnumerateJsonScalarStrings(child))
+                        yield return item;
                 break;
 
             case JsonArray array:
                 foreach (var child in array)
-                foreach (var item in EnumerateJsonScalarStrings(child))
-                    yield return item;
+                    foreach (var item in EnumerateJsonScalarStrings(child))
+                        yield return item;
                 break;
         }
     }
@@ -10893,6 +10893,7 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
         - Cleanup may consume exact artifact/materializer outputs declared in generated_leaf_contracts_yaml and exact caller-chosen creation targets documented by a selected materializer input contract. Never invent generic fields such as `created_directories`, `paths`, or `resources` on a leaf that does not declare them.
         - When cleanup is required for a caller-chosen creation target, derive and register that exact target before invoking the materializer, then reconcile its returned materialized artifact after success without duplicate registry entries. This keeps partial materialization failures cleanable.
         - If a value is required by a generated leaf input contract, pass it in the leaf args or derive it in an earlier support step.
+        - Preserve operational artifact provenance across leaf calls. When a consuming leaf uses one of its inputs as a required artifact locator, bind that exact leaf argument directly from a compatible materializer leaf output. Reuse the same unchanged producer expression for every compatible consumer; do not substitute a caller input, literal, template, cast, function, concatenation, or reconstructed path.
         - Do not add MCP, LLM, template, workflow.plan, raw workflow.call, or native orchestration steps not listed in main_required_native_steps_json to the main graph.
         """);
     }
@@ -10928,6 +10929,14 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
             sb.AppendLine("- Preserve the already valid conditional switch and its owning leaf. Repair only the parent workflow.call args and output routing that carry the declared decision field from its producer leaf to its consumer leaf.");
             sb.AppendLine("- Keep the declared decision boundary field name unchanged at every workflow boundary. Use only a direct expression, a same-named `set` projection, or a same-named `assert.non_null` refinement.");
             sb.AppendLine("- Do not alias, recompute, coerce, concatenate, default, or source the decision from an unproven caller input.");
+        }
+        if (structuredError.Contains("unproven_artifact_provenance", StringComparison.Ordinal))
+        {
+            sb.AppendLine("Artifact provenance routing repair:");
+            sb.AppendLine("- Each diagnostic `caller_bindings` entry identifies the parent leaf call and exact argument path whose current value is unproven. Repair those parent args; do not alter the consuming leaf merely because it reads `data.inputs.<name>`.");
+            sb.AppendLine("- Find the compatible materializer leaf output in `generated_leaf_contracts_yaml`, then bind each listed argument directly to `${data.steps.<materializer-call-id>.outputs.<declared-output-name>}` (or the exact equivalent path through a containing branch or loop result). Preserve the producer value unchanged.");
+            sb.AppendLine("- Reuse one compatible materializer result for all consumers of the same artifact. Keep every consumer leaf's declared argument name even when producer and consumer field names differ.");
+            sb.AppendLine("- A raw public input, literal, set-to-literal, function, template, cast, concatenation, normalized path, or reconstructed value does not prove a materialized artifact. Do not add a public input to bypass the producer.");
         }
         if (!string.IsNullOrWhiteSpace(previousResponse))
             AppendPromptSection(sb, "invalid_main_assembly_yaml", StripMarkdownFences(previousResponse));
@@ -11706,10 +11715,10 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
                 ["leaf_intent_validated"] = true,
                 ["leaf_contracts_validated"] = true,
                 ["main_dataflow_validated"] = true,
-            ["strong_output_schemas_validated"] = true,
-            ["workflow_hierarchy_validated"] = true,
-            ["extraction_quality_reviewed"] = extraction.QualityReview != null
-        },
+                ["strong_output_schemas_validated"] = true,
+                ["workflow_hierarchy_validated"] = true,
+                ["extraction_quality_reviewed"] = extraction.QualityReview != null
+            },
             ["extraction"] = new JsonObject
             {
                 ["main_workflow_prompt"] = extraction.MainWorkflowPrompt,
@@ -13684,14 +13693,14 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
 
             case JsonObject obj:
                 foreach (var (name, child) in obj)
-                foreach (var item in EnumerateJsonExpressionTexts(child, field + "." + name))
-                    yield return item;
+                    foreach (var item in EnumerateJsonExpressionTexts(child, field + "." + name))
+                        yield return item;
                 break;
 
             case JsonArray array:
                 for (var i = 0; i < array.Count; i++)
-                foreach (var item in EnumerateJsonExpressionTexts(array[i], $"{field}[{i}]"))
-                    yield return item;
+                    foreach (var item in EnumerateJsonExpressionTexts(array[i], $"{field}[{i}]"))
+                        yield return item;
                 break;
         }
     }
@@ -13714,15 +13723,15 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
             if (step.Branches != null)
             {
                 foreach (var branch in step.Branches)
-                foreach (var child in EnumeratePipelineStepPaths(branch.Steps, nestedAncestors))
-                    yield return child;
+                    foreach (var child in EnumeratePipelineStepPaths(branch.Steps, nestedAncestors))
+                        yield return child;
             }
 
             if (step.Cases != null)
             {
                 foreach (var @case in step.Cases)
-                foreach (var child in EnumeratePipelineStepPaths(@case.Steps, nestedAncestors))
-                    yield return child;
+                    foreach (var child in EnumeratePipelineStepPaths(@case.Steps, nestedAncestors))
+                        yield return child;
             }
 
             if (step.Default != null)
@@ -13980,6 +13989,8 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
                         .Select(static value => (JsonNode?)JsonValue.Create(value)).ToArray()),
                     ["decision_contract_source"] = tool.Activation.DecisionContractSource,
                     ["decision_producer_catalog_id"] = tool.Activation.DecisionProducerCatalogId,
+                    ["decision_input_operation_ids"] = BuildStringArrayJson(
+                        tool.Activation.DecisionInputOperationIds),
                     ["branch_value"] = tool.Activation.BranchValue
                 }
         };
@@ -14041,26 +14052,26 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
                 };
 
             case YamlSequenceNode sequence:
-            {
-                var clone = new YamlSequenceNode
                 {
-                    Style = sequence.Style
-                };
-                foreach (var child in sequence.Children)
-                    clone.Add(CloneYamlNode(child));
-                return clone;
-            }
+                    var clone = new YamlSequenceNode
+                    {
+                        Style = sequence.Style
+                    };
+                    foreach (var child in sequence.Children)
+                        clone.Add(CloneYamlNode(child));
+                    return clone;
+                }
 
             case YamlMappingNode mapping:
-            {
-                var clone = new YamlMappingNode
                 {
-                    Style = mapping.Style
-                };
-                foreach (var (key, value) in mapping.Children)
-                    clone.Add(CloneYamlNode(key), CloneYamlNode(value));
-                return clone;
-            }
+                    var clone = new YamlMappingNode
+                    {
+                        Style = mapping.Style
+                    };
+                    foreach (var (key, value) in mapping.Children)
+                        clone.Add(CloneYamlNode(key), CloneYamlNode(value));
+                    return clone;
+                }
 
             default:
                 throw new WorkflowRuntimeException(

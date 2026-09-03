@@ -6014,6 +6014,7 @@ workflows:
         Assert.Contains("To flatten loop results", assemblyPrompt);
         Assert.Contains("Do not add MCP, LLM, template, workflow.plan, raw workflow.call, or native orchestration steps not listed in main_required_native_steps_json", assemblyPrompt);
         Assert.Contains("Put required resource cleanup in graph.finally.", assemblyPrompt);
+        Assert.Contains("Preserve operational artifact provenance across leaf calls.", assemblyPrompt);
         Assert.DoesNotContain("generated_leaf_workflows_yaml", assemblyPrompt);
         Assert.DoesNotContain("version: 1\nname: list-issues-leaf", assemblyPrompt);
     }
