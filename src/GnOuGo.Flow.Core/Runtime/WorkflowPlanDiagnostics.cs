@@ -175,6 +175,11 @@ internal static class WorkflowPlanDiagnostics
         return diagnostics.ToHashSet(StringComparer.Ordinal);
     }
 
+    public static bool IsStrictDiagnosticDecrease(
+        IReadOnlySet<string> candidate,
+        IReadOnlySet<string> baseline)
+        => candidate.Count < baseline.Count && candidate.IsSubsetOf(baseline);
+
     public static bool IsTransientProviderFailure(Exception exception)
         => LlmFailureClassifier.Classify(exception)?.Retryable == true;
 
@@ -229,7 +234,8 @@ internal static class WorkflowPlanDiagnostics
                     var identityFields = new[]
                     {
                         "phase", "workflow", "workflow_name", "step", "step_id", "field", "location",
-                        "path", "invalid_path", "expected", "actual_type"
+                        "path", "invalid_path", "leaf", "leaf_name", "output", "output_name",
+                        "consumer", "consumer_step_id", "remediation_surface", "expected", "actual_type"
                     };
                     var identity = new StringBuilder(code.Trim().ToUpperInvariant());
                     foreach (var field in identityFields)

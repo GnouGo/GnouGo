@@ -700,8 +700,9 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
                                 bestAssemblyCandidateFingerprint,
                                 StringComparison.Ordinal);
                             var diagnosticsStrictlyDecreased = bestAssemblyDiagnosticIdentities != null
-                                && diagnosticIdentities.Count < bestAssemblyDiagnosticIdentities.Count
-                                && diagnosticIdentities.IsSubsetOf(bestAssemblyDiagnosticIdentities);
+                                && WorkflowPlanDiagnostics.IsStrictDiagnosticDecrease(
+                                    diagnosticIdentities,
+                                    bestAssemblyDiagnosticIdentities);
                             var candidateImproved = !string.IsNullOrWhiteSpace(previousAssemblyResponse)
                                                     && candidateIsNew
                                                     && (bestAssemblyResponse == null
@@ -1692,9 +1693,19 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
 
                     var patchOperationCount = repairApplication?.OperationCount ?? 0;
                     var candidateFingerprint = BuildPipelineExtractionFingerprint(extraction);
+                    var candidateDiagnosticIdentities = BuildPipelineExtractionBlockingDiagnosticIdentities(extraction);
+                    var bestDiagnosticIdentities = bestValidatedCandidate == null
+                        ? null
+                        : BuildPipelineExtractionBlockingDiagnosticIdentities(bestValidatedCandidate);
                     var previousBestScore = bestValidatedCandidate?.QualityReview?.Score;
                     extractionSpan.SetAttribute("gnougo-flow.plan.pipeline.candidate.fingerprint", candidateFingerprint);
                     extractionSpan.SetAttribute("gnougo-flow.plan.pipeline.candidate.score", extraction.QualityReview?.Score);
+                    extractionSpan.SetAttribute(
+                        "gnougo-flow.plan.pipeline.candidate.diagnostic_count",
+                        candidateDiagnosticIdentities.Count);
+                    extractionSpan.SetAttribute(
+                        "gnougo-flow.plan.pipeline.candidate.best_diagnostic_count",
+                        bestDiagnosticIdentities?.Count);
                     extractionSpan.SetAttribute(
                         "gnougo-flow.plan.pipeline.candidate.score_change",
                         previousBestScore == null || extraction.QualityReview == null
@@ -1719,12 +1730,14 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
                         deterministicRegressionPatchAttempts = 0;
                         validationNonImprovingPatchAttempts = 0;
                         extractionSpan.SetAttribute("gnougo-flow.plan.pipeline.patch.accepted", repairApplication != null);
+                        extractionSpan.SetAttribute("gnougo-flow.plan.pipeline.candidate.accepted", true);
                     }
                     else if (repairApplication != null)
                     {
                         rejectedPatchAttempts++;
                         qualityNonImprovingPatchAttempts++;
                         extractionSpan.SetAttribute("gnougo-flow.plan.pipeline.patch.accepted", false);
+                        extractionSpan.SetAttribute("gnougo-flow.plan.pipeline.candidate.accepted", false);
                         extractionSpan.SetAttribute("gnougo-flow.plan.pipeline.patch.rejected_attempts", rejectedPatchAttempts);
                         extractionSpan.SetAttribute("gnougo-flow.plan.pipeline.patch.quality_non_improving_attempts", qualityNonImprovingPatchAttempts);
                         if (rejectedPatchAttempts >= 2)
@@ -6024,9 +6037,14 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
 
     private static int GetPipelineGenerationMaxAttempts(JsonObject pipelineInput)
     {
-        var configured = TryGetPositiveInteger(pipelineInput["validate"] as JsonObject, "max_repair_attempts")
-            ?? TryGetPositiveInteger(pipelineInput["on_invalid"] as JsonObject, "max_attempts")
-            ?? DefaultPlanRepairMaxAttempts;
+        var configuredRepairs = TryGetPositiveInteger(
+            pipelineInput["validate"] as JsonObject,
+            "max_repair_attempts");
+        if (configuredRepairs.HasValue)
+            return checked(configuredRepairs.Value + 1);
+
+        var configured = TryGetPositiveInteger(pipelineInput["on_invalid"] as JsonObject, "max_attempts")
+                         ?? DefaultPlanRepairMaxAttempts;
         return Math.Max(1, configured);
     }
 
@@ -6713,7 +6731,7 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
     private static void ForceSinglePlanAttempt(JsonObject planInput)
     {
         if (planInput["validate"] is JsonObject validate)
-            validate["max_repair_attempts"] = 1;
+            validate.Remove("max_repair_attempts");
         planInput["on_invalid"] = new JsonObject { ["action"] = "fail", ["max_attempts"] = 1 };
     }
 

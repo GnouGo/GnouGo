@@ -36,14 +36,11 @@ class _WorkflowPlanSinglePlanMixin:
         limits = input_obj.get("limits") if isinstance(input_obj.get("limits"), dict) else {}
         validate = input_obj.get("validate") if isinstance(input_obj.get("validate"), dict) else {}
         on_invalid = input_obj.get("on_invalid") if isinstance(input_obj.get("on_invalid"), dict) else {}
-        max_attempts = max(
-            1,
-            int(
-                on_invalid.get(
-                    "max_attempts",
-                    validate.get("max_repair_attempts", 3),
-                )
-            ),
+        configured_repairs = validate.get("max_repair_attempts")
+        max_attempts = (
+            max(1, int(configured_repairs)) + 1
+            if configured_repairs is not None
+            else max(1, int(on_invalid.get("max_attempts", 3)))
         )
         on_invalid_action = str(
             on_invalid.get("action", "reprompt" if preflight.mode != "off" else "fail")
@@ -249,10 +246,8 @@ class _WorkflowPlanSinglePlanMixin:
                 diagnostic_codes = set(self._planner_diagnostic_codes(exc))
                 diagnostic_identities = self._planner_diagnostic_identities(exc)
                 candidate_is_new = candidate_fingerprint != best_candidate_fingerprint
-                diagnostics_decreased = (
-                    best_diagnostic_identities is not None
-                    and len(diagnostic_identities) < len(best_diagnostic_identities)
-                    and diagnostic_identities.issubset(best_diagnostic_identities)
+                diagnostics_decreased = best_diagnostic_identities is not None and self._is_strict_diagnostic_decrease(
+                    diagnostic_identities, best_diagnostic_identities
                 )
                 candidate_improved = candidate_is_new and (
                     best_candidate_yaml is None

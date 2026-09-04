@@ -1232,6 +1232,15 @@ public class WorkflowPlanExecutorTests
     {
         Assert.NotNull(request.StructuredOutputSchema);
         Assert.DoesNotContain("uniqueItems", request.StructuredOutputSchema!.ToJsonString(), StringComparison.Ordinal);
+        foreach (var operation in operations.OfType<JsonObject>())
+        {
+            if (operation["leaf"] is not JsonObject leaf)
+                continue;
+            foreach (var field in (leaf["inputs"] as JsonArray ?? []).OfType<JsonObject>())
+                CompleteStructuredExtractionField(field);
+            foreach (var field in (leaf["outputs"] as JsonArray ?? []).OfType<JsonObject>())
+                CompleteStructuredExtractionField(field);
+        }
 
         const string startTag = "<base_fingerprint>";
         const string endTag = "</base_fingerprint>";
@@ -3010,6 +3019,25 @@ public class WorkflowPlanExecutorTests
         Assert.Equal("pass", reviewType.GetProperty("Verdict")!.GetValue(stabilized));
     }
 
+    [Fact]
+    public void PipelineExtractionConvergence_RequiresStrictDiagnosticSubset()
+    {
+        var baseline = CreatePrivatePatchCandidateWithQualityDiagnostics(
+            ("FIRST_BLOCKER", "first_leaf"),
+            ("SECOND_BLOCKER", "second_leaf"));
+        var strictDecrease = CreatePrivatePatchCandidateWithQualityDiagnostics(
+            ("FIRST_BLOCKER", "first_leaf"));
+        var sameSizeChurn = CreatePrivatePatchCandidateWithQualityDiagnostics(
+            ("FIRST_BLOCKER", "first_leaf"),
+            ("NEW_BLOCKER", "second_leaf"));
+        var method = typeof(WorkflowPlanExecutor).GetMethod(
+            "IsPipelineExtractionCandidateStrictlyBetter",
+            BindingFlags.NonPublic | BindingFlags.Static)!;
+
+        Assert.True(Assert.IsType<bool>(method.Invoke(null, [strictDecrease, 1, baseline, 0])));
+        Assert.False(Assert.IsType<bool>(method.Invoke(null, [sameSizeChurn, 1, baseline, 0])));
+    }
+
     [Theory]
     [InlineData("locked_ownership")]
     [InlineData("generated_workflow_topology")]
@@ -3069,6 +3097,42 @@ public class WorkflowPlanExecutorTests
             includeLocalOperation: true,
             includeNativeStep: true,
             leafNames);
+
+    private static object CreatePrivatePatchCandidateWithQualityDiagnostics(
+        params (string Code, string LeafName)[] values)
+    {
+        var extractionType = GetPrivatePipelineType("WorkflowPipelineExtraction");
+        var reviewType = GetPrivatePipelineType("PipelineExtractionQualityReview");
+        var diagnosticType = GetPrivatePipelineType("PipelineExtractionQualityDiagnostic");
+        var candidate = CreatePrivatePatchCandidate("first_leaf", "second_leaf");
+        var diagnostics = values.Select(value => CreatePrivatePipelineValue(
+            diagnosticType,
+            value.Code,
+            "plan_defect",
+            "critical",
+            value.LeafName,
+            "The typed boundary is incomplete.",
+            "Complete the typed boundary.",
+            CreatePrivatePipelineArray(GetPrivatePipelineType("PipelineExtractionQualityEvidence")),
+            true,
+            "extraction_contract")).ToArray();
+        var review = CreatePrivatePipelineValue(
+            reviewType,
+            50,
+            "retry",
+            CreatePrivatePipelineArray(diagnosticType, diagnostics),
+            "Complete the typed boundaries.");
+        return CreatePrivatePipelineValue(
+            extractionType,
+            extractionType.GetProperty("Subworkflows")!.GetValue(candidate),
+            extractionType.GetProperty("MainWorkflowPrompt")!.GetValue(candidate),
+            extractionType.GetProperty("ValidationErrors")!.GetValue(candidate),
+            extractionType.GetProperty("RootCauses")!.GetValue(candidate),
+            review,
+            extractionType.GetProperty("QualityWarnings")!.GetValue(candidate),
+            extractionType.GetProperty("MainLocalOperationIds")!.GetValue(candidate),
+            extractionType.GetProperty("MainNativeSteps")!.GetValue(candidate));
+    }
 
     private static object CreatePrivateConditionalBoundaryCandidate(
         bool includeSharedBoundary,
@@ -6946,7 +7010,8 @@ workflows:
                     prefilter: false
                   validate:
                     compile: false
-                    max_repair_attempts: 1
+                  on_invalid:
+                    max_attempts: 1
         """);
 
         var result = await new WorkflowEngine
@@ -7099,7 +7164,8 @@ workflows:
                     prefilter: true
                   validate:
                     compile: false
-                    max_repair_attempts: 1
+                  on_invalid:
+                    max_attempts: 1
         """);
 
         var result = await new WorkflowEngine
@@ -7257,7 +7323,8 @@ workflows:
                     prefilter: true
                   validate:
                     compile: false
-                    max_repair_attempts: 1
+                  on_invalid:
+                    max_attempts: 1
         """);
 
         var result = await new WorkflowEngine
@@ -7462,7 +7529,8 @@ workflows:
                     prefilter: true
                   validate:
                     compile: false
-                    max_repair_attempts: 1
+                  on_invalid:
+                    max_attempts: 1
         """);
 
         var result = await new WorkflowEngine
@@ -7717,7 +7785,8 @@ workflows:
                     prefilter: true
                   validate:
                     compile: false
-                    max_repair_attempts: 1
+                  on_invalid:
+                    max_attempts: 1
         """);
 
         var result = await new WorkflowEngine
@@ -8297,7 +8366,8 @@ workflows:
                     prefilter: false
                   validate:
                     compile: false
-                    max_repair_attempts: 1
+                  on_invalid:
+                    max_attempts: 1
         """);
 
         var result = await new WorkflowEngine
@@ -8493,7 +8563,8 @@ workflows:
                     prefilter: false
                   validate:
                     compile: false
-                    max_repair_attempts: 1
+                  on_invalid:
+                    max_attempts: 1
         """);
 
         var result = await new WorkflowEngine
@@ -9807,7 +9878,8 @@ workflows:
                     prefilter: false
                   validate:
                     compile: false
-                    max_repair_attempts: 1
+                  on_invalid:
+                    max_attempts: 1
         """);
 
         var result = await new WorkflowEngine
@@ -9925,7 +9997,8 @@ workflows:
                     prefilter: false
                   validate:
                     compile: false
-                    max_repair_attempts: 1
+                  on_invalid:
+                    max_attempts: 1
         """);
 
         var result = await new WorkflowEngine

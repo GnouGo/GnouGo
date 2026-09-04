@@ -387,6 +387,7 @@ workflows:
                 mode: strict    
                 compile: true
                 dry_run: true
+                max_repair_attempts: 3
               on_invalid:
                 action: reprompt
                 max_attempts: 3
@@ -791,6 +792,7 @@ workflows:
                   validate:
                     compile: true
                     dry_run: true
+                    max_repair_attempts: 3
                   on_invalid:
                     action: reprompt
                     max_attempts: 3

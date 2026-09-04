@@ -148,6 +148,63 @@ public sealed class WorkflowPlanStructuredGenerationTests
     }
 
     [Fact]
+    public void DiagnosticIdentities_DistinguishSameCodeAtDifferentLeaves()
+    {
+        var exception = new WorkflowRuntimeException(
+            ErrorCodes.TemplatePlan,
+            "Validation failed.",
+            details: new JsonObject
+            {
+                ["diagnostics"] = new JsonArray
+                {
+                    new JsonObject { ["code"] = "OUTPUT_CONTRACT_INCOMPLETE", ["leaf_name"] = "first_leaf" },
+                    new JsonObject { ["code"] = "OUTPUT_CONTRACT_INCOMPLETE", ["leaf_name"] = "second_leaf" }
+                }
+            });
+
+        var identities = WorkflowPlanDiagnostics.BuildDiagnosticIdentities(exception);
+
+        Assert.Equal(2, identities.Count);
+        Assert.All(identities, static identity => Assert.Contains("leaf_name=", identity, StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void StrictDiagnosticDecrease_RequiresAnActualSubset()
+    {
+        IReadOnlySet<string> baseline = new HashSet<string>(["A|leaf=one", "B|leaf=two"], StringComparer.Ordinal);
+
+        Assert.True(WorkflowPlanDiagnostics.IsStrictDiagnosticDecrease(
+            new HashSet<string>(["A|leaf=one"], StringComparer.Ordinal),
+            baseline));
+        Assert.False(WorkflowPlanDiagnostics.IsStrictDiagnosticDecrease(
+            new HashSet<string>(["C|leaf=three"], StringComparer.Ordinal),
+            baseline));
+        Assert.False(WorkflowPlanDiagnostics.IsStrictDiagnosticDecrease(
+            new HashSet<string>(baseline, StringComparer.Ordinal),
+            baseline));
+    }
+
+    [Fact]
+    public void PreferredRepairBudget_IsInAdditionToInitialCandidate_WhileLegacyLimitRemainsTotal()
+    {
+        var basicBudget = typeof(WorkflowPlanExecutor).GetMethod(
+            "GetWorkflowPlanRepairMaxAttempts",
+            BindingFlags.Static | BindingFlags.NonPublic)!;
+        var pipelineBudget = typeof(WorkflowPlanExecutor).GetMethod(
+            "GetPipelineGenerationMaxAttempts",
+            BindingFlags.Static | BindingFlags.NonPublic)!;
+        var validate = new JsonObject { ["max_repair_attempts"] = 3 };
+        var legacy = new JsonObject { ["max_attempts"] = 3 };
+
+        Assert.Equal(4, Assert.IsType<int>(basicBudget.Invoke(null, [legacy, validate])));
+        Assert.Equal(3, Assert.IsType<int>(basicBudget.Invoke(null, [legacy, null])));
+        Assert.Equal(4, Assert.IsType<int>(pipelineBudget.Invoke(null,
+        [
+            new JsonObject { ["validate"] = validate.DeepClone(), ["on_invalid"] = legacy.DeepClone() }
+        ])));
+    }
+
+    [Fact]
     public async Task BasicGeneration_WrongLockedFingerprint_RetriesExactContractThenFailsAtomically()
     {
         var client = new RecordingClient(request =>

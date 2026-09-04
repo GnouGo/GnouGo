@@ -2282,7 +2282,9 @@ public sealed class WorkflowPlanCapabilityPreflightTests
                 - server: object-storage
                   kind: tool
                   method: get_object
-            """).Replace("max_repair_attempts: 3", "max_repair_attempts: 1", StringComparison.Ordinal);
+            """)
+            .Replace("validate:", "on_invalid:", StringComparison.Ordinal)
+            .Replace("max_repair_attempts: 3", "max_attempts: 1", StringComparison.Ordinal);
 
         var result = await ExecuteAsync(plan, llm.Object, CreateNeutralFactory());
 

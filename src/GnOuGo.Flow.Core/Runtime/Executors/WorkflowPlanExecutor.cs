@@ -884,8 +884,9 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
                     bestGenerationCandidateFingerprint,
                     StringComparison.Ordinal);
                 var diagnosticsStrictlyDecreased = bestGenerationDiagnosticIdentities != null
-                    && failedDiagnosticIdentities.Count < bestGenerationDiagnosticIdentities.Count
-                    && failedDiagnosticIdentities.IsSubsetOf(bestGenerationDiagnosticIdentities);
+                    && WorkflowPlanDiagnostics.IsStrictDiagnosticDecrease(
+                        failedDiagnosticIdentities,
+                        bestGenerationDiagnosticIdentities);
                 var candidateImproved = candidateIsNew
                     && (bestGenerationYaml == null
                         || candidateValidationProgress > bestGenerationValidationProgress
@@ -1032,9 +1033,12 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
 
     private static int GetWorkflowPlanRepairMaxAttempts(JsonObject? onInvalid, JsonObject? validate)
     {
-        var configured = TryGetPositiveInteger(validate, "max_repair_attempts")
-            ?? TryGetPositiveInteger(onInvalid, "max_attempts")
-            ?? DefaultPlanRepairMaxAttempts;
+        var configuredRepairs = TryGetPositiveInteger(validate, "max_repair_attempts");
+        if (configuredRepairs.HasValue)
+            return checked(configuredRepairs.Value + 1);
+
+        var configured = TryGetPositiveInteger(onInvalid, "max_attempts")
+                         ?? DefaultPlanRepairMaxAttempts;
 
         return Math.Max(1, configured);
     }

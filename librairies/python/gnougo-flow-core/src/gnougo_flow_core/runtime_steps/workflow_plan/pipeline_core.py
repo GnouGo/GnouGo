@@ -226,10 +226,8 @@ class _WorkflowPlanPipelineCoreMixin:
                 current_diagnostic_codes = set(self._planner_diagnostic_codes(exc))
                 current_diagnostic_identities = self._planner_diagnostic_identities(exc)
                 candidate_is_new = candidate_fingerprint != best_candidate_fingerprint
-                diagnostics_decreased = (
-                    best_diagnostic_identities is not None
-                    and len(current_diagnostic_identities) < len(best_diagnostic_identities)
-                    and current_diagnostic_identities.issubset(best_diagnostic_identities)
+                diagnostics_decreased = best_diagnostic_identities is not None and self._is_strict_diagnostic_decrease(
+                    current_diagnostic_identities, best_diagnostic_identities
                 )
                 candidate_improved = candidate_is_new and (
                     best_response is None

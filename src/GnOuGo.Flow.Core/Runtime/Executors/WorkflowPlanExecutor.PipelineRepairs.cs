@@ -83,6 +83,7 @@ public sealed partial class WorkflowPlanExecutor
         sb.AppendLine("- Conditional decision_operation_id ownership is immutable. The leaf or main contract listed as that local operation's owner must derive the runtime decision. A different orchestration surface may only route the typed decision output; it must not claim to recompute or own it.");
         sb.AppendLine("- Main native-step ownership is exact. Preserve every entry in candidate_extraction.main_native_steps and remove any human confirmation or other native interaction described by main when no matching entry is locked there.");
         sb.AppendLine("- Address every compatible blocking diagnostic in this one patch; do not make cosmetic edits that leave a reported ownership or schema defect unchanged.");
+        sb.AppendLine("- Treat every field explicitly named by a blocking diagnostic message or recommendation as one required correction checklist. When its evidence supports the field, reproduce the complete named field set in the affected typed boundary; do not repair only the first example or retain a lossy summary.");
         sb.AppendLine("- A cross-leaf value route is one atomic contract edge: the source leaf must expose a typed output, the destination leaf must accept a compatible typed input, and main orchestration must pass that exact value between them. When a diagnostic reports a missing route, combine replace_leaf and replace_main_orchestration operations in the same patch whenever both surfaces are incomplete; changing prose on only one side does not repair the edge.");
         sb.AppendLine("- Reuse the exact existing producer output field name and schema for a missing consumer input when they are compatible. Do not rename, recompute, summarize, or substitute a sibling field while repairing a cross-leaf edge.");
         sb.AppendLine("- For every reported weak object or object-array schema, add nested properties only when the normalized request, locked capability contract, or an existing typed boundary proves those fields. Otherwise simplify an unused opaque object boundary to an evidence-supported scalar or array of scalars, or remove that unused output and update orchestration; never invent domain fields merely to satisfy validation.");
@@ -90,6 +91,19 @@ public sealed partial class WorkflowPlanExecutor
         sb.AppendLine("- Every leaf payload is complete and strongly typed. Use an empty string only for target/main_orchestration fields unused by that operation, an empty sources array when unused, and null leaf when unused.");
         sb.AppendLine();
         AppendPromptSection(sb, "base_fingerprint", fingerprint);
+        AppendPromptSection(sb, "normalized_prompt", normalizedMarkdown);
+        AppendPromptSection(
+            sb,
+            "candidate_extraction",
+            BuildExtractionJson(bestCandidate with { QualityReview = null }).ToJsonString(PromptJsonOptions));
+        AppendPromptSection(sb, "immutable_leaf_ownership", BuildPipelinePatchOwnershipSummary(bestCandidate).ToJsonString(PromptJsonOptions));
+        AppendPromptSection(sb, "conditional_decision_ownership", BuildPipelineConditionalDecisionOwnershipSummary(bestCandidate).ToJsonString(PromptJsonOptions));
+        AppendPromptSection(sb, "capability_contract", BuildPipelineMcpContextJson(pipelineMcpContext).ToJsonString(PromptJsonOptions));
+        sb.AppendLine();
+        sb.AppendLine("Final repair checklist (authoritative and intentionally repeated after the contract context):");
+        sb.AppendLine("- Address every listed blocking diagnostic in the smallest coherent patch.");
+        sb.AppendLine("- Re-read every affected leaf payload before returning it and verify that all fields named by each message and recommendation are present with concrete schemas.");
+        sb.AppendLine("- Do not claim a diagnostic code unless the emitted operations actually change its cited extraction surface.");
         AppendPromptSection(
             sb,
             "addressable_diagnostic_codes",
@@ -99,14 +113,6 @@ public sealed partial class WorkflowPlanExecutor
             sb,
             "blocking_diagnostics_json",
             BuildPipelinePatchBlockingDiagnosticsJson(bestCandidate.QualityReview).ToJsonString(PromptJsonOptions));
-        AppendPromptSection(sb, "normalized_prompt", normalizedMarkdown);
-        AppendPromptSection(
-            sb,
-            "candidate_extraction",
-            BuildExtractionJson(bestCandidate with { QualityReview = null }).ToJsonString(PromptJsonOptions));
-        AppendPromptSection(sb, "immutable_leaf_ownership", BuildPipelinePatchOwnershipSummary(bestCandidate).ToJsonString(PromptJsonOptions));
-        AppendPromptSection(sb, "conditional_decision_ownership", BuildPipelineConditionalDecisionOwnershipSummary(bestCandidate).ToJsonString(PromptJsonOptions));
-        AppendPromptSection(sb, "capability_contract", BuildPipelineMcpContextJson(pipelineMcpContext).ToJsonString(PromptJsonOptions));
         return sb.ToString();
     }
 
@@ -206,7 +212,7 @@ public sealed partial class WorkflowPlanExecutor
             "contract_field": {
               "type": "object",
               "additionalProperties": false,
-              "required": ["name", "type", "description", "required", "nullable", "item_type", "properties"],
+              "required": ["name", "type", "description", "required", "nullable", "item_type", "properties", "enum_values"],
               "properties": {
                 "name": { "type": "string" },
                 "type": { "type": "string", "enum": ["string", "number", "boolean", "array", "object", "dictionary", "any"] },
@@ -214,7 +220,8 @@ public sealed partial class WorkflowPlanExecutor
                 "required": { "type": "boolean" },
                 "nullable": { "type": "boolean" },
                 "item_type": { "type": "string" },
-                "properties": { "type": "array", "items": { "$ref": "#/$defs/contract_field" } }
+                "properties": { "type": "array", "items": { "$ref": "#/$defs/contract_field" } },
+                "enum_values": { "type": "array", "items": { "type": "string" } }
               }
             },
             "leaf": {
@@ -635,9 +642,55 @@ public sealed partial class WorkflowPlanExecutor
         WorkflowPipelineExtraction best,
         int bestPatchOperations)
     {
-        var candidateRank = BuildPipelineExtractionCandidateRank(candidate, candidatePatchOperations);
-        var bestRank = BuildPipelineExtractionCandidateRank(best, bestPatchOperations);
-        return candidateRank.CompareTo(bestRank) < 0;
+        _ = candidatePatchOperations;
+        _ = bestPatchOperations;
+        return WorkflowPlanDiagnostics.IsStrictDiagnosticDecrease(
+            BuildPipelineExtractionBlockingDiagnosticIdentities(candidate),
+            BuildPipelineExtractionBlockingDiagnosticIdentities(best));
+    }
+
+    private static IReadOnlySet<string> BuildPipelineExtractionBlockingDiagnosticIdentities(
+        WorkflowPipelineExtraction extraction)
+    {
+        var qualityDiagnostics = new JsonArray((extraction.QualityReview?.Diagnostics
+                ?? Array.Empty<PipelineExtractionQualityDiagnostic>())
+            .Where(static diagnostic => diagnostic.EvidenceQualified
+                                        && string.Equals(diagnostic.Severity, "critical", StringComparison.Ordinal))
+            .Select(static diagnostic => (JsonNode)new JsonObject
+            {
+                ["code"] = diagnostic.Code,
+                ["leaf_name"] = diagnostic.LeafName ?? string.Empty,
+                ["remediation_surface"] = diagnostic.RemediationSurface,
+                ["location"] = string.Join(",", (diagnostic.Evidence
+                        ?? Array.Empty<PipelineExtractionQualityEvidence>())
+                    .Where(static evidence => string.Equals(evidence.Source, "extraction", StringComparison.Ordinal))
+                    .Select(static evidence => evidence.Reference)
+                    .Where(static reference => !string.IsNullOrWhiteSpace(reference))
+                    .Distinct(StringComparer.Ordinal)
+                    .Order(StringComparer.Ordinal))
+            })
+            .ToArray());
+        var rootCauses = BuildPipelineRootCausesJson(extraction.RootCauses);
+        var identities = new HashSet<string>(StringComparer.Ordinal);
+        if (qualityDiagnostics.Count > 0 || rootCauses.Count > 0)
+        {
+            var details = new JsonObject
+            {
+                ["diagnostics"] = qualityDiagnostics,
+                ["root_causes"] = rootCauses
+            };
+            var exception = new WorkflowRuntimeException(
+                ErrorCodes.TemplatePlan,
+                "Pipeline extraction diagnostics.",
+                details: details);
+            identities.UnionWith(WorkflowPlanDiagnostics.BuildDiagnosticIdentities(exception));
+        }
+        foreach (var validationError in extraction.ValidationErrors)
+        {
+            var separator = validationError.IndexOf(':');
+            identities.Add((separator < 0 ? validationError : validationError[..separator]).Trim().ToUpperInvariant());
+        }
+        return identities;
     }
 
     private static bool IsPipelineExtractionPatchableInvalidCandidate(
@@ -1134,23 +1187,6 @@ public sealed partial class WorkflowPlanExecutor
            && string.Equals(GetStringProperty(details, "stage"), "review_extraction_quality", StringComparison.Ordinal)
            && string.Equals(GetStringProperty(details, "classification"), "contract_violation", StringComparison.Ordinal);
 
-    private static PipelineExtractionCandidateRank BuildPipelineExtractionCandidateRank(
-        WorkflowPipelineExtraction extraction,
-        int patchOperations)
-    {
-        var diagnostics = extraction.QualityReview?.Diagnostics ?? Array.Empty<PipelineExtractionQualityDiagnostic>();
-        var qualifiedCritical = diagnostics.Count(static diagnostic =>
-            diagnostic.EvidenceQualified
-            && string.Equals(diagnostic.Severity, "critical", StringComparison.Ordinal));
-        var warnings = diagnostics.Count(static diagnostic =>
-            string.Equals(diagnostic.Severity, "warning", StringComparison.Ordinal));
-        return new PipelineExtractionCandidateRank(
-            qualifiedCritical,
-            warnings,
-            -(extraction.QualityReview?.Score ?? 0),
-            patchOperations);
-    }
-
     private static WorkflowRuntimeException BuildPipelineExtractionRepairStalledException(
         int attempt,
         string reason,
@@ -1226,27 +1262,6 @@ public sealed partial class WorkflowPlanExecutor
 
     private static bool IsPipelineExtractionRepairStalled(Exception exception)
         => exception is WorkflowRuntimeException { Code: ErrorCodes.WorkflowPlanRepairStalled };
-
-    private readonly record struct PipelineExtractionCandidateRank(
-        int CriticalCount,
-        int WarningCount,
-        int NegativeScore,
-        int PatchOperationCount) : IComparable<PipelineExtractionCandidateRank>
-    {
-        public int CompareTo(PipelineExtractionCandidateRank other)
-        {
-            var comparison = CriticalCount.CompareTo(other.CriticalCount);
-            if (comparison != 0)
-                return comparison;
-            comparison = WarningCount.CompareTo(other.WarningCount);
-            if (comparison != 0)
-                return comparison;
-            comparison = NegativeScore.CompareTo(other.NegativeScore);
-            if (comparison != 0)
-                return comparison;
-            return PatchOperationCount.CompareTo(other.PatchOperationCount);
-        }
-    }
 
     private static string RenderPipelineExtractionAsAnnotatedMarkdown(WorkflowPipelineExtraction extraction)
     {

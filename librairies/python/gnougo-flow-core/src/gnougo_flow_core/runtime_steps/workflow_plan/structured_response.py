@@ -263,6 +263,13 @@ class _WorkflowPlanStructuredResponseMixin:
             "location",
             "path",
             "invalid_path",
+            "leaf",
+            "leaf_name",
+            "output",
+            "output_name",
+            "consumer",
+            "consumer_step_id",
+            "remediation_surface",
             "expected",
             "actual_type",
         )
@@ -305,6 +312,10 @@ class _WorkflowPlanStructuredResponseMixin:
             code = getattr(exc, "code", None)
             identities.add(code if isinstance(code, str) and code else ErrorCodes.TEMPLATE_PLAN)
         return identities
+
+    @staticmethod
+    def _is_strict_diagnostic_decrease(candidate: set[str], baseline: set[str]) -> bool:
+        return len(candidate) < len(baseline) and candidate.issubset(baseline)
 
     @staticmethod
     def _required_response_string(response: LLMResponse, property_name: str, phase: str) -> str:

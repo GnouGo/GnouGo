@@ -53,6 +53,32 @@ def test_structured_convergence_identities_distinguish_validated_locations() -> 
     }
 
 
+def test_structured_convergence_identities_distinguish_validated_leaves() -> None:
+    error = WorkflowRuntimeException(
+        ErrorCodes.TEMPLATE_PLAN,
+        "Validation failed.",
+        details={
+            "diagnostics": [
+                {"code": "OUTPUT_CONTRACT_INCOMPLETE", "leaf_name": "first_leaf"},
+                {"code": "OUTPUT_CONTRACT_INCOMPLETE", "leaf_name": "second_leaf"},
+            ]
+        },
+    )
+
+    assert WorkflowPlanExecutor._planner_diagnostic_identities(error) == {
+        "OUTPUT_CONTRACT_INCOMPLETE|leaf_name=first_leaf",
+        "OUTPUT_CONTRACT_INCOMPLETE|leaf_name=second_leaf",
+    }
+
+
+def test_structured_convergence_strict_decrease_requires_subset() -> None:
+    baseline = {"A|leaf=one", "B|leaf=two"}
+
+    assert WorkflowPlanExecutor._is_strict_diagnostic_decrease({"A|leaf=one"}, baseline)
+    assert not WorkflowPlanExecutor._is_strict_diagnostic_decrease({"C|leaf=three"}, baseline)
+    assert not WorkflowPlanExecutor._is_strict_diagnostic_decrease(set(baseline), baseline)
+
+
 def assert_openai_strict_schema(schema: object, path: str = "$") -> None:
     if isinstance(schema, list):
         for index, item in enumerate(schema):
@@ -439,7 +465,12 @@ async def test_workflow_plan_basic_strict_generation_retries_contract_once(
         assert llm.requests[0].prompt == llm.requests[1].prompt
 
 
-async def execute_strict_repair_plan(llm, max_attempts=3):
+async def execute_strict_repair_plan(llm, max_attempts=3, max_repair_attempts=None):
+    repair_budget = (
+        f"max_repair_attempts: {max_repair_attempts}"
+        if max_repair_attempts is not None
+        else ""
+    )
     source = f"""
     version: 1
     workflows:
@@ -456,6 +487,7 @@ async def execute_strict_repair_plan(llm, max_attempts=3):
                 prefilter: false
               validate:
                 compile: false
+                {repair_budget}
               on_invalid:
                 action: reprompt
                 max_attempts: {max_attempts}
@@ -480,6 +512,19 @@ async def test_workflow_plan_basic_strict_repair_locks_candidate_and_diagnostics
     assert repair_properties["base_candidate_fingerprint"]["enum"][0]
     assert repair_properties["diagnostic_fingerprint"]["enum"][0]
     assert repair_properties["addressed_diagnostic_codes"]["items"]["enum"]
+
+
+@pytest.mark.asyncio
+async def test_workflow_plan_preferred_repair_budget_is_after_initial_candidate() -> None:
+    llm = StructuredRepairPlanLlm("repair")
+
+    result = await execute_strict_repair_plan(llm, max_attempts=1, max_repair_attempts=1)
+
+    assert result.success is True
+    assert len(llm.requests) == 2
+    assert WorkflowPlanExecutor._get_pipeline_generation_max_attempts(
+        {"validate": {"max_repair_attempts": 3}, "on_invalid": {"max_attempts": 3}}
+    ) == 4
 
 
 @pytest.mark.asyncio

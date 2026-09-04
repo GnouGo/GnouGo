@@ -66,6 +66,7 @@ public sealed class EmbeddedWorkflowResourcesTests
         Assert.Contains("unverifiable: fail", yaml, StringComparison.Ordinal);
         Assert.Contains("raw_prompt: \"${data.steps.normalized_prompt.description}\"", yaml, StringComparison.Ordinal);
         Assert.Contains("reasoning: medium", yaml, StringComparison.Ordinal);
+        Assert.Contains("max_repair_attempts: 3", yaml, StringComparison.Ordinal);
         Assert.Contains("max_attempts: 3", yaml, StringComparison.Ordinal);
         Assert.DoesNotContain("max_attempts: 10", yaml, StringComparison.Ordinal);
         Assert.Contains("Enumerate every required positive external read, write, side effect", yaml, StringComparison.Ordinal);
