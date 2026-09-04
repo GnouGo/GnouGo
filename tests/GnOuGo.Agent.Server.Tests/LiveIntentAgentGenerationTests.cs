@@ -335,7 +335,7 @@ public sealed class LiveIntentAgentGenerationTests
                     }
                     else if (acceptanceSucceeded)
                     {
-                        budgetLedger.Delete();
+                        budgetLedger.MarkFinalAcceptanceCompleted(cycleBudget.Snapshot);
                     }
                     else
                     {
@@ -627,6 +627,9 @@ public sealed class LiveIntentAgentGenerationTests
 
     private static void ValidateLivePhase(LiveBudgetLedger ledger, int generationCount)
     {
+        if (ledger.FinalAcceptanceCompleted)
+            throw new InvalidOperationException(
+                "The final live acceptance already succeeded. Retain this immutable redacted ledger for audit and attest a new dedicated provider project before starting another cycle.");
         if (generationCount == 1 && ledger.Exists && ledger.DiagnosticGenerationCompleted)
             throw new InvalidOperationException(
                 "The one-generation diagnostic phase already succeeded. Complete the final three-generation phase with this ledger, or attest a new dedicated provider project before starting another cycle.");
@@ -1880,7 +1883,7 @@ public sealed class LiveIntentAgentGenerationTests
 
     internal sealed class LiveBudgetLedger : ILLMUsageBudgetSink
     {
-        private const int CurrentVersion = 3;
+        private const int CurrentVersion = 4;
         private readonly object _gate = new();
         private readonly string _path;
         private readonly LiveBudgetDefinition _definition;
@@ -1891,7 +1894,8 @@ public sealed class LiveIntentAgentGenerationTests
             bool exists,
             LLMUsageBudgetSnapshot snapshot,
             bool probeCompleted,
-            bool diagnosticGenerationCompleted)
+            bool diagnosticGenerationCompleted,
+            bool finalAcceptanceCompleted)
         {
             _path = path;
             _definition = definition;
@@ -1899,12 +1903,14 @@ public sealed class LiveIntentAgentGenerationTests
             Snapshot = snapshot;
             ProbeCompleted = probeCompleted;
             DiagnosticGenerationCompleted = diagnosticGenerationCompleted;
+            FinalAcceptanceCompleted = finalAcceptanceCompleted;
         }
 
         public bool Exists { get; private set; }
         public LLMUsageBudgetSnapshot Snapshot { get; private set; }
         public bool ProbeCompleted { get; private set; }
         public bool DiagnosticGenerationCompleted { get; private set; }
+        public bool FinalAcceptanceCompleted { get; private set; }
 
         public static LiveBudgetLedger Open(string path, LiveBudgetDefinition definition)
         {
@@ -1919,7 +1925,8 @@ public sealed class LiveIntentAgentGenerationTests
                         EstimatedCostCurrency = definition.AuthorizedBudget.Currency
                     },
                     probeCompleted: false,
-                    diagnosticGenerationCompleted: false);
+                    diagnosticGenerationCompleted: false,
+                    finalAcceptanceCompleted: false);
 
             JsonObject root;
             try
@@ -1965,7 +1972,8 @@ public sealed class LiveIntentAgentGenerationTests
                 exists: true,
                 snapshot,
                 ReadRequiredBoolean(root, "probe_completed"),
-                ReadRequiredBoolean(root, "diagnostic_generation_completed"));
+                ReadRequiredBoolean(root, "diagnostic_generation_completed"),
+                ReadRequiredBoolean(root, "final_acceptance_completed"));
         }
 
         public void PinExchangeRate(CurrencyExchangeQuote quote)
@@ -2019,6 +2027,18 @@ public sealed class LiveIntentAgentGenerationTests
             }
         }
 
+        public void MarkFinalAcceptanceCompleted(LLMUsageBudgetSnapshot snapshot)
+        {
+            lock (_gate)
+            {
+                if (!ProbeCompleted || !DiagnosticGenerationCompleted)
+                    throw new InvalidOperationException("Final live acceptance cannot be recorded before the provider probe and diagnostic generation succeed.");
+                Snapshot = snapshot with { ExchangeRates = snapshot.ExchangeRates.ToArray() };
+                FinalAcceptanceCompleted = true;
+                PersistLocked();
+            }
+        }
+
         public void Delete()
         {
             lock (_gate)
@@ -2061,7 +2081,8 @@ public sealed class LiveIntentAgentGenerationTests
                     ["source"] = quote.Source
                 }).ToArray()),
                 ["probe_completed"] = ProbeCompleted,
-                ["diagnostic_generation_completed"] = DiagnosticGenerationCompleted
+                ["diagnostic_generation_completed"] = DiagnosticGenerationCompleted,
+                ["final_acceptance_completed"] = FinalAcceptanceCompleted
             };
 
             var temporaryPath = _path + $".{Environment.ProcessId}.tmp";

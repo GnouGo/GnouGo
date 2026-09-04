@@ -32,11 +32,13 @@ public sealed class LiveIntentBudgetLedgerTests
             await ledger.PersistAsync(snapshot, TestContext.Current.CancellationToken);
             ledger.MarkProbeCompleted(snapshot);
             ledger.MarkDiagnosticGenerationCompleted(snapshot);
+            ledger.MarkFinalAcceptanceCompleted(snapshot);
 
             var reloaded = LiveIntentAgentGenerationTests.LiveBudgetLedger.Open(path, BudgetDefinition);
             Assert.True(reloaded.Exists);
             Assert.True(reloaded.ProbeCompleted);
             Assert.True(reloaded.DiagnosticGenerationCompleted);
+            Assert.True(reloaded.FinalAcceptanceCompleted);
             Assert.Equal(snapshot, reloaded.Snapshot);
 
             var raw = await File.ReadAllTextAsync(path, TestContext.Current.CancellationToken);
@@ -207,6 +209,10 @@ public sealed class LiveIntentBudgetLedgerTests
             var repeatedDiagnostic = Assert.Throws<TargetInvocationException>(() => method.Invoke(null, [ledger, 1]));
             Assert.IsType<InvalidOperationException>(repeatedDiagnostic.InnerException);
             method.Invoke(null, [ledger, 3]);
+
+            ledger.MarkFinalAcceptanceCompleted(snapshot);
+            var repeatedFinal = Assert.Throws<TargetInvocationException>(() => method.Invoke(null, [ledger, 3]));
+            Assert.IsType<InvalidOperationException>(repeatedFinal.InnerException);
         }
         finally
         {
