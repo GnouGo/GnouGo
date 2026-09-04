@@ -2,6 +2,7 @@ import pytest
 import yaml
 
 from gnougo_flow_core.compilation import WorkflowCompiler
+from gnougo_flow_core.errors import ErrorCodes
 from gnougo_flow_core.models import LLMResponse, McpServerMetadata, McpToolInfo
 from gnougo_flow_core.parsing import WorkflowParser
 from gnougo_flow_core.runtime import WorkflowEngine
@@ -148,6 +149,68 @@ class StructuredCapabilityResolver:
         return True
 
 
+class ConfigurableStructuredCapabilityResolver:
+    def __init__(self, supported):
+        self.supported = supported
+
+    async def supports_structured_output_async(self, provider, model):
+        return self.supported
+
+
+def structured_generation_envelope(request, *, address_diagnostics=False, **content):
+    properties = request.structured_output_schema["properties"]
+
+    def enum_value(name):
+        return properties[name]["enum"][0]
+
+    allowed_codes = properties["addressed_diagnostic_codes"]["items"].get("enum", [])
+    return {
+        "schema_version": enum_value("schema_version"),
+        "contract_fingerprint": enum_value("contract_fingerprint"),
+        "base_candidate_fingerprint": enum_value("base_candidate_fingerprint"),
+        "diagnostic_fingerprint": enum_value("diagnostic_fingerprint"),
+        "addressed_diagnostic_codes": list(allowed_codes) if address_diagnostics else [],
+        **content,
+    }
+
+
+class StructuredBasicPlanLlm:
+    def __init__(self, yaml_text: str, invalid_responses: int = 0) -> None:
+        self.yaml_text = ensure_generated_skill(yaml_text)
+        self.invalid_responses = invalid_responses
+        self.requests = []
+
+    async def call_async(self, request):
+        self.requests.append(request)
+        if len(self.requests) <= self.invalid_responses:
+            return LLMResponse(text=self.yaml_text)
+        return LLMResponse(json_payload=structured_generation_envelope(request, yaml=self.yaml_text))
+
+
+class StructuredRepairPlanLlm:
+    def __init__(self, mode: str) -> None:
+        self.mode = mode
+        self.requests = []
+
+    async def call_async(self, request):
+        self.requests.append(request)
+        invalid_yaml = "version: 1\nname: incomplete"
+        if self.mode == "stale_contract":
+            payload = structured_generation_envelope(request, yaml=VALID_REPAIRED_WORKFLOW_YAML)
+            payload["contract_fingerprint"] = "stale-contract"
+            return LLMResponse(json_payload=payload)
+        if len(self.requests) == 1:
+            return LLMResponse(json_payload=structured_generation_envelope(request, yaml=invalid_yaml))
+        payload = structured_generation_envelope(
+            request,
+            address_diagnostics=True,
+            yaml=invalid_yaml if self.mode == "unchanged" else VALID_REPAIRED_WORKFLOW_YAML,
+        )
+        if self.mode == "wrong_diagnostic":
+            payload["addressed_diagnostic_codes"] = ["UNDECLARED_DIAGNOSTIC"]
+        return LLMResponse(json_payload=payload)
+
+
 class StructuredPipelinePlanLlm:
     def __init__(self, leaf_yaml: str, assembly_yaml: str, extraction_payload: dict) -> None:
         self.leaf_yaml = ensure_generated_skill(leaf_yaml)
@@ -161,7 +224,11 @@ class StructuredPipelinePlanLlm:
         self.prompts.append(request.prompt)
         prompt = request.prompt
         if "preparing a raw user automation prompt" in prompt:
-            return LLMResponse(text="# Collect records\n\nCollect records for a query and return them.")
+            return LLMResponse(
+                json_payload={
+                    "normalized_markdown": "# Collect records\n\nCollect records for a query and return them."
+                }
+            )
         if "annotate normalized automation Markdown" in prompt:
             return LLMResponse(json_payload=self.extraction_payload)
         if "reviewing the quality of a `workflow.plan` pipeline" in prompt:
@@ -174,10 +241,21 @@ class StructuredPipelinePlanLlm:
                 }
             )
         if "Generate exactly one leaf GnOuGo workflow named `collect_records`" in prompt:
-            return LLMResponse(text=self.leaf_yaml)
+            return LLMResponse(json_payload=self._generation_envelope(request, yaml=self.leaf_yaml))
         if "assembling the parent `main` workflow" in prompt:
-            return LLMResponse(text=self.assembly_yaml)
+            assembly = yaml.safe_load(self.assembly_yaml)
+            return LLMResponse(
+                json_payload=self._generation_envelope(
+                    request,
+                    document_yaml=yaml.safe_dump(assembly["document"], sort_keys=False),
+                    graph_yaml=yaml.safe_dump(assembly["graph"], sort_keys=False),
+                )
+            )
         raise AssertionError(f"unexpected prompt: {prompt[:160]}")
+
+    @staticmethod
+    def _generation_envelope(request, **content):
+        return structured_generation_envelope(request, **content)
 
 
 class FakeMcpSession:
@@ -269,6 +347,166 @@ workflows:
     outputs:
       answer: "${data.steps.answer.text}"
 """
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("invalid_responses,expected_success", [(0, True), (1, True), (2, False)])
+async def test_workflow_plan_basic_strict_generation_retries_contract_once(
+    invalid_responses: int,
+    expected_success: bool,
+) -> None:
+    source = """
+    version: 1
+    workflows:
+      main:
+        steps:
+          - id: plan
+            type: workflow.plan
+            input:
+              mode: basic
+              generator:
+                provider: test
+                model: structured
+                instruction: Generate a valid workflow.
+                prefilter: false
+              validate:
+                compile: false
+              on_invalid:
+                max_attempts: 1
+    """
+    llm = StructuredBasicPlanLlm(VALID_REPAIRED_WORKFLOW_YAML, invalid_responses)
+    engine = WorkflowEngine()
+    engine.llm_client = llm
+    engine.llm_capabilities = ConfigurableStructuredCapabilityResolver(True)
+
+    result = await engine.execute_async(
+        WorkflowCompiler().compile(WorkflowParser.parse(source)).workflows["main"], {}
+    )
+
+    assert result.success is expected_success
+    assert len(llm.requests) == min(invalid_responses + 1, 2)
+    assert all(request.structured_output_strict is True for request in llm.requests)
+    if expected_success:
+        assert list(result.outputs["plan"]) == ["yaml", "workflow", "meta", "diagnostics"]
+    else:
+        assert result.error.code == "LLM_SCHEMA"
+    if len(llm.requests) == 2:
+        assert llm.requests[0].structured_output_schema == llm.requests[1].structured_output_schema
+        assert llm.requests[0].prompt == llm.requests[1].prompt
+
+
+async def execute_strict_repair_plan(llm, max_attempts=3):
+    source = f"""
+    version: 1
+    workflows:
+      main:
+        steps:
+          - id: plan
+            type: workflow.plan
+            input:
+              mode: basic
+              generator:
+                provider: test
+                model: structured
+                instruction: Generate a valid workflow.
+                prefilter: false
+              validate:
+                compile: false
+              on_invalid:
+                action: reprompt
+                max_attempts: {max_attempts}
+    """
+    engine = WorkflowEngine()
+    engine.llm_client = llm
+    engine.llm_capabilities = ConfigurableStructuredCapabilityResolver(True)
+    return await engine.execute_async(
+        WorkflowCompiler().compile(WorkflowParser.parse(source)).workflows["main"], {}
+    )
+
+
+@pytest.mark.asyncio
+async def test_workflow_plan_basic_strict_repair_locks_candidate_and_diagnostics() -> None:
+    llm = StructuredRepairPlanLlm("repair")
+
+    result = await execute_strict_repair_plan(llm)
+
+    assert result.success is True
+    assert len(llm.requests) == 2
+    repair_properties = llm.requests[1].structured_output_schema["properties"]
+    assert repair_properties["base_candidate_fingerprint"]["enum"][0]
+    assert repair_properties["diagnostic_fingerprint"]["enum"][0]
+    assert repair_properties["addressed_diagnostic_codes"]["items"]["enum"]
+
+
+@pytest.mark.asyncio
+async def test_workflow_plan_basic_strict_stale_contract_fails_atomically() -> None:
+    llm = StructuredRepairPlanLlm("stale_contract")
+
+    result = await execute_strict_repair_plan(llm, max_attempts=1)
+
+    assert result.success is False
+    assert result.outputs is None
+    assert result.error.code == ErrorCodes.LLM_SCHEMA
+    assert len(llm.requests) == 2
+
+
+@pytest.mark.asyncio
+async def test_workflow_plan_basic_strict_wrong_diagnostic_code_fails_closed() -> None:
+    llm = StructuredRepairPlanLlm("wrong_diagnostic")
+
+    result = await execute_strict_repair_plan(llm)
+
+    assert result.success is False
+    assert result.outputs is None
+    assert result.error.code == ErrorCodes.LLM_SCHEMA
+    assert len(llm.requests) == 3
+
+
+@pytest.mark.asyncio
+async def test_workflow_plan_basic_strict_two_unchanged_repairs_stop() -> None:
+    llm = StructuredRepairPlanLlm("unchanged")
+
+    result = await execute_strict_repair_plan(llm)
+
+    assert result.success is False
+    assert result.outputs is None
+    assert result.error.code == ErrorCodes.WORKFLOW_PLAN_REPAIR_STALLED
+    assert result.error.details["stall_reason"] == "candidate_unchanged"
+    assert len(llm.requests) == 3
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("capability", [False, None])
+async def test_workflow_plan_basic_legacy_generation_when_structured_output_is_unavailable_or_unknown(capability) -> None:
+    source = """
+    version: 1
+    workflows:
+      main:
+        steps:
+          - id: plan
+            type: workflow.plan
+            input:
+              mode: basic
+              generator:
+                provider: test
+                model: legacy
+                instruction: Generate a valid workflow.
+                prefilter: false
+              validate:
+                compile: false
+              on_invalid:
+                max_attempts: 1
+    """
+    llm = CapturePlanLlm(VALID_REPAIRED_WORKFLOW_YAML)
+    engine = WorkflowEngine()
+    engine.llm_client = llm
+    engine.llm_capabilities = ConfigurableStructuredCapabilityResolver(capability)
+
+    result = await engine.execute_async(
+        WorkflowCompiler().compile(WorkflowParser.parse(source)).workflows["main"], {}
+    )
+
+    assert result.success is True
 
 
 @pytest.mark.asyncio
@@ -2713,8 +2951,10 @@ async def test_workflow_plan_pipeline_mode_uses_structured_extraction_when_suppo
                 ],
                 "extract_reason": "Produces typed data for the main workflow.",
                 "content": "Collect records and return a typed records array.",
-                "planned_tools": [],
-            }
+                    "planned_tools": [],
+                    "catalog_ids": [],
+                    "locked_operations": [],
+                }
         ],
     }
     leaf_yaml = """
@@ -2780,7 +3020,8 @@ async def test_workflow_plan_pipeline_mode_uses_structured_extraction_when_suppo
 
     assert result.success is True
     structured_requests = [request for request in llm.requests if request.structured_output_schema is not None]
-    assert len(structured_requests) == 2
+    assert len(structured_requests) == 5
+    assert len(structured_requests) == len(llm.requests)
     assert all(request.structured_output_strict is True for request in structured_requests)
     assert all(request.use_background_mode is True for request in llm.requests)
     for request in structured_requests:

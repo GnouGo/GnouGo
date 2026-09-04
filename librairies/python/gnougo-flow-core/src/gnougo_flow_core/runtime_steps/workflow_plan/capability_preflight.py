@@ -494,6 +494,9 @@ class _WorkflowPlanCapabilityPreflightMixin:
                 ) from exc
             self._add_usage_attributes(span, response.usage, model, provider, ctx.engine.llm_options)
             _extract_usage_telemetry(ctx, response.usage, model, provider)
+            self._record_strict_planner_response_evidence(
+                ctx, provider, model, response.json_payload, schema
+            )
             return response
 
     def _parse_and_validate_inventory_response(self, response: LLMResponse) -> dict[str, Any]:

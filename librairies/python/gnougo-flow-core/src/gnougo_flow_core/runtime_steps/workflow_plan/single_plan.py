@@ -73,13 +73,32 @@ class _WorkflowPlanSinglePlanMixin:
         if locked_prompt:
             base_prompt += "\n\n" + locked_prompt
         prompt = base_prompt
+        captured_structured_mode = generator.get("pipeline_use_structured_generation")
+        use_structured_generation = (
+            captured_structured_mode
+            if isinstance(captured_structured_mode, bool)
+            else await self._should_use_strict_planner_response(ctx, provider, model)
+        )
+        generation_contract_fingerprint = str(
+            generator.get("pipeline_contract_fingerprint")
+            or self._planner_fingerprint("workflow_generation", base_prompt)
+        )
+        generation_base_candidate_fingerprint = ""
+        generation_diagnostic_fingerprint = ""
+        generation_diagnostic_codes: list[str] = []
         last_error: Exception | None = None
         last_invalid_yaml: str | None = None
         last_repair_context: str | None = None
         last_diagnostic_fingerprint: str | None = None
         unchanged_repair_attempts = 0
+        best_candidate_yaml: str | None = None
+        best_candidate_fingerprint: str | None = None
+        best_diagnostic_codes: set[str] | None = None
+        best_validation_progress = -1
+        non_improving_responses = 0
 
         for attempt in range(1, max_attempts + 1):
+            candidate_validation_progress = 0
             if last_error is not None:
                 prompt = self._build_reprompt(
                     instruction,
@@ -88,6 +107,14 @@ class _WorkflowPlanSinglePlanMixin:
                     last_invalid_yaml,
                     last_error,
                     last_repair_context,
+                )
+            if use_structured_generation:
+                prompt = self._append_generation_envelope_instruction(
+                    prompt,
+                    generation_contract_fingerprint,
+                    generation_base_candidate_fingerprint,
+                    generation_diagnostic_fingerprint,
+                    generation_diagnostic_codes,
                 )
 
             with ctx.begin_telemetry_span(
@@ -100,7 +127,7 @@ class _WorkflowPlanSinglePlanMixin:
                     ("gnougo-flow.plan.attempt", attempt),
                 ],
             ) as generation_span:
-                if ctx.limits.log_step_content:
+                if not use_structured_generation and ctx.limits.log_step_content:
                     generation_span.add_event(
                         "gen_ai.content.prompt",
                         [
@@ -110,22 +137,48 @@ class _WorkflowPlanSinglePlanMixin:
                             ("gnougo-flow.plan.phase", "generation"),
                         ],
                     )
-                response = await ctx.engine.call_llm_async(
-                    LLMRequest(
-                        provider=provider,
-                        model=model,
-                        prompt=prompt,
-                        reasoning=plan_reasoning,
-                        use_background_mode=True,
+                if use_structured_generation:
+                    schema = self._build_workflow_generation_response_schema(
+                        generation_contract_fingerprint,
+                        generation_base_candidate_fingerprint,
+                        generation_diagnostic_fingerprint,
+                        generation_diagnostic_codes,
+                        main_assembly=False,
                     )
-                )
+                    response = await self._execute_strict_planner_response(
+                        ctx,
+                        "generation.leaf" if generator.get("pipeline_leaf_name") else "generation.basic",
+                        prompt,
+                        provider,
+                        model,
+                        plan_reasoning,
+                        schema,
+                        phase_attempt=attempt,
+                        max_attempts=max_attempts,
+                        contract_fingerprint=generation_contract_fingerprint,
+                        base_candidate_fingerprint=generation_base_candidate_fingerprint,
+                        diagnostic_fingerprint=generation_diagnostic_fingerprint,
+                        contract_epoch=1,
+                    )
+                    response_text = self._required_response_string(response, "yaml", "workflow generation")
+                else:
+                    response = await ctx.engine.call_llm_async(
+                        LLMRequest(
+                            provider=provider,
+                            model=model,
+                            prompt=prompt,
+                            reasoning=plan_reasoning,
+                            use_background_mode=True,
+                        )
+                    )
+                    self._add_usage_attributes(
+                        generation_span, response.usage, model, provider, ctx.engine.llm_options
+                    )
+                    _extract_usage_telemetry(ctx, response.usage, model, provider)
+                    response_text = response.text or ""
                 generation_span.set_attribute("gen_ai.response.model", model)
                 generation_span.set_attribute("gen_ai.response.finish_reason", "stop")
-                self._add_usage_attributes(
-                    generation_span, response.usage, model, provider, ctx.engine.llm_options
-                )
-                _extract_usage_telemetry(ctx, response.usage, model, provider)
-                if ctx.limits.log_step_content and response.text:
+                if not use_structured_generation and ctx.limits.log_step_content and response.text:
                     generation_span.add_event(
                         "gen_ai.content.completion",
                         [
@@ -139,12 +192,15 @@ class _WorkflowPlanSinglePlanMixin:
 
             try:
                 with ctx.begin_telemetry_span("workflow.plan.validate", "validation", [("gnougo-flow.plan.attempt", attempt)]) as validation_span:
-                    yaml_text = self._strip_markdown_code_fence(textwrap.dedent(response.text).strip())
+                    yaml_text = self._strip_markdown_code_fence(textwrap.dedent(response_text).strip())
                     yaml_text = self._normalize_planned_yaml(yaml_text)
+                    candidate_validation_progress = 5
                     validation_span.set_attribute("gnougo-flow.plan.yaml_length", len(yaml_text))
                     doc = self._parse_and_validate_generated_workflow(yaml_text)
+                    candidate_validation_progress = 10
                     validation_span.set_attribute("gnougo-flow.plan.workflow_count", len(doc.workflows))
                     self._enforce_plan_policy(doc, policy, limits)
+                    candidate_validation_progress = 20
                     if bool(validate.get("compile", True)):
                         normalization_count = self._validate_generated_workflow_for_plan(
                             doc,
@@ -167,6 +223,7 @@ class _WorkflowPlanSinglePlanMixin:
                             validation_mcp_server_metadata,
                         )
                     self._validate_locked_capabilities(doc, preflight)
+                    candidate_validation_progress = 100
                 return {
                     "yaml": yaml_text,
                     "workflow": {
@@ -182,6 +239,59 @@ class _WorkflowPlanSinglePlanMixin:
                     "diagnostics": [],
                 }
             except WorkflowRuntimeException as exc:
+                if exc.code == ErrorCodes.LLM_SCHEMA:
+                    raise
+                failed_yaml = self._normalize_planned_yaml(
+                    self._strip_markdown_code_fence(textwrap.dedent(response_text).strip())
+                )
+                candidate_fingerprint = self._planner_fingerprint(failed_yaml)
+                diagnostic_codes = set(self._planner_diagnostic_codes(exc))
+                candidate_is_new = candidate_fingerprint != best_candidate_fingerprint
+                diagnostics_decreased = (
+                    best_diagnostic_codes is not None
+                    and len(diagnostic_codes) < len(best_diagnostic_codes)
+                    and diagnostic_codes.issubset(best_diagnostic_codes)
+                )
+                candidate_improved = candidate_is_new and (
+                    best_candidate_yaml is None
+                    or candidate_validation_progress > best_validation_progress
+                    or candidate_validation_progress == best_validation_progress
+                    and diagnostics_decreased
+                )
+                if candidate_improved:
+                    best_candidate_yaml = failed_yaml
+                    best_candidate_fingerprint = candidate_fingerprint
+                    best_diagnostic_codes = diagnostic_codes
+                    best_validation_progress = candidate_validation_progress
+                    non_improving_responses = 0
+                elif best_candidate_yaml is not None:
+                    non_improving_responses += 1
+                    ctx.add_telemetry_event(
+                        "gnougo-flow.plan.generation_candidate_rejected",
+                        [
+                            ("gnougo-flow.plan.attempt", attempt),
+                            ("gnougo-flow.plan.candidate.fingerprint", candidate_fingerprint),
+                            ("gnougo-flow.plan.candidate.validation_progress", candidate_validation_progress),
+                            ("gnougo-flow.plan.candidate.best_validation_progress", best_validation_progress),
+                            ("gnougo-flow.plan.stall_reason", "validation_progress_regression" if candidate_is_new else "candidate_unchanged"),
+                        ],
+                    )
+                    if non_improving_responses >= 2:
+                        blocking_error = self._build_structured_plan_error(exc)
+                        raise WorkflowRuntimeException(
+                            ErrorCodes.WORKFLOW_PLAN_REPAIR_STALLED,
+                            "workflow.plan repair stopped because two responses failed to improve the best validated "
+                            f"candidate. Best blocking diagnostics: {blocking_error}",
+                            details={
+                                "attempt": attempt,
+                                "candidate_fingerprint": candidate_fingerprint,
+                                "best_candidate_fingerprint": best_candidate_fingerprint,
+                                "validation_progress": candidate_validation_progress,
+                                "best_validation_progress": best_validation_progress,
+                                "stall_reason": "validation_progress_regression" if candidate_is_new else "candidate_unchanged",
+                                "best_blocking_error": blocking_error,
+                            },
+                        ) from exc
                 fingerprint = self._normalize_plan_diagnostic_fingerprint(exc)
                 if fingerprint == last_diagnostic_fingerprint:
                     unchanged_repair_attempts += 1
@@ -204,7 +314,10 @@ class _WorkflowPlanSinglePlanMixin:
                 if on_invalid_action != "reprompt" or attempt >= max_attempts:
                     raise
                 last_error = exc
-                last_invalid_yaml = self._strip_markdown_code_fence(textwrap.dedent(response.text).strip())
+                last_invalid_yaml = failed_yaml if candidate_improved else best_candidate_yaml or failed_yaml
+                generation_base_candidate_fingerprint = self._planner_fingerprint(last_invalid_yaml)
+                generation_diagnostic_fingerprint = fingerprint
+                generation_diagnostic_codes = self._planner_diagnostic_codes(exc)
                 last_repair_context = await self._build_repair_context_with_mcp_docs(
                     ctx,
                     policy,
@@ -217,7 +330,10 @@ class _WorkflowPlanSinglePlanMixin:
                 last_error = exc
                 if on_invalid_action != "reprompt" or attempt >= max_attempts:
                     break
-                last_invalid_yaml = self._strip_markdown_code_fence(textwrap.dedent(response.text).strip())
+                last_invalid_yaml = self._strip_markdown_code_fence(textwrap.dedent(response_text).strip())
+                generation_base_candidate_fingerprint = self._planner_fingerprint(last_invalid_yaml)
+                generation_diagnostic_fingerprint = self._normalize_plan_diagnostic_fingerprint(exc)
+                generation_diagnostic_codes = self._planner_diagnostic_codes(exc)
                 last_repair_context = await self._build_repair_context_with_mcp_docs(
                     ctx,
                     policy,

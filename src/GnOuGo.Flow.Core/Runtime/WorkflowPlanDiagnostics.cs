@@ -179,7 +179,9 @@ internal static class WorkflowPlanDiagnostics
         for (Exception? current = exception; current != null; current = current.InnerException)
         {
             if (current is WorkflowRuntimeException runtime
-                && runtime.Code is ErrorCodes.LlmBudgetExceeded or ErrorCodes.LlmBudgetUnverifiable)
+                && runtime.Code is ErrorCodes.LlmBudgetExceeded
+                    or ErrorCodes.LlmBudgetUnverifiable
+                    or ErrorCodes.LlmSchema)
             {
                 return true;
             }

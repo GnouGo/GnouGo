@@ -533,6 +533,7 @@ public sealed partial class WorkflowPlanExecutor
         var inferencePhase = "capability_inventory_call";
         try
         {
+            var inventorySchema = BuildCapabilityInventorySchema();
             var inventoryResponse = await ctx.CallLLMAsync(llmClient, new LLMRequest
             {
                 Provider = provider,
@@ -540,9 +541,10 @@ public sealed partial class WorkflowPlanExecutor
                 Prompt = BuildCapabilityInventoryPromptWithEvidence(evidenceSources),
                 Reasoning = reasoning,
                 UseBackgroundMode = true,
-                StructuredOutputSchema = BuildCapabilityInventorySchema(),
+                StructuredOutputSchema = inventorySchema,
                 StructuredOutputStrict = true
             }, "workflow.plan.capability_inventory", ct);
+            RecordPlannerStructuredOutputProof(ctx, provider, model, inventoryResponse.Json, inventorySchema);
             AddUsageAttributes(inferenceSpan, inventoryResponse.Usage, model, provider);
             inferencePhase = "capability_inventory_parse";
             CapabilityInventory inventory;
@@ -593,9 +595,10 @@ public sealed partial class WorkflowPlanExecutor
                         initialContractIssues),
                     Reasoning = reasoning,
                     UseBackgroundMode = true,
-                    StructuredOutputSchema = BuildCapabilityInventorySchema(),
+                    StructuredOutputSchema = inventorySchema.DeepClone(),
                     StructuredOutputStrict = true
                 }, "workflow.plan.capability_inventory_repair", ct);
+                RecordPlannerStructuredOutputProof(ctx, provider, model, repairedInventoryResponse.Json, inventorySchema);
                 AddUsageAttributes(inferenceSpan, repairedInventoryResponse.Usage, model, provider);
                 inferencePhase = "capability_inventory_repair_parse";
                 try
@@ -710,6 +713,7 @@ public sealed partial class WorkflowPlanExecutor
             inferenceSpan.SetAttribute("gnougo-flow.plan.capability_catalog.selected_prompt_count", matchingDiscovery.Sum(static server => server.Prompts.Count));
 
             inferencePhase = "capability_matching_call";
+            var matchingSchema = BuildCapabilityMatchingSchema();
             var matchingResponse = await ctx.CallLLMAsync(llmClient, new LLMRequest
             {
                 Provider = provider,
@@ -717,9 +721,10 @@ public sealed partial class WorkflowPlanExecutor
                 Prompt = BuildCapabilityMatchingPrompt(inventory, catalog),
                 Reasoning = reasoning,
                 UseBackgroundMode = true,
-                StructuredOutputSchema = BuildCapabilityMatchingSchema(),
+                StructuredOutputSchema = matchingSchema,
                 StructuredOutputStrict = true
             }, "workflow.plan.capability_matching", ct);
+            RecordPlannerStructuredOutputProof(ctx, provider, model, matchingResponse.Json, matchingSchema);
             AddUsageAttributes(inferenceSpan, matchingResponse.Usage, model, provider);
             inferencePhase = "capability_matching_parse";
             CapabilityMatchingEvaluation evaluation;
@@ -757,9 +762,10 @@ public sealed partial class WorkflowPlanExecutor
                     Prompt = BuildCapabilityMatchingRepairPrompt(inventory, catalog, evaluation),
                     Reasoning = reasoning,
                     UseBackgroundMode = true,
-                    StructuredOutputSchema = BuildCapabilityMatchingSchema(),
+                    StructuredOutputSchema = matchingSchema.DeepClone(),
                     StructuredOutputStrict = true
                 }, "workflow.plan.capability_matching_repair", ct);
+                RecordPlannerStructuredOutputProof(ctx, provider, model, repairedMatchingResponse.Json, matchingSchema);
                 AddUsageAttributes(inferenceSpan, repairedMatchingResponse.Usage, model, provider);
                 inferencePhase = "capability_matching_repair_parse";
                 CapabilityMatchingEvaluation repaired;

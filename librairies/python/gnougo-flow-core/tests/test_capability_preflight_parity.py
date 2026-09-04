@@ -66,6 +66,8 @@ class _PlanLlm:
             return LLMResponse(json=self.inventory)
         if "domain-neutral capability matcher" in request.prompt:
             return LLMResponse(json=self.matches)
+        if isinstance(request.structured_output_schema, dict) and "yaml" in request.structured_output_schema.get("properties", {}):
+            return LLMResponse(json=_generation_envelope(request, self.generated_yaml))
         return LLMResponse(text=self.generated_yaml)
 
 
@@ -82,7 +84,25 @@ class _RepairingPreflightLlm:
             return LLMResponse(json=self.inventory_responses.pop(0))
         if "domain-neutral capability matcher" in request.prompt:
             return LLMResponse(json=self.match_responses.pop(0))
+        if isinstance(request.structured_output_schema, dict) and "yaml" in request.structured_output_schema.get("properties", {}):
+            return LLMResponse(json=_generation_envelope(request, self.generated_yaml))
         return LLMResponse(text=self.generated_yaml)
+
+
+def _generation_envelope(request, yaml_text: str) -> dict:
+    properties = request.structured_output_schema["properties"]
+
+    def enum_value(name: str) -> str:
+        return properties[name]["enum"][0]
+
+    return {
+        "schema_version": enum_value("schema_version"),
+        "contract_fingerprint": enum_value("contract_fingerprint"),
+        "base_candidate_fingerprint": enum_value("base_candidate_fingerprint"),
+        "diagnostic_fingerprint": enum_value("diagnostic_fingerprint"),
+        "addressed_diagnostic_codes": [],
+        "yaml": yaml_text,
+    }
 
 
 class _StatusFailure(Exception):
@@ -384,7 +404,7 @@ async def test_inferred_preflight_repairs_inventory_and_candidates_at_most_once_
     assert sum("previous structured response was invalid" in request.prompt for request in llm.requests) == 2
     assert all(request.use_background_mode is True for request in llm.requests)
     inference_requests = [request for request in llm.requests if request.structured_output_schema is not None]
-    assert len(inference_requests) == 4
+    assert len(inference_requests) == 5
     assert all(request.structured_output_strict is True for request in inference_requests)
     for request in inference_requests:
         _assert_openai_strict_schema(request.structured_output_schema)

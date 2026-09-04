@@ -159,6 +159,9 @@ class _WorkflowPlanPipelineGenerationMixin:
         )
         leaf_generator["context"] = ""
         leaf_generator["pipeline_leaf_name"] = spec.name
+        leaf_generator["pipeline_contract_fingerprint"] = self._planner_fingerprint(
+            "pipeline_leaf_contract", spec.name, spec.generation_prompt
+        )
         leaf_input: dict[str, Any] = {
             "generator": leaf_generator,
             "policy": self._build_leaf_policy(pipeline_input.get("policy") if isinstance(pipeline_input.get("policy"), dict) else None),

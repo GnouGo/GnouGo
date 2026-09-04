@@ -5157,8 +5157,8 @@ public sealed class WorkflowPlanCapabilityPreflightTests
         Assert.NotEmpty(extractionRequests);
         Assert.All(extractionRequests, request =>
         {
-            Assert.True(request.StructuredOutputStrict);
-            Assert.NotNull(request.StructuredOutputSchema);
+            Assert.Null(request.StructuredOutputStrict);
+            Assert.Null(request.StructuredOutputSchema);
         });
     }
 
@@ -11197,12 +11197,72 @@ public sealed class WorkflowPlanCapabilityPreflightTests
         var workflow = compiled.Workflows[compiled.Entrypoint!];
         var engine = new WorkflowEngine
         {
-            LLMClient = llm,
+            LLMClient = new LegacyGenerationFixtureAdapter(llm),
             McpClientFactory = mcpFactory,
             HumanInputProvider = humanInputProvider,
             Telemetry = telemetry ?? NullWorkflowTelemetry.Instance
         };
         return await engine.ExecuteAsync(workflow, new JsonObject(), CancellationToken.None);
+    }
+
+    /// <summary>
+    /// Older capability-preflight fixtures return raw YAML for the final planner call.
+    /// Once a preceding exact-schema response proves target support, production correctly
+    /// asks for the new strict generation envelope. Adapt only those legacy YAML fixtures;
+    /// malformed/absent JSON returned by any other structured phase remains untouched.
+    /// </summary>
+    private sealed class LegacyGenerationFixtureAdapter(ILLMClient inner) : ILLMClient
+    {
+        public async Task<LLMResponse> CallAsync(LLMRequest request, CancellationToken ct)
+        {
+            var response = await inner.CallAsync(request, ct);
+            if (response.Json != null
+                || string.IsNullOrWhiteSpace(response.Text)
+                || request.StructuredOutputSchema is not JsonObject schema
+                || schema["properties"] is not JsonObject properties
+                || !properties.ContainsKey("yaml"))
+            {
+                return response;
+            }
+
+            var envelope = new JsonObject();
+            foreach (var property in properties)
+            {
+                if (property.Key == "yaml")
+                {
+                    envelope[property.Key] = response.Text;
+                    continue;
+                }
+
+                if (property.Key == "addressed_diagnostic_codes")
+                {
+                    var values = new JsonArray();
+                    if (property.Value?["minItems"]?.GetValue<int>() > 0
+                        && property.Value?["items"]?["enum"] is JsonArray allowed
+                        && allowed.FirstOrDefault() is { } first)
+                    {
+                        values.Add(first.DeepClone());
+                    }
+                    envelope[property.Key] = values;
+                    continue;
+                }
+
+                if (property.Value?["enum"] is JsonArray choices
+                    && choices.FirstOrDefault() is { } choice)
+                {
+                    envelope[property.Key] = choice.DeepClone();
+                }
+            }
+
+            return new LLMResponse
+            {
+                Text = response.Text,
+                Json = envelope,
+                Usage = response.Usage,
+                Raw = response.Raw,
+                ToolCalls = response.ToolCalls
+            };
+        }
     }
 
     private sealed class RecordingHumanInputProvider(JsonNode? response) : IHumanInputProvider

@@ -133,7 +133,35 @@ internal sealed class RecordingLlmClient : ILLMClient
                 }
             }));
         }
-        return Task.FromResult(WithUsage(new LLMResponse { Text = BuildResponseText(request) }));
+        var text = BuildResponseText(request);
+        if (request.StructuredOutputSchema?["properties"] is JsonObject properties
+            && properties.ContainsKey("yaml"))
+        {
+            var addressedCodes = new JsonArray();
+            if (properties["addressed_diagnostic_codes"]?["items"]?["enum"] is JsonArray allowedCodes)
+            {
+                foreach (var code in allowedCodes)
+                    addressedCodes.Add(code?.DeepClone());
+            }
+
+            static string EnumValue(JsonObject schemaProperties, string name)
+                => schemaProperties[name]!["enum"]![0]!.GetValue<string>();
+            return Task.FromResult(WithUsage(new LLMResponse
+            {
+                Text = text,
+                Json = new JsonObject
+                {
+                    ["schema_version"] = EnumValue(properties, "schema_version"),
+                    ["contract_fingerprint"] = EnumValue(properties, "contract_fingerprint"),
+                    ["base_candidate_fingerprint"] = EnumValue(properties, "base_candidate_fingerprint"),
+                    ["diagnostic_fingerprint"] = EnumValue(properties, "diagnostic_fingerprint"),
+                    ["addressed_diagnostic_codes"] = addressedCodes,
+                    ["yaml"] = text
+                }
+            }));
+        }
+
+        return Task.FromResult(WithUsage(new LLMResponse { Text = text }));
     }
 
     private static LLMResponse WithUsage(LLMResponse response)
