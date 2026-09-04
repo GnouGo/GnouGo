@@ -123,6 +123,28 @@ public sealed class WorkflowPlanStructuredGenerationTests
         Assert.Equal(
             ["CONTRACT_GAP", "INPUT_SCHEMA_INVALID", "STEP_REFERENCE_UNKNOWN", ErrorCodes.TemplatePlan],
             codes);
+
+        Assert.Equal(
+            ["CONTRACT_GAP", "INPUT_SCHEMA_INVALID", "STEP_REFERENCE_UNKNOWN"],
+            WorkflowPlanDiagnostics.BuildDiagnosticIdentities(exception).Order(StringComparer.Ordinal));
+    }
+
+    [Fact]
+    public void DiagnosticIdentities_DistinguishSameCodeAtDifferentValidatedLocations()
+    {
+        var exception = new WorkflowRuntimeException(
+            ErrorCodes.TemplatePlan,
+            "Validation failed.",
+            details: new JsonObject
+            {
+                ["diagnostics"] = new JsonArray
+                {
+                    new JsonObject { ["code"] = "STEP_REFERENCE_UNKNOWN", ["location"] = "workflows.main.steps[0]" },
+                    new JsonObject { ["code"] = "STEP_REFERENCE_UNKNOWN", ["location"] = "workflows.main.steps[1]" }
+                }
+            });
+
+        Assert.Equal(2, WorkflowPlanDiagnostics.BuildDiagnosticIdentities(exception).Count);
     }
 
     [Fact]

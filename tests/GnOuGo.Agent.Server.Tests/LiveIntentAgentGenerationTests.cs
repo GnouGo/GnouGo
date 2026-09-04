@@ -1910,6 +1910,8 @@ public sealed class LiveIntentAgentGenerationTests
             or "gnougo-flow.plan.pipeline.candidate.validation_progress"
             or "gnougo-flow.plan.pipeline.candidate.previous_validation_progress"
             or "gnougo-flow.plan.pipeline.candidate.best_validation_progress"
+            or "gnougo-flow.plan.pipeline.candidate.diagnostic_count"
+            or "gnougo-flow.plan.pipeline.candidate.best_diagnostic_count"
             or "gnougo-flow.plan.pipeline.patch.stall_reason";
 
     private static string RequireString(JsonObject value, string property)

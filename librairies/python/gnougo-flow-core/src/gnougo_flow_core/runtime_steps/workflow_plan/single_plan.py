@@ -94,6 +94,7 @@ class _WorkflowPlanSinglePlanMixin:
         best_candidate_yaml: str | None = None
         best_candidate_fingerprint: str | None = None
         best_diagnostic_codes: set[str] | None = None
+        best_diagnostic_identities: set[str] | None = None
         best_validation_progress = -1
         non_improving_responses = 0
 
@@ -246,11 +247,12 @@ class _WorkflowPlanSinglePlanMixin:
                 )
                 candidate_fingerprint = self._planner_fingerprint(failed_yaml)
                 diagnostic_codes = set(self._planner_diagnostic_codes(exc))
+                diagnostic_identities = self._planner_diagnostic_identities(exc)
                 candidate_is_new = candidate_fingerprint != best_candidate_fingerprint
                 diagnostics_decreased = (
-                    best_diagnostic_codes is not None
-                    and len(diagnostic_codes) < len(best_diagnostic_codes)
-                    and diagnostic_codes.issubset(best_diagnostic_codes)
+                    best_diagnostic_identities is not None
+                    and len(diagnostic_identities) < len(best_diagnostic_identities)
+                    and diagnostic_identities.issubset(best_diagnostic_identities)
                 )
                 candidate_improved = candidate_is_new and (
                     best_candidate_yaml is None
@@ -262,6 +264,7 @@ class _WorkflowPlanSinglePlanMixin:
                     best_candidate_yaml = failed_yaml
                     best_candidate_fingerprint = candidate_fingerprint
                     best_diagnostic_codes = diagnostic_codes
+                    best_diagnostic_identities = diagnostic_identities
                     best_validation_progress = candidate_validation_progress
                     non_improving_responses = 0
                 elif best_candidate_yaml is not None:
@@ -317,7 +320,7 @@ class _WorkflowPlanSinglePlanMixin:
                 last_invalid_yaml = failed_yaml if candidate_improved else best_candidate_yaml or failed_yaml
                 generation_base_candidate_fingerprint = self._planner_fingerprint(last_invalid_yaml)
                 generation_diagnostic_fingerprint = fingerprint
-                generation_diagnostic_codes = self._planner_diagnostic_codes(exc)
+                generation_diagnostic_codes = sorted(best_diagnostic_codes or diagnostic_codes)
                 last_repair_context = await self._build_repair_context_with_mcp_docs(
                     ctx,
                     policy,

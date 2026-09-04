@@ -251,6 +251,62 @@ class _WorkflowPlanStructuredResponseMixin:
         return sorted(codes or {ErrorCodes.TEMPLATE_PLAN})
 
     @staticmethod
+    def _planner_diagnostic_identities(exc: Exception) -> set[str]:
+        identities: set[str] = set()
+        identity_fields = (
+            "phase",
+            "workflow",
+            "workflow_name",
+            "step",
+            "step_id",
+            "field",
+            "location",
+            "path",
+            "invalid_path",
+            "expected",
+            "actual_type",
+        )
+
+        def normalized(value: Any) -> str:
+            if isinstance(value, str):
+                return value.strip()
+            return json.dumps(value, sort_keys=True, ensure_ascii=False, default=str)
+
+        def collect(value: Any) -> None:
+            if isinstance(value, dict):
+                code = next(
+                    (
+                        value.get(key)
+                        for key in ("code", "diagnostic_code", "reason_code", "issue_code")
+                        if isinstance(value.get(key), str) and value.get(key).strip()
+                    ),
+                    None,
+                )
+                if isinstance(code, str) and code.strip():
+                    identity = code.strip().upper()
+                    for field in identity_fields:
+                        if field in value and value[field] is not None:
+                            field_value = normalized(value[field])
+                            if field_value:
+                                identity += f"|{field}={field_value}"
+                    identities.add(identity)
+                for key, item in value.items():
+                    if key not in {"generated_yaml", "invalid_yaml", "message", "legacy_summary"}:
+                        collect(item)
+            elif isinstance(value, list):
+                for item in value:
+                    collect(item)
+
+        current: BaseException | None = exc
+        while current is not None:
+            collect(getattr(current, "details", None))
+            current = current.__cause__ or current.__context__
+        if not identities:
+            code = getattr(exc, "code", None)
+            identities.add(code if isinstance(code, str) and code else ErrorCodes.TEMPLATE_PLAN)
+        return identities
+
+    @staticmethod
     def _required_response_string(response: LLMResponse, property_name: str, phase: str) -> str:
         payload = response.json_payload
         value = payload.get(property_name) if isinstance(payload, dict) else None

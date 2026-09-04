@@ -549,6 +549,7 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
         string? bestGenerationYaml = null;
         string? bestGenerationCandidateFingerprint = null;
         IReadOnlySet<string>? bestGenerationDiagnosticCodes = null;
+        IReadOnlySet<string>? bestGenerationDiagnosticIdentities = null;
         Exception? bestGenerationException = null;
         var bestGenerationValidationProgress = -1;
         var nonImprovingGenerationResponses = 0;
@@ -877,13 +878,14 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
                 failedCandidateYaml = NormalizeGeneratedFlowNullableSchemas(failedCandidateYaml);
                 var failedCandidateFingerprint = BuildPlannerFingerprint(failedCandidateYaml);
                 var failedDiagnosticCodes = GetPlannerDiagnosticCodes(ex).ToHashSet(StringComparer.Ordinal);
+                var failedDiagnosticIdentities = WorkflowPlanDiagnostics.BuildDiagnosticIdentities(ex);
                 var candidateIsNew = !string.Equals(
                     failedCandidateFingerprint,
                     bestGenerationCandidateFingerprint,
                     StringComparison.Ordinal);
-                var diagnosticsStrictlyDecreased = bestGenerationDiagnosticCodes != null
-                    && failedDiagnosticCodes.Count < bestGenerationDiagnosticCodes.Count
-                    && failedDiagnosticCodes.IsSubsetOf(bestGenerationDiagnosticCodes);
+                var diagnosticsStrictlyDecreased = bestGenerationDiagnosticIdentities != null
+                    && failedDiagnosticIdentities.Count < bestGenerationDiagnosticIdentities.Count
+                    && failedDiagnosticIdentities.IsSubsetOf(bestGenerationDiagnosticIdentities);
                 var candidateImproved = candidateIsNew
                     && (bestGenerationYaml == null
                         || candidateValidationProgress > bestGenerationValidationProgress
@@ -894,6 +896,7 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
                     bestGenerationYaml = failedCandidateYaml;
                     bestGenerationCandidateFingerprint = failedCandidateFingerprint;
                     bestGenerationDiagnosticCodes = failedDiagnosticCodes;
+                    bestGenerationDiagnosticIdentities = failedDiagnosticIdentities;
                     bestGenerationException = ex;
                     bestGenerationValidationProgress = candidateValidationProgress;
                     nonImprovingGenerationResponses = 0;

@@ -126,6 +126,7 @@ class _WorkflowPlanPipelineCoreMixin:
         best_error: str | None = None
         best_candidate_fingerprint: str | None = None
         best_diagnostic_codes: set[str] | None = None
+        best_diagnostic_identities: set[str] | None = None
         best_diagnostic_fingerprint: str | None = None
         best_validation_progress = -1
         non_improving_responses = 0
@@ -223,11 +224,12 @@ class _WorkflowPlanPipelineCoreMixin:
                 last_error = exc
                 candidate_fingerprint = self._planner_fingerprint(previous_response)
                 current_diagnostic_codes = set(self._planner_diagnostic_codes(exc))
+                current_diagnostic_identities = self._planner_diagnostic_identities(exc)
                 candidate_is_new = candidate_fingerprint != best_candidate_fingerprint
                 diagnostics_decreased = (
-                    best_diagnostic_codes is not None
-                    and len(current_diagnostic_codes) < len(best_diagnostic_codes)
-                    and current_diagnostic_codes.issubset(best_diagnostic_codes)
+                    best_diagnostic_identities is not None
+                    and len(current_diagnostic_identities) < len(best_diagnostic_identities)
+                    and current_diagnostic_identities.issubset(best_diagnostic_identities)
                 )
                 candidate_improved = candidate_is_new and (
                     best_response is None
@@ -240,6 +242,7 @@ class _WorkflowPlanPipelineCoreMixin:
                     best_error = self._build_structured_plan_error(exc)
                     best_candidate_fingerprint = candidate_fingerprint
                     best_diagnostic_codes = current_diagnostic_codes
+                    best_diagnostic_identities = current_diagnostic_identities
                     best_diagnostic_fingerprint = self._normalize_plan_diagnostic_fingerprint(exc)
                     best_validation_progress = candidate_validation_progress
                     non_improving_responses = 0

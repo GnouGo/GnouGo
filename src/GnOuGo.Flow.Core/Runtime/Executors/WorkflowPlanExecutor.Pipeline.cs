@@ -401,6 +401,7 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
                 string? bestAssemblyCandidateFingerprint = null;
                 string? bestAssemblyCandidateDiagnosticFingerprint = null;
                 IReadOnlySet<string>? bestAssemblyDiagnosticCodes = null;
+                IReadOnlySet<string>? bestAssemblyDiagnosticIdentities = null;
                 var bestAssemblyValidationProgress = -1;
                 var regressedAssemblyRepairAttempts = 0;
                 string? activeAssemblyContractFingerprint = null;
@@ -693,13 +694,14 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
 
                             var diagnosticFingerprint = WorkflowPlanDiagnostics.BuildDiagnosticFingerprint(ex);
                             var diagnosticCodes = GetPlannerDiagnosticCodes(ex).ToHashSet(StringComparer.Ordinal);
+                            var diagnosticIdentities = WorkflowPlanDiagnostics.BuildDiagnosticIdentities(ex);
                             var candidateIsNew = !string.Equals(
                                 candidateAssemblyFingerprint,
                                 bestAssemblyCandidateFingerprint,
                                 StringComparison.Ordinal);
-                            var diagnosticsStrictlyDecreased = bestAssemblyDiagnosticCodes != null
-                                && diagnosticCodes.Count < bestAssemblyDiagnosticCodes.Count
-                                && diagnosticCodes.IsSubsetOf(bestAssemblyDiagnosticCodes);
+                            var diagnosticsStrictlyDecreased = bestAssemblyDiagnosticIdentities != null
+                                && diagnosticIdentities.Count < bestAssemblyDiagnosticIdentities.Count
+                                && diagnosticIdentities.IsSubsetOf(bestAssemblyDiagnosticIdentities);
                             var candidateImproved = !string.IsNullOrWhiteSpace(previousAssemblyResponse)
                                                     && candidateIsNew
                                                     && (bestAssemblyResponse == null
@@ -714,6 +716,7 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
                                 bestAssemblyCandidateFingerprint = candidateAssemblyFingerprint;
                                 bestAssemblyCandidateDiagnosticFingerprint = diagnosticFingerprint;
                                 bestAssemblyDiagnosticCodes = diagnosticCodes;
+                                bestAssemblyDiagnosticIdentities = diagnosticIdentities;
                                 bestAssemblyValidationProgress = candidateAssemblyValidationProgress;
                                 regressedAssemblyRepairAttempts = 0;
                                 attemptSpan.SetAttribute("gnougo-flow.plan.pipeline.candidate.accepted", true);
@@ -730,6 +733,8 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
                                 attemptSpan.SetAttribute("gnougo-flow.plan.pipeline.candidate.accepted", false);
                                 attemptSpan.SetAttribute("gnougo-flow.plan.pipeline.candidate.validation_progress", candidateAssemblyValidationProgress);
                                 attemptSpan.SetAttribute("gnougo-flow.plan.pipeline.candidate.best_validation_progress", bestAssemblyValidationProgress);
+                                attemptSpan.SetAttribute("gnougo-flow.plan.pipeline.candidate.diagnostic_count", diagnosticIdentities.Count);
+                                attemptSpan.SetAttribute("gnougo-flow.plan.pipeline.candidate.best_diagnostic_count", bestAssemblyDiagnosticIdentities?.Count ?? 0);
                                 attemptSpan.SetAttribute("gnougo-flow.plan.pipeline.patch.stall_reason", "validation_progress_regression");
                                 ctx.AddTelemetryEvent("gnougo-flow.plan.pipeline.main_assembly_candidate_rejected", new[]
                                 {
@@ -737,7 +742,9 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
                                     new KeyValuePair<string, object?>("gnougo-flow.plan.pipeline.candidate.fingerprint", candidateAssemblyFingerprint),
                                     new KeyValuePair<string, object?>("gnougo-flow.plan.pipeline.candidate.best_fingerprint", bestAssemblyCandidateFingerprint),
                                     new KeyValuePair<string, object?>("gnougo-flow.plan.pipeline.candidate.validation_progress", candidateAssemblyValidationProgress),
-                                    new KeyValuePair<string, object?>("gnougo-flow.plan.pipeline.candidate.best_validation_progress", bestAssemblyValidationProgress)
+                                    new KeyValuePair<string, object?>("gnougo-flow.plan.pipeline.candidate.best_validation_progress", bestAssemblyValidationProgress),
+                                    new KeyValuePair<string, object?>("gnougo-flow.plan.pipeline.candidate.diagnostic_count", diagnosticIdentities.Count),
+                                    new KeyValuePair<string, object?>("gnougo-flow.plan.pipeline.candidate.best_diagnostic_count", bestAssemblyDiagnosticIdentities?.Count ?? 0)
                                 });
                                 if (regressedAssemblyRepairAttempts >= 2)
                                 {
@@ -818,6 +825,7 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
                                 bestAssemblyCandidateFingerprint = null;
                                 bestAssemblyCandidateDiagnosticFingerprint = null;
                                 bestAssemblyDiagnosticCodes = null;
+                                bestAssemblyDiagnosticIdentities = null;
                                 bestAssemblyValidationProgress = -1;
                                 regressedAssemblyRepairAttempts = 0;
                                 attemptSpan.SetAttribute("gnougo-flow.plan.pipeline.assembly_status", "leaf_input_contract_repaired");
@@ -915,6 +923,7 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
                                 bestAssemblyCandidateFingerprint = null;
                                 bestAssemblyCandidateDiagnosticFingerprint = null;
                                 bestAssemblyDiagnosticCodes = null;
+                                bestAssemblyDiagnosticIdentities = null;
                                 bestAssemblyValidationProgress = -1;
                                 regressedAssemblyRepairAttempts = 0;
                                 attemptSpan.SetAttribute("gnougo-flow.plan.pipeline.assembly_status", "leaf_contract_repaired");
@@ -1011,6 +1020,7 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
                                 bestAssemblyCandidateFingerprint = null;
                                 bestAssemblyCandidateDiagnosticFingerprint = null;
                                 bestAssemblyDiagnosticCodes = null;
+                                bestAssemblyDiagnosticIdentities = null;
                                 bestAssemblyValidationProgress = -1;
                                 regressedAssemblyRepairAttempts = 0;
                                 attemptSpan.SetAttribute("gnougo-flow.plan.pipeline.assembly_status", "leaf_runtime_validation_repaired");

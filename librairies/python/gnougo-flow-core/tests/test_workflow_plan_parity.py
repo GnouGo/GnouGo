@@ -28,6 +28,29 @@ def test_structured_convergence_codes_include_validated_nested_details() -> None
         "STEP_REFERENCE_UNKNOWN",
         ErrorCodes.TEMPLATE_PLAN,
     ]
+    assert WorkflowPlanExecutor._planner_diagnostic_identities(error) == {
+        "CONTRACT_GAP",
+        "INPUT_SCHEMA_INVALID",
+        "STEP_REFERENCE_UNKNOWN",
+    }
+
+
+def test_structured_convergence_identities_distinguish_validated_locations() -> None:
+    error = WorkflowRuntimeException(
+        ErrorCodes.TEMPLATE_PLAN,
+        "Validation failed.",
+        details={
+            "diagnostics": [
+                {"code": "STEP_REFERENCE_UNKNOWN", "location": "workflows.main.steps[0]"},
+                {"code": "STEP_REFERENCE_UNKNOWN", "location": "workflows.main.steps[1]"},
+            ]
+        },
+    )
+
+    assert WorkflowPlanExecutor._planner_diagnostic_identities(error) == {
+        "STEP_REFERENCE_UNKNOWN|location=workflows.main.steps[0]",
+        "STEP_REFERENCE_UNKNOWN|location=workflows.main.steps[1]",
+    }
 
 
 def assert_openai_strict_schema(schema: object, path: str = "$") -> None:
