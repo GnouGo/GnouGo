@@ -428,6 +428,23 @@ public sealed record McpCapabilityCompositionResolution(
     McpCapabilityComposition? Contract,
     IReadOnlyList<string> Errors);
 
+public static class McpOutputContractSources
+{
+    public const string ProtocolSchema = "protocol_schema";
+    public const string Example = "example";
+    public const string Description = "description";
+}
+
+/// <summary>
+/// Provider-neutral provenance and validation state for an MCP tool output schema.
+/// Only an authoritative, error-free contract may prove nested response fields.
+/// </summary>
+public sealed record McpOutputContractResolution(
+    JsonNode? Schema,
+    string Source,
+    bool Authoritative,
+    IReadOnlyList<string> Errors);
+
 public sealed record McpCapabilityActivation(
     string Mode,
     string Group,
@@ -488,16 +505,23 @@ public sealed class McpToolInfo
     public McpCapabilityCompositionResolution? CompositionContract { get; set; }
 
     /// <summary>
+    /// Optional provenance for <see cref="OutputSchema"/>. Protocol-declared schemas
+    /// are authoritative after deterministic validation; example- and description-
+    /// derived schemas are advisory planning hints only.
+    /// </summary>
+    public McpOutputContractResolution? OutputContract { get; set; }
+
+    /// <summary>
     /// Optional JSON Schema describing the tool result content returned as
     /// <c>data.steps.&lt;step_id&gt;.response</c> by <c>mcp.call</c>.
-    /// When omitted, planners must treat the response as opaque.
+    /// Consult <see cref="OutputContract"/> before using it as type evidence;
+    /// when no authoritative resolution exists, planners must treat the response as opaque.
     /// </summary>
     public JsonNode? OutputSchema { get; set; }
 
     /// <summary>
-    /// Optional representative response example for prompt guidance.
-    /// If <see cref="OutputSchema"/> is omitted, planning validation can infer
-    /// a conservative object shape from this example.
+    /// Optional representative response example for prompt guidance only.
+    /// Examples are never authoritative evidence for nested response fields.
     /// </summary>
     public JsonNode? ExampleResponse { get; set; }
 }

@@ -88,6 +88,43 @@ public sealed class StepExpressionTypeValidationTests
     }
 
     [Fact]
+    public void McpResponseTyping_DoesNotUseExampleResponseAsAuthoritativeEvidence()
+    {
+        var document = WorkflowParser.Parse("""
+            version: 1
+            workflows:
+              main:
+                steps:
+                  - id: inspect
+                    type: mcp.call
+                    input:
+                      server: neutral-server
+                      kind: tool
+                      method: inspect
+                      request: {}
+            """);
+        var contracts = new Dictionary<(string ServerName, string ToolName), McpToolOutputContract>
+        {
+            [("neutral-server", "inspect")] = new McpToolOutputContract(
+                "neutral-server",
+                "inspect",
+                InputSchema: null,
+                OutputSchema: null,
+                ExampleResponse: System.Text.Json.Nodes.JsonNode.Parse("""{"checks":[{"status":"success"}]}"""))
+        };
+
+        var analysis = WorkflowStepOutputAnalyzer.AnalyzeWorkflow(
+            "main",
+            document.Workflows["main"],
+            document.Workflows,
+            contracts,
+            new WorkflowEngine().Registry.GetContracts());
+        var response = analysis.StepOutputs["inspect"].Properties["response"].Type;
+
+        Assert.True(response.IsOpaque);
+    }
+
+    [Fact]
     public void FinalComposition_RoutesLeafOutputMismatchBackToOwningLeafContract()
     {
         var document = WorkflowParser.Parse("""

@@ -226,16 +226,18 @@ public sealed partial class WorkflowPlanExecutor
             {
                 var description = LimitCapabilityDescription(tool.Description);
                 var arguments = BuildCompactArgumentSummary(tool.InputSchema, includeDescriptions: true);
-                var outputs = BuildCompactOutputSummary(tool.OutputSchema);
+                var authoritativeOutputSchema = McpToolContractEnricher.GetAuthoritativeOutputSchema(tool);
+                var outputs = BuildCompactOutputSummary(authoritativeOutputSchema);
                 var requiredInputs = BuildCapabilitySchemaFields(tool.InputSchema, requiredOnly: true);
-                var outputFields = BuildCapabilitySchemaFields(tool.OutputSchema, requiredOnly: false);
+                var outputFields = BuildCapabilitySchemaFields(authoritativeOutputSchema, requiredOnly: false);
+                var outputContractSummary = FormatOutputContractSummary(tool);
                 var artifactContract = GetValidatedMcpArtifactContract(tool, server.Name);
                 var artifactSummary = FormatArtifactContractSummary(artifactContract);
                 var compositionContract = GetValidatedMcpCompositionContract(tool, server.Name);
                 var compositionSummary = FormatCompositionContractSummary(compositionContract);
                 var variants = ExtractSelectorVariants(tool.InputSchema);
                 pending.Add(("mcp", server.Name, "tool", tool.Name, description, Array.Empty<CapabilityRequestBinding>(),
-                    $"resolution=mcp server={server.Name} kind=tool method={tool.Name} description={description} arguments=[{arguments}] outputs=[{outputs}]{artifactSummary}{compositionSummary}",
+                    $"resolution=mcp server={server.Name} kind=tool method={tool.Name} description={description} arguments=[{arguments}] outputs=[{outputs}]{outputContractSummary}{artifactSummary}{compositionSummary}",
                     requiredInputs, outputFields, artifactContract, compositionContract));
 
                 foreach (var variant in variants.OrderBy(static item => CanonicalizeBindings(item.Bindings), StringComparer.Ordinal))
@@ -372,6 +374,17 @@ public sealed partial class WorkflowPlanExecutor
         var consumes = string.Join(",", contract.Consumes.Select(static artifact =>
             $"{artifact.Kind}:{artifact.Pointer}:{(artifact.Required ? "required" : "optional")}"));
         return $" artifacts=[produces({produces}) consumes({consumes})]";
+    }
+
+    private static string FormatOutputContractSummary(McpToolInfo tool)
+    {
+        var enriched = McpToolContractEnricher.EnrichTool(tool);
+        if (enriched.OutputContract is not { } contract)
+            return " output_contract=[source=none;authority=opaque]";
+        var authority = contract.Authoritative && contract.Errors.Count == 0
+            ? "authoritative"
+            : "advisory";
+        return $" output_contract=[source={contract.Source};authority={authority};errors={contract.Errors.Count}]";
     }
 
     private static string FormatCompositionContractSummary(McpCapabilityComposition? contract)

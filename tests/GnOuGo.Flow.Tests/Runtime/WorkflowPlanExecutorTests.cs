@@ -48,9 +48,11 @@ public class WorkflowPlanExecutorTests
                 "name": { "type": "string" },
                 "optional_unknown": {},
                 "optional_collection": { "type": "array", "items": {} },
-                "required_unknown": {}
+                "json_required_unknown": {},
+                "flow_required_unknown": {}
               },
-              "required": ["name", "required_unknown"]
+              "required": ["name", "json_required_unknown"],
+              "required_properties": ["flow_required_unknown"]
             }
             """);
 
@@ -58,12 +60,118 @@ public class WorkflowPlanExecutorTests
         var properties = Assert.IsType<JsonObject>(normalized["properties"]);
 
         Assert.True(properties.ContainsKey("name"));
-        Assert.True(properties.ContainsKey("required_unknown"));
+        Assert.True(properties.ContainsKey("json_required_unknown"));
+        Assert.True(properties.ContainsKey("flow_required_unknown"));
         Assert.False(properties.ContainsKey("optional_unknown"));
         Assert.False(properties.ContainsKey("optional_collection"));
         Assert.Contains(
             Assert.IsType<JsonArray>(normalized["required"]),
-            static value => value?.GetValue<string>() == "required_unknown");
+            static value => value?.GetValue<string>() == "json_required_unknown");
+        Assert.Contains(
+            Assert.IsType<JsonArray>(normalized["required_properties"]),
+            static value => value?.GetValue<string>() == "flow_required_unknown");
+    }
+
+    [Fact]
+    public void PipelineExtraction_RequiredWeakMemberSurvivesPruningAndReportsExactPath()
+    {
+        var prune = typeof(WorkflowPlanExecutor).GetMethods(BindingFlags.Static | BindingFlags.NonPublic)
+            .Single(candidate => candidate.Name == "PruneOptionalWeakContractMembers"
+                                 && candidate.GetParameters() is [{ ParameterType: var parameterType }]
+                                 && parameterType == typeof(JsonNode));
+        var schema = JsonNode.Parse("""
+            {
+              "type": "object",
+              "properties": {
+                "status": { "type": "string" },
+                "checks": { "type": "array", "items": {} }
+              },
+              "required_properties": ["status", "checks"]
+            }
+            """);
+
+        var normalized = Assert.IsType<JsonObject>(prune.Invoke(null, [schema]));
+        Assert.True(Assert.IsType<JsonObject>(normalized["properties"]).ContainsKey("checks"));
+
+        var diagnostics = EnumeratePrivateExtractionSchemaDiagnostics(
+            normalized,
+            "subworkflows.read_checks.outputs.result",
+            isInput: false);
+        var diagnostic = Assert.Single(diagnostics);
+        Assert.Equal("WEAK_EXTRACTION_OUTPUT_SCHEMA", diagnostic.Code);
+        Assert.Equal("subworkflows.read_checks.outputs.result.properties.checks.items", diagnostic.Path);
+    }
+
+    [Theory]
+    [InlineData("{\"type\":\"object\",\"properties\":{\"name\":{\"type\":\"string\"}},\"required_properties\":[\"missing\"]}", "required_properties[0]", "not declared")]
+    [InlineData("{\"type\":\"object\",\"properties\":{\"name\":{\"type\":\"string\"}},\"required_properties\":[\"name\",\"name\"]}", "required_properties[1]", "more than once")]
+    [InlineData("{\"type\":\"object\",\"properties\":{\"name\":{\"type\":\"string\"}},\"required_properties\":\"name\"}", "required_properties", "must be an array")]
+    [InlineData("{\"type\":\"object\",\"properties\":{\"name\":{\"type\":\"string\"}},\"required\":[42]}", "required[0]", "non-empty string")]
+    [InlineData("{\"type\":\"object\",\"properties\":{\"name\":{\"type\":\"string\"}},\"required\":[\"name\",\"name\"]}", "required[1]", "more than once")]
+    [InlineData("{\"type\":\"object\",\"properties\":{\"name\":{\"type\":\"string\"}},\"required\":[\"\"]}", "required[0]", "non-empty string")]
+    [InlineData("{\"type\":\"object\",\"properties\":{\"name\":{\"type\":\"string\"}},\"required\":null}", "required", "must be an array")]
+    public void PipelineExtraction_ReportsInvalidRequiredPropertyDeclarations(
+        string schemaJson,
+        string expectedPath,
+        string expectedReason)
+    {
+        var diagnostics = EnumeratePrivateExtractionSchemaDiagnostics(
+            JsonNode.Parse(schemaJson),
+            "subworkflows.normalize.inputs.payload",
+            isInput: true);
+
+        var diagnostic = Assert.Single(diagnostics);
+        Assert.Equal("INVALID_EXTRACTION_INPUT_SCHEMA", diagnostic.Code);
+        Assert.Contains(expectedPath, diagnostic.Path, StringComparison.Ordinal);
+        Assert.Contains(expectedReason, diagnostic.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void PipelineExtraction_ReportsDanglingRequiredMemberEvenWhenPropertiesAreMissing()
+    {
+        var diagnostics = EnumeratePrivateExtractionSchemaDiagnostics(
+            JsonNode.Parse("""{"type":"object","required":["checks"]}"""),
+            "subworkflows.normalize.outputs.result",
+            isInput: false);
+
+        Assert.Contains(diagnostics, static diagnostic =>
+            diagnostic.Code == "INVALID_EXTRACTION_OUTPUT_SCHEMA"
+            && diagnostic.Path.EndsWith("required[0]", StringComparison.Ordinal));
+        Assert.Contains(diagnostics, static diagnostic =>
+            diagnostic.Code == "WEAK_EXTRACTION_OUTPUT_SCHEMA"
+            && diagnostic.Path.EndsWith("properties", StringComparison.Ordinal));
+    }
+
+    [Theory]
+    [InlineData("{\"type\":\"object\",\"required\":true,\"properties\":{\"name\":{\"type\":\"string\"}}}")]
+    [InlineData("{\"type\":\"object\",\"required\":[\"name\"],\"properties\":{\"name\":{\"type\":\"string\"}}}")]
+    public void PipelineExtraction_AcceptsBooleanInputRequiredAndJsonSchemaRequired(string schemaJson)
+    {
+        Assert.Empty(EnumeratePrivateExtractionSchemaDiagnostics(
+            JsonNode.Parse(schemaJson),
+            "subworkflows.normalize.inputs.payload",
+            isInput: true));
+    }
+
+    private static IReadOnlyList<(string Code, string Path, string Message)> EnumeratePrivateExtractionSchemaDiagnostics(
+        JsonNode? schema,
+        string path,
+        bool isInput)
+    {
+        var method = typeof(WorkflowPlanExecutor).GetMethod(
+            "EnumerateWeakExtractionSchemaDiagnostics",
+            BindingFlags.Static | BindingFlags.NonPublic)!;
+        return Assert.IsAssignableFrom<System.Collections.IEnumerable>(method.Invoke(null, [schema, path, isInput]))
+            .Cast<object>()
+            .Select(static value =>
+            {
+                var tuple = Assert.IsAssignableFrom<System.Runtime.CompilerServices.ITuple>(value);
+                return (
+                    Assert.IsType<string>(tuple[0]),
+                    Assert.IsType<string>(tuple[1]),
+                    Assert.IsType<string>(tuple[2]));
+            })
+            .ToArray();
     }
 
     [Fact]
@@ -671,6 +779,369 @@ public class WorkflowPlanExecutorTests
     }
 
     [Fact]
+    public async Task WorkflowPlan_PipelineExtractionRepair_ConvergesAcrossRecordedThreeCandidatePattern()
+    {
+        var patchCalls = 0;
+        var reviewCalls = 0;
+        var leafGenerationCalls = 0;
+        var mainAssemblyCalls = 0;
+        var mockLlm = new Mock<ILLMClient>();
+        mockLlm.Setup(client => client.CallAsync(It.IsAny<LLMRequest>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((LLMRequest request, CancellationToken _) =>
+            {
+                if (request.Prompt.Contains("preparing a raw user automation prompt", StringComparison.Ordinal))
+                {
+                    return new LLMResponse
+                    {
+                        Text = "# Review checks\n\nNormalize hosted checks into a fail-closed typed review decision."
+                    };
+                }
+
+                if (request.Prompt.Contains("annotate normalized automation Markdown", StringComparison.Ordinal))
+                {
+                    const string annotatedMarkdown = """
+                        # Review checks
+
+                        :::subworkflow name="evaluate_review_checks"
+                        goal: Evaluate hosted checks into a fail-closed decision.
+                        inputs:
+                          review_context: object
+                        outputs:
+                          review_decision: object
+                        extract_reason: This is one cohesive deterministic evaluation over typed check evidence.
+                        content:
+                          Evaluate the hosted checks and return a typed verdict plus an explanation.
+                        :::
+
+                        ## Main workflow orchestration
+
+                        Call evaluate_review_checks with the supplied typed check evidence and expose its decision.
+                        """;
+                    return CreateStructuredMarkExtractableBlocksResponse(
+                        annotatedMarkdown,
+                        new JsonArray(CreateReviewChecksLeaf(state: 0)),
+                        "Call evaluate_review_checks with the supplied typed check evidence and expose its decision.");
+                }
+
+                if (request.Prompt.Contains("repairing one validated workflow pipeline extraction", StringComparison.Ordinal))
+                {
+                    patchCalls++;
+                    if (patchCalls == 1)
+                    {
+                        Assert.Contains("WEAK_EXTRACTION_INPUT_SCHEMA", request.Prompt, StringComparison.Ordinal);
+                        Assert.Contains(
+                            "subworkflows.evaluate_review_checks.inputs.review_context.properties.checks.items",
+                            request.Prompt,
+                            StringComparison.Ordinal);
+                    }
+                    else
+                    {
+                        Assert.Contains("GITHUB_CHECKS_TYPED_CONTRACT_INCOMPLETE", request.Prompt, StringComparison.Ordinal);
+                    }
+
+                    return CreatePipelineExtractionPatchResponse(
+                        request,
+                        new JsonArray
+                        {
+                            new JsonObject
+                            {
+                                ["op"] = "replace_leaf",
+                                ["target"] = "evaluate_review_checks",
+                                ["sources"] = new JsonArray(),
+                                ["main_orchestration"] = string.Empty,
+                                ["leaf"] = CreateReviewChecksLeaf(state: patchCalls)
+                            }
+                        });
+                }
+
+                if (request.Prompt.Contains("reviewing the quality of a `workflow.plan` pipeline", StringComparison.Ordinal))
+                {
+                    reviewCalls++;
+                    if (reviewCalls == 1)
+                    {
+                        return CreateExtractionQualityReviewResponse(
+                            61,
+                            "retry",
+                            new JsonArray
+                            {
+                                new JsonObject
+                                {
+                                    ["code"] = "GITHUB_CHECKS_TYPED_CONTRACT_INCOMPLETE",
+                                    ["kind"] = "contract_violation",
+                                    ["severity"] = "critical",
+                                    ["remediation_surface"] = "extraction_contract",
+                                    ["leaf_name"] = "evaluate_review_checks",
+                                    ["message"] = "The hosted-check items expose only status and cannot carry a concrete check identity, conclusion, and summary.",
+                                    ["recommendation"] = "Complete the checks item contract with name, status, conclusion, and summary.",
+                                    ["evidence"] = new JsonArray(new JsonObject
+                                    {
+                                        ["source"] = "extraction",
+                                        ["reference"] = "/subworkflows/0/content",
+                                        ["excerpt"] = "hosted checks"
+                                    })
+                                }
+                            },
+                            "Complete the hosted checks item contract.");
+                    }
+
+                    Assert.Contains("<extraction_delta_json>", request.Prompt, StringComparison.Ordinal);
+                    Assert.DoesNotContain("<annotated_markdown>", request.Prompt, StringComparison.Ordinal);
+                    return CreateExtractionQualityReviewResponse(86, "pass", retryGuidance: string.Empty);
+                }
+
+                if (request.Prompt.Contains("Generate exactly one leaf GnOuGo workflow named `evaluate_review_checks`.", StringComparison.Ordinal))
+                {
+                    leafGenerationCalls++;
+                    return new LLMResponse
+                    {
+                        Text = """
+                            version: 1
+                            name: evaluate-review-checks-leaf
+                            skill:
+                              description: Evaluate typed hosted checks.
+                              inputs:
+                                review_context:
+                                  type: object
+                                  properties:
+                                    checks:
+                                      type: array
+                                      items:
+                                        type: object
+                                        properties:
+                                          name: { type: string }
+                                          status: { type: string }
+                                          conclusion: { type: string }
+                                          summary: { type: string }
+                                        required_properties: [name, status, conclusion, summary]
+                                  required_properties: [checks]
+                              outputs:
+                                review_decision:
+                                  type: object
+                                  properties:
+                                    verdict: { type: string }
+                                    explanation: { type: string }
+                                  required_properties: [verdict, explanation]
+                            workflows:
+                              main:
+                                inputs:
+                                  review_context:
+                                    type: object
+                                    properties:
+                                      checks:
+                                        type: array
+                                        items:
+                                          type: object
+                                          properties:
+                                            name: { type: string }
+                                            status: { type: string }
+                                            conclusion: { type: string }
+                                            summary: { type: string }
+                                          required_properties: [name, status, conclusion, summary]
+                                    required_properties: [checks]
+                                steps:
+                                  - id: decide
+                                    type: set
+                                    output_schema:
+                                      type: object
+                                      properties:
+                                        review_decision:
+                                          type: object
+                                          properties:
+                                            verdict: { type: string }
+                                            explanation: { type: string }
+                                          required_properties: [verdict, explanation]
+                                      required_properties: [review_decision]
+                                    input:
+                                      review_decision:
+                                        verdict: REQUEST_CHANGES
+                                        explanation: Fail closed unless every typed check is successful.
+                                outputs:
+                                  review_decision:
+                                    expr: ${data.steps.decide.review_decision}
+                                    type: object
+                                    properties:
+                                      verdict: { type: string }
+                                      explanation: { type: string }
+                                    required_properties: [verdict, explanation]
+                            """
+                    };
+                }
+
+                if (request.Prompt.Contains("assembling the parent `main` workflow", StringComparison.Ordinal))
+                {
+                    mainAssemblyCalls++;
+                    return new LLMResponse
+                    {
+                        Text = """
+                            document:
+                              name: typed-review-checks-pipeline
+                              skill:
+                                description: Evaluate typed hosted checks.
+                                inputs:
+                                  review_context:
+                                    type: object
+                                    properties:
+                                      checks:
+                                        type: array
+                                        items:
+                                          type: object
+                                          properties:
+                                            name: { type: string }
+                                            status: { type: string }
+                                            conclusion: { type: string }
+                                            summary: { type: string }
+                                          required_properties: [name, status, conclusion, summary]
+                                    required_properties: [checks]
+                                outputs:
+                                  review_decision:
+                                    type: object
+                                    properties:
+                                      verdict: { type: string }
+                                      explanation: { type: string }
+                                    required_properties: [verdict, explanation]
+                            graph:
+                              inputs:
+                                review_context:
+                                  type: object
+                                  properties:
+                                    checks:
+                                      type: array
+                                      items:
+                                        type: object
+                                        properties:
+                                          name: { type: string }
+                                          status: { type: string }
+                                          conclusion: { type: string }
+                                          summary: { type: string }
+                                        required_properties: [name, status, conclusion, summary]
+                                  required_properties: [checks]
+                              steps:
+                                - id: evaluate
+                                  leaf: evaluate_review_checks
+                                  args:
+                                    review_context: ${data.inputs.review_context}
+                              outputs:
+                                review_decision: ${data.steps.evaluate.outputs.review_decision}
+                            """
+                    };
+                }
+
+                throw new InvalidOperationException("Unexpected LLM prompt: " + request.Prompt);
+            });
+
+        var workflow = CompileMain("""
+            version: 1
+            workflows:
+              main:
+                steps:
+                  - id: plan
+                    type: workflow.plan
+                    input:
+                      mode: pipeline
+                      raw_prompt: "Normalize hosted checks into a fail-closed typed review decision."
+                      generator:
+                        model: gpt-4
+                        prefilter: false
+                      validate:
+                        compile: true
+                        dry_run: true
+                        max_repair_attempts: 2
+                      on_invalid:
+                        max_attempts: 3
+            """);
+
+        var result = await new WorkflowEngine
+        {
+            LLMClient = mockLlm.Object,
+            LLMCapabilities = new StaticLlmCapabilityResolver(true)
+        }.ExecuteAsync(workflow, new JsonObject(), CancellationToken.None);
+
+        Assert.True(result.Success, result.Error?.Message);
+        Assert.Equal(2, patchCalls);
+        Assert.Equal(2, reviewCalls);
+        Assert.Equal(1, leafGenerationCalls);
+        Assert.Equal(1, mainAssemblyCalls);
+        var plan = Assert.IsType<JsonObject>(result.Outputs!["plan"]);
+        var generatedDocument = WorkflowParser.Parse(plan["yaml"]!.GetValue<string>());
+        var compiledDocument = new WorkflowCompiler().Compile(generatedDocument);
+        Assert.NotNull(compiledDocument.Entrypoint);
+        var extraction = plan["pipeline"]!["specs"]!["subworkflows"]![0]!;
+        Assert.Contains("name", extraction["input_schemas"]!["review_context"]!.ToJsonString(), StringComparison.Ordinal);
+        Assert.Equal("pass", plan["pipeline"]!["quality_report"]!["extraction"]!["quality_review"]!["verdict"]!.GetValue<string>());
+    }
+
+    private static JsonObject CreateReviewChecksLeaf(int state)
+    {
+        var checkProperties = state switch
+        {
+            0 => new JsonArray(),
+            1 => new JsonArray(ContractProperty("status", "Execution status.")),
+            _ => new JsonArray(
+                ContractProperty("name", "Check name."),
+                ContractProperty("status", "Execution status."),
+                ContractProperty("conclusion", "Check conclusion."),
+                ContractProperty("summary", "Check summary."))
+        };
+        var leaf = new JsonObject
+        {
+            ["name"] = "evaluate_review_checks",
+            ["goal"] = "Evaluate hosted checks into a fail-closed decision.",
+            ["description"] = "Evaluates concrete typed hosted-check evidence.",
+            ["work_kind"] = "deterministic_shaping",
+            ["contract_role"] = "algorithmic_transform",
+            ["concrete_outcome"] = "A typed review verdict with an explanation.",
+            ["inputs"] = new JsonArray(new JsonObject
+            {
+                ["name"] = "review_context",
+                ["type"] = "object",
+                ["description"] = "Typed review evidence.",
+                ["required"] = true,
+                ["nullable"] = false,
+                ["item_type"] = string.Empty,
+                ["properties"] = new JsonArray(new JsonObject
+                {
+                    ["name"] = "checks",
+                    ["type"] = "array",
+                    ["description"] = "Hosted checks.",
+                    ["required"] = true,
+                    ["nullable"] = false,
+                    ["item_type"] = state == 0 ? "any" : "object",
+                    ["properties"] = checkProperties
+                })
+            }),
+            ["outputs"] = new JsonArray(new JsonObject
+            {
+                ["name"] = "review_decision",
+                ["type"] = "object",
+                ["description"] = "Fail-closed review decision.",
+                ["required"] = true,
+                ["nullable"] = false,
+                ["item_type"] = string.Empty,
+                ["properties"] = new JsonArray(
+                    ContractProperty("verdict", "Review verdict."),
+                    ContractProperty("explanation", "Decision explanation."))
+            }),
+            ["extract_reason"] = "This is one cohesive deterministic evaluation over typed check evidence.",
+            ["content"] = "Evaluate the hosted checks and return a typed verdict plus an explanation.",
+            ["planned_tools"] = new JsonArray()
+        };
+        if (state > 0)
+            leaf.Remove("planned_tools");
+        return leaf;
+
+        static JsonObject ContractProperty(string name, string description) => new()
+        {
+            ["name"] = name,
+            ["type"] = "string",
+            ["description"] = description,
+            ["required"] = true,
+            ["nullable"] = false,
+            ["item_type"] = string.Empty,
+            ["properties"] = new JsonArray()
+        };
+    }
+
+    [Fact]
     public async Task WorkflowPlan_PipelineLeaf_ReusesDeclaredInputForCaseSeparatorAlias()
     {
         var mockLlm = new Mock<ILLMClient>();
@@ -1250,21 +1721,24 @@ public class WorkflowPlanExecutorTests
         var fingerprint = request.Prompt[(start + startTag.Length)..end].Trim();
         var schemaFingerprintValues = request.StructuredOutputSchema["properties"]!["base_fingerprint"]!["enum"]!.AsArray();
         Assert.Equal(fingerprint, Assert.Single(schemaFingerprintValues)!.GetValue<string>());
-        const string codesStartTag = "<addressable_diagnostic_codes>";
-        const string codesEndTag = "</addressable_diagnostic_codes>";
-        var codesStart = request.Prompt.IndexOf(codesStartTag, StringComparison.Ordinal);
-        var codesEnd = request.Prompt.IndexOf(codesEndTag, StringComparison.Ordinal);
-        Assert.True(codesStart >= 0 && codesEnd > codesStart, "Targeted patch prompt did not contain addressable diagnostic codes.");
-        var codesJson = request.Prompt[(codesStart + codesStartTag.Length)..codesEnd].Trim();
-        var addressedCodes = Assert.IsType<JsonArray>(JsonNode.Parse(codesJson));
-        var schemaDiagnosticValues = request.StructuredOutputSchema["properties"]!["addressed_diagnostic_codes"]!["items"]!["enum"]!.AsArray();
+        const string diagnosticsStartTag = "<addressable_diagnostics>";
+        const string diagnosticsEndTag = "</addressable_diagnostics>";
+        var diagnosticsStart = request.Prompt.IndexOf(diagnosticsStartTag, StringComparison.Ordinal);
+        var diagnosticsEnd = request.Prompt.IndexOf(diagnosticsEndTag, StringComparison.Ordinal);
+        Assert.True(diagnosticsStart >= 0 && diagnosticsEnd > diagnosticsStart, "Targeted patch prompt did not contain addressable diagnostics.");
+        var diagnosticsJson = request.Prompt[(diagnosticsStart + diagnosticsStartTag.Length)..diagnosticsEnd].Trim();
+        var addressableDiagnostics = Assert.IsType<JsonArray>(JsonNode.Parse(diagnosticsJson));
+        var addressedIds = new JsonArray(addressableDiagnostics
+            .Select(static diagnostic => (JsonNode?)JsonValue.Create(diagnostic!["id"]!.GetValue<string>()))
+            .ToArray());
+        var schemaDiagnosticValues = request.StructuredOutputSchema["properties"]!["addressed_diagnostic_ids"]!["items"]!["enum"]!.AsArray();
         Assert.Equal(
-            addressedCodes.Select(static code => code!.GetValue<string>()).Order(StringComparer.Ordinal),
+            addressedIds.Select(static id => id!.GetValue<string>()).Order(StringComparer.Ordinal),
             schemaDiagnosticValues.Select(static code => code!.GetValue<string>()).Order(StringComparer.Ordinal));
         var json = new JsonObject
         {
             ["base_fingerprint"] = fingerprint,
-            ["addressed_diagnostic_codes"] = addressedCodes.DeepClone(),
+            ["addressed_diagnostic_ids"] = addressedIds.DeepClone(),
             ["operations"] = operations
         };
         return new LLMResponse { Json = json, Text = json.ToJsonString() };
@@ -1658,7 +2132,7 @@ public class WorkflowPlanExecutorTests
                     var json = new JsonObject
                     {
                         ["base_fingerprint"] = "stale-fingerprint",
-                        ["addressed_diagnostic_codes"] = new JsonArray("PATCH_REQUIRED"),
+                        ["addressed_diagnostic_ids"] = new JsonArray("quality:stale"),
                         ["operations"] = new JsonArray
                         {
                             new JsonObject
@@ -1861,6 +2335,13 @@ public class WorkflowPlanExecutorTests
                     Assert.Contains("<baseline_quality_review_json>", request.Prompt, StringComparison.Ordinal);
                     Assert.Contains("<changed_extraction_surfaces_json>", request.Prompt, StringComparison.Ordinal);
                     Assert.Contains("normalize_alpha", request.Prompt, StringComparison.Ordinal);
+                    var baselineReviewJson = ExtractPromptSection(request.Prompt, "baseline_quality_review_json");
+                    Assert.Contains("ALPHA_CONTRACT_DEFECT", baselineReviewJson, StringComparison.Ordinal);
+                    Assert.DoesNotContain("BASELINE_BETA_ADVISORY", baselineReviewJson, StringComparison.Ordinal);
+                    var deltaJson = Assert.IsType<JsonObject>(JsonNode.Parse(
+                        ExtractPromptSection(request.Prompt, "extraction_delta_json")));
+                    Assert.Equal("normalize_alpha", deltaJson["changed_leaf_names"]![0]!.GetValue<string>());
+                    Assert.NotNull(deltaJson["unchanged_leaf_fingerprints"]!["normalize_beta"]);
                     return CreateExtractionQualityReviewResponse(
                         82,
                         "retry",
@@ -1915,6 +2396,16 @@ public class WorkflowPlanExecutorTests
         Assert.Equal("info", newClaim!["severity"]!.GetValue<string>());
         Assert.False(newClaim["evidence_qualified"]!.GetValue<bool>());
         Assert.Single(diagnostics, static item => item!["code"]!.GetValue<string>() == "BASELINE_BETA_ADVISORY");
+    }
+
+    private static string ExtractPromptSection(string prompt, string sectionName)
+    {
+        var startTag = $"<{sectionName}>";
+        var endTag = $"</{sectionName}>";
+        var start = prompt.IndexOf(startTag, StringComparison.Ordinal);
+        var end = prompt.IndexOf(endTag, StringComparison.Ordinal);
+        Assert.True(start >= 0 && end > start, $"Prompt did not contain section '{sectionName}'.");
+        return prompt[(start + startTag.Length)..end].Trim();
     }
 
     [Fact]
@@ -2791,14 +3282,14 @@ public class WorkflowPlanExecutorTests
     }
 
     [Theory]
-    [InlineData(false, "unknown or stale codes")]
+    [InlineData(false, "unknown or stale identities")]
     [InlineData(true, "contains duplicates")]
-    public void PipelineExtractionPatch_RejectsInvalidAddressedDiagnosticCodes(bool duplicate, string expectedMessage)
+    public void PipelineExtractionPatch_RejectsInvalidAddressedDiagnosticIds(bool duplicate, string expectedMessage)
     {
         var candidate = CreatePrivatePatchCandidate("locked_leaf");
-        var addressedCodes = duplicate
-            ? new JsonArray("UNKNOWN_CODE", "UNKNOWN_CODE")
-            : new JsonArray("UNKNOWN_CODE");
+        var addressedIds = duplicate
+            ? new JsonArray("quality:unknown", "quality:unknown")
+            : new JsonArray("quality:unknown");
         var failure = Assert.Throws<TargetInvocationException>(() => ApplyPrivateExtractionPatch(
             candidate,
             new JsonArray
@@ -2812,7 +3303,7 @@ public class WorkflowPlanExecutorTests
                     ["leaf"] = null
                 }
             },
-            addressedCodes));
+            addressedIds));
 
         Assert.Contains(expectedMessage, failure.InnerException!.Message, StringComparison.Ordinal);
     }
@@ -3007,16 +3498,129 @@ public class WorkflowPlanExecutorTests
         var stabilize = typeof(WorkflowPlanExecutor).GetMethod(
             "StabilizePipelineExtractionQualityReviewAgainstBaseline",
             BindingFlags.NonPublic | BindingFlags.Static)!;
+        var diagnosticId = Assert.IsType<string>(typeof(WorkflowPlanExecutor).GetMethod(
+                "BuildPipelineExtractionQualityDiagnosticId",
+                BindingFlags.NonPublic | BindingFlags.Static)!
+            .Invoke(null, [diagnostic]));
 
         var stabilized = stabilize.Invoke(
             null,
-            [baseline, candidate, deltaReview, new HashSet<string>(["PARENT_ROUTING_DEFECT"], StringComparer.Ordinal)])!;
+            [baseline, candidate, deltaReview, new HashSet<string>([diagnosticId], StringComparer.Ordinal)])!;
 
         var diagnostics = Assert.IsAssignableFrom<System.Collections.IEnumerable>(
                 reviewType.GetProperty("Diagnostics")!.GetValue(stabilized))
             .Cast<object>();
         Assert.Empty(diagnostics);
         Assert.Equal("pass", reviewType.GetProperty("Verdict")!.GetValue(stabilized));
+    }
+
+    [Fact]
+    public void PipelineQualityStabilization_DropsAddressedDiagnosticWhenPositiveEvidenceRemains()
+    {
+        var extractionType = GetPrivatePipelineType("WorkflowPipelineExtraction");
+        var reviewType = GetPrivatePipelineType("PipelineExtractionQualityReview");
+        var diagnosticType = GetPrivatePipelineType("PipelineExtractionQualityDiagnostic");
+        var evidenceType = GetPrivatePipelineType("PipelineExtractionQualityEvidence");
+        var baselineWithoutReview = CreatePrivatePatchCandidate("read_checks");
+        var baselineJson = BuildPrivateExtractionJson(baselineWithoutReview);
+        var originalContent = baselineJson["subworkflows"]![0]!["content"]!.GetValue<string>();
+        var replacement = CreatePatchTestLeafPayload("read_checks");
+        replacement["content"] = originalContent;
+        replacement["description"] = "Return concrete typed check records.";
+        var candidate = ApplyPrivateExtractionPatch(
+            baselineWithoutReview,
+            new JsonArray
+            {
+                new JsonObject
+                {
+                    ["op"] = "replace_leaf",
+                    ["target"] = "read_checks",
+                    ["sources"] = new JsonArray(),
+                    ["main_orchestration"] = string.Empty,
+                    ["leaf"] = replacement
+                }
+            });
+        var evidence = CreatePrivatePipelineValue(
+            evidenceType,
+            "extraction",
+            "/subworkflows/0/content",
+            originalContent);
+        var diagnostic = CreatePrivatePipelineValue(
+            diagnosticType,
+            "TYPED_CONTRACT_INCOMPLETE",
+            "contract_violation",
+            "critical",
+            "read_checks",
+            "The typed check contract is incomplete.",
+            "Add concrete check fields while preserving the requested check obligation.",
+            CreatePrivatePipelineArray(evidenceType, evidence),
+            true,
+            "extraction_contract");
+        var baselineReview = CreatePrivatePipelineValue(
+            reviewType,
+            60,
+            "retry",
+            CreatePrivatePipelineArray(diagnosticType, diagnostic),
+            "Complete the check contract.");
+        var baseline = CreatePrivatePipelineValue(
+            extractionType,
+            extractionType.GetProperty("Subworkflows")!.GetValue(baselineWithoutReview),
+            extractionType.GetProperty("MainWorkflowPrompt")!.GetValue(baselineWithoutReview),
+            extractionType.GetProperty("ValidationErrors")!.GetValue(baselineWithoutReview),
+            extractionType.GetProperty("RootCauses")!.GetValue(baselineWithoutReview),
+            baselineReview,
+            extractionType.GetProperty("QualityWarnings")!.GetValue(baselineWithoutReview),
+            extractionType.GetProperty("MainLocalOperationIds")!.GetValue(baselineWithoutReview),
+            extractionType.GetProperty("MainNativeSteps")!.GetValue(baselineWithoutReview));
+        var deltaReview = CreatePrivatePipelineValue(
+            reviewType,
+            90,
+            "pass",
+            CreatePrivatePipelineArray(diagnosticType),
+            string.Empty);
+        var diagnosticId = Assert.IsType<string>(typeof(WorkflowPlanExecutor).GetMethod(
+                "BuildPipelineExtractionQualityDiagnosticId",
+                BindingFlags.NonPublic | BindingFlags.Static)!
+            .Invoke(null, [diagnostic]));
+        var stabilize = typeof(WorkflowPlanExecutor).GetMethod(
+            "StabilizePipelineExtractionQualityReviewAgainstBaseline",
+            BindingFlags.NonPublic | BindingFlags.Static)!;
+
+        var stabilized = stabilize.Invoke(
+            null,
+            [baseline, candidate, deltaReview, new HashSet<string>([diagnosticId], StringComparer.Ordinal)])!;
+
+        Assert.Empty(Assert.IsAssignableFrom<System.Collections.IEnumerable>(
+                reviewType.GetProperty("Diagnostics")!.GetValue(stabilized))
+            .Cast<object>());
+        Assert.Equal("pass", reviewType.GetProperty("Verdict")!.GetValue(stabilized));
+        Assert.Contains(originalContent, BuildPrivateExtractionJson(candidate).ToJsonString(), StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void PipelineQualityDiagnosticIds_DistinguishSameCodeOnDifferentLeaves()
+    {
+        var diagnosticType = GetPrivatePipelineType("PipelineExtractionQualityDiagnostic");
+        var evidenceType = GetPrivatePipelineType("PipelineExtractionQualityEvidence");
+        object Diagnostic(string leaf) => CreatePrivatePipelineValue(
+            diagnosticType,
+            "TYPED_CONTRACT_INCOMPLETE",
+            "contract_violation",
+            "critical",
+            leaf,
+            "The typed contract is incomplete.",
+            "Complete the typed contract.",
+            CreatePrivatePipelineArray(evidenceType),
+            true,
+            "extraction_contract");
+        var buildId = typeof(WorkflowPlanExecutor).GetMethod(
+            "BuildPipelineExtractionQualityDiagnosticId",
+            BindingFlags.NonPublic | BindingFlags.Static)!;
+
+        var first = Assert.IsType<string>(buildId.Invoke(null, [Diagnostic("first_leaf")]));
+        var second = Assert.IsType<string>(buildId.Invoke(null, [Diagnostic("second_leaf")]));
+
+        Assert.NotEqual(first, second);
     }
 
     [Fact]
@@ -3427,7 +4031,7 @@ public class WorkflowPlanExecutorTests
     private static object ApplyPrivateExtractionPatch(
         object candidate,
         JsonArray operations,
-        JsonArray? addressedDiagnosticCodes = null)
+        JsonArray? addressedDiagnosticIds = null)
     {
         var fingerprintMethod = typeof(WorkflowPlanExecutor).GetMethod(
             "BuildPipelineExtractionFingerprint",
@@ -3438,7 +4042,7 @@ public class WorkflowPlanExecutorTests
             Json = new JsonObject
             {
                 ["base_fingerprint"] = fingerprint,
-                ["addressed_diagnostic_codes"] = addressedDiagnosticCodes?.DeepClone() ?? new JsonArray(),
+                ["addressed_diagnostic_ids"] = addressedDiagnosticIds?.DeepClone() ?? new JsonArray(),
                 ["operations"] = operations
             }
         };

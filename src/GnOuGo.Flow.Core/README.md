@@ -90,7 +90,7 @@ String workflow inputs and outputs may declare `enum: [value_a, value_b]`. Value
 
 During workflow.plan semantic validation, a `WorkflowSymbolTable` is built as steps are walked. It tracks workflow inputs, scoped data variables, available step output types, and control-flow availability so expressions such as `data.steps.<id>.<field>` and loop-local `data.<item_var>.<field>` can be checked against known symbols before generated YAML is accepted.
 
-Step outputs are resolved through `StepOutputTypeResolver`: each step starts from its executor contract and can be refined by static input, such as `set.output_schema`, `llm.call.input.structured_output`, direct MCP tool output schemas, local `workflow.call` targets, `template.render` mode, `human.input` form fields, and loop body output snapshots.
+Step outputs are resolved through `StepOutputTypeResolver`: each step starts from its executor contract and can be refined by static input, such as `set.output_schema`, `llm.call.input.structured_output`, validated protocol-declared MCP tool output schemas, local `workflow.call` targets, `template.render` mode, `human.input` form fields, and loop body output snapshots.
 
 ---
 
@@ -518,7 +518,7 @@ Use a one-item array for a single server, or `servers: ["*"]` to discover all co
 
 **Output:** `{ status, text, servers: [...], tools: [...], resources: [...], prompts: [...] }`
 
-Flattened `tools`, `resources`, and `prompts` entries each include a `server` field so downstream steps can keep the server affinity when multiple MCP servers are discovered at once.
+Flattened `tools`, `resources`, and `prompts` entries each include a `server` field so downstream steps can keep the server affinity when multiple MCP servers are discovered at once. Tool entries also include `output_contract` with `schema`, `source`, `authoritative`, and bounded validation `errors`. The compatibility `output_schema` field remains available.
 
 ---
 
@@ -619,9 +619,9 @@ Combine `mcp.list` → `mcp.call` with a prompt to let an LLM choose the best to
 | Batch/auto | `data.steps.<id>.results` (array) |
 | LLM-assisted | `data.steps.<id>.text`, `data.steps.<id>.json` |
 
-> **Important:** The `response` object is tool-specific. `workflow.plan` treats single-tool MCP responses as opaque unless the tool advertises `OutputSchema` or `ExampleResponse`. Access `data.steps.<id>.response.<field>` only for documented fields. Otherwise pass the whole response with `json(data.steps.<id>.response)` or add an `llm.call` normalization step with `structured_output`.
+> **Important:** The `response` object is tool-specific. `workflow.plan` treats single-tool MCP responses as opaque unless the tool advertises a valid protocol `ReturnJsonSchema`, exposed through the compatibility `OutputSchema` property. Access `data.steps.<id>.response.<field>` only when that authoritative schema declares the field. Otherwise pass the whole response with `json(data.steps.<id>.response)` or add an `llm.call`/`mcp.call` normalization step with strict `structured_output`.
 >
-> When an MCP server returns protocol `structuredContent`, `mcp.call` uses that value as `response`. `workflow.plan` can include and validate fields inside that response only when the same tool is discoverable with an `OutputSchema` or representative `ExampleResponse`.
+> When an MCP server returns protocol `structuredContent`, `mcp.call` uses that value as `response`. `McpOutputContractResolution` records the discovered schema provenance as `protocol_schema`, `example`, or `description`. Only an error-free `protocol_schema` resolution is authoritative. Example- and description-derived shapes remain prompt hints and never prove nested response fields or capability data flow.
 
 Resolved request properties whose discovered input schema marks them optional are omitted when their value is JSON `null`. This lets one typed request represent optional scalar fields without sending schema-invalid nulls. A null value for a required property is never omitted and still fails before transport.
 
@@ -1592,7 +1592,10 @@ Structured extraction generates one complete initial candidate. Later determinis
 extraction-quality repairs are bounded patches against the best structurally valid candidate:
 `add_leaf`, `replace_leaf`,
 `remove_leaf`, `merge_leaves`, or `replace_main_orchestration`. Every patch carries the
-exact SHA-256 candidate fingerprint. Replacements retain immutable capability ownership and
+exact SHA-256 candidate fingerprint and the exact stable `addressed_diagnostic_ids` it claims
+to repair. Diagnostic identities hash the code, leaf, remediation surface, and sorted extraction
+evidence paths, so two findings with the same code on different leaves remain independent.
+Replacements retain immutable capability ownership and
 cannot remove or weaken previously validated input/output schema members;
 merges atomically union it; required ownership prevents removal; and new leaves cannot
 invent external capabilities. Deterministic validation is rerun after every patch. Valid
@@ -1602,6 +1605,13 @@ deterministic regression, and validation non-improvement are counted and reporte
 Two repeated diagnostic fingerprints or rejected patches stop with `WORKFLOW_PLAN_REPAIR_STALLED` without
 emitting a rejected candidate. Legacy non-structured extraction retains complete bounded
 regeneration for compatibility.
+
+Extraction schema pruning recognizes both Flow `required_properties` and array-valued JSON
+Schema `required`; the boolean Flow input-level `required` flag remains a separate annotation.
+A weak required property is preserved and receives an exact nested diagnostic instead of being
+deleted. Malformed, blank, duplicate, or undeclared required-property entries fail deterministic
+validation with patchable `INVALID_EXTRACTION_INPUT_SCHEMA` or
+`INVALID_EXTRACTION_OUTPUT_SCHEMA` diagnostics before quality review.
 
 Every accepted conditional branch group has one shared typed result contract. Leaf blueprints add a path-total projection step after action calls, and public outputs bind to that projection rather than to a branch-local or last action call. A branch-dependent binding or a conditional group without exact enum coverage is rejected before leaf YAML generation.
 
@@ -1614,7 +1624,11 @@ fails closed as a contract defect. Human clarification is considered only when e
 remaining evidence-qualified blocker is `intent_ambiguity`; plan, capability, contract,
 provider, and malformed-output defects are never delegated to the user.
 
-Critical extraction diagnostics are retained in a remediation ledger keyed by diagnostic code and affected contract path. After every patch, deterministic extraction validation runs again; a critical finding can disappear only when the patch addressed its code, changed the affected extraction surface, and the cited structural predicate no longer matches. A patch to unrelated orchestration cannot erase a leaf-contract blocker.
+Critical extraction diagnostics are retained in a remediation ledger keyed by stable diagnostic identity. After every patch, deterministic extraction validation runs again. An addressed baseline finding disappears when its relevant surface changed, deterministic validation passed, and the delta reviewer no longer reports that identity; positive obligation evidence is allowed to remain. A patch to unrelated orchestration cannot erase a leaf-contract blocker. Delta-review prompts include only changed leaf/main surfaces, hashes of unchanged leaves, referenced capability cards, and baseline blockers rather than the complete annotated extraction and catalog.
+
+Pipeline convergence telemetry is content-bounded: it records candidate hashes, changed leaf
+names, addressed IDs, raw and stabilized diagnostic IDs, counts, and stabilization reason codes.
+It never records prompts, model responses, secrets, or repository content through these events.
 
 Generated public outputs must remain concrete. Before final validation, Flow strengthens outputs from locked producer contracts where possible and removes only unverifiable or nullable nested properties (including their `required_properties` entries) when the Flow contract cannot represent their exact value set. It never narrows nullable values to non-null scalars and never invents array item or root-output types; a weak root contract still fails with `WEAK_OUTPUT_SCHEMA` diagnostics.
 

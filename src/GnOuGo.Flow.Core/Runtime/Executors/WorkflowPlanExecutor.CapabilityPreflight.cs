@@ -7215,7 +7215,9 @@ public sealed partial class WorkflowPlanExecutor
             ? contract.Produces.Any(artifact =>
                 string.Equals(artifact.Kind, kind, StringComparison.Ordinal)
                 && string.Equals(artifact.Mode, McpArtifactContractConventions.MaterializeMode, StringComparison.Ordinal))
-            : BuildCapabilitySchemaFields(tool.OutputSchema, requiredOnly: false)
+            : BuildCapabilitySchemaFields(
+                    McpToolContractEnricher.GetAuthoritativeOutputSchema(tool),
+                    requiredOnly: false)
                 .Any(field => string.Equals(GetOperationalArtifactKind(field), kind, StringComparison.Ordinal)
                               && ArtifactOutputDescriptionProvesExistence(field.Description));
     }

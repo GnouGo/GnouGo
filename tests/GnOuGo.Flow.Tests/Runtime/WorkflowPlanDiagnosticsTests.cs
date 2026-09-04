@@ -59,4 +59,36 @@ public sealed class WorkflowPlanDiagnosticsTests
 
         Assert.Equal(first, second);
     }
+
+    [Fact]
+    public void BuildDiagnosticFingerprint_IsIndependentOfDiagnosticOrder()
+    {
+        static WorkflowRuntimeException Error(params JsonObject[] diagnostics) => new(
+            ErrorCodes.TemplatePlan,
+            "Validation failed.",
+            details: new JsonObject
+            {
+                ["diagnostics"] = new JsonArray(diagnostics.Select(static diagnostic => (JsonNode)diagnostic).ToArray())
+            });
+        var first = new JsonObject
+        {
+            ["code"] = "OUTPUT_CONTRACT_INCOMPLETE",
+            ["leaf_name"] = "first_leaf",
+            ["invalid_path"] = "outputs.result"
+        };
+        var second = new JsonObject
+        {
+            ["code"] = "OUTPUT_CONTRACT_INCOMPLETE",
+            ["leaf_name"] = "second_leaf",
+            ["invalid_path"] = "outputs.result"
+        };
+
+        Assert.Equal(
+            WorkflowPlanDiagnostics.BuildDiagnosticFingerprint(Error(
+                (JsonObject)first.DeepClone(),
+                (JsonObject)second.DeepClone())),
+            WorkflowPlanDiagnostics.BuildDiagnosticFingerprint(Error(
+                (JsonObject)second.DeepClone(),
+                (JsonObject)first.DeepClone())));
+    }
 }

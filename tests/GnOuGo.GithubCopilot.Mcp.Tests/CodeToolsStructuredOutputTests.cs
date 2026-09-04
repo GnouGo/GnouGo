@@ -73,6 +73,44 @@ public sealed class CodeToolsStructuredOutputTests : IDisposable
 
         Assert.NotEmpty(tools);
         Assert.All(tools, tool => Assert.NotNull(tool.ProtocolTool.OutputSchema));
+        Assert.All(tools, tool => AssertValidRequiredDeclarations(
+            JsonNode.Parse(tool.ProtocolTool.OutputSchema!.Value.GetRawText()),
+            tool.ProtocolTool.Name));
+    }
+
+    private static void AssertValidRequiredDeclarations(JsonNode? schema, string path)
+    {
+        if (schema is not JsonObject obj)
+            return;
+
+        var properties = obj["properties"] as JsonObject;
+        if (obj["required"] is JsonArray required)
+        {
+            Assert.NotNull(properties);
+            var names = required.Select((node, index) =>
+            {
+                var value = Assert.IsAssignableFrom<JsonValue>(node);
+                Assert.True(value.TryGetValue<string>(out var name), $"{path}.required[{index}] must be a string.");
+                Assert.False(string.IsNullOrWhiteSpace(name));
+                Assert.True(properties!.ContainsKey(name!), $"{path}.required[{index}] references undeclared property '{name}'.");
+                return name!;
+            }).ToArray();
+            Assert.Equal(names.Length, names.Distinct(StringComparer.Ordinal).Count());
+        }
+
+        if (properties != null)
+            foreach (var (name, property) in properties)
+                AssertValidRequiredDeclarations(property, $"{path}.properties.{name}");
+        foreach (var keyword in new[] { "$defs", "definitions" })
+            if (obj[keyword] is JsonObject definitions)
+                foreach (var (name, definition) in definitions)
+                    AssertValidRequiredDeclarations(definition, $"{path}.{keyword}.{name}");
+        foreach (var keyword in new[] { "items", "additionalProperties" })
+            AssertValidRequiredDeclarations(obj[keyword], $"{path}.{keyword}");
+        foreach (var keyword in new[] { "allOf", "anyOf", "oneOf" })
+            if (obj[keyword] is JsonArray variants)
+                for (var index = 0; index < variants.Count; index++)
+                    AssertValidRequiredDeclarations(variants[index], $"{path}.{keyword}[{index}]");
     }
 
     [Fact]

@@ -151,7 +151,7 @@ internal static class WorkflowPlanDiagnostics
 
     public static string BuildDiagnosticFingerprint(Exception ex)
     {
-        var normalized = string.Join("\n", BuildDiagnosticIdentities(ex));
+        var normalized = string.Join("\n", BuildDiagnosticIdentities(ex).Order(StringComparer.Ordinal));
         return Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(normalized))).ToLowerInvariant();
     }
 

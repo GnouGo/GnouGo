@@ -29,6 +29,13 @@ public sealed class LiveAgentAddSmokeTests
 
         Always remove every directory created by the workflow at the end.
         """;
+    private const string RecordedPullRequestReviewIntent = """
+        **A partir d’une url d’un pullrequest github&#x20;**[**https://github.com/AxaFrance/SmartGuide/pull/449**](https://github.com/AxaFrance/SmartGuide/pull/449)
+        Et d’un texte qui explique ce qu’il faut reviewer.
+
+        J’aimerais que le workflow réalise une review automatique de la pullrequest à pousser sur GitHub afin de pouvoir valider automatiquement ou non et expliquer en commentaire pourquoi.
+        Pour travailler un unique clone du projet et travaille uniquement avec ce répertoire our être efficasse. Installe toutes les dépendances, joue les linter, tests unitaires, tests d’intégrations si présent. Le feedback de la review doit valider aussi tous les checks.
+        """;
 
     [Fact]
     [Trait("Category", "Live")]
@@ -42,6 +49,11 @@ public sealed class LiveAgentAddSmokeTests
             ConditionalRuntimeChoiceIntent,
             "conditional-choice",
             ErrorCodes.CapabilityPreflightUnavailable);
+
+    [Fact]
+    [Trait("Category", "Live")]
+    public async Task RecordedPullRequestReviewIntent_GeneratesValidPersistedAgentWithoutExecution()
+        => await RunAgentAddAsync(RecordedPullRequestReviewIntent, "recorded-pr-review");
 
     private static async Task RunAgentAddAsync(
         string intent,

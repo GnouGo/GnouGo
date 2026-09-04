@@ -330,7 +330,9 @@ public sealed partial class WorkflowPlanExecutor
                     continue;
                 var description = LimitPhysicalCapabilityDescription(tool.Description);
                 var arguments = BuildPhysicalSchemaSummary(tool.InputSchema);
-                var outputs = BuildPhysicalSchemaSummary(tool.OutputSchema);
+                var outputs = BuildPhysicalSchemaSummary(
+                    McpToolContractEnricher.GetAuthoritativeOutputSchema(tool));
+                var outputContractSummary = FormatOutputContractSummary(tool);
                 var artifactContract = GetValidatedMcpArtifactContract(tool, server.Name);
                 var artifactSummary = FormatArtifactContractSummary(artifactContract);
                 var compositionContract = GetValidatedMcpCompositionContract(tool, server.Name);
@@ -346,7 +348,7 @@ public sealed partial class WorkflowPlanExecutor
                     .Take(CapabilitySelectorMaxValues)
                     .ToArray();
                 pending.Add((server.Name, "tool", tool.Name,
-                    $"server={server.Name} kind=tool method={tool.Name} description={description} arguments=[{arguments}] outputs=[{outputs}]{artifactSummary}{compositionSummary}",
+                    $"server={server.Name} kind=tool method={tool.Name} description={description} arguments=[{arguments}] outputs=[{outputs}]{outputContractSummary}{artifactSummary}{compositionSummary}",
                     selectorIntentValues));
             }
         }

@@ -359,6 +359,14 @@ GNOU_GO_LIVE_AGENT_ADD_SMOKE=1 dotnet test \
   --filter 'FullyQualifiedName~LiveAgentAddSmokeTests.ConditionalRuntimeChoiceIntent_FailsClosedWhenCatalogLacksEveryRequiredEffectBranch'
 ```
 
+The recorded SmartGuide pull-request-review request has a separate generation-only case. It persists and compiles the generated workflow, then removes the temporary agent; it never executes the workflow, clones the target repository, or publishes a GitHub review:
+
+```bash
+GNOU_GO_LIVE_AGENT_ADD_SMOKE=1 dotnet test \
+  tests/GnOuGo.Agent.Server.Tests/GnOuGo.Agent.Server.Tests.csproj \
+  --filter 'FullyQualifiedName~LiveAgentAddSmokeTests.RecordedPullRequestReviewIntent_GeneratesValidPersistedAgentWithoutExecution'
+```
+
 `/gnougo add` applies `WorkflowPlanningBudget` only to agent-workflow generation. The default is `50 EUR`; normal .NET configuration sources can override `Amount`, `Currency`, the ten-second ECB fetch timeout, the maximum seven-day quote age, and optional static `SOURCE/TARGET` rates with their common `StaticRatesAsOfUtc`. Static operator rates take precedence. Otherwise the server uses the official ECB daily EUR reference-rate feed and derives cross-rates through EUR. The first quote per currency pair is pinned inside the budget scope. Missing pricing, currency, or a fresh conversion quote fails closed; `/gnougo reprompt` and generated-agent execution do not receive this default planning limit.
 
 The intention-first live acceptance harness is opt-in because it uses the configured KeyVault-backed provider and external MCP servers. It requires a fresh dedicated validation project with an explicitly attested provider-side hard limit at or below the authorized budget after conversion. The attestation variables below are mandatory; the harness does not modify or query provider billing configuration. The authorized budget defaults to `50/EUR` and remains configurable.
