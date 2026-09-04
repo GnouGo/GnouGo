@@ -1,4 +1,6 @@
 using System.Reflection;
+using System.Text.Json.Nodes;
+using GnOuGo.Agent.Server.SmartFlow;
 using GnOuGo.Flow.Core.Runtime;
 
 namespace GnOuGo.Agent.Server.Tests;
@@ -8,6 +10,37 @@ public sealed class LiveIntentBudgetLedgerTests
     private static readonly LiveIntentAgentGenerationTests.LiveBudgetDefinition BudgetDefinition = new(
         new MonetaryAmount(50m, "EUR"),
         new MonetaryAmount(50m, "EUR"));
+
+    [Fact]
+    public void ProgressTelemetry_PersistsOnlyExplicitPlannerSafeFields()
+    {
+        var entry = new JsonObject();
+        var flowEvent = new SmartFlowEvent(
+            "telemetry.span.event",
+            new JsonObject
+            {
+                ["event.name"] = "gnougo-flow.plan.pipeline.main_assembly_candidate_rejected",
+                ["attributes"] = new JsonObject
+                {
+                    ["gnougo-flow.plan.pipeline.candidate.fingerprint"] = "candidate-hash",
+                    ["gnougo-flow.plan.pipeline.candidate.validation_progress"] = 50,
+                    ["gen_ai.prompt"] = "sensitive prompt",
+                    ["gnougo-flow.plan.pipeline.main_workflow_prompt"] = "sensitive workflow"
+                }
+            }.ToJsonString());
+        var method = typeof(LiveIntentAgentGenerationTests).GetMethod(
+            "AppendSanitizedPlannerTelemetry",
+            BindingFlags.Static | BindingFlags.NonPublic)!;
+
+        method.Invoke(null, [entry, flowEvent]);
+
+        Assert.Equal(
+            "gnougo-flow.plan.pipeline.main_assembly_candidate_rejected",
+            entry["planner_event"]!.GetValue<string>());
+        Assert.Equal("candidate-hash", entry["gnougo-flow.plan.pipeline.candidate.fingerprint"]!.GetValue<string>());
+        Assert.Equal(50, entry["gnougo-flow.plan.pipeline.candidate.validation_progress"]!.GetValue<int>());
+        Assert.DoesNotContain("sensitive", entry.ToJsonString(), StringComparison.Ordinal);
+    }
 
     [Fact]
     public async Task Ledger_PersistsOnlyRedactedBudgetAndPhaseState()

@@ -2,11 +2,32 @@ import pytest
 import yaml
 
 from gnougo_flow_core.compilation import WorkflowCompiler
-from gnougo_flow_core.errors import ErrorCodes
+from gnougo_flow_core.errors import ErrorCodes, WorkflowRuntimeException
 from gnougo_flow_core.models import LLMResponse, McpServerMetadata, McpToolInfo
 from gnougo_flow_core.parsing import WorkflowParser
 from gnougo_flow_core.runtime import WorkflowEngine
-from gnougo_flow_core.runtime_steps import SequenceExecutor
+from gnougo_flow_core.runtime_steps import SequenceExecutor, WorkflowPlanExecutor
+
+
+def test_structured_convergence_codes_include_validated_nested_details() -> None:
+    error = WorkflowRuntimeException(
+        ErrorCodes.TEMPLATE_PLAN,
+        "Validation failed.",
+        details={
+            "diagnostics": [
+                {"code": "INPUT_SCHEMA_INVALID"},
+                {"diagnostic_code": "STEP_REFERENCE_UNKNOWN"},
+            ],
+            "matching_issues": [{"issue_code": "CONTRACT_GAP"}],
+        },
+    )
+
+    assert WorkflowPlanExecutor._planner_diagnostic_codes(error) == [
+        "CONTRACT_GAP",
+        "INPUT_SCHEMA_INVALID",
+        "STEP_REFERENCE_UNKNOWN",
+        ErrorCodes.TEMPLATE_PLAN,
+    ]
 
 
 def assert_openai_strict_schema(schema: object, path: str = "$") -> None:

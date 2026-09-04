@@ -339,6 +339,7 @@ public sealed partial class WorkflowPlanExecutor
                 && !string.IsNullOrWhiteSpace(workflowException.Code))
             {
                 codes.Add(workflowException.Code);
+                CollectPlannerDiagnosticCodes(workflowException.Details, codes);
             }
         }
 
@@ -346,4 +347,31 @@ public sealed partial class WorkflowPlanExecutor
             codes.Add(ErrorCodes.TemplatePlan);
         return codes.ToArray();
     }
+
+    private static void CollectPlannerDiagnosticCodes(JsonNode? node, ISet<string> codes)
+    {
+        switch (node)
+        {
+            case JsonObject obj:
+                foreach (var property in obj)
+                {
+                    if (property.Value is JsonValue value
+                        && IsPlannerDiagnosticCodeProperty(property.Key)
+                        && value.TryGetValue<string>(out var code)
+                        && !string.IsNullOrWhiteSpace(code))
+                    {
+                        codes.Add(code);
+                    }
+                    CollectPlannerDiagnosticCodes(property.Value, codes);
+                }
+                break;
+            case JsonArray array:
+                foreach (var item in array)
+                    CollectPlannerDiagnosticCodes(item, codes);
+                break;
+        }
+    }
+
+    private static bool IsPlannerDiagnosticCodeProperty(string propertyName)
+        => propertyName is "code" or "diagnostic_code" or "reason_code" or "issue_code";
 }

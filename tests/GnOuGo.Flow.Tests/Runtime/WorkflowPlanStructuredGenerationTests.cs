@@ -1,8 +1,11 @@
+using System.Reflection;
 using System.Text.Json.Nodes;
 using GnOuGo.Flow.Core.Compilation;
+using GnOuGo.Flow.Core.Expressions;
 using GnOuGo.Flow.Core.Models;
 using GnOuGo.Flow.Core.Parsing;
 using GnOuGo.Flow.Core.Runtime;
+using GnOuGo.Flow.Core.Runtime.Executors;
 using Xunit;
 
 namespace GnOuGo.Flow.Tests.Runtime;
@@ -91,6 +94,35 @@ public sealed class WorkflowPlanStructuredGenerationTests
         Assert.NotEmpty(repairProperties["base_candidate_fingerprint"]!["enum"]![0]!.GetValue<string>());
         Assert.NotEmpty(repairProperties["diagnostic_fingerprint"]!["enum"]![0]!.GetValue<string>());
         Assert.NotEmpty(repairProperties["addressed_diagnostic_codes"]!["items"]!["enum"]!.AsArray());
+    }
+
+    [Fact]
+    public void DiagnosticCodes_IncludeValidatedNestedDetailsForConvergence()
+    {
+        var exception = new WorkflowRuntimeException(
+            ErrorCodes.TemplatePlan,
+            "Validation failed.",
+            details: new JsonObject
+            {
+                ["diagnostics"] = new JsonArray
+                {
+                    new JsonObject { ["code"] = "INPUT_SCHEMA_INVALID" },
+                    new JsonObject { ["diagnostic_code"] = "STEP_REFERENCE_UNKNOWN" }
+                },
+                ["matching_issues"] = new JsonArray
+                {
+                    new JsonObject { ["issue_code"] = "CONTRACT_GAP" }
+                }
+            });
+        var method = typeof(WorkflowPlanExecutor).GetMethod(
+            "GetPlannerDiagnosticCodes",
+            BindingFlags.Static | BindingFlags.NonPublic)!;
+
+        var codes = Assert.IsAssignableFrom<IReadOnlyList<string>>(method.Invoke(null, [exception]));
+
+        Assert.Equal(
+            ["CONTRACT_GAP", "INPUT_SCHEMA_INVALID", "STEP_REFERENCE_UNKNOWN", ErrorCodes.TemplatePlan],
+            codes);
     }
 
     [Fact]

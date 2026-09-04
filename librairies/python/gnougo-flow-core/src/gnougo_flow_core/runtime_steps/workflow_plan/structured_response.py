@@ -226,11 +226,27 @@ class _WorkflowPlanStructuredResponseMixin:
     @staticmethod
     def _planner_diagnostic_codes(exc: Exception) -> list[str]:
         codes: set[str] = set()
+
+        def collect_details(value: Any) -> None:
+            if isinstance(value, dict):
+                for key, item in value.items():
+                    if (
+                        key in {"code", "diagnostic_code", "reason_code", "issue_code"}
+                        and isinstance(item, str)
+                        and item.strip()
+                    ):
+                        codes.add(item)
+                    collect_details(item)
+            elif isinstance(value, list):
+                for item in value:
+                    collect_details(item)
+
         current: BaseException | None = exc
         while current is not None:
             code = getattr(current, "code", None)
             if isinstance(code, str) and code:
                 codes.add(code)
+            collect_details(getattr(current, "details", None))
             current = current.__cause__ or current.__context__
         return sorted(codes or {ErrorCodes.TEMPLATE_PLAN})
 

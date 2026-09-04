@@ -1792,6 +1792,7 @@ public sealed class LiveIntentAgentGenerationTests
             entry["event_type"] = flowEvent.Type;
             entry["error_code"] = flowEvent.ErrorCode;
             entry["retryable"] = flowEvent.Retryable;
+            AppendSanitizedPlannerTelemetry(entry, flowEvent);
         }
         if (!string.IsNullOrWhiteSpace(errorCode))
             entry["error_code"] = errorCode;
@@ -1841,6 +1842,75 @@ public sealed class LiveIntentAgentGenerationTests
             // Optional live-test diagnostics must not change the acceptance result.
         }
     }
+
+    private static void AppendSanitizedPlannerTelemetry(JsonObject entry, SmartFlowEvent flowEvent)
+    {
+        if (string.IsNullOrWhiteSpace(flowEvent.Text)
+            || flowEvent.Type is not ("telemetry.step.attribute" or "telemetry.span.attribute" or "telemetry.step.event" or "telemetry.span.event"))
+        {
+            return;
+        }
+
+        JsonObject payload;
+        try
+        {
+            payload = JsonNode.Parse(flowEvent.Text) as JsonObject ?? new JsonObject();
+        }
+        catch (System.Text.Json.JsonException)
+        {
+            return;
+        }
+
+        if (flowEvent.Type.EndsWith(".attribute", StringComparison.Ordinal)
+            && payload["key"] is JsonValue keyValue
+            && keyValue.TryGetValue<string>(out var key)
+            && IsSanitizedPlannerTelemetryKey(key)
+            && payload["value"] is JsonValue attributeValue)
+        {
+            entry["planner_attribute"] = key;
+            entry["planner_value"] = attributeValue.DeepClone();
+            return;
+        }
+
+        if (!flowEvent.Type.EndsWith(".event", StringComparison.Ordinal)
+            || payload["event.name"] is not JsonValue eventNameValue
+            || !eventNameValue.TryGetValue<string>(out var eventName)
+            || !eventName.StartsWith("gnougo-flow.plan.", StringComparison.Ordinal))
+        {
+            return;
+        }
+
+        entry["planner_event"] = eventName;
+        if (payload["attributes"] is not JsonObject attributes)
+            return;
+        foreach (var attribute in attributes)
+        {
+            if (IsSanitizedPlannerTelemetryKey(attribute.Key) && attribute.Value is JsonValue value)
+                entry[attribute.Key] = value.DeepClone();
+        }
+    }
+
+    private static bool IsSanitizedPlannerTelemetryKey(string key)
+        => key is "gnougo-flow.plan.response_mode"
+            or "gnougo-flow.plan.response_schema_version"
+            or "gnougo-flow.plan.phase"
+            or "gnougo-flow.plan.attempt"
+            or "gnougo-flow.plan.max_attempts"
+            or "gnougo-flow.plan.response_contract_attempt"
+            or "gnougo-flow.plan.response_contract_status"
+            or "gnougo-flow.plan.response_contract_error_count"
+            or "gnougo-flow.plan.contract_epoch"
+            or "gnougo-flow.plan.contract_fingerprint"
+            or "gnougo-flow.plan.base_candidate_fingerprint"
+            or "gnougo-flow.plan.diagnostic_fingerprint"
+            or "gnougo-flow.plan.stall_reason"
+            or "gnougo-flow.plan.pipeline.candidate.accepted"
+            or "gnougo-flow.plan.pipeline.candidate.fingerprint"
+            or "gnougo-flow.plan.pipeline.candidate.best_fingerprint"
+            or "gnougo-flow.plan.pipeline.candidate.validation_progress"
+            or "gnougo-flow.plan.pipeline.candidate.previous_validation_progress"
+            or "gnougo-flow.plan.pipeline.candidate.best_validation_progress"
+            or "gnougo-flow.plan.pipeline.patch.stall_reason";
 
     private static string RequireString(JsonObject value, string property)
         => value[property]?.GetValue<string>()
