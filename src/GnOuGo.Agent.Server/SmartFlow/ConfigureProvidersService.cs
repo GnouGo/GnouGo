@@ -65,9 +65,30 @@ public sealed class ConfigureProvidersService
         string command,
         [EnumeratorCancellation] CancellationToken ct)
     {
+        await foreach (var evt in ExecuteAsync(command, traceContext: null, ct))
+            yield return evt;
+    }
+
+    internal async IAsyncEnumerable<SmartFlowEvent> ExecuteAsync(
+        string command,
+        AgentTraceContext? traceContext,
+        [EnumeratorCancellation] CancellationToken ct)
+    {
         var trimmedCommand = command.Trim();
         var traceDescriptor = DescribeCommand(trimmedCommand);
-        using var commandTrace = StartCommandTrace(traceDescriptor, trimmedCommand);
+        using var commandTrace = StartCommandTrace(traceDescriptor, trimmedCommand, traceContext);
+
+        await foreach (var evt in ExecuteCoreAsync(trimmedCommand, ct)
+                           .WithActivity(commandTrace.Activity, ct))
+        {
+            yield return evt;
+        }
+    }
+
+    private async IAsyncEnumerable<SmartFlowEvent> ExecuteCoreAsync(
+        string trimmedCommand,
+        [EnumeratorCancellation] CancellationToken ct)
+    {
 
         if (TryParseModelsCommand(trimmedCommand, out var requestedModelProvider))
         {
@@ -231,9 +252,14 @@ public sealed class ConfigureProvidersService
         yield return new SmartFlowEvent("answer", RenderWizardHelp());
     }
 
-    private AgentOTelTelemetry.ActivityScope StartCommandTrace(CommandTraceDescriptor descriptor, string command)
+    private AgentOTelTelemetry.ActivityScope StartCommandTrace(
+        CommandTraceDescriptor descriptor,
+        string command,
+        AgentTraceContext? traceContext)
     {
-        var scope = _otel.StartActivityScope(descriptor.SpanName);
+        var scope = traceContext is { } explicitTraceContext
+            ? _otel.StartActivityScope(descriptor.SpanName, explicitTraceContext)
+            : _otel.StartActivityScope(descriptor.SpanName);
         scope.SetTag("gnougo.agent.command.route", "configure_providers");
         scope.SetTag("gnougo.agent.command.name", command);
         scope.SetTag("gnougo.agent.command.mode", descriptor.Mode);

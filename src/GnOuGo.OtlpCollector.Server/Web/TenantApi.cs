@@ -155,7 +155,8 @@ public static class TenantApi
             GetDateTimeOffsetQuery(httpContext, "startUtc"),
             GetDateTimeOffsetQuery(httpContext, "endUtc"),
             GetStringQuery(httpContext, "traceIdFilter"),
-            GetStringQuery(httpContext, "attributeContains"));
+            GetStringQuery(httpContext, "attributeContains"),
+            httpContext.RequestAborted);
         await OtlpApiResponses.ExecuteAsync(httpContext, OtlpApiResponses.Json(traces, OtlpApiJsonContext.Default.ListTraceSummaryDto));
     }
 
@@ -174,7 +175,7 @@ public static class TenantApi
         }
 
         var store = httpContext.RequestServices.GetRequiredService<EfTelemetryStore>();
-        var spans = await store.GetTraceSpansAsync(tenantId, traceIdBytes);
+        var spans = await store.GetTraceSpansAsync(tenantId, traceIdBytes, httpContext.RequestAborted);
         if (spans.Count == 0)
         {
             await OtlpApiResponses.ExecuteAsync(httpContext, Results.NotFound());
@@ -202,7 +203,8 @@ public static class TenantApi
             GetDateTimeOffsetQuery(httpContext, "endUtc"),
             GetIntArrayQuery(httpContext, "severityLevels"),
             GetStringQuery(httpContext, "traceIdFilter"),
-            GetStringQuery(httpContext, "attributeContains"));
+            GetStringQuery(httpContext, "attributeContains"),
+            httpContext.RequestAborted);
         var payload = TelemetryApiMapper.ToLogResponses(logs);
         await OtlpApiResponses.ExecuteAsync(httpContext, OtlpApiResponses.Json(payload, OtlpApiJsonContext.Default.ListTelemetryLogResponse));
     }
@@ -253,7 +255,7 @@ public static class TenantApi
         }
 
         var store = httpContext.RequestServices.GetRequiredService<EfTelemetryStore>();
-        var logs = await store.GetLogsForTraceAsync(tenantId, traceIdBytes);
+        var logs = await store.GetLogsForTraceAsync(tenantId, traceIdBytes, httpContext.RequestAborted);
         var payload = TelemetryApiMapper.ToLogResponses(logs, includeServiceName: false);
         await OtlpApiResponses.ExecuteAsync(httpContext, OtlpApiResponses.Json(payload, OtlpApiJsonContext.Default.ListTelemetryLogResponse));
     }
@@ -273,7 +275,15 @@ public static class TenantApi
     {
         using var scope = scopeFactory.CreateScope();
         var store = scope.ServiceProvider.GetRequiredService<EfTelemetryStore>();
-        var traces = await store.GetRecentTracesAsync(tenantId, limit, serviceName, startUtc, endUtc, traceIdFilter, attributeContains);
+        var traces = await store.GetRecentTracesAsync(
+            tenantId,
+            limit,
+            serviceName,
+            startUtc,
+            endUtc,
+            traceIdFilter,
+            attributeContains,
+            ct);
         await OtlpApiResponses.WriteServerSentEventAsync(httpContext, eventName, traces, OtlpApiJsonContext.Default.ListTraceSummaryDto, ct);
     }
 
@@ -281,7 +291,7 @@ public static class TenantApi
     {
         using var scope = scopeFactory.CreateScope();
         var store = scope.ServiceProvider.GetRequiredService<EfTelemetryStore>();
-        var logs = await store.GetRecentLogsAsync(tenantId, limit, serviceName);
+        var logs = await store.GetRecentLogsAsync(tenantId, limit, serviceName, ct: ct);
         var payload = TelemetryApiMapper.ToLogResponses(logs);
         await OtlpApiResponses.WriteServerSentEventAsync(httpContext, eventName, payload, OtlpApiJsonContext.Default.ListTelemetryLogResponse, ct);
     }

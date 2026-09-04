@@ -97,13 +97,26 @@ public sealed class AgentOTelTelemetry : IWorkflowTelemetry, IDisposable
 
         activity.AddBaggage(CorrelationIdTagName, correlationId);
         activity.AddBaggage(ConversationIdTagName, correlationId);
-        return new ChatTraceScope(activity, _collectorTracePersistence, _currentChatRoot);
+        // ActivityStarted runs before tags and baggage are assigned. Track the root again so
+        // correlation-based live lookup can find it before the activity is stopped.
+        _localTraceStore.Track(activity);
+        return new ChatTraceScope(activity, correlationId, _collectorTracePersistence, _currentChatRoot);
     }
 
     public ActivityScope StartActivityScope(string name, ActivityKind kind = ActivityKind.Internal)
     {
         var activity = StartActivity(name, kind, ResolveImplicitParent());
         ApplyCorrelationTags(activity);
+        return new ActivityScope(activity, _collectorTracePersistence);
+    }
+
+    internal ActivityScope StartActivityScope(
+        string name,
+        AgentTraceContext traceContext,
+        ActivityKind kind = ActivityKind.Internal)
+    {
+        var activity = StartActivity(name, kind, traceContext.ParentContext);
+        ApplyCorrelationTags(activity, traceContext.CorrelationId);
         return new ActivityScope(activity, _collectorTracePersistence);
     }
 
@@ -307,6 +320,17 @@ public sealed class AgentOTelTelemetry : IWorkflowTelemetry, IDisposable
         }
     }
 
+    private static void ApplyCorrelationTags(Activity activity, string correlationId)
+    {
+        if (string.IsNullOrWhiteSpace(correlationId))
+            return;
+
+        activity.AddBaggage(CorrelationIdTagName, correlationId);
+        activity.AddBaggage(ConversationIdTagName, correlationId);
+        activity.SetTag(CorrelationIdTagName, correlationId);
+        activity.SetTag(ConversationIdTagName, correlationId);
+    }
+
     private static void ApplyWorkflowSourceTags(Activity activity, WorkflowTelemetryInfo info)
     {
         if (string.IsNullOrWhiteSpace(info.SourceText))
@@ -406,6 +430,21 @@ public sealed class AgentOTelTelemetry : IWorkflowTelemetry, IDisposable
         return activity;
     }
 
+    private Activity StartActivity(string name, ActivityKind kind, ActivityContext parentContext)
+    {
+        var activity = _source.StartActivity(name, kind, parentContext);
+        if (activity is not null)
+            return activity;
+
+        return new Activity(name)
+            .SetIdFormat(ActivityIdFormat.W3C)
+            .SetParentId(
+                parentContext.TraceId,
+                parentContext.SpanId,
+                parentContext.TraceFlags)
+            .Start();
+    }
+
     private Activity StartRootChatActivity(string name, string correlationId)
     {
         if (correlationId.Length == 32)
@@ -442,9 +481,14 @@ public sealed class AgentOTelTelemetry : IWorkflowTelemetry, IDisposable
         private readonly AsyncLocal<Activity?> _chatRootSlot;
         private readonly Activity? _previousChatRoot;
 
-        public ChatTraceScope(Activity activity, CollectorTracePersistence collectorTracePersistence, AsyncLocal<Activity?> chatRootSlot)
+        public ChatTraceScope(
+            Activity activity,
+            string correlationId,
+            CollectorTracePersistence collectorTracePersistence,
+            AsyncLocal<Activity?> chatRootSlot)
         {
             Activity = activity;
+            TraceContext = new AgentTraceContext(activity.Context, correlationId);
             _collectorTracePersistence = collectorTracePersistence;
             _chatRootSlot = chatRootSlot;
             _previousChatRoot = chatRootSlot.Value;
@@ -452,6 +496,7 @@ public sealed class AgentOTelTelemetry : IWorkflowTelemetry, IDisposable
         }
 
         public Activity Activity { get; }
+        internal AgentTraceContext TraceContext { get; }
         public string TraceId => Activity.TraceId.ToHexString();
 
         public void SetStatus(ActivityStatusCode code, string? description = null)

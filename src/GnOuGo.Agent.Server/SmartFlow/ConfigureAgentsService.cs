@@ -104,7 +104,7 @@ public sealed class ConfigureAgentsService
         string command,
         [EnumeratorCancellation] CancellationToken ct)
     {
-        await foreach (var evt in ExecuteAsync(command, animation: null, ct))
+        await foreach (var evt in ExecuteAsync(command, animation: null, traceContext: null, ct))
             yield return evt;
     }
 
@@ -113,13 +113,25 @@ public sealed class ConfigureAgentsService
         AgentWorkflowAnimationBridge? animation,
         [EnumeratorCancellation] CancellationToken ct)
     {
+        await foreach (var evt in ExecuteAsync(command, animation, traceContext: null, ct))
+            yield return evt;
+    }
+
+    internal async IAsyncEnumerable<SmartFlowEvent> ExecuteAsync(
+        string command,
+        AgentWorkflowAnimationBridge? animation,
+        AgentTraceContext? traceContext,
+        [EnumeratorCancellation] CancellationToken ct)
+    {
         var trimmedCommand = command.Trim();
 
         // Wrap the whole /gnougo command in a dedicated trace span so that workflow spans,
         // GenAI llm.call spans and MCP calls all appear under a single, well-named parent
         // — mirroring what ConfigureProvidersService does for /llm, /mcp, /status.
         var descriptor = DescribeCommand(trimmedCommand);
-        using var commandTrace = _otel.StartActivityScope(descriptor.SpanName);
+        using var commandTrace = traceContext is { } explicitTraceContext
+            ? _otel.StartActivityScope(descriptor.SpanName, explicitTraceContext)
+            : _otel.StartActivityScope(descriptor.SpanName);
         commandTrace.SetTag("gnougo.agent.command.route", "configure_agents");
         commandTrace.SetTag("gnougo.agent.command.name", trimmedCommand);
         commandTrace.SetTag("gnougo.agent.command.mode", descriptor.Mode);
