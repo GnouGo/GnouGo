@@ -235,7 +235,15 @@ public sealed class SmartFlowService
             var history = LoadConversationHistory(effectiveConversationId, topK: 40);
             var mergedWorkflowInputs = MergeWorkflowInputsWithConversation(workflowInputs, effectiveConversationId, history);
 
-            await foreach (var evt in ExecuteCoreAsync(task, effectiveCorrelationId, agentName, filesIds, mergedWorkflowInputs, messageTrace.Activity, ct))
+            await foreach (var evt in ExecuteCoreAsync(
+                               task,
+                               effectiveCorrelationId,
+                               agentName,
+                               filesIds,
+                               mergedWorkflowInputs,
+                               messageTrace.Activity,
+                               messageTrace.TraceContext,
+                               ct))
             {
                 hasError |= string.Equals(evt.Type, "error", StringComparison.OrdinalIgnoreCase);
                 if (evt.Type is "answer")
@@ -281,6 +289,7 @@ public sealed class SmartFlowService
         IReadOnlyList<string>? filesIds,
         JsonObject? workflowInputs,
         Activity? parentActivity,
+        AgentTraceContext traceContext,
         [EnumeratorCancellation] CancellationToken ct)
     {
         var previousActivity = Activity.Current;
@@ -309,6 +318,7 @@ public sealed class SmartFlowService
                 await foreach (var evt in ExecuteAnimatedAgentCommandAsync(
                                    trimmed,
                                    correlationId,
+                                   traceContext,
                                    ct))
                     yield return evt;
                 yield break;
@@ -336,7 +346,7 @@ public sealed class SmartFlowService
                 if (IsCommand(trimmed, cmd))
                 {
                     await foreach (var evt in ExecuteAnimatedCommandAsync(
-                                       _configureProviders.ExecuteAsync(trimmed, ct),
+                                       _configureProviders.ExecuteAsync(trimmed, traceContext, ct),
                                        correlationId,
                                        $"configure-{cmd.TrimStart('/')}",
                                        ct))
@@ -700,6 +710,7 @@ public sealed class SmartFlowService
     private async IAsyncEnumerable<SmartFlowEvent> ExecuteAnimatedAgentCommandAsync(
         string command,
         string correlationId,
+        AgentTraceContext traceContext,
         [EnumeratorCancellation] CancellationToken ct)
     {
         var animationEvents = Channel.CreateUnbounded<SmartFlowEvent>(new UnboundedChannelOptions
@@ -726,7 +737,10 @@ public sealed class SmartFlowService
 
         if (bridge is null || preparedEvent is null)
         {
-            await foreach (var evt in _configureAgents.ExecuteAsync(command, ct).WithCancellation(ct).ConfigureAwait(false))
+            await foreach (var evt in _configureAgents
+                               .ExecuteAsync(command, animation: null, traceContext, ct)
+                               .WithCancellation(ct)
+                               .ConfigureAwait(false))
                 yield return evt;
             yield break;
         }
@@ -736,7 +750,7 @@ public sealed class SmartFlowService
         var receivedNativeAnimation = false;
         string? commandError = null;
         await using var commandEnumerator = _configureAgents
-            .ExecuteAsync(command, bridge, ct)
+            .ExecuteAsync(command, bridge, traceContext, ct)
             .GetAsyncEnumerator(ct);
         var commandMoveNext = commandEnumerator.MoveNextAsync().AsTask();
         Task<bool>? animationReady = null;

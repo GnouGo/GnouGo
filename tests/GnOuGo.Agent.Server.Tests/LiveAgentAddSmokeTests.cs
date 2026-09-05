@@ -29,6 +29,13 @@ public sealed class LiveAgentAddSmokeTests
 
         Always remove every directory created by the workflow at the end.
         """;
+    private const string RecordedPullRequestReviewIntent = """
+        **A partir d’une url d’un pullrequest github&#x20;**[**https://github.com/AxaFrance/SmartGuide/pull/449**](https://github.com/AxaFrance/SmartGuide/pull/449)
+        Et d’un texte qui explique ce qu’il faut reviewer.
+
+        J’aimerais que le workflow réalise une review automatique de la pullrequest à pousser sur GitHub afin de pouvoir valider automatiquement ou non et expliquer en commentaire pourquoi.
+        Pour travailler un unique clone du projet et travaille uniquement avec ce répertoire our être efficasse. Installe toutes les dépendances, joue les linter, tests unitaires, tests d’intégrations si présent. Le feedback de la review doit valider aussi tous les checks.
+        """;
 
     [Fact]
     [Trait("Category", "Live")]
@@ -43,6 +50,11 @@ public sealed class LiveAgentAddSmokeTests
             "conditional-choice",
             ErrorCodes.CapabilityPreflightUnavailable);
 
+    [Fact]
+    [Trait("Category", "Live")]
+    public async Task RecordedPullRequestReviewIntent_GeneratesValidPersistedAgentWithoutExecution()
+        => await RunAgentAddAsync(RecordedPullRequestReviewIntent, "recorded-pr-review");
+
     private static async Task RunAgentAddAsync(
         string intent,
         string nameQualifier,
@@ -51,7 +63,10 @@ public sealed class LiveAgentAddSmokeTests
         if (!string.Equals(Environment.GetEnvironmentVariable(EnableVariable), "1", StringComparison.Ordinal))
             return;
 
-        using var timeout = new CancellationTokenSource(TimeSpan.FromMinutes(30));
+        // Complex recorded intents can consume many serial structured planner phases through
+        // an enterprise gateway. Keep the smoke bound below the production five-hour planner
+        // budget while allowing a complete bounded repair cycle to finish.
+        using var timeout = new CancellationTokenSource(TimeSpan.FromMinutes(90));
         var ct = timeout.Token;
         var sourceRoot = FindSourceRoot();
         var agentName = $"live-agent-add-{nameQualifier}-{DateTimeOffset.UtcNow:yyyyMMddHHmmss}-{Guid.NewGuid():N}";
@@ -71,6 +86,11 @@ public sealed class LiveAgentAddSmokeTests
                 [
                     "--OtlpCollector:Enabled=false",
                     "--OpenTelemetry:Enabled=false",
+                    "--WorkflowTraceExport:Enabled=true",
+                    // This smoke validates live planning rather than exchange-rate transport.
+                    // Keep the positive planning budget enabled in the metadata pricing currency
+                    // so an unrelated ECB outage cannot mask the gateway/model result.
+                    "--WorkflowPlanningBudget:Currency=USD",
                     $"--Database:Path={telemetryDatabasePath}"
                 ],
                 urls: "http://127.0.0.1:0",
@@ -272,9 +292,18 @@ public sealed class LiveAgentAddSmokeTests
     {
         var collected = new List<SmartFlowEvent>();
         await foreach (var item in events.WithCancellation(ct))
+        {
             collected.Add(item);
+            Console.WriteLine(
+                $"[live /gnougo add {DateTimeOffset.UtcNow:O}] {item.Type}: {Truncate(item.Text, 240)}");
+        }
         return collected;
     }
+
+    private static string Truncate(string? value, int maxCharacters)
+        => string.IsNullOrEmpty(value) || value.Length <= maxCharacters
+            ? value ?? string.Empty
+            : value[..maxCharacters] + "…";
 
     private static async Task<JsonObject> GetAgentAsync(
         IMcpClientFactory factory,

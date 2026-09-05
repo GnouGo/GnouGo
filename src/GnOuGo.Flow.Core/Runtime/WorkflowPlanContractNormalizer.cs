@@ -71,7 +71,7 @@ internal static class WorkflowPlanContractNormalizer
         {
             foreach (var (propertyKey, originalPropertySchema) in properties.Children.ToArray())
             {
-                var propertySchema = CanonicalizeRepresentableUnion(originalPropertySchema, out var canonicalized);
+                var propertySchema = CanonicalizeRepresentableWorkflowSchema(originalPropertySchema, out var canonicalized);
                 if (canonicalized)
                 {
                     properties.Children[propertyKey] = propertySchema;
@@ -89,7 +89,7 @@ internal static class WorkflowPlanContractNormalizer
 
         if (mapping.Children.TryGetValue(Scalar("items"), out var items))
         {
-            var normalizedItems = CanonicalizeRepresentableUnion(items, out var canonicalized);
+            var normalizedItems = CanonicalizeRepresentableWorkflowSchema(items, out var canonicalized);
             if (canonicalized)
             {
                 mapping.Children[Scalar("items")] = normalizedItems;
@@ -99,7 +99,7 @@ internal static class WorkflowPlanContractNormalizer
         }
         if (mapping.Children.TryGetValue(Scalar("additional_properties"), out var additionalProperties))
         {
-            var normalizedAdditional = CanonicalizeRepresentableUnion(additionalProperties, out var canonicalized);
+            var normalizedAdditional = CanonicalizeRepresentableWorkflowSchema(additionalProperties, out var canonicalized);
             if (canonicalized)
             {
                 mapping.Children[Scalar("additional_properties")] = normalizedAdditional;
@@ -109,7 +109,7 @@ internal static class WorkflowPlanContractNormalizer
         }
         if (mapping.Children.TryGetValue(Scalar("additionalProperties"), out var jsonAdditionalProperties))
         {
-            var normalizedAdditional = CanonicalizeRepresentableUnion(jsonAdditionalProperties, out var canonicalized);
+            var normalizedAdditional = CanonicalizeRepresentableWorkflowSchema(jsonAdditionalProperties, out var canonicalized);
             if (canonicalized)
             {
                 mapping.Children[Scalar("additionalProperties")] = normalizedAdditional;
@@ -193,6 +193,7 @@ internal static class WorkflowPlanContractNormalizer
         if (mapping.Children.TryGetValue(Scalar("properties"), out var propertiesNode)
             && propertiesNode is YamlMappingNode properties)
         {
+            changed |= HoistJsonSchemaPropertyRequiredFlags(mapping, properties);
             foreach (var property in properties.Children.ToArray())
             {
                 var normalized = NormalizeJsonSchemaNode(property.Value, out var childChanged);
@@ -256,6 +257,60 @@ internal static class WorkflowPlanContractNormalizer
         }
 
         return mapping;
+    }
+
+    private static bool HoistJsonSchemaPropertyRequiredFlags(
+        YamlMappingNode schema,
+        YamlMappingNode properties)
+    {
+        var changed = false;
+        var requiredKey = Scalar("required");
+        var required = schema.Children.TryGetValue(requiredKey, out var requiredNode)
+                       && requiredNode is YamlSequenceNode requiredSequence
+            ? requiredSequence
+            : new YamlSequenceNode();
+        var requiredNames = required.Children
+            .OfType<YamlScalarNode>()
+            .Select(static item => item.Value)
+            .Where(static value => !string.IsNullOrWhiteSpace(value))
+            .ToHashSet(StringComparer.Ordinal);
+
+        foreach (var (propertyKey, propertyValue) in properties.Children)
+        {
+            if (propertyKey is not YamlScalarNode { Value.Length: > 0 } propertyName
+                || propertyValue is not YamlMappingNode propertySchema
+                || !propertySchema.Children.TryGetValue(requiredKey, out var propertyRequiredNode)
+                || propertyRequiredNode is not YamlScalarNode propertyRequiredScalar
+                || !bool.TryParse(propertyRequiredScalar.Value, out var propertyRequired))
+            {
+                continue;
+            }
+
+            propertySchema.Children.Remove(requiredKey);
+            changed = true;
+            if (propertyRequired && requiredNames.Add(propertyName.Value))
+                required.Add(Scalar(propertyName.Value));
+        }
+
+        if (required.Children.Count > 0
+            && (!schema.Children.TryGetValue(requiredKey, out requiredNode)
+                || requiredNode is not YamlSequenceNode))
+        {
+            schema.Children[requiredKey] = required;
+            changed = true;
+        }
+        else if (required.Children.Count == 0
+                 && schema.Children.TryGetValue(requiredKey, out requiredNode)
+                 && requiredNode is YamlScalarNode requiredScalar
+                 && bool.TryParse(requiredScalar.Value, out _))
+        {
+            // A root-level workflow-field requiredness flag has no JSON Schema
+            // meaning. Nested flags are consumed by their parent above.
+            schema.Children.Remove(requiredKey);
+            changed = true;
+        }
+
+        return changed;
     }
 
     private static bool NormalizeJsonSchemaNullableKeyword(YamlMappingNode schema)
@@ -374,9 +429,25 @@ internal static class WorkflowPlanContractNormalizer
         return false;
     }
 
-    private static YamlNode CanonicalizeRepresentableUnion(YamlNode schema, out bool changed)
+    private static YamlNode CanonicalizeRepresentableWorkflowSchema(YamlNode schema, out bool changed)
     {
         changed = false;
+        if (schema is YamlScalarNode scalar)
+        {
+            var type = scalar.Value?.Trim().ToLowerInvariant();
+            if (type is not ("string" or "number" or "integer" or "boolean" or "null"
+                or "object" or "array" or "dictionary"))
+            {
+                return schema;
+            }
+
+            changed = true;
+            return new YamlMappingNode
+            {
+                { Scalar("type"), Scalar(type == "dictionary" ? "object" : type) }
+            };
+        }
+
         if (schema is not YamlMappingNode mapping)
             return schema;
         var hasUnion = mapping.Children.ContainsKey(Scalar("anyOf"))

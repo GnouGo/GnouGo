@@ -22,12 +22,14 @@ from .workflow_plan.policy import _WorkflowPlanPolicyMixin
 from .workflow_plan.repair_mode import _WorkflowPlanRepairModeMixin
 from .workflow_plan.repair_prompt import _WorkflowPlanRepairPromptMixin
 from .workflow_plan.single_plan import _WorkflowPlanSinglePlanMixin
+from .workflow_plan.structured_response import _WorkflowPlanStructuredResponseMixin
 from .workflow_plan.telemetry import _WorkflowPlanTelemetryMixin
 from .workflow_plan.validation import _WorkflowPlanValidationMixin
 
 
 class WorkflowPlanExecutor(
     _WorkflowPlanCommonMixin,
+    _WorkflowPlanStructuredResponseMixin,
     _WorkflowPlanCapabilityPreflightMixin,
     _WorkflowPlanAutoModeMixin,
     _WorkflowPlanRepairModeMixin,
@@ -101,6 +103,7 @@ Output: `{ workflow, yaml, meta, diagnostics }`.
         (ErrorCodes.LLM_TIMEOUT, True, "a planning LLM request timed out."),
         (ErrorCodes.LLM_NETWORK, True, "a transient transport, rate-limit, or provider service failure interrupted planning."),
         (ErrorCodes.LLM_PROVIDER, False, "the LLM provider rejected a planning request with a non-retryable client error."),
+        (ErrorCodes.LLM_SCHEMA, False, "a strict internal planning response was missing or invalid after one exact retry."),
     ]
     _MCP_INPUT_CONTRACT_CHECKLIST = [
         "1. Inspect every MCP tool used by this workflow.",

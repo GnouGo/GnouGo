@@ -142,6 +142,43 @@ public sealed class WorkflowPlanIntentClarificationTests
     }
 
     [Fact]
+    public async Task AlwaysMode_PreservesSelectedDescriptionAndWriteConfirmationConsequence()
+    {
+        var human = new RecordingHumanInputProvider();
+        var prompts = new List<string>();
+        var clarificationCalls = 0;
+        var llm = CreateLlm(request =>
+        {
+            prompts.Add(request.Prompt);
+            if (!IsClarificationRequest(request))
+                return new LLMResponse { Text = ValidGeneratedWorkflow };
+
+            clarificationCalls++;
+            if (clarificationCalls > 1)
+                return Assessment("sufficient", "The selected behavior is complete.");
+            var assessment = QuestionsAssessment("Choose publication behavior.", 1, "publication");
+            assessment.Json!["questions"]![0]!["options"]![0]!["description"] =
+                "Publish automatically after successful validation.";
+            assessment.Json!["questions"]![0]!["options"]![0]!["external_write_confirmation_policy"] =
+                "forbidden";
+            return assessment;
+        });
+
+        var result = await ExecuteAsync("always", llm, human, cancellationToken: TestContext.Current.CancellationToken);
+
+        Assert.True(result.Success, result.Error?.Message);
+        var request = Assert.Single(human.Requests);
+        Assert.Contains(
+            "External-write confirmation policy: forbidden.",
+            request.Fields![0].OptionDefinitions![0].Description,
+            StringComparison.Ordinal);
+        Assert.Contains(prompts, static prompt =>
+            prompt.Contains("\"selected_description\":\"Publish automatically after successful validation.\"", StringComparison.Ordinal)
+            && prompt.Contains("\"external_write_confirmation_policy\":\"forbidden\"", StringComparison.Ordinal)
+            && prompt.Contains("\"is_custom\":false", StringComparison.Ordinal));
+    }
+
+    [Fact]
     public async Task WhenNeededMode_ProceedsWithoutHumanWhenIntentIsSufficient()
     {
         var human = new RecordingHumanInputProvider();
@@ -508,13 +545,15 @@ public sealed class WorkflowPlanIntentClarificationTests
                     {
                         ["value"] = $"Recommended {index}",
                         ["description"] = "Uses the most likely interpretation.",
-                        ["recommended"] = true
+                        ["recommended"] = true,
+                        ["external_write_confirmation_policy"] = "unchanged"
                     },
                     new JsonObject
                     {
                         ["value"] = $"Alternative {index}",
                         ["description"] = "Uses the alternate interpretation.",
-                        ["recommended"] = false
+                        ["recommended"] = false,
+                        ["external_write_confirmation_policy"] = "unchanged"
                     }
                 }
             });

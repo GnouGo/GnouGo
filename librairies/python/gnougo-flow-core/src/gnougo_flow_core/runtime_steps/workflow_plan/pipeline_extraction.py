@@ -101,6 +101,8 @@ class _WorkflowPlanPipelineExtractionMixin:
                 previous_validation_errors = list(extraction.validation_errors)
                 self._add_pipeline_extraction_retry_telemetry(ctx, attempt, max_attempts, validation_error)
             except Exception as exc:
+                if isinstance(exc, WorkflowRuntimeException) and exc.code == ErrorCodes.LLM_SCHEMA:
+                    raise
                 if attempt >= max_attempts:
                     raise
                 last_error = exc
@@ -330,51 +332,32 @@ class _WorkflowPlanPipelineExtractionMixin:
         attempt: int | None = None,
         max_attempts: int | None = None,
     ) -> dict[str, Any]:
-        attributes = [
-            ("gen_ai.operation.name", "chat"),
-            ("gen_ai.system", provider or "unknown"),
-            ("gen_ai.request.model", model),
-            ("gen_ai.request.background", True),
-            ("gnougo-flow.plan.structured_output", True),
-        ]
-        if attempt is not None:
-            attributes.append(("gnougo-flow.plan.attempt", attempt))
-        if max_attempts is not None:
-            attributes.append(("gnougo-flow.plan.max_attempts", max_attempts))
-        with ctx.begin_telemetry_span(f"workflow.plan.pipeline.{phase}", phase, attributes) as span:
-            response = await ctx.engine.call_llm_async(
-                LLMRequest(
-                    provider=provider,
-                    model=model,
-                    prompt=prompt,
-                    reasoning=reasoning,
-                    use_background_mode=True,
-                    structured_output_schema=structured_output_schema,
-                    structured_output_strict=True,
-                )
-            )
-            self._add_usage_attributes(span, response.usage, model, provider, ctx.engine.llm_options)
-            _extract_usage_telemetry(ctx, response.usage, model, provider)
+        schema_fingerprint = self._planner_fingerprint(
+            json.dumps(structured_output_schema, sort_keys=True, separators=(",", ":"))
+        )
+        response = await self._execute_strict_planner_response(
+            ctx,
+            f"pipeline.{phase}",
+            prompt,
+            provider,
+            model,
+            reasoning,
+            structured_output_schema,
+            phase_attempt=attempt or 1,
+            max_attempts=max_attempts,
+            contract_fingerprint=schema_fingerprint,
+            base_candidate_fingerprint="",
+            diagnostic_fingerprint="",
+            contract_epoch=1,
+        )
         payload = response.json_payload
-        if not isinstance(payload, dict) and response.text:
-            try:
-                payload = json.loads(self._strip_markdown_code_fence(response.text))
-            except Exception:
-                payload = None
         if not isinstance(payload, dict):
-            raise WorkflowRuntimeException(ErrorCodes.TEMPLATE_PLAN, f"workflow.plan pipeline phase '{phase}' returned empty structured output.")
+            raise WorkflowRuntimeException(ErrorCodes.LLM_SCHEMA, f"workflow.plan pipeline phase '{phase}' returned invalid structured output.")
         return payload
 
 
     async def _should_use_structured_pipeline_extraction(self, ctx: StepExecutionContext, provider: str | None, model: str) -> bool:
-        resolver = getattr(ctx.engine, "llm_capabilities", None)
-        if resolver is None:
-            return False
-        try:
-            result = await resolver.supports_structured_output_async(provider, model)
-            return result is True
-        except Exception:
-            return False
+        return await self._should_use_strict_planner_response(ctx, provider, model)
 
 
     async def _build_pipeline_global_mcp_context(
@@ -569,6 +552,7 @@ class _WorkflowPlanPipelineExtractionMixin:
                 )
             )
         spec.planned_tools = planned_tools
+        self._canonicalize_external_tool_ownership(spec)
         spec.required_capabilities = [f"{tool.server}/{tool.method}" for tool in planned_tools if tool.required]
         spec.generation_prompt = self._build_subworkflow_generation_prompt(
             spec.name,
@@ -678,6 +662,18 @@ class _WorkflowPlanPipelineExtractionMixin:
                 )
         return errors
 
+
+    @staticmethod
+    def _canonicalize_external_tool_ownership(spec: _WorkflowPipelineSubworkflowSpec) -> None:
+        has_immutable_external_tool = any(
+            tool.required and (tool.locked_operation_ids or tool.catalog_ids)
+            for tool in spec.planned_tools
+        )
+        if not has_immutable_external_tool:
+            return
+        spec.work_kind = "external_work"
+        if spec.contract_role not in {"external_action", "typed_data_producer"}:
+            spec.contract_role = "external_action"
 
     @staticmethod
     def _promote_required_planned_tools(spec: _WorkflowPipelineSubworkflowSpec, known_tools: set[tuple[str, str]]) -> None:

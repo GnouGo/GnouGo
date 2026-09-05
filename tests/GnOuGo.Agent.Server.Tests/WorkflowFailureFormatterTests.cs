@@ -7,6 +7,51 @@ namespace GnOuGo.Agent.Server.Tests;
 public sealed class WorkflowFailureFormatterTests
 {
     [Fact]
+    public void Format_ExplainsMainAssemblyRepairStallWithoutRawCandidates()
+    {
+        var error = new WorkflowError
+        {
+            Code = ErrorCodes.WorkflowPlanRepairStalled,
+            Message = "Two repair responses failed to improve the best validated main assembly candidate.",
+            Details = new JsonObject
+            {
+                ["stage"] = "assemble_main_workflow",
+                ["classification"] = "plan_defect",
+                ["attempt_count"] = 3,
+                ["best_candidate_fingerprint"] = new string('a', 64),
+                ["candidate_fingerprint"] = new string('b', 64),
+                ["best_validation_progress"] = 110,
+                ["candidate_validation_progress"] = 40,
+                ["best_diagnostic_codes"] = new JsonArray("INPUT_VALIDATION"),
+                ["candidate_diagnostic_codes"] = new JsonArray("YAML_PARSE_ERROR"),
+                ["best_validation_diagnostics"] = new JsonArray(new JsonObject
+                {
+                    ["code"] = "EXPR_TYPE_MISMATCH",
+                    ["location"] = "workflow:main/step:call_leaf/field:input.args.value",
+                    ["invalid_path"] = "${data.steps.source.value}",
+                    ["expected"] = "compatible leaf input",
+                    ["message"] = "secret diagnostic body"
+                }),
+                ["stall_reason"] = "non_improving_main_assembly_repair",
+                ["recommended_action"] = "Inspect sanitized diagnostics.",
+                ["candidate_yaml"] = "secret candidate body"
+            }
+        };
+
+        var presentation = WorkflowFailureFormatter.Format(error);
+
+        Assert.Contains("Automatic planner repair outcome", presentation.UserMessage, StringComparison.Ordinal);
+        Assert.Contains("assemble_main_workflow", presentation.UserMessage, StringComparison.Ordinal);
+        Assert.Contains("110/40", presentation.UserMessage, StringComparison.Ordinal);
+        Assert.Contains("INPUT_VALIDATION", presentation.UserMessage, StringComparison.Ordinal);
+        Assert.Contains("YAML_PARSE_ERROR", presentation.UserMessage, StringComparison.Ordinal);
+        Assert.Contains("EXPR_TYPE_MISMATCH at workflow:main/step:call_leaf/field:input.args.value", presentation.UserMessage, StringComparison.Ordinal);
+        Assert.Contains("${data.steps.source.value}", presentation.UserMessage, StringComparison.Ordinal);
+        Assert.DoesNotContain("secret candidate body", presentation.UserMessage, StringComparison.Ordinal);
+        Assert.DoesNotContain("secret diagnostic body", presentation.UserMessage, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void Format_RendersOnlySanitizedLlmRecoveryDiagnostics()
     {
         var error = new WorkflowError

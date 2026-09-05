@@ -1,5 +1,7 @@
 using System.Text.Json.Nodes;
 using System.Diagnostics;
+using System.Security.Cryptography;
+using System.Text;
 using GnOuGo.Flow.Core.Expressions;
 using GnOuGo.Flow.Core.Models;
 
@@ -72,7 +74,19 @@ public sealed class StepExecutionContext
         ArgumentNullException.ThrowIfNull(request);
 
         if (LLMUsageBudget is null)
-            return await client.CallAsync(request, ct).ConfigureAwait(false);
+        {
+            try
+            {
+                var unbudgetedResponse = await client.CallAsync(request, ct).ConfigureAwait(false);
+                EmitPlannerStructuredOutputResult(stage, request, unbudgetedResponse, callCompleted: true);
+                return unbudgetedResponse;
+            }
+            catch
+            {
+                EmitPlannerStructuredOutputResult(stage, request, response: null, callCompleted: false);
+                throw;
+            }
+        }
 
         var callId = Guid.NewGuid().ToString("N");
         try
@@ -84,19 +98,58 @@ public sealed class StepExecutionContext
                 stage,
                 ct).ConfigureAwait(false);
             EmitLLMBudgetEvent(callId, stage, "recorded", null);
+            EmitPlannerStructuredOutputResult(stage, request, response, callCompleted: true);
             return response;
         }
         catch (WorkflowRuntimeException ex) when (
             ex.Code is ErrorCodes.LlmBudgetExceeded or ErrorCodes.LlmBudgetUnverifiable)
         {
             EmitLLMBudgetEvent(callId, stage, "rejected", ex.Code);
+            EmitPlannerStructuredOutputResult(stage, request, response: null, callCompleted: false);
             throw;
         }
         catch
         {
             EmitLLMBudgetEvent(callId, stage, "call_failed", null);
+            EmitPlannerStructuredOutputResult(stage, request, response: null, callCompleted: false);
             throw;
         }
+    }
+
+    private void EmitPlannerStructuredOutputResult(
+        string stage,
+        LLMRequest request,
+        LLMResponse? response,
+        bool callCompleted)
+    {
+        if (!stage.StartsWith("workflow.plan", StringComparison.Ordinal))
+            return;
+
+        var schema = request.StructuredOutputSchema;
+        var schemaRequested = schema is not null;
+        var parsed = response?.Json is not null;
+        var locallyValidated = schemaRequested
+                               && parsed
+                               && JsonSchemaContractValidator.ValidateInstance(response!.Json!, schema!).Count == 0;
+        var schemaFingerprint = schemaRequested
+            ? Convert.ToHexString(SHA256.HashData(
+                    Encoding.UTF8.GetBytes(schema!.ToJsonString())))
+                .ToLowerInvariant()
+            : string.Empty;
+        AddTelemetryEvent("gnougo-flow.plan.structured_output.result", new[]
+        {
+            new KeyValuePair<string, object?>("gnougo-flow.plan.structured_output.stage", stage),
+            new KeyValuePair<string, object?>("gnougo-flow.plan.structured_output.call_completed", callCompleted),
+            new KeyValuePair<string, object?>("gnougo-flow.plan.structured_output.requested", schemaRequested),
+            new KeyValuePair<string, object?>("gnougo-flow.plan.structured_output.strict", request.StructuredOutputStrict == true),
+            new KeyValuePair<string, object?>("gnougo-flow.plan.structured_output.schema_version",
+                schemaRequested ? "workflow-plan-response-v1" : string.Empty),
+            new KeyValuePair<string, object?>("gnougo-flow.plan.structured_output.schema_fingerprint", schemaFingerprint),
+            new KeyValuePair<string, object?>("gnougo-flow.plan.structured_output.capability_source",
+                schemaRequested ? "runtime_request_contract" : "none"),
+            new KeyValuePair<string, object?>("gnougo-flow.plan.structured_output.parsed", parsed),
+            new KeyValuePair<string, object?>("gnougo-flow.plan.structured_output.locally_validated", locallyValidated)
+        });
     }
 
     private void EmitLLMBudgetEvent(string callId, string stage, string status, string? errorCode)

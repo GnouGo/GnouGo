@@ -15,7 +15,7 @@ public sealed partial class WorkflowPlanExecutor
         string AnnotatedMarkdown,
         int OperationCount,
         string BaseFingerprint,
-        IReadOnlySet<string> AddressedDiagnosticCodes);
+        IReadOnlySet<string> AddressedDiagnosticIds);
 
     private static async Task<PipelineRepairApplication> RequestPipelineExtractionPatchAsync(
         ILLMClient llmClient,
@@ -67,7 +67,7 @@ public sealed partial class WorkflowPlanExecutor
         sb.AppendLine();
         sb.AppendLine("Patch invariants:");
         sb.AppendLine("- base_fingerprint must exactly equal the supplied fingerprint.");
-        sb.AppendLine("- addressed_diagnostic_codes must contain only exact codes from addressable_diagnostic_codes and must identify every blocker this patch claims to resolve. A code claim never overrides deterministic validation or a reviewer that still reports the defect.");
+        sb.AppendLine("- addressed_diagnostic_ids must contain only exact identities from addressable_diagnostics and must identify every blocker this patch claims to resolve. An identity claim never overrides deterministic validation or a reviewer that still reports the defect.");
         sb.AppendLine("- Supported operations are add_leaf, replace_leaf, remove_leaf, merge_leaves, and replace_main_orchestration.");
         sb.AppendLine("- replace_leaf preserves all capability and native-step ownership of its target and must keep the same name.");
         sb.AppendLine("- replace_leaf may remove an obsolete public input only when a blocking diagnostic proves the leaf itself produces that value. Preserve every genuine caller/upstream input and every established output contract.");
@@ -80,9 +80,11 @@ public sealed partial class WorkflowPlanExecutor
         sb.AppendLine("- Resolve an unowned external leaf only by merging it into a compatible existing owner leaf, removing it when redundant or outside the requested intent, or replacing it with genuinely local algorithmic work. Update main orchestration in the same patch when removal or merge changes calls.");
         sb.AppendLine("- A deterministic fallback policy may reuse the capability of the external operation it governs, but a separately requested runtime fallback action performed by an AI, agent, service, or tool requires external ownership. If the action has no immutable owner, move it into a compatible existing owner leaf and update that leaf and main orchestration together; never leave it as prose in an unowned leaf or invent a new capability.");
         sb.AppendLine("- A cohesive locked external action may perform non-observable prerequisite inspection, selection, or preparation needed to execute that action when its declared schema and metadata support the required context. Do not invent a second capability solely for such an internal prerequisite. Keep it inside the existing owner and expose a typed result only when another workflow boundary consumes it or the request requires it independently.");
+        sb.AppendLine("- A deterministic leaf may transform a locator or path as scalar data but must not dereference files or discover external resource contents absent from its typed inputs. Route typed evidence from an existing external producer, merge the shaping into that owner, or remove a redundant inspector leaf.");
         sb.AppendLine("- Conditional decision_operation_id ownership is immutable. The leaf or main contract listed as that local operation's owner must derive the runtime decision. A different orchestration surface may only route the typed decision output; it must not claim to recompute or own it.");
         sb.AppendLine("- Main native-step ownership is exact. Preserve every entry in candidate_extraction.main_native_steps and remove any human confirmation or other native interaction described by main when no matching entry is locked there.");
         sb.AppendLine("- Address every compatible blocking diagnostic in this one patch; do not make cosmetic edits that leave a reported ownership or schema defect unchanged.");
+        sb.AppendLine("- Treat every field explicitly named by a blocking diagnostic message or recommendation as one required correction checklist. When its evidence supports the field, reproduce the complete named field set in the affected typed boundary; do not repair only the first example or retain a lossy summary.");
         sb.AppendLine("- A cross-leaf value route is one atomic contract edge: the source leaf must expose a typed output, the destination leaf must accept a compatible typed input, and main orchestration must pass that exact value between them. When a diagnostic reports a missing route, combine replace_leaf and replace_main_orchestration operations in the same patch whenever both surfaces are incomplete; changing prose on only one side does not repair the edge.");
         sb.AppendLine("- Reuse the exact existing producer output field name and schema for a missing consumer input when they are compatible. Do not rename, recompute, summarize, or substitute a sibling field while repairing a cross-leaf edge.");
         sb.AppendLine("- For every reported weak object or object-array schema, add nested properties only when the normalized request, locked capability contract, or an existing typed boundary proves those fields. Otherwise simplify an unused opaque object boundary to an evidence-supported scalar or array of scalars, or remove that unused output and update orchestration; never invent domain fields merely to satisfy validation.");
@@ -90,15 +92,6 @@ public sealed partial class WorkflowPlanExecutor
         sb.AppendLine("- Every leaf payload is complete and strongly typed. Use an empty string only for target/main_orchestration fields unused by that operation, an empty sources array when unused, and null leaf when unused.");
         sb.AppendLine();
         AppendPromptSection(sb, "base_fingerprint", fingerprint);
-        AppendPromptSection(
-            sb,
-            "addressable_diagnostic_codes",
-            BuildStringArrayJson(GetAddressablePipelineDiagnosticCodes(bestCandidate)).ToJsonString(PromptJsonOptions));
-        AppendPromptSection(sb, "blocking_diagnostics", string.Join("\n", diagnostics.Select(static value => "- " + value)));
-        AppendPromptSection(
-            sb,
-            "blocking_diagnostics_json",
-            BuildPipelinePatchBlockingDiagnosticsJson(bestCandidate.QualityReview).ToJsonString(PromptJsonOptions));
         AppendPromptSection(sb, "normalized_prompt", normalizedMarkdown);
         AppendPromptSection(
             sb,
@@ -107,6 +100,20 @@ public sealed partial class WorkflowPlanExecutor
         AppendPromptSection(sb, "immutable_leaf_ownership", BuildPipelinePatchOwnershipSummary(bestCandidate).ToJsonString(PromptJsonOptions));
         AppendPromptSection(sb, "conditional_decision_ownership", BuildPipelineConditionalDecisionOwnershipSummary(bestCandidate).ToJsonString(PromptJsonOptions));
         AppendPromptSection(sb, "capability_contract", BuildPipelineMcpContextJson(pipelineMcpContext).ToJsonString(PromptJsonOptions));
+        sb.AppendLine();
+        sb.AppendLine("Final repair checklist (authoritative and intentionally repeated after the contract context):");
+        sb.AppendLine("- Address every listed blocking diagnostic in the smallest coherent patch.");
+        sb.AppendLine("- Re-read every affected leaf payload before returning it and verify that all fields named by each message and recommendation are present with concrete schemas.");
+        sb.AppendLine("- Do not claim a diagnostic identity unless the emitted operations actually change its cited extraction surface.");
+        AppendPromptSection(
+            sb,
+            "addressable_diagnostics",
+            BuildAddressablePipelineDiagnosticsJson(bestCandidate).ToJsonString(PromptJsonOptions));
+        AppendPromptSection(sb, "blocking_diagnostics", string.Join("\n", diagnostics.Select(static value => "- " + value)));
+        AppendPromptSection(
+            sb,
+            "blocking_diagnostics_json",
+            BuildPipelinePatchBlockingDiagnosticsJson(bestCandidate.QualityReview).ToJsonString(PromptJsonOptions));
         return sb.ToString();
     }
 
@@ -119,7 +126,15 @@ public sealed partial class WorkflowPlanExecutor
             return [];
         }
 
-        return (JsonArray)diagnostics.DeepClone();
+        return new JsonArray(diagnostics
+            .OfType<JsonObject>()
+            .Where(static diagnostic => diagnostic["evidence_qualified"]?.GetValue<bool>() == true
+                                        && string.Equals(
+                                            diagnostic["severity"]?.GetValue<string>(),
+                                            "critical",
+                                            StringComparison.Ordinal))
+            .Select(static diagnostic => (JsonNode?)diagnostic.DeepClone())
+            .ToArray());
     }
 
     private static string? ResolvePipelinePatchReasoning(string? configuredReasoning, int attempt)
@@ -201,12 +216,12 @@ public sealed partial class WorkflowPlanExecutor
         {
           "type": "object",
           "additionalProperties": false,
-          "required": ["base_fingerprint", "addressed_diagnostic_codes", "operations"],
+          "required": ["base_fingerprint", "addressed_diagnostic_ids", "operations"],
           "$defs": {
             "contract_field": {
               "type": "object",
               "additionalProperties": false,
-              "required": ["name", "type", "description", "required", "nullable", "item_type", "properties"],
+              "required": ["name", "type", "description", "required", "nullable", "item_type", "properties", "enum_values"],
               "properties": {
                 "name": { "type": "string" },
                 "type": { "type": "string", "enum": ["string", "number", "boolean", "array", "object", "dictionary", "any"] },
@@ -214,7 +229,8 @@ public sealed partial class WorkflowPlanExecutor
                 "required": { "type": "boolean" },
                 "nullable": { "type": "boolean" },
                 "item_type": { "type": "string" },
-                "properties": { "type": "array", "items": { "$ref": "#/$defs/contract_field" } }
+                "properties": { "type": "array", "items": { "$ref": "#/$defs/contract_field" } },
+                "enum_values": { "type": "array", "items": { "type": "string" } }
               }
             },
             "leaf": {
@@ -237,7 +253,7 @@ public sealed partial class WorkflowPlanExecutor
           },
           "properties": {
             "base_fingerprint": { "type": "string" },
-            "addressed_diagnostic_codes": {
+            "addressed_diagnostic_ids": {
               "type": "array",
               "minItems": 1,
               "items": { "type": "string" }
@@ -266,8 +282,8 @@ public sealed partial class WorkflowPlanExecutor
         var schemaProperties = schema["properties"]!;
         schemaProperties["base_fingerprint"]!["enum"] = new JsonArray(
             JsonValue.Create(BuildPipelineExtractionFingerprint(bestCandidate)));
-        schemaProperties["addressed_diagnostic_codes"]!["items"]!["enum"] = new JsonArray(
-            GetAddressablePipelineDiagnosticCodes(bestCandidate)
+        schemaProperties["addressed_diagnostic_ids"]!["items"]!["enum"] = new JsonArray(
+            GetAddressablePipelineDiagnosticIds(bestCandidate)
                 .Select(static value => (JsonNode?)JsonValue.Create(value))
                 .ToArray());
 
@@ -303,19 +319,19 @@ public sealed partial class WorkflowPlanExecutor
         var actualFingerprint = GetStringProperty(patch, "base_fingerprint");
         if (!string.Equals(actualFingerprint, expectedFingerprint, StringComparison.Ordinal))
             throw BuildPipelinePatchFailure("Patch base_fingerprint does not match the current best candidate.");
-        var addressableCodes = GetAddressablePipelineDiagnosticCodes(bestCandidate);
-        var addressedCodes = ReadPatchSources(patch["addressed_diagnostic_codes"] as JsonArray);
-        if (addressedCodes.Count != addressedCodes.Distinct(StringComparer.Ordinal).Count())
-            throw BuildPipelinePatchFailure("Patch addressed_diagnostic_codes contains duplicates.");
-        var unknownAddressedCodes = addressedCodes.Where(code => !addressableCodes.Contains(code, StringComparer.Ordinal)).ToArray();
-        if (unknownAddressedCodes.Length > 0)
+        var addressableIds = GetAddressablePipelineDiagnosticIds(bestCandidate);
+        var addressedIds = ReadPatchSources(patch["addressed_diagnostic_ids"] as JsonArray);
+        if (addressedIds.Count != addressedIds.Distinct(StringComparer.Ordinal).Count())
+            throw BuildPipelinePatchFailure("Patch addressed_diagnostic_ids contains duplicates.");
+        var unknownAddressedIds = addressedIds.Where(id => !addressableIds.Contains(id, StringComparer.Ordinal)).ToArray();
+        if (unknownAddressedIds.Length > 0)
         {
             throw BuildPipelinePatchFailure(
-                "Patch addressed_diagnostic_codes contains unknown or stale codes: "
-                + string.Join(", ", unknownAddressedCodes) + ".");
+                "Patch addressed_diagnostic_ids contains unknown or stale identities: "
+                + string.Join(", ", unknownAddressedIds) + ".");
         }
-        if (addressableCodes.Count > 0 && addressedCodes.Count == 0)
-            throw BuildPipelinePatchFailure("Patch must identify at least one exact addressed diagnostic code.");
+        if (addressableIds.Count > 0 && addressedIds.Count == 0)
+            throw BuildPipelinePatchFailure("Patch must identify at least one exact addressed diagnostic identity.");
         if (patch["operations"] is not JsonArray operations
             || operations.Count is < 1 or > MaxPipelinePatchOperations)
         {
@@ -450,21 +466,94 @@ public sealed partial class WorkflowPlanExecutor
             RenderPipelineExtractionAsAnnotatedMarkdown(extraction),
             operations.Count,
             expectedFingerprint,
-            addressedCodes.ToHashSet(StringComparer.Ordinal));
+            addressedIds.ToHashSet(StringComparer.Ordinal));
     }
 
-    private static IReadOnlyList<string> GetAddressablePipelineDiagnosticCodes(WorkflowPipelineExtraction extraction)
+    private static IReadOnlyList<string> GetAddressablePipelineDiagnosticIds(WorkflowPipelineExtraction extraction)
     {
-        var codes = extraction.QualityReview?.Diagnostics
+        var ids = extraction.QualityReview?.Diagnostics
             .Where(static diagnostic => diagnostic.EvidenceQualified
                                         && string.Equals(diagnostic.Severity, "critical", StringComparison.Ordinal))
-            .Select(static diagnostic => diagnostic.Code)
+            .Select(BuildPipelineExtractionQualityDiagnosticId)
             .ToList() ?? [];
-        codes.AddRange(extraction.ValidationErrors
-            .Select(static error => error.Split(':', 2)[0].Trim())
-            .Where(static code => code.Length > 0));
-        return codes.Distinct(StringComparer.Ordinal).Order(StringComparer.Ordinal).ToArray();
+        ids.AddRange(extraction.ValidationErrors.Select(BuildPipelineExtractionValidationDiagnosticId));
+        return ids.Distinct(StringComparer.Ordinal).Order(StringComparer.Ordinal).ToArray();
     }
+
+    private static JsonArray BuildAddressablePipelineDiagnosticsJson(WorkflowPipelineExtraction extraction)
+    {
+        var diagnostics = new JsonArray();
+        foreach (var diagnostic in extraction.QualityReview?.Diagnostics
+                     .Where(static item => item.EvidenceQualified
+                                           && string.Equals(item.Severity, "critical", StringComparison.Ordinal))
+                     ?? Array.Empty<PipelineExtractionQualityDiagnostic>())
+        {
+            diagnostics.Add((JsonNode)new JsonObject
+            {
+                ["id"] = BuildPipelineExtractionQualityDiagnosticId(diagnostic),
+                ["code"] = diagnostic.Code,
+                ["leaf_name"] = diagnostic.LeafName ?? string.Empty,
+                ["remediation_surface"] = diagnostic.RemediationSurface,
+                ["challenged_operation_ids"] = BuildStringArrayJson(
+                    diagnostic.ChallengedOperationIds ?? Array.Empty<string>()),
+                ["message"] = diagnostic.Message,
+                ["recommendation"] = diagnostic.Recommendation ?? string.Empty,
+                ["evidence"] = BuildPipelineExtractionQualityEvidenceJson(diagnostic.Evidence)
+            });
+        }
+
+        foreach (var error in extraction.ValidationErrors)
+        {
+            diagnostics.Add((JsonNode)new JsonObject
+            {
+                ["id"] = BuildPipelineExtractionValidationDiagnosticId(error),
+                ["code"] = error.Split(':', 2)[0].Trim(),
+                ["leaf_name"] = string.Empty,
+                ["remediation_surface"] = "extraction_contract",
+                ["message"] = error,
+                ["recommendation"] = "Repair the exact extraction contract path named by the deterministic diagnostic.",
+                ["evidence"] = new JsonArray()
+            });
+        }
+
+        return diagnostics;
+    }
+
+    private static string BuildPipelineExtractionQualityDiagnosticId(
+        PipelineExtractionQualityDiagnostic diagnostic)
+    {
+        var extractionReferences = (diagnostic.Evidence ?? Array.Empty<PipelineExtractionQualityEvidence>())
+            .Where(static evidence => string.Equals(evidence.Source, "extraction", StringComparison.Ordinal))
+            .Select(static evidence => evidence.Reference.Trim())
+            .Where(static reference => reference.Length > 0)
+            .Distinct(StringComparer.Ordinal)
+            .Order(StringComparer.Ordinal)
+            .ToArray();
+        var canonical = new JsonObject
+        {
+            ["code"] = diagnostic.Code.Trim().ToUpperInvariant(),
+            ["leaf_name"] = diagnostic.LeafName?.Trim() ?? string.Empty,
+            ["remediation_surface"] = diagnostic.RemediationSurface.Trim(),
+            ["challenged_operation_ids"] = BuildStringArrayJson(
+                diagnostic.ChallengedOperationIds?.Order(StringComparer.Ordinal).ToArray()
+                ?? Array.Empty<string>()),
+            ["extraction_references"] = BuildStringArrayJson(extractionReferences)
+        }.ToJsonString(PromptJsonOptions);
+        return "quality:" + Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(canonical))).ToLowerInvariant();
+    }
+
+    private static string BuildPipelineExtractionValidationDiagnosticId(string error)
+    {
+        var canonical = error.Trim();
+        return "validation:" + Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(canonical))).ToLowerInvariant();
+    }
+
+    private static string FormatPipelineDiagnosticIdsForTelemetry(IEnumerable<string> ids)
+        => string.Join(",", ids
+            .Where(static id => !string.IsNullOrWhiteSpace(id))
+            .Distinct(StringComparer.Ordinal)
+            .Order(StringComparer.Ordinal)
+            .Take(32));
 
     private static WorkflowPipelineSubworkflowSpec ParsePatchedLeaf(
         JsonObject? leaf,
@@ -526,6 +615,7 @@ public sealed partial class WorkflowPlanExecutor
         {
             OwnedOperationIds = ownedOperationIds
         };
+        result = CanonicalizePipelineLeafExternalOwnership(result);
         return result with { GenerationPrompt = BuildSubworkflowGenerationPrompt(result) };
     }
 
@@ -635,9 +725,25 @@ public sealed partial class WorkflowPlanExecutor
         WorkflowPipelineExtraction best,
         int bestPatchOperations)
     {
-        var candidateRank = BuildPipelineExtractionCandidateRank(candidate, candidatePatchOperations);
-        var bestRank = BuildPipelineExtractionCandidateRank(best, bestPatchOperations);
-        return candidateRank.CompareTo(bestRank) < 0;
+        _ = candidatePatchOperations;
+        _ = bestPatchOperations;
+        return WorkflowPlanDiagnostics.IsStrictDiagnosticDecrease(
+            BuildPipelineExtractionBlockingDiagnosticIdentities(candidate),
+            BuildPipelineExtractionBlockingDiagnosticIdentities(best));
+    }
+
+    private static IReadOnlySet<string> BuildPipelineExtractionBlockingDiagnosticIdentities(
+        WorkflowPipelineExtraction extraction)
+    {
+        var identities = (extraction.QualityReview?.Diagnostics
+                          ?? Array.Empty<PipelineExtractionQualityDiagnostic>())
+            .Where(static diagnostic => diagnostic.EvidenceQualified
+                                        && string.Equals(diagnostic.Severity, "critical", StringComparison.Ordinal))
+            .Select(BuildPipelineExtractionQualityDiagnosticId)
+            .ToHashSet(StringComparer.Ordinal);
+        foreach (var validationError in extraction.ValidationErrors)
+            identities.Add(BuildPipelineExtractionValidationDiagnosticId(validationError));
+        return identities;
     }
 
     private static bool IsPipelineExtractionPatchableInvalidCandidate(
@@ -648,6 +754,8 @@ public sealed partial class WorkflowPlanExecutor
 
     private static bool IsPipelineExtractionPatchableValidationError(string error)
         => error.StartsWith("PIPELINE_EXTRACTION_", StringComparison.Ordinal)
+           || error.StartsWith("INVALID_EXTRACTION_INPUT_SCHEMA:", StringComparison.Ordinal)
+           || error.StartsWith("INVALID_EXTRACTION_OUTPUT_SCHEMA:", StringComparison.Ordinal)
            || error.StartsWith("WEAK_EXTRACTION_INPUT_SCHEMA:", StringComparison.Ordinal)
            || error.StartsWith("WEAK_EXTRACTION_OUTPUT_SCHEMA:", StringComparison.Ordinal);
 
@@ -757,24 +865,25 @@ public sealed partial class WorkflowPlanExecutor
         WorkflowPipelineExtraction baseline,
         WorkflowPipelineExtraction candidate,
         PipelineExtractionQualityReview review,
-        IReadOnlySet<string> addressedDiagnosticCodes)
+        IReadOnlySet<string> addressedDiagnosticIds)
     {
         var changedLeaves = GetStructurallyChangedPipelineLeafNames(baseline, candidate);
         var mainChanged = !string.Equals(
             baseline.MainWorkflowPrompt,
             candidate.MainWorkflowPrompt,
             StringComparison.Ordinal);
-        var baselineByCode = (baseline.QualityReview?.Diagnostics
-                              ?? Array.Empty<PipelineExtractionQualityDiagnostic>())
-            .GroupBy(static diagnostic => diagnostic.Code, StringComparer.Ordinal)
+        var baselineById = (baseline.QualityReview?.Diagnostics
+                            ?? Array.Empty<PipelineExtractionQualityDiagnostic>())
+            .GroupBy(BuildPipelineExtractionQualityDiagnosticId, StringComparer.Ordinal)
             .ToDictionary(static group => group.Key, static group => group.First(), StringComparer.Ordinal);
         var stabilized = new List<PipelineExtractionQualityDiagnostic>();
-        var observedCodes = new HashSet<string>(StringComparer.Ordinal);
+        var observedIds = new HashSet<string>(StringComparer.Ordinal);
 
         foreach (var diagnostic in review.Diagnostics)
         {
-            observedCodes.Add(diagnostic.Code);
-            if (baselineByCode.TryGetValue(diagnostic.Code, out var baselineDiagnostic))
+            var diagnosticId = BuildPipelineExtractionQualityDiagnosticId(diagnostic);
+            observedIds.Add(diagnosticId);
+            if (baselineById.TryGetValue(diagnosticId, out var baselineDiagnostic))
             {
                 var affected = IsQualityDiagnosticAffectedByChangedExtractionSurface(
                                    baselineDiagnostic,
@@ -788,13 +897,7 @@ public sealed partial class WorkflowPlanExecutor
                                    changedLeaves,
                                    mainChanged,
                                    allowQualifiedGlobalEvidence: false);
-                var deterministicallyResolved = IsBaselineQualityDiagnosticDeterministicallyResolved(
-                    baselineDiagnostic,
-                    candidate,
-                    addressedDiagnosticCodes,
-                    changedLeaves,
-                    mainChanged);
-                stabilized.Add(affected && deterministicallyResolved ? diagnostic : baselineDiagnostic);
+                stabilized.Add(affected ? diagnostic : baselineDiagnostic);
                 continue;
             }
 
@@ -819,13 +922,13 @@ public sealed partial class WorkflowPlanExecutor
             stabilized.Add(diagnostic);
         }
 
-        foreach (var baselineDiagnostic in baselineByCode.Values)
+        foreach (var (diagnosticId, baselineDiagnostic) in baselineById)
         {
-            if (observedCodes.Contains(baselineDiagnostic.Code)
-                || IsBaselineQualityDiagnosticDeterministicallyResolved(
+            if (observedIds.Contains(diagnosticId)
+                || IsBaselineQualityDiagnosticAddressedOnChangedSurface(
                     baselineDiagnostic,
                     candidate,
-                    addressedDiagnosticCodes,
+                    addressedDiagnosticIds,
                     changedLeaves,
                     mainChanged))
             {
@@ -847,62 +950,20 @@ public sealed partial class WorkflowPlanExecutor
         };
     }
 
-    private static bool IsBaselineQualityDiagnosticDeterministicallyResolved(
+    private static bool IsBaselineQualityDiagnosticAddressedOnChangedSurface(
         PipelineExtractionQualityDiagnostic diagnostic,
         WorkflowPipelineExtraction candidate,
-        IReadOnlySet<string> addressedDiagnosticCodes,
+        IReadOnlySet<string> addressedDiagnosticIds,
         IReadOnlySet<string> changedLeaves,
         bool mainChanged)
     {
-        if (!addressedDiagnosticCodes.Contains(diagnostic.Code)
-            || !IsQualityDiagnosticAffectedByChangedExtractionSurface(
-                diagnostic,
-                candidate,
-                changedLeaves,
-                mainChanged,
-                allowQualifiedGlobalEvidence: true))
-        {
-            return false;
-        }
-
-        var preciseExtractionEvidence = (diagnostic.Evidence ?? Array.Empty<PipelineExtractionQualityEvidence>())
-            .Where(static evidence => string.Equals(evidence.Source, "extraction", StringComparison.Ordinal)
-                                      && !string.IsNullOrWhiteSpace(evidence.Excerpt))
-            .ToArray();
-        if (preciseExtractionEvidence.Length > 0)
-        {
-            var candidateJson = BuildExtractionJson(candidate);
-            return preciseExtractionEvidence.All(evidence =>
-            {
-                if (!TryResolveEvidenceJsonPointer(candidateJson, evidence.Reference, out var resolved)
-                    || resolved == null)
-                {
-                    return true;
-                }
-
-                var canonicalValue = resolved is JsonValue scalar
-                                     && scalar.TryGetValue<string>(out var text)
-                    ? text
-                    : resolved.ToJsonString(PromptJsonOptions);
-                return !canonicalValue.Contains(evidence.Excerpt!, StringComparison.Ordinal);
-            });
-        }
-
-        // The leaf label is a fallback remediation surface only when the diagnostic
-        // did not cite a more precise extraction pointer. Exact evidence must win
-        // when a leaf-level symptom is corrected in parent orchestration.
-        if (!string.IsNullOrWhiteSpace(diagnostic.LeafName))
-        {
-            return string.Equals(diagnostic.LeafName, "main", StringComparison.Ordinal)
-                ? mainChanged
-                : changedLeaves.Contains(diagnostic.LeafName);
-        }
-
-        // Request/capability evidence establishes the obligation, while the
-        // extraction surface establishes whether its representation changed.
-        // The follow-up deterministic validation and delta review must still
-        // pass before the baseline diagnostic can disappear.
-        return diagnostic.EvidenceQualified && (mainChanged || changedLeaves.Count > 0);
+        return addressedDiagnosticIds.Contains(BuildPipelineExtractionQualityDiagnosticId(diagnostic))
+               && IsQualityDiagnosticAffectedByChangedExtractionSurface(
+                   diagnostic,
+                   candidate,
+                   changedLeaves,
+                   mainChanged,
+                   allowQualifiedGlobalEvidence: true);
     }
 
     private static bool EvidencePointerTargetsChangedLeaf(
@@ -936,6 +997,117 @@ public sealed partial class WorkflowPlanExecutor
                 candidate.MainWorkflowPrompt,
                 StringComparison.Ordinal)
         };
+
+    private static JsonObject BuildPipelineExtractionDeltaReviewJson(
+        WorkflowPipelineExtraction baseline,
+        WorkflowPipelineExtraction candidate)
+    {
+        var changedLeafNames = GetStructurallyChangedPipelineLeafNames(baseline, candidate)
+            .Order(StringComparer.Ordinal)
+            .ToArray();
+        var baselineByName = baseline.Subworkflows.ToDictionary(static leaf => leaf.Name, StringComparer.Ordinal);
+        var candidateByName = candidate.Subworkflows.ToDictionary(static leaf => leaf.Name, StringComparer.Ordinal);
+        var changedLeaves = new JsonArray();
+        foreach (var name in changedLeafNames)
+        {
+            baselineByName.TryGetValue(name, out var before);
+            candidateByName.TryGetValue(name, out var after);
+            changedLeaves.Add((JsonNode)new JsonObject
+            {
+                ["name"] = name,
+                ["before"] = before == null ? null : BuildPipelineReviewSpecJson(before),
+                ["after"] = after == null ? null : BuildPipelineReviewSpecJson(after)
+            });
+        }
+
+        var unchangedLeafFingerprints = new JsonObject();
+        foreach (var leaf in candidate.Subworkflows
+                     .Where(leaf => !changedLeafNames.Contains(leaf.Name, StringComparer.Ordinal))
+                     .OrderBy(static leaf => leaf.Name, StringComparer.Ordinal))
+        {
+            var canonical = BuildPipelineReviewSpecJson(leaf).ToJsonString(PromptJsonOptions);
+            unchangedLeafFingerprints[leaf.Name] = Convert.ToHexString(
+                SHA256.HashData(Encoding.UTF8.GetBytes(canonical))).ToLowerInvariant();
+        }
+
+        var mainChanged = !string.Equals(
+            baseline.MainWorkflowPrompt,
+            candidate.MainWorkflowPrompt,
+            StringComparison.Ordinal);
+        return new JsonObject
+        {
+            ["changed_leaf_names"] = BuildStringArrayJson(changedLeafNames),
+            ["changed_leaves"] = changedLeaves,
+            ["unchanged_leaf_fingerprints"] = unchangedLeafFingerprints,
+            ["main_orchestration"] = new JsonObject
+            {
+                ["changed"] = mainChanged,
+                ["before"] = mainChanged ? baseline.MainWorkflowPrompt : string.Empty,
+                ["after"] = mainChanged ? candidate.MainWorkflowPrompt : string.Empty
+            }
+        };
+    }
+
+    private static JsonObject BuildPipelineReviewSpecJson(WorkflowPipelineSubworkflowSpec spec)
+    {
+        var json = BuildSpecJson(spec);
+        json.Remove("generation_prompt");
+        return json;
+    }
+
+    private static JsonObject BuildPipelineMcpReviewContextJson(
+        PipelineMcpContext pipelineMcpContext,
+        WorkflowPipelineExtraction candidate,
+        WorkflowPipelineExtraction? baseline)
+    {
+        var summary = BuildPipelineMcpContextJson(pipelineMcpContext);
+        var changedLeafNames = baseline == null
+            ? candidate.Subworkflows.Select(static leaf => leaf.Name).ToHashSet(StringComparer.Ordinal)
+            : GetStructurallyChangedPipelineLeafNames(baseline, candidate);
+        var referencedCalls = candidate.Subworkflows
+            .Where(leaf => changedLeafNames.Contains(leaf.Name))
+            .SelectMany(static leaf => leaf.PlannedTools)
+            .Select(static tool => (tool.Server, tool.Kind, tool.Method))
+            .Distinct()
+            .ToHashSet();
+        var capabilities = new JsonArray();
+        foreach (var server in pipelineMcpContext.Servers.OrderBy(static item => item.Name, StringComparer.Ordinal))
+        {
+            foreach (var tool in server.Tools
+                         .Where(tool => referencedCalls.Contains((server.Name, "tool", tool.Name)))
+                         .OrderBy(static item => item.Name, StringComparer.Ordinal))
+            {
+                var authoritativeOutput = McpToolContractEnricher.GetAuthoritativeOutputSchema(tool);
+                capabilities.Add((JsonNode)new JsonObject
+                {
+                    ["server"] = server.Name,
+                    ["kind"] = "tool",
+                    ["method"] = tool.Name,
+                    ["description"] = LimitCapabilityDescription(tool.Description),
+                    ["arguments"] = BuildCompactArgumentSummary(tool.InputSchema, includeDescriptions: true),
+                    ["outputs"] = BuildCompactOutputSummary(authoritativeOutput),
+                    ["output_contract"] = FormatOutputContractSummary(tool),
+                    ["artifacts"] = FormatArtifactContractSummary(GetValidatedMcpArtifactContract(tool, server.Name)),
+                    ["composition"] = FormatCompositionContractSummary(GetValidatedMcpCompositionContract(tool, server.Name))
+                });
+            }
+
+            foreach (var prompt in server.Prompts
+                         .Where(prompt => referencedCalls.Contains((server.Name, "prompt", prompt.Name)))
+                         .OrderBy(static item => item.Name, StringComparer.Ordinal))
+            {
+                capabilities.Add((JsonNode)new JsonObject
+                {
+                    ["server"] = server.Name,
+                    ["kind"] = "prompt",
+                    ["method"] = prompt.Name,
+                    ["description"] = LimitCapabilityDescription(prompt.Description)
+                });
+            }
+        }
+        summary["referenced_capabilities"] = capabilities;
+        return summary;
+    }
 
     private static HashSet<string> GetStructurallyChangedPipelineLeafNames(
         WorkflowPipelineExtraction baseline,
@@ -1134,23 +1306,6 @@ public sealed partial class WorkflowPlanExecutor
            && string.Equals(GetStringProperty(details, "stage"), "review_extraction_quality", StringComparison.Ordinal)
            && string.Equals(GetStringProperty(details, "classification"), "contract_violation", StringComparison.Ordinal);
 
-    private static PipelineExtractionCandidateRank BuildPipelineExtractionCandidateRank(
-        WorkflowPipelineExtraction extraction,
-        int patchOperations)
-    {
-        var diagnostics = extraction.QualityReview?.Diagnostics ?? Array.Empty<PipelineExtractionQualityDiagnostic>();
-        var qualifiedCritical = diagnostics.Count(static diagnostic =>
-            diagnostic.EvidenceQualified
-            && string.Equals(diagnostic.Severity, "critical", StringComparison.Ordinal));
-        var warnings = diagnostics.Count(static diagnostic =>
-            string.Equals(diagnostic.Severity, "warning", StringComparison.Ordinal));
-        return new PipelineExtractionCandidateRank(
-            qualifiedCritical,
-            warnings,
-            -(extraction.QualityReview?.Score ?? 0),
-            patchOperations);
-    }
-
     private static WorkflowRuntimeException BuildPipelineExtractionRepairStalledException(
         int attempt,
         string reason,
@@ -1226,27 +1381,6 @@ public sealed partial class WorkflowPlanExecutor
 
     private static bool IsPipelineExtractionRepairStalled(Exception exception)
         => exception is WorkflowRuntimeException { Code: ErrorCodes.WorkflowPlanRepairStalled };
-
-    private readonly record struct PipelineExtractionCandidateRank(
-        int CriticalCount,
-        int WarningCount,
-        int NegativeScore,
-        int PatchOperationCount) : IComparable<PipelineExtractionCandidateRank>
-    {
-        public int CompareTo(PipelineExtractionCandidateRank other)
-        {
-            var comparison = CriticalCount.CompareTo(other.CriticalCount);
-            if (comparison != 0)
-                return comparison;
-            comparison = WarningCount.CompareTo(other.WarningCount);
-            if (comparison != 0)
-                return comparison;
-            comparison = NegativeScore.CompareTo(other.NegativeScore);
-            if (comparison != 0)
-                return comparison;
-            return PatchOperationCount.CompareTo(other.PatchOperationCount);
-        }
-    }
 
     private static string RenderPipelineExtractionAsAnnotatedMarkdown(WorkflowPipelineExtraction extraction)
     {

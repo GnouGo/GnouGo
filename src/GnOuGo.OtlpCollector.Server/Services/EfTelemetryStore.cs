@@ -113,15 +113,20 @@ public sealed class EfTelemetryStore
         DateTimeOffset? startUtc = null,
         DateTimeOffset? endUtc = null,
         string? traceIdFilter = null,
-        string? attributeContains = null)
+        string? attributeContains = null,
+        CancellationToken ct = default)
     {
-        var spanGroups = await GetSpansByTenantAsync(tenantId);
-
-        var filteredSpans = spanGroups.AsEnumerable();
+        var requestedLimit = Math.Clamp(limit, 1, 500);
+        var filteredSpans = _db.SpanRecords
+            .AsNoTracking()
+            .Where(s => s.TenantId == tenantId);
 
         if (!string.IsNullOrWhiteSpace(serviceName))
+        {
+            var normalizedServiceName = serviceName.Trim().ToLower();
             filteredSpans = filteredSpans.Where(s => s.ServiceName != null &&
-                s.ServiceName.Contains(serviceName, StringComparison.OrdinalIgnoreCase));
+                s.ServiceName.ToLower().Contains(normalizedServiceName));
+        }
 
         if (startUtc.HasValue)
             filteredSpans = filteredSpans.Where(s => s.ReceivedUtc >= startUtc.Value);
@@ -129,53 +134,87 @@ public sealed class EfTelemetryStore
         if (endUtc.HasValue)
             filteredSpans = filteredSpans.Where(s => s.ReceivedUtc <= endUtc.Value);
 
-        if (!string.IsNullOrWhiteSpace(traceIdFilter))
-            filteredSpans = filteredSpans.Where(s =>
-                Convert.ToHexString(s.TraceId).Contains(traceIdFilter, StringComparison.OrdinalIgnoreCase));
+        var normalizedTraceIdFilter = traceIdFilter?.Trim();
+        var exactTraceId = TryParseExactTraceId(normalizedTraceIdFilter);
+        if (exactTraceId is not null)
+            filteredSpans = filteredSpans.Where(s => s.TraceId == exactTraceId);
 
         if (!string.IsNullOrWhiteSpace(attributeContains))
+        {
+            var normalizedAttribute = attributeContains.Trim().ToLower();
             filteredSpans = filteredSpans.Where(s =>
-                (s.AttributesJson != null && s.AttributesJson.Contains(attributeContains, StringComparison.OrdinalIgnoreCase)) ||
-                (s.ResourceJson != null && s.ResourceJson.Contains(attributeContains, StringComparison.OrdinalIgnoreCase)));
+                (s.AttributesJson != null && s.AttributesJson.ToLower().Contains(normalizedAttribute)) ||
+                (s.ResourceJson != null && s.ResourceJson.ToLower().Contains(normalizedAttribute)));
+        }
 
-        var traces = filteredSpans
-            .GroupBy(s => Convert.ToHexString(s.TraceId).ToLowerInvariant())
-            .OrderByDescending(g => g.Max(s => s.ReceivedUtc))
-            .Take(limit)
-            .Select(g =>
+        var hasPartialTraceFilter = !string.IsNullOrWhiteSpace(normalizedTraceIdFilter) && exactTraceId is null;
+        var databaseLimit = hasPartialTraceFilter
+            ? Math.Clamp(requestedLimit * 20, requestedLimit, 5000)
+            : requestedLimit;
+        var groupedTraces = await filteredSpans
+            .GroupBy(s => s.TraceId)
+            .Select(g => new
             {
-                var startUnixNs = g.Min(s => s.StartUnixNs);
-                var endUnixNs = g.Max(s => s.EndUnixNs);
-                var service = g.FirstOrDefault()?.ServiceName ?? "unknown-service";
-
-                return new TraceSummaryDto(
-                    TraceId: g.Key,
-                    StartUtc: DateTimeOffset.FromUnixTimeMilliseconds(startUnixNs / 1_000_000),
-                    EndUtc: DateTimeOffset.FromUnixTimeMilliseconds(endUnixNs / 1_000_000),
-                    SpanCount: g.Count(),
-                    RootSpanName: g.FirstOrDefault(s => s.ParentSpanId == null)?.Name,
-                    ServicesCsv: null,
-                    ServiceName: service
-                );
+                TraceId = g.Key,
+                StartUnixNs = g.Min(s => s.StartUnixNs),
+                EndUnixNs = g.Max(s => s.EndUnixNs),
+                SpanCount = g.Count(),
+                RootSpanName = g.Where(s => s.ParentSpanId == null).Select(s => s.Name).FirstOrDefault(),
+                ServiceName = g.Select(s => s.ServiceName).FirstOrDefault()
             })
-            .ToList();
+            .OrderByDescending(trace => trace.EndUnixNs)
+            .Take(databaseLimit)
+            .ToListAsync(ct);
 
-        return traces;
+        return groupedTraces
+            .Select(trace => new
+            {
+                Trace = trace,
+                TraceId = Convert.ToHexString(trace.TraceId).ToLowerInvariant()
+            })
+            .Where(trace => !hasPartialTraceFilter || trace.TraceId.Contains(normalizedTraceIdFilter!, StringComparison.OrdinalIgnoreCase))
+            .Take(requestedLimit)
+            .Select(trace => new TraceSummaryDto(
+                TraceId: trace.TraceId,
+                StartUtc: DateTimeOffset.FromUnixTimeMilliseconds(trace.Trace.StartUnixNs / 1_000_000),
+                EndUtc: DateTimeOffset.FromUnixTimeMilliseconds(trace.Trace.EndUnixNs / 1_000_000),
+                SpanCount: trace.Trace.SpanCount,
+                RootSpanName: trace.Trace.RootSpanName,
+                ServicesCsv: null,
+                ServiceName: trace.Trace.ServiceName ?? "unknown-service"))
+            .ToList();
     }
 
-    public async Task<List<SpanRecordEntity>> GetTraceSpansAsync(Guid? tenantId, byte[] traceId)
+    public async Task<List<SpanRecordEntity>> GetTraceSpansAsync(
+        Guid? tenantId,
+        byte[] traceId,
+        CancellationToken ct = default)
     {
         var spans = new List<SpanRecordEntity>();
-        await foreach (var s in TelemetryQueries.GetSpansByTenantAndTrace(_db, tenantId, traceId))
+        await foreach (var s in TelemetryQueries.GetSpansByTenantAndTrace(_db, tenantId, traceId).WithCancellation(ct))
             spans.Add(s);
         return spans.OrderBy(s => s.StartUnixNs).ToList();
     }
 
-    public async Task<List<SpanRecordEntity>> GetSpansByAttributeAsync(Guid? tenantId, string attributeKey, string attributeValue, int limit)
+    public async Task<List<SpanRecordEntity>> GetSpansByAttributeAsync(
+        Guid? tenantId,
+        string attributeKey,
+        string attributeValue,
+        int limit,
+        CancellationToken ct = default)
     {
-        var allSpans = await GetSpansByTenantAsync(tenantId);
+        var requestedLimit = Math.Clamp(limit, 1, 500);
+        var normalizedValue = attributeValue.Trim().ToLower();
+        var candidates = await _db.SpanRecords
+            .AsNoTracking()
+            .Where(s => s.TenantId == tenantId &&
+                s.AttributesJson != null &&
+                s.AttributesJson.ToLower().Contains(normalizedValue))
+            .OrderByDescending(s => s.EndUnixNs)
+            .Take(Math.Clamp(requestedLimit * 20, requestedLimit, 5000))
+            .ToListAsync(ct);
 
-        return allSpans
+        return candidates
             .Where(s =>
             {
                 try
@@ -194,7 +233,46 @@ public sealed class EfTelemetryStore
                 catch { return false; }
             })
             .OrderByDescending(s => s.ReceivedUtc)
-            .Take(limit)
+            .Take(requestedLimit)
+            .ToList();
+    }
+
+    public async Task<List<string>> FindTraceIdsByCorrelationAsync(
+        Guid? tenantId,
+        string correlationId,
+        string? serviceName,
+        int limit,
+        CancellationToken ct = default)
+    {
+        var requestedLimit = Math.Clamp(limit, 1, 500);
+        var normalizedCorrelationId = correlationId.Trim().ToLower();
+        var query = _db.SpanRecords
+            .AsNoTracking()
+            .Where(s => s.TenantId == tenantId &&
+                ((s.AttributesJson != null && s.AttributesJson.ToLower().Contains(normalizedCorrelationId)) ||
+                 (s.ResourceJson != null && s.ResourceJson.ToLower().Contains(normalizedCorrelationId))));
+
+        if (!string.IsNullOrWhiteSpace(serviceName))
+        {
+            var normalizedServiceName = serviceName.Trim().ToLower();
+            query = query.Where(s => s.ServiceName != null &&
+                s.ServiceName.ToLower().Contains(normalizedServiceName));
+        }
+
+        var traceIds = await query
+            .GroupBy(s => s.TraceId)
+            .Select(group => new
+            {
+                TraceId = group.Key,
+                EndUnixNs = group.Max(span => span.EndUnixNs)
+            })
+            .OrderByDescending(group => group.EndUnixNs)
+            .Take(requestedLimit)
+            .Select(group => group.TraceId)
+            .ToListAsync(ct);
+
+        return traceIds
+            .Select(traceId => Convert.ToHexString(traceId).ToLowerInvariant())
             .ToList();
     }
 
@@ -216,15 +294,20 @@ public sealed class EfTelemetryStore
         DateTimeOffset? endUtc = null,
         int[]? severityLevels = null,
         string? traceIdFilter = null,
-        string? attributeContains = null)
+        string? attributeContains = null,
+        CancellationToken ct = default)
     {
-        var logs = await GetLogsByTenantAsync(tenantId);
-
-        var filtered = logs.AsEnumerable();
+        var requestedLimit = Math.Clamp(limit, 1, 5000);
+        var filtered = _db.LogRecords
+            .AsNoTracking()
+            .Where(l => l.TenantId == tenantId);
 
         if (!string.IsNullOrWhiteSpace(serviceName))
+        {
+            var normalizedServiceName = serviceName.Trim().ToLower();
             filtered = filtered.Where(l => l.ServiceName != null &&
-                l.ServiceName.Contains(serviceName, StringComparison.OrdinalIgnoreCase));
+                l.ServiceName.ToLower().Contains(normalizedServiceName));
+        }
 
         if (startUtc.HasValue)
             filtered = filtered.Where(l => l.ReceivedUtc >= startUtc.Value);
@@ -235,26 +318,46 @@ public sealed class EfTelemetryStore
         if (severityLevels != null && severityLevels.Length > 0)
             filtered = filtered.Where(l => severityLevels.Contains(l.SeverityNumber));
 
-        if (!string.IsNullOrWhiteSpace(traceIdFilter))
-            filtered = filtered.Where(l =>
-                l.TraceId != null && Convert.ToHexString(l.TraceId).Contains(traceIdFilter, StringComparison.OrdinalIgnoreCase));
+        var normalizedTraceIdFilter = traceIdFilter?.Trim();
+        var exactTraceId = TryParseExactTraceId(normalizedTraceIdFilter);
+        if (exactTraceId is not null)
+            filtered = filtered.Where(l => l.TraceId != null && l.TraceId == exactTraceId);
 
         if (!string.IsNullOrWhiteSpace(attributeContains))
+        {
+            var normalizedAttribute = attributeContains.Trim().ToLower();
             filtered = filtered.Where(l =>
-                (l.AttributesJson != null && l.AttributesJson.Contains(attributeContains, StringComparison.OrdinalIgnoreCase)) ||
-                (l.ResourceJson != null && l.ResourceJson.Contains(attributeContains, StringComparison.OrdinalIgnoreCase)) ||
-                (l.Body != null && l.Body.Contains(attributeContains, StringComparison.OrdinalIgnoreCase)));
+                (l.AttributesJson != null && l.AttributesJson.ToLower().Contains(normalizedAttribute)) ||
+                (l.ResourceJson != null && l.ResourceJson.ToLower().Contains(normalizedAttribute)) ||
+                (l.Body != null && l.Body.ToLower().Contains(normalizedAttribute)));
+        }
 
-        return filtered
-            .OrderByDescending(l => l.ReceivedUtc)
-            .Take(limit)
+        var hasPartialTraceFilter = !string.IsNullOrWhiteSpace(normalizedTraceIdFilter) && exactTraceId is null;
+        var databaseLimit = hasPartialTraceFilter
+            ? Math.Clamp(requestedLimit * 20, requestedLimit, 10000)
+            : requestedLimit;
+        var logs = await filtered
+            // OTLP ingestion normalizes this value to UTC. SQLite stores DateTimeOffset as
+            // an ISO-8601 scalar and cannot translate ordering on the CLR type itself;
+            // ordering its canonical text keeps the bounded query server-side and chronological.
+            .OrderByDescending(l => l.ReceivedUtc.ToString())
+            .Take(databaseLimit)
+            .ToListAsync(ct);
+
+        return logs
+            .Where(log => !hasPartialTraceFilter ||
+                (log.TraceId is not null && Convert.ToHexString(log.TraceId).Contains(normalizedTraceIdFilter!, StringComparison.OrdinalIgnoreCase)))
+            .Take(requestedLimit)
             .ToList();
     }
 
-    public async Task<List<LogRecordEntity>> GetLogsForTraceAsync(Guid? tenantId, byte[] traceId)
+    public async Task<List<LogRecordEntity>> GetLogsForTraceAsync(
+        Guid? tenantId,
+        byte[] traceId,
+        CancellationToken ct = default)
     {
         var logs = new List<LogRecordEntity>();
-        await foreach (var l in TelemetryQueries.GetLogsByTenantAndTrace(_db, tenantId, traceId))
+        await foreach (var l in TelemetryQueries.GetLogsByTenantAndTrace(_db, tenantId, traceId).WithCancellation(ct))
             logs.Add(l);
         return logs.OrderBy(l => l.ReceivedUtc).ToList();
     }
@@ -279,39 +382,18 @@ public sealed class EfTelemetryStore
 
     #endregion
 
-    private async Task<List<SpanRecordEntity>> GetSpansByTenantAsync(Guid? tenantId, byte[]? traceId = null)
+    private static byte[]? TryParseExactTraceId(string? traceId)
     {
-        if (traceId is not null)
-        {
-            var spans = new List<SpanRecordEntity>();
-            await foreach (var s in TelemetryQueries.GetSpansByTenantAndTrace(_db, tenantId, traceId))
-                spans.Add(s);
-            return spans;
-        }
-        else
-        {
-            var spans = new List<SpanRecordEntity>();
-            await foreach (var s in TelemetryQueries.GetSpansByTenant(_db, tenantId))
-                spans.Add(s);
-            return spans;
-        }
-    }
+        if (traceId is null || traceId.Length != 32)
+            return null;
 
-    private async Task<List<LogRecordEntity>> GetLogsByTenantAsync(Guid? tenantId, byte[]? traceId = null)
-    {
-        if (traceId is not null)
+        try
         {
-            var logs = new List<LogRecordEntity>();
-            await foreach (var l in TelemetryQueries.GetLogsByTenantAndTrace(_db, tenantId, traceId))
-                logs.Add(l);
-            return logs;
+            return Convert.FromHexString(traceId);
         }
-        else
+        catch (FormatException)
         {
-            var logs = new List<LogRecordEntity>();
-            await foreach (var l in TelemetryQueries.GetLogsByTenant(_db, tenantId))
-                logs.Add(l);
-            return logs;
+            return null;
         }
     }
 }

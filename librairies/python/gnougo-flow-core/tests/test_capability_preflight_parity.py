@@ -66,6 +66,8 @@ class _PlanLlm:
             return LLMResponse(json=self.inventory)
         if "domain-neutral capability matcher" in request.prompt:
             return LLMResponse(json=self.matches)
+        if isinstance(request.structured_output_schema, dict) and "yaml" in request.structured_output_schema.get("properties", {}):
+            return LLMResponse(json=_generation_envelope(request, self.generated_yaml))
         return LLMResponse(text=self.generated_yaml)
 
 
@@ -82,7 +84,25 @@ class _RepairingPreflightLlm:
             return LLMResponse(json=self.inventory_responses.pop(0))
         if "domain-neutral capability matcher" in request.prompt:
             return LLMResponse(json=self.match_responses.pop(0))
+        if isinstance(request.structured_output_schema, dict) and "yaml" in request.structured_output_schema.get("properties", {}):
+            return LLMResponse(json=_generation_envelope(request, self.generated_yaml))
         return LLMResponse(text=self.generated_yaml)
+
+
+def _generation_envelope(request, yaml_text: str) -> dict:
+    properties = request.structured_output_schema["properties"]
+
+    def enum_value(name: str) -> str:
+        return properties[name]["enum"][0]
+
+    return {
+        "schema_version": enum_value("schema_version"),
+        "contract_fingerprint": enum_value("contract_fingerprint"),
+        "base_candidate_fingerprint": enum_value("base_candidate_fingerprint"),
+        "diagnostic_fingerprint": enum_value("diagnostic_fingerprint"),
+        "addressed_diagnostic_codes": [],
+        "yaml": yaml_text,
+    }
 
 
 class _StatusFailure(Exception):
@@ -248,6 +268,7 @@ async def test_locked_capabilities_are_a_multiset_and_optional_unavailable_is_re
 async def test_inferred_external_write_requires_human_confirmation_before_call() -> None:
     inventory = {
         "complete": True,
+        "external_write_confirmation_policy": "unspecified",
         "incomplete_reasons": [],
         "operations": [
             {
@@ -301,9 +322,56 @@ async def test_inferred_external_write_requires_human_confirmation_before_call()
 
 
 @pytest.mark.asyncio
+async def test_inferred_external_write_forbidden_policy_does_not_inject_confirmation() -> None:
+    inventory = {
+        "complete": True,
+        "external_write_confirmation_policy": "forbidden",
+        "incomplete_reasons": [],
+        "operations": [
+            {
+                "id": "write_record",
+                "description": "Write an inventory record.",
+                "required": True,
+                "execution_kind": "external_effect",
+                "external_effect_kind": "write",
+            }
+        ],
+        "constraints": [],
+    }
+    matches = {
+        "operation_matches": [
+            {"operation_id": "write_record", "status": "matched", "catalog_ids": ["cap_000001"]},
+        ],
+        "constraint_matches": [],
+    }
+    yaml_text = _generated(
+        """      - id: write
+        type: mcp.call
+        input: {server: inventory, kind: tool, method: write, request: {value: 1}}"""
+    )
+    llm = _PlanLlm(yaml_text, inventory, matches)
+    engine = WorkflowEngine()
+    engine.llm_client = llm
+    engine.mcp_client_factory = _inventory_factory(McpToolInfo(name="write"))
+
+    result = await engine.execute_async(
+        _plan_workflow(
+            "                      capability_preflight:\n                        mode: infer",
+            instruction="Perform the requested external write.",
+        ),
+        {},
+    )
+
+    assert result.success, result.error
+    requirements = result.outputs["plan"]["meta"]["capability_preflight"]["requirements"]
+    assert {item["id"] for item in requirements} == {"write_record"}
+
+
+@pytest.mark.asyncio
 async def test_inferred_write_without_confirmation_fails_closed() -> None:
     inventory = {
         "complete": True,
+        "external_write_confirmation_policy": "unspecified",
         "incomplete_reasons": [],
         "operations": [
             {
@@ -349,6 +417,7 @@ async def test_inferred_write_without_confirmation_fails_closed() -> None:
 async def test_inferred_preflight_repairs_inventory_and_candidates_at_most_once_each() -> None:
     inventory = {
         "complete": True,
+        "external_write_confirmation_policy": "unspecified",
         "incomplete_reasons": [],
         "operations": [
             {
@@ -384,7 +453,7 @@ async def test_inferred_preflight_repairs_inventory_and_candidates_at_most_once_
     assert sum("previous structured response was invalid" in request.prompt for request in llm.requests) == 2
     assert all(request.use_background_mode is True for request in llm.requests)
     inference_requests = [request for request in llm.requests if request.structured_output_schema is not None]
-    assert len(inference_requests) == 4
+    assert len(inference_requests) == 5
     assert all(request.structured_output_strict is True for request in inference_requests)
     for request in inference_requests:
         _assert_openai_strict_schema(request.structured_output_schema)

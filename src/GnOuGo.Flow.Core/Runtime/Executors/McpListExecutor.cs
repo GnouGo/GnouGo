@@ -365,6 +365,7 @@ public sealed class McpListExecutor : IStepExecutor
                 sb.AppendLine($"### Tools ({tools.Count})");
                 foreach (var t in tools)
                 {
+                    var enrichedTool = McpToolContractEnricher.EnrichTool(t);
                     var serverTool = new JsonObject
                     {
                         ["server"] = serverResult.ServerName,
@@ -375,8 +376,20 @@ public sealed class McpListExecutor : IStepExecutor
                         serverTool["input_schema"] = t.InputSchema.DeepClone();
                     if (t.Meta != null)
                         serverTool["meta"] = t.Meta.DeepClone();
-                    if (t.OutputSchema != null)
-                        serverTool["output_schema"] = t.OutputSchema.DeepClone();
+                    if (enrichedTool.OutputSchema != null)
+                        serverTool["output_schema"] = enrichedTool.OutputSchema.DeepClone();
+                    if (enrichedTool.OutputContract is { } outputContract)
+                    {
+                        serverTool["output_contract"] = new JsonObject
+                        {
+                            ["schema"] = outputContract.Schema?.DeepClone(),
+                            ["source"] = outputContract.Source,
+                            ["authoritative"] = outputContract.Authoritative,
+                            ["errors"] = new JsonArray(outputContract.Errors
+                                .Select(static error => (JsonNode?)JsonValue.Create(error))
+                                .ToArray())
+                        };
+                    }
                     if (t.ExampleResponse != null)
                         serverTool["example_response"] = t.ExampleResponse.DeepClone();
 

@@ -1060,10 +1060,21 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
                 AppendJsonBlock(sb, "    ", "input_schema", tool.InputSchema);
             if (tool.Meta?["gnougo"]?["artifacts"] is JsonNode artifactContract)
                 AppendJsonBlock(sb, "    ", "artifact_contract", artifactContract);
-            if (tool.OutputSchema != null)
-                AppendJsonBlock(sb, "    ", "output_schema", tool.OutputSchema);
+            var authoritativeOutputSchema = McpToolContractEnricher.GetAuthoritativeOutputSchema(tool);
+            if (authoritativeOutputSchema != null)
+            {
+                AppendJsonBlock(sb, "    ", "output_schema", authoritativeOutputSchema);
+            }
+            else if (McpToolContractEnricher.EnrichTool(tool).OutputContract is { Schema: not null } outputHint)
+            {
+                sb.AppendLine($"    output_schema_hint_source: {outputHint.Source} (advisory only; do not use it to prove response paths)");
+                AppendJsonBlock(sb, "    ", "output_schema_hint", outputHint.Schema);
+            }
             if (tool.ExampleResponse != null)
+            {
+                sb.AppendLine("    example_response_note: planning hint only; do not use it to prove response paths");
                 AppendJsonBlock(sb, "    ", "example_response", tool.ExampleResponse);
+            }
         }
 
         if (tools.Count > 12)

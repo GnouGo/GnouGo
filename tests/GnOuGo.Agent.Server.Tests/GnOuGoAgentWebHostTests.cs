@@ -525,7 +525,8 @@ public sealed class GnOuGoAgentWebHostTests
                     endUtc: null,
                     severityLevels: null,
                     traceIdFilter: null,
-                    attributeContains: marker);
+                    attributeContains: marker,
+                    ct: TestContext.Current.CancellationToken);
 
                 return logs.Any(log => log.Body?.Contains(marker, StringComparison.Ordinal) == true);
             }, timeout: TimeSpan.FromSeconds(20));
@@ -544,7 +545,8 @@ public sealed class GnOuGoAgentWebHostTests
                     endUtc: null,
                     severityLevels: null,
                     traceIdFilter: null,
-                    attributeContains: null);
+                    attributeContains: null,
+                    ct: TestContext.Current.CancellationToken);
 
                 return !logs.Any(log => IsRecursiveInfrastructureLog(log));
             }, timeout: TimeSpan.FromSeconds(5));
@@ -560,7 +562,8 @@ public sealed class GnOuGoAgentWebHostTests
                     endUtc: null,
                     severityLevels: null,
                     traceIdFilter: null,
-                    attributeContains: null);
+                    attributeContains: null,
+                    ct: TestContext.Current.CancellationToken);
 
                 var blockedLogs = logs
                     .Where(IsRecursiveInfrastructureLog)

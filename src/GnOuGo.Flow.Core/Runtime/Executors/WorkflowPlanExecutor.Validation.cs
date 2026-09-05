@@ -748,7 +748,7 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
                     server.Name,
                     tool.Name,
                     tool.InputSchema?.DeepClone(),
-                    tool.OutputSchema?.DeepClone(),
+                    McpToolContractEnricher.GetAuthoritativeOutputSchema(tool)?.DeepClone(),
                     tool.ExampleResponse?.DeepClone()));
             }
         }
@@ -776,7 +776,9 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
                     Meta = tool.Meta?.DeepClone(),
                     OutputSchema = tool.OutputSchema?.DeepClone(),
                     ExampleResponse = tool.ExampleResponse?.DeepClone(),
-                    ArtifactContract = tool.ArtifactContract
+                    ArtifactContract = tool.ArtifactContract,
+                    CompositionContract = tool.CompositionContract,
+                    OutputContract = tool.OutputContract
                 }).ToList(),
                 Prompts = server.Prompts.Select(prompt => new McpPromptInfo
                 {
@@ -793,7 +795,7 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
 
             foreach (var tool in server.Tools)
             {
-                var outputSchema = tool.OutputSchema?.DeepClone();
+                var outputSchema = McpToolContractEnricher.GetAuthoritativeOutputSchema(tool)?.DeepClone();
                 var exampleResponse = tool.ExampleResponse?.DeepClone();
                 config.ToolHandlers[tool.Name] = _ => new McpCallResult
                 {

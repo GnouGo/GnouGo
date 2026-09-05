@@ -335,7 +335,7 @@ public sealed class LiveIntentAgentGenerationTests
                     }
                     else if (acceptanceSucceeded)
                     {
-                        budgetLedger.Delete();
+                        budgetLedger.MarkFinalAcceptanceCompleted(cycleBudget.Snapshot);
                     }
                     else
                     {
@@ -627,6 +627,9 @@ public sealed class LiveIntentAgentGenerationTests
 
     private static void ValidateLivePhase(LiveBudgetLedger ledger, int generationCount)
     {
+        if (ledger.FinalAcceptanceCompleted)
+            throw new InvalidOperationException(
+                "The final live acceptance already succeeded. Retain this immutable redacted ledger for audit and attest a new dedicated provider project before starting another cycle.");
         if (generationCount == 1 && ledger.Exists && ledger.DiagnosticGenerationCompleted)
             throw new InvalidOperationException(
                 "The one-generation diagnostic phase already succeeded. Complete the final three-generation phase with this ledger, or attest a new dedicated provider project before starting another cycle.");
@@ -1789,6 +1792,7 @@ public sealed class LiveIntentAgentGenerationTests
             entry["event_type"] = flowEvent.Type;
             entry["error_code"] = flowEvent.ErrorCode;
             entry["retryable"] = flowEvent.Retryable;
+            AppendSanitizedPlannerTelemetry(entry, flowEvent);
         }
         if (!string.IsNullOrWhiteSpace(errorCode))
             entry["error_code"] = errorCode;
@@ -1839,6 +1843,77 @@ public sealed class LiveIntentAgentGenerationTests
         }
     }
 
+    private static void AppendSanitizedPlannerTelemetry(JsonObject entry, SmartFlowEvent flowEvent)
+    {
+        if (string.IsNullOrWhiteSpace(flowEvent.Text)
+            || flowEvent.Type is not ("telemetry.step.attribute" or "telemetry.span.attribute" or "telemetry.step.event" or "telemetry.span.event"))
+        {
+            return;
+        }
+
+        JsonObject payload;
+        try
+        {
+            payload = JsonNode.Parse(flowEvent.Text) as JsonObject ?? new JsonObject();
+        }
+        catch (System.Text.Json.JsonException)
+        {
+            return;
+        }
+
+        if (flowEvent.Type.EndsWith(".attribute", StringComparison.Ordinal)
+            && payload["key"] is JsonValue keyValue
+            && keyValue.TryGetValue<string>(out var key)
+            && IsSanitizedPlannerTelemetryKey(key)
+            && payload["value"] is JsonValue attributeValue)
+        {
+            entry["planner_attribute"] = key;
+            entry["planner_value"] = attributeValue.DeepClone();
+            return;
+        }
+
+        if (!flowEvent.Type.EndsWith(".event", StringComparison.Ordinal)
+            || payload["event.name"] is not JsonValue eventNameValue
+            || !eventNameValue.TryGetValue<string>(out var eventName)
+            || !eventName.StartsWith("gnougo-flow.plan.", StringComparison.Ordinal))
+        {
+            return;
+        }
+
+        entry["planner_event"] = eventName;
+        if (payload["attributes"] is not JsonObject attributes)
+            return;
+        foreach (var attribute in attributes)
+        {
+            if (IsSanitizedPlannerTelemetryKey(attribute.Key) && attribute.Value is JsonValue value)
+                entry[attribute.Key] = value.DeepClone();
+        }
+    }
+
+    private static bool IsSanitizedPlannerTelemetryKey(string key)
+        => key is "gnougo-flow.plan.response_mode"
+            or "gnougo-flow.plan.response_schema_version"
+            or "gnougo-flow.plan.phase"
+            or "gnougo-flow.plan.attempt"
+            or "gnougo-flow.plan.max_attempts"
+            or "gnougo-flow.plan.response_contract_attempt"
+            or "gnougo-flow.plan.response_contract_status"
+            or "gnougo-flow.plan.response_contract_error_count"
+            or "gnougo-flow.plan.contract_epoch"
+            or "gnougo-flow.plan.contract_fingerprint"
+            or "gnougo-flow.plan.base_candidate_fingerprint"
+            or "gnougo-flow.plan.diagnostic_fingerprint"
+            or "gnougo-flow.plan.stall_reason"
+            or "gnougo-flow.plan.pipeline.candidate.accepted"
+            or "gnougo-flow.plan.pipeline.candidate.fingerprint"
+            or "gnougo-flow.plan.pipeline.candidate.best_fingerprint"
+            or "gnougo-flow.plan.pipeline.candidate.validation_progress"
+            or "gnougo-flow.plan.pipeline.candidate.previous_validation_progress"
+            or "gnougo-flow.plan.pipeline.candidate.best_validation_progress"
+            or "gnougo-flow.plan.pipeline.candidate.diagnostic_count"
+            or "gnougo-flow.plan.pipeline.candidate.best_diagnostic_count"
+            or "gnougo-flow.plan.pipeline.patch.stall_reason";
+
     private static string RequireString(JsonObject value, string property)
         => value[property]?.GetValue<string>()
            ?? throw new InvalidOperationException($"Live Agent MCP response omitted '{property}'.");
@@ -1880,7 +1955,7 @@ public sealed class LiveIntentAgentGenerationTests
 
     internal sealed class LiveBudgetLedger : ILLMUsageBudgetSink
     {
-        private const int CurrentVersion = 3;
+        private const int CurrentVersion = 4;
         private readonly object _gate = new();
         private readonly string _path;
         private readonly LiveBudgetDefinition _definition;
@@ -1891,7 +1966,8 @@ public sealed class LiveIntentAgentGenerationTests
             bool exists,
             LLMUsageBudgetSnapshot snapshot,
             bool probeCompleted,
-            bool diagnosticGenerationCompleted)
+            bool diagnosticGenerationCompleted,
+            bool finalAcceptanceCompleted)
         {
             _path = path;
             _definition = definition;
@@ -1899,12 +1975,14 @@ public sealed class LiveIntentAgentGenerationTests
             Snapshot = snapshot;
             ProbeCompleted = probeCompleted;
             DiagnosticGenerationCompleted = diagnosticGenerationCompleted;
+            FinalAcceptanceCompleted = finalAcceptanceCompleted;
         }
 
         public bool Exists { get; private set; }
         public LLMUsageBudgetSnapshot Snapshot { get; private set; }
         public bool ProbeCompleted { get; private set; }
         public bool DiagnosticGenerationCompleted { get; private set; }
+        public bool FinalAcceptanceCompleted { get; private set; }
 
         public static LiveBudgetLedger Open(string path, LiveBudgetDefinition definition)
         {
@@ -1919,7 +1997,8 @@ public sealed class LiveIntentAgentGenerationTests
                         EstimatedCostCurrency = definition.AuthorizedBudget.Currency
                     },
                     probeCompleted: false,
-                    diagnosticGenerationCompleted: false);
+                    diagnosticGenerationCompleted: false,
+                    finalAcceptanceCompleted: false);
 
             JsonObject root;
             try
@@ -1965,7 +2044,8 @@ public sealed class LiveIntentAgentGenerationTests
                 exists: true,
                 snapshot,
                 ReadRequiredBoolean(root, "probe_completed"),
-                ReadRequiredBoolean(root, "diagnostic_generation_completed"));
+                ReadRequiredBoolean(root, "diagnostic_generation_completed"),
+                ReadRequiredBoolean(root, "final_acceptance_completed"));
         }
 
         public void PinExchangeRate(CurrencyExchangeQuote quote)
@@ -2019,6 +2099,18 @@ public sealed class LiveIntentAgentGenerationTests
             }
         }
 
+        public void MarkFinalAcceptanceCompleted(LLMUsageBudgetSnapshot snapshot)
+        {
+            lock (_gate)
+            {
+                if (!ProbeCompleted || !DiagnosticGenerationCompleted)
+                    throw new InvalidOperationException("Final live acceptance cannot be recorded before the provider probe and diagnostic generation succeed.");
+                Snapshot = snapshot with { ExchangeRates = snapshot.ExchangeRates.ToArray() };
+                FinalAcceptanceCompleted = true;
+                PersistLocked();
+            }
+        }
+
         public void Delete()
         {
             lock (_gate)
@@ -2061,7 +2153,8 @@ public sealed class LiveIntentAgentGenerationTests
                     ["source"] = quote.Source
                 }).ToArray()),
                 ["probe_completed"] = ProbeCompleted,
-                ["diagnostic_generation_completed"] = DiagnosticGenerationCompleted
+                ["diagnostic_generation_completed"] = DiagnosticGenerationCompleted,
+                ["final_acceptance_completed"] = FinalAcceptanceCompleted
             };
 
             var temporaryPath = _path + $".{Environment.ProcessId}.tmp";

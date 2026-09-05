@@ -604,6 +604,41 @@ workflows:
 
         Assert.True(result.Success);
         var planSpan = recording.StepSpans.Single(s => s.Name == "plan");
+        var structuredOutputResults = planSpan.SpanEvents
+            .Where(static item => string.Equals(
+                item.Name,
+                "gnougo-flow.plan.structured_output.result",
+                StringComparison.Ordinal))
+            .Select(static item => item.Attributes!.ToDictionary(
+                static attribute => attribute.Key,
+                static attribute => attribute.Value,
+                StringComparer.Ordinal))
+            .ToArray();
+        Assert.Equal(3, structuredOutputResults.Length);
+        var strictResults = structuredOutputResults.Where(static attributes =>
+            Equals(attributes["gnougo-flow.plan.structured_output.requested"], true)).ToArray();
+        Assert.Equal(2, strictResults.Length);
+        Assert.All(strictResults, static attributes =>
+        {
+            Assert.Equal(true, attributes["gnougo-flow.plan.structured_output.call_completed"]);
+            Assert.Equal(true, attributes["gnougo-flow.plan.structured_output.strict"]);
+            Assert.Equal("workflow-plan-response-v1", attributes["gnougo-flow.plan.structured_output.schema_version"]);
+            Assert.Equal("runtime_request_contract", attributes["gnougo-flow.plan.structured_output.capability_source"]);
+            Assert.Equal(true, attributes["gnougo-flow.plan.structured_output.parsed"]);
+            Assert.Equal(true, attributes["gnougo-flow.plan.structured_output.locally_validated"]);
+            Assert.Matches("^[0-9a-f]{64}$", Assert.IsType<string>(
+                attributes["gnougo-flow.plan.structured_output.schema_fingerprint"]));
+            Assert.DoesNotContain(attributes.Keys, static key =>
+                key.Contains("prompt", StringComparison.OrdinalIgnoreCase)
+                || key.Contains("answer", StringComparison.OrdinalIgnoreCase)
+                || key.Contains("response_body", StringComparison.OrdinalIgnoreCase));
+        });
+        var legacyResult = Assert.Single(structuredOutputResults, static attributes =>
+            Equals(attributes["gnougo-flow.plan.structured_output.requested"], false));
+        Assert.Equal(false, legacyResult["gnougo-flow.plan.structured_output.strict"]);
+        Assert.Equal(false, legacyResult["gnougo-flow.plan.structured_output.parsed"]);
+        Assert.Equal(false, legacyResult["gnougo-flow.plan.structured_output.locally_validated"]);
+        Assert.Equal(string.Empty, legacyResult["gnougo-flow.plan.structured_output.schema_fingerprint"]);
         Assert.Contains(planSpan.SpanEvents, e => e.Name == "gnougo-flow.plan.prefilter.servers.start"
             && e.Attributes != null
             && e.Attributes.Any(kv => kv.Key == "gen_ai.operation.name" && (string?)kv.Value == "chat")

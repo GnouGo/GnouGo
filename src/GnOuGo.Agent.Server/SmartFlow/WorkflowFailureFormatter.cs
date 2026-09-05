@@ -49,6 +49,52 @@ internal static class WorkflowFailureFormatter
                 builder.Append("- Recommended action: ").AppendLine(Sanitize(recommendedAction, 120));
         }
 
+        if (error.Code == ErrorCodes.WorkflowPlanRepairStalled)
+        {
+            var stage = ReadBoundedStringDeep(error.Details, "stage", 120);
+            var classification = ReadBoundedStringDeep(error.Details, "classification", 120);
+            var stallReason = ReadBoundedStringDeep(error.Details, "stall_reason", 160);
+            var recommendedAction = ReadBoundedStringDeep(error.Details, "recommended_action", 240);
+            var attemptCount = ReadIntDeep(error.Details, "attempt_count");
+            var bestProgress = ReadIntDeep(error.Details, "best_validation_progress");
+            var candidateProgress = ReadIntDeep(error.Details, "candidate_validation_progress");
+            var bestFingerprint = ReadBoundedStringDeep(error.Details, "best_candidate_fingerprint", 80);
+            var candidateFingerprint = ReadBoundedStringDeep(error.Details, "candidate_fingerprint", 80);
+            var bestCodes = ReadStringArrayDeep(error.Details, "best_diagnostic_codes");
+            var candidateCodes = ReadStringArrayDeep(error.Details, "candidate_diagnostic_codes");
+            var bestDiagnostics = ReadObjectArrayDeep(error.Details, "best_validation_diagnostics");
+            var candidateDiagnostics = ReadObjectArrayDeep(error.Details, "candidate_validation_diagnostics");
+
+            builder.AppendLine().AppendLine("Automatic planner repair outcome:");
+            if (!string.IsNullOrWhiteSpace(stage))
+                builder.Append("- Stage: ").AppendLine(Sanitize(stage, 120));
+            if (!string.IsNullOrWhiteSpace(classification))
+                builder.Append("- Classification: ").AppendLine(Sanitize(classification, 120));
+            if (!string.IsNullOrWhiteSpace(stallReason))
+                builder.Append("- Stall reason: ").AppendLine(Sanitize(stallReason, 160));
+            if (attemptCount != null)
+                builder.Append("- Attempts: ").AppendLine(attemptCount.Value.ToString(System.Globalization.CultureInfo.InvariantCulture));
+            if (bestProgress != null || candidateProgress != null)
+            {
+                builder.Append("- Validation progress (best/candidate): ")
+                    .Append(bestProgress?.ToString(System.Globalization.CultureInfo.InvariantCulture) ?? "unknown")
+                    .Append('/')
+                    .AppendLine(candidateProgress?.ToString(System.Globalization.CultureInfo.InvariantCulture) ?? "unknown");
+            }
+            if (!string.IsNullOrWhiteSpace(bestFingerprint))
+                builder.Append("- Best candidate fingerprint: ").AppendLine(Sanitize(bestFingerprint, 80));
+            if (!string.IsNullOrWhiteSpace(candidateFingerprint))
+                builder.Append("- Rejected candidate fingerprint: ").AppendLine(Sanitize(candidateFingerprint, 80));
+            if (bestCodes.Count > 0)
+                builder.Append("- Best diagnostic codes: ").AppendLine(string.Join(", ", bestCodes));
+            if (candidateCodes.Count > 0)
+                builder.Append("- Candidate diagnostic codes: ").AppendLine(string.Join(", ", candidateCodes));
+            AppendPlannerDiagnosticSnapshot(builder, "Best validation diagnostics", bestDiagnostics);
+            AppendPlannerDiagnosticSnapshot(builder, "Rejected candidate diagnostics", candidateDiagnostics);
+            if (!string.IsNullOrWhiteSpace(recommendedAction))
+                builder.Append("- Recommended action: ").AppendLine(Sanitize(recommendedAction, 240));
+        }
+
         var planningOutcome = ReadBoundedStringDeep(error.Details, "planning_outcome", 80);
         if (!string.IsNullOrWhiteSpace(planningOutcome)
             && (error.Code == ErrorCodes.WorkflowPlanClarificationFailed
@@ -280,6 +326,32 @@ internal static class WorkflowFailureFormatter
             inferenceReasons.Count + contractIssues.Count,
             matchingIssues.Count,
             violatedConstraints.Count);
+    }
+
+    private static void AppendPlannerDiagnosticSnapshot(
+        StringBuilder builder,
+        string heading,
+        IReadOnlyList<JsonObject> diagnostics)
+    {
+        if (diagnostics.Count == 0)
+            return;
+
+        builder.Append("- ").Append(heading).AppendLine(":");
+        foreach (var diagnostic in diagnostics.Take(12))
+        {
+            var code = Sanitize(ReadBoundedString(diagnostic, "code", 160) ?? "VALIDATION_ERROR", 160);
+            var location = Sanitize(ReadBoundedString(diagnostic, "location", 400)
+                                    ?? ReadBoundedString(diagnostic, "field", 240)
+                                    ?? "$", 400);
+            var invalidPath = Sanitize(ReadBoundedString(diagnostic, "invalid_path", 400) ?? string.Empty, 400);
+            var expected = Sanitize(ReadBoundedString(diagnostic, "expected", 400) ?? string.Empty, 400);
+            builder.Append("  - ").Append(code).Append(" at ").Append(location);
+            if (!string.IsNullOrWhiteSpace(invalidPath))
+                builder.Append("; path ").Append(invalidPath);
+            if (!string.IsNullOrWhiteSpace(expected))
+                builder.Append("; expected ").Append(expected);
+            builder.AppendLine();
+        }
     }
 
     private static IReadOnlyList<JsonObject> ReadObjectArray(JsonNode? details, string property)

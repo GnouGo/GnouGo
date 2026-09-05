@@ -60,7 +60,8 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
         new(ErrorCodes.LlmBudgetUnverifiable, false, "The configured planning LLM budget could not be verified from provider-neutral usage or pricing data."),
         new(ErrorCodes.LlmTimeout, true, "A planning LLM request timed out."),
         new(ErrorCodes.LlmNetwork, true, "A transient transport, rate-limit, or provider service failure interrupted planning."),
-        new(ErrorCodes.LlmProvider, false, "The LLM provider rejected a planning request with a non-retryable client error.")
+        new(ErrorCodes.LlmProvider, false, "The LLM provider rejected a planning request with a non-retryable client error."),
+        new(ErrorCodes.LlmSchema, false, "A strict internal planning response was missing JSON or did not satisfy its phase-specific schema after one exact retry.")
     };
 
     public async Task<JsonNode?> ExecuteAsync(StepExecutionContext ctx, CancellationToken ct)
@@ -531,16 +532,35 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
         AppendUserTaskBlock(basePrompt, instruction, generatorContext);
 
         var maxAttempts = GetWorkflowPlanRepairMaxAttempts(onInvalid, validate);
+        var useStructuredGeneration = generator["pipeline_use_structured_generation"] is JsonValue structuredGenerationValue
+            && structuredGenerationValue.TryGetValue<bool>(out var configuredStructuredGeneration)
+                ? configuredStructuredGeneration
+                : await ShouldUseStrictPlannerResponseAsync(ctx, provider, model, ct);
+        var generationContractFingerprint = generator["pipeline_contract_fingerprint"]?.GetValue<string>()
+            ?? BuildPlannerFingerprint("workflow_generation", basePrompt.ToString());
+        var generationBaseCandidateFingerprint = string.Empty;
+        var generationDiagnosticFingerprint = string.Empty;
+        IReadOnlyList<string> generationDiagnosticCodes = Array.Empty<string>();
         string? lastError = null;
         string? lastInvalidYaml = null;
         string? lastRepairContext = null;
         string? previousDiagnosticFingerprint = null;
         var unchangedRepairAttempts = 0;
+        string? bestGenerationYaml = null;
+        string? bestGenerationCandidateFingerprint = null;
+        IReadOnlySet<string>? bestGenerationDiagnosticCodes = null;
+        IReadOnlySet<string>? bestGenerationDiagnosticIdentities = null;
+        Exception? bestGenerationException = null;
+        var bestGenerationValidationProgress = -1;
+        var nonImprovingGenerationResponses = 0;
         var forcedMcpServerNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
         ctx.SetTelemetryAttribute("gen_ai.operation.name", "chat");
         ctx.SetTelemetryAttribute("gen_ai.system", provider ?? "openai");
         ctx.SetTelemetryAttribute("gen_ai.request.model", model);
+        ctx.SetTelemetryAttribute(
+            "gnougo-flow.plan.generation_response_mode",
+            useStructuredGeneration ? "structured" : "legacy_text");
 
         // ── Thinking: signal planning start ──
         ctx.AddTelemetryEvent("gnougo-flow.step.thinking", new[]
@@ -551,6 +571,7 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
 
         for (int attempt = 0; attempt < maxAttempts; attempt++)
         {
+            var candidateValidationProgress = 0;
             string promptText;
             if (lastError == null)
             {
@@ -574,7 +595,17 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
                     constraintsSb.ToString());
             }
 
-            if (ctx.Limits.LogStepContent)
+            if (useStructuredGeneration)
+            {
+                promptText = AppendPlannerGenerationEnvelopeInstruction(
+                    promptText,
+                    generationContractFingerprint,
+                    generationBaseCandidateFingerprint,
+                    generationDiagnosticFingerprint,
+                    generationDiagnosticCodes);
+            }
+
+            if (!useStructuredGeneration && ctx.Limits.LogStepContent)
             {
                 ctx.AddTelemetryEvent("gen_ai.content.prompt", new[]
                 {
@@ -585,6 +616,7 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
             }
 
             LLMResponse response;
+            string generatedResponseText;
             generationSpan.SetAttribute("gnougo-flow.plan.attempt", attempt + 1);
             var llmCallAttributes = new List<KeyValuePair<string, object?>>
             {
@@ -602,7 +634,7 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
 
             using (var llmCallSpan = ctx.BeginTelemetrySpan(generationSpan.Span, "workflow.plan.generate.llm_call", "generation_llm", llmCallAttributes))
             {
-                if (ctx.Limits.LogStepContent)
+                if (!useStructuredGeneration && ctx.Limits.LogStepContent)
                     llmCallSpan.AddEvent("gen_ai.content.prompt", new[]
                     {
                         new KeyValuePair<string, object?>("gen_ai.prompt", promptText),
@@ -621,18 +653,51 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
                         maxAttempts,
                         planReasoning ?? "(provider default)");
 
-                    response = await ctx.CallLLMAsync(llmClient, new LLMRequest
+                    if (useStructuredGeneration)
                     {
-                        Provider = provider,
-                        Model = model,
-                        Prompt = promptText,
-                        Reasoning = planReasoning,
-                        UseBackgroundMode = true,
-                    }, "workflow.plan.generation", ct);
+                        var responseSchema = BuildWorkflowGenerationResponseSchema(
+                            generationContractFingerprint,
+                            generationBaseCandidateFingerprint,
+                            generationDiagnosticFingerprint,
+                            generationDiagnosticCodes,
+                            mainAssembly: false);
+                        response = await ExecuteStrictPlannerResponseAsync(
+                            llmClient,
+                            string.IsNullOrWhiteSpace(pipelineLeafName) ? "generation.basic" : "generation.leaf",
+                            promptText,
+                            provider,
+                            model,
+                            planReasoning,
+                            ctx,
+                            ct,
+                            responseSchema,
+                            phaseAttempt: attempt + 1,
+                            maxAttempts,
+                            generationContractFingerprint,
+                            generationBaseCandidateFingerprint,
+                            generationDiagnosticFingerprint,
+                            contractEpoch: 1);
+                        generatedResponseText = ReadRequiredPlannerResponseString(
+                            response,
+                            "yaml",
+                            string.IsNullOrWhiteSpace(pipelineLeafName) ? "basic generation" : "leaf generation");
+                    }
+                    else
+                    {
+                        response = await ctx.CallLLMAsync(llmClient, new LLMRequest
+                        {
+                            Provider = provider,
+                            Model = model,
+                            Prompt = promptText,
+                            Reasoning = planReasoning,
+                            UseBackgroundMode = true,
+                        }, "workflow.plan.generation", ct);
+                        generatedResponseText = response.Text ?? string.Empty;
+                    }
                     generationSpan.SetAttribute("gen_ai.response.model", model);
                     generationSpan.SetAttribute("gen_ai.response.finish_reason", "stop");
                     AddUsageAttributes(generationSpan, response.Usage, model, provider);
-                    if (ctx.Limits.LogStepContent && !string.IsNullOrWhiteSpace(response.Text))
+                    if (!useStructuredGeneration && ctx.Limits.LogStepContent && !string.IsNullOrWhiteSpace(response.Text))
                     {
                         generationSpan.AddEvent("gen_ai.content.completion", new[]
                         {
@@ -648,7 +713,7 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
                     llmCallSpan.SetAttribute("gen_ai.response.finish_reason", "stop");
                     AddUsageAttributes(llmCallSpan, response.Usage, model, provider);
                     llmCallSpan.SetAttribute("gnougo-flow.plan.generated_yaml_length", response.Text?.Length ?? 0);
-                    if (ctx.Limits.LogStepContent && !string.IsNullOrWhiteSpace(response.Text))
+                    if (!useStructuredGeneration && ctx.Limits.LogStepContent && !string.IsNullOrWhiteSpace(response.Text))
                     {
                         llmCallSpan.AddEvent("gen_ai.content.completion", new[]
                         {
@@ -672,7 +737,7 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
             ctx.SetTelemetryAttribute("gen_ai.response.finish_reason", "stop");
             SetStepUsageTelemetry(ctx, response.Usage, model, provider);
 
-            if (ctx.Limits.LogStepContent && !string.IsNullOrWhiteSpace(response.Text))
+            if (!useStructuredGeneration && ctx.Limits.LogStepContent && !string.IsNullOrWhiteSpace(response.Text))
             {
                 ctx.AddTelemetryEvent("gen_ai.content.completion", new[]
                 {
@@ -686,7 +751,7 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
             try
             {
                 var yaml = NormalizeGeneratedExactExpressionScalars(
-                    StripMarkdownFences(response.Text ?? string.Empty));
+                    StripMarkdownFences(generatedResponseText));
                 yaml = NormalizeGeneratedUnsafePlainMappingScalars(yaml);
                 yaml = NormalizeGeneratedSwitchDefaultStepLists(yaml);
                 yaml = NormalizeGeneratedFlowNullableSchemas(yaml);
@@ -695,6 +760,7 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
                     yaml = PruneWeakNestedOutputProperties(yaml);
                 else if (!string.IsNullOrWhiteSpace(pipelineLeafName))
                     yaml = NormalizeGeneratedFunctionParameterDocs(yaml);
+                candidateValidationProgress = 5;
                 WorkflowDocument generatedDoc;
                 var validationAttributes = new List<KeyValuePair<string, object?>>
                 {
@@ -711,6 +777,7 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
 
                         // Parse + validate minimal required shape before policy/limits/compile checks.
                         generatedDoc = ParseAndValidateGeneratedWorkflow(yaml);
+                        candidateValidationProgress = 10;
                         if (!string.IsNullOrWhiteSpace(pipelineLeafName))
                         {
                             (generatedDoc, yaml) = PromoteGeneratedDirectMcpScalarInputSchemas(
@@ -739,6 +806,7 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
                             "gnougo-flow.plan.validation.documented_output_path_replacement_count",
                             documentedPathNormalization.ReplacementCount);
                         validationSpan.SetAttribute("gnougo-flow.plan.workflow_count", generatedDoc.Workflows.Count);
+                        candidateValidationProgress = 20;
 
                         await RunStandardPlanValidationSequenceAsync(
                             generatedDoc,
@@ -750,8 +818,10 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
                             validationSpan.Span,
                             ct,
                             validateGeneratedOutputSchemas: string.IsNullOrWhiteSpace(pipelineLeafName));
+                        candidateValidationProgress = 90;
                         ValidateLockedCapabilitiesInDocument(generatedDoc, capabilityPreflight);
                         ValidateSurgicalRepairScope(surgicalRepair, generatedDoc);
+                        candidateValidationProgress = 100;
                     }
                     catch (Exception ex)
                     {
@@ -801,6 +871,72 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
                     throw;
                 }
 
+                var failedCandidateYaml = NormalizeGeneratedExactExpressionScalars(
+                    StripMarkdownFences(generatedResponseText));
+                failedCandidateYaml = NormalizeGeneratedUnsafePlainMappingScalars(failedCandidateYaml);
+                failedCandidateYaml = NormalizeGeneratedSwitchDefaultStepLists(failedCandidateYaml);
+                failedCandidateYaml = NormalizeGeneratedFlowNullableSchemas(failedCandidateYaml);
+                var failedCandidateFingerprint = BuildPlannerFingerprint(failedCandidateYaml);
+                var failedDiagnosticCodes = GetPlannerDiagnosticCodes(ex).ToHashSet(StringComparer.Ordinal);
+                var failedDiagnosticIdentities = WorkflowPlanDiagnostics.BuildDiagnosticIdentities(ex);
+                var candidateIsNew = !string.Equals(
+                    failedCandidateFingerprint,
+                    bestGenerationCandidateFingerprint,
+                    StringComparison.Ordinal);
+                var diagnosticsStrictlyDecreased = bestGenerationDiagnosticIdentities != null
+                    && WorkflowPlanDiagnostics.IsStrictDiagnosticDecrease(
+                        failedDiagnosticIdentities,
+                        bestGenerationDiagnosticIdentities);
+                var candidateImproved = candidateIsNew
+                    && (bestGenerationYaml == null
+                        || candidateValidationProgress > bestGenerationValidationProgress
+                        || candidateValidationProgress == bestGenerationValidationProgress
+                        && diagnosticsStrictlyDecreased);
+                if (candidateImproved)
+                {
+                    bestGenerationYaml = failedCandidateYaml;
+                    bestGenerationCandidateFingerprint = failedCandidateFingerprint;
+                    bestGenerationDiagnosticCodes = failedDiagnosticCodes;
+                    bestGenerationDiagnosticIdentities = failedDiagnosticIdentities;
+                    bestGenerationException = ex;
+                    bestGenerationValidationProgress = candidateValidationProgress;
+                    nonImprovingGenerationResponses = 0;
+                }
+                else if (bestGenerationYaml != null)
+                {
+                    nonImprovingGenerationResponses++;
+                    ctx.AddTelemetryEvent("gnougo-flow.plan.generation_candidate_rejected", new[]
+                    {
+                        new KeyValuePair<string, object?>("gnougo-flow.plan.phase", string.IsNullOrWhiteSpace(pipelineLeafName) ? "generation.basic" : "generation.leaf"),
+                        new KeyValuePair<string, object?>("gnougo-flow.plan.attempt", attempt + 1),
+                        new KeyValuePair<string, object?>("gnougo-flow.plan.candidate.fingerprint", failedCandidateFingerprint),
+                        new KeyValuePair<string, object?>("gnougo-flow.plan.candidate.validation_progress", candidateValidationProgress),
+                        new KeyValuePair<string, object?>("gnougo-flow.plan.candidate.best_validation_progress", bestGenerationValidationProgress),
+                        new KeyValuePair<string, object?>("gnougo-flow.plan.stall_reason", candidateIsNew ? "validation_progress_regression" : "candidate_unchanged")
+                    });
+                    if (nonImprovingGenerationResponses >= 2)
+                    {
+                        var blockingError = BuildStructuredPlanError(bestGenerationException ?? ex, attempt + 1);
+                        var repairStalled = new WorkflowRuntimeException(
+                            ErrorCodes.WorkflowPlanRepairStalled,
+                            $"Workflow repair stopped because two responses failed to improve the best validated candidate. Best blocking diagnostics: {blockingError}",
+                            details: new JsonObject
+                            {
+                                ["phase"] = string.IsNullOrWhiteSpace(pipelineLeafName) ? "generation.basic" : "generation.leaf",
+                                ["attempt"] = attempt + 1,
+                                ["candidate_fingerprint"] = failedCandidateFingerprint,
+                                ["best_candidate_fingerprint"] = bestGenerationCandidateFingerprint,
+                                ["validation_progress"] = candidateValidationProgress,
+                                ["best_validation_progress"] = bestGenerationValidationProgress,
+                                ["stall_reason"] = candidateIsNew ? "validation_progress_regression" : "candidate_unchanged",
+                                ["best_blocking_error"] = blockingError,
+                                ["last_error"] = JsonNode.Parse(blockingError)
+                            });
+                        generationSpan.Fail(repairStalled);
+                        throw repairStalled;
+                    }
+                }
+
                 var stalled = DetectRepairStall(
                     ex,
                     attempt + 1,
@@ -829,17 +965,17 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
                         forcedMcpServerNames,
                         ctx);
 
-                lastError = BuildStructuredPlanError(ex, attempt + 1);
-                lastInvalidYaml = NormalizeGeneratedExactExpressionScalars(
-                    StripMarkdownFences(response.Text ?? string.Empty));
-                lastInvalidYaml = NormalizeGeneratedUnsafePlainMappingScalars(lastInvalidYaml);
-                lastInvalidYaml = NormalizeGeneratedSwitchDefaultStepLists(lastInvalidYaml);
-                lastInvalidYaml = NormalizeGeneratedFlowNullableSchemas(lastInvalidYaml);
+                var repairException = candidateImproved ? ex : bestGenerationException ?? ex;
+                lastError = BuildStructuredPlanError(repairException, attempt + 1);
+                lastInvalidYaml = candidateImproved ? failedCandidateYaml : bestGenerationYaml ?? failedCandidateYaml;
+                generationBaseCandidateFingerprint = BuildPlannerFingerprint(lastInvalidYaml);
+                generationDiagnosticFingerprint = WorkflowPlanDiagnostics.BuildDiagnosticFingerprint(repairException);
+                generationDiagnosticCodes = GetPlannerDiagnosticCodes(repairException);
                 lastRepairContext = BuildMinimalRepairContext(
                     ctx.Engine.Registry,
                     allowedTypes,
                     lastInvalidYaml,
-                    ex,
+                    repairException,
                     repairDiscovered);
             }
         }
@@ -897,9 +1033,12 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
 
     private static int GetWorkflowPlanRepairMaxAttempts(JsonObject? onInvalid, JsonObject? validate)
     {
-        var configured = TryGetPositiveInteger(validate, "max_repair_attempts")
-            ?? TryGetPositiveInteger(onInvalid, "max_attempts")
-            ?? DefaultPlanRepairMaxAttempts;
+        var configuredRepairs = TryGetPositiveInteger(validate, "max_repair_attempts");
+        if (configuredRepairs.HasValue)
+            return checked(configuredRepairs.Value + 1);
+
+        var configured = TryGetPositiveInteger(onInvalid, "max_attempts")
+                         ?? DefaultPlanRepairMaxAttempts;
 
         return Math.Max(1, configured);
     }

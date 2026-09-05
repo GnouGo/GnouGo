@@ -27,7 +27,8 @@ public sealed partial class WorkflowPlanExecutor
     private sealed record IntentClarificationOption(
         string Value,
         string Description,
-        bool Recommended);
+        bool Recommended,
+        string ExternalWriteConfirmationPolicy = "unchanged");
 
     private sealed record IntentClarificationQuestion(
         string Id,
@@ -42,7 +43,10 @@ public sealed partial class WorkflowPlanExecutor
     private sealed record IntentClarificationAnswer(
         string QuestionId,
         string Question,
-        string Answer);
+        string Answer,
+        string SelectedDescription,
+        string ExternalWriteConfirmationPolicy,
+        bool IsCustom);
 
     private sealed class IntentClarificationSession
     {
@@ -87,10 +91,16 @@ public sealed partial class WorkflowPlanExecutor
 
             foreach (var question in questions)
             {
+                var answer = answers[question.Id];
+                var selectedOption = question.Options.FirstOrDefault(option =>
+                    string.Equals(option.Value, answer, StringComparison.Ordinal));
                 Answers.Add(new IntentClarificationAnswer(
                     question.Id,
                     question.Prompt,
-                    answers[question.Id]));
+                    answer,
+                    selectedOption?.Description ?? string.Empty,
+                    selectedOption?.ExternalWriteConfirmationPolicy ?? "unchanged",
+                    selectedOption is null));
             }
             FormsUsed++;
             QuestionsUsed += questions.Count;
@@ -101,7 +111,10 @@ public sealed partial class WorkflowPlanExecutor
             {
                 ["question_id"] = answer.QuestionId,
                 ["question"] = answer.Question,
-                ["answer"] = answer.Answer
+                ["answer"] = answer.Answer,
+                ["selected_description"] = answer.SelectedDescription,
+                ["external_write_confirmation_policy"] = answer.ExternalWriteConfirmationPolicy,
+                ["is_custom"] = answer.IsCustom
             }).ToArray());
 
         public JsonObject BuildSafeMetadata(string stage, string outcome, string recommendedAction) => new()
@@ -390,6 +403,7 @@ public sealed partial class WorkflowPlanExecutor
         sb.AppendLine("Never ask for MCP server names, tool names, catalog identifiers, implementation details discoverable from contracts, repair of malformed model output, or a decision whose value will only be known while the workflow runs.");
         sb.AppendLine("For runtime-dependent behavior, preserve the decision rule and future data source; do not ask the human to predict the future result.");
         sb.AppendLine("Each question must have two or three mutually exclusive proposed answers. Put the best AI recommendation first, mark only it recommended, and explain the impact of every answer.");
+        sb.AppendLine("Every option must classify its provider-neutral external-write confirmation consequence as required, forbidden, or unchanged. Use required or forbidden only when that option directly decides whether a human confirmation must occur immediately before an externally visible write; otherwise use unchanged. The option description must clearly disclose any required or forbidden consequence to the user.");
         sb.AppendLine("Every option value is a short visible answer label: 1-300 characters, non-empty after trimming, and pairwise distinct after trimming within its question. Never repeat the same value for two options; descriptions do not make duplicate values distinct.");
         sb.AppendLine("Question ids must be unique lower-snake-case identifiers and must not reuse an id already present in clarification_answers_json.");
         sb.AppendLine("Do not add an Other option; the host adds a native custom-answer control.");
@@ -459,11 +473,12 @@ public sealed partial class WorkflowPlanExecutor
                     "items": {
                       "type": "object",
                       "additionalProperties": false,
-                      "required": ["value", "description", "recommended"],
+                      "required": ["value", "description", "recommended", "external_write_confirmation_policy"],
                       "properties": {
                         "value": { "type": "string" },
                         "description": { "type": "string" },
-                        "recommended": { "type": "boolean" }
+                        "recommended": { "type": "boolean" },
+                        "external_write_confirmation_policy": { "type": "string", "enum": ["required", "forbidden", "unchanged"] }
                       }
                     }
                   }
@@ -531,6 +546,8 @@ public sealed partial class WorkflowPlanExecutor
                 var value = optionObject["value"]?.GetValue<string>()?.Trim() ?? string.Empty;
                 var description = optionObject["description"]?.GetValue<string>()?.Trim() ?? string.Empty;
                 var recommended = optionObject["recommended"]?.GetValue<bool>() ?? false;
+                var externalWriteConfirmationPolicy = optionObject["external_write_confirmation_policy"]
+                    ?.GetValue<string>()?.Trim().ToLowerInvariant() ?? string.Empty;
                 if (value.Length is < 1 or > 300)
                     throw new InvalidOperationException($"Intent clarification question '{id}' option value {optionIndex + 1} must contain between 1 and 300 characters after trimming.");
                 if (!values.Add(value))
@@ -539,7 +556,13 @@ public sealed partial class WorkflowPlanExecutor
                     throw new InvalidOperationException($"Intent clarification question '{id}' option descriptions must be non-empty and at most 1000 characters.");
                 if (recommended != (optionIndex == 0))
                     throw new InvalidOperationException($"Intent clarification question '{id}' must mark only its first option as recommended.");
-                options.Add(new IntentClarificationOption(value, description, recommended));
+                if (externalWriteConfirmationPolicy is not ("required" or "forbidden" or "unchanged"))
+                    throw new InvalidOperationException($"Intent clarification question '{id}' option {optionIndex + 1} has an invalid external-write confirmation consequence.");
+                options.Add(new IntentClarificationOption(
+                    value,
+                    description,
+                    recommended,
+                    externalWriteConfirmationPolicy));
             }
             questions.Add(new IntentClarificationQuestion(id, prompt, options));
         }
@@ -597,7 +620,7 @@ public sealed partial class WorkflowPlanExecutor
                 OptionDefinitions = question.Options.Select(static option => new HumanInputOptionDef
                 {
                     Value = option.Value,
-                    Description = option.Description,
+                    Description = BuildIntentClarificationOptionDescription(option),
                     Recommended = option.Recommended
                 }).ToList(),
                 AllowCustomAnswer = true,
@@ -691,6 +714,17 @@ public sealed partial class WorkflowPlanExecutor
             new KeyValuePair<string, object?>("gnougo-flow.human.clarification_stage", stage),
             new KeyValuePair<string, object?>("gnougo-flow.human.question_count", assessment.Questions.Count)
         });
+    }
+
+    private static string BuildIntentClarificationOptionDescription(IntentClarificationOption option)
+    {
+        var consequence = option.ExternalWriteConfirmationPolicy switch
+        {
+            "required" => "External-write confirmation policy: required.",
+            "forbidden" => "External-write confirmation policy: forbidden.",
+            _ => string.Empty
+        };
+        return consequence.Length == 0 ? option.Description : $"{option.Description} {consequence}";
     }
 
     private static JsonObject ApplyIntentClarification(

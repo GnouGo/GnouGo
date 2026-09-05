@@ -14,10 +14,16 @@ class _WorkflowPlanPipelineAssemblyMixin:
         leaves: list[_GeneratedLeafWorkflow],
         configured_main_inputs: dict[str, Any],
         generated_leaf_inputs: dict[str, Any],
+        use_structured_output: bool = False,
     ) -> str:
+        response_instruction = (
+            "Return ONLY the requested strict JSON response object. Put the YAML mapping below `document` in `document_yaml` and the YAML mapping below `graph` in `graph_yaml`. Do not include the wrapper keys inside those strings."
+            if use_structured_output
+            else "Return ONLY one YAML mapping with `document` and `graph` keys. Do not return version, entrypoint, workflows, a full `main` workflow, or leaf workflow definitions."
+        )
         parts = [
             "You are assembling the parent `main` workflow graph for a GnOuGo.Flow pipeline.",
-            "Return ONLY one YAML mapping with `document` and `graph` keys. Do not return version, entrypoint, workflows, a full `main` workflow, or leaf workflow definitions.",
+            response_instruction,
             "",
             "Hard rules:",
             "- Return a compact orchestration graph. The runtime will render the real `main` workflow and graft validated leaf workflows before final validation.",

@@ -32,6 +32,13 @@ unsupported-currency failures return no quote so the Flow.Core budget fails clos
 The integration package owns provider and transport mappings. Flow.Core never
 references this package or another GnOuGo component.
 
+MCP discovery maps the standard protocol `ReturnJsonSchema` to Flow.Core's compatible
+`McpToolInfo.OutputSchema` and immediately resolves its provider-neutral output-contract
+provenance. Valid protocol-declared schemas are authoritative; invalid schemas carry validation
+errors and example/description-derived shapes remain advisory hints. Servers should therefore
+publish `ReturnJsonSchema` for every structured result that downstream workflows need to
+dereference.
+
 `RoutingLLMClientAdapter` maps AI.Core's redacted `LLMProviderException` and every
 `LLMProviderFailureKind` to Flow.Core's independent `LLMClientException` and
 `LLMClientFailureKind`. It preserves retryability, HTTP status, and safe provider code

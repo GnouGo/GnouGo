@@ -159,12 +159,16 @@ class _WorkflowPlanPipelineGenerationMixin:
         )
         leaf_generator["context"] = ""
         leaf_generator["pipeline_leaf_name"] = spec.name
+        leaf_generator["pipeline_contract_fingerprint"] = self._planner_fingerprint(
+            "pipeline_leaf_contract", spec.name, spec.generation_prompt
+        )
         leaf_input: dict[str, Any] = {
             "generator": leaf_generator,
             "policy": self._build_leaf_policy(pipeline_input.get("policy") if isinstance(pipeline_input.get("policy"), dict) else None),
             "validate": copy.deepcopy(pipeline_input.get("validate") if isinstance(pipeline_input.get("validate"), dict) else {}),
             "on_invalid": {"action": "fail", "max_attempts": 1},
         }
+        leaf_input["validate"].pop("max_repair_attempts", None)
         leaf_input["validate"]["compile"] = True
         if isinstance(pipeline_input.get("limits"), dict):
             leaf_input["limits"] = copy.deepcopy(pipeline_input["limits"])
@@ -496,5 +500,9 @@ class _WorkflowPlanPipelineGenerationMixin:
 
     @staticmethod
     def _get_pipeline_generation_max_attempts(input_obj: dict[str, Any]) -> int:
+        validate = input_obj.get("validate") if isinstance(input_obj.get("validate"), dict) else {}
+        configured_repairs = validate.get("max_repair_attempts")
+        if configured_repairs is not None:
+            return max(1, int(configured_repairs)) + 1
         on_invalid = input_obj.get("on_invalid") if isinstance(input_obj.get("on_invalid"), dict) else {}
         return max(1, int(on_invalid.get("max_attempts", 3) or 3))

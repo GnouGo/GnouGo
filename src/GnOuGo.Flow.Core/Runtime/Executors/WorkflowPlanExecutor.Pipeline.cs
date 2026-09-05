@@ -151,7 +151,10 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
         string? Recommendation,
         IReadOnlyList<PipelineExtractionQualityEvidence>? Evidence = null,
         bool EvidenceQualified = false,
-        string RemediationSurface = "extraction_contract");
+        string RemediationSurface = "extraction_contract")
+    {
+        public IReadOnlyList<string> ChallengedOperationIds { get; init; } = Array.Empty<string>();
+    }
 
     private sealed record PipelineExtractionQualityEvidence(
         string Source,
@@ -223,15 +226,13 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
         var reasoning = generator["reasoning"]?.GetValue<string>();
         if (string.IsNullOrWhiteSpace(reasoning))
             reasoning = "medium";
-        var capabilityPreflightProvesStructuredExtraction =
-            CapabilityPreflightProvesStructuredPipelineExtraction(capabilityPreflight.Mode);
-        var useStructuredExtraction = capabilityPreflightProvesStructuredExtraction
-            || await ShouldUseStructuredPipelineExtractionAsync(ctx, provider, model, ct);
-        var structuredExtractionSource = capabilityPreflightProvesStructuredExtraction
-            ? "capability_preflight_proven"
-            : useStructuredExtraction
-                ? "provider_capability"
-                : "annotated_markdown_fallback";
+        var useStructuredGeneration = await ShouldUseStrictPlannerResponseAsync(ctx, provider, model, ct);
+        var useStructuredExtraction = useStructuredGeneration
+            || await ShouldUseStrictPlannerResponseAsync(ctx, provider, model, ct);
+        generator["pipeline_use_structured_generation"] = useStructuredGeneration;
+        var structuredExtractionSource = useStructuredExtraction
+            ? "provider_capability_or_validated_evidence"
+            : "annotated_markdown_fallback";
 
         ctx.SetTelemetryAttribute("gnougo-flow.plan.mode", "pipeline");
         ctx.SetTelemetryAttribute("gen_ai.operation.name", "chat");
@@ -239,6 +240,9 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
         ctx.SetTelemetryAttribute("gen_ai.request.model", model);
         ctx.SetTelemetryAttribute("gnougo-flow.plan.pipeline.structured_extraction", useStructuredExtraction);
         ctx.SetTelemetryAttribute("gnougo-flow.plan.pipeline.structured_extraction_source", structuredExtractionSource);
+        ctx.SetTelemetryAttribute(
+            "gnougo-flow.plan.pipeline.generation_response_mode",
+            useStructuredGeneration ? "structured" : "legacy_text");
 
         ctx.AddTelemetryEvent("gnougo-flow.step.thinking", new[]
         {
@@ -247,7 +251,7 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
         });
 
         var normalizedMarkdown = await NormalizeUserPromptAsync(
-            llmClient, rawPrompt, provider, model, reasoning, ctx, ct);
+            llmClient, rawPrompt, provider, model, reasoning, useStructuredGeneration, ctx, ct);
 
         var globalMcpContext = await BuildPipelineGlobalMcpContextAsync(
             llmClient, generator, normalizedMarkdown, rawPrompt, model, provider, reasoning, capabilityPreflight, ctx, ct);
@@ -333,7 +337,7 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
                     repair.AnnotatedMarkdown,
                     repairedExtraction,
                     baseline,
-                    repair.AddressedDiagnosticCodes,
+                    repair.AddressedDiagnosticIds,
                     provider,
                     model,
                     reasoning,
@@ -399,8 +403,12 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
                 string? bestAssemblyError = null;
                 string? bestAssemblyCandidateFingerprint = null;
                 string? bestAssemblyCandidateDiagnosticFingerprint = null;
+                IReadOnlySet<string>? bestAssemblyDiagnosticCodes = null;
+                IReadOnlySet<string>? bestAssemblyDiagnosticIdentities = null;
                 var bestAssemblyValidationProgress = -1;
                 var regressedAssemblyRepairAttempts = 0;
+                string? activeAssemblyContractFingerprint = null;
+                var assemblyContractEpoch = 0;
                 Exception? lastAssemblyException = null;
                 string? assembledYaml = null;
                 WorkflowDocument? assembledDocument = null;
@@ -413,7 +421,15 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
                     string? candidateAssemblyFingerprint = null;
                     var generatedLeafInputs = BuildGeneratedMainInputContract(currentLeaves);
                     var baseMainAssemblyPrompt = BuildMainAssemblyPrompt(
-                        input, generator, normalizedMarkdown, extraction, currentLeaves, configuredMainInputs, generatedLeafInputs, ctx.Engine.Registry);
+                        input, generator, normalizedMarkdown, extraction, currentLeaves, configuredMainInputs, generatedLeafInputs, ctx.Engine.Registry, useStructuredGeneration);
+                    var assemblyContractFingerprint = BuildPlannerFingerprint(
+                        "pipeline_main_assembly",
+                        baseMainAssemblyPrompt);
+                    if (!string.Equals(activeAssemblyContractFingerprint, assemblyContractFingerprint, StringComparison.Ordinal))
+                    {
+                        activeAssemblyContractFingerprint = assemblyContractFingerprint;
+                        assemblyContractEpoch++;
+                    }
                     var mainAssemblyPrompt = previousAssemblyError == null
                         ? baseMainAssemblyPrompt
                         : BuildMainAssemblyRepairPrompt(baseMainAssemblyPrompt, previousAssemblyResponse, previousAssemblyError);
@@ -428,7 +444,7 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
                             new KeyValuePair<string, object?>("gnougo-flow.plan.max_attempts", maxAssemblyAttempts)
                         });
 
-                    if (ctx.Limits.LogStepContent)
+                    if (!useStructuredGeneration && ctx.Limits.LogStepContent)
                     {
                         attemptSpan.AddEvent("gnougo-flow.plan.pipeline.assembly.input", new[]
                         {
@@ -463,16 +479,52 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
 
                     try
                     {
-                        var mainResponse = await ctx.CallLLMAsync(llmClient, new LLMRequest
+                        LLMResponse mainResponse;
+                        string mainAssemblyText;
+                        if (useStructuredGeneration)
                         {
-                            Provider = provider,
-                            Model = model,
-                            Prompt = mainAssemblyPrompt,
-                            Reasoning = reasoning,
-                            UseBackgroundMode = true
-                        }, "workflow.plan.pipeline.main_assembly", ct);
-                        previousAssemblyResponse = mainResponse.Text;
-                        candidateAssemblyFingerprint = BuildPipelineMainAssemblyFingerprint(mainResponse.Text);
+                            var diagnosticCodes = bestAssemblyDiagnosticCodes?.Order(StringComparer.Ordinal).ToArray()
+                                ?? (lastAssemblyException == null
+                                    ? Array.Empty<string>()
+                                    : GetPlannerDiagnosticCodes(lastAssemblyException).ToArray());
+                            var responseSchema = BuildWorkflowGenerationResponseSchema(
+                                assemblyContractFingerprint,
+                                bestAssemblyCandidateFingerprint ?? string.Empty,
+                                previousAssemblyDiagnosticFingerprint ?? string.Empty,
+                                diagnosticCodes,
+                                mainAssembly: true);
+                            mainResponse = await ExecuteStrictPlannerResponseAsync(
+                                llmClient,
+                                "pipeline.main_assembly",
+                                mainAssemblyPrompt,
+                                provider,
+                                model,
+                                reasoning,
+                                ctx,
+                                ct,
+                                responseSchema,
+                                attempt,
+                                maxAssemblyAttempts,
+                                assemblyContractFingerprint,
+                                bestAssemblyCandidateFingerprint ?? string.Empty,
+                                previousAssemblyDiagnosticFingerprint ?? string.Empty,
+                                assemblyContractEpoch);
+                            mainAssemblyText = ComposeStructuredMainAssemblyResponse(mainResponse);
+                        }
+                        else
+                        {
+                            mainResponse = await ctx.CallLLMAsync(llmClient, new LLMRequest
+                            {
+                                Provider = provider,
+                                Model = model,
+                                Prompt = mainAssemblyPrompt,
+                                Reasoning = reasoning,
+                                UseBackgroundMode = true
+                            }, "workflow.plan.pipeline.main_assembly", ct);
+                            mainAssemblyText = mainResponse.Text ?? string.Empty;
+                        }
+                        previousAssemblyResponse = mainAssemblyText;
+                        candidateAssemblyFingerprint = BuildPipelineMainAssemblyFingerprint(mainAssemblyText);
                         attemptSpan.SetAttribute(
                             "gnougo-flow.plan.pipeline.candidate.fingerprint",
                             candidateAssemblyFingerprint);
@@ -483,7 +535,7 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
                         attemptSpan.SetAttribute("gen_ai.response.finish_reason", "stop");
                         AddUsageAttributes(attemptSpan, mainResponse.Usage, model, provider);
 
-                        if (ctx.Limits.LogStepContent && !string.IsNullOrWhiteSpace(mainResponse.Text))
+                        if (!useStructuredGeneration && ctx.Limits.LogStepContent && !string.IsNullOrWhiteSpace(mainResponse.Text))
                         {
                             attemptSpan.AddEvent("gen_ai.content.completion", new[]
                             {
@@ -503,7 +555,7 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
                             });
                         }
 
-                        var assembly = ParseGeneratedMainAssembly(mainResponse.Text ?? string.Empty, currentLeaves);
+                        var assembly = ParseGeneratedMainAssembly(mainAssemblyText, currentLeaves);
                         candidateAssemblyValidationProgress = 10;
                         var mainInputs = ResolveMainInputContract(configuredMainInputs, assembly, generatedLeafInputs);
                         ValidateInferredMainArtifactInputs(mainInputs, configuredMainInputs, rawPrompt);
@@ -644,14 +696,22 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
                             }
 
                             var diagnosticFingerprint = WorkflowPlanDiagnostics.BuildDiagnosticFingerprint(ex);
+                            var diagnosticCodes = GetPlannerDiagnosticCodes(ex).ToHashSet(StringComparer.Ordinal);
+                            var diagnosticIdentities = WorkflowPlanDiagnostics.BuildDiagnosticIdentities(ex);
+                            var candidateIsNew = !string.Equals(
+                                candidateAssemblyFingerprint,
+                                bestAssemblyCandidateFingerprint,
+                                StringComparison.Ordinal);
+                            var diagnosticsStrictlyDecreased = bestAssemblyDiagnosticIdentities != null
+                                && WorkflowPlanDiagnostics.IsStrictDiagnosticDecrease(
+                                    diagnosticIdentities,
+                                    bestAssemblyDiagnosticIdentities);
                             var candidateImproved = !string.IsNullOrWhiteSpace(previousAssemblyResponse)
+                                                    && candidateIsNew
                                                     && (bestAssemblyResponse == null
                                                         || candidateAssemblyValidationProgress > bestAssemblyValidationProgress
                                                         || candidateAssemblyValidationProgress == bestAssemblyValidationProgress
-                                                        && !string.Equals(
-                                                            diagnosticFingerprint,
-                                                            bestAssemblyCandidateDiagnosticFingerprint,
-                                                            StringComparison.Ordinal));
+                                                        && diagnosticsStrictlyDecreased);
                             if (candidateImproved)
                             {
                                 var priorProgress = bestAssemblyValidationProgress;
@@ -659,6 +719,8 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
                                 bestAssemblyError = BuildStructuredPlanError(ex, attempt);
                                 bestAssemblyCandidateFingerprint = candidateAssemblyFingerprint;
                                 bestAssemblyCandidateDiagnosticFingerprint = diagnosticFingerprint;
+                                bestAssemblyDiagnosticCodes = diagnosticCodes;
+                                bestAssemblyDiagnosticIdentities = diagnosticIdentities;
                                 bestAssemblyValidationProgress = candidateAssemblyValidationProgress;
                                 regressedAssemblyRepairAttempts = 0;
                                 attemptSpan.SetAttribute("gnougo-flow.plan.pipeline.candidate.accepted", true);
@@ -675,6 +737,8 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
                                 attemptSpan.SetAttribute("gnougo-flow.plan.pipeline.candidate.accepted", false);
                                 attemptSpan.SetAttribute("gnougo-flow.plan.pipeline.candidate.validation_progress", candidateAssemblyValidationProgress);
                                 attemptSpan.SetAttribute("gnougo-flow.plan.pipeline.candidate.best_validation_progress", bestAssemblyValidationProgress);
+                                attemptSpan.SetAttribute("gnougo-flow.plan.pipeline.candidate.diagnostic_count", diagnosticIdentities.Count);
+                                attemptSpan.SetAttribute("gnougo-flow.plan.pipeline.candidate.best_diagnostic_count", bestAssemblyDiagnosticIdentities?.Count ?? 0);
                                 attemptSpan.SetAttribute("gnougo-flow.plan.pipeline.patch.stall_reason", "validation_progress_regression");
                                 ctx.AddTelemetryEvent("gnougo-flow.plan.pipeline.main_assembly_candidate_rejected", new[]
                                 {
@@ -682,13 +746,20 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
                                     new KeyValuePair<string, object?>("gnougo-flow.plan.pipeline.candidate.fingerprint", candidateAssemblyFingerprint),
                                     new KeyValuePair<string, object?>("gnougo-flow.plan.pipeline.candidate.best_fingerprint", bestAssemblyCandidateFingerprint),
                                     new KeyValuePair<string, object?>("gnougo-flow.plan.pipeline.candidate.validation_progress", candidateAssemblyValidationProgress),
-                                    new KeyValuePair<string, object?>("gnougo-flow.plan.pipeline.candidate.best_validation_progress", bestAssemblyValidationProgress)
+                                    new KeyValuePair<string, object?>("gnougo-flow.plan.pipeline.candidate.best_validation_progress", bestAssemblyValidationProgress),
+                                    new KeyValuePair<string, object?>("gnougo-flow.plan.pipeline.candidate.diagnostic_count", diagnosticIdentities.Count),
+                                    new KeyValuePair<string, object?>("gnougo-flow.plan.pipeline.candidate.best_diagnostic_count", bestAssemblyDiagnosticIdentities?.Count ?? 0)
                                 });
                                 if (regressedAssemblyRepairAttempts >= 2)
                                 {
                                     var repairStalled = BuildPipelineMainAssemblyRepairStalledException(
                                         attempt,
                                         bestAssemblyCandidateFingerprint,
+                                        candidateAssemblyFingerprint,
+                                        bestAssemblyValidationProgress,
+                                        candidateAssemblyValidationProgress,
+                                        bestAssemblyDiagnosticCodes,
+                                        bestAssemblyError,
                                         diagnosticFingerprint,
                                         "Two repair responses failed to improve the best validated main assembly candidate.",
                                         ex);
@@ -699,6 +770,8 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
 
                             previousAssemblyResponse = bestAssemblyResponse ?? previousAssemblyResponse;
                             previousAssemblyError = bestAssemblyError ?? BuildStructuredPlanError(ex, attempt);
+                            previousAssemblyDiagnosticFingerprint = bestAssemblyCandidateDiagnosticFingerprint
+                                ?? previousAssemblyDiagnosticFingerprint;
                         }
                         if (attempt >= maxAssemblyAttempts)
                         {
@@ -760,6 +833,8 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
                                 bestAssemblyError = null;
                                 bestAssemblyCandidateFingerprint = null;
                                 bestAssemblyCandidateDiagnosticFingerprint = null;
+                                bestAssemblyDiagnosticCodes = null;
+                                bestAssemblyDiagnosticIdentities = null;
                                 bestAssemblyValidationProgress = -1;
                                 regressedAssemblyRepairAttempts = 0;
                                 attemptSpan.SetAttribute("gnougo-flow.plan.pipeline.assembly_status", "leaf_input_contract_repaired");
@@ -856,6 +931,8 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
                                 bestAssemblyError = null;
                                 bestAssemblyCandidateFingerprint = null;
                                 bestAssemblyCandidateDiagnosticFingerprint = null;
+                                bestAssemblyDiagnosticCodes = null;
+                                bestAssemblyDiagnosticIdentities = null;
                                 bestAssemblyValidationProgress = -1;
                                 regressedAssemblyRepairAttempts = 0;
                                 attemptSpan.SetAttribute("gnougo-flow.plan.pipeline.assembly_status", "leaf_contract_repaired");
@@ -951,6 +1028,8 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
                                 bestAssemblyError = null;
                                 bestAssemblyCandidateFingerprint = null;
                                 bestAssemblyCandidateDiagnosticFingerprint = null;
+                                bestAssemblyDiagnosticCodes = null;
+                                bestAssemblyDiagnosticIdentities = null;
                                 bestAssemblyValidationProgress = -1;
                                 regressedAssemblyRepairAttempts = 0;
                                 attemptSpan.SetAttribute("gnougo-flow.plan.pipeline.assembly_status", "leaf_runtime_validation_repaired");
@@ -1050,7 +1129,7 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
                 mainSpan.SetAttribute("gnougo-flow.plan.yaml_length", finalYaml.Length);
                 mainSpan.SetAttribute("gnougo-flow.plan.workflow_count", finalDoc.Workflows.Count);
 
-                if (ctx.Limits.LogStepContent)
+                if (!useStructuredGeneration && ctx.Limits.LogStepContent)
                 {
                     mainSpan.AddEvent("gnougo-flow.plan.pipeline.assembly.output", new[]
                     {
@@ -1093,7 +1172,7 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
         ctx.SetTelemetryAttribute("gnougo-flow.plan.pipeline.inspection.leaf_count", generatedLeaves.Length);
         ctx.SetTelemetryAttribute("gnougo-flow.plan.pipeline.inspection.leaf_blueprint_count", generatedLeaves.Count(static leaf => leaf.Blueprint != null));
         ctx.SetTelemetryAttribute("gnougo-flow.plan.pipeline.inspection.repair_count", qualityEvents.Count(static item => item.Kind.Contains("repair", StringComparison.Ordinal)));
-        if (ctx.Limits.LogStepContent)
+        if (!useStructuredGeneration && ctx.Limits.LogStepContent)
         {
             ctx.AddTelemetryEvent("gnougo-flow.plan.pipeline.inspection", new[]
             {
@@ -1130,6 +1209,7 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
         string? provider,
         string model,
         string? reasoning,
+        bool useStructuredOutput,
         StepExecutionContext ctx,
         CancellationToken ct)
     {
@@ -1175,40 +1255,33 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
             </raw_prompt>
             """;
 
-        return await ExecutePipelineLlmTextPhaseAsync(
-            llmClient, "normalize_user_prompt", prompt, provider, model, reasoning, ctx, ct);
+        if (!useStructuredOutput)
+        {
+            return await ExecutePipelineLlmTextPhaseAsync(
+                llmClient, "normalize_user_prompt", prompt, provider, model, reasoning, ctx, ct);
+        }
+
+        var schema = BuildNormalizationResponseSchema();
+        var contractFingerprint = BuildPlannerFingerprint("normalize_user_prompt", PlannerResponseSchemaVersion);
+        prompt += "\n\nReturn only the strict JSON response object. Put the complete normalized Markdown in `normalized_markdown`.";
+        var response = await ExecuteStrictPlannerResponseAsync(
+            llmClient,
+            "pipeline.normalize_user_prompt",
+            prompt,
+            provider,
+            model,
+            reasoning,
+            ctx,
+            ct,
+            schema,
+            phaseAttempt: 1,
+            maxAttempts: 1,
+            contractFingerprint,
+            baseCandidateFingerprint: string.Empty,
+            diagnosticFingerprint: string.Empty,
+            contractEpoch: 1);
+        return ReadRequiredPlannerResponseString(response, "normalized_markdown", "normalize_user_prompt").Trim();
     }
-
-    private static async Task<bool> ShouldUseStructuredPipelineExtractionAsync(
-        StepExecutionContext ctx,
-        string? provider,
-        string model,
-        CancellationToken ct)
-    {
-        if (ctx.Engine.LLMCapabilities == null)
-            return false;
-
-        try
-        {
-            return await ctx.Engine.LLMCapabilities.SupportsStructuredOutputAsync(provider, model, ct) == true;
-        }
-        catch (OperationCanceledException)
-        {
-            throw;
-        }
-        catch (Exception ex)
-        {
-            ctx.Engine.Logger.LogWarning(
-                ex,
-                "workflow.plan pipeline: failed to resolve structured-output capability for provider '{Provider}' model '{Model}', falling back to annotated Markdown extraction",
-                provider ?? "(default)",
-                model);
-            return false;
-        }
-    }
-
-    private static bool CapabilityPreflightProvesStructuredPipelineExtraction(string mode)
-        => string.Equals(mode, "infer", StringComparison.Ordinal);
 
     private static async Task<PipelineMcpContext> BuildPipelineGlobalMcpContextAsync(
         ILLMClient llmClient,
@@ -1601,7 +1674,7 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
                         annotatedMarkdown,
                         extraction,
                         repairApplication == null ? null : targetedPatchBase,
-                        repairApplication?.AddressedDiagnosticCodes,
+                        repairApplication?.AddressedDiagnosticIds,
                         provider,
                         model,
                         reasoning,
@@ -1628,9 +1701,19 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
 
                     var patchOperationCount = repairApplication?.OperationCount ?? 0;
                     var candidateFingerprint = BuildPipelineExtractionFingerprint(extraction);
+                    var candidateDiagnosticIdentities = BuildPipelineExtractionBlockingDiagnosticIdentities(extraction);
+                    var bestDiagnosticIdentities = bestValidatedCandidate == null
+                        ? null
+                        : BuildPipelineExtractionBlockingDiagnosticIdentities(bestValidatedCandidate);
                     var previousBestScore = bestValidatedCandidate?.QualityReview?.Score;
                     extractionSpan.SetAttribute("gnougo-flow.plan.pipeline.candidate.fingerprint", candidateFingerprint);
                     extractionSpan.SetAttribute("gnougo-flow.plan.pipeline.candidate.score", extraction.QualityReview?.Score);
+                    extractionSpan.SetAttribute(
+                        "gnougo-flow.plan.pipeline.candidate.diagnostic_count",
+                        candidateDiagnosticIdentities.Count);
+                    extractionSpan.SetAttribute(
+                        "gnougo-flow.plan.pipeline.candidate.best_diagnostic_count",
+                        bestDiagnosticIdentities?.Count);
                     extractionSpan.SetAttribute(
                         "gnougo-flow.plan.pipeline.candidate.score_change",
                         previousBestScore == null || extraction.QualityReview == null
@@ -1655,12 +1738,14 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
                         deterministicRegressionPatchAttempts = 0;
                         validationNonImprovingPatchAttempts = 0;
                         extractionSpan.SetAttribute("gnougo-flow.plan.pipeline.patch.accepted", repairApplication != null);
+                        extractionSpan.SetAttribute("gnougo-flow.plan.pipeline.candidate.accepted", true);
                     }
                     else if (repairApplication != null)
                     {
                         rejectedPatchAttempts++;
                         qualityNonImprovingPatchAttempts++;
                         extractionSpan.SetAttribute("gnougo-flow.plan.pipeline.patch.accepted", false);
+                        extractionSpan.SetAttribute("gnougo-flow.plan.pipeline.candidate.accepted", false);
                         extractionSpan.SetAttribute("gnougo-flow.plan.pipeline.patch.rejected_attempts", rejectedPatchAttempts);
                         extractionSpan.SetAttribute("gnougo-flow.plan.pipeline.patch.quality_non_improving_attempts", qualityNonImprovingPatchAttempts);
                         if (rejectedPatchAttempts >= 2)
@@ -2214,7 +2299,7 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
         string annotatedMarkdown,
         WorkflowPipelineExtraction extraction,
         WorkflowPipelineExtraction? reviewBaseline,
-        IReadOnlySet<string>? addressedDiagnosticCodes,
+        IReadOnlySet<string>? addressedDiagnosticIds,
         string? provider,
         string model,
         string? reasoning,
@@ -2230,9 +2315,10 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
             annotatedMarkdown,
             extraction,
             reviewBaseline,
-            addressedDiagnosticCodes);
+            addressedDiagnosticIds);
         Exception? firstContractFailure = null;
-        for (var reviewAttempt = 1; reviewAttempt <= 2; reviewAttempt++)
+        var reviewAttemptLimit = useStructuredOutput ? 1 : 2;
+        for (var reviewAttempt = 1; reviewAttempt <= reviewAttemptLimit; reviewAttempt++)
         {
             var prompt = reviewAttempt == 1
                 ? basePrompt
@@ -2273,13 +2359,59 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
                     extraction,
                     pipelineMcpContext,
                     ParseExtractionQualityReviewResponse(response));
+                var rawDiagnosticIds = review.Diagnostics
+                    .Select(BuildPipelineExtractionQualityDiagnosticId)
+                    .Distinct(StringComparer.Ordinal)
+                    .Order(StringComparer.Ordinal)
+                    .ToArray();
+                var rawCriticalDiagnosticIds = review.Diagnostics
+                    .Where(static diagnostic => string.Equals(diagnostic.Severity, "critical", StringComparison.Ordinal))
+                    .Select(BuildPipelineExtractionQualityDiagnosticId)
+                    .ToHashSet(StringComparer.Ordinal);
                 if (reviewBaseline?.QualityReview != null)
                 {
+                    var baselineDiagnosticIds = reviewBaseline.QualityReview.Diagnostics
+                        .Select(BuildPipelineExtractionQualityDiagnosticId)
+                        .Distinct(StringComparer.Ordinal)
+                        .Order(StringComparer.Ordinal)
+                        .ToArray();
                     review = StabilizePipelineExtractionQualityReviewAgainstBaseline(
                         reviewBaseline,
                         extraction,
                         review,
-                        addressedDiagnosticCodes ?? new HashSet<string>(StringComparer.Ordinal));
+                        addressedDiagnosticIds ?? new HashSet<string>(StringComparer.Ordinal));
+                    var stabilizedDiagnosticIds = review.Diagnostics
+                        .Select(BuildPipelineExtractionQualityDiagnosticId)
+                        .Distinct(StringComparer.Ordinal)
+                        .Order(StringComparer.Ordinal)
+                        .ToArray();
+                    var changedLeafNames = GetStructurallyChangedPipelineLeafNames(reviewBaseline, extraction)
+                        .Order(StringComparer.Ordinal)
+                        .ToArray();
+                    var resolvedCount = baselineDiagnosticIds.Except(stabilizedDiagnosticIds, StringComparer.Ordinal).Count();
+                    var restoredCount = stabilizedDiagnosticIds.Except(rawDiagnosticIds, StringComparer.Ordinal).Count();
+                    var downgradedCount = review.Diagnostics.Count(diagnostic =>
+                        !string.Equals(diagnostic.Severity, "critical", StringComparison.Ordinal)
+                        && rawCriticalDiagnosticIds.Contains(BuildPipelineExtractionQualityDiagnosticId(diagnostic)));
+                    var stabilizationReasons = new[]
+                    {
+                        resolvedCount > 0 ? "addressed_absent_removed" : null,
+                        restoredCount > 0 ? "unchanged_baseline_restored" : null,
+                        downgradedCount > 0 ? "untouched_new_blocker_downgraded" : null
+                    }.Where(static reason => reason != null);
+                    ctx.AddTelemetryEvent("gnougo-flow.plan.pipeline.extraction_quality.stabilized", new[]
+                    {
+                        new KeyValuePair<string, object?>("gnougo-flow.plan.attempt", attempt),
+                        new KeyValuePair<string, object?>("gnougo-flow.plan.pipeline.candidate.fingerprint", BuildPipelineExtractionFingerprint(extraction)),
+                        new KeyValuePair<string, object?>("gnougo-flow.plan.pipeline.changed_leaves", FormatPipelineDiagnosticIdsForTelemetry(changedLeafNames)),
+                        new KeyValuePair<string, object?>("gnougo-flow.plan.pipeline.diagnostic.baseline_ids", FormatPipelineDiagnosticIdsForTelemetry(baselineDiagnosticIds)),
+                        new KeyValuePair<string, object?>("gnougo-flow.plan.pipeline.diagnostic.raw_ids", FormatPipelineDiagnosticIdsForTelemetry(rawDiagnosticIds)),
+                        new KeyValuePair<string, object?>("gnougo-flow.plan.pipeline.diagnostic.stabilized_ids", FormatPipelineDiagnosticIdsForTelemetry(stabilizedDiagnosticIds)),
+                        new KeyValuePair<string, object?>("gnougo-flow.plan.pipeline.diagnostic.addressed_ids", FormatPipelineDiagnosticIdsForTelemetry(addressedDiagnosticIds ?? new HashSet<string>(StringComparer.Ordinal))),
+                        new KeyValuePair<string, object?>("gnougo-flow.plan.pipeline.diagnostic.resolved_count", resolvedCount),
+                        new KeyValuePair<string, object?>("gnougo-flow.plan.pipeline.diagnostic.restored_count", restoredCount),
+                        new KeyValuePair<string, object?>("gnougo-flow.plan.pipeline.diagnostic.stabilization_reasons", string.Join(",", stabilizationReasons))
+                    });
                 }
                 ctx.SetTelemetryAttribute("gnougo-flow.plan.pipeline.extraction_quality.score", review.Score);
                 ctx.SetTelemetryAttribute("gnougo-flow.plan.pipeline.extraction_quality.verdict", review.Verdict);
@@ -2293,6 +2425,8 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
             catch (Exception ex)
             {
                 if (WorkflowPlanDiagnostics.IsNonRepairableLlmFailure(ex))
+                    throw;
+                if (useStructuredOutput)
                     throw;
                 if (!useStructuredOutput)
                 {
@@ -2327,7 +2461,7 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
         string annotatedMarkdown,
         WorkflowPipelineExtraction extraction,
         WorkflowPipelineExtraction? reviewBaseline,
-        IReadOnlySet<string>? addressedDiagnosticCodes)
+        IReadOnlySet<string>? addressedDiagnosticIds)
     {
         var sb = new StringBuilder();
         sb.AppendLine("You are reviewing the quality of a `workflow.plan` pipeline `mark_extractable_blocks` result.");
@@ -2338,9 +2472,10 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
         sb.AppendLine("The JSON object must have exactly these top-level fields:");
         sb.AppendLine("- `score`: integer from 0 to 100.");
         sb.AppendLine("- `verdict`: `pass` or `retry`.");
-        sb.AppendLine("- `diagnostics`: array of objects with `code`, `kind`, `severity`, `leaf_name`, `message`, `recommendation`, and `evidence`.");
+        sb.AppendLine("- `diagnostics`: array of objects with `code`, `kind`, `severity`, `remediation_surface`, `challenged_operation_ids`, `leaf_name`, `message`, `recommendation`, and `evidence`.");
         sb.AppendLine("- `retry_guidance`: concise summary of evidence-qualified critical diagnostics only, or an empty string. It is advisory metadata and is never an independent repair instruction.");
         sb.AppendLine("Each diagnostic also requires `remediation_surface`: `extraction_contract`, `locked_ownership`, or `generated_workflow_topology`. Use `locked_ownership` when questioning an operation/capability owner already declared by the locked extraction contract. Use `generated_workflow_topology` for exact selector expressions, switch cases, or intra-leaf ordering that do not exist until YAML generation. Only `extraction_contract` can block this review; the other surfaces are validated authoritatively in their owning phase.");
+        sb.AppendLine("Each diagnostic requires `challenged_operation_ids`. List every exact locked operation id whose existence, requiredness, classification, placement, confirmation policy, or owner the diagnostic challenges; otherwise return an empty array. Never hide a locked-ownership challenge behind an extraction_contract remediation surface.");
         sb.AppendLine("Every critical diagnostic must cite machine-verifiable evidence. Every evidence item has `source`, `reference`, and `excerpt`. For source `request`, both reference and excerpt must be the same exact non-empty substring from normalized_prompt. For sources `extraction` and `capability_contract`, reference is an RFC 6901 JSON Pointer into the supplied JSON section and excerpt is an exact non-empty substring of the resolved canonical value. A pointer that merely exists does not prove a claim when its excerpt is absent from the resolved value. Unsupported critical claims are advisory and cannot force repair.");
         sb.AppendLine("Diagnostic `severity` must be `info`, `warning`, or `critical`.");
         sb.AppendLine();
@@ -2354,6 +2489,7 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
         sb.AppendLine("- a major obligation from the original prompt is missing from leaves or main orchestration;");
         sb.AppendLine("- external work is described in prose but not represented by a concrete external-action leaf/tool contract;");
         sb.AppendLine("- main orchestration fabricates an operational artifact that should come from an external producer leaf;");
+        sb.AppendLine("- deterministic shaping claims to inspect, discover, or read external resource contents that are not present in its typed inputs; a locator or path value is not the resource content;");
         sb.AppendLine("- leaves are abstract, cross-cutting, or too broad to generate reliably;");
         sb.AppendLine("- trivial deterministic glue is extracted instead of staying in main.");
         sb.AppendLine();
@@ -2369,7 +2505,7 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
         sb.AppendLine("- native main-orchestration steps are an exact locked set: human confirmation is permitted only when extraction_json `/main_native_steps` contains a required `human.input`; otherwise any confirmation in main is an invented behavioral overconstraint. Never infer an unlisted confirmation merely from the presence of an external write;");
         sb.AppendLine("- confirmation may guard the mutating workflow.call in main. When that call is reachable only from the submitted/confirmed branch, do not require a redundant confirmation boolean in the leaf contract; require one only when the leaf itself evaluates that value.");
         sb.AppendLine("- do not require an optional external action mentioned only in extractor prose unless it is required by the normalized request or a locked capability operation;");
-        sb.AppendLine("- deterministic shaping may group, classify, select, or derive typed subsets from already materialized producer outputs such as records, paths, and manifests. Do not demand a new external inspection action merely to process those supplied values; require an external read only when information absent from every input must be fetched from external state.");
+        sb.AppendLine("- deterministic shaping may group, classify, select, route, compare, or derive typed subsets from already materialized producer values such as records and manifests. A supplied locator or path may be transformed as a scalar, but it does not authorize dereferencing files or discovering resource contents. Reuse typed evidence from an existing external producer when available; otherwise require external ownership for the read.");
         sb.AppendLine("- distinguish a deterministic fallback policy from a separately requested runtime fallback action: the policy may reuse its governed operation's capability, while an AI, agent, service, or tool that must inspect, choose, analyze, or generate a new runtime value requires concrete external ownership. If compatible ownership already exists on another leaf, recommend moving the action and its typed boundary to that owner instead of inventing a capability or leaving external work as prose.");
         sb.AppendLine("- a cohesive locked external action may perform non-observable prerequisite inspection, selection, or preparation needed to execute that action when the declared schema and provider-neutral metadata support the context. Do not require a second external capability solely for such an internal prerequisite. Require a separate owner only when the request makes the prerequisite an independently observable effect or another workflow boundary consumes its typed result.");
         sb.AppendLine("- conditional activation decision_operation_id values refer to immutable local-operation ownership. The owning leaf must derive and expose that runtime decision unless the operation is explicitly owned by main; main may route a typed decision but must not claim to recompute an operation owned by a leaf.");
@@ -2382,27 +2518,47 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
         sb.AppendLine("- classify every diagnostic kind as intent_ambiguity, plan_defect, capability_unavailable, or contract_violation. Use intent_ambiguity only when a user preference or design-time requirement is genuinely missing; never use it for malformed output, invalid identifiers, unavailable tools, schema violations, or decisions driven by future runtime results.");
         if (reviewBaseline?.QualityReview != null)
         {
-            sb.AppendLine("- this is a delta review of a targeted patch. Apply the same rubric as the baseline review. Preserve diagnostics on unchanged extraction surfaces at their prior severity unless patch_addressed_diagnostic_codes names the exact baseline code and the patch changed structure. A named code is only a claim of resolution: report the diagnostic again when the defect remains. A new critical diagnostic must include extraction evidence pointing into a structurally changed leaf or the changed main orchestration; request-only or capability-only evidence cannot establish that a targeted patch regressed an unchanged surface.");
+            sb.AppendLine("- this is a delta review of a targeted patch. Apply the same rubric as the baseline review. Preserve diagnostics on unchanged extraction surfaces at their prior severity unless patch_addressed_diagnostic_ids names the exact baseline identity and the patch changed structure. A named identity is only a claim of resolution: report the diagnostic again when the defect remains. A new critical diagnostic must include extraction evidence pointing into a structurally changed leaf or the changed main orchestration; request-only or capability-only evidence cannot establish that a targeted patch regressed an unchanged surface.");
         }
         sb.AppendLine();
         AppendPromptSection(sb, "normalized_prompt", normalizedMarkdown);
-        AppendPromptSection(sb, "mcp_context_json", BuildPipelineMcpContextJson(pipelineMcpContext).ToJsonString(PromptJsonOptions));
-        AppendPromptSection(sb, "annotated_markdown", annotatedMarkdown);
-        AppendPromptSection(sb, "extraction_json", BuildExtractionJson(extraction).ToJsonString(PromptJsonOptions));
+        AppendPromptSection(
+            sb,
+            "mcp_context_json",
+            BuildPipelineMcpReviewContextJson(pipelineMcpContext, extraction, reviewBaseline)
+                .ToJsonString(PromptJsonOptions));
+        if (reviewBaseline == null)
+        {
+            AppendPromptSection(sb, "annotated_markdown", annotatedMarkdown);
+            AppendPromptSection(sb, "extraction_json", BuildExtractionJson(extraction).ToJsonString(PromptJsonOptions));
+        }
+        else
+        {
+            AppendPromptSection(
+                sb,
+                "extraction_delta_json",
+                BuildPipelineExtractionDeltaReviewJson(reviewBaseline, extraction).ToJsonString(PromptJsonOptions));
+        }
         if (reviewBaseline is { QualityReview: { } baselineQualityReview })
         {
             AppendPromptSection(
                 sb,
                 "baseline_quality_review_json",
-                BuildExtractionQualityReviewJson(baselineQualityReview)!.ToJsonString(PromptJsonOptions));
+                BuildExtractionQualityReviewJson(baselineQualityReview with
+                {
+                    Diagnostics = baselineQualityReview.Diagnostics
+                        .Where(static diagnostic => diagnostic.EvidenceQualified
+                                                    && string.Equals(diagnostic.Severity, "critical", StringComparison.Ordinal))
+                        .ToArray()
+                })!.ToJsonString(PromptJsonOptions));
             AppendPromptSection(
                 sb,
                 "changed_extraction_surfaces_json",
                 BuildPipelineExtractionChangedSurfacesJson(reviewBaseline, extraction).ToJsonString(PromptJsonOptions));
             AppendPromptSection(
                 sb,
-                "patch_addressed_diagnostic_codes",
-                BuildStringArrayJson(addressedDiagnosticCodes?.ToArray() ?? Array.Empty<string>()).ToJsonString(PromptJsonOptions));
+                "patch_addressed_diagnostic_ids",
+                BuildStringArrayJson(addressedDiagnosticIds?.Order(StringComparer.Ordinal).ToArray() ?? Array.Empty<string>()).ToJsonString(PromptJsonOptions));
         }
         return sb.ToString();
     }
@@ -2421,12 +2577,13 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
               "items": {
                 "type": "object",
                 "additionalProperties": false,
-                "required": ["code", "kind", "severity", "remediation_surface", "leaf_name", "message", "recommendation", "evidence"],
+                "required": ["code", "kind", "severity", "remediation_surface", "challenged_operation_ids", "leaf_name", "message", "recommendation", "evidence"],
                 "properties": {
                   "code": { "type": "string" },
                   "kind": { "type": "string", "enum": ["intent_ambiguity", "plan_defect", "capability_unavailable", "contract_violation"] },
                   "severity": { "type": "string", "enum": ["info", "warning", "critical"] },
                   "remediation_surface": { "type": "string", "enum": ["extraction_contract", "locked_ownership", "generated_workflow_topology"] },
+                  "challenged_operation_ids": { "type": "array", "items": { "type": "string" } },
                   "leaf_name": { "type": "string" },
                   "message": { "type": "string" },
                   "recommendation": { "type": "string" },
@@ -2465,9 +2622,33 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
         var lockedOccurrencePairsAreUnique = lockedOccurrencePairs
             .GroupBy(static pair => pair)
             .All(static group => group.Count() == 1);
+        var lockedOperationIds = extraction.Subworkflows
+            .SelectMany(static spec => spec.PlannedTools.SelectMany(static tool => tool.OperationIds)
+                .Concat(spec.PlannedNativeSteps?.SelectMany(static step => step.OperationIds) ?? [])
+                .Concat(spec.LocalOperationIds ?? [])
+                .Concat(spec.OwnedOperationIds ?? []))
+            .Concat(extraction.MainNativeSteps?.SelectMany(static step => step.OperationIds) ?? [])
+            .Concat(extraction.MainLocalOperationIds ?? [])
+            .ToHashSet(StringComparer.Ordinal);
         var correctedCritical = false;
         var diagnostics = review.Diagnostics.Select(diagnostic =>
         {
+            var challengedOperationIds = diagnostic.ChallengedOperationIds ?? Array.Empty<string>();
+            var unknownChallengedOperationIds = challengedOperationIds
+                .Where(id => !lockedOperationIds.Contains(id))
+                .ToArray();
+            if (unknownChallengedOperationIds.Length > 0)
+            {
+                correctedCritical |= string.Equals(diagnostic.Severity, "critical", StringComparison.Ordinal);
+                return diagnostic with
+                {
+                    Severity = "info",
+                    Message = diagnostic.Message + " The claimed challenged operation ids do not exist in the locked extraction contract.",
+                    Recommendation = "Re-evaluate the extraction without inventing operation identities."
+                };
+            }
+
+            var challengesLockedOperation = challengedOperationIds.Any(lockedOperationIds.Contains);
             if (string.Equals(
                     diagnostic.RemediationSurface,
                     "generated_workflow_topology",
@@ -2476,7 +2657,8 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
                     diagnostic.RemediationSurface,
                     "locked_ownership",
                     StringComparison.Ordinal)
-                && ExtractionHasAuthoritativeLockedOwnership(extraction))
+                && ExtractionHasAuthoritativeLockedOwnership(extraction)
+                || challengesLockedOperation)
             {
                 correctedCritical |= string.Equals(diagnostic.Severity, "critical", StringComparison.Ordinal);
                 return diagnostic with
@@ -2824,6 +3006,9 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
             var kind = NormalizeExtractionQualityDiagnosticKind(GetStringProperty(diagnostic, "kind"));
             var remediationSurface = NormalizeExtractionQualityRemediationSurface(
                 GetStringProperty(diagnostic, "remediation_surface"));
+            var challengedOperationIds = GetStringArray(diagnostic["challenged_operation_ids"] as JsonArray)
+                .Distinct(StringComparer.Ordinal)
+                .ToArray();
             var leafName = GetStringProperty(diagnostic, "leaf_name");
             if (string.IsNullOrWhiteSpace(leafName))
                 leafName = null;
@@ -2841,7 +3026,10 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
                 message,
                 string.IsNullOrWhiteSpace(recommendation) ? null : recommendation,
                 evidence,
-                RemediationSurface: remediationSurface));
+                RemediationSurface: remediationSurface)
+            {
+                ChallengedOperationIds = challengedOperationIds
+            });
         }
 
         return parsed;
@@ -3162,82 +3350,23 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
         int? maxAttempts,
         JsonNode structuredOutputSchema)
     {
-        var spanAttributes = new List<KeyValuePair<string, object?>>
-        {
-            new KeyValuePair<string, object?>("gen_ai.operation.name", "chat"),
-            new KeyValuePair<string, object?>("gen_ai.system", provider ?? "unspecified"),
-            new KeyValuePair<string, object?>("gen_ai.request.model", model),
-            new KeyValuePair<string, object?>("gen_ai.request.background", true),
-            new KeyValuePair<string, object?>("gnougo-flow.plan.background_requested", true),
-            new KeyValuePair<string, object?>("gnougo-flow.plan.structured_output", true)
-        };
-        if (attempt.HasValue)
-            spanAttributes.Add(new KeyValuePair<string, object?>("gnougo-flow.plan.attempt", attempt.Value));
-        if (maxAttempts.HasValue)
-            spanAttributes.Add(new KeyValuePair<string, object?>("gnougo-flow.plan.max_attempts", maxAttempts.Value));
-
-        using var span = ctx.BeginTelemetrySpan($"workflow.plan.pipeline.{phase}", phase, spanAttributes);
-
-        if (ctx.Limits.LogStepContent)
-        {
-            var promptAttributes = new List<KeyValuePair<string, object?>>
-            {
-                new KeyValuePair<string, object?>("gen_ai.prompt", prompt),
-                new KeyValuePair<string, object?>("prompt.role", "user"),
-                new KeyValuePair<string, object?>("gnougo-flow.plan.phase", phase)
-            };
-            if (attempt.HasValue)
-                promptAttributes.Add(new KeyValuePair<string, object?>("gnougo-flow.plan.attempt", attempt.Value));
-            span.AddEvent("gen_ai.content.prompt", promptAttributes);
-        }
-
-        try
-        {
-            var response = await ctx.CallLLMAsync(llmClient, new LLMRequest
-            {
-                Provider = provider,
-                Model = model,
-                Prompt = prompt,
-                Reasoning = reasoning,
-                UseBackgroundMode = true,
-                StructuredOutputSchema = structuredOutputSchema,
-                StructuredOutputStrict = true
-            }, $"workflow.plan.pipeline.{phase}", ct);
-
-            span.SetAttribute("gen_ai.response.model", model);
-            span.SetAttribute("gen_ai.response.finish_reason", "stop");
-            AddUsageAttributes(span, response.Usage, model, provider);
-
-            if (ctx.Limits.LogStepContent)
-            {
-                var completion = !string.IsNullOrWhiteSpace(response.Text)
-                    ? response.Text
-                    : response.Json?.ToJsonString(new JsonSerializerOptions { WriteIndented = true });
-                if (!string.IsNullOrWhiteSpace(completion))
-                {
-                    var completionAttributes = new List<KeyValuePair<string, object?>>
-                    {
-                        new KeyValuePair<string, object?>("gen_ai.completion", completion),
-                        new KeyValuePair<string, object?>("completion.role", "assistant"),
-                        new KeyValuePair<string, object?>("completion.finish_reason", "stop"),
-                        new KeyValuePair<string, object?>("gnougo-flow.plan.phase", phase)
-                    };
-                    if (attempt.HasValue)
-                        completionAttributes.Add(new KeyValuePair<string, object?>("gnougo-flow.plan.attempt", attempt.Value));
-                    span.AddEvent("gen_ai.content.completion", completionAttributes);
-                }
-            }
-
-            if (response.Json == null && string.IsNullOrWhiteSpace(response.Text))
-                throw new WorkflowRuntimeException(ErrorCodes.TemplatePlan, $"workflow.plan pipeline phase '{phase}' returned empty structured output.");
-
-            return response;
-        }
-        catch (Exception ex)
-        {
-            span.Fail(ex);
-            throw;
-        }
+        var schemaFingerprint = BuildPlannerFingerprint(structuredOutputSchema.ToJsonString());
+        return await ExecuteStrictPlannerResponseAsync(
+            llmClient,
+            $"pipeline.{phase}",
+            prompt,
+            provider,
+            model,
+            reasoning,
+            ctx,
+            ct,
+            structuredOutputSchema,
+            attempt ?? 1,
+            maxAttempts,
+            schemaFingerprint,
+            string.Empty,
+            string.Empty,
+            contractEpoch: 1);
     }
 
     private static JsonNode BuildMarkExtractableBlocksStructuredOutputSchema()
@@ -4118,6 +4247,7 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
 
             if (metadata.IsStructuredResponse)
                 enrichedSpec = ApplyRequiredLeafToolContracts(enrichedSpec, pipelineMcpContext, validationErrors, rootCauses);
+            enrichedSpec = CanonicalizePipelineLeafExternalOwnership(enrichedSpec);
             enrichedSpec = enrichedSpec with { GenerationPrompt = BuildSubworkflowGenerationPrompt(enrichedSpec) };
 
             if (metadata.IsStructuredResponse)
@@ -4184,13 +4314,7 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
         if (normalized["properties"] is not JsonObject properties)
             return normalized;
 
-        var required = normalized["required"] is JsonArray requiredNames
-            ? requiredNames
-                .OfType<JsonValue>()
-                .Select(static value => value.TryGetValue<string>(out var name) ? name : string.Empty)
-                .Where(static name => name.Length > 0)
-                .ToHashSet(StringComparer.Ordinal)
-            : new HashSet<string>(StringComparer.Ordinal);
+        var required = ReadExtractionRequiredPropertyNames(normalized);
         foreach (var propertyName in properties.Select(static pair => pair.Key).ToArray())
         {
             var refined = PruneOptionalWeakContractMembers(properties[propertyName]);
@@ -4206,6 +4330,22 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
         }
 
         return normalized;
+    }
+
+    private static HashSet<string> ReadExtractionRequiredPropertyNames(JsonObject schema)
+    {
+        var required = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var keyword in new[] { "required_properties", "required" })
+        {
+            if (schema[keyword] is not JsonArray names)
+                continue;
+            foreach (var value in names.OfType<JsonValue>())
+            {
+                if (value.TryGetValue<string>(out var name) && !string.IsNullOrWhiteSpace(name))
+                    required.Add(name.Trim());
+            }
+        }
+        return required;
     }
 
     private static WorkflowPipelineExtraction PreserveSharedPipelineBoundaryContracts(
@@ -4670,7 +4810,17 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
 
             case "object":
                 {
-                    if (obj["properties"] is not JsonObject properties || properties.Count == 0)
+                    var properties = obj["properties"] as JsonObject;
+                    foreach (var diagnostic in EnumerateInvalidRequiredPropertyDiagnostics(
+                                 obj,
+                                 properties ?? new JsonObject(),
+                                 path,
+                                 isInput))
+                    {
+                        yield return diagnostic;
+                    }
+
+                    if (properties == null || properties.Count == 0)
                     {
                         yield return WeakExtractionSchemaDiagnostic($"{path}.properties", "object contract must declare non-empty properties", isInput);
                         yield break;
@@ -4700,6 +4850,71 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
         }
     }
 
+    private static IEnumerable<(string Code, string Path, string Message)> EnumerateInvalidRequiredPropertyDiagnostics(
+        JsonObject schema,
+        JsonObject properties,
+        string path,
+        bool isInput)
+    {
+        var seen = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var keyword in new[] { "required_properties", "required" })
+        {
+            if (!schema.TryGetPropertyValue(keyword, out var requiredNode))
+                continue;
+
+            // Flow input descriptors use a boolean `required` for the input itself.
+            // Only the array-valued JSON Schema form describes required object members.
+            if (string.Equals(keyword, "required", StringComparison.Ordinal)
+                && requiredNode is JsonValue requiredValue
+                && requiredValue.TryGetValue<bool>(out _))
+            {
+                continue;
+            }
+
+            if (requiredNode is not JsonArray requiredNames)
+            {
+                yield return InvalidExtractionSchemaDiagnostic(
+                    $"{path}.{keyword}",
+                    $"{keyword} must be an array of unique non-empty property names",
+                    isInput);
+                continue;
+            }
+
+            for (var index = 0; index < requiredNames.Count; index++)
+            {
+                var itemPath = $"{path}.{keyword}[{index}]";
+                if (requiredNames[index] is not JsonValue value
+                    || !value.TryGetValue<string>(out var rawName)
+                    || string.IsNullOrWhiteSpace(rawName))
+                {
+                    yield return InvalidExtractionSchemaDiagnostic(
+                        itemPath,
+                        "required property name must be a non-empty string",
+                        isInput);
+                    continue;
+                }
+
+                var name = rawName.Trim();
+                if (!seen.Add(name))
+                {
+                    yield return InvalidExtractionSchemaDiagnostic(
+                        itemPath,
+                        $"required property `{name}` is declared more than once",
+                        isInput);
+                    continue;
+                }
+
+                if (!properties.ContainsKey(name))
+                {
+                    yield return InvalidExtractionSchemaDiagnostic(
+                        itemPath,
+                        $"required property `{name}` is not declared in properties",
+                        isInput);
+                }
+            }
+        }
+    }
+
     private static (string Code, string Path, string Message) WeakExtractionSchemaDiagnostic(
         string path,
         string reason,
@@ -4709,6 +4924,18 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
         var contract = isInput ? "input" : "output";
         var message = $"{code}: {path}: {reason}. "
                       + $"Strengthen the extracted leaf {contract} contract before leaf generation, or move the candidate back to main.";
+        return (code, path, message);
+    }
+
+    private static (string Code, string Path, string Message) InvalidExtractionSchemaDiagnostic(
+        string path,
+        string reason,
+        bool isInput = false)
+    {
+        var code = isInput ? "INVALID_EXTRACTION_INPUT_SCHEMA" : "INVALID_EXTRACTION_OUTPUT_SCHEMA";
+        var contract = isInput ? "input" : "output";
+        var message = $"{code}: {path}: {reason}. "
+                      + $"Repair the extracted leaf {contract} contract before leaf generation.";
         return (code, path, message);
     }
 
@@ -5757,7 +5984,8 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
         string? previousError,
         string? previousYaml,
         string? previousRepairContext,
-        int outerAttempt)
+        int outerAttempt,
+        bool useStructuredGeneration)
     {
         var leafGenerator = generator.DeepClone() as JsonObject ?? new JsonObject();
         leafGenerator.Remove("mode");
@@ -5772,6 +6000,11 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
         leafGenerator["context"] = "";
         leafGenerator["pipeline_leaf_name"] = spec.Name;
         leafGenerator["pipeline_leaf_attempt"] = outerAttempt;
+        leafGenerator["pipeline_contract_fingerprint"] = BuildPlannerFingerprint(
+            "pipeline_leaf_contract",
+            spec.Name,
+            generationPrompt);
+        leafGenerator["pipeline_use_structured_generation"] = useStructuredGeneration;
 
         var leafInput = new JsonObject
         {
@@ -5865,7 +6098,8 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
                     previousError,
                     previousYaml,
                     previousRepairContext,
-                    attempt);
+                    attempt,
+                    useStructuredGeneration: generator["pipeline_use_structured_generation"]?.GetValue<bool>() ?? false);
                 ApplyPipelineLeafRepairReasoning(
                     leafInput,
                     GetStringProperty(generator, "reasoning"),
@@ -6009,9 +6243,14 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
 
     private static int GetPipelineGenerationMaxAttempts(JsonObject pipelineInput)
     {
-        var configured = TryGetPositiveInteger(pipelineInput["validate"] as JsonObject, "max_repair_attempts")
-            ?? TryGetPositiveInteger(pipelineInput["on_invalid"] as JsonObject, "max_attempts")
-            ?? DefaultPlanRepairMaxAttempts;
+        var configuredRepairs = TryGetPositiveInteger(
+            pipelineInput["validate"] as JsonObject,
+            "max_repair_attempts");
+        if (configuredRepairs.HasValue)
+            return checked(configuredRepairs.Value + 1);
+
+        var configured = TryGetPositiveInteger(pipelineInput["on_invalid"] as JsonObject, "max_attempts")
+                         ?? DefaultPlanRepairMaxAttempts;
         return Math.Max(1, configured);
     }
 
@@ -6214,7 +6453,8 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
             previousError,
             currentLeaf.Yaml,
             repairContext,
-            attempt);
+            attempt,
+            generator["pipeline_use_structured_generation"]?.GetValue<bool>() ?? false);
         ApplyPipelineLeafRepairReasoning(
             leafInput,
             GetStringProperty(generator, "reasoning"),
@@ -6305,7 +6545,8 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
             previousError,
             currentLeaf.Yaml,
             repairContext,
-            attempt);
+            attempt,
+            generator["pipeline_use_structured_generation"]?.GetValue<bool>() ?? false);
         ApplyPipelineLeafRepairReasoning(
             leafInput,
             GetStringProperty(generator, "reasoning"),
@@ -6397,7 +6638,8 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
             previousError,
             currentLeaf.Yaml,
             repairContext,
-            attempt);
+            attempt,
+            generator["pipeline_use_structured_generation"]?.GetValue<bool>() ?? false);
         ApplyPipelineLeafRepairReasoning(
             leafInput,
             GetStringProperty(generator, "reasoning"),
@@ -6695,7 +6937,7 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
     private static void ForceSinglePlanAttempt(JsonObject planInput)
     {
         if (planInput["validate"] is JsonObject validate)
-            validate["max_repair_attempts"] = 1;
+            validate.Remove("max_repair_attempts");
         planInput["on_invalid"] = new JsonObject { ["action"] = "fail", ["max_attempts"] = 1 };
     }
 
@@ -9464,21 +9706,31 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
                         || string.IsNullOrWhiteSpace(expression)
                         || !target.Inputs.TryGetValue(inputName, out var destinationInput)
                         || !TryResolveDirectLeafOutputSource(expression, sourceTypes, out var sourceType)
-                        || sourceType.IsOpaque
-                        || IsWeakPipelineOutputDescriptor(sourceType))
+                        || sourceType.IsOpaque)
                     {
                         continue;
                     }
 
                     var destinationType = FlowTypeDescriptorConverter.FromInputDef(destinationInput);
                     var issue = sourceType.FindAssignmentIssue(destinationType);
+                    var sourceTypeIsStrong = !IsWeakPipelineOutputDescriptor(sourceType);
                     var widensClosedObject = issue != null
+                                              && sourceTypeIsStrong
                                               && string.Equals(issue.ActualType, "declared property", StringComparison.Ordinal)
                                               && string.Equals(issue.ExpectedType, "closed object without additional properties", StringComparison.Ordinal);
                     var widensIntegerToAuthoritativeNumber = issue != null
+                                                             && sourceTypeIsStrong
                                                              && sourceType.Kind == FlowTypeKind.Number
                                                              && destinationType.Kind == FlowTypeKind.Integer;
-                    if (!widensClosedObject && !widensIntegerToAuthoritativeNumber)
+                    var preservesAuthoritativeNullability = issue != null
+                                                            && ContainsNullVariantDeep(sourceType)
+                                                            && !IsWeakPipelineOutputDescriptor(sourceType.RemoveNullDeep())
+                                                            && IsSafeDirectInputContractWidening(
+                                                                sourceType.RemoveNullDeep(),
+                                                                destinationType.RemoveNullDeep());
+                    if (!widensClosedObject
+                        && !widensIntegerToAuthoritativeNumber
+                        && !preservesAuthoritativeNullability)
                     {
                         continue;
                     }
@@ -9550,6 +9802,78 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
         stream.Save(writer, assignAnchors: false);
         var promotedYaml = writer.ToString();
         return (ParseAndValidateGeneratedWorkflow(promotedYaml), promotedYaml);
+    }
+
+    private static bool ContainsNullVariantDeep(FlowTypeDescriptor descriptor)
+    {
+        if (descriptor.Kind == FlowTypeKind.Null)
+            return true;
+        if (descriptor.Kind == FlowTypeKind.Union
+            && descriptor.Variants.Any(ContainsNullVariantDeep))
+        {
+            return true;
+        }
+        if (descriptor.Kind == FlowTypeKind.Array
+            && descriptor.Items != null
+            && ContainsNullVariantDeep(descriptor.Items))
+        {
+            return true;
+        }
+        return descriptor.Kind is FlowTypeKind.Object or FlowTypeKind.Dictionary
+               && (descriptor.Properties.Values.Any(static property => ContainsNullVariantDeep(property.Type))
+                   || descriptor.AdditionalProperties != null
+                   && ContainsNullVariantDeep(descriptor.AdditionalProperties));
+    }
+
+    private static bool IsSafeDirectInputContractWidening(
+        FlowTypeDescriptor source,
+        FlowTypeDescriptor destination)
+    {
+        if (source.IsOpaque || destination.IsOpaque)
+            return false;
+        if (source.Kind == FlowTypeKind.Union)
+            return source.Variants.Count > 0
+                   && source.Variants.All(variant => IsSafeDirectInputContractWidening(variant, destination));
+        if (destination.Kind == FlowTypeKind.Union)
+            return destination.Variants.Any(variant => IsSafeDirectInputContractWidening(source, variant));
+        if (source.Kind == FlowTypeKind.Number && destination.Kind == FlowTypeKind.Integer)
+            return true;
+        if (source.Kind != destination.Kind)
+            return source.Kind == FlowTypeKind.Integer && destination.Kind == FlowTypeKind.Number;
+        if (source.Kind == FlowTypeKind.String)
+        {
+            return destination.EnumValues.Count == 0
+                   || source.EnumValues.Count > 0
+                   && source.EnumValues.All(destination.EnumValues.Contains);
+        }
+        if (source.Kind == FlowTypeKind.Array)
+        {
+            return source.Items != null
+                   && destination.Items != null
+                   && IsSafeDirectInputContractWidening(source.Items, destination.Items);
+        }
+        if (source.Kind is not (FlowTypeKind.Object or FlowTypeKind.Dictionary))
+            return true;
+
+        foreach (var (name, destinationProperty) in destination.Properties)
+        {
+            if (!source.Properties.TryGetValue(name, out var sourceProperty))
+            {
+                if (destinationProperty.Required)
+                    return false;
+                continue;
+            }
+            if (destinationProperty.Required && !sourceProperty.Required)
+                return false;
+            if (!IsSafeDirectInputContractWidening(sourceProperty.Type, destinationProperty.Type))
+                return false;
+        }
+
+        return source.AdditionalProperties == null
+               || destination.AdditionalProperties != null
+               && IsSafeDirectInputContractWidening(
+                   source.AdditionalProperties,
+                   destination.AdditionalProperties);
     }
 
     private static YamlNode BuildPromotedWorkflowInputYaml(
@@ -10879,11 +11203,20 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
         IReadOnlyList<GeneratedLeafWorkflow> leaves,
         IReadOnlyDictionary<string, JsonNode?> configuredMainInputs,
         IReadOnlyDictionary<string, JsonNode?> generatedLeafInputs,
-        StepExecutorRegistry registry)
+        StepExecutorRegistry registry,
+        bool useStructuredOutput)
     {
         var sb = new StringBuilder();
         sb.AppendLine("You are assembling the parent `main` workflow graph for a GnOuGo.Flow pipeline.");
-        sb.AppendLine("Return ONLY one YAML mapping with `document` and `graph` keys. Do not return version, entrypoint, workflows, a full `main` workflow, or leaf workflow definitions.");
+        if (useStructuredOutput)
+        {
+            sb.AppendLine("Return ONLY the requested strict JSON response object. Put the YAML mapping below `document` in `document_yaml` and the YAML mapping below `graph` in `graph_yaml`.");
+            sb.AppendLine("Do not include the `document:` or `graph:` wrapper keys inside those strings. Do not return version, entrypoint, workflows, a full `main` workflow, or leaf workflow definitions.");
+        }
+        else
+        {
+            sb.AppendLine("Return ONLY one YAML mapping with `document` and `graph` keys. Do not return version, entrypoint, workflows, a full `main` workflow, or leaf workflow definitions.");
+        }
         sb.AppendLine();
         sb.AppendLine("Hard rules:");
         sb.AppendLine("- Return a compact orchestration graph. The runtime will render the real `main` workflow and graft validated leaf workflows before final validation.");
@@ -10892,6 +11225,7 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
         sb.AppendLine("- Keep simple deterministic work in the main graph: renames, constants, guards, field mapping, routing, aggregation, and loop orchestration.");
         sb.AppendLine("- The main graph may only use compact leaf calls plus support nodes: `set`, `sequence`, `switch`, `parallel`, `loop.sequential`, `loop.parallel`, and exact native orchestration steps locked in `main_required_native_steps_json`.");
         sb.AppendLine("- Emit every required occurrence from `main_required_native_steps_json` as a direct graph step with the exact `type`; preserve its operation/catalog identity semantically and place it at the documented orchestration boundary.");
+        sb.AppendLine("- `operation_ids`, `catalog_ids`, and `owned_operation_ids` are planner evidence only. Never emit them as graph-node or public workflow YAML fields; the runtime validates native occurrences from the locked inventory.");
         sb.AppendLine("- The main graph must not emit `mcp.call`, `llm.call`, `template.render`, `workflow.plan`, an unlisted `human.input`/`emit`, or inline leaf implementation logic.");
         sb.AppendLine("- The main workflow must never use `workflow.plan`, and graph nodes must not inline leaf logic.");
         sb.AppendLine("- Leaf workflows must never call other workflows.");
@@ -11252,6 +11586,13 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
             sb.AppendLine("- Reuse one compatible materializer result for all consumers of the same artifact. Keep every consumer leaf's declared argument name even when producer and consumer field names differ.");
             sb.AppendLine("- A raw public input, literal, set-to-literal, function, template, cast, concatenation, normalized path, or reconstructed value does not prove a materialized artifact. Do not add a public input to bypass the producer.");
         }
+        if (structuredError.Contains("FUNCTION_JSDOC_", StringComparison.Ordinal))
+        {
+            sb.AppendLine("Function documentation repair:");
+            sb.AppendLine("- Locate every function named by a FUNCTION_JSDOC_* diagnostic, including local helpers declared inside another generated function.");
+            sb.AppendLine("- Immediately precede each named declaration with its own JSDoc block. Document every declared parameter with an explicit semantic type and include one explicit typed @returns tag.");
+            sb.AppendLine("- Preserve the function name, parameters, body, call sites, return shape, and all unrelated functions exactly; this repair changes documentation only.");
+        }
         if (!string.IsNullOrWhiteSpace(previousResponse))
             AppendPromptSection(sb, "invalid_main_assembly_yaml", StripMarkdownFences(previousResponse));
         AppendPromptSection(sb, "main_assembly_validation_error", structuredError);
@@ -11271,6 +11612,11 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
     private static WorkflowRuntimeException BuildPipelineMainAssemblyRepairStalledException(
         int attempt,
         string? bestCandidateFingerprint,
+        string? candidateFingerprint,
+        int bestValidationProgress,
+        int candidateValidationProgress,
+        IReadOnlySet<string>? bestDiagnosticCodes,
+        string? bestStructuredError,
         string diagnosticFingerprint,
         string reason,
         Exception inner)
@@ -11284,10 +11630,56 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
                 ["classification"] = "plan_defect",
                 ["attempt_count"] = attempt,
                 ["best_candidate_fingerprint"] = bestCandidateFingerprint,
+                ["candidate_fingerprint"] = candidateFingerprint,
+                ["best_validation_progress"] = bestValidationProgress,
+                ["candidate_validation_progress"] = candidateValidationProgress,
+                ["best_diagnostic_codes"] = BuildStringArrayJson(
+                    bestDiagnosticCodes?.Order(StringComparer.Ordinal).ToArray() ?? Array.Empty<string>()),
+                ["candidate_diagnostic_codes"] = BuildStringArrayJson(
+                    GetPlannerDiagnosticCodes(inner).Order(StringComparer.Ordinal).ToArray()),
+                ["best_validation_diagnostics"] = BuildSanitizedPlannerDiagnosticSnapshot(bestStructuredError),
+                ["candidate_validation_diagnostics"] = BuildSanitizedPlannerDiagnosticSnapshot(
+                    BuildStructuredPlanError(inner, attempt)),
                 ["diagnostic_fingerprint"] = diagnosticFingerprint,
                 ["stall_reason"] = "non_improving_main_assembly_repair",
-                ["recommended_action"] = "Clarify the requested orchestration or revise the declared contracts; the rejected candidate was not emitted."
+                ["recommended_action"] = "Inspect the sanitized planner diagnostics and deterministic contracts. Ask the user only when a concrete unresolved behavior choice remains."
             });
+
+    private static JsonArray BuildSanitizedPlannerDiagnosticSnapshot(string? structuredError)
+    {
+        if (string.IsNullOrWhiteSpace(structuredError))
+            return new JsonArray();
+
+        try
+        {
+            var root = JsonNode.Parse(structuredError) as JsonObject;
+            var diagnostics = root?["details"]?["diagnostics"] as JsonArray;
+            if (diagnostics == null)
+                return new JsonArray();
+
+            var allowedKeys = new HashSet<string>(StringComparer.Ordinal)
+            {
+                "code", "phase", "workflow", "workflow_name", "step", "step_id", "field",
+                "location", "path", "invalid_path", "expected", "actual_type", "leaf", "leaf_name",
+                "consumer", "consumer_step", "consumer_step_id", "artifact_kind", "request_pointer"
+            };
+            return new JsonArray(diagnostics
+                .OfType<JsonObject>()
+                .Take(32)
+                .Select(diagnostic => (JsonNode)new JsonObject(diagnostic
+                    .Where(property => allowedKeys.Contains(property.Key)
+                                       && property.Value is JsonValue)
+                    .Select(property => new KeyValuePair<string, JsonNode?>(
+                        property.Key,
+                        property.Value?.DeepClone()))))
+                .Where(static diagnostic => diagnostic.AsObject().Count > 0)
+                .ToArray());
+        }
+        catch (System.Text.Json.JsonException)
+        {
+            return new JsonArray();
+        }
+    }
 
     private static GeneratedMainAssembly ParseGeneratedMainAssembly(string yaml, IReadOnlyList<GeneratedLeafWorkflow> leaves)
     {
@@ -11391,6 +11783,7 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
             throw new WorkflowRuntimeException(ErrorCodes.TemplatePolicy, "Pipeline orchestration graph call nodes must use leaf and args, not raw workflow.call.");
 
         var rendered = CloneYamlMappingNode(graphStep);
+        RemovePlannerEvidenceFields(rendered);
         if (rendered.GetSequence("steps") is { } steps)
             ReplaceYaml(rendered, "steps", RenderGraphStepSequence(steps, leafNames));
 
@@ -11410,6 +11803,12 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
         }
 
         return rendered;
+    }
+
+    private static void RemovePlannerEvidenceFields(YamlMappingNode step)
+    {
+        foreach (var field in new[] { "operation_ids", "catalog_ids", "owned_operation_ids" })
+            step.Children.Remove(Scalar(field));
     }
 
     private static YamlSequenceNode? TryParseGraphStepSequenceScalar(string? value)
@@ -12191,10 +12590,13 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
         {
             diagnostics.Add((JsonNode)new JsonObject
             {
+                ["diagnostic_id"] = BuildPipelineExtractionQualityDiagnosticId(diagnostic),
                 ["code"] = diagnostic.Code,
                 ["kind"] = diagnostic.Kind,
                 ["severity"] = diagnostic.Severity,
                 ["remediation_surface"] = diagnostic.RemediationSurface,
+                ["challenged_operation_ids"] = BuildStringArrayJson(
+                    diagnostic.ChallengedOperationIds ?? Array.Empty<string>()),
                 ["leaf_name"] = diagnostic.LeafName ?? "",
                 ["message"] = diagnostic.Message,
                 ["recommendation"] = diagnostic.Recommendation ?? "",
@@ -12871,7 +13273,24 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
     }
 
     private static YamlMappingNode? BuildWorkflowOutputFromSkillSchema(YamlNode skillOutputSchema, string expr)
-        => WorkflowPlanContractNormalizer.BuildWorkflowOutputFromSchema(WorkflowParser.YamlToJson(skillOutputSchema), expr);
+    {
+        if (skillOutputSchema is not YamlMappingNode schema
+            || WorkflowPlanContractNormalizer.IsWeakYamlOutputSchema(schema))
+        {
+            return WorkflowPlanContractNormalizer.BuildWorkflowOutputFromSchema(
+                WorkflowParser.YamlToJson(skillOutputSchema),
+                expr);
+        }
+
+        var output = new YamlMappingNode { { Scalar("expr"), Scalar(expr) } };
+        foreach (var (key, value) in schema.Children)
+        {
+            if (key is YamlScalarNode { Value: "expr" })
+                continue;
+            output.Add(CloneYamlNode(key), CloneYamlNode(value));
+        }
+        return output;
+    }
 
     private static YamlSequenceNode BuildPipelineSkillTags(
         JsonObject? pipelineSkill,

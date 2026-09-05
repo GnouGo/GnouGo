@@ -175,7 +175,7 @@ internal static class StepOutputTypeResolver
             && mcpContracts.TryGetValue((serverName, methodName), out var contract))
         {
             responseType = contract.OutputSchema == null
-                ? InferFromExample(contract.ExampleResponse)
+                ? FlowTypeDescriptor.Any
                 : FlowTypeDescriptorConverter.FromJsonSchema(contract.OutputSchema);
         }
 

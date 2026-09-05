@@ -151,9 +151,18 @@ internal static class WorkflowPlanDiagnostics
 
     public static string BuildDiagnosticFingerprint(Exception ex)
     {
+        var normalized = string.Join("\n", BuildDiagnosticIdentities(ex).Order(StringComparer.Ordinal));
+        return Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(normalized))).ToLowerInvariant();
+    }
+
+    public static IReadOnlySet<string> BuildDiagnosticIdentities(Exception ex)
+    {
         var diagnostics = new List<string>();
-        if (ex is WorkflowRuntimeException { Details: not null } runtimeException)
-            CollectDiagnosticIdentities(runtimeException.Details, diagnostics);
+        for (Exception? current = ex; current != null; current = current.InnerException)
+        {
+            if (current is WorkflowRuntimeException { Details: not null } runtimeException)
+                CollectDiagnosticIdentities(runtimeException.Details, diagnostics);
+        }
 
         if (diagnostics.Count == 0)
         {
@@ -163,10 +172,13 @@ internal static class WorkflowPlanDiagnostics
             diagnostics.Add(InferPlanErrorCode(ex.Message, exceptionCode));
         }
 
-        diagnostics.Sort(StringComparer.Ordinal);
-        var normalized = string.Join("\n", diagnostics.Distinct(StringComparer.Ordinal));
-        return Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(normalized))).ToLowerInvariant();
+        return diagnostics.ToHashSet(StringComparer.Ordinal);
     }
+
+    public static bool IsStrictDiagnosticDecrease(
+        IReadOnlySet<string> candidate,
+        IReadOnlySet<string> baseline)
+        => candidate.Count < baseline.Count && candidate.IsSubsetOf(baseline);
 
     public static bool IsTransientProviderFailure(Exception exception)
         => LlmFailureClassifier.Classify(exception)?.Retryable == true;
@@ -179,7 +191,9 @@ internal static class WorkflowPlanDiagnostics
         for (Exception? current = exception; current != null; current = current.InnerException)
         {
             if (current is WorkflowRuntimeException runtime
-                && runtime.Code is ErrorCodes.LlmBudgetExceeded or ErrorCodes.LlmBudgetUnverifiable)
+                && runtime.Code is ErrorCodes.LlmBudgetExceeded
+                    or ErrorCodes.LlmBudgetUnverifiable
+                    or ErrorCodes.LlmSchema)
             {
                 return true;
             }
@@ -194,7 +208,10 @@ internal static class WorkflowPlanDiagnostics
         {
             case JsonObject obj:
             {
-                var code = ReadFingerprintValue(obj, "code");
+                var code = ReadFingerprintValue(obj, "code")
+                           ?? ReadFingerprintValue(obj, "diagnostic_code")
+                           ?? ReadFingerprintValue(obj, "reason_code")
+                           ?? ReadFingerprintValue(obj, "issue_code");
                 if (!string.IsNullOrWhiteSpace(code))
                 {
                     if (string.Equals(code, "PIPELINE_MAIN_UNPROVEN_EXTERNAL_ARTIFACT", StringComparison.OrdinalIgnoreCase))
@@ -217,7 +234,8 @@ internal static class WorkflowPlanDiagnostics
                     var identityFields = new[]
                     {
                         "phase", "workflow", "workflow_name", "step", "step_id", "field", "location",
-                        "path", "invalid_path", "expected", "actual_type"
+                        "path", "invalid_path", "leaf", "leaf_name", "output", "output_name",
+                        "consumer", "consumer_step_id", "remediation_surface", "expected", "actual_type"
                     };
                     var identity = new StringBuilder(code.Trim().ToUpperInvariant());
                     foreach (var field in identityFields)

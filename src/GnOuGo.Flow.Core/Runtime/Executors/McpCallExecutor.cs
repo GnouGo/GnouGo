@@ -975,14 +975,35 @@ Produce the final answer strictly from the executed MCP results.
             if (string.IsNullOrWhiteSpace(name) || (allowed != null && !allowed.Contains(name)))
                 continue;
 
+            var outputSchema = node["output_schema"]?.DeepClone() ?? node["outputSchema"]?.DeepClone();
+            McpOutputContractResolution? outputContract = null;
+            if (node["output_contract"] is JsonObject outputContractNode)
+            {
+                var source = outputContractNode["source"]?.GetValue<string>() ?? "";
+                var authoritative = outputContractNode["authoritative"]?.GetValue<bool>() ?? false;
+                var errors = outputContractNode["errors"] is JsonArray errorNodes
+                    ? errorNodes.OfType<JsonValue>()
+                        .Select(static error => error.TryGetValue<string>(out var text) ? text : null)
+                        .Where(static error => !string.IsNullOrWhiteSpace(error))
+                        .Select(static error => error!)
+                        .ToArray()
+                    : Array.Empty<string>();
+                outputContract = new McpOutputContractResolution(
+                    outputContractNode["schema"]?.DeepClone() ?? outputSchema?.DeepClone(),
+                    source,
+                    authoritative,
+                    errors);
+            }
+
             capabilities.Add(CreateToolCapability(McpToolContractEnricher.EnrichTool(new McpToolInfo
             {
                 Name = name,
                 Description = node["description"]?.GetValue<string>(),
                 InputSchema = node["input_schema"]?.DeepClone() ?? node["inputSchema"]?.DeepClone(),
                 Meta = node["meta"]?.DeepClone() ?? node["_meta"]?.DeepClone(),
-                OutputSchema = node["output_schema"]?.DeepClone() ?? node["outputSchema"]?.DeepClone(),
-                ExampleResponse = node["example_response"]?.DeepClone() ?? node["exampleResponse"]?.DeepClone()
+                OutputSchema = outputSchema,
+                ExampleResponse = node["example_response"]?.DeepClone() ?? node["exampleResponse"]?.DeepClone(),
+                OutputContract = outputContract
             }), usedNames));
         }
     }
