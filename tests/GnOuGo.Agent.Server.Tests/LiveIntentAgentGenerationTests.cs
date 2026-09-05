@@ -117,6 +117,8 @@ public sealed class LiveIntentAgentGenerationTests
             Directory.SetCurrentDirectory(sourceRoot);
             app = GnOuGoAgentWebHost.Build(
                 [
+                    // This harness exercises the compatibility chat workflow and its human.input forms.
+                    "--TypedWorkflowPlanning:PlannerVersion=1",
                     "--OtlpCollector:Enabled=false",
                     "--OpenTelemetry:Enabled=false",
                     $"--Database:Path={telemetryDatabasePath}",

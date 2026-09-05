@@ -5,8 +5,10 @@ using Microsoft.AspNetCore.Hosting.Server.Features;
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging.Abstractions;
+using Microsoft.Extensions.Options;
 using GnOuGo.Agent.Mcp;
 using GnOuGo.AI.Core;
+using GnOuGo.Agent.Server.Configuration;
 using GnOuGo.Agent.Server.SmartFlow;
 using GnOuGo.Assets.Animation;
 using GnOuGo.Flow.Core.Compilation;
@@ -19,6 +21,28 @@ namespace GnOuGo.Agent.Server.Tests;
 
 public sealed class ConfigureAgentsServiceTests
 {
+    [Theory]
+    [InlineData("/gnougo add", "/planning")]
+    [InlineData("  /GnOuGo add  ", "/planning")]
+    [InlineData("/gnougo reprompt reviewer", "/planning?agent=reviewer")]
+    [InlineData("/gnougo reprompt review&approve", "/planning?agent=review%26approve")]
+    public async Task ExecuteAsync_DefaultPlanner_OpensTypedDesignerWithoutStartingLegacyGeneration(
+        string command,
+        string expectedLink)
+    {
+        var llm = new RecordingLlmClient();
+        var service = SmartFlowTestFactory.CreateAgentsService(llm, new FakeMcpClientFactory());
+
+        var events = await SmartFlowTestFactory.CollectAsync(
+            service.ExecuteAsync(command, TestContext.Current.CancellationToken),
+            TestContext.Current.CancellationToken);
+
+        var answer = Assert.Single(events);
+        Assert.Equal("answer", answer.Type);
+        Assert.Contains($"[Open the workflow designer]({expectedLink})", answer.Text);
+        Assert.Equal(0, llm.CallCount);
+    }
+
     [Fact]
     public async Task ExecuteAsync_AgentRemove_RevokesPersistentCopilotGrantsForStableAgentId()
     {
@@ -910,7 +934,7 @@ public sealed class ConfigureAgentsServiceTests
     }
 
     [Fact]
-    public async Task ExecuteAsync_AgentAdd_WithoutConfiguredProvider_ReturnsGuidanceWithoutCallingLlm()
+    public async Task ExecuteAsync_LegacyAgentAdd_WithoutConfiguredProvider_ReturnsGuidanceWithoutCallingLlm()
     {
         var llm = new RecordingLlmClient();
         var keyVault = new FakeMcpSession("GnOuGo.KeyVault.Mcp")
@@ -925,7 +949,8 @@ public sealed class ConfigureAgentsServiceTests
                 DefaultProvider = "OpenAi",
                 DefaultModel = "gpt-4o-mini",
                 Models = new Dictionary<string, ModelProviderOptions>()
-            });
+            },
+            typedWorkflowPlanning: new TypedWorkflowPlanningSettings { PlannerVersion = 1 });
 
         var events = await SmartFlowTestFactory.CollectAsync(service.ExecuteAsync("/gnougo add", CancellationToken.None), TestContext.Current.CancellationToken);
 
@@ -936,7 +961,7 @@ public sealed class ConfigureAgentsServiceTests
     }
 
     [Fact]
-    public async Task ExecuteAsync_AgentAdd_WithoutConfiguredDefaultProvider_ReturnsGuidanceWithoutCallingLlm()
+    public async Task ExecuteAsync_LegacyAgentAdd_WithoutConfiguredDefaultProvider_ReturnsGuidanceWithoutCallingLlm()
     {
         var llm = new RecordingLlmClient();
         var keyVaultStore = new FakeKeyVaultRuntimeConfigStore()
@@ -954,7 +979,8 @@ public sealed class ConfigureAgentsServiceTests
                     ["ollama"] = new() { Url = "http://localhost:11434", Type = "ollama" }
                 }
             },
-            keyVaultStore);
+            keyVaultStore,
+            typedWorkflowPlanning: new TypedWorkflowPlanningSettings { PlannerVersion = 1 });
 
         var events = await SmartFlowTestFactory.CollectAsync(service.ExecuteAsync("/gnougo add", CancellationToken.None), TestContext.Current.CancellationToken);
 
@@ -1032,7 +1058,8 @@ public sealed class ConfigureAgentsServiceTests
             runtimeStore,
             SmartFlowTestFactory.CreateTelemetryHarness().Telemetry,
             NullLogger<ConfigureAgentsService>.Instance,
-            exchangeRateProvider: new TestExchangeRateProvider());
+            exchangeRateProvider: new TestExchangeRateProvider(),
+            typedWorkflowPlanning: Options.Create(new TypedWorkflowPlanningSettings { PlannerVersion = 1 }));
     }
 
     private static async Task<(RunResult Result, List<SmartFlowEvent> Events)> ExecuteConfigureAgentsWorkflowByNameAsync(

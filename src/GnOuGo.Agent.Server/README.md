@@ -12,9 +12,11 @@ Open `/planning` for combined name/description entry, behavior diagrams, guided
 clarification, natural-language revisions, full YAML edit revalidation, and approval
 of an exact artifact. Encrypted sessions and model receipts survive reconnect/restart;
 EF Core stores tenant-scoped revision indexes. Direct designer sessions use version 2.
-`TypedWorkflowPlanning:PlannerVersion` defaults to `1` for existing chat commands;
-set it to `2` after live acceptance to route `/gnougo add` and `/gnougo reprompt` to
-the designer. There is no automatic fallback after version-2 failure.
+`TypedWorkflowPlanning:PlannerVersion` defaults to `2`: `/gnougo add` and
+`/gnougo reprompt` open the designer. Set it explicitly to `1` to roll back to the
+compatibility chat workflow. Restart Agent.Server after changing this setting.
+There is no automatic fallback after version-2 failure. This default change does
+not establish that the live quality and performance release gates have passed.
 
 See [the implementation and rollout guide](../../docs/workflow-planning-v2.md) for
 diagrams, configuration, API contracts, persistence limits and test/publish commands.
@@ -360,7 +362,7 @@ The single-selector outcome depends on catalog evidence: `conditional_selector_s
 
 External writes inferred from a short intention are classified separately from reads and AI execution. The structured inventory declares external-write confirmation as `required`, `forbidden`, or `unspecified`, with exact request/context evidence required for either explicit choice. `/gnougo add` receives a locked platform confirmation operation and ordering policy unless the validated policy is `forbidden`; `unspecified` remains fail-safe. This is language-neutral, so an explicit instruction such as “Aucune confirmation humaine” is honored without provider- or locale-specific keyword rules. A conditional rule such as “only after confirmation” never becomes a document-wide denied tool, while unconditional prohibitions still reject exact denied calls.
 
-The focused live `/gnougo add` smoke test uses the current KeyVault-backed runtime, requires successful discovery of every configured catalog, generates and compiles a provider-neutral fixed-output workflow with no requested external effect, verifies persistence, then deletes the unique temporary agent and restores the previous default-agent setting:
+The live chat harnesses below explicitly select planner version 1 to retain compatibility-path coverage; they do not validate the default version-2 designer. The focused live `/gnougo add` smoke test uses the current KeyVault-backed runtime, requires successful discovery of every configured catalog, generates and compiles a provider-neutral fixed-output workflow with no requested external effect, verifies persistence, then deletes the unique temporary agent and restores the previous default-agent setting:
 
 ```bash
 GNOU_GO_LIVE_AGENT_ADD_SMOKE=1 dotnet test \

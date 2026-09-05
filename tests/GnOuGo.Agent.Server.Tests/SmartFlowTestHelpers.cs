@@ -423,7 +423,8 @@ internal static class SmartFlowTestFactory
         RecordingLlmClient llmClient,
         IMcpClientFactory mcpFactory,
         LLMOptions? options = null,
-        IKeyVaultRuntimeConfigStore? keyVaultStore = null)
+        IKeyVaultRuntimeConfigStore? keyVaultStore = null,
+        TypedWorkflowPlanningSettings? typedWorkflowPlanning = null)
     {
         var runtimeStore = CreateRuntimeOptionsStore(options);
         var effectiveKeyVaultStore = keyVaultStore ?? new FakeKeyVaultRuntimeConfigStore();
@@ -439,7 +440,8 @@ internal static class SmartFlowTestFactory
             runtimeStore,
             CreateTelemetry(),
             NullLogger<ConfigureAgentsService>.Instance,
-            exchangeRateProvider: new TestExchangeRateProvider());
+            exchangeRateProvider: new TestExchangeRateProvider(),
+            typedWorkflowPlanning: typedWorkflowPlanning is null ? null : Options.Create(typedWorkflowPlanning));
     }
 
     public static SmartFlowService CreateSmartFlowService(

@@ -86,14 +86,16 @@ and final outcomes. GenAI token usage is recorded once per dispatched model requ
 Historical trace summaries derive final status from captured roots and expose recovered
 child errors separately; missing explicit root completion produces `unknown`.
 
-After acceptance, route `/gnougo add` and `/gnougo reprompt` to the designer:
+Agent.Server uses these defaults to route `/gnougo add` and `/gnougo reprompt` to the designer:
 
 ```json
 {"TypedWorkflowPlanning":{"PlannerVersion":2,"MaxConcurrency":4,"DatabasePath":".GnOuGo/data/gnougo-planning.db"}}
 ```
 
-The checked-in default remains version 1 until live acceptance. Direct designer
-sessions explicitly use version 2. Rollback changes the setting to 1 without deleting
+Agent.Server defaults to version 2 for `/gnougo add` and `/gnougo reprompt`; these
+commands open the designer. Direct designer sessions explicitly use version 2.
+Standalone `workflow.plan` callers still default to version 1. Rollback changes
+the Agent.Server setting to 1 and requires a restart, without deleting
 sessions or rewriting agents.
 
 ```sh
@@ -121,4 +123,5 @@ The design-time factory uses an in-memory connection and never starts the applic
 The [acceptance corpus](../evaluations/workflow-planning/README.md) defines the paired
 20 × 3 experiment. The 95% quality, 25% active-time reduction and 30% input-token
 reduction gates are targets, not measured claims. Evaluate them with frozen contracts,
-the same model and independent intent checks before changing defaults.
+the same model and independent intent checks. Enabling the designer by default does
+not establish that these gates have passed.
