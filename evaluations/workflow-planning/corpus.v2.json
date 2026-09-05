@@ -1,0 +1,27 @@
+{
+  "schemaVersion": 2,
+  "repetitions": 3,
+  "requests": [
+    {"id":"greeting","prompt":"Return a greeting using a required name input.","checks":["typed_input","correct_output"]},
+    {"id":"read_records","prompt":"Read the configured record collection and return each record identifier and value.","checks":["declared_read","typed_array","correct_output"]},
+    {"id":"filter_records","prompt":"Read records and return only records whose status is active, without modifying them.","checks":["declared_read","filter","no_external_write"]},
+    {"id":"branch_write","prompt":"Read a record. Update its value only if its status is active; otherwise return unchanged.","checks":["all_decision_outcomes","conditional_write","non_mutating_default"]},
+    {"id":"uncertain_decision","prompt":"Classify a supplied text as accepted, rejected or uncertain. Only accepted results may update a record. Uncertain results must remain non-mutating.","checks":["all_decision_outcomes","uncertainty","non_mutating_default"]},
+    {"id":"sequential_loop","prompt":"Read records and transform each value in order, returning the ordered results.","checks":["loop","ordering","typed_array"]},
+    {"id":"parallel_reads","prompt":"Read two configured collections independently and combine their records without changing external data.","checks":["parallel","dataflow","no_external_write"]},
+    {"id":"nested_loops","prompt":"For every input group, process each of its records and return results grouped under the original group identifier.","checks":["nested_loop","ownership","typed_object"]},
+    {"id":"workflow_handoff","prompt":"Read records, pass the typed records to a reusable transformation workflow, and return its result from the parent workflow.","checks":["workflow_binding","producer_reference","public_output_schema"]},
+    {"id":"cleanup_success","prompt":"Open a session, read records through it, and always close the session after processing completes.","checks":["session_dataflow","cleanup_success","cleanup_failure","cleanup_cancellation"]},
+    {"id":"cleanup_failure","prompt":"Open a session, update a selected record, and close the session even if the update fails. Do not present a failed update as success.","checks":["cleanup_failure","error_propagation","confirmation"]},
+    {"id":"cleanup_cancellation","prompt":"Open a session and process records. Cancellation must still close the opened session.","checks":["cleanup_cancellation","bounded_finalization"]},
+    {"id":"confirmation","prompt":"Prepare the proposed record changes, ask me to confirm during execution, and write only after I confirm. Rejection must make no changes.","checks":["runtime_confirmation","rejection_path","conditional_write"]},
+    {"id":"optional_input","prompt":"Return records from the input collection, using a default limit of ten when no limit is supplied.","checks":["typed_default","optional_input","cardinality"]},
+    {"id":"nullable_result","prompt":"Read an optional record and return an explicit not-found result when it does not exist.","checks":["nullable_contract","not_found_path","no_fabrication"]},
+    {"id":"nested_schema","prompt":"Transform an input object containing typed groups of records into a summary with a count for every group.","checks":["strong_object_schema","strong_array_schema","correct_output"]},
+    {"id":"artifact_handoff","prompt":"Materialize the requested artifact, inspect that produced artifact, and pass the inspection result to the consumer. A path alone is insufficient evidence of inspection.","checks":["artifact_producer","artifact_inspection","producer_reference"]},
+    {"id":"effect_cardinality","prompt":"Read the input records and perform exactly one requested update per selected record. Do not duplicate materialization or update operations.","checks":["ownership","effect_cardinality","no_duplicate_effect"]},
+    {"id":"greeting_fr","equivalentTo":"greeting","prompt":"Retourne une salutation en utilisant un nom obligatoire fourni en entrée.","checks":["typed_input","correct_output"]},
+    {"id":"renamed_catalog","equivalentTo":"read_records","catalogVariant":"renamed-identifiers","prompt":"Read the configured record collection and return each record identifier and value.","checks":["declared_read","typed_array","correct_output"]}
+  ],
+  "negativeScenarios": ["missing_capability", "ambiguous_capability", "malformed_schema", "invalid_model_json", "weak_array_schema", "missing_artifact_producer", "unknown_output_reference", "unapproved_behavior_relaxation"]
+}

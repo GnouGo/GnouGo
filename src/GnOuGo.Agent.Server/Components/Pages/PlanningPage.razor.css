@@ -1,0 +1,15 @@
+main { color: var(--gnougo-text); width: 100%; overflow: auto; }
+h1, h2, h3 { line-height: 1.3; }
+form, fieldset, details { background: var(--gnougo-surface-2); border: 1px solid var(--gnougo-border); border-radius: 10px; padding: 1rem; margin: 1rem 0; }
+label { display: block; margin: .6rem 0; }
+input:not([type="radio"]):not([type="checkbox"]), textarea { display: block; width: 100%; border: 1px solid var(--gnougo-border); border-radius: 6px; padding: .7rem; font: inherit; color: inherit; background: var(--gnougo-surface); }
+textarea { resize: vertical; }
+textarea[aria-label="Workflow YAML"] { font-family: var(--gnougo-mono); }
+button { border: 1px solid var(--gnougo-border); border-radius: 6px; background: var(--gnougo-surface); color: inherit; padding: .65rem 1rem; margin: .35rem .35rem .35rem 0; cursor: pointer; font: inherit; }
+button.btn-primary { color: white; background: var(--gnougo-accent); border-color: var(--gnougo-accent); }
+button:disabled { cursor: default; opacity: .55; }
+button:focus-visible, input:focus-visible, textarea:focus-visible, summary:focus-visible { outline: 2px solid var(--gnougo-accent); outline-offset: 3px; }
+summary { cursor: pointer; font-weight: 600; }
+li { margin: .45rem 0; }
+[role="alert"] { border-left: 4px solid #cf222e; padding: .8rem; background: #fff0f0; }
+::deep .mermaid { overflow-x: auto; }

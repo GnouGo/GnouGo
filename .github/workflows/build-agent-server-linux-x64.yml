@@ -65,6 +65,15 @@ jobs:
           dotnet restore src/GnOuGo.Agent.Server/GnOuGo.Agent.Server.csproj -r linux-x64 /p:SkipClientBuild=true /p:PublishAot=false /p:PublishTrimmed=true /p:SkipModelMetadataGeneration=true
           dotnet publish src/GnOuGo.Agent.Server/GnOuGo.Agent.Server.csproj -c Release -r linux-x64 --self-contained true -o artifacts/publish/server/linux-x64 /p:SkipClientBuild=true /p:PublishAot=false /p:PublishTrimmed=true /p:PublishSingleFile=true /p:SkipModelMetadataGeneration=true /p:UseAppHost=true /p:DebugType=None /p:DebugSymbols=false /p:Version=${{ steps.version.outputs.app_version }} /p:InformationalVersion=${{ steps.version.outputs.app_version }}
 
+      - name: Validate published planning persistence
+        shell: pwsh
+        run: |
+          $smokeRoot = Join-Path $env:RUNNER_TEMP 'gnougo-planning-persistence-smoke'
+          & 'artifacts/publish/server/linux-x64/GnOuGo.Agent.Server' --planning-persistence-smoke $smokeRoot
+          if ($LASTEXITCODE -ne 0) {
+            exit $LASTEXITCODE
+          }
+
       - name: Validate bundled server tools
         shell: pwsh
         run: |
@@ -145,4 +154,3 @@ jobs:
           name: GnOuGo.Agent.Server-linux-x64
           path: GnOuGo.Agent.Server-linux-x64.zip
           if-no-files-found: error
-

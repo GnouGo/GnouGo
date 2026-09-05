@@ -3,6 +3,9 @@
     <TargetFramework>net10.0</TargetFramework>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
+    <InterceptorsNamespaces>$(InterceptorsNamespaces);Microsoft.EntityFrameworkCore.GeneratedInterceptors</InterceptorsNamespaces>
+    <EFScaffoldModelStage>disabled</EFScaffoldModelStage>
+    <EFPrecompileQueriesStage>publish</EFPrecompileQueriesStage>
 
     <!-- Version: overridden at publish time via -p:Version=x.y.z -->
     <Version Condition="'$(Version)' == ''">0.0.0-dev</Version>
@@ -37,6 +40,7 @@
     <ProjectReference Include="..\GnOuGo.Assets.Bears\GnOuGo.Assets.Bears.csproj" />
     <ProjectReference Include="..\GnOuGo.DocIngestor.Mcp\GnOuGo.DocIngestor.Mcp.csproj" />
     <ProjectReference Include="..\GnOuGo.Flow.Core\GnOuGo.Flow.Core.csproj" />
+    <ProjectReference Include="..\GnOuGo.Flow.Planning\GnOuGo.Flow.Planning.csproj" />
     <ProjectReference Include="..\GnOuGo.Flow.Integrations\GnOuGo.Flow.Integrations.csproj" />
     <ProjectReference Include="..\GnOuGo.Flow.Mermaid\GnOuGo.Flow.Mermaid.csproj" />
     <ProjectReference Include="..\GnOuGo.Files.Server\GnOuGo.Files.Server.csproj" />
@@ -51,6 +55,9 @@
   </ItemGroup>
   <ItemGroup>
     <PackageReference Include="Markdig" Version="1.3.2" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Sqlite" Version="10.0.11" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="10.0.11" PrivateAssets="all" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Tasks" Version="10.0.11" PrivateAssets="all" />
     <PackageReference Include="ModelContextProtocol.AspNetCore" Version="2.2.0" />
     <PackageReference Include="OpenTelemetry" Version="1.17.0" />
     <PackageReference Include="OpenTelemetry.Exporter.OpenTelemetryProtocol" Version="1.17.0" />

@@ -6,6 +6,21 @@ This solution contains:
 
 ## Architecture
 
+### Typed workflow designer
+
+Open `/planning` for combined name/description entry, behavior diagrams, guided
+clarification, natural-language revisions, full YAML edit revalidation, and approval
+of an exact artifact. Encrypted sessions and model receipts survive reconnect/restart;
+EF Core stores tenant-scoped revision indexes. Direct designer sessions use version 2.
+`TypedWorkflowPlanning:PlannerVersion` defaults to `1` for existing chat commands;
+set it to `2` after live acceptance to route `/gnougo add` and `/gnougo reprompt` to
+the designer. There is no automatic fallback after version-2 failure.
+
+See [the implementation and rollout guide](../../docs/workflow-planning-v2.md) for
+diagrams, configuration, API contracts, persistence limits and test/publish commands.
+
+### Component boundaries
+
 This component is independently testable per `AGENTS.md` rules. It references `GnOuGo.Agent.Mcp`, `GnOuGo.KeyVault.Mcp`, `GnOuGo.DocIngestor.Mcp`, and `GnOuGo.OtlpCollector.Server` as project dependencies, mounting their services in-process to minimise coupling while exposing everything through a single host.
 
 ### Runtime topology

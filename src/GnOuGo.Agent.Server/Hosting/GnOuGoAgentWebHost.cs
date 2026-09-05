@@ -18,6 +18,7 @@ using OpenTelemetry.Resources;
 using OpenTelemetry.Trace;
 using GnOuGo.Agent.Server.Configuration;
 using GnOuGo.Agent.Server.Endpoints;
+using GnOuGo.Agent.Server.Planning;
 using GnOuGo.Agent.Server.SmartFlow;
 using GnOuGo.Agent.Server.Telemetry;
 using GnOuGo.Agent.Shared;
@@ -237,6 +238,7 @@ public static class GnOuGoAgentWebHost
                         .SetResourceBuilder(resourceBuilder)
                         .AddSource(AgentOTelTelemetry.ActivitySourceName)
                         .AddSource("GnOuGo.AI.Core.Routing")
+                        .AddSource("GnOuGo.Agent.Planning")
                         .AddSource("GnOuGo.AI.Local.Models")
                         .AddSource("GnOuGo.AI.Local.Inference");
 
@@ -267,6 +269,7 @@ public static class GnOuGoAgentWebHost
                         .SetResourceBuilder(resourceBuilder)
                         .AddMeter(AgentOTelTelemetry.MeterName)
                         .AddMeter("GnOuGo.AI.Core.Routing")
+                        .AddMeter("GnOuGo.Agent.Planning")
                         .AddMeter("GnOuGo.AI.Local.Models")
                         .AddMeter("GnOuGo.AI.Local.Inference")
                         .AddAspNetCoreInstrumentation()
@@ -471,6 +474,20 @@ public static class GnOuGoAgentWebHost
         builder.Services.AddSingleton<ConfigureProvidersService>();
         builder.Services.AddSingleton<LocalModelsService>();
         builder.Services.AddSingleton<ConfigureAgentsService>();
+        builder.Services.Configure<GnOuGo.Agent.Server.Configuration.TypedWorkflowPlanningSettings>(
+            builder.Configuration.GetSection(GnOuGo.Agent.Server.Configuration.TypedWorkflowPlanningSettings.SectionName));
+        var planningSettings = builder.Configuration.GetSection(GnOuGo.Agent.Server.Configuration.TypedWorkflowPlanningSettings.SectionName)
+            .Get<GnOuGo.Agent.Server.Configuration.TypedWorkflowPlanningSettings>() ?? new();
+        if (planningSettings.PlannerVersion is not (1 or 2) || planningSettings.MaxConcurrency is < 1 or > 16)
+            throw new InvalidOperationException("Invalid typed workflow planning configuration.");
+        var planningDbPath = GnOuGoWorkspace.ResolveDatabasePath(planningSettings.DatabasePath, applicationBasePath, ".GnOuGo/data/gnougo-planning.db");
+        builder.Services.AddDbContextFactory<GnOuGo.Agent.Server.Planning.PlanningDbContext>(options => options.UseSqlite($"Data Source={planningDbPath}"));
+        builder.Services.AddSingleton<GnOuGo.KeyVault.Core.Services.IKeyVaultRecordStore>(_ =>
+            GnOuGo.KeyVault.Core.Services.KeyVaultRecordStoreFactory.CreateWorkspaceStore(keyVaultDbPath, applicationBasePath));
+        builder.Services.AddSingleton<GnOuGo.Flow.Core.Planning.IPlanningSessionStore, GnOuGo.Agent.Server.Planning.EfPlanningSessionStore>();
+        builder.Services.AddSingleton<GnOuGo.Flow.Core.Planning.IWorkflowPlanner, GnOuGo.Flow.Planning.TypedWorkflowPlanner>();
+        builder.Services.AddSingleton<GnOuGo.Agent.Server.Planning.PlanningSessionService>();
+        builder.Services.AddHostedService(sp => sp.GetRequiredService<GnOuGo.Agent.Server.Planning.PlanningSessionService>());
         builder.Services.AddSingleton<SmartFlowService>();
         builder.Services.AddSingleton<TraceDebugService>();
 
@@ -590,6 +607,7 @@ public static class GnOuGoAgentWebHost
         app.MapGet("/api/chat/conversations/{conversationId}", ChatEndpoints.GetConversation);
         app.MapGnOuGoFilesServer(includeHealthEndpoint: false);
         app.MapGet("/api/version", (AppVersionInfo versionInfo) => versionInfo.ToDto());
+        app.MapPlanningEndpoints();
         app.MapGet("/api/llm/providers", LlmProviderEndpoints.ListProviders);
         app.MapGet("/api/llm/providers/{provider}/models", LlmProviderEndpoints.ListModelsAsync);
 

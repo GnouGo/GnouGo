@@ -177,6 +177,7 @@ public static class BuiltInStepContracts
             ("temperature", Number()))));
 
     private static JsonObject WorkflowPlanInput() => Object(
+        ("planner_version", PositiveInteger()),
         ("mode", Enum("auto", "basic", "pipeline")),
         ("raw_prompt", String()),
         ("name", String()),

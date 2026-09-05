@@ -29,6 +29,8 @@ public sealed class WorkflowEngine : IWorkflowRuntime
     public IMcpClientFactory? McpClientFactory { get; set; }
     public IHumanInputProvider? HumanInputProvider { get; set; }
     public IWorkflowCheckpointer? Checkpointer { get; set; }
+    /// <summary>Optional separately injected version-2 planner; Flow.Core does not reference its implementation.</summary>
+    public Planning.IWorkflowPlanner? WorkflowPlanner { get; set; }
     public IWorkflowCallResolver WorkflowCallResolver { get; set; } = new DefaultWorkflowCallResolver();
     public IWorkflowCandidateProvider? WorkflowCandidateProvider { get; set; }
     public IWorkflowTelemetry Telemetry { get; set; } = NullWorkflowTelemetry.Instance;

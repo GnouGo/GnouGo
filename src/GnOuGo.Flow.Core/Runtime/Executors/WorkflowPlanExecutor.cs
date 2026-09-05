@@ -93,6 +93,9 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
     {
         var originalInput = ctx.Engine.GetResolvedInput(ctx) as JsonObject
             ?? throw new WorkflowRuntimeException(ErrorCodes.InputValidation, "workflow.plan input must be object");
+        var plannerVersion = originalInput["planner_version"]?.GetValue<int>() ?? 1;
+        if (plannerVersion == 2) return await ExecuteTypedPlanAsync(ctx, originalInput, ct);
+        if (plannerVersion != 1) throw new WorkflowRuntimeException(ErrorCodes.InputValidation, "Unsupported workflow planner version.");
         AttachLLMUsageBudget(ctx, originalInput);
         var clarificationSession = await PrepareIntentClarificationAsync(ctx, originalInput, ct);
 

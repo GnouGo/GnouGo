@@ -7,6 +7,21 @@
 Declarative workflow engine based on a YAML DSL, **NativeAOT**-compatible (.NET 10).
 Write YAML workflows that orchestrate LLMs, MCP servers, templates, loops, human input, and dynamic code generation — all from a single file.
 
+## Versioned typed planning
+
+`workflow.plan` accepts optional `planner_version`, defaulting to `1`. Version `2`
+delegates to `WorkflowEngine.WorkflowPlanner`; consumers inject `TypedWorkflowPlanner`
+from the separately publishable `GnOuGo.Flow.Planning` package. Flow.Core has no
+reference to that package. Executable YAML and the established result shape remain
+compatible, and version-2 failures never trigger a legacy fallback.
+
+Core owns the provider-neutral planning request, snapshot, command and event contracts,
+`IWorkflowPlanner`, `IPlanningRuntime` and tenant-scoped `IPlanningSessionStore`.
+`WorkflowPlanningRuntime` adapts established discovery and validation. Required
+inconclusive scenarios block acceptance; human waits are separate from active time.
+See [planner usage](../GnOuGo.Flow.Planning/README.md) and
+[the host rollout guide](../../docs/workflow-planning-v2.md).
+
 ## MCP protocol compatibility
 
 Flow.Core owns only provider-neutral MCP contracts and has no dependency on the MCP SDK or another GnOuGo package. `GnOuGo.Flow.Integrations` supplies the stable C# MCP SDK `2.2.0` HTTP/stdio implementation, which prefers MCP `2026-07-28` discovery with `server/discover` and automatically falls back to `2025-11-25` initialization. Flow does not use `Mcp-Session-Id` for Copilot identity.

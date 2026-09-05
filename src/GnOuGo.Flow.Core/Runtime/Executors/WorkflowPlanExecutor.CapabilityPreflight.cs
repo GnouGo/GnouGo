@@ -645,6 +645,9 @@ public sealed partial class WorkflowPlanExecutor
                             inventory);
                     }
 
+                    if (input["planner_version"]?.GetValue<int>() == 2 && IsInventoryClarificationEligible(inventory))
+                        RequestTypedCapabilityClarification(inventory, evaluation: null, catalog: null);
+
                     if (clarificationAllowed
                         && intentClarification != null
                         && IsInventoryClarificationEligible(inventory))
@@ -1038,6 +1041,9 @@ public sealed partial class WorkflowPlanExecutor
                         : MarkCapabilityMatchingRewindNonImproving(rewound, remappedEvaluation);
                 catalog = expandedCatalog;
             }
+
+            if (input["planner_version"]?.GetValue<int>() == 2 && IsMatchingClarificationEligible(evaluation))
+                RequestTypedCapabilityClarification(inventory, evaluation, catalog);
 
             if (clarificationAllowed
                 && intentClarification != null

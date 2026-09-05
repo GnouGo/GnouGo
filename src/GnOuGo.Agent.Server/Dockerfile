@@ -68,6 +68,7 @@ COPY src/GnOuGo.DocIngestor.Core/GnOuGo.DocIngestor.Core.csproj src/GnOuGo.DocIn
 COPY src/GnOuGo.DocIngestor.Mcp/GnOuGo.DocIngestor.Mcp.csproj src/GnOuGo.DocIngestor.Mcp/
 COPY src/GnOuGo.Files.Server/GnOuGo.Files.Server.csproj src/GnOuGo.Files.Server/
 COPY src/GnOuGo.Flow.Core/GnOuGo.Flow.Core.csproj src/GnOuGo.Flow.Core/
+COPY src/GnOuGo.Flow.Planning/GnOuGo.Flow.Planning.csproj src/GnOuGo.Flow.Planning/
 COPY src/GnOuGo.Flow.Integrations/GnOuGo.Flow.Integrations.csproj src/GnOuGo.Flow.Integrations/
 COPY src/GnOuGo.Flow.Mermaid/GnOuGo.Flow.Mermaid.csproj src/GnOuGo.Flow.Mermaid/
 COPY src/GnOuGo.Git.Mcp/GnOuGo.Git.Mcp.csproj src/GnOuGo.Git.Mcp/

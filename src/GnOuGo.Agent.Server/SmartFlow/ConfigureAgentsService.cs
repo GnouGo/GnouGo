@@ -41,6 +41,7 @@ public sealed class ConfigureAgentsService
     private readonly ILLMUsageBudgetScopeFactory? _llmUsageBudgetScopeFactory;
     private readonly IExchangeRateProvider? _exchangeRateProvider;
     private readonly WorkflowPlanningBudgetSettings _workflowPlanningBudget;
+    private readonly TypedWorkflowPlanningSettings _typedPlanningSettings;
 
     internal string WorkflowSource => _workflowYaml;
 
@@ -60,7 +61,8 @@ public sealed class ConfigureAgentsService
         IOptions<OpenTelemetrySettings>? openTelemetrySettings = null,
         ILLMUsageBudgetScopeFactory? llmUsageBudgetScopeFactory = null,
         IExchangeRateProvider? exchangeRateProvider = null,
-        IOptions<WorkflowPlanningBudgetSettings>? workflowPlanningBudget = null)
+        IOptions<WorkflowPlanningBudgetSettings>? workflowPlanningBudget = null,
+        IOptions<TypedWorkflowPlanningSettings>? typedWorkflowPlanning = null)
     {
         _llm = llm;
         _mcpFactory = mcpFactory;
@@ -78,6 +80,7 @@ public sealed class ConfigureAgentsService
         _llmUsageBudgetScopeFactory = llmUsageBudgetScopeFactory;
         _exchangeRateProvider = exchangeRateProvider;
         _workflowPlanningBudget = workflowPlanningBudget?.Value ?? new WorkflowPlanningBudgetSettings();
+        _typedPlanningSettings = typedWorkflowPlanning?.Value ?? new TypedWorkflowPlanningSettings();
         _workflowPlanningBudget.Validate();
 
         // Load the embedded workflow YAML
@@ -129,6 +132,13 @@ public sealed class ConfigureAgentsService
         // GenAI llm.call spans and MCP calls all appear under a single, well-named parent
         // — mirroring what ConfigureProvidersService does for /llm, /mcp, /status.
         var descriptor = DescribeCommand(trimmedCommand);
+        if (_typedPlanningSettings.PlannerVersion == 2 && descriptor.Action is "add" or "reprompt")
+        {
+            var link = descriptor.Action == "reprompt" && !string.IsNullOrWhiteSpace(descriptor.Argument)
+                ? "/planning?agent=" + Uri.EscapeDataString(descriptor.Argument) : "/planning";
+            yield return new SmartFlowEvent("answer", $"[Open the workflow designer]({link}) to describe, review, and revise the workflow. Planning sessions can be resumed after reconnecting.");
+            yield break;
+        }
         using var commandTrace = traceContext is { } explicitTraceContext
             ? _otel.StartActivityScope(descriptor.SpanName, explicitTraceContext)
             : _otel.StartActivityScope(descriptor.SpanName);
