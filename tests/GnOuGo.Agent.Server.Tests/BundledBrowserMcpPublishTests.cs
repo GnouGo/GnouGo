@@ -389,6 +389,17 @@ public sealed class BundledBrowserMcpPublishTests
         Assert.Contains("--is-shallow-repository", changelogScript);
     }
 
+    [Fact]
+    public void VersionWorkflow_UsesValidFallbackWhenPullRequestNumberIsUnavailable()
+    {
+        var workflowFile = Path.Combine(GetRepositoryRoot(), ".github", "workflows", "compute-version-tag.yml");
+        var yaml = File.ReadAllText(workflowFile);
+
+        Assert.Contains("github.event_name }}' == 'pull_request' && -n '${{ github.event.number }}'", yaml);
+        Assert.Contains("new_version=\"$version-pr.${{ github.event.number }}.${{ github.run_number }}\"", yaml);
+        Assert.Contains("new_version=\"$version-ci.${{ github.run_number }}\"", yaml);
+    }
+
 
     [Fact]
     public void AgentDockerfile_AllowsRestoreDuringPublishForGeneratedOtlpProtos()
