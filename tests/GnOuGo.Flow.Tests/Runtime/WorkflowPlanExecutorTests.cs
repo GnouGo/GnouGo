@@ -9,6 +9,7 @@ using GnOuGo.Flow.Core.Models;
 using GnOuGo.Flow.Core.Parsing;
 using GnOuGo.Flow.Core.Runtime;
 using GnOuGo.Flow.Core.Runtime.Executors;
+using YamlDotNet.RepresentationModel;
 using Xunit;
 
 namespace GnOuGo.Flow.Tests.Runtime;
@@ -1338,7 +1339,7 @@ public class WorkflowPlanExecutorTests
         [
             "Assemble the main graph.",
             "document:\n  skill:\n    inputs:\n      resource_url: string\ngraph:\n  inputs:\n    resource_url: string\n  steps: []",
-            "Pipeline main workflow references undeclared inputs: target_url"
+            "Pipeline main workflow references undeclared inputs: target_url; FUNCTION_JSDOC_MISSING for functions.project"
         ]));
 
         Assert.Contains("Undeclared input reference repair", prompt);
@@ -1348,6 +1349,9 @@ public class WorkflowPlanExecutorTests
         Assert.Contains("exact repair base", prompt);
         Assert.Contains("smallest changes directly justified", prompt);
         Assert.Contains("project its shared result into a direct child result step", prompt);
+        Assert.Contains("Function documentation repair", prompt);
+        Assert.Contains("including local helpers declared inside another generated function", prompt);
+        Assert.Contains("this repair changes documentation only", prompt);
         Assert.Contains("<base_candidate_fingerprint>", prompt);
         Assert.Contains("<invalid_main_assembly_yaml>", prompt);
     }
@@ -1388,6 +1392,69 @@ public class WorkflowPlanExecutorTests
 
         Assert.Equal(first, second);
         Assert.Matches("^[0-9a-f]{64}$", first);
+    }
+
+    [Fact]
+    public void PipelineMainAssembly_RendererRemovesPlannerEvidenceFromPublicNativeStep()
+    {
+        var method = typeof(WorkflowPlanExecutor).GetMethod(
+            "RenderGraphStep",
+            BindingFlags.Static | BindingFlags.NonPublic);
+        Assert.NotNull(method);
+        var graphStep = Assert.IsType<YamlMappingNode>(WorkflowPlanContractNormalizer.JsonToYaml(JsonNode.Parse("""
+        {
+          "id": "confirm_effect",
+          "type": "human.input",
+          "operation_ids": ["operation_1"],
+          "catalog_ids": ["catalog_1"],
+          "owned_operation_ids": ["operation_1"],
+          "input": {
+            "mode": "confirm",
+            "prompt": "Confirm the external effect."
+          }
+        }
+        """)));
+
+        var rendered = Assert.IsType<YamlMappingNode>(method!.Invoke(null,
+        [
+            graphStep,
+            new HashSet<string>(StringComparer.Ordinal)
+        ]));
+
+        Assert.Equal("human.input", rendered.GetScalar("type"));
+        Assert.NotNull(rendered.GetMapping("input"));
+        Assert.False(rendered.Children.ContainsKey(new YamlScalarNode("operation_ids")));
+        Assert.False(rendered.Children.ContainsKey(new YamlScalarNode("catalog_ids")));
+        Assert.False(rendered.Children.ContainsKey(new YamlScalarNode("owned_operation_ids")));
+    }
+
+    [Fact]
+    public void PipelineMainAssembly_MainOutputPreservesNestedSkillNullability()
+    {
+        var method = typeof(WorkflowPlanExecutor).GetMethod(
+            "BuildWorkflowOutputFromSkillSchema",
+            BindingFlags.Static | BindingFlags.NonPublic);
+        Assert.NotNull(method);
+        var skillSchema = Assert.IsType<YamlMappingNode>(WorkflowPlanContractNormalizer.JsonToYaml(JsonNode.Parse("""
+        {
+          "type": "object",
+          "properties": {
+            "event": { "type": "string", "nullable": true },
+            "diagnostics": { "type": "array", "items": "string" }
+          },
+          "required_properties": ["diagnostics"]
+        }
+        """)));
+
+        var output = Assert.IsType<YamlMappingNode>(method!.Invoke(null,
+        [
+            skillSchema,
+            "${data.steps.route.result}"
+        ]));
+
+        Assert.Equal("${data.steps.route.result}", output.GetScalar("expr"));
+        var properties = Assert.IsType<YamlMappingNode>(output.GetMapping("properties"));
+        Assert.True(Assert.IsType<YamlMappingNode>(properties.Children[new YamlScalarNode("event")]).GetBool("nullable"));
     }
 
     private static CompiledWorkflow CompileMain(string yaml)
@@ -1664,6 +1731,7 @@ public class WorkflowPlanExecutorTests
             diagnostic["kind"] ??= "plan_defect";
             diagnostic["severity"] ??= "critical";
             diagnostic["remediation_surface"] ??= "extraction_contract";
+            diagnostic["challenged_operation_ids"] ??= new JsonArray();
             diagnostic["leaf_name"] ??= "";
             diagnostic["message"] ??= diagnostic["code"]?.GetValue<string>() ?? "Pipeline extraction issue.";
             diagnostic["recommendation"] ??= "Repair the extraction contract.";
@@ -2857,6 +2925,8 @@ public class WorkflowPlanExecutorTests
 
         var extractionJson = BuildPrivateExtractionJson(patched);
         var leaf = extractionJson["subworkflows"]![0]!;
+        Assert.Equal("external_work", leaf["work_kind"]!.GetValue<string>());
+        Assert.Equal("external_action", leaf["contract_role"]!.GetValue<string>());
         var tool = leaf["planned_tools"]![0]!;
         Assert.Equal("neutral-server", tool["server"]!.GetValue<string>());
         Assert.Equal("neutral-action", tool["method"]!.GetValue<string>());
@@ -3694,6 +3764,51 @@ public class WorkflowPlanExecutorTests
         Assert.Equal("info", diagnosticType.GetProperty("Severity")!.GetValue(normalizedDiagnostic));
     }
 
+    [Fact]
+    public void PipelineQualityReview_ReclassifiesLockedOperationChallengeByStableIdentity()
+    {
+        var extraction = CreatePrivatePatchCandidate("external_effect_leaf");
+        var reviewType = GetPrivatePipelineType("PipelineExtractionQualityReview");
+        var diagnosticType = GetPrivatePipelineType("PipelineExtractionQualityDiagnostic");
+        var evidenceType = GetPrivatePipelineType("PipelineExtractionQualityEvidence");
+        var contextType = GetPrivatePipelineType("PipelineMcpContext");
+        var context = contextType.GetProperty("Empty", BindingFlags.Static | BindingFlags.Public)!.GetValue(null)!;
+        var evidence = CreatePrivatePipelineValue(evidenceType, "request", "Normalize", "Normalize");
+        var diagnostic = CreatePrivatePipelineValue(
+            diagnosticType,
+            "LOCKED_OPERATION_CHALLENGE",
+            "contract_violation",
+            "critical",
+            "external_effect_leaf",
+            "The locked operation should be removed.",
+            "Remove the locked operation.",
+            CreatePrivatePipelineArray(evidenceType, evidence),
+            false,
+            "extraction_contract");
+        diagnosticType.GetProperty("ChallengedOperationIds")!.SetValue(
+            diagnostic,
+            new[] { "operation-external_effect_leaf" });
+        var review = CreatePrivatePipelineValue(
+            reviewType,
+            40,
+            "retry",
+            CreatePrivatePipelineArray(diagnosticType, diagnostic),
+            "Remove it.");
+        var normalize = typeof(WorkflowPlanExecutor).GetMethod(
+            "NormalizeExtractionQualityReviewAgainstLockedContracts",
+            BindingFlags.NonPublic | BindingFlags.Static)!;
+
+        var normalized = normalize.Invoke(
+            null,
+            ["Normalize the supplied value.", extraction, context, review])!;
+
+        Assert.Equal("pass", reviewType.GetProperty("Verdict")!.GetValue(normalized));
+        var normalizedDiagnostic = Assert.Single(Assert.IsAssignableFrom<System.Collections.IEnumerable>(
+                reviewType.GetProperty("Diagnostics")!.GetValue(normalized))
+            .Cast<object>());
+        Assert.Equal("info", diagnosticType.GetProperty("Severity")!.GetValue(normalizedDiagnostic));
+    }
+
     private static object CreatePrivatePatchCandidate(params string[] leafNames)
         => CreatePrivatePatchCandidateWithOwnership(
             includeImmutableTool: true,
@@ -4100,13 +4215,15 @@ public class WorkflowPlanExecutorTests
                     {
                         ["value"] = "Return both values",
                         ["description"] = "Preserve both requested outputs.",
-                        ["recommended"] = true
+                        ["recommended"] = true,
+                        ["external_write_confirmation_policy"] = "unchanged"
                     },
                     new JsonObject
                     {
                         ["value"] = "Return one value",
                         ["description"] = "Limit the result to one output.",
-                        ["recommended"] = false
+                        ["recommended"] = false,
+                        ["external_write_confirmation_policy"] = "unchanged"
                     }
                 }
             });
@@ -19749,6 +19866,114 @@ workflows:
 
         WorkflowPlanSemanticValidator.Validate(promoted);
         Assert.Equal("number", promoted.Workflows["consumer"].Inputs!["count"].Type);
+    }
+
+    [Fact]
+    public void WorkflowPlan_Pipeline_PreservesNestedNullabilityForDirectWorkflowCallObjectInput()
+    {
+        const string yaml = """
+            version: 1
+            skill:
+              description: Route one typed object result.
+              tags: [generated]
+              inputs: {}
+              outputs: {}
+            workflows:
+              main:
+                steps:
+                  - id: source
+                    type: set
+                    output_schema:
+                      type: object
+                      properties:
+                        state:
+                          type: object
+                          properties:
+                            baseRef:
+                              type: [string, "null"]
+                            headRef: { type: string }
+                          required: [baseRef, headRef]
+                          additionalProperties: false
+                      required: [state]
+                      additionalProperties: false
+                    input:
+                      state:
+                        baseRef: null
+                        headRef: current
+                  - id: call_consumer
+                    type: workflow.call
+                    input:
+                      ref:
+                        kind: local
+                        name: consumer
+                      args:
+                        state: ${data.steps.source.state}
+              consumer:
+                inputs:
+                  state:
+                    type: object
+                    properties:
+                      baseRef: { type: string }
+                    required_properties: [baseRef]
+                    additional_properties: false
+                steps:
+                  - id: consume
+                    type: set
+                    input:
+                      value: ${data.inputs.state}
+            """;
+        var document = WorkflowParser.Parse(yaml);
+        var method = typeof(WorkflowPlanExecutor).GetMethod(
+            "PromoteGeneratedDirectWorkflowCallObjectInputSchemas",
+            BindingFlags.NonPublic | BindingFlags.Static);
+        Assert.NotNull(method);
+
+        var result = method!.Invoke(null, [document, yaml, null, new WorkflowEngine().Registry])!;
+        var promotedYaml = Assert.IsType<string>(result.GetType().GetField("Item2")!.GetValue(result));
+        var promoted = WorkflowParser.Parse(promotedYaml);
+
+        WorkflowPlanSemanticValidator.Validate(promoted);
+        var inputType = FlowTypeDescriptorConverter.FromInputDef(
+            promoted.Workflows["consumer"].Inputs!["state"]);
+        var baseRef = inputType.Properties["baseRef"].Type;
+        Assert.Equal(FlowTypeKind.Union, baseRef.Kind);
+        Assert.Contains(baseRef.Variants, static variant => variant.Kind == FlowTypeKind.Null);
+        Assert.Contains(baseRef.Variants, static variant => variant.Kind == FlowTypeKind.String);
+        Assert.True(inputType.Properties.ContainsKey("headRef"));
+    }
+
+    [Fact]
+    public void WorkflowPlan_Pipeline_DoesNotPromoteUnrelatedNullableInputType()
+    {
+        var source = FlowTypeDescriptorConverter.FromJsonSchema(JsonNode.Parse("""
+            {
+              "type": "object",
+              "properties": {
+                "value": { "type": ["integer", "null"] },
+                "extra": { "type": "string" }
+              },
+              "required": ["value", "extra"],
+              "additionalProperties": false
+            }
+            """));
+        var destination = FlowTypeDescriptorConverter.FromJsonSchema(JsonNode.Parse("""
+            {
+              "type": "object",
+              "properties": { "value": { "type": "string" } },
+              "required": ["value"],
+              "additionalProperties": false
+            }
+            """));
+        var method = typeof(WorkflowPlanExecutor).GetMethod(
+            "IsSafeDirectInputContractWidening",
+            BindingFlags.NonPublic | BindingFlags.Static);
+        Assert.NotNull(method);
+
+        var safe = Assert.IsType<bool>(method!.Invoke(
+            null,
+            [source.RemoveNullDeep(), destination.RemoveNullDeep()]));
+
+        Assert.False(safe);
     }
 
     [Fact]

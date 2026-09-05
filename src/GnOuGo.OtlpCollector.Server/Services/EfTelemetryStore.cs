@@ -337,7 +337,10 @@ public sealed class EfTelemetryStore
             ? Math.Clamp(requestedLimit * 20, requestedLimit, 10000)
             : requestedLimit;
         var logs = await filtered
-            .OrderByDescending(l => l.ReceivedUtc)
+            // OTLP ingestion normalizes this value to UTC. SQLite stores DateTimeOffset as
+            // an ISO-8601 scalar and cannot translate ordering on the CLR type itself;
+            // ordering its canonical text keeps the bounded query server-side and chronological.
+            .OrderByDescending(l => l.ReceivedUtc.ToString())
             .Take(databaseLimit)
             .ToListAsync(ct);
 

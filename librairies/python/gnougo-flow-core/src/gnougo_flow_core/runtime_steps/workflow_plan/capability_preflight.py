@@ -374,7 +374,7 @@ class _WorkflowPlanCapabilityPreflightMixin:
                 reasoning,
             )
             inventory = self._parse_and_validate_inventory_response(repaired)
-        self._apply_default_write_confirmation(inventory, instruction)
+        self._apply_default_write_confirmation(inventory)
         state.inventory = copy.deepcopy(inventory)
 
         pages = self._page_capability_catalog(state.catalog)
@@ -593,12 +593,9 @@ class _WorkflowPlanCapabilityPreflightMixin:
             identifiers.add(item_id)
 
     @staticmethod
-    def _apply_default_write_confirmation(inventory: dict[str, Any], instruction: str) -> None:
-        if re.search(
-            r"\b(unattended|headless)\b|\bwithout\s+(human\s+)?(confirmation|approval)\b|\b(no|disable|skip)\s+(human\s+)?(confirmation|approval)\b",
-            instruction,
-            re.IGNORECASE,
-        ):
+    def _apply_default_write_confirmation(inventory: dict[str, Any]) -> None:
+        policy = str(inventory.get("external_write_confirmation_policy", "unspecified")).strip().lower()
+        if policy == "forbidden":
             return
         operations = inventory.get("operations", [])
         has_write = any(
@@ -607,13 +604,7 @@ class _WorkflowPlanCapabilityPreflightMixin:
             and item.get("external_effect_kind") == "write"
             for item in operations
         )
-        has_confirmation = any(
-            isinstance(item, dict)
-            and item.get("execution_kind") == "human_interaction"
-            and re.search(r"confirm|approve|consent|authoriz", str(item.get("description", "")), re.IGNORECASE)
-            for item in operations
-        )
-        if has_write and not has_confirmation:
+        if has_write:
             operations.append(
                 {
                     "id": "platform_confirm_external_write",
@@ -637,6 +628,8 @@ class _WorkflowPlanCapabilityPreflightMixin:
             "You are a domain-neutral workflow runtime analyst. Inventory every distinct positive runtime operation "
             "and every constraint. Never copy, paraphrase, or restate host configuration chores as operations.\n"
             "Return structured JSON with complete, incomplete_reasons, operations, and constraints. "
+            "Also return external_write_confirmation_policy as required, forbidden, or unspecified. "
+            "Use required or forbidden only when the request explicitly establishes that policy; otherwise use unspecified. "
             "Each operation has id, description, required, execution_kind "
             "(external_effect|human_interaction|local_processing), and external_effect_kind "
             "(read|write|execute|lifecycle|none).\n\n<user_instruction>\n"
@@ -751,6 +744,10 @@ class _WorkflowPlanCapabilityPreflightMixin:
             "additionalProperties": False,
             "properties": {
                 "complete": {"type": "boolean"},
+                "external_write_confirmation_policy": {
+                    "type": "string",
+                    "enum": ["required", "forbidden", "unspecified"],
+                },
                 "incomplete_reasons": {
                     "type": "array",
                     "items": {
@@ -766,7 +763,13 @@ class _WorkflowPlanCapabilityPreflightMixin:
                 "operations": {"type": "array", "items": operation},
                 "constraints": {"type": "array", "items": constraint},
             },
-            "required": ["complete", "incomplete_reasons", "operations", "constraints"],
+            "required": [
+                "complete",
+                "external_write_confirmation_policy",
+                "incomplete_reasons",
+                "operations",
+                "constraints",
+            ],
         }
 
     @staticmethod
@@ -937,7 +940,10 @@ class _WorkflowPlanCapabilityPreflightMixin:
             index for index, invocation in enumerate(invocations)
             if (invocation[1], invocation[2]) in write_entries
         ]
-        if writes and not any(index < writes[0] for index in confirmations):
+        confirmation_policy = str(
+            (state.inventory or {}).get("external_write_confirmation_policy", "unspecified")
+        ).strip().lower()
+        if confirmation_policy != "forbidden" and writes and not any(index < writes[0] for index in confirmations):
             raise WorkflowRuntimeException(
                 ErrorCodes.CAPABILITY_PREFLIGHT_UNAVAILABLE,
                 "Generated workflow omitted mandatory human confirmation before the first external write.",

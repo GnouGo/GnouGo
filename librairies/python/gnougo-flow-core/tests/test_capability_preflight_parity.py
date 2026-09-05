@@ -268,6 +268,7 @@ async def test_locked_capabilities_are_a_multiset_and_optional_unavailable_is_re
 async def test_inferred_external_write_requires_human_confirmation_before_call() -> None:
     inventory = {
         "complete": True,
+        "external_write_confirmation_policy": "unspecified",
         "incomplete_reasons": [],
         "operations": [
             {
@@ -321,9 +322,56 @@ async def test_inferred_external_write_requires_human_confirmation_before_call()
 
 
 @pytest.mark.asyncio
+async def test_inferred_external_write_forbidden_policy_does_not_inject_confirmation() -> None:
+    inventory = {
+        "complete": True,
+        "external_write_confirmation_policy": "forbidden",
+        "incomplete_reasons": [],
+        "operations": [
+            {
+                "id": "write_record",
+                "description": "Write an inventory record.",
+                "required": True,
+                "execution_kind": "external_effect",
+                "external_effect_kind": "write",
+            }
+        ],
+        "constraints": [],
+    }
+    matches = {
+        "operation_matches": [
+            {"operation_id": "write_record", "status": "matched", "catalog_ids": ["cap_000001"]},
+        ],
+        "constraint_matches": [],
+    }
+    yaml_text = _generated(
+        """      - id: write
+        type: mcp.call
+        input: {server: inventory, kind: tool, method: write, request: {value: 1}}"""
+    )
+    llm = _PlanLlm(yaml_text, inventory, matches)
+    engine = WorkflowEngine()
+    engine.llm_client = llm
+    engine.mcp_client_factory = _inventory_factory(McpToolInfo(name="write"))
+
+    result = await engine.execute_async(
+        _plan_workflow(
+            "                      capability_preflight:\n                        mode: infer",
+            instruction="Perform the requested external write.",
+        ),
+        {},
+    )
+
+    assert result.success, result.error
+    requirements = result.outputs["plan"]["meta"]["capability_preflight"]["requirements"]
+    assert {item["id"] for item in requirements} == {"write_record"}
+
+
+@pytest.mark.asyncio
 async def test_inferred_write_without_confirmation_fails_closed() -> None:
     inventory = {
         "complete": True,
+        "external_write_confirmation_policy": "unspecified",
         "incomplete_reasons": [],
         "operations": [
             {
@@ -369,6 +417,7 @@ async def test_inferred_write_without_confirmation_fails_closed() -> None:
 async def test_inferred_preflight_repairs_inventory_and_candidates_at_most_once_each() -> None:
     inventory = {
         "complete": True,
+        "external_write_confirmation_policy": "unspecified",
         "incomplete_reasons": [],
         "operations": [
             {

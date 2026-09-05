@@ -63,7 +63,10 @@ public sealed class LiveAgentAddSmokeTests
         if (!string.Equals(Environment.GetEnvironmentVariable(EnableVariable), "1", StringComparison.Ordinal))
             return;
 
-        using var timeout = new CancellationTokenSource(TimeSpan.FromMinutes(30));
+        // Complex recorded intents can consume many serial structured planner phases through
+        // an enterprise gateway. Keep the smoke bound below the production five-hour planner
+        // budget while allowing a complete bounded repair cycle to finish.
+        using var timeout = new CancellationTokenSource(TimeSpan.FromMinutes(90));
         var ct = timeout.Token;
         var sourceRoot = FindSourceRoot();
         var agentName = $"live-agent-add-{nameQualifier}-{DateTimeOffset.UtcNow:yyyyMMddHHmmss}-{Guid.NewGuid():N}";
@@ -83,6 +86,11 @@ public sealed class LiveAgentAddSmokeTests
                 [
                     "--OtlpCollector:Enabled=false",
                     "--OpenTelemetry:Enabled=false",
+                    "--WorkflowTraceExport:Enabled=true",
+                    // This smoke validates live planning rather than exchange-rate transport.
+                    // Keep the positive planning budget enabled in the metadata pricing currency
+                    // so an unrelated ECB outage cannot mask the gateway/model result.
+                    "--WorkflowPlanningBudget:Currency=USD",
                     $"--Database:Path={telemetryDatabasePath}"
                 ],
                 urls: "http://127.0.0.1:0",
@@ -284,9 +292,18 @@ public sealed class LiveAgentAddSmokeTests
     {
         var collected = new List<SmartFlowEvent>();
         await foreach (var item in events.WithCancellation(ct))
+        {
             collected.Add(item);
+            Console.WriteLine(
+                $"[live /gnougo add {DateTimeOffset.UtcNow:O}] {item.Type}: {Truncate(item.Text, 240)}");
+        }
         return collected;
     }
+
+    private static string Truncate(string? value, int maxCharacters)
+        => string.IsNullOrEmpty(value) || value.Length <= maxCharacters
+            ? value ?? string.Empty
+            : value[..maxCharacters] + "…";
 
     private static async Task<JsonObject> GetAgentAsync(
         IMcpClientFactory factory,

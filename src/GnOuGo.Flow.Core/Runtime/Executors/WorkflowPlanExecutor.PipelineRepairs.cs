@@ -494,6 +494,8 @@ public sealed partial class WorkflowPlanExecutor
                 ["code"] = diagnostic.Code,
                 ["leaf_name"] = diagnostic.LeafName ?? string.Empty,
                 ["remediation_surface"] = diagnostic.RemediationSurface,
+                ["challenged_operation_ids"] = BuildStringArrayJson(
+                    diagnostic.ChallengedOperationIds ?? Array.Empty<string>()),
                 ["message"] = diagnostic.Message,
                 ["recommendation"] = diagnostic.Recommendation ?? string.Empty,
                 ["evidence"] = BuildPipelineExtractionQualityEvidenceJson(diagnostic.Evidence)
@@ -532,6 +534,9 @@ public sealed partial class WorkflowPlanExecutor
             ["code"] = diagnostic.Code.Trim().ToUpperInvariant(),
             ["leaf_name"] = diagnostic.LeafName?.Trim() ?? string.Empty,
             ["remediation_surface"] = diagnostic.RemediationSurface.Trim(),
+            ["challenged_operation_ids"] = BuildStringArrayJson(
+                diagnostic.ChallengedOperationIds?.Order(StringComparer.Ordinal).ToArray()
+                ?? Array.Empty<string>()),
             ["extraction_references"] = BuildStringArrayJson(extractionReferences)
         }.ToJsonString(PromptJsonOptions);
         return "quality:" + Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(canonical))).ToLowerInvariant();
@@ -610,6 +615,7 @@ public sealed partial class WorkflowPlanExecutor
         {
             OwnedOperationIds = ownedOperationIds
         };
+        result = CanonicalizePipelineLeafExternalOwnership(result);
         return result with { GenerationPrompt = BuildSubworkflowGenerationPrompt(result) };
     }
 

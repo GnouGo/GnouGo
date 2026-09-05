@@ -219,6 +219,31 @@ public class WorkflowPlanContractNormalizerTests
     }
 
     [Fact]
+    public void PruneWeakNestedOutputProperties_CanonicalizesScalarArrayItems()
+    {
+        var schema = Assert.IsType<YamlMappingNode>(WorkflowPlanContractNormalizer.JsonToYaml(JsonNode.Parse("""
+        {
+          "type": "object",
+          "properties": {
+            "diagnostics": {
+              "type": "array",
+              "items": "string"
+            }
+          },
+          "required_properties": ["diagnostics"]
+        }
+        """)));
+
+        Assert.True(WorkflowPlanContractNormalizer.PruneWeakNestedOutputProperties(schema));
+
+        var properties = Assert.IsType<YamlMappingNode>(schema.Children[new YamlScalarNode("properties")]);
+        var diagnostics = Assert.IsType<YamlMappingNode>(properties.Children[new YamlScalarNode("diagnostics")]);
+        var items = Assert.IsType<YamlMappingNode>(diagnostics.Children[new YamlScalarNode("items")]);
+        Assert.Equal("string", items.GetScalar("type"));
+        Assert.False(WorkflowPlanContractNormalizer.IsWeakYamlOutputSchema(schema));
+    }
+
+    [Fact]
     public void PruneWeakNestedOutputProperties_CanonicalizesNullableScalar()
     {
         var schema = Assert.IsType<YamlMappingNode>(WorkflowPlanContractNormalizer.JsonToYaml(JsonNode.Parse("""
@@ -336,5 +361,45 @@ public class WorkflowPlanContractNormalizerTests
         var decisionType = descriptor.Properties["decision"].Type;
         Assert.Equal(FlowTypeKind.Union, decisionType.Kind);
         Assert.Contains(decisionType.Variants, static variant => variant.Kind == FlowTypeKind.Null);
+    }
+
+    [Fact]
+    public void NormalizeSetOutputSchema_HoistsNestedWorkflowRequiredFlags()
+    {
+        var schema = Assert.IsType<YamlMappingNode>(WorkflowPlanContractNormalizer.JsonToYaml(JsonNode.Parse("""
+        {
+          "type": "object",
+          "properties": {
+            "result": {
+              "type": "object",
+              "required": true,
+              "properties": {
+                "status": { "type": "string", "required": true },
+                "detail": { "type": "string", "required": false }
+              },
+              "required_properties": ["detail"]
+            }
+          }
+        }
+        """)));
+
+        Assert.True(WorkflowPlanContractNormalizer.NormalizeSetOutputSchema(schema));
+
+        var normalized = Assert.IsType<JsonObject>(WorkflowParser.YamlToJson(schema));
+        Assert.Equal(
+            ["result"],
+            Assert.IsType<JsonArray>(normalized["required"])
+                .Select(static item => item!.GetValue<string>()));
+        var result = Assert.IsType<JsonObject>(
+            Assert.IsType<JsonObject>(normalized["properties"])["result"]);
+        Assert.Equal(
+            ["detail", "status"],
+            Assert.IsType<JsonArray>(result["required"])
+                .Select(static item => item!.GetValue<string>()));
+        Assert.Null(result["required_properties"]);
+        var properties = Assert.IsType<JsonObject>(result["properties"]);
+        Assert.Null(properties["status"]!["required"]);
+        Assert.Null(properties["detail"]!["required"]);
+        Assert.Empty(JsonSchemaContractValidator.ValidateSchema(normalized, strictProfile: false));
     }
 }

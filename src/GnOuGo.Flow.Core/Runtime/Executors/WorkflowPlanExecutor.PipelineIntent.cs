@@ -40,6 +40,22 @@ public sealed partial class WorkflowPlanExecutor
         };
     }
 
+    private static WorkflowPipelineSubworkflowSpec CanonicalizePipelineLeafExternalOwnership(
+        WorkflowPipelineSubworkflowSpec spec)
+    {
+        if (!spec.PlannedTools.Any(IsImmutablePipelinePlannedTool))
+            return spec;
+
+        var role = spec.ContractRole is PipelineContractRoleExternalAction or PipelineContractRoleTypedDataProducer
+            ? spec.ContractRole
+            : PipelineContractRoleExternalAction;
+        return spec with
+        {
+            WorkKind = PipelineWorkKindExternalWork,
+            ContractRole = role
+        };
+    }
+
     private static string InferPipelineWorkKind(WorkflowPipelineSubworkflowSpec spec)
     {
         var intentText = BuildPipelineSpecIntentText(spec);
@@ -201,5 +217,4 @@ public sealed partial class WorkflowPlanExecutor
         return tokens;
     }
 }
-
 

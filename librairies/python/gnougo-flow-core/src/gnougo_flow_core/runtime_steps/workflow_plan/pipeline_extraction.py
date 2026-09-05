@@ -552,6 +552,7 @@ class _WorkflowPlanPipelineExtractionMixin:
                 )
             )
         spec.planned_tools = planned_tools
+        self._canonicalize_external_tool_ownership(spec)
         spec.required_capabilities = [f"{tool.server}/{tool.method}" for tool in planned_tools if tool.required]
         spec.generation_prompt = self._build_subworkflow_generation_prompt(
             spec.name,
@@ -661,6 +662,18 @@ class _WorkflowPlanPipelineExtractionMixin:
                 )
         return errors
 
+
+    @staticmethod
+    def _canonicalize_external_tool_ownership(spec: _WorkflowPipelineSubworkflowSpec) -> None:
+        has_immutable_external_tool = any(
+            tool.required and (tool.locked_operation_ids or tool.catalog_ids)
+            for tool in spec.planned_tools
+        )
+        if not has_immutable_external_tool:
+            return
+        spec.work_kind = "external_work"
+        if spec.contract_role not in {"external_action", "typed_data_producer"}:
+            spec.contract_role = "external_action"
 
     @staticmethod
     def _promote_required_planned_tools(spec: _WorkflowPipelineSubworkflowSpec, known_tools: set[tuple[str, str]]) -> None:

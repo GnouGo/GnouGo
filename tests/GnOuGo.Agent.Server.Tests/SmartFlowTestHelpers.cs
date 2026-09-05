@@ -95,13 +95,15 @@ internal sealed class RecordingLlmClient : ILLMClient
                                     {
                                         ["value"] = "Concise response",
                                         ["description"] = "Return a focused response with the essential details.",
-                                        ["recommended"] = true
+                                        ["recommended"] = true,
+                                        ["external_write_confirmation_policy"] = "unchanged"
                                     },
                                     new JsonObject
                                     {
                                         ["value"] = "Detailed response",
                                         ["description"] = "Return a more extensive response with supporting detail.",
-                                        ["recommended"] = false
+                                        ["recommended"] = false,
+                                        ["external_write_confirmation_policy"] = "unchanged"
                                     }
                                 }
                             }
