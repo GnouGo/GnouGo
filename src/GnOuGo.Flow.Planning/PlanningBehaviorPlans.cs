@@ -55,6 +55,11 @@ public static class PlanningBehaviorPlans
                     var cap = preparation.Capabilities.FirstOrDefault(c => c.Id == id);
                     if (cap is null || cap.OperationIds.Any(op => !workflow.OperationIds.Contains(op, StringComparer.Ordinal))) Error(location + "/capabilityId", cap is null ? "Unknown capability: " + id : "Capability " + id + " requires this workflow to own operations: " + string.Join(", ", cap.OperationIds));
                     else if (node.Kind == "confirmation" && cap.StepType != "human.input" || node.Kind == "operation" && cap.StepType == "human.input") Error(location, "Confirmation behavior must use the declared human-input contract.");
+                    if (cap is not null)
+                    {
+                        var stepType = node.Kind switch { "decision" => "switch", "loop" => "loop.sequential", "confirmation" => "human.input", "workflow" => "workflow.call", "operation" => cap.StepType, _ => node.Kind };
+                        if (!PlanningCapabilityBindings.Supports(cap, stepType)) Error(location + "/capabilityId", "This behavior kind does not implement the selected native or external capability. Local-processing obligations may use native control flow.");
+                    }
                 }
                 if (node.Kind == "decision")
                 {

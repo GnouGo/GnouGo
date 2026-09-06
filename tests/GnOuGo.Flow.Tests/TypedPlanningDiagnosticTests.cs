@@ -10,6 +10,17 @@ namespace GnOuGo.Flow.Tests;
 public sealed class TypedPlanningDiagnosticTests
 {
     [Fact]
+    public void DecisionLineageFindingsPermitRepairOfTheDiscriminator()
+    {
+        var diagnostic = WorkflowPlanExecutor.TypedArtifactDiagnostic(new JsonObject
+        {
+            ["workflow"] = "main", ["switch_id"] = "decision", ["message"] = "Preserve the declared boundary.",
+            ["validation_issue"] = "conditional_decision_lineage_unproven"
+        }, "CONTRACT_INVALID", PlanningValidationStage.ConditionalActivation);
+        Assert.Equal("workflow:main/step:decision/field:expr", diagnostic.Location);
+    }
+
+    [Fact]
     public void ConditionalFindingsIdentifyTheSwitchAndDeclaredDecisionField()
     {
         var diagnostic = WorkflowPlanExecutor.TypedArtifactDiagnostic(new JsonObject

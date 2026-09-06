@@ -7,6 +7,28 @@ namespace GnOuGo.Flow.Planning.Tests;
 
 public sealed class BehaviorActivationTests
 {
+    [Theory]
+    [InlineData("local", true)]
+    [InlineData("native", false)]
+    [InlineData(null, false)]
+    public void LocalProcessingIsAnObligationWhileNativeCapabilitiesSelectAnExactExecutor(string? resolution, bool valid)
+    {
+        var preparation = TypedPlannerTests.Preparation();
+        preparation.Capabilities.Add(new() { Id = "logic", StepType = "set", EffectKind = "none", Resolution = resolution, Required = true, OperationIds = ["evaluate"] });
+        var plan = TypedPlannerTests.BehaviorPlan();
+        plan.Workflows[0].OperationIds = ["evaluate"];
+        plan.Workflows[0].Steps = [new() { Key = "decision", Kind = "decision", CapabilityId = "logic", Purpose = "Choose a local result",
+            Outcomes = [new("known", "Known outcome", false, []), new("unknown", "Unknown outcome", true, [])] }];
+        Assert.Equal(valid, PlanningBehaviorPlans.Validate(plan, preparation).Count == 0);
+        var graph = PlanningBehaviorPlans.Display(plan, preparation); graph.Workflows[0].Outputs.Clear();
+        Assert.Equal(valid, !PlanningGraphValidation.Validate(graph, preparation).Any(d => d.Code == "CAPABILITY_BINDING_INVALID"));
+        graph.Workflows[0].Steps[0].Expr = TypedPlannerTests.Str("known");
+        if (valid) Assert.Equal("switch", GnOuGo.Flow.Core.Parsing.WorkflowParser.Parse(new PlanningGraphCompiler().Compile(graph, preparation)).Workflows["main"].Steps[0].Type);
+        else Assert.Throws<InvalidOperationException>(() => new PlanningGraphCompiler().Compile(graph, preparation));
+        preparation.Capabilities[0].Resolution = "local"; preparation.Capabilities[0].EffectKind = "write";
+        Assert.Contains(PlanningGraphValidation.Validate(graph, preparation), d => d.Code == "CAPABILITY_BINDING_INVALID");
+    }
+
     private static (PlanningBehaviorPlan Plan, PlanningPreparation Preparation) Fixture(string prefix)
     {
         var preparation = TypedPlannerTests.Preparation();

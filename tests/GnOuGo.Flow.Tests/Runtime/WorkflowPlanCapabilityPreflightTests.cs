@@ -6467,6 +6467,48 @@ public sealed class WorkflowPlanCapabilityPreflightTests
             activation["decision_contract_source"]!.GetValue<string>()));
     }
 
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task InferredPreflight_LocalReducerCannotDropAnotherInputForOneConvenientEnum(bool nestedAlias)
+    {
+        var llm = new Mock<ILLMClient>();
+        llm.Setup(client => client.CallAsync(It.IsAny<LLMRequest>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((LLMRequest request, CancellationToken _) =>
+            {
+                if (request.Prompt.Contains("domain-neutral workflow runtime analyst", StringComparison.Ordinal))
+                {
+                    var response = MultiSourceLocalDecisionInventoryResponse();
+                    if (nestedAlias)
+                    {
+                        var operations = response.Json!["operations"]!.AsArray();
+                        var alias = operations[2]!.DeepClone(); alias["id"] = "normalized_primary";
+                        alias["input_operation_ids"] = new JsonArray("analyze_primary");
+                        operations[2]!["input_operation_ids"] = new JsonArray("normalized_primary", "analyze_secondary");
+                        operations.Insert(2, alias);
+                    }
+                    return response;
+                }
+                if (request.Prompt.Contains("domain-neutral capability matcher", StringComparison.Ordinal))
+                {
+                    var response = MultiSourceLocalDecisionMatchingResponse(request.Prompt);
+                    if (nestedAlias)
+                    {
+                        var matches = response.Json!["operation_matches"]!.AsArray();
+                        var alias = matches[2]!.DeepClone(); alias["operation_id"] = "normalized_primary"; matches.Insert(2, alias);
+                    }
+                    return response;
+                }
+                return new LLMResponse { Text = MultiSourceLocalDecisionWorkflow("conditional_decision_a5d47a4311d759db") };
+            });
+        var result = await ExecuteAsync(ConditionalInferredPlan(), llm.Object, CreateMultiSourceLocalDecisionFactory(primaryEnum: true));
+        Assert.True(result.Success, result.Error?.Message);
+        var capabilities = result.Outputs!["plan"]!["meta"]!["capability_preflight"]!["capabilities"]!.AsArray().OfType<JsonObject>();
+        var evaluator = Assert.Single(capabilities, c => c["method"]?.GetValue<string>() == "decision.evaluate");
+        Assert.Equal(new[] { "analyze_primary", "analyze_secondary" }, evaluator["input_operation_ids"]!.AsArray().Select(id => id!.GetValue<string>()));
+        Assert.All(capabilities.Where(c => c["activation"] is not null), c => Assert.Equal("compute_decisions", c["activation"]!["decision_operation_id"]!.GetValue<string>()));
+    }
+
     [Fact]
     public async Task InferredPreflight_ValidatesLocalDecisionThroughTypedWorkflowBoundaries()
     {
@@ -7351,6 +7393,25 @@ public sealed class WorkflowPlanCapabilityPreflightTests
             CreateConditionalReviewFactory());
 
         Assert.True(result.Success, result.Error?.Message);
+    }
+
+    [Theory]
+    [InlineData("sequence", true, true)]
+    [InlineData("switch", true, false)]
+    [InlineData("sequence", false, false)]
+    public async Task InferredPreflight_TracesOnlyDeclaredContainerDecisionProducers(string containerType, bool declared, bool expectedSuccess)
+    {
+        var start = ValidConditionalWorkflow.IndexOf("      - id: analyze", StringComparison.Ordinal);
+        var end = ValidConditionalWorkflow.IndexOf("      - id: publish_decision", StringComparison.Ordinal);
+        var producer = ValidConditionalWorkflow[start..end];
+        var container = containerType == "sequence"
+            ? "      - id: container\n        type: sequence\n        steps:\n" + string.Join('\n', producer.TrimEnd('\n').Split('\n').Select(line => "    " + line)) + "\n"
+            : "      - id: container\n        type: switch\n        expr: selected\n        cases:\n          - value: selected\n            steps:\n" + string.Join('\n', producer.TrimEnd('\n').Split('\n').Select(line => "        " + line)) + "\n        default: []\n";
+        var workflow = (ValidConditionalWorkflow[..start] + container + ValidConditionalWorkflow[end..])
+            .Replace("data.steps.analyze", "data.steps.container." + (declared ? "analyze" : "undeclared"), StringComparison.Ordinal);
+        var result = await ExecuteAsync(ConditionalInferredPlan(), CreateConditionalLlm(workflow).Object, CreateConditionalReviewFactory());
+        Assert.True(result.Success == expectedSuccess, result.Error?.Message);
+        if (containerType == "switch") Assert.Contains("not available on every possible runtime path", result.Error!.Message);
     }
 
     [Theory]
@@ -10050,7 +10111,7 @@ public sealed class WorkflowPlanCapabilityPreflightTests
                 default: []
         """.Replace("DECISION_FIELD", field, StringComparison.Ordinal);
 
-    private static InMemoryMcpClientFactory CreateMultiSourceLocalDecisionFactory()
+    private static InMemoryMcpClientFactory CreateMultiSourceLocalDecisionFactory(bool primaryEnum = false)
     {
         var booleanOutput = JsonNode.Parse("""
             {
@@ -10063,12 +10124,18 @@ public sealed class WorkflowPlanCapabilityPreflightTests
               "additionalProperties": false
             }
             """);
+        var primaryOutput = booleanOutput!.DeepClone();
+        if (primaryEnum)
+        {
+            primaryOutput["properties"]!["decision"] = new JsonObject { ["type"] = "string", ["enum"] = new JsonArray("APPROVE", "REQUEST_CHANGES", "NO_EFFECT") };
+            primaryOutput["required"]!.AsArray().Add("decision");
+        }
         var factory = new InMemoryMcpClientFactory();
         factory.RegisterServer("reviewer", new MockMcpServerConfig
         {
             Tools =
             [
-                new McpToolInfo { Name = "analyze_primary", Description = "Produce the first boolean signals.", OutputSchema = booleanOutput!.DeepClone() },
+                new McpToolInfo { Name = "analyze_primary", Description = "Produce the first boolean signals.", OutputSchema = primaryOutput },
                 new McpToolInfo { Name = "analyze_secondary", Description = "Produce the second boolean signals.", OutputSchema = booleanOutput.DeepClone() }
             ]
         });

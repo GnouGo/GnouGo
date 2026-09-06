@@ -157,6 +157,7 @@ public sealed class PlanningCapability
     public McpArtifactContract? ArtifactContract { get; set; }
     public McpCapabilityActivation? Activation { get; set; }
     public string? CatalogId { get; set; }
+    public string? Resolution { get; set; }
 }
 
 public sealed record PlanningLiteralBinding(string Path, JsonNode? Value);

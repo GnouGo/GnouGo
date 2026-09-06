@@ -111,7 +111,7 @@ public sealed partial class PlanningGraphCompiler
         {
             var capability = scope.Preparation.Capabilities.SingleOrDefault(c => c.Id == node.CapabilityId)
                 ?? throw new InvalidOperationException("Unknown capability reference.");
-            if (capability.StepType != node.Type) throw new InvalidOperationException("The node does not implement its selected capability type.");
+            if (!PlanningCapabilityBindings.Supports(capability, node.Type)) throw new InvalidOperationException("The node does not implement its selected capability type.");
             if (computedSetInput && capability.FixedInput.Count != 0) throw new InvalidOperationException("Locked input fields require an explicit object input.");
             foreach (var (key, value) in capability.FixedInput)
             {
@@ -238,7 +238,7 @@ public sealed partial class PlanningGraphCompiler
                     template = template.Replace(marker, ToExpression(binding.Value, scope), StringComparison.Ordinal);
                 }
                 if (TemplatePlaceholder().IsMatch(template)) throw new InvalidOperationException("A template placeholder has no declared binding.");
-                return JsonValue.Create(PlanningExpressionBindings.Template(template, scope.NodeIds));
+                return JsonValue.Create(PlanningExpressionBindings.Template(template, scope.NodeIds, scope.NodeTypes));
             default: throw new InvalidOperationException("Invalid or forbidden planning value kind.");
         }
     }
@@ -266,7 +266,7 @@ public sealed partial class PlanningGraphCompiler
         {
             expression = value.Text ?? throw new InvalidOperationException("An expression must have text.");
             if (expression.StartsWith("${", StringComparison.Ordinal) && expression.EndsWith('}')) expression = expression[2..^1];
-            expression = PlanningExpressionBindings.Expression(expression, scope.NodeIds);
+            expression = PlanningExpressionBindings.Expression(expression, scope.NodeIds, scope.NodeTypes);
         }
         else
         {

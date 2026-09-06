@@ -21,6 +21,12 @@ public static class PlanningGraphValidation
             for (var i = 0; i < workflow.Outputs.Count; i++) CheckSchema(workflow.Outputs[i].Schema, path + "/outputs/" + i + "/schema", true);
             foreach (var (node, location) in nodes)
             {
+                if (node.CapabilityId is { } capabilityId)
+                {
+                    var binding = preparation.Capabilities.FirstOrDefault(c => c.Id == capabilityId);
+                    if (binding is null || !PlanningCapabilityBindings.Supports(binding, node.Type))
+                        errors.Add(new("CAPABILITY_BINDING_INVALID", location + "/capabilityId", "The node must implement its exact selected executor, or a permitted local-processing control-flow construct."));
+                }
                 if (node.OutputSchema is not null) CheckSchema(node.OutputSchema, location + "/outputSchema", false);
                 var config = Member(node.Input, "structured_output");
                 if (config is null && node.StructuredOutput is null) continue;

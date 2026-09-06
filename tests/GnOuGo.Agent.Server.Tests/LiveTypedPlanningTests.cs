@@ -143,14 +143,19 @@ public sealed partial class LiveIntentAgentGenerationTests
         var service = services.GetRequiredService<PlanningSessionService>();
         var state = (await service.ListAsync(ct)).SingleOrDefault(s => s.Request.Name == name)
             ?? await service.StartAsync(name, AcceptancePrompt, false, ct);
-        if (state.Status is PlanningStatus.Recovery or PlanningStatus.Failed or PlanningStatus.Unsupported)
+        var revision = Environment.GetEnvironmentVariable("GNOU_GO_LIVE_TYPED_PLANNING_REVISION");
+        if (!string.IsNullOrWhiteSpace(revision) && state.BehaviorPlan is not null &&
+            state.Status is PlanningStatus.Recovery or PlanningStatus.Failed or PlanningStatus.Unsupported &&
+            !state.Request.Prompt.EndsWith("\n\nRequested revision:\n" + revision, StringComparison.Ordinal))
+            state = await service.SubmitAsync(state.Request.SessionId, new() { Kind = "revise", Text = revision, ExpectedRevision = state.Revision }, ct);
+        else if (state.Status is PlanningStatus.Recovery or PlanningStatus.Failed or PlanningStatus.Unsupported)
             state = await service.SubmitAsync(state.Request.SessionId, new() { Kind = "retry", ExpectedRevision = state.Revision }, ct);
         if (state.Status == PlanningStatus.Saved && await TryGetAgentForCleanupAsync(services.GetRequiredService<IMcpClientFactory>(), name, ct) is null)
         {
             // Recreate a previously validated temporary artifact after failure cleanup;
             // this is still the same generation, never counted as another successful run.
-            var revision = state.Revision++; state.Status = PlanningStatus.Approved; state.SavedAgentId = null;
-            if (!await services.GetRequiredService<IPlanningSessionStore>().TrySaveAsync(state, revision, ct)) throw new PlanningConflictException("The campaign session changed.");
+            var previousRevision = state.Revision++; state.Status = PlanningStatus.Approved; state.SavedAgentId = null;
+            if (!await services.GetRequiredService<IPlanningSessionStore>().TrySaveAsync(state, previousRevision, ct)) throw new PlanningConflictException("The campaign session changed.");
         }
         long reportedRevision = -1;
         while (state.Status != PlanningStatus.Saved)
@@ -240,6 +245,30 @@ public sealed partial class LiveIntentAgentGenerationTests
                 return response;
             }
             finally { _dispatch.Release(); }
+        }
+    }
+
+    private sealed class ProviderOperationalLogger : ILoggerProvider
+    {
+        public ILogger CreateLogger(string categoryName) => new OperationalLogger(categoryName);
+        public void Dispose() { }
+        private sealed class OperationalLogger(string category) : ILogger
+        {
+            public IDisposable? BeginScope<TState>(TState state) where TState : notnull => null;
+            public bool IsEnabled(LogLevel logLevel) => category.StartsWith("GnOuGo.AI.Core", StringComparison.Ordinal) && logLevel >= LogLevel.Information;
+            public void Log<TState>(LogLevel logLevel, EventId eventId, TState state, Exception? exception, Func<TState, Exception?, string> formatter)
+            {
+                if (!IsEnabled(logLevel) || state is not IEnumerable<KeyValuePair<string, object?>> fields) return;
+                var data = new JsonObject();
+                foreach (var (key, value) in fields)
+                {
+                    var name = key switch { "OperationName" => "operation", "FailureType" => "failure_type", "AttemptDurationMs" => "attempt_duration_ms", "ElapsedMs" => "elapsed_ms", "UseBackgroundMode" => "background", "Status" => "response_status", "StatusCode" => "status_code", _ => null };
+                    if (name is null) continue;
+                    data[name] = value switch { string text => JsonValue.Create(text), int number => JsonValue.Create(number), double number => JsonValue.Create(number), bool boolean => JsonValue.Create(boolean), _ => null };
+                }
+                if (data.Count != 0) WriteLiveProgress("provider_operation", providerDiagnostics: data);
+                // Never format the message or exception: either could contain response content.
+            }
         }
     }
 }

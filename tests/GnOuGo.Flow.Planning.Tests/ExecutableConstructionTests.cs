@@ -210,6 +210,20 @@ public sealed class ExecutableConstructionTests
     }
 
     [Fact]
+    public async Task LogicalChildReferencesAreLoweredInsideContainersWithoutRenamingPayloadFields()
+    {
+        var graph = Graph();
+        var child = graph.Workflows[0].Steps[0]; child.Input = Obj(("greeting", Str("Hello")));
+        graph.Workflows[0].Steps = [new() { Key = "container", Type = "sequence", Steps = [child] }];
+        graph.Workflows[0].Outputs[0].Value = new() { Kind = "expression", Text = "data.steps.container['greeting'].greeting + ' greeting'" };
+        var yaml = new PlanningGraphCompiler().Compile(graph, Preparation());
+        Assert.DoesNotContain("['greeting']", yaml);
+        var compiled = new WorkflowCompiler().Compile(WorkflowParser.Parse(yaml));
+        var result = await new WorkflowEngine().ExecuteAsync(compiled.Workflows[compiled.Entrypoint!], new JsonObject(), Ct);
+        Assert.True(result.Success, result.Error?.Message); Assert.Equal("Hello greeting", result.Outputs?["message"]?.GetValue<string>());
+    }
+
+    [Fact]
     public async Task CorrectSetComputationsAndTemplateBindings_Execute()
     {
         var graph = Graph(); var node = graph.Workflows[0].Steps[0];
@@ -269,6 +283,16 @@ public sealed class ExecutableConstructionTests
         var graph = Graph(); var finding = PlanningExecutableValidation.MapRuntimeDiagnostic(new("CONTRACT_INVALID", location, "Invalid contract"), graph);
         Assert.Equal(expected, finding.Location);
         Assert.Equal([PlanningPatches.Coordinate("main", node, field)], PlanningPatches.Scope(graph, [finding]).ToArray());
+    }
+
+    [Fact]
+    public void RuntimeDecisionLineageFindingAllowsItsExpressionButNoNewGuard()
+    {
+        var graph = Graph(); var node = graph.Workflows[0].Steps[0]; node.Type = "switch";
+        var diagnostic = PlanningExecutableValidation.MapRuntimeDiagnostic(new("CONTRACT_INVALID", "workflow:main/step:n_" + PlanningGraphCompiler.Fingerprint(node.Key)[..16] + "/field:expr", "Use the declared boundary"), graph);
+        var scope = PlanningPatches.Scope(graph, [diagnostic]);
+        Assert.Contains(PlanningPatches.Coordinate("main", node.Key, "expr"), scope);
+        Assert.DoesNotContain(PlanningPatches.Coordinate("main", node.Key, "if"), scope);
     }
 
     [Theory]

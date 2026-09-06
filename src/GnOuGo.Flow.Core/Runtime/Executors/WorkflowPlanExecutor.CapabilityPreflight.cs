@@ -4408,6 +4408,25 @@ public sealed partial class WorkflowPlanExecutor
             StringComparison.Ordinal));
         var lockedDecisionIsPhysical = lockedDecisionMatch is { CatalogIds.Count: > 0 };
 
+        // A declared reducer combines its inputs. Selecting one convenient enum or
+        // model-capable ancestor would discard the other inputs (including human input).
+        if (lockedDecisionMatch is { Status: "local" })
+        {
+            if (!TryResolveLocalDecisionInputs(evaluation, decisionOperationId, out var inputs))
+            {
+                failureCode = "conditional_decision_source_unavailable";
+                return false;
+            }
+            if (inputs.Count > 1)
+            {
+                if (TryCreateLocalDecisionGrounding(evaluation, conditionalMatch, entries, branchValues, out var reducer))
+                    return SetConditionalDecisionGrounding(reducer, out decisionOutputPath, out allowedValues, out noEffectValues,
+                        out decisionContractSource, out decisionProducerCatalogId, out decisionProducerOperationId);
+                failureCode = "conditional_decision_source_ambiguous";
+                return false;
+            }
+        }
+
         IReadOnlyList<ConditionalDecisionGrounding> lockedProjected = Array.Empty<ConditionalDecisionGrounding>();
         if (decisionMatches.Count > 0)
         {
@@ -4597,21 +4616,7 @@ public sealed partial class WorkflowPlanExecutor
             return false;
         }
 
-        var upstreamIds = decisionMatch.Operation.InputOperationIds
-            .Distinct(StringComparer.Ordinal)
-            .ToArray();
-        if (upstreamIds.Length < 2)
-            return false;
-        var matchesByOperation = evaluation.OperationMatches.ToDictionary(
-            static match => match.Operation.Id,
-            StringComparer.Ordinal);
-        if (upstreamIds.Any(id => !matchesByOperation.TryGetValue(id, out var upstream)
-                                  || upstream.Status is "invalid" or "ambiguous" or "unavailable"
-                                  || string.Equals(upstream.Status, "local", StringComparison.Ordinal)
-                                  || upstream.CatalogIds.Count == 0))
-        {
-            return false;
-        }
+        if (!TryResolveLocalDecisionInputs(evaluation, decisionOperationId!, out var upstreamIds) || upstreamIds.Count < 2) return false;
 
         var evaluator = entries.Values.SingleOrDefault(static entry =>
             string.Equals(entry.Resolution, "native", StringComparison.Ordinal)
@@ -4636,6 +4641,30 @@ public sealed partial class WorkflowPlanExecutor
             noEffectValues,
             LocalDecisionContractSource);
         return true;
+    }
+
+    private static bool TryResolveLocalDecisionInputs(CapabilityMatchingEvaluation evaluation, string operationId, out IReadOnlyList<string> inputs)
+    {
+        var matches = evaluation.OperationMatches.ToDictionary(match => match.Operation.Id, StringComparer.Ordinal);
+        var roots = new HashSet<string>(StringComparer.Ordinal);
+        bool Visit(string id, HashSet<string> ancestors)
+        {
+            if (!ancestors.Add(id) || !matches.TryGetValue(id, out var current) || current.Status is "invalid" or "ambiguous" or "unavailable") return false;
+            try
+            {
+                if (current.Status != "local")
+                {
+                    if (current.CatalogIds.Count == 0) return false;
+                    roots.Add(id); return true;
+                }
+                return current.Operation.ExecutionKind == "local_processing" && current.Operation.InputOperationIds.Count > 0 &&
+                    current.Operation.InputOperationIds.All(input => Visit(input, ancestors));
+            }
+            finally { ancestors.Remove(id); }
+        }
+        var valid = Visit(operationId, new(StringComparer.Ordinal));
+        inputs = valid ? roots.Order(StringComparer.Ordinal).ToArray() : [];
+        return valid;
     }
 
     private static IReadOnlyList<ConditionalDecisionGrounding> FindConditionalDecisionSemanticRootGroundings(
@@ -7419,7 +7448,7 @@ public sealed partial class WorkflowPlanExecutor
                         match.Operation.ExternalEffectKind,
                         CapabilityDescription: producer.Description)
                     {
-                        InputOperationIds = match.Operation.InputOperationIds
+                        InputOperationIds = TryResolveLocalDecisionInputs(evaluation, match.Operation.Id, out var reducerInputs) ? reducerInputs : []
                     });
                     continue;
                 }
@@ -7481,7 +7510,8 @@ public sealed partial class WorkflowPlanExecutor
                         NoEffectValues = match.DecisionNoEffectValues ?? Array.Empty<string>(),
                         DecisionContractSource = match.DecisionContractSource ?? CapabilityDecisionContractSource,
                         DecisionProducerCatalogId = match.DecisionProducerCatalogId ?? string.Empty,
-                        DecisionInputOperationIds = evaluation.OperationMatches
+                        DecisionInputOperationIds = match.DecisionContractSource == LocalDecisionContractSource && TryResolveLocalDecisionInputs(evaluation, match.DecisionOperationId!, out var decisionInputs)
+                            ? decisionInputs : evaluation.OperationMatches
                             .FirstOrDefault(candidate => string.Equals(
                                 candidate.Operation.Id,
                                 match.DecisionOperationId,
@@ -9581,6 +9611,15 @@ public sealed partial class WorkflowPlanExecutor
             if (sourceStep == null)
                 return false;
             var remainingPath = stepPath.Skip(1).ToArray();
+            // Sequence and switch executors retain child results under their child IDs.
+            // Follow only declared direct children, never arbitrary payload fields or helpers.
+            while (sourceStep.Type is "sequence" or "switch" && remainingPath.Length > 1)
+            {
+                var children = ArtifactChildren(sourceStep).Where(child => child.Id == remainingPath[0] || child.Output == remainingPath[0]).ToArray();
+                if (children.Length != 1) return false;
+                sourceStep = children[0];
+                remainingPath = remainingPath.Skip(1).ToArray();
+            }
             if (sources.Any(source => string.Equals(source.Workflow, workflowName, StringComparison.Ordinal)
                                       && ReferenceEquals(source.Step, sourceStep)))
             {

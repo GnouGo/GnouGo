@@ -144,6 +144,7 @@ public sealed partial class LiveIntentAgentGenerationTests
                 configureServices: services =>
                 {
                     services.AddSingleton<ILLMUsageBudgetScopeFactory>(new SharedLLMUsageBudgetScopeFactory(cycleBudget));
+                    services.AddLogging(logging => logging.AddProvider(new ProviderOperationalLogger()).AddFilter<ProviderOperationalLogger>("GnOuGo.AI.Core", LogLevel.Information));
                     if (plannerVersion == 2) ConfigureV2Campaign(services, cycleBudget, planningStore, budgetLedger);
                 });
             if (plannerVersion == 2 && ExistingConfigurationAuthorized)
@@ -224,8 +225,11 @@ public sealed partial class LiveIntentAgentGenerationTests
                 }
                 var agent = await GetAgentAsync(mcpFactory, name, timeout.Token);
                 var workflow = RequireString(agent, "workflow");
+                var expectedPrompt = plannerVersion == 2
+                    ? (await services.GetRequiredService<GnOuGo.Agent.Server.Planning.PlanningSessionService>().ListAsync(timeout.Token)).Single(s => s.Request.Name == name).Request.Prompt
+                    : AcceptancePrompt;
                 Assert.Equal(
-                    AcceptancePrompt.Trim().ReplaceLineEndings("\n"),
+                    expectedPrompt.Trim().ReplaceLineEndings("\n"),
                     RequireString(agent, "original_prompt").Trim().ReplaceLineEndings("\n"));
                 var contract = await ValidateGeneratedAgentAsync(workflow, mcpFactory, timeout.Token);
                 WriteLiveProgress("generation_validated", generation: attempt);
@@ -1876,7 +1880,7 @@ public sealed partial class LiveIntentAgentGenerationTests
                          "provider_code",
                          "attempt_count",
                          "retry_exhausted",
-                         "retry_after_ms"
+                         "retry_after_ms", "operation", "failure_type", "attempt_duration_ms", "elapsed_ms", "background", "response_status"
                      })
             {
                 if (providerDiagnostics[property] is JsonValue value)

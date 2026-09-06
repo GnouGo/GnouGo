@@ -24,6 +24,12 @@ Older snapshots recover this metadata from their encrypted preflight contract th
 `IPlanningRuntime.EnrichPreparationAsync`, without rediscovery or model inference.
 Validation diagnostics retain their runtime, capability, or conditional-activation stage
 and identify the failing producer, consumer, or decision whenever available.
+Decision-lineage findings identify the switch expression for targeted repair. Exact
+producer references may traverse declared sequence/switch child results; absent branch
+outputs remain subject to full runtime-path validation. Local decision reducers retain
+every physical input reached through declared local dependencies, even when one input
+already exposes a compatible enum. A selected ancestor cannot replace a multi-input
+decision or discard its human-input dependency.
 Version-2 recovery is a waiting state with retry, request edit and cancel choices.
 `PlanningSnapshot` retains schema version 2 with additive current-phase and cumulative
 clarification counters and `behaviorAssessmentCalls`. `PlanningBehaviorPlan` captures

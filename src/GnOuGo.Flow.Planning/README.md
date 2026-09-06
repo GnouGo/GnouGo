@@ -75,6 +75,11 @@ only when there is one unambiguous workflow owner; conflicts remain diagnostics.
 Fragment response variants constrain fields by accepted native step type: unsupported
 structured post-processing, non-`set` output annotations, ignored `set.expr`, and loop
 variables outside loops must be null before elaboration. Empty fragments remain valid.
+Local-processing capability obligations may use validated native calculations or control
+flow; external and native bindings still require their exact declared executor. Older
+capabilities without resolution metadata retain strict binding checks. Logical child
+references inside sequence and switch results are lowered to their declared runtime IDs
+without renaming payload fields, quoted text or locally shadowed variables.
 
 Executable responses use compact discriminated schemas (`inline` or `reference`) and
 values (literal, input, output, workflow, expression or template). References select

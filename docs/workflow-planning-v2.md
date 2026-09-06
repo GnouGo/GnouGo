@@ -264,3 +264,7 @@ as free. On first opening an older campaign store, incomplete encrypted journal 
 are reconciled into these reserves. The ledger contains only opaque identifiers and amounts.
 Provider transport failures pause in recovery with their typed failure classification and
 leave accepted behavior and completed fragments available for retry.
+The live harness can apply an explicit `GNOU_GO_LIVE_TYPED_PLANNING_REVISION` once to
+a stopped temporary session through the existing revision command. This invalidates
+its behavior approval and rebuilds capability contracts while preserving answers,
+history and the cumulative ledger. It never revises the real user's session implicitly.

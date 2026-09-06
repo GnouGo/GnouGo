@@ -50,6 +50,7 @@ public sealed partial class WorkflowPlanExecutor
                 ArtifactContract = tool is null ? null : GetValidatedMcpArtifactContract(tool, capability.Server),
                 Activation = capability.Activation,
                 CatalogId = capability.CatalogId,
+                Resolution = capability.Resolution,
                 OperationIds = GetResolvedCapabilityOperationIds(capability).ToList(),
                 InputSchema = prompt is not null ? TypedPromptInputSchema(prompt) : (tool?.InputSchema?.DeepClone() ?? contract?.InputSchema.DeepClone()) as JsonObject ?? new JsonObject(),
                 OutputSchema = prompt is not null ? new JsonObject() : (tool is null ? contract?.OutputSchema.DeepClone() : McpToolContractEnricher.GetAuthoritativeOutputSchema(tool)?.DeepClone()) as JsonObject ?? new JsonObject(),
@@ -108,7 +109,9 @@ public sealed partial class WorkflowPlanExecutor
         var parts = new List<string>();
         if (Read("workflow") is { } workflow) parts.Add("workflow:" + workflow);
         if ((Read("step") ?? Read("consumer_step") ?? Read("switch_id")) is { } step) parts.Add("step:" + step);
-        if ((Read("field") ?? (Read("request_pointer") is { } pointer ? "input.request" + pointer.Replace('/', '.') : null)) is { } field) parts.Add("field:" + field);
+        var targetField = Read("field") ?? (Read("request_pointer") is { } pointer ? "input.request" + pointer.Replace('/', '.') : null);
+        if (targetField is null && Read("switch_id") is not null && Read("validation_issue") == "conditional_decision_lineage_unproven") targetField = "expr";
+        if (targetField is { } field) parts.Add("field:" + field);
         var message = Read("message") ?? Read("expected") ?? Read("reason") ?? "The generated artifact violates its contract.";
         if (Read("artifact_kind") is { } kind) message = "Required artifact '" + kind + "': " + message;
         if (Read("invalid_path") is { Length: > 0 } invalidPath) message += "\nInvalid reference: " + invalidPath;
@@ -129,7 +132,7 @@ public sealed partial class WorkflowPlanExecutor
                 GetResolvedCapabilityOperationIds(c).ToHashSet(StringComparer.Ordinal).SetEquals(capability.OperationIds) && c.RequestBindings.Count == capability.RequestBindings.Count &&
                 c.RequestBindings.All(b => capability.RequestBindings.Any(p => p.Path == b.Path && JsonNode.DeepEquals(p.Value, b.Value)))).ToArray();
             if (matches.Length != 1) throw new InvalidOperationException("The locked capability metadata is missing or ambiguous.");
-            capability.Activation = matches[0].Activation; capability.CatalogId = matches[0].CatalogId;
+            capability.Activation = matches[0].Activation; capability.CatalogId = matches[0].CatalogId; capability.Resolution = matches[0].Resolution;
             var tool = preflight.DiscoveredServers.FirstOrDefault(s => s.Name == capability.Server)?.Tools.FirstOrDefault(t => t.Name == capability.Method);
             capability.ArtifactContract = tool is null ? null : GetValidatedMcpArtifactContract(tool, capability.Server);
         }
