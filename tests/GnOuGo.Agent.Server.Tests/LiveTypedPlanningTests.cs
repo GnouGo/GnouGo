@@ -1,4 +1,5 @@
 using System.Text.Json.Nodes;
+using System.Text.Json;
 using Bunit;
 using GnOuGo.AI.Core;
 using GnOuGo.Agent.Server.Components.Pages;
@@ -37,7 +38,7 @@ public sealed partial class LiveIntentAgentGenerationTests
         await RunCampaignAsync(plannerVersion: 2, resumeOnly: true);
     }
 
-    private static void ConfigureV2Campaign(IServiceCollection services, LLMUsageBudgetScope budget, PlanningPersistenceTests.StoreFixture? isolatedStore)
+    private static void ConfigureV2Campaign(IServiceCollection services, LLMUsageBudgetScope budget, PlanningPersistenceTests.StoreFixture? isolatedStore, LiveBudgetLedger ledger)
     {
         if (isolatedStore is not null) services.AddSingleton<IPlanningSessionStore>(isolatedStore.Store);
         services.AddSingleton(sp =>
@@ -45,7 +46,7 @@ public sealed partial class LiveIntentAgentGenerationTests
             var original = sp.GetRequiredService<SecureWorkflowRuntimeFactory>();
             var runtime = new SecureWorkflowRuntimeFactory(
                 sp.GetRequiredService<LLMRuntimeOptionsStore>(), sp.GetRequiredService<IKeyVaultRuntimeConfigStore>(),
-                sp.GetRequiredService<ILoggerFactory>(), llmClientOverride: new CampaignPlanningClient(original, budget, sp.GetRequiredService<IExchangeRateProvider>()),
+                sp.GetRequiredService<ILoggerFactory>(), llmClientOverride: new CampaignPlanningClient(original, budget, sp.GetRequiredService<IExchangeRateProvider>(), ledger),
                 llmCapabilityResolver: sp.GetService<ILLMCapabilityResolver>(), humanInputProvider: sp.GetRequiredService<AgentHumanInputProvider>());
             return new PlanningSessionService(
                 isolatedStore?.Store ?? sp.GetRequiredService<IPlanningSessionStore>(),
@@ -55,6 +56,45 @@ public sealed partial class LiveIntentAgentGenerationTests
                 sp.GetRequiredService<IOptions<TypedWorkflowPlanningSettings>>(), sp.GetRequiredService<IOptions<OpenTelemetrySettings>>(),
                 sp.GetRequiredService<ILogger<PlanningSessionService>>());
         });
+    }
+
+    private static async Task ReconcileV2UnverifiedCallsAsync(IServiceProvider services, PlanningPersistenceTests.StoreFixture? isolatedStore,
+        LiveBudgetLedger ledger, LLMUsageBudgetSnapshot snapshot, bool resumeOnly, CancellationToken ct)
+    {
+        var contexts = (IDbContextFactory<PlanningDbContext>?)isolatedStore ?? services.GetRequiredService<IDbContextFactory<PlanningDbContext>>();
+        await using var db = await contexts.CreateDbContextAsync(ct);
+        var tenant = WorkflowExecutionTenant.Resolve(services.GetRequiredService<IOptions<OpenTelemetrySettings>>());
+        var session = resumeOnly ? Environment.GetEnvironmentVariable("GNOU_GO_LIVE_TYPED_PLANNING_SESSION_ID") : null;
+        var key = PlanningGraphCompiler.Fingerprint(db.Database.GetDbConnection().DataSource + ":" + tenant + ":" + session);
+        if (ledger.ReconciledStores.Contains(key)) return;
+        var records = isolatedStore?.Records ?? services.GetRequiredService<IKeyVaultRecordStore>();
+        var calls = await db.Calls.AsNoTracking().Where(c => c.TenantId == tenant && c.Status != "completed" && (session == null || c.SessionId == session)).ToListAsync(ct);
+        await using var runtime = await services.GetRequiredService<SecureWorkflowRuntimeFactory>().CreateAsync(ct);
+        foreach (var call in calls)
+        {
+            var record = await records.GetAsync(PlanningModelJournal.RequestCollection, tenant, call.PayloadKey, EfPlanningSessionStore.Author, ct)
+                ?? throw new InvalidOperationException("An incomplete model call has no encrypted request for budget reconciliation.");
+            var request = JsonSerializer.Deserialize(record.Value, PlanningJsonContext.Default.LLMRequest)!;
+            var maximum = await MaximumCallCostAsync(runtime.Options, request, snapshot, services.GetRequiredService<IExchangeRateProvider>(), ct);
+            ledger.ReserveCall(maximum, PlanningGraphCompiler.Fingerprint(key + ":" + call.RequestHash));
+        }
+        ledger.ReconciledStores.Add(key);
+        await ledger.PersistAsync(ledger.Snapshot, ct);
+    }
+
+    private static async Task<decimal> MaximumCallCostAsync(LLMOptions options, LLMRequest request, LLMUsageBudgetSnapshot snapshot, IExchangeRateProvider rates, CancellationToken ct)
+    {
+        var metadata = new LLMModelMetadataResolver(options).Resolve(request.Provider, request.Model);
+        var inputCeiling = metadata.MaxInputTokens ?? metadata.ContextWindowTokens;
+        var outputCeiling = request.MaxTokens ?? metadata.MaxOutputTokens;
+        if (inputCeiling is not > 0 || outputCeiling is not > 0) throw new InvalidOperationException("Live dispatch requires known token ceilings for conservative budget reservation.");
+        var ceiling = new ModelMetadataUsageCostEstimator(options).EstimateCostWithCurrency(request.Model, inputCeiling, outputCeiling, request.Provider)
+            ?? throw new InvalidOperationException("Live dispatch requires verifiable pricing.");
+        var rate = ceiling.Currency == snapshot.EstimatedCostCurrency ? 1m
+            : (snapshot.ExchangeRates.FirstOrDefault(q => q.SourceCurrency == ceiling.Currency && q.TargetCurrency == snapshot.EstimatedCostCurrency)
+                ?? await rates.GetQuoteAsync(ceiling.Currency, snapshot.EstimatedCostCurrency, ct))?.Rate
+                ?? throw new InvalidOperationException("Live dispatch requires a verified currency conversion.");
+        return ceiling.Amount * rate;
     }
 
     private static async Task ResumeV2QuestionsAsync(IServiceProvider services, CancellationToken ct)
@@ -178,7 +218,7 @@ public sealed partial class LiveIntentAgentGenerationTests
     // The planner's own durable per-session journal still records local usage. This
     // outer scope charges every actual dispatch (including capability assessment)
     // once to the existing cumulative campaign ledger; receipt replay skips dispatch.
-    private sealed class CampaignPlanningClient(SecureWorkflowRuntimeFactory factory, LLMUsageBudgetScope budget, IExchangeRateProvider exchangeRates) : ILLMClient
+    private sealed class CampaignPlanningClient(SecureWorkflowRuntimeFactory factory, LLMUsageBudgetScope budget, IExchangeRateProvider exchangeRates, LiveBudgetLedger ledger) : ILLMClient
     {
         private readonly SemaphoreSlim _dispatch = new(1, 1);
         public async Task<LLMResponse> CallAsync(LLMRequest request, CancellationToken ct)
@@ -188,23 +228,16 @@ public sealed partial class LiveIntentAgentGenerationTests
             {
                 await using var runtime = await factory.CreateAsync(ct);
                 var estimator = new ModelMetadataUsageCostEstimator(runtime.Options);
+                string? reservation = null;
                 if (ExistingConfigurationAuthorized)
                 {
-                    var metadata = new LLMModelMetadataResolver(runtime.Options).Resolve(request.Provider, request.Model);
-                    var inputCeiling = metadata.MaxInputTokens ?? metadata.ContextWindowTokens;
-                    var outputCeiling = request.MaxTokens ?? metadata.MaxOutputTokens;
-                    if (inputCeiling is not > 0 || outputCeiling is not > 0) throw new InvalidOperationException("Live dispatch requires known token ceilings for conservative budget reservation.");
-                    var ceiling = estimator.EstimateCostWithCurrency(request.Model, inputCeiling, outputCeiling, request.Provider)
-                        ?? throw new InvalidOperationException("Live dispatch requires verifiable pricing.");
-                    var snapshot = budget.Snapshot;
-                    var rate = ceiling.Currency == snapshot.EstimatedCostCurrency ? 1m
-                        : (snapshot.ExchangeRates.FirstOrDefault(q => q.SourceCurrency == ceiling.Currency && q.TargetCurrency == snapshot.EstimatedCostCurrency)
-                            ?? await exchangeRates.GetQuoteAsync(ceiling.Currency, snapshot.EstimatedCostCurrency, ct))?.Rate
-                            ?? throw new InvalidOperationException("Live dispatch requires a verified currency conversion.");
-                    if (snapshot.EstimatedCost + ceiling.Amount * rate > budget.Limits.MaxEstimatedCost!.Amount)
-                        throw new InvalidOperationException("The remaining campaign budget cannot cover a maximum-size model request. No request was dispatched.");
+                    reservation = ledger.ReserveCall(await MaximumCallCostAsync(runtime.Options, request, budget.Snapshot, exchangeRates, ct));
                 }
-                return await budget.CallAsync(runtime.LlmClient, estimator, request, "live.typed_planning", ct);
+                // Persist the maximum before dispatch. A missing receipt retains that
+                // reserve across restarts instead of counting the unknown call as free.
+                var response = await budget.CallAsync(runtime.LlmClient, estimator, request, "live.typed_planning", ct);
+                if (reservation is not null) ledger.CompleteCall(reservation);
+                return response;
             }
             finally { _dispatch.Release(); }
         }

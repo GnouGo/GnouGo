@@ -256,3 +256,11 @@ remain beside it after failures so retries resume completed work. Temporary agen
 external fixtures are still cleaned. Model pricing and exchange conversion must be
 available before dispatch. Resume stops at the user's review/questions without approval;
 only temporary campaign sessions use scripted answers and approval.
+
+Each paid v2 dispatch reserves its maximum declared input/output cost before sending.
+Successful usage receipts replace that reservation with measured usage. Interrupted calls
+without receipts retain their conservative reserve across restarts; they are never counted
+as free. On first opening an older campaign store, incomplete encrypted journal requests
+are reconciled into these reserves. The ledger contains only opaque identifiers and amounts.
+Provider transport failures pause in recovery with their typed failure classification and
+leave accepted behavior and completed fragments available for retry.

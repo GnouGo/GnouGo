@@ -144,8 +144,10 @@ public sealed partial class LiveIntentAgentGenerationTests
                 configureServices: services =>
                 {
                     services.AddSingleton<ILLMUsageBudgetScopeFactory>(new SharedLLMUsageBudgetScopeFactory(cycleBudget));
-                    if (plannerVersion == 2) ConfigureV2Campaign(services, cycleBudget, planningStore);
+                    if (plannerVersion == 2) ConfigureV2Campaign(services, cycleBudget, planningStore, budgetLedger);
                 });
+            if (plannerVersion == 2 && ExistingConfigurationAuthorized)
+                await ReconcileV2UnverifiedCallsAsync(app.Services, planningStore, budgetLedger, cycleBudget.Snapshot, resumeOnly, timeout.Token);
             if (resumeOnly)
             {
                 // Do not start hosted workers or replay any other user's sessions.
@@ -2044,6 +2046,30 @@ public sealed partial class LiveIntentAgentGenerationTests
         public bool ProbeCompleted { get; private set; }
         public bool DiagnosticGenerationCompleted { get; private set; }
         public bool FinalAcceptanceCompleted { get; private set; }
+        private readonly Dictionary<string, decimal> _unverifiedCalls = new(StringComparer.Ordinal);
+        public HashSet<string> ReconciledStores { get; } = new(StringComparer.Ordinal);
+        public decimal UnverifiedCostReserve { get { lock (_gate) return _unverifiedCalls.Values.Sum(); } }
+
+        public string ReserveCall(decimal maximumCost, string? id = null)
+        {
+            lock (_gate)
+            {
+                id ??= Guid.NewGuid().ToString("N");
+                if (_unverifiedCalls.ContainsKey(id)) return id;
+                if (maximumCost <= 0 || Snapshot.EstimatedCost + _unverifiedCalls.Values.Sum() + maximumCost > _definition.AuthorizedBudget.Amount)
+                    throw new InvalidOperationException("The remaining campaign budget cannot cover this call and unresolved previous calls.");
+                _unverifiedCalls.Add(id, maximumCost); PersistLocked(); return id;
+            }
+        }
+
+        public void CompleteCall(string reservation)
+        {
+            lock (_gate)
+            {
+                if (!_unverifiedCalls.Remove(reservation)) throw new InvalidOperationException("Unknown campaign reservation.");
+                PersistLocked();
+            }
+        }
 
         public static LiveBudgetLedger Open(string path, LiveBudgetDefinition definition)
         {
@@ -2102,7 +2128,7 @@ public sealed partial class LiveIntentAgentGenerationTests
                 ExchangeRates = ReadExchangeRates(root["exchange_rates"]),
                 EstimatedCostUsd = ReadRequiredDecimal(root, "estimated_cost_usd")
             };
-            return new LiveBudgetLedger(
+            var ledger = new LiveBudgetLedger(
                 path,
                 definition,
                 exists: true,
@@ -2110,6 +2136,15 @@ public sealed partial class LiveIntentAgentGenerationTests
                 ReadRequiredBoolean(root, "probe_completed"),
                 ReadRequiredBoolean(root, "diagnostic_generation_completed"),
                 ReadRequiredBoolean(root, "final_acceptance_completed"));
+            if (root["unverified_calls"] is JsonObject pending)
+                foreach (var pair in pending)
+                {
+                    var amount = pair.Value?.GetValue<decimal>() ?? 0;
+                    if (amount <= 0) throw new InvalidOperationException("Invalid campaign reservation.");
+                    ledger._unverifiedCalls.Add(pair.Key, amount);
+                }
+            foreach (var key in (root["reconciled_stores"] as JsonArray ?? []).Select(v => v!.GetValue<string>())) ledger.ReconciledStores.Add(key);
+            return ledger;
         }
 
         public void PinExchangeRate(CurrencyExchangeQuote quote)
@@ -2209,6 +2244,8 @@ public sealed partial class LiveIntentAgentGenerationTests
                 ["total_tokens"] = Snapshot.TotalTokens,
                 ["estimated_cost"] = Snapshot.EstimatedCost,
                 ["estimated_cost_currency"] = Snapshot.EstimatedCostCurrency,
+                ["unverified_calls"] = new JsonObject(_unverifiedCalls.Select(pair => new KeyValuePair<string, JsonNode?>(pair.Key, JsonValue.Create(pair.Value)))),
+                ["reconciled_stores"] = new JsonArray(ReconciledStores.Order(StringComparer.Ordinal).Select(key => (JsonNode?)JsonValue.Create(key)).ToArray()),
                 ["estimated_cost_usd"] = Snapshot.EstimatedCostUsd,
                 ["exchange_rates"] = new JsonArray(Snapshot.ExchangeRates.Select(static quote => (JsonNode)new JsonObject
                 {

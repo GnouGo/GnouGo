@@ -8,6 +8,27 @@ namespace GnOuGo.Agent.Server.Tests;
 public sealed class LiveIntentBudgetLedgerTests
 {
     [Fact]
+    public async Task UnverifiedDispatchRetainsItsMaximumCostAcrossRestart()
+    {
+        var path = Path.Combine(Path.GetTempPath(), $"gnougo-live-budget-{Guid.NewGuid():N}.json");
+        var definition = new LiveIntentAgentGenerationTests.LiveBudgetDefinition(new(100, "EUR"), new(0, "EUR"), ExistingConfiguration: true, PriorCostReserve: 50);
+        try
+        {
+            var ledger = LiveIntentAgentGenerationTests.LiveBudgetLedger.Open(path, definition);
+            var reservation = ledger.ReserveCall(30);
+            await ledger.PersistAsync(ledger.Snapshot with { Calls = 1 }, TestContext.Current.CancellationToken);
+            ledger = LiveIntentAgentGenerationTests.LiveBudgetLedger.Open(path, definition);
+            Assert.Equal(30, ledger.UnverifiedCostReserve);
+            Assert.Throws<InvalidOperationException>(() => ledger.ReserveCall(21));
+            await ledger.PersistAsync(ledger.Snapshot with { EstimatedCost = 55 }, TestContext.Current.CancellationToken);
+            ledger.CompleteCall(reservation);
+            ledger = LiveIntentAgentGenerationTests.LiveBudgetLedger.Open(path, definition);
+            Assert.Equal(55, ledger.Snapshot.EstimatedCost); Assert.Equal(0, ledger.UnverifiedCostReserve);
+        }
+        finally { if (File.Exists(path)) File.Delete(path); }
+    }
+
+    [Fact]
     public async Task ExistingConfigurationReserve_IsCumulativeAndCannotBeResetOnReopen()
     {
         var path = Path.Combine(Path.GetTempPath(), $"gnougo-live-budget-{Guid.NewGuid():N}.json");

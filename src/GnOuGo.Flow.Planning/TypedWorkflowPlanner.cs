@@ -210,6 +210,11 @@ public sealed partial class TypedWorkflowPlanner(TimeProvider? timeProvider = nu
                 RecordClarification(state, fields);
             }
         }
+        catch (LLMClientException ex)
+        {
+            state.Status = PlanningStatus.Recovery; state.ApprovedHash = null;
+            state.Diagnostics = [ProviderFinding(ex, "$")];
+        }
         catch (Exception ex)
         {
             state.Status = ex is WorkflowRuntimeException failure && failure.Code == ErrorCodes.CapabilityPreflightUnavailable ? PlanningStatus.Unsupported : PlanningStatus.Failed;
@@ -298,7 +303,7 @@ public sealed partial class TypedWorkflowPlanner(TimeProvider? timeProvider = nu
         if (failure is not null)
         {
             state.Status = PlanningStatus.Recovery;
-            state.Diagnostics = [new("FRAGMENT_GENERATION_INVALID", "/workflows", failure.Message)];
+            state.Diagnostics = [failure is LLMClientException provider ? ProviderFinding(provider, "/workflows") : new("FRAGMENT_GENERATION_INVALID", "/workflows", failure.Message)];
             state.Attempts.Add(new(PlanningGraphCompiler.Fingerprint(state.Graph!), PlanningStatus.Generating, 0, false, state.Diagnostics.ToList()));
             return;
         }
@@ -387,6 +392,7 @@ public sealed partial class TypedWorkflowPlanner(TimeProvider? timeProvider = nu
         }
         catch (OperationCanceledException) when (ct.IsCancellationRequested) { throw; }
         catch (GnOuGo.Flow.Core.Compilation.WorkflowCompilationException ex) { diagnostics.AddRange(PlanningExecutableValidation.CompilerErrors(ex, state.Graph!)); }
+        catch (LLMClientException) { throw; }
         catch (Exception ex) { diagnostics.Add(new("GRAPH_VALIDATION", "$", ex.Message)); }
 
         var retained = true;
@@ -463,6 +469,7 @@ public sealed partial class TypedWorkflowPlanner(TimeProvider? timeProvider = nu
             state.Graph = candidate; state.Status = PlanningStatus.Validating;
         }
         catch (OperationCanceledException) when (ct.IsCancellationRequested) { throw; }
+        catch (LLMClientException) { throw; }
         catch (Exception ex)
         {
             var findings = new List<PlanningDiagnostic> { new("PATCH_REJECTED", "/workflows", ex.Message) };
@@ -594,6 +601,12 @@ public sealed partial class TypedWorkflowPlanner(TimeProvider? timeProvider = nu
         (state.Request.Options["generator"]?["context"]?.GetValue<string>() is { Length: > 0 } context ? "\nHost constraints:\n" + context : "") +
         (state.Answers.Count == 0 ? "" : "\nUser clarification answers:\n" + string.Join("\n", state.Answers.Select(a => a.Question + "\n" + a.Answers.ToJsonString())));
     private static string Capabilities(IEnumerable<PlanningCapability> capabilities) => new JsonArray(capabilities.Select(c => JsonSerializer.SerializeToNode(c, PlanningJsonContext.Default.PlanningCapability)).ToArray()).ToJsonString();
+
+    private static PlanningDiagnostic ProviderFinding(LLMClientException failure, string location)
+        => new("LLM_PROVIDER_" + failure.Kind.ToString().ToUpperInvariant(), location,
+            failure.Message + (failure.StatusCode is { } status ? " HTTP status: " + status + "." : "") +
+            (failure.SafeProviderCode is { } code ? " Provider code: " + code + "." : "") +
+            (failure.Retryable ? " The session is retained; retry when the provider is available." : " Check the provider configuration, then retry the retained session."));
 
     private static string RuntimeAddresses(PlanningGraph graph) => new JsonArray(graph.Workflows.Select(w => (JsonNode)new JsonObject
     {

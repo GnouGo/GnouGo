@@ -52,6 +52,17 @@ behaviorFailure = JsonSerializer.Deserialize(JsonSerializer.Serialize(behaviorFa
 behaviorFailure = await planner.AdvanceAsync(behaviorFailure, new() { ExpectedRevision = behaviorFailure.Revision }, runtime, CancellationToken.None);
 if (behaviorFailure.Status != PlanningStatus.BehaviorReview || behaviorFailure.ReviewedGraph is not null || behaviorFailure.ApprovedHash is not null)
     throw new InvalidOperationException("Published recovery bypassed behavior review.");
+var metadata = new PlanningSnapshot { Preparation = new() { Capabilities = [new()
+{
+    CatalogId = "declared", Activation = new("all_on_value", "group", "decision", "APPLY")
+    { AllowedValues = ["APPLY", "NO_EFFECT"], NoEffectValues = ["NO_EFFECT"], DecisionOutputPath = "/json/outcome" },
+    ArtifactContract = new(1, [new("opaque.resource", "/value", "materialize")], [])
+}] }, Diagnostics = [new("CONTRACT", "$", "Contract finding", ValidationStage: PlanningValidationStage.ConditionalActivation)] };
+metadata = JsonSerializer.Deserialize(JsonSerializer.Serialize(metadata, PlanningJsonContext.Default.PlanningSnapshot), PlanningJsonContext.Default.PlanningSnapshot)!;
+if (metadata.Preparation?.Capabilities[0].Activation?.DecisionOutputPath != "/json/outcome" ||
+    metadata.Preparation.Capabilities[0].ArtifactContract?.Produces[0].Pointer != "/value" ||
+    metadata.Diagnostics[0].ValidationStage != PlanningValidationStage.ConditionalActivation)
+    throw new InvalidOperationException("Published activation and artifact metadata did not survive serialization.");
 Console.WriteLine("Typed planning AOT smoke passed.");
 
 sealed class SmokeRuntime(PlanningGraph graph, PlanningPreparation preparation) : IPlanningRuntime

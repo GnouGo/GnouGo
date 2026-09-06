@@ -84,6 +84,25 @@ public sealed class TypedPlannerTests
         Assert.Null(state.Yaml);
     }
 
+    [Theory]
+    [InlineData(PlanningStatus.Created, "intent")]
+    [InlineData(PlanningStatus.Generating, "fragment")]
+    public async Task ProviderFailurePausesWithAnActionableFindingAndRetainsTheSession(string status, string phase)
+    {
+        var state = Session(status);
+        if (status == PlanningStatus.Generating) { state.Graph = Graph(); state.Preparation = Preparation(); }
+        var runtime = new FakeRuntime { OnCall = (_, _, _) => throw new LLMClientException(LLMClientFailureKind.Transport, "The provider could not be reached.", true, 503, "upstream_unavailable") };
+        var result = await Send(new TypedWorkflowPlanner(), state, runtime);
+        Assert.Equal(PlanningStatus.Recovery, result.Status); Assert.Equal(phase, result.CurrentPhase);
+        Assert.Equal(state.Request.SessionId, result.Request.SessionId);
+        Assert.Equal(state.Graph is null, result.Graph is null);
+        Assert.Null(result.Question); Assert.Null(result.Outcome);
+        var diagnostic = Assert.Single(result.Diagnostics);
+        Assert.Equal("LLM_PROVIDER_TRANSPORT", diagnostic.Code);
+        Assert.Contains("503", diagnostic.Message); Assert.Contains("upstream_unavailable", diagnostic.Message);
+        Assert.Single(runtime.Requests);
+    }
+
     [Fact]
     public async Task InconclusiveRequiredScenario_BlocksFinalReview()
     {
