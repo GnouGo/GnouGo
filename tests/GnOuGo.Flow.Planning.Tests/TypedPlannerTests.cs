@@ -70,7 +70,7 @@ public sealed class TypedPlannerTests
     {
         var runtime = new FakeRuntime { InvalidJson = true };
         var state = await Send(new TypedWorkflowPlanner(), Session(), runtime);
-        Assert.Equal(PlanningStatus.Failed, state.Status);
+        Assert.Equal(PlanningStatus.Recovery, state.Status);
         Assert.Equal(2, runtime.Requests.Count);
         Assert.True(JsonNode.DeepEquals(runtime.Requests[0].StructuredOutputSchema, runtime.Requests[1].StructuredOutputSchema));
         Assert.Null(state.Yaml);
@@ -184,7 +184,7 @@ public sealed class TypedPlannerTests
         var runtime = new FakeRuntime();
         var next = await Send(new TypedWorkflowPlanner(), state, runtime);
         Assert.NotNull(next.PreviousGraph);
-        Assert.Contains("Existing behavior to preserve", runtime.Requests[0].Prompt);
+        Assert.Contains("existing_workflow", runtime.Requests[0].Prompt);
         Assert.Contains("Hello", runtime.Requests[0].Prompt);
         state.Request.ExistingYaml = yaml + "meta: {hidden: true}\n";
         runtime = new FakeRuntime();
@@ -314,7 +314,7 @@ public sealed class TypedPlannerTests
             if (OnCall is not null) return OnCall(phase, request, ct);
             JsonNode? json = InvalidJson ? new JsonObject() : phase switch
             {
-                "intent" => new JsonObject { ["outcome"] = "ready", ["reason"] = "Clear", ["evidence"] = "", ["questions"] = new JsonArray() },
+                "intent" => new JsonObject { ["outcome"] = "ready", ["reason"] = "Clear", ["evidence"] = new JsonArray(), ["questions"] = new JsonArray() },
                 "behavior" => JsonSerializer.SerializeToNode(Graph(), PlanningJsonContext.Default.PlanningGraph),
                 "fragment" or "repair_fragment" => JsonSerializer.SerializeToNode(Graph().Workflows[0], PlanningJsonContext.Default.PlanningWorkflow),
                 "semantic_review" => new JsonObject { ["findings"] = new JsonArray() },

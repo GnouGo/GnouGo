@@ -22,10 +22,14 @@ internal static class PlanningPersistenceSmoke
         var store = new EfPlanningSessionStore(factory, records);
         var state = new PlanningSnapshot { Request = new() { TenantId = "smoke", SessionId = Guid.NewGuid().ToString("N"), Prompt = "Private published smoke content" } };
         if (!await store.TrySaveAsync(state, null, CancellationToken.None)) throw new InvalidOperationException("Insert failed.");
-        state.Revision = 1; state.Status = PlanningStatus.BehaviorReview;
+        state.Revision = 1; state.Status = PlanningStatus.Recovery; state.CurrentPhase = PlanningPhase.Intent;
+        state.ClarificationForms = 1; state.ClarificationQuestions = 3;
+        state.IntentHistory.Add(new(0, "Previous private request", [], [new("INTENT_EVIDENCE_INVALID", "/evidence", "Invalid evidence")]));
         if (!await store.TrySaveAsync(state, 0, CancellationToken.None)) throw new InvalidOperationException("Revision update failed.");
         var reopened = new EfPlanningSessionStore(factory, KeyVaultRecordStoreFactory.CreateWorkspaceStore(vault, directory));
-        if ((await reopened.LoadAsync("smoke", state.Request.SessionId, CancellationToken.None))?.Revision != 1 ||
+        var restored = await reopened.LoadAsync("smoke", state.Request.SessionId, CancellationToken.None);
+        if (restored?.Revision != 1 || restored.Status != PlanningStatus.Recovery || restored.CurrentPhase != PlanningPhase.Intent ||
+            restored.ClarificationForms != 1 || restored.ClarificationQuestions != 3 || restored.IntentHistory.Count != 1 ||
             await reopened.LoadAsync("different", state.Request.SessionId, CancellationToken.None) is not null ||
             (await reopened.ListAsync("smoke", CancellationToken.None)).Count == 0)
             throw new InvalidOperationException("Persistence or tenant isolation failed.");

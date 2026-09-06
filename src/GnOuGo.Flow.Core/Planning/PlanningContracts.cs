@@ -21,6 +21,7 @@ public static class PlanningStatus
 {
     public const string Created = "created";
     public const string Clarification = "clarification";
+    public const string Recovery = "recovery";
     public const string BehaviorReview = "behavior_review";
     public const string Generating = "generating";
     public const string Revising = "revising";
@@ -33,7 +34,17 @@ public static class PlanningStatus
     public const string Unsupported = "unsupported";
     public const string Cancelled = "cancelled";
     public static bool IsTerminal(string status) => status is Approved or Saved or Failed or Unsupported or Cancelled;
-    public static bool IsWaiting(string status) => status is Clarification or BehaviorReview or FinalReview;
+    public static bool IsWaiting(string status) => status is Clarification or Recovery or BehaviorReview or FinalReview;
+}
+
+public static class PlanningPhase
+{
+    public const string Intent = "intent";
+    public const string Capabilities = "capabilities";
+    public const string Behavior = "behavior";
+
+    public static string Resolve(PlanningSnapshot snapshot) => snapshot.CurrentPhase ??
+        (snapshot.Graph is null ? !snapshot.IntentChecked ? Intent : snapshot.Preparation is null ? Capabilities : Behavior : snapshot.Status);
 }
 
 /// <summary>Commands always target an exact persisted revision; approval also targets its artifact hash.</summary>
@@ -53,6 +64,7 @@ public sealed class PlanningSnapshot
     public PlanningRequest Request { get; set; } = new();
     public long Revision { get; set; }
     public string Status { get; set; } = PlanningStatus.Created;
+    public string? CurrentPhase { get; set; }
     public string? Outcome => Status switch
     {
         PlanningStatus.FinalReview or PlanningStatus.Approved => "generated",
@@ -66,6 +78,10 @@ public sealed class PlanningSnapshot
     public PlanningPreparation? Preparation { get; set; }
     public PlanningGraph? Graph { get; set; }
     public List<PlanningAnswer> Answers { get; set; } = [];
+    // Null identifies older snapshots; planners initialize these from the retained answers and pending form.
+    public int? ClarificationForms { get; set; }
+    public int? ClarificationQuestions { get; set; }
+    public List<PlanningIntentRevision> IntentHistory { get; set; } = [];
     public HumanInputRequest? Question { get; set; }
     public List<PlanningDiagnostic> Diagnostics { get; set; } = [];
     public List<PlanningScenarioResult> Scenarios { get; set; } = [];
@@ -93,6 +109,7 @@ public sealed class PlanningSnapshot
 }
 
 public sealed record PlanningAnswer(string Question, JsonObject Answers);
+public sealed record PlanningIntentRevision(long Revision, string Prompt, List<PlanningAnswer> Answers, List<PlanningDiagnostic> Diagnostics);
 public sealed record PlanningPendingCommand(string PreviousStatus, PlanningCommand Command);
 public sealed record PlanningRevision(long Revision, string ArtifactHash, string Status, List<string> ChangedFragments);
 public sealed record PlanningEvent(string Kind, string Phase, DateTimeOffset TimestampUtc, int Count = 0);

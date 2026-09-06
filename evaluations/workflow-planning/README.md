@@ -41,5 +41,7 @@ on paired successful runs, requiring 95% paired coverage, so early failures cann
 a planner appear faster. Safety failures always reject acceptance.
 
 These benchmark gates supplement component regressions, negative scenarios, frontend
-builds and publish smoke checks. Keep `TypedWorkflowPlanning:PlannerVersion=1` until
-the complete release gates pass; explicit `/planning` sessions use version 2 throughout.
+builds and publish smoke checks. Agent.Server now selects version 2 by default at the
+user's explicit direction; this does not establish that the release gates passed.
+Set `TypedWorkflowPlanning:PlannerVersion=1` for explicit rollback. Standalone callers
+continue defaulting to v1; explicit `/planning` sessions always use version 2.

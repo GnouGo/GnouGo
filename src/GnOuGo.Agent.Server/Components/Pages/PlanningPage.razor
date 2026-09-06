@@ -12,6 +12,7 @@
 <main id="planningReview" class="container py-4" style="max-width: 1100px; margin: auto; padding: 1.5rem;">
     <a href="/">← Back to chat</a>
     <h1>Workflow designer</h1>
+    <p><span class="badge text-bg-secondary" aria-label="Planner version">Planner v@(_state?.SchemaVersion ?? 2)</span></p>
     @if (_error is not null) { <p role="alert" class="text-danger">@_error</p> }
     @if (_state is null)
     {
@@ -32,6 +33,7 @@
     {
         <h2>@_state.Request.Name</h2>
         <p aria-live="polite"><strong>@Phase(_state.Status)</strong> · Revision @_state.Revision</p>
+        <p aria-label="Current planning phase">Phase: @Phase(PlanningPhase.Resolve(_state))</p>
         <p>Planning: @TimeSpan.FromMilliseconds(_state.ActiveMilliseconds).ToString(@"hh\:mm\:ss") · Waiting for you: @WaitDuration().ToString(@"hh\:mm\:ss")</p>
         @if (_state.Usage is { } usage) { <p>@usage.Calls model calls · Estimated cost @usage.EstimatedCost.ToString("0.00") @usage.EstimatedCostCurrency</p> }
         @if (_state.Graph is { } graph)
@@ -79,6 +81,15 @@
             <h3 class="mt-3">Validation findings</h3>
             <ul>@foreach (var diagnostic in _state.Diagnostics) { <li><strong>@diagnostic.Code</strong>: @diagnostic.Message</li> }</ul>
         }
+        @if (_state.Status == PlanningStatus.Recovery)
+        {
+            <p role="status">The generated clarification could not be validated. Your request and session history are retained. Retry, edit the request, or cancel planning.</p>
+        }
+        @if (_state.Graph is null && _state.Status is PlanningStatus.Recovery or PlanningStatus.Failed or PlanningStatus.Unsupported)
+        {
+            <div class="my-3"><label for="plan-intent-edit">Edit request</label><textarea id="plan-intent-edit" class="form-control" rows="7" @bind="_intentText"></textarea></div>
+            <button class="btn btn-secondary" disabled="@(_busy || string.IsNullOrWhiteSpace(_intentText))" @onclick='() => SubmitAsync("edit_intent", _intentText)'>Save request and retry</button>
+        }
         @if (_state.Scenarios.Count > 0)
         {
             <details class="my-3"><summary>Synthetic scenario coverage</summary><ul>@foreach (var scenario in _state.Scenarios) { <li>@scenario.Outcome — @scenario.Description (@scenario.Id)</li> }</ul></details>
@@ -94,6 +105,16 @@
         {
             <details class="my-3"><summary>Revision history</summary><ul>@foreach (var revision in _state.History) { <li>Revision @revision.Revision — @Phase(revision.Status) · @revision.ArtifactHash[..Math.Min(12, revision.ArtifactHash.Length)]</li> }</ul></details>
         }
+        @if (_state.IntentHistory.Count > 0)
+        {
+            <details class="my-3"><summary>Request and recovery history</summary>
+                @foreach (var revision in _state.IntentHistory)
+                {
+                    <p><strong>Revision @revision.Revision</strong> — @revision.Prompt</p>
+                    <ul>@foreach (var diagnostic in revision.Diagnostics) { <li>@diagnostic.Code: @diagnostic.Message</li> }</ul>
+                }
+            </details>
+        }
         @if (_state.ChangedFragments.Count > 0)
         {
             <p>Changed workflows: @string.Join(", ", _state.ChangedFragments)</p>
@@ -103,7 +124,7 @@
             <details open><summary>Changes in this revision</summary><ul>@foreach (var change in GnOuGo.Flow.Planning.PlanningReviewFormatter.Diff(previousGraph, _state.Graph)) { <li>@change</li> }</ul></details>
         }
         @if (_state.Status == PlanningStatus.Saving) { <button class="btn btn-secondary" disabled="@_busy" @onclick='() => SubmitAsync("save")'>Retry saving the approved revision</button> }
-        @if (_state.Status is PlanningStatus.Failed or PlanningStatus.Unsupported) { <button class="btn btn-secondary" disabled="@_busy" @onclick='() => SubmitAsync("retry")'>Retry from the retained plan</button> }
+        @if (_state.Status is PlanningStatus.Failed or PlanningStatus.Unsupported or PlanningStatus.Recovery) { <button class="btn btn-secondary" disabled="@_busy" @onclick='() => SubmitAsync("retry")'>Retry from the retained plan</button> }
         @if (_state.Status is not (PlanningStatus.Saved or PlanningStatus.Saving or PlanningStatus.Cancelled)) { <button class="btn btn-outline-secondary mt-3" disabled="@_busy" @onclick='() => SubmitAsync("cancel")'>Cancel planning</button> }
         @if (_state.Status == PlanningStatus.Saved) { <p role="status">The approved workflow was saved. <a href="/">Return to chat</a>.</p> }
     }
@@ -114,7 +135,7 @@
     [SupplyParameterFromQuery(Name = "agent")] public string? AgentName { get; set; }
     private PlanningSnapshot? _state;
     private IReadOnlyList<PlanningSnapshot> _sessions = [];
-    private string _name = "", _prompt = "", _feedback = "", _yaml = "";
+    private string _name = "", _prompt = "", _feedback = "", _yaml = "", _intentText = "";
     private bool _reviseExisting, _busy;
     private string? _error;
     private readonly Dictionary<string, string> _answers = new(StringComparer.Ordinal);
@@ -142,6 +163,7 @@
         var state = await Planning.GetAsync(SessionId, _lifetime.Token);
         if (state is null) { _state = null; _error = "Planning session not found."; return; }
         var differentSession = _state?.Request.SessionId != state.Request.SessionId;
+        if (differentSession || _state?.Request.Prompt != state.Request.Prompt) _intentText = state.Request.Prompt;
         if (differentSession) { _renderedRevision = -1; _feedback = ""; _answers.Clear(); }
         if (differentSession || _state?.Revision != state.Revision) _yaml = state.Yaml ?? "";
         if (_state?.Question?.StepId != state.Question?.StepId) _answers.Clear();
@@ -190,6 +212,9 @@
     private static string Phase(string status) => status switch
     {
         PlanningStatus.Created => "Understanding the request and checking capabilities",
+        PlanningPhase.Intent => "Understanding your request", PlanningPhase.Capabilities => "Checking available capabilities", PlanningPhase.Behavior => "Designing the workflow behavior",
+        PlanningStatus.Recovery => "Waiting for your recovery choice",
+        "semantic_review" => "Reviewing the workflow", "fragment" or "repair_fragment" => "Generating workflow steps", "revision_scope" => "Reviewing requested changes",
         PlanningStatus.Clarification => "Your answers are needed", PlanningStatus.BehaviorReview => "Review the proposed behavior",
         PlanningStatus.Generating => "Generating workflow steps", PlanningStatus.Revising => "Applying your requested changes", PlanningStatus.Validating => "Checking contracts and scenarios",
         PlanningStatus.FinalReview => "Ready for final review", PlanningStatus.Approved => "Approved and ready to save",

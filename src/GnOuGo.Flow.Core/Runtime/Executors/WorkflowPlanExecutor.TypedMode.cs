@@ -45,6 +45,13 @@ public sealed partial class WorkflowPlanExecutor
                 var provider = ctx.Engine.HumanInputProvider ?? throw new WorkflowRuntimeException(ErrorCodes.WorkflowPlanClarificationFailed, "The typed planner requires a human-input provider for review.");
                 HumanInputRequest question;
                 if (state.Status == PlanningStatus.Clarification) question = state.Question!;
+                else if (state.Status == PlanningStatus.Recovery) question = new HumanInputRequest
+                {
+                    RunId = state.Request.SessionId, StepId = "recovery-" + state.Revision,
+                    Prompt = "The generated clarification could not be validated. Retry, edit the request, or cancel.",
+                    Context = JsonValue.Create(string.Join("\n", state.Diagnostics.Select(d => d.Code + ": " + d.Message))),
+                    Mode = "choice", Choices = ["retry", "edit_intent", "cancel"], AllowAbandon = true
+                };
                 else question = new HumanInputRequest
                 {
                     RunId = state.Request.SessionId, StepId = "review-" + state.Revision,
@@ -59,12 +66,13 @@ public sealed partial class WorkflowPlanExecutor
                 {
                     command.Kind = (answer is JsonObject obj ? obj["response"] : answer)?.GetValue<string>() ?? "cancel";
                     command.ArtifactHash = state.ArtifactHash;
-                    if (command.Kind is "revise" or "edit_yaml")
+                    if (command.Kind is "revise" or "edit_yaml" or "edit_intent")
                     {
                         var edit = await provider.RequestInputAsync(new HumanInputRequest
                         {
                             RunId = state.Request.SessionId, StepId = "edit-" + state.Revision,
-                            Prompt = command.Kind == "revise" ? "Describe the changes to make." : "Paste the edited YAML for complete revalidation.",
+                            Prompt = command.Kind == "edit_intent" ? "Edit the request. Previous answers will be archived; cumulative budgets are retained." :
+                                command.Kind == "revise" ? "Describe the changes to make." : "Paste the edited YAML for complete revalidation.",
                             Mode = "text", AllowAbandon = true
                         }, ct);
                         if (HumanInputContract.IsAbandoned(edit)) command.Kind = "cancel";
@@ -74,7 +82,9 @@ public sealed partial class WorkflowPlanExecutor
             }
             state = await planner.AdvanceAsync(state, command, runtime, ct);
             ctx.SetTelemetryAttribute("gnougo-flow.plan.version", 2);
-            ctx.SetTelemetryAttribute("gnougo-flow.plan.outcome", state.Status);
+            ctx.SetTelemetryAttribute("gnougo-flow.plan.status", state.Status);
+            ctx.SetTelemetryAttribute("gnougo-flow.plan.phase", PlanningPhase.Resolve(state));
+            ctx.SetTelemetryAttribute("gnougo-flow.plan.outcome", state.Outcome);
             ctx.SetTelemetryAttribute("gnougo-flow.plan.active_ms", state.ActiveMilliseconds);
             ctx.SetTelemetryAttribute("gnougo-flow.plan.human_wait_ms", state.HumanWaitMilliseconds);
         }

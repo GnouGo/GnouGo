@@ -24,7 +24,7 @@ using Microsoft.Extensions.Logging;
 
 namespace GnOuGo.Agent.Server.Tests;
 
-public sealed class LiveIntentAgentGenerationTests
+public sealed partial class LiveIntentAgentGenerationTests
 {
     private const string EnableVariable = "GNOU_GO_LIVE_INTENT_AGENT_E2E";
     private const string ProgressPathVariable = "GNOU_GO_LIVE_INTENT_AGENT_PROGRESS_PATH";
@@ -67,9 +67,15 @@ public sealed class LiveIntentAgentGenerationTests
         if (!string.Equals(Environment.GetEnvironmentVariable(EnableVariable), "1", StringComparison.Ordinal))
             return;
 
+        await RunCampaignAsync(plannerVersion: 1);
+    }
+
+    private async Task RunCampaignAsync(int plannerVersion, bool resumeOnly = false)
+    {
+
         ValidateDedicatedProviderProjectAttestation();
         var budgetDefinition = ResolveLiveBudgetDefinition();
-        var generationCount = ResolveGenerationCount();
+        var generationCount = plannerVersion == 2 ? 3 : ResolveGenerationCount();
         var liveCycleElapsedLimit = ResolveLiveCycleElapsedLimit();
         WriteLiveProgress("test_started");
         var sourceRoot = FindSourceRoot();
@@ -81,7 +87,8 @@ public sealed class LiveIntentAgentGenerationTests
             budgetDefinition,
             exchangeRateProvider,
             TestContext.Current.CancellationToken);
-        ValidateLivePhase(budgetLedger, generationCount);
+        if (plannerVersion == 1) ValidateLivePhase(budgetLedger, generationCount);
+        else if (budgetLedger.FinalAcceptanceCompleted) throw new InvalidOperationException("This campaign has already completed. Its budget ledger must be retained.");
         var cycleBudget = new LLMUsageBudgetScope(
             new LLMUsageBudgetLimits
             {
@@ -112,13 +119,13 @@ public sealed class LiveIntentAgentGenerationTests
         var runSucceeded = false;
         var failures = new List<Exception>();
         using var timeout = new CancellationTokenSource(remainingCycleTime);
+        await using var planningStore = plannerVersion == 2 && !resumeOnly ? await PlanningPersistenceTests.StoreFixture.CreateAsync() : null;
         try
         {
             Directory.SetCurrentDirectory(sourceRoot);
             app = GnOuGoAgentWebHost.Build(
                 [
-                    // This harness exercises the compatibility chat workflow and its human.input forms.
-                    "--TypedWorkflowPlanning:PlannerVersion=1",
+                    $"--TypedWorkflowPlanning:PlannerVersion={plannerVersion}",
                     "--OtlpCollector:Enabled=false",
                     "--OpenTelemetry:Enabled=false",
                     $"--Database:Path={telemetryDatabasePath}",
@@ -128,8 +135,18 @@ public sealed class LiveIntentAgentGenerationTests
                 urls: "http://127.0.0.1:0",
                 contentRoot: Path.Combine(sourceRoot, "src", "GnOuGo.Agent.Server"),
                 enableHttpsRedirection: false,
-                configureServices: services => services.AddSingleton<ILLMUsageBudgetScopeFactory>(
-                    new SharedLLMUsageBudgetScopeFactory(cycleBudget)));
+                configureServices: services =>
+                {
+                    services.AddSingleton<ILLMUsageBudgetScopeFactory>(new SharedLLMUsageBudgetScopeFactory(cycleBudget));
+                    if (plannerVersion == 2) ConfigureV2Campaign(services, cycleBudget, planningStore);
+                });
+            if (resumeOnly)
+            {
+                // Do not start hosted workers or replay any other user's sessions.
+                await ResumeV2QuestionsAsync(app.Services, timeout.Token);
+            }
+            else
+            {
             await app.StartAsync(timeout.Token);
             WriteLiveProgress("host_started");
 
@@ -155,6 +172,12 @@ public sealed class LiveIntentAgentGenerationTests
                 var name = $"e2e-intent-pr-review-{runId}-{attempt}";
                 attemptedAgentNames.Add(name);
                 WriteLiveProgress("generation_started", generation: attempt);
+                if (plannerVersion == 2)
+                {
+                    await GenerateV2AgentAsync(services, name, timeout.Token);
+                }
+                else
+                {
                 List<SmartFlowEvent>? events = null;
                 for (var providerAttempt = 1; providerAttempt <= LiveProviderAttemptCount; providerAttempt++)
                 {
@@ -190,6 +213,7 @@ public sealed class LiveIntentAgentGenerationTests
                 var answerFailure = events.FirstOrDefault(static item => item.Type == "answer"
                     && item.Text?.StartsWith("❌", StringComparison.Ordinal) == true);
                 Assert.True(failure is null && answerFailure is null, failure?.Text ?? answerFailure?.Text);
+                }
                 var agent = await GetAgentAsync(mcpFactory, name, timeout.Token);
                 var workflow = RequireString(agent, "workflow");
                 Assert.Equal(
@@ -199,6 +223,7 @@ public sealed class LiveIntentAgentGenerationTests
                 WriteLiveProgress("generation_validated", generation: attempt);
                 if (attempt == 1)
                 {
+                    if (plannerVersion == 1)
                     await ExecuteReadOnlyAcceptanceAsync(
                         services,
                         humanInput,
@@ -210,6 +235,8 @@ public sealed class LiveIntentAgentGenerationTests
             }
 
             Assert.NotNull(publicationAgent);
+            if (plannerVersion == 2)
+                await ExecuteReadOnlyAcceptanceAsync(services, humanInput, publicationAgent.Value.Name, publicationAgent.Value.Contract, timeout.Token);
             await ExecutePublicationAcceptanceAsync(
                 services,
                 humanInput,
@@ -219,6 +246,7 @@ public sealed class LiveIntentAgentGenerationTests
                 timeout.Token);
             WriteLiveProgress("publication_acceptance_completed");
             runSucceeded = true;
+            }
         }
         catch (Exception ex)
         {

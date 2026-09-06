@@ -33,7 +33,22 @@ var next = await planner.AdvanceAsync(snapshot,
 model under `Options.generator`; the runtime adapter uses the host's `ILLMClient`
 and `IMcpClientFactory`. Saving, encryption, reconnect and background lifetime belong
 to the host. Commands are `advance`, `answer`, `accept_behavior`, `revise`, `edit_yaml`,
-`approve`, `cancel` and `retry`. Review commands require the current artifact hash.
+`approve`, `cancel`, `retry` and `edit_intent`. Review commands require the current artifact hash.
+
+Intent assessment cites independent `{sourceId, excerpt}` references from identified
+request, answer, existing-workflow and host sources. Each excerpt must occur literally
+in its own source. Host constraints and model-written question text cannot establish
+user intent. Shape and semantic validation share at most two model calls: the initial
+assessment and one targeted repair. Valid outcomes, questions and options are locked
+during repair; invalid clarification cannot become `ready` by dropping questions.
+
+Exhausted intent repair pauses in `recovery`, a waiting state with no final failed
+outcome. `retry` clears active diagnostics while archiving them. `edit_intent` replaces
+the request before a graph exists in recovery or early failure, archives prior answers,
+and invalidates derived state. Both retain session identity, options, policies, model
+usage and cumulative clarification counters. Waiting does not consume active time.
+Schema version remains 2; absent counters in older snapshots initialize from retained
+answers and the pending form. Reconnection must never submit an answer automatically.
 
 Fragments preserve operation ownership, input/output contracts, reviewed control
 flow, execution-time confirmations and finalization. Cache fingerprints include

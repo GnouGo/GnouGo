@@ -42,9 +42,11 @@ internal static class PlanningSchemas
     }
 
     public static JsonObject Intent() => Object(
-        ("outcome", Enum("ready", "questions", "unsupported")), ("reason", String()), ("evidence", String()),
-        ("questions", Array(Object(("id", String()), ("prompt", String()), ("evidence", String()),
+        ("outcome", Enum("ready", "questions", "unsupported")), ("reason", String()), ("evidence", Evidence()),
+        ("questions", Array(Object(("id", String()), ("prompt", String()), ("evidence", Evidence()),
             ("options", Array(Object(("value", String()), ("description", String()), ("recommended", Type("boolean")))))))));
+
+    private static JsonObject Evidence() => Array(Object(("sourceId", String()), ("excerpt", String())));
 
     public static JsonObject Review() => Object(("findings", Array(Object(
         ("code", String()), ("workflow", String()), ("message", String()), ("evidence", String()), ("blocking", Type("boolean"))))));

@@ -9,7 +9,7 @@ using GnOuGo.Flow.Core.Runtime;
 namespace GnOuGo.Flow.Planning;
 
 /// <summary>Pure session state machine. Effects are supplied through IPlanningRuntime.</summary>
-public sealed class TypedWorkflowPlanner(TimeProvider? timeProvider = null) : IWorkflowPlanner
+public sealed partial class TypedWorkflowPlanner(TimeProvider? timeProvider = null) : IWorkflowPlanner
 {
     private readonly TimeProvider _time = timeProvider ?? TimeProvider.System;
     private readonly PlanningGraphCompiler _compiler = new();
@@ -25,6 +25,7 @@ public sealed class TypedWorkflowPlanner(TimeProvider? timeProvider = null) : IW
         if (snapshot.Request.MaxConcurrency is < 1 or > 16 || snapshot.Request.MaxRepairs is < 0 or > 10)
             throw new ArgumentException("Invalid planning concurrency or repair limit.");
         var state = Clone(snapshot);
+        InitializeClarificationUsage(state);
         var sw = Stopwatch.StartNew();
         var wasWaiting = PlanningStatus.IsWaiting(state.Status);
         if (command.Kind == "advance" && (wasWaiting || PlanningStatus.IsTerminal(state.Status))) return state;
@@ -48,12 +49,44 @@ public sealed class TypedWorkflowPlanner(TimeProvider? timeProvider = null) : IW
                     state.Question = null;
                     state.Status = PlanningStatus.Created;
                     state.IntentChecked = false;
+                    state.CurrentPhase = PlanningPhase.Intent;
+                    break;
+                case "edit_intent":
+                    if (state.Graph is not null || state.Status is not (PlanningStatus.Recovery or PlanningStatus.Failed or PlanningStatus.Unsupported) || string.IsNullOrWhiteSpace(command.Text))
+                        throw new PlanningConflictException("Edit the request only during recovery before a behavior graph exists.");
+                    ArchiveIntent(state);
+                    state.Request.Prompt = command.Text.Trim();
+                    state.IntentChecked = false;
+                    state.Answers.Clear();
+                    state.Preparation = null;
+                    state.Question = null;
+                    state.Diagnostics.Clear();
+                    state.Fragments.Clear();
+                    state.BestFragments.Clear();
+                    state.BestGraph = null;
+                    state.BestDiagnostics.Clear();
+                    state.ReviewedGraph = null;
+                    state.PreviousGraph = null;
+                    state.ReviewMarkdown = null;
+                    state.Scenarios.Clear();
+                    state.ChangedFragments.Clear();
+                    state.PreviousDiagnosticHash = null;
+                    state.Feedback = null;
+                    state.RepairAttempt = 0;
+                    state.NonImprovingAttempts = 0;
+                    state.Yaml = null;
+                    state.ArtifactHash = null;
+                    state.ApprovedHash = null;
+                    state.PendingCommand = null;
+                    state.Status = PlanningStatus.Created;
+                    state.CurrentPhase = PlanningPhase.Intent;
                     break;
                 case "accept_behavior":
                     RequireStatus(state, PlanningStatus.BehaviorReview);
                     RequireHash(state, command.ArtifactHash);
                     state.ReviewedGraph = CloneGraph(state.Graph!);
                     state.Status = PlanningStatus.Generating;
+                    state.CurrentPhase = PlanningStatus.Generating;
                     break;
                 case "approve":
                     RequireStatus(state, PlanningStatus.FinalReview);
@@ -68,6 +101,7 @@ public sealed class TypedWorkflowPlanner(TimeProvider? timeProvider = null) : IW
                     break;
                 case "revise":
                     if (state.Graph is null || string.IsNullOrWhiteSpace(command.Text)) throw new PlanningConflictException("A graph and a change request are required.");
+                    state.CurrentPhase = PlanningStatus.Revising;
                     await ReviseAsync(state, command.Text, runtime, ct);
                     break;
                 case "edit_yaml":
@@ -84,7 +118,8 @@ public sealed class TypedWorkflowPlanner(TimeProvider? timeProvider = null) : IW
                     state.BestGraph = null;
                     break;
                 case "retry":
-                    if (state.Status is not (PlanningStatus.Failed or PlanningStatus.Unsupported)) throw new PlanningConflictException("Only a stopped session can be retried.");
+                    if (state.Status is not (PlanningStatus.Failed or PlanningStatus.Unsupported or PlanningStatus.Recovery)) throw new PlanningConflictException("Only a stopped session can be retried.");
+                    ArchiveIntent(state);
                     if (state.Diagnostics.Any(d => d.Code == "CATALOG_CHANGED"))
                     {
                         state.Request.ExistingYaml = state.Yaml;
@@ -95,6 +130,9 @@ public sealed class TypedWorkflowPlanner(TimeProvider? timeProvider = null) : IW
                     state.RepairAttempt = 0;
                     state.BestGraph = null;
                     state.BestDiagnostics = [];
+                    state.Diagnostics.Clear();
+                    state.Question = null;
+                    state.CurrentPhase = state.Graph is null ? !state.IntentChecked ? PlanningPhase.Intent : state.Preparation is null ? PlanningPhase.Capabilities : PlanningPhase.Behavior : PlanningStatus.Validating;
                     break;
                 case "advance": await AdvancePhaseAsync(state, runtime, ct); break;
                 default: throw new ArgumentException("Unknown planning command.");
@@ -107,10 +145,10 @@ public sealed class TypedWorkflowPlanner(TimeProvider? timeProvider = null) : IW
             var question = ex.Details?["question"] is { } payload ? JsonSerializer.Deserialize(payload, PlanningJsonContext.Default.HumanInputRequest) : null;
             var limits = state.Request.Options["intent_clarification"];
             var fields = question?.Fields?.Count ?? 0;
-            if (fields == 0 || fields > (limits?["max_questions_per_round"]?.GetValue<int>() ?? 5) || state.Answers.Count >= (limits?["max_rounds"]?.GetValue<int>() ?? 3) ||
-                fields + state.Answers.Sum(a => a.Answers.Count) > (limits?["max_questions"]?.GetValue<int>() ?? 15))
+            if (fields == 0 || fields > (limits?["max_questions_per_round"]?.GetValue<int>() ?? 5) || state.ClarificationForms >= (limits?["max_rounds"]?.GetValue<int>() ?? 3) ||
+                fields + state.ClarificationQuestions > (limits?["max_questions"]?.GetValue<int>() ?? 15))
             {
-                state.Status = PlanningStatus.Unsupported;
+                state.Status = PlanningStatus.Recovery;
                 state.Diagnostics = [new("CLARIFICATION_LIMIT", "$", "Required behavior clarification exceeds the configured question budget.")];
             }
             else
@@ -119,6 +157,7 @@ public sealed class TypedWorkflowPlanner(TimeProvider? timeProvider = null) : IW
                 question.RunId = state.Request.SessionId;
                 state.Question = question;
                 state.Status = PlanningStatus.Clarification;
+                RecordClarification(state, fields);
             }
         }
         catch (Exception ex)
@@ -156,6 +195,7 @@ public sealed class TypedWorkflowPlanner(TimeProvider? timeProvider = null) : IW
                 }
                 if (!state.IntentChecked)
                 {
+                    state.CurrentPhase = PlanningPhase.Intent;
                     await AssessIntentAsync(state, runtime, ct);
                     if (state.Status != PlanningStatus.Created) return;
                     state.IntentChecked = true;
@@ -163,11 +203,13 @@ public sealed class TypedWorkflowPlanner(TimeProvider? timeProvider = null) : IW
                 }
                 if (state.Preparation is null)
                 {
+                    state.CurrentPhase = PlanningPhase.Capabilities;
                     state.Preparation = await runtime.PrepareAsync(EffectiveRequest(state), ct);
                     return;
                 }
                 if (state.Graph is null)
                 {
+                    state.CurrentPhase = PlanningPhase.Behavior;
                     var preparation = state.Preparation;
                     var response = await StructuredAsync(state, runtime, "behavior", Instructions +
                         "\nConstruct a complete typed behavior graph. Keep cohesive work together. Include every required operation, runtime branch, input, output and finalizer. " +
@@ -185,60 +227,9 @@ public sealed class TypedWorkflowPlanner(TimeProvider? timeProvider = null) : IW
                     state.Status = PlanningStatus.BehaviorReview;
                 }
                 return;
-            case PlanningStatus.Generating: await GenerateAsync(state, runtime, ct); return;
-            case PlanningStatus.Validating: await ValidateAsync(state, runtime, ct); return;
+            case PlanningStatus.Generating: state.CurrentPhase = PlanningStatus.Generating; await GenerateAsync(state, runtime, ct); return;
+            case PlanningStatus.Validating: state.CurrentPhase = PlanningStatus.Validating; await ValidateAsync(state, runtime, ct); return;
         }
-    }
-
-    private async Task AssessIntentAsync(PlanningSnapshot state, IPlanningRuntime runtime, CancellationToken ct)
-    {
-        var clarification = state.Request.Options["intent_clarification"] as JsonObject;
-        var maxRounds = clarification?["max_rounds"]?.GetValue<int>() ?? 3;
-        var maxQuestions = clarification?["max_questions"]?.GetValue<int>() ?? 15;
-        var perRound = clarification?["max_questions_per_round"]?.GetValue<int>() ?? 5;
-        var asked = state.Answers.Sum(a => a.Answers.Count);
-        var json = await StructuredAsync(state, runtime, "intent", "Assess whether the requested observable behavior is clear. " +
-            "Return ready when safe assumptions follow from explicit inputs. Ask only consequential behavior questions, never implementation/catalog questions or runtime outcomes. " +
-            "Questions require an exact evidence excerpt from the supplied request. Supply 2-3 distinct meaningful options, exactly one recommended. " +
-            $"Ask at most {Math.Max(0, Math.Min(perRound, maxQuestions - asked))} questions. " +
-            "Use unsupported only for an explicit contradiction and cite its exact evidence. Do not assume a missing capability without discovery.\n" + Context(state), PlanningSchemas.Intent(), ct);
-        var outcome = json["outcome"]!.GetValue<string>();
-        if (outcome == "ready")
-        {
-            if (json["questions"]!.AsArray().Count != 0) throw new InvalidOperationException("A ready assessment cannot contain pending questions.");
-            return;
-        }
-        var evidence = json["evidence"]!.GetValue<string>();
-        if (string.IsNullOrWhiteSpace(evidence) || !Context(state).Contains(evidence, StringComparison.Ordinal)) throw new InvalidOperationException("The intent assessment lacks exact request evidence.");
-        if (outcome == "unsupported")
-        {
-            state.Status = PlanningStatus.Unsupported;
-            state.Diagnostics = [new("INTENT_UNSUPPORTED", "$", json["reason"]!.GetValue<string>())];
-            return;
-        }
-        var questions = json["questions"]!.AsArray();
-        if (state.Answers.Count >= maxRounds || questions.Count is 0 || questions.Count > perRound || questions.Count + asked > maxQuestions)
-            throw new WorkflowRuntimeException(ErrorCodes.WorkflowPlanCannotPlanSafely, "Clarification requirements exceed the configured question budget.");
-        var fields = new List<HumanInputFieldDef>();
-        var ids = new HashSet<string>(StringComparer.Ordinal);
-        foreach (var question in questions.OfType<JsonObject>())
-        {
-            var excerpt = question["evidence"]!.GetValue<string>();
-            if (string.IsNullOrWhiteSpace(excerpt) || !Context(state).Contains(excerpt, StringComparison.Ordinal)) throw new InvalidOperationException("A question lacks request evidence.");
-            var id = question["id"]!.GetValue<string>();
-            if (string.IsNullOrWhiteSpace(id) || !ids.Add(id)) throw new InvalidOperationException("Invalid clarification question identity.");
-            var options = question["options"]!.AsArray().OfType<JsonObject>().ToArray();
-            if (options.Length is < 2 or > 3 || options.Count(o => o["recommended"]!.GetValue<bool>()) != 1 || options.Select(o => o["value"]!.GetValue<string>()).Distinct(StringComparer.Ordinal).Count() != options.Length)
-                throw new InvalidOperationException("Invalid clarification options.");
-            fields.Add(new HumanInputFieldDef
-            {
-                Name = id, Description = question["prompt"]!.GetValue<string>(), Type = "radio", Required = true, AllowCustomAnswer = true,
-                Options = options.Select(o => o["value"]!.GetValue<string>()).ToList(),
-                OptionDefinitions = options.Select(o => new HumanInputOptionDef { Value = o["value"]!.GetValue<string>(), Description = o["description"]!.GetValue<string>(), Recommended = o["recommended"]!.GetValue<bool>() }).ToList()
-            });
-        }
-        state.Question = new HumanInputRequest { RunId = state.Request.SessionId, StepId = "clarification-" + state.Revision, Prompt = json["reason"]!.GetValue<string>(), Mode = "form", Fields = fields, AllowAbandon = true };
-        state.Status = PlanningStatus.Clarification;
     }
 
     private async Task GenerateAsync(PlanningSnapshot state, IPlanningRuntime runtime, CancellationToken ct)
@@ -460,6 +451,7 @@ public sealed class TypedWorkflowPlanner(TimeProvider? timeProvider = null) : IW
 
     private async Task<JsonObject> StructuredAsync(PlanningSnapshot state, IPlanningRuntime runtime, string phase, string prompt, JsonObject schema, CancellationToken ct)
     {
+        state.CurrentPhase = phase;
         var errors = PlanningContractValidation.ValidateSchema(schema, strict: true);
         if (errors.Count > 0) throw new InvalidOperationException("The typed planner response schema is invalid: " + string.Join("; ", errors));
         var generator = state.Request.Options["generator"] as JsonObject;

@@ -36,16 +36,26 @@ for (var attempt = 0; attempt < 12 && session.Status != PlanningStatus.Approved;
     if (session.Status is PlanningStatus.Failed or PlanningStatus.Unsupported) throw new InvalidOperationException("Published planner failed: " + session.Diagnostics.FirstOrDefault()?.Message);
 }
 if (session.Status != PlanningStatus.Approved || session.ApprovedHash != PlanningGraphCompiler.Fingerprint(session.Yaml!)) throw new InvalidOperationException("Published planner did not reach exact revision approval.");
+var recovery = new PlanningSnapshot { Request = new() { TenantId = "smoke", Prompt = "Recover an invalid assessment" } };
+runtime.InvalidIntent = true;
+recovery = await planner.AdvanceAsync(recovery, new() { ExpectedRevision = recovery.Revision }, runtime, CancellationToken.None);
+if (recovery.Status != PlanningStatus.Recovery || recovery.Outcome is not null || recovery.IntentChecked) throw new InvalidOperationException("Published intent recovery failed.");
+recovery = JsonSerializer.Deserialize(JsonSerializer.Serialize(recovery, PlanningJsonContext.Default.PlanningSnapshot), PlanningJsonContext.Default.PlanningSnapshot)!;
+recovery = await planner.AdvanceAsync(recovery, new() { Kind = "edit_intent", Text = "Return the ready message", ExpectedRevision = recovery.Revision }, runtime, CancellationToken.None);
+runtime.InvalidIntent = false;
+recovery = await planner.AdvanceAsync(recovery, new() { ExpectedRevision = recovery.Revision }, runtime, CancellationToken.None);
+if (!recovery.IntentChecked || recovery.IntentHistory.Count != 1 || recovery.Diagnostics.Count != 0) throw new InvalidOperationException("Published edited intent did not resume.");
 Console.WriteLine("Typed planning AOT smoke passed.");
 
 sealed class SmokeRuntime(PlanningGraph graph, PlanningPreparation preparation) : IPlanningRuntime
 {
+    public bool InvalidIntent { get; set; }
     public Task<PlanningPreparation> PrepareAsync(PlanningRequest request, CancellationToken ct) => Task.FromResult(preparation);
     public Task<LLMResponse> CallAsync(LLMRequest request, string phase, CancellationToken ct)
     {
-        var json = phase switch
+        var json = InvalidIntent ? new JsonObject() : phase switch
         {
-            "intent" => JsonNode.Parse("""{"outcome":"ready","evidence":"","reason":"","questions":[]}"""),
+            "intent" => JsonNode.Parse("""{"outcome":"ready","evidence":[],"reason":"Clear request","questions":[]}"""),
             "behavior" => JsonSerializer.SerializeToNode(graph, PlanningJsonContext.Default.PlanningGraph),
             "fragment" => JsonSerializer.SerializeToNode(graph.Workflows[0], PlanningJsonContext.Default.PlanningWorkflow),
             "semantic_review" => JsonNode.Parse("""{"findings":[]}"""),

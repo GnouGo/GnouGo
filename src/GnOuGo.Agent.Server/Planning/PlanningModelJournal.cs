@@ -19,6 +19,7 @@ internal sealed class PlanningModelJournal(
     string tenantId, string sessionId, long revision, LLMUsageBudgetScope budget, IModelUsageCostEstimator estimator) : ILLMClient
 {
     internal const string Collection = "agent-planning-model-receipts-v2";
+    internal const string RequestCollection = "agent-planning-model-requests-v2";
     private readonly ConcurrentDictionary<string, int> _occurrences = new(StringComparer.Ordinal);
     private static readonly Meter Metrics = new("GnOuGo.Agent.Planning");
     private static readonly Histogram<double> ProviderDuration = Metrics.CreateHistogram<double>("gen_ai.client.operation.duration", "s");
@@ -45,6 +46,7 @@ internal sealed class PlanningModelJournal(
         try { await db.SaveChangesAsync(ct); }
         catch (DbUpdateException) { throw new PlanningConflictException("This model request was reserved by another session worker."); }
 
+        await records.UpsertAsync(RequestCollection, tenantId, row.PayloadKey, JsonSerializer.Serialize(request, PlanningJsonContext.Default.LLMRequest), EfPlanningSessionStore.Author, ct);
         var response = await budget.CallAsync(new MeasuredClient(inner, tenantId), estimator, request, "workflow.plan.typed.model", ct);
         RecordTokens(response.Usage, request.Model);
         await records.UpsertAsync(Collection, tenantId, row.PayloadKey, JsonSerializer.Serialize(response, PlanningJsonContext.Default.LLMResponse), EfPlanningSessionStore.Author, ct);

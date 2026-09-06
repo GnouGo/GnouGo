@@ -11,6 +11,49 @@ public sealed class RuntimeContractTests
     private static CancellationToken Ct => TestContext.Current.CancellationToken;
 
     [Fact]
+    public async Task StandaloneV2_RecoveryOffersEditRetryCancel_WithoutArtifactApproval()
+    {
+        var document = new WorkflowCompiler().Compile(WorkflowParser.Parse("""
+            version: 1
+            workflows:
+              main:
+                steps:
+                  - id: plan
+                    type: workflow.plan
+                    input:
+                      planner_version: 2
+                      generator: {model: fake, instruction: Return a greeting}
+            """));
+        var human = new RecoveryHuman();
+        var engine = new WorkflowEngine { WorkflowPlanner = new TypedWorkflowPlanner(), LLMClient = new InvalidIntentClient(), HumanInputProvider = human };
+        var result = await engine.ExecuteAsync(document.Workflows[document.Entrypoint!], new JsonObject(), Ct);
+        Assert.False(result.Success);
+        Assert.Equal(GnOuGo.Flow.Core.Models.ErrorCodes.WorkflowPlanAborted, result.Error!.Code);
+        Assert.Equal(3, human.Calls);
+    }
+
+    private sealed class InvalidIntentClient : ILLMClient
+    {
+        public Task<LLMResponse> CallAsync(LLMRequest request, CancellationToken ct) => Task.FromResult(new LLMResponse { Json = new JsonObject() });
+    }
+    private sealed class RecoveryHuman : IHumanInputProvider
+    {
+        public int Calls { get; private set; }
+        public Task<JsonNode?> RequestInputAsync(HumanInputRequest request, CancellationToken ct)
+        {
+            Calls++;
+            if (Calls == 2)
+            {
+                Assert.Equal("text", request.Mode);
+                return Task.FromResult<JsonNode?>(JsonValue.Create("Return a revised greeting"));
+            }
+            Assert.Equal(new[] { "retry", "edit_intent", "cancel" }, request.Choices);
+            Assert.DoesNotContain("validated workflow", request.Prompt, StringComparison.OrdinalIgnoreCase);
+            return Task.FromResult<JsonNode?>(JsonValue.Create(Calls == 1 ? "edit_intent" : "cancel"));
+        }
+    }
+
+    [Fact]
     public async Task LoopsAndNumericLiterals_RoundTripWithoutPrecisionLoss()
     {
         var graph = TypedPlannerTests.Graph();

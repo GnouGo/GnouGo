@@ -63,6 +63,16 @@ public sealed class PlanningPersistenceTests
         Assert.Equal(original.Text, (await reopened.CallAsync(request, Ct)).Text);
         Assert.Equal(1, client.Calls);
         Assert.Equal(calls, budget.Snapshot.Calls);
+        await using var db = fixture.CreateDbContext();
+        var key = (await db.Calls.SingleAsync(Ct)).PayloadKey;
+        var encryptedRequest = await fixture.Records.GetAsync(PlanningModelJournal.RequestCollection, "tenant", key, EfPlanningSessionStore.Author, Ct);
+        Assert.Contains(request.Prompt, encryptedRequest!.Value);
+        foreach (var file in Directory.GetFiles(fixture.Root, "*", SearchOption.AllDirectories))
+        {
+            var bytes = Encoding.UTF8.GetString(await File.ReadAllBytesAsync(file, Ct));
+            Assert.DoesNotContain("PRIVATE_MODEL_REQUEST", bytes);
+            Assert.DoesNotContain("PRIVATE_MODEL_RESPONSE", bytes);
+        }
     }
 
     [Fact]

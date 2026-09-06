@@ -61,6 +61,44 @@ behavior for capability resolution and revision review.
 Reconnect loads the current revision; restart requeues unfinished sessions. Questions
 remain pending until an explicit response arrives.
 
+The designer displays **Planner v2** and the current phase. Invalid clarification
+responses no longer close the session before the user sees a form:
+
+```mermaid
+flowchart LR
+  Assess[Assess intent using identified sources] --> Validate[Validate shape and individual excerpts]
+  Validate -->|Valid questions| Form[Display clarification form]
+  Validate -->|Invalid| Repair[One targeted repair]
+  Repair -->|Valid| Form
+  Repair -->|Still invalid| Recovery[Editable recovery]
+  Recovery -->|Retry or edit request| Assess
+  Recovery -->|Cancel| Cancelled[Cancelled]
+  Form -->|Explicit answers| Assess
+```
+
+Evidence is an array of `{sourceId, excerpt}` objects, independently checked against
+request, answer, existing-workflow or host-constraint text. Model-authored questions
+are explanatory context only. Shape, identifiers, options, evidence and cumulative
+clarification limits are checked before displaying a form. There are at most two model
+calls per assessment across all validation failures. Repair diagnostics identify fields;
+valid questions, options and outcomes cannot be silently changed or discarded.
+
+`recovery` is a durable waiting status, not a final failed outcome. The designer offers
+**Edit request**, **Retry**, and **Cancel**, with readable findings. `edit_intent` uses
+the existing command `text` and `expectedRevision` fields and is available before a
+graph exists during recovery or early failure. It archives replaced answers and
+diagnostics and invalidates derived planning state. Session identity, model settings,
+policies, usage, encrypted history and cumulative clarification limits remain intact.
+Retries archive and clear active diagnostics. Editing cannot replenish spent budgets.
+Recovery waiting is excluded from active planning time.
+
+Snapshots retain `schemaVersion: 2`. Missing `currentPhase`, `clarificationForms` and
+`clarificationQuestions` fields are compatible with older snapshots; counters derive
+from retained answers and pending questions when first advanced. Existing failed
+sessions can be retried without migration. DTOs expose planner version and phase.
+Operational spans contain session ID, revision, version, phase, diagnostic codes and
+repair outcome; prompts and responses are encrypted through public KeyVault records.
+
 `GET /api/planning`, `GET /api/planning/{id}`, `POST /api/planning`, and
 `POST /api/planning/{id}/commands` expose additive Agent.Shared DTOs. Commands carry
 `expectedRevision`; approvals also carry `artifactHash`. The server's configured
@@ -111,6 +149,7 @@ dotnet publish src/GnOuGo.Agent.Server -c Release -r osx-arm64 --self-contained 
 ```
 
 The persistence smoke uses only the supplied directory and does not start services.
+It verifies recovery, clarification counters and private revision history after reopen.
 Agent.Server retains its existing Blazor/EF partial-trim boundary. Regenerate the
 planning EF model after index changes with:
 
@@ -125,3 +164,36 @@ The [acceptance corpus](../evaluations/workflow-planning/README.md) defines the 
 reduction gates are targets, not measured claims. Evaluate them with frozen contracts,
 the same model and independent intent checks. Enabling the designer by default does
 not establish that these gates have passed.
+
+## Opt-in live clarification and generation validation
+
+The existing `LiveAgentAddSmokeTests` and compatibility intent harness explicitly use
+v1. `LiveIntentAgentGenerationTests.TypedV2_*` exercises the durable v2 service, renders
+real questions with the Blazor component, and uses the configured model unchanged.
+The campaign uses isolated temporary planning storage for three generation-and-save
+runs, then the existing disposable GitHub fixture execution and cleanup. Any recovery,
+unsupported contract or failed downstream validation blocks success.
+
+Both v2 entrypoints retain the existing live harness prerequisites: verified isolated
+provider credential/project, provider-side hard spending limit, and one persistent
+redacted cumulative budget ledger. Set `GNOU_GO_LIVE_INTENT_AGENT_BUDGET_AMOUNT=100`
+and currency `EUR` for the authorized campaign; do not create a fresh ledger to reset
+spending. See the [server live validation prerequisites](../src/GnOuGo.Agent.Server/README.md).
+The v2 generation campaign runs three requests directly after the provider probe; the
+v1 diagnostic-generation prerequisite remains specific to the compatibility harness.
+
+```sh
+# Only after the existing isolated-project and provider-limit prerequisites are verified:
+GNOU_GO_LIVE_TYPED_PLANNING_RESUME=1 \
+GNOU_GO_LIVE_TYPED_PLANNING_SESSION_ID='<existing-session-id>' \
+dotnet test tests/GnOuGo.Agent.Server.Tests --filter 'FullyQualifiedName~TypedV2_ResumeFailedSession'
+
+GNOU_GO_LIVE_TYPED_PLANNING_E2E=1 \
+dotnet test tests/GnOuGo.Agent.Server.Tests --filter 'FullyQualifiedName~TypedV2_GeneratesAndSavesThreeAgents'
+```
+
+Recovery validation uses the existing tenant-scoped session without starting background
+workers, retries intent once, verifies the persisted questions render, and submits no
+answers or approvals. Reopen `/planning/{sessionId}` in the updated server to answer.
+The generation harness answers only its separate temporary sessions with scripted
+fixture requirements. A visible clarification is not counted as completed generation.

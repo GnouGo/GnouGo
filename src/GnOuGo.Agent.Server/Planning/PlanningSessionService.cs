@@ -213,17 +213,22 @@ public sealed class PlanningSessionService(
     {
         using var activity = Activities.StartActivity("planning.advance");
         activity?.SetTag("tenant.id", Tenant);
-        activity?.SetTag("gnougo.planning.phase", current.Status);
+        activity?.SetTag("gnougo.planning.session_id", current.Request.SessionId);
+        activity?.SetTag("gnougo.planning.version", current.SchemaVersion);
+        activity?.SetTag("gnougo.planning.phase", PlanningPhase.Resolve(current));
         activity?.SetTag("gnougo.planning.revision", current.Revision);
         var sw = Stopwatch.StartNew();
-        if (command.Kind == "cancel")
+        if (command.Kind is "cancel" or "retry" or "edit_intent")
         {
-            var cancelled = await planner.AdvanceAsync(current, command, new WorkflowPlanningRuntime(new WorkflowEngine()), ct);
+            // Recovery commands are durable state changes; model/provider availability
+            // must not prevent the user from editing, retrying, or cancelling.
+            var updated = await planner.AdvanceAsync(current, command, new WorkflowPlanningRuntime(new WorkflowEngine()), ct);
             var finalBudget = await records.GetAsync(PlanningBudgetSink.Collection, Tenant, current.Request.SessionId, EfPlanningSessionStore.Author, ct);
-            if (finalBudget is not null) cancelled.Usage = JsonSerializer.Deserialize(finalBudget.Value, PlanningJsonContext.Default.LLMUsageBudgetSnapshot);
-            if (!await store.TrySaveAsync(cancelled, current.Revision, ct)) throw new PlanningConflictException("The session changed before cancellation was saved.");
-            Outcomes.Add(1, new KeyValuePair<string, object?>("outcome", "cancelled"), new KeyValuePair<string, object?>("tenant.id", Tenant));
-            return cancelled;
+            if (finalBudget is not null) updated.Usage = JsonSerializer.Deserialize(finalBudget.Value, PlanningJsonContext.Default.LLMUsageBudgetSnapshot);
+            updated.ActiveMilliseconds = current.ActiveMilliseconds + sw.Elapsed.TotalMilliseconds;
+            if (!await store.TrySaveAsync(updated, current.Revision, ct)) throw new PlanningConflictException("The session changed before the command was saved.");
+            ObserveTransition(current, updated, sw, activity);
+            return updated;
         }
         if (current.ActiveMilliseconds >= 18_000_000 && command.Kind == "advance")
         {
@@ -257,11 +262,34 @@ public sealed class PlanningSessionService(
         result.ActiveMilliseconds = current.ActiveMilliseconds + sw.Elapsed.TotalMilliseconds;
         result.Usage = budget.Snapshot;
         if (!await store.TrySaveAsync(result, current.Revision, ct)) throw new PlanningConflictException("A newer planning revision was persisted by another worker.");
+        ObserveTransition(current, result, sw, activity);
+        return result;
+    }
+
+    private void ObserveTransition(PlanningSnapshot current, PlanningSnapshot result, Stopwatch sw, Activity? activity)
+    {
+        var phase = PlanningPhase.Resolve(result);
+        activity?.SetTag("gnougo.planning.phase", phase);
+        activity?.SetTag("gnougo.planning.revision", result.Revision);
+        activity?.SetTag("gnougo.planning.status", result.Status);
+        activity?.SetTag("gnougo.planning.diagnostic_codes", string.Join(",", result.Diagnostics.Select(d => d.Code).Distinct(StringComparer.Ordinal)));
+        foreach (var evt in result.Events.Skip(current.Events.Count))
+        {
+            var repairOutcome = evt.Kind switch { "intent_repair_started" => "started", "intent_repair_succeeded" => "recovered", "intent_repair_exhausted" => "exhausted", _ => null };
+            if (repairOutcome is null) continue;
+            activity?.SetTag("gnougo.planning.repair.outcome", repairOutcome);
+            activity?.AddEvent(new ActivityEvent("planning.repair", tags: new ActivityTagsCollection
+            {
+                ["phase"] = evt.Phase, ["outcome"] = repairOutcome, ["diagnostic_count"] = evt.Count
+            }));
+        }
+        if (result.Status == PlanningStatus.Recovery)
+            logger.LogInformation("Planning session {SessionId} revision {Revision} is waiting for recovery in {Phase}. Diagnostic codes: {DiagnosticCodes}",
+                result.Request.SessionId, result.Revision, phase, string.Join(",", result.Diagnostics.Select(d => d.Code).Distinct(StringComparer.Ordinal)));
         activity?.SetTag("gnougo.planning.outcome", result.Outcome);
         activity?.SetStatus(result.Status == PlanningStatus.Failed ? ActivityStatusCode.Error : ActivityStatusCode.Ok);
-        PhaseDuration.Record(sw.Elapsed.TotalSeconds, new KeyValuePair<string, object?>("phase", current.Status), new KeyValuePair<string, object?>("tenant.id", Tenant));
+        PhaseDuration.Record(sw.Elapsed.TotalSeconds, new KeyValuePair<string, object?>("phase", phase), new KeyValuePair<string, object?>("tenant.id", Tenant));
         if (PlanningStatus.IsTerminal(result.Status)) Outcomes.Add(1, new KeyValuePair<string, object?>("outcome", result.Outcome), new KeyValuePair<string, object?>("tenant.id", Tenant));
-        return result;
     }
 
     private async Task<PlanningSnapshot> SaveAsync(PlanningSnapshot state, PlanningCommand command, CancellationToken ct)
