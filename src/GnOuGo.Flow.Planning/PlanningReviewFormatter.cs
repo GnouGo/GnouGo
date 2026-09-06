@@ -80,6 +80,21 @@ public static class PlanningReviewFormatter
             "; outputs: " + string.Join(", ", w.Outputs.Select(p => p.Name)) + "; cleanup steps: " + w.Finally.Count).ToArray();
     }
 
+    public static IReadOnlyList<string> BehaviorDetails(PlanningBehaviorPlan plan)
+    {
+        var details = new List<string>();
+        foreach (var workflow in plan.Workflows)
+        {
+            details.Add(workflow.Purpose);
+            details.AddRange(workflow.Inputs.Select(p => "Input " + p.Name + (p.Required ? " (required)" : " (optional)") + ": " + p.Description));
+            details.AddRange(workflow.Outputs.Select(p => "Output " + p.Name + ": " + p.Description));
+            foreach (var node in PlanningBehaviorPlans.Enumerate(workflow.Steps.Concat(workflow.Finally)))
+                foreach (var outcome in node.Outcomes)
+                    details.Add(node.Purpose + " — " + outcome.Key + (outcome.IsDefault ? " (default)" : "") + ": " + outcome.Description + (outcome.Steps.Count == 0 ? " No action." : ""));
+        }
+        return details;
+    }
+
     private static string? RenderSteps(StringBuilder text, List<PlanningNode> steps, string prefix, PlanningPreparation? preparation)
     {
         string? previous = null;

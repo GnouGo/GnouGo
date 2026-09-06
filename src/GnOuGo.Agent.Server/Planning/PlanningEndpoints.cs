@@ -33,13 +33,18 @@ internal static class PlanningEndpoints
     }
 
     internal static PlanningSessionDto ToDto(PlanningSnapshot snapshot) => new(
-        snapshot.Request.SessionId, snapshot.Request.Name, snapshot.Revision, snapshot.Status, snapshot.Graph?.Summary ?? "",
-        PlanningReviewFormatter.Diagram(snapshot.Graph, snapshot.Preparation, snapshot.PreviousGraph ?? snapshot.ReviewedGraph), PlanningReviewFormatter.BehaviorDetails(snapshot.Graph), snapshot.Yaml, snapshot.ArtifactHash, snapshot.ApprovedHash,
+        snapshot.Request.SessionId, snapshot.Request.Name, snapshot.Revision, snapshot.Status, snapshot.BehaviorPlan?.Summary ?? snapshot.Graph?.Summary ?? "",
+        PlanningReviewFormatter.Diagram(DisplayGraph(snapshot), snapshot.Preparation, snapshot.PreviousGraph ?? snapshot.ReviewedGraph), PlanningReviewFormatter.BehaviorDetails(DisplayGraph(snapshot)), snapshot.Yaml, snapshot.ArtifactHash, snapshot.ApprovedHash,
         snapshot.ActiveMilliseconds, snapshot.HumanWaitMilliseconds + (snapshot.WaitingSinceUtc is { } waiting ? Math.Max(0, (DateTimeOffset.UtcNow - waiting).TotalMilliseconds) : 0),
         snapshot.Diagnostics.Select(d => new PlanningValidationDto(d.Code, d.Location, d.Message, d.Required)).ToArray(),
         snapshot.Scenarios.Select(s => new PlanningScenarioDto(s.Id, s.Outcome, s.Description)).ToArray(),
         snapshot.History.Select(r => new PlanningRevisionDto(r.Revision, r.ArtifactHash, r.Status, r.ChangedFragments)).ToArray(),
         snapshot.Question is null ? null : HumanInputContract.BuildRequestPayload(snapshot.Question),
         snapshot.Usage?.Calls ?? 0, snapshot.Usage?.InputTokens ?? 0, snapshot.Usage?.OutputTokens ?? 0, snapshot.Usage?.EstimatedCost ?? 0, snapshot.Usage?.EstimatedCostCurrency ?? "", snapshot.Outcome,
-        snapshot.SchemaVersion, PlanningPhase.Resolve(snapshot));
+        snapshot.SchemaVersion, PlanningPhase.Resolve(snapshot),
+        snapshot.BehaviorPlan is null ? null : System.Text.Json.JsonSerializer.SerializeToNode(snapshot.BehaviorPlan, PlanningJsonContext.Default.PlanningBehaviorPlan)!.AsObject(),
+        snapshot.ApprovedBehaviorHash, snapshot.Status == PlanningStatus.Recovery ? "Automatic repair paused in " + PlanningPhase.Resolve(snapshot) + ". " + snapshot.Diagnostics.Count(d => d.Required) + " required findings remain on the retained candidate." : null,
+        snapshot.Answers.Count);
+
+    private static PlanningGraph? DisplayGraph(PlanningSnapshot snapshot) => snapshot.BehaviorPlan is { } behavior ? PlanningBehaviorPlans.Display(behavior, snapshot.Preparation) : snapshot.Graph;
 }

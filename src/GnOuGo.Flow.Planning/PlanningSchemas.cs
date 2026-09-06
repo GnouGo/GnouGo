@@ -9,15 +9,20 @@ internal static class PlanningSchemas
     {
         var definitions = new JsonObject
         {
-            ["value"] = Object(
-                ("kind", Enum("null", "string", "number", "boolean", "object", "array", "input", "output", "expression", "template", "workflow")),
-                ("text", Nullable(String())), ("number", Nullable(Type("number"))), ("boolean", Nullable(Type("boolean"))),
-                ("source", Nullable(String())), ("resultChannel", Nullable(Enum("default", "structured"))), ("path", Array(String())), ("members", Array(Ref("member"))), ("items", Array(Ref("value")))),
+            ["value"] = new JsonObject { ["anyOf"] = new JsonArray(
+                Object(("kind", Enum("null"))), Object(("kind", Enum("string", "expression")), ("text", String())),
+                Object(("kind", Enum("number")), ("number", Type("number"))), Object(("kind", Enum("boolean")), ("boolean", Type("boolean"))),
+                Object(("kind", Enum("object")), ("members", Array(Ref("member")))), Object(("kind", Enum("array")), ("items", Array(Ref("value")))),
+                Object(("kind", Enum("input")), ("source", String()), ("path", Array(String()))),
+                Object(("kind", Enum("output")), ("source", String()), ("resultChannel", Enum("default", "structured")), ("path", Array(String()))),
+                Object(("kind", Enum("workflow")), ("source", String())),
+                Object(("kind", Enum("template")), ("text", String()), ("members", Array(Ref("member"))))) },
             ["member"] = Object(("name", String()), ("value", Ref("value"))),
-            ["schema"] = Object(("type", Enum("string", "number", "integer", "boolean", "array", "object")),
+            ["schema"] = new JsonObject { ["anyOf"] = new JsonArray(
+                Object(("kind", Enum("reference")), ("capabilityId", String()), ("schemaPointer", String())),
+                Object(("kind", Enum("inline")), ("type", Enum("string", "number", "integer", "boolean", "array", "object")),
                 ("nullable", Type("boolean")), ("description", Nullable(String())), ("enum", Array(String())),
-                ("items", Nullable(Ref("schema"))), ("properties", Array(Ref("port"))), ("additionalProperties", Nullable(Ref("schema"))),
-                ("capabilityId", Nullable(String())), ("schemaPointer", Nullable(String()))),
+                ("items", Nullable(Ref("schema"))), ("properties", Array(Ref("port"))), ("additionalProperties", Nullable(Ref("schema"))))) },
             ["port"] = Object(("name", String()), ("schema", Ref("schema")), ("required", Type("boolean")), ("default", Nullable(Ref("value")))),
             ["output"] = Object(("name", String()), ("schema", Ref("schema")), ("value", Ref("value"))),
             ["retry"] = Object(("max", Type("integer")), ("backoffMs", Type("integer")), ("backoffMult", Type("number")), ("jitterMs", Type("integer"))),
@@ -27,6 +32,7 @@ internal static class PlanningSchemas
             ["node"] = Object(("key", String()), ("type", Enum(preparation.AllowedStepTypes.ToArray())), ("purpose", String()),
                 ("capabilityId", Nullable(String())), ("operationIds", Array(String())), ("input", Ref("value")),
                 ("if", Nullable(Ref("value"))), ("expr", Nullable(Ref("value"))), ("outputSchema", Nullable(Ref("schema"))),
+                ("structuredOutput", Nullable(Object(("schema", Ref("schema")), ("strict", Type("boolean"))))),
                 ("output", Nullable(String())), ("itemVar", Nullable(String())), ("indexVar", Nullable(String())),
                 ("retry", Nullable(Ref("retry"))), ("onError", Array(Ref("errorCase"))), ("steps", Array(Ref("node"))),
                 ("branches", Array(Ref("branch"))), ("cases", Array(Ref("case"))), ("default", Array(Ref("node")))),
@@ -45,6 +51,23 @@ internal static class PlanningSchemas
         ("outcome", Enum("ready", "questions", "unsupported")), ("reason", String()), ("evidence", Evidence()),
         ("questions", Array(Object(("id", String()), ("prompt", String()), ("evidence", Evidence()),
             ("options", Array(Object(("value", String()), ("description", String()), ("recommended", Type("boolean")))))))));
+
+    public static JsonObject Behavior()
+    {
+        var root = Object(("summary", String()), ("entrypoint", String()), ("workflows", Array(Ref("behaviorWorkflow"))));
+        root["$defs"] = new JsonObject
+        {
+            ["behaviorPort"] = Object(("name", String()), ("description", String()), ("required", Type("boolean"))),
+            ["behaviorOutcome"] = Object(("key", String()), ("description", String()), ("isDefault", Type("boolean")), ("steps", Array(Ref("behaviorNode")))),
+            ["behaviorNode"] = Object(("key", String()), ("kind", Enum("operation", "decision", "loop", "sequence", "parallel", "confirmation", "workflow")),
+                ("purpose", String()), ("operationIds", Array(String())), ("capabilityId", Nullable(String())), ("workflowKey", Nullable(String())),
+                ("outcomes", Array(Ref("behaviorOutcome"))), ("steps", Array(Ref("behaviorNode")))),
+            ["behaviorWorkflow"] = Object(("key", String()), ("purpose", String()), ("operationIds", Array(String())),
+                ("inputs", Array(Ref("behaviorPort"))), ("outputs", Array(Ref("behaviorPort"))),
+                ("steps", Array(Ref("behaviorNode"))), ("finally", Array(Ref("behaviorNode"))))
+        };
+        return root;
+    }
 
     private static JsonObject Evidence() => Array(Object(("sourceId", String()), ("excerpt", String())));
 

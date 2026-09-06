@@ -9,6 +9,41 @@ namespace GnOuGo.Agent.Server.Tests;
 public sealed class PlanningPageTests
 {
     [Fact]
+    public async Task EarlyBehaviorReview_IsVisibleBeforeCode_ApprovalAndAnswersSurviveReopen()
+    {
+        var ct = Xunit.TestContext.Current.CancellationToken;
+        await using var fixture = await PlanningPersistenceTests.StoreFixture.CreateAsync();
+        var state = new PlanningSnapshot
+        {
+            Request = new() { TenantId = "planning-tests", Prompt = "Return a message", Name = "early-review" },
+            Status = PlanningStatus.BehaviorReview, CurrentPhase = PlanningPhase.Behavior,
+            Preparation = new() { AllowedStepTypes = ["set"] },
+            BehaviorPlan = new() { Summary = "Return a greeting", Workflows = [new() { Key = "main", Purpose = "Return the requested greeting", Steps = [new() { Key = "greeting", Purpose = "Return a message" }], Outputs = [new("message", "A readable greeting", true)] }] },
+            Answers = [new("Which greeting?", new() { ["greeting"] = "Hello" })], ClarificationForms = 1, ClarificationQuestions = 1
+        };
+        state.ArtifactHash = PlanningBehaviorPlans.Fingerprint(state.BehaviorPlan);
+        Assert.True(await fixture.Store.TrySaveAsync(state, null, ct));
+        using var service = PlanningSessionLifecycleTests.Create(fixture, new TypedWorkflowPlanner(), PlanningSessionLifecycleTests.AgentCatalog());
+        await using (var context = new BunitContext())
+        {
+            context.JSInterop.Mode = JSRuntimeMode.Loose; context.Services.AddSingleton(service);
+            var page = context.Render<PlanningPage>(p => p.Add(x => x.SessionId, state.Request.SessionId));
+            page.WaitForAssertion(() => Assert.Contains("A readable greeting", page.Markup));
+            Assert.Contains("Which greeting?", page.Markup);
+            Assert.Empty(page.FindAll("textarea[aria-label='Workflow YAML']"));
+            var accept = Assert.Single(page.FindAll("button"), b => b.TextContent == "Accept behavior and generate");
+            accept.Click();
+            page.WaitForAssertion(() => Assert.DoesNotContain(page.FindAll("button"), b => b.TextContent == "Accept behavior and generate"));
+        }
+        using var reopened = PlanningSessionLifecycleTests.Create(fixture, new TypedWorkflowPlanner(), PlanningSessionLifecycleTests.AgentCatalog());
+        var restored = (await reopened.GetAsync(state.Request.SessionId, ct))!;
+        Assert.Equal(state.ArtifactHash, restored.ApprovedBehaviorHash); Assert.Null(restored.ApprovedHash);
+        Assert.Equal(PlanningStatus.Generating, restored.Status); Assert.Single(restored.Answers); Assert.Equal(1, restored.ClarificationQuestions);
+        Assert.Null(await fixture.Store.LoadAsync("different-tenant", state.Request.SessionId, ct));
+        await Assert.ThrowsAsync<PlanningConflictException>(() => reopened.SubmitAsync(state.Request.SessionId, new() { Kind = "accept_behavior", ExpectedRevision = state.Revision, ArtifactHash = state.ArtifactHash }, ct));
+    }
+
+    [Fact]
     public async Task NavigationBetweenEqualRevisions_ShowsTheSelectedSessionsYamlAndDiagram()
     {
         await using var fixture = await PlanningPersistenceTests.StoreFixture.CreateAsync();

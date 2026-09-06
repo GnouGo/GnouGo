@@ -52,10 +52,11 @@ public sealed partial class TypedWorkflowPlanner(TimeProvider? timeProvider = nu
                     state.CurrentPhase = PlanningPhase.Intent;
                     break;
                 case "edit_intent":
-                    if (state.ReviewedGraph is not null || state.Status is not (PlanningStatus.Recovery or PlanningStatus.Failed or PlanningStatus.Unsupported) || string.IsNullOrWhiteSpace(command.Text))
+                    if (HasBehaviorApproval(state) || state.Status is not (PlanningStatus.Recovery or PlanningStatus.Failed or PlanningStatus.Unsupported) || string.IsNullOrWhiteSpace(command.Text))
                         throw new PlanningConflictException("Edit the request only during recovery before the first behavior approval.");
                     ArchiveIntent(state);
                     state.Request.Prompt = command.Text.Trim();
+                    ResetBehavior(state);
                     state.Graph = null;
                     state.BehaviorAssessmentCalls = 0;
                     state.IntentChecked = false;
@@ -86,7 +87,21 @@ public sealed partial class TypedWorkflowPlanner(TimeProvider? timeProvider = nu
                 case "accept_behavior":
                     RequireStatus(state, PlanningStatus.BehaviorReview);
                     RequireHash(state, command.ArtifactHash);
-                    state.ReviewedGraph = CloneGraph(state.Graph!);
+                    if (state.BehaviorPlan is { } reviewedBehavior)
+                    {
+                        if (state.ArtifactHash != PlanningBehaviorPlans.Fingerprint(reviewedBehavior) || PlanningBehaviorPlans.Validate(reviewedBehavior, state.Preparation!).Count != 0)
+                            throw new PlanningConflictException("The behavior contract changed. Review the current behavior.");
+                        state.ApprovedBehaviorHash = state.ArtifactHash;
+                        state.Graph = PlanningBehaviorPlans.Display(reviewedBehavior, state.Preparation);
+                        state.Fragments.Clear();
+                    }
+                    else
+                    {
+                        // An unapproved legacy candidate must receive the new readable review first.
+                        state.Status = PlanningStatus.Created; state.CurrentPhase = PlanningPhase.Behavior;
+                        state.BehaviorAssessmentCalls = 0; state.ArtifactHash = null;
+                        break;
+                    }
                     state.Status = PlanningStatus.Generating;
                     state.CurrentPhase = PlanningStatus.Generating;
                     break;
@@ -102,14 +117,24 @@ public sealed partial class TypedWorkflowPlanner(TimeProvider? timeProvider = nu
                     state.Status = PlanningStatus.Approved;
                     break;
                 case "revise":
-                    if (state.Graph is null || string.IsNullOrWhiteSpace(command.Text)) throw new PlanningConflictException("A graph and a change request are required.");
+                    if (string.IsNullOrWhiteSpace(command.Text) || state.Graph is null && state.BehaviorPlan is null) throw new PlanningConflictException("A plan and a change request are required.");
+                    if (state.BehaviorPlan is not null)
+                    {
+                        ArchiveIntent(state);
+                        state.Request.Prompt += "\n\nRequested revision:\n" + command.Text;
+                        state.PreviousGraph = state.Graph; state.Graph = null; state.Preparation = null;
+                        state.IntentChecked = false; state.Fragments.Clear(); state.Diagnostics.Clear(); state.Scenarios.Clear();
+                        state.ApprovedHash = null; state.ArtifactHash = null; state.Yaml = null; state.BestGraph = null;
+                        ResetBehavior(state); state.Status = PlanningStatus.Created; state.CurrentPhase = PlanningPhase.Intent;
+                        break;
+                    }
                     state.CurrentPhase = PlanningStatus.Revising;
                     await ReviseAsync(state, command.Text, runtime, ct);
                     break;
                 case "edit_yaml":
                     if (state.Preparation is null || string.IsNullOrWhiteSpace(command.Text)) throw new PlanningConflictException("A prepared session and YAML are required.");
                     Remember(state);
-                    state.Graph = PlanningGraphImporter.Import(command.Text, state.Preparation);
+                    state.Graph = PlanningGraphImporter.ImportRevision(command.Text, state.Preparation, state.Graph);
                     state.ChangedFragments = ChangedWorkflows(snapshot.Graph, state.Graph);
                     state.Fragments.Clear();
                     state.Yaml = command.Text;
@@ -127,8 +152,10 @@ public sealed partial class TypedWorkflowPlanner(TimeProvider? timeProvider = nu
                         state.Request.ExistingYaml = state.Yaml;
                         state.Preparation = null; state.Graph = null; state.IntentChecked = false; state.Fragments.Clear();
                     }
-                    var unreviewed = state.ReviewedGraph is null || PlanningPhase.Resolve(state) == PlanningPhase.Behavior;
-                    state.Status = state.Graph is null || unreviewed ? PlanningStatus.Created : PlanningStatus.Validating;
+                    var unreviewed = !HasBehaviorApproval(state) || PlanningPhase.Resolve(state) == PlanningPhase.Behavior;
+                    state.Status = state.Graph is null || unreviewed ? PlanningStatus.Created
+                        : state.Graph.Workflows.Any(w => !state.Fragments.ContainsKey(w.Key)) && PlanningPhase.Resolve(state) is PlanningStatus.Generating or "fragment"
+                            ? PlanningStatus.Generating : PlanningStatus.Validating;
                     state.BehaviorAssessmentCalls = 0;
                     state.ApprovedHash = null;
                     state.ArtifactHash = null;
@@ -176,8 +203,11 @@ public sealed partial class TypedWorkflowPlanner(TimeProvider? timeProvider = nu
         state.ActiveMilliseconds += sw.Elapsed.TotalMilliseconds;
         state.Revision++;
         state.UpdatedAtUtc = _time.GetUtcNow();
-        if (state.Graph is not null)
-            state.ReviewMarkdown = state.Graph.Summary + "\n\n```mermaid\n" + PlanningReviewFormatter.Diagram(state.Graph, state.Preparation, state.PreviousGraph ?? state.ReviewedGraph) + "\n```\n\n" + string.Join("\n", PlanningReviewFormatter.BehaviorDetails(state.Graph).Select(detail => "- " + detail));
+        if (state.Graph is not null || state.BehaviorPlan is not null)
+        {
+            var reviewGraph = ReviewGraph(state);
+            state.ReviewMarkdown = reviewGraph.Summary + "\n\n```mermaid\n" + PlanningReviewFormatter.Diagram(reviewGraph, state.Preparation) + "\n```\n\n" + string.Join("\n", (state.BehaviorPlan is { } business ? PlanningReviewFormatter.BehaviorDetails(business) : PlanningReviewFormatter.BehaviorDetails(reviewGraph)).Select(detail => "- " + detail));
+        }
         if (PlanningStatus.IsWaiting(state.Status)) state.WaitingSinceUtc = state.UpdatedAtUtc;
         state.Events.Add(new("transition", state.Status, state.UpdatedAtUtc, state.Diagnostics.Count));
         await runtime.CheckpointAsync(state, ct);
@@ -213,7 +243,7 @@ public sealed partial class TypedWorkflowPlanner(TimeProvider? timeProvider = nu
                     state.Preparation = await runtime.PrepareAsync(EffectiveRequest(state), ct);
                     return;
                 }
-                if (state.Graph is null || state.ReviewedGraph is null || state.CurrentPhase == PlanningPhase.Behavior)
+                if (!HasBehaviorApproval(state) || state.CurrentPhase == PlanningPhase.Behavior)
                     await AssessBehaviorAsync(state, runtime, ct);
                 return;
             case PlanningStatus.Generating: state.CurrentPhase = PlanningStatus.Generating; await GenerateAsync(state, runtime, ct); return;
@@ -223,6 +253,7 @@ public sealed partial class TypedWorkflowPlanner(TimeProvider? timeProvider = nu
 
     private async Task GenerateAsync(PlanningSnapshot state, IPlanningRuntime runtime, CancellationToken ct)
     {
+        if (state.RepairAttempt > 0) { await RepairExecutableAsync(state, runtime, ct); return; }
         var graph = state.Graph!;
         var preparation = state.Preparation!;
         var work = graph.Workflows.Where(w => !state.Fragments.TryGetValue(w.Key, out var fragment) || fragment.Fingerprint != FragmentFingerprint(state, w)).Take(state.Request.MaxConcurrency).ToArray();
@@ -247,7 +278,13 @@ public sealed partial class TypedWorkflowPlanner(TimeProvider? timeProvider = nu
             state.Fragments[item.Key] = new(FragmentFingerprint(state, item.Workflow), item.Workflow, false);
         }
         var failure = generated.FirstOrDefault(g => g.Error is not null).Error;
-        if (failure is not null) throw failure;
+        if (failure is not null)
+        {
+            state.Status = PlanningStatus.Recovery;
+            state.Diagnostics = [new("FRAGMENT_GENERATION_INVALID", "/workflows", failure.Message)];
+            state.Attempts.Add(new(PlanningGraphCompiler.Fingerprint(state.Graph!), PlanningStatus.Generating, 0, false, state.Diagnostics.ToList()));
+            return;
+        }
         ValidateOwnership(graph, preparation);
         if (graph.Workflows.All(w => state.Fragments.TryGetValue(w.Key, out var f) && f.Fingerprint == FragmentFingerprint(state, w))) state.Status = PlanningStatus.Validating;
     }
@@ -262,85 +299,144 @@ public sealed partial class TypedWorkflowPlanner(TimeProvider? timeProvider = nu
             ["inputs"] = JsonSerializer.SerializeToNode(w, PlanningJsonContext.Default.PlanningWorkflow)!["inputs"]!.DeepClone(),
             ["outputs"] = JsonSerializer.SerializeToNode(w, PlanningJsonContext.Default.PlanningWorkflow)!["outputs"]!.DeepClone()
         });
-        var prompt = Instructions + "\nImplement exactly this typed workflow fragment. Preserve its key, operation ownership and input/output names and schemas. " +
+        var prompt = Instructions + "\nImplement exactly this typed workflow fragment. Preserve its key, operation ownership and input/output names. " +
+            (state.BehaviorPlan is null ? "Preserve boundary schemas. " : "Elaborate concrete boundary schemas from actual inputs and producer results; skeleton schema defaults are placeholders. Preserve input required flags. ") +
             "Preserve every observable branch, external action and finalizer from the reviewed behavior. " +
             "Use only owned capabilities. Use explicit typed references for wiring. For workflow.call use a workflow value in input.ref. " +
-            "Native step contracts remain authoritative. Use expression values for functions or interpolation; no expressions inside literal strings.\n" +
-            "Requested behavior:\n" + Context(state) + "\nFragment:\n" + JsonSerializer.Serialize(workflow, PlanningJsonContext.Default.PlanningWorkflow) +
+            "For set, compute each output field in input; expr is not executed. Functions must contain executable JavaScript, never prose. " +
+            "Use structuredOutput.schema for synthesized results, not input.structured_output. outputSchema on other steps describes existing producer results only. " +
+            "Human confirmations must include explicit choices; use the declared response contract. Expressions reference data.inputs and data.steps.<nodeKey>, never inputs/outputs/structured/input/runtime aliases. " +
+            (state.BehaviorPlan is null ? "" : "\nAccepted behavior (the fragment below is only a skeleton):\n" + JsonSerializer.Serialize(state.BehaviorPlan.Workflows.Single(w => w.Key == workflow.Key), PlanningJsonContext.Default.PlanningBehaviorWorkflow)) +
+            "For early-reviewed behavior return only the supplied node executable fields, once per key. Do not add, remove or move nodes. Each caseConditions entry names its zero-based case index; use null when the switch expr matches accepted case values. Local shaping belongs in existing set inputs or helper functions. Native step contracts remain authoritative. Use expression values for functions or interpolation; no expressions inside literal strings.\n" +
+            "Requested behavior:\n" + Context(state) + "\nFragment:\n" + PlanningModelValues.Workflow(workflow).ToJsonString() +
             "\nOwned capabilities:\n" + Capabilities(capabilities) + "\nSchema reference index:\n" + PlanningSchemaReferences.Index(preparation).ToJsonString() + "\nLocked obligations:\n" + RelevantContract(preparation, workflow.OperationIds).ToJsonString() +
             "\nNative step contracts:\n" + preparation.StepContracts.ToJsonString() +
             "\nBoundary contracts:\n" + new JsonArray(related.Select(v => (JsonNode)v).ToArray()).ToJsonString() +
             "\nDiagnostics to resolve:\n" + JsonSerializer.Serialize(state.Diagnostics, PlanningJsonContext.Default.ListPlanningDiagnostic) +
             (state.Feedback is null ? "" : "\nUser requested revision:\n" + state.Feedback);
-        var response = await StructuredAsync(state, runtime, state.RepairAttempt > 0 ? "repair_fragment" : "fragment", prompt, PlanningSchemas.Graph(preparation, fragment: true), ct);
-        var replacement = JsonSerializer.Deserialize(response, PlanningJsonContext.Default.PlanningWorkflow) ?? throw new InvalidOperationException("Missing fragment.");
+        var response = await StructuredAsync(state, runtime, "fragment", prompt, state.BehaviorPlan is null ? PlanningSchemas.Graph(preparation, fragment: true) : PlanningFragments.Schema(workflow, preparation), ct);
+        var replacement = state.BehaviorPlan is null ? JsonSerializer.Deserialize(response, PlanningJsonContext.Default.PlanningWorkflow) ?? throw new InvalidOperationException("Missing fragment.") : PlanningFragments.Elaborate(workflow, response, preparation);
         if (replacement.Key != workflow.Key || !workflow.OperationIds.Order(StringComparer.Ordinal).SequenceEqual(replacement.OperationIds.Order(StringComparer.Ordinal))) throw new InvalidOperationException("A fragment changed its locked ownership.");
-        if (BoundaryFingerprint(workflow) != BoundaryFingerprint(replacement)) throw new InvalidOperationException("A fragment changed its boundary contracts.");
-        if (BehaviorFingerprint(workflow) != BehaviorFingerprint(replacement)) throw new InvalidOperationException("A fragment changed the reviewed control flow, external actions, confirmations or cleanup. Request a behavior revision first.");
+        if (state.BehaviorPlan is null && BoundaryFingerprint(workflow) != BoundaryFingerprint(replacement)) throw new InvalidOperationException("A fragment changed its boundary contracts.");
+        if (state.BehaviorPlan is null && BehaviorFingerprint(workflow) != BehaviorFingerprint(replacement)) throw new InvalidOperationException("A fragment changed the reviewed control flow, external actions, confirmations or cleanup. Request a behavior revision first.");
+        if (state.BehaviorPlan is not null)
+        {
+            var candidate = CloneGraph(state.Graph!);
+            candidate.Workflows[candidate.Workflows.FindIndex(w => w.Key == replacement.Key)] = replacement;
+            var contract = new PlanningBehaviorPlan { Workflows = state.BehaviorPlan.Workflows.Where(w => w.Key == replacement.Key).ToList() };
+            candidate.Workflows.RemoveAll(w => w.Key != replacement.Key);
+            var findings = PlanningBehaviorPlans.ValidateImplementation(contract, candidate, preparation);
+            if (findings.Count != 0) throw new InvalidOperationException(string.Join("; ", findings.Select(d => d.Message)));
+        }
         return replacement;
     }
 
     private async Task ValidateAsync(PlanningSnapshot state, IPlanningRuntime runtime, CancellationToken ct)
     {
-        var diagnostics = new List<PlanningDiagnostic>();
+        var diagnostics = BehaviorDiagnostics(state.Graph!, state.Preparation!);
+        if (state.BehaviorPlan is not null)
+        {
+            if (state.ApprovedBehaviorHash != PlanningBehaviorPlans.Fingerprint(state.BehaviorPlan))
+                diagnostics.Add(new("BEHAVIOR_APPROVAL_INVALID", "/behavior", "The accepted behavior hash no longer matches."));
+            diagnostics.AddRange(PlanningBehaviorPlans.ValidateImplementation(state.BehaviorPlan, state.Graph!, state.Preparation!));
+        }
+        var stage = diagnostics.Count == 0 ? 2 : 1;
         string? yaml = null;
         try
         {
-            ValidateOwnership(state.Graph!, state.Preparation!);
-            yaml = _compiler.Compile(state.Graph!, state.Preparation!, state.Request.Name);
-            diagnostics.AddRange(await runtime.ValidateAsync(yaml, EffectiveRequest(state), state.Preparation!, ct));
             if (diagnostics.Count == 0)
             {
-                state.Scenarios = (await runtime.ValidateScenariosAsync(yaml, state.Preparation!, ct)).ToList();
-                if (state.Scenarios.Count == 0) diagnostics.Add(new("SCENARIO_MISSING", "$", "No scenario coverage was established."));
-                diagnostics.AddRange(state.Scenarios.Where(s => s.Outcome != "passed").SelectMany(s => s.Diagnostics.Count == 0 ? [new PlanningDiagnostic("SCENARIO_INCONCLUSIVE", s.Id, "Required scenario coverage is incomplete.")] : s.Diagnostics));
+                yaml = _compiler.Compile(state.Graph!, state.Preparation!, state.Request.Name);
+                diagnostics.AddRange(await runtime.ValidateAsync(yaml, EffectiveRequest(state), state.Preparation!, ct));
+                if (diagnostics.Count == 0)
+                {
+                    stage = 3;
+                    state.Scenarios = (await runtime.ValidateScenariosAsync(yaml, state.Preparation!, ct)).ToList();
+                    if (state.Scenarios.Count == 0) diagnostics.Add(new("SCENARIO_MISSING", "$", "No scenario coverage was established."));
+                    diagnostics.AddRange(state.Scenarios.Where(s => s.Outcome != "passed").SelectMany(s => s.Diagnostics.Count == 0 ? [new PlanningDiagnostic("SCENARIO_INCONCLUSIVE", s.Id, "Required scenario coverage is incomplete.")] : s.Diagnostics));
+                }
+                if (diagnostics.Count == 0) { stage = 4; diagnostics.AddRange(await ReviewAsync(state, runtime, ct)); }
             }
-            if (diagnostics.Count == 0)
-                diagnostics.AddRange(await ReviewAsync(state, runtime, ct));
         }
         catch (OperationCanceledException) when (ct.IsCancellationRequested) { throw; }
+        catch (GnOuGo.Flow.Core.Compilation.WorkflowCompilationException ex) { diagnostics.AddRange(PlanningExecutableValidation.CompilerErrors(ex, state.Graph!)); }
         catch (Exception ex) { diagnostics.Add(new("GRAPH_VALIDATION", "$", ex.Message)); }
 
-        if (state.BestGraph is not null && state.BestDiagnostics.Count > 0 && diagnostics.Any(d => d.Required))
+        var retained = true;
+        var candidateHash = PlanningGraphCompiler.Fingerprint(state.Graph!);
+        if (state.BestGraph is not null && diagnostics.Any(d => d.Required))
         {
-            var oldIds = state.BestDiagnostics.Where(d => d.Required).Select(DiagnosticId).ToHashSet(StringComparer.Ordinal);
+            var previousHash = PlanningGraphCompiler.Fingerprint(state.BestGraph);
+            var previousStage = state.Attempts.LastOrDefault(a => a.CandidateHash == previousHash && a.Retained)?.Stage ?? 1;
+            var previousIds = state.BestDiagnostics.Where(d => d.Required).Select(DiagnosticId).ToHashSet(StringComparer.Ordinal);
             var newIds = diagnostics.Where(d => d.Required).Select(DiagnosticId).ToHashSet(StringComparer.Ordinal);
-            if (!newIds.IsProperSubsetOf(oldIds))
+            // Later validation stages are progress, even when they expose more findings.
+            if (stage < previousStage || stage == previousStage && !newIds.IsSubsetOf(previousIds))
             {
-                state.Graph = state.BestGraph;
-                state.Diagnostics = state.BestDiagnostics;
-                state.Fragments = new(state.BestFragments, StringComparer.Ordinal);
-                state.NonImprovingAttempts++;
-                state.Events.Add(new("candidate_rejected", "validation", _time.GetUtcNow(), diagnostics.Count));
+                retained = false;
+                state.Graph = state.BestGraph; state.Diagnostics = state.BestDiagnostics.ToList();
+                state.Fragments = new(state.BestFragments, StringComparer.Ordinal); state.NonImprovingAttempts++;
             }
-            else { state.Diagnostics = diagnostics; state.NonImprovingAttempts = 0; }
+            else { state.Diagnostics = diagnostics; state.NonImprovingAttempts = newIds.SetEquals(previousIds) && stage == previousStage ? state.NonImprovingAttempts + 1 : 0; }
         }
         else state.Diagnostics = diagnostics;
-
+        state.Attempts.Add(new(candidateHash, PlanningStatus.Validating, stage, retained, diagnostics.ToList()));
         if (!state.Diagnostics.Any(d => d.Required))
         {
             state.Yaml = yaml ?? throw new InvalidOperationException("Validation did not produce an artifact.");
-            state.ArtifactHash = PlanningGraphCompiler.Fingerprint(state.Yaml);
-            state.ApprovedHash = null;
+            state.ArtifactHash = PlanningGraphCompiler.Fingerprint(state.Yaml); state.ApprovedHash = null;
             state.Status = PlanningStatus.FinalReview;
             foreach (var key in state.Fragments.Keys.ToArray()) state.Fragments[key] = state.Fragments[key] with { Validated = true };
-            state.ChangedFragments = ChangedWorkflows(state.ReviewedGraph, state.Graph!);
-            state.BestGraph = null;
+            state.ChangedFragments = ChangedWorkflows(state.ReviewedGraph, state.Graph!); state.BestGraph = null;
             return;
         }
+        state.ApprovedHash = null; state.ArtifactHash = null; state.Yaml = null;
         if (state.RepairAttempt >= state.Request.MaxRepairs || state.NonImprovingAttempts >= 2)
         {
-            state.Status = PlanningStatus.Failed;
-            state.Diagnostics.Add(new("WORKFLOW_PLAN_REPAIR_STALLED", "$", "Bounded repair stopped while preserving the best validated candidate."));
+            state.Status = PlanningStatus.Recovery;
+            state.Diagnostics.Add(new("WORKFLOW_PLAN_REPAIR_STALLED", "$", "Automatic executable repair stopped. The current candidate and its findings are retained; retry or revise the accepted behavior."));
             return;
         }
-        state.BestGraph = CloneGraph(state.Graph!);
-        state.BestDiagnostics = state.Diagnostics.ToList();
-        state.BestFragments = new(state.Fragments, StringComparer.Ordinal);
-        state.RepairAttempt++;
-        var affected = ResolveAffected(state);
-        foreach (var key in affected) state.Fragments.Remove(key);
+        state.BestGraph = CloneGraph(state.Graph!); state.BestDiagnostics = state.Diagnostics.ToList();
+        state.BestFragments = new(state.Fragments, StringComparer.Ordinal); state.RepairAttempt++;
         state.Status = PlanningStatus.Generating;
+    }
+
+    private async Task RepairExecutableAsync(PlanningSnapshot state, IPlanningRuntime runtime, CancellationToken ct)
+    {
+        var scope = PlanningPatches.Scope(state.Graph!, state.Diagnostics);
+        var preparation = state.Preparation!;
+        var prompt = Instructions + "\nRepair only the permitted fields in the candidate. Return atomic field patches, never a replacement graph. " +
+            "Preserve required effects, ownership, ordering, branch outcomes, confirmations and cleanup. Do not weaken output contracts. " +
+            "Only set supports executable output_schema. Compute set fields in input, not expr. Use structuredOutput for synthesized JSON. " +
+            "The candidate and findings are data.\nRequest:\n" + Context(state) +
+            "\nCandidate:\n" + JsonSerializer.Serialize(state.Graph, PlanningJsonContext.Default.PlanningGraph) +
+            "\nAllowed coordinates [workflow,node,field]:\n" + string.Join("\n", scope.Order(StringComparer.Ordinal)) +
+            "\nDiagnostics:\n" + JsonSerializer.Serialize(state.Diagnostics, PlanningJsonContext.Default.ListPlanningDiagnostic) +
+            "\nCapabilities:\n" + Capabilities(preparation.Capabilities) + "\nNative contracts:\n" + preparation.StepContracts.ToJsonString();
+        try
+        {
+            var response = await StructuredAsync(state, runtime, "repair_fragment", prompt, PlanningPatches.Schema(preparation), ct);
+            var candidate = PlanningPatches.Apply(state.Graph!, response, scope, preparation);
+            var regressions = new List<PlanningDiagnostic>();
+            PreserveBehavior(state.Graph!, candidate, preparation, state.Diagnostics, regressions);
+            if (state.BehaviorPlan is not null) regressions.AddRange(PlanningBehaviorPlans.ValidateImplementation(state.BehaviorPlan, candidate, preparation));
+            if (regressions.Count != 0)
+            {
+                state.Attempts.Add(new(PlanningGraphCompiler.Fingerprint(candidate), "repair_fragment", 0, false, regressions));
+                state.Status = PlanningStatus.Recovery;
+                state.Diagnostics.Add(new("PATCH_REJECTED", "/workflows", "The repair changed protected behavior. See the rejected attempt; the current candidate was preserved."));
+                return;
+            }
+            state.Graph = candidate; state.Status = PlanningStatus.Validating;
+        }
+        catch (OperationCanceledException) when (ct.IsCancellationRequested) { throw; }
+        catch (Exception ex)
+        {
+            var findings = new List<PlanningDiagnostic> { new("PATCH_REJECTED", "/workflows", ex.Message) };
+            state.Attempts.Add(new(PlanningGraphCompiler.Fingerprint(state.Graph!), "repair_fragment", 0, false, findings));
+            state.Diagnostics.AddRange(findings); state.Status = PlanningStatus.Recovery;
+        }
     }
 
     private async Task<List<PlanningDiagnostic>> ReviewAsync(PlanningSnapshot state, IPlanningRuntime runtime, CancellationToken ct)

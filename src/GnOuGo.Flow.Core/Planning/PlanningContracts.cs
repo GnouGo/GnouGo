@@ -77,6 +77,9 @@ public sealed class PlanningSnapshot
     public double HumanWaitMilliseconds { get; set; }
     public PlanningPreparation? Preparation { get; set; }
     public PlanningGraph? Graph { get; set; }
+    public PlanningBehaviorPlan? BehaviorPlan { get; set; }
+    public string? ApprovedBehaviorHash { get; set; }
+    public List<PlanningAttempt> Attempts { get; set; } = [];
     public List<PlanningAnswer> Answers { get; set; } = [];
     // Null identifies older snapshots; planners initialize these from the retained answers and pending form.
     public int? ClarificationForms { get; set; }
@@ -116,6 +119,7 @@ public sealed record PlanningPendingCommand(string PreviousStatus, PlanningComma
 public sealed record PlanningRevision(long Revision, string ArtifactHash, string Status, List<string> ChangedFragments);
 public sealed record PlanningEvent(string Kind, string Phase, DateTimeOffset TimestampUtc, int Count = 0);
 public sealed record PlanningDiagnostic(string Code, string Location, string Message, bool Required = true);
+public sealed record PlanningAttempt(string CandidateHash, string Phase, int Stage, bool Retained, List<PlanningDiagnostic> Diagnostics);
 public sealed record PlanningScenarioResult(string Id, string Outcome, string Description, List<PlanningDiagnostic> Diagnostics);
 
 public sealed class PlanningPreparation
@@ -147,6 +151,41 @@ public sealed class PlanningCapability
 }
 
 public sealed record PlanningLiteralBinding(string Path, JsonNode? Value);
+
+/// <summary>Reviewable obligations, without executable expressions, schemas or code.</summary>
+public sealed class PlanningBehaviorPlan
+{
+    public string Summary { get; set; } = "";
+    public string Entrypoint { get; set; } = "main";
+    public List<PlanningBehaviorWorkflow> Workflows { get; set; } = [];
+}
+
+public sealed class PlanningBehaviorWorkflow
+{
+    public string Key { get; set; } = "main";
+    public string Purpose { get; set; } = "";
+    public List<string> OperationIds { get; set; } = [];
+    public List<PlanningBehaviorPort> Inputs { get; set; } = [];
+    public List<PlanningBehaviorPort> Outputs { get; set; } = [];
+    public List<PlanningBehaviorNode> Steps { get; set; } = [];
+    public List<PlanningBehaviorNode> Finally { get; set; } = [];
+}
+
+public sealed record PlanningBehaviorPort(string Name, string Description, bool Required);
+
+public sealed class PlanningBehaviorNode
+{
+    public string? WorkflowKey { get; set; }
+    public string Key { get; set; } = "";
+    public string Kind { get; set; } = "operation";
+    public string Purpose { get; set; } = "";
+    public List<string> OperationIds { get; set; } = [];
+    public string? CapabilityId { get; set; }
+    public List<PlanningBehaviorOutcome> Outcomes { get; set; } = [];
+    public List<PlanningBehaviorNode> Steps { get; set; } = [];
+}
+
+public sealed record PlanningBehaviorOutcome(string Key, string Description, bool IsDefault, List<PlanningBehaviorNode> Steps);
 
 /// <summary>Stable behavior and executable structure. Evidence never becomes executable YAML fields.</summary>
 public sealed class PlanningGraph
@@ -226,6 +265,7 @@ public sealed class PlanningNode
     public PlanningValue? If { get; set; }
     public PlanningValue? Expr { get; set; }
     public PlanningSchema? OutputSchema { get; set; }
+    public PlanningStructuredOutput? StructuredOutput { get; set; }
     public string? Output { get; set; }
     public string? ItemVar { get; set; }
     public string? IndexVar { get; set; }
@@ -238,6 +278,7 @@ public sealed class PlanningNode
 }
 
 public sealed record PlanningBranch(List<PlanningNode> Steps);
+public sealed record PlanningStructuredOutput(PlanningSchema Schema, bool Strict = true);
 public sealed record PlanningCase(string? Value, PlanningValue? When, List<PlanningNode> Steps);
 public sealed record PlanningErrorCase(PlanningValue? If, string Action, PlanningValue? SetOutput, Models.RetryPolicy? Retry);
 public sealed record PlanningFragment(string Fingerprint, PlanningWorkflow Workflow, bool Validated);
@@ -270,6 +311,10 @@ public sealed class PlanningConflictException(string message) : InvalidOperation
 [JsonSourceGenerationOptions(PropertyNamingPolicy = JsonKnownNamingPolicy.CamelCase)]
 [JsonSerializable(typeof(PlanningSnapshot))]
 [JsonSerializable(typeof(PlanningGraph))]
+[JsonSerializable(typeof(PlanningBehaviorPlan))]
+[JsonSerializable(typeof(PlanningBehaviorWorkflow))]
+[JsonSerializable(typeof(PlanningStructuredOutput))]
+[JsonSerializable(typeof(string[]))]
 [JsonSerializable(typeof(PlanningWorkflow))]
 [JsonSerializable(typeof(PlanningCommand))]
 [JsonSerializable(typeof(PlanningRequest))]

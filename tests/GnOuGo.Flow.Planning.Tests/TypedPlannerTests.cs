@@ -20,6 +20,14 @@ public sealed class TypedPlannerTests
             Outputs = [new() { Name = "message", Schema = new() { Type = "string" }, Value = new() { Kind = "output", Source = "greeting", Path = ["message"] } }]
         }]
     };
+    internal static PlanningBehaviorPlan BehaviorPlan() => new()
+    {
+        Summary = "Return a greeting", Workflows = [new()
+        {
+            Key = "main", Purpose = "Return a greeting", Outputs = [new("message", "The greeting", true)],
+            Steps = [new() { Key = "greeting", Purpose = "Return a greeting" }]
+        }]
+    };
     internal static PlanningValue Str(string text) => new() { Kind = "string", Text = text };
     internal static PlanningValue Obj(params (string Key, PlanningValue Value)[] members) => new() { Kind = "object", Members = members.Select(m => new PlanningMember(m.Key, m.Value)).ToList() };
     internal static PlanningSnapshot Session(string status = PlanningStatus.Created) => new() { Request = new() { TenantId = "tenant", Prompt = "Return a greeting", MaxRepairs = 1 }, Status = status };
@@ -83,7 +91,7 @@ public sealed class TypedPlannerTests
         var state = Session(PlanningStatus.Validating);
         state.Graph = Graph(); state.Preparation = Preparation(); state.Request.MaxRepairs = 0;
         state = await Send(new TypedWorkflowPlanner(), state, runtime);
-        Assert.Equal(PlanningStatus.Failed, state.Status);
+        Assert.Equal(PlanningStatus.Recovery, state.Status);
         Assert.Contains(state.Diagnostics, d => d.Code == "SCENARIO_INCONCLUSIVE");
         Assert.DoesNotContain("semantic_review", runtime.Phases);
     }
@@ -102,7 +110,7 @@ public sealed class TypedPlannerTests
         Assert.Equal(PlanningStatus.Validating, state.Status);
         Assert.Null(state.ApprovedHash);
         state = await Send(planner, state, runtime);
-        Assert.Equal(PlanningStatus.FinalReview, state.Status);
+        Assert.True(state.Status == PlanningStatus.FinalReview, string.Join("; ", state.Diagnostics.Select(d => d.Code + ": " + d.Message)));
         Assert.NotEqual(oldHash, state.ArtifactHash);
         Assert.Equal(3, runtime.ValidationCalls);
         Assert.Equal(2, runtime.ScenarioCalls);
@@ -115,7 +123,7 @@ public sealed class TypedPlannerTests
         state.Graph = Graph(); state.Preparation = Preparation();
         state.Graph.Workflows[0].Finally.Add(new() { Key = "cleanup", Type = "set", Input = Obj(("closed", new() { Kind = "boolean", Boolean = true })) });
         var result = await Send(new TypedWorkflowPlanner(), state, new FakeRuntime());
-        Assert.Equal(PlanningStatus.Failed, result.Status);
+        Assert.Equal(PlanningStatus.Recovery, result.Status);
         Assert.Single(result.Graph!.Workflows[0].Finally);
         Assert.Contains(result.Diagnostics, d => d.Message.Contains("reviewed control flow", StringComparison.Ordinal));
     }
@@ -238,7 +246,7 @@ public sealed class TypedPlannerTests
             if (index == 3) entered.SetResult();
             await release.Task.WaitAsync(ct);
             var workflow = Graph().Workflows[0]; workflow.Key = "w" + index;
-            return new() { Json = JsonSerializer.SerializeToNode(workflow, PlanningJsonContext.Default.PlanningWorkflow) };
+            return new() { Json = PlanningModelValues.Workflow(workflow) };
         } };
         var planner = new TypedWorkflowPlanner();
         var advance = Send(planner, state, runtime);
@@ -263,19 +271,18 @@ public sealed class TypedPlannerTests
             ValidationResult = count => [new(count == 1 ? "ORIGINAL_DEFECT" : "REGRESSION", "main", "A required check failed.")],
             OnCall = (_, _, _) =>
             {
-                var replacement = Graph().Workflows[0];
-                replacement.Steps[0].Input = Obj(("message", Str("Regressed")));
-                return Task.FromResult(new LLMResponse { Json = JsonSerializer.SerializeToNode(replacement, PlanningJsonContext.Default.PlanningWorkflow) });
+                var input = new JsonObject { ["kind"] = "object", ["members"] = new JsonArray(new JsonObject { ["name"] = "message", ["value"] = new JsonObject { ["kind"] = "string", ["text"] = "Regressed" } }) };
+                return Task.FromResult(new LLMResponse { Json = new JsonObject { ["patches"] = new JsonArray(new JsonObject { ["workflow"] = "main", ["node"] = "greeting", ["field"] = "input", ["value"] = input }) } });
             }
         };
         var planner = new TypedWorkflowPlanner();
         state = await Send(planner, state, runtime);
         state = await Send(planner, state, runtime);
         state = await Send(planner, state, runtime);
-        Assert.Equal(PlanningStatus.Failed, state.Status);
+        Assert.Equal(PlanningStatus.Recovery, state.Status);
         Assert.Equal("Hello", state.Graph!.Workflows[0].Steps[0].Input.Members[0].Value.Text);
         Assert.Contains(state.Diagnostics, d => d.Code == "ORIGINAL_DEFECT");
-        Assert.Contains(state.Events, e => e.Kind == "candidate_rejected");
+        Assert.Contains(state.Attempts, a => !a.Retained && a.Diagnostics.Any(d => d.Code == "REGRESSION"));
     }
 
     [Fact]
@@ -315,8 +322,8 @@ public sealed class TypedPlannerTests
             JsonNode? json = InvalidJson ? new JsonObject() : phase switch
             {
                 "intent" => new JsonObject { ["outcome"] = "ready", ["reason"] = "Clear", ["evidence"] = new JsonArray(), ["questions"] = new JsonArray() },
-                "behavior" => JsonSerializer.SerializeToNode(Graph(), PlanningJsonContext.Default.PlanningGraph),
-                "fragment" or "repair_fragment" => JsonSerializer.SerializeToNode(Graph().Workflows[0], PlanningJsonContext.Default.PlanningWorkflow),
+                "behavior" => JsonSerializer.SerializeToNode(BehaviorPlan(), PlanningJsonContext.Default.PlanningBehaviorPlan),
+                "fragment" => request.StructuredOutputSchema?["properties"]?["nodes"] is null ? PlanningModelValues.Workflow(Graph().Workflows[0]) : PlanningFragments.Values(Graph().Workflows[0]),
                 "semantic_review" => new JsonObject { ["findings"] = new JsonArray() },
                 _ => throw new InvalidOperationException("Unexpected model phase: " + phase)
             };

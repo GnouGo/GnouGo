@@ -21,7 +21,7 @@ public sealed partial class PlanningGraphCompiler
     public string Compile(PlanningGraph graph, PlanningPreparation preparation, string name = "generated")
     {
         ArgumentNullException.ThrowIfNull(graph);
-        var diagnostics = PlanningGraphValidation.Validate(graph, preparation);
+        var diagnostics = PlanningExecutableValidation.Validate(graph, preparation);
         if (diagnostics.Count != 0) throw new InvalidOperationException(string.Join("; ", diagnostics.Select(d => d.Code + " at " + d.Location + ": " + d.Message)));
         if (graph.Workflows.Count == 0 || graph.Workflows.Count > 100)
             throw new InvalidOperationException("A planning graph must contain between 1 and 100 workflows.");
@@ -134,7 +134,13 @@ public sealed partial class PlanningGraphCompiler
         if (input.Count > 0) result["input"] = input;
         if (node.If is not null) result["if"] = ToExpression(node.If, scope);
         if (node.Expr is not null) result["expr"] = ToExpression(node.Expr, scope);
-        if (node.OutputSchema is not null) result["output_schema"] = ToJsonSchema(node.OutputSchema, scope.Preparation);
+        if (node.OutputSchema is not null && node.Type == "set") result["output_schema"] = ToJsonSchema(node.OutputSchema, scope.Preparation);
+        if (node.StructuredOutput is { } structured)
+        {
+            if (input.ContainsKey("structured_output")) throw new InvalidOperationException("Use one typed structured-output declaration, not a second input schema.");
+            input["structured_output"] = new JsonObject { ["schema_inline"] = ToJsonSchema(structured.Schema, scope.Preparation), ["strict"] = structured.Strict };
+            result["input"] = input;
+        }
         if (node.Output is not null) result["output"] = node.Output;
         if (node.ItemVar is not null) result["item_var"] = node.ItemVar;
         if (node.IndexVar is not null) result["index_var"] = node.IndexVar;
@@ -220,8 +226,16 @@ public sealed partial class PlanningGraphCompiler
                 return new JsonObject { ["kind"] = "local", ["name"] = workflow };
             case "input" or "output" or "expression" when allowReferences: return JsonValue.Create(ToExpression(value, scope));
             case "template" when allowReferences:
-                return JsonValue.Create(StepReference().Replace(value.Text ?? "", match => "data.steps." +
-                    (scope.NodeIds.TryGetValue(match.Groups[1].Value, out var id) ? id : throw new InvalidOperationException("A template references an unknown producer."))));
+                var template = value.Text ?? "";
+                EnsureUnique(value.Members.Select(m => m.Name), "template binding");
+                foreach (var binding in value.Members)
+                {
+                    var marker = "{{" + binding.Name + "}}";
+                    if (!template.Contains(marker, StringComparison.Ordinal)) throw new InvalidOperationException("A template binding has no matching placeholder.");
+                    template = template.Replace(marker, ToExpression(binding.Value, scope), StringComparison.Ordinal);
+                }
+                if (TemplatePlaceholder().IsMatch(template)) throw new InvalidOperationException("A template placeholder has no declared binding.");
+                return JsonValue.Create(PlanningExpressionBindings.Template(template, scope.NodeIds));
             default: throw new InvalidOperationException("Invalid or forbidden planning value kind.");
         }
     }
@@ -243,17 +257,13 @@ public sealed partial class PlanningGraphCompiler
             if (value.ResultChannel == "structured" && type is not ("mcp.call" or "llm.call"))
                 throw new InvalidOperationException("This producer does not support the structured result channel.");
             var envelope = value.ResultChannel == "structured" ? ".json" : type switch { "workflow.call" => ".outputs", "mcp.call" => ".response", _ => "" };
-            expression = "data.steps." + node + envelope + string.Concat(value.Path.Select(Segment));
+            expression = "data.steps." + node + envelope + ResultPath(type, value.Path, scope);
         }
         else if (value.Kind == "expression")
         {
             expression = value.Text ?? throw new InvalidOperationException("An expression must have text.");
             if (expression.StartsWith("${", StringComparison.Ordinal) && expression.EndsWith('}')) expression = expression[2..^1];
-            expression = StepReference().Replace(expression, match =>
-            {
-                var key = match.Groups[1].Value;
-                return "data.steps." + (scope.NodeIds.TryGetValue(key, out var id) ? id : throw new InvalidOperationException("An expression references an unknown producer."));
-            });
+            expression = PlanningExpressionBindings.Expression(expression, scope.NodeIds);
         }
         else
         {
@@ -265,8 +275,16 @@ public sealed partial class PlanningGraphCompiler
 
     private static string Segment(string value)
     {
-        if (!Identifier().IsMatch(value)) throw new InvalidOperationException("A reference path segment is not a supported identifier.");
-        return "." + value;
+        return Identifier().IsMatch(value) ? "." + value : "[" + JsonSerializer.Serialize(value, PlanningJsonContext.Default.String) + "]";
+    }
+
+    private static string ResultPath(string type, IReadOnlyList<string> path, LoweringScope scope)
+    {
+        if (path.Count == 0) return "";
+        var childIndex = type is "switch" or "sequence" ? 0 : type is "loop.sequential" or "loop.parallel" && path[0] == "results" && path.Count >= 3 ? 2 : -1;
+        if (childIndex >= 0 && scope.NodeIds.TryGetValue(path[childIndex], out var child))
+            return string.Concat(path.Take(childIndex).Select(Segment)) + Segment(child) + ResultPath(scope.NodeTypes[path[childIndex]], path.Skip(childIndex + 1).ToArray(), scope);
+        return string.Concat(path.Select(Segment));
     }
 
     public static JsonObject ToJsonSchema(PlanningSchema schema, PlanningPreparation preparation, int depth = 0)
@@ -338,8 +356,8 @@ public sealed partial class PlanningGraphCompiler
     }
 
     private sealed record LoweringScope(PlanningPreparation Preparation, Dictionary<string, string> NodeIds, Dictionary<string, string> WorkflowIds, HashSet<string> Inputs, Dictionary<string, string> NodeTypes);
-    [GeneratedRegex(@"\bdata\.steps\.([A-Za-z_][A-Za-z0-9_]*)", RegexOptions.CultureInvariant)]
-    private static partial Regex StepReference();
     [GeneratedRegex(@"^[A-Za-z_][A-Za-z0-9_]*$", RegexOptions.CultureInvariant)]
     private static partial Regex Identifier();
+    [GeneratedRegex(@"\{\{[^{}]+\}\}", RegexOptions.CultureInvariant)]
+    private static partial Regex TemplatePlaceholder();
 }

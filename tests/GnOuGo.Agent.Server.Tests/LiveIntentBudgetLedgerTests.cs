@@ -7,6 +7,23 @@ namespace GnOuGo.Agent.Server.Tests;
 
 public sealed class LiveIntentBudgetLedgerTests
 {
+    [Fact]
+    public async Task ExistingConfigurationReserve_IsCumulativeAndCannotBeResetOnReopen()
+    {
+        var path = Path.Combine(Path.GetTempPath(), $"gnougo-live-budget-{Guid.NewGuid():N}.json");
+        var definition = new LiveIntentAgentGenerationTests.LiveBudgetDefinition(new(100, "EUR"), new(0, "EUR"), ExistingConfiguration: true, PriorCostReserve: 50);
+        try
+        {
+            var ledger = LiveIntentAgentGenerationTests.LiveBudgetLedger.Open(path, definition);
+            Assert.Equal(50, ledger.Snapshot.EstimatedCost);
+            await ledger.PersistAsync(ledger.Snapshot with { Calls = 1, EstimatedCost = 51 }, TestContext.Current.CancellationToken);
+            Assert.Equal(51, LiveIntentAgentGenerationTests.LiveBudgetLedger.Open(path, definition).Snapshot.EstimatedCost);
+            Assert.Throws<InvalidOperationException>(() => LiveIntentAgentGenerationTests.LiveBudgetLedger.Open(path, definition with { PriorCostReserve = 0 }));
+            Assert.Throws<InvalidOperationException>(() => LiveIntentAgentGenerationTests.LiveBudgetLedger.Open(path, definition with { ExistingConfiguration = false }));
+        }
+        finally { if (File.Exists(path)) File.Delete(path); }
+    }
+
     private static readonly LiveIntentAgentGenerationTests.LiveBudgetDefinition BudgetDefinition = new(
         new MonetaryAmount(50m, "EUR"),
         new MonetaryAmount(50m, "EUR"));

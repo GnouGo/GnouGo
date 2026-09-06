@@ -30,6 +30,9 @@ public sealed partial class LiveIntentAgentGenerationTests
     private const string ProgressPathVariable = "GNOU_GO_LIVE_INTENT_AGENT_PROGRESS_PATH";
     private const string GenerationCountVariable = "GNOU_GO_LIVE_INTENT_AGENT_GENERATIONS";
     private const string BudgetStatePathVariable = "GNOU_GO_LIVE_INTENT_AGENT_BUDGET_STATE_PATH";
+    private const string ExistingConfigurationVariable = "GNOU_GO_LIVE_EXISTING_CONFIGURATION_AUTHORIZED";
+    private const string PriorReserveVariable = "GNOU_GO_LIVE_PRIOR_COST_RESERVE";
+    private static bool ExistingConfigurationAuthorized => Environment.GetEnvironmentVariable(ExistingConfigurationVariable) == "1";
     private const string IsolatedProjectVariable = "GNOU_GO_LIVE_INTENT_AGENT_PROVIDER_PROJECT_ISOLATED";
     private const string BudgetAmountVariable = "GNOU_GO_LIVE_INTENT_AGENT_BUDGET_AMOUNT";
     private const string BudgetCurrencyVariable = "GNOU_GO_LIVE_INTENT_AGENT_BUDGET_CURRENCY";
@@ -79,10 +82,13 @@ public sealed partial class LiveIntentAgentGenerationTests
         var liveCycleElapsedLimit = ResolveLiveCycleElapsedLimit();
         WriteLiveProgress("test_started");
         var sourceRoot = FindSourceRoot();
+        var ledgerPath = ResolveBudgetStatePath(sourceRoot);
+        Directory.CreateDirectory(Path.GetDirectoryName(ledgerPath)!);
+        using var campaignLease = new FileStream(ledgerPath + ".lock", FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.None);
         var budgetLedger = LiveBudgetLedger.Open(ResolveBudgetStatePath(sourceRoot), budgetDefinition);
         using var exchangeHttpClient = new HttpClient { Timeout = TimeSpan.FromSeconds(10) };
         var exchangeRateProvider = new EcbExchangeRateProvider(exchangeHttpClient);
-        await ValidateProviderHardLimitAsync(
+        if (!budgetDefinition.ExistingConfiguration) await ValidateProviderHardLimitAsync(
             budgetLedger,
             budgetDefinition,
             exchangeRateProvider,
@@ -94,13 +100,13 @@ public sealed partial class LiveIntentAgentGenerationTests
             {
                 MaxCalls = budgetDefinition.MaxCalls,
                 MaxTotalTokens = budgetDefinition.MaxTotalTokens,
-                MaxElapsed = liveCycleElapsedLimit,
+                MaxElapsed = budgetDefinition.ExistingConfiguration ? null : liveCycleElapsedLimit,
                 MaxEstimatedCost = budgetDefinition.AuthorizedBudget
             },
             initialSnapshot: budgetLedger.Snapshot,
             sink: budgetLedger,
             exchangeRateProvider: exchangeRateProvider);
-        var remainingCycleTime = liveCycleElapsedLimit - (DateTimeOffset.UtcNow - budgetLedger.Snapshot.StartedAtUtc);
+        var remainingCycleTime = budgetDefinition.ExistingConfiguration ? liveCycleElapsedLimit : liveCycleElapsedLimit - (DateTimeOffset.UtcNow - budgetLedger.Snapshot.StartedAtUtc);
         if (remainingCycleTime <= TimeSpan.Zero)
         {
             throw new InvalidOperationException("The shared live-validation elapsed-time budget is exhausted. Start a new dedicated provider project and validation cycle.");
@@ -119,7 +125,7 @@ public sealed partial class LiveIntentAgentGenerationTests
         var runSucceeded = false;
         var failures = new List<Exception>();
         using var timeout = new CancellationTokenSource(remainingCycleTime);
-        await using var planningStore = plannerVersion == 2 && !resumeOnly ? await PlanningPersistenceTests.StoreFixture.CreateAsync() : null;
+        await using var planningStore = plannerVersion == 2 && !resumeOnly ? await PlanningPersistenceTests.StoreFixture.CreateAsync(ResolveBudgetStatePath(sourceRoot) + ".sessions") : null;
         try
         {
             Directory.SetCurrentDirectory(sourceRoot);
@@ -165,7 +171,7 @@ public sealed partial class LiveIntentAgentGenerationTests
             await AssertLiveReviewCompositionContractAsync(services, timeout.Token);
             WriteLiveProgress("composition_contract_validated");
 
-            var runId = DateTimeOffset.UtcNow.ToString("yyyyMMddHHmmss");
+            var runId = plannerVersion == 2 ? budgetLedger.Snapshot.StartedAtUtc.ToString("yyyyMMddHHmmss") : DateTimeOffset.UtcNow.ToString("yyyyMMddHHmmss");
             (string Name, GeneratedAgentContract Contract)? publicationAgent = null;
             for (var attempt = 1; attempt <= generationCount; attempt++)
             {
@@ -250,6 +256,18 @@ public sealed partial class LiveIntentAgentGenerationTests
         }
         catch (Exception ex)
         {
+            if (planningStore is not null && app is not null)
+            {
+                // Preserve failed live evidence through the public encrypted record API.
+                // The temporary session database can still be cleaned after the run.
+                var archive = app.Services.GetRequiredService<GnOuGo.KeyVault.Core.Services.IKeyVaultRecordStore>();
+                foreach (var collection in new[] { "agent-planning-snapshots-v2", "agent-planning-model-requests-v2", "agent-planning-model-receipts-v2" })
+                {
+                    var tenant = WorkflowExecutionTenant.Resolve(app.Services.GetRequiredService<Microsoft.Extensions.Options.IOptions<GnOuGo.Agent.Server.Configuration.OpenTelemetrySettings>>());
+                    foreach (var record in await planningStore.Records.ListAsync(collection, tenant, "LivePlanningValidation", CancellationToken.None))
+                        await archive.UpsertAsync("agent-planning-live-archive-v2", tenant, collection + ":" + record.Key, record.Value, "LivePlanningValidation", CancellationToken.None);
+                }
+            }
             failures.Add(ex);
         }
         finally
@@ -484,6 +502,7 @@ public sealed partial class LiveIntentAgentGenerationTests
 
     private static void ValidateDedicatedProviderProjectAttestation()
     {
+        if (ExistingConfigurationAuthorized) return; // Explicit operator authorization; no isolation or provider-cap attestation is implied.
         if (!string.Equals(Environment.GetEnvironmentVariable(IsolatedProjectVariable), "1", StringComparison.Ordinal))
             throw new InvalidOperationException(
                 $"Live intent acceptance requires a dedicated provider project. Set {IsolatedProjectVariable}=1 only after isolating the test API key.");
@@ -499,6 +518,16 @@ public sealed partial class LiveIntentAgentGenerationTests
             Environment.GetEnvironmentVariable(BudgetCurrencyVariable) ?? DefaultLiveCycleCurrency,
             BudgetCurrencyVariable);
 
+        if (ExistingConfigurationAuthorized)
+        {
+            var prior = Environment.GetEnvironmentVariable(PriorReserveVariable);
+            if (string.IsNullOrWhiteSpace(prior)) throw new InvalidOperationException("Existing-configuration campaigns require an explicit reconciled prior-cost reserve, including zero for a verified new campaign.");
+            if (!decimal.TryParse(prior, NumberStyles.Number, CultureInfo.InvariantCulture, out var reserve) || reserve < 0 || reserve >= authorizedAmount)
+                throw new InvalidOperationException("The prior-cost reserve must leave a positive campaign balance.");
+            return new(new(authorizedAmount, authorizedCurrency), new(0, authorizedCurrency),
+                ResolvePositiveInt32Limit(MaxCallsVariable, DefaultLiveCycleMaxCalls, MaximumLiveCycleMaxCalls),
+                ResolvePositiveInt64Limit(MaxTotalTokensVariable, DefaultLiveCycleMaxTotalTokens, MaximumLiveCycleMaxTotalTokens), true, reserve);
+        }
         var providerAmountText = Environment.GetEnvironmentVariable(ProviderHardLimitAmountVariable);
         if (string.IsNullOrWhiteSpace(providerAmountText))
             throw new InvalidOperationException(
@@ -1981,7 +2010,9 @@ public sealed partial class LiveIntentAgentGenerationTests
         MonetaryAmount AuthorizedBudget,
         MonetaryAmount ProviderHardLimit,
         int MaxCalls = DefaultLiveCycleMaxCalls,
-        long MaxTotalTokens = DefaultLiveCycleMaxTotalTokens);
+        long MaxTotalTokens = DefaultLiveCycleMaxTotalTokens,
+        bool ExistingConfiguration = false,
+        decimal PriorCostReserve = 0);
 
     internal sealed class LiveBudgetLedger : ILLMUsageBudgetSink
     {
@@ -2024,7 +2055,8 @@ public sealed partial class LiveIntentAgentGenerationTests
                     new LLMUsageBudgetSnapshot
                     {
                         StartedAtUtc = DateTimeOffset.UtcNow,
-                        EstimatedCostCurrency = definition.AuthorizedBudget.Currency
+                        EstimatedCostCurrency = definition.AuthorizedBudget.Currency,
+                        EstimatedCost = definition.PriorCostReserve
                     },
                     probeCompleted: false,
                     diagnosticGenerationCompleted: false,
@@ -2052,7 +2084,9 @@ public sealed partial class LiveIntentAgentGenerationTests
                     ReadRequiredDecimal(root, "provider_hard_limit_amount"),
                     ReadRequiredString(root, "provider_hard_limit_currency")),
                 ReadRequiredInt32(root, "max_calls"),
-                ReadRequiredInt64(root, "max_total_tokens"));
+                ReadRequiredInt64(root, "max_total_tokens"),
+                root["existing_configuration_authorized"]?.GetValue<bool>() ?? false,
+                root["prior_cost_reserve"]?.GetValue<decimal>() ?? 0);
             if (persistedDefinition != definition)
                 throw new InvalidOperationException("The redacted live-validation budget ledger does not match the configured budget or provider hard-limit attestation.");
 
@@ -2160,6 +2194,8 @@ public sealed partial class LiveIntentAgentGenerationTests
             var root = new JsonObject
             {
                 ["version"] = CurrentVersion,
+                ["existing_configuration_authorized"] = _definition.ExistingConfiguration,
+                ["prior_cost_reserve"] = _definition.PriorCostReserve,
                 ["authorized_budget_amount"] = _definition.AuthorizedBudget.Amount,
                 ["authorized_budget_currency"] = _definition.AuthorizedBudget.Currency,
                 ["provider_hard_limit_amount"] = _definition.ProviderHardLimit.Amount,

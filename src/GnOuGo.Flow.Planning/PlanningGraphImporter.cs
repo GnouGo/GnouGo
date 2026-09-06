@@ -13,6 +13,39 @@ public static class PlanningGraphImporter
     public static PlanningGraph Import(string yaml, PlanningPreparation preparation)
         => ImportCore(yaml, preparation);
 
+    internal static PlanningGraph ImportRevision(string yaml, PlanningPreparation preparation, PlanningGraph? baseline)
+    {
+        var graph = ImportCore(yaml, preparation);
+        if (baseline is null) return graph;
+        var workflowKeys = baseline.Workflows.ToDictionary(w => w.Key == baseline.Entrypoint ? "main" : "w_" + PlanningGraphCompiler.Fingerprint(w.Key)[..16], w => w.Key, StringComparer.Ordinal);
+        graph.Entrypoint = workflowKeys.GetValueOrDefault(graph.Entrypoint, graph.Entrypoint);
+        foreach (var workflow in graph.Workflows)
+        {
+            workflow.Key = workflowKeys.GetValueOrDefault(workflow.Key, workflow.Key);
+            var prior = baseline.Workflows.FirstOrDefault(w => w.Key == workflow.Key);
+            if (prior is null) continue;
+            var nodes = PlanningGraphCompiler.Enumerate(prior.Steps.Concat(prior.Finally)).ToDictionary(n => "n_" + PlanningGraphCompiler.Fingerprint(n.Key)[..16], StringComparer.Ordinal);
+            foreach (var node in PlanningGraphCompiler.Enumerate(workflow.Steps.Concat(workflow.Finally)))
+            {
+                if (nodes.TryGetValue(node.Key, out var old))
+                {
+                    node.Key = old.Key;
+                    if (node.Type == old.Type && node.CapabilityId == old.CapabilityId) node.OperationIds = old.OperationIds.ToList();
+                }
+                RewriteCalls(node.Input);
+            }
+            // Ownership is the accepted obligation; validation checks its implementation.
+            workflow.OperationIds = prior.OperationIds.ToList();
+        }
+        return graph;
+
+        void RewriteCalls(PlanningValue value)
+        {
+            if (value.Kind == "workflow" && value.Source is { } source) value.Source = workflowKeys.GetValueOrDefault(source, source);
+            foreach (var child in value.Members.Select(m => m.Value).Concat(value.Items)) RewriteCalls(child);
+        }
+    }
+
     // A revision baseline describes existing behavior, but grants no capability to execute it.
     internal static PlanningGraph InspectForRevision(string yaml) => ImportCore(yaml, null);
 

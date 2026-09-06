@@ -1,5 +1,6 @@
 using System.Text.Json.Nodes;
 using GnOuGo.Flow.Core.Planning;
+using GnOuGo.Flow.Core.Runtime;
 
 namespace GnOuGo.Flow.Planning;
 
@@ -22,11 +23,14 @@ public static class PlanningGraphValidation
             {
                 if (node.OutputSchema is not null) CheckSchema(node.OutputSchema, location + "/outputSchema", false);
                 var config = Member(node.Input, "structured_output");
-                if (config is null) continue;
+                if (config is null && node.StructuredOutput is null) continue;
                 try
                 {
                     if (node.Type is not ("mcp.call" or "llm.call")) throw new InvalidOperationException("This step does not support structured_output.");
-                    var json = Literal(config) as JsonObject ?? throw new InvalidOperationException("structured_output must be a literal configuration object.");
+                    if (config is not null && node.StructuredOutput is not null) throw new InvalidOperationException("Declare structured output once, using the typed node declaration.");
+                    var json = node.StructuredOutput is { } typed
+                        ? new JsonObject { ["schema_inline"] = PlanningGraphCompiler.ToJsonSchema(typed.Schema, preparation), ["strict"] = typed.Strict }
+                        : Literal(config!) as JsonObject ?? throw new InvalidOperationException("structured_output must be a literal configuration object.");
                     if (json.Any(p => p.Key is not ("schema_inline" or "schema_ref" or "strict")) ||
                         (json["schema_inline"] is not null) == (json["schema_ref"] is not null))
                         throw new InvalidOperationException("Declare exactly one structured-output schema and an optional strict flag.");
@@ -43,6 +47,26 @@ public static class PlanningGraphValidation
             }
             foreach (var (node, location) in nodes)
             {
+                try
+                {
+                    if (node.OutputSchema is not null)
+                    {
+                        var declared = PlanningGraphCompiler.ToJsonSchema(node.OutputSchema, preparation);
+                        var actual = node.Type == "set" ? ValueSchema(node.Input, new(StringComparer.Ordinal)) : ValueSchema(new() { Kind = "output", Source = node.Key }, new(StringComparer.Ordinal));
+                        if (actual is not null && !TypesFit(actual, declared, allowUnresolved: node.Type == "set")) errors.Add(new("OUTPUT_TYPE_MISMATCH", location + "/outputSchema", "The declared output is not established by the actual computation or producer contract."));
+                        if (node.Type == "set" && IsLiteral(node.Input))
+                            errors.AddRange(PlanningContractValidation.ValidateInstance(Literal(node.Input), declared).Select(e => new PlanningDiagnostic("SET_OUTPUT_INVALID", location + "/input", e)));
+                    }
+                    if (structured.TryGetValue(node.Key, out var resultSchema))
+                        for (var ei = 0; ei < node.OnError.Count; ei++)
+                            if (node.OnError[ei].SetOutput is { } fallback)
+                            {
+                                var fallbackSchema = ValueSchema(fallback, new(StringComparer.Ordinal));
+                                if (fallbackSchema?["properties"]?["json"] is not JsonObject jsonSchema || !TypesFit(jsonSchema, resultSchema))
+                                    errors.Add(new("STRUCTURED_FALLBACK_INVALID", location + "/onError/" + ei + "/setOutput", "A structured fallback must produce a json member satisfying the same structured result contract."));
+                            }
+                }
+                catch (Exception ex) when (ex is InvalidOperationException or ArgumentException or FormatException) { /* Dedicated reference diagnostics follow. */ }
                 CheckValue(node.Input, location + "/input");
                 if (node.If is not null) CheckValue(node.If, location + "/if");
                 if (node.Expr is not null) CheckValue(node.Expr, location + "/expr");
@@ -113,9 +137,27 @@ public static class PlanningGraphValidation
                             var target = graph.Workflows.FirstOrDefault(w => w.Key == Member(producer.Input, "ref")?.Source);
                             schema = target is null ? null : ObjectSchema(target.Outputs.Select(o => (o.Name, PlanningGraphCompiler.ToJsonSchema(o.Schema, preparation))));
                         }
-                        else if (producer.OutputSchema is not null) schema = PlanningGraphCompiler.ToJsonSchema(producer.OutputSchema, preparation);
-                        else if (producer.Type == "set") schema = ValueSchema(producer.Input, visiting);
-                        else schema = preparation.Capabilities.FirstOrDefault(c => c.Id == producer.CapabilityId)?.OutputSchema;
+                        else if (producer.Type == "set") schema = producer.OutputSchema is not null ? PlanningGraphCompiler.ToJsonSchema(producer.OutputSchema, preparation) : ValueSchema(producer.Input, visiting);
+                        else if (producer.Type == "sequence") schema = ChildSchema(producer.Steps, visiting);
+                        else if (producer.Type == "switch")
+                        {
+                            var selected = producer.Expr is { Kind: "string" } literal ? producer.Cases.FirstOrDefault(c => c.Value == literal.Text) : null;
+                            if (selected is not null) schema = ChildSchema(selected.Steps, visiting);
+                            else
+                            {
+                                var alternatives = producer.Cases.Select(c => (JsonNode?)ChildSchema(c.Steps, visiting)).ToList();
+                                alternatives.Add(producer.Default.Count == 0 ? new JsonObject { ["type"] = "null" } : ChildSchema(producer.Default, visiting));
+                                schema = new() { ["anyOf"] = new JsonArray(alternatives.ToArray()) };
+                            }
+                        }
+                        else if (producer.Type is "loop.sequential" or "loop.parallel")
+                        {
+                            var children = PlanningGraphCompiler.Enumerate(producer.Steps).ToArray();
+                            schema = ObjectSchema([("count", new JsonObject { ["type"] = "integer" }), ("results", new JsonObject { ["type"] = "array", ["items"] = ObjectSchema(children.Select(n => (n.Key, Envelope(n, visiting)))) })]);
+                        }
+                        else if (producer.Type == "human.input")
+                            schema = HumanSchema(producer.Input);
+                        else schema = preparation.Capabilities.FirstOrDefault(c => c.Id == producer.CapabilityId)?.OutputSchema ?? BuiltInStepContracts.Get(producer.Type)?.OutputSchema;
                         if (schema is null) throw new InvalidOperationException("The producer needs an explicit typed output contract.");
                         return AtPath(schema, value.Path);
                     }
@@ -126,12 +168,34 @@ public static class PlanningGraphValidation
                     "string" => new JsonObject { ["type"] = "string", ["enum"] = new JsonArray(value.Text ?? "") },
                     "number" => new JsonObject { ["type"] = value.Number is { } n && n == decimal.Truncate(n) ? "integer" : "number" },
                     "boolean" => new JsonObject { ["type"] = "boolean" },
+                    "template" => new JsonObject { ["type"] = "string" },
                     "null" => new JsonObject { ["type"] = "null" },
                     "object" => ObjectSchema(value.Members.Select(m => (m.Name, ValueSchema(m.Value, visiting) ?? new JsonObject()))),
                     "array" when value.Items.Count == 0 => new JsonObject { ["type"] = "array", ["maxItems"] = 0 },
                     "array" => new JsonObject { ["type"] = "array", ["items"] = new JsonObject { ["anyOf"] = new JsonArray(value.Items.Select(v => (JsonNode?)(ValueSchema(v, visiting) ?? new JsonObject())).ToArray()) } },
                     _ => null
                 };
+            }
+
+            JsonObject ChildSchema(IEnumerable<PlanningNode> children, HashSet<string> visiting)
+            {
+                var nodes = children.ToArray();
+                var result = ObjectSchema(nodes.Select(n => (n.Key, Envelope(n, visiting))));
+                result["required"] = new JsonArray(nodes.Where(n => n.If is null).Select(n => (JsonNode?)JsonValue.Create(n.Key)).ToArray());
+                return result;
+            }
+
+            JsonObject Envelope(PlanningNode node, HashSet<string> visiting)
+            {
+                var schema = ValueSchema(new() { Kind = "output", Source = node.Key }, visiting) ?? new JsonObject();
+                if (node.Type == "mcp.call") schema = ObjectSchema([("response", schema)]);
+                else if (node.Type == "workflow.call") schema = ObjectSchema([("outputs", schema)]);
+                if (structured.TryGetValue(node.Key, out var json))
+                {
+                    schema = (JsonObject)schema.DeepClone();
+                    schema["properties"] ??= new JsonObject(); schema["properties"]!["json"] = json.DeepClone();
+                }
+                return schema;
             }
         }
         return errors.DistinctBy(d => (d.Code, d.Location, d.Message)).ToArray();
@@ -154,11 +218,12 @@ public static class PlanningGraphValidation
         }
     }
 
-    private static bool TypesFit(JsonObject actual, JsonObject expected, int depth = 0)
+    private static bool TypesFit(JsonObject actual, JsonObject expected, int depth = 0, bool allowUnresolved = false)
     {
         if (depth > 32) return false;
+        if (allowUnresolved && actual.Count == 0) return true; // set enforces the asserted schema at runtime
         if ((actual["anyOf"] ?? actual["oneOf"]) is JsonArray variants)
-            return variants.Count != 0 && variants.All(v => v is JsonObject variant && TypesFit(variant, expected, depth + 1));
+            return variants.Count != 0 && variants.All(v => v is JsonObject variant && TypesFit(variant, expected, depth + 1, allowUnresolved));
         static string[] Types(JsonNode? node) => node is JsonArray a ? a.Select(n => n!.GetValue<string>()).ToArray() : node is JsonValue v ? [v.GetValue<string>()] : [];
         var source = Types(actual["type"]); var target = Types(expected["type"]);
         if (source.Length == 0 || !source.All(t => target.Contains(t, StringComparer.Ordinal) || t == "integer" && target.Contains("number", StringComparer.Ordinal))) return false;
@@ -170,17 +235,19 @@ public static class PlanningGraphValidation
             {
                 var produced = actual["properties"]?[name] as JsonObject ?? actual["additionalProperties"] as JsonObject;
                 if (produced is null) { if (required.Contains(name)) return false; }
-                else if (property is not JsonObject contract || !TypesFit(produced, contract, depth + 1)) return false;
+                else if (property is not JsonObject contract || !TypesFit(produced, contract, depth + 1, allowUnresolved)) return false;
             }
         }
         var emptyArray = actual["maxItems"] is JsonValue maximum && maximum.TryGetValue<int>(out var count) && count == 0;
         if (expected["items"] is JsonObject items && !emptyArray &&
-            (actual["items"] is not JsonObject producedItems || !TypesFit(producedItems, items, depth + 1))) return false;
+            (actual["items"] is not JsonObject producedItems || !TypesFit(producedItems, items, depth + 1, allowUnresolved))) return false;
         return true;
     }
 
     private static JsonObject AtPath(JsonObject root, List<string> path)
     {
+        if ((root["anyOf"] ?? root["oneOf"]) is JsonArray alternatives && path.Count > 0)
+            return new() { ["anyOf"] = new JsonArray(alternatives.Select(a => (JsonNode?)AtPath(a!.AsObject(), path)).ToArray()) };
         var current = root;
         foreach (var segment in path)
         {
@@ -191,6 +258,8 @@ public static class PlanningGraphValidation
                     throw new InvalidOperationException("The producer schema reference cannot be resolved without losing constraints.");
                 current = resolved;
             }
+            if (current["properties"]?[segment] is not null && !(current["required"] as JsonArray ?? []).Any(n => n?.GetValue<string>() == segment))
+                throw new InvalidOperationException("The selected field is optional in its producer contract. Guard its presence or use a validated transformation before requiring it.");
             current = current["properties"]?[segment] as JsonObject ??
                 (int.TryParse(segment, out var index) && index >= 0 ? current["items"] as JsonObject : null) ??
                 current["additionalProperties"] as JsonObject ??
@@ -200,6 +269,15 @@ public static class PlanningGraphValidation
     }
 
     internal static PlanningValue? Member(PlanningValue value, string name) => value.Members.FirstOrDefault(m => m.Name == name)?.Value;
+
+    internal static bool IsLiteral(PlanningValue value) => value.Kind is "null" or "string" or "number" or "boolean" || value.Kind == "object" && value.Members.All(m => IsLiteral(m.Value)) || value.Kind == "array" && value.Items.All(IsLiteral);
+
+    private static JsonObject HumanSchema(PlanningValue input)
+    {
+        if (Member(input, "mode")?.Text == HumanInputContract.ModeForm && Member(input, "fields") is { Kind: "array" } fields)
+            return ObjectSchema(fields.Items.Select(f => (Member(f, "name")?.Text ?? "", new JsonObject { ["type"] = Member(f, "type")?.Text ?? "string" })));
+        return ObjectSchema([("response", new JsonObject { ["type"] = "string" })]);
+    }
 
     internal static JsonNode? Literal(PlanningValue value) => value.Kind switch
     {
@@ -211,7 +289,11 @@ public static class PlanningGraphValidation
     };
 
     private static JsonObject ObjectSchema(IEnumerable<(string Name, JsonObject Schema)> properties)
-        => new() { ["type"] = "object", ["properties"] = new JsonObject(properties.Select(p => new KeyValuePair<string, JsonNode?>(p.Name, p.Schema.DeepClone()))) };
+    {
+        var members = properties.ToArray();
+        return new() { ["type"] = "object", ["properties"] = new JsonObject(members.Select(p => new KeyValuePair<string, JsonNode?>(p.Name, p.Schema.DeepClone()))),
+            ["required"] = new JsonArray(members.Select(p => (JsonNode?)JsonValue.Create(p.Name)).ToArray()) };
+    }
 
     private static bool HasType(JsonNode? type, string name) => type is JsonValue scalar && scalar.TryGetValue<string>(out var value) && value == name ||
         type is JsonArray union && union.Any(t => t is JsonValue item && item.TryGetValue<string>(out var candidate) && candidate == name);

@@ -1,6 +1,5 @@
 using System.Text;
 using System.Text.Json.Nodes;
-using System.Text.RegularExpressions;
 namespace GnOuGo.Flow.Core.Expressions;
 /// <summary>
 /// Detects ${...} expressions in strings, evaluates them via Jint, and returns the result.
@@ -9,7 +8,6 @@ namespace GnOuGo.Flow.Core.Expressions;
 /// </summary>
 public sealed class StringInterpolator
 {
-    private static readonly Regex ExprRegex = new(@"\$\{([^}]+)\}", RegexOptions.Compiled);
     private readonly ExpressionEvaluator _evaluator;
     public StringInterpolator(ExpressionEvaluator evaluator)
     {
@@ -27,29 +25,30 @@ public sealed class StringInterpolator
     /// </summary>
     public JsonNode? Interpolate(string value, JsonNode? context)
     {
-        var trimmed = value.Trim();
-        // If the entire string is a single expression, return typed result
-        if (trimmed.StartsWith("${") && trimmed.EndsWith("}"))
+        var segments = ExpressionSegments.Read(value);
+        if (segments.Count == 1 && string.IsNullOrWhiteSpace(value[..segments[0].Start]) && string.IsNullOrWhiteSpace(value[(segments[0].Start + segments[0].Length)..]))
+            return _evaluator.Evaluate(NormalizeStringLiteralLineBreaks(segments[0].Expression), context);
+        var result = new StringBuilder();
+        var offset = 0;
+        foreach (var segment in segments)
         {
-            // Verify it's a single expression (no text before/after)
-            var inner = trimmed[2..^1].Trim();
-            if (!inner.Contains("${"))
-            {
-                return _evaluator.Evaluate(NormalizeStringLiteralLineBreaks(inner), context);
-            }
-        }
-        // Otherwise interpolate as string
-        var result = ExprRegex.Replace(value, match =>
-        {
-            var expr = NormalizeStringLiteralLineBreaks(match.Groups[1].Value.Trim());
+            result.Append(value, offset, segment.Start - offset);
+            var expr = NormalizeStringLiteralLineBreaks(segment.Expression);
             var val = _evaluator.Evaluate(expr, context);
-            return val == null ? "" : ExpressionEvaluator.GetString(val);
-        });
-        return JsonValue.Create(result);
+            result.Append(val == null ? "" : ExpressionEvaluator.GetString(val));
+            offset = segment.Start + segment.Length;
+        }
+        result.Append(value, offset, value.Length - offset);
+        return JsonValue.Create(result.ToString());
     }
 
-    private static string NormalizeStringLiteralLineBreaks(string expression)
+    internal static string NormalizeStringLiteralLineBreaks(string expression)
     {
+        if (!expression.Contains('\n') && !expression.Contains('\r')) return expression;
+        // Preserve valid JavaScript verbatim, including quotes inside comments/regex.
+        // Normalization exists only for the legacy extension allowing raw quoted newlines.
+        try { new Acornima.Parser().ParseExpression(expression); return expression; }
+        catch (Exception ex) when (ex is not OutOfMemoryException) { }
         StringBuilder? builder = null;
         char quote = '\0';
         var escaped = false;

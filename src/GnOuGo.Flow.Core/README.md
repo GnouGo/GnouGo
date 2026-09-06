@@ -21,7 +21,9 @@ Core owns the provider-neutral planning request, snapshot, command and event con
 inconclusive scenarios block acceptance; human waits are separate from active time.
 Version-2 recovery is a waiting state with retry, request edit and cancel choices.
 `PlanningSnapshot` retains schema version 2 with additive current-phase and cumulative
-clarification counters and `behaviorAssessmentCalls`. Typed output references may select
+clarification counters and `behaviorAssessmentCalls`. `PlanningBehaviorPlan` captures
+reviewable obligations before executable construction. Optional behavior approval hashes,
+structured-output declarations and validation-attempt history preserve version-2 compatibility. Typed output references may select
 `resultChannel: structured` for validated post-processing JSON; absent/default preserves
 existing addressing. `edit_intent` is revision guarded and available before the first
 behavior approval during recovery or early failure, even with a retained invalid graph; hosts preserve encrypted answer/diagnostic
@@ -29,6 +31,12 @@ history and usage. Standalone `workflow.plan` presents recovery through its inje
 human-input provider and never treats recovery as artifact approval.
 See [planner usage](../GnOuGo.Flow.Planning/README.md) and
 [the host rollout guide](../../docs/workflow-planning-v2.md).
+
+Compilation and string interpolation share JavaScript token boundaries for `${...}`,
+including nested object braces, comments, quoted strings, regex and template literals.
+Step-input expressions are syntax-checked before execution, alongside guards and outputs.
+Only `set` supports an executable `output_schema` assertion; its computed values belong
+inside `input`, and confirmations use the declared `HumanInputContract` response shape.
 
 ## MCP protocol compatibility
 

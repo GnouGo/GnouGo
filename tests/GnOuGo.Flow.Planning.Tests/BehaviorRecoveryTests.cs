@@ -49,31 +49,30 @@ public sealed class BehaviorRecoveryTests
     [InlineData("Return the declared content", "host-a", "read_a")]
     [InlineData("Retourne le contenu déclaré", "renamed-42", "operation_97")]
     [InlineData("Devuelve el contenido declarado", "catalog-z", "op_z")]
-    public async Task WrongSchemaPath_GetsOneTargetedRepair_ThenBehaviorReview(string prompt, string server, string method)
+    public async Task InvalidLegacySchema_DoesNotDelayEarlyBehaviorReview(string prompt, string server, string method)
     {
-        var state = Behavior(); state.Request.Prompt = prompt; state.Preparation = Catalog(server, method);
-        var runtime = Responses(Json(Candidate()), Json(Candidate("/output/properties/content")));
+        var state = Behavior(Candidate()); state.Request.Prompt = prompt; state.Preparation = Catalog(server, method);
+        var runtime = Responses(JsonSerializer.SerializeToNode(BehaviorPlan(), PlanningJsonContext.Default.PlanningBehaviorPlan)!);
         state = await Send(state, runtime);
         Assert.Equal(PlanningStatus.BehaviorReview, state.Status);
-        Assert.Equal(new[] { "behavior", "behavior_repair" }, runtime.Phases);
-        Assert.Equal(2, state.BehaviorAssessmentCalls);
-        Assert.Contains("/workflows/0/outputs/0/schema", runtime.Requests[1].Prompt);
-        Assert.Contains("/output/properties/content", runtime.Requests[0].Prompt);
+        Assert.Equal(new[] { "behavior" }, runtime.Phases);
+        Assert.Equal(1, state.BehaviorAssessmentCalls);
         Assert.Empty(state.Diagnostics);
+        Assert.Null(state.Graph); Assert.NotNull(state.PreviousGraph); Assert.NotNull(state.BehaviorPlan);
         Assert.Null(state.ReviewedGraph); Assert.Null(state.ApprovedHash); Assert.Null(state.Yaml);
-        Assert.Contains(state.Events, e => e.Kind == "behavior_repair_succeeded");
     }
 
     [Fact]
     public async Task MalformedShapeAndSemanticDefect_ShareTheTwoCallLimit()
     {
-        var runtime = Responses(new JsonObject(), Json(Candidate()));
+        var invalid = BehaviorPlan(); invalid.Workflows[0].Steps[0].CapabilityId = "unknown";
+        var runtime = Responses(new JsonObject(), JsonSerializer.SerializeToNode(invalid, PlanningJsonContext.Default.PlanningBehaviorPlan)!);
         var state = await Send(Behavior(), runtime);
         Assert.Equal(PlanningStatus.Recovery, state.Status);
         Assert.Equal(2, runtime.Requests.Count);
         Assert.Equal(2, state.BehaviorAssessmentCalls);
         Assert.Null(state.Outcome); Assert.NotNull(state.WaitingSinceUtc);
-        Assert.Contains(state.Diagnostics, d => d.Code == "SCHEMA_REFERENCE_INVALID");
+        Assert.Contains(state.Diagnostics, d => d.Code == "BEHAVIOR_CONTRACT_INVALID");
         var unchanged = await Send(state, runtime);
         Assert.Equal(state.Revision, unchanged.Revision); Assert.Equal(2, runtime.Requests.Count);
     }
@@ -82,9 +81,9 @@ public sealed class BehaviorRecoveryTests
     public async Task FailedLegacyCandidate_RetryMustReviewBehaviorBeforeElaboration()
     {
         var state = Behavior(Candidate(), PlanningStatus.Failed);
-        state.CurrentPhase = null; // compatible older snapshot
+        state.CurrentPhase = null;
         state.Diagnostics.Add(new("PLANNING_FAILED", "$", "The authoritative schema reference is unresolved."));
-        var runtime = Responses(Json(Candidate("/output/properties/content")));
+        var runtime = Responses(JsonSerializer.SerializeToNode(BehaviorPlan(), PlanningJsonContext.Default.PlanningBehaviorPlan)!);
         state = await Send(state, runtime, "retry");
         Assert.Equal(PlanningStatus.Created, state.Status);
         Assert.Equal(PlanningPhase.Behavior, state.CurrentPhase);
@@ -92,7 +91,7 @@ public sealed class BehaviorRecoveryTests
         state = JsonSerializer.Deserialize(JsonSerializer.Serialize(state, PlanningJsonContext.Default.PlanningSnapshot), PlanningJsonContext.Default.PlanningSnapshot)!;
         state = await Send(state, runtime);
         Assert.Equal(PlanningStatus.BehaviorReview, state.Status);
-        Assert.Equal(new[] { "behavior_repair" }, runtime.Phases);
+        Assert.Equal(new[] { "behavior" }, runtime.Phases);
         Assert.Equal(0, runtime.ValidationCalls); Assert.Equal(0, runtime.ScenarioCalls);
         await Assert.ThrowsAsync<PlanningConflictException>(() => Send(state, runtime, "approve"));
     }
@@ -119,16 +118,17 @@ public sealed class BehaviorRecoveryTests
     [Theory]
     [InlineData(true)]
     [InlineData(false)]
-    public async Task RepairCannotDropBoundaryOrChangeUnrelatedValidWork(bool dropOutput)
+    public void PatchCannotDropBoundaryOrChangeUnrelatedValidWork(bool dropOutput)
     {
-        var before = Candidate(); before.Workflows[0].Steps.Add(new() { Key = "independent", Input = Obj(("nonce", Str("Keep this"))) });
-        var after = Candidate("/output/properties/content");
-        after.Workflows[0].Steps.Add(new() { Key = "independent", Input = Obj(("nonce", Str(dropOutput ? "Keep this" : "Changed"))) });
-        if (dropOutput) after.Workflows[0].Outputs.Clear();
-        var state = await Send(Behavior(), Responses(Json(before), Json(after)));
-        Assert.Equal(PlanningStatus.Recovery, state.Status);
-        Assert.Single(state.Graph!.Workflows[0].Outputs);
-        Assert.Equal("Keep this", state.Graph.Workflows[0].Steps[1].Input.Members[0].Value.Text);
+        var graph = Candidate(); graph.Workflows[0].Steps.Add(new() { Key = "independent", Input = Obj(("nonce", Str("Keep this"))) });
+        var patch = new JsonObject { ["patches"] = new JsonArray(new JsonObject
+        {
+            ["workflow"] = "main", ["node"] = dropOutput ? null : "independent", ["field"] = dropOutput ? "outputs" : "input",
+            ["value"] = dropOutput ? new JsonArray() : PlanningModelValues.Workflow(new() { Steps = [new() { Input = Obj(("nonce", Str("Changed"))) }] })["steps"]![0]!["input"]!.DeepClone()
+        }) };
+        Assert.Throws<InvalidOperationException>(() => PlanningPatches.Apply(graph, patch, new HashSet<string>(), Catalog()));
+        Assert.Single(graph.Workflows[0].Outputs);
+        Assert.Equal("Keep this", graph.Workflows[0].Steps[1].Input.Members[0].Value.Text);
     }
 
     [Theory]
@@ -145,15 +145,14 @@ public sealed class BehaviorRecoveryTests
     }
 
     [Fact]
-    public async Task RepairCannotRelaxAProducerGuardWhileFixingItsSchemaReference()
+    public void RepairCannotRelaxAProducerGuardWhileFixingItsSchemaReference()
     {
-        var before = Candidate();
-        before.Workflows[0].Steps[0].If = new() { Kind = "boolean", Boolean = false };
-        var after = Candidate("/output/properties/content");
-        var state = await Send(Behavior(), Responses(Json(before), Json(after)));
-        Assert.Equal(PlanningStatus.Recovery, state.Status);
-        Assert.False(state.Graph!.Workflows[0].Steps[0].If!.Boolean);
-        Assert.Contains(state.Diagnostics, d => d.Code == "BEHAVIOR_REPAIR_REGRESSION");
+        var graph = Candidate(); graph.Workflows[0].Steps[0].If = new() { Kind = "boolean", Boolean = false };
+        var diagnostics = PlanningGraphValidation.Validate(graph, Catalog());
+        var scope = PlanningPatches.Scope(graph, diagnostics);
+        var patch = new JsonObject { ["patches"] = new JsonArray(new JsonObject { ["workflow"] = "main", ["node"] = "greeting", ["field"] = "if", ["value"] = null }) };
+        Assert.Throws<InvalidOperationException>(() => PlanningPatches.Apply(graph, patch, scope, Catalog()));
+        Assert.False(graph.Workflows[0].Steps[0].If!.Boolean);
     }
 
     [Theory]

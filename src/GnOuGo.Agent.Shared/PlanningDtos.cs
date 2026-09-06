@@ -14,4 +14,5 @@ public sealed record PlanningSessionDto(
     IReadOnlyList<PlanningValidationDto> Diagnostics, IReadOnlyList<PlanningScenarioDto> Scenarios,
     IReadOnlyList<PlanningRevisionDto> History, JsonObject? Question,
     long Calls, long InputTokens, long OutputTokens, decimal EstimatedCost, string Currency, string? Outcome = null,
-    int PlannerVersion = 2, string? CurrentPhase = null);
+    int PlannerVersion = 2, string? CurrentPhase = null, JsonObject? BehaviorPlan = null,
+    string? ApprovedBehaviorHash = null, string? RecoverySummary = null, int AnsweredForms = 0);

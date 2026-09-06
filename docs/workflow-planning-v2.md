@@ -27,7 +27,7 @@ The version-2 host path is:
 flowchart TD
   Form[Name, description or existing agent] --> Intent[Intent and essential questions]
   Intent --> Catalog[Versioned capability declarations]
-  Catalog --> Behavior[Typed behavior graph]
+  Catalog --> Behavior[Business behavior contract, without code or schemas]
   Behavior --> Review[Diagram, inputs, outputs, effects and cleanup]
   Review -->|Accept behavior| Fragments[Typed fragments, up to four concurrent calls]
   Review -->|Revise| Intent
@@ -92,26 +92,42 @@ policies, usage, encrypted history and cumulative clarification limits remain in
 Retries archive and clear active diagnostics. Editing cannot replenish spent budgets.
 Recovery waiting is excluded from active planning time.
 
-Behavior construction has its own two-call assessment limit across shape and semantic
-validation. Generation receives an exact capability/schema reference index; all ports,
-node schemas, structured-output configurations and typed producer references are
-validated before review. A targeted repair preserves unrelated nodes and obligations.
-Exhaustion pauses in `recovery` with phase `behavior`, an explicitly unvalidated
-candidate, and no artifact approval. Retry routes unreviewed candidates back through
-behavior review. Technical schema defects do not manufacture intent questions.
+Behavior assessment has a two-call limit across shape and semantic validation. The
+`PlanningBehaviorPlan` describes ownership, business ports, decisions, external effects,
+confirmations and cleanup before any executable construction. Approval locks its hash.
+Pending questions and recovery actions appear above the diagram, alongside answered
+question history. Unapproved legacy graphs are historical candidates, and return through
+this early review. Existing approved sessions retain their semantics.
 
 ```mermaid
 flowchart TD
-  Candidate[Generate typed behavior candidate] --> Check[Validate schemas and references]
-  Check -->|Valid| Review[User reviews behavior and diagram]
-  Check -->|Invalid| Repair[One targeted repair]
-  Repair -->|Valid| Review
-  Repair -->|Still invalid| Recovery[Durable editable recovery]
-  Recovery -->|Retry| Check
-  Recovery -->|Edit request| Intent[Reassess intent and capabilities]
-  Intent --> Candidate
-  Review -->|Accept exact behavior| Elaborate[Elaborate workflow]
+  Intent[Request and retained answers] --> Contract[Resolve capability and behavior obligations]
+  Contract --> Review[Review behavior, decisions, effects and cleanup]
+  Review -->|Accept exact behavior| Build[Generate typed executable fragments]
+  Build --> Validate[Independent contracts, expressions, compilation and scenarios]
+  Validate -->|Technical defect| Patch[Atomic patches to affected fields and dependents]
+  Patch --> Validate
+  Validate -->|Required checks pass| Final[Review and approve exact artifact]
+  Patch -->|Exhausted| Recovery[Editable recovery with current findings]
+  Recovery -->|Retry| Validate
+  Recovery -->|Change behavior| Intent
 ```
+
+Elaboration supplies fields for accepted nodes; topology and exact identifiers are copied
+deterministically. A single exact selected capability owner supplies any omitted mandatory
+operation ownership, while ambiguous or conflicting owners remain errors.
+
+Model transports distinguish inline schemas from catalog references and literals from
+references. Each node has one typed structured-output declaration. Only set steps emit
+`output_schema`, and computations belong inside input values. Other schema annotations
+must match producer contracts. Shared token parsing handles nested JavaScript braces,
+quoted strings, comments and templates. Invalid function bodies, unsupported input
+aliases, incomplete confirmations and unbound templates produce located findings.
+Repairs cannot replace graphs or modify unrelated fields. Proven literal schema additions
+are permitted. Persisted attempts record candidate hashes, stages and diagnostics;
+rejected candidates are separate from retained findings. Later-stage progress is retained
+without requiring a smaller total number of findings. Technical defects never manufacture
+intent questions.
 
 Typed output references support optional `resultChannel`: null or `default` preserves
 existing addressing; `structured` selects the validated post-processing `.json` result.
@@ -196,7 +212,7 @@ not establish that these gates have passed.
 The existing `LiveAgentAddSmokeTests` and compatibility intent harness explicitly use
 v1. `LiveIntentAgentGenerationTests.TypedV2_*` exercises the durable v2 service, renders
 real questions with the Blazor component, and uses the configured model unchanged.
-The campaign uses isolated temporary planning storage for three generation-and-save
+The campaign uses an isolated encrypted planning store beside the cumulative ledger for three generation-and-save
 runs, then the existing disposable GitHub fixture execution and cleanup. Any recovery,
 unsupported contract or failed downstream validation blocks success.
 
@@ -224,3 +240,19 @@ or behavior review render. It submits no answers or approvals. Reopen
 `/planning/{sessionId}` in the updated server to continue the pending review.
 The generation harness answers only its separate temporary sessions with scripted
 fixture requirements. A visible clarification is not counted as completed generation.
+
+### Live validation with explicitly authorized existing configuration
+
+Isolation and a verified provider cap remain the default harness prerequisites. When the
+operator explicitly authorizes existing KeyVault configuration, set
+`GNOU_GO_LIVE_EXISTING_CONFIGURATION_AUTHORIZED=1` and
+`GNOU_GO_LIVE_PRIOR_COST_RESERVE` to the reconciled prior usage plus any uncertainty
+reserve, in the campaign currency. The ledger records this mode and **does not claim
+provider isolation or an enforced provider limit**. Reuse the same budget ledger for
+resume and all generation attempts; changing its budget, reserve or authorization mode
+is rejected. Credentials continue to come from public KeyVault APIs. No prompt, response
+or credential belongs in the ledger. Encrypted campaign sessions and model evidence
+remain beside it after failures so retries resume completed work. Temporary agents and
+external fixtures are still cleaned. Model pricing and exchange conversion must be
+available before dispatch. Resume stops at the user's review/questions without approval;
+only temporary campaign sessions use scripted answers and approval.

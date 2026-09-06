@@ -106,20 +106,20 @@ public sealed class PlanningPersistenceTests
     {
         public decimal? EstimateCost(string? model, long? inputTokens = null, long? outputTokens = null, string? providerType = null) => 0;
     }
-    internal sealed class StoreFixture(string root) : IDbContextFactory<PlanningDbContext>, IAsyncDisposable
+    internal sealed class StoreFixture(string root, bool retain = false) : IDbContextFactory<PlanningDbContext>, IAsyncDisposable
     {
         public string Root { get; } = root;
         public IKeyVaultRecordStore Records { get; } = KeyVaultRecordStoreFactory.CreateWorkspaceStore(Path.Combine(root, "vault.db"), root);
         public EfPlanningSessionStore Store => new(this, Records);
         public PlanningDbContext CreateDbContext() => new(new DbContextOptionsBuilder<PlanningDbContext>().UseSqlite("Data Source=" + Path.Combine(Root, "planning.db") + ";Pooling=False").Options);
-        public static async Task<StoreFixture> CreateAsync()
+        public static async Task<StoreFixture> CreateAsync(string? retainedDirectory = null)
         {
-            var fixture = new StoreFixture(Path.Combine(Path.GetTempPath(), "GnOuGo.Planning.Tests", Guid.NewGuid().ToString("N")));
+            var fixture = new StoreFixture(retainedDirectory ?? Path.Combine(Path.GetTempPath(), "GnOuGo.Planning.Tests", Guid.NewGuid().ToString("N")), retainedDirectory is not null);
             Directory.CreateDirectory(fixture.Root);
             await using var db = fixture.CreateDbContext();
             await db.Database.EnsureCreatedAsync(Ct);
             return fixture;
         }
-        public ValueTask DisposeAsync() { Microsoft.Data.Sqlite.SqliteConnection.ClearAllPools(); Directory.Delete(Root, true); return ValueTask.CompletedTask; }
+        public ValueTask DisposeAsync() { Microsoft.Data.Sqlite.SqliteConnection.ClearAllPools(); if (!retain) Directory.Delete(Root, true); return ValueTask.CompletedTask; }
     }
 }

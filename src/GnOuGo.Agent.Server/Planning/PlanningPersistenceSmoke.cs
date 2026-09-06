@@ -43,6 +43,14 @@ internal static class PlanningPersistenceSmoke
             behavior.Graph?.Workflows[0].Outputs[0].Value.ResultChannel != "structured" || behavior.Outcome is not null)
             throw new InvalidOperationException("Behavior recovery did not survive persistence.");
         if (await reopened.TrySaveAsync(state, 0, CancellationToken.None)) throw new InvalidOperationException("A stale write was accepted.");
+        state.Revision = 3; state.Status = PlanningStatus.BehaviorReview;
+        state.BehaviorPlan = new() { Summary = "Review before constructing code", Workflows = [new() { Key = "main", Purpose = "Return a message", Steps = [new() { Key = "message", Purpose = "Return a message" }] }] };
+        state.ApprovedBehaviorHash = GnOuGo.Flow.Planning.PlanningBehaviorPlans.Fingerprint(state.BehaviorPlan);
+        state.Attempts.Add(new(state.ApprovedBehaviorHash, PlanningPhase.Behavior, 1, true, []));
+        if (!await reopened.TrySaveAsync(state, 2, CancellationToken.None)) throw new InvalidOperationException("Early review persistence failed.");
+        var early = await reopened.LoadAsync("smoke", state.Request.SessionId, CancellationToken.None);
+        if (early?.BehaviorPlan is null || early.ApprovedBehaviorHash != state.ApprovedBehaviorHash || early.Attempts.Count != 1 || early.ClarificationQuestions != 3)
+            throw new InvalidOperationException("Early review fields did not survive persistence.");
         Console.WriteLine("Planning persistence smoke passed.");
     }
 }

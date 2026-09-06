@@ -160,9 +160,9 @@ public sealed class PlanningRecoveryTests
         await using var fixture = await PlanningPersistenceTests.StoreFixture.CreateAsync();
         var state = BehaviorFailure();
         Assert.True(await fixture.Store.TrySaveAsync(state, null, Ct));
-        var repaired = JsonSerializer.Deserialize(JsonSerializer.Serialize(state.Graph, PlanningJsonContext.Default.PlanningGraph), PlanningJsonContext.Default.PlanningGraph)!;
-        repaired.Workflows[0].Outputs[0].Schema.SchemaPointer = "/output/properties/message";
-        var client = new IntentClient(JsonSerializer.SerializeToNode(repaired, PlanningJsonContext.Default.PlanningGraph)!);
+        var behavior = new PlanningBehaviorPlan { Summary = "Return a message", Workflows = [new() { Key = "main", Purpose = "Return a message",
+            Steps = [new() { Key = "value", Purpose = "Return a message" }], Outputs = [new("message", "The returned message", true)] }] };
+        var client = new IntentClient(JsonSerializer.SerializeToNode(behavior, PlanningJsonContext.Default.PlanningBehaviorPlan)!);
         using var service = PlanningSessionLifecycleTests.Create(fixture, new TypedWorkflowPlanner(), PlanningSessionLifecycleTests.AgentCatalog(), client);
         await service.StartAsync(Ct);
         try
@@ -177,7 +177,7 @@ public sealed class PlanningRecoveryTests
             await PlanningSessionLifecycleTests.WaitForStatus(service, state.Request.SessionId, PlanningStatus.BehaviorReview);
             var reviewed = (await service.GetAsync(state.Request.SessionId, Ct))!;
             page.WaitForAssertion(() => Assert.NotNull(Button(page, "Accept behavior and generate")), TimeSpan.FromSeconds(5));
-            Assert.Null(reviewed.ReviewedGraph); Assert.Null(reviewed.ApprovedHash); Assert.Null(reviewed.Yaml);
+            Assert.Null(reviewed.ReviewedGraph); Assert.Null(reviewed.ApprovedHash); Assert.Null(reviewed.Yaml); Assert.Null(reviewed.Graph); Assert.NotNull(reviewed.BehaviorPlan);
             Assert.Equal(1, client.Calls); Assert.Equal(1, reviewed.Usage!.Calls);
             Assert.Equal(2, reviewed.ClarificationForms); Assert.Equal(7, reviewed.ClarificationQuestions);
             Assert.Equal(PlanningPhase.Behavior, reviewed.CurrentPhase);
@@ -202,7 +202,7 @@ public sealed class PlanningRecoveryTests
         {
             await using var context = Context(service);
             var page = context.Render<PlanningPage>(p => p.Add(x => x.SessionId, state.Request.SessionId));
-            page.WaitForAssertion(() => Assert.Contains("Automatic repair stopped before your behavior review", page.Markup));
+            page.WaitForAssertion(() => Assert.Contains("Automatic repair paused", page.Markup));
             Assert.Equal(0, client.Calls);
             Assert.Equal(2, (await service.GetAsync(state.Request.SessionId, Ct))!.BehaviorAssessmentCalls);
             page.Find("#plan-intent-edit").Change(IntentClarificationFixture.Prompt);

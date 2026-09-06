@@ -94,7 +94,7 @@ public sealed class PlanningSessionService(
             if (current.Revision != command.ExpectedRevision) throw new PlanningConflictException("The planning session changed. Reload before submitting.");
             if (command.Kind == "revise")
             {
-                if (current.Graph is null || string.IsNullOrWhiteSpace(command.Text) || current.Status is PlanningStatus.Saved or PlanningStatus.Saving or PlanningStatus.Cancelled)
+                if (current.Graph is null && current.BehaviorPlan is null || string.IsNullOrWhiteSpace(command.Text) || current.Status is PlanningStatus.Saved or PlanningStatus.Saving or PlanningStatus.Cancelled)
                     throw new PlanningConflictException("This session cannot accept a revision request.");
                 current.PendingCommand = new(current.Status, command);
                 current.Status = PlanningStatus.Revising;
@@ -273,6 +273,13 @@ public sealed class PlanningSessionService(
         activity?.SetTag("gnougo.planning.revision", result.Revision);
         activity?.SetTag("gnougo.planning.status", result.Status);
         activity?.SetTag("gnougo.planning.diagnostic_codes", string.Join(",", result.Diagnostics.Select(d => d.Code).Distinct(StringComparer.Ordinal)));
+        foreach (var attempt in result.Attempts.Skip(current.Attempts.Count))
+            activity?.AddEvent(new ActivityEvent("planning.validation_attempt", tags: new ActivityTagsCollection
+            {
+                ["phase"] = attempt.Phase, ["candidate_hash"] = attempt.CandidateHash,
+                ["stage"] = attempt.Stage, ["retained"] = attempt.Retained,
+                ["diagnostic_codes"] = string.Join(",", attempt.Diagnostics.Select(d => d.Code).Distinct(StringComparer.Ordinal))
+            }));
         foreach (var evt in result.Events.Skip(current.Events.Count))
         {
             var repairOutcome = evt.Kind switch { "intent_repair_started" or "behavior_repair_started" => "started", "intent_repair_succeeded" or "behavior_repair_succeeded" => "recovered", "intent_repair_exhausted" or "behavior_repair_exhausted" => "exhausted", _ => null };

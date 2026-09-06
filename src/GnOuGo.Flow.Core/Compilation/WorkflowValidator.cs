@@ -375,6 +375,18 @@ public sealed class WorkflowValidator
             }
         }
 
+        ValidateInputExpressions(step.Input, "input");
+
+        void ValidateInputExpressions(JsonNode? value, string path)
+        {
+            if (value is JsonValue scalar && scalar.TryGetValue<string>(out var text))
+                ValidateExpression(text, wfName, step.Id, path, errors);
+            else if (value is JsonObject obj)
+                foreach (var property in obj) ValidateInputExpressions(property.Value, path + "." + property.Key);
+            else if (value is JsonArray array)
+                for (var i = 0; i < array.Count; i++) ValidateInputExpressions(array[i], path + "." + i);
+        }
+
         // If guard expression
         if (step.If != null)
             ValidateExpression(step.If, wfName, step.Id, "if", errors);
@@ -561,10 +573,9 @@ public sealed class WorkflowValidator
         try
         {
             // Try parsing all expressions in the string using Jint
-            var regex = new System.Text.RegularExpressions.Regex(@"\$\{([^}]+)\}");
-            foreach (System.Text.RegularExpressions.Match match in regex.Matches(expr))
+            foreach (var segment in ExpressionSegments.Read(expr))
             {
-                var inner = match.Groups[1].Value.Trim();
+                var inner = StringInterpolator.NormalizeStringLiteralLineBreaks(segment.Expression);
                 ExpressionEvaluator.Validate(inner);
             }
         }

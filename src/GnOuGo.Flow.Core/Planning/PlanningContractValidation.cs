@@ -11,4 +11,7 @@ public static class PlanningContractValidation
 
     public static IReadOnlyList<string> ValidateInstance(JsonNode? value, JsonNode schema)
         => JsonSchemaContractValidator.ValidateInstance(value, schema);
+
+    public static IReadOnlyList<StepContractViolation> ValidateStepInput(JsonNode? input, StepContract contract)
+        => StepContractValidator.ValidateInput(input, contract);
 }

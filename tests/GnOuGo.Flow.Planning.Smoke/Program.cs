@@ -63,8 +63,11 @@ sealed class SmokeRuntime(PlanningGraph graph, PlanningPreparation preparation) 
         var json = InvalidIntent ? new JsonObject() : phase switch
         {
             "intent" => JsonNode.Parse("""{"outcome":"ready","evidence":[],"reason":"Clear request","questions":[]}"""),
-            "behavior" => JsonSerializer.SerializeToNode(graph, PlanningJsonContext.Default.PlanningGraph),
-            "fragment" => JsonSerializer.SerializeToNode(graph.Workflows[0], PlanningJsonContext.Default.PlanningWorkflow),
+            "behavior" => JsonSerializer.SerializeToNode(new PlanningBehaviorPlan { Summary = graph.Summary, Entrypoint = graph.Entrypoint,
+                Workflows = graph.Workflows.Select(w => new PlanningBehaviorWorkflow { Key = w.Key, Purpose = "Return the ready message",
+                    Steps = w.Steps.Select(n => new PlanningBehaviorNode { Key = n.Key, Purpose = "Return the ready message" }).ToList(),
+                    Outputs = w.Outputs.Select(o => new PlanningBehaviorPort(o.Name, "The ready message", true)).ToList() }).ToList() }, PlanningJsonContext.Default.PlanningBehaviorPlan),
+            "fragment" => PlanningFragments.Values(graph.Workflows[0]),
             "semantic_review" => JsonNode.Parse("""{"findings":[]}"""),
             _ => throw new InvalidOperationException("Unexpected model phase: " + phase)
         };
