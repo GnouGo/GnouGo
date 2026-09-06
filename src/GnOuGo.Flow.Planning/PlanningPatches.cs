@@ -85,6 +85,8 @@ public static class PlanningPatches
             var all = PlanningGraphValidation.Located(workflow.Steps, path + "/steps").Concat(PlanningGraphValidation.Located(workflow.Finally, path + "/finally")).ToArray();
             var global = diagnostics.Any(d => d.Location is "$" or "/workflows" || d.Location == workflow.Key || d.Location == "/functions");
             var affected = all.Where(n => global || diagnostics.Any(d => d.Location == n.Path || d.Location.StartsWith(n.Path + "/", StringComparison.Ordinal))).Select(n => n.Node.Key).ToHashSet(StringComparer.Ordinal);
+            foreach (var (node, location) in all.Where(n => n.Node.Type is "loop.sequential" or "loop.parallel"))
+                if (diagnostics.Any(d => d.Location.StartsWith(location + "/steps/", StringComparison.Ordinal))) allowed.Add(Coordinate(workflow.Key, node.Key, "input"));
             bool changed;
             do
             {
@@ -101,8 +103,42 @@ public static class PlanningPatches
                         allowed.Add(Coordinate(workflow.Key, node.Key, "cases/" + i + "/when"));
             foreach (var field in new[] { "inputs", "outputs", "functions" })
                 if (global || diagnostics.Any(d => d.Location.StartsWith(path + "/" + field, StringComparison.Ordinal))) allowed.Add(Coordinate(workflow.Key, null, field));
+            var values = all.Where(n => affected.Contains(n.Node.Key)).SelectMany(n => new[] { n.Node.Input, n.Node.Expr, n.Node.If }.OfType<PlanningValue>())
+                .Concat(diagnostics.Any(d => d.Location.StartsWith(path + "/outputs", StringComparison.Ordinal)) ? workflow.Outputs.Select(o => o.Value) : []);
+            var calls = values.SelectMany(FunctionCalls).ToHashSet(StringComparer.Ordinal);
+            if (Declarations(workflow.Functions).Any(calls.Contains)) allowed.Add(Coordinate(workflow.Key, null, "functions"));
+            if (Declarations(graph.Functions).Any(calls.Contains)) allowed.Add(Coordinate(null, null, "functions"));
         }
         return allowed;
+    }
+
+    private static IEnumerable<string> Declarations(string? script)
+    {
+        if (string.IsNullOrWhiteSpace(script)) return [];
+        try { return Ast(new Acornima.Parser().ParseScript(script)).OfType<Acornima.Ast.FunctionDeclaration>().Where(f => f.Id is not null).Select(f => f.Id!.Name).ToArray(); }
+        catch (Acornima.ParseErrorException) { return []; }
+    }
+    private static IEnumerable<string> FunctionCalls(PlanningValue value)
+    {
+        if (value.Kind == "expression" && value.Text is { } text)
+        {
+            var names = new List<string>();
+            try
+            {
+                var expression = text.StartsWith("${", StringComparison.Ordinal) && text.EndsWith('}') ? text[2..^1] : text;
+                foreach (var call in Ast(new Acornima.Parser().ParseExpression(expression)).OfType<Acornima.Ast.CallExpression>())
+                    if (call.Callee is Acornima.Ast.Identifier id) names.Add(id.Name);
+                    else if (call.Callee is Acornima.Ast.MemberExpression { Object: Acornima.Ast.Identifier { Name: "functions" }, Property: Acornima.Ast.Identifier member, Computed: false }) names.Add(member.Name);
+            }
+            catch (Acornima.ParseErrorException) { }
+            foreach (var name in names) yield return name;
+        }
+        foreach (var child in value.Members.Select(m => m.Value).Concat(value.Items)) foreach (var name in FunctionCalls(child)) yield return name;
+    }
+    private static IEnumerable<Acornima.Ast.Node> Ast(Acornima.Ast.Node node)
+    {
+        yield return node;
+        foreach (var child in node.ChildNodes) foreach (var nested in Ast(child)) yield return nested;
     }
 
     public static string Coordinate(string? workflow, string? node, string field) => JsonSerializer.Serialize(new[] { workflow, node, field }, PlanningJsonContext.Default.StringArray);

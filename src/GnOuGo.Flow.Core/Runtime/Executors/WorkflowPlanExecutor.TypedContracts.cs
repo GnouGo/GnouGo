@@ -47,6 +47,9 @@ public sealed partial class WorkflowPlanExecutor
                 Required = capability.Required,
                 DeclarationFingerprint = prompt is not null ? TypedPromptFingerprint(prompt) : tool is null ? null : TypedDeclarationFingerprint(tool),
                 EffectKind = capability.ExternalEffectKind ?? (capability.Resolution == "mcp" ? "unknown" : "none"),
+                ArtifactContract = tool is null ? null : GetValidatedMcpArtifactContract(tool, capability.Server),
+                Activation = capability.Activation,
+                CatalogId = capability.CatalogId,
                 OperationIds = GetResolvedCapabilityOperationIds(capability).ToList(),
                 InputSchema = prompt is not null ? TypedPromptInputSchema(prompt) : (tool?.InputSchema?.DeepClone() ?? contract?.InputSchema.DeepClone()) as JsonObject ?? new JsonObject(),
                 OutputSchema = prompt is not null ? new JsonObject() : (tool is null ? contract?.OutputSchema.DeepClone() : McpToolContractEnricher.GetAuthoritativeOutputSchema(tool)?.DeepClone()) as JsonObject ?? new JsonObject(),
@@ -74,26 +77,61 @@ public sealed partial class WorkflowPlanExecutor
     public async Task<IReadOnlyList<PlanningDiagnostic>> ValidateTypedArtifactAsync(
         StepExecutionContext ctx, string yaml, PlanningRequest request, PlanningPreparation preparation, CancellationToken ct)
     {
+        var stage = PlanningValidationStage.RuntimeContracts;
         try
         {
             var preflight = JsonSerializer.Deserialize(preparation.RuntimeState, TypedContractJsonContext.Default.CapabilityPreflightResult)
                 ?? throw new InvalidOperationException("The persisted capability contract is missing.");
+            EnrichTypedPreparation(preparation);
             var document = ParseAndValidateGeneratedWorkflow(yaml);
             var validate = new JsonObject { ["compile"] = true, ["mode"] = "strict", ["dry_run"] = false };
             await RunStandardPlanValidationSequenceAsync(document, request.Options["policy"] as JsonObject,
                 request.Options["limits"] as JsonObject, validate, preflight.DiscoveredServers, ctx, NullTelemetrySpan.Instance, ct);
-            ValidateLockedCapabilitiesInDocument(document, preflight);
+            stage = PlanningValidationStage.CapabilityContracts;
+            ValidateLockedCapabilitiesInDocument(document, preflight, current => stage = current);
             return [];
         }
         catch (OperationCanceledException) { throw; }
         catch (Exception ex)
         {
             if (ex is Expressions.WorkflowRuntimeException runtime && runtime.Details?["diagnostics"] is JsonArray diagnostics)
-                return diagnostics.OfType<JsonObject>().Select(d => new PlanningDiagnostic(
-                    d["code"]?.GetValue<string>() ?? runtime.Code,
-                    d["location"]?.GetValue<string>() ?? d["step"]?.GetValue<string>() ?? "$",
-                    d["message"]?.GetValue<string>() ?? "The generated artifact violates its contract.")).ToArray();
-            return [new PlanningDiagnostic(ex is Expressions.WorkflowRuntimeException failure ? failure.Code : "PLANNING_VALIDATION", "$", ex.Message)];
+                return diagnostics.OfType<JsonObject>().Select(d => TypedArtifactDiagnostic(d, runtime.Code, stage)).ToArray();
+            if (ex is Expressions.WorkflowRuntimeException detailed && detailed.Details is JsonObject details)
+                return [TypedArtifactDiagnostic(details, detailed.Code, stage)];
+            return [new PlanningDiagnostic(ex is Expressions.WorkflowRuntimeException failure ? failure.Code : "PLANNING_VALIDATION", "$", ex.Message, ValidationStage: stage)];
+        }
+    }
+
+    internal static PlanningDiagnostic TypedArtifactDiagnostic(JsonObject diagnostic, string fallbackCode, string stage)
+    {
+        string? Read(string key) => diagnostic[key] is JsonValue value && value.TryGetValue<string>(out var text) ? text : null;
+        var parts = new List<string>();
+        if (Read("workflow") is { } workflow) parts.Add("workflow:" + workflow);
+        if ((Read("step") ?? Read("consumer_step") ?? Read("switch_id")) is { } step) parts.Add("step:" + step);
+        if ((Read("field") ?? (Read("request_pointer") is { } pointer ? "input.request" + pointer.Replace('/', '.') : null)) is { } field) parts.Add("field:" + field);
+        var message = Read("message") ?? Read("expected") ?? Read("reason") ?? "The generated artifact violates its contract.";
+        if (Read("artifact_kind") is { } kind) message = "Required artifact '" + kind + "': " + message;
+        if (Read("invalid_path") is { Length: > 0 } invalidPath) message += "\nInvalid reference: " + invalidPath;
+        if (diagnostic["allowed_paths"] is JsonArray paths && paths.Count > 0) message += "\nAllowed paths: " + paths.ToJsonString();
+        if ((Read("hint") ?? Read("llm_guidance")) is { Length: > 0 } guidance) message += "\nRepair: " + guidance;
+        if (Read("validation_issue") is { } issue) message += "\nContract finding: " + issue;
+        if (Read("decision_field") is { } decisionField) message += "\nDeclared decision field: " + decisionField;
+        return new(Read("code") ?? fallbackCode, Read("location") ?? (parts.Count == 0 ? "$" : string.Join("/", parts)), message, ValidationStage: stage);
+    }
+
+    public static void EnrichTypedPreparation(PlanningPreparation preparation)
+    {
+        var preflight = JsonSerializer.Deserialize(preparation.RuntimeState, TypedContractJsonContext.Default.CapabilityPreflightResult)
+            ?? throw new InvalidOperationException("The persisted capability contract is missing.");
+        foreach (var capability in preparation.Capabilities)
+        {
+            var matches = preflight.Capabilities.Where(c => c.Resolution != "unavailable" && c.Server == capability.Server && c.Method == capability.Method && c.Kind == capability.Kind &&
+                GetResolvedCapabilityOperationIds(c).ToHashSet(StringComparer.Ordinal).SetEquals(capability.OperationIds) && c.RequestBindings.Count == capability.RequestBindings.Count &&
+                c.RequestBindings.All(b => capability.RequestBindings.Any(p => p.Path == b.Path && JsonNode.DeepEquals(p.Value, b.Value)))).ToArray();
+            if (matches.Length != 1) throw new InvalidOperationException("The locked capability metadata is missing or ambiguous.");
+            capability.Activation = matches[0].Activation; capability.CatalogId = matches[0].CatalogId;
+            var tool = preflight.DiscoveredServers.FirstOrDefault(s => s.Name == capability.Server)?.Tools.FirstOrDefault(t => t.Name == capability.Method);
+            capability.ArtifactContract = tool is null ? null : GetValidatedMcpArtifactContract(tool, capability.Server);
         }
     }
 

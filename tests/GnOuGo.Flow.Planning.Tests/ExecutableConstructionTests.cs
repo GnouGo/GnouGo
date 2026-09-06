@@ -51,6 +51,40 @@ public sealed class ExecutableConstructionTests
     }
 
     [Fact]
+    public void LoopConsumerRepairCanFixItsItemSourceWithoutChangingLoopGuards()
+    {
+        var graph = Graph(); var child = graph.Workflows[0].Steps[0];
+        graph.Workflows[0].Steps = [new() { Key = "loop", Type = "loop.sequential", Steps = [child] }];
+        var scope = PlanningPatches.Scope(graph, [new("ARTIFACT_UNPROVEN", "/workflows/0/steps/0/steps/0/input/request/value", "Needs its item source")]);
+        Assert.Contains(PlanningPatches.Coordinate("main", "loop", "input"), scope);
+        Assert.DoesNotContain(PlanningPatches.Coordinate("main", "loop", "if"), scope);
+        Assert.DoesNotContain(PlanningPatches.Coordinate("main", "loop", "expr"), scope);
+    }
+
+    [Fact]
+    public void DiagnosedComputationIncludesItsDeclaredHelperDependency()
+    {
+        var graph = Graph(); graph.Functions = "function unrelated() { return 'safe'; }";
+        graph.Workflows[0].Functions = "function compute(value) { return value; }";
+        graph.Workflows[0].Steps[0].Input = Obj(("message", new() { Kind = "expression", Text = "compute(data.inputs.value)" }));
+        var scope = PlanningPatches.Scope(graph, [new("SCENARIO_EXECUTION_FAILED", "/workflows/0/steps/0", "Computation failed")]);
+        Assert.Contains(PlanningPatches.Coordinate("main", null, "functions"), scope);
+        Assert.DoesNotContain(PlanningPatches.Coordinate(null, null, "functions"), scope);
+    }
+
+    [Fact]
+    public async Task RejectedValidationFindingsReachTheNextTargetedRepair()
+    {
+        var state = Session(PlanningStatus.Generating); state.Graph = Graph(); state.Preparation = Preparation(); state.RepairAttempt = 1;
+        state.Diagnostics = [new("ARTIFACT_UNPROVEN", "/workflows/0/steps/0/input", "Keep the producer value")];
+        state.Attempts.Add(new("rejected", PlanningStatus.Validating, 5, false, [new("CHILD_REFERENCE_INVALID", "/workflows/0/steps/0/input", "Use the declared child envelope")]));
+        var input = PlanningModelValues.Workflow(state.Graph.Workflows[0])["steps"]![0]!["input"]!.DeepClone();
+        var runtime = new FakeRuntime { OnCall = (_, _, _) => Task.FromResult(new LLMResponse { Json = Changes(Patch("greeting", "input", input.DeepClone())) }) };
+        await new TypedWorkflowPlanner().AdvanceAsync(state, new() { ExpectedRevision = state.Revision }, runtime, Ct);
+        Assert.Contains("Use the declared child envelope", Assert.Single(runtime.Requests).Prompt);
+    }
+
+    [Fact]
     public void RecordedDefects_AreCollectedTogetherBeforeRepair()
     {
         var graph = Graph();
@@ -304,6 +338,19 @@ public sealed class ExecutableConstructionTests
         Assert.DoesNotContain(state.Diagnostics, d => d.Code == "NATIVE_FIELD_UNSUPPORTED");
         Assert.Contains(state.Diagnostics, d => d.Code == "LATER_CONTRACT");
         Assert.True(state.Attempts[^1].Retained);
+    }
+
+    [Fact]
+    public async Task CapabilityValidationAfterFunctionContractsIsALaterStage()
+    {
+        var state = Session(PlanningStatus.Validating); state.Graph = Graph(); state.Preparation = Preparation(); state.Request.MaxRepairs = 0;
+        state.BestGraph = Graph(); state.BestDiagnostics = [new("FUNCTION_JSDOC_MISSING", "/workflows/0/functions/helper", "Previous contract finding")];
+        state.Attempts.Add(new(PlanningGraphCompiler.Fingerprint(state.BestGraph), PlanningStatus.Validating, 5, true, state.BestDiagnostics.ToList()));
+        var runtime = new FakeRuntime { ValidationResult = _ => [new("ARTIFACT_UNPROVEN", "workflow:main/field:outputs.message", "Later provenance finding", ValidationStage: PlanningValidationStage.CapabilityContracts)] };
+        state = await new TypedWorkflowPlanner().AdvanceAsync(state, new() { ExpectedRevision = state.Revision }, runtime, Ct);
+        Assert.True(state.Attempts[^1].Retained); Assert.Equal(6, state.Attempts[^1].Stage);
+        Assert.Contains(state.Diagnostics, d => d.Code == "ARTIFACT_UNPROVEN");
+        Assert.DoesNotContain(state.Diagnostics, d => d.Code == "FUNCTION_JSDOC_MISSING");
     }
 
     [Theory]

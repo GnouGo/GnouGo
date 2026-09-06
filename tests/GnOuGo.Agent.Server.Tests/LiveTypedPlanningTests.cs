@@ -8,6 +8,7 @@ using GnOuGo.Agent.Server.SmartFlow;
 using GnOuGo.Flow.Core.Planning;
 using GnOuGo.Flow.Core.Runtime;
 using GnOuGo.Flow.Integrations;
+using GnOuGo.Flow.Planning;
 using GnOuGo.KeyVault.Core.Services;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
@@ -63,7 +64,11 @@ public sealed partial class LiveIntentAgentGenerationTests
         var state = await service.GetAsync(id, ct) ?? throw new InvalidOperationException("The requested session does not exist in the configured tenant.");
         Assert.Equal(2, state.SchemaVersion);
         var answerCount = state.Answers.Count;
-        if (state.Status is PlanningStatus.Failed or PlanningStatus.Recovery)
+        if (state.Preparation is not null)
+            await new WorkflowPlanningRuntime(new WorkflowEngine()).EnrichPreparationAsync(state.Preparation, ct);
+        var invalidReview = state.Status == PlanningStatus.BehaviorReview && state.BehaviorPlan is not null && state.Preparation is not null &&
+            PlanningBehaviorPlans.Validate(state.BehaviorPlan, state.Preparation).Count != 0;
+        if (invalidReview || state.Status is PlanningStatus.Failed or PlanningStatus.Recovery)
         {
             state = await service.SubmitAsync(id, new() { Kind = "retry", ExpectedRevision = state.Revision }, ct);
         }

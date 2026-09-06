@@ -159,6 +159,7 @@ public sealed class PlanningRecoveryTests
     {
         await using var fixture = await PlanningPersistenceTests.StoreFixture.CreateAsync();
         var state = BehaviorFailure();
+        await new WorkflowPlanningRuntime(new WorkflowEngine()).EnrichPreparationAsync(state.Preparation!, Ct);
         Assert.True(await fixture.Store.TrySaveAsync(state, null, Ct));
         var behavior = new PlanningBehaviorPlan { Summary = "Return a message", Workflows = [new() { Key = "main", Purpose = "Return a message",
             Steps = [new() { Key = "value", Purpose = "Return a message" }], Outputs = [new("message", "The returned message", true)] }] };
@@ -224,7 +225,11 @@ public sealed class PlanningRecoveryTests
         Status = PlanningStatus.Failed, CurrentPhase = PlanningPhase.Behavior, IntentChecked = true,
         ClarificationForms = 2, ClarificationQuestions = 7,
         Diagnostics = [new("PLANNING_FAILED", "$", "The authoritative schema reference is unresolved.")],
-        Preparation = new() { AllowedStepTypes = ["set"], Capabilities = [new() { Id = "declared", StepType = "set",
+        Preparation = new() { AllowedStepTypes = ["set"], RuntimeState = JsonNode.Parse("""
+            {"mode":"infer","discoveredServers":[],"constraints":[],"capabilities":[
+              {"id":"declared","description":"Return a message","required":false,"resolution":"local","server":null,"kind":null,"method":null,"requestBindings":[],"operationIds":[]}
+            ]}
+            """)!.AsObject(), Capabilities = [new() { Id = "declared", StepType = "set", OperationIds = ["declared"],
             OutputSchema = JsonNode.Parse("""{"type":"object","properties":{"message":{"type":"string"}},"required":["message"],"additionalProperties":false}""")!.AsObject() }] },
         Graph = new() { Summary = "Return a message", Workflows = [new() { Key = "main",
             Steps = [new() { Key = "value", Type = "set", Input = new() { Kind = "object", Members = [new("message", new() { Kind = "string", Text = "Hello" })] } }],

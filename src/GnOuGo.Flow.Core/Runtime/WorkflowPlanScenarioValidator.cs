@@ -82,24 +82,28 @@ internal static class WorkflowPlanScenarioValidator
                 var reached = scenario.Step is null || fault.Injected || telemetry.Statuses.ContainsKey(scenario.Workflow + ":" + scenario.Step);
                 var expectedFailure = fault.Injected && (run.Success || run.Error?.Code is "SCENARIO_INJECTED_FAILURE" or "CANCELLED");
                 outcome = reached && (run.Success || expectedFailure) ? "passed" : "inconclusive";
-                if (!reached) diagnostics.Add(new("SCENARIO_UNREACHED", scenario.Step!, "The synthetic input did not reach this required scenario."));
-                else if (!run.Success && !expectedFailure) diagnostics.Add(new("SCENARIO_INCONCLUSIVE", run.Error?.Code ?? "$", "Synthetic execution did not establish successful behavior."));
+                if (!reached) diagnostics.Add(new("SCENARIO_UNREACHED", "workflow:" + scenario.Workflow + "/step:" + scenario.Step, "The synthetic input did not reach this required scenario."));
+                if (!run.Success && !expectedFailure)
+                {
+                    diagnostics.AddRange(telemetry.Failures.Values);
+                    if (telemetry.Failures.IsEmpty) diagnostics.Add(new("SCENARIO_INCONCLUSIVE", "$", run.Error?.Code + ": " + run.Error?.Message));
+                }
                 foreach (var visitedWorkflow in telemetry.Workflows)
                 {
                     if (!doc.Workflows.TryGetValue(visitedWorkflow, out var wf)) continue;
                     foreach (var finalizer in wf.Finally.Where(s => s.If is null))
                         if (!telemetry.Statuses.TryGetValue(visitedWorkflow + ":" + finalizer.Id, out var status) || status != StepStatus.Succeeded)
                         {
-                            diagnostics.Add(new("FINALIZATION_NOT_EXECUTED", finalizer.Id, "An unconditional finalizer did not complete successfully."));
+                            diagnostics.Add(new("FINALIZATION_NOT_EXECUTED", "workflow:" + visitedWorkflow + "/step:" + finalizer.Id, "An unconditional finalizer did not complete successfully."));
                             outcome = "failed";
                         }
                 }
             }
             catch (OperationCanceledException) when (ct.IsCancellationRequested) { throw; }
-            catch (Exception)
+            catch (Exception ex)
             {
                 outcome = "inconclusive";
-                diagnostics.Add(new("SCENARIO_INCONCLUSIVE", scenario.Step ?? "$", "Synthetic execution could not establish this scenario."));
+                diagnostics.Add(new("SCENARIO_INCONCLUSIVE", scenario.Step is null ? "$" : "workflow:" + scenario.Workflow + "/step:" + scenario.Step, "Synthetic execution could not establish this scenario: " + ex.Message));
             }
             results.Add(new(scenario.Id, outcome, "Synthetic " + scenario.Kind + " coverage; does not execute external effects.", diagnostics));
         }
@@ -167,12 +171,17 @@ internal static class WorkflowPlanScenarioValidator
     private sealed class CoverageTelemetry : IWorkflowTelemetry
     {
         public System.Collections.Concurrent.ConcurrentDictionary<string, StepStatus> Statuses { get; } = new(StringComparer.Ordinal);
+        public System.Collections.Concurrent.ConcurrentDictionary<string, PlanningDiagnostic> Failures { get; } = new(StringComparer.Ordinal);
         public HashSet<string> Workflows { get; } = new(StringComparer.Ordinal);
         private readonly object _gate = new();
         public IWorkflowSpan WorkflowStart(WorkflowTelemetryInfo info) { lock (_gate) Workflows.Add(info.WorkflowName); return new CoverageSpan(info.WorkflowName); }
         public void WorkflowEnd(IWorkflowSpan span, WorkflowResultInfo result) { }
         public IStepSpan StepStart(ITelemetrySpan parentSpan, StepTelemetryInfo info) => new CoverageSpan(((CoverageSpan)parentSpan).Workflow, info.StepId);
-        public void StepEnd(IStepSpan span, StepResultInfo result) { var step = (CoverageSpan)span; Statuses[step.Workflow + ":" + step.Step] = result.Status; }
+        public void StepEnd(IStepSpan span, StepResultInfo result)
+        {
+            var step = (CoverageSpan)span; var key = step.Workflow + ":" + step.Step; Statuses[key] = result.Status;
+            if (result.Status == StepStatus.Failed) Failures[key] = new("SCENARIO_EXECUTION_FAILED", "workflow:" + step.Workflow + "/step:" + step.Step, result.ErrorCode + ": " + result.ErrorMessage);
+        }
     }
     private sealed class CoverageSpan(string workflow, string? step = null) : IWorkflowSpan, IStepSpan
     {

@@ -7,6 +7,26 @@ namespace GnOuGo.Flow.Tests;
 public sealed class TypedPlanningScenarioTests
 {
     [Fact]
+    public async Task FailedExecutionRetainsItsStepAndActionableCause()
+    {
+        var document = WorkflowParser.Parse("""
+            version: 1
+            entrypoint: main
+            workflows:
+              main:
+                steps:
+                  - id: required_value
+                    type: assert.non_null
+                    input: {value: null}
+            """);
+        var result = Assert.Single(await WorkflowPlanScenarioValidator.ValidateAsync(document, null, TestContext.Current.CancellationToken));
+        var finding = Assert.Single(result.Diagnostics);
+        Assert.Equal("workflow:main/step:required_value", finding.Location);
+        Assert.Contains("null", finding.Message, StringComparison.OrdinalIgnoreCase);
+        Assert.NotEqual("passed", result.Outcome);
+    }
+
+    [Fact]
     public async Task IntegrationFailureAndCancellation_ExecuteCleanup()
     {
         var document = WorkflowParser.Parse("""

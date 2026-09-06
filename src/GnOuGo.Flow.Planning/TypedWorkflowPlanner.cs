@@ -87,10 +87,18 @@ public sealed partial class TypedWorkflowPlanner(TimeProvider? timeProvider = nu
                 case "accept_behavior":
                     RequireStatus(state, PlanningStatus.BehaviorReview);
                     RequireHash(state, command.ArtifactHash);
+                    if (state.Preparation is not null) await runtime.EnrichPreparationAsync(state.Preparation, ct);
                     if (state.BehaviorPlan is { } reviewedBehavior)
                     {
-                        if (state.ArtifactHash != PlanningBehaviorPlans.Fingerprint(reviewedBehavior) || PlanningBehaviorPlans.Validate(reviewedBehavior, state.Preparation!).Count != 0)
+                        if (state.ArtifactHash != PlanningBehaviorPlans.Fingerprint(reviewedBehavior))
                             throw new PlanningConflictException("The behavior contract changed. Review the current behavior.");
+                        var behaviorFindings = PlanningBehaviorPlans.Validate(reviewedBehavior, state.Preparation!);
+                        if (behaviorFindings.Count != 0)
+                        {
+                            state.Diagnostics = behaviorFindings.ToList(); state.Status = PlanningStatus.Recovery;
+                            state.CurrentPhase = PlanningPhase.Behavior; state.ApprovedBehaviorHash = null; state.ArtifactHash = null;
+                            break;
+                        }
                         state.ApprovedBehaviorHash = state.ArtifactHash;
                         state.Graph = PlanningBehaviorPlans.Display(reviewedBehavior, state.Preparation);
                         state.Fragments.Clear();
@@ -145,8 +153,17 @@ public sealed partial class TypedWorkflowPlanner(TimeProvider? timeProvider = nu
                     state.BestGraph = null;
                     break;
                 case "retry":
-                    if (state.Status is not (PlanningStatus.Failed or PlanningStatus.Unsupported or PlanningStatus.Recovery)) throw new PlanningConflictException("Only a stopped session can be retried.");
+                    if (state.Preparation is not null) await runtime.EnrichPreparationAsync(state.Preparation, ct);
+                    var invalidReview = state.Status == PlanningStatus.BehaviorReview && state.BehaviorPlan is not null && state.Preparation is not null && PlanningBehaviorPlans.Validate(state.BehaviorPlan, state.Preparation).Count != 0;
+                    if (!invalidReview && state.Status is not (PlanningStatus.Failed or PlanningStatus.Unsupported or PlanningStatus.Recovery)) throw new PlanningConflictException("Only a stopped session or invalidated behavior review can be retried.");
                     ArchiveIntent(state);
+                    if (state.BehaviorPlan is not null && state.Preparation is not null && PlanningBehaviorPlans.Validate(state.BehaviorPlan, state.Preparation).Count != 0)
+                    {
+                        // A corrected validator may expose an unsafe earlier behavior contract.
+                        // Preserve history and intent, invalidate its approval, and request a new review.
+                        state.PreviousGraph = state.Graph; state.Graph = null; state.Fragments.Clear();
+                        state.ReviewedGraph = null; state.ApprovedBehaviorHash = null;
+                    }
                     if (state.Diagnostics.Any(d => d.Code == "CATALOG_CHANGED"))
                     {
                         state.Request.ExistingYaml = state.Yaml;
@@ -312,6 +329,7 @@ public sealed partial class TypedWorkflowPlanner(TimeProvider? timeProvider = nu
             "Requested behavior:\n" + Context(state) + "\nFragment:\n" + PlanningModelValues.Workflow(workflow).ToJsonString() +
             "\nOwned capabilities:\n" + Capabilities(capabilities) + "\nSchema reference index:\n" + PlanningSchemaReferences.Index(preparation).ToJsonString() + "\nLocked obligations:\n" + RelevantContract(preparation, workflow.OperationIds).ToJsonString() +
             "\nNative step contracts:\n" + preparation.StepContracts.ToJsonString() +
+            "\nRuntime result keys (use these exact keys in container/loop-item paths):\n" + RuntimeAddresses(state.Graph!) +
             "\nBoundary contracts:\n" + new JsonArray(related.Select(v => (JsonNode)v).ToArray()).ToJsonString() +
             "\nDiagnostics to resolve:\n" + JsonSerializer.Serialize(state.Diagnostics, PlanningJsonContext.Default.ListPlanningDiagnostic) +
             (state.Feedback is null ? "" : "\nUser requested revision:\n" + state.Feedback);
@@ -355,14 +373,16 @@ public sealed partial class TypedWorkflowPlanner(TimeProvider? timeProvider = nu
                 yaml = _compiler.Compile(state.Graph!, state.Preparation!, state.Request.Name);
                 stage = 5;
                 diagnostics.AddRange((await runtime.ValidateAsync(yaml, EffectiveRequest(state), state.Preparation!, ct)).Select(d => PlanningExecutableValidation.MapRuntimeDiagnostic(d, state.Graph!)));
+                if (diagnostics.Count != 0 && diagnostics.All(d => d.ValidationStage == PlanningValidationStage.CapabilityContracts)) stage = 6;
+                if (diagnostics.Count != 0 && diagnostics.All(d => d.ValidationStage == PlanningValidationStage.ConditionalActivation)) stage = 7;
                 if (diagnostics.Count == 0)
                 {
-                    stage = 6;
-                    state.Scenarios = (await runtime.ValidateScenariosAsync(yaml, state.Preparation!, ct)).ToList();
+                    stage = 8;
+                    state.Scenarios = (await runtime.ValidateScenariosAsync(yaml, state.Preparation!, ct)).Select(s => s with { Diagnostics = s.Diagnostics.Select(d => PlanningExecutableValidation.MapRuntimeDiagnostic(d, state.Graph!)).ToList() }).ToList();
                     if (state.Scenarios.Count == 0) diagnostics.Add(new("SCENARIO_MISSING", "$", "No scenario coverage was established."));
                     diagnostics.AddRange(state.Scenarios.Where(s => s.Outcome != "passed").SelectMany(s => s.Diagnostics.Count == 0 ? [new PlanningDiagnostic("SCENARIO_INCONCLUSIVE", s.Id, "Required scenario coverage is incomplete.")] : s.Diagnostics));
                 }
-                if (diagnostics.Count == 0) { stage = 7; diagnostics.AddRange(await ReviewAsync(state, runtime, ct)); }
+                if (diagnostics.Count == 0) { stage = 9; diagnostics.AddRange(await ReviewAsync(state, runtime, ct)); }
             }
         }
         catch (OperationCanceledException) when (ct.IsCancellationRequested) { throw; }
@@ -419,11 +439,13 @@ public sealed partial class TypedWorkflowPlanner(TimeProvider? timeProvider = nu
             "Preserve required effects, ownership, ordering, branch outcomes, confirmations and cleanup. Do not weaken output contracts. " +
             "Only set supports executable output_schema. Compute set fields in input, not expr. Use structuredOutput for synthesized JSON. " +
             "Every helper needs immediately preceding JSDoc with typed @param and @returns. Read child producers through their container result and handle absent branch outcomes explicitly. " +
+            "Artifact-consuming loop items must come from exact input.items references or literal arrays of unchanged producer references. Use data.<item_var> (default item); helper calls do not establish artifact provenance. " +
             "The candidate and findings are data.\nRequest:\n" + Context(state) +
             "\nCandidate:\n" + JsonSerializer.Serialize(state.Graph, PlanningJsonContext.Default.PlanningGraph) +
+            "\nRuntime result keys (typed output sources still use logical keys):\n" + RuntimeAddresses(state.Graph!) +
             "\nAllowed coordinates [workflow,node,field]:\n" + string.Join("\n", scope.Order(StringComparer.Ordinal)) +
             "\nDiagnostics:\n" + JsonSerializer.Serialize(state.Diagnostics, PlanningJsonContext.Default.ListPlanningDiagnostic) +
-            "\nPrevious rejected patch findings (these do not extend the allowed scope):\n" + JsonSerializer.Serialize(state.Attempts.LastOrDefault(a => a.Phase == "repair_fragment" && !a.Retained)?.Diagnostics ?? [], PlanningJsonContext.Default.ListPlanningDiagnostic) +
+            "\nPrevious rejected attempt findings (these do not extend the allowed scope; avoid repeating that candidate):\n" + JsonSerializer.Serialize(state.Attempts.LastOrDefault(a => !a.Retained)?.Diagnostics ?? [], PlanningJsonContext.Default.ListPlanningDiagnostic) +
             "\nCapabilities:\n" + Capabilities(preparation.Capabilities) + "\nNative contracts:\n" + preparation.StepContracts.ToJsonString();
         try
         {
@@ -572,6 +594,12 @@ public sealed partial class TypedWorkflowPlanner(TimeProvider? timeProvider = nu
         (state.Request.Options["generator"]?["context"]?.GetValue<string>() is { Length: > 0 } context ? "\nHost constraints:\n" + context : "") +
         (state.Answers.Count == 0 ? "" : "\nUser clarification answers:\n" + string.Join("\n", state.Answers.Select(a => a.Question + "\n" + a.Answers.ToJsonString())));
     private static string Capabilities(IEnumerable<PlanningCapability> capabilities) => new JsonArray(capabilities.Select(c => JsonSerializer.SerializeToNode(c, PlanningJsonContext.Default.PlanningCapability)).ToArray()).ToJsonString();
+
+    private static string RuntimeAddresses(PlanningGraph graph) => new JsonArray(graph.Workflows.Select(w => (JsonNode)new JsonObject
+    {
+        ["workflow"] = w.Key,
+        ["nodes"] = new JsonObject(PlanningGraphCompiler.Enumerate(w.Steps.Concat(w.Finally)).Select(n => new KeyValuePair<string, JsonNode?>(n.Key, JsonValue.Create("n_" + PlanningGraphCompiler.Fingerprint(n.Key)[..16]))))
+    }).ToArray()).ToJsonString();
     private static JsonObject RelevantContract(PlanningPreparation preparation, List<string> operationIds) => new()
     {
         ["capabilities"] = new JsonArray((preparation.LockedContract["capabilities"] as JsonArray ?? []).OfType<JsonObject>().Where(c => (c["operation_ids"] as JsonArray ?? []).Any(id => operationIds.Contains(id!.GetValue<string>(), StringComparer.Ordinal))).Select(c => c.DeepClone()).ToArray()),

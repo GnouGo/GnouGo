@@ -29,6 +29,12 @@ public sealed class WorkflowPlanningRuntime : IPlanningRuntime
 
     public Task<PlanningPreparation> PrepareAsync(PlanningRequest request, CancellationToken ct)
         => _executor.PrepareTypedContractsAsync(_context, request, ct);
+    public Task EnrichPreparationAsync(PlanningPreparation preparation, CancellationToken ct)
+    {
+        ct.ThrowIfCancellationRequested();
+        WorkflowPlanExecutor.EnrichTypedPreparation(preparation);
+        return Task.CompletedTask;
+    }
     public Task<LLMResponse> CallAsync(LLMRequest request, string phase, CancellationToken ct)
         => _context.CallLLMAsync(_context.Engine.LLMClient ?? throw new InvalidOperationException("No planning model is configured."), request, "workflow.plan.typed." + phase, ct);
     public Task<IReadOnlyList<PlanningDiagnostic>> ValidateAsync(string yaml, PlanningRequest request, PlanningPreparation preparation, CancellationToken ct)

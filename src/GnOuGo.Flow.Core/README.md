@@ -19,6 +19,11 @@ Core owns the provider-neutral planning request, snapshot, command and event con
 `IWorkflowPlanner`, `IPlanningRuntime` and tenant-scoped `IPlanningSessionStore`.
 `WorkflowPlanningRuntime` adapts established discovery and validation. Required
 inconclusive scenarios block acceptance; human waits are separate from active time.
+Locked capability metadata includes artifact provenance and finite activation contracts.
+Older snapshots recover this metadata from their encrypted preflight contract through
+`IPlanningRuntime.EnrichPreparationAsync`, without rediscovery or model inference.
+Validation diagnostics retain their runtime, capability, or conditional-activation stage
+and identify the failing producer, consumer, or decision whenever available.
 Version-2 recovery is a waiting state with retry, request edit and cancel choices.
 `PlanningSnapshot` retains schema version 2 with additive current-phase and cumulative
 clarification counters and `behaviorAssessmentCalls`. `PlanningBehaviorPlan` captures

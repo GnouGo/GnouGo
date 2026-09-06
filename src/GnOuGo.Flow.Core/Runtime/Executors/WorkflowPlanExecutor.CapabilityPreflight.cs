@@ -8347,7 +8347,8 @@ public sealed partial class WorkflowPlanExecutor
 
     private static void ValidateLockedCapabilitiesInDocument(
         WorkflowDocument document,
-        CapabilityPreflightResult preflight)
+        CapabilityPreflightResult preflight,
+        Action<string>? validationStage = null)
     {
         if (!preflight.Enabled
             || preflight.RequiredMcpCapabilities.Count == 0
@@ -8376,6 +8377,7 @@ public sealed partial class WorkflowPlanExecutor
 
         ValidateNoRedundantArtifactMaterializers(preflight, calls);
         ValidateMcpArtifactDataflow(document, preflight);
+        validationStage?.Invoke(Planning.PlanningValidationStage.ConditionalActivation);
         ValidateConditionalCapabilityActivation(document, preflight);
 
         var deniedCalls = preflight.Constraints
@@ -10039,7 +10041,8 @@ public sealed partial class WorkflowPlanExecutor
                 consumer.Workflow,
                 consumer.Value,
                 consumer.Artifact.Kind,
-                new HashSet<string>(StringComparer.Ordinal));
+                new HashSet<string>(StringComparer.Ordinal),
+                consumer.Step.Id);
             if (resolution.Proven)
                 continue;
 
@@ -10502,7 +10505,8 @@ public sealed partial class WorkflowPlanExecutor
         string workflowName,
         JsonNode? value,
         string artifactKind,
-        HashSet<string> visited)
+        HashSet<string> visited,
+        string? consumerStepId = null)
     {
         if (value is not JsonValue scalar
             || !scalar.TryGetValue<string>(out var expression)
@@ -10511,12 +10515,14 @@ public sealed partial class WorkflowPlanExecutor
             return ArtifactResolution.Unproven;
         }
 
-        var visitKey = workflowName + "\u001f" + artifactKind + "\u001f" + expression;
+        var visitKey = workflowName + "\u001f" + consumerStepId + "\u001f" + artifactKind + "\u001f" + expression;
         if (!visited.Add(visitKey))
             return ArtifactResolution.Unproven;
         try
         {
             var path = TrimWorkflowExpression(expression);
+            ArtifactResolution ResolveProjected(JsonNode? projected, string? context) => ResolveArtifactValue(document, stepsByWorkflow, workflowCallers, producers, workflowName, projected, artifactKind, visited, context);
+            if (TryResolveLoopArtifact(document, workflowName, consumerStepId, path, ResolveProjected, out var loopArtifact)) return loopArtifact;
             const string inputPrefix = "data.inputs.";
             if (path.StartsWith(inputPrefix, StringComparison.Ordinal))
             {
@@ -10546,7 +10552,8 @@ public sealed partial class WorkflowPlanExecutor
                         caller.Workflow,
                         argument,
                         artifactKind,
-                        visited);
+                        visited,
+                        caller.Call.Id);
                     if (!resolved.Proven)
                         return ArtifactResolution.Unproven;
                     combined.UnionWith(resolved.Producers);
@@ -10568,6 +10575,12 @@ public sealed partial class WorkflowPlanExecutor
             if (stepPath.Length < 2 || !workflowSteps.TryGetValue(stepPath[0], out var sourceStep))
                 return ArtifactResolution.Unproven;
             var remainingPath = stepPath.Skip(1).ToArray();
+
+            if (sourceStep.Type is "sequence" or "switch")
+            {
+                var child = ArtifactChildren(sourceStep).FirstOrDefault(s => s.Id == remainingPath[0]);
+                return child is null ? ArtifactResolution.Unproven : ResolveProjected(AppendExactArtifactExpressionPath("${data.steps." + child.Id + "}", remainingPath.Skip(1).ToArray()), child.Id);
+            }
 
             var matchingProducer = producers.FirstOrDefault(producer =>
                 string.Equals(producer.Workflow, workflowName, StringComparison.Ordinal)
@@ -10594,7 +10607,8 @@ public sealed partial class WorkflowPlanExecutor
                     workflowName,
                     ResolveInstancePath(sourceStep.Input, remainingPath),
                     artifactKind,
-                    visited);
+                    visited,
+                    sourceStep.Id);
             }
 
             if (!string.Equals(sourceStep.Type, "workflow.call", StringComparison.Ordinal))

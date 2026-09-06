@@ -59,6 +59,8 @@ public static class PlanningBehaviorPlans
                 if (node.Kind == "decision")
                 {
                     if (node.Outcomes.Count < 2 || node.Outcomes.Count(o => o.IsDefault) != 1 || node.Outcomes.Any(o => string.IsNullOrWhiteSpace(o.Key) || string.IsNullOrWhiteSpace(o.Description)) || node.Outcomes.Select(o => o.Key).Distinct(StringComparer.Ordinal).Count() != node.Outcomes.Count) Error(location, "A decision needs distinct described outcomes and exactly one explicit default, including any no-action outcome.");
+                    foreach (var fallback in node.Outcomes.Where(o => o.IsDefault))
+                        if (MayMutate(fallback.Steps, new(StringComparer.Ordinal))) Error(location + "/outcomes/" + fallback.Key, "The default must be non-mutating. Place write and lifecycle operations under explicit decision outcomes; retain cleanup in finally.");
                 }
                 else if (node.Outcomes.Count != 0) Error(location, "Only decisions declare outcomes.");
             }
@@ -70,11 +72,39 @@ public static class PlanningBehaviorPlans
             if (cap.OperationIds.Any(id => !owners.Contains(id))) Error("/workflows", "Required operations have no owner: " + string.Join(", ", cap.OperationIds.Where(id => !owners.Contains(id))));
             if (cap.StepType == "mcp.call" && !plan.Workflows.SelectMany(w => Enumerate(w.Steps.Concat(w.Finally))).Any(n => n.CapabilityId == cap.Id)) Error("/workflows", "Required external capability " + cap.Id + " is missing from the behavior. Add its action under its operation owner: " + string.Join(", ", cap.OperationIds));
         }
+        foreach (var group in preparation.Capabilities.Where(c => c.Required && c.Activation is not null).GroupBy(c => c.Activation!.Group, StringComparer.Ordinal))
+        {
+            var activation = group.First().Activation!;
+            foreach (var capability in group)
+                if (plan.Workflows.SelectMany(w => Enumerate(w.Steps.Concat(w.Finally))).Count(n => n.CapabilityId == capability.Id) != 1)
+                    Error("/workflows", "Conditional capability " + capability.Id + " must occur exactly once in its declared activation outcome.");
+            var decisions = plan.Workflows.SelectMany(w => Enumerate(w.Steps.Concat(w.Finally))).Where(n => n.Kind == "decision").Where(n =>
+                n.Outcomes.Where(o => !o.IsDefault).Select(o => o.Key).Order(StringComparer.Ordinal).SequenceEqual(activation.AllowedValues.Order(StringComparer.Ordinal)) &&
+                group.All(c => n.Outcomes.Count(o => !o.IsDefault && o.Key == c.Activation!.BranchValue && Enumerate(o.Steps).Count(s => s.CapabilityId == c.Id) == 1) == 1)).ToArray();
+            if (decisions.Length != 1) Error("/workflows", "Conditional group " + group.Key + " needs one decision with every exact explicit outcome [" + string.Join(", ", activation.AllowedValues) + "] and its declared actions under their branch values, plus a separate non-mutating default.");
+            else foreach (var outcome in decisions[0].Outcomes.Where(o => activation.NoEffectValues.Contains(o.Key, StringComparer.Ordinal)))
+                if (MayMutate(outcome.Steps, new(StringComparer.Ordinal))) Error("/workflows", "Declared no-effect outcome " + outcome.Key + " must not mutate external state.");
+        }
         var visited = new HashSet<string>(StringComparer.Ordinal);
         var active = new HashSet<string>(StringComparer.Ordinal);
         Visit(plan.Entrypoint);
         if (plan.Workflows.Any(w => !visited.Contains(w.Key))) Error("/workflows", "Every workflow must be reachable from the entrypoint through declared workflow calls.");
         return findings;
+
+        bool MayMutate(IEnumerable<PlanningBehaviorNode> nodes, HashSet<string> visitedWorkflows)
+        {
+            foreach (var node in Enumerate(nodes))
+            {
+                var cap = preparation.Capabilities.FirstOrDefault(c => c.Id == node.CapabilityId);
+                if (cap?.StepType == "mcp.call" && cap.EffectKind is not ("read" or "none")) return true;
+                if (node.Kind == "workflow" && node.WorkflowKey is { } target && visitedWorkflows.Add(target))
+                {
+                    var workflow = plan.Workflows.FirstOrDefault(w => w.Key == target);
+                    if (workflow is not null && MayMutate(workflow.Steps.Concat(workflow.Finally), visitedWorkflows)) return true;
+                }
+            }
+            return false;
+        }
 
         void Visit(string key)
         {

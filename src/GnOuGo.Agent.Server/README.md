@@ -29,6 +29,9 @@ constructed. It shows operation ownership, business inputs/outputs, decisions (i
 no-action defaults), external effects, runtime confirmations and cleanup. Questions,
 answered forms and recovery actions appear above the diagram. Acceptance locks the
 exact behavior hash. Unapproved legacy candidates return through this review.
+Decision outcomes must match locked activation values, and defaults cannot contain writes
+or lifecycle operations. A retained review invalidated by these contract checks requires
+a fresh review; retry preserves its request, answers, history and cumulative spending.
 Elaboration validates native inputs, producer fields, templates, JavaScript syntax and
 schemas; repairs use atomic field patches. Current findings follow the retained candidate,
 with rejected attempts shown separately. Final approval still requires complete validation.

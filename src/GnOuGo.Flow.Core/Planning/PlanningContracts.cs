@@ -118,7 +118,13 @@ public sealed record PlanningIntentRevision(long Revision, string Prompt, List<P
 public sealed record PlanningPendingCommand(string PreviousStatus, PlanningCommand Command);
 public sealed record PlanningRevision(long Revision, string ArtifactHash, string Status, List<string> ChangedFragments);
 public sealed record PlanningEvent(string Kind, string Phase, DateTimeOffset TimestampUtc, int Count = 0);
-public sealed record PlanningDiagnostic(string Code, string Location, string Message, bool Required = true);
+public sealed record PlanningDiagnostic(string Code, string Location, string Message, bool Required = true, string? ValidationStage = null);
+public static class PlanningValidationStage
+{
+    public const string RuntimeContracts = "runtime_contracts";
+    public const string CapabilityContracts = "capability_contracts";
+    public const string ConditionalActivation = "conditional_activation";
+}
 public sealed record PlanningAttempt(string CandidateHash, string Phase, int Stage, bool Retained, List<PlanningDiagnostic> Diagnostics);
 public sealed record PlanningScenarioResult(string Id, string Outcome, string Description, List<PlanningDiagnostic> Diagnostics);
 
@@ -148,6 +154,9 @@ public sealed class PlanningCapability
     public List<PlanningLiteralBinding> RequestBindings { get; set; } = [];
     public string? DeclarationFingerprint { get; set; }
     public string EffectKind { get; set; } = "unknown";
+    public McpArtifactContract? ArtifactContract { get; set; }
+    public McpCapabilityActivation? Activation { get; set; }
+    public string? CatalogId { get; set; }
 }
 
 public sealed record PlanningLiteralBinding(string Path, JsonNode? Value);
@@ -292,6 +301,7 @@ public interface IWorkflowPlanner
 public interface IPlanningRuntime
 {
     Task<PlanningPreparation> PrepareAsync(PlanningRequest request, CancellationToken ct);
+    Task EnrichPreparationAsync(PlanningPreparation preparation, CancellationToken ct) => Task.CompletedTask;
     Task<LLMResponse> CallAsync(LLMRequest request, string phase, CancellationToken ct);
     Task<IReadOnlyList<PlanningDiagnostic>> ValidateAsync(string yaml, PlanningRequest request, PlanningPreparation preparation, CancellationToken ct);
     Task<IReadOnlyList<PlanningScenarioResult>> ValidateScenariosAsync(string yaml, PlanningPreparation preparation, CancellationToken ct);

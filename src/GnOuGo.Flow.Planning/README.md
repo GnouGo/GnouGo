@@ -85,7 +85,14 @@ annotations must describe actual producer results. `set` computes its output in 
 values (including an object-producing whole-input expression), and ignored `expr`
 fields are rejected. Computed results must satisfy their runtime assertion. Compiler and runtime interpolation
 share JavaScript token boundaries, including nested braces, comments and strings.
-Confirmation choices use `HumanInputContract`.
+Confirmation choices use `HumanInputContract`. Logical-expression type inference follows
+JavaScript operand-return semantics. Runtime contract, capability provenance, scenario,
+and semantic-review passes retain separate validation progress.
+
+Capability metadata includes validated artifact producers and consumers. A loop can
+route an unchanged artifact through an explicit item source and its child result envelope;
+opaque helper calls and transformed artifact values remain unproven. Generation receives
+the deterministic runtime result-key index for container and loop-item addressing.
 
 Executable repairs are atomic patches addressed by workflow/node key and permitted
 field path. Unaffected fields, accepted actions, branch outcomes and finalizers stay
@@ -93,14 +100,17 @@ fixed. A schema may be added to an unchanged literal set only after proving the 
 satisfies it. Removing a non-executable annotation on another step preserves its
 authoritative producer contract. Rejected patches consume the configured repair
 budget and retain their findings separately; they never broaden the allowed scope.
+The next repair also receives rejected validation findings, allowed paths and repair
+hints. A diagnosed loop consumer can repair its owning item source; a diagnosed
+computation can repair its declared helper dependency. Loop guards stay protected.
 Attempt history retains candidate hashes, validation stages and findings;
 rejected attempts are shown separately from current findings. Reaching a later stage
 counts as progress even if it exposes more errors. A new helper's missing JSDoc may
 remain as a targeted finding when a repair fixes existing defects; removing a contract
 from a previously valid function remains a regression. Runtime findings are mapped
 back to stable workflow/node fields, including identically named nodes in different
-workflows. Exhausted repair enters durable
-recovery, and waiting never consumes active planning time.
+workflows. Scenario failures retain the failing step and execution cause. Exhausted repair
+enters durable recovery, and waiting never consumes active planning time.
 
 `PlanningValue.ResultChannel` is optional: null/`default` retains legacy result addressing,
 while `structured` selects validated `mcp.call`/`llm.call` structured-output `.json`.

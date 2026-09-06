@@ -2440,6 +2440,62 @@ public sealed class WorkflowPlanCapabilityPreflightTests
         Assert.True(result.Success, result.Error?.Message);
     }
 
+    [Theory]
+    [InlineData("loop.sequential", false)]
+    [InlineData("loop.parallel", false)]
+    [InlineData("loop.sequential", true)]
+    public async Task ExplicitPreflight_TracesExactLoopItemsWithoutAcceptingTransformations(string loopType, bool transform)
+    {
+        var projectRoot = transform ? "${toString(data.current.materialize.response.projectRootRelative)}" : "${data.current.materialize.response.projectRootRelative}";
+        var workflow = $$"""
+            version: 1
+            name: generated-loop-artifacts
+            skill:
+              description: Reuse each unchanged artifact.
+              inputs: {}
+              outputs: {}
+            workflows:
+              main:
+                steps:
+                  - id: produce
+                    type: {{loopType}}
+                    input: {items: [seed]}
+                    steps:
+                      - id: materialize
+                        type: mcp.call
+                        input:
+                          server: workspace-provider
+                          kind: tool
+                          method: create_workspace
+                          request: {sourceUrl: 'https://example.invalid/source'}
+                  - id: consume
+                    type: {{loopType}}
+                    item_var: current
+                    input:
+                      items: ${data.steps.produce.results}
+                    steps:
+                      - id: inspect
+                        type: mcp.call
+                        input:
+                          server: workspace-consumer
+                          kind: tool
+                          method: inspect_workspace
+                          request:
+                            projectRoot: {{projectRoot}}
+                      - id: verify
+                        type: mcp.call
+                        input:
+                          server: workspace-consumer
+                          kind: tool
+                          method: verify_workspace
+                          request:
+                            projectRoot: {{projectRoot}}
+            """;
+        var result = await ExecuteAsync(WorkspacePlan(false), ConstantLlm(workflow).Object, CreateArtifactFactory());
+        Assert.True(result.Success == !transform, result.Error?.Message);
+        if (transform) Assert.Contains("unproven_artifact_provenance", result.Error!.Message);
+    }
+
     [Fact]
     public async Task ExplicitPreflight_PreservesArtifactProvenanceAcrossTypedWorkflowBoundaries()
     {
