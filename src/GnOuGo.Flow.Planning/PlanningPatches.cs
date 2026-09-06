@@ -52,10 +52,14 @@ public static class PlanningPatches
                 target = Nodes(workflow["steps"]!.AsArray().Concat(workflow["finally"]!.AsArray())).SingleOrDefault(n => n["key"]!.GetValue<string>() == nodeKey) ?? throw new InvalidOperationException("Unknown patch node.");
             if (!allowed.Contains(coordinate))
             {
-                // Adding a proven runtime assertion to a literal set cannot change its value.
                 var node = nodeKey is null ? null : JsonSerializer.Deserialize(target, PlanningJsonContext.Default.PlanningNode);
                 var schema = field == "outputSchema" && patch["value"] is { } value ? JsonSerializer.Deserialize(value, PlanningJsonContext.Default.PlanningSchema) : null;
-                if (node?.Type != "set" || node.OutputSchema is not null || schema is null || !PlanningGraphValidation.IsLiteral(node.Input) || PlanningContractValidation.ValidateInstance(PlanningGraphValidation.Literal(node.Input), PlanningGraphCompiler.ToJsonSchema(schema, preparation)).Count != 0)
+                // Non-set annotations never emit an assertion or establish a producer contract.
+                // Removing one preserves both execution and authoritative provenance checks.
+                var annotationRemoval = field == "outputSchema" && patch["value"] is null && node is { Type: not "set" };
+                // Adding a proven runtime assertion to a literal set cannot change its value.
+                var provenAssertion = node?.Type == "set" && node.OutputSchema is null && schema is not null && PlanningGraphValidation.IsLiteral(node.Input) && PlanningContractValidation.ValidateInstance(PlanningGraphValidation.Literal(node.Input), PlanningGraphCompiler.ToJsonSchema(schema, preparation)).Count == 0;
+                if (!annotationRemoval && !provenAssertion)
                     throw new InvalidOperationException("The patch targets a field outside the diagnosed dependency scope: " + coordinate);
             }
             if (field.StartsWith("cases/", StringComparison.Ordinal))
@@ -74,7 +78,7 @@ public static class PlanningPatches
     public static HashSet<string> Scope(PlanningGraph graph, IReadOnlyList<PlanningDiagnostic> diagnostics)
     {
         var allowed = new HashSet<string>(StringComparer.Ordinal);
-        if (diagnostics.Any(d => d.Location == "/functions")) allowed.Add(Coordinate(null, null, "functions"));
+        if (diagnostics.Any(d => d.Location == "/functions" || d.Location.StartsWith("/functions/", StringComparison.Ordinal))) allowed.Add(Coordinate(null, null, "functions"));
         for (var wi = 0; wi < graph.Workflows.Count; wi++)
         {
             var workflow = graph.Workflows[wi]; var path = "/workflows/" + wi;

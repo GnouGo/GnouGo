@@ -104,13 +104,15 @@ public sealed partial class PlanningGraphCompiler
         if (!scope.Preparation.AllowedStepTypes.Contains(node.Type, StringComparer.Ordinal))
             throw new InvalidOperationException("A node uses a step type outside the locked policy.");
         var result = new JsonObject { ["id"] = scope.NodeIds[node.Key], ["type"] = node.Type };
-        var input = LowerValue(node.Input, scope) as JsonObject
-            ?? throw new InvalidOperationException("A step input must be a typed object.");
+        var loweredInput = LowerValue(node.Input, scope);
+        var computedSetInput = node.Type == "set" && node.Input.Kind is "expression" or "input" or "output";
+        var input = loweredInput as JsonObject ?? (computedSetInput ? new JsonObject() : throw new InvalidOperationException("A step input must be a typed object."));
         if (node.CapabilityId is { Length: > 0 })
         {
             var capability = scope.Preparation.Capabilities.SingleOrDefault(c => c.Id == node.CapabilityId)
                 ?? throw new InvalidOperationException("Unknown capability reference.");
             if (capability.StepType != node.Type) throw new InvalidOperationException("The node does not implement its selected capability type.");
+            if (computedSetInput && capability.FixedInput.Count != 0) throw new InvalidOperationException("Locked input fields require an explicit object input.");
             foreach (var (key, value) in capability.FixedInput)
             {
                 if (input[key] is not null && !JsonNode.DeepEquals(input[key], value))
@@ -131,7 +133,8 @@ public sealed partial class PlanningGraphCompiler
             }
         }
         else if (node.Type == "mcp.call") throw new InvalidOperationException("An external call must reference a locked capability.");
-        if (input.Count > 0) result["input"] = input;
+        if (computedSetInput) result["input"] = loweredInput;
+        else if (input.Count > 0) result["input"] = input;
         if (node.If is not null) result["if"] = ToExpression(node.If, scope);
         if (node.Expr is not null) result["expr"] = ToExpression(node.Expr, scope);
         if (node.OutputSchema is not null && node.Type == "set") result["output_schema"] = ToJsonSchema(node.OutputSchema, scope.Preparation);

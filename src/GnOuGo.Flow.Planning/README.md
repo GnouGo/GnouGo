@@ -82,16 +82,24 @@ runtime `structured_output`; original results and validated `.json` remain disti
 Independent validation collects schema, producer, native-input, template, expression
 and function-syntax findings before repair. Only `set` emits `output_schema`; other
 annotations must describe actual producer results. `set` computes its output in input
-values, and ignored `expr` fields are rejected. Compiler and runtime interpolation
+values (including an object-producing whole-input expression), and ignored `expr`
+fields are rejected. Computed results must satisfy their runtime assertion. Compiler and runtime interpolation
 share JavaScript token boundaries, including nested braces, comments and strings.
 Confirmation choices use `HumanInputContract`.
 
 Executable repairs are atomic patches addressed by workflow/node key and permitted
 field path. Unaffected fields, accepted actions, branch outcomes and finalizers stay
 fixed. A schema may be added to an unchanged literal set only after proving the value
-satisfies it. Attempt history retains candidate hashes, validation stages and findings;
+satisfies it. Removing a non-executable annotation on another step preserves its
+authoritative producer contract. Rejected patches consume the configured repair
+budget and retain their findings separately; they never broaden the allowed scope.
+Attempt history retains candidate hashes, validation stages and findings;
 rejected attempts are shown separately from current findings. Reaching a later stage
-counts as progress even if it exposes more errors. Exhausted repair enters durable
+counts as progress even if it exposes more errors. A new helper's missing JSDoc may
+remain as a targeted finding when a repair fixes existing defects; removing a contract
+from a previously valid function remains a regression. Runtime findings are mapped
+back to stable workflow/node fields, including identically named nodes in different
+workflows. Exhausted repair enters durable
 recovery, and waiting never consumes active planning time.
 
 `PlanningValue.ResultChannel` is optional: null/`default` retains legacy result addressing,

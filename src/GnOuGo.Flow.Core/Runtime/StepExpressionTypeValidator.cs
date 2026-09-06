@@ -398,6 +398,47 @@ internal static class StepExpressionTypeValidator
                 : FlowTypeDescriptor.Union(new[] { trueType, falseType });
         }
 
+        // JavaScript logical operators return operands, not coerced booleans.
+        // Use the parser's precedence and token boundaries before literal heuristics.
+        if (expression.Contains("&&", StringComparison.Ordinal) || expression.Contains("||", StringComparison.Ordinal) || expression.Contains("??", StringComparison.Ordinal))
+        {
+            Acornima.Ast.Expression? parsed = null;
+            try { parsed = new Acornima.Parser().ParseExpression(expression); }
+            catch (Acornima.ParseErrorException) { /* Syntax validation reports malformed expressions separately. */ }
+            if (parsed is Acornima.Ast.LogicalExpression logical)
+            {
+                var leftText = expression[logical.Left.Start..logical.Left.End];
+                var rightText = expression[logical.Right.Start..logical.Right.End];
+                var left = InferExpressionType(leftText, workflowInputs, knownStepOutputs, dataVariables, nonNullReferences);
+                var right = InferExpressionType(rightText, workflowInputs, knownStepOutputs, dataVariables, nonNullReferences);
+                if (left is null || right is null) return null;
+                if (leftText is "true" or "false" or "null")
+                {
+                    var useRight = logical.Operator switch
+                    {
+                        Acornima.Operator.LogicalAnd => leftText == "true",
+                        Acornima.Operator.LogicalOr => leftText != "true",
+                        _ => leftText == "null"
+                    };
+                    return useRight ? right : left;
+                }
+                var variants = left.Kind == FlowTypeKind.Union ? left.Variants : [left];
+                var retained = variants.Where(v => logical.Operator switch
+                {
+                    Acornima.Operator.LogicalAnd => v.Kind is not (FlowTypeKind.Object or FlowTypeKind.Array or FlowTypeKind.Dictionary),
+                    _ => v.Kind != FlowTypeKind.Null
+                }).ToList();
+                var canUseRight = variants.Any(v => logical.Operator switch
+                {
+                    Acornima.Operator.LogicalAnd => v.Kind != FlowTypeKind.Null,
+                    Acornima.Operator.LogicalOr => v.Kind is not (FlowTypeKind.Object or FlowTypeKind.Array or FlowTypeKind.Dictionary),
+                    _ => v.Kind is FlowTypeKind.Null or FlowTypeKind.Any
+                });
+                if (canUseRight) retained.Add(right);
+                return FlowTypeDescriptor.Union(retained);
+            }
+        }
+
         var inputMatch = InputReference.Match(expression);
         if (inputMatch.Success && workflowInputs != null
             && workflowInputs.TryGetValue(inputMatch.Groups[1].Value, out var inputType))

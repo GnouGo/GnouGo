@@ -32,7 +32,10 @@ public static class PlanningExecutableValidation
                 }
                 try
                 {
-                    var input = Preview(node.Input) as JsonObject ?? throw new InvalidOperationException("A step requires an object input.");
+                    var preview = Preview(node.Input);
+                    // set resolves its entire input value at runtime and can assert the result schema.
+                    if (node.Type == "set" && node.Input.Kind is "expression" or "input" or "output") continue;
+                    var input = preview as JsonObject ?? throw new InvalidOperationException("This step requires an object input. For set, put computations in input values or supply an object-producing expression.");
                     var capability = preparation.Capabilities.FirstOrDefault(c => c.Id == node.CapabilityId);
                     if (capability is not null)
                     {
@@ -111,9 +114,45 @@ public static class PlanningExecutableValidation
 
     public static IReadOnlyList<PlanningDiagnostic> CompilerErrors(WorkflowCompilationException exception, PlanningGraph graph)
     {
-        var locations = graph.Workflows.SelectMany((w, wi) => PlanningGraphValidation.Located(w.Steps, "/workflows/" + wi + "/steps").Concat(PlanningGraphValidation.Located(w.Finally, "/workflows/" + wi + "/finally")))
-            .ToLookup(n => "n_" + PlanningGraphCompiler.Fingerprint(n.Node.Key)[..16], StringComparer.Ordinal);
-        return exception.Errors.Select(e => new PlanningDiagnostic(e.Code, e.StepId is { } id && locations[id].Any() ? locations[id].First().Path + "/" + (e.Field ?? "").Replace('.', '/') : "/workflows", e.Message)).ToArray();
+        var locations = graph.Workflows.SelectMany((w, wi) => PlanningGraphValidation.Located(w.Steps, "/workflows/" + wi + "/steps").Concat(PlanningGraphValidation.Located(w.Finally, "/workflows/" + wi + "/finally"))
+            .Select(n => (Workflow: w.Key == graph.Entrypoint ? "main" : "w_" + PlanningGraphCompiler.Fingerprint(w.Key)[..16], Id: "n_" + PlanningGraphCompiler.Fingerprint(n.Node.Key)[..16], n.Path))).ToArray();
+        return exception.Errors.Select(e =>
+        {
+            var matches = locations.Where(n => n.Id == e.StepId && (e.WorkflowName is null || n.Workflow == e.WorkflowName)).ToArray();
+            return new PlanningDiagnostic(e.Code, matches.Length == 1 ? matches[0].Path + "/" + (e.Field ?? "").Replace('.', '/') : "/workflows", e.Message);
+        }).ToArray();
+    }
+
+    public static PlanningDiagnostic MapRuntimeDiagnostic(PlanningDiagnostic diagnostic, PlanningGraph graph)
+    {
+        if (diagnostic.Location.StartsWith("field:functions", StringComparison.Ordinal))
+            return diagnostic with { Location = "/" + diagnostic.Location["field:".Length..].Replace('.', '/') };
+        if (!diagnostic.Location.StartsWith("workflow:", StringComparison.Ordinal)) return diagnostic;
+        var parts = diagnostic.Location.Split('/');
+        var workflowName = parts[0]["workflow:".Length..];
+        var wi = graph.Workflows.FindIndex(w => (w.Key == graph.Entrypoint ? "main" : "w_" + PlanningGraphCompiler.Fingerprint(w.Key)[..16]) == workflowName);
+        if (wi < 0) return diagnostic;
+        var workflow = graph.Workflows[wi]; var path = "/workflows/" + wi;
+        var field = parts.FirstOrDefault(p => p.StartsWith("field:", StringComparison.Ordinal))?["field:".Length..];
+        var step = parts.FirstOrDefault(p => p.StartsWith("step:", StringComparison.Ordinal))?["step:".Length..];
+        if (step is not null)
+        {
+            var locations = PlanningGraphValidation.Located(workflow.Steps, path + "/steps").Concat(PlanningGraphValidation.Located(workflow.Finally, path + "/finally"))
+                .Where(n => "n_" + PlanningGraphCompiler.Fingerprint(n.Node.Key)[..16] == step).ToArray();
+            if (locations.Length != 1) return diagnostic;
+            path = locations[0].Path;
+        }
+        else if (field is not null)
+        {
+            foreach (var boundary in new[] { "inputs", "outputs" })
+            {
+                if (!field.StartsWith(boundary + ".", StringComparison.Ordinal)) continue;
+                var names = boundary == "inputs" ? workflow.Inputs.Select(p => p.Name) : workflow.Outputs.Select(p => p.Name);
+                var index = names.ToList().FindIndex(n => field == boundary + "." + n);
+                if (index >= 0) return diagnostic with { Location = path + "/" + boundary + "/" + index };
+            }
+        }
+        return diagnostic with { Location = path + (field is null ? "" : "/" + field.Replace('.', '/')) };
     }
 
     private static JsonNode? Preview(PlanningValue value) => value.Kind switch

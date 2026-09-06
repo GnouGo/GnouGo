@@ -89,6 +89,41 @@ public sealed class ExecutableConstructionTests
     }
 
     [Fact]
+    public void RemovingNonExecutableAnnotationsPreservesProducerAndExecutableContracts()
+    {
+        var graph = Graph(); var preparation = Preparation();
+        var node = graph.Workflows[0].Steps[0]; node.Type = "mcp.call"; node.CapabilityId = "renamed";
+        preparation.Capabilities.Add(new() { Id = "renamed", StepType = "mcp.call", Server = "host", Method = "tool", Kind = "tool", InputSchema = new() { ["type"] = "object" }, OutputSchema = new() { ["type"] = "object", ["properties"] = new JsonObject { ["message"] = new JsonObject { ["type"] = "string" } }, ["required"] = new JsonArray("message") } });
+        node.Input = Obj(); node.OutputSchema = new() { CapabilityId = "renamed", SchemaPointer = "/output" };
+        var candidate = PlanningPatches.Apply(graph, Changes(Patch("greeting", "outputSchema", null)), new HashSet<string>(), preparation);
+        Assert.Equal(new PlanningGraphCompiler().Compile(graph, preparation), new PlanningGraphCompiler().Compile(candidate, preparation));
+        Assert.Empty(PlanningGraphValidation.Validate(candidate, preparation));
+        candidate.Workflows[0].Outputs[0].Value.Path = ["invented"];
+        Assert.Contains(PlanningGraphValidation.Validate(candidate, preparation), d => d.Code == "OUTPUT_REFERENCE_INVALID");
+        node.Type = "set";
+        Assert.Throws<InvalidOperationException>(() => PlanningPatches.Apply(graph, Changes(Patch("greeting", "outputSchema", null)), new HashSet<string>(), preparation));
+    }
+
+    [Fact]
+    public async Task RejectedPatchesRetryWithinBudgetWithoutExpandingScope()
+    {
+        var state = Session(PlanningStatus.Generating); state.Graph = Graph(); state.Preparation = Preparation();
+        state.RepairAttempt = 1; state.Request.MaxRepairs = 2;
+        state.Diagnostics = [new("EXPR_PARSE", "/workflows/0/steps/0/input", "Fix the expression")];
+        var before = PlanningGraphCompiler.Fingerprint(state.Graph);
+        var runtime = new FakeRuntime { OnCall = (_, _, _) => Task.FromResult(new LLMResponse { Json = Changes(Patch(null, "functions", "function unauthorized() {}")) }) };
+        var planner = new TypedWorkflowPlanner();
+        state = await planner.AdvanceAsync(state, new() { ExpectedRevision = state.Revision }, runtime, Ct);
+        Assert.Equal(PlanningStatus.Generating, state.Status); Assert.Equal(2, state.RepairAttempt);
+        state = await planner.AdvanceAsync(state, new() { ExpectedRevision = state.Revision }, runtime, Ct);
+        Assert.Equal(PlanningStatus.Recovery, state.Status); Assert.Equal(2, runtime.Requests.Count);
+        Assert.Equal(before, PlanningGraphCompiler.Fingerprint(state.Graph!));
+        Assert.DoesNotContain(state.Diagnostics, d => d.Code == "PATCH_REJECTED");
+        Assert.All(state.Attempts, a => { Assert.False(a.Retained); Assert.Contains(a.Diagnostics, d => d.Code == "PATCH_REJECTED"); });
+        Assert.DoesNotContain(PlanningPatches.Coordinate("main", null, "functions"), PlanningPatches.Scope(state.Graph!, state.Diagnostics));
+    }
+
+    [Fact]
     public void ElaborationFillsFieldsWithoutReplacingAcceptedTopology()
     {
         var graph = Graph(); var workflow = graph.Workflows[0];
@@ -120,6 +155,18 @@ public sealed class ExecutableConstructionTests
     }
 
     [Theory]
+    [InlineData("({message:'Hello'})", true)]
+    [InlineData("({message:42})", false)]
+    public async Task WholeSetExpressionsAreValidatedByTheirRuntimeAssertion(string expression, bool success)
+    {
+        var graph = Graph(); var node = graph.Workflows[0].Steps[0];
+        node.Input = new() { Kind = "expression", Text = expression }; node.OutputSchema = ObjectSchema(("message", "string"));
+        Assert.Empty(PlanningExecutableValidation.Validate(graph, Preparation()));
+        var result = await Execute(graph, Preparation());
+        Assert.Equal(success, result.Success);
+    }
+
+    [Theory]
     [InlineData("data.steps['greeting'].message + ' data.steps.unrelated'", "Hello data.steps.unrelated")]
     [InlineData("data['steps']['greeting'].message /* data.steps.unrelated */", "Hello")]
     [InlineData("((data) => data.steps.local)({steps:{local:'local value'}})", "local value")]
@@ -137,6 +184,54 @@ public sealed class ExecutableConstructionTests
     {
         var graph = Graph(); graph.Workflows[0].Steps[0].Input = Obj(("message", new() { Kind = "template", Text = "{{undeclared}}" }));
         Assert.Contains(PlanningExecutableValidation.Validate(graph, Preparation()), d => d.Code == "TEMPLATE_BINDING_INVALID");
+    }
+
+    [Fact]
+    public void CompilerFindingsUseWorkflowIdentityWhenNodeKeysRepeat()
+    {
+        var graph = Graph(); var other = Graph().Workflows[0]; other.Key = "other"; graph.Workflows.Add(other);
+        var errors = new WorkflowCompilationException([new() { Code = "EXPR_PARSE", WorkflowName = "w_" + PlanningGraphCompiler.Fingerprint("other")[..16], StepId = "n_" + PlanningGraphCompiler.Fingerprint("greeting")[..16], Field = "input.message", Message = "Invalid expression" }]);
+        Assert.Equal("/workflows/1/steps/0/input/message", Assert.Single(PlanningExecutableValidation.CompilerErrors(errors, graph)).Location);
+    }
+
+    [Theory]
+    [InlineData("workflow:main/field:functions.compute", "/workflows/0/functions/compute", null, "functions")]
+    [InlineData("workflow:main/field:outputs.message", "/workflows/0/outputs/0", null, "outputs")]
+    public void RuntimeContractFindingsGrantOnlyTheirPlanningField(string location, string expected, string? node, string field)
+    {
+        var graph = Graph(); var finding = PlanningExecutableValidation.MapRuntimeDiagnostic(new("CONTRACT_INVALID", location, "Invalid contract"), graph);
+        Assert.Equal(expected, finding.Location);
+        Assert.Equal([PlanningPatches.Coordinate("main", node, field)], PlanningPatches.Scope(graph, [finding]).ToArray());
+    }
+
+    [Theory]
+    [InlineData("accept", "certain", false, 1, true)]
+    [InlineData("reject", "certain", false, 0, true)]
+    [InlineData("accept", "uncertain", false, 0, true)]
+    [InlineData("accept", "certain", true, 1, false)]
+    public async Task TypedConfirmationAndUncertainDefaultControlWritesAndAlwaysCleanUp(string response, string certainty, bool failWrite, int expectedWrites, bool expectedSuccess)
+    {
+        var graph = Graph(); var workflow = graph.Workflows[0]; var preparation = Preparation();
+        var writes = 0; var cleanups = 0;
+        foreach (var id in new[] { "write", "cleanup" }) preparation.Capabilities.Add(new() { Id = id, StepType = "mcp.call", Server = "renamed", Method = id, Kind = "tool", InputSchema = new() { ["type"] = "object" } });
+        workflow.Outputs.Clear();
+        workflow.Steps = [
+            new() { Key = "confirm", Type = "human.input", Input = Obj(("mode", Str("confirm")), ("prompt", Str("Allow the write?")), ("choices", new() { Kind = "array", Items = [Str("accept"), Str("reject")] })) },
+            new() { Key = "decision", Type = "switch", Cases = [new(null, new() { Kind = "expression", Text = "data.steps.confirm.response === true && '" + certainty + "' === 'certain'" }, [new() { Key = "write", Type = "mcp.call", CapabilityId = "write", Input = Obj() }])] }];
+        workflow.Finally = [new() { Key = "cleanup", Type = "mcp.call", CapabilityId = "cleanup", Input = Obj() }];
+        var factory = new InMemoryMcpClientFactory();
+        factory.RegisterServer("renamed", new() { Tools = [new() { Name = "write", InputSchema = new JsonObject { ["type"] = "object" } }, new() { Name = "cleanup", InputSchema = new JsonObject { ["type"] = "object" } }], ToolHandlers = new() {
+            ["write"] = _ => { writes++; if (failWrite) throw new InvalidOperationException("Simulated write failure"); return new McpCallResult { Content = new JsonObject { ["ok"] = true } }; },
+            ["cleanup"] = _ => { cleanups++; return new McpCallResult { Content = new JsonObject { ["ok"] = true } }; }
+        } });
+        var compiled = new WorkflowCompiler().Compile(WorkflowParser.Parse(new PlanningGraphCompiler().Compile(graph, preparation)));
+        var result = await new WorkflowEngine { McpClientFactory = factory, HumanInputProvider = new Confirm(response) }.ExecuteAsync(compiled.Workflows[compiled.Entrypoint!], new JsonObject(), Ct);
+        Assert.True(expectedSuccess == result.Success, result.Error?.Message); Assert.Equal(expectedWrites, writes); Assert.Equal(1, cleanups);
+    }
+
+    private sealed class Confirm(string response) : IHumanInputProvider
+    {
+        public Task<JsonNode?> RequestInputAsync(HumanInputRequest request, CancellationToken ct) => Task.FromResult<JsonNode?>(JsonValue.Create(response));
     }
 
     [Fact]
@@ -209,6 +304,22 @@ public sealed class ExecutableConstructionTests
         Assert.DoesNotContain(state.Diagnostics, d => d.Code == "NATIVE_FIELD_UNSUPPORTED");
         Assert.Contains(state.Diagnostics, d => d.Code == "LATER_CONTRACT");
         Assert.True(state.Attempts[^1].Retained);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task NewHelperContractFindingsDoNotDiscardProgressOrPermitLosingExistingContracts(bool existed)
+    {
+        var state = Session(PlanningStatus.Validating); state.Graph = Graph(); state.Preparation = Preparation(); state.Request.MaxRepairs = 0;
+        state.Graph.Workflows[0].Functions = "/** @returns {string} A value */ function original() { return 'value'; } function helper() { return 'new'; }";
+        state.BestGraph = Graph(); state.BestGraph.Workflows[0].Functions = "function original() { return 'value'; }" + (existed ? "/** @returns {string} A value */ function helper() { return 'new'; }" : "");
+        state.BestDiagnostics = [new("FUNCTION_JSDOC_MISSING", "/workflows/0/functions/original", "Original contract missing"), new("STEP_REFERENCE_NOT_AVAILABLE", "/workflows/0/outputs/0", "Old reference")];
+        state.Attempts.Add(new(PlanningGraphCompiler.Fingerprint(state.BestGraph), PlanningStatus.Validating, 5, true, state.BestDiagnostics.ToList()));
+        var runtime = new FakeRuntime { ValidationResult = _ => [new("FUNCTION_JSDOC_MISSING", "workflow:main/field:functions.helper", "Helper contract missing")] };
+        state = await new TypedWorkflowPlanner().AdvanceAsync(state, new() { ExpectedRevision = state.Revision }, runtime, Ct);
+        Assert.Equal(!existed, state.Attempts[^1].Retained);
+        Assert.Equal(!existed, state.Diagnostics.Any(d => d.Location == "/workflows/0/functions/helper"));
     }
 
     [Fact]

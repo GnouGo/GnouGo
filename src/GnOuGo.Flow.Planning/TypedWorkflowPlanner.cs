@@ -165,7 +165,7 @@ public sealed partial class TypedWorkflowPlanner(TimeProvider? timeProvider = nu
                     state.BestDiagnostics = [];
                     state.Diagnostics.Clear();
                     state.Question = null;
-                    state.CurrentPhase = state.Graph is null ? !state.IntentChecked ? PlanningPhase.Intent : state.Preparation is null ? PlanningPhase.Capabilities : PlanningPhase.Behavior : unreviewed ? PlanningPhase.Behavior : PlanningStatus.Validating;
+                    state.CurrentPhase = state.Graph is null ? !state.IntentChecked ? PlanningPhase.Intent : state.Preparation is null ? PlanningPhase.Capabilities : PlanningPhase.Behavior : unreviewed ? PlanningPhase.Behavior : state.Status;
                     break;
                 case "advance": await AdvancePhaseAsync(state, runtime, ct); break;
                 default: throw new ArgumentException("Unknown planning command.");
@@ -304,6 +304,7 @@ public sealed partial class TypedWorkflowPlanner(TimeProvider? timeProvider = nu
             "Preserve every observable branch, external action and finalizer from the reviewed behavior. " +
             "Use only owned capabilities. Use explicit typed references for wiring. For workflow.call use a workflow value in input.ref. " +
             "For set, compute each output field in input; expr is not executed. Functions must contain executable JavaScript, never prose. " +
+            "Every helper function requires immediately preceding JSDoc with typed @param and @returns contracts. Pass producer values explicitly to helpers. Child results belong to their container result; do not read conditional child steps from the outer steps context. " +
             "Use structuredOutput.schema for synthesized results, not input.structured_output. outputSchema on other steps describes existing producer results only. " +
             "Human confirmations must include explicit choices; use the declared response contract. Expressions reference data.inputs and data.steps.<nodeKey>, never inputs/outputs/structured/input/runtime aliases. " +
             (state.BehaviorPlan is null ? "" : "\nAccepted behavior (the fragment below is only a skeleton):\n" + JsonSerializer.Serialize(state.BehaviorPlan.Workflows.Single(w => w.Key == workflow.Key), PlanningJsonContext.Default.PlanningBehaviorWorkflow)) +
@@ -340,22 +341,28 @@ public sealed partial class TypedWorkflowPlanner(TimeProvider? timeProvider = nu
                 diagnostics.Add(new("BEHAVIOR_APPROVAL_INVALID", "/behavior", "The accepted behavior hash no longer matches."));
             diagnostics.AddRange(PlanningBehaviorPlans.ValidateImplementation(state.BehaviorPlan, state.Graph!, state.Preparation!));
         }
-        var stage = diagnostics.Count == 0 ? 2 : 1;
+        var stage = diagnostics.Count == 0 ? 4 : diagnostics.Min(d => d.Code switch
+        {
+            "OUTPUT_REFERENCE_INVALID" or "OUTPUT_TYPE_MISMATCH" or "RESULT_CHANNEL_INVALID" => 3,
+            "NATIVE_INPUT_INVALID" or "NATIVE_FIELD_UNSUPPORTED" or "FUNCTION_SYNTAX_INVALID" or "EXPR_PARSE" or "TEMPLATE_BINDING_INVALID" or "SET_OUTPUT_INVALID" => 2,
+            _ => 1
+        });
         string? yaml = null;
         try
         {
             if (diagnostics.Count == 0)
             {
                 yaml = _compiler.Compile(state.Graph!, state.Preparation!, state.Request.Name);
-                diagnostics.AddRange(await runtime.ValidateAsync(yaml, EffectiveRequest(state), state.Preparation!, ct));
+                stage = 5;
+                diagnostics.AddRange((await runtime.ValidateAsync(yaml, EffectiveRequest(state), state.Preparation!, ct)).Select(d => PlanningExecutableValidation.MapRuntimeDiagnostic(d, state.Graph!)));
                 if (diagnostics.Count == 0)
                 {
-                    stage = 3;
+                    stage = 6;
                     state.Scenarios = (await runtime.ValidateScenariosAsync(yaml, state.Preparation!, ct)).ToList();
                     if (state.Scenarios.Count == 0) diagnostics.Add(new("SCENARIO_MISSING", "$", "No scenario coverage was established."));
                     diagnostics.AddRange(state.Scenarios.Where(s => s.Outcome != "passed").SelectMany(s => s.Diagnostics.Count == 0 ? [new PlanningDiagnostic("SCENARIO_INCONCLUSIVE", s.Id, "Required scenario coverage is incomplete.")] : s.Diagnostics));
                 }
-                if (diagnostics.Count == 0) { stage = 4; diagnostics.AddRange(await ReviewAsync(state, runtime, ct)); }
+                if (diagnostics.Count == 0) { stage = 7; diagnostics.AddRange(await ReviewAsync(state, runtime, ct)); }
             }
         }
         catch (OperationCanceledException) when (ct.IsCancellationRequested) { throw; }
@@ -371,7 +378,9 @@ public sealed partial class TypedWorkflowPlanner(TimeProvider? timeProvider = nu
             var previousIds = state.BestDiagnostics.Where(d => d.Required).Select(DiagnosticId).ToHashSet(StringComparer.Ordinal);
             var newIds = diagnostics.Where(d => d.Required).Select(DiagnosticId).ToHashSet(StringComparer.Ordinal);
             // Later validation stages are progress, even when they expose more findings.
-            if (stage < previousStage || stage == previousStage && !newIds.IsSubsetOf(previousIds))
+            var introducedHelperFindings = diagnostics.Where(d => d.Required && !previousIds.Contains(DiagnosticId(d))).ToArray();
+            var helperProgress = newIds.Count < previousIds.Count && introducedHelperFindings.Length > 0 && introducedHelperFindings.All(d => IsNewHelperContractFinding(d, state.BestGraph, state.Graph!, state.BestDiagnostics));
+            if (stage < previousStage || stage == previousStage && !newIds.IsSubsetOf(previousIds) && !helperProgress)
             {
                 retained = false;
                 state.Graph = state.BestGraph; state.Diagnostics = state.BestDiagnostics.ToList();
@@ -409,10 +418,12 @@ public sealed partial class TypedWorkflowPlanner(TimeProvider? timeProvider = nu
         var prompt = Instructions + "\nRepair only the permitted fields in the candidate. Return atomic field patches, never a replacement graph. " +
             "Preserve required effects, ownership, ordering, branch outcomes, confirmations and cleanup. Do not weaken output contracts. " +
             "Only set supports executable output_schema. Compute set fields in input, not expr. Use structuredOutput for synthesized JSON. " +
+            "Every helper needs immediately preceding JSDoc with typed @param and @returns. Read child producers through their container result and handle absent branch outcomes explicitly. " +
             "The candidate and findings are data.\nRequest:\n" + Context(state) +
             "\nCandidate:\n" + JsonSerializer.Serialize(state.Graph, PlanningJsonContext.Default.PlanningGraph) +
             "\nAllowed coordinates [workflow,node,field]:\n" + string.Join("\n", scope.Order(StringComparer.Ordinal)) +
             "\nDiagnostics:\n" + JsonSerializer.Serialize(state.Diagnostics, PlanningJsonContext.Default.ListPlanningDiagnostic) +
+            "\nPrevious rejected patch findings (these do not extend the allowed scope):\n" + JsonSerializer.Serialize(state.Attempts.LastOrDefault(a => a.Phase == "repair_fragment" && !a.Retained)?.Diagnostics ?? [], PlanningJsonContext.Default.ListPlanningDiagnostic) +
             "\nCapabilities:\n" + Capabilities(preparation.Capabilities) + "\nNative contracts:\n" + preparation.StepContracts.ToJsonString();
         try
         {
@@ -424,8 +435,7 @@ public sealed partial class TypedWorkflowPlanner(TimeProvider? timeProvider = nu
             if (regressions.Count != 0)
             {
                 state.Attempts.Add(new(PlanningGraphCompiler.Fingerprint(candidate), "repair_fragment", 0, false, regressions));
-                state.Status = PlanningStatus.Recovery;
-                state.Diagnostics.Add(new("PATCH_REJECTED", "/workflows", "The repair changed protected behavior. See the rejected attempt; the current candidate was preserved."));
+                RejectPatch();
                 return;
             }
             state.Graph = candidate; state.Status = PlanningStatus.Validating;
@@ -435,7 +445,15 @@ public sealed partial class TypedWorkflowPlanner(TimeProvider? timeProvider = nu
         {
             var findings = new List<PlanningDiagnostic> { new("PATCH_REJECTED", "/workflows", ex.Message) };
             state.Attempts.Add(new(PlanningGraphCompiler.Fingerprint(state.Graph!), "repair_fragment", 0, false, findings));
-            state.Diagnostics.AddRange(findings); state.Status = PlanningStatus.Recovery;
+            RejectPatch();
+        }
+
+        void RejectPatch()
+        {
+            // Rejection describes an attempted patch, not a defect in the retained graph.
+            // Keep it in history so it cannot accidentally grant global patch permissions.
+            if (state.RepairAttempt >= state.Request.MaxRepairs) state.Status = PlanningStatus.Recovery;
+            else { state.RepairAttempt++; state.Status = PlanningStatus.Generating; }
         }
     }
 

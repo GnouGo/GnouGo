@@ -9,6 +9,20 @@ namespace GnOuGo.Flow.Tests.Runtime;
 
 public sealed class StepExpressionTypeValidationTests
 {
+    [Theory]
+    [InlineData("data.steps.source && data.steps.source.message || 'fallback'", "string")]
+    [InlineData("data.steps.source && data.steps.source.items || []", "array")]
+    [InlineData("false || 'fallback'", "string")]
+    [InlineData("null ?? 'fallback'", "string")]
+    [InlineData("true && false", "boolean")]
+    [InlineData("data.steps.source.message === 'yes' || false", "boolean")]
+    public void LogicalExpressionsInferReturnedOperands(string expression, string expected)
+    {
+        var schema = System.Text.Json.Nodes.JsonNode.Parse("""{"type":"object","properties":{"message":{"type":"string"},"items":{"type":"array","items":{"type":"string"}}},"required":["message","items"]}""");
+        var inferred = StepExpressionTypeValidator.InferValueSchema(System.Text.Json.Nodes.JsonValue.Create("${" + expression + "}"), null, new Dictionary<string, System.Text.Json.Nodes.JsonNode?> { ["source"] = schema });
+        Assert.Equal(expected, inferred?["type"]?.GetValue<string>());
+    }
+
     [Fact]
     public void LeafPreparation_RejectsEvidenceBackedOutputTypeMismatch()
     {

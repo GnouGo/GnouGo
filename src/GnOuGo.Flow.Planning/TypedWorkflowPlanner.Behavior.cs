@@ -7,6 +7,31 @@ namespace GnOuGo.Flow.Planning;
 
 public sealed partial class TypedWorkflowPlanner
 {
+    private static bool IsNewHelperContractFinding(PlanningDiagnostic finding, PlanningGraph before, PlanningGraph after, IReadOnlyList<PlanningDiagnostic> previous)
+    {
+        if (!finding.Code.StartsWith("FUNCTION_JSDOC_", StringComparison.Ordinal)) return false;
+        var split = finding.Location.LastIndexOf('/');
+        if (split <= 0) return false;
+        var path = finding.Location[..split]; var name = finding.Location[(split + 1)..];
+        if (!previous.Any(d => d.Location.StartsWith(path + "/", StringComparison.Ordinal) && d.Code.StartsWith("FUNCTION_JSDOC_", StringComparison.Ordinal))) return false;
+        string? Script(PlanningGraph graph)
+        {
+            if (path == "/functions") return graph.Functions;
+            var parts = path.Split('/');
+            return parts is ["", "workflows", var index, "functions"] && int.TryParse(index, out var wi) && wi >= 0 && wi < graph.Workflows.Count ? graph.Workflows[wi].Functions : null;
+        }
+        bool Declares(string? script)
+        {
+            if (script is null) return false;
+            bool Find(Acornima.Ast.Node node) => node is Acornima.Ast.FunctionDeclaration { Id: { } id } && id.Name == name || node.ChildNodes.Any(Find);
+            try { return Find(new Acornima.Parser().ParseScript(script)); }
+            catch (Acornima.ParseErrorException) { return false; }
+        }
+        // New helpers inside an already diagnosed script may need their own contract.
+        // Never excuse a lost contract on a previously existing, valid function.
+        return !Declares(Script(before)) && Declares(Script(after));
+    }
+
     private List<PlanningDiagnostic> BehaviorDiagnostics(PlanningGraph graph, PlanningPreparation preparation)
     {
         var diagnostics = PlanningExecutableValidation.Validate(graph, preparation).ToList();
