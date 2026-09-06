@@ -14,19 +14,34 @@ public static class PlanningFragments
         var graph = PlanningSchemas.Graph(preparation, fragment: true);
         var definitions = graph["$defs"]!.DeepClone().AsObject();
         var nodeProperties = definitions["node"]!["properties"]!.AsObject();
-        var properties = new JsonObject { ["key"] = new JsonObject { ["type"] = "string", ["enum"] = new JsonArray(PlanningGraphCompiler.Enumerate(workflow.Steps.Concat(workflow.Finally)).Select(n => (JsonNode?)JsonValue.Create(n.Key)).ToArray()) } };
-        foreach (var field in Fields) properties[field] = nodeProperties[field]!.DeepClone();
-        properties["caseConditions"] = Array(Object(new()
+        var variants = new JsonArray();
+        foreach (var group in PlanningGraphCompiler.Enumerate(workflow.Steps.Concat(workflow.Finally)).GroupBy(n => n.Type, StringComparer.Ordinal))
         {
-            ["index"] = new JsonObject { ["type"] = "integer" },
-            ["when"] = new JsonObject { ["anyOf"] = new JsonArray(new JsonObject { ["$ref"] = "#/$defs/value" }, new JsonObject { ["type"] = "null" }) }
-        }));
+            var properties = new JsonObject { ["key"] = new JsonObject { ["type"] = "string", ["enum"] = new JsonArray(group.Select(n => (JsonNode?)JsonValue.Create(n.Key)).ToArray()) } };
+            foreach (var field in Fields) properties[field] = nodeProperties[field]!.DeepClone();
+            // These executable fields are fixed by the accepted native step kind.
+            // Do not ask the model to invent unsupported post-processing or annotations.
+            if (group.Key is not ("mcp.call" or "llm.call")) properties["structuredOutput"] = new JsonObject { ["type"] = "null" };
+            if (group.Key != "set") properties["outputSchema"] = new JsonObject { ["type"] = "null" };
+            if (group.Key != "switch") properties["expr"] = new JsonObject { ["type"] = "null" };
+            if (group.Key is not ("loop.sequential" or "loop.parallel"))
+                foreach (var field in new[] { "itemVar", "indexVar" }) properties[field] = new JsonObject { ["type"] = "null" };
+            properties["caseConditions"] = Array(Object(new()
+            {
+                ["index"] = new JsonObject { ["type"] = "integer" },
+                ["when"] = new JsonObject { ["anyOf"] = new JsonArray(new JsonObject { ["$ref"] = "#/$defs/value" }, new JsonObject { ["type"] = "null" }) }
+            }));
+            if (group.Key != "switch") properties["caseConditions"]!["maxItems"] = 0;
+            variants.Add((JsonNode)Object(properties));
+        }
+        var nodes = variants.Count == 0 ? Array(new JsonObject { ["type"] = "string" }) : Array(new JsonObject { ["anyOf"] = variants });
+        if (variants.Count == 0) nodes["maxItems"] = 0;
         var root = Object(new()
         {
             ["functions"] = graph["properties"]!["functions"]!.DeepClone(),
             ["inputs"] = graph["properties"]!["inputs"]!.DeepClone(),
             ["outputs"] = graph["properties"]!["outputs"]!.DeepClone(),
-            ["nodes"] = Array(Object(properties))
+            ["nodes"] = nodes
         });
         root["$defs"] = definitions;
         return root;

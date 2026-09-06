@@ -43,7 +43,7 @@ public static class PlanningGraphValidation
                     structured[node.Key] = schema;
                 }
                 catch (Exception ex) when (ex is InvalidOperationException or ArgumentException or FormatException)
-                { errors.Add(new("STRUCTURED_OUTPUT_INVALID", location + "/input/structured_output", ex.Message)); }
+                { errors.Add(new("STRUCTURED_OUTPUT_INVALID", location + (node.StructuredOutput is null ? "/input/structured_output" : "/structuredOutput"), ex.Message)); }
             }
             foreach (var (node, location) in nodes)
             {

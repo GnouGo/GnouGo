@@ -177,6 +177,39 @@ public sealed class ExecutableConstructionTests
     }
 
     [Fact]
+    public void FragmentResponseSchemaConstrainsFieldsByTheAcceptedNativeStep()
+    {
+        var workflow = Graph().Workflows[0];
+        workflow.Steps.Add(new() { Key = "remote", Type = "mcp.call", Input = Obj() });
+        var preparation = Preparation();
+        var schema = PlanningFragments.Schema(workflow, preparation);
+        Assert.Empty(PlanningContractValidation.ValidateSchema(schema, strict: true));
+        var response = PlanningFragments.Values(workflow);
+        Assert.Empty(PlanningContractValidation.ValidateInstance(response, schema));
+        var nodes = response["nodes"]!.AsArray();
+        nodes[0]!["expr"] = new JsonObject { ["kind"] = "expression", ["text"] = "({value:1})" };
+        Assert.NotEmpty(PlanningContractValidation.ValidateInstance(response, schema));
+        nodes[0]!["expr"] = null;
+        nodes[1]!["outputSchema"] = PlanningModelValues.Workflow(new() { Outputs = [new() { Name = "unused", Schema = ObjectSchema(("message", "string")) }] })["outputs"]![0]!["schema"]!.DeepClone();
+        Assert.NotEmpty(PlanningContractValidation.ValidateInstance(response, schema));
+        nodes[1]!["outputSchema"] = null;
+        workflow.Steps[1].StructuredOutput = new(ObjectSchema(("message", "string")));
+        response = PlanningFragments.Values(workflow);
+        Assert.Empty(PlanningContractValidation.ValidateInstance(response, schema));
+        response["nodes"]![0]!["structuredOutput"] = response["nodes"]![1]!["structuredOutput"]!.DeepClone();
+        Assert.NotEmpty(PlanningContractValidation.ValidateInstance(response, schema));
+    }
+
+    [Fact]
+    public void EmptyReviewedFragmentHasAnEmptyExecutableNodeList()
+    {
+        var workflow = new PlanningWorkflow { Key = "empty" };
+        var schema = PlanningFragments.Schema(workflow, Preparation());
+        Assert.Empty(PlanningContractValidation.ValidateSchema(schema, strict: true));
+        Assert.Empty(PlanningContractValidation.ValidateInstance(PlanningFragments.Values(workflow), schema));
+    }
+
+    [Fact]
     public async Task CorrectSetComputationsAndTemplateBindings_Execute()
     {
         var graph = Graph(); var node = graph.Workflows[0].Steps[0];
