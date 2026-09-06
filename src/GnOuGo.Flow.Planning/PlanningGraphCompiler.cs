@@ -21,6 +21,8 @@ public sealed partial class PlanningGraphCompiler
     public string Compile(PlanningGraph graph, PlanningPreparation preparation, string name = "generated")
     {
         ArgumentNullException.ThrowIfNull(graph);
+        var diagnostics = PlanningGraphValidation.Validate(graph, preparation);
+        if (diagnostics.Count != 0) throw new InvalidOperationException(string.Join("; ", diagnostics.Select(d => d.Code + " at " + d.Location + ": " + d.Message)));
         if (graph.Workflows.Count == 0 || graph.Workflows.Count > 100)
             throw new InvalidOperationException("A planning graph must contain between 1 and 100 workflows.");
         EnsureUnique(graph.Workflows.Select(w => w.Key), "workflow");
@@ -184,21 +186,7 @@ public sealed partial class PlanningGraphCompiler
         current[property] = binding.Value?.DeepClone();
     }
 
-    internal static JsonNode? ReadPointer(JsonNode? node, string pointer)
-    {
-        if (!pointer.StartsWith("/", StringComparison.Ordinal)) throw new InvalidOperationException("Expected a JSON pointer.");
-        foreach (var part in pointer[1..].Split('/'))
-        {
-            var segment = part.Replace("~1", "/", StringComparison.Ordinal).Replace("~0", "~", StringComparison.Ordinal);
-            node = node switch
-            {
-                JsonObject obj => obj[segment],
-                JsonArray array when int.TryParse(segment, NumberStyles.None, CultureInfo.InvariantCulture, out var index) && index >= 0 && index < array.Count => array[index],
-                _ => null
-            };
-        }
-        return node;
-    }
+    internal static JsonNode? ReadPointer(JsonNode? node, string pointer) => PlanningSchemaReferences.Read(node, pointer);
 
     private static JsonObject Retry(Core.Models.RetryPolicy retry) => new()
     {
@@ -241,6 +229,7 @@ public sealed partial class PlanningGraphCompiler
     private static string ToExpression(PlanningValue value, LoweringScope scope)
     {
         string expression;
+        if (value.ResultChannel is not null && value.Kind != "output") throw new InvalidOperationException("Only output references can select a result channel.");
         if (value.Kind == "input")
         {
             if (value.Source is null || !scope.Inputs.Contains(value.Source)) throw new InvalidOperationException("Unknown input reference.");
@@ -249,7 +238,11 @@ public sealed partial class PlanningGraphCompiler
         else if (value.Kind == "output")
         {
             if (value.Source is null || !scope.NodeIds.TryGetValue(value.Source, out var node)) throw new InvalidOperationException("Unknown producer reference.");
-            var envelope = scope.NodeTypes[value.Source] switch { "workflow.call" => ".outputs", "mcp.call" => ".response", _ => "" };
+            var type = scope.NodeTypes[value.Source];
+            if (value.ResultChannel is not (null or "default" or "structured")) throw new InvalidOperationException("Unknown result channel.");
+            if (value.ResultChannel == "structured" && type is not ("mcp.call" or "llm.call"))
+                throw new InvalidOperationException("This producer does not support the structured result channel.");
+            var envelope = value.ResultChannel == "structured" ? ".json" : type switch { "workflow.call" => ".outputs", "mcp.call" => ".response", _ => "" };
             expression = "data.steps." + node + envelope + string.Concat(value.Path.Select(Segment));
         }
         else if (value.Kind == "expression")
@@ -279,16 +272,8 @@ public sealed partial class PlanningGraphCompiler
     public static JsonObject ToJsonSchema(PlanningSchema schema, PlanningPreparation preparation, int depth = 0)
     {
         if (depth > 32) throw new InvalidOperationException("Schema nesting exceeds 32 levels.");
-        if (schema.CapabilityId is { Length: > 0 })
-        {
-            var capability = preparation.Capabilities.SingleOrDefault(c => c.Id == schema.CapabilityId)
-                ?? throw new InvalidOperationException("Unknown schema capability.");
-            var pointer = schema.SchemaPointer ?? "/output";
-            JsonNode? node = new JsonObject { ["input"] = capability.InputSchema.DeepClone(), ["output"] = capability.OutputSchema.DeepClone() };
-            foreach (var segment in pointer.Split('/').Skip(1))
-                node = node is JsonObject map ? map[segment.Replace("~1", "/", StringComparison.Ordinal).Replace("~0", "~", StringComparison.Ordinal)] : null;
-            return node?.DeepClone() as JsonObject ?? throw new InvalidOperationException("The authoritative schema reference is unresolved.");
-        }
+        if (schema.CapabilityId is not null) return PlanningSchemaReferences.Resolve(schema, preparation);
+        if (schema.SchemaPointer is not null) throw new InvalidOperationException("A schemaPointer requires a capabilityId.");
         if (schema.Type is not ("string" or "number" or "integer" or "boolean" or "object" or "array"))
             throw new InvalidOperationException("Planning ports require a concrete type.");
         var result = new JsonObject { ["type"] = schema.Nullable ? new JsonArray(schema.Type, "null") : JsonValue.Create(schema.Type) };

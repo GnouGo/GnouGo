@@ -28,7 +28,7 @@ public sealed partial class LiveIntentAgentGenerationTests
 
     [Fact]
     [Trait("Category", "Live")]
-    public async Task TypedV2_ResumeFailedSessionUntilQuestionsAreVisible_WithoutAnswering()
+    public async Task TypedV2_ResumeFailedSessionUntilReviewOrQuestionsAreVisible_WithoutAnswering()
     {
         if (Environment.GetEnvironmentVariable("GNOU_GO_LIVE_TYPED_PLANNING_RESUME") != "1") return;
         if (string.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable("GNOU_GO_LIVE_TYPED_PLANNING_SESSION_ID")))
@@ -64,14 +64,30 @@ public sealed partial class LiveIntentAgentGenerationTests
         var answerCount = state.Answers.Count;
         if (state.Status is PlanningStatus.Failed or PlanningStatus.Recovery)
         {
-            if (state.Graph is not null || state.IntentChecked) throw new InvalidOperationException("This harness only resumes failures in intent assessment.");
             state = await service.SubmitAsync(id, new() { Kind = "retry", ExpectedRevision = state.Revision }, ct);
-            state = await service.SubmitAsync(id, new() { Kind = "advance", ExpectedRevision = state.Revision }, ct);
         }
-        Assert.Equal(PlanningStatus.Clarification, state.Status);
+        while (state.Status == PlanningStatus.Created)
+            state = await service.SubmitAsync(id, new() { Kind = "advance", ExpectedRevision = state.Revision }, ct);
         Assert.Equal(answerCount, state.Answers.Count);
-        await AssertVisibleV2QuestionsAsync(service, state);
-        WriteLiveProgress("v2_user_questions_visible");
+        Assert.Null(state.ReviewedGraph);
+        Assert.Null(state.ApprovedHash);
+        if (state.Status == PlanningStatus.Clarification)
+        {
+            await AssertVisibleV2QuestionsAsync(service, state);
+            WriteLiveProgress("v2_user_questions_visible");
+        }
+        else
+        {
+            Assert.Equal(PlanningStatus.BehaviorReview, state.Status);
+            Assert.Empty(state.Diagnostics);
+            await using var context = new BunitContext();
+            context.JSInterop.Mode = JSRuntimeMode.Loose;
+            context.Services.AddSingleton(service);
+            var page = context.Render<PlanningPage>(p => p.Add(x => x.SessionId, id));
+            page.WaitForAssertion(() => Assert.Single(page.FindAll("button"), b => b.TextContent == "Accept behavior and generate"));
+            Assert.Contains("Planner v2", page.Markup);
+            WriteLiveProgress("v2_user_behavior_review_visible");
+        }
         // No hosted service was started, no answer/approval is submitted, and the
         // encrypted pending form remains available to the real designer on restart.
     }

@@ -38,6 +38,10 @@
         @if (_state.Usage is { } usage) { <p>@usage.Calls model calls · Estimated cost @usage.EstimatedCost.ToString("0.00") @usage.EstimatedCostCurrency</p> }
         @if (_state.Graph is { } graph)
         {
+            @if (_state.ReviewedGraph is null && _state.Status is PlanningStatus.Recovery or PlanningStatus.Failed)
+            {
+                <p role="status">Unvalidated behavior candidate — review and approval are still pending.</p>
+            }
             <p>@graph.Summary</p>
             <MarkdownContent Content="@("```mermaid\n" + GnOuGo.Flow.Planning.PlanningReviewFormatter.Diagram(graph, _state.Preparation, _state.PreviousGraph ?? _state.ReviewedGraph) + "\n```")" />
             <ul>@foreach (var detail in GnOuGo.Flow.Planning.PlanningReviewFormatter.BehaviorDetails(graph)) { <li>@detail</li> }</ul>
@@ -71,7 +75,7 @@
         {
             <button class="btn btn-primary" disabled="@_busy" @onclick='() => SubmitAsync("save")'>Save approved revision</button>
         }
-        @if (_state.Graph is not null && _state.Status is PlanningStatus.BehaviorReview or PlanningStatus.FinalReview or PlanningStatus.Approved or PlanningStatus.Failed or PlanningStatus.Unsupported)
+        @if (_state.Graph is not null && (_state.Status is PlanningStatus.BehaviorReview or PlanningStatus.FinalReview or PlanningStatus.Approved || _state.ReviewedGraph is not null && _state.Status is PlanningStatus.Failed or PlanningStatus.Unsupported))
         {
             <div class="my-3"><label for="plan-feedback">What would you like to change?</label><textarea id="plan-feedback" class="form-control" rows="3" @bind="_feedback"></textarea></div>
             <button class="btn btn-secondary" disabled="@(_busy || string.IsNullOrWhiteSpace(_feedback))" @onclick='() => SubmitAsync("revise", _feedback)'>Revise in natural language</button>
@@ -79,13 +83,20 @@
         @if (_state.Diagnostics.Count > 0)
         {
             <h3 class="mt-3">Validation findings</h3>
-            <ul>@foreach (var diagnostic in _state.Diagnostics) { <li><strong>@diagnostic.Code</strong>: @diagnostic.Message</li> }</ul>
+            <ul>@foreach (var group in _state.Diagnostics.GroupBy(d => (d.Code, d.Message)))
+            {
+                <li><strong>@group.Key.Code</strong>: @group.Key.Message
+                    <details><summary>Affected locations (@group.Count())</summary><ul>@foreach (var diagnostic in group) { <li><code>@diagnostic.Location</code></li> }</ul></details>
+                </li>
+            }</ul>
         }
         @if (_state.Status == PlanningStatus.Recovery)
         {
-            <p role="status">The generated clarification could not be validated. Your request and session history are retained. Retry, edit the request, or cancel planning.</p>
+            <p role="status">@(PlanningPhase.Resolve(_state) == PlanningPhase.Behavior
+                ? "The behavior candidate has invalid schemas or references. Automatic repair stopped before your behavior review."
+                : "The generated clarification could not be validated.") Your request and session history are retained. Retry, edit the request, or cancel planning.</p>
         }
-        @if (_state.Graph is null && _state.Status is PlanningStatus.Recovery or PlanningStatus.Failed or PlanningStatus.Unsupported)
+        @if (_state.ReviewedGraph is null && _state.Status is PlanningStatus.Recovery or PlanningStatus.Failed or PlanningStatus.Unsupported)
         {
             <div class="my-3"><label for="plan-intent-edit">Edit request</label><textarea id="plan-intent-edit" class="form-control" rows="7" @bind="_intentText"></textarea></div>
             <button class="btn btn-secondary" disabled="@(_busy || string.IsNullOrWhiteSpace(_intentText))" @onclick='() => SubmitAsync("edit_intent", _intentText)'>Save request and retry</button>

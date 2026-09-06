@@ -154,6 +154,83 @@ public sealed class PlanningRecoveryTests
         finally { await service.StopAsync(Ct); }
     }
 
+    [Fact]
+    public async Task RetainedBehaviorFailure_RestartAndUiRetryReachReviewWithoutApproving()
+    {
+        await using var fixture = await PlanningPersistenceTests.StoreFixture.CreateAsync();
+        var state = BehaviorFailure();
+        Assert.True(await fixture.Store.TrySaveAsync(state, null, Ct));
+        var repaired = JsonSerializer.Deserialize(JsonSerializer.Serialize(state.Graph, PlanningJsonContext.Default.PlanningGraph), PlanningJsonContext.Default.PlanningGraph)!;
+        repaired.Workflows[0].Outputs[0].Schema.SchemaPointer = "/output/properties/message";
+        var client = new IntentClient(JsonSerializer.SerializeToNode(repaired, PlanningJsonContext.Default.PlanningGraph)!);
+        using var service = PlanningSessionLifecycleTests.Create(fixture, new TypedWorkflowPlanner(), PlanningSessionLifecycleTests.AgentCatalog(), client);
+        await service.StartAsync(Ct);
+        try
+        {
+            await using var context = Context(service);
+            var page = context.Render<PlanningPage>(p => p.Add(x => x.SessionId, state.Request.SessionId));
+            page.WaitForAssertion(() => Assert.Contains("Unvalidated behavior candidate", page.Markup));
+            Assert.Equal(0, client.Calls);
+            Assert.NotNull(page.Find("#plan-intent-edit"));
+            Assert.DoesNotContain(page.FindAll("button"), b => b.TextContent == "Accept behavior and generate");
+            Button(page, "Retry from the retained plan").Click();
+            await PlanningSessionLifecycleTests.WaitForStatus(service, state.Request.SessionId, PlanningStatus.BehaviorReview);
+            var reviewed = (await service.GetAsync(state.Request.SessionId, Ct))!;
+            page.WaitForAssertion(() => Assert.NotNull(Button(page, "Accept behavior and generate")), TimeSpan.FromSeconds(5));
+            Assert.Null(reviewed.ReviewedGraph); Assert.Null(reviewed.ApprovedHash); Assert.Null(reviewed.Yaml);
+            Assert.Equal(1, client.Calls); Assert.Equal(1, reviewed.Usage!.Calls);
+            Assert.Equal(2, reviewed.ClarificationForms); Assert.Equal(7, reviewed.ClarificationQuestions);
+            Assert.Equal(PlanningPhase.Behavior, reviewed.CurrentPhase);
+            Assert.Empty(reviewed.Diagnostics);
+            await Assert.ThrowsAsync<PlanningConflictException>(() => service.SubmitAsync(state.Request.SessionId,
+                new() { Kind = "accept_behavior", ExpectedRevision = state.Revision, ArtifactHash = reviewed.ArtifactHash }, Ct));
+            Assert.Null(await fixture.Store.LoadAsync("different-tenant", state.Request.SessionId, Ct));
+        }
+        finally { await service.StopAsync(Ct); }
+    }
+
+    [Fact]
+    public async Task BehaviorRecovery_RetainsCandidateAndRepairBudgetAcrossRestart_AndAllowsUiEdit()
+    {
+        await using var fixture = await PlanningPersistenceTests.StoreFixture.CreateAsync();
+        var state = BehaviorFailure(); state.Status = PlanningStatus.Recovery; state.BehaviorAssessmentCalls = 2;
+        Assert.True(await fixture.Store.TrySaveAsync(state, null, Ct));
+        var client = new IntentClient(IntentClarificationFixture.Questions());
+        using var service = PlanningSessionLifecycleTests.Create(fixture, new TypedWorkflowPlanner(), PlanningSessionLifecycleTests.AgentCatalog(), client);
+        await service.StartAsync(Ct);
+        try
+        {
+            await using var context = Context(service);
+            var page = context.Render<PlanningPage>(p => p.Add(x => x.SessionId, state.Request.SessionId));
+            page.WaitForAssertion(() => Assert.Contains("Automatic repair stopped before your behavior review", page.Markup));
+            Assert.Equal(0, client.Calls);
+            Assert.Equal(2, (await service.GetAsync(state.Request.SessionId, Ct))!.BehaviorAssessmentCalls);
+            page.Find("#plan-intent-edit").Change(IntentClarificationFixture.Prompt);
+            Button(page, "Save request and retry").Click();
+            await PlanningSessionLifecycleTests.WaitForStatus(service, state.Request.SessionId, PlanningStatus.Clarification);
+            var edited = (await service.GetAsync(state.Request.SessionId, Ct))!;
+            Assert.Null(edited.Graph); Assert.Null(edited.Preparation);
+            Assert.Equal(3, edited.ClarificationForms); Assert.Equal(10, edited.ClarificationQuestions);
+            Assert.Single(edited.IntentHistory); Assert.Empty(edited.Diagnostics);
+            Assert.Equal(1, client.Calls);
+        }
+        finally { await service.StopAsync(Ct); }
+    }
+
+    private static PlanningSnapshot BehaviorFailure() => new()
+    {
+        Request = new() { TenantId = "planning-tests", Prompt = "Return a message", Name = "behavior-recovery",
+            Options = new JsonObject { ["generator"] = new JsonObject { ["provider"] = "openai", ["model"] = "gpt-4o-mini" } } },
+        Status = PlanningStatus.Failed, CurrentPhase = PlanningPhase.Behavior, IntentChecked = true,
+        ClarificationForms = 2, ClarificationQuestions = 7,
+        Diagnostics = [new("PLANNING_FAILED", "$", "The authoritative schema reference is unresolved.")],
+        Preparation = new() { AllowedStepTypes = ["set"], Capabilities = [new() { Id = "declared", StepType = "set",
+            OutputSchema = JsonNode.Parse("""{"type":"object","properties":{"message":{"type":"string"}},"required":["message"],"additionalProperties":false}""")!.AsObject() }] },
+        Graph = new() { Summary = "Return a message", Workflows = [new() { Key = "main",
+            Steps = [new() { Key = "value", Type = "set", Input = new() { Kind = "object", Members = [new("message", new() { Kind = "string", Text = "Hello" })] } }],
+            Outputs = [new() { Name = "message", Schema = new() { CapabilityId = "declared", SchemaPointer = "/message" }, Value = new() { Kind = "output", Source = "value", Path = ["message"] } }] }] }
+    };
+
     private static BunitContext Context(GnOuGo.Agent.Server.Planning.PlanningSessionService service)
     {
         var context = new BunitContext(); context.JSInterop.Mode = JSRuntimeMode.Loose;

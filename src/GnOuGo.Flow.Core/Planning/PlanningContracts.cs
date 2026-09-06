@@ -92,6 +92,8 @@ public sealed class PlanningSnapshot
     public string? ArtifactHash { get; set; }
     public string? ApprovedHash { get; set; }
     public int RepairAttempt { get; set; }
+    // The current automatic behavior assessment, separate from fragment repairs.
+    public int BehaviorAssessmentCalls { get; set; }
     public int NonImprovingAttempts { get; set; }
     public string? PreviousDiagnosticHash { get; set; }
     public LLMUsageBudgetSnapshot? Usage { get; set; }
@@ -204,6 +206,8 @@ public sealed class PlanningValue
     public decimal? Number { get; set; }
     public bool? Boolean { get; set; }
     public string? Source { get; set; }
+    /// <summary>Null/default retains legacy addressing; structured selects validated post-processing JSON.</summary>
+    public string? ResultChannel { get; set; }
     public List<string> Path { get; set; } = [];
     public List<PlanningMember> Members { get; set; } = [];
     public List<PlanningValue> Items { get; set; } = [];

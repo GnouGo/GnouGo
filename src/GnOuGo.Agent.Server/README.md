@@ -20,10 +20,14 @@ not establish that the live quality and performance release gates have passed.
 
 The designer shows **Planner v2** and the current phase. Intent responses use structured
 source/excerpt evidence and one targeted repair. Exhausted repair pauses in durable
-`recovery` with **Edit request**, **Retry**, and **Cancel**. Request edits before a graph
-exists archive prior answers and findings, preserve all cumulative budgets, and restart
+`recovery` with **Edit request**, **Retry**, and **Cancel**. Request edits before the first behavior
+approval archive prior answers and findings, preserve all cumulative budgets, and restart
 intent assessment. Recovery and pending questions survive reconnect/restart without
 automatic answers. The existing failed v2 snapshots can be retried without migration.
+Behavior construction validates schema references, producer fields and structured-output
+contracts before review. Its single targeted repair shares a two-call limit with shape
+validation. An invalid candidate remains explicitly unvalidated in recovery. Retry
+returns unreviewed candidates to behavior review, never directly to final validation.
 The opt-in `TypedV2_*` tests cover live recovery and a separate three-generation campaign;
 see the rollout guide for invocation and the required isolated-provider budget setup.
 

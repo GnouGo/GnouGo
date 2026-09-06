@@ -48,7 +48,7 @@ public sealed partial class WorkflowPlanExecutor
                 else if (state.Status == PlanningStatus.Recovery) question = new HumanInputRequest
                 {
                     RunId = state.Request.SessionId, StepId = "recovery-" + state.Revision,
-                    Prompt = "The generated clarification could not be validated. Retry, edit the request, or cancel.",
+                    Prompt = PlanningPhase.Resolve(state) == PlanningPhase.Behavior ? "The behavior candidate could not be validated. Retry, edit the request, or cancel before behavior approval." : "The generated clarification could not be validated. Retry, edit the request, or cancel.",
                     Context = JsonValue.Create(string.Join("\n", state.Diagnostics.Select(d => d.Code + ": " + d.Message))),
                     Mode = "choice", Choices = ["retry", "edit_intent", "cancel"], AllowAbandon = true
                 };

@@ -21,8 +21,10 @@ Core owns the provider-neutral planning request, snapshot, command and event con
 inconclusive scenarios block acceptance; human waits are separate from active time.
 Version-2 recovery is a waiting state with retry, request edit and cancel choices.
 `PlanningSnapshot` retains schema version 2 with additive current-phase and cumulative
-clarification counters. `edit_intent` is revision guarded and available before a graph
-exists during recovery or early failure; hosts preserve encrypted answer/diagnostic
+clarification counters and `behaviorAssessmentCalls`. Typed output references may select
+`resultChannel: structured` for validated post-processing JSON; absent/default preserves
+existing addressing. `edit_intent` is revision guarded and available before the first
+behavior approval during recovery or early failure, even with a retained invalid graph; hosts preserve encrypted answer/diagnostic
 history and usage. Standalone `workflow.plan` presents recovery through its injected
 human-input provider and never treats recovery as artifact approval.
 See [planner usage](../GnOuGo.Flow.Planning/README.md) and

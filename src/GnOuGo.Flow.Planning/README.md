@@ -44,7 +44,8 @@ during repair; invalid clarification cannot become `ready` by dropping questions
 
 Exhausted intent repair pauses in `recovery`, a waiting state with no final failed
 outcome. `retry` clears active diagnostics while archiving them. `edit_intent` replaces
-the request before a graph exists in recovery or early failure, archives prior answers,
+the request before the first behavior approval in recovery or early failure, even with
+an invalid retained graph, archives prior answers,
 and invalidates derived state. Both retain session identity, options, policies, model
 usage and cumulative clarification counters. Waiting does not consume active time.
 Schema version remains 2; absent counters in older snapshots initialize from retained
@@ -56,6 +57,26 @@ intent and answers, host constraints, policy, catalog declarations, the fragment
 and referenced workflow boundary schemas. Repairs invalidate affected fragments and
 dependent callers. Non-improving candidates are rejected; bounded repair retains the
 best candidate. Default concurrency is four.
+
+Behavior assessment uses at most two calls total for shape and semantic validation.
+The repair receives exact diagnostic locations, the candidate and the schema index;
+unrelated valid nodes, output obligations and finalizers are retained. Exhaustion pauses
+in behavior recovery. Retry revalidates retained candidates and always requires their
+behavior review before elaboration. `BehaviorAssessmentCalls` survives persistence;
+explicit retries start another bounded assessment without resetting cumulative usage.
+
+Reference schemas select exact `capabilityId`/`schemaPointer` pairs from a deterministic
+index (for example `/output/properties/message`). Structural fields stay at defaults:
+`type: string`, `nullable: false`, null description/items/additionalProperties and empty
+properties/enum. Inline schemas instead leave both reference fields null. Combining
+them is rejected. JSON Pointer escaping and schema-array traversal are supported;
+references that cannot preserve their constraints independently fail explicitly.
+
+`PlanningValue.ResultChannel` is optional: null/`default` retains legacy result addressing,
+while `structured` selects validated `mcp.call`/`llm.call` structured-output `.json`.
+The compiler validates that channel's declared schema and referenced fields. Original
+MCP response fields continue to come from the tool's declared output contract. Merely
+listing required field names does not establish a structured-output schema.
 
 Ports have concrete scalar, object and array schemas or JSON-pointer references to
 authoritative capability schemas. Technical MCP bindings and step IDs are emitted

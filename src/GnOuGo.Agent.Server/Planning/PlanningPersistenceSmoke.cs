@@ -33,7 +33,15 @@ internal static class PlanningPersistenceSmoke
             await reopened.LoadAsync("different", state.Request.SessionId, CancellationToken.None) is not null ||
             (await reopened.ListAsync("smoke", CancellationToken.None)).Count == 0)
             throw new InvalidOperationException("Persistence or tenant isolation failed.");
-        state.Revision = 2;
+        state.Revision = 2; state.CurrentPhase = PlanningPhase.Behavior; state.BehaviorAssessmentCalls = 2;
+        state.Graph = new() { Workflows = [new() { Key = "main", Outputs = [new() { Name = "pending", Schema = new() { CapabilityId = "missing", SchemaPointer = "/invalid" },
+            Value = new() { Kind = "output", Source = "pending", ResultChannel = "structured", Path = ["value"] } }] }] };
+        state.Diagnostics = [new("SCHEMA_REFERENCE_INVALID", "/workflows/0/outputs/0/schema", "Invalid retained candidate")];
+        if (!await reopened.TrySaveAsync(state, 1, CancellationToken.None)) throw new InvalidOperationException("Behavior recovery update failed.");
+        var behavior = await reopened.LoadAsync("smoke", state.Request.SessionId, CancellationToken.None);
+        if (behavior?.BehaviorAssessmentCalls != 2 || behavior.CurrentPhase != PlanningPhase.Behavior || behavior.Status != PlanningStatus.Recovery ||
+            behavior.Graph?.Workflows[0].Outputs[0].Value.ResultChannel != "structured" || behavior.Outcome is not null)
+            throw new InvalidOperationException("Behavior recovery did not survive persistence.");
         if (await reopened.TrySaveAsync(state, 0, CancellationToken.None)) throw new InvalidOperationException("A stale write was accepted.");
         Console.WriteLine("Planning persistence smoke passed.");
     }

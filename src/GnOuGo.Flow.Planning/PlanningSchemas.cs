@@ -12,7 +12,7 @@ internal static class PlanningSchemas
             ["value"] = Object(
                 ("kind", Enum("null", "string", "number", "boolean", "object", "array", "input", "output", "expression", "template", "workflow")),
                 ("text", Nullable(String())), ("number", Nullable(Type("number"))), ("boolean", Nullable(Type("boolean"))),
-                ("source", Nullable(String())), ("path", Array(String())), ("members", Array(Ref("member"))), ("items", Array(Ref("value")))),
+                ("source", Nullable(String())), ("resultChannel", Nullable(Enum("default", "structured"))), ("path", Array(String())), ("members", Array(Ref("member"))), ("items", Array(Ref("value")))),
             ["member"] = Object(("name", String()), ("value", Ref("value"))),
             ["schema"] = Object(("type", Enum("string", "number", "integer", "boolean", "array", "object")),
                 ("nullable", Type("boolean")), ("description", Nullable(String())), ("enum", Array(String())),

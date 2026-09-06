@@ -45,6 +45,13 @@ recovery = await planner.AdvanceAsync(recovery, new() { Kind = "edit_intent", Te
 runtime.InvalidIntent = false;
 recovery = await planner.AdvanceAsync(recovery, new() { ExpectedRevision = recovery.Revision }, runtime, CancellationToken.None);
 if (!recovery.IntentChecked || recovery.IntentHistory.Count != 1 || recovery.Diagnostics.Count != 0) throw new InvalidOperationException("Published edited intent did not resume.");
+var behaviorFailure = new PlanningSnapshot { Request = new() { TenantId = "smoke", Prompt = "Return the ready message" },
+    Status = PlanningStatus.Failed, CurrentPhase = PlanningPhase.Behavior, IntentChecked = true, Graph = graph, Preparation = preparation };
+behaviorFailure = await planner.AdvanceAsync(behaviorFailure, new() { Kind = "retry", ExpectedRevision = behaviorFailure.Revision }, runtime, CancellationToken.None);
+behaviorFailure = JsonSerializer.Deserialize(JsonSerializer.Serialize(behaviorFailure, PlanningJsonContext.Default.PlanningSnapshot), PlanningJsonContext.Default.PlanningSnapshot)!;
+behaviorFailure = await planner.AdvanceAsync(behaviorFailure, new() { ExpectedRevision = behaviorFailure.Revision }, runtime, CancellationToken.None);
+if (behaviorFailure.Status != PlanningStatus.BehaviorReview || behaviorFailure.ReviewedGraph is not null || behaviorFailure.ApprovedHash is not null)
+    throw new InvalidOperationException("Published recovery bypassed behavior review.");
 Console.WriteLine("Typed planning AOT smoke passed.");
 
 sealed class SmokeRuntime(PlanningGraph graph, PlanningPreparation preparation) : IPlanningRuntime

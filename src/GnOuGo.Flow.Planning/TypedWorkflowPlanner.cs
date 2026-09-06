@@ -52,10 +52,12 @@ public sealed partial class TypedWorkflowPlanner(TimeProvider? timeProvider = nu
                     state.CurrentPhase = PlanningPhase.Intent;
                     break;
                 case "edit_intent":
-                    if (state.Graph is not null || state.Status is not (PlanningStatus.Recovery or PlanningStatus.Failed or PlanningStatus.Unsupported) || string.IsNullOrWhiteSpace(command.Text))
-                        throw new PlanningConflictException("Edit the request only during recovery before a behavior graph exists.");
+                    if (state.ReviewedGraph is not null || state.Status is not (PlanningStatus.Recovery or PlanningStatus.Failed or PlanningStatus.Unsupported) || string.IsNullOrWhiteSpace(command.Text))
+                        throw new PlanningConflictException("Edit the request only during recovery before the first behavior approval.");
                     ArchiveIntent(state);
                     state.Request.Prompt = command.Text.Trim();
+                    state.Graph = null;
+                    state.BehaviorAssessmentCalls = 0;
                     state.IntentChecked = false;
                     state.Answers.Clear();
                     state.Preparation = null;
@@ -125,14 +127,18 @@ public sealed partial class TypedWorkflowPlanner(TimeProvider? timeProvider = nu
                         state.Request.ExistingYaml = state.Yaml;
                         state.Preparation = null; state.Graph = null; state.IntentChecked = false; state.Fragments.Clear();
                     }
-                    state.Status = state.Graph is null ? PlanningStatus.Created : PlanningStatus.Validating;
+                    var unreviewed = state.ReviewedGraph is null || PlanningPhase.Resolve(state) == PlanningPhase.Behavior;
+                    state.Status = state.Graph is null || unreviewed ? PlanningStatus.Created : PlanningStatus.Validating;
+                    state.BehaviorAssessmentCalls = 0;
+                    state.ApprovedHash = null;
+                    state.ArtifactHash = null;
                     state.NonImprovingAttempts = 0;
                     state.RepairAttempt = 0;
                     state.BestGraph = null;
                     state.BestDiagnostics = [];
                     state.Diagnostics.Clear();
                     state.Question = null;
-                    state.CurrentPhase = state.Graph is null ? !state.IntentChecked ? PlanningPhase.Intent : state.Preparation is null ? PlanningPhase.Capabilities : PlanningPhase.Behavior : PlanningStatus.Validating;
+                    state.CurrentPhase = state.Graph is null ? !state.IntentChecked ? PlanningPhase.Intent : state.Preparation is null ? PlanningPhase.Capabilities : PlanningPhase.Behavior : unreviewed ? PlanningPhase.Behavior : PlanningStatus.Validating;
                     break;
                 case "advance": await AdvancePhaseAsync(state, runtime, ct); break;
                 default: throw new ArgumentException("Unknown planning command.");
@@ -207,25 +213,8 @@ public sealed partial class TypedWorkflowPlanner(TimeProvider? timeProvider = nu
                     state.Preparation = await runtime.PrepareAsync(EffectiveRequest(state), ct);
                     return;
                 }
-                if (state.Graph is null)
-                {
-                    state.CurrentPhase = PlanningPhase.Behavior;
-                    var preparation = state.Preparation;
-                    var response = await StructuredAsync(state, runtime, "behavior", Instructions +
-                        "\nConstruct a complete typed behavior graph. Keep cohesive work together. Include every required operation, runtime branch, input, output and finalizer. " +
-                        "Each workflow declares exact operationIds. Every external node references one capabilityId. Do not invent capabilities. " +
-                        "Local shaping may use native nodes without a capability. Plan evidence belongs only to operationIds and purpose. " +
-                        "Use typed input/output references, never textual YAML. This graph will be reviewed before its implementation is refined.\n" +
-                        Context(state) + "\nLocked contract:\n" + preparation.LockedContract.ToJsonString() +
-                        "\nCapabilities:\n" + Capabilities(preparation.Capabilities) +
-                        "\nNative step contracts:\n" + preparation.StepContracts.ToJsonString(),
-                        PlanningSchemas.Graph(preparation), ct);
-                    state.Graph = JsonSerializer.Deserialize(response, PlanningJsonContext.Default.PlanningGraph) ?? throw new InvalidOperationException("Missing behavior graph.");
-                    ValidateOwnership(state.Graph, preparation);
-                    ValidateBoundaries(state.Graph, preparation);
-                    state.ArtifactHash = PlanningGraphCompiler.Fingerprint(state.Graph);
-                    state.Status = PlanningStatus.BehaviorReview;
-                }
+                if (state.Graph is null || state.ReviewedGraph is null || state.CurrentPhase == PlanningPhase.Behavior)
+                    await AssessBehaviorAsync(state, runtime, ct);
                 return;
             case PlanningStatus.Generating: state.CurrentPhase = PlanningStatus.Generating; await GenerateAsync(state, runtime, ct); return;
             case PlanningStatus.Validating: state.CurrentPhase = PlanningStatus.Validating; await ValidateAsync(state, runtime, ct); return;
@@ -278,7 +267,7 @@ public sealed partial class TypedWorkflowPlanner(TimeProvider? timeProvider = nu
             "Use only owned capabilities. Use explicit typed references for wiring. For workflow.call use a workflow value in input.ref. " +
             "Native step contracts remain authoritative. Use expression values for functions or interpolation; no expressions inside literal strings.\n" +
             "Requested behavior:\n" + Context(state) + "\nFragment:\n" + JsonSerializer.Serialize(workflow, PlanningJsonContext.Default.PlanningWorkflow) +
-            "\nOwned capabilities:\n" + Capabilities(capabilities) + "\nLocked obligations:\n" + RelevantContract(preparation, workflow.OperationIds).ToJsonString() +
+            "\nOwned capabilities:\n" + Capabilities(capabilities) + "\nSchema reference index:\n" + PlanningSchemaReferences.Index(preparation).ToJsonString() + "\nLocked obligations:\n" + RelevantContract(preparation, workflow.OperationIds).ToJsonString() +
             "\nNative step contracts:\n" + preparation.StepContracts.ToJsonString() +
             "\nBoundary contracts:\n" + new JsonArray(related.Select(v => (JsonNode)v).ToArray()).ToJsonString() +
             "\nDiagnostics to resolve:\n" + JsonSerializer.Serialize(state.Diagnostics, PlanningJsonContext.Default.ListPlanningDiagnostic) +
@@ -385,6 +374,7 @@ public sealed partial class TypedWorkflowPlanner(TimeProvider? timeProvider = nu
         var affected = response["affectedWorkflows"]!.AsArray().Select(v => v!.GetValue<string>()).ToHashSet(StringComparer.Ordinal);
         if (string.IsNullOrWhiteSpace(evidence) || !feedback.Contains(evidence, StringComparison.Ordinal) || affected.Count == 0 || affected.Any(k => !state.Graph!.Workflows.Any(w => w.Key == k)))
             throw new InvalidOperationException("The revision scope lacks exact evidence or valid workflow references.");
+        state.BehaviorAssessmentCalls = 0;
         state.Feedback = feedback;
         state.ApprovedHash = null;
         state.ArtifactHash = null;
@@ -424,7 +414,7 @@ public sealed partial class TypedWorkflowPlanner(TimeProvider? timeProvider = nu
             foreach (var node in PlanningGraphCompiler.Enumerate(workflow.Steps.Concat(workflow.Finally)))
             {
                 if (node.OperationIds.Any(id => !workflow.OperationIds.Contains(id, StringComparer.Ordinal))) throw new InvalidOperationException("A node claimed another workflow's operation.");
-                if (node.CapabilityId is not { Length: > 0 }) continue;
+                if (node.CapabilityId is null) continue;
                 var capability = preparation.Capabilities.SingleOrDefault(c => c.Id == node.CapabilityId) ?? throw new InvalidOperationException("A node references an unknown capability.");
                 if (capability.OperationIds.Any(id => !workflow.OperationIds.Contains(id, StringComparer.Ordinal))) throw new InvalidOperationException("An external node is outside its operation owner.");
             }
@@ -437,16 +427,6 @@ public sealed partial class TypedWorkflowPlanner(TimeProvider? timeProvider = nu
         foreach (var capability in preparation.Capabilities.Where(c => c.Required && c.StepType == "mcp.call"))
             if (!graph.Workflows.SelectMany(w => PlanningGraphCompiler.Enumerate(w.Steps.Concat(w.Finally))).Any(n => n.CapabilityId == capability.Id))
                 throw new InvalidOperationException("The graph omitted a required external capability occurrence.");
-    }
-
-    private static void ValidateBoundaries(PlanningGraph graph, PlanningPreparation preparation)
-    {
-        foreach (var workflow in graph.Workflows)
-            foreach (var schema in workflow.Inputs.Select(p => p.Schema).Concat(workflow.Outputs.Select(p => p.Schema)))
-            {
-                var json = PlanningGraphCompiler.ToJsonSchema(schema, preparation);
-                if (PlanningContractValidation.ValidateSchema(json).Count != 0) throw new InvalidOperationException("A workflow boundary contains an invalid schema.");
-            }
     }
 
     private async Task<JsonObject> StructuredAsync(PlanningSnapshot state, IPlanningRuntime runtime, string phase, string prompt, JsonObject schema, CancellationToken ct)
@@ -550,7 +530,7 @@ public sealed partial class TypedWorkflowPlanner(TimeProvider? timeProvider = nu
         foreach (var child in value.Items.Concat(value.Members.Select(m => m.Value))) foreach (var reference in References(child)) yield return reference;
     }
     private const string Instructions = "You construct provider-neutral GnOuGo.Flow workflows using the supplied typed graph schema. " +
-        "Typed output references address logical result fields: the compiler adds the workflow.call outputs envelope and mcp.call response envelope. Do not include those envelopes in a typed reference path. Raw expressions use runtime contracts. " +
+        "Typed output references address logical result fields: the compiler adds the workflow.call outputs envelope and mcp.call response envelope. resultChannel=structured selects the validated structured_output JSON under .json; default preserves the original result. Reference schemas use exact capabilityId/schemaPointer pairs, with all inline fields at defaults. Inline schemas use null capabilityId and schemaPointer. Do not include those envelopes in a typed reference path. Raw expressions use runtime contracts. " +
         "A key is a stable local identifier; the compiler creates executable IDs. Do not emit YAML. Never weaken a required obligation to make validation pass. " +
         "External reads and writes require discovered capabilities; a scalar path is not evidence that its contents have been inspected. " +
         "Runtime uncertainty belongs in explicit branches with safe defaults. Required resource cleanup belongs in workflow finally. " +

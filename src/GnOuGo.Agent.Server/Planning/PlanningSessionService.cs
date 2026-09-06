@@ -275,7 +275,7 @@ public sealed class PlanningSessionService(
         activity?.SetTag("gnougo.planning.diagnostic_codes", string.Join(",", result.Diagnostics.Select(d => d.Code).Distinct(StringComparer.Ordinal)));
         foreach (var evt in result.Events.Skip(current.Events.Count))
         {
-            var repairOutcome = evt.Kind switch { "intent_repair_started" => "started", "intent_repair_succeeded" => "recovered", "intent_repair_exhausted" => "exhausted", _ => null };
+            var repairOutcome = evt.Kind switch { "intent_repair_started" or "behavior_repair_started" => "started", "intent_repair_succeeded" or "behavior_repair_succeeded" => "recovered", "intent_repair_exhausted" or "behavior_repair_exhausted" => "exhausted", _ => null };
             if (repairOutcome is null) continue;
             activity?.SetTag("gnougo.planning.repair.outcome", repairOutcome);
             activity?.AddEvent(new ActivityEvent("planning.repair", tags: new ActivityTagsCollection

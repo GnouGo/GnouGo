@@ -85,14 +85,40 @@ valid questions, options and outcomes cannot be silently changed or discarded.
 
 `recovery` is a durable waiting status, not a final failed outcome. The designer offers
 **Edit request**, **Retry**, and **Cancel**, with readable findings. `edit_intent` uses
-the existing command `text` and `expectedRevision` fields and is available before a
-graph exists during recovery or early failure. It archives replaced answers and
+the existing command `text` and `expectedRevision` fields and is available before the
+first behavior approval during recovery or early failure, including an invalid retained graph. It archives replaced answers and
 diagnostics and invalidates derived planning state. Session identity, model settings,
 policies, usage, encrypted history and cumulative clarification limits remain intact.
 Retries archive and clear active diagnostics. Editing cannot replenish spent budgets.
 Recovery waiting is excluded from active planning time.
 
-Snapshots retain `schemaVersion: 2`. Missing `currentPhase`, `clarificationForms` and
+Behavior construction has its own two-call assessment limit across shape and semantic
+validation. Generation receives an exact capability/schema reference index; all ports,
+node schemas, structured-output configurations and typed producer references are
+validated before review. A targeted repair preserves unrelated nodes and obligations.
+Exhaustion pauses in `recovery` with phase `behavior`, an explicitly unvalidated
+candidate, and no artifact approval. Retry routes unreviewed candidates back through
+behavior review. Technical schema defects do not manufacture intent questions.
+
+```mermaid
+flowchart TD
+  Candidate[Generate typed behavior candidate] --> Check[Validate schemas and references]
+  Check -->|Valid| Review[User reviews behavior and diagram]
+  Check -->|Invalid| Repair[One targeted repair]
+  Repair -->|Valid| Review
+  Repair -->|Still invalid| Recovery[Durable editable recovery]
+  Recovery -->|Retry| Check
+  Recovery -->|Edit request| Intent[Reassess intent and capabilities]
+  Intent --> Candidate
+  Review -->|Accept exact behavior| Elaborate[Elaborate workflow]
+```
+
+Typed output references support optional `resultChannel`: null or `default` preserves
+existing addressing; `structured` selects the validated post-processing `.json` result.
+Original capability fields remain distinct. Reference schemas cannot override their
+selected declaration with inline properties or other constraints.
+
+Snapshots retain `schemaVersion: 2`. `behaviorAssessmentCalls` defaults to zero when absent. Missing `currentPhase`, `clarificationForms` and
 `clarificationQuestions` fields are compatible with older snapshots; counters derive
 from retained answers and pending questions when first advanced. Existing failed
 sessions can be retried without migration. DTOs expose planner version and phase.
@@ -193,7 +219,8 @@ dotnet test tests/GnOuGo.Agent.Server.Tests --filter 'FullyQualifiedName~TypedV2
 ```
 
 Recovery validation uses the existing tenant-scoped session without starting background
-workers, retries intent once, verifies the persisted questions render, and submits no
-answers or approvals. Reopen `/planning/{sessionId}` in the updated server to answer.
+workers, resumes only the explicitly selected session, and verifies persisted questions
+or behavior review render. It submits no answers or approvals. Reopen
+`/planning/{sessionId}` in the updated server to continue the pending review.
 The generation harness answers only its separate temporary sessions with scripted
 fixture requirements. A visible clarification is not counted as completed generation.
