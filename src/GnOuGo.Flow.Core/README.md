@@ -30,6 +30,9 @@ outputs remain subject to full runtime-path validation. Local decision reducers 
 every physical input reached through declared local dependencies, even when one input
 already exposes a compatible enum. A selected ancestor cannot replace a multi-input
 decision or discard its human-input dependency.
+Separate local evaluators are identified by their locked decision fields, while each
+evaluator must still cover its exact input set. Pending session phases describe the next
+assessment; recovery preserves the phase that actually failed.
 Version-2 recovery is a waiting state with retry, request edit and cancel choices.
 `PlanningSnapshot` retains schema version 2 with additive current-phase and cumulative
 clarification counters and `behaviorAssessmentCalls`. `PlanningBehaviorPlan` captures

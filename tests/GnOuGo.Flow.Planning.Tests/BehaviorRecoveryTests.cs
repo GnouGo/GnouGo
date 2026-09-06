@@ -65,7 +65,7 @@ public sealed class BehaviorRecoveryTests
     [Fact]
     public async Task MalformedShapeAndSemanticDefect_ShareTheTwoCallLimit()
     {
-        var invalid = BehaviorPlan(); invalid.Workflows[0].Steps[0].CapabilityId = "unknown";
+        var invalid = BehaviorPlan(); invalid.Workflows[0].Steps[0].Purpose = "";
         var runtime = Responses(new JsonObject(), JsonSerializer.SerializeToNode(invalid, PlanningJsonContext.Default.PlanningBehaviorPlan)!);
         var state = await Send(Behavior(), runtime);
         Assert.Equal(PlanningStatus.Recovery, state.Status);

@@ -6510,6 +6510,40 @@ public sealed class WorkflowPlanCapabilityPreflightTests
     }
 
     [Fact]
+    public async Task InferredPreflight_DistinguishesIndependentLocalEvaluatorsByTheirDeclaredFields()
+    {
+        const string publishField = "conditional_decision_a5d47a4311d759db";
+        const string notifyField = "conditional_decision_6cd6f41455d78245";
+        var workflow = MultiFieldLocalDecisionWorkflow(publishField, notifyField)
+            .Replace("            " + notifyField + ":", "      - id: compute_notification\n        type: decision.evaluate\n        input:\n          decisions:\n            " + notifyField + ":", StringComparison.Ordinal)
+            .Replace("data.steps.compute_decisions." + notifyField, "data.steps.compute_notification." + notifyField, StringComparison.Ordinal)
+            .Replace("when: ${data.steps.analyze_primary.response.should_approve}\n                  value: EFFECT", "when: ${data.steps.analyze_primary.response.should_approve && data.steps.analyze_secondary.response.should_request_changes}\n                  value: EFFECT", StringComparison.Ordinal);
+        var llm = new Mock<ILLMClient>();
+        llm.Setup(client => client.CallAsync(It.IsAny<LLMRequest>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((LLMRequest request, CancellationToken _) =>
+            {
+                if (request.Prompt.Contains("domain-neutral workflow runtime analyst", StringComparison.Ordinal))
+                {
+                    var response = MultiFieldLocalDecisionInventoryResponse(); var operations = response.Json!["operations"]!.AsArray();
+                    var reducer = operations[2]!.DeepClone(); reducer["id"] = "compute_notification"; operations.Insert(3, reducer);
+                    var notify = operations.OfType<JsonObject>().Single(o => o["id"]!.GetValue<string>() == "notify");
+                    notify["decision_source_operation_id"] = "compute_notification"; notify["input_operation_ids"] = new JsonArray("compute_notification");
+                    return response;
+                }
+                if (request.Prompt.Contains("domain-neutral capability matcher", StringComparison.Ordinal))
+                {
+                    var response = MultiFieldLocalDecisionMatchingResponse(request.Prompt); var matches = response.Json!["operation_matches"]!.AsArray();
+                    var reducer = matches[2]!.DeepClone(); reducer["operation_id"] = "compute_notification"; matches.Insert(3, reducer);
+                    matches.OfType<JsonObject>().Single(m => m["operation_id"]!.GetValue<string>() == "notify")["decision_operation_id"] = "compute_notification";
+                    return response;
+                }
+                return new LLMResponse { Text = workflow };
+            });
+        var result = await ExecuteAsync(ConditionalInferredPlan(), llm.Object, CreateMultiFieldLocalDecisionFactory());
+        Assert.True(result.Success, result.Error?.Message);
+    }
+
+    [Fact]
     public async Task InferredPreflight_ValidatesLocalDecisionThroughTypedWorkflowBoundaries()
     {
         const string decisionField = "conditional_decision_a5d47a4311d759db";

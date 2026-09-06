@@ -43,7 +43,9 @@ public static class PlanningPhase
     public const string Capabilities = "capabilities";
     public const string Behavior = "behavior";
 
-    public static string Resolve(PlanningSnapshot snapshot) => snapshot.CurrentPhase ??
+    public static string Resolve(PlanningSnapshot snapshot) => snapshot.Status == PlanningStatus.Created
+        ? !snapshot.IntentChecked ? Intent : snapshot.Preparation is null ? Capabilities : Behavior
+        : snapshot.CurrentPhase ??
         (snapshot.Graph is null ? !snapshot.IntentChecked ? Intent : snapshot.Preparation is null ? Capabilities : Behavior : snapshot.Status);
 }
 

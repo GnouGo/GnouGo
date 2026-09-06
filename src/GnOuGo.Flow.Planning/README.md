@@ -62,6 +62,9 @@ Behavior review uses `PlanningBehaviorPlan`, a business contract with operation 
 ports, named decision outcomes (including explicit defaults), confirmations, calls and
 cleanup. It contains no executable schemas, expressions or functions. At most two calls
 are used to validate this plan against the capability contract before review.
+Behavior response variants constrain capability IDs to the selected catalog bindings,
+operation IDs to the declared inventory, and each native executor to its supported
+behavior kind. Producing a native decision and routing its outcomes are separate nodes.
 `ApprovedBehaviorHash` locks the exact accepted contract. Elaboration preserves its
 stable keys and obligations; changing actions or control flow requires another review.
 Unapproved legacy candidates return through this review; previously approved graphs

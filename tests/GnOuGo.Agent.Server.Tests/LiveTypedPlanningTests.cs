@@ -232,6 +232,10 @@ public sealed partial class LiveIntentAgentGenerationTests
             try
             {
                 await using var runtime = await factory.CreateAsync(ct);
+                // One budget reservation covers one potentially billable dispatch.
+                // Provider HTTP retries would otherwise hide an unreceipted attempt
+                // behind a later successful receipt. Planner recovery owns retries.
+                foreach (var provider in runtime.Options.Models.Values) provider.RetryPolicy.MaxAttempts = 1;
                 var estimator = new ModelMetadataUsageCostEstimator(runtime.Options);
                 string? reservation = null;
                 if (ExistingConfigurationAuthorized)

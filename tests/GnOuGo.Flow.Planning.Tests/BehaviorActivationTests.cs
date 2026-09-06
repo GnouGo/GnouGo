@@ -7,6 +7,27 @@ namespace GnOuGo.Flow.Planning.Tests;
 
 public sealed class BehaviorActivationTests
 {
+    [Fact]
+    public async Task BehaviorSchemaSeparatesCapabilityIdentifiersAndNativeDecisionProductionFromRouting()
+    {
+        var preparation = TypedPlannerTests.Preparation();
+        preparation.Capabilities.Add(new() { Id = "binding", CatalogId = "catalog", Resolution = "native", StepType = "decision.evaluate", EffectKind = "none", OperationIds = ["operation"] });
+        var plan = TypedPlannerTests.BehaviorPlan(); plan.Workflows[0].OperationIds = ["operation"];
+        var node = plan.Workflows[0].Steps[0]; node.Kind = "operation"; node.CapabilityId = "binding"; node.OperationIds = ["operation"];
+        preparation.AllowedStepTypes.Add("decision.evaluate");
+        var state = TypedPlannerTests.Session(PlanningStatus.Created); state.IntentChecked = true; state.Preparation = preparation;
+        var runtime = new TypedPlannerTests.FakeRuntime { OnCall = (_, _, _) => Task.FromResult(new LLMResponse { Json = JsonSerializer.SerializeToNode(plan, PlanningJsonContext.Default.PlanningBehaviorPlan) }) };
+        state = await new TypedWorkflowPlanner().AdvanceAsync(state, new() { ExpectedRevision = state.Revision }, runtime, TestContext.Current.CancellationToken);
+        Assert.Equal(PlanningStatus.BehaviorReview, state.Status);
+        var schema = Assert.IsType<JsonObject>(Assert.Single(runtime.Requests).StructuredOutputSchema);
+        Assert.Empty(PlanningContractValidation.ValidateSchema(schema, strict: true));
+        IReadOnlyList<string> Findings() => PlanningContractValidation.ValidateInstance(JsonSerializer.SerializeToNode(plan, PlanningJsonContext.Default.PlanningBehaviorPlan), schema);
+        Assert.Empty(Findings());
+        node.CapabilityId = "operation::catalog"; Assert.NotEmpty(Findings());
+        node.CapabilityId = "binding"; node.Kind = "decision"; Assert.NotEmpty(Findings());
+        node.Kind = "operation"; node.OperationIds = ["invented"]; Assert.NotEmpty(Findings());
+    }
+
     [Theory]
     [InlineData("local", true)]
     [InlineData("native", false)]

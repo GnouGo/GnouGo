@@ -9,6 +9,18 @@ namespace GnOuGo.Flow.Tests;
 
 public sealed class TypedPlanningDiagnosticTests
 {
+    [Theory]
+    [InlineData(false, false, "intent")]
+    [InlineData(true, false, "capabilities")]
+    [InlineData(true, true, "behavior")]
+    public void PendingPhaseDoesNotKeepTheLastCompletedAssessmentLabel(bool intentChecked, bool prepared, string phase)
+    {
+        var state = new PlanningSnapshot { Status = PlanningStatus.Created, CurrentPhase = PlanningPhase.Intent, IntentChecked = intentChecked, Preparation = prepared ? new() : null };
+        Assert.Equal(phase, PlanningPhase.Resolve(state));
+        state.Status = PlanningStatus.Recovery; state.CurrentPhase = PlanningPhase.Capabilities;
+        Assert.Equal(PlanningPhase.Capabilities, PlanningPhase.Resolve(state));
+    }
+
     [Fact]
     public void DecisionLineageFindingsPermitRepairOfTheDiscriminator()
     {

@@ -52,7 +52,7 @@ internal static class PlanningSchemas
         ("questions", Array(Object(("id", String()), ("prompt", String()), ("evidence", Evidence()),
             ("options", Array(Object(("value", String()), ("description", String()), ("recommended", Type("boolean")))))))));
 
-    public static JsonObject Behavior()
+    public static JsonObject Behavior(PlanningPreparation? preparation = null)
     {
         var root = Object(("summary", String()), ("entrypoint", String()), ("workflows", Array(Ref("behaviorWorkflow"))));
         root["$defs"] = new JsonObject
@@ -66,6 +66,30 @@ internal static class PlanningSchemas
                 ("inputs", Array(Ref("behaviorPort"))), ("outputs", Array(Ref("behaviorPort"))),
                 ("steps", Array(Ref("behaviorNode"))), ("finally", Array(Ref("behaviorNode"))))
         };
+        if (preparation is not null)
+        {
+            var operations = preparation.Capabilities.SelectMany(c => c.OperationIds).Distinct(StringComparer.Ordinal).ToArray();
+            foreach (var definition in new[] { "behaviorNode", "behaviorWorkflow" })
+            {
+                var field = Array(operations.Length == 0 ? String() : Enum(operations));
+                if (operations.Length == 0) field["maxItems"] = 0;
+                root["$defs"]![definition]!["properties"]!["operationIds"] = field;
+            }
+            var node = root["$defs"]!["behaviorNode"]!;
+            var variants = new JsonArray();
+            foreach (var kind in new[] { "operation", "decision", "loop", "sequence", "parallel", "confirmation", "workflow" })
+            {
+                var variant = node.DeepClone(); var properties = variant["properties"]!;
+                properties["kind"] = Enum(kind);
+                var ids = preparation.Capabilities.Where(c => PlanningCapabilityBindings.SupportsBehavior(c, kind)).Select(c => c.Id).Distinct(StringComparer.Ordinal).ToArray();
+                properties["capabilityId"] = ids.Length == 0 ? Type("null") : Nullable(Enum(ids));
+                if (kind != "decision") properties["outcomes"]!["maxItems"] = 0;
+                if (kind is not ("loop" or "sequence" or "parallel")) properties["steps"]!["maxItems"] = 0;
+                if (kind != "workflow") properties["workflowKey"] = Type("null");
+                variants.Add(variant);
+            }
+            root["$defs"]!["behaviorNode"] = new JsonObject { ["anyOf"] = variants };
+        }
         return root;
     }
 

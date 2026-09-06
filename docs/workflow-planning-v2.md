@@ -264,6 +264,10 @@ as free. On first opening an older campaign store, incomplete encrypted journal 
 are reconciled into these reserves. The ledger contains only opaque identifiers and amounts.
 Provider transport failures pause in recovery with their typed failure classification and
 leave accepted behavior and completed fragments available for retry.
+The paid campaign disables automatic provider HTTP retries in its in-memory runtime:
+each reservation must correspond to one potentially billable attempt. A later successful
+retry receipt cannot establish the cost of an earlier interrupted request. Retries return
+through the planner and ledger; persisted provider configuration is not modified.
 The live harness can apply an explicit `GNOU_GO_LIVE_TYPED_PLANNING_REVISION` once to
 a stopped temporary session through the existing revision command. This invalidates
 its behavior approval and rebuilds capability contracts while preserving answers,

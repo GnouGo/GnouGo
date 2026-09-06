@@ -8830,6 +8830,7 @@ public sealed partial class WorkflowPlanExecutor
             .SelectMany(workflow => EnumerateSteps(workflow.Value.Steps)
                 .Concat(EnumerateSteps(workflow.Value.Finally))
                 .Where(candidate => !decisionSteps.Contains(candidate)
+                                    && MatchesLocalDecisionIdentity(candidate, activation)
                                     && decisionCapabilities.Any(capability => StepMatchesDecisionProducer(
                                         candidate,
                                         capability)))
@@ -9521,6 +9522,11 @@ public sealed partial class WorkflowPlanExecutor
                    capability.RequestBindings);
     }
 
+    private static bool MatchesLocalDecisionIdentity(StepDef step, McpCapabilityActivation activation)
+        => activation.DecisionContractSource != LocalDecisionContractSource ||
+            step.Type == LocalDecisionStepType && step.Input is JsonObject input &&
+            input["decisions"] is JsonObject decisions && decisions.ContainsKey(GetDecisionBoundaryFieldName(activation.DecisionOutputPath));
+
     private static bool ConditionalDecisionExpressionMatchesDeclaredPath(
         string expression,
         string decisionOutputPath)
@@ -9877,7 +9883,7 @@ public sealed partial class WorkflowPlanExecutor
         foreach (var requirement in requirements)
         {
             var sources = allSteps
-                .Where(step => StepMatchesDecisionProducer(step, requirement.Producer))
+                .Where(step => MatchesLocalDecisionIdentity(step, requirement.Activation) && StepMatchesDecisionProducer(step, requirement.Producer))
                 .ToArray();
             if (sources.Length == 1
                 && StructuredDecisionProducerLeafContractIsValid(
