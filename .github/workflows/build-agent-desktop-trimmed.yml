@@ -203,6 +203,15 @@ jobs:
           }
           dotnet @publishArgs
 
+      - name: Validate Darwin native cryptography and planner
+        if: startsWith(matrix.rid, 'osx-')
+        shell: bash
+        run: |
+          dotnet publish tests/GnOuGo.Flow.Planning.Smoke/GnOuGo.Flow.Planning.Smoke.csproj \
+            -c Release -r ${{ matrix.rid }} --self-contained true \
+            -o artifacts/publish/planning-smoke/${{ matrix.rid }}
+          artifacts/publish/planning-smoke/${{ matrix.rid }}/GnOuGo.Flow.Planning.Smoke
+
       - name: Build UI (Vite)
         working-directory: src/GnOuGo.Agent.Server/ClientApp
         run: |

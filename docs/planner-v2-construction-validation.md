@@ -77,3 +77,11 @@ does not establish that low reasoning prevents timeouts or that final generation
 Full live acceptance requires remaining budget and call capacity, then validated
 generation, exact artifact saving, execution, and cleanup. Recovery, model responses,
 local fake execution, and successful CI are separate checks and cannot replace that gate.
+
+## CI follow-up
+
+The first full CI run passed all 21 build/test jobs, but its macOS logs exposed an
+upstream .NET Apple cryptography archive debug-information defect. The follow-up
+publish boundary removes only that archive's debug information from a local copy,
+retaining code and link symbols. Both macOS CI targets now execute the published
+planner and certificate-chain smoke. See the [framework workaround](../tests/GnOuGo.Flow.Planning.Smoke/README.md).

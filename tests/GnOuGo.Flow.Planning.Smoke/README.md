@@ -7,6 +7,21 @@ typed planning session through behavior review, schema-constrained fake response
 scenario validation and exact revision approval, restoring serialized checkpoints
 between phases.
 
+It also creates an ephemeral certificate, rejects its untrusted chain, and validates
+it with an explicit in-memory trust root. No certificate is installed and certificate
+downloads are disabled. This exercises native cryptography after publication.
+The macOS desktop CI matrix runs this smoke for both architectures.
+
+For .NET 10 macOS Release AOT publication, the shared
+[Darwin target](../../build/GnOuGo.DarwinNativeCrypto.targets) copies only
+`libSystem.Security.Cryptography.Native.Apple.a` into the project's intermediate
+directory and removes that copy's debug information with `strip -S`. Distributed
+runtime packs (verified for 10.0.3, 10.0.8 and 10.0.10) embed unavailable Clang
+module-cache references; see [dotnet/runtime#124336](https://github.com/dotnet/runtime/issues/124336).
+Executable code and link symbols are retained; NuGet cache files and other debug
+information are unchanged. This is a publish-only framework workaround, with no
+diagnostic suppression. Re-audit it when updating the runtime package.
+
 ```sh
 dotnet publish tests/GnOuGo.Flow.Planning.Smoke -c Release -r osx-arm64 -o /tmp/planning-smoke
 /tmp/planning-smoke/GnOuGo.Flow.Planning.Smoke

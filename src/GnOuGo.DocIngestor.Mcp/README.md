@@ -16,6 +16,11 @@ dotnet build src/GnOuGo.DocIngestor.Mcp/GnOuGo.DocIngestor.Mcp.csproj
 
 ## Native AOT publish
 
+macOS Release AOT publishes normalize a local copy of the .NET 10 Apple cryptography
+archive's incomplete debug information. Code and link symbols are retained; the
+NuGet cache is unchanged. See the [published certificate-chain smoke and framework
+workaround](../../tests/GnOuGo.Flow.Planning.Smoke/README.md).
+
 The MCP executable is configured for Native AOT and trimming. It avoids EF Core in the AOT process by reading the shared KeyVault SQLite schema through explicit `Microsoft.Data.Sqlite` commands and uses source-generated `System.Text.Json` metadata for MCP tool schemas/results.
 
 ```powershell

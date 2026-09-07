@@ -1,10 +1,28 @@
 using System.Text.Json;
 using System.Text.Json.Nodes;
+using System.Security.Cryptography;
+using System.Security.Cryptography.X509Certificates;
 using GnOuGo.Flow.Core.Compilation;
 using GnOuGo.Flow.Core.Parsing;
 using GnOuGo.Flow.Core.Planning;
 using GnOuGo.Flow.Core.Runtime;
 using GnOuGo.Flow.Planning;
+
+// Exercise the native certificate-chain implementation after publish, including
+// the .NET Apple crypto archive normalized by the Darwin publish boundary.
+using (var key = RSA.Create(2048))
+{
+    var request = new CertificateRequest("CN=GnOuGo native smoke", key, HashAlgorithmName.SHA256, RSASignaturePadding.Pkcs1);
+    request.CertificateExtensions.Add(new X509BasicConstraintsExtension(true, false, 0, true));
+    using var certificate = request.CreateSelfSigned(DateTimeOffset.UtcNow.AddMinutes(-1), DateTimeOffset.UtcNow.AddDays(1));
+    using var chain = new X509Chain();
+    chain.ChainPolicy.TrustMode = X509ChainTrustMode.CustomRootTrust;
+    chain.ChainPolicy.RevocationMode = X509RevocationMode.NoCheck;
+    chain.ChainPolicy.DisableCertificateDownloads = true;
+    if (chain.Build(certificate)) throw new InvalidOperationException("An untrusted certificate was accepted.");
+    chain.ChainPolicy.CustomTrustStore.Add(certificate);
+    if (!chain.Build(certificate)) throw new InvalidOperationException("Native certificate-chain validation failed.");
+}
 
 var graph = new PlanningGraph
 {

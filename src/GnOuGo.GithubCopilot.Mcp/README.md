@@ -139,6 +139,11 @@ dotnet test "C:\github\GnouGo\tests\GnOuGo.GithubCopilot.Core.Tests\GnOuGo.Githu
 
 ## Native AOT publish
 
+macOS Release AOT publishes normalize a local copy of the .NET 10 Apple cryptography
+archive's incomplete debug information. Code and link symbols are retained; the
+NuGet cache is unchanged. See the [published certificate-chain smoke and framework
+workaround](../../tests/GnOuGo.Flow.Planning.Smoke/README.md).
+
 The project is configured for Native AOT and trimming analysis. Source-level `IL2026`, `IL3050`, and `IL3055` diagnostics are treated as build errors. The tool consumes the EF Core-backed KeyVault boundary, so normal publishes suppress only the pinned EF package summaries `IL2104` and `IL3053`; `verify-warning-free-publishes.ps1 -AuditKnownTrimWarnings` re-enables them and verifies their exact origins.
 
 ```powershell
