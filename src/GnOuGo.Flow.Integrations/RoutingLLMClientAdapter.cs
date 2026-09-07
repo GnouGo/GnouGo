@@ -19,6 +19,24 @@ public sealed class RoutingLLMClientAdapter : ILLMClient
 
     public async Task<LLMResponse> CallAsync(LLMRequest request, CancellationToken ct)
     {
+        var aiRequest = MapRequest(request);
+
+        LLMClientResponse aiResponse;
+        try
+        {
+            aiResponse = await _inner.CallAsync(aiRequest, ct);
+        }
+        catch (LLMProviderException ex)
+        {
+            throw LLMProviderFailureMapper.Map(ex);
+        }
+
+        return MapResponse(aiResponse);
+    }
+
+    /// <summary>Shared mapping for every host adapter, including budget-critical transport options.</summary>
+    public static LLMClientRequest MapRequest(LLMRequest request)
+    {
         var aiRequest = new LLMClientRequest
         {
             Provider = request.Provider,
@@ -45,16 +63,12 @@ public sealed class RoutingLLMClientAdapter : ILLMClient
             }).ToList();
         }
 
-        LLMClientResponse aiResponse;
-        try
-        {
-            aiResponse = await _inner.CallAsync(aiRequest, ct);
-        }
-        catch (LLMProviderException ex)
-        {
-            throw LLMProviderFailureMapper.Map(ex);
-        }
+        return aiRequest;
+    }
 
+    /// <summary>Preserve provider-neutral completion status and verified usage across host boundaries.</summary>
+    public static LLMResponse MapResponse(LLMClientResponse aiResponse)
+    {
         var response = new LLMResponse
         {
             CompletionStatus = CompletionStatus(aiResponse.Raw),

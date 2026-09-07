@@ -131,28 +131,7 @@ internal sealed class SnapshotRoutingLlmClientAdapter : ILLMClient
         if (_localRuntime is not null)
             providers = providers.Append(new LocalLLMProvider(_localRuntime));
         var routingClient = new RoutingLLMClient(_options, providers);
-        var aiRequest = new LLMClientRequest
-        {
-            Provider = request.Provider,
-            Model = request.Model,
-            Prompt = request.Prompt,
-            Temperature = request.Temperature,
-            StructuredOutputSchema = request.StructuredOutputSchema,
-            StructuredOutputStrict = request.StructuredOutputStrict,
-            Reasoning = request.Reasoning,
-            UseBackgroundMode = request.UseBackgroundMode,
-            MaxOutputTokens = request.MaxTokens,
-        };
-
-        if (request.Tools is { Count: > 0 })
-        {
-            aiRequest.Tools = request.Tools.Select(t => new LLMToolDef
-            {
-                Name = t.Name,
-                Description = t.Description,
-                InputSchema = t.InputSchema?.DeepClone()
-            }).ToList();
-        }
+        var aiRequest = RoutingLLMClientAdapter.MapRequest(request);
 
         LLMClientResponse aiResponse;
         try
@@ -163,24 +142,6 @@ internal sealed class SnapshotRoutingLlmClientAdapter : ILLMClient
         {
             throw LLMProviderFailureMapper.Map(ex);
         }
-        var response = new LLMResponse
-        {
-            Text = aiResponse.Text,
-            Json = aiResponse.Json,
-            Usage = aiResponse.Usage,
-            Raw = aiResponse.Raw,
-        };
-
-        if (aiResponse.ToolCalls is { Count: > 0 })
-        {
-            response.ToolCalls = aiResponse.ToolCalls.Select(tc => new LLMToolCall
-            {
-                Id = tc.Id,
-                Name = tc.Name,
-                Arguments = tc.Arguments
-            }).ToList();
-        }
-
-        return response;
+        return RoutingLLMClientAdapter.MapResponse(aiResponse);
     }
 }

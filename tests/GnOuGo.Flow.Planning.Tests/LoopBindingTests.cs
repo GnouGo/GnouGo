@@ -9,6 +9,27 @@ namespace GnOuGo.Flow.Planning.Tests;
 
 public sealed class LoopBindingTests
 {
+    [Fact]
+    public async Task FailureEnvelopeCanRetainTheCurrentLoopItemWithoutACyclicResultContract()
+    {
+        var prep = Preparation(); prep.AllowedStepTypes.Add("loop.sequential");
+        var schema = JsonNode.Parse("""{"type":"object","properties":{},"additionalProperties":false}""")!.AsObject();
+        prep.Capabilities.Add(new() { Id = "cap", StepType = "mcp.call", Server = "renamed", Method = "observe", Kind = "tool", InputSchema = schema, OutputSchema = schema });
+        var loop = new PlanningNode { Key = "each", Type = "loop.sequential", Input = Obj(("items", new() { Kind = "array", Items = [Str("retained item")] })), Steps =
+        [new() { Key = "observe", Type = "mcp.call", CapabilityId = "cap", Input = Obj(("request", Obj())), OnError =
+            [new(null, "continue", Obj(("item", new() { Kind = "loop_item", Source = "each" }), ("success", new() { Kind = "boolean", Boolean = false })), null)] }] };
+        var workflow = new PlanningWorkflow { Key = "main", Steps = [loop], Outputs =
+            [new() { Name = "result", Schema = new() { Type = "string" }, Value = new() { Kind = "compute", Text = "JSON.stringify(result)", Members = [new("result", new() { Kind = "output", Source = "each" })] } }] };
+        var graph = new PlanningGraph { Workflows = [workflow] };
+        Assert.Contains(PlanningDataflow.Index(workflow, prep, graph, PlanningDataflow.WorkflowOutputs).Values, b => b.Value.Source == "each" && b.Value.Path.Count == 0);
+        var factory = new InMemoryMcpClientFactory(); factory.RegisterServer("renamed", new() { Tools = [new() { Name = "observe", InputSchema = schema, OutputSchema = schema }], ToolHandlers = new() { ["observe"] = _ => throw new InvalidOperationException("injected failure") } });
+        var compiled = new WorkflowCompiler().Compile(WorkflowParser.Parse(new PlanningGraphCompiler().Compile(graph, prep)));
+        var result = await new WorkflowEngine { McpClientFactory = factory }.ExecuteAsync(compiled.Workflows[compiled.Entrypoint!], new JsonObject(), TestContext.Current.CancellationToken);
+        Assert.True(result.Success, result.Error?.Message); Assert.Contains("retained item", result.Outputs!["result"]!.GetValue<string>());
+        loop.Input = Obj(("items", new() { Kind = "loop_item", Source = "each" }));
+        Assert.Throws<InvalidOperationException>(() => PlanningGraphValidation.ResolveValueContract(graph, workflow, new() { Kind = "loop_item", Source = "each" }, prep));
+    }
+
     [Theory]
     [InlineData(false, false)]
     [InlineData(false, true)]

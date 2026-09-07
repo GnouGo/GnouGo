@@ -43,3 +43,5 @@ dereference.
 `LLMProviderFailureKind` to Flow.Core's independent `LLMClientException` and
 `LLMClientFailureKind`. It preserves retryability, HTTP status, and safe provider code
 without copying raw provider response bodies.
+
+Host adapters can reuse `RoutingLLMClientAdapter.MapRequest` and `MapResponse` to preserve output ceilings, disabled transport retries, completion status, tool calls, and usage consistently.

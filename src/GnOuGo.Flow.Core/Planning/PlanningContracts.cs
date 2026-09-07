@@ -129,6 +129,8 @@ public sealed class PlanningSnapshot
     public PlanningGraph? ReviewedGraph { get; set; }
     public List<string> ChangedFragments { get; set; } = [];
     public PlanningGraph? PreviousGraph { get; set; }
+    public PlanningBehaviorPlan? BehaviorRevisionSource { get; set; }
+    public JsonObject? BehaviorRevisionPatch { get; set; }
     public string? ReviewMarkdown { get; set; }
     public PlanningPendingCommand? PendingCommand { get; set; }
 }

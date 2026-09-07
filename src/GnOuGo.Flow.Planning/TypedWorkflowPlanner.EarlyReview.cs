@@ -21,6 +21,7 @@ public sealed partial class TypedWorkflowPlanner
                 return;
             }
         }
+        if (await AssessBehaviorRevisionAsync(state, runtime, ct)) return;
         var schema = PlanningSchemas.Behavior(state.Preparation);
         var locked = state.Preparation!.LockedContract.DeepClone().AsObject(); locked.Remove("capabilities");
         var prompt = "Describe the intended behavior for human review, before executable construction. Do not generate schemas, expressions, code or YAML. " +
@@ -67,6 +68,7 @@ public sealed partial class TypedWorkflowPlanner
                 }
             }
             state.Attempts.Add(new(PlanningGraphCompiler.Fingerprint(prior?.ToJsonString() ?? "null"), PlanningPhase.Behavior, 0, false, diagnostics.ToList()));
+            await runtime.CheckpointAsync(state, ct);
         }
         state.Diagnostics = diagnostics;
         state.Diagnostics.Add(new("BEHAVIOR_REPAIR_EXHAUSTED", "/behavior", "The behavior description could not be validated within two calls. Retry or edit the request; executable generation has not started."));
@@ -101,6 +103,7 @@ public sealed partial class TypedWorkflowPlanner
     private static void ResetBehavior(PlanningSnapshot state)
     {
         state.Dataflow = null;
+        state.BehaviorRevisionSource = null; state.BehaviorRevisionPatch = null;
         state.BehaviorPlan = null; state.ApprovedBehaviorHash = null; state.ReviewedGraph = null; state.BehaviorAssessmentCalls = 0;
         state.ConstructionUnits.Clear();
     }

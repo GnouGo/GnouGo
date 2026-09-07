@@ -196,7 +196,8 @@ public static class PlanningGraphValidation
                     var loop = byKey.GetValueOrDefault(value.Source ?? "");
                     if (loop is null || loop.Type is not ("loop.sequential" or "loop.parallel")) throw new InvalidOperationException("The loop binding has no declared loop producer.");
                     if (value.Kind == "loop_index") return AtPath(new JsonObject { ["type"] = "integer" }, value.Path);
-                    if (!visiting.Add(loop.Key)) throw new InvalidOperationException("A loop cannot consume its own item before iteration.");
+                    var itemContractKey = "loop_item:" + loop.Key;
+                    if (!visiting.Add(itemContractKey)) throw new InvalidOperationException("A loop cannot consume its own item before iteration.");
                     try
                     {
                         var items = Member(loop.Input, "items") ?? throw new InvalidOperationException("Resolve the loop's input.items contract before generating its body.");
@@ -204,7 +205,7 @@ public static class PlanningGraphValidation
                         var item = array?["items"] as JsonObject ?? throw new InvalidOperationException("The loop's item type is unresolved. Establish a typed array producer before generating its body.");
                         return AtPath(item, value.Path);
                     }
-                    finally { visiting.Remove(loop.Key); }
+                    finally { visiting.Remove(itemContractKey); }
                 }
                 if (value.Kind == "input")
                 {

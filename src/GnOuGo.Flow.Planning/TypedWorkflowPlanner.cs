@@ -642,12 +642,13 @@ public sealed partial class TypedWorkflowPlanner(TimeProvider? timeProvider = nu
     {
         var targets = SemanticTargets(state.Graph!);
         if (!findings.Any(d => d.Required && targets.TryGetValue(d.Location, out var target) && target.Behavior)) return false;
+        var behaviorSource = state.BehaviorPlan;
         Remember(state);
         state.Attempts.Add(new(PlanningGraphCompiler.Fingerprint(state.Graph!), "semantic_review", 9, false, findings.ToList()));
         state.Feedback = "Resolve these evidenced coverage findings while preserving every existing request, answer and locked obligation:\n" +
             string.Join("\n", findings.Where(d => d.Required).Select(d => d.Location + ": " + d.Message));
         state.Graph = null; state.Fragments.Clear(); state.BestGraph = null; state.BestScenarios.Clear(); state.BestDiagnostics.Clear();
-        ResetBehavior(state); state.Status = PlanningStatus.Created; state.CurrentPhase = PlanningPhase.Behavior;
+        ResetBehavior(state); state.BehaviorRevisionSource = behaviorSource; state.Status = PlanningStatus.Created; state.CurrentPhase = PlanningPhase.Behavior;
         state.IntentChecked = true; state.ApprovedHash = null; state.ArtifactHash = null; state.Yaml = null;
         state.RepairAttempt = 0; state.NonImprovingAttempts = 0; state.Diagnostics = findings;
         state.Events.Add(new("behavior_revision_required", PlanningPhase.Behavior, _time.GetUtcNow(), findings.Count));
