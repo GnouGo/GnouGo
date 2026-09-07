@@ -32,6 +32,18 @@ undeclared field requires a validated transformation. Conditional children canno
 be addressed outside their execution body, and an executing container cannot be
 used as a completed producer.
 
+Required artifact arguments select bindings proven by the producer's artifact
+metadata. A structured copy, computation, or matching string type does not establish
+artifact identity. Direct producers, transparent set aliases, non-null refinements,
+and declared callee outputs can supply that proof; unresolved boundaries fail closed.
+Raw result bindings are unavailable if a continuation fallback omits the declared
+response envelope. Structured fallback repairs receive the destination schema and
+patch only the diagnosed value, preserving the error action.
+
+Prompt schemas use resolved JSON Schema and binding metadata is grouped by producer.
+This removes repeated planning metadata without changing schemas, reference IDs,
+types, availability, or the configured request limits.
+
 MCP argument responses use exact properties from the selected input contract.
 Transport fields and locked request bindings are inserted deterministically. An
 explicit `omit` transport value removes an optional argument; `null` remains a real
@@ -107,3 +119,18 @@ for the requested session. Normal server operation leaves this setting at `true`
 Three independent generation-and-save runs and the disposable-fixture execution,
 confirmation and cleanup checks remain required before recording live acceptance.
 Neither a recovery screen nor green CI establishes live generation success.
+
+### September 7 live delivery status
+
+The user's retained session reached a rendered behavior review with its answers and
+encrypted history preserved; no answer or approval was submitted on their behalf.
+The isolated campaign validated 26 construction units, then failed the final artifact
+provenance check. It completed zero of the three required generation-and-save runs;
+generated-workflow fixture execution and publication acceptance were not reached.
+
+The cumulative ledger reached 240 of 240 calls and 3,195,795 tokens. Its estimated
+cost was EUR 74.60, including the prior EUR 50 reserve, with four unresolved call
+reservations retained separately. No further paid requests were dispatched. The
+earlier artifact-binding guard added after this failure has offline regression
+coverage; it still requires a newly authorized live campaign allowance to establish
+end-to-end acceptance. The existing ledger must be retained.

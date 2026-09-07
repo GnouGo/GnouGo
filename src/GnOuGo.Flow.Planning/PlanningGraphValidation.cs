@@ -91,13 +91,21 @@ public static class PlanningGraphValidation
                         if (node.Type == "set" && IsLiteral(node.Input))
                             errors.AddRange(PlanningContractValidation.ValidateInstance(Literal(node.Input), declared).Select(e => new PlanningDiagnostic("SET_OUTPUT_INVALID", location + "/input", e)));
                     }
+                }
+                catch (Exception ex) when (ex is InvalidOperationException or ArgumentException or FormatException) { /* Independent fallback/reference diagnostics follow. */ }
+                try
+                {
                     if (structured.TryGetValue(node.Key, out var resultSchema))
                         for (var ei = 0; ei < node.OnError.Count; ei++)
                             if (node.OnError[ei].SetOutput is { } fallback)
                             {
                                 var fallbackSchema = ValueSchema(fallback, new(StringComparer.Ordinal));
                                 if (fallbackSchema?["properties"]?["json"] is not JsonObject jsonSchema || !TypesFit(jsonSchema, resultSchema))
-                                    errors.Add(new("STRUCTURED_FALLBACK_INVALID", location + "/onError/" + ei + "/setOutput", "A structured fallback must produce a json member satisfying the same structured result contract."));
+                                {
+                                    var memberIndex = fallback.Members.FindIndex(m => m.Name == "json");
+                                    errors.Add(new("STRUCTURED_FALLBACK_INVALID", location + "/onError/" + ei + "/setOutput" + (memberIndex < 0 ? "" : "/members/" + memberIndex + "/value"),
+                                        "The fallback json member must satisfy the structured result contract (type " + resultSchema["type"]?.ToJsonString() + "). Structured objects remain objects, not serialized JSON strings; raw tool results belong in response."));
+                                }
                             }
                 }
                 catch (Exception ex) when (ex is InvalidOperationException or ArgumentException or FormatException) { /* Dedicated reference diagnostics follow. */ }
@@ -195,7 +203,15 @@ public static class PlanningGraphValidation
                                 throw new InvalidOperationException("The producer has no valid structured-output contract. Declare it before selecting the structured channel.");
                         }
                         else if (producer.Type == "mcp.call")
+                        {
                             schema = preparation.Capabilities.FirstOrDefault(c => c.Id == producer.CapabilityId)?.OutputSchema;
+                            foreach (var handler in producer.OnError.Where(h => h.Action == "continue"))
+                            {
+                                var response = handler.SetOutput is { } fallback ? Member(fallback, "response") : null;
+                                if (response is null || schema is { Count: > 0 } && (ValueSchema(response, visiting) is not { } fallbackContract || !TypesFit(fallbackContract, schema)))
+                                    throw new InvalidOperationException("The producer can continue without its declared raw response contract. Preserve response in the fallback or select a validated structured channel.");
+                            }
+                        }
                         else if (producer.Type == "workflow.call")
                         {
                             var target = graph.Workflows.FirstOrDefault(w => w.Key == Member(producer.Input, "ref")?.Source);

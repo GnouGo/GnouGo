@@ -139,7 +139,8 @@ public static class PlanningConstruction
                     {
                         var required = (inputSchema["required"] as JsonArray ?? []).Select(p => p?.GetValue<string>()).ToHashSet(StringComparer.Ordinal);
                         fields["arguments"] = Object(new JsonObject(properties.Where(p => !capability.RequestBindings.Any(b => b.Path == "/" + PlanningSchemaReferences.Escape(p.Key))).Select(p => new KeyValuePair<string, JsonNode?>(p.Key,
-                            required.Contains(p.Key) ? Ref("value") : new JsonObject { ["anyOf"] = new JsonArray(Ref("value"), Object(new() { ["kind"] = new JsonObject { ["type"] = "string", ["enum"] = new JsonArray("omit") } })) }))));
+                            (graph is null ? null : PlanningArtifactBindings.ArgumentSchema(workflow, node, p.Key, preparation, graph)) ??
+                            (required.Contains(p.Key) ? Ref("value") : new JsonObject { ["anyOf"] = new JsonArray(Ref("value"), Object(new() { ["kind"] = new JsonObject { ["type"] = "string", ["enum"] = new JsonArray("omit") } })) })))));
                     }
                     else if (node.Type is not ("sequence" or "parallel" or "switch")) fields["input"] = Ref("value");
                     if (node.Type == "switch") fields["expr"] = Ref("value");

@@ -64,6 +64,18 @@ internal sealed class PlanningUnitPatches(JsonObject schema, Dictionary<string, 
             if (invalid || diagnosed)
             {
                 var leaves = new List<(string[] Path, JsonNode Shape)>();
+                if (slot.Parts is ["nodes", _, "onError"] && value is JsonArray handlers)
+                    for (var i = 0; i < handlers.Count; i++)
+                        foreach (var field in new[] { "if", "setOutput" })
+                        {
+                            var fieldLocation = graphPath + "/" + i + "/" + field;
+                            if (!unit.Diagnostics.Any(d => d.Location == fieldLocation || d.Location.StartsWith(fieldLocation + "/", StringComparison.Ordinal))) continue;
+                            var fieldPath = slot.Parts.Concat([i.ToString(System.Globalization.CultureInfo.InvariantCulture), field]).ToArray();
+                            var fieldShape = full["$defs"]!["errorCase"]!["properties"]![field]!;
+                            var before = leaves.Count;
+                            FindValues(handlers[i]?[field], fieldPath, fieldLocation, fieldShape, leaves);
+                            if (leaves.Count == before) leaves.Add((fieldPath, fieldShape));
+                        }
                 FindValues(value, slot.Parts, graphPath, slot.Schema, leaves);
                 if (leaves.Count == 0) leaves.Add((slot.Parts, slot.Schema));
                 foreach (var leaf in leaves)

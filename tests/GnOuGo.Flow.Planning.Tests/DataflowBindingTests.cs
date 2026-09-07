@@ -339,4 +339,95 @@ public sealed class DataflowBindingTests
         var result = PlanningConstruction.Apply(graph, unit, candidate, prep);
         Assert.Equal(capability.Id, result.Workflows[0].Steps[1].OutputSchema!.CapabilityId);
     }
+
+    [Fact]
+    public void StructuredFallbackRepairsOnlyTheJsonValue_AndKeepsTheErrorAction()
+    {
+        var (graph, prep) = Fixture(); var workflow = graph.Workflows[0]; var node = workflow.Steps[0];
+        node.StructuredOutput = new(new() { Type = "object", Properties = [new() { Name = "items", Required = true, Schema = new() { Type = "array", Items = new() { Type = "string" } } }] });
+        node.OnError = [new(null, "continue", Obj(("response", Obj()), ("json", Str("{\"items\":[]}"))), null)];
+        var unit = new PlanningConstructionUnit { Kind = "implementation", WorkflowKey = workflow.Key, NodeKeys = [node.Key], ContractVersion = PlanningDataflow.ContractVersion };
+        unit.Candidate = PlanningConstruction.UpgradeCandidate(graph, unit, PlanningConstruction.Values(workflow, unit), prep);
+        unit.Diagnostics = PlanningGraphValidation.Validate(graph, prep).Where(d => d.Code == "STRUCTURED_FALLBACK_INVALID").ToList();
+        Assert.Single(unit.Diagnostics);
+        var patch = PlanningUnitPatches.Create(graph, unit, PlanningConstruction.Schema(workflow, unit, prep, graph));
+        var field = Assert.Single(patch.Context(unit.Candidate)).Key;
+        Assert.EndsWith("/onError/0/setOutput/members/1/value", field);
+        var destination = TypedWorkflowPlanner.FallbackContractContext(workflow, prep, patch.Context(unit.Candidate));
+        Assert.Equal("array", destination[node.Key]!["json"]!["properties"]!["items"]!["type"]!.GetValue<string>());
+        var fixedValue = PlanningModelValues.Compact(JsonSerializer.SerializeToNode(Obj(("items", new() { Kind = "array" })), PlanningJsonContext.Default.PlanningValue));
+        var candidate = patch.Apply(unit.Candidate, new() { ["changes"] = new JsonObject { [field] = fixedValue }, ["remove"] = new JsonArray() });
+        var repaired = PlanningConstruction.Apply(graph, unit, candidate, prep);
+        Assert.Equal("continue", repaired.Workflows[0].Steps[0].OnError[0].Action);
+        Assert.DoesNotContain(PlanningGraphValidation.Validate(repaired, prep), d => d.Code == "STRUCTURED_FALLBACK_INVALID");
+    }
+
+    [Fact]
+    public void RawBindingIsUnavailableWhenContinuationOnlyProducesStructuredJson()
+    {
+        var (graph, prep) = Fixture(); var workflow = graph.Workflows[0]; var node = workflow.Steps[0];
+        node.StructuredOutput = new(new() { Type = "object", Properties = [new() { Name = "ok", Required = true, Schema = new() { Type = "boolean" } }] });
+        node.OnError = [new(null, "continue", Obj(("json", Obj(("ok", new() { Kind = "boolean", Boolean = false })))), null)];
+        var bindings = PlanningDataflow.Index(workflow, prep, graph, "greeting");
+        Assert.DoesNotContain(bindings.Values, b => b.Value.Source == node.Key && b.Value.ResultChannel != "structured");
+        Assert.Contains(bindings.Values, b => b.Value.Source == node.Key && b.Value.ResultChannel == "structured");
+        node.OnError[0].SetOutput!.Members.Add(new("response", Obj()));
+        Assert.Contains(PlanningDataflow.Index(workflow, prep, graph, "greeting").Values, b => b.Value.Source == node.Key && b.Value.ResultChannel != "structured");
+    }
+
+    [Fact]
+    public void PromptSchemaCompactionPreservesConstraintsAndRemovesPlanningMetadata()
+    {
+        var (graph, prep) = Fixture(); var node = graph.Workflows[0].Steps[0];
+        node.StructuredOutput = new(new() { Type = "object", Properties = Enumerable.Range(0, 24).Select(i => new PlanningPort
+            { Name = "field" + i, Required = true, Schema = new() { Type = "string", Nullable = true, Enum = ["one", "two"] } }).ToList() });
+        var verbose = TypedWorkflowPlanner.DescribeNode(node);
+        var compact = TypedWorkflowPlanner.DescribeNode(node, prep);
+        Assert.True(compact.ToJsonString().Length < verbose.ToJsonString().Length / 2);
+        Assert.True(JsonNode.DeepEquals(PlanningGraphCompiler.ToJsonSchema(node.StructuredOutput.Schema, prep), compact["structuredOutput"]!["schema"]));
+    }
+
+    [Fact]
+    public void GroupedBindingContextPreservesEveryIdentifierAndItsTypeAndAvailability()
+    {
+        var (graph, prep) = Fixture(); var workflow = graph.Workflows[0];
+        workflow.Steps[0].StructuredOutput = new(new() { Type = "object", Properties = Enumerable.Range(0, 30).Select(i => new PlanningPort
+            { Name = "field" + i, Required = true, Schema = new() { Type = "string", Nullable = true } }).ToList() });
+        var state = Session(); state.Graph = graph; state.Preparation = prep;
+        var bindings = PlanningDataflow.CompactIndex(workflow, prep, graph, "greeting");
+        var context = TypedWorkflowPlanner.BindingContext(state, workflow, new() { NodeKeys = ["greeting"] });
+        var entries = context.SelectMany(g => g!["bindings"]!.AsArray()).ToArray();
+        Assert.Equal(bindings.Count, entries.Length);
+        foreach (var entry in entries)
+        {
+            var original = bindings[entry![0]!.GetValue<string>()];
+            Assert.Equal(original.Value.Path, entry[1]!.AsArray().Select(p => p!.GetValue<string>()).ToList());
+            Assert.Equal(original.Schema["type"]?.ToJsonString() ?? "\"unknown\"", entry[2]!.ToJsonString());
+            Assert.Equal(original.Availability, entry[3]!.GetValue<string>());
+        }
+    }
+
+    [Theory]
+    [InlineData("producer-a", "consumer-a", "artifact.alpha")]
+    [InlineData("producteur-renomme", "consommateur-renomme", "objet.beta")]
+    public void ArtifactArgumentsSelectOriginalProducerBindings_WithoutAcceptingStructuredCopies(string producerId, string consumerId, string artifactKind)
+    {
+        var (graph, prep) = Fixture(); var workflow = graph.Workflows[0]; var producer = workflow.Steps[0]; var consumer = workflow.Steps[1];
+        var contract = JsonNode.Parse("""{"type":"object","properties":{"handle":{"type":"string"}},"required":["handle"],"additionalProperties":false}""")!.AsObject();
+        prep.Capabilities[0].Id = producer.CapabilityId = producerId;
+        prep.Capabilities[0].OutputSchema = contract;
+        prep.Capabilities[0].ArtifactContract = new(1, [new(artifactKind, "/handle", "materialize")], []);
+        producer.StructuredOutput = new(new() { Type = "object", Properties = [new() { Name = "handle", Required = true, Schema = new() { Type = "string" } }] });
+        prep.Capabilities.Add(new() { Id = consumerId, StepType = "mcp.call", Server = consumerId, Method = "consume", InputSchema = contract.DeepClone().AsObject(), ArtifactContract = new(1, [], [new(artifactKind, "/handle", true)]) });
+        consumer.Type = "mcp.call"; consumer.CapabilityId = consumerId;
+        consumer.Input = Obj(("request", Obj(("handle", new() { Kind = "output", Source = producer.Key, Path = ["handle"] }))));
+        var unit = new PlanningConstructionUnit { Kind = "implementation", WorkflowKey = workflow.Key, NodeKeys = [consumer.Key], ContractVersion = PlanningDataflow.ContractVersion };
+        var schema = PlanningConstruction.Schema(workflow, unit, prep, graph);
+        var candidate = PlanningConstruction.UpgradeCandidate(graph, unit, PlanningConstruction.Values(workflow, unit), prep);
+        Assert.Empty(PlanningConstruction.ShapeFindings(candidate, schema, unit));
+        candidate["nodes"]![consumer.Key]!["arguments"]!["handle"]!["reference"] = PlanningOutputBindings.Id(new() { Kind = "output", Source = producer.Key, Path = ["handle"], ResultChannel = "structured" });
+        Assert.NotEmpty(PlanningConstruction.ShapeFindings(candidate, schema, unit));
+        producer.Type = "set"; producer.Input = Obj(("handle", Str("invented artifact")));
+        Assert.Throws<InvalidOperationException>(() => PlanningConstruction.Schema(workflow, unit, prep, graph));
+    }
 }
