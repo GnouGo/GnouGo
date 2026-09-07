@@ -124,6 +124,41 @@ public sealed class PlanningRecoveryTests
     }
 
     [Fact]
+    public async Task CapabilityRecovery_RestoresConcreteFindingsAboveDiagramWithoutSubmittingQuestions()
+    {
+        await using var fixture = await PlanningPersistenceTests.StoreFixture.CreateAsync();
+        var state = new PlanningSnapshot
+        {
+            Request = new() { TenantId = "planning-tests", Prompt = "Inspect a resource before running available checks.", Name = "capability-recovery" },
+            Status = PlanningStatus.Recovery, CurrentPhase = PlanningPhase.Capabilities, IntentChecked = true,
+            WaitingSinceUtc = DateTimeOffset.UtcNow.AddHours(-1),
+            Diagnostics = [new("conditional_decision_source_unavailable", "/preparation/matching_issues/0",
+                "The directory result does not establish its contents. Declare a runtime observation.", ValidationStage: PlanningPhase.Capabilities)]
+        };
+        Assert.True(await fixture.Store.TrySaveAsync(state, null, Ct));
+        var client = new IntentClient(new JsonObject());
+        using var service = PlanningSessionLifecycleTests.Create(fixture, new TypedWorkflowPlanner(), PlanningSessionLifecycleTests.AgentCatalog(), client);
+        await service.StartAsync(Ct);
+        try
+        {
+            await using var context = Context(service);
+            var page = context.Render<PlanningPage>(p => p.Add(x => x.SessionId, state.Request.SessionId));
+            page.WaitForAssertion(() => Assert.Contains("Capability preparation paused before behavior review", page.Markup));
+            Assert.Contains("Declare a runtime observation", page.Markup);
+            Assert.NotNull(Button(page, "Retry from the retained plan"));
+            Assert.NotNull(Button(page, "Cancel planning"));
+            Assert.NotNull(page.Find("#plan-intent-edit"));
+            Assert.Empty(page.FindAll("fieldset"));
+            Assert.Equal(0, client.Calls);
+            var restored = (await service.GetAsync(state.Request.SessionId, Ct))!;
+            Assert.Null(restored.Outcome);
+            Assert.Null(restored.Question);
+            Assert.Null(await fixture.Store.LoadAsync("another-tenant", state.Request.SessionId, Ct));
+        }
+        finally { await service.StopAsync(Ct); }
+    }
+
+    [Fact]
     public async Task RecoveryTelemetryReportsRepairOutcome_WithoutPrivateContentOrFinalFailure()
     {
         await using var fixture = await PlanningPersistenceTests.StoreFixture.CreateAsync();

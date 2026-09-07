@@ -44,7 +44,7 @@ internal static class PlanningEndpoints
         snapshot.Usage?.Calls ?? 0, snapshot.Usage?.InputTokens ?? 0, snapshot.Usage?.OutputTokens ?? 0, snapshot.Usage?.EstimatedCost ?? 0, snapshot.Usage?.EstimatedCostCurrency ?? "", snapshot.Outcome,
         snapshot.SchemaVersion, PlanningPhase.Resolve(snapshot),
         snapshot.BehaviorPlan is null ? null : System.Text.Json.JsonSerializer.SerializeToNode(snapshot.BehaviorPlan, PlanningJsonContext.Default.PlanningBehaviorPlan)!.AsObject(),
-        snapshot.ApprovedBehaviorHash, snapshot.Status == PlanningStatus.Recovery ? "Construction paused in " + PlanningPhase.Resolve(snapshot) + ". " + snapshot.Diagnostics.Count(d => d.Required) + " required findings remain; validated work is retained." : null,
+        snapshot.ApprovedBehaviorHash, snapshot.Status == PlanningStatus.Recovery ? "Planning paused in " + PlanningPhase.Resolve(snapshot) + ". " + snapshot.Diagnostics.Count(d => d.Required) + " required findings remain; session history is retained." : null,
         snapshot.Answers.Count, snapshot.Request.Options["generator"]?["model"]?.GetValue<string>(),
         snapshot.Request.Generation.Reasoning ?? snapshot.Request.Options["generator"]?["reasoning"]?.GetValue<string>() ?? "medium",
         snapshot.ConstructionUnits.Where(u => u.Status != "superseded").Select(u => new PlanningUnitDto(u.Key, u.Kind, u.Status, u.NodeKeys.Count, u.Calls, u.RepairCalls)).ToArray());

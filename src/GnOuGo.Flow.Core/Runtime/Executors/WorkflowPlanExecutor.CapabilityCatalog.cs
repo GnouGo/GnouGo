@@ -139,7 +139,10 @@ public sealed partial class WorkflowPlanExecutor
         IReadOnlyList<CapabilityOperationMatch> OperationMatches,
         IReadOnlyList<CapabilityConstraintMatch> ConstraintMatches,
         IReadOnlyList<CapabilityMatchingIssue> Issues,
-        bool ContractValid);
+        bool ContractValid)
+    {
+        public IReadOnlyList<CapabilityMatchingIssue> RejectedRewindIssues { get; init; } = Array.Empty<CapabilityMatchingIssue>();
+    }
 
     private sealed record CapabilityCoverageEvidence(
         string CatalogId,

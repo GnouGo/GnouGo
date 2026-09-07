@@ -1823,7 +1823,7 @@ public sealed partial class WorkflowPlanExecutor
                 {
                     Status = "invalid",
                     Reason = reason,
-                    DecisionOperationId = decisionProducerOperationId,
+                    DecisionOperationId = decisionOperationId,
                     DecisionGroundingFailureCode = failureCode
                 };
             }
@@ -2522,6 +2522,7 @@ public sealed partial class WorkflowPlanExecutor
         - Exclude credentials, provider selection, secret-vault lookup, authentication, and connection setup performed internally by whichever runtime capability is selected later.
         - Exclude persistence, registration, or provisioning of the generated workflow/agent when that happens outside the generated workflow after planning.
         - Include cleanup only when the user explicitly requests cleanup as runtime behavior. Do not invent a generic cleanup operation merely because an unknown future implementation might allocate a resource; cleanup encapsulated inside a selected capability is not a separate workflow operation.
+        - A resource handle, directory path, or materialization result does not contain the resource's contents. When a requested decision depends on those contents, include the necessary external observation as external_effect/read and declare its data-flow edge before the local decision. local_processing may transform supplied values; it cannot inspect files, query a service, or execute commands. Unknown runtime facts belong to observation and branching, not user-intent ambiguity.
         - When the task names one external source, inventory at most one owned resource-materialization operation for that source. Preparation, analysis, verification, and publication phases consume the same resource; they are not separate requests to materialize phase-specific copies. Inventory multiple materializations only when the user explicitly requests distinct source resources.
         - A deterministic retry, backoff, fallback, or failure-handling policy for an already inventoried external operation is local_processing or a workflow_policy and reuses the original operation's capability. However, a separately requested runtime action performed by an AI, agent, service, or tool during that fallback remains external_effect/execute. Distinguish the local rule that decides when fallback is needed from the external actor that must inspect, choose, analyze, or generate a new runtime value; do not classify the latter as local processing merely because it occurs on a fallback path.
         - A restriction whose applicability depends on a target, input value, resource instance, runtime condition, or selected branch is workflow_policy even when it uses words such as only or never. Use exact_denial only when the prohibited capability must be banned for every possible invocation throughout the workflow.
@@ -2554,6 +2555,7 @@ public sealed partial class WorkflowPlanExecutor
         - Exclude credentials, provider selection, secret-vault lookup, authentication, and connection setup performed internally by a later capability.
         - Exclude persistence, registration, or provisioning performed outside the generated workflow after planning.
         - Preserve cleanup only when the user explicitly requested it as runtime behavior. Never invent generic cleanup for resources that are not part of the user's intention.
+        - Preserve an explicit external observation when a decision needs resource contents. A handle, path, or materialization result is not those contents. Local processing may transform supplied values but cannot read files, query services, or execute commands. Missing runtime observations are construction defects, not missing user intent.
         - Preserve one owned materialization for one external source and let later operations consume it. Do not turn workflow phases into additional source-materialization intentions unless the user explicitly requested distinct source resources.
         - Classify deterministic retry, backoff, fallback, and failure-handling policies for an existing external operation as local_processing or workflow_policy. A separately requested fallback action performed at runtime by an AI, agent, service, or tool remains external_effect/execute. Preserve the distinction between the local rule that selects the fallback path and the external actor that inspects, chooses, analyzes, or generates a new runtime value.
         - Keep prohibitions, ordering requirements, safety rules, and invariants as constraints rather than positive operations.
@@ -4297,7 +4299,9 @@ public sealed partial class WorkflowPlanExecutor
             {
                 Status = "invalid",
                 Reason = reason,
-                DecisionOperationId = decisionProducerOperationId,
+                // A failed lookup has not proved that an ancestor can replace the
+                // declared decision. Keep the original edge available to repair.
+                DecisionOperationId = declaredDecisionOperationId,
                 DecisionOutputPath = null,
                 DecisionAllowedValues = null,
                 DecisionNoEffectValues = null,
@@ -7003,51 +7007,15 @@ public sealed partial class WorkflowPlanExecutor
         CapabilityMatchingEvaluation rewound,
         CapabilityMatchingEvaluation previous)
     {
-        var unresolvedIds = previous.Issues
-            .Where(static issue => issue.Required)
-            .Select(static issue => issue.OperationId)
-            .ToHashSet(StringComparer.Ordinal);
-        var reason = "Expanded-catalog capability re-adjudication did not produce a schema-valid changed contract with a strictly smaller blocker set.";
-        var issues = rewound.Issues
-            .Where(issue => issue.Required || !unresolvedIds.Contains(issue.OperationId))
-            .Select(issue => unresolvedIds.Contains(issue.OperationId)
-                ? issue with
-                {
-                    Status = "invalid",
-                    Reason = reason,
-                    ReasonCode = "upstream_rewind_non_improving",
-                    ValidationIssue = "upstream_rewind_non_improving",
-                    InvalidFields = ["operation_match"]
-                }
-                : issue)
-            .ToList();
-        foreach (var unresolvedId in unresolvedIds.Where(id => issues.All(issue => !string.Equals(
-                     issue.OperationId,
-                     id,
-                     StringComparison.Ordinal))))
+        // The rejected response is not the retained candidate. Keep its findings
+        // separate instead of replacing concrete blockers with a repair summary.
+        return previous with
         {
-            var previousIssue = previous.Issues.First(issue => string.Equals(
-                issue.OperationId,
-                unresolvedId,
-                StringComparison.Ordinal));
-            issues.Add(previousIssue with
-            {
-                Status = "invalid",
-                Reason = reason,
-                ReasonCode = "upstream_rewind_non_improving",
-                ValidationIssue = "upstream_rewind_non_improving",
-                InvalidFields = ["operation_match"]
-            });
-        }
-
-        var operations = rewound.OperationMatches.Select(match => unresolvedIds.Contains(match.Operation.Id)
-            ? match with { Status = "invalid", Reason = reason }
-            : match).ToArray();
-        return new CapabilityMatchingEvaluation(
-            operations,
-            rewound.ConstraintMatches,
-            issues,
-            false);
+            ContractValid = false,
+            RejectedRewindIssues = rewound.Issues.Count > 0 ? rewound.Issues :
+                [new CapabilityMatchingIssue("matching_rewind", "Expanded-catalog repair", true, "invalid",
+                    "The expanded-catalog response did not establish a valid capability contract.", Array.Empty<string>())]
+        };
     }
 
     private static HashSet<string> GetDependencyUnlockedDecisionOperationIds(
@@ -7059,7 +7027,9 @@ public sealed partial class WorkflowPlanExecutor
         var pending = new Stack<string>(evaluation.OperationMatches
             .Where(static match => string.Equals(match.Status, "invalid", StringComparison.Ordinal)
                                    && !string.IsNullOrWhiteSpace(match.DecisionGroundingFailureCode))
-            .Select(static match => match.DecisionOperationId ?? match.Operation.DecisionSourceOperationId)
+            // Older failed candidates may contain an attempted canonical producer.
+            // Unlock the declared chain as well, without changing successful matches.
+            .SelectMany(static match => new[] { match.Operation.DecisionSourceOperationId, match.DecisionOperationId })
             .Where(static operationId => !string.IsNullOrWhiteSpace(operationId))!);
         var unlocked = new HashSet<string>(StringComparer.Ordinal);
         while (pending.TryPop(out var operationId))
@@ -7208,6 +7178,10 @@ public sealed partial class WorkflowPlanExecutor
             ["required"] = issue.Required,
             ["status"] = issue.Status,
             ["reason"] = SanitizeCapabilityInferenceDiagnostic(issue.Reason, 1_000),
+            ["decision_operation_id"] = evaluation.OperationMatches.FirstOrDefault(match => match.Operation.Id == issue.OperationId)?.Operation.DecisionSourceOperationId,
+            ["hint"] = issue.ReasonCode == "conditional_decision_source_unavailable"
+                ? "Declare a runtime observation that supplies the decision data, then derive the condition from that result. A resource locator or materialized directory does not establish its contents. Preserve all requested decision outcomes."
+                : null,
             ["validation_issue"] = issue.ValidationIssue.Length > 0 ? issue.ValidationIssue : null,
             ["reported_status"] = issue.ReportedStatus.Length > 0 ? issue.ReportedStatus : null,
             ["selected_catalog_id_count"] = issue.SelectedCatalogIdCount,
@@ -7229,8 +7203,8 @@ public sealed partial class WorkflowPlanExecutor
         var onlyUnavailable = blocking.All(static issue => issue.Status == "unavailable");
         var onlyContractGaps = blocking.All(static issue => issue.Status == "contract_gap");
         var onlyUnsupported = blocking.All(static issue => issue.Status is "unavailable" or "contract_gap");
-        var containsInvalidContract = blocking.Any(static issue => issue.Status == "invalid");
-        var unsupported = onlyUnsupported;
+        var containsInvalidContract = blocking.Any(static issue => issue.Status == "invalid") || evaluation.RejectedRewindIssues.Count > 0;
+        var unsupported = onlyUnsupported && evaluation.RejectedRewindIssues.Count == 0;
         var contractGapOperationIds = blocking
             .Where(static issue => issue.Status == "contract_gap")
             .Select(static issue => issue.OperationId)
@@ -7270,6 +7244,13 @@ public sealed partial class WorkflowPlanExecutor
                 ["clarification_rounds"] = clarificationSession?.FormsUsed ?? 0,
                 ["clarification_questions"] = clarificationSession?.QuestionsUsed ?? 0,
                 ["matching_issues"] = issueNodes,
+                ["rejected_matching_issues"] = new JsonArray(evaluation.RejectedRewindIssues.Take(64).Select(issue => (JsonNode)new JsonObject
+                {
+                    ["operation_id"] = issue.OperationId,
+                    ["code"] = issue.ValidationIssue.Length > 0 ? issue.ValidationIssue : "CAPABILITY_REWIND_REJECTED",
+                    ["reason"] = "Rejected expanded-catalog repair: " + SanitizeCapabilityInferenceDiagnostic(issue.Reason, 1_000),
+                    ["required"] = false
+                }).ToArray()),
                 ["unavailable_capabilities"] = new JsonArray(unavailable),
                 ["planning_outcome"] = unsupported ? "unsupported" : "cannot_plan_safely",
                 ["recommended_action"] = onlyContractGaps

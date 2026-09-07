@@ -766,3 +766,7 @@ Example:
 ```powershell
 dotnet test "C:\github\GnouGo\tests\GnOuGo.Agent.Server.Tests\GnOuGo.Agent.Server.Tests.csproj"
 ```
+
+Capability inference failures in v2 pause in durable recovery with operation-level
+findings. Rejected matching repairs remain separate from the retained candidate.
+See the [capability recovery diagnosis and next architecture step](../../docs/planner-v2-capability-recovery.md).

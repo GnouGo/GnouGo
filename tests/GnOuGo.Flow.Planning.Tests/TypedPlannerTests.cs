@@ -332,7 +332,8 @@ public sealed class TypedPlannerTests
         public int PreparationCalls { get; private set; }
         public Func<string, LLMRequest, CancellationToken, Task<LLMResponse>>? OnCall { get; init; }
         public Func<int, IReadOnlyList<PlanningDiagnostic>>? ValidationResult { get; init; }
-        public Task<PlanningPreparation> PrepareAsync(PlanningRequest request, CancellationToken ct) { PreparationCalls++; return Task.FromResult(Preparation()); }
+        public Func<PlanningRequest, Task<PlanningPreparation>>? OnPrepare { get; init; }
+        public Task<PlanningPreparation> PrepareAsync(PlanningRequest request, CancellationToken ct) { PreparationCalls++; return OnPrepare?.Invoke(request) ?? Task.FromResult(Preparation()); }
         public Task<LLMResponse> CallAsync(LLMRequest request, string phase, CancellationToken ct)
         {
             lock (Phases) { Phases.Add(phase); Requests.Add(request); }

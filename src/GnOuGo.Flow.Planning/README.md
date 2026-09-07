@@ -183,3 +183,7 @@ dotnet publish tests/GnOuGo.Flow.Planning.Smoke -c Release -r osx-arm64 -o /tmp/
 See [the rollout guide](../../docs/workflow-planning-v2.md),
 [evaluation corpus](../../evaluations/workflow-planning/README.md), and
 [published smoke exception audit](../../tests/GnOuGo.Flow.Planning.Smoke/README.md).
+
+Capability inference failures in v2 pause in durable recovery with operation-level
+findings. Rejected matching repairs remain separate from the retained candidate.
+See the [capability recovery diagnosis and next architecture step](../../docs/planner-v2-capability-recovery.md).

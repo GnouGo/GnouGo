@@ -305,3 +305,8 @@ The live harness can apply an explicit `GNOU_GO_LIVE_TYPED_PLANNING_REVISION` on
 a stopped temporary session through the existing revision command. This invalidates
 its behavior approval and rebuilds capability contracts while preserving answers,
 history and the cumulative ledger. It never revises the real user's session implicitly.
+
+Capability preparation also enters recovery for inference-contract failures. The
+designer preserves operation findings and declared decision sources; rejected catalog
+repairs are identified separately. Confirmed unavailable capabilities remain unsupported.
+See [the September 7 regression and stabilization proposal](planner-v2-capability-recovery.md).

@@ -52,7 +52,9 @@
         {
             <p role="status">@(PlanningPhase.Resolve(_state) == PlanningPhase.Intent
                 ? "The generated clarification could not be validated."
-                : "Construction paused. The findings identify the failed stage and candidate; rejected attempts are shown separately. Validated units are retained.") Your request and session history are retained. Retry, edit the request, or cancel planning.</p>
+                : PlanningPhase.Resolve(_state) == PlanningPhase.Capabilities
+                    ? "Capability preparation paused before behavior review. The findings explain the unresolved operations and missing runtime contracts. Technical defects require repair; questions are reserved for unresolved behavior choices."
+                    : "Construction paused. The findings identify the failed stage and candidate; rejected attempts are shown separately. Validated units are retained.") Your request and session history are retained. Retry, edit the request, or cancel planning.</p>
         }
         @if (_state.ReviewedGraph is null && _state.ApprovedBehaviorHash is null && _state.Status is PlanningStatus.Recovery or PlanningStatus.Failed or PlanningStatus.Unsupported)
         {

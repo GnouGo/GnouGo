@@ -3850,8 +3850,11 @@ public sealed class WorkflowPlanCapabilityPreflightTests
         Assert.Empty(human.Requests);
         var matchingIssue = Assert.IsType<JsonObject>(Assert.Single(Assert.IsType<JsonArray>(
             result.Error.Details!["matching_issues"])));
-        Assert.Equal("upstream_rewind_non_improving", matchingIssue["reason_code"]!.GetValue<string>());
-        Assert.Equal("upstream_rewind_non_improving", matchingIssue["validation_issue"]!.GetValue<string>());
+        Assert.Equal("unavailable", matchingIssue["status"]!.GetValue<string>());
+        Assert.DoesNotContain("re-adjudication", matchingIssue["reason"]!.GetValue<string>(), StringComparison.Ordinal);
+        var rejected = Assert.IsType<JsonArray>(result.Error.Details["rejected_matching_issues"]);
+        Assert.NotEmpty(rejected);
+        Assert.All(rejected.OfType<JsonObject>(), issue => Assert.False(issue["required"]!.GetValue<bool>()));
     }
 
     [Fact]
@@ -6861,6 +6864,7 @@ public sealed class WorkflowPlanCapabilityPreflightTests
     [InlineData("undeclared", "conditional_decision_source_unavailable")]
     [InlineData("missing", "conditional_decision_source_unavailable")]
     [InlineData("materializer", "conditional_decision_source_unavailable")]
+    [InlineData("materializer_alias", "conditional_decision_source_unavailable")]
     [InlineData("multiple_sources", "conditional_decision_source_ambiguous")]
     [InlineData("multiple_roots", "conditional_decision_source_ambiguous")]
     public async Task InferredPreflight_FailsClosedForUnprovableConditionalDecisionRecovery(
@@ -6868,10 +6872,13 @@ public sealed class WorkflowPlanCapabilityPreflightTests
         string expectedReasonCode)
     {
         var matchingCalls = 0;
+        string? repairPrompt = null;
+        var includeAlias = scenario == "materializer_alias";
         var human = new RecordingHumanInputProvider(new JsonObject { ["unused"] = "unused" });
         var includeSecondSource = scenario == "multiple_sources";
         var declaredInputs = scenario switch
         {
+            "materializer_alias" => new[] { "decision_alias", "confirm_submission" },
             "undeclared" => new[] { "confirm_submission" },
             "missing" => new[] { "analyze", "confirm_submission" },
             "multiple_sources" => new[] { "analyze", "analyze_alternative", "confirm_submission" },
@@ -6883,15 +6890,25 @@ public sealed class WorkflowPlanCapabilityPreflightTests
             {
                 if (request.Prompt.Contains("domain-neutral workflow runtime analyst", StringComparison.Ordinal))
                 {
-                    return DecisionRecoveryInventoryResponse(
-                        includeAlias: false,
+                    var inventory = DecisionRecoveryInventoryResponse(
+                        includeAlias,
                         includeSecondSource,
                         declaredInputs,
                         allowNoEffectOutcome: false);
+                    if (includeAlias)
+                    {
+                        var operations = inventory.Json!["operations"]!.AsArray().OfType<JsonObject>().ToArray();
+                        operations.Single(o => o["id"]!.GetValue<string>() == "publish")["decision_source_operation_id"] = "decision_alias";
+                        var alias = operations.Single(o => o["id"]!.GetValue<string>() == "decision_alias");
+                        alias["input_operation_ids"] = new JsonArray("analyze");
+                        alias["decision_source_operation_id"] = "";
+                    }
+                    return inventory;
                 }
                 if (request.Prompt.Contains("domain-neutral capability matcher", StringComparison.Ordinal))
                 {
                     matchingCalls++;
+                    if (matchingCalls == 2) repairPrompt = request.Prompt;
                     var sourceAIds = scenario == "multiple_roots"
                         ? new[]
                         {
@@ -6903,16 +6920,18 @@ public sealed class WorkflowPlanCapabilityPreflightTests
                             CatalogIdForMethod(request.Prompt, scenario switch
                             {
                                 "missing" => "human.input",
-                                "materializer" => "create_workspace",
+                                "materializer" or "materializer_alias" => "create_workspace",
                                 _ => "analyze_change"
                             })
                         };
-                    return DecisionRecoveryMatchingResponse(
+                    var matching = DecisionRecoveryMatchingResponse(
                         request.Prompt,
                         sourceAIds,
-                        includeAlias: false,
+                        includeAlias,
                         includeSecondSource,
                         branchValues: ["APPROVE", "REQUEST_CHANGES"]);
+                    if (includeAlias) matching.Json!["operation_matches"]!.AsArray().OfType<JsonObject>().Single(o => o["operation_id"]!.GetValue<string>() == "publish")["decision_operation_id"] = "decision_alias";
+                    return matching;
                 }
                 throw new InvalidOperationException("Workflow generation must not run for an unprovable decision source.");
             });
@@ -6920,7 +6939,7 @@ public sealed class WorkflowPlanCapabilityPreflightTests
         var factory = scenario switch
         {
             "multiple_roots" => CreateOpaqueDecisionRootsFactory(),
-            "materializer" => CreateMaterializerDecisionSourceFactory(),
+            "materializer" or "materializer_alias" => CreateMaterializerDecisionSourceFactory(),
             _ => CreateDecisionRecoveryFactory(includeSecondSource)
         };
         var result = await ExecuteAsync(ClarifyingConditionalInferredPlan(), llm.Object, factory, human);
@@ -6935,6 +6954,15 @@ public sealed class WorkflowPlanCapabilityPreflightTests
         var issue = Assert.IsType<JsonObject>(Assert.Single(Assert.IsType<JsonArray>(
             result.Error.Details["matching_issues"])));
         Assert.Equal(expectedReasonCode, issue["reason_code"]!.GetValue<string>());
+        if (includeAlias)
+        {
+            Assert.NotNull(repairPrompt);
+            var issues = JsonNode.Parse(Regex.Match(repairPrompt, "<matching_issues>(.*?)</matching_issues>", RegexOptions.Singleline).Groups[1].Value)!.AsArray();
+            Assert.Equal("decision_alias", issues.OfType<JsonObject>().Single(i => i["operation_id"]!.GetValue<string>() == "publish")["decision_operation_id"]!.GetValue<string>());
+            var locked = JsonNode.Parse(Regex.Match(repairPrompt, "<locked_valid_operations>(.*?)</locked_valid_operations>", RegexOptions.Singleline).Groups[1].Value)!.AsArray();
+            Assert.DoesNotContain(locked.OfType<JsonObject>(), i => i["operation_id"]!.GetValue<string>() == "decision_alias");
+            Assert.Contains("runtime observation", issue["hint"]!.GetValue<string>());
+        }
     }
 
     [Fact]

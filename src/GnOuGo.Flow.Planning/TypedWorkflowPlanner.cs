@@ -238,6 +238,14 @@ public sealed partial class TypedWorkflowPlanner(TimeProvider? timeProvider = nu
                 RecordClarification(state, fields);
             }
         }
+        catch (WorkflowRuntimeException ex) when (state.CurrentPhase == PlanningPhase.Capabilities &&
+            ex.Code is ErrorCodes.CapabilityPreflightInferenceFailed or ErrorCodes.CapabilityPreflightUnavailable)
+        {
+            state.Status = ex.Code == ErrorCodes.CapabilityPreflightUnavailable ? PlanningStatus.Unsupported : PlanningStatus.Recovery;
+            state.ApprovedHash = null;
+            state.Diagnostics = PlanningPreparationDiagnostics.FromException(ex);
+            state.Events.Add(new("capability_preparation_stopped", PlanningPhase.Capabilities, _time.GetUtcNow(), state.Diagnostics.Count));
+        }
         catch (LLMClientException ex)
         {
             state.Status = PlanningStatus.Recovery; state.ApprovedHash = null;
