@@ -33,6 +33,30 @@ public sealed class TypedPlanningDiagnosticTests
     }
 
     [Fact]
+    public void MissingReducerDependencyTargetsTheProducerInsteadOfImmutableRouting()
+    {
+        var document = GnOuGo.Flow.Core.Parsing.WorkflowParser.Parse("""
+        version: 1
+        workflows:
+          main:
+            steps:
+              - id: reducer
+                type: decision.evaluate
+                input:
+                  decisions:
+                    outcome:
+                      allowed_values: [YES, NO]
+                      cases: []
+                      default: NO
+        """);
+        var finding = new JsonObject { ["workflow"] = "main", ["switch_id"] = "route", ["decision_field"] = "outcome" };
+        WorkflowPlanExecutor.RetargetTypedDecisionFinding(finding, document);
+        var diagnostic = WorkflowPlanExecutor.TypedArtifactDiagnostic(finding, "DEPENDENCY_INVALID", PlanningValidationStage.ConditionalActivation);
+        Assert.Equal("workflow:main/step:reducer/field:input.decisions.outcome", diagnostic.Location);
+        Assert.Contains("Preserve every required permission", diagnostic.Message);
+    }
+
+    [Fact]
     public void ConditionalFindingsIdentifyTheSwitchAndDeclaredDecisionField()
     {
         var diagnostic = WorkflowPlanExecutor.TypedArtifactDiagnostic(new JsonObject

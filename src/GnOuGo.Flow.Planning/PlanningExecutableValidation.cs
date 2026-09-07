@@ -12,7 +12,7 @@ public static class PlanningExecutableValidation
 {
     public static IReadOnlyList<PlanningDiagnostic> Validate(PlanningGraph graph, PlanningPreparation preparation)
     {
-        var errors = new List<PlanningDiagnostic>();
+        var errors = PlanningDataflow.OperationInputFindings(graph, preparation).ToList();
         Script(graph.Functions, "/functions");
         for (var wi = 0; wi < graph.Workflows.Count; wi++)
         {
@@ -34,7 +34,7 @@ public static class PlanningExecutableValidation
                 {
                     var preview = Preview(node.Input);
                     // set resolves its entire input value at runtime and can assert the result schema.
-                    if (node.Type == "set" && node.Input.Kind is "expression" or "compute" or "input" or "output") continue;
+                    if (node.Type == "set" && node.Input.Kind is "expression" or "compute" or "input" or "output" or "loop_item" or "loop_index") continue;
                     var input = preview as JsonObject ?? throw new InvalidOperationException("This step requires an object input. For set, put computations in input values or supply an object-producing expression.");
                     var capability = preparation.Capabilities.FirstOrDefault(c => c.Id == node.CapabilityId);
                     if (capability is not null)
@@ -92,7 +92,7 @@ public static class PlanningExecutableValidation
                 foreach (var member in value.Members)
                 {
                     var placeholder = "{{" + member.Name + "}}";
-                    if (!names.Add(member.Name) || !text.Contains(placeholder, StringComparison.Ordinal)) errors.Add(new("TEMPLATE_BINDING_INVALID", location, "Every binding needs one unique name and a matching placeholder."));
+                    if (!names.Add(member.Name) || !text.Contains(placeholder, StringComparison.Ordinal)) errors.Add(new("TEMPLATE_BINDING_INVALID", location, "Each template member needs one unique name and a {{name}} placeholder in this template text. Missing or duplicated: " + placeholder));
                     text = text.Replace(placeholder, "", StringComparison.Ordinal);
                 }
                 if (text.Contains("{{", StringComparison.Ordinal)) errors.Add(new("TEMPLATE_BINDING_INVALID", location, "The template contains an undeclared placeholder."));
@@ -164,7 +164,7 @@ public static class PlanningExecutableValidation
         "object" => new JsonObject(value.Members.Select(m => new KeyValuePair<string, JsonNode?>(m.Name, Preview(m.Value)))),
         "array" => new JsonArray(value.Items.Select(Preview).ToArray()),
         "workflow" => new JsonObject { ["kind"] = "local", ["name"] = value.Source },
-        "input" or "output" or "expression" or "compute" or "template" => JsonValue.Create("${data.value}"),
+        "input" or "output" or "loop_item" or "loop_index" or "expression" or "compute" or "template" => JsonValue.Create("${data.value}"),
         _ => PlanningGraphValidation.Literal(value)
     };
 }

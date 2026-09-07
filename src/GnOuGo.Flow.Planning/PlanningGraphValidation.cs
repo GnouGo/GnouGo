@@ -174,7 +174,13 @@ public static class PlanningGraphValidation
                     errors.Add(new("WORKFLOW_REFERENCE_INVALID", location + "/source", "The workflow reference has no declared workflow. Input ports require input references; step results require output references."));
                 if (value.ResultChannel is not (null or "default" or "structured") || (value.ResultChannel is not null && value.Kind != "output"))
                     errors.Add(new("RESULT_CHANNEL_INVALID", location + "/resultChannel", "Only output references select default or structured results."));
-                if (value.Kind is "output" or "input")
+                if (value.Kind is "loop_item" or "loop_index")
+                {
+                    var loop = nodes.FirstOrDefault(n => n.Node.Key == value.Source && n.Node.Type is "loop.sequential" or "loop.parallel");
+                    if (loop.Node is null || !location.StartsWith(loop.Path + "/steps/", StringComparison.Ordinal))
+                        errors.Add(new("LOOP_BINDING_SCOPE_INVALID", location, "A loop item or index is available only inside that loop body."));
+                }
+                if (value.Kind is "output" or "input" or "loop_item" or "loop_index")
                 {
                     try { _ = ValueSchema(value, new(StringComparer.Ordinal)); }
                     catch (Exception ex) when (ex is InvalidOperationException or ArgumentException or FormatException) { errors.Add(new("OUTPUT_REFERENCE_INVALID", location, ex.Message)); }
@@ -185,6 +191,21 @@ public static class PlanningGraphValidation
 
             JsonObject? ValueSchema(PlanningValue value, HashSet<string> visiting)
             {
+                if (value.Kind is "loop_item" or "loop_index")
+                {
+                    var loop = byKey.GetValueOrDefault(value.Source ?? "");
+                    if (loop is null || loop.Type is not ("loop.sequential" or "loop.parallel")) throw new InvalidOperationException("The loop binding has no declared loop producer.");
+                    if (value.Kind == "loop_index") return AtPath(new JsonObject { ["type"] = "integer" }, value.Path);
+                    if (!visiting.Add(loop.Key)) throw new InvalidOperationException("A loop cannot consume its own item before iteration.");
+                    try
+                    {
+                        var items = Member(loop.Input, "items") ?? throw new InvalidOperationException("Resolve the loop's input.items contract before generating its body.");
+                        var array = ValueSchema(items, visiting);
+                        var item = array?["items"] as JsonObject ?? throw new InvalidOperationException("The loop's item type is unresolved. Establish a typed array producer before generating its body.");
+                        return AtPath(item, value.Path);
+                    }
+                    finally { visiting.Remove(loop.Key); }
+                }
                 if (value.Kind == "input")
                 {
                     var input = workflow.Inputs.FirstOrDefault(p => p.Name == value.Source)

@@ -76,6 +76,28 @@ internal static class PlanningDecisionRouting
         node.Input = new() { Kind = "object", Members = [new("decisions", decisions)] }; node.OnError.Clear();
     }
 
+    internal static JsonObject ConditionsValues(PlanningNode node, PlanningPreparation preparation)
+    {
+        var result = new JsonObject();
+        var decisions = node.Input.Members.Single(m => m.Name == "decisions").Value;
+        foreach (var contract in LocalContracts(node, preparation))
+        {
+            var fields = new JsonObject(); var declaration = decisions.Members.Single(m => m.Name == Field(contract)).Value;
+            var cases = declaration.Members.Single(m => m.Name == "cases").Value.Items;
+            foreach (var outcome in contract.AllowedValues.Except(contract.NoEffectValues))
+            {
+                var item = cases.Single(c => c.Members.Any(m => m.Name == "value" && m.Value.Text == outcome));
+                var condition = item.Members.Single(m => m.Name == "when").Value;
+                if (condition.Kind == "compute" && condition.Members.Select(m => m.Name).SequenceEqual(condition.Members.Select((_, i) => i == 0 ? "condition" : "permission" + i)) &&
+                    condition.Text == "return " + string.Join(" && ", condition.Members.Select(m => m.Name + " === true")) + ";" && condition.Members.Count > 0)
+                    condition = condition.Members[0].Value;
+                fields[outcome] = PlanningModelValues.Compact(JsonSerializer.SerializeToNode(condition, PlanningJsonContext.Default.PlanningValue));
+            }
+            result[Field(contract)] = fields;
+        }
+        return result;
+    }
+
     internal static JsonObject? OutputSchema(PlanningNode node, PlanningPreparation preparation)
     {
         var contracts = LocalContracts(node, preparation);

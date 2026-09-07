@@ -38,7 +38,7 @@ public sealed partial class PlanningGraphCompiler
             EnsureUnique(allNodes.Select(n => n.Key), "node");
             if (allNodes.Length > 300) throw new InvalidOperationException("A workflow exceeds the 300-node planning limit.");
             var nodeIds = allNodes.ToDictionary(n => n.Key, n => "n_" + Fingerprint(n.Key)[..16], StringComparer.Ordinal);
-            var scope = new LoweringScope(preparation, nodeIds, workflowIds, workflow.Inputs.Select(p => p.Name).ToHashSet(StringComparer.Ordinal), allNodes.ToDictionary(n => n.Key, n => n.Type, StringComparer.Ordinal));
+            var scope = new LoweringScope(preparation, nodeIds, workflowIds, workflow.Inputs.Select(p => p.Name).ToHashSet(StringComparer.Ordinal), allNodes.ToDictionary(n => n.Key, n => n.Type, StringComparer.Ordinal), LoopVariables(allNodes));
             var lowered = new JsonObject();
             if (workflow.Inputs.Count > 0)
             {
@@ -107,7 +107,7 @@ public sealed partial class PlanningGraphCompiler
             var nodes = Enumerate(workflow.Steps.Concat(workflow.Finally)).ToArray();
             if (nodes.Select(n => n.Key).Distinct(StringComparer.Ordinal).Count() != nodes.Length) continue;
             var scope = new LoweringScope(preparation, nodes.ToDictionary(n => n.Key, n => "n_" + Fingerprint(n.Key)[..16], StringComparer.Ordinal), workflowIds,
-                workflow.Inputs.Select(p => p.Name).ToHashSet(StringComparer.Ordinal), nodes.ToDictionary(n => n.Key, n => n.Type, StringComparer.Ordinal));
+                workflow.Inputs.Select(p => p.Name).ToHashSet(StringComparer.Ordinal), nodes.ToDictionary(n => n.Key, n => n.Type, StringComparer.Ordinal), LoopVariables(nodes));
             void Check(PlanningValue? value, string location, bool expression = false, bool literal = false)
             {
                 if (value is null) return;
@@ -136,7 +136,7 @@ public sealed partial class PlanningGraphCompiler
             throw new InvalidOperationException("A node uses a step type outside the locked policy.");
         var result = new JsonObject { ["id"] = scope.NodeIds[node.Key], ["type"] = node.Type };
         var loweredInput = LowerValue(node.Input, scope);
-        var computedSetInput = node.Type == "set" && node.Input.Kind is "expression" or "compute" or "input" or "output";
+        var computedSetInput = node.Type == "set" && node.Input.Kind is "expression" or "compute" or "input" or "output" or "loop_item" or "loop_index";
         var input = loweredInput as JsonObject ?? (computedSetInput ? new JsonObject() : throw new InvalidOperationException("A step input must be a typed object."));
         if (node.CapabilityId is { Length: > 0 })
         {
@@ -177,8 +177,11 @@ public sealed partial class PlanningGraphCompiler
             result["input"] = input;
         }
         if (node.Output is not null) result["output"] = node.Output;
-        if (node.ItemVar is not null) result["item_var"] = node.ItemVar;
-        if (node.IndexVar is not null) result["index_var"] = node.IndexVar;
+        if (node.Type is "loop.sequential" or "loop.parallel")
+        {
+            result["item_var"] = node.ItemVar ?? "item";
+            result["index_var"] = node.IndexVar ?? "i";
+        }
         if (node.Retry is not null) result["retry"] = Retry(node.Retry);
         if (node.OnError.Count > 0)
             result["on_error"] = new JsonObject { ["cases"] = new JsonArray(node.OnError.Select(c =>
@@ -259,7 +262,7 @@ public sealed partial class PlanningGraphCompiler
             case "workflow" when allowReferences:
                 if (value.Source is null || !scope.WorkflowIds.TryGetValue(value.Source, out var workflow)) throw new InvalidOperationException("Unknown workflow reference.");
                 return new JsonObject { ["kind"] = "local", ["name"] = workflow };
-            case "input" or "output" or "expression" or "compute" or "confirmation" or "decision_binding" when allowReferences: return JsonValue.Create(ToExpression(value, scope));
+            case "input" or "output" or "loop_item" or "loop_index" or "expression" or "compute" or "confirmation" or "decision_binding" when allowReferences: return JsonValue.Create(ToExpression(value, scope));
             case "template" when allowReferences:
                 var template = value.Text ?? "";
                 EnsureUnique(value.Members.Select(m => m.Name), "template binding");
@@ -283,6 +286,11 @@ public sealed partial class PlanningGraphCompiler
         {
             if (value.Source is null || !scope.Inputs.Contains(value.Source)) throw new InvalidOperationException("Unknown input reference.");
             expression = "data.inputs" + Segment(value.Source) + string.Concat(value.Path.Select(Segment));
+        }
+        else if (value.Kind is "loop_item" or "loop_index")
+        {
+            if (value.Source is null || !scope.NodeTypes.TryGetValue(value.Source, out var type) || type is not ("loop.sequential" or "loop.parallel")) throw new InvalidOperationException("Unknown loop binding producer.");
+            expression = "data" + Segment(value.Kind == "loop_index" ? scope.LoopVariables[value.Source].Index : scope.LoopVariables[value.Source].Item) + string.Concat(value.Path.Select(Segment));
         }
         else if (value.Kind == "output")
         {
@@ -431,7 +439,11 @@ public sealed partial class PlanningGraphCompiler
             if (string.IsNullOrWhiteSpace(value) || !seen.Add(value)) throw new InvalidOperationException($"Empty or duplicate {kind} key.");
     }
 
-    private sealed record LoweringScope(PlanningPreparation Preparation, Dictionary<string, string> NodeIds, Dictionary<string, string> WorkflowIds, HashSet<string> Inputs, Dictionary<string, string> NodeTypes);
+    internal static string LoopVariable(string key, bool index) => (index ? "index_" : "item_") + Fingerprint(key)[..16];
+
+    private static Dictionary<string, (string Item, string Index)> LoopVariables(IEnumerable<PlanningNode> nodes) => nodes.Where(n => n.Type is "loop.sequential" or "loop.parallel").ToDictionary(n => n.Key, n => (n.ItemVar ?? "item", n.IndexVar ?? "i"), StringComparer.Ordinal);
+
+    private sealed record LoweringScope(PlanningPreparation Preparation, Dictionary<string, string> NodeIds, Dictionary<string, string> WorkflowIds, HashSet<string> Inputs, Dictionary<string, string> NodeTypes, Dictionary<string, (string Item, string Index)> LoopVariables);
     [GeneratedRegex(@"^[A-Za-z_][A-Za-z0-9_]*$", RegexOptions.CultureInvariant)]
     private static partial Regex Identifier();
     [GeneratedRegex(@"\{\{[^{}]+\}\}", RegexOptions.CultureInvariant)]

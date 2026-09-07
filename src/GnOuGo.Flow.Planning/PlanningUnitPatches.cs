@@ -20,8 +20,15 @@ internal sealed class PlanningUnitPatches(JsonObject schema, Dictionary<string, 
         PlanningConstruction.PruneDefinitions(reduced); return new(reduced, keep, removals);
     }
 
-    internal static PlanningUnitPatches Create(PlanningGraph graph, PlanningConstructionUnit unit, JsonObject full)
+    internal static PlanningUnitPatches Create(PlanningGraph graph, PlanningConstructionUnit unit, JsonObject full, PlanningPreparation? preparation = null)
     {
+        if (preparation is not null && unit.Candidate is not null && unit.Kind == "implementation")
+        {
+            // Diagnostics refer to the candidate's member order, which can differ
+            // from the retained graph (or its still-empty construction skeleton).
+            try { graph = PlanningConstruction.Apply(graph, unit, unit.Candidate, preparation); }
+            catch (Exception ex) when (ex is InvalidOperationException or ArgumentException or FormatException) { /* Shape/explicit candidate coordinates still provide bounded repair. */ }
+        }
         var all = new Dictionary<string, (string[] Parts, JsonNode Schema)>(StringComparer.Ordinal);
         var extra = new List<string[]>();
         void Add(string[] parts, JsonNode schema) => all.Add(string.Join("/", parts.Select(PlanningSchemaReferences.Escape)), (parts, schema));
@@ -56,7 +63,7 @@ internal sealed class PlanningUnitPatches(JsonObject schema, Dictionary<string, 
             var graphPath = slot.Parts[0] switch
             {
                 "functions" => graphRoot + "/functions",
-                "nodes" => located.First(n => n.Node.Key == slot.Parts[1]).Path + "/" + (slot.Parts[2] == "context" ? "input" : slot.Parts[2] == "arguments" ? ArgumentPath(slot.Parts) : slot.Parts[2]),
+                "nodes" => located.First(n => n.Node.Key == slot.Parts[1]).Path + "/" + (slot.Parts[2] is "context" or "conditions" ? "input" : slot.Parts[2] == "arguments" ? ArgumentPath(slot.Parts) : slot.Parts[2]),
                 "inputs" => graphRoot + "/inputs/" + workflow.Inputs.FindIndex(p => p.Name == slot.Parts[1]) + "/" + slot.Parts[2],
                 _ => graphRoot + "/outputs/" + workflow.Outputs.FindIndex(p => p.Name == slot.Parts[1]) + "/" + slot.Parts[2]
             };

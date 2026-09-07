@@ -173,6 +173,7 @@ public sealed class PlanningCapability
     public JsonObject OutputSchema { get; set; } = new();
     public JsonObject FixedInput { get; set; } = new();
     public List<string> OperationIds { get; set; } = [];
+    public List<string> InputOperationIds { get; set; } = [];
     public bool Required { get; set; }
     public List<PlanningLiteralBinding> RequestBindings { get; set; } = [];
     public string? DeclarationFingerprint { get; set; }

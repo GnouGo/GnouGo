@@ -4,6 +4,7 @@ using System.Text.Json;
 using System.Text.Json.Nodes;
 using System.Text.Json.Serialization;
 using GnOuGo.Flow.Core.Planning;
+using GnOuGo.Flow.Core.Models;
 using GnOuGo.Flow.Core.Parsing;
 
 namespace GnOuGo.Flow.Core.Runtime.Executors;
@@ -52,6 +53,7 @@ public sealed partial class WorkflowPlanExecutor
                 CatalogId = capability.CatalogId,
                 Resolution = capability.Resolution,
                 OperationIds = GetResolvedCapabilityOperationIds(capability).ToList(),
+                InputOperationIds = capability.InputOperationIds.ToList(),
                 InputSchema = prompt is not null ? TypedPromptInputSchema(prompt) : (tool?.InputSchema?.DeepClone() ?? contract?.InputSchema.DeepClone()) as JsonObject ?? new JsonObject(),
                 OutputSchema = prompt is not null ? new JsonObject() : (tool is null ? contract?.OutputSchema.DeepClone() : McpToolContractEnricher.GetAuthoritativeOutputSchema(tool)?.DeepClone()) as JsonObject ?? new JsonObject(),
                 RequestBindings = capability.RequestBindings.Select(b => new PlanningLiteralBinding(b.Path, b.Value?.DeepClone())).ToList()
@@ -110,10 +112,23 @@ public sealed partial class WorkflowPlanExecutor
                 var finding = details.DeepClone().AsObject(); finding["message"] ??= detailed.Message;
                 if (details["unavailable_capabilities"] is JsonArray missing)
                     finding["message"] = detailed.Message + "\nMissing obligations: " + string.Join("; ", missing.OfType<JsonObject>().Select(c => c["description"]?.ToString() ?? c["id"]?.ToString()));
+                if (details["validation_issue"]?.GetValue<string>() == "conditional_local_decision_inputs_unproven")
+                    RetargetTypedDecisionFinding(finding, WorkflowParser.Parse(yaml));
                 return [TypedArtifactDiagnostic(finding, detailed.Code, stage)];
             }
             return [new PlanningDiagnostic(ex is Expressions.WorkflowRuntimeException failure ? failure.Code : "PLANNING_VALIDATION", "$", ex.Message, ValidationStage: stage)];
         }
+    }
+
+    internal static void RetargetTypedDecisionFinding(JsonObject finding, WorkflowDocument document)
+    {
+        if (finding["decision_field"] is not JsonValue field || !field.TryGetValue<string>(out var name)) return;
+        var producers = document.Workflows.SelectMany(w => EnumerateSteps(w.Value.Steps).Concat(EnumerateSteps(w.Value.Finally))
+            .Where(n => n.Type == "decision.evaluate" && n.Input?["decisions"] is JsonObject fields && fields.ContainsKey(name))
+            .Select(n => (Workflow: w.Key, Node: n))).ToArray();
+        if (producers.Length != 1) return;
+        finding["workflow"] = producers[0].Workflow; finding["step"] = producers[0].Node.Id; finding["field"] = "input.decisions." + name;
+        finding["hint"] = "Repair this decision producer's conditions. Bind declared upstream results directly or through provable field projections; an opaque computed object cannot establish which result field depends on an input. Preserve every required permission.";
     }
 
     internal static PlanningDiagnostic TypedArtifactDiagnostic(JsonObject diagnostic, string fallbackCode, string stage)
@@ -242,6 +257,7 @@ public sealed partial class WorkflowPlanExecutor
                 GetResolvedCapabilityOperationIds(c).ToHashSet(StringComparer.Ordinal).SetEquals(capability.OperationIds) && c.RequestBindings.Count == capability.RequestBindings.Count &&
                 c.RequestBindings.All(b => capability.RequestBindings.Any(p => p.Path == b.Path && JsonNode.DeepEquals(p.Value, b.Value)))).ToArray();
             if (matches.Length != 1) throw new InvalidOperationException("The locked capability metadata is missing or ambiguous.");
+            capability.InputOperationIds = matches[0].InputOperationIds.ToList();
             capability.Activation = matches[0].Activation; capability.CatalogId = matches[0].CatalogId; capability.Resolution = matches[0].Resolution;
             var tool = preflight.DiscoveredServers.FirstOrDefault(s => s.Name == capability.Server)?.Tools.FirstOrDefault(t => t.Name == capability.Method);
             capability.ArtifactContract = tool is null ? null : GetValidatedMcpArtifactContract(tool, capability.Server);

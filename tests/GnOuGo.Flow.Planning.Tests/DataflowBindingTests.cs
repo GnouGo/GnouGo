@@ -235,6 +235,20 @@ public sealed class DataflowBindingTests
         Assert.True(run.Success, run.Error?.Message); Assert.True(received!.AsObject().ContainsKey("optional")); Assert.Null(received["optional"]);
     }
 
+    [Fact]
+    public void DataComputationCannotSelectAWorkflowIdentifierAsAProducerResult()
+    {
+        var (graph, prep) = Fixture(); var workflow = graph.Workflows[0];
+        var unit = new PlanningConstructionUnit { WorkflowKey = workflow.Key, Kind = "implementation", NodeKeys = ["greeting"], ContractVersion = PlanningDataflow.ContractVersion };
+        var schema = PlanningConstruction.Schema(workflow, unit, prep, graph);
+        var candidate = PlanningConstruction.UpgradeCandidate(graph, unit, PlanningConstruction.Values(workflow, unit), prep);
+        candidate["nodes"]!["greeting"]!["input"] = new JsonObject { ["kind"] = "compute", ["text"] = "String(result)", ["members"] = new JsonArray(new JsonObject { ["name"] = "result", ["value"] = new JsonObject { ["kind"] = "workflow", ["source"] = workflow.Key } }) };
+        Assert.NotEmpty(PlanningConstruction.ShapeFindings(candidate, schema, unit));
+        var binding = PlanningDataflow.Index(workflow, prep, graph, "greeting").Values.Single(b => b.Value.Source == "read");
+        candidate["nodes"]!["greeting"]!["input"]!["members"]![0]!["value"] = new JsonObject { ["kind"] = "binding", ["reference"] = binding.Id };
+        Assert.Empty(PlanningConstruction.ShapeFindings(candidate, schema, unit));
+    }
+
     [Theory]
     [InlineData("value.toUpperCase()")]
     [InlineData("const result = value.toUpperCase(); return result;")]
@@ -296,6 +310,61 @@ public sealed class DataflowBindingTests
         state = await new TypedWorkflowPlanner().AdvanceAsync(state, new() { ExpectedRevision = state.Revision }, runtime, TestContext.Current.CancellationToken);
         Assert.True(state.Status == PlanningStatus.Validating, JsonSerializer.Serialize(state.Diagnostics, PlanningJsonContext.Default.ListPlanningDiagnostic) + "\n" + string.Join("\n", state.Attempts.SelectMany(a => a.Diagnostics).Select(d => d.Message))); Assert.Single(runtime.Requests);
         Assert.Equal(greeting.Input.Members[0].Value.Text, PlanningGraphCompiler.Enumerate(state.Graph!.Workflows[0].Steps).Single(n => n.Key == "greeting").Input.Members[0].Value.Text);
+    }
+
+    [Fact]
+    public async Task SemanticFailureHandlingFinding_UsesTargetedErrorHandlerPatch()
+    {
+        var (graph, prep) = Fixture(); var workflow = graph.Workflows[0];
+        var state = Session(PlanningStatus.Generating); state.Graph = graph; state.Preparation = prep; state.RepairAttempt = 1;
+        state.ConstructionUnits.Add(new() { Key = "late-repair", WorkflowKey = "main", Kind = "implementation", NodeKeys = ["read"], ContractVersion = PlanningDataflow.ContractVersion, Calls = 1, Status = "validated" });
+        state.Diagnostics = [new("SEMANTIC_FAILURE_HANDLING", "/workflows/0/steps/0/onError", "Capture a non-artifact failure result so later review remains reachable.")];
+        var runtime = new FakeRuntime { OnCall = (phase, request, _) =>
+        {
+            Assert.Equal("repair_unit", phase);
+            var required = request.StructuredOutputSchema!["properties"]!["changes"]!["required"]!.AsArray();
+            Assert.Equal("nodes/read/onError", Assert.Single(required)!.GetValue<string>());
+            return Task.FromResult(new LLMResponse { Json = JsonNode.Parse("""{"changes":{"nodes/read/onError":[{"if":null,"action":"continue","setOutput":{"kind":"null"},"retry":null}]},"remove":[]}""") });
+        } };
+        state = await new TypedWorkflowPlanner().AdvanceAsync(state, new() { ExpectedRevision = state.Revision }, runtime, TestContext.Current.CancellationToken);
+        Assert.Equal(PlanningStatus.Validating, state.Status); Assert.Single(runtime.Requests);
+        Assert.Equal("continue", Assert.Single(state.Graph!.Workflows[0].Steps[0].OnError).Action);
+    }
+
+    [Fact]
+    public void TemplateRepairUsesCandidateArgumentOrder_InsteadOfEmptyRetainedSkeleton()
+    {
+        var (graph, prep) = Fixture(); var workflow = graph.Workflows[0];
+        var node = workflow.Steps[0]; node.Input = Obj();
+        var unit = new PlanningConstructionUnit { Key = "repair", WorkflowKey = "main", Kind = "implementation", NodeKeys = ["read"], ContractVersion = PlanningDataflow.ContractVersion };
+        var binding = PlanningDataflow.Index(workflow, prep, graph, "read").Values.Single(b => b.Value.Source == "resource");
+        unit.Candidate = JsonNode.Parse("""{"nodes":{"read":{"arguments":{"optional":{"kind":"omit"},"resource":{"kind":"template","text":"Resource ${resource}","members":[{"name":"resource","value":{}}]}},"onError":[]}},"functions":null}""")!.AsObject();
+        unit.Candidate["nodes"]!["read"]!["arguments"]!["resource"]!["members"]![0]!["value"] = new JsonObject { ["kind"] = "binding", ["reference"] = binding.Id };
+        var candidate = PlanningConstruction.Apply(graph, unit, unit.Candidate, prep);
+        unit.Diagnostics = PlanningExecutableValidation.Validate(candidate, prep).Where(d => d.Code is "TEMPLATE_BINDING_INVALID" or "VALUE_LOWERING_INVALID").ToList();
+        Assert.NotEmpty(unit.Diagnostics);
+        var patch = PlanningUnitPatches.Create(graph, unit, PlanningConstruction.Schema(workflow, unit, prep, graph), prep);
+        var coordinates = patch.Context(unit.Candidate).Select(p => p.Key).ToArray();
+        Assert.Contains("nodes/read/arguments/resource", coordinates);
+        Assert.DoesNotContain(coordinates, p => p.Contains("/members/", StringComparison.Ordinal));
+        Assert.Empty(node.Input.Members);
+    }
+
+    [Theory]
+    [InlineData("analysis", "select")]
+    [InlineData("analyse", "sélection")]
+    public void LockedProducerDependencyRejectsUnrelatedData_AndAcceptsItsAlias(string sourceOperation, string consumerOperation)
+    {
+        var (graph, prep) = Fixture(); var workflow = graph.Workflows[0];
+        prep.Capabilities[0].OperationIds = [sourceOperation];
+        prep.Capabilities.Add(new() { Id = "local", StepType = "set", OperationIds = [consumerOperation], InputOperationIds = [sourceOperation] });
+        workflow.Steps[1].CapabilityId = "local";
+        workflow.Steps[1].Input = Obj(("message", new() { Kind = "input", Source = "resource" }));
+        var finding = Assert.Single(PlanningDataflow.OperationInputFindings(graph, prep));
+        Assert.Equal("/workflows/0/steps/1/input", finding.Location); Assert.Contains("read", finding.Message);
+        workflow.Steps.Insert(1, new() { Key = "alias", Input = Obj(("value", new() { Kind = "output", Source = "read" })) });
+        workflow.Steps[2].Input = Obj(("message", new() { Kind = "output", Source = "alias", Path = ["value"] }));
+        Assert.Empty(PlanningDataflow.OperationInputFindings(graph, prep));
     }
 
     [Fact]

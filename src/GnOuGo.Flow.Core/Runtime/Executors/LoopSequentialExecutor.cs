@@ -159,6 +159,7 @@ public sealed class LoopSequentialExecutor : IStepExecutor
 
         var whileIterations = new JsonArray();
         int iteration = 0;
+        var countIndexVar = ctx.Step.Source.IndexVar ?? "i";
 
         while (true)
         {
@@ -173,6 +174,7 @@ public sealed class LoopSequentialExecutor : IStepExecutor
 
             ctx.Data["_loop"] = new JsonObject { ["index"] = iteration };
             ctx.Data["loop"] = new JsonObject { ["index"] = iteration };
+            ctx.Data[countIndexVar] = JsonValue.Create(iteration);
 
             // Evaluate while condition
             if (inputObj?.TryGetPropertyValue("while", out var whileExpr2) == true && whileExpr2 != null)
@@ -200,6 +202,7 @@ public sealed class LoopSequentialExecutor : IStepExecutor
             iteration++;
         }
 
+        ctx.Data.Remove(countIndexVar);
         return new JsonObject { ["results"] = whileIterations, ["count"] = iteration };
     }
 }

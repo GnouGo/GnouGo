@@ -54,7 +54,7 @@ public sealed class DecisionRoutingTests
             AllowedValues = ["APPROVE", "REQUEST_CHANGES", "NO_EFFECT"], NoEffectValues = ["NO_EFFECT"], InputOperationIds = ["permission"], PermissionOperationIds = ["permission"],
             ResponseSchema = new JsonObject { ["type"] = "string", ["enum"] = new JsonArray("APPROVE", "REQUEST_CHANGES", "NO_EFFECT") } });
         var workflow = new PlanningWorkflow { Key = "main", Steps = [
-            new() { Key = "confirm", Type = "human.input", CapabilityId = "human", OperationIds = ["permission"], Input = PlanningConstruction.Literal(HumanInputContract.ConfirmationInput("Publish?")) },
+            new() { Key = "confirm", Type = "human.input", Purpose = "Publish?", CapabilityId = "human", OperationIds = ["permission"], Input = PlanningConstruction.Literal(HumanInputContract.ConfirmationInput("Publish?")) },
             new() { Key = "reduce", Type = "decision.evaluate", CapabilityId = "reducer", OperationIds = ["decide"] }],
             Outputs = [new() { Name = "outcome", Schema = new() { Type = "string" }, Value = new() { Kind = "output", Source = "reduce", Path = ["outcome"] } }] };
         var graph = new PlanningGraph { Workflows = [workflow] };
@@ -71,6 +71,17 @@ public sealed class DecisionRoutingTests
         var candidate = new JsonObject { ["nodes"] = new JsonObject { ["reduce"] = reducer }, ["functions"] = null };
         var result = PlanningConstruction.Apply(graph, unit, candidate, preparation);
         Assert.Empty(PlanningExecutableValidation.Validate(result, preparation));
+        result.Workflows[0].Steps[0].Input.Members.Add(new("context", Str("Retain review context")));
+        unit.NodeKeys.Insert(0, "confirm");
+        var fingerprint = PlanningGraphCompiler.Fingerprint(result);
+        for (var i = 0; i < 3; i++)
+        {
+            var values = PlanningConstruction.UpgradeCandidate(result, unit, PlanningConstruction.Values(result.Workflows[0], unit, preparation), preparation);
+            Assert.NotNull(values["nodes"]!["reduce"]!["conditions"]);
+            Assert.Equal("Retain review context", values["nodes"]!["confirm"]!["context"]!["text"]!.GetValue<string>());
+            result = PlanningConstruction.Apply(result, unit, values, preparation);
+            Assert.Equal(fingerprint, PlanningGraphCompiler.Fingerprint(result));
+        }
         var compiled = new GnOuGo.Flow.Core.Compilation.WorkflowCompiler().Compile(GnOuGo.Flow.Core.Parsing.WorkflowParser.Parse(new PlanningGraphCompiler().Compile(result, preparation)));
         var executed = await new WorkflowEngine { HumanInputProvider = new ConsentProvider(consent) }.ExecuteAsync(compiled.Workflows[compiled.Entrypoint!], new JsonObject(), TestContext.Current.CancellationToken);
         Assert.True(executed.Success, executed.Error?.Message); Assert.Equal(expected, executed.Outputs!["outcome"]!.GetValue<string>());

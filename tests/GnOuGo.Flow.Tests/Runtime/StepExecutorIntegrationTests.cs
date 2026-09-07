@@ -13,6 +13,30 @@ namespace GnOuGo.Flow.Tests.Runtime;
 /// </summary>
 public class StepExecutorIntegrationTests
 {
+    [Theory]
+    [InlineData("times: 3")]
+    [InlineData("while: '${data._loop.index < 3}'")]
+    public async Task SequentialCountAndWhileLoopsExposeTheirDeclaredIndexVariable(string condition)
+    {
+        var result = await RunMain("""
+            version: 1
+            entrypoint: main
+            workflows:
+              main:
+                steps:
+                  - id: loop
+                    type: loop.sequential
+                    index_var: position
+                    input:
+                      CONDITION
+                    steps:
+                      - id: require_index
+                        type: assert.non_null
+                        input: {value: '${data.position}'}
+            """.Replace("CONDITION", condition, StringComparison.Ordinal));
+        Assert.True(result.Success, result.Error?.Message);
+    }
+
     private static CompiledDocument CompileDoc(string yaml)
     {
         var doc = WorkflowParser.Parse(yaml);

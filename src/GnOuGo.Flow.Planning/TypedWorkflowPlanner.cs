@@ -447,7 +447,11 @@ public sealed partial class TypedWorkflowPlanner(TimeProvider? timeProvider = nu
                     if (state.Scenarios.Count == 0) diagnostics.Add(new("SCENARIO_MISSING", "$", "No scenario coverage was established."));
                     diagnostics.AddRange(state.Scenarios.Where(s => s.Outcome != "passed").SelectMany(s => s.Diagnostics.Count == 0 ? [new PlanningDiagnostic("SCENARIO_INCONCLUSIVE", s.Id, "Required scenario coverage is incomplete.")] : s.Diagnostics));
                 }
-                if (diagnostics.Count == 0) { stage = 9; diagnostics.AddRange(await ReviewAsync(state, runtime, ct)); }
+                if (diagnostics.Count == 0)
+                {
+                    stage = 9; diagnostics.AddRange(await ReviewAsync(state, runtime, ct));
+                    if (RequiresBehaviorReassessment(state, diagnostics)) return;
+                }
             }
         }
         catch (OperationCanceledException) when (ct.IsCancellationRequested) { throw; }
@@ -582,10 +586,13 @@ public sealed partial class TypedWorkflowPlanner(TimeProvider? timeProvider = nu
         var prompt = "Review the typed graph against the exact requested observable behavior and locked contract. " +
             "Return only concrete findings supported by an exact evidence excerpt from the request. Do not challenge a locked capability's existence, ownership or confirmation policy. " +
             "Check preservation of every requested effect, cardinality, ordering, uncertain outcome, and cleanup. A passing schema does not prove intent coverage. " +
-            "Each finding must identify an exact workflow key from the response schema. Evidence must be a single verbatim substring, without added quotes, ellipses, or combined excerpts. No score is used.\nRequest:\n" + Context(state) +
+            "Each finding must identify its exact workflow and location from the response schema. Choose the operation's /input for argument/computation defects or /onError for failure handling. " +
+            "Choose /behavior for missing iteration, ordering, routing, operations or other topology changes; field repair cannot change approved topology. " +
+            "Evidence must be a single verbatim substring, without added quotes, ellipses, or combined excerpts. No score is used.\nRequest:\n" + Context(state) +
             "\nLocked contract:\n" + state.Preparation!.LockedContract.ToJsonString() +
             "\nGraph:\n" + JsonSerializer.Serialize(state.Graph, PlanningJsonContext.Default.PlanningGraph);
-        var shape = PlanningSchemas.Review(state.Graph!.Workflows.Select(w => w.Key));
+        var targets = SemanticTargets(state.Graph!);
+        var shape = PlanningSchemas.Review(state.Graph!.Workflows.Select(w => w.Key), targets.Keys);
         var invalid = new List<PlanningDiagnostic>(); JsonObject? response = null;
         for (var attempt = 0; attempt < 2; attempt++)
         {
@@ -597,10 +604,13 @@ public sealed partial class TypedWorkflowPlanner(TimeProvider? timeProvider = nu
             foreach (var finding in response["findings"]!.AsArray().OfType<JsonObject>())
             {
                 var workflow = finding["workflow"]!.GetValue<string>();
+                var location = finding["location"]!.GetValue<string>();
                 var evidence = finding["evidence"]!.GetValue<string>();
                 if (string.IsNullOrWhiteSpace(evidence) || !Context(state).Contains(evidence, StringComparison.Ordinal))
                     invalid.Add(new("SEMANTIC_REVIEW_EVIDENCE_INVALID", "/semanticReview/findings/" + index + "/evidence", "Copy one exact excerpt from the supplied request for this finding. Model assessment failures cannot justify executable changes."));
-                diagnostics.Add(new(finding["code"]!.GetValue<string>(), workflow, finding["message"]!.GetValue<string>(), finding["blocking"]!.GetValue<bool>()));
+                if (targets[location].Workflow != workflow)
+                    invalid.Add(new("SEMANTIC_REVIEW_LOCATION_INVALID", "/semanticReview/findings/" + index + "/location", "The target must belong to the named workflow."));
+                diagnostics.Add(new(finding["code"]!.GetValue<string>(), location, finding["message"]!.GetValue<string>(), finding["blocking"]!.GetValue<bool>()));
                 index++;
             }
             if (invalid.Count == 0) return diagnostics;
@@ -610,6 +620,39 @@ public sealed partial class TypedWorkflowPlanner(TimeProvider? timeProvider = nu
 
     private sealed class SemanticAssessmentException(List<PlanningDiagnostic> diagnostics) : Exception
     { internal List<PlanningDiagnostic> Diagnostics { get; } = diagnostics; }
+
+    private static Dictionary<string, (string Workflow, bool Behavior)> SemanticTargets(PlanningGraph graph)
+    {
+        var targets = new Dictionary<string, (string, bool)>(StringComparer.Ordinal);
+        for (var i = 0; i < graph.Workflows.Count; i++)
+        {
+            var workflow = graph.Workflows[i]; var root = "/workflows/" + i;
+            targets[root + "/behavior"] = (workflow.Key, true);
+            targets[root + "/functions"] = (workflow.Key, false);
+            foreach (var (node, path) in PlanningGraphValidation.Located(workflow.Steps, root + "/steps").Concat(PlanningGraphValidation.Located(workflow.Finally, root + "/finally")))
+            {
+                targets[path + "/behavior"] = (workflow.Key, true);
+                foreach (var field in new[] { "input", "onError", "outputSchema", "structuredOutput" }) targets[path + "/" + field] = (workflow.Key, false);
+            }
+        }
+        return targets;
+    }
+
+    private bool RequiresBehaviorReassessment(PlanningSnapshot state, List<PlanningDiagnostic> findings)
+    {
+        var targets = SemanticTargets(state.Graph!);
+        if (!findings.Any(d => d.Required && targets.TryGetValue(d.Location, out var target) && target.Behavior)) return false;
+        Remember(state);
+        state.Attempts.Add(new(PlanningGraphCompiler.Fingerprint(state.Graph!), "semantic_review", 9, false, findings.ToList()));
+        state.Feedback = "Resolve these evidenced coverage findings while preserving every existing request, answer and locked obligation:\n" +
+            string.Join("\n", findings.Where(d => d.Required).Select(d => d.Location + ": " + d.Message));
+        state.Graph = null; state.Fragments.Clear(); state.BestGraph = null; state.BestScenarios.Clear(); state.BestDiagnostics.Clear();
+        ResetBehavior(state); state.Status = PlanningStatus.Created; state.CurrentPhase = PlanningPhase.Behavior;
+        state.IntentChecked = true; state.ApprovedHash = null; state.ArtifactHash = null; state.Yaml = null;
+        state.RepairAttempt = 0; state.NonImprovingAttempts = 0; state.Diagnostics = findings;
+        state.Events.Add(new("behavior_revision_required", PlanningPhase.Behavior, _time.GetUtcNow(), findings.Count));
+        return true;
+    }
 
     private async Task ReviseAsync(PlanningSnapshot state, string feedback, IPlanningRuntime runtime, CancellationToken ct)
     {

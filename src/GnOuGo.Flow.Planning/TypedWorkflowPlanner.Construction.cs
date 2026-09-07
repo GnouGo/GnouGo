@@ -39,6 +39,7 @@ public sealed partial class TypedWorkflowPlanner
             retained.DispatchDiagnostics = retained.Diagnostics.Where(d => d.Code == "UNIT_CONTEXT_TOO_LARGE").ToList();
             retained.Diagnostics = state.Attempts.LastOrDefault(a => a.CandidateHash == retained.CandidateHash)?.Diagnostics.ToList() ?? [];
         }
+        UpgradeLoopUnits(state);
         // Upgrade candidates in memory, preserving their encrypted revision history and receipts.
         // Legacy checkpoints are revalidated, never blindly trusted under a new construction contract.
         foreach (var unit in state.ConstructionUnits.Where(u => u.ContractVersion < PlanningDataflow.ContractVersion && u.Status != "superseded"))
@@ -130,7 +131,7 @@ public sealed partial class TypedWorkflowPlanner
                     }
                     catch (Exception ex) when (ex is InvalidOperationException or ArgumentException or FormatException) { /* Repair the retained candidate below. */ }
                 }
-                var patch = repair ? PlanningUnitPatches.Create(graph, unit, schema) : null;
+                var patch = repair ? PlanningUnitPatches.Create(graph, unit, schema, state.Preparation) : null;
                 if (!repair && unit.Diagnostics.Count == 0 && unit.Candidate is not null && PlanningConstruction.ShapeFindings(unit.Candidate, schema, unit).Count == 0)
                     return (unit, response: (LLMResponse?)new LLMResponse { Json = unit.Candidate.DeepClone() }, patch, error: (Exception?)null);
                 if (CanConstructWithoutModel(schema))
@@ -270,9 +271,15 @@ public sealed partial class TypedWorkflowPlanner
         return true;
     }
 
-    private static IEnumerable<PlanningDiagnostic> UnitBehaviorFindings(PlanningSnapshot state, PlanningGraph graph, PlanningConstructionUnit unit) =>
-        PlanningBehaviorPlans.ValidateImplementation(state.BehaviorPlan!, graph, state.Preparation!).Where(d =>
-            d.Code != "BUSINESS_INPUT_BINDING_MISSING" || unit.Kind == "implementation" && unit.NodeKeys.Any(key => d.Location.EndsWith("/" + key + "/input", StringComparison.Ordinal)));
+    private static IEnumerable<PlanningDiagnostic> UnitBehaviorFindings(PlanningSnapshot state, PlanningGraph graph, PlanningConstructionUnit unit)
+    {
+        var wi = graph.Workflows.FindIndex(w => w.Key == unit.WorkflowKey); var workflow = graph.Workflows[wi];
+        var owned = PlanningGraphValidation.Located(workflow.Steps, "/workflows/" + wi + "/steps")
+            .Concat(PlanningGraphValidation.Located(workflow.Finally, "/workflows/" + wi + "/finally"))
+            .Where(p => unit.NodeKeys.Contains(p.Node.Key, StringComparer.Ordinal)).Select(p => p.Path + "/input").ToHashSet(StringComparer.Ordinal);
+        return PlanningBehaviorPlans.ValidateImplementation(state.BehaviorPlan!, graph, state.Preparation!).Where(d =>
+            d.Code != "BUSINESS_INPUT_BINDING_MISSING" || unit.Kind == "implementation" && owned.Contains(d.Location));
+    }
 
     private static IEnumerable<PlanningDiagnostic> UnitFindings(PlanningGraph graph, PlanningPreparation preparation, PlanningConstructionUnit unit)
     {
@@ -338,7 +345,7 @@ public sealed partial class TypedWorkflowPlanner
 
     private static string UnitPrompt(PlanningSnapshot state, PlanningWorkflow workflow, PlanningConstructionUnit unit, PlanningPreparation preparation, bool repair)
     {
-        if (repair) return UnitRepairPrompt(state, workflow, unit, preparation, PlanningUnitPatches.Create(state.Graph!, unit, PlanningConstruction.Schema(workflow, unit, preparation, state.Graph)));
+        if (repair) return UnitRepairPrompt(state, workflow, unit, preparation, PlanningUnitPatches.Create(state.Graph!, unit, PlanningConstruction.Schema(workflow, unit, preparation, state.Graph), state.Preparation));
         var all = PlanningGraphCompiler.Enumerate(workflow.Steps.Concat(workflow.Finally)).ToArray();
         var owned = all.Where(n => unit.NodeKeys.Contains(n.Key, StringComparer.Ordinal)).ToArray();
         var ownedIds = owned.Select(n => n.CapabilityId).ToHashSet(StringComparer.Ordinal);
@@ -388,11 +395,13 @@ public sealed partial class TypedWorkflowPlanner
 
     private static string UnitRepairPrompt(PlanningSnapshot state, PlanningWorkflow workflow, PlanningConstructionUnit unit, PlanningPreparation preparation, PlanningUnitPatches patch) =>
         "Repair only the supplied value coordinates. All other fields, behavior, helper bodies and topology are retained. " +
+        "A template text uses {{name}} for each declared member, never ${name}. Repair a malformed template at its own coordinate, not by nesting more templates inside its bindings. " +
         "Select exact binding identifiers. An opaque producer permits only whole-result consumption or serialization, not property access. " +
         "A template can bind the whole result; use a validated transformation when typed fields are needed. " +
         "For compute, text must be executable JavaScript using named members as parameters, such as value.trim(). Multiple statements must end with return. Never describe the calculation in prose; do not read an implicit data context. " +
         "Keep business inputs dynamic: examples are defaults, not replacements for input dependencies. " +
         "Return only the patch schema.\nOwned operations:\n" + new JsonArray(PlanningGraphCompiler.Enumerate(workflow.Steps.Concat(workflow.Finally)).Where(n => unit.NodeKeys.Contains(n.Key, StringComparer.Ordinal)).Select(n => (JsonNode)new JsonObject { ["key"] = n.Key, ["purpose"] = n.Purpose }).ToArray()).ToJsonString() +
+        "\nLocked producer dependencies:\n" + new JsonArray(preparation.Capabilities.Where(c => unit.NodeKeys.Any(key => PlanningGraphCompiler.Enumerate(workflow.Steps.Concat(workflow.Finally)).Any(n => n.Key == key && n.CapabilityId == c.Id))).Select(c => (JsonNode)new JsonObject { ["capability"] = c.Id, ["operations"] = new JsonArray(c.OperationIds.Select(p => (JsonNode?)JsonValue.Create(p)).ToArray()), ["requiredProducerOperations"] = new JsonArray(c.InputOperationIds.Select(p => (JsonNode?)JsonValue.Create(p)).ToArray()) }).ToArray()).ToJsonString() +
         "\nCandidate values:\n" + patch.Context(unit.Candidate).ToJsonString() +
         "\nReferenced helper signatures:\n" + HelperSignatures(workflow.Functions, patch.Context(unit.Candidate).ToJsonString()) +
         "\nExact bindings grouped by source; entries are [identifier, path, type, availability]:\n" + BindingContext(state, workflow, unit).ToJsonString() +
@@ -495,6 +504,29 @@ public sealed partial class TypedWorkflowPlanner
             return text.ToString();
         }
         catch (Acornima.ParseErrorException) { return functions; }
+    }
+
+    internal static void UpgradeLoopUnits(PlanningSnapshot state)
+    {
+        foreach (var legacy in state.ConstructionUnits.Where(u => u.ContractVersion < 11 && u.Kind == "implementation" && u.Status != "superseded" && u.NodeKeys.Count > 1).ToArray())
+        {
+            var workflow = state.Graph!.Workflows.Single(w => w.Key == legacy.WorkflowKey);
+            if (!PlanningGraphCompiler.Enumerate(workflow.Steps.Concat(workflow.Finally)).Any(n => legacy.NodeKeys.Contains(n.Key) && n.Type is "loop.sequential" or "loop.parallel")) continue;
+            var retained = legacy.Candidate?.DeepClone().AsObject();
+            SplitUnit(state, legacy);
+            foreach (var child in state.ConstructionUnits.Where(u => u.Key.StartsWith(legacy.Key + ":", StringComparison.Ordinal)).ToArray())
+            {
+                child.ContractVersion = PlanningDataflow.ContractVersion;
+                if (retained is null) continue;
+                var candidate = retained.DeepClone().AsObject();
+                if (candidate["nodes"] is JsonObject nodes)
+                    foreach (var key in nodes.Select(p => p.Key).Where(k => !child.NodeKeys.Contains(k)).ToArray()) nodes.Remove(key);
+                child.Candidate = PlanningConstruction.UpgradeCandidate(state.Graph!, child, candidate, state.Preparation!);
+                child.CandidateHash = PlanningGraphCompiler.Fingerprint(child.Candidate.ToJsonString());
+                // The normal queue revalidates each retained child after its parent.
+                // Receipts and cumulative counts remain on the superseded checkpoint.
+            }
+        }
     }
 
     private static void SplitUnit(PlanningSnapshot state, PlanningConstructionUnit unit)

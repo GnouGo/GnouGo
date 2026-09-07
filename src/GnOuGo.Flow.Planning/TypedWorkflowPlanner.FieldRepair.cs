@@ -17,19 +17,20 @@ public sealed partial class TypedWorkflowPlanner
             .Concat(PlanningGraphValidation.Located(w.Finally, "/workflows/" + wi + "/finally")).Select(n => (Workflow: w, n.Node, n.Path))).ToArray();
         // Nested runtime telemetry also reports the failed container. Repair the
         // actual innermost failing operation, not an immutable routing wrapper.
-        var finding = state.Diagnostics.Where(d => d.Code != "SCENARIO_UNREACHED" && located.Any(n => d.Location == n.Path || d.Location.StartsWith(n.Path + "/input", StringComparison.Ordinal)))
+        var finding = state.Diagnostics.Where(d => d.Code != "SCENARIO_UNREACHED" && located.Any(n => d.Location == n.Path || new[] { "input", "onError", "outputSchema", "structuredOutput" }.Any(field => d.Location == n.Path + "/" + field || d.Location.StartsWith(n.Path + "/" + field + "/", StringComparison.Ordinal))))
             .OrderByDescending(d => d.Location.Count(c => c == '/')).FirstOrDefault();
         if (finding is null) return false;
         var owner = located.Where(n => finding.Location == n.Path || finding.Location.StartsWith(n.Path + "/", StringComparison.Ordinal)).OrderByDescending(n => n.Path.Length).First();
-        var unit = state.ConstructionUnits.FirstOrDefault(u => u.WorkflowKey == owner.Workflow.Key && u.Kind == "implementation" && u.Status != "superseded" && u.NodeKeys.Contains(owner.Node.Key, StringComparer.Ordinal));
+        var unitKind = finding.Location == owner.Path + "/outputSchema" || finding.Location.StartsWith(owner.Path + "/outputSchema/", StringComparison.Ordinal) || finding.Location == owner.Path + "/structuredOutput" || finding.Location.StartsWith(owner.Path + "/structuredOutput/", StringComparison.Ordinal) ? "contracts" : "implementation";
+        var unit = state.ConstructionUnits.FirstOrDefault(u => u.WorkflowKey == owner.Workflow.Key && u.Kind == unitKind && u.Status != "superseded" && u.NodeKeys.Contains(owner.Node.Key, StringComparer.Ordinal));
         if (unit is null) return false;
-        unit.Candidate = PlanningConstruction.UpgradeCandidate(graph, unit, PlanningConstruction.Values(owner.Workflow, unit), state.Preparation!);
+        unit.Candidate = PlanningConstruction.UpgradeCandidate(graph, unit, PlanningConstruction.Values(owner.Workflow, unit, state.Preparation), state.Preparation!);
         unit.CandidateHash = PlanningGraphCompiler.Fingerprint(unit.Candidate.ToJsonString());
         unit.Diagnostics = state.Diagnostics.Where(d => located.Any(n => n.Workflow.Key == unit.WorkflowKey && unit.NodeKeys.Contains(n.Node.Key, StringComparer.Ordinal) && (d.Location == n.Path || d.Location.StartsWith(n.Path + "/", StringComparison.Ordinal))))
             .Select(d => d with { Location = PlanningLocation(d.Location, graph) }).ToList();
         var preparation = UnitPreparation(state.Preparation!, owner.Workflow, unit);
         var schema = PlanningConstruction.Schema(owner.Workflow, unit, preparation, graph);
-        var patch = PlanningUnitPatches.Create(graph, unit, schema);
+        var patch = PlanningUnitPatches.Create(graph, unit, schema, state.Preparation);
         var prompt = UnitRepairPrompt(state, owner.Workflow, unit, preparation, patch);
         while (PlanningConstruction.EstimateInputTokens(prompt, patch.Schema) > state.Request.Generation.MaxInputTokensPerUnit)
         {

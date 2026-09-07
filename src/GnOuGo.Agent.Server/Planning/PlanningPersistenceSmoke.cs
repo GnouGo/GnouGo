@@ -58,6 +58,16 @@ internal static class PlanningPersistenceSmoke
             early.Request.Generation.Reasoning != "low" || early.GenerationHistory.Count != 1 || early.ConstructionUnits.Count != 1 ||
             early.ConstructionUnits[0].RepairCalls != 1 || early.ConstructionUnits[0].Candidate?["private"]?.GetValue<string>() != "Encrypted executable candidate")
             throw new InvalidOperationException("Early review fields did not survive persistence.");
+        state.Revision = 4;
+        state.PreparationCheckpoint = new() { Version = PlanningPreparationCheckpoint.CurrentVersion, Stage = "matching", Fingerprint = "locked-contract", ValidatedResults = new System.Text.Json.Nodes.JsonObject { ["inventory"] = new System.Text.Json.Nodes.JsonArray() }, RequestHashes = ["preparation-receipt"] };
+        state.ScenarioInputs = new System.Text.Json.Nodes.JsonObject { ["resource"] = "scenario-only" };
+        state.ScenarioInputsFingerprint = "fixture-contract";
+        state.Preparation = new() { Decisions = [new() { Group = "permission", SourceOperationId = "confirm", SourceCapabilityId = "native", SourcePointer = "/response", PermissionOperationIds = ["confirm"] }] };
+        if (!await reopened.TrySaveAsync(state, 3, CancellationToken.None)) throw new InvalidOperationException("Decision preparation persistence failed.");
+        var prepared = await reopened.LoadAsync("smoke", state.Request.SessionId, CancellationToken.None);
+        if (prepared?.PreparationCheckpoint?.Stage != "matching" || prepared.PreparationCheckpoint.RequestHashes.Count != 1 ||
+            prepared.Preparation?.Decisions.Single().PermissionOperationIds.Single() != "confirm" || prepared.ScenarioInputs?["resource"]?.GetValue<string>() != "scenario-only")
+            throw new InvalidOperationException("Decision and scenario contracts did not survive persistence.");
         Console.WriteLine("Planning persistence smoke passed.");
     }
 }

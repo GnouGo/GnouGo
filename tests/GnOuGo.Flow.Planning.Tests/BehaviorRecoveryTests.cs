@@ -78,6 +78,25 @@ public sealed class BehaviorRecoveryTests
     }
 
     [Fact]
+    public async Task RetainedInvalidInputDependencies_RetryUsesExactInputNamesAndCandidate()
+    {
+        var state = Behavior(); state.BehaviorPlan = BehaviorPlan();
+        state.BehaviorPlan.Workflows[0].Inputs.Add(new("resource", "Dynamic resource", true));
+        state.BehaviorPlan.Workflows[0].Steps[0].InputDependencies = ["producer_step"];
+        var corrected = JsonSerializer.Deserialize(JsonSerializer.Serialize(state.BehaviorPlan, PlanningJsonContext.Default.PlanningBehaviorPlan), PlanningJsonContext.Default.PlanningBehaviorPlan)!;
+        corrected.Workflows[0].Steps[0].InputDependencies = ["resource"];
+        var runtime = Responses(JsonSerializer.SerializeToNode(corrected, PlanningJsonContext.Default.PlanningBehaviorPlan)!);
+        var result = await Send(state, runtime);
+        Assert.Equal(PlanningStatus.BehaviorReview, result.Status);
+        Assert.Equal("behavior_repair", Assert.Single(runtime.Phases));
+        var request = Assert.Single(runtime.Requests);
+        Assert.Contains("producer_step", request.Prompt);
+        Assert.Contains("Allowed inputs: resource", request.Prompt);
+        var variants = request.StructuredOutputSchema!["$defs"]!["behaviorNode"]!["anyOf"]!.AsArray();
+        Assert.All(variants, variant => Assert.Equal("resource", Assert.Single(variant!["properties"]!["inputDependencies"]!["items"]!["enum"]!.AsArray())!.GetValue<string>()));
+    }
+
+    [Fact]
     public async Task FailedLegacyCandidate_RetryMustReviewBehaviorBeforeElaboration()
     {
         var state = Behavior(Candidate(), PlanningStatus.Failed);

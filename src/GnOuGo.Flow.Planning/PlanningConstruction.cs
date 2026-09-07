@@ -35,7 +35,18 @@ public static class PlanningConstruction
         // Conservative execution-order dependencies also cover implicit expression references.
         // Independent contract work and separate workflows can execute concurrently.
         string? previous = null;
-        foreach (var nodes in groups)
+        var implementations = new List<PlanningNode[]>(); var pending = new List<PlanningNode>();
+        foreach (var node in PlanningGraphCompiler.Enumerate(workflow.Steps.Concat(workflow.Finally)))
+        {
+            if (node.Type is "loop.sequential" or "loop.parallel")
+            {
+                if (pending.Count > 0) { implementations.Add(pending.ToArray()); pending.Clear(); }
+                implementations.Add([node]);
+            }
+            else { pending.Add(node); if (pending.Count == size) { implementations.Add(pending.ToArray()); pending.Clear(); } }
+        }
+        if (pending.Count > 0) implementations.Add(pending.ToArray());
+        foreach (var nodes in implementations)
         {
             var unit = Add("implementation", nodes.Select(n => n.Key), contracts.Select(c => c.Key).Concat(previous is null ? [] : new[] { previous }));
             previous = unit.Key;
@@ -145,7 +156,7 @@ public static class PlanningConstruction
                     }
                     else if (node.Type is not ("sequence" or "parallel" or "switch")) fields["input"] = Ref("value");
                     if (node.Type == "switch" && PlanningDecisionRouting.Contract(node, preparation) is null) fields["expr"] = Ref("value");
-                    if (node.Type is "loop.sequential" or "loop.parallel")
+                    if (unit.ContractVersion < 11 && node.Type is "loop.sequential" or "loop.parallel")
                         foreach (var key in new[] { "itemVar", "indexVar" }) fields[key] = Nullable(new() { ["type"] = "string" });
                     if (node.Type is not ("sequence" or "parallel" or "switch" or "human.input") && PlanningDecisionRouting.LocalContracts(node, preparation).Length == 0)
                         fields["onError"] = new JsonObject { ["type"] = "array", ["items"] = Ref("errorCase") };
@@ -160,6 +171,8 @@ public static class PlanningConstruction
                         if (name == "value")
                         {
                             var options = definition["anyOf"]!.AsArray();
+                            if (node.Type != "workflow.call")
+                                foreach (var option in options.OfType<JsonObject>().Where(v => v["properties"]?["kind"]?["enum"]?[0]?.ToString() == "workflow").ToArray()) options.Remove(option);
                             foreach (var option in options.OfType<JsonObject>().Where(v => v["properties"]?["kind"]?["enum"]?[0]?.ToString() == "binding").ToArray()) options.Remove(option);
                             if (available.Length > 0) options.Add((JsonNode)PlanningDataflow.BindingSchema(available));
                         }
@@ -186,7 +199,7 @@ public static class PlanningConstruction
         else if (node is JsonArray array) foreach (var child in array) ScopeReferences(child, prefix);
     }
 
-    public static JsonObject Values(PlanningWorkflow workflow, PlanningConstructionUnit unit)
+    public static JsonObject Values(PlanningWorkflow workflow, PlanningConstructionUnit unit, PlanningPreparation? preparation = null)
     {
         if (unit.Kind == "inputs") return new() { ["inputs"] = new JsonObject(workflow.Inputs.Select(p => new KeyValuePair<string, JsonNode?>(p.Name,
             new JsonObject { ["schema"] = Compact(p.Schema, PlanningJsonContext.Default.PlanningSchema), ["default"] = p.Default is null ? null : Compact(p.Default, PlanningJsonContext.Default.PlanningValue) }))) };
@@ -203,11 +216,12 @@ public static class PlanningConstruction
             }
             else
             {
-                if (node.Type == "human.input") fields["context"] = null;
+                if (node.Type == "human.input") fields["context"] = node.Input.Members.FirstOrDefault(m => m.Name == "context") is { } context ? Compact(context.Value, PlanningJsonContext.Default.PlanningValue) : null;
+                else if (preparation is not null && PlanningDecisionRouting.LocalContracts(node, preparation).Length > 0) fields["conditions"] = PlanningDecisionRouting.ConditionsValues(node, preparation);
                 else if (node.Type is not ("sequence" or "parallel" or "switch")) fields["input"] = Compact(node.Input, PlanningJsonContext.Default.PlanningValue);
                 if (node.Type == "switch" && node.Expr?.Kind is not ("confirmation" or "decision_binding")) fields["expr"] = Compact(node.Expr ?? new(), PlanningJsonContext.Default.PlanningValue);
-                if (node.Type is "loop.sequential" or "loop.parallel") { fields["itemVar"] = node.ItemVar; fields["indexVar"] = node.IndexVar; }
-                if (node.Type is not ("sequence" or "parallel" or "switch" or "human.input")) fields["onError"] = PlanningModelValues.Compact(JsonSerializer.SerializeToNode(node, PlanningJsonContext.Default.PlanningNode)!["onError"]);
+                if (unit.ContractVersion < 11 && node.Type is "loop.sequential" or "loop.parallel") { fields["itemVar"] = node.ItemVar; fields["indexVar"] = node.IndexVar; }
+                if (node.Type is not ("sequence" or "parallel" or "switch" or "human.input") && !fields.ContainsKey("conditions")) fields["onError"] = PlanningModelValues.Compact(JsonSerializer.SerializeToNode(node, PlanningJsonContext.Default.PlanningNode)!["onError"]);
             }
             nodes[node.Key] = fields;
         }
@@ -290,7 +304,11 @@ public static class PlanningConstruction
                     // Accepted explicit outcomes are value matches. Default is never a numbered case.
                     node.Cases = node.Cases.Select(c => c with { When = null }).ToList();
                 }
-                if (node.Type is "loop.sequential" or "loop.parallel") { node.ItemVar = fields["itemVar"]?.GetValue<string>(); node.IndexVar = fields["indexVar"]?.GetValue<string>(); }
+                if (node.Type is "loop.sequential" or "loop.parallel")
+                {
+                    node.ItemVar = unit.ContractVersion >= 11 ? PlanningGraphCompiler.LoopVariable(node.Key, false) : fields["itemVar"]?.GetValue<string>();
+                    node.IndexVar = unit.ContractVersion >= 11 ? PlanningGraphCompiler.LoopVariable(node.Key, true) : fields["indexVar"]?.GetValue<string>();
+                }
                 if (fields["onError"] is JsonArray onError) node.OnError = onError.Select(e => JsonSerializer.Deserialize(e!, PlanningJsonContext.Default.PlanningErrorCase)!).ToList();
             }
         }
@@ -300,8 +318,22 @@ public static class PlanningConstruction
     internal static JsonObject UpgradeCandidate(PlanningGraph graph, PlanningConstructionUnit unit, JsonObject candidate, PlanningPreparation preparation)
     {
         var workflow = graph.Workflows.Single(w => w.Key == unit.WorkflowKey);
-        var result = PlanningDataflow.Transport(candidate, PlanningDataflow.Index(workflow, preparation, graph))!.AsObject();
+        var bindings = PlanningDataflow.Index(workflow, preparation, graph);
+        foreach (var key in unit.NodeKeys)
+            foreach (var binding in PlanningDataflow.Index(workflow, preparation, graph, key)) bindings.TryAdd(binding.Key, binding.Value);
+        candidate = candidate.DeepClone().AsObject();
+        if (unit.Kind == "implementation")
+            foreach (var node in PlanningGraphCompiler.Enumerate(workflow.Steps.Concat(workflow.Finally)).Where(n => unit.NodeKeys.Contains(n.Key) && PlanningDecisionRouting.LocalContracts(n, preparation).Length > 0))
+                if (candidate["nodes"]?[node.Key] is JsonObject fields && !fields.ContainsKey("conditions") && node.Input.Members.Any(m => m.Name == "decisions"))
+                {
+                    fields["conditions"] = PlanningDecisionRouting.ConditionsValues(node, preparation);
+                    fields.Remove("input"); fields.Remove("onError");
+                }
+        var result = PlanningDataflow.Transport(candidate, bindings)!.AsObject();
         if (unit.Kind != "implementation") return result;
+        if (unit.ContractVersion >= 11)
+            foreach (var node in PlanningGraphCompiler.Enumerate(workflow.Steps.Concat(workflow.Finally)).Where(n => unit.NodeKeys.Contains(n.Key, StringComparer.Ordinal) && n.Type is "loop.sequential" or "loop.parallel"))
+                if (result["nodes"]?[node.Key] is JsonObject loopFields) { loopFields.Remove("itemVar"); loopFields.Remove("indexVar"); }
         foreach (var node in PlanningGraphCompiler.Enumerate(workflow.Steps.Concat(workflow.Finally)).Where(n => unit.NodeKeys.Contains(n.Key, StringComparer.Ordinal) && n.Type == "mcp.call"))
         {
             var capability = preparation.Capabilities.FirstOrDefault(c => c.Id == node.CapabilityId);

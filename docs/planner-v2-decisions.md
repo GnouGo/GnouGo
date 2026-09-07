@@ -19,15 +19,23 @@ flowchart TD
 
 The planner supplies confirmation routing; construction responses have no editable selector field for that routing. A declared native reducer preserves its required human dependencies independently of generated outcome predicates. Capability matching uses exact operation keys and status-specific cardinality; it cannot introduce a substitute decision source.
 
+Each capability retains its locked upstream operation dependencies. Executable-unit checks reject unrelated producer results before final assembly, including through aliases, loop bodies and accepted decision guards. Reducer repair reconstructs the typed condition slots and retains human-review context; repeated repair does not accumulate permission wrappers.
+
 Artifact identity follows original declared producers through transparent aliases, native containers and explicit workflow arguments. Matching scalar types and model-produced copies do not establish identity. Availability checks still apply before selecting any binding. Each node receives only the bindings available in its own execution scope. A failure fallback that loses a required original artifact is diagnosed at the producer, before its consumer is generated.
 
-Repairs retain unrelated fields. A structural finding on an object permits replacement of that object; narrowing it to scalar leaves would prevent repairing incorrect member names. `set` results are checked during unit validation against their declared computation contract. Deterministic units emit only their required empty fields; an unchanged local construction failure enters recovery without a model call or repeated revision loop.
+Repairs retain unrelated fields. Diagnostic coordinates are resolved against the retained candidate, including its argument member order, instead of an older graph or empty skeleton. A structural finding on an object permits replacement of that object; narrowing it to scalar leaves would prevent repairing incorrect member names. `set` results are checked during unit validation against their declared computation contract. Deterministic units emit only their required empty fields; an unchanged local construction failure enters recovery without a model call or repeated revision loop.
 
 Nominal scenario inputs are separate encrypted validation fixtures. The planner constructs literal examples against the declared inputs, with a bounded repair and the existing context/output limits. A request and input-contract fingerprint permits reuse after restart. These examples never become YAML defaults or external arguments. This avoids asking executable repair to accept an invalid generic string placeholder as a URL. Synthetic path coverage still does not prove live external behavior.
 
 Candidate retention records the scenarios that passed for the retained graph. A repair can expose a later failure while preserving all previously passed scenarios; moving the diagnostic location alone is not regression. A rejected candidate's scenario results are kept separate from the retained graph's results. Nested execution errors target the innermost failing operation instead of its immutable routing container.
 
 Semantic assessment has its own two-call allowance covering response shape and evidence validation. Workflow identifiers are constrained by the response schema. Invalid evidence repairs the assessment, then pauses in semantic-review recovery if unresolved; it never grants permission to patch the executable graph.
+
+Behavior assessment repair constrains input dependencies to declared business-input names and retains the invalid candidate across Retry. Producer step keys cannot masquerade as workflow inputs, and ordinary computations cannot select workflow identifiers as producer values.
+
+Semantic findings select exact operation/field locations. A finding about iteration, ordering or other behavior structure returns through a revised behavior plan and a new exact approval. Accepted answers, capability preparation and cumulative usage remain intact. This prevents a field repair from silently changing operation cardinality.
+
+Loop setup is generated before its body. Typed `loop_item` and `loop_index` bindings identify an exact ancestor loop and are offered only inside its body. Item schemas come from `input.items`; generated variable names are deterministic and distinct for nested loops. Existing explicit variable names remain supported when compiling existing graphs. Native sequential count/while loops expose their declared `index_var` consistently with collection loops.
 
 ## Recovery and persistence
 

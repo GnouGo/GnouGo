@@ -62,7 +62,7 @@ public static class PlanningBehaviorPlans
                 var location = path + "/nodes/" + node.Key;
                 if (string.IsNullOrWhiteSpace(node.Key) || string.IsNullOrWhiteSpace(node.Purpose)) Error(location, "A behavior node needs a stable key and purpose.");
                 if (node.OperationIds.Any(id => !workflow.OperationIds.Contains(id, StringComparer.Ordinal))) Error(location, "The node claimed another workflow's operation.");
-                if (node.InputDependencies is { } inputs && (inputs.Distinct(StringComparer.Ordinal).Count() != inputs.Count || inputs.Any(name => !workflow.Inputs.Any(p => p.Name == name)))) Error(location + "/inputDependencies", "Input dependencies must name unique business inputs of this workflow.");
+                if (node.InputDependencies is { } inputs && (inputs.Distinct(StringComparer.Ordinal).Count() != inputs.Count || inputs.Any(name => !workflow.Inputs.Any(p => p.Name == name)))) Error(location + "/inputDependencies", "Input dependencies must name unique business inputs of this workflow. Allowed inputs: " + string.Join(", ", workflow.Inputs.Select(p => p.Name)) + ". Producer node keys are not business inputs. Submitted: " + string.Join(", ", inputs));
                 if (node.Kind is not ("operation" or "decision" or "loop" or "sequence" or "parallel" or "confirmation" or "workflow")) Error(location, "Unknown behavior kind.");
                 if (node.Kind is "operation" or "confirmation" or "workflow" or "decision" && node.Steps.Count != 0) Error(location, "Only sequence, parallel and loop nodes declare direct child steps.");
                 if (node.Kind == "workflow")
@@ -199,8 +199,10 @@ public static class PlanningBehaviorPlans
                 {
                     var owner = graph.Workflows.Single(w => PlanningGraphCompiler.Enumerate(w.Steps.Concat(w.Finally)).Contains(node));
                     var dependencies = PlanningDataflow.BusinessInputs(owner, node);
+                    var root = "/workflows/" + graph.Workflows.IndexOf(owner);
+                    var inputPath = PlanningGraphValidation.Located(owner.Steps, root + "/steps").Concat(PlanningGraphValidation.Located(owner.Finally, root + "/finally")).Single(p => ReferenceEquals(p.Node, node)).Path + "/input";
                     foreach (var input in item.InputDependencies.Where(p => !dependencies.Contains(p)))
-                        errors.Add(new("BUSINESS_INPUT_BINDING_MISSING", path + "/" + item.Key + "/input", "The accepted operation must consume business input '" + input + "'. A default or example cannot replace its dynamic binding."));
+                        errors.Add(new("BUSINESS_INPUT_BINDING_MISSING", inputPath, "The accepted operation must consume business input '" + input + "'. A default or example cannot replace its dynamic binding."));
                 }
                 if (item.Kind == "workflow" && !node.Input.Members.Any(m => m.Name == "ref" && m.Value.Kind == "workflow" && m.Value.Source == item.WorkflowKey)) errors.Add(new("BEHAVIOR_IMPLEMENTATION_CHANGED", path, "Preserve the accepted workflow-call target."));
                 if (node.If is not null) errors.Add(new("BEHAVIOR_IMPLEMENTATION_CHANGED", path + "/" + item.Key + "/if", "Conditional actions must remain inside accepted decision outcomes; a new guard requires review."));

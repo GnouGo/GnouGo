@@ -94,10 +94,22 @@ internal static class PlanningSchemas
         return root;
     }
 
+    internal static JsonObject BehaviorRepair(PlanningPreparation preparation, PlanningBehaviorPlan candidate)
+    {
+        var schema = Behavior(preparation);
+        var names = candidate.Workflows.SelectMany(w => w.Inputs).Select(p => p.Name).Distinct(StringComparer.Ordinal).ToArray();
+        var dependencies = Array(names.Length == 0 ? String() : Enum(names));
+        if (names.Length == 0) dependencies["maxItems"] = 0;
+        foreach (var variant in schema["$defs"]!["behaviorNode"]!["anyOf"]!.AsArray())
+            variant!["properties"]!["inputDependencies"] = dependencies.DeepClone();
+        return schema;
+    }
+
     private static JsonObject Evidence() => Array(Object(("sourceId", String()), ("excerpt", String())));
 
-    public static JsonObject Review(IEnumerable<string>? workflows = null) => Object(("findings", Array(Object(
-        ("code", String()), ("workflow", workflows is null ? String() : Enum(workflows.ToArray())), ("message", String()), ("evidence", String()), ("blocking", Type("boolean"))))));
+    public static JsonObject Review(IEnumerable<string>? workflows = null, IEnumerable<string>? locations = null) => Object(("findings", Array(Object(
+        ("code", String()), ("workflow", workflows is null ? String() : Enum(workflows.ToArray())), ("location", locations is null ? String() : Enum(locations.ToArray())),
+        ("message", String()), ("evidence", String()), ("blocking", Type("boolean"))))));
 
     public static JsonObject Revision() => Object(("affectedWorkflows", Array(String())), ("changesBehavior", Type("boolean")), ("evidence", String()));
 
