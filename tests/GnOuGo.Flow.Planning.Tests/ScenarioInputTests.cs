@@ -9,6 +9,19 @@ namespace GnOuGo.Flow.Planning.Tests;
 public sealed class ScenarioInputTests
 {
     [Fact]
+    public void UnresolvedLoopComputationIsDiagnosedAtItsInputBeforeScenarioSetup()
+    {
+        var graph = Graph(); var preparation = Preparation(); var workflow = graph.Workflows[0];
+        workflow.Steps.Add(new() { Key = "each", Type = "loop.sequential", Input = Obj(("items", new()
+            { Kind = "compute", Text = "Array.isArray(value) ? value : []", Members = [new("value", Obj())] })) });
+        var finding = Assert.Single(PlanningExecutableValidation.Validate(graph, preparation), d => d.Code == "LOOP_ITEMS_CONTRACT_UNRESOLVED");
+        Assert.Equal("/workflows/0/steps/1/input/members/0/value", finding.Location);
+        Assert.Contains("typed array producer", finding.Message);
+        workflow.Steps[1].Input = Obj(("items", new() { Kind = "array" }));
+        Assert.DoesNotContain(PlanningExecutableValidation.Validate(graph, preparation), d => d.Code == "LOOP_ITEMS_CONTRACT_UNRESOLVED");
+    }
+
+    [Fact]
     public void LoopFixturesUseResolvedProducerItemSchemasWithoutChangingTheGraph()
     {
         var preparation = Preparation(); var graph = Graph(); var workflow = graph.Workflows[0];

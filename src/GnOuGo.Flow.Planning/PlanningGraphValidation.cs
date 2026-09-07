@@ -166,7 +166,7 @@ public static class PlanningGraphValidation
                 catch (Exception ex) when (ex is InvalidOperationException or ArgumentException or FormatException) { /* The reference/schema diagnostic is reported at its own location. */ }
             }
 
-            if (workflow.Key == targetWorkflow) resolved?.Invoke(value => ValueSchema(value, new(StringComparer.Ordinal)) ?? throw new InvalidOperationException("The public output has no established producer contract."));
+            if (workflow.Key == targetWorkflow) resolved?.Invoke(value => ValueSchema(value, new(StringComparer.Ordinal)) ?? throw new InvalidOperationException("The value has no established producer contract."));
 
             void CheckValue(PlanningValue value, string location)
             {

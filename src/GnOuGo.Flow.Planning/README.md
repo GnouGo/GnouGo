@@ -154,6 +154,9 @@ from a previously valid function remains a regression. Runtime findings are mapp
 back to stable workflow/node fields, including identically named nodes in different
 workflows. Scenario failures retain the failing step and execution cause. Exhausted repair
 enters durable recovery, and waiting never consumes active planning time.
+Loop item contracts are checked at the loop's exact input coordinate before scenario
+setup. An untyped computation must be replaced with a typed array binding or a
+validated transformation producer; it cannot become a generic graph-level repair.
 
 `PlanningValue.ResultChannel` is optional: null/`default` retains legacy result addressing,
 while `structured` selects validated `mcp.call`/`llm.call` structured-output `.json`.

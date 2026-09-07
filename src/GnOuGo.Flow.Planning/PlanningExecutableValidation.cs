@@ -22,6 +22,24 @@ public static class PlanningExecutableValidation
             {
                 if (node.Expr is not null && node.Type != "switch") errors.Add(new("NATIVE_FIELD_UNSUPPORTED", location + "/expr", "Only switch uses expr. Compute set outputs in input values; do not put a transformation in an ignored field."));
                 errors.AddRange(PlanningDecisionRouting.ConditionFindings(node, preparation, location));
+                if (node.Type is "loop.sequential" or "loop.parallel")
+                    for (var memberIndex = 0; memberIndex < node.Input.Members.Count; memberIndex++)
+                    {
+                        var member = node.Input.Members[memberIndex];
+                        if (member.Name is not ("items" or "over")) continue;
+                        try
+                        {
+                            var contract = PlanningGraphValidation.ResolveValueContract(graph, workflow, member.Value, preparation);
+                            if (contract["type"]?.ToString() != "array" ||
+                                contract["items"] is not JsonObject && contract["maxItems"]?.ToString() != "0")
+                                throw new InvalidOperationException("The loop item schema is unresolved.");
+                        }
+                        catch (Exception ex) when (ex is InvalidOperationException or ArgumentException or FormatException)
+                        {
+                            errors.Add(new("LOOP_ITEMS_CONTRACT_UNRESOLVED", location + "/input/members/" + memberIndex + "/value",
+                                "Select a typed array producer with an established item schema. A computation or an array test cannot establish item types; synthesize and validate a typed producer before iteration when transformation is required.", ValidationStage: "dataflow"));
+                        }
+                    }
                 Values(node.Input, location + "/input");
                 if (node.Expr is not null) Values(node.Expr, location + "/expr");
                 if (node.If is not null) Values(node.If, location + "/if");
