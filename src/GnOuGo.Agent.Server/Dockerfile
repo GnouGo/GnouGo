@@ -48,8 +48,8 @@ COPY global.json ./
 # Copy scripts used by local metadata generation; Docker publish skips this target.
 COPY scripts/ scripts/
 
-# Copy shared build targets imported by Agent.Server before restoring its project graph.
-COPY build/GnOuGo.BundledMcpTools.targets build/
+# Copy shared targets imported by the complete project graph before restore.
+COPY build/ build/
 
 # Copy csproj files for layer caching (server + shared/project dependencies)
 COPY src/GnOuGo.Agent.Server/GnOuGo.Agent.Server.csproj src/GnOuGo.Agent.Server/
