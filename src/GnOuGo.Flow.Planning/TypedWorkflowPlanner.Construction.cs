@@ -366,7 +366,7 @@ public sealed partial class TypedWorkflowPlanner
         }).ToArray());
         var prompt = "Construct only the supplied executable fields. Accepted topology, outcome values, defaults and cleanup are immutable. " +
             "Input and output contracts must have concrete types and typed object properties/array items. Reuse exact supported schema references. " +
-            "The contracts phase declares set results and optional synthesized structured output, without computations. Use null structuredOutput unless a transformation is required. " +
+            "The contracts phase declares set results and synthesized structured output, without computations. Opaque producers with declared consumers require a structured result contract covering their downstream needs. Use null only when no transformation is required. " +
             "The implementation phase must produce the previously declared contracts. Compute set fields in input, never expr. " +
             "Select exact binding identifiers; use the structured channel only for declared post-processing. For a computation, use kind compute, an executable JavaScript expression in text, and named members bound to its typed dependencies. " +
             "Computation text uses its named parameters, not data or implicit input/output/step context. Functions must be executable JavaScript with typed JSDoc. " +
@@ -380,6 +380,7 @@ public sealed partial class TypedWorkflowPlanner
             "\nRequest and retained answers:\n" + Context(state) +
             (state.Feedback is null ? "" : "\nRetained technical coverage findings (not user intent):\n" + state.Feedback) +
             "\nOwned nodes:\n" + new JsonArray(owned.Select(n => (JsonNode)DescribeNode(n, state.Preparation)).ToArray()).ToJsonString() +
+            (unit.Kind == "contracts" ? "\nDownstream operation obligations:\n" + new JsonArray(PlanningGraphCompiler.Enumerate(workflow.Steps.Concat(workflow.Finally)).Where(n => !unit.NodeKeys.Contains(n.Key, StringComparer.Ordinal)).Select(n => (JsonNode)new JsonObject { ["key"] = n.Key, ["purpose"] = n.Purpose, ["operationIds"] = new JsonArray(n.OperationIds.Select(id => (JsonNode?)JsonValue.Create(id)).ToArray()) }).ToArray()).ToJsonString() : "") +
             "\nBusiness boundary:\n" + new JsonObject { ["inputs"] = JsonSerializer.SerializeToNode(workflow, PlanningJsonContext.Default.PlanningWorkflow)!["inputs"]!.DeepClone(), ["outputs"] = JsonSerializer.SerializeToNode(workflow, PlanningJsonContext.Default.PlanningWorkflow)!["outputs"]!.DeepClone() }.ToJsonString();
         var exports = unit.Kind == "outputs" ? new JsonArray(PlanningOutputBindings.Index(workflow, state.Preparation!, state.Graph).Select(p => (JsonNode)new JsonObject
             { ["reference"] = p.Key, ["value"] = PlanningModelValues.Compact(JsonSerializer.SerializeToNode(p.Value.Value, PlanningJsonContext.Default.PlanningValue)), ["type"] = p.Value.Schema.Type }).ToArray()) : null;

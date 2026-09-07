@@ -8,7 +8,7 @@ namespace GnOuGo.Flow.Planning;
 internal static class PlanningDataflow
 {
     internal const int BindingVersion = 2;
-    internal const int ContractVersion = 17;
+    internal const int ContractVersion = 18;
     internal const string WorkflowOutputs = "$outputs";
 
     internal static Dictionary<string, PlanningBinding> Index(PlanningWorkflow workflow, PlanningPreparation preparation, PlanningGraph graph, string? consumer = null)
@@ -95,7 +95,10 @@ internal static class PlanningDataflow
         // sequence shares its execution context with its children. Enumerating every
         // ancestor's aliases expands the same producer contract repeatedly. Keep its
         // whole result and the directly addressable child contracts instead.
-        return Index(workflow, preparation, graph, consumer).Where(p => p.Value.Value.Path.Count == 0 || !sequences.Contains(p.Value.Value.Source ?? ""))
+        return Index(workflow, preparation, graph, consumer).Where(p =>
+                !(p.Value.Value.Kind == "output" && p.Value.Value.ResultChannel is null or "default" && p.Value.Schema.Count == 0 &&
+                    PlanningGraphCompiler.Enumerate(workflow.Steps.Concat(workflow.Finally)).Any(n => n.Key == p.Value.Value.Source && n.StructuredOutput is not null)) &&
+                (p.Value.Value.Path.Count == 0 || !sequences.Contains(p.Value.Value.Source ?? "")))
             .ToDictionary(p => p.Key, p => p.Value, StringComparer.Ordinal);
     }
 

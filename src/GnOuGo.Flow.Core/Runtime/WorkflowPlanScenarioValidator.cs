@@ -62,6 +62,7 @@ internal static class WorkflowPlanScenarioValidator
             {
                 McpClientFactory = fakeFactory,
                 LLMClient = new ScenarioLlm(),
+                LlmDefaults = new() { Model = "planning-scenario" },
                 HumanInputProvider = new ScenarioHuman(),
                 Telemetry = telemetry,
                 Limits = new ExecutionLimits { MaxTotalStepsExecuted = 1000, MaxLoopIterations = 10, MaxCallDepth = 10, MaxParallelBranches = 10, LogStepContent = false, RunId = "planning-scenario" }

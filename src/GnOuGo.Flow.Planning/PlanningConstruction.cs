@@ -141,7 +141,8 @@ public static class PlanningConstruction
                 if (unit.Kind == "contracts")
                 {
                     if (node.Type == "set") fields["outputSchema"] = Ref("schema");
-                    if (node.Type is "mcp.call" or "llm.call") fields["structuredOutput"] = Nullable(Object(new() { ["schema"] = Ref("strictSchema") }));
+                    if (node.Type is "mcp.call" or "llm.call") fields["structuredOutput"] = PlanningProducerContracts.RequiresStructuredResult(node, preparation)
+                        ? Object(new() { ["schema"] = Ref("strictSchema") }) : Nullable(Object(new() { ["schema"] = Ref("strictSchema") }));
                 }
                 else
                 {

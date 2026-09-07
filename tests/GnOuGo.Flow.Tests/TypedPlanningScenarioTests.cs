@@ -6,6 +6,46 @@ namespace GnOuGo.Flow.Tests;
 
 public sealed class TypedPlanningScenarioTests
 {
+    [Fact]
+    public async Task StructuredPostProcessingUsesTheSyntheticHostModelWithoutChangingTheArtifact()
+    {
+        var document = WorkflowParser.Parse("""
+            version: 1
+            entrypoint: main
+            workflows:
+              main:
+                steps:
+                  - id: read
+                    type: mcp.call
+                    input:
+                      server: neutral
+                      kind: tool
+                      method: read
+                      request: {}
+                      structured_output:
+                        schema_inline:
+                          type: object
+                          properties: {value: {type: string}}
+                          required: [value]
+                          additionalProperties: false
+                        strict: true
+                  - id: use
+                    type: assert.non_null
+                    input: {value: "${data.steps.read.json.value}"}
+                finally:
+                  - id: cleanup
+                    type: set
+                    input: {closed: true}
+            """);
+        var factory = new InMemoryMcpClientFactory();
+        factory.RegisterServer("neutral", new() { Tools = [new() { Name = "read", InputSchema = new System.Text.Json.Nodes.JsonObject { ["type"] = "object" } }],
+            ToolHandlers = new() { ["read"] = _ => new() { Content = System.Text.Json.Nodes.JsonValue.Create("Opaque original response") } } });
+        var results = await WorkflowPlanScenarioValidator.ValidateAsync(document, factory, TestContext.Current.CancellationToken);
+        Assert.Equal(3, results.Count);
+        Assert.All(results, result => Assert.True(result.Outcome == "passed", string.Join("; ", result.Diagnostics.Select(d => d.Message))));
+        Assert.Null(document.Workflows["main"].Steps[0].Input!["structured_output"]!["model"]);
+    }
+
     [Theory]
     [InlineData("https://example.test/resources/7")]
     [InlineData("https://renamed.test/items/9")]
