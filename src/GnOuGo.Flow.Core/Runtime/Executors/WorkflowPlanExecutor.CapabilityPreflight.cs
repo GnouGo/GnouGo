@@ -4488,7 +4488,7 @@ public sealed partial class WorkflowPlanExecutor
                 failureCode = "conditional_decision_source_unavailable";
                 return false;
             }
-            if (inputs.Count > 1)
+            if (evaluation.ExactDecisionSources || inputs.Count > 1)
             {
                 if (TryCreateLocalDecisionGrounding(evaluation, conditionalMatch, entries, branchValues, out var reducer))
                     return SetConditionalDecisionGrounding(reducer, out decisionOutputPath, out allowedValues, out noEffectValues,
@@ -4698,7 +4698,9 @@ public sealed partial class WorkflowPlanExecutor
             return false;
         }
 
-        if (!TryResolveLocalDecisionInputs(evaluation, decisionOperationId!, out var upstreamIds) || upstreamIds.Count < 2) return false;
+        // A declared local predicate may transform one result; it is not an alias of that result.
+        // V2 keeps that exact operation as a native evaluator even with a single input.
+        if (!TryResolveLocalDecisionInputs(evaluation, decisionOperationId!, out var upstreamIds) || upstreamIds.Count < (evaluation.ExactDecisionSources ? 1 : 2)) return false;
 
         var evaluator = entries.Values.SingleOrDefault(static entry =>
             string.Equals(entry.Resolution, "native", StringComparison.Ordinal)

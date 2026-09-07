@@ -3,6 +3,7 @@ using System.Text.Json.Nodes;
 using System.Security.Cryptography;
 using System.Security.Cryptography.X509Certificates;
 using GnOuGo.Flow.Core.Compilation;
+using GnOuGo.Flow.Core.Expressions;
 using GnOuGo.Flow.Core.Parsing;
 using GnOuGo.Flow.Core.Planning;
 using GnOuGo.Flow.Core.Runtime;
@@ -23,6 +24,14 @@ using (var key = RSA.Create(2048))
     chain.ChainPolicy.CustomTrustStore.Add(certificate);
     if (!chain.Build(certificate)) throw new InvalidOperationException("Native certificate-chain validation failed.");
 }
+
+var collectionExpression = ArtifactCollectionExpression.Build("pages", ["source", "response", "records"]);
+if (!ArtifactCollectionExpression.TryRead(collectionExpression, out var collectionLoop, out _) || collectionLoop != "pages")
+    throw new InvalidOperationException("Published collection expression parsing failed.");
+var collectionValue = new ExpressionEvaluator().Evaluate(collectionExpression,
+    JsonNode.Parse("""{"steps":{"pages":{"results":[{"source":{"response":{"records":"[{\"id\":9007199254740993}]"}}},{"source":{"response":{"records":"[2]"}}}]}}}"""));
+if (collectionValue?.GetValue<string>() != """[{"id":9007199254740993},2]""")
+    throw new InvalidOperationException("Published collection changed original artifact records.");
 
 var graph = new PlanningGraph
 {
@@ -83,11 +92,12 @@ var metadata = new PlanningSnapshot { Preparation = new() { Capabilities = [new(
 {
     CatalogId = "declared", Resolution = "mcp", Activation = new("all_on_value", "group", "decision", "APPLY")
     { AllowedValues = ["APPLY", "NO_EFFECT"], NoEffectValues = ["NO_EFFECT"], DecisionOutputPath = "/json/outcome" },
-    ArtifactContract = new(1, [new("opaque.resource", "/value", "materialize")], [])
+    ArtifactContract = new(1, [new("opaque.resource", "/value", "materialize", "json_array")], [])
 }] }, Diagnostics = [new("CONTRACT", "$", "Contract finding", ValidationStage: PlanningValidationStage.ConditionalActivation)] };
 metadata = JsonSerializer.Deserialize(JsonSerializer.Serialize(metadata, PlanningJsonContext.Default.PlanningSnapshot), PlanningJsonContext.Default.PlanningSnapshot)!;
 if (metadata.Preparation?.Capabilities[0].Resolution != "mcp" || metadata.Preparation.Capabilities[0].Activation?.DecisionOutputPath != "/json/outcome" ||
     metadata.Preparation.Capabilities[0].ArtifactContract?.Produces[0].Pointer != "/value" ||
+    metadata.Preparation.Capabilities[0].ArtifactContract?.Produces[0].Encoding != "json_array" ||
     metadata.Diagnostics[0].ValidationStage != PlanningValidationStage.ConditionalActivation)
     throw new InvalidOperationException("Published activation and artifact metadata did not survive serialization.");
 Console.WriteLine("Typed planning AOT smoke passed.");

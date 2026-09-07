@@ -8,6 +8,43 @@ namespace GnOuGo.Flow.Tests.Runtime;
 
 public sealed class TypedDecisionGroundingTests
 {
+    [Theory]
+    [InlineData("analysis", "filter", 1)]
+    [InlineData("analyse_renommee", "filtrer", 1)]
+    [InlineData("analysis", "filter", 2)]
+    public void AnExplicitLocalPredicateRetainsItsIdentity_WithOneInputOrAComposedInput(string input, string decision, int producerCount)
+    {
+        var owner = typeof(WorkflowPlanExecutor);
+        Type T(string name) => owner.GetNestedType(name, BindingFlags.NonPublic)!;
+        Array Empty(string name) => Array.CreateInstance(T(name), 0);
+        object Operation(string id, string kind, string source, string[] dependencies)
+        {
+            var value = Activator.CreateInstance(T("CapabilityInventoryOperation"), new object?[] { id, "Sanitized operation", true, kind, kind == "external_effect" ? "write" : "none", source, "requested_effect", "", id == "effect", "" })!;
+            value.GetType().GetProperty("InputOperationIds")!.SetValue(value, dependencies); return value;
+        }
+        object Entry(string id, string resolution, string method) => Activator.CreateInstance(T("CapabilityCatalogEntry"), new object?[] { id, resolution, "neutral", "tool", method, "Sanitized contract", Empty("CapabilityRequestBinding"), "", Empty("CapabilitySchemaField"), Empty("CapabilitySchemaField"), null, null })!;
+        object Match(object op, string status, string[] ids) => Activator.CreateInstance(T("CapabilityOperationMatch"), new object?[] { op, status, "", ids, Array.Empty<string>(), null, null, null, null, null, null, null })!;
+        var entries = (System.Collections.IDictionary)Activator.CreateInstance(typeof(Dictionary<,>).MakeGenericType(typeof(string), T("CapabilityCatalogEntry")))!;
+        entries.Add("primary", Entry("primary", "mcp", "read")); entries.Add("secondary", Entry("secondary", "mcp", "prepare"));
+        entries.Add("native", Entry("native", "native", "decision.evaluate")); entries.Add("write", Entry("write", "mcp", "apply"));
+        var effect = Match(Operation("effect", "external_effect", decision, [decision]), "conditional", ["write"]);
+        effect.GetType().GetProperty("ConditionalActivationMode")!.SetValue(effect, "all_on_value");
+        var all = new[] { Match(Operation(input, "external_effect", "", []), producerCount == 1 ? "matched" : "composed", producerCount == 1 ? ["primary"] : ["secondary", "primary"]),
+            Match(Operation(decision, "local_processing", "", [input]), "local", []), effect };
+        var matches = Array.CreateInstance(T("CapabilityOperationMatch"), all.Length);
+        for (var i = 0; i < all.Length; i++) matches.SetValue(all[i], i);
+        var evaluation = Activator.CreateInstance(T("CapabilityMatchingEvaluation"), new object?[] { matches, Empty("CapabilityConstraintMatch"), Empty("CapabilityMatchingIssue"), true })!;
+        evaluation.GetType().GetProperty("ExactDecisionSources")!.SetValue(evaluation, true);
+        var args = new object?[] { evaluation, effect, entries, null, null, null, null, null, null, null };
+        var result = owner.GetMethod("TryGroundConditionalDecision", BindingFlags.NonPublic | BindingFlags.Static)!.Invoke(null, args);
+        Assert.True((bool)result!, args[9]?.ToString()); Assert.Equal(decision, args[8]); Assert.Equal("native", args[7]);
+        Assert.Equal("local_decision", args[6]); Assert.Single((IReadOnlyList<string>)args[5]!);
+        // No evidence source means no valid reducer, even in v2.
+        all[1].GetType().GetProperty("Operation")!.GetValue(all[1])!.GetType().GetProperty("InputOperationIds")!.SetValue(
+            all[1].GetType().GetProperty("Operation")!.GetValue(all[1]), Array.Empty<string>());
+        Assert.Equal(false, owner.GetMethod("TryGroundConditionalDecision", BindingFlags.NonPublic | BindingFlags.Static)!.Invoke(null, args));
+    }
+
     [Fact]
     public void ConfirmationNeverUsesAnAnalysisProducer_RegardlessOfUpstreamCandidateCount()
     {
