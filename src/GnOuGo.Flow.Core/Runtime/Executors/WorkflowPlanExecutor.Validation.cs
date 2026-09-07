@@ -801,7 +801,7 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
                 {
                     IsError = false,
                     Content = exampleResponse?.DeepClone()
-                        ?? WorkflowPlanDryRunValidator.CreateSuccessfulMcpSampleFromJsonSchema(outputSchema),
+                        ?? WorkflowPlanDryRunValidator.CreateArtifactSample(outputSchema, tool.ArtifactContract?.Contract),
                     Model = "dry-run-mcp",
                     Usage = new JsonObject
                     {

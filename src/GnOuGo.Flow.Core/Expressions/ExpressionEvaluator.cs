@@ -38,7 +38,10 @@ public sealed class ExpressionEvaluator
         if (extraFunctions != null)
         {
             foreach (var kv in extraFunctions)
+            {
+                if (kv.Key == ArtifactCollectionExpression.FunctionName) throw new ArgumentException("The artifact collection primitive cannot be overridden.");
                 _functions[kv.Key] = kv.Value;
+            }
         }
 
         _maxStatements = Math.Max(1, maxStatements);

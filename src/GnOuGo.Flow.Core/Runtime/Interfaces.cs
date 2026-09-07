@@ -405,7 +405,7 @@ public static class McpArtifactContractConventions
     public const string MaterializeMode = "materialize";
 }
 
-public sealed record McpProducedArtifact(string Kind, string Pointer, string Mode);
+public sealed record McpProducedArtifact(string Kind, string Pointer, string Mode, string? Encoding = null);
 
 public sealed record McpConsumedArtifact(string Kind, string Pointer, bool Required);
 

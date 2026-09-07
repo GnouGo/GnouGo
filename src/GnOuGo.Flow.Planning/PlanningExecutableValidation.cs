@@ -35,7 +35,7 @@ public static class PlanningExecutableValidation
                 {
                     var preview = Preview(node.Input);
                     // set resolves its entire input value at runtime and can assert the result schema.
-                    if (node.Type == "set" && node.Input.Kind is "expression" or "compute" or "input" or "output" or "loop_item" or "loop_index") continue;
+                    if (node.Type == "set" && node.Input.Kind is "expression" or "compute" or "input" or "output" or "loop_item" or "loop_index" or "artifact_collection") continue;
                     var input = preview as JsonObject ?? throw new InvalidOperationException("This step requires an object input. For set, put computations in input values or supply an object-producing expression.");
                     var capability = preparation.Capabilities.FirstOrDefault(c => c.Id == node.CapabilityId);
                     if (capability is not null)
@@ -165,7 +165,7 @@ public static class PlanningExecutableValidation
         "object" => new JsonObject(value.Members.Select(m => new KeyValuePair<string, JsonNode?>(m.Name, Preview(m.Value)))),
         "array" => new JsonArray(value.Items.Select(Preview).ToArray()),
         "workflow" => new JsonObject { ["kind"] = "local", ["name"] = value.Source },
-        "input" or "output" or "loop_item" or "loop_index" or "expression" or "compute" or "template" => JsonValue.Create("${data.value}"),
+        "input" or "output" or "loop_item" or "loop_index" or "artifact_collection" or "expression" or "compute" or "template" => JsonValue.Create("${data.value}"),
         _ => PlanningGraphValidation.Literal(value)
     };
 }

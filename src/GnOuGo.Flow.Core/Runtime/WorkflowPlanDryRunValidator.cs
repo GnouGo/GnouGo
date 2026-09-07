@@ -395,6 +395,19 @@ internal static class WorkflowPlanDryRunValidator
         };
     }
 
+    internal static JsonNode? CreateArtifactSample(JsonNode? schema, McpArtifactContract? artifacts)
+    {
+        var sample = CreateSuccessfulMcpSampleFromJsonSchema(schema);
+        foreach (var artifact in artifacts?.Produces.Where(p => p.Encoding == "json_array") ?? [])
+        {
+            var path = artifact.Pointer.Split('/').Skip(1).Select(p => p.Replace("~1", "/", StringComparison.Ordinal).Replace("~0", "~", StringComparison.Ordinal)).ToArray();
+            JsonNode? parent = sample;
+            foreach (var part in path.SkipLast(1)) parent = parent is JsonObject obj ? obj[part] : null;
+            if (path.Length > 0 && parent is JsonObject target && target.ContainsKey(path[^1])) target[path[^1]] = "[]";
+        }
+        return sample;
+    }
+
     internal static JsonNode? CreateSuccessfulMcpSampleFromJsonSchema(JsonNode? schema)
     {
         var sample = CreateSampleFromJsonSchema(schema);

@@ -136,7 +136,7 @@ public sealed partial class PlanningGraphCompiler
             throw new InvalidOperationException("A node uses a step type outside the locked policy.");
         var result = new JsonObject { ["id"] = scope.NodeIds[node.Key], ["type"] = node.Type };
         var loweredInput = LowerValue(node.Input, scope);
-        var computedSetInput = node.Type == "set" && node.Input.Kind is "expression" or "compute" or "input" or "output" or "loop_item" or "loop_index";
+        var computedSetInput = node.Type == "set" && node.Input.Kind is "expression" or "compute" or "input" or "output" or "loop_item" or "loop_index" or "artifact_collection";
         var input = loweredInput as JsonObject ?? (computedSetInput ? new JsonObject() : throw new InvalidOperationException("A step input must be a typed object."));
         if (node.CapabilityId is { Length: > 0 })
         {
@@ -262,7 +262,7 @@ public sealed partial class PlanningGraphCompiler
             case "workflow" when allowReferences:
                 if (value.Source is null || !scope.WorkflowIds.TryGetValue(value.Source, out var workflow)) throw new InvalidOperationException("Unknown workflow reference.");
                 return new JsonObject { ["kind"] = "local", ["name"] = workflow };
-            case "input" or "output" or "loop_item" or "loop_index" or "expression" or "compute" or "confirmation" or "decision_binding" when allowReferences: return JsonValue.Create(ToExpression(value, scope));
+            case "input" or "output" or "loop_item" or "loop_index" or "artifact_collection" or "expression" or "compute" or "confirmation" or "decision_binding" when allowReferences: return JsonValue.Create(ToExpression(value, scope));
             case "template" when allowReferences:
                 var template = value.Text ?? "";
                 EnsureUnique(value.Members.Select(m => m.Name), "template binding");
@@ -291,6 +291,12 @@ public sealed partial class PlanningGraphCompiler
         {
             if (value.Source is null || !scope.NodeTypes.TryGetValue(value.Source, out var type) || type is not ("loop.sequential" or "loop.parallel")) throw new InvalidOperationException("Unknown loop binding producer.");
             expression = "data" + Segment(value.Kind == "loop_index" ? scope.LoopVariables[value.Source].Index : scope.LoopVariables[value.Source].Item) + string.Concat(value.Path.Select(Segment));
+        }
+        else if (value.Kind == "artifact_collection")
+        {
+            if (value.Source is null || !scope.NodeIds.TryGetValue(value.Source, out var loopId) || scope.NodeTypes[value.Source] is not ("loop.sequential" or "loop.parallel") ||
+                value.Path.Count < 3 || !scope.NodeIds.TryGetValue(value.Path[0], out var child)) throw new InvalidOperationException("Invalid artifact collection binding.");
+            expression = GnOuGo.Flow.Core.Expressions.ArtifactCollectionExpression.Build(loopId, new[] { child }.Concat(value.Path.Skip(1)).ToArray());
         }
         else if (value.Kind == "output")
         {

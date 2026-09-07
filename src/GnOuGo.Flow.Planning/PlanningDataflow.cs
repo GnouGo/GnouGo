@@ -8,7 +8,7 @@ namespace GnOuGo.Flow.Planning;
 internal static class PlanningDataflow
 {
     internal const int BindingVersion = 2;
-    internal const int ContractVersion = 16;
+    internal const int ContractVersion = 17;
     internal const string WorkflowOutputs = "$outputs";
 
     internal static Dictionary<string, PlanningBinding> Index(PlanningWorkflow workflow, PlanningPreparation preparation, PlanningGraph graph, string? consumer = null)
@@ -46,6 +46,15 @@ internal static class PlanningDataflow
                 catch (InvalidOperationException) { /* Optional/conditional fields need explicit narrowing, never a guessed address. */ }
             }
         }
+        foreach (var loop in nodes.Take(Math.Max(0, consumerIndex)).Where(n => n.Type is "loop.sequential" or "loop.parallel" && Available(n.Key)))
+            foreach (var child in loop.Steps.Where(n => n.Type == "mcp.call"))
+                foreach (var artifact in preparation.Capabilities.FirstOrDefault(c => c.Id == child.CapabilityId)?.ArtifactContract?.Produces.Where(p => p.Encoding == "json_array") ?? [])
+                {
+                    var value = new PlanningValue { Kind = "artifact_collection", Source = loop.Key,
+                        Path = new[] { child.Key, "response" }.Concat(artifact.Pointer.Split('/').Skip(1).Select(p => p.Replace("~1", "/", StringComparison.Ordinal).Replace("~0", "~", StringComparison.Ordinal))).ToList() };
+                    try { var schema = resolve(value); var id = PlanningOutputBindings.Id(value); result[id] = new(id, workflow.Key, value, schema, "unconditional"); }
+                    catch (InvalidOperationException) { /* A missing original result cannot be replaced by an aggregate. */ }
+                }
         return result;
 
         bool Available(string key)
@@ -120,7 +129,7 @@ internal static class PlanningDataflow
             }
             catch (Exception ex) when (ex is InvalidOperationException or Acornima.ParseErrorException) { /* Context-dependent legacy code needs a binding repair. */ }
         }
-        if (obj["kind"]?.GetValue<string>() is "input" or "output" or "loop_item" or "loop_index")
+        if (obj["kind"]?.GetValue<string>() is "input" or "output" or "loop_item" or "loop_index" or "artifact_collection")
         {
             var reference = JsonSerializer.Deserialize(obj, PlanningJsonContext.Default.PlanningValue)!;
             var id = PlanningOutputBindings.Id(reference);
@@ -170,7 +179,7 @@ internal static class PlanningDataflow
 
     internal static IEnumerable<PlanningValue> References(PlanningValue value)
     {
-        if (value.Kind is "input" or "output" or "loop_item" or "loop_index") yield return value;
+        if (value.Kind is "input" or "output" or "loop_item" or "loop_index" or "artifact_collection") yield return value;
         foreach (var child in value.Members.Select(m => m.Value).Concat(value.Items)) foreach (var reference in References(child)) yield return reference;
     }
 
@@ -205,7 +214,7 @@ internal static class PlanningDataflow
                     if (!visited.Add(current.Key)) return;
                     if (source) dependencies.UnionWith(current.OperationIds.Concat(preparation.Capabilities.FirstOrDefault(c => c.Id == current.CapabilityId)?.OperationIds ?? []));
                     foreach (var value in References(current.Input).Concat(current.Expr is null ? [] : References(current.Expr)))
-                        if (value.Kind is "output" or "loop_item" or "loop_index" && located.FirstOrDefault(p => p.Node.Key == value.Source).Node is { } producer) Visit(producer, true);
+                        if (value.Kind is "output" or "loop_item" or "loop_index" or "artifact_collection" && located.FirstOrDefault(p => p.Node.Key == value.Source).Node is { } producer) Visit(producer, true);
                     foreach (var child in current.Steps.Concat(current.Default).Concat(current.Cases.SelectMany(c => c.Steps)).Concat(current.Branches.SelectMany(b => b.Steps))) Visit(child, true);
                 }
                 Visit(node, false);

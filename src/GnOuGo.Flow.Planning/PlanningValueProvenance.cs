@@ -13,6 +13,13 @@ internal static class PlanningValueProvenance
         if (!visited.Add(key)) return false;
         try
         {
+            if (value.Kind == "artifact_collection")
+            {
+                var loop = PlanningGraphCompiler.Enumerate(workflow.Steps.Concat(workflow.Finally)).FirstOrDefault(n => n.Key == value.Source && n.Type is "loop.sequential" or "loop.parallel");
+                var child = loop?.Steps.SingleOrDefault(n => n.Key == value.Path.FirstOrDefault());
+                return child is { Type: "mcp.call", If: null } && value.Path.Count >= 3 && value.Path[1] == "response" && !child.OnError.Any(h => h.Action == "continue") &&
+                    Proves(workflow, new() { Kind = "output", Source = child.Key, Path = value.Path.Skip(2).ToList() }, graph, source, visited);
+            }
             if (value.Kind == "loop_item")
             {
                 var loop = PlanningGraphCompiler.Enumerate(workflow.Steps.Concat(workflow.Finally)).FirstOrDefault(n => n.Key == value.Source && n.Type is "loop.sequential" or "loop.parallel");

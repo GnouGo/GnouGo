@@ -14,7 +14,7 @@ public sealed class GitTools
 {
     private const string RequiredProjectRootDescription = "Required workspace-relative path to an existing project root outside the reserved .GnOuGo internal directory. Pass a documented workspace.directory artifact output or a caller-provided existing directory. Null, omitted, empty, absolute, file URI, home-relative, parent-traversal, and invented values are invalid.";
     private const string RequiredProjectRootToolSuffix = " projectRoot consumes a required workspace.directory artifact and must identify an existing workspace-relative project root.";
-    private const string CompareRefsMetadataJson = """{"artifacts":{"version":1,"produces":[{"kind":"revision.comparison.files","pointer":"/filesJson","mode":"materialize"}],"consumes":[{"kind":"workspace.directory","pointer":"/projectRoot","required":true}]}}""";
+    private const string CompareRefsMetadataJson = """{"artifacts":{"version":1,"produces":[{"kind":"revision.comparison.files","pointer":"/filesJson","mode":"materialize","encoding":"json_array"}],"consumes":[{"kind":"workspace.directory","pointer":"/projectRoot","required":true}]}}""";
 
     private readonly GitPolicy _policy;
     private readonly GitRepositoryService _gitRepositoryService;

@@ -180,7 +180,7 @@ public static class PlanningGraphValidation
                     if (loop.Node is null || !location.StartsWith(loop.Path + "/steps/", StringComparison.Ordinal))
                         errors.Add(new("LOOP_BINDING_SCOPE_INVALID", location, "A loop item or index is available only inside that loop body."));
                 }
-                if (value.Kind is "output" or "input" or "loop_item" or "loop_index")
+                if (value.Kind is "output" or "input" or "loop_item" or "loop_index" or "artifact_collection")
                 {
                     try { _ = ValueSchema(value, new(StringComparer.Ordinal)); }
                     catch (Exception ex) when (ex is InvalidOperationException or ArgumentException or FormatException) { errors.Add(new("OUTPUT_REFERENCE_INVALID", location, ex.Message)); }
@@ -191,6 +191,18 @@ public static class PlanningGraphValidation
 
             JsonObject? ValueSchema(PlanningValue value, HashSet<string> visiting)
             {
+                if (value.Kind == "artifact_collection")
+                {
+                    var loop = byKey.GetValueOrDefault(value.Source ?? "");
+                    var child = loop?.Steps.SingleOrDefault(n => n.Key == value.Path.FirstOrDefault());
+                    if (loop?.Type is not ("loop.sequential" or "loop.parallel") || loop.If is not null || child?.Type != "mcp.call" || child.If is not null || child.OnError.Any(h => h.Action == "continue") ||
+                        value.Path.Count < 3 || value.Path[1] != "response" || value.ResultChannel is not null ||
+                        preparation.Capabilities.FirstOrDefault(c => c.Id == child.CapabilityId)?.ArtifactContract?.Produces.Any(p => p.Encoding == "json_array" &&
+                            p.Pointer == "/" + string.Join("/", value.Path.Skip(2).Select(PlanningSchemaReferences.Escape))) != true)
+                        throw new InvalidOperationException("Artifact collection requires an unconditional original producer with a declared JSON-array encoding, reached through its completed loop.");
+                    _ = ValueSchema(new() { Kind = "output", Source = loop.Key, Path = new[] { "results", "0" }.Concat(value.Path).ToList() }, visiting);
+                    return new JsonObject { ["type"] = "string" };
+                }
                 if (value.Kind is "loop_item" or "loop_index")
                 {
                     var loop = byKey.GetValueOrDefault(value.Source ?? "");

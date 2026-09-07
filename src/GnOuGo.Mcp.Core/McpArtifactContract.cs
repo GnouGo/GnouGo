@@ -24,7 +24,7 @@ public static class McpArtifactContractMetadata
         """{"artifacts":{"version":1,"consumes":[{"kind":"workspace.directory","pointer":"/projectRoot","required":true}]}}""";
 }
 
-public sealed record McpProducedArtifact(string Kind, string Pointer, string Mode);
+public sealed record McpProducedArtifact(string Kind, string Pointer, string Mode, string? Encoding = null);
 
 public sealed record McpConsumedArtifact(string Kind, string Pointer, bool Required);
 
@@ -122,7 +122,13 @@ public static class McpArtifactContractParser
             }
 
             ValidateSchemaPointer(outputSchema, pointer, requireRequiredProperty: true, prefix, errors);
-            result.Add(new McpProducedArtifact(kind, pointer, mode));
+            string? encoding = null;
+            if (item.TryGetPropertyValue("encoding", out var encodingNode) && encodingNode is not null)
+            {
+                if (encodingNode is not JsonValue encodingValue || !encodingValue.TryGetValue<string>(out encoding) || encoding != "json_array")
+                    errors.Add($"{prefix}.encoding must be 'json_array' when declared.");
+            }
+            result.Add(new McpProducedArtifact(kind, pointer, mode, encoding));
         }
 
         return result;

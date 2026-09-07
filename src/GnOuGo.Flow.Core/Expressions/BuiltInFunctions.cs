@@ -33,6 +33,7 @@ public static class BuiltInFunctions
         ["now"] = Now,
         ["formatDate"] = FormatDate,
         ["base64"] = Base64,
+        [ArtifactCollectionExpression.FunctionName] = ArtifactCollectionExpression.Evaluate,
     };
 
     private static JsonNode? Exists(JsonNode?[] args)

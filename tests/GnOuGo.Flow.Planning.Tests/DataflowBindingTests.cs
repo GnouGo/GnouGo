@@ -571,6 +571,6 @@ public sealed class DataflowBindingTests
         candidate["nodes"]![consumer.Key]!["arguments"]!["handle"]!["reference"] = PlanningOutputBindings.Id(new() { Kind = "output", Source = producer.Key, Path = ["handle"], ResultChannel = "structured" });
         Assert.NotEmpty(PlanningConstruction.ShapeFindings(candidate, schema, unit));
         producer.Type = "set"; producer.Input = Obj(("handle", Str("invented artifact")));
-        Assert.Throws<InvalidOperationException>(() => PlanningConstruction.Schema(workflow, unit, prep, graph));
+        Assert.Throws<PlanningArtifactBindings.UnresolvedArtifactException>(() => PlanningConstruction.Schema(workflow, unit, prep, graph));
     }
 }

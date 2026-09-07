@@ -193,8 +193,11 @@ public sealed partial class TypedWorkflowPlanner(TimeProvider? timeProvider = nu
                     }
                     if (state.Diagnostics.Any(d => d.Code == "CATALOG_CHANGED"))
                     {
-                        state.Request.ExistingYaml = state.Yaml;
-                        state.Preparation = null; state.Graph = null; state.IntentChecked = false; state.Fragments.Clear();
+                        // A changed capability catalog requires a fresh contract and behavior review.
+                        // Retain intent answers and usage, but never reuse approval of old capabilities.
+                        state.PreviousGraph = state.Graph; state.Graph = null;
+                        state.Preparation = null; state.PreparationCheckpoint = null; state.Fragments.Clear();
+                        ResetBehavior(state); state.Yaml = null; state.Scenarios.Clear();
                     }
                     var unreviewed = !HasBehaviorApproval(state) || PlanningPhase.Resolve(state) == PlanningPhase.Behavior;
                     state.Status = state.Graph is null || unreviewed ? PlanningStatus.Created

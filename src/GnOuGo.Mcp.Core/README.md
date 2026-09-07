@@ -80,3 +80,5 @@ payload has a clear structured failure envelope, such as `success: false`,
 `ok: false`, `status: "error"`, `error_code`, `error_message`, or a compact
 `{ code, message }` error object. Plain text diagnostics are not treated as
 errors.
+
+Artifact producers may declare `encoding: "json_array"` for string fields containing exact JSON arrays. This additive metadata authorizes the native planner to concatenate original page records without changing their contents. Unknown encodings are rejected. Missing metadata never implies a collection format.

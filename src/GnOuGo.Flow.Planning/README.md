@@ -190,3 +190,5 @@ findings. Rejected matching repairs remain separate from the retained candidate.
 See the [capability recovery diagnosis and next architecture step](../../docs/planner-v2-capability-recovery.md).
 
 Planner v2 decision contracts, confirmation routing, recovery and live validation are described in [Planner v2 decisions](../../docs/planner-v2-decisions.md).
+
+Completed loops expose compiler-owned artifact collection bindings when their original MCP producers declare a JSON-array encoding. Models select the exact binding identifier. A missing artifact binding pauses before dispatch and checks whether the locked capability catalog changed; Retry after a catalog change preserves answers and usage but requires renewed behavior review.

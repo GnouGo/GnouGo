@@ -84,6 +84,7 @@ public sealed class GitToolsStructuredOutputTests
         var produced = Assert.Single(Assert.IsType<JsonArray>(compareMetadata["produces"]));
         Assert.Equal(McpArtifactContractMetadata.RevisionComparisonFilesKind, produced!["kind"]!.GetValue<string>());
         Assert.Equal("/filesJson", produced["pointer"]!.GetValue<string>());
+        Assert.Equal("json_array", produced["encoding"]!.GetValue<string>());
         Assert.Equal(McpArtifactContractMetadata.MaterializeMode, produced["mode"]!.GetValue<string>());
     }
 

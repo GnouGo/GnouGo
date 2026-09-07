@@ -10069,7 +10069,8 @@ public sealed partial class WorkflowPlanExecutor
         string Workflow,
         string StepId,
         string Kind,
-        string Pointer);
+        string Pointer,
+        string? Encoding = null);
 
     private sealed record ArtifactResolution(
         bool Proven,
@@ -10136,7 +10137,7 @@ public sealed partial class WorkflowPlanExecutor
                         workflowName,
                         step.Id,
                         artifact.Kind,
-                        artifact.Pointer)));
+                        artifact.Pointer, artifact.Encoding)));
                 foreach (var artifact in contract.Consumes.Where(static artifact => artifact.Required))
                 {
                     consumers.Add((
@@ -10345,7 +10346,7 @@ public sealed partial class WorkflowPlanExecutor
                         workflowName,
                         step.Id,
                         artifact.Kind,
-                        artifact.Pointer)));
+                        artifact.Pointer, artifact.Encoding)));
                 consumers.AddRange(contract.Consumes
                     .Where(static artifact => artifact.Required)
                     .Select(artifact => (
@@ -10644,6 +10645,18 @@ public sealed partial class WorkflowPlanExecutor
             var path = TrimWorkflowExpression(expression);
             ArtifactResolution ResolveProjected(JsonNode? projected, string? context) => ResolveArtifactValue(document, stepsByWorkflow, workflowCallers, producers, workflowName, projected, artifactKind, visited, context);
             if (TryResolveLoopArtifact(document, workflowName, consumerStepId, path, ResolveProjected, out var loopArtifact)) return loopArtifact;
+            if (Expressions.ArtifactCollectionExpression.TryRead(path, out var loopId, out var projection))
+            {
+                if (!stepsByWorkflow.TryGetValue(workflowName, out var collectionSteps) || !collectionSteps.TryGetValue(loopId, out var collection) ||
+                    collection.Type is not ("loop.sequential" or "loop.parallel") || collection.If is not null || projection.Count < 3 || projection[1] != "response")
+                    return ArtifactResolution.Unproven;
+                var child = collection.Steps?.SingleOrDefault(s => s.Id == projection[0]);
+                if (child is null || child.Type != "mcp.call" || child.If is not null || child.OnError?.Cases.Any(h => h.Action == "continue") == true)
+                    return ArtifactResolution.Unproven;
+                var source = producers.SingleOrDefault(p => p.Workflow == workflowName && p.StepId == child.Id && p.Kind == artifactKind && p.Encoding == "json_array" &&
+                    projection.Skip(2).SequenceEqual(DecodeArtifactPointer(p.Pointer), StringComparer.Ordinal));
+                return source is null ? ArtifactResolution.Unproven : new(true, new HashSet<PlannedArtifactProducer> { source }, false);
+            }
             const string inputPrefix = "data.inputs.";
             if (path.StartsWith(inputPrefix, StringComparison.Ordinal))
             {

@@ -179,15 +179,18 @@ public sealed partial class TypedWorkflowPlanner
             { SplitUnit(state, unit); continue; }
             if (error is not null)
             {
-                unit.DispatchOutcome = error is UnitContextException or UnitRepairException or UnitDeterministicException ? "not_dispatched" : "transport_failed";
+                unit.DispatchOutcome = error is UnitContextException or UnitRepairException or UnitDeterministicException or PlanningArtifactBindings.UnresolvedArtifactException ? "not_dispatched" : "transport_failed";
                 unit.DispatchDiagnostics = [error switch
                 {
                     UnitContextException => new("UNIT_CONTEXT_TOO_LARGE", path, $"The smallest repair or generation envelope needs {unit.EstimatedInputTokens} estimated input tokens; the configured limit is {unit.InputTokenLimit}. No request was sent. An unchanged Retry cannot resolve this size limit; context or explicit generation settings must change.", ValidationStage: "generation"),
                     UnitRepairException => new("UNIT_REPAIR_EXHAUSTED", path, "The configured repair allowance has been used. The candidate and validated dependencies are retained.", ValidationStage: "validation"),
                     UnitDeterministicException => new("UNIT_CONTRACT_UNRESOLVED", path, "This unit has no model-editable fields. Its declared producer or dependency must be repaired; repeating the same deterministic construction cannot change the result. No model repair was sent.", ValidationStage: "conversion"),
+                    PlanningArtifactBindings.UnresolvedArtifactException => new("ARTIFACT_BINDING_UNPROVEN", path, error.Message + " No model request was sent. Repair the original producer contract or establish an approved availability guard.", ValidationStage: "dataflow"),
                     LLMClientException failure => ProviderFinding(failure, path),
                     _ => new("UNIT_GENERATION_FAILED", path, error.Message, ValidationStage: "generation")
                 }];
+                if (error is PlanningArtifactBindings.UnresolvedArtifactException)
+                    unit.DispatchDiagnostics.AddRange(await runtime.ValidateCatalogAsync(state.Preparation!, ct));
                 unit.Status = "recovery"; stopped = true; continue;
             }
             var received = response!.Json as JsonObject;

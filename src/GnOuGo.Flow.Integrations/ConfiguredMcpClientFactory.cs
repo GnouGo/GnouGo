@@ -1126,7 +1126,7 @@ internal sealed class McpSessionAdapter : IMcpSession, ILiveMcpToolDiscoverySess
                     .Select(static artifact => new GnOuGo.Flow.Core.Runtime.McpProducedArtifact(
                         artifact.Kind,
                         artifact.Pointer,
-                        artifact.Mode))
+                        artifact.Mode, artifact.Encoding))
                     .ToArray(),
                 validation.Contract.Consumes
                     .Select(static artifact => new GnOuGo.Flow.Core.Runtime.McpConsumedArtifact(

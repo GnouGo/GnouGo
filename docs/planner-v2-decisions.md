@@ -54,3 +54,5 @@ The authorized cumulative campaign ceilings are EUR 300, 3,000 calls and 20 mill
 Success requires three complete generation/save runs and fixture execution, publication-confirmation and cleanup checks. Recovery, a successful model response or green CI alone is not live acceptance.
 
 An optional `GNOU_GO_LIVE_TYPED_PLANNING_COHORT` suffix starts separate acceptance sessions while retaining the same cumulative ledger. The durable campaign store retains encrypted revisions and receipts. Failure archival copies current snapshots only; it must not load all historical payloads or hide the original failure behind an archive error.
+
+Completed pagination loops can expose lossless collections of original JSON-array artifacts. This requires explicit producer encoding metadata and an unconditional original result. The compiler emits a reserved native collection primitive; arbitrary transformations do not establish artifact identity. A stale catalog is diagnosed before model dispatch. Re-resolving changed capabilities invalidates behavior approval while retaining intent answers and cumulative usage.

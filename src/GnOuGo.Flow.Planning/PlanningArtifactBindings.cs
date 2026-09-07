@@ -36,10 +36,12 @@ internal static class PlanningArtifactBindings
         if (requirements is not { Length: > 0 }) return null;
         var eligible = PlanningDataflow.Index(workflow, preparation, graph, node.Key).Values.Where(binding =>
             requirements.All(required => Proves(workflow, binding.Value, required.Kind, preparation, graph, new(StringComparer.Ordinal)))).Select(b => b.Id).ToArray();
-        if (eligible.Length == 0) throw new InvalidOperationException("No available original producer binding proves required artifact " +
+        if (eligible.Length == 0) throw new UnresolvedArtifactException("No available original producer binding proves required artifact " +
             string.Join(", ", requirements.Select(r => r.Kind)) + " for argument '" + argument + "'. A transformed result or matching string type cannot establish artifact identity.");
         return PlanningDataflow.BindingSchema(eligible);
     }
+
+    internal sealed class UnresolvedArtifactException(string message) : InvalidOperationException(message);
 
     internal static bool Proves(PlanningWorkflow workflow, PlanningValue value, string kind, PlanningPreparation preparation, PlanningGraph graph, HashSet<string> visited)
     {

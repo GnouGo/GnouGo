@@ -2203,3 +2203,5 @@ The engine is fully **NativeAOT**-compatible:
 - JSON: `System.Text.Json.Nodes.JsonNode` everywhere (no reflection-based serialization)
 - Templating: Manually implemented Mustache (no external library)
 - Scripting: Jint v4+ (pure interpreter, no Reflection.Emit)
+
+The native `collect_json_arrays(completedLoop.results, ["child", "response", "field"])` expression concatenates original JSON-array strings without altering records or numeric precision. Artifact provenance requires an exact original producer declaring `encoding: "json_array"`; missing, conditional, malformed or transformed source results cannot establish identity. The primitive cannot be overridden by workflow helpers.
