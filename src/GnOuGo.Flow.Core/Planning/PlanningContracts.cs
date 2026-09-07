@@ -15,6 +15,16 @@ public sealed class PlanningRequest
     public JsonObject Options { get; set; } = new();
     public int MaxConcurrency { get; set; } = 4;
     public int MaxRepairs { get; set; } = 3;
+    public PlanningGenerationOptions Generation { get; set; } = new();
+}
+
+/// <summary>Request-scoped construction limits; changing these never changes accepted behavior.</summary>
+public sealed class PlanningGenerationOptions
+{
+    public string? Reasoning { get; set; }
+    public int MaxNodesPerUnit { get; set; } = 4;
+    public int MaxInputTokensPerUnit { get; set; } = 12_000;
+    public int MaxOutputTokens { get; set; } = 8_192;
 }
 
 public static class PlanningStatus
@@ -57,6 +67,7 @@ public sealed class PlanningCommand
     public string? ArtifactHash { get; set; }
     public string? Text { get; set; }
     public JsonObject? Answers { get; set; }
+    public PlanningGenerationOptions? Generation { get; set; }
 }
 
 /// <summary>Contains private user content. Hosts must encrypt snapshots at rest, never log them.</summary>
@@ -93,6 +104,8 @@ public sealed class PlanningSnapshot
     public List<PlanningRevision> History { get; set; } = [];
     public List<PlanningEvent> Events { get; set; } = [];
     public Dictionary<string, PlanningFragment> Fragments { get; set; } = new(StringComparer.Ordinal);
+    public List<PlanningConstructionUnit> ConstructionUnits { get; set; } = [];
+    public List<PlanningGenerationRevision> GenerationHistory { get; set; } = [];
     public string? Yaml { get; set; }
     public string? ArtifactHash { get; set; }
     public string? ApprovedHash { get; set; }
@@ -295,6 +308,29 @@ public sealed record PlanningCase(string? Value, PlanningValue? When, List<Plann
 public sealed record PlanningErrorCase(PlanningValue? If, string Action, PlanningValue? SetOutput, Models.RetryPolicy? Retry);
 public sealed record PlanningFragment(string Fingerprint, PlanningWorkflow Workflow, bool Validated);
 
+/// <summary>Encrypted, resumable construction checkpoint. Candidates remain untrusted until validated.</summary>
+public sealed class PlanningConstructionUnit
+{
+    public string Key { get; set; } = "";
+    public string WorkflowKey { get; set; } = "";
+    public string Kind { get; set; } = "implementation";
+    public List<string> NodeKeys { get; set; } = [];
+    public List<string> Dependencies { get; set; } = [];
+    public string Fingerprint { get; set; } = "";
+    public string Status { get; set; } = "pending";
+    public JsonObject? Candidate { get; set; }
+    public string? CandidateHash { get; set; }
+    public List<string> RequestHashes { get; set; } = [];
+    public List<PlanningDiagnostic> Diagnostics { get; set; } = [];
+    public int Calls { get; set; }
+    public List<PlanningDiagnostic> DispatchDiagnostics { get; set; } = [];
+    public int RepairCalls { get; set; }
+    public int RepairCallsAtRetry { get; set; }
+    public string? Functions { get; set; }
+}
+
+public sealed record PlanningGenerationRevision(long Revision, PlanningGenerationOptions Options);
+
 public interface IWorkflowPlanner
 {
     Task<PlanningSnapshot> AdvanceAsync(PlanningSnapshot snapshot, PlanningCommand command, IPlanningRuntime runtime, CancellationToken ct);
@@ -327,6 +363,8 @@ public sealed class PlanningConflictException(string message) : InvalidOperation
 [JsonSerializable(typeof(PlanningBehaviorPlan))]
 [JsonSerializable(typeof(PlanningBehaviorWorkflow))]
 [JsonSerializable(typeof(PlanningStructuredOutput))]
+[JsonSerializable(typeof(PlanningErrorCase))]
+[JsonSerializable(typeof(PlanningGenerationOptions))]
 [JsonSerializable(typeof(string[]))]
 [JsonSerializable(typeof(PlanningWorkflow))]
 [JsonSerializable(typeof(PlanningCommand))]

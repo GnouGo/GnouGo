@@ -89,6 +89,7 @@ public sealed class RoutingLLMClient
 
         var metadata = _metadataResolver.Resolve(resolvedType, model);
         var sanitizedRequest = LLMRequestSanitizer.Sanitize(request, metadata, providerOpts.RequestPolicy);
+        if (request.DisableTransportRetries) providerOpts = providerOpts.WithSingleAttempt();
         try
         {
             if (!string.Equals(resolvedType, LocalLLMProvider.Type, StringComparison.OrdinalIgnoreCase))
@@ -114,7 +115,7 @@ public sealed class RoutingLLMClient
         CancellationToken ct)
     {
         LocalLLMException? lastFailure = null;
-        for (var attempt = 1; attempt <= 2; attempt++)
+        for (var attempt = 1; attempt <= (request.DisableTransportRetries ? 1 : 2); attempt++)
         {
             if (attempt > 1)
             {
@@ -322,6 +323,8 @@ public sealed class LLMClientRequest
     /// Providers use this instead of hard-coded defaults.
     /// </summary>
     public int? MaxOutputTokens { get; set; }
+    public bool RequireOutputTokenLimit { get; set; }
+    public bool DisableTransportRetries { get; set; }
 }
 
 /// <summary>

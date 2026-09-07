@@ -1,5 +1,8 @@
 # Typed workflow planning rollout
 
+See the [construction validation record](planner-v2-construction-validation.md) for
+the latest local checks and the outstanding live acceptance gate.
+
 Version 2 is an explicit alternative to the existing planner. Existing executable
 YAML needs no migration. `workflow.plan` defaults to version 1; version 2 requires
 an injected `IWorkflowPlanner`. Failures never silently fall back to version 1.
@@ -29,7 +32,8 @@ flowchart TD
   Intent --> Catalog[Versioned capability declarations]
   Catalog --> Behavior[Business behavior contract, without code or schemas]
   Behavior --> Review[Diagram, inputs, outputs, effects and cleanup]
-  Review -->|Accept behavior| Fragments[Typed fragments, up to four concurrent calls]
+  Review -->|Accept behavior| Contracts[Resolve input and producer contracts]
+  Contracts --> Fragments[Executable units: at most four nodes each]
   Review -->|Revise| Intent
   Fragments --> Checks[Contract checks and scenario coverage]
   Checks -->|Defect| Repair[Affected fragment and dependents]
@@ -43,6 +47,30 @@ flowchart TD
   Store -.-> Fragments
   Store -.-> Final
 ```
+
+Construction preserves the approved control flow deterministically. Explicit switch cases
+retain their values and order; the default is separate and has no model-editable index.
+Native confirmation choices and result contracts come from `HumanInputContract`. Exact node
+keys and executor-specific response fields reject invented or ignored fields before lowering.
+Unit candidates, dependency fingerprints, receipts and repair counts survive restart.
+Invalid fields receive scoped patches, including shape/conversion failures. Recovery retains
+the actual candidate's findings and distinguishes rejected patches from active diagnostics.
+
+Agent.Server defaults `TypedWorkflowPlanning:Reasoning` to `low`, preserving the configured
+model. The default construction limits are `MaxNodesPerUnit: 4`,
+`MaxInputTokensPerUnit: 12000` (estimated), and `MaxOutputTokens: 8192` (enforced on transport).
+Oversized units split before a model request; oversized individual contracts pause explicitly.
+Four independent calls may run concurrently. Journaled model requests disable hidden retries;
+compatibility cannot remove an enforced output ceiling. Lower reasoning can reduce latency,
+but does not prove correctness or guarantee avoidance of provider disconnections.
+
+Paused sessions expose **Generation settings**. `configure_generation` uses the current
+revision and retains answers and accepted behavior while invalidating final approval.
+The designer displays the effective model, reasoning, completed units and repair count.
+Legacy schema-version-2 snapshots receive additive defaults without database migration.
+The v2 live recovery harness can resume accepted behavior through construction, stopping for
+new questions or final approval. Its cumulative ledger retains all unverified reservations;
+a successful provider response or recovery screen does not establish live acceptance.
 
 | Component | Owns |
 | --- | --- |
@@ -258,6 +286,11 @@ available before dispatch. Resume stops at the user's review/questions without a
 only temporary campaign sessions use scripted answers and approval.
 
 Each paid v2 dispatch reserves its maximum declared input/output cost before sending.
+For bounded text requests with enforced output limits and transport retries disabled,
+the harness conservatively reserves one input token per serialized UTF-8 byte plus
+4,096 framing tokens (including tool/schema content), capped by the model input ceiling.
+Unbounded legacy requests retain the full model-context reservation. This reservation
+is separate from the unit scheduler's smaller heuristic input-token estimate.
 Successful usage receipts replace that reservation with measured usage. Interrupted calls
 without receipts retain their conservative reserve across restarts; they are never counted
 as free. On first opening an older campaign store, incomplete encrypted journal requests

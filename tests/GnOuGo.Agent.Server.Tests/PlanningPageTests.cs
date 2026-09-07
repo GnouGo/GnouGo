@@ -9,6 +9,37 @@ namespace GnOuGo.Agent.Server.Tests;
 public sealed class PlanningPageTests
 {
     [Fact]
+    public async Task RecoveryGenerationSettingsAndUnitsSurviveRestartWithoutChangingApproval()
+    {
+        var ct = Xunit.TestContext.Current.CancellationToken;
+        await using var fixture = await PlanningPersistenceTests.StoreFixture.CreateAsync();
+        var state = Session("Paused generation", ""); state.Status = PlanningStatus.Recovery; state.CurrentPhase = "fragment";
+        state.ApprovedBehaviorHash = "accepted-behavior"; state.ApprovedHash = "old-artifact";
+        state.Answers = [new("Which outcome?", new() { ["choice"] = "retain" })]; state.ClarificationForms = 1;
+        state.Request.Options["generator"] = new System.Text.Json.Nodes.JsonObject { ["model"] = "configured-model", ["reasoning"] = "medium" };
+        state.ConstructionUnits = [new() { Key = "unit", Status = "validated", Calls = 2, RepairCalls = 1, CandidateHash = "receipt" }];
+        Assert.True(await fixture.Store.TrySaveAsync(state, null, ct));
+        using var service = PlanningSessionLifecycleTests.Create(fixture, new TypedWorkflowPlanner(), PlanningSessionLifecycleTests.AgentCatalog());
+        await using (var context = new BunitContext())
+        {
+            context.JSInterop.Mode = JSRuntimeMode.Loose; context.Services.AddSingleton(service);
+            var page = context.Render<PlanningPage>(p => p.Add(x => x.SessionId, state.Request.SessionId));
+            page.WaitForAssertion(() => Assert.Contains("configured-model", page.Markup));
+            page.Find("select[aria-label='Generation reasoning']").Change("low");
+            Assert.Single(page.FindAll("button"), b => b.TextContent == "Apply generation settings").Click();
+            page.WaitForAssertion(() => Assert.Contains("Reasoning: low", page.Markup));
+        }
+        using var reopened = PlanningSessionLifecycleTests.Create(fixture, new TypedWorkflowPlanner(), PlanningSessionLifecycleTests.AgentCatalog());
+        var restored = (await reopened.GetAsync(state.Request.SessionId, ct))!;
+        Assert.Equal("low", restored.Request.Generation.Reasoning); Assert.Equal(state.ApprovedBehaviorHash, restored.ApprovedBehaviorHash);
+        Assert.Null(restored.ApprovedHash); Assert.Single(restored.Answers); Assert.Single(restored.GenerationHistory);
+        Assert.Equal(2, restored.ConstructionUnits[0].Calls); Assert.Equal(1, restored.ConstructionUnits[0].RepairCalls);
+        Assert.Null(await fixture.Store.LoadAsync("another-tenant", state.Request.SessionId, ct));
+        await Assert.ThrowsAsync<PlanningConflictException>(() => reopened.SubmitAsync(state.Request.SessionId,
+            new() { Kind = "configure_generation", ExpectedRevision = state.Revision, Generation = new() { Reasoning = "high" } }, ct));
+    }
+
+    [Fact]
     public async Task EarlyBehaviorReview_IsVisibleBeforeCode_ApprovalAndAnswersSurviveReopen()
     {
         var ct = Xunit.TestContext.Current.CancellationToken;

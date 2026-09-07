@@ -8,6 +8,27 @@ namespace GnOuGo.Flow.Planning;
 public static class PlanningGraphValidation
 {
     public static IReadOnlyList<PlanningDiagnostic> Validate(PlanningGraph graph, PlanningPreparation preparation)
+        => ValidateCore(graph, preparation, null);
+
+    internal static Dictionary<string, JsonObject> DescribeResults(PlanningWorkflow workflow, PlanningPreparation preparation, PlanningGraph? graph = null)
+    {
+        var results = new Dictionary<string, JsonObject>(StringComparer.Ordinal);
+        ValidateCore(graph ?? new PlanningGraph { Workflows = [workflow] }, preparation, results, workflow.Key);
+        return results;
+    }
+
+    internal static JsonObject ResolveValueContract(PlanningGraph graph, PlanningWorkflow workflow, PlanningValue value, PlanningPreparation preparation)
+        => ValueContractResolver(graph, workflow, preparation)(value);
+
+    internal static Func<PlanningValue, JsonObject> ValueContractResolver(PlanningGraph graph, PlanningWorkflow workflow, PlanningPreparation preparation)
+    {
+        Func<PlanningValue, JsonObject>? resolver = null;
+        ValidateCore(graph, preparation, null, workflow.Key, resolved: callback => resolver = callback);
+        return resolver ?? throw new InvalidOperationException("The public output has no established workflow.");
+    }
+
+    private static IReadOnlyList<PlanningDiagnostic> ValidateCore(PlanningGraph graph, PlanningPreparation preparation, Dictionary<string, JsonObject>? results,
+        string? targetWorkflow = null, Action<Func<PlanningValue, JsonObject>>? resolved = null)
     {
         var errors = new List<PlanningDiagnostic>();
         for (var wi = 0; wi < graph.Workflows.Count; wi++)
@@ -53,6 +74,13 @@ public static class PlanningGraphValidation
             }
             foreach (var (node, location) in nodes)
             {
+                if (results is not null && workflow.Key == targetWorkflow)
+                    try
+                    {
+                        if (ValueSchema(new() { Kind = "output", Source = node.Key }, new(StringComparer.Ordinal)) is { } contract)
+                            results[node.Key] = contract;
+                    }
+                    catch (Exception ex) when (ex is InvalidOperationException or ArgumentException or FormatException) { }
                 try
                 {
                     if (node.OutputSchema is not null)
@@ -102,8 +130,12 @@ public static class PlanningGraphValidation
                 catch (Exception ex) when (ex is InvalidOperationException or ArgumentException or FormatException) { /* The reference/schema diagnostic is reported at its own location. */ }
             }
 
+            if (workflow.Key == targetWorkflow) resolved?.Invoke(value => ValueSchema(value, new(StringComparer.Ordinal)) ?? throw new InvalidOperationException("The public output has no established producer contract."));
+
             void CheckValue(PlanningValue value, string location)
             {
+                if (value.Kind == "workflow" && !graph.Workflows.Any(w => w.Key == value.Source))
+                    errors.Add(new("WORKFLOW_REFERENCE_INVALID", location + "/source", "The workflow reference has no declared workflow. Input ports require input references; step results require output references."));
                 if (value.ResultChannel is not (null or "default" or "structured") || (value.ResultChannel is not null && value.Kind != "output"))
                     errors.Add(new("RESULT_CHANNEL_INVALID", location + "/resultChannel", "Only output references select default or structured results."));
                 if (value.Kind is "output" or "input")
@@ -280,6 +312,8 @@ public static class PlanningGraphValidation
 
     private static JsonObject HumanSchema(PlanningValue input)
     {
+        if (Member(input, "mode")?.Text == HumanInputContract.ModeConfirm)
+            return ObjectSchema([("response", new JsonObject { ["type"] = "boolean" })]);
         if (Member(input, "mode")?.Text == HumanInputContract.ModeForm && Member(input, "fields") is { Kind: "array" } fields)
             return ObjectSchema(fields.Items.Select(f => (Member(f, "name")?.Text ?? "", new JsonObject { ["type"] = Member(f, "type")?.Text ?? "string" })));
         return ObjectSchema([("response", new JsonObject { ["type"] = "string" })]);
@@ -304,7 +338,7 @@ public static class PlanningGraphValidation
     private static bool HasType(JsonNode? type, string name) => type is JsonValue scalar && scalar.TryGetValue<string>(out var value) && value == name ||
         type is JsonArray union && union.Any(t => t is JsonValue item && item.TryGetValue<string>(out var candidate) && candidate == name);
 
-    private static void RequireTyped(JsonObject schema, int depth)
+    internal static void RequireTyped(JsonObject schema, int depth)
     {
         if (depth > 32) throw new InvalidOperationException("Schema nesting exceeds 32 levels.");
         var type = schema["type"];

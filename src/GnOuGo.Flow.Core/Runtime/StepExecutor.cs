@@ -53,6 +53,7 @@ public sealed class StepExecutionContext
     public int CallDepth { get; init; }
     public HashSet<string> CallStack { get; init; } = new();
     internal LLMUsageBudgetScope? LLMUsageBudget { get; set; }
+    internal Planning.PlanningGenerationOptions? PlanningGeneration { get; set; }
     internal WorkflowExecutionScope? ExecutionScope { get; init; }
     internal WorkflowExecutionScope EffectiveExecutionScope =>
         ExecutionScope ?? new WorkflowExecutionScope(null, Engine.Evaluator, Engine.Interpolator);
@@ -72,6 +73,7 @@ public sealed class StepExecutionContext
     {
         ArgumentNullException.ThrowIfNull(client);
         ArgumentNullException.ThrowIfNull(request);
+        if (PlanningGeneration is { } generation) Planning.PlanningGenerationPolicy.Apply(request, generation);
 
         if (LLMUsageBudget is null)
         {

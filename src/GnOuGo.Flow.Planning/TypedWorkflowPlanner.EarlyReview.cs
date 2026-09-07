@@ -28,12 +28,12 @@ public sealed partial class TypedWorkflowPlanner
         {
             var repair = state.BehaviorAssessmentCalls > 0;
             var generator = state.Request.Options["generator"];
-            var response = await runtime.CallAsync(new LLMRequest
+            var response = await runtime.CallAsync(PlanningGenerationPolicy.Apply(new LLMRequest
             {
                 Prompt = prompt + (repair ? "\nRepair the invalid behavior fields without removing valid obligations.\nCandidate:\n" + prior?.ToJsonString() + "\nDiagnostics:\n" + JsonSerializer.Serialize(diagnostics, PlanningJsonContext.Default.ListPlanningDiagnostic) : ""),
                 Provider = generator?["provider"]?.GetValue<string>(), Model = generator?["model"]?.GetValue<string>() ?? "",
                 Reasoning = generator?["reasoning"]?.GetValue<string>() ?? "medium", StructuredOutputSchema = schema.DeepClone(), StructuredOutputStrict = true, UseBackgroundMode = true
-            }, repair ? "behavior_repair" : "behavior", ct);
+            }, state.Request.Generation), repair ? "behavior_repair" : "behavior", ct);
             state.BehaviorAssessmentCalls++;
             prior = response.Json as JsonObject;
             diagnostics = PlanningContractValidation.ValidateInstance(prior, schema).Select(e => new PlanningDiagnostic("BEHAVIOR_SCHEMA_INVALID", e.Split(':', 2)[0], e)).ToList();
@@ -47,7 +47,7 @@ public sealed partial class TypedWorkflowPlanner
                     state.BehaviorPlan = plan; state.ApprovedBehaviorHash = null;
                     // The old executable candidate remains historical evidence, not an approved implementation.
                     if (state.Graph is not null) state.PreviousGraph = state.Graph;
-                    state.Graph = null; state.Fragments.Clear(); state.BestGraph = null;
+                    state.Graph = null; state.Fragments.Clear(); state.BestGraph = null; state.ConstructionUnits.Clear();
                     state.Diagnostics.Clear(); state.ArtifactHash = PlanningBehaviorPlans.Fingerprint(plan);
                     state.Status = PlanningStatus.BehaviorReview;
                     state.Attempts.Add(new(state.ArtifactHash, PlanningPhase.Behavior, 1, true, []));
@@ -70,5 +70,6 @@ public sealed partial class TypedWorkflowPlanner
     private static void ResetBehavior(PlanningSnapshot state)
     {
         state.BehaviorPlan = null; state.ApprovedBehaviorHash = null; state.ReviewedGraph = null; state.BehaviorAssessmentCalls = 0;
+        state.ConstructionUnits.Clear();
     }
 }

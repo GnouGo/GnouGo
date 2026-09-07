@@ -30,6 +30,8 @@ public sealed class RoutingLLMClientAdapter : ILLMClient
             Reasoning = request.Reasoning,
             UseBackgroundMode = request.UseBackgroundMode,
             MaxOutputTokens = request.MaxTokens,
+            RequireOutputTokenLimit = request.RequireOutputTokenLimit,
+            DisableTransportRetries = request.DisableTransportRetries,
         };
 
         // Map tools from GnOuGo.Flow format to GnOuGo.AI.Core format
@@ -75,4 +77,3 @@ public sealed class RoutingLLMClientAdapter : ILLMClient
         return response;
     }
 }
-

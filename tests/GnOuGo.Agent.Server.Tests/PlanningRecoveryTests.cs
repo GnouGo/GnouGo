@@ -203,7 +203,7 @@ public sealed class PlanningRecoveryTests
         {
             await using var context = Context(service);
             var page = context.Render<PlanningPage>(p => p.Add(x => x.SessionId, state.Request.SessionId));
-            page.WaitForAssertion(() => Assert.Contains("Automatic repair paused", page.Markup));
+            page.WaitForAssertion(() => Assert.Contains("Construction paused", page.Markup));
             Assert.Equal(0, client.Calls);
             Assert.Equal(2, (await service.GetAsync(state.Request.SessionId, Ct))!.BehaviorAssessmentCalls);
             page.Find("#plan-intent-edit").Change(IntentClarificationFixture.Prompt);

@@ -90,6 +90,12 @@ public sealed class LLMOptions
 /// </summary>
 public sealed class ModelProviderOptions
 {
+    internal ModelProviderOptions WithSingleAttempt()
+    {
+        var copy = (ModelProviderOptions)MemberwiseClone();
+        copy.RetryPolicy = new LLMProviderRetryPolicyOptions { MaxAttempts = 1 };
+        return copy;
+    }
     /// <summary>Base URL for this provider (e.g. "https://api.openai.com/v1" or "http://localhost:11434").</summary>
     public string Url { get; set; } = "";
 

@@ -28,7 +28,7 @@ if (!result.Success || result.Outputs?["message"]?.GetValue<string>() != "ready"
 var planner = new TypedWorkflowPlanner();
 var session = new PlanningSnapshot { Request = new() { TenantId = "smoke", Prompt = "Return the ready message" } };
 var runtime = new SmokeRuntime(graph, preparation);
-for (var attempt = 0; attempt < 12 && session.Status != PlanningStatus.Approved; attempt++)
+for (var attempt = 0; attempt < 20 && session.Status != PlanningStatus.Approved; attempt++)
 {
     var kind = session.Status == PlanningStatus.BehaviorReview ? "accept_behavior" : session.Status == PlanningStatus.FinalReview ? "approve" : "advance";
     session = await planner.AdvanceAsync(session, new() { Kind = kind, ExpectedRevision = session.Revision, ArtifactHash = session.ArtifactHash }, runtime, CancellationToken.None);
@@ -79,10 +79,17 @@ sealed class SmokeRuntime(PlanningGraph graph, PlanningPreparation preparation) 
                     Steps = w.Steps.Select(n => new PlanningBehaviorNode { Key = n.Key, Purpose = "Return the ready message" }).ToList(),
                     Outputs = w.Outputs.Select(o => new PlanningBehaviorPort(o.Name, "The ready message", true)).ToList() }).ToList() }, PlanningJsonContext.Default.PlanningBehaviorPlan),
             "fragment" => PlanningFragments.Values(graph.Workflows[0]),
+            "fragment_inputs" or "fragment_contracts" or "fragment_implementation" or "fragment_outputs" => UnitResponse(request, phase),
             "semantic_review" => JsonNode.Parse("""{"findings":[]}"""),
             _ => throw new InvalidOperationException("Unexpected model phase: " + phase)
         };
         return Task.FromResult(new LLMResponse { Json = json, Text = json!.ToJsonString() });
+    }
+    private JsonObject UnitResponse(LLMRequest request, string phase)
+    {
+        var workflow = graph.Workflows[0];
+        workflow.Steps[0].OutputSchema = new() { Type = "object", Properties = [new() { Name = "message", Schema = new() { Type = "string" } }] };
+        return PlanningConstruction.Values(workflow, new() { Kind = phase[9..], NodeKeys = (request.StructuredOutputSchema?["properties"]?["nodes"]?["properties"] as JsonObject ?? []).Select(p => p.Key).ToList() });
     }
     public Task<IReadOnlyList<PlanningDiagnostic>> ValidateAsync(string yaml, PlanningRequest request, PlanningPreparation prepared, CancellationToken ct)
     {

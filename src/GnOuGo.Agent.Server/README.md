@@ -36,6 +36,22 @@ Elaboration validates native inputs, producer fields, templates, JavaScript synt
 schemas; repairs use atomic field patches. Current findings follow the retained candidate,
 with rejected attempts shown separately. Final approval still requires complete validation.
 The opt-in `TypedV2_*` tests cover live recovery and a separate three-generation campaign.
+
+Executable generation uses resumable units of at most four nodes, after resolving input
+and producer schemas. Accepted decision cases/defaults and runtime confirmation contracts
+are constructed deterministically. Shape and conversion defects enter scoped repair before
+recovery; validated units remain cached across Retry and restart. The designer shows the
+effective model, reasoning and unit/repair progress. Paused sessions expose **Generation
+settings**, using a revision-checked `configure_generation` command without clearing answers
+or behavior approval. Changing settings invalidates final artifact approval.
+
+`TypedWorkflowPlanning:Reasoning` defaults to `low`; explicit generation settings are retained.
+`MaxNodesPerUnit`, `MaxInputTokensPerUnit` and `MaxOutputTokens` default to `4`, `12000`
+(estimated input) and `8192` (enforced output). Independent unit calls retain concurrency four.
+Output ceilings cannot be dropped by compatibility fallback, and journaled calls disable
+hidden transport retries. The compatibility YAML also uses low reasoning; changing only that
+YAML does not configure designer sessions. Live tests retain the cumulative campaign ledger
+and all unresolved reservations; insufficient balance blocks further paid dispatch.
 The rollout guide documents isolated-provider prerequisites and the explicit operator
 override for existing KeyVault configuration with a persistent cumulative budget ledger.
 

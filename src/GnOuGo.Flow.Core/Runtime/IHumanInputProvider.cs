@@ -59,6 +59,13 @@ public static class HumanInputContract
         || fieldType.Equals("multiselect", StringComparison.OrdinalIgnoreCase)
         || fieldType.Equals("checkbox", StringComparison.OrdinalIgnoreCase);
 
+    /// <summary>Canonical binary confirmation input. The runtime returns a Boolean response.</summary>
+    public static JsonObject ConfirmationInput(string prompt) => new()
+    {
+        ["mode"] = ModeConfirm, ["prompt"] = prompt,
+        ["choices"] = new JsonArray("approve", "reject"), ["allow_abandon"] = true
+    };
+
     /// <summary>Returns whether a structured response explicitly abandons the request.</summary>
     public static bool IsAbandoned(JsonNode? response) =>
         response is JsonObject obj

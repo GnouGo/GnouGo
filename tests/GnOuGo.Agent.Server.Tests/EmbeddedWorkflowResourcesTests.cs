@@ -65,7 +65,7 @@ public sealed class EmbeddedWorkflowResourcesTests
         Assert.DoesNotContain("max_estimated_cost_usd:", yaml, StringComparison.Ordinal);
         Assert.Contains("unverifiable: fail", yaml, StringComparison.Ordinal);
         Assert.Contains("raw_prompt: \"${data.steps.normalized_prompt.description}\"", yaml, StringComparison.Ordinal);
-        Assert.Contains("reasoning: medium", yaml, StringComparison.Ordinal);
+        Assert.Contains("reasoning: low", yaml, StringComparison.Ordinal);
         Assert.Contains("max_repair_attempts: 3", yaml, StringComparison.Ordinal);
         Assert.Contains("max_attempts: 3", yaml, StringComparison.Ordinal);
         Assert.DoesNotContain("max_attempts: 10", yaml, StringComparison.Ordinal);

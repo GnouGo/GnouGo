@@ -47,9 +47,16 @@ internal static class PlanningPersistenceSmoke
         state.BehaviorPlan = new() { Summary = "Review before constructing code", Workflows = [new() { Key = "main", Purpose = "Return a message", Steps = [new() { Key = "message", Purpose = "Return a message" }] }] };
         state.ApprovedBehaviorHash = GnOuGo.Flow.Planning.PlanningBehaviorPlans.Fingerprint(state.BehaviorPlan);
         state.Attempts.Add(new(state.ApprovedBehaviorHash, PlanningPhase.Behavior, 1, true, []));
+        state.Request.Generation.Reasoning = "low";
+        state.GenerationHistory.Add(new(2, new() { Reasoning = "medium" }));
+        state.ConstructionUnits.Add(new() { Key = "main:implementation:message", WorkflowKey = "main", NodeKeys = ["message"],
+            Status = "validated", Calls = 2, RepairCalls = 1, CandidateHash = "receipt", RequestHashes = ["request"],
+            Candidate = new System.Text.Json.Nodes.JsonObject { ["private"] = "Encrypted executable candidate" } });
         if (!await reopened.TrySaveAsync(state, 2, CancellationToken.None)) throw new InvalidOperationException("Early review persistence failed.");
         var early = await reopened.LoadAsync("smoke", state.Request.SessionId, CancellationToken.None);
-        if (early?.BehaviorPlan is null || early.ApprovedBehaviorHash != state.ApprovedBehaviorHash || early.Attempts.Count != 1 || early.ClarificationQuestions != 3)
+        if (early?.BehaviorPlan is null || early.ApprovedBehaviorHash != state.ApprovedBehaviorHash || early.Attempts.Count != 1 || early.ClarificationQuestions != 3 ||
+            early.Request.Generation.Reasoning != "low" || early.GenerationHistory.Count != 1 || early.ConstructionUnits.Count != 1 ||
+            early.ConstructionUnits[0].RepairCalls != 1 || early.ConstructionUnits[0].Candidate?["private"]?.GetValue<string>() != "Encrypted executable candidate")
             throw new InvalidOperationException("Early review fields did not survive persistence.");
         Console.WriteLine("Planning persistence smoke passed.");
     }

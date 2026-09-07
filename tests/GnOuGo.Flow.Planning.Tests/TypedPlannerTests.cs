@@ -60,8 +60,7 @@ public sealed class TypedPlannerTests
         Assert.DoesNotContain("fragment", runtime.Phases);
         var review = state;
         state = await Send(planner, state, runtime, "accept_behavior");
-        state = await Send(planner, state, runtime);
-        state = await Send(planner, state, runtime);
+        for (var i = 0; i < 15 && state.Status is PlanningStatus.Generating or PlanningStatus.Validating; i++) state = await Send(planner, state, runtime);
         Assert.Equal(PlanningStatus.FinalReview, state.Status);
         Assert.NotNull(state.Yaml);
         Assert.Equal(PlanningGraphCompiler.Fingerprint(state.Yaml), state.ArtifactHash);
@@ -343,10 +342,17 @@ public sealed class TypedPlannerTests
                 "intent" => new JsonObject { ["outcome"] = "ready", ["reason"] = "Clear", ["evidence"] = new JsonArray(), ["questions"] = new JsonArray() },
                 "behavior" => JsonSerializer.SerializeToNode(BehaviorPlan(), PlanningJsonContext.Default.PlanningBehaviorPlan),
                 "fragment" => request.StructuredOutputSchema?["properties"]?["nodes"] is null ? PlanningModelValues.Workflow(Graph().Workflows[0]) : PlanningFragments.Values(Graph().Workflows[0]),
+                "fragment_inputs" or "fragment_contracts" or "fragment_implementation" or "fragment_outputs" => ConstructionResponse(request, phase),
                 "semantic_review" => new JsonObject { ["findings"] = new JsonArray() },
                 _ => throw new InvalidOperationException("Unexpected model phase: " + phase)
             };
             return Task.FromResult(new LLMResponse { Json = json, Text = json!.ToJsonString() });
+        }
+        internal static JsonObject ConstructionResponse(LLMRequest request, string phase)
+        {
+            var workflow = Graph().Workflows[0];
+            workflow.Steps[0].OutputSchema = new() { Type = "object", Properties = [new() { Name = "message", Schema = new() { Type = "string" } }] };
+            return PlanningConstruction.Values(workflow, new() { Kind = phase[9..], NodeKeys = (request.StructuredOutputSchema?["properties"]?["nodes"]?["properties"] as JsonObject ?? []).Select(p => p.Key).ToList() });
         }
         public Task<IReadOnlyList<PlanningDiagnostic>> ValidateAsync(string yaml, PlanningRequest request, PlanningPreparation preparation, CancellationToken ct)
         {

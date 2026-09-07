@@ -69,9 +69,12 @@ public sealed class PlanningSessionService(
             options["host_save"] = new JsonObject { ["agent_id"] = response!["agent"]!["id"]!.DeepClone(), ["original_hash"] = PlanningGraphCompiler.Fingerprint(original!) };
         var state = new PlanningSnapshot
         {
-            Request = new PlanningRequest { TenantId = Tenant, Name = name, Prompt = prompt.Trim(), ExistingYaml = original, Options = options, MaxConcurrency = settings.Value.MaxConcurrency },
+            Request = new PlanningRequest { TenantId = Tenant, Name = name, Prompt = prompt.Trim(), ExistingYaml = original, Options = options, MaxConcurrency = settings.Value.MaxConcurrency,
+                Generation = new() { Reasoning = settings.Value.Reasoning, MaxNodesPerUnit = settings.Value.MaxNodesPerUnit,
+                    MaxInputTokensPerUnit = settings.Value.MaxInputTokensPerUnit, MaxOutputTokens = settings.Value.MaxOutputTokens } },
             UpdatedAtUtc = DateTimeOffset.UtcNow
         };
+        PlanningGenerationPolicy.Validate(state.Request.Generation);
         if (!await store.TrySaveAsync(state, expectedRevision: null, ct)) throw new PlanningConflictException("The planning session already exists.");
         _queue.Writer.TryWrite(state.Request.SessionId);
         return state;
@@ -218,7 +221,7 @@ public sealed class PlanningSessionService(
         activity?.SetTag("gnougo.planning.phase", PlanningPhase.Resolve(current));
         activity?.SetTag("gnougo.planning.revision", current.Revision);
         var sw = Stopwatch.StartNew();
-        if (command.Kind is "cancel" or "retry" or "edit_intent")
+        if (command.Kind is "cancel" or "retry" or "edit_intent" or "configure_generation")
         {
             // Recovery commands are durable state changes; model/provider availability
             // must not prevent the user from editing, retrying, or cancelling.
@@ -248,7 +251,7 @@ public sealed class PlanningSessionService(
             MaxEstimatedCost = new MonetaryAmount(money?["amount"]?.GetValue<decimal>() ?? budgetSettings.Value.Amount, money?["currency"]?.GetValue<string>() ?? budgetSettings.Value.Currency)
         }, initial, sink: new PlanningBudgetSink(records, Tenant, current.Request.SessionId), exchangeRateProvider: exchangeRates);
         var estimator = new ModelMetadataUsageCostEstimator(runtime.Options);
-        var journal = new PlanningModelJournal(runtime.LlmClient, contexts, records, Tenant, current.Request.SessionId, current.Revision, budget, estimator);
+        var journal = new PlanningModelJournal(runtime.LlmClient, contexts, records, Tenant, current.Request.SessionId, current.Revision, budget, estimator, current.Request.Generation);
         var engine = new WorkflowEngine
         {
             LLMClient = journal, McpClientFactory = runtime.McpClientFactory,
@@ -272,6 +275,9 @@ public sealed class PlanningSessionService(
         activity?.SetTag("gnougo.planning.phase", phase);
         activity?.SetTag("gnougo.planning.revision", result.Revision);
         activity?.SetTag("gnougo.planning.status", result.Status);
+        activity?.SetTag("gnougo.planning.units.completed", result.ConstructionUnits.Count(u => u.Status == "validated"));
+        activity?.SetTag("gnougo.planning.units.total", result.ConstructionUnits.Count(u => u.Status != "superseded"));
+        activity?.SetTag("gnougo.planning.units.repair_calls", result.ConstructionUnits.Sum(u => u.RepairCalls));
         activity?.SetTag("gnougo.planning.diagnostic_codes", string.Join(",", result.Diagnostics.Select(d => d.Code).Distinct(StringComparer.Ordinal)));
         foreach (var attempt in result.Attempts.Skip(current.Attempts.Count))
             activity?.AddEvent(new ActivityEvent("planning.validation_attempt", tags: new ActivityTagsCollection
@@ -360,7 +366,7 @@ public sealed class PlanningSessionService(
     private JsonObject CreateOptions(string provider, string model) => new()
     {
         ["planner_version"] = 2,
-        ["generator"] = new JsonObject { ["provider"] = provider, ["model"] = model, ["reasoning"] = "medium", ["context"] = "Generate a self-contained chat-agent workflow. Host configuration, credentials and saving the agent are outside its runtime boundary. Preserve every required operation, runtime outcome, and resource cleanup. The .GnOuGo directory is reserved for internal state. Workflow-created files belong under workflows/<purpose-specific-name>; propagate declared materialization outputs to subsequent steps. Unless explicitly requested otherwise, obtain runtime human confirmation before the first external write, with zero writes after rejection. Do not request review of the workflow's own YAML during execution." },
+        ["generator"] = new JsonObject { ["provider"] = provider, ["model"] = model, ["reasoning"] = settings.Value.Reasoning, ["context"] = "Generate a self-contained chat-agent workflow. Host configuration, credentials and saving the agent are outside its runtime boundary. Preserve every required operation, runtime outcome, and resource cleanup. The .GnOuGo directory is reserved for internal state. Workflow-created files belong under workflows/<purpose-specific-name>; propagate declared materialization outputs to subsequent steps. Unless explicitly requested otherwise, obtain runtime human confirmation before the first external write, with zero writes after rejection. Do not request review of the workflow's own YAML during execution." },
         ["capability_preflight"] = new JsonObject { ["mode"] = "infer" },
         ["intent_clarification"] = new JsonObject { ["max_rounds"] = 3, ["max_questions"] = 15, ["max_questions_per_round"] = 5 },
         ["policy"] = new JsonObject

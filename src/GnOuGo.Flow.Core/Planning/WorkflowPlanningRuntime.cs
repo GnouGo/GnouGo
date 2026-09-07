@@ -28,7 +28,10 @@ public sealed class WorkflowPlanningRuntime : IPlanningRuntime
     public WorkflowPlanningRuntime(StepExecutionContext context) => _context = context;
 
     public Task<PlanningPreparation> PrepareAsync(PlanningRequest request, CancellationToken ct)
-        => _executor.PrepareTypedContractsAsync(_context, request, ct);
+    {
+        _context.PlanningGeneration = request.Generation;
+        return _executor.PrepareTypedContractsAsync(_context, request, ct);
+    }
     public Task EnrichPreparationAsync(PlanningPreparation preparation, CancellationToken ct)
     {
         ct.ThrowIfCancellationRequested();

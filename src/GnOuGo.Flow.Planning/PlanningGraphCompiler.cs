@@ -268,12 +268,24 @@ public sealed partial class PlanningGraphCompiler
             if (expression.StartsWith("${", StringComparison.Ordinal) && expression.EndsWith('}')) expression = expression[2..^1];
             expression = PlanningExpressionBindings.Expression(expression, scope.NodeIds, scope.NodeTypes);
         }
+        else if (value.Kind == "object")
+        {
+            EnsureUnique(value.Members.Select(m => m.Name), "member");
+            expression = "({" + string.Join(",", value.Members.Select(m => JsonSerializer.Serialize(m.Name, PlanningJsonContext.Default.String) + ":" + ExpressionBody(m.Value))) + "})";
+        }
+        else if (value.Kind == "array") expression = "[" + string.Join(",", value.Items.Select(ExpressionBody)) + "]";
         else
         {
             var literal = LowerValue(value, scope, allowReferences: false);
             expression = literal?.ToJsonString() ?? "null";
         }
         return "${" + expression + "}";
+
+        string ExpressionBody(PlanningValue member)
+        {
+            var resolved = ToExpression(member, scope);
+            return resolved[2..^1];
+        }
     }
 
     private static string Segment(string value)

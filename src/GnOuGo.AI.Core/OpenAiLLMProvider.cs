@@ -68,7 +68,7 @@ public sealed class OpenAiLLMProvider : ILLMProvider, ILLMModelCatalogProvider
         var tools = MapTools(request.Tools);
         var bearerToken = await ProviderAuthenticationResolver.ResolveBearerTokenAsync(_http, provider, ResolveApiKey, ct);
         var legacyCacheKey = BuildLegacyChatRequiredCacheKey(provider, model, url);
-        var useLegacyChat = request.MaxOutputTokens is > 0
+        var useLegacyChat = !request.RequireOutputTokenLimit && request.MaxOutputTokens is > 0
                             && !IsOfficialOpenAiEndpoint(provider.Url)
                             && IsLegacyChatRequiredCached(legacyCacheKey);
 
@@ -94,7 +94,7 @@ public sealed class OpenAiLLMProvider : ILLMProvider, ILLMModelCatalogProvider
             return attempt.Response!;
 
         var safeBody = FormatProviderErrorBody(attempt.ErrorBody, provider, bearerToken, request.Prompt);
-        if (!useLegacyChat
+        if (!useLegacyChat && !request.RequireOutputTokenLimit && !request.DisableTransportRetries
             && IsLegacyChatRetryCandidate(attempt.StatusCode, attempt.ErrorBody, provider.Url, request.MaxOutputTokens))
         {
             _logger.LogWarning(

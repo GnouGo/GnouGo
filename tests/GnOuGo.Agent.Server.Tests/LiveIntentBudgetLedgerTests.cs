@@ -8,6 +8,17 @@ namespace GnOuGo.Agent.Server.Tests;
 public sealed class LiveIntentBudgetLedgerTests
 {
     [Fact]
+    public void TextReservationIncludesUnicodeSchemasAndToolContracts()
+    {
+        var request = new LLMRequest { Prompt = "é😀", StructuredOutputSchema = new JsonObject { ["description"] = "résultat" },
+            Tools = [new() { Name = "renamed", Description = new string('x', 10_000) }] };
+        var reservation = LiveIntentAgentGenerationTests.ConservativeTextInputReservation(request);
+        Assert.True(reservation > 14_096);
+        request.Tools = null;
+        Assert.True(reservation - LiveIntentAgentGenerationTests.ConservativeTextInputReservation(request) >= 10_000);
+    }
+
+    [Fact]
     public async Task UnverifiedDispatchRetainsItsMaximumCostAcrossRestart()
     {
         var path = Path.Combine(Path.GetTempPath(), $"gnougo-live-budget-{Guid.NewGuid():N}.json");

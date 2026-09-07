@@ -39,12 +39,12 @@ public sealed partial class TypedWorkflowPlanner
         IntentLocks? locks = null;
         for (var attempt = 0; attempt < 2; attempt++)
         {
-            var response = await runtime.CallAsync(new LLMRequest
+            var response = await runtime.CallAsync(PlanningGenerationPolicy.Apply(new LLMRequest
             {
                 Prompt = prompt, Provider = generator?["provider"]?.GetValue<string>(), Model = generator?["model"]?.GetValue<string>() ?? "",
                 Reasoning = generator?["reasoning"]?.GetValue<string>() ?? "medium", StructuredOutputSchema = schema.DeepClone(),
                 StructuredOutputStrict = true, UseBackgroundMode = true
-            }, attempt == 0 ? "intent" : "intent_repair", ct);
+            }, state.Request.Generation), attempt == 0 ? "intent" : "intent_repair", ct);
             var json = response.Json as JsonObject;
             var diagnostics = ValidateIntent(json, schema, sources, remaining);
             if (locks is not null) ValidateIntentLocks(json, locks, diagnostics);

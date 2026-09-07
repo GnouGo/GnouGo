@@ -34,13 +34,25 @@
         <h2>@_state.Request.Name</h2>
         <p aria-live="polite"><strong>@Phase(_state.Status)</strong> · Revision @_state.Revision</p>
         <p aria-label="Current planning phase">Phase: @Phase(PlanningPhase.Resolve(_state))</p>
+        <p aria-label="Generation configuration">Model: @_state.Request.Options["generator"]?["model"] · Reasoning: @(_state.Request.Generation.Reasoning ?? _state.Request.Options["generator"]?["reasoning"]?.GetValue<string>() ?? "medium")</p>
+        @if (_state.ConstructionUnits.Count > 0)
+        {
+            <p aria-live="polite">Validated units: @_state.ConstructionUnits.Count(u => u.Status == "validated") / @_state.ConstructionUnits.Count(u => u.Status != "superseded") · Targeted repairs: @_state.ConstructionUnits.Sum(u => u.RepairCalls)</p>
+        }
+        @if (PlanningStatus.IsWaiting(_state.Status) || _state.Status is PlanningStatus.Failed or PlanningStatus.Unsupported)
+        {
+            <details><summary>Generation settings</summary>
+                <label>Reasoning<select class="form-select" aria-label="Generation reasoning" @bind="_reasoning"><option value="low">Low</option><option value="medium">Medium</option><option value="high">High</option></select></label>
+                <button class="btn btn-secondary" disabled="@_busy" @onclick="ConfigureGenerationAsync">Apply generation settings</button>
+            </details>
+        }
         <p>Planning: @TimeSpan.FromMilliseconds(_state.ActiveMilliseconds).ToString(@"hh\:mm\:ss") · Waiting for you: @WaitDuration().ToString(@"hh\:mm\:ss")</p>
         @if (_state.Usage is { } usage) { <p>@usage.Calls model calls · Estimated cost @usage.EstimatedCost.ToString("0.00") @usage.EstimatedCostCurrency</p> }
         @if (_state.Status == PlanningStatus.Recovery)
         {
             <p role="status">@(PlanningPhase.Resolve(_state) == PlanningPhase.Intent
                 ? "The generated clarification could not be validated."
-                : "Automatic repair paused. The findings below describe the retained candidate; rejected attempts are shown separately.") Your request and session history are retained. Retry, edit the request, or cancel planning.</p>
+                : "Construction paused. The findings identify the failed stage and candidate; rejected attempts are shown separately. Validated units are retained.") Your request and session history are retained. Retry, edit the request, or cancel planning.</p>
         }
         @if (_state.ReviewedGraph is null && _state.ApprovedBehaviorHash is null && _state.Status is PlanningStatus.Recovery or PlanningStatus.Failed or PlanningStatus.Unsupported)
         {
@@ -168,6 +180,7 @@
     private readonly CancellationTokenSource _lifetime = new();
     private Task? _polling;
     private long _renderedRevision = -1;
+    private string _reasoning = "low";
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
@@ -191,6 +204,7 @@
         var differentSession = _state?.Request.SessionId != state.Request.SessionId;
         if (differentSession || _state?.Request.Prompt != state.Request.Prompt) _intentText = state.Request.Prompt;
         if (differentSession) { _renderedRevision = -1; _feedback = ""; _answers.Clear(); }
+        if (differentSession) _reasoning = state.Request.Generation.Reasoning ?? state.Request.Options["generator"]?["reasoning"]?.GetValue<string>() ?? "medium";
         if (differentSession || _state?.Revision != state.Revision) _yaml = state.Yaml ?? "";
         if (_state?.Question?.StepId != state.Question?.StepId) _answers.Clear();
         _state = state;
@@ -231,6 +245,19 @@
         finally { _busy = false; }
     }
     private async Task ApproveAndSaveAsync() { await SubmitAsync("approve"); if (_state?.Status == PlanningStatus.Approved) await SubmitAsync("save"); }
+    private async Task ConfigureGenerationAsync()
+    {
+        if (_state is null) return;
+        _busy = true; _error = null;
+        try
+        {
+            var options = _state.Request.Generation;
+            _state = await Planning.SubmitAsync(_state.Request.SessionId, new() { Kind = "configure_generation", ExpectedRevision = _state.Revision,
+                Generation = new() { Reasoning = _reasoning, MaxNodesPerUnit = options.MaxNodesPerUnit, MaxInputTokensPerUnit = options.MaxInputTokensPerUnit, MaxOutputTokens = options.MaxOutputTokens } }, _lifetime.Token);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException) { _error = ex.Message; await RefreshAsync(); }
+        finally { _busy = false; }
+    }
     private Task AnswerAsync() => SubmitAsync("answer", answers: new JsonObject(_answers.Select(a => new KeyValuePair<string, JsonNode?>(a.Key, JsonValue.Create(a.Value)))));
     private void SetAnswer(string key, string value) => _answers[key] = value;
     private bool CanAnswer() => _state?.Question?.Fields?.All(f => !f.Required || !string.IsNullOrWhiteSpace(_answers.GetValueOrDefault(f.Name))) == true;
@@ -241,6 +268,8 @@
         PlanningPhase.Intent => "Understanding your request", PlanningPhase.Capabilities => "Checking available capabilities", PlanningPhase.Behavior => "Designing the workflow behavior",
         PlanningStatus.Recovery => "Waiting for your recovery choice",
         "semantic_review" => "Reviewing the workflow", "fragment" or "repair_fragment" => "Generating workflow steps", "revision_scope" => "Reviewing requested changes",
+        "fragment_inputs" or "fragment_contracts" => "Resolving typed producer contracts", "fragment_implementation" => "Constructing executable units",
+        "fragment_outputs" => "Connecting public outputs", "repair_unit" => "Repairing the affected unit",
         PlanningStatus.Clarification => "Your answers are needed", PlanningStatus.BehaviorReview => "Review the proposed behavior",
         PlanningStatus.Generating => "Generating workflow steps", PlanningStatus.Revising => "Applying your requested changes", PlanningStatus.Validating => "Checking contracts and scenarios",
         PlanningStatus.FinalReview => "Ready for final review", PlanningStatus.Approved => "Approved and ready to save",

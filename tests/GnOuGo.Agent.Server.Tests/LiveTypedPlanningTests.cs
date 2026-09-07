@@ -88,6 +88,8 @@ public sealed partial class LiveIntentAgentGenerationTests
         var inputCeiling = metadata.MaxInputTokens ?? metadata.ContextWindowTokens;
         var outputCeiling = request.MaxTokens ?? metadata.MaxOutputTokens;
         if (inputCeiling is not > 0 || outputCeiling is not > 0) throw new InvalidOperationException("Live dispatch requires known token ceilings for conservative budget reservation.");
+        if (request.RequireOutputTokenLimit && request.DisableTransportRetries)
+            inputCeiling = checked((int)Math.Min(inputCeiling.Value, ConservativeTextInputReservation(request)));
         var ceiling = new ModelMetadataUsageCostEstimator(options).EstimateCostWithCurrency(request.Model, inputCeiling, outputCeiling, request.Provider)
             ?? throw new InvalidOperationException("Live dispatch requires verifiable pricing.");
         var rate = ceiling.Currency == snapshot.EstimatedCostCurrency ? 1m
@@ -97,6 +99,13 @@ public sealed partial class LiveIntentAgentGenerationTests
         return ceiling.Amount * rate;
     }
 
+    // This harness sends text-only requests. Reserve one token per serialized UTF-8
+    // byte (including schemas/tools), plus 4,096 for framing. This is deliberately
+    // much larger than the construction unit's heuristic token estimate. Legacy
+    // requests without enforced ceilings retain their original full-context reserve.
+    internal static long ConservativeTextInputReservation(LLMRequest request) => checked(
+        System.Text.Encoding.UTF8.GetByteCount(JsonSerializer.Serialize(request, PlanningJsonContext.Default.LLMRequest)) + 4_096L);
+
     private static async Task ResumeV2QuestionsAsync(IServiceProvider services, CancellationToken ct)
     {
         var service = services.GetRequiredService<PlanningSessionService>();
@@ -104,6 +113,8 @@ public sealed partial class LiveIntentAgentGenerationTests
         var state = await service.GetAsync(id, ct) ?? throw new InvalidOperationException("The requested session does not exist in the configured tenant.");
         Assert.Equal(2, state.SchemaVersion);
         var answerCount = state.Answers.Count;
+        var acceptedBehavior = state.ApprovedBehaviorHash;
+        state = await ConfigureLiveGenerationAsync(service, state, ct);
         if (state.Preparation is not null)
             await new WorkflowPlanningRuntime(new WorkflowEngine()).EnrichPreparationAsync(state.Preparation, ct);
         var invalidReview = state.Status == PlanningStatus.BehaviorReview && state.BehaviorPlan is not null && state.Preparation is not null &&
@@ -112,16 +123,27 @@ public sealed partial class LiveIntentAgentGenerationTests
         {
             state = await service.SubmitAsync(id, new() { Kind = "retry", ExpectedRevision = state.Revision }, ct);
         }
-        while (state.Status == PlanningStatus.Created)
+        while (!PlanningStatus.IsWaiting(state.Status) && !PlanningStatus.IsTerminal(state.Status))
             state = await service.SubmitAsync(id, new() { Kind = "advance", ExpectedRevision = state.Revision }, ct);
         Assert.Equal(answerCount, state.Answers.Count);
-        Assert.Null(state.ReviewedGraph);
+        Assert.Equal(acceptedBehavior, state.ApprovedBehaviorHash);
         Assert.Null(state.ApprovedHash);
         if (state.Status == PlanningStatus.Clarification)
         {
             await AssertVisibleV2QuestionsAsync(service, state);
             WriteLiveProgress("v2_user_questions_visible");
         }
+        else if (state.Status == PlanningStatus.FinalReview)
+        {
+            Assert.NotNull(state.Yaml); Assert.Empty(state.Diagnostics);
+            await using var context = new BunitContext(); context.JSInterop.Mode = JSRuntimeMode.Loose;
+            context.Services.AddSingleton(service);
+            var page = context.Render<PlanningPage>(p => p.Add(x => x.SessionId, id));
+            page.WaitForAssertion(() => Assert.Single(page.FindAll("button"), b => b.TextContent == "Approve this revision and save"));
+            WriteLiveProgress("v2_user_final_review_visible");
+        }
+        else if (state.Status is PlanningStatus.Recovery or PlanningStatus.Failed or PlanningStatus.Unsupported)
+            throw new InvalidOperationException("V2 user-session resume blocked in " + PlanningPhase.Resolve(state) + ": " + string.Join(",", state.Diagnostics.Select(d => d.Code)));
         else
         {
             Assert.Equal(PlanningStatus.BehaviorReview, state.Status);
@@ -143,6 +165,7 @@ public sealed partial class LiveIntentAgentGenerationTests
         var service = services.GetRequiredService<PlanningSessionService>();
         var state = (await service.ListAsync(ct)).SingleOrDefault(s => s.Request.Name == name)
             ?? await service.StartAsync(name, AcceptancePrompt, false, ct);
+        state = await ConfigureLiveGenerationAsync(service, state, ct);
         var revision = Environment.GetEnvironmentVariable("GNOU_GO_LIVE_TYPED_PLANNING_REVISION");
         if (!string.IsNullOrWhiteSpace(revision) && state.BehaviorPlan is not null &&
             state.Status is PlanningStatus.Recovery or PlanningStatus.Failed or PlanningStatus.Unsupported &&
@@ -197,6 +220,14 @@ public sealed partial class LiveIntentAgentGenerationTests
         WriteLiveProgress("v2_generation_saved");
     }
 
+    private static Task<PlanningSnapshot> ConfigureLiveGenerationAsync(PlanningSessionService service, PlanningSnapshot state, CancellationToken ct)
+    {
+        if (state.Request.Generation.Reasoning == "low" || !(PlanningStatus.IsWaiting(state.Status) || state.Status is PlanningStatus.Failed or PlanningStatus.Unsupported))
+            return Task.FromResult(state);
+        return service.SubmitAsync(state.Request.SessionId, new() { Kind = "configure_generation", ExpectedRevision = state.Revision,
+            Generation = new() { Reasoning = "low", MaxNodesPerUnit = 4, MaxInputTokensPerUnit = 12_000, MaxOutputTokens = 8_192 } }, ct);
+    }
+
     private static JsonObject ScriptedV2Answers(PlanningSnapshot state)
     {
         var result = new JsonObject();
@@ -231,6 +262,9 @@ public sealed partial class LiveIntentAgentGenerationTests
             await _dispatch.WaitAsync(ct);
             try
             {
+                if (budget.Limits.MaxCalls is { } maxCalls && budget.Snapshot.Calls >= maxCalls ||
+                    budget.Limits.MaxTotalTokens is { } maxTokens && budget.Snapshot.TotalTokens >= maxTokens)
+                    throw new InvalidOperationException("The cumulative campaign call/token limit is exhausted; no provider request was sent.");
                 await using var runtime = await factory.CreateAsync(ct);
                 // One budget reservation covers one potentially billable dispatch.
                 // Provider HTTP retries would otherwise hide an unreceipted attempt

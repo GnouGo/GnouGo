@@ -23,7 +23,8 @@ internal static class PlanningEndpoints
         {
             try
             {
-                var state = await service.SubmitAsync(id, new PlanningCommand { Kind = request.Kind, ExpectedRevision = request.ExpectedRevision, ArtifactHash = request.ArtifactHash, Text = request.Text, Answers = request.Answers }, ct);
+                var state = await service.SubmitAsync(id, new PlanningCommand { Kind = request.Kind, ExpectedRevision = request.ExpectedRevision, ArtifactHash = request.ArtifactHash, Text = request.Text, Answers = request.Answers,
+                    Generation = request.Generation is { } options ? new() { Reasoning = options.Reasoning, MaxNodesPerUnit = options.MaxNodesPerUnit, MaxInputTokensPerUnit = options.MaxInputTokensPerUnit, MaxOutputTokens = options.MaxOutputTokens } : null }, ct);
                 return Results.Json(ToDto(state), ChatJsonContext.Default.PlanningSessionDto);
             }
             catch (PlanningConflictException ex) { return Results.Conflict(ex.Message); }
@@ -43,8 +44,10 @@ internal static class PlanningEndpoints
         snapshot.Usage?.Calls ?? 0, snapshot.Usage?.InputTokens ?? 0, snapshot.Usage?.OutputTokens ?? 0, snapshot.Usage?.EstimatedCost ?? 0, snapshot.Usage?.EstimatedCostCurrency ?? "", snapshot.Outcome,
         snapshot.SchemaVersion, PlanningPhase.Resolve(snapshot),
         snapshot.BehaviorPlan is null ? null : System.Text.Json.JsonSerializer.SerializeToNode(snapshot.BehaviorPlan, PlanningJsonContext.Default.PlanningBehaviorPlan)!.AsObject(),
-        snapshot.ApprovedBehaviorHash, snapshot.Status == PlanningStatus.Recovery ? "Automatic repair paused in " + PlanningPhase.Resolve(snapshot) + ". " + snapshot.Diagnostics.Count(d => d.Required) + " required findings remain on the retained candidate." : null,
-        snapshot.Answers.Count);
+        snapshot.ApprovedBehaviorHash, snapshot.Status == PlanningStatus.Recovery ? "Construction paused in " + PlanningPhase.Resolve(snapshot) + ". " + snapshot.Diagnostics.Count(d => d.Required) + " required findings remain; validated work is retained." : null,
+        snapshot.Answers.Count, snapshot.Request.Options["generator"]?["model"]?.GetValue<string>(),
+        snapshot.Request.Generation.Reasoning ?? snapshot.Request.Options["generator"]?["reasoning"]?.GetValue<string>() ?? "medium",
+        snapshot.ConstructionUnits.Where(u => u.Status != "superseded").Select(u => new PlanningUnitDto(u.Key, u.Kind, u.Status, u.NodeKeys.Count, u.Calls, u.RepairCalls)).ToArray());
 
     private static PlanningGraph? DisplayGraph(PlanningSnapshot snapshot) => snapshot.BehaviorPlan is { } behavior ? PlanningBehaviorPlans.Display(behavior, snapshot.Preparation) : snapshot.Graph;
 }

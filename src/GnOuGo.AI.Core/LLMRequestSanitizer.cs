@@ -2,7 +2,7 @@
 
 /// <summary>
 /// Removes optional request parameters that are not supported by the resolved model metadata.
-/// The sanitizer is intentionally non-throwing: unsupported hints are omitted instead of failing the workflow.
+/// Unsupported optional hints are omitted. Explicit budget requirements fail closed.
 /// </summary>
 public static class LLMRequestSanitizer
 {
@@ -27,11 +27,17 @@ public static class LLMRequestSanitizer
             Reasoning = request.Reasoning,
             UseBackgroundMode = request.UseBackgroundMode,
             Tools = request.Tools,
-            MaxOutputTokens = maxOutputTokens
+            MaxOutputTokens = maxOutputTokens,
+            RequireOutputTokenLimit = request.RequireOutputTokenLimit,
+            DisableTransportRetries = request.DisableTransportRetries
         };
 
         var capabilities = metadata.Capabilities ?? new ModelCapabilityMetadata();
         var unsupported = capabilities.UnsupportedRequestParameters ?? [];
+        // Wire aliases belong to each transport. One unsupported alias must not
+        // disable a ceiling that its supported protocol can still represent.
+        if (request.RequireOutputTokenLimit && maxOutputTokens is not > 0)
+            throw new InvalidOperationException("The configured model cannot enforce the required output-token limit.");
 
         if (capabilities.SupportsTemperature == false || Contains(unsupported, "temperature"))
             sanitized.Temperature = null;

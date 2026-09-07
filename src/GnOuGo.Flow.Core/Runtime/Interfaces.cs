@@ -103,6 +103,10 @@ public sealed class LLMRequest
     /// When omitted, the provider uses model metadata or its own default.
     /// </summary>
     public int? MaxTokens { get; set; }
+    /// <summary>Fail closed if transport compatibility would remove the output ceiling.</summary>
+    public bool RequireOutputTokenLimit { get; set; }
+    /// <summary>The caller journals and budgets individual attempts; do not retry inference invisibly.</summary>
+    public bool DisableTransportRetries { get; set; }
 }
 
 /// <summary>

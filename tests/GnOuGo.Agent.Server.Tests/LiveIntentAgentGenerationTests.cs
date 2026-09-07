@@ -95,6 +95,8 @@ public sealed partial class LiveIntentAgentGenerationTests
             TestContext.Current.CancellationToken);
         if (plannerVersion == 1) ValidateLivePhase(budgetLedger, generationCount);
         else if (budgetLedger.FinalAcceptanceCompleted) throw new InvalidOperationException("This campaign has already completed. Its budget ledger must be retained.");
+        if (plannerVersion == 2 && (budgetLedger.Snapshot.Calls >= budgetDefinition.MaxCalls || budgetLedger.Snapshot.TotalTokens >= budgetDefinition.MaxTotalTokens))
+            throw new InvalidOperationException("The cumulative live campaign call/token limit is exhausted. No provider request or external fixture operation was attempted.");
         var cycleBudget = new LLMUsageBudgetScope(
             new LLMUsageBudgetLimits
             {

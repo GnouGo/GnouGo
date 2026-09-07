@@ -8,6 +8,38 @@ namespace GnOuGo.AI.Core.Tests;
 public sealed class OpenAiLlmProviderTests
 {
     [Fact]
+    public async Task RequiredOutputCeilingNeverFallsBackToAnUnboundedRequest()
+    {
+        var calls = 0;
+        using var http = new HttpClient(new StubHttpMessageHandler(async request =>
+        {
+            calls++;
+            using var body = JsonDocument.Parse(await request.Content!.ReadAsStringAsync());
+            Assert.Equal(8192, body.RootElement.GetProperty("max_completion_tokens").GetInt32());
+            return new HttpResponseMessage(HttpStatusCode.BadRequest) { Content = new StringContent("unsupported max_completion_tokens") };
+        }));
+        var provider = new OpenAiLLMProvider(http);
+        await Assert.ThrowsAsync<HttpRequestException>(() => provider.CallAsync("model", new() { Type = "openai", Url = "https://gateway.example/v1", ApiKey = "test" },
+            new() { Prompt = "bounded", MaxOutputTokens = 8192, RequireOutputTokenLimit = true }, TestContext.Current.CancellationToken));
+        Assert.Equal(1, calls);
+    }
+
+    [Fact]
+    public async Task JournaledRoutingDisablesHiddenInferenceRetriesWithoutMutatingProviderSettings()
+    {
+        var calls = 0;
+        using var http = new HttpClient(new StubHttpMessageHandler(_ =>
+        {
+            calls++;
+            return Task.FromResult(new HttpResponseMessage(HttpStatusCode.InternalServerError) { Content = new StringContent("temporary upstream failure") });
+        }));
+        var provider = new ModelProviderOptions { Type = "openai", Url = "https://gateway.example/v1", ApiKey = "test", RetryPolicy = new() { MaxAttempts = 4 } };
+        var options = new LLMOptions { DefaultProvider = "provider", DefaultModel = "model", Models = new() { ["provider"] = provider } };
+        var client = new RoutingLLMClient(http, options);
+        await Assert.ThrowsAsync<LLMProviderException>(() => client.CallAsync(new() { Prompt = "bounded", MaxOutputTokens = 8192, RequireOutputTokenLimit = true, DisableTransportRetries = true }, TestContext.Current.CancellationToken));
+        Assert.Equal(1, calls); Assert.Equal(4, provider.RetryPolicy.MaxAttempts);
+    }
+    [Fact]
     public async Task RoutingClient_LargeModelCeilingDoesNotBecomeImplicitWireLimit()
     {
         var bodies = new List<string>();

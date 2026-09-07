@@ -49,13 +49,13 @@ internal static class JsonSchemaInstanceValidator
             foreach (var variant in allOf.OfType<JsonObject>())
                 ValidateInstanceNode(value, variant, root, path, errors, referenceStack);
 
-        if (schema["anyOf"] is JsonArray anyOf && CountMatchingVariants(value, anyOf, root, referenceStack) == 0)
+        if (schema["anyOf"] is JsonArray anyOf && CountMatchingVariants(value, anyOf, root, path, referenceStack) == 0)
         {
             errors.Add($"{path}: value does not match any allowed schema variant");
             return;
         }
 
-        if (schema["oneOf"] is JsonArray oneOf && CountMatchingVariants(value, oneOf, root, referenceStack) != 1)
+        if (schema["oneOf"] is JsonArray oneOf && CountMatchingVariants(value, oneOf, root, path, referenceStack) != 1)
         {
             errors.Add($"{path}: value must match exactly one allowed schema variant");
             return;
@@ -64,7 +64,7 @@ internal static class JsonSchemaInstanceValidator
         if (schema["if"] is JsonObject condition)
         {
             var conditionErrors = new List<string>();
-            ValidateInstanceNode(value, condition, root, "$", conditionErrors, new HashSet<string>(referenceStack, StringComparer.Ordinal));
+            ValidateInstanceNode(value, condition, root, path, conditionErrors, new HashSet<string>(referenceStack, StringComparer.Ordinal));
             var selectedBranch = conditionErrors.Count == 0 ? schema["then"] : schema["else"];
             if (selectedBranch is JsonObject selectedBranchSchema)
                 ValidateInstanceNode(value, selectedBranchSchema, root, path, errors, referenceStack);
@@ -74,12 +74,14 @@ internal static class JsonSchemaInstanceValidator
         {
             errors.Add(
                 $"{path}: value must equal {constant?.ToJsonString() ?? "null"}; received {value?.ToJsonString() ?? "null"}");
+            return;
         }
         if (schema["enum"] is JsonArray allowed && !allowed.Any(candidate => JsonNode.DeepEquals(value, candidate)))
         {
             var allowedText = string.Join(", ", allowed.Select(static candidate => candidate?.ToJsonString() ?? "null"));
             errors.Add(
                 $"{path}: value is not included in enum; received {value?.ToJsonString() ?? "null"}; allowed values: {allowedText}");
+            return;
         }
 
         var applicableType = ReadApplicableType(schema, value);
@@ -107,13 +109,13 @@ internal static class JsonSchemaInstanceValidator
         }
     }
 
-    private static int CountMatchingVariants(JsonNode? value, JsonArray variants, JsonObject root, HashSet<string> referenceStack)
+    private static int CountMatchingVariants(JsonNode? value, JsonArray variants, JsonObject root, string path, HashSet<string> referenceStack)
     {
         var matches = 0;
         foreach (var variant in variants.OfType<JsonObject>())
         {
             var variantErrors = new List<string>();
-            ValidateInstanceNode(value, variant, root, "$", variantErrors, new HashSet<string>(referenceStack, StringComparer.Ordinal));
+            ValidateInstanceNode(value, variant, root, path, variantErrors, new HashSet<string>(referenceStack, StringComparer.Ordinal));
             if (variantErrors.Count == 0)
                 matches++;
         }

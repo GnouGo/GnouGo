@@ -22,6 +22,8 @@ inconclusive scenarios block acceptance; human waits are separate from active ti
 Locked capability metadata includes artifact provenance and finite activation contracts.
 Older snapshots recover this metadata from their encrypted preflight contract through
 `IPlanningRuntime.EnrichPreparationAsync`, without rediscovery or model inference.
+Recursive JSON Schema alternatives retain the current instance path. Reusing a recursive
+definition at a deeper value cannot bypass validation through the recursion guard.
 Validation diagnostics retain their runtime, capability, or conditional-activation stage
 and identify the failing producer, consumer, or decision whenever available.
 Decision-lineage findings identify the switch expression for targeted repair. Exact
@@ -43,6 +45,14 @@ existing addressing. `edit_intent` is revision guarded and available before the 
 behavior approval during recovery or early failure, even with a retained invalid graph; hosts preserve encrypted answer/diagnostic
 history and usage. Standalone `workflow.plan` presents recovery through its injected
 human-input provider and never treats recovery as artifact approval.
+Additive construction checkpoints retain unit dependencies, candidate hashes, validation
+findings, repair counts and model request references. `PlanningGenerationOptions` supplies
+request-scoped node/input/output limits and optional reasoning, while `configure_generation`
+changes paused-session settings under the existing revision guard. The provider-neutral
+`LLMRequest` flags `RequireOutputTokenLimit` and `DisableTransportRetries` let journaled hosts
+require an enforced output ceiling and own every billable retry. `HumanInputContract` also
+provides the deterministic runtime confirmation input; confirm results contain a boolean
+`response`. Persistence and transport enforcement remain host/integration responsibilities.
 See [planner usage](../GnOuGo.Flow.Planning/README.md) and
 [the host rollout guide](../../docs/workflow-planning-v2.md).
 
