@@ -8,6 +8,23 @@ namespace GnOuGo.Flow.Planning.Tests;
 
 public sealed class ConstructionUnitTests
 {
+    [Fact]
+    public async Task DeterministicConversionFailureStopsWithoutRepeatingTheSameCandidateOrCallingTheModel()
+    {
+        var state = ApprovedSkeleton();
+        state.Preparation!.Decisions.Add(new() { Group = "permission", ContractSource = PlanningDecisionContract.HumanConfirmation,
+            SourceOperationId = "missing_permission", AllowedValues = ["EFFECT", "NO_EFFECT"], NoEffectValues = ["NO_EFFECT"], EffectOperationIds = ["change"] });
+        state.Graph!.Workflows[0].Steps = [new() { Key = "route", Type = "switch", Cases = [new("EFFECT", null, [new() { Key = "effect", OperationIds = ["change"] }]), new("NO_EFFECT", null, [])] }];
+        state.ConstructionUnits = [new() { Key = "route", WorkflowKey = "main", Kind = "implementation", NodeKeys = ["route"], ContractVersion = PlanningDataflow.ContractVersion }];
+        var runtime = new FakeRuntime { OnCall = (_, _, _) => throw new InvalidOperationException("A deterministic unit must not call the model.") };
+        var planner = new TypedWorkflowPlanner();
+        for (var i = 0; i < 3 && state.Status == PlanningStatus.Generating; i++) state = await Advance(planner, state, runtime);
+        Assert.Equal(PlanningStatus.Recovery, state.Status);
+        Assert.Contains(state.Diagnostics, d => d.Code == "UNIT_CONTRACT_UNRESOLVED");
+        Assert.Equal(0, Assert.Single(state.ConstructionUnits).Calls);
+        Assert.InRange(state.Attempts.Count, 0, 1);
+    }
+
     private static CancellationToken Ct => TestContext.Current.CancellationToken;
     private static PlanningConstructionUnit Unit(string kind, params string[] nodes) => new() { Key = "unit", WorkflowKey = "main", Kind = kind, NodeKeys = nodes.ToList() };
 
@@ -237,6 +254,28 @@ public sealed class ConstructionUnitTests
         state = await Advance(planner, state, runtime);
         Assert.Equal(before, state.ConstructionUnits.Single(u => u.Kind == "contracts").Calls);
         Assert.Equal("validated", state.ConstructionUnits.Single(u => u.Kind == "contracts").Status);
+    }
+
+    [Fact]
+    public async Task FinalRepairRevalidatesOlderUnitsBeforeUsingTheWholeGraphRepairPath()
+    {
+        var state = ApprovedSkeleton(); state.Graph = Graph(); state.RepairAttempt = 1;
+        state.ConstructionUnits = PlanningConstruction.Partition(state.Graph.Workflows[0], 4);
+        foreach (var unit in state.ConstructionUnits)
+        {
+            unit.ContractVersion = PlanningDataflow.ContractVersion - 1;
+            unit.Candidate = PlanningConstruction.Values(state.Graph.Workflows[0], unit);
+            unit.Calls = 1;
+        }
+        var runtime = new FakeRuntime { OnCall = (phase, request, _) =>
+        {
+            Assert.NotEqual("repair", phase);
+            return Task.FromResult(new LLMResponse { Json = FakeRuntime.ConstructionResponse(request, phase) });
+        } };
+        state = await Advance(new TypedWorkflowPlanner(), state, runtime);
+        Assert.Equal(0, state.RepairAttempt);
+        Assert.All(state.ConstructionUnits, unit => Assert.Equal(PlanningDataflow.ContractVersion, unit.ContractVersion));
+        Assert.NotEqual(PlanningStatus.Failed, state.Status);
     }
 
     internal static PlanningSnapshot ApprovedSkeleton()

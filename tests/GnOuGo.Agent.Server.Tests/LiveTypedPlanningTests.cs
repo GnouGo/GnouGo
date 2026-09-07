@@ -120,7 +120,7 @@ public sealed partial class LiveIntentAgentGenerationTests
         var unsafePriorBehavior = state.BehaviorPlan is not null && state.Preparation is not null && PlanningBehaviorPlans.Validate(state.BehaviorPlan, state.Preparation).Count != 0;
         var invalidReview = state.Status == PlanningStatus.BehaviorReview && state.BehaviorPlan is not null && state.Preparation is not null &&
             PlanningBehaviorPlans.Validate(state.BehaviorPlan, state.Preparation).Count != 0;
-        if (invalidReview || state.Status is PlanningStatus.Failed or PlanningStatus.Recovery)
+        if (invalidReview || PlanningPreparationCheckpoint.IsObsoleteMatchingQuestion(state) || state.Status is PlanningStatus.Failed or PlanningStatus.Recovery)
         {
             state = await service.SubmitAsync(id, new() { Kind = "retry", ExpectedRevision = state.Revision }, ct);
         }
@@ -258,7 +258,9 @@ public sealed partial class LiveIntentAgentGenerationTests
     // once to the existing cumulative campaign ledger; receipt replay skips dispatch.
     private sealed class CampaignPlanningClient(SecureWorkflowRuntimeFactory factory, LLMUsageBudgetScope budget, IExchangeRateProvider exchangeRates, LiveBudgetLedger ledger) : ILLMClient
     {
-        private readonly SemaphoreSlim _dispatch = new(1, 1);
+        // The ledger and usage scope serialize their own durable reservations.
+        // Keep provider work concurrent within the planner's authorized ceiling.
+        private readonly SemaphoreSlim _dispatch = new(4, 4);
         public async Task<LLMResponse> CallAsync(LLMRequest request, CancellationToken ct)
         {
             await _dispatch.WaitAsync(ct);

@@ -6,6 +6,32 @@ namespace GnOuGo.Flow.Tests;
 
 public sealed class TypedPlanningScenarioTests
 {
+    [Theory]
+    [InlineData("https://example.test/resources/7")]
+    [InlineData("https://renamed.test/items/9")]
+    public async Task ExplicitValidationInputsDoNotBecomeRuntimeDefaults(string resource)
+    {
+        var document = WorkflowParser.Parse("""
+            version: 1
+            entrypoint: main
+            workflows:
+              main:
+                inputs:
+                  resource: {type: string, required: true}
+                steps:
+                  - id: parse
+                    type: set
+                    input: {host: "${new URL(data.inputs.resource).hostname}"}
+            """);
+        var withoutFixture = Assert.Single(await WorkflowPlanScenarioValidator.ValidateAsync(document, null, TestContext.Current.CancellationToken));
+        Assert.Equal("inconclusive", withoutFixture.Outcome);
+        var inputs = new System.Text.Json.Nodes.JsonObject { ["resource"] = resource };
+        var withFixture = Assert.Single(await WorkflowPlanScenarioValidator.ValidateAsync(document, null, TestContext.Current.CancellationToken, inputs));
+        Assert.Equal("passed", withFixture.Outcome);
+        Assert.Null(document.Workflows["main"].Inputs!["resource"].Default);
+        Assert.Equal(resource, inputs["resource"]!.GetValue<string>());
+    }
+
     [Fact]
     public async Task FailedExecutionRetainsItsStepAndActionableCause()
     {

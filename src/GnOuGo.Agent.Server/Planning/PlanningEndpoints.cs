@@ -48,7 +48,7 @@ internal static class PlanningEndpoints
         snapshot.Answers.Count, snapshot.Request.Options["generator"]?["model"]?.GetValue<string>(),
         snapshot.Request.Generation.Reasoning ?? snapshot.Request.Options["generator"]?["reasoning"]?.GetValue<string>() ?? "medium",
         snapshot.ConstructionUnits.Where(u => u.Status != "superseded").Select(u => new PlanningUnitDto(u.Key, u.Kind, u.Status, u.NodeKeys.Count, u.Calls, u.RepairCalls,
-            u.ContractVersion, u.EstimatedInputTokens, u.InputTokenLimit, u.DispatchOutcome)).ToArray(), snapshot.Dataflow?.Fingerprint, snapshot.Dataflow?.Bindings.Count ?? 0);
+            u.ContractVersion, u.EstimatedInputTokens, u.InputTokenLimit, u.DispatchOutcome)).ToArray(), snapshot.Dataflow?.Fingerprint, snapshot.Dataflow?.Bindings.Count ?? 0, snapshot.PreparationCheckpoint?.Stage, snapshot.Preparation?.DecisionContractVersion ?? 0, snapshot.Preparation?.Decisions.Count ?? 0);
 
     private static PlanningGraph? DisplayGraph(PlanningSnapshot snapshot) => snapshot.BehaviorPlan is { } behavior ? PlanningBehaviorPlans.Display(behavior, snapshot.Preparation) : snapshot.Graph;
 }

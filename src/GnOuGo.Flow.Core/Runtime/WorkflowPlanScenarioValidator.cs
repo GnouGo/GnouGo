@@ -11,7 +11,7 @@ namespace GnOuGo.Flow.Core.Runtime;
 /// <summary>Bounded synthetic path testing. No production integration is executed.</summary>
 internal static class WorkflowPlanScenarioValidator
 {
-    public static async Task<IReadOnlyList<PlanningScenarioResult>> ValidateAsync(WorkflowDocument document, IMcpClientFactory? fakeFactory, CancellationToken ct)
+    public static async Task<IReadOnlyList<PlanningScenarioResult>> ValidateAsync(WorkflowDocument document, IMcpClientFactory? fakeFactory, CancellationToken ct, JsonObject? validationInputs = null)
     {
         var definitions = new List<Scenario> { new("nominal", null, null, "normal") };
         foreach (var (workflowName, workflow) in document.Workflows)
@@ -75,9 +75,9 @@ internal static class WorkflowPlanScenarioValidator
             {
                 var compiled = new WorkflowCompiler().Compile(doc);
                 var main = compiled.Workflows[compiled.Entrypoint!];
-                var inputs = new JsonObject();
-                foreach (var (name, input) in main.Source.Inputs ?? [])
-                    inputs[name] = Sample(input);
+                var inputs = validationInputs?.DeepClone().AsObject() ?? new JsonObject();
+                if (validationInputs is null)
+                    foreach (var (name, input) in main.Source.Inputs ?? []) inputs[name] = Sample(input);
                 var run = await engine.ExecuteAsync(main, inputs, cancellation.Token);
                 var reached = scenario.Step is null || fault.Injected || telemetry.Statuses.ContainsKey(scenario.Workflow + ":" + scenario.Step);
                 var expectedFailure = fault.Injected && (run.Success || run.Error?.Code is "SCENARIO_INJECTED_FAILURE" or "CANCELLED");

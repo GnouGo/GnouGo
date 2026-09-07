@@ -15,7 +15,10 @@ public sealed partial class TypedWorkflowPlanner
         var graph = state.Graph!;
         var located = graph.Workflows.SelectMany((w, wi) => PlanningGraphValidation.Located(w.Steps, "/workflows/" + wi + "/steps")
             .Concat(PlanningGraphValidation.Located(w.Finally, "/workflows/" + wi + "/finally")).Select(n => (Workflow: w, n.Node, n.Path))).ToArray();
-        var finding = state.Diagnostics.FirstOrDefault(d => located.Any(n => d.Location == n.Path || d.Location.StartsWith(n.Path + "/input", StringComparison.Ordinal)));
+        // Nested runtime telemetry also reports the failed container. Repair the
+        // actual innermost failing operation, not an immutable routing wrapper.
+        var finding = state.Diagnostics.Where(d => d.Code != "SCENARIO_UNREACHED" && located.Any(n => d.Location == n.Path || d.Location.StartsWith(n.Path + "/input", StringComparison.Ordinal)))
+            .OrderByDescending(d => d.Location.Count(c => c == '/')).FirstOrDefault();
         if (finding is null) return false;
         var owner = located.Where(n => finding.Location == n.Path || finding.Location.StartsWith(n.Path + "/", StringComparison.Ordinal)).OrderByDescending(n => n.Path.Length).First();
         var unit = state.ConstructionUnits.FirstOrDefault(u => u.WorkflowKey == owner.Workflow.Key && u.Kind == "implementation" && u.Status != "superseded" && u.NodeKeys.Contains(owner.Node.Key, StringComparer.Ordinal));

@@ -46,7 +46,7 @@ public sealed partial class LiveIntentAgentGenerationTests
     private const int DefaultLiveCycleElapsedMinutes = 120;
     private const int DefaultLiveCycleMaxCalls = 120;
     private const long DefaultLiveCycleMaxTotalTokens = 5_000_000;
-    private const int MaximumLiveCycleMaxCalls = 1_000;
+    private const int MaximumLiveCycleMaxCalls = 3_000;
     private const long MaximumLiveCycleMaxTotalTokens = 50_000_000;
     private const int LiveProviderAttemptCount = 1;
     private static readonly object ProgressFileLock = new();
@@ -181,6 +181,13 @@ public sealed partial class LiveIntentAgentGenerationTests
             WriteLiveProgress("composition_contract_validated");
 
             var runId = plannerVersion == 2 ? budgetLedger.Snapshot.StartedAtUtc.ToString("yyyyMMddHHmmss") : DateTimeOffset.UtcNow.ToString("yyyyMMddHHmmss");
+            var cohort = Environment.GetEnvironmentVariable("GNOU_GO_LIVE_TYPED_PLANNING_COHORT");
+            if (plannerVersion == 2 && !string.IsNullOrWhiteSpace(cohort))
+            {
+                if (cohort.Length > 32 || cohort.Any(c => !char.IsAsciiLetterOrDigit(c) && c != '-'))
+                    throw new InvalidOperationException("A campaign cohort must contain at most 32 ASCII letters, digits or hyphens.");
+                runId += "-" + cohort;
+            }
             (string Name, GeneratedAgentContract Contract)? publicationAgent = null;
             for (var attempt = 1; attempt <= generationCount; attempt++)
             {
@@ -268,19 +275,22 @@ public sealed partial class LiveIntentAgentGenerationTests
         }
         catch (Exception ex)
         {
+            failures.Add(ex);
             if (planningStore is not null && app is not null)
             {
-                // Preserve failed live evidence through the public encrypted record API.
-                // The temporary session database can still be cleaned after the run.
-                var archive = app.Services.GetRequiredService<GnOuGo.KeyVault.Core.Services.IKeyVaultRecordStore>();
-                foreach (var collection in new[] { "agent-planning-snapshots-v2", "agent-planning-model-requests-v2", "agent-planning-model-receipts-v2" })
+                try
                 {
+                    // Full immutable history and receipts already remain in the durable
+                    // campaign store. Archive only current snapshots, never materialize
+                    // every historical payload or mask the original planning failure.
+                    var archive = app.Services.GetRequiredService<GnOuGo.KeyVault.Core.Services.IKeyVaultRecordStore>();
                     var tenant = WorkflowExecutionTenant.Resolve(app.Services.GetRequiredService<Microsoft.Extensions.Options.IOptions<GnOuGo.Agent.Server.Configuration.OpenTelemetrySettings>>());
-                    foreach (var record in await planningStore.Records.ListAsync(collection, tenant, "LivePlanningValidation", CancellationToken.None))
-                        await archive.UpsertAsync("agent-planning-live-archive-v2", tenant, collection + ":" + record.Key, record.Value, "LivePlanningValidation", CancellationToken.None);
+                    foreach (var snapshot in await planningStore.Store.ListAsync(tenant, CancellationToken.None))
+                        await archive.UpsertAsync("agent-planning-live-archive-v2", tenant, "snapshot:" + snapshot.Request.SessionId + ":" + snapshot.Revision,
+                            System.Text.Json.JsonSerializer.Serialize(snapshot, GnOuGo.Flow.Core.Planning.PlanningJsonContext.Default.PlanningSnapshot), "LivePlanningValidation", CancellationToken.None);
                 }
+                catch (Exception archiveFailure) { failures.Add(archiveFailure); }
             }
-            failures.Add(ex);
         }
         finally
         {
@@ -2126,8 +2136,8 @@ public sealed partial class LiveIntentAgentGenerationTests
                 root["prior_cost_reserve"]?.GetValue<decimal>() ?? 0);
             var amended = persistedDefinition != definition;
             if (amended && (!authorizeLimitAmendment || definition.AuthorizedBudget.Currency != persistedDefinition.AuthorizedBudget.Currency ||
-                definition.AuthorizedBudget.Amount < persistedDefinition.AuthorizedBudget.Amount || definition.MaxCalls < persistedDefinition.MaxCalls ||
-                definition with { AuthorizedBudget = persistedDefinition.AuthorizedBudget, MaxCalls = persistedDefinition.MaxCalls } != persistedDefinition))
+                definition.AuthorizedBudget.Amount < persistedDefinition.AuthorizedBudget.Amount || definition.MaxCalls < persistedDefinition.MaxCalls || definition.MaxTotalTokens < persistedDefinition.MaxTotalTokens ||
+                definition with { AuthorizedBudget = persistedDefinition.AuthorizedBudget, MaxCalls = persistedDefinition.MaxCalls, MaxTotalTokens = persistedDefinition.MaxTotalTokens } != persistedDefinition))
                 throw new InvalidOperationException("The redacted live-validation budget ledger does not match the configured budget or provider hard-limit attestation.");
 
             var snapshot = new LLMUsageBudgetSnapshot
@@ -2164,6 +2174,7 @@ public sealed partial class LiveIntentAgentGenerationTests
                 ledger._budgetAmendments.Add((JsonNode)new JsonObject { ["at_utc"] = DateTimeOffset.UtcNow.ToString("O", CultureInfo.InvariantCulture),
                     ["previous_amount"] = persistedDefinition.AuthorizedBudget.Amount, ["authorized_amount"] = definition.AuthorizedBudget.Amount,
                     ["currency"] = definition.AuthorizedBudget.Currency, ["previous_max_calls"] = persistedDefinition.MaxCalls, ["authorized_max_calls"] = definition.MaxCalls,
+                    ["previous_max_total_tokens"] = persistedDefinition.MaxTotalTokens, ["authorized_max_total_tokens"] = definition.MaxTotalTokens,
                     ["basis"] = "explicit_user_authorization" });
                 ledger.PersistLocked();
             }

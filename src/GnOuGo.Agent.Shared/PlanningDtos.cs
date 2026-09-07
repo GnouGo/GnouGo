@@ -19,4 +19,4 @@ public sealed record PlanningSessionDto(
     long Calls, long InputTokens, long OutputTokens, decimal EstimatedCost, string Currency, string? Outcome = null,
     int PlannerVersion = 2, string? CurrentPhase = null, JsonObject? BehaviorPlan = null,
     string? ApprovedBehaviorHash = null, string? RecoverySummary = null, int AnsweredForms = 0,
-    string? Model = null, string? Reasoning = null, IReadOnlyList<PlanningUnitDto>? Units = null, string? DataflowFingerprint = null, int BindingCount = 0);
+    string? Model = null, string? Reasoning = null, IReadOnlyList<PlanningUnitDto>? Units = null, string? DataflowFingerprint = null, int BindingCount = 0, string? PreparationStage = null, int DecisionContractVersion = 0, int DecisionCount = 0);

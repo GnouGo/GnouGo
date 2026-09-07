@@ -86,7 +86,7 @@ public sealed partial class TypedWorkflowPlanner(TimeProvider? timeProvider = nu
                     state.Diagnostics.Clear();
                     state.Fragments.Clear();
                     state.BestFragments.Clear();
-                    state.BestGraph = null;
+                    state.BestGraph = null; state.BestScenarios.Clear();
                     state.BestDiagnostics.Clear();
                     state.ReviewedGraph = null;
                     state.PreviousGraph = null;
@@ -153,7 +153,7 @@ public sealed partial class TypedWorkflowPlanner(TimeProvider? timeProvider = nu
                         state.Request.Prompt += "\n\nRequested revision:\n" + command.Text;
                         state.PreviousGraph = state.Graph; state.Graph = null; state.Preparation = null;
                         state.IntentChecked = false; state.Fragments.Clear(); state.Diagnostics.Clear(); state.Scenarios.Clear();
-                        state.ApprovedHash = null; state.ArtifactHash = null; state.Yaml = null; state.BestGraph = null;
+                        state.ApprovedHash = null; state.ArtifactHash = null; state.Yaml = null; state.BestGraph = null; state.BestScenarios.Clear();
                         ResetBehavior(state); state.Status = PlanningStatus.Created; state.CurrentPhase = PlanningPhase.Intent;
                         break;
                     }
@@ -172,14 +172,16 @@ public sealed partial class TypedWorkflowPlanner(TimeProvider? timeProvider = nu
                     state.ArtifactHash = PlanningGraphCompiler.Fingerprint(command.Text);
                     state.Status = PlanningStatus.Validating;
                     state.RepairAttempt = 0;
-                    state.BestGraph = null;
+                    state.BestGraph = null; state.BestScenarios.Clear();
                     break;
                 case "retry":
+                    var obsoleteMatchingQuestion = PlanningPreparationCheckpoint.IsObsoleteMatchingQuestion(state);
                     if (state.Dataflow is { } dataflow) dataflow.AssessmentCallsAtRetry = dataflow.AssessmentCalls;
                     if (state.Preparation is not null) await runtime.EnrichPreparationAsync(state.Preparation, ct);
                     var invalidReview = state.Status == PlanningStatus.BehaviorReview && state.BehaviorPlan is not null && state.Preparation is not null && PlanningBehaviorPlans.Validate(state.BehaviorPlan, state.Preparation).Count != 0;
-                    if (!invalidReview && state.Status is not (PlanningStatus.Failed or PlanningStatus.Unsupported or PlanningStatus.Recovery)) throw new PlanningConflictException("Only a stopped session or invalidated behavior review can be retried.");
+                    if (!invalidReview && !obsoleteMatchingQuestion && state.Status is not (PlanningStatus.Failed or PlanningStatus.Unsupported or PlanningStatus.Recovery)) throw new PlanningConflictException("Only a stopped session or invalidated behavior review can be retried.");
                     ArchiveIntent(state);
+                    if (obsoleteMatchingQuestion) state.Question = null;
                     if (state.BehaviorPlan is not null && state.Preparation is not null && PlanningBehaviorPlans.Validate(state.BehaviorPlan, state.Preparation).Count != 0)
                     {
                         // A corrected validator may expose an unsafe earlier behavior contract.
@@ -209,7 +211,7 @@ public sealed partial class TypedWorkflowPlanner(TimeProvider? timeProvider = nu
                     state.ArtifactHash = null;
                     state.NonImprovingAttempts = 0;
                     state.RepairAttempt = 0;
-                    state.BestGraph = null;
+                    state.BestGraph = null; state.BestScenarios.Clear();
                     state.BestDiagnostics = [];
                     state.Diagnostics.Clear();
                     state.Question = null;
@@ -247,6 +249,7 @@ public sealed partial class TypedWorkflowPlanner(TimeProvider? timeProvider = nu
             state.Status = ex.Code == ErrorCodes.CapabilityPreflightUnavailable ? PlanningStatus.Unsupported : PlanningStatus.Recovery;
             state.ApprovedHash = null;
             state.Diagnostics = PlanningPreparationDiagnostics.FromException(ex);
+            if (state.PreparationCheckpoint is not null) state.PreparationCheckpoint.Diagnostics = state.Diagnostics.ToList();
             state.Events.Add(new("capability_preparation_stopped", PlanningPhase.Capabilities, _time.GetUtcNow(), state.Diagnostics.Count));
         }
         catch (LLMClientException ex)
@@ -301,7 +304,13 @@ public sealed partial class TypedWorkflowPlanner(TimeProvider? timeProvider = nu
                 if (state.Preparation is null)
                 {
                     state.CurrentPhase = PlanningPhase.Capabilities;
-                    state.Preparation = await runtime.PrepareAsync(EffectiveRequest(state), ct);
+                    var request = EffectiveRequest(state);
+                    var preparationFingerprint = PlanningGraphCompiler.Fingerprint("decision-contract-v1\n" + JsonSerializer.Serialize(request, PlanningJsonContext.Default.PlanningRequest));
+                    if (state.PreparationCheckpoint?.Fingerprint != preparationFingerprint)
+                        state.PreparationCheckpoint = new() { Fingerprint = preparationFingerprint };
+                    state.PreparationCheckpoint.Version = PlanningPreparationCheckpoint.CurrentVersion;
+                    var progress = await runtime.AdvancePreparationAsync(request, state.PreparationCheckpoint, token => runtime.CheckpointAsync(state, token), ct);
+                    state.Preparation = progress.Preparation; state.PreparationCheckpoint = progress.Checkpoint;
                     return;
                 }
                 if (!HasBehaviorApproval(state) || state.CurrentPhase == PlanningPhase.Behavior)
@@ -314,6 +323,13 @@ public sealed partial class TypedWorkflowPlanner(TimeProvider? timeProvider = nu
 
     private async Task GenerateAsync(PlanningSnapshot state, IPlanningRuntime runtime, CancellationToken ct)
     {
+        if (state.BehaviorPlan is not null && state.Graph is not null && state.ConstructionUnits.Any(u => u.Status != "superseded") &&
+            (state.ConstructionUnits.Any(u => u.Status != "superseded" && u.ContractVersion < PlanningDataflow.ContractVersion) ||
+             PlanningArtifactBindings.PrerequisiteFindings(state.Graph, state.Preparation!).Any()))
+        {
+            state.RepairAttempt = 0; state.Fragments.Clear();
+            await GenerateUnitsAsync(state, runtime, ct); return;
+        }
         if (state.RepairAttempt > 0) { await RepairExecutableAsync(state, runtime, ct); return; }
         if (state.BehaviorPlan is not null) { await GenerateUnitsAsync(state, runtime, ct); return; }
         var graph = state.Graph!;
@@ -426,7 +442,8 @@ public sealed partial class TypedWorkflowPlanner(TimeProvider? timeProvider = nu
                 if (diagnostics.Count == 0)
                 {
                     stage = 8;
-                    state.Scenarios = (await runtime.ValidateScenariosAsync(yaml, state.Preparation!, ct)).Select(s => s with { Diagnostics = s.Diagnostics.Select(d => PlanningExecutableValidation.MapRuntimeDiagnostic(d, state.Graph!)).ToList() }).ToList();
+                    if (!await PrepareScenarioInputsAsync(state, runtime, ct)) return;
+                    state.Scenarios = (await runtime.ValidateScenariosAsync(yaml, state.Preparation!, state.ScenarioInputs!, ct)).Select(s => s with { Diagnostics = s.Diagnostics.Select(d => PlanningExecutableValidation.MapRuntimeDiagnostic(d, state.Graph!)).ToList() }).ToList();
                     if (state.Scenarios.Count == 0) diagnostics.Add(new("SCENARIO_MISSING", "$", "No scenario coverage was established."));
                     diagnostics.AddRange(state.Scenarios.Where(s => s.Outcome != "passed").SelectMany(s => s.Diagnostics.Count == 0 ? [new PlanningDiagnostic("SCENARIO_INCONCLUSIVE", s.Id, "Required scenario coverage is incomplete.")] : s.Diagnostics));
                 }
@@ -434,6 +451,11 @@ public sealed partial class TypedWorkflowPlanner(TimeProvider? timeProvider = nu
             }
         }
         catch (OperationCanceledException) when (ct.IsCancellationRequested) { throw; }
+        catch (SemanticAssessmentException ex)
+        {
+            state.Diagnostics = ex.Diagnostics; state.Status = PlanningStatus.Recovery; state.CurrentPhase = "semantic_review";
+            state.ApprovedHash = null; state.ArtifactHash = null; return;
+        }
         catch (GnOuGo.Flow.Core.Compilation.WorkflowCompilationException ex) { diagnostics.AddRange(PlanningExecutableValidation.CompilerErrors(ex, state.Graph!)); }
         catch (LLMClientException) { throw; }
         catch (Exception ex) { diagnostics.Add(new("GRAPH_VALIDATION", "$", ex.Message)); }
@@ -449,13 +471,18 @@ public sealed partial class TypedWorkflowPlanner(TimeProvider? timeProvider = nu
             // Later validation stages are progress, even when they expose more findings.
             var introducedHelperFindings = diagnostics.Where(d => d.Required && !previousIds.Contains(DiagnosticId(d))).ToArray();
             var helperProgress = newIds.Count < previousIds.Count && introducedHelperFindings.Length > 0 && introducedHelperFindings.All(d => IsNewHelperContractFinding(d, state.BestGraph, state.Graph!, state.BestDiagnostics));
-            if (stage < previousStage || stage == previousStage && !newIds.IsSubsetOf(previousIds) && !helperProgress)
+            if (stage == 8 && previousStage == 8 && state.BestScenarios.Count == 0 && state.ScenarioInputs is not null)
+                state.BestScenarios = (await runtime.ValidateScenariosAsync(_compiler.Compile(state.BestGraph, state.Preparation!, state.Request.Name), state.Preparation!, state.ScenarioInputs, ct))
+                    .Select(s => s with { Diagnostics = s.Diagnostics.Select(d => PlanningExecutableValidation.MapRuntimeDiagnostic(d, state.BestGraph)).ToList() }).ToList();
+            var scenarioProgress = stage == 8 && previousStage == 8 && PreservesScenarioProgress(state.BestScenarios, state.Scenarios);
+            if (stage < previousStage || stage == previousStage && !newIds.IsSubsetOf(previousIds) && !helperProgress && !scenarioProgress)
             {
                 retained = false;
                 state.Graph = state.BestGraph; state.Diagnostics = state.BestDiagnostics.ToList();
+                state.Scenarios = state.BestScenarios.ToList();
                 state.Fragments = new(state.BestFragments, StringComparer.Ordinal); state.NonImprovingAttempts++;
             }
-            else { state.Diagnostics = diagnostics; state.NonImprovingAttempts = newIds.SetEquals(previousIds) && stage == previousStage ? state.NonImprovingAttempts + 1 : 0; }
+            else { state.Diagnostics = diagnostics; state.NonImprovingAttempts = newIds.SetEquals(previousIds) && stage == previousStage && !scenarioProgress ? state.NonImprovingAttempts + 1 : 0; }
         }
         else state.Diagnostics = diagnostics;
         state.Attempts.Add(new(candidateHash, PlanningStatus.Validating, stage, retained, diagnostics.ToList()));
@@ -465,7 +492,7 @@ public sealed partial class TypedWorkflowPlanner(TimeProvider? timeProvider = nu
             state.ArtifactHash = PlanningGraphCompiler.Fingerprint(state.Yaml); state.ApprovedHash = null;
             state.Status = PlanningStatus.FinalReview;
             foreach (var key in state.Fragments.Keys.ToArray()) state.Fragments[key] = state.Fragments[key] with { Validated = true };
-            state.ChangedFragments = ChangedWorkflows(state.ReviewedGraph, state.Graph!); state.BestGraph = null;
+            state.ChangedFragments = ChangedWorkflows(state.ReviewedGraph, state.Graph!); state.BestGraph = null; state.BestScenarios.Clear();
             return;
         }
         state.ApprovedHash = null; state.ArtifactHash = null; state.Yaml = null;
@@ -476,6 +503,7 @@ public sealed partial class TypedWorkflowPlanner(TimeProvider? timeProvider = nu
             return;
         }
         state.BestGraph = CloneGraph(state.Graph!); state.BestDiagnostics = state.Diagnostics.ToList();
+        state.BestScenarios = state.Scenarios.ToList();
         state.BestFragments = new(state.Fragments, StringComparer.Ordinal); state.RepairAttempt++;
         state.Status = PlanningStatus.Generating;
     }
@@ -551,23 +579,37 @@ public sealed partial class TypedWorkflowPlanner(TimeProvider? timeProvider = nu
 
     private async Task<List<PlanningDiagnostic>> ReviewAsync(PlanningSnapshot state, IPlanningRuntime runtime, CancellationToken ct)
     {
-        var response = await StructuredAsync(state, runtime, "semantic_review", "Review the typed graph against the exact requested observable behavior and locked contract. " +
+        var prompt = "Review the typed graph against the exact requested observable behavior and locked contract. " +
             "Return only concrete findings supported by an exact evidence excerpt from the request. Do not challenge a locked capability's existence, ownership or confirmation policy. " +
             "Check preservation of every requested effect, cardinality, ordering, uncertain outcome, and cleanup. A passing schema does not prove intent coverage. " +
-            "Each finding must identify an exact workflow key. No score is used.\nRequest:\n" + Context(state) +
+            "Each finding must identify an exact workflow key from the response schema. Evidence must be a single verbatim substring, without added quotes, ellipses, or combined excerpts. No score is used.\nRequest:\n" + Context(state) +
             "\nLocked contract:\n" + state.Preparation!.LockedContract.ToJsonString() +
-            "\nGraph:\n" + JsonSerializer.Serialize(state.Graph, PlanningJsonContext.Default.PlanningGraph), PlanningSchemas.Review(), ct);
-        var diagnostics = new List<PlanningDiagnostic>();
-        foreach (var finding in response["findings"]!.AsArray().OfType<JsonObject>())
+            "\nGraph:\n" + JsonSerializer.Serialize(state.Graph, PlanningJsonContext.Default.PlanningGraph);
+        var shape = PlanningSchemas.Review(state.Graph!.Workflows.Select(w => w.Key));
+        var invalid = new List<PlanningDiagnostic>(); JsonObject? response = null;
+        for (var attempt = 0; attempt < 2; attempt++)
         {
-            var workflow = finding["workflow"]!.GetValue<string>();
-            var evidence = finding["evidence"]!.GetValue<string>();
-            if (!state.Graph!.Workflows.Any(w => w.Key == workflow) || string.IsNullOrWhiteSpace(evidence) || !Context(state).Contains(evidence, StringComparison.Ordinal))
-                throw new InvalidOperationException("A semantic finding lacks valid workflow and request evidence.");
-            diagnostics.Add(new(finding["code"]!.GetValue<string>(), workflow, finding["message"]!.GetValue<string>(), finding["blocking"]!.GetValue<bool>()));
+            var repair = invalid.Count == 0 ? "" : "\nRepair the assessment contract only. Keep supported findings; do not modify the workflow.\nCandidate:\n" + response?.ToJsonString() + "\nInvalid fields:\n" + JsonSerializer.Serialize(invalid, PlanningJsonContext.Default.ListPlanningDiagnostic);
+            try { response = await StructuredAsync(state, runtime, "semantic_review", prompt + repair, shape, ct, maxAttempts: 1); }
+            catch (WorkflowRuntimeException ex) when (ex.Code == ErrorCodes.LlmSchema)
+            { invalid = [new("SEMANTIC_REVIEW_INVALID", "/semanticReview", "The semantic assessment response did not match its declared schema.")]; continue; }
+            invalid.Clear(); var diagnostics = new List<PlanningDiagnostic>(); var index = 0;
+            foreach (var finding in response["findings"]!.AsArray().OfType<JsonObject>())
+            {
+                var workflow = finding["workflow"]!.GetValue<string>();
+                var evidence = finding["evidence"]!.GetValue<string>();
+                if (string.IsNullOrWhiteSpace(evidence) || !Context(state).Contains(evidence, StringComparison.Ordinal))
+                    invalid.Add(new("SEMANTIC_REVIEW_EVIDENCE_INVALID", "/semanticReview/findings/" + index + "/evidence", "Copy one exact excerpt from the supplied request for this finding. Model assessment failures cannot justify executable changes."));
+                diagnostics.Add(new(finding["code"]!.GetValue<string>(), workflow, finding["message"]!.GetValue<string>(), finding["blocking"]!.GetValue<bool>()));
+                index++;
+            }
+            if (invalid.Count == 0) return diagnostics;
         }
-        return diagnostics;
+        throw new SemanticAssessmentException(invalid);
     }
+
+    private sealed class SemanticAssessmentException(List<PlanningDiagnostic> diagnostics) : Exception
+    { internal List<PlanningDiagnostic> Diagnostics { get; } = diagnostics; }
 
     private async Task ReviseAsync(PlanningSnapshot state, string feedback, IPlanningRuntime runtime, CancellationToken ct)
     {
@@ -587,7 +629,7 @@ public sealed partial class TypedWorkflowPlanner(TimeProvider? timeProvider = nu
         state.Yaml = null;
         state.RepairAttempt = 0;
         state.NonImprovingAttempts = 0;
-        state.BestGraph = null;
+        state.BestGraph = null; state.BestScenarios.Clear();
         state.Diagnostics = [];
         state.Scenarios = [];
         state.ChangedFragments = DependencyClosure(state.Graph!, affected).Order(StringComparer.Ordinal).ToList();

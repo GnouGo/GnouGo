@@ -1,4 +1,6 @@
 using System.Text;
+using System.Text.Json;
+using GnOuGo.Flow.Core.Planning;
 using System.Text.Json.Nodes;
 using System.Text.RegularExpressions;
 using System.Security.Cryptography;
@@ -182,7 +184,9 @@ public sealed partial class WorkflowPlanExecutor
 
         try
         {
-            var discovered = await DiscoverMcpServersAsync(
+            var discovered = ctx.PreparationCheckpoint?.ValidatedResults["discovery"] is JsonNode discoveryCheckpoint
+                ? JsonSerializer.Deserialize(discoveryCheckpoint, TypedContractJsonContext.Default.ListMcpServerDiscovery)!
+                : await DiscoverMcpServersAsync(
                                  ctx.Engine.McpClientFactory,
                                  ctx.Engine.McpCache,
                                  ctx.Engine.Logger,
@@ -191,6 +195,9 @@ public sealed partial class WorkflowPlanExecutor
                                  span.Span,
                                  ct)
                              ?? new List<McpServerDiscovery>();
+
+            if (discovered.All(server => server.Discovered))
+                await SaveTypedPreparationResultAsync(ctx, "discovery", JsonSerializer.SerializeToNode(discovered, TypedContractJsonContext.Default.ListMcpServerDiscovery), ct);
 
             span.SetAttribute("mcp.servers_total", discovered.Count);
             span.SetAttribute("mcp.servers_discovered", discovered.Count(static server => server.Discovered));
@@ -546,6 +553,11 @@ public sealed partial class WorkflowPlanExecutor
         try
         {
             var inventorySchema = BuildCapabilityInventorySchema();
+            CapabilityInventory inventory;
+            if (ctx.PreparationCheckpoint?.ValidatedResults["inventory"] is JsonNode inventoryCheckpoint)
+                inventory = JsonSerializer.Deserialize(inventoryCheckpoint, TypedContractJsonContext.Default.CapabilityInventory)!;
+            else
+            {
             var inventoryResponse = await ctx.CallLLMAsync(llmClient, new LLMRequest
             {
                 Provider = provider,
@@ -559,7 +571,6 @@ public sealed partial class WorkflowPlanExecutor
             RecordPlannerStructuredOutputProof(ctx, provider, model, inventoryResponse.Json, inventorySchema);
             AddUsageAttributes(inferenceSpan, inventoryResponse.Usage, model, provider);
             inferencePhase = "capability_inventory_parse";
-            CapabilityInventory inventory;
             JsonObject? rejectedInventoryCandidate = null;
             IReadOnlyList<CapabilityInventoryContractIssue> initialContractIssues = Array.Empty<CapabilityInventoryContractIssue>();
             IReadOnlyList<CapabilityInventoryContractIssue> finalContractIssues = Array.Empty<CapabilityInventoryContractIssue>();
@@ -698,6 +709,9 @@ public sealed partial class WorkflowPlanExecutor
                 inferenceSpan.SetAttribute("gnougo-flow.plan.capability_inventory.repair_attempted", false);
             }
 
+                await SaveTypedPreparationResultAsync(ctx, "inventory", JsonSerializer.SerializeToNode(inventory, TypedContractJsonContext.Default.CapabilityInventory), ct);
+            }
+
             inventory = ApplyIntentClarificationExternalWriteConfirmationPolicy(
                 inventory,
                 evidenceSources,
@@ -717,7 +731,9 @@ public sealed partial class WorkflowPlanExecutor
             inferenceSpan.SetAttribute("gnougo-flow.plan.capability_inventory.constraint_count", inventory.Constraints.Count);
 
             inferencePhase = "physical_capability_candidate_selection";
-            var matchingDiscovery = IsCapabilityCandidateSelectionEnabled(generator)
+            var matchingDiscovery = ctx.PreparationCheckpoint?.ValidatedResults["selection"] is JsonNode selectionCheckpoint
+                ? JsonSerializer.Deserialize(selectionCheckpoint, TypedContractJsonContext.Default.ListMcpServerDiscovery)!
+                : IsCapabilityCandidateSelectionEnabled(generator)
                 ? await SelectPhysicalCapabilityCandidatesAsync(
                     llmClient,
                     inventory,
@@ -732,8 +748,9 @@ public sealed partial class WorkflowPlanExecutor
                     ct)
                 : discovered.Select(CloneDiscovery).ToList();
 
+            await SaveTypedPreparationResultAsync(ctx, "selection", JsonSerializer.SerializeToNode(matchingDiscovery, TypedContractJsonContext.Default.ListMcpServerDiscovery), ct);
             inferencePhase = "capability_catalog_expansion";
-            var catalog = BuildSchemaAwareCapabilityCatalog(matchingDiscovery, allowedNativeTypes, discovered);
+            var catalog = BuildSchemaAwareCapabilityCatalog(matchingDiscovery, allowedNativeTypes, discovered) with { ExactDecisionSources = input["planner_version"]?.GetValue<int>() == 2 };
             inferenceSpan.SetAttribute("gnougo-flow.plan.capability_catalog.entry_count", catalog.Entries.Count);
             inferenceSpan.SetAttribute("gnougo-flow.plan.capability_catalog.character_count", catalog.Text.Length);
             inferenceSpan.SetAttribute("gnougo-flow.plan.capability_catalog.selected_server_count", matchingDiscovery.Count);
@@ -741,8 +758,10 @@ public sealed partial class WorkflowPlanExecutor
             inferenceSpan.SetAttribute("gnougo-flow.plan.capability_catalog.selected_prompt_count", matchingDiscovery.Sum(static server => server.Prompts.Count));
 
             inferencePhase = "capability_matching_call";
-            var matchingSchema = BuildCapabilityMatchingSchema();
-            var matchingResponse = await ctx.CallLLMAsync(llmClient, new LLMRequest
+            var matchingSchema = catalog.ExactDecisionSources ? BuildTypedCapabilityMatchingSchema(inventory, catalog) : BuildCapabilityMatchingSchema();
+            var matchingResponse = ctx.PreparationCheckpoint?.ValidatedResults["matching_candidate"] is JsonNode retainedMatching
+                ? new LLMResponse { Json = retainedMatching.DeepClone() }
+                : await ctx.CallLLMAsync(llmClient, new LLMRequest
             {
                 Provider = provider,
                 Model = model,
@@ -772,6 +791,7 @@ public sealed partial class WorkflowPlanExecutor
             {
                 evaluation = BuildMalformedCapabilityMatchingEvaluation(inventory, ex.Message);
             }
+            await SaveTypedPreparationResultAsync(ctx, "matching_candidate", matchingResponse.Json, ct);
             var repairRequired = RequiresCapabilityMatchingRepair(evaluation);
             inferenceSpan.SetAttribute("gnougo-flow.plan.capability_matching.repair_attempted", repairRequired);
             inferenceSpan.SetAttribute("gnougo-flow.plan.capability_matching.upstream_rewind_attempted", false);
@@ -815,10 +835,12 @@ public sealed partial class WorkflowPlanExecutor
                     repaired = BuildMalformedCapabilityMatchingEvaluation(inventory, ex.Message);
                 }
                 evaluation = PreserveValidCapabilityMatches(evaluation, repaired);
+                await SaveTypedPreparationResultAsync(ctx, "matching_candidate", repairedMatchingResponse.Json, ct);
             }
 
             if (HasRequiredCapabilityMatchingBlocker(evaluation)
-                && IsCapabilityDiscoveryNarrowed(matchingDiscovery, discovered))
+                && IsCapabilityDiscoveryNarrowed(matchingDiscovery, discovered)
+                && (input["planner_version"]?.GetValue<int>() != 2 || evaluation.Issues.Any(issue => issue.Status == "unavailable")))
             {
                 inferenceSpan.SetAttribute("gnougo-flow.plan.capability_matching.upstream_rewind_attempted", true);
                 ctx.AddTelemetryEvent("gnougo-flow.step.thinking", new[]
@@ -829,8 +851,9 @@ public sealed partial class WorkflowPlanExecutor
                 });
 
                 inferencePhase = "capability_matching_upstream_rewind";
-                var expandedCatalog = BuildSchemaAwareCapabilityCatalog(discovered, allowedNativeTypes, discovered);
+                var expandedCatalog = BuildSchemaAwareCapabilityCatalog(discovered, allowedNativeTypes, discovered) with { ExactDecisionSources = input["planner_version"]?.GetValue<int>() == 2 };
                 var remappedEvaluation = RemapCapabilityMatchingCatalogIds(evaluation, catalog, expandedCatalog);
+                if (expandedCatalog.ExactDecisionSources) matchingSchema = BuildTypedCapabilityMatchingSchema(inventory, expandedCatalog);
                 var initialBlockers = BuildCapabilityMatchingBlockerIdentities(remappedEvaluation);
                 var initialFingerprint = BuildCapabilityMatchingFingerprint(remappedEvaluation);
                 var rewindResponse = await ctx.CallLLMAsync(llmClient, new LLMRequest
@@ -939,6 +962,7 @@ public sealed partial class WorkflowPlanExecutor
                         {
                             var candidateInventory = ApplyDefaultExternalWriteConfirmation(
                                 candidateEvidenceInventory);
+                            if (expandedCatalog.ExactDecisionSources) matchingSchema = BuildTypedCapabilityMatchingSchema(candidateInventory, expandedCatalog);
                             inferencePhase = "capability_matching_after_inventory_rewind";
                             var inventoryMatchingResponse = await ctx.CallLLMAsync(llmClient, new LLMRequest
                             {
@@ -1040,10 +1064,12 @@ public sealed partial class WorkflowPlanExecutor
                         ? remappedEvaluation
                         : MarkCapabilityMatchingRewindNonImproving(rewound, remappedEvaluation);
                 catalog = expandedCatalog;
+                await SaveTypedPreparationResultAsync(ctx, "selection", JsonSerializer.SerializeToNode(discovered, TypedContractJsonContext.Default.ListMcpServerDiscovery), ct);
+                await SaveTypedPreparationResultAsync(ctx, "matching_candidate", TypedMatchingCandidate(evaluation), ct);
             }
 
-            if (input["planner_version"]?.GetValue<int>() == 2 && IsMatchingClarificationEligible(evaluation))
-                RequestTypedCapabilityClarification(inventory, evaluation, catalog);
+            // V2 assesses observable intent before matching. A matcher choosing among
+            // technical implementations has no evidence for a new user-intent question.
 
             if (clarificationAllowed
                 && intentClarification != null
@@ -1060,6 +1086,7 @@ public sealed partial class WorkflowPlanExecutor
             }
 
             if (clarificationAllowed
+                && input["planner_version"]?.GetValue<int>() != 2
                 && intentClarification == null
                 && IsMatchingClarificationEligible(evaluation)
                 && ParseCapabilityClarificationConfig(input["capability_preflight"] as JsonObject).Enabled)
@@ -1100,6 +1127,7 @@ public sealed partial class WorkflowPlanExecutor
 
             RecordCapabilityMatchingFailureTelemetry(inferenceSpan, evaluation, repairRequired);
             ThrowForUnresolvedCapabilityMatches(evaluation, catalog, repairRequired, intentClarification);
+            await SaveTypedPreparationResultAsync(ctx, "matching_candidate", TypedMatchingCandidate(evaluation), ct);
             inferencePhase = "capability_coverage_review";
             evaluation = await ReviewCapabilityCoverageAndRematchAsync(
                 ctx,
@@ -3725,6 +3753,8 @@ public sealed partial class WorkflowPlanExecutor
         return $$"""
             You are a domain-neutral capability matcher. Return only the requested structured JSON.
 
+            {{(catalog.ExactDecisionSources ? "V2 contract: use the exact operation/constraint keys and statuses in the response schema. Technical alternatives without a sufficient declared implementation are unavailable, not a question to the user. Preserve declared decision dependencies exactly; native human confirmation yields boolean response, not an analysis enum. Do not add a selector dependency to an unconditional operation. A generic declared capability may consume earlier runtime observations through its arguments when that is sufficient." : "")}}
+
             Decide every positive runtime operation independently:
             - matched: exactly one catalog capability is sufficient;
             - composed: two or more complementary catalog capabilities are jointly required;
@@ -3831,6 +3861,16 @@ public sealed partial class WorkflowPlanExecutor
         CapabilityInventory inventory,
         CapabilityCatalog catalog)
     {
+        if (catalog.ExactDecisionSources && json["operation_matches"] is JsonObject keyedOperations)
+        {
+            json = json.DeepClone().AsObject();
+            JsonArray Expand(JsonObject items, string field) => new(items.Select(p =>
+            {
+                var value = p.Value?.DeepClone() as JsonObject ?? new JsonObject(); value[field] = p.Key; return (JsonNode)value;
+            }).ToArray());
+            json["operation_matches"] = Expand(keyedOperations, "operation_id");
+            if (json["constraint_matches"] is JsonObject keyedConstraints) json["constraint_matches"] = Expand(keyedConstraints, "constraint_id");
+        }
         var entries = catalog.Entries.ToDictionary(static entry => entry.Id, StringComparer.Ordinal);
         var operationIds = inventory.Operations.Select(static operation => operation.Id).ToArray();
         var constraintIds = inventory.Constraints.Select(static constraint => constraint.Id).ToArray();
@@ -4037,6 +4077,7 @@ public sealed partial class WorkflowPlanExecutor
                 "unavailable" => selected.Count == 0 && candidates.Count == 0 && decisionOperationId.Length == 0 && requestedConditionalMode.Length == 0,
                 _ => false
             };
+            if (catalog.ExactDecisionSources && operation.DecisionSourceOperationId.Length > 0 && status is "matched" or "composed") shapeValid = false;
             if (operation.ExecutionKind != "local_processing" && status == "local"
                 || operation.ExecutionKind == "local_processing" && status != "local")
                 shapeValid = false;
@@ -4226,7 +4267,7 @@ public sealed partial class WorkflowPlanExecutor
         }
 
         return GroundConditionalCapabilityMatches(
-            new CapabilityMatchingEvaluation(operationMatches, constraintMatches, issues, contractValid),
+            new CapabilityMatchingEvaluation(operationMatches, constraintMatches, issues, contractValid) { ExactDecisionSources = catalog.ExactDecisionSources },
             catalog);
     }
 
@@ -4422,6 +4463,22 @@ public sealed partial class WorkflowPlanExecutor
             StringComparison.Ordinal));
         var lockedDecisionIsPhysical = lockedDecisionMatch is { CatalogIds.Count: > 0 };
 
+        if (evaluation.ExactDecisionSources && lockedDecisionMatch?.Operation.ExecutionKind == "human_interaction")
+        {
+            var confirmations = lockedDecisionMatch.CatalogIds.Where(entries.ContainsKey).Select(id => entries[id])
+                .Where(entry => entry.Resolution == "native" && entry.Method == "human.input").ToArray();
+            if (confirmations.Length != 1 || conditionalMatch.ConditionalActivationMode != ConditionalAllOnValueActivationMode
+                || !conditionalMatch.Operation.AllowNoEffectOutcome || branchValues.Length != 1)
+            {
+                failureCode = "confirmation_decision_contract_invalid"; return false;
+            }
+            return SetConditionalDecisionGrounding(new ConditionalDecisionGrounding(decisionOperationId, confirmations[0].Id,
+                "/response", branchValues.Concat(new[] { SynthesizedNoEffectDecisionValue }).ToArray(),
+                new[] { SynthesizedNoEffectDecisionValue }, PlanningDecisionContract.HumanConfirmation),
+                out decisionOutputPath, out allowedValues, out noEffectValues, out decisionContractSource,
+                out decisionProducerCatalogId, out decisionProducerOperationId);
+        }
+
         // A declared reducer combines its inputs. Selecting one convenient enum or
         // model-capable ancestor would discard the other inputs (including human input).
         if (lockedDecisionMatch is { Status: "local" })
@@ -4504,6 +4561,17 @@ public sealed partial class WorkflowPlanExecutor
                     return false;
                 }
             }
+        }
+
+        if (evaluation.ExactDecisionSources)
+        {
+            if (lockedProjected.Count == 1)
+                return SetConditionalDecisionGrounding(lockedProjected[0], out decisionOutputPath, out allowedValues, out noEffectValues,
+                    out decisionContractSource, out decisionProducerCatalogId, out decisionProducerOperationId);
+            if (TryCreateLocalDecisionGrounding(evaluation, conditionalMatch, entries, branchValues, out var exactReducer))
+                return SetConditionalDecisionGrounding(exactReducer, out decisionOutputPath, out allowedValues, out noEffectValues,
+                    out decisionContractSource, out decisionProducerCatalogId, out decisionProducerOperationId);
+            failureCode = "declared_decision_contract_unresolved"; return false;
         }
 
         var declaredUpstream = conditionalMatch.Operation.InputOperationIds
@@ -5036,7 +5104,7 @@ public sealed partial class WorkflowPlanExecutor
             Prompt = BuildCapabilityCoverageRematchPrompt(inventory, catalog, evaluation, gaps),
             Reasoning = reasoning,
             UseBackgroundMode = true,
-            StructuredOutputSchema = BuildCapabilityMatchingSchema(),
+            StructuredOutputSchema = catalog.ExactDecisionSources ? BuildTypedCapabilityMatchingSchema(inventory, catalog) : BuildCapabilityMatchingSchema(),
             StructuredOutputStrict = true
         }, "workflow.plan.capability_coverage_rematch", ct);
         AddUsageAttributes(inferenceSpan, rematchResponse.Usage, model, provider);
@@ -6363,7 +6431,7 @@ public sealed partial class WorkflowPlanExecutor
             operations,
             current.ConstraintMatches,
             preservedIssues.Concat(affectedIssues).ToArray(),
-            rematched.ContractValid);
+            rematched.ContractValid) { ExactDecisionSources = current.ExactDecisionSources };
     }
 
     private async Task RequestCapabilityRelaxationOrThrowAsync(
@@ -6785,7 +6853,7 @@ public sealed partial class WorkflowPlanExecutor
         var mergedContractValid = operations.All(static match => match.Status != "invalid")
                                   && constraints.All(static match => match.Status != "invalid")
                                   && issues.All(static issue => issue.Status != "invalid");
-        return new CapabilityMatchingEvaluation(operations, constraints, issues, mergedContractValid);
+        return new CapabilityMatchingEvaluation(operations, constraints, issues, mergedContractValid) { ExactDecisionSources = initial.ExactDecisionSources };
     }
 
     private static bool HasRequiredCapabilityMatchingBlocker(CapabilityMatchingEvaluation evaluation)
@@ -6871,7 +6939,7 @@ public sealed partial class WorkflowPlanExecutor
             operationMatches,
             constraintMatches,
             issues,
-            evaluation.ContractValid);
+            evaluation.ContractValid) { ExactDecisionSources = evaluation.ExactDecisionSources };
     }
 
     private static HashSet<string> BuildCapabilityMatchingBlockerIdentities(
@@ -9160,7 +9228,9 @@ public sealed partial class WorkflowPlanExecutor
         }
 
         var activation = getActivation(capabilities[0]);
-        if (!ConditionalDecisionExpressionMatchesDeclaredPath(step.Expr, activation.DecisionOutputPath))
+        if (!(activation.DecisionContractSource == PlanningDecisionContract.HumanConfirmation
+                ? ConfirmationDecisionExpression.TryRead(step.Expr, activation.BranchValue, activation.NoEffectValues.Single(), out _)
+                : ConditionalDecisionExpressionMatchesDeclaredPath(step.Expr, activation.DecisionOutputPath)))
         {
             return initial with
             {
@@ -9553,6 +9623,9 @@ public sealed partial class WorkflowPlanExecutor
         McpCapabilityActivation activation,
         HashSet<string>? visited = null)
     {
+        if (activation.DecisionContractSource == PlanningDecisionContract.HumanConfirmation && appendedPath.Count == 0
+            && ConfirmationDecisionExpression.TryRead(expression, activation.BranchValue, activation.NoEffectValues.Single(), out var confirmationReference))
+            expression = confirmationReference;
         var path = TrimWorkflowExpression(expression);
         if (appendedPath.Count > 0)
             path += "." + string.Join('.', appendedPath);
@@ -9690,6 +9763,10 @@ public sealed partial class WorkflowPlanExecutor
         StepDef sourceStep,
         McpCapabilityActivation activation)
     {
+        if (activation.DecisionContractSource == PlanningDecisionContract.HumanConfirmation)
+            return sourceStep.Type == "human.input" && sourceStep.Input?["mode"]?.GetValue<string>() == HumanInputContract.ModeConfirm
+                && sourceStep.OnError is null;
+
         if (string.Equals(
                 activation.DecisionContractSource,
                 LocalDecisionContractSource,

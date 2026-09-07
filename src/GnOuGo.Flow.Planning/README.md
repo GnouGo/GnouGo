@@ -188,3 +188,5 @@ See [the rollout guide](../../docs/workflow-planning-v2.md),
 Capability inference failures in v2 pause in durable recovery with operation-level
 findings. Rejected matching repairs remain separate from the retained candidate.
 See the [capability recovery diagnosis and next architecture step](../../docs/planner-v2-capability-recovery.md).
+
+Planner v2 decision contracts, confirmation routing, recovery and live validation are described in [Planner v2 decisions](../../docs/planner-v2-decisions.md).

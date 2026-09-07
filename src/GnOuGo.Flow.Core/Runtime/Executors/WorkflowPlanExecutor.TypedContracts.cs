@@ -64,7 +64,7 @@ public sealed partial class WorkflowPlanExecutor
                 ["input"] = contract.InputSchema.DeepClone(), ["output"] = contract.OutputSchema.DeepClone()
             } : null)));
         var fingerprint = Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(state.ToJsonString() + input["policy"]?.ToJsonString() + stepContracts.ToJsonString())));
-        return new PlanningPreparation
+        var preparation = new PlanningPreparation
         {
             Fingerprint = fingerprint,
             LockedContract = locked,
@@ -73,6 +73,8 @@ public sealed partial class WorkflowPlanExecutor
             AllowedStepTypes = allowed,
             StepContracts = stepContracts
         };
+        PopulateTypedDecisions(preparation);
+        return preparation;
     }
 
     public async Task<IReadOnlyList<PlanningDiagnostic>> ValidateTypedArtifactAsync(
@@ -133,6 +135,103 @@ public sealed partial class WorkflowPlanExecutor
         return new(Read("code") ?? fallbackCode, Read("location") ?? (parts.Count == 0 ? "$" : string.Join("/", parts)), message, ValidationStage: stage);
     }
 
+    private static async Task SaveTypedPreparationResultAsync(StepExecutionContext ctx, string stage, JsonNode? value, CancellationToken ct)
+    {
+        if (ctx.PreparationCheckpoint is not { } checkpoint || value is null) return;
+        checkpoint.ValidatedResults[stage] = value.DeepClone(); checkpoint.Stage = stage;
+        if (ctx.PersistPreparation is not null) await ctx.PersistPreparation(ct);
+    }
+
+    private static JsonObject BuildTypedCapabilityMatchingSchema(CapabilityInventory inventory, CapabilityCatalog catalog)
+    {
+        var schema = BuildCapabilityMatchingSchema();
+        var operation = schema["properties"]!["operation_matches"]!["items"]!.DeepClone().AsObject();
+        var constraint = schema["properties"]!["constraint_matches"]!["items"]!.DeepClone().AsObject();
+        var ids = new JsonObject { ["type"] = "string", ["enum"] = new JsonArray(catalog.Entries.Select(c => (JsonNode?)JsonValue.Create(c.Id)).ToArray()) };
+        schema["$defs"] = new JsonObject { ["catalogId"] = ids };
+        JsonObject Entry(JsonObject template, string idField)
+        {
+            var entry = template.DeepClone().AsObject(); entry["properties"]!.AsObject().Remove(idField);
+            entry["required"] = new JsonArray(entry["required"]!.AsArray().Where(n => n?.ToString() != idField).Select(n => n!.DeepClone()).ToArray());
+            foreach (var pair in entry["properties"]!.AsObject().Where(p => p.Key.EndsWith("catalog_ids", StringComparison.Ordinal)))
+                pair.Value!["items"] = new JsonObject { ["$ref"] = "#/$defs/catalogId" };
+            return entry;
+        }
+        static JsonObject Enum(params string[] values) => new() { ["type"] = "string", ["enum"] = new JsonArray(values.Select(v => (JsonNode?)JsonValue.Create(v)).ToArray()) };
+        static JsonObject Object(JsonObject properties) => new() { ["type"] = "object", ["properties"] = properties,
+            ["required"] = new JsonArray(properties.Select(p => (JsonNode?)JsonValue.Create(p.Key)).ToArray()), ["additionalProperties"] = false };
+        var operations = new JsonObject();
+        foreach (var item in inventory.Operations)
+        {
+            var statuses = item.ExecutionKind == "local_processing" ? new[] { "local" }
+                : item.DecisionSourceOperationId.Length == 0 ? new[] { "matched", "composed", "unavailable" } : new[] { "conditional", "unavailable" };
+            var variants = new JsonArray();
+            foreach (var status in statuses)
+            {
+                var entry = Entry(operation, "operation_id"); var properties = entry["properties"]!.AsObject();
+                properties["status"] = Enum(status);
+                properties["decision_operation_id"] = Enum(status == "conditional" ? item.DecisionSourceOperationId : "");
+                properties["conditional_mode"] = status != "conditional" ? Enum("") : item.AllowNoEffectOutcome ? Enum("exactly_one", "all_on_value") : Enum("exactly_one");
+                properties["candidate_catalog_ids"]!["maxItems"] = 0;
+                var selected = properties["catalog_ids"]!;
+                selected["minItems"] = status is "matched" or "conditional" ? 1 : status == "composed" ? 2 : 0;
+                selected["maxItems"] = status == "matched" ? 1 : status is "composed" or "conditional" ? 16 : 0;
+                variants.Add((JsonNode)entry);
+            }
+            operations[item.Id] = variants.Count == 1 ? variants[0]!.DeepClone() : new JsonObject { ["anyOf"] = variants };
+        }
+
+        schema["properties"]!["operation_matches"] = Object(operations);
+        schema["properties"]!["constraint_matches"] = Object(new JsonObject(inventory.Constraints.Select(c =>
+            new KeyValuePair<string, JsonNode?>(c.Id, Entry(constraint, "constraint_id")))));
+        return schema;
+    }
+
+    private static JsonObject TypedMatchingCandidate(CapabilityMatchingEvaluation evaluation) => new()
+    {
+        ["operation_matches"] = new JsonObject(evaluation.OperationMatches.Select(m => new KeyValuePair<string, JsonNode?>(m.Operation.Id, new JsonObject
+        {
+            ["status"] = m.Status, ["reason"] = m.Reason,
+            ["catalog_ids"] = new JsonArray(m.CatalogIds.Select(id => (JsonNode?)JsonValue.Create(id)).ToArray()),
+            ["candidate_catalog_ids"] = new JsonArray(m.CandidateCatalogIds.Select(id => (JsonNode?)JsonValue.Create(id)).ToArray()),
+            ["decision_operation_id"] = m.DecisionOperationId ?? "", ["conditional_mode"] = m.ConditionalActivationMode
+        }))),
+        ["constraint_matches"] = new JsonObject(evaluation.ConstraintMatches.Select(m => new KeyValuePair<string, JsonNode?>(m.Constraint.Id, new JsonObject
+        {
+            ["status"] = m.Status, ["reason"] = m.Reason,
+            ["denied_catalog_ids"] = new JsonArray(m.DeniedCatalogIds.Select(id => (JsonNode?)JsonValue.Create(id)).ToArray()),
+            ["candidate_catalog_ids"] = new JsonArray(m.CandidateCatalogIds.Select(id => (JsonNode?)JsonValue.Create(id)).ToArray())
+        })))
+    };
+
+    private static void PopulateTypedDecisions(PlanningPreparation preparation)
+    {
+        preparation.DecisionContractVersion = PlanningDecisionContract.CurrentVersion;
+        preparation.Decisions.Clear(); preparation.Interactions.Clear();
+        foreach (var group in preparation.Capabilities.Where(c => c.Activation is not null).GroupBy(c => c.Activation!.Group))
+        {
+            var activation = group.First().Activation!;
+            var source = preparation.Capabilities.Single(c => c.CatalogId == activation.DecisionProducerCatalogId && c.OperationIds.Contains(activation.DecisionOperationId));
+            var confirmation = activation.DecisionContractSource == PlanningDecisionContract.HumanConfirmation;
+            preparation.Decisions.Add(new()
+            {
+                Group = group.Key, SourceOperationId = activation.DecisionOperationId, SourceCapabilityId = source.Id,
+                SourcePointer = activation.DecisionOutputPath, ContractSource = activation.DecisionContractSource,
+                ResponseSchema = confirmation ? new JsonObject { ["type"] = "boolean" } : new JsonObject { ["type"] = "string", ["enum"] = new JsonArray(activation.AllowedValues.Select(v => (JsonNode?)JsonValue.Create(v)).ToArray()) },
+                AllowedValues = activation.AllowedValues.ToList(), NoEffectValues = activation.NoEffectValues.ToList(),
+                EffectOperationIds = group.SelectMany(c => c.OperationIds).Distinct(StringComparer.Ordinal).ToList(), InputOperationIds = activation.DecisionInputOperationIds.ToList(),
+                PermissionOperationIds = confirmation ? [activation.DecisionOperationId] : activation.DecisionInputOperationIds.Where(id =>
+                    preparation.Capabilities.Any(c => c.StepType == "human.input" && c.OperationIds.Contains(id))).ToList()
+            });
+            if (confirmation)
+            {
+                var interaction = new PlanningInteractionContract { OperationId = activation.DecisionOperationId, CapabilityId = source.Id };
+                source.OutputSchema = interaction.OutputSchema.DeepClone().AsObject();
+                if (!preparation.Interactions.Any(i => i.OperationId == interaction.OperationId)) preparation.Interactions.Add(interaction);
+            }
+        }
+    }
+
     public static void EnrichTypedPreparation(PlanningPreparation preparation)
     {
         var preflight = JsonSerializer.Deserialize(preparation.RuntimeState, TypedContractJsonContext.Default.CapabilityPreflightResult)
@@ -149,11 +248,11 @@ public sealed partial class WorkflowPlanExecutor
         }
     }
 
-    public Task<IReadOnlyList<PlanningScenarioResult>> ValidateTypedScenariosAsync(string yaml, PlanningPreparation preparation, CancellationToken ct)
+    public Task<IReadOnlyList<PlanningScenarioResult>> ValidateTypedScenariosAsync(string yaml, PlanningPreparation preparation, CancellationToken ct, JsonObject? inputs = null)
     {
         var preflight = JsonSerializer.Deserialize(preparation.RuntimeState, TypedContractJsonContext.Default.CapabilityPreflightResult)
             ?? throw new InvalidOperationException("The persisted capability contract is missing.");
-        return WorkflowPlanScenarioValidator.ValidateAsync(WorkflowParser.Parse(yaml), BuildDryRunMcpClientFactory(preflight.DiscoveredServers), ct);
+        return WorkflowPlanScenarioValidator.ValidateAsync(WorkflowParser.Parse(yaml), BuildDryRunMcpClientFactory(preflight.DiscoveredServers), ct, inputs);
     }
 
     public async Task<IReadOnlyList<PlanningDiagnostic>> ValidateTypedCatalogAsync(WorkflowEngine engine, PlanningPreparation preparation, CancellationToken ct)
@@ -212,6 +311,9 @@ public sealed partial class WorkflowPlanExecutor
     }
 
     [JsonSourceGenerationOptions(PropertyNamingPolicy = JsonKnownNamingPolicy.CamelCase)]
+    [JsonSerializable(typeof(CapabilityInventory))]
+    [JsonSerializable(typeof(List<McpServerDiscovery>))]
+    [JsonSerializable(typeof(CapabilityMatchingEvaluation))]
     [JsonSerializable(typeof(CapabilityPreflightResult))]
     private partial class TypedContractJsonContext : JsonSerializerContext;
 }

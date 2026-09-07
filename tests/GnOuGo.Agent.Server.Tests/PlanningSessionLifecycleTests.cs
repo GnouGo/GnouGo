@@ -17,6 +17,41 @@ public sealed class PlanningSessionLifecycleTests
     private static CancellationToken Ct => TestContext.Current.CancellationToken;
 
     [Fact]
+    public async Task PreparationProgressIsDurableBeforeThePhaseCompletes()
+    {
+        await using var fixture = await PlanningPersistenceTests.StoreFixture.CreateAsync();
+        var checkpointed = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var firstPlanner = new DelegatePlanner(async (snapshot, _, runtime, ct) =>
+        {
+            var next = JsonSerializer.Deserialize(JsonSerializer.Serialize(snapshot, PlanningJsonContext.Default.PlanningSnapshot), PlanningJsonContext.Default.PlanningSnapshot)!;
+            next.PreparationCheckpoint = new() { Stage = "inventory", ValidatedResults = new JsonObject { ["inventory"] = "PRIVATE_PREPARATION" } };
+            await runtime.CheckpointAsync(next, ct); checkpointed.TrySetResult();
+            await Task.Delay(Timeout.InfiniteTimeSpan, ct); return next;
+        });
+        string id;
+        using (var first = Create(fixture, firstPlanner, AgentCatalog()))
+        {
+            await first.StartAsync(Ct);
+            var state = await first.StartAsync("Checkpoint test", "Inspect a resource", false, Ct); id = state.Request.SessionId;
+            await checkpointed.Task.WaitAsync(TimeSpan.FromSeconds(5), Ct);
+            var stored = (await fixture.Store.LoadAsync(state.Request.TenantId, id, Ct))!;
+            Assert.True(stored.Revision > state.Revision); Assert.Equal("inventory", stored.PreparationCheckpoint!.Stage);
+            await first.StopAsync(Ct);
+        }
+        var resumed = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var secondPlanner = new DelegatePlanner((snapshot, _, _, _) =>
+        {
+            Assert.Equal("inventory", snapshot.PreparationCheckpoint!.Stage);
+            var next = JsonSerializer.Deserialize(JsonSerializer.Serialize(snapshot, PlanningJsonContext.Default.PlanningSnapshot), PlanningJsonContext.Default.PlanningSnapshot)!;
+            next.Revision++; next.Status = PlanningStatus.BehaviorReview; resumed.TrySetResult(); return Task.FromResult(next);
+        });
+        using var second = Create(fixture, secondPlanner, AgentCatalog());
+        await second.StartAsync(Ct);
+        try { await resumed.Task.WaitAsync(TimeSpan.FromSeconds(5), Ct); await WaitForStatus(second, id, PlanningStatus.BehaviorReview); }
+        finally { await second.StopAsync(Ct); }
+    }
+
+    [Fact]
     public async Task CancelInterruptsAnActivePlanningPhase()
     {
         await using var fixture = await PlanningPersistenceTests.StoreFixture.CreateAsync();

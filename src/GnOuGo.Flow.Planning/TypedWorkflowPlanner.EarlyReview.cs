@@ -12,6 +12,15 @@ public sealed partial class TypedWorkflowPlanner
         state.CurrentPhase = PlanningPhase.Behavior;
         state.ApprovedHash = null; state.ArtifactHash = null; state.Yaml = null; state.Scenarios.Clear();
         await runtime.EnrichPreparationAsync(state.Preparation!, ct);
+        if (state.BehaviorPlan is { } retained)
+        {
+            PlanningBehaviorPlans.CompleteOwnership(retained, state.Preparation!);
+            if (PlanningBehaviorPlans.Validate(retained, state.Preparation!).Count == 0)
+            {
+                ReadyForBehaviorReview(state, retained);
+                return;
+            }
+        }
         var schema = PlanningSchemas.Behavior(state.Preparation);
         var locked = state.Preparation!.LockedContract.DeepClone().AsObject(); locked.Remove("capabilities");
         var prompt = "Describe the intended behavior for human review, before executable construction. Do not generate schemas, expressions, code or YAML. " +
@@ -50,14 +59,7 @@ public sealed partial class TypedWorkflowPlanner
                 diagnostics.AddRange(PlanningBehaviorPlans.Validate(plan, state.Preparation));
                 if (diagnostics.Count == 0)
                 {
-                    state.BehaviorPlan = plan; state.ApprovedBehaviorHash = null;
-                    state.Dataflow = null; // Dependencies belong to this exact behavior revision.
-                    // The old executable candidate remains historical evidence, not an approved implementation.
-                    if (state.Graph is not null) state.PreviousGraph = state.Graph;
-                    state.Graph = null; state.Fragments.Clear(); state.BestGraph = null; state.ConstructionUnits.Clear();
-                    state.Diagnostics.Clear(); state.ArtifactHash = PlanningBehaviorPlans.Fingerprint(plan);
-                    state.Status = PlanningStatus.BehaviorReview;
-                    state.Attempts.Add(new(state.ArtifactHash, PlanningPhase.Behavior, 1, true, []));
+                    ReadyForBehaviorReview(state, plan);
                     return;
                 }
             }
@@ -67,6 +69,17 @@ public sealed partial class TypedWorkflowPlanner
         state.Diagnostics.Add(new("BEHAVIOR_REPAIR_EXHAUSTED", "/behavior", "The behavior description could not be validated within two calls. Retry or edit the request; executable generation has not started."));
         state.Status = PlanningStatus.Recovery;
         state.Events.Add(new("behavior_repair_exhausted", PlanningPhase.Behavior, _time.GetUtcNow(), diagnostics.Count));
+    }
+
+    private static void ReadyForBehaviorReview(PlanningSnapshot state, PlanningBehaviorPlan plan)
+    {
+        state.BehaviorPlan = plan; state.ApprovedBehaviorHash = null;
+        state.Dataflow = null;
+        if (state.Graph is not null) state.PreviousGraph = state.Graph;
+        state.Graph = null; state.Fragments.Clear(); state.BestGraph = null; state.BestScenarios.Clear(); state.ConstructionUnits.Clear();
+        state.Diagnostics.Clear(); state.ArtifactHash = PlanningBehaviorPlans.Fingerprint(plan);
+        state.Status = PlanningStatus.BehaviorReview;
+        state.Attempts.Add(new(state.ArtifactHash, PlanningPhase.Behavior, 1, true, []));
     }
 
     internal static string BehaviorCapabilities(PlanningPreparation preparation)

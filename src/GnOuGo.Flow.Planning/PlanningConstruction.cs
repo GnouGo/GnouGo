@@ -135,6 +135,7 @@ public static class PlanningConstruction
                 else
                 {
                     if (node.Type == "human.input") fields["context"] = Nullable(Ref("value"));
+                    else if (PlanningDecisionRouting.LocalContracts(node, preparation).Length > 0) fields["conditions"] = PlanningDecisionRouting.ConditionsSchema(node, preparation);
                     else if (unit.ContractVersion >= PlanningDataflow.BindingVersion && node.Type == "mcp.call" && preparation.Capabilities.FirstOrDefault(c => c.Id == node.CapabilityId) is { InputSchema: var inputSchema } capability && inputSchema["properties"] is JsonObject properties)
                     {
                         var required = (inputSchema["required"] as JsonArray ?? []).Select(p => p?.GetValue<string>()).ToHashSet(StringComparer.Ordinal);
@@ -143,11 +144,28 @@ public static class PlanningConstruction
                             (required.Contains(p.Key) ? Ref("value") : new JsonObject { ["anyOf"] = new JsonArray(Ref("value"), Object(new() { ["kind"] = new JsonObject { ["type"] = "string", ["enum"] = new JsonArray("omit") } })) })))));
                     }
                     else if (node.Type is not ("sequence" or "parallel" or "switch")) fields["input"] = Ref("value");
-                    if (node.Type == "switch") fields["expr"] = Ref("value");
+                    if (node.Type == "switch" && PlanningDecisionRouting.Contract(node, preparation) is null) fields["expr"] = Ref("value");
                     if (node.Type is "loop.sequential" or "loop.parallel")
                         foreach (var key in new[] { "itemVar", "indexVar" }) fields[key] = Nullable(new() { ["type"] = "string" });
-                    if (node.Type is not ("sequence" or "parallel" or "switch" or "human.input"))
+                    if (node.Type is not ("sequence" or "parallel" or "switch" or "human.input") && PlanningDecisionRouting.LocalContracts(node, preparation).Length == 0)
                         fields["onError"] = new JsonObject { ["type"] = "array", ["items"] = Ref("errorCase") };
+                }
+                if (unit.Kind == "implementation" && unit.ContractVersion >= PlanningDataflow.BindingVersion && graph is not null)
+                {
+                    var prefix = ValueScope(node.Key);
+                    var available = PlanningDataflow.CompactIndex(workflow, preparation, graph, node.Key).Keys.ToArray();
+                    foreach (var name in new[] { "value", "member", "errorCase" })
+                    {
+                        var definition = definitions[name]!.DeepClone();
+                        if (name == "value")
+                        {
+                            var options = definition["anyOf"]!.AsArray();
+                            foreach (var option in options.OfType<JsonObject>().Where(v => v["properties"]?["kind"]?["enum"]?[0]?.ToString() == "binding").ToArray()) options.Remove(option);
+                            if (available.Length > 0) options.Add((JsonNode)PlanningDataflow.BindingSchema(available));
+                        }
+                        ScopeReferences(definition, prefix); definitions[prefix + name] = definition;
+                    }
+                    ScopeReferences(fields, prefix);
                 }
                 nodes[node.Key] = Object(fields);
             }
@@ -155,6 +173,17 @@ public static class PlanningConstruction
             if (unit.Kind == "implementation") root["functions"] = Nullable(new() { ["type"] = "string" });
         }
         var schema = Object(root); schema["$defs"] = definitions; PruneDefinitions(schema); return schema;
+    }
+
+    internal static string ValueScope(string nodeKey) => "scope_" + PlanningGraphCompiler.Fingerprint(nodeKey)[..8] + "_";
+    private static void ScopeReferences(JsonNode? node, string prefix)
+    {
+        if (node is JsonObject obj)
+        {
+            if (obj["$ref"]?.ToString() is "#/$defs/value" or "#/$defs/member" or "#/$defs/errorCase") obj["$ref"] = "#/$defs/" + prefix + obj["$ref"]!.ToString()[8..];
+            foreach (var child in obj.Select(p => p.Value)) ScopeReferences(child, prefix);
+        }
+        else if (node is JsonArray array) foreach (var child in array) ScopeReferences(child, prefix);
     }
 
     public static JsonObject Values(PlanningWorkflow workflow, PlanningConstructionUnit unit)
@@ -176,7 +205,7 @@ public static class PlanningConstruction
             {
                 if (node.Type == "human.input") fields["context"] = null;
                 else if (node.Type is not ("sequence" or "parallel" or "switch")) fields["input"] = Compact(node.Input, PlanningJsonContext.Default.PlanningValue);
-                if (node.Type == "switch") fields["expr"] = Compact(node.Expr ?? new(), PlanningJsonContext.Default.PlanningValue);
+                if (node.Type == "switch" && node.Expr?.Kind is not ("confirmation" or "decision_binding")) fields["expr"] = Compact(node.Expr ?? new(), PlanningJsonContext.Default.PlanningValue);
                 if (node.Type is "loop.sequential" or "loop.parallel") { fields["itemVar"] = node.ItemVar; fields["indexVar"] = node.IndexVar; }
                 if (node.Type is not ("sequence" or "parallel" or "switch" or "human.input")) fields["onError"] = PlanningModelValues.Compact(JsonSerializer.SerializeToNode(node, PlanningJsonContext.Default.PlanningNode)!["onError"]);
             }
@@ -214,7 +243,19 @@ public static class PlanningConstruction
         {
             var fields = candidate["nodes"]![node.Key]!.AsObject();
             if (unit.Kind == "implementation" && unit.ContractVersion >= PlanningDataflow.BindingVersion)
-                fields = PlanningDataflow.Expand(fields, PlanningDataflow.Index(workflow, preparation, result, node.Key))!.AsObject();
+            {
+                try { fields = PlanningDataflow.Expand(fields, PlanningDataflow.Index(workflow, preparation, result, node.Key), "/nodes/" + PlanningSchemaReferences.Escape(node.Key))!.AsObject(); }
+                catch (PlanningDataflow.BindingException error)
+                {
+                    var original = graph.Workflows.Single(w => w.Key == unit.WorkflowKey);
+                    var before = PlanningDataflow.Index(original, preparation, graph, node.Key).GetValueOrDefault(error.Reference);
+                    var changedProducer = PlanningGraphCompiler.Enumerate(workflow.Steps.Concat(workflow.Finally)).FirstOrDefault(n => n.Key == before?.Value.Source);
+                    if (before?.Value.Kind == "output" && before.Value.ResultChannel is not "structured" && changedProducer?.OnError.Any(h => h.Action == "continue") == true && unit.NodeKeys.Contains(changedProducer.Key))
+                        throw new PlanningDataflow.BindingException("/nodes/" + PlanningSchemaReferences.Escape(changedProducer.Key) + "/onError", error.Reference,
+                            "This failure handler removes the original response contract required by a downstream binding. Fail closed at the producer while preserving cleanup, or establish an explicit guarded failure route. A fallback cannot manufacture a required original artifact.");
+                    throw;
+                }
+            }
             if (unit.Kind == "contracts")
             {
                 if (node.Type == "set") node.OutputSchema = JsonSerializer.Deserialize(fields["outputSchema"]!, PlanningJsonContext.Default.PlanningSchema);
@@ -236,6 +277,7 @@ public static class PlanningConstruction
                         request.Members.Add(new(binding.Path[1..].Replace("~1", "/", StringComparison.Ordinal).Replace("~0", "~", StringComparison.Ordinal), Literal(binding.Value)));
                 }
                 if (fields["input"] is { } input) node.Input = JsonSerializer.Deserialize(input, PlanningJsonContext.Default.PlanningValue)!;
+                if (fields["conditions"] is JsonObject conditions) PlanningDecisionRouting.ApplyConditions(workflow, node, conditions, preparation, result);
                 if (node.Type == "human.input")
                 {
                     node.Input = Literal(HumanInputContract.ConfirmationInput(node.Purpose));
@@ -243,7 +285,8 @@ public static class PlanningConstruction
                 }
                 if (node.Type == "switch")
                 {
-                    node.Expr = JsonSerializer.Deserialize(fields["expr"]!, PlanningJsonContext.Default.PlanningValue);
+                    node.Expr = PlanningDecisionRouting.Contract(node, preparation) is not null ? PlanningDecisionRouting.Resolve(workflow, node, preparation, result)
+                        : JsonSerializer.Deserialize(fields["expr"]!, PlanningJsonContext.Default.PlanningValue);
                     // Accepted explicit outcomes are value matches. Default is never a numbered case.
                     node.Cases = node.Cases.Select(c => c with { When = null }).ToList();
                 }

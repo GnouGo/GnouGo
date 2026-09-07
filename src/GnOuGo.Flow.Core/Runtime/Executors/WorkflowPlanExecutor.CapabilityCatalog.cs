@@ -47,7 +47,7 @@ public sealed partial class WorkflowPlanExecutor
         public IReadOnlyList<string> InputOperationIds { get; init; } = Array.Empty<string>();
         public IReadOnlyList<string> CoverageRequirements { get; init; } = Array.Empty<string>();
         public IReadOnlyList<CapabilityEvidenceAnchor> CoverageRequirementEvidence { get; init; } = Array.Empty<CapabilityEvidenceAnchor>();
-        public IReadOnlySet<string> WorkflowStructureCoverageRequirementIds { get; init; } = new HashSet<string>(StringComparer.Ordinal);
+        public HashSet<string> WorkflowStructureCoverageRequirementIds { get; init; } = new(StringComparer.Ordinal);
         public CapabilityEvidenceAnchor? OptionalityEvidenceAnchor { get; init; }
         public CapabilityEvidenceAnchor? NoEffectOutcomeEvidenceAnchor { get; init; }
     }
@@ -141,6 +141,7 @@ public sealed partial class WorkflowPlanExecutor
         IReadOnlyList<CapabilityMatchingIssue> Issues,
         bool ContractValid)
     {
+        public bool ExactDecisionSources { get; init; }
         public IReadOnlyList<CapabilityMatchingIssue> RejectedRewindIssues { get; init; } = Array.Empty<CapabilityMatchingIssue>();
     }
 
@@ -189,7 +190,10 @@ public sealed partial class WorkflowPlanExecutor
 
     private sealed record CapabilityCatalog(
         IReadOnlyList<CapabilityCatalogEntry> Entries,
-        string Text);
+        string Text)
+    {
+        public bool ExactDecisionSources { get; init; }
+    }
 
     private sealed record SelectorVariant(
         IReadOnlyList<CapabilityRequestBinding> Bindings,

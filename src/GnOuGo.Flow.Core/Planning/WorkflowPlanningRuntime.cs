@@ -32,6 +32,19 @@ public sealed class WorkflowPlanningRuntime : IPlanningRuntime
         _context.PlanningGeneration = request.Generation;
         return _executor.PrepareTypedContractsAsync(_context, request, ct);
     }
+    public async Task<PlanningPreparationProgress> AdvancePreparationAsync(PlanningRequest request, PlanningPreparationCheckpoint checkpoint,
+        Func<CancellationToken, Task> persist, CancellationToken ct)
+    {
+        _context.PreparationCheckpoint = checkpoint; _context.PersistPreparation = persist;
+        try
+        {
+            var preparation = await PrepareAsync(request, ct);
+            checkpoint.Stage = "completed"; checkpoint.Diagnostics.Clear();
+            return new(checkpoint, preparation);
+        }
+        finally { _context.PreparationCheckpoint = null; _context.PersistPreparation = null; }
+    }
+
     public Task EnrichPreparationAsync(PlanningPreparation preparation, CancellationToken ct)
     {
         ct.ThrowIfCancellationRequested();
@@ -63,6 +76,8 @@ public sealed class WorkflowPlanningRuntime : IPlanningRuntime
         => _executor.ValidateTypedArtifactAsync(_context, yaml, request, preparation, ct);
     public Task<IReadOnlyList<PlanningScenarioResult>> ValidateScenariosAsync(string yaml, PlanningPreparation preparation, CancellationToken ct)
         => _executor.ValidateTypedScenariosAsync(yaml, preparation, ct);
+    public Task<IReadOnlyList<PlanningScenarioResult>> ValidateScenariosAsync(string yaml, PlanningPreparation preparation, JsonObject inputs, CancellationToken ct)
+        => _executor.ValidateTypedScenariosAsync(yaml, preparation, ct, inputs);
     public Task CheckpointAsync(PlanningSnapshot snapshot, CancellationToken ct) => _checkpoint?.Invoke(snapshot, ct) ?? Task.CompletedTask;
     public Task<IReadOnlyList<PlanningDiagnostic>> ValidateCatalogAsync(PlanningPreparation preparation, CancellationToken ct)
         => _executor.ValidateTypedCatalogAsync(_context.Engine, preparation, ct);

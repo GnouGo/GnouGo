@@ -97,6 +97,14 @@
             <div class="my-3"><label for="plan-feedback">What would you like to change?</label><textarea id="plan-feedback" class="form-control" rows="3" @bind="_feedback"></textarea></div>
             <button class="btn btn-secondary" disabled="@(_busy || string.IsNullOrWhiteSpace(_feedback))" @onclick='() => SubmitAsync("revise", _feedback)'>Revise in natural language</button>
         }
+        @if (_state.PreparationCheckpoint is { } preparationCheckpoint && _state.Preparation is null)
+        {
+            <p>Capability stage: @preparationCheckpoint.Stage · Model requests recorded: @preparationCheckpoint.RequestHashes.Count. Validated preparation stages are retained for Retry.</p>
+        }
+        @if (_state.Preparation?.Decisions.Any(d => d.ContractSource == PlanningDecisionContract.HumanConfirmation) == true)
+        {
+            <p>Permission to publish comes from runtime human confirmation. The generated review result cannot authorize publication.</p>
+        }
         @if (_state.Answers.Count > 0)
         {
             <details open class="my-3"><summary>Answered clarification forms (@_state.Answers.Count)</summary>

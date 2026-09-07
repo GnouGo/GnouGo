@@ -261,11 +261,25 @@ public sealed class PlanningSessionService(
             LlmDefaults = new LlmRuntimeDefaults { Provider = runtime.Options.DefaultProvider, Model = runtime.Options.DefaultModel },
             Limits = new ExecutionLimits { LogStepContent = false, TenantId = Tenant, RunId = current.Request.SessionId }
         };
-        var result = await planner.AdvanceAsync(current, command, new WorkflowPlanningRuntime(engine), ct);
+        var persistedRevision = current.Revision;
+        var planningRuntime = new WorkflowPlanningRuntime(engine, async (checkpoint, token) =>
+        {
+            // Each checkpoint is an immutable encrypted revision. Concurrent/stale
+            // commands cannot replace progress published by another worker.
+            if (checkpoint.Revision <= persistedRevision) checkpoint.Revision = persistedRevision + 1;
+            checkpoint.ActiveMilliseconds = current.ActiveMilliseconds + sw.Elapsed.TotalMilliseconds;
+            checkpoint.Usage = budget.Snapshot; checkpoint.UpdatedAtUtc = DateTimeOffset.UtcNow;
+            if (!await store.TrySaveAsync(checkpoint, persistedRevision, token)) throw new PlanningConflictException("A newer planning revision was persisted by another worker.");
+            persistedRevision = checkpoint.Revision;
+        });
+        var result = await planner.AdvanceAsync(current, command, planningRuntime, ct);
         if (result.Revision == current.Revision) return result;
-        result.ActiveMilliseconds = current.ActiveMilliseconds + sw.Elapsed.TotalMilliseconds;
-        result.Usage = budget.Snapshot;
-        if (!await store.TrySaveAsync(result, current.Revision, ct)) throw new PlanningConflictException("A newer planning revision was persisted by another worker.");
+        if (result.Revision > persistedRevision)
+        {
+            result.ActiveMilliseconds = current.ActiveMilliseconds + sw.Elapsed.TotalMilliseconds;
+            result.Usage = budget.Snapshot;
+            if (!await store.TrySaveAsync(result, persistedRevision, ct)) throw new PlanningConflictException("A newer planning revision was persisted by another worker.");
+        }
         ObserveTransition(current, result, sw, activity);
         return result;
     }
@@ -280,6 +294,9 @@ public sealed class PlanningSessionService(
         activity?.SetTag("gnougo.planning.units.total", result.ConstructionUnits.Count(u => u.Status != "superseded"));
         activity?.SetTag("gnougo.planning.units.repair_calls", result.ConstructionUnits.Sum(u => u.RepairCalls));
         activity?.SetTag("gnougo.planning.bindings.count", result.Dataflow?.Bindings.Count ?? 0);
+        activity?.SetTag("gnougo.planning.preparation.stage", result.PreparationCheckpoint?.Stage);
+        activity?.SetTag("gnougo.planning.decisions.version", result.Preparation?.DecisionContractVersion ?? 0);
+        activity?.SetTag("gnougo.planning.decisions.count", result.Preparation?.Decisions.Count ?? 0);
         activity?.SetTag("gnougo.planning.units.input_estimate.max", result.ConstructionUnits.Select(u => u.EstimatedInputTokens ?? 0).DefaultIfEmpty().Max());
         activity?.SetTag("gnougo.planning.units.dispatch_blocked", result.ConstructionUnits.Count(u => u.DispatchOutcome == "not_dispatched"));
         activity?.SetTag("gnougo.planning.diagnostic_codes", string.Join(",", result.Diagnostics.Select(d => d.Code).Distinct(StringComparer.Ordinal)));

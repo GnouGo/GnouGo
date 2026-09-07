@@ -96,8 +96,8 @@ internal static class PlanningSchemas
 
     private static JsonObject Evidence() => Array(Object(("sourceId", String()), ("excerpt", String())));
 
-    public static JsonObject Review() => Object(("findings", Array(Object(
-        ("code", String()), ("workflow", String()), ("message", String()), ("evidence", String()), ("blocking", Type("boolean"))))));
+    public static JsonObject Review(IEnumerable<string>? workflows = null) => Object(("findings", Array(Object(
+        ("code", String()), ("workflow", workflows is null ? String() : Enum(workflows.ToArray())), ("message", String()), ("evidence", String()), ("blocking", Type("boolean"))))));
 
     public static JsonObject Revision() => Object(("affectedWorkflows", Array(String())), ("changesBehavior", Type("boolean")), ("evidence", String()));
 

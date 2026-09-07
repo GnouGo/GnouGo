@@ -351,6 +351,7 @@ public sealed class TypedPlannerTests
                 "fragment" => request.StructuredOutputSchema?["properties"]?["nodes"] is null ? PlanningModelValues.Workflow(Graph().Workflows[0]) : PlanningFragments.Values(Graph().Workflows[0]),
                 "fragment_inputs" or "fragment_contracts" or "fragment_implementation" or "fragment_outputs" => ConstructionResponse(request, phase),
                 "semantic_review" => new JsonObject { ["findings"] = new JsonArray() },
+                "scenario_inputs" => new JsonObject(request.StructuredOutputSchema!["properties"]!.AsObject().Select(p => new KeyValuePair<string, JsonNode?>(p.Key, new JsonObject { ["kind"] = "string", ["text"] = "fixture" }))),
                 _ => throw new InvalidOperationException("Unexpected model phase: " + phase)
             };
             return Task.FromResult(new LLMResponse { Json = json, Text = json!.ToJsonString() });

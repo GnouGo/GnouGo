@@ -259,7 +259,7 @@ public sealed partial class PlanningGraphCompiler
             case "workflow" when allowReferences:
                 if (value.Source is null || !scope.WorkflowIds.TryGetValue(value.Source, out var workflow)) throw new InvalidOperationException("Unknown workflow reference.");
                 return new JsonObject { ["kind"] = "local", ["name"] = workflow };
-            case "input" or "output" or "expression" or "compute" when allowReferences: return JsonValue.Create(ToExpression(value, scope));
+            case "input" or "output" or "expression" or "compute" or "confirmation" or "decision_binding" when allowReferences: return JsonValue.Create(ToExpression(value, scope));
             case "template" when allowReferences:
                 var template = value.Text ?? "";
                 EnsureUnique(value.Members.Select(m => m.Name), "template binding");
@@ -293,6 +293,16 @@ public sealed partial class PlanningGraphCompiler
                 throw new InvalidOperationException("This producer does not support the structured result channel.");
             var envelope = value.ResultChannel == "structured" ? ".json" : type switch { "workflow.call" => ".outputs", "mcp.call" => ".response", _ => "" };
             expression = "data.steps." + node + envelope + ResultPath(type, value.Path, scope);
+        }
+        else if (value.Kind == "decision_binding")
+        {
+            if (value.Items.Count != 1) throw new InvalidOperationException("Invalid locked decision binding.");
+            expression = ExpressionBody(value.Items[0]);
+        }
+        else if (value.Kind == "confirmation")
+        {
+            if (value.Items.Count != 1 || string.IsNullOrEmpty(value.Text) || string.IsNullOrEmpty(value.Source)) throw new InvalidOperationException("Invalid confirmation mapping.");
+            expression = GnOuGo.Flow.Core.Expressions.ConfirmationDecisionExpression.Build(ExpressionBody(value.Items[0]), value.Text, value.Source);
         }
         else if (value.Kind == "compute")
         {

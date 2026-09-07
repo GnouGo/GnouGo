@@ -11,6 +11,33 @@ namespace GnOuGo.Flow.Planning.Tests;
 public sealed class DataflowBindingTests
 {
     [Theory]
+    [InlineData("context", "summary")]
+    [InlineData("contexte", "résumé")]
+    public void ComputedObjectMismatchRepairsItsStructureAndPreservesOtherFields(string source, string result)
+    {
+        var graph = Graph(); var preparation = Preparation(); var workflow = graph.Workflows[0];
+        workflow.Inputs.Add(new() { Name = source, Schema = new() { Type = "string" } });
+        var node = workflow.Steps[0];
+        node.Input = Obj((source, new() { Kind = "input", Source = source }));
+        node.OutputSchema = new() { Type = "object", Properties = [new() { Name = result, Schema = new() { Type = "string" } }] };
+        var finding = Assert.Single(PlanningExecutableValidation.Validate(graph, preparation), d => d.Code == "SET_OUTPUT_INVALID");
+        Assert.EndsWith("/input", finding.Location);
+        var unit = new PlanningConstructionUnit { Key = "unit", WorkflowKey = workflow.Key, Kind = "implementation", NodeKeys = [node.Key], ContractVersion = PlanningDataflow.ContractVersion };
+        unit.Candidate = PlanningConstruction.UpgradeCandidate(graph, unit, PlanningConstruction.Values(workflow, unit), preparation);
+        unit.Diagnostics = [finding];
+        var patch = PlanningUnitPatches.Create(graph, unit, PlanningConstruction.Schema(workflow, unit, preparation, graph));
+        var coordinate = Assert.Single(patch.Schema["properties"]!["changes"]!["properties"]!.AsObject()).Key;
+        Assert.Equal("nodes/" + node.Key + "/input", coordinate);
+        Assert.NotNull(TypedWorkflowPlanner.ComputedContractContext(workflow, preparation, patch.Context(unit.Candidate))[node.Key]?["properties"]?[result]);
+        var replacement = new JsonObject { ["kind"] = "object", ["members"] = new JsonArray(new JsonObject { ["name"] = result,
+            ["value"] = unit.Candidate["nodes"]![node.Key]!["input"]!["members"]![0]!["value"]!.DeepClone() }) };
+        var repaired = patch.Apply(unit.Candidate, new JsonObject { ["changes"] = new JsonObject { [coordinate] = replacement }, ["remove"] = new JsonArray() });
+        Assert.True(JsonNode.DeepEquals(unit.Candidate["nodes"]![node.Key]!["onError"], repaired["nodes"]![node.Key]!["onError"]));
+        var applied = PlanningConstruction.Apply(graph, unit, repaired, preparation);
+        Assert.DoesNotContain(PlanningExecutableValidation.Validate(applied, preparation), d => d.Code == "SET_OUTPUT_INVALID");
+    }
+
+    [Theory]
     [InlineData(false)]
     [InlineData(true)]
     public async Task LegacyApprovalResolvesInputObligations_WithBoundedEvidenceValidation(bool invented)
@@ -56,6 +83,41 @@ public sealed class DataflowBindingTests
         candidate["nodes"]!["greeting"]!["input"] = new JsonObject { ["kind"] = "binding", ["reference"] = "invented" };
         Assert.NotEmpty(PlanningConstruction.ShapeFindings(candidate, schema, unit));
         Assert.Throws<InvalidOperationException>(() => PlanningConstruction.Apply(graph, unit, candidate, prep));
+    }
+
+    [Fact]
+    public void MultiNodeUnitDoesNotOfferLaterBindingsToEarlierOperations()
+    {
+        var (graph, preparation) = Fixture(); var workflow = graph.Workflows[0];
+        var unit = new PlanningConstructionUnit { Key = "unit", WorkflowKey = "main", Kind = "implementation", NodeKeys = ["read", "greeting"], ContractVersion = PlanningDataflow.ContractVersion };
+        var schema = PlanningConstruction.Schema(workflow, unit, preparation, graph);
+        var candidate = PlanningConstruction.UpgradeCandidate(graph, unit, PlanningConstruction.Values(workflow, unit), preparation);
+        var future = PlanningDataflow.Index(workflow, preparation, graph, "greeting").Values.Single(b => b.Value.Source == "read");
+        candidate["nodes"]!["read"]!["arguments"]!["resource"] = new JsonObject { ["kind"] = "binding", ["reference"] = future.Id };
+        Assert.NotEmpty(PlanningConstruction.ShapeFindings(candidate, schema, unit));
+        var error = Assert.Throws<PlanningDataflow.BindingException>(() => PlanningDataflow.Expand(candidate["nodes"]!["read"]!,
+            PlanningDataflow.Index(workflow, preparation, graph, "read"), "/nodes/read"));
+        Assert.Equal("/nodes/read/arguments/resource", error.Location);
+    }
+
+    [Fact]
+    public void LostProducerContractTargetsTheFailureHandlerInsteadOfRegeneratingTheConsumer()
+    {
+        var (graph, preparation) = Fixture(); var workflow = graph.Workflows[0];
+        var unit = new PlanningConstructionUnit { Key = "unit", WorkflowKey = "main", Kind = "implementation", NodeKeys = ["read", "greeting"], ContractVersion = PlanningDataflow.ContractVersion };
+        var candidate = PlanningConstruction.UpgradeCandidate(graph, unit, PlanningConstruction.Values(workflow, unit), preparation);
+        candidate["nodes"]!["read"]!["onError"] = new JsonArray(new JsonObject { ["if"] = null, ["action"] = "continue", ["setOutput"] = new JsonObject { ["kind"] = "object", ["members"] = new JsonArray() }, ["retry"] = null });
+        var raw = PlanningDataflow.Index(workflow, preparation, graph, "greeting").Values.Single(b => b.Value.Source == "read");
+        candidate["nodes"]!["greeting"]!["input"] = new JsonObject { ["kind"] = "binding", ["reference"] = raw.Id };
+        var error = Assert.Throws<PlanningDataflow.BindingException>(() => PlanningConstruction.Apply(graph, unit, candidate, preparation));
+        Assert.Equal("/nodes/read/onError", error.Location);
+        unit.Candidate = candidate;
+        unit.Diagnostics = [new("BINDING_UNAVAILABLE", "/units/unit/candidate" + error.Location, error.Message)];
+        var patch = PlanningUnitPatches.Create(graph, unit, PlanningConstruction.Schema(workflow, unit, preparation, graph));
+        Assert.Equal("nodes/read/onError", Assert.Single(patch.Schema["properties"]!["changes"]!["properties"]!.AsObject()).Key);
+        var repaired = patch.Apply(candidate, new JsonObject { ["changes"] = new JsonObject { ["nodes/read/onError"] = new JsonArray() }, ["remove"] = new JsonArray() });
+        Assert.True(JsonNode.DeepEquals(candidate["nodes"]!["greeting"], repaired["nodes"]!["greeting"]));
+        Assert.Empty(PlanningConstruction.Apply(graph, unit, repaired, preparation).Workflows[0].Steps[0].OnError);
     }
 
     [Fact]
@@ -176,6 +238,11 @@ public sealed class DataflowBindingTests
     [Theory]
     [InlineData("value.toUpperCase()")]
     [InlineData("const result = value.toUpperCase(); return result;")]
+    [InlineData("return [[value]].map(([entry]) => entry.toUpperCase())[0];")]
+    [InlineData("const { entry: result } = { entry: value }; return result.toUpperCase();")]
+    [InlineData("return (({ entry = '' }, ...suffix) => entry.toUpperCase() + suffix.join(''))({ entry: value });")]
+    [InlineData("try { throw new Error(value); } catch (error) { const { message } = error; return message.toUpperCase(); } return '';")]
+    [InlineData("decodeURIComponent(encodeURIComponent(value)).toUpperCase()")]
     public async Task NamedComputationParametersExecuteWithoutImplicitContext(string expression)
     {
         var graph = Graph(); var workflow = graph.Workflows[0];
@@ -203,14 +270,19 @@ public sealed class DataflowBindingTests
         Assert.True(run.Success, run.Error?.Message); Assert.Equal("PREFIX: [HELLO]!", run.Outputs?["message"]?.ToString());
     }
 
-    [Fact]
-    public async Task RuntimeFindingsUseTheSameSmallValueRepairs_AsConstructionFindings()
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task RuntimeFindingsUseTheSameSmallValueRepairs_AsConstructionFindings(bool wrapped)
     {
         var (graph, prep) = Fixture(); var workflow = graph.Workflows[0];
         workflow.Steps[1].Input = Obj(("message", new() { Kind = "template", Text = new string('x', 36_000) + "{{result}}", Members = [new("result", new() { Kind = "output", Source = "read", Path = ["invented"] })] }));
+        var greeting = workflow.Steps[1];
+        if (wrapped) { workflow.Steps[1] = new() { Key = "container", Type = "sequence", Steps = [greeting] }; prep.AllowedStepTypes.Add("sequence"); }
         var state = Session(PlanningStatus.Generating); state.Graph = graph; state.Preparation = prep; state.RepairAttempt = 1;
         state.ConstructionUnits.Add(new() { Key = "late-repair", WorkflowKey = "main", Kind = "implementation", NodeKeys = ["greeting"], ContractVersion = PlanningDataflow.ContractVersion, Calls = 1, Status = "validated" });
-        state.Diagnostics = [new("RUNTIME_REFERENCE_INVALID", "/workflows/0/steps/1/input/members/0/value/members/0/value", "Consume the declared whole result.", ValidationStage: PlanningValidationStage.RuntimeContracts)];
+        state.Diagnostics = [new("RUNTIME_REFERENCE_INVALID", "/workflows/0/steps/1" + (wrapped ? "/steps/0" : "") + "/input/members/0/value/members/0/value", "Consume the declared whole result.", ValidationStage: PlanningValidationStage.RuntimeContracts)];
+        if (wrapped) state.Diagnostics.Insert(0, new("SCENARIO_EXECUTION_FAILED", "/workflows/0/steps/1", "The container failed because its child failed."));
         var binding = PlanningDataflow.Index(workflow, prep, graph, "greeting").Values.Single(b => b.Value.Source == "read");
         var runtime = new FakeRuntime { OnCall = (phase, request, _) =>
         {
@@ -223,7 +295,7 @@ public sealed class DataflowBindingTests
         } };
         state = await new TypedWorkflowPlanner().AdvanceAsync(state, new() { ExpectedRevision = state.Revision }, runtime, TestContext.Current.CancellationToken);
         Assert.True(state.Status == PlanningStatus.Validating, JsonSerializer.Serialize(state.Diagnostics, PlanningJsonContext.Default.ListPlanningDiagnostic) + "\n" + string.Join("\n", state.Attempts.SelectMany(a => a.Diagnostics).Select(d => d.Message))); Assert.Single(runtime.Requests);
-        Assert.Equal(workflow.Steps[1].Input.Members[0].Value.Text, state.Graph!.Workflows[0].Steps[1].Input.Members[0].Value.Text);
+        Assert.Equal(greeting.Input.Members[0].Value.Text, PlanningGraphCompiler.Enumerate(state.Graph!.Workflows[0].Steps).Single(n => n.Key == "greeting").Input.Members[0].Value.Text);
     }
 
     [Fact]

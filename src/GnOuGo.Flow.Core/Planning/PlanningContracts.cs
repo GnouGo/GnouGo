@@ -101,11 +101,15 @@ public sealed class PlanningSnapshot
     public HumanInputRequest? Question { get; set; }
     public List<PlanningDiagnostic> Diagnostics { get; set; } = [];
     public List<PlanningScenarioResult> Scenarios { get; set; } = [];
+    public List<PlanningScenarioResult> BestScenarios { get; set; } = [];
+    public JsonObject? ScenarioInputs { get; set; }
+    public string? ScenarioInputsFingerprint { get; set; }
     public List<PlanningRevision> History { get; set; } = [];
     public List<PlanningEvent> Events { get; set; } = [];
     public Dictionary<string, PlanningFragment> Fragments { get; set; } = new(StringComparer.Ordinal);
     public List<PlanningConstructionUnit> ConstructionUnits { get; set; } = [];
     public PlanningDataflowContract? Dataflow { get; set; }
+    public PlanningPreparationCheckpoint? PreparationCheckpoint { get; set; }
     public List<PlanningGenerationRevision> GenerationHistory { get; set; } = [];
     public string? Yaml { get; set; }
     public string? ArtifactHash { get; set; }
@@ -146,6 +150,9 @@ public sealed record PlanningScenarioResult(string Id, string Outcome, string De
 
 public sealed class PlanningPreparation
 {
+    public int DecisionContractVersion { get; set; }
+    public List<PlanningDecisionContract> Decisions { get; set; } = [];
+    public List<PlanningInteractionContract> Interactions { get; set; } = [];
     public string Fingerprint { get; set; } = "";
     public JsonObject LockedContract { get; set; } = new();
     public JsonObject RuntimeState { get; set; } = new();
@@ -363,10 +370,14 @@ public interface IWorkflowPlanner
 public interface IPlanningRuntime
 {
     Task<PlanningPreparation> PrepareAsync(PlanningRequest request, CancellationToken ct);
+    async Task<PlanningPreparationProgress> AdvancePreparationAsync(PlanningRequest request, PlanningPreparationCheckpoint checkpoint,
+        Func<CancellationToken, Task> persist, CancellationToken ct) => new(checkpoint, await PrepareAsync(request, ct));
     Task EnrichPreparationAsync(PlanningPreparation preparation, CancellationToken ct) => Task.CompletedTask;
     Task<LLMResponse> CallAsync(LLMRequest request, string phase, CancellationToken ct);
     Task<IReadOnlyList<PlanningDiagnostic>> ValidateAsync(string yaml, PlanningRequest request, PlanningPreparation preparation, CancellationToken ct);
     Task<IReadOnlyList<PlanningScenarioResult>> ValidateScenariosAsync(string yaml, PlanningPreparation preparation, CancellationToken ct);
+    Task<IReadOnlyList<PlanningScenarioResult>> ValidateScenariosAsync(string yaml, PlanningPreparation preparation, JsonObject inputs, CancellationToken ct)
+        => ValidateScenariosAsync(yaml, preparation, ct);
     Task<IReadOnlyList<PlanningDiagnostic>> ValidateCatalogAsync(PlanningPreparation preparation, CancellationToken ct) => Task.FromResult<IReadOnlyList<PlanningDiagnostic>>([]);
     Task CheckpointAsync(PlanningSnapshot snapshot, CancellationToken ct) => Task.CompletedTask;
 }
@@ -382,6 +393,9 @@ public sealed class PlanningConflictException(string message) : InvalidOperation
 
 [JsonSourceGenerationOptions(PropertyNamingPolicy = JsonKnownNamingPolicy.CamelCase)]
 [JsonSerializable(typeof(PlanningSnapshot))]
+[JsonSerializable(typeof(PlanningPreparationCheckpoint))]
+[JsonSerializable(typeof(PlanningDecisionContract))]
+[JsonSerializable(typeof(PlanningInteractionContract))]
 [JsonSerializable(typeof(PlanningDataflowContract))]
 [JsonSerializable(typeof(Dictionary<string, List<string>>))]
 [JsonSerializable(typeof(PlanningGraph))]

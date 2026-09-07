@@ -11,6 +11,25 @@ public static class PlanningBehaviorPlans
     /// <summary>Project mandatory ownership from exact selected contracts when the owner is unambiguous.</summary>
     public static void CompleteOwnership(PlanningBehaviorPlan plan, PlanningPreparation preparation)
     {
+        foreach (var capability in preparation.Capabilities.Where(c => c.Required && c.StepType == "decision.evaluate"))
+        {
+            if (plan.Workflows.SelectMany(w => Enumerate(w.Steps.Concat(w.Finally))).Any(n => n.CapabilityId == capability.Id)) continue;
+            var owners = plan.Workflows.SelectMany(w => Enumerate(w.Steps.Concat(w.Finally)))
+                .Where(n => n.Kind == "decision" && capability.OperationIds.All(n.OperationIds.Contains)).ToArray();
+            if (owners.Length != 1 || capability.OperationIds.Count == 0) continue;
+            var routing = owners[0];
+            var key = routing.Key + "_producer_" + PlanningGraphCompiler.Fingerprint(capability.Id)[..8];
+            if (plan.Workflows.SelectMany(w => Enumerate(w.Steps.Concat(w.Finally))).Any(n => n.Key == key)) continue;
+            var producer = new PlanningBehaviorNode { Key = key, Kind = "operation", CapabilityId = capability.Id,
+                Purpose = routing.Purpose, OperationIds = capability.OperationIds.ToList(), InputDependencies = routing.InputDependencies?.ToList() };
+            foreach (var workflow in plan.Workflows) { Insert(workflow.Steps); Insert(workflow.Finally); }
+            void Insert(List<PlanningBehaviorNode> nodes)
+            {
+                var index = nodes.IndexOf(routing);
+                if (index >= 0) { nodes.Insert(index, producer); return; }
+                foreach (var node in nodes) { Insert(node.Steps); foreach (var outcome in node.Outcomes) Insert(outcome.Steps); }
+            }
+        }
         foreach (var operation in preparation.Capabilities.SelectMany(c => c.OperationIds).Distinct(StringComparer.Ordinal))
         {
             if (plan.Workflows.Any(w => w.OperationIds.Contains(operation, StringComparer.Ordinal))) continue;

@@ -54,6 +54,8 @@ public sealed class StepExecutionContext
     public HashSet<string> CallStack { get; init; } = new();
     internal LLMUsageBudgetScope? LLMUsageBudget { get; set; }
     internal Planning.PlanningGenerationOptions? PlanningGeneration { get; set; }
+    internal Planning.PlanningPreparationCheckpoint? PreparationCheckpoint { get; set; }
+    internal Func<CancellationToken, Task>? PersistPreparation { get; set; }
     internal WorkflowExecutionScope? ExecutionScope { get; init; }
     internal WorkflowExecutionScope EffectiveExecutionScope =>
         ExecutionScope ?? new WorkflowExecutionScope(null, Engine.Evaluator, Engine.Interpolator);
@@ -74,6 +76,13 @@ public sealed class StepExecutionContext
         ArgumentNullException.ThrowIfNull(client);
         ArgumentNullException.ThrowIfNull(request);
         if (PlanningGeneration is { } generation) Planning.PlanningGenerationPolicy.Apply(request, generation);
+
+        if (PreparationCheckpoint is { } checkpoint)
+        {
+            checkpoint.Stage = stage;
+            checkpoint.RequestHashes.Add(Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(System.Text.Json.JsonSerializer.Serialize(request, Planning.PlanningJsonContext.Default.LLMRequest)))));
+            if (PersistPreparation is not null) await PersistPreparation(ct).ConfigureAwait(false);
+        }
 
         if (LLMUsageBudget is null)
         {

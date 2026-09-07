@@ -16,6 +16,7 @@ public sealed class PlanningPersistenceTests
     {
         await using var fixture = await StoreFixture.CreateAsync();
         var state = new PlanningSnapshot { Request = new() { TenantId = "one", SessionId = "same", Prompt = "PRIVATE_PLANNING_CONTENT_81352" } };
+        state.PreparationCheckpoint = new() { Stage = "matching", ValidatedResults = new JsonObject { ["inventory"] = "PRIVATE_PREPARATION_CONTENT" }, RequestHashes = ["hash"] };
         Assert.True(await fixture.Store.TrySaveAsync(state, null, Ct));
         state.Revision = 1; state.Status = PlanningStatus.BehaviorReview;
         Assert.True(await fixture.Store.TrySaveAsync(state, 0, Ct));
@@ -25,13 +26,19 @@ public sealed class PlanningPersistenceTests
         var restored = await reopened.LoadAsync("one", "same", Ct);
         Assert.Equal(1, restored!.Revision);
         Assert.Equal(state.Request.Prompt, restored.Request.Prompt);
+        Assert.Equal("matching", restored.PreparationCheckpoint!.Stage);
+        Assert.Equal("hash", Assert.Single(restored.PreparationCheckpoint.RequestHashes));
         Assert.Null(await reopened.LoadAsync("two", "same", Ct));
         state.Request.TenantId = "two"; state.Revision = 0;
         Assert.True(await reopened.TrySaveAsync(state, null, Ct));
         Assert.Single(await reopened.ListAsync("one", Ct));
         Assert.Single(await reopened.ListAsync("two", Ct));
         foreach (var file in Directory.GetFiles(fixture.Root, "*", SearchOption.AllDirectories))
-            Assert.DoesNotContain("PRIVATE_PLANNING_CONTENT_81352", Encoding.UTF8.GetString(await File.ReadAllBytesAsync(file, Ct)));
+        {
+            var bytes = Encoding.UTF8.GetString(await File.ReadAllBytesAsync(file, Ct));
+            Assert.DoesNotContain("PRIVATE_PLANNING_CONTENT_81352", bytes);
+            Assert.DoesNotContain("PRIVATE_PREPARATION_CONTENT", bytes);
+        }
     }
 
     [Fact]

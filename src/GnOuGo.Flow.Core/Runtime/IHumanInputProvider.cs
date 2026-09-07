@@ -66,6 +66,41 @@ public static class HumanInputContract
         ["choices"] = new JsonArray("approve", "reject"), ["allow_abandon"] = true
     };
 
+    /// <summary>Resolve the successful result from declared interaction inputs, never from labels or prose.</summary>
+    public static JsonObject ResolveOutputSchema(JsonObject input)
+    {
+        var mode = input["mode"]?.GetValue<string>();
+        var properties = new JsonObject();
+        var required = new JsonArray();
+        if (mode == ModeForm && input["fields"] is JsonArray fields)
+        {
+            foreach (var field in fields.OfType<JsonObject>())
+            {
+                var name = field["name"]?.GetValue<string>() ?? throw new InvalidOperationException("A form field requires a name.");
+                var type = field["type"]?.GetValue<string>() ?? "string";
+                if (!KnownFieldTypes.Contains(type) || properties.ContainsKey(name)) throw new InvalidOperationException("Unknown or duplicate human-input field.");
+                var schema = type switch
+                {
+                    "number" or "integer" or "boolean" => new JsonObject { ["type"] = type },
+                    "multiselect" or "checkbox" => new JsonObject { ["type"] = "array", ["items"] = new JsonObject { ["type"] = "string" } },
+                    _ => new JsonObject { ["type"] = "string" }
+                };
+                if (type is "radio" or "select" && field["allow_custom_answer"]?.GetValue<bool>() != true && field["options"] is JsonArray options)
+                    schema["enum"] = options.DeepClone();
+                properties[name] = schema;
+                if (field["required"]?.GetValue<bool>() == true) required.Add((JsonNode?)JsonValue.Create(name));
+            }
+        }
+        else
+        {
+            if (mode is not (ModeConfirm or ModeChoice or ModeText)) throw new InvalidOperationException("An explicit known human-input mode is required.");
+            properties["response"] = new JsonObject { ["type"] = mode == ModeConfirm ? "boolean" : "string" };
+            if (mode == ModeChoice && input["choices"] is JsonArray choices) properties["response"]!["enum"] = choices.DeepClone();
+            required.Add((JsonNode?)JsonValue.Create("response"));
+        }
+        return new JsonObject { ["type"] = "object", ["properties"] = properties, ["required"] = required, ["additionalProperties"] = true };
+    }
+
     /// <summary>Returns whether a structured response explicitly abandons the request.</summary>
     public static bool IsAbandoned(JsonNode? response) =>
         response is JsonObject obj

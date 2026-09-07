@@ -14,7 +14,7 @@ internal static class PlanningComputations
         var expression = new Acornima.Parser().ParseExpression(Expression(value.Text));
         var used = new HashSet<string>(StringComparer.Ordinal);
         var allowed = new HashSet<string>(names, StringComparer.Ordinal);
-        allowed.UnionWith(["JSON", "Math", "Object", "Array", "String", "Number", "Boolean", "RegExp", "Set", "Map", "URL", "Error", "TypeError", "parseInt", "parseFloat", "isNaN", "isFinite", "undefined", "NaN", "Infinity"]);
+        allowed.UnionWith(["JSON", "Math", "Object", "Array", "String", "Number", "Boolean", "RegExp", "Set", "Map", "URL", "Error", "TypeError", "parseInt", "parseFloat", "isNaN", "isFinite", "encodeURI", "decodeURI", "encodeURIComponent", "decodeURIComponent", "undefined", "NaN", "Infinity"]);
         Collect(expression);
         Check(expression, null);
         foreach (var name in names.Where(name => !used.Contains(name)))
@@ -22,15 +22,32 @@ internal static class PlanningComputations
 
         void Collect(Node node)
         {
-            if (node is VariableDeclarator { Id: Identifier variable }) Declare(variable.Name);
+            if (node is VariableDeclarator variable) DeclarePattern(variable.Id);
             if (node is FunctionDeclaration declaration)
             {
                 if (declaration.Id is { } function) allowed.Add(function.Name);
-                foreach (var parameter in declaration.Params.OfType<Identifier>()) Declare(parameter.Name);
+                foreach (var parameter in declaration.Params) DeclarePattern(parameter);
             }
-            if (node is ArrowFunctionExpression arrow) foreach (var parameter in arrow.Params.OfType<Identifier>()) Declare(parameter.Name);
-            if (node is FunctionExpression functionExpression) foreach (var parameter in functionExpression.Params.OfType<Identifier>()) Declare(parameter.Name);
+            if (node is ArrowFunctionExpression arrow) foreach (var parameter in arrow.Params) DeclarePattern(parameter);
+            if (node is FunctionExpression functionExpression) foreach (var parameter in functionExpression.Params) DeclarePattern(parameter);
+            if (node is CatchClause { Param: { } caught }) DeclarePattern(caught);
             foreach (var child in node.ChildNodes) Collect(child);
+        }
+        void DeclarePattern(Node pattern)
+        {
+            switch (pattern)
+            {
+                case Identifier identifier: Declare(identifier.Name); break;
+                case AssignmentPattern assignment: DeclarePattern(assignment.Left); break;
+                case RestElement rest: DeclarePattern(rest.Argument); break;
+                case ArrayPattern array:
+                    foreach (var element in array.Elements) if (element is not null) DeclarePattern(element);
+                    break;
+                case ObjectPattern obj:
+                    foreach (var property in obj.Properties)
+                        DeclarePattern(property is Property field ? field.Value : property);
+                    break;
+            }
         }
         void Check(Node node, Node? parent)
         {

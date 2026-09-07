@@ -6,6 +6,29 @@ namespace GnOuGo.Flow.Planning;
 /// <summary>Artifact identity comes from declared producer provenance, not matching scalar types.</summary>
 internal static class PlanningArtifactBindings
 {
+    internal static IEnumerable<PlanningDiagnostic> PrerequisiteFindings(PlanningGraph graph, PlanningPreparation preparation)
+    {
+        for (var wi = 0; wi < graph.Workflows.Count; wi++)
+        {
+            var workflow = graph.Workflows[wi];
+            var located = PlanningGraphValidation.Located(workflow.Steps, $"/workflows/{wi}/steps")
+                .Concat(PlanningGraphValidation.Located(workflow.Finally, $"/workflows/{wi}/finally")).ToArray();
+            foreach (var (producer, path) in located)
+            {
+                if (producer.Type != "mcp.call" || !producer.OnError.Any(h => h.Action == "continue")) continue;
+                var produced = preparation.Capabilities.FirstOrDefault(c => c.Id == producer.CapabilityId)?.ArtifactContract?.Produces;
+                if (produced is null) continue;
+                var consumers = located.Where(p => p.Node != producer && preparation.Capabilities.FirstOrDefault(c => c.Id == p.Node.CapabilityId)?.ArtifactContract?.Consumes
+                    .Any(c => c.Required && produced.Any(a => a.Kind == c.Kind)) == true).ToArray();
+                if (consumers.Length == 0) continue;
+                yield return new("ARTIFACT_FAILURE_PATH_UNPROVEN", path + "/onError",
+                    "A required downstream artifact comes from this original producer. Continuing after its failure cannot manufacture that artifact in a fallback or structured result. " +
+                    "Fail closed at this producer while retaining workflow cleanup, or return to behavior review to establish a guarded consumer and an explicit failure route. A copied value does not prove artifact identity.",
+                    ValidationStage: "dataflow");
+            }
+        }
+    }
+
     internal static JsonObject? ArgumentSchema(PlanningWorkflow workflow, PlanningNode node, string argument, PlanningPreparation preparation, PlanningGraph graph)
     {
         var requirements = preparation.Capabilities.FirstOrDefault(c => c.Id == node.CapabilityId)?.ArtifactContract?.Consumes
@@ -20,43 +43,8 @@ internal static class PlanningArtifactBindings
 
     internal static bool Proves(PlanningWorkflow workflow, PlanningValue value, string kind, PlanningPreparation preparation, PlanningGraph graph, HashSet<string> visited)
     {
-        var key = workflow.Key + ":" + PlanningOutputBindings.Id(value) + ":" + kind;
-        if (!visited.Add(key)) return false;
-        try
-        {
-            if (value.Kind != "output" || value.ResultChannel == "structured") return false;
-            var producer = PlanningGraphCompiler.Enumerate(workflow.Steps.Concat(workflow.Finally)).FirstOrDefault(n => n.Key == value.Source);
-            if (producer is null) return false;
-            if (producer.Type == "mcp.call")
-                return preparation.Capabilities.FirstOrDefault(c => c.Id == producer.CapabilityId)?.ArtifactContract?.Produces.Any(p =>
-                    p.Kind == kind && p.Pointer == "/" + string.Join("/", value.Path.Select(PlanningSchemaReferences.Escape))) == true;
-            if (producer.Type is "set" or "assert.non_null")
-            {
-                var source = producer.Type == "set" ? producer.Input : PlanningGraphValidation.Member(producer.Input, "value");
-                var selected = Select(source, value.Path);
-                return selected is not null && Proves(workflow, selected, kind, preparation, graph, visited);
-            }
-            if (producer.Type == "workflow.call" && value.Path.Count > 0)
-            {
-                var target = graph.Workflows.FirstOrDefault(w => w.Key == PlanningGraphValidation.Member(producer.Input, "ref")?.Source);
-                var output = target?.Outputs.FirstOrDefault(p => p.Name == value.Path[0]);
-                var selected = Select(output?.Value, value.Path.Skip(1));
-                return target is not null && selected is not null && Proves(target, selected, kind, preparation, graph, visited);
-            }
-            return false;
-        }
-        finally { visited.Remove(key); }
-    }
-
-    private static PlanningValue? Select(PlanningValue? source, IEnumerable<string> path)
-    {
-        var remaining = path.ToArray();
-        for (var i = 0; i < remaining.Length && source is not null; i++)
-        {
-            if (source.Kind is "output" or "input") return new() { Kind = source.Kind, Source = source.Source, ResultChannel = source.ResultChannel, Path = source.Path.Concat(remaining.Skip(i)).ToList() };
-            if (source.Kind == "object") source = PlanningGraphValidation.Member(source, remaining[i]);
-            else return null;
-        }
-        return source;
+        return PlanningValueProvenance.Proves(workflow, value, graph, (producer, reference) => producer.Type == "mcp.call" &&
+            preparation.Capabilities.FirstOrDefault(c => c.Id == producer.CapabilityId)?.ArtifactContract?.Produces.Any(p =>
+                p.Kind == kind && p.Pointer == "/" + string.Join("/", reference.Path.Select(PlanningSchemaReferences.Escape))) == true);
     }
 }

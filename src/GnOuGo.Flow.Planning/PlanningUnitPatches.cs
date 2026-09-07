@@ -60,7 +60,7 @@ internal sealed class PlanningUnitPatches(JsonObject schema, Dictionary<string, 
                 "inputs" => graphRoot + "/inputs/" + workflow.Inputs.FindIndex(p => p.Name == slot.Parts[1]) + "/" + slot.Parts[2],
                 _ => graphRoot + "/outputs/" + workflow.Outputs.FindIndex(p => p.Name == slot.Parts[1]) + "/" + slot.Parts[2]
             };
-            var diagnosed = unit.Diagnostics.Any(d => d.Location == graphPath || d.Location.StartsWith(graphPath + "/", StringComparison.Ordinal) || graphPath.StartsWith(d.Location + "/", StringComparison.Ordinal));
+            var diagnosed = Diagnosed(graphPath, slot.Parts);
             if (invalid || diagnosed)
             {
                 var leaves = new List<(string[] Path, JsonNode Shape)>();
@@ -71,7 +71,8 @@ internal sealed class PlanningUnitPatches(JsonObject schema, Dictionary<string, 
                             var fieldLocation = graphPath + "/" + i + "/" + field;
                             if (!unit.Diagnostics.Any(d => d.Location == fieldLocation || d.Location.StartsWith(fieldLocation + "/", StringComparison.Ordinal))) continue;
                             var fieldPath = slot.Parts.Concat([i.ToString(System.Globalization.CultureInfo.InvariantCulture), field]).ToArray();
-                            var fieldShape = full["$defs"]!["errorCase"]!["properties"]![field]!;
+                            var errorDefinition = Definition(slot.Parts, "errorCase");
+                            var fieldShape = full["$defs"]![errorDefinition]!["properties"]![field]!;
                             var before = leaves.Count;
                             FindValues(handlers[i]?[field], fieldPath, fieldLocation, fieldShape, leaves);
                             if (leaves.Count == before) leaves.Add((fieldPath, fieldShape));
@@ -97,23 +98,38 @@ internal sealed class PlanningUnitPatches(JsonObject schema, Dictionary<string, 
         void FindValues(JsonNode? value, string[] path, string location, JsonNode shape, List<(string[] Path, JsonNode Shape)> leaves)
         {
             if (value is not JsonObject obj || obj["kind"] is not JsonValue kind || !kind.TryGetValue<string>(out var label)) return;
+            // A finding on the object itself can require different member names or a
+            // computation instead of a context. Leaf-only patches cannot fix its shape.
+            var candidateLocation = "/units/" + PlanningSchemaReferences.Escape(unit.Key) + "/candidate/" + string.Join("/", path.Select(PlanningSchemaReferences.Escape));
+            if (unit.Diagnostics.Any(d => d.Location == location || d.Location == candidateLocation))
+            { leaves.Add((path, shape)); return; }
             var before = leaves.Count;
             if (label is "object" or "template" && obj["members"] is JsonArray members)
                 for (var i = 0; i < members.Count; i++) SelectChild(members[i]?["value"], path.Concat(["members", i.ToString(System.Globalization.CultureInfo.InvariantCulture), "value"]).ToArray(), location + "/members/" + i + "/value");
             if (label == "array" && obj["items"] is JsonArray items)
                 for (var i = 0; i < items.Count; i++) SelectChild(items[i], path.Concat(["items", i.ToString(System.Globalization.CultureInfo.InvariantCulture)]).ToArray(), location + "/items/" + i);
-            if (before == leaves.Count && unit.Diagnostics.Any(d => d.Location == location || d.Location.StartsWith(location + "/", StringComparison.Ordinal))) leaves.Add((path, shape));
+            if (before == leaves.Count && Diagnosed(location, path)) leaves.Add((path, shape));
 
             void SelectChild(JsonNode? child, string[] childPath, string childLocation)
             {
-                var childSchema = new JsonObject { ["$ref"] = "#/$defs/value", ["$defs"] = full["$defs"]!.DeepClone() };
-                if (PlanningContractValidation.ValidateInstance(child, childSchema).Count == 0 && !unit.Diagnostics.Any(d => d.Location == childLocation || d.Location.StartsWith(childLocation + "/", StringComparison.Ordinal))) return;
+                var referencePath = "#/$defs/" + Definition(path, "value");
+                var childSchema = new JsonObject { ["$ref"] = referencePath, ["$defs"] = full["$defs"]!.DeepClone() };
+                if (PlanningContractValidation.ValidateInstance(child, childSchema).Count == 0 && !Diagnosed(childLocation, childPath)) return;
                 var count = leaves.Count;
-                var reference = new JsonObject { ["$ref"] = "#/$defs/value" };
+                var reference = new JsonObject { ["$ref"] = referencePath };
                 FindValues(child, childPath, childLocation, reference, leaves);
                 if (leaves.Count == count) leaves.Add((childPath, reference));
             }
         }
+        bool Diagnosed(string location, string[] path)
+        {
+            var candidateRoot = "/units/" + PlanningSchemaReferences.Escape(unit.Key) + "/candidate/";
+            var candidateLocation = candidateRoot + string.Join("/", path.Select(PlanningSchemaReferences.Escape));
+            return unit.Diagnostics.Any(d => Matches(location, d.Location) || d.Location.StartsWith(candidateRoot, StringComparison.Ordinal) && Matches(candidateLocation, d.Location));
+            static bool Matches(string target, string diagnostic) => diagnostic == target || diagnostic.StartsWith(target + "/", StringComparison.Ordinal) || target.StartsWith(diagnostic + "/", StringComparison.Ordinal);
+        }
+        string Definition(string[] path, string name) => path is ["nodes", var node, ..] && full["$defs"]![PlanningConstruction.ValueScope(node) + name] is not null
+            ? PlanningConstruction.ValueScope(node) + name : name;
         // A conversion-level failure cannot establish a smaller field scope. The unit remains the boundary.
         if (selected.Count == 0 && extra.Count == 0)
             foreach (var (key, slot) in all) { selected[key] = slot.Parts; changes[key] = slot.Schema.DeepClone(); }

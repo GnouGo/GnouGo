@@ -8,7 +8,7 @@ namespace GnOuGo.Flow.Planning;
 internal static class PlanningDataflow
 {
     internal const int BindingVersion = 2;
-    internal const int ContractVersion = 7;
+    internal const int ContractVersion = 10;
     internal const string WorkflowOutputs = "$outputs";
 
     internal static Dictionary<string, PlanningBinding> Index(PlanningWorkflow workflow, PlanningPreparation preparation, PlanningGraph graph, string? consumer = null)
@@ -124,16 +124,22 @@ internal static class PlanningDataflow
         return new JsonObject(obj.Select(p => new KeyValuePair<string, JsonNode?>(p.Key, Transport(p.Value, bindings))));
     }
 
-    internal static JsonNode? Expand(JsonNode? value, IReadOnlyDictionary<string, PlanningBinding> bindings)
+    internal sealed class BindingException(string location, string reference, string? reason = null) : InvalidOperationException(reason ?? "Binding '" + reference + "' is unavailable in this operation's current execution scope. Select an eligible binding or repair its producer's failure path.")
     {
-        if (value is JsonArray array) return new JsonArray(array.Select(v => Expand(v, bindings)).ToArray());
+        internal string Location { get; } = location;
+        internal string Reference { get; } = reference;
+    }
+
+    internal static JsonNode? Expand(JsonNode? value, IReadOnlyDictionary<string, PlanningBinding> bindings, string location = "")
+    {
+        if (value is JsonArray array) return new JsonArray(array.Select((v, index) => Expand(v, bindings, location + "/" + index)).ToArray());
         if (value is not JsonObject obj) return value?.DeepClone();
         if (obj["kind"]?.GetValue<string>() == "binding")
         {
-            if (!bindings.TryGetValue(obj["reference"]!.GetValue<string>(), out var binding)) throw new InvalidOperationException("The selected binding is unavailable in this operation's execution scope.");
+            if (!bindings.TryGetValue(obj["reference"]!.GetValue<string>(), out var binding)) throw new BindingException(location, obj["reference"]!.GetValue<string>());
             return JsonSerializer.SerializeToNode(binding.Value, PlanningJsonContext.Default.PlanningValue);
         }
-        return new JsonObject(obj.Select(p => new KeyValuePair<string, JsonNode?>(p.Key, Expand(p.Value, bindings))));
+        return new JsonObject(obj.Select(p => new KeyValuePair<string, JsonNode?>(p.Key, Expand(p.Value, bindings, location + "/" + PlanningSchemaReferences.Escape(p.Key)))));
     }
 
     internal static PlanningDataflowContract Describe(PlanningGraph graph, PlanningPreparation preparation)

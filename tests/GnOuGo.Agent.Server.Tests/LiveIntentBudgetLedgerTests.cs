@@ -16,17 +16,19 @@ public sealed class LiveIntentBudgetLedgerTests
         {
             var ledger = LiveIntentAgentGenerationTests.LiveBudgetLedger.Open(path, definition);
             ledger.ReserveCall(30, "pending");
-            await ledger.PersistAsync(ledger.Snapshot with { Calls = 120, EstimatedCost = 68 }, TestContext.Current.CancellationToken);
-            var amended = definition with { AuthorizedBudget = new(150, "EUR"), MaxCalls = 240 };
+            await ledger.PersistAsync(ledger.Snapshot with { Calls = 120, EstimatedCost = 68, TotalTokens = 3_195_795 }, TestContext.Current.CancellationToken);
+            var amended = definition with { AuthorizedBudget = new(300, "EUR"), MaxCalls = 3_000, MaxTotalTokens = 20_000_000 };
             Assert.Throws<InvalidOperationException>(() => LiveIntentAgentGenerationTests.LiveBudgetLedger.Open(path, amended));
             ledger = LiveIntentAgentGenerationTests.LiveBudgetLedger.Open(path, amended, authorizeLimitAmendment: true);
-            Assert.Equal(120, ledger.Snapshot.Calls); Assert.Equal(68, ledger.Snapshot.EstimatedCost); Assert.Equal(30, ledger.UnverifiedCostReserve);
+            Assert.Equal(120, ledger.Snapshot.Calls); Assert.Equal(3_195_795, ledger.Snapshot.TotalTokens); Assert.Equal(68, ledger.Snapshot.EstimatedCost); Assert.Equal(30, ledger.UnverifiedCostReserve);
             await ledger.PersistAsync(ledger.Snapshot, TestContext.Current.CancellationToken);
             Assert.Single(JsonNode.Parse(File.ReadAllText(path))!["budget_amendments"]!.AsArray());
             ledger = LiveIntentAgentGenerationTests.LiveBudgetLedger.Open(path, amended, authorizeLimitAmendment: true);
             Assert.Single(JsonNode.Parse(File.ReadAllText(path))!["budget_amendments"]!.AsArray());
             Assert.Throws<InvalidOperationException>(() => LiveIntentAgentGenerationTests.LiveBudgetLedger.Open(path, amended with { PriorCostReserve = 0 }, true));
             Assert.Throws<InvalidOperationException>(() => LiveIntentAgentGenerationTests.LiveBudgetLedger.Open(path, definition, true));
+            Assert.Throws<InvalidOperationException>(() => LiveIntentAgentGenerationTests.LiveBudgetLedger.Open(path, amended with { MaxTotalTokens = 5_000_000 }, true));
+            Assert.Equal(20_000_000, JsonNode.Parse(File.ReadAllText(path))!["budget_amendments"]![0]!["authorized_max_total_tokens"]!.GetValue<long>());
         }
         finally { if (File.Exists(path)) File.Delete(path); }
     }

@@ -87,7 +87,9 @@ public static class PlanningGraphValidation
                     {
                         var declared = PlanningGraphCompiler.ToJsonSchema(node.OutputSchema, preparation);
                         var actual = node.Type == "set" ? ValueSchema(node.Input, new(StringComparer.Ordinal)) : ValueSchema(new() { Kind = "output", Source = node.Key }, new(StringComparer.Ordinal));
-                        if (actual is not null && !TypesFit(actual, declared, allowUnresolved: node.Type == "set")) errors.Add(new("OUTPUT_TYPE_MISMATCH", location + "/outputSchema", "The declared output is not established by the actual computation or producer contract."));
+                        if (actual is not null && !TypesFit(actual, declared, allowUnresolved: node.Type == "set")) errors.Add(node.Type == "set"
+                            ? new("SET_OUTPUT_INVALID", location + "/input", "The set input is its result and does not satisfy the declared output contract. Compute the declared fields inside input; a context object cannot stand in for the calculation.")
+                            : new("OUTPUT_TYPE_MISMATCH", location + "/outputSchema", "The declared output is not established by the actual computation or producer contract."));
                         if (node.Type == "set" && IsLiteral(node.Input))
                             errors.AddRange(PlanningContractValidation.ValidateInstance(Literal(node.Input), declared).Select(e => new PlanningDiagnostic("SET_OUTPUT_INVALID", location + "/input", e)));
                     }
@@ -237,6 +239,8 @@ public static class PlanningGraphValidation
                         }
                         else if (producer.Type == "human.input")
                             schema = HumanSchema(producer.Input);
+                        else if (producer.Type == "decision.evaluate")
+                            schema = PlanningDecisionRouting.OutputSchema(producer, preparation) ?? preparation.Capabilities.FirstOrDefault(c => c.Id == producer.CapabilityId)?.OutputSchema;
                         else schema = preparation.Capabilities.FirstOrDefault(c => c.Id == producer.CapabilityId)?.OutputSchema ?? BuiltInStepContracts.Get(producer.Type)?.OutputSchema;
                         if (schema is null) throw new InvalidOperationException("The producer needs an explicit typed output contract.");
                         return AtPath(schema, value.Path);
@@ -310,6 +314,8 @@ public static class PlanningGraphValidation
         if (expected["enum"] is JsonArray allowed && (actual["enum"] is not JsonArray declared || declared.Any(value => !allowed.Any(option => JsonNode.DeepEquals(option, value))))) return false;
         if (expected["properties"] is JsonObject properties)
         {
+            if (expected["additionalProperties"] is JsonValue extra && extra.TryGetValue<bool>(out var allowedExtra) && !allowedExtra &&
+                actual["properties"] is JsonObject actualProperties && actualProperties.Any(p => !properties.ContainsKey(p.Key))) return false;
             var required = (expected["required"] as JsonArray ?? []).Select(v => v!.GetValue<string>()).ToHashSet(StringComparer.Ordinal);
             foreach (var (name, property) in properties)
             {
@@ -354,11 +360,8 @@ public static class PlanningGraphValidation
 
     private static JsonObject HumanSchema(PlanningValue input)
     {
-        if (Member(input, "mode")?.Text == HumanInputContract.ModeConfirm)
-            return ObjectSchema([("response", new JsonObject { ["type"] = "boolean" })]);
-        if (Member(input, "mode")?.Text == HumanInputContract.ModeForm && Member(input, "fields") is { Kind: "array" } fields)
-            return ObjectSchema(fields.Items.Select(f => (Member(f, "name")?.Text ?? "", new JsonObject { ["type"] = Member(f, "type")?.Text ?? "string" })));
-        return ObjectSchema([("response", new JsonObject { ["type"] = "string" })]);
+        return HumanInputContract.ResolveOutputSchema(new JsonObject(input.Members.Where(m => m.Name is "mode" or "choices" or "fields")
+            .Select(m => new KeyValuePair<string, JsonNode?>(m.Name, Literal(m.Value)))));
     }
 
     internal static JsonNode? Literal(PlanningValue value) => value.Kind switch
