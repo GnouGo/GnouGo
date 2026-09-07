@@ -405,7 +405,13 @@ public static class McpArtifactContractConventions
     public const string MaterializeMode = "materialize";
 }
 
-public sealed record McpProducedArtifact(string Kind, string Pointer, string Mode, string? Encoding = null);
+[method: System.Text.Json.Serialization.JsonConstructor]
+public sealed record McpProducedArtifact(string Kind, string Pointer, string Mode, string? Encoding = null)
+{
+    // Retain the original public constructor and deconstruction for existing consumers.
+    public McpProducedArtifact(string kind, string pointer, string mode) : this(kind, pointer, mode, null) { }
+    public void Deconstruct(out string kind, out string pointer, out string mode) => (kind, pointer, mode) = (Kind, Pointer, Mode);
+}
 
 public sealed record McpConsumedArtifact(string Kind, string Pointer, bool Required);
 
