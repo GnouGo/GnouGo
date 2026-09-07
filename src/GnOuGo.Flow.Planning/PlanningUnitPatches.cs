@@ -89,7 +89,17 @@ internal sealed class PlanningUnitPatches(JsonObject schema, Dictionary<string, 
                 foreach (var leaf in leaves)
                 {
                     var coordinate = string.Join("/", leaf.Path.Select(PlanningSchemaReferences.Escape));
-                    selected[coordinate] = leaf.Path; changes[coordinate] = leaf.Shape.DeepClone();
+                    var shape = leaf.Shape.DeepClone();
+                    if (preparation is not null && slot.Parts is ["nodes", var nodeKey, "input"] &&
+                        unit.Diagnostics.Any(d => d.Code == "LOOP_ITEMS_CONTRACT_UNRESOLVED" &&
+                            d.Location == graphPath + "/" + string.Join("/", leaf.Path.Skip(slot.Parts.Length))))
+                    {
+                        var arrays = PlanningDataflow.CompactIndex(workflow, preparation, graph, nodeKey).Values
+                            .Where(b => b.Schema["type"]?.ToString() == "array" && b.Schema["items"] is JsonObject)
+                            .Select(b => b.Id).ToArray();
+                        if (arrays.Length > 0) shape = PlanningDataflow.BindingSchema(arrays);
+                    }
+                    selected[coordinate] = leaf.Path; changes[coordinate] = shape;
                 }
             }
         }

@@ -22,6 +22,27 @@ public sealed class ScenarioInputTests
     }
 
     [Fact]
+    public void LoopItemRepairOffersOnlyAvailableBindingsWithDeclaredArrayItems()
+    {
+        var graph = Graph(); var preparation = Preparation(); var workflow = graph.Workflows[0];
+        workflow.Inputs.Add(new() { Name = "entries", Schema = new() { Type = "array", Items = new() { Type = "string" } } });
+        var node = new PlanningNode { Key = "each", Type = "loop.sequential", Input = Obj(("items", new()
+            { Kind = "compute", Text = "[]", Members = [] })) }; workflow.Steps.Add(node);
+        var unit = new PlanningConstructionUnit { Key = "unit", Kind = "implementation", WorkflowKey = workflow.Key, NodeKeys = [node.Key], ContractVersion = PlanningDataflow.ContractVersion };
+        unit.Candidate = PlanningConstruction.UpgradeCandidate(graph, unit, PlanningConstruction.Values(workflow, unit), preparation);
+        unit.Diagnostics = PlanningExecutableValidation.Validate(graph, preparation).Where(d => d.Code == "LOOP_ITEMS_CONTRACT_UNRESOLVED").ToList();
+        var patch = PlanningUnitPatches.Create(graph, unit, PlanningConstruction.Schema(workflow, unit, preparation, graph), preparation);
+        var field = Assert.Single(patch.Schema["properties"]!["changes"]!["properties"]!.AsObject()); var shape = field.Value!;
+        Assert.Equal("binding", shape["properties"]!["kind"]!["enum"]![0]!.GetValue<string>());
+        var allowed = Assert.Single(shape["properties"]!["reference"]!["enum"]!.AsArray())!.GetValue<string>();
+        Assert.Equal("entries", PlanningDataflow.Index(workflow, preparation, graph, node.Key)[allowed].Value.Source);
+        var response = new JsonObject { ["changes"] = new JsonObject { [field.Key] = new JsonObject { ["kind"] = "binding", ["reference"] = allowed } }, ["remove"] = new JsonArray() };
+        var repaired = PlanningConstruction.Apply(graph, unit, patch.Apply(unit.Candidate, response), preparation);
+        Assert.DoesNotContain(PlanningExecutableValidation.Validate(repaired, preparation), d => d.Code == "LOOP_ITEMS_CONTRACT_UNRESOLVED");
+        Assert.Equal("string", Assert.Single(TypedWorkflowPlanner.ScenarioLoopItemSchemas(repaired, preparation)).Value!["type"]!.GetValue<string>());
+    }
+
+    [Fact]
     public void LoopFixturesUseResolvedProducerItemSchemasWithoutChangingTheGraph()
     {
         var preparation = Preparation(); var graph = Graph(); var workflow = graph.Workflows[0];
