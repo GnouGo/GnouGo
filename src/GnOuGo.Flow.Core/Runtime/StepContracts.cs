@@ -281,6 +281,7 @@ public static class BuiltInStepContracts
         ("prompts", Array(Any())),
         ("structured_output", StructuredOutput()),
         ("raise_on_error", Boolean()),
+        ("preserve_optional_nulls", Boolean()),
         ("raiseOnError", Boolean()),
         ("error_policy", Object(("detect_result_errors", Boolean()), ("detectResultErrors", Boolean()))),
         ("detect_result_errors", Boolean()),

@@ -134,6 +134,8 @@ public sealed class LLMTool
 /// </summary>
 public sealed class LLMResponse
 {
+    /// <summary>Provider-neutral completion status, such as output_limit; absent for older adapters.</summary>
+    public string? CompletionStatus { get; set; }
     public string Text { get; set; } = "";
     public JsonNode? Json { get; set; }
     public JsonNode? Usage { get; set; }

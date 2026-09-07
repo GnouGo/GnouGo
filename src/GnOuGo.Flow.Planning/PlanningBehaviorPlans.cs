@@ -43,6 +43,7 @@ public static class PlanningBehaviorPlans
                 var location = path + "/nodes/" + node.Key;
                 if (string.IsNullOrWhiteSpace(node.Key) || string.IsNullOrWhiteSpace(node.Purpose)) Error(location, "A behavior node needs a stable key and purpose.");
                 if (node.OperationIds.Any(id => !workflow.OperationIds.Contains(id, StringComparer.Ordinal))) Error(location, "The node claimed another workflow's operation.");
+                if (node.InputDependencies is { } inputs && (inputs.Distinct(StringComparer.Ordinal).Count() != inputs.Count || inputs.Any(name => !workflow.Inputs.Any(p => p.Name == name)))) Error(location + "/inputDependencies", "Input dependencies must name unique business inputs of this workflow.");
                 if (node.Kind is not ("operation" or "decision" or "loop" or "sequence" or "parallel" or "confirmation" or "workflow")) Error(location, "Unknown behavior kind.");
                 if (node.Kind is "operation" or "confirmation" or "workflow" or "decision" && node.Steps.Count != 0) Error(location, "Only sequence, parallel and loop nodes declare direct child steps.");
                 if (node.Kind == "workflow")
@@ -74,7 +75,14 @@ public static class PlanningBehaviorPlans
         foreach (var cap in preparation.Capabilities.Where(c => c.Required))
         {
             if (cap.OperationIds.Any(id => !owners.Contains(id))) Error("/workflows", "Required operations have no owner: " + string.Join(", ", cap.OperationIds.Where(id => !owners.Contains(id))));
-            if (cap.StepType == "mcp.call" && !plan.Workflows.SelectMany(w => Enumerate(w.Steps.Concat(w.Finally))).Any(n => n.CapabilityId == cap.Id)) Error("/workflows", "Required external capability " + cap.Id + " is missing from the behavior. Add its action under its operation owner: " + string.Join(", ", cap.OperationIds));
+            if (cap.Resolution != "local" && !plan.Workflows.SelectMany(w => Enumerate(w.Steps.Concat(w.Finally))).Any(n => n.CapabilityId == cap.Id)) Error("/workflows", "Required capability " + cap.Id + " (" + cap.StepType + ") is missing from the behavior. Add its action under its operation owner: " + string.Join(", ", cap.OperationIds));
+        }
+        foreach (var cap in preparation.Capabilities.Where(c => c.ArtifactContract?.Produces.Any(p => p.Mode == "materialize") == true))
+        {
+            var occurrences = plan.Workflows.SelectMany(w => Enumerate(w.Steps.Concat(w.Finally)).Where(n => n.CapabilityId == cap.Id).Select(n => (Workflow: w, Node: n))).ToArray();
+            foreach (var occurrence in occurrences.Skip(1))
+                findings.Add(new("BEHAVIOR_MATERIALIZER_REUSED", "/workflows/" + plan.Workflows.IndexOf(occurrence.Workflow) + "/nodes/" + occurrence.Node.Key + "/capabilityId",
+                    "This operation repeats an artifact materializer beyond its locked occurrence. Select a capability that implements this operation's effect; a producer cannot stand in for a different lifecycle action. Correct the capability binding before accepting behavior."));
         }
         foreach (var group in preparation.Capabilities.Where(c => c.Required && c.Activation is not null).GroupBy(c => c.Activation!.Group, StringComparer.Ordinal))
         {
@@ -168,6 +176,13 @@ public static class PlanningBehaviorPlans
                 if (index <= last) { errors.Add(new("BEHAVIOR_IMPLEMENTATION_CHANGED", path, "Preserve accepted actions, ordering, branches and finalizers.")); continue; }
                 last = index;
                 var node = actual[index];
+                if (item.InputDependencies is { Count: > 0 })
+                {
+                    var owner = graph.Workflows.Single(w => PlanningGraphCompiler.Enumerate(w.Steps.Concat(w.Finally)).Contains(node));
+                    var dependencies = PlanningDataflow.BusinessInputs(owner, node);
+                    foreach (var input in item.InputDependencies.Where(p => !dependencies.Contains(p)))
+                        errors.Add(new("BUSINESS_INPUT_BINDING_MISSING", path + "/" + item.Key + "/input", "The accepted operation must consume business input '" + input + "'. A default or example cannot replace its dynamic binding."));
+                }
                 if (item.Kind == "workflow" && !node.Input.Members.Any(m => m.Name == "ref" && m.Value.Kind == "workflow" && m.Value.Source == item.WorkflowKey)) errors.Add(new("BEHAVIOR_IMPLEMENTATION_CHANGED", path, "Preserve the accepted workflow-call target."));
                 if (node.If is not null) errors.Add(new("BEHAVIOR_IMPLEMENTATION_CHANGED", path + "/" + item.Key + "/if", "Conditional actions must remain inside accepted decision outcomes; a new guard requires review."));
                 var type = item.Kind switch { "decision" => "switch", "loop" => "loop.sequential", "confirmation" => "human.input", "workflow" => "workflow.call", "operation" => preparation.Capabilities.FirstOrDefault(c => c.Id == item.CapabilityId)?.StepType ?? "set", _ => item.Kind };

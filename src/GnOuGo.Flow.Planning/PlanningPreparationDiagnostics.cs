@@ -13,6 +13,9 @@ internal static class PlanningPreparationDiagnostics
         {
             new(error.Code, "/preparation", error.Message, ValidationStage: PlanningPhase.Capabilities)
         };
+        if (error.Details?["unavailable_servers"] is JsonArray servers)
+            foreach (var server in servers.OfType<JsonValue>())
+                if (server.TryGetValue<string>(out var name)) findings.Add(new(error.Code, "/preparation/discovery", "The configured catalog could not be discovered: " + name + ". Restore its connection before retrying.", ValidationStage: PlanningPhase.Capabilities));
         foreach (var collection in new[] { "matching_issues", "contract_issues", "rejected_matching_issues" })
         {
             if (error.Details?[collection] is not JsonArray issues) continue;

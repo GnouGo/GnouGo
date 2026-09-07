@@ -34,7 +34,7 @@ public static class PlanningExecutableValidation
                 {
                     var preview = Preview(node.Input);
                     // set resolves its entire input value at runtime and can assert the result schema.
-                    if (node.Type == "set" && node.Input.Kind is "expression" or "input" or "output") continue;
+                    if (node.Type == "set" && node.Input.Kind is "expression" or "compute" or "input" or "output") continue;
                     var input = preview as JsonObject ?? throw new InvalidOperationException("This step requires an object input. For set, put computations in input values or supply an object-producing expression.");
                     var capability = preparation.Capabilities.FirstOrDefault(c => c.Id == node.CapabilityId);
                     if (capability is not null)
@@ -55,6 +55,7 @@ public static class PlanningExecutableValidation
             for (var i = 0; i < workflow.Outputs.Count; i++) Values(workflow.Outputs[i].Value, path + "/outputs/" + i + "/value");
         }
         errors.AddRange(PlanningGraphValidation.Validate(graph, preparation));
+        errors.AddRange(PlanningGraphCompiler.ValidateValues(graph, preparation));
         return errors.DistinctBy(d => (d.Code, d.Location, d.Message)).ToArray();
 
         void Script(string? script, string location)
@@ -65,6 +66,9 @@ public static class PlanningExecutableValidation
         }
         void Values(PlanningValue value, string location)
         {
+            if (value.Kind == "compute")
+                try { PlanningComputations.Validate(value); }
+                catch (Exception ex) when (ex is InvalidOperationException or Acornima.ParseErrorException) { errors.Add(new("COMPUTATION_BINDING_INVALID", location, ex.Message)); }
             if (value.Kind == "expression")
             {
                 try
@@ -160,7 +164,7 @@ public static class PlanningExecutableValidation
         "object" => new JsonObject(value.Members.Select(m => new KeyValuePair<string, JsonNode?>(m.Name, Preview(m.Value)))),
         "array" => new JsonArray(value.Items.Select(Preview).ToArray()),
         "workflow" => new JsonObject { ["kind"] = "local", ["name"] = value.Source },
-        "input" or "output" or "expression" or "template" => JsonValue.Create("${data.value}"),
+        "input" or "output" or "expression" or "compute" or "template" => JsonValue.Create("${data.value}"),
         _ => PlanningGraphValidation.Literal(value)
     };
 }

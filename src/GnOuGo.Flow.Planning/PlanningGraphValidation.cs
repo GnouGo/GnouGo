@@ -102,6 +102,32 @@ public static class PlanningGraphValidation
                 }
                 catch (Exception ex) when (ex is InvalidOperationException or ArgumentException or FormatException) { /* Dedicated reference diagnostics follow. */ }
                 CheckValue(node.Input, location + "/input");
+                if (node.Type == "mcp.call" && preparation.Capabilities.FirstOrDefault(c => c.Id == node.CapabilityId) is { } capability &&
+                    capability.InputSchema["properties"] is JsonObject argumentSchemas && Member(node.Input, "request") is { Kind: "object" } arguments)
+                {
+                    var requestIndex = node.Input.Members.FindIndex(m => m.Name == "request");
+                    var requestLocation = location + "/input/members/" + requestIndex + "/value";
+                    foreach (var name in (capability.InputSchema["required"] as JsonArray ?? []).Select(n => n!.GetValue<string>()))
+                        if (!arguments.Members.Any(m => m.Name == name) && !capability.RequestBindings.Any(b => b.Path == "/" + PlanningSchemaReferences.Escape(name)))
+                            errors.Add(new("CAPABILITY_ARGUMENT_MISSING", requestLocation, "The selected capability requires argument '" + name + "'."));
+                    for (var ai = 0; ai < arguments.Members.Count; ai++)
+                    {
+                        var member = arguments.Members[ai]; var field = requestLocation + "/members/" + ai + "/value";
+                        if (argumentSchemas[member.Name] is not JsonObject expected)
+                        {
+                            if (capability.InputSchema["additionalProperties"]?.ToString() == "false") errors.Add(new("CAPABILITY_ARGUMENT_UNKNOWN", field, "This capability does not declare argument '" + member.Name + "'."));
+                            continue;
+                        }
+                        try
+                        {
+                            if (IsLiteral(member.Value))
+                                errors.AddRange(PlanningContractValidation.ValidateInstance(Literal(member.Value), expected).Select(e => new PlanningDiagnostic("CAPABILITY_ARGUMENT_INVALID", field, e)));
+                            else if (ValueSchema(member.Value, new(StringComparer.Ordinal)) is { } actual && !TypesFit(actual, expected))
+                                errors.Add(new("CAPABILITY_ARGUMENT_TYPE", field, "The binding's producer type does not satisfy argument '" + member.Name + "'. Use an explicit validated transformation."));
+                        }
+                        catch (InvalidOperationException) { /* The reference diagnostic identifies unresolved producers. */ }
+                    }
+                }
                 if (node.If is not null) CheckValue(node.If, location + "/if");
                 if (node.Expr is not null) CheckValue(node.Expr, location + "/expr");
                 for (var i = 0; i < node.Cases.Count; i++)

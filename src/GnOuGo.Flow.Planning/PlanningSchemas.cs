@@ -61,6 +61,7 @@ internal static class PlanningSchemas
             ["behaviorOutcome"] = Object(("key", String()), ("description", String()), ("isDefault", Type("boolean")), ("steps", Array(Ref("behaviorNode")))),
             ["behaviorNode"] = Object(("key", String()), ("kind", Enum("operation", "decision", "loop", "sequence", "parallel", "confirmation", "workflow")),
                 ("purpose", String()), ("operationIds", Array(String())), ("capabilityId", Nullable(String())), ("workflowKey", Nullable(String())),
+                ("inputDependencies", Array(String())),
                 ("outcomes", Array(Ref("behaviorOutcome"))), ("steps", Array(Ref("behaviorNode")))),
             ["behaviorWorkflow"] = Object(("key", String()), ("purpose", String()), ("operationIds", Array(String())),
                 ("inputs", Array(Ref("behaviorPort"))), ("outputs", Array(Ref("behaviorPort"))),

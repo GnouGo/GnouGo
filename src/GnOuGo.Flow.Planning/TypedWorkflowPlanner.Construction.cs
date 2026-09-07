@@ -9,13 +9,42 @@ public sealed partial class TypedWorkflowPlanner
 {
     private async Task GenerateUnitsAsync(PlanningSnapshot state, IPlanningRuntime runtime, CancellationToken ct)
     {
+        if (RecoverInvalidBehavior(state)) return;
         state.CurrentPhase = "fragment";
         var graph = state.Graph!;
+        var described = PlanningDataflow.Describe(graph, state.Preparation!);
+        if (state.Dataflow is { } retainedDataflow)
+        {
+            described.InputObligations = retainedDataflow.InputObligations; described.AssessedWorkflows = retainedDataflow.AssessedWorkflows;
+            described.AssessmentCalls = retainedDataflow.AssessmentCalls; described.AssessmentCallsAtRetry = retainedDataflow.AssessmentCallsAtRetry;
+        }
+        state.Dataflow = described;
+        if (await AssessLegacyDataflowAsync(state, runtime, ct)) return;
         foreach (var retained in state.ConstructionUnits.Where(u => u.CandidateHash is not null && u.Diagnostics.Any(d => d.Code == "UNIT_CONTEXT_TOO_LARGE")))
         {
             // Older checkpoints stored a dispatch failure over the candidate's findings.
             retained.DispatchDiagnostics = retained.Diagnostics.Where(d => d.Code == "UNIT_CONTEXT_TOO_LARGE").ToList();
             retained.Diagnostics = state.Attempts.LastOrDefault(a => a.CandidateHash == retained.CandidateHash)?.Diagnostics.ToList() ?? [];
+        }
+        // Upgrade candidates in memory, preserving their encrypted revision history and receipts.
+        // Legacy checkpoints are revalidated, never blindly trusted under a new construction contract.
+        foreach (var unit in state.ConstructionUnits.Where(u => u.ContractVersion < PlanningDataflow.ContractVersion && u.Status != "superseded"))
+        {
+            var workflow = graph.Workflows.Single(w => w.Key == unit.WorkflowKey);
+            unit.ContractVersion = PlanningDataflow.ContractVersion;
+            unit.RepairCallsAtRetry = unit.RepairCalls;
+            if (unit.Kind == "implementation" && unit.Candidate is not null)
+                unit.Candidate = PlanningConstruction.UpgradeCandidate(graph, unit, unit.Candidate, state.Preparation!);
+            if (unit.Status == "validated")
+            {
+                var findings = UnitFindings(graph, state.Preparation!, unit).ToList();
+                findings.AddRange(InputObligationFindings(state, graph, unit));
+                if (unit.Candidate is not null) findings.AddRange(PlanningConstruction.ShapeFindings(unit.Candidate, PlanningConstruction.Schema(workflow, unit, state.Preparation!, graph), unit));
+                unit.Diagnostics = findings;
+                if (findings.Count != 0) unit.Status = "invalid";
+                else unit.Fingerprint = UnitFingerprint(state, unit);
+            }
+            if (unit.Candidate is not null) unit.CandidateHash = PlanningGraphCompiler.Fingerprint(unit.Candidate.ToJsonString());
         }
         if (state.ConstructionUnits.Count == 0)
         {
@@ -47,7 +76,7 @@ public sealed partial class TypedWorkflowPlanner
             foreach (var unit in state.ConstructionUnits.Where(u => u.Status == "validated").ToArray())
                 if (unit.Fingerprint != UnitFingerprint(state, unit) || unit.Dependencies.Any(k => state.ConstructionUnits.Single(u => u.Key == k).Status != "validated"))
                 {
-                    unit.Status = "pending"; unit.Candidate = null; unit.CandidateHash = null; unit.Diagnostics.Clear();
+                    unit.Status = "pending"; unit.Diagnostics.Clear();
                     unit.RepairCallsAtRetry = unit.RepairCalls; invalidated = true;
                 }
         } while (invalidated);
@@ -70,16 +99,38 @@ public sealed partial class TypedWorkflowPlanner
         {
             try
             {
+                unit.DispatchDiagnostics.Clear();
                 var workflow = graph.Workflows.Single(w => w.Key == unit.WorkflowKey);
                 var preparation = UnitPreparation(state.Preparation!, workflow, unit);
                 var schema = PlanningConstruction.Schema(workflow, unit, preparation, graph);
                 var repair = unit.Calls > 0 && unit.Diagnostics.Count != 0;
+                if (repair && unit.Candidate is not null && PlanningConstruction.ShapeFindings(unit.Candidate, schema, unit).Count == 0)
+                {
+                    try
+                    {
+                        var preview = PlanningConstruction.Apply(graph, unit, unit.Candidate, state.Preparation!);
+                        preview.Workflows.Single(w => w.Key == unit.WorkflowKey).Functions = MergeFunctions(state, unit, unit.Candidate["functions"]?.GetValue<string>());
+                        if (!UnitFindings(preview, state.Preparation!, unit).Any() && !InputObligationFindings(state, preview, unit).Any() &&
+                            !UnitBehaviorFindings(state, preview, unit).Any())
+                            return (unit, response: (LLMResponse?)new LLMResponse { Json = unit.Candidate.DeepClone() }, patch: (PlanningUnitPatches?)null, error: (Exception?)null);
+                    }
+                    catch (Exception ex) when (ex is InvalidOperationException or ArgumentException or FormatException) { /* Repair the retained candidate below. */ }
+                }
                 var patch = repair ? PlanningUnitPatches.Create(graph, unit, schema) : null;
+                if (!repair && unit.Candidate is not null && PlanningConstruction.ShapeFindings(unit.Candidate, schema, unit).Count == 0)
+                    return (unit, response: (LLMResponse?)new LLMResponse { Json = unit.Candidate.DeepClone() }, patch, error: (Exception?)null);
                 if (!repair && CanConstructWithoutModel(schema))
                     return (unit, response: (LLMResponse?)new LLMResponse { Json = PlanningConstruction.Values(workflow, unit) }, patch, error: (Exception?)null);
                 var responseSchema = patch?.Schema ?? schema;
-                var prompt = UnitPrompt(state, workflow, unit, preparation, repair);
-                if (unit.NodeKeys.Count > state.Request.Generation.MaxNodesPerUnit || PlanningConstruction.EstimateInputTokens(prompt, responseSchema) > state.Request.Generation.MaxInputTokensPerUnit)
+                var prompt = repair ? UnitRepairPrompt(state, workflow, unit, preparation, patch!) : UnitPrompt(state, workflow, unit, preparation, false);
+                while (patch is not null && PlanningConstruction.EstimateInputTokens(prompt, responseSchema) > state.Request.Generation.MaxInputTokensPerUnit)
+                {
+                    var narrowed = patch.Narrow(); if (ReferenceEquals(narrowed, patch)) break;
+                    patch = narrowed; responseSchema = patch.Schema; prompt = UnitRepairPrompt(state, workflow, unit, preparation, patch);
+                }
+                unit.EstimatedInputTokens = PlanningConstruction.EstimateInputTokens(prompt, responseSchema);
+                unit.InputTokenLimit = state.Request.Generation.MaxInputTokensPerUnit;
+                if (unit.NodeKeys.Count > state.Request.Generation.MaxNodesPerUnit || unit.EstimatedInputTokens > unit.InputTokenLimit)
                     return (unit, response: (LLMResponse?)null, patch, error: (Exception?)new UnitContextException());
                 if (repair && unit.RepairCalls - unit.RepairCallsAtRetry >= state.Request.MaxRepairs)
                     return (unit, response: (LLMResponse?)null, patch, error: (Exception?)new UnitRepairException());
@@ -92,7 +143,9 @@ public sealed partial class TypedWorkflowPlanner
                 }, state.Request.Generation);
                 var requestHash = PlanningGraphCompiler.Fingerprint(JsonSerializer.Serialize(request, PlanningJsonContext.Default.LLMRequest));
                 unit.RequestHashes.Add(requestHash); unit.Calls++; if (repair) unit.RepairCalls++;
+                unit.DispatchOutcome = "dispatched";
                 var response = await runtime.CallAsync(request, repair ? "repair_unit" : "fragment_" + unit.Kind, ct);
+                unit.DispatchOutcome = "received";
                 return (unit, response: (LLMResponse?)response, patch, error: (Exception?)null);
             }
             catch (OperationCanceledException) when (ct.IsCancellationRequested) { throw; }
@@ -106,9 +159,10 @@ public sealed partial class TypedWorkflowPlanner
             { SplitUnit(state, unit); continue; }
             if (error is not null)
             {
+                unit.DispatchOutcome = error is UnitContextException or UnitRepairException ? "not_dispatched" : "transport_failed";
                 unit.DispatchDiagnostics = [error switch
                 {
-                    UnitContextException => new("UNIT_CONTEXT_TOO_LARGE", path, "One construction contract exceeds the configured input-token limit. Narrow its declared schema or increase the explicit unit limit.", ValidationStage: "generation"),
+                    UnitContextException => new("UNIT_CONTEXT_TOO_LARGE", path, $"The smallest repair or generation envelope needs {unit.EstimatedInputTokens} estimated input tokens; the configured limit is {unit.InputTokenLimit}. No request was sent. An unchanged Retry cannot resolve this size limit; context or explicit generation settings must change.", ValidationStage: "generation"),
                     UnitRepairException => new("UNIT_REPAIR_EXHAUSTED", path, "The configured repair allowance has been used. The candidate and validated dependencies are retained.", ValidationStage: "validation"),
                     LLMClientException failure => ProviderFinding(failure, path),
                     _ => new("UNIT_GENERATION_FAILED", path, error.Message, ValidationStage: "generation")
@@ -148,16 +202,19 @@ public sealed partial class TypedWorkflowPlanner
                         {
                             try
                             {
+                                PlanningComputations.ValidateHelpers(functions);
                                 var prefix = "u_" + PlanningGraphCompiler.Fingerprint(unit.Key)[..8] + "_";
                                 if (new Acornima.Parser().ParseScript(functions).Body.OfType<Acornima.Ast.FunctionDeclaration>().Any(f => f.Id is null || !f.Id.Name.StartsWith(prefix, StringComparison.Ordinal)))
                                     unit.Diagnostics.Add(new("UNIT_HELPER_SCOPE_INVALID", "/workflows/" + candidate.Workflows.FindIndex(w => w.Key == unit.WorkflowKey) + "/functions",
                                         "Declare new helpers using the unit's assigned prefix; existing helpers cannot be redefined.", ValidationStage: "functions"));
                             }
                             catch (Acornima.ParseErrorException) { /* Independent executable validation reports the syntax location. */ }
+                            catch (InvalidOperationException ex) { unit.Diagnostics.Add(new("UNIT_HELPER_DEPENDENCY_INVALID", "/workflows/" + candidate.Workflows.FindIndex(w => w.Key == unit.WorkflowKey) + "/functions", ex.Message, ValidationStage: "functions")); }
                         }
                     }
                     unit.Diagnostics.AddRange(UnitFindings(candidate, state.Preparation!, unit));
-                    unit.Diagnostics.AddRange(PlanningBehaviorPlans.ValidateImplementation(state.BehaviorPlan!, candidate, state.Preparation!));
+                    unit.Diagnostics.AddRange(UnitBehaviorFindings(state, candidate, unit));
+                    unit.Diagnostics.AddRange(InputObligationFindings(state, candidate, unit));
                 }
                 catch (Exception ex) when (ex is InvalidOperationException or ArgumentException or FormatException)
                 { unit.Diagnostics.Add(new("UNIT_CONVERSION_INVALID", path, ex.Message, ValidationStage: "conversion")); }
@@ -180,6 +237,20 @@ public sealed partial class TypedWorkflowPlanner
         state.Diagnostics = state.ConstructionUnits.Where(u => u.Status is "invalid" or "recovery").SelectMany(u => u.Diagnostics.Concat(u.DispatchDiagnostics)).ToList();
         state.Status = stopped ? PlanningStatus.Recovery : PlanningStatus.Generating;
     }
+
+    private static bool RecoverInvalidBehavior(PlanningSnapshot state)
+    {
+        if (state.BehaviorPlan is null || state.Preparation is null) return false;
+        var findings = PlanningBehaviorPlans.Validate(state.BehaviorPlan, state.Preparation);
+        if (findings.Count == 0) return false;
+        state.Diagnostics = findings.ToList(); state.Status = PlanningStatus.Recovery; state.CurrentPhase = PlanningPhase.Behavior;
+        state.ApprovedHash = null; state.ArtifactHash = null;
+        return true;
+    }
+
+    private static IEnumerable<PlanningDiagnostic> UnitBehaviorFindings(PlanningSnapshot state, PlanningGraph graph, PlanningConstructionUnit unit) =>
+        PlanningBehaviorPlans.ValidateImplementation(state.BehaviorPlan!, graph, state.Preparation!).Where(d =>
+            d.Code != "BUSINESS_INPUT_BINDING_MISSING" || unit.Kind == "implementation" && unit.NodeKeys.Any(key => d.Location.EndsWith("/" + key + "/input", StringComparison.Ordinal)));
 
     private static IEnumerable<PlanningDiagnostic> UnitFindings(PlanningGraph graph, PlanningPreparation preparation, PlanningConstructionUnit unit)
     {
@@ -205,7 +276,8 @@ public sealed partial class TypedWorkflowPlanner
         .Select(u => u.Functions).Append(functions).Where(f => !string.IsNullOrWhiteSpace(f)));
 
     private static string UnitFingerprint(PlanningSnapshot state, PlanningConstructionUnit unit) => PlanningGraphCompiler.Fingerprint(
-        "construction-v1\n" + state.ApprovedBehaviorHash + "\n" + Context(state) + "\n" + state.Preparation!.Fingerprint + "\n" +
+        "construction-v" + PlanningDataflow.ContractVersion + "\n" + state.ApprovedBehaviorHash + "\n" + Context(state) + "\n" + state.Preparation!.Fingerprint + "\n" +
+        JsonSerializer.Serialize(state.Dataflow?.InputObligations, PlanningJsonContext.Default.DictionaryStringListString) + "\n" +
         state.Preparation.StepContracts.ToJsonString() + "\n" + unit.Kind + "\n" + string.Join("\n", unit.NodeKeys) + "\n" +
         string.Join("\n", unit.Dependencies.Order(StringComparer.Ordinal).Select(key => state.ConstructionUnits.Single(u => u.Key == key).CandidateHash)));
 
@@ -226,7 +298,7 @@ public sealed partial class TypedWorkflowPlanner
             ["inputs"] = JsonSerializer.SerializeToNode(workflow, PlanningJsonContext.Default.PlanningWorkflow)!["inputs"]!.DeepClone(),
             ["outputs"] = JsonSerializer.SerializeToNode(workflow, PlanningJsonContext.Default.PlanningWorkflow)!["outputs"]!.DeepClone(),
             ["nodes"] = new JsonArray(PlanningGraphCompiler.Enumerate(workflow.Steps.Concat(workflow.Finally)).Where(n => keys.Contains(n.Key, StringComparer.Ordinal)).Select(n => (JsonNode)DescribeNode(n)).ToArray()),
-            ["producerContracts"] = new JsonObject(PlanningGraphValidation.DescribeResults(workflow, state.Preparation!, state.Graph).Select(p => new KeyValuePair<string, JsonNode?>(p.Key, p.Value))),
+            ["producerContracts"] = new JsonObject(PlanningGraphValidation.DescribeResults(workflow, state.Preparation!, state.Graph).Select(p => new KeyValuePair<string, JsonNode?>(p.Key, p.Value.DeepClone()))),
             ["functions"] = workflow.Functions, ["sharedFunctions"] = state.Graph.Functions
         };
         return (allowed, context, contract);
@@ -235,7 +307,7 @@ public sealed partial class TypedWorkflowPlanner
     private static PlanningPreparation UnitPreparation(PlanningPreparation preparation, PlanningWorkflow workflow, PlanningConstructionUnit unit)
     {
         var own = PlanningGraphCompiler.Enumerate(workflow.Steps.Concat(workflow.Finally)).Where(n => unit.NodeKeys.Contains(n.Key, StringComparer.Ordinal)).ToArray();
-        var ids = own.Select(n => n.CapabilityId).OfType<string>().ToHashSet(StringComparer.Ordinal);
+        var ids = PlanningGraphCompiler.Enumerate(workflow.Steps.Concat(workflow.Finally)).Select(n => n.CapabilityId).OfType<string>().ToHashSet(StringComparer.Ordinal);
         // Boundary references may address any owned producer; implementations also need incoming contracts.
         var capabilities = preparation.Capabilities.Where(c => c.OperationIds.Intersect(workflow.OperationIds, StringComparer.Ordinal).Any() || ids.Contains(c.Id)).ToList();
         return new() { Fingerprint = preparation.Fingerprint, AllowedStepTypes = preparation.AllowedStepTypes, Capabilities = capabilities,
@@ -244,6 +316,7 @@ public sealed partial class TypedWorkflowPlanner
 
     private static string UnitPrompt(PlanningSnapshot state, PlanningWorkflow workflow, PlanningConstructionUnit unit, PlanningPreparation preparation, bool repair)
     {
+        if (repair) return UnitRepairPrompt(state, workflow, unit, preparation, PlanningUnitPatches.Create(state.Graph!, unit, PlanningConstruction.Schema(workflow, unit, preparation, state.Graph)));
         var all = PlanningGraphCompiler.Enumerate(workflow.Steps.Concat(workflow.Finally)).ToArray();
         var owned = all.Where(n => unit.NodeKeys.Contains(n.Key, StringComparer.Ordinal)).ToArray();
         var ownedIds = owned.Select(n => n.CapabilityId).ToHashSet(StringComparer.Ordinal);
@@ -263,8 +336,8 @@ public sealed partial class TypedWorkflowPlanner
             "Input and output contracts must have concrete types and typed object properties/array items. Reuse exact supported schema references. " +
             "The contracts phase declares set results and optional synthesized structured output, without computations. Use null structuredOutput unless a transformation is required. " +
             "The implementation phase must produce the previously declared contracts. Compute set fields in input, never expr. " +
-            "Use typed output references and the structured channel only for declared post-processing. Functions must be executable JavaScript with typed JSDoc; " +
-            "Expressions use data.inputs, data.steps and the declared loop item variable. There are no inputs/outputs/steps context aliases. " +
+            "Select exact binding identifiers; use the structured channel only for declared post-processing. For a computation, use kind compute, an executable JavaScript expression in text, and named members bound to its typed dependencies. " +
+            "Computation text uses its named parameters, not data or implicit input/output/step context. Functions must be executable JavaScript with typed JSDoc. " +
             "give new helpers unique names beginning u_" + PlanningGraphCompiler.Fingerprint(unit.Key)[..8] + "_. Do not redefine existing helpers. " +
             "Human confirmation choices and response types are supplied by HumanInputContract; provide only display context. " +
             "Switches supply only expr: explicit values and default routing are already fixed. Never generate caseConditions. " +
@@ -276,11 +349,44 @@ public sealed partial class TypedWorkflowPlanner
             "\nBusiness boundary:\n" + new JsonObject { ["inputs"] = JsonSerializer.SerializeToNode(workflow, PlanningJsonContext.Default.PlanningWorkflow)!["inputs"]!.DeepClone(), ["outputs"] = JsonSerializer.SerializeToNode(workflow, PlanningJsonContext.Default.PlanningWorkflow)!["outputs"]!.DeepClone() }.ToJsonString();
         var exports = unit.Kind == "outputs" ? new JsonArray(PlanningOutputBindings.Index(workflow, state.Preparation!, state.Graph).Select(p => (JsonNode)new JsonObject
             { ["reference"] = p.Key, ["value"] = PlanningModelValues.Compact(JsonSerializer.SerializeToNode(p.Value.Value, PlanningJsonContext.Default.PlanningValue)), ["type"] = p.Value.Schema.Type }).ToArray()) : null;
-        return prompt + (unit.Kind is "inputs" or "contracts" ? "" : exports is not null ? "\nExportable producer references (choose exactly these identifiers):\n" + exports.ToJsonString() : "\nAvailable producers:\n" + symbols.ToJsonString()) + "\nOwned capabilities:\n" + Capabilities(preparation.Capabilities.Where(c => ownedIds.Contains(c.Id)).ToList()) +
-            (unit.Kind is "inputs" or "contracts" ? "" : "\nNative contracts:\n" + preparation.StepContracts.ToJsonString() + "\nRuntime result keys:\n" + RuntimeAddresses(state.Graph!)) +
+        return prompt + (unit.Kind is "inputs" or "contracts" ? "" : exports is not null ? "\nExportable producer references (choose exactly these identifiers):\n" + exports.ToJsonString() : unit.ContractVersion >= PlanningDataflow.ContractVersion ? "\nExact data bindings (opaque results may be serialized whole; never select undeclared fields):\n" + BindingContext(state, workflow, unit).ToJsonString() : "\nAvailable producers:\n" + symbols.ToJsonString()) + "\nOwned capabilities:\n" + Capabilities(preparation.Capabilities.Where(c => ownedIds.Contains(c.Id)).ToList()) +
+            (unit.Kind is "inputs" or "contracts" ? "" : "\nNative contracts:\n" + preparation.StepContracts.ToJsonString() + (unit.ContractVersion >= PlanningDataflow.ContractVersion ? "" : "\nRuntime result keys:\n" + RuntimeAddresses(state.Graph!))) +
             (unit.Kind != "implementation" ? "" : "\nReferenced helper signatures (bodies are already validated; do not redefine them):\n" + HelperSignatures(workflow.Functions, unit.Candidate?.ToJsonString() ?? "")) +
             (repair ? "\nRepair only the diagnosed fields using the supplied patch schema. Preserve all other candidate fields. Unaffected helper bodies are omitted.\nCandidate:\n" + RepairContext(unit).ToJsonString() +
                 "\nDiagnostics:\n" + JsonSerializer.Serialize(unit.Diagnostics, PlanningJsonContext.Default.ListPlanningDiagnostic) : "");
+    }
+
+    private static JsonArray BindingContext(PlanningSnapshot state, PlanningWorkflow workflow, PlanningConstructionUnit unit) => new(unit.NodeKeys
+        .SelectMany(key => PlanningDataflow.CompactIndex(workflow, state.Preparation!, state.Graph!, key).Values).DistinctBy(b => b.Id)
+        .Select(b => (JsonNode)new JsonObject { ["reference"] = b.Id, ["source"] = b.Value.Source, ["kind"] = b.Value.Kind,
+            ["path"] = new JsonArray(b.Value.Path.Select(p => (JsonNode?)JsonValue.Create(p)).ToArray()), ["channel"] = b.Value.ResultChannel ?? "default",
+            ["availability"] = b.Availability, ["type"] = b.Schema["type"]?.DeepClone() ?? JsonValue.Create("unknown") }).ToArray());
+
+    private static string UnitRepairPrompt(PlanningSnapshot state, PlanningWorkflow workflow, PlanningConstructionUnit unit, PlanningPreparation preparation, PlanningUnitPatches patch) =>
+        "Repair only the supplied value coordinates. All other fields, behavior, helper bodies and topology are retained. " +
+        "Select exact binding identifiers. An opaque producer permits only whole-result consumption or serialization, not property access. " +
+        "A template can bind the whole result; use a validated transformation when typed fields are needed. " +
+        "For compute, text must be executable JavaScript using named members as parameters, such as value.trim(). Multiple statements must end with return. Never describe the calculation in prose; do not read an implicit data context. " +
+        "Keep business inputs dynamic: examples are defaults, not replacements for input dependencies. " +
+        "Return only the patch schema.\nOwned operations:\n" + new JsonArray(PlanningGraphCompiler.Enumerate(workflow.Steps.Concat(workflow.Finally)).Where(n => unit.NodeKeys.Contains(n.Key, StringComparer.Ordinal)).Select(n => (JsonNode)new JsonObject { ["key"] = n.Key, ["purpose"] = n.Purpose }).ToArray()).ToJsonString() +
+        "\nCandidate values:\n" + patch.Context(unit.Candidate).ToJsonString() +
+        "\nReferenced helper signatures:\n" + HelperSignatures(workflow.Functions, patch.Context(unit.Candidate).ToJsonString()) +
+        "\nExact bindings:\n" + BindingContext(state, workflow, unit).ToJsonString() +
+        "\nDestination argument contracts:\n" + ArgumentContractContext(workflow, preparation, patch.Context(unit.Candidate)).ToJsonString() +
+        "\nDiagnostics:\n" + JsonSerializer.Serialize(unit.Diagnostics, PlanningJsonContext.Default.ListPlanningDiagnostic) +
+        (unit.Diagnostics.Any(d => d.Code is "NATIVE_INPUT_INVALID" or "UNIT_CONVERSION_INVALID") ? "\nDestination contracts:\n" + preparation.StepContracts.ToJsonString() + "\nCapabilities:\n" + Capabilities(preparation.Capabilities.Where(c => unit.NodeKeys.Any(key => PlanningGraphCompiler.Enumerate(workflow.Steps.Concat(workflow.Finally)).Any(n => n.Key == key && n.CapabilityId == c.Id))).ToList()) : "");
+
+    private static JsonObject ArgumentContractContext(PlanningWorkflow workflow, PlanningPreparation preparation, JsonObject coordinates)
+    {
+        var result = new JsonObject();
+        foreach (var coordinate in coordinates.Select(p => p.Key))
+        {
+            var parts = coordinate.Split('/').Select(p => p.Replace("~1", "/", StringComparison.Ordinal).Replace("~0", "~", StringComparison.Ordinal)).ToArray();
+            if (parts.Length < 4 || parts[0] != "nodes" || parts[2] != "arguments") continue;
+            var node = PlanningGraphCompiler.Enumerate(workflow.Steps.Concat(workflow.Finally)).Single(n => n.Key == parts[1]);
+            result[coordinate] = preparation.Capabilities.FirstOrDefault(c => c.Id == node.CapabilityId)?.InputSchema["properties"]?[parts[3]]?.DeepClone();
+        }
+        return result;
     }
 
     private static JsonObject RepairContext(PlanningConstructionUnit unit)
@@ -342,6 +448,7 @@ public sealed partial class TypedWorkflowPlanner
     private static void SplitUnit(PlanningSnapshot state, PlanningConstructionUnit unit)
     {
         var children = unit.NodeKeys.Select((key, i) => new PlanningConstructionUnit { Key = unit.Key + ":" + i, Kind = unit.Kind, WorkflowKey = unit.WorkflowKey,
+            ContractVersion = unit.ContractVersion,
             NodeKeys = [key], Dependencies = unit.Dependencies.Concat(unit.Kind == "implementation" && i > 0 ? [unit.Key + ":" + (i - 1)] : Array.Empty<string>()).ToList() }).ToArray();
         foreach (var dependent in state.ConstructionUnits.Where(u => u.Dependencies.Contains(unit.Key, StringComparer.Ordinal)))
             dependent.Dependencies = dependent.Dependencies.Where(k => k != unit.Key).Concat(children.Select(c => c.Key)).ToList();

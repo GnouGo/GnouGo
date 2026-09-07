@@ -35,14 +35,23 @@ var graph = new PlanningGraph
     }]
 };
 var preparation = new PlanningPreparation { AllowedStepTypes = ["set"] };
-var state = new PlanningSnapshot { Graph = graph, Preparation = preparation, Request = new() { TenantId = "smoke", Prompt = "Compile the typed graph" } };
+var state = new PlanningSnapshot { Graph = graph, Preparation = preparation, Request = new() { TenantId = "smoke", Prompt = "Compile the typed graph" },
+    Dataflow = new() { Bindings = [new("binding", "main", new() { Kind = "output", Source = "value", Path = ["message"] }, new JsonObject { ["type"] = "string" }, "unconditional")] } };
 var restored = JsonSerializer.Deserialize(JsonSerializer.Serialize(state, PlanningJsonContext.Default.PlanningSnapshot), PlanningJsonContext.Default.PlanningSnapshot)!;
+if (restored.Dataflow?.Bindings.Count != 1) throw new InvalidOperationException("Published dataflow persistence failed.");
 var compiler = new PlanningGraphCompiler();
 var yaml = compiler.Compile(restored.Graph!, preparation);
 var imported = PlanningGraphImporter.Import(yaml, preparation);
 var compiled = new WorkflowCompiler().Compile(WorkflowParser.Parse(compiler.Compile(imported, preparation)));
 var result = await new WorkflowEngine().ExecuteAsync(compiled.Workflows[compiled.Entrypoint!], new JsonObject(), CancellationToken.None);
 if (!result.Success || result.Outputs?["message"]?.GetValue<string>() != "ready") throw new InvalidOperationException("Published typed workflow execution failed.");
+var computationGraph = JsonSerializer.Deserialize(JsonSerializer.Serialize(graph, PlanningJsonContext.Default.PlanningGraph), PlanningJsonContext.Default.PlanningGraph)!;
+computationGraph.Workflows[0].Steps[0].OutputSchema = new() { Type = "object", Properties = [new() { Name = "message", Schema = new() { Type = "string" } }] };
+computationGraph.Workflows[0].Steps[0].Input.Members[0] = new("message", new() { Kind = "compute", Text = "const result = source.toUpperCase(); return result;",
+    Members = [new("source", new() { Kind = "string", Text = "ready" })] });
+var computation = new WorkflowCompiler().Compile(WorkflowParser.Parse(compiler.Compile(computationGraph, preparation)));
+var computationResult = await new WorkflowEngine().ExecuteAsync(computation.Workflows[computation.Entrypoint!], new JsonObject(), CancellationToken.None);
+if (!computationResult.Success || computationResult.Outputs?["message"]?.ToString() != "READY") throw new InvalidOperationException("Published named computation failed.");
 var planner = new TypedWorkflowPlanner();
 var session = new PlanningSnapshot { Request = new() { TenantId = "smoke", Prompt = "Return the ready message" } };
 var runtime = new SmokeRuntime(graph, preparation);
@@ -94,7 +103,7 @@ sealed class SmokeRuntime(PlanningGraph graph, PlanningPreparation preparation) 
             "intent" => JsonNode.Parse("""{"outcome":"ready","evidence":[],"reason":"Clear request","questions":[]}"""),
             "behavior" => JsonSerializer.SerializeToNode(new PlanningBehaviorPlan { Summary = graph.Summary, Entrypoint = graph.Entrypoint,
                 Workflows = graph.Workflows.Select(w => new PlanningBehaviorWorkflow { Key = w.Key, Purpose = "Return the ready message",
-                    Steps = w.Steps.Select(n => new PlanningBehaviorNode { Key = n.Key, Purpose = "Return the ready message" }).ToList(),
+                    Steps = w.Steps.Select(n => new PlanningBehaviorNode { Key = n.Key, Purpose = "Return the ready message", InputDependencies = [] }).ToList(),
                     Outputs = w.Outputs.Select(o => new PlanningBehaviorPort(o.Name, "The ready message", true)).ToList() }).ToList() }, PlanningJsonContext.Default.PlanningBehaviorPlan),
             "fragment" => PlanningFragments.Values(graph.Workflows[0]),
             "fragment_inputs" or "fragment_contracts" or "fragment_implementation" or "fragment_outputs" => UnitResponse(request, phase),

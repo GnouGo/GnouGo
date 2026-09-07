@@ -570,7 +570,7 @@ public sealed partial class WorkflowPlanExecutor
                     ParseCapabilityInventory(
                         rejectedInventoryCandidate,
                         evidenceSources),
-                    evidenceSources);
+                    evidenceSources, input["planner_version"]?.GetValue<int>() == 2);
                 rejectedInventoryCandidate = null;
                 RecordCapabilityInventoryContractTelemetry(
                     inferenceSpan,
@@ -622,7 +622,7 @@ public sealed partial class WorkflowPlanExecutor
                         ParseCapabilityInventory(
                             repairedInventoryCandidate,
                             evidenceSources),
-                        evidenceSources);
+                        evidenceSources, input["planner_version"]?.GetValue<int>() == 2);
                     finalContractIssues = Array.Empty<CapabilityInventoryContractIssue>();
                     RecordCapabilityInventoryContractTelemetry(
                         inferenceSpan,
@@ -919,7 +919,7 @@ public sealed partial class WorkflowPlanExecutor
                                     inventoryRewindResponse,
                                     "capability inventory upstream rewind"),
                                 evidenceSources),
-                            evidenceSources);
+                            evidenceSources, input["planner_version"]?.GetValue<int>() == 2);
                         var inventoryChanged = !string.Equals(
                             BuildCapabilityInventoryFingerprint(candidateEvidenceInventory),
                             BuildCapabilityInventoryFingerprint(evidenceAdjudicatedInventory),
@@ -3324,8 +3324,18 @@ public sealed partial class WorkflowPlanExecutor
 
     private static CapabilityInventory RemovePlannerBoundaryArtifacts(
         CapabilityInventory inventory,
-        IReadOnlyList<CapabilityEvidenceSource> evidenceSources)
+        IReadOnlyList<CapabilityEvidenceSource> evidenceSources,
+        bool typedEvidenceOnly = false)
     {
+        // Typed planning uses validated source-addressed intent classifications.
+        // English keyword filters can silently drop explicit requirements in other
+        // languages. Preserve those effects and let contract matching fail closed.
+        if (typedEvidenceOnly)
+        {
+            var missing = inventory.Operations.Where(operation => operation.IntentOrigin == "requested_effect" && operation.ExecutionKind is "external_effect" or "human_interaction" && operation.CoverageRequirementEvidence.Count == 0).ToArray();
+            if (missing.Length != 0) throw new InvalidOperationException("Typed capability inventory requires source-addressed evidence for every external or human operation: " + string.Join(", ", missing.Select(operation => operation.Id)));
+            return inventory with { Operations = inventory.Operations.Where(operation => operation.IntentOrigin != "derived_failure_handling").ToArray() };
+        }
         var evidenceCorpus = BuildCapabilityEvidenceCorpus(evidenceSources);
         var userConcepts = CountPlannerBoundaryConcepts(evidenceCorpus);
         var operations = inventory.Operations

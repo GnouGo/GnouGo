@@ -20,7 +20,7 @@ public static class PlanningModelValues
             {
                 "null" => ["kind"], "string" or "expression" => ["kind", "text"], "number" => ["kind", "number"], "boolean" => ["kind", "boolean"],
                 "object" => ["kind", "members"], "array" => ["kind", "items"], "input" => ["kind", "source", "path"], "workflow" => ["kind", "source"],
-                "output" => ["kind", "source", "path", "resultChannel"], "template" => ["kind", "text", "members"], _ => names
+                "output" => ["kind", "source", "path", "resultChannel"], "template" or "compute" => ["kind", "text", "members"], _ => names
             };
         }
         else if (obj.ContainsKey("schemaPointer") && obj.ContainsKey("nullable"))

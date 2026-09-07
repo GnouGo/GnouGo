@@ -175,6 +175,7 @@ public sealed partial class TypedWorkflowPlanner(TimeProvider? timeProvider = nu
                     state.BestGraph = null;
                     break;
                 case "retry":
+                    if (state.Dataflow is { } dataflow) dataflow.AssessmentCallsAtRetry = dataflow.AssessmentCalls;
                     if (state.Preparation is not null) await runtime.EnrichPreparationAsync(state.Preparation, ct);
                     var invalidReview = state.Status == PlanningStatus.BehaviorReview && state.BehaviorPlan is not null && state.Preparation is not null && PlanningBehaviorPlans.Validate(state.BehaviorPlan, state.Preparation).Count != 0;
                     if (!invalidReview && state.Status is not (PlanningStatus.Failed or PlanningStatus.Unsupported or PlanningStatus.Recovery)) throw new PlanningConflictException("Only a stopped session or invalidated behavior review can be retried.");
@@ -185,6 +186,8 @@ public sealed partial class TypedWorkflowPlanner(TimeProvider? timeProvider = nu
                         // Preserve history and intent, invalidate its approval, and request a new review.
                         state.PreviousGraph = state.Graph; state.Graph = null; state.Fragments.Clear();
                         state.ReviewedGraph = null; state.ApprovedBehaviorHash = null;
+                        if (PlanningBehaviorPlans.Validate(state.BehaviorPlan, state.Preparation).Any(d => d.Code == "BEHAVIOR_MATERIALIZER_REUSED"))
+                            state.Preparation = null; // Re-resolve the missing lifecycle binding, then require a new review.
                     }
                     if (state.Diagnostics.Any(d => d.Code == "CATALOG_CHANGED"))
                     {
@@ -239,7 +242,7 @@ public sealed partial class TypedWorkflowPlanner(TimeProvider? timeProvider = nu
             }
         }
         catch (WorkflowRuntimeException ex) when (state.CurrentPhase == PlanningPhase.Capabilities &&
-            ex.Code is ErrorCodes.CapabilityPreflightInferenceFailed or ErrorCodes.CapabilityPreflightUnavailable)
+            ex.Code is ErrorCodes.CapabilityPreflightInferenceFailed or ErrorCodes.CapabilityPreflightUnavailable or ErrorCodes.CapabilityPreflightDiscoveryFailed)
         {
             state.Status = ex.Code == ErrorCodes.CapabilityPreflightUnavailable ? PlanningStatus.Unsupported : PlanningStatus.Recovery;
             state.ApprovedHash = null;
@@ -394,7 +397,10 @@ public sealed partial class TypedWorkflowPlanner(TimeProvider? timeProvider = nu
 
     private async Task ValidateAsync(PlanningSnapshot state, IPlanningRuntime runtime, CancellationToken ct)
     {
+        if (RecoverInvalidBehavior(state)) return;
         var diagnostics = BehaviorDiagnostics(state.Graph!, state.Preparation!);
+        foreach (var workflow in state.Graph!.Workflows)
+            diagnostics.AddRange(InputObligationFindings(state, state.Graph, new() { WorkflowKey = workflow.Key, Kind = "implementation", NodeKeys = PlanningGraphCompiler.Enumerate(workflow.Steps.Concat(workflow.Finally)).Select(n => n.Key).ToList() }));
         if (state.BehaviorPlan is not null)
         {
             if (state.ApprovedBehaviorHash != PlanningBehaviorPlans.Fingerprint(state.BehaviorPlan))
@@ -476,6 +482,8 @@ public sealed partial class TypedWorkflowPlanner(TimeProvider? timeProvider = nu
 
     private async Task RepairExecutableAsync(PlanningSnapshot state, IPlanningRuntime runtime, CancellationToken ct)
     {
+        if (RecoverInvalidBehavior(state)) return;
+        if (await RepairConstructionFieldsAsync(state, runtime, ct)) return;
         var scope = PlanningPatches.Scope(state.Graph!, state.Diagnostics);
         var preparation = state.Preparation!;
         JsonObject? boundedContext = null;

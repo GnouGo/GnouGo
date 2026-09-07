@@ -310,3 +310,5 @@ Capability preparation also enters recovery for inference-contract failures. The
 designer preserves operation findings and declared decision sources; rejected catalog
 repairs are identified separately. Confirmed unavailable capabilities remain unsupported.
 See [the September 7 regression and stabilization proposal](planner-v2-capability-recovery.md).
+
+See [data bindings and field-level repairs](planner-v2-data-bindings.md) for current construction, recovery, and live-campaign accounting.

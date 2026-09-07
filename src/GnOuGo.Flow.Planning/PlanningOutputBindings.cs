@@ -16,6 +16,7 @@ internal static class PlanningOutputBindings
         graph ??= new() { Workflows = [workflow] };
         var bindings = new Dictionary<string, Binding>(StringComparer.Ordinal);
         var resolve = PlanningGraphValidation.ValueContractResolver(graph, workflow, preparation);
+        var available = PlanningDataflow.CompactIndex(workflow, preparation, graph, PlanningDataflow.WorkflowOutputs);
         var sources = workflow.Inputs.Select(p => new PlanningValue { Kind = "input", Source = p.Name }).Concat(
             PlanningGraphCompiler.Enumerate(workflow.Steps.Concat(workflow.Finally)).SelectMany(n => n.StructuredOutput is null
                 ? new[] { new PlanningValue { Kind = "output", Source = n.Key } }
@@ -28,6 +29,7 @@ internal static class PlanningOutputBindings
             foreach (var path in Paths(schema, [], 0))
             {
                 var value = new PlanningValue { Kind = source.Kind, Source = source.Source, ResultChannel = source.ResultChannel, Path = path };
+                if (!available.ContainsKey(Id(value))) continue;
                 try
                 {
                     var resolved = resolve(value);

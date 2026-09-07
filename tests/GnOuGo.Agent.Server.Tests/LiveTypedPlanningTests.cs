@@ -117,6 +117,7 @@ public sealed partial class LiveIntentAgentGenerationTests
         state = await ConfigureLiveGenerationAsync(service, state, ct);
         if (state.Preparation is not null)
             await new WorkflowPlanningRuntime(new WorkflowEngine()).EnrichPreparationAsync(state.Preparation, ct);
+        var unsafePriorBehavior = state.BehaviorPlan is not null && state.Preparation is not null && PlanningBehaviorPlans.Validate(state.BehaviorPlan, state.Preparation).Count != 0;
         var invalidReview = state.Status == PlanningStatus.BehaviorReview && state.BehaviorPlan is not null && state.Preparation is not null &&
             PlanningBehaviorPlans.Validate(state.BehaviorPlan, state.Preparation).Count != 0;
         if (invalidReview || state.Status is PlanningStatus.Failed or PlanningStatus.Recovery)
@@ -126,7 +127,8 @@ public sealed partial class LiveIntentAgentGenerationTests
         while (!PlanningStatus.IsWaiting(state.Status) && !PlanningStatus.IsTerminal(state.Status))
             state = await service.SubmitAsync(id, new() { Kind = "advance", ExpectedRevision = state.Revision }, ct);
         Assert.Equal(answerCount, state.Answers.Count);
-        Assert.Equal(acceptedBehavior, state.ApprovedBehaviorHash);
+        if (unsafePriorBehavior) Assert.Null(state.ApprovedBehaviorHash);
+        else Assert.Equal(acceptedBehavior, state.ApprovedBehaviorHash);
         Assert.Null(state.ApprovedHash);
         if (state.Status == PlanningStatus.Clarification)
         {
@@ -156,7 +158,7 @@ public sealed partial class LiveIntentAgentGenerationTests
             Assert.Contains("Planner v2", page.Markup);
             WriteLiveProgress("v2_user_behavior_review_visible");
         }
-        // No hosted service was started, no answer/approval is submitted, and the
+        // Automatic planning is disabled; no answer/approval is submitted, and the
         // encrypted pending form remains available to the real designer on restart.
     }
 

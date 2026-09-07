@@ -1,5 +1,7 @@
 # GnOuGo.Agent (Blazor + Minimal API)
 
+Planner v2 uses [typed data bindings and field-level recovery](../../docs/planner-v2-data-bindings.md). Recovery shows validation findings, dispatch size and repair progress above the behavior diagram.
+
 This solution contains:
 - **GnOuGo.Agent.Server**: Blazor (server interactive) UI + Minimal API streaming endpoint; published as a trimmed self-contained single-file executable with bundled MCP tools.
 - **GnOuGo.Agent.Shared**: shared DTOs

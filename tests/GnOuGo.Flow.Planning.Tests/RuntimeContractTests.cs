@@ -108,6 +108,11 @@ public sealed class RuntimeContractTests
         };
         var preparation = await runtime.PrepareAsync(request, Ct);
         var capability = Assert.Single(preparation.Capabilities);
+        preparation.StepContracts["mcp.call"]!["input"]!["properties"]!.AsObject().Remove("preserve_optional_nulls");
+        var legacyFingerprint = preparation.Fingerprint;
+        await runtime.EnrichPreparationAsync(preparation, Ct);
+        Assert.NotEqual(legacyFingerprint, preparation.Fingerprint);
+        Assert.NotNull(preparation.StepContracts["mcp.call"]!["input"]!["properties"]!["preserve_optional_nulls"]);
         Assert.Empty(await runtime.ValidateCatalogAsync(preparation, Ct));
         var graph = new PlanningGraph { Summary = request.Prompt, Workflows = [new()
         {

@@ -444,6 +444,30 @@ public sealed class WorkflowPlanCapabilityPreflightTests
         Assert.Contains("do not classify the latter as local processing", prompt, StringComparison.Ordinal);
     }
 
+    [Theory]
+    [InlineData("Release the created resource after execution.")]
+    [InlineData("Nettoyer la ressource créée après l’exécution.")]
+    [InlineData("実行後に作成したリソースを解放する。")]
+    public void TypedInventoryPreservesLifecycleEvidenceWithoutEnglishKeywordFiltering(string intent)
+    {
+        var flags = BindingFlags.NonPublic | BindingFlags.Static;
+        var sources = typeof(WorkflowPlanExecutor).GetMethod("BuildCapabilityEvidenceSources", flags)!.Invoke(null, [intent, "", null]);
+        var json = new JsonObject
+        {
+            ["complete"] = true, ["incomplete_reasons"] = new JsonArray(), ["constraints"] = new JsonArray(),
+            ["operations"] = new JsonArray(new JsonObject
+            {
+                ["id"] = "release", ["description"] = "Release created resource", ["required"] = true,
+                ["execution_kind"] = "external_effect", ["external_effect_kind"] = "lifecycle",
+                ["intent_origin"] = "requested_effect", ["derivation_source_operation_id"] = "",
+                ["coverage_requirements"] = new JsonArray(new JsonObject { ["source_id"] = "user_request", ["excerpt"] = intent, ["enforcement_kind"] = "capability_contract" })
+            })
+        };
+        var inventory = typeof(WorkflowPlanExecutor).GetMethod("ParseCapabilityInventory", flags)!.Invoke(null, [json, sources]);
+        var filtered = typeof(WorkflowPlanExecutor).GetMethod("RemovePlannerBoundaryArtifacts", flags)!.Invoke(null, [inventory, sources, true])!;
+        Assert.Single(((System.Collections.IEnumerable)filtered.GetType().GetProperty("Operations")!.GetValue(filtered)!).Cast<object>());
+    }
+
     [Fact]
     public void CapabilityInventoryPrompt_SeparatesExternalStateResolutionFromLocatorParsing()
     {

@@ -8,6 +8,30 @@ namespace GnOuGo.Agent.Server.Tests;
 public sealed class LiveIntentBudgetLedgerTests
 {
     [Fact]
+    public async Task AuthorizedAmendmentPreservesUsageReservationsAndHistory()
+    {
+        var path = Path.Combine(Path.GetTempPath(), $"gnougo-live-amend-{Guid.NewGuid():N}.json");
+        var definition = new LiveIntentAgentGenerationTests.LiveBudgetDefinition(new(100, "EUR"), new(0, "EUR"), MaxCalls: 120, ExistingConfiguration: true, PriorCostReserve: 50);
+        try
+        {
+            var ledger = LiveIntentAgentGenerationTests.LiveBudgetLedger.Open(path, definition);
+            ledger.ReserveCall(30, "pending");
+            await ledger.PersistAsync(ledger.Snapshot with { Calls = 120, EstimatedCost = 68 }, TestContext.Current.CancellationToken);
+            var amended = definition with { AuthorizedBudget = new(150, "EUR"), MaxCalls = 240 };
+            Assert.Throws<InvalidOperationException>(() => LiveIntentAgentGenerationTests.LiveBudgetLedger.Open(path, amended));
+            ledger = LiveIntentAgentGenerationTests.LiveBudgetLedger.Open(path, amended, authorizeLimitAmendment: true);
+            Assert.Equal(120, ledger.Snapshot.Calls); Assert.Equal(68, ledger.Snapshot.EstimatedCost); Assert.Equal(30, ledger.UnverifiedCostReserve);
+            await ledger.PersistAsync(ledger.Snapshot, TestContext.Current.CancellationToken);
+            Assert.Single(JsonNode.Parse(File.ReadAllText(path))!["budget_amendments"]!.AsArray());
+            ledger = LiveIntentAgentGenerationTests.LiveBudgetLedger.Open(path, amended, authorizeLimitAmendment: true);
+            Assert.Single(JsonNode.Parse(File.ReadAllText(path))!["budget_amendments"]!.AsArray());
+            Assert.Throws<InvalidOperationException>(() => LiveIntentAgentGenerationTests.LiveBudgetLedger.Open(path, amended with { PriorCostReserve = 0 }, true));
+            Assert.Throws<InvalidOperationException>(() => LiveIntentAgentGenerationTests.LiveBudgetLedger.Open(path, definition, true));
+        }
+        finally { if (File.Exists(path)) File.Delete(path); }
+    }
+
+    [Fact]
     public void TextReservationIncludesUnicodeSchemasAndToolContracts()
     {
         var request = new LLMRequest { Prompt = "é😀", StructuredOutputSchema = new JsonObject { ["description"] = "résultat" },

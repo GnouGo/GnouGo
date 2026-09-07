@@ -98,7 +98,18 @@ public sealed partial class WorkflowPlanExecutor
             if (ex is Expressions.WorkflowRuntimeException runtime && runtime.Details?["diagnostics"] is JsonArray diagnostics)
                 return diagnostics.OfType<JsonObject>().Select(d => TypedArtifactDiagnostic(d, runtime.Code, stage)).ToArray();
             if (ex is Expressions.WorkflowRuntimeException detailed && detailed.Details is JsonObject details)
-                return [TypedArtifactDiagnostic(details, detailed.Code, stage)];
+            {
+                if (details["redundant_calls"] is JsonArray calls)
+                    return calls.OfType<JsonObject>().Select(call => TypedArtifactDiagnostic(new JsonObject
+                    {
+                        ["step"] = call["step_id"]?.DeepClone(),
+                        ["message"] = "This operation invokes an artifact materializer beyond the locked occurrence allowance. Correct the behavior's capability binding; changing arguments cannot turn a producer into another lifecycle action."
+                    }, detailed.Code, stage)).ToArray();
+                var finding = details.DeepClone().AsObject(); finding["message"] ??= detailed.Message;
+                if (details["unavailable_capabilities"] is JsonArray missing)
+                    finding["message"] = detailed.Message + "\nMissing obligations: " + string.Join("; ", missing.OfType<JsonObject>().Select(c => c["description"]?.ToString() ?? c["id"]?.ToString()));
+                return [TypedArtifactDiagnostic(finding, detailed.Code, stage)];
+            }
             return [new PlanningDiagnostic(ex is Expressions.WorkflowRuntimeException failure ? failure.Code : "PLANNING_VALIDATION", "$", ex.Message, ValidationStage: stage)];
         }
     }

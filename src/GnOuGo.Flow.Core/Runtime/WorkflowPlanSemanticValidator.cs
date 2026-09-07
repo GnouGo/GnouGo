@@ -87,7 +87,7 @@ internal static class WorkflowPlanSemanticValidator
     {
         "server", "kind", "method", "methods", "request", "request_template", "template_data",
         "timeout_ms", "prompt", "provider", "model", "temperature", "tools", "prompts",
-        "structured_output", "raise_on_error", "raiseOnError", "error_policy",
+        "structured_output", "raise_on_error", "raiseOnError", "error_policy", "preserve_optional_nulls",
         "detect_result_errors", "detectResultErrors"
     };
 
@@ -2043,6 +2043,7 @@ internal static class WorkflowPlanSemanticValidator
                     && requestValue is JsonValue scalar
                     && scalar.TryGetValue<string>(out var text)
                     && text.Contains("${", StringComparison.Ordinal)
+                    && !ClosedExpressionValues.AreWithin(text, documentedValues)
                     && !errors.Any(error => string.Equals(error.Code, "MCP_REQUEST_SELECTOR_NOT_LITERAL", StringComparison.Ordinal)
                                             && string.Equals(error.WorkflowName, workflowName, StringComparison.Ordinal)
                                             && string.Equals(error.StepId, stepId, StringComparison.Ordinal)
@@ -2059,8 +2060,8 @@ internal static class WorkflowPlanSemanticValidator
                             .Select(static value => value.ToJsonString())
                             .Take(64)
                             .ToArray(),
-                        Suggestion = $"Use one documented literal scalar for selector '{field}' in '{serverName}/{methodName}'; do not construct selectors through expressions.",
-                        Message = $"mcp.call selector '{field}' for '{serverName}/{methodName}' must be a documented literal scalar, but an expression was supplied."
+                        Suggestion = $"Use a documented scalar or an expression whose possible returned values are all provably in the declared enum for selector '{field}' in '{serverName}/{methodName}'.",
+                        Message = $"mcp.call selector '{field}' for '{serverName}/{methodName}' has an expression whose returned values cannot be established from the declared enum."
                     });
                 }
 

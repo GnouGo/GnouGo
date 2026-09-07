@@ -103,6 +103,22 @@
                 @foreach (var answer in _state.Answers) { <p>@answer.Question</p><ul>@foreach (var value in answer.Answers) { <li>@value.Key: @value.Value</li> }</ul> }
             </details>
         }
+        @if (_state.Diagnostics.Count > 0)
+        {
+            <h3 class="mt-3">Validation findings</h3>
+            @foreach (var unit in _state.ConstructionUnits.Where(u => u.Status is "invalid" or "recovery"))
+            {
+                <p>Operations: @string.Join(", ", unit.NodeKeys) · Repair calls: @unit.RepairCalls · Dispatch: @(unit.DispatchOutcome ?? "Not recorded")
+                    @if (unit.EstimatedInputTokens is { } estimate) { <span> · Estimated input: @estimate / @unit.InputTokenLimit tokens</span> }
+                </p>
+            }
+            <ul>@foreach (var group in _state.Diagnostics.GroupBy(d => (d.Code, d.Message)))
+            {
+                <li><strong>@group.Key.Code</strong>: @group.Key.Message
+                    <details><summary>Affected locations (@group.Count())</summary><ul>@foreach (var diagnostic in group) { <li><code>@diagnostic.Location</code></li> }</ul></details>
+                </li>
+            }</ul>
+        }
         @if ((_state.BehaviorPlan is { } behavior ? GnOuGo.Flow.Planning.PlanningBehaviorPlans.Display(behavior, _state.Preparation) : _state.Graph) is { } graph)
         {
             @if (_state.ReviewedGraph is null && _state.ApprovedBehaviorHash is null && _state.Status is PlanningStatus.Recovery or PlanningStatus.Failed)
@@ -112,16 +128,6 @@
             <p>@graph.Summary</p>
             <MarkdownContent Content="@("```mermaid\n" + GnOuGo.Flow.Planning.PlanningReviewFormatter.Diagram(graph, _state.Preparation, _state.PreviousGraph ?? _state.ReviewedGraph) + "\n```")" />
             <ul>@foreach (var detail in _state.BehaviorPlan is { } readable ? GnOuGo.Flow.Planning.PlanningReviewFormatter.BehaviorDetails(readable) : GnOuGo.Flow.Planning.PlanningReviewFormatter.BehaviorDetails(graph)) { <li>@detail</li> }</ul>
-        }
-        @if (_state.Diagnostics.Count > 0)
-        {
-            <h3 class="mt-3">Validation findings</h3>
-            <ul>@foreach (var group in _state.Diagnostics.GroupBy(d => (d.Code, d.Message)))
-            {
-                <li><strong>@group.Key.Code</strong>: @group.Key.Message
-                    <details><summary>Affected locations (@group.Count())</summary><ul>@foreach (var diagnostic in group) { <li><code>@diagnostic.Location</code></li> }</ul></details>
-                </li>
-            }</ul>
         }
         @if (_state.Scenarios.Count > 0)
         {

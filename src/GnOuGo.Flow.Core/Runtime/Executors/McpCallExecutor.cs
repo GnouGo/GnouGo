@@ -86,7 +86,7 @@ public sealed class McpCallExecutor : IStepExecutor
         By default, MCP tool errors raise MCP_CALL_ERROR/MCP_PROMPT_ERROR runtime exceptions so `on_error` handlers can run. Set `raise_on_error: false` only when the workflow intentionally wants to inspect `data.steps.<id>.status == "error"` as normal output.
         Optional `error_policy.detect_result_errors: true` treats common structured failure envelopes like `{ success: false, error_code, error_message }` as MCP errors even when the transport did not set IsError.
         For generated plans, do NOT use `mcp.call` with only `server` as the default next step after `mcp.list` unless calling everything is the explicit goal.
-        Request fields must statically match the discovered MCP input_schema. Do not pass nullable structured_output fields such as `string|null` into required request fields; make the source non-null, refine it with `assert.non_null`, add an exact `if: "${data.steps.x.json.field != null}"` guard on the same mcp.call step, or skip the call. A request property that is optional in the discovered schema is omitted automatically when its resolved value is null.
+        Request fields must statically match the discovered MCP input_schema. Do not pass nullable structured_output fields such as `string|null` into required request fields; make the source non-null, refine it with `assert.non_null`, add an exact `if: "${data.steps.x.json.field != null}"` guard on the same mcp.call step, or skip the call. A request property that is optional in the discovered schema is omitted automatically when its resolved value is null, unless preserve_optional_nulls=true. That explicit option keeps JSON null and still validates it against the tool schema.
 
         Output access patterns:
         - Single tool: `data.steps.<id>.status` ("ok"|"error") and `data.steps.<id>.response` (opaque tool-specific JSON).
@@ -368,7 +368,7 @@ public sealed class McpCallExecutor : IStepExecutor
                 foreach (var methodName in batchMethods!)
                 {
                     var itemCorrelation = correlation with { MethodName = methodName };
-                    var itemResult = await CallSingleAsync(session, kind, methodName, requestArgs?.DeepClone(), itemCorrelation, errorPolicy.DetectResultErrors, runtimeToolCatalog, ctx, realtimeProgressFingerprints, linkedCts.Token);
+                    var itemResult = await CallSingleAsync(session, kind, methodName, requestArgs?.DeepClone(), itemCorrelation, errorPolicy.DetectResultErrors, runtimeToolCatalog, GetBoolProperty(input, "preserve_optional_nulls") ?? false, ctx, realtimeProgressFingerprints, linkedCts.Token);
                     var itemObj = (JsonObject)itemResult!;
                     itemObj["method"] = methodName;
                     if (itemObj["status"]?.GetValue<string>() == "error")
@@ -398,7 +398,7 @@ public sealed class McpCallExecutor : IStepExecutor
             {
                 // ── Single mode (backward compatible) ──
                 var singleCorrelation = correlation with { MethodName = singleMethod };
-                var singleResult = await CallSingleAsync(session, kind, singleMethod!, requestArgs, singleCorrelation, errorPolicy.DetectResultErrors, runtimeToolCatalog, ctx, realtimeProgressFingerprints, linkedCts.Token);
+                var singleResult = await CallSingleAsync(session, kind, singleMethod!, requestArgs, singleCorrelation, errorPolicy.DetectResultErrors, runtimeToolCatalog, GetBoolProperty(input, "preserve_optional_nulls") ?? false, ctx, realtimeProgressFingerprints, linkedCts.Token);
                 var statusStr = (singleResult as JsonObject)?["status"]?.GetValue<string>();
                 ctx.SetTelemetryAttribute("gen_ai.response.finish_reason", statusStr == "error" ? "error" : "stop");
                 if (errorPolicy.RaiseOnError && statusStr == "error")
@@ -602,7 +602,7 @@ public sealed class McpCallExecutor : IStepExecutor
                     $"mcp.call prompt mode selected unknown MCP capability '{toolCall.Name}'", retryable: false);
 
             var correlation = BuildCorrelationContext(ctx, session.ServerName, capability.Kind, capability.MethodName, null, requestContext);
-            var itemResult = await CallSingleAsync(session, capability.Kind, capability.MethodName, toolCall.Arguments?.DeepClone(), correlation, errorPolicy.DetectResultErrors, runtimeToolCatalog, ctx, realtimeProgressFingerprints, ct);
+            var itemResult = await CallSingleAsync(session, capability.Kind, capability.MethodName, toolCall.Arguments?.DeepClone(), correlation, errorPolicy.DetectResultErrors, runtimeToolCatalog, GetBoolProperty(input, "preserve_optional_nulls") ?? false, ctx, realtimeProgressFingerprints, ct);
             var itemObj = (JsonObject)itemResult!;
             itemObj["method"] = capability.MethodName;
             itemObj["kind"] = capability.Kind;
@@ -1131,10 +1131,10 @@ Produce the final answer strictly from the executed MCP results.
     /// <summary>Calls a single tool or prompt and returns the result JsonObject.</summary>
     private static async Task<JsonNode?> CallSingleAsync(
         IMcpSession session, string kind, string method, JsonNode? requestArgs,
-        McpCorrelationContext correlation, bool detectResultErrors, IReadOnlyList<McpToolInfo>? runtimeToolCatalog,
+        McpCorrelationContext correlation, bool detectResultErrors, IReadOnlyList<McpToolInfo>? runtimeToolCatalog, bool preserveOptionalNulls,
         StepExecutionContext ctx, ConcurrentDictionary<string, byte>? realtimeProgressFingerprints, CancellationToken ct)
     {
-        if (kind == "tool")
+        if (kind == "tool" && !preserveOptionalNulls)
             requestArgs = NormalizeResolvedToolRequest(method, requestArgs, runtimeToolCatalog);
 
         EmitMcpContentEvent(ctx, "gen_ai.content.prompt", "gen_ai.prompt",

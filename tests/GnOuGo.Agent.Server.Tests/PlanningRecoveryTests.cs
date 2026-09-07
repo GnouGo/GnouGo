@@ -17,6 +17,41 @@ public sealed class PlanningRecoveryTests
     private static CancellationToken Ct => Xunit.TestContext.Current.CancellationToken;
 
     [Fact]
+    public async Task RecoveryHostOnlyAdvancesTheExplicitlySubmittedSession()
+    {
+        await using var fixture = await PlanningPersistenceTests.StoreFixture.CreateAsync();
+        var calls = 0;
+        var planner = new PlanningSessionLifecycleTests.DelegatePlanner((state, _, _, _) =>
+        { calls++; state.Revision++; state.Status = PlanningStatus.Recovery; return Task.FromResult(state); });
+        using var service = PlanningSessionLifecycleTests.Create(fixture, planner, PlanningSessionLifecycleTests.AgentCatalog(), settings: new() { BackgroundProcessingEnabled = false });
+        var target = await service.StartAsync("target", "Plan target", false, Ct);
+        var other = await service.StartAsync("other", "Plan other", false, Ct);
+        await service.StartAsync(Ct); await service.ExecuteTask!;
+        Assert.Equal(0, calls);
+        await service.SubmitAsync(target.Request.SessionId, new() { Kind = "advance", ExpectedRevision = target.Revision }, Ct);
+        Assert.Equal(1, calls); Assert.Equal(PlanningStatus.Created, (await service.GetAsync(other.Request.SessionId, Ct))!.Status);
+        await service.StopAsync(Ct);
+    }
+
+    [Theory]
+    [InlineData(100, 100)]
+    [InlineData(101, 101)]
+    public async Task ConfiguredModelLimitRetainsHistoricalUsage(int limit, int expectedCalls)
+    {
+        await using var fixture = await PlanningPersistenceTests.StoreFixture.CreateAsync();
+        var state = new PlanningSnapshot { Request = new() { TenantId = "planning-tests", Prompt = "Return a greeting", Name = "retained" },
+            Usage = new() { StartedAtUtc = DateTimeOffset.UtcNow, Calls = 100, EstimatedCostCurrency = "EUR" } };
+        state.Request.Options["generator"] = new JsonObject { ["provider"] = "openai", ["model"] = "gpt-4o-mini" };
+        Assert.True(await fixture.Store.TrySaveAsync(state, null, Ct));
+        using var service = PlanningSessionLifecycleTests.Create(fixture, new TypedWorkflowPlanner(), PlanningSessionLifecycleTests.AgentCatalog(),
+            new IntentClient(IntentClarificationFixture.Ready()), new() { BackgroundProcessingEnabled = false, MaxModelCalls = limit });
+        var resumed = await service.SubmitAsync(state.Request.SessionId, new() { Kind = "advance", ExpectedRevision = state.Revision }, Ct);
+        Assert.True(expectedCalls == resumed.Usage!.Calls, string.Join("; ", resumed.Diagnostics.Select(d => d.Code + ": " + d.Message)));
+        Assert.Equal(limit > 100, resumed.IntentChecked);
+        Assert.Equal(expectedCalls, (await service.GetAsync(state.Request.SessionId, Ct))!.Usage!.Calls);
+    }
+
+    [Fact]
     public async Task RepairedQuestions_RenderWithoutDefaultAnswers_SubmitAndResume_RejectDuplicateSubmission()
     {
         await using var fixture = await PlanningPersistenceTests.StoreFixture.CreateAsync();
@@ -198,6 +233,7 @@ public sealed class PlanningRecoveryTests
         Assert.True(await fixture.Store.TrySaveAsync(state, null, Ct));
         var behavior = new PlanningBehaviorPlan { Summary = "Return a message", Workflows = [new() { Key = "main", Purpose = "Return a message",
             Steps = [new() { Key = "value", Purpose = "Return a message" }], Outputs = [new("message", "The returned message", true)] }] };
+        foreach (var node in behavior.Workflows.SelectMany(w => PlanningBehaviorPlans.Enumerate(w.Steps.Concat(w.Finally)))) node.InputDependencies ??= [];
         var client = new IntentClient(JsonSerializer.SerializeToNode(behavior, PlanningJsonContext.Default.PlanningBehaviorPlan)!);
         using var service = PlanningSessionLifecycleTests.Create(fixture, new TypedWorkflowPlanner(), PlanningSessionLifecycleTests.AgentCatalog(), client);
         await service.StartAsync(Ct);

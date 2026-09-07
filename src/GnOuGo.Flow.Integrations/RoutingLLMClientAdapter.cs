@@ -57,6 +57,7 @@ public sealed class RoutingLLMClientAdapter : ILLMClient
 
         var response = new LLMResponse
         {
+            CompletionStatus = CompletionStatus(aiResponse.Raw),
             Text = aiResponse.Text,
             Json = aiResponse.Json,
             Usage = aiResponse.Usage,
@@ -75,5 +76,13 @@ public sealed class RoutingLLMClientAdapter : ILLMClient
         }
 
         return response;
+    }
+
+    internal static string? CompletionStatus(JsonNode? raw)
+    {
+        if (raw is not JsonObject obj) return null;
+        var reason = (obj["choices"] as JsonArray)?.OfType<JsonObject>().FirstOrDefault()?["finish_reason"]?.ToString()
+            ?? (obj["incomplete_details"] as JsonObject)?["reason"]?.ToString() ?? obj["stop_reason"]?.ToString() ?? obj["done_reason"]?.ToString();
+        return reason switch { "length" or "max_output_tokens" or "max_tokens" => "output_limit", "content_filter" or "refusal" => "refused", _ => null };
     }
 }

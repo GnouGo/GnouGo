@@ -127,6 +127,7 @@ public sealed class PlanningSessionService(
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
+        if (!settings.Value.BackgroundProcessingEnabled) return;
         // Durable revisions resume automatically; pending unknown model requests fail closed in the journal.
         foreach (var session in await store.ListAsync(Tenant, stoppingToken))
             if (!PlanningStatus.IsWaiting(session.Status) && !PlanningStatus.IsTerminal(session.Status)) _queue.Writer.TryWrite(session.Request.SessionId);
@@ -247,7 +248,7 @@ public sealed class PlanningSessionService(
         var money = current.Request.Options["llm_budget"]?["max_estimated_cost"];
         var budget = new LLMUsageBudgetScope(new LLMUsageBudgetLimits
         {
-            MaxCalls = 100, MaxTotalTokens = 15_000_000,
+            MaxCalls = settings.Value.MaxModelCalls > 0 ? settings.Value.MaxModelCalls : throw new InvalidOperationException("TypedWorkflowPlanning:MaxModelCalls must be positive."), MaxTotalTokens = 15_000_000,
             MaxEstimatedCost = new MonetaryAmount(money?["amount"]?.GetValue<decimal>() ?? budgetSettings.Value.Amount, money?["currency"]?.GetValue<string>() ?? budgetSettings.Value.Currency)
         }, initial, sink: new PlanningBudgetSink(records, Tenant, current.Request.SessionId), exchangeRateProvider: exchangeRates);
         var estimator = new ModelMetadataUsageCostEstimator(runtime.Options);
@@ -278,6 +279,9 @@ public sealed class PlanningSessionService(
         activity?.SetTag("gnougo.planning.units.completed", result.ConstructionUnits.Count(u => u.Status == "validated"));
         activity?.SetTag("gnougo.planning.units.total", result.ConstructionUnits.Count(u => u.Status != "superseded"));
         activity?.SetTag("gnougo.planning.units.repair_calls", result.ConstructionUnits.Sum(u => u.RepairCalls));
+        activity?.SetTag("gnougo.planning.bindings.count", result.Dataflow?.Bindings.Count ?? 0);
+        activity?.SetTag("gnougo.planning.units.input_estimate.max", result.ConstructionUnits.Select(u => u.EstimatedInputTokens ?? 0).DefaultIfEmpty().Max());
+        activity?.SetTag("gnougo.planning.units.dispatch_blocked", result.ConstructionUnits.Count(u => u.DispatchOutcome == "not_dispatched"));
         activity?.SetTag("gnougo.planning.diagnostic_codes", string.Join(",", result.Diagnostics.Select(d => d.Code).Distinct(StringComparer.Ordinal)));
         foreach (var attempt in result.Attempts.Skip(current.Attempts.Count))
             activity?.AddEvent(new ActivityEvent("planning.validation_attempt", tags: new ActivityTagsCollection

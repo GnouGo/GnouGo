@@ -88,6 +88,8 @@ public static class PlanningReviewFormatter
             details.Add(workflow.Purpose);
             details.AddRange(workflow.Inputs.Select(p => "Input " + p.Name + (p.Required ? " (required)" : " (optional)") + ": " + p.Description));
             details.AddRange(workflow.Outputs.Select(p => "Output " + p.Name + ": " + p.Description));
+            details.AddRange(PlanningBehaviorPlans.Enumerate(workflow.Steps.Concat(workflow.Finally)).Where(n => n.InputDependencies is { Count: > 0 })
+                .Select(n => n.Purpose + " — uses input: " + string.Join(", ", n.InputDependencies!)));
             foreach (var node in PlanningBehaviorPlans.Enumerate(workflow.Steps.Concat(workflow.Finally)))
                 foreach (var outcome in node.Outcomes)
                     details.Add(node.Purpose + " — " + outcome.Key + (outcome.IsDefault ? " (default)" : "") + ": " + outcome.Description + (outcome.Steps.Count == 0 ? " No action." : ""));

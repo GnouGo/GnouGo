@@ -85,7 +85,8 @@ public sealed partial class LiveIntentAgentGenerationTests
         var ledgerPath = ResolveBudgetStatePath(sourceRoot);
         Directory.CreateDirectory(Path.GetDirectoryName(ledgerPath)!);
         using var campaignLease = new FileStream(ledgerPath + ".lock", FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.None);
-        var budgetLedger = LiveBudgetLedger.Open(ResolveBudgetStatePath(sourceRoot), budgetDefinition);
+        var budgetLedger = LiveBudgetLedger.Open(ResolveBudgetStatePath(sourceRoot), budgetDefinition,
+            Environment.GetEnvironmentVariable("GNOU_GO_LIVE_INTENT_AGENT_AMEND_AUTHORIZED_LIMITS") == "1");
         using var exchangeHttpClient = new HttpClient { Timeout = TimeSpan.FromSeconds(10) };
         var exchangeRateProvider = new EcbExchangeRateProvider(exchangeHttpClient);
         if (!budgetDefinition.ExistingConfiguration) await ValidateProviderHardLimitAsync(
@@ -134,6 +135,8 @@ public sealed partial class LiveIntentAgentGenerationTests
             app = GnOuGoAgentWebHost.Build(
                 [
                     $"--TypedWorkflowPlanning:PlannerVersion={plannerVersion}",
+                    $"--TypedWorkflowPlanning:BackgroundProcessingEnabled={!resumeOnly}",
+                    $"--TypedWorkflowPlanning:MaxModelCalls={budgetDefinition.MaxCalls}",
                     "--OtlpCollector:Enabled=false",
                     "--OpenTelemetry:Enabled=false",
                     $"--Database:Path={telemetryDatabasePath}",
@@ -153,7 +156,8 @@ public sealed partial class LiveIntentAgentGenerationTests
                 await ReconcileV2UnverifiedCallsAsync(app.Services, planningStore, budgetLedger, cycleBudget.Snapshot, resumeOnly, timeout.Token);
             if (resumeOnly)
             {
-                // Do not start hosted workers or replay any other user's sessions.
+                // Start embedded MCP listeners, with automatic planning disabled.
+                await app.StartAsync(timeout.Token);
                 await ResumeV2QuestionsAsync(app.Services, timeout.Token);
             }
             else
@@ -2053,6 +2057,7 @@ public sealed partial class LiveIntentAgentGenerationTests
         public bool DiagnosticGenerationCompleted { get; private set; }
         public bool FinalAcceptanceCompleted { get; private set; }
         private readonly Dictionary<string, decimal> _unverifiedCalls = new(StringComparer.Ordinal);
+        private JsonArray _budgetAmendments = new();
         public HashSet<string> ReconciledStores { get; } = new(StringComparer.Ordinal);
         public decimal UnverifiedCostReserve { get { lock (_gate) return _unverifiedCalls.Values.Sum(); } }
 
@@ -2077,7 +2082,7 @@ public sealed partial class LiveIntentAgentGenerationTests
             }
         }
 
-        public static LiveBudgetLedger Open(string path, LiveBudgetDefinition definition)
+        public static LiveBudgetLedger Open(string path, LiveBudgetDefinition definition, bool authorizeLimitAmendment = false)
         {
             if (!File.Exists(path))
                 return new LiveBudgetLedger(
@@ -2119,7 +2124,10 @@ public sealed partial class LiveIntentAgentGenerationTests
                 ReadRequiredInt64(root, "max_total_tokens"),
                 root["existing_configuration_authorized"]?.GetValue<bool>() ?? false,
                 root["prior_cost_reserve"]?.GetValue<decimal>() ?? 0);
-            if (persistedDefinition != definition)
+            var amended = persistedDefinition != definition;
+            if (amended && (!authorizeLimitAmendment || definition.AuthorizedBudget.Currency != persistedDefinition.AuthorizedBudget.Currency ||
+                definition.AuthorizedBudget.Amount < persistedDefinition.AuthorizedBudget.Amount || definition.MaxCalls < persistedDefinition.MaxCalls ||
+                definition with { AuthorizedBudget = persistedDefinition.AuthorizedBudget, MaxCalls = persistedDefinition.MaxCalls } != persistedDefinition))
                 throw new InvalidOperationException("The redacted live-validation budget ledger does not match the configured budget or provider hard-limit attestation.");
 
             var snapshot = new LLMUsageBudgetSnapshot
@@ -2150,6 +2158,15 @@ public sealed partial class LiveIntentAgentGenerationTests
                     ledger._unverifiedCalls.Add(pair.Key, amount);
                 }
             foreach (var key in (root["reconciled_stores"] as JsonArray ?? []).Select(v => v!.GetValue<string>())) ledger.ReconciledStores.Add(key);
+            ledger._budgetAmendments = root["budget_amendments"]?.DeepClone().AsArray() ?? new JsonArray();
+            if (amended)
+            {
+                ledger._budgetAmendments.Add((JsonNode)new JsonObject { ["at_utc"] = DateTimeOffset.UtcNow.ToString("O", CultureInfo.InvariantCulture),
+                    ["previous_amount"] = persistedDefinition.AuthorizedBudget.Amount, ["authorized_amount"] = definition.AuthorizedBudget.Amount,
+                    ["currency"] = definition.AuthorizedBudget.Currency, ["previous_max_calls"] = persistedDefinition.MaxCalls, ["authorized_max_calls"] = definition.MaxCalls,
+                    ["basis"] = "explicit_user_authorization" });
+                ledger.PersistLocked();
+            }
             return ledger;
         }
 
@@ -2235,6 +2252,7 @@ public sealed partial class LiveIntentAgentGenerationTests
             var root = new JsonObject
             {
                 ["version"] = CurrentVersion,
+                ["budget_amendments"] = _budgetAmendments.DeepClone(),
                 ["existing_configuration_authorized"] = _definition.ExistingConfiguration,
                 ["prior_cost_reserve"] = _definition.PriorCostReserve,
                 ["authorized_budget_amount"] = _definition.AuthorizedBudget.Amount,

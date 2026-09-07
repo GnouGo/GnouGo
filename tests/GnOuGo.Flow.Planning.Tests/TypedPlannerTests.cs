@@ -20,14 +20,20 @@ public sealed class TypedPlannerTests
             Outputs = [new() { Name = "message", Schema = new() { Type = "string" }, Value = new() { Kind = "output", Source = "greeting", Path = ["message"] } }]
         }]
     };
-    internal static PlanningBehaviorPlan BehaviorPlan() => new()
+    internal static PlanningBehaviorPlan BehaviorPlan() => CompleteInputDependencies(new()
     {
         Summary = "Return a greeting", Workflows = [new()
         {
             Key = "main", Purpose = "Return a greeting", Outputs = [new("message", "The greeting", true)],
             Steps = [new() { Key = "greeting", Purpose = "Return a greeting" }]
         }]
-    };
+    });
+
+    private static PlanningBehaviorPlan CompleteInputDependencies(PlanningBehaviorPlan plan)
+    {
+        foreach (var node in plan.Workflows.SelectMany(w => PlanningBehaviorPlans.Enumerate(w.Steps.Concat(w.Finally)))) node.InputDependencies ??= [];
+        return plan;
+    }
     internal static PlanningValue Str(string text) => new() { Kind = "string", Text = text };
     internal static PlanningValue Obj(params (string Key, PlanningValue Value)[] members) => new() { Kind = "object", Members = members.Select(m => new PlanningMember(m.Key, m.Value)).ToList() };
     internal static PlanningSnapshot Session(string status = PlanningStatus.Created) => new() { Request = new() { TenantId = "tenant", Prompt = "Return a greeting", MaxRepairs = 1 }, Status = status };

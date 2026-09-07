@@ -36,7 +36,26 @@ public sealed class WorkflowPlanningRuntime : IPlanningRuntime
     {
         ct.ThrowIfCancellationRequested();
         WorkflowPlanExecutor.EnrichTypedPreparation(preparation);
+        var changed = false;
+        foreach (var (name, current) in _context.Engine.Registry.GetContracts())
+        {
+            if (preparation.StepContracts[name] is not JsonObject previous || previous["input"] is not JsonObject input ||
+                !JsonNode.DeepEquals(previous["output"], current.OutputSchema) || JsonNode.DeepEquals(input, current.InputSchema) ||
+                !IsOptionalInputExtension(input, current.InputSchema)) continue;
+            previous["input"] = current.InputSchema.DeepClone(); changed = true;
+        }
+        if (changed) preparation.Fingerprint = Convert.ToHexStringLower(System.Security.Cryptography.SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(preparation.Fingerprint + preparation.StepContracts.ToJsonString())));
         return Task.CompletedTask;
+    }
+
+    private static bool IsOptionalInputExtension(JsonObject previous, JsonObject current)
+    {
+        if (previous["properties"] is not JsonObject before || current["properties"] is not JsonObject after) return false;
+        if (before.Any(p => !after.ContainsKey(p.Key) || !JsonNode.DeepEquals(p.Value, after[p.Key]))) return false;
+        var required = (current["required"] as JsonArray ?? []).Select(p => p?.ToString()).ToHashSet(StringComparer.Ordinal);
+        if (after.Any(p => !before.ContainsKey(p.Key) && required.Contains(p.Key))) return false;
+        var oldRest = previous.DeepClone().AsObject(); var newRest = current.DeepClone().AsObject(); oldRest.Remove("properties"); newRest.Remove("properties");
+        return JsonNode.DeepEquals(oldRest, newRest);
     }
     public Task<LLMResponse> CallAsync(LLMRequest request, string phase, CancellationToken ct)
         => _context.CallLLMAsync(_context.Engine.LLMClient ?? throw new InvalidOperationException("No planning model is configured."), request, "workflow.plan.typed." + phase, ct);

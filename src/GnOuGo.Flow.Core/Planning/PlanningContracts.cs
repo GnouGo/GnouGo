@@ -105,6 +105,7 @@ public sealed class PlanningSnapshot
     public List<PlanningEvent> Events { get; set; } = [];
     public Dictionary<string, PlanningFragment> Fragments { get; set; } = new(StringComparer.Ordinal);
     public List<PlanningConstructionUnit> ConstructionUnits { get; set; } = [];
+    public PlanningDataflowContract? Dataflow { get; set; }
     public List<PlanningGenerationRevision> GenerationHistory { get; set; } = [];
     public string? Yaml { get; set; }
     public string? ArtifactHash { get; set; }
@@ -206,6 +207,8 @@ public sealed class PlanningBehaviorNode
     public string Purpose { get; set; } = "";
     public List<string> OperationIds { get; set; } = [];
     public string? CapabilityId { get; set; }
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public List<string>? InputDependencies { get; set; }
     public List<PlanningBehaviorOutcome> Outcomes { get; set; } = [];
     public List<PlanningBehaviorNode> Steps { get; set; } = [];
 }
@@ -327,7 +330,27 @@ public sealed class PlanningConstructionUnit
     public int RepairCalls { get; set; }
     public int RepairCallsAtRetry { get; set; }
     public string? Functions { get; set; }
+    public int ContractVersion { get; set; }
+    public int? EstimatedInputTokens { get; set; }
+    public int? InputTokenLimit { get; set; }
+    public string? DispatchOutcome { get; set; }
 }
+
+/// <summary>Resolved data provenance; hosts encrypt this together with the planning snapshot.</summary>
+public sealed class PlanningDataflowContract
+{
+    public int Version { get; set; } = 1;
+    public string Fingerprint { get; set; } = "";
+    public List<PlanningBinding> Bindings { get; set; } = [];
+    public List<PlanningOperationDataflow> Operations { get; set; } = [];
+    public Dictionary<string, List<string>> InputObligations { get; set; } = new(StringComparer.Ordinal);
+    public List<string> AssessedWorkflows { get; set; } = [];
+    public int AssessmentCalls { get; set; }
+    public int AssessmentCallsAtRetry { get; set; }
+}
+
+public sealed record PlanningBinding(string Id, string WorkflowKey, PlanningValue Value, JsonObject Schema, string Availability);
+public sealed record PlanningOperationDataflow(string WorkflowKey, string NodeKey, List<string> Consumes, List<string> BusinessInputs);
 
 public sealed record PlanningGenerationRevision(long Revision, PlanningGenerationOptions Options);
 
@@ -359,6 +382,8 @@ public sealed class PlanningConflictException(string message) : InvalidOperation
 
 [JsonSourceGenerationOptions(PropertyNamingPolicy = JsonKnownNamingPolicy.CamelCase)]
 [JsonSerializable(typeof(PlanningSnapshot))]
+[JsonSerializable(typeof(PlanningDataflowContract))]
+[JsonSerializable(typeof(Dictionary<string, List<string>>))]
 [JsonSerializable(typeof(PlanningGraph))]
 [JsonSerializable(typeof(PlanningBehaviorPlan))]
 [JsonSerializable(typeof(PlanningBehaviorWorkflow))]

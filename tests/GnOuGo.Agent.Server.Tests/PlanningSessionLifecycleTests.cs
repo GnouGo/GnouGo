@@ -122,13 +122,13 @@ public sealed class PlanningSessionLifecycleTests
     };
     internal static FakeMcpSession AgentCatalog() => new FakeMcpSession("GnOuGo.Agent.Mcp")
         .OnTool("agent_get_by_name", (_, _) => Task.FromResult(new McpCallResult { Content = new JsonObject { ["success"] = false, ["error_code"] = "NOT_FOUND" } }));
-    internal static PlanningSessionService Create(PlanningPersistenceTests.StoreFixture fixture, IWorkflowPlanner planner, IMcpSession agents, ILLMClient? llm = null)
+    internal static PlanningSessionService Create(PlanningPersistenceTests.StoreFixture fixture, IWorkflowPlanner planner, IMcpSession agents, ILLMClient? llm = null, TypedWorkflowPlanningSettings? settings = null)
     {
         var options = new LLMOptions { DefaultProvider = "openai", DefaultModel = "gpt-4o-mini" };
         var runtime = new SecureWorkflowRuntimeFactory(SmartFlowTestFactory.CreateRuntimeOptionsStore(options), new FakeKeyVaultRuntimeConfigStore().WithEffectiveOptions(options),
             mcpClientFactoryOverride: new FakeMcpClientFactory(agents), llmClientOverride: llm);
         return new(fixture.Store, fixture, fixture.Records, runtime, planner, new TestExchangeRateProvider(), Options.Create(new WorkflowPlanningBudgetSettings()),
-            Options.Create(new TypedWorkflowPlanningSettings()), Options.Create(new OpenTelemetrySettings { TenantId = "planning-tests" }), NullLogger<PlanningSessionService>.Instance);
+            Options.Create(settings ?? new TypedWorkflowPlanningSettings()), Options.Create(new OpenTelemetrySettings { TenantId = "planning-tests" }), NullLogger<PlanningSessionService>.Instance);
     }
     internal static async Task WaitForStatus(PlanningSessionService service, string id, string status)
     {

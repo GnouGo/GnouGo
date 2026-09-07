@@ -25,7 +25,7 @@ public static class PlanningConstruction
         PlanningConstructionUnit Add(string kind, IEnumerable<string> keys, IEnumerable<string> dependencies)
         {
             var names = keys.ToList();
-            var unit = new PlanningConstructionUnit { WorkflowKey = workflow.Key, Kind = kind, NodeKeys = names,
+            var unit = new PlanningConstructionUnit { WorkflowKey = workflow.Key, Kind = kind, NodeKeys = names, ContractVersion = PlanningDataflow.ContractVersion,
                 Key = workflow.Key + ":" + kind + ":" + PlanningGraphCompiler.Fingerprint(string.Join("\n", names))[..16], Dependencies = dependencies.ToList() };
             result.Add(unit); return unit;
         }
@@ -59,6 +59,18 @@ public static class PlanningConstruction
             if (names.Length == 0) values.Remove(variant);
             else variant["properties"]!["source"]!["enum"] = new JsonArray(names.Select(n => (JsonNode?)JsonValue.Create(n)).ToArray());
         }
+        if (unit.ContractVersion >= PlanningDataflow.BindingVersion && unit.Kind == "implementation" && graph is not null)
+        {
+            foreach (var variant in values.OfType<JsonObject>().ToArray())
+                if (variant["properties"]?["kind"]?["enum"] is JsonArray kinds && kinds.Any(k => k?.ToString() is "input" or "output")) values.Remove(variant);
+                else if (variant["properties"]?["kind"]?["enum"] is JsonArray literalKinds && literalKinds.Any(k => k?.ToString() == "expression"))
+                    variant["properties"]!["kind"]!["enum"] = new JsonArray("string");
+            values.Add((JsonNode)Object(new() { ["kind"] = new JsonObject { ["type"] = "string", ["enum"] = new JsonArray("compute") },
+                ["text"] = new JsonObject { ["type"] = "string", ["description"] = "Executable JavaScript using named members as parameters. Return an expression such as value.trim(), or a function body ending with return. Never prose or pseudocode." },
+                ["members"] = new JsonObject { ["type"] = "array", ["items"] = Ref("member") } }));
+            var bindings = unit.NodeKeys.SelectMany(key => PlanningDataflow.CompactIndex(workflow, preparation, graph, key)).DistinctBy(p => p.Key).ToArray();
+            if (bindings.Length != 0) values.Add((JsonNode)PlanningDataflow.BindingSchema(bindings.Select(p => p.Key)));
+        }
         // Exact reference pairs prevent data paths and unsupported boundary references.
         var references = PlanningSchemaReferences.Index(preparation).OfType<JsonObject>().Where(entry =>
         {
@@ -80,6 +92,24 @@ public static class PlanningConstruction
         var schemaVariants = definitions["schema"]!["anyOf"]!.AsArray();
         var inline = schemaVariants[1]!.DeepClone();
         definitions["schema"] = new JsonObject { ["anyOf"] = new JsonArray(new[] { inline }.Concat(references).ToArray()) };
+        // Structured post-processing has a stricter destination contract than a
+        // native producer annotation. Do not offer references that conversion would reject.
+        var strictInline = inline.DeepClone(); var strictFields = strictInline["properties"]!;
+        strictFields["items"] = Nullable(Ref("strictSchema"));
+        strictFields["properties"]!["items"] = Ref("strictPort");
+        strictFields["additionalProperties"] = new JsonObject { ["type"] = "null" };
+        var strictReferences = new List<JsonNode>();
+        foreach (var reference in references)
+        {
+            var copy = reference.DeepClone(); var fields = copy["properties"]!;
+            var capability = fields["capabilityId"]!["enum"]![0]!.GetValue<string>();
+            var pointers = fields["schemaPointer"]!["enum"]!.AsArray();
+            foreach (var pointer in pointers.ToArray())
+                if (PlanningContractValidation.ValidateSchema(PlanningGraphCompiler.ToJsonSchema(new() { CapabilityId = capability, SchemaPointer = pointer!.GetValue<string>() }, preparation), strict: true).Count != 0) pointers.Remove(pointer);
+            if (pointers.Count > 0) strictReferences.Add(copy);
+        }
+        definitions["strictSchema"] = new JsonObject { ["anyOf"] = new JsonArray(new[] { strictInline }.Concat(strictReferences).ToArray()) };
+        definitions["strictPort"] = definitions["port"]!.DeepClone(); definitions["strictPort"]!["properties"]!["schema"] = Ref("strictSchema");
         var root = new JsonObject();
         if (unit.Kind == "inputs") root["inputs"] = Object(new JsonObject(workflow.Inputs.Select(p => new KeyValuePair<string, JsonNode?>(p.Name,
             Object(new() { ["schema"] = Ref("schema"), ["default"] = Nullable(Ref("value")) })))));
@@ -100,11 +130,17 @@ public static class PlanningConstruction
                 if (unit.Kind == "contracts")
                 {
                     if (node.Type == "set") fields["outputSchema"] = Ref("schema");
-                    if (node.Type is "mcp.call" or "llm.call") fields["structuredOutput"] = Nullable(Object(new() { ["schema"] = Ref("schema") }));
+                    if (node.Type is "mcp.call" or "llm.call") fields["structuredOutput"] = Nullable(Object(new() { ["schema"] = Ref("strictSchema") }));
                 }
                 else
                 {
                     if (node.Type == "human.input") fields["context"] = Nullable(Ref("value"));
+                    else if (unit.ContractVersion >= PlanningDataflow.BindingVersion && node.Type == "mcp.call" && preparation.Capabilities.FirstOrDefault(c => c.Id == node.CapabilityId) is { InputSchema: var inputSchema } capability && inputSchema["properties"] is JsonObject properties)
+                    {
+                        var required = (inputSchema["required"] as JsonArray ?? []).Select(p => p?.GetValue<string>()).ToHashSet(StringComparer.Ordinal);
+                        fields["arguments"] = Object(new JsonObject(properties.Where(p => !capability.RequestBindings.Any(b => b.Path == "/" + PlanningSchemaReferences.Escape(p.Key))).Select(p => new KeyValuePair<string, JsonNode?>(p.Key,
+                            required.Contains(p.Key) ? Ref("value") : new JsonObject { ["anyOf"] = new JsonArray(Ref("value"), Object(new() { ["kind"] = new JsonObject { ["type"] = "string", ["enum"] = new JsonArray("omit") } })) }))));
+                    }
                     else if (node.Type is not ("sequence" or "parallel" or "switch")) fields["input"] = Ref("value");
                     if (node.Type == "switch") fields["expr"] = Ref("value");
                     if (node.Type is "loop.sequential" or "loop.parallel")
@@ -176,6 +212,8 @@ public static class PlanningConstruction
         else foreach (var node in PlanningGraphCompiler.Enumerate(workflow.Steps.Concat(workflow.Finally)).Where(n => unit.NodeKeys.Contains(n.Key, StringComparer.Ordinal)))
         {
             var fields = candidate["nodes"]![node.Key]!.AsObject();
+            if (unit.Kind == "implementation" && unit.ContractVersion >= PlanningDataflow.BindingVersion)
+                fields = PlanningDataflow.Expand(fields, PlanningDataflow.Index(workflow, preparation, result, node.Key))!.AsObject();
             if (unit.Kind == "contracts")
             {
                 if (node.Type == "set") node.OutputSchema = JsonSerializer.Deserialize(fields["outputSchema"]!, PlanningJsonContext.Default.PlanningSchema);
@@ -184,6 +222,18 @@ public static class PlanningConstruction
             }
             else
             {
+                if (fields["arguments"] is JsonObject arguments)
+                {
+                    var request = new PlanningValue { Kind = "object" };
+                    foreach (var (key, value) in arguments)
+                        if (value?["kind"]?.ToString() != "omit") request.Members.Add(new(key, JsonSerializer.Deserialize(value!, PlanningJsonContext.Default.PlanningValue)!));
+                    // A construction-contract upgrade changes argument addressing, not
+                    // established transport/error behavior on the retained node.
+                    node.Input = new() { Kind = "object", Members = node.Input.Members.Where(m => m.Name != "request").Append(new("request", request)).ToList() };
+                    var capability = preparation.Capabilities.Single(c => c.Id == node.CapabilityId);
+                    foreach (var binding in capability.RequestBindings.Where(b => b.Path.StartsWith('/') && !b.Path[1..].Contains('/')))
+                        request.Members.Add(new(binding.Path[1..].Replace("~1", "/", StringComparison.Ordinal).Replace("~0", "~", StringComparison.Ordinal), Literal(binding.Value)));
+                }
                 if (fields["input"] is { } input) node.Input = JsonSerializer.Deserialize(input, PlanningJsonContext.Default.PlanningValue)!;
                 if (node.Type == "human.input")
                 {
@@ -199,6 +249,29 @@ public static class PlanningConstruction
                 if (node.Type is "loop.sequential" or "loop.parallel") { node.ItemVar = fields["itemVar"]?.GetValue<string>(); node.IndexVar = fields["indexVar"]?.GetValue<string>(); }
                 if (fields["onError"] is JsonArray onError) node.OnError = onError.Select(e => JsonSerializer.Deserialize(e!, PlanningJsonContext.Default.PlanningErrorCase)!).ToList();
             }
+        }
+        return result;
+    }
+
+    internal static JsonObject UpgradeCandidate(PlanningGraph graph, PlanningConstructionUnit unit, JsonObject candidate, PlanningPreparation preparation)
+    {
+        var workflow = graph.Workflows.Single(w => w.Key == unit.WorkflowKey);
+        var result = PlanningDataflow.Transport(candidate, PlanningDataflow.Index(workflow, preparation, graph))!.AsObject();
+        if (unit.Kind != "implementation") return result;
+        foreach (var node in PlanningGraphCompiler.Enumerate(workflow.Steps.Concat(workflow.Finally)).Where(n => unit.NodeKeys.Contains(n.Key, StringComparer.Ordinal) && n.Type == "mcp.call"))
+        {
+            var capability = preparation.Capabilities.FirstOrDefault(c => c.Id == node.CapabilityId);
+            if (capability?.InputSchema["properties"] is not JsonObject properties || result["nodes"]?[node.Key] is not JsonObject fields || fields["input"] is not JsonObject input) continue;
+            var members = input["members"] as JsonArray;
+            var request = members?.FirstOrDefault(m => m?["name"]?.ToString() == "request")?["value"]?["members"] as JsonArray;
+            if (request is null) continue;
+            var arguments = new JsonObject();
+            foreach (var property in properties.Where(p => !capability.RequestBindings.Any(b => b.Path == "/" + PlanningSchemaReferences.Escape(p.Key))))
+                arguments[property.Key] = request.FirstOrDefault(m => m?["name"]?.ToString() == property.Key)?["value"]?.DeepClone() ?? new JsonObject { ["kind"] = "omit" };
+            // Keep undeclared arguments visible to schema validation and targeted repair.
+            foreach (var member in request.Where(m => m?["name"] is not null && !properties.ContainsKey(m["name"]!.ToString())))
+                arguments[member!["name"]!.ToString()] = member["value"]?.DeepClone();
+            fields["arguments"] = arguments; fields.Remove("input");
         }
         return result;
     }

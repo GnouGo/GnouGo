@@ -235,7 +235,7 @@ public sealed class ConstructionUnitTests
         state = await Advance(planner, state, runtime);
         Assert.DoesNotContain(state.ConstructionUnits, u => u.Kind == "contracts" && u.Status == "validated");
         state = await Advance(planner, state, runtime);
-        Assert.Equal(before + 1, state.ConstructionUnits.Single(u => u.Kind == "contracts").Calls);
+        Assert.Equal(before, state.ConstructionUnits.Single(u => u.Kind == "contracts").Calls);
         Assert.Equal("validated", state.ConstructionUnits.Single(u => u.Kind == "contracts").Status);
     }
 

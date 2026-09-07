@@ -181,6 +181,7 @@ dotnet publish tests/GnOuGo.Flow.Planning.Smoke -c Release -r osx-arm64 -o /tmp/
 ```
 
 See [the rollout guide](../../docs/workflow-planning-v2.md),
+[data binding and field repair contracts](../../docs/planner-v2-data-bindings.md),
 [evaluation corpus](../../evaluations/workflow-planning/README.md), and
 [published smoke exception audit](../../tests/GnOuGo.Flow.Planning.Smoke/README.md).
 

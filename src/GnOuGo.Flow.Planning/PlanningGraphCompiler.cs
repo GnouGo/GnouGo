@@ -96,6 +96,37 @@ public sealed partial class PlanningGraphCompiler
         }
     }
 
+    internal static IReadOnlyList<PlanningDiagnostic> ValidateValues(PlanningGraph graph, PlanningPreparation preparation)
+    {
+        var errors = new List<PlanningDiagnostic>();
+        if (graph.Workflows.Select(w => w.Key).Distinct(StringComparer.Ordinal).Count() != graph.Workflows.Count) return errors;
+        var workflowIds = graph.Workflows.ToDictionary(w => w.Key, w => w.Key == graph.Entrypoint ? "main" : "w_" + Fingerprint(w.Key)[..16], StringComparer.Ordinal);
+        for (var wi = 0; wi < graph.Workflows.Count; wi++)
+        {
+            var workflow = graph.Workflows[wi]; var path = "/workflows/" + wi;
+            var nodes = Enumerate(workflow.Steps.Concat(workflow.Finally)).ToArray();
+            if (nodes.Select(n => n.Key).Distinct(StringComparer.Ordinal).Count() != nodes.Length) continue;
+            var scope = new LoweringScope(preparation, nodes.ToDictionary(n => n.Key, n => "n_" + Fingerprint(n.Key)[..16], StringComparer.Ordinal), workflowIds,
+                workflow.Inputs.Select(p => p.Name).ToHashSet(StringComparer.Ordinal), nodes.ToDictionary(n => n.Key, n => n.Type, StringComparer.Ordinal));
+            void Check(PlanningValue? value, string location, bool expression = false, bool literal = false)
+            {
+                if (value is null) return;
+                try { if (expression) ToExpression(value, scope); else LowerValue(value, scope, !literal); }
+                catch (Exception ex) when (ex is InvalidOperationException or ArgumentException or FormatException or GnOuGo.Flow.Core.Expressions.ExpressionParseException or Acornima.ParseErrorException)
+                { errors.Add(new("VALUE_LOWERING_INVALID", location, ex.Message, ValidationStage: "conversion")); }
+            }
+            foreach (var (node, location) in PlanningGraphValidation.Located(workflow.Steps, path + "/steps").Concat(PlanningGraphValidation.Located(workflow.Finally, path + "/finally")))
+            {
+                Check(node.Input, location + "/input"); Check(node.Expr, location + "/expr", true); Check(node.If, location + "/if", true);
+                for (var i = 0; i < node.Cases.Count; i++) Check(node.Cases[i].When, location + "/cases/" + i + "/when", true);
+                for (var i = 0; i < node.OnError.Count; i++) { Check(node.OnError[i].If, location + "/onError/" + i + "/if", true); Check(node.OnError[i].SetOutput, location + "/onError/" + i + "/setOutput"); }
+            }
+            for (var i = 0; i < workflow.Inputs.Count; i++) Check(workflow.Inputs[i].Default, path + "/inputs/" + i + "/default", literal: true);
+            for (var i = 0; i < workflow.Outputs.Count; i++) Check(workflow.Outputs[i].Value, path + "/outputs/" + i + "/value", true);
+        }
+        return errors;
+    }
+
     private static JsonArray LowerSteps(List<PlanningNode> nodes, LoweringScope scope)
         => new(nodes.Select(n => (JsonNode)LowerNode(n, scope)).ToArray());
 
@@ -105,7 +136,7 @@ public sealed partial class PlanningGraphCompiler
             throw new InvalidOperationException("A node uses a step type outside the locked policy.");
         var result = new JsonObject { ["id"] = scope.NodeIds[node.Key], ["type"] = node.Type };
         var loweredInput = LowerValue(node.Input, scope);
-        var computedSetInput = node.Type == "set" && node.Input.Kind is "expression" or "input" or "output";
+        var computedSetInput = node.Type == "set" && node.Input.Kind is "expression" or "compute" or "input" or "output";
         var input = loweredInput as JsonObject ?? (computedSetInput ? new JsonObject() : throw new InvalidOperationException("A step input must be a typed object."));
         if (node.CapabilityId is { Length: > 0 })
         {
@@ -121,6 +152,7 @@ public sealed partial class PlanningGraphCompiler
             }
             if (node.Type == "mcp.call")
             {
+                input["preserve_optional_nulls"] ??= true;
                 Lock(input, "server", capability.Server);
                 Lock(input, "method", capability.Method);
                 if (capability.Kind is { Length: > 0 }) Lock(input, "kind", capability.Kind);
@@ -227,7 +259,7 @@ public sealed partial class PlanningGraphCompiler
             case "workflow" when allowReferences:
                 if (value.Source is null || !scope.WorkflowIds.TryGetValue(value.Source, out var workflow)) throw new InvalidOperationException("Unknown workflow reference.");
                 return new JsonObject { ["kind"] = "local", ["name"] = workflow };
-            case "input" or "output" or "expression" when allowReferences: return JsonValue.Create(ToExpression(value, scope));
+            case "input" or "output" or "expression" or "compute" when allowReferences: return JsonValue.Create(ToExpression(value, scope));
             case "template" when allowReferences:
                 var template = value.Text ?? "";
                 EnsureUnique(value.Members.Select(m => m.Name), "template binding");
@@ -261,6 +293,25 @@ public sealed partial class PlanningGraphCompiler
                 throw new InvalidOperationException("This producer does not support the structured result channel.");
             var envelope = value.ResultChannel == "structured" ? ".json" : type switch { "workflow.call" => ".outputs", "mcp.call" => ".response", _ => "" };
             expression = "data.steps." + node + envelope + ResultPath(type, value.Path, scope);
+        }
+        else if (value.Kind == "compute")
+        {
+            EnsureUnique(value.Members.Select(m => m.Name), "computation parameter");
+            PlanningComputations.Validate(value);
+            expression = "((" + string.Join(",", value.Members.Select(m => m.Name)) + ") => (" + PlanningComputations.Expression(value.Text) + "))(" + string.Join(",", value.Members.Select(m => ExpressionBody(m.Value))) + ")";
+        }
+        else if (value.Kind == "template")
+        {
+            var rendered = LowerValue(value, scope)!.GetValue<string>();
+            var parts = new List<string>(); var start = 0;
+            foreach (var segment in GnOuGo.Flow.Core.Expressions.ExpressionSegments.Read(rendered))
+            {
+                if (segment.Start > start) parts.Add(JsonSerializer.Serialize(rendered[start..segment.Start], PlanningJsonContext.Default.String));
+                parts.Add("((v) => v == null ? '' : typeof v === 'string' ? v : JSON.stringify(v))(" + segment.Expression + ")");
+                start = segment.Start + segment.Length;
+            }
+            if (start < rendered.Length) parts.Add(JsonSerializer.Serialize(rendered[start..], PlanningJsonContext.Default.String));
+            expression = parts.Count == 0 ? "''" : "(" + string.Join(" + ", parts) + ")";
         }
         else if (value.Kind == "expression")
         {
