@@ -9,6 +9,19 @@ namespace GnOuGo.Flow.Planning.Tests;
 public sealed class ScenarioInputTests
 {
     [Fact]
+    public void LoopFixturesUseResolvedProducerItemSchemasWithoutChangingTheGraph()
+    {
+        var preparation = Preparation(); var graph = Graph(); var workflow = graph.Workflows[0];
+        workflow.Steps.Add(new() { Key = "source", Type = "set", Input = Obj(("entries", new() { Kind = "array" })),
+            OutputSchema = new() { Type = "object", Properties = [new() { Name = "entries", Required = true, Schema = new() { Type = "array", Items = new() { Type = "string" } } }] } });
+        workflow.Steps.Add(new() { Key = "each", Type = "loop.sequential", Input = Obj(("items", new() { Kind = "output", Source = "source", Path = ["entries"] })) });
+        var before = PlanningGraphCompiler.Fingerprint(graph);
+        var schemas = TypedWorkflowPlanner.ScenarioLoopItemSchemas(graph, preparation);
+        Assert.Equal("string", Assert.Single(schemas).Value!["type"]!.GetValue<string>());
+        Assert.Equal(before, PlanningGraphCompiler.Fingerprint(graph));
+    }
+
+    [Fact]
     public void LaterScenarioFailureIsProgressOnlyWhenEveryPreviouslyPassedScenarioStillPasses()
     {
         static PlanningScenarioResult Case(string id, string outcome) => new(id, outcome, "Synthetic", []);
@@ -16,6 +29,26 @@ public sealed class ScenarioInputTests
         Assert.True(TypedWorkflowPlanner.PreservesScenarioProgress(prior, [Case("first", "passed"), Case("second", "passed"), Case("third", "failed")]));
         Assert.False(TypedWorkflowPlanner.PreservesScenarioProgress(prior, [Case("first", "failed"), Case("second", "passed"), Case("third", "passed")]));
         Assert.False(TypedWorkflowPlanner.PreservesScenarioProgress(prior, [Case("first", "passed"), Case("second", "passed")]));
+    }
+
+    [Fact]
+    public async Task NullDefaultsAndCachedNullsCannotBypassRequiredScenarioInputValidation()
+    {
+        var state = Session(PlanningStatus.Validating); state.Graph = Graph(); state.Preparation = Preparation();
+        state.Graph.Workflows[0].Inputs.Add(new() { Name = "resource", Required = true, Schema = new() { Type = "string" }, Default = new() { Kind = "null" } });
+        var calls = 0;
+        var runtime = new FakeRuntime { OnCall = (phase, _, _) =>
+        {
+            if (phase == "scenario_inputs") { calls++; return Task.FromResult(new LLMResponse { Json = new JsonObject { ["resource"] = new JsonObject { ["kind"] = "string", ["text"] = "provided" } } }); }
+            return Task.FromResult(new LLMResponse { Json = new JsonObject { ["findings"] = new JsonArray() } });
+        } };
+        var planner = new TypedWorkflowPlanner();
+        state = await planner.AdvanceAsync(state, new() { ExpectedRevision = state.Revision }, runtime, TestContext.Current.CancellationToken);
+        Assert.Equal(PlanningStatus.FinalReview, state.Status); Assert.Equal(1, calls);
+        state.ScenarioInputs!["resource"] = null; state.Status = PlanningStatus.Validating;
+        state = await planner.AdvanceAsync(state, new() { ExpectedRevision = state.Revision }, runtime, TestContext.Current.CancellationToken);
+        Assert.Equal(PlanningStatus.FinalReview, state.Status); Assert.Equal(2, calls); Assert.Equal("provided", state.ScenarioInputs!["resource"]!.GetValue<string>());
+        Assert.Equal("null", state.Graph!.Workflows[0].Inputs[0].Default!.Kind);
     }
 
     [Theory]

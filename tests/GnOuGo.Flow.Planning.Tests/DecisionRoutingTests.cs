@@ -9,6 +9,14 @@ namespace GnOuGo.Flow.Planning.Tests;
 public sealed class DecisionRoutingTests
 {
     [Theory]
+    [InlineData("return condition ? 'ALLOW' : undefined;", true)]
+    [InlineData("(() => { return flag ? 'ACTION' : 'NONE'; })()", true)]
+    [InlineData("return flag === true;", false)]
+    [InlineData("const helper = () => 'label'; return helper() === 'label';", false)]
+    public void OutcomeLabelsCannotMasqueradeAsBooleanConditions(string body, bool invalid)
+        => Assert.Equal(invalid, PlanningComputations.HasNonBooleanResult(body));
+
+    [Theory]
     [InlineData("confirm", "publish", "route")]
     [InlineData("consentement", "action", "decision_renamed")]
     public void ConfirmationRoutingIsNotAnEditableGenerationField(string confirmation, string effect, string routing)
@@ -85,6 +93,10 @@ public sealed class DecisionRoutingTests
         var compiled = new GnOuGo.Flow.Core.Compilation.WorkflowCompiler().Compile(GnOuGo.Flow.Core.Parsing.WorkflowParser.Parse(new PlanningGraphCompiler().Compile(result, preparation)));
         var executed = await new WorkflowEngine { HumanInputProvider = new ConsentProvider(consent) }.ExecuteAsync(compiled.Workflows[compiled.Entrypoint!], new JsonObject(), TestContext.Current.CancellationToken);
         Assert.True(executed.Success, executed.Error?.Message); Assert.Equal(expected, executed.Outputs!["outcome"]!.GetValue<string>());
+        var invalid = PlanningDecisionRouting.ConditionsValues(result.Workflows[0].Steps[1], preparation);
+        invalid["outcome"]!["APPROVE"] = new JsonObject { ["kind"] = "compute", ["text"] = "return 'APPROVE';", ["members"] = new JsonArray() };
+        PlanningDecisionRouting.ApplyConditions(result.Workflows[0], result.Workflows[0].Steps[1], invalid, preparation, result);
+        Assert.Contains(PlanningExecutableValidation.Validate(result, preparation), d => d.Code == "DECISION_CONDITION_INVALID" && d.Location.EndsWith("/input/decisions/outcome", StringComparison.Ordinal));
     }
 
     private sealed class ConsentProvider(bool consent) : IHumanInputProvider

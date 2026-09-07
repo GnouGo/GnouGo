@@ -9,6 +9,35 @@ namespace GnOuGo.Flow.Planning.Tests;
 
 public sealed class LoopBindingTests
 {
+    [Theory]
+    [InlineData(false, false)]
+    [InlineData(false, true)]
+    [InlineData(true, false)]
+    [InlineData(true, true)]
+    public async Task CompleteResultEnvelopePreservesSuccessAndFailure_IncludingLoopChildren(bool wrapped, bool failure)
+    {
+        var prep = Preparation(); prep.AllowedStepTypes.Add("loop.sequential");
+        var input = JsonNode.Parse("""{"type":"object","properties":{},"additionalProperties":false}""")!.AsObject();
+        var output = JsonNode.Parse("""{"type":"object","properties":{"value":{"type":"string"}},"required":["value"]}""")!.AsObject();
+        prep.Capabilities.Add(new() { Id = "cap", StepType = "mcp.call", Server = "renamed", Method = "observe", Kind = "tool", InputSchema = input, OutputSchema = output });
+        var call = new PlanningNode { Key = "observe", Type = "mcp.call", CapabilityId = "cap", Input = Obj(("request", Obj())),
+            OnError = [new(null, "continue", Obj(("status", Str("failure"))), null)] };
+        var source = wrapped ? new PlanningValue { Kind = "output", Source = "each", Path = ["results"] } : new PlanningValue { Kind = "output", Source = "observe", ResultChannel = "envelope" };
+        var graph = Graph(); var workflow = graph.Workflows[0];
+        workflow.Steps[0].Input = Obj(("message", new() { Kind = "compute", Text = "JSON.stringify(result)", Members = [new("result", source)] }));
+        workflow.Steps[0].OutputSchema = new() { Type = "object", Properties = [new() { Name = "message", Required = true, Schema = new() { Type = "string" } }] };
+        workflow.Steps.Insert(0, wrapped ? new() { Key = "each", Type = "loop.sequential", Input = Obj(("times", new() { Kind = "number", Number = 1 })), Steps = [call] } : call);
+        var bindings = PlanningDataflow.Index(workflow, prep, graph, "greeting").Values;
+        Assert.Contains(bindings, b => b.Value.Source == source.Source && b.Value.ResultChannel == source.ResultChannel && b.Value.Path.SequenceEqual(source.Path));
+        Assert.DoesNotContain(bindings, b => b.Value.Source == "observe" && b.Value.ResultChannel is null or "default");
+        var factory = new InMemoryMcpClientFactory(); factory.RegisterServer("renamed", new() { Tools = [new() { Name = "observe", InputSchema = input, OutputSchema = output }], ToolHandlers = new()
+        { ["observe"] = _ => failure ? throw new InvalidOperationException("deterministic failure") : new() { Content = new JsonObject { ["value"] = "success" } } } });
+        var compiled = new WorkflowCompiler().Compile(WorkflowParser.Parse(new PlanningGraphCompiler().Compile(graph, prep)));
+        var result = await new WorkflowEngine { McpClientFactory = factory }.ExecuteAsync(compiled.Workflows[compiled.Entrypoint!], new JsonObject(), TestContext.Current.CancellationToken);
+        Assert.True(result.Success, result.Error?.Message);
+        Assert.Contains(failure ? "failure" : "success", result.Outputs!["message"]!.GetValue<string>());
+    }
+
     [Fact]
     public void LegacyLoopUnitIsSplitBeforeBodyContracts_WithoutLosingCandidateOrReceipts()
     {

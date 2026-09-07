@@ -30,6 +30,11 @@ internal static class PlanningValueProvenance
             if (value.Kind != "output" || value.ResultChannel == "structured") return false;
             var producer = PlanningGraphCompiler.Enumerate(workflow.Steps.Concat(workflow.Finally)).FirstOrDefault(n => n.Key == value.Source);
             if (producer is null) return false;
+            if (value.ResultChannel == "envelope")
+            {
+                if (producer.Type != "mcp.call" || value.Path.FirstOrDefault() != "response") return false;
+                return Proves(workflow, new() { Kind = "output", Source = value.Source, Path = value.Path.Skip(1).ToList() }, graph, source, visited);
+            }
             if (source(producer, value)) return true;
             if (producer.Type is "set" or "assert.non_null")
             {

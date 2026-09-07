@@ -172,8 +172,8 @@ public static class PlanningGraphValidation
             {
                 if (value.Kind == "workflow" && !graph.Workflows.Any(w => w.Key == value.Source))
                     errors.Add(new("WORKFLOW_REFERENCE_INVALID", location + "/source", "The workflow reference has no declared workflow. Input ports require input references; step results require output references."));
-                if (value.ResultChannel is not (null or "default" or "structured") || (value.ResultChannel is not null && value.Kind != "output"))
-                    errors.Add(new("RESULT_CHANNEL_INVALID", location + "/resultChannel", "Only output references select default or structured results."));
+                if (value.ResultChannel is not (null or "default" or "structured" or "envelope") || (value.ResultChannel is not null && value.Kind != "output"))
+                    errors.Add(new("RESULT_CHANNEL_INVALID", location + "/resultChannel", "Only output references select default, structured or supported result-envelope channels."));
                 if (value.Kind is "loop_item" or "loop_index")
                 {
                     var loop = nodes.FirstOrDefault(n => n.Node.Key == value.Source && n.Node.Type is "loop.sequential" or "loop.parallel");
@@ -220,7 +220,12 @@ public static class PlanningGraphValidation
                     try
                     {
                         JsonObject? schema;
-                        if (value.ResultChannel == "structured")
+                        if (value.ResultChannel == "envelope")
+                        {
+                            if (producer.Type != "mcp.call") throw new InvalidOperationException("Only an MCP call exposes this result-envelope contract.");
+                            schema = Envelope(producer, visiting);
+                        }
+                        else if (value.ResultChannel == "structured")
                         {
                             if (!structured.TryGetValue(producer.Key, out schema))
                                 throw new InvalidOperationException("The producer has no valid structured-output contract. Declare it before selecting the structured channel.");
@@ -292,13 +297,21 @@ public static class PlanningGraphValidation
 
             JsonObject Envelope(PlanningNode node, HashSet<string> visiting)
             {
-                var schema = ValueSchema(new() { Kind = "output", Source = node.Key }, visiting) ?? new JsonObject();
-                if (node.Type == "mcp.call") schema = ObjectSchema([("response", schema)]);
-                else if (node.Type == "workflow.call") schema = ObjectSchema([("outputs", schema)]);
+                var schema = node.Type == "mcp.call"
+                    ? ObjectSchema([("response", preparation.Capabilities.FirstOrDefault(c => c.Id == node.CapabilityId)?.OutputSchema ?? new JsonObject())])
+                    : ValueSchema(new() { Kind = "output", Source = node.Key }, visiting) ?? new JsonObject();
+                if (node.Type == "workflow.call") schema = ObjectSchema([("outputs", schema)]);
                 if (structured.TryGetValue(node.Key, out var json))
                 {
                     schema = (JsonObject)schema.DeepClone();
                     schema["properties"] ??= new JsonObject(); schema["properties"]!["json"] = json.DeepClone();
+                }
+                if (node.Type == "mcp.call" && node.OnError.Any(h => h.Action == "continue"))
+                {
+                    var alternatives = new JsonArray(schema);
+                    foreach (var handler in node.OnError.Where(h => h.Action == "continue"))
+                        alternatives.Add(handler.SetOutput is { } fallback ? ValueSchema(fallback, visiting)?.DeepClone() ?? new JsonObject() : new JsonObject { ["type"] = "null" });
+                    return new JsonObject { ["anyOf"] = alternatives };
                 }
                 return schema;
             }

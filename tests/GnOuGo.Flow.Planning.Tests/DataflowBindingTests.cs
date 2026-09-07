@@ -510,10 +510,12 @@ public sealed class DataflowBindingTests
         node.StructuredOutput = new(new() { Type = "object", Properties = [new() { Name = "ok", Required = true, Schema = new() { Type = "boolean" } }] });
         node.OnError = [new(null, "continue", Obj(("json", Obj(("ok", new() { Kind = "boolean", Boolean = false })))), null)];
         var bindings = PlanningDataflow.Index(workflow, prep, graph, "greeting");
-        Assert.DoesNotContain(bindings.Values, b => b.Value.Source == node.Key && b.Value.ResultChannel != "structured");
+        Assert.DoesNotContain(bindings.Values, b => b.Value.Source == node.Key && b.Value.ResultChannel is null or "default");
         Assert.Contains(bindings.Values, b => b.Value.Source == node.Key && b.Value.ResultChannel == "structured");
+        Assert.Contains(bindings.Values, b => b.Value.Source == node.Key && b.Value.ResultChannel == "envelope" && b.Value.Path.Count == 0);
+        Assert.DoesNotContain(bindings.Values, b => b.Value.Source == node.Key && b.Value.ResultChannel == "envelope" && b.Value.Path.FirstOrDefault() == "response");
         node.OnError[0].SetOutput!.Members.Add(new("response", Obj()));
-        Assert.Contains(PlanningDataflow.Index(workflow, prep, graph, "greeting").Values, b => b.Value.Source == node.Key && b.Value.ResultChannel != "structured");
+        Assert.Contains(PlanningDataflow.Index(workflow, prep, graph, "greeting").Values, b => b.Value.Source == node.Key && b.Value.ResultChannel is null or "default");
     }
 
     [Fact]

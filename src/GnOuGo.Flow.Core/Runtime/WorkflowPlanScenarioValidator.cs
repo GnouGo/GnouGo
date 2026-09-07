@@ -11,7 +11,7 @@ namespace GnOuGo.Flow.Core.Runtime;
 /// <summary>Bounded synthetic path testing. No production integration is executed.</summary>
 internal static class WorkflowPlanScenarioValidator
 {
-    public static async Task<IReadOnlyList<PlanningScenarioResult>> ValidateAsync(WorkflowDocument document, IMcpClientFactory? fakeFactory, CancellationToken ct, JsonObject? validationInputs = null)
+    public static async Task<IReadOnlyList<PlanningScenarioResult>> ValidateAsync(WorkflowDocument document, IMcpClientFactory? fakeFactory, CancellationToken ct, JsonObject? validationInputs = null, JsonObject? loopItemSchemas = null)
     {
         var definitions = new List<Scenario> { new("nominal", null, null, "normal") };
         foreach (var (workflowName, workflow) in document.Workflows)
@@ -44,7 +44,7 @@ internal static class WorkflowPlanScenarioValidator
             using var cancellation = CancellationTokenSource.CreateLinkedTokenSource(ct);
             if (scenario.Step is not null)
             {
-                ForcePath(doc, scenario.Workflow!, scenario.Step, new HashSet<string>(StringComparer.Ordinal));
+                ForcePath(doc, scenario.Workflow!, scenario.Step, new HashSet<string>(StringComparer.Ordinal), loopItemSchemas);
                 var target = Enumerate(doc.Workflows[scenario.Workflow!].Steps.Concat(doc.Workflows[scenario.Workflow!].Finally)).Single(s => s.Id == scenario.Step);
                 if (target.If is not null) target.If = scenario.Kind == "guard_false" ? "${false}" : "${true}";
             }
@@ -105,7 +105,7 @@ internal static class WorkflowPlanScenarioValidator
                 outcome = "inconclusive";
                 diagnostics.Add(new("SCENARIO_INCONCLUSIVE", scenario.Step is null ? "$" : "workflow:" + scenario.Workflow + "/step:" + scenario.Step, "Synthetic execution could not establish this scenario: " + ex.Message));
             }
-            results.Add(new(scenario.Id, outcome, "Synthetic " + scenario.Kind + " coverage; does not execute external effects.", diagnostics));
+            results.Add(new(scenario.Id, outcome, "Synthetic " + scenario.Kind + " coverage with explicit path fixtures; does not establish live external behavior.", diagnostics));
         }
         return results;
     }
@@ -190,36 +190,56 @@ internal static class WorkflowPlanScenarioValidator
         public void Dispose() { }
     }
 
-    private static void ForcePath(WorkflowDocument doc, string workflow, string target, HashSet<string> visited)
+    private static void ForcePath(WorkflowDocument doc, string workflow, string target, HashSet<string> visited, JsonObject? loopItemSchemas)
     {
         if (!visited.Add(workflow)) return;
-        ForceIn(doc.Workflows[workflow].Steps.Concat(doc.Workflows[workflow].Finally), target);
+        ForceIn(doc.Workflows[workflow].Steps.Concat(doc.Workflows[workflow].Finally), target, workflow, loopItemSchemas);
         foreach (var (callerName, caller) in doc.Workflows)
             foreach (var call in Enumerate(caller.Steps.Concat(caller.Finally)).Where(s => s.Type == "workflow.call" && s.Input?["ref"]?["name"]?.GetValue<string>() == workflow))
-                ForcePath(doc, callerName, call.Id, visited);
+                ForcePath(doc, callerName, call.Id, visited, loopItemSchemas);
     }
 
-    private static bool ForceIn(IEnumerable<StepDef> nodes, string target)
+    private static bool ForceIn(IEnumerable<StepDef> nodes, string target, string workflow, JsonObject? loopItemSchemas)
     {
         foreach (var node in nodes)
         {
             if (node.Id == target) return true;
-            var found = ForceIn(node.Steps ?? [], target) || (node.Branches ?? []).Any(b => ForceIn(b.Steps, target));
+            var found = ForceIn(node.Steps ?? [], target, workflow, loopItemSchemas) || (node.Branches ?? []).Any(b => ForceIn(b.Steps, target, workflow, loopItemSchemas));
             for (var i = 0; i < (node.Cases?.Count ?? 0); i++)
-                if (ForceIn(node.Cases![i].Steps, target))
+                if (ForceIn(node.Cases![i].Steps, target, workflow, loopItemSchemas))
                 {
                     node.Expr = null;
                     for (var j = 0; j < node.Cases.Count; j++) { node.Cases[j].Value = null; node.Cases[j].When = i == j ? "${true}" : "${false}"; }
                     found = true;
                     break;
                 }
-            if (ForceIn(node.Default ?? [], target))
+            if (ForceIn(node.Default ?? [], target, workflow, loopItemSchemas))
             {
                 node.Expr = null;
                 foreach (var branch in node.Cases ?? []) { branch.Value = null; branch.When = "${false}"; }
                 found = true;
             }
-            if (found) { if (node.If is not null) node.If = "${true}"; return true; }
+            if (found)
+            {
+                if (node.If is not null) node.If = "${true}";
+                // Like forced branch outcomes, loop entry is explicit synthetic path
+                // coverage. Never change the original artifact or its nominal execution.
+                if (node.Type == "loop.sequential" && node.Input is JsonObject loop)
+                {
+                    if ((loop.ContainsKey("items") || loop.ContainsKey("over")) && loopItemSchemas?[workflow + ":" + node.Id] is JsonObject schema)
+                    {
+                        var item = WorkflowPlanDryRunValidator.CreateSampleFromJsonSchema(schema);
+                        if (PlanningContractValidation.ValidateInstance(item, schema).Count == 0)
+                        {
+                            loop.Remove("over"); loop.Remove("times"); loop.Remove("while");
+                            loop["items"] = new JsonArray(item); loop["max_times"] = 1;
+                        }
+                    }
+                    else if (!loop.ContainsKey("items") && !loop.ContainsKey("over"))
+                    { loop.Remove("while"); loop["times"] = 1; loop["max_times"] = 1; }
+                }
+                return true;
+            }
         }
         return false;
     }

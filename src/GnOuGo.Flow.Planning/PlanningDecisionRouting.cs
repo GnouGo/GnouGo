@@ -6,6 +6,25 @@ namespace GnOuGo.Flow.Planning;
 
 internal static class PlanningDecisionRouting
 {
+    private const string BooleanGuard = "if (typeof condition !== 'boolean') throw new Error('Decision conditions must return a boolean.'); ";
+
+    internal static IEnumerable<PlanningDiagnostic> ConditionFindings(PlanningNode node, PlanningPreparation preparation, string location)
+    {
+        if (LocalContracts(node, preparation).Length == 0) yield break;
+        JsonObject conditions;
+        try { conditions = ConditionsValues(node, preparation); }
+        catch (InvalidOperationException) { yield break; }
+        foreach (var (field, outcomes) in conditions)
+            foreach (var (_, condition) in outcomes!.AsObject())
+            {
+                var value = JsonSerializer.Deserialize(condition!, PlanningJsonContext.Default.PlanningValue)!;
+                if (value.Kind is "string" or "number" or "null" or "object" or "array" or "template" ||
+                    value.Kind == "compute" && PlanningComputations.HasNonBooleanResult(value.Text))
+                    yield return new("DECISION_CONDITION_INVALID", location + "/input/decisions/" + field,
+                        "Each outcome condition must return a boolean, never an outcome label or undefined. Routing assigns the outcome label and enforces human permission separately. Preserve every declared analysis dependency.");
+            }
+    }
+
     internal static PlanningDecisionContract? Contract(PlanningNode node, PlanningPreparation preparation) => node.Type != "switch" ? null :
         preparation.Decisions.SingleOrDefault(d =>
             node.Cases.Any(c => d.AllowedValues.Except(d.NoEffectValues).Contains(c.Value) &&
@@ -65,7 +84,7 @@ internal static class PlanningDecisionRouting
                         if (binding is null) throw new InvalidOperationException("A required human permission is unavailable to the declared decision reducer.");
                         members.Add(new("permission" + members.Count, binding.Value));
                     }
-                    condition = new() { Kind = "compute", Members = members, Text = "return " + string.Join(" && ", members.Select(m => m.Name + " === true")) + ";" };
+                    condition = new() { Kind = "compute", Members = members, Text = BooleanGuard + "return " + string.Join(" && ", members.Select(m => m.Name + " === true")) + ";" };
                 }
                 cases.Items.Add(new() { Kind = "object", Members = [new("when", condition), new("value", PlanningConstruction.Literal(JsonValue.Create(outcome)))] });
             }
@@ -89,7 +108,7 @@ internal static class PlanningDecisionRouting
                 var item = cases.Single(c => c.Members.Any(m => m.Name == "value" && m.Value.Text == outcome));
                 var condition = item.Members.Single(m => m.Name == "when").Value;
                 if (condition.Kind == "compute" && condition.Members.Select(m => m.Name).SequenceEqual(condition.Members.Select((_, i) => i == 0 ? "condition" : "permission" + i)) &&
-                    condition.Text == "return " + string.Join(" && ", condition.Members.Select(m => m.Name + " === true")) + ";" && condition.Members.Count > 0)
+                    (condition.Text == "return " + string.Join(" && ", condition.Members.Select(m => m.Name + " === true")) + ";" || condition.Text == BooleanGuard + "return " + string.Join(" && ", condition.Members.Select(m => m.Name + " === true")) + ";") && condition.Members.Count > 0)
                     condition = condition.Members[0].Value;
                 fields[outcome] = PlanningModelValues.Compact(JsonSerializer.SerializeToNode(condition, PlanningJsonContext.Default.PlanningValue));
             }

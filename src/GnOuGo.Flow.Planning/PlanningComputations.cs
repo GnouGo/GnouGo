@@ -5,6 +5,31 @@ namespace GnOuGo.Flow.Planning;
 
 internal static class PlanningComputations
 {
+    // Reject provably invalid result branches; unknown dynamic types remain subject
+    // to the strict runtime boolean guard. Nested helper return types are unrelated.
+    internal static bool HasNonBooleanResult(string? text)
+    {
+        try { return InvalidResult(new Acornima.Parser().ParseExpression(Expression(text))); }
+        catch (Exception ex) when (ex is Acornima.ParseErrorException or InvalidOperationException) { return false; }
+        static bool InvalidResult(Node? node) => node switch
+        {
+            Literal literal => literal.Value is not bool,
+            Identifier { Name: "undefined" } => true,
+            ConditionalExpression conditional => InvalidResult(conditional.Consequent) || InvalidResult(conditional.Alternate),
+            CallExpression { Callee: ArrowFunctionExpression arrow } => Returns(arrow.Body),
+            CallExpression { Callee: FunctionExpression function } => Returns(function.Body),
+            ObjectExpression or ArrayExpression or TemplateLiteral => true,
+            _ => false
+        };
+        static bool Returns(Node node)
+        {
+            if (node is ReturnStatement result) return result.Argument is null || InvalidResult(result.Argument);
+            if (node is ArrowFunctionExpression or FunctionExpression or FunctionDeclaration) return false;
+            if (node is not BlockStatement && node is not Statement) return InvalidResult(node);
+            return node.ChildNodes.Any(Returns);
+        }
+    }
+
     internal static void Validate(PlanningValue value)
     {
         var names = value.Members.Select(m => m.Name).ToArray();

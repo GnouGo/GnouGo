@@ -110,6 +110,40 @@ public sealed class TypedPlanningScenarioTests
     }
 
     [Fact]
+    public async Task EmptyLoopUsesDeclaredItemFixtureOnlyForExplicitPathCoverage()
+    {
+        var document = WorkflowParser.Parse("""
+            version: 1
+            entrypoint: main
+            workflows:
+              main:
+                steps:
+                  - id: each
+                    type: loop.sequential
+                    item_var: entry
+                    input: {items: []}
+                    steps:
+                      - id: check
+                        type: assert.non_null
+                        input: {value: '${data.entry.name}'}
+                      - id: model
+                        type: llm.call
+                        input: {model: fake, prompt: '${data.entry.name}'}
+                finally:
+                  - id: cleanup
+                    type: set
+                    input: {closed: true}
+            """);
+        var missing = await WorkflowPlanScenarioValidator.ValidateAsync(document, null, TestContext.Current.CancellationToken);
+        Assert.Equal(2, missing.Count(r => r.Diagnostics.Any(d => d.Code == "SCENARIO_UNREACHED")));
+        var schemas = System.Text.Json.Nodes.JsonNode.Parse("""{"main:each":{"type":"object","required":["name"],"properties":{"name":{"type":"string"}}}}""")!.AsObject();
+        var covered = await WorkflowPlanScenarioValidator.ValidateAsync(document, null, TestContext.Current.CancellationToken, loopItemSchemas: schemas);
+        Assert.Equal(3, covered.Count); Assert.All(covered, r => Assert.Equal("passed", r.Outcome));
+        Assert.Empty(document.Workflows["main"].Steps[0].Input!["items"]!.AsArray());
+        Assert.Contains(covered, r => r.Id == "nominal" && r.Outcome == "passed");
+    }
+
+    [Fact]
     public async Task FailedCleanup_IsNeverReportedAsPassed()
     {
         var document = WorkflowParser.Parse("""

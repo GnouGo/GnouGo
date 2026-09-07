@@ -56,6 +56,22 @@ public sealed class TypedPlanningDiagnosticTests
         Assert.Contains("Preserve every required permission", diagnostic.Message);
     }
 
+    [Theory]
+    [InlineData("${Boolean(data.steps.observe)}", true)]
+    [InlineData("${Boolean(data.steps.unknown)}", false)]
+    [InlineData("${'data.steps.observe'.length > 0}", false)]
+    [InlineData("${Boolean(data.steps['observe'])}", true)]
+    [InlineData("${Boolean(data.steps.each)}", true)]
+    [InlineData("${data.steps.each.results.length > 0}", true)]
+    [InlineData("${data.steps.each.count > 0}", false)]
+    public void DecisionDependenciesRecognizeExactWholeResultsAndLoopResultCollections(string expression, bool expected)
+    {
+        var observe = new GnOuGo.Flow.Core.Models.StepDef { Id = "observe", Type = "mcp.call" };
+        var document = new GnOuGo.Flow.Core.Models.WorkflowDocument { Workflows = new() { ["main"] = new() { Steps = [new() { Id = "each", Type = "loop.sequential", Steps = [observe] }] } } };
+        Assert.Equal(expected, WorkflowPlanExecutor.LocalDecisionExpressionDependsOnSources(document,
+            new Dictionary<string, IReadOnlyList<(string Workflow, GnOuGo.Flow.Core.Models.StepDef Call)>>(), [("main", observe)], "main", expression, new(StringComparer.Ordinal)));
+    }
+
     [Fact]
     public void ConditionalFindingsIdentifyTheSwitchAndDeclaredDecisionField()
     {

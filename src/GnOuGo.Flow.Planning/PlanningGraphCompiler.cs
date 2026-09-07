@@ -296,10 +296,11 @@ public sealed partial class PlanningGraphCompiler
         {
             if (value.Source is null || !scope.NodeIds.TryGetValue(value.Source, out var node)) throw new InvalidOperationException("Unknown producer reference.");
             var type = scope.NodeTypes[value.Source];
-            if (value.ResultChannel is not (null or "default" or "structured")) throw new InvalidOperationException("Unknown result channel.");
+            if (value.ResultChannel is not (null or "default" or "structured" or "envelope")) throw new InvalidOperationException("Unknown result channel.");
             if (value.ResultChannel == "structured" && type is not ("mcp.call" or "llm.call"))
                 throw new InvalidOperationException("This producer does not support the structured result channel.");
-            var envelope = value.ResultChannel == "structured" ? ".json" : type switch { "workflow.call" => ".outputs", "mcp.call" => ".response", _ => "" };
+            if (value.ResultChannel == "envelope" && type != "mcp.call") throw new InvalidOperationException("This producer does not expose an MCP result envelope.");
+            var envelope = value.ResultChannel == "envelope" ? "" : value.ResultChannel == "structured" ? ".json" : type switch { "workflow.call" => ".outputs", "mcp.call" => ".response", _ => "" };
             expression = "data.steps." + node + envelope + ResultPath(type, value.Path, scope);
         }
         else if (value.Kind == "decision_binding")

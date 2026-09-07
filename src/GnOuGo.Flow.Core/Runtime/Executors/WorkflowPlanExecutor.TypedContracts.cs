@@ -53,7 +53,7 @@ public sealed partial class WorkflowPlanExecutor
                 CatalogId = capability.CatalogId,
                 Resolution = capability.Resolution,
                 OperationIds = GetResolvedCapabilityOperationIds(capability).ToList(),
-                InputOperationIds = capability.InputOperationIds.ToList(),
+                InputOperationIds = (capability.InputOperationIds ?? []).ToList(),
                 InputSchema = prompt is not null ? TypedPromptInputSchema(prompt) : (tool?.InputSchema?.DeepClone() ?? contract?.InputSchema.DeepClone()) as JsonObject ?? new JsonObject(),
                 OutputSchema = prompt is not null ? new JsonObject() : (tool is null ? contract?.OutputSchema.DeepClone() : McpToolContractEnricher.GetAuthoritativeOutputSchema(tool)?.DeepClone()) as JsonObject ?? new JsonObject(),
                 RequestBindings = capability.RequestBindings.Select(b => new PlanningLiteralBinding(b.Path, b.Value?.DeepClone())).ToList()
@@ -257,18 +257,18 @@ public sealed partial class WorkflowPlanExecutor
                 GetResolvedCapabilityOperationIds(c).ToHashSet(StringComparer.Ordinal).SetEquals(capability.OperationIds) && c.RequestBindings.Count == capability.RequestBindings.Count &&
                 c.RequestBindings.All(b => capability.RequestBindings.Any(p => p.Path == b.Path && JsonNode.DeepEquals(p.Value, b.Value)))).ToArray();
             if (matches.Length != 1) throw new InvalidOperationException("The locked capability metadata is missing or ambiguous.");
-            capability.InputOperationIds = matches[0].InputOperationIds.ToList();
+            capability.InputOperationIds = (matches[0].InputOperationIds ?? []).ToList();
             capability.Activation = matches[0].Activation; capability.CatalogId = matches[0].CatalogId; capability.Resolution = matches[0].Resolution;
             var tool = preflight.DiscoveredServers.FirstOrDefault(s => s.Name == capability.Server)?.Tools.FirstOrDefault(t => t.Name == capability.Method);
             capability.ArtifactContract = tool is null ? null : GetValidatedMcpArtifactContract(tool, capability.Server);
         }
     }
 
-    public Task<IReadOnlyList<PlanningScenarioResult>> ValidateTypedScenariosAsync(string yaml, PlanningPreparation preparation, CancellationToken ct, JsonObject? inputs = null)
+    public Task<IReadOnlyList<PlanningScenarioResult>> ValidateTypedScenariosAsync(string yaml, PlanningPreparation preparation, CancellationToken ct, JsonObject? inputs = null, JsonObject? loopItemSchemas = null)
     {
         var preflight = JsonSerializer.Deserialize(preparation.RuntimeState, TypedContractJsonContext.Default.CapabilityPreflightResult)
             ?? throw new InvalidOperationException("The persisted capability contract is missing.");
-        return WorkflowPlanScenarioValidator.ValidateAsync(WorkflowParser.Parse(yaml), BuildDryRunMcpClientFactory(preflight.DiscoveredServers), ct, inputs);
+        return WorkflowPlanScenarioValidator.ValidateAsync(WorkflowParser.Parse(yaml), BuildDryRunMcpClientFactory(preflight.DiscoveredServers), ct, inputs, loopItemSchemas);
     }
 
     public async Task<IReadOnlyList<PlanningDiagnostic>> ValidateTypedCatalogAsync(WorkflowEngine engine, PlanningPreparation preparation, CancellationToken ct)

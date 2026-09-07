@@ -9021,7 +9021,7 @@ public sealed partial class WorkflowPlanExecutor
         return true;
     }
 
-    private static bool LocalDecisionExpressionDependsOnSources(
+    internal static bool LocalDecisionExpressionDependsOnSources(
         WorkflowDocument document,
         IReadOnlyDictionary<string, IReadOnlyList<(string Workflow, StepDef Call)>> workflowCallers,
         IReadOnlyList<(string Workflow, StepDef Step)> sources,
@@ -9029,24 +9029,29 @@ public sealed partial class WorkflowPlanExecutor
         string expression,
         HashSet<string> visited)
     {
-        foreach (Match reference in Regex.Matches(
-                     expression,
-                     @"data\.(?:steps|inputs)\.[A-Za-z_][A-Za-z0-9_-]*(?:\.[A-Za-z_][A-Za-z0-9_-]*)*",
-                     RegexOptions.CultureInvariant,
-                     TimeSpan.FromMilliseconds(100)))
+        IEnumerable<string> References(Acornima.Ast.Node node)
         {
-            if (LocalDecisionReferenceDependsOnSources(
-                    document,
-                    workflowCallers,
-                    sources,
-                    workflowName,
-                    reference.Value,
-                    [],
-                    visited))
-            {
-                return true;
-            }
+            if (node is Acornima.Ast.MemberExpression member && Path(member) is { } path && (path.StartsWith("data.steps.", StringComparison.Ordinal) || path.StartsWith("data.inputs.", StringComparison.Ordinal))) { yield return path; yield break; }
+            foreach (var child in node.ChildNodes) foreach (var reference in References(child)) yield return reference;
         }
+        string? Path(Acornima.Ast.Node node)
+        {
+            if (node is Acornima.Ast.Identifier identifier) return identifier.Name == "data" ? "data" : null;
+            if (node is not Acornima.Ast.MemberExpression member || Path(member.Object) is not { } parent) return null;
+            var name = !member.Computed && member.Property is Acornima.Ast.Identifier property ? property.Name
+                : member.Computed && member.Property is Acornima.Ast.StringLiteral literal ? literal.Value : null;
+            return name is not null && IsExactArtifactPathSegment(name) ? parent + "." + name : null;
+        }
+        try
+        {
+            var segments = Expressions.ExpressionSegments.Read(expression);
+            var expressions = segments.Count > 0 ? segments.Select(segment => segment.Expression) : [expression];
+            foreach (var code in expressions)
+                foreach (var reference in References(new Acornima.Parser().ParseExpression(code)).Distinct(StringComparer.Ordinal))
+                    if (LocalDecisionReferenceDependsOnSources(document, workflowCallers, sources, workflowName, reference, [], visited)) return true;
+        }
+        catch (Exception ex) when (ex is Acornima.ParseErrorException or Expressions.ExpressionParseException) { return false; }
+
         return false;
     }
 
@@ -9103,7 +9108,7 @@ public sealed partial class WorkflowPlanExecutor
 
             var stepPath = path[stepPrefix.Length..]
                 .Split('.', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
-            if (stepPath.Length < 2)
+            if (stepPath.Length == 0)
                 return false;
             var sourceStep = EnumerateSteps(workflow.Steps)
                 .Concat(EnumerateSteps(workflow.Finally))
@@ -9118,6 +9123,9 @@ public sealed partial class WorkflowPlanExecutor
             }
 
             var remainingPath = stepPath.Skip(1).ToArray();
+            if (sourceStep.Type is "loop.sequential" or "loop.parallel" && (remainingPath.Length == 0 || remainingPath[0] == "results"))
+                return EnumerateSteps(sourceStep.Steps ?? []).Any(child => sources.Any(source => source.Workflow == workflowName && ReferenceEquals(source.Step, child)));
+            if (remainingPath.Length == 0) return false;
             if (sourceStep.Type is "set" or "assert.non_null")
             {
                 var value = ResolveInstancePath(sourceStep.Input, remainingPath);

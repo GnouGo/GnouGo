@@ -14,7 +14,7 @@ internal static class PlanningSchemas
                 Object(("kind", Enum("number")), ("number", Type("number"))), Object(("kind", Enum("boolean")), ("boolean", Type("boolean"))),
                 Object(("kind", Enum("object")), ("members", Array(Ref("member")))), Object(("kind", Enum("array")), ("items", Array(Ref("value")))),
                 Object(("kind", Enum("input")), ("source", String()), ("path", Array(String()))),
-                Object(("kind", Enum("output")), ("source", String()), ("resultChannel", Enum("default", "structured")), ("path", Array(String()))),
+                Object(("kind", Enum("output")), ("source", String()), ("resultChannel", Enum("default", "structured", "envelope")), ("path", Array(String()))),
                 Object(("kind", Enum("workflow")), ("source", String())),
                 Object(("kind", Enum("template")), ("text", String()), ("members", Array(Ref("member"))))) },
             ["member"] = Object(("name", String()), ("value", Ref("value"))),

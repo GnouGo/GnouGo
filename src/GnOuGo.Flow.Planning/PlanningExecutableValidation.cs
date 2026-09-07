@@ -21,6 +21,7 @@ public static class PlanningExecutableValidation
             foreach (var (node, location) in PlanningGraphValidation.Located(workflow.Steps, path + "/steps").Concat(PlanningGraphValidation.Located(workflow.Finally, path + "/finally")))
             {
                 if (node.Expr is not null && node.Type != "switch") errors.Add(new("NATIVE_FIELD_UNSUPPORTED", location + "/expr", "Only switch uses expr. Compute set outputs in input values; do not put a transformation in an ignored field."));
+                errors.AddRange(PlanningDecisionRouting.ConditionFindings(node, preparation, location));
                 Values(node.Input, location + "/input");
                 if (node.Expr is not null) Values(node.Expr, location + "/expr");
                 if (node.If is not null) Values(node.If, location + "/if");
