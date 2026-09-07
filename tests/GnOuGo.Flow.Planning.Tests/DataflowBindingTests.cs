@@ -482,6 +482,30 @@ public sealed class DataflowBindingTests
     }
 
     [Fact]
+    public void ConstructionWrapsOnlySchemaValidatedLiteralStructuredFallbacks()
+    {
+        var (graph, prep) = Fixture(); var workflow = graph.Workflows[0]; var node = workflow.Steps[0];
+        node.StructuredOutput = new(new() { Type = "object", Properties = [
+            new() { Name = "accepted", Required = true, Schema = new() { Type = "boolean" } },
+            new() { Name = "details", Required = true, Schema = new() { Type = "string" } }] });
+        var value = Obj(("accepted", new() { Kind = "boolean", Boolean = false }), ("details", Str("Execution failed.")));
+        node.OnError = [new(null, "continue", value, null)];
+        var unit = new PlanningConstructionUnit { Kind = "implementation", WorkflowKey = workflow.Key, NodeKeys = [node.Key], ContractVersion = PlanningDataflow.ContractVersion };
+        PlanningGraph Apply() => PlanningConstruction.Apply(graph, unit,
+            PlanningConstruction.UpgradeCandidate(graph, unit, PlanningConstruction.Values(workflow, unit), prep), prep);
+        var applied = Apply(); var handler = applied.Workflows[0].Steps[0].OnError[0];
+        Assert.Equal("continue", handler.Action);
+        Assert.Equal("json", Assert.Single(handler.SetOutput!.Members).Name);
+        Assert.True(JsonNode.DeepEquals(PlanningGraphValidation.Literal(value), PlanningGraphValidation.Literal(handler.SetOutput.Members[0].Value)));
+        Assert.DoesNotContain(PlanningGraphValidation.Validate(applied, prep), d => d.Code == "STRUCTURED_FALLBACK_INVALID");
+        Assert.Equal(2, node.OnError[0].SetOutput!.Members.Count); // Candidate/history remain unchanged.
+        node.OnError = [new(null, "continue", Obj(("accepted", Str("false"))), null)];
+        Assert.Contains(PlanningGraphValidation.Validate(Apply(), prep), d => d.Code == "STRUCTURED_FALLBACK_INVALID");
+        node.OnError = [new(null, "continue", Obj(("json", value), ("response", Obj())), null)];
+        Assert.Equal(2, Apply().Workflows[0].Steps[0].OnError[0].SetOutput!.Members.Count);
+    }
+
+    [Fact]
     public void StructuredFallbackRepairsOnlyTheJsonValue_AndKeepsTheErrorAction()
     {
         var (graph, prep) = Fixture(); var workflow = graph.Workflows[0]; var node = workflow.Steps[0];

@@ -310,7 +310,24 @@ public static class PlanningConstruction
                     node.ItemVar = unit.ContractVersion >= 11 ? PlanningGraphCompiler.LoopVariable(node.Key, false) : fields["itemVar"]?.GetValue<string>();
                     node.IndexVar = unit.ContractVersion >= 11 ? PlanningGraphCompiler.LoopVariable(node.Key, true) : fields["indexVar"]?.GetValue<string>();
                 }
-                if (fields["onError"] is JsonArray onError) node.OnError = onError.Select(e => JsonSerializer.Deserialize(e!, PlanningJsonContext.Default.PlanningErrorCase)!).ToList();
+                if (fields["onError"] is JsonArray onError)
+                {
+                    node.OnError = onError.Select(e => JsonSerializer.Deserialize(e!, PlanningJsonContext.Default.PlanningErrorCase)!).ToList();
+                    if (node.StructuredOutput is { } structured)
+                    {
+                        var contract = PlanningGraphCompiler.ToJsonSchema(structured.Schema, preparation);
+                        node.OnError = node.OnError.Select(handler =>
+                        {
+                            // A literal synthesized result needs only runtime plumbing.
+                            // Preserve explicit envelopes and reject unproven/nonliteral values.
+                            var value = handler.SetOutput;
+                            if (value is not { Kind: "object" } || value.Members.Any(m => m.Name is "json" or "response") ||
+                                !PlanningGraphValidation.IsLiteral(value) ||
+                                PlanningContractValidation.ValidateInstance(PlanningGraphValidation.Literal(value), contract).Count != 0) return handler;
+                            return handler with { SetOutput = new() { Kind = "object", Members = [new("json", value)] } };
+                        }).ToList();
+                    }
+                }
             }
         }
         return result;

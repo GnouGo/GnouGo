@@ -160,6 +160,10 @@ while `structured` selects validated `mcp.call`/`llm.call` structured-output `.j
 The compiler validates that channel's declared schema and referenced fields. Original
 MCP response fields continue to come from the tool's declared output contract. Merely
 listing required field names does not establish a structured-output schema.
+Construction wraps a bare literal fallback in `json` only after its value satisfies
+the complete structured-result schema. Explicit envelopes are preserved; missing
+fields, wrong types and computed values still require validation and repair. This
+adds runtime addressing without inventing fallback content or changing error actions.
 
 Ports have concrete scalar, object and array schemas or JSON-pointer references to
 authoritative capability schemas. Technical MCP bindings and step IDs are emitted
