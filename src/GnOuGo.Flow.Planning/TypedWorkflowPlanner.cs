@@ -639,13 +639,20 @@ public sealed partial class TypedWorkflowPlanner(TimeProvider? timeProvider = nu
             (constructionEvidence is null ? "\nResolved value contracts (schema references resolve within this object):\n" + SemanticValueContracts(state.Graph!, state.Preparation!).ToJsonString() : "") +
             (constructionEvidence is null ? "\nGraph:\n" + JsonSerializer.Serialize(state.Graph, PlanningJsonContext.Default.PlanningGraph)
                 : "\nInvalid construction evidence:\n" + constructionEvidence.ToJsonString() +
-                  (assessConstructionBehavior ? "\nAssess only the diagnosed collection-to-element mismatch: determine whether the requested per-item behavior lacks iteration, or whether a computation can use existing producers. Use /behavior for a missing loop and preserve all requested items and effects. " :
+                  (constructionEvidence["assessment"]?.ToString() == "business_input_dependencies" ?
+                  "\nAssess only the diagnosed business-input dependency against the request, accepted inputDependencies and capability input contract. Distinguish an omitted runtime binding from an incorrectly assigned dependency in the generated behavior plan. Return /behavior only when the dependency assignment needs revision while preserving every requested use of the input. Return no finding when ordinary field repair can supply the dependency. actualBusinessInputs lists transitive dependencies, not argument values: a producer result derived from an input is not that input itself. consumedBindings identifies the actual references and bounded type summaries; omitted schema fields and helper bodies do not establish missing observations. This assessment cannot request capability rediscovery or /preparation changes. Do not disguise input use through an irrelevant argument or constant computation. Changing an accepted dependency requires renewed behavior review. " :
+                  assessConstructionBehavior ? "\nAssess only the diagnosed collection-to-element mismatch: determine whether the requested per-item behavior lacks iteration, or whether a computation can use existing producers. Use /behavior for a missing loop and preserve all requested items and effects. " :
                   "\nAssess only whether required external observations are missing from available inputs. Unsupported helper code alone does not prove a missing capability. ") +
                   "The operation contains converted effective inputs when effectiveInputsResolved is true. Locked request bindings are injected by the host and intentionally absent from model candidate arguments. " +
                   "When conversion is unresolved, an empty skeleton is not evidence of a missing capability. Judge available observations from the locked producer contracts, not unfinished implementation fields. " +
                   "Return /preparation findings only for requirements that cannot be implemented from established producers. Never authorize module loading, external access in local JavaScript, or removal of the requirement.");
         var targets = SemanticTargets(state.Graph!);
         if (constructionEvidence is not null) targets = targets.Where(p => p.Key.EndsWith("/preparation", StringComparison.Ordinal) || assessConstructionBehavior && p.Value.Behavior).ToDictionary(p => p.Key, p => p.Value, StringComparer.Ordinal);
+        if (constructionEvidence?["assessment"]?.ToString() == "business_input_dependencies")
+        {
+            var affected = constructionEvidence["affected"]!.AsArray().Select(n => n!["location"]!.ToString()[..^"/preparation".Length]).ToHashSet(StringComparer.Ordinal);
+            targets = targets.Where(p => p.Value.Behavior && affected.Contains(p.Key[..p.Key.LastIndexOf('/')])).ToDictionary(p => p.Key, p => p.Value, StringComparer.Ordinal);
+        }
         var shape = PlanningSchemas.Review(state.Graph!.Workflows.Select(w => w.Key), targets.Keys);
         var invalid = new List<PlanningDiagnostic>(); JsonObject? response = null;
         for (var attempt = 0; attempt < 2; attempt++)

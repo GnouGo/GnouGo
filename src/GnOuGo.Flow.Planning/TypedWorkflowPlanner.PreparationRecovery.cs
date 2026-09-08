@@ -8,12 +8,27 @@ public sealed partial class TypedWorkflowPlanner
 {
     private async Task<bool> ReassessFailedObservationConstructionAsync(PlanningSnapshot state, IPlanningRuntime runtime, CancellationToken ct)
     {
+        foreach (var retained in state.ConstructionUnits.Where(u => u.Status == "invalid" && u.Candidate is not null && u.ProducerReviewBaseline is null &&
+            u.Dependencies.All(key => state.ConstructionUnits.Single(other => other.Key == key).Status == "validated")))
+        {
+            try
+            {
+                var preview = PlanningConstruction.Preview(state.Graph!, retained, retained.Candidate!, state.Preparation!);
+                preview.Workflows.Single(w => w.Key == retained.WorkflowKey).Functions = MergeFunctions(state, retained, retained.Candidate!["functions"]?.GetValue<string>());
+                var findings = CandidateFindings(state, preview, retained, retained.Candidate!);
+                findings.AddRange(PlanningConstruction.ShapeFindings(retained.Candidate!, PlanningConstruction.Schema(
+                    state.Graph!.Workflows.Single(w => w.Key == retained.WorkflowKey), retained, state.Preparation!, state.Graph), retained));
+                retained.Diagnostics = findings;
+            }
+            catch (Exception ex) when (ex is InvalidOperationException or ArgumentException or FormatException) { /* Conversion findings remain unresolved. */ }
+        }
         var units = state.ConstructionUnits.Where(u => u.Status != "validated" && u.Status != "superseded" && u.RepairCalls > 0 && u.Candidate is not null &&
-            u.Diagnostics.Any(d => d.Code is "UNIT_HELPER_DEPENDENCY_INVALID" or "COMPUTATION_FIELD_UNDECLARED" or "COMPUTATION_COLLECTION_FIELD_INVALID")).Take(state.Request.MaxConcurrency).ToArray();
+            u.Diagnostics.Any(d => d.Code is "UNIT_HELPER_DEPENDENCY_INVALID" or "COMPUTATION_FIELD_UNDECLARED" or "COMPUTATION_COLLECTION_FIELD_INVALID" or "BUSINESS_INPUT_BINDING_MISSING")).Take(state.Request.MaxConcurrency).ToArray();
         if (units.Length == 0) return false;
         var fingerprint = PlanningGraphCompiler.Fingerprint(state.Preparation!.Fingerprint + string.Join("\n", units.Select(u => u.Key + ":" + u.CandidateHash)));
         if (state.PreparationReviewFingerprint == fingerprint) return false;
-        var assessBehavior = units.Any(u => u.Diagnostics.Any(d => d.Code == "COMPUTATION_COLLECTION_FIELD_INVALID"));
+        var assessInputs = units.Any(u => u.Diagnostics.Any(d => d.Code == "BUSINESS_INPUT_BINDING_MISSING"));
+        var assessBehavior = assessInputs || units.Any(u => u.Diagnostics.Any(d => d.Code == "COMPUTATION_COLLECTION_FIELD_INVALID"));
         var nodes = new JsonArray(); var operations = new HashSet<string>(StringComparer.Ordinal);
         foreach (var unit in units)
         {
@@ -24,22 +39,30 @@ public sealed partial class TypedWorkflowPlanner
             foreach (var (node, path) in PlanningGraphValidation.Located(workflow.Steps, "/workflows/" + wi + "/steps").Concat(PlanningGraphValidation.Located(workflow.Finally, "/workflows/" + wi + "/finally")))
             {
                 if (!unit.NodeKeys.Contains(node.Key, StringComparer.Ordinal)) continue;
+                if (assessInputs && !unit.Diagnostics.Any(d => d.Code == "BUSINESS_INPUT_BINDING_MISSING" && d.Location == path + "/input")) continue;
                 operations.UnionWith(node.OperationIds);
                 var resolved = effective is null ? null : PlanningGraphCompiler.Enumerate(effective.Steps.Concat(effective.Finally)).Single(n => n.Key == node.Key);
-                nodes.Add((JsonNode)new JsonObject { ["location"] = path + "/preparation", ["operation"] = DescribeNode(resolved ?? node, state.Preparation),
+                var acceptedWorkflow = state.BehaviorPlan?.Workflows.Single(w => w.Key == workflow.Key);
+                var accepted = acceptedWorkflow is null ? null : PlanningBehaviorPlans.Enumerate(acceptedWorkflow.Steps.Concat(acceptedWorkflow.Finally)).Single(n => n.Key == node.Key);
+                nodes.Add((JsonNode)new JsonObject { ["location"] = path + "/preparation", ["operation"] = assessInputs ? BusinessDependencyNode(resolved ?? node) : DescribeNode(resolved ?? node, state.Preparation),
                     ["effectiveInputsResolved"] = resolved is not null,
-                    ["candidate"] = unit.Candidate!["nodes"]?[node.Key]?.DeepClone(), ["helpers"] = unit.Candidate["functions"]?.DeepClone() });
+                    ["acceptedInputDependencies"] = new JsonArray((accepted?.InputDependencies ?? []).Select(i => (JsonNode?)JsonValue.Create(i)).ToArray()),
+                    ["actualBusinessInputs"] = resolved is null ? null : new JsonArray(PlanningDataflow.BusinessInputs(effective!, resolved).Select(i => (JsonNode?)JsonValue.Create(i)).ToArray()),
+                    ["consumedBindings"] = assessInputs && resolved is not null ? BusinessDependencyBindings(state.Graph, effective!, resolved, state.Preparation) : null,
+                    ["inputContract"] = state.Preparation.Capabilities.SingleOrDefault(c => c.Id == node.CapabilityId)?.InputSchema.DeepClone(),
+                    ["candidate"] = assessInputs ? null : unit.Candidate!["nodes"]?[node.Key]?.DeepClone(), ["helpers"] = assessInputs ? null : unit.Candidate!["functions"]?.DeepClone() });
             }
         }
         foreach (var capability in state.Preparation.Capabilities.Where(c => c.OperationIds.Intersect(operations).Any()).ToArray()) operations.UnionWith(capability.InputOperationIds);
         var producers = new JsonArray(state.Graph!.Workflows.SelectMany(w => PlanningGraphCompiler.Enumerate(w.Steps.Concat(w.Finally)))
-            .Where(n => n.OperationIds.Intersect(operations).Any()).Select(n => (JsonNode)DescribeNode(n, state.Preparation)).ToArray());
-        var evidence = new JsonObject { ["affected"] = nodes, ["declaredProducers"] = producers, ["lockedContract"] = RelevantContract(state.Preparation, operations.ToList()),
+            .Where(n => n.OperationIds.Intersect(operations).Any()).Select(n => (JsonNode)(assessInputs ? BusinessDependencyNode(n) : DescribeNode(n, state.Preparation))).ToArray());
+        var evidence = new JsonObject { ["assessment"] = assessInputs ? "business_input_dependencies" : "observations", ["affected"] = nodes, ["declaredProducers"] = producers, ["lockedContract"] = RelevantContract(state.Preparation, operations.ToList()),
             ["producerContracts"] = new JsonArray(state.Preparation.Capabilities.Where(c => c.OperationIds.Intersect(operations).Any()).Select(c => (JsonNode)new JsonObject
-            { ["id"] = c.Id, ["description"] = c.Description, ["outputSchema"] = c.OutputSchema.DeepClone() }).ToArray()) };
+            { ["id"] = c.Id, ["description"] = c.Description, ["outputSchema"] = assessInputs ? null : c.OutputSchema.DeepClone() }).ToArray()) };
         try
         {
             var findings = await ReviewAsync(state, runtime, ct, evidence, assessBehavior);
+            if (assessInputs) findings = findings.Select(d => d.Location.EndsWith("/behavior", StringComparison.Ordinal) ? d with { ValidationStage = "business_input_review" } : d).ToList();
             state.PreparationReviewFingerprint = fingerprint;
             state.Attempts.Add(new(fingerprint, "construction_observation_review", 0, false, findings));
             if (RequiresPreparationReassessment(state, findings) || assessBehavior && RequiresBehaviorReassessment(state, findings)) return true;
@@ -48,6 +71,31 @@ public sealed partial class TypedWorkflowPlanner
         catch (SemanticAssessmentException ex)
         { state.Diagnostics = ex.Diagnostics; state.Status = PlanningStatus.Recovery; state.CurrentPhase = PlanningPhase.Capabilities; return true; }
         return false;
+    }
+
+    private static JsonObject BusinessDependencyNode(PlanningNode node) => new()
+    {
+        ["key"] = node.Key, ["purpose"] = node.Purpose, ["type"] = node.Type, ["capabilityId"] = node.CapabilityId,
+        ["operationIds"] = new JsonArray(node.OperationIds.Select(id => (JsonNode?)JsonValue.Create(id)).ToArray())
+    };
+
+    internal static JsonArray BusinessDependencyBindings(PlanningGraph graph, PlanningWorkflow workflow, PlanningNode node, PlanningPreparation preparation)
+    {
+        var bindings = new JsonArray(); var resolve = PlanningGraphValidation.ValueContractResolver(graph, workflow, preparation);
+        foreach (var reference in PlanningDataflow.References(node.Input).DistinctBy(PlanningOutputBindings.Id))
+        {
+            var item = new JsonObject { ["value"] = PlanningModelValues.Compact(JsonSerializer.SerializeToNode(reference, PlanningJsonContext.Default.PlanningValue)) };
+            try
+            {
+                var schema = resolve(reference);
+                // This assessment checks dependency ownership, not projection validity.
+                // A bounded summary must never be interpreted as an absent field catalog.
+                item["resolved"] = true; item["type"] = schema["type"]?.DeepClone(); item["description"] = schema["description"]?.DeepClone();
+            }
+            catch (Exception ex) when (ex is InvalidOperationException or ArgumentException or FormatException) { item["resolved"] = false; }
+            bindings.Add((JsonNode)item);
+        }
+        return bindings;
     }
 
     private bool RequiresPreparationReassessment(PlanningSnapshot state, List<PlanningDiagnostic> findings)

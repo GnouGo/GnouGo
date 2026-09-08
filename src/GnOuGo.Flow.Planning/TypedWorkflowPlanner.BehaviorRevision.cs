@@ -23,6 +23,9 @@ public sealed partial class TypedWorkflowPlanner
         {
             var target = old.FirstOrDefault(n => n.Path + "/behavior" == finding.Location);
             if (target.Node is null) continue;
+            if (finding.ValidationStage == "business_input_review" && state.Attempts.Any(a => a.Phase == "behavior_dependency_revision" &&
+                a.CandidateHash == PlanningBehaviorPlans.Fingerprint(state.BehaviorPlan) && a.Diagnostics.Any(d =>
+                    d.Location == PlanningSchemaReferences.Escape(target.Workflow) + "/" + PlanningSchemaReferences.Escape(target.Node.Key)))) continue;
             var retained = current.FirstOrDefault(n => n.Workflow == target.Workflow && n.Node.Key == target.Node.Key);
             // A wrapper or a move to another outcome is already a topology change.
             // Historical candidates lack a complete behavior baseline, so only
@@ -113,7 +116,11 @@ public sealed partial class TypedWorkflowPlanner
                     PlanningBehaviorPlans.CompleteReviewDefaults(revised);
                     diagnostics.AddRange(PlanningBehaviorPlans.Validate(revised, state.Preparation!));
                     if (diagnostics.Count == 0)
-                    { state.BehaviorRevisionSource = null; state.BehaviorRevisionPatch = null; ReadyForBehaviorReview(state, revised); return true; }
+                    {
+                        var dependencyChanges = PlanningBehaviorRevisions.DependencyChanges(baseline, revised);
+                        if (dependencyChanges.Count > 0) state.Attempts.Add(new(PlanningBehaviorPlans.Fingerprint(revised), "behavior_dependency_revision", 1, true, dependencyChanges));
+                        state.BehaviorRevisionSource = null; state.BehaviorRevisionPatch = null; ReadyForBehaviorReview(state, revised); return true;
+                    }
                 }
                 catch (InvalidOperationException ex) { diagnostics.Add(new("BEHAVIOR_PATCH_INVALID", "/behavior", ex.Message)); }
             }
@@ -129,6 +136,21 @@ public sealed partial class TypedWorkflowPlanner
 
 internal static class PlanningBehaviorRevisions
 {
+    internal static List<PlanningDiagnostic> DependencyChanges(PlanningBehaviorPlan before, PlanningBehaviorPlan after)
+    {
+        var changes = new List<PlanningDiagnostic>();
+        foreach (var workflow in before.Workflows)
+        {
+            var current = after.Workflows.Single(w => w.Key == workflow.Key);
+            var nodes = PlanningBehaviorPlans.Enumerate(current.Steps.Concat(current.Finally)).ToDictionary(n => n.Key, StringComparer.Ordinal);
+            foreach (var node in PlanningBehaviorPlans.Enumerate(workflow.Steps.Concat(workflow.Finally)))
+                if (nodes.TryGetValue(node.Key, out var revised) && !(node.InputDependencies ?? []).ToHashSet(StringComparer.Ordinal).SetEquals(revised.InputDependencies ?? []))
+                    changes.Add(new("BUSINESS_INPUT_CONTRACT_REVISED", PlanningSchemaReferences.Escape(workflow.Key) + "/" + PlanningSchemaReferences.Escape(node.Key),
+                        "The proposed behavior has a changed input dependency contract and requires new approval."));
+        }
+        return changes;
+    }
+
     internal static bool SameTopology(PlanningNode before, PlanningNode after)
     {
         JsonNode Shape(PlanningNode node) => new JsonObject

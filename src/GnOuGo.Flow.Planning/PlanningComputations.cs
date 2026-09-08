@@ -82,60 +82,7 @@ internal static class PlanningComputations
             throw new InvalidOperationException("Computation parameters must have unique JavaScript identifiers.");
         if (string.IsNullOrWhiteSpace(value.Text)) throw new InvalidOperationException("A computation needs an executable expression.");
         var expression = new Acornima.Parser().ParseExpression(Expression(value.Text));
-        var used = new HashSet<string>(StringComparer.Ordinal);
-        var allowed = new HashSet<string>(names, StringComparer.Ordinal);
-        allowed.UnionWith(["JSON", "Math", "Object", "Array", "String", "Number", "Boolean", "RegExp", "Set", "Map", "URL", "Error", "TypeError", "parseInt", "parseFloat", "isNaN", "isFinite", "encodeURI", "decodeURI", "encodeURIComponent", "decodeURIComponent", "undefined", "NaN", "Infinity"]);
-        Collect(expression);
-        Check(expression, null, true);
-        foreach (var name in names.Where(name => !used.Contains(name)))
-            throw new InvalidOperationException("Computation parameter '" + name + "' is unused. A declared binding must participate in the computation; it cannot disguise a hard-coded result.");
-
-        void Collect(Node node)
-        {
-            if (node is VariableDeclarator variable) DeclarePattern(variable.Id);
-            if (node is FunctionDeclaration declaration)
-            {
-                if (declaration.Id is { } function) allowed.Add(function.Name);
-                foreach (var parameter in declaration.Params) DeclarePattern(parameter);
-            }
-            if (node is ArrowFunctionExpression arrow) foreach (var parameter in arrow.Params) DeclarePattern(parameter);
-            if (node is FunctionExpression functionExpression) foreach (var parameter in functionExpression.Params) DeclarePattern(parameter);
-            if (node is CatchClause { Param: { } caught }) DeclarePattern(caught);
-            foreach (var child in node.ChildNodes) Collect(child);
-        }
-        void DeclarePattern(Node pattern)
-        {
-            switch (pattern)
-            {
-                case Identifier identifier: Declare(identifier.Name); break;
-                case AssignmentPattern assignment: DeclarePattern(assignment.Left); break;
-                case RestElement rest: DeclarePattern(rest.Argument); break;
-                case ArrayPattern array:
-                    foreach (var element in array.Elements) if (element is not null) DeclarePattern(element);
-                    break;
-                case ObjectPattern obj:
-                    foreach (var property in obj.Properties)
-                        DeclarePattern(property is Property field ? field.Value : property);
-                    break;
-            }
-        }
-        void Check(Node node, Node? parent, bool contributes)
-        {
-            if (node is UnaryExpression { Operator: Acornima.Operator.Void } || node is Identifier && parent is ExpressionStatement) contributes = false;
-            if (node is Identifier identifier && !(parent is MemberExpression member && ReferenceEquals(member.Property, node) && !member.Computed) &&
-                !(parent is Property property && ReferenceEquals(property.Key, node) && !property.Computed && !property.Shorthand))
-            {
-                if (!allowed.Contains(identifier.Name) && !identifier.Name.StartsWith("u_", StringComparison.Ordinal))
-                    throw new InvalidOperationException("Undeclared computation dependency '" + identifier.Name + "'. Pass a typed binding as a named parameter.");
-                if (contributes && names.Contains(identifier.Name, StringComparer.Ordinal)) used.Add(identifier.Name);
-            }
-            foreach (var child in node.ChildNodes) Check(child, node, contributes);
-        }
-        void Declare(string name)
-        {
-            if (names.Contains(name, StringComparer.Ordinal)) throw new InvalidOperationException("A local declaration cannot shadow typed computation parameter '" + name + "'.");
-            allowed.Add(name);
-        }
+        PlanningComputationScopes.Validate(expression, names);
     }
 
     internal static void ValidateHelpers(string functions) => Validate(new PlanningValue { Kind = "compute", Text = "(() => {\n" + functions + "\nreturn null;\n})()" });

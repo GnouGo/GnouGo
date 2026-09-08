@@ -461,7 +461,7 @@ existing schemas and annotations exactly. Duplicate or replacement names fail
 atomically. This response contract also repairs older rejected candidates without
 requiring the model to reproduce existing declarations.
 
-Construction contract 45 rejects direct item-field access on typed array parameters
+Construction contract 46 rejects direct item-field access on typed array parameters
 and simple aliases, while permitting array operations and explicit element access.
 Numeric parameter indices retain the declared item schema through aliases and
 null/empty-object fallbacks; guessed item property names remain invalid.
@@ -481,3 +481,25 @@ Retry checks the current catalog before reusing a rejected implementation. Chang
 contracts invalidate the retained capability selection and behavior approval while
 preserving answers, history and cumulative usage. An unavailable catalog keeps the
 session in recovery without dispatching model requests.
+
+Computation dependency validation resolves JavaScript lexical scopes, including
+callback parameters, destructuring, block declarations, function-scoped `var`,
+and catch bindings. Reusing a typed parameter name in an inner scope is allowed
+when the outer binding is actually used. Inner references do not count as use of
+the outer input, and out-of-scope declarations do not authorize context access.
+
+Repeated missing business-input bindings can trigger a scoped semantic assessment
+of the accepted dependency and the selected capability's argument contract. An
+evidenced assignment error returns to behavior revision and requires new approval;
+ordinary omitted bindings remain implementation repairs. Successful dependency
+revisions retain fingerprinted evidence so Retry distinguishes the approved contract
+change from a presentation-only edit. Neither this assessment nor its repair may
+remove a requested use of an input or manufacture dependency through an irrelevant
+argument. Unchanged requirements, confirmations, and cleanup remain locked.
+
+Early behavior assessment receives declared capability argument names, descriptions,
+types, and requiredness before assigning business-input dependencies. Recovery
+assessments include exact consumed references and bounded type summaries; transitive
+business-input dependencies are explicitly distinguished from argument values. This
+scoped dependency review can request behavior revision only. Omitted producer schema
+fields cannot justify capability rediscovery; observation assessments remain separate.

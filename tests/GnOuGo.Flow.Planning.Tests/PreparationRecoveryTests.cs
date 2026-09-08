@@ -9,6 +9,88 @@ namespace GnOuGo.Flow.Planning.Tests;
 public sealed class PreparationRecoveryTests
 {
     [Theory]
+    [InlineData("inspect", "workspacePath")]
+    [InlineData("observer", "dossier")]
+    public void EarlyBehaviorReviewKnowsTheDeclaredArgumentDestinations(string capability, string argument)
+    {
+        var preparation = Preparation(); preparation.Capabilities = [new() { Id = capability, StepType = "mcp.call", InputSchema = new()
+        {
+            ["type"] = "object", ["properties"] = new JsonObject { [argument] = new JsonObject { ["type"] = "string", ["description"] = "Existing workspace directory." } },
+            ["required"] = new JsonArray(argument)
+        } }];
+        var summary = JsonNode.Parse(TypedWorkflowPlanner.BehaviorCapabilities(preparation))!.AsArray();
+        var declared = Assert.Single(Assert.Single(summary)!["declaredArguments"]!.AsArray())!;
+        Assert.Equal(argument, declared["name"]!.ToString()); Assert.Equal("string", declared["type"]!.ToString()); Assert.True(declared["required"]!.GetValue<bool>());
+        Assert.Contains("directory", declared["description"]!.ToString()); Assert.Equal("object", preparation.Capabilities[0].InputSchema["type"]!.ToString());
+    }
+
+    [Theory]
+    [InlineData("materialize", "directory", "resourceUrl")]
+    [InlineData("preparer", "dossier", "adresse")]
+    public void DependencyAssessmentDistinguishesAProducedPathFromItsTransitiveBusinessInput(string producer, string field, string input)
+    {
+        var graph = Graph(); var preparation = Preparation(); var workflow = graph.Workflows[0];
+        workflow.Inputs = [new() { Name = input, Schema = new() { Type = "string" } }];
+        preparation.Capabilities.Add(new() { Id = producer, StepType = "mcp.call", OutputSchema = new() { ["type"] = "object", ["required"] = new JsonArray(field), ["properties"] = new JsonObject
+            { [field] = new JsonObject { ["type"] = "string", ["description"] = "Workspace-relative path to the created directory." },
+              ["unrelated"] = new JsonObject { ["type"] = "string", ["description"] = new string('x', 60_000) } } } });
+        workflow.Steps.Insert(0, new() { Key = producer, Type = "mcp.call", CapabilityId = producer,
+            Input = Obj(("request", Obj(("resource", new() { Kind = "input", Source = input })))) });
+        var consumer = workflow.Steps[1];
+        consumer.Input = Obj(("request", Obj(("workspace", new() { Kind = "output", Source = producer, Path = [field] }))));
+        Assert.Contains(input, PlanningDataflow.BusinessInputs(workflow, consumer));
+        var bindings = TypedWorkflowPlanner.BusinessDependencyBindings(graph, workflow, consumer, preparation);
+        var binding = Assert.Single(bindings)!;
+        Assert.True(binding["resolved"]!.GetValue<bool>()); Assert.Equal("string", binding["type"]!.ToString());
+        Assert.Equal(producer, binding["value"]!["source"]!.ToString()); Assert.Equal(field, binding["value"]!["path"]![0]!.ToString());
+        Assert.Contains("created directory", binding["description"]!.ToString()); Assert.True(bindings.ToJsonString().Length < 1000);
+    }
+
+    [Theory]
+    [InlineData("Inspect the workspace; use instructions when reviewing findings.", "instructions", "inspect")]
+    [InlineData("Inspecter les fichiers; utiliser les consignes pour analyser les resultats.", "consignes", "observer")]
+    public async Task UnresolvedBusinessDependencyReturnsThroughEvidencedBehaviorReview(string prompt, string input, string capability)
+    {
+        var state = ConstructionUnitTests.ApprovedSkeleton(); state.Request.Prompt = prompt;
+        var workflow = state.Graph!.Workflows[0]; workflow.Outputs.Clear();
+        workflow.Inputs = [new() { Name = input, Schema = new() { Type = "string" } }];
+        var node = workflow.Steps[0]; node.Type = "mcp.call"; node.CapabilityId = capability;
+        state.Preparation!.Capabilities = [new() { Id = capability, StepType = "mcp.call", OperationIds = node.OperationIds,
+            InputSchema = new() { ["type"] = "object", ["properties"] = new JsonObject(), ["additionalProperties"] = false } }];
+        var behavior = state.BehaviorPlan!.Workflows[0]; behavior.Outputs.Clear(); behavior.Inputs = [new(input, "Review instructions", true)];
+        behavior.Steps[0].CapabilityId = capability; behavior.Steps[0].InputDependencies = [input];
+        state.ApprovedBehaviorHash = PlanningBehaviorPlans.Fingerprint(state.BehaviorPlan);
+        var unrelated = new string('x', 60_000);
+        state.Preparation.Capabilities[0].OutputSchema = new() { ["type"] = "string", ["description"] = unrelated };
+        var unit = new PlanningConstructionUnit { Key = "unit", WorkflowKey = workflow.Key, Kind = "implementation", NodeKeys = [node.Key], Status = "invalid", Calls = 4, RepairCalls = 3,
+            ContractVersion = PlanningDataflow.ContractVersion, CandidateHash = "missing-business-input", Candidate = new JsonObject { ["nodes"] = new JsonObject
+                { [node.Key] = new JsonObject { ["arguments"] = new JsonObject(), ["onError"] = new JsonArray() } }, ["functions"] = "" },
+            Diagnostics = [new("BUSINESS_INPUT_BINDING_MISSING", "/workflows/0/steps/0/input", "Required business input is missing.")] };
+        state.ConstructionUnits = [unit]; state.Answers.Add(new("Retained policy", new() { ["answer"] = "Keep confirmation" })); state.Usage = new() { Calls = 12 };
+        unit.Candidate["functions"] = "function unrelatedHelper() { return '" + unrelated + "'; }";
+        var runtime = new FakeRuntime { OnCall = (phase, request, _) =>
+        {
+            Assert.Equal("semantic_review", phase);
+            Assert.Contains("acceptedInputDependencies", request.Prompt); Assert.Contains("inputContract", request.Prompt);
+            Assert.Contains("incorrectly assigned dependency", request.Prompt);
+            Assert.DoesNotContain(unrelated, request.Prompt);
+            Assert.Contains("consumedBindings", request.Prompt); Assert.Contains("transitive dependencies, not argument values", request.Prompt);
+            Assert.All(request.StructuredOutputSchema!["properties"]!["findings"]!["items"]!["properties"]!["location"]!["enum"]!.AsArray(), value => Assert.EndsWith("/behavior", value!.ToString()));
+            Assert.True(PlanningConstruction.EstimateInputTokens(request.Prompt, request.StructuredOutputSchema!.AsObject()) <= 12_000);
+            return Task.FromResult(new LLMResponse { Json = new JsonObject { ["findings"] = new JsonArray(new JsonObject
+            {
+                ["code"] = "DEPENDENCY_ASSIGNED_TO_WRONG_OPERATION", ["workflow"] = "main", ["location"] = "/workflows/0/steps/0/behavior",
+                ["message"] = "Retain instructions at the review operation; the inspection has no argument for them.", ["evidence"] = prompt, ["blocking"] = true
+            }) } });
+        } };
+        state = await new TypedWorkflowPlanner().AdvanceAsync(state, new() { ExpectedRevision = state.Revision }, runtime, TestContext.Current.CancellationToken);
+        Assert.Equal(PlanningStatus.Created, state.Status); Assert.Equal(PlanningPhase.Behavior, state.CurrentPhase);
+        Assert.NotNull(state.Preparation); Assert.Null(state.ApprovedBehaviorHash); Assert.Single(state.Answers); Assert.Equal(12, state.Usage!.Calls);
+        Assert.Equal(0, state.PreparationReassessments); Assert.NotNull(state.BehaviorRevisionSource);
+        Assert.Contains(state.Attempts.SelectMany(a => a.Diagnostics), d => d.ValidationStage == "business_input_review");
+    }
+
+    [Theory]
     [InlineData("Process every record", "records")]
     [InlineData("Traiter chaque element", "elements")]
     public async Task CollectionMismatchCanRequestBehaviorReviewWithoutRepeatingCapabilityDiscovery(string prompt, string input)

@@ -9,6 +9,30 @@ namespace GnOuGo.Flow.Planning.Tests;
 public sealed class BehaviorRevisionTests
 {
     [Theory]
+    [InlineData(true, false)]
+    [InlineData(false, false)]
+    [InlineData(true, true)]
+    public async Task RetryRecognizesOnlyAnExactReviewedDependencyRevision(bool revisedDependency, bool topologyFinding)
+    {
+        var state = Session(PlanningStatus.Recovery); state.Preparation = Preparation(); state.IntentChecked = true;
+        state.PreviousGraph = Graph(); state.Graph = Graph(); state.BehaviorPlan = BehaviorPlan();
+        var baseline = BehaviorPlan(); baseline.Workflows[0].Steps[0].InputDependencies = ["unused"];
+        if (!revisedDependency) state.BehaviorPlan.Workflows[0].Steps[0].InputDependencies = ["unused"];
+        state.ApprovedBehaviorHash = PlanningBehaviorPlans.Fingerprint(state.BehaviorPlan); var approved = state.ApprovedBehaviorHash;
+        state.Attempts.Add(new(PlanningGraphCompiler.Fingerprint(state.PreviousGraph), "semantic_review", 9, false,
+            [new("REVISE_BEHAVIOR", "/workflows/0/steps/0/behavior", "Revise the evidenced contract.", ValidationStage: topologyFinding ? null : "business_input_review")]));
+        state.Attempts.Add(new(PlanningBehaviorPlans.Fingerprint(state.BehaviorPlan), "behavior_dependency_revision", 1, true,
+            PlanningBehaviorRevisions.DependencyChanges(baseline, state.BehaviorPlan)));
+        // Round trip proves that the revision evidence survives process restart.
+        state = JsonSerializer.Deserialize(JsonSerializer.Serialize(state, PlanningJsonContext.Default.PlanningSnapshot), PlanningJsonContext.Default.PlanningSnapshot)!;
+        var runtime = new FakeRuntime();
+        state = await new TypedWorkflowPlanner().AdvanceAsync(state, new() { Kind = "retry", ExpectedRevision = state.Revision }, runtime, TestContext.Current.CancellationToken);
+        Assert.Empty(runtime.Phases);
+        if (revisedDependency && !topologyFinding) Assert.Equal(approved, state.ApprovedBehaviorHash);
+        else Assert.Null(state.ApprovedBehaviorHash);
+    }
+
+    [Theory]
     [InlineData("source", "Read a page", false)]
     [InlineData("entree", "Lire une page", false)]
     [InlineData("source", "Read a page", true)]

@@ -29,6 +29,7 @@ public sealed partial class TypedWorkflowPlanner
             "Use concise labels and short descriptions. Return the smallest complete behavior graph satisfying the locked obligations; technical implementation details belong to the later construction phase. " +
             "Cover every locked operation with exactly one workflow owner and implementing behavior nodes. Preserve inputs, outputs, ordering, decisions, uncertainty, confirmations and cleanup. " +
             "For each operation, inputDependencies names the business inputs that must dynamically control it, directly or through producer results. Examples are defaults, never hard-coded replacements. Declare only dependencies supported by the request and accepted obligations; container nodes may use an empty list. Never put producer node keys in inputDependencies; this field contains only names from the same workflow inputs. " +
+            "Use declaredArguments to check which business inputs a selected capability can consume. Do not assign an input merely because a sibling operation consumes it. Derived producer results remain distinct from the original business input values. " +
             "Every decision has distinct outcome keys and exactly one non-mutating default; never place writes or lifecycle operations anywhere under default, even behind another decision. Use explicit success/effect cases and a no-effect default, with cleanup in finally. An empty steps list explicitly means no action. Parallel steps each identify one branch. " +
             "Use stable node keys; elaboration must preserve them. Workflow calls use kind workflow and an existing workflowKey; every auxiliary workflow must be called from the entrypoint. Prefer a single workflow unless a reusable boundary is needed. Actions select supplied capability IDs; confirmations have kind confirmation. " +
             "capabilityId must be a Capabilities[].id value. Operation IDs and catalog IDs in the locked evidence are different namespaces and cannot be used as capabilityId. " +
@@ -94,7 +95,16 @@ public sealed partial class TypedWorkflowPlanner
     {
         var values = JsonSerializer.SerializeToNode(preparation, PlanningJsonContext.Default.PlanningPreparation)!["capabilities"]!.DeepClone().AsArray();
         foreach (var capability in values.OfType<JsonObject>())
+        {
+            var input = capability["inputSchema"] as JsonObject;
+            var required = (input?["required"] as JsonArray ?? []).Select(p => p!.ToString()).ToHashSet(StringComparer.Ordinal);
+            capability["declaredArguments"] = input?["properties"] is not JsonObject fields ? null : new JsonArray(fields.Select(p => (JsonNode)new JsonObject
+            {
+                ["name"] = p.Key, ["type"] = (p.Value as JsonObject)?["type"]?.DeepClone(), ["description"] = (p.Value as JsonObject)?["description"]?.DeepClone(),
+                ["required"] = required.Contains(p.Key)
+            }).ToArray());
             foreach (var field in new[] { "inputSchema", "outputSchema", "declarationFingerprint", "fixedInput", "catalogId" }) capability.Remove(field);
+        }
         return values.ToJsonString();
     }
 
