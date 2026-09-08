@@ -486,7 +486,10 @@ public sealed partial class TypedWorkflowPlanner
         var consumerOperations = consumers.SelectMany(c => c.OperationIds).ToHashSet(StringComparer.Ordinal);
         var consumerIds = consumers.Select(c => c.Id).ToHashSet(StringComparer.Ordinal);
         var downstream = state.Graph!.Workflows.SelectMany(w => PlanningGraphCompiler.Enumerate(w.Steps.Concat(w.Finally)))
-            .Where(n => !owned.Contains(n) && (consumerIds.Contains(n.CapabilityId ?? "") || n.OperationIds.Any(consumerOperations.Contains) || n.OperationIds.Any(operations.Contains)));
+            // Shared ownership in a composite operation does not establish data
+            // consumption. In particular, preceding actions and ancestor routers
+            // cannot consume a result produced later inside their own body.
+            .Where(n => !owned.Contains(n) && (consumerIds.Contains(n.CapabilityId ?? "") || n.OperationIds.Any(consumerOperations.Contains)));
         var containers = all.Where(n => !owned.Contains(n) && PlanningGraphCompiler.Enumerate([n]).Any(owned.Contains));
         JsonArray Describe(IEnumerable<PlanningNode> nodes) => new(nodes.Select(n => (JsonNode)new JsonObject
         {

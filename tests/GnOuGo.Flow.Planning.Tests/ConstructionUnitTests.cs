@@ -26,6 +26,7 @@ public sealed class ConstructionUnitTests
         state.Request.Options["generator"] = new JsonObject { ["context"] = "Retain host policy" };
         var unit = new PlanningConstructionUnit { Key = "contract", WorkflowKey = "main", Kind = "contracts", NodeKeys = [producer.Key], ContractVersion = PlanningDataflow.ContractVersion };
         var before = TypedWorkflowPlanner.ContractPrompt(state, workflow, unit, state.Preparation);
+        workflow.Steps.Insert(0, new() { Key = "unrelated-preceding-action", OperationIds = ["read"], Purpose = "A preceding action in the same composite operation" });
         for (var i = 0; i < 40; i++) workflow.Steps.Add(new() { Key = "unrelated-" + i, Purpose = new string('x', 2_000) });
         workflow.Steps.Add(new() { Key = "unrelated-implementation", Expr = new() { Kind = "expression", Text = "unrelatedHelper()" }, Input = Str(new string('x', 20_000)) });
         var after = TypedWorkflowPlanner.ContractPrompt(state, workflow, unit, state.Preparation);
