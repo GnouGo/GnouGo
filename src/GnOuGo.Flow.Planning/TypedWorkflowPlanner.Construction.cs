@@ -1,5 +1,6 @@
 using System.Text.Json;
 using System.Text.Json.Nodes;
+using System.Collections.Concurrent;
 using GnOuGo.Flow.Core.Planning;
 using GnOuGo.Flow.Core.Runtime;
 
@@ -112,6 +113,9 @@ public sealed partial class TypedWorkflowPlanner
         state.CurrentPhase = ready.Any(u => u.Calls > 0 && u.Diagnostics.Count > 0) ? "repair_unit"
             : ready.Select(u => u.Kind).Distinct(StringComparer.Ordinal).Count() == 1 ? "fragment_" + ready[0].Kind : "fragment";
         var previousProgress = ready.ToDictionary(u => u.Key, u => (u.Calls, u.CandidateHash, u.Status, Findings: DiagnosticFingerprint(u.Diagnostics)), StringComparer.Ordinal);
+        foreach (var unit in ready.Where(u => u.Kind == "contracts" && u.NodeKeys.Count == 1 && u.Candidate is null && u.DispatchOutcome == "output_limit"))
+            unit.FlatSchemaGeneration = true;
+        var flatRequests = new ConcurrentDictionary<string, PlanningFlatSchemas>(StringComparer.Ordinal);
         // Requests are independent; candidate application and checkpoint updates remain sequential.
         var dispatched = await Task.WhenAll(ready.Select(async unit =>
         {
@@ -137,7 +141,8 @@ public sealed partial class TypedWorkflowPlanner
                     }
                     catch (Exception ex) when (ex is InvalidOperationException or ArgumentException or FormatException) { /* Repair the retained candidate below. */ }
                 }
-                var patch = repair || unit.PartialCandidate ? PlanningUnitPatches.Create(graph, unit, schema, state.Preparation) : null;
+                var flat = unit.FlatSchemaGeneration && unit.Kind == "contracts" && unit.Candidate is null ? new PlanningFlatSchemas(schema) : null;
+                var patch = flat is null && (repair || unit.PartialCandidate) ? PlanningUnitPatches.Create(graph, unit, schema, state.Preparation) : null;
                 if (!repair && unit.Diagnostics.Count == 0 && unit.Candidate is not null && PlanningConstruction.ShapeFindings(unit.Candidate, schema, unit).Count == 0)
                     return (unit, response: (LLMResponse?)new LLMResponse { Json = unit.Candidate.DeepClone() }, patch, error: (Exception?)null);
                 if (CanConstructWithoutModel(schema))
@@ -147,11 +152,16 @@ public sealed partial class TypedWorkflowPlanner
                         return (unit, response: (LLMResponse?)null, patch, error: (Exception?)new UnitDeterministicException());
                     return (unit, response: (LLMResponse?)new LLMResponse { Json = deterministic }, patch: (PlanningUnitPatches?)null, error: (Exception?)null);
                 }
-                var responseSchema = patch?.Schema ?? schema;
+                var responseSchema = flat?.Schema ?? patch?.Schema ?? schema;
                 string FieldPrompt(PlanningUnitPatches fields) => (unit.PartialCandidate && !repair ?
                     "Generate only the supplied missing coordinates of this incomplete candidate. Other fields are generated in separate calls; preserve completed fields.\n" : "") +
                     UnitRepairPrompt(state, workflow, unit, preparation, fields);
-                var prompt = patch is not null ? FieldPrompt(patch) : UnitPrompt(state, workflow, unit, preparation, false);
+                var prompt = flat is not null ? PlanningFlatSchemas.Instructions + (unit.SchemaDeclarations is null
+                    ? UnitPrompt(state, workflow, unit, preparation, false) + (unit.Diagnostics.Count == 0 ? "" :
+                        "\nRepair the invalid response shape using these exact diagnostics:\n" + JsonSerializer.Serialize(unit.Diagnostics, PlanningJsonContext.Default.ListPlanningDiagnostic))
+                    : "Repair only invalid declaration shapes and paths. Preserve existing valid declarations; add missing parents or array items where required. Do not redesign the result.\nCandidate:\n" + unit.SchemaDeclarations.ToJsonString() +
+                        "\nDiagnostics:\n" + JsonSerializer.Serialize(unit.Diagnostics, PlanningJsonContext.Default.ListPlanningDiagnostic))
+                    : patch is not null ? FieldPrompt(patch) : UnitPrompt(state, workflow, unit, preparation, false);
                 if (patch is null && unit.Kind == "implementation" && unit.NodeKeys.Count == 1 &&
                     PlanningConstruction.EstimateInputTokens(prompt, responseSchema) > state.Request.Generation.MaxInputTokensPerUnit)
                 {
@@ -180,6 +190,7 @@ public sealed partial class TypedWorkflowPlanner
                 var requestHash = PlanningGraphCompiler.Fingerprint(JsonSerializer.Serialize(request, PlanningJsonContext.Default.LLMRequest));
                 unit.RequestHashes.Add(requestHash); unit.Calls++; if (repair) unit.RepairCalls++;
                 unit.DispatchOutcome = "dispatched";
+                if (flat is not null) flatRequests[unit.Key] = flat;
                 var response = await runtime.CallAsync(request, repair ? "repair_unit" : "fragment_" + unit.Kind, ct);
                 unit.DispatchOutcome = "received";
                 return (unit, response: (LLMResponse?)response, patch, error: (Exception?)null);
@@ -218,6 +229,23 @@ public sealed partial class TypedWorkflowPlanner
                 unit.Status = "recovery"; stopped = true; continue;
             }
             var received = response.Json as JsonObject;
+            if (flatRequests.TryGetValue(unit.Key, out var flat))
+            {
+                var priorDeclarations = unit.SchemaDeclarations;
+                // Preserve the raw flat candidate before any deterministic assembly.
+                unit.SchemaDeclarations = received?.DeepClone().AsObject();
+                var expanded = flat.Expand(received, out var findings);
+                if (received is not null) findings.AddRange(flat.PreservationFindings(priorDeclarations, received));
+                if (findings.Count != 0)
+                {
+                    unit.Diagnostics = findings.Select(d => d with { Location = path + d.Location }).ToList(); unit.Status = "invalid";
+                    unit.CandidateHash = PlanningGraphCompiler.Fingerprint(received?.ToJsonString() ?? response.Text);
+                    state.Attempts.Add(new(unit.CandidateHash, "schema_declarations", 0, false, unit.Diagnostics.ToList()));
+                    if (unit.RepairCalls - unit.RepairCallsAtRetry >= state.Request.MaxRepairs) { unit.Status = "recovery"; stopped = true; }
+                    continue;
+                }
+                received = expanded;
+            }
             if (received is not null && unit.ContractVersion >= PlanningConstructionSchemas.Version) received = PlanningConstructionSchemas.Compact(received);
             var receivedHash = PlanningGraphCompiler.Fingerprint(response.Json?.ToJsonString() ?? response.Text);
             // The journal has already encrypted the response. Preserve the candidate before lowering.

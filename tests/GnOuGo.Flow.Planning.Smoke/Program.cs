@@ -63,15 +63,17 @@ var computationResult = await new WorkflowEngine().ExecuteAsync(computation.Work
 if (!computationResult.Success || computationResult.Outputs?["message"]?.ToString() != "READY") throw new InvalidOperationException("Published named computation failed.");
 var planner = new TypedWorkflowPlanner();
 var session = new PlanningSnapshot { Request = new() { TenantId = "smoke", Prompt = "Return the ready message" } };
-var runtime = new SmokeRuntime(graph, preparation);
-for (var attempt = 0; attempt < 20 && session.Status != PlanningStatus.Approved; attempt++)
+var runtime = new SmokeRuntime(graph, preparation) { ForceContractOutputLimit = true };
+for (var attempt = 0; attempt < 30 && session.Status != PlanningStatus.Approved; attempt++)
 {
-    var kind = session.Status == PlanningStatus.BehaviorReview ? "accept_behavior" : session.Status == PlanningStatus.FinalReview ? "approve" : "advance";
+    var kind = session.Status == PlanningStatus.Recovery ? "retry" : session.Status == PlanningStatus.BehaviorReview ? "accept_behavior" : session.Status == PlanningStatus.FinalReview ? "approve" : "advance";
     session = await planner.AdvanceAsync(session, new() { Kind = kind, ExpectedRevision = session.Revision, ArtifactHash = session.ArtifactHash }, runtime, CancellationToken.None);
     session = JsonSerializer.Deserialize(JsonSerializer.Serialize(session, PlanningJsonContext.Default.PlanningSnapshot), PlanningJsonContext.Default.PlanningSnapshot)!;
     if (session.Status is PlanningStatus.Failed or PlanningStatus.Unsupported) throw new InvalidOperationException("Published planner failed: " + session.Diagnostics.FirstOrDefault()?.Message);
 }
 if (session.Status != PlanningStatus.Approved || session.ApprovedHash != PlanningGraphCompiler.Fingerprint(session.Yaml!)) throw new InvalidOperationException("Published planner did not reach exact revision approval.");
+if (!runtime.FlatSchemaReceived || !session.ConstructionUnits.Any(u => u.FlatSchemaGeneration && u.SchemaDeclarations is not null && u.Status == "validated"))
+    throw new InvalidOperationException("Published flat schema recovery did not retain and validate declarations.");
 var recovery = new PlanningSnapshot { Request = new() { TenantId = "smoke", Prompt = "Recover an invalid assessment" } };
 runtime.InvalidIntent = true;
 recovery = await planner.AdvanceAsync(recovery, new() { ExpectedRevision = recovery.Revision }, runtime, CancellationToken.None);
@@ -117,9 +119,26 @@ Console.WriteLine("Typed planning AOT smoke passed.");
 sealed class SmokeRuntime(PlanningGraph graph, PlanningPreparation preparation) : IPlanningRuntime
 {
     public bool InvalidIntent { get; set; }
+    public bool ForceContractOutputLimit { get; set; }
+    public bool FlatSchemaReceived { get; private set; }
     public Task<PlanningPreparation> PrepareAsync(PlanningRequest request, CancellationToken ct) => Task.FromResult(preparation);
     public Task<LLMResponse> CallAsync(LLMRequest request, string phase, CancellationToken ct)
     {
+        if (phase == "fragment_contracts" && ForceContractOutputLimit)
+        {
+            ForceContractOutputLimit = false;
+            return Task.FromResult(new LLMResponse { CompletionStatus = "output_limit" });
+        }
+        if (request.StructuredOutputSchema?["$defs"]?["flat_schema"] is not null)
+        {
+            FlatSchemaReceived = true;
+            return Task.FromResult(new LLMResponse { Json = JsonNode.Parse("""
+                {"nodes":{"value":{"outputSchema":{"fields":[
+                  {"path":"","required":true,"schema":{"kind":"inline","type":"object","nullable":false,"description":null}},
+                  {"path":"/properties/message","required":true,"schema":{"kind":"inline","type":"string","nullable":false,"description":null,"enum":[]}}
+                ]}}}}
+                """) });
+        }
         var json = InvalidIntent ? new JsonObject() : phase switch
         {
             "intent" => JsonNode.Parse("""{"outcome":"ready","evidence":[],"reason":"Clear request","questions":[]}"""),

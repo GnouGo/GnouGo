@@ -46,7 +46,9 @@ behavior approval during recovery or early failure, even with a retained invalid
 history and usage. Standalone `workflow.plan` presents recovery through its injected
 human-input provider and never treats recovery as artifact approval.
 Additive construction checkpoints retain unit dependencies, candidate hashes, validation
-findings, repair counts and model request references. `PlanningGenerationOptions` supplies
+findings, repair counts and model request references. Optional `FlatSchemaGeneration`
+and `SchemaDeclarations` fields retain bounded schema-transport recovery state without
+changing executable graph contracts or snapshot version. `PlanningGenerationOptions` supplies
 request-scoped node/input/output limits and optional reasoning, while `configure_generation`
 changes paused-session settings under the existing revision guard. The provider-neutral
 `LLMRequest` flags `RequireOutputTokenLimit` and `DisableTransportRetries` let journaled hosts
