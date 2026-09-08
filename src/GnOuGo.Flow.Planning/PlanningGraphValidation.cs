@@ -51,6 +51,12 @@ public static class PlanningGraphValidation
                 if (node.OutputSchema is not null) CheckSchema(node.OutputSchema, location + "/outputSchema", false);
                 var config = Member(node.Input, "structured_output");
                 if (config is null && node.StructuredOutput is null) continue;
+                if (node.StructuredOutput is { } declaration)
+                {
+                    var before = errors.Count;
+                    CheckSchema(declaration.Schema, location + "/structuredOutput/schema", false, "STRUCTURED_OUTPUT_INVALID");
+                    if (errors.Count != before) continue;
+                }
                 try
                 {
                     if (node.Type is not ("mcp.call" or "llm.call")) throw new InvalidOperationException("This step does not support structured_output.");
@@ -371,8 +377,16 @@ public static class PlanningGraphValidation
         }
         return errors.DistinctBy(d => (d.Code, d.Location, d.Message)).ToArray();
 
-        void CheckSchema(PlanningSchema schema, string location, bool boundary)
+        void CheckSchema(PlanningSchema schema, string location, bool boundary, string? code = null)
         {
+            // Report independent leaf failures at their actual planning coordinates.
+            // Repeating the same conversion exception at every ancestor would turn
+            // a one-field correction back into a complete schema replacement.
+            var before = errors.Count;
+            for (var i = 0; i < schema.Properties.Count; i++) CheckSchema(schema.Properties[i].Schema, location + "/properties/" + i + "/schema", false, code);
+            if (schema.Items is not null) CheckSchema(schema.Items, location + "/items", false, code);
+            if (schema.AdditionalProperties is not null) CheckSchema(schema.AdditionalProperties, location + "/additionalProperties", false, code);
+            if (errors.Count != before) return;
             try
             {
                 var json = PlanningGraphCompiler.ToJsonSchema(schema, preparation);
@@ -381,11 +395,7 @@ public static class PlanningGraphValidation
                 if (boundary) { RequireTyped(json, 0); _ = PlanningGraphCompiler.ToFlowSchema(json); }
             }
             catch (Exception ex) when (ex is InvalidOperationException or ArgumentException or FormatException)
-            { errors.Add(new(schema.CapabilityId is not null || schema.SchemaPointer is not null ? "SCHEMA_REFERENCE_INVALID" : "SCHEMA_INVALID", location, ex.Message)); }
-            // Collect nested failures even when an enclosing schema failed first.
-            for (var i = 0; i < schema.Properties.Count; i++) CheckSchema(schema.Properties[i].Schema, location + "/properties/" + i + "/schema", false);
-            if (schema.Items is not null) CheckSchema(schema.Items, location + "/items", false);
-            if (schema.AdditionalProperties is not null) CheckSchema(schema.AdditionalProperties, location + "/additionalProperties", false);
+            { errors.Add(new(code ?? (schema.CapabilityId is not null || schema.SchemaPointer is not null ? "SCHEMA_REFERENCE_INVALID" : "SCHEMA_INVALID"), location, ex.Message)); }
         }
     }
 

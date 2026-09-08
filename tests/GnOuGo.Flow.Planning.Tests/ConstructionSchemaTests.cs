@@ -6,6 +6,47 @@ namespace GnOuGo.Flow.Planning.Tests;
 
 public sealed class ConstructionSchemaTests
 {
+    [Theory]
+    [InlineData("structuredOutput")]
+    [InlineData("outputSchema")]
+    public void NestedUntypedSchemaRepairLocksValidSiblingsAndUsesOneSmallCoordinate(string field)
+    {
+        var graph = Graph(); var preparation = Preparation(); var workflow = graph.Workflows[0]; workflow.Outputs.Clear();
+        var schema = new PlanningSchema { Type = "object", Properties =
+        [
+            new() { Name = "retained", Required = true, Schema = new() { Type = "string", Enum = ["accepted", "rejected"], Description = new string('x', 40_000) } },
+            new() { Name = "rows", Required = true, Schema = new() { Type = "array", Items = new() { Type = "object", Properties =
+                [new() { Name = "payload", Required = true, Schema = new() { Type = "object" } }] } } }
+        ] };
+        var node = workflow.Steps[0];
+        if (field == "structuredOutput")
+        {
+            node.Type = "mcp.call"; node.CapabilityId = "renamed-producer"; node.StructuredOutput = new(schema);
+            preparation.Capabilities.Add(new() { Id = node.CapabilityId, StepType = "mcp.call" });
+        }
+        else node.OutputSchema = schema;
+        var unit = new PlanningConstructionUnit { Key = "contract", WorkflowKey = "main", Kind = "contracts", NodeKeys = [node.Key], ContractVersion = PlanningDataflow.ContractVersion };
+        unit.Candidate = PlanningConstruction.Values(workflow, unit, preparation);
+        unit.Diagnostics = PlanningGraphValidation.Validate(graph, preparation).ToList();
+        var suffix = field + (field == "structuredOutput" ? "/schema" : "") + "/properties/1/schema/items/properties/0/schema";
+        var error = Assert.Single(unit.Diagnostics);
+        Assert.Equal("/workflows/0/steps/0/" + suffix, error.Location);
+        var patch = PlanningUnitPatches.Create(graph, unit, PlanningConstruction.Schema(workflow, unit, preparation, graph), preparation);
+        var coordinate = "nodes/greeting/" + suffix;
+        Assert.Equal(coordinate, Assert.Single(patch.Context(unit.Candidate)).Key);
+        Assert.InRange(PlanningConstruction.EstimateInputTokens(patch.Context(unit.Candidate).ToJsonString(), patch.Schema), 1, 4_000);
+        var replacement = new JsonObject { ["kind"] = "inline", ["type"] = "string", ["nullable"] = false, ["description"] = "Serialized opaque payload", ["enum"] = new JsonArray() };
+        var response = new JsonObject { ["changes"] = new JsonObject { [coordinate] = replacement }, ["remove"] = new JsonArray() };
+        var repaired = patch.Apply(unit.Candidate, response);
+        var originalSchema = field == "structuredOutput" ? unit.Candidate["nodes"]![node.Key]![field]!["schema"]! : unit.Candidate["nodes"]![node.Key]![field]!;
+        var repairedSchema = field == "structuredOutput" ? repaired["nodes"]![node.Key]![field]!["schema"]! : repaired["nodes"]![node.Key]![field]!;
+        Assert.True(JsonNode.DeepEquals(originalSchema["properties"]![0], repairedSchema["properties"]![0]));
+        var result = PlanningConstruction.Apply(graph, unit, repaired, preparation);
+        Assert.DoesNotContain(PlanningGraphValidation.Validate(result, preparation), d => d.Code is "STRUCTURED_OUTPUT_INVALID" or "SCHEMA_INVALID");
+        var malicious = response.DeepClone(); malicious["changes"]!["nodes/greeting/" + field] = replacement.DeepClone();
+        Assert.Throws<InvalidOperationException>(() => patch.Apply(unit.Candidate, malicious.AsObject()));
+    }
+
     [Fact]
     public async Task RetainedArrayPlacementIsRevalidatedWithoutARepairCall()
     {

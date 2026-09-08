@@ -84,7 +84,8 @@ internal sealed class PlanningUnitPatches(JsonObject schema, Dictionary<string, 
                             FindValues(handlers[i]?[field], fieldPath, fieldLocation, fieldShape, leaves);
                             if (leaves.Count == before) leaves.Add((fieldPath, fieldShape));
                         }
-                FindValues(value, slot.Parts, graphPath, slot.Schema, leaves);
+                if (unit.Kind is "contracts" or "inputs") FindSchemas(value, slot.Parts, graphPath, slot.Schema, leaves);
+                else FindValues(value, slot.Parts, graphPath, slot.Schema, leaves);
                 if (leaves.Count == 0) leaves.Add((slot.Parts, slot.Schema));
                 foreach (var leaf in leaves)
                 {
@@ -110,6 +111,26 @@ internal sealed class PlanningUnitPatches(JsonObject schema, Dictionary<string, 
             var requestIndex = node.Input.Members.FindIndex(m => m.Name == "request");
             var argumentIndex = requestIndex < 0 ? -1 : node.Input.Members[requestIndex].Value.Members.FindIndex(m => m.Name == parts[3]);
             return "input/members/" + requestIndex + "/value/members/" + argumentIndex + "/value";
+        }
+
+        void FindSchemas(JsonNode? value, string[] path, string location, JsonNode shape, List<(string[] Path, JsonNode Shape)> leaves)
+        {
+            if (value is not JsonObject obj) return;
+            var before = leaves.Count;
+            var definition = path.Contains("structuredOutput", StringComparer.Ordinal) ? "strictSchema" : "schema";
+            var schemaShape = new JsonObject { ["$ref"] = "#/$defs/" + definition };
+            if (obj["schema"] is JsonObject wrapped) Select(wrapped, ["schema"]);
+            if (obj["properties"] is JsonArray properties)
+                for (var i = 0; i < properties.Count; i++) Select(properties[i]?["schema"], ["properties", i.ToString(System.Globalization.CultureInfo.InvariantCulture), "schema"]);
+            foreach (var field in new[] { "items", "additionalProperties" }) if (obj[field] is JsonObject child) Select(child, [field]);
+            if (before == leaves.Count && Diagnosed(location, path)) leaves.Add((path, shape));
+
+            void Select(JsonNode? child, string[] suffix)
+            {
+                var childPath = path.Concat(suffix).ToArray(); var childLocation = location + "/" + string.Join("/", suffix);
+                if (child is null || !Diagnosed(childLocation, childPath)) return;
+                FindSchemas(child, childPath, childLocation, schemaShape, leaves);
+            }
         }
 
         void FindValues(JsonNode? value, string[] path, string location, JsonNode shape, List<(string[] Path, JsonNode Shape)> leaves)
