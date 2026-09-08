@@ -11,7 +11,9 @@ public sealed class GitHubCopilotSdkClientFactory : ICopilotSdkClientFactory
     private readonly ILoggerFactory _loggerFactory;
     private readonly CopilotRequestHandler? _requestHandler;
 
-    public GitHubCopilotSdkClientFactory(ILoggerFactory? loggerFactory = null, CopilotRequestHandler? requestHandler = null)
+    public GitHubCopilotSdkClientFactory(ILoggerFactory? loggerFactory = null) : this(loggerFactory, null) { }
+
+    public GitHubCopilotSdkClientFactory(ILoggerFactory? loggerFactory, CopilotRequestHandler? requestHandler)
     {
         _loggerFactory = loggerFactory ?? NullLoggerFactory.Instance;
         _requestHandler = requestHandler;
