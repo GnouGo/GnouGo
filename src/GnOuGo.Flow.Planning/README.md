@@ -426,3 +426,9 @@ incompatible candidates. Artifact arguments retain their stronger provenance rul
 Semantic review can address a decision's `expr` directly. Incorrect selector values
 remain executable-field repairs and preserve accepted outcomes, rather than forcing
 a topology revision that cannot correct the computation.
+
+Construction contract 42 rejects provably unreachable named switch outcomes before
+unit acceptance. It derives finite labels from string/boolean literals, comparisons,
+negation, conditional expressions and direct function returns without executing code.
+Unknown helpers and dynamic values remain unknown. Repairs target `expr`; accepted
+case values, defaults and topology remain unchanged.

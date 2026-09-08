@@ -5,6 +5,51 @@ namespace GnOuGo.Flow.Planning;
 
 internal static class PlanningComputations
 {
+    // An over-approximation of possible switch labels, using JavaScript syntax only.
+    // Unknown computations stay unknown; no example execution proves their type.
+    internal static IReadOnlyList<string>? FiniteOutcomes(string? text)
+    {
+        try { return Values(new Acornima.Parser().ParseExpression(Expression(text)), 0); }
+        catch (Exception ex) when (ex is Acornima.ParseErrorException or InvalidOperationException) { return null; }
+        static IReadOnlyList<string>? Values(Node? node, int depth)
+        {
+            if (depth > 64) return null;
+            return node switch
+            {
+                Literal { Value: string value } => [value],
+                Literal { Value: bool value } => [value ? "true" : "false"],
+                UnaryExpression { Operator: Acornima.Operator.LogicalNot } => ["true", "false"],
+                BinaryExpression { Operator: Acornima.Operator.Equality or Acornima.Operator.Inequality or Acornima.Operator.StrictEquality or Acornima.Operator.StrictInequality or
+                    Acornima.Operator.LessThan or Acornima.Operator.LessThanOrEqual or Acornima.Operator.GreaterThan or Acornima.Operator.GreaterThanOrEqual or Acornima.Operator.In or Acornima.Operator.InstanceOf } => ["true", "false"],
+                ConditionalExpression conditional => Union([conditional.Consequent, conditional.Alternate], depth),
+                CallExpression { Callee: ArrowFunctionExpression { Async: false } arrow } => Returns(arrow.Body, depth),
+                CallExpression { Callee: FunctionExpression { Async: false, Generator: false } function } => Returns(function.Body, depth),
+                _ => null
+            };
+        }
+        static IReadOnlyList<string>? Union(IEnumerable<Node?> nodes, int depth)
+        {
+            var result = new HashSet<string>(StringComparer.Ordinal);
+            foreach (var node in nodes)
+            {
+                if (Values(node, depth + 1) is not { } values) return null;
+                result.UnionWith(values);
+            }
+            return result.ToArray();
+        }
+        static IReadOnlyList<string>? Returns(Node body, int depth)
+        {
+            if (body is not BlockStatement) return Values(body, depth + 1);
+            IEnumerable<Node?> Results(Node node)
+            {
+                if (node is ReturnStatement result) { yield return result.Argument; yield break; }
+                if (node is FunctionDeclaration or FunctionExpression or ArrowFunctionExpression) yield break;
+                foreach (var child in node.ChildNodes) foreach (var value in Results(child)) yield return value;
+            }
+            return Union(Results(body), depth + 1);
+        }
+    }
+
     // Reject provably invalid result branches; unknown dynamic types remain subject
     // to the strict runtime boolean guard. Nested helper return types are unrelated.
     internal static bool HasNonBooleanResult(string? text)

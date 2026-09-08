@@ -17,7 +17,7 @@ public sealed partial class TypedWorkflowPlanner
             .Concat(PlanningGraphValidation.Located(w.Finally, "/workflows/" + wi + "/finally")).Select(n => (Workflow: w, n.Node, n.Path))).ToArray();
         // Nested runtime telemetry also reports the failed container. Repair the
         // actual innermost failing operation, not an immutable routing wrapper.
-        var finding = state.Diagnostics.Where(d => d.Code != "SCENARIO_UNREACHED" && located.Any(n => d.Location == n.Path || new[] { "input", "onError", "outputSchema", "structuredOutput" }.Any(field => d.Location == n.Path + "/" + field || d.Location.StartsWith(n.Path + "/" + field + "/", StringComparison.Ordinal))))
+        var finding = state.Diagnostics.Where(d => d.Code != "SCENARIO_UNREACHED" && located.Any(n => d.Location == n.Path || new[] { "input", "expr", "onError", "outputSchema", "structuredOutput" }.Any(field => d.Location == n.Path + "/" + field || d.Location.StartsWith(n.Path + "/" + field + "/", StringComparison.Ordinal))))
             .OrderByDescending(d => d.Location.Count(c => c == '/')).FirstOrDefault();
         var helperUnit = finding is null ? state.ConstructionUnits.FirstOrDefault(u => u.Kind == "implementation" && u.Status != "superseded" &&
             state.Diagnostics.Any(d => d.Location.StartsWith("/workflows/" + graph.Workflows.FindIndex(w => w.Key == u.WorkflowKey) + "/functions/u_" + PlanningGraphCompiler.Fingerprint(u.Key)[..8] + "_", StringComparison.Ordinal))) : null;

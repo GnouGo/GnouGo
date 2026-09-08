@@ -158,6 +158,10 @@ public static class PlanningGraphValidation
                 }
                 if (node.If is not null) CheckValue(node.If, location + "/if");
                 if (node.Expr is not null) CheckValue(node.Expr, location + "/expr");
+                if (node.Type == "switch" && node.Expr is { Kind: "compute", Text: { } computation } && PlanningComputations.FiniteOutcomes(computation) is { } possible)
+                    foreach (var branch in node.Cases.Where(c => c.When is null && c.Value is not null && !possible.Contains(c.Value, StringComparer.Ordinal)))
+                        errors.Add(new("SWITCH_CASE_UNREACHABLE", location + "/expr", "The selector computation can produce only " + new JsonArray(possible.Select(v => (JsonNode?)JsonValue.Create(v)).ToArray()).ToJsonString() +
+                            "; accepted case '" + branch.Value + "' cannot match. Preserve the accepted branches and correct the selector computation."));
                 if (node.Type == "switch" && node.Expr is { Kind: "input" or "output" } selector)
                 {
                     try

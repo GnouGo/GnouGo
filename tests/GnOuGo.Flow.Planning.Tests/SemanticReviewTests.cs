@@ -17,8 +17,16 @@ public sealed class SemanticReviewTests
         state.BehaviorPlan = PlanningBehaviorRevisions.Inspect(state.Graph);
         state.ApprovedBehaviorHash = PlanningBehaviorPlans.Fingerprint(state.BehaviorPlan);
         var approval = state.ApprovedBehaviorHash;
+        state.ConstructionUnits = [new() { Key = "selector", WorkflowKey = "main", Kind = "implementation", NodeKeys = ["decision"],
+            ContractVersion = PlanningDataflow.ContractVersion, Status = "validated" }];
         var runtime = new FakeRuntime { OnCall = (phase, request, _) =>
         {
+            if (phase == "repair_unit")
+            {
+                var coordinate = Assert.Single(request.StructuredOutputSchema!["properties"]!["changes"]!["properties"]!.AsObject()).Key;
+                Assert.Equal("nodes/decision/expr", coordinate);
+                return Task.FromResult(new LLMResponse { Json = new JsonObject { ["changes"] = new JsonObject { [coordinate] = new JsonObject { ["kind"] = "string", ["text"] = "selected" } }, ["remove"] = new JsonArray() } });
+            }
             Assert.Equal("semantic_review", phase);
             var target = "/workflows/0/steps/1/" + field;
             Assert.Contains(request.StructuredOutputSchema!["properties"]!["findings"]!["items"]!["properties"]!["location"]!["enum"]!.AsArray(), value => value!.ToString() == target);
@@ -31,6 +39,10 @@ public sealed class SemanticReviewTests
         Assert.NotNull(state.Graph); Assert.Null(state.BehaviorRevisionSource);
         Assert.Contains(PlanningPatches.Scope(state.Graph, state.Diagnostics), coordinate => coordinate == PlanningPatches.Coordinate("main", "decision", field));
         Assert.DoesNotContain(state.Events, e => e.Kind == "behavior_revision_required");
+        state = await new TypedWorkflowPlanner().AdvanceAsync(state, new() { ExpectedRevision = state.Revision }, runtime, TestContext.Current.CancellationToken);
+        Assert.Equal(PlanningStatus.Validating, state.Status); Assert.Equal(approval, state.ApprovedBehaviorHash);
+        Assert.Equal("selected", state.Graph!.Workflows[0].Steps[1].Expr!.Text);
+        Assert.Equal(new[] { "semantic_review", "repair_unit" }, runtime.Phases);
     }
 
     [Theory]
