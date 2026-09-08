@@ -1,4 +1,3 @@
-using System.Text.Json;
 using GnOuGo.Flow.Core.Planning;
 using GnOuGo.KeyVault.Core.Services;
 using Microsoft.EntityFrameworkCore;
@@ -30,7 +29,7 @@ public sealed class EfPlanningSessionStore(IDbContextFactory<PlanningDbContext> 
         var row = await db.Sessions.SingleOrDefaultAsync(s => s.TenantId == tenant && s.SessionId == session, ct);
         if (expectedRevision is null ? row is not null : row?.Revision != expectedRevision) return false;
         var payloadKey = session + ":" + snapshot.Revision + ":" + Guid.NewGuid().ToString("N");
-        await records.UpsertAsync(Collection, tenant, payloadKey, JsonSerializer.Serialize(snapshot, PlanningJsonContext.Default.PlanningSnapshot), Author, ct);
+        await records.UpsertAsync(Collection, tenant, payloadKey, PlanningSnapshotPayload.Encode(snapshot), Author, ct);
         if (row is null)
         {
             row = new PlanningSessionIndex { TenantId = tenant, SessionId = session };
@@ -66,8 +65,7 @@ public sealed class EfPlanningSessionStore(IDbContextFactory<PlanningDbContext> 
     {
         var payload = await records.GetAsync(Collection, row.TenantId, row.PayloadKey, Author, ct)
             ?? throw new InvalidOperationException("The encrypted planning revision is unavailable.");
-        var snapshot = JsonSerializer.Deserialize(payload.Value, PlanningJsonContext.Default.PlanningSnapshot)
-            ?? throw new InvalidOperationException("The encrypted planning revision is invalid.");
+        var snapshot = PlanningSnapshotPayload.Decode(payload.Value);
         if (snapshot.Request.TenantId != row.TenantId || snapshot.Request.SessionId != row.SessionId || snapshot.Revision != row.Revision)
             throw new InvalidOperationException("The encrypted planning revision does not match its tenant-scoped index.");
         return snapshot;

@@ -1,4 +1,5 @@
 using System.Text;
+using System.Text.Json;
 using System.Text.Json.Nodes;
 using GnOuGo.Agent.Server.Planning;
 using GnOuGo.Flow.Core.Expressions;
@@ -11,6 +12,41 @@ namespace GnOuGo.Agent.Server.Tests;
 
 public sealed class PlanningPersistenceTests
 {
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task CompressedAndLegacySnapshotsPreserveCompleteHistoryAcrossReopen(bool legacy)
+    {
+        await using var fixture = await StoreFixture.CreateAsync();
+        var state = new PlanningSnapshot { Request = new() { TenantId = "tenant", SessionId = "compressed", Prompt = "PRIVATE_REQUEST" },
+            Status = PlanningStatus.Recovery, CurrentPhase = "behavior", ClarificationForms = 1, ClarificationQuestions = 3,
+            Usage = new() { Calls = 37, TotalTokens = 15000 } };
+        state.Answers.Add(new("Retained question", new JsonObject { ["answer"] = "PRIVATE_ANSWER" }));
+        for (var i = 0; i < 500; i++) state.Attempts.Add(new("candidate_" + i, "fragment", 1, false,
+            [new("INVALID_BINDING", "/workflows/0/steps/1/input", "Preserve this complete diagnostic and the original producer contract.")]));
+        var json = JsonSerializer.Serialize(state, PlanningJsonContext.Default.PlanningSnapshot);
+        Assert.True(await fixture.Store.TrySaveAsync(state, null, Ct));
+        await using var db = fixture.CreateDbContext();
+        var index = await db.Sessions.SingleAsync(Ct);
+        var record = await fixture.Records.GetAsync(EfPlanningSessionStore.Collection, "tenant", index.PayloadKey, EfPlanningSessionStore.Author, Ct);
+        Assert.True(record!.Value.Length < json.Length / 5);
+        if (legacy) await fixture.Records.UpsertAsync(EfPlanningSessionStore.Collection, "tenant", index.PayloadKey, json, EfPlanningSessionStore.Author, Ct);
+        var reopened = new EfPlanningSessionStore(fixture, fixture.Records);
+        var restored = await reopened.LoadAsync("tenant", "compressed", Ct);
+        Assert.Equal(json, JsonSerializer.Serialize(restored, PlanningJsonContext.Default.PlanningSnapshot));
+        Assert.Null(await reopened.LoadAsync("other", "compressed", Ct));
+    }
+
+    [Theory]
+    [InlineData("gnougo-planning-br1:INVALID_PRIVATE_PAYLOAD")]
+    [InlineData("gnougo-planning-br1:AA==")]
+    [InlineData("PRIVATE_INVALID_JSON")]
+    public void MalformedSnapshotEncodingReportsNoPlanningContent(string payload)
+    {
+        var error = Assert.Throws<InvalidOperationException>(() => PlanningSnapshotPayload.Decode(payload));
+        Assert.Equal("The encrypted planning revision is invalid.", error.Message);
+    }
+
     [Fact]
     public async Task EncryptedRevisions_SurviveReopen_RejectStaleWrites_AndIsolateTenants()
     {

@@ -26,6 +26,10 @@ source/excerpt evidence and one targeted repair. Exhausted repair pauses in dura
 approval archive prior answers and findings, preserve all cumulative budgets, and restart
 intent assessment. Recovery and pending questions survive reconnect/restart without
 automatic answers. The existing failed v2 snapshots can be retried without migration.
+New immutable snapshots use a versioned Brotli payload before KeyVault encryption,
+reducing repeated history storage without truncating attempts, events or answers.
+Agent.Server owns this encoding and reads both compressed and legacy JSON payloads;
+the EF Core index, tenant checks, revision checks and snapshot schema version stay unchanged.
 Behavior review now presents a business contract before code, expressions or schemas are
 constructed. It shows operation ownership, business inputs/outputs, decisions (including
 no-action defaults), external effects, runtime confirmations and cleanup. Questions,
