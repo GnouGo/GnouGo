@@ -337,6 +337,10 @@ public sealed class PlanningConstructionUnit
     public string Fingerprint { get; set; } = "";
     public string Status { get; set; } = "pending";
     public JsonObject? Candidate { get; set; }
+    // Additive checkpoints: technical producer review never changes behavior approval.
+    public List<string> ConsumerContractReviews { get; set; } = [];
+    public bool WaitingForProducerReview { get; set; }
+    public JsonObject? ProducerReviewBaseline { get; set; }
     public bool FlatSchemaGeneration { get; set; }
     public JsonObject? SchemaDeclarations { get; set; }
     public bool PartialCandidate { get; set; }

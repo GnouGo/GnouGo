@@ -116,6 +116,8 @@ internal sealed class PlanningUnitPatches(JsonObject schema, Dictionary<string, 
         void FindSchemas(JsonNode? value, string[] path, string location, JsonNode shape, List<(string[] Path, JsonNode Shape)> leaves)
         {
             if (value is not JsonObject obj) return;
+            if (unit.Diagnostics.Any(d => d.Code == PlanningProducerRepair.DiagnosticCode && d.Location == location))
+            { leaves.Add((path, shape)); return; }
             var before = leaves.Count;
             var definition = path.Contains("structuredOutput", StringComparer.Ordinal) ? "strictSchema" : "schema";
             var schemaShape = new JsonObject { ["$ref"] = "#/$defs/" + definition };

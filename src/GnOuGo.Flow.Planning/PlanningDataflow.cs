@@ -8,7 +8,7 @@ namespace GnOuGo.Flow.Planning;
 internal static class PlanningDataflow
 {
     internal const int BindingVersion = 2;
-    internal const int ContractVersion = 39;
+    internal const int ContractVersion = 40;
     internal const string WorkflowOutputs = "$outputs";
 
     internal static Dictionary<string, PlanningBinding> Index(PlanningWorkflow workflow, PlanningPreparation preparation, PlanningGraph graph, string? consumer = null)
@@ -231,22 +231,7 @@ internal static class PlanningDataflow
                 var composition = PlanningOperationCompositions.Owner(workflow, node, preparation);
                 var terminal = composition?.Steps[^1] == node;
                 if (required.Count == 0 && !terminal) continue;
-                var dependencies = new HashSet<string>(StringComparer.Ordinal); var visited = new HashSet<string>(StringComparer.Ordinal);
-                void Visit(PlanningNode current, bool source)
-                {
-                    if (!visited.Add(current.Key)) return;
-                    if (source) dependencies.UnionWith(current.OperationIds.Concat(preparation.Capabilities.FirstOrDefault(c => c.Id == current.CapabilityId)?.OperationIds ?? []));
-                    foreach (var value in References(current.Input).Concat(current.Expr is null ? [] : References(current.Expr)))
-                        if (value.Kind is "output" or "loop_item" or "loop_index" or "loop_previous" or "artifact_collection" && located.FirstOrDefault(p => p.Node.Key == value.Source).Node is { } producer) Visit(producer, true);
-                    foreach (var child in current.Steps.Concat(current.Default).Concat(current.Cases.SelectMany(c => c.Steps)).Concat(current.Branches.SelectMany(b => b.Steps))) Visit(child, true);
-                }
-                Visit(node, false);
-                // An accepted enclosing decision is a control dependency, not a
-                // fabricated argument to the conditional external operation.
-                foreach (var parent in located.Where(p => path.StartsWith(p.Path + "/", StringComparison.Ordinal) && p.Node.Type == "switch"))
-                    if (parent.Node.Expr is { } selector)
-                        foreach (var reference in References(selector))
-                            if (located.FirstOrDefault(p => p.Node.Key == reference.Source).Node is { } producer) Visit(producer, true);
+                var (dependencies, visited) = OperationDependencies(workflow, node, preparation);
                 if (terminal)
                     foreach (var missing in composition!.Steps.SkipLast(1).Where(n => !visited.Contains(n.Key)))
                         findings.Add(new("COMPOSITION_INPUT_BINDING_MISSING", path + "/input", "The final result of this owned operation must consume intermediate producer '" + missing.Key + "'. Preserve its original result or a validated dependency; an unused sibling cannot establish completion."));
@@ -256,6 +241,29 @@ internal static class PlanningDataflow
             }
         }
         return findings;
+    }
+
+    internal static (HashSet<string> Operations, HashSet<string> Nodes) OperationDependencies(PlanningWorkflow workflow, PlanningNode node, PlanningPreparation preparation)
+    {
+        var located = PlanningGraphValidation.Located(workflow.Steps, "/steps").Concat(PlanningGraphValidation.Located(workflow.Finally, "/finally")).ToArray();
+        var path = located.Single(p => p.Node == node).Path;
+        var dependencies = new HashSet<string>(StringComparer.Ordinal); var visited = new HashSet<string>(StringComparer.Ordinal);
+        void Visit(PlanningNode current, bool source)
+        {
+            if (!visited.Add(current.Key)) return;
+            if (source) dependencies.UnionWith(current.OperationIds.Concat(preparation.Capabilities.FirstOrDefault(c => c.Id == current.CapabilityId)?.OperationIds ?? []));
+            foreach (var value in References(current.Input).Concat(current.Expr is null ? [] : References(current.Expr)))
+                if (value.Kind is "output" or "loop_item" or "loop_index" or "loop_previous" or "artifact_collection" && located.FirstOrDefault(p => p.Node.Key == value.Source).Node is { } producer) Visit(producer, true);
+            foreach (var child in current.Steps.Concat(current.Default).Concat(current.Cases.SelectMany(c => c.Steps)).Concat(current.Branches.SelectMany(b => b.Steps))) Visit(child, true);
+        }
+        Visit(node, false);
+        // An accepted enclosing decision is a control dependency, not a
+        // fabricated argument to the conditional external operation.
+        foreach (var parent in located.Where(p => path.StartsWith(p.Path + "/", StringComparison.Ordinal) && p.Node.Type == "switch"))
+            if (parent.Node.Expr is { } selector)
+                foreach (var reference in References(selector))
+                    if (located.FirstOrDefault(p => p.Node.Key == reference.Source).Node is { } producer) Visit(producer, true);
+        return (dependencies, visited);
     }
 
     private static bool Nullable(JsonObject schema) => schema["type"] is JsonArray types && types.Any(t => t?.ToString() == "null") ||

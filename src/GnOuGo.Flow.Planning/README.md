@@ -402,3 +402,14 @@ A transport failure still enters recovery without an automatic provider retry.
 Explicit Retry of an unreceived single-producer contract selects the equivalent
 flat schema transport. This can reduce construction complexity; it does not prove
 provider availability or release the previous request's uncertain usage reservation.
+
+Construction contract 40 revisits contributing synthesized producer contracts when
+an implementation repair still cannot bind a locked upstream operation. The review
+is checkpointed before dispatch and uses the existing consumer argument schemas.
+It may add validated fields while preserving every existing declaration; a producer
+that cannot supply the missing observation must retain its schema. Original catalog
+results, topology, effects and accepted behavior remain locked. Consumers resume
+only after their prerequisites validate, and must still pass dependency validation.
+Repeated identical candidates cannot repeatedly schedule the same producer review.
+Review baselines, cumulative calls, pending consumers and history survive restart
+inside the encrypted schema-version-2 snapshot.

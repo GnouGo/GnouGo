@@ -85,6 +85,13 @@ public sealed partial class TypedWorkflowPlanner
             // Persist the deterministic work queue before the first model request.
             if (state.ConstructionUnits.Count != 0) return;
         }
+        if (PlanningProducerRepair.Schedule(state))
+        {
+            state.CurrentPhase = "repair_unit";
+            state.Events.Add(new("producer_contract_review_scheduled", "repair_unit", _time.GetUtcNow(), state.ConstructionUnits.Count(u => u.ProducerReviewBaseline is not null)));
+            state.Diagnostics = state.ConstructionUnits.Where(u => u.Status == "invalid").SelectMany(u => u.Diagnostics).ToList();
+            return;
+        }
         // Fingerprints cover accepted intent, contracts and dependency receipts, not transient prompts.
         // A changed prerequisite invalidates only its dependent checkpoint closure.
         bool invalidated;
@@ -98,6 +105,7 @@ public sealed partial class TypedWorkflowPlanner
                     unit.RepairCallsAtRetry = unit.RepairCalls; invalidated = true;
                 }
         } while (invalidated);
+        PlanningProducerRepair.ResumeConsumers(state);
         var completed = state.ConstructionUnits.Where(u => u.Status == "validated").Select(u => u.Key).ToHashSet(StringComparer.Ordinal);
         foreach (var unit in state.ConstructionUnits.Where(u => u.Status is not ("validated" or "superseded") && u.Calls == 0 && u.NodeKeys.Count > state.Request.Generation.MaxNodesPerUnit).ToArray())
             SplitUnit(state, unit);
@@ -130,7 +138,7 @@ public sealed partial class TypedWorkflowPlanner
                 // Deterministically constructed candidates have zero model calls, but
                 // their retained diagnostics must also be refreshed after an upgrade.
                 var repair = unit.Diagnostics.Count != 0 && (unit.Calls > 0 || unit.Candidate is not null);
-                if (repair && unit.Candidate is not null && PlanningConstruction.ShapeFindings(unit.Candidate, schema, unit).Count == 0)
+                if (repair && unit.ProducerReviewBaseline is null && unit.Candidate is not null && PlanningConstruction.ShapeFindings(unit.Candidate, schema, unit).Count == 0)
                 {
                     try
                     {
@@ -316,7 +324,7 @@ public sealed partial class TypedWorkflowPlanner
             state.Attempts.Add(new(unit.CandidateHash, "fragment_" + unit.Kind, valid ? 2 : 0, valid, unit.Diagnostics.ToList()));
             if (valid)
             {
-                state.Graph = candidate!; unit.Status = "validated"; unit.PartialCandidate = false;
+                state.Graph = candidate!; unit.Status = "validated"; unit.PartialCandidate = false; unit.ProducerReviewBaseline = null;
                 unit.Fingerprint = UnitFingerprint(state, unit);
                 if (unit.Kind == "implementation") unit.Functions = unit.Candidate!["functions"]?.GetValue<string>();
                 state.Events.Add(new("unit_validated", "fragment", _time.GetUtcNow(), unit.NodeKeys.Count));
@@ -402,6 +410,9 @@ public sealed partial class TypedWorkflowPlanner
     {
         var findings = UnitFindings(candidate, state.Preparation!, unit).Concat(UnitBehaviorFindings(state, candidate, unit))
             .Concat(InputObligationFindings(state, candidate, unit)).ToList();
+        if (unit.ProducerReviewBaseline is { } baseline)
+            try { PlanningProducerRepair.Preserve(baseline, fields); }
+            catch (InvalidOperationException ex) { findings.Add(new("PRODUCER_CONTRACT_PRESERVATION_FAILED", "/units/" + PlanningSchemaReferences.Escape(unit.Key) + "/candidate", ex.Message, ValidationStage: "dataflow")); }
         if (unit.Kind != "implementation" || fields["functions"]?.GetValue<string>() is not { Length: > 0 } functions) return findings;
         var location = "/workflows/" + candidate.Workflows.FindIndex(w => w.Key == unit.WorkflowKey) + "/functions";
         try
