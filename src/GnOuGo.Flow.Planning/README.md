@@ -351,3 +351,6 @@ exhaustion preserves the original plan and pauses in recovery.
 Retry also detects historical repairs whose diagnosed nodes and enclosing topology
 remained unchanged. It preserves other findings by stable node identity and returns
 to behavior repair and renewed review before dispatching more construction calls.
+When a new unbound loop reuses its unchanged child operation's key, the host assigns
+the wrapper a deterministic unused identifier. The original producer keeps its key,
+capability and dependencies. Ambiguous collisions or altered producers are not renamed.

@@ -73,6 +73,7 @@ public sealed partial class TypedWorkflowPlanner
             "Use wrap_loop to repeat an existing operation; supply an empty loop node and the host retains the original child. " +
             "Use replace for a changed subtree. Preserve original node keys, capabilities, business inputs, ownership, effects, confirmations and cleanup. " +
             "A structural finding requires a changed topology or dependency contract. Rewriting purpose or outcome descriptions alone cannot implement iteration, ordering or routing. " +
+            "New loop wrappers must have distinct identifiers from their preserved child operations. The host assigns a wrapper identifier if the only collision is with that unchanged child. " +
             "Only behavior descriptions belong here; executable code and schemas belong to later construction. " +
             "This candidate will require new human behavior approval. Return only the supplied revision fields.\nRequest and answers:\n" + Context(state) +
             "\nRequired coverage findings:\n" + state.Feedback +
@@ -169,7 +170,9 @@ internal static class PlanningBehaviorRevisions
             var workflowKey = Decode(parts[0]); var key = Decode(parts[1]);
             var node = JsonSerializer.Deserialize(value!["node"]!, PlanningJsonContext.Default.PlanningBehaviorNode)!;
             var action = value["action"]!.GetValue<string>(); var applied = 0;
-            foreach (var workflow in result.Workflows.Where(w => w.Key == workflowKey)) { ApplyIn(workflow.Steps); ApplyIn(workflow.Finally); }
+            var workflow = result.Workflows.SingleOrDefault(w => w.Key == workflowKey)
+                ?? throw new InvalidOperationException("A behavior patch must identify an existing workflow.");
+            ApplyIn(workflow.Steps); ApplyIn(workflow.Finally);
             if (applied != 1) throw new InvalidOperationException("A behavior patch must identify exactly one existing node.");
             void ApplyIn(List<PlanningBehaviorNode> nodes)
             {
@@ -178,6 +181,7 @@ internal static class PlanningBehaviorRevisions
                     var current = nodes[i];
                     if (current.Key == key)
                     {
+                        var suppliedKey = node.Key;
                         if (action == "wrap_loop")
                         {
                             if (node.Kind != "loop" || node.Key == key || node.Steps.Count != 0 || node.CapabilityId is not null || node.Outcomes.Count != 0)
@@ -186,7 +190,8 @@ internal static class PlanningBehaviorRevisions
                         }
                         else
                         {
-                            if (action != "replace" || node.Key != key) throw new InvalidOperationException("A replacement must preserve its target key.");
+                            if (action != "replace" || suppliedKey != key) throw new InvalidOperationException("A replacement must preserve its target key.");
+                            NormalizeNewLoopKeys(workflow, node);
                             if (JsonNode.DeepEquals(Structure(current), Structure(node)))
                                 throw new InvalidOperationException("The behavior replacement changes presentation only. Repair the actual topology or dependency contract; use wrap_loop when an existing operation must repeat. Purpose and outcome descriptions cannot implement control flow.");
                         }
@@ -197,6 +202,25 @@ internal static class PlanningBehaviorRevisions
             }
         }
         return result;
+    }
+
+    private static void NormalizeNewLoopKeys(PlanningBehaviorWorkflow workflow, PlanningBehaviorNode candidate)
+    {
+        var original = PlanningBehaviorPlans.Enumerate(workflow.Steps.Concat(workflow.Finally)).ToArray();
+        var reserved = original.Concat(PlanningBehaviorPlans.Enumerate([candidate])).Select(n => n.Key).ToHashSet(StringComparer.Ordinal);
+        foreach (var wrapper in PlanningBehaviorPlans.Enumerate([candidate]))
+        {
+            if (wrapper.Kind != "loop" || wrapper.CapabilityId is not null || wrapper.WorkflowKey is not null || wrapper.Outcomes.Count != 0 || wrapper.Steps.Count != 1) continue;
+            var child = wrapper.Steps[0];
+            if (child.Key != wrapper.Key || child.Kind == "loop" || original.SingleOrDefault(n => n.Key == child.Key) is not { } source ||
+                !JsonNode.DeepEquals(Structure(source), Structure(child))) continue;
+            // The original operation retains its identity. Only the new, unbound
+            // container is named by the host; no model text becomes executable data.
+            var prefix = "loop_" + PlanningGraphCompiler.Fingerprint(workflow.Key + "\n" + child.Key)[..12];
+            var key = prefix; var suffix = 1;
+            while (!reserved.Add(key)) key = prefix + "_" + ++suffix;
+            wrapper.Key = key;
+        }
     }
 
     private static JsonNode Structure(PlanningBehaviorNode node)

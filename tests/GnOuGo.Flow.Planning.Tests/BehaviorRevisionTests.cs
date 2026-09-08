@@ -9,6 +9,36 @@ namespace GnOuGo.Flow.Planning.Tests;
 public sealed class BehaviorRevisionTests
 {
     [Theory]
+    [InlineData("source", "Read a page", false)]
+    [InlineData("entree", "Lire une page", false)]
+    [InlineData("source", "Read a page", true)]
+    [InlineData("entree", "Lire une page", true)]
+    public void NewLoopReceivesADeterministicKeyWhileItsOriginalProducerIdentityIsPreserved(string key, string purpose, bool nested)
+    {
+        var baseline = BehaviorPlan(); var source = baseline.Workflows[0].Steps[0]; source.Key = key;
+        if (nested) baseline.Workflows[0].Steps = [new() { Key = "parent", Kind = "sequence", Purpose = "Collect", Steps = [source] }];
+        var unchanged = PlanningBehaviorPlans.Fingerprint(baseline);
+        var child = JsonSerializer.Deserialize(JsonSerializer.Serialize(source, PlanningJsonContext.Default.PlanningBehaviorNode), PlanningJsonContext.Default.PlanningBehaviorNode)!;
+        child.Purpose = purpose;
+        var wrapper = new PlanningBehaviorNode { Key = key, Kind = "loop", Purpose = "Repeat until complete", InputDependencies = [], Steps = [child] };
+        var candidate = nested ? new PlanningBehaviorNode { Key = "parent", Kind = "sequence", Purpose = "Collect", Steps = [wrapper] } : wrapper;
+        var coordinate = "main/" + (nested ? "parent" : key);
+        var patch = new JsonObject { [coordinate] = new JsonObject { ["action"] = "replace", ["node"] = JsonSerializer.SerializeToNode(candidate, PlanningJsonContext.Default.PlanningBehaviorNode) } };
+        var result = PlanningBehaviorRevisions.Apply(baseline, patch);
+        var loop = nested ? result.Workflows[0].Steps[0].Steps[0] : result.Workflows[0].Steps[0];
+        Assert.NotEqual(key, loop.Key); Assert.Equal("loop", loop.Kind);
+        Assert.Equal(key, Assert.Single(loop.Steps).Key); Assert.Equal(source.CapabilityId, loop.Steps[0].CapabilityId);
+        Assert.Equal(PlanningBehaviorPlans.Fingerprint(result), PlanningBehaviorPlans.Fingerprint(PlanningBehaviorRevisions.Apply(baseline, patch)));
+        Assert.Equal(unchanged, PlanningBehaviorPlans.Fingerprint(baseline));
+        // An altered producer cannot use the identity-preservation exception.
+        child.CapabilityId = "different";
+        patch[coordinate]!["node"] = JsonSerializer.SerializeToNode(candidate, PlanningJsonContext.Default.PlanningBehaviorNode);
+        var invalid = PlanningBehaviorRevisions.Apply(baseline, patch);
+        Assert.Equal(key, (nested ? invalid.Workflows[0].Steps[0].Steps[0] : invalid.Workflows[0].Steps[0]).Key);
+        Assert.Contains(PlanningBehaviorPlans.Validate(invalid, Preparation()), d => d.Message.Contains("keys must be unique", StringComparison.Ordinal));
+    }
+
+    [Theory]
     [InlineData(false)]
     [InlineData(true)]
     public async Task RetryReassessesRetainedPresentationOnlyRepairAndPreservesARealLoop(bool wrapped)
