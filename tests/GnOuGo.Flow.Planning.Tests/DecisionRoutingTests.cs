@@ -38,6 +38,12 @@ public sealed class DecisionRoutingTests
         var resolved = PlanningDecisionRouting.Resolve(graph.Workflows[0], route, prep, graph);
         var binding = Assert.Single(resolved.Items);
         Assert.Equal(producerKey, binding.Source); Assert.Equal("structured", binding.ResultChannel); Assert.Equal([field], binding.Path);
+        // The runtime owns the channel wrapper; a second json object is not the locked field.
+        var validSchema = producer.StructuredOutput.Schema;
+        producer.StructuredOutput = new(new() { Type = "object", Properties = [new() { Name = "json", Required = true, Schema = validSchema }] });
+        var wrapperFinding = Assert.Single(PlanningProducerContracts.Findings(graph, prep));
+        Assert.Equal("DECISION_PRODUCER_CONTRACT_INVALID", wrapperFinding.Code); Assert.Contains("runtime adds the json channel wrapper", wrapperFinding.Message);
+        producer.StructuredOutput = new(validSchema);
         Assert.Contains(PlanningDataflow.Index(graph.Workflows[0], prep, graph, routeKey).Values, b => b.Value.Source == producerKey && b.Value.Path.SequenceEqual(new[] { "summary" }) && b.Value.ResultChannel is not "structured");
     }
 
