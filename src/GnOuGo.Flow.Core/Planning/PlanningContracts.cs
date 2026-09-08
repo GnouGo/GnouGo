@@ -337,6 +337,8 @@ public sealed class PlanningConstructionUnit
     public string Fingerprint { get; set; } = "";
     public string Status { get; set; } = "pending";
     public JsonObject? Candidate { get; set; }
+    public bool PartialCandidate { get; set; }
+    public int GeneratedFieldGroups { get; set; }
     public string? CandidateHash { get; set; }
     public List<string> RequestHashes { get; set; } = [];
     public List<PlanningDiagnostic> Diagnostics { get; set; } = [];

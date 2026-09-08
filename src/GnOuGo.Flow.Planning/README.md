@@ -70,6 +70,10 @@ hashes, request hashes, dependencies, validation findings and cumulative repair 
 Dispatch findings are separate, so context/transport failures cannot hide candidate defects.
 Repeated binding paths use a shared prefix only when that representation is shorter. Every
 identifier, path, type and availability remains recoverable without changing the token ceiling.
+An oversized single-node implementation is generated in bounded field groups. Valid field
+patches are checkpointed as partial candidates and resumed without regenerating completed
+coordinates. Missing fields are unfinished generation; malformed responses consume the normal
+repair allowance. Approval still requires full conversion, contract, compilation and scenario checks.
 Container input reachability is checked after its child implementations are available;
 the complete workflow must still satisfy every accepted business-input obligation before review.
 Retry reuses validated units; changed intent, catalog, executor contracts or dependencies

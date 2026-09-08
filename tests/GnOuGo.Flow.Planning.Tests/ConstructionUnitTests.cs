@@ -9,6 +9,59 @@ namespace GnOuGo.Flow.Planning.Tests;
 public sealed class ConstructionUnitTests
 {
     [Theory]
+    [InlineData(0)]
+    [InlineData(1)]
+    [InlineData(2)]
+    public async Task OversizedSingleNodeGeneratesDurableFieldGroupsAndChargesOnlyInvalidResponsesToRepair(int invalidResponses)
+    {
+        var state = ApprovedSkeleton(); state.Request.Generation.MaxInputTokensPerUnit = 4_000; state.Request.MaxRepairs = 1;
+        var properties = new JsonObject(Enumerable.Range(0, 12).Select(i => new KeyValuePair<string, JsonNode?>("argument" + i,
+            new JsonObject { ["type"] = "string", ["description"] = new string('x', 900) })));
+        state.Preparation!.Capabilities.Add(new() { Id = "tool", StepType = "mcp.call", Server = "fixture", Method = "work", Kind = "tool",
+            InputSchema = new() { ["type"] = "object", ["properties"] = properties, ["required"] = new JsonArray(properties.Select(p => (JsonNode?)JsonValue.Create(p.Key)).ToArray()), ["additionalProperties"] = false } });
+        state.BehaviorPlan!.Workflows[0].Steps[0].CapabilityId = "tool"; state.BehaviorPlan.Workflows[0].Outputs.Clear();
+        state.ApprovedBehaviorHash = PlanningBehaviorPlans.Fingerprint(state.BehaviorPlan);
+        state.Graph = PlanningBehaviorPlans.Display(state.BehaviorPlan, state.Preparation);
+        state.ConstructionUnits = [new() { Key = "unit", WorkflowKey = "main", Kind = "implementation", NodeKeys = ["greeting"], ContractVersion = PlanningDataflow.ContractVersion }];
+        var calls = 0; var repairs = 0; var completed = new Dictionary<string, JsonNode?>();
+        var runtime = new FakeRuntime { OnCall = (phase, request, _) =>
+        {
+            calls++; if (phase == "repair_unit") repairs++;
+            Assert.InRange(PlanningConstruction.EstimateInputTokens(request.Prompt, request.StructuredOutputSchema!.AsObject()), 1, 4_000);
+            Assert.Equal(8_192, request.MaxTokens);
+            if (calls <= invalidResponses) return Task.FromResult(new LLMResponse { Json = new JsonObject() });
+            var changes = new JsonObject();
+            foreach (var field in request.StructuredOutputSchema!["properties"]!["changes"]!["properties"]!.AsObject())
+            {
+                Assert.DoesNotContain(field.Key, completed.Keys);
+                JsonNode? value = field.Key == "functions" ? null : field.Key.EndsWith("/onError", StringComparison.Ordinal) ? new JsonArray() : new JsonObject { ["kind"] = "string", ["text"] = field.Key };
+                changes[field.Key] = value; completed[field.Key] = value?.DeepClone();
+            }
+            return Task.FromResult(new LLMResponse { Json = new JsonObject { ["changes"] = changes, ["remove"] = new JsonArray() } });
+        } };
+        var planner = new TypedWorkflowPlanner(); var sawPartial = false;
+        for (var i = 0; i < 20 && state.ConstructionUnits[0].Status != "validated" && state.Status == PlanningStatus.Generating; i++)
+        {
+            state = await Advance(planner, state, runtime);
+            sawPartial |= state.ConstructionUnits[0].PartialCandidate;
+            state = JsonSerializer.Deserialize(JsonSerializer.Serialize(state, PlanningJsonContext.Default.PlanningSnapshot), PlanningJsonContext.Default.PlanningSnapshot)!;
+        }
+        Assert.True(sawPartial);
+        if (invalidResponses == 2)
+        {
+            Assert.Equal(PlanningStatus.Recovery, state.Status); Assert.Equal("recovery", state.ConstructionUnits[0].Status);
+            Assert.Equal(2, calls); Assert.Equal(1, repairs); Assert.Equal(0, state.ConstructionUnits[0].GeneratedFieldGroups);
+            Assert.Contains(state.Diagnostics, d => d.Code == "UNIT_PATCH_REJECTED"); return;
+        }
+        Assert.Equal("validated", state.ConstructionUnits[0].Status);
+        Assert.False(state.ConstructionUnits[0].PartialCandidate); Assert.True(state.ConstructionUnits[0].GeneratedFieldGroups > 1);
+        Assert.Equal(invalidResponses, repairs); Assert.Equal(repairs, state.ConstructionUnits[0].RepairCalls);
+        Assert.Equal(calls, state.ConstructionUnits[0].Calls);
+        Assert.Equal(12, state.Graph!.Workflows[0].Steps[0].Input.Members.Single(m => m.Name == "request").Value.Members.Count);
+        new PlanningGraphCompiler().Compile(state.Graph, state.Preparation!);
+    }
+
+    [Theory]
     [InlineData("resource", "read_group", false)]
     [InlineData("ressource", "groupe_renomme", true)]
     public async Task ParentConstructionDefersAggregateInputChecksUntilChildrenExist(string input, string key, bool retained)

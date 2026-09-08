@@ -45,6 +45,11 @@ Snapshots retain `schemaVersion: 2`. Optional preparation checkpoints retain dis
 
 The designer shows the current preparation stage, answered clarification forms and recovery findings above the diagram. Session DTOs and content-free telemetry include preparation stage and decision-contract version/count. Existing executable YAML and explicit v1 rollback remain supported.
 
+Oversized single-node implementations use atomic field groups within the existing input limit.
+Completed groups, candidates and request receipts survive restart; malformed responses consume
+the configured repair allowance. The designer distinguishes partial construction from validated
+units. Missing fields never count as a completed unit or permit artifact approval.
+
 ## Validation and live campaign
 
 Run the Flow, Flow.Planning and Agent.Server test projects for decision resolution, deterministic routing, recovery and persistence coverage. Live validation remains opt-in through `LiveIntentAgentGenerationTests`; user-session recovery never submits their answers or approval. Separate test sessions script decisions for the disposable fixture.

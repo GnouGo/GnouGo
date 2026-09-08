@@ -9,6 +9,28 @@ namespace GnOuGo.Agent.Server.Tests;
 public sealed class PlanningPageTests
 {
     [Fact]
+    public async Task PartialFieldProgressSurvivesPersistenceAndIsNeverPresentedAsValidated()
+    {
+        var ct = Xunit.TestContext.Current.CancellationToken;
+        await using var fixture = await PlanningPersistenceTests.StoreFixture.CreateAsync();
+        var state = Session("Partial construction", ""); state.Status = PlanningStatus.Recovery; state.CurrentPhase = "fragment_implementation";
+        state.Yaml = null; state.ArtifactHash = null;
+        state.ConstructionUnits = [new() { Key = "unit", NodeKeys = ["step"], Status = "partial", PartialCandidate = true, GeneratedFieldGroups = 2, Calls = 2,
+            Candidate = new System.Text.Json.Nodes.JsonObject { ["nodes"] = new System.Text.Json.Nodes.JsonObject() } }];
+        Assert.True(await fixture.Store.TrySaveAsync(state, null, ct));
+        using var service = PlanningSessionLifecycleTests.Create(fixture, new TypedWorkflowPlanner(), PlanningSessionLifecycleTests.AgentCatalog());
+        await using var context = new BunitContext(); context.JSInterop.Mode = JSRuntimeMode.Loose; context.Services.AddSingleton(service);
+        var page = context.Render<PlanningPage>(p => p.Add(x => x.SessionId, state.Request.SessionId));
+        page.WaitForAssertion(() => Assert.Contains("Completed field groups: 2", page.Markup));
+        Assert.Contains("Validated units: 0 / 1", page.Markup);
+        Assert.Contains("Partial units require complete validation before approval", page.Markup);
+        var restored = (await service.GetAsync(state.Request.SessionId, ct))!;
+        var dto = GnOuGo.Agent.Server.Planning.PlanningEndpoints.ToDto(restored);
+        Assert.True(dto.Units![0].PartialCandidate); Assert.Equal(2, dto.Units[0].GeneratedFieldGroups);
+        Assert.Equal(2, restored.ConstructionUnits[0].Calls); Assert.Null(restored.ApprovedHash);
+    }
+
+    [Fact]
     public async Task RecoveryGenerationSettingsAndUnitsSurviveRestartWithoutChangingApproval()
     {
         var ct = Xunit.TestContext.Current.CancellationToken;

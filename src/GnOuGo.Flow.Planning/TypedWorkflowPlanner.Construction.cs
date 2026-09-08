@@ -136,7 +136,7 @@ public sealed partial class TypedWorkflowPlanner
                     }
                     catch (Exception ex) when (ex is InvalidOperationException or ArgumentException or FormatException) { /* Repair the retained candidate below. */ }
                 }
-                var patch = repair ? PlanningUnitPatches.Create(graph, unit, schema, state.Preparation) : null;
+                var patch = repair || unit.PartialCandidate ? PlanningUnitPatches.Create(graph, unit, schema, state.Preparation) : null;
                 if (!repair && unit.Diagnostics.Count == 0 && unit.Candidate is not null && PlanningConstruction.ShapeFindings(unit.Candidate, schema, unit).Count == 0)
                     return (unit, response: (LLMResponse?)new LLMResponse { Json = unit.Candidate.DeepClone() }, patch, error: (Exception?)null);
                 if (CanConstructWithoutModel(schema))
@@ -147,11 +147,21 @@ public sealed partial class TypedWorkflowPlanner
                     return (unit, response: (LLMResponse?)new LLMResponse { Json = deterministic }, patch: (PlanningUnitPatches?)null, error: (Exception?)null);
                 }
                 var responseSchema = patch?.Schema ?? schema;
-                var prompt = repair ? UnitRepairPrompt(state, workflow, unit, preparation, patch!) : UnitPrompt(state, workflow, unit, preparation, false);
+                string FieldPrompt(PlanningUnitPatches fields) => (unit.PartialCandidate && !repair ?
+                    "Generate only the supplied missing coordinates of this incomplete candidate. Other fields are generated in separate calls; preserve completed fields.\n" : "") +
+                    UnitRepairPrompt(state, workflow, unit, preparation, fields);
+                var prompt = patch is not null ? FieldPrompt(patch) : UnitPrompt(state, workflow, unit, preparation, false);
+                if (patch is null && unit.Kind == "implementation" && unit.NodeKeys.Count == 1 &&
+                    PlanningConstruction.EstimateInputTokens(prompt, responseSchema) > state.Request.Generation.MaxInputTokensPerUnit)
+                {
+                    unit.PartialCandidate = true; unit.Candidate ??= new JsonObject();
+                    patch = PlanningUnitPatches.Create(graph, unit, schema, state.Preparation);
+                    responseSchema = patch.Schema; prompt = FieldPrompt(patch);
+                }
                 while (patch is not null && PlanningConstruction.EstimateInputTokens(prompt, responseSchema) > state.Request.Generation.MaxInputTokensPerUnit)
                 {
                     var narrowed = patch.Narrow(); if (ReferenceEquals(narrowed, patch)) break;
-                    patch = narrowed; responseSchema = patch.Schema; prompt = UnitRepairPrompt(state, workflow, unit, preparation, patch);
+                    patch = narrowed; responseSchema = patch.Schema; prompt = FieldPrompt(patch);
                 }
                 unit.EstimatedInputTokens = PlanningConstruction.EstimateInputTokens(prompt, responseSchema);
                 unit.InputTokenLimit = state.Request.Generation.MaxInputTokensPerUnit;
@@ -209,6 +219,7 @@ public sealed partial class TypedWorkflowPlanner
                 catch (InvalidOperationException ex)
                 {
                     state.Attempts.Add(new(receivedHash, "repair_unit", 0, false, [new("UNIT_PATCH_REJECTED", path, ex.Message, ValidationStage: "conversion")]));
+                    if (unit.PartialCandidate) unit.Diagnostics = [new("UNIT_PATCH_REJECTED", path, ex.Message, ValidationStage: "conversion")];
                     unit.Status = "invalid";
                     if (unit.RepairCalls - unit.RepairCallsAtRetry >= state.Request.MaxRepairs) { unit.Status = "recovery"; stopped = true; }
                     continue;
@@ -218,6 +229,20 @@ public sealed partial class TypedWorkflowPlanner
             var workflow = state.Graph!.Workflows.Single(w => w.Key == unit.WorkflowKey);
             var preparation = UnitPreparation(state.Preparation!, workflow, unit);
             unit.Diagnostics = PlanningConstruction.ShapeFindings(unit.Candidate, PlanningConstruction.Schema(workflow, unit, preparation, state.Graph), unit);
+            if (unit.PartialCandidate && patch is not null)
+            {
+                unit.GeneratedFieldGroups++;
+                if (unit.Diagnostics.Count > 0)
+                {
+                    // Each applied coordinate passed its exact field schema. Missing
+                    // coordinates are unfinished generation, not failed repair attempts.
+                    unit.Diagnostics.Clear(); unit.Status = "partial";
+                    state.Attempts.Add(new(unit.CandidateHash, "fragment_fields", 1, true, []));
+                    state.Events.Add(new("unit_fields_generated", "fragment", _time.GetUtcNow(), unit.GeneratedFieldGroups));
+                    continue;
+                }
+                unit.PartialCandidate = false;
+            }
             PlanningGraph? candidate = null;
             if (unit.Diagnostics.Count == 0)
             {
@@ -240,7 +265,7 @@ public sealed partial class TypedWorkflowPlanner
             state.Attempts.Add(new(unit.CandidateHash, "fragment_" + unit.Kind, valid ? 2 : 0, valid, unit.Diagnostics.ToList()));
             if (valid)
             {
-                state.Graph = candidate!; unit.Status = "validated";
+                state.Graph = candidate!; unit.Status = "validated"; unit.PartialCandidate = false;
                 unit.Fingerprint = UnitFingerprint(state, unit);
                 if (unit.Kind == "implementation") unit.Functions = unit.Candidate!["functions"]?.GetValue<string>();
                 state.Events.Add(new("unit_validated", "fragment", _time.GetUtcNow(), unit.NodeKeys.Count));
