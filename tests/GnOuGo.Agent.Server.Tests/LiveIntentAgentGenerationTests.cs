@@ -60,7 +60,8 @@ public sealed partial class LiveIntentAgentGenerationTests
         4. Ask Copilot to review all changed code and publish only high-confidence findings as inline GitHub pull-request review comments.
         5. APPROVE only when dependency restoration, tests, lint, and complete changed-code coverage succeed without findings; otherwise submit REQUEST_CHANGES. Include a functional-then-technical summary with dependency, test, lint, coverage, and findings status.
 
-        Whatever happens, delete every directory created by the workflow at the end.
+        Before any publication, ask for one explicit human confirmation covering the inline comments and formal review. Declining, abandoning, or failing to obtain confirmation must publish nothing. Never push code changes.
+        Whatever happens, delete every directory created by the workflow at the end, including failure and cancellation.
         """;
 
     [Fact]

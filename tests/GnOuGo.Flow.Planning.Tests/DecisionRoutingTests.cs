@@ -28,7 +28,9 @@ public sealed class DecisionRoutingTests
         Assert.NotEmpty(PlanningConstruction.ShapeFindings(candidate, schema, unit));
         Assert.Equal("DECISION_PRODUCER_CONTRACT_REQUIRED", Assert.Single(PlanningProducerContracts.Findings(graph, prep)).Code);
         var state = new PlanningSnapshot { Graph = graph, Preparation = prep, Request = new() { Prompt = "Inspect and route the result" } };
-        Assert.Contains("requiredStructuredDecisions", TypedWorkflowPlanner.ContractPrompt(state, graph.Workflows[0], unit, prep));
+        var prompt = TypedWorkflowPlanner.ContractPrompt(state, graph.Workflows[0], unit, prep);
+        Assert.Contains("requiredStructuredDecisions", prompt); Assert.Contains("\"fieldPointer\":\"/" + field + "\"", prompt);
+        Assert.DoesNotContain("/json/" + field, prompt);
         producer.StructuredOutput = new(new() { Type = "object", Properties = [new() { Name = field, Required = true, Schema = new() { Type = "string", Enum = ["ACT", "OTHER"] } }] });
         Assert.Equal("DECISION_PRODUCER_CONTRACT_INVALID", Assert.Single(PlanningProducerContracts.Findings(graph, prep)).Code);
         producer.StructuredOutput.Schema.Properties[0].Schema.Enum = ["ACT", "SKIP"];

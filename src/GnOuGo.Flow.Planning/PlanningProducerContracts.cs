@@ -21,6 +21,9 @@ internal static class PlanningProducerContracts
     internal static IEnumerable<PlanningDecisionContract> StructuredDecisions(PlanningNode node, PlanningPreparation preparation)
         => preparation.Decisions.Where(d => d.ContractSource == "structured_output" && d.SourceCapabilityId == node.CapabilityId && node.OperationIds.Contains(d.SourceOperationId));
 
+    internal static string StructuredPointer(PlanningDecisionContract decision)
+        => decision.SourcePointer.StartsWith("/json/", StringComparison.Ordinal) ? decision.SourcePointer[5..] : decision.SourcePointer;
+
     internal static IEnumerable<PlanningDiagnostic> Findings(PlanningGraph graph, PlanningPreparation preparation)
     {
         for (var wi = 0; wi < graph.Workflows.Count; wi++)
@@ -41,7 +44,7 @@ internal static class PlanningProducerContracts
                         try
                         {
                             var schema = PlanningGraphCompiler.ToJsonSchema(node.StructuredOutput.Schema, preparation);
-                            var pointer = decision.SourcePointer.StartsWith("/json/", StringComparison.Ordinal) ? decision.SourcePointer[5..] : decision.SourcePointer;
+                            var pointer = StructuredPointer(decision);
                             foreach (var token in pointer.Split('/').Skip(1))
                             {
                                 var name = token.Replace("~1", "/", StringComparison.Ordinal).Replace("~0", "~", StringComparison.Ordinal);
@@ -55,7 +58,7 @@ internal static class PlanningProducerContracts
                             !(actual["enum"] as JsonArray ?? []).Select(v => v?.ToJsonString()).Order(StringComparer.Ordinal)
                                 .SequenceEqual((decision.ResponseSchema["enum"] as JsonArray ?? []).Select(v => v?.ToJsonString()).Order(StringComparer.Ordinal)))
                             yield return new("DECISION_PRODUCER_CONTRACT_INVALID", path + "/structuredOutput/schema",
-                                "The structured result must establish locked decision " + decision.SourcePointer + " with its exact response type and finite outcomes: " + decision.ResponseSchema.ToJsonString() + ". Preserve the original response separately.", ValidationStage: "dataflow");
+                                "Inside the structured-output schema, declare the decision at " + StructuredPointer(decision) + " with its exact response type and finite outcomes: " + decision.ResponseSchema.ToJsonString() + ". The runtime adds the json channel wrapper; do not add that wrapper to the declared schema. Preserve the original response separately.", ValidationStage: "dataflow");
                     }
             }
         }
