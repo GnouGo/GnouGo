@@ -80,6 +80,7 @@ public sealed partial class TypedWorkflowPlanner
 
     private static void ReadyForBehaviorReview(PlanningSnapshot state, PlanningBehaviorPlan plan)
     {
+        ResetExecutableRepairProgress(state);
         state.BehaviorPlan = plan; state.ApprovedBehaviorHash = null;
         state.Dataflow = null;
         if (state.Graph is not null) state.PreviousGraph = state.Graph;
@@ -104,9 +105,18 @@ public sealed partial class TypedWorkflowPlanner
 
     private static void ResetBehavior(PlanningSnapshot state)
     {
+        ResetExecutableRepairProgress(state);
         state.Dataflow = null;
         state.BehaviorRevisionSource = null; state.BehaviorRevisionPatch = null;
         state.BehaviorPlan = null; state.ApprovedBehaviorHash = null; state.ReviewedGraph = null; state.BehaviorAssessmentCalls = 0;
         state.ConstructionUnits.Clear();
+    }
+
+    private static void ResetExecutableRepairProgress(PlanningSnapshot state)
+    {
+        // These counters describe one executable candidate, not campaign usage.
+        // Receipts, cumulative usage and encrypted attempt history remain intact.
+        state.RepairAttempt = 0; state.NonImprovingAttempts = 0;
+        state.PreviousDiagnosticHash = null; state.BestDiagnostics.Clear(); state.BestFragments.Clear();
     }
 }

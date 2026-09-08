@@ -122,6 +122,7 @@ public sealed partial class TypedWorkflowPlanner(TimeProvider? timeProvider = nu
                         }
                         state.ApprovedBehaviorHash = state.ArtifactHash;
                         state.Graph = PlanningBehaviorPlans.Display(reviewedBehavior, state.Preparation);
+                        ResetExecutableRepairProgress(state);
                         state.Fragments.Clear();
                         state.ConstructionUnits.Clear();
                     }
@@ -204,7 +205,8 @@ public sealed partial class TypedWorkflowPlanner(TimeProvider? timeProvider = nu
                     }
                     var unreviewed = !HasBehaviorApproval(state) || PlanningPhase.Resolve(state) == PlanningPhase.Behavior;
                     state.Status = state.Graph is null || unreviewed ? PlanningStatus.Created
-                        : state.BehaviorPlan is not null && state.ConstructionUnits.Any(u => u.Status is not ("validated" or "superseded")) ? PlanningStatus.Generating
+                        : state.BehaviorPlan is not null && (state.ConstructionUnits.Any(u => u.Status is not ("validated" or "superseded")) ||
+                            state.ConstructionUnits.Count == 0 && state.Fragments.Count == 0 && state.Yaml is null) ? PlanningStatus.Generating
                         : state.Graph.Workflows.Any(w => !state.Fragments.ContainsKey(w.Key)) && PlanningPhase.Resolve(state) is PlanningStatus.Generating or "fragment"
                             ? PlanningStatus.Generating : PlanningStatus.Validating;
                     state.BehaviorAssessmentCalls = 0;
@@ -529,6 +531,14 @@ public sealed partial class TypedWorkflowPlanner(TimeProvider? timeProvider = nu
     private async Task RepairExecutableAsync(PlanningSnapshot state, IPlanningRuntime runtime, CancellationToken ct)
     {
         if (RecoverInvalidBehavior(state)) return;
+        if (state.Diagnostics.Count == 0)
+        {
+            ResetExecutableRepairProgress(state);
+            if (state.BehaviorPlan is not null && state.ConstructionUnits.Count == 0 && state.Fragments.Count == 0 && state.Yaml is null)
+                await GenerateUnitsAsync(state, runtime, ct);
+            else state.Status = PlanningStatus.Validating;
+            return;
+        }
         if (await RepairConstructionFieldsAsync(state, runtime, ct)) return;
         var scope = PlanningPatches.Scope(state.Graph!, state.Diagnostics);
         var preparation = state.Preparation!;

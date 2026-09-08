@@ -441,3 +441,9 @@ objects use checkpointed groups of at most four value coordinates, within the ex
 token ceilings. Legacy explicit fields upgrade without changing their values. Opaque
 legacy computations remain in encrypted revision history and require field generation;
 unrelated implementations, accepted behavior, answers and cumulative usage remain.
+
+Behavior revisions discard executable-candidate repair progress while retaining
+cumulative usage, answers and attempt history. Newly approved behavior starts unit
+construction. Retry repairs older stopped sessions that have no executable units;
+it does not dispatch an empty patch because an earlier candidate had exhausted repairs.
+Manual YAML edits still enter complete artifact validation.

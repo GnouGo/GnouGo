@@ -165,10 +165,11 @@ public sealed partial class LiveIntentAgentGenerationTests
     private static async Task GenerateV2AgentAsync(IServiceProvider services, string name, CancellationToken ct)
     {
         var service = services.GetRequiredService<PlanningSessionService>();
-        var state = (await service.ListAsync(ct)).SingleOrDefault(s => s.Request.Name == name)
-            ?? await service.StartAsync(name, AcceptancePrompt, false, ct);
-        state = await ConfigureLiveGenerationAsync(service, state, ct);
         var revision = Environment.GetEnvironmentVariable("GNOU_GO_LIVE_TYPED_PLANNING_REVISION");
+        var prompt = string.IsNullOrWhiteSpace(revision) ? AcceptancePrompt : AcceptancePrompt + "\n\nRequested revision:\n" + revision;
+        var state = (await service.ListAsync(ct)).SingleOrDefault(s => s.Request.Name == name)
+            ?? await service.StartAsync(name, prompt, false, ct);
+        state = await ConfigureLiveGenerationAsync(service, state, ct);
         if (!string.IsNullOrWhiteSpace(revision) && state.BehaviorPlan is not null &&
             state.Status is PlanningStatus.Recovery or PlanningStatus.Failed or PlanningStatus.Unsupported &&
             !state.Request.Prompt.EndsWith("\n\nRequested revision:\n" + revision, StringComparison.Ordinal))
