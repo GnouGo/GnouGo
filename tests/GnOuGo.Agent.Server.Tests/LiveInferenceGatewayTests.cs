@@ -8,6 +8,31 @@ namespace GnOuGo.Agent.Server.Tests;
 
 public sealed class LiveInferenceGatewayTests
 {
+    [Fact]
+    public async Task PolicyHostStartsAcceptsOnlyTheHandshakeAndRestoresItsTemporaryEndpoint()
+    {
+        const string key = "Code__Copilot__InferenceProxyEndpoint";
+        var previous = Environment.GetEnvironmentVariable(key);
+        var path = Path.Combine(Path.GetTempPath(), "inference-start-" + Guid.NewGuid().ToString("N") + ".json");
+        var ledger = LiveBudgetLedger.Open(path, new(new(20, "EUR"), new(0, "EUR"), ExistingConfiguration: true));
+        var budget = new LLMUsageBudgetScope(new() { MaxCalls = 2 }, ledger.Snapshot, sink: ledger);
+        try
+        {
+            await using (var gateway = new LiveInferenceGateway(budget, ledger, new NoRates(), _ => throw new InvalidOperationException("Startup requires no provider request."), new HttpClient()))
+            {
+                await gateway.StartHostAsync(TestContext.Current.CancellationToken);
+                var endpoint = Environment.GetEnvironmentVariable(key); Assert.NotNull(endpoint); Assert.NotEqual(previous, endpoint);
+                using var client = new HttpClient();
+                using var invalid = await client.PostAsync(endpoint + "/ready", new StringContent("invalid"), TestContext.Current.CancellationToken);
+                Assert.Equal(HttpStatusCode.BadRequest, invalid.StatusCode); Assert.Throws<InvalidOperationException>(gateway.RequireReady);
+                using var accepted = await client.PostAsync(endpoint + "/ready", new StringContent("sdk-http-interception-v1"), TestContext.Current.CancellationToken);
+                Assert.Equal(HttpStatusCode.NoContent, accepted.StatusCode); gateway.RequireReady(); Assert.Equal(0, budget.Snapshot.Calls);
+            }
+            Assert.Equal(previous, Environment.GetEnvironmentVariable(key));
+        }
+        finally { Environment.SetEnvironmentVariable(key, previous); if (File.Exists(path)) File.Delete(path); }
+    }
+
     [Theory]
     [InlineData(false, 8192)]
     [InlineData(true, 8192)]

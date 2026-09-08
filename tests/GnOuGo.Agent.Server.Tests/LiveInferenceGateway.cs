@@ -31,6 +31,7 @@ public sealed partial class LiveIntentAgentGenerationTests
         private readonly HttpClient _http;
         private WebApplication? _host;
         private string? _previousEndpoint;
+        private bool _ownsEndpoint;
         internal int CompletedCalls { get; private set; }
         private int _readyProcesses;
         internal void RequireReady()
@@ -51,7 +52,15 @@ public sealed partial class LiveIntentAgentGenerationTests
             if (options.DangerousAcceptAnyServerCertificate) handler.ServerCertificateCustomValidationCallback = HttpClientHandler.DangerousAcceptAnyServerCertificateValidator;
             var gateway = new LiveInferenceGateway(budget, ledger, services.GetRequiredService<IExchangeRateProvider>(), Options,
                 new HttpClient(handler) { Timeout = Timeout.InfiniteTimeSpan, MaxResponseContentBufferSize = 16 * 1024 * 1024 });
+            try { await gateway.StartHostAsync(ct); return gateway; }
+            catch { await gateway.DisposeAsync(); throw; }
+        }
+
+        internal async Task StartHostAsync(CancellationToken ct)
+        {
+            var gateway = this;
             var builder = WebApplication.CreateSlimBuilder(); builder.Configuration.Sources.Clear(); builder.Logging.ClearProviders();
+            builder.Configuration.AddInMemoryCollection();
             builder.WebHost.UseUrls("http://127.0.0.1:0").ConfigureKestrel(server => server.Limits.MaxRequestBodySize = 4 * 1024 * 1024);
             gateway._host = builder.Build();
             gateway._host.MapPost("/inference/ready", async (HttpContext context) =>
@@ -86,7 +95,7 @@ public sealed partial class LiveIntentAgentGenerationTests
             await gateway._host.StartAsync(ct);
             gateway._previousEndpoint = Environment.GetEnvironmentVariable(EnvironmentKey);
             Environment.SetEnvironmentVariable(EnvironmentKey, gateway._host.Urls.Single() + "/inference");
-            return gateway;
+            gateway._ownsEndpoint = true;
         }
 
         internal async Task<HttpResponseMessage> ForwardAsync(HttpRequestMessage original, string requestId, CancellationToken ct)
@@ -169,7 +178,8 @@ public sealed partial class LiveIntentAgentGenerationTests
         private static bool IsTransportHeader(string key) => new[] { "Host", "Content-Type", "Content-Length", "Transfer-Encoding", "Connection", "Accept-Encoding", CopilotInferenceProxyHandler.UpstreamHeader, CopilotInferenceProxyHandler.RequestHeader }.Contains(key, StringComparer.OrdinalIgnoreCase);
         public async ValueTask DisposeAsync()
         {
-            if (_host is not null) { Environment.SetEnvironmentVariable(EnvironmentKey, _previousEndpoint); await _host.StopAsync(); await _host.DisposeAsync(); }
+            if (_ownsEndpoint) Environment.SetEnvironmentVariable(EnvironmentKey, _previousEndpoint);
+            if (_host is not null) { await _host.StopAsync(); await _host.DisposeAsync(); }
             _http.Dispose(); _dispatch.Dispose();
         }
         private sealed class ForwardClient(Func<CancellationToken, Task<LLMResponse>> call) : ILLMClient
