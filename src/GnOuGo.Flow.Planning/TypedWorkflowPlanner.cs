@@ -141,7 +141,7 @@ public sealed partial class TypedWorkflowPlanner(TimeProvider? timeProvider = nu
                     if (state.Diagnostics.Any(d => d.Required) || state.Scenarios.Count == 0 || state.Scenarios.Any(s => s.Outcome != "passed")) throw new PlanningConflictException("Required validation has not passed.");
                     var catalogDiagnostics = await runtime.ValidateCatalogAsync(state.Preparation!, ct);
                     if (catalogDiagnostics.Count != 0) { state.Diagnostics = catalogDiagnostics.ToList(); state.Status = PlanningStatus.Unsupported; break; }
-                    var approvalDiagnostics = await runtime.ValidateAsync(state.Yaml!, EffectiveRequest(state), state.Preparation!, ct);
+                    var approvalDiagnostics = await runtime.ValidateAsync(state.Yaml!, EffectiveRequest(state), state.Preparation!, PlanningGraphCompiler.CapabilityBindings(state.Graph!), ct);
                     if (approvalDiagnostics.Count != 0) { state.Diagnostics = approvalDiagnostics.ToList(); state.Status = PlanningStatus.Validating; break; }
                     state.ApprovedHash = state.ArtifactHash;
                     state.Status = PlanningStatus.Approved;
@@ -441,7 +441,7 @@ public sealed partial class TypedWorkflowPlanner(TimeProvider? timeProvider = nu
             {
                 yaml = _compiler.Compile(state.Graph!, state.Preparation!, state.Request.Name);
                 stage = 5;
-                diagnostics.AddRange((await runtime.ValidateAsync(yaml, EffectiveRequest(state), state.Preparation!, ct)).Select(d => PlanningExecutableValidation.MapRuntimeDiagnostic(d, state.Graph!)));
+                diagnostics.AddRange((await runtime.ValidateAsync(yaml, EffectiveRequest(state), state.Preparation!, PlanningGraphCompiler.CapabilityBindings(state.Graph!), ct)).Select(d => PlanningExecutableValidation.MapRuntimeDiagnostic(d, state.Graph!)));
                 if (diagnostics.Count != 0 && diagnostics.All(d => d.ValidationStage == PlanningValidationStage.CapabilityContracts)) stage = 6;
                 if (diagnostics.Count != 0 && diagnostics.All(d => d.ValidationStage == PlanningValidationStage.ConditionalActivation)) stage = 7;
                 if (diagnostics.Count == 0)

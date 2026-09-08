@@ -88,7 +88,8 @@ public sealed partial class WorkflowPlanExecutor
     }
 
     public async Task<IReadOnlyList<PlanningDiagnostic>> ValidateTypedArtifactAsync(
-        StepExecutionContext ctx, string yaml, PlanningRequest request, PlanningPreparation preparation, CancellationToken ct)
+        StepExecutionContext ctx, string yaml, PlanningRequest request, PlanningPreparation preparation, CancellationToken ct,
+        IReadOnlyList<PlanningArtifactBinding>? bindings = null)
     {
         var stage = PlanningValidationStage.RuntimeContracts;
         try
@@ -101,7 +102,8 @@ public sealed partial class WorkflowPlanExecutor
             await RunStandardPlanValidationSequenceAsync(document, request.Options["policy"] as JsonObject,
                 request.Options["limits"] as JsonObject, validate, preflight.DiscoveredServers, ctx, NullTelemetrySpan.Instance, ct);
             stage = PlanningValidationStage.CapabilityContracts;
-            ValidateLockedCapabilitiesInDocument(document, preflight, current => stage = current);
+            var owners = bindings is null ? null : ResolveTypedArtifactOwners(document, preflight, preparation, bindings);
+            ValidateLockedCapabilitiesInDocument(document, preflight, current => stage = current, owners);
             return [];
         }
         catch (OperationCanceledException) { throw; }
@@ -126,6 +128,35 @@ public sealed partial class WorkflowPlanExecutor
             }
             return [new PlanningDiagnostic(ex is Expressions.WorkflowRuntimeException failure ? failure.Code : "PLANNING_VALIDATION", "$", ex.Message, ValidationStage: stage)];
         }
+    }
+
+    private static IReadOnlyDictionary<StepDef, ResolvedCapability> ResolveTypedArtifactOwners(WorkflowDocument document,
+        CapabilityPreflightResult preflight, PlanningPreparation preparation, IReadOnlyList<PlanningArtifactBinding> bindings)
+    {
+        var calls = document.Workflows.SelectMany(w => EnumerateSteps(w.Value.Steps).Concat(EnumerateSteps(w.Value.Finally))
+            .Select(n => (Workflow: w.Key, Step: n))).ToArray();
+        var owners = new Dictionary<StepDef, ResolvedCapability>(ReferenceEqualityComparer.Instance);
+        foreach (var binding in bindings)
+        {
+            var nodes = calls.Where(c => c.Workflow == binding.Workflow && c.Step.Id == binding.Step).ToArray();
+            var declared = preparation.Capabilities.Where(c => c.Id == binding.CapabilityId).ToArray();
+            var matches = declared.Length == 1 ? preflight.Capabilities.Where(c => c.Resolution == declared[0].Resolution &&
+                c.CatalogId == declared[0].CatalogId && c.Server == declared[0].Server && c.Kind == declared[0].Kind && c.Method == declared[0].Method &&
+                GetResolvedCapabilityOperationIds(c).ToHashSet(StringComparer.Ordinal).SetEquals(declared[0].OperationIds) &&
+                c.RequestBindings.Count == declared[0].RequestBindings.Count && c.RequestBindings.All(b => declared[0].RequestBindings.Any(d => d.Path == b.Path && JsonNode.DeepEquals(d.Value, b.Value)))).ToArray() : [];
+            if (nodes.Length != 1 || matches.Length != 1 || owners.ContainsKey(nodes[0].Step) ||
+                matches[0].Resolution != "local" && nodes[0].Step.Type != declared[0].StepType || matches[0].Resolution == "mcp" &&
+                !McpStepMatchesCapability(nodes[0].Step, matches[0].Server!, matches[0].Kind!, matches[0].Method!, matches[0].RequestBindings))
+                throw Invalid(binding.Workflow, binding.Step);
+            owners.Add(nodes[0].Step, matches[0]);
+        }
+        if (calls.FirstOrDefault(c => c.Step.Type == "mcp.call" && !owners.ContainsKey(c.Step)) is { Step: not null } missing)
+            throw Invalid(missing.Workflow, missing.Step.Id);
+        return owners;
+
+        static Expressions.WorkflowRuntimeException Invalid(string workflow, string step) => new("ARTIFACT_OWNERSHIP_INVALID",
+            "Every executable MCP call must have one compiler-derived owner matching its locked capability and request bindings.",
+            details: new JsonObject { ["workflow"] = workflow, ["step"] = step });
     }
 
     internal static void RetargetTypedDecisionFinding(JsonObject finding, WorkflowDocument document)

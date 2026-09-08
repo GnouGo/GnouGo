@@ -8439,7 +8439,8 @@ public sealed partial class WorkflowPlanExecutor
     private static void ValidateLockedCapabilitiesInDocument(
         WorkflowDocument document,
         CapabilityPreflightResult preflight,
-        Action<string>? validationStage = null)
+        Action<string>? validationStage = null,
+        IReadOnlyDictionary<StepDef, ResolvedCapability>? owners = null)
     {
         if (!preflight.Enabled
             || preflight.RequiredMcpCapabilities.Count == 0
@@ -8469,7 +8470,7 @@ public sealed partial class WorkflowPlanExecutor
         ValidateNoRedundantArtifactMaterializers(preflight, calls);
         ValidateMcpArtifactDataflow(document, preflight);
         validationStage?.Invoke(Planning.PlanningValidationStage.ConditionalActivation);
-        ValidateConditionalCapabilityActivation(document, preflight);
+        ValidateConditionalCapabilityActivation(document, preflight, owners);
 
         var deniedCalls = preflight.Constraints
             .Where(static constraint => constraint.Required)
@@ -8587,7 +8588,8 @@ public sealed partial class WorkflowPlanExecutor
 
     private static void ValidateConditionalCapabilityActivation(
         WorkflowDocument document,
-        CapabilityPreflightResult preflight)
+        CapabilityPreflightResult preflight,
+        IReadOnlyDictionary<StepDef, ResolvedCapability>? owners = null)
     {
         var groups = preflight.RequiredMcpCapabilities
             .Where(static capability => capability.Activation is not null)
@@ -8687,7 +8689,7 @@ public sealed partial class WorkflowPlanExecutor
                 .Select(item =>
                 {
                     var candidateCalls = EnumerateConditionalSwitchCalls(item.Step)
-                        .Where(call => capabilities.Any(capability => McpStepMatchesCapability(
+                        .Where(call => capabilities.Any(capability => (owners is null || owners.TryGetValue(call, out var owner) && ReferenceEquals(owner, capability)) && McpStepMatchesCapability(
                             call,
                             capability.Server!,
                             capability.Kind!,
@@ -8701,7 +8703,7 @@ public sealed partial class WorkflowPlanExecutor
                             item.Step,
                             capabilities,
                             candidateCalls,
-                            preflight),
+                            preflight, owners),
                         candidateCalls);
                 })
                 .ToArray();
@@ -8741,7 +8743,7 @@ public sealed partial class WorkflowPlanExecutor
             var otherCalls = allCalls
                 .Where(call => !selectedConditionalCalls.Contains(call))
                 .ToArray();
-            var attributedOtherCalls = AttributeCapabilityCalls(otherCapabilities, otherCalls);
+            var attributedOtherCalls = AttributeCapabilityCalls(otherCapabilities, otherCalls, owners);
             var unownedMatchingCalls = matchingCalls
                 .Where(call => !selectedConditionalCalls.Contains(call)
                                && !attributedOtherCalls.Contains(call))
@@ -8771,7 +8773,8 @@ public sealed partial class WorkflowPlanExecutor
 
     private static IReadOnlySet<StepDef> AttributeCapabilityCalls(
         IReadOnlyList<ResolvedCapability> capabilities,
-        IReadOnlyList<StepDef> calls)
+        IReadOnlyList<StepDef> calls,
+        IReadOnlyDictionary<StepDef, ResolvedCapability>? owners = null)
     {
         var capabilityByCall = Enumerable.Repeat(-1, calls.Count).ToArray();
         for (var capabilityIndex = 0; capabilityIndex < capabilities.Count; capabilityIndex++)
@@ -8782,7 +8785,7 @@ public sealed partial class WorkflowPlanExecutor
                 capabilities,
                 calls,
                 capabilityByCall,
-                visitedCalls);
+                visitedCalls, owners);
         }
 
         var attributed = new HashSet<StepDef>(ReferenceEqualityComparer.Instance);
@@ -8799,12 +8802,14 @@ public sealed partial class WorkflowPlanExecutor
         IReadOnlyList<ResolvedCapability> capabilities,
         IReadOnlyList<StepDef> calls,
         int[] capabilityByCall,
-        bool[] visitedCalls)
+        bool[] visitedCalls,
+        IReadOnlyDictionary<StepDef, ResolvedCapability>? owners)
     {
         var capability = capabilities[capabilityIndex];
         for (var callIndex = 0; callIndex < calls.Count; callIndex++)
         {
             if (visitedCalls[callIndex]
+                || owners is not null && (!owners.TryGetValue(calls[callIndex], out var owner) || !ReferenceEquals(owner, capability))
                 || !McpStepMatchesCapability(
                     calls[callIndex],
                     capability.Server!,
@@ -8822,7 +8827,7 @@ public sealed partial class WorkflowPlanExecutor
                     capabilities,
                     calls,
                     capabilityByCall,
-                    visitedCalls))
+                    visitedCalls, owners))
             {
                 capabilityByCall[callIndex] = capabilityIndex;
                 return true;
@@ -8837,14 +8842,15 @@ public sealed partial class WorkflowPlanExecutor
         StepDef step,
         IReadOnlyList<ResolvedCapability> capabilities,
         IReadOnlyList<StepDef> groupCalls,
-        CapabilityPreflightResult preflight)
+        CapabilityPreflightResult preflight,
+        IReadOnlyDictionary<StepDef, ResolvedCapability>? owners = null)
     {
         var structure = EvaluateConditionalSwitchStructure(
             workflowName,
             step,
             capabilities,
             groupCalls,
-            static (call, capability) => McpStepMatchesCapability(
+            (call, capability) => (owners is null || owners.TryGetValue(call, out var owner) && ReferenceEquals(owner, capability)) && McpStepMatchesCapability(
                 call,
                 capability.Server!,
                 capability.Kind!,
@@ -8892,7 +8898,7 @@ public sealed partial class WorkflowPlanExecutor
                 .Concat(EnumerateSteps(workflow.Value.Finally))
                 .Where(candidate => !decisionSteps.Contains(candidate)
                                     && MatchesLocalDecisionIdentity(candidate, activation)
-                                    && decisionCapabilities.Any(capability => StepMatchesDecisionProducer(
+                                    && decisionCapabilities.Any(capability => (owners is null || owners.TryGetValue(candidate, out var owner) && ReferenceEquals(owner, capability)) && StepMatchesDecisionProducer(
                                         candidate,
                                         capability)))
                 .Select(candidate => (Workflow: workflow.Key, Step: candidate)))

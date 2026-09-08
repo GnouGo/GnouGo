@@ -377,6 +377,9 @@ public interface IWorkflowPlanner
 }
 
 /// <summary>Host-independent boundary to existing discovery, policies, model transport and validators.</summary>
+/// <summary>Compiler-derived capability ownership, separate from executable YAML.</summary>
+public sealed record PlanningArtifactBinding(string Workflow, string Step, string CapabilityId);
+
 public interface IPlanningRuntime
 {
     Task<PlanningPreparation> PrepareAsync(PlanningRequest request, CancellationToken ct);
@@ -385,6 +388,8 @@ public interface IPlanningRuntime
     Task EnrichPreparationAsync(PlanningPreparation preparation, CancellationToken ct) => Task.CompletedTask;
     Task<LLMResponse> CallAsync(LLMRequest request, string phase, CancellationToken ct);
     Task<IReadOnlyList<PlanningDiagnostic>> ValidateAsync(string yaml, PlanningRequest request, PlanningPreparation preparation, CancellationToken ct);
+    Task<IReadOnlyList<PlanningDiagnostic>> ValidateAsync(string yaml, PlanningRequest request, PlanningPreparation preparation,
+        IReadOnlyList<PlanningArtifactBinding> bindings, CancellationToken ct) => ValidateAsync(yaml, request, preparation, ct);
     Task<IReadOnlyList<PlanningScenarioResult>> ValidateScenariosAsync(string yaml, PlanningPreparation preparation, CancellationToken ct);
     Task<IReadOnlyList<PlanningScenarioResult>> ValidateScenariosAsync(string yaml, PlanningPreparation preparation, JsonObject inputs, CancellationToken ct)
         => ValidateScenariosAsync(yaml, preparation, ct);

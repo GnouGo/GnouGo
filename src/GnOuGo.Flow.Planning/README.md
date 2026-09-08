@@ -59,6 +59,11 @@ artifact identity, and capability validation continue to apply to every constitu
 Multiple effects may share a gate only when their declared decision source, response contract,
 outcomes and required permissions agree. Distinct sources require separate gates or an explicit
 reducer; they fail before model dispatch instead of selecting an arbitrary permission.
+The compiler supplies capability ownership bindings alongside YAML for final validation and
+approval. Calls with identical transport contracts retain distinct operation owners. The
+runtime verifies each binding against the actual step, locked request fields, and capability
+identity; an unbound call or a substitute confirmation fails validation. These bindings are
+derived from the retained graph and add no fields to executable YAML.
 
 `PlanningRequest.Generation` defaults to 12,000 estimated input tokens per unit and an
 enforced 8,192 output-token ceiling per call. Oversized groups split before dispatch; an

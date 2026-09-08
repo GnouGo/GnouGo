@@ -74,6 +74,9 @@ public sealed class WorkflowPlanningRuntime : IPlanningRuntime
         => _context.CallLLMAsync(_context.Engine.LLMClient ?? throw new InvalidOperationException("No planning model is configured."), request, "workflow.plan.typed." + phase, ct);
     public Task<IReadOnlyList<PlanningDiagnostic>> ValidateAsync(string yaml, PlanningRequest request, PlanningPreparation preparation, CancellationToken ct)
         => _executor.ValidateTypedArtifactAsync(_context, yaml, request, preparation, ct);
+    public Task<IReadOnlyList<PlanningDiagnostic>> ValidateAsync(string yaml, PlanningRequest request, PlanningPreparation preparation,
+        IReadOnlyList<PlanningArtifactBinding> bindings, CancellationToken ct)
+        => _executor.ValidateTypedArtifactAsync(_context, yaml, request, preparation, ct, bindings);
     public Task<IReadOnlyList<PlanningScenarioResult>> ValidateScenariosAsync(string yaml, PlanningPreparation preparation, CancellationToken ct)
         => _executor.ValidateTypedScenariosAsync(yaml, preparation, ct);
     public Task<IReadOnlyList<PlanningScenarioResult>> ValidateScenariosAsync(string yaml, PlanningPreparation preparation, JsonObject inputs, CancellationToken ct)

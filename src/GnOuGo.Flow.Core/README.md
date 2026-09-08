@@ -147,6 +147,11 @@ During workflow.plan semantic validation, a `WorkflowSymbolTable` is built as st
 
 Step outputs are resolved through `StepOutputTypeResolver`: each step starts from its executor contract and can be refined by static input, such as `set.output_schema`, `llm.call.input.structured_output`, validated protocol-declared MCP tool output schemas, local `workflow.call` targets, `template.render` mode, `human.input` form fields, and loop body output snapshots.
 
+Planner v2 can pass `PlanningArtifactBinding` values through `IPlanningRuntime.ValidateAsync`
+to preserve compiler-derived operation ownership during artifact validation. The Core runtime
+checks these bindings against locked capabilities and actual executable calls, including
+the exact confirmation producer. Existing callers without bindings retain legacy validation.
+
 ---
 
 ## Skill Metadata

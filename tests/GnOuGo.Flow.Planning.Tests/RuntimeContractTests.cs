@@ -122,6 +122,12 @@ public sealed class RuntimeContractTests
         }] };
         var yaml = new PlanningGraphCompiler().Compile(graph, preparation);
         Assert.Empty(await runtime.ValidateAsync(yaml, request, preparation, Ct));
+        var binding = Assert.Single(PlanningGraphCompiler.CapabilityBindings(graph));
+        Assert.Equal(capability.Id, binding.CapabilityId);
+        Assert.Equal("main", binding.Workflow);
+        Assert.Equal(WorkflowParser.Parse(yaml).Workflows["main"].Steps[0].Id, binding.Step);
+        Assert.Empty(await runtime.ValidateAsync(yaml, request, preparation, [binding], Ct));
+        Assert.Contains(await runtime.ValidateAsync(yaml, request, preparation, [binding with { Step = "unknown" }], Ct), d => d.Code == "ARTIFACT_OWNERSHIP_INVALID");
         var scenarios = await runtime.ValidateScenariosAsync(yaml, preparation, Ct);
         Assert.All(scenarios, scenario => Assert.Equal("passed", scenario.Outcome));
         Assert.Equal(0, calls);

@@ -18,6 +18,11 @@ public sealed partial class PlanningGraphCompiler
     public static string Fingerprint(string text) => Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(text)));
     public static string Fingerprint(PlanningGraph graph) => Fingerprint(JsonSerializer.Serialize(graph, PlanningJsonContext.Default.PlanningGraph));
 
+    public static IReadOnlyList<PlanningArtifactBinding> CapabilityBindings(PlanningGraph graph) => graph.Workflows
+        .SelectMany(w => Enumerate(w.Steps.Concat(w.Finally)).Where(n => n.CapabilityId is not null)
+            .Select(n => new PlanningArtifactBinding(w.Key == graph.Entrypoint ? "main" : "w_" + Fingerprint(w.Key)[..16],
+                "n_" + Fingerprint(n.Key)[..16], n.CapabilityId!))).ToArray();
+
     public string Compile(PlanningGraph graph, PlanningPreparation preparation, string name = "generated")
     {
         ArgumentNullException.ThrowIfNull(graph);
