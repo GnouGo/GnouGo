@@ -8,6 +8,31 @@ namespace GnOuGo.Flow.Planning.Tests;
 
 public sealed class ConstructionUnitTests
 {
+    [Theory]
+    [InlineData("destination", "resourceId")]
+    [InlineData("renamed-capability", "identifiant")]
+    public void ProducerContractGenerationReceivesConsumerTypesWithoutDuplicatingLockedArguments(string destination, string argument)
+    {
+        var state = ApprovedSkeleton(); var workflow = state.Graph!.Workflows[0]; workflow.Steps[0].OperationIds = ["parse"];
+        var input = new JsonObject { ["type"] = "object", ["properties"] = new JsonObject
+        {
+            ["action"] = new JsonObject { ["type"] = "string", ["enum"] = new JsonArray("fetch", "close") },
+            [argument] = new JsonObject { ["type"] = "string", ["minLength"] = 3 }
+        }, ["required"] = new JsonArray("action", argument), ["additionalProperties"] = false };
+        state.Preparation!.Capabilities = [new() { Id = destination, InputOperationIds = ["parse"], InputSchema = input, RequestBindings = [new("/action", JsonValue.Create("fetch"))] },
+            new() { Id = destination + "-second", InputOperationIds = ["parse"], InputSchema = input.DeepClone().AsObject(), RequestBindings = [new("/action", JsonValue.Create("close"))] }];
+        var prompt = TypedWorkflowPlanner.ContractPrompt(state, workflow, new() { Kind = "contracts", NodeKeys = ["greeting"] }, state.Preparation);
+        var contract = JsonNode.Parse(prompt.Split("\nProducer and consumer obligations:\n", StringSplitOptions.None)[1].Split("\nBusiness boundary:\n", StringSplitOptions.None)[0])!;
+        Assert.Equal(2, contract["consumerContracts"]!.AsArray().Count);
+        var shared = Assert.Single(contract["consumerSchemas"]!.AsObject()).Value!;
+        Assert.True(JsonNode.DeepEquals(input, shared));
+        foreach (var consumer in contract["consumerContracts"]!.AsArray())
+            Assert.Equal(argument, Assert.Single(consumer!["generatedArguments"]!.AsArray())!.GetValue<string>());
+        Assert.Equal("fetch", contract["consumerContracts"]![0]!["hostBindings"]![0]!["value"]!.GetValue<string>());
+        Assert.Equal("close", contract["consumerContracts"]![1]!["hostBindings"]![0]!["value"]!.GetValue<string>());
+        Assert.True(input["properties"]!.AsObject().ContainsKey("action"));
+    }
+
     [Fact]
     public void ContractGenerationScopesRetainedAssessmentByPhaseAndStableNodeIdentity()
     {

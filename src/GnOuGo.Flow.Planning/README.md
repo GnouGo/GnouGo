@@ -293,6 +293,9 @@ Opaque MCP producers with declared downstream operation dependencies must establ
 
 Schema diagnostics identify the invalid nested declaration. Repair patches expose
 only those schema coordinates and retain valid sibling fields and constraints.
+Producer contract generation includes its declared consumers' complete argument
+schemas, with shared definitions and separate host-bound values. Generated argument
+names identify the remaining data needs without dropping schema constraints.
 After behavior revision, schema generation receives only retained schema findings
 for its stable node identifiers. Implementation and routing findings remain stored
 for their own phases; free-text revisions without validated coordinates remain intact.
