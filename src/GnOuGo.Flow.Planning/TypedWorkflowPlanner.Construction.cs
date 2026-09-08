@@ -138,13 +138,14 @@ public sealed partial class TypedWorkflowPlanner
                 // Deterministically constructed candidates have zero model calls, but
                 // their retained diagnostics must also be refreshed after an upgrade.
                 var repair = unit.Diagnostics.Count != 0 && (unit.Calls > 0 || unit.Candidate is not null);
-                if (repair && unit.ProducerReviewBaseline is null && unit.Candidate is not null && PlanningConstruction.ShapeFindings(unit.Candidate, schema, unit).Count == 0)
+                if (repair && unit.ProducerReviewBaseline is null && unit.Candidate is not null)
                 {
                     try
                     {
-                        var preview = PlanningConstruction.Apply(graph, unit, unit.Candidate, state.Preparation!);
+                        var preview = PlanningConstruction.Preview(graph, unit, unit.Candidate, state.Preparation!);
                         preview.Workflows.Single(w => w.Key == unit.WorkflowKey).Functions = MergeFunctions(state, unit, unit.Candidate["functions"]?.GetValue<string>());
                         var currentFindings = CandidateFindings(state, preview, unit, unit.Candidate);
+                        currentFindings.AddRange(PlanningConstruction.ShapeFindings(unit.Candidate, schema, unit));
                         if (currentFindings.Count == 0)
                             return (unit, response: (LLMResponse?)new LLMResponse { Json = unit.Candidate.DeepClone() }, patch: (PlanningUnitPatches?)null, error: (Exception?)null);
                         unit.Diagnostics = currentFindings;

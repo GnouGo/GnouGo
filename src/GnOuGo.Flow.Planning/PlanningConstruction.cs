@@ -56,6 +56,9 @@ public static class PlanningConstruction
     }
 
     public static JsonObject Schema(PlanningWorkflow workflow, PlanningConstructionUnit unit, PlanningPreparation preparation, PlanningGraph? graph = null)
+        => ConstructionSchema(workflow, unit, preparation, graph, constrainArguments: true);
+
+    private static JsonObject ConstructionSchema(PlanningWorkflow workflow, PlanningConstructionUnit unit, PlanningPreparation preparation, PlanningGraph? graph, bool constrainArguments)
     {
         var definitions = PlanningSchemas.Graph(preparation)["$defs"]!.DeepClone().AsObject();
         var values = definitions["value"]!["anyOf"]!.AsArray();
@@ -200,6 +203,11 @@ public static class PlanningConstruction
                         ScopeReferences(definition, prefix); definitions[prefix + name] = definition;
                     }
                     ScopeReferences(fields, prefix);
+                    if (constrainArguments && node.Type == "mcp.call" && fields["arguments"] is JsonObject arguments &&
+                        preparation.Capabilities.FirstOrDefault(c => c.Id == node.CapabilityId)?.InputSchema["properties"] is JsonObject destinations)
+                        PlanningArgumentBindings.Constrain(arguments, definitions, prefix, destinations,
+                            PlanningDataflow.CompactIndex(workflow, preparation, graph, node.Key).Values);
+
                 }
                 nodes[node.Key] = Object(fields);
             }
@@ -254,10 +262,19 @@ public static class PlanningConstruction
     }
 
     public static PlanningGraph Apply(PlanningGraph graph, PlanningConstructionUnit unit, JsonObject candidate, PlanningPreparation preparation)
+        => ConvertCandidate(graph, unit, candidate, preparation, validateShape: true);
+
+    // Read-only diagnostic preview relaxes only destination binding types so all
+    // related findings can be collected. Other shape and scope checks still apply.
+    // Callers must validate the complete schema before accepting any candidate.
+    internal static PlanningGraph Preview(PlanningGraph graph, PlanningConstructionUnit unit, JsonObject candidate, PlanningPreparation preparation)
+        => ConvertCandidate(graph, unit, candidate, preparation, validateShape: false);
+
+    private static PlanningGraph ConvertCandidate(PlanningGraph graph, PlanningConstructionUnit unit, JsonObject candidate, PlanningPreparation preparation, bool validateShape)
     {
         var result = JsonSerializer.Deserialize(JsonSerializer.Serialize(graph, PlanningJsonContext.Default.PlanningGraph), PlanningJsonContext.Default.PlanningGraph)!;
         var workflow = result.Workflows.Single(w => w.Key == unit.WorkflowKey);
-        var schema = Schema(workflow, unit, preparation, result);
+        var schema = ConstructionSchema(workflow, unit, preparation, result, constrainArguments: validateShape);
         candidate = CompleteFixedFields(candidate, schema);
         if (unit.ContractVersion >= PlanningConstructionSchemas.Version) candidate = PlanningConstructionSchemas.Compact(candidate);
         var errors = ShapeFindings(candidate, schema, unit);

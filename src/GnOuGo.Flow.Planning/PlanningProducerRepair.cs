@@ -23,7 +23,7 @@ internal static class PlanningProducerRepair
             {
                 var node = located.Single(p => p.Node.Key == key).Node;
                 return PlanningOperationCompositions.RequiredInputs(workflow, node, preparation)
-                    .Except(PlanningDataflow.OperationDependencies(workflow, node, preparation).Operations, StringComparer.Ordinal);
+                    .Except(PlanningDataflow.OperationDependencies(workflow, node, preparation, candidate).Operations, StringComparer.Ordinal);
             }).Distinct(StringComparer.Ordinal).Order(StringComparer.Ordinal).ToArray();
             if (missing.Length == 0) continue;
             var fingerprint = PlanningGraphCompiler.Fingerprint(consumer.Candidate!.ToJsonString() + "\n" + string.Join("\n", missing));
@@ -62,7 +62,7 @@ internal static class PlanningProducerRepair
 
     internal static void ResumeConsumers(PlanningSnapshot state)
     {
-        foreach (var unit in state.ConstructionUnits.Where(u => u.WaitingForProducerReview && u.Dependencies.All(k => state.ConstructionUnits.Single(p => p.Key == k).Status == "validated")))
+        foreach (var unit in state.ConstructionUnits.Where(u => u.Status != "superseded" && u.WaitingForProducerReview && u.Dependencies.All(k => state.ConstructionUnits.Single(p => p.Key == k).Status == "validated")))
         {
             unit.WaitingForProducerReview = false; unit.RepairCallsAtRetry = unit.RepairCalls;
             unit.Status = "invalid"; unit.DispatchDiagnostics.Clear();

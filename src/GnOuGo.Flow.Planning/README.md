@@ -413,3 +413,12 @@ only after their prerequisites validate, and must still pass dependency validati
 Repeated identical candidates cannot repeatedly schedule the same producer review.
 Review baselines, cumulative calls, pending consumers and history survive restart
 inside the encrypted schema-version-2 snapshot.
+
+Construction contract 41 limits direct MCP argument bindings to producer types that
+fit the destination contract. Identical binding sets share one schema definition;
+explicit transformation parameters retain the complete source index. Nullable
+arguments and omitted optional arguments remain distinct. Mistyped arguments do
+not satisfy locked operation dependencies. A diagnostic preview collects these
+related findings together while retaining all other response-shape checks, so repair
+can move a dependency to an appropriate argument instead of alternating between
+incompatible candidates. Artifact arguments retain their stronger provenance rules.

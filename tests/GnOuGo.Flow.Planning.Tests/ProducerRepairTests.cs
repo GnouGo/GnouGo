@@ -34,7 +34,7 @@ public sealed class ProducerRepairTests
     }
 
     [Fact]
-    public void OriginalCapabilitySchemasAndUnavailableFutureResultsAreNeverRepairTargets()
+    public void OriginalCapabilitySchemasAreNeverRepairTargets()
     {
         var state = Fixture(); var producer = state.Graph!.Workflows[0].Steps[0].Branches[0].Steps[0];
         producer.StructuredOutput = null;
@@ -92,7 +92,7 @@ public sealed class ProducerRepairTests
         ["name"] = name, ["required"] = true, ["default"] = null, ["schema"] = new JsonObject { ["kind"] = "inline", ["type"] = "string", ["nullable"] = false, ["description"] = null, ["enum"] = new JsonArray() }
     };
 
-    private static PlanningSnapshot Fixture(string capability = "source", string purpose = "Read metadata")
+    internal static PlanningSnapshot Fixture(string capability = "source", string purpose = "Read metadata")
     {
         var state = ConstructionUnitTests.ApprovedSkeleton(); state.Answers.Add(new("Retained answer", new() { ["choice"] = true })); state.Usage = new() { Calls = 9 };
         var schema = new JsonObject { ["kind"] = "inline", ["type"] = "object", ["nullable"] = false, ["description"] = null,

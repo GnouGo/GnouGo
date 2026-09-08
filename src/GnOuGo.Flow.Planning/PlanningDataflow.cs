@@ -8,7 +8,7 @@ namespace GnOuGo.Flow.Planning;
 internal static class PlanningDataflow
 {
     internal const int BindingVersion = 2;
-    internal const int ContractVersion = 40;
+    internal const int ContractVersion = 41;
     internal const string WorkflowOutputs = "$outputs";
 
     internal static Dictionary<string, PlanningBinding> Index(PlanningWorkflow workflow, PlanningPreparation preparation, PlanningGraph graph, string? consumer = null)
@@ -231,7 +231,7 @@ internal static class PlanningDataflow
                 var composition = PlanningOperationCompositions.Owner(workflow, node, preparation);
                 var terminal = composition?.Steps[^1] == node;
                 if (required.Count == 0 && !terminal) continue;
-                var (dependencies, visited) = OperationDependencies(workflow, node, preparation);
+                var (dependencies, visited) = OperationDependencies(workflow, node, preparation, graph);
                 if (terminal)
                     foreach (var missing in composition!.Steps.SkipLast(1).Where(n => !visited.Contains(n.Key)))
                         findings.Add(new("COMPOSITION_INPUT_BINDING_MISSING", path + "/input", "The final result of this owned operation must consume intermediate producer '" + missing.Key + "'. Preserve its original result or a validated dependency; an unused sibling cannot establish completion."));
@@ -243,16 +243,41 @@ internal static class PlanningDataflow
         return findings;
     }
 
-    internal static (HashSet<string> Operations, HashSet<string> Nodes) OperationDependencies(PlanningWorkflow workflow, PlanningNode node, PlanningPreparation preparation)
+    internal static (HashSet<string> Operations, HashSet<string> Nodes) OperationDependencies(PlanningWorkflow workflow, PlanningNode node, PlanningPreparation preparation, PlanningGraph? graph = null)
     {
         var located = PlanningGraphValidation.Located(workflow.Steps, "/steps").Concat(PlanningGraphValidation.Located(workflow.Finally, "/finally")).ToArray();
         var path = located.Single(p => p.Node == node).Path;
         var dependencies = new HashSet<string>(StringComparer.Ordinal); var visited = new HashSet<string>(StringComparer.Ordinal);
+        var resolve = PlanningGraphValidation.OptionalValueContractResolver(graph ?? new() { Workflows = [workflow] }, workflow, preparation);
+        IEnumerable<PlanningValue> ValidInputReferences(PlanningNode current)
+        {
+            if (current.Type != "mcp.call" || current.Input.Kind != "object" ||
+                preparation.Capabilities.FirstOrDefault(c => c.Id == current.CapabilityId)?.InputSchema["properties"] is not JsonObject contracts)
+                return References(current.Input);
+            var values = new List<PlanningValue>();
+            foreach (var member in current.Input.Members)
+            {
+                if (member.Name != "request" || member.Value.Kind != "object") { values.AddRange(References(member.Value)); continue; }
+                foreach (var argument in member.Value.Members)
+                {
+                    if (contracts[argument.Name] is not JsonObject expected) continue;
+                    try
+                    {
+                        var valid = PlanningGraphValidation.IsLiteral(argument.Value)
+                            ? PlanningContractValidation.ValidateInstance(PlanningGraphValidation.Literal(argument.Value), expected).Count == 0
+                            : resolve(argument.Value) is not { } actual || PlanningGraphValidation.TypesFit(actual, expected);
+                        if (valid) values.AddRange(References(argument.Value));
+                    }
+                    catch (InvalidOperationException) { /* An unresolved or mistyped argument cannot establish a consumed operation. */ }
+                }
+            }
+            return values;
+        }
         void Visit(PlanningNode current, bool source)
         {
             if (!visited.Add(current.Key)) return;
             if (source) dependencies.UnionWith(current.OperationIds.Concat(preparation.Capabilities.FirstOrDefault(c => c.Id == current.CapabilityId)?.OperationIds ?? []));
-            foreach (var value in References(current.Input).Concat(current.Expr is null ? [] : References(current.Expr)))
+            foreach (var value in ValidInputReferences(current).Concat(current.Expr is null ? [] : References(current.Expr)))
                 if (value.Kind is "output" or "loop_item" or "loop_index" or "loop_previous" or "artifact_collection" && located.FirstOrDefault(p => p.Node.Key == value.Source).Node is { } producer) Visit(producer, true);
             foreach (var child in current.Steps.Concat(current.Default).Concat(current.Cases.SelectMany(c => c.Steps)).Concat(current.Branches.SelectMany(b => b.Steps))) Visit(child, true);
         }

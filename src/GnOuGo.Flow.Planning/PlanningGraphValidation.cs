@@ -22,13 +22,19 @@ public static class PlanningGraphValidation
 
     internal static Func<PlanningValue, JsonObject> ValueContractResolver(PlanningGraph graph, PlanningWorkflow workflow, PlanningPreparation preparation)
     {
-        Func<PlanningValue, JsonObject>? resolver = null;
+        var resolver = OptionalValueContractResolver(graph, workflow, preparation);
+        return value => resolver(value) ?? throw new InvalidOperationException("The value has no established producer contract.");
+    }
+
+    internal static Func<PlanningValue, JsonObject?> OptionalValueContractResolver(PlanningGraph graph, PlanningWorkflow workflow, PlanningPreparation preparation)
+    {
+        Func<PlanningValue, JsonObject?>? resolver = null;
         ValidateCore(graph, preparation, null, workflow.Key, resolved: callback => resolver = callback);
         return resolver ?? throw new InvalidOperationException("The public output has no established workflow.");
     }
 
     private static IReadOnlyList<PlanningDiagnostic> ValidateCore(PlanningGraph graph, PlanningPreparation preparation, Dictionary<string, JsonObject>? results,
-        string? targetWorkflow = null, Action<Func<PlanningValue, JsonObject>>? resolved = null)
+        string? targetWorkflow = null, Action<Func<PlanningValue, JsonObject?>>? resolved = null)
     {
         var errors = new List<PlanningDiagnostic>();
         for (var wi = 0; wi < graph.Workflows.Count; wi++)
@@ -191,7 +197,7 @@ public static class PlanningGraphValidation
                 catch (Exception ex) when (ex is InvalidOperationException or ArgumentException or FormatException) { /* The reference/schema diagnostic is reported at its own location. */ }
             }
 
-            if (workflow.Key == targetWorkflow) resolved?.Invoke(value => ValueSchema(value, new(StringComparer.Ordinal)) ?? throw new InvalidOperationException("The value has no established producer contract."));
+            if (workflow.Key == targetWorkflow) resolved?.Invoke(value => ValueSchema(value, new(StringComparer.Ordinal)));
 
             void CheckValue(PlanningValue value, string location)
             {
@@ -429,7 +435,7 @@ public static class PlanningGraphValidation
         }
     }
 
-    private static bool TypesFit(JsonObject actual, JsonObject expected, int depth = 0, bool allowUnresolved = false)
+    internal static bool TypesFit(JsonObject actual, JsonObject expected, int depth = 0, bool allowUnresolved = false)
     {
         if (depth > 32) return false;
         if (allowUnresolved && actual.Count == 0) return true; // set enforces the asserted schema at runtime
