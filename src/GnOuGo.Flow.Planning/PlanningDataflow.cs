@@ -8,7 +8,7 @@ namespace GnOuGo.Flow.Planning;
 internal static class PlanningDataflow
 {
     internal const int BindingVersion = 2;
-    internal const int ContractVersion = 37;
+    internal const int ContractVersion = 38;
     internal const string WorkflowOutputs = "$outputs";
 
     internal static Dictionary<string, PlanningBinding> Index(PlanningWorkflow workflow, PlanningPreparation preparation, PlanningGraph graph, string? consumer = null)
@@ -124,6 +124,14 @@ internal static class PlanningDataflow
     {
         if (value is JsonArray array) return new JsonArray(array.Select(v => Transport(v, bindings)).ToArray());
         if (value is not JsonObject obj) return value?.DeepClone();
+        if (obj["kind"]?.GetValue<string>() == "binding" && obj["reference"] is JsonValue referenceValue && referenceValue.TryGetValue<string>(out var identifier))
+        {
+            var normalized = PlanningOutputBindings.NormalizeIdentifier(identifier);
+            if (bindings.ContainsKey(normalized))
+            {
+                var retained = obj.DeepClone().AsObject(); retained["reference"] = normalized; return retained;
+            }
+        }
         if (obj["kind"]?.GetValue<string>() == "expression")
         {
             var expression = obj["text"]?.GetValue<string>() ?? "";
@@ -163,7 +171,7 @@ internal static class PlanningDataflow
         if (value is not JsonObject obj) return value?.DeepClone();
         if (obj["kind"]?.GetValue<string>() == "binding")
         {
-            if (!bindings.TryGetValue(obj["reference"]!.GetValue<string>(), out var binding)) throw new BindingException(location, obj["reference"]!.GetValue<string>());
+            if (!bindings.TryGetValue(PlanningOutputBindings.NormalizeIdentifier(obj["reference"]!.GetValue<string>()), out var binding)) throw new BindingException(location, obj["reference"]!.GetValue<string>());
             return JsonSerializer.SerializeToNode(binding.Value, PlanningJsonContext.Default.PlanningValue);
         }
         return new JsonObject(obj.Select(p => new KeyValuePair<string, JsonNode?>(p.Key, Expand(p.Value, bindings, location + "/" + PlanningSchemaReferences.Escape(p.Key)))));

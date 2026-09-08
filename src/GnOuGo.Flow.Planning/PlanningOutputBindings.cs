@@ -8,8 +8,15 @@ namespace GnOuGo.Flow.Planning;
 internal static class PlanningOutputBindings
 {
     internal sealed record Binding(PlanningValue Value, PlanningSchema Schema);
-    internal static string Id(PlanningValue value) => "ref_" + PlanningGraphCompiler.Fingerprint(JsonSerializer.Serialize(
-        new[] { value.Kind, value.Source ?? "", value.ResultChannel ?? "default" }.Concat(value.Path).ToArray(), PlanningJsonContext.Default.StringArray))[..20];
+    internal static string Id(PlanningValue value) => Encode(PlanningGraphCompiler.Fingerprint(JsonSerializer.Serialize(
+        new[] { value.Kind, value.Source ?? "", value.ResultChannel ?? "default" }.Concat(value.Path).ToArray(), PlanningJsonContext.Default.StringArray))[..20]);
+
+    // Encode the same 80-bit identity more compactly; no entropy or contract is removed.
+    internal static string NormalizeIdentifier(string identifier) => identifier.Length == 24 &&
+        identifier.StartsWith("ref_", StringComparison.Ordinal) && identifier.AsSpan(4).IndexOfAnyExcept("0123456789abcdef") < 0
+            ? Encode(identifier[4..]) : identifier;
+
+    private static string Encode(string hex) => "b_" + Convert.ToBase64String(Convert.FromHexString(hex)).TrimEnd('=').Replace('+', '-').Replace('/', '_');
 
     internal static Dictionary<string, Binding> Index(PlanningWorkflow workflow, PlanningPreparation preparation, PlanningGraph? graph = null)
     {

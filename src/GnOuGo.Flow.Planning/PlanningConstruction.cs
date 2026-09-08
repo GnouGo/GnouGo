@@ -365,6 +365,16 @@ public static class PlanningConstruction
         foreach (var key in unit.NodeKeys)
             foreach (var binding in PlanningDataflow.Index(workflow, preparation, graph, key)) bindings.TryAdd(binding.Key, binding.Value);
         candidate = candidate.DeepClone().AsObject();
+        if (unit.Kind == "outputs" && candidate["outputs"] is JsonObject exports)
+        {
+            var available = PlanningOutputBindings.Index(workflow, preparation, graph);
+            foreach (var (_, export) in exports)
+                if (export is JsonObject port && port["reference"] is JsonValue reference && reference.TryGetValue<string>(out var identifier))
+                {
+                    var normalized = PlanningOutputBindings.NormalizeIdentifier(identifier);
+                    if (available.ContainsKey(normalized)) port["reference"] = normalized;
+                }
+        }
         if (unit.Kind == "implementation")
             foreach (var node in PlanningGraphCompiler.Enumerate(workflow.Steps.Concat(workflow.Finally)).Where(n => unit.NodeKeys.Contains(n.Key) && PlanningDecisionRouting.LocalContracts(n, preparation).Length > 0))
                 if (candidate["nodes"]?[node.Key] is JsonObject fields && !fields.ContainsKey("conditions") && node.Input.Members.Any(m => m.Name == "decisions"))

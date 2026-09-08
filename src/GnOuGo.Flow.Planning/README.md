@@ -382,3 +382,11 @@ those complete container results and every locked upstream dependency. Iteration
 helpers do not acquire unrelated argument requirements from the composite
 operation. Conditional, mixed-ownership, and human-input nodes do not qualify for
 this dependency grouping; artifact provenance and permission checks still apply.
+
+Construction contract 38 encodes binding identities as compact base64url strings,
+retaining all 80 fingerprint bits. Restored implementation and public-output
+candidates accept the earlier hexadecimal identifiers only when the same producer
+is still available. Literal text is unchanged; unknown bindings remain invalid.
+This reduces repeated response-schema enums without removing binding contracts or
+increasing request limits. Checkpoint upgrades revalidate candidates and preserve
+encrypted history, approvals and cumulative usage.

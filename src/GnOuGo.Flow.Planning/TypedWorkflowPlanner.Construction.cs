@@ -49,7 +49,7 @@ public sealed partial class TypedWorkflowPlanner
             var workflow = graph.Workflows.Single(w => w.Key == unit.WorkflowKey);
             unit.ContractVersion = PlanningDataflow.ContractVersion;
             unit.RepairCallsAtRetry = unit.RepairCalls;
-            if (unit.Kind == "implementation" && unit.Candidate is not null)
+            if (unit.Kind is "implementation" or "outputs" && unit.Candidate is not null)
                 unit.Candidate = PlanningConstruction.UpgradeCandidate(graph, unit, unit.Candidate, state.Preparation!);
             if (unit.Candidate is not null) unit.Candidate = PlanningConstructionSchemas.Compact(unit.Candidate);
             if (unit.Status == "validated")
