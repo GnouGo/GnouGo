@@ -618,12 +618,15 @@ public sealed partial class TypedWorkflowPlanner(TimeProvider? timeProvider = nu
             "Choose the operation's /preparation when required runtime observations are absent from its available producer contracts, or a local computation is expected to inspect external state. " +
             "Also choose /preparation when the selected capability or its locked input bindings cannot perform the required action; field and topology repairs cannot change a locked binding. " +
             "Use the supplied authoritative capability schemas, indexed by the graph's capability IDs. Do not require an undeclared argument based on assumptions about an external API; a tool may resolve that association internally. " +
+            "Interpret typed references through the resolved value contracts. Direct MCP output references select the raw response; container results retain child response envelopes and structured json channels. " +
+            "Node keys are logical references resolved by the compiler, not runtime addresses. Do not report a missing response wrapper or an inaccessible nested node merely from its placement in the graph. " +
             "An opaque output establishes no internal fields. Distinguish a wrong computed decision value from an intentional behavior change; preserve approved routing when its computation can be corrected. " +
             "Do not repair missing observations by guessing fields, returning constant empty results, or asserting success. Preparation findings require new capability resolution and behavior review. " +
             "Evidence must be a single verbatim substring from a source text, without added quotes, ellipses, or combined excerpts. " +
             "Source roles are authoritative: questionContext and generated contract text do not establish user intent. No score is used.\nSources:\n" + sourceJson.ToJsonString() +
             "\nLocked contract:\n" + (constructionEvidence is null ? state.Preparation!.LockedContract.ToJsonString() : "See the scoped construction evidence below.") +
             (constructionEvidence is null ? "\nAuthoritative capability schemas and locked bindings (schema references resolve within this object):\n" + SemanticCapabilities(state.Graph!, state.Preparation!).ToJsonString() : "") +
+            (constructionEvidence is null ? "\nResolved value contracts (schema references resolve within this object):\n" + SemanticValueContracts(state.Graph!, state.Preparation!).ToJsonString() : "") +
             (constructionEvidence is null ? "\nGraph:\n" + JsonSerializer.Serialize(state.Graph, PlanningJsonContext.Default.PlanningGraph)
                 : "\nInvalid construction evidence:\n" + constructionEvidence.ToJsonString() +
                   (assessConstructionBehavior ? "\nAssess only the diagnosed collection-to-element mismatch: determine whether the requested per-item behavior lacks iteration, or whether a computation can use existing producers. Use /behavior for a missing loop and preserve all requested items and effects. " :

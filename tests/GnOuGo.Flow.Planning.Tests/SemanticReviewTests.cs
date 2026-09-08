@@ -8,6 +8,34 @@ namespace GnOuGo.Flow.Planning.Tests;
 public sealed class SemanticReviewTests
 {
     [Theory]
+    [InlineData("read", "group", "findings")]
+    [InlineData("lecture", "ensemble", "résultats")]
+    public void SemanticContractsDistinguishRawReferencesFromContainerEnvelopes(string producer, string container, string field)
+    {
+        var graph = Graph(); var prep = Preparation(); var workflow = graph.Workflows[0];
+        prep.Capabilities.Add(new() { Id = "external", StepType = "mcp.call", OutputSchema = new JsonObject { ["type"] = "object",
+            ["properties"] = new JsonObject { [field] = new JsonObject { ["type"] = "array", ["items"] = new JsonObject { ["type"] = "string" } } },
+            ["required"] = new JsonArray(field) } });
+        workflow.Steps.Insert(0, new() { Key = container, Type = "sequence", Steps = [new() { Key = producer, Type = "mcp.call", CapabilityId = "external",
+            StructuredOutput = new(new() { Type = "object", Properties = [new() { Name = "summary", Schema = new() { Type = "string" } }] }) }] });
+        workflow.Steps[1].Input = Obj(("container", new() { Kind = "output", Source = container }),
+            ("raw", new() { Kind = "output", Source = producer }), ("structured", new() { Kind = "output", Source = producer, ResultChannel = "structured" }),
+            ("invalid", new() { Kind = "output", Source = "missing" }));
+        workflow.Outputs.Clear();
+        var context = TypedWorkflowPlanner.SemanticValueContracts(graph, prep);
+        JsonObject Entry(string source, string? channel = null) => Assert.Single(context["references"]!.AsArray().OfType<JsonObject>(),
+            p => p["source"]?.ToString() == source && p["resultChannel"]?.ToString() == channel);
+        JsonObject Schema(JsonObject entry) => context["schemas"]![entry["schema"]!["$ref"]!.ToString()["#/schemas/".Length..]]!.AsObject();
+        Assert.Equal("array", Schema(Entry(producer))["properties"]![field]!["type"]!.ToString());
+        Assert.Null(Schema(Entry(producer))["properties"]!["response"]);
+        var children = Schema(Entry(container))["properties"]![producer]!["properties"]!;
+        Assert.Equal("array", children["response"]!["properties"]![field]!["type"]!.ToString());
+        Assert.Equal("string", children["json"]!["properties"]!["summary"]!["type"]!.ToString());
+        Assert.Equal("string", Schema(Entry(producer, "structured"))["properties"]!["summary"]!["type"]!.ToString());
+        Assert.NotNull(Entry("missing")["unresolved"]); Assert.Null(Entry("missing")["schema"]);
+    }
+
+    [Theory]
     [InlineData("expr")]
     public async Task SelectorFindingsRemainExecutableRepairs(string field)
     {

@@ -90,7 +90,8 @@ internal static class PlanningComputationContracts
         Identifier identifier => scope.GetValueOrDefault(identifier.Name),
         LogicalExpression { Operator: Acornima.Operator.LogicalOr or Acornima.Operator.NullishCoalescing } expression => Schema(expression.Left, scope),
         MemberExpression member when Schema(member.Object, scope) is { } parent && HasType(parent, "array") &&
-            (member.Computed && member.Property is NumericLiteral || Name(member) is { } index && uint.TryParse(index, out _)) => parent["items"] as JsonObject,
+            (member.Computed && (member.Property is NumericLiteral || Schema(member.Property, scope) is { } indexContract && (HasType(indexContract, "integer") || HasType(indexContract, "number"))) ||
+             Name(member) is { } index && uint.TryParse(index, out _)) => parent["items"] as JsonObject,
         MemberExpression member when Name(member) is { } name => Schema(member.Object, scope)?["properties"]?[name] as JsonObject,
         _ => null
     };

@@ -7,6 +7,26 @@ namespace GnOuGo.Flow.Planning.Tests;
 public sealed class ComputationContractTests
 {
     [Theory]
+    [InlineData("records", "index", "message", "body")]
+    [InlineData("éléments", "position", "explication", "inventé")]
+    public void IndexedAliasesRetainTheirDeclaredItemContract(string records, string index, string declared, string missing)
+    {
+        var graph = Graph(); var workflow = graph.Workflows[0];
+        workflow.Inputs = [new() { Name = "items", Schema = new() { Type = "array",
+            Items = new() { Type = "object", Properties = [new() { Name = declared, Schema = new() { Type = "string" } }] } } },
+            new() { Name = "position", Schema = new() { Type = "integer" } }];
+        var value = new PlanningValue { Kind = "compute", Text = $"const item = {records}[{index}] || {{}}; return item.{missing} ?? item.{declared};",
+            Members = [new(records, new() { Kind = "input", Source = "items" }), new(index, new() { Kind = "input", Source = "position" })] };
+        workflow.Steps[0].Input = Obj(("message", value));
+        var finding = Assert.Single(PlanningExecutableValidation.Validate(graph, Preparation()), d => d.Code == "COMPUTATION_FIELD_UNDECLARED");
+        Assert.Contains(missing, finding.Message); Assert.Contains(declared, finding.Message);
+        value.Text = $"const item = {records}[{index}] ?? {{}}; return item.{declared};";
+        Assert.DoesNotContain(PlanningExecutableValidation.Validate(graph, Preparation()), d => d.Code == "COMPUTATION_FIELD_UNDECLARED");
+        value.Text = $"const item = {records}[{index}] || {{}}; {{ const item = {{ {missing}: 'local' }}; item.{missing}; }} return item.{declared};";
+        Assert.DoesNotContain(PlanningExecutableValidation.Validate(graph, Preparation()), d => d.Code == "COMPUTATION_FIELD_UNDECLARED");
+    }
+
+    [Theory]
     [InlineData("records.message", true)]
     [InlineData("const alias = records; return alias['message'];", true)]
     [InlineData("records.length", false)]

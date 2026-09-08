@@ -461,11 +461,18 @@ existing schemas and annotations exactly. Duplicate or replacement names fail
 atomically. This response contract also repairs older rejected candidates without
 requiring the model to reproduce existing declarations.
 
-Construction contract 44 rejects direct item-field access on typed array parameters
+Construction contract 45 rejects direct item-field access on typed array parameters
 and simple aliases, while permitting array operations and explicit element access.
+Numeric parameter indices retain the declared item schema through aliases and
+null/empty-object fallbacks; guessed item property names remain invalid.
 Discarded parameter reads (`void value` or `value;`) do not establish computation
 dependencies. A retained collection mismatch can trigger a bounded, evidence-checked
 behavior assessment; a required missing loop returns through behavior review without
 repeating capability discovery. Existing observation-only assessments remain scoped
 to preparation. This static validation does not prove arbitrary JavaScript semantics;
 scenario execution and request coverage review remain required.
+
+Semantic review receives the resolved contracts for references actually consumed by
+the graph, including container response envelopes and structured channels. Logical
+node keys remain compiler-resolved references. Unresolved contracts are identified
+explicitly instead of being presented as empty or invented producer schemas.
