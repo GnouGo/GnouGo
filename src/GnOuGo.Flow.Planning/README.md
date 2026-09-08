@@ -338,3 +338,8 @@ An empty unbound sequence in the reviewed plan lowers to a native empty-object s
 It retains the node identifier and no-action result while satisfying the executable
 DSL's non-empty sequence requirement. This lowering requires set in the locked
 allowlist and does not rewrite bound operations or the approved behavior graph.
+
+Nullable typed enums export null in both the type union and allowed values. Import
+preserves the intersection of those constraints: a source enum that excludes null
+does not become nullable merely because its type union includes it. Literal nulls
+are checked against the complete destination contract before compilation.

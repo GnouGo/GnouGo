@@ -145,11 +145,14 @@ public static class PlanningGraphImporter
         var type = schema["type"] is JsonArray types ? types.Select(t => t!.GetValue<string>()).FirstOrDefault(t => t != "null") : schema["type"]?.GetValue<string>();
         if (type is null or "any") throw new InvalidOperationException("The imported workflow must have concrete boundary schemas.");
         var required = (schema["required"] as JsonArray ?? []).Select(v => v!.GetValue<string>()).ToHashSet(StringComparer.Ordinal);
+        var values = schema["enum"] as JsonArray;
+        if (values is { Count: > 0 } && values.All(v => v is null)) throw new InvalidOperationException("A null-only enum cannot be represented by a concrete planning port.");
+        var nullable = schema["type"] is JsonArray array && array.Any(v => v?.GetValue<string>() == "null") && (values is null || values.Any(v => v is null));
         return new PlanningSchema
         {
-            Type = type, Nullable = schema["type"] is JsonArray array && array.Any(v => v?.GetValue<string>() == "null"),
+            Type = type, Nullable = nullable,
             Description = schema["description"]?.GetValue<string>(),
-            Enum = (schema["enum"] as JsonArray ?? []).Select(v => v!.GetValue<string>()).ToList(),
+            Enum = (values ?? []).Where(v => v is not null).Select(v => v!.GetValue<string>()).ToList(),
             Items = schema["items"] is JsonObject items ? Schema(items) : null,
             Properties = (schema["properties"] as JsonObject ?? []).Select(p => new PlanningPort { Name = p.Key, Schema = Schema(p.Value!.AsObject()), Required = required.Contains(p.Key) }).ToList(),
             AdditionalProperties = schema["additionalProperties"] is JsonObject additional ? Schema(additional) : null

@@ -465,7 +465,12 @@ public sealed partial class PlanningGraphCompiler
             throw new InvalidOperationException("Planning ports require a concrete type.");
         var result = new JsonObject { ["type"] = schema.Nullable ? new JsonArray(schema.Type, "null") : JsonValue.Create(schema.Type) };
         if (schema.Description is not null) result["description"] = schema.Description;
-        if (schema.Enum.Count > 0) result["enum"] = new JsonArray(schema.Enum.Select(v => (JsonNode?)JsonValue.Create(v)).ToArray());
+        if (schema.Enum.Count > 0)
+        {
+            var values = new JsonArray(schema.Enum.Select(v => (JsonNode?)JsonValue.Create(v)).ToArray());
+            if (schema.Nullable) values.Add((JsonNode?)null);
+            result["enum"] = values;
+        }
         if (schema.Type == "array") result["items"] = ToJsonSchema(schema.Items ?? throw new InvalidOperationException("An array schema requires items."), preparation, depth + 1);
         if (schema.Type == "object")
         {

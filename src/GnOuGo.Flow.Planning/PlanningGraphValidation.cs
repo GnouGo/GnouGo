@@ -421,6 +421,10 @@ public static class PlanningGraphValidation
         static string[] Types(JsonNode? node) => node is JsonArray a ? a.Select(n => n!.GetValue<string>()).ToArray() : node is JsonValue v ? [v.GetValue<string>()] : [];
         var source = Types(actual["type"]); var target = Types(expected["type"]);
         if (source.Length == 0 || !source.All(t => target.Contains(t, StringComparer.Ordinal) || t == "integer" && target.Contains("number", StringComparer.Ordinal))) return false;
+        // A null-only producer has one possible value even without an explicit enum.
+        // Validate that value against the complete destination contract; object and
+        // array constraints do not apply to null, while enum/const still do.
+        if (source.Length == 1 && source[0] == "null") return PlanningContractValidation.ValidateInstance(null, expected).Count == 0;
         if (expected["enum"] is JsonArray allowed && (actual["enum"] is not JsonArray declared || declared.Any(value => !allowed.Any(option => JsonNode.DeepEquals(option, value))))) return false;
         if (expected["properties"] is JsonObject properties)
         {
