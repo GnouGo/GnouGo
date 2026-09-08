@@ -11,6 +11,34 @@ public sealed class FlatSchemaTests
     private static CancellationToken Ct => TestContext.Current.CancellationToken;
 
     [Theory]
+    [InlineData(500)]
+    [InlineData(503)]
+    public async Task UnreceivedContractPausesAndExplicitRetryUsesEquivalentFlatTransport(int status)
+    {
+        var state = ConstructionUnitTests.ApprovedSkeleton(); var planner = new TypedWorkflowPlanner(); var runtime = new FakeRuntime();
+        for (var i = 0; i < 6 && !state.ConstructionUnits.Any(u => u.Kind == "inputs" && u.Status == "validated"); i++)
+            state = await planner.AdvanceAsync(state, new() { ExpectedRevision = state.Revision }, runtime, Ct);
+        var calls = 0; var approval = state.ApprovedBehaviorHash;
+        runtime = new FakeRuntime { OnCall = (_, request, _) =>
+        {
+            if (++calls == 1) throw new LLMClientException(LLMClientFailureKind.Transport, "Upstream unavailable.", true, status);
+            Assert.Contains("flat list", request.Prompt); Assert.Equal(8192, request.MaxTokens);
+            Assert.True(request.DisableTransportRetries);
+            return Task.FromResult(new LLMResponse { Json = Candidate(Row("", "object"), Row("/properties/message", "string")) });
+        } };
+        state = await planner.AdvanceAsync(state, new() { ExpectedRevision = state.Revision }, runtime, Ct);
+        Assert.Equal(PlanningStatus.Recovery, state.Status); Assert.Equal(1, calls);
+        state = await planner.AdvanceAsync(state, new() { ExpectedRevision = state.Revision }, runtime, Ct);
+        Assert.Equal(1, calls);
+        state = JsonSerializer.Deserialize(JsonSerializer.Serialize(state, PlanningJsonContext.Default.PlanningSnapshot), PlanningJsonContext.Default.PlanningSnapshot)!;
+        state = await planner.AdvanceAsync(state, new() { Kind = "retry", ExpectedRevision = state.Revision }, runtime, Ct);
+        if (calls == 1) state = await planner.AdvanceAsync(state, new() { ExpectedRevision = state.Revision }, runtime, Ct);
+        var unit = state.ConstructionUnits.Single(u => u.Kind == "contracts");
+        Assert.Equal(2, calls); Assert.Equal(2, unit.Calls); Assert.Equal(0, unit.RepairCalls);
+        Assert.True(unit.FlatSchemaGeneration); Assert.Equal("validated", unit.Status); Assert.Equal(approval, state.ApprovedBehaviorHash);
+    }
+
+    [Theory]
     [InlineData(false)]
     [InlineData(true)]
     public async Task OutputLimitedContractSwitchesTransportOnceWithoutAUserRetry(bool secondResponseLimited)

@@ -397,3 +397,8 @@ repairs receive its functions and findings, without unrelated capability contrac
 and must preserve every executable declaration and statement exactly. Repaired
 helpers update both the checkpoint and assembled workflow; other helpers and node
 inputs remain unchanged. The normal repair, context and output ceilings apply.
+
+A transport failure still enters recovery without an automatic provider retry.
+Explicit Retry of an unreceived single-producer contract selects the equivalent
+flat schema transport. This can reduce construction complexity; it does not prove
+provider availability or release the previous request's uncertain usage reservation.

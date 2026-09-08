@@ -113,7 +113,9 @@ public sealed partial class TypedWorkflowPlanner
         state.CurrentPhase = ready.Any(u => u.Calls > 0 && u.Diagnostics.Count > 0) ? "repair_unit"
             : ready.Select(u => u.Kind).Distinct(StringComparer.Ordinal).Count() == 1 ? "fragment_" + ready[0].Kind : "fragment";
         var previousProgress = ready.ToDictionary(u => u.Key, u => (u.Calls, u.CandidateHash, u.Status, Findings: DiagnosticFingerprint(u.Diagnostics)), StringComparer.Ordinal);
-        foreach (var unit in ready.Where(u => u.Kind == "contracts" && u.NodeKeys.Count == 1 && u.Candidate is null && u.DispatchOutcome == "output_limit"))
+        // Transport failures still pause. An explicit Retry can use the smaller,
+        // equivalent schema transport without repeating the original representation.
+        foreach (var unit in ready.Where(u => u.Kind == "contracts" && u.NodeKeys.Count == 1 && u.Candidate is null && u.DispatchOutcome is "output_limit" or "transport_failed"))
             unit.FlatSchemaGeneration = true;
         var flatRequests = new ConcurrentDictionary<string, PlanningFlatSchemas>(StringComparer.Ordinal);
         // Requests are independent; candidate application and checkpoint updates remain sequential.
