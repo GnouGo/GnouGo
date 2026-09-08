@@ -605,10 +605,14 @@ public sealed partial class TypedWorkflowPlanner(TimeProvider? timeProvider = nu
             "Each finding must identify its exact workflow and location from the response schema. Choose the operation's /input for argument/computation defects or /onError for failure handling. " +
             "Choose /behavior for missing iteration, ordering, routing, operations or other topology changes; field repair cannot change approved topology. " +
             "Choose the operation's /preparation when required runtime observations are absent from its available producer contracts, or a local computation is expected to inspect external state. " +
+            "Also choose /preparation when the selected capability or its locked input bindings cannot perform the required action; field and topology repairs cannot change a locked binding. " +
+            "Use the supplied authoritative capability schemas, indexed by the graph's capability IDs. Do not require an undeclared argument based on assumptions about an external API; a tool may resolve that association internally. " +
+            "An opaque output establishes no internal fields. Distinguish a wrong computed decision value from an intentional behavior change; preserve approved routing when its computation can be corrected. " +
             "Do not repair missing observations by guessing fields, returning constant empty results, or asserting success. Preparation findings require new capability resolution and behavior review. " +
             "Evidence must be a single verbatim substring from a source text, without added quotes, ellipses, or combined excerpts. " +
             "Source roles are authoritative: questionContext and generated contract text do not establish user intent. No score is used.\nSources:\n" + sourceJson.ToJsonString() +
             "\nLocked contract:\n" + (constructionEvidence is null ? state.Preparation!.LockedContract.ToJsonString() : "See the scoped construction evidence below.") +
+            (constructionEvidence is null ? "\nAuthoritative capability schemas and locked bindings (schema references resolve within this object):\n" + SemanticCapabilities(state.Graph!, state.Preparation!).ToJsonString() : "") +
             (constructionEvidence is null ? "\nGraph:\n" + JsonSerializer.Serialize(state.Graph, PlanningJsonContext.Default.PlanningGraph)
                 : "\nInvalid construction evidence:\n" + constructionEvidence.ToJsonString() +
                   "\nAssess only whether required external observations are missing from available inputs. Unsupported helper code alone does not prove a missing capability. " +
@@ -657,6 +661,27 @@ public sealed partial class TypedWorkflowPlanner(TimeProvider? timeProvider = nu
             if (invalid.Count == 0) return diagnostics;
         }
         throw new SemanticAssessmentException(invalid);
+    }
+
+    internal static JsonObject SemanticCapabilities(PlanningGraph graph, PlanningPreparation preparation)
+    {
+        var owned = graph.Workflows.SelectMany(w => PlanningGraphCompiler.Enumerate(w.Steps.Concat(w.Finally)))
+            .Select(n => n.CapabilityId).OfType<string>().ToHashSet(StringComparer.Ordinal);
+        var schemas = new JsonObject();
+        JsonObject Reference(JsonObject schema)
+        {
+            var id = "s_" + PlanningGraphCompiler.Fingerprint(schema.ToJsonString());
+            if (!schemas.ContainsKey(id)) schemas[id] = schema.DeepClone();
+            return new() { ["$ref"] = "#/schemas/" + id };
+        }
+        var capabilities = new JsonArray(preparation.Capabilities.Where(c => owned.Contains(c.Id)).Select(c => (JsonNode)new JsonObject
+        {
+            ["id"] = c.Id, ["stepType"] = c.StepType,
+            ["inputSchema"] = Reference(c.InputSchema), ["outputSchema"] = Reference(c.OutputSchema),
+            ["fixedInput"] = c.FixedInput.DeepClone(),
+            ["requestBindings"] = new JsonArray(c.RequestBindings.Select(b => (JsonNode)new JsonObject { ["path"] = b.Path, ["value"] = b.Value?.DeepClone() }).ToArray())
+        }).ToArray());
+        return new() { ["capabilities"] = capabilities, ["schemas"] = schemas };
     }
 
     private sealed class SemanticAssessmentException(List<PlanningDiagnostic> diagnostics) : Exception

@@ -8,6 +8,34 @@ namespace GnOuGo.Flow.Planning.Tests;
 public sealed class SemanticReviewTests
 {
     [Theory]
+    [InlineData("producer", "consumer")]
+    [InlineData("renamed-source", "renamed-destination")]
+    public void SemanticReviewReceivesAuthoritativeSchemasWithExactBindingsAndSharedDefinitions(string first, string second)
+    {
+        var graph = Graph(); var preparation = Preparation();
+        graph.Workflows[0].Steps[0].CapabilityId = first;
+        graph.Workflows[0].Steps.Add(new() { Key = "other", Type = "mcp.call", CapabilityId = second });
+        var input = new JsonObject { ["type"] = "object", ["properties"] = new JsonObject
+            { ["mode"] = new JsonObject { ["type"] = "string", ["enum"] = new JsonArray("allocate", "finalize") }, ["body"] = new JsonObject { ["type"] = "string" } },
+            ["required"] = new JsonArray("mode", "body"), ["additionalProperties"] = false };
+        preparation.Capabilities = [new() { Id = first, InputSchema = input, RequestBindings = [new("/mode", JsonValue.Create("allocate"))] },
+            new() { Id = second, InputSchema = input.DeepClone().AsObject(), RequestBindings = [new("/mode", JsonValue.Create("finalize"))] },
+            new() { Id = "unselected" }];
+        var context = TypedWorkflowPlanner.SemanticCapabilities(graph, preparation);
+        Assert.Equal(2, context["capabilities"]!.AsArray().Count); Assert.Equal(2, context["schemas"]!.AsObject().Count);
+        var source = context["capabilities"]![0]!; var consumer = context["capabilities"]![1]!;
+        Assert.True(JsonNode.DeepEquals(source["inputSchema"], consumer["inputSchema"]));
+        Assert.Equal("allocate", source["requestBindings"]![0]!["value"]!.GetValue<string>());
+        Assert.Equal("finalize", consumer["requestBindings"]![0]!["value"]!.GetValue<string>());
+        var inputId = source["inputSchema"]!["$ref"]!.GetValue<string>()["#/schemas/".Length..];
+        Assert.True(JsonNode.DeepEquals(input, context["schemas"]![inputId]));
+        Assert.False(context["schemas"]![inputId]!["properties"]!.AsObject().ContainsKey("inventedAssociationId"));
+        Assert.Empty(context["schemas"]![source["outputSchema"]!["$ref"]!.GetValue<string>()["#/schemas/".Length..]]!.AsObject());
+        context["schemas"]![inputId]!["properties"]!["body"]!["type"] = "integer";
+        Assert.Equal("string", input["properties"]!["body"]!["type"]!.GetValue<string>());
+    }
+
+    [Theory]
     [InlineData("Restore each affected component", "Remove all temporary resources")]
     [InlineData("Restaurer chaque composant concerné", "Supprimer toutes les ressources temporaires")]
     public async Task EvidenceRepairCannotDropFindingsOrTreatGeneratedQuestionsAsIntent(string requirement, string cleanup)

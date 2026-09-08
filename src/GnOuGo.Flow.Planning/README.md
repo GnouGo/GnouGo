@@ -231,6 +231,10 @@ discovery, discards invalid inventory and derived construction, and requires fre
 behavior approval. Independent behavior and implementation findings remain active
 through reassessment and restart; an exhausted reassessment displays all current
 findings. Machine diagnostics remain separate from user-intent evidence.
+Final semantic review receives the selected capabilities' authoritative input and
+output schemas, keyed by the graph's capability IDs, with identical schemas shared.
+Locked argument changes require preparation reassessment. Review must not require
+an undeclared argument based on assumptions about an external API.
 Computation validation checks statically named fields on typed parameters and simple
 aliases against their producer schemas. Opaque results permit whole serialization,
 not invented `.text` or `.json` projections. Dynamic JavaScript still requires runtime
