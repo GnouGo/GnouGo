@@ -369,3 +369,9 @@ validates the resolved fallback before downstream execution. Computations can
 produce these fields; invalid computed values stop execution and still run cleanup.
 Other envelope fields, including the original `response`, remain separately
 derived from their producers and fallback declarations.
+
+Construction prompts share repeated container-contract objects through a local
+context table when doing so reduces request size. Expanding that table reproduces
+every original value, constraint and JSON Schema reference; executable schemas and
+the 12,000-token input ceiling remain unchanged. Literal reserved reference keys
+disable sharing rather than being reinterpreted.
