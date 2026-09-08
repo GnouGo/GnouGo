@@ -75,6 +75,29 @@ internal static class PlanningComputations
         }
     }
 
+    // An explicit null result branch cannot satisfy a non-nullable destination.
+    // Inspect the returned expression, never unrelated nested callback bodies.
+    internal static bool HasNullResult(string? text)
+    {
+        try { return NullResult(new Acornima.Parser().ParseExpression(Expression(text))); }
+        catch (Exception ex) when (ex is Acornima.ParseErrorException or InvalidOperationException) { return false; }
+        static bool NullResult(Node? node) => node switch
+        {
+            Literal { Value: null } => true,
+            ConditionalExpression conditional => NullResult(conditional.Consequent) || NullResult(conditional.Alternate),
+            CallExpression { Callee: ArrowFunctionExpression { Async: false } arrow } => Returns(arrow.Body),
+            CallExpression { Callee: FunctionExpression { Async: false, Generator: false } function } => Returns(function.Body),
+            _ => false
+        };
+        static bool Returns(Node node)
+        {
+            if (node is ReturnStatement result) return NullResult(result.Argument);
+            if (node is ArrowFunctionExpression or FunctionExpression or FunctionDeclaration) return false;
+            if (node is not BlockStatement && node is not Statement) return NullResult(node);
+            return node.ChildNodes.Any(Returns);
+        }
+    }
+
     internal static void Validate(PlanningValue value)
     {
         var names = value.Members.Select(m => m.Name).ToArray();

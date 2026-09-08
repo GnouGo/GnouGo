@@ -57,6 +57,9 @@ run with the configured session concurrency (four by default). Each response has
 keys and native-specific fields. Switch values, order and defaults come from approved
 behavior; there are no model-generated case indices. Runtime confirmations are constructed
 through `HumanInputContract`, including scalar choices and their boolean response contract.
+Computed tool arguments with explicit null result branches are rejected before execution
+when their destination excludes null. Optional arguments may be omitted; optionality does
+not make null a valid value. Unknown computations still require runtime scenario validation.
 Input/output reference sources are constrained to declared keys. Public exports select from
 a deterministic index of resolvable, exportable producer paths; schemas come from the selected
 producer. Optional fields cannot be selected as unconditional required values. Whole-object

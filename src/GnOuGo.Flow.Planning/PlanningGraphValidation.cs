@@ -148,7 +148,10 @@ public static class PlanningGraphValidation
                         }
                         try
                         {
-                            if (IsLiteral(member.Value))
+                            if (member.Value.Kind == "compute" && PlanningComputations.HasNullResult(member.Value.Text) &&
+                                PlanningContractValidation.ValidateInstance(null, expected).Count != 0)
+                                errors.Add(new("CAPABILITY_ARGUMENT_INVALID", field, "The computation has a null result branch, but argument '" + member.Name + "' does not accept null. Return a contract-valid value or omit an optional argument; omission and null are distinct."));
+                            else if (IsLiteral(member.Value))
                                 errors.AddRange(PlanningContractValidation.ValidateInstance(Literal(member.Value), expected).Select(e => new PlanningDiagnostic("CAPABILITY_ARGUMENT_INVALID", field, e)));
                             else if (ValueSchema(member.Value, new(StringComparer.Ordinal)) is { } actual && !TypesFit(actual, expected))
                                 errors.Add(new("CAPABILITY_ARGUMENT_TYPE", field, "The binding's producer type does not satisfy argument '" + member.Name + "'. Use an explicit validated transformation."));
