@@ -616,6 +616,8 @@ public sealed partial class TypedWorkflowPlanner(TimeProvider? timeProvider = nu
             (constructionEvidence is null ? "\nGraph:\n" + JsonSerializer.Serialize(state.Graph, PlanningJsonContext.Default.PlanningGraph)
                 : "\nInvalid construction evidence:\n" + constructionEvidence.ToJsonString() +
                   "\nAssess only whether required external observations are missing from available inputs. Unsupported helper code alone does not prove a missing capability. " +
+                  "The operation contains converted effective inputs when effectiveInputsResolved is true. Locked request bindings are injected by the host and intentionally absent from model candidate arguments. " +
+                  "When conversion is unresolved, an empty skeleton is not evidence of a missing capability. Judge available observations from the locked producer contracts, not unfinished implementation fields. " +
                   "Return /preparation findings only for requirements that cannot be implemented from established producers. Never authorize module loading, external access in local JavaScript, or removal of the requirement.");
         var targets = SemanticTargets(state.Graph!);
         if (constructionEvidence is not null) targets = targets.Where(p => p.Key.EndsWith("/preparation", StringComparison.Ordinal)).ToDictionary(p => p.Key, p => p.Value, StringComparer.Ordinal);

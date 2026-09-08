@@ -235,6 +235,9 @@ Final semantic review receives the selected capabilities' authoritative input an
 output schemas, keyed by the graph's capability IDs, with identical schemas shared.
 Locked argument changes require preparation reassessment. Review must not require
 an undeclared argument based on assumptions about an external API.
+Observation reassessment sees converted candidate inputs, including deterministic
+locked bindings. Unconverted skeleton inputs are marked unresolved and cannot by
+themselves establish a missing capability.
 Computation validation checks statically named fields on typed parameters and simple
 aliases against their producer schemas. Opaque results permit whole serialization,
 not invented `.text` or `.json` projections. Dynamic JavaScript still requires runtime

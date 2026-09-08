@@ -8,6 +8,40 @@ namespace GnOuGo.Flow.Planning.Tests;
 
 public sealed class PreparationRecoveryTests
 {
+    [Theory]
+    [InlineData("source", "mode")]
+    [InlineData("renamed-provider", "operation")]
+    public async Task ObservationAssessmentSeesInjectedBindingsInsteadOfUnfinishedSkeletons(string capabilityId, string selector)
+    {
+        var state = ConstructionUnitTests.ApprovedSkeleton(); var node = state.Graph!.Workflows[0].Steps[0];
+        state.Graph.Workflows[0].Outputs.Clear(); node.Type = "mcp.call"; node.CapabilityId = capabilityId; node.OperationIds = ["observe"];
+        state.Preparation!.Capabilities.Add(new() { Id = capabilityId, StepType = "mcp.call", OperationIds = ["observe"],
+            InputSchema = new() { ["type"] = "object", ["properties"] = new JsonObject { [selector] = new JsonObject { ["type"] = "string", ["enum"] = new JsonArray("read") } }, ["required"] = new JsonArray(selector) },
+            RequestBindings = [new("/" + selector, JsonValue.Create("read"))] });
+        var unit = new PlanningConstructionUnit { Key = "unit", WorkflowKey = "main", Kind = "implementation", NodeKeys = [node.Key], Status = "invalid", Calls = 2, RepairCalls = 1,
+            ContractVersion = PlanningDataflow.ContractVersion, CandidateHash = "candidate", Diagnostics = [new("UNIT_HELPER_DEPENDENCY_INVALID", "/workflows/0/functions", "Undeclared helper dependency.")] };
+        unit.Candidate = new JsonObject { ["nodes"] = new JsonObject { [node.Key] = new JsonObject { ["arguments"] = new JsonObject(), ["onError"] = new JsonArray() } },
+            ["functions"] = "function transform() { return require('module'); }" };
+        _ = PlanningConstruction.Apply(state.Graph, unit, unit.Candidate, state.Preparation);
+        state.ConstructionUnits = [unit]; var assessed = false;
+        var runtime = new FakeRuntime { OnCall = (phase, request, _) =>
+        {
+            if (phase != "semantic_review") throw new LLMClientException(LLMClientFailureKind.Transport, "Stop after the assessment.", true);
+            var evidence = JsonNode.Parse(request.Prompt.Split("\nInvalid construction evidence:\n", StringSplitOptions.None)[1].Split("\nAssess only", StringSplitOptions.None)[0])!;
+            var affected = Assert.Single(evidence["affected"]!.AsArray())!;
+            Assert.True(affected["effectiveInputsResolved"]!.GetValue<bool>());
+            Assert.False(affected["candidate"]!["arguments"]!.AsObject().ContainsKey(selector));
+            var requestMember = affected["operation"]!["input"]!["members"]!.AsArray().Single(m => m!["name"]!.ToString() == "request")!;
+            var binding = requestMember["value"]!["members"]!.AsArray().Single(m => m!["name"]!.ToString() == selector)!;
+            Assert.Equal("read", binding["value"]!["text"]!.GetValue<string>());
+            assessed = true;
+            return Task.FromResult(new LLMResponse { Json = new JsonObject { ["findings"] = new JsonArray() } });
+        } };
+        state = await new TypedWorkflowPlanner().AdvanceAsync(state, new() { ExpectedRevision = state.Revision }, runtime, TestContext.Current.CancellationToken);
+        Assert.True(assessed, state.Status + " / " + state.CurrentPhase + " / " + string.Join(",", runtime.Phases) + " / " + string.Join("\n", state.Diagnostics.Select(d => d.Message))); Assert.Equal(0, state.PreparationReassessments); Assert.NotNull(state.Preparation);
+        Assert.Contains(state.Attempts, a => a.Phase == "construction_observation_review" && a.Diagnostics.Count == 0);
+    }
+
     [Fact]
     public async Task RepeatedForbiddenHelpersCanReassessMissingObservationsBeforeExecutableCompletion()
     {

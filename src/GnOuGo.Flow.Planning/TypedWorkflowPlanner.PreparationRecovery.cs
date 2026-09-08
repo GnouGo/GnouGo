@@ -17,11 +17,16 @@ public sealed partial class TypedWorkflowPlanner
         foreach (var unit in units)
         {
             var wi = state.Graph!.Workflows.FindIndex(w => w.Key == unit.WorkflowKey); var workflow = state.Graph.Workflows[wi];
+            PlanningWorkflow? effective = null;
+            try { effective = PlanningConstruction.Apply(state.Graph, unit, unit.Candidate!, state.Preparation!).Workflows.Single(w => w.Key == workflow.Key); }
+            catch (Exception ex) when (ex is InvalidOperationException or ArgumentException or FormatException) { /* Unconverted inputs are explicitly unknown, not absent capabilities. */ }
             foreach (var (node, path) in PlanningGraphValidation.Located(workflow.Steps, "/workflows/" + wi + "/steps").Concat(PlanningGraphValidation.Located(workflow.Finally, "/workflows/" + wi + "/finally")))
             {
                 if (!unit.NodeKeys.Contains(node.Key, StringComparer.Ordinal)) continue;
                 operations.UnionWith(node.OperationIds);
-                nodes.Add((JsonNode)new JsonObject { ["location"] = path + "/preparation", ["operation"] = DescribeNode(node, state.Preparation),
+                var resolved = effective is null ? null : PlanningGraphCompiler.Enumerate(effective.Steps.Concat(effective.Finally)).Single(n => n.Key == node.Key);
+                nodes.Add((JsonNode)new JsonObject { ["location"] = path + "/preparation", ["operation"] = DescribeNode(resolved ?? node, state.Preparation),
+                    ["effectiveInputsResolved"] = resolved is not null,
                     ["candidate"] = unit.Candidate!["nodes"]?[node.Key]?.DeepClone(), ["helpers"] = unit.Candidate["functions"]?.DeepClone() });
             }
         }
