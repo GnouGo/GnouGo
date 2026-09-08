@@ -8,6 +8,44 @@ namespace GnOuGo.Flow.Planning.Tests;
 public sealed class ProducerRepairTests
 {
     [Theory]
+    [InlineData("instructions", "Parse the resource and retain instructions for the review")]
+    [InlineData("consignes", "Lire la ressource et conserver les consignes de revision")]
+    public void MissingBusinessInputRevisitsTheNativeResultContractWithoutChangingApproval(string input, string purpose)
+    {
+        var state = ConstructionUnitTests.ApprovedSkeleton(); var workflow = state.Graph!.Workflows[0]; var node = workflow.Steps[0];
+        node.Purpose = purpose; node.Input = Obj(("owner", Str("example")));
+        node.OutputSchema = new() { Type = "object", Properties = [new() { Name = "owner", Schema = new() { Type = "string" } }] };
+        workflow.Inputs = [new() { Name = input, Schema = new() { Type = "string" } }];
+        state.BehaviorPlan!.Workflows[0].Steps[0].InputDependencies = [input];
+        state.BehaviorPlan.Workflows[0].Inputs = [new(input, "Runtime instructions", true)];
+        state.ApprovedBehaviorHash = PlanningBehaviorPlans.Fingerprint(state.BehaviorPlan);
+        var contract = new PlanningConstructionUnit { Key = "contract", WorkflowKey = workflow.Key, Kind = "contracts", NodeKeys = [node.Key], Status = "validated", ContractVersion = PlanningDataflow.ContractVersion };
+        contract.Candidate = PlanningConstruction.Values(workflow, contract);
+        var implementation = new PlanningConstructionUnit { Key = "implementation", WorkflowKey = workflow.Key, Kind = "implementation", NodeKeys = [node.Key], Status = "invalid", ContractVersion = PlanningDataflow.ContractVersion,
+            Calls = 2, RepairCalls = 1, Dependencies = [contract.Key], Diagnostics = [new("BUSINESS_INPUT_BINDING_MISSING", "/workflows/0/steps/0/input", "Missing input")] };
+        implementation.Candidate = PlanningConstruction.UpgradeCandidate(state.Graph, implementation, PlanningConstruction.Values(workflow, implementation), state.Preparation!);
+        state.ConstructionUnits = [contract, implementation]; var approval = state.ApprovedBehaviorHash;
+        Assert.True(PlanningProducerRepair.Schedule(state));
+        Assert.Equal("/workflows/0/steps/0/outputSchema", Assert.Single(contract.Diagnostics).Location);
+        Assert.Contains(input, contract.Diagnostics[0].Message); Assert.Equal(approval, state.ApprovedBehaviorHash);
+        var patch = PlanningUnitPatches.Create(state.Graph, contract, PlanningConstruction.Schema(workflow, contract, state.Preparation!, state.Graph), state.Preparation);
+        var field = Assert.Single(patch.Context(contract.Candidate));
+        Assert.Equal("nodes/greeting/outputSchema", field.Key);
+        var changed = field.Value!.DeepClone(); changed["properties"]!.AsArray().Add(Field(input));
+        var candidate = patch.Apply(contract.Candidate, new() { ["changes"] = new JsonObject { [field.Key] = changed }, ["remove"] = new JsonArray() });
+        PlanningProducerRepair.Preserve(contract.ProducerReviewBaseline!, candidate);
+        Assert.False(PlanningProducerRepair.Schedule(state));
+        state.Graph = PlanningConstruction.Apply(state.Graph, contract, candidate, state.Preparation!);
+        contract.Status = "validated";
+        PlanningProducerRepair.ResumeConsumers(state);
+        var implementationPatch = PlanningUnitPatches.Create(state.Graph, implementation,
+            PlanningConstruction.Schema(state.Graph.Workflows[0], implementation, state.Preparation!, state.Graph), state.Preparation);
+        Assert.Equal("nodes/greeting/values/" + input, Assert.Single(implementationPatch.Context(implementation.Candidate)).Key);
+        var context = TypedWorkflowPlanner.ContractPrompt(state, workflow, contract, state.Preparation!);
+        Assert.Contains("ownedInputDependencies", context); Assert.Contains(input, context);
+    }
+
+    [Theory]
     [InlineData("source", "Read resource metadata")]
     [InlineData("renamed-capability", "Lire les metadonnees de la ressource")]
     public void MissingDependencyRevisitsOnlyContributingSynthesizedContracts(string source, string purpose)

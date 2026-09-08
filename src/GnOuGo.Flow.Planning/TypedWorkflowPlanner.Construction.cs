@@ -613,7 +613,11 @@ public sealed partial class TypedWorkflowPlanner
             ["key"] = n.Key, ["type"] = n.Type, ["purpose"] = n.Purpose,
             ["operationIds"] = new JsonArray(n.OperationIds.Select(id => (JsonNode?)JsonValue.Create(id)).ToArray())
         }).ToArray());
-        return new() { ["owned"] = Describe(owned), ["consumers"] = Describe(downstream), ["consumerContracts"] = consumerContracts,
+        var accepted = state.BehaviorPlan?.Workflows.FirstOrDefault(w => w.Key == workflow.Key);
+        var inputDependencies = accepted is null ? new JsonObject() : new JsonObject(PlanningBehaviorPlans.Enumerate(accepted.Steps.Concat(accepted.Finally))
+            .Where(n => owned.Any(o => o.Key == n.Key)).Select(n => new KeyValuePair<string, JsonNode?>(n.Key,
+                new JsonArray((n.InputDependencies ?? []).Select(i => (JsonNode?)JsonValue.Create(i)).ToArray()))));
+        return new() { ["owned"] = Describe(owned), ["ownedInputDependencies"] = inputDependencies, ["consumers"] = Describe(downstream), ["consumerContracts"] = consumerContracts,
             ["consumerSchemas"] = schemas, ["siblingProducerContracts"] = siblings, ["enclosingControlFlow"] = Describe(containers),
             ["requiredStructuredDecisions"] = new JsonArray(owned.SelectMany(n => PlanningProducerContracts.StructuredDecisions(n, state.Preparation!).Select(d => (JsonNode)new JsonObject { ["producer"] = n.Key, ["resultChannel"] = "structured", ["fieldPointer"] = PlanningProducerContracts.StructuredPointer(d), ["responseSchema"] = d.ResponseSchema.DeepClone() })).ToArray()) };
     }

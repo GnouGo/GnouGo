@@ -447,3 +447,10 @@ cumulative usage, answers and attempt history. Newly approved behavior starts un
 construction. Retry repairs older stopped sessions that have no executable units;
 it does not dispatch an empty patch because an earlier candidate had exhausted repairs.
 Manual YAML edits still enter complete artifact validation.
+
+Producer contract review also covers a native transformation whose implementation
+cannot consume its accepted business inputs. Only its extensible inline result schema
+can gain justified fields; catalog contracts and existing field constraints remain
+immutable. Contract prompts include the accepted input dependencies. After a schema
+addition, repair selects the missing value coordinates before reassessing semantic
+dependencies, preserving already valid calculations.

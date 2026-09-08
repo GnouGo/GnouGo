@@ -12,7 +12,7 @@ internal static class PlanningProducerRepair
     {
         var graph = state.Graph!; var preparation = state.Preparation!;
         foreach (var consumer in state.ConstructionUnits.Where(u => u.Kind == "implementation" && u.Status is not ("validated" or "superseded") &&
-            u.RepairCalls > 0 && !u.WaitingForProducerReview && u.Candidate is not null && u.Diagnostics.Any(d => d.Code == "OPERATION_INPUT_BINDING_MISSING")))
+            u.RepairCalls > 0 && !u.WaitingForProducerReview && u.Candidate is not null && u.Diagnostics.Any(d => d.Code is "OPERATION_INPUT_BINDING_MISSING" or "BUSINESS_INPUT_BINDING_MISSING")))
         {
             PlanningGraph candidate;
             try { candidate = PlanningConstruction.Apply(graph, consumer, consumer.Candidate!, preparation); }
@@ -25,8 +25,13 @@ internal static class PlanningProducerRepair
                 return PlanningOperationCompositions.RequiredInputs(workflow, node, preparation)
                     .Except(PlanningDataflow.OperationDependencies(workflow, node, preparation, candidate).Operations, StringComparer.Ordinal);
             }).Distinct(StringComparer.Ordinal).Order(StringComparer.Ordinal).ToArray();
-            if (missing.Length == 0) continue;
-            var fingerprint = PlanningGraphCompiler.Fingerprint(consumer.Candidate!.ToJsonString() + "\n" + string.Join("\n", missing));
+            var accepted = state.BehaviorPlan?.Workflows.FirstOrDefault(w => w.Key == workflow.Key);
+            var businessInputs = accepted is null ? new Dictionary<string, string[]>(StringComparer.Ordinal) : PlanningBehaviorPlans.Enumerate(accepted.Steps.Concat(accepted.Finally))
+                .Where(n => consumer.NodeKeys.Contains(n.Key)).Select(n => (n.Key, Missing: (n.InputDependencies ?? []).Except(PlanningDataflow.BusinessInputs(workflow, located.Single(p => p.Node.Key == n.Key).Node), StringComparer.Ordinal).ToArray()))
+                .Where(n => n.Missing.Length > 0).ToDictionary(n => n.Key, n => n.Missing, StringComparer.Ordinal);
+            if (missing.Length == 0 && businessInputs.Count == 0) continue;
+            var fingerprint = PlanningGraphCompiler.Fingerprint(consumer.Candidate!.ToJsonString() + "\n" + string.Join("\n", missing) + "\n" +
+                string.Join("\n", businessInputs.OrderBy(p => p.Key, StringComparer.Ordinal).Select(p => p.Key + ":" + string.Join(",", p.Value.Order(StringComparer.Ordinal)))));
             if (consumer.ConsumerContractReviews.Contains(fingerprint) || consumer.ConsumerContractReviews.Count >= state.Request.MaxRepairs) continue;
             // A container's operation owns the contributions of its children. Catalog
             // results are immutable; only already declared synthesized results qualify.
@@ -35,6 +40,11 @@ internal static class PlanningProducerRepair
                 located.Any(parent => (p.Path == parent.Path || p.Path.StartsWith(parent.Path + "/", StringComparison.Ordinal)) &&
                     parent.Node.OperationIds.Concat(preparation.Capabilities.FirstOrDefault(c => c.Id == parent.Node.CapabilityId)?.OperationIds ?? []).Intersect(missing).Any()))
                 .Select(p => p.Node.Key).ToHashSet(StringComparer.Ordinal);
+            // A native transformation can also have an incomplete result contract.
+            // Revisit only its own extensible inline object, never a catalog schema
+            // or a field fabricated merely to satisfy dependency counting.
+            contributors.UnionWith(located.Where(p => businessInputs.ContainsKey(p.Node.Key) && p.Node.Type == "set" &&
+                p.Node.OutputSchema is { CapabilityId: null, Type: "object" }).Select(p => p.Node.Key));
             var producers = state.ConstructionUnits.Where(u => u.WorkflowKey == consumer.WorkflowKey && u.Kind == "contracts" && u.Status == "validated" &&
                 u.Candidate is not null && u.NodeKeys.Any(contributors.Contains)).ToArray();
             if (producers.Length == 0) continue;
@@ -48,9 +58,9 @@ internal static class PlanningProducerRepair
                 producer.Diagnostics = PlanningGraphValidation.Located(original.Steps, "/workflows/" + wi + "/steps")
                     .Concat(PlanningGraphValidation.Located(original.Finally, "/workflows/" + wi + "/finally"))
                     .Where(p => producer.NodeKeys.Contains(p.Node.Key) && contributors.Contains(p.Node.Key))
-                    .Select(p => new PlanningDiagnostic(DiagnosticCode, p.Path + "/structuredOutput/schema",
-                        "Consumer " + string.Join(", ", consumer.NodeKeys) + " still cannot consume required operation " + string.Join(", ", missing) +
-                        ". Review this producer's contribution against the declared consumer argument contracts. Add only fields that this observation can establish. Preserve every existing field, type, constraint and requiredness. " +
+                    .Select(p => new PlanningDiagnostic(DiagnosticCode, p.Path + (p.Node.Type == "set" ? "/outputSchema" : "/structuredOutput/schema"),
+                        "Consumer " + string.Join(", ", consumer.NodeKeys) + " still cannot consume required operations [" + string.Join(", ", missing) + "] and accepted business inputs [" + string.Join(", ", businessInputs.SelectMany(p => p.Value).Distinct(StringComparer.Ordinal)) + "]" +
+                        ". Review this producer's contribution against its accepted input dependencies, purpose and declared consumer argument contracts. Add only fields that this operation can establish and its behavior or consumers need. Do not add an unused input copy to bypass dependency validation. Preserve every existing field, type, constraint and requiredness. " +
                         "Return the existing schema unchanged if this producer cannot supply the missing data; do not copy values from unrelated sources or invent observations. The consumer must still establish its dependency after this review.", ValidationStage: "dataflow")).ToList();
                 if (!consumer.Dependencies.Contains(producer.Key)) consumer.Dependencies.Add(producer.Key);
             }
@@ -66,6 +76,14 @@ internal static class PlanningProducerRepair
         {
             unit.WaitingForProducerReview = false; unit.RepairCallsAtRetry = unit.RepairCalls;
             unit.Status = "invalid"; unit.DispatchDiagnostics.Clear();
+            if (unit.Candidate is not null && state.Graph is { } graph && state.Preparation is { } preparation)
+            {
+                var workflow = graph.Workflows.Single(w => w.Key == unit.WorkflowKey);
+                var shape = PlanningConstruction.ShapeFindings(unit.Candidate, PlanningConstruction.Schema(workflow, unit, preparation, graph), unit);
+                // Added contract fields need implementation first. Preserve valid
+                // existing coordinates instead of resending the old whole-input finding.
+                if (shape.Count > 0) unit.Diagnostics = shape;
+            }
         }
     }
 
