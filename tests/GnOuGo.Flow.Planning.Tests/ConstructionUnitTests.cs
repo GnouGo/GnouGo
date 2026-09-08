@@ -9,6 +9,35 @@ namespace GnOuGo.Flow.Planning.Tests;
 public sealed class ConstructionUnitTests
 {
     [Theory]
+    [InlineData("source-a", "Return every observed item", "Observe all pages")]
+    [InlineData("renamed-source", "Retourner tous les elements observes", "Observer toutes les pages")]
+    public void ContractContextKeepsDeclaredConsumersAndAncestorsWithoutUnrelatedImplementations(string sourceId, string consumerPurpose, string loopPurpose)
+    {
+        var state = ApprovedSkeleton(); var workflow = state.Graph!.Workflows[0];
+        var producer = workflow.Steps[0]; producer.CapabilityId = sourceId; producer.OperationIds = ["read"];
+        workflow.Steps = [new() { Key = "traversal", Type = "loop.sequential", Purpose = loopPurpose, Steps = [producer] }];
+        state.Preparation!.Capabilities =
+        [
+            new() { Id = sourceId, StepType = "mcp.call", OperationIds = ["read"], OutputSchema = new() { ["type"] = "string" } },
+            new() { Id = "consumer-contract", StepType = "mcp.call", OperationIds = ["consume"], InputOperationIds = ["read"] }
+        ];
+        state.Graph.Workflows.Add(new() { Key = "consumer-workflow", Steps = [new() { Key = "consumer-node", OperationIds = ["consume"], Purpose = consumerPurpose }] });
+        state.Feedback = "Preserve complete traversal";
+        state.Request.Options["generator"] = new JsonObject { ["context"] = "Retain host policy" };
+        var unit = new PlanningConstructionUnit { Key = "contract", WorkflowKey = "main", Kind = "contracts", NodeKeys = [producer.Key], ContractVersion = PlanningDataflow.ContractVersion };
+        var before = TypedWorkflowPlanner.ContractPrompt(state, workflow, unit, state.Preparation);
+        for (var i = 0; i < 40; i++) workflow.Steps.Add(new() { Key = "unrelated-" + i, Purpose = new string('x', 2_000) });
+        workflow.Steps.Add(new() { Key = "unrelated-implementation", Expr = new() { Kind = "expression", Text = "unrelatedHelper()" }, Input = Str(new string('x', 20_000)) });
+        var after = TypedWorkflowPlanner.ContractPrompt(state, workflow, unit, state.Preparation);
+        Assert.Equal(before, after);
+        Assert.Contains(consumerPurpose, after); Assert.Contains(loopPurpose, after);
+        Assert.Contains("Retain host policy", after); Assert.Contains(state.Feedback, after);
+        Assert.Contains(sourceId, after); Assert.DoesNotContain("unrelated", after);
+        Assert.DoesNotContain("JavaScript", after); Assert.DoesNotContain("helper", after);
+        Assert.InRange(PlanningConstruction.EstimateInputTokens(after, PlanningConstruction.Schema(workflow, unit, state.Preparation, state.Graph)), 1, 12_000);
+    }
+
+    [Theory]
     [InlineData(false)]
     [InlineData(true)]
     public async Task CompletionCeilingRetainsTheCandidateAndReportsTransportOutcome(bool repairing)
