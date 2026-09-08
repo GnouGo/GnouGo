@@ -9,6 +9,44 @@ namespace GnOuGo.Flow.Planning.Tests;
 public sealed class ConstructionUnitTests
 {
     [Theory]
+    [InlineData("resource", "read_group", false)]
+    [InlineData("ressource", "groupe_renomme", true)]
+    public async Task ParentConstructionDefersAggregateInputChecksUntilChildrenExist(string input, string key, bool retained)
+    {
+        var state = ApprovedSkeleton(); var behavior = state.BehaviorPlan!.Workflows[0];
+        behavior.Inputs = [new(input, "Runtime resource", true)]; behavior.Outputs = [];
+        behavior.Steps = [new() { Key = key, Kind = "parallel", Purpose = "Read the runtime resource", InputDependencies = [input],
+            Steps = [new() { Key = "child", Purpose = "Read", InputDependencies = [] }] }];
+        state.ApprovedBehaviorHash = PlanningBehaviorPlans.Fingerprint(state.BehaviorPlan);
+        state.Graph = PlanningBehaviorPlans.Display(state.BehaviorPlan, state.Preparation!);
+        state.Graph.Workflows[0].Inputs[0].Schema = new() { Type = "string" };
+        state.Dataflow = new() { InputObligations = { ["main/" + key] = [input] } };
+        state.ConstructionUnits = [new() { Key = "parent", WorkflowKey = "main", Kind = "implementation", NodeKeys = [key], ContractVersion = PlanningDataflow.ContractVersion },
+            new() { Key = "child", WorkflowKey = "main", Kind = "implementation", NodeKeys = ["child"], Dependencies = ["parent"], ContractVersion = PlanningDataflow.ContractVersion }];
+        if (retained)
+        {
+            var unit = state.ConstructionUnits[0];
+            unit.Candidate = new() { ["nodes"] = new JsonObject { [key] = new JsonObject() }, ["functions"] = null };
+            unit.CandidateHash = PlanningGraphCompiler.Fingerprint(unit.Candidate.ToJsonString());
+            unit.Diagnostics = [new("BUSINESS_INPUT_BINDING_MISSING", "/workflows/0/steps/0/input", "Previous aggregate finding")];
+            unit.Status = "invalid"; unit.ContractVersion--;
+            state = JsonSerializer.Deserialize(JsonSerializer.Serialize(state, PlanningJsonContext.Default.PlanningSnapshot), PlanningJsonContext.Default.PlanningSnapshot)!;
+        }
+        var runtime = new FakeRuntime { OnCall = (_, _, _) => throw new InvalidOperationException("An empty native container requires no model call.") };
+        state = await Advance(new TypedWorkflowPlanner(), state, runtime);
+        Assert.Equal("validated", state.ConstructionUnits[0].Status);
+        Assert.Empty(state.Diagnostics);
+        var parent = state.Graph!.Workflows[0].Steps[0];
+        Assert.False(TypedWorkflowPlanner.ConstructionInputsAvailable(state, state.ConstructionUnits[0], parent));
+        // Deferred construction validation never exempts the full artifact from the obligation.
+        Assert.Contains(PlanningBehaviorPlans.ValidateImplementation(state.BehaviorPlan!, state.Graph, state.Preparation!), d => d.Code == "BUSINESS_INPUT_BINDING_MISSING");
+        state.ConstructionUnits[1].Status = "validated";
+        Assert.True(TypedWorkflowPlanner.ConstructionInputsAvailable(state, state.ConstructionUnits[0], parent));
+        parent.Branches[0].Steps[0].Input = Obj(("value", new() { Kind = "input", Source = input }));
+        Assert.DoesNotContain(PlanningBehaviorPlans.ValidateImplementation(state.BehaviorPlan!, state.Graph, state.Preparation!), d => d.Code == "BUSINESS_INPUT_BINDING_MISSING");
+    }
+
+    [Theory]
     [InlineData(false)]
     [InlineData(true)]
     public async Task HelperValidationIsIdenticalOnRetainedCandidatesAndRepairs(bool exhausted)

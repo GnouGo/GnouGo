@@ -80,9 +80,21 @@ public sealed partial class TypedWorkflowPlanner
         var workflow = graph.Workflows.Single(w => w.Key == unit.WorkflowKey);
         foreach (var (node, path) in PlanningGraphValidation.Located(workflow.Steps, "/workflows/" + graph.Workflows.IndexOf(workflow) + "/steps").Concat(PlanningGraphValidation.Located(workflow.Finally, "/workflows/" + graph.Workflows.IndexOf(workflow) + "/finally")))
         {
-            if (!unit.NodeKeys.Contains(node.Key, StringComparer.Ordinal) || !state.Dataflow.InputObligations.TryGetValue(workflow.Key + "/" + node.Key, out var required)) continue;
+            if (!unit.NodeKeys.Contains(node.Key, StringComparer.Ordinal) || !ConstructionInputsAvailable(state, unit, node) || !state.Dataflow.InputObligations.TryGetValue(workflow.Key + "/" + node.Key, out var required)) continue;
             var actual = PlanningDataflow.BusinessInputs(workflow, node);
             foreach (var missing in required.Where(name => !actual.Contains(name))) yield return new("BUSINESS_INPUT_BINDING_MISSING", path + "/input", "The operation must depend on business input '" + missing + "'. Preserve its runtime binding instead of using example constants.");
         }
+    }
+
+    // Container input reachability includes its children. A parent-first construction
+    // queue has not implemented those children yet; validate the aggregate once their
+    // implementations exist. Full workflow validation still checks every obligation.
+    internal static bool ConstructionInputsAvailable(PlanningSnapshot state, PlanningConstructionUnit unit, PlanningNode node)
+    {
+        var descendants = PlanningGraphCompiler.Enumerate(node.Steps.Concat(node.Default)
+            .Concat(node.Cases.SelectMany(c => c.Steps)).Concat(node.Branches.SelectMany(b => b.Steps)));
+        return descendants.All(child => unit.NodeKeys.Contains(child.Key, StringComparer.Ordinal) ||
+            !state.ConstructionUnits.Any(other => other.WorkflowKey == unit.WorkflowKey && other.Kind == "implementation" &&
+                other.Status is not ("validated" or "superseded") && other.NodeKeys.Contains(child.Key, StringComparer.Ordinal)));
     }
 }

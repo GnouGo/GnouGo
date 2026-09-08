@@ -120,7 +120,9 @@ public sealed partial class TypedWorkflowPlanner
                 var workflow = graph.Workflows.Single(w => w.Key == unit.WorkflowKey);
                 var preparation = UnitPreparation(state.Preparation!, workflow, unit);
                 var schema = PlanningConstruction.Schema(workflow, unit, preparation, graph);
-                var repair = unit.Calls > 0 && unit.Diagnostics.Count != 0;
+                // Deterministically constructed candidates have zero model calls, but
+                // their retained diagnostics must also be refreshed after an upgrade.
+                var repair = unit.Diagnostics.Count != 0 && (unit.Calls > 0 || unit.Candidate is not null);
                 if (repair && unit.Candidate is not null && PlanningConstruction.ShapeFindings(unit.Candidate, schema, unit).Count == 0)
                 {
                     try
@@ -277,7 +279,7 @@ public sealed partial class TypedWorkflowPlanner
         var wi = graph.Workflows.FindIndex(w => w.Key == unit.WorkflowKey); var workflow = graph.Workflows[wi];
         var owned = PlanningGraphValidation.Located(workflow.Steps, "/workflows/" + wi + "/steps")
             .Concat(PlanningGraphValidation.Located(workflow.Finally, "/workflows/" + wi + "/finally"))
-            .Where(p => unit.NodeKeys.Contains(p.Node.Key, StringComparer.Ordinal)).Select(p => p.Path + "/input").ToHashSet(StringComparer.Ordinal);
+            .Where(p => unit.NodeKeys.Contains(p.Node.Key, StringComparer.Ordinal) && ConstructionInputsAvailable(state, unit, p.Node)).Select(p => p.Path + "/input").ToHashSet(StringComparer.Ordinal);
         return PlanningBehaviorPlans.ValidateImplementation(state.BehaviorPlan!, graph, state.Preparation!).Where(d =>
             d.Code != "BUSINESS_INPUT_BINDING_MISSING" || unit.Kind == "implementation" && owned.Contains(d.Location));
     }
