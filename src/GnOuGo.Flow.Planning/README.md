@@ -228,7 +228,9 @@ These fixtures establish synthetic control-flow coverage, never live external re
 An evidenced semantic finding about missing runtime observations targets the affected
 operation's `/preparation` location. Bounded reassessment retains answers, usage and
 discovery, discards invalid inventory and derived construction, and requires fresh
-behavior approval. Machine diagnostics remain separate from user-intent evidence.
+behavior approval. Independent behavior and implementation findings remain active
+through reassessment and restart; an exhausted reassessment displays all current
+findings. Machine diagnostics remain separate from user-intent evidence.
 Computation validation checks statically named fields on typed parameters and simple
 aliases against their producer schemas. Opaque results permit whole serialization,
 not invented `.text` or `.json` projections. Dynamic JavaScript still requires runtime

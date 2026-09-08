@@ -52,7 +52,7 @@ public sealed partial class TypedWorkflowPlanner
         state.Attempts.Add(new(PlanningGraphCompiler.Fingerprint(state.Graph!), "preparation_review", 9, false, findings.ToList()));
         if (state.PreparationReassessments >= state.Request.MaxRepairs)
         {
-            state.Diagnostics = preparation;
+            state.Diagnostics = findings.ToList();
             state.Diagnostics.Add(new("PREPARATION_REASSESSMENT_LIMIT", "/preparation", "Required runtime observations remain unresolved after the configured preparation reassessments. The current candidate is retained and cannot be approved."));
             state.Status = PlanningStatus.Recovery; state.CurrentPhase = PlanningPhase.Capabilities;
             state.ApprovedHash = null; state.ArtifactHash = null;
@@ -66,9 +66,14 @@ public sealed partial class TypedWorkflowPlanner
         state.BestGraph = null; state.BestScenarios.Clear(); state.BestDiagnostics.Clear(); state.ReviewedGraph = null;
         ResetBehavior(state); state.BehaviorRevisionSource = null; state.BehaviorRevisionPatch = null;
         state.ApprovedHash = null; state.ArtifactHash = null; state.Yaml = null; state.Scenarios.Clear();
-        state.Feedback = null; state.RepairAttempt = 0; state.NonImprovingAttempts = 0;
+        // Capability repair does not satisfy independent behavior or implementation
+        // findings. Keep them active for the new behavior assessment and construction,
+        // separately from the immutable request and retained user answers.
+        state.Feedback = "Resolve these evidenced coverage findings while preserving every existing request, answer and locked obligation:\n" +
+            string.Join("\n", findings.Where(d => d.Required).Select(d => d.Location + ": " + d.Message));
+        state.RepairAttempt = 0; state.NonImprovingAttempts = 0;
         state.IntentChecked = true; state.Status = PlanningStatus.Created; state.CurrentPhase = PlanningPhase.Capabilities;
-        state.Diagnostics = preparation;
+        state.Diagnostics = findings.ToList();
         var fingerprint = PlanningGraphCompiler.Fingerprint("decision-contract-v1\n" + JsonSerializer.Serialize(EffectiveRequest(state), PlanningJsonContext.Default.PlanningRequest));
         state.PreparationCheckpoint = new() { Fingerprint = fingerprint, Version = PlanningPreparationCheckpoint.CurrentVersion };
         if (discovery is not null) state.PreparationCheckpoint.ValidatedResults["discovery"] = discovery;

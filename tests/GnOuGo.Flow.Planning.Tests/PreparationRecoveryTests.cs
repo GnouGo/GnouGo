@@ -51,6 +51,10 @@ public sealed class PreparationRecoveryTests
             {
                 ["code"] = "OBSERVATION_MISSING", ["workflow"] = "main", ["location"] = "/workflows/0/steps/0/preparation",
                 ["message"] = "The required computation cannot observe external content through a resource handle.", ["evidence"] = prompt, ["blocking"] = true
+            }, new JsonObject
+            {
+                ["code"] = "FAILURE_RESULT_MISSING", ["workflow"] = "main", ["location"] = "/workflows/0/steps/0/input",
+                ["message"] = "Retain the unsuccessful observation outcome in the public result.", ["evidence"] = prompt, ["blocking"] = true
             }) } });
         } };
         var planner = new TypedWorkflowPlanner();
@@ -59,14 +63,23 @@ public sealed class PreparationRecoveryTests
         Assert.Null(state.ApprovedHash); Assert.Null(state.ArtifactHash); Assert.Single(state.Answers);
         Assert.Equal(1, state.ClarificationForms); Assert.Equal(1, state.ClarificationQuestions); Assert.Equal(prompt, state.Request.Prompt);
         Assert.Contains(state.Attempts, a => a.Phase == "preparation_review");
-        if (exhausted) { Assert.Contains(state.Diagnostics, d => d.Code == "PREPARATION_REASSESSMENT_LIMIT"); Assert.NotNull(state.Graph); return; }
+        if (exhausted)
+        {
+            Assert.Contains(state.Diagnostics, d => d.Code == "PREPARATION_REASSESSMENT_LIMIT");
+            Assert.Contains(state.Diagnostics, d => d.Code == "FAILURE_RESULT_MISSING"); Assert.NotNull(state.Graph); return;
+        }
         Assert.Null(state.ApprovedBehaviorHash); Assert.Null(state.Preparation); Assert.Null(state.Graph);
         Assert.NotNull(state.PreparationCheckpoint!.ValidatedResults["discovery"]); Assert.Null(state.PreparationCheckpoint.ValidatedResults["inventory"]);
         state = JsonSerializer.Deserialize(JsonSerializer.Serialize(state, PlanningJsonContext.Default.PlanningSnapshot), PlanningJsonContext.Default.PlanningSnapshot)!;
+        Assert.Contains("unsuccessful observation outcome", state.Feedback);
         runtime = new FakeRuntime { OnPrepare = request =>
         {
             Assert.Contains("Retained choice", request.Prompt); Assert.DoesNotContain("resource handle", request.Prompt);
             Assert.Single(request.PreparationFeedback); return Task.FromResult(Preparation());
+        }, OnCall = (phase, request, _) =>
+        {
+            Assert.Equal("behavior", phase); Assert.Contains("unsuccessful observation outcome", request.Prompt);
+            return Task.FromResult(new LLMResponse { Json = JsonSerializer.SerializeToNode(BehaviorPlan(), PlanningJsonContext.Default.PlanningBehaviorPlan) });
         } };
         state = await planner.AdvanceAsync(state, new() { ExpectedRevision = state.Revision }, runtime, TestContext.Current.CancellationToken);
         state = await planner.AdvanceAsync(state, new() { ExpectedRevision = state.Revision }, runtime, TestContext.Current.CancellationToken);
