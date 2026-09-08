@@ -23,7 +23,13 @@ public sealed partial class TypedWorkflowPlanner
         if (targets.Length == 0 || findings.Any(d => d.Required && d.Location.EndsWith("/behavior", StringComparison.Ordinal) &&
             !targets.Any(n => d.Location == n.Path + "/behavior"))) return false;
         var baseline = state.BehaviorRevisionSource ??= PlanningBehaviorRevisions.Inspect(state.PreviousGraph);
-        var schema = PlanningBehaviorRevisions.Schema(state.Preparation!, baseline, targets.Select(t => (t.Workflow.Key, t.Node.Key)));
+        var ownedNodes = targets.SelectMany(t => PlanningBehaviorPlans.Enumerate([PlanningBehaviorPlans.Enumerate(
+            baseline.Workflows.Single(w => w.Key == t.Workflow.Key).Steps.Concat(baseline.Workflows.Single(w => w.Key == t.Workflow.Key).Finally)).Single(n => n.Key == t.Node.Key)])).ToArray();
+        var ownedIds = ownedNodes.Select(n => n.CapabilityId).OfType<string>().ToHashSet(StringComparer.Ordinal);
+        var operations = ownedNodes.SelectMany(n => n.OperationIds).ToHashSet(StringComparer.Ordinal);
+        var scoped = new PlanningPreparation { Capabilities = state.Preparation!.Capabilities.Where(c => ownedIds.Contains(c.Id) || c.OperationIds.Any(operations.Contains)).ToList() };
+        var incoming = scoped.Capabilities.SelectMany(c => c.InputOperationIds).Where(id => !operations.Contains(id)).ToHashSet(StringComparer.Ordinal);
+        var schema = PlanningBehaviorRevisions.Schema(scoped, baseline, targets.Select(t => (t.Workflow.Key, t.Node.Key)));
         var prompt = "Revise only the named behavior nodes to address the evidenced coverage findings. " +
             "Use wrap_loop to repeat an existing operation; supply an empty loop node and the host retains the original child. " +
             "Use replace for a changed subtree. Preserve original node keys, capabilities, business inputs, ownership, effects, confirmations and cleanup. " +
@@ -35,14 +41,17 @@ public sealed partial class TypedWorkflowPlanner
                 PlanningJsonContext.Default.PlanningBehaviorNode)!).ToArray()).ToJsonString() +
             "\nExisting node keys (do not duplicate):\n" + string.Join(", ", baseline.Workflows.SelectMany(w => PlanningBehaviorPlans.Enumerate(w.Steps.Concat(w.Finally))).Select(n => n.Key)) +
             "\nBusiness inputs:\n" + string.Join(", ", baseline.Workflows.SelectMany(w => w.Inputs).Select(p => p.Name)) +
-            "\nSelected capability contracts:\n" + BehaviorCapabilities(state.Preparation!);
+            "\nOwned capability contracts:\n" + BehaviorCapabilities(scoped) +
+            "\nIncoming operation boundaries (existing producers outside the revision):\n" + new JsonArray(state.Preparation.Capabilities.Where(c => c.OperationIds.Any(incoming.Contains))
+                .Select(c => (JsonNode)new JsonObject { ["operationIds"] = new JsonArray(c.OperationIds.Select(id => (JsonNode?)JsonValue.Create(id)).ToArray()), ["description"] = c.Description }).ToArray()).ToJsonString();
         var diagnostics = new List<PlanningDiagnostic>();
         while (state.BehaviorAssessmentCalls < 2)
         {
             var actual = prompt + (state.BehaviorRevisionPatch is null ? "" : "\nRepair this revision only:\n" + state.BehaviorRevisionPatch.ToJsonString()) +
                 (diagnostics.Count == 0 ? "" : "\nDiagnostics:\n" + JsonSerializer.Serialize(diagnostics, PlanningJsonContext.Default.ListPlanningDiagnostic));
-            if (PlanningConstruction.EstimateInputTokens(actual, schema) > state.Request.Generation.MaxInputTokensPerUnit)
-            { diagnostics = [new("BEHAVIOR_REVISION_CONTEXT_TOO_LARGE", "/behavior", "The focused behavior revision exceeds the configured context limit. No request was sent.")]; break; }
+            var estimatedTokens = PlanningConstruction.EstimateInputTokens(actual, schema);
+            if (estimatedTokens > state.Request.Generation.MaxInputTokensPerUnit)
+            { diagnostics = [new("BEHAVIOR_REVISION_CONTEXT_TOO_LARGE", "/behavior", "The focused behavior revision needs " + estimatedTokens + " estimated input tokens; its limit is " + state.Request.Generation.MaxInputTokensPerUnit + ". No request was sent.")]; break; }
             var generator = state.Request.Options["generator"];
             var response = await runtime.CallAsync(PlanningGenerationPolicy.Apply(new LLMRequest
             {

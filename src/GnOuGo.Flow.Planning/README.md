@@ -28,6 +28,10 @@ diagnosed fields only. Supported findings cannot be removed by that repair. Sour
 remain distinct, and model-written questions or generated contract prose cannot establish
 user intent. Missing external observations return to capability preparation and behavior
 review; a repaired citation alone does not establish executable correctness.
+Behavior revision requests share repeated schema vocabularies and include capability
+contracts only for the affected subtrees, with incoming operations described as boundaries.
+The complete revised behavior still undergoes validation against the full locked preparation
+and requires a new approval. Context failures report estimated size and the configured limit.
 
 ## Contracts and host integration
 

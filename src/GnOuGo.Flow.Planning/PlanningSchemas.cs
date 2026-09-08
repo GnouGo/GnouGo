@@ -70,9 +70,10 @@ internal static class PlanningSchemas
         if (preparation is not null)
         {
             var operations = preparation.Capabilities.SelectMany(c => c.OperationIds).Distinct(StringComparer.Ordinal).ToArray();
+            if (operations.Length > 0) root["$defs"]!["behaviorOperationId"] = Enum(operations);
             foreach (var definition in new[] { "behaviorNode", "behaviorWorkflow" })
             {
-                var field = Array(operations.Length == 0 ? String() : Enum(operations));
+                var field = Array(operations.Length == 0 ? String() : Ref("behaviorOperationId"));
                 if (operations.Length == 0) field["maxItems"] = 0;
                 root["$defs"]![definition]!["properties"]!["operationIds"] = field;
             }
@@ -98,7 +99,8 @@ internal static class PlanningSchemas
     {
         var schema = Behavior(preparation);
         var names = candidate.Workflows.SelectMany(w => w.Inputs).Select(p => p.Name).Distinct(StringComparer.Ordinal).ToArray();
-        var dependencies = Array(names.Length == 0 ? String() : Enum(names));
+        if (names.Length > 0) schema["$defs"]!["behaviorInputName"] = Enum(names);
+        var dependencies = Array(names.Length == 0 ? String() : Ref("behaviorInputName"));
         if (names.Length == 0) dependencies["maxItems"] = 0;
         foreach (var variant in schema["$defs"]!["behaviorNode"]!["anyOf"]!.AsArray())
             variant!["properties"]!["inputDependencies"] = dependencies.DeepClone();

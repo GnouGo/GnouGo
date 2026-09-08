@@ -8,6 +8,64 @@ namespace GnOuGo.Flow.Planning.Tests;
 
 public sealed class BehaviorRevisionTests
 {
+    [Fact]
+    public async Task RevisionReceivesOwnedContractsWithoutUnrelatedCatalogPayloads()
+    {
+        var state = Session(PlanningStatus.Created); state.Preparation = Preparation(); state.IntentChecked = true;
+        state.PreviousGraph = Graph(); state.BehaviorRevisionSource = BehaviorPlan(); state.Feedback = "Repeat the owned operation.";
+        state.BehaviorRevisionSource.Workflows[0].Steps[0].CapabilityId = "owned";
+        state.BehaviorRevisionSource.Workflows[0].Steps[0].OperationIds = ["required"];
+        state.Preparation.Capabilities.Add(new() { Id = "owned", StepType = "set", OperationIds = ["required"], InputOperationIds = ["source"] });
+        state.Preparation.Capabilities.Add(new() { Id = "incoming", StepType = "set", OperationIds = ["source"], Description = "Established producer boundary" });
+        for (var i = 0; i < 15; i++) state.Preparation.Capabilities.Add(new() { Id = "unrelated" + i, StepType = "set", OperationIds = ["other" + i], Description = new string('x', 5000) });
+        state.Attempts.Add(new(PlanningGraphCompiler.Fingerprint(state.PreviousGraph), "semantic_review", 9, false,
+            [new("CARDINALITY", "/workflows/0/steps/0/behavior", state.Feedback)]));
+        var runtime = new FakeRuntime { OnCall = (phase, request, _) =>
+        {
+            Assert.Equal("behavior_revision", phase);
+            Assert.DoesNotContain("unrelated", request.Prompt); Assert.Contains("Established producer boundary", request.Prompt);
+            Assert.DoesNotContain("unrelated", request.StructuredOutputSchema!.ToJsonString());
+            Assert.InRange(PlanningConstruction.EstimateInputTokens(request.Prompt, request.StructuredOutputSchema.AsObject()), 1, 12000);
+            return Task.FromResult(new LLMResponse { CompletionStatus = "output_limit" });
+        } };
+        state = await new TypedWorkflowPlanner().AdvanceAsync(state, new() { ExpectedRevision = state.Revision }, runtime, TestContext.Current.CancellationToken);
+        Assert.Single(runtime.Phases); Assert.Contains(state.Diagnostics, d => d.Code == "MODEL_OUTPUT_LIMIT");
+        Assert.Equal(17, state.Preparation!.Capabilities.Count);
+    }
+
+    [Theory]
+    [InlineData("operation", "resource")]
+    [InlineData("renamed", "entrée")]
+    public void RepeatedBehaviorVocabulariesAreSharedWithoutChangingAllowedValues(string prefix, string input)
+    {
+        var prep = Preparation(); var plan = BehaviorPlan();
+        plan.Workflows[0].Inputs.Add(new(input, "Required dynamic value", true));
+        for (var i = 0; i < 16; i++) prep.Capabilities.Add(new() { Id = "cap" + i, StepType = "set", OperationIds = [prefix + "_" + i + "_" + new string('x', 35)] });
+        var schema = PlanningBehaviorRevisions.Schema(prep, plan, [("main", "greeting")]);
+        var expanded = (JsonObject)schema.DeepClone();
+        Expand(expanded);
+        Assert.True(schema.ToJsonString().Length < expanded.ToJsonString().Length * .8);
+        Assert.Empty(PlanningContractValidation.ValidateSchema(schema, strict: true));
+        var node = new PlanningBehaviorNode { Key = "greeting", Purpose = "Retain the operation", OperationIds = [prep.Capabilities[0].OperationIds[0]], InputDependencies = [input] };
+        var candidate = new JsonObject { ["main/greeting"] = new JsonObject { ["action"] = "replace", ["node"] = JsonSerializer.SerializeToNode(node, PlanningJsonContext.Default.PlanningBehaviorNode) } };
+        Assert.Empty(PlanningContractValidation.ValidateInstance(candidate, schema));
+        Assert.Empty(PlanningContractValidation.ValidateInstance(candidate, expanded));
+        candidate["main/greeting"]!["node"]!["operationIds"]![0] = "invented";
+        Assert.NotEmpty(PlanningContractValidation.ValidateInstance(candidate, schema));
+        Assert.NotEmpty(PlanningContractValidation.ValidateInstance(candidate, expanded));
+        void Expand(JsonNode? value)
+        {
+            if (value is JsonArray array) { foreach (var child in array) Expand(child); return; }
+            if (value is not JsonObject obj) return;
+            if (obj["$ref"]?.ToString() is "#/$defs/behaviorOperationId" or "#/$defs/behaviorInputName")
+            {
+                var definition = schema["$defs"]![obj["$ref"]!.ToString().Split('/').Last()]!.AsObject(); obj.Clear();
+                foreach (var entry in definition) obj[entry.Key] = entry.Value?.DeepClone();
+            }
+            foreach (var entry in obj) Expand(entry.Value);
+        }
+    }
+
     [Theory]
     [InlineData(false)]
     [InlineData(true)]

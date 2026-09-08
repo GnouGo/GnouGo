@@ -93,7 +93,8 @@ public sealed class BehaviorRecoveryTests
         Assert.Contains("producer_step", request.Prompt);
         Assert.Contains("Allowed inputs: resource", request.Prompt);
         var variants = request.StructuredOutputSchema!["$defs"]!["behaviorNode"]!["anyOf"]!.AsArray();
-        Assert.All(variants, variant => Assert.Equal("resource", Assert.Single(variant!["properties"]!["inputDependencies"]!["items"]!["enum"]!.AsArray())!.GetValue<string>()));
+        Assert.All(variants, variant => Assert.Equal("#/$defs/behaviorInputName", variant!["properties"]!["inputDependencies"]!["items"]!["$ref"]!.GetValue<string>()));
+        Assert.Equal("resource", Assert.Single(request.StructuredOutputSchema["$defs"]!["behaviorInputName"]!["enum"]!.AsArray())!.GetValue<string>());
     }
 
     [Fact]
