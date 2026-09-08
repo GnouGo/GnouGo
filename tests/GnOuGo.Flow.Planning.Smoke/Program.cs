@@ -100,6 +100,18 @@ if (metadata.Preparation?.Capabilities[0].Resolution != "mcp" || metadata.Prepar
     metadata.Preparation.Capabilities[0].ArtifactContract?.Produces[0].Encoding != "json_array" ||
     metadata.Diagnostics[0].ValidationStage != PlanningValidationStage.ConditionalActivation)
     throw new InvalidOperationException("Published activation and artifact metadata did not survive serialization.");
+var continuationGraph = new PlanningGraph { Workflows = [new() { Key = "main", Steps = [new()
+{
+    Key = "repeat", Type = "loop.sequential", Input = new() { Kind = "object", Members = [new("while", new()
+    { Kind = "compute", Text = "previous == null || previous.more === true", Members = [new("previous", new() { Kind = "loop_previous", Source = "repeat", Path = ["observe"] })] })] },
+    Steps = [new() { Key = "observe", Input = new() { Kind = "object", Members = [new("more", new() { Kind = "boolean", Boolean = false })] } }]
+}], Outputs = [new() { Name = "count", Schema = new() { Type = "integer" }, Value = new() { Kind = "output", Source = "repeat", Path = ["count"] } }] }] };
+continuationGraph = JsonSerializer.Deserialize(JsonSerializer.Serialize(continuationGraph, PlanningJsonContext.Default.PlanningGraph), PlanningJsonContext.Default.PlanningGraph)!;
+preparation.AllowedStepTypes.Add("loop.sequential");
+var continuation = new WorkflowCompiler().Compile(WorkflowParser.Parse(new PlanningGraphCompiler().Compile(continuationGraph, preparation)));
+var continuationResult = await new WorkflowEngine().ExecuteAsync(continuation.Workflows[continuation.Entrypoint!], new JsonObject(), CancellationToken.None);
+if (!continuationResult.Success || continuationResult.Outputs?["count"]?.GetValue<int>() != 1)
+    throw new InvalidOperationException("Published typed sequential continuation failed: " + continuationResult.Error?.Message);
 Console.WriteLine("Typed planning AOT smoke passed.");
 
 sealed class SmokeRuntime(PlanningGraph graph, PlanningPreparation preparation) : IPlanningRuntime

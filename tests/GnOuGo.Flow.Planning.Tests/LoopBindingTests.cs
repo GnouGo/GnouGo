@@ -9,6 +9,34 @@ namespace GnOuGo.Flow.Planning.Tests;
 
 public sealed class LoopBindingTests
 {
+    [Theory]
+    [InlineData("pages", "observe", 0)]
+    [InlineData("étapes", "lire", 7)]
+    public async Task SequentialContinuationUsesThePreviousTypedResultAndDynamicInput(string loopKey, string tool, int start)
+    {
+        var preparation = Preparation();
+        var inputSchema = JsonNode.Parse("""{"type":"object","properties":{"cursor":{"type":"integer"}},"required":["cursor"]}""")!.AsObject();
+        var outputSchema = JsonNode.Parse("""{"type":"object","properties":{"next":{"type":"integer"},"more":{"type":"boolean"}},"required":["next","more"]}""")!.AsObject();
+        preparation.Capabilities.Add(new() { Id = "cap", StepType = "mcp.call", Server = "renamed", Method = tool, Kind = "tool", InputSchema = inputSchema, OutputSchema = outputSchema });
+        PlanningValue Previous() => new() { Kind = "loop_previous", Source = loopKey, Path = ["fetch", "response"] };
+        var loop = new PlanningNode { Key = loopKey, Type = "loop.sequential", Input = Obj(("while", new()
+            { Kind = "compute", Text = "previous == null || previous.more === true", Members = [new("previous", Previous())] }), ("max_times", new() { Kind = "number", Number = 4 })), Steps =
+            [new() { Key = "fetch", Type = "mcp.call", CapabilityId = "cap", Input = Obj(("request", Obj(("cursor", new()
+                { Kind = "compute", Text = "previous == null ? start : previous.next", Members = [new("previous", Previous()), new("start", new() { Kind = "input", Source = "start" })] })))) }] };
+        var workflow = new PlanningWorkflow { Key = "main", Inputs = [new() { Name = "start", Required = true, Schema = new() { Type = "integer" } }], Steps = [loop] };
+        var graph = new PlanningGraph { Workflows = [workflow] };
+        Assert.Contains(PlanningDataflow.Index(workflow, preparation, graph, loopKey).Values, b => b.Value.Kind == "loop_previous" && b.Value.Path.SequenceEqual(new[] { "fetch", "response" }) && b.Availability == "nullable");
+        Assert.Empty(PlanningExecutableValidation.Validate(graph, preparation));
+        var observed = new List<int>(); var factory = new InMemoryMcpClientFactory();
+        factory.RegisterServer("renamed", new() { Tools = [new() { Name = tool, InputSchema = inputSchema, OutputSchema = outputSchema }], ToolHandlers = new() { [tool] = args =>
+        { var cursor = args!["cursor"]!.GetValue<int>(); observed.Add(cursor); return new() { Content = new JsonObject { ["next"] = cursor + 1, ["more"] = cursor == start } }; } } });
+        var compiled = new WorkflowCompiler().Compile(WorkflowParser.Parse(new PlanningGraphCompiler().Compile(graph, preparation)));
+        var run = await new WorkflowEngine { McpClientFactory = factory }.ExecuteAsync(compiled.Workflows[compiled.Entrypoint!], new JsonObject { ["start"] = start }, TestContext.Current.CancellationToken);
+        Assert.True(run.Success, run.Error?.Message); Assert.Equal(new[] { start, start + 1 }, observed);
+        workflow.Steps.Add(new() { Key = "outside", Input = Obj(("invalid", Previous())) });
+        Assert.Contains(PlanningGraphValidation.Validate(graph, preparation), d => d.Code == "LOOP_BINDING_SCOPE_INVALID");
+    }
+
     [Fact]
     public async Task FailureEnvelopeCanRetainTheCurrentLoopItemWithoutACyclicResultContract()
     {

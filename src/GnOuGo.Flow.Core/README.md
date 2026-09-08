@@ -884,6 +884,12 @@ Executes independent branches concurrently.
 
 Loops sequentially with `times`, `while`, or `items`. Supports `item_var` and `index_var` for item iteration (same interface as `loop.parallel`).
 
+`data._loop_previous_<step-id>` exposes the previous completed iteration's step
+results to the `while` condition and loop body. It is null before the first iteration
+and restored or removed when the loop exits, including failure and cancellation.
+Each nested sequential loop owns its snapshot. Planner v2 selects these results
+through typed nullable bindings; it does not infer continuation from unrelated steps.
+
 ```yaml
 # Fixed count
 - id: retry_loop

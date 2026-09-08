@@ -157,6 +157,10 @@ enters durable recovery, and waiting never consumes active planning time.
 Loop item contracts are checked at the loop's exact input coordinate before scenario
 setup. An untyped computation must be replaced with a typed array binding or a
 validated transformation producer; it cannot become a generic graph-level repair.
+Sequential continuation uses nullable `loop_previous` bindings derived from the
+declared child result schemas. They are available in the loop's `while` condition
+and body, and are null before the first iteration. Lowering owns their runtime
+addresses. Parallel loops and references outside the owning loop cannot select them.
 
 `PlanningValue.ResultChannel` is optional: null/`default` retains legacy result addressing,
 while `structured` selects validated `mcp.call`/`llm.call` structured-output `.json`.

@@ -174,13 +174,16 @@ public static class PlanningGraphValidation
                     errors.Add(new("WORKFLOW_REFERENCE_INVALID", location + "/source", "The workflow reference has no declared workflow. Input ports require input references; step results require output references."));
                 if (value.ResultChannel is not (null or "default" or "structured" or "envelope") || (value.ResultChannel is not null && value.Kind != "output"))
                     errors.Add(new("RESULT_CHANNEL_INVALID", location + "/resultChannel", "Only output references select default, structured or supported result-envelope channels."));
-                if (value.Kind is "loop_item" or "loop_index")
+                if (value.Kind is "loop_item" or "loop_index" or "loop_previous")
                 {
                     var loop = nodes.FirstOrDefault(n => n.Node.Key == value.Source && n.Node.Type is "loop.sequential" or "loop.parallel");
-                    if (loop.Node is null || !location.StartsWith(loop.Path + "/steps/", StringComparison.Ordinal))
-                        errors.Add(new("LOOP_BINDING_SCOPE_INVALID", location, "A loop item or index is available only inside that loop body."));
+                    var whileIndex = loop.Node?.Input.Members.FindIndex(m => m.Name == "while") ?? -1;
+                    var inCondition = whileIndex >= 0 && value.Kind != "loop_item" && location.StartsWith(loop.Path + "/input/members/" + whileIndex + "/value", StringComparison.Ordinal);
+                    if (loop.Node is null || value.Kind == "loop_previous" && loop.Node.Type != "loop.sequential" ||
+                        !inCondition && !location.StartsWith(loop.Path + "/steps/", StringComparison.Ordinal))
+                        errors.Add(new("LOOP_BINDING_SCOPE_INVALID", location, "Loop bindings are scoped to their loop body; previous results and indices may also be used in that loop's while condition. Previous results require sequential execution."));
                 }
-                if (value.Kind is "output" or "input" or "loop_item" or "loop_index" or "artifact_collection")
+                if (value.Kind is "output" or "input" or "loop_item" or "loop_index" or "loop_previous" or "artifact_collection")
                 {
                     try { _ = ValueSchema(value, new(StringComparer.Ordinal)); }
                     catch (Exception ex) when (ex is InvalidOperationException or ArgumentException or FormatException) { errors.Add(new("OUTPUT_REFERENCE_INVALID", location, ex.Message)); }
@@ -191,6 +194,22 @@ public static class PlanningGraphValidation
 
             JsonObject? ValueSchema(PlanningValue value, HashSet<string> visiting)
             {
+                if (value.Kind == "loop_previous")
+                {
+                    var loop = byKey.GetValueOrDefault(value.Source ?? "");
+                    if (loop?.Type != "loop.sequential") throw new InvalidOperationException("Previous iteration results require a sequential loop.");
+                    var key = "loop_previous:" + loop.Key;
+                    if (!visiting.Add(key)) throw new InvalidOperationException("The previous iteration needs established child result contracts.");
+                    try
+                    {
+                        var previous = AtPath(ChildSchema(loop.Steps, visiting), value.Path).DeepClone().AsObject();
+                        if (previous["type"] is JsonValue type) previous["type"] = new JsonArray(type.DeepClone(), JsonValue.Create("null"));
+                        else if (previous["type"] is JsonArray types && !types.Any(t => t?.ToString() == "null")) types.Add((JsonNode?)JsonValue.Create("null"));
+                        else if (previous["type"] is null) previous = new() { ["anyOf"] = new JsonArray(previous, new JsonObject { ["type"] = "null" }) };
+                        return previous;
+                    }
+                    finally { visiting.Remove(key); }
+                }
                 if (value.Kind == "artifact_collection")
                 {
                     var loop = byKey.GetValueOrDefault(value.Source ?? "");

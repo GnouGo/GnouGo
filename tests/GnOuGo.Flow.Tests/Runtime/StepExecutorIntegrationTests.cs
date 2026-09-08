@@ -13,6 +13,75 @@ namespace GnOuGo.Flow.Tests.Runtime;
 /// </summary>
 public class StepExecutorIntegrationTests
 {
+    [Fact]
+    public async Task SequentialLoopUsesPreviousIterationAndRemovesItsScopedSnapshot()
+    {
+        var result = await RunMain("""
+            version: 1
+            entrypoint: main
+            workflows:
+              main:
+                steps:
+                  - id: pages
+                    type: loop.sequential
+                    input:
+                      while: '${data._loop_previous_pages == null || data._loop_previous_pages.page.more === true}'
+                      max_times: 4
+                    steps:
+                      - id: page
+                        type: set
+                        input:
+                          offset: '${(data._loop_previous_pages?.page?.offset ?? 0) + 1}'
+                          more: '${data._loop.index < 1}'
+                  - id: verify
+                    type: set
+                    input:
+                      count: '${data.steps.pages.count}'
+                      released: '${data._loop_previous_pages == null}'
+                outputs:
+                  count: {type: number, expr: '${data.steps.verify.count}'}
+                  released: {type: boolean, expr: '${data.steps.verify.released}'}
+            """);
+        Assert.True(result.Success, result.Error?.Message);
+        Assert.Equal(2, result.Outputs!["count"]!.GetValue<int>());
+        Assert.True(result.Outputs["released"]!.GetValue<bool>());
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task PreviousIterationSnapshotIsReleasedAfterFailureOrCancellation(bool cancel)
+    {
+        using var cancellation = new CancellationTokenSource(); JsonObject? observed = null;
+        var executor = new Mock<IStepExecutor>(); executor.SetupGet(x => x.StepType).Returns("template.render");
+        executor.Setup(x => x.ExecuteAsync(It.IsAny<StepExecutionContext>(), It.IsAny<CancellationToken>()))
+            .Returns((StepExecutionContext context, CancellationToken _) =>
+            {
+                observed = context.Data;
+                Assert.True(observed.ContainsKey(LoopIterationContract.PreviousResultVariable("pages")));
+                if (cancel) { cancellation.Cancel(); return Task.FromCanceled<JsonNode?>(cancellation.Token); }
+                return Task.FromException<JsonNode?>(new InvalidOperationException("injected failure"));
+            });
+        var compiled = CompileDoc("""
+            version: 1
+            entrypoint: main
+            workflows:
+              main:
+                steps:
+                  - id: pages
+                    type: loop.sequential
+                    input: {times: 2}
+                    steps:
+                      - id: observe
+                        type: template.render
+                        input: {engine: mustache, template: sample, mode: text}
+            """);
+        var engine = new WorkflowEngine(); engine.Registry.Register(executor.Object);
+        var result = await engine.ExecuteAsync(compiled.Workflows[compiled.Entrypoint!], new JsonObject(), cancellation.Token);
+        Assert.False(result.Success); Assert.NotNull(observed);
+        Assert.False(observed.ContainsKey(LoopIterationContract.PreviousResultVariable("pages")));
+    }
+
     [Theory]
     [InlineData("times: 3")]
     [InlineData("while: '${data._loop.index < 3}'")]
