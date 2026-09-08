@@ -12,7 +12,8 @@ public static class PlanningExecutableValidation
 {
     public static IReadOnlyList<PlanningDiagnostic> Validate(PlanningGraph graph, PlanningPreparation preparation)
     {
-        var errors = PlanningDataflow.OperationInputFindings(graph, preparation).Concat(PlanningProducerContracts.Findings(graph, preparation)).ToList();
+        var errors = PlanningDataflow.OperationInputFindings(graph, preparation).Concat(PlanningProducerContracts.Findings(graph, preparation))
+            .Concat(PlanningComputationContracts.Findings(graph, preparation)).ToList();
         Script(graph.Functions, "/functions");
         for (var wi = 0; wi < graph.Workflows.Count; wi++)
         {

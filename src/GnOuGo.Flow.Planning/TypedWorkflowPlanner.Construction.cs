@@ -125,9 +125,11 @@ public sealed partial class TypedWorkflowPlanner
                     {
                         var preview = PlanningConstruction.Apply(graph, unit, unit.Candidate, state.Preparation!);
                         preview.Workflows.Single(w => w.Key == unit.WorkflowKey).Functions = MergeFunctions(state, unit, unit.Candidate["functions"]?.GetValue<string>());
-                        if (!UnitFindings(preview, state.Preparation!, unit).Any() && !InputObligationFindings(state, preview, unit).Any() &&
-                            !UnitBehaviorFindings(state, preview, unit).Any())
+                        var currentFindings = UnitFindings(preview, state.Preparation!, unit).Concat(InputObligationFindings(state, preview, unit))
+                            .Concat(UnitBehaviorFindings(state, preview, unit)).ToList();
+                        if (currentFindings.Count == 0)
                             return (unit, response: (LLMResponse?)new LLMResponse { Json = unit.Candidate.DeepClone() }, patch: (PlanningUnitPatches?)null, error: (Exception?)null);
+                        unit.Diagnostics = currentFindings;
                     }
                     catch (Exception ex) when (ex is InvalidOperationException or ArgumentException or FormatException) { /* Repair the retained candidate below. */ }
                 }

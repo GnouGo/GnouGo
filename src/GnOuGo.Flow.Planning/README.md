@@ -161,6 +161,11 @@ Sequential continuation uses nullable `loop_previous` bindings derived from the
 declared child result schemas. They are available in the loop's `while` condition
 and body, and are null before the first iteration. Lowering owns their runtime
 addresses. Parallel loops and references outside the owning loop cannot select them.
+Computation validation checks statically named fields on typed parameters and simple
+aliases against their producer schemas. Opaque results permit whole serialization,
+not invented `.text` or `.json` projections. Dynamic JavaScript still requires runtime
+and semantic validation. Retried units refresh their findings before constructing a
+repair request, so newly detected contract defects are included without an extra call.
 
 `PlanningValue.ResultChannel` is optional: null/`default` retains legacy result addressing,
 while `structured` selects validated `mcp.call`/`llm.call` structured-output `.json`.
