@@ -141,7 +141,7 @@ public static class PlanningConstruction
                 if (unit.Kind == "contracts")
                 {
                     if (node.Type == "set") fields["outputSchema"] = Ref("schema");
-                    if (node.Type is "mcp.call" or "llm.call") fields["structuredOutput"] = PlanningProducerContracts.RequiresStructuredResult(node, preparation)
+                    if (node.Type is "mcp.call" or "llm.call") fields["structuredOutput"] = PlanningProducerContracts.UsesDeclaredObject(node, preparation) ? new JsonObject { ["type"] = "null" } : PlanningProducerContracts.RequiresStructuredResult(node, preparation)
                         ? Object(new() { ["schema"] = Ref("strictSchema") }) : Nullable(Object(new() { ["schema"] = Ref("strictSchema") }));
                 }
                 else
@@ -235,7 +235,9 @@ public static class PlanningConstruction
     {
         var result = JsonSerializer.Deserialize(JsonSerializer.Serialize(graph, PlanningJsonContext.Default.PlanningGraph), PlanningJsonContext.Default.PlanningGraph)!;
         var workflow = result.Workflows.Single(w => w.Key == unit.WorkflowKey);
-        var errors = ShapeFindings(candidate, Schema(workflow, unit, preparation, result), unit);
+        var schema = Schema(workflow, unit, preparation, result);
+        candidate = CompleteFixedFields(candidate, schema);
+        var errors = ShapeFindings(candidate, schema, unit);
         if (errors.Count != 0) throw new InvalidOperationException(string.Join("; ", errors.Select(d => d.Message)));
         if (unit.Kind == "inputs")
             foreach (var port in workflow.Inputs)
@@ -403,7 +405,38 @@ public static class PlanningConstruction
     };
 
     public static List<PlanningDiagnostic> ShapeFindings(JsonObject? candidate, JsonObject schema, PlanningConstructionUnit unit) =>
-        PlanningContractValidation.ValidateInstance(candidate, schema).Select(e => new PlanningDiagnostic("UNIT_RESPONSE_INVALID", "/units/" + PlanningSchemaReferences.Escape(unit.Key), e, ValidationStage: "conversion")).ToList();
+        PlanningContractValidation.ValidateInstance(candidate is null ? null : CompleteFixedFields(candidate, schema), schema).Select(e => new PlanningDiagnostic("UNIT_RESPONSE_INVALID", "/units/" + PlanningSchemaReferences.Escape(unit.Key), e, ValidationStage: "conversion")).ToList();
+
+    // The host owns empty container contracts and required null annotations. Their
+    // absence needs no model inference; malformed explicit values remain invalid.
+    internal static JsonObject CompleteFixedFields(JsonObject candidate, JsonObject schema)
+    {
+        var result = candidate.DeepClone().AsObject();
+        Complete(result, schema); return result;
+        static void Complete(JsonObject value, JsonObject contract)
+        {
+            foreach (var (key, child) in contract["properties"] as JsonObject ?? [])
+            {
+                if (child is not JsonObject expected) continue;
+                if (!value.ContainsKey(key) && TryFixedValue(expected, out var fixedValue)) value[key] = fixedValue;
+                else if (value[key] is JsonObject existing) Complete(existing, expected);
+            }
+        }
+    }
+
+    internal static bool TryFixedValue(JsonObject schema, out JsonNode? value)
+    {
+        value = null;
+        if (schema["type"]?.ToString() == "null") return true;
+        if (schema["type"]?.ToString() != "object" || schema["additionalProperties"]?.ToJsonString() != "false" || schema["properties"] is not JsonObject properties) return false;
+        var obj = new JsonObject();
+        foreach (var (key, child) in properties)
+        {
+            if (child is not JsonObject expected || !TryFixedValue(expected, out var fixedValue)) return false;
+            obj[key] = fixedValue;
+        }
+        value = obj; return true;
+    }
 
     public static int EstimateInputTokens(string prompt, JsonObject schema) => checked((Encoding.UTF8.GetByteCount(prompt) + Encoding.UTF8.GetByteCount(schema.ToJsonString()) + 2) / 3 + 256);
 

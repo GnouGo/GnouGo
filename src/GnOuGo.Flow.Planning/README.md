@@ -222,3 +222,8 @@ Planner v2 decision contracts, confirmation routing, recovery and live validatio
 Completed loops expose compiler-owned artifact collection bindings when their original MCP producers declare a JSON-array encoding. Models select the exact binding identifier. A missing artifact binding pauses before dispatch and checks whether the locked capability catalog changed; Retry after a catalog change preserves answers and usage but requires renewed behavior review.
 
 Opaque MCP producers with declared downstream operation dependencies must establish a validated structured result before consumer implementation. Contract generation receives downstream obligations; ordinary generated bindings then use the declared structured channel. Whole raw-result bindings remain available in the general contract index for serialization. Missing producer contracts are repaired at the source, before scenario failures can trigger repeated parser changes in consumers.
+New MCP nodes with declared object fields reuse their authoritative results directly.
+Additional interpretation requires an explicit transformation; existing structured
+declarations remain compatible. Empty native container contracts and required null
+annotations are constructed by the host. Missing model-owned fields and malformed
+explicit values still require validation and repair.

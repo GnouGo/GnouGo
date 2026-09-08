@@ -8,6 +8,55 @@ namespace GnOuGo.Flow.Planning.Tests;
 
 public sealed class OpaqueProducerTests
 {
+    [Fact]
+    public void MissingEmptyContainerContractsAreCompletedWithoutARepairOrChangingTheReceipt()
+    {
+        var preparation = Preparation(); var graph = Graph(); var workflow = graph.Workflows[0];
+        var route = new PlanningNode { Key = "route", Type = "switch", Expr = Str("take"), Cases = [new("take", null, [])] };
+        var loop = new PlanningNode { Key = "each", Type = "loop.sequential", Input = Obj(("items", new() { Kind = "array" })) };
+        var read = new PlanningNode { Key = "read", Type = "mcp.call", CapabilityId = "opaque", Input = Obj(("request", Obj())) };
+        workflow.Steps.AddRange([route, loop, read]);
+        preparation.Capabilities.Add(new() { Id = "opaque", StepType = "mcp.call", Server = "neutral", Method = "observe", Kind = "tool" });
+        var unit = new PlanningConstructionUnit { Key = "contracts", Kind = "contracts", WorkflowKey = workflow.Key, NodeKeys = [route.Key, loop.Key, read.Key] };
+        var schema = PlanningConstruction.Schema(workflow, unit, preparation, graph);
+        var receipt = new JsonObject { ["nodes"] = new JsonObject { [read.Key] = new JsonObject { ["structuredOutput"] = null } } };
+        var hash = PlanningGraphCompiler.Fingerprint(receipt.ToJsonString());
+        Assert.Empty(PlanningConstruction.ShapeFindings(receipt, schema, unit));
+        var lowered = PlanningConstruction.Apply(graph, unit, receipt, preparation);
+        Assert.Equal(PlanningGraphCompiler.Fingerprint(graph), PlanningGraphCompiler.Fingerprint(lowered));
+        Assert.Equal(hash, PlanningGraphCompiler.Fingerprint(receipt.ToJsonString()));
+        receipt["nodes"]!.AsObject().Remove(read.Key);
+        Assert.NotEmpty(PlanningConstruction.ShapeFindings(receipt, schema, unit));
+    }
+
+    [Theory]
+    [InlineData("first", "observe")]
+    [InlineData("renamed", "lire")]
+    public void DeclaredObjectResultsDoNotAskTheModelToRecreateTheirSchema(string server, string method)
+    {
+        var preparation = Preparation(); var graph = Graph(); var workflow = graph.Workflows[0];
+        preparation.Capabilities.Add(new() { Id = "typed", StepType = "mcp.call", Server = server, Method = method, Kind = "tool",
+            InputSchema = JsonNode.Parse("""{"type":"object","properties":{}}""")!.AsObject(),
+            OutputSchema = JsonNode.Parse("""{"type":"object","properties":{"message":{"type":"string"}},"required":["message"]}""")!.AsObject() });
+        var node = new PlanningNode { Key = "read", Type = "mcp.call", CapabilityId = "typed", Input = Obj(("request", Obj())) }; workflow.Steps.Insert(0, node);
+        var unit = new PlanningConstructionUnit { Key = "contract", Kind = "contracts", WorkflowKey = workflow.Key, NodeKeys = [node.Key] };
+        var schema = PlanningConstruction.Schema(workflow, unit, preparation, graph);
+        Assert.Equal("null", schema["properties"]!["nodes"]!["properties"]![node.Key]!["properties"]!["structuredOutput"]!["type"]!.GetValue<string>());
+        var candidate = new JsonObject { ["nodes"] = new JsonObject { [node.Key] = new JsonObject { ["structuredOutput"] = null } } };
+        Assert.Empty(PlanningConstruction.ShapeFindings(candidate, schema, unit));
+        Assert.True(JsonNode.DeepEquals(candidate, TypedWorkflowPlanner.EmptyConstruction(schema)));
+        var omitted = new JsonObject { ["nodes"] = new JsonObject() };
+        Assert.Empty(PlanningConstruction.ShapeFindings(omitted, schema, unit));
+        Assert.True(JsonNode.DeepEquals(candidate, PlanningConstruction.CompleteFixedFields(omitted, schema)));
+        Assert.Empty(omitted["nodes"]!.AsObject());
+        omitted["nodes"]![node.Key] = new JsonObject { ["structuredOutput"] = "invalid" };
+        Assert.NotEmpty(PlanningConstruction.ShapeFindings(omitted, schema, unit));
+        var result = PlanningConstruction.Apply(graph, unit, candidate, preparation);
+        Assert.Contains(PlanningDataflow.Index(result.Workflows[0], preparation, result, "greeting").Values, b => b.Value.Source == node.Key && b.Value.Path.SequenceEqual(new[] { "message" }));
+        node.StructuredOutput = new(new() { Type = "object", Properties = [new() { Name = "legacy", Required = true, Schema = new() { Type = "string" } }] });
+        Assert.False(PlanningProducerContracts.UsesDeclaredObject(node, preparation));
+    }
+
     [Theory]
     [InlineData("source", "consumer", false)]
     [InlineData("source_renommee", "consommateur", false)]

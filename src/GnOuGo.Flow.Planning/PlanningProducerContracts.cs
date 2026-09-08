@@ -5,6 +5,14 @@ namespace GnOuGo.Flow.Planning;
 /// <summary>Resolve opaque producer contracts before generating consumers that depend on their contents.</summary>
 internal static class PlanningProducerContracts
 {
+    // A newly constructed action with declared object fields already has its producer
+    // contract. Additional extraction belongs to an explicit transformation, not a
+    // second model-written interpretation of the same response. Preserve legacy
+    // structured declarations and their already-reviewed consumer bindings.
+    internal static bool UsesDeclaredObject(PlanningNode node, PlanningPreparation preparation) => node.Type == "mcp.call" && node.StructuredOutput is null &&
+        preparation.Capabilities.FirstOrDefault(c => c.Id == node.CapabilityId)?.OutputSchema is { } schema &&
+        schema["type"]?.ToString() == "object" && schema["properties"] is System.Text.Json.Nodes.JsonObject { Count: > 0 };
+
     internal static bool RequiresStructuredResult(PlanningNode node, PlanningPreparation preparation)
         => node.Type == "mcp.call" && preparation.Capabilities.FirstOrDefault(c => c.Id == node.CapabilityId) is { OutputSchema.Count: 0 } &&
             node.OperationIds.Count > 0 && preparation.Capabilities.Any(c => c.InputOperationIds.Intersect(node.OperationIds, StringComparer.Ordinal).Any());

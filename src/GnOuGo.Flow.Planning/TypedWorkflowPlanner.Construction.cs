@@ -552,12 +552,17 @@ public sealed partial class TypedWorkflowPlanner
     private sealed class UnitContextException : Exception;
     private sealed class UnitRepairException : Exception;
 
-    private static bool CanConstructWithoutModel(JsonObject schema) => schema["properties"]!.AsObject().All(p => p.Key == "functions" ||
-        p.Value!["properties"]!.AsObject().All(child => child.Value!["properties"]!.AsObject().Count == 0));
+    private static bool CanConstructWithoutModel(JsonObject schema) => PlanningConstruction.TryFixedValue(WithoutOptionalFunctions(schema), out _);
 
-    internal static JsonObject EmptyConstruction(JsonObject schema) => new(schema["properties"]!.AsObject().Select(p =>
-        new KeyValuePair<string, JsonNode?>(p.Key, p.Key == "functions" ? null : new JsonObject(p.Value!["properties"]!.AsObject().Select(child =>
-            new KeyValuePair<string, JsonNode?>(child.Key, new JsonObject()))))));
+    internal static JsonObject EmptyConstruction(JsonObject schema) => PlanningConstruction.TryFixedValue(WithoutOptionalFunctions(schema), out var value)
+        ? value!.AsObject() : throw new InvalidOperationException("This construction still requires executable model fields.");
+
+    private static JsonObject WithoutOptionalFunctions(JsonObject schema)
+    {
+        var result = schema.DeepClone().AsObject();
+        if (result["properties"] is JsonObject properties && properties.ContainsKey("functions")) properties["functions"] = new JsonObject { ["type"] = "null" };
+        return result;
+    }
 
     private sealed class UnitDeterministicException : Exception;
 
