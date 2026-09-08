@@ -7,6 +7,7 @@ internal sealed class WorkflowSymbolTable
 {
     private readonly Dictionary<string, FlowTypeDescriptor> _stepOutputs;
     private readonly Dictionary<string, FlowTypeDescriptor> _dataVariables;
+    private readonly Dictionary<string, FlowTypeDescriptor> _checkedStepOutputs;
     private readonly Dictionary<string, HashSet<string>> _resourceTags;
 
     private WorkflowSymbolTable(
@@ -15,7 +16,8 @@ internal sealed class WorkflowSymbolTable
         IReadOnlySet<string> allStepIds,
         Dictionary<string, FlowTypeDescriptor>? stepOutputs = null,
         Dictionary<string, FlowTypeDescriptor>? dataVariables = null,
-        Dictionary<string, HashSet<string>>? resourceTags = null)
+        Dictionary<string, HashSet<string>>? resourceTags = null,
+        Dictionary<string, FlowTypeDescriptor>? checkedStepOutputs = null)
     {
         WorkflowName = workflowName;
         WorkflowInputs = workflowInputs;
@@ -26,6 +28,7 @@ internal sealed class WorkflowSymbolTable
         _dataVariables = dataVariables == null
             ? new Dictionary<string, FlowTypeDescriptor>(StringComparer.Ordinal)
             : new Dictionary<string, FlowTypeDescriptor>(dataVariables, StringComparer.Ordinal);
+        _checkedStepOutputs = checkedStepOutputs == null ? new(StringComparer.Ordinal) : new(checkedStepOutputs, StringComparer.Ordinal);
         _resourceTags = resourceTags == null
             ? new Dictionary<string, HashSet<string>>(StringComparer.Ordinal)
             : resourceTags.ToDictionary(
@@ -50,7 +53,10 @@ internal sealed class WorkflowSymbolTable
             allStepIds);
 
     public WorkflowSymbolTable Clone() =>
-        new(WorkflowName, WorkflowInputs, AllStepIds, _stepOutputs, _dataVariables, _resourceTags);
+        new(WorkflowName, WorkflowInputs, AllStepIds, _stepOutputs, _dataVariables, _resourceTags, _checkedStepOutputs);
+
+    public void SetCheckedStepOutput(string stepId, FlowTypeDescriptor descriptor) => _checkedStepOutputs[stepId] = descriptor;
+    public bool TryGetCheckedStepOutput(string stepId, out FlowTypeDescriptor descriptor) => _checkedStepOutputs.TryGetValue(stepId, out descriptor!);
 
     public bool HasStepOutput(string stepId) => _stepOutputs.ContainsKey(stepId);
 

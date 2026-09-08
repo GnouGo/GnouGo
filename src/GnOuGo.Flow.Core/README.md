@@ -680,7 +680,7 @@ Combine `mcp.list` → `mcp.call` with a prompt to let an LLM choose the best to
 
 Resolved request properties whose discovered input schema marks them optional are omitted when their value is JSON `null`. This lets one typed request represent optional scalar fields without sending schema-invalid nulls. A null value for a required property is never omitted and still fails before transport.
 
-Documented action selectors (`method`, `action`, `operation`, `command`, `mode`, `event`, `kind`, JSON Schema `const`, and explicit discriminators) must be literal request scalars. Generated expressions cannot hide or dynamically replace the logical MCP operation selected during planning.
+Documented action selectors (`method`, `action`, `operation`, `command`, `mode`, `event`, `kind`, JSON Schema `const`, and explicit discriminators) must resolve to documented scalars. Validation accepts literals, proven finite expressions, and direct required enum references from runtime-checked `set` outputs. Optional, nullable, opaque, conditional, or unchecked fallback values cannot prove a selector. Generated expressions cannot hide or replace the logical MCP operation selected during planning.
 
 #### MCP progress events → thinking telemetry
 

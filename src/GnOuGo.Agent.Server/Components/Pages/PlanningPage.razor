@@ -40,7 +40,7 @@
             <p aria-live="polite">Validated units: @_state.ConstructionUnits.Count(u => u.Status == "validated") / @_state.ConstructionUnits.Count(u => u.Status != "superseded") · Targeted repairs: @_state.ConstructionUnits.Sum(u => u.RepairCalls)</p>
             @if (_state.ConstructionUnits.Any(u => u.PartialCandidate))
             {
-                <p>Generating remaining fields · Completed field groups: @_state.ConstructionUnits.Sum(u => u.GeneratedFieldGroups). Partial units require complete validation before approval.</p>
+                <p>Incomplete field construction · Completed field groups: @_state.ConstructionUnits.Sum(u => u.GeneratedFieldGroups). Partial units require complete validation before approval.</p>
             }
         }
         @if (PlanningStatus.IsWaiting(_state.Status) || _state.Status is PlanningStatus.Failed or PlanningStatus.Unsupported)

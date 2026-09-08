@@ -1184,6 +1184,12 @@ internal static class WorkflowPlanSemanticValidator
             var outputSchema = FlowTypeDescriptorConverter.ToRuntimeJsonSchema(outputType);
             knownContracts[step.Id] = outputSchema;
             symbols.SetStepOutput(step.Id, outputType);
+            // set enforces output_schema before downstream execution. A continuation
+            // may bypass that assertion, so it must itself satisfy the same contract.
+            if (step.Type == "set" && step.OutputSchema is { } checkedSchema && JsonSchemaContractValidator.ValidateSchema(checkedSchema, strictProfile: false).Count == 0 &&
+                (step.OnError?.Cases.All(h => h.Action == "stop" || h.Action == "continue" &&
+                    JsonSchemaContractValidator.ValidateInstance(h.SetOutput, checkedSchema).Count == 0) ?? true))
+                symbols.SetCheckedStepOutput(step.Id, FlowTypeDescriptorConverter.FromJsonSchema(checkedSchema));
             if (!string.IsNullOrWhiteSpace(step.Output))
             {
                 symbols.SetDataVariable(step.Output, outputType);
@@ -1955,7 +1961,8 @@ internal static class WorkflowPlanSemanticValidator
                 step.Id,
                 serverName,
                 methodName,
-                errors);
+                errors,
+                symbols);
             ValidateJsonNodeAgainstSchema(normalizedRequestValue, inputSchema, "", schemaErrors);
             AddRequiredStringLiteralErrors(
                 normalizedRequestValue,
@@ -2014,6 +2021,7 @@ internal static class WorkflowPlanSemanticValidator
         string serverName,
         string methodName,
         List<WorkflowSemanticValidationError> errors,
+        WorkflowSymbolTable symbols,
         string requestPath = "input.request",
         int depth = 0)
     {
@@ -2044,6 +2052,7 @@ internal static class WorkflowPlanSemanticValidator
                     && scalar.TryGetValue<string>(out var text)
                     && text.Contains("${", StringComparison.Ordinal)
                     && !ClosedExpressionValues.AreWithin(text, documentedValues)
+                    && !CheckedSelectorReference.IsWithin(text, documentedValues, symbols)
                     && !errors.Any(error => string.Equals(error.Code, "MCP_REQUEST_SELECTOR_NOT_LITERAL", StringComparison.Ordinal)
                                             && string.Equals(error.WorkflowName, workflowName, StringComparison.Ordinal)
                                             && string.Equals(error.StepId, stepId, StringComparison.Ordinal)
@@ -2073,6 +2082,7 @@ internal static class WorkflowPlanSemanticValidator
                     serverName,
                     methodName,
                     errors,
+                    symbols,
                     field,
                     depth + 1);
             }
@@ -2092,6 +2102,7 @@ internal static class WorkflowPlanSemanticValidator
                     serverName,
                     methodName,
                     errors,
+                    symbols,
                     requestPath,
                     depth + 1);
             }
