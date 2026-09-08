@@ -279,6 +279,21 @@ public static class PlanningGraphValidation
                         }
                         else if (producer.Type == "set") schema = producer.OutputSchema is not null ? PlanningGraphCompiler.ToJsonSchema(producer.OutputSchema, preparation) : ValueSchema(producer.Input, visiting);
                         else if (producer.Type == "sequence") schema = ChildSchema(producer.Steps, visiting);
+                        else if (producer.Type == "parallel")
+                        {
+                            // Branch positions are fixed by accepted topology. Resolve an
+                            // exact position against that branch, rather than pretending all
+                            // heterogeneous array elements have the same producer contract.
+                            if (value.Path.Count >= 2 && value.Path[0] == "branches")
+                            {
+                                if (!int.TryParse(value.Path[1], System.Globalization.NumberStyles.None, System.Globalization.CultureInfo.InvariantCulture, out var index) ||
+                                    index < 0 || index >= producer.Branches.Count || value.Path[1] != index.ToString(System.Globalization.CultureInfo.InvariantCulture))
+                                    throw new InvalidOperationException("The parallel result binding has no declared branch at this position.");
+                                return AtPath(ChildSchema(producer.Branches[index].Steps, visiting), value.Path.Skip(2).ToList());
+                            }
+                            schema = ObjectSchema([("branches", new JsonObject { ["type"] = "array", ["minItems"] = producer.Branches.Count, ["maxItems"] = producer.Branches.Count,
+                                ["items"] = new JsonObject { ["anyOf"] = new JsonArray(producer.Branches.Select(b => (JsonNode?)ChildSchema(b.Steps, visiting)).ToArray()) } })]);
+                        }
                         else if (producer.Type == "switch")
                         {
                             var selected = producer.Expr is { Kind: "string" } literal ? producer.Cases.FirstOrDefault(c => c.Value == literal.Text) : null;
@@ -337,6 +352,8 @@ public static class PlanningGraphValidation
                 {
                     schema = (JsonObject)schema.DeepClone();
                     schema["properties"] ??= new JsonObject(); schema["properties"]!["json"] = json.DeepClone();
+                    schema["required"] ??= new JsonArray();
+                    if (!schema["required"]!.AsArray().Any(p => p?.ToString() == "json")) schema["required"]!.AsArray().Add((JsonNode?)JsonValue.Create("json"));
                 }
                 if (node.Type == "mcp.call" && node.OnError.Any(h => h.Action == "continue"))
                 {

@@ -369,15 +369,17 @@ public sealed class ExecutableConstructionTests
     [InlineData("sequence")]
     [InlineData("loop.sequential")]
     [InlineData("switch")]
+    [InlineData("parallel")]
     public async Task NativeContainers_DeriveRealProducerContractsAndAddresses(string type)
     {
         var graph = Graph(); var child = graph.Workflows[0].Steps[0];
         var parent = new PlanningNode { Key = "container", Type = type };
         if (type == "switch") { parent.Expr = Str("selected"); parent.Cases = [new("selected", null, [child])]; }
+        else if (type == "parallel") parent.Branches = [new([child])];
         else parent.Steps = [child];
         if (type == "loop.sequential") parent.Input = Obj(("times", new() { Kind = "number", Number = 1 }));
         graph.Workflows[0].Steps = [parent];
-        graph.Workflows[0].Outputs[0].Value = new() { Kind = "output", Source = "container", Path = type == "loop.sequential" ? ["results", "0", "greeting", "message"] : ["greeting", "message"] };
+        graph.Workflows[0].Outputs[0].Value = new() { Kind = "output", Source = "container", Path = type == "parallel" ? ["branches", "0", "greeting", "message"] : type == "loop.sequential" ? ["results", "0", "greeting", "message"] : ["greeting", "message"] };
         var result = await Execute(graph, Preparation());
         Assert.True(result.Success, result.Error?.Message); Assert.Equal("Hello", result.Outputs?["message"]?.GetValue<string>());
     }

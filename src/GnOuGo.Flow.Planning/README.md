@@ -46,6 +46,9 @@ Input/output reference sources are constrained to declared keys. Public exports 
 a deterministic index of resolvable, exportable producer paths; schemas come from the selected
 producer. Optional fields cannot be selected as unconditional required values. Whole-object
 exports retain optional properties. Missing contracts require a validated transformation.
+Parallel outputs retain their fixed branch positions and declared child envelopes. Exact
+bindings expose raw and structured fields separately; provenance follows only original
+producer values, and a fallback without the field prevents unconditional selection.
 
 `PlanningRequest.Generation` defaults to 12,000 estimated input tokens per unit and an
 enforced 8,192 output-token ceiling per call. Oversized groups split before dispatch; an

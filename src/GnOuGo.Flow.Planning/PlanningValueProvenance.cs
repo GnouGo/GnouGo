@@ -48,12 +48,18 @@ internal static class PlanningValueProvenance
                 var selected = Select(producer.Type == "set" ? producer.Input : PlanningGraphValidation.Member(producer.Input, "value"), value.Path);
                 return selected is not null && Proves(workflow, selected, graph, source, visited);
             }
-            if (producer.Type is "sequence" or "switch" && value.Path.Count > 0)
+            if (producer.Type is "sequence" or "switch" or "parallel" && value.Path.Count > 0)
             {
-                var children = producer.Steps.Concat(producer.Cases.SelectMany(c => c.Steps)).Concat(producer.Default)
-                    .Where(n => n.Key == value.Path[0]).ToArray();
+                var path = value.Path.ToList();
+                IEnumerable<PlanningNode> candidates = producer.Steps.Concat(producer.Cases.SelectMany(c => c.Steps)).Concat(producer.Default);
+                if (producer.Type == "parallel")
+                {
+                    if (path.Count < 3 || path[0] != "branches" || !int.TryParse(path[1], out var index) || index < 0 || index >= producer.Branches.Count) return false;
+                    candidates = producer.Branches[index].Steps; path = path.Skip(2).ToList();
+                }
+                var children = candidates.Where(n => n.Key == path[0]).ToArray();
                 if (children.Length != 1) return false;
-                var child = children[0]; var path = value.Path.Skip(1).ToList();
+                var child = children[0]; path = path.Skip(1).ToList();
                 if (child.Type is "mcp.call" or "workflow.call")
                 {
                     var envelope = child.Type == "mcp.call" ? "response" : "outputs";

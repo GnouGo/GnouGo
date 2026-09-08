@@ -11,6 +11,31 @@ namespace GnOuGo.Flow.Planning.Tests;
 public sealed class DataflowBindingTests
 {
     [Theory]
+    [InlineData("reader", "parallel")]
+    [InlineData("lecteur_renomme", "lectures")]
+    public void ParallelBindingsExposeExactBranchProducersAndPreserveRawProvenance(string name, string group)
+    {
+        var graph = Graph(); var prep = Preparation(); var workflow = graph.Workflows[0];
+        prep.Capabilities.Add(new() { Id = "source", StepType = "mcp.call", OutputSchema = new JsonObject { ["type"] = "object",
+            ["properties"] = new JsonObject { ["location"] = new JsonObject { ["type"] = "string" } }, ["required"] = new JsonArray("location") } });
+        var read = new PlanningNode { Key = name, Type = "mcp.call", CapabilityId = "source", StructuredOutput = new(new() { Type = "object",
+            Properties = [new() { Name = "summary", Required = true, Schema = new() { Type = "string" } }] }) };
+        workflow.Steps.Insert(0, new() { Key = group, Type = "parallel", Branches = [new([read]), new([new() { Key = "other", Input = Obj(("unrelated", Str("value"))) }])] });
+        var bindings = PlanningDataflow.Index(workflow, prep, graph, "greeting").Values;
+        var raw = Assert.Single(bindings, b => b.Value.Source == group && b.Value.Path.SequenceEqual(new[] { "branches", "0", name, "response", "location" }));
+        Assert.Equal("string", raw.Schema["type"]!.ToString()); Assert.Equal("unconditional", raw.Availability);
+        Assert.Contains(bindings, b => b.Value.Path.SequenceEqual(new[] { "branches", "0", name, "json", "summary" }));
+        Assert.DoesNotContain(bindings, b => b.Value.Source == name); // completed group is the boundary
+        var resolve = PlanningGraphValidation.ValueContractResolver(graph, workflow, prep);
+        Assert.Throws<InvalidOperationException>(() => resolve(new() { Kind = "output", Source = group, Path = ["branches", "1", name, "response", "location"] }));
+        Assert.Throws<InvalidOperationException>(() => resolve(new() { Kind = "output", Source = group, Path = ["branches", "2"] }));
+        Assert.True(PlanningValueProvenance.Proves(workflow, raw.Value, graph, (node, value) => node == read && value.Path.SequenceEqual(new[] { "location" })));
+        Assert.False(PlanningValueProvenance.Proves(workflow, new() { Kind = "output", Source = group, Path = ["branches", "0", name, "json", "summary"] }, graph, (node, _) => node == read));
+        read.OnError = [new(null, "continue", Obj(("error", Str("unavailable"))), null)];
+        Assert.DoesNotContain(PlanningDataflow.Index(workflow, prep, graph, "greeting").Values, b => b.Value.Path.SequenceEqual(raw.Value.Path));
+    }
+
+    [Theory]
     [InlineData("context", "summary")]
     [InlineData("contexte", "résumé")]
     public void ComputedObjectMismatchRepairsItsStructureAndPreservesOtherFields(string source, string result)

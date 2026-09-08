@@ -8,7 +8,7 @@ namespace GnOuGo.Flow.Planning;
 internal static class PlanningDataflow
 {
     internal const int BindingVersion = 2;
-    internal const int ContractVersion = 22;
+    internal const int ContractVersion = 23;
     internal const string WorkflowOutputs = "$outputs";
 
     internal static Dictionary<string, PlanningBinding> Index(PlanningWorkflow workflow, PlanningPreparation preparation, PlanningGraph graph, string? consumer = null)
@@ -34,7 +34,14 @@ internal static class PlanningDataflow
             JsonObject schema;
             try { schema = resolve(source); }
             catch (InvalidOperationException) { continue; }
-            foreach (var path in Paths(schema, [], 0))
+            var paths = Paths(schema, [], 0);
+            if (source.Kind == "output" && nodes.FirstOrDefault(n => n.Key == source.Source) is { Type: "parallel" } parallel)
+                paths = paths.Concat(Enumerable.Range(0, parallel.Branches.Count).SelectMany(i =>
+                {
+                    var prefix = new List<string> { "branches", i.ToString(System.Globalization.CultureInfo.InvariantCulture) };
+                    return Paths(resolve(new() { Kind = "output", Source = parallel.Key, Path = prefix }), prefix, 0);
+                }));
+            foreach (var path in paths)
             {
                 var value = new PlanningValue { Kind = source.Kind, Source = source.Source, ResultChannel = source.ResultChannel, Path = path };
                 try

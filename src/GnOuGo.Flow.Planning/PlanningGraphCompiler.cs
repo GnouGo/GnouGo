@@ -379,7 +379,8 @@ public sealed partial class PlanningGraphCompiler
     private static string ResultPath(string type, IReadOnlyList<string> path, LoweringScope scope)
     {
         if (path.Count == 0) return "";
-        var childIndex = type is "switch" or "sequence" ? 0 : type is "loop.sequential" or "loop.parallel" && path[0] == "results" && path.Count >= 3 ? 2 : -1;
+        var childIndex = type is "switch" or "sequence" ? 0 :
+            ((type is "loop.sequential" or "loop.parallel" && path[0] == "results") || (type == "parallel" && path[0] == "branches")) && path.Count >= 3 ? 2 : -1;
         if (childIndex >= 0 && scope.NodeIds.TryGetValue(path[childIndex], out var child))
             return string.Concat(path.Take(childIndex).Select(Segment)) + Segment(child) + ResultPath(scope.NodeTypes[path[childIndex]], path.Skip(childIndex + 1).ToArray(), scope);
         return string.Concat(path.Select(Segment));
