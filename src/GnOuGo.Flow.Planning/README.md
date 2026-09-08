@@ -23,6 +23,11 @@ scenario validation. Active fixture phases are checkpointed before dispatch. An 
 ceiling pauses in recovery with `MODEL_OUTPUT_LIMIT`, preserving the workflow and avoiding
 an identical automatic retry. Synthetic observations still require actual deterministic
 execution to consume the complete sequence and terminate; they do not prove live behavior.
+Semantic assessment repairs select exact source excerpts or workflow-owned locations for
+diagnosed fields only. Supported findings cannot be removed by that repair. Source roles
+remain distinct, and model-written questions or generated contract prose cannot establish
+user intent. Missing external observations return to capability preparation and behavior
+review; a repaired citation alone does not establish executable correctness.
 
 ## Contracts and host integration
 

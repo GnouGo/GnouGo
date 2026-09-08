@@ -7,6 +7,36 @@ namespace GnOuGo.Flow.Planning.Tests;
 
 public sealed class SemanticReviewTests
 {
+    [Theory]
+    [InlineData("Restore each affected component", "Remove all temporary resources")]
+    [InlineData("Restaurer chaque composant concerné", "Supprimer toutes les ressources temporaires")]
+    public async Task EvidenceRepairCannotDropFindingsOrTreatGeneratedQuestionsAsIntent(string requirement, string cleanup)
+    {
+        var state = Session(PlanningStatus.Validating); state.Graph = Graph(); state.Preparation = Preparation();
+        state.Request.Prompt = requirement + "\n" + cleanup;
+        state.Answers.Add(new("Invented materialized context", new JsonObject { ["answer"] = "yes" }));
+        var calls = 0; var runtime = new FakeRuntime { OnCall = (_, request, _) =>
+        {
+            calls++;
+            if (calls == 2)
+            {
+                Assert.Single(request.StructuredOutputSchema!["properties"]!.AsObject());
+                var allowed = request.StructuredOutputSchema["properties"]!["finding_1_evidence"]!["enum"]!.AsArray().Select(v => v!.GetValue<string>());
+                Assert.DoesNotContain("Invented materialized context", allowed); Assert.Contains(requirement, allowed);
+                Assert.DoesNotContain("Graph:", request.Prompt);
+                return Task.FromResult(new LLMResponse { Json = new JsonObject { ["finding_1_evidence"] = requirement } });
+            }
+            return Task.FromResult(new LLMResponse { Json = new JsonObject { ["findings"] = new JsonArray(
+                Finding("CLEANUP", cleanup), Finding("OBSERVATION", "Invented materialized context")) } });
+        } };
+        state = await new TypedWorkflowPlanner().AdvanceAsync(state, new() { ExpectedRevision = state.Revision }, runtime, TestContext.Current.CancellationToken);
+        Assert.Equal(2, calls);
+        Assert.Contains(state.Diagnostics, d => d.Code == "CLEANUP"); Assert.Contains(state.Diagnostics, d => d.Code == "OBSERVATION");
+        Assert.DoesNotContain(state.Diagnostics, d => d.Code.StartsWith("SEMANTIC_REVIEW", StringComparison.Ordinal));
+        JsonObject Finding(string code, string evidence) => new() { ["code"] = code, ["workflow"] = "main", ["location"] = "/workflows/0/steps/0/input",
+            ["message"] = code + " must preserve the requirement.", ["evidence"] = evidence, ["blocking"] = true };
+    }
+
     [Fact]
     public async Task CollectionCleanupAndEnumFindingsSurviveBehaviorReassessmentAndRestart()
     {
@@ -72,6 +102,8 @@ public sealed class SemanticReviewTests
         {
             Assert.Equal("semantic_review", phase); calls++;
             if (calls == 2) Assert.Contains("assessment contract only", request.Prompt);
+            if (calls == 2 && !invalidWorkflow)
+                return Task.FromResult(new LLMResponse { Json = new JsonObject { ["finding_0_evidence"] = exhausted ? "invented request evidence" : "Return a greeting" } });
             return Task.FromResult(new LLMResponse { Json = new JsonObject { ["findings"] = new JsonArray(new JsonObject
             {
                 ["code"] = "SEMANTIC_NOTE", ["workflow"] = invalidWorkflow && calls == 1 ? "invented" : "main",

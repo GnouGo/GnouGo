@@ -596,6 +596,9 @@ public sealed partial class TypedWorkflowPlanner(TimeProvider? timeProvider = nu
 
     private async Task<List<PlanningDiagnostic>> ReviewAsync(PlanningSnapshot state, IPlanningRuntime runtime, CancellationToken ct, JsonObject? constructionEvidence = null)
     {
+        var sources = IntentSources(state);
+        var sourceJson = new JsonArray(sources.Select(source => (JsonNode)new JsonObject
+            { ["sourceId"] = source.Id, ["kind"] = source.Kind, ["text"] = source.Text, ["questionContext"] = source.QuestionContext }).ToArray());
         var prompt = "Review the typed graph against the exact requested observable behavior and locked contract. " +
             "Return only concrete findings supported by an exact evidence excerpt from the request. Preserve required effects and confirmation policy. " +
             "Check preservation of every requested effect, cardinality, ordering, uncertain outcome, and cleanup. A passing schema does not prove intent coverage. " +
@@ -603,7 +606,8 @@ public sealed partial class TypedWorkflowPlanner(TimeProvider? timeProvider = nu
             "Choose /behavior for missing iteration, ordering, routing, operations or other topology changes; field repair cannot change approved topology. " +
             "Choose the operation's /preparation when required runtime observations are absent from its available producer contracts, or a local computation is expected to inspect external state. " +
             "Do not repair missing observations by guessing fields, returning constant empty results, or asserting success. Preparation findings require new capability resolution and behavior review. " +
-            "Evidence must be a single verbatim substring, without added quotes, ellipses, or combined excerpts. No score is used.\nRequest:\n" + Context(state) +
+            "Evidence must be a single verbatim substring from a source text, without added quotes, ellipses, or combined excerpts. " +
+            "Source roles are authoritative: questionContext and generated contract text do not establish user intent. No score is used.\nSources:\n" + sourceJson.ToJsonString() +
             "\nLocked contract:\n" + (constructionEvidence is null ? state.Preparation!.LockedContract.ToJsonString() : "See the scoped construction evidence below.") +
             (constructionEvidence is null ? "\nGraph:\n" + JsonSerializer.Serialize(state.Graph, PlanningJsonContext.Default.PlanningGraph)
                 : "\nInvalid construction evidence:\n" + constructionEvidence.ToJsonString() +
@@ -618,16 +622,32 @@ public sealed partial class TypedWorkflowPlanner(TimeProvider? timeProvider = nu
             var repair = invalid.Count == 0 ? "" : "\nRepair the assessment contract only. Keep supported findings; do not modify the workflow.\nCandidate:\n" + response?.ToJsonString() + "\nInvalid fields:\n" + JsonSerializer.Serialize(invalid, PlanningJsonContext.Default.ListPlanningDiagnostic);
             if (constructionEvidence is not null && PlanningConstruction.EstimateInputTokens(prompt + repair, shape) > state.Request.Generation.MaxInputTokensPerUnit)
                 throw new SemanticAssessmentException([new("PREPARATION_REVIEW_CONTEXT_TOO_LARGE", "/preparation", "The affected observation assessment exceeds its configured context limit; no request was dispatched.")]);
-            try { response = await StructuredAsync(state, runtime, "semantic_review", prompt + repair, shape, ct, maxAttempts: 1); }
+            try
+            {
+                if (response is not null && invalid.Count > 0)
+                {
+                    var patch = new PlanningAssessmentPatches(response, invalid,
+                        sources.SelectMany(source => source.Text.Split('\n').Select(line => line.Trim()).Where(line => line.Length > 0)),
+                        targets.ToDictionary(p => p.Key, p => p.Value.Workflow, StringComparer.Ordinal));
+                    var patchPrompt = "Repair the assessment contract only. Select an exact allowed value for each diagnosed field. " +
+                        "All other findings and fields are locked. Keep the requirement associated with each finding; never infer intent from model-written questions or generated contracts. " +
+                        "\nAffected findings:\n" + patch.Context.ToJsonString() + "\nAuthoritative sources and roles:\n" + sourceJson.ToJsonString();
+                    if (PlanningConstruction.EstimateInputTokens(patchPrompt, patch.Schema) > state.Request.Generation.MaxInputTokensPerUnit)
+                        throw new SemanticAssessmentException([new("SEMANTIC_REVIEW_CONTEXT_TOO_LARGE", "/semanticReview", "The focused assessment repair exceeds its input ceiling; no request was dispatched.")]);
+                    var changes = await StructuredAsync(state, runtime, "semantic_review", patchPrompt, patch.Schema, ct, maxAttempts: 1, checkpoint: true);
+                    response = patch.Apply(response, changes);
+                }
+                else response = await StructuredAsync(state, runtime, "semantic_review", prompt + repair, shape, ct, maxAttempts: 1, checkpoint: true);
+            }
             catch (WorkflowRuntimeException ex) when (ex.Code == ErrorCodes.LlmSchema)
-            { invalid = [new("SEMANTIC_REVIEW_INVALID", "/semanticReview", "The semantic assessment response did not match its declared schema.")]; continue; }
+            { if (invalid.Count == 0) invalid = [new("SEMANTIC_REVIEW_INVALID", "/semanticReview", "The semantic assessment response did not match its declared schema.")]; continue; }
             invalid.Clear(); var diagnostics = new List<PlanningDiagnostic>(); var index = 0;
             foreach (var finding in response["findings"]!.AsArray().OfType<JsonObject>())
             {
                 var workflow = finding["workflow"]!.GetValue<string>();
                 var location = finding["location"]!.GetValue<string>();
                 var evidence = finding["evidence"]!.GetValue<string>();
-                if (string.IsNullOrWhiteSpace(evidence) || !Context(state).Contains(evidence, StringComparison.Ordinal))
+                if (string.IsNullOrWhiteSpace(evidence) || !sources.Any(source => source.Text.Contains(evidence, StringComparison.Ordinal)))
                     invalid.Add(new("SEMANTIC_REVIEW_EVIDENCE_INVALID", "/semanticReview/findings/" + index + "/evidence", "Copy one exact excerpt from the supplied request for this finding. Model assessment failures cannot justify executable changes."));
                 if (targets[location].Workflow != workflow)
                     invalid.Add(new("SEMANTIC_REVIEW_LOCATION_INVALID", "/semanticReview/findings/" + index + "/location", "The target must belong to the named workflow."));
