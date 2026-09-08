@@ -460,3 +460,12 @@ properties per response). The host merges them into the retained baseline, prese
 existing schemas and annotations exactly. Duplicate or replacement names fail
 atomically. This response contract also repairs older rejected candidates without
 requiring the model to reproduce existing declarations.
+
+Construction contract 44 rejects direct item-field access on typed array parameters
+and simple aliases, while permitting array operations and explicit element access.
+Discarded parameter reads (`void value` or `value;`) do not establish computation
+dependencies. A retained collection mismatch can trigger a bounded, evidence-checked
+behavior assessment; a required missing loop returns through behavior review without
+repeating capability discovery. Existing observation-only assessments remain scoped
+to preparation. This static validation does not prove arbitrary JavaScript semantics;
+scenario execution and request coverage review remain required.

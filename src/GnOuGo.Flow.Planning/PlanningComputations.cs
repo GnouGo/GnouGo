@@ -86,7 +86,7 @@ internal static class PlanningComputations
         var allowed = new HashSet<string>(names, StringComparer.Ordinal);
         allowed.UnionWith(["JSON", "Math", "Object", "Array", "String", "Number", "Boolean", "RegExp", "Set", "Map", "URL", "Error", "TypeError", "parseInt", "parseFloat", "isNaN", "isFinite", "encodeURI", "decodeURI", "encodeURIComponent", "decodeURIComponent", "undefined", "NaN", "Infinity"]);
         Collect(expression);
-        Check(expression, null);
+        Check(expression, null, true);
         foreach (var name in names.Where(name => !used.Contains(name)))
             throw new InvalidOperationException("Computation parameter '" + name + "' is unused. A declared binding must participate in the computation; it cannot disguise a hard-coded result.");
 
@@ -119,16 +119,17 @@ internal static class PlanningComputations
                     break;
             }
         }
-        void Check(Node node, Node? parent)
+        void Check(Node node, Node? parent, bool contributes)
         {
+            if (node is UnaryExpression { Operator: Acornima.Operator.Void } || node is Identifier && parent is ExpressionStatement) contributes = false;
             if (node is Identifier identifier && !(parent is MemberExpression member && ReferenceEquals(member.Property, node) && !member.Computed) &&
                 !(parent is Property property && ReferenceEquals(property.Key, node) && !property.Computed && !property.Shorthand))
             {
                 if (!allowed.Contains(identifier.Name) && !identifier.Name.StartsWith("u_", StringComparison.Ordinal))
                     throw new InvalidOperationException("Undeclared computation dependency '" + identifier.Name + "'. Pass a typed binding as a named parameter.");
-                if (names.Contains(identifier.Name, StringComparer.Ordinal)) used.Add(identifier.Name);
+                if (contributes && names.Contains(identifier.Name, StringComparer.Ordinal)) used.Add(identifier.Name);
             }
-            foreach (var child in node.ChildNodes) Check(child, node);
+            foreach (var child in node.ChildNodes) Check(child, node, contributes);
         }
         void Declare(string name)
         {

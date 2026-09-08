@@ -9,6 +9,39 @@ namespace GnOuGo.Flow.Planning.Tests;
 public sealed class PreparationRecoveryTests
 {
     [Theory]
+    [InlineData("Process every record", "records")]
+    [InlineData("Traiter chaque element", "elements")]
+    public async Task CollectionMismatchCanRequestBehaviorReviewWithoutRepeatingCapabilityDiscovery(string prompt, string input)
+    {
+        var state = ConstructionUnitTests.ApprovedSkeleton(); state.Request.Prompt = prompt;
+        state.Graph!.Workflows[0].Inputs = [new() { Name = input, Schema = new() { Type = "array", Items = new() { Type = "object",
+            Properties = [new() { Name = "message", Schema = new() { Type = "string" } }] } } }];
+        state.BehaviorPlan!.Workflows[0].Inputs = [new(input, "All records", true)];
+        state.Graph.Workflows[0].Steps[0].Input = Obj(("message", new() { Kind = "compute", Text = "records.message", Members = [new("records", new() { Kind = "input", Source = input })] }));
+        var unit = new PlanningConstructionUnit { Key = "unit", WorkflowKey = "main", Kind = "implementation", NodeKeys = ["greeting"], Status = "invalid", Calls = 3, RepairCalls = 2,
+            ContractVersion = PlanningDataflow.ContractVersion, CandidateHash = "array-as-item", Diagnostics = [new("COMPUTATION_COLLECTION_FIELD_INVALID", "/workflows/0/steps/0/input", "Array is not an item.")] };
+        unit.Candidate = PlanningConstruction.UpgradeCandidate(state.Graph, unit, PlanningConstruction.Values(state.Graph.Workflows[0], unit), state.Preparation!);
+        state.ConstructionUnits = [unit]; var preparation = state.Preparation;
+        state.Answers.Add(new("Retained policy", new() { ["answer"] = "Keep confirmation" })); state.Usage = new() { Calls = 12 };
+        var runtime = new FakeRuntime { OnCall = (phase, request, _) =>
+        {
+            Assert.Equal("semantic_review", phase);
+            Assert.Contains("/workflows/0/steps/0/behavior", request.StructuredOutputSchema!.ToJsonString());
+            return Task.FromResult(new LLMResponse { Json = new JsonObject { ["findings"] = new JsonArray(new JsonObject
+            {
+                ["code"] = "MISSING_ITERATION", ["workflow"] = "main", ["location"] = "/workflows/0/steps/0/behavior",
+                ["message"] = "The requested per-item operation needs a loop.", ["evidence"] = prompt, ["blocking"] = true
+            }) } });
+        } };
+        state = await new TypedWorkflowPlanner().AdvanceAsync(state, new() { ExpectedRevision = state.Revision }, runtime, TestContext.Current.CancellationToken);
+        Assert.Equal(PlanningStatus.Created, state.Status); Assert.Equal(PlanningPhase.Behavior, state.CurrentPhase);
+        Assert.NotNull(state.Preparation); Assert.Equal(preparation!.Fingerprint, state.Preparation.Fingerprint);
+        Assert.Equal(0, state.PreparationReassessments); Assert.Null(state.ApprovedBehaviorHash);
+        Assert.NotNull(state.BehaviorRevisionSource); Assert.Single(state.Answers); Assert.Equal(12, state.Usage!.Calls);
+        Assert.Equal(new[] { "semantic_review" }, runtime.Phases);
+    }
+
+    [Theory]
     [InlineData("source", "mode")]
     [InlineData("renamed-provider", "operation")]
     public async Task ObservationAssessmentSeesInjectedBindingsInsteadOfUnfinishedSkeletons(string capabilityId, string selector)

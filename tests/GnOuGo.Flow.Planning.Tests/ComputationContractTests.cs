@@ -7,6 +7,26 @@ namespace GnOuGo.Flow.Planning.Tests;
 public sealed class ComputationContractTests
 {
     [Theory]
+    [InlineData("records.message", true)]
+    [InlineData("const alias = records; return alias['message'];", true)]
+    [InlineData("records.length", false)]
+    [InlineData("records[0].message", false)]
+    [InlineData("records['0'].message", false)]
+    [InlineData("records.map(row => row.message).join(',')", false)]
+    public void CollectionsCannotBeUsedAsIndividualItems(string expression, bool invalid)
+    {
+        var graph = Graph(); var workflow = graph.Workflows[0];
+        workflow.Inputs = [new() { Name = "records", Schema = new() { Type = "array", Nullable = true,
+            Items = new() { Type = "object", Properties = [new() { Name = "message", Schema = new() { Type = "string" } }] } } }];
+        var value = new PlanningValue { Kind = "compute", Text = expression, Members = [new("records", new() { Kind = "input", Source = "records" })] };
+        workflow.Steps[0].Input = Obj(("message", value));
+        var findings = PlanningExecutableValidation.Validate(graph, Preparation());
+        Assert.Equal(invalid, findings.Any(d => d.Code == "COMPUTATION_COLLECTION_FIELD_INVALID"));
+        value.Text = "records[0].invented";
+        Assert.Contains(PlanningExecutableValidation.Validate(graph, Preparation()), d => d.Code == "COMPUTATION_FIELD_UNDECLARED");
+    }
+
+    [Theory]
     [InlineData("payload", "actual", "missing")]
     [InlineData("réponse", "déclaré", "inventé")]
     public void AliasesCannotInventFieldsOnDeclaredProducerContracts(string parameter, string declared, string missing)

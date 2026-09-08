@@ -548,6 +548,8 @@ public sealed class DataflowBindingTests
 
     [Theory]
     [InlineData("'example'")]
+    [InlineData("void source; return 'example';")]
+    [InlineData("source; return 'example';")]
     [InlineData("(() => { const source = 'example'; return source; })()")]
     public void DeclaringAnUnusedOrShadowedInputDoesNotEstablishDynamicDataflow(string expression)
     {

@@ -13,7 +13,6 @@ public sealed partial class TypedWorkflowPlanner
         if (RecoverInvalidBehavior(state)) return;
         state.CurrentPhase = "fragment";
         var graph = state.Graph!;
-        if (await ReassessFailedObservationConstructionAsync(state, runtime, ct)) return;
         var described = PlanningDataflow.Describe(graph, state.Preparation!);
         if (state.Dataflow is { } retainedDataflow)
         {
@@ -70,6 +69,7 @@ public sealed partial class TypedWorkflowPlanner
             }
             if (unit.Candidate is not null) unit.CandidateHash = PlanningGraphCompiler.Fingerprint(unit.Candidate.ToJsonString());
         }
+        if (await ReassessFailedObservationConstructionAsync(state, runtime, ct)) return;
         if (state.ConstructionUnits.Count == 0)
         {
             foreach (var workflow in graph.Workflows)

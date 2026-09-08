@@ -9,10 +9,11 @@ public sealed partial class TypedWorkflowPlanner
     private async Task<bool> ReassessFailedObservationConstructionAsync(PlanningSnapshot state, IPlanningRuntime runtime, CancellationToken ct)
     {
         var units = state.ConstructionUnits.Where(u => u.Status != "validated" && u.Status != "superseded" && u.RepairCalls > 0 && u.Candidate is not null &&
-            u.Diagnostics.Any(d => d.Code is "UNIT_HELPER_DEPENDENCY_INVALID" or "COMPUTATION_FIELD_UNDECLARED")).Take(state.Request.MaxConcurrency).ToArray();
+            u.Diagnostics.Any(d => d.Code is "UNIT_HELPER_DEPENDENCY_INVALID" or "COMPUTATION_FIELD_UNDECLARED" or "COMPUTATION_COLLECTION_FIELD_INVALID")).Take(state.Request.MaxConcurrency).ToArray();
         if (units.Length == 0) return false;
         var fingerprint = PlanningGraphCompiler.Fingerprint(state.Preparation!.Fingerprint + string.Join("\n", units.Select(u => u.Key + ":" + u.CandidateHash)));
         if (state.PreparationReviewFingerprint == fingerprint) return false;
+        var assessBehavior = units.Any(u => u.Diagnostics.Any(d => d.Code == "COMPUTATION_COLLECTION_FIELD_INVALID"));
         var nodes = new JsonArray(); var operations = new HashSet<string>(StringComparer.Ordinal);
         foreach (var unit in units)
         {
@@ -38,10 +39,10 @@ public sealed partial class TypedWorkflowPlanner
             { ["id"] = c.Id, ["description"] = c.Description, ["outputSchema"] = c.OutputSchema.DeepClone() }).ToArray()) };
         try
         {
-            var findings = await ReviewAsync(state, runtime, ct, evidence);
+            var findings = await ReviewAsync(state, runtime, ct, evidence, assessBehavior);
             state.PreparationReviewFingerprint = fingerprint;
             state.Attempts.Add(new(fingerprint, "construction_observation_review", 0, false, findings));
-            if (RequiresPreparationReassessment(state, findings)) return true;
+            if (RequiresPreparationReassessment(state, findings) || assessBehavior && RequiresBehaviorReassessment(state, findings)) return true;
             await runtime.CheckpointAsync(state, ct);
         }
         catch (SemanticAssessmentException ex)
