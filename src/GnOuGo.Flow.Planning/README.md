@@ -71,6 +71,10 @@ empty annotations are normalized without removing substantive constraints, and r
 candidates are revalidated. A provider output-limit result is recorded as `MODEL_OUTPUT_LIMIT`
 before JSON conversion and cannot overwrite retained fields. Unstarted multi-node units can
 split; a single exhausted unit pauses with its receipts and configured ceiling intact.
+Contract 30 also relocates legacy array field declarations into an existing inline object
+item when duplicate declarations agree exactly. Every field and constraint is retained;
+conflicts require repair. Schema repairs receive schema coordinates and specific nested
+validation findings, without unrelated runtime bindings or computation instructions.
 
 `PlanningRequest.Generation` defaults to 12,000 estimated input tokens per unit and an
 enforced 8,192 output-token ceiling per call. Oversized groups split before dispatch; an

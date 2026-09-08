@@ -51,7 +51,8 @@ internal static class JsonSchemaInstanceValidator
 
         if (schema["anyOf"] is JsonArray anyOf && CountMatchingVariants(value, anyOf, root, path, referenceStack) == 0)
         {
-            errors.Add($"{path}: value does not match any allowed schema variant");
+            if (!DescribeSelectedVariant(value, anyOf, root, path, errors, referenceStack))
+                errors.Add($"{path}: value does not match any allowed schema variant");
             return;
         }
 
@@ -120,6 +121,35 @@ internal static class JsonSchemaInstanceValidator
                 matches++;
         }
         return matches;
+    }
+
+    // Type and literal tags can identify one intended variant even when a nested
+    // field is invalid. Report that field without guessing among ambiguous branches.
+    private static bool DescribeSelectedVariant(JsonNode? value, JsonArray variants, JsonObject root, string path,
+        List<string> errors, HashSet<string> referenceStack)
+    {
+        var candidates = variants.OfType<JsonObject>().Where(v => Possible(v, new(StringComparer.Ordinal))).ToArray();
+        if (candidates.Length != 1) return false;
+        var details = new List<string>();
+        ValidateInstanceNode(value, candidates[0], root, path, details, new(referenceStack, StringComparer.Ordinal));
+        if (details.Count == 0) return false;
+        errors.AddRange(details); return true;
+
+        bool Possible(JsonObject variant, HashSet<string> visited)
+        {
+            if (TryReadString(variant["$ref"], out var reference) && visited.Add(reference) &&
+                TryResolveLocalReference(root, reference, out var resolved) && resolved is JsonObject target && !Possible(target, visited)) return false;
+            var type = ReadApplicableType(variant, value);
+            if (type is not null && !MatchesType(value, type)) return false;
+            if (variant.TryGetPropertyValue("const", out var constant) && !JsonNode.DeepEquals(value, constant)) return false;
+            if (variant["enum"] is JsonArray allowed && !allowed.Any(v => JsonNode.DeepEquals(v, value))) return false;
+            if (value is JsonObject obj && variant["properties"] is JsonObject properties)
+                foreach (var (name, property) in properties)
+                    if (obj.TryGetPropertyValue(name, out var actual) && property is JsonObject contract &&
+                        (contract.TryGetPropertyValue("const", out var tag) && !JsonNode.DeepEquals(actual, tag) ||
+                         contract["enum"] is JsonArray tags && !tags.Any(t => JsonNode.DeepEquals(actual, t)))) return false;
+            return true;
+        }
     }
 
     private static string? ReadApplicableType(JsonObject schema, JsonNode? value)

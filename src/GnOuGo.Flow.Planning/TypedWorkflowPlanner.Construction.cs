@@ -483,7 +483,14 @@ public sealed partial class TypedWorkflowPlanner
         return result;
     }
 
-    private static string UnitRepairPrompt(PlanningSnapshot state, PlanningWorkflow workflow, PlanningConstructionUnit unit, PlanningPreparation preparation, PlanningUnitPatches patch) =>
+    private static string UnitRepairPrompt(PlanningSnapshot state, PlanningWorkflow workflow, PlanningConstructionUnit unit, PlanningPreparation preparation, PlanningUnitPatches patch) => unit.Kind is "contracts" or "inputs" ?
+        "Repair only the supplied schema coordinates. Preserve every declared field, type, enum, requiredness and nullability while correcting its placement. " +
+        "Arrays describe their element schema in items; named properties belong to object schemas. Do not discard misplaced declarations. " +
+        "Return schema declarations, not computations or runtime bindings. Use only references permitted by the supplied response schema. " +
+        "Unrelated implementation fields and accepted behavior are retained. Return only the patch schema.\nOwned operations:\n" +
+        new JsonArray(PlanningGraphCompiler.Enumerate(workflow.Steps.Concat(workflow.Finally)).Where(n => unit.NodeKeys.Contains(n.Key, StringComparer.Ordinal)).Select(n => (JsonNode)new JsonObject { ["key"] = n.Key, ["purpose"] = n.Purpose }).ToArray()).ToJsonString() +
+        "\nCandidate schema coordinates:\n" + patch.Context(unit.Candidate).ToJsonString() +
+        "\nDiagnostics:\n" + JsonSerializer.Serialize(unit.Diagnostics, PlanningJsonContext.Default.ListPlanningDiagnostic) :
         "Repair only the supplied value coordinates. All other fields, behavior, helper bodies and topology are retained. " +
         "A template text uses {{name}} for each declared member, never ${name}. Repair a malformed template at its own coordinate, not by nesting more templates inside its bindings. " +
         "Select exact binding identifiers. In binding tables, prepend the group's optional pathPrefix to each entry path. An opaque producer permits only whole-result consumption or serialization, not property access. " +
