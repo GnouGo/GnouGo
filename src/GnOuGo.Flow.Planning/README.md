@@ -390,3 +390,10 @@ is still available. Literal text is unchanged; unknown bindings remain invalid.
 This reduces repeated response-schema enums without removing binding contracts or
 increasing request limits. Checkpoint upgrades revalidate candidates and preserve
 encrypted history, approvals and cumulative usage.
+
+Construction contract 39 runs Core's generated-function documentation check before
+accepting a helper unit. Later findings route back to that unit. Documentation-only
+repairs receive its functions and findings, without unrelated capability contracts,
+and must preserve every executable declaration and statement exactly. Repaired
+helpers update both the checkpoint and assembled workflow; other helpers and node
+inputs remain unchanged. The normal repair, context and output ceilings apply.

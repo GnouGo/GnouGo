@@ -26,6 +26,9 @@ using (var key = RSA.Create(2048))
 }
 
 var collectionExpression = ArtifactCollectionExpression.Build("pages", ["source", "response", "records"]);
+if (GeneratedFunctionDocumentation.Validate("function convert(value) { return String(value); }").Single().Code != "FUNCTION_JSDOC_MISSING" ||
+    GeneratedFunctionDocumentation.Validate("/** @param {*} value Input\n * @returns {string} Text */ function convert(value) { return String(value); }").Count != 0)
+    throw new InvalidOperationException("Published function documentation validation failed.");
 if (!ArtifactCollectionExpression.TryRead(collectionExpression, out var collectionLoop, out _) || collectionLoop != "pages")
     throw new InvalidOperationException("Published collection expression parsing failed.");
 var collectionValue = new ExpressionEvaluator().Evaluate(collectionExpression,

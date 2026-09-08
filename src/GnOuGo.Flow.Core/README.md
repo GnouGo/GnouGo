@@ -1,5 +1,10 @@
 # GnOuGo.Flow — YAML Workflow DSL Engine
 
+`GeneratedFunctionDocumentation.Validate` exposes the generated-workflow JSDoc
+requirements for earlier construction checks. It uses the same validation as final
+semantic review and reports missing typed parameters and return documentation.
+Documentation does not establish executable output provenance or runtime success.
+
 Continuing `on_error` handlers on `mcp.call` and `llm.call` with
 `structured_output` must return a `json` member satisfying that schema. The
 engine validates resolved fallback values before publishing a successful step

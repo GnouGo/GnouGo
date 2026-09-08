@@ -258,7 +258,13 @@ public sealed partial class TypedWorkflowPlanner
             if (patch is null) unit.Candidate = received?.DeepClone().AsObject();
             else
             {
-                try { unit.Candidate = patch.Apply(unit.Candidate, received); }
+                try
+                {
+                    var patched = patch.Apply(unit.Candidate, received);
+                    if (PlanningHelperDocumentation.OnlyDocumentation(unit.Diagnostics))
+                        PlanningHelperDocumentation.RequireUnchangedExecutable(unit.Candidate?["functions"]?.GetValue<string>(), patched["functions"]?.GetValue<string>());
+                    unit.Candidate = patched;
+                }
                 catch (InvalidOperationException ex)
                 {
                     state.Attempts.Add(new(receivedHash, "repair_unit", 0, false, [new("UNIT_PATCH_REJECTED", path, ex.Message, ValidationStage: "conversion")]));
@@ -366,13 +372,19 @@ public sealed partial class TypedWorkflowPlanner
         var wi = graph.Workflows.FindIndex(w => w.Key == unit.WorkflowKey);
         var workflow = graph.Workflows[wi]; var root = "/workflows/" + wi;
         var located = PlanningGraphValidation.Located(workflow.Steps, root + "/steps").Concat(PlanningGraphValidation.Located(workflow.Finally, root + "/finally")).ToArray();
-        foreach (var diagnostic in PlanningExecutableValidation.Validate(graph, preparation).Concat(PlanningArtifactBindings.PrerequisiteFindings(graph, preparation)))
+        foreach (var diagnostic in PlanningExecutableValidation.Validate(graph, preparation).Concat(PlanningArtifactBindings.PrerequisiteFindings(graph, preparation))
+            .Concat(GeneratedFunctionDocumentation.Validate(workflow.Functions).Select(d => new PlanningDiagnostic(d.Code,
+                root + "/functions/" + PlanningSchemaReferences.Escape(d.Function), d.Message, ValidationStage: "functions"))))
         {
             if (unit.Kind is "inputs" or "outputs")
             { if (diagnostic.Location.StartsWith(root + "/" + unit.Kind + "/", StringComparison.Ordinal)) yield return diagnostic; continue; }
             var owner = located.Where(n => diagnostic.Location == n.Path || diagnostic.Location.StartsWith(n.Path + "/", StringComparison.Ordinal)).OrderByDescending(n => n.Path.Length).FirstOrDefault();
             if (owner.Node is null)
-            { if (unit.Kind == "implementation" && diagnostic.Location == root + "/functions") yield return diagnostic; continue; }
+            {
+                var helperPrefix = root + "/functions/u_" + PlanningGraphCompiler.Fingerprint(unit.Key)[..8] + "_";
+                if (unit.Kind == "implementation" && (diagnostic.Location == root + "/functions" || diagnostic.Location.StartsWith(helperPrefix, StringComparison.Ordinal))) yield return diagnostic;
+                continue;
+            }
             if (!unit.NodeKeys.Contains(owner.Node.Key, StringComparer.Ordinal)) continue;
             if (unit.Kind == "contracts" && !(diagnostic.Location.StartsWith(owner.Path + "/outputSchema", StringComparison.Ordinal) || diagnostic.Location.StartsWith(owner.Path + "/structuredOutput", StringComparison.Ordinal))) continue;
             if (unit.Kind == "contracts" && diagnostic.Code is "OUTPUT_TYPE_MISMATCH" or "STRUCTURED_FALLBACK_INVALID") continue;
@@ -607,7 +619,9 @@ public sealed partial class TypedWorkflowPlanner
         return result;
     }
 
-    private static string UnitRepairPrompt(PlanningSnapshot state, PlanningWorkflow workflow, PlanningConstructionUnit unit, PlanningPreparation preparation, PlanningUnitPatches patch) => unit.Kind is "contracts" or "inputs" ?
+    private static string UnitRepairPrompt(PlanningSnapshot state, PlanningWorkflow workflow, PlanningConstructionUnit unit, PlanningPreparation preparation, PlanningUnitPatches patch) => PlanningHelperDocumentation.OnlyDocumentation(unit.Diagnostics) && patch.Context(unit.Candidate) is { Count: 1 } documentation && documentation.ContainsKey("functions")
+        ? PlanningHelperDocumentation.Prompt(documentation, unit.Diagnostics)
+        : unit.Kind is "contracts" or "inputs" ?
         "Repair only the supplied invalid schema coordinates. Valid sibling fields, enums, requiredness and nullability are locked and retained. " +
         "Arrays describe their element schema in items; named properties belong to object schemas. Do not discard misplaced declarations. " +
         "An empty object cannot establish unknown fields. If no consumer requires typed internal fields, represent an opaque value as serialized text; never invent an arbitrary object schema. " +

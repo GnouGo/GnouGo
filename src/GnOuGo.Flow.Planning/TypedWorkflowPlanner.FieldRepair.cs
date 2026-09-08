@@ -19,14 +19,22 @@ public sealed partial class TypedWorkflowPlanner
         // actual innermost failing operation, not an immutable routing wrapper.
         var finding = state.Diagnostics.Where(d => d.Code != "SCENARIO_UNREACHED" && located.Any(n => d.Location == n.Path || new[] { "input", "onError", "outputSchema", "structuredOutput" }.Any(field => d.Location == n.Path + "/" + field || d.Location.StartsWith(n.Path + "/" + field + "/", StringComparison.Ordinal))))
             .OrderByDescending(d => d.Location.Count(c => c == '/')).FirstOrDefault();
+        var helperUnit = finding is null ? state.ConstructionUnits.FirstOrDefault(u => u.Kind == "implementation" && u.Status != "superseded" &&
+            state.Diagnostics.Any(d => d.Location.StartsWith("/workflows/" + graph.Workflows.FindIndex(w => w.Key == u.WorkflowKey) + "/functions/u_" + PlanningGraphCompiler.Fingerprint(u.Key)[..8] + "_", StringComparison.Ordinal))) : null;
+        if (finding is null && helperUnit is null) return false;
+        var owner = helperUnit is not null ? located.First(n => n.Workflow.Key == helperUnit.WorkflowKey && helperUnit.NodeKeys.Contains(n.Node.Key, StringComparer.Ordinal))
+            : located.Where(n => finding!.Location == n.Path || finding.Location.StartsWith(n.Path + "/", StringComparison.Ordinal)).OrderByDescending(n => n.Path.Length).First();
+        if (finding is null && helperUnit is not null)
+            finding = state.Diagnostics.First(d => d.Location.StartsWith("/workflows/" + graph.Workflows.FindIndex(w => w.Key == helperUnit.WorkflowKey) + "/functions/u_" + PlanningGraphCompiler.Fingerprint(helperUnit.Key)[..8] + "_", StringComparison.Ordinal));
         if (finding is null) return false;
-        var owner = located.Where(n => finding.Location == n.Path || finding.Location.StartsWith(n.Path + "/", StringComparison.Ordinal)).OrderByDescending(n => n.Path.Length).First();
         var unitKind = finding.Location == owner.Path + "/outputSchema" || finding.Location.StartsWith(owner.Path + "/outputSchema/", StringComparison.Ordinal) || finding.Location == owner.Path + "/structuredOutput" || finding.Location.StartsWith(owner.Path + "/structuredOutput/", StringComparison.Ordinal) ? "contracts" : "implementation";
-        var unit = state.ConstructionUnits.FirstOrDefault(u => u.WorkflowKey == owner.Workflow.Key && u.Kind == unitKind && u.Status != "superseded" && u.NodeKeys.Contains(owner.Node.Key, StringComparer.Ordinal));
+        var unit = helperUnit ?? state.ConstructionUnits.FirstOrDefault(u => u.WorkflowKey == owner.Workflow.Key && u.Kind == unitKind && u.Status != "superseded" && u.NodeKeys.Contains(owner.Node.Key, StringComparer.Ordinal));
         if (unit is null) return false;
         unit.Candidate = PlanningConstruction.UpgradeCandidate(graph, unit, PlanningConstruction.Values(owner.Workflow, unit, state.Preparation), state.Preparation!);
         unit.CandidateHash = PlanningGraphCompiler.Fingerprint(unit.Candidate.ToJsonString());
-        unit.Diagnostics = state.Diagnostics.Where(d => located.Any(n => n.Workflow.Key == unit.WorkflowKey && unit.NodeKeys.Contains(n.Node.Key, StringComparer.Ordinal) && (d.Location == n.Path || d.Location.StartsWith(n.Path + "/", StringComparison.Ordinal))))
+        var helperPath = "/workflows/" + graph.Workflows.FindIndex(w => w.Key == unit.WorkflowKey) + "/functions/u_" + PlanningGraphCompiler.Fingerprint(unit.Key)[..8] + "_";
+        unit.Diagnostics = state.Diagnostics.Where(d => helperUnit is not null ? d.Location.StartsWith(helperPath, StringComparison.Ordinal)
+            : located.Any(n => n.Workflow.Key == unit.WorkflowKey && unit.NodeKeys.Contains(n.Node.Key, StringComparer.Ordinal) && (d.Location == n.Path || d.Location.StartsWith(n.Path + "/", StringComparison.Ordinal))))
             .Select(d => d with { Location = PlanningLocation(d.Location, graph) }).ToList();
         var preparation = UnitPreparation(state.Preparation!, owner.Workflow, unit);
         var schema = PlanningConstruction.Schema(owner.Workflow, unit, preparation, graph);
@@ -64,11 +72,15 @@ public sealed partial class TypedWorkflowPlanner
             var received = response.Json as JsonObject;
             if (received is not null && unit.ContractVersion >= PlanningConstructionSchemas.Version) received = PlanningConstructionSchemas.Compact(received);
             var candidate = patch.Apply(unit.Candidate, received);
+            if (PlanningHelperDocumentation.OnlyDocumentation(unit.Diagnostics))
+                PlanningHelperDocumentation.RequireUnchangedExecutable(unit.Candidate["functions"]?.GetValue<string>(), candidate["functions"]?.GetValue<string>());
             var repaired = PlanningConstruction.Apply(graph, unit, candidate, state.Preparation!);
+            if (unit.Kind == "implementation") repaired.Workflows.Single(w => w.Key == unit.WorkflowKey).Functions = MergeFunctions(state, unit, candidate["functions"]?.GetValue<string>());
             var diagnostics = UnitFindings(repaired, state.Preparation!, unit).Concat(InputObligationFindings(state, repaired, unit)).ToList();
             if (state.BehaviorPlan is not null) diagnostics.AddRange(PlanningBehaviorPlans.ValidateImplementation(state.BehaviorPlan, repaired, state.Preparation!));
             if (diagnostics.Count != 0) throw new InvalidOperationException(string.Join("\n", diagnostics.Select(d => d.Code + " at " + d.Location + ": " + d.Message)));
             state.Graph = repaired; unit.Candidate = candidate; unit.CandidateHash = PlanningGraphCompiler.Fingerprint(candidate.ToJsonString());
+            if (unit.Kind == "implementation") unit.Functions = candidate["functions"]?.GetValue<string>();
             unit.Diagnostics.Clear(); unit.Fingerprint = UnitFingerprint(state, unit); state.Status = PlanningStatus.Validating;
         }
         catch (InvalidOperationException ex)

@@ -313,6 +313,12 @@ internal static class WorkflowPlanSemanticValidator
         return match.Success ? match.Value : candidate;
     }
 
+    internal static IReadOnlyList<WorkflowSemanticValidationError> ValidateFunctionDocumentation(string? script)
+    {
+        var errors = new List<WorkflowSemanticValidationError>();
+        ValidateFunctionJsDoc(script, null, errors); return errors;
+    }
+
     private static void ValidateFunctionJsDoc(
         string? script,
         string? workflowName,
