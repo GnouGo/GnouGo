@@ -32,7 +32,7 @@ public static class PlanningExecutableValidation
                             : contract["enum"] is JsonArray values ? values.Select(v => v is JsonValue j && j.TryGetValue<string>(out var label) ? label : v?.ToJsonString()).OfType<string>().ToArray() : null;
                         if (outcomes is not null && node.Cases.Any(c => c.Value is not null && !outcomes.Contains(c.Value, StringComparer.Ordinal)))
                             errors.Add(new("SWITCH_OUTCOME_UNREACHABLE", location + "/expr",
-                                "The selector's declared outcomes (" + string.Join(", ", outcomes) + ") cannot match every accepted case label. Map the exact producer result to the accepted labels explicitly; presentation choices are not confirmation response values."));
+                                "The selector's declared outcomes (" + string.Join(", ", outcomes) + ") cannot match the accepted case labels " + new JsonArray(node.Cases.Where(c => c.Value is not null).Select(c => (JsonNode?)JsonValue.Create(c.Value)).ToArray()).ToJsonString() + ". Map the exact producer result to those labels explicitly; unmatched values take the retained default. Presentation choices are not confirmation response values."));
                     }
                     catch (Exception ex) when (ex is InvalidOperationException or ArgumentException or FormatException) { /* An unresolved selector is checked by binding and scenario validation. */ }
                 }

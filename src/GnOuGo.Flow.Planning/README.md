@@ -328,3 +328,8 @@ Construction schema references are scoped to owned contracts, declared upstream
 results and direct external-consumer inputs. Existing schema references on retained
 nodes remain selectable. Unrelated catalog entries and native configuration fields
 do not become new synthesized-result options merely because they share a workflow.
+
+Selector repairs receive exact accepted case labels and outcome descriptions,
+including whether the retained default has no actions. Unreachable-outcome findings
+name both actual and accepted labels; a repair never has to guess routing targets
+from a producer's boolean schema. Accepted cases remain outside editable patches.

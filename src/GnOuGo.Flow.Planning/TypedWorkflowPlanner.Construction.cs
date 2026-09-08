@@ -592,6 +592,7 @@ public sealed partial class TypedWorkflowPlanner
         "Keep business inputs dynamic: examples are defaults, not replacements for input dependencies. " +
         "Sequential loop_previous bindings are null before the first iteration and carry the previous iteration's declared child results thereafter. Use them for continuation state; never replace complete traversal with a fixed smaller number of iterations. " +
         "Return only the patch schema.\nOwned operations:\n" + new JsonArray(PlanningGraphCompiler.Enumerate(workflow.Steps.Concat(workflow.Finally)).Where(n => unit.NodeKeys.Contains(n.Key, StringComparer.Ordinal)).Select(n => (JsonNode)new JsonObject { ["key"] = n.Key, ["purpose"] = n.Purpose }).ToArray()).ToJsonString() +
+        "\nAccepted routing targets (map selectors to these exact labels; do not change cases or the default):\n" + DecisionContractContext(state, workflow, unit).ToJsonString() +
         "\nLocked producer dependencies:\n" + new JsonArray(preparation.Capabilities.Where(c => unit.NodeKeys.Any(key => PlanningGraphCompiler.Enumerate(workflow.Steps.Concat(workflow.Finally)).Any(n => n.Key == key && n.CapabilityId == c.Id))).Select(c => (JsonNode)new JsonObject { ["capability"] = c.Id, ["operations"] = new JsonArray(c.OperationIds.Select(p => (JsonNode?)JsonValue.Create(p)).ToArray()), ["requiredProducerOperations"] = new JsonArray(c.InputOperationIds.Select(p => (JsonNode?)JsonValue.Create(p)).ToArray()) }).ToArray()).ToJsonString() +
         "\nCandidate values:\n" + patch.Context(unit.Candidate).ToJsonString() +
         "\nReferenced helper signatures:\n" + HelperSignatures(workflow.Functions, patch.Context(unit.Candidate).ToJsonString()) +
@@ -602,6 +603,17 @@ public sealed partial class TypedWorkflowPlanner
         "\nDestination structured fallback contracts (json is a typed result, never a serialized JSON string; preserve error handling):\n" + FallbackContractContext(workflow, preparation, patch.Context(unit.Candidate)).ToJsonString() +
         "\nDiagnostics:\n" + JsonSerializer.Serialize(unit.Diagnostics, PlanningJsonContext.Default.ListPlanningDiagnostic) +
         (unit.Diagnostics.Any(d => d.Code is "NATIVE_INPUT_INVALID" or "UNIT_CONVERSION_INVALID") ? "\nDestination contracts:\n" + preparation.StepContracts.ToJsonString() + "\nCapabilities:\n" + Capabilities(preparation.Capabilities.Where(c => unit.NodeKeys.Any(key => PlanningGraphCompiler.Enumerate(workflow.Steps.Concat(workflow.Finally)).Any(n => n.Key == key && n.CapabilityId == c.Id))).ToList()) : "");
+
+    internal static JsonArray DecisionContractContext(PlanningSnapshot state, PlanningWorkflow workflow, PlanningConstructionUnit unit)
+    {
+        var reviewed = state.BehaviorPlan?.Workflows.FirstOrDefault(w => w.Key == workflow.Key);
+        var behaviors = reviewed is null ? [] : PlanningBehaviorPlans.Enumerate(reviewed.Steps.Concat(reviewed.Finally)).ToArray();
+        return new JsonArray(PlanningGraphCompiler.Enumerate(workflow.Steps.Concat(workflow.Finally)).Where(n => n.Type == "switch" && unit.NodeKeys.Contains(n.Key)).Select(n =>
+            (JsonNode)new JsonObject { ["node"] = n.Key, ["purpose"] = n.Purpose,
+                ["cases"] = new JsonArray(n.Cases.Select(c => (JsonNode)new JsonObject { ["value"] = c.Value,
+                    ["description"] = behaviors.FirstOrDefault(b => b.Key == n.Key)?.Outcomes.FirstOrDefault(o => !o.IsDefault && o.Key == c.Value)?.Description }).ToArray()),
+                ["defaultHasNoActions"] = n.Default.Count == 0 }).ToArray());
+    }
 
     internal static JsonArray ContainerDependencyContext(PlanningSnapshot state, PlanningWorkflow workflow, PlanningConstructionUnit unit)
     {

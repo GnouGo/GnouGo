@@ -41,6 +41,13 @@ public sealed class ScenarioInputTests
             Cases = [new(accepted, null, []), new(rejected, null, [])] }; workflow.Steps.Add(route);
         var finding = Assert.Single(PlanningExecutableValidation.Validate(graph, preparation), d => d.Code == "SWITCH_OUTCOME_UNREACHABLE");
         Assert.Equal("/workflows/0/steps/2/expr", finding.Location);
+        Assert.Contains(JsonValue.Create(accepted)!.ToJsonString(), finding.Message); Assert.Contains(JsonValue.Create(rejected)!.ToJsonString(), finding.Message);
+        var state = Session(PlanningStatus.Generating); state.Graph = graph; state.Preparation = preparation;
+        var fingerprint = PlanningGraphCompiler.Fingerprint(graph);
+        var targets = TypedWorkflowPlanner.DecisionContractContext(state, workflow, new() { NodeKeys = [route.Key] });
+        var target = Assert.Single(targets)!;
+        Assert.Equal(accepted, target["cases"]![0]!["value"]!.GetValue<string>()); Assert.Equal(rejected, target["cases"]![1]!["value"]!.GetValue<string>());
+        Assert.True(target["defaultHasNoActions"]!.GetValue<bool>()); Assert.Equal(fingerprint, PlanningGraphCompiler.Fingerprint(graph));
         route.Expr = new() { Kind = "compute", Text = "response === true ? allowed : denied", Members =
             [new("response", new() { Kind = "output", Source = "consent", Path = ["response"] }), new("allowed", Str(accepted)), new("denied", Str(rejected))] };
         Assert.DoesNotContain(PlanningExecutableValidation.Validate(graph, preparation), d => d.Code == "SWITCH_OUTCOME_UNREACHABLE");
