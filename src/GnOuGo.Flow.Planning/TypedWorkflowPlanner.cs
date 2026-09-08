@@ -231,6 +231,7 @@ public sealed partial class TypedWorkflowPlanner(TimeProvider? timeProvider = nu
                     state.RepairAttempt = 0;
                     state.BestGraph = null; state.BestScenarios.Clear();
                     state.BestDiagnostics = [];
+                    PlanningSemanticProgress.RestoreBaseline(state);
                     state.Diagnostics.Clear();
                     state.Question = null;
                     state.CurrentPhase = state.Graph is null ? !state.IntentChecked ? PlanningPhase.Intent : state.Preparation is null ? PlanningPhase.Capabilities : PlanningPhase.Behavior : unreviewed ? PlanningPhase.Behavior : state.Status;
@@ -492,6 +493,10 @@ public sealed partial class TypedWorkflowPlanner(TimeProvider? timeProvider = nu
 
         var retained = true;
         var candidateHash = PlanningGraphCompiler.Fingerprint(state.Graph!);
+        var semanticProgress = false;
+        if (stage == 9 && state.BestGraph is not null &&
+            state.Attempts.LastOrDefault(a => a.CandidateHash == PlanningGraphCompiler.Fingerprint(state.BestGraph) && a.Retained)?.Stage == 9)
+            semanticProgress = PlanningSemanticProgress.Preserve(state.BestGraph, state.Graph!, state.BestDiagnostics, diagnostics);
         if (state.BestGraph is not null && diagnostics.Any(d => d.Required))
         {
             var previousHash = PlanningGraphCompiler.Fingerprint(state.BestGraph);
@@ -505,7 +510,7 @@ public sealed partial class TypedWorkflowPlanner(TimeProvider? timeProvider = nu
                 state.BestScenarios = (await runtime.ValidateScenariosAsync(_compiler.Compile(state.BestGraph, state.Preparation!, state.Request.Name), state.Preparation!, state.ScenarioInputs, ScenarioLoopItemSchemas(state.BestGraph, state.Preparation!), state.ScenarioObservations, ct))
                     .Select(s => s with { Diagnostics = s.Diagnostics.Select(d => PlanningExecutableValidation.MapRuntimeDiagnostic(d, state.BestGraph)).ToList() }).ToList();
             var scenarioProgress = stage == 8 && previousStage == 8 && PreservesScenarioProgress(state.BestScenarios, state.Scenarios);
-            if (stage < previousStage || stage == previousStage && !newIds.IsSubsetOf(previousIds) && !helperProgress && !scenarioProgress)
+            if (candidateHash != previousHash && (stage < previousStage || stage == previousStage && !newIds.IsSubsetOf(previousIds) && !helperProgress && !scenarioProgress && !semanticProgress))
             {
                 retained = false;
                 state.Graph = state.BestGraph; state.Diagnostics = state.BestDiagnostics.ToList();
@@ -620,6 +625,9 @@ public sealed partial class TypedWorkflowPlanner(TimeProvider? timeProvider = nu
         var sources = IntentSources(state);
         var sourceJson = new JsonArray(sources.Select(source => (JsonNode)new JsonObject
             { ["sourceId"] = source.Id, ["kind"] = source.Kind, ["text"] = source.Text, ["questionContext"] = source.QuestionContext }).ToArray());
+        var priorFindings = constructionEvidence is null && state.BestGraph is not null &&
+            state.Attempts.LastOrDefault(a => a.Retained && a.CandidateHash == PlanningGraphCompiler.Fingerprint(state.BestGraph))?.Stage == 9
+            ? new JsonArray(state.BestDiagnostics.Where(d => d.Required).Select(d => (JsonNode)new JsonObject { ["code"] = d.Code, ["location"] = d.Location, ["message"] = d.Message }).ToArray()) : [];
         var prompt = "Review the typed graph against the exact requested observable behavior and locked contract. " +
             "Return only concrete findings supported by an exact evidence excerpt from the request. Preserve required effects and confirmation policy. " +
             "Check preservation of every requested effect, cardinality, ordering, uncertain outcome, and cleanup. A passing schema does not prove intent coverage. " +
@@ -634,6 +642,8 @@ public sealed partial class TypedWorkflowPlanner(TimeProvider? timeProvider = nu
             "Do not repair missing observations by guessing fields, returning constant empty results, or asserting success. Preparation findings require new capability resolution and behavior review. " +
             "Evidence must be a single verbatim substring from a source text, without added quotes, ellipses, or combined excerpts. " +
             "Source roles are authoritative: questionContext and generated contract text do not establish user intent. No score is used.\nSources:\n" + sourceJson.ToJsonString() +
+            (priorFindings.Count == 0 ? "" : "\nOutstanding prior findings (assessment history, not intent evidence):\n" + priorFindings.ToJsonString() +
+                "\nReassess every outstanding finding against the actual graph. Reuse its code and location when it remains unresolved, include newly established defects, and do not omit an unresolved obligation simply because another field was repaired.\n") +
             "\nLocked contract:\n" + (constructionEvidence is null ? state.Preparation!.LockedContract.ToJsonString() : "See the scoped construction evidence below.") +
             (constructionEvidence is null ? "\nAuthoritative capability schemas and locked bindings (schema references resolve within this object):\n" + SemanticCapabilities(state.Graph!, state.Preparation!).ToJsonString() : "") +
             (constructionEvidence is null ? "\nResolved value contracts (schema references resolve within this object):\n" + SemanticValueContracts(state.Graph!, state.Preparation!).ToJsonString() : "") +

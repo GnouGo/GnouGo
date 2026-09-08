@@ -64,6 +64,11 @@ When a scenario leaves observations unconsumed inside a loop, repair targets the
 loop's iteration controls. The read operation's arguments remain outside that patch.
 In a sequential loop, an items array bounds iteration even when a while condition is true;
 coverage must establish complete traversal and termination without fixing the count to examples.
+Semantic review preserves unresolved findings when the affected input, its producers, helpers
+and control path are unchanged. Renamed finding codes and newly discovered defects in unchanged
+code do not discard an unrelated repair. New findings on changed code remain potential
+regressions. Retry restores an exact comparison baseline only under the current construction
+contracts; an empty later review cannot erase an unchanged required finding.
 Input/output reference sources are constrained to declared keys. Public exports select from
 a deterministic index of resolvable, exportable producer paths; schemas come from the selected
 producer. Optional fields cannot be selected as unconditional required values. Whole-object
