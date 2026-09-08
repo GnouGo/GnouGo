@@ -69,6 +69,10 @@ inside branches or loops. Consuming that result preserves uncertainty; it does n
 operation ran or succeeded, and it cannot substitute for an explicit permission binding.
 For a reviewed linear sequence whose tools all implement the same operation, operation-level
 inputs must reach the final result. That result must also consume each intermediate producer.
+An all-read sequence instead retains each tool's locked input dependencies and collects
+their outputs through the native sequence result; its last tool need not accept unrelated
+observations as arguments. Every member must explicitly declare a read effect. Unknown,
+computational, conditional, or mutating compositions retain the stricter dependency checks.
 Conditional or differently owned steps retain their individual requirements. Confirmation,
 artifact identity, and capability validation continue to apply to every constituent action.
 Multiple effects may share a gate only when their declared decision source, response contract,

@@ -11,6 +11,54 @@ namespace GnOuGo.Flow.Planning.Tests;
 public sealed class DataflowBindingTests
 {
     [Theory]
+    [InlineData("observe", "first", "second", "third")]
+    [InlineData("observer", "premier", "deuxieme", "troisieme")]
+    public async Task ReadCollectionPreservesEveryResultWithoutInventingInterToolArguments(string operation, string first, string second, string third)
+    {
+        var graph = Graph(); var preparation = Preparation(); var workflow = graph.Workflows[0];
+        workflow.Inputs = [new() { Name = "resource", Schema = new() { Type = "string" } }];
+        workflow.Outputs.Clear();
+        var input = new JsonObject { ["type"] = "object", ["properties"] = new JsonObject { ["resource"] = new JsonObject { ["type"] = "string" } },
+            ["required"] = new JsonArray("resource"), ["additionalProperties"] = false };
+        var output = new JsonObject { ["type"] = "object", ["properties"] = new JsonObject { ["value"] = new JsonObject { ["type"] = "string" } },
+            ["required"] = new JsonArray("value") };
+        var names = new[] { first, second, third }; var observed = new List<string>();
+        var factory = new InMemoryMcpClientFactory();
+        foreach (var name in names)
+        {
+            preparation.Capabilities.Add(new() { Id = name, StepType = "mcp.call", Server = name, Method = "inspect", Kind = "tool",
+                EffectKind = "read", OperationIds = [operation], InputSchema = (JsonObject)input.DeepClone(), OutputSchema = (JsonObject)output.DeepClone() });
+            factory.RegisterServer(name, new() { Tools = [new() { Name = "inspect", InputSchema = input, OutputSchema = output }], ToolHandlers = new()
+                { ["inspect"] = args => { var value = args!["resource"]!.ToString() + ":" + name; observed.Add(value);
+                    Assert.Single(args.AsObject()); return new McpCallResult { Content = new JsonObject { ["value"] = value } }; } } });
+        }
+        var group = new PlanningNode { Key = "observations", Type = "sequence", OperationIds = [operation], Steps = names.Select(name =>
+            new PlanningNode { Key = name, Type = "mcp.call", CapabilityId = name, OperationIds = [operation],
+                Input = Obj(("request", Obj(("resource", new() { Kind = "input", Source = "resource" })))) }).ToList() };
+        workflow.Steps = [group];
+        Assert.Empty(PlanningDataflow.OperationInputFindings(graph, preparation));
+        var document = new WorkflowCompiler().Compile(WorkflowParser.Parse(new PlanningGraphCompiler().Compile(graph, preparation)));
+        foreach (var resource in new[] { "alpha", "autre-ressource" })
+        {
+            observed.Clear();
+            var result = await new WorkflowEngine { McpClientFactory = factory }.ExecuteAsync(document.Workflows[document.Entrypoint!], new JsonObject { ["resource"] = resource }, TestContext.Current.CancellationToken);
+            Assert.True(result.Success, result.Error?.Message);
+            Assert.Equal(names.Select(name => resource + ":" + name), observed);
+            var collected = Assert.Single(result.StepResults).Output!.AsObject();
+            Assert.Equal(3, collected.Count);
+            Assert.All(observed, value => Assert.Contains(value, collected.ToJsonString()));
+        }
+        preparation.Capabilities[^1].InputOperationIds = ["required_observation"];
+        Assert.Contains(PlanningDataflow.OperationInputFindings(graph, preparation), d => d.Code == "OPERATION_INPUT_BINDING_MISSING");
+        preparation.Capabilities[^1].InputOperationIds.Clear();
+        foreach (var effect in new[] { "unknown", "execute", "write", "lifecycle" })
+        {
+            preparation.Capabilities[^1].EffectKind = effect;
+            Assert.Contains(PlanningDataflow.OperationInputFindings(graph, preparation), d => d.Code == "COMPOSITION_INPUT_BINDING_MISSING");
+        }
+    }
+
+    [Theory]
     [InlineData("inspect", "pages", "finish", "loop.sequential")]
     [InlineData("analyser", "pages_renommees", "terminer", "loop.parallel")]
     public async Task OwnedIterationKeepsCompositeDependenciesAtTheFinalConsumer(string operation, string loopKey, string lastKey, string loopType)

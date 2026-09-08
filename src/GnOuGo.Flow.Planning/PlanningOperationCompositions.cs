@@ -13,6 +13,12 @@ internal static class PlanningOperationCompositions
                 parent.Steps.Count < 2 || parent.Steps[^1].Type is not ("mcp.call" or "set")) continue;
             var members = PlanningGraphCompiler.Enumerate(parent.Steps).ToArray();
             if (!members.Contains(node)) continue;
+            // sequence already returns every child result. Independent reads form
+            // a collection, not a pipeline ending at the last tool. Its argument
+            // contract need not accept the other observations. Keep each read's
+            // own locked dependencies; unknown or mutating contracts stay strict.
+            if (members.All(member => member.Type == "mcp.call" &&
+                preparation.Capabilities.FirstOrDefault(c => c.Id == member.CapabilityId)?.EffectKind == "read")) continue;
             var operations = parent.OperationIds.Order(StringComparer.Ordinal).ToArray();
             bool Owned(PlanningNode member)
             {
