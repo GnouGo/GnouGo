@@ -99,12 +99,16 @@ public static class PlanningGraphValidation
                 {
                     if (structured.TryGetValue(node.Key, out var resultSchema))
                         for (var ei = 0; ei < node.OnError.Count; ei++)
-                            if (node.OnError[ei].SetOutput is { } fallback)
+                            // Only continuation publishes a replacement result. A stop
+                            // handler's output is discarded by WorkflowEngine; its values
+                            // still receive the normal dependency/expression checks below.
+                            if (node.OnError[ei].Action == "continue")
                             {
-                                var fallbackSchema = ValueSchema(fallback, new(StringComparer.Ordinal));
+                                var fallback = node.OnError[ei].SetOutput;
+                                var fallbackSchema = fallback is null ? null : ValueSchema(fallback, new(StringComparer.Ordinal));
                                 if (fallbackSchema?["properties"]?["json"] is not JsonObject jsonSchema || !TypesFit(jsonSchema, resultSchema))
                                 {
-                                    var memberIndex = fallback.Members.FindIndex(m => m.Name == "json");
+                                    var memberIndex = fallback?.Members.FindIndex(m => m.Name == "json") ?? -1;
                                     errors.Add(new("STRUCTURED_FALLBACK_INVALID", location + "/onError/" + ei + "/setOutput" + (memberIndex < 0 ? "" : "/members/" + memberIndex + "/value"),
                                         "The fallback json member must satisfy the structured result contract (type " + resultSchema["type"]?.ToJsonString() + "). Structured objects remain objects, not serialized JSON strings; raw tool results belong in response."));
                                 }

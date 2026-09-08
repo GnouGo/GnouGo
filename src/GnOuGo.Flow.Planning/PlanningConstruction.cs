@@ -326,7 +326,7 @@ public static class PlanningConstruction
                             // A literal synthesized result needs only runtime plumbing.
                             // Preserve explicit envelopes and reject unproven/nonliteral values.
                             var value = handler.SetOutput;
-                            if (value is not { Kind: "object" } || value.Members.Any(m => m.Name is "json" or "response") ||
+                            if (handler.Action != "continue" || value is not { Kind: "object" } || value.Members.Any(m => m.Name is "json" or "response") ||
                                 !PlanningGraphValidation.IsLiteral(value) ||
                                 PlanningContractValidation.ValidateInstance(PlanningGraphValidation.Literal(value), contract).Count != 0) return handler;
                             return handler with { SetOutput = new() { Kind = "object", Members = [new("json", value)] } };

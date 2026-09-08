@@ -325,6 +325,38 @@ public sealed class ExecutableConstructionTests
         public Task<JsonNode?> RequestInputAsync(HumanInputRequest request, CancellationToken ct) => Task.FromResult<JsonNode?>(JsonValue.Create(response));
     }
 
+    [Theory]
+    [InlineData("renamed", "first", false)]
+    [InlineData("another", "second", true)]
+    public async Task StoppingStructuredCallDiscardsFallbackAndCannotEnableLaterWrites(string server, string method, bool absent)
+    {
+        var graph = Graph(); var workflow = graph.Workflows[0]; var preparation = Preparation();
+        var writes = 0; var cleanups = 0;
+        foreach (var id in new[] { method, "write", "cleanup" }) preparation.Capabilities.Add(new()
+        { Id = id, StepType = "mcp.call", Server = server, Method = id, Kind = "tool", InputSchema = new() { ["type"] = "object" } });
+        workflow.Outputs.Clear();
+        var producer = new PlanningNode { Key = "producer", Type = "mcp.call", CapabilityId = method, Input = Obj(),
+            StructuredOutput = new(new() { Type = "object", Properties = [new() { Name = "accepted", Required = true, Schema = new() { Type = "boolean" } }] }),
+            OnError = [new(null, "stop", absent ? null : Obj(("failure", Str("Unavailable"))), null)] };
+        workflow.Steps = [producer, new() { Key = "write", Type = "mcp.call", CapabilityId = "write", Input = Obj() }];
+        workflow.Finally = [new() { Key = "cleanup", Type = "mcp.call", CapabilityId = "cleanup", Input = Obj() }];
+        Assert.Empty(PlanningGraphValidation.Validate(graph, preparation));
+        var factory = new InMemoryMcpClientFactory();
+        factory.RegisterServer(server, new() { Tools = preparation.Capabilities.Select(c => new McpToolInfo { Name = c.Method!, InputSchema = c.InputSchema }).ToList(), ToolHandlers = new() {
+            [method] = _ => throw new InvalidOperationException("Simulated producer failure"),
+            ["write"] = _ => { writes++; return new McpCallResult(); },
+            ["cleanup"] = _ => { cleanups++; return new McpCallResult(); }
+        } });
+        var compiled = new WorkflowCompiler().Compile(WorkflowParser.Parse(new PlanningGraphCompiler().Compile(graph, preparation)));
+        var result = await new WorkflowEngine { McpClientFactory = factory }.ExecuteAsync(compiled.Workflows[compiled.Entrypoint!], new JsonObject(), Ct);
+        Assert.False(result.Success); Assert.Equal(0, writes); Assert.Equal(1, cleanups);
+        Assert.Null(result.StepResults[0].Output);
+        producer.OnError = [producer.OnError[0] with { Action = "continue" }];
+        Assert.Contains(PlanningGraphValidation.Validate(graph, preparation), d => d.Code == "STRUCTURED_FALLBACK_INVALID");
+        producer.OnError = [new(null, "stop", new() { Kind = "output", Source = "missing" }, null)];
+        Assert.Contains(PlanningGraphValidation.Validate(graph, preparation), d => d.Location.Contains("/onError/0/setOutput", StringComparison.Ordinal));
+    }
+
     [Fact]
     public void ConditionalNativeOutputs_CannotInventAnAlwaysPresentField()
     {
