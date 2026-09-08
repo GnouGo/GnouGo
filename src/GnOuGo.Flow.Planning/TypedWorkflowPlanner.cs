@@ -603,7 +603,7 @@ public sealed partial class TypedWorkflowPlanner(TimeProvider? timeProvider = nu
         var prompt = "Review the typed graph against the exact requested observable behavior and locked contract. " +
             "Return only concrete findings supported by an exact evidence excerpt from the request. Preserve required effects and confirmation policy. " +
             "Check preservation of every requested effect, cardinality, ordering, uncertain outcome, and cleanup. A passing schema does not prove intent coverage. " +
-            "Each finding must identify its exact workflow and location from the response schema. Choose the operation's /input for argument/computation defects or /onError for failure handling. " +
+            "Each finding must identify its exact workflow and location from the response schema. Choose the operation's /input for argument/computation defects, /expr for selector computation, or /onError for failure handling. " +
             "Choose /behavior for missing iteration, ordering, routing, operations or other topology changes; field repair cannot change approved topology. " +
             "Choose the operation's /preparation when required runtime observations are absent from its available producer contracts, or a local computation is expected to inspect external state. " +
             "Also choose /preparation when the selected capability or its locked input bindings cannot perform the required action; field and topology repairs cannot change a locked binding. " +
@@ -703,6 +703,7 @@ public sealed partial class TypedWorkflowPlanner(TimeProvider? timeProvider = nu
                 targets[path + "/behavior"] = (workflow.Key, true);
                 targets[path + "/preparation"] = (workflow.Key, false);
                 foreach (var field in new[] { "input", "onError", "outputSchema", "structuredOutput" }) targets[path + "/" + field] = (workflow.Key, false);
+                if (node.Expr is not null || node.Type == "switch") targets[path + "/expr"] = (workflow.Key, false);
             }
         }
         return targets;

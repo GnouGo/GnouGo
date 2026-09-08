@@ -8,6 +8,32 @@ namespace GnOuGo.Flow.Planning.Tests;
 public sealed class SemanticReviewTests
 {
     [Theory]
+    [InlineData("expr")]
+    public async Task SelectorFindingsRemainExecutableRepairs(string field)
+    {
+        var state = Session(PlanningStatus.Validating); state.Graph = Graph(); state.Preparation = Preparation();
+        state.Graph.Workflows[0].Steps.Add(new() { Key = "decision", Type = "switch", Purpose = "Select the requested outcome",
+            Expr = Str("selected"), Cases = [new("selected", null, [])] });
+        state.BehaviorPlan = PlanningBehaviorRevisions.Inspect(state.Graph);
+        state.ApprovedBehaviorHash = PlanningBehaviorPlans.Fingerprint(state.BehaviorPlan);
+        var approval = state.ApprovedBehaviorHash;
+        var runtime = new FakeRuntime { OnCall = (phase, request, _) =>
+        {
+            Assert.Equal("semantic_review", phase);
+            var target = "/workflows/0/steps/1/" + field;
+            Assert.Contains(request.StructuredOutputSchema!["properties"]!["findings"]!["items"]!["properties"]!["location"]!["enum"]!.AsArray(), value => value!.ToString() == target);
+            return Task.FromResult(new LLMResponse { Json = new JsonObject { ["findings"] = new JsonArray(new JsonObject
+            { ["code"] = "SELECTOR_VALUE", ["workflow"] = "main", ["location"] = target, ["evidence"] = "Return a greeting",
+                ["message"] = "Correct the computed selector without changing the accepted branches.", ["blocking"] = true }) } });
+        } };
+        state = await new TypedWorkflowPlanner().AdvanceAsync(state, new() { ExpectedRevision = state.Revision }, runtime, TestContext.Current.CancellationToken);
+        Assert.Equal(PlanningStatus.Generating, state.Status); Assert.Equal(approval, state.ApprovedBehaviorHash);
+        Assert.NotNull(state.Graph); Assert.Null(state.BehaviorRevisionSource);
+        Assert.Contains(PlanningPatches.Scope(state.Graph, state.Diagnostics), coordinate => coordinate == PlanningPatches.Coordinate("main", "decision", field));
+        Assert.DoesNotContain(state.Events, e => e.Kind == "behavior_revision_required");
+    }
+
+    [Theory]
     [InlineData("producer", "consumer")]
     [InlineData("renamed-source", "renamed-destination")]
     public void SemanticReviewReceivesAuthoritativeSchemasWithExactBindingsAndSharedDefinitions(string first, string second)

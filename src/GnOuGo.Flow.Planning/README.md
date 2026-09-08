@@ -422,3 +422,7 @@ not satisfy locked operation dependencies. A diagnostic preview collects these
 related findings together while retaining all other response-shape checks, so repair
 can move a dependency to an appropriate argument instead of alternating between
 incompatible candidates. Artifact arguments retain their stronger provenance rules.
+
+Semantic review can address a decision's `expr` directly. Incorrect selector values
+remain executable-field repairs and preserve accepted outcomes, rather than forcing
+a topology revision that cannot correct the computation.
