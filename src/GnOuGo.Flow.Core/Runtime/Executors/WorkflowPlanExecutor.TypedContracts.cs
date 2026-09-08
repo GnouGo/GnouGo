@@ -11,12 +11,20 @@ namespace GnOuGo.Flow.Core.Runtime.Executors;
 
 public sealed partial class WorkflowPlanExecutor
 {
+    internal static string TypedPreparationFeedback(JsonObject input) => input["planner_version"]?.GetValue<int>() == 2 && input["preparation_feedback"] is JsonArray { Count: > 0 } findings
+        ? "\nTechnical findings from validation of the previous construction (advisory, NOT user intent evidence):\n" + findings.ToJsonString() +
+          "\nReassess required runtime observations and their exact operation ownership. A resource handle is not its contents; local processing cannot obtain absent external data. " +
+          "Repair the inventory where needed, retaining every user requirement and answer. Cite only the identified intent sources, never these machine-written findings."
+        : "";
+
     /// <summary>Reuses the established exact-capability inventory and validation boundary.</summary>
     public async Task<PlanningPreparation> PrepareTypedContractsAsync(StepExecutionContext ctx, PlanningRequest request, CancellationToken ct)
     {
         var input = (JsonObject)request.Options.DeepClone();
         input["planner_version"] = 2;
         input["raw_prompt"] = request.Prompt;
+        if (request.PreparationFeedback.Count != 0)
+            input["preparation_feedback"] = JsonSerializer.SerializeToNode(request.PreparationFeedback, PlanningJsonContext.Default.ListPlanningDiagnostic);
         input["capability_preflight"] ??= new JsonObject { ["mode"] = "infer" };
         if (input["capability_preflight"]?["mode"]?.GetValue<string>() == "off")
             throw new InvalidOperationException("Typed planning requires capability preflight.");

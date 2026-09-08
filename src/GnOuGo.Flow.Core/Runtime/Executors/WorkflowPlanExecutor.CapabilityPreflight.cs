@@ -562,7 +562,7 @@ public sealed partial class WorkflowPlanExecutor
             {
                 Provider = provider,
                 Model = model,
-                Prompt = BuildCapabilityInventoryPromptWithEvidence(evidenceSources),
+                Prompt = BuildCapabilityInventoryPromptWithEvidence(evidenceSources) + TypedPreparationFeedback(input),
                 Reasoning = reasoning,
                 UseBackgroundMode = true,
                 StructuredOutputSchema = inventorySchema,
@@ -615,7 +615,7 @@ public sealed partial class WorkflowPlanExecutor
                         evidenceSources,
                         inventory,
                         rejectedInventoryCandidate,
-                        initialContractIssues),
+                        initialContractIssues) + TypedPreparationFeedback(input),
                     Reasoning = reasoning,
                     UseBackgroundMode = true,
                     StructuredOutputSchema = inventorySchema.DeepClone(),

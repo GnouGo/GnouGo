@@ -76,6 +76,7 @@ public sealed partial class TypedWorkflowPlanner(TimeProvider? timeProvider = nu
                         throw new PlanningConflictException("Edit the request only during recovery before the first behavior approval.");
                     ArchiveIntent(state);
                     state.Request.Prompt = command.Text.Trim();
+                    state.PreparationFeedback.Clear();
                     ResetBehavior(state);
                     state.Graph = null;
                     state.BehaviorAssessmentCalls = 0;
@@ -151,6 +152,7 @@ public sealed partial class TypedWorkflowPlanner(TimeProvider? timeProvider = nu
                     {
                         ArchiveIntent(state);
                         state.Request.Prompt += "\n\nRequested revision:\n" + command.Text;
+                        state.PreparationFeedback.Clear();
                         state.PreviousGraph = state.Graph; state.Graph = null; state.Preparation = null;
                         state.IntentChecked = false; state.Fragments.Clear(); state.Diagnostics.Clear(); state.Scenarios.Clear();
                         state.ApprovedHash = null; state.ArtifactHash = null; state.Yaml = null; state.BestGraph = null; state.BestScenarios.Clear();
@@ -454,6 +456,7 @@ public sealed partial class TypedWorkflowPlanner(TimeProvider? timeProvider = nu
                 if (diagnostics.Count == 0)
                 {
                     stage = 9; diagnostics.AddRange(await ReviewAsync(state, runtime, ct));
+                    if (RequiresPreparationReassessment(state, diagnostics)) return;
                     if (RequiresBehaviorReassessment(state, diagnostics)) return;
                 }
             }
@@ -588,10 +591,12 @@ public sealed partial class TypedWorkflowPlanner(TimeProvider? timeProvider = nu
     private async Task<List<PlanningDiagnostic>> ReviewAsync(PlanningSnapshot state, IPlanningRuntime runtime, CancellationToken ct)
     {
         var prompt = "Review the typed graph against the exact requested observable behavior and locked contract. " +
-            "Return only concrete findings supported by an exact evidence excerpt from the request. Do not challenge a locked capability's existence, ownership or confirmation policy. " +
+            "Return only concrete findings supported by an exact evidence excerpt from the request. Preserve required effects and confirmation policy. " +
             "Check preservation of every requested effect, cardinality, ordering, uncertain outcome, and cleanup. A passing schema does not prove intent coverage. " +
             "Each finding must identify its exact workflow and location from the response schema. Choose the operation's /input for argument/computation defects or /onError for failure handling. " +
             "Choose /behavior for missing iteration, ordering, routing, operations or other topology changes; field repair cannot change approved topology. " +
+            "Choose the operation's /preparation when required runtime observations are absent from its available producer contracts, or a local computation is expected to inspect external state. " +
+            "Do not repair missing observations by guessing fields, returning constant empty results, or asserting success. Preparation findings require new capability resolution and behavior review. " +
             "Evidence must be a single verbatim substring, without added quotes, ellipses, or combined excerpts. No score is used.\nRequest:\n" + Context(state) +
             "\nLocked contract:\n" + state.Preparation!.LockedContract.ToJsonString() +
             "\nGraph:\n" + JsonSerializer.Serialize(state.Graph, PlanningJsonContext.Default.PlanningGraph);
@@ -636,6 +641,7 @@ public sealed partial class TypedWorkflowPlanner(TimeProvider? timeProvider = nu
             foreach (var (node, path) in PlanningGraphValidation.Located(workflow.Steps, root + "/steps").Concat(PlanningGraphValidation.Located(workflow.Finally, root + "/finally")))
             {
                 targets[path + "/behavior"] = (workflow.Key, true);
+                targets[path + "/preparation"] = (workflow.Key, false);
                 foreach (var field in new[] { "input", "onError", "outputSchema", "structuredOutput" }) targets[path + "/" + field] = (workflow.Key, false);
             }
         }
@@ -747,6 +753,7 @@ public sealed partial class TypedWorkflowPlanner(TimeProvider? timeProvider = nu
     {
         var request = JsonSerializer.Deserialize(JsonSerializer.Serialize(state.Request, PlanningJsonContext.Default.PlanningRequest), PlanningJsonContext.Default.PlanningRequest)!;
         request.Prompt = Context(state);
+        request.PreparationFeedback = state.PreparationFeedback.ToList();
         return request;
     }
     private static string Context(PlanningSnapshot state) => state.Request.Prompt +

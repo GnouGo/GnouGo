@@ -166,6 +166,10 @@ sequences instead of constant samples. Nominal execution must consume the entire
 sequence and terminate; an extra request or early exit remains inconclusive. Failure
 and cancellation scenarios still inject their faults before returning a fixture.
 These fixtures establish synthetic control-flow coverage, never live external results.
+An evidenced semantic finding about missing runtime observations targets the affected
+operation's `/preparation` location. Bounded reassessment retains answers, usage and
+discovery, discards invalid inventory and derived construction, and requires fresh
+behavior approval. Machine diagnostics remain separate from user-intent evidence.
 Computation validation checks statically named fields on typed parameters and simple
 aliases against their producer schemas. Opaque results permit whole serialization,
 not invented `.text` or `.json` projections. Dynamic JavaScript still requires runtime

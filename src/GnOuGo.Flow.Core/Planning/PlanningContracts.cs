@@ -16,6 +16,7 @@ public sealed class PlanningRequest
     public int MaxConcurrency { get; set; } = 4;
     public int MaxRepairs { get; set; } = 3;
     public PlanningGenerationOptions Generation { get; set; } = new();
+    public List<PlanningDiagnostic> PreparationFeedback { get; set; } = [];
 }
 
 /// <summary>Request-scoped construction limits; changing these never changes accepted behavior.</summary>
@@ -111,6 +112,8 @@ public sealed class PlanningSnapshot
     public List<PlanningConstructionUnit> ConstructionUnits { get; set; } = [];
     public PlanningDataflowContract? Dataflow { get; set; }
     public PlanningPreparationCheckpoint? PreparationCheckpoint { get; set; }
+    public List<PlanningDiagnostic> PreparationFeedback { get; set; } = [];
+    public int PreparationReassessments { get; set; }
     public List<PlanningGenerationRevision> GenerationHistory { get; set; } = [];
     public string? Yaml { get; set; }
     public string? ArtifactHash { get; set; }
