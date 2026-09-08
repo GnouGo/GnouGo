@@ -8,6 +8,34 @@ namespace GnOuGo.Flow.Planning.Tests;
 
 public sealed class ConstructionUnitTests
 {
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task HelperValidationIsIdenticalOnRetainedCandidatesAndRepairs(bool exhausted)
+    {
+        var state = ApprovedSkeleton(); var calls = 0;
+        var runtime = new FakeRuntime { OnCall = (phase, request, _) =>
+        {
+            if (phase == "repair_unit")
+            {
+                calls++; Assert.Contains("require", request.Prompt);
+                return Task.FromResult(new LLMResponse { Json = new JsonObject { ["changes"] = new JsonObject
+                { ["functions"] = exhausted ? "function invalid() { return require('module'); }" : null }, ["remove"] = new JsonArray() } });
+            }
+            var response = FakeRuntime.ConstructionResponse(request, phase);
+            if (phase == "fragment_implementation") response["functions"] = "function invalid() { return require('module'); }";
+            return Task.FromResult(new LLMResponse { Json = response });
+        } };
+        var planner = new TypedWorkflowPlanner();
+        for (var i = 0; i < 8 && !state.ConstructionUnits.Any(u => u.Diagnostics.Any(d => d.Code == "UNIT_HELPER_DEPENDENCY_INVALID")); i++) state = await Advance(planner, state, runtime);
+        Assert.Contains(state.Diagnostics, d => d.Code == "UNIT_HELPER_DEPENDENCY_INVALID");
+        state = JsonSerializer.Deserialize(JsonSerializer.Serialize(state, PlanningJsonContext.Default.PlanningSnapshot), PlanningJsonContext.Default.PlanningSnapshot)!;
+        state = await Advance(planner, state, runtime);
+        Assert.Equal(1, calls);
+        Assert.Equal(exhausted ? PlanningStatus.Recovery : PlanningStatus.Generating, state.Status);
+        Assert.Equal(exhausted ? "recovery" : "validated", state.ConstructionUnits.Single(u => u.Kind == "implementation").Status);
+    }
+
     [Fact]
     public async Task DeterministicConversionFailureStopsWithoutRepeatingTheSameCandidateOrCallingTheModel()
     {

@@ -227,3 +227,6 @@ Additional interpretation requires an explicit transformation; existing structur
 declarations remain compatible. Empty native container contracts and required null
 annotations are constructed by the host. Missing model-owned fields and malformed
 explicit values still require validation and repair.
+Retained-candidate validation uses the same helper dependency checks as new responses.
+An unchanged invalid candidate with no model dispatch pauses instead of repeatedly
+writing identical recovery attempts.

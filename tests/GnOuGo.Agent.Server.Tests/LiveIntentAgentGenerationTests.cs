@@ -128,6 +128,7 @@ public sealed partial class LiveIntentAgentGenerationTests
         var runSucceeded = false;
         var failures = new List<Exception>();
         using var timeout = new CancellationTokenSource(remainingCycleTime);
+        using var runnerCancellation = TestContext.Current.CancellationToken.Register(timeout.Cancel);
         await using var planningStore = plannerVersion == 2 && !resumeOnly ? await PlanningPersistenceTests.StoreFixture.CreateAsync(ResolveBudgetStatePath(sourceRoot) + ".sessions") : null;
         try
         {
@@ -152,6 +153,7 @@ public sealed partial class LiveIntentAgentGenerationTests
                     services.AddLogging(logging => logging.AddProvider(new ProviderOperationalLogger()).AddFilter<ProviderOperationalLogger>("GnOuGo.AI.Core", LogLevel.Information));
                     if (plannerVersion == 2) ConfigureV2Campaign(services, cycleBudget, planningStore, budgetLedger);
                 });
+            using var hostCancellation = app.Lifetime.ApplicationStopping.Register(timeout.Cancel);
             if (plannerVersion == 2 && ExistingConfigurationAuthorized)
                 await ReconcileV2UnverifiedCallsAsync(app.Services, planningStore, budgetLedger, cycleBudget.Snapshot, resumeOnly, timeout.Token);
             if (resumeOnly)

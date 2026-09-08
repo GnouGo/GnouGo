@@ -109,6 +109,7 @@ public sealed partial class TypedWorkflowPlanner
         }
         state.CurrentPhase = ready.Any(u => u.Calls > 0 && u.Diagnostics.Count > 0) ? "repair_unit"
             : ready.Select(u => u.Kind).Distinct(StringComparer.Ordinal).Count() == 1 ? "fragment_" + ready[0].Kind : "fragment";
+        var previousProgress = ready.ToDictionary(u => u.Key, u => (u.Calls, u.CandidateHash, u.Status, Findings: DiagnosticFingerprint(u.Diagnostics)), StringComparer.Ordinal);
         // Requests are independent; candidate application and checkpoint updates remain sequential.
         var dispatched = await Task.WhenAll(ready.Select(async unit =>
         {
@@ -125,8 +126,7 @@ public sealed partial class TypedWorkflowPlanner
                     {
                         var preview = PlanningConstruction.Apply(graph, unit, unit.Candidate, state.Preparation!);
                         preview.Workflows.Single(w => w.Key == unit.WorkflowKey).Functions = MergeFunctions(state, unit, unit.Candidate["functions"]?.GetValue<string>());
-                        var currentFindings = UnitFindings(preview, state.Preparation!, unit).Concat(InputObligationFindings(state, preview, unit))
-                            .Concat(UnitBehaviorFindings(state, preview, unit)).ToList();
+                        var currentFindings = CandidateFindings(state, preview, unit, unit.Candidate);
                         if (currentFindings.Count == 0)
                             return (unit, response: (LLMResponse?)new LLMResponse { Json = unit.Candidate.DeepClone() }, patch: (PlanningUnitPatches?)null, error: (Exception?)null);
                         unit.Diagnostics = currentFindings;
@@ -224,23 +224,8 @@ public sealed partial class TypedWorkflowPlanner
                     {
                         var functions = unit.Candidate!["functions"]?.GetValue<string>();
                         candidate.Workflows.Single(w => w.Key == unit.WorkflowKey).Functions = MergeFunctions(state, unit, functions);
-                        if (!string.IsNullOrWhiteSpace(functions))
-                        {
-                            try
-                            {
-                                PlanningComputations.ValidateHelpers(functions);
-                                var prefix = "u_" + PlanningGraphCompiler.Fingerprint(unit.Key)[..8] + "_";
-                                if (new Acornima.Parser().ParseScript(functions).Body.OfType<Acornima.Ast.FunctionDeclaration>().Any(f => f.Id is null || !f.Id.Name.StartsWith(prefix, StringComparison.Ordinal)))
-                                    unit.Diagnostics.Add(new("UNIT_HELPER_SCOPE_INVALID", "/workflows/" + candidate.Workflows.FindIndex(w => w.Key == unit.WorkflowKey) + "/functions",
-                                        "Declare new helpers using the unit's assigned prefix; existing helpers cannot be redefined.", ValidationStage: "functions"));
-                            }
-                            catch (Acornima.ParseErrorException) { /* Independent executable validation reports the syntax location. */ }
-                            catch (InvalidOperationException ex) { unit.Diagnostics.Add(new("UNIT_HELPER_DEPENDENCY_INVALID", "/workflows/" + candidate.Workflows.FindIndex(w => w.Key == unit.WorkflowKey) + "/functions", ex.Message, ValidationStage: "functions")); }
-                        }
                     }
-                    unit.Diagnostics.AddRange(UnitFindings(candidate, state.Preparation!, unit));
-                    unit.Diagnostics.AddRange(UnitBehaviorFindings(state, candidate, unit));
-                    unit.Diagnostics.AddRange(InputObligationFindings(state, candidate, unit));
+                    unit.Diagnostics.AddRange(CandidateFindings(state, candidate, unit, unit.Candidate!));
                 }
                 catch (Exception ex) when (ex is InvalidOperationException or ArgumentException or FormatException)
                 { unit.Diagnostics.Add(ex is PlanningDataflow.BindingException binding
@@ -259,12 +244,22 @@ public sealed partial class TypedWorkflowPlanner
             else
             {
                 unit.Status = "invalid";
+                var previous = previousProgress[unit.Key];
+                if (previous.Status == "invalid" && previous.Calls == unit.Calls && previous.CandidateHash == unit.CandidateHash && previous.Findings == DiagnosticFingerprint(unit.Diagnostics))
+                {
+                    unit.DispatchDiagnostics.Add(new("UNIT_VALIDATION_STALLED", path,
+                        "The retained candidate failed the same checks without a model repair. Automatic progression is paused; repair preparation must change before another identical attempt can help.", ValidationStage: "validation"));
+                    unit.Status = "recovery"; stopped = true;
+                }
                 if (unit.RepairCalls - unit.RepairCallsAtRetry >= state.Request.MaxRepairs) { unit.Status = "recovery"; stopped = true; }
             }
         }
         state.Diagnostics = state.ConstructionUnits.Where(u => u.Status is "invalid" or "recovery").SelectMany(u => u.Diagnostics.Concat(u.DispatchDiagnostics)).ToList();
         state.Status = stopped ? PlanningStatus.Recovery : PlanningStatus.Generating;
     }
+
+    private static string DiagnosticFingerprint(IEnumerable<PlanningDiagnostic> findings) => PlanningGraphCompiler.Fingerprint(string.Join("\n",
+        findings.Select(d => d.Code + "\n" + d.Location + "\n" + d.Message).Order(StringComparer.Ordinal)));
 
     private static bool RecoverInvalidBehavior(PlanningSnapshot state)
     {
@@ -308,6 +303,24 @@ public sealed partial class TypedWorkflowPlanner
     private static string MergeFunctions(PlanningSnapshot state, PlanningConstructionUnit unit, string? functions) => string.Join("\n", state.ConstructionUnits
         .Where(u => u.WorkflowKey == unit.WorkflowKey && u.Kind == "implementation" && u.Key != unit.Key && u.Status == "validated")
         .Select(u => u.Functions).Append(functions).Where(f => !string.IsNullOrWhiteSpace(f)));
+
+    private static List<PlanningDiagnostic> CandidateFindings(PlanningSnapshot state, PlanningGraph candidate, PlanningConstructionUnit unit, JsonObject fields)
+    {
+        var findings = UnitFindings(candidate, state.Preparation!, unit).Concat(UnitBehaviorFindings(state, candidate, unit))
+            .Concat(InputObligationFindings(state, candidate, unit)).ToList();
+        if (unit.Kind != "implementation" || fields["functions"]?.GetValue<string>() is not { Length: > 0 } functions) return findings;
+        var location = "/workflows/" + candidate.Workflows.FindIndex(w => w.Key == unit.WorkflowKey) + "/functions";
+        try
+        {
+            PlanningComputations.ValidateHelpers(functions);
+            var prefix = "u_" + PlanningGraphCompiler.Fingerprint(unit.Key)[..8] + "_";
+            if (new Acornima.Parser().ParseScript(functions).Body.OfType<Acornima.Ast.FunctionDeclaration>().Any(f => f.Id is null || !f.Id.Name.StartsWith(prefix, StringComparison.Ordinal)))
+                findings.Add(new("UNIT_HELPER_SCOPE_INVALID", location, "Declare new helpers using the unit's assigned prefix; existing helpers cannot be redefined.", ValidationStage: "functions"));
+        }
+        catch (Acornima.ParseErrorException) { /* Independent executable validation reports the syntax location. */ }
+        catch (InvalidOperationException ex) { findings.Add(new("UNIT_HELPER_DEPENDENCY_INVALID", location, ex.Message, ValidationStage: "functions")); }
+        return findings;
+    }
 
     private static string UnitFingerprint(PlanningSnapshot state, PlanningConstructionUnit unit) => PlanningGraphCompiler.Fingerprint(
         "construction-v" + PlanningDataflow.ContractVersion + "\n" + state.ApprovedBehaviorHash + "\n" + Context(state) + "\n" + state.Preparation!.Fingerprint + "\n" +
