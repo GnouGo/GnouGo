@@ -18,6 +18,7 @@ public sealed class ContainerBindingExecutionTests
         var empty = new PlanningNode { Key = key, Type = "sequence" };
         workflow.Steps.Insert(0, empty);
         workflow.Steps[1].Input = Obj(("message", new() { Kind = "compute", Text = "Object.keys(result).length === 0 ? 'empty' : 'unexpected'", Members = [new("result", new() { Kind = "output", Source = key })] }));
+        workflow.Steps[1].OutputSchema = new() { Type = "object", Properties = [new() { Name = "message", Required = true, Schema = new() { Type = "string" } }] };
         var fingerprint = PlanningGraphCompiler.Fingerprint(graph);
         var yaml = new PlanningGraphCompiler().Compile(graph, prep);
         var document = GnOuGo.Flow.Core.Parsing.WorkflowParser.Parse(yaml);
