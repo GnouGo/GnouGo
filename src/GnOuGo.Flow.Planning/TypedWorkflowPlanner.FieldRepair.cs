@@ -13,11 +13,12 @@ public sealed partial class TypedWorkflowPlanner
     {
         if (state.ConstructionUnits.Count == 0) return false;
         var graph = state.Graph!;
+        var repairDiagnostics = state.Diagnostics.Select(d => ConstructionRepairDiagnostic(d, graph)).ToArray();
         var located = graph.Workflows.SelectMany((w, wi) => PlanningGraphValidation.Located(w.Steps, "/workflows/" + wi + "/steps")
             .Concat(PlanningGraphValidation.Located(w.Finally, "/workflows/" + wi + "/finally")).Select(n => (Workflow: w, n.Node, n.Path))).ToArray();
         // Nested runtime telemetry also reports the failed container. Repair the
         // actual innermost failing operation, not an immutable routing wrapper.
-        var finding = state.Diagnostics.Where(d => d.Code != "SCENARIO_UNREACHED" && located.Any(n => d.Location == n.Path || new[] { "input", "expr", "onError", "outputSchema", "structuredOutput" }.Any(field => d.Location == n.Path + "/" + field || d.Location.StartsWith(n.Path + "/" + field + "/", StringComparison.Ordinal))))
+        var finding = repairDiagnostics.Where(d => d.Code != "SCENARIO_UNREACHED" && located.Any(n => d.Location == n.Path || new[] { "input", "expr", "onError", "outputSchema", "structuredOutput" }.Any(field => d.Location == n.Path + "/" + field || d.Location.StartsWith(n.Path + "/" + field + "/", StringComparison.Ordinal))))
             .OrderByDescending(d => d.Location.Count(c => c == '/')).FirstOrDefault();
         var helperUnit = finding is null ? state.ConstructionUnits.FirstOrDefault(u => u.Kind == "implementation" && u.Status != "superseded" &&
             state.Diagnostics.Any(d => d.Location.StartsWith("/workflows/" + graph.Workflows.FindIndex(w => w.Key == u.WorkflowKey) + "/functions/u_" + PlanningGraphCompiler.Fingerprint(u.Key)[..8] + "_", StringComparison.Ordinal))) : null;
@@ -33,7 +34,7 @@ public sealed partial class TypedWorkflowPlanner
         unit.Candidate = PlanningConstruction.UpgradeCandidate(graph, unit, PlanningConstruction.Values(owner.Workflow, unit, state.Preparation), state.Preparation!);
         unit.CandidateHash = PlanningGraphCompiler.Fingerprint(unit.Candidate.ToJsonString());
         var helperPath = "/workflows/" + graph.Workflows.FindIndex(w => w.Key == unit.WorkflowKey) + "/functions/u_" + PlanningGraphCompiler.Fingerprint(unit.Key)[..8] + "_";
-        unit.Diagnostics = state.Diagnostics.Where(d => helperUnit is not null ? d.Location.StartsWith(helperPath, StringComparison.Ordinal)
+        unit.Diagnostics = repairDiagnostics.Where(d => helperUnit is not null ? d.Location.StartsWith(helperPath, StringComparison.Ordinal)
             : located.Any(n => n.Workflow.Key == unit.WorkflowKey && unit.NodeKeys.Contains(n.Node.Key, StringComparer.Ordinal) && (d.Location == n.Path || d.Location.StartsWith(n.Path + "/", StringComparison.Ordinal))))
             .Select(d => d with { Location = PlanningLocation(d.Location, graph) }).ToList();
         var preparation = UnitPreparation(state.Preparation!, owner.Workflow, unit);
@@ -90,6 +91,21 @@ public sealed partial class TypedWorkflowPlanner
             else { state.RepairAttempt++; state.Status = PlanningStatus.Generating; }
         }
         return true;
+    }
+
+    internal static PlanningDiagnostic ConstructionRepairDiagnostic(PlanningDiagnostic diagnostic, PlanningGraph graph)
+    {
+        if (diagnostic.Code != "SCENARIO_OBSERVATIONS_UNCONSUMED") return diagnostic;
+        var loops = graph.Workflows.SelectMany((w, wi) => PlanningGraphValidation.Located(w.Steps, "/workflows/" + wi + "/steps")
+            .Concat(PlanningGraphValidation.Located(w.Finally, "/workflows/" + wi + "/finally")))
+            .Where(n => n.Node.Type is "loop.sequential" or "loop.parallel" && diagnostic.Location.StartsWith(n.Path + "/", StringComparison.Ordinal));
+        var owner = loops.OrderByDescending(n => n.Path.Length).FirstOrDefault();
+        if (owner.Node is null) return diagnostic;
+        var controls = owner.Node.Type == "loop.sequential"
+            ? " An items array bounds the total iterations even when while remains true."
+            : " The items array determines the iteration count.";
+        return diagnostic with { Location = owner.Path + "/input", Message = diagnostic.Message +
+            " Repair the containing loop's iteration controls." + controls + " Preserve complete traversal and termination; do not limit the loop to the fixture's response count." };
     }
 
     internal static string PlanningLocation(string location, PlanningGraph graph)

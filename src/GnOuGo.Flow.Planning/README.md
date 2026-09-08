@@ -60,6 +60,10 @@ through `HumanInputContract`, including scalar choices and their boolean respons
 Computed tool arguments with explicit null result branches are rejected before execution
 when their destination excludes null. Optional arguments may be omitted; optionality does
 not make null a valid value. Unknown computations still require runtime scenario validation.
+When a scenario leaves observations unconsumed inside a loop, repair targets the containing
+loop's iteration controls. The read operation's arguments remain outside that patch.
+In a sequential loop, an items array bounds iteration even when a while condition is true;
+coverage must establish complete traversal and termination without fixing the count to examples.
 Input/output reference sources are constrained to declared keys. Public exports select from
 a deterministic index of resolvable, exportable producer paths; schemas come from the selected
 producer. Optional fields cannot be selected as unconditional required values. Whole-object
