@@ -173,6 +173,20 @@ public sealed class CodeToolsStructuredOutputTests : IDisposable
         Assert.True(artifactValidation.IsValid, string.Join(Environment.NewLine, artifactValidation.Errors));
     }
 
+    [Theory]
+    [InlineData("copilot_review")]
+    [InlineData("copilot_review_start")]
+    public void ReviewToolsDeclareOptionalRuntimeResultsContext(string name)
+    {
+        var schema = JsonNode.Parse(DiscoverCopilotTools()[name].ProtocolTool.InputSchema.GetRawText())!;
+        var context = schema["properties"]!["runtimeContextJson"]!;
+        Assert.Contains("string", context["type"]!.ToJsonString());
+        Assert.Contains("original upstream execution results", context["description"]!.ToString());
+        Assert.DoesNotContain(schema["required"]!.AsArray(), p => p?.ToString() == "runtimeContextJson");
+        Assert.NotNull(schema["properties"]!["reviewInstructions"]);
+        Assert.NotNull(schema["properties"]!["existingCommentsJson"]);
+    }
+
     [Fact]
     public void CopilotSessionAndOneShotTools_AdvertiseComposableLifecycleContracts()
     {

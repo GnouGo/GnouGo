@@ -79,4 +79,25 @@ public sealed class ArtifactCollectionTests
         for (var i = 0; i < 4 && state.Status == PlanningStatus.Created; i++) state = await planner.AdvanceAsync(state, new() { Kind = "advance", ExpectedRevision = state.Revision }, runtime, TestContext.Current.CancellationToken);
         Assert.Equal(PlanningStatus.BehaviorReview, state.Status); Assert.DoesNotContain("intent", runtime.Phases);
     }
+
+    [Theory]
+    [InlineData("CATALOG_CHANGED")]
+    [InlineData("CATALOG_UNAVAILABLE")]
+    public async Task RetryChecksCurrentCatalogBeforeReusingARejectedImplementation(string code)
+    {
+        var state = Session(PlanningStatus.Recovery); state.IntentChecked = true; state.Preparation = Preparation(); state.Graph = Graph();
+        state.BehaviorPlan = BehaviorPlan(); state.ApprovedBehaviorHash = "old"; state.ReviewedGraph = Graph();
+        state.Diagnostics = [new("OPERATION_INPUT_BINDING_MISSING", "/workflows/0/steps/0/input", "A required context binding is missing.")];
+        state.Answers.Add(new("retained question", new JsonObject { ["answer"] = "retained" })); state.ClarificationForms = 1;
+        state.Usage = new() { Calls = 9 };
+        var runtime = new FakeRuntime { CatalogDiagnostics = [new(code, "/catalog", "Current contract unavailable or changed.")] };
+        var planner = new TypedWorkflowPlanner();
+        var result = await planner.AdvanceAsync(state, new() { Kind = "retry", ExpectedRevision = state.Revision }, runtime, TestContext.Current.CancellationToken);
+        Assert.Equal(1, runtime.CatalogCalls); Assert.Empty(runtime.Phases);
+        Assert.NotNull(result.Usage); Assert.Equal(9, result.Usage.Calls); Assert.Single(result.Answers); Assert.Equal(1, result.ClarificationForms);
+        if (code == "CATALOG_CHANGED")
+        { Assert.Null(result.Preparation); Assert.Null(result.Graph); Assert.Null(result.ApprovedBehaviorHash); Assert.Equal(PlanningStatus.Created, result.Status); }
+        else
+        { Assert.NotNull(result.Graph); Assert.NotNull(result.Preparation); Assert.Equal(PlanningStatus.Recovery, result.Status); Assert.Contains(result.Diagnostics, d => d.Code == code); }
+    }
 }

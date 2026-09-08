@@ -222,10 +222,11 @@ public sealed class PlanningSessionService(
         activity?.SetTag("gnougo.planning.phase", PlanningPhase.Resolve(current));
         activity?.SetTag("gnougo.planning.revision", current.Revision);
         var sw = Stopwatch.StartNew();
-        if (command.Kind is "cancel" or "retry" or "edit_intent" or "configure_generation")
+        if (command.Kind is "cancel" or "edit_intent" or "configure_generation" || command.Kind == "retry" && current.Preparation is null)
         {
             // Recovery commands are durable state changes; model/provider availability
-            // must not prevent the user from editing, retrying, or cancelling.
+            // must not prevent editing, configuration, cancellation or an intent retry.
+            // A prepared retry needs the configured MCP runtime to check its catalog.
             var updated = await planner.AdvanceAsync(current, command, new WorkflowPlanningRuntime(new WorkflowEngine()), ct);
             var finalBudget = await records.GetAsync(PlanningBudgetSink.Collection, Tenant, current.Request.SessionId, EfPlanningSessionStore.Author, ct);
             if (finalBudget is not null) updated.Usage = JsonSerializer.Deserialize(finalBudget.Value, PlanningJsonContext.Default.LLMUsageBudgetSnapshot);

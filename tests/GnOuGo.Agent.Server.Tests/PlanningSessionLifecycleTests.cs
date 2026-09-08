@@ -17,6 +17,28 @@ public sealed class PlanningSessionLifecycleTests
     private static CancellationToken Ct => TestContext.Current.CancellationToken;
 
     [Fact]
+    public async Task PreparedRetryHasCatalogAccessWithoutCallingTheModel()
+    {
+        await using var fixture = await PlanningPersistenceTests.StoreFixture.CreateAsync();
+        var state = State(PlanningStatus.Recovery);
+        state.Preparation!.Capabilities = [new() { Id = "selected", StepType = "mcp.call", Kind = "tool", Server = "renamed", Method = "inspect",
+            DeclarationFingerprint = "old-contract" }];
+        Assert.True(await fixture.Store.TrySaveAsync(state, null, Ct));
+        var planner = new DelegatePlanner(async (snapshot, command, runtime, ct) =>
+        {
+            Assert.Equal("retry", command.Kind);
+            var findings = await runtime.ValidateCatalogAsync(snapshot.Preparation!, ct);
+            Assert.Contains(findings, d => d.Code == "CATALOG_CHANGED");
+            Assert.DoesNotContain(findings, d => d.Code == "CATALOG_UNAVAILABLE");
+            var next = JsonSerializer.Deserialize(JsonSerializer.Serialize(snapshot, PlanningJsonContext.Default.PlanningSnapshot), PlanningJsonContext.Default.PlanningSnapshot)!;
+            next.Revision++; next.Diagnostics = findings.ToList(); return next;
+        });
+        using var service = Create(fixture, planner, new FakeMcpSession("renamed").WithTool("inspect"));
+        var result = await service.SubmitAsync(state.Request.SessionId, new() { Kind = "retry", ExpectedRevision = state.Revision }, Ct);
+        Assert.Equal(PlanningStatus.Recovery, result.Status); Assert.NotNull(result.Usage); Assert.Equal(0, result.Usage.Calls);
+    }
+
+    [Fact]
     public async Task PreparationProgressIsDurableBeforeThePhaseCompletes()
     {
         await using var fixture = await PlanningPersistenceTests.StoreFixture.CreateAsync();

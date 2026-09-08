@@ -787,3 +787,9 @@ findings. Rejected matching repairs remain separate from the retained candidate.
 See the [capability recovery diagnosis and next architecture step](../../docs/planner-v2-capability-recovery.md).
 
 Planner v2 decision contracts, confirmation routing, recovery and live validation are described in [Planner v2 decisions](../../docs/planner-v2-decisions.md).
+
+Retry for a prepared session uses the configured MCP runtime to check current tool
+contracts before reusing executable checkpoints. Catalog changes return through
+capability resolution and behavior review without losing retained answers or usage.
+Editing, cancellation, configuration changes and intent-only retries remain available
+through the local recovery path; catalog checking itself makes no model call.

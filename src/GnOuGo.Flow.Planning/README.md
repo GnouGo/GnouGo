@@ -476,3 +476,8 @@ Semantic review receives the resolved contracts for references actually consumed
 the graph, including container response envelopes and structured channels. Logical
 node keys remain compiler-resolved references. Unresolved contracts are identified
 explicitly instead of being presented as empty or invented producer schemas.
+
+Retry checks the current catalog before reusing a rejected implementation. Changed
+contracts invalidate the retained capability selection and behavior approval while
+preserving answers, history and cumulative usage. An unavailable catalog keeps the
+session in recovery without dispatching model requests.

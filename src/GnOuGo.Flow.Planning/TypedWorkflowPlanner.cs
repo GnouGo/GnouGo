@@ -185,7 +185,17 @@ public sealed partial class TypedWorkflowPlanner(TimeProvider? timeProvider = nu
                     if (!invalidReview && !obsoleteMatchingQuestion && state.Status is not (PlanningStatus.Failed or PlanningStatus.Unsupported or PlanningStatus.Recovery)) throw new PlanningConflictException("Only a stopped session or invalidated behavior review can be retried.");
                     ArchiveIntent(state);
                     if (obsoleteMatchingQuestion) state.Question = null;
-                    if (ReassessUnchangedBehaviorRevision(state)) break;
+                    if (state.Preparation is not null)
+                    {
+                        var currentCatalog = await runtime.ValidateCatalogAsync(state.Preparation, ct);
+                        state.Diagnostics.AddRange(currentCatalog);
+                        if (currentCatalog.Any(d => d.Required && d.Code != "CATALOG_CHANGED"))
+                        {
+                            state.Status = PlanningStatus.Recovery; state.CurrentPhase = PlanningPhase.Capabilities;
+                            break; // Keep the retained contract and candidate until catalog availability is established.
+                        }
+                    }
+                    if (!state.Diagnostics.Any(d => d.Code == "CATALOG_CHANGED") && ReassessUnchangedBehaviorRevision(state)) break;
                     if (state.BehaviorPlan is not null && state.Preparation is not null && PlanningBehaviorPlans.Validate(state.BehaviorPlan, state.Preparation).Count != 0)
                     {
                         // A corrected validator may expose an unsafe earlier behavior contract.

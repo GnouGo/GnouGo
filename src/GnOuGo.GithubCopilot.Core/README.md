@@ -34,3 +34,5 @@ dotnet build src/GnOuGo.GithubCopilot.Core/GnOuGo.GithubCopilot.Core.csproj
 dotnet test tests/GnOuGo.GithubCopilot.Core.Tests/GnOuGo.GithubCopilot.Core.Tests.csproj
 dotnet pack src/GnOuGo.GithubCopilot.Core/GnOuGo.GithubCopilot.Core.csproj -c Release
 ```
+
+`CopilotReviewStartRequest.RuntimeContextJson` optionally carries a JSON object of upstream execution results (maximum 32,000 characters). The review manager validates it before creating a session and preserves it as encoded untrusted context in every batch. Caller instructions and existing inline comments remain separate inputs; runtime context grants no permission to act.
