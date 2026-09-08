@@ -296,6 +296,9 @@ only those schema coordinates and retain valid sibling fields and constraints.
 Producer contract generation includes its declared consumers' complete argument
 schemas, with shared definitions and separate host-bound values. Generated argument
 names identify the remaining data needs without dropping schema constraints.
+For composite operations, contract context also identifies sibling producers and
+their authoritative or already-validated result schemas; one read must not recreate
+all other reads’ contributions.
 After behavior revision, schema generation receives only retained schema findings
 for its stable node identifiers. Implementation and routing findings remain stored
 for their own phases; free-text revisions without validated coordinates remain intact.

@@ -9,6 +9,29 @@ namespace GnOuGo.Flow.Planning.Tests;
 public sealed class ConstructionUnitTests
 {
     [Theory]
+    [InlineData("metadata", "revision")]
+    [InlineData("metadonnees", "version")]
+    public void CompositeProducerSchemaContextIncludesValidatedSiblingContributions(string siblingKey, string field)
+    {
+        var state = ApprovedSkeleton(); var workflow = state.Graph!.Workflows[0]; workflow.Steps[0].OperationIds = ["read"];
+        var sibling = new PlanningNode { Key = siblingKey, Type = "mcp.call", CapabilityId = "opaque", OperationIds = ["read"], Purpose = "Metadata from another read",
+            StructuredOutput = new(new() { Type = "object", Properties = [new() { Name = field, Required = true, Schema = new() { Type = "string" } }] }) };
+        workflow.Steps.Insert(0, sibling);
+        state.Preparation!.Capabilities.Add(new() { Id = "opaque", StepType = "mcp.call", OperationIds = ["read"] });
+        var unit = new PlanningConstructionUnit { Kind = "contracts", NodeKeys = ["greeting"] };
+        JsonNode Context() => JsonNode.Parse(TypedWorkflowPlanner.ContractPrompt(state, workflow, unit, state.Preparation)
+            .Split("\nProducer and consumer obligations:\n", StringSplitOptions.None)[1].Split("\nBusiness boundary:\n", StringSplitOptions.None)[0])!;
+        Assert.Empty(Context()["siblingProducerContracts"]!.AsArray());
+        state.ConstructionUnits.Add(new() { WorkflowKey = workflow.Key, Kind = "contracts", NodeKeys = [siblingKey], Status = "validated" });
+        var entry = Assert.Single(Context()["siblingProducerContracts"]!.AsArray())!;
+        Assert.Equal(siblingKey, entry["producer"]!.GetValue<string>());
+        Assert.Equal("string", entry["structuredResultSchema"]!["properties"]![field]!["type"]!.GetValue<string>());
+        Assert.Null(entry["originalResultSchema"]);
+        sibling.OperationIds = ["unrelated"];
+        Assert.Empty(Context()["siblingProducerContracts"]!.AsArray());
+    }
+
+    [Theory]
     [InlineData("destination", "resourceId")]
     [InlineData("renamed-capability", "identifiant")]
     public void ProducerContractGenerationReceivesConsumerTypesWithoutDuplicatingLockedArguments(string destination, string argument)
