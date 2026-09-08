@@ -588,7 +588,7 @@ public sealed partial class TypedWorkflowPlanner(TimeProvider? timeProvider = nu
         }
     }
 
-    private async Task<List<PlanningDiagnostic>> ReviewAsync(PlanningSnapshot state, IPlanningRuntime runtime, CancellationToken ct)
+    private async Task<List<PlanningDiagnostic>> ReviewAsync(PlanningSnapshot state, IPlanningRuntime runtime, CancellationToken ct, JsonObject? constructionEvidence = null)
     {
         var prompt = "Review the typed graph against the exact requested observable behavior and locked contract. " +
             "Return only concrete findings supported by an exact evidence excerpt from the request. Preserve required effects and confirmation policy. " +
@@ -598,14 +598,20 @@ public sealed partial class TypedWorkflowPlanner(TimeProvider? timeProvider = nu
             "Choose the operation's /preparation when required runtime observations are absent from its available producer contracts, or a local computation is expected to inspect external state. " +
             "Do not repair missing observations by guessing fields, returning constant empty results, or asserting success. Preparation findings require new capability resolution and behavior review. " +
             "Evidence must be a single verbatim substring, without added quotes, ellipses, or combined excerpts. No score is used.\nRequest:\n" + Context(state) +
-            "\nLocked contract:\n" + state.Preparation!.LockedContract.ToJsonString() +
-            "\nGraph:\n" + JsonSerializer.Serialize(state.Graph, PlanningJsonContext.Default.PlanningGraph);
+            "\nLocked contract:\n" + (constructionEvidence is null ? state.Preparation!.LockedContract.ToJsonString() : "See the scoped construction evidence below.") +
+            (constructionEvidence is null ? "\nGraph:\n" + JsonSerializer.Serialize(state.Graph, PlanningJsonContext.Default.PlanningGraph)
+                : "\nInvalid construction evidence:\n" + constructionEvidence.ToJsonString() +
+                  "\nAssess only whether required external observations are missing from available inputs. Unsupported helper code alone does not prove a missing capability. " +
+                  "Return /preparation findings only for requirements that cannot be implemented from established producers. Never authorize module loading, external access in local JavaScript, or removal of the requirement.");
         var targets = SemanticTargets(state.Graph!);
+        if (constructionEvidence is not null) targets = targets.Where(p => p.Key.EndsWith("/preparation", StringComparison.Ordinal)).ToDictionary(p => p.Key, p => p.Value, StringComparer.Ordinal);
         var shape = PlanningSchemas.Review(state.Graph!.Workflows.Select(w => w.Key), targets.Keys);
         var invalid = new List<PlanningDiagnostic>(); JsonObject? response = null;
         for (var attempt = 0; attempt < 2; attempt++)
         {
             var repair = invalid.Count == 0 ? "" : "\nRepair the assessment contract only. Keep supported findings; do not modify the workflow.\nCandidate:\n" + response?.ToJsonString() + "\nInvalid fields:\n" + JsonSerializer.Serialize(invalid, PlanningJsonContext.Default.ListPlanningDiagnostic);
+            if (constructionEvidence is not null && PlanningConstruction.EstimateInputTokens(prompt + repair, shape) > state.Request.Generation.MaxInputTokensPerUnit)
+                throw new SemanticAssessmentException([new("PREPARATION_REVIEW_CONTEXT_TOO_LARGE", "/preparation", "The affected observation assessment exceeds its configured context limit; no request was dispatched.")]);
             try { response = await StructuredAsync(state, runtime, "semantic_review", prompt + repair, shape, ct, maxAttempts: 1); }
             catch (WorkflowRuntimeException ex) when (ex.Code == ErrorCodes.LlmSchema)
             { invalid = [new("SEMANTIC_REVIEW_INVALID", "/semanticReview", "The semantic assessment response did not match its declared schema.")]; continue; }

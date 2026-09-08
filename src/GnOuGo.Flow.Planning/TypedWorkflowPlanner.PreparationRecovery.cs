@@ -6,6 +6,44 @@ namespace GnOuGo.Flow.Planning;
 
 public sealed partial class TypedWorkflowPlanner
 {
+    private async Task<bool> ReassessFailedObservationConstructionAsync(PlanningSnapshot state, IPlanningRuntime runtime, CancellationToken ct)
+    {
+        var units = state.ConstructionUnits.Where(u => u.Status != "validated" && u.Status != "superseded" && u.RepairCalls > 0 && u.Candidate is not null &&
+            u.Diagnostics.Any(d => d.Code is "UNIT_HELPER_DEPENDENCY_INVALID" or "COMPUTATION_FIELD_UNDECLARED")).Take(state.Request.MaxConcurrency).ToArray();
+        if (units.Length == 0) return false;
+        var fingerprint = PlanningGraphCompiler.Fingerprint(state.Preparation!.Fingerprint + string.Join("\n", units.Select(u => u.Key + ":" + u.CandidateHash)));
+        if (state.PreparationReviewFingerprint == fingerprint) return false;
+        var nodes = new JsonArray(); var operations = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var unit in units)
+        {
+            var wi = state.Graph!.Workflows.FindIndex(w => w.Key == unit.WorkflowKey); var workflow = state.Graph.Workflows[wi];
+            foreach (var (node, path) in PlanningGraphValidation.Located(workflow.Steps, "/workflows/" + wi + "/steps").Concat(PlanningGraphValidation.Located(workflow.Finally, "/workflows/" + wi + "/finally")))
+            {
+                if (!unit.NodeKeys.Contains(node.Key, StringComparer.Ordinal)) continue;
+                operations.UnionWith(node.OperationIds);
+                nodes.Add((JsonNode)new JsonObject { ["location"] = path + "/preparation", ["operation"] = DescribeNode(node, state.Preparation),
+                    ["candidate"] = unit.Candidate!["nodes"]?[node.Key]?.DeepClone(), ["helpers"] = unit.Candidate["functions"]?.DeepClone() });
+            }
+        }
+        foreach (var capability in state.Preparation.Capabilities.Where(c => c.OperationIds.Intersect(operations).Any()).ToArray()) operations.UnionWith(capability.InputOperationIds);
+        var producers = new JsonArray(state.Graph!.Workflows.SelectMany(w => PlanningGraphCompiler.Enumerate(w.Steps.Concat(w.Finally)))
+            .Where(n => n.OperationIds.Intersect(operations).Any()).Select(n => (JsonNode)DescribeNode(n, state.Preparation)).ToArray());
+        var evidence = new JsonObject { ["affected"] = nodes, ["declaredProducers"] = producers, ["lockedContract"] = RelevantContract(state.Preparation, operations.ToList()),
+            ["producerContracts"] = new JsonArray(state.Preparation.Capabilities.Where(c => c.OperationIds.Intersect(operations).Any()).Select(c => (JsonNode)new JsonObject
+            { ["id"] = c.Id, ["description"] = c.Description, ["outputSchema"] = c.OutputSchema.DeepClone() }).ToArray()) };
+        try
+        {
+            var findings = await ReviewAsync(state, runtime, ct, evidence);
+            state.PreparationReviewFingerprint = fingerprint;
+            state.Attempts.Add(new(fingerprint, "construction_observation_review", 0, false, findings));
+            if (RequiresPreparationReassessment(state, findings)) return true;
+            await runtime.CheckpointAsync(state, ct);
+        }
+        catch (SemanticAssessmentException ex)
+        { state.Diagnostics = ex.Diagnostics; state.Status = PlanningStatus.Recovery; state.CurrentPhase = PlanningPhase.Capabilities; return true; }
+        return false;
+    }
+
     private bool RequiresPreparationReassessment(PlanningSnapshot state, List<PlanningDiagnostic> findings)
     {
         var targets = SemanticTargets(state.Graph!);

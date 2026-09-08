@@ -8,6 +8,30 @@ namespace GnOuGo.Flow.Planning.Tests;
 
 public sealed class PreparationRecoveryTests
 {
+    [Fact]
+    public async Task RepeatedForbiddenHelpersCanReassessMissingObservationsBeforeExecutableCompletion()
+    {
+        var state = ConstructionUnitTests.ApprovedSkeleton(); state.Request.Prompt = "Observe resource contents and summarize them.";
+        var unit = new PlanningConstructionUnit { Key = "unit", WorkflowKey = "main", Kind = "implementation", NodeKeys = ["greeting"], Status = "invalid", Calls = 2, RepairCalls = 1,
+            CandidateHash = "candidate", Candidate = new JsonObject { ["nodes"] = new JsonObject { ["greeting"] = new JsonObject() }, ["functions"] = "function read() { return require('module'); }" },
+            Diagnostics = [new("UNIT_HELPER_DEPENDENCY_INVALID", "/workflows/0/functions", "Undeclared require dependency.")] };
+        state.ConstructionUnits = [unit];
+        var runtime = new FakeRuntime { OnCall = (phase, request, _) =>
+        {
+            Assert.Equal("semantic_review", phase); Assert.Contains("require", request.Prompt);
+            Assert.All(request.StructuredOutputSchema!["properties"]!["findings"]!["items"]!["properties"]!["location"]!["enum"]!.AsArray(), p => Assert.EndsWith("/preparation", p!.ToString()));
+            return Task.FromResult(new LLMResponse { Json = new JsonObject { ["findings"] = new JsonArray(new JsonObject
+            {
+                ["code"] = "OBSERVATION_MISSING", ["workflow"] = "main", ["location"] = "/workflows/0/steps/0/preparation",
+                ["message"] = "The content needs an external observation before local summarization.", ["evidence"] = state.Request.Prompt, ["blocking"] = true
+            }) } });
+        } };
+        state = await new TypedWorkflowPlanner().AdvanceAsync(state, new() { ExpectedRevision = state.Revision }, runtime, TestContext.Current.CancellationToken);
+        Assert.Equal(PlanningStatus.Created, state.Status); Assert.Null(state.Preparation); Assert.Null(state.ApprovedBehaviorHash);
+        Assert.Equal(new[] { "semantic_review" }, runtime.Phases); Assert.Equal(1, state.PreparationReassessments);
+        Assert.Contains(state.Attempts, a => a.Phase == "construction_observation_review");
+    }
+
     [Theory]
     [InlineData("Return a greeting", false)]
     [InlineData("Renvoyer une salutation", false)]

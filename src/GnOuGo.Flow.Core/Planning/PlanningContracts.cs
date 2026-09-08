@@ -114,6 +114,7 @@ public sealed class PlanningSnapshot
     public PlanningPreparationCheckpoint? PreparationCheckpoint { get; set; }
     public List<PlanningDiagnostic> PreparationFeedback { get; set; } = [];
     public int PreparationReassessments { get; set; }
+    public string? PreparationReviewFingerprint { get; set; }
     public List<PlanningGenerationRevision> GenerationHistory { get; set; } = [];
     public string? Yaml { get; set; }
     public string? ArtifactHash { get; set; }

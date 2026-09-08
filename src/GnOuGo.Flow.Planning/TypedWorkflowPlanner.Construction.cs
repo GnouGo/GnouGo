@@ -12,6 +12,7 @@ public sealed partial class TypedWorkflowPlanner
         if (RecoverInvalidBehavior(state)) return;
         state.CurrentPhase = "fragment";
         var graph = state.Graph!;
+        if (await ReassessFailedObservationConstructionAsync(state, runtime, ct)) return;
         var described = PlanningDataflow.Describe(graph, state.Preparation!);
         if (state.Dataflow is { } retainedDataflow)
         {
