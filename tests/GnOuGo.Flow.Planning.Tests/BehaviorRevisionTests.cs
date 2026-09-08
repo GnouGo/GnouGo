@@ -8,6 +8,78 @@ namespace GnOuGo.Flow.Planning.Tests;
 
 public sealed class BehaviorRevisionTests
 {
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task RetryReassessesRetainedPresentationOnlyRepairAndPreservesARealLoop(bool wrapped)
+    {
+        var state = Session(PlanningStatus.Recovery); state.Preparation = Preparation(); state.IntentChecked = true;
+        state.PreviousGraph = Graph(); state.Graph = Graph(); state.BehaviorPlan = BehaviorPlan();
+        state.Graph.Workflows[0].Steps[0].Purpose = "Now repeat every item";
+        state.BehaviorPlan.Workflows[0].Steps[0].Purpose = "Now repeat every item";
+        if (wrapped)
+        {
+            state.Graph.Workflows[0].Steps = [new() { Key = "items", Type = "loop.sequential", Purpose = "Repeat", Steps = state.Graph.Workflows[0].Steps }];
+            state.BehaviorPlan.Workflows[0].Steps = [new() { Key = "items", Kind = "loop", Purpose = "Repeat", InputDependencies = [], Steps = state.BehaviorPlan.Workflows[0].Steps }];
+        }
+        state.ApprovedBehaviorHash = PlanningBehaviorPlans.Fingerprint(state.BehaviorPlan);
+        var approved = state.ApprovedBehaviorHash;
+        state.Answers.Add(new("Retained answer", new JsonObject { ["value"] = "yes" })); state.ActiveMilliseconds = 1234;
+        state.Attempts.Add(new(PlanningGraphCompiler.Fingerprint(state.PreviousGraph), "semantic_review", 9, false,
+            [new("CARDINALITY", "/workflows/0/steps/0/behavior", "Repeat for every entry."), new("ARGUMENT", "/workflows/0/steps/0/input", "Preserve the dynamic input.")]));
+        state = JsonSerializer.Deserialize(JsonSerializer.Serialize(state, PlanningJsonContext.Default.PlanningSnapshot), PlanningJsonContext.Default.PlanningSnapshot)!;
+        var runtime = new FakeRuntime();
+        state = await new TypedWorkflowPlanner().AdvanceAsync(state, new() { Kind = "retry", ExpectedRevision = state.Revision }, runtime, TestContext.Current.CancellationToken);
+        Assert.Empty(runtime.Phases); Assert.Single(state.Answers); Assert.True(state.ActiveMilliseconds >= 1234);
+        if (wrapped) Assert.Equal(approved, state.ApprovedBehaviorHash);
+        else
+        {
+            Assert.Equal(PlanningPhase.Behavior, state.CurrentPhase); Assert.Null(state.ApprovedBehaviorHash); Assert.Null(state.Graph);
+            Assert.NotNull(state.PreviousGraph); Assert.Contains("actual structure", state.Feedback);
+            Assert.Contains(state.Diagnostics, d => d.Code == "ARGUMENT");
+        }
+    }
+
+    [Theory]
+    [InlineData("Read every page", false)]
+    [InlineData("Lire toutes les pages", false)]
+    [InlineData("Read every page", true)]
+    public async Task PresentationOnlyRevisionIsRepairedBeforeAnyReviewOrElaboration(string prose, bool exhaust)
+    {
+        var state = Session(PlanningStatus.Created); state.Preparation = Preparation(); state.IntentChecked = true;
+        state.PreviousGraph = Graph(); state.BehaviorRevisionSource = BehaviorPlan(); state.Feedback = "Repeat the existing operation.";
+        var original = PlanningBehaviorPlans.Fingerprint(state.BehaviorRevisionSource);
+        state.Attempts.Add(new(PlanningGraphCompiler.Fingerprint(state.PreviousGraph), "semantic_review", 9, false,
+            [new("CARDINALITY", "/workflows/0/steps/0/behavior", state.Feedback)]));
+        var calls = 0;
+        var runtime = new FakeRuntime { OnCall = (phase, request, _) =>
+        {
+            Assert.Equal("behavior_revision", phase);
+            if (++calls == 2) Assert.Contains("changes presentation only", request.Prompt);
+            var repair = calls == 2 && !exhaust;
+            var node = repair ? new PlanningBehaviorNode { Key = "pages", Kind = "loop", Purpose = prose, InputDependencies = [] }
+                : JsonSerializer.Deserialize(JsonSerializer.Serialize(state.BehaviorRevisionSource.Workflows[0].Steps[0], PlanningJsonContext.Default.PlanningBehaviorNode), PlanningJsonContext.Default.PlanningBehaviorNode)!;
+            node.Purpose = prose;
+            return Task.FromResult(new LLMResponse { Json = new JsonObject { ["main/greeting"] = new JsonObject
+                { ["action"] = repair ? "wrap_loop" : "replace", ["node"] = JsonSerializer.SerializeToNode(node, PlanningJsonContext.Default.PlanningBehaviorNode) } } });
+        } };
+        state = await new TypedWorkflowPlanner().AdvanceAsync(state, new() { ExpectedRevision = state.Revision }, runtime, TestContext.Current.CancellationToken);
+        Assert.Equal(2, calls); Assert.Null(state.ApprovedBehaviorHash); Assert.Null(state.Graph);
+        Assert.Contains(state.Attempts, a => a.Diagnostics.Any(d => d.Code == "BEHAVIOR_PATCH_INVALID"));
+        if (exhaust)
+        {
+            Assert.Equal(PlanningStatus.Recovery, state.Status);
+            Assert.Equal(original, PlanningBehaviorPlans.Fingerprint(state.BehaviorRevisionSource!));
+            Assert.Contains(state.Diagnostics, d => d.Code == "BEHAVIOR_PATCH_INVALID");
+        }
+        else
+        {
+            Assert.True(state.Status == PlanningStatus.BehaviorReview, string.Join("; ", state.Diagnostics.Select(d => d.Code + ": " + d.Message)));
+            Assert.Equal("loop", state.BehaviorPlan!.Workflows[0].Steps[0].Kind);
+            Assert.Equal("greeting", Assert.Single(state.BehaviorPlan.Workflows[0].Steps[0].Steps).Key);
+        }
+    }
+
     [Fact]
     public async Task RevisionReceivesOwnedContractsWithoutUnrelatedCatalogPayloads()
     {

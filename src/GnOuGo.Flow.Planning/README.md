@@ -343,3 +343,11 @@ Nullable typed enums export null in both the type union and allowed values. Impo
 preserves the intersection of those constraints: a source enum that excludes null
 does not become nullable merely because its type union includes it. Literal nulls
 are checked against the complete destination contract before compilation.
+
+Focused behavior repairs must change the diagnosed structure or dependency contract.
+Changing only purpose or outcome descriptions cannot repair iteration, ordering or
+routing. Such candidates receive the remaining targeted repair call before review;
+exhaustion preserves the original plan and pauses in recovery.
+Retry also detects historical repairs whose diagnosed nodes and enclosing topology
+remained unchanged. It preserves other findings by stable node identity and returns
+to behavior repair and renewed review before dispatching more construction calls.

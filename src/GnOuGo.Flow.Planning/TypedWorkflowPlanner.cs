@@ -184,6 +184,7 @@ public sealed partial class TypedWorkflowPlanner(TimeProvider? timeProvider = nu
                     if (!invalidReview && !obsoleteMatchingQuestion && state.Status is not (PlanningStatus.Failed or PlanningStatus.Unsupported or PlanningStatus.Recovery)) throw new PlanningConflictException("Only a stopped session or invalidated behavior review can be retried.");
                     ArchiveIntent(state);
                     if (obsoleteMatchingQuestion) state.Question = null;
+                    if (ReassessUnchangedBehaviorRevision(state)) break;
                     if (state.BehaviorPlan is not null && state.Preparation is not null && PlanningBehaviorPlans.Validate(state.BehaviorPlan, state.Preparation).Count != 0)
                     {
                         // A corrected validator may expose an unsafe earlier behavior contract.

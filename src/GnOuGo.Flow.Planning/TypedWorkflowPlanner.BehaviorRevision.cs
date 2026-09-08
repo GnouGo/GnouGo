@@ -7,6 +7,45 @@ namespace GnOuGo.Flow.Planning;
 
 public sealed partial class TypedWorkflowPlanner
 {
+    private bool ReassessUnchangedBehaviorRevision(PlanningSnapshot state)
+    {
+        if (state.PreviousGraph is null || state.Graph is null || state.BehaviorPlan is null) return false;
+        var previous = state.PreviousGraph;
+        var findings = state.Attempts.LastOrDefault(a => a.Phase == "semantic_review" &&
+            a.CandidateHash == PlanningGraphCompiler.Fingerprint(previous))?.Diagnostics;
+        if (findings is null) return false;
+        var current = state.Graph.Workflows.SelectMany((w, i) => PlanningGraphValidation.Located(w.Steps, $"/workflows/{i}/steps")
+            .Concat(PlanningGraphValidation.Located(w.Finally, $"/workflows/{i}/finally")).Select(n => (Workflow: w.Key, n.Node, n.Path))).ToArray();
+        var old = previous.Workflows.SelectMany((w, i) => PlanningGraphValidation.Located(w.Steps, $"/workflows/{i}/steps")
+            .Concat(PlanningGraphValidation.Located(w.Finally, $"/workflows/{i}/finally")).Select(n => (Workflow: w.Key, n.Node, n.Path))).ToArray();
+        var unchanged = new List<PlanningDiagnostic>();
+        foreach (var finding in findings.Where(d => d.Required && d.Location.EndsWith("/behavior", StringComparison.Ordinal)))
+        {
+            var target = old.FirstOrDefault(n => n.Path + "/behavior" == finding.Location);
+            if (target.Node is null) continue;
+            var retained = current.FirstOrDefault(n => n.Workflow == target.Workflow && n.Node.Key == target.Node.Key);
+            // A wrapper or a move to another outcome is already a topology change.
+            // Historical candidates lack a complete behavior baseline, so only
+            // invalidate demonstrably unchanged nodes at the same structural path.
+            if (retained.Node is null || retained.Path != target.Path || !PlanningBehaviorRevisions.SameTopology(target.Node, retained.Node)) continue;
+            if (old.Where(n => n.Workflow == target.Workflow && target.Path.StartsWith(n.Path + "/", StringComparison.Ordinal)).Any(ancestor =>
+                current.FirstOrDefault(n => n.Workflow == ancestor.Workflow && n.Path == ancestor.Path).Node is not { } retainedAncestor ||
+                !PlanningBehaviorRevisions.SameTopology(ancestor.Node, retainedAncestor))) continue;
+            unchanged.Add(finding with { Location = retained.Path + "/behavior", Message = finding.Message +
+                " The retained revision changed no executable topology at this location. Repair the actual structure before elaboration." });
+        }
+        if (unchanged.Count == 0) return false;
+        // Retain other findings by stable producer identity even if a sibling moved.
+        foreach (var finding in findings.Where(d => !d.Location.EndsWith("/behavior", StringComparison.Ordinal)))
+        {
+            var target = old.Where(n => finding.Location.StartsWith(n.Path + "/", StringComparison.Ordinal)).MaxBy(n => n.Path.Length);
+            if (target.Node is null) continue;
+            var retained = current.FirstOrDefault(n => n.Workflow == target.Workflow && n.Node.Key == target.Node.Key);
+            if (retained.Node is not null) unchanged.Add(finding with { Location = retained.Path + finding.Location[target.Path.Length..] });
+        }
+        return RequiresBehaviorReassessment(state, unchanged);
+    }
+
     private async Task<bool> AssessBehaviorRevisionAsync(PlanningSnapshot state, IPlanningRuntime runtime, CancellationToken ct)
     {
         if (state.PreviousGraph is null || state.Feedback is null) return false;
@@ -33,6 +72,7 @@ public sealed partial class TypedWorkflowPlanner
         var prompt = "Revise only the named behavior nodes to address the evidenced coverage findings. " +
             "Use wrap_loop to repeat an existing operation; supply an empty loop node and the host retains the original child. " +
             "Use replace for a changed subtree. Preserve original node keys, capabilities, business inputs, ownership, effects, confirmations and cleanup. " +
+            "A structural finding requires a changed topology or dependency contract. Rewriting purpose or outcome descriptions alone cannot implement iteration, ordering or routing. " +
             "Only behavior descriptions belong here; executable code and schemas belong to later construction. " +
             "This candidate will require new human behavior approval. Return only the supplied revision fields.\nRequest and answers:\n" + Context(state) +
             "\nRequired coverage findings:\n" + state.Feedback +
@@ -88,6 +128,22 @@ public sealed partial class TypedWorkflowPlanner
 
 internal static class PlanningBehaviorRevisions
 {
+    internal static bool SameTopology(PlanningNode before, PlanningNode after)
+    {
+        JsonNode Shape(PlanningNode node) => new JsonObject
+        {
+            ["key"] = node.Key, ["type"] = node.Type, ["capability"] = node.CapabilityId,
+            ["if"] = node.If is null ? null : JsonSerializer.SerializeToNode(node.If, PlanningJsonContext.Default.PlanningValue),
+            ["operations"] = new JsonArray(node.OperationIds.Select(id => (JsonNode?)JsonValue.Create(id)).ToArray()),
+            ["steps"] = new JsonArray(node.Steps.Select(Shape).ToArray()),
+            ["default"] = new JsonArray(node.Default.Select(Shape).ToArray()),
+            ["cases"] = new JsonArray(node.Cases.Select(c => (JsonNode)new JsonObject
+                { ["value"] = c.Value, ["steps"] = new JsonArray(c.Steps.Select(Shape).ToArray()) }).ToArray()),
+            ["branches"] = new JsonArray(node.Branches.Select(b => (JsonNode)new JsonArray(b.Steps.Select(Shape).ToArray())).ToArray())
+        };
+        return JsonNode.DeepEquals(Shape(before), Shape(after));
+    }
+
     internal static JsonObject Schema(PlanningPreparation preparation, PlanningBehaviorPlan baseline, IEnumerable<(string Workflow, string Node)> targets)
     {
         var keys = targets.Select(t => PlanningSchemaReferences.Escape(t.Workflow) + "/" + PlanningSchemaReferences.Escape(t.Node)).Distinct(StringComparer.Ordinal).ToArray();
@@ -128,7 +184,12 @@ internal static class PlanningBehaviorRevisions
                                 throw new InvalidOperationException("A loop wrapper needs a distinct key, empty children and no action capability. The host preserves the original operation.");
                             node.Steps.Add(current);
                         }
-                        else if (action != "replace" || node.Key != key) throw new InvalidOperationException("A replacement must preserve its target key.");
+                        else
+                        {
+                            if (action != "replace" || node.Key != key) throw new InvalidOperationException("A replacement must preserve its target key.");
+                            if (JsonNode.DeepEquals(Structure(current), Structure(node)))
+                                throw new InvalidOperationException("The behavior replacement changes presentation only. Repair the actual topology or dependency contract; use wrap_loop when an existing operation must repeat. Purpose and outcome descriptions cannot implement control flow.");
+                        }
                         nodes[i] = node; applied++; continue;
                     }
                     ApplyIn(current.Steps); foreach (var outcome in current.Outcomes) ApplyIn(outcome.Steps);
@@ -136,6 +197,21 @@ internal static class PlanningBehaviorRevisions
             }
         }
         return result;
+    }
+
+    private static JsonNode Structure(PlanningBehaviorNode node)
+    {
+        var value = JsonSerializer.SerializeToNode(node, PlanningJsonContext.Default.PlanningBehaviorNode)!;
+        StripPresentation(value);
+        return value;
+
+        static void StripPresentation(JsonNode? value)
+        {
+            if (value is JsonArray array) { foreach (var child in array) StripPresentation(child); return; }
+            if (value is not JsonObject obj) return;
+            obj.Remove("purpose"); obj.Remove("description");
+            foreach (var property in obj) StripPresentation(property.Value);
+        }
     }
 
     // Older snapshots retain the executable baseline but not its behavior source.
