@@ -290,6 +290,9 @@ Opaque MCP producers with declared downstream operation dependencies must establ
 
 Schema diagnostics identify the invalid nested declaration. Repair patches expose
 only those schema coordinates and retain valid sibling fields and constraints.
+After behavior revision, schema generation receives only retained schema findings
+for its stable node identifiers. Implementation and routing findings remain stored
+for their own phases; free-text revisions without validated coordinates remain intact.
 Invalid opaque object declarations may use a validated text representation when
 consumers do not require internal fields; unknown fields never become bindings.
 New MCP nodes with declared object fields reuse their authoritative results directly.

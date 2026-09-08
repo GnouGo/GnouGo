@@ -8,6 +8,28 @@ namespace GnOuGo.Flow.Planning.Tests;
 
 public sealed class ConstructionUnitTests
 {
+    [Fact]
+    public void ContractGenerationScopesRetainedAssessmentByPhaseAndStableNodeIdentity()
+    {
+        var state = ApprovedSkeleton(); state.PreviousGraph = Graph();
+        state.PreviousGraph.Workflows[0].Steps.Add(new() { Key = "unrelated", Type = "set" });
+        var findings = new List<PlanningDiagnostic>
+        {
+            new("SCHEMA_COVERAGE", "/workflows/0/steps/0/outputSchema", "Declare the required typed status"),
+            new("ARGUMENT", "/workflows/0/steps/0/input", "Correct an implementation argument"),
+            new("ROUTING", "/workflows/0/steps/0/behavior", "Correct accepted routing"),
+            new("OTHER", "/workflows/0/steps/1/outputSchema", "Correct an unrelated schema")
+        };
+        state.Feedback = string.Join("\n", findings.Select(d => d.Message)); var retained = state.Feedback;
+        state.Attempts.Add(new(PlanningGraphCompiler.Fingerprint(state.PreviousGraph), "semantic_review", 9, false, findings));
+        // Current positions can differ after a reviewed topology revision.
+        state.Graph!.Workflows[0].Steps.Insert(0, new() { Key = "new-node", Type = "set" });
+        var prompt = TypedWorkflowPlanner.ContractPrompt(state, state.Graph.Workflows[0], new() { Kind = "contracts", NodeKeys = ["greeting"] }, state.Preparation!);
+        Assert.Contains(findings[0].Message, prompt);
+        Assert.All(findings.Skip(1), d => Assert.DoesNotContain(d.Message, prompt));
+        Assert.Equal(retained, state.Feedback); Assert.Equal(4, state.Attempts[0].Diagnostics.Count);
+    }
+
     [Theory]
     [InlineData("source-a", "Return every observed item", "Observe all pages")]
     [InlineData("renamed-source", "Retourner tous les elements observes", "Observer toutes les pages")]
