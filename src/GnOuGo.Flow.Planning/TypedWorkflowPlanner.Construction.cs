@@ -51,7 +51,13 @@ public sealed partial class TypedWorkflowPlanner
             unit.RepairCallsAtRetry = unit.RepairCalls;
             if (unit.Kind is "implementation" or "outputs" && unit.Candidate is not null)
                 unit.Candidate = PlanningConstruction.UpgradeCandidate(graph, unit, unit.Candidate, state.Preparation!);
-            if (unit.Candidate is not null) unit.Candidate = PlanningConstructionSchemas.Compact(unit.Candidate);
+            if (unit.Candidate is not null)
+            {
+                unit.Candidate = PlanningConstructionSchemas.Compact(unit.Candidate);
+                if (unit.Kind == "implementation" && unit.Candidate["nodes"] is JsonObject fields &&
+                    fields.Any(p => p.Value?["values"] is JsonObject { Count: 0 } && p.Value?["input"] is not null))
+                    unit.PartialCandidate = true;
+            }
             if (unit.Status == "validated")
             {
                 var findings = UnitFindings(graph, state.Preparation!, unit).ToList();
@@ -173,14 +179,15 @@ public sealed partial class TypedWorkflowPlanner
                     : "Repair only invalid declaration shapes and paths. Preserve existing valid declarations; add missing parents or array items where required. Do not redesign the result.\nCandidate:\n" + unit.SchemaDeclarations.ToJsonString() +
                         "\nDiagnostics:\n" + JsonSerializer.Serialize(unit.Diagnostics, PlanningJsonContext.Default.ListPlanningDiagnostic))
                     : patch is not null ? FieldPrompt(patch) : UnitPrompt(state, workflow, unit, preparation, false);
-                if (patch is null && unit.Kind == "implementation" && unit.NodeKeys.Count == 1 &&
-                    PlanningConstruction.EstimateInputTokens(prompt, responseSchema) > state.Request.Generation.MaxInputTokensPerUnit)
+                if (patch is null && unit.Kind == "implementation" &&
+                    (schema["properties"]?["nodes"]?["properties"]?.AsObject().Sum(n => (n.Value?["properties"]?["values"]?["properties"] as JsonObject)?.Count ?? 0) > 4 ||
+                     unit.NodeKeys.Count == 1 && PlanningConstruction.EstimateInputTokens(prompt, responseSchema) > state.Request.Generation.MaxInputTokensPerUnit))
                 {
                     unit.PartialCandidate = true; unit.Candidate ??= new JsonObject();
                     patch = PlanningUnitPatches.Create(graph, unit, schema, state.Preparation);
                     responseSchema = patch.Schema; prompt = FieldPrompt(patch);
                 }
-                while (patch is not null && PlanningConstruction.EstimateInputTokens(prompt, responseSchema) > state.Request.Generation.MaxInputTokensPerUnit)
+                while (patch is not null && (unit.PartialCandidate && patch.FieldCount > 4 || PlanningConstruction.EstimateInputTokens(prompt, responseSchema) > state.Request.Generation.MaxInputTokensPerUnit))
                 {
                     var narrowed = patch.Narrow(); if (ReferenceEquals(narrowed, patch)) break;
                     patch = narrowed; responseSchema = patch.Schema; prompt = FieldPrompt(patch);
@@ -383,6 +390,10 @@ public sealed partial class TypedWorkflowPlanner
         var wi = graph.Workflows.FindIndex(w => w.Key == unit.WorkflowKey);
         var workflow = graph.Workflows[wi]; var root = "/workflows/" + wi;
         var located = PlanningGraphValidation.Located(workflow.Steps, root + "/steps").Concat(PlanningGraphValidation.Located(workflow.Finally, root + "/finally")).ToArray();
+        if (unit.Kind == "implementation" && unit.ContractVersion >= PlanningObjectConstruction.Version)
+            foreach (var (node, path) in located.Where(n => unit.NodeKeys.Contains(n.Node.Key)))
+                if (node.Input.Kind != "object" && PlanningObjectConstruction.Contract(node, preparation) is not null)
+                    yield return new("SET_FIELD_BINDINGS_REQUIRED", path + "/input", "Construct each declared result field independently with its own typed dependencies. A single opaque computation cannot prove which upstream results contribute to a selected field.", ValidationStage: "dataflow");
         foreach (var diagnostic in PlanningExecutableValidation.Validate(graph, preparation).Concat(PlanningArtifactBindings.PrerequisiteFindings(graph, preparation))
             .Concat(GeneratedFunctionDocumentation.Validate(workflow.Functions).Select(d => new PlanningDiagnostic(d.Code,
                 root + "/functions/" + PlanningSchemaReferences.Escape(d.Function), d.Message, ValidationStage: "functions"))))
@@ -651,6 +662,7 @@ public sealed partial class TypedWorkflowPlanner
         "Select exact binding identifiers. In binding tables, prepend the group's optional pathPrefix to each entry path. An opaque producer permits only whole-result consumption or serialization, not property access. " +
         "A template can bind the whole result; use a validated transformation when typed fields are needed. The envelope channel contains the complete MCP result: a response on success or the declared error fallback. Loop results retain each child envelope. Inspect or serialize the envelope to retain failures; never invent a missing response. " +
         "For compute, text must be executable JavaScript using named members as parameters, such as value.trim(). Multiple statements must end with return. Never describe the calculation in prose; do not read an implicit data context. " +
+        "For values coordinates, implement each declared object field independently with its own named dependencies. Never project a field out of an opaque computed object. Reuse typed helper functions when necessary; do not guess status fields or infer success from arbitrary text. " +
         "Keep business inputs dynamic: examples are defaults, not replacements for input dependencies. " +
         "Sequential loop_previous bindings are null before the first iteration and carry the previous iteration's declared child results thereafter. Use them for continuation state; never replace complete traversal with a fixed smaller number of iterations. " +
         "Return only the patch schema.\nOwned operations:\n" + new JsonArray(PlanningGraphCompiler.Enumerate(workflow.Steps.Concat(workflow.Finally)).Where(n => unit.NodeKeys.Contains(n.Key, StringComparer.Ordinal)).Select(n => (JsonNode)new JsonObject { ["key"] = n.Key, ["purpose"] = n.Purpose }).ToArray()).ToJsonString() +
@@ -707,9 +719,15 @@ public sealed partial class TypedWorkflowPlanner
         foreach (var coordinate in coordinates.Select(p => p.Key))
         {
             var parts = coordinate.Split('/').Select(p => p.Replace("~1", "/", StringComparison.Ordinal).Replace("~0", "~", StringComparison.Ordinal)).ToArray();
-            if (parts.Length < 3 || parts[0] != "nodes" || parts[2] != "input") continue;
+            if (parts.Length < 3 || parts[0] != "nodes" || parts[2] is not ("input" or "values")) continue;
             var node = PlanningGraphCompiler.Enumerate(workflow.Steps.Concat(workflow.Finally)).Single(n => n.Key == parts[1]);
-            if (node.Type == "set" && node.OutputSchema is { } schema) result[node.Key] = PlanningGraphCompiler.ToJsonSchema(schema, preparation);
+            if (node.Type == "set" && node.OutputSchema is { } schema)
+            {
+                var declared = PlanningGraphCompiler.ToJsonSchema(schema, preparation);
+                if (parts[2] == "values" && parts.Length >= 4)
+                    result[coordinate] = declared["properties"]?[parts[3]]?.DeepClone();
+                else result[node.Key] = declared;
+            }
         }
         return result;
     }

@@ -432,3 +432,12 @@ unit acceptance. It derives finite labels from string/boolean literals, comparis
 negation, conditional expressions and direct function returns without executing code.
 Unknown helpers and dynamic values remain unknown. Repairs target `expr`; accepted
 case values, defaults and topology remain unchanged.
+
+Construction contract 43 exposes each declared field of a non-nullable, closed `set`
+result as an exact `values` coordinate. Lowering emits an object whose individual
+values retain their typed dependencies; root computations cannot substitute opaque
+objects for field provenance. Optional fields distinguish omission from null. Large
+objects use checkpointed groups of at most four value coordinates, within the existing
+token ceilings. Legacy explicit fields upgrade without changing their values. Opaque
+legacy computations remain in encrypted revision history and require field generation;
+unrelated implementations, accepted behavior, answers and cumulative usage remain.

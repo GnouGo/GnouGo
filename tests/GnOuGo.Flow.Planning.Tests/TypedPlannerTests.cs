@@ -362,7 +362,8 @@ public sealed class TypedPlannerTests
         {
             var workflow = Graph().Workflows[0];
             workflow.Steps[0].OutputSchema = new() { Type = "object", Properties = [new() { Name = "message", Schema = new() { Type = "string" } }] };
-            return PlanningConstruction.Values(workflow, new() { Kind = phase[9..], NodeKeys = (request.StructuredOutputSchema?["properties"]?["nodes"]?["properties"] as JsonObject ?? []).Select(p => p.Key).ToList() });
+            var unit = new PlanningConstructionUnit { WorkflowKey = workflow.Key, Kind = phase[9..], NodeKeys = (request.StructuredOutputSchema?["properties"]?["nodes"]?["properties"] as JsonObject ?? []).Select(p => p.Key).ToList(), ContractVersion = PlanningDataflow.ContractVersion };
+            return PlanningConstruction.UpgradeCandidate(new() { Workflows = [workflow] }, unit, PlanningConstruction.Values(workflow, unit), Preparation());
         }
         public Task<IReadOnlyList<PlanningDiagnostic>> ValidateAsync(string yaml, PlanningRequest request, PlanningPreparation preparation, CancellationToken ct)
         {

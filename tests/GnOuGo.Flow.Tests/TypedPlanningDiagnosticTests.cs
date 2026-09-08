@@ -10,6 +10,28 @@ namespace GnOuGo.Flow.Tests;
 public sealed class TypedPlanningDiagnosticTests
 {
     [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void SelectedObjectFieldRequiresItsOwnProducerDependencies(bool explicitFields)
+    {
+        var first = new GnOuGo.Flow.Core.Models.StepDef { Id = "first", Type = "mcp.call" };
+        var second = new GnOuGo.Flow.Core.Models.StepDef { Id = "second", Type = "mcp.call" };
+        var input = explicitFields ? (JsonNode)new JsonObject
+        {
+            ["outcome"] = "${data.steps.first.response.ok && data.steps.second.response.ok}",
+            ["unrelated"] = "${data.steps.first.response.ok}"
+        } : JsonValue.Create("${({ outcome: data.steps.first.response.ok && data.steps.second.response.ok })}");
+        var reducer = new GnOuGo.Flow.Core.Models.StepDef { Id = "reducer", Type = "set", Input = input };
+        var document = new GnOuGo.Flow.Core.Models.WorkflowDocument { Workflows = new() { ["main"] = new() { Steps = [first, second, reducer] } } };
+        var callers = new Dictionary<string, IReadOnlyList<(string Workflow, GnOuGo.Flow.Core.Models.StepDef Call)>>();
+        foreach (var producer in new[] { first, second })
+            Assert.Equal(explicitFields, WorkflowPlanExecutor.LocalDecisionExpressionDependsOnSources(document,
+                callers, [("main", producer)], "main", "${data.steps.reducer.outcome}", new(StringComparer.Ordinal)));
+        Assert.False(WorkflowPlanExecutor.LocalDecisionExpressionDependsOnSources(document,
+            callers, [("main", second)], "main", "${data.steps.reducer.unrelated}", new(StringComparer.Ordinal)));
+    }
+
+    [Theory]
     [InlineData(false, false, "intent")]
     [InlineData(true, false, "capabilities")]
     [InlineData(true, true, "behavior")]

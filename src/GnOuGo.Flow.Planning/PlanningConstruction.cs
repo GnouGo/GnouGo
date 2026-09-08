@@ -178,6 +178,12 @@ public static class PlanningConstruction
                             (graph is null ? null : PlanningArtifactBindings.ArgumentSchema(workflow, node, p.Key, preparation, graph)) ??
                             (required.Contains(p.Key) ? Ref("value") : new JsonObject { ["anyOf"] = new JsonArray(Ref("value"), Object(new() { ["kind"] = new JsonObject { ["type"] = "string", ["enum"] = new JsonArray("omit") } })) })))));
                     }
+                    else if (unit.ContractVersion >= PlanningObjectConstruction.Version && PlanningObjectConstruction.Contract(node, preparation) is { } resultContract)
+                    {
+                        var required = (resultContract["required"] as JsonArray ?? []).Select(p => p!.ToString()).ToHashSet(StringComparer.Ordinal);
+                        fields["values"] = Object(new JsonObject(resultContract["properties"]!.AsObject().Select(p => new KeyValuePair<string, JsonNode?>(p.Key,
+                            required.Contains(p.Key) ? Ref("value") : new JsonObject { ["anyOf"] = new JsonArray(Ref("value"), Object(new() { ["kind"] = new JsonObject { ["type"] = "string", ["enum"] = new JsonArray("omit") } })) }))));
+                    }
                     else if (node.Type is not ("sequence" or "parallel" or "switch")) fields["input"] = Ref("value");
                     if (node.Type == "switch" && PlanningDecisionRouting.Contract(node, preparation) is null) fields["expr"] = Ref("value");
                     if (unit.ContractVersion < 11 && node.Type is "loop.sequential" or "loop.parallel")
@@ -208,6 +214,9 @@ public static class PlanningConstruction
                         PlanningArgumentBindings.Constrain(arguments, definitions, prefix, destinations,
                             PlanningDataflow.CompactIndex(workflow, preparation, graph, node.Key).Values);
 
+                    if (constrainArguments && fields["values"] is JsonObject objectValues && PlanningObjectConstruction.Contract(node, preparation)?["properties"] is JsonObject outputFields)
+                        PlanningArgumentBindings.Constrain(objectValues, definitions, prefix, outputFields,
+                            PlanningDataflow.CompactIndex(workflow, preparation, graph, node.Key).Values);
                 }
                 nodes[node.Key] = Object(fields);
             }
@@ -333,6 +342,9 @@ public static class PlanningConstruction
                     foreach (var binding in capability.RequestBindings.Where(b => b.Path.StartsWith('/') && !b.Path[1..].Contains('/')))
                         request.Members.Add(new(binding.Path[1..].Replace("~1", "/", StringComparison.Ordinal).Replace("~0", "~", StringComparison.Ordinal), Literal(binding.Value)));
                 }
+                if (fields["values"] is JsonObject values)
+                    node.Input = new() { Kind = "object", Members = values.Where(p => p.Value?["kind"]?.ToString() != "omit")
+                        .Select(p => new PlanningMember(p.Key, JsonSerializer.Deserialize(p.Value!, PlanningJsonContext.Default.PlanningValue)!)).ToList() };
                 if (fields["input"] is { } input) node.Input = JsonSerializer.Deserialize(input, PlanningJsonContext.Default.PlanningValue)!;
                 if (fields["conditions"] is JsonObject conditions) PlanningDecisionRouting.ApplyConditions(workflow, node, conditions, preparation, result);
                 if (node.Type == "human.input")
@@ -419,6 +431,10 @@ public static class PlanningConstruction
                 arguments[member!["name"]!.ToString()] = member["value"]?.DeepClone();
             fields["arguments"] = arguments; fields.Remove("input");
         }
+        if (unit.ContractVersion >= PlanningObjectConstruction.Version)
+            foreach (var node in PlanningGraphCompiler.Enumerate(workflow.Steps.Concat(workflow.Finally)).Where(n => unit.NodeKeys.Contains(n.Key, StringComparer.Ordinal)))
+                if (result["nodes"]?[node.Key] is JsonObject fields && PlanningObjectConstruction.Contract(node, preparation) is { } contract)
+                    PlanningObjectConstruction.Upgrade(fields, contract);
         return result;
     }
 

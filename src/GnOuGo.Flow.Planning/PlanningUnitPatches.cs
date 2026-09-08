@@ -7,6 +7,7 @@ namespace GnOuGo.Flow.Planning;
 internal sealed class PlanningUnitPatches(JsonObject schema, Dictionary<string, string[]> slots, List<string[]> removals)
 {
     internal JsonObject Schema { get; } = schema;
+    internal int FieldCount => slots.Count;
     internal JsonObject Context(JsonObject? candidate) => new(slots.Select(p =>
         new KeyValuePair<string, JsonNode?>(p.Key, Read(candidate, p.Value, out var value) ? value?.DeepClone() : null)));
 
@@ -38,7 +39,7 @@ internal sealed class PlanningUnitPatches(JsonObject schema, Dictionary<string, 
             if (key == "functions") { Add([key], value!); continue; }
             foreach (var (name, fields) in value!["properties"]!.AsObject())
                 foreach (var (field, shape) in fields!["properties"]!.AsObject())
-                    if (field == "arguments")
+                    if (field is "arguments" or "values")
                         foreach (var (argument, argumentShape) in shape!["properties"]!.AsObject()) Add([key, name, field, argument], argumentShape!);
                     else Add([key, name, field], shape!);
         }
@@ -63,7 +64,7 @@ internal sealed class PlanningUnitPatches(JsonObject schema, Dictionary<string, 
             var graphPath = slot.Parts[0] switch
             {
                 "functions" => graphRoot + "/functions",
-                "nodes" => located.First(n => n.Node.Key == slot.Parts[1]).Path + "/" + (slot.Parts[2] is "context" or "conditions" ? "input" : slot.Parts[2] == "arguments" ? ArgumentPath(slot.Parts) : slot.Parts[2]),
+                "nodes" => located.First(n => n.Node.Key == slot.Parts[1]).Path + "/" + (slot.Parts[2] is "context" or "conditions" ? "input" : slot.Parts[2] is "arguments" or "values" ? ArgumentPath(slot.Parts) : slot.Parts[2]),
                 "inputs" => graphRoot + "/inputs/" + workflow.Inputs.FindIndex(p => p.Name == slot.Parts[1]) + "/" + slot.Parts[2],
                 _ => graphRoot + "/outputs/" + workflow.Outputs.FindIndex(p => p.Name == slot.Parts[1]) + "/" + slot.Parts[2]
             };
@@ -108,6 +109,7 @@ internal sealed class PlanningUnitPatches(JsonObject schema, Dictionary<string, 
         string ArgumentPath(string[] parts)
         {
             var node = located.Single(n => n.Node.Key == parts[1]).Node;
+            if (parts[2] == "values") return "input/members/" + node.Input.Members.FindIndex(m => m.Name == parts[3]) + "/value";
             var requestIndex = node.Input.Members.FindIndex(m => m.Name == "request");
             var argumentIndex = requestIndex < 0 ? -1 : node.Input.Members[requestIndex].Value.Members.FindIndex(m => m.Name == parts[3]);
             return "input/members/" + requestIndex + "/value/members/" + argumentIndex + "/value";

@@ -140,11 +140,10 @@ public sealed class DataflowBindingTests
         unit.Diagnostics = [finding];
         var patch = PlanningUnitPatches.Create(graph, unit, PlanningConstruction.Schema(workflow, unit, preparation, graph));
         var coordinate = Assert.Single(patch.Schema["properties"]!["changes"]!["properties"]!.AsObject()).Key;
-        Assert.Equal("nodes/" + node.Key + "/input", coordinate);
-        Assert.NotNull(TypedWorkflowPlanner.ComputedContractContext(workflow, preparation, patch.Context(unit.Candidate))[node.Key]?["properties"]?[result]);
-        var replacement = new JsonObject { ["kind"] = "object", ["members"] = new JsonArray(new JsonObject { ["name"] = result,
-            ["value"] = unit.Candidate["nodes"]![node.Key]!["input"]!["members"]![0]!["value"]!.DeepClone() }) };
-        var repaired = patch.Apply(unit.Candidate, new JsonObject { ["changes"] = new JsonObject { [coordinate] = replacement }, ["remove"] = new JsonArray() });
+        Assert.Equal("nodes/" + node.Key + "/values/" + result, coordinate);
+        Assert.Equal("string", TypedWorkflowPlanner.ComputedContractContext(workflow, preparation, patch.Context(unit.Candidate))[coordinate]?["type"]?.ToString());
+        var replacement = unit.Candidate["nodes"]![node.Key]!["values"]![source]!.DeepClone();
+        var repaired = patch.Apply(unit.Candidate, new JsonObject { ["changes"] = new JsonObject { [coordinate] = replacement }, ["remove"] = new JsonArray("nodes/" + node.Key + "/values/" + source) });
         Assert.True(JsonNode.DeepEquals(unit.Candidate["nodes"]![node.Key]!["onError"], repaired["nodes"]![node.Key]!["onError"]));
         var applied = PlanningConstruction.Apply(graph, unit, repaired, preparation);
         Assert.DoesNotContain(PlanningExecutableValidation.Validate(applied, preparation), d => d.Code == "SET_OUTPUT_INVALID");

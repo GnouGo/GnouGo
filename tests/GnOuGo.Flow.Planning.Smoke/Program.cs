@@ -197,7 +197,14 @@ sealed class SmokeRuntime(PlanningGraph graph, PlanningPreparation preparation) 
     {
         var workflow = graph.Workflows[0];
         workflow.Steps[0].OutputSchema = new() { Type = "object", Properties = [new() { Name = "message", Schema = new() { Type = "string" } }] };
-        return PlanningConstruction.Values(workflow, new() { Kind = phase[9..], NodeKeys = (request.StructuredOutputSchema?["properties"]?["nodes"]?["properties"] as JsonObject ?? []).Select(p => p.Key).ToList() });
+        var response = PlanningConstruction.Values(workflow, new() { Kind = phase[9..], NodeKeys = (request.StructuredOutputSchema?["properties"]?["nodes"]?["properties"] as JsonObject ?? []).Select(p => p.Key).ToList() });
+        foreach (var (key, shape) in request.StructuredOutputSchema?["properties"]?["nodes"]?["properties"] as JsonObject ?? [])
+            if (shape?["properties"]?["values"] is not null && response["nodes"]?[key] is JsonObject fields)
+            {
+                fields["values"] = new JsonObject(fields["input"]!["members"]!.AsArray().Select(m => new KeyValuePair<string, JsonNode?>(m!["name"]!.ToString(), m["value"]?.DeepClone())));
+                fields.Remove("input");
+            }
+        return response;
     }
     public Task<IReadOnlyList<PlanningDiagnostic>> ValidateAsync(string yaml, PlanningRequest request, PlanningPreparation prepared, CancellationToken ct)
     {
