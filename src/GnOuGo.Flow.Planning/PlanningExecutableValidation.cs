@@ -23,6 +23,19 @@ public static class PlanningExecutableValidation
             {
                 if (node.Expr is not null && node.Type != "switch") errors.Add(new("NATIVE_FIELD_UNSUPPORTED", location + "/expr", "Only switch uses expr. Compute set outputs in input values; do not put a transformation in an ignored field."));
                 errors.AddRange(PlanningDecisionRouting.ConditionFindings(node, preparation, location));
+                if (node.Type == "switch" && node.Expr is { } selector)
+                {
+                    try
+                    {
+                        var contract = PlanningGraphValidation.ResolveValueContract(graph, workflow, selector, preparation);
+                        var outcomes = contract["type"]?.ToString() == "boolean" ? new[] { "true", "false" }
+                            : contract["enum"] is JsonArray values ? values.Select(v => v is JsonValue j && j.TryGetValue<string>(out var label) ? label : v?.ToJsonString()).OfType<string>().ToArray() : null;
+                        if (outcomes is not null && node.Cases.Any(c => c.Value is not null && !outcomes.Contains(c.Value, StringComparer.Ordinal)))
+                            errors.Add(new("SWITCH_OUTCOME_UNREACHABLE", location + "/expr",
+                                "The selector's declared outcomes (" + string.Join(", ", outcomes) + ") cannot match every accepted case label. Map the exact producer result to the accepted labels explicitly; presentation choices are not confirmation response values."));
+                    }
+                    catch (Exception ex) when (ex is InvalidOperationException or ArgumentException or FormatException) { /* An unresolved selector is checked by binding and scenario validation. */ }
+                }
                 if (node.Type is "loop.sequential" or "loop.parallel")
                     for (var memberIndex = 0; memberIndex < node.Input.Members.Count; memberIndex++)
                     {

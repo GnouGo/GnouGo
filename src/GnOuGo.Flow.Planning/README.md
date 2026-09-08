@@ -175,6 +175,9 @@ aliases against their producer schemas. Opaque results permit whole serializatio
 not invented `.text` or `.json` projections. Dynamic JavaScript still requires runtime
 and semantic validation. Retried units refresh their findings before constructing a
 repair request, so newly detected contract defects are included without an extra call.
+Switch selectors with known finite outcomes are checked against their accepted case
+labels. A confirmation returns a boolean; presentation labels cannot replace the
+explicit mapping from that boolean to business outcomes.
 
 `PlanningValue.ResultChannel` is optional: null/`default` retains legacy result addressing,
 while `structured` selects validated `mcp.call`/`llm.call` structured-output `.json`.

@@ -9,6 +9,22 @@ namespace GnOuGo.Flow.Planning.Tests;
 public sealed class ScenarioInputTests
 {
     [Theory]
+    [InlineData("accepted", "rejected")]
+    [InlineData("autorisé", "refusé")]
+    public void ConfirmationBooleanMustBeMappedToTheAcceptedDecisionLabels(string accepted, string rejected)
+    {
+        var graph = Graph(); var preparation = Preparation(); var workflow = graph.Workflows[0];
+        workflow.Steps.Add(new() { Key = "consent", Type = "human.input", Input = PlanningConstruction.Literal(HumanInputContract.ConfirmationInput("Allow the action?")) });
+        var route = new PlanningNode { Key = "route", Type = "switch", Expr = new() { Kind = "output", Source = "consent", Path = ["response"] },
+            Cases = [new(accepted, null, []), new(rejected, null, [])] }; workflow.Steps.Add(route);
+        var finding = Assert.Single(PlanningExecutableValidation.Validate(graph, preparation), d => d.Code == "SWITCH_OUTCOME_UNREACHABLE");
+        Assert.Equal("/workflows/0/steps/2/expr", finding.Location);
+        route.Expr = new() { Kind = "compute", Text = "response === true ? allowed : denied", Members =
+            [new("response", new() { Kind = "output", Source = "consent", Path = ["response"] }), new("allowed", Str(accepted)), new("denied", Str(rejected))] };
+        Assert.DoesNotContain(PlanningExecutableValidation.Validate(graph, preparation), d => d.Code == "SWITCH_OUTCOME_UNREACHABLE");
+    }
+
+    [Theory]
     [InlineData(false)]
     [InlineData(true)]
     public async Task ObservationFixturesRepairOnceAndSurviveRestartWithoutChangingTheGraph(bool exhausted)
