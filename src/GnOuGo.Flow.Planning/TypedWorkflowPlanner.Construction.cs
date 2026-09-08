@@ -405,7 +405,8 @@ public sealed partial class TypedWorkflowPlanner
             { ["reference"] = p.Key, ["value"] = PlanningModelValues.Compact(JsonSerializer.SerializeToNode(p.Value.Value, PlanningJsonContext.Default.PlanningValue)), ["type"] = p.Value.Schema.Type }).ToArray()) : null;
         return prompt + (unit.Kind is "inputs" or "contracts" ? "" : exports is not null ? "\nExportable producer references (choose exactly these identifiers):\n" + exports.ToJsonString() : unit.ContractVersion >= PlanningDataflow.ContractVersion ? "\nExact data bindings grouped by source; entries are [identifier, path, type, availability]. Opaque results may be serialized whole; never select undeclared fields:\n" + BindingContext(state, workflow, unit).ToJsonString() : "\nAvailable producers:\n" + symbols.ToJsonString()) + "\nOwned capabilities:\n" + Capabilities(preparation.Capabilities.Where(c => ownedIds.Contains(c.Id)).ToList()) +
             (unit.Kind is "inputs" or "contracts" ? "" : "\nNative contracts:\n" + preparation.StepContracts.ToJsonString() + (unit.ContractVersion >= PlanningDataflow.ContractVersion ? "" : "\nRuntime result keys:\n" + RuntimeAddresses(state.Graph!))) +
-            (unit.Kind != "implementation" ? "" : "\nReferenced helper signatures (bodies are already validated; do not redefine them):\n" + HelperSignatures(workflow.Functions, unit.Candidate?.ToJsonString() ?? "")) +
+            (unit.Kind != "implementation" ? "" : "\nRequired producer results through containers (preserve absent/failed outcomes; consuming a result does not establish success):\n" + ContainerDependencyContext(state, workflow, unit).ToJsonString() +
+                "\nReferenced helper signatures (bodies are already validated; do not redefine them):\n" + HelperSignatures(workflow.Functions, unit.Candidate?.ToJsonString() ?? "")) +
             (repair ? "\nRepair only the diagnosed fields using the supplied patch schema. Preserve all other candidate fields. Unaffected helper bodies are omitted.\nCandidate:\n" + RepairContext(unit).ToJsonString() +
                 "\nDiagnostics:\n" + JsonSerializer.Serialize(unit.Diagnostics, PlanningJsonContext.Default.ListPlanningDiagnostic) : "");
     }
@@ -431,11 +432,35 @@ public sealed partial class TypedWorkflowPlanner
         "\nCandidate values:\n" + patch.Context(unit.Candidate).ToJsonString() +
         "\nReferenced helper signatures:\n" + HelperSignatures(workflow.Functions, patch.Context(unit.Candidate).ToJsonString()) +
         "\nExact bindings grouped by source; entries are [identifier, path, type, availability]:\n" + BindingContext(state, workflow, unit).ToJsonString() +
+        "\nRequired producer results through containers (bind the complete result when the child is conditional; retain absent/failed outcomes, never assume success):\n" + ContainerDependencyContext(state, workflow, unit).ToJsonString() +
         "\nDestination argument contracts:\n" + ArgumentContractContext(workflow, preparation, patch.Context(unit.Candidate)).ToJsonString() +
         "\nComputed result contracts (set input is the result, not a context object; implement the calculation here):\n" + ComputedContractContext(workflow, preparation, patch.Context(unit.Candidate)).ToJsonString() +
         "\nDestination structured fallback contracts (json is a typed result, never a serialized JSON string; preserve error handling):\n" + FallbackContractContext(workflow, preparation, patch.Context(unit.Candidate)).ToJsonString() +
         "\nDiagnostics:\n" + JsonSerializer.Serialize(unit.Diagnostics, PlanningJsonContext.Default.ListPlanningDiagnostic) +
         (unit.Diagnostics.Any(d => d.Code is "NATIVE_INPUT_INVALID" or "UNIT_CONVERSION_INVALID") ? "\nDestination contracts:\n" + preparation.StepContracts.ToJsonString() + "\nCapabilities:\n" + Capabilities(preparation.Capabilities.Where(c => unit.NodeKeys.Any(key => PlanningGraphCompiler.Enumerate(workflow.Steps.Concat(workflow.Finally)).Any(n => n.Key == key && n.CapabilityId == c.Id))).ToList()) : "");
+
+    internal static JsonArray ContainerDependencyContext(PlanningSnapshot state, PlanningWorkflow workflow, PlanningConstructionUnit unit)
+    {
+        var nodes = PlanningGraphCompiler.Enumerate(workflow.Steps.Concat(workflow.Finally)).ToDictionary(n => n.Key, StringComparer.Ordinal);
+        var result = new JsonArray();
+        foreach (var consumer in unit.NodeKeys.Select(key => nodes[key]))
+        {
+            var required = state.Preparation!.Capabilities.FirstOrDefault(c => c.Id == consumer.CapabilityId)?.InputOperationIds ?? [];
+            if (required.Count == 0) continue;
+            foreach (var binding in PlanningDataflow.CompactIndex(workflow, state.Preparation, state.Graph!, consumer.Key).Values
+                .Where(b => b.Value.Kind == "output" && b.Value.Path.Count == 0 && b.Value.Source is not null &&
+                    nodes[b.Value.Source].Type is "switch" or "parallel" or "sequence" or "loop.sequential" or "loop.parallel"))
+            {
+                var operations = PlanningGraphCompiler.Enumerate([nodes[binding.Value.Source!]])
+                    .SelectMany(n => n.OperationIds.Concat(state.Preparation.Capabilities.FirstOrDefault(c => c.Id == n.CapabilityId)?.OperationIds ?? []))
+                    .Intersect(required, StringComparer.Ordinal).ToArray();
+                if (operations.Length == 0) continue;
+                result.Add((JsonNode)new JsonObject { ["consumer"] = consumer.Key, ["requiredOperations"] = new JsonArray(operations.Select(p => (JsonNode?)JsonValue.Create(p)).ToArray()),
+                    ["binding"] = binding.Id, ["source"] = binding.Value.Source, ["availability"] = binding.Availability, ["resultContract"] = binding.Schema.DeepClone() });
+            }
+        }
+        return result;
+    }
 
     internal static JsonObject ComputedContractContext(PlanningWorkflow workflow, PlanningPreparation preparation, JsonObject coordinates)
     {

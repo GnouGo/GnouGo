@@ -11,6 +11,30 @@ namespace GnOuGo.Flow.Planning.Tests;
 public sealed class DataflowBindingTests
 {
     [Theory]
+    [InlineData("perform", "gate")]
+    [InlineData("executer", "decision")]
+    public void ConditionalProducerDependenciesExposeTheContainingResultWithoutInventingSuccess(string operation, string group)
+    {
+        var graph = Graph(); var prep = Preparation(); var workflow = graph.Workflows[0];
+        workflow.Inputs = [new() { Name = "choice", Schema = new() { Type = "string" } }];
+        prep.Capabilities.Add(new() { Id = "consumer", StepType = "set", OperationIds = ["consume"], InputOperationIds = [operation] });
+        workflow.Steps[0].CapabilityId = "consumer";
+        workflow.Steps.Insert(0, new() { Key = group, Type = "switch", Expr = new() { Kind = "input", Source = "choice" },
+            Cases = [new("RUN", null, [new() { Key = "attempt", OperationIds = [operation], Input = Obj(("status", Str("attempted"))) }])] });
+        var state = Session(); state.Graph = graph; state.Preparation = prep;
+        var unit = new PlanningConstructionUnit { WorkflowKey = "main", Kind = "implementation", NodeKeys = ["greeting"] };
+        var context = TypedWorkflowPlanner.ContainerDependencyContext(state, workflow, unit);
+        var entry = Assert.Single(context)!;
+        Assert.Equal(group, entry["source"]!.ToString()); Assert.Equal("nullable", entry["availability"]!.ToString());
+        Assert.Contains(entry["resultContract"]!["anyOf"]!.AsArray(), p => p?["type"]?.ToString() == "null");
+        var reference = PlanningDataflow.Index(workflow, prep, graph, "greeting")[entry["binding"]!.ToString()].Value;
+        Assert.Contains(PlanningDataflow.OperationInputFindings(graph, prep), d => d.Code == "OPERATION_INPUT_BINDING_MISSING");
+        workflow.Steps[1].Input = Obj(("result", new() { Kind = "template", Text = "Outcome: {{result}}", Members = [new("result", reference)] }));
+        Assert.Empty(PlanningDataflow.OperationInputFindings(graph, prep));
+        Assert.DoesNotContain(PlanningDataflow.Index(workflow, prep, graph, "greeting").Values, b => b.Value.Source == "attempt");
+    }
+
+    [Theory]
     [InlineData("reader", "parallel")]
     [InlineData("lecteur_renomme", "lectures")]
     public void ParallelBindingsExposeExactBranchProducersAndPreserveRawProvenance(string name, string group)

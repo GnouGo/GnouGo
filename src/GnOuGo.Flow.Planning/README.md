@@ -49,6 +49,9 @@ exports retain optional properties. Missing contracts require a validated transf
 Parallel outputs retain their fixed branch positions and declared child envelopes. Exact
 bindings expose raw and structured fields separately; provenance follows only original
 producer values, and a fallback without the field prevents unconditional selection.
+Construction and repair receive the exact containing result contract for required operations
+inside branches or loops. Consuming that result preserves uncertainty; it does not prove the
+operation ran or succeeded, and it cannot substitute for an explicit permission binding.
 
 `PlanningRequest.Generation` defaults to 12,000 estimated input tokens per unit and an
 enforced 8,192 output-token ceiling per call. Oversized groups split before dispatch; an
