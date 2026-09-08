@@ -386,7 +386,7 @@ public sealed partial class TypedWorkflowPlanner
             "Input and output contracts must have concrete types and typed object properties/array items. Reuse exact supported schema references. " +
             "The contracts phase declares set results and synthesized structured output, without computations. Opaque producers with declared consumers require a structured result contract covering their downstream needs. Use null only when no transformation is required. " +
             "The implementation phase must produce the previously declared contracts. Compute set fields in input, never expr. " +
-            "Select exact binding identifiers; use the structured channel only for declared post-processing. For a computation, use kind compute, an executable JavaScript expression in text, and named members bound to its typed dependencies. " +
+            "Select exact binding identifiers; use the structured channel only for declared post-processing. In binding tables, prepend the group's optional pathPrefix to each entry path. For a computation, use kind compute, an executable JavaScript expression in text, and named members bound to its typed dependencies. " +
             "Computation text uses its named parameters, not data or implicit input/output/step context. Functions must be executable JavaScript with typed JSDoc. " +
             "give new helpers unique names beginning u_" + PlanningGraphCompiler.Fingerprint(unit.Key)[..8] + "_. Do not redefine existing helpers. " +
             "Human confirmation choices and response types are supplied by HumanInputContract; provide only display context. " +
@@ -400,7 +400,10 @@ public sealed partial class TypedWorkflowPlanner
             (state.Feedback is null ? "" : "\nRetained technical coverage findings (not user intent):\n" + state.Feedback) +
             "\nOwned nodes:\n" + new JsonArray(owned.Select(n => (JsonNode)DescribeNode(n, state.Preparation)).ToArray()).ToJsonString() +
             (unit.Kind == "contracts" ? "\nDownstream operation obligations:\n" + new JsonArray(PlanningGraphCompiler.Enumerate(workflow.Steps.Concat(workflow.Finally)).Where(n => !unit.NodeKeys.Contains(n.Key, StringComparer.Ordinal)).Select(n => (JsonNode)new JsonObject { ["key"] = n.Key, ["purpose"] = n.Purpose, ["operationIds"] = new JsonArray(n.OperationIds.Select(id => (JsonNode?)JsonValue.Create(id)).ToArray()) }).ToArray()).ToJsonString() : "") +
-            "\nBusiness boundary:\n" + new JsonObject { ["inputs"] = JsonSerializer.SerializeToNode(workflow, PlanningJsonContext.Default.PlanningWorkflow)!["inputs"]!.DeepClone(), ["outputs"] = JsonSerializer.SerializeToNode(workflow, PlanningJsonContext.Default.PlanningWorkflow)!["outputs"]!.DeepClone() }.ToJsonString();
+            "\nBusiness boundary:\n" + new JsonObject { ["inputs"] = JsonSerializer.SerializeToNode(workflow, PlanningJsonContext.Default.PlanningWorkflow)!["inputs"]!.DeepClone(),
+                // Implementations already receive their producer contracts and accepted
+                // obligations. Public export bindings belong to the separate outputs unit.
+                ["outputs"] = unit.Kind == "implementation" ? null : JsonSerializer.SerializeToNode(workflow, PlanningJsonContext.Default.PlanningWorkflow)!["outputs"]!.DeepClone() }.ToJsonString();
         var exports = unit.Kind == "outputs" ? new JsonArray(PlanningOutputBindings.Index(workflow, state.Preparation!, state.Graph).Select(p => (JsonNode)new JsonObject
             { ["reference"] = p.Key, ["value"] = PlanningModelValues.Compact(JsonSerializer.SerializeToNode(p.Value.Value, PlanningJsonContext.Default.PlanningValue)), ["type"] = p.Value.Schema.Type }).ToArray()) : null;
         return prompt + (unit.Kind is "inputs" or "contracts" ? "" : exports is not null ? "\nExportable producer references (choose exactly these identifiers):\n" + exports.ToJsonString() : unit.ContractVersion >= PlanningDataflow.ContractVersion ? "\nExact data bindings grouped by source; entries are [identifier, path, type, availability]. Opaque results may be serialized whole; never select undeclared fields:\n" + BindingContext(state, workflow, unit).ToJsonString() : "\nAvailable producers:\n" + symbols.ToJsonString()) + "\nOwned capabilities:\n" + Capabilities(preparation.Capabilities.Where(c => ownedIds.Contains(c.Id)).ToList()) +
@@ -411,18 +414,36 @@ public sealed partial class TypedWorkflowPlanner
                 "\nDiagnostics:\n" + JsonSerializer.Serialize(unit.Diagnostics, PlanningJsonContext.Default.ListPlanningDiagnostic) : "");
     }
 
-    internal static JsonArray BindingContext(PlanningSnapshot state, PlanningWorkflow workflow, PlanningConstructionUnit unit) => new(unit.NodeKeys
-        .SelectMany(key => PlanningDataflow.CompactIndex(workflow, state.Preparation!, state.Graph!, key).Values).DistinctBy(b => b.Id)
-        .GroupBy(b => (b.Value.Source, b.Value.Kind, Channel: b.Value.ResultChannel ?? "default"))
-        .Select(group => (JsonNode)new JsonObject { ["source"] = group.Key.Source, ["kind"] = group.Key.Kind, ["channel"] = group.Key.Channel,
-            ["bindings"] = new JsonArray(group.Select(b => (JsonNode)new JsonArray(JsonValue.Create(b.Id),
-                new JsonArray(b.Value.Path.Select(p => (JsonNode?)JsonValue.Create(p)).ToArray()),
-                b.Schema["type"]?.DeepClone() ?? JsonValue.Create("unknown"), JsonValue.Create(b.Availability))).ToArray()) }).ToArray());
+    internal static JsonArray BindingContext(PlanningSnapshot state, PlanningWorkflow workflow, PlanningConstructionUnit unit)
+    {
+        var result = new JsonArray();
+        foreach (var group in unit.NodeKeys.SelectMany(key => PlanningDataflow.CompactIndex(workflow, state.Preparation!, state.Graph!, key).Values).DistinctBy(b => b.Id)
+            .GroupBy(b => (b.Value.Source, b.Value.Kind, Channel: b.Value.ResultChannel ?? "default")))
+        {
+            JsonObject Describe(IEnumerable<PlanningBinding> bindings, IReadOnlyList<string> prefix)
+            {
+                var item = new JsonObject { ["source"] = group.Key.Source, ["kind"] = group.Key.Kind, ["channel"] = group.Key.Channel,
+                    ["bindings"] = new JsonArray(bindings.Select(b => (JsonNode)new JsonArray(JsonValue.Create(b.Id),
+                        new JsonArray(b.Value.Path.Skip(prefix.Count).Select(p => (JsonNode?)JsonValue.Create(p)).ToArray()),
+                        b.Schema["type"]?.DeepClone() ?? JsonValue.Create("unknown"), JsonValue.Create(b.Availability))).ToArray()) };
+                if (prefix.Count > 0) item["pathPrefix"] = new JsonArray(prefix.Select(p => (JsonNode?)JsonValue.Create(p)).ToArray());
+                return item;
+            }
+            var flat = Describe(group, []);
+            var compressed = group.GroupBy(b => new JsonArray(b.Value.Path.SkipLast(1).Select(p => (JsonNode?)JsonValue.Create(p)).ToArray()).ToJsonString(), StringComparer.Ordinal)
+                .Select(part => Describe(part, part.First().Value.Path.SkipLast(1).ToArray())).ToArray();
+            // Choose the shorter lossless representation; small/simple sources remain flat.
+            if (compressed.Sum(p => p.ToJsonString().Length + 1) < flat.ToJsonString().Length)
+                foreach (var item in compressed) result.Add((JsonNode)item);
+            else result.Add((JsonNode)flat);
+        }
+        return result;
+    }
 
     private static string UnitRepairPrompt(PlanningSnapshot state, PlanningWorkflow workflow, PlanningConstructionUnit unit, PlanningPreparation preparation, PlanningUnitPatches patch) =>
         "Repair only the supplied value coordinates. All other fields, behavior, helper bodies and topology are retained. " +
         "A template text uses {{name}} for each declared member, never ${name}. Repair a malformed template at its own coordinate, not by nesting more templates inside its bindings. " +
-        "Select exact binding identifiers. An opaque producer permits only whole-result consumption or serialization, not property access. " +
+        "Select exact binding identifiers. In binding tables, prepend the group's optional pathPrefix to each entry path. An opaque producer permits only whole-result consumption or serialization, not property access. " +
         "A template can bind the whole result; use a validated transformation when typed fields are needed. The envelope channel contains the complete MCP result: a response on success or the declared error fallback. Loop results retain each child envelope. Inspect or serialize the envelope to retain failures; never invent a missing response. " +
         "For compute, text must be executable JavaScript using named members as parameters, such as value.trim(). Multiple statements must end with return. Never describe the calculation in prose; do not read an implicit data context. " +
         "Keep business inputs dynamic: examples are defaults, not replacements for input dependencies. " +

@@ -628,23 +628,40 @@ public sealed class DataflowBindingTests
         Assert.True(JsonNode.DeepEquals(PlanningGraphCompiler.ToJsonSchema(node.StructuredOutput.Schema, prep), compact["structuredOutput"]!["schema"]));
     }
 
-    [Fact]
-    public void GroupedBindingContextPreservesEveryIdentifierAndItsTypeAndAvailability()
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void GroupedBindingContextPreservesEveryIdentifierAndItsTypeAndAvailability(bool parallel)
     {
         var (graph, prep) = Fixture(); var workflow = graph.Workflows[0];
         workflow.Steps[0].StructuredOutput = new(new() { Type = "object", Properties = Enumerable.Range(0, 30).Select(i => new PlanningPort
             { Name = "field" + i, Required = true, Schema = new() { Type = "string", Nullable = true } }).ToList() });
+        if (parallel) workflow.Steps[0] = new() { Key = "nested_parallel_result", Type = "parallel", Branches = [new([workflow.Steps[0]])] };
         var state = Session(); state.Graph = graph; state.Preparation = prep;
         var bindings = PlanningDataflow.CompactIndex(workflow, prep, graph, "greeting");
         var context = TypedWorkflowPlanner.BindingContext(state, workflow, new() { NodeKeys = ["greeting"] });
         var entries = context.SelectMany(g => g!["bindings"]!.AsArray()).ToArray();
         Assert.Equal(bindings.Count, entries.Length);
-        foreach (var entry in entries)
+        foreach (var group in context)
+        foreach (var entry in group!["bindings"]!.AsArray())
         {
             var original = bindings[entry![0]!.GetValue<string>()];
-            Assert.Equal(original.Value.Path, entry[1]!.AsArray().Select(p => p!.GetValue<string>()).ToList());
+            var prefix = (group["pathPrefix"] as JsonArray ?? []).Select(p => p!.GetValue<string>());
+            Assert.Equal(original.Value.Path, prefix.Concat(entry[1]!.AsArray().Select(p => p!.GetValue<string>())).ToList());
             Assert.Equal(original.Schema["type"]?.ToJsonString() ?? "\"unknown\"", entry[2]!.ToJsonString());
             Assert.Equal(original.Availability, entry[3]!.GetValue<string>());
+        }
+        if (parallel)
+        {
+            Assert.Contains(context, g => g?["pathPrefix"] is JsonArray { Count: > 1 });
+            var expanded = context.DeepClone().AsArray();
+            foreach (var group in expanded)
+            {
+                var prefix = (group!["pathPrefix"] as JsonArray ?? []).Select(p => p!.GetValue<string>()).ToArray();
+                foreach (var entry in group["bindings"]!.AsArray()) entry![1] = new JsonArray(prefix.Concat(entry[1]!.AsArray().Select(p => p!.GetValue<string>())).Select(p => (JsonNode?)JsonValue.Create(p)).ToArray());
+                group.AsObject().Remove("pathPrefix");
+            }
+            Assert.True(context.ToJsonString().Length < expanded.ToJsonString().Length);
         }
     }
 

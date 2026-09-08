@@ -65,6 +65,8 @@ Candidates are validated before conversion, and invalid fields receive atomic sc
 Shape failures consume the configured repair allowance. Encrypted checkpoints retain candidate
 hashes, request hashes, dependencies, validation findings and cumulative repair counts.
 Dispatch findings are separate, so context/transport failures cannot hide candidate defects.
+Repeated binding paths use a shared prefix only when that representation is shorter. Every
+identifier, path, type and availability remains recoverable without changing the token ceiling.
 Container input reachability is checked after its child implementations are available;
 the complete workflow must still satisfy every accepted business-input obligation before review.
 Retry reuses validated units; changed intent, catalog, executor contracts or dependencies
