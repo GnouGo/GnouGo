@@ -8,6 +8,36 @@ namespace GnOuGo.Flow.Planning.Tests;
 public sealed class SemanticReviewTests
 {
     [Fact]
+    public async Task CollectionCleanupAndEnumFindingsSurviveBehaviorReassessmentAndRestart()
+    {
+        // Sanitized mixed findings from live final review: changing iteration must
+        // retain the independent implementation defects and the answered intent.
+        var state = Session(PlanningStatus.Validating); state.Graph = Graph(); state.Preparation = Preparation();
+        state.Request.Prompt = "Read the complete collection, remove every created directory, and preserve the chosen enum value.";
+        state.BehaviorPlan = BehaviorPlan(); state.ApprovedBehaviorHash = PlanningBehaviorPlans.Fingerprint(state.BehaviorPlan);
+        state.Answers.Add(new("Require confirmation?", new JsonObject { ["answer"] = "yes" }));
+        state.ClarificationForms = 1; state.ClarificationQuestions = 1;
+        var findings = new JsonArray(new[]
+        {
+            (Code: "COLLECTION_INCOMPLETE", Field: "behavior", Evidence: "complete collection", Message: "Only the first page is read; repeat until the complete collection is observed."),
+            (Code: "CLEANUP_INCOMPLETE", Field: "input", Evidence: "every created directory", Message: "Cleanup must cover every created directory, including the parent allocation."),
+            (Code: "ENUM_MEANING_CHANGED", Field: "input", Evidence: "chosen enum value", Message: "The mapping replaces a valid source outcome with the default instead of preserving its meaning.")
+        }.Select(f => (JsonNode)new JsonObject
+        { ["code"] = f.Code, ["workflow"] = "main", ["location"] = "/workflows/0/steps/0/" + f.Field, ["evidence"] = f.Evidence, ["message"] = f.Message, ["blocking"] = true }).ToArray());
+        var runtime = new FakeRuntime { OnCall = (phase, _, _) =>
+        {
+            Assert.Equal("semantic_review", phase);
+            return Task.FromResult(new LLMResponse { Json = new JsonObject { ["findings"] = findings.DeepClone() } });
+        } };
+        state = await new TypedWorkflowPlanner().AdvanceAsync(state, new() { ExpectedRevision = state.Revision }, runtime, TestContext.Current.CancellationToken);
+        state = System.Text.Json.JsonSerializer.Deserialize(System.Text.Json.JsonSerializer.Serialize(state, PlanningJsonContext.Default.PlanningSnapshot), PlanningJsonContext.Default.PlanningSnapshot)!;
+        Assert.Equal(PlanningPhase.Behavior, state.CurrentPhase); Assert.Null(state.ApprovedBehaviorHash); Assert.Null(state.ApprovedHash);
+        Assert.Equal(3, state.Diagnostics.Count); Assert.Equal(3, state.Attempts.Last().Diagnostics.Count);
+        foreach (var finding in state.Diagnostics) Assert.Contains(finding.Message, state.Feedback);
+        Assert.NotNull(state.PreviousGraph); Assert.Single(state.Answers); Assert.Equal(1, state.ClarificationQuestions);
+    }
+
+    [Fact]
     public async Task IterationCorrectionRequiresNewBehaviorReviewAndRetainsAnswers()
     {
         var state = Session(PlanningStatus.Validating); state.Graph = Graph(); state.Preparation = Preparation();
