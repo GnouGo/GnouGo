@@ -11,6 +11,31 @@ namespace GnOuGo.Flow.Planning.Tests;
 public sealed class DataflowBindingTests
 {
     [Theory]
+    [InlineData("inspect", "prepare", "finish")]
+    [InlineData("analyser", "preparer", "terminer")]
+    public void ComposedOperationConsumesAllDependenciesAtItsTerminalAndEveryIntermediate(string operation, string firstKey, string lastKey)
+    {
+        var graph = Graph(); var prep = Preparation(); var workflow = graph.Workflows[0];
+        prep.Capabilities = [new() { Id = "first", StepType = "set", OperationIds = [operation], InputOperationIds = ["resource", "analysis"] },
+            new() { Id = "last", StepType = "set", OperationIds = [operation], InputOperationIds = ["resource", "analysis"] }];
+        PlanningValue Ref(string key) => new() { Kind = "output", Source = key };
+        var first = new PlanningNode { Key = firstKey, CapabilityId = "first", OperationIds = [operation], Input = Obj(("resource", Ref("resource"))) };
+        var last = new PlanningNode { Key = lastKey, CapabilityId = "last", OperationIds = [operation], Input = Obj(("prepared", Ref(firstKey)), ("analysis", Ref("analysis"))) };
+        var group = new PlanningNode { Key = "owned", Type = "sequence", OperationIds = [operation], Steps = [first, last] };
+        workflow.Steps = [new() { Key = "resource", OperationIds = ["resource"] }, new() { Key = "analysis", OperationIds = ["analysis"] }, group];
+        Assert.Empty(PlanningDataflow.OperationInputFindings(graph, prep));
+        last.Input = Obj(("resource", Ref("resource")), ("analysis", Ref("analysis")));
+        Assert.Contains(PlanningDataflow.OperationInputFindings(graph, prep), d => d.Code == "COMPOSITION_INPUT_BINDING_MISSING" && d.Message.Contains(firstKey, StringComparison.Ordinal));
+        last.Input = Obj(("prepared", Ref(firstKey)));
+        Assert.Contains(PlanningDataflow.OperationInputFindings(graph, prep), d => d.Code == "OPERATION_INPUT_BINDING_MISSING" && d.Message.Contains("analysis", StringComparison.Ordinal));
+        last.Input = Obj(("prepared", Ref(firstKey)), ("analysis", Ref("analysis")));
+        first.If = new() { Kind = "boolean", Boolean = true };
+        Assert.Contains(PlanningDataflow.OperationInputFindings(graph, prep), d => d.Location == "/workflows/0/steps/2/steps/0/input");
+        first.If = null; group.OperationIds = ["unrelated_owner"];
+        Assert.Contains(PlanningDataflow.OperationInputFindings(graph, prep), d => d.Location == "/workflows/0/steps/2/steps/0/input");
+    }
+
+    [Theory]
     [InlineData("perform", "gate")]
     [InlineData("executer", "decision")]
     public void ConditionalProducerDependenciesExposeTheContainingResultWithoutInventingSuccess(string operation, string group)

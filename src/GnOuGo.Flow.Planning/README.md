@@ -52,6 +52,10 @@ producer values, and a fallback without the field prevents unconditional selecti
 Construction and repair receive the exact containing result contract for required operations
 inside branches or loops. Consuming that result preserves uncertainty; it does not prove the
 operation ran or succeeded, and it cannot substitute for an explicit permission binding.
+For a reviewed linear sequence whose tools all implement the same operation, operation-level
+inputs must reach the final result. That result must also consume each intermediate producer.
+Conditional or differently owned steps retain their individual requirements. Confirmation,
+artifact identity, and capability validation continue to apply to every constituent action.
 
 `PlanningRequest.Generation` defaults to 12,000 estimated input tokens per unit and an
 enforced 8,192 output-token ceiling per call. Oversized groups split before dispatch; an

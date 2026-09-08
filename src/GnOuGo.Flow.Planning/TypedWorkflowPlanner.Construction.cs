@@ -441,18 +441,19 @@ public sealed partial class TypedWorkflowPlanner
 
     internal static JsonArray ContainerDependencyContext(PlanningSnapshot state, PlanningWorkflow workflow, PlanningConstructionUnit unit)
     {
+        var preparation = state.Preparation ?? throw new InvalidOperationException("Producer dependencies require completed capability preparation.");
         var nodes = PlanningGraphCompiler.Enumerate(workflow.Steps.Concat(workflow.Finally)).ToDictionary(n => n.Key, StringComparer.Ordinal);
         var result = new JsonArray();
         foreach (var consumer in unit.NodeKeys.Select(key => nodes[key]))
         {
-            var required = state.Preparation!.Capabilities.FirstOrDefault(c => c.Id == consumer.CapabilityId)?.InputOperationIds ?? [];
+            var required = PlanningOperationCompositions.RequiredInputs(workflow, consumer, preparation);
             if (required.Count == 0) continue;
-            foreach (var binding in PlanningDataflow.CompactIndex(workflow, state.Preparation, state.Graph!, consumer.Key).Values
+            foreach (var binding in PlanningDataflow.CompactIndex(workflow, preparation, state.Graph!, consumer.Key).Values
                 .Where(b => b.Value.Kind == "output" && b.Value.Path.Count == 0 && b.Value.Source is not null &&
                     nodes[b.Value.Source].Type is "switch" or "parallel" or "sequence" or "loop.sequential" or "loop.parallel"))
             {
                 var operations = PlanningGraphCompiler.Enumerate([nodes[binding.Value.Source!]])
-                    .SelectMany(n => n.OperationIds.Concat(state.Preparation.Capabilities.FirstOrDefault(c => c.Id == n.CapabilityId)?.OperationIds ?? []))
+                    .SelectMany(n => n.OperationIds.Concat(preparation.Capabilities.FirstOrDefault(c => c.Id == n.CapabilityId)?.OperationIds ?? []))
                     .Intersect(required, StringComparer.Ordinal).ToArray();
                 if (operations.Length == 0) continue;
                 result.Add((JsonNode)new JsonObject { ["consumer"] = consumer.Key, ["requiredOperations"] = new JsonArray(operations.Select(p => (JsonNode?)JsonValue.Create(p)).ToArray()),

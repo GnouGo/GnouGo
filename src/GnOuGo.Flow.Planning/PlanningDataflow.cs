@@ -8,7 +8,7 @@ namespace GnOuGo.Flow.Planning;
 internal static class PlanningDataflow
 {
     internal const int BindingVersion = 2;
-    internal const int ContractVersion = 24;
+    internal const int ContractVersion = 25;
     internal const string WorkflowOutputs = "$outputs";
 
     internal static Dictionary<string, PlanningBinding> Index(PlanningWorkflow workflow, PlanningPreparation preparation, PlanningGraph graph, string? consumer = null)
@@ -219,8 +219,10 @@ internal static class PlanningDataflow
             var located = PlanningGraphValidation.Located(workflow.Steps, root + "/steps").Concat(PlanningGraphValidation.Located(workflow.Finally, root + "/finally")).ToArray();
             foreach (var (node, path) in located)
             {
-                var capability = preparation.Capabilities.FirstOrDefault(c => c.Id == node.CapabilityId);
-                if (capability?.InputOperationIds.Count is not > 0) continue;
+                var required = PlanningOperationCompositions.RequiredInputs(workflow, node, preparation);
+                var composition = PlanningOperationCompositions.Owner(workflow, node, preparation);
+                var terminal = composition?.Steps[^1] == node;
+                if (required.Count == 0 && !terminal) continue;
                 var dependencies = new HashSet<string>(StringComparer.Ordinal); var visited = new HashSet<string>(StringComparer.Ordinal);
                 void Visit(PlanningNode current, bool source)
                 {
@@ -237,7 +239,10 @@ internal static class PlanningDataflow
                     if (parent.Node.Expr is { } selector)
                         foreach (var reference in References(selector))
                             if (located.FirstOrDefault(p => p.Node.Key == reference.Source).Node is { } producer) Visit(producer, true);
-                foreach (var missing in capability.InputOperationIds.Except(dependencies, StringComparer.Ordinal))
+                if (terminal)
+                    foreach (var missing in composition!.Steps.SkipLast(1).Where(n => !visited.Contains(n.Key)))
+                        findings.Add(new("COMPOSITION_INPUT_BINDING_MISSING", path + "/input", "The final result of this owned operation must consume intermediate producer '" + missing.Key + "'. Preserve its original result or a validated dependency; an unused sibling cannot establish completion."));
+                foreach (var missing in required.Except(dependencies, StringComparer.Ordinal))
                     findings.Add(new("OPERATION_INPUT_BINDING_MISSING", path + "/input", "This operation must consume the result of locked upstream operation '" + missing + "', directly or through a validated dependency. Eligible producer nodes: " +
                         string.Join(", ", located.Where(p => p.Node.OperationIds.Contains(missing) || preparation.Capabilities.FirstOrDefault(c => c.Id == p.Node.CapabilityId)?.OperationIds.Contains(missing) == true).Select(p => p.Node.Key)) + ". An unrelated result cannot substitute for this dependency."));
             }
