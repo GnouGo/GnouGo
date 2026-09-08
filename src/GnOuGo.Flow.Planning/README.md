@@ -161,6 +161,11 @@ Sequential continuation uses nullable `loop_previous` bindings derived from the
 declared child result schemas. They are available in the loop's `while` condition
 and body, and are null before the first iteration. Lowering owns their runtime
 addresses. Parallel loops and references outside the owning loop cannot select them.
+Loops driven by MCP observations use encrypted, schema-validated synthetic response
+sequences instead of constant samples. Nominal execution must consume the entire
+sequence and terminate; an extra request or early exit remains inconclusive. Failure
+and cancellation scenarios still inject their faults before returning a fixture.
+These fixtures establish synthetic control-flow coverage, never live external results.
 Computation validation checks statically named fields on typed parameters and simple
 aliases against their producer schemas. Opaque results permit whole serialization,
 not invented `.text` or `.json` projections. Dynamic JavaScript still requires runtime

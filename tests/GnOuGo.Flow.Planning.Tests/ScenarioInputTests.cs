@@ -9,6 +9,43 @@ namespace GnOuGo.Flow.Planning.Tests;
 public sealed class ScenarioInputTests
 {
     [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task ObservationFixturesRepairOnceAndSurviveRestartWithoutChangingTheGraph(bool exhausted)
+    {
+        var state = Session(PlanningStatus.Validating); state.Graph = Graph(); state.Preparation = Preparation();
+        state.Preparation.AllowedStepTypes.Add("loop.sequential");
+        state.Preparation.Capabilities.Add(new() { Id = "cap", StepType = "mcp.call", Server = "renamed", Method = "observe", Kind = "tool",
+            InputSchema = JsonNode.Parse("""{"type":"object","properties":{}}""")!.AsObject(),
+            OutputSchema = JsonNode.Parse("""{"type":"object","properties":{"more":{"type":"boolean"}},"required":["more"]}""")!.AsObject() });
+        state.Graph.Workflows[0].Steps.Add(new() { Key = "pages", Type = "loop.sequential", Input = Obj(("while", new() { Kind = "boolean", Boolean = true })),
+            Steps = [new() { Key = "observe", Type = "mcp.call", CapabilityId = "cap", Input = Obj(("request", Obj())) }] });
+        var fingerprint = PlanningGraphCompiler.Fingerprint(state.Graph); var calls = 0;
+        var runtime = new FakeRuntime { OnCall = (phase, _, _) =>
+        {
+            if (phase == "semantic_review") return Task.FromResult(new LLMResponse { Json = new JsonObject { ["findings"] = new JsonArray() } });
+            Assert.Equal("scenario_observations", phase); calls++;
+            JsonNode Literal(bool value) => PlanningModelValues.Compact(JsonSerializer.SerializeToNode(calls == 1 || exhausted
+                ? new PlanningValue { Kind = "boolean", Boolean = value }
+                : Obj(("response", Obj(("more", new() { Kind = "boolean", Boolean = value })))), PlanningJsonContext.Default.PlanningValue))!;
+            return Task.FromResult(new LLMResponse { Json = new JsonObject { ["responses"] = new JsonArray(Literal(true), Literal(false)) } });
+        } };
+        var planner = new TypedWorkflowPlanner();
+        state = await planner.AdvanceAsync(state, new() { ExpectedRevision = state.Revision }, runtime, TestContext.Current.CancellationToken);
+        Assert.Equal(2, calls); Assert.Equal(fingerprint, PlanningGraphCompiler.Fingerprint(state.Graph!));
+        Assert.Equal(exhausted ? PlanningStatus.Recovery : PlanningStatus.FinalReview, state.Status);
+        if (exhausted) Assert.Contains(state.Diagnostics, d => d.Code == "SCENARIO_OBSERVATION_INVALID");
+        else
+        {
+            Assert.Single(state.ScenarioObservations);
+            state = JsonSerializer.Deserialize(JsonSerializer.Serialize(state, PlanningJsonContext.Default.PlanningSnapshot), PlanningJsonContext.Default.PlanningSnapshot)!;
+            state.Status = PlanningStatus.Validating;
+            state = await planner.AdvanceAsync(state, new() { ExpectedRevision = state.Revision }, runtime, TestContext.Current.CancellationToken);
+            Assert.Equal(2, calls); Assert.Equal(PlanningStatus.FinalReview, state.Status);
+        }
+    }
+
+    [Theory]
     [InlineData("default")]
     [InlineData("otherwise")]
     [InlineData("défaut")]

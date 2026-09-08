@@ -446,7 +446,8 @@ public sealed partial class TypedWorkflowPlanner(TimeProvider? timeProvider = nu
                 {
                     stage = 8;
                     if (!await PrepareScenarioInputsAsync(state, runtime, ct)) return;
-                    state.Scenarios = (await runtime.ValidateScenariosAsync(yaml, state.Preparation!, state.ScenarioInputs!, ScenarioLoopItemSchemas(state.Graph!, state.Preparation!), ct)).Select(s => s with { Diagnostics = s.Diagnostics.Select(d => PlanningExecutableValidation.MapRuntimeDiagnostic(d, state.Graph!)).ToList() }).ToList();
+                    if (!await PrepareScenarioObservationsAsync(state, runtime, ct)) return;
+                    state.Scenarios = (await runtime.ValidateScenariosAsync(yaml, state.Preparation!, state.ScenarioInputs!, ScenarioLoopItemSchemas(state.Graph!, state.Preparation!), state.ScenarioObservations, ct)).Select(s => s with { Diagnostics = s.Diagnostics.Select(d => PlanningExecutableValidation.MapRuntimeDiagnostic(d, state.Graph!)).ToList() }).ToList();
                     if (state.Scenarios.Count == 0) diagnostics.Add(new("SCENARIO_MISSING", "$", "No scenario coverage was established."));
                     diagnostics.AddRange(state.Scenarios.Where(s => s.Outcome != "passed").SelectMany(s => s.Diagnostics.Count == 0 ? [new PlanningDiagnostic("SCENARIO_INCONCLUSIVE", s.Id, "Required scenario coverage is incomplete.")] : s.Diagnostics));
                 }
@@ -479,7 +480,7 @@ public sealed partial class TypedWorkflowPlanner(TimeProvider? timeProvider = nu
             var introducedHelperFindings = diagnostics.Where(d => d.Required && !previousIds.Contains(DiagnosticId(d))).ToArray();
             var helperProgress = newIds.Count < previousIds.Count && introducedHelperFindings.Length > 0 && introducedHelperFindings.All(d => IsNewHelperContractFinding(d, state.BestGraph, state.Graph!, state.BestDiagnostics));
             if (stage == 8 && previousStage == 8 && state.BestScenarios.Count == 0 && state.ScenarioInputs is not null)
-                state.BestScenarios = (await runtime.ValidateScenariosAsync(_compiler.Compile(state.BestGraph, state.Preparation!, state.Request.Name), state.Preparation!, state.ScenarioInputs, ScenarioLoopItemSchemas(state.BestGraph, state.Preparation!), ct))
+                state.BestScenarios = (await runtime.ValidateScenariosAsync(_compiler.Compile(state.BestGraph, state.Preparation!, state.Request.Name), state.Preparation!, state.ScenarioInputs, ScenarioLoopItemSchemas(state.BestGraph, state.Preparation!), state.ScenarioObservations, ct))
                     .Select(s => s with { Diagnostics = s.Diagnostics.Select(d => PlanningExecutableValidation.MapRuntimeDiagnostic(d, state.BestGraph)).ToList() }).ToList();
             var scenarioProgress = stage == 8 && previousStage == 8 && PreservesScenarioProgress(state.BestScenarios, state.Scenarios);
             if (stage < previousStage || stage == previousStage && !newIds.IsSubsetOf(previousIds) && !helperProgress && !scenarioProgress)

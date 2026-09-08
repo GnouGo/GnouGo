@@ -6,6 +6,51 @@ namespace GnOuGo.Flow.Tests;
 
 public sealed class TypedPlanningScenarioTests
 {
+    [Theory]
+    [InlineData("previous", "more", "previous == null || previous.response.more", true)]
+    [InlineData("precedent", "suite", "precedent == null || precedent.response.suite", true)]
+    [InlineData("previous", "more", "true", false)]
+    [InlineData("previous", "more", "false", false)]
+    public async Task ExplicitObservationSequenceTestsContinuationAndTermination(string alias, string field, string condition, bool passes)
+    {
+        var document = WorkflowParser.Parse("""
+            version: 1
+            entrypoint: main
+            workflows:
+              main:
+                steps:
+                  - id: pages
+                    type: loop.sequential
+                    input:
+                      while: "${(() => { const ALIAS = data._loop_previous_pages?.read; return CONDITION; })()}"
+                      max_times: 4
+                    steps:
+                      - id: read
+                        type: mcp.call
+                        input: {server: renamed, method: observe, request: {}}
+                finally:
+                  - id: cleanup
+                    type: set
+                    input: {closed: true}
+            """.Replace("ALIAS", alias, StringComparison.Ordinal).Replace("CONDITION", condition, StringComparison.Ordinal));
+        var schema = System.Text.Json.Nodes.JsonNode.Parse("""{"type":"object","properties":{"response":{"type":"object","properties":{"FIELD":{"type":"boolean"}},"required":["FIELD"]}},"required":["response"]}""".Replace("FIELD", field, StringComparison.Ordinal))!;
+        var observations = new System.Text.Json.Nodes.JsonObject { ["main:read"] = new System.Text.Json.Nodes.JsonObject
+        {
+            ["schema"] = schema,
+            ["responses"] = new System.Text.Json.Nodes.JsonArray(
+                new System.Text.Json.Nodes.JsonObject { ["response"] = new System.Text.Json.Nodes.JsonObject { [field] = true } },
+                new System.Text.Json.Nodes.JsonObject { ["response"] = new System.Text.Json.Nodes.JsonObject { [field] = false } })
+        } };
+        var results = await WorkflowPlanScenarioValidator.ValidateAsync(document, null, TestContext.Current.CancellationToken, observations: observations);
+        var nominal = Assert.Single(results, s => s.Id == "nominal");
+        Assert.Equal(passes, nominal.Outcome == "passed");
+        if (passes) Assert.All(results, s => Assert.Equal("passed", s.Outcome));
+        else Assert.Contains(nominal.Diagnostics, d => d.Code == "SCENARIO_OBSERVATIONS_UNCONSUMED" || d.Message.Contains("SCENARIO_OBSERVATIONS_EXHAUSTED", StringComparison.Ordinal));
+        observations["main:read"]!["responses"]![0]!["response"]![field] = "invalid";
+        var invalid = Assert.Single(await WorkflowPlanScenarioValidator.ValidateAsync(document, null, TestContext.Current.CancellationToken, observations: observations), s => s.Id == "nominal");
+        Assert.NotEqual("passed", invalid.Outcome);
+    }
+
     [Fact]
     public async Task StructuredPostProcessingUsesTheSyntheticHostModelWithoutChangingTheArtifact()
     {

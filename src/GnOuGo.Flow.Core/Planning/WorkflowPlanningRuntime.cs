@@ -81,6 +81,8 @@ public sealed class WorkflowPlanningRuntime : IPlanningRuntime
     public Task<IReadOnlyList<PlanningScenarioResult>> ValidateScenariosAsync(string yaml, PlanningPreparation preparation, JsonObject inputs, JsonObject loopItemSchemas, CancellationToken ct)
         => _executor.ValidateTypedScenariosAsync(yaml, preparation, ct, inputs, loopItemSchemas);
     public Task CheckpointAsync(PlanningSnapshot snapshot, CancellationToken ct) => _checkpoint?.Invoke(snapshot, ct) ?? Task.CompletedTask;
+    public Task<IReadOnlyList<PlanningScenarioResult>> ValidateScenariosAsync(string yaml, PlanningPreparation preparation, JsonObject inputs, JsonObject loopItemSchemas, JsonObject observations, CancellationToken ct)
+        => _executor.ValidateTypedScenariosAsync(yaml, preparation, ct, inputs, loopItemSchemas, observations);
     public Task<IReadOnlyList<PlanningDiagnostic>> ValidateCatalogAsync(PlanningPreparation preparation, CancellationToken ct)
         => _executor.ValidateTypedCatalogAsync(_context.Engine, preparation, ct);
 }

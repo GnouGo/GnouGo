@@ -265,10 +265,13 @@ public sealed partial class WorkflowPlanExecutor
     }
 
     public Task<IReadOnlyList<PlanningScenarioResult>> ValidateTypedScenariosAsync(string yaml, PlanningPreparation preparation, CancellationToken ct, JsonObject? inputs = null, JsonObject? loopItemSchemas = null)
+        => ValidateTypedScenariosAsync(yaml, preparation, ct, inputs, loopItemSchemas, null);
+
+    public Task<IReadOnlyList<PlanningScenarioResult>> ValidateTypedScenariosAsync(string yaml, PlanningPreparation preparation, CancellationToken ct, JsonObject? inputs, JsonObject? loopItemSchemas, JsonObject? observations)
     {
         var preflight = JsonSerializer.Deserialize(preparation.RuntimeState, TypedContractJsonContext.Default.CapabilityPreflightResult)
             ?? throw new InvalidOperationException("The persisted capability contract is missing.");
-        return WorkflowPlanScenarioValidator.ValidateAsync(WorkflowParser.Parse(yaml), BuildDryRunMcpClientFactory(preflight.DiscoveredServers), ct, inputs, loopItemSchemas);
+        return WorkflowPlanScenarioValidator.ValidateAsync(WorkflowParser.Parse(yaml), BuildDryRunMcpClientFactory(preflight.DiscoveredServers), ct, inputs, loopItemSchemas, observations);
     }
 
     public async Task<IReadOnlyList<PlanningDiagnostic>> ValidateTypedCatalogAsync(WorkflowEngine engine, PlanningPreparation preparation, CancellationToken ct)

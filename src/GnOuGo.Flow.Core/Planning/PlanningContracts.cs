@@ -104,6 +104,7 @@ public sealed class PlanningSnapshot
     public List<PlanningScenarioResult> BestScenarios { get; set; } = [];
     public JsonObject? ScenarioInputs { get; set; }
     public string? ScenarioInputsFingerprint { get; set; }
+    public JsonObject ScenarioObservations { get; set; } = new();
     public List<PlanningRevision> History { get; set; } = [];
     public List<PlanningEvent> Events { get; set; } = [];
     public Dictionary<string, PlanningFragment> Fragments { get; set; } = new(StringComparer.Ordinal);
@@ -383,6 +384,8 @@ public interface IPlanningRuntime
         => ValidateScenariosAsync(yaml, preparation, ct);
     Task<IReadOnlyList<PlanningScenarioResult>> ValidateScenariosAsync(string yaml, PlanningPreparation preparation, JsonObject inputs, JsonObject loopItemSchemas, CancellationToken ct)
         => ValidateScenariosAsync(yaml, preparation, inputs, ct);
+    Task<IReadOnlyList<PlanningScenarioResult>> ValidateScenariosAsync(string yaml, PlanningPreparation preparation, JsonObject inputs, JsonObject loopItemSchemas, JsonObject observations, CancellationToken ct)
+        => ValidateScenariosAsync(yaml, preparation, inputs, loopItemSchemas, ct);
     Task<IReadOnlyList<PlanningDiagnostic>> ValidateCatalogAsync(PlanningPreparation preparation, CancellationToken ct) => Task.FromResult<IReadOnlyList<PlanningDiagnostic>>([]);
     Task CheckpointAsync(PlanningSnapshot snapshot, CancellationToken ct) => Task.CompletedTask;
 }

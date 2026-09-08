@@ -11,7 +11,7 @@ namespace GnOuGo.Flow.Core.Runtime;
 /// <summary>Bounded synthetic path testing. No production integration is executed.</summary>
 internal static class WorkflowPlanScenarioValidator
 {
-    public static async Task<IReadOnlyList<PlanningScenarioResult>> ValidateAsync(WorkflowDocument document, IMcpClientFactory? fakeFactory, CancellationToken ct, JsonObject? validationInputs = null, JsonObject? loopItemSchemas = null)
+    public static async Task<IReadOnlyList<PlanningScenarioResult>> ValidateAsync(WorkflowDocument document, IMcpClientFactory? fakeFactory, CancellationToken ct, JsonObject? validationInputs = null, JsonObject? loopItemSchemas = null, JsonObject? observations = null)
     {
         var definitions = new List<Scenario> { new("nominal", null, null, "normal") };
         foreach (var (workflowName, workflow) in document.Workflows)
@@ -68,8 +68,9 @@ internal static class WorkflowPlanScenarioValidator
                 Limits = new ExecutionLimits { MaxTotalStepsExecuted = 1000, MaxLoopIterations = 10, MaxCallDepth = 10, MaxParallelBranches = 10, LogStepContent = false, RunId = "planning-scenario" }
             };
             var fault = new Injection();
-            engine.Registry.Register(new FailureExecutor(new McpCallExecutor(), scenario, cancellation, fault));
-            engine.Registry.Register(new FailureExecutor(new LlmCallExecutor(), scenario, cancellation, fault));
+            var observed = new System.Collections.Concurrent.ConcurrentDictionary<string, int>(StringComparer.Ordinal);
+            engine.Registry.Register(new FailureExecutor(new McpCallExecutor(), scenario, cancellation, fault, observations, observed));
+            engine.Registry.Register(new FailureExecutor(new LlmCallExecutor(), scenario, cancellation, fault, observations, observed));
             var diagnostics = new List<PlanningDiagnostic>();
             string outcome;
             try
@@ -80,9 +81,14 @@ internal static class WorkflowPlanScenarioValidator
                 if (validationInputs is null)
                     foreach (var (name, input) in main.Source.Inputs ?? []) inputs[name] = Sample(input);
                 var run = await engine.ExecuteAsync(main, inputs, cancellation.Token);
+                if (scenario.Kind == "normal")
+                    foreach (var (key, fixture) in observations ?? [])
+                        if (fixture?["responses"] is JsonArray samples && observed.GetValueOrDefault(key) != samples.Count)
+                            diagnostics.Add(new("SCENARIO_OBSERVATIONS_UNCONSUMED", "workflow:" + key.Replace(":", "/step:", StringComparison.Ordinal), "Nominal execution did not consume the declared observation sequence; early termination is not successful coverage."));
                 var reached = scenario.Step is null || fault.Injected || telemetry.Statuses.ContainsKey(scenario.Workflow + ":" + scenario.Step);
                 var expectedFailure = fault.Injected && (run.Success || run.Error?.Code is "SCENARIO_INJECTED_FAILURE" or "CANCELLED");
                 outcome = reached && (run.Success || expectedFailure) ? "passed" : "inconclusive";
+                if (diagnostics.Count != 0) outcome = "inconclusive";
                 if (!reached) diagnostics.Add(new("SCENARIO_UNREACHED", "workflow:" + scenario.Workflow + "/step:" + scenario.Step, "The synthetic input did not reach this required scenario."));
                 if (!run.Success && !expectedFailure)
                 {
@@ -136,7 +142,7 @@ internal static class WorkflowPlanScenarioValidator
 
     private sealed record Scenario(string Id, string? Workflow, string? Step, string Kind, int CaseIndex = -1);
     private sealed class Injection { public bool Injected { get; set; } }
-    private sealed class FailureExecutor(IStepExecutor inner, Scenario scenario, CancellationTokenSource cancellation, Injection fault) : IStepExecutor
+    private sealed class FailureExecutor(IStepExecutor inner, Scenario scenario, CancellationTokenSource cancellation, Injection fault, JsonObject? observations, System.Collections.Concurrent.ConcurrentDictionary<string, int> observed) : IStepExecutor
     {
         public string StepType => inner.StepType;
         public string? DslSnippet => inner.DslSnippet;
@@ -146,6 +152,16 @@ internal static class WorkflowPlanScenarioValidator
             {
                 if (scenario.Kind == "cancellation") { fault.Injected = true; cancellation.Cancel(); ct.ThrowIfCancellationRequested(); }
                 if (scenario.Kind == "failure") { fault.Injected = true; throw new WorkflowRuntimeException("SCENARIO_INJECTED_FAILURE", "Synthetic integration failure."); }
+            }
+            var key = ctx.ExecutionScope?.Workflow?.Name + ":" + ctx.Step.Id;
+            if (observations?[key] is JsonObject fixture)
+            {
+                var index = observed.AddOrUpdate(key, 1, (_, current) => current + 1) - 1;
+                if (fixture["responses"] is not JsonArray samples || index >= samples.Count)
+                    throw new WorkflowRuntimeException("SCENARIO_OBSERVATIONS_EXHAUSTED", "Execution requested another observation after the explicit terminal fixture; check the loop continuation or provide a valid longer fixture.");
+                if (fixture["schema"] is not JsonObject schema || PlanningContractValidation.ValidateInstance(samples[index], schema).Count != 0)
+                    throw new WorkflowRuntimeException("SCENARIO_OBSERVATION_INVALID", "The synthetic observation does not satisfy its declared producer contract.");
+                return Task.FromResult(samples[index]?.DeepClone());
             }
             return inner.ExecuteAsync(ctx, ct);
         }
