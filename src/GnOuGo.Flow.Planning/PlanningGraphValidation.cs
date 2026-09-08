@@ -112,7 +112,9 @@ public static class PlanningGraphValidation
                             {
                                 var fallback = node.OnError[ei].SetOutput;
                                 var fallbackSchema = fallback is null ? null : ValueSchema(fallback, new(StringComparer.Ordinal));
-                                if (fallbackSchema?["properties"]?["json"] is not JsonObject jsonSchema || !TypesFit(jsonSchema, resultSchema))
+                                // WorkflowEngine validates the resolved continuation's
+                                // json against this contract before exposing any result.
+                                if (fallbackSchema?["properties"]?["json"] is not JsonObject jsonSchema || !TypesFit(jsonSchema, resultSchema, allowUnresolved: true))
                                 {
                                     var memberIndex = fallback?.Members.FindIndex(m => m.Name == "json") ?? -1;
                                     errors.Add(new("STRUCTURED_FALLBACK_INVALID", location + "/onError/" + ei + "/setOutput" + (memberIndex < 0 ? "" : "/members/" + memberIndex + "/value"),
@@ -382,7 +384,22 @@ public static class PlanningGraphValidation
                 {
                     var alternatives = new JsonArray(schema);
                     foreach (var handler in node.OnError.Where(h => h.Action == "continue"))
-                        alternatives.Add(handler.SetOutput is { } fallback ? ValueSchema(fallback, visiting)?.DeepClone() ?? new JsonObject() : new JsonObject { ["type"] = "null" });
+                    {
+                        var guardedJson = structured.GetValueOrDefault(node.Key);
+                        var fallbackSchema = handler.SetOutput is { Kind: "object" } members && guardedJson is not null
+                            ? ObjectSchema(members.Members.Select(m => (m.Name, m.Name == "json" ? guardedJson : ValueSchema(m.Value, visiting) ?? new JsonObject())))
+                            : handler.SetOutput is { } fallback ? ValueSchema(fallback, visiting)?.DeepClone().AsObject() ?? new JsonObject() : new JsonObject { ["type"] = "null" };
+                        if (structured.TryGetValue(node.Key, out var requiredJson))
+                        {
+                            // Every successful continuation passes the runtime guard.
+                            // Other envelope fields still derive from the fallback.
+                            fallbackSchema["type"] = "object"; fallbackSchema["properties"] ??= new JsonObject();
+                            fallbackSchema["properties"]!["json"] = requiredJson.DeepClone();
+                            fallbackSchema["required"] ??= new JsonArray();
+                            if (!fallbackSchema["required"]!.AsArray().Any(p => p?.ToString() == "json")) fallbackSchema["required"]!.AsArray().Add((JsonNode?)JsonValue.Create("json"));
+                        }
+                        alternatives.Add((JsonNode)fallbackSchema);
+                    }
                     return new JsonObject { ["anyOf"] = alternatives };
                 }
                 return schema;
@@ -446,11 +463,11 @@ public static class PlanningGraphValidation
 
     private static JsonObject AtPath(JsonObject root, List<string> path)
     {
-        if ((root["anyOf"] ?? root["oneOf"]) is JsonArray alternatives && path.Count > 0)
-            return new() { ["anyOf"] = new JsonArray(alternatives.Select(a => (JsonNode?)AtPath(a!.AsObject(), path)).ToArray()) };
-        var current = root;
-        foreach (var segment in path)
+        return Read(root, 0, 0);
+        JsonObject Read(JsonObject current, int position, int depth)
         {
+            if (depth > 64) throw new InvalidOperationException("The producer schema traversal exceeds the supported depth.");
+            if (position == path.Count) return current;
             var count = 0;
             while (current["$ref"] is JsonValue reference)
             {
@@ -458,14 +475,20 @@ public static class PlanningGraphValidation
                     throw new InvalidOperationException("The producer schema reference cannot be resolved without losing constraints.");
                 current = resolved;
             }
+            if ((current["anyOf"] ?? current["oneOf"]) is JsonArray alternatives)
+            {
+                if (alternatives.Count == 0) throw new InvalidOperationException("The producer schema has no possible result.");
+                return new() { ["anyOf"] = new JsonArray(alternatives.Select(a => (JsonNode?)Read(a!.AsObject(), position, depth + 1).DeepClone()).ToArray()) };
+            }
+            var segment = path[position];
             if (current["properties"]?[segment] is not null && !(current["required"] as JsonArray ?? []).Any(n => n?.GetValue<string>() == segment))
                 throw new InvalidOperationException("The selected field is optional in its producer contract. Guard its presence or use a validated transformation before requiring it.");
-            current = current["properties"]?[segment] as JsonObject ??
+            var child = current["properties"]?[segment] as JsonObject ??
                 (int.TryParse(segment, out var index) && index >= 0 ? current["items"] as JsonObject : null) ??
                 current["additionalProperties"] as JsonObject ??
                 throw new InvalidOperationException("The selected result field is not declared by the producer. Use a declared field or a validated structured/local transformation.");
+            return Read(child, position + 1, depth + 1);
         }
-        return current;
     }
 
     internal static PlanningValue? Member(PlanningValue value, string name) => value.Members.FirstOrDefault(m => m.Name == name)?.Value;

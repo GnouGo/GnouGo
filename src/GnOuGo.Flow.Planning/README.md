@@ -355,8 +355,17 @@ When a new unbound loop reuses its unchanged child operation's key, the host ass
 the wrapper a deterministic unused identifier. The original producer keeps its key,
 capability and dependencies. Ambiguous collisions or altered producers are not renamed.
 
-A single producer contract that reaches the output ceiling resumes with flat typed
-schema declarations. The host assembles JSON Pointer paths into the existing schema
+A single producer contract that reaches the output ceiling automatically tries flat
+typed schema declarations once before recovery. The switch is checkpointed before
+dispatch and also applies when retrying older retained failures. The host assembles JSON Pointer paths into the existing schema
 contracts and runs the same validation before accepting the unit. Raw declarations,
 conversion findings and repair counts survive restart; repairs preserve valid rows.
 The model, input/output ceilings, compilation gates and behavior approval stay intact.
+
+Construction contract 36 traverses nested alternative schemas when resolving data
+paths and exposes a field only when every alternative declares it. Continuing
+structured fallbacks retain their declared `.json` contract because Flow.Core
+validates the resolved fallback before downstream execution. Computations can
+produce these fields; invalid computed values stop execution and still run cleanup.
+Other envelope fields, including the original `response`, remain separately
+derived from their producers and fallback declarations.

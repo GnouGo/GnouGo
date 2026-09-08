@@ -1,5 +1,11 @@
 # GnOuGo.Flow — YAML Workflow DSL Engine
 
+Continuing `on_error` handlers on `mcp.call` and `llm.call` with
+`structured_output` must return a `json` member satisfying that schema. The
+engine validates resolved fallback values before publishing a successful step
+result. Invalid fallbacks stop downstream execution with
+`STRUCTURED_FALLBACK_INVALID`; workflow finalization still runs.
+
 <a href="https://www.nuget.org/packages/GnOuGo.Flow.Core"><img src="https://img.shields.io/nuget/v/GnOuGo.Flow.Core.svg" alt="NuGet version"></a>
 <a href="https://www.nuget.org/packages/GnOuGo.Flow.Core"><img src="https://img.shields.io/badge/.NET-10.0-blue.svg" alt=".NET 10.0"></a>
 <a href="https://nugettrends.com/packages?ids=GnOuGo.Flow.Core"><img src="https://img.shields.io/nuget/dt/GnOuGo.Flow.Core.svg" alt="NuGet downloads"></a>

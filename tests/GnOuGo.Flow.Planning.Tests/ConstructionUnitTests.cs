@@ -149,10 +149,10 @@ public sealed class ConstructionUnitTests
         } };
         state = await Advance(new TypedWorkflowPlanner(), state, runtime);
         state = JsonSerializer.Deserialize(JsonSerializer.Serialize(state, PlanningJsonContext.Default.PlanningSnapshot), PlanningJsonContext.Default.PlanningSnapshot)!;
-        Assert.Equal(1, calls); Assert.Equal(PlanningStatus.Recovery, state.Status);
+        Assert.Equal(1, calls); Assert.Equal(repairing ? PlanningStatus.Recovery : PlanningStatus.Generating, state.Status);
         Assert.Equal("output_limit", state.ConstructionUnits[0].DispatchOutcome);
         Assert.True(JsonNode.DeepEquals(original, state.ConstructionUnits[0].Candidate));
-        Assert.Contains(state.Diagnostics, d => d.Code == "MODEL_OUTPUT_LIMIT" && d.Message.Contains("8192", StringComparison.Ordinal));
+        Assert.Contains(state.ConstructionUnits[0].DispatchDiagnostics, d => d.Code == "MODEL_OUTPUT_LIMIT" && d.Message.Contains("8192", StringComparison.Ordinal));
         Assert.Equal(repairing ? 1 : 0, state.ConstructionUnits[0].RepairCalls);
         Assert.Contains(state.Attempts.Last().Diagnostics, d => d.Code == "MODEL_OUTPUT_LIMIT");
     }

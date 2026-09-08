@@ -226,6 +226,12 @@ public sealed partial class TypedWorkflowPlanner
                 RecordUnitOutputLimit(state, unit, response, "fragment_" + unit.Kind);
                 if (unit.NodeKeys.Count > 1 && unit.Candidate is null)
                 { SplitUnit(state, unit); continue; }
+                if (unit.Kind == "contracts" && unit.NodeKeys.Count == 1 && unit.Candidate is null && !unit.FlatSchemaGeneration)
+                {
+                    // A known smaller transport is available. Checkpoint the switch
+                    // and try it once before asking a human to retry unchanged work.
+                    unit.FlatSchemaGeneration = true; unit.Status = "pending"; continue;
+                }
                 unit.Status = "recovery"; stopped = true; continue;
             }
             var received = response.Json as JsonObject;

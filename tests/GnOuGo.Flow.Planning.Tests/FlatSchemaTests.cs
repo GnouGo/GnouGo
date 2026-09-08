@@ -9,6 +9,35 @@ namespace GnOuGo.Flow.Planning.Tests;
 public sealed class FlatSchemaTests
 {
     private static CancellationToken Ct => TestContext.Current.CancellationToken;
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task OutputLimitedContractSwitchesTransportOnceWithoutAUserRetry(bool secondResponseLimited)
+    {
+        var state = ConstructionUnitTests.ApprovedSkeleton(); var planner = new TypedWorkflowPlanner(); var runtime = new FakeRuntime();
+        for (var i = 0; i < 6 && !state.ConstructionUnits.Any(u => u.Kind == "inputs" && u.Status == "validated"); i++)
+            state = await planner.AdvanceAsync(state, new() { ExpectedRevision = state.Revision }, runtime, Ct);
+        var calls = 0;
+        runtime = new FakeRuntime { OnCall = (_, request, _) =>
+        {
+            calls++;
+            if (calls == 2) Assert.Contains("flat list", request.Prompt);
+            return Task.FromResult(calls == 1 || secondResponseLimited ? new LLMResponse { CompletionStatus = "output_limit" }
+                : new LLMResponse { Json = Candidate(Row("", "object"), Row("/properties/message", "string")) });
+        } };
+        state = await planner.AdvanceAsync(state, new() { ExpectedRevision = state.Revision }, runtime, Ct);
+        Assert.Equal(PlanningStatus.Generating, state.Status);
+        var unit = state.ConstructionUnits.Single(u => u.Kind == "contracts");
+        Assert.True(unit.FlatSchemaGeneration); Assert.Equal("pending", unit.Status);
+        state = JsonSerializer.Deserialize(JsonSerializer.Serialize(state, PlanningJsonContext.Default.PlanningSnapshot), PlanningJsonContext.Default.PlanningSnapshot)!;
+        state = await planner.AdvanceAsync(state, new() { ExpectedRevision = state.Revision }, runtime, Ct);
+        unit = state.ConstructionUnits.Single(u => u.Kind == "contracts");
+        Assert.Equal(2, calls); Assert.Equal(0, unit.RepairCalls);
+        Assert.Equal(secondResponseLimited ? PlanningStatus.Recovery : PlanningStatus.Generating, state.Status);
+        Assert.Equal(secondResponseLimited ? "recovery" : "validated", unit.Status);
+        Assert.Equal(secondResponseLimited ? 2 : 1, state.Attempts.Count(a => a.Diagnostics.Any(d => d.Code == "MODEL_OUTPUT_LIMIT")));
+    }
     [Theory]
     [InlineData("entries/name", "choice~value")]
     [InlineData("entrees/nom", "choix~valeur")]

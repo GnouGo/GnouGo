@@ -114,6 +114,43 @@ var continuation = new WorkflowCompiler().Compile(WorkflowParser.Parse(new Plann
 var continuationResult = await new WorkflowEngine().ExecuteAsync(continuation.Workflows[continuation.Entrypoint!], new JsonObject(), CancellationToken.None);
 if (!continuationResult.Success || continuationResult.Outputs?["count"]?.GetValue<int>() != 1)
     throw new InvalidOperationException("Published typed sequential continuation failed: " + continuationResult.Error?.Message);
+var guardedFallback = new WorkflowCompiler().Compile(WorkflowParser.Parse("""
+    version: 1
+    workflows:
+      main:
+        steps:
+          - id: source
+            type: llm.call
+            input:
+              model: fake
+              prompt: No external client is configured in this smoke test.
+              structured_output:
+                schema_inline:
+                  type: object
+                  properties:
+                    count: {type: integer}
+                  required: [count]
+                  additionalProperties: false
+                strict: true
+            on_error:
+              cases:
+                - action: continue
+                  set_output: ${data.inputs.fallback}
+          - id: after
+            type: set
+            input: {executed: true}
+        finally:
+          - id: cleanup
+            type: set
+            input: {cleaned: true}
+    """));
+foreach (var valid in new[] { true, false })
+{
+    var guardedResult = await new WorkflowEngine().ExecuteAsync(guardedFallback.Workflows[guardedFallback.Entrypoint!],
+        new JsonObject { ["fallback"] = new JsonObject { ["json"] = new JsonObject { ["count"] = valid ? JsonValue.Create(2) : JsonValue.Create("wrong") } } }, CancellationToken.None);
+    if (guardedResult.Success != valid || guardedResult.StepResults.Any(s => s.StepId == "after") != valid ||
+        !guardedResult.StepResults.Any(s => s.StepId == "cleanup")) throw new InvalidOperationException("Published structured continuation guard failed.");
+}
 Console.WriteLine("Typed planning AOT smoke passed.");
 
 sealed class SmokeRuntime(PlanningGraph graph, PlanningPreparation preparation) : IPlanningRuntime

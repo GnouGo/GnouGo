@@ -8,7 +8,7 @@ namespace GnOuGo.Flow.Planning;
 internal static class PlanningDataflow
 {
     internal const int BindingVersion = 2;
-    internal const int ContractVersion = 35;
+    internal const int ContractVersion = 36;
     internal const string WorkflowOutputs = "$outputs";
 
     internal static Dictionary<string, PlanningBinding> Index(PlanningWorkflow workflow, PlanningPreparation preparation, PlanningGraph graph, string? consumer = null)
@@ -256,7 +256,13 @@ internal static class PlanningDataflow
     private static IEnumerable<List<string>> Paths(JsonObject schema, List<string> path, int depth)
     {
         yield return path;
-        if (depth >= 16 || schema["properties"] is not JsonObject properties) yield break;
+        if (depth >= 16) yield break;
+        if ((schema["anyOf"] ?? schema["oneOf"]) is JsonArray alternatives)
+            foreach (var alternative in alternatives.OfType<JsonObject>())
+                foreach (var value in Paths(alternative, path, depth + 1).Skip(1)) yield return value;
+        // These are candidates only. ResolveValueContract must prove the selected
+        // field exists in every alternative before Index exposes a binding.
+        if (schema["properties"] is not JsonObject properties) yield break;
         var required = (schema["required"] as JsonArray ?? []).Select(p => p?.GetValue<string>()).ToHashSet(StringComparer.Ordinal);
         foreach (var (name, child) in properties)
             if (required.Contains(name) && child is JsonObject nested)
