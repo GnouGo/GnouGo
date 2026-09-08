@@ -42,6 +42,13 @@ Elaboration validates native inputs, producer fields, templates, JavaScript synt
 schemas; repairs use atomic field patches. Current findings follow the retained candidate,
 with rejected attempts shown separately. Final approval still requires complete validation.
 The opt-in `TypedV2_*` tests cover live recovery and a separate three-generation campaign.
+For provider outages, `GNOU_GO_LIVE_TYPED_PLANNING_PROBE=1` enables only
+`TypedV2_ProbeConfiguredProvider_WithoutAdvancingSessions`. Run it with the campaign's
+existing budget and KeyVault authorization settings. It sends one small structured request
+with the configured model, reasoning and transport policy, an enforced 512-token output
+ceiling, and no hidden retries. Its reservation remains in the cumulative ledger if usage
+is unavailable. Background planning stays disabled; probe success neither advances saved
+sessions nor counts as generation or execution acceptance.
 
 Executable generation uses resumable units of at most four nodes, after resolving input
 and producer schemas. Accepted decision cases/defaults and runtime confirmation contracts

@@ -74,7 +74,7 @@ public sealed partial class LiveIntentAgentGenerationTests
         await RunCampaignAsync(plannerVersion: 1);
     }
 
-    private async Task RunCampaignAsync(int plannerVersion, bool resumeOnly = false)
+    private async Task RunCampaignAsync(int plannerVersion, bool resumeOnly = false, bool probeOnly = false)
     {
 
         ValidateDedicatedProviderProjectAttestation();
@@ -138,7 +138,7 @@ public sealed partial class LiveIntentAgentGenerationTests
             app = GnOuGoAgentWebHost.Build(
                 [
                     $"--TypedWorkflowPlanning:PlannerVersion={plannerVersion}",
-                    $"--TypedWorkflowPlanning:BackgroundProcessingEnabled={!resumeOnly}",
+                    $"--TypedWorkflowPlanning:BackgroundProcessingEnabled={!resumeOnly && !probeOnly}",
                     $"--TypedWorkflowPlanning:MaxModelCalls={budgetDefinition.MaxCalls}",
                     "--OtlpCollector:Enabled=false",
                     "--OpenTelemetry:Enabled=false",
@@ -156,10 +156,17 @@ public sealed partial class LiveIntentAgentGenerationTests
                     if (plannerVersion == 2) ConfigureV2Campaign(services, cycleBudget, planningStore, budgetLedger);
                 });
             using var hostCancellation = app.Lifetime.ApplicationStopping.Register(timeout.Cancel);
-            if (plannerVersion == 2 && !resumeOnly) inferenceGateway = await LiveInferenceGateway.StartAsync(app.Services, cycleBudget, budgetLedger, timeout.Token);
+            if (plannerVersion == 2 && !resumeOnly && !probeOnly) inferenceGateway = await LiveInferenceGateway.StartAsync(app.Services, cycleBudget, budgetLedger, timeout.Token);
             if (plannerVersion == 2 && ExistingConfigurationAuthorized)
                 await ReconcileV2UnverifiedCallsAsync(app.Services, planningStore, budgetLedger, cycleBudget.Snapshot, resumeOnly, timeout.Token);
-            if (resumeOnly)
+            if (probeOnly)
+            {
+                await ProbeV2CampaignProviderAsync(app.Services, cycleBudget, budgetLedger, timeout.Token);
+                budgetLedger.MarkProbeCompleted(cycleBudget.Snapshot);
+                WriteLiveProgress("v2_provider_probe_completed");
+                // A transport probe is never generation or execution acceptance.
+            }
+            else if (resumeOnly)
             {
                 // Start embedded MCP listeners, with automatic planning disabled.
                 await app.StartAsync(timeout.Token);

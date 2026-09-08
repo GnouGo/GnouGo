@@ -22,6 +22,52 @@ public sealed partial class LiveIntentAgentGenerationTests
 {
     [Fact]
     [Trait("Category", "Live")]
+    public async Task TypedV2_ProbeConfiguredProvider_WithoutAdvancingSessions()
+    {
+        if (Environment.GetEnvironmentVariable("GNOU_GO_LIVE_TYPED_PLANNING_PROBE") != "1") return;
+        await RunCampaignAsync(plannerVersion: 2, probeOnly: true);
+    }
+
+    private static async Task ProbeV2CampaignProviderAsync(IServiceProvider services, LLMUsageBudgetScope budget, LiveBudgetLedger ledger, CancellationToken ct)
+    {
+        var factory = services.GetRequiredService<SecureWorkflowRuntimeFactory>();
+        await using var runtime = await factory.CreateAsync(ct);
+        var settings = services.GetRequiredService<IOptions<TypedWorkflowPlanningSettings>>().Value;
+        var client = new CampaignPlanningClient(factory, budget, services.GetRequiredService<IExchangeRateProvider>(), ledger);
+        try
+        {
+            var response = await client.CallAsync(new LLMRequest
+            {
+                Provider = runtime.Options.DefaultProvider,
+                Model = runtime.Options.DefaultModel,
+                Prompt = "Return a JSON object with ok set to true.",
+                Reasoning = settings.Reasoning,
+                UseBackgroundMode = true,
+                MaxTokens = 512,
+                RequireOutputTokenLimit = true,
+                DisableTransportRetries = true,
+                StructuredOutputStrict = true,
+                StructuredOutputSchema = new JsonObject
+                {
+                    ["type"] = "object",
+                    ["properties"] = new JsonObject { ["ok"] = new JsonObject { ["type"] = "boolean" } },
+                    ["required"] = new JsonArray("ok"),
+                    ["additionalProperties"] = false
+                }
+            }, ct);
+            Assert.True(response.Json?["ok"]?.GetValue<bool>() == true, "The provider probe returned no valid structured result.");
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            var failure = ClassifyProbeFailure(ex, 1);
+            WriteLiveProgress("v2_provider_probe_failed", errorCode: failure.Code, retryable: failure.Retryable,
+                budget: budget.Snapshot, providerDiagnostics: failure.Details as JsonObject);
+            throw failure;
+        }
+    }
+
+    [Fact]
+    [Trait("Category", "Live")]
     public async Task TypedV2_GeneratesAndSavesThreeAgents_ThenExecutesDisposableFixture()
     {
         if (Environment.GetEnvironmentVariable("GNOU_GO_LIVE_TYPED_PLANNING_E2E") != "1") return;
