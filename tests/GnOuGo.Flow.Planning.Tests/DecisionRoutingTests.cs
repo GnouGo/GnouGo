@@ -9,6 +9,71 @@ namespace GnOuGo.Flow.Planning.Tests;
 public sealed class DecisionRoutingTests
 {
     [Theory]
+    [InlineData("true", 2)]
+    [InlineData("false", 0)]
+    [InlineData("null", 0)]
+    [InlineData("\"invalid\"", 0)]
+    [InlineData("timeout", 0)]
+    [InlineData("cancel", 0)]
+    public async Task SharedConfirmationRoutesBothEffectsAndNeverAuthorizesMissingConsent(string response, int expected)
+    {
+        var prep = Preparation(); var effects = new[] { "first_effect", "second_effect" };
+        foreach (var effect in effects) prep.Decisions.Add(new() { Group = effect, SourceOperationId = "permission", SourceCapabilityId = "human",
+            SourcePointer = "/response", ContractSource = PlanningDecisionContract.HumanConfirmation, ResponseSchema = new() { ["type"] = "boolean" },
+            AllowedValues = ["EFFECT", "NO_EFFECT"], NoEffectValues = ["NO_EFFECT"], EffectOperationIds = [effect], PermissionOperationIds = ["permission"] });
+        foreach (var id in effects.Append("cleanup")) prep.Capabilities.Add(new() { Id = id, StepType = "mcp.call", Server = "fixture", Method = id, Kind = "tool", InputSchema = new() { ["type"] = "object" } });
+        prep.Capabilities.Add(new() { Id = "human", StepType = "human.input", OperationIds = ["permission"] });
+        var route = new PlanningNode { Key = "route", Type = "switch", Cases = [new("EFFECT", null, effects.Select(id => new PlanningNode { Key = id, Type = "mcp.call", CapabilityId = id, OperationIds = [id] }).ToList()), new("NO_EFFECT", null, [])] };
+        var graph = new PlanningGraph { Workflows = [new() { Key = "main", Steps = [
+            new() { Key = "human", Type = "human.input", CapabilityId = "human", OperationIds = ["permission"], Input = PlanningConstruction.Literal(HumanInputContract.ConfirmationInput("Allow both actions?")) }, route],
+            Finally = [new() { Key = "cleanup", Type = "mcp.call", CapabilityId = "cleanup" }] }] };
+        Assert.Equal(effects, PlanningDecisionRouting.Contract(route, prep)!.EffectOperationIds);
+        var unit = new PlanningConstructionUnit { Key = "route", WorkflowKey = "main", Kind = "implementation", NodeKeys = ["route"] };
+        graph = PlanningConstruction.Apply(graph, unit, TypedWorkflowPlanner.EmptyConstruction(PlanningConstruction.Schema(graph.Workflows[0], unit, prep, graph)), prep);
+        var writes = 0; var cleanups = 0; var factory = new InMemoryMcpClientFactory();
+        factory.RegisterServer("fixture", new() { Tools = effects.Append("cleanup").Select(id => new McpToolInfo { Name = id, InputSchema = new JsonObject { ["type"] = "object" } }).ToList(),
+            ToolHandlers = effects.Append("cleanup").ToDictionary(id => id, id => (Func<JsonNode?, McpCallResult>)(_ => { if (id == "cleanup") cleanups++; else writes++; return new() { Content = new JsonObject { ["ok"] = true } }; })) });
+        var compiled = new GnOuGo.Flow.Core.Compilation.WorkflowCompiler().Compile(GnOuGo.Flow.Core.Parsing.WorkflowParser.Parse(new PlanningGraphCompiler().Compile(graph, prep)));
+        await new WorkflowEngine { McpClientFactory = factory, HumanInputProvider = new SharedConsent(response) }.ExecuteAsync(compiled.Workflows[compiled.Entrypoint!], new JsonObject(), TestContext.Current.CancellationToken);
+        Assert.Equal(expected, writes); Assert.Equal(1, cleanups);
+    }
+
+    private sealed class SharedConsent(string response) : IHumanInputProvider
+    {
+        public Task<JsonNode?> RequestInputAsync(HumanInputRequest request, CancellationToken ct) => response switch
+        {
+            "timeout" => throw new TimeoutException("Simulated missing consent"), "cancel" => throw new OperationCanceledException("Simulated abandoned consent"),
+            _ => Task.FromResult(JsonNode.Parse(response))
+        };
+    }
+
+    [Theory]
+    [InlineData("source")]
+    [InlineData("capability")]
+    [InlineData("pointer")]
+    [InlineData("schema")]
+    [InlineData("outcomes")]
+    [InlineData("permission")]
+    public void DistinctDecisionContractsCannotBeSilentlyCoalesced(string difference)
+    {
+        var prep = Preparation();
+        foreach (var id in new[] { "a", "b" }) prep.Decisions.Add(new() { Group = id, SourceOperationId = "permission", SourceCapabilityId = "human", SourcePointer = "/response",
+            ContractSource = PlanningDecisionContract.HumanConfirmation, ResponseSchema = new() { ["type"] = "boolean" }, AllowedValues = ["EFFECT", "NO_EFFECT"], NoEffectValues = ["NO_EFFECT"], EffectOperationIds = [id], PermissionOperationIds = ["permission"] });
+        var second = prep.Decisions[1];
+        switch (difference)
+        {
+            case "source": second.SourceOperationId = "other"; break;
+            case "capability": second.SourceCapabilityId = "other"; break;
+            case "pointer": second.SourcePointer = "/other"; break;
+            case "schema": second.ResponseSchema = new() { ["type"] = "string" }; break;
+            case "outcomes": second.AllowedValues.Add("UNCERTAIN"); break;
+            case "permission": second.PermissionOperationIds.Add("second_permission"); break;
+        }
+        var route = new PlanningNode { Key = "route", Type = "switch", Cases = [new("EFFECT", null, [new() { Key = "a", OperationIds = ["a"] }, new() { Key = "b", OperationIds = ["b"] }])] };
+        Assert.Throws<PlanningDecisionRouting.AmbiguousDecisionException>(() => PlanningDecisionRouting.Contract(route, prep));
+    }
+
+    [Theory]
     [InlineData("return condition ? 'ALLOW' : undefined;", true)]
     [InlineData("(() => { return flag ? 'ACTION' : 'NONE'; })()", true)]
     [InlineData("return flag === true;", false)]

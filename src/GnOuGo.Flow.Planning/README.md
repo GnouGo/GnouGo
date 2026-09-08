@@ -56,6 +56,9 @@ For a reviewed linear sequence whose tools all implement the same operation, ope
 inputs must reach the final result. That result must also consume each intermediate producer.
 Conditional or differently owned steps retain their individual requirements. Confirmation,
 artifact identity, and capability validation continue to apply to every constituent action.
+Multiple effects may share a gate only when their declared decision source, response contract,
+outcomes and required permissions agree. Distinct sources require separate gates or an explicit
+reducer; they fail before model dispatch instead of selecting an arbitrary permission.
 
 `PlanningRequest.Generation` defaults to 12,000 estimated input tokens per unit and an
 enforced 8,192 output-token ceiling per call. Oversized groups split before dispatch; an

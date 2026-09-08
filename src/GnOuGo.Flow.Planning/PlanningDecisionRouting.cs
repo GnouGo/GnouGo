@@ -25,10 +25,29 @@ internal static class PlanningDecisionRouting
             }
     }
 
-    internal static PlanningDecisionContract? Contract(PlanningNode node, PlanningPreparation preparation) => node.Type != "switch" ? null :
-        preparation.Decisions.SingleOrDefault(d =>
+    internal static PlanningDecisionContract? Contract(PlanningNode node, PlanningPreparation preparation)
+    {
+        if (node.Type != "switch") return null;
+        var matches = preparation.Decisions.Where(d =>
             node.Cases.Any(c => d.AllowedValues.Except(d.NoEffectValues).Contains(c.Value) &&
-                PlanningGraphCompiler.Enumerate(c.Steps).Any(n => n.OperationIds.Intersect(d.EffectOperationIds).Any())));
+                PlanningGraphCompiler.Enumerate(c.Steps).Any(n => n.OperationIds.Intersect(d.EffectOperationIds).Any()))).OrderBy(d => d.Group, StringComparer.Ordinal).ToArray();
+        if (matches.Length == 0) return null;
+        var first = matches[0];
+        if (matches.Any(d => d.Version != first.Version || d.SourceOperationId != first.SourceOperationId || d.SourceCapabilityId != first.SourceCapabilityId ||
+            d.SourcePointer != first.SourcePointer || d.ContractSource != first.ContractSource || !JsonNode.DeepEquals(d.ResponseSchema, first.ResponseSchema) ||
+            !Same(d.AllowedValues, first.AllowedValues) || !Same(d.NoEffectValues, first.NoEffectValues) || !Same(d.PermissionOperationIds, first.PermissionOperationIds)))
+            throw new AmbiguousDecisionException(node.Key);
+        return new() { Version = first.Version, Group = string.Join(",", matches.Select(d => d.Group)), SourceOperationId = first.SourceOperationId,
+            SourceCapabilityId = first.SourceCapabilityId, SourcePointer = first.SourcePointer, ContractSource = first.ContractSource,
+            ResponseSchema = first.ResponseSchema.DeepClone().AsObject(), AllowedValues = first.AllowedValues.ToList(), NoEffectValues = first.NoEffectValues.ToList(),
+            EffectOperationIds = matches.SelectMany(d => d.EffectOperationIds).Distinct(StringComparer.Ordinal).ToList(),
+            InputOperationIds = matches.SelectMany(d => d.InputOperationIds).Distinct(StringComparer.Ordinal).ToList(), PermissionOperationIds = first.PermissionOperationIds.ToList() };
+
+        static bool Same(IEnumerable<string> left, IEnumerable<string> right) => left.Order(StringComparer.Ordinal).SequenceEqual(right.Order(StringComparer.Ordinal));
+    }
+
+    internal sealed class AmbiguousDecisionException(string node) : InvalidOperationException(
+        "Decision '" + node + "' combines different locked decision sources or permission outcomes. Preserve separate gates or establish an explicit typed reducer consuming every required permission; one source cannot substitute for another.");
 
     internal static PlanningValue Resolve(PlanningWorkflow workflow, PlanningNode node, PlanningPreparation preparation, PlanningGraph graph)
     {
@@ -46,6 +65,7 @@ internal static class PlanningDecisionRouting
         }
         var bindings = PlanningDataflow.Index(workflow, preparation, graph, node.Key).Values.Where(b =>
             PlanningValueProvenance.Proves(workflow, b.Value, graph, (producer, value) => producer.Type == "human.input"
+                && (contract.SourceCapabilityId.Length == 0 || producer.CapabilityId == contract.SourceCapabilityId)
                 && producer.OperationIds.Contains(contract.SourceOperationId) && value.Path.SequenceEqual(new[] { "response" }))).ToArray();
         if (bindings.Length == 0) throw new InvalidOperationException("The declared human confirmation is not available at this decision. Preserve its execution scope and route its exact result through an explicit boundary.");
         return new() { Kind = "confirmation", Text = contract.AllowedValues.Except(contract.NoEffectValues).Single(),
