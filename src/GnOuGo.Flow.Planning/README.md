@@ -301,7 +301,12 @@ for its stable node identifiers. Implementation and routing findings remain stor
 for their own phases; free-text revisions without validated coordinates remain intact.
 Invalid opaque object declarations may use a validated text representation when
 consumers do not require internal fields; unknown fields never become bindings.
-New MCP nodes with declared object fields reuse their authoritative results directly.
+New MCP nodes with declared object fields reuse their authoritative results directly,
+except when a locked decision explicitly requires a separate structured result. Such
+producers must establish the exact decision field and finite outcomes before routing
+is constructed. Contract prompts include these obligations, and missing or incompatible
+fields are repaired at the producer. String-enum selectors are checked against accepted
+case values before final semantic review; correcting computations cannot rewrite routing.
 Additional interpretation requires an explicit transformation; existing structured
 declarations remain compatible. Empty native container contracts and required null
 annotations are constructed by the host. Missing model-owned fields and malformed

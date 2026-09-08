@@ -150,6 +150,19 @@ public static class PlanningGraphValidation
                 }
                 if (node.If is not null) CheckValue(node.If, location + "/if");
                 if (node.Expr is not null) CheckValue(node.Expr, location + "/expr");
+                if (node.Type == "switch" && node.Expr is { Kind: "input" or "output" } selector)
+                {
+                    try
+                    {
+                        var contract = ValueSchema(selector, new(StringComparer.Ordinal));
+                        if (contract?["type"]?.ToString() == "string" && contract["enum"] is JsonArray { Count: > 0 } outcomes)
+                            foreach (var branch in node.Cases.Where(c => c.When is null && c.Value is not null))
+                                if (!outcomes.Any(v => v?.ToString() == branch.Value))
+                                    errors.Add(new("SWITCH_CASE_UNREACHABLE", location + "/expr", "The selector contract declares " + outcomes.ToJsonString() +
+                                        "; accepted case '" + branch.Value + "' cannot match. Preserve accepted routing and correct the selector computation or its producer contract."));
+                    }
+                    catch (Exception ex) when (ex is InvalidOperationException or ArgumentException or FormatException) { /* The reference/schema finding identifies the unresolved selector. */ }
+                }
                 for (var i = 0; i < node.Cases.Count; i++)
                     if (node.Cases[i].When is { } when) CheckValue(when, location + "/cases/" + i + "/when");
                 for (var i = 0; i < node.OnError.Count; i++)

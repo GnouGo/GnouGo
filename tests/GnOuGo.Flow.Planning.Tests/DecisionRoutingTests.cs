@@ -9,6 +9,37 @@ namespace GnOuGo.Flow.Planning.Tests;
 public sealed class DecisionRoutingTests
 {
     [Theory]
+    [InlineData("inspect", "route", "decision")]
+    [InlineData("examiner", "aiguiller", "choix")]
+    public void DeclaredRawObjectDoesNotEraseRequiredStructuredDecision(string producerKey, string routeKey, string field)
+    {
+        var prep = Preparation();
+        prep.Capabilities.Add(new() { Id = "source", StepType = "mcp.call", Server = "renamed", Method = "inspect", OperationIds = ["analysis"],
+            OutputSchema = new() { ["type"] = "object", ["properties"] = new JsonObject { ["summary"] = new JsonObject { ["type"] = "string" } }, ["required"] = new JsonArray("summary") } });
+        prep.Decisions.Add(new() { Group = "effect", SourceCapabilityId = "source", SourceOperationId = "analysis", ContractSource = "structured_output",
+            SourcePointer = "/json/" + field, ResponseSchema = new() { ["type"] = "string", ["enum"] = new JsonArray("ACT", "SKIP") },
+            AllowedValues = ["ACT", "SKIP"], NoEffectValues = ["SKIP"], EffectOperationIds = ["write"] });
+        var producer = new PlanningNode { Key = producerKey, Type = "mcp.call", CapabilityId = "source", OperationIds = ["analysis"] };
+        var route = new PlanningNode { Key = routeKey, Type = "switch", Cases = [new("ACT", null, [new() { Key = "effect", Type = "set", OperationIds = ["write"], Input = Str("done") }]), new("SKIP", null, [])] };
+        var graph = new PlanningGraph { Workflows = [new() { Key = "main", Steps = [producer, route] }] };
+        var unit = new PlanningConstructionUnit { Key = "contract", WorkflowKey = "main", Kind = "contracts", NodeKeys = [producerKey], ContractVersion = PlanningDataflow.ContractVersion };
+        var schema = PlanningConstruction.Schema(graph.Workflows[0], unit, prep, graph);
+        var candidate = new JsonObject { ["nodes"] = new JsonObject { [producerKey] = new JsonObject { ["structuredOutput"] = null } } };
+        Assert.NotEmpty(PlanningConstruction.ShapeFindings(candidate, schema, unit));
+        Assert.Equal("DECISION_PRODUCER_CONTRACT_REQUIRED", Assert.Single(PlanningProducerContracts.Findings(graph, prep)).Code);
+        var state = new PlanningSnapshot { Graph = graph, Preparation = prep, Request = new() { Prompt = "Inspect and route the result" } };
+        Assert.Contains("requiredStructuredDecisions", TypedWorkflowPlanner.ContractPrompt(state, graph.Workflows[0], unit, prep));
+        producer.StructuredOutput = new(new() { Type = "object", Properties = [new() { Name = field, Required = true, Schema = new() { Type = "string", Enum = ["ACT", "OTHER"] } }] });
+        Assert.Equal("DECISION_PRODUCER_CONTRACT_INVALID", Assert.Single(PlanningProducerContracts.Findings(graph, prep)).Code);
+        producer.StructuredOutput.Schema.Properties[0].Schema.Enum = ["ACT", "SKIP"];
+        Assert.Empty(PlanningProducerContracts.Findings(graph, prep));
+        var resolved = PlanningDecisionRouting.Resolve(graph.Workflows[0], route, prep, graph);
+        var binding = Assert.Single(resolved.Items);
+        Assert.Equal(producerKey, binding.Source); Assert.Equal("structured", binding.ResultChannel); Assert.Equal([field], binding.Path);
+        Assert.Contains(PlanningDataflow.Index(graph.Workflows[0], prep, graph, routeKey).Values, b => b.Value.Source == producerKey && b.Value.Path.SequenceEqual(new[] { "summary" }) && b.Value.ResultChannel is not "structured");
+    }
+
+    [Theory]
     [InlineData("true", 2)]
     [InlineData("false", 0)]
     [InlineData("null", 0)]

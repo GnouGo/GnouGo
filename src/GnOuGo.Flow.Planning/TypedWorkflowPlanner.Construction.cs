@@ -530,7 +530,8 @@ public sealed partial class TypedWorkflowPlanner
             ["operationIds"] = new JsonArray(n.OperationIds.Select(id => (JsonNode?)JsonValue.Create(id)).ToArray())
         }).ToArray());
         return new() { ["owned"] = Describe(owned), ["consumers"] = Describe(downstream), ["consumerContracts"] = consumerContracts,
-            ["consumerSchemas"] = schemas, ["enclosingControlFlow"] = Describe(containers) };
+            ["consumerSchemas"] = schemas, ["enclosingControlFlow"] = Describe(containers),
+            ["requiredStructuredDecisions"] = new JsonArray(owned.SelectMany(n => PlanningProducerContracts.StructuredDecisions(n, state.Preparation!).Select(d => (JsonNode)new JsonObject { ["producer"] = n.Key, ["pointer"] = d.SourcePointer, ["responseSchema"] = d.ResponseSchema.DeepClone() })).ToArray()) };
     }
 
     internal static JsonArray BindingContext(PlanningSnapshot state, PlanningWorkflow workflow, PlanningConstructionUnit unit)
