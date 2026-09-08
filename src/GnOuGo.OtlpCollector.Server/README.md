@@ -162,3 +162,5 @@ Artifact name format:
 - `GnOuGo.OtlpCollector.Server-<rid>.zip`
 
 
+
+CI acquires the pinned OTLP protocol files with `python3 scripts/ensure-otlp-protos.py` from the repository root. Acquisition retries at most three times only for MSBuild download failures (`MSB3923`); restore and other build failures stop immediately. The project still owns the protocol version and completeness checks. Run the retry regression tests with `python3 -m unittest discover -s scripts/tests -p test_ensure_otlp_protos.py`.

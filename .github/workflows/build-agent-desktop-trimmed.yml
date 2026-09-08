@@ -59,10 +59,7 @@ jobs:
           dotnet-version: "10.0.x"
 
       - name: Ensure OTLP proto files
-        shell: pwsh
-        run: |
-          dotnet restore src/GnOuGo.OtlpCollector.Server/GnOuGo.OtlpCollector.Server.csproj /p:SkipClientBuild=true
-          dotnet msbuild src/GnOuGo.OtlpCollector.Server/GnOuGo.OtlpCollector.Server.csproj -t:EnsureOtlpProtos /p:SkipClientBuild=true
+        uses: ./.github/actions/ensure-otlp-protos
 
       - name: Setup pnpm
         uses: pnpm/action-setup@v4

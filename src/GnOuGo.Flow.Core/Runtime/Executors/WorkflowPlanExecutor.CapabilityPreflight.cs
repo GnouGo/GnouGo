@@ -5106,7 +5106,7 @@ public sealed partial class WorkflowPlanExecutor
             Prompt = BuildCapabilityCoverageRematchPrompt(inventory, catalog, evaluation, gaps),
             Reasoning = reasoning,
             UseBackgroundMode = true,
-            StructuredOutputSchema = catalog.ExactDecisionSources ? BuildTypedCapabilityMatchingSchema(inventory, catalog) : BuildCapabilityMatchingSchema(),
+            StructuredOutputSchema = catalog.ExactDecisionSources ? BuildTypedCoverageRematchSchema(inventory, catalog, affectedOperationIds) : BuildCapabilityMatchingSchema(),
             StructuredOutputStrict = true
         }, "workflow.plan.capability_coverage_rematch", ct);
         AddUsageAttributes(inferenceSpan, rematchResponse.Usage, model, provider);
@@ -5114,8 +5114,10 @@ public sealed partial class WorkflowPlanExecutor
         CapabilityMatchingEvaluation rematched;
         try
         {
+            var candidate = ParseStructuredObject(rematchResponse, "capability coverage rematch");
+            if (catalog.ExactDecisionSources) candidate = MergeTypedCoverageRematch(candidate, TypedMatchingCandidate(evaluation), affectedOperationIds);
             rematched = ParseCapabilityMatchingEvaluation(
-                ParseStructuredObject(rematchResponse, "capability coverage rematch"),
+                candidate,
                 inventory,
                 catalog);
             rematched = NormalizeLocalProcessingMatches(rematched);
@@ -6392,10 +6394,13 @@ public sealed partial class WorkflowPlanExecutor
             ["supported_weaker_behavior"] = gap.SupportedWeakerBehavior,
             ["candidate_catalog_ids"] = new JsonArray(gap.CandidateCatalogIds.Select(static id => (JsonNode?)JsonValue.Create(id)).ToArray())
         }).ToArray());
+        var responseScope = catalog.ExactDecisionSources
+            ? "Return only operation_matches for the exact operation IDs in coverage_gaps. Every other operation and every constraint is retained by the host; do not return them."
+            : "Return the complete capability matching JSON required by the supplied schema. Copy every other operation and every constraint decision exactly, including conditional_mode.";
         return $$"""
-            You are repairing one provider-neutral capability matching contract after an evidence-qualified coverage review. Return the complete capability matching JSON required by the supplied schema.
+            You are repairing one provider-neutral capability matching contract after an evidence-qualified coverage review. {{responseScope}}
 
-            Change only operation IDs listed in coverage_gaps. Copy every other operation and every constraint decision exactly, including conditional_mode. For each affected operation, select the smallest documented capability or prerequisite-closed composition that fully implements every capability_contract coverage requirement; workflow_structure requirements are enforced later and must not be demanded from a capability card. Do not retain the previous selection merely because it implements a weaker intrinsic behavior. Use unavailable when the catalog contains no sufficient implementation. For a repaired conditional operation, preserve its decision_operation_id and use conditional_mode=exactly_one for selector alternatives or conditional_mode=all_on_value for an ordered composition with a declared no-effect outcome; use an empty conditional_mode otherwise. Never infer behavior from provider, server, tool, method, product, URL, or domain names.
+            Change only operation IDs listed in coverage_gaps. For each affected operation, select the smallest documented capability or prerequisite-closed composition that fully implements every capability_contract coverage requirement; workflow_structure requirements are enforced later and must not be demanded from a capability card. Do not retain the previous selection merely because it implements a weaker intrinsic behavior. Use unavailable when the catalog contains no sufficient implementation. For a repaired conditional operation, preserve its decision_operation_id and use conditional_mode=exactly_one for selector alternatives or conditional_mode=all_on_value for an ordered composition with a declared no-effect outcome; use an empty conditional_mode otherwise. Never infer behavior from provider, server, tool, method, product, URL, or domain names.
 
             <runtime_inventory>
             {{BuildCapabilityInventoryJson(inventory)}}
