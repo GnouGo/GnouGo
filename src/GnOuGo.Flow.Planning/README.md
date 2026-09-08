@@ -314,3 +314,9 @@ explicit values still require validation and repair.
 Retained-candidate validation uses the same helper dependency checks as new responses.
 An unchanged invalid candidate with no model dispatch pauses instead of repeatedly
 writing identical recovery attempts.
+
+Before initial behavior review, the host completes a missing decision default with
+an explicit empty no-action outcome. This applies the existing fallback policy;
+it preserves every explicit case and never erases an invalid supplied default.
+The completed plan receives its own review hash and still requires approval.
+Missing locked finite outcomes continue to block review.

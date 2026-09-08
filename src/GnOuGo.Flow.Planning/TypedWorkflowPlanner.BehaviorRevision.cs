@@ -69,6 +69,7 @@ public sealed partial class TypedWorkflowPlanner
                 {
                     var revised = PlanningBehaviorRevisions.Apply(baseline, state.BehaviorRevisionPatch!);
                     PlanningBehaviorPlans.CompleteOwnership(revised, state.Preparation!);
+                    PlanningBehaviorPlans.CompleteReviewDefaults(revised);
                     diagnostics.AddRange(PlanningBehaviorPlans.Validate(revised, state.Preparation!));
                     if (diagnostics.Count == 0)
                     { state.BehaviorRevisionSource = null; state.BehaviorRevisionPatch = null; ReadyForBehaviorReview(state, revised); return true; }

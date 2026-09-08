@@ -15,6 +15,7 @@ public sealed partial class TypedWorkflowPlanner
         if (state.BehaviorPlan is { } retained)
         {
             PlanningBehaviorPlans.CompleteOwnership(retained, state.Preparation!);
+            PlanningBehaviorPlans.CompleteReviewDefaults(retained);
             if (PlanningBehaviorPlans.Validate(retained, state.Preparation!).Count == 0)
             {
                 ReadyForBehaviorReview(state, retained);
@@ -59,6 +60,7 @@ public sealed partial class TypedWorkflowPlanner
             {
                 var plan = JsonSerializer.Deserialize(prior!, PlanningJsonContext.Default.PlanningBehaviorPlan)!;
                 PlanningBehaviorPlans.CompleteOwnership(plan, state.Preparation);
+                PlanningBehaviorPlans.CompleteReviewDefaults(plan);
                 state.BehaviorPlan = plan; state.ApprovedBehaviorHash = null;
                 diagnostics.AddRange(PlanningBehaviorPlans.Validate(plan, state.Preparation));
                 if (diagnostics.Count == 0)

@@ -7,6 +7,30 @@ namespace GnOuGo.Flow.Planning.Tests;
 
 public sealed class BehaviorActivationTests
 {
+    [Theory]
+    [InlineData("default", "Publish result")]
+    [InlineData("resultat", "Publier le résultat")]
+    public async Task MissingSafeDefaultIsCompletedForReviewWithoutAnotherModelCall(string caseKey, string purpose)
+    {
+        var (plan, preparation) = Fixture("renamed_"); preparation.Capabilities[0].Activation = null;
+        var decision = plan.Workflows[0].Steps[0]; decision.Outcomes.RemoveRange(1, 2);
+        decision.Outcomes[0] = decision.Outcomes[0] with { Key = caseKey, Description = purpose };
+        var explicitCase = JsonSerializer.Serialize(decision.Outcomes[0], PlanningJsonContext.Default.PlanningBehaviorOutcome);
+        var state = TypedPlannerTests.Session(PlanningStatus.Created); state.IntentChecked = true; state.Preparation = preparation; state.BehaviorPlan = plan;
+        var runtime = new TypedPlannerTests.FakeRuntime();
+        state = await new TypedWorkflowPlanner().AdvanceAsync(state, new() { ExpectedRevision = state.Revision }, runtime, TestContext.Current.CancellationToken);
+        Assert.Equal(PlanningStatus.BehaviorReview, state.Status); Assert.Empty(runtime.Requests); Assert.Null(state.ApprovedBehaviorHash);
+        decision = state.BehaviorPlan!.Workflows[0].Steps[0];
+        Assert.Equal(explicitCase, JsonSerializer.Serialize(decision.Outcomes[0], PlanningJsonContext.Default.PlanningBehaviorOutcome));
+        var fallback = Assert.Single(decision.Outcomes, o => o.IsDefault); Assert.Empty(fallback.Steps); Assert.NotEqual(caseKey, fallback.Key);
+        var hash = PlanningBehaviorPlans.Fingerprint(state.BehaviorPlan);
+        PlanningBehaviorPlans.CompleteReviewDefaults(state.BehaviorPlan); Assert.Equal(hash, PlanningBehaviorPlans.Fingerprint(state.BehaviorPlan));
+        // An explicitly supplied mutating fallback must remain invalid, never be erased.
+        fallback.Steps.Add(new() { Key = "unsafe", Kind = "operation", Purpose = "Unexpected write", CapabilityId = "renamed_cap" });
+        PlanningBehaviorPlans.CompleteReviewDefaults(state.BehaviorPlan);
+        Assert.Contains(PlanningBehaviorPlans.Validate(state.BehaviorPlan, preparation), d => d.Message.Contains("non-mutating", StringComparison.Ordinal));
+    }
+
     [Fact]
     public async Task BehaviorSchemaSeparatesCapabilityIdentifiersAndNativeDecisionProductionFromRouting()
     {

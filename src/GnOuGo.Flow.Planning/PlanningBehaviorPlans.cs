@@ -39,6 +39,21 @@ public static class PlanningBehaviorPlans
         }
     }
 
+    /// <summary>Make the mandatory no-action fallback visible before behavior approval.</summary>
+    internal static void CompleteReviewDefaults(PlanningBehaviorPlan plan)
+    {
+        foreach (var node in plan.Workflows.SelectMany(w => Enumerate(w.Steps.Concat(w.Finally))))
+        {
+            if (node.Kind != "decision" || node.Outcomes.Count == 0 || node.Outcomes.Any(o => o.IsDefault)) continue;
+            var key = "default";
+            for (var suffix = 1; node.Outcomes.Any(o => o.Key == key); suffix++) key = "default_" + suffix;
+            // This is the planner's existing mandatory fallback policy, not an
+            // inferred business outcome. Explicit cases and existing defaults are
+            // never rewritten. Missing finite outcomes still fail validation.
+            node.Outcomes.Add(new(key, "Unmatched or unavailable decision: take no action.", true, []));
+        }
+    }
+
     public static IReadOnlyList<PlanningDiagnostic> Validate(PlanningBehaviorPlan plan, PlanningPreparation preparation)
     {
         var findings = new List<PlanningDiagnostic>();
