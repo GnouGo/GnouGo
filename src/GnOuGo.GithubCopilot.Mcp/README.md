@@ -2,6 +2,14 @@
 
 MCP stdio server for safe code operations on a local project.
 
+Optional `Code:Copilot:InferenceProxyEndpoint` routes both managed Copilot sessions
+and legacy code operations through a loopback inference policy host. The host must
+accept `POST <endpoint>/ready` with `sdk-http-interception-v1`, then enforce and
+forward inference requests using `X-GnOuGo-Inference-Upstream` and
+`X-GnOuGo-Inference-Request`. Startup fails when this explicit policy host is
+unavailable. No direct HTTP or WebSocket fallback is allowed. KeyVault remains the
+highest-priority configuration source; the proxy setting contains no credentials.
+
 ## MCP protocol compatibility
 
 This stdio server uses the stable C# MCP SDK `2.0.0` with automatic protocol negotiation: clients prefer `2026-07-28` discovery and can initialize with stable `2025-11-25`. Launch the built apphost, or use `dotnet GnOuGo.GithubCopilot.Mcp.dll`; do not put `dotnet run` on an MCP stdio transport because CLI output can corrupt the JSONL stream. The GnOuGo progress stream remains a stderr side channel and does not alter the MCP wire contract.

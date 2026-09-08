@@ -9,10 +9,12 @@ namespace GnOuGo.GithubCopilot.Core;
 public sealed class GitHubCopilotSdkClientFactory : ICopilotSdkClientFactory
 {
     private readonly ILoggerFactory _loggerFactory;
+    private readonly CopilotRequestHandler? _requestHandler;
 
-    public GitHubCopilotSdkClientFactory(ILoggerFactory? loggerFactory = null)
+    public GitHubCopilotSdkClientFactory(ILoggerFactory? loggerFactory = null, CopilotRequestHandler? requestHandler = null)
     {
         _loggerFactory = loggerFactory ?? NullLoggerFactory.Instance;
+        _requestHandler = requestHandler;
     }
 
     public ICopilotSdkClient Create(CopilotRuntimeConfiguration configuration)
@@ -23,6 +25,7 @@ public sealed class GitHubCopilotSdkClientFactory : ICopilotSdkClientFactory
             GitHubToken = string.IsNullOrWhiteSpace(configuration.GitHubToken) ? null : configuration.GitHubToken,
             UseLoggedInUser = configuration.UseLoggedInUser,
             Environment = configuration.Environment,
+            RequestHandler = _requestHandler,
             Logger = _loggerFactory.CreateLogger<GitHubCopilotSdkClient>()
         };
         return new GitHubCopilotSdkClient(

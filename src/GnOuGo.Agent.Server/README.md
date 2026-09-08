@@ -61,6 +61,15 @@ and all unresolved reservations; insufficient balance blocks further paid dispat
 The rollout guide documents isolated-provider prerequisites and the explicit operator
 override for existing KeyVault configuration with a persistent cumulative budget ledger.
 
+The v2 live harness also routes Copilot SDK inference through a temporary loopback
+policy host. Each upstream HTTP dispatch reserves conservative cost in the same
+ledger, retains the configured model and low reasoning, and enforces at most 8,192
+output tokens. Verified usage is counted once; missing receipts retain reservations.
+The harness requires the MCP process's interception handshake before fixture
+execution and requires actual SDK receipts for acceptance. WebSocket inference,
+duplicate dispatch identifiers, and other provider destinations are rejected.
+Credentials stay in memory, and the temporary endpoint is removed during cleanup.
+
 See [the implementation and rollout guide](../../docs/workflow-planning-v2.md) for
 diagrams, configuration, API contracts, persistence limits and test/publish commands.
 

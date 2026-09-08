@@ -126,6 +126,7 @@ public sealed partial class LiveIntentAgentGenerationTests
             $"gnougo-live-telemetry-{Guid.NewGuid():N}.db");
         AgentUserConfigSnapshot? previousConfig = null;
         WebApplication? app = null;
+        LiveInferenceGateway? inferenceGateway = null;
         var runSucceeded = false;
         var failures = new List<Exception>();
         using var timeout = new CancellationTokenSource(remainingCycleTime);
@@ -155,6 +156,7 @@ public sealed partial class LiveIntentAgentGenerationTests
                     if (plannerVersion == 2) ConfigureV2Campaign(services, cycleBudget, planningStore, budgetLedger);
                 });
             using var hostCancellation = app.Lifetime.ApplicationStopping.Register(timeout.Cancel);
+            if (plannerVersion == 2 && !resumeOnly) inferenceGateway = await LiveInferenceGateway.StartAsync(app.Services, cycleBudget, budgetLedger, timeout.Token);
             if (plannerVersion == 2 && ExistingConfigurationAuthorized)
                 await ReconcileV2UnverifiedCallsAsync(app.Services, planningStore, budgetLedger, cycleBudget.Snapshot, resumeOnly, timeout.Token);
             if (resumeOnly)
@@ -263,6 +265,7 @@ public sealed partial class LiveIntentAgentGenerationTests
             }
 
             Assert.NotNull(publicationAgent);
+            if (plannerVersion == 2) (inferenceGateway ?? throw new InvalidOperationException("SDK inference accounting is unavailable.")).RequireReady();
             if (plannerVersion == 2)
                 await ExecuteReadOnlyAcceptanceAsync(services, humanInput, publicationAgent.Value.Name, publicationAgent.Value.Contract, timeout.Token);
             await ExecutePublicationAcceptanceAsync(
@@ -273,6 +276,7 @@ public sealed partial class LiveIntentAgentGenerationTests
                 sourceRoot,
                 timeout.Token);
             WriteLiveProgress("publication_acceptance_completed");
+            if (plannerVersion == 2) Assert.True(inferenceGateway!.CompletedCalls > 0, "Execution produced no verified SDK inference receipts.");
             runSucceeded = true;
             }
         }
@@ -369,6 +373,11 @@ public sealed partial class LiveIntentAgentGenerationTests
                     {
                         failures.Add(ex);
                     }
+                }
+                if (inferenceGateway is not null)
+                {
+                    try { await inferenceGateway.DisposeAsync(); }
+                    catch (Exception ex) { failures.Add(ex); }
                 }
                 try
                 {

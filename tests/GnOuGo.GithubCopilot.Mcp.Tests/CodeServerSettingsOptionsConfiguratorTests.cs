@@ -24,6 +24,7 @@ public sealed class CodeServerSettingsOptionsConfiguratorTests
                 ["Code:Copilot:Model"] = "claude-sonnet-4-20250514",
                 ["Code:Copilot:Mode"] = "agent",
                 ["Code:Copilot:ReasoningEffort"] = "medium",
+                ["Code:Copilot:InferenceProxyEndpoint"] = "http://127.0.0.1:8123/inference",
                 ["Code:Copilot:Endpoint"] = "https://api.anthropic.com/v1",
                 ["Code:Copilot:ApiKey"] = "secret",
                 ["Code:Copilot:UseLoggedInUser"] = "true",
@@ -58,6 +59,7 @@ public sealed class CodeServerSettingsOptionsConfiguratorTests
         Assert.Equal("claude-sonnet-4-20250514", settings.Copilot.Model);
         Assert.Equal("agent", settings.Copilot.Mode);
         Assert.Equal("medium", settings.Copilot.ReasoningEffort);
+        Assert.Equal("http://127.0.0.1:8123/inference", settings.Copilot.InferenceProxyEndpoint);
         Assert.Equal("https://api.anthropic.com/v1", settings.Copilot.Endpoint);
         Assert.Equal("secret", settings.Copilot.ApiKey);
         Assert.True(settings.Copilot.UseLoggedInUser);

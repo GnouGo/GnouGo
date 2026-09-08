@@ -2,9 +2,15 @@
 
 Publishable .NET 10 library containing the GitHub Copilot SDK integration used by GnOuGo. It is independent of MCP transport and can be tested with fake SDK clients.
 
+Hosts can inject the SDK's `CopilotRequestHandler` into `GitHubCopilotSdkClientFactory`.
+`CopilotInferenceProxyHandler` routes inference through an explicit loopback HTTP
+policy host, preserving the original destination and request. It provides no direct
+fallback or WebSocket bypass. The policy host must enforce budgets and validate
+the configured upstream; credentials remain in request memory.
+
 ## Stable surface
 
-The library pins `GitHub.Copilot.SDK` `1.0.8` and maintains an explicit GA allowlist. Experimental, preview, insiders, fleet, fork, remote/cloud sandbox, canvas, extensions, manual compaction, history truncation, agent-management, citations, and unknown RPC APIs are rejected.
+The library pins `GitHub.Copilot.SDK` `1.0.11` and maintains an explicit GA allowlist. Experimental, preview, insiders, fleet, fork, remote/cloud sandbox, canvas, extensions, manual compaction, history truncation, agent-management, citations, and unknown RPC APIs are rejected.
 
 It provides:
 
