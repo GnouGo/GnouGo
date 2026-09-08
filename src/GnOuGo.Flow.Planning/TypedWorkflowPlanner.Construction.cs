@@ -532,7 +532,7 @@ public sealed partial class TypedWorkflowPlanner
             var validated = state.ConstructionUnits.Any(u => u.WorkflowKey == workflow.Key && u.Kind == "contracts" && u.Status == "validated" && u.NodeKeys.Contains(sibling.Key));
             var structured = validated && sibling.StructuredOutput is { } typed ? PlanningGraphCompiler.ToJsonSchema(typed.Schema, state.Preparation!) : null;
             if (result is null && structured is null) continue;
-            siblings.Add(new JsonObject { ["producer"] = sibling.Key, ["purpose"] = sibling.Purpose,
+            siblings.Add((JsonNode)new JsonObject { ["producer"] = sibling.Key, ["purpose"] = sibling.Purpose,
                 ["operationIds"] = new JsonArray(sibling.OperationIds.Select(id => (JsonNode?)JsonValue.Create(id)).ToArray()),
                 ["originalResultSchema"] = result, ["structuredResultSchema"] = structured });
         }
