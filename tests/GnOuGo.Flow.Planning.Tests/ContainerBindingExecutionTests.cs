@@ -9,6 +9,27 @@ namespace GnOuGo.Flow.Planning.Tests;
 
 public sealed class ContainerBindingExecutionTests
 {
+    [Theory]
+    [InlineData("no_action")]
+    [InlineData("aucune_action")]
+    public async Task EmptyReviewedSequenceCompilesToANativeNoOpWithTheSameEmptyResult(string key)
+    {
+        var prep = Preparation(); var graph = Graph(); var workflow = graph.Workflows[0];
+        var empty = new PlanningNode { Key = key, Type = "sequence" };
+        workflow.Steps.Insert(0, empty);
+        workflow.Steps[1].Input = Obj(("message", new() { Kind = "compute", Text = "Object.keys(result).length === 0 ? 'empty' : 'unexpected'", Members = [new("result", new() { Kind = "output", Source = key })] }));
+        var fingerprint = PlanningGraphCompiler.Fingerprint(graph);
+        var yaml = new PlanningGraphCompiler().Compile(graph, prep);
+        var document = GnOuGo.Flow.Core.Parsing.WorkflowParser.Parse(yaml);
+        var compiled = new GnOuGo.Flow.Core.Compilation.WorkflowCompiler().Compile(document);
+        Assert.Equal("set", document.Workflows["main"].Steps[0].Type); Assert.NotNull(document.Workflows["main"].Steps[0].Input);
+        Assert.Empty(document.Workflows["main"].Steps[0].Input!.AsObject());
+        var result = await new WorkflowEngine().ExecuteAsync(compiled.Workflows[compiled.Entrypoint!], new JsonObject(), TestContext.Current.CancellationToken);
+        Assert.True(result.Success); Assert.Equal("empty", result.Outputs!["message"]!.GetValue<string>());
+        Assert.Equal(fingerprint, PlanningGraphCompiler.Fingerprint(graph)); Assert.Equal("sequence", empty.Type);
+        prep.AllowedStepTypes.Remove("set"); Assert.Throws<InvalidOperationException>(() => new PlanningGraphCompiler().Compile(graph, prep));
+    }
+
     [Fact]
     public async Task WholePreviousIterationUsesLogicalNamesAfterTheFirstNullObservation()
     {

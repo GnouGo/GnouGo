@@ -139,7 +139,12 @@ public sealed partial class PlanningGraphCompiler
     {
         if (!scope.Preparation.AllowedStepTypes.Contains(node.Type, StringComparer.Ordinal))
             throw new InvalidOperationException("A node uses a step type outside the locked policy.");
-        var result = new JsonObject { ["id"] = scope.NodeIds[node.Key], ["type"] = node.Type };
+        // A reviewed empty grouping is an explicit no-op. Runtime sequences require
+        // children; a native empty set preserves the same empty-object result and id.
+        var emptySequence = node.Type == "sequence" && node.Steps.Count == 0 && node.CapabilityId is null && node.Input.Kind == "object" && node.Input.Members.Count == 0;
+        if (emptySequence && !scope.Preparation.AllowedStepTypes.Contains("set", StringComparer.Ordinal))
+            throw new InvalidOperationException("An empty grouping requires the native set step in the locked policy.");
+        var result = new JsonObject { ["id"] = scope.NodeIds[node.Key], ["type"] = emptySequence ? "set" : node.Type };
         var loweredInput = LowerValue(node.Input, scope);
         var computedSetInput = node.Type == "set" && node.Input.Kind is "expression" or "compute" or "input" or "output" or "loop_item" or "loop_index" or "loop_previous" or "artifact_collection";
         var input = loweredInput as JsonObject ?? (computedSetInput ? new JsonObject() : throw new InvalidOperationException("A step input must be a typed object."));
@@ -170,7 +175,8 @@ public sealed partial class PlanningGraphCompiler
             }
         }
         else if (node.Type == "mcp.call") throw new InvalidOperationException("An external call must reference a locked capability.");
-        if (computedSetInput) result["input"] = loweredInput;
+        if (emptySequence) result["input"] = new JsonObject();
+        else if (computedSetInput) result["input"] = loweredInput;
         else if (input.Count > 0) result["input"] = input;
         if (node.If is not null) result["if"] = ToExpression(node.If, scope);
         if (node.Expr is not null) result["expr"] = ToExpression(node.Expr, scope);

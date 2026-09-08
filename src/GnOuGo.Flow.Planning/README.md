@@ -333,3 +333,8 @@ Selector repairs receive exact accepted case labels and outcome descriptions,
 including whether the retained default has no actions. Unreachable-outcome findings
 name both actual and accepted labels; a repair never has to guess routing targets
 from a producer's boolean schema. Accepted cases remain outside editable patches.
+
+An empty unbound sequence in the reviewed plan lowers to a native empty-object set.
+It retains the node identifier and no-action result while satisfying the executable
+DSL's non-empty sequence requirement. This lowering requires set in the locked
+allowlist and does not rewrite bound operations or the approved behavior graph.
