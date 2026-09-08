@@ -43,7 +43,7 @@ public sealed partial class PlanningGraphCompiler
             EnsureUnique(allNodes.Select(n => n.Key), "node");
             if (allNodes.Length > 300) throw new InvalidOperationException("A workflow exceeds the 300-node planning limit.");
             var nodeIds = allNodes.ToDictionary(n => n.Key, n => "n_" + Fingerprint(n.Key)[..16], StringComparer.Ordinal);
-            var scope = new LoweringScope(preparation, nodeIds, workflowIds, workflow.Inputs.Select(p => p.Name).ToHashSet(StringComparer.Ordinal), allNodes.ToDictionary(n => n.Key, n => n.Type, StringComparer.Ordinal), LoopVariables(allNodes));
+            var scope = new LoweringScope(preparation, nodeIds, workflowIds, workflow.Inputs.Select(p => p.Name).ToHashSet(StringComparer.Ordinal), allNodes.ToDictionary(n => n.Key, n => n.Type, StringComparer.Ordinal), LoopVariables(allNodes), allNodes.ToDictionary(n => n.Key, StringComparer.Ordinal));
             var lowered = new JsonObject();
             if (workflow.Inputs.Count > 0)
             {
@@ -112,7 +112,7 @@ public sealed partial class PlanningGraphCompiler
             var nodes = Enumerate(workflow.Steps.Concat(workflow.Finally)).ToArray();
             if (nodes.Select(n => n.Key).Distinct(StringComparer.Ordinal).Count() != nodes.Length) continue;
             var scope = new LoweringScope(preparation, nodes.ToDictionary(n => n.Key, n => "n_" + Fingerprint(n.Key)[..16], StringComparer.Ordinal), workflowIds,
-                workflow.Inputs.Select(p => p.Name).ToHashSet(StringComparer.Ordinal), nodes.ToDictionary(n => n.Key, n => n.Type, StringComparer.Ordinal), LoopVariables(nodes));
+                workflow.Inputs.Select(p => p.Name).ToHashSet(StringComparer.Ordinal), nodes.ToDictionary(n => n.Key, n => n.Type, StringComparer.Ordinal), LoopVariables(nodes), nodes.ToDictionary(n => n.Key, StringComparer.Ordinal));
             void Check(PlanningValue? value, string location, bool expression = false, bool literal = false)
             {
                 if (value is null) return;
@@ -303,6 +303,7 @@ public sealed partial class PlanningGraphCompiler
                 throw new InvalidOperationException("Previous iteration results require a sequential loop.");
             var variable = GnOuGo.Flow.Core.Runtime.LoopIterationContract.PreviousResultVariable(loopId);
             expression = "((previous) => previous == null ? null : previous" + ResultPath("sequence", value.Path, scope) + ")(data" + Segment(variable) + ")";
+            expression = ProjectChildren(scope.Nodes[value.Source].Steps, value.Path, expression, scope);
         }
         else if (value.Kind == "artifact_collection")
         {
@@ -320,6 +321,7 @@ public sealed partial class PlanningGraphCompiler
             if (value.ResultChannel == "envelope" && type != "mcp.call") throw new InvalidOperationException("This producer does not expose an MCP result envelope.");
             var envelope = value.ResultChannel == "envelope" ? "" : value.ResultChannel == "structured" ? ".json" : type switch { "workflow.call" => ".outputs", "mcp.call" => ".response", _ => "" };
             expression = "data.steps." + node + envelope + ResultPath(type, value.Path, scope);
+            expression = ProjectResult(scope.Nodes[value.Source], value.Path, expression, scope);
         }
         else if (value.Kind == "decision_binding")
         {
@@ -390,6 +392,63 @@ public sealed partial class PlanningGraphCompiler
             return string.Concat(path.Take(childIndex).Select(Segment)) + Segment(child) + ResultPath(scope.NodeTypes[path[childIndex]], path.Skip(childIndex + 1).ToArray(), scope);
         return string.Concat(path.Select(Segment));
     }
+
+    // A whole container binding must have the same logical keys as its typed
+    // contract. Exact leaf references retain their direct runtime addresses.
+    private static string ProjectResult(PlanningNode node, IReadOnlyList<string> path, string expression, LoweringScope scope)
+    {
+        if (node.Type is "sequence" or "switch")
+            return ProjectChildren(node.Type == "sequence" ? node.Steps : node.Cases.SelectMany(c => c.Steps).Concat(node.Default), path, expression, scope);
+        if (node.Type is "loop.sequential" or "loop.parallel")
+        {
+            string ProjectItems(string items) => ProjectArray(items, item => ProjectChildren(node.Steps, [], item, scope));
+            if (path.Count == 0) return ProjectMember(expression, "results", ProjectItems);
+            if (path[0] != "results") return expression;
+            if (path.Count == 1) return ProjectItems(expression);
+            return ProjectChildren(node.Steps, path.Skip(2).ToArray(), expression, scope);
+        }
+        if (node.Type == "parallel")
+        {
+            string ProjectBranches(string branches)
+            {
+                var body = "branch";
+                for (var index = node.Branches.Count - 1; index >= 0; index--)
+                    body = "index === " + index + " ? " + ProjectChildren(node.Branches[index].Steps, [], "branch", scope) + " : " + body;
+                return "((branches) => Array.isArray(branches) ? branches.map((branch,index) => " + body + ") : branches)(" + branches + ")";
+            }
+            if (path.Count == 0) return ProjectMember(expression, "branches", ProjectBranches);
+            if (path[0] != "branches") return expression;
+            if (path.Count == 1) return ProjectBranches(expression);
+            return int.TryParse(path[1], out var branch) && branch >= 0 && branch < node.Branches.Count
+                ? ProjectChildren(node.Branches[branch].Steps, path.Skip(2).ToArray(), expression, scope) : expression;
+        }
+        return expression;
+    }
+
+    private static string ProjectChildren(IEnumerable<PlanningNode> nodes, IReadOnlyList<string> path, string expression, LoweringScope scope)
+    {
+        var children = nodes.DistinctBy(n => n.Key).ToArray();
+        if (path.Count != 0)
+        {
+            var child = children.FirstOrDefault(n => n.Key == path[0]);
+            return child is null ? expression : ProjectResult(child, path.Skip(1).ToArray(), expression, scope);
+        }
+        if (children.Length == 0) return expression;
+        // Map only actual entries: a skipped child remains absent and null remains
+        // null. Raw/structured tool envelopes and their original values are preserved.
+        var body = "entry";
+        foreach (var child in children.Reverse())
+            body = "entry[0] === " + JsonValue.Create(scope.NodeIds[child.Key])!.ToJsonString() + " ? [" + JsonValue.Create(child.Key)!.ToJsonString() + "," +
+                ProjectResult(child, [], "entry[1]", scope) + "] : " + body;
+        return "((result) => result == null || typeof result !== 'object' || Array.isArray(result) ? result : Object.fromEntries(Object.entries(result).map(entry => " + body + ")))(" + expression + ")";
+    }
+
+    private static string ProjectMember(string expression, string name, Func<string, string> project)
+        => "((result) => result == null || typeof result !== 'object' || Array.isArray(result) ? result : Object.fromEntries(Object.entries(result).map(entry => entry[0] === " +
+           JsonValue.Create(name)!.ToJsonString() + " ? [entry[0]," + project("entry[1]") + "] : entry)))(" + expression + ")";
+
+    private static string ProjectArray(string expression, Func<string, string> project)
+        => "((items) => Array.isArray(items) ? items.map(item => " + project("item") + ") : items)(" + expression + ")";
 
     public static JsonObject ToJsonSchema(PlanningSchema schema, PlanningPreparation preparation, int depth = 0)
     {
@@ -463,7 +522,7 @@ public sealed partial class PlanningGraphCompiler
 
     private static Dictionary<string, (string Item, string Index)> LoopVariables(IEnumerable<PlanningNode> nodes) => nodes.Where(n => n.Type is "loop.sequential" or "loop.parallel").ToDictionary(n => n.Key, n => (n.ItemVar ?? "item", n.IndexVar ?? "i"), StringComparer.Ordinal);
 
-    private sealed record LoweringScope(PlanningPreparation Preparation, Dictionary<string, string> NodeIds, Dictionary<string, string> WorkflowIds, HashSet<string> Inputs, Dictionary<string, string> NodeTypes, Dictionary<string, (string Item, string Index)> LoopVariables);
+    private sealed record LoweringScope(PlanningPreparation Preparation, Dictionary<string, string> NodeIds, Dictionary<string, string> WorkflowIds, HashSet<string> Inputs, Dictionary<string, string> NodeTypes, Dictionary<string, (string Item, string Index)> LoopVariables, Dictionary<string, PlanningNode> Nodes);
     [GeneratedRegex(@"^[A-Za-z_][A-Za-z0-9_]*$", RegexOptions.CultureInvariant)]
     private static partial Regex Identifier();
     [GeneratedRegex(@"\{\{[^{}]+\}\}", RegexOptions.CultureInvariant)]

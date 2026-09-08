@@ -93,6 +93,10 @@ validation findings, without unrelated runtime bindings or computation instructi
 Contract 31 distinguishes stopping handlers from continuing fallbacks. Only continuation
 must produce the declared structured result; stopping cannot publish a successful result
 or enable later steps. Dependency and expression checks still apply to both handlers.
+Contract 32 projects complete or partial container results to the logical child names
+declared by their planning schemas. Nested sequences, branches, iterations and previous
+iteration values retain absent/null outcomes and raw versus structured envelopes. Exact
+leaf bindings retain direct runtime addresses; tool-owned field names are never rewritten.
 
 `PlanningRequest.Generation` defaults to 12,000 estimated input tokens per unit and an
 enforced 8,192 output-token ceiling per call. Oversized groups split before dispatch; an
