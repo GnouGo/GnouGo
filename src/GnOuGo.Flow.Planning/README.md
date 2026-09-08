@@ -17,6 +17,12 @@ the workflow engine has an `IWorkflowPlanner` installed; version 1 remains compa
 Simulation results describe synthetic coverage, not proof of live external behavior.
 Required inconclusive scenarios block approval. No model/provider naming heuristics
 are used to select runtime behavior.
+Loop observation fixtures are generated one observation per bounded call. Their locked
+sequence length and completed values survive restart; an incomplete sequence cannot pass
+scenario validation. Active fixture phases are checkpointed before dispatch. An output-token
+ceiling pauses in recovery with `MODEL_OUTPUT_LIMIT`, preserving the workflow and avoiding
+an identical automatic retry. Synthetic observations still require actual deterministic
+execution to consume the complete sequence and terminate; they do not prove live behavior.
 
 ## Contracts and host integration
 

@@ -8,6 +8,28 @@ namespace GnOuGo.Flow.Planning.Tests;
 
 public sealed class ScenarioInputTests
 {
+    [Fact]
+    public async Task ScenarioOutputLimitPublishesTheActivePhaseAndPausesWithoutAnIdenticalRetry()
+    {
+        var state = Session(PlanningStatus.Validating); state.Graph = Graph(); state.Preparation = Preparation();
+        state.Graph.Workflows[0].Inputs.Add(new() { Name = "resource", Required = true, Schema = new() { Type = "string" } });
+        var graph = PlanningGraphCompiler.Fingerprint(state.Graph); var calls = 0; string? phase = null;
+        var runtime = new FakeRuntime { OnCheckpoint = snapshot =>
+        {
+            phase = JsonSerializer.Deserialize(JsonSerializer.Serialize(snapshot, PlanningJsonContext.Default.PlanningSnapshot), PlanningJsonContext.Default.PlanningSnapshot)!.CurrentPhase;
+            return Task.CompletedTask;
+        }, OnCall = (currentPhase, _, _) =>
+        {
+            calls++; Assert.Equal("scenario_inputs", currentPhase); Assert.Equal(currentPhase, phase);
+            return Task.FromResult(new LLMResponse { CompletionStatus = "output_limit", Json = new JsonObject { ["partial"] = "must not be accepted" } });
+        } };
+        state = await new TypedWorkflowPlanner().AdvanceAsync(state, new() { ExpectedRevision = state.Revision }, runtime, TestContext.Current.CancellationToken);
+        Assert.Equal(1, calls); Assert.Equal(PlanningStatus.Recovery, state.Status);
+        Assert.Equal("scenario_inputs", state.CurrentPhase);
+        Assert.Equal(graph, PlanningGraphCompiler.Fingerprint(state.Graph!)); Assert.Null(state.ScenarioInputs);
+        Assert.Contains(state.Diagnostics, d => d.Code == "MODEL_OUTPUT_LIMIT" && d.Message.Contains("8192", StringComparison.Ordinal));
+    }
+
     [Theory]
     [InlineData("accepted", "rejected")]
     [InlineData("autorisé", "refusé")]
@@ -44,11 +66,11 @@ public sealed class ScenarioInputTests
             JsonNode Literal(bool value) => PlanningModelValues.Compact(JsonSerializer.SerializeToNode(calls == 1 || exhausted
                 ? new PlanningValue { Kind = "boolean", Boolean = value }
                 : Obj(("response", Obj(("more", new() { Kind = "boolean", Boolean = value })))), PlanningJsonContext.Default.PlanningValue))!;
-            return Task.FromResult(new LLMResponse { Json = new JsonObject { ["responses"] = new JsonArray(Literal(true), Literal(false)) } });
+            return Task.FromResult(new LLMResponse { Json = new JsonObject { ["totalObservations"] = 2, ["responses"] = new JsonArray(Literal(calls < 3)) } });
         } };
         var planner = new TypedWorkflowPlanner();
         state = await planner.AdvanceAsync(state, new() { ExpectedRevision = state.Revision }, runtime, TestContext.Current.CancellationToken);
-        Assert.Equal(2, calls); Assert.Equal(fingerprint, PlanningGraphCompiler.Fingerprint(state.Graph!));
+        Assert.Equal(exhausted ? 2 : 3, calls); Assert.Equal(fingerprint, PlanningGraphCompiler.Fingerprint(state.Graph!));
         Assert.Equal(exhausted ? PlanningStatus.Recovery : PlanningStatus.FinalReview, state.Status);
         if (exhausted) Assert.Contains(state.Diagnostics, d => d.Code == "SCENARIO_OBSERVATION_INVALID");
         else
@@ -57,8 +79,41 @@ public sealed class ScenarioInputTests
             state = JsonSerializer.Deserialize(JsonSerializer.Serialize(state, PlanningJsonContext.Default.PlanningSnapshot), PlanningJsonContext.Default.PlanningSnapshot)!;
             state.Status = PlanningStatus.Validating;
             state = await planner.AdvanceAsync(state, new() { ExpectedRevision = state.Revision }, runtime, TestContext.Current.CancellationToken);
-            Assert.Equal(2, calls); Assert.Equal(PlanningStatus.FinalReview, state.Status);
+            Assert.Equal(3, calls); Assert.Equal(PlanningStatus.FinalReview, state.Status);
         }
+    }
+
+    [Fact]
+    public async Task PartialObservationSequenceResumesOnlyMissingItemsAndCannotPassEarly()
+    {
+        var state = Session(PlanningStatus.Validating); state.Graph = Graph(); state.Preparation = Preparation();
+        state.Preparation.AllowedStepTypes.Add("loop.sequential");
+        state.Preparation.Capabilities.Add(new() { Id = "source", StepType = "mcp.call", Server = "different", Method = "read", Kind = "tool",
+            InputSchema = new() { ["type"] = "object" },
+            OutputSchema = JsonNode.Parse("""{"type":"object","properties":{"again":{"type":"boolean"}},"required":["again"]}""")!.AsObject() });
+        state.Graph.Workflows[0].Steps.Add(new() { Key = "repeat", Type = "loop.sequential", Input = Obj(("while", new() { Kind = "boolean", Boolean = true })),
+            Steps = [new() { Key = "read", Type = "mcp.call", CapabilityId = "source", Input = Obj(("request", Obj())) }] });
+        state.ReviewedGraph = JsonSerializer.Deserialize(JsonSerializer.Serialize(state.Graph, PlanningJsonContext.Default.PlanningGraph), PlanningJsonContext.Default.PlanningGraph);
+        var calls = 0; var runtime = new FakeRuntime { OnCall = (phase, request, _) =>
+        {
+            if (phase == "semantic_review") return Task.FromResult(new LLMResponse { Json = new JsonObject { ["findings"] = new JsonArray() } });
+            calls++;
+            Assert.Equal(1, request.StructuredOutputSchema!["properties"]!["responses"]!["maxItems"]!.GetValue<int>());
+            if (calls == 3) return Task.FromResult(new LLMResponse { CompletionStatus = "output_limit" });
+            if (calls == 4) Assert.Contains("Observation number: 3", request.Prompt);
+            var sample = Obj(("response", Obj(("again", new() { Kind = "boolean", Boolean = calls < 3 }))));
+            return Task.FromResult(new LLMResponse { Json = new JsonObject { ["totalObservations"] = 3,
+                ["responses"] = new JsonArray(PlanningModelValues.Compact(JsonSerializer.SerializeToNode(sample, PlanningJsonContext.Default.PlanningValue))) } });
+        } };
+        var planner = new TypedWorkflowPlanner();
+        state = await planner.AdvanceAsync(state, new() { ExpectedRevision = state.Revision }, runtime, TestContext.Current.CancellationToken);
+        Assert.Equal(PlanningStatus.Recovery, state.Status); Assert.Equal(3, calls); Assert.Equal(0, runtime.ScenarioCalls);
+        Assert.Equal(2, Assert.Single(state.ScenarioObservations).Value!["responses"]!.AsArray().Count);
+        state = JsonSerializer.Deserialize(JsonSerializer.Serialize(state, PlanningJsonContext.Default.PlanningSnapshot), PlanningJsonContext.Default.PlanningSnapshot)!;
+        state = await planner.AdvanceAsync(state, new() { Kind = "retry", ExpectedRevision = state.Revision }, runtime, TestContext.Current.CancellationToken);
+        state = await planner.AdvanceAsync(state, new() { ExpectedRevision = state.Revision }, runtime, TestContext.Current.CancellationToken);
+        Assert.Equal(PlanningStatus.FinalReview, state.Status); Assert.Equal(4, calls); Assert.Equal(1, runtime.ScenarioCalls);
+        Assert.Equal(3, Assert.Single(state.ScenarioObservations).Value!["responses"]!.AsArray().Count);
     }
 
     [Theory]

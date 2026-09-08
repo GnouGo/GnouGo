@@ -257,6 +257,11 @@ public sealed partial class TypedWorkflowPlanner(TimeProvider? timeProvider = nu
             if (state.PreparationCheckpoint is not null) state.PreparationCheckpoint.Diagnostics = state.Diagnostics.ToList();
             state.Events.Add(new("capability_preparation_stopped", PlanningPhase.Capabilities, _time.GetUtcNow(), state.Diagnostics.Count));
         }
+        catch (WorkflowRuntimeException ex) when (ex.Code == "MODEL_OUTPUT_LIMIT")
+        {
+            state.Status = PlanningStatus.Recovery; state.ApprovedHash = null;
+            state.Diagnostics = [new(ex.Code, "/" + state.CurrentPhase, ex.Message)];
+        }
         catch (LLMClientException ex)
         {
             state.Status = PlanningStatus.Recovery; state.ApprovedHash = null;
@@ -468,6 +473,7 @@ public sealed partial class TypedWorkflowPlanner(TimeProvider? timeProvider = nu
             state.ApprovedHash = null; state.ArtifactHash = null; return;
         }
         catch (GnOuGo.Flow.Core.Compilation.WorkflowCompilationException ex) { diagnostics.AddRange(PlanningExecutableValidation.CompilerErrors(ex, state.Graph!)); }
+        catch (WorkflowRuntimeException ex) when (ex.Code == "MODEL_OUTPUT_LIMIT") { throw; }
         catch (LLMClientException) { throw; }
         catch (Exception ex) { diagnostics.Add(new("GRAPH_VALIDATION", "$", ex.Message)); }
 
@@ -737,11 +743,14 @@ public sealed partial class TypedWorkflowPlanner(TimeProvider? timeProvider = nu
                 throw new InvalidOperationException("The graph omitted a required external capability occurrence.");
     }
 
-    private async Task<JsonObject> StructuredAsync(PlanningSnapshot state, IPlanningRuntime runtime, string phase, string prompt, JsonObject schema, CancellationToken ct, int maxAttempts = 2)
+    private async Task<JsonObject> StructuredAsync(PlanningSnapshot state, IPlanningRuntime runtime, string phase, string prompt, JsonObject schema, CancellationToken ct, int maxAttempts = 2, bool checkpoint = false)
     {
         state.CurrentPhase = phase;
         var errors = PlanningContractValidation.ValidateSchema(schema, strict: true);
         if (errors.Count > 0) throw new InvalidOperationException("The typed planner response schema is invalid: " + string.Join("; ", errors));
+        // Publish the active phase before a potentially long provider call. The
+        // host's revision check prevents a stale worker overwriting this checkpoint.
+        if (checkpoint) await runtime.CheckpointAsync(state, ct);
         var generator = state.Request.Options["generator"] as JsonObject;
         for (var attempt = 0; attempt < maxAttempts; attempt++)
         {
@@ -750,6 +759,9 @@ public sealed partial class TypedWorkflowPlanner(TimeProvider? timeProvider = nu
                 Prompt = prompt, Provider = generator?["provider"]?.GetValue<string>(), Model = generator?["model"]?.GetValue<string>() ?? "",
                 Reasoning = generator?["reasoning"]?.GetValue<string>() ?? "medium", StructuredOutputSchema = schema.DeepClone(), StructuredOutputStrict = true, UseBackgroundMode = true
             }, state.Request.Generation), phase, ct);
+            if (response.CompletionStatus == "output_limit")
+                throw new WorkflowRuntimeException("MODEL_OUTPUT_LIMIT", "The model reached the configured " + state.Request.Generation.MaxOutputTokens +
+                    " completion-token ceiling without a complete response during " + phase + ". The retained candidate was not replaced and no identical automatic retry was dispatched. Reduce the response task before retrying.");
             if (response.Json is JsonObject json && PlanningContractValidation.ValidateInstance(json, schema).Count == 0) return json;
         }
         throw new WorkflowRuntimeException(ErrorCodes.LlmSchema, "The model returned an invalid typed planning response within the configured call allowance.");

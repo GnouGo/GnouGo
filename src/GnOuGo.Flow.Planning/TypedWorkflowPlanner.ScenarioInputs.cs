@@ -72,7 +72,7 @@ public sealed partial class TypedWorkflowPlanner
             if (PlanningConstruction.EstimateInputTokens(actualPrompt, schema) > state.Request.Generation.MaxInputTokensPerUnit)
             { findings = [new("SCENARIO_INPUT_CONTEXT_TOO_LARGE", "/scenarioInputs", "The validation fixture exceeds the configured input context limit. No model request was sent.")]; break; }
             JsonObject candidate;
-            try { candidate = await StructuredAsync(state, runtime, "scenario_inputs", actualPrompt, schema, ct, maxAttempts: 1); }
+            try { candidate = await StructuredAsync(state, runtime, "scenario_inputs", actualPrompt, schema, ct, maxAttempts: 1, checkpoint: true); }
             catch (GnOuGo.Flow.Core.Expressions.WorkflowRuntimeException ex) when (ex.Code == GnOuGo.Flow.Core.Models.ErrorCodes.LlmSchema)
             { findings = [new("SCENARIO_INPUT_INVALID", "/scenarioInputs", "The model did not supply schema-valid literal fixture values.")]; continue; }
             var inputs = new JsonObject(); findings.Clear();
