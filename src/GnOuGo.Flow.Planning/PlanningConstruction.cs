@@ -102,7 +102,7 @@ public static class PlanningConstruction
         })).ToArray();
         var schemaVariants = definitions["schema"]!["anyOf"]!.AsArray();
         var inline = schemaVariants[1]!.DeepClone();
-        definitions["schema"] = new JsonObject { ["anyOf"] = new JsonArray(new[] { inline }.Concat(references).ToArray()) };
+        definitions["schema"] = new JsonObject { ["anyOf"] = new JsonArray((unit.ContractVersion >= PlanningConstructionSchemas.Version ? PlanningConstructionSchemas.Variants(inline) : [inline]).Concat(references).ToArray()) };
         // Structured post-processing has a stricter destination contract than a
         // native producer annotation. Do not offer references that conversion would reject.
         var strictInline = inline.DeepClone(); var strictFields = strictInline["properties"]!;
@@ -119,7 +119,7 @@ public static class PlanningConstruction
                 if (PlanningContractValidation.ValidateSchema(PlanningGraphCompiler.ToJsonSchema(new() { CapabilityId = capability, SchemaPointer = pointer!.GetValue<string>() }, preparation), strict: true).Count != 0) pointers.Remove(pointer);
             if (pointers.Count > 0) strictReferences.Add(copy);
         }
-        definitions["strictSchema"] = new JsonObject { ["anyOf"] = new JsonArray(new[] { strictInline }.Concat(strictReferences).ToArray()) };
+        definitions["strictSchema"] = new JsonObject { ["anyOf"] = new JsonArray((unit.ContractVersion >= PlanningConstructionSchemas.Version ? PlanningConstructionSchemas.Variants(strictInline) : [strictInline]).Concat(strictReferences).ToArray()) };
         definitions["strictPort"] = definitions["port"]!.DeepClone(); definitions["strictPort"]!["properties"]!["schema"] = Ref("strictSchema");
         var root = new JsonObject();
         if (unit.Kind == "inputs") root["inputs"] = Object(new JsonObject(workflow.Inputs.Select(p => new KeyValuePair<string, JsonNode?>(p.Name,
@@ -202,8 +202,8 @@ public static class PlanningConstruction
 
     public static JsonObject Values(PlanningWorkflow workflow, PlanningConstructionUnit unit, PlanningPreparation? preparation = null)
     {
-        if (unit.Kind == "inputs") return new() { ["inputs"] = new JsonObject(workflow.Inputs.Select(p => new KeyValuePair<string, JsonNode?>(p.Name,
-            new JsonObject { ["schema"] = Compact(p.Schema, PlanningJsonContext.Default.PlanningSchema), ["default"] = p.Default is null ? null : Compact(p.Default, PlanningJsonContext.Default.PlanningValue) }))) };
+        if (unit.Kind == "inputs") return NormalizeSchemas(new() { ["inputs"] = new JsonObject(workflow.Inputs.Select(p => new KeyValuePair<string, JsonNode?>(p.Name,
+            new JsonObject { ["schema"] = Compact(p.Schema, PlanningJsonContext.Default.PlanningSchema), ["default"] = p.Default is null ? null : Compact(p.Default, PlanningJsonContext.Default.PlanningValue) }))) });
         if (unit.Kind == "outputs") return new() { ["outputs"] = new JsonObject(workflow.Outputs.Select(p => new KeyValuePair<string, JsonNode?>(p.Name,
             new JsonObject { ["reference"] = PlanningOutputBindings.Id(p.Value) }))) };
         var nodes = new JsonObject();
@@ -228,7 +228,9 @@ public static class PlanningConstruction
         }
         var result = new JsonObject { ["nodes"] = nodes };
         if (unit.Kind == "implementation") result["functions"] = unit.Functions;
-        return result;
+        return NormalizeSchemas(result);
+
+        JsonObject NormalizeSchemas(JsonObject value) => unit.ContractVersion >= PlanningConstructionSchemas.Version ? PlanningConstructionSchemas.Compact(value) : value;
     }
 
     public static PlanningGraph Apply(PlanningGraph graph, PlanningConstructionUnit unit, JsonObject candidate, PlanningPreparation preparation)
@@ -237,6 +239,7 @@ public static class PlanningConstruction
         var workflow = result.Workflows.Single(w => w.Key == unit.WorkflowKey);
         var schema = Schema(workflow, unit, preparation, result);
         candidate = CompleteFixedFields(candidate, schema);
+        if (unit.ContractVersion >= PlanningConstructionSchemas.Version) candidate = PlanningConstructionSchemas.Compact(candidate);
         var errors = ShapeFindings(candidate, schema, unit);
         if (errors.Count != 0) throw new InvalidOperationException(string.Join("; ", errors.Select(d => d.Message)));
         if (unit.Kind == "inputs")
@@ -405,7 +408,7 @@ public static class PlanningConstruction
     };
 
     public static List<PlanningDiagnostic> ShapeFindings(JsonObject? candidate, JsonObject schema, PlanningConstructionUnit unit) =>
-        PlanningContractValidation.ValidateInstance(candidate is null ? null : CompleteFixedFields(candidate, schema), schema).Select(e => new PlanningDiagnostic("UNIT_RESPONSE_INVALID", "/units/" + PlanningSchemaReferences.Escape(unit.Key), e, ValidationStage: "conversion")).ToList();
+        PlanningContractValidation.ValidateInstance(candidate is null ? null : CompleteFixedFields(unit.ContractVersion >= PlanningConstructionSchemas.Version ? PlanningConstructionSchemas.Compact(candidate) : candidate, schema), schema).Select(e => new PlanningDiagnostic("UNIT_RESPONSE_INVALID", "/units/" + PlanningSchemaReferences.Escape(unit.Key), e, ValidationStage: "conversion")).ToList();
 
     // The host owns empty container contracts and required null annotations. Their
     // absence needs no model inference; malformed explicit values remain invalid.

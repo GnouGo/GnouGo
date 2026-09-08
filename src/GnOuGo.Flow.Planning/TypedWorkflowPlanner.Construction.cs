@@ -50,6 +50,7 @@ public sealed partial class TypedWorkflowPlanner
             unit.RepairCallsAtRetry = unit.RepairCalls;
             if (unit.Kind == "implementation" && unit.Candidate is not null)
                 unit.Candidate = PlanningConstruction.UpgradeCandidate(graph, unit, unit.Candidate, state.Preparation!);
+            if (unit.Candidate is not null) unit.Candidate = PlanningConstructionSchemas.Compact(unit.Candidate);
             if (unit.Status == "validated")
             {
                 var findings = UnitFindings(graph, state.Preparation!, unit).ToList();
@@ -209,7 +210,15 @@ public sealed partial class TypedWorkflowPlanner
                     unit.DispatchDiagnostics.AddRange(await runtime.ValidateCatalogAsync(state.Preparation!, ct));
                 unit.Status = "recovery"; stopped = true; continue;
             }
-            var received = response!.Json as JsonObject;
+            if (response!.CompletionStatus == "output_limit")
+            {
+                RecordUnitOutputLimit(state, unit, response, "fragment_" + unit.Kind);
+                if (unit.NodeKeys.Count > 1 && unit.Candidate is null)
+                { SplitUnit(state, unit); continue; }
+                unit.Status = "recovery"; stopped = true; continue;
+            }
+            var received = response.Json as JsonObject;
+            if (received is not null && unit.ContractVersion >= PlanningConstructionSchemas.Version) received = PlanningConstructionSchemas.Compact(received);
             var receivedHash = PlanningGraphCompiler.Fingerprint(response.Json?.ToJsonString() ?? response.Text);
             // The journal has already encrypted the response. Preserve the candidate before lowering.
             if (patch is null) unit.Candidate = received?.DeepClone().AsObject();
@@ -289,6 +298,14 @@ public sealed partial class TypedWorkflowPlanner
 
     private static string DiagnosticFingerprint(IEnumerable<PlanningDiagnostic> findings) => PlanningGraphCompiler.Fingerprint(string.Join("\n",
         findings.Select(d => d.Code + "\n" + d.Location + "\n" + d.Message).Order(StringComparer.Ordinal)));
+
+    private static void RecordUnitOutputLimit(PlanningSnapshot state, PlanningConstructionUnit unit, LLMResponse response, string phase)
+    {
+        unit.DispatchOutcome = "output_limit";
+        unit.DispatchDiagnostics = [new("MODEL_OUTPUT_LIMIT", "/units/" + PlanningSchemaReferences.Escape(unit.Key),
+            $"The model reached the configured {state.Request.Generation.MaxOutputTokens}-token output ceiling without a complete candidate. Existing fields are retained; reduce the remaining construction work before retrying.", ValidationStage: "generation")];
+        state.Attempts.Add(new(PlanningGraphCompiler.Fingerprint(response.Json?.ToJsonString() ?? response.Text), phase, 0, false, unit.DispatchDiagnostics.ToList()));
+    }
 
     private static bool RecoverInvalidBehavior(PlanningSnapshot state)
     {

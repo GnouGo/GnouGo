@@ -65,6 +65,13 @@ runtime verifies each binding against the actual step, locked request fields, an
 identity; an unbound call or a substitute confirmation fails validation. These bindings are
 derived from the retained graph and add no fields to executable YAML.
 
+Construction contract 29 uses separate schema response variants for strings, primitive
+scalars, arrays, and objects. Models return only the fields relevant to each type. Legacy
+empty annotations are normalized without removing substantive constraints, and retained
+candidates are revalidated. A provider output-limit result is recorded as `MODEL_OUTPUT_LIMIT`
+before JSON conversion and cannot overwrite retained fields. Unstarted multi-node units can
+split; a single exhausted unit pauses with its receipts and configured ceiling intact.
+
 `PlanningRequest.Generation` defaults to 12,000 estimated input tokens per unit and an
 enforced 8,192 output-token ceiling per call. Oversized groups split before dispatch; an
 oversized single contract pauses with `UNIT_CONTEXT_TOO_LARGE`. Optional structured fields

@@ -54,9 +54,16 @@ public sealed partial class TypedWorkflowPlanner
         try { response = await runtime.CallAsync(request, "repair_unit", ct); }
         catch { unit.DispatchOutcome = "transport_failed"; throw; }
         unit.DispatchOutcome = "received";
+        if (response.CompletionStatus == "output_limit")
+        {
+            RecordUnitOutputLimit(state, unit, response, "repair_unit");
+            state.Diagnostics.AddRange(unit.DispatchDiagnostics); unit.Status = "recovery"; state.Status = PlanningStatus.Recovery; return true;
+        }
         try
         {
-            var candidate = patch.Apply(unit.Candidate, response.Json as JsonObject);
+            var received = response.Json as JsonObject;
+            if (received is not null && unit.ContractVersion >= PlanningConstructionSchemas.Version) received = PlanningConstructionSchemas.Compact(received);
+            var candidate = patch.Apply(unit.Candidate, received);
             var repaired = PlanningConstruction.Apply(graph, unit, candidate, state.Preparation!);
             var diagnostics = UnitFindings(repaired, state.Preparation!, unit).Concat(InputObligationFindings(state, repaired, unit)).ToList();
             if (state.BehaviorPlan is not null) diagnostics.AddRange(PlanningBehaviorPlans.ValidateImplementation(state.BehaviorPlan, repaired, state.Preparation!));

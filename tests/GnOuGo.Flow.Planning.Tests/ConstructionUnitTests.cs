@@ -9,6 +9,51 @@ namespace GnOuGo.Flow.Planning.Tests;
 public sealed class ConstructionUnitTests
 {
     [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task CompletionCeilingRetainsTheCandidateAndReportsTransportOutcome(bool repairing)
+    {
+        var state = ApprovedSkeleton();
+        state.ConstructionUnits = [new() { Key = "contract", WorkflowKey = "main", Kind = "contracts", NodeKeys = ["greeting"], ContractVersion = PlanningDataflow.ContractVersion }];
+        if (repairing)
+        {
+            state.ConstructionUnits[0].Candidate = new JsonObject { ["retained"] = "invalid but reviewable" };
+            state.ConstructionUnits[0].CandidateHash = "retained-hash"; state.ConstructionUnits[0].Calls = 1;
+            state.ConstructionUnits[0].Diagnostics = [new("UNIT_RESPONSE_INVALID", "/units/contract", "Previous incomplete response")];
+        }
+        var original = state.ConstructionUnits[0].Candidate?.DeepClone(); var calls = 0;
+        var runtime = new FakeRuntime { OnCall = (_, request, _) =>
+        {
+            calls++; Assert.Equal(8192, request.MaxTokens);
+            return Task.FromResult(new LLMResponse { CompletionStatus = "output_limit", Json = new JsonObject { ["partial"] = "must not replace retained fields" } });
+        } };
+        state = await Advance(new TypedWorkflowPlanner(), state, runtime);
+        state = JsonSerializer.Deserialize(JsonSerializer.Serialize(state, PlanningJsonContext.Default.PlanningSnapshot), PlanningJsonContext.Default.PlanningSnapshot)!;
+        Assert.Equal(1, calls); Assert.Equal(PlanningStatus.Recovery, state.Status);
+        Assert.Equal("output_limit", state.ConstructionUnits[0].DispatchOutcome);
+        Assert.True(JsonNode.DeepEquals(original, state.ConstructionUnits[0].Candidate));
+        Assert.Contains(state.Diagnostics, d => d.Code == "MODEL_OUTPUT_LIMIT" && d.Message.Contains("8192", StringComparison.Ordinal));
+        Assert.Equal(repairing ? 1 : 0, state.ConstructionUnits[0].RepairCalls);
+        Assert.Contains(state.Attempts.Last().Diagnostics, d => d.Code == "MODEL_OUTPUT_LIMIT");
+    }
+
+    [Fact]
+    public async Task CompletionCeilingSplitsUnstartedNodesAndPreservesTheChargedParent()
+    {
+        var state = ApprovedSkeleton();
+        state.BehaviorPlan!.Workflows[0].Steps.Add(new() { Key = "other", Purpose = "Return another greeting" });
+        state.ApprovedBehaviorHash = PlanningBehaviorPlans.Fingerprint(state.BehaviorPlan);
+        state.Graph = PlanningBehaviorPlans.Display(state.BehaviorPlan, state.Preparation!);
+        state.ConstructionUnits = [new() { Key = "contracts", WorkflowKey = "main", Kind = "contracts", NodeKeys = ["greeting", "other"], ContractVersion = PlanningDataflow.ContractVersion }];
+        var runtime = new FakeRuntime { OnCall = (_, _, _) => Task.FromResult(new LLMResponse { CompletionStatus = "output_limit" }) };
+        state = await Advance(new TypedWorkflowPlanner(), state, runtime);
+        Assert.Equal(PlanningStatus.Generating, state.Status);
+        Assert.Equal("superseded", state.ConstructionUnits[0].Status); Assert.Equal(1, state.ConstructionUnits[0].Calls);
+        Assert.All(state.ConstructionUnits.Skip(1), u => { Assert.Single(u.NodeKeys); Assert.Equal(0, u.Calls); });
+        Assert.Contains(state.Attempts.Last().Diagnostics, d => d.Code == "MODEL_OUTPUT_LIMIT");
+    }
+
+    [Theory]
     [InlineData(0)]
     [InlineData(1)]
     [InlineData(2)]
