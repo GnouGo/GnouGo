@@ -323,3 +323,8 @@ an explicit empty no-action outcome. This applies the existing fallback policy;
 it preserves every explicit case and never erases an invalid supplied default.
 The completed plan receives its own review hash and still requires approval.
 Missing locked finite outcomes continue to block review.
+
+Construction schema references are scoped to owned contracts, declared upstream
+results and direct external-consumer inputs. Existing schema references on retained
+nodes remain selectable. Unrelated catalog entries and native configuration fields
+do not become new synthesized-result options merely because they share a workflow.

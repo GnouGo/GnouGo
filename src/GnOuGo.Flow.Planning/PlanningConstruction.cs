@@ -83,8 +83,28 @@ public static class PlanningConstruction
             if (bindings.Length != 0) values.Add((JsonNode)PlanningDataflow.BindingSchema(bindings.Select(p => p.Key)));
         }
         // Exact reference pairs prevent data paths and unsupported boundary references.
+        var owned = PlanningGraphCompiler.Enumerate(workflow.Steps.Concat(workflow.Finally)).Where(n => unit.NodeKeys.Contains(n.Key, StringComparer.Ordinal)).ToArray();
+        var ownedIds = owned.Select(n => n.CapabilityId).OfType<string>().ToHashSet(StringComparer.Ordinal);
+        var ownedOperations = owned.SelectMany(n => n.OperationIds).ToHashSet(StringComparer.Ordinal);
+        var upstream = preparation.Capabilities.Where(c => ownedIds.Contains(c.Id)).SelectMany(c => c.InputOperationIds).ToHashSet(StringComparer.Ordinal);
+        var upstreamIds = preparation.Capabilities.Where(c => c.OperationIds.Any(upstream.Contains)).Select(c => c.Id).ToHashSet(StringComparer.Ordinal);
+        var consumerIds = preparation.Capabilities.Where(c => c.StepType == "mcp.call" && c.InputOperationIds.Any(ownedOperations.Contains)).Select(c => c.Id).ToHashSet(StringComparer.Ordinal);
+        var retainedReferences = new HashSet<string>(StringComparer.Ordinal);
+        void Retain(PlanningSchema? declared)
+        {
+            if (declared is null) return;
+            if (declared.CapabilityId is { } id) retainedReferences.Add(id + "\n" + (declared.SchemaPointer ?? "/output"));
+            foreach (var property in declared.Properties) Retain(property.Schema);
+            Retain(declared.Items); Retain(declared.AdditionalProperties);
+        }
+        foreach (var node in owned) { Retain(node.OutputSchema); Retain(node.StructuredOutput?.Schema); }
         var references = PlanningSchemaReferences.Index(preparation).OfType<JsonObject>().Where(entry =>
         {
+            var id = entry["capabilityId"]!.GetValue<string>(); var pointer = entry["schemaPointer"]!.GetValue<string>();
+            if (unit.Kind == "contracts" && !ownedIds.Contains(id) &&
+                !(upstreamIds.Contains(id) && (pointer == "/output" || pointer.StartsWith("/output/", StringComparison.Ordinal))) &&
+                !(consumerIds.Contains(id) && (pointer == "/input" || pointer.StartsWith("/input/", StringComparison.Ordinal))) &&
+                !retainedReferences.Contains(id + "\n" + pointer)) return false;
             try
             {
                 var declared = new PlanningSchema { CapabilityId = entry["capabilityId"]!.GetValue<string>(), SchemaPointer = entry["schemaPointer"]!.GetValue<string>() };

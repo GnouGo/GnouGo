@@ -9,6 +9,26 @@ namespace GnOuGo.Flow.Planning.Tests;
 public sealed class ConstructionUnitTests
 {
     [Theory]
+    [InlineData("compute", "upstream", "destination")]
+    [InlineData("calculer", "source", "cible")]
+    public void ContractReferencesFollowDeclaredDataDependenciesAndPreserveRetainedSchemas(string compute, string upstream, string destination)
+    {
+        var state = ApprovedSkeleton(); var workflow = state.Graph!.Workflows[0]; var node = workflow.Steps[0]; node.CapabilityId = compute; node.OperationIds = ["calculate"];
+        static JsonObject Object(string field) => new() { ["type"] = "object", ["properties"] = new JsonObject { [field] = new JsonObject { ["type"] = "string" } }, ["required"] = new JsonArray(field), ["additionalProperties"] = false };
+        state.Preparation!.Capabilities = [
+            new() { Id = compute, StepType = "set", OperationIds = ["calculate"], InputOperationIds = ["observe"] },
+            new() { Id = upstream, StepType = "mcp.call", OperationIds = ["observe"], InputSchema = Object("upstream_argument"), OutputSchema = Object("observed_value") },
+            new() { Id = destination, StepType = "mcp.call", InputOperationIds = ["calculate"], InputSchema = Object("destination_value"), OutputSchema = Object("later_value") },
+            new() { Id = "unrelated", StepType = "mcp.call", OutputSchema = Object("unrelated_value") } ];
+        var unit = new PlanningConstructionUnit { Kind = "contracts", NodeKeys = [node.Key], ContractVersion = PlanningDataflow.ContractVersion };
+        string Schema() => PlanningConstruction.Schema(workflow, unit, state.Preparation, state.Graph).ToJsonString();
+        var schema = Schema(); Assert.Contains("/output/properties/observed_value", schema); Assert.Contains("/input/properties/destination_value", schema);
+        Assert.DoesNotContain("upstream_argument", schema); Assert.DoesNotContain("later_value", schema); Assert.DoesNotContain("unrelated_value", schema);
+        node.OutputSchema = new() { CapabilityId = "unrelated", SchemaPointer = "/output/properties/unrelated_value" };
+        Assert.Contains("/output/properties/unrelated_value", Schema());
+    }
+
+    [Theory]
     [InlineData("metadata", "revision")]
     [InlineData("metadonnees", "version")]
     public void CompositeProducerSchemaContextIncludesValidatedSiblingContributions(string siblingKey, string field)
