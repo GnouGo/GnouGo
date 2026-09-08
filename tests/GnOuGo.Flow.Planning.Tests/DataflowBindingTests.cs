@@ -11,6 +11,45 @@ namespace GnOuGo.Flow.Planning.Tests;
 public sealed class DataflowBindingTests
 {
     [Theory]
+    [InlineData("inspect", "pages", "finish", "loop.sequential")]
+    [InlineData("analyser", "pages_renommees", "terminer", "loop.parallel")]
+    public async Task OwnedIterationKeepsCompositeDependenciesAtTheFinalConsumer(string operation, string loopKey, string lastKey, string loopType)
+    {
+        var graph = Graph(); var prep = Preparation(); var workflow = graph.Workflows[0];
+        prep.Capabilities = [new() { Id = "first", StepType = "set", OperationIds = [operation], InputOperationIds = ["resource", "analysis"] },
+            new() { Id = "last", StepType = "set", OperationIds = [operation], InputOperationIds = ["resource", "analysis"] }];
+        PlanningValue Ref(string key) => new() { Kind = "output", Source = key };
+        var first = new PlanningNode { Key = "page", CapabilityId = "first", OperationIds = [operation], Input = Obj(("resource", Ref("resource"))) };
+        var pages = new PlanningNode { Key = loopKey, Type = loopType, OperationIds = [operation], Steps = [first] };
+        var last = new PlanningNode { Key = lastKey, CapabilityId = "last", OperationIds = [operation], Input = Obj(("pages", Ref(loopKey)), ("analysis", Ref("analysis"))) };
+        var group = new PlanningNode { Key = "owned", Type = "sequence", OperationIds = [operation], Steps = [pages, last] };
+        workflow.Steps = [new() { Key = "resource", OperationIds = ["resource"] }, new() { Key = "analysis", OperationIds = ["analysis"] }, group];
+        Assert.Empty(PlanningOperationCompositions.RequiredInputs(workflow, first, prep));
+        Assert.Empty(PlanningDataflow.OperationInputFindings(graph, prep));
+        pages.Input = Obj(("items", new() { Kind = "array", Items = [Str("first"), Str("second")] }));
+        workflow.Steps[0].Input = Obj(("label", Str("original resource")));
+        workflow.Steps[1].Input = Obj(("label", Str("independent observation")));
+        workflow.Outputs.Clear(); prep.AllowedStepTypes.AddRange([loopType, "sequence"]);
+        var compiled = new WorkflowCompiler().Compile(WorkflowParser.Parse(new PlanningGraphCompiler().Compile(graph, prep)));
+        var execution = await new WorkflowEngine().ExecuteAsync(compiled.Workflows[compiled.Entrypoint!], new JsonObject(), TestContext.Current.CancellationToken);
+        Assert.True(execution.Success, execution.Error?.Message);
+        var final = execution.StepResults[^1].Output!;
+        Assert.Contains("original resource", final.ToJsonString());
+        Assert.Contains("independent observation", final.ToJsonString());
+        last.Input = Obj(("pages", Ref(loopKey)));
+        Assert.Contains(PlanningDataflow.OperationInputFindings(graph, prep), d => d.Code == "OPERATION_INPUT_BINDING_MISSING" && d.Location == "/workflows/0/steps/2/steps/1/input" && d.Message.Contains("analysis", StringComparison.Ordinal));
+        last.Input = Obj(("resource", Ref("resource")), ("analysis", Ref("analysis")));
+        Assert.Contains(PlanningDataflow.OperationInputFindings(graph, prep), d => d.Code == "COMPOSITION_INPUT_BINDING_MISSING" && d.Message.Contains(loopKey, StringComparison.Ordinal));
+        last.Input = Obj(("pages", Ref(loopKey)), ("analysis", Ref("analysis")));
+        pages.If = new() { Kind = "boolean", Boolean = true };
+        Assert.Null(PlanningOperationCompositions.Owner(workflow, first, prep));
+        pages.If = null; first.OperationIds = ["unrelated"];
+        Assert.Null(PlanningOperationCompositions.Owner(workflow, first, prep));
+        first.OperationIds = [operation]; first.Type = "human.input";
+        Assert.Null(PlanningOperationCompositions.Owner(workflow, first, prep));
+    }
+
+    [Theory]
     [InlineData("inspect", "prepare", "finish")]
     [InlineData("analyser", "preparer", "terminer")]
     public void ComposedOperationConsumesAllDependenciesAtItsTerminalAndEveryIntermediate(string operation, string firstKey, string lastKey)

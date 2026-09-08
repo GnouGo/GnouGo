@@ -7,14 +7,26 @@ internal static class PlanningOperationCompositions
 {
     internal static PlanningNode? Owner(PlanningWorkflow workflow, PlanningNode node, PlanningPreparation preparation)
     {
-        return PlanningGraphCompiler.Enumerate(workflow.Steps.Concat(workflow.Finally)).FirstOrDefault(parent =>
-            parent.Type == "sequence" && parent.CapabilityId is null && parent.If is null && parent.OperationIds.Count > 0 &&
-            parent.Steps.Count > 1 && parent.Steps.Contains(node) &&
-            parent.Steps.Select(n => n.CapabilityId).Distinct(StringComparer.Ordinal).Count() > 1 &&
-            parent.Steps.All(n => n.Type is "mcp.call" or "set" && n.If is null &&
-                n.OperationIds.Order(StringComparer.Ordinal).SequenceEqual(parent.OperationIds.Order(StringComparer.Ordinal)) &&
-                preparation.Capabilities.FirstOrDefault(c => c.Id == n.CapabilityId) is { } capability &&
-                capability.OperationIds.Order(StringComparer.Ordinal).SequenceEqual(parent.OperationIds.Order(StringComparer.Ordinal))));
+        foreach (var parent in PlanningGraphCompiler.Enumerate(workflow.Steps.Concat(workflow.Finally)))
+        {
+            if (parent.Type != "sequence" || parent.CapabilityId is not null || parent.If is not null || parent.OperationIds.Count == 0 ||
+                parent.Steps.Count < 2 || parent.Steps[^1].Type is not ("mcp.call" or "set")) continue;
+            var members = PlanningGraphCompiler.Enumerate(parent.Steps).ToArray();
+            if (!members.Contains(node)) continue;
+            var operations = parent.OperationIds.Order(StringComparer.Ordinal).ToArray();
+            bool Owned(PlanningNode member)
+            {
+                if (member.If is not null || !member.OperationIds.Order(StringComparer.Ordinal).SequenceEqual(operations)) return false;
+                if (member.Type is "loop.sequential" or "loop.parallel" or "sequence")
+                    return member.CapabilityId is null && member.Steps.Count > 0 && member.Cases.Count == 0 && member.Default.Count == 0 && member.Branches.Count == 0;
+                return member.Type is "mcp.call" or "set" &&
+                    preparation.Capabilities.FirstOrDefault(c => c.Id == member.CapabilityId) is { } capability &&
+                    capability.OperationIds.Order(StringComparer.Ordinal).SequenceEqual(operations);
+            }
+            if (members.All(Owned) && members.Where(n => n.CapabilityId is not null).Select(n => n.CapabilityId).Distinct(StringComparer.Ordinal).Count() > 1)
+                return parent;
+        }
+        return null;
     }
 
     internal static IReadOnlyList<string> RequiredInputs(PlanningWorkflow workflow, PlanningNode node, PlanningPreparation preparation)
@@ -22,6 +34,7 @@ internal static class PlanningOperationCompositions
         var owner = Owner(workflow, node, preparation);
         if (owner is null) return preparation.Capabilities.FirstOrDefault(c => c.Id == node.CapabilityId)?.InputOperationIds ?? [];
         if (owner.Steps[^1] != node) return [];
-        return owner.Steps.SelectMany(n => preparation.Capabilities.Single(c => c.Id == n.CapabilityId).InputOperationIds).Distinct(StringComparer.Ordinal).ToArray();
+        return PlanningGraphCompiler.Enumerate(owner.Steps).Where(n => n.CapabilityId is not null)
+            .SelectMany(n => preparation.Capabilities.Single(c => c.Id == n.CapabilityId).InputOperationIds).Distinct(StringComparer.Ordinal).ToArray();
     }
 }

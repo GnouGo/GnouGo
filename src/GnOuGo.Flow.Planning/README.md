@@ -375,3 +375,10 @@ context table when doing so reduces request size. Expanding that table reproduce
 every original value, constraint and JSON Schema reference; executable schemas and
 the 12,000-token input ceiling remain unchanged. Literal reserved reference keys
 disable sharing rather than being reinterpreted.
+
+Construction contract 37 retains explicit operation ownership when intermediate
+producers execute inside owned iterations. The final direct consumer must consume
+those complete container results and every locked upstream dependency. Iteration
+helpers do not acquire unrelated argument requirements from the composite
+operation. Conditional, mixed-ownership, and human-input nodes do not qualify for
+this dependency grouping; artifact provenance and permission checks still apply.
