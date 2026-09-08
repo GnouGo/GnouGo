@@ -8,6 +8,20 @@ namespace GnOuGo.Flow.Planning.Tests;
 
 public sealed class ScenarioInputTests
 {
+    [Theory]
+    [InlineData("default")]
+    [InlineData("otherwise")]
+    [InlineData("défaut")]
+    public void ErrorHandlerLabelsAreNotBooleanConditions(string label)
+    {
+        var graph = Graph(); var preparation = Preparation(); var node = graph.Workflows[0].Steps[0];
+        node.OnError = [new(Str(label), "stop", null, null)];
+        var finding = Assert.Single(PlanningExecutableValidation.Validate(graph, preparation), d => d.Code == "BOOLEAN_CONDITION_INVALID");
+        Assert.Equal("/workflows/0/steps/0/onError/0/if", finding.Location);
+        node.OnError = [new(null, "stop", null, null)];
+        Assert.DoesNotContain(PlanningExecutableValidation.Validate(graph, preparation), d => d.Code == "BOOLEAN_CONDITION_INVALID");
+    }
+
     [Fact]
     public void UnresolvedLoopComputationIsDiagnosedAtItsInputBeforeScenarioSetup()
     {

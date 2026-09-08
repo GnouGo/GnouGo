@@ -42,11 +42,11 @@ public static class PlanningExecutableValidation
                     }
                 Values(node.Input, location + "/input");
                 if (node.Expr is not null) Values(node.Expr, location + "/expr");
-                if (node.If is not null) Values(node.If, location + "/if");
-                for (var i = 0; i < node.Cases.Count; i++) if (node.Cases[i].When is { } when) Values(when, location + "/cases/" + i + "/when");
+                if (node.If is not null) Condition(node.If, location + "/if");
+                for (var i = 0; i < node.Cases.Count; i++) if (node.Cases[i].When is { } when) Condition(when, location + "/cases/" + i + "/when");
                 for (var i = 0; i < node.OnError.Count; i++)
                 {
-                    if (node.OnError[i].If is { } condition) Values(condition, location + "/onError/" + i + "/if");
+                    if (node.OnError[i].If is { } condition) Condition(condition, location + "/onError/" + i + "/if");
                     if (node.OnError[i].SetOutput is { } value) Values(value, location + "/onError/" + i + "/setOutput");
                 }
                 try
@@ -118,6 +118,15 @@ public static class PlanningExecutableValidation
             }
             for (var i = 0; i < value.Members.Count; i++) Values(value.Members[i].Value, location + "/members/" + i + "/value");
             for (var i = 0; i < value.Items.Count; i++) Values(value.Items[i], location + "/items/" + i);
+        }
+
+        void Condition(PlanningValue value, string location)
+        {
+            Values(value, location);
+            if (value.Kind is "string" or "number" or "null" or "object" or "array" or "template" ||
+                value.Kind == "compute" && PlanningComputations.HasNonBooleanResult(value.Text))
+                errors.Add(new("BOOLEAN_CONDITION_INVALID", location,
+                    "A condition must return a boolean. Outcome labels and catch-all labels are not conditions. Omit an error-handler condition for an unconditional handler; preserve its error action and fallback."));
         }
 
         static void CheckAliases(Acornima.Ast.Node node, HashSet<string> bound)
