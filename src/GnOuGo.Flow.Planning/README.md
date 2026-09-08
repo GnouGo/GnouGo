@@ -454,3 +454,9 @@ can gain justified fields; catalog contracts and existing field constraints rema
 immutable. Contract prompts include the accepted input dependencies. After a schema
 addition, repair selects the missing value coordinates before reassessing semantic
 dependencies, preserving already valid calculations.
+
+Schema extension responses contain only `addProperties` (at most four justified new
+properties per response). The host merges them into the retained baseline, preserving
+existing schemas and annotations exactly. Duplicate or replacement names fail
+atomically. This response contract also repairs older rejected candidates without
+requiring the model to reproduce existing declarations.

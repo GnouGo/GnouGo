@@ -652,6 +652,7 @@ public sealed partial class TypedWorkflowPlanner
         ? PlanningHelperDocumentation.Prompt(documentation, unit.Diagnostics)
         : unit.Kind is "contracts" or "inputs" ?
         "Repair only the supplied invalid schema coordinates. Valid sibling fields, enums, requiredness and nullability are locked and retained. " +
+        "Where the response declares addProperties, return only justified new properties; the host retains the existing schema unchanged and adds them atomically. Never repeat an existing property in that array. " +
         "Arrays describe their element schema in items; named properties belong to object schemas. Do not discard misplaced declarations. " +
         "An empty object cannot establish unknown fields. If no consumer requires typed internal fields, represent an opaque value as serialized text; never invent an arbitrary object schema. " +
         "Provide concrete types and the smallest complete schema satisfying the declared consumers. Correct invalid declarations instead of copying them unchanged. " +

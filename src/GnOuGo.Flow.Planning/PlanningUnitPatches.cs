@@ -4,12 +4,12 @@ using GnOuGo.Flow.Core.Planning;
 namespace GnOuGo.Flow.Planning;
 
 /// <summary>Repair coordinates come from schema/validator evidence, never from model-selected scope.</summary>
-internal sealed class PlanningUnitPatches(JsonObject schema, Dictionary<string, string[]> slots, List<string[]> removals)
+internal sealed class PlanningUnitPatches(JsonObject schema, Dictionary<string, string[]> slots, List<string[]> removals, Dictionary<string, JsonObject>? extensions = null)
 {
     internal JsonObject Schema { get; } = schema;
     internal int FieldCount => slots.Count;
     internal JsonObject Context(JsonObject? candidate) => new(slots.Select(p =>
-        new KeyValuePair<string, JsonNode?>(p.Key, Read(candidate, p.Value, out var value) ? value?.DeepClone() : null)));
+        new KeyValuePair<string, JsonNode?>(p.Key, extensions?.GetValueOrDefault(p.Key)?.DeepClone() ?? (Read(candidate, p.Value, out var value) ? value?.DeepClone() : null))));
 
     internal PlanningUnitPatches Narrow()
     {
@@ -18,7 +18,8 @@ internal sealed class PlanningUnitPatches(JsonObject schema, Dictionary<string, 
         var reduced = Schema.DeepClone().AsObject(); var changes = reduced["properties"]!["changes"]!;
         foreach (var key in slots.Keys.Where(k => !keep.ContainsKey(k))) changes["properties"]!.AsObject().Remove(key);
         changes["required"] = new JsonArray(keep.Keys.Select(k => (JsonNode?)JsonValue.Create(k)).ToArray());
-        PlanningConstruction.PruneDefinitions(reduced); return new(reduced, keep, removals);
+        PlanningConstruction.PruneDefinitions(reduced); return new(reduced, keep, removals,
+            extensions?.Where(p => keep.ContainsKey(p.Key)).ToDictionary(p => p.Key, p => p.Value, StringComparer.Ordinal));
     }
 
     internal static PlanningUnitPatches Create(PlanningGraph graph, PlanningConstructionUnit unit, JsonObject full, PlanningPreparation? preparation = null)
@@ -56,6 +57,7 @@ internal sealed class PlanningUnitPatches(JsonObject schema, Dictionary<string, 
         var workflow = graph.Workflows[wi]; var graphRoot = "/workflows/" + wi;
         var located = PlanningGraphValidation.Located(workflow.Steps, graphRoot + "/steps").Concat(PlanningGraphValidation.Located(workflow.Finally, graphRoot + "/finally")).ToArray();
         var selected = new Dictionary<string, string[]>(StringComparer.Ordinal);
+        var additions = new Dictionary<string, JsonObject>(StringComparer.Ordinal);
         var changes = new JsonObject();
         foreach (var (key, slot) in all)
         {
@@ -69,7 +71,9 @@ internal sealed class PlanningUnitPatches(JsonObject schema, Dictionary<string, 
                 _ => graphRoot + "/outputs/" + workflow.Outputs.FindIndex(p => p.Name == slot.Parts[1]) + "/" + slot.Parts[2]
             };
             var diagnosed = Diagnosed(graphPath, slot.Parts);
-            if (invalid || diagnosed)
+            var extensible = unit.Kind == "contracts" && unit.ProducerReviewBaseline is not null && Read(unit.ProducerReviewBaseline, slot.Parts, out var retained) &&
+                retained is JsonObject contract && (IsInlineObject(contract) || contract["schema"] is JsonObject nested && IsInlineObject(nested));
+            if (invalid || diagnosed || extensible)
             {
                 var leaves = new List<(string[] Path, JsonNode Shape)>();
                 if (slot.Parts is ["nodes", _, "onError"] && value is JsonArray handlers)
@@ -92,6 +96,15 @@ internal sealed class PlanningUnitPatches(JsonObject schema, Dictionary<string, 
                 {
                     var coordinate = string.Join("/", leaf.Path.Select(PlanningSchemaReferences.Escape));
                     var shape = leaf.Shape.DeepClone();
+                    if (unit.ProducerReviewBaseline is not null && Read(unit.ProducerReviewBaseline, leaf.Path, out var baseline) &&
+                        baseline is JsonObject declared && declared["kind"]?.ToString() == "inline" && declared["type"]?.ToString() == "object")
+                    {
+                        additions[coordinate] = declared.DeepClone().AsObject();
+                        shape = new JsonObject { ["type"] = "object", ["additionalProperties"] = false, ["required"] = new JsonArray("addProperties"),
+                            ["properties"] = new JsonObject { ["addProperties"] = new JsonObject { ["type"] = "array", ["maxItems"] = 4,
+                                ["description"] = "At most four justified new properties, prioritizing the diagnosed missing dependencies. Existing declarations are retained by the host. An empty array leaves the contract unchanged.",
+                                ["items"] = new JsonObject { ["$ref"] = "#/$defs/" + (leaf.Path.Contains("structuredOutput", StringComparer.Ordinal) ? "strictPort" : "port") } } } };
+                    }
                     if (preparation is not null && slot.Parts is ["nodes", var nodeKey, "input"] &&
                         unit.Diagnostics.Any(d => d.Code == "LOOP_ITEMS_CONTRACT_UNRESOLVED" &&
                             d.Location == graphPath + "/" + string.Join("/", leaf.Path.Skip(slot.Parts.Length))))
@@ -118,7 +131,9 @@ internal sealed class PlanningUnitPatches(JsonObject schema, Dictionary<string, 
         void FindSchemas(JsonNode? value, string[] path, string location, JsonNode shape, List<(string[] Path, JsonNode Shape)> leaves)
         {
             if (value is not JsonObject obj) return;
-            if (unit.Diagnostics.Any(d => d.Code == PlanningProducerRepair.DiagnosticCode && d.Location == location))
+            if (unit.Diagnostics.Any(d => d.Code == PlanningProducerRepair.DiagnosticCode && d.Location == location) ||
+                unit.ProducerReviewBaseline is not null && Read(unit.ProducerReviewBaseline, path, out var baseline) &&
+                baseline is JsonObject declared && declared["kind"]?.ToString() == "inline" && declared["type"]?.ToString() == "object")
             { leaves.Add((path, shape)); return; }
             var before = leaves.Count;
             var definition = path.Contains("structuredOutput", StringComparer.Ordinal) ? "strictSchema" : "schema";
@@ -132,7 +147,8 @@ internal sealed class PlanningUnitPatches(JsonObject schema, Dictionary<string, 
             void Select(JsonNode? child, string[] suffix)
             {
                 var childPath = path.Concat(suffix).ToArray(); var childLocation = location + "/" + string.Join("/", suffix);
-                if (child is null || !Diagnosed(childLocation, childPath)) return;
+                if (child is null || !Diagnosed(childLocation, childPath) && !(unit.ProducerReviewBaseline is not null &&
+                    Read(unit.ProducerReviewBaseline, childPath, out var baseline) && baseline is JsonObject declared && IsInlineObject(declared))) return;
                 FindSchemas(child, childPath, childLocation, schemaShape, leaves);
             }
         }
@@ -180,7 +196,7 @@ internal sealed class PlanningUnitPatches(JsonObject schema, Dictionary<string, 
         if (extra.Count > 0) remove["items"]!["enum"] = new JsonArray(extra.Select(p => (JsonNode?)JsonValue.Create(string.Join("/", p.Select(PlanningSchemaReferences.Escape)))).ToArray());
         var result = Obj(new() { ["changes"] = Obj(changes), ["remove"] = remove }); result["$defs"] = full["$defs"]!.DeepClone();
         PlanningConstruction.PruneDefinitions(result);
-        return new(result, selected, extra);
+        return new(result, selected, extra, additions);
     }
 
     internal JsonObject Apply(JsonObject? candidate, JsonObject? response)
@@ -194,6 +210,19 @@ internal sealed class PlanningUnitPatches(JsonObject schema, Dictionary<string, 
             if (Read(result, path[..^1], out var parent) && parent is JsonObject obj) obj.Remove(path[^1]);
         foreach (var (key, path) in slots)
         {
+            var replacement = response["changes"]![key]?.DeepClone();
+            if (extensions?.GetValueOrDefault(key) is { } baseline)
+            {
+                var extended = baseline.DeepClone().AsObject();
+                var properties = extended["properties"]!.AsArray();
+                var names = properties.Select(p => p!["name"]!.GetValue<string>()).ToHashSet(StringComparer.Ordinal);
+                foreach (var property in replacement!["addProperties"]!.AsArray())
+                {
+                    if (!names.Add(property!["name"]!.GetValue<string>())) throw new InvalidOperationException("A contract extension cannot replace or duplicate an existing property.");
+                    properties.Add(property.DeepClone());
+                }
+                replacement = extended;
+            }
             JsonNode target = result;
             foreach (var part in path[..^1])
             {
@@ -203,8 +232,8 @@ internal sealed class PlanningUnitPatches(JsonObject schema, Dictionary<string, 
                     target[part] ??= new JsonObject(); target = target[part]!;
                 }
             }
-            if (target is JsonArray list) list[int.Parse(path[^1], System.Globalization.CultureInfo.InvariantCulture)] = response["changes"]![key]?.DeepClone();
-            else target[path[^1]] = response["changes"]![key]?.DeepClone();
+            if (target is JsonArray list) list[int.Parse(path[^1], System.Globalization.CultureInfo.InvariantCulture)] = replacement;
+            else target[path[^1]] = replacement;
         }
         return result;
     }
@@ -218,4 +247,6 @@ internal sealed class PlanningUnitPatches(JsonObject schema, Dictionary<string, 
             else return false;
         return true;
     }
+
+    private static bool IsInlineObject(JsonObject schema) => schema["kind"]?.ToString() == "inline" && schema["type"]?.ToString() == "object";
 }

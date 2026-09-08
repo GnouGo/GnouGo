@@ -31,7 +31,7 @@ public sealed class ProducerRepairTests
         var patch = PlanningUnitPatches.Create(state.Graph, contract, PlanningConstruction.Schema(workflow, contract, state.Preparation!, state.Graph), state.Preparation);
         var field = Assert.Single(patch.Context(contract.Candidate));
         Assert.Equal("nodes/greeting/outputSchema", field.Key);
-        var changed = field.Value!.DeepClone(); changed["properties"]!.AsArray().Add(Field(input));
+        var changed = new JsonObject { ["addProperties"] = new JsonArray(Field(input)) };
         var candidate = patch.Apply(contract.Candidate, new() { ["changes"] = new JsonObject { [field.Key] = changed }, ["remove"] = new JsonArray() });
         PlanningProducerRepair.Preserve(contract.ProducerReviewBaseline!, candidate);
         Assert.False(PlanningProducerRepair.Schedule(state));
@@ -90,8 +90,7 @@ public sealed class ProducerRepairTests
         var patch = PlanningUnitPatches.Create(state.Graph, unit, schema, state.Preparation);
         var coordinate = Assert.Single(patch.Context(unit.Candidate));
         Assert.Equal("nodes/metadata/structuredOutput/schema", coordinate.Key);
-        var changed = coordinate.Value!.DeepClone();
-        changed["properties"]!.AsArray().Add(Field("revision"));
+        var changed = new JsonObject { ["addProperties"] = new JsonArray(Field("revision")) };
         var result = patch.Apply(unit.Candidate, new() { ["changes"] = new JsonObject { [coordinate.Key] = changed }, ["remove"] = new JsonArray() });
         PlanningProducerRepair.Preserve(unit.ProducerReviewBaseline!, result);
         Assert.Equal("name", result["nodes"]!["metadata"]!["structuredOutput"]!["schema"]!["properties"]![0]!["name"]!.GetValue<string>());
@@ -123,6 +122,26 @@ public sealed class ProducerRepairTests
         else fields[0]!["schema"]!["type"] = "number";
         Assert.Throws<InvalidOperationException>(() => PlanningProducerRepair.Preserve(before, after));
         PlanningProducerRepair.Preserve(before, before.DeepClone().AsObject()); // Unrelated contributors need not invent fields.
+    }
+
+    [Fact]
+    public void AdditiveRepairRestoresTheBaselineAndCannotReplaceAnExistingProperty()
+    {
+        var state = Fixture(); Assert.True(PlanningProducerRepair.Schedule(state));
+        var unit = state.ConstructionUnits.Single(u => u.Key == "producer-contract"); var workflow = state.Graph!.Workflows[0];
+        unit.Candidate!["nodes"]!["metadata"]!["structuredOutput"]!["schema"]!["description"] = "Changed description";
+        unit.Candidate["nodes"]!["metadata"]!["structuredOutput"]!["schema"]!["properties"]![0]!["schema"]!["type"] = "integer";
+        unit.Diagnostics = [new("PRODUCER_CONTRACT_PRESERVATION_FAILED", "/units/producer-contract/candidate", "Existing declarations changed.")];
+        var patch = PlanningUnitPatches.Create(state.Graph, unit, PlanningConstruction.Schema(workflow, unit, state.Preparation!, state.Graph), state.Preparation);
+        var coordinate = Assert.Single(patch.Context(unit.Candidate));
+        Assert.Null(coordinate.Value!["description"]); Assert.Equal("string", coordinate.Value["properties"]![0]!["schema"]!["type"]!.ToString());
+        JsonObject Response(string name) => new() { ["changes"] = new JsonObject { [coordinate.Key] = new JsonObject { ["addProperties"] = new JsonArray(Field(name)) } }, ["remove"] = new JsonArray() };
+        var before = unit.Candidate.ToJsonString();
+        Assert.Throws<InvalidOperationException>(() => patch.Apply(unit.Candidate, Response("name")));
+        Assert.Equal(before, unit.Candidate.ToJsonString());
+        var repaired = patch.Apply(unit.Candidate, Response("revision"));
+        PlanningProducerRepair.Preserve(unit.ProducerReviewBaseline!, repaired);
+        Assert.Equal(2, repaired["nodes"]!["metadata"]!["structuredOutput"]!["schema"]!["properties"]!.AsArray().Count);
     }
 
     private static JsonObject Field(string name) => new()
