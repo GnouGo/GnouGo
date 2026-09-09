@@ -186,6 +186,7 @@ public sealed class PreparationRecoveryTests
     [InlineData("Return a greeting", false)]
     [InlineData("Renvoyer une salutation", false)]
     [InlineData("Return a greeting", true)]
+    [InlineData("Renvoyer une salutation", true)]
     public async Task MissingObservationReassessesPreparationWithoutRewritingIntentOrRetainingApproval(string prompt, bool exhausted)
     {
         var state = Session(PlanningStatus.Validating); state.Request.Prompt = prompt;
@@ -194,6 +195,7 @@ public sealed class PreparationRecoveryTests
         state.Answers.Add(new("Retained choice", new JsonObject { ["choice"] = "yes" })); state.ClarificationForms = 1; state.ClarificationQuestions = 1;
         state.PreparationCheckpoint = new() { ValidatedResults = new JsonObject { ["discovery"] = new JsonArray(), ["inventory"] = new JsonObject { ["old"] = true } } };
         state.PreparationReassessments = exhausted ? state.Request.MaxRepairs : 0;
+        state.Usage = new() { Calls = 12, TotalTokens = 2500, EstimatedCost = 1.2m, EstimatedCostCurrency = "EUR" };
         var runtime = new FakeRuntime { OnCall = (phase, _, _) =>
         {
             Assert.Equal("semantic_review", phase);
@@ -216,7 +218,23 @@ public sealed class PreparationRecoveryTests
         if (exhausted)
         {
             Assert.Contains(state.Diagnostics, d => d.Code == "PREPARATION_REASSESSMENT_LIMIT");
-            Assert.Contains(state.Diagnostics, d => d.Code == "FAILURE_RESULT_MISSING"); Assert.NotNull(state.Graph); return;
+            Assert.Contains(state.Diagnostics, d => d.Code == "FAILURE_RESULT_MISSING"); Assert.NotNull(state.Graph);
+            var legacy = JsonSerializer.SerializeToNode(state, PlanningJsonContext.Default.PlanningSnapshot)!.AsObject();
+            legacy.Remove("preparationReassessmentsAtRetry");
+            state = legacy.Deserialize(PlanningJsonContext.Default.PlanningSnapshot)!;
+            var passive = await planner.AdvanceAsync(state, new() { ExpectedRevision = state.Revision }, runtime, TestContext.Current.CancellationToken);
+            Assert.Equal(state.Revision, passive.Revision); Assert.Equal(0, passive.PreparationReassessmentsAtRetry);
+            var original = state; var calls = runtime.Phases.Count; var usage = JsonSerializer.Serialize(state.Usage, PlanningJsonContext.Default.LLMUsageBudgetSnapshot);
+            await Assert.ThrowsAsync<PlanningConflictException>(() => planner.AdvanceAsync(state, new() { Kind = "retry", ExpectedRevision = state.Revision - 1 }, runtime, TestContext.Current.CancellationToken));
+            state = await planner.AdvanceAsync(state, new() { Kind = "retry", ExpectedRevision = state.Revision }, runtime, TestContext.Current.CancellationToken);
+            Assert.Equal(PlanningStatus.Created, state.Status); Assert.Equal(PlanningPhase.Capabilities, state.CurrentPhase);
+            Assert.Equal(original.Request.SessionId, state.Request.SessionId); Assert.Equal(original.Request.TenantId, state.Request.TenantId);
+            Assert.Equal(calls, runtime.Phases.Count); Assert.Equal(usage, JsonSerializer.Serialize(state.Usage, PlanningJsonContext.Default.LLMUsageBudgetSnapshot));
+            Assert.Equal(state.Request.MaxRepairs, state.PreparationReassessmentsAtRetry);
+            Assert.Equal(state.Request.MaxRepairs + 1, state.PreparationReassessments);
+            Assert.DoesNotContain(state.Diagnostics, d => d.Code == "PREPARATION_REASSESSMENT_LIMIT");
+            Assert.Contains(state.Diagnostics, d => d.Code == "FAILURE_RESULT_MISSING");
+            Assert.NotNull(original.Graph); Assert.NotNull(state.PreviousGraph);
         }
         Assert.Null(state.ApprovedBehaviorHash); Assert.Null(state.Preparation); Assert.Null(state.Graph);
         Assert.NotNull(state.PreparationCheckpoint!.ValidatedResults["discovery"]); Assert.Null(state.PreparationCheckpoint.ValidatedResults["inventory"]);
@@ -236,6 +254,6 @@ public sealed class PreparationRecoveryTests
         state = await planner.AdvanceAsync(state, new() { ExpectedRevision = state.Revision }, runtime, TestContext.Current.CancellationToken);
         state = await planner.AdvanceAsync(state, new() { ExpectedRevision = state.Revision }, runtime, TestContext.Current.CancellationToken);
         Assert.Equal(PlanningStatus.BehaviorReview, state.Status); Assert.Null(state.ApprovedBehaviorHash);
-        Assert.Equal(1, state.PreparationReassessments); Assert.Single(state.Answers);
+        Assert.Equal(exhausted ? state.Request.MaxRepairs + 1 : 1, state.PreparationReassessments); Assert.Single(state.Answers);
     }
 }

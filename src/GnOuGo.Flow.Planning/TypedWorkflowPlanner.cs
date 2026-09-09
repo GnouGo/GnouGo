@@ -24,6 +24,8 @@ public sealed partial class TypedWorkflowPlanner(TimeProvider? timeProvider = nu
             throw new ArgumentException("A planning session requires tenant, session, and prompt values.");
         if (snapshot.Request.MaxConcurrency is < 1 or > 16 || snapshot.Request.MaxRepairs is < 0 or > 10)
             throw new ArgumentException("Invalid planning concurrency or repair limit.");
+        if (snapshot.PreparationReassessmentsAtRetry < 0 || snapshot.PreparationReassessmentsAtRetry > snapshot.PreparationReassessments)
+            throw new ArgumentException("Invalid preparation reassessment counters.");
         PlanningGenerationPolicy.Validate(snapshot.Request.Generation);
         if (command.Kind == "configure_generation")
         {
@@ -218,6 +220,14 @@ public sealed partial class TypedWorkflowPlanner(TimeProvider? timeProvider = nu
                         state.PreviousGraph = state.Graph; state.Graph = null;
                         state.Preparation = null; state.PreparationCheckpoint = null; state.Fragments.Clear();
                         ResetBehavior(state); state.Yaml = null; state.Scenarios.Clear();
+                    }
+                    if (state.Graph is not null && state.Diagnostics.Any(d => d.Code == "PREPARATION_REASSESSMENT_LIMIT"))
+                    {
+                        state.PreparationReassessmentsAtRetry = state.PreparationReassessments;
+                        // Retry the diagnosed upstream stage, not semantic review of
+                        // the same known-invalid graph. Keep independent findings.
+                        var retainedFindings = state.Diagnostics.Where(d => d.Code != "PREPARATION_REASSESSMENT_LIMIT").ToList();
+                        if (RequiresPreparationReassessment(state, retainedFindings)) break;
                     }
                     var unreviewed = !HasBehaviorApproval(state) || PlanningPhase.Resolve(state) == PlanningPhase.Behavior;
                     state.Status = state.Graph is null || unreviewed ? PlanningStatus.Created

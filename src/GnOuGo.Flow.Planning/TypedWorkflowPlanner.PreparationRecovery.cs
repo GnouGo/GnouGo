@@ -129,7 +129,7 @@ public sealed partial class TypedWorkflowPlanner
         var preparation = findings.Where(d => d.Required && targets.ContainsKey(d.Location) && d.Location.EndsWith("/preparation", StringComparison.Ordinal)).ToList();
         if (preparation.Count == 0) return false;
         state.Attempts.Add(new(PlanningGraphCompiler.Fingerprint(state.Graph!), "preparation_review", 9, false, findings.ToList()));
-        if (state.PreparationReassessments >= state.Request.MaxRepairs)
+        if (state.PreparationReassessments - state.PreparationReassessmentsAtRetry >= state.Request.MaxRepairs)
         {
             state.Diagnostics = findings.ToList();
             state.Diagnostics.Add(new("PREPARATION_REASSESSMENT_LIMIT", "/preparation", "Required runtime observations remain unresolved after the configured preparation reassessments. The current candidate is retained and cannot be approved."));

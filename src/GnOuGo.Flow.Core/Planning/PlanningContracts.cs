@@ -114,6 +114,8 @@ public sealed class PlanningSnapshot
     public PlanningPreparationCheckpoint? PreparationCheckpoint { get; set; }
     public List<PlanningDiagnostic> PreparationFeedback { get; set; } = [];
     public int PreparationReassessments { get; set; }
+    // Cumulative reassessments are retained; an explicit Retry opens a new bounded allowance.
+    public int PreparationReassessmentsAtRetry { get; set; }
     public string? PreparationReviewFingerprint { get; set; }
     public List<PlanningGenerationRevision> GenerationHistory { get; set; } = [];
     public string? Yaml { get; set; }

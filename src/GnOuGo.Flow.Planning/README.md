@@ -588,3 +588,5 @@ scoped dependency review can request behavior revision only. Omitted producer sc
 fields cannot justify capability rediscovery; observation assessments remain separate.
 
 Runtime MCP argument findings retain JSON Pointers through scenario validation and planning-location mapping, including escaped property names. Repairs replace the diagnosed computation, preserving other arguments; a coarse runtime finding never locks the faulty expression while exposing only its dependencies. Per-scenario evidence remains recorded, while identical aggregate findings are deduplicated.
+
+An explicit Retry after preparation reassessment exhaustion resumes capability preparation from the retained findings and discovery. It opens the configured reassessment allowance without resetting cumulative reassessments, usage, answers, or campaign budgets. Any revised behavior requires a new review. Passive reconnect/advance does not reopen this allowance.
