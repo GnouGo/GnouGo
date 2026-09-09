@@ -1,3 +1,4 @@
+using System.Text.Json.Nodes;
 using GnOuGo.Flow.Core.Parsing;
 using GnOuGo.Flow.Core.Runtime;
 using Xunit;
@@ -6,6 +7,58 @@ namespace GnOuGo.Flow.Tests;
 
 public sealed class TypedPlanningScenarioTests
 {
+    private static InMemoryMcpClientFactory ObservationFactory(string field)
+    {
+        var factory = new InMemoryMcpClientFactory();
+        factory.RegisterServer("renamed", new()
+        {
+            Tools = [new() { Name = "observe", InputSchema = new JsonObject { ["type"] = "object" } }],
+            ToolHandlers = new() { ["observe"] = _ => new() { Content = new JsonObject { [field] = false } } }
+        });
+        return factory;
+    }
+
+    [Theory]
+    [InlineData("Number(undefined)", false)]
+    [InlineData("Number('12')", true)]
+    public async Task ObservationFixturesCannotBypassComputedArgumentValidation(string expression, bool valid)
+    {
+        var document = WorkflowParser.Parse("""
+            version: 1
+            entrypoint: main
+            workflows:
+              main:
+                steps:
+                  - id: observe
+                    type: mcp.call
+                    input:
+                      server: arbitrary
+                      method: collect
+                      request: {offset: "${EXPRESSION}"}
+                finally:
+                  - id: cleanup
+                    type: set
+                    input: {closed: true}
+            """.Replace("EXPRESSION", expression, StringComparison.Ordinal));
+        var calls = 0;
+        var factory = new InMemoryMcpClientFactory();
+        factory.RegisterServer("arbitrary", new()
+        {
+            Tools = [new() { Name = "collect", InputSchema = JsonNode.Parse("""{"type":"object","properties":{"offset":{"type":"number"}},"required":["offset"]}""")!.AsObject() }],
+            ToolHandlers = new() { ["collect"] = _ => { calls++; return new() { Content = new JsonObject { ["more"] = false } }; } }
+        });
+        var observations = JsonNode.Parse("""
+            {"main:observe":{"schema":{"type":"object","properties":{"response":{"type":"object","properties":{"more":{"type":"boolean"}},"required":["more"]}},"required":["response"]},"responses":[{"response":{"more":false}}]}}
+            """)!.AsObject();
+        var results = await WorkflowPlanScenarioValidator.ValidateAsync(document, factory, TestContext.Current.CancellationToken, observations: observations);
+        var nominal = Assert.Single(results, s => s.Id == "nominal");
+        Assert.Equal(valid ? "passed" : "inconclusive", nominal.Outcome);
+        Assert.Equal(valid ? 1 : 0, calls);
+        if (!valid)
+            Assert.Contains(nominal.Diagnostics, d => d.Location == "workflow:main/step:observe" && d.Message.Contains("INPUT_VALIDATION", StringComparison.Ordinal));
+        Assert.DoesNotContain(results.SelectMany(r => r.Diagnostics), d => d.Code == "FINALIZATION_NOT_EXECUTED");
+    }
+
     [Theory]
     [InlineData("pages", "more", true)]
     [InlineData("pages", "more", false)]
@@ -42,7 +95,7 @@ public sealed class TypedPlanningScenarioTests
                 new System.Text.Json.Nodes.JsonObject { ["response"] = new System.Text.Json.Nodes.JsonObject { [field] = true } },
                 new System.Text.Json.Nodes.JsonObject { ["response"] = new System.Text.Json.Nodes.JsonObject { [field] = false } })
         } };
-        var results = await WorkflowPlanScenarioValidator.ValidateAsync(document, null, TestContext.Current.CancellationToken, observations: observations);
+        var results = await WorkflowPlanScenarioValidator.ValidateAsync(document, ObservationFactory(field), TestContext.Current.CancellationToken, observations: observations);
         Assert.Equal("passed", Assert.Single(results, s => s.Id == "nominal").Outcome);
         var coverage = Assert.Single(results, s => s.Id == "observations:main:" + loop);
         Assert.Equal(terminates, coverage.Outcome == "passed");
@@ -122,13 +175,13 @@ public sealed class TypedPlanningScenarioTests
                 new System.Text.Json.Nodes.JsonObject { ["response"] = new System.Text.Json.Nodes.JsonObject { [field] = true } },
                 new System.Text.Json.Nodes.JsonObject { ["response"] = new System.Text.Json.Nodes.JsonObject { [field] = false } })
         } };
-        var results = await WorkflowPlanScenarioValidator.ValidateAsync(document, null, TestContext.Current.CancellationToken, observations: observations);
+        var results = await WorkflowPlanScenarioValidator.ValidateAsync(document, ObservationFactory(field), TestContext.Current.CancellationToken, observations: observations);
         var nominal = Assert.Single(results, s => s.Id == "nominal");
         Assert.Equal(passes, nominal.Outcome == "passed");
         if (passes) Assert.All(results, s => Assert.Equal("passed", s.Outcome));
         else Assert.Contains(nominal.Diagnostics, d => d.Code == "SCENARIO_OBSERVATIONS_UNCONSUMED" || d.Message.Contains("SCENARIO_OBSERVATIONS_EXHAUSTED", StringComparison.Ordinal));
         observations["main:read"]!["responses"]![0]!["response"]![field] = "invalid";
-        var invalid = Assert.Single(await WorkflowPlanScenarioValidator.ValidateAsync(document, null, TestContext.Current.CancellationToken, observations: observations), s => s.Id == "nominal");
+        var invalid = Assert.Single(await WorkflowPlanScenarioValidator.ValidateAsync(document, ObservationFactory(field), TestContext.Current.CancellationToken, observations: observations), s => s.Id == "nominal");
         Assert.NotEqual("passed", invalid.Outcome);
     }
 

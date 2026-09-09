@@ -166,7 +166,7 @@ internal static class WorkflowPlanScenarioValidator
     {
         public string StepType => inner.StepType;
         public string? DslSnippet => inner.DslSnippet;
-        public Task<JsonNode?> ExecuteAsync(StepExecutionContext ctx, CancellationToken ct)
+        public async Task<JsonNode?> ExecuteAsync(StepExecutionContext ctx, CancellationToken ct)
         {
             if (ctx.Step.Id == scenario.Step && ctx.ExecutionScope?.Workflow?.Name == scenario.Workflow)
             {
@@ -176,14 +176,19 @@ internal static class WorkflowPlanScenarioValidator
             var key = ctx.ExecutionScope?.Workflow?.Name + ":" + ctx.Step.Id;
             if (observations?[key] is JsonObject fixture)
             {
-                var index = observed.AddOrUpdate(key, 1, (_, current) => current + 1) - 1;
+                var index = observed.GetValueOrDefault(key);
                 if (fixture["responses"] is not JsonArray samples || index >= samples.Count)
                     throw new WorkflowRuntimeException("SCENARIO_OBSERVATIONS_EXHAUSTED", "Execution requested another observation after the explicit terminal fixture; check the loop continuation or provide a valid longer fixture.");
                 if (fixture["schema"] is not JsonObject schema || PlanningContractValidation.ValidateInstance(samples[index], schema).Count != 0)
                     throw new WorkflowRuntimeException("SCENARIO_OBSERVATION_INVALID", "The synthetic observation does not satisfy its declared producer contract.");
-                return Task.FromResult(samples[index]?.DeepClone());
+                // Fixtures replace observations, not executable request validation. The inner
+                // executor uses the scenario's fake integrations and must evaluate arguments,
+                // validate native contracts, and complete before this sample is consumed.
+                await inner.ExecuteAsync(ctx, ct).ConfigureAwait(false);
+                observed.AddOrUpdate(key, 1, (_, current) => current + 1);
+                return samples[index]?.DeepClone();
             }
-            return inner.ExecuteAsync(ctx, ct);
+            return await inner.ExecuteAsync(ctx, ct).ConfigureAwait(false);
         }
     }
     private sealed class ScenarioLlm : ILLMClient
