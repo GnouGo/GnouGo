@@ -55,6 +55,7 @@ internal static class PlanningProducerRepair
             foreach (var producer in producers)
             {
                 producer.ProducerReviewBaseline = producer.Candidate!.DeepClone().AsObject();
+                producer.SchemaDeclarations = null;
                 producer.Status = "invalid"; producer.RepairCallsAtRetry = producer.RepairCalls; producer.DispatchDiagnostics.Clear();
                 var wi = graph.Workflows.FindIndex(w => w.Key == producer.WorkflowKey);
                 var original = graph.Workflows[wi];

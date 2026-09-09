@@ -47,7 +47,7 @@ public sealed class ProducerRepairTests
     {
         var state = ConstructionUnitTests.ApprovedSkeleton(); var workflow = state.Graph!.Workflows[0]; var node = workflow.Steps[0];
         workflow.Outputs.Clear(); workflow.Inputs = [new() { Name = "enabled", Schema = new() { Type = "boolean" } }];
-        node.Input.Members.Add(new("enabled", new() { Kind = "input", Source = "enabled" }));
+        node.Input = Obj(("message", Str("Retained value")), ("enabled", new() { Kind = "input", Source = "enabled" }));
         node.OutputSchema = new() { Type = "object", Properties = [new() { Name = "message", Schema = new() { Type = "string" } }], AdditionalProperties = new() { Type = "string", Nullable = true } };
         var contract = new PlanningConstructionUnit { Key = "contract", WorkflowKey = workflow.Key, Kind = "contracts", NodeKeys = [node.Key], Status = "validated", ContractVersion = PlanningDataflow.ContractVersion };
         contract.Candidate = PlanningConstruction.Values(workflow, contract);
@@ -58,6 +58,19 @@ public sealed class ProducerRepairTests
         Assert.True(PlanningProducerRepair.Schedule(state));
         Assert.Equal("/workflows/0/steps/0/outputSchema", Assert.Single(contract.Diagnostics).Location);
         Assert.True(JsonNode.DeepEquals(contract.Candidate, contract.ProducerReviewBaseline));
+        var calls = contract.Calls; var repairs = contract.RepairCalls;
+        var completed = PlanningKnownResultSchemas.Complete(state.Graph, contract, state.Preparation!);
+        Assert.NotNull(completed);
+        var addition = Assert.Single(completed["nodes"]![node.Key]!["outputSchema"]!["properties"]!.AsArray(), p => p!["name"]!.ToString() == "enabled")!;
+        Assert.Equal("boolean", addition["schema"]!["type"]!.ToString()); Assert.True(addition["required"]!.GetValue<bool>());
+        PlanningProducerRepair.Preserve(contract.Candidate!, completed);
+        Assert.Equal(calls, contract.Calls); Assert.Equal(repairs, contract.RepairCalls);
+        var applied = PlanningConstruction.Apply(state.Graph, contract, completed, state.Preparation!);
+        Assert.DoesNotContain(PlanningGraphValidation.Validate(applied, state.Preparation!), d => d.Code == "SET_OUTPUT_INVALID");
+        // Constraints not representable without loss cannot be erased by import.
+        workflow.Inputs[0].Schema = new() { CapabilityId = "bounded", SchemaPointer = "/output" };
+        state.Preparation!.Capabilities.Add(new() { Id = "bounded", StepType = "mcp.call", OutputSchema = new() { ["type"] = "integer", ["minimum"] = 1 } });
+        Assert.Null(PlanningKnownResultSchemas.Complete(state.Graph, contract, state.Preparation));
     }
 
     [Theory]

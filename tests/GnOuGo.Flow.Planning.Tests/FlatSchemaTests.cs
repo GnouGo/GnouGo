@@ -11,6 +11,60 @@ public sealed class FlatSchemaTests
     private static CancellationToken Ct => TestContext.Current.CancellationToken;
 
     [Theory]
+    [InlineData("entries/name", "label~value")]
+    [InlineData("entrees/nom", "libelle~valeur")]
+    public void AdditiveRepairsFlattenArrayEntriesWithoutChangingExistingContracts(string name, string child)
+    {
+        var state = ProducerRepairTests.Fixture(); Assert.True(PlanningProducerRepair.Schedule(state));
+        var unit = state.ConstructionUnits.Single(u => u.Key == "producer-contract");
+        var patch = PlanningUnitPatches.Create(state.Graph!, unit, PlanningConstruction.Schema(state.Graph!.Workflows[0], unit, state.Preparation!, state.Graph), state.Preparation);
+        var flat = new PlanningFlatSchemas(patch.Schema); var coordinate = Assert.Single(patch.Context(unit.Candidate)).Key;
+        Assert.Empty(PlanningContractValidation.ValidateSchema(flat.Schema, strict: true));
+        var pointer = "/properties/" + PlanningSchemaReferences.Escape(name);
+        var field = new JsonObject { ["fields"] = new JsonArray(Row("", "object"), Row(pointer, "array"), Row(pointer + "/items", "object"),
+            Row(pointer + "/items/properties/" + PlanningSchemaReferences.Escape(child), "string", nullable: true)) };
+        var response = new JsonObject { [coordinate] = field };
+        var expanded = flat.Expand(response, out var diagnostics);
+        Assert.Empty(diagnostics); Assert.NotNull(expanded);
+        var repaired = patch.Apply(unit.Candidate, expanded);
+        PlanningProducerRepair.Preserve(unit.ProducerReviewBaseline!, repaired);
+        var fields = repaired["nodes"]!["metadata"]!["structuredOutput"]!["schema"]!["properties"]!.AsArray();
+        Assert.Equal(2, fields.Count); Assert.Equal("name", fields[0]!["name"]!.ToString());
+        Assert.Equal("array", fields[1]!["schema"]!["type"]!.ToString());
+        Assert.Equal(child, fields[1]!["schema"]!["items"]!["properties"]![0]!["name"]!.ToString());
+        field["fields"]!.AsArray().RemoveAt(2);
+        Assert.Null(flat.Expand(response, out diagnostics));
+        Assert.Contains(diagnostics, d => d.Location.EndsWith("/fields/2", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public async Task PersistedProducerRepairUsesFlatAdditionsAndTheExistingCallLimit()
+    {
+        var state = ConstructionUnitTests.ApprovedSkeleton(); state.Graph = Graph();
+        state.Graph.Workflows[0].Steps[0].OutputSchema = new() { Type = "object", Properties = [new() { Name = "message", Schema = new() { Type = "string" } }] };
+        var contract = Unit(); contract.Key = "producer-contract"; contract.Status = "invalid";
+        contract.Candidate = PlanningConstruction.Values(state.Graph.Workflows[0], contract);
+        contract.ProducerReviewBaseline = contract.Candidate.DeepClone().AsObject();
+        contract.Diagnostics = [new(PlanningProducerRepair.DiagnosticCode, "/workflows/0/steps/0/outputSchema", "Review the missing synthesized result field.")];
+        state.ConstructionUnits = [contract];
+        state.Status = PlanningStatus.Generating;
+        state = JsonSerializer.Deserialize(JsonSerializer.Serialize(state, PlanningJsonContext.Default.PlanningSnapshot), PlanningJsonContext.Default.PlanningSnapshot)!;
+        var calls = 0;
+        var runtime = new FakeRuntime { OnCall = (phase, request, _) =>
+        {
+            calls++; Assert.Equal("repair_unit", phase); Assert.Contains("flat list", request.Prompt);
+            Assert.Equal(8192, request.MaxTokens); Assert.True(request.DisableTransportRetries);
+            var key = Assert.Single(request.StructuredOutputSchema!["properties"]!.AsObject()).Key;
+            return Task.FromResult(new LLMResponse { Json = new JsonObject { [key] = new JsonObject { ["fields"] = new JsonArray(Row("", "object"), Row("/properties/revision", "string")) } } });
+        } };
+        state = await new TypedWorkflowPlanner().AdvanceAsync(state, new() { ExpectedRevision = state.Revision }, runtime, Ct);
+        Assert.Equal(1, calls);
+        var unit = state.ConstructionUnits.Single(u => u.Key == "producer-contract");
+        Assert.True(unit.Status == "validated", string.Join("; ", unit.Diagnostics.Concat(unit.DispatchDiagnostics).Select(d => d.Code + ": " + d.Message))); Assert.Equal(1, unit.RepairCalls);
+        Assert.NotNull(unit.SchemaDeclarations);
+    }
+
+    [Theory]
     [InlineData(500)]
     [InlineData(503)]
     public async Task UnreceivedContractPausesAndExplicitRetryUsesEquivalentFlatTransport(int status)

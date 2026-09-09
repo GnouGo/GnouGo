@@ -437,6 +437,11 @@ the explicitly referenced synthesized producer after a targeted implementation r
 Rejected consumer candidates and their findings remain unvalidated checkpoints; they do
 not replace the retained graph. Additive contract review preserves existing declarations,
 then resumes the dependent implementation queue. Original catalog schemas remain immutable.
+Established extra value contracts can supply new result properties without a model call
+when their full schemas survive an exact round trip; unsupported constraints and opaque
+values remain unresolved. Additive model repairs use flat declarations under exact root
+coordinates, avoiding recursive schema responses and excess transport nesting. The host
+assembles at most four new properties, validates them and preserves the existing schema.
 Review baselines, cumulative calls, pending consumers and history survive restart
 inside the encrypted schema-version-2 snapshot.
 

@@ -14,11 +14,29 @@ internal sealed class PlanningFlatSchemas
 
     private readonly Dictionary<string, bool> _slots = new(StringComparer.Ordinal);
     private readonly HashSet<string> _invalidRows = new(StringComparer.Ordinal);
+    private readonly HashSet<string> _additions = new(StringComparer.Ordinal);
     internal JsonObject Schema { get; }
+    internal string Guidance => Instructions + (_additions.Count == 0 ? "" :
+        "For this additive repair, each root response key is an exact schema coordinate. Declare an object root and only the new properties beneath it, at most four. Existing properties and map contracts are retained by the host; do not repeat them.\n");
 
     internal PlanningFlatSchemas(JsonObject original)
     {
         Schema = original.DeepClone().AsObject();
+        // Additive repairs use the exact coordinate as a root response key. Repeating
+        // changes/addProperties/port/schema wrappers around flat rows exceeds strict
+        // transport depth limits and adds no executable information.
+        if (Schema["properties"]?["changes"]?["properties"] is JsonObject changes && changes.Count > 0 &&
+            changes.All(p => p.Value?["properties"]?["addProperties"]?["items"]?["$ref"]?.ToString() is "#/$defs/port" or "#/$defs/strictPort"))
+        {
+            var slots = new JsonObject();
+            foreach (var (coordinate, value) in changes)
+            {
+                _additions.Add(coordinate);
+                slots[coordinate] = new JsonObject { ["$ref"] = value!["properties"]!["addProperties"]!["items"]!["$ref"]!.ToString() == "#/$defs/strictPort" ? "#/$defs/strictSchema" : "#/$defs/schema" };
+            }
+            Schema["properties"] = slots;
+            Schema["required"] = new JsonArray(slots.Select(p => (JsonNode?)JsonValue.Create(p.Key)).ToArray());
+        }
         var definitions = Schema["$defs"]!.AsObject();
         foreach (var name in new[] { "schema", "strictSchema" })
         {
@@ -117,7 +135,22 @@ internal sealed class PlanningFlatSchemas
             foreach (var part in segments[..^1]) parentNode = parentNode[part]!.AsObject();
             parentNode[segments[^1]] = root.Node;
         }
-        return findings.Count == 0 ? result : null;
+        if (findings.Count != 0) return null;
+        if (_additions.Count == 0) return result;
+        var patched = new JsonObject();
+        foreach (var coordinate in _additions)
+        {
+            var root = result[coordinate];
+            if (root?["kind"]?.ToString() != "inline" || root["type"]?.ToString() != "object" || root["nullable"]?.GetValue<bool>() == true ||
+                root["additionalProperties"] is not null || root["properties"] is not JsonArray properties || properties.Count > 4)
+            {
+                findings.Add(new("SCHEMA_DECLARATION_INVALID", "/declarations/" + PlanningSchemaReferences.Escape(coordinate),
+                    "An additive repair declares an object root and at most four new named properties. Existing fields and map contracts are retained by the host.", ValidationStage: "conversion"));
+                continue;
+            }
+            patched[coordinate] = new JsonObject { ["addProperties"] = properties.DeepClone() };
+        }
+        return findings.Count == 0 ? new JsonObject { ["changes"] = patched, ["remove"] = new JsonArray() } : null;
     }
 
     internal List<PlanningDiagnostic> PreservationFindings(JsonObject? previous, JsonObject candidate)

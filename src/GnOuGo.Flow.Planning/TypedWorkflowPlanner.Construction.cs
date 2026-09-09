@@ -141,6 +141,8 @@ public sealed partial class TypedWorkflowPlanner
                 var workflow = graph.Workflows.Single(w => w.Key == unit.WorkflowKey);
                 var preparation = UnitPreparation(state.Preparation!, workflow, unit);
                 var schema = PlanningConstruction.Schema(workflow, unit, preparation, graph);
+                if (PlanningKnownResultSchemas.Complete(graph, unit, preparation) is { } knownResults)
+                    return (unit, response: (LLMResponse?)new LLMResponse { Json = knownResults }, patch: (PlanningUnitPatches?)null, error: (Exception?)null);
                 // Deterministically constructed candidates have zero model calls, but
                 // their retained diagnostics must also be refreshed after an upgrade.
                 var repair = unit.Diagnostics.Count != 0 && (unit.Calls > 0 || unit.Candidate is not null);
@@ -160,6 +162,7 @@ public sealed partial class TypedWorkflowPlanner
                 }
                 var flat = unit.FlatSchemaGeneration && unit.Kind == "contracts" && unit.Candidate is null ? new PlanningFlatSchemas(schema) : null;
                 var patch = flat is null && (repair || unit.PartialCandidate) ? PlanningUnitPatches.Create(graph, unit, schema, state.Preparation) : null;
+                if (unit.ProducerReviewBaseline is not null && patch is not null) flat = new PlanningFlatSchemas(patch.Schema);
                 if (!repair && unit.Diagnostics.Count == 0 && unit.Candidate is not null && PlanningConstruction.ShapeFindings(unit.Candidate, schema, unit).Count == 0)
                     return (unit, response: (LLMResponse?)new LLMResponse { Json = unit.Candidate.DeepClone() }, patch, error: (Exception?)null);
                 if (CanConstructWithoutModel(schema))
@@ -173,7 +176,9 @@ public sealed partial class TypedWorkflowPlanner
                 string FieldPrompt(PlanningUnitPatches fields) => (unit.PartialCandidate && !repair ?
                     "Generate only the supplied missing coordinates of this incomplete candidate. Other fields are generated in separate calls; preserve completed fields.\n" : "") +
                     UnitRepairPrompt(state, workflow, unit, preparation, fields);
-                var prompt = flat is not null ? PlanningFlatSchemas.Instructions + (unit.SchemaDeclarations is null
+                string FlatPatchPrompt(PlanningUnitPatches fields) => flat!.Guidance + FieldPrompt(fields) +
+                    (unit.SchemaDeclarations is null ? "" : "\nPrevious flat response (repair invalid declarations while preserving valid rows):\n" + unit.SchemaDeclarations.ToJsonString());
+                var prompt = flat is not null && patch is not null ? FlatPatchPrompt(patch) : flat is not null ? PlanningFlatSchemas.Instructions + (unit.SchemaDeclarations is null
                     ? UnitPrompt(state, workflow, unit, preparation, false) + (unit.Diagnostics.Count == 0 ? "" :
                         "\nRepair the invalid response shape using these exact diagnostics:\n" + JsonSerializer.Serialize(unit.Diagnostics, PlanningJsonContext.Default.ListPlanningDiagnostic))
                     : "Repair only invalid declaration shapes and paths. Preserve existing valid declarations; add missing parents or array items where required. Do not redesign the result.\nCandidate:\n" + unit.SchemaDeclarations.ToJsonString() +
@@ -190,7 +195,9 @@ public sealed partial class TypedWorkflowPlanner
                 while (patch is not null && (unit.PartialCandidate && patch.FieldCount > 4 || PlanningConstruction.EstimateInputTokens(prompt, responseSchema) > state.Request.Generation.MaxInputTokensPerUnit))
                 {
                     var narrowed = patch.Narrow(); if (ReferenceEquals(narrowed, patch)) break;
-                    patch = narrowed; responseSchema = patch.Schema; prompt = FieldPrompt(patch);
+                    patch = narrowed;
+                    if (flat is not null) flat = new PlanningFlatSchemas(patch.Schema);
+                    responseSchema = flat?.Schema ?? patch.Schema; prompt = flat is null ? FieldPrompt(patch) : FlatPatchPrompt(patch);
                 }
                 unit.EstimatedInputTokens = PlanningConstruction.EstimateInputTokens(prompt, responseSchema);
                 unit.InputTokenLimit = state.Request.Generation.MaxInputTokensPerUnit;
