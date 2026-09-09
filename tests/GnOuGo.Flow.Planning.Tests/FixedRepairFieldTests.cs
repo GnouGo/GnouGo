@@ -9,6 +9,47 @@ namespace GnOuGo.Flow.Planning.Tests;
 
 public sealed class FixedRepairFieldTests
 {
+    [Fact]
+    public void RepairPromptDropsUnrelatedConsumersWhenTheFieldGroupNarrows()
+    {
+        var state = ConstructionUnitTests.ApprovedSkeleton(); var graph = Graph(); var workflow = graph.Workflows[0]; var preparation = Preparation();
+        state.Graph = graph; state.Preparation = preparation;
+        workflow.Steps[0].Input = Obj(("message", new() { Kind = "compute", Text = "return `Example: ```text````;" }));
+        workflow.Steps.Add(new() { Key = "unrelated", Type = "set", Purpose = "Unrelated consumer purpose must stay outside this repair", Input = Obj(("message", Str("retained"))), OutputSchema = workflow.Steps[0].OutputSchema });
+        var unit = new PlanningConstructionUnit { Key = "group", WorkflowKey = workflow.Key, Kind = "implementation", NodeKeys = ["greeting", "unrelated"], ContractVersion = PlanningDataflow.ContractVersion };
+        unit.Candidate = PlanningConstruction.UpgradeCandidate(graph, unit, PlanningConstruction.Values(workflow, unit, preparation), preparation);
+        unit.Diagnostics = PlanningExecutableValidation.Validate(graph, preparation).ToList();
+        var patch = PlanningUnitPatches.Create(graph, unit, PlanningConstruction.Schema(workflow, unit, preparation, graph), preparation);
+        var prompt = TypedWorkflowPlanner.UnitRepairPrompt(state, workflow, unit, preparation, patch);
+        Assert.DoesNotContain(workflow.Steps[1].Purpose, prompt);
+        Assert.Contains("nodes/greeting", prompt);
+        Assert.Equal(2, unit.NodeKeys.Count);
+    }
+
+    [Theory]
+    [InlineData("node.with.dots", "field/with~escapes")]
+    [InlineData("noeud.avec.points", "champ/avec~echappements")]
+    public void SchemaFailureRepairsOnlyTheInvalidConditionAndPreservesTheGeneratedInput(string key, string field)
+    {
+        var graph = Graph(); var workflow = graph.Workflows[0]; var node = workflow.Steps[0]; var preparation = Preparation();
+        node.Key = key; workflow.Outputs.Clear(); node.Input = Obj((field, Str("unchanged")));
+        node.OutputSchema = new() { Type = "object", Properties = [new() { Name = field, Required = true, Schema = new() { Type = "string" } }] };
+        node.OnError = [new(Str("error"), "stop", null, null)];
+        var unit = new PlanningConstructionUnit { Key = "unit/with~escapes", WorkflowKey = workflow.Key, Kind = "implementation", NodeKeys = [key], ContractVersion = PlanningDataflow.ContractVersion };
+        unit.Candidate = PlanningConstruction.UpgradeCandidate(graph, unit, PlanningConstruction.Values(workflow, unit, preparation), preparation);
+        var schema = PlanningConstruction.Schema(workflow, unit, preparation, graph);
+        unit.Diagnostics = PlanningConstruction.ShapeFindings(unit.Candidate, schema, unit);
+        Assert.Equal("/units/unit~1with~0escapes/candidate/nodes/" + key + "/onError/0/if", Assert.Single(unit.Diagnostics).Location);
+        node.Input = Obj(); node.OnError = [];
+        var patch = PlanningUnitPatches.Create(graph, unit, schema, preparation);
+        var coordinate = Assert.Single(patch.Context(unit.Candidate)).Key;
+        Assert.Equal("nodes/" + key + "/onError/0/if", coordinate);
+        var fixedCandidate = patch.Apply(unit.Candidate, new() { ["changes"] = new JsonObject { [coordinate] = null }, ["remove"] = new JsonArray() });
+        Assert.True(JsonNode.DeepEquals(unit.Candidate["nodes"]![key]!["values"], fixedCandidate["nodes"]![key]!["values"]));
+        Assert.Equal("stop", fixedCandidate["nodes"]![key]!["onError"]![0]!["action"]!.ToString());
+        Assert.Empty(PlanningConstruction.ShapeFindings(fixedCandidate, schema, unit));
+    }
+
     [Theory]
     [InlineData("error")]
     [InlineData("*")]
@@ -55,6 +96,8 @@ public sealed class FixedRepairFieldTests
         var context = patch.Context(unit.Candidate);
         Assert.DoesNotContain(context.Select(p => p.Key), key => key.EndsWith("/" + unchanged, StringComparison.Ordinal));
         Assert.Equal(3, context.Count);
+        Assert.Contains("nodes/greeting/values/" + nested + "/members/0/value", context.Select(p => p.Key));
+        Assert.False(TypedWorkflowPlanner.ComputedContractContext(workflow, preparation, context).ContainsKey("nodes/greeting/values/" + nested + "/members/0/value"));
         Assert.Contains(patch.Narrow().Context(unit.Candidate).Select(p => p.Key), key => key.Contains("/" + broken, StringComparison.Ordinal));
         var changes = new JsonObject();
         foreach (var key in context.Select(p => p.Key))

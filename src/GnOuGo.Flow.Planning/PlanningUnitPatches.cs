@@ -88,8 +88,10 @@ internal sealed class PlanningUnitPatches(JsonObject schema, Dictionary<string, 
                         foreach (var field in new[] { "if", "setOutput" })
                         {
                             var fieldLocation = graphPath + "/" + i + "/" + field;
-                            if (!diagnostics.Any(d => d.Location == fieldLocation || d.Location.StartsWith(fieldLocation + "/", StringComparison.Ordinal))) continue;
                             var fieldPath = slot.Parts.Concat([i.ToString(System.Globalization.CultureInfo.InvariantCulture), field]).ToArray();
+                            var candidateLocation = "/units/" + PlanningSchemaReferences.Escape(unit.Key) + "/candidate/" + string.Join("/", fieldPath.Select(PlanningSchemaReferences.Escape));
+                            if (!diagnostics.Any(d => d.Location == fieldLocation || d.Location.StartsWith(fieldLocation + "/", StringComparison.Ordinal) ||
+                                d.Location == candidateLocation || d.Location.StartsWith(candidateLocation + "/", StringComparison.Ordinal))) continue;
                             var errorDefinition = Definition(slot.Parts, "errorCase");
                             var fieldShape = full["$defs"]![errorDefinition]!["properties"]![field]!;
                             var before = leaves.Count;
@@ -169,7 +171,7 @@ internal sealed class PlanningUnitPatches(JsonObject schema, Dictionary<string, 
             if (diagnostics.Any(d => d.Location == location || d.Location == candidateLocation))
             { leaves.Add((path, shape)); return; }
             var before = leaves.Count;
-            if (label is "object" or "template" && obj["members"] is JsonArray members)
+            if (label is "object" or "template" or "compute" && obj["members"] is JsonArray members)
                 for (var i = 0; i < members.Count; i++) SelectChild(members[i]?["value"], path.Concat(["members", i.ToString(System.Globalization.CultureInfo.InvariantCulture), "value"]).ToArray(), location + "/members/" + i + "/value");
             if (label == "array" && obj["items"] is JsonArray items)
                 for (var i = 0; i < items.Count; i++) SelectChild(items[i], path.Concat(["items", i.ToString(System.Globalization.CultureInfo.InvariantCulture)]).ToArray(), location + "/items/" + i);

@@ -459,9 +459,14 @@ requirements declared by its containers. Inconsistent bindings require renewed b
 Duplicate lowering errors on an input do not expand repair scope when the same error
 already identifies a nested computation. Field coordinates use a diagnostic preview of
 the retained candidate, including invalid destination types; complete validation still
-gates acceptance. Error-handler response schemas permit boolean predicates or an explicit
+gates acceptance. Instance-schema failures carry exact candidate JSON Pointers into
+field repair, including nested handlers and escaped names; display messages are not
+parsed to reconstruct coordinates. Error-handler response schemas permit boolean predicates or an explicit
 unconditional handler, never presentation labels. Computation parameters retain their
 typed source bindings.
+Nested computation parameters are independently repairable. Narrowed repair prompts
+include only the affected consumer nodes and their incoming contracts; a parameter's
+result type is not inferred from the enclosing computation's public output type.
 
 Repair requests omit already-valid fields whose schemas permit only one value. If no editable
 field remains, recovery reports that a producer or dependency contract needs correction without

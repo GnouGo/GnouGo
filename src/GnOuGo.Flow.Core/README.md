@@ -28,6 +28,10 @@ compatible, and version-2 failures never trigger a legacy fallback.
 
 Core owns the provider-neutral planning request, snapshot, command and event contracts,
 `IWorkflowPlanner`, `IPlanningRuntime` and tenant-scoped `IPlanningSessionStore`.
+`PlanningContractValidation.ValidateInstanceFindings` returns exact JSON Pointer
+locations alongside readable schema violations. Property names containing dots,
+brackets, slashes or tildes remain unambiguous; the existing string diagnostics API
+retains its formatting for compatible callers.
 `WorkflowPlanningRuntime` adapts established discovery and validation. Required
 inconclusive scenarios block acceptance; human waits are separate from active time.
 Nominal scenarios retain handled runtime errors as `SCENARIO_RECOVERED_ERROR` findings.

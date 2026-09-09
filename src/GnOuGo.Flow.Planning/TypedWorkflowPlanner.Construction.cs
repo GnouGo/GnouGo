@@ -675,7 +675,19 @@ public sealed partial class TypedWorkflowPlanner
         return result;
     }
 
-    private static string UnitRepairPrompt(PlanningSnapshot state, PlanningWorkflow workflow, PlanningConstructionUnit unit, PlanningPreparation preparation, PlanningUnitPatches patch) => PlanningHelperDocumentation.OnlyDocumentation(unit.Diagnostics) && patch.Context(unit.Candidate) is { Count: 1 } documentation && documentation.ContainsKey("functions")
+    internal static string UnitRepairPrompt(PlanningSnapshot state, PlanningWorkflow workflow, PlanningConstructionUnit unit, PlanningPreparation preparation, PlanningUnitPatches patch)
+    {
+        var keys = patch.Context(unit.Candidate).Select(p => p.Key.Split('/')).Where(p => p.Length >= 2 && p[0] == "nodes")
+            .Select(p => p[1].Replace("~1", "/", StringComparison.Ordinal).Replace("~0", "~", StringComparison.Ordinal)).Distinct(StringComparer.Ordinal).ToList();
+        // Size narrowing changes the editable field group. Its prompt must shrink
+        // with it rather than retain every other consumer's incoming contracts.
+        if (keys.Count > 0 && keys.Count < unit.NodeKeys.Count)
+            unit = new() { Key = unit.Key, WorkflowKey = unit.WorkflowKey, Kind = unit.Kind, NodeKeys = keys,
+                ContractVersion = unit.ContractVersion, Candidate = unit.Candidate, Diagnostics = unit.Diagnostics };
+        return RepairPrompt(state, workflow, unit, preparation, patch);
+    }
+
+    private static string RepairPrompt(PlanningSnapshot state, PlanningWorkflow workflow, PlanningConstructionUnit unit, PlanningPreparation preparation, PlanningUnitPatches patch) => PlanningHelperDocumentation.OnlyDocumentation(unit.Diagnostics) && patch.Context(unit.Candidate) is { Count: 1 } documentation && documentation.ContainsKey("functions")
         ? PlanningHelperDocumentation.Prompt(documentation, unit.Diagnostics)
         : unit.Kind is "contracts" or "inputs" ?
         "Repair only the supplied invalid schema coordinates. Valid sibling fields, enums, requiredness and nullability are locked and retained. " +
@@ -756,9 +768,9 @@ public sealed partial class TypedWorkflowPlanner
             if (node.Type == "set" && node.OutputSchema is { } schema)
             {
                 var declared = PlanningGraphCompiler.ToJsonSchema(schema, preparation);
-                if (parts[2] == "values" && parts.Length >= 4)
+                if (parts[2] == "values" && parts.Length == 4)
                     result[coordinate] = declared["properties"]?[parts[3]]?.DeepClone();
-                else result[node.Key] = declared;
+                else if (parts[2] == "input" && parts.Length == 3) result[node.Key] = declared;
             }
         }
         return result;

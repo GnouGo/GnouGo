@@ -486,7 +486,8 @@ public static class PlanningConstruction
     };
 
     public static List<PlanningDiagnostic> ShapeFindings(JsonObject? candidate, JsonObject schema, PlanningConstructionUnit unit) =>
-        PlanningContractValidation.ValidateInstance(candidate is null ? null : CompleteFixedFields(unit.ContractVersion >= PlanningConstructionSchemas.Version ? PlanningConstructionSchemas.Compact(candidate) : candidate, schema), schema).Select(e => new PlanningDiagnostic("UNIT_RESPONSE_INVALID", "/units/" + PlanningSchemaReferences.Escape(unit.Key), e, ValidationStage: "conversion")).ToList();
+        PlanningContractValidation.ValidateInstanceFindings(candidate is null ? null : CompleteFixedFields(unit.ContractVersion >= PlanningConstructionSchemas.Version ? PlanningConstructionSchemas.Compact(candidate) : candidate, schema), schema)
+            .Select(e => new PlanningDiagnostic("UNIT_RESPONSE_INVALID", "/units/" + PlanningSchemaReferences.Escape(unit.Key) + "/candidate" + e.InstancePointer, e.Message, ValidationStage: "conversion")).ToList();
 
     // The host owns empty container contracts and required null annotations. Their
     // absence needs no model inference; malformed explicit values remain invalid.

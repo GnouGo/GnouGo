@@ -7,6 +7,23 @@ namespace GnOuGo.Flow.Tests.Runtime;
 public sealed class JsonSchemaVariantDiagnosticsTests
 {
     [Theory]
+    [InlineData("field/with~escapes.and[0]:suffix")]
+    [InlineData("champ/avec~echappements.et[0]:suite")]
+    public void InstanceFindingsCarryExactPointersWithoutParsingDisplayMessages(string field)
+    {
+        var schema = new JsonObject { ["type"] = "array", ["items"] = new JsonObject { ["type"] = "object",
+            ["properties"] = new JsonObject { [field] = new JsonObject { ["type"] = "boolean" } }, ["required"] = new JsonArray(field), ["additionalProperties"] = false } };
+        var pointer = "/0/" + field.Replace("~", "~0", StringComparison.Ordinal).Replace("/", "~1", StringComparison.Ordinal);
+        foreach (var value in new[] { new JsonArray(new JsonObject { [field] = "invalid" }), new JsonArray(new JsonObject()) })
+        {
+            var finding = Assert.Single(PlanningContractValidation.ValidateInstanceFindings(value, schema));
+            Assert.Equal(pointer, finding.InstancePointer);
+            Assert.Equal(Assert.Single(PlanningContractValidation.ValidateInstance(value, schema)), finding.Message);
+        }
+        Assert.Equal("", Assert.Single(PlanningContractValidation.ValidateInstanceFindings(JsonValue.Create(false), schema)).InstancePointer);
+    }
+
+    [Theory]
     [InlineData("kind", "array", "scalar")]
     [InlineData("category", "collection", "value")]
     public void LiteralTagsExposeNestedFindingsWithoutChangingValidation(string tag, string array, string scalar)
