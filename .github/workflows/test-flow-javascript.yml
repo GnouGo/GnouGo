@@ -1,0 +1,38 @@
+name: JavaScript planning validation
+
+on:
+  pull_request:
+    paths:
+      - 'src/GnOuGo.Flow.*/**'
+      - 'src/GnOuGo.Agent.Server/**'
+      - 'src/GnOuGo.Agent.Shared/**'
+      - 'tests/GnOuGo.Flow.*/**'
+      - 'tests/GnOuGo.Agent.Server.Tests/**'
+      - '.github/workflows/test-flow-javascript.yml'
+      - 'GnOuGo.Agent.sln'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+      - uses: ./.github/actions/ensure-otlp-protos
+      - name: Test authoring, planning and server integration
+        run: |
+          dotnet test tests/GnOuGo.Flow.Authoring.JavaScript.Tests/GnOuGo.Flow.Authoring.JavaScript.Tests.csproj -m:1 -warnaserror
+          dotnet test tests/GnOuGo.Flow.Planning.Tests/GnOuGo.Flow.Planning.Tests.csproj -m:1 -warnaserror
+          dotnet test tests/GnOuGo.Flow.Tests/GnOuGo.Flow.Tests.csproj -m:1 -warnaserror
+          dotnet test tests/GnOuGo.Agent.Server.Tests/GnOuGo.Agent.Server.Tests.csproj -m:1 -warnaserror /p:SkipClientBuild=true --filter 'FullyQualifiedName~Planning|FullyQualifiedName~LiveIntentAgentGenerationTests'
+      - name: Pack authoring library
+        run: dotnet pack src/GnOuGo.Flow.Authoring.JavaScript/GnOuGo.Flow.Authoring.JavaScript.csproj -c Release -warnaserror
+      - name: Publish and run Native AOT smoke
+        run: |
+          dotnet publish tests/GnOuGo.Flow.Planning.Smoke/GnOuGo.Flow.Planning.Smoke.csproj -c Release -r linux-x64 --self-contained true -warnaserror -o artifacts/planning-smoke
+          artifacts/planning-smoke/GnOuGo.Flow.Planning.Smoke

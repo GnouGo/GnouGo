@@ -8,6 +8,7 @@ using GnOuGo.Flow.Core.Parsing;
 using GnOuGo.Flow.Core.Planning;
 using GnOuGo.Flow.Core.Runtime;
 using GnOuGo.Flow.Planning;
+using GnOuGo.Flow.Authoring.JavaScript;
 
 // Exercise the native certificate-chain implementation after publish, including
 // the .NET Apple crypto archive normalized by the Darwin publish boundary.
@@ -47,6 +48,16 @@ var graph = new PlanningGraph
     }]
 };
 var preparation = new PlanningPreparation { AllowedStepTypes = ["set"] };
+var authored = new JavaScriptPlanningSourceCompiler().Compile("""
+    flow.workflow({steps:[flow.step("value","set",{message:"ready"},
+      {outputSchema:{type:"object",properties:[{name:"message",schema:{type:"string"},required:true}]}})],
+      outputs:[flow.result("message",{type:"string"},flow.ref("value","message"))]});
+    """, new(graph.Workflows[0], preparation), CancellationToken.None);
+if (authored.Diagnostics.Count != 0 || authored.Workflow is null) throw new InvalidOperationException("Published JavaScript authoring failed.");
+var authoredYaml = new PlanningGraphCompiler().Compile(new() { Workflows = [authored.Workflow] }, preparation);
+var authoredPlan = new WorkflowCompiler().Compile(WorkflowParser.Parse(authoredYaml));
+var authoredResult = await new WorkflowEngine().ExecuteAsync(authoredPlan.Workflows[authoredPlan.Entrypoint!], new JsonObject(), CancellationToken.None);
+if (!authoredResult.Success || authoredResult.Outputs?["message"]?.ToString() != "ready") throw new InvalidOperationException("Published JavaScript-to-native-YAML execution failed.");
 var state = new PlanningSnapshot { Graph = graph, Preparation = preparation, Request = new() { TenantId = "smoke", Prompt = "Compile the typed graph" },
     Dataflow = new() { Bindings = [new("binding", "main", new() { Kind = "output", Source = "value", Path = ["message"] }, new JsonObject { ["type"] = "string" }, "unconditional")] } };
 var restored = JsonSerializer.Deserialize(JsonSerializer.Serialize(state, PlanningJsonContext.Default.PlanningSnapshot), PlanningJsonContext.Default.PlanningSnapshot)!;

@@ -50,6 +50,7 @@ public sealed class PlanningSessionService(
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(name);
         ArgumentException.ThrowIfNullOrWhiteSpace(prompt);
+        PlanningConstructionStrategies.Validate(settings.Value.ConstructionStrategy);
         name = name.Trim();
         if (name is "." or ".." || name.IndexOfAny(Path.GetInvalidFileNameChars()) >= 0 || name.Contains('/') || name.Contains('\\')) throw new ArgumentException("The agent name is invalid.");
         await using var runtime = await runtimeFactory.CreateAsync(ct);
@@ -70,6 +71,7 @@ public sealed class PlanningSessionService(
         var state = new PlanningSnapshot
         {
             Request = new PlanningRequest { TenantId = Tenant, Name = name, Prompt = prompt.Trim(), ExistingYaml = original, Options = options, MaxConcurrency = settings.Value.MaxConcurrency,
+                ConstructionStrategy = settings.Value.ConstructionStrategy,
                 Generation = new() { Reasoning = settings.Value.Reasoning, MaxNodesPerUnit = settings.Value.MaxNodesPerUnit,
                     MaxInputTokensPerUnit = settings.Value.MaxInputTokensPerUnit, MaxOutputTokens = settings.Value.MaxOutputTokens } },
             UpdatedAtUtc = DateTimeOffset.UtcNow
@@ -253,7 +255,8 @@ public sealed class PlanningSessionService(
             MaxEstimatedCost = new MonetaryAmount(money?["amount"]?.GetValue<decimal>() ?? budgetSettings.Value.Amount, money?["currency"]?.GetValue<string>() ?? budgetSettings.Value.Currency)
         }, initial, sink: new PlanningBudgetSink(records, Tenant, current.Request.SessionId), exchangeRateProvider: exchangeRates);
         var estimator = new ModelMetadataUsageCostEstimator(runtime.Options);
-        var journal = new PlanningModelJournal(runtime.LlmClient, contexts, records, Tenant, current.Request.SessionId, current.Revision, budget, estimator, current.Request.Generation);
+        var receiptRevision = SourceReceiptRevision(current);
+        var journal = new PlanningModelJournal(runtime.LlmClient, contexts, records, Tenant, current.Request.SessionId, receiptRevision, budget, estimator, current.Request.Generation);
         var engine = new WorkflowEngine
         {
             LLMClient = journal, McpClientFactory = runtime.McpClientFactory,
@@ -285,10 +288,21 @@ public sealed class PlanningSessionService(
         return result;
     }
 
+    internal static long SourceReceiptRevision(PlanningSnapshot snapshot)
+    {
+        if (snapshot.Request.ConstructionStrategy == PlanningConstructionStrategies.JavaScriptV1 &&
+            snapshot.SourceCandidates.SingleOrDefault(c => c.PendingPrompt is not null) is { } pending)
+            return pending.PendingRevision ?? throw new InvalidOperationException("A pending authoring request has no durable receipt revision.");
+        return snapshot.Revision;
+    }
+
     private void ObserveTransition(PlanningSnapshot current, PlanningSnapshot result, Stopwatch sw, Activity? activity)
     {
         var phase = PlanningPhase.Resolve(result);
         activity?.SetTag("gnougo.planning.phase", phase);
+        activity?.SetTag("gnougo.planning.construction_strategy", result.Request.ConstructionStrategy);
+        activity?.SetTag("gnougo.planning.source.calls", result.SourceCandidates.Sum(c => c.Calls));
+        activity?.SetTag("gnougo.planning.source.repair_calls", result.SourceCandidates.Sum(c => Math.Max(0, c.Calls - 1)));
         activity?.SetTag("gnougo.planning.revision", result.Revision);
         activity?.SetTag("gnougo.planning.status", result.Status);
         activity?.SetTag("gnougo.planning.units.completed", result.ConstructionUnits.Count(u => u.Status == "validated"));

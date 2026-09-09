@@ -28,6 +28,11 @@ compatible, and version-2 failures never trigger a legacy fallback.
 
 Core owns the provider-neutral planning request, snapshot, command and event contracts,
 `IWorkflowPlanner`, `IPlanningRuntime` and tenant-scoped `IPlanningSessionStore`.
+`IPlanningSourceCompiler` is the optional provider-neutral authoring boundary. The
+separate JavaScript package implements it; Core never references that package.
+`PlanningRequest.ConstructionStrategy` defaults to `typed-units-v2`; hosts may select
+`javascript-v1` for new sessions. Source candidates and pending receipt revisions
+are private additive snapshot fields and must remain encrypted by the owning host.
 `PlanningContractValidation.ValidateInstanceFindings` returns exact JSON Pointer
 locations alongside readable schema violations. Property names containing dots,
 brackets, slashes or tildes remain unambiguous; the existing string diagnostics API

@@ -9,7 +9,7 @@ using GnOuGo.Flow.Core.Runtime;
 namespace GnOuGo.Flow.Planning;
 
 /// <summary>Pure session state machine. Effects are supplied through IPlanningRuntime.</summary>
-public sealed partial class TypedWorkflowPlanner(TimeProvider? timeProvider = null) : IWorkflowPlanner
+public sealed partial class TypedWorkflowPlanner(TimeProvider? timeProvider = null, IPlanningSourceCompiler? sourceCompiler = null) : IWorkflowPlanner
 {
     private readonly TimeProvider _time = timeProvider ?? TimeProvider.System;
     private readonly PlanningGraphCompiler _compiler = new();
@@ -27,8 +27,11 @@ public sealed partial class TypedWorkflowPlanner(TimeProvider? timeProvider = nu
         if (snapshot.PreparationReassessmentsAtRetry < 0 || snapshot.PreparationReassessmentsAtRetry > snapshot.PreparationReassessments)
             throw new ArgumentException("Invalid preparation reassessment counters.");
         PlanningGenerationPolicy.Validate(snapshot.Request.Generation);
+        PlanningConstructionStrategies.Validate(snapshot.Request.ConstructionStrategy);
         if (command.Kind == "configure_generation")
         {
+            if (UsesJavaScript(snapshot) && snapshot.SourceCandidates.Any(c => c.PendingPrompt is not null))
+                throw new PlanningConflictException("A pending source request must be reconciled before changing its generation settings.");
             if (!(PlanningStatus.IsWaiting(snapshot.Status) || snapshot.Status is PlanningStatus.Failed or PlanningStatus.Unsupported) || command.Generation is null)
                 throw new PlanningConflictException("Generation settings can only change in a paused session.");
             PlanningGenerationPolicy.Validate(command.Generation);
@@ -124,6 +127,11 @@ public sealed partial class TypedWorkflowPlanner(TimeProvider? timeProvider = nu
                             break;
                         }
                         state.ApprovedBehaviorHash = state.ArtifactHash;
+                        if (UsesJavaScript(state) && state.SourceBehaviorHash != state.ApprovedBehaviorHash)
+                        {
+                            state.SourceCandidates.Clear();
+                            state.SourceBehaviorHash = state.ApprovedBehaviorHash;
+                        }
                         state.Graph = PlanningBehaviorPlans.Display(reviewedBehavior, state.Preparation);
                         ResetExecutableRepairProgress(state);
                         state.Fragments.Clear();
@@ -181,6 +189,16 @@ public sealed partial class TypedWorkflowPlanner(TimeProvider? timeProvider = nu
                     state.BestGraph = null; state.BestScenarios.Clear();
                     break;
                 case "retry":
+                    if (UsesJavaScript(state) && state.SourceCandidates.Count != 0 && HasBehaviorApproval(state))
+                    {
+                        if (state.Status is not (PlanningStatus.Recovery or PlanningStatus.Failed or PlanningStatus.Unsupported))
+                            throw new PlanningConflictException("Only a stopped source generation can be retried.");
+                        if (state.Diagnostics.Any(d => d.Code == "JS_REVIEW_REQUIRED")) break;
+                        state.Status = PlanningStatus.Generating;
+                        state.CurrentPhase = "javascript_workflow";
+                        state.ApprovedHash = null; state.ArtifactHash = null;
+                        break;
+                    }
                     var obsoleteMatchingQuestion = PlanningPreparationCheckpoint.IsObsoleteMatchingQuestion(state);
                     if (state.Dataflow is { } dataflow) dataflow.AssessmentCallsAtRetry = dataflow.AssessmentCalls;
                     if (state.Preparation is not null) await runtime.EnrichPreparationAsync(state.Preparation, ct);
@@ -363,6 +381,7 @@ public sealed partial class TypedWorkflowPlanner(TimeProvider? timeProvider = nu
 
     private async Task GenerateAsync(PlanningSnapshot state, IPlanningRuntime runtime, CancellationToken ct)
     {
+        if (UsesJavaScript(state)) { await GenerateSourceAsync(state, runtime, ct); return; }
         if (state.BehaviorPlan is not null && state.Graph is not null && state.ConstructionUnits.Any(u => u.Status != "superseded") &&
             (state.ConstructionUnits.Any(u => u.Status != "superseded" && u.ContractVersion < PlanningDataflow.ContractVersion) ||
              PlanningArtifactBindings.PrerequisiteFindings(state.Graph, state.Preparation!).Any()))
@@ -507,6 +526,11 @@ public sealed partial class TypedWorkflowPlanner(TimeProvider? timeProvider = nu
         catch (LLMClientException) { throw; }
         catch (Exception ex) { diagnostics.Add(new("GRAPH_VALIDATION", "$", ex.Message)); }
 
+        if (UsesJavaScript(state) && diagnostics.Any(d => d.Required))
+        {
+            RouteSourceValidationFailure(state, diagnostics, stage);
+            return;
+        }
         var retained = true;
         var candidateHash = PlanningGraphCompiler.Fingerprint(state.Graph!);
         var semanticProgress = false;
@@ -770,6 +794,11 @@ public sealed partial class TypedWorkflowPlanner(TimeProvider? timeProvider = nu
     {
         var targets = SemanticTargets(state.Graph!);
         if (!findings.Any(d => d.Required && targets.TryGetValue(d.Location, out var target) && target.Behavior)) return false;
+        if (UsesJavaScript(state))
+        {
+            StopSource(state, "JS_REVIEW_REQUIRED", "The accepted behavior requires a reviewed revision. The candidate and findings are retained.", findings);
+            return true;
+        }
         var behaviorSource = state.BehaviorPlan;
         Remember(state);
         state.Attempts.Add(new(PlanningGraphCompiler.Fingerprint(state.Graph!), "semantic_review", 9, false, findings.ToList()));

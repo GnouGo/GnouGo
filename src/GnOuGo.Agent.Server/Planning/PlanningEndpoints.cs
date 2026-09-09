@@ -48,7 +48,11 @@ internal static class PlanningEndpoints
         snapshot.Answers.Count, snapshot.Request.Options["generator"]?["model"]?.GetValue<string>(),
         snapshot.Request.Generation.Reasoning ?? snapshot.Request.Options["generator"]?["reasoning"]?.GetValue<string>() ?? "medium",
         snapshot.ConstructionUnits.Where(u => u.Status != "superseded").Select(u => new PlanningUnitDto(u.Key, u.Kind, u.Status, u.NodeKeys.Count, u.Calls, u.RepairCalls,
-            u.ContractVersion, u.EstimatedInputTokens, u.InputTokenLimit, u.DispatchOutcome, u.PartialCandidate, u.GeneratedFieldGroups)).ToArray(), snapshot.Dataflow?.Fingerprint, snapshot.Dataflow?.Bindings.Count ?? 0, snapshot.PreparationCheckpoint?.Stage, snapshot.Preparation?.DecisionContractVersion ?? 0, snapshot.Preparation?.Decisions.Count ?? 0);
+            u.ContractVersion, u.EstimatedInputTokens, u.InputTokenLimit, u.DispatchOutcome, u.PartialCandidate, u.GeneratedFieldGroups))
+            .Concat(snapshot.SourceCandidates.Select(c => new PlanningUnitDto(c.WorkflowKey, "javascript_workflow", c.Status,
+                c.Candidate is null ? 0 : PlanningGraphCompiler.Enumerate(c.Candidate.Steps.Concat(c.Candidate.Finally)).Count(), c.Calls, Math.Max(0, c.Calls - 1))))
+            .ToArray(), snapshot.Dataflow?.Fingerprint, snapshot.Dataflow?.Bindings.Count ?? 0, snapshot.PreparationCheckpoint?.Stage, snapshot.Preparation?.DecisionContractVersion ?? 0, snapshot.Preparation?.Decisions.Count ?? 0,
+        snapshot.Request.ConstructionStrategy);
 
     private static PlanningGraph? DisplayGraph(PlanningSnapshot snapshot) => snapshot.BehaviorPlan is { } behavior ? PlanningBehaviorPlans.Display(behavior, snapshot.Preparation) : snapshot.Graph;
 }

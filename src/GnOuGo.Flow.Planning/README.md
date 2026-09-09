@@ -17,6 +17,33 @@ the workflow engine has an `IWorkflowPlanner` installed; version 1 remains compa
 Simulation results describe synthetic coverage, not proof of live external behavior.
 Required inconclusive scenarios block approval. No model/provider naming heuristics
 are used to select runtime behavior.
+
+## Experimental JavaScript construction
+
+Set `PlanningRequest.ConstructionStrategy` to `javascript-v1` when creating a new
+session and inject an `IPlanningSourceCompiler` into `TypedWorkflowPlanner`.
+Agent.Server registers the separately packaged `GnOuGo.Flow.Authoring.JavaScript`
+adapter; Flow.Planning and Flow.Core have no dependency on that implementation.
+Missing strategy fields retain `typed-units-v2`. Generation-setting commands do not
+change a session's strategy; use a fresh session for comparisons.
+
+After behavior approval, JavaScript constructs a complete subworkflow, with callees
+before callers. Relevant schemas and dependency contracts accompany the SDK/JSDoc
+guide. The compiler produces typed graph nodes and the existing compiler emits native
+YAML. The same deterministic validators, scenarios and artifact approval gates apply.
+
+Each subworkflow has one initial candidate and two repairs. Source, SDK version,
+dependencies, diagnostic fingerprints, pending request/revision and cumulative
+allowances persist inside the encrypted snapshot. Retry, invalidation and process
+restart cannot replenish those allowances. Only acceptance of a changed behavior
+starts a new construction attempt. Pending source requests retain their original
+receipt revision and cannot be reconfigured before reconciliation.
+
+Repeated candidate/findings pairs stop; oversized contracts stop before dispatch.
+Executable findings return to source repair, while preparation/behavior findings
+require a reviewed revision. The legacy field-repair and preparation-reset paths
+are not used for JavaScript executable repair. See the [comparison protocol](../../docs/planner-javascript-construction.md)
+for live acceptance criteria and measurements.
 Known computed result fields must satisfy schema-valued `additionalProperties`, including
 when the contract declares no named properties. A nominal scenario that uses an error
 fallback remains inconclusive with `SCENARIO_RECOVERED_ERROR`; successful continuation

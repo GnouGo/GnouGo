@@ -486,6 +486,7 @@ public static class GnOuGoAgentWebHost
             GnOuGo.KeyVault.Core.Services.KeyVaultRecordStoreFactory.CreateWorkspaceStore(keyVaultDbPath, applicationBasePath));
         builder.Services.AddSingleton<GnOuGo.Flow.Core.Planning.IPlanningSessionStore, GnOuGo.Agent.Server.Planning.EfPlanningSessionStore>();
         builder.Services.AddSingleton<GnOuGo.Flow.Core.Planning.IWorkflowPlanner, GnOuGo.Flow.Planning.TypedWorkflowPlanner>();
+        builder.Services.AddSingleton<GnOuGo.Flow.Core.Planning.IPlanningSourceCompiler, GnOuGo.Flow.Authoring.JavaScript.JavaScriptPlanningSourceCompiler>();
         builder.Services.AddSingleton<GnOuGo.Agent.Server.Planning.PlanningSessionService>();
         builder.Services.AddHostedService(sp => sp.GetRequiredService<GnOuGo.Agent.Server.Planning.PlanningSessionService>());
         builder.Services.AddSingleton<SmartFlowService>();

@@ -25,7 +25,7 @@ public sealed partial class LiveIntentAgentGenerationTests
     public async Task TypedV2_ProbeConfiguredProvider_WithoutAdvancingSessions()
     {
         if (Environment.GetEnvironmentVariable("GNOU_GO_LIVE_TYPED_PLANNING_PROBE") != "1") return;
-        await RunCampaignAsync(plannerVersion: 2, probeOnly: true);
+        await RunCampaignAsync(plannerVersion: 2, probeOnly: true, comparisonCancellation: Xunit.TestContext.Current.CancellationToken);
     }
 
     private static async Task ProbeV2CampaignProviderAsync(IServiceProvider services, LLMUsageBudgetScope budget, LiveBudgetLedger ledger, CancellationToken ct)
@@ -71,7 +71,7 @@ public sealed partial class LiveIntentAgentGenerationTests
     public async Task TypedV2_GeneratesAndSavesThreeAgents_ThenExecutesDisposableFixture()
     {
         if (Environment.GetEnvironmentVariable("GNOU_GO_LIVE_TYPED_PLANNING_E2E") != "1") return;
-        await RunCampaignAsync(plannerVersion: 2);
+        await RunCampaignAsync(plannerVersion: 2, comparisonCancellation: Xunit.TestContext.Current.CancellationToken);
     }
 
     [Fact]
@@ -81,7 +81,7 @@ public sealed partial class LiveIntentAgentGenerationTests
         if (Environment.GetEnvironmentVariable("GNOU_GO_LIVE_TYPED_PLANNING_RESUME") != "1") return;
         if (string.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable("GNOU_GO_LIVE_TYPED_PLANNING_SESSION_ID")))
             throw new InvalidOperationException("An explicit session ID is required for live recovery.");
-        await RunCampaignAsync(plannerVersion: 2, resumeOnly: true);
+        await RunCampaignAsync(plannerVersion: 2, resumeOnly: true, comparisonCancellation: Xunit.TestContext.Current.CancellationToken);
     }
 
     private static void ConfigureV2Campaign(IServiceCollection services, LLMUsageBudgetScope budget, PlanningPersistenceTests.StoreFixture? isolatedStore, LiveBudgetLedger ledger)
@@ -208,19 +208,21 @@ public sealed partial class LiveIntentAgentGenerationTests
         // encrypted pending form remains available to the real designer on restart.
     }
 
-    private static async Task GenerateV2AgentAsync(IServiceProvider services, string name, CancellationToken ct)
+    private static async Task GenerateV2AgentAsync(IServiceProvider services, string name, CancellationToken ct, ComparisonAttempt? comparison = null)
     {
         var service = services.GetRequiredService<PlanningSessionService>();
-        var revision = Environment.GetEnvironmentVariable("GNOU_GO_LIVE_TYPED_PLANNING_REVISION");
+        var revision = comparison is null ? Environment.GetEnvironmentVariable("GNOU_GO_LIVE_TYPED_PLANNING_REVISION") : null;
         var prompt = string.IsNullOrWhiteSpace(revision) ? AcceptancePrompt : AcceptancePrompt + "\n\nRequested revision:\n" + revision;
-        var state = (await service.ListAsync(ct)).SingleOrDefault(s => s.Request.Name == name)
+        var existing = (await service.ListAsync(ct)).SingleOrDefault(s => s.Request.Name == name);
+        if (comparison is not null && existing is not null) throw new InvalidOperationException("A comparison requires a fresh logical session.");
+        var state = existing
             ?? await service.StartAsync(name, prompt, false, ct);
         state = await ConfigureLiveGenerationAsync(service, state, ct);
         if (!string.IsNullOrWhiteSpace(revision) && state.BehaviorPlan is not null &&
             state.Status is PlanningStatus.Recovery or PlanningStatus.Failed or PlanningStatus.Unsupported &&
             !state.Request.Prompt.EndsWith("\n\nRequested revision:\n" + revision, StringComparison.Ordinal))
             state = await service.SubmitAsync(state.Request.SessionId, new() { Kind = "revise", Text = revision, ExpectedRevision = state.Revision }, ct);
-        else if (state.Status is PlanningStatus.Recovery or PlanningStatus.Failed or PlanningStatus.Unsupported)
+        else if (comparison is null && state.Status is PlanningStatus.Recovery or PlanningStatus.Failed or PlanningStatus.Unsupported)
             state = await service.SubmitAsync(state.Request.SessionId, new() { Kind = "retry", ExpectedRevision = state.Revision }, ct);
         if (state.Status == PlanningStatus.Saved && await TryGetAgentForCleanupAsync(services.GetRequiredService<IMcpClientFactory>(), name, ct) is null)
         {
@@ -247,14 +249,28 @@ public sealed partial class LiveIntentAgentGenerationTests
                 PlanningStatus.Approved => new() { Kind = "save" },
                 PlanningStatus.Recovery or PlanningStatus.Failed or PlanningStatus.Unsupported or PlanningStatus.Cancelled
                     => throw new InvalidOperationException("V2 generation blocked in " + PlanningPhase.Resolve(state) + ": " + string.Join(",", state.Diagnostics.Select(d => d.Code))),
-                _ => null
+                _ => comparison is null ? null : new() { Kind = "advance" }
             };
             if (state.Status == PlanningStatus.Clarification) await AssertVisibleV2QuestionsAsync(service, state);
             if (command is not null)
             {
                 command.ExpectedRevision = state.Revision;
                 command.ArtifactHash = state.ArtifactHash;
-                state = await service.SubmitAsync(state.Request.SessionId, command, ct);
+                if (comparison is null) state = await service.SubmitAsync(state.Request.SessionId, command, ct);
+                else
+                {
+                    var remaining = TimeSpan.FromMinutes(15) - TimeSpan.FromMilliseconds(state.ActiveMilliseconds);
+                    if (remaining <= TimeSpan.Zero) throw new TimeoutException("The comparison generation exhausted 15 minutes of active planning.");
+                    using var active = CancellationTokenSource.CreateLinkedTokenSource(ct);
+                    active.CancelAfter(remaining);
+                    var started = System.Diagnostics.Stopwatch.StartNew();
+                    try { state = await service.SubmitAsync(state.Request.SessionId, command, active.Token); }
+                    catch (OperationCanceledException) when (!ct.IsCancellationRequested)
+                    {
+                        comparison.ActiveMilliseconds = Math.Max(comparison.ActiveMilliseconds, state.ActiveMilliseconds + started.Elapsed.TotalMilliseconds);
+                        throw new TimeoutException("The comparison generation exhausted 15 minutes of active planning.");
+                    }
+                }
             }
             else
             {

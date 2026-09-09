@@ -7,6 +7,7 @@ namespace GnOuGo.Flow.Core.Planning;
 /// <summary>Versioned, provider-neutral input to a resumable planning session.</summary>
 public sealed class PlanningRequest
 {
+    public string ConstructionStrategy { get; set; } = PlanningConstructionStrategies.TypedUnitsV2;
     public string TenantId { get; set; } = "";
     public string SessionId { get; set; } = Guid.NewGuid().ToString("N");
     public string Name { get; set; } = "generated";
@@ -110,6 +111,8 @@ public sealed class PlanningSnapshot
     public List<PlanningEvent> Events { get; set; } = [];
     public Dictionary<string, PlanningFragment> Fragments { get; set; } = new(StringComparer.Ordinal);
     public List<PlanningConstructionUnit> ConstructionUnits { get; set; } = [];
+    public List<PlanningSourceCandidate> SourceCandidates { get; set; } = [];
+    public string? SourceBehaviorHash { get; set; }
     public PlanningDataflowContract? Dataflow { get; set; }
     public PlanningPreparationCheckpoint? PreparationCheckpoint { get; set; }
     public List<PlanningDiagnostic> PreparationFeedback { get; set; } = [];
