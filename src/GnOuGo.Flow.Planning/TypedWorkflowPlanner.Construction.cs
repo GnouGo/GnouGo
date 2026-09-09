@@ -173,6 +173,7 @@ public sealed partial class TypedWorkflowPlanner
                     return (unit, response: (LLMResponse?)new LLMResponse { Json = deterministic }, patch: (PlanningUnitPatches?)null, error: (Exception?)null);
                 }
                 var responseSchema = flat?.Schema ?? patch?.Schema ?? schema;
+                var originalPatch = patch;
                 string FieldPrompt(PlanningUnitPatches fields) => (unit.PartialCandidate && !repair ?
                     "Generate only the supplied missing coordinates of this incomplete candidate. Other fields are generated in separate calls; preserve completed fields.\n" : "") +
                     UnitRepairPrompt(state, workflow, unit, preparation, fields);
@@ -214,6 +215,8 @@ public sealed partial class TypedWorkflowPlanner
                 }, state.Request.Generation);
                 var requestHash = PlanningGraphCompiler.Fingerprint(JsonSerializer.Serialize(request, PlanningJsonContext.Default.LLMRequest));
                 unit.RequestHashes.Add(requestHash); unit.Calls++; if (repair) unit.RepairCalls++;
+                if (repair && ReferenceEquals(patch, originalPatch)) RecordFieldRepair(state, unit);
+                else { unit.RepairedFieldFindings.Clear(); unit.RepairedFieldCandidateHash = null; }
                 unit.DispatchOutcome = "dispatched";
                 if (flat is not null) flatRequests[unit.Key] = flat;
                 var response = await runtime.CallAsync(request, repair ? "repair_unit" : "fragment_" + unit.Kind, ct);
@@ -320,6 +323,7 @@ public sealed partial class TypedWorkflowPlanner
             PlanningGraph? candidate = null;
             if (unit.Diagnostics.Count == 0)
             {
+                if (unit.DispatchOutcome == "received") unit.RepairedFieldCandidateHash = unit.CandidateHash;
                 try
                 {
                     candidate = PlanningConstruction.Apply(state.Graph, unit, unit.Candidate!, state.Preparation!);

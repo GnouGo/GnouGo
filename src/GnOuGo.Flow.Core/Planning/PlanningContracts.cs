@@ -352,6 +352,9 @@ public sealed class PlanningConstructionUnit
     public List<PlanningDiagnostic> DispatchDiagnostics { get; set; } = [];
     public int RepairCalls { get; set; }
     public int RepairCallsAtRetry { get; set; }
+    /// <summary>Exact undeclared-field findings actually sent for repair under the current dependency contracts.</summary>
+    public List<string> RepairedFieldFindings { get; set; } = [];
+    public string? RepairedFieldCandidateHash { get; set; }
     public string? Functions { get; set; }
     public int ContractVersion { get; set; }
     public int? EstimatedInputTokens { get; set; }

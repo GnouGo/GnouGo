@@ -442,6 +442,11 @@ when their full schemas survive an exact round trip; unsupported constraints and
 values remain unresolved. Additive model repairs use flat declarations under exact root
 coordinates, avoiding recursive schema responses and excess transport nesting. The host
 assembles at most four new properties, validates them and preserves the existing schema.
+Undeclared computation fields receive targeted repair before early observation reassessment.
+Encrypted checkpoints record the exact received candidate, findings and dependency fingerprint;
+old repair totals, unreceived calls and changed producer contracts cannot trigger escalation.
+An oversized optional early assessment is retained as a deferred finding while field repair
+continues. Complete semantic review and required scenarios still gate final approval.
 Review baselines, cumulative calls, pending consumers and history survive restart
 inside the encrypted schema-version-2 snapshot.
 

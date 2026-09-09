@@ -145,7 +145,8 @@ public sealed class PreparationRecoveryTests
             var evidence = JsonNode.Parse(request.Prompt.Split("\nInvalid construction evidence:\n", StringSplitOptions.None)[1].Split("\nAssess only", StringSplitOptions.None)[0])!;
             var affected = Assert.Single(evidence["affected"]!.AsArray())!;
             Assert.True(affected["effectiveInputsResolved"]!.GetValue<bool>());
-            Assert.False(affected["candidate"]!["arguments"]!.AsObject().ContainsKey(selector));
+            Assert.Null(affected["candidate"]); // Converted inputs already carry the exact host bindings.
+            Assert.Empty(evidence["declaredProducers"]!.AsArray()); // The affected producer is described once.
             var requestMember = affected["operation"]!["input"]!["members"]!.AsArray().Single(m => m!["name"]!.ToString() == "request")!;
             var binding = requestMember["value"]!["members"]!.AsArray().Single(m => m!["name"]!.ToString() == selector)!;
             Assert.Equal("read", binding["value"]!["text"]!.GetValue<string>());

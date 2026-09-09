@@ -40,6 +40,7 @@ public sealed partial class TypedWorkflowPlanner
         var preparation = UnitPreparation(state.Preparation!, owner.Workflow, unit);
         var schema = PlanningConstruction.Schema(owner.Workflow, unit, preparation, graph);
         var patch = PlanningUnitPatches.Create(graph, unit, schema, state.Preparation);
+        var originalPatch = patch;
         var prompt = UnitRepairPrompt(state, owner.Workflow, unit, preparation, patch);
         while (PlanningConstruction.EstimateInputTokens(prompt, patch.Schema) > state.Request.Generation.MaxInputTokensPerUnit)
         {
@@ -59,6 +60,8 @@ public sealed partial class TypedWorkflowPlanner
             Prompt = prompt, StructuredOutputSchema = patch.Schema, StructuredOutputStrict = true, UseBackgroundMode = true }, state.Request.Generation);
         unit.RequestHashes.Add(PlanningGraphCompiler.Fingerprint(JsonSerializer.Serialize(request, PlanningJsonContext.Default.LLMRequest)));
         unit.DispatchDiagnostics.Clear(); unit.DispatchOutcome = "dispatched"; unit.Calls++; unit.RepairCalls++;
+        if (ReferenceEquals(patch, originalPatch)) RecordFieldRepair(state, unit);
+        else { unit.RepairedFieldFindings.Clear(); unit.RepairedFieldCandidateHash = null; }
         LLMResponse response;
         try { response = await runtime.CallAsync(request, "repair_unit", ct); }
         catch { unit.DispatchOutcome = "transport_failed"; throw; }
@@ -78,6 +81,7 @@ public sealed partial class TypedWorkflowPlanner
             var repaired = PlanningConstruction.Apply(graph, unit, candidate, state.Preparation!);
             if (unit.Kind == "implementation") repaired.Workflows.Single(w => w.Key == unit.WorkflowKey).Functions = MergeFunctions(state, unit, candidate["functions"]?.GetValue<string>());
             var diagnostics = UnitFindings(repaired, state.Preparation!, unit).Concat(InputObligationFindings(state, repaired, unit)).ToList();
+            unit.RepairedFieldCandidateHash = PlanningGraphCompiler.Fingerprint(candidate.ToJsonString());
             if (state.BehaviorPlan is not null) diagnostics.AddRange(PlanningBehaviorPlans.ValidateImplementation(state.BehaviorPlan, repaired, state.Preparation!));
             if (diagnostics.Count != 0 && ScheduleRejectedProducerRepair(state, unit, candidate, diagnostics))
             {

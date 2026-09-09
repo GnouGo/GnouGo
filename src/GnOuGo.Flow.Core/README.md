@@ -33,6 +33,8 @@ inconclusive scenarios block acceptance; human waits are separate from active ti
 Nominal scenarios retain handled runtime errors as `SCENARIO_RECOVERED_ERROR` findings.
 A successful `on_error` fallback does not count as successful nominal construction;
 explicit failure and cancellation scenarios separately validate recovery and cleanup.
+Construction checkpoints optionally retain hashes of diagnosed field repairs and the received
+candidate. Older version-2 snapshots default to no established field-repair evidence.
 Locked capability metadata includes artifact provenance and finite activation contracts.
 Older snapshots recover this metadata from their encrypted preflight contract through
 `IPlanningRuntime.EnrichPreparationAsync`, without rediscovery or model inference.

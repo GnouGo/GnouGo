@@ -23,7 +23,8 @@ public sealed partial class TypedWorkflowPlanner
             catch (Exception ex) when (ex is InvalidOperationException or ArgumentException or FormatException) { /* Conversion findings remain unresolved. */ }
         }
         var units = state.ConstructionUnits.Where(u => u.Status != "validated" && u.Status != "superseded" && u.RepairCalls > 0 && u.Candidate is not null &&
-            u.Diagnostics.Any(d => d.Code is "UNIT_HELPER_DEPENDENCY_INVALID" or "COMPUTATION_FIELD_UNDECLARED" or "COMPUTATION_COLLECTION_FIELD_INVALID" or "BUSINESS_INPUT_BINDING_MISSING")).Take(state.Request.MaxConcurrency).ToArray();
+            u.Diagnostics.Any(d => d.Code is "UNIT_HELPER_DEPENDENCY_INVALID" or "COMPUTATION_COLLECTION_FIELD_INVALID" or "BUSINESS_INPUT_BINDING_MISSING" ||
+                d.Code == "COMPUTATION_FIELD_UNDECLARED" && RepairedCurrentField(state, u, d))).Take(state.Request.MaxConcurrency).ToArray();
         if (units.Length == 0) return false;
         var fingerprint = PlanningGraphCompiler.Fingerprint(state.Preparation!.Fingerprint + string.Join("\n", units.Select(u => u.Key + ":" + u.CandidateHash)));
         if (state.PreparationReviewFingerprint == fingerprint) return false;
@@ -50,12 +51,13 @@ public sealed partial class TypedWorkflowPlanner
                     ["actualBusinessInputs"] = resolved is null ? null : new JsonArray(PlanningDataflow.BusinessInputs(effective!, resolved).Select(i => (JsonNode?)JsonValue.Create(i)).ToArray()),
                     ["consumedBindings"] = assessInputs && resolved is not null ? BusinessDependencyBindings(state.Graph, effective!, resolved, state.Preparation) : null,
                     ["inputContract"] = state.Preparation.Capabilities.SingleOrDefault(c => c.Id == node.CapabilityId)?.InputSchema.DeepClone(),
-                    ["candidate"] = assessInputs ? null : unit.Candidate!["nodes"]?[node.Key]?.DeepClone(), ["helpers"] = assessInputs ? null : unit.Candidate!["functions"]?.DeepClone() });
+                    ["candidate"] = assessInputs || resolved is not null ? null : unit.Candidate!["nodes"]?[node.Key]?.DeepClone(), ["helpers"] = assessInputs ? null : unit.Candidate!["functions"]?.DeepClone() });
             }
         }
         foreach (var capability in state.Preparation.Capabilities.Where(c => c.OperationIds.Intersect(operations).Any()).ToArray()) operations.UnionWith(capability.InputOperationIds);
         var producers = new JsonArray(state.Graph!.Workflows.SelectMany(w => PlanningGraphCompiler.Enumerate(w.Steps.Concat(w.Finally)))
-            .Where(n => n.OperationIds.Intersect(operations).Any()).Select(n => (JsonNode)(assessInputs ? BusinessDependencyNode(n) : DescribeNode(n, state.Preparation))).ToArray());
+            .Where(n => n.OperationIds.Intersect(operations).Any() && !units.Any(u => u.NodeKeys.Contains(n.Key, StringComparer.Ordinal)))
+            .Select(n => (JsonNode)(assessInputs ? BusinessDependencyNode(n) : DescribeNode(n, state.Preparation))).ToArray());
         var evidence = new JsonObject { ["assessment"] = assessInputs ? "business_input_dependencies" : "observations", ["affected"] = nodes, ["declaredProducers"] = producers, ["lockedContract"] = RelevantContract(state.Preparation, operations.ToList()),
             ["producerContracts"] = new JsonArray(state.Preparation.Capabilities.Where(c => c.OperationIds.Intersect(operations).Any()).Select(c => (JsonNode)new JsonObject
             { ["id"] = c.Id, ["description"] = c.Description, ["outputSchema"] = assessInputs ? null : c.OutputSchema.DeepClone() }).ToArray()) };
@@ -68,10 +70,33 @@ public sealed partial class TypedWorkflowPlanner
             if (RequiresPreparationReassessment(state, findings) || assessBehavior && RequiresBehaviorReassessment(state, findings)) return true;
             await runtime.CheckpointAsync(state, ct);
         }
+        catch (SemanticAssessmentException ex) when (ex.Diagnostics.All(d => d.Code == "PREPARATION_REVIEW_CONTEXT_TOO_LARGE"))
+        {
+            // This optional early assessment cannot suppress an available field repair.
+            // Full semantic and scenario validation still gates artifact approval.
+            state.PreparationReviewFingerprint = fingerprint;
+            state.Attempts.Add(new(fingerprint, "construction_observation_review_deferred", 0, false, ex.Diagnostics.ToList()));
+            state.Events.Add(new("observation_review_deferred", "repair_unit", _time.GetUtcNow()));
+            return false;
+        }
         catch (SemanticAssessmentException ex)
         { state.Diagnostics = ex.Diagnostics; state.Status = PlanningStatus.Recovery; state.CurrentPhase = PlanningPhase.Capabilities; return true; }
         return false;
     }
+
+    internal static void RecordFieldRepair(PlanningSnapshot state, PlanningConstructionUnit unit)
+    {
+        unit.RepairedFieldCandidateHash = null;
+        unit.RepairedFieldFindings = unit.Diagnostics.Where(d => d.Code == "COMPUTATION_FIELD_UNDECLARED")
+            .Select(d => FieldRepairFingerprint(state, unit, d)).ToList();
+    }
+
+    internal static bool RepairedCurrentField(PlanningSnapshot state, PlanningConstructionUnit unit, PlanningDiagnostic diagnostic)
+        => unit.RepairedFieldCandidateHash is not null && unit.RepairedFieldCandidateHash == unit.CandidateHash &&
+            unit.RepairedFieldFindings.Contains(FieldRepairFingerprint(state, unit, diagnostic), StringComparer.Ordinal);
+
+    private static string FieldRepairFingerprint(PlanningSnapshot state, PlanningConstructionUnit unit, PlanningDiagnostic diagnostic)
+        => PlanningGraphCompiler.Fingerprint(UnitFingerprint(state, unit) + "\n" + diagnostic.Code + "\n" + diagnostic.Location + "\n" + diagnostic.Message);
 
     private static JsonObject BusinessDependencyNode(PlanningNode node) => new()
     {
