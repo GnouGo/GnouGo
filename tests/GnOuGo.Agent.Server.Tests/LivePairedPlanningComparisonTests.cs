@@ -27,9 +27,10 @@ public sealed partial class LiveIntentAgentGenerationTests
             var strategies = new[] { PlanningConstructionStrategies.TypedWorkflowsV1, PlanningConstructionStrategies.JavaScriptV1 };
             if (pair.Index % 2 == 0) Array.Reverse(strategies);
             foreach (var strategy in strategies)
-                pair.Arms.Add(new(strategy, pair.Index, strategy + "-" + id + "-" + pair.Index)
+                pair.Arms.Add(new(strategy, pair.Index, PairedCohort(strategy, id, pair.Index))
                 { InputTokenCeiling = 32_000, Environment = environment });
         }
+        foreach (var attempt in pairs.SelectMany(p => new[] { p.Preparation }.Concat(p.Arms))) ValidateLiveCohort(attempt.Cohort);
         var failures = new List<Exception>();
         using var deadline = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
         deadline.CancelAfter(ResolveLiveCycleElapsedLimit());
@@ -96,6 +97,9 @@ public sealed partial class LiveIntentAgentGenerationTests
             return File.WriteAllTextAsync(path, report.ToJsonString(new() { WriteIndented = true }), CancellationToken.None);
         }
     }
+
+    private static string PairedCohort(string strategy, string id, int index) =>
+        (strategy == PlanningConstructionStrategies.TypedWorkflowsV1 ? "json" : "js") + "-" + id + "-" + index;
 
     private sealed record ComparisonPair(int Index, ComparisonAttempt Preparation)
     {

@@ -30,6 +30,14 @@ public sealed partial class LiveIntentAgentGenerationTests
     };
 
     [Fact]
+    public void PairedCohortsPassExistingValidationBeforeAnyPaidPreparation()
+    {
+        foreach (var strategy in new[] { PlanningConstructionStrategies.TypedWorkflowsV1, PlanningConstructionStrategies.JavaScriptV1 })
+            for (var pair = 1; pair <= 3; pair++) ValidateLiveCohort(PairedCohort(strategy, "20260909181242-6cd2b6", pair));
+        Assert.Throws<InvalidOperationException>(() => ValidateLiveCohort("typed-workflows-v1-20260909181242-6cd2b6-1"));
+    }
+
+    [Fact]
     public void PairedForksHaveIdenticalApprovedInputsAndIndependentState()
     {
         var seed = PairedSeed(); var fresh = PairedFresh(PlanningConstructionStrategies.JavaScriptV1);

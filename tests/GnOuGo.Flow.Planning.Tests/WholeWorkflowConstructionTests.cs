@@ -27,6 +27,48 @@ public sealed class WholeWorkflowConstructionTests
     private static PlanningSnapshot Clone(PlanningSnapshot state) => JsonSerializer.Deserialize(
         JsonSerializer.Serialize(state, PlanningJsonContext.Default.PlanningSnapshot), PlanningJsonContext.Default.PlanningSnapshot)!;
 
+    [Theory]
+    [InlineData(PlanningConstructionStrategies.TypedWorkflowsV1, "preparation")]
+    [InlineData(PlanningConstructionStrategies.JavaScriptV1, "preparation")]
+    [InlineData(PlanningConstructionStrategies.TypedWorkflowsV1, "behavior")]
+    [InlineData(PlanningConstructionStrategies.JavaScriptV1, "behavior")]
+    public async Task GoverningContractDefectsStopWithoutReconstruction(string strategy, string target)
+    {
+        var state = Ready(strategy); state.Status = PlanningStatus.Validating; state.Graph = Graph();
+        var approved = state.ApprovedBehaviorHash;
+        state.SourceCandidates = [new() { Format = strategy, WorkflowKey = "main", Calls = 1, Status = "validated", Candidate = state.Graph.Workflows[0], Source = "retained" }];
+        var runtime = new FakeRuntime { OnCall = (phase, _, _) =>
+        {
+            Assert.Equal("semantic_review", phase);
+            return Task.FromResult(new LLMResponse { Json = new JsonObject { ["findings"] = new JsonArray(new JsonObject
+            {
+                ["code"] = "OBSERVATION_MISSING", ["workflow"] = "main", ["location"] = "/workflows/0/steps/0/" + target,
+                ["message"] = "The governing contract requires revision.", ["evidence"] = state.Request.Prompt, ["blocking"] = true
+            }) } });
+        } };
+        state = await Advance(state, runtime);
+        Assert.Equal(PlanningStatus.Recovery, state.Status); Assert.Contains(state.Diagnostics, d => d.Code.EndsWith("REVIEW_REQUIRED", StringComparison.Ordinal));
+        Assert.Equal(approved, state.ApprovedBehaviorHash); Assert.NotNull(state.Preparation); Assert.NotNull(state.Graph);
+        Assert.Equal("retained", Assert.Single(state.SourceCandidates).Source); Assert.Equal(0, state.PreparationReassessments);
+        state = await Advance(state, runtime); Assert.Single(runtime.Requests); Assert.Null(state.ApprovedHash);
+    }
+
+    [Theory]
+    [InlineData(PlanningConstructionStrategies.TypedWorkflowsV1)]
+    [InlineData(PlanningConstructionStrategies.JavaScriptV1)]
+    public async Task OutputLimitStopsWithoutAutomaticRedispatch(string strategy)
+    {
+        var state = Ready(strategy); var runtime = new FakeRuntime { OnCall = (_, request, _) =>
+        {
+            Assert.Equal(8_192, request.MaxTokens); Assert.True(request.DisableTransportRetries);
+            return Task.FromResult(new LLMResponse { CompletionStatus = "output_limit", Text = "incomplete" });
+        } };
+        state = await Advance(state, runtime);
+        Assert.Equal(PlanningStatus.Recovery, state.Status); Assert.Contains(state.Diagnostics, d => d.Code == "MODEL_OUTPUT_LIMIT");
+        Assert.Null(Assert.Single(state.SourceCandidates).PendingPrompt);
+        state = await Advance(state, runtime); Assert.Single(runtime.Requests); Assert.Equal(1, state.SourceCandidates[0].Calls);
+    }
+
     private static FakeRuntime Runtime(PlanningSnapshot seed, Func<int, string>? source = null, Func<int, IReadOnlyList<PlanningDiagnostic>>? validation = null)
     {
         var calls = 0;

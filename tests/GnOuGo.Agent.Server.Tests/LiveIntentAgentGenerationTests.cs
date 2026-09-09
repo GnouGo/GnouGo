@@ -74,6 +74,12 @@ public sealed partial class LiveIntentAgentGenerationTests
         await RunCampaignAsync(plannerVersion: 1, comparisonCancellation: TestContext.Current.CancellationToken);
     }
 
+    private static void ValidateLiveCohort(string cohort)
+    {
+        if (cohort.Length > 32 || cohort.Any(c => !char.IsAsciiLetterOrDigit(c) && c != '-'))
+            throw new InvalidOperationException("A campaign cohort must contain at most 32 ASCII letters, digits or hyphens.");
+    }
+
     private async Task RunCampaignAsync(int plannerVersion, bool resumeOnly = false, bool probeOnly = false,
         ComparisonAttempt? comparison = null, FileStream? comparisonLease = null, CancellationToken comparisonCancellation = default)
     {
@@ -203,8 +209,7 @@ public sealed partial class LiveIntentAgentGenerationTests
             var cohort = comparison?.Cohort ?? Environment.GetEnvironmentVariable("GNOU_GO_LIVE_TYPED_PLANNING_COHORT");
             if (plannerVersion == 2 && !string.IsNullOrWhiteSpace(cohort))
             {
-                if (cohort.Length > 32 || cohort.Any(c => !char.IsAsciiLetterOrDigit(c) && c != '-'))
-                    throw new InvalidOperationException("A campaign cohort must contain at most 32 ASCII letters, digits or hyphens.");
+                ValidateLiveCohort(cohort);
                 runId += "-" + cohort;
             }
             (string Name, GeneratedAgentContract Contract)? publicationAgent = null;
