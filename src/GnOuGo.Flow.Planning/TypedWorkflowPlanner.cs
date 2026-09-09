@@ -11,6 +11,9 @@ namespace GnOuGo.Flow.Planning;
 /// <summary>Pure session state machine. Effects are supplied through IPlanningRuntime.</summary>
 public sealed partial class TypedWorkflowPlanner(TimeProvider? timeProvider = null, IPlanningSourceCompiler? sourceCompiler = null) : IWorkflowPlanner
 {
+    // Retain the original binary constructor contract for separately packaged consumers.
+    public TypedWorkflowPlanner(TimeProvider? timeProvider) : this(timeProvider, null) { }
+
     private readonly TimeProvider _time = timeProvider ?? TimeProvider.System;
     private readonly PlanningGraphCompiler _compiler = new();
 
