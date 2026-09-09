@@ -71,23 +71,31 @@ public sealed partial class LiveIntentAgentGenerationTests
         if (!string.Equals(Environment.GetEnvironmentVariable(EnableVariable), "1", StringComparison.Ordinal))
             return;
 
-        await RunCampaignAsync(plannerVersion: 1);
+        await RunCampaignAsync(plannerVersion: 1, comparisonCancellation: TestContext.Current.CancellationToken);
     }
 
-    private async Task RunCampaignAsync(int plannerVersion, bool resumeOnly = false, bool probeOnly = false)
+    private static void ValidateLiveCohort(string cohort)
+    {
+        if (cohort.Length > 32 || cohort.Any(c => !char.IsAsciiLetterOrDigit(c) && c != '-'))
+            throw new InvalidOperationException("A campaign cohort must contain at most 32 ASCII letters, digits or hyphens.");
+    }
+
+    private async Task RunCampaignAsync(int plannerVersion, bool resumeOnly = false, bool probeOnly = false,
+        ComparisonAttempt? comparison = null, FileStream? comparisonLease = null, CancellationToken comparisonCancellation = default)
     {
 
         ValidateDedicatedProviderProjectAttestation();
         var budgetDefinition = ResolveLiveBudgetDefinition();
-        var generationCount = plannerVersion == 2 ? 3 : ResolveGenerationCount();
+        var generationCount = comparison is not null ? 1 : plannerVersion == 2 ? 3 : ResolveGenerationCount();
         var liveCycleElapsedLimit = ResolveLiveCycleElapsedLimit();
         WriteLiveProgress("test_started");
         var sourceRoot = FindSourceRoot();
         var ledgerPath = ResolveBudgetStatePath(sourceRoot);
         Directory.CreateDirectory(Path.GetDirectoryName(ledgerPath)!);
-        using var campaignLease = new FileStream(ledgerPath + ".lock", FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.None);
+        using var campaignLease = comparisonLease is null ? new FileStream(ledgerPath + ".lock", FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.None) : null;
         var budgetLedger = LiveBudgetLedger.Open(ResolveBudgetStatePath(sourceRoot), budgetDefinition,
             Environment.GetEnvironmentVariable("GNOU_GO_LIVE_INTENT_AGENT_AMEND_AUTHORIZED_LIMITS") == "1");
+        comparison?.BeginUsage(budgetLedger.Snapshot, budgetLedger.UnverifiedCostReserve);
         using var exchangeHttpClient = new HttpClient { Timeout = TimeSpan.FromSeconds(10) };
         var exchangeRateProvider = new EcbExchangeRateProvider(exchangeHttpClient);
         if (!budgetDefinition.ExistingConfiguration) await ValidateProviderHardLimitAsync(
@@ -130,6 +138,7 @@ public sealed partial class LiveIntentAgentGenerationTests
         var runSucceeded = false;
         var failures = new List<Exception>();
         using var timeout = new CancellationTokenSource(remainingCycleTime);
+        using var comparisonRegistration = comparisonCancellation.Register(timeout.Cancel);
         using var runnerCancellation = TestContext.Current.CancellationToken.Register(timeout.Cancel);
         await using var planningStore = plannerVersion == 2 && !resumeOnly ? await PlanningPersistenceTests.StoreFixture.CreateAsync(ResolveBudgetStatePath(sourceRoot) + ".sessions") : null;
         try
@@ -138,8 +147,12 @@ public sealed partial class LiveIntentAgentGenerationTests
             app = GnOuGoAgentWebHost.Build(
                 [
                     $"--TypedWorkflowPlanning:PlannerVersion={plannerVersion}",
-                    $"--TypedWorkflowPlanning:BackgroundProcessingEnabled={!resumeOnly && !probeOnly}",
-                    $"--TypedWorkflowPlanning:MaxModelCalls={budgetDefinition.MaxCalls}",
+                    $"--TypedWorkflowPlanning:BackgroundProcessingEnabled={!resumeOnly && !probeOnly && comparison is null}",
+                    $"--TypedWorkflowPlanning:MaxModelCalls={(comparison is null ? budgetDefinition.MaxCalls : comparison.RemainingCalls)}",
+                    $"--TypedWorkflowPlanning:ConstructionStrategy={comparison?.Strategy ?? Environment.GetEnvironmentVariable("GNOU_GO_LIVE_TYPED_PLANNING_CONSTRUCTION_STRATEGY") ?? "typed-units-v2"}",
+                    $"--TypedWorkflowPlanning:MaxInputTokensPerUnit={comparison?.InputTokenCeiling ?? 12_000}",
+                    $"--TypedWorkflowPlanning:MaxOutputTokens={comparison?.OutputTokenCeiling ?? 8_192}",
+                    $"--TypedWorkflowPlanning:Reasoning={comparison?.Reasoning ?? "low"}",
                     "--OtlpCollector:Enabled=false",
                     "--OpenTelemetry:Enabled=false",
                     $"--Database:Path={telemetryDatabasePath}",
@@ -155,6 +168,8 @@ public sealed partial class LiveIntentAgentGenerationTests
                     services.AddLogging(logging => logging.AddProvider(new ProviderOperationalLogger()).AddFilter<ProviderOperationalLogger>("GnOuGo.AI.Core", LogLevel.Information));
                     if (plannerVersion == 2) ConfigureV2Campaign(services, cycleBudget, planningStore, budgetLedger);
                 });
+            if (comparison is not null)
+                ValidateComparisonSettings(app.Services.GetRequiredService<Microsoft.Extensions.Options.IOptions<GnOuGo.Agent.Server.Configuration.TypedWorkflowPlanningSettings>>().Value, comparison);
             using var hostCancellation = app.Lifetime.ApplicationStopping.Register(timeout.Cancel);
             if (plannerVersion == 2 && !resumeOnly && !probeOnly) inferenceGateway = await LiveInferenceGateway.StartAsync(app.Services, cycleBudget, budgetLedger, timeout.Token);
             if (plannerVersion == 2 && ExistingConfigurationAuthorized)
@@ -193,11 +208,10 @@ public sealed partial class LiveIntentAgentGenerationTests
             WriteLiveProgress("composition_contract_validated");
 
             var runId = plannerVersion == 2 ? budgetLedger.Snapshot.StartedAtUtc.ToString("yyyyMMddHHmmss") : DateTimeOffset.UtcNow.ToString("yyyyMMddHHmmss");
-            var cohort = Environment.GetEnvironmentVariable("GNOU_GO_LIVE_TYPED_PLANNING_COHORT");
+            var cohort = comparison?.Cohort ?? Environment.GetEnvironmentVariable("GNOU_GO_LIVE_TYPED_PLANNING_COHORT");
             if (plannerVersion == 2 && !string.IsNullOrWhiteSpace(cohort))
             {
-                if (cohort.Length > 32 || cohort.Any(c => !char.IsAsciiLetterOrDigit(c) && c != '-'))
-                    throw new InvalidOperationException("A campaign cohort must contain at most 32 ASCII letters, digits or hyphens.");
+                ValidateLiveCohort(cohort);
                 runId += "-" + cohort;
             }
             (string Name, GeneratedAgentContract Contract)? publicationAgent = null;
@@ -208,7 +222,8 @@ public sealed partial class LiveIntentAgentGenerationTests
                 WriteLiveProgress("generation_started", generation: attempt);
                 if (plannerVersion == 2)
                 {
-                    await GenerateV2AgentAsync(services, name, timeout.Token);
+                    await GenerateV2AgentAsync(services, name, timeout.Token, comparison);
+                    if (comparison?.PreparationOnly == true) { runSucceeded = true; break; }
                 }
                 else
                 {
@@ -271,7 +286,10 @@ public sealed partial class LiveIntentAgentGenerationTests
                 }
             }
 
+            if (comparison?.PreparationOnly != true)
+            {
             Assert.NotNull(publicationAgent);
+            if (comparison is not null) comparison.ExecutionStarted = true;
             if (plannerVersion == 2) (inferenceGateway ?? throw new InvalidOperationException("SDK inference accounting is unavailable.")).RequireReady();
             if (plannerVersion == 2)
                 await ExecuteReadOnlyAcceptanceAsync(services, humanInput, publicationAgent.Value.Name, publicationAgent.Value.Contract, timeout.Token);
@@ -285,6 +303,7 @@ public sealed partial class LiveIntentAgentGenerationTests
             WriteLiveProgress("publication_acceptance_completed");
             if (plannerVersion == 2) Assert.True(inferenceGateway!.CompletedCalls > 0, "Execution produced no verified SDK inference receipts.");
             runSucceeded = true;
+            }
             }
         }
         catch (Exception ex)
@@ -308,6 +327,28 @@ public sealed partial class LiveIntentAgentGenerationTests
         }
         finally
         {
+            if (comparison is not null)
+            {
+                comparison.Outcome = runSucceeded ? "passed" : "failed";
+                comparison.FailureType = failures.FirstOrDefault()?.GetType().Name;
+                if (app is not null)
+                {
+                    try
+                    {
+                        var snapshots = await app.Services.GetRequiredService<GnOuGo.Agent.Server.Planning.PlanningSessionService>().ListAsync(CancellationToken.None);
+                        var snapshot = snapshots.SingleOrDefault(s => attemptedAgentNames.Contains(s.Request.Name));
+                        if (snapshot is not null)
+                        {
+                            var usage = await app.Services.GetRequiredService<GnOuGo.KeyVault.Core.Services.IKeyVaultRecordStore>().GetAsync(
+                                GnOuGo.Agent.Server.Planning.PlanningBudgetSink.Collection, snapshot.Request.TenantId, snapshot.Request.SessionId,
+                                GnOuGo.Agent.Server.Planning.EfPlanningSessionStore.Author, CancellationToken.None);
+                            if (usage is not null) snapshot.Usage = System.Text.Json.JsonSerializer.Deserialize(usage.Value, GnOuGo.Flow.Core.Planning.PlanningJsonContext.Default.LLMUsageBudgetSnapshot);
+                            comparison.Capture(snapshot);
+                        }
+                    }
+                    catch (Exception ex) { comparison.Outcome = "incomplete"; failures.Add(ex); }
+                }
+            }
             var failureCountBeforeCleanup = failures.Count;
             try
             {
@@ -418,7 +459,17 @@ public sealed partial class LiveIntentAgentGenerationTests
                 try
                 {
                     var acceptanceSucceeded = runSucceeded && failures.Count == failureCountBeforeCleanup;
-                    if (acceptanceSucceeded && generationCount == 1)
+                    if (comparison is not null)
+                    {
+                        if (!acceptanceSucceeded) comparison.Outcome = runSucceeded ? "cleanup_failed" : comparison.Outcome;
+                        comparison.EndUsage(cycleBudget.Snapshot, budgetLedger.UnverifiedCostReserve);
+                        if (!acceptanceSucceeded && (cycleBudget.Snapshot.Calls >= budgetDefinition.MaxCalls ||
+                            cycleBudget.Snapshot.TotalTokens >= budgetDefinition.MaxTotalTokens ||
+                            cycleBudget.Snapshot.EstimatedCost + budgetLedger.UnverifiedCostReserve >= budgetDefinition.AuthorizedBudget.Amount))
+                            comparison.Outcome = "incomplete";
+                        await budgetLedger.PersistAsync(cycleBudget.Snapshot, CancellationToken.None);
+                    }
+                    else if (acceptanceSucceeded && generationCount == 1)
                     {
                         budgetLedger.MarkDiagnosticGenerationCompleted(cycleBudget.Snapshot);
                     }

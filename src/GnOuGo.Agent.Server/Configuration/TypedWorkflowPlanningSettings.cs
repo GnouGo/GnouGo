@@ -5,6 +5,7 @@ public sealed class TypedWorkflowPlanningSettings
     public const string SectionName = "TypedWorkflowPlanning";
     /// <summary>Use the typed workflow designer by default; set to 1 for explicit compatibility rollback.</summary>
     public int PlannerVersion { get; set; } = 2;
+    public string ConstructionStrategy { get; set; } = "typed-units-v2";
     /// <summary>Disable only automatic advancement for an explicitly driven recovery host.</summary>
     public bool BackgroundProcessingEnabled { get; set; } = true;
     public int MaxConcurrency { get; set; } = 4;

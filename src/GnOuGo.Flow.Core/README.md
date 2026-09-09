@@ -28,6 +28,11 @@ compatible, and version-2 failures never trigger a legacy fallback.
 
 Core owns the provider-neutral planning request, snapshot, command and event contracts,
 `IWorkflowPlanner`, `IPlanningRuntime` and tenant-scoped `IPlanningSessionStore`.
+`IPlanningSourceCompiler` is the optional provider-neutral authoring boundary. The
+separate JavaScript package implements it; Core never references that package.
+`PlanningRequest.ConstructionStrategy` defaults to `typed-units-v2`; hosts may select
+`javascript-v1` for new sessions. Source candidates and pending receipt revisions
+are private additive snapshot fields and must remain encrypted by the owning host.
 `PlanningContractValidation.ValidateInstanceFindings` returns exact JSON Pointer
 locations alongside readable schema violations. Property names containing dots,
 brackets, slashes or tildes remain unambiguous; the existing string diagnostics API
@@ -2242,3 +2247,14 @@ The engine is fully **NativeAOT**-compatible:
 - Scripting: Jint v4+ (pure interpreter, no Reflection.Emit)
 
 The native `collect_json_arrays(completedLoop.results, ["child", "response", "field"])` expression concatenates original JSON-array strings without altering records or numeric precision. Artifact provenance requires an exact original producer declaring `encoding: "json_array"`; missing, conditional, malformed or transformed source results cannot establish identity. The primitive cannot be overridden by workflow helpers.
+
+### Whole-subworkflow construction contracts
+
+`PlanningConstructionStrategies.TypedWorkflowsV1` adds the opt-in `typed-workflows-v1`
+format alongside `javascript-v1` and the unchanged default `typed-units-v2`.
+`IsWholeWorkflow` identifies the two complete-subworkflow strategies. The additive
+`PlanningSourceCandidate.Format` and `PendingSchema` fields preserve format identity
+and the exact response schema across encrypted checkpoint restart. Older source
+records default to JavaScript; existing request input limits remain unchanged.
+Concrete source compilation is still injected through `IPlanningSourceCompiler`;
+Flow.Core does not reference its implementations.

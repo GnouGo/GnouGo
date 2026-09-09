@@ -1,0 +1,49 @@
+{
+  "protocol": "interrupted-paired-comparison-audit-v1",
+  "originalReport": "planning-live-campaign.json.paired-comparison-20260909181242-6cd2b6.json",
+  "reason": "Arm cohort identifiers exceeded the existing 32-character limit. The runner was interrupted during second preparation; no construction arm dispatched.",
+  "receiptAudit": [
+    {
+      "sessionId": "36967cf81b3e457ead571dce51d0c7b0",
+      "cohort": "20260909181242-6cd2b6-1-1",
+      "status": "generating",
+      "phase": "generating",
+      "calls": 7,
+      "inputTokens": 75827,
+      "outputTokens": 9323,
+      "estimatedCost": 0.5654179539993134,
+      "activeMillisecondsLowerBound": 116603.51890000001,
+      "approvedBehaviorHash": "422c07c5fa6b1a78e13375eed5119f7ee285e18653f4477c9f9ac198f33c62a9",
+      "constructionCalls": 0,
+      "diagnosticCodes": []
+    },
+    {
+      "sessionId": "46ef71df08364f8eb88e5a5dbfeb8f97",
+      "cohort": "20260909181242-6cd2b6-2-1",
+      "status": "created",
+      "phase": "capabilities",
+      "calls": 5,
+      "inputTokens": 29379,
+      "outputTokens": 4753,
+      "estimatedCost": 0.24844232749742534,
+      "activeMillisecondsLowerBound": 64764.5409,
+      "approvedBehaviorHash": null,
+      "constructionCalls": 0,
+      "diagnosticCodes": []
+    }
+  ],
+  "ledgerCalls": 1744,
+  "ledgerTotalTokens": 14984495,
+  "ledgerEstimatedCost": 157.83225778695578,
+  "campaignCallDelta": 12,
+  "campaignTokenDelta": 119282,
+  "campaignEstimatedCostDelta": 0.8159611082429735,
+  "complete": false,
+  "reservationsReleased": false,
+  "cleanup": {
+    "helperProcessesRemaining": false,
+    "fixtureExecutionStarted": false,
+    "interruptedTelemetryFilesRemoved": true,
+    "encryptedSessionsAndReceiptsRetained": true
+  }
+}

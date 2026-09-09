@@ -128,6 +128,11 @@ public sealed partial class TypedWorkflowPlanner
         var targets = SemanticTargets(state.Graph!);
         var preparation = findings.Where(d => d.Required && targets.ContainsKey(d.Location) && d.Location.EndsWith("/preparation", StringComparison.Ordinal)).ToList();
         if (preparation.Count == 0) return false;
+        if (UsesWholeWorkflow(state))
+        {
+            StopSource(state, "JS_REVIEW_REQUIRED", "The preparation contract requires a reviewed revision. The candidate and findings are retained.", findings);
+            return true;
+        }
         state.Attempts.Add(new(PlanningGraphCompiler.Fingerprint(state.Graph!), "preparation_review", 9, false, findings.ToList()));
         if (state.PreparationReassessments - state.PreparationReassessmentsAtRetry >= state.Request.MaxRepairs)
         {

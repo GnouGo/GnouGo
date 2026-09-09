@@ -133,6 +133,36 @@ public sealed class PlanningPersistenceTests
         Assert.Equal(1, client.Calls);
     }
 
+    [Theory]
+    [InlineData(PlanningConstructionStrategies.JavaScriptV1)]
+    [InlineData(PlanningConstructionStrategies.TypedWorkflowsV1)]
+    public async Task PendingWholeWorkflow_ReplaysOriginalReceiptAfterCheckpointRevisionChanges(string strategy)
+    {
+        await using var fixture = await StoreFixture.CreateAsync();
+        var client = new CountingClient();
+        var budget = new LLMUsageBudgetScope(new() { MaxCalls = 5 });
+        var request = new LLMRequest { Model = "fake", Prompt = "PRIVATE_PENDING_AUTHORING" };
+        var original = new PlanningModelJournal(client, fixture, fixture.Records, "tenant", "source-session", 4, budget, new FakeEstimator());
+        await original.CallAsync(request, Ct);
+        var state = new PlanningSnapshot { Revision = 9, Request = new() { TenantId = "tenant", SessionId = "source-session", Prompt = "Author a workflow",
+            ConstructionStrategy = strategy }, SourceCandidates = [new()
+            { Format = strategy, WorkflowKey = "main", PendingPrompt = request.Prompt, PendingRevision = 4, Calls = 1, Source = "PRIVATE_SOURCE", PendingSchema = new() { ["type"] = "object" } }] };
+        Assert.True(await fixture.Store.TrySaveAsync(state, null, Ct));
+        var restored = (await fixture.Store.LoadAsync("tenant", "source-session", Ct))!;
+        Assert.Equal(9, restored.Revision);
+        var replay = new PlanningModelJournal(client, fixture, fixture.Records, "tenant", "source-session",
+            PlanningSessionService.SourceReceiptRevision(restored), budget, new FakeEstimator());
+        await replay.CallAsync(request, Ct);
+        Assert.Equal(1, client.Calls);
+        Assert.Equal(1, budget.Snapshot.Calls);
+        foreach (var file in Directory.GetFiles(fixture.Root, "*", SearchOption.AllDirectories))
+        {
+            var bytes = Encoding.UTF8.GetString(await File.ReadAllBytesAsync(file, Ct));
+            Assert.DoesNotContain("PRIVATE_PENDING_AUTHORING", bytes);
+            Assert.DoesNotContain("PRIVATE_SOURCE", bytes);
+        }
+    }
+
     private static CancellationToken Ct => TestContext.Current.CancellationToken;
     private sealed class CountingClient : ILLMClient
     {

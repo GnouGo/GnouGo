@@ -59,6 +59,25 @@ settings**, using a revision-checked `configure_generation` command without clea
 or behavior approval. Changing settings invalidates final artifact approval.
 
 `TypedWorkflowPlanning:Reasoning` defaults to `low`; explicit generation settings are retained.
+
+`TypedWorkflowPlanning:ConstructionStrategy` defaults to `typed-units-v2`. Set it to
+`javascript-v1` to opt new planner-v2 sessions into bounded Jint/Acornima authoring:
+
+```sh
+dotnet run --project src/GnOuGo.Agent.Server -- --TypedWorkflowPlanning:ConstructionStrategy=javascript-v1
+```
+
+For the equivalent whole-subworkflow JSON path, select `typed-workflows-v1`.
+Both formats share construction scheduling, validation and bounded repair.
+The paired comparison uses 32,000 input tokens; normal new-session defaults remain
+12,000. No production checkpoint-import endpoint or strategy-switch command is added.
+
+Existing sessions retain their stored strategy. The planning API exposes it alongside
+source-unit progress; the UI's existing behavior review, YAML review and approval flow
+remain in use. Each source unit receives at most two repairs, and its source and receipt
+state are encrypted using the existing planning store. No JavaScript editor is required.
+See [the same-scenario live comparison](../../docs/planner-javascript-construction.md)
+for activation, limits and results.
 `MaxNodesPerUnit`, `MaxInputTokensPerUnit` and `MaxOutputTokens` default to `4`, `12000`
 (estimated input) and `8192` (enforced output). Independent unit calls retain concurrency four.
 Output ceilings cannot be dropped by compatibility fallback, and journaled calls disable

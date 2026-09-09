@@ -5,6 +5,19 @@ namespace GnOuGo.Flow.Planning;
 
 internal static class PlanningSchemas
 {
+    // The complete-workflow transport supports the same value algebra as the source SDK.
+    // Keep the legacy graph/unit schema stable for stored sessions and request receipts.
+    public static JsonObject WholeWorkflow(PlanningPreparation preparation)
+    {
+        var schema = Graph(preparation, fragment: true);
+        var values = schema["$defs"]!["value"]!["anyOf"]!.AsArray();
+        values.Add((JsonNode)Object(("kind", Enum("compute")), ("text", String()), ("members", Array(Ref("member")))));
+        values.Add((JsonNode)Object(("kind", Enum("loop_item", "loop_index", "loop_previous", "artifact_collection")), ("source", String()), ("path", Array(String()))));
+        values.Add((JsonNode)Object(("kind", Enum("decision_binding")), ("items", Array(Ref("value")))));
+        values.Add((JsonNode)Object(("kind", Enum("confirmation")), ("source", String()), ("text", String()), ("items", Array(Ref("value")))));
+        return schema;
+    }
+
     public static JsonObject Graph(PlanningPreparation preparation, bool fragment = false)
     {
         var definitions = new JsonObject
