@@ -148,8 +148,8 @@ public sealed partial class TypedWorkflowPlanner
         // Capability repair does not satisfy independent behavior or implementation
         // findings. Keep them active for the new behavior assessment and construction,
         // separately from the immutable request and retained user answers.
-        state.Feedback = "Resolve these evidenced coverage findings while preserving every existing request, answer and locked obligation:\n" +
-            string.Join("\n", findings.Where(d => d.Required).Select(d => d.Location + ": " + d.Message));
+        state.Feedback = AssessmentFeedback(findings);
+        state.FeedbackSource = "assessment"; state.FeedbackAssessmentHash = PlanningGraphCompiler.Fingerprint(state.PreviousGraph!);
         state.RepairAttempt = 0; state.NonImprovingAttempts = 0;
         state.IntentChecked = true; state.Status = PlanningStatus.Created; state.CurrentPhase = PlanningPhase.Capabilities;
         state.Diagnostics = findings.ToList();

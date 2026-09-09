@@ -96,6 +96,7 @@ public sealed partial class TypedWorkflowPlanner(TimeProvider? timeProvider = nu
                     state.ChangedFragments.Clear();
                     state.PreviousDiagnosticHash = null;
                     state.Feedback = null;
+                    state.FeedbackSource = null; state.FeedbackAssessmentHash = null;
                     state.RepairAttempt = 0;
                     state.NonImprovingAttempts = 0;
                     state.Yaml = null;
@@ -757,8 +758,8 @@ public sealed partial class TypedWorkflowPlanner(TimeProvider? timeProvider = nu
         var behaviorSource = state.BehaviorPlan;
         Remember(state);
         state.Attempts.Add(new(PlanningGraphCompiler.Fingerprint(state.Graph!), "semantic_review", 9, false, findings.ToList()));
-        state.Feedback = "Resolve these evidenced coverage findings while preserving every existing request, answer and locked obligation:\n" +
-            string.Join("\n", findings.Where(d => d.Required).Select(d => d.Location + ": " + d.Message));
+        state.Feedback = AssessmentFeedback(findings);
+        state.FeedbackSource = "assessment"; state.FeedbackAssessmentHash = PlanningGraphCompiler.Fingerprint(state.Graph!);
         state.Graph = null; state.Fragments.Clear(); state.BestGraph = null; state.BestScenarios.Clear(); state.BestDiagnostics.Clear();
         ResetBehavior(state); state.BehaviorRevisionSource = behaviorSource; state.Status = PlanningStatus.Created; state.CurrentPhase = PlanningPhase.Behavior;
         state.IntentChecked = true; state.ApprovedHash = null; state.ArtifactHash = null; state.Yaml = null;
@@ -780,6 +781,7 @@ public sealed partial class TypedWorkflowPlanner(TimeProvider? timeProvider = nu
             throw new InvalidOperationException("The revision scope lacks exact evidence or valid workflow references.");
         state.BehaviorAssessmentCalls = 0;
         state.Feedback = feedback;
+        state.FeedbackSource = "user"; state.FeedbackAssessmentHash = null;
         state.ApprovedHash = null;
         state.ArtifactHash = null;
         state.Yaml = null;

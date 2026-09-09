@@ -450,6 +450,10 @@ The loop's own previous result and index are selectable only in its condition/bo
 ancestor loop state remains available in a nested body. Targeted repairs retain this scope.
 An unresolved loop collection schedules its referenced synthesized producer using the
 validator's exact `items`/`over` field location; legacy whole-input findings remain supported.
+Contract generation scopes assessment feedback to the assessed graph and owned schema fields.
+When that graph has been replaced, the findings stay in encrypted history rather than becoming
+instructions for unrelated contracts. Explicit user revisions remain available. Legacy assessment
+provenance can be recovered by exact comparison with the retained assessment record.
 An oversized optional early assessment is retained as a deferred finding while field repair
 continues. Complete semantic review and required scenarios still gate final approval.
 Review baselines, cumulative calls, pending consumers and history survive restart

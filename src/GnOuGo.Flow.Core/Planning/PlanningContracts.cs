@@ -128,6 +128,9 @@ public sealed class PlanningSnapshot
     public string? SavedAgentId { get; set; }
     public bool IntentChecked { get; set; }
     public string? Feedback { get; set; }
+    // Additive provenance; older snapshots may recover assessment identity from retained attempts.
+    public string? FeedbackSource { get; set; }
+    public string? FeedbackAssessmentHash { get; set; }
     public PlanningGraph? BestGraph { get; set; }
     public List<PlanningDiagnostic> BestDiagnostics { get; set; } = [];
     public Dictionary<string, PlanningFragment> BestFragments { get; set; } = new(StringComparer.Ordinal);

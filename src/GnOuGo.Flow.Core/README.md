@@ -35,6 +35,8 @@ A successful `on_error` fallback does not count as successful nominal constructi
 explicit failure and cancellation scenarios separately validate recovery and cleanup.
 Construction checkpoints optionally retain hashes of diagnosed field repairs and the received
 candidate. Older version-2 snapshots default to no established field-repair evidence.
+Optional feedback provenance distinguishes user revisions from model assessments and
+identifies the assessed graph. Schema version 2 and older encrypted snapshots remain compatible.
 Locked capability metadata includes artifact provenance and finite activation contracts.
 Older snapshots recover this metadata from their encrypted preflight contract through
 `IPlanningRuntime.EnrichPreparationAsync`, without rediscovery or model inference.

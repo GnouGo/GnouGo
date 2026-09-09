@@ -9,6 +9,36 @@ namespace GnOuGo.Flow.Planning.Tests;
 public sealed class ConstructionUnitTests
 {
     [Theory]
+    [InlineData(false, false)]
+    [InlineData(true, false)]
+    [InlineData(false, true)]
+    [InlineData(true, true)]
+    public void ReplacedAssessmentGraphCannotInjectStaleFindingsIntoContractGeneration(bool legacy, bool missingGraph)
+    {
+        var state = ApprovedSkeleton(); var original = Graph();
+        var hash = PlanningGraphCompiler.Fingerprint(original);
+        var findings = new List<PlanningDiagnostic>
+        {
+            new("OLD_SCHEMA", "/workflows/0/steps/0/outputSchema", "An obsolete schema assertion"),
+            new("OLD_IMPLEMENTATION", "/workflows/0/steps/0/input", "An obsolete completion assertion")
+        };
+        state.Feedback = TypedWorkflowPlanner.AssessmentFeedback(findings);
+        state.Attempts.Add(new(hash, "semantic_review", 9, false, findings));
+        if (!legacy) { state.FeedbackSource = "assessment"; state.FeedbackAssessmentHash = hash; }
+        state.PreviousGraph = missingGraph ? null : Graph();
+        if (state.PreviousGraph is not null) state.PreviousGraph.Workflows[0].Steps[0].Purpose = "A replacement candidate";
+        var retained = state.Feedback; var approval = state.ApprovedBehaviorHash;
+        state = JsonSerializer.Deserialize(JsonSerializer.Serialize(state, PlanningJsonContext.Default.PlanningSnapshot), PlanningJsonContext.Default.PlanningSnapshot)!;
+        string Prompt() => TypedWorkflowPlanner.ContractPrompt(state, state.Graph!.Workflows[0], new() { Kind = "contracts", NodeKeys = ["greeting"] }, state.Preparation!);
+        Assert.All(findings, d => Assert.DoesNotContain(d.Message, Prompt()));
+        Assert.Equal(retained, state.Feedback); Assert.Equal(2, Assert.Single(state.Attempts).Diagnostics.Count);
+        Assert.Equal(approval, state.ApprovedBehaviorHash);
+        // Explicit user revisions keep their source even if they quote a prior report.
+        state.FeedbackSource = "user"; state.FeedbackAssessmentHash = null;
+        Assert.Contains(retained, Prompt());
+    }
+
+    [Theory]
     [InlineData("compute", "upstream", "destination")]
     [InlineData("calculer", "source", "cible")]
     public void ContractReferencesFollowDeclaredDataDependenciesAndPreserveRetainedSchemas(string compute, string upstream, string destination)

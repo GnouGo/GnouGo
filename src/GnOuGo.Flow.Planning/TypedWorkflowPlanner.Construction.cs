@@ -561,16 +561,25 @@ public sealed partial class TypedWorkflowPlanner
             "\nOwned capabilities:\n" + Capabilities(preparation.Capabilities.Where(c => owned.Any(n => n.CapabilityId == c.Id)));
     }
 
+    internal static string AssessmentFeedback(IEnumerable<PlanningDiagnostic> findings) =>
+        "Resolve these evidenced coverage findings while preserving every existing request, answer and locked obligation:\n" +
+        string.Join("\n", findings.Where(d => d.Required).Select(d => d.Location + ": " + d.Message));
+
     private static string? SchemaFeedback(PlanningSnapshot state, PlanningWorkflow workflow, PlanningConstructionUnit unit)
     {
-        if (state.Feedback is null || state.PreviousGraph is null) return state.Feedback;
-        var assessment = state.Attempts.LastOrDefault(a => a.Phase is "semantic_review" or "preparation_review" &&
-            a.CandidateHash == PlanningGraphCompiler.Fingerprint(state.PreviousGraph));
-        // Legacy or free-text revisions without structured coordinates keep their
-        // context. Validated assessment coordinates can be scoped without inference.
-        if (assessment is null) return state.Feedback;
+        if (state.Feedback is null || state.FeedbackSource == "user") return state.Feedback;
+        var previousHash = state.PreviousGraph is null ? null : PlanningGraphCompiler.Fingerprint(state.PreviousGraph);
+        var assessments = state.Attempts.Where(a => a.Phase is "semantic_review" or "preparation_review").ToArray();
+        // Legacy recovery uses exact retained-record identity, never intent keywords.
+        // A copied report cannot be applied to another graph's positional coordinates.
+        var assessment = state.FeedbackAssessmentHash is { } sourceHash
+            ? assessments.LastOrDefault(a => a.CandidateHash == sourceHash)
+            : assessments.LastOrDefault(a => AssessmentFeedback(a.Diagnostics) == state.Feedback)
+                ?? assessments.LastOrDefault(a => a.CandidateHash == previousHash);
+        if (assessment is null) return state.FeedbackSource == "assessment" ? null : state.Feedback;
+        if (state.PreviousGraph is null || assessment.CandidateHash != previousHash) return null;
         var wi = state.PreviousGraph.Workflows.FindIndex(w => w.Key == workflow.Key);
-        if (wi < 0) return state.Feedback;
+        if (wi < 0) return null;
         var baseline = state.PreviousGraph.Workflows[wi];
         var paths = PlanningGraphValidation.Located(baseline.Steps, "/workflows/" + wi + "/steps")
             .Concat(PlanningGraphValidation.Located(baseline.Finally, "/workflows/" + wi + "/finally"))
