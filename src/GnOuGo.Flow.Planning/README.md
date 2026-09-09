@@ -456,6 +456,13 @@ Explicit node ownership must include its selected capability's operations. Nativ
 may remain unbound or use an effect-free local capability for the same operation. Such a
 linear composition preserves all upstream requirements at its terminal consumer, including
 requirements declared by its containers. Inconsistent bindings require renewed behavior review.
+Duplicate lowering errors on an input do not expand repair scope when the same error
+already identifies a nested computation. Field coordinates use a diagnostic preview of
+the retained candidate, including invalid destination types; complete validation still
+gates acceptance. Error-handler response schemas permit boolean predicates or an explicit
+unconditional handler, never presentation labels. Computation parameters retain their
+typed source bindings.
+
 Repair requests omit already-valid fields whose schemas permit only one value. If no editable
 field remains, recovery reports that a producer or dependency contract needs correction without
 spending a model call. Incorrect values under fixed schemas remain repairable.

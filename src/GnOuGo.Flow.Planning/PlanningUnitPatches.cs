@@ -25,11 +25,17 @@ internal sealed class PlanningUnitPatches(JsonObject schema, Dictionary<string, 
 
     internal static PlanningUnitPatches Create(PlanningGraph graph, PlanningConstructionUnit unit, JsonObject full, PlanningPreparation? preparation = null)
     {
+        // Lowering reports a whole input when a nested computation cannot parse.
+        // Its identical, more precise finding already identifies the repairable
+        // value. Retain both findings in history, but do not let the aggregate
+        // expand repair scope to every unrelated argument before size narrowing.
+        var diagnostics = unit.Diagnostics.Where(d => d.Code != "VALUE_LOWERING_INVALID" || !unit.Diagnostics.Any(child =>
+            child.Code != "VALUE_LOWERING_INVALID" && child.Message == d.Message && child.Location.StartsWith(d.Location + "/", StringComparison.Ordinal))).ToArray();
         if (preparation is not null && unit.Candidate is not null && unit.Kind == "implementation")
         {
             // Diagnostics refer to the candidate's member order, which can differ
             // from the retained graph (or its still-empty construction skeleton).
-            try { graph = PlanningConstruction.Apply(graph, unit, unit.Candidate, preparation); }
+            try { graph = PlanningConstruction.Preview(graph, unit, unit.Candidate, preparation); }
             catch (Exception ex) when (ex is InvalidOperationException or ArgumentException or FormatException) { /* Shape/explicit candidate coordinates still provide bounded repair. */ }
         }
         var all = new Dictionary<string, (string[] Parts, JsonNode Schema)>(StringComparer.Ordinal);
@@ -82,7 +88,7 @@ internal sealed class PlanningUnitPatches(JsonObject schema, Dictionary<string, 
                         foreach (var field in new[] { "if", "setOutput" })
                         {
                             var fieldLocation = graphPath + "/" + i + "/" + field;
-                            if (!unit.Diagnostics.Any(d => d.Location == fieldLocation || d.Location.StartsWith(fieldLocation + "/", StringComparison.Ordinal))) continue;
+                            if (!diagnostics.Any(d => d.Location == fieldLocation || d.Location.StartsWith(fieldLocation + "/", StringComparison.Ordinal))) continue;
                             var fieldPath = slot.Parts.Concat([i.ToString(System.Globalization.CultureInfo.InvariantCulture), field]).ToArray();
                             var errorDefinition = Definition(slot.Parts, "errorCase");
                             var fieldShape = full["$defs"]![errorDefinition]!["properties"]![field]!;
@@ -107,7 +113,7 @@ internal sealed class PlanningUnitPatches(JsonObject schema, Dictionary<string, 
                                 ["items"] = new JsonObject { ["$ref"] = "#/$defs/" + (leaf.Path.Contains("structuredOutput", StringComparer.Ordinal) ? "strictPort" : "port") } } } };
                     }
                     if (preparation is not null && slot.Parts is ["nodes", var nodeKey, "input"] &&
-                        unit.Diagnostics.Any(d => d.Code == "LOOP_ITEMS_CONTRACT_UNRESOLVED" &&
+                        diagnostics.Any(d => d.Code == "LOOP_ITEMS_CONTRACT_UNRESOLVED" &&
                             d.Location == graphPath + "/" + string.Join("/", leaf.Path.Skip(slot.Parts.Length))))
                     {
                         var arrays = PlanningDataflow.CompactIndex(workflow, preparation, graph, nodeKey).Values
@@ -132,7 +138,7 @@ internal sealed class PlanningUnitPatches(JsonObject schema, Dictionary<string, 
         void FindSchemas(JsonNode? value, string[] path, string location, JsonNode shape, List<(string[] Path, JsonNode Shape)> leaves)
         {
             if (value is not JsonObject obj) return;
-            if (unit.Diagnostics.Any(d => d.Code == PlanningProducerRepair.DiagnosticCode && d.Location == location) ||
+            if (diagnostics.Any(d => d.Code == PlanningProducerRepair.DiagnosticCode && d.Location == location) ||
                 unit.ProducerReviewBaseline is not null && Read(unit.ProducerReviewBaseline, path, out var baseline) &&
                 baseline is JsonObject declared && declared["kind"]?.ToString() == "inline" && declared["type"]?.ToString() == "object")
             { leaves.Add((path, shape)); return; }
@@ -160,7 +166,7 @@ internal sealed class PlanningUnitPatches(JsonObject schema, Dictionary<string, 
             // A finding on the object itself can require different member names or a
             // computation instead of a context. Leaf-only patches cannot fix its shape.
             var candidateLocation = "/units/" + PlanningSchemaReferences.Escape(unit.Key) + "/candidate/" + string.Join("/", path.Select(PlanningSchemaReferences.Escape));
-            if (unit.Diagnostics.Any(d => d.Location == location || d.Location == candidateLocation))
+            if (diagnostics.Any(d => d.Location == location || d.Location == candidateLocation))
             { leaves.Add((path, shape)); return; }
             var before = leaves.Count;
             if (label is "object" or "template" && obj["members"] is JsonArray members)
@@ -184,7 +190,7 @@ internal sealed class PlanningUnitPatches(JsonObject schema, Dictionary<string, 
         {
             var candidateRoot = "/units/" + PlanningSchemaReferences.Escape(unit.Key) + "/candidate/";
             var candidateLocation = candidateRoot + string.Join("/", path.Select(PlanningSchemaReferences.Escape));
-            return unit.Diagnostics.Any(d => Matches(location, d.Location) || d.Location.StartsWith(candidateRoot, StringComparison.Ordinal) && Matches(candidateLocation, d.Location));
+            return diagnostics.Any(d => Matches(location, d.Location) || d.Location.StartsWith(candidateRoot, StringComparison.Ordinal) && Matches(candidateLocation, d.Location));
             static bool Matches(string target, string diagnostic) => diagnostic == target || diagnostic.StartsWith(target + "/", StringComparison.Ordinal) || target.StartsWith(diagnostic + "/", StringComparison.Ordinal);
         }
         string Definition(string[] path, string name)

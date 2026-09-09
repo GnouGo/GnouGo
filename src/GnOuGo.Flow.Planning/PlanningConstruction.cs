@@ -209,6 +209,20 @@ public static class PlanningConstruction
                         ScopeReferences(definition, prefix); definitions[prefix + name] = definition;
                     }
                     ScopeReferences(fields, prefix);
+                    if (constrainArguments && fields.ContainsKey("onError"))
+                    {
+                        // Error conditions execute as booleans. Labels and templates
+                        // are presentation values, never catch-all predicates. Compute
+                        // parameters retain the complete typed binding scope.
+                        var predicates = new JsonArray(definitions[prefix + "value"]!["anyOf"]!.AsArray()
+                            .Where(v => v?["properties"]?["kind"]?["enum"]?[0]?.ToString() is "boolean" or "compute")
+                            .Select(v => v!.DeepClone()).ToArray());
+                        var booleanBindings = PlanningDataflow.CompactIndex(workflow, preparation, graph, node.Key).Values
+                            .Where(b => b.Schema["type"]?.ToString() == "boolean").Select(b => b.Id).ToArray();
+                        if (booleanBindings.Length > 0) predicates.Add((JsonNode)PlanningDataflow.BindingSchema(booleanBindings));
+                        definitions[prefix + "condition"] = new JsonObject { ["anyOf"] = predicates };
+                        definitions[prefix + "errorCase"]!["properties"]!["if"] = Nullable(Ref(prefix + "condition"));
+                    }
                     PlanningLoopBindings.Constrain(node, fields, definitions, PlanningDataflow.CompactIndex(workflow, preparation, graph, node.Key).Values);
                     if (constrainArguments && node.Type == "mcp.call" && fields["arguments"] is JsonObject arguments &&
                         preparation.Capabilities.FirstOrDefault(c => c.Id == node.CapabilityId)?.InputSchema["properties"] is JsonObject destinations)
