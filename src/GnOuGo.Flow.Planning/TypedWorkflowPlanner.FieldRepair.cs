@@ -79,6 +79,11 @@ public sealed partial class TypedWorkflowPlanner
             if (unit.Kind == "implementation") repaired.Workflows.Single(w => w.Key == unit.WorkflowKey).Functions = MergeFunctions(state, unit, candidate["functions"]?.GetValue<string>());
             var diagnostics = UnitFindings(repaired, state.Preparation!, unit).Concat(InputObligationFindings(state, repaired, unit)).ToList();
             if (state.BehaviorPlan is not null) diagnostics.AddRange(PlanningBehaviorPlans.ValidateImplementation(state.BehaviorPlan, repaired, state.Preparation!));
+            if (diagnostics.Count != 0 && ScheduleRejectedProducerRepair(state, unit, candidate, diagnostics))
+            {
+                state.Events.Add(new("producer_contract_review_scheduled", "repair_unit", _time.GetUtcNow()));
+                return true;
+            }
             if (diagnostics.Count != 0) throw new InvalidOperationException(string.Join("\n", diagnostics.Select(d => d.Code + " at " + d.Location + ": " + d.Message)));
             state.Graph = repaired; unit.Candidate = candidate; unit.CandidateHash = PlanningGraphCompiler.Fingerprint(candidate.ToJsonString());
             if (unit.Kind == "implementation") unit.Functions = candidate["functions"]?.GetValue<string>();
@@ -90,6 +95,24 @@ public sealed partial class TypedWorkflowPlanner
             if (state.RepairAttempt >= state.Request.MaxRepairs) state.Status = PlanningStatus.Recovery;
             else { state.RepairAttempt++; state.Status = PlanningStatus.Generating; }
         }
+        return true;
+    }
+
+    internal static bool ScheduleRejectedProducerRepair(PlanningSnapshot state, PlanningConstructionUnit unit, JsonObject candidate, List<PlanningDiagnostic> diagnostics)
+    {
+        var previous = (unit.Candidate, unit.CandidateHash, unit.Status, unit.Diagnostics);
+        unit.Candidate = candidate; unit.CandidateHash = PlanningGraphCompiler.Fingerprint(candidate.ToJsonString());
+        unit.Status = "invalid"; unit.Diagnostics = diagnostics;
+        if (!PlanningProducerRepair.Schedule(state))
+        {
+            (unit.Candidate, unit.CandidateHash, unit.Status, unit.Diagnostics) = previous;
+            return false;
+        }
+        // Retain the invalid unit checkpoint and its exact findings without publishing
+        // it as the validated graph. The regular dependency queue repairs the producer.
+        state.Attempts.Add(new(unit.CandidateHash, "repair_unit", 0, false, diagnostics.ToList()));
+        state.Diagnostics = state.ConstructionUnits.Where(u => u.Status == "invalid").SelectMany(u => u.Diagnostics).ToList();
+        state.CurrentPhase = "repair_unit"; state.Status = PlanningStatus.Generating; state.RepairAttempt = 0;
         return true;
     }
 

@@ -17,6 +17,11 @@ the workflow engine has an `IWorkflowPlanner` installed; version 1 remains compa
 Simulation results describe synthetic coverage, not proof of live external behavior.
 Required inconclusive scenarios block approval. No model/provider naming heuristics
 are used to select runtime behavior.
+Known computed result fields must satisfy schema-valued `additionalProperties`, including
+when the contract declares no named properties. A nominal scenario that uses an error
+fallback remains inconclusive with `SCENARIO_RECOVERED_ERROR`; successful continuation
+does not demonstrate the normal path. Explicit failure and cancellation scenarios retain
+their separate recovery and cleanup checks.
 Loop observation fixtures are generated one observation per bounded call. Their locked
 sequence length and completed values survive restart; an incomplete sequence cannot pass
 scenario validation. Active fixture phases are checkpointed before dispatch. An output-token
@@ -427,6 +432,11 @@ that cannot supply the missing observation must retain its schema. Original cata
 results, topology, effects and accepted behavior remain locked. Consumers resume
 only after their prerequisites validate, and must still pass dependency validation.
 Repeated identical candidates cannot repeatedly schedule the same producer review.
+Known extra result-type mismatches and unresolved loop item contracts can also revisit
+the explicitly referenced synthesized producer after a targeted implementation repair.
+Rejected consumer candidates and their findings remain unvalidated checkpoints; they do
+not replace the retained graph. Additive contract review preserves existing declarations,
+then resumes the dependent implementation queue. Original catalog schemas remain immutable.
 Review baselines, cumulative calls, pending consumers and history survive restart
 inside the encrypted schema-version-2 snapshot.
 

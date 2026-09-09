@@ -7,6 +7,44 @@ namespace GnOuGo.Flow.Tests;
 public sealed class TypedPlanningScenarioTests
 {
     [Theory]
+    [InlineData("1 + 1", false)]
+    [InlineData("String(1 + 1)", true)]
+    public async Task NominalErrorFallbackCannotEstablishSuccessfulConstruction(string expression, bool valid)
+    {
+        var document = WorkflowParser.Parse("""
+            version: 1
+            entrypoint: main
+            workflows:
+              main:
+                steps:
+                  - id: prepare
+                    type: set
+                    input: {value: "${EXPRESSION}"}
+                    output_schema:
+                      type: object
+                      additionalProperties: {type: string}
+                    on_error:
+                      cases:
+                        - action: continue
+                          set_output: {fallback: handled}
+                finally:
+                  - id: cleanup
+                    type: set
+                    input: {closed: true}
+            """.Replace("EXPRESSION", expression, StringComparison.Ordinal));
+        var nominal = Assert.Single(await WorkflowPlanScenarioValidator.ValidateAsync(document, null, TestContext.Current.CancellationToken));
+        Assert.Equal(valid ? "passed" : "inconclusive", nominal.Outcome);
+        if (valid) Assert.Empty(nominal.Diagnostics);
+        else
+        {
+            var finding = Assert.Single(nominal.Diagnostics);
+            Assert.Equal("SCENARIO_RECOVERED_ERROR", finding.Code);
+            Assert.Equal("workflow:main/step:prepare", finding.Location);
+            Assert.Contains("normal path", finding.Message);
+        }
+    }
+
+    [Theory]
     [InlineData("previous", "more", "previous == null || previous.response.more", true)]
     [InlineData("precedent", "suite", "precedent == null || precedent.response.suite", true)]
     [InlineData("previous", "more", "true", false)]

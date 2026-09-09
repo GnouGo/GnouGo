@@ -30,6 +30,9 @@ Core owns the provider-neutral planning request, snapshot, command and event con
 `IWorkflowPlanner`, `IPlanningRuntime` and tenant-scoped `IPlanningSessionStore`.
 `WorkflowPlanningRuntime` adapts established discovery and validation. Required
 inconclusive scenarios block acceptance; human waits are separate from active time.
+Nominal scenarios retain handled runtime errors as `SCENARIO_RECOVERED_ERROR` findings.
+A successful `on_error` fallback does not count as successful nominal construction;
+explicit failure and cancellation scenarios separately validate recovery and cleanup.
 Locked capability metadata includes artifact provenance and finite activation contracts.
 Older snapshots recover this metadata from their encrypted preflight contract through
 `IPlanningRuntime.EnrichPreparationAsync`, without rediscovery or model inference.

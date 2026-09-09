@@ -82,9 +82,12 @@ internal static class WorkflowPlanScenarioValidator
                     foreach (var (name, input) in main.Source.Inputs ?? []) inputs[name] = Sample(input);
                 var run = await engine.ExecuteAsync(main, inputs, cancellation.Token);
                 if (scenario.Kind == "normal")
+                {
+                    diagnostics.AddRange(telemetry.RecoveredErrors.Values);
                     foreach (var (key, fixture) in observations ?? [])
                         if (fixture?["responses"] is JsonArray samples && observed.GetValueOrDefault(key) != samples.Count)
                             diagnostics.Add(new("SCENARIO_OBSERVATIONS_UNCONSUMED", "workflow:" + key.Replace(":", "/step:", StringComparison.Ordinal), "Nominal execution did not consume the declared observation sequence; early termination is not successful coverage."));
+                }
                 var reached = scenario.Step is null || fault.Injected || telemetry.Statuses.ContainsKey(scenario.Workflow + ":" + scenario.Step);
                 var expectedFailure = fault.Injected && (run.Success || run.Error?.Code is "SCENARIO_INJECTED_FAILURE" or "CANCELLED");
                 outcome = reached && (run.Success || expectedFailure) ? "passed" : "inconclusive";
@@ -189,6 +192,7 @@ internal static class WorkflowPlanScenarioValidator
     {
         public System.Collections.Concurrent.ConcurrentDictionary<string, StepStatus> Statuses { get; } = new(StringComparer.Ordinal);
         public System.Collections.Concurrent.ConcurrentDictionary<string, PlanningDiagnostic> Failures { get; } = new(StringComparer.Ordinal);
+        public System.Collections.Concurrent.ConcurrentDictionary<string, PlanningDiagnostic> RecoveredErrors { get; } = new(StringComparer.Ordinal);
         public HashSet<string> Workflows { get; } = new(StringComparer.Ordinal);
         private readonly object _gate = new();
         public IWorkflowSpan WorkflowStart(WorkflowTelemetryInfo info) { lock (_gate) Workflows.Add(info.WorkflowName); return new CoverageSpan(info.WorkflowName); }
@@ -198,6 +202,8 @@ internal static class WorkflowPlanScenarioValidator
         {
             var step = (CoverageSpan)span; var key = step.Workflow + ":" + step.Step; Statuses[key] = result.Status;
             if (result.Status == StepStatus.Failed) Failures[key] = new("SCENARIO_EXECUTION_FAILED", "workflow:" + step.Workflow + "/step:" + step.Step, result.ErrorCode + ": " + result.ErrorMessage);
+            else if (result.ErrorCode is not null) RecoveredErrors[key] = new("SCENARIO_RECOVERED_ERROR", "workflow:" + step.Workflow + "/step:" + step.Step,
+                "Nominal execution required error recovery: " + result.ErrorCode + ": " + result.ErrorMessage + ". A successful fallback does not establish the normal path.");
         }
     }
     private sealed class CoverageSpan(string workflow, string? step = null) : IWorkflowSpan, IStepSpan

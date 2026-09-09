@@ -12,7 +12,7 @@ internal static class PlanningProducerRepair
     {
         var graph = state.Graph!; var preparation = state.Preparation!;
         foreach (var consumer in state.ConstructionUnits.Where(u => u.Kind == "implementation" && u.Status is not ("validated" or "superseded") &&
-            u.RepairCalls > 0 && !u.WaitingForProducerReview && u.Candidate is not null && u.Diagnostics.Any(d => d.Code is "OPERATION_INPUT_BINDING_MISSING" or "BUSINESS_INPUT_BINDING_MISSING")))
+            u.RepairCalls > 0 && !u.WaitingForProducerReview && u.Candidate is not null && u.Diagnostics.Any(d => d.Code is "OPERATION_INPUT_BINDING_MISSING" or "BUSINESS_INPUT_BINDING_MISSING" or "SET_OUTPUT_INVALID" or "LOOP_ITEMS_CONTRACT_UNRESOLVED")))
         {
             PlanningGraph candidate;
             try { candidate = PlanningConstruction.Apply(graph, consumer, consumer.Candidate!, preparation); }
@@ -29,9 +29,11 @@ internal static class PlanningProducerRepair
             var businessInputs = accepted is null ? new Dictionary<string, string[]>(StringComparer.Ordinal) : PlanningBehaviorPlans.Enumerate(accepted.Steps.Concat(accepted.Finally))
                 .Where(n => consumer.NodeKeys.Contains(n.Key)).Select(n => (n.Key, Missing: (n.InputDependencies ?? []).Except(PlanningDataflow.BusinessInputs(workflow, located.Single(p => p.Node.Key == n.Key).Node), StringComparer.Ordinal).ToArray()))
                 .Where(n => n.Missing.Length > 0).ToDictionary(n => n.Key, n => n.Missing, StringComparer.Ordinal);
-            if (missing.Length == 0 && businessInputs.Count == 0) continue;
+            var contractGaps = ResultContractGaps(candidate, workflow, preparation, consumer);
+            if (missing.Length == 0 && businessInputs.Count == 0 && contractGaps.Count == 0) continue;
             var fingerprint = PlanningGraphCompiler.Fingerprint(consumer.Candidate!.ToJsonString() + "\n" + string.Join("\n", missing) + "\n" +
-                string.Join("\n", businessInputs.OrderBy(p => p.Key, StringComparer.Ordinal).Select(p => p.Key + ":" + string.Join(",", p.Value.Order(StringComparer.Ordinal)))));
+                string.Join("\n", businessInputs.OrderBy(p => p.Key, StringComparer.Ordinal).Select(p => p.Key + ":" + string.Join(",", p.Value.Order(StringComparer.Ordinal)))) +
+                "\n" + string.Join("\n", contractGaps.Order(StringComparer.Ordinal)));
             if (consumer.ConsumerContractReviews.Contains(fingerprint) || consumer.ConsumerContractReviews.Count >= state.Request.MaxRepairs) continue;
             // A container's operation owns the contributions of its children. Catalog
             // results are immutable; only already declared synthesized results qualify.
@@ -45,6 +47,7 @@ internal static class PlanningProducerRepair
             // or a field fabricated merely to satisfy dependency counting.
             contributors.UnionWith(located.Where(p => businessInputs.ContainsKey(p.Node.Key) && p.Node.Type == "set" &&
                 p.Node.OutputSchema is { CapabilityId: null, Type: "object" }).Select(p => p.Node.Key));
+            contributors.UnionWith(contractGaps);
             var producers = state.ConstructionUnits.Where(u => u.WorkflowKey == consumer.WorkflowKey && u.Kind == "contracts" && u.Status == "validated" &&
                 u.Candidate is not null && u.NodeKeys.Any(contributors.Contains)).ToArray();
             if (producers.Length == 0) continue;
@@ -60,6 +63,7 @@ internal static class PlanningProducerRepair
                     .Where(p => producer.NodeKeys.Contains(p.Node.Key) && contributors.Contains(p.Node.Key))
                     .Select(p => new PlanningDiagnostic(DiagnosticCode, p.Path + (p.Node.Type == "set" ? "/outputSchema" : "/structuredOutput/schema"),
                         "Consumer " + string.Join(", ", consumer.NodeKeys) + " still cannot consume required operations [" + string.Join(", ", missing) + "] and accepted business inputs [" + string.Join(", ", businessInputs.SelectMany(p => p.Value).Distinct(StringComparer.Ordinal)) + "]" +
+                        ". Current implementation findings: " + string.Join("; ", consumer.Diagnostics.Select(d => d.Code + " at " + d.Location + ": " + d.Message)) +
                         ". Review this producer's contribution against its accepted input dependencies, purpose and declared consumer argument contracts. Add only fields that this operation can establish and its behavior or consumers need. Do not add an unused input copy to bypass dependency validation. Preserve every existing field, type, constraint and requiredness. " +
                         "Return the existing schema unchanged if this producer cannot supply the missing data; do not copy values from unrelated sources or invent observations. The consumer must still establish its dependency after this review.", ValidationStage: "dataflow")).ToList();
                 if (!consumer.Dependencies.Contains(producer.Key)) consumer.Dependencies.Add(producer.Key);
@@ -68,6 +72,43 @@ internal static class PlanningProducerRepair
             return true; // Persist one dependency closure before another model request.
         }
         return false;
+    }
+
+    private static HashSet<string> ResultContractGaps(PlanningGraph graph, PlanningWorkflow workflow, PlanningPreparation preparation, PlanningConstructionUnit consumer)
+    {
+        var result = new HashSet<string>(StringComparer.Ordinal);
+        var root = "/workflows/" + graph.Workflows.IndexOf(workflow);
+        var located = PlanningGraphValidation.Located(workflow.Steps, root + "/steps").Concat(PlanningGraphValidation.Located(workflow.Finally, root + "/finally")).ToArray();
+        var resolve = PlanningGraphValidation.OptionalValueContractResolver(graph, workflow, preparation);
+        foreach (var (node, path) in located.Where(p => consumer.NodeKeys.Contains(p.Node.Key)))
+        {
+            if (consumer.Diagnostics.Any(d => d.Code == "SET_OUTPUT_INVALID" && d.Location == path + "/input") &&
+                node.Type == "set" && node.OutputSchema is { CapabilityId: null, SchemaPointer: null, Type: "object" } schema && node.Input.Kind == "object")
+            {
+                var declared = PlanningGraphCompiler.ToJsonSchema(schema, preparation);
+                foreach (var field in node.Input.Members.Where(m => !schema.Properties.Any(p => p.Name == m.Name)))
+                    try
+                    {
+                        // A known extra value can reveal an incomplete synthesized schema.
+                        // Wrong implementations of existing fields remain implementation repairs.
+                        if (resolve(field.Value) is { Count: > 0 } actual && declared["additionalProperties"] is JsonObject extra &&
+                            extra.Count > 0 && !PlanningGraphValidation.TypesFit(actual, extra)) result.Add(node.Key);
+                    }
+                    catch (InvalidOperationException) { }
+            }
+            if (!consumer.Diagnostics.Any(d => d.Code == "LOOP_ITEMS_CONTRACT_UNRESOLVED" && d.Location == path + "/input")) continue;
+            var items = node.Input.Members.FirstOrDefault(m => m.Name == "items")?.Value;
+            if (items is null) continue;
+            var eligible = PlanningDataflow.Index(workflow, preparation, graph, node.Key).Values;
+            foreach (var reference in PlanningDataflow.References(items).Where(v => v.Kind == "output" &&
+                eligible.Any(b => b.Value.Kind == "output" && b.Value.Source == v.Source)))
+            {
+                var producer = located.SingleOrDefault(p => p.Node.Key == reference.Source).Node;
+                if (producer?.Type == "set" && producer.OutputSchema is { CapabilityId: null, SchemaPointer: null, Type: "object" } || producer?.StructuredOutput is not null)
+                    result.Add(producer.Key);
+            }
+        }
+        return result;
     }
 
     internal static void ResumeConsumers(PlanningSnapshot state)

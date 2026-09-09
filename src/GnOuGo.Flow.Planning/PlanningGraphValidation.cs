@@ -456,10 +456,15 @@ public static class PlanningGraphValidation
         // array constraints do not apply to null, while enum/const still do.
         if (source.Length == 1 && source[0] == "null") return PlanningContractValidation.ValidateInstance(null, expected).Count == 0;
         if (expected["enum"] is JsonArray allowed && (actual["enum"] is not JsonArray declared || declared.Any(value => !allowed.Any(option => JsonNode.DeepEquals(option, value))))) return false;
+        if (actual["properties"] is JsonObject producedProperties)
+            foreach (var (name, produced) in producedProperties.Where(p => (expected["properties"] as JsonObject)?.ContainsKey(p.Key) != true))
+            {
+                if (expected["additionalProperties"] is JsonValue extra && extra.TryGetValue<bool>(out var allowedExtra) && !allowedExtra) return false;
+                if (expected["additionalProperties"] is JsonObject extraContract && extraContract.Count != 0 &&
+                    (produced is not JsonObject producedContract || !TypesFit(producedContract, extraContract, depth + 1, allowUnresolved))) return false;
+            }
         if (expected["properties"] is JsonObject properties)
         {
-            if (expected["additionalProperties"] is JsonValue extra && extra.TryGetValue<bool>(out var allowedExtra) && !allowedExtra &&
-                actual["properties"] is JsonObject actualProperties && actualProperties.Any(p => !properties.ContainsKey(p.Key))) return false;
             var required = (expected["required"] as JsonArray ?? []).Select(v => v!.GetValue<string>()).ToHashSet(StringComparer.Ordinal);
             foreach (var (name, property) in properties)
             {

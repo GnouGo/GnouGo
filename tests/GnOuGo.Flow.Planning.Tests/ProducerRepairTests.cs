@@ -8,6 +8,59 @@ namespace GnOuGo.Flow.Planning.Tests;
 public sealed class ProducerRepairTests
 {
     [Theory]
+    [InlineData("package", "entries")]
+    [InlineData("resultat", "elements")]
+    public void InvalidConsumerCheckpointRevisitsOnlyItsExplicitSynthesizedProducer(string parameter, string field)
+    {
+        var state = ConstructionUnitTests.ApprovedSkeleton(); var workflow = state.Graph!.Workflows[0];
+        workflow.Outputs.Clear();
+        var producer = workflow.Steps[0];
+        producer.OutputSchema = new() { Type = "object", Properties = [new() { Name = "message", Schema = new() { Type = "string" } }] };
+        var loop = new PlanningNode { Key = "each", Type = "loop.sequential", Input = Obj(("items", new() { Kind = "array" })) };
+        workflow.Steps.Add(loop);
+        var contract = new PlanningConstructionUnit { Key = "contract", WorkflowKey = workflow.Key, Kind = "contracts", NodeKeys = [producer.Key], Status = "validated", ContractVersion = PlanningDataflow.ContractVersion };
+        contract.Candidate = PlanningConstruction.Values(workflow, contract);
+        var consumer = new PlanningConstructionUnit { Key = "consumer", WorkflowKey = workflow.Key, Kind = "implementation", NodeKeys = [loop.Key], Status = "validated", ContractVersion = PlanningDataflow.ContractVersion,
+            Calls = 2, RepairCalls = 1, Dependencies = [contract.Key] };
+        consumer.Candidate = PlanningConstruction.UpgradeCandidate(state.Graph, consumer, PlanningConstruction.Values(workflow, consumer), state.Preparation!);
+        state.ConstructionUnits = [contract, consumer]; var graphHash = PlanningGraphCompiler.Fingerprint(state.Graph); var approval = state.ApprovedBehaviorHash;
+        var originalInput = loop.Input;
+        loop.Input = Obj(("items", new() { Kind = "compute", Text = parameter + "." + field + " || []", Members = [new(parameter, new() { Kind = "output", Source = producer.Key })] }));
+        var rejected = PlanningConstruction.UpgradeCandidate(state.Graph, consumer, PlanningConstruction.Values(workflow, consumer), state.Preparation!);
+        loop.Input = originalInput;
+        var finding = new PlanningDiagnostic("LOOP_ITEMS_CONTRACT_UNRESOLVED", "/workflows/0/steps/1/input", "Iteration requires a typed producer array.");
+        Assert.True(TypedWorkflowPlanner.ScheduleRejectedProducerRepair(state, consumer, rejected, [finding]));
+        Assert.Equal(graphHash, PlanningGraphCompiler.Fingerprint(state.Graph));
+        Assert.Equal(approval, state.ApprovedBehaviorHash);
+        Assert.True(consumer.WaitingForProducerReview); Assert.Equal("invalid", contract.Status);
+        Assert.Equal(finding, Assert.Single(consumer.Diagnostics));
+        Assert.Contains("LOOP_ITEMS_CONTRACT_UNRESOLVED", Assert.Single(contract.Diagnostics).Message);
+        Assert.Equal("/workflows/0/steps/0/outputSchema", contract.Diagnostics[0].Location);
+        state = JsonSerializer.Deserialize(JsonSerializer.Serialize(state, PlanningJsonContext.Default.PlanningSnapshot), PlanningJsonContext.Default.PlanningSnapshot)!;
+        Assert.True(JsonNode.DeepEquals(rejected, state.ConstructionUnits[1].Candidate));
+        Assert.False(PlanningProducerRepair.Schedule(state));
+        Assert.Equal(graphHash, PlanningGraphCompiler.Fingerprint(state.Graph!));
+    }
+
+    [Fact]
+    public void KnownExtraResultMismatchCanRevisitTheProducerWithoutChangingExistingFields()
+    {
+        var state = ConstructionUnitTests.ApprovedSkeleton(); var workflow = state.Graph!.Workflows[0]; var node = workflow.Steps[0];
+        workflow.Outputs.Clear(); workflow.Inputs = [new() { Name = "enabled", Schema = new() { Type = "boolean" } }];
+        node.Input.Members.Add(new("enabled", new() { Kind = "input", Source = "enabled" }));
+        node.OutputSchema = new() { Type = "object", Properties = [new() { Name = "message", Schema = new() { Type = "string" } }], AdditionalProperties = new() { Type = "string", Nullable = true } };
+        var contract = new PlanningConstructionUnit { Key = "contract", WorkflowKey = workflow.Key, Kind = "contracts", NodeKeys = [node.Key], Status = "validated", ContractVersion = PlanningDataflow.ContractVersion };
+        contract.Candidate = PlanningConstruction.Values(workflow, contract);
+        var implementation = new PlanningConstructionUnit { Key = "implementation", WorkflowKey = workflow.Key, Kind = "implementation", NodeKeys = [node.Key], Status = "invalid", ContractVersion = PlanningDataflow.ContractVersion,
+            RepairCalls = 1, Dependencies = [contract.Key], Diagnostics = [new("SET_OUTPUT_INVALID", "/workflows/0/steps/0/input", "Extra field type does not satisfy the result schema.")] };
+        implementation.Candidate = PlanningConstruction.UpgradeCandidate(state.Graph, implementation, PlanningConstruction.Values(workflow, implementation), state.Preparation!);
+        state.ConstructionUnits = [contract, implementation];
+        Assert.True(PlanningProducerRepair.Schedule(state));
+        Assert.Equal("/workflows/0/steps/0/outputSchema", Assert.Single(contract.Diagnostics).Location);
+        Assert.True(JsonNode.DeepEquals(contract.Candidate, contract.ProducerReviewBaseline));
+    }
+
+    [Theory]
     [InlineData("instructions", "Parse the resource and retain instructions for the review")]
     [InlineData("consignes", "Lire la ressource et conserver les consignes de revision")]
     public void MissingBusinessInputRevisitsTheNativeResultContractWithoutChangingApproval(string input, string purpose)
