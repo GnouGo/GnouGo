@@ -187,7 +187,10 @@ public sealed partial class TypedWorkflowPlanner(TimeProvider? timeProvider = nu
                     ArchiveIntent(state);
                     if (obsoleteMatchingQuestion) state.Question = null;
                     if (state.Preparation is null && state.PreparationCheckpoint is { } incompletePreparation)
+                    {
                         incompletePreparation.RefreshDiscovery = true;
+                        incompletePreparation.Diagnostics.Clear();
+                    }
                     if (state.Preparation is not null)
                     {
                         var currentCatalog = await runtime.ValidateCatalogAsync(state.Preparation, ct);

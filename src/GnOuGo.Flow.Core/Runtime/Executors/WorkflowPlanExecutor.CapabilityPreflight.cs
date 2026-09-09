@@ -203,6 +203,7 @@ public sealed partial class WorkflowPlanExecutor
             if (discovered.All(server => server.Discovered))
             {
                 var currentDiscovery = JsonSerializer.SerializeToNode(discovered, TypedContractJsonContext.Default.ListMcpServerDiscovery);
+                ScopeTypedPreparationFeedback(input, checkpoint, currentDiscovery!);
                 if (refreshDiscovery && checkpoint is not null)
                 {
                     // Intent inventory is independent of available providers. Selections and

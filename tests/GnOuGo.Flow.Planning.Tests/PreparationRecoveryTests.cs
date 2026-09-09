@@ -222,6 +222,8 @@ public sealed class PreparationRecoveryTests
         Assert.NotNull(state.PreparationCheckpoint!.ValidatedResults["discovery"]); Assert.Null(state.PreparationCheckpoint.ValidatedResults["inventory"]);
         state = JsonSerializer.Deserialize(JsonSerializer.Serialize(state, PlanningJsonContext.Default.PlanningSnapshot), PlanningJsonContext.Default.PlanningSnapshot)!;
         Assert.Contains("unsuccessful observation outcome", state.Feedback);
+        Assert.Equal(PlanningPreparationCheckpoint.CatalogHash(state.PreparationCheckpoint!.ValidatedResults["discovery"]!), state.PreparationCheckpoint.FeedbackCatalogHash);
+        Assert.False(state.PreparationCheckpoint.FeedbackSuperseded);
         runtime = new FakeRuntime { OnPrepare = request =>
         {
             Assert.Contains("Retained choice", request.Prompt); Assert.DoesNotContain("resource handle", request.Prompt);

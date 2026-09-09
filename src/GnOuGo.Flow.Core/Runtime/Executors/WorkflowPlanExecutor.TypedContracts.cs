@@ -11,6 +11,20 @@ namespace GnOuGo.Flow.Core.Runtime.Executors;
 
 public sealed partial class WorkflowPlanExecutor
 {
+    internal static void ScopeTypedPreparationFeedback(JsonObject input, PlanningPreparationCheckpoint? checkpoint, JsonNode catalog)
+    {
+        if (input["planner_version"]?.GetValue<int>() != 2 || input["preparation_feedback"] is not JsonArray { Count: > 0 }) return;
+        if (checkpoint is { FeedbackSuperseded: false } && checkpoint.FeedbackCatalogHash == PlanningPreparationCheckpoint.CatalogHash(catalog)) return;
+        // Technical findings refer to their assessed producer contracts, never to user
+        // intent. Old or unscoped findings cannot establish missing data in a new catalog.
+        input.Remove("preparation_feedback");
+        if (checkpoint is null || checkpoint.FeedbackSuperseded) return;
+        checkpoint.FeedbackSuperseded = true;
+        checkpoint.ValidatedResults.Remove("inventory");
+        checkpoint.ValidatedResults.Remove("selection");
+        checkpoint.ValidatedResults.Remove("matching_candidate");
+    }
+
     internal static string TypedPreparationFeedback(JsonObject input) => input["planner_version"]?.GetValue<int>() == 2 && input["preparation_feedback"] is JsonArray { Count: > 0 } findings
         ? "\nTechnical findings from validation of the previous construction (advisory, NOT user intent evidence):\n" + findings.ToJsonString() +
           "\nReassess required runtime observations and their exact operation ownership. A resource handle is not its contents; local processing cannot obtain absent external data. " +

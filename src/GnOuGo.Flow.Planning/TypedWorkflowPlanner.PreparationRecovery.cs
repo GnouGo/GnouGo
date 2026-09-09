@@ -155,7 +155,11 @@ public sealed partial class TypedWorkflowPlanner
         state.Diagnostics = findings.ToList();
         var fingerprint = PlanningGraphCompiler.Fingerprint("decision-contract-v1\n" + JsonSerializer.Serialize(EffectiveRequest(state), PlanningJsonContext.Default.PlanningRequest));
         state.PreparationCheckpoint = new() { Fingerprint = fingerprint, Version = PlanningPreparationCheckpoint.CurrentVersion };
-        if (discovery is not null) state.PreparationCheckpoint.ValidatedResults["discovery"] = discovery;
+        if (discovery is not null)
+        {
+            state.PreparationCheckpoint.ValidatedResults["discovery"] = discovery;
+            state.PreparationCheckpoint.FeedbackCatalogHash = PlanningPreparationCheckpoint.CatalogHash(discovery);
+        }
         state.Events.Add(new("preparation_reassessment_required", PlanningPhase.Capabilities, _time.GetUtcNow(), preparation.Count));
         return true;
     }

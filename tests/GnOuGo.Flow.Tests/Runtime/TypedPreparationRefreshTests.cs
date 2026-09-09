@@ -2,6 +2,7 @@ using System.Text.Json;
 using System.Text.Json.Nodes;
 using GnOuGo.Flow.Core.Planning;
 using GnOuGo.Flow.Core.Runtime;
+using GnOuGo.Flow.Core.Runtime.Executors;
 using Microsoft.Extensions.Caching.Memory;
 using Xunit;
 
@@ -9,6 +10,34 @@ namespace GnOuGo.Flow.Tests.Runtime;
 
 public sealed class TypedPreparationRefreshTests
 {
+    [Theory]
+    [InlineData("unchanged")]
+    [InlineData("changed")]
+    [InlineData("legacy")]
+    public void TechnicalFeedbackCannotOutliveItsAssessedCatalogOrRepeatedlyInvalidateNewInventory(string variation)
+    {
+        var catalog = new JsonArray(new JsonObject { ["output"] = "observations" });
+        var checkpoint = new PlanningPreparationCheckpoint
+        {
+            FeedbackCatalogHash = variation == "legacy" ? null : PlanningPreparationCheckpoint.CatalogHash(catalog),
+            ValidatedResults = new JsonObject { ["inventory"] = true, ["selection"] = true, ["matching_candidate"] = true }
+        };
+        if (variation == "changed") catalog[0]!["output"] = "newObservations";
+        var input = new JsonObject { ["planner_version"] = 2, ["raw_prompt"] = "Check the results", ["preparation_feedback"] = new JsonArray("Observation missing under the assessed contract") };
+        var next = input.DeepClone().AsObject();
+        WorkflowPlanExecutor.ScopeTypedPreparationFeedback(input, checkpoint, catalog);
+        Assert.Equal("Check the results", input["raw_prompt"]!.ToString());
+        Assert.Equal(variation == "unchanged", input.ContainsKey("preparation_feedback"));
+        Assert.Equal(variation != "unchanged", checkpoint.FeedbackSuperseded);
+        Assert.Equal(variation == "unchanged", checkpoint.ValidatedResults.ContainsKey("inventory"));
+        Assert.Equal(variation == "unchanged", checkpoint.ValidatedResults.ContainsKey("selection"));
+        Assert.Equal(variation == "unchanged", checkpoint.ValidatedResults.ContainsKey("matching_candidate"));
+        checkpoint.ValidatedResults["inventory"] = "newly validated";
+        WorkflowPlanExecutor.ScopeTypedPreparationFeedback(next, checkpoint, catalog);
+        Assert.Equal("newly validated", checkpoint.ValidatedResults["inventory"]!.ToString());
+        Assert.Equal(variation == "unchanged", next.ContainsKey("preparation_feedback"));
+    }
+
     [Theory]
     [InlineData(false, "provider", "inspect")]
     [InlineData(true, "provider", "inspect")]

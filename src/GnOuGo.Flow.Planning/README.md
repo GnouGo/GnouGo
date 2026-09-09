@@ -141,6 +141,9 @@ When preparation is incomplete, Retry refreshes discovery without using the in-m
 catalog cache. An unchanged catalog retains validated selections and matching candidates;
 a changed catalog invalidates those results while preserving the intent inventory and receipts.
 Interrupted discovery retains the previous encrypted checkpoint and the pending refresh.
+Technical preparation feedback is scoped to the catalog assessed. A changed catalog or
+legacy feedback without provenance triggers a fresh inventory from the retained intent;
+superseded findings remain in encrypted history and cannot imply that new producer data is absent.
 
 `configure_generation` takes `generation` options and an exact revision while paused. It
 retains accepted behavior and answers, records prior settings, and invalidates pending work
