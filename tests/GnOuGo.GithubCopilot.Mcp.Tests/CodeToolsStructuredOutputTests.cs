@@ -25,6 +25,11 @@ public sealed class CodeToolsStructuredOutputTests : IDisposable
         Assert.Contains("does not certify", completed["description"]!.ToString());
         Assert.Contains("execution observations", schema["properties"]!["content"]!["description"]!.ToString());
         Assert.Null(schema["properties"]!["success"]);
+        var observations = schema["properties"]!["toolExecutions"]!;
+        Assert.Equal("array", observations["type"]!.ToString());
+        Assert.Contains("captured directly", observations["description"]!.ToString());
+        Assert.Contains("exitCode", observations.ToJsonString());
+        Assert.Contains("not inferred from text", observations.ToJsonString());
     }
 
     private readonly string _root = Path.Combine(Path.GetTempPath(), "gnougo-code-tools-structured-output-tests-" + Guid.NewGuid().ToString("N"));

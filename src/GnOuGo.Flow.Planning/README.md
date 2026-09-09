@@ -137,6 +137,10 @@ Container input reachability is checked after its child implementations are avai
 the complete workflow must still satisfy every accepted business-input obligation before review.
 Retry reuses validated units; changed intent, catalog, executor contracts or dependencies
 invalidate affected checkpoints. Waiting does not consume active planning time.
+When preparation is incomplete, Retry refreshes discovery without using the in-memory
+catalog cache. An unchanged catalog retains validated selections and matching candidates;
+a changed catalog invalidates those results while preserving the intent inventory and receipts.
+Interrupted discovery retains the previous encrypted checkpoint and the pending refresh.
 
 `configure_generation` takes `generation` options and an exact revision while paused. It
 retains accepted behavior and answers, records prior settings, and invalidates pending work

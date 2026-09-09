@@ -184,7 +184,10 @@ public sealed partial class WorkflowPlanExecutor
 
         try
         {
-            var discovered = ctx.PreparationCheckpoint?.ValidatedResults["discovery"] is JsonNode discoveryCheckpoint
+            var checkpoint = ctx.PreparationCheckpoint;
+            var refreshDiscovery = checkpoint?.RefreshDiscovery == true;
+            var previousDiscovery = checkpoint?.ValidatedResults["discovery"];
+            var discovered = !refreshDiscovery && previousDiscovery is JsonNode discoveryCheckpoint
                 ? JsonSerializer.Deserialize(discoveryCheckpoint, TypedContractJsonContext.Default.ListMcpServerDiscovery)!
                 : await DiscoverMcpServersAsync(
                                  ctx.Engine.McpClientFactory,
@@ -193,11 +196,26 @@ public sealed partial class WorkflowPlanExecutor
                                  ctx,
                                  candidateServers: null,
                                  span.Span,
-                                 ct)
+                                 ct,
+                                 refresh: refreshDiscovery)
                              ?? new List<McpServerDiscovery>();
 
             if (discovered.All(server => server.Discovered))
-                await SaveTypedPreparationResultAsync(ctx, "discovery", JsonSerializer.SerializeToNode(discovered, TypedContractJsonContext.Default.ListMcpServerDiscovery), ct);
+            {
+                var currentDiscovery = JsonSerializer.SerializeToNode(discovered, TypedContractJsonContext.Default.ListMcpServerDiscovery);
+                if (refreshDiscovery && checkpoint is not null)
+                {
+                    // Intent inventory is independent of available providers. Selections and
+                    // matching candidates are valid only against the catalog that produced them.
+                    if (!JsonNode.DeepEquals(previousDiscovery, currentDiscovery))
+                    {
+                        checkpoint.ValidatedResults.Remove("selection");
+                        checkpoint.ValidatedResults.Remove("matching_candidate");
+                    }
+                    checkpoint.RefreshDiscovery = false;
+                }
+                await SaveTypedPreparationResultAsync(ctx, "discovery", currentDiscovery, ct);
+            }
 
             span.SetAttribute("mcp.servers_total", discovered.Count);
             span.SetAttribute("mcp.servers_discovered", discovered.Count(static server => server.Discovered));

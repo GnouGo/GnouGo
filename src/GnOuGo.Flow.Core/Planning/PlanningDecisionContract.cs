@@ -38,6 +38,8 @@ public sealed class PlanningPreparationCheckpoint
     public int Version { get; set; } = 1;
     public string Fingerprint { get; set; } = "";
     public string Stage { get; set; } = "discovery";
+    /// <summary>Retry must check current producer contracts before reusing catalog-dependent results.</summary>
+    public bool RefreshDiscovery { get; set; }
     public JsonObject ValidatedResults { get; set; } = new();
     public List<string> RequestHashes { get; set; } = [];
     public List<PlanningDiagnostic> Diagnostics { get; set; } = [];

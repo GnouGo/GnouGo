@@ -186,6 +186,8 @@ public sealed partial class TypedWorkflowPlanner(TimeProvider? timeProvider = nu
                     if (!invalidReview && !obsoleteMatchingQuestion && state.Status is not (PlanningStatus.Failed or PlanningStatus.Unsupported or PlanningStatus.Recovery)) throw new PlanningConflictException("Only a stopped session or invalidated behavior review can be retried.");
                     ArchiveIntent(state);
                     if (obsoleteMatchingQuestion) state.Question = null;
+                    if (state.Preparation is null && state.PreparationCheckpoint is { } incompletePreparation)
+                        incompletePreparation.RefreshDiscovery = true;
                     if (state.Preparation is not null)
                     {
                         var currentCatalog = await runtime.ValidateCatalogAsync(state.Preparation, ct);

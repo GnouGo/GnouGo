@@ -779,12 +779,14 @@ internal sealed class GitHubCopilotSdkSession : ICopilotSdkSession
 
     public async Task<CopilotSendResult> SendAsync(string handle, CopilotSendRequest request, CancellationToken cancellationToken)
     {
+        var observations = new CopilotExecutionObservations();
         var events = new List<CopilotStreamEvent>
         {
             new("request_send", "thinking", "Sending a message to Copilot.", DateTimeOffset.UtcNow)
         };
         using var subscription = _session.On<SessionEvent>(evt =>
         {
+            observations.Observe(evt);
             if (evt is AssistantReasoningEvent or AssistantReasoningDeltaEvent)
                 return;
             events.Add(new CopilotStreamEvent(evt.Type, "thinking", SafeEventMessage(evt), DateTimeOffset.UtcNow));
@@ -803,7 +805,7 @@ internal sealed class GitHubCopilotSdkSession : ICopilotSdkSession
         if (string.IsNullOrWhiteSpace(content))
             throw new InvalidOperationException("GitHub Copilot returned an empty response.");
         events.Add(new CopilotStreamEvent("completed", "info", "Copilot completed the message.", DateTimeOffset.UtcNow));
-        return new CopilotSendResult(handle, SessionId, content, response?.Data?.Model, events.ToArray());
+        return new CopilotSendResult(handle, SessionId, content, response?.Data?.Model, events.ToArray()) { ToolExecutions = observations.Snapshot() };
     }
 
     public async Task<IReadOnlyList<CopilotHistoryEvent>> GetHistoryAsync(CancellationToken cancellationToken)

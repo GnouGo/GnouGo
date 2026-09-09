@@ -263,6 +263,9 @@ public sealed class DecisionRoutingTests
         Assert.Equal(PlanningStatus.Recovery, state.Status); Assert.NotNull(state.PreparationCheckpoint);
         state = JsonSerializer.Deserialize(JsonSerializer.Serialize(state, PlanningJsonContext.Default.PlanningSnapshot), PlanningJsonContext.Default.PlanningSnapshot)!;
         state = await new TypedWorkflowPlanner().AdvanceAsync(state, new() { Kind = "retry", ExpectedRevision = state.Revision }, runtime, TestContext.Current.CancellationToken);
+        Assert.True(state.PreparationCheckpoint!.RefreshDiscovery);
+        state = JsonSerializer.Deserialize(JsonSerializer.Serialize(state, PlanningJsonContext.Default.PlanningSnapshot), PlanningJsonContext.Default.PlanningSnapshot)!;
+        Assert.True(state.PreparationCheckpoint!.RefreshDiscovery);
         state = await new TypedWorkflowPlanner().AdvanceAsync(state, new() { ExpectedRevision = state.Revision }, runtime, TestContext.Current.CancellationToken);
         Assert.NotNull(state.Preparation); Assert.Single(state.Answers); Assert.Equal(1, runtime.InventoryCalls);
     }

@@ -148,7 +148,8 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
         StepExecutionContext ctx,
         IReadOnlyList<McpServerMetadata>? candidateServers,
         ITelemetrySpan? parentSpan,
-        CancellationToken ct)
+        CancellationToken ct,
+        bool refresh = false)
     {
         if (factory?.ServerMetadata == null || factory.ServerMetadata.Count == 0)
             return null;
@@ -181,8 +182,8 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
         foreach (var server in serverMetadata)
         {
             // ── Try cache first: skip session entirely when both tools & prompts are cached ──
-            var cachedTools = McpCacheHelper.GetCachedTools(cache, server.Name);
-            var cachedPrompts = McpCacheHelper.GetCachedPrompts(cache, server.Name);
+            var cachedTools = refresh ? null : McpCacheHelper.GetCachedTools(cache, server.Name);
+            var cachedPrompts = refresh ? null : McpCacheHelper.GetCachedPrompts(cache, server.Name);
 
             if (cachedTools != null && cachedPrompts != null)
             {

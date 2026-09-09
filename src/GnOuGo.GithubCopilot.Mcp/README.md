@@ -19,6 +19,13 @@ This stdio server uses the stable C# MCP SDK `2.0.0` with automatic protocol neg
 For message and one-shot results, `completed` means the assistant turn completed. It does
 not establish that the requested work succeeded. The advertised field descriptions keep
 turn completion separate from verified execution outcomes and assistant response text.
+`toolExecutions` exposes tool-start arguments and terminal results captured directly
+from SDK events. Each terminal observation preserves the process exit code, working
+directory and output separately from the tool invocation's success flag. Verify every
+required command against these observations. Empty observations, absent exit codes and
+conflicting completion events remain inconclusive; assistant prose never fills them in.
+The same invocation already returns these observations, so consuming them requires no
+additional external read operation. Legacy results deserialize with an empty list.
 
 - Inspect the active policy with `code_get_policy`.
 - Summarize a project with `code_project_summary`.
