@@ -11,6 +11,11 @@ namespace GnOuGo.Flow.Core.Runtime.Executors;
 
 public sealed partial class WorkflowPlanExecutor
 {
+    private const string TypedConfirmationMatchingGuidance = "A declared human-interaction decision is boolean permission, so its conditional_mode must be all_on_value. Permission does not choose an effect's business result. Keep runtime-dependent enum arguments unbound by selecting the appropriate whole-tool or partial-selector entry; compute their values from the declared business-result dependencies during construction. Never select mutually exclusive result variants as if confirmation chose between them, or execute all those alternatives together.";
+
+    private static bool HasHumanDecisionSource(CapabilityInventory inventory, CapabilityInventoryOperation operation) =>
+        inventory.Operations.Any(source => source.Id == operation.DecisionSourceOperationId && source.ExecutionKind == "human_interaction");
+
     internal static void ScopeTypedPreparationFeedback(JsonObject input, PlanningPreparationCheckpoint? checkpoint, JsonNode catalog)
     {
         if (input["planner_version"]?.GetValue<int>() != 2 || input["preparation_feedback"] is not JsonArray { Count: > 0 }) return;
@@ -239,7 +244,8 @@ public sealed partial class WorkflowPlanExecutor
                 var entry = Entry(operation, "operation_id"); var properties = entry["properties"]!.AsObject();
                 properties["status"] = Enum(status);
                 properties["decision_operation_id"] = Enum(status == "conditional" ? item.DecisionSourceOperationId : "");
-                properties["conditional_mode"] = status != "conditional" ? Enum("") : item.AllowNoEffectOutcome ? Enum("exactly_one", "all_on_value") : Enum("exactly_one");
+                properties["conditional_mode"] = status != "conditional" ? Enum("") : HasHumanDecisionSource(inventory, item) ? Enum("all_on_value")
+                    : item.AllowNoEffectOutcome ? Enum("exactly_one", "all_on_value") : Enum("exactly_one");
                 properties["candidate_catalog_ids"]!["maxItems"] = 0;
                 var selected = properties["catalog_ids"]!;
                 selected["minItems"] = status is "matched" or "conditional" ? 1 : status == "composed" ? 2 : 0;

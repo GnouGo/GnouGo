@@ -144,6 +144,9 @@ Interrupted discovery retains the previous encrypted checkpoint and the pending 
 Technical preparation feedback is scoped to the catalog assessed. A changed catalog or
 legacy feedback without provenance triggers a fresh inventory from the retained intent;
 superseded findings remain in encrypted history and cannot imply that new producer data is absent.
+Capability-matching schemas constrain boolean human permission to the effect/no-effect route.
+Business-result selectors remain runtime arguments; neither consent nor a sequence of all
+selector alternatives can replace their independent result computation.
 
 `configure_generation` takes `generation` options and an exact revision while paused. It
 retains accepted behavior and answers, records prior settings, and invalidates pending work

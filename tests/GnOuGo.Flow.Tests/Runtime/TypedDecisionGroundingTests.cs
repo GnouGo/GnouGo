@@ -90,6 +90,7 @@ public sealed class TypedDecisionGroundingTests
             var catalogEntries = Array.CreateInstance(T("CapabilityCatalogEntry"), dict.Count);
             var ci = 0; foreach (var entryValue in dict.Values) catalogEntries.SetValue(entryValue, ci++);
             var catalog = Activator.CreateInstance(T("CapabilityCatalog"), new object?[] { catalogEntries, "" })!;
+            catalog.GetType().GetProperty("ExactDecisionSources")!.SetValue(catalog, true);
             var schema = (JsonObject)t.GetMethod("BuildTypedCapabilityMatchingSchema", flags)!.Invoke(null, new[] { inventory, catalog })!;
             Assert.Empty(PlanningContractValidation.ValidateSchema(schema, strict: true));
             var readProperties = schema["properties"]!["operation_matches"]!["properties"]!["read"]!["anyOf"]![0]!["properties"]!;
@@ -97,9 +98,17 @@ public sealed class TypedDecisionGroundingTests
             Assert.Equal(0, readProperties["candidate_catalog_ids"]!["maxItems"]!.GetValue<int>());
             Assert.DoesNotContain("conditional", readProperties["status"]!["enum"]!.AsArray().Select(v => v!.GetValue<string>()));
             Assert.Equal("", Assert.Single(readProperties["decision_operation_id"]!["enum"]!.AsArray())!.GetValue<string>());
+            var conditionalProperties = schema["properties"]!["operation_matches"]!["properties"]!["effect"]!["anyOf"]![0]!["properties"]!;
+            Assert.Equal("all_on_value", Assert.Single(conditionalProperties["conditional_mode"]!["enum"]!.AsArray())!.GetValue<string>());
+            var badCandidate = (JsonObject)t.GetMethod("TypedMatchingCandidate", flags)!.Invoke(null, new[] { eval })!;
+            badCandidate["operation_matches"]!["effect"]!["conditional_mode"] = "exactly_one";
+            Assert.NotEmpty(PlanningContractValidation.ValidateInstance(badCandidate, schema));
+            var rejected = t.GetMethod("ParseCapabilityMatchingEvaluation", flags)!.Invoke(null, new[] { badCandidate, inventory, catalog })!;
+            Assert.Equal(false, rejected.GetType().GetProperty("ContractValid")!.GetValue(rejected));
+            Assert.Contains(((System.Collections.IEnumerable)rejected.GetType().GetProperty("Issues")!.GetValue(rejected)!).Cast<object>(),
+                issue => issue.GetType().GetProperty("ValidationIssue")!.GetValue(issue)?.ToString() == "confirmation_activation_mode_invalid");
 
         }
 
     }
 }
-

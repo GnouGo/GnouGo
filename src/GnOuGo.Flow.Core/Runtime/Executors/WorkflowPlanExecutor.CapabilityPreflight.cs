@@ -3772,6 +3772,8 @@ public sealed partial class WorkflowPlanExecutor
         return $$"""
             You are a domain-neutral capability matcher. Return only the requested structured JSON.
 
+            {{(catalog.ExactDecisionSources ? TypedConfirmationMatchingGuidance : "")}}
+
             {{(catalog.ExactDecisionSources ? "V2 contract: use the exact operation/constraint keys and statuses in the response schema. Technical alternatives without a sufficient declared implementation are unavailable, not a question to the user. Preserve declared decision dependencies exactly; native human confirmation yields boolean response, not an analysis enum. Do not add a selector dependency to an unconditional operation. A generic declared capability may consume earlier runtime observations through its arguments when that is sufficient." : "")}}
 
             Decide every positive runtime operation independently:
@@ -4097,6 +4099,9 @@ public sealed partial class WorkflowPlanExecutor
                 _ => false
             };
             if (catalog.ExactDecisionSources && operation.DecisionSourceOperationId.Length > 0 && status is "matched" or "composed") shapeValid = false;
+            var humanRoutingInvalid = catalog.ExactDecisionSources && status == "conditional" && HasHumanDecisionSource(inventory, operation)
+                && requestedConditionalMode != ConditionalAllOnValueActivationMode;
+            if (humanRoutingInvalid) shapeValid = false;
             if (operation.ExecutionKind != "local_processing" && status == "local"
                 || operation.ExecutionKind == "local_processing" && status != "local")
                 shapeValid = false;
@@ -4104,7 +4109,9 @@ public sealed partial class WorkflowPlanExecutor
             if (!shapeValid)
             {
                 contractValid = false;
-                var diagnostic = BuildInvalidMatchingDiagnostic(
+                var diagnostic = humanRoutingInvalid
+                    ? new CapabilityMatchingShapeDiagnostic("confirmation_activation_mode_invalid", TypedConfirmationMatchingGuidance, ["conditional_mode", "catalog_ids"])
+                    : BuildInvalidMatchingDiagnostic(
                     reportedStatus,
                     reportedSelectedValid,
                     reportedCandidatesValid,
@@ -7236,6 +7243,8 @@ public sealed partial class WorkflowPlanExecutor
         }).ToArray();
         return $$"""
             You are a domain-neutral capability matcher repairing a previous matching contract. Return only the requested structured JSON.
+
+            {{(catalog.ExactDecisionSources ? TypedConfirmationMatchingGuidance : "")}}
 
             Return every operation and constraint exactly once. Preserve all locked decisions exactly. A decision-source operation and every producer reached through its declared input_operation_ids are deliberately absent from the locked set when coupled to a reported conditional grounding issue: repair that declared chain together with the dependent conditional operation, selecting a better typed producer when the catalog provides one. Never infer an undeclared producer from descriptions or adjacency. Resolve each reported issue from the documented catalog only, and correct every listed validation_issue at its invalid_fields rather than repeating the reported_status. For operations use matched for one sufficient ID, composed for two or more necessary complementary IDs, conditional for either one mutually exclusive selector subset chosen by the locked decision_source_operation_id plus any necessary complementary unconditional prerequisites, or—only when allow_no_effect_outcome=true—one or more necessary capabilities that all execute in catalog_ids order for the single effect value; use local only for local_processing, ambiguous for unresolved user intent, and unavailable only when no sufficient implementation exists. Before retaining unavailable, scan every catalog row again, including selector-specific variants: a variant inherits its whole-tool description, arguments, outputs, artifacts, and composition contract, and workflow waiting, repetition, ordering, aggregation, and termination belong to workflow structure rather than capability sufficiency. For conditional, copy decision_source_operation_id exactly into decision_operation_id and set conditional_mode=exactly_one for selector alternatives or conditional_mode=all_on_value for the ordered effect composition; otherwise leave decision_operation_id and conditional_mode empty. Conditional selector variants share one physical capability and the same selector paths, differing on exactly one selector; prerequisites execute once outside the branch. An all_on_value conditional executes every selected capability in order inside its one effect branch and none in its no-effect branch. A runtime-dependent result is not user ambiguity. A complete_operation wrapper replaces its encapsulated phases. For constraints use enforced only when enforcement_kind=exact_denial and exact denied MCP IDs are established; use policy_only only when enforcement_kind=workflow_policy; use ambiguous only for unresolved exact-denial candidates. Select the smallest sufficient composition and never invent IDs.
 
