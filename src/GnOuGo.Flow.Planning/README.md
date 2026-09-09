@@ -586,3 +586,5 @@ assessments include exact consumed references and bounded type summaries; transi
 business-input dependencies are explicitly distinguished from argument values. This
 scoped dependency review can request behavior revision only. Omitted producer schema
 fields cannot justify capability rediscovery; observation assessments remain separate.
+
+Runtime MCP argument findings retain JSON Pointers through scenario validation and planning-location mapping, including escaped property names. Repairs replace the diagnosed computation, preserving other arguments; a coarse runtime finding never locks the faulty expression while exposing only its dependencies. Per-scenario evidence remains recorded, while identical aggregate findings are deduplicated.

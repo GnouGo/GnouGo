@@ -81,8 +81,8 @@ internal static class WorkflowPlanScenarioValidator
             };
             var fault = new Injection();
             var observed = new System.Collections.Concurrent.ConcurrentDictionary<string, int>(StringComparer.Ordinal);
-            engine.Registry.Register(new FailureExecutor(new McpCallExecutor(), scenario, cancellation, fault, observations, observed));
-            engine.Registry.Register(new FailureExecutor(new LlmCallExecutor(), scenario, cancellation, fault, observations, observed));
+            engine.Registry.Register(new FailureExecutor(new McpCallExecutor(), scenario, cancellation, fault, observations, observed, telemetry));
+            engine.Registry.Register(new FailureExecutor(new LlmCallExecutor(), scenario, cancellation, fault, observations, observed, telemetry));
             var diagnostics = new List<PlanningDiagnostic>();
             string outcome;
             try
@@ -112,7 +112,8 @@ internal static class WorkflowPlanScenarioValidator
                 if (!reached) diagnostics.Add(new("SCENARIO_UNREACHED", "workflow:" + scenario.Workflow + "/step:" + scenario.Step, "The synthetic input did not reach this required scenario."));
                 if (!run.Success && !expectedFailure)
                 {
-                    diagnostics.AddRange(telemetry.Failures.Values);
+                    diagnostics.AddRange(telemetry.Failures.Where(p => !telemetry.RequestFailures.ContainsKey(p.Key)).Select(p => p.Value));
+                    diagnostics.AddRange(telemetry.RequestFailures.Values.SelectMany(p => p));
                     if (telemetry.Failures.IsEmpty) diagnostics.Add(new("SCENARIO_INCONCLUSIVE", "$", run.Error?.Code + ": " + run.Error?.Message));
                 }
                 foreach (var visitedWorkflow in telemetry.Workflows)
@@ -162,7 +163,7 @@ internal static class WorkflowPlanScenarioValidator
 
     private sealed record Scenario(string Id, string? Workflow, string? Step, string Kind, int CaseIndex = -1);
     private sealed class Injection { public bool Injected { get; set; } }
-    private sealed class FailureExecutor(IStepExecutor inner, Scenario scenario, CancellationTokenSource cancellation, Injection fault, JsonObject? observations, System.Collections.Concurrent.ConcurrentDictionary<string, int> observed) : IStepExecutor
+    private sealed class FailureExecutor(IStepExecutor inner, Scenario scenario, CancellationTokenSource cancellation, Injection fault, JsonObject? observations, System.Collections.Concurrent.ConcurrentDictionary<string, int> observed, CoverageTelemetry telemetry) : IStepExecutor
     {
         public string StepType => inner.StepType;
         public string? DslSnippet => inner.DslSnippet;
@@ -184,11 +185,24 @@ internal static class WorkflowPlanScenarioValidator
                 // Fixtures replace observations, not executable request validation. The inner
                 // executor uses the scenario's fake integrations and must evaluate arguments,
                 // validate native contracts, and complete before this sample is consumed.
-                await inner.ExecuteAsync(ctx, ct).ConfigureAwait(false);
+                await ExecuteInnerAsync(ctx, ct).ConfigureAwait(false);
                 observed.AddOrUpdate(key, 1, (_, current) => current + 1);
                 return samples[index]?.DeepClone();
             }
-            return await inner.ExecuteAsync(ctx, ct).ConfigureAwait(false);
+            return await ExecuteInnerAsync(ctx, ct).ConfigureAwait(false);
+        }
+
+        private async Task<JsonNode?> ExecuteInnerAsync(StepExecutionContext ctx, CancellationToken ct)
+        {
+            try { return await inner.ExecuteAsync(ctx, ct).ConfigureAwait(false); }
+            catch (WorkflowRuntimeException ex) when (ex.Code == ErrorCodes.InputValidation && ex.Details?["validation_findings"] is JsonArray findings)
+            {
+                var workflow = ctx.ExecutionScope?.Workflow?.Name;
+                telemetry.RequestFailures[workflow + ":" + ctx.Step.Id] = findings.Select(f => new PlanningDiagnostic(
+                    "SCENARIO_EXECUTION_FAILED", "workflow:" + workflow + "/step:" + ctx.Step.Id + "/input/request" + f!["instance_pointer"]!.GetValue<string>(),
+                    ex.Code + ": " + f["message"]!.GetValue<string>())).ToArray();
+                throw;
+            }
         }
     }
     private sealed class ScenarioLlm : ILLMClient
@@ -214,6 +228,7 @@ internal static class WorkflowPlanScenarioValidator
     {
         public System.Collections.Concurrent.ConcurrentDictionary<string, StepStatus> Statuses { get; } = new(StringComparer.Ordinal);
         public System.Collections.Concurrent.ConcurrentDictionary<string, PlanningDiagnostic> Failures { get; } = new(StringComparer.Ordinal);
+        public System.Collections.Concurrent.ConcurrentDictionary<string, IReadOnlyList<PlanningDiagnostic>> RequestFailures { get; } = new(StringComparer.Ordinal);
         public System.Collections.Concurrent.ConcurrentDictionary<string, PlanningDiagnostic> RecoveredErrors { get; } = new(StringComparer.Ordinal);
         public HashSet<string> Workflows { get; } = new(StringComparer.Ordinal);
         private readonly object _gate = new();

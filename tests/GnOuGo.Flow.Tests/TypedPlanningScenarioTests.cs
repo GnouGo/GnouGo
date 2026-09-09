@@ -55,7 +55,7 @@ public sealed class TypedPlanningScenarioTests
         Assert.Equal(valid ? "passed" : "inconclusive", nominal.Outcome);
         Assert.Equal(valid ? 1 : 0, calls);
         if (!valid)
-            Assert.Contains(nominal.Diagnostics, d => d.Location == "workflow:main/step:observe" && d.Message.Contains("INPUT_VALIDATION", StringComparison.Ordinal));
+            Assert.Contains(nominal.Diagnostics, d => d.Location == "workflow:main/step:observe/input/request/offset" && d.Message.Contains("INPUT_VALIDATION", StringComparison.Ordinal));
         Assert.DoesNotContain(results.SelectMany(r => r.Diagnostics), d => d.Code == "FINALIZATION_NOT_EXECUTED");
     }
 

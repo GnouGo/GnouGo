@@ -187,6 +187,8 @@ public static class PlanningExecutableValidation
                 .Where(n => "n_" + PlanningGraphCompiler.Fingerprint(n.Node.Key)[..16] == step).ToArray();
             if (locations.Length != 1) return diagnostic;
             path = locations[0].Path;
+            var request = diagnostic.Location.IndexOf("/input/request", StringComparison.Ordinal);
+            if (request >= 0) return diagnostic with { Location = path + diagnostic.Location[request..] };
         }
         else if (field is not null)
         {

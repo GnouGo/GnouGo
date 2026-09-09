@@ -36,7 +36,7 @@ public sealed partial class TypedWorkflowPlanner
         var helperPath = "/workflows/" + graph.Workflows.FindIndex(w => w.Key == unit.WorkflowKey) + "/functions/u_" + PlanningGraphCompiler.Fingerprint(unit.Key)[..8] + "_";
         unit.Diagnostics = repairDiagnostics.Where(d => helperUnit is not null ? d.Location.StartsWith(helperPath, StringComparison.Ordinal)
             : located.Any(n => n.Workflow.Key == unit.WorkflowKey && unit.NodeKeys.Contains(n.Node.Key, StringComparer.Ordinal) && (d.Location == n.Path || d.Location.StartsWith(n.Path + "/", StringComparison.Ordinal))))
-            .Select(d => d with { Location = PlanningLocation(d.Location, graph) }).ToList();
+            .Select(d => d with { Location = PlanningLocation(d.Location, graph) }).Distinct().ToList();
         var preparation = UnitPreparation(state.Preparation!, owner.Workflow, unit);
         var schema = PlanningConstruction.Schema(owner.Workflow, unit, preparation, graph);
         var patch = PlanningUnitPatches.Create(graph, unit, schema, state.Preparation);

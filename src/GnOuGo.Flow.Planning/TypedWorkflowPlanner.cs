@@ -476,7 +476,7 @@ public sealed partial class TypedWorkflowPlanner(TimeProvider? timeProvider = nu
                     if (!await PrepareScenarioObservationsAsync(state, runtime, ct)) return;
                     state.Scenarios = (await runtime.ValidateScenariosAsync(yaml, state.Preparation!, state.ScenarioInputs!, ScenarioLoopItemSchemas(state.Graph!, state.Preparation!), state.ScenarioObservations, ct)).Select(s => s with { Diagnostics = s.Diagnostics.Select(d => PlanningExecutableValidation.MapRuntimeDiagnostic(d, state.Graph!)).ToList() }).ToList();
                     if (state.Scenarios.Count == 0) diagnostics.Add(new("SCENARIO_MISSING", "$", "No scenario coverage was established."));
-                    diagnostics.AddRange(state.Scenarios.Where(s => s.Outcome != "passed").SelectMany(s => s.Diagnostics.Count == 0 ? [new PlanningDiagnostic("SCENARIO_INCONCLUSIVE", s.Id, "Required scenario coverage is incomplete.")] : s.Diagnostics));
+                    diagnostics.AddRange(state.Scenarios.Where(s => s.Outcome != "passed").SelectMany(s => s.Diagnostics.Count == 0 ? [new PlanningDiagnostic("SCENARIO_INCONCLUSIVE", s.Id, "Required scenario coverage is incomplete.")] : s.Diagnostics).Distinct());
                 }
                 if (diagnostics.Count == 0)
                 {

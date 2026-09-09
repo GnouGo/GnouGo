@@ -1256,6 +1256,8 @@ Produce the final answer strictly from the executed MCP results.
             {
                 ["server"] = session.ServerName,
                 ["method"] = method,
+                ["validation_findings"] = new JsonArray(JsonSchemaInstanceValidator.ValidateInstanceFindings(requestArgs ?? new JsonObject(), tool.InputSchema)
+                    .Select(static finding => (JsonNode)new JsonObject { ["instance_pointer"] = finding.InstancePointer, ["message"] = finding.Message }).ToArray()),
                 ["validation_errors"] = new JsonArray(validationErrors.Select(static error => (JsonNode?)JsonValue.Create(error)).ToArray())
             });
     }

@@ -168,7 +168,8 @@ internal sealed class PlanningUnitPatches(JsonObject schema, Dictionary<string, 
             // A finding on the object itself can require different member names or a
             // computation instead of a context. Leaf-only patches cannot fix its shape.
             var candidateLocation = "/units/" + PlanningSchemaReferences.Escape(unit.Key) + "/candidate/" + string.Join("/", path.Select(PlanningSchemaReferences.Escape));
-            if (diagnostics.Any(d => d.Location == location || d.Location == candidateLocation))
+            if (diagnostics.Any(d => d.Location == location || d.Location == candidateLocation ||
+                label is "compute" or "template" && (location.StartsWith(d.Location + "/", StringComparison.Ordinal) || candidateLocation.StartsWith(d.Location + "/", StringComparison.Ordinal))))
             { leaves.Add((path, shape)); return; }
             var before = leaves.Count;
             if (label is "object" or "template" or "compute" && obj["members"] is JsonArray members)
