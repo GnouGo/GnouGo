@@ -147,6 +147,9 @@ superseded findings remain in encrypted history and cannot imply that new produc
 Capability-matching schemas constrain boolean human permission to the effect/no-effect route.
 Business-result selectors remain runtime arguments; neither consent nor a sequence of all
 selector alternatives can replace their independent result computation.
+Structured continuation schemas expose only the runtime envelope channels `json` and
+`response`. Generated fallback fields belong inside `json`, including computed values;
+the runtime validates their resolved values before continuation can enable later effects.
 
 `configure_generation` takes `generation` options and an exact revision while paused. It
 retains accepted behavior and answers, records prior settings, and invalidates pending work

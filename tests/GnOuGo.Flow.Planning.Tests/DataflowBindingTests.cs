@@ -669,7 +669,7 @@ public sealed class DataflowBindingTests
             new() { Name = "details", Required = true, Schema = new() { Type = "string" } }] });
         var value = Obj(("accepted", new() { Kind = "boolean", Boolean = false }), ("details", Str("Execution failed.")));
         node.OnError = [new(null, "continue", value, null)];
-        var unit = new PlanningConstructionUnit { Kind = "implementation", WorkflowKey = workflow.Key, NodeKeys = [node.Key], ContractVersion = PlanningDataflow.ContractVersion };
+        var unit = new PlanningConstructionUnit { Kind = "implementation", WorkflowKey = workflow.Key, NodeKeys = [node.Key], ContractVersion = 53 };
         PlanningGraph Apply() => PlanningConstruction.Apply(graph, unit,
             PlanningConstruction.UpgradeCandidate(graph, unit, PlanningConstruction.Values(workflow, unit), prep), prep);
         var applied = Apply(); var handler = applied.Workflows[0].Steps[0].OnError[0];
@@ -682,6 +682,28 @@ public sealed class DataflowBindingTests
         Assert.Contains(PlanningGraphValidation.Validate(Apply(), prep), d => d.Code == "STRUCTURED_FALLBACK_INVALID");
         node.OnError = [new(null, "continue", Obj(("json", value), ("response", Obj())), null)];
         Assert.Equal(2, Apply().Workflows[0].Steps[0].OnError[0].SetOutput!.Members.Count);
+    }
+
+    [Fact]
+    public void FlatComputedStructuredFallbackReceivesAnExplicitEnvelopeRepairSchema()
+    {
+        var (graph, prep) = Fixture(); var workflow = graph.Workflows[0]; var node = workflow.Steps[0];
+        node.StructuredOutput = new(new() { Type = "object", Properties = [new() { Name = "observed", Required = true, Schema = new() { Type = "string", Nullable = true } }] });
+        node.OnError = [new(null, "continue", Obj(("observed", new() { Kind = "compute", Text = "return null;" })), null)];
+        var unit = new PlanningConstructionUnit { Kind = "implementation", WorkflowKey = workflow.Key, NodeKeys = [node.Key], ContractVersion = PlanningDataflow.ContractVersion };
+        unit.Candidate = PlanningConstruction.UpgradeCandidate(graph, unit, PlanningConstruction.Values(workflow, unit), prep);
+        unit.Diagnostics = PlanningGraphValidation.Validate(graph, prep).Where(d => d.Code == "STRUCTURED_FALLBACK_INVALID").ToList();
+        var patch = PlanningUnitPatches.Create(graph, unit, PlanningConstruction.Schema(workflow, unit, prep, graph), prep);
+        var field = Assert.Single(patch.Context(unit.Candidate)).Key;
+        Assert.EndsWith("/onError/0/setOutput", field);
+        var flat = PlanningModelValues.Compact(JsonSerializer.SerializeToNode(node.OnError[0].SetOutput, PlanningJsonContext.Default.PlanningValue));
+        var response = new JsonObject { ["changes"] = new JsonObject { [field] = flat }, ["remove"] = new JsonArray() };
+        Assert.NotEmpty(PlanningContractValidation.ValidateInstance(response, patch.Schema));
+        response["changes"]![field] = PlanningModelValues.Compact(JsonSerializer.SerializeToNode(Obj(("json", node.OnError[0].SetOutput!)), PlanningJsonContext.Default.PlanningValue));
+        Assert.Empty(PlanningContractValidation.ValidateInstance(response, patch.Schema));
+        var repaired = PlanningConstruction.Apply(graph, unit, patch.Apply(unit.Candidate, response), prep);
+        Assert.DoesNotContain(PlanningGraphValidation.Validate(repaired, prep), d => d.Code == "STRUCTURED_FALLBACK_INVALID");
+        Assert.Equal("continue", repaired.Workflows[0].Steps[0].OnError[0].Action);
     }
 
     [Fact]

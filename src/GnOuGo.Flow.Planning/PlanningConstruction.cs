@@ -222,6 +222,22 @@ public static class PlanningConstruction
                         if (booleanBindings.Length > 0) predicates.Add((JsonNode)PlanningDataflow.BindingSchema(booleanBindings));
                         definitions[prefix + "condition"] = new JsonObject { ["anyOf"] = predicates };
                         definitions[prefix + "errorCase"]!["properties"]!["if"] = Nullable(Ref(prefix + "condition"));
+                        if (unit.ContractVersion >= 54 && node.StructuredOutput is not null)
+                        {
+                            // The runtime envelope is fixed plumbing. Generated result
+                            // fields belong inside json, not beside its response channel.
+                            definitions[prefix + "structuredEnvelope"] = Object(new()
+                            {
+                                ["kind"] = new JsonObject { ["type"] = "string", ["enum"] = new JsonArray("object") },
+                                ["members"] = new JsonObject { ["type"] = "array", ["minItems"] = 1, ["maxItems"] = 2,
+                                    ["items"] = Object(new()
+                                    {
+                                        ["name"] = new JsonObject { ["type"] = "string", ["enum"] = new JsonArray("json", "response") },
+                                        ["value"] = Ref(prefix + "value")
+                                    }) }
+                            });
+                            definitions[prefix + "errorCase"]!["properties"]!["setOutput"] = Nullable(Ref(prefix + "structuredEnvelope"));
+                        }
                     }
                     PlanningLoopBindings.Constrain(node, fields, definitions, PlanningDataflow.CompactIndex(workflow, preparation, graph, node.Key).Values);
                     if (constrainArguments && node.Type == "mcp.call" && fields["arguments"] is JsonObject arguments &&

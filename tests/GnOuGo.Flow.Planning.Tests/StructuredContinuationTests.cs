@@ -30,6 +30,17 @@ public sealed class StructuredContinuationTests
             Finally = [new() { Key = "cleanup", Type = "mcp.call", CapabilityId = "cleanup", Input = Obj() }] };
         var graph = new PlanningGraph { Workflows = [workflow] };
         Assert.Empty(PlanningGraphValidation.Validate(graph, prep));
+        var unit = new PlanningConstructionUnit { Kind = "implementation", WorkflowKey = workflow.Key, NodeKeys = [producer.Key], ContractVersion = PlanningDataflow.ContractVersion };
+        var candidate = PlanningConstruction.UpgradeCandidate(graph, unit, PlanningConstruction.Values(workflow, unit), prep);
+        var schema = PlanningConstruction.Schema(workflow, unit, prep, graph);
+        Assert.Empty(PlanningContractValidation.ValidateSchema(schema, strict: true));
+        Assert.Empty(PlanningContractValidation.ValidateInstance(candidate, schema));
+        var flat = candidate.DeepClone().AsObject();
+        var output = flat["nodes"]![producer.Key]!["onError"]![0]!["setOutput"]!;
+        flat["nodes"]![producer.Key]!["onError"]![0]!["setOutput"] = output["members"]![0]!["value"]!.DeepClone();
+        Assert.NotEmpty(PlanningContractValidation.ValidateInstance(flat, schema));
+        graph = PlanningConstruction.Apply(graph, unit, candidate, prep);
+        producer = graph.Workflows[0].Steps[0].Steps[0];
         Assert.Contains(PlanningDataflow.Index(workflow, prep, graph, producer.Key).Values,
             b => b.Value.Kind == "loop_previous" && b.Value.Path.SequenceEqual(new[] { "source", "json" }) && b.Availability == "nullable");
         var factory = new InMemoryMcpClientFactory();
