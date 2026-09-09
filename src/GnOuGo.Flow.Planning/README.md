@@ -448,6 +448,8 @@ old repair totals, unreceived calls and changed producer contracts cannot trigge
 Native loop response schemas distinguish initial inputs from the `while` condition.
 The loop's own previous result and index are selectable only in its condition/body;
 ancestor loop state remains available in a nested body. Targeted repairs retain this scope.
+An unresolved loop collection schedules its referenced synthesized producer using the
+validator's exact `items`/`over` field location; legacy whole-input findings remain supported.
 An oversized optional early assessment is retained as a deferred finding while field repair
 continues. Complete semantic review and required scenarios still gate final approval.
 Review baselines, cumulative calls, pending consumers and history survive restart

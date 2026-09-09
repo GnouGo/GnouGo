@@ -97,11 +97,14 @@ internal static class PlanningProducerRepair
                     }
                     catch (InvalidOperationException) { }
             }
-            if (!consumer.Diagnostics.Any(d => d.Code == "LOOP_ITEMS_CONTRACT_UNRESOLVED" && d.Location == path + "/input")) continue;
-            var items = node.Input.Members.FirstOrDefault(m => m.Name == "items")?.Value;
-            if (items is null) continue;
+            var items = node.Input.Members.Select((m, i) => (Member: m, Index: i))
+                .Where(p => p.Member.Name is "items" or "over" && consumer.Diagnostics.Any(d =>
+                    d.Code == "LOOP_ITEMS_CONTRACT_UNRESOLVED" && (d.Location == path + "/input" ||
+                        d.Location == path + "/input/members/" + p.Index + "/value")))
+                .Select(p => p.Member.Value).ToArray();
+            if (items.Length == 0) continue;
             var eligible = PlanningDataflow.Index(workflow, preparation, graph, node.Key).Values;
-            foreach (var reference in PlanningDataflow.References(items).Where(v => v.Kind == "output" &&
+            foreach (var reference in items.SelectMany(PlanningDataflow.References).Where(v => v.Kind == "output" &&
                 eligible.Any(b => b.Value.Kind == "output" && b.Value.Source == v.Source)))
             {
                 var producer = located.SingleOrDefault(p => p.Node.Key == reference.Source).Node;

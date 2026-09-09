@@ -8,9 +8,10 @@ namespace GnOuGo.Flow.Planning.Tests;
 public sealed class ProducerRepairTests
 {
     [Theory]
-    [InlineData("package", "entries")]
-    [InlineData("resultat", "elements")]
-    public void InvalidConsumerCheckpointRevisitsOnlyItsExplicitSynthesizedProducer(string parameter, string field)
+    [InlineData("package", "entries", "items", false)]
+    [InlineData("resultat", "elements", "over", false)]
+    [InlineData("package", "entries", "items", true)]
+    public void InvalidConsumerCheckpointRevisitsOnlyItsExplicitSynthesizedProducer(string parameter, string field, string input, bool legacyLocation)
     {
         var state = ConstructionUnitTests.ApprovedSkeleton(); var workflow = state.Graph!.Workflows[0];
         workflow.Outputs.Clear();
@@ -25,10 +26,12 @@ public sealed class ProducerRepairTests
         consumer.Candidate = PlanningConstruction.UpgradeCandidate(state.Graph, consumer, PlanningConstruction.Values(workflow, consumer), state.Preparation!);
         state.ConstructionUnits = [contract, consumer]; var graphHash = PlanningGraphCompiler.Fingerprint(state.Graph); var approval = state.ApprovedBehaviorHash;
         var originalInput = loop.Input;
-        loop.Input = Obj(("items", new() { Kind = "compute", Text = parameter + "." + field + " || []", Members = [new(parameter, new() { Kind = "output", Source = producer.Key })] }));
+        loop.Input = Obj(("max_times", new() { Kind = "number", Number = 2 }), (input, new() { Kind = "compute", Text = parameter + "." + field + " || []", Members = [new(parameter, new() { Kind = "output", Source = producer.Key })] }));
         var rejected = PlanningConstruction.UpgradeCandidate(state.Graph, consumer, PlanningConstruction.Values(workflow, consumer), state.Preparation!);
+        var finding = Assert.Single(PlanningExecutableValidation.Validate(state.Graph, state.Preparation!), d => d.Code == "LOOP_ITEMS_CONTRACT_UNRESOLVED");
+        Assert.Equal("/workflows/0/steps/1/input/members/1/value", finding.Location);
         loop.Input = originalInput;
-        var finding = new PlanningDiagnostic("LOOP_ITEMS_CONTRACT_UNRESOLVED", "/workflows/0/steps/1/input", "Iteration requires a typed producer array.");
+        if (legacyLocation) finding = finding with { Location = "/workflows/0/steps/1/input" };
         Assert.True(TypedWorkflowPlanner.ScheduleRejectedProducerRepair(state, consumer, rejected, [finding]));
         Assert.Equal(graphHash, PlanningGraphCompiler.Fingerprint(state.Graph));
         Assert.Equal(approval, state.ApprovedBehaviorHash);
