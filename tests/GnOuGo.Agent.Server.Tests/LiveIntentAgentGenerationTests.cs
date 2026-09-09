@@ -168,6 +168,8 @@ public sealed partial class LiveIntentAgentGenerationTests
                     services.AddLogging(logging => logging.AddProvider(new ProviderOperationalLogger()).AddFilter<ProviderOperationalLogger>("GnOuGo.AI.Core", LogLevel.Information));
                     if (plannerVersion == 2) ConfigureV2Campaign(services, cycleBudget, planningStore, budgetLedger);
                 });
+            if (comparison is not null)
+                ValidateComparisonSettings(app.Services.GetRequiredService<Microsoft.Extensions.Options.IOptions<GnOuGo.Agent.Server.Configuration.TypedWorkflowPlanningSettings>>().Value, comparison);
             using var hostCancellation = app.Lifetime.ApplicationStopping.Register(timeout.Cancel);
             if (plannerVersion == 2 && !resumeOnly && !probeOnly) inferenceGateway = await LiveInferenceGateway.StartAsync(app.Services, cycleBudget, budgetLedger, timeout.Token);
             if (plannerVersion == 2 && ExistingConfigurationAuthorized)

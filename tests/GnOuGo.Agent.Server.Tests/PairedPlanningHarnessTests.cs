@@ -102,4 +102,38 @@ public sealed partial class LiveIntentAgentGenerationTests
         seed.PreparationCheckpoint = null; seed.Request.Options["generator"]!["model"] = "changed";
         Assert.Throws<InvalidOperationException>(() => env.Check(seed));
     }
+
+    [Fact]
+    public void PairedReportsOmitGeneratorGuidanceAndRetainBlockedPreparationUsage()
+    {
+        var seed = PairedSeed(); seed.Request.Options["generator"]!["context"] = "PRIVATE_GENERATOR_GUIDANCE";
+        var env = new FrozenComparisonEnvironment(); env.Check(seed);
+        Assert.DoesNotContain("PRIVATE_GENERATOR_GUIDANCE", env.PublicGenerator.ToJsonString()); Assert.NotNull(env.GeneratorFingerprint);
+        var blocked = new ComparisonAttempt(PlanningConstructionStrategies.JavaScriptV1, 1, "blocked")
+        { Outcome = "blocked_preparation", SharedPreparation = seed };
+        var report = blocked.ToJson();
+        Assert.Equal(8, report["logicalGenerationCalls"]!.GetValue<long>());
+        Assert.Equal(120_000, report["logicalGenerationActiveMilliseconds"]!.GetValue<double>());
+        Assert.Equal(0, report["totalAttemptCalls"]!.GetValue<long>());
+        Assert.Equal("shared_preparation", report["failedPhase"]!.ToString());
+    }
+
+    [Theory]
+    [InlineData("input")]
+    [InlineData("calls")]
+    [InlineData("background")]
+    public void PairedSettingsRejectConfigurationOverlaysThatChangeTheExperiment(string change)
+    {
+        var attempt = new ComparisonAttempt(PlanningConstructionStrategies.JavaScriptV1, 1, "test") { InputTokenCeiling = 32_000, Seed = PairedSeed() };
+        var settings = new TypedWorkflowPlanningSettings { ConstructionStrategy = attempt.Strategy, BackgroundProcessingEnabled = false,
+            MaxInputTokensPerUnit = 32_000, MaxModelCalls = attempt.RemainingCalls };
+        ValidateComparisonSettings(settings, attempt);
+        switch (change)
+        {
+            case "input": settings.MaxInputTokensPerUnit = 12_000; break;
+            case "calls": settings.MaxModelCalls = 100; break;
+            case "background": settings.BackgroundProcessingEnabled = true; break;
+        }
+        Assert.Throws<InvalidOperationException>(() => ValidateComparisonSettings(settings, attempt));
+    }
 }

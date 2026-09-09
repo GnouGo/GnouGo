@@ -117,6 +117,83 @@ The five-minute target includes preparation; successful functional acceptance
 requires all three arms of a format to pass. This measures construction conditional
 on shared preparation, not independent end-to-end planner reliability.
 
+## Paired-run verification and harness incident
+
+Local checks for the paired implementation passed: 565 Planning tests, 1,449 Flow
+tests, 65 relevant Server tests and 17 authoring tests. The macOS Native AOT smoke
+executes both whole-workflow strategies through native YAML validation; packaging
+also passed. GitHub Actions passed tests, packaging and Linux Native AOT on the
+initial shared-pipeline commit.
+
+The first paired launch (`1a6e283`, 18:12 UTC) exposed a harness naming defect: arm
+cohort names exceeded the existing 32-character limit. The first preparation passed
+in seven calls, but both arms stopped at harness preflight with no construction
+dispatch. The runner was interrupted during the second preparation. Its report is
+[retained unchanged](../evaluations/workflow-planning/results/paired-construction-2026-09-09-interrupted.json);
+a [receipt audit](../evaluations/workflow-planning/results/paired-construction-2026-09-09-interrupted-audit.json)
+records the interrupted preparation and ledger totals that the unfinished report
+could not capture. This is an incomplete harness run, not evidence about either
+construction format.
+
+The audit found **12 verified calls, 119,282 tokens and EUR 0.8160** in ledger charges.
+No construction arm or disposable fixture executed. Encrypted sessions and receipts
+remain retained; reservations were not released. The interrupted telemetry database
+was removed, and no helper process remained. Cohort names are now shortened and all
+pairs are validated before any paid preparation, covered by a regression test. The
+corrected comparison uses fresh sessions and includes this incident in reporting.
+
+## Corrected paired results — 32,000 input tokens
+
+The corrected campaign ran on `f461581` from **18:23 to 18:38 UTC on 2026-09-09**,
+using `gpt-5.5-2026-04-24`, low reasoning, 32,000 estimated input tokens and 8,192
+output tokens. **Both formats accepted 0/3 workflows.** All three preparations and
+all six arm outcomes are included in the [measured report](../evaluations/workflow-planning/results/paired-construction-2026-09-09.json).
+Only static generator guidance is omitted from the published report; measurements
+are unchanged. Subsequent reporting changes omit all generator guidance, retain
+shared-prefix totals for blocked arms, and verify effective configuration before
+starting a worker. They do not change this campaign's prompts or results.
+
+| Pair | Shared preparation | Calls | Input tokens | Output tokens | Active minutes | Ledger estimate (EUR) |
+|---|---|---:|---:|---:|---:|---:|
+| 1 | Behavior contract invalid; repair exhausted | 9 | 85,351 | 11,101 | 2.34 | 0.6537 |
+| 2 | Behavior approved | 9 | 98,309 | 17,353 | 3.28 | 0.8709 |
+| 3 | Behavior contract invalid; repair exhausted | 8 | 80,747 | 17,715 | 5.58 | 0.8047 |
+
+| Pair | JSON arm | JavaScript arm | Construction calls / repairs |
+|---|---|---|---:|
+| 1 | Blocked by shared preparation | Blocked by shared preparation | 0 / 0 each |
+| 2 | Context too large: **37,097** estimated input tokens | Context too large: **37,331** estimated input tokens | 0 / 0 each |
+| 3 | Blocked by shared preparation | Blocked by shared preparation | 0 / 0 each |
+
+Pair 2's arms have the same starting checkpoint fingerprint and the same single
+`pr_review_agent` subworkflow. JSON construction preflight took 14.98 ms and
+JavaScript 24.33 ms; these are local rejection times, not generation performance.
+Including shared preparation, both took about 3.28 active minutes and made zero
+construction model calls. Both exceeded the 32,000 ceiling, by 5,097 and 5,331
+estimated tokens respectively. The 234-token difference between formats is small
+relative to their shared graph and contract context. This is evidence of a context
+packaging/admission blocker; **it does not establish either format's generation
+quality or convergence**. No agent reached saving or independent execution acceptance.
+
+The corrected campaign recorded **26 verified calls, 310,576 tokens and EUR 2.3293**
+in ledger charges. All five started sessions (three preparations and two arms)
+completed cleanup. Four arms were explicitly blocked before session creation.
+No new unverified reservation remained from the corrected campaign.
+
+Including the interrupted harness run, this follow-up used **38 verified calls,
+429,858 tokens and EUR 3.1453**. One interrupted request remains unverified with
+**EUR 0.7927 reserved**; it is not counted as a verified call or released. The
+cumulative ledger ended at 1,770 verified calls, 15,295,071 tokens and EUR 160.1616
+estimated usage (including the pre-existing EUR 50 reserve), plus EUR 36.9447
+across 17 unresolved reservations. The existing
+EUR 300 ceiling leaves EUR 102.8937 conservatively available. Authorized limits and
+the previous reservations are unchanged, the exclusive lock is released, and
+`final_acceptance_completed` remains false.
+
+The original 12,000-token campaign below used different construction granularity
+and independent preparation. Its results remain historical evidence, not a matched
+language-performance baseline for this paired experiment.
+
 ## Original end-to-end results
 
 Local verification on 2026-09-09: 17 authoring tests, 543 planning tests, 1,449 Flow

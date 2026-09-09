@@ -71,10 +71,11 @@ public sealed partial class LiveIntentAgentGenerationTests
         public int OutputTokenCeiling { get; init; } = 8_192;
         public string Reasoning { get; init; } = "low";
         public PlanningSnapshot? Seed { get; set; }
+        public PlanningSnapshot? SharedPreparation { get; set; }
         public FrozenComparisonEnvironment? Environment { get; init; }
         public PlanningSnapshot? Snapshot => _snapshot;
-        public int PrefixCalls => checked((int)(Seed?.Usage?.Calls ?? 0));
-        public double PrefixActiveMilliseconds => Seed?.ActiveMilliseconds ?? 0;
+        public int PrefixCalls => checked((int)((Seed ?? SharedPreparation)?.Usage?.Calls ?? 0));
+        public double PrefixActiveMilliseconds => (Seed ?? SharedPreparation)?.ActiveMilliseconds ?? 0;
         public int RemainingCalls => 100 - PrefixCalls;
         public string Strategy { get; } = strategy;
         public string Cohort { get; } = cohort;
@@ -111,7 +112,7 @@ public sealed partial class LiveIntentAgentGenerationTests
             ["outputTokenCeiling"] = _snapshot?.Request.Generation.MaxOutputTokens ?? OutputTokenCeiling,
             ["reasoning"] = _snapshot?.Request.Generation.Reasoning ?? Reasoning,
             ["preparationOnly"] = PreparationOnly,
-            ["sharedPreparationSession"] = Seed?.Request.SessionId,
+            ["sharedPreparationSession"] = (Seed ?? SharedPreparation)?.Request.SessionId,
             ["checkpointFingerprint"] = Seed is null ? null : ComparisonCheckpointFingerprint(Seed),
             ["logicalGenerationCalls"] = PrefixCalls + (_snapshot?.Usage?.Calls ?? 0),
             ["logicalGenerationActiveMilliseconds"] = PrefixActiveMilliseconds + ActiveMilliseconds,

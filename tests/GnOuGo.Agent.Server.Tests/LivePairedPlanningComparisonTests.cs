@@ -42,7 +42,7 @@ public sealed partial class LiveIntentAgentGenerationTests
                 await Run(pair.Preparation);
                 var seed = pair.Preparation.Outcome == "passed" ? pair.Preparation.Snapshot : null;
                 foreach (var arm in pair.Arms)
-                { arm.Seed = seed; if (seed is null) arm.Outcome = "blocked_preparation"; }
+                { arm.Seed = seed; arm.SharedPreparation = pair.Preparation.Snapshot; if (seed is null) arm.Outcome = "blocked_preparation"; }
                 await WriteReport();
                 foreach (var arm in pair.Arms.Where(a => a.Outcome == "not_run"))
                 {
@@ -81,7 +81,8 @@ public sealed partial class LiveIntentAgentGenerationTests
                 ["inputTokenCeiling"] = pairs[0].Preparation.InputTokenCeiling,
                 ["outputTokenCeiling"] = pairs[0].Preparation.OutputTokenCeiling, ["reasoning"] = pairs[0].Preparation.Reasoning,
                 ["targetActiveMinutes"] = 5, ["maxActiveMinutesIncludingPreparation"] = 15, ["maxCallsIncludingPreparation"] = 100,
-                ["generator"] = environment.Generator?.DeepClone(), ["catalogFingerprint"] = environment.CatalogFingerprint,
+                ["generator"] = environment.PublicGenerator, ["generatorFingerprint"] = environment.GeneratorFingerprint,
+                ["catalogFingerprint"] = environment.CatalogFingerprint,
                 ["complete"] = arms.Length == 6 && attempts.All(a => a.Outcome is "passed" or "failed" or "cleanup_failed" or "blocked_preparation"),
                 ["typedWorkflowsAccepted"] = arms.Count(a => a.Strategy == PlanningConstructionStrategies.TypedWorkflowsV1 && a.Outcome == "passed") == 3,
                 ["javascriptAccepted"] = arms.Count(a => a.Strategy == PlanningConstructionStrategies.JavaScriptV1 && a.Outcome == "passed") == 3,
@@ -101,6 +102,14 @@ public sealed partial class LiveIntentAgentGenerationTests
     private static string PairedCohort(string strategy, string id, int index) =>
         (strategy == PlanningConstructionStrategies.TypedWorkflowsV1 ? "json" : "js") + "-" + id + "-" + index;
 
+    private static void ValidateComparisonSettings(GnOuGo.Agent.Server.Configuration.TypedWorkflowPlanningSettings settings, ComparisonAttempt attempt)
+    {
+        if (settings.BackgroundProcessingEnabled || settings.ConstructionStrategy != attempt.Strategy ||
+            settings.MaxModelCalls != attempt.RemainingCalls || settings.MaxInputTokensPerUnit != attempt.InputTokenCeiling ||
+            settings.MaxOutputTokens != attempt.OutputTokenCeiling || settings.Reasoning != attempt.Reasoning)
+            throw new InvalidOperationException("Effective comparison settings differ from the protocol. No planning worker or model dispatch was started.");
+    }
+
     private sealed record ComparisonPair(int Index, ComparisonAttempt Preparation)
     {
         public List<ComparisonAttempt> Arms { get; } = [];
@@ -110,6 +119,9 @@ public sealed partial class LiveIntentAgentGenerationTests
     {
         public JsonNode? Generator { get; private set; }
         public string? CatalogFingerprint { get; private set; }
+        public string? GeneratorFingerprint => Generator is null ? null : PlanningGraphCompiler.Fingerprint(Generator.ToJsonString());
+        public JsonObject PublicGenerator => new() { ["provider"] = Generator?["provider"]?.DeepClone(),
+            ["model"] = Generator?["model"]?.DeepClone(), ["reasoning"] = Generator?["reasoning"]?.DeepClone() };
         public void Check(PlanningSnapshot state)
         {
             var generator = state.Request.Options["generator"] ?? throw new InvalidOperationException("A comparison model must be configured.");
