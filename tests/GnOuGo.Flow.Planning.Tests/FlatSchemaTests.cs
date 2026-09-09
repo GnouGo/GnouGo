@@ -11,6 +11,42 @@ public sealed class FlatSchemaTests
     private static CancellationToken Ct => TestContext.Current.CancellationToken;
 
     [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task InputSchemaOutputLimitUsesFlatRecoveryWithoutChangingApprovalOrDefaults(bool resumed)
+    {
+        var state = ConstructionUnitTests.ApprovedSkeleton(); var planner = new TypedWorkflowPlanner();
+        state.Graph!.Workflows[0].Inputs = [new() { Name = "resource", Required = true }];
+        state.BehaviorPlan!.Workflows[0].Inputs = [new("resource", "Runtime resource", true)];
+        state.ApprovedBehaviorHash = PlanningBehaviorPlans.Fingerprint(state.BehaviorPlan);
+        var unit = new PlanningConstructionUnit { Key = "inputs", WorkflowKey = "main", Kind = "inputs", ContractVersion = PlanningDataflow.ContractVersion };
+        state.ConstructionUnits = [unit]; var approval = state.ApprovedBehaviorHash;
+        if (resumed) { state.Status = PlanningStatus.Recovery; unit.Status = "recovery"; unit.Calls = 1; unit.DispatchOutcome = "output_limit"; }
+        var calls = 0;
+        var runtime = new FakeRuntime { OnCall = (_, request, _) =>
+        {
+            if (++calls == 1 && !resumed) return Task.FromResult(new LLMResponse { CompletionStatus = "output_limit" });
+            Assert.Contains("flat list", request.Prompt); Assert.Equal(8192, request.MaxTokens);
+            Assert.True(request.RequireOutputTokenLimit); Assert.True(request.DisableTransportRetries);
+            Assert.Empty(PlanningContractValidation.ValidateSchema(request.StructuredOutputSchema!, strict: true));
+            var inputs = new JsonObject();
+            Assert.Single(request.StructuredOutputSchema!["properties"]!["inputs"]!["properties"]!.AsObject());
+            foreach (var name in request.StructuredOutputSchema!["properties"]!["inputs"]!["properties"]!.AsObject().Select(p => p.Key))
+                inputs[name] = new JsonObject { ["schema"] = new JsonObject { ["fields"] = new JsonArray(Row("", "string")) }, ["default"] = null };
+            return Task.FromResult(new LLMResponse { Json = new JsonObject { ["inputs"] = inputs } });
+        } };
+        state = await planner.AdvanceAsync(state, new() { Kind = resumed ? "retry" : "advance", ExpectedRevision = state.Revision }, runtime, Ct);
+        state = JsonSerializer.Deserialize(JsonSerializer.Serialize(state, PlanningJsonContext.Default.PlanningSnapshot), PlanningJsonContext.Default.PlanningSnapshot)!;
+        if (state.ConstructionUnits[0].Status != "validated")
+            state = await planner.AdvanceAsync(state, new() { ExpectedRevision = state.Revision }, runtime, Ct);
+        unit = Assert.Single(state.ConstructionUnits);
+        Assert.Equal("validated", unit.Status); Assert.True(unit.FlatSchemaGeneration);
+        Assert.Equal(2, unit.Calls); Assert.Equal(0, unit.RepairCalls); Assert.Equal(resumed ? 1 : 2, calls);
+        Assert.Equal(approval, state.ApprovedBehaviorHash);
+        Assert.All(state.Graph!.Workflows[0].Inputs, input => { Assert.Equal("string", input.Schema.Type); Assert.Null(input.Default); });
+    }
+
+    [Theory]
     [InlineData("entries/name", "label~value")]
     [InlineData("entrees/nom", "libelle~valeur")]
     public void AdditiveRepairsFlattenArrayEntriesWithoutChangingExistingContracts(string name, string child)

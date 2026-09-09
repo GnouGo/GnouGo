@@ -125,6 +125,10 @@ public sealed class ConstructionUnitTests
         var prompt = TypedWorkflowPlanner.ContractPrompt(state, state.Graph.Workflows[0], new() { Kind = "contracts", NodeKeys = ["greeting"] }, state.Preparation!);
         Assert.Contains(findings[0].Message, prompt);
         Assert.All(findings.Skip(1), d => Assert.DoesNotContain(d.Message, prompt));
+        var implementation = TypedWorkflowPlanner.ConstructionFeedback(state, state.Graph.Workflows[0], new() { Kind = "implementation", NodeKeys = ["greeting"] });
+        Assert.Contains(findings[1].Message, implementation);
+        Assert.DoesNotContain(findings[0].Message, implementation); Assert.DoesNotContain(findings[2].Message, implementation);
+        Assert.Null(TypedWorkflowPlanner.ConstructionFeedback(state, state.Graph.Workflows[0], new() { Kind = "inputs" }));
         Assert.Equal(retained, state.Feedback); Assert.Equal(4, state.Attempts[0].Diagnostics.Count);
     }
 

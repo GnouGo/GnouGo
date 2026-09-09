@@ -420,8 +420,9 @@ helpers update both the checkpoint and assembled workflow; other helpers and nod
 inputs remain unchanged. The normal repair, context and output ceilings apply.
 
 A transport failure still enters recovery without an automatic provider retry.
-Explicit Retry of an unreceived single-producer contract selects the equivalent
-flat schema transport. This can reduce construction complexity; it does not prove
+Explicit Retry of an unreceived single-producer contract or public input schema selects
+the equivalent flat schema transport. An output-limited initial response can switch to
+that transport once automatically. This can reduce construction complexity; it does not prove
 provider availability or release the previous request's uncertain usage reservation.
 
 Construction contract 40 revisits contributing synthesized producer contracts when
@@ -450,7 +451,7 @@ The loop's own previous result and index are selectable only in its condition/bo
 ancestor loop state remains available in a nested body. Targeted repairs retain this scope.
 An unresolved loop collection schedules its referenced synthesized producer using the
 validator's exact `items`/`over` field location; legacy whole-input findings remain supported.
-Contract generation scopes assessment feedback to the assessed graph and owned schema fields.
+Construction scopes assessment feedback to the assessed graph, phase and owned fields.
 When that graph has been replaced, the findings stay in encrypted history rather than becoming
 instructions for unrelated contracts. Explicit user revisions remain available. Legacy assessment
 provenance can be recovered by exact comparison with the retained assessment record.
