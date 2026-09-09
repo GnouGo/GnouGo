@@ -39,7 +39,8 @@ restart cannot replenish those allowances. Only acceptance of a changed behavior
 starts a new construction attempt. Pending source requests retain their original
 receipt revision and cannot be reconfigured before reconciliation.
 
-Repeated candidate/findings pairs stop; oversized contracts stop before dispatch.
+Repeated candidate/findings pairs stop; oversized contracts stop before dispatch,
+with the affected workflow, estimated input size and configured ceiling retained.
 Executable findings return to source repair, while preparation/behavior findings
 require a reviewed revision. The legacy field-repair and preparation-reset paths
 are not used for JavaScript executable repair. See the [comparison protocol](../../docs/planner-javascript-construction.md)

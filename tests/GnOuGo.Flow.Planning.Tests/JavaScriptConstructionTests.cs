@@ -136,6 +136,10 @@ public sealed class JavaScriptConstructionTests
         var runtime = Runtime(); state = await Advance(Planner(), state, runtime);
         Assert.Contains(state.Diagnostics, d => d.Code == "JS_CONTEXT_TOO_LARGE");
         Assert.Empty(runtime.Requests);
+        var unit = Assert.Single(state.SourceCandidates);
+        Assert.True(unit.EstimatedInputTokens > unit.InputTokenLimit);
+        Assert.Equal("context_limited", unit.Status);
+        Assert.Equal(0, unit.Calls);
     }
 
     [Fact]
@@ -173,5 +177,31 @@ public sealed class JavaScriptConstructionTests
         Assert.Empty(result.Diagnostics);
         var findings = PlanningGraphValidation.Validate(new() { Workflows = [result.Workflow!] }, preparation);
         Assert.Contains(findings, d => d.Required && d.Location.Contains("outputs", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public async Task AuthoredWorkflowCallPassesRuntimeArgumentsAndExecutesNativeFinalizer()
+    {
+        var compiler = new JavaScriptPlanningSourceCompiler(); var preparation = Preparation();
+        var child = compiler.Compile("""
+            flow.workflow({inputs:[flow.port("name",{type:"string"})],steps:[
+              flow.step("make","set",{message:flow.input("name")},{outputSchema:{type:"object",properties:[
+                {name:"message",schema:{type:"string"},required:true}]}})],
+              outputs:[flow.result("message",{type:"string"},flow.ref("make","message"))]});
+            """, new(new() { Key = "child" }, preparation), Ct);
+        var main = compiler.Compile("""
+            flow.workflow({inputs:[flow.port("name",{type:"string"})],steps:[
+              flow.call("invoke","child",{name:flow.input("name")})],
+              outputs:[flow.result("message",{type:"string"},flow.ref("invoke","message"))],
+              finally:[flow.step("cleanup","set",{cleaned:true})]});
+            """, new(new() { Key = "main" }, preparation), Ct);
+        Assert.Empty(child.Diagnostics); Assert.Empty(main.Diagnostics);
+        var graph = new PlanningGraph { Workflows = [main.Workflow!, child.Workflow!] };
+        var yaml = new PlanningGraphCompiler().Compile(graph, preparation);
+        var document = new GnOuGo.Flow.Core.Compilation.WorkflowCompiler().Compile(GnOuGo.Flow.Core.Parsing.WorkflowParser.Parse(yaml));
+        var result = await new WorkflowEngine().ExecuteAsync(document.Workflows[document.Entrypoint!], new JsonObject { ["name"] = "runtime value" }, Ct);
+        Assert.True(result.Success, result.Error?.Message);
+        Assert.Equal("runtime value", result.Outputs!["message"]!.ToString());
+        Assert.Contains(result.StepResults, s => s.StepId == "n_" + PlanningGraphCompiler.Fingerprint("cleanup")[..16]);
     }
 }

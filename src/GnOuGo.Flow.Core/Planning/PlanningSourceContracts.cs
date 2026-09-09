@@ -40,6 +40,8 @@ public sealed class PlanningSourceCandidate
     public string Status { get; set; } = "pending";
     // Cumulative across invalidation, restart, and explicit retry. Reserved once before checkpoint/dispatch.
     public int Calls { get; set; }
+    public int? EstimatedInputTokens { get; set; }
+    public int? InputTokenLimit { get; set; }
     public List<PlanningDiagnostic> Diagnostics { get; set; } = [];
     public List<string> FindingFingerprints { get; set; } = [];
     public Dictionary<string, PlanningSourceLocation> Locations { get; set; } = new(StringComparer.Ordinal);

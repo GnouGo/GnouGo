@@ -93,7 +93,10 @@ public sealed partial class LiveIntentAgentGenerationTests
             ["repairCalls"] = _snapshot is null ? 0 : Strategy == PlanningConstructionStrategies.JavaScriptV1
                 ? _snapshot.SourceCandidates.Sum(c => Math.Max(0, c.Calls - 1)) : _snapshot.ConstructionUnits.Sum(c => c.RepairCalls),
             ["model"] = _snapshot?.Request.Options["generator"]?["model"]?.DeepClone(),
-            ["catalogFingerprint"] = _snapshot?.Preparation?.Fingerprint,
+            ["provider"] = _snapshot?.Request.Options["generator"]?["provider"]?.DeepClone(),
+            ["preparationFingerprint"] = _snapshot?.Preparation?.Fingerprint,
+            ["sourceCalls"] = Strategy == PlanningConstructionStrategies.JavaScriptV1 && _snapshot is not null
+                ? JsonValue.Create(_snapshot.SourceCandidates.Sum(c => c.Calls)) : null,
             ["totalAttemptCalls"] = (_after?.Calls ?? _before?.Calls ?? 0) - (_before?.Calls ?? 0),
             ["totalAttemptEstimatedCost"] = (_after?.EstimatedCost ?? _before?.EstimatedCost ?? 0) - (_before?.EstimatedCost ?? 0),
             ["unverifiedCostReserveDelta"] = _reserveAfter - _reserveBefore

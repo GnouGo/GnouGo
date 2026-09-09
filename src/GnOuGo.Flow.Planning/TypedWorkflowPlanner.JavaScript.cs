@@ -57,8 +57,16 @@ public sealed partial class TypedWorkflowPlanner
         if (unit.PendingPrompt is null)
         {
             var prompt = SourcePrompt(state, context, unit, dependencies[unit.WorkflowKey]);
-            if (PlanningConstruction.EstimateInputTokens(prompt, SourceResponseSchema) > state.Request.Generation.MaxInputTokensPerUnit)
-            { StopSource(state, "JS_CONTEXT_TOO_LARGE", "This complete subworkflow and its required contracts exceed the input ceiling. No model request was sent.", unit.Diagnostics); return; }
+            unit.EstimatedInputTokens = PlanningConstruction.EstimateInputTokens(prompt, SourceResponseSchema);
+            unit.InputTokenLimit = state.Request.Generation.MaxInputTokensPerUnit;
+            if (unit.EstimatedInputTokens > unit.InputTokenLimit)
+            {
+                unit.Status = "context_limited";
+                var message = $"Subworkflow '{unit.WorkflowKey}' requires an estimated {unit.EstimatedInputTokens} input tokens; the configured ceiling is {unit.InputTokenLimit}. No model request was sent.";
+                unit.Diagnostics = [new("JS_CONTEXT_TOO_LARGE", "/workflows/" + wi, message)];
+                StopSource(state, "JS_CONTEXT_TOO_LARGE", message, unit.Diagnostics);
+                return;
+            }
             unit.PendingPrompt = prompt;
             unit.PendingRevision = state.Revision;
             unit.DependencyFingerprint = SourceDependencyFingerprint(state, unit.WorkflowKey, dependencies[unit.WorkflowKey]);

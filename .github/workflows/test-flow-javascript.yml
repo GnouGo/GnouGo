@@ -10,6 +10,7 @@ on:
       - 'tests/GnOuGo.Agent.Server.Tests/**'
       - '.github/workflows/test-flow-javascript.yml'
       - 'GnOuGo.Agent.sln'
+      - 'docs/planner-javascript-construction.md'
   workflow_dispatch:
 
 permissions:
