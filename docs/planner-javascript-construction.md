@@ -71,7 +71,53 @@ cost, duration, repair counts and total attempt cost/reservation deltas. Private
 source and prompts stay in encrypted snapshots and receipts. Opt-in tests that
 return without activation are not evidence of live acceptance.
 
-## Results
+## Paired whole-subworkflow comparison
+
+The opt-in `ConstructionFormats_ComparePairedApprovedSubworkflows` test compares
+`typed-workflows-v1` with `javascript-v1`. Both generate one complete subworkflow
+per candidate through a shared dependency scheduler and validator. JSON uses a
+strict typed workflow response; JavaScript uses `{source}` and Jint/Acornima. Both
+receive the same graph template and contract evidence, with format-specific
+documentation and response schemas included in the prompt-size estimate.
+
+Three fresh preparation sessions use the original prompt and answers. Each approved
+checkpoint produces two fresh construction sessions with identical graph, preparation,
+answers and approval fingerprints. Their construction state and receipts are separate.
+The checkpoint fork exists only in the test harness and uses the encrypted store.
+A preparation failure blocks both arms; it is reported rather than retried.
+Model and discovery-catalog drift stops further planning. Each arm still needs exact
+artifact approval, saving, and the original independent disposable-fixture checks.
+
+The paired harness explicitly applies **32,000 input / 8,192 output tokens** and low
+reasoning. Application defaults and existing sessions remain unchanged. Each logical
+generation has 100 calls and 15 active minutes including its shared preparation;
+preparation usage is deducted from both arms' allowances but billed once to the
+cumulative campaign ledger. The existing exclusive lease, reservations, authorized
+limits and campaign deadline remain in force.
+
+```sh
+GNOU_GO_LIVE_PAIRED_PLANNING_COMPARISON=1 \
+GNOU_GO_LIVE_EXISTING_CONFIGURATION_AUTHORIZED=1 \
+GNOU_GO_LIVE_PRIOR_COST_RESERVE=50 \
+GNOU_GO_LIVE_INTENT_AGENT_BUDGET_AMOUNT=300 \
+GNOU_GO_LIVE_INTENT_AGENT_BUDGET_CURRENCY=EUR \
+GNOU_GO_LIVE_INTENT_AGENT_MAX_CALLS=3000 \
+GNOU_GO_LIVE_INTENT_AGENT_MAX_TOTAL_TOKENS=20000000 \
+GNOU_GO_LIVE_INTENT_AGENT_BUDGET_STATE_PATH="$PLANNING_CAMPAIGN_LEDGER" \
+dotnet test tests/GnOuGo.Agent.Server.Tests/GnOuGo.Agent.Server.Tests.csproj \
+  -m:1 -warnaserror /p:SkipClientBuild=true /p:SkipModelMetadataGeneration=true \
+  --filter FullyQualifiedName~ConstructionFormats_ComparePairedApprovedSubworkflows
+```
+
+Reports beside the ledger use `.paired-comparison-<id>.json`. Shared preparation,
+per-arm generation usage and total ledger deltas remain separate. Reports retain
+blocked/unstarted arms, effective limits, checkpoint hashes, format, subworkflow
+prompt estimates, construction calls, repairs, diagnostics and active duration.
+The five-minute target includes preparation; successful functional acceptance
+requires all three arms of a format to pass. This measures construction conditional
+on shared preparation, not independent end-to-end planner reliability.
+
+## Original end-to-end results
 
 Local verification on 2026-09-09: 17 authoring tests, 543 planning tests, 1,449 Flow
 tests and 50 relevant Server tests passed (the final planner total includes the

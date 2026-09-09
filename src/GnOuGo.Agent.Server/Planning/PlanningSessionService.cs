@@ -290,7 +290,7 @@ public sealed class PlanningSessionService(
 
     internal static long SourceReceiptRevision(PlanningSnapshot snapshot)
     {
-        if (snapshot.Request.ConstructionStrategy == PlanningConstructionStrategies.JavaScriptV1 &&
+        if (PlanningConstructionStrategies.IsWholeWorkflow(snapshot.Request.ConstructionStrategy) &&
             snapshot.SourceCandidates.SingleOrDefault(c => c.PendingPrompt is not null) is { } pending)
             return pending.PendingRevision ?? throw new InvalidOperationException("A pending authoring request has no durable receipt revision.");
         return snapshot.Revision;

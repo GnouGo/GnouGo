@@ -165,7 +165,22 @@ foreach (var valid in new[] { true, false })
     if (guardedResult.Success != valid || guardedResult.StepResults.Any(s => s.StepId == "after") != valid ||
         !guardedResult.StepResults.Any(s => s.StepId == "cleanup")) throw new InvalidOperationException("Published structured continuation guard failed.");
 }
-Console.WriteLine("Typed planning AOT smoke passed.");
+foreach (var strategy in new[] { PlanningConstructionStrategies.TypedWorkflowsV1, PlanningConstructionStrategies.JavaScriptV1 })
+{
+    var whole = new PlanningSnapshot { Request = new() { TenantId = "smoke", Prompt = "Return ready", ConstructionStrategy = strategy,
+        Generation = new() { MaxInputTokensPerUnit = 32_000 } }, Status = PlanningStatus.Generating,
+        Graph = session.Graph, Preparation = preparation, BehaviorPlan = session.BehaviorPlan, ApprovedBehaviorHash = session.ApprovedBehaviorHash };
+    var wholePlanner = new TypedWorkflowPlanner(sourceCompiler: new JavaScriptPlanningSourceCompiler());
+    var wholeRuntime = new SmokeRuntime(session.Graph!, preparation);
+    for (var attempt = 0; attempt < 10 && whole.Status != PlanningStatus.FinalReview; attempt++)
+    {
+        whole = await wholePlanner.AdvanceAsync(whole, new() { ExpectedRevision = whole.Revision }, wholeRuntime, CancellationToken.None);
+        whole = JsonSerializer.Deserialize(JsonSerializer.Serialize(whole, PlanningJsonContext.Default.PlanningSnapshot), PlanningJsonContext.Default.PlanningSnapshot)!;
+    }
+    if (whole.Status != PlanningStatus.FinalReview || whole.SourceCandidates.Single().Calls != 1)
+        throw new InvalidOperationException("Published whole-workflow construction failed: " + strategy + ": " + string.Join("; ", whole.Diagnostics.Select(d => d.Message)));
+}
+Console.WriteLine("Typed and JavaScript planning AOT smoke passed.");
 
 sealed class SmokeRuntime(PlanningGraph graph, PlanningPreparation preparation) : IPlanningRuntime
 {
@@ -197,6 +212,12 @@ sealed class SmokeRuntime(PlanningGraph graph, PlanningPreparation preparation) 
                 Workflows = graph.Workflows.Select(w => new PlanningBehaviorWorkflow { Key = w.Key, Purpose = "Return the ready message",
                     Steps = w.Steps.Select(n => new PlanningBehaviorNode { Key = n.Key, Purpose = "Return the ready message", InputDependencies = [] }).ToList(),
                     Outputs = w.Outputs.Select(o => new PlanningBehaviorPort(o.Name, "The ready message", true)).ToList() }).ToList() }, PlanningJsonContext.Default.PlanningBehaviorPlan),
+            "typed_workflow" => PlanningModelValues.WholeWorkflow(graph.Workflows[0]),
+            "javascript_workflow" => new JsonObject { ["source"] = """
+                flow.workflow({steps:[flow.step("value","set",{message:"ready"},
+                  {outputSchema:{type:"object",properties:[{name:"message",schema:{type:"string"},required:true}]}})],
+                  outputs:[flow.result("message",{type:"string"},flow.ref("value","message"))]});
+                """ },
             "fragment" => PlanningFragments.Values(graph.Workflows[0]),
             "fragment_inputs" or "fragment_contracts" or "fragment_implementation" or "fragment_outputs" => UnitResponse(request, phase),
             "semantic_review" => JsonNode.Parse("""{"findings":[]}"""),

@@ -142,8 +142,11 @@ public sealed partial class LiveIntentAgentGenerationTests
                 [
                     $"--TypedWorkflowPlanning:PlannerVersion={plannerVersion}",
                     $"--TypedWorkflowPlanning:BackgroundProcessingEnabled={!resumeOnly && !probeOnly && comparison is null}",
-                    $"--TypedWorkflowPlanning:MaxModelCalls={(comparison is null ? budgetDefinition.MaxCalls : 100)}",
+                    $"--TypedWorkflowPlanning:MaxModelCalls={(comparison is null ? budgetDefinition.MaxCalls : comparison.RemainingCalls)}",
                     $"--TypedWorkflowPlanning:ConstructionStrategy={comparison?.Strategy ?? Environment.GetEnvironmentVariable("GNOU_GO_LIVE_TYPED_PLANNING_CONSTRUCTION_STRATEGY") ?? "typed-units-v2"}",
+                    $"--TypedWorkflowPlanning:MaxInputTokensPerUnit={comparison?.InputTokenCeiling ?? 12_000}",
+                    $"--TypedWorkflowPlanning:MaxOutputTokens={comparison?.OutputTokenCeiling ?? 8_192}",
+                    $"--TypedWorkflowPlanning:Reasoning={comparison?.Reasoning ?? "low"}",
                     "--OtlpCollector:Enabled=false",
                     "--OpenTelemetry:Enabled=false",
                     $"--Database:Path={telemetryDatabasePath}",
@@ -213,6 +216,7 @@ public sealed partial class LiveIntentAgentGenerationTests
                 if (plannerVersion == 2)
                 {
                     await GenerateV2AgentAsync(services, name, timeout.Token, comparison);
+                    if (comparison?.PreparationOnly == true) { runSucceeded = true; break; }
                 }
                 else
                 {
@@ -275,6 +279,8 @@ public sealed partial class LiveIntentAgentGenerationTests
                 }
             }
 
+            if (comparison?.PreparationOnly != true)
+            {
             Assert.NotNull(publicationAgent);
             if (comparison is not null) comparison.ExecutionStarted = true;
             if (plannerVersion == 2) (inferenceGateway ?? throw new InvalidOperationException("SDK inference accounting is unavailable.")).RequireReady();
@@ -290,6 +296,7 @@ public sealed partial class LiveIntentAgentGenerationTests
             WriteLiveProgress("publication_acceptance_completed");
             if (plannerVersion == 2) Assert.True(inferenceGateway!.CompletedCalls > 0, "Execution produced no verified SDK inference receipts.");
             runSucceeded = true;
+            }
             }
         }
         catch (Exception ex)

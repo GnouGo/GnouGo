@@ -49,7 +49,7 @@ internal static class PlanningEndpoints
         snapshot.Request.Generation.Reasoning ?? snapshot.Request.Options["generator"]?["reasoning"]?.GetValue<string>() ?? "medium",
         snapshot.ConstructionUnits.Where(u => u.Status != "superseded").Select(u => new PlanningUnitDto(u.Key, u.Kind, u.Status, u.NodeKeys.Count, u.Calls, u.RepairCalls,
             u.ContractVersion, u.EstimatedInputTokens, u.InputTokenLimit, u.DispatchOutcome, u.PartialCandidate, u.GeneratedFieldGroups))
-            .Concat(snapshot.SourceCandidates.Select(c => new PlanningUnitDto(c.WorkflowKey, "javascript_workflow", c.Status,
+            .Concat(snapshot.SourceCandidates.Select(c => new PlanningUnitDto(c.WorkflowKey, c.Format == PlanningConstructionStrategies.JavaScriptV1 ? "javascript_workflow" : "typed_workflow", c.Status,
                 c.Candidate is null ? 0 : PlanningGraphCompiler.Enumerate(c.Candidate.Steps.Concat(c.Candidate.Finally)).Count(), c.Calls, Math.Max(0, c.Calls - 1),
                 EstimatedInputTokens: c.EstimatedInputTokens, InputTokenLimit: c.InputTokenLimit)))
             .ToArray(), snapshot.Dataflow?.Fingerprint, snapshot.Dataflow?.Bindings.Count ?? 0, snapshot.PreparationCheckpoint?.Stage, snapshot.Preparation?.DecisionContractVersion ?? 0, snapshot.Preparation?.Decisions.Count ?? 0,

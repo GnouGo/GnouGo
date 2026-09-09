@@ -46,3 +46,8 @@ contracts; they cannot capture authoring locals.
 This is a bounded graph-construction interpreter, not an operating-system isolation
 boundary. The host must never inject service objects or external effects into it.
 The existing planning Native AOT smoke publishes and executes an authored workflow.
+
+The paired comparison against `typed-workflows-v1` gives both formats the same
+approved behavior graph, capabilities and schemas, with a 32,000-input-token limit
+set only by the live harness. Scheduling, repairs and native validation are owned
+by Flow.Planning. See [the evaluation protocol](../../docs/planner-javascript-construction.md).

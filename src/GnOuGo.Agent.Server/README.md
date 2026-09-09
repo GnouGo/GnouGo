@@ -67,6 +67,11 @@ or behavior approval. Changing settings invalidates final artifact approval.
 dotnet run --project src/GnOuGo.Agent.Server -- --TypedWorkflowPlanning:ConstructionStrategy=javascript-v1
 ```
 
+For the equivalent whole-subworkflow JSON path, select `typed-workflows-v1`.
+Both formats share construction scheduling, validation and bounded repair.
+The paired comparison uses 32,000 input tokens; normal new-session defaults remain
+12,000. No production checkpoint-import endpoint or strategy-switch command is added.
+
 Existing sessions retain their stored strategy. The planning API exposes it alongside
 source-unit progress; the UI's existing behavior review, YAML review and approval flow
 remain in use. Each source unit receives at most two repairs, and its source and receipt

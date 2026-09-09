@@ -1,4 +1,4 @@
-name: JavaScript planning validation
+name: Whole-workflow planning validation
 
 on:
   pull_request:

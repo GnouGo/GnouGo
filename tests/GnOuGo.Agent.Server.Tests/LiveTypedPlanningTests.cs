@@ -217,6 +217,14 @@ public sealed partial class LiveIntentAgentGenerationTests
         if (comparison is not null && existing is not null) throw new InvalidOperationException("A comparison requires a fresh logical session.");
         var state = existing
             ?? await service.StartAsync(name, prompt, false, ct);
+        if (comparison?.Seed is { } seed)
+        {
+            var fork = ForkComparisonCheckpoint(state, seed);
+            if (!await services.GetRequiredService<IPlanningSessionStore>().TrySaveAsync(fork, state.Revision, ct))
+                throw new PlanningConflictException("The fresh comparison session changed.");
+            state = fork;
+        }
+        comparison?.Environment?.Check(state);
         state = await ConfigureLiveGenerationAsync(service, state, ct);
         if (!string.IsNullOrWhiteSpace(revision) && state.BehaviorPlan is not null &&
             state.Status is PlanningStatus.Recovery or PlanningStatus.Failed or PlanningStatus.Unsupported &&
@@ -241,6 +249,12 @@ public sealed partial class LiveIntentAgentGenerationTests
                 reportedRevision = state.Revision;
             }
             Assert.Equal(2, state.SchemaVersion);
+            comparison?.Environment?.Check(state);
+            if (comparison?.PreparationOnly == true && state.Status == PlanningStatus.Generating && state.ApprovedBehaviorHash is not null)
+            {
+                comparison.Capture(state);
+                return;
+            }
             PlanningCommand? command = state.Status switch
             {
                 PlanningStatus.Clarification => new() { Kind = "answer", Answers = ScriptedV2Answers(state) },
@@ -259,7 +273,7 @@ public sealed partial class LiveIntentAgentGenerationTests
                 if (comparison is null) state = await service.SubmitAsync(state.Request.SessionId, command, ct);
                 else
                 {
-                    var remaining = TimeSpan.FromMinutes(15) - TimeSpan.FromMilliseconds(state.ActiveMilliseconds);
+                    var remaining = TimeSpan.FromMinutes(15) - TimeSpan.FromMilliseconds(comparison.PrefixActiveMilliseconds + state.ActiveMilliseconds);
                     if (remaining <= TimeSpan.Zero) throw new TimeoutException("The comparison generation exhausted 15 minutes of active planning.");
                     using var active = CancellationTokenSource.CreateLinkedTokenSource(ct);
                     active.CancelAfter(remaining);

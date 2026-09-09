@@ -133,8 +133,10 @@ public sealed class PlanningPersistenceTests
         Assert.Equal(1, client.Calls);
     }
 
-    [Fact]
-    public async Task PendingJavaScriptSource_ReplaysOriginalReceiptAfterCheckpointRevisionChanges()
+    [Theory]
+    [InlineData(PlanningConstructionStrategies.JavaScriptV1)]
+    [InlineData(PlanningConstructionStrategies.TypedWorkflowsV1)]
+    public async Task PendingWholeWorkflow_ReplaysOriginalReceiptAfterCheckpointRevisionChanges(string strategy)
     {
         await using var fixture = await StoreFixture.CreateAsync();
         var client = new CountingClient();
@@ -143,8 +145,8 @@ public sealed class PlanningPersistenceTests
         var original = new PlanningModelJournal(client, fixture, fixture.Records, "tenant", "source-session", 4, budget, new FakeEstimator());
         await original.CallAsync(request, Ct);
         var state = new PlanningSnapshot { Revision = 9, Request = new() { TenantId = "tenant", SessionId = "source-session", Prompt = "Author a workflow",
-            ConstructionStrategy = PlanningConstructionStrategies.JavaScriptV1 }, SourceCandidates = [new()
-            { WorkflowKey = "main", PendingPrompt = request.Prompt, PendingRevision = 4, Calls = 1, Source = "PRIVATE_SOURCE" }] };
+            ConstructionStrategy = strategy }, SourceCandidates = [new()
+            { Format = strategy, WorkflowKey = "main", PendingPrompt = request.Prompt, PendingRevision = 4, Calls = 1, Source = "PRIVATE_SOURCE", PendingSchema = new() { ["type"] = "object" } }] };
         Assert.True(await fixture.Store.TrySaveAsync(state, null, Ct));
         var restored = (await fixture.Store.LoadAsync("tenant", "source-session", Ct))!;
         Assert.Equal(9, restored.Revision);

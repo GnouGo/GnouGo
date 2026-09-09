@@ -1,13 +1,18 @@
+using System.Text.Json.Nodes;
+
 namespace GnOuGo.Flow.Core.Planning;
 
 public static class PlanningConstructionStrategies
 {
     public const string TypedUnitsV2 = "typed-units-v2";
+    public const string TypedWorkflowsV1 = "typed-workflows-v1";
     public const string JavaScriptV1 = "javascript-v1";
+
+    public static bool IsWholeWorkflow(string strategy) => strategy is TypedWorkflowsV1 or JavaScriptV1;
 
     public static void Validate(string strategy)
     {
-        if (strategy is not (TypedUnitsV2 or JavaScriptV1))
+        if (strategy is not (TypedUnitsV2 or TypedWorkflowsV1 or JavaScriptV1))
             throw new ArgumentException("Unknown planning construction strategy.", nameof(strategy));
     }
 }
@@ -29,6 +34,8 @@ public sealed record PlanningSourceLocation(int Line, int Column);
 /// <summary>Private source and candidates are encrypted with the owning tenant's snapshot.</summary>
 public sealed class PlanningSourceCandidate
 {
+    public string Format { get; set; } = PlanningConstructionStrategies.JavaScriptV1;
+    public JsonObject? PendingSchema { get; set; }
     public string WorkflowKey { get; set; } = "";
     public string SdkVersion { get; set; } = "";
     public string DependencyFingerprint { get; set; } = "";

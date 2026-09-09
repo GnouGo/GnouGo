@@ -33,7 +33,7 @@ public sealed partial class TypedWorkflowPlanner(TimeProvider? timeProvider = nu
         PlanningConstructionStrategies.Validate(snapshot.Request.ConstructionStrategy);
         if (command.Kind == "configure_generation")
         {
-            if (UsesJavaScript(snapshot) && snapshot.SourceCandidates.Any(c => c.PendingPrompt is not null))
+            if (UsesWholeWorkflow(snapshot) && snapshot.SourceCandidates.Any(c => c.PendingPrompt is not null))
                 throw new PlanningConflictException("A pending source request must be reconciled before changing its generation settings.");
             if (!(PlanningStatus.IsWaiting(snapshot.Status) || snapshot.Status is PlanningStatus.Failed or PlanningStatus.Unsupported) || command.Generation is null)
                 throw new PlanningConflictException("Generation settings can only change in a paused session.");
@@ -130,7 +130,7 @@ public sealed partial class TypedWorkflowPlanner(TimeProvider? timeProvider = nu
                             break;
                         }
                         state.ApprovedBehaviorHash = state.ArtifactHash;
-                        if (UsesJavaScript(state) && state.SourceBehaviorHash != state.ApprovedBehaviorHash)
+                        if (UsesWholeWorkflow(state) && state.SourceBehaviorHash != state.ApprovedBehaviorHash)
                         {
                             state.SourceCandidates.Clear();
                             state.SourceBehaviorHash = state.ApprovedBehaviorHash;
@@ -192,7 +192,7 @@ public sealed partial class TypedWorkflowPlanner(TimeProvider? timeProvider = nu
                     state.BestGraph = null; state.BestScenarios.Clear();
                     break;
                 case "retry":
-                    if (UsesJavaScript(state) && state.SourceCandidates.Count != 0 && HasBehaviorApproval(state))
+                    if (UsesWholeWorkflow(state) && state.SourceCandidates.Count != 0 && HasBehaviorApproval(state))
                     {
                         if (state.Status is not (PlanningStatus.Recovery or PlanningStatus.Failed or PlanningStatus.Unsupported))
                             throw new PlanningConflictException("Only a stopped source generation can be retried.");
@@ -384,7 +384,7 @@ public sealed partial class TypedWorkflowPlanner(TimeProvider? timeProvider = nu
 
     private async Task GenerateAsync(PlanningSnapshot state, IPlanningRuntime runtime, CancellationToken ct)
     {
-        if (UsesJavaScript(state)) { await GenerateSourceAsync(state, runtime, ct); return; }
+        if (UsesWholeWorkflow(state)) { await GenerateSourceAsync(state, runtime, ct); return; }
         if (state.BehaviorPlan is not null && state.Graph is not null && state.ConstructionUnits.Any(u => u.Status != "superseded") &&
             (state.ConstructionUnits.Any(u => u.Status != "superseded" && u.ContractVersion < PlanningDataflow.ContractVersion) ||
              PlanningArtifactBindings.PrerequisiteFindings(state.Graph, state.Preparation!).Any()))
@@ -529,7 +529,7 @@ public sealed partial class TypedWorkflowPlanner(TimeProvider? timeProvider = nu
         catch (LLMClientException) { throw; }
         catch (Exception ex) { diagnostics.Add(new("GRAPH_VALIDATION", "$", ex.Message)); }
 
-        if (UsesJavaScript(state) && diagnostics.Any(d => d.Required))
+        if (UsesWholeWorkflow(state) && diagnostics.Any(d => d.Required))
         {
             RouteSourceValidationFailure(state, diagnostics, stage);
             return;
@@ -797,7 +797,7 @@ public sealed partial class TypedWorkflowPlanner(TimeProvider? timeProvider = nu
     {
         var targets = SemanticTargets(state.Graph!);
         if (!findings.Any(d => d.Required && targets.TryGetValue(d.Location, out var target) && target.Behavior)) return false;
-        if (UsesJavaScript(state))
+        if (UsesWholeWorkflow(state))
         {
             StopSource(state, "JS_REVIEW_REQUIRED", "The accepted behavior requires a reviewed revision. The candidate and findings are retained.", findings);
             return true;
