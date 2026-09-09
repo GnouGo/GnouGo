@@ -6,6 +6,32 @@ namespace GnOuGo.Flow.Planning;
 
 public sealed partial class TypedWorkflowPlanner
 {
+    internal static IReadOnlyList<PlanningNode> ScenarioObservationSources(PlanningWorkflow workflow, PlanningNode loop)
+    {
+        var nodes = PlanningGraphCompiler.Enumerate(workflow.Steps.Concat(workflow.Finally)).ToDictionary(n => n.Key, StringComparer.Ordinal);
+        var candidates = PlanningGraphCompiler.Enumerate(loop.Steps).Where(n => n.Type == "mcp.call").ToDictionary(n => n.Key, StringComparer.Ordinal);
+        var sources = new HashSet<string>(StringComparer.Ordinal); var visited = new HashSet<string>(StringComparer.Ordinal);
+        void Producer(string? key)
+        {
+            if (key is null || !visited.Add(key) || !nodes.TryGetValue(key, out var node)) return;
+            if (candidates.ContainsKey(key)) { sources.Add(key); return; }
+            Visit(node.Input); if (node.Expr is not null) Visit(node.Expr);
+            foreach (var child in node.Steps.Concat(node.Default).Concat(node.Cases.SelectMany(c => c.Steps)).Concat(node.Branches.SelectMany(b => b.Steps))) Producer(child.Key);
+        }
+        void Visit(PlanningValue value)
+        {
+            foreach (var reference in PlanningDataflow.References(value))
+                if (reference.Kind == "output") Producer(reference.Source);
+                else if (reference.Kind == "loop_previous" && reference.Source == loop.Key)
+                {
+                    if (reference.Path.Count > 0) Producer(reference.Path[0]);
+                    else foreach (var child in loop.Steps) Producer(child.Key);
+                }
+        }
+        foreach (var condition in loop.Input.Members.Where(m => m.Name == "while")) Visit(condition.Value);
+        return candidates.Values.Where(n => sources.Contains(n.Key)).ToArray();
+    }
+
     // Observation sequences are private test fixtures, never executable defaults.
     // Static schema samples cannot model an external continuation that changes over time.
     private async Task<bool> PrepareScenarioObservationsAsync(PlanningSnapshot state, IPlanningRuntime runtime, CancellationToken ct)
@@ -14,7 +40,7 @@ public sealed partial class TypedWorkflowPlanner
         foreach (var workflow in state.Graph!.Workflows)
         foreach (var loop in PlanningGraphCompiler.Enumerate(workflow.Steps.Concat(workflow.Finally)).Where(n =>
                      n.Type == "loop.sequential" && n.Input.Members.Any(m => m.Name == "while")))
-        foreach (var node in PlanningGraphCompiler.Enumerate(loop.Steps).Where(n => n.Type == "mcp.call"))
+        foreach (var node in ScenarioObservationSources(workflow, loop))
         {
             var key = (workflow.Key == state.Graph.Entrypoint ? "main" : "w_" + PlanningGraphCompiler.Fingerprint(workflow.Key)[..16]) + ":n_" + PlanningGraphCompiler.Fingerprint(node.Key)[..16];
             retained.Add(key);
@@ -82,7 +108,8 @@ public sealed partial class TypedWorkflowPlanner
                 if (findings.Count != 0) { state.Diagnostics = findings; state.CurrentPhase = "scenario_observations"; state.Status = PlanningStatus.Recovery; return false; }
             }
         }
-        foreach (var key in state.ScenarioObservations.Select(p => p.Key).Where(k => !retained.Contains(k)).ToArray()) state.ScenarioObservations.Remove(key);
+        foreach (var key in state.ScenarioObservations.Select(p => p.Key).Where(k => !retained.Contains(k)).ToArray())
+        { state.ScenarioObservations.Remove(key); state.BestScenarios.Clear(); }
         return true;
     }
 }

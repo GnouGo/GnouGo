@@ -150,6 +150,11 @@ selector alternatives can replace their independent result computation.
 Structured continuation schemas expose only the runtime envelope channels `json` and
 `response`. Generated fallback fields belong inside `json`, including computed values;
 the runtime validates their resolved values before continuation can enable later effects.
+Changing observation fixtures are generated only when loop continuation depends on a
+descendant external result, including through aliases. Collection traversal guarded by a
+retained confirmation does not imply a two-response external protocol. Conditional
+observation loops receive a dedicated path scenario that preserves their iteration controls;
+an untaken nominal branch cannot be mistaken for premature termination.
 
 `configure_generation` takes `generation` options and an exact revision while paused. It
 retains accepted behavior and answers, records prior settings, and invalidates pending work

@@ -14,6 +14,18 @@ internal static class WorkflowPlanScenarioValidator
     public static async Task<IReadOnlyList<PlanningScenarioResult>> ValidateAsync(WorkflowDocument document, IMcpClientFactory? fakeFactory, CancellationToken ct, JsonObject? validationInputs = null, JsonObject? loopItemSchemas = null, JsonObject? observations = null)
     {
         var definitions = new List<Scenario> { new("nominal", null, null, "normal") };
+        var observationLoops = new Dictionary<string, (string Workflow, StepDef Loop)>(StringComparer.Ordinal);
+        foreach (var (key, _) in observations ?? [])
+        {
+            var separator = key.IndexOf(':');
+            if (separator < 1 || !document.Workflows.TryGetValue(key[..separator], out var workflow)) continue;
+            var owner = Enumerate(workflow.Steps.Concat(workflow.Finally)).LastOrDefault(s => s.Type == "loop.sequential" &&
+                Enumerate(s.Steps ?? []).Any(child => child.Id == key[(separator + 1)..]));
+            if (owner is null) continue;
+            observationLoops[key] = (key[..separator], owner);
+        }
+        foreach (var group in observationLoops.Values.DistinctBy(v => (v.Workflow, v.Loop.Id)))
+            definitions.Add(new("observations:" + group.Workflow + ":" + group.Loop.Id, group.Workflow, group.Loop.Id, "observations"));
         foreach (var (workflowName, workflow) in document.Workflows)
             foreach (var step in Enumerate(workflow.Steps).Concat(Enumerate(workflow.Finally)))
             {
@@ -81,12 +93,17 @@ internal static class WorkflowPlanScenarioValidator
                 if (validationInputs is null)
                     foreach (var (name, input) in main.Source.Inputs ?? []) inputs[name] = Sample(input);
                 var run = await engine.ExecuteAsync(main, inputs, cancellation.Token);
-                if (scenario.Kind == "normal")
+                if (scenario.Kind is "normal" or "observations")
                 {
                     diagnostics.AddRange(telemetry.RecoveredErrors.Values);
                     foreach (var (key, fixture) in observations ?? [])
-                        if (fixture?["responses"] is JsonArray samples && observed.GetValueOrDefault(key) != samples.Count)
-                            diagnostics.Add(new("SCENARIO_OBSERVATIONS_UNCONSUMED", "workflow:" + key.Replace(":", "/step:", StringComparison.Ordinal), "Nominal execution did not consume the declared observation sequence; early termination is not successful coverage."));
+                    {
+                        var hasOwner = observationLoops.TryGetValue(key, out var owner);
+                        var required = scenario.Kind == "observations" ? hasOwner && owner.Workflow == scenario.Workflow && owner.Loop.Id == scenario.Step
+                            : !hasOwner || telemetry.Statuses.TryGetValue(owner.Workflow + ":" + owner.Loop.Id, out var loopStatus) && loopStatus != StepStatus.Skipped;
+                        if (required && fixture?["responses"] is JsonArray samples && observed.GetValueOrDefault(key) != samples.Count)
+                            diagnostics.Add(new("SCENARIO_OBSERVATIONS_UNCONSUMED", "workflow:" + key.Replace(":", "/step:", StringComparison.Ordinal), "Execution of the observation-driven loop did not consume its declared sequence; early termination is not successful coverage."));
+                    }
                 }
                 var reached = scenario.Step is null || fault.Injected || telemetry.Statuses.ContainsKey(scenario.Workflow + ":" + scenario.Step);
                 var expectedFailure = fault.Injected && (run.Success || run.Error?.Code is "SCENARIO_INJECTED_FAILURE" or "CANCELLED");

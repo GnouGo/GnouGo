@@ -63,7 +63,8 @@ public sealed class ScenarioInputTests
         state.Preparation.Capabilities.Add(new() { Id = "cap", StepType = "mcp.call", Server = "renamed", Method = "observe", Kind = "tool",
             InputSchema = JsonNode.Parse("""{"type":"object","properties":{}}""")!.AsObject(),
             OutputSchema = JsonNode.Parse("""{"type":"object","properties":{"more":{"type":"boolean"}},"required":["more"]}""")!.AsObject() });
-        state.Graph.Workflows[0].Steps.Add(new() { Key = "pages", Type = "loop.sequential", Input = Obj(("while", new() { Kind = "boolean", Boolean = true })),
+        state.Graph.Workflows[0].Steps.Add(new() { Key = "pages", Type = "loop.sequential", Input = Obj(("while", new() { Kind = "compute", Text = "previous == null || previous.more",
+            Members = [new("previous", new() { Kind = "loop_previous", Source = "pages", Path = ["observe", "response"] })] })),
             Steps = [new() { Key = "observe", Type = "mcp.call", CapabilityId = "cap", Input = Obj(("request", Obj())) }] });
         var fingerprint = PlanningGraphCompiler.Fingerprint(state.Graph); var calls = 0;
         var runtime = new FakeRuntime { OnCall = (phase, _, _) =>
@@ -98,7 +99,8 @@ public sealed class ScenarioInputTests
         state.Preparation.Capabilities.Add(new() { Id = "source", StepType = "mcp.call", Server = "different", Method = "read", Kind = "tool",
             InputSchema = new() { ["type"] = "object" },
             OutputSchema = JsonNode.Parse("""{"type":"object","properties":{"again":{"type":"boolean"}},"required":["again"]}""")!.AsObject() });
-        state.Graph.Workflows[0].Steps.Add(new() { Key = "repeat", Type = "loop.sequential", Input = Obj(("while", new() { Kind = "boolean", Boolean = true })),
+        state.Graph.Workflows[0].Steps.Add(new() { Key = "repeat", Type = "loop.sequential", Input = Obj(("while", new() { Kind = "compute", Text = "previous == null || previous.again",
+            Members = [new("previous", new() { Kind = "loop_previous", Source = "repeat", Path = ["read", "response"] })] })),
             Steps = [new() { Key = "read", Type = "mcp.call", CapabilityId = "source", Input = Obj(("request", Obj())) }] });
         state.ReviewedGraph = JsonSerializer.Deserialize(JsonSerializer.Serialize(state.Graph, PlanningJsonContext.Default.PlanningGraph), PlanningJsonContext.Default.PlanningGraph);
         var calls = 0; var runtime = new FakeRuntime { OnCall = (phase, request, _) =>

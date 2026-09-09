@@ -7,6 +7,49 @@ namespace GnOuGo.Flow.Tests;
 public sealed class TypedPlanningScenarioTests
 {
     [Theory]
+    [InlineData("pages", "more", true)]
+    [InlineData("pages", "more", false)]
+    [InlineData("lots", "suite", true)]
+    public async Task UntakenObservationLoopHasDedicatedCoverageWithoutChangingItsIterationControls(string loop, string field, bool terminates)
+    {
+        var condition = terminates ? "data._loop_previous_" + loop + "?.read.response." + field + " ?? true" : "true";
+        var document = WorkflowParser.Parse("""
+            version: 1
+            entrypoint: main
+            workflows:
+              main:
+                steps:
+                  - id: LOOP
+                    type: loop.sequential
+                    if: "${false}"
+                    input:
+                      while: "${CONDITION}"
+                      max_times: 4
+                    steps:
+                      - id: read
+                        type: mcp.call
+                        input: {server: renamed, method: observe, request: {}}
+                finally:
+                  - id: cleanup
+                    type: set
+                    input: {closed: true}
+            """.Replace("LOOP", loop, StringComparison.Ordinal).Replace("CONDITION", condition, StringComparison.Ordinal));
+        var schema = System.Text.Json.Nodes.JsonNode.Parse("""{"type":"object","properties":{"response":{"type":"object","properties":{"FIELD":{"type":"boolean"}},"required":["FIELD"]}},"required":["response"]}""".Replace("FIELD", field, StringComparison.Ordinal))!;
+        var observations = new System.Text.Json.Nodes.JsonObject { ["main:read"] = new System.Text.Json.Nodes.JsonObject
+        {
+            ["schema"] = schema,
+            ["responses"] = new System.Text.Json.Nodes.JsonArray(
+                new System.Text.Json.Nodes.JsonObject { ["response"] = new System.Text.Json.Nodes.JsonObject { [field] = true } },
+                new System.Text.Json.Nodes.JsonObject { ["response"] = new System.Text.Json.Nodes.JsonObject { [field] = false } })
+        } };
+        var results = await WorkflowPlanScenarioValidator.ValidateAsync(document, null, TestContext.Current.CancellationToken, observations: observations);
+        Assert.Equal("passed", Assert.Single(results, s => s.Id == "nominal").Outcome);
+        var coverage = Assert.Single(results, s => s.Id == "observations:main:" + loop);
+        Assert.Equal(terminates, coverage.Outcome == "passed");
+        Assert.DoesNotContain(results.SelectMany(r => r.Diagnostics), d => d.Code == "FINALIZATION_NOT_EXECUTED");
+    }
+
+    [Theory]
     [InlineData("1 + 1", false)]
     [InlineData("String(1 + 1)", true)]
     public async Task NominalErrorFallbackCannotEstablishSuccessfulConstruction(string expression, bool valid)
