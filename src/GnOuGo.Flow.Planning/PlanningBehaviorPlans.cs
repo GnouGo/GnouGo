@@ -92,6 +92,8 @@ public static class PlanningBehaviorPlans
                     else if (node.Kind == "confirmation" && cap.StepType != "human.input" || node.Kind == "operation" && cap.StepType == "human.input") Error(location, "Confirmation behavior must use the declared human-input contract.");
                     if (cap is not null)
                     {
+                        if (node.OperationIds.Count > 0 && cap.OperationIds.Any(op => !node.OperationIds.Contains(op, StringComparer.Ordinal)))
+                            Error(location + "/capabilityId", "The selected capability belongs to operations outside this node's declared ownership. Select its exact operation contract or leave an unbound native container's capability null.");
                         if (!PlanningCapabilityBindings.SupportsBehavior(cap, node.Kind)) Error(location + "/capabilityId", "This behavior kind does not implement the selected native or external capability. A native decision.evaluate is an operation that produces a decision; a separate decision node routes its outcomes.");
                     }
                 }

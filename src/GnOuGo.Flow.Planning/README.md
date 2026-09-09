@@ -452,6 +452,13 @@ ancestor loop state remains available in a nested body. Targeted repairs retain 
 An unresolved loop collection schedules its referenced synthesized producer using the
 validator's exact `items`/`over` field location; legacy whole-input findings remain supported.
 Construction scopes assessment feedback to the assessed graph, phase and owned fields.
+Explicit node ownership must include its selected capability's operations. Native containers
+may remain unbound or use an effect-free local capability for the same operation. Such a
+linear composition preserves all upstream requirements at its terminal consumer, including
+requirements declared by its containers. Inconsistent bindings require renewed behavior review.
+Repair requests omit already-valid fields whose schemas permit only one value. If no editable
+field remains, recovery reports that a producer or dependency contract needs correction without
+spending a model call. Incorrect values under fixed schemas remain repairable.
 When that graph has been replaced, the findings stay in encrypted history rather than becoming
 instructions for unrelated contracts. Explicit user revisions remain available. Legacy assessment
 provenance can be recovered by exact comparison with the retained assessment record.

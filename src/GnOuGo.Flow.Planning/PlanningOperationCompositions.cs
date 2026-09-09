@@ -9,8 +9,9 @@ internal static class PlanningOperationCompositions
     {
         foreach (var parent in PlanningGraphCompiler.Enumerate(workflow.Steps.Concat(workflow.Finally)))
         {
-            if (parent.Type != "sequence" || parent.CapabilityId is not null || parent.If is not null || parent.OperationIds.Count == 0 ||
+            if (parent.Type != "sequence" || parent.If is not null || parent.OperationIds.Count == 0 ||
                 parent.Steps.Count < 2 || parent.Steps[^1].Type is not ("mcp.call" or "set")) continue;
+            if (!UnboundOrLocal(parent, parent.OperationIds, preparation)) continue;
             var members = PlanningGraphCompiler.Enumerate(parent.Steps).ToArray();
             if (!members.Contains(node)) continue;
             // sequence already returns every child result. Independent reads form
@@ -24,7 +25,8 @@ internal static class PlanningOperationCompositions
             {
                 if (member.If is not null || !member.OperationIds.Order(StringComparer.Ordinal).SequenceEqual(operations)) return false;
                 if (member.Type is "loop.sequential" or "loop.parallel" or "sequence")
-                    return member.CapabilityId is null && member.Steps.Count > 0 && member.Cases.Count == 0 && member.Default.Count == 0 && member.Branches.Count == 0;
+                    return UnboundOrLocal(member, operations, preparation) &&
+                        member.Steps.Count > 0 && member.Cases.Count == 0 && member.Default.Count == 0 && member.Branches.Count == 0;
                 return member.Type is "mcp.call" or "set" &&
                     preparation.Capabilities.FirstOrDefault(c => c.Id == member.CapabilityId) is { } capability &&
                     capability.OperationIds.Order(StringComparer.Ordinal).SequenceEqual(operations);
@@ -35,12 +37,16 @@ internal static class PlanningOperationCompositions
         return null;
     }
 
+    private static bool UnboundOrLocal(PlanningNode node, IEnumerable<string> operations, PlanningPreparation preparation) =>
+        node.CapabilityId is null || preparation.Capabilities.FirstOrDefault(c => c.Id == node.CapabilityId) is { Resolution: "local" } local &&
+        PlanningCapabilityBindings.Supports(local, node.Type) && local.OperationIds.Order(StringComparer.Ordinal).SequenceEqual(operations.Order(StringComparer.Ordinal));
+
     internal static IReadOnlyList<string> RequiredInputs(PlanningWorkflow workflow, PlanningNode node, PlanningPreparation preparation)
     {
         var owner = Owner(workflow, node, preparation);
         if (owner is null) return preparation.Capabilities.FirstOrDefault(c => c.Id == node.CapabilityId)?.InputOperationIds ?? [];
         if (owner.Steps[^1] != node) return [];
-        return PlanningGraphCompiler.Enumerate(owner.Steps).Where(n => n.CapabilityId is not null)
+        return PlanningGraphCompiler.Enumerate([owner]).Where(n => n.CapabilityId is not null)
             .SelectMany(n => preparation.Capabilities.Single(c => c.Id == n.CapabilityId).InputOperationIds).Distinct(StringComparer.Ordinal).ToArray();
     }
 }

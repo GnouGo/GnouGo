@@ -200,6 +200,8 @@ public sealed partial class TypedWorkflowPlanner
                     if (flat is not null) flat = new PlanningFlatSchemas(patch.Schema);
                     responseSchema = flat?.Schema ?? patch.Schema; prompt = flat is null ? FieldPrompt(patch) : FlatPatchPrompt(patch);
                 }
+                if (patch?.IsEmpty == true)
+                    return (unit, response: (LLMResponse?)null, patch, error: (Exception?)new UnitDeterministicException());
                 unit.EstimatedInputTokens = PlanningConstruction.EstimateInputTokens(prompt, responseSchema);
                 unit.InputTokenLimit = state.Request.Generation.MaxInputTokensPerUnit;
                 if (unit.NodeKeys.Count > state.Request.Generation.MaxNodesPerUnit || unit.EstimatedInputTokens > unit.InputTokenLimit)

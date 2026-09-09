@@ -8,6 +8,33 @@ namespace GnOuGo.Flow.Planning.Tests;
 public sealed class BehaviorActivationTests
 {
     [Theory]
+    [InlineData("parse", "inspect")]
+    [InlineData("lire", "analyser")]
+    public async Task UnrelatedLocalContainerBindingReturnsThroughBehaviorReviewAfterRestart(string first, string second)
+    {
+        var preparation = TypedPlannerTests.Preparation();
+        preparation.Capabilities = [new() { Id = "local-first", StepType = "set", Resolution = "local", EffectKind = "none", OperationIds = [first] },
+            new() { Id = "local-second", StepType = "set", Resolution = "local", EffectKind = "none", OperationIds = [second] }];
+        var plan = TypedPlannerTests.BehaviorPlan(); var workflow = plan.Workflows[0]; workflow.OperationIds = [first, second];
+        workflow.Steps = [new() { Key = "first", Kind = "operation", CapabilityId = "local-first", OperationIds = [first], Purpose = "Prepare input" },
+            new() { Key = "repeat", Kind = "loop", CapabilityId = "local-first", OperationIds = [second], Purpose = "Repeat observations", Steps =
+                [new() { Key = "observe", Kind = "operation", CapabilityId = "local-second", OperationIds = [second], Purpose = "Observe each item" }] }];
+        Assert.Contains(PlanningBehaviorPlans.Validate(plan, preparation), d => d.Location.EndsWith("/repeat/capabilityId", StringComparison.Ordinal));
+        var state = TypedPlannerTests.Session(PlanningStatus.Recovery); state.IntentChecked = true; state.Preparation = preparation; state.BehaviorPlan = plan;
+        state.ApprovedBehaviorHash = PlanningBehaviorPlans.Fingerprint(plan); state.Graph = PlanningBehaviorPlans.Display(plan, preparation);
+        state = JsonSerializer.Deserialize(JsonSerializer.Serialize(state, PlanningJsonContext.Default.PlanningSnapshot), PlanningJsonContext.Default.PlanningSnapshot)!;
+        workflow.Steps[1].CapabilityId = null; Assert.Empty(PlanningBehaviorPlans.Validate(plan, preparation));
+        foreach (var node in PlanningBehaviorPlans.Enumerate(workflow.Steps)) node.InputDependencies ??= [];
+        var runtime = new TypedPlannerTests.FakeRuntime { OnCall = (_, _, _) => Task.FromResult(new LLMResponse { Json = JsonSerializer.SerializeToNode(plan, PlanningJsonContext.Default.PlanningBehaviorPlan) }) };
+        var planner = new TypedWorkflowPlanner();
+        state = await planner.AdvanceAsync(state, new() { Kind = "retry", ExpectedRevision = state.Revision }, runtime, TestContext.Current.CancellationToken);
+        if (state.Status == PlanningStatus.Created) state = await planner.AdvanceAsync(state, new() { ExpectedRevision = state.Revision }, runtime, TestContext.Current.CancellationToken);
+        Assert.True(state.Status == PlanningStatus.BehaviorReview, string.Join("; ", state.Diagnostics.Select(d => d.Code + ": " + d.Message))); Assert.Null(state.ApprovedBehaviorHash);
+        Assert.Equal("repeat", state.BehaviorPlan!.Workflows[0].Steps[1].Key);
+        Assert.Null(state.BehaviorPlan.Workflows[0].Steps[1].CapabilityId); Assert.Single(runtime.Requests);
+    }
+
+    [Theory]
     [InlineData("default", "Publish result")]
     [InlineData("resultat", "Publier le résultat")]
     public async Task MissingSafeDefaultIsCompletedForReviewWithoutAnotherModelCall(string caseKey, string purpose)

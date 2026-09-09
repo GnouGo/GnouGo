@@ -8,6 +8,7 @@ internal sealed class PlanningUnitPatches(JsonObject schema, Dictionary<string, 
 {
     internal JsonObject Schema { get; } = schema;
     internal int FieldCount => slots.Count;
+    internal bool IsEmpty => slots.Count == 0 && removals.Count == 0;
     internal JsonObject Context(JsonObject? candidate) => new(slots.Select(p =>
         new KeyValuePair<string, JsonNode?>(p.Key, extensions?.GetValueOrDefault(p.Key)?.DeepClone() ?? (Read(candidate, p.Value, out var value) ? value?.DeepClone() : null))));
 
@@ -198,12 +199,30 @@ internal sealed class PlanningUnitPatches(JsonObject schema, Dictionary<string, 
         // A conversion-level failure cannot establish a smaller field scope. The unit remains the boundary.
         if (selected.Count == 0 && extra.Count == 0)
             foreach (var (key, slot) in all) { selected[key] = slot.Parts; changes[key] = slot.Schema.DeepClone(); }
+        // A diagnosed parent does not make a locked, already-correct child editable.
+        // Narrowing onto such a field would spend a repair call on its only allowed value.
+        foreach (var (key, path) in selected.ToArray())
+        {
+            var expected = changes[key]!.DeepClone().AsObject(); expected["$defs"] = full["$defs"]!.DeepClone();
+            if (!additions.ContainsKey(key) && Read(unit.Candidate, path, out var current) && HasSingleValue(expected) &&
+                PlanningContractValidation.ValidateInstance(current, expected).Count == 0)
+            { selected.Remove(key); changes.Remove(key); }
+        }
         JsonObject Obj(JsonObject properties) => new() { ["type"] = "object", ["properties"] = properties, ["required"] = new JsonArray(properties.Select(p => (JsonNode?)JsonValue.Create(p.Key)).ToArray()), ["additionalProperties"] = false };
         var remove = new JsonObject { ["type"] = "array", ["items"] = new JsonObject { ["type"] = "string" }, ["minItems"] = extra.Count, ["maxItems"] = extra.Count };
         if (extra.Count > 0) remove["items"]!["enum"] = new JsonArray(extra.Select(p => (JsonNode?)JsonValue.Create(string.Join("/", p.Select(PlanningSchemaReferences.Escape)))).ToArray());
         var result = Obj(new() { ["changes"] = Obj(changes), ["remove"] = remove }); result["$defs"] = full["$defs"]!.DeepClone();
         PlanningConstruction.PruneDefinitions(result);
         return new(result, selected, extra, additions);
+    }
+
+    private static bool HasSingleValue(JsonObject schema)
+    {
+        if (schema.ContainsKey("const") || schema["enum"] is JsonArray { Count: 1 } || schema["type"]?.ToString() == "null") return true;
+        return schema["type"]?.ToString() == "object" && schema["additionalProperties"]?.ToJsonString() == "false" &&
+            schema["properties"] is JsonObject properties && schema["required"] is JsonArray required &&
+            required.Select(n => n!.ToString()).ToHashSet(StringComparer.Ordinal).SetEquals(properties.Select(p => p.Key)) &&
+            properties.All(p => p.Value is JsonObject child && HasSingleValue(child));
     }
 
     internal JsonObject Apply(JsonObject? candidate, JsonObject? response)

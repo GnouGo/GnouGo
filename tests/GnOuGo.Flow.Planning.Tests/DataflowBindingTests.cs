@@ -59,9 +59,11 @@ public sealed class DataflowBindingTests
     }
 
     [Theory]
-    [InlineData("inspect", "pages", "finish", "loop.sequential")]
-    [InlineData("analyser", "pages_renommees", "terminer", "loop.parallel")]
-    public async Task OwnedIterationKeepsCompositeDependenciesAtTheFinalConsumer(string operation, string loopKey, string lastKey, string loopType)
+    [InlineData("inspect", "pages", "finish", "loop.sequential", false)]
+    [InlineData("analyser", "pages_renommees", "terminer", "loop.parallel", false)]
+    [InlineData("inspect", "pages", "finish", "loop.sequential", true)]
+    [InlineData("analyser", "pages_renommees", "terminer", "loop.parallel", true)]
+    public async Task OwnedIterationKeepsCompositeDependenciesAtTheFinalConsumer(string operation, string loopKey, string lastKey, string loopType, bool localContainers)
     {
         var graph = Graph(); var prep = Preparation(); var workflow = graph.Workflows[0];
         prep.Capabilities = [new() { Id = "first", StepType = "set", OperationIds = [operation], InputOperationIds = ["resource", "analysis"] },
@@ -71,6 +73,11 @@ public sealed class DataflowBindingTests
         var pages = new PlanningNode { Key = loopKey, Type = loopType, OperationIds = [operation], Steps = [first] };
         var last = new PlanningNode { Key = lastKey, CapabilityId = "last", OperationIds = [operation], Input = Obj(("pages", Ref(loopKey)), ("analysis", Ref("analysis"))) };
         var group = new PlanningNode { Key = "owned", Type = "sequence", OperationIds = [operation], Steps = [pages, last] };
+        if (localContainers)
+        {
+            prep.Capabilities.Add(new() { Id = "local-container", StepType = "set", Resolution = "local", EffectKind = "none", OperationIds = [operation] });
+            group.CapabilityId = pages.CapabilityId = "local-container";
+        }
         workflow.Steps = [new() { Key = "resource", OperationIds = ["resource"] }, new() { Key = "analysis", OperationIds = ["analysis"] }, group];
         Assert.Empty(PlanningOperationCompositions.RequiredInputs(workflow, first, prep));
         Assert.Empty(PlanningDataflow.OperationInputFindings(graph, prep));
@@ -95,6 +102,16 @@ public sealed class DataflowBindingTests
         Assert.Null(PlanningOperationCompositions.Owner(workflow, first, prep));
         first.OperationIds = [operation]; first.Type = "human.input";
         Assert.Null(PlanningOperationCompositions.Owner(workflow, first, prep));
+        if (localContainers)
+        {
+            first.Type = "set";
+            prep.Capabilities[^1].InputOperationIds = ["unobserved"];
+            Assert.Contains("unobserved", PlanningOperationCompositions.RequiredInputs(workflow, last, prep));
+            prep.Capabilities[^1].OperationIds = ["unrelated"];
+            Assert.Null(PlanningOperationCompositions.Owner(workflow, first, prep));
+            prep.Capabilities[^1].OperationIds = [operation]; prep.Capabilities[^1].EffectKind = "write";
+            Assert.Null(PlanningOperationCompositions.Owner(workflow, first, prep));
+        }
     }
 
     [Theory]
