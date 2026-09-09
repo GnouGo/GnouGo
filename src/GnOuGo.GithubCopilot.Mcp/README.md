@@ -16,6 +16,10 @@ This stdio server uses the stable C# MCP SDK `2.0.0` with automatic protocol neg
 
 ## Features
 
+For message and one-shot results, `completed` means the assistant turn completed. It does
+not establish that the requested work succeeded. The advertised field descriptions keep
+turn completion separate from verified execution outcomes and assistant response text.
+
 - Inspect the active policy with `code_get_policy`.
 - Summarize a project with `code_project_summary`.
 - Read allowlisted text/code files with `code_read_file`.

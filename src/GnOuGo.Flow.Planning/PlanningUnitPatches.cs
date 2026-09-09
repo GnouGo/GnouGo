@@ -170,7 +170,7 @@ internal sealed class PlanningUnitPatches(JsonObject schema, Dictionary<string, 
 
             void SelectChild(JsonNode? child, string[] childPath, string childLocation)
             {
-                var referencePath = "#/$defs/" + Definition(path, "value");
+                var referencePath = "#/$defs/" + Definition(childPath, "value");
                 var childSchema = new JsonObject { ["$ref"] = referencePath, ["$defs"] = full["$defs"]!.DeepClone() };
                 if (PlanningContractValidation.ValidateInstance(child, childSchema).Count == 0 && !Diagnosed(childLocation, childPath)) return;
                 var count = leaves.Count;
@@ -186,8 +186,15 @@ internal sealed class PlanningUnitPatches(JsonObject schema, Dictionary<string, 
             return unit.Diagnostics.Any(d => Matches(location, d.Location) || d.Location.StartsWith(candidateRoot, StringComparison.Ordinal) && Matches(candidateLocation, d.Location));
             static bool Matches(string target, string diagnostic) => diagnostic == target || diagnostic.StartsWith(target + "/", StringComparison.Ordinal) || target.StartsWith(diagnostic + "/", StringComparison.Ordinal);
         }
-        string Definition(string[] path, string name) => path is ["nodes", var node, ..] && full["$defs"]![PlanningConstruction.ValueScope(node) + name] is not null
-            ? PlanningConstruction.ValueScope(node) + name : name;
+        string Definition(string[] path, string name)
+        {
+            if (path is ["nodes", var loop, "input", "members", var index, "value", ..] &&
+                Read(unit.Candidate, ["nodes", loop, "input", "members", index, "name"], out var member) && member?.ToString() == "while" &&
+                full["$defs"]![PlanningLoopBindings.ConditionScope(loop) + name] is not null)
+                return PlanningLoopBindings.ConditionScope(loop) + name;
+            return path is ["nodes", var node, ..] && full["$defs"]![PlanningConstruction.ValueScope(node) + name] is not null
+                ? PlanningConstruction.ValueScope(node) + name : name;
+        }
         // A conversion-level failure cannot establish a smaller field scope. The unit remains the boundary.
         if (selected.Count == 0 && extra.Count == 0)
             foreach (var (key, slot) in all) { selected[key] = slot.Parts; changes[key] = slot.Schema.DeepClone(); }

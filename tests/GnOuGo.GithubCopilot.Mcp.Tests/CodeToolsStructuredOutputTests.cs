@@ -13,6 +13,20 @@ namespace GnOuGo.GithubCopilot.Mcp.Tests;
 
 public sealed class CodeToolsStructuredOutputTests : IDisposable
 {
+    [Theory]
+    [InlineData("copilot_one_shot")]
+    [InlineData("copilot_interactive_one_shot")]
+    [InlineData("copilot_session_send")]
+    public void DiscoveredCompletionContractDoesNotClaimSuccessfulRequestedWork(string tool)
+    {
+        var schema = JsonNode.Parse(DiscoverCopilotTools()[tool].ProtocolTool.OutputSchema!.Value.GetRawText())!;
+        var completed = schema["properties"]!["completed"]!;
+        Assert.Equal("boolean", completed["type"]!.ToString());
+        Assert.Contains("does not certify", completed["description"]!.ToString());
+        Assert.Contains("execution observations", schema["properties"]!["content"]!["description"]!.ToString());
+        Assert.Null(schema["properties"]!["success"]);
+    }
+
     private readonly string _root = Path.Combine(Path.GetTempPath(), "gnougo-code-tools-structured-output-tests-" + Guid.NewGuid().ToString("N"));
 
     public CodeToolsStructuredOutputTests()

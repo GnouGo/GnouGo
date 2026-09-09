@@ -1,5 +1,6 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using System.ComponentModel;
 using GitHub.Copilot;
 
 namespace GnOuGo.GithubCopilot.Core;
@@ -163,10 +164,12 @@ public sealed record CopilotSendRequest(
 public sealed record CopilotSendResult(
     string Handle,
     string CopilotSessionId,
+    [property: Description("Assistant response text. Claims about requested work require validation against execution observations; this text is not a machine-validated task outcome.")]
     string Content,
     string? Model,
     [property: JsonPropertyName("progressEvents")]
     IReadOnlyList<CopilotStreamEvent> Events,
+    [property: Description("Whether the assistant turn completed. This does not certify that the requested work succeeded; use verified execution observations to establish its outcome.")]
     bool Completed = true);
 
 public sealed record CopilotStreamEvent(string Kind, string Level, string Message, DateTimeOffset Timestamp);

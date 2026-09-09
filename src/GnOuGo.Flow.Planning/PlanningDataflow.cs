@@ -8,7 +8,7 @@ namespace GnOuGo.Flow.Planning;
 internal static class PlanningDataflow
 {
     internal const int BindingVersion = 2;
-    internal const int ContractVersion = 50;
+    internal const int ContractVersion = 51;
     internal const string WorkflowOutputs = "$outputs";
 
     internal static Dictionary<string, PlanningBinding> Index(PlanningWorkflow workflow, PlanningPreparation preparation, PlanningGraph graph, string? consumer = null)
@@ -24,6 +24,7 @@ internal static class PlanningDataflow
         var previousSources = consumer is null or WorkflowOutputs ? Enumerable.Empty<PlanningValue>() : nodes.Where(n => n.Type == "loop.sequential" &&
             (n.Key == consumer || locations[consumer].StartsWith(locations[n.Key] + "/steps/", StringComparison.Ordinal)))
             .Select(n => new PlanningValue { Kind = "loop_previous", Source = n.Key });
+        previousSources = previousSources.Concat(nodes.Where(n => n.Key == consumer && n.Type == "loop.sequential").Select(n => new PlanningValue { Kind = "loop_index", Source = n.Key }));
         var sources = workflow.Inputs.Select(p => new PlanningValue { Kind = "input", Source = p.Name }).Concat(loopSources).Concat(previousSources).Concat(nodes.Take(Math.Max(0, consumerIndex)).Where(n => Available(n.Key)).SelectMany(n => n.StructuredOutput is null
             ? new[] { new PlanningValue { Kind = "output", Source = n.Key } }
             : new[] { new PlanningValue { Kind = "output", Source = n.Key }, new PlanningValue { Kind = "output", Source = n.Key, ResultChannel = "structured" } }))

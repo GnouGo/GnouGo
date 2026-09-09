@@ -10,6 +10,11 @@ the configured upstream; credentials remain in request memory.
 
 ## Stable surface
 
+`CopilotSendResult.Completed` reports completion of the assistant turn. It does not certify
+successful execution of the requested work. `Content` is assistant response text; callers
+must establish business outcomes from verified execution observations. These distinctions
+are included in the exported MCP result schemas.
+
 The library pins `GitHub.Copilot.SDK` `1.0.11` and maintains an explicit GA allowlist. Experimental, preview, insiders, fleet, fork, remote/cloud sandbox, canvas, extensions, manual compaction, history truncation, agent-management, citations, and unknown RPC APIs are rejected.
 
 It provides:

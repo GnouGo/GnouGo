@@ -445,6 +445,9 @@ assembles at most four new properties, validates them and preserves the existing
 Undeclared computation fields receive targeted repair before early observation reassessment.
 Encrypted checkpoints record the exact received candidate, findings and dependency fingerprint;
 old repair totals, unreceived calls and changed producer contracts cannot trigger escalation.
+Native loop response schemas distinguish initial inputs from the `while` condition.
+The loop's own previous result and index are selectable only in its condition/body;
+ancestor loop state remains available in a nested body. Targeted repairs retain this scope.
 An oversized optional early assessment is retained as a deferred finding while field repair
 continues. Complete semantic review and required scenarios still gate final approval.
 Review baselines, cumulative calls, pending consumers and history survive restart

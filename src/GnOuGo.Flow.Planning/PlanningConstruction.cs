@@ -209,6 +209,7 @@ public static class PlanningConstruction
                         ScopeReferences(definition, prefix); definitions[prefix + name] = definition;
                     }
                     ScopeReferences(fields, prefix);
+                    PlanningLoopBindings.Constrain(node, fields, definitions, PlanningDataflow.CompactIndex(workflow, preparation, graph, node.Key).Values);
                     if (constrainArguments && node.Type == "mcp.call" && fields["arguments"] is JsonObject arguments &&
                         preparation.Capabilities.FirstOrDefault(c => c.Id == node.CapabilityId)?.InputSchema["properties"] is JsonObject destinations)
                         PlanningArgumentBindings.Constrain(arguments, definitions, prefix, destinations,
