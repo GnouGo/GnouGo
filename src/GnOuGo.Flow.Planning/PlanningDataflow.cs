@@ -182,13 +182,13 @@ internal static class PlanningDataflow
                 var (dependencies, visited) = OperationDependencies(workflow, node, preparation, graph, inputs);
                 if (terminal)
                     foreach (var missing in composition!.Steps.SkipLast(1).Where(n => !visited.Contains(n.Key)))
-                        findings.Add(new("COMPOSITION_INPUT_BINDING_MISSING", path + "/input", "The final result of this owned operation must consume intermediate producer '" + missing.Key + "'. Preserve its original result or a validated dependency; an unused sibling cannot establish completion."));
+                        findings.Add(new("COMPOSITION_INPUT_BINDING_MISSING", path + "/input", "The final result of this owned operation must consume intermediate producer '" + missing.Key + "'. Preserve its original result or a validated dependency; an unused sibling cannot establish completion.", Rule: "producer:" + missing.Key));
                 foreach (var missing in required.Except(dependencies, StringComparer.Ordinal))
                 {
                     if (PlanningWorkflowProvenance.InputFindings(graph, workflow, missing, inputs, preparation) is { } boundary)
                     { findings.AddRange(boundary); continue; }
                     findings.Add(new("OPERATION_INPUT_BINDING_MISSING", path + "/input", "This operation must consume the result of locked upstream operation '" + missing + "', directly or through a validated dependency. Eligible producer nodes: " +
-                        string.Join(", ", located.Where(p => p.Node.OperationIds.Contains(missing) || preparation.Capabilities.FirstOrDefault(c => c.Id == p.Node.CapabilityId)?.OperationIds.Contains(missing) == true).Select(p => p.Node.Key)) + ". An unrelated result cannot substitute for this dependency."));
+                        string.Join(", ", located.Where(p => p.Node.OperationIds.Contains(missing) || preparation.Capabilities.FirstOrDefault(c => c.Id == p.Node.CapabilityId)?.OperationIds.Contains(missing) == true).Select(p => p.Node.Key)) + ". An unrelated result cannot substitute for this dependency.", Rule: "operation:" + missing));
                 }
             }
         }
@@ -239,7 +239,14 @@ internal static class PlanningDataflow
                     if (graph is not null && producer.Type == "workflow.call") dependencies.UnionWith(PlanningWorkflowProvenance.ReturnedOperations(graph, producer, preparation, value.Path));
                     Visit(producer, true);
                 }
-            foreach (var child in current.Steps.Concat(current.Default).Concat(current.Cases.SelectMany(c => c.Steps)).Concat(current.Branches.SelectMany(b => b.Steps))) Visit(child, true);
+            foreach (var child in current.Steps.Concat(current.Default).Concat(current.Cases.SelectMany(c => c.Steps)).Concat(current.Branches.SelectMany(b => b.Steps)))
+            {
+                // A container publishes its child call's returned outputs. An
+                // invocation alone proves nothing about unused callee operations.
+                if (graph is not null && child.Type == "workflow.call")
+                    dependencies.UnionWith(PlanningWorkflowProvenance.ReturnedOperations(graph, child, preparation));
+                Visit(child, true);
+            }
         }
         Visit(node, false);
         // An accepted enclosing decision is a control dependency, not a

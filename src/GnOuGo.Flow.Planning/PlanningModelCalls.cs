@@ -25,7 +25,7 @@ internal static class PlanningModelCalls
         }, state.Request.Generation);
     }
 
-    internal static PlanningModelCall Reserve(PlanningSnapshot state, string phase, string workflow, LLMRequest request)
+    internal static PlanningModelCall Reserve(PlanningSnapshot state, string phase, string workflow, LLMRequest request, string? gate = null, string? scope = null)
     {
         // A restart replays the exact reserved request. Governing edits are blocked while a call is pending.
         var pending = state.Construction.PendingCalls.SingleOrDefault(c => c.Phase == phase && c.WorkflowKey == workflow);
@@ -38,9 +38,11 @@ internal static class PlanningModelCalls
             throw new WorkflowRuntimeException("MODEL_INPUT_LIMIT", $"The request needs approximately {estimate} input tokens; the ceiling is {state.Request.Generation.MaxInputTokensPerRequest}. No request was dispatched.");
         request.ClientRequestId = null;
         var hash = PlanningGraphCompiler.Fingerprint(JsonSerializer.Serialize(request, PlanningJsonContext.Default.LLMRequest));
-        var id = state.Request.SessionId + ":" + (++state.Construction.ModelSequence) + ":" + phase + ":" + PlanningGraphCompiler.Fingerprint(workflow)[..16] + ":" + hash;
+        gate ??= PlanningGates.Response;
+        scope ??= PlanningGraphCompiler.Fingerprint(schema.ToJsonString());
+        var id = state.Request.SessionId + ":" + state.Revision + ":" + (++state.Construction.ModelSequence) + ":" + phase + ":" + gate + ":" + PlanningGraphCompiler.Fingerprint(workflow)[..16] + ":" + scope + ":" + hash;
         request.ClientRequestId = id;
-        var call = new PlanningModelCall { Id = id, Phase = phase, WorkflowKey = workflow, RequestHash = hash, Request = request };
+        var call = new PlanningModelCall { Id = id, Phase = phase, WorkflowKey = workflow, RequestHash = hash, Request = request, Gate = gate, ScopeFingerprint = scope, Revision = state.Revision };
         state.Construction.PendingCalls.Add(call);
         return call;
     }

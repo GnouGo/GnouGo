@@ -13,14 +13,13 @@ Open `/planning` to create or revise a workflow. `/gnougo add` and `/gnougo repr
 open the same designer. SmartFlow **Improve** persists a revision session with the
 saved workflow and separate failure evidence, then links to the designer.
 
-Planner v2 requires business behavior acceptance before complete typed subworkflow
-construction. Callees precede callers; independent workflows use concurrency four.
+Planner v2 requires business behavior acceptance before deterministic skeleton construction and typed hole filling. Callees precede callers; independent workflows use concurrency four.
 Targeted typed repairs preserve accepted behavior and passing validation scenarios.
 The final YAML view is read-only, and approval targets the exact validated artifact.
 
-Schema 3 snapshots, model requests, receipts and budgets are encrypted in KeyVault.
+Schema 4 snapshots, model requests, receipts and budgets are encrypted in KeyVault.
 Tenant-scoped EF Core/SQLite indexes use the workspace-resolved
-`.GnOuGo/data/gnougo-planning-v3.db`. Prior storage is unused. Reservations precede
+`.GnOuGo/data/gnougo-planning-v4.db`. Prior storage is unused. Reservations precede
 model dispatch; completed receipts replay after restart. Unverifiable dispatches stop.
 Optimistic revisions and original-workflow hashes protect approval and saving.
 
@@ -322,7 +321,7 @@ and separate failure evidence, then links to this designer.
 
 See [the planner architecture](../../docs/workflow-planning-v2.md) for contracts, budgets,
 receipt replay, dependency scheduling, and validation. Agent.Server keeps encrypted KeyVault
-payloads and tenant-scoped EF Core/SQLite indexes in the schema-3 storage namespace.
+payloads and tenant-scoped EF Core/SQLite indexes in the schema-4 storage namespace.
 
 All `/gnougo add` planning phases request provider-managed background execution. OpenAI providers
 use the configured `RequestPolicy.BackgroundProtocol`: `Auto` probes Responses,

@@ -7,6 +7,52 @@ namespace GnOuGo.Flow.Planning.Tests;
 
 public sealed class SemanticReviewTests
 {
+    [Fact]
+    public void ReviewIndexDistinguishesDefaultChildrenFromTheFollowingAdapter()
+    {
+        var graph = Graph();
+        graph.Workflows[0].Steps = [new() { Key = "decision", Type = "switch", Default = [new() { Key = "default_marker", InternalRole = "decision_outcome" }] },
+            new() { Key = "selection", InternalRole = "branch_result" }];
+        var context = PlanningSemanticContext.Executable(graph)["workflows"]![0]!;
+        Assert.Equal(["decision", "selection"], context["steps"]!.AsArray().Select(n => n!.ToString()));
+        Assert.Equal("/workflows/0/steps/1", context["nodes"]!["selection"]!["location"]!.ToString());
+        Assert.Equal("/workflows/0/steps/0/default/0", context["nodes"]!["default_marker"]!["location"]!.ToString());
+        Assert.Equal("default_marker", Assert.Single(context["nodes"]!["decision"]!["default"]!.AsArray())!.ToString());
+    }
+
+    [Fact]
+    public void SemanticContextOmitsAbsentOptionsWithoutChangingLiteralData()
+    {
+        var graph = Graph();
+        graph.Workflows[0].Steps[0].Cases.Add(new("null", null, []));
+        graph.Workflows[0].Steps[0].Input = Obj(("enabled", new() { Kind = "boolean", Boolean = false }),
+            ("count", new() { Kind = "number", Number = 0 }), ("missing", new() { Kind = "null" }));
+        var context = PlanningSemanticContext.Graph(graph);
+        var node = context["workflows"]![0]!["steps"]![0]!;
+        Assert.Null(node["onError"]);
+        Assert.False(node.AsObject().ContainsKey("if"));
+        Assert.Equal("null", node["cases"]![0]!["value"]!.ToString());
+        Assert.False(node["input"]!["members"]![0]!["value"]!["boolean"]!.GetValue<bool>());
+        Assert.Equal(0, node["input"]!["members"]![1]!["value"]!["number"]!.GetValue<int>());
+        Assert.Equal("null", node["input"]!["members"]![2]!["value"]!["kind"]!.ToString());
+        var executable = PlanningSemanticContext.Executable(graph);
+        var indexed = executable["workflows"]![0]!["nodes"]![graph.Workflows[0].Steps[0].Key]!;
+        Assert.Null(indexed["purpose"]);
+        Assert.Equal("/workflows/0/steps/0", indexed["location"]!.ToString());
+        Assert.True(JsonNode.DeepEquals(node["input"], indexed["input"]));
+    }
+
+    [Fact]
+    public void SemanticFindingsOfferOnlyExactExecutableFieldsAndGoverningReviewLocations()
+    {
+        var graph = Graph(); var targets = PlanningSemanticReview.SemanticTargets(graph);
+        Assert.Contains("/workflows/0/steps/0/input/members/0/value", targets.Keys);
+        Assert.Contains("/workflows/0/steps/0/behavior", targets.Keys);
+        Assert.DoesNotContain("/workflows/0/steps/0/input", targets.Keys);
+        Assert.DoesNotContain(targets.Keys, path => path.Contains("/schema/", StringComparison.Ordinal) || path.Contains("/outputSchema", StringComparison.Ordinal));
+        Assert.DoesNotContain(targets.Keys, path => path.EndsWith("/functions", StringComparison.Ordinal) || path.EndsWith("/onError", StringComparison.Ordinal));
+    }
+
     [Theory]
     [InlineData("read", "group", "findings")]
     [InlineData("lecture", "ensemble", "résultats")]
@@ -121,7 +167,7 @@ public sealed class SemanticReviewTests
         {
             ["code"] = code,
             ["workflow"] = "main",
-            ["location"] = "/workflows/0/steps/0/input",
+            ["location"] = "/workflows/0/steps/0/input/members/0/value",
             ["message"] = code + " must preserve the requirement.",
             ["evidence"] = evidence,
             ["blocking"] = true
@@ -152,7 +198,7 @@ public sealed class SemanticReviewTests
                     {
                         ["code"] = "SEMANTIC_NOTE",
                         ["workflow"] = invalidWorkflow && calls == 1 ? "invented" : "main",
-                        ["location"] = "/workflows/0/steps/0/input",
+                        ["location"] = "/workflows/0/steps/0/input/members/0/value",
                         ["evidence"] = !invalidWorkflow && (calls == 1 || exhausted) ? "invented request evidence" : "Return a greeting",
                         ["message"] = "The greeting requirement is explicitly retained.",
                         ["blocking"] = false
@@ -163,7 +209,7 @@ public sealed class SemanticReviewTests
         };
         PlanningFixtures.Accept(state);
         state = await new TypedWorkflowPlanner().AdvanceAsync(state, new() { ExpectedRevision = state.Revision }, runtime, TestContext.Current.CancellationToken);
-        Assert.Equal(2, calls); Assert.Equal(0, state.Construction.Repairs);
+        Assert.Equal(2, calls); Assert.Equal(1, state.RepairAllowances.Sum(a => a.Attempts));
         Assert.Equal(original, PlanningGraphCompiler.Fingerprint(state.Graph!));
         Assert.Equal(exhausted ? PlanningStatus.Recovery : PlanningStatus.FinalReview, state.Status);
         if (exhausted)

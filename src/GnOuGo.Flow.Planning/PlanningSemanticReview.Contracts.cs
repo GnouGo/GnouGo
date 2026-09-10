@@ -7,7 +7,7 @@ internal sealed partial class PlanningSemanticReview
 {
     internal static JsonObject SemanticValueContracts(PlanningGraph graph, PlanningPreparation preparation)
     {
-        var schemas = new JsonObject(); var references = new JsonArray();
+        var schemas = new JsonObject(); var references = new JsonArray(); var identities = new Dictionary<string, string>(StringComparer.Ordinal);
         foreach (var workflow in graph.Workflows)
         {
             var resolve = PlanningGraphValidation.ValueContractResolver(graph, workflow, preparation);
@@ -25,8 +25,9 @@ internal sealed partial class PlanningSemanticReview
                 };
                 try
                 {
-                    var schema = resolve(value); var id = "s_" + PlanningGraphCompiler.Fingerprint(schema.ToJsonString());
-                    if (!schemas.ContainsKey(id)) schemas[id] = schema.DeepClone();
+                    var schema = resolve(value); var fingerprint = schema.ToJsonString();
+                    if (!identities.TryGetValue(fingerprint, out var id))
+                    { id = "v" + identities.Count; identities[fingerprint] = id; schemas[id] = schema.DeepClone(); }
                     item["schema"] = new JsonObject { ["$ref"] = "#/schemas/" + id };
                 }
                 catch (Exception ex) when (ex is InvalidOperationException or ArgumentException or FormatException)

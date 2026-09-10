@@ -18,7 +18,7 @@ corepack pnpm build
 The editor exposes intent, model configuration, capability constraints, policies and
 budgets. Independent workflow concurrency defaults to 4 and typed repairs to 3.
 
-The planning runtime stores encrypted schema-3 sessions and request receipts under the run ID.
+The planning runtime stores encrypted schema-4 sessions and request receipts under the run ID.
 Reopening a planning call with that identity reuses completed requests and retained budgets.
 Workflow execution checkpoint storage remains a separate host service.
 

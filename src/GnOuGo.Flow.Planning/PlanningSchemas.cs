@@ -5,7 +5,7 @@ namespace GnOuGo.Flow.Planning;
 
 internal static class PlanningSchemas
 {
-    public static JsonObject WholeWorkflow(PlanningPreparation preparation)
+    internal static JsonObject ValueDefinitions()
     {
         var definitions = new JsonObject
         {
@@ -35,23 +35,9 @@ internal static class PlanningSchemas
             ["port"] = Object(("name", String()), ("schema", Ref("schema")), ("required", Type("boolean")), ("default", Nullable(Ref("value")))),
             ["output"] = Object(("name", String()), ("schema", Ref("schema")), ("value", Ref("value"))),
             ["retry"] = Object(("max", Type("integer")), ("backoffMs", Type("integer")), ("backoffMult", Type("number")), ("jitterMs", Type("integer"))),
-            ["errorCase"] = Object(("if", Nullable(Ref("value"))), ("action", Enum("stop", "continue")), ("setOutput", Nullable(Ref("value"))), ("retry", Nullable(Ref("retry")))),
-            ["branch"] = Object(("steps", Array(Ref("node")))),
-            ["case"] = Object(("value", Nullable(String())), ("when", Nullable(Ref("value"))), ("steps", Array(Ref("node")))),
-            ["node"] = Object(("key", String()), ("type", Enum(preparation.AllowedStepTypes.ToArray())), ("purpose", String()),
-                ("capabilityId", Nullable(String())), ("operationIds", Array(String())), ("input", Ref("value")),
-                ("if", Nullable(Ref("value"))), ("expr", Nullable(Ref("value"))), ("outputSchema", Nullable(Ref("schema"))),
-                ("structuredOutput", Nullable(Object(("schema", Ref("schema")), ("strict", Type("boolean"))))),
-                ("output", Type("null")), ("itemVar", Nullable(String())), ("indexVar", Nullable(String())),
-                ("retry", Nullable(Ref("retry"))), ("onError", Array(Ref("errorCase"))), ("steps", Array(Ref("node"))),
-                ("branches", Array(Ref("branch"))), ("cases", Array(Ref("case"))), ("default", Array(Ref("node")))),
-            ["workflow"] = Object(("key", String()), ("purpose", String()), ("operationIds", Array(String())),
-                ("inputs", Array(Ref("port"))), ("outputs", Array(Ref("output"))),
-                ("steps", Array(Ref("node"))), ("finally", Array(Ref("node"))), ("functions", Nullable(String())))
+            ["errorCase"] = Object(("if", Nullable(Ref("value"))), ("action", Enum("stop", "continue")), ("setOutput", Nullable(Ref("value"))), ("retry", Nullable(Ref("retry"))))
         };
-        var root = (JsonObject)definitions["workflow"]!.DeepClone();
-        root["$defs"] = definitions;
-        return root;
+        return definitions;
     }
 
     internal static void ScopeValues(JsonObject schema, PlanningWorkflow workflow)
@@ -123,17 +109,7 @@ internal static class PlanningSchemas
         return root;
     }
 
-    internal static JsonObject BehaviorRepair(PlanningPreparation preparation, PlanningBehaviorPlan candidate)
-    {
-        var schema = Behavior(preparation);
-        var names = candidate.Workflows.SelectMany(w => w.Inputs).Select(p => p.Name).Distinct(StringComparer.Ordinal).ToArray();
-        if (names.Length > 0) schema["$defs"]!["behaviorInputName"] = Enum(names);
-        var dependencies = Array(names.Length == 0 ? String() : Ref("behaviorInputName"));
-        if (names.Length == 0) dependencies["maxItems"] = 0;
-        foreach (var variant in schema["$defs"]!["behaviorNode"]!["anyOf"]!.AsArray())
-            variant!["properties"]!["inputDependencies"] = dependencies.DeepClone();
-        return schema;
-    }
+
 
     private static JsonObject Evidence() => Array(Object(("sourceId", String()), ("excerpt", String())));
 

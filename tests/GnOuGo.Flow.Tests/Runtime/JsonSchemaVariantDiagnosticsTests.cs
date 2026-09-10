@@ -6,6 +6,17 @@ namespace GnOuGo.Flow.Tests.Runtime;
 
 public sealed class JsonSchemaVariantDiagnosticsTests
 {
+    [Fact]
+    public void FindingsAtTheSameFieldRetainDistinctMachineRules()
+    {
+        var schema = JsonNode.Parse("""{"type":"number","minimum":10,"multipleOf":3}""")!;
+        var first = PlanningContractValidation.ValidateInstanceFindings(JsonValue.Create(1), schema);
+        var second = PlanningContractValidation.ValidateInstanceFindings(JsonValue.Create(2), schema);
+        Assert.Equal(new[] { "minimum", "multipleOf" }, first.Select(f => f.Rule));
+        Assert.Equal(first.Select(f => (f.InstancePointer, f.Rule)), second.Select(f => (f.InstancePointer, f.Rule)));
+        Assert.All(first, f => Assert.Equal("", f.InstancePointer));
+    }
+
     [Theory]
     [InlineData("field/with~escapes.and[0]:suffix")]
     [InlineData("champ/avec~echappements.et[0]:suite")]

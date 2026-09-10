@@ -264,10 +264,10 @@ var engine = new WorkflowEngine
     McpClientFactory = mcp
 };
 
-var inputs = WorkflowInputDefaults.Apply(workflow.Source, new JsonObject
+var inputs = new JsonObject
 {
     ["topic"] = "GnOuGo.Flow"
-});
+};
 
 var result = await engine.ExecuteAsync(workflow, inputs, CancellationToken.None);
 
@@ -703,7 +703,7 @@ Sets variables in the workflow data context using expressions.
 
 `output_schema` is optional, but recommended for any `set` step that normalizes or reshapes data for later steps. When present, workflow.plan validates `input` against the schema, downstream references use the declared output type, and the runtime verifies the resolved output before exposing it as `data.steps.<id>`.
 
-Generated `set.output_schema` values use JSON Schema. During plan normalization, workflow-contract shorthand such as `dictionary`, `required_properties`, and `additional_properties` is converted to the corresponding JSON Schema object form. Concrete nullable unions remain intact because they are enforceable by the JSON Schema runtime.
+Generated `set.output_schema` values use JSON Schema. Deterministic lowering converts typed contracts to the required workflow or JSON Schema representation. Concrete nullable unions remain intact because they are enforceable by the JSON Schema runtime.
 
 ---
 
@@ -1318,7 +1318,7 @@ and scenario validation and final approval are mandatory. Models return typed JS
       max_input_tokens: 12000
       max_output_tokens: 8192
     max_concurrency: 4
-    max_repairs: 3
+    max_repairs_per_workflow_gate: 5
     llm_budget:
       max_calls: 100
       max_total_tokens: 15000000
@@ -1355,6 +1355,11 @@ The plan + execute pattern is the foundation of **agentic workflows**: the user 
 ---
 
 ## Typed Inputs
+
+Runtime entrypoints and workflow calls apply declared defaults to missing input keys
+before execution. Explicit null values are preserved and checked separately from
+optional presence: a non-nullable optional input may be omitted, but cannot be null.
+Nested object members and array items also enforce their declared nullability.
 
 Workflow inputs support rich type declarations with validation at runtime.
 

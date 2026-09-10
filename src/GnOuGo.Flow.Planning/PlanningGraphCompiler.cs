@@ -26,6 +26,7 @@ public sealed partial class PlanningGraphCompiler
     public string Compile(PlanningGraph graph, PlanningPreparation preparation, string name = "generated")
     {
         ArgumentNullException.ThrowIfNull(graph);
+        if (PlanningGraphSkeleton.HasUnresolved(PlanningFieldPaths.Json(graph))) throw new InvalidOperationException("Resolve every executable hole before compilation.");
         var diagnostics = PlanningExecutableValidation.Validate(graph, preparation);
         if (diagnostics.Count != 0) throw new InvalidOperationException(string.Join("; ", diagnostics.Select(d => d.Code + " at " + d.Location + ": " + d.Message)));
         if (graph.Workflows.Count == 0 || graph.Workflows.Count > 100)

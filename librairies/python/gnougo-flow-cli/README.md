@@ -30,7 +30,7 @@ transport choices; the Python CLI contains no workflow planner.
 
 ## Configuration
 
-Settings come from the specified settings file, conventional local example files,
+Settings come from the specified settings file, or conventional local example files when no file is selected,
 `.env`, and environment variables prefixed with `GNOUGO__`. Configure credentials
 through the environment, such as `GNOUGO__OPENAI__API_KEY`.
 

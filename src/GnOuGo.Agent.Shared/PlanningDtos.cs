@@ -6,7 +6,7 @@ public sealed record PlanningStartDto(string Name, string Prompt, bool ReviseExi
 public sealed record PlanningGenerationDto(string? Reasoning = null, int MaxInputTokensPerRequest = 12_000, int MaxOutputTokens = 8_192);
 public sealed record PlanningCommandDto(string Kind, long ExpectedRevision, string? ArtifactHash = null, string? Text = null, JsonObject? Answers = null, PlanningGenerationDto? Generation = null);
 public sealed record PlanningWorkflowDto(string Key, string Status, IReadOnlyList<string> Dependencies, int Calls, int RepairCalls,
-    int? EstimatedInputTokens, int? InputTokenLimit);
+    int? EstimatedInputTokens, int? InputTokenLimit, int UnresolvedFields = 0, int ResolvedFields = 0, string? Gate = null, int RepairsConsumed = 0, int RepairsAllowed = 5);
 public sealed record PlanningValidationDto(string Code, string Location, string Message, bool Required);
 public sealed record PlanningScenarioDto(string Id, string Outcome, string Description);
 public sealed record PlanningRevisionDto(long Revision, string ArtifactHash, string Status, IReadOnlyList<string> ChangedWorkflows);

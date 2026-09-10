@@ -58,7 +58,7 @@ internal sealed partial class PlanningScenarioFixtures
                         retainedSamples.All(s => PlanningContractValidation.ValidateInstance(s, contract).Count == 0))
                     { samples = (JsonArray)retainedSamples.DeepClone(); total = expected; }
                     state.CurrentPhase = "scenario_observations";
-                    var definitions = PlanningSchemas.WholeWorkflow(state.Preparation!)["$defs"]!.DeepClone().AsObject();
+                    var definitions = PlanningSchemas.ValueDefinitions().DeepClone().AsObject();
                     var variants = definitions["value"]!["anyOf"]!.AsArray();
                     foreach (var variant in variants.ToArray())
                     {

@@ -4,7 +4,7 @@ using GnOuGo.Flow.Core.Runtime;
 namespace GnOuGo.Flow.Core.Planning;
 
 /// <summary>A schema violation with an unambiguous JSON Pointer to the instance value.</summary>
-public sealed record PlanningInstanceFinding(string InstancePointer, string Message);
+public sealed record PlanningInstanceFinding(string InstancePointer, string Message, string? Rule = null);
 
 /// <summary>Public deterministic validation boundary shared by independent planning implementations.</summary>
 public static class PlanningContractValidation

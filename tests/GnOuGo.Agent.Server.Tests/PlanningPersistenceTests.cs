@@ -33,8 +33,8 @@ public sealed class PlanningPersistenceTests
     }
 
     [Theory]
-    [InlineData("gnougo-planning-br3:INVALID_PRIVATE_PAYLOAD")]
-    [InlineData("gnougo-planning-br3:AA==")]
+    [InlineData("gnougo-planning-br4:INVALID_PRIVATE_PAYLOAD")]
+    [InlineData("gnougo-planning-br4:AA==")]
     [InlineData("PRIVATE_INVALID_JSON")]
     public void MalformedSnapshotEncodingReportsNoPlanningContent(string payload)
     {
@@ -47,6 +47,10 @@ public sealed class PlanningPersistenceTests
     {
         await using var fixture = await StoreFixture.CreateAsync();
         var state = new PlanningSnapshot { Request = new() { TenantId = "one", SessionId = "same", Prompt = "PRIVATE_PLANNING_CONTENT_81352" } };
+        state.Construction.Holes.Add(new() { Id = "h_exact", WorkflowKey = "main", NodeKey = "producer", Path = "/workflows/0/steps/0/input/members/0/value", Kind = "value" });
+        state.Construction.Candidates.Add(new() { WorkflowKey = "main", GraphFingerprint = "revision-1", WorkflowFingerprint = "workflow-1", DependencyFingerprint = "callees-1", ScopeFingerprint = "scope-1",
+            Targets = state.Construction.Holes.ToList(), Payload = new JsonObject { ["assignments"] = new JsonObject { ["h_exact"] = "PRIVATE_STAGED_ASSIGNMENT" } }, Stage = 1 });
+        state.RepairAllowances.Add(new() { WorkflowKey = "main", Gate = PlanningGates.Typed, Attempts = 5 });
         state.PreparationCheckpoint = new() { Stage = "matching", ValidatedResults = new JsonObject { ["inventory"] = "PRIVATE_PREPARATION_CONTENT" }, RequestHashes = ["hash"] };
         Assert.True(await fixture.Store.TrySaveAsync(state, null, Ct));
         state.Revision = 1; state.Status = PlanningStatus.BehaviorReview;
@@ -57,6 +61,10 @@ public sealed class PlanningPersistenceTests
         var restored = await reopened.LoadAsync("one", "same", Ct);
         Assert.Equal(1, restored!.Revision);
         Assert.Equal(state.Request.Prompt, restored.Request.Prompt);
+        Assert.Equal(4, restored.SchemaVersion);
+        Assert.Equal(5, Assert.Single(restored.RepairAllowances).Attempts);
+        Assert.Equal("revision-1", Assert.Single(restored.Construction.Candidates).GraphFingerprint);
+        Assert.Equal("h_exact", Assert.Single(restored.Construction.Holes).Id);
         Assert.Equal("matching", restored.PreparationCheckpoint!.Stage);
         Assert.Equal("hash", Assert.Single(restored.PreparationCheckpoint.RequestHashes));
         Assert.Null(await reopened.LoadAsync("two", "same", Ct));
@@ -69,6 +77,7 @@ public sealed class PlanningPersistenceTests
             var bytes = Encoding.UTF8.GetString(await File.ReadAllBytesAsync(file, Ct));
             Assert.DoesNotContain("PRIVATE_PLANNING_CONTENT_81352", bytes);
             Assert.DoesNotContain("PRIVATE_PREPARATION_CONTENT", bytes);
+            Assert.DoesNotContain("PRIVATE_STAGED_ASSIGNMENT", bytes);
         }
     }
 

@@ -7,11 +7,11 @@ namespace GnOuGo.Agent.Server.Planning;
 /// <summary>Consumer-owned encoding, always stored through encrypted KeyVault records.</summary>
 internal static class PlanningSnapshotPayload
 {
-    private const string Prefix = "gnougo-planning-br3:";
+    private const string Prefix = "gnougo-planning-br4:";
 
     internal static string Encode(PlanningSnapshot snapshot)
     {
-        if (snapshot.SchemaVersion != 3) throw new InvalidOperationException("Unsupported planning snapshot schema.");
+        if (snapshot.SchemaVersion != 4) throw new InvalidOperationException("Unsupported planning snapshot schema.");
         using var buffer = new MemoryStream();
         using (var compressed = new BrotliStream(buffer, CompressionLevel.Fastest, leaveOpen: true))
             JsonSerializer.Serialize(compressed, snapshot, PlanningJsonContext.Default.PlanningSnapshot);
@@ -28,7 +28,7 @@ internal static class PlanningSnapshotPayload
             using var compressed = new BrotliStream(buffer, CompressionMode.Decompress);
             var snapshot = JsonSerializer.Deserialize(compressed, PlanningJsonContext.Default.PlanningSnapshot)
                 ?? throw new JsonException();
-            return snapshot.SchemaVersion == 3 ? snapshot : throw new JsonException("Unsupported planning schema.");
+            return snapshot.SchemaVersion == 4 ? snapshot : throw new JsonException("Unsupported planning schema.");
         }
         catch (Exception ex) when (ex is JsonException or InvalidDataException or FormatException)
         { throw new InvalidOperationException("The encrypted planning revision is invalid.", ex); }

@@ -7,13 +7,6 @@ namespace GnOuGo.Flow.Planning;
 internal static class PlanningPromptContext
 {
     internal const string Instructions = "A context with shared entries uses {$contextRef:id} to reference that exact object in shared. Expand these context references before interpreting schemas; they do not replace or change JSON Schema references or constraints. ";
-    internal const string ResultBindings = "An output value's source is an exact node key, never its output alias. " +
-        "switch and sequence results are maps keyed by child node keys; select the executed child's result with an explicit compute binding, accounting for absent branches. " +
-        "A switch never returns its matched label. When returning a business value, produce that value in each case and default (for example with typed set nodes); empty cases produce no business value and an empty default returns null. " +
-        "Loop results are {count,results}, where each results item is a map keyed by child node keys; a workflow.call entry contains its outputs object. " +
-        "A direct typed output reference to workflow.call already selects its outputs object: use path:[portName], never path:[outputs,portName]. " +
-        "Leave outputSchema null on workflow.call and control-flow nodes; their result contracts are derived from their callees and children. ";
-
     internal static JsonObject Callees(PlanningSnapshot state, string owner) => new(
         state.Construction.Workflows.Single(w => w.WorkflowKey == owner).Dependencies.Order(StringComparer.Ordinal).Select(key =>
         {

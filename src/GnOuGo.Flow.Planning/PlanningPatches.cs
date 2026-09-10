@@ -1,163 +1,153 @@
 using System.Text.Json;
 using System.Text.Json.Nodes;
-using System.Text.RegularExpressions;
 using GnOuGo.Flow.Core.Planning;
 
 namespace GnOuGo.Flow.Planning;
 
-/// <summary>Atomic, field-scoped patches; model responses cannot replace a workflow graph.</summary>
+/// <summary>Exact typed graph fields projected onto the shared atomic patch mechanism.</summary>
 public static class PlanningPatches
 {
-    private static readonly string[] NodeFields = ["input", "outputSchema", "structuredOutput", "expr", "if", "onError"];
-
-    public static JsonObject Schema(PlanningPreparation preparation)
-    {
-        var definitions = PlanningSchemas.WholeWorkflow(preparation)["$defs"]!.DeepClone().AsObject();
-        JsonObject Ref(string name) => new() { ["$ref"] = "#/$defs/" + name };
-        JsonObject Nullable(JsonObject type) => new() { ["anyOf"] = new JsonArray(type, new JsonObject { ["type"] = "null" }) };
-        JsonObject Variant(string field, JsonObject value, bool workflow = false, bool root = false)
-        {
-            var properties = new JsonObject
-            {
-                ["workflow"] = new JsonObject { ["type"] = root ? "null" : "string" },
-                ["node"] = new JsonObject { ["type"] = workflow ? "null" : "string" },
-                ["field"] = field switch
-                {
-                    "cases/when" => new JsonObject { ["type"] = "string", ["pattern"] = "^cases/(0|[1-9][0-9]*)/when$" },
-                    "outputs/value" => new JsonObject { ["type"] = "string", ["pattern"] = "^outputs/(0|[1-9][0-9]*)/value$" },
-                    _ => new JsonObject { ["type"] = "string", ["enum"] = new JsonArray(field) }
-                },
-                ["value"] = value
-            };
-            return new() { ["type"] = "object", ["properties"] = properties, ["required"] = new JsonArray("workflow", "node", "field", "value"), ["additionalProperties"] = false };
-        }
-        var structured = definitions["node"]!["properties"]!["structuredOutput"]!.DeepClone().AsObject();
-        var variants = new JsonArray(
-            Variant("input", Ref("value")), Variant("outputSchema", Nullable(Ref("schema"))), Variant("structuredOutput", structured),
-            Variant("cases/when", Nullable(Ref("value"))), Variant("expr", Nullable(Ref("value"))), Variant("if", Nullable(Ref("value"))),
-            Variant("onError", new() { ["type"] = "array", ["items"] = Ref("errorCase") }),
-            Variant("functions", Nullable(new() { ["type"] = "string" }), true),
-            Variant("functions", Nullable(new() { ["type"] = "string" }), true, true),
-            Variant("outputs/value", Ref("value"), true),
-            Variant("inputs", new() { ["type"] = "array", ["items"] = Ref("port") }, true),
-            Variant("outputs", new() { ["type"] = "array", ["items"] = Ref("output") }, true));
-        return new() { ["type"] = "object", ["properties"] = new JsonObject { ["patches"] = new JsonObject { ["type"] = "array", ["items"] = new JsonObject { ["anyOf"] = variants } } }, ["required"] = new JsonArray("patches"), ["additionalProperties"] = false, ["$defs"] = definitions };
-    }
-
-    public static PlanningGraph Apply(PlanningGraph original, JsonObject response, IReadOnlySet<string> allowed, PlanningPreparation preparation)
-    {
-        var errors = PlanningContractValidation.ValidateInstance(response, ScopedSchema(preparation, allowed));
-        if (errors.Count != 0) throw new InvalidOperationException("Invalid patch response: " + string.Join("; ", errors));
-        var graph = JsonSerializer.SerializeToNode(original, PlanningJsonContext.Default.PlanningGraph)!.AsObject();
-        var changed = new HashSet<string>(StringComparer.Ordinal);
-        foreach (var patch in response["patches"]!.AsArray().OfType<JsonObject>())
-        {
-            var workflowKey = patch["workflow"]?.GetValue<string>(); var nodeKey = patch["node"]?.GetValue<string>(); var field = patch["field"]!.GetValue<string>();
-            var coordinate = Coordinate(workflowKey, nodeKey, field);
-            if (!changed.Add(coordinate)) throw new InvalidOperationException("A patch field was submitted more than once.");
-            var workflow = workflowKey is null ? graph : graph["workflows"]!.AsArray().OfType<JsonObject>().SingleOrDefault(w => w["key"]!.GetValue<string>() == workflowKey) ?? throw new InvalidOperationException("Unknown patch workflow.");
-            JsonObject target = workflow;
-            if (nodeKey is not null)
-                target = Nodes(workflow["steps"]!.AsArray().Concat(workflow["finally"]!.AsArray())).SingleOrDefault(n => n["key"]!.GetValue<string>() == nodeKey) ?? throw new InvalidOperationException("Unknown patch node.");
-            if (!allowed.Contains(coordinate)) throw new InvalidOperationException("The patch targets a field outside its diagnosed scope: " + coordinate);
-            if (field.StartsWith("cases/", StringComparison.Ordinal) || field.StartsWith("outputs/", StringComparison.Ordinal))
-            {
-                var parts = field.Split('/');
-                if (!int.TryParse(parts[1], out var index) || target[parts[0]] is not JsonArray items || index < 0 || index >= items.Count)
-                    throw new InvalidOperationException("Unknown indexed patch field.");
-                items[index]![parts[2]] = patch["value"]?.DeepClone();
-            }
-            else target[field] = patch["value"]?.DeepClone();
-        }
-        if (changed.Count == 0) throw new InvalidOperationException("An empty repair cannot resolve diagnostics.");
-        return JsonSerializer.Deserialize(graph, PlanningJsonContext.Default.PlanningGraph)!;
-    }
-
     public static HashSet<string> Scope(PlanningGraph graph, IReadOnlyList<PlanningDiagnostic> diagnostics)
     {
-        var allowed = new HashSet<string>(StringComparer.Ordinal);
+        var allowed = new HashSet<string>(StringComparer.Ordinal); var json = PlanningFieldPaths.Json(graph);
         foreach (var diagnostic in diagnostics.Where(d => d.Required))
         {
-            if (diagnostic.Location == "/functions" || diagnostic.Location.StartsWith("/functions/", StringComparison.Ordinal)) allowed.Add(Coordinate(null, null, "functions"));
+            var located = PlanningDiagnosticLocations.TypedInput(diagnostic, graph);
             for (var wi = 0; wi < graph.Workflows.Count; wi++)
             {
                 var workflow = graph.Workflows[wi]; var root = "/workflows/" + wi;
-                foreach (var field in new[] { "inputs", "outputs", "functions" })
-                    if (diagnostic.Location == root + "/" + field || diagnostic.Location.StartsWith(root + "/" + field + "/", StringComparison.Ordinal))
-                    {
-                        var suffix = diagnostic.Location[(root + "/" + field).Length..].TrimStart('/').Split('/');
-                        if (field != "functions" && suffix[0].Length > 0 &&
-                            (!int.TryParse(suffix[0], out var index) || index < 0 || index >= (field == "outputs" ? workflow.Outputs.Count : workflow.Inputs.Count) ||
-                                suffix[0] != index.ToString(System.Globalization.CultureInfo.InvariantCulture))) continue;
-                        allowed.Add(Coordinate(workflow.Key, null, field == "outputs" && suffix.Length > 1 && suffix[1] == "value" ? "outputs/" + suffix[0] + "/value" : field));
-                    }
+                foreach (var collection in new[] { "inputs", "outputs" })
+                    for (var pi = 0; pi < (collection == "inputs" ? workflow.Inputs.Count : workflow.Outputs.Count); pi++)
+                        foreach (var field in collection == "inputs" ? new[] { "schema", "default" } : new[] { "schema", "value" })
+                            Visit(root + "/" + collection + "/" + pi + "/" + field, root, null);
                 foreach (var (node, path) in PlanningGraphValidation.Located(workflow.Steps, root + "/steps").Concat(PlanningGraphValidation.Located(workflow.Finally, root + "/finally")))
                 {
-                    foreach (var field in NodeFields)
-                        if (diagnostic.Location == path + "/" + field || diagnostic.Location.StartsWith(path + "/" + field + "/", StringComparison.Ordinal)) allowed.Add(Coordinate(workflow.Key, node.Key, field));
-                    for (var ci = 0; ci < node.Cases.Count; ci++)
-                        if (diagnostic.Location == path + "/cases/" + ci + "/when" || diagnostic.Location.StartsWith(path + "/cases/" + ci + "/when/", StringComparison.Ordinal)) allowed.Add(Coordinate(workflow.Key, node.Key, "cases/" + ci + "/when"));
+                    if (node.InternalRole is not null) continue;
+                    foreach (var field in new[] { "input", "expr", "outputSchema", "structuredOutput/schema" }) Visit(path + "/" + field, path, node.Key);
+                    for (var ci = 0; ci < node.Cases.Count; ci++) Visit(path + "/cases/" + ci + "/when", path, node.Key);
+                }
+                void Visit(string editable, string owner, string? node)
+                {
+                    if (located.Location != editable && !located.Location.StartsWith(editable + "/", StringComparison.Ordinal)) return;
+                    JsonNode? value;
+                    try { value = PlanningFieldPaths.Read(json, located.Location); }
+                    catch (InvalidOperationException) { return; }
+                    if (value is null)
+                    {
+                        var split = located.Location.LastIndexOf('/');
+                        if (PlanningFieldPaths.ReadOptional(json, located.Location[..split]) is JsonObject parent && parent.ContainsKey(located.Location[(split + 1)..]))
+                            allowed.Add(Coordinate(workflow.Key, node, located.Location[(owner.Length + 1)..]));
+                        return;
+                    }
+                    foreach (var leaf in Editable(value, located.Location))
+                    {
+                        if (leaf.EndsWith("/input", StringComparison.Ordinal) || leaf.EndsWith("/inputs", StringComparison.Ordinal) || leaf.EndsWith("/outputs", StringComparison.Ordinal)) continue;
+                        allowed.Add(Coordinate(workflow.Key, node, leaf[(owner.Length + 1)..]));
+                    }
                 }
             }
         }
         return allowed;
     }
-
-    public static string Coordinate(string? workflow, string? node, string field)
-        => JsonSerializer.Serialize(new[] { workflow, node, field }, PlanningJsonContext.Default.StringArray);
-
-    internal static JsonObject ScopedSchema(PlanningPreparation preparation, IReadOnlySet<string> allowed)
+    private static IEnumerable<string> Editable(JsonNode value, string path)
     {
-        if (allowed.Count == 0) throw new InvalidOperationException("A repair requires diagnosed typed fields.");
-        var schema = Schema(preparation);
-        var variants = schema["properties"]!["patches"]!["items"]!["anyOf"]!.AsArray();
-        var scoped = new JsonArray();
-        foreach (var coordinate in allowed.Order(StringComparer.Ordinal))
+        if (value is JsonObject obj)
+        {
+            if (obj["kind"]?.ToString() == "compute")
+            {
+                yield return path + "/text";
+                if (obj["members"] is JsonArray parameters)
+                    for (var i = 0; i < parameters.Count; i++) yield return path + "/members/" + i + "/value";
+                yield break;
+            }
+            if (obj["kind"] is not null && !path.EndsWith("/input", StringComparison.Ordinal)) { yield return path; yield break; }
+            foreach (var (name, child) in obj.Where(p => p.Key is not ("name" or "kind" or "capabilityId" or "schemaPointer" or "strict")))
+                if (child is not null) foreach (var leaf in Editable(child, path + "/" + PlanningFieldPaths.Escape(name))) yield return leaf;
+        }
+        else if (value is JsonArray array)
+        {
+            if (path.EndsWith("/path", StringComparison.Ordinal) || path.EndsWith("/enum", StringComparison.Ordinal)) { yield return path; yield break; }
+            for (var i = 0; i < array.Count; i++) if (array[i] is { } item) foreach (var leaf in Editable(item, path + "/" + i)) yield return leaf;
+        }
+        else yield return path;
+    }
+    public static string Coordinate(string? workflow, string? node, string field) => JsonSerializer.Serialize(new[] { workflow, node, field }, PlanningJsonContext.Default.StringArray);
+    internal static List<PlanningExactPatches.Target> Targets(PlanningGraph? graph, IReadOnlySet<string> allowed)
+    {
+        return allowed.Order(StringComparer.Ordinal).Select(coordinate =>
         {
             var parts = JsonSerializer.Deserialize(coordinate, PlanningJsonContext.Default.StringArray)!;
-            var variant = variants.OfType<JsonObject>().Single(v =>
+            if (parts[0] is null || parts[2] is "input" or "inputs" or "outputs" or "functions" or "onError") throw new InvalidOperationException("Whole-container repair permissions are forbidden.");
+            var path = coordinate;
+            if (graph is not null)
             {
-                var properties = v["properties"]!;
-                var field = properties["field"]!;
-                return properties["workflow"]!["type"]!.ToString() == (parts[0] is null ? "null" : "string") &&
-                    properties["node"]!["type"]!.ToString() == (parts[1] is null ? "null" : "string") &&
-                    (field["enum"] is JsonArray values ? values.Any(value => value?.ToString() == parts[2]) :
-                        Regex.IsMatch(parts[2], field["pattern"]!.GetValue<string>(), RegexOptions.CultureInvariant));
-            }).DeepClone().AsObject();
-            foreach (var (name, index) in new[] { ("workflow", 0), ("node", 1), ("field", 2) })
-                variant["properties"]![name] = parts[index] is null ? new JsonObject { ["type"] = "null" } :
-                    new JsonObject { ["type"] = "string", ["enum"] = new JsonArray(parts[index]) };
-            scoped.Add((JsonNode)variant);
-        }
-        schema["properties"]!["patches"]!["items"]!["anyOf"] = scoped;
-        schema["properties"]!["patches"]!["minItems"] = 1;
-        schema["properties"]!["patches"]!["maxItems"] = allowed.Count;
-        // Retain only definitions reachable from the exact editable value contracts.
-        var definitions = schema["$defs"]!.AsObject(); var needed = new HashSet<string>(StringComparer.Ordinal);
-        void Visit(JsonNode? value)
-        {
-            if (value is JsonObject obj)
-            {
-                if (obj["$ref"] is JsonValue reference && reference.GetValue<string>().StartsWith("#/$defs/", StringComparison.Ordinal))
-                {
-                    var key = reference.GetValue<string>()["#/$defs/".Length..];
-                    if (needed.Add(key)) Visit(definitions[key]);
-                }
-                foreach (var property in obj.Where(p => p.Key != "$defs")) Visit(property.Value);
+                var index = graph.Workflows.FindIndex(w => w.Key == parts[0]);
+                if (index < 0) throw new InvalidOperationException("Unknown repair workflow.");
+                var root = "/workflows/" + index;
+                path = parts[1] is null ? root : PlanningGraphValidation.Located(graph.Workflows[index].Steps, root + "/steps")
+                    .Concat(PlanningGraphValidation.Located(graph.Workflows[index].Finally, root + "/finally")).Single(p => p.Node.Key == parts[1]).Path;
+                path += "/" + parts[2];
             }
-            else if (value is JsonArray array) foreach (var item in array) Visit(item);
+            return new PlanningExactPatches.Target("f_" + PlanningGraphCompiler.Fingerprint(coordinate)[..16], path, Contract(parts[2]));
+        }).ToList();
+    }
+    private static JsonObject Contract(string field)
+    {
+        var name = field.Split('/')[^1];
+        return name switch
+        {
+            "value" or "default" or "expr" or "when" => new() { ["$ref"] = "#/$defs/value" },
+            "schema" or "items" or "additionalProperties" => new() { ["$ref"] = "#/$defs/schema" },
+            "nullable" or "required" or "boolean" => PlanningHoleRequests.Type("boolean"),
+            "number" => PlanningHoleRequests.Type("number"),
+            "type" => PlanningHoleRequests.Enum("string", "number", "integer", "boolean", "array", "object"),
+            "path" or "enum" => new() { ["type"] = "array", ["items"] = PlanningHoleRequests.Type("string") },
+            _ => PlanningHoleRequests.Type("string")
+        };
+    }
+    internal sealed record Request(JsonObject Schema, Dictionary<string, PlanningValue> Bindings, JsonNode Context);
+    internal static Request CreateRequest(PlanningGraph graph, PlanningPreparation preparation, IReadOnlySet<string> allowed)
+    {
+        var targets = Targets(graph, allowed); var bindings = new Dictionary<string, PlanningValue>(StringComparer.Ordinal);
+        var definitions = PlanningSchemas.ValueDefinitions(); var contexts = new JsonArray();
+        foreach (var workflow in graph.Workflows)
+        {
+            var root = "/workflows/" + graph.Workflows.IndexOf(workflow) + "/";
+            var values = targets.Where(t => t.Path.StartsWith(root, StringComparison.Ordinal) && t.Schema["$ref"]?.ToString() == "#/$defs/value").ToArray();
+            if (values.Length == 0) continue;
+            var nodes = PlanningGraphValidation.Located(workflow.Steps, root + "steps").Concat(PlanningGraphValidation.Located(workflow.Finally, root + "finally")).ToArray();
+            var holes = values.Select(t => new PlanningHole { Id = t.Id, Path = t.Path, WorkflowKey = workflow.Key,
+                NodeKey = nodes.Where(n => t.Path.StartsWith(n.Path + "/", StringComparison.Ordinal)).OrderByDescending(n => n.Path.Length).FirstOrDefault().Node?.Key,
+                Kind = "value", Purpose = nodes.Where(n => t.Path.StartsWith(n.Path + "/", StringComparison.Ordinal)).OrderByDescending(n => n.Path.Length).FirstOrDefault().Node?.Purpose ?? workflow.Purpose }).ToArray();
+            var scoped = PlanningHoleRequests.Create(new() { Graph = graph, Preparation = preparation }, workflow, holes);
+            if (scoped.Schema["$defs"] is JsonObject defs) foreach (var (name, definition) in defs) definitions[name] = definition?.DeepClone();
+            foreach (var pair in scoped.Bindings) bindings[pair.Key] = pair.Value;
+            foreach (var target in values)
+                targets[targets.IndexOf(target)] = target with { Schema = scoped.Schema["properties"]!["assignments"]!["properties"]![target.Id]!.DeepClone().AsObject() };
+            contexts.Add(scoped.Context.DeepClone());
         }
-        Visit(schema);
-        foreach (var key in definitions.Select(p => p.Key).Where(k => !needed.Contains(k)).ToArray()) definitions.Remove(key);
-        return schema;
+        return new(PlanningExactPatches.Schema(targets, new JsonObject { ["$defs"] = definitions }), bindings, contexts);
     }
 
-    private static IEnumerable<JsonObject> Nodes(IEnumerable<JsonNode?> nodes)
+    public static PlanningGraph Apply(PlanningGraph original, JsonObject response, IReadOnlySet<string> allowed, PlanningPreparation preparation)
     {
-        foreach (var node in nodes.OfType<JsonObject>())
+        var request = CreateRequest(original, preparation, allowed);
+        var errors = PlanningContractValidation.ValidateInstance(response, request.Schema);
+        if (errors.Count > 0) throw new InvalidOperationException("Invalid exact-field repair: " + string.Join("; ", errors));
+        var targets = Targets(original, allowed); var typed = response.DeepClone().AsObject();
+        foreach (var patch in typed["patches"]!.AsArray())
         {
-            yield return node;
-            foreach (var child in Nodes(node["steps"]!.AsArray().Concat(node["default"]!.AsArray()).Concat(node["cases"]!.AsArray().Concat(node["branches"]!.AsArray()).OfType<JsonObject>().SelectMany(b => b["steps"]!.AsArray())))) yield return child;
+            var target = targets.Single(t => t.Id == patch!["target"]!.ToString());
+            if (target.Schema["$ref"]?.ToString() == "#/$defs/value")
+            {
+                var value = PlanningHoleAssignments.Value(patch!["value"]!.AsObject(), request.Bindings);
+                patch["value"] = PlanningModelValues.Compact(JsonSerializer.SerializeToNode(value, PlanningJsonContext.Default.PlanningValue));
+            }
         }
+        var schema = PlanningExactPatches.Schema(targets, new JsonObject { ["$defs"] = PlanningSchemas.ValueDefinitions() });
+        var json = PlanningExactPatches.Apply(PlanningFieldPaths.Json(original), typed, targets, schema);
+        var graph = JsonSerializer.Deserialize(json, PlanningJsonContext.Default.PlanningGraph)!;
+        if (PlanningGraphSkeleton.Fingerprint(original) != PlanningGraphSkeleton.Fingerprint(graph)) throw new InvalidOperationException("A field repair changed frozen topology.");
+        return graph;
     }
 }

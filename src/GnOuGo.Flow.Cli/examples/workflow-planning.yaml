@@ -14,7 +14,7 @@ workflows:
             max_input_tokens: 12000
             max_output_tokens: 8192
           max_concurrency: 4
-          max_repairs: 3
+          max_repairs_per_workflow_gate: 5
           llm_budget:
             max_calls: 100
             max_total_tokens: 15000000

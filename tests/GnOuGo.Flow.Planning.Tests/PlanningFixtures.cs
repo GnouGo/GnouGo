@@ -4,6 +4,7 @@ namespace GnOuGo.Flow.Planning.Tests;
 
 internal static class PlanningFixtures
 {
+    internal static System.Text.Json.Nodes.JsonObject Workflow(PlanningWorkflow workflow) => PlanningModelValues.Compact(System.Text.Json.JsonSerializer.SerializeToNode(workflow, PlanningJsonContext.Default.PlanningWorkflow))!.AsObject();
     // Fixture setup explicitly models prior human acceptance; production never infers approval from a graph.
     internal static void Accept(PlanningSnapshot state)
     {

@@ -147,6 +147,6 @@ public sealed class TypedPlanningDiagnosticTests
         var restored = JsonSerializer.Deserialize(JsonSerializer.Serialize(snapshot, PlanningJsonContext.Default.PlanningSnapshot), PlanningJsonContext.Default.PlanningSnapshot)!;
         Assert.Equal("/result", Assert.Single(restored.Preparation!.Capabilities[0].ArtifactContract!.Produces).Pointer);
         Assert.Equal(PlanningValidationStage.CapabilityContracts, restored.Diagnostics[0].ValidationStage);
-        Assert.Equal(3, restored.SchemaVersion);
+        Assert.Equal(4, restored.SchemaVersion);
     }
 }

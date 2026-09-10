@@ -7,8 +7,16 @@ namespace GnOuGo.Flow.Planning;
 internal static class PlanningContext
 {
     internal static string Intent(PlanningSnapshot state) => state.Request.Prompt +
-        (state.Request.Baseline is null ? "" : "\nExisting workflow behavior to preserve except for the requested revision:\n" + JsonSerializer.Serialize(state.Request.Baseline, PlanningJsonContext.Default.PlanningGraph)) +
+        (BaselineText(state) is not { } baseline ? "" : "\nExisting workflow behavior to preserve except for the requested revision:\n" + baseline) +
         string.Concat(state.Intent.Answers.Select(a => "\nHuman clarification:\n" + a.Answers.ToJsonString()));
+
+    internal static string? BaselineText(PlanningSnapshot state)
+    {
+        if (state.Request.Baseline is null) return null;
+        if (state.BehaviorPlan is not null && state.ApprovedBehaviorHash == PlanningBehaviorPlans.Fingerprint(state.BehaviorPlan))
+            return JsonSerializer.Serialize(state.BehaviorPlan, PlanningJsonContext.Default.PlanningBehaviorPlan);
+        return state.BehaviorRevision?.ReviewedBaselineBehavior ?? PlanningSemanticContext.Graph(state.Request.Baseline).ToJsonString();
+    }
 
     internal static string Contracts(PlanningSnapshot state) => PlanningGraphCompiler.Fingerprint(
         PlanningBehaviorPlans.Fingerprint(state.BehaviorPlan!) + "\n" +

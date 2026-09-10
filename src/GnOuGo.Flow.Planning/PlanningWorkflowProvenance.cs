@@ -77,7 +77,7 @@ internal static class PlanningWorkflowProvenance
             if (!proven)
                 diagnostics.Add(new("WORKFLOW_INPUT_PROVENANCE_MISSING", caller.Path + "/input",
                     "The consumed input boundary of workflow '" + callee.Key + "' must carry locked operation '" + requiredOperation +
-                    "' through a schema-valid argument. Resolve this caller's arguments before validating its dependents."));
+                    "' through a schema-valid argument. Resolve this caller's arguments before validating its dependents.", Rule: "operation:" + requiredOperation));
         }
         return diagnostics;
     }

@@ -55,7 +55,8 @@ internal static class PlanningEndpoints
         snapshot.Intent.Answers.Count, snapshot.Request.Options["generator"]?["model"]?.GetValue<string>(),
         snapshot.Request.Generation.Reasoning ?? snapshot.Request.Options["generator"]?["reasoning"]?.GetValue<string>() ?? "medium",
         snapshot.Construction.Workflows.Select(w => new PlanningWorkflowDto(w.WorkflowKey, w.Status, w.Dependencies, w.Calls, w.RepairCalls,
-            w.EstimatedInputTokens, w.InputTokenLimit)).ToArray(), snapshot.Construction.Dataflow?.Fingerprint,
+            w.EstimatedInputTokens, w.InputTokenLimit, w.UnresolvedHoles, w.ResolvedHoles, w.Gate,
+            snapshot.RepairAllowances.Where(a => a.WorkflowKey == w.WorkflowKey && a.Gate == w.Gate).Sum(a => a.Attempts), snapshot.Request.MaxRepairsPerWorkflowGate)).ToArray(), snapshot.Construction.Dataflow?.Fingerprint,
         snapshot.Construction.Dataflow?.Bindings.Count ?? 0, snapshot.PreparationCheckpoint?.Stage,
         snapshot.Preparation?.DecisionContractVersion ?? 0, snapshot.Preparation?.Decisions.Count ?? 0);
 

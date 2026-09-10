@@ -15,7 +15,7 @@ public sealed class PlanningRequest
     public JsonObject? FailureEvidence { get; set; }
     public JsonObject Options { get; set; } = new();
     public int MaxConcurrency { get; set; } = 4;
-    public int MaxRepairs { get; set; } = 3;
+    public int MaxRepairsPerWorkflowGate { get; set; } = 5;
     public PlanningGenerationOptions Generation { get; set; } = new();
 }
 
@@ -75,7 +75,7 @@ public sealed class PlanningCommand
 /// <summary>Private session state. Hosts encrypt all content and persist exact revisions.</summary>
 public sealed class PlanningSnapshot
 {
-    public int SchemaVersion { get; set; } = 3;
+    public int SchemaVersion { get; set; } = 4;
     public PlanningRequest Request { get; set; } = new();
     public long Revision { get; set; }
     public string Status { get; set; } = PlanningStatus.Created;
@@ -90,6 +90,9 @@ public sealed class PlanningSnapshot
     public PlanningBehaviorPlan? BehaviorPlan { get; set; }
     public string? ApprovedBehaviorHash { get; set; }
     public int BehaviorAssessmentCalls { get; set; }
+    public PlanningAssessmentState BehaviorAssessment { get; set; } = new();
+    public PlanningBehaviorRevisionState? BehaviorRevision { get; set; }
+    public List<PlanningGateAllowance> RepairAllowances { get; set; } = [];
     public PlanningGraph? Graph { get; set; }
     public PlanningConstructionState Construction { get; set; } = new();
     public PlanningValidationState Validation { get; set; } = new();
@@ -129,12 +132,14 @@ public sealed class PlanningIntentState
 
 public sealed class PlanningConstructionState
 {
+    public string? SkeletonFingerprint { get; set; }
+    public List<PlanningHole> Holes { get; set; } = [];
+    public List<PlanningStagedAssignments> Candidates { get; set; } = [];
     public PlanningRepairState? Repair { get; set; }
     public PlanningDataflowContract? Dataflow { get; set; }
     public List<PlanningWorkflowProgress> Workflows { get; set; } = [];
     public List<PlanningModelCall> PendingCalls { get; set; } = [];
     public long ModelSequence { get; set; }
-    public int Repairs { get; set; }
     public List<string> RejectedCandidates { get; set; } = [];
 }
 
@@ -153,6 +158,10 @@ public sealed class PlanningWorkflowProgress
     public string? GraphFingerprint { get; set; }
     public int Calls { get; set; }
     public int RepairCalls { get; set; }
+    public bool ResponseRepairPending { get; set; }
+    public int ResolvedHoles { get; set; }
+    public int UnresolvedHoles { get; set; }
+    public string? Gate { get; set; }
     public int? EstimatedInputTokens { get; set; }
     public int? InputTokenLimit { get; set; }
     public List<PlanningDiagnostic> Diagnostics { get; set; } = [];
@@ -161,10 +170,14 @@ public sealed class PlanningWorkflowProgress
 /// <summary>Exact request reserved before dispatch. Completed payloads belong to the host journal.</summary>
 public sealed class PlanningModelCall
 {
+    public PlanningStagedAssignments? Assignments { get; set; }
     public string Id { get; set; } = "";
     public string Phase { get; set; } = "";
     public string WorkflowKey { get; set; } = "";
     public string RequestHash { get; set; } = "";
+    public string? Gate { get; set; }
+    public string? ScopeFingerprint { get; set; }
+    public long Revision { get; set; }
     public LLMRequest Request { get; set; } = new();
 }
 
@@ -184,6 +197,8 @@ public sealed class PlanningValidationState
 
 public sealed class PlanningAssessmentState
 {
+    public int Stage { get; set; }
+    public List<string> RejectedCandidates { get; set; } = [];
     public string? Fingerprint { get; set; }
     public int Attempts { get; set; }
     public JsonObject? Candidate { get; set; }
@@ -195,7 +210,7 @@ public sealed record PlanningIntentRevision(long Revision, string Prompt, List<P
 public sealed record PlanningPendingCommand(string PreviousStatus, PlanningCommand Command);
 public sealed record PlanningRevision(long Revision, string ArtifactHash, string Status, List<string> ChangedWorkflows);
 public sealed record PlanningEvent(string Kind, string Phase, DateTimeOffset TimestampUtc, int Count = 0);
-public sealed record PlanningDiagnostic(string Code, string Location, string Message, bool Required = true, string? ValidationStage = null);
+public sealed record PlanningDiagnostic(string Code, string Location, string Message, bool Required = true, string? ValidationStage = null, string? Rule = null);
 public static class PlanningValidationStage
 {
     public const string RuntimeContracts = "runtime_contracts";
@@ -349,6 +364,8 @@ public sealed record PlanningMember(string Name, PlanningValue Value);
 
 public sealed class PlanningNode
 {
+    /// <summary>Coordinator-owned pure adapter role; never supplied by model assignments.</summary>
+    public string? InternalRole { get; set; }
     public string Key { get; set; } = "";
     public string Type { get; set; } = "set";
     public string Purpose { get; set; } = "";
@@ -422,6 +439,9 @@ public sealed class PlanningConflictException(string message) : InvalidOperation
 
 [JsonSourceGenerationOptions(PropertyNamingPolicy = JsonKnownNamingPolicy.CamelCase)]
 [JsonSerializable(typeof(PlanningSnapshot))]
+[JsonSerializable(typeof(PlanningHole))]
+[JsonSerializable(typeof(List<PlanningHole>))]
+[JsonSerializable(typeof(PlanningStagedAssignments))]
 [JsonSerializable(typeof(PlanningPreparationCheckpoint))]
 [JsonSerializable(typeof(PlanningDecisionContract))]
 [JsonSerializable(typeof(PlanningInteractionContract))]

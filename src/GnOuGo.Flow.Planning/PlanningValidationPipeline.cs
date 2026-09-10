@@ -81,6 +81,7 @@ internal sealed class PlanningValidationPipeline
         state.Validation.ContractFingerprint = PlanningContext.Contracts(state);
         state.Validation.FixtureFingerprint = PlanningContext.Fixtures(state);
         state.Validation.Stage = report.Stage;
+        foreach (var workflow in state.Construction.Workflows.Where(w => w.Status != "pending")) workflow.Gate = PlanningGates.FromStage(report.Stage);
         state.Validation.GraphFingerprint = PlanningGraphCompiler.Fingerprint(state.Graph!);
         state.Validation.Scenarios = report.Scenarios;
         state.Diagnostics = report.Diagnostics;

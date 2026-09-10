@@ -12,6 +12,9 @@ internal static class PlanningDataflowResolver
         var progress = graph.Workflows.Select(w => new PlanningWorkflowProgress
         {
             WorkflowKey = w.Key,
+            UnresolvedHoles = state.Construction.Holes.Count(h => h.WorkflowKey == w.Key && !h.Resolved),
+            ResolvedHoles = state.Construction.Holes.Count(h => h.WorkflowKey == w.Key && h.Resolved),
+            Gate = PlanningGates.Response,
             Dependencies = PlanningGraphCompiler.Enumerate(w.Steps.Concat(w.Finally)).Where(n => n.Type == "workflow.call")
                 .Select(n => n.Input.Members.SingleOrDefault(m => m.Name == "ref")?.Value)
                 .Select(v => v is { Kind: "workflow", Source: not null } ? v.Source : throw new InvalidOperationException("A workflow call needs an explicit typed callee reference."))
@@ -64,7 +67,7 @@ internal static class PlanningDataflowResolver
                 if (!state.Construction.Dataflow.InputObligations.TryGetValue(workflow.Key + "/" + node.Key, out var required)) continue;
                 var actual = PlanningDataflow.BusinessInputs(workflow, node);
                 foreach (var name in required.Where(n => !actual.Contains(n)))
-                    yield return new("BUSINESS_INPUT_BINDING_MISSING", path + "/input", "This operation must depend on business input '" + name + "'.");
+                    yield return new("BUSINESS_INPUT_BINDING_MISSING", path + "/input", "This operation must depend on business input '" + name + "'.", Rule: "input:" + name);
             }
         }
     }

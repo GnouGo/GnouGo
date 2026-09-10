@@ -78,7 +78,7 @@ public sealed class PlanningSessionService(
                 FailureEvidence = failureEvidence?.DeepClone().AsObject(),
                 Options = options,
                 MaxConcurrency = settings.Value.MaxConcurrency,
-                MaxRepairs = settings.Value.MaxRepairs,
+                MaxRepairsPerWorkflowGate = settings.Value.MaxRepairsPerWorkflowGate,
                 Generation = new() { Reasoning = settings.Value.Reasoning, MaxInputTokensPerRequest = settings.Value.MaxInputTokensPerRequest, MaxOutputTokens = settings.Value.MaxOutputTokens }
             },
             UpdatedAtUtc = DateTimeOffset.UtcNow
@@ -307,6 +307,9 @@ public sealed class PlanningSessionService(
         activity?.SetTag("gnougo.planning.workflows.completed", result.Construction.Workflows.Count(u => u.Status == "validated"));
         activity?.SetTag("gnougo.planning.workflows.total", result.Construction.Workflows.Count);
         activity?.SetTag("gnougo.planning.workflows.repair_calls", result.Construction.Workflows.Sum(u => u.RepairCalls));
+        activity?.SetTag("gnougo.planning.fields.unresolved", result.Construction.Holes.Count(h => !h.Resolved));
+        activity?.SetTag("gnougo.planning.fields.resolved", result.Construction.Holes.Count(h => h.Resolved));
+        activity?.SetTag("gnougo.planning.repair.attempts", result.RepairAllowances.Sum(a => a.Attempts));
         activity?.SetTag("gnougo.planning.bindings.count", result.Construction.Dataflow?.Bindings.Count ?? 0);
         activity?.SetTag("gnougo.planning.preparation.stage", result.PreparationCheckpoint?.Stage);
         activity?.SetTag("gnougo.planning.decisions.version", result.Preparation?.DecisionContractVersion ?? 0);

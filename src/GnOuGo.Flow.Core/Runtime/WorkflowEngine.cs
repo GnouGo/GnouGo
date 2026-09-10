@@ -68,7 +68,7 @@ public sealed class WorkflowEngine : IWorkflowRuntime
 
         var data = new JsonObject
         {
-            ["inputs"] = inputs?.DeepClone() ?? new JsonObject(),
+            ["inputs"] = inputs is null or JsonObject ? WorkflowInputDefaults.Apply(workflow.Source, inputs) : inputs.DeepClone(),
             ["steps"] = new JsonObject(),
             ["env"] = new JsonObject()
         };
@@ -287,7 +287,7 @@ public sealed class WorkflowEngine : IWorkflowRuntime
 
         var data = new JsonObject
         {
-            ["inputs"] = inputs?.DeepClone() ?? new JsonObject(),
+            ["inputs"] = inputs is null or JsonObject ? WorkflowInputDefaults.Apply(workflow.Source, inputs) : inputs.DeepClone(),
             ["steps"] = new JsonObject(),
             ["env"] = new JsonObject()
         };

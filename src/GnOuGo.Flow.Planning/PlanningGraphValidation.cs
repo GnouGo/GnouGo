@@ -103,7 +103,7 @@ public static class PlanningGraphValidation
                             ? new("SET_OUTPUT_INVALID", location + "/input", "The set input is its result and does not satisfy the declared output contract. Compute the declared fields inside input; a context object cannot stand in for the calculation.")
                             : new("OUTPUT_TYPE_MISMATCH", location + "/outputSchema", "The declared output is not established by the actual computation or producer contract."));
                         if (node.Type == "set" && IsLiteral(node.Input))
-                            errors.AddRange(PlanningContractValidation.ValidateInstance(Literal(node.Input), declared).Select(e => new PlanningDiagnostic("SET_OUTPUT_INVALID", location + "/input", e)));
+                            errors.AddRange(PlanningContractValidation.ValidateInstanceFindings(Literal(node.Input), declared).Select(e => new PlanningDiagnostic("SET_OUTPUT_INVALID", PlanningHoleAssignments.LiteralLocation(node.Input, location + "/input", e.InstancePointer), e.Message, Rule: e.Rule)));
                     }
                 }
                 catch (Exception ex) when (ex is InvalidOperationException or ArgumentException or FormatException) { /* Independent fallback/reference diagnostics follow. */ }
@@ -137,7 +137,7 @@ public static class PlanningGraphValidation
                     var requestLocation = location + "/input/members/" + requestIndex + "/value";
                     foreach (var name in (capability.InputSchema["required"] as JsonArray ?? []).Select(n => n!.GetValue<string>()))
                         if (!arguments.Members.Any(m => m.Name == name) && !capability.RequestBindings.Any(b => b.Path == "/" + PlanningSchemaReferences.Escape(name)))
-                            errors.Add(new("CAPABILITY_ARGUMENT_MISSING", requestLocation, "The selected capability requires argument '" + name + "'."));
+                            errors.Add(new("CAPABILITY_ARGUMENT_MISSING", requestLocation, "The selected capability requires argument '" + name + "'.", Rule: "required:" + name));
                     for (var ai = 0; ai < arguments.Members.Count; ai++)
                     {
                         var member = arguments.Members[ai]; var field = requestLocation + "/members/" + ai + "/value";
@@ -152,7 +152,7 @@ public static class PlanningGraphValidation
                                 PlanningContractValidation.ValidateInstance(null, expected).Count != 0)
                                 errors.Add(new("CAPABILITY_ARGUMENT_INVALID", field, "The computation has a null result branch, but argument '" + member.Name + "' does not accept null. Return a contract-valid value or omit an optional argument; omission and null are distinct."));
                             else if (IsLiteral(member.Value))
-                                errors.AddRange(PlanningContractValidation.ValidateInstance(Literal(member.Value), expected).Select(e => new PlanningDiagnostic("CAPABILITY_ARGUMENT_INVALID", field, e)));
+                                errors.AddRange(PlanningContractValidation.ValidateInstanceFindings(Literal(member.Value), expected).Select(e => new PlanningDiagnostic("CAPABILITY_ARGUMENT_INVALID", PlanningHoleAssignments.LiteralLocation(member.Value, field, e.InstancePointer), e.Message, Rule: e.Rule)));
                             else if (ValueSchema(member.Value, new(StringComparer.Ordinal)) is { } actual && !TypesFit(actual, expected))
                                 errors.Add(new("CAPABILITY_ARGUMENT_TYPE", field, "The binding's producer type does not satisfy argument '" + member.Name + "'. Use an explicit validated transformation."));
                         }
@@ -164,7 +164,7 @@ public static class PlanningGraphValidation
                 if (node.Type == "switch" && node.Expr is { Kind: "compute", Text: { } computation } && PlanningComputations.FiniteOutcomes(computation) is { } possible)
                     foreach (var branch in node.Cases.Where(c => c.When is null && c.Value is not null && !possible.Contains(c.Value, StringComparer.Ordinal)))
                         errors.Add(new("SWITCH_CASE_UNREACHABLE", location + "/expr", "The selector computation can produce only " + new JsonArray(possible.Select(v => (JsonNode?)JsonValue.Create(v)).ToArray()).ToJsonString() +
-                            "; accepted case '" + branch.Value + "' cannot match. Preserve the accepted branches and correct the selector computation."));
+                            "; accepted case '" + branch.Value + "' cannot match. Preserve the accepted branches and correct the selector computation.", Rule: "case:" + branch.Value));
                 if (node.Type == "switch" && node.Expr is { Kind: "input" or "output" } selector)
                 {
                     try

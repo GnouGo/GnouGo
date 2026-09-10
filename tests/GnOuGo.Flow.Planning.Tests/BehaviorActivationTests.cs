@@ -16,6 +16,7 @@ public sealed class BehaviorActivationTests
         var (plan, preparation) = Fixture("renamed_"); preparation.Capabilities[0].Activation = null;
         var decision = plan.Workflows[0].Steps[0]; decision.Outcomes.RemoveRange(1, 2);
         decision.Outcomes[0] = decision.Outcomes[0] with { Key = caseKey, Description = purpose };
+        foreach (var node in PlanningBehaviorPlans.Enumerate(plan.Workflows[0].Steps)) node.InputDependencies = [];
         var explicitCase = JsonSerializer.Serialize(decision.Outcomes[0], PlanningJsonContext.Default.PlanningBehaviorOutcome);
         var state = TypedPlannerTests.Session(PlanningStatus.Created); state.Intent.Checked = true; state.Preparation = preparation; state.BehaviorPlan = plan;
         var runtime = new TypedPlannerTests.FakeRuntime();
@@ -133,7 +134,7 @@ public sealed class BehaviorActivationTests
                 new("otherwise", "Continue", true, [new() { Key = "call", Kind = "workflow", WorkflowKey = "child", Purpose = "Call child" }])]
         }]
         });
-        Assert.Contains(PlanningBehaviorPlans.Validate(plan, preparation), d => d.Location.Contains("outer", StringComparison.Ordinal) && d.Message.Contains("non-mutating", StringComparison.Ordinal));
+        Assert.Contains(PlanningBehaviorPlans.Validate(plan, preparation), d => d.Location == "/workflows/0/steps/0/outcomes/1/steps" && d.Rule == "behavior_19");
     }
 
     [Fact]

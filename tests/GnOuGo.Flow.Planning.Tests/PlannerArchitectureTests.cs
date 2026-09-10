@@ -21,10 +21,10 @@ public sealed class PlannerArchitectureTests
     {
         var contract = new WorkflowEngine().Registry.GetContracts()["workflow.plan"];
         var properties = contract.InputSchema!["properties"]!.AsObject();
-        Assert.Equal(new[] { "capability_preflight", "generator", "intent_clarification", "limits", "llm_budget", "max_concurrency", "max_repairs", "name", "policy", "raw_prompt" }, properties.Select(p => p.Key).Order(StringComparer.Ordinal));
+        Assert.Equal(new[] { "capability_preflight", "generator", "intent_clarification", "limits", "llm_budget", "max_concurrency", "max_repairs_per_workflow_gate", "name", "policy", "raw_prompt" }, properties.Select(p => p.Key).Order(StringComparer.Ordinal));
         Assert.Contains("raw_prompt", contract.InputSchema["required"]!.AsArray().Select(v => v!.ToString()));
         Assert.Contains("generator", contract.InputSchema["required"]!.AsArray().Select(v => v!.ToString()));
-        Assert.Equal(3, new PlanningSnapshot().SchemaVersion);
+        Assert.Equal(4, new PlanningSnapshot().SchemaVersion);
         Assert.DoesNotContain(typeof(PlanningRequest).GetProperties(), p => p.Name.Contains("Strategy", StringComparison.Ordinal) || p.Name.Contains("Version", StringComparison.Ordinal));
         Assert.DoesNotContain(typeof(IPlanningRuntime).GetMethods(), m => !m.IsAbstract);
     }
@@ -98,16 +98,15 @@ public sealed class PlannerArchitectureTests
     }
 
     [Fact]
-    public void CompleteWorkflowTransportHasNoYamlOrAuthoringSourceContract()
+    public void HoleTransportHasNoWorkflowYamlOrAuthoringSourceContract()
     {
-        var schema = PlanningSchemas.WholeWorkflow(TypedPlannerTests.Preparation());
-        var properties = schema["properties"]!.AsObject();
-        Assert.Contains("steps", properties.Select(p => p.Key));
-        Assert.Contains("finally", properties.Select(p => p.Key));
-        Assert.DoesNotContain("yaml", properties.Select(p => p.Key));
-        Assert.DoesNotContain("source", properties.Select(p => p.Key));
-        Assert.Empty(PlanningContractValidation.ValidateSchema(schema, strict: true));
-        var flow = TypedPlannerTests.FakeRuntime.ExecutableWorkflow();
-        Assert.Empty(PlanningContractValidation.ValidateInstance(PlanningModelValues.Workflow(flow), schema));
+        var state = TypedPlannerTests.Session(); state.Preparation = TypedPlannerTests.Preparation(); state.BehaviorPlan = TypedPlannerTests.BehaviorPlan();
+        PlanningGraphSkeleton.Create(state); PlanningDataflowResolver.Resolve(state);
+        var request = PlanningHoleRequests.Create(state, state.Graph!.Workflows[0], state.Construction.Holes.Where(h => h.Kind == "schema").ToArray());
+        Assert.Equal(new[] { "assignments" }, request.Schema["properties"]!.AsObject().Select(p => p.Key));
+        Assert.DoesNotContain("\"workflow\"", request.Schema.ToJsonString());
+        Assert.DoesNotContain("\"node\"", request.Schema.ToJsonString());
+        Assert.Empty(PlanningContractValidation.ValidateSchema(request.Schema, strict: true));
+        Assert.NotEmpty(PlanningContractValidation.ValidateInstance(PlanningFixtures.Workflow(TypedPlannerTests.FakeRuntime.ExecutableWorkflow()), request.Schema));
     }
 }

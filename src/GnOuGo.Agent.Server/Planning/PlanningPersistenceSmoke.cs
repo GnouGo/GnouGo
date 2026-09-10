@@ -64,10 +64,20 @@ internal static class PlanningPersistenceSmoke
         state.Validation.Inputs = new System.Text.Json.Nodes.JsonObject { ["resource"] = "scenario-only" };
         state.Validation.InputsFingerprint = "fixture-contract";
         state.Preparation = new() { Decisions = [new() { Group = "permission", SourceOperationId = "confirm", SourceCapabilityId = "native", SourcePointer = "/response", PermissionOperationIds = ["confirm"] }] };
+        state.Construction.Holes = [new() { Id = "h_private", WorkflowKey = "main", Path = "/workflows/0/outputs/0/value", CanonicalLocation = "/workflows/@main/outputs/@pending/value" }];
+        state.Construction.Candidates = [new() { WorkflowKey = "main", GraphFingerprint = "exact-revision", ScopeFingerprint = "exact-scope",
+            Targets = state.Construction.Holes, Payload = new System.Text.Json.Nodes.JsonObject { ["privateAssignment"] = "Encrypted staged content" },
+            Diagnostics = [new("VALUE_CONTRACT", "/assignments/h_private", "Invalid candidate", Rule: "required-member")] }];
+        state.RepairAllowances = [new() { WorkflowKey = "main", Gate = PlanningGates.Typed, Attempts = 4 }];
+        state.BehaviorRevision = new() { Text = "Private human revision", Located = true,
+            Fields = [new("/workflows/0/purpose", "/workflows/@main/purpose", "replace", "previous-field", "human revision")] };
         if (!await reopened.TrySaveAsync(state, 3, CancellationToken.None)) throw new InvalidOperationException("Decision preparation persistence failed.");
         var prepared = await reopened.LoadAsync("smoke", state.Request.SessionId, CancellationToken.None);
         if (prepared?.PreparationCheckpoint?.Stage != "matching" || prepared.PreparationCheckpoint.RequestHashes.Count != 1 ||
-            prepared.Preparation?.Decisions.Single().PermissionOperationIds.Single() != "confirm" || prepared.Validation.Inputs?["resource"]?.GetValue<string>() != "scenario-only")
+            prepared.Preparation?.Decisions.Single().PermissionOperationIds.Single() != "confirm" || prepared.Validation.Inputs?["resource"]?.GetValue<string>() != "scenario-only" ||
+            prepared.SchemaVersion != 4 || prepared.Construction.Candidates.Single().Payload["privateAssignment"]?.ToString() != "Encrypted staged content" ||
+            prepared.Construction.Candidates.Single().Diagnostics.Single().Rule != "required-member" || prepared.RepairAllowances.Single().Attempts != 4 ||
+            prepared.BehaviorRevision?.Fields.Single().CanonicalLocation != "/workflows/@main/purpose")
             throw new InvalidOperationException("Decision and scenario contracts did not survive persistence.");
         Console.WriteLine("Planning persistence smoke passed.");
     }

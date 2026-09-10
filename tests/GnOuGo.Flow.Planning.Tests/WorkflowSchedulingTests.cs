@@ -2,7 +2,7 @@ using System.Text.Json.Nodes;
 using GnOuGo.Flow.Core.Planning;
 using GnOuGo.Flow.Core.Runtime;
 using static GnOuGo.Flow.Planning.Tests.TypedPlannerTests;
-using static GnOuGo.Flow.Planning.Tests.WholeWorkflowConstructionTests;
+using static GnOuGo.Flow.Planning.Tests.HoleSessionTests;
 
 namespace GnOuGo.Flow.Planning.Tests;
 
@@ -39,54 +39,58 @@ public sealed class WorkflowSchedulingTests
             Steps = keys.Select(k => new PlanningNode { Key = "call_" + k, Type = "workflow.call", Input = Obj(("ref", new() { Kind = "workflow", Source = k }), ("args", Obj())) }).ToList(),
             Outputs = [new() { Name = "message", Schema = new() { Type = "string" }, Value = new() { Kind = "output", Source = "call_d", Path = ["message"] } }]
         };
-        var callers = 0;
-        var runtime = new FakeRuntime
+        var callers = 0; var round = 0;
+        var fixture = new PlanningGraph { Workflows = new[] { caller }.Concat(keys.Select(k => constructed[k])).ToList() };
+        var runtime = new FakeRuntime();
+        runtime.OnCall = (phase, request, _) =>
         {
-            OnCheckpoint = snapshot => { reservations = snapshot.Construction.PendingCalls.Count; return Task.CompletedTask; },
-            OnCall = (phase, request, _) =>
+            if (phase == "semantic_review") return Task.FromResult(new LLMResponse { Json = new JsonObject { ["findings"] = new JsonArray() } });
+            Assert.Equal(PlanningPhase.Construction, phase);
+            var key = state.Construction.PendingCalls.Single(c => c.Id == request.ClientRequestId).WorkflowKey;
+            if (key == "main")
             {
-                if (phase == "semantic_review") return Task.FromResult(new LLMResponse { Json = new JsonObject { ["findings"] = new JsonArray() } });
-                Assert.Equal(PlanningPhase.Construction, phase);
-                var json = JsonNode.Parse(request.Prompt![request.Prompt.LastIndexOf('\n')..])!;
-                var context = json["context"] ?? json;
-                var key = context["template"]!["key"]!.GetValue<string>();
-                if (key == "main")
-                {
-                    Assert.Equal(4, started); Assert.All(state.Construction.Workflows.Where(w => w.WorkflowKey != "main"), w => Assert.Equal("validated", w.Status));
-                    Assert.Equal(4, context["callees"]!.AsObject().Count);
-                    Assert.DoesNotContain("Hello", request.Prompt); // Only callee boundaries enter caller context.
-                    callers++;
-                    return Task.FromResult(new LLMResponse { Json = PlanningModelValues.Workflow(caller) });
-                }
-                Assert.Equal(4, reservations);
+                Assert.All(state.Construction.Workflows.Where(w => w.WorkflowKey != "main"), w => Assert.Equal("validated", w.Status));
+                Assert.DoesNotContain("Hello", request.Prompt);
+                callers++;
+                return Task.FromResult(new LLMResponse { Json = runtime.FillHoles(request, fixture) });
+            }
+            Assert.Equal(4, reservations);
+            if (round == 0)
+            {
                 if (Interlocked.Increment(ref started) == 4) allStarted.TrySetResult();
                 return completions[key].Task;
             }
+            return Task.FromResult(new LLMResponse { Json = runtime.FillHoles(request, fixture) });
         };
+        runtime.OnCheckpoint = snapshot => { state = snapshot; reservations = snapshot.Construction.PendingCalls.Count; return Task.CompletedTask; };
         var pending = Advance(state, runtime);
         await allStarted.Task.WaitAsync(TimeSpan.FromSeconds(10), Ct);
         foreach (var key in reverse ? keys.Reverse() : keys)
-            completions[key].SetResult(new LLMResponse { Json = PlanningModelValues.Workflow(constructed[key]) });
-        state = await pending;
+        {
+            var request = state.Construction.PendingCalls.Single(c => c.WorkflowKey == key).Request;
+            completions[key].SetResult(new LLMResponse { Json = runtime.FillHoles(request, fixture) });
+        }
+        state = await pending; round++;
         Assert.Equal(0, callers);
         Assert.Equal(["main", "a", "b", "c", "d"], state.Graph!.Workflows.Select(w => w.Key));
-        state = await Advance(state, runtime); // Validate every callee before the caller can be dispatched.
-        state = await Advance(state, runtime);
-        Assert.Equal(1, callers);
-        state = await Advance(state, runtime);
+        for (var i = 0; i < 20 && !PlanningStatus.IsWaiting(state.Status); i++) state = await Advance(state, runtime);
         Assert.True(state.Status == PlanningStatus.FinalReview, string.Join("; ", state.Diagnostics.Select(d => d.Message)));
-        Assert.All(state.Construction.Workflows, w => Assert.Equal(1, w.Calls));
+        Assert.True(callers > 0);
+        Assert.All(state.Construction.Workflows, w => Assert.Equal(2, w.Calls));
         return state.Yaml!;
     }
 
     [Fact]
-    public async Task AcceptedFinalizerCannotBeRemovedByTheCompleteWorkflowCandidate()
+    public async Task AssignmentResponseCannotRemoveAnAcceptedFinalizer()
     {
         var behavior = BehaviorPlan(); behavior.Workflows[0].Finally.Add(new() { Key = "cleanup", Purpose = "Release the temporary state", InputDependencies = [] });
         var state = Ready(behavior); var original = PlanningGraphCompiler.Fingerprint(state.Graph!);
-        state = await Advance(state, new FakeRuntime());
-        Assert.Equal(PlanningStatus.Recovery, state.Status);
-        Assert.Contains(state.Diagnostics, d => d.Code == "BEHAVIOR_IMPLEMENTATION_CHANGED");
+        var runtime = new FakeRuntime { OnCall = (_, _, _) => Task.FromResult(new LLMResponse
+            { Json = new JsonObject { ["assignments"] = new JsonObject(), ["workflow"] = PlanningFixtures.Workflow(FakeRuntime.ExecutableWorkflow()) } }) };
+        state = await Advance(state, runtime);
+        Assert.Equal(PlanningPhase.Repair, state.CurrentPhase);
+        Assert.NotEmpty(Assert.Single(state.Construction.Candidates).Diagnostics);
+        Assert.Equal("cleanup", Assert.Single(state.Graph!.Workflows[0].Finally).Key);
         Assert.Equal(original, PlanningGraphCompiler.Fingerprint(state.Graph!));
     }
 }

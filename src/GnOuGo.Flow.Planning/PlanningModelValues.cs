@@ -5,9 +5,8 @@ using GnOuGo.Flow.Core.Planning;
 namespace GnOuGo.Flow.Planning;
 
 /// <summary>Compact typed model transport.</summary>
-public static class PlanningModelValues
+internal static class PlanningModelValues
 {
-    public static JsonObject Workflow(PlanningWorkflow workflow) => Compact(JsonSerializer.SerializeToNode(workflow, PlanningJsonContext.Default.PlanningWorkflow)!)!.AsObject();
 
     internal static JsonNode? Compact(JsonNode? node)
     {

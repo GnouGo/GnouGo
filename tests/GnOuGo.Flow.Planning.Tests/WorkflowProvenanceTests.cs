@@ -71,7 +71,7 @@ public sealed class WorkflowProvenanceTests
     public void ModelLoopReferencesUseDeclaredNodeKeysInsteadOfRuntimeVariableAliases()
     {
         var workflow = new PlanningWorkflow { Key = "main", Inputs = [new() { Name = "records" }], Steps = [new() { Key = "each", Type = "loop.sequential", ItemVar = "item" }] };
-        var schema = PlanningSchemas.WholeWorkflow(Preparation());
+        var schema = new System.Text.Json.Nodes.JsonObject { ["$defs"] = PlanningSchemas.ValueDefinitions() };
         PlanningSchemas.ScopeValues(schema, workflow);
         var variant = schema["$defs"]!["value"]!["anyOf"]!.AsArray().Single(v => v!["properties"]!["kind"]!["enum"]![0]!.ToString() == "loop_item")!;
         Assert.Equal("[\"each\"]", variant["properties"]!["source"]!["enum"]!.ToJsonString());
@@ -83,6 +83,17 @@ public sealed class WorkflowProvenanceTests
         var (graph, prep, caller, callee, _) = Fixture();
         callee.Outputs.Add(new() { Name = "unrelated", Schema = new() { Type = "string" }, Value = new() { Kind = "input", Source = "value" } });
         caller.Steps[^1].Input.Path = ["unrelated"];
+        Assert.Contains(PlanningDataflow.OperationInputFindings(graph, prep), d => d.Code == "OPERATION_INPUT_BINDING_MISSING" && d.Location == "/workflows/0/steps/2/input");
+    }
+
+    [Fact]
+    public void CollectedCallsCarryOnlyOperationsEstablishedByTheirReturnedValues()
+    {
+        var (graph, prep, caller, callee, call) = Fixture();
+        caller.Steps[1] = new() { Key = "batch", Type = "loop.sequential", Input = Obj(("items", new() { Kind = "array", Items = [Str("item")] })), Steps = [call] };
+        caller.Steps[^1].Input = new() { Kind = "output", Source = "batch", Path = ["results"] };
+        Assert.DoesNotContain(PlanningDataflow.OperationInputFindings(graph, prep), d => d.Code == "OPERATION_INPUT_BINDING_MISSING" && d.Location == "/workflows/0/steps/2/input");
+        callee.Outputs[0].Value = new() { Kind = "input", Source = "value" };
         Assert.Contains(PlanningDataflow.OperationInputFindings(graph, prep), d => d.Code == "OPERATION_INPUT_BINDING_MISSING" && d.Location == "/workflows/0/steps/2/input");
     }
 

@@ -38,7 +38,7 @@ public sealed class TypedPlannerTests
     }
     internal static PlanningValue Str(string text) => new() { Kind = "string", Text = text };
     internal static PlanningValue Obj(params (string Key, PlanningValue Value)[] members) => new() { Kind = "object", Members = members.Select(m => new PlanningMember(m.Key, m.Value)).ToList() };
-    internal static PlanningSnapshot Session(string status = PlanningStatus.Created) => new() { Request = new() { TenantId = "tenant", Prompt = "Return a greeting", MaxRepairs = 1 }, Status = status };
+    internal static PlanningSnapshot Session(string status = PlanningStatus.Created) => new() { Request = new() { TenantId = "tenant", Prompt = "Return a greeting", MaxRepairsPerWorkflowGate = 1 }, Status = status };
     private static Task<PlanningSnapshot> Send(IWorkflowPlanner planner, PlanningSnapshot state, IPlanningRuntime runtime, string kind = "advance", string? text = null)
         => planner.AdvanceAsync(state, new() { Kind = kind, ExpectedRevision = state.Revision, ArtifactHash = state.ArtifactHash, Text = text }, runtime, Ct);
 
@@ -115,7 +115,7 @@ public sealed class TypedPlannerTests
     {
         var runtime = new FakeRuntime { ScenarioOutcome = "inconclusive" };
         var state = Session(PlanningStatus.Validating);
-        state.Graph = Graph(); state.Preparation = Preparation(); state.Request.MaxRepairs = 0; PlanningFixtures.Accept(state);
+        state.Graph = Graph(); state.Preparation = Preparation(); state.Request.MaxRepairsPerWorkflowGate = 0; PlanningFixtures.Accept(state);
         state = await Send(new TypedWorkflowPlanner(), state, runtime);
         Assert.Equal(PlanningPhase.Repair, state.CurrentPhase);
         Assert.Contains(state.Diagnostics, d => d.Code == "SCENARIO_INCONCLUSIVE");
@@ -209,6 +209,7 @@ public sealed class TypedPlannerTests
 
     internal sealed class FakeRuntime : IPlanningRuntime
     {
+        private PlanningSnapshot? _state;
         public List<string> Phases { get; } = [];
         public List<LLMRequest> Requests { get; } = [];
         public bool InvalidJson { get; init; }
@@ -218,11 +219,11 @@ public sealed class TypedPlannerTests
         public int PreparationCalls { get; private set; }
         public int CatalogCalls { get; private set; }
         public IReadOnlyList<PlanningDiagnostic> CatalogDiagnostics { get; init; } = [];
-        public Func<string, LLMRequest, CancellationToken, Task<LLMResponse>>? OnCall { get; init; }
+        public Func<string, LLMRequest, CancellationToken, Task<LLMResponse>>? OnCall { get; set; }
         public Func<int, IReadOnlyList<PlanningDiagnostic>>? ValidationResult { get; init; }
         public Func<PlanningRequest, Task<PlanningPreparation>>? OnPrepare { get; init; }
-        public Func<PlanningSnapshot, Task>? OnCheckpoint { get; init; }
-        public Task CheckpointAsync(PlanningSnapshot snapshot, CancellationToken ct) => OnCheckpoint?.Invoke(snapshot) ?? Task.CompletedTask;
+        public Func<PlanningSnapshot, Task>? OnCheckpoint { get; set; }
+        public Task CheckpointAsync(PlanningSnapshot snapshot, CancellationToken ct) { _state = snapshot; return OnCheckpoint?.Invoke(snapshot) ?? Task.CompletedTask; }
         public Task<IReadOnlyList<PlanningDiagnostic>> ValidateCatalogAsync(PlanningPreparation preparation, CancellationToken ct)
         { CatalogCalls++; return Task.FromResult(CatalogDiagnostics); }
         public async Task<PlanningPreparationProgress> PrepareAsync(PlanningSnapshot state, CancellationToken ct) { PreparationCalls++; return new(state.PreparationCheckpoint ?? new(), OnPrepare is null ? Preparation() : await OnPrepare(state.Request)); }
@@ -234,7 +235,7 @@ public sealed class TypedPlannerTests
             {
                 "intent" => new JsonObject { ["outcome"] = "ready", ["reason"] = "Clear", ["evidence"] = new JsonArray(), ["questions"] = new JsonArray() },
                 "behavior" => JsonSerializer.SerializeToNode(BehaviorPlan(), PlanningJsonContext.Default.PlanningBehaviorPlan),
-                "construction" => PlanningModelValues.Workflow(ExecutableWorkflow()),
+                "construction" => FillHoles(request, new PlanningGraph { Workflows = [ExecutableWorkflow()] }),
                 "semantic_review" => new JsonObject { ["findings"] = new JsonArray() },
                 "scenario_inputs" => new JsonObject(request.StructuredOutputSchema!["properties"]!.AsObject().Select(p => new KeyValuePair<string, JsonNode?>(p.Key, new JsonObject { ["kind"] = "string", ["text"] = "fixture" }))),
                 _ => throw new InvalidOperationException("Unexpected model phase: " + phase)
@@ -246,6 +247,30 @@ public sealed class TypedPlannerTests
             var workflow = Graph().Workflows[0];
             workflow.Steps[0].OutputSchema = new() { Type = "object", Properties = [new() { Name = "message", Schema = new() { Type = "string" } }] };
             return workflow;
+        }
+        internal JsonObject FillHoles(LLMRequest request, PlanningGraph fixture)
+        {
+            var state = _state ?? throw new InvalidOperationException("Requests must be checkpointed before dispatch.");
+            var json = PlanningFieldPaths.Json(fixture); var assignments = new JsonObject();
+            foreach (var id in request.StructuredOutputSchema!["properties"]!["assignments"]!["properties"]!.AsObject().Select(p => p.Key))
+            {
+                var hole = state.Construction.Holes.Single(h => h.Id == id);
+                var value = PlanningFieldPaths.Read(json, hole.Path);
+                if (hole.Kind == "schema") assignments[id] = PlanningModelValues.Compact(value);
+                else if (value is null) assignments[id] = new JsonObject { ["kind"] = "absent" };
+                else
+                {
+                    var typed = JsonSerializer.Deserialize(value, PlanningJsonContext.Default.PlanningValue)!;
+                    if (PlanningGraphValidation.IsLiteral(typed)) assignments[id] = new JsonObject { ["kind"] = "literal", ["value"] = PlanningModelValues.Compact(value) };
+                    else
+                    {
+                        var owner = state.Graph!.Workflows.Single(w => w.Key == hole.WorkflowKey);
+                        var binding = PlanningHoleRequests.Catalog(state, owner, hole).Single(b => b.Id == PlanningBindingIdentity.Id(typed));
+                        assignments[id] = new JsonObject { ["kind"] = "binding", ["binding"] = "p_" + binding.Id[2..14] };
+                    }
+                }
+            }
+            return new() { ["assignments"] = assignments };
         }
         public Task<IReadOnlyList<PlanningDiagnostic>> ValidateAsync(PlanningArtifactValidationRequest request, CancellationToken ct)
         {

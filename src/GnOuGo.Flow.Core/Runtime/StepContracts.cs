@@ -226,7 +226,7 @@ public static class BuiltInStepContracts
             ("reasoning", Enum("minimal", "low", "medium", "high", "max")),
             ("max_input_tokens", PositiveInteger()), ("max_output_tokens", PositiveInteger()))),
         ("max_concurrency", PositiveInteger()),
-        ("max_repairs", PositiveInteger()),
+        ("max_repairs_per_workflow_gate", new JsonObject { ["type"] = "integer", ["minimum"] = 0, ["maximum"] = 10, ["default"] = 5 }),
         ("policy", Object(
             ("instructions", String()),
             ("allowed_step_types", Array(String())),

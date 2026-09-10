@@ -169,9 +169,10 @@ Console.WriteLine("Typed planning and encrypted runtime persistence AOT smoke pa
 
 sealed class SmokeRuntime(PlanningGraph graph, PlanningPreparation preparation) : IPlanningRuntime
 {
+    private PlanningSnapshot? _snapshot;
     public bool InvalidIntent { get; set; }
     public Task<PlanningPreparationProgress> PrepareAsync(PlanningSnapshot state, CancellationToken ct) => Task.FromResult(new PlanningPreparationProgress(new(), preparation));
-    public Task CheckpointAsync(PlanningSnapshot state, CancellationToken ct) => Task.CompletedTask;
+    public Task CheckpointAsync(PlanningSnapshot state, CancellationToken ct) { _snapshot = state; return Task.CompletedTask; }
     public Task<IReadOnlyList<PlanningDiagnostic>> ValidateCatalogAsync(PlanningPreparation prepared, CancellationToken ct) => Task.FromResult<IReadOnlyList<PlanningDiagnostic>>([]);
     public Task<LLMResponse> CallAsync(LLMRequest request, string phase, CancellationToken ct)
     {
@@ -193,11 +194,25 @@ sealed class SmokeRuntime(PlanningGraph graph, PlanningPreparation preparation) 
                     Outputs = w.Outputs.Select(o => new PlanningBehaviorPort(o.Name, "The ready message", true)).ToList()
                 }).ToList()
             }, PlanningJsonContext.Default.PlanningBehaviorPlan),
-            "construction" => PlanningModelValues.Workflow(graph.Workflows[0]),
+            "construction" => FillHoles(request),
             "semantic_review" => JsonNode.Parse("""{"findings":[]}"""),
             _ => throw new InvalidOperationException("Unexpected model phase: " + phase)
         };
         return Task.FromResult(new LLMResponse { Json = json });
+    }
+    private JsonObject FillHoles(LLMRequest request)
+    {
+        var textSchema = JsonNode.Parse("""{"kind":"inline","type":"string","nullable":false,"description":null,"enum":[],"items":null,"properties":[],"additionalProperties":null}""")!.AsObject();
+        var resultSchema = textSchema.DeepClone().AsObject(); resultSchema["type"] = "object";
+        resultSchema["properties"] = new JsonArray(new JsonObject { ["name"] = "message", ["schema"] = textSchema.DeepClone(), ["required"] = true, ["default"] = null });
+        var assignments = new JsonObject();
+        foreach (var id in request.StructuredOutputSchema!["properties"]!["assignments"]!["properties"]!.AsObject().Select(p => p.Key))
+        {
+            var hole = _snapshot!.Construction.Holes.Single(h => h.Id == id);
+            assignments[id] = hole.Kind == "schema" ? (hole.Path.EndsWith("/outputSchema", StringComparison.Ordinal) ? resultSchema : textSchema).DeepClone()
+                : new JsonObject { ["kind"] = "literal", ["value"] = new JsonObject { ["kind"] = "string", ["text"] = "ready" } };
+        }
+        return new() { ["assignments"] = assignments };
     }
     public Task<IReadOnlyList<PlanningDiagnostic>> ValidateAsync(PlanningArtifactValidationRequest request, CancellationToken ct)
     {

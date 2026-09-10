@@ -18,11 +18,11 @@ public sealed class TypedWorkflowPlanner(TimeProvider? timeProvider = null) : IW
     public async Task<PlanningSnapshot> AdvanceAsync(PlanningSnapshot snapshot, PlanningCommand command, IPlanningRuntime runtime, CancellationToken ct)
     {
         ArgumentNullException.ThrowIfNull(snapshot); ArgumentNullException.ThrowIfNull(command); ArgumentNullException.ThrowIfNull(runtime);
-        if (snapshot.SchemaVersion != 3) throw new PlanningConflictException("Unsupported planning snapshot. Start a new session.");
+        if (snapshot.SchemaVersion != 4) throw new PlanningConflictException("Unsupported planning snapshot. Start a new session.");
         if (snapshot.Revision != command.ExpectedRevision) throw new PlanningConflictException("The session changed. Reload the current revision.");
         if (string.IsNullOrWhiteSpace(snapshot.Request.TenantId) || string.IsNullOrWhiteSpace(snapshot.Request.SessionId) || string.IsNullOrWhiteSpace(snapshot.Request.Prompt))
             throw new ArgumentException("Tenant, session, and intent are required.");
-        if (snapshot.Request.MaxConcurrency is < 1 or > 16 || snapshot.Request.MaxRepairs is < 0 or > 10) throw new ArgumentException("Invalid planning limits.");
+        if (snapshot.Request.MaxConcurrency is < 1 or > 16 || snapshot.Request.MaxRepairsPerWorkflowGate is < 0 or > 10) throw new ArgumentException("Invalid planning limits.");
         if (command.Kind is not ("advance" or "answer" or "accept_behavior" or "approve" or "revise" or "edit_intent" or "configure_generation" or "retry" or "cancel"))
             throw new ArgumentException("Unsupported planning command.");
         PlanningGenerationPolicy.Validate(snapshot.Request.Generation);
@@ -63,7 +63,7 @@ public sealed class TypedWorkflowPlanner(TimeProvider? timeProvider = null) : IW
                     var behaviorFindings = PlanningBehaviorPlans.Validate(state.BehaviorPlan, state.Preparation!);
                     if (behaviorFindings.Any(d => d.Required)) { state.Diagnostics = behaviorFindings.ToList(); state.Status = PlanningStatus.Recovery; break; }
                     state.ApprovedBehaviorHash = state.ArtifactHash;
-                    state.Graph = PlanningBehaviorPlans.Display(state.BehaviorPlan, state.Preparation);
+                    PlanningGraphSkeleton.Create(state);
                     PlanningContext.InvalidateArtifact(state);
                     state.CurrentPhase = PlanningPhase.Dataflow; state.Status = PlanningStatus.Generating; break;
                 case "approve": await ApproveAsync(state, command, runtime, ct); break;
@@ -72,6 +72,10 @@ public sealed class TypedWorkflowPlanner(TimeProvider? timeProvider = null) : IW
                     if (string.IsNullOrWhiteSpace(command.Text)) throw new ArgumentException("A revision requires intent text.");
                     if (state.Construction.PendingCalls.Count != 0) throw new PlanningConflictException("Reconcile pending model requests before revising their contracts.");
                     if (command.Kind == "edit_intent" && state.ApprovedBehaviorHash is not null) throw new PlanningConflictException("Use a behavior revision after acceptance.");
+                    var retainedBehavior = command.Kind == "revise" ? state.BehaviorAssessment.Candidate?.DeepClone().AsObject() ??
+                        (state.BehaviorPlan is null ? null : JsonSerializer.SerializeToNode(state.BehaviorPlan, PlanningJsonContext.Default.PlanningBehaviorPlan)!.AsObject()) : null;
+                    var reviewedBaseline = state.BehaviorPlan is not null && state.ApprovedBehaviorHash == PlanningBehaviorPlans.Fingerprint(state.BehaviorPlan)
+                        ? JsonSerializer.Serialize(state.BehaviorPlan, PlanningJsonContext.Default.PlanningBehaviorPlan) : null;
                     PlanningIntentAssessment.ArchiveIntent(state);
                     state.Request.Prompt = command.Kind == "edit_intent" ? command.Text.Trim() : state.Request.Prompt + "\n\nRequested revision:\n" + command.Text.Trim();
                     if (command.Kind == "revise")
@@ -80,6 +84,11 @@ public sealed class TypedWorkflowPlanner(TimeProvider? timeProvider = null) : IW
                         if (state.Graph is not null) state.Request.Baseline = PlanningContext.Clone(state.Graph);
                     }
                     ResetForIntent(state);
+                    if (retainedBehavior is not null)
+                    {
+                        state.BehaviorAssessment.Candidate = retainedBehavior;
+                        state.BehaviorRevision = new() { Text = command.Text.Trim(), ReviewedBaselineBehavior = reviewedBaseline };
+                    }
                     break;
                 case "configure_generation":
                     if (command.Generation is null || !(PlanningStatus.IsWaiting(state.Status) || state.Status is PlanningStatus.Failed or PlanningStatus.Unsupported)) throw new PlanningConflictException("Generation settings require a paused session.");
@@ -97,8 +106,7 @@ public sealed class TypedWorkflowPlanner(TimeProvider? timeProvider = null) : IW
                     if (state.CurrentPhase == PlanningPhase.Capabilities && state.PreparationCheckpoint is { } preparation && state.Construction.PendingCalls.Count == 0)
                         preparation.RefreshDiscovery = true;
                     if (state.Construction.PendingCalls.Count == 0) state.Intent.Assessment = new();
-                    state.Status = state.Graph is null ? PlanningStatus.Created : state.CurrentPhase is PlanningPhase.Construction or PlanningPhase.Dataflow ? PlanningStatus.Generating : PlanningStatus.Validating;
-                    if (state.Graph is null && state.Preparation is not null) state.BehaviorAssessmentCalls = 0;
+                    state.Status = state.Graph is null ? PlanningStatus.Created : state.Construction.Candidates.Count > 0 || state.CurrentPhase is PlanningPhase.Construction or PlanningPhase.Dataflow ? PlanningStatus.Generating : PlanningStatus.Validating;
                     break;
                 default: throw new ArgumentException("Unsupported planning command.");
             }
@@ -169,7 +177,11 @@ public sealed class TypedWorkflowPlanner(TimeProvider? timeProvider = null) : IW
             if (state.Construction.Dataflow is null)
             { state.CurrentPhase = PlanningPhase.Dataflow; PlanningDataflowResolver.Resolve(state); return; }
             if (state.CurrentPhase == PlanningPhase.Repair)
-            { await new PlanningTypedRepair(_validation).AdvanceAsync(state, runtime, ct); return; }
+            {
+                if (state.Construction.Candidates.Count > 0) await new PlanningHoleRepair().AdvanceAsync(state, runtime, ct);
+                else await new PlanningTypedRepair(_validation).AdvanceAsync(state, runtime, ct);
+                return;
+            }
             state.CurrentPhase = PlanningPhase.Construction;
             await _construction.AdvanceAsync(state, runtime, ct);
             return;
@@ -200,8 +212,9 @@ public sealed class TypedWorkflowPlanner(TimeProvider? timeProvider = null) : IW
     {
         state.Intent.Checked = false; state.Intent.Question = null; state.Intent.Assessment = new(); state.Intent.Answers.Clear();
         state.Preparation = null; state.PreparationCheckpoint = null; state.BehaviorPlan = null; state.ApprovedBehaviorHash = null;
-        state.BehaviorAssessmentCalls = 0; state.Graph = null; state.Diagnostics.Clear();
-        state.Construction = new() { ModelSequence = state.Construction.ModelSequence, Repairs = state.Construction.Repairs };
+        state.BehaviorAssessmentCalls = 0; state.BehaviorAssessment = new(); state.Graph = null; state.Diagnostics.Clear();
+        state.BehaviorRevision = null;
+        state.Construction = new() { ModelSequence = state.Construction.ModelSequence };
         state.Validation = new(); state.PendingCommand = null; state.ReviewMarkdown = null;
         PlanningContext.InvalidateArtifact(state);
         state.Status = PlanningStatus.Created; state.CurrentPhase = PlanningPhase.Intent;

@@ -45,10 +45,10 @@ internal static class PlanningComputationContracts
             foreach (var member in value.Members)
                 try { parameters[member.Name] = resolve(member.Value); }
                 catch (Exception ex) when (ex is InvalidOperationException or ArgumentException or FormatException) { }
-            var messages = new HashSet<(string Code, string Message)>();
+            var messages = new HashSet<(string Code, string Rule, string Message)>();
             try { Walk(new Acornima.Parser().ParseExpression(PlanningComputations.Expression(value.Text)), parameters, messages); }
             catch (Exception ex) when (ex is Acornima.ParseErrorException or InvalidOperationException) { /* Syntax/binding validators report these independently. */ }
-            foreach (var message in messages) yield return new(message.Code, location, message.Message, ValidationStage: "dataflow");
+            foreach (var message in messages) yield return new(message.Code, location + "/text", message.Message, ValidationStage: "dataflow", Rule: message.Rule);
         }
         for (var i = 0; i < value.Members.Count; i++)
             foreach (var diagnostic in Values(value.Members[i].Value, location + "/members/" + i + "/value", resolve)) yield return diagnostic;
@@ -56,7 +56,7 @@ internal static class PlanningComputationContracts
             foreach (var diagnostic in Values(value.Items[i], location + "/items/" + i, resolve)) yield return diagnostic;
     }
 
-    private static void Walk(Node node, Dictionary<string, JsonObject> scope, HashSet<(string Code, string Message)> messages)
+    private static void Walk(Node node, Dictionary<string, JsonObject> scope, HashSet<(string Code, string Rule, string Message)> messages)
     {
         if (node is BlockStatement) scope = new(scope, StringComparer.Ordinal);
         if (node is ArrowFunctionExpression or FunctionExpression or FunctionDeclaration)
@@ -76,14 +76,21 @@ internal static class PlanningComputationContracts
             (schema.Count == 0 || schema["type"]?.ToString() == "object" || schema["properties"] is JsonObject) &&
             (schema["properties"] is not JsonObject fields || !fields.ContainsKey(name)) && schema["additionalProperties"] is not JsonObject &&
             name is not ("toString" or "hasOwnProperty" or "valueOf" or "toLocaleString"))
-            messages.Add(("COMPUTATION_FIELD_UNDECLARED", "Property '" + name + "' is not declared by this computation parameter's producer contract. Declared fields: " + string.Join(", ", (schema["properties"] as JsonObject ?? []).Select(p => p.Key)) +
+            messages.Add(("COMPUTATION_FIELD_UNDECLARED", MemberIdentity(member), "Property '" + name + "' is not declared by this computation parameter's producer contract. Declared fields: " + string.Join(", ", (schema["properties"] as JsonObject ?? []).Select(p => p.Key)) +
                 ". Select an established producer binding or obtain the missing runtime observation; trying alternative field names cannot establish that data."));
         if (node is MemberExpression arrayMember && Name(arrayMember) is { } field && Schema(arrayMember.Object, scope) is { } array && HasType(array, "array") &&
             !ArrayMembers.Contains(field) && !uint.TryParse(field, System.Globalization.NumberStyles.None, System.Globalization.CultureInfo.InvariantCulture, out _))
-            messages.Add(("COMPUTATION_COLLECTION_FIELD_INVALID", "Property '" + field + "' belongs to no declared array result. A collection cannot supply an individual item's fields. " +
+            messages.Add(("COMPUTATION_COLLECTION_FIELD_INVALID", MemberIdentity(arrayMember), "Property '" + field + "' belongs to no declared array result. A collection cannot supply an individual item's fields. " +
                 "Use a declared element binding in the approved loop. If the requested per-item actions require a missing loop, return to behavior review; do not silently select the first item or discard items."));
         foreach (var child in node.ChildNodes) Walk(child, scope, messages);
     }
+
+    private static string MemberIdentity(Node node) => node switch
+    {
+        Identifier identifier => identifier.Name,
+        MemberExpression member => MemberIdentity(member.Object) + "/" + PlanningFieldPaths.Escape(Name(member) ?? "[]"),
+        _ => node.Type.ToString()
+    };
 
     private static JsonObject? Schema(Node? node, Dictionary<string, JsonObject> scope) => node switch
     {

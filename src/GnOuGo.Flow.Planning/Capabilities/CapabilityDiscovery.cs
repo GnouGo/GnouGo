@@ -49,7 +49,7 @@ internal static class CapabilityDiscovery
         var externalOperations = inventory.Operations
             .Where(static operation => string.Equals(operation.ExecutionKind, "external_effect", StringComparison.Ordinal))
             .ToArray();
-        var constraints = inventory.Constraints.ToArray();
+        var constraints = inventory.Constraints.Where(static constraint => constraint.EnforcementKind == "exact_denial").ToArray();
         if (externalOperations.Length == 0 && constraints.Length == 0)
             return new List<McpServerDiscovery>();
 

@@ -6,16 +6,16 @@ using static GnOuGo.Flow.Planning.Tests.TypedPlannerTests;
 
 namespace GnOuGo.Flow.Planning.Tests;
 
-public sealed class WholeWorkflowConstructionTests
+public sealed class HoleSessionTests
 {
     private static CancellationToken Ct => TestContext.Current.CancellationToken;
     internal static PlanningSnapshot Ready(PlanningBehaviorPlan? behavior = null)
     {
         var state = Session(PlanningStatus.Generating);
-        state.Request.MaxRepairs = 3;
+        state.Request.MaxRepairsPerWorkflowGate = 5;
         state.BehaviorPlan = behavior ?? BehaviorPlan(); state.Preparation = Preparation();
-        state.ApprovedBehaviorHash = PlanningBehaviorPlans.Fingerprint(state.BehaviorPlan);
-        state.Graph = PlanningBehaviorPlans.Display(state.BehaviorPlan, state.Preparation);
+        state.ApprovedBehaviorHash = PlanningBehaviorPlans.Fingerprint(state.BehaviorPlan!);
+        PlanningGraphSkeleton.Create(state);
         PlanningDataflowResolver.Resolve(state);
         return state;
     }
@@ -25,12 +25,12 @@ public sealed class WholeWorkflowConstructionTests
         JsonSerializer.Serialize(state, PlanningJsonContext.Default.PlanningSnapshot), PlanningJsonContext.Default.PlanningSnapshot)!;
 
     [Fact]
-    public async Task CompleteWorkflowPassesEveryGateAndExactApproval()
+    public async Task HoleAssignmentsPassEveryGateAndExactApproval()
     {
         var state = Ready(); var runtime = new FakeRuntime();
-        for (var i = 0; i < 8 && !PlanningStatus.IsWaiting(state.Status); i++) state = await Advance(state, runtime);
+        for (var i = 0; i < 20 && !PlanningStatus.IsWaiting(state.Status); i++) state = await Advance(state, runtime);
         Assert.True(state.Status == PlanningStatus.FinalReview, JsonSerializer.Serialize(state.Diagnostics, PlanningJsonContext.Default.ListPlanningDiagnostic));
-        Assert.Single(runtime.Phases, p => p == "construction");
+        Assert.Equal(2, runtime.Phases.Count(p => p == "construction"));
         Assert.Contains("semantic_review", runtime.Phases);
         Assert.True(runtime.ScenarioCalls > 0);
         Assert.Equal(5, state.Validation.Stage);
@@ -40,7 +40,7 @@ public sealed class WholeWorkflowConstructionTests
     }
 
     [Fact]
-    public async Task TruncatedWorkflowPausesWithoutCommittingOrRedispatching()
+    public async Task TruncatedAssignmentsPauseWithoutCommittingOrRedispatching()
     {
         var state = Ready(); var before = PlanningGraphCompiler.Fingerprint(state.Graph!);
         var runtime = new FakeRuntime
@@ -63,8 +63,8 @@ public sealed class WholeWorkflowConstructionTests
     public async Task OversizedRequestPausesBeforeDispatch()
     {
         var state = Ready(); state.Request.Generation.MaxInputTokensPerRequest = 1_000;
-        state.BehaviorPlan!.Workflows[0].Purpose = new string('x', 40_000);
-        state.ApprovedBehaviorHash = PlanningBehaviorPlans.Fingerprint(state.BehaviorPlan);
+        state.Construction.Holes.First(h => h.Kind == "schema").Purpose = new string('x', 40_000);
+        state.ApprovedBehaviorHash = PlanningBehaviorPlans.Fingerprint(state.BehaviorPlan!);
         var runtime = new FakeRuntime(); state = await Advance(state, runtime);
         Assert.Equal(PlanningStatus.Recovery, state.Status);
         Assert.Contains(state.Diagnostics, d => d.Code == "MODEL_INPUT_LIMIT");
@@ -82,6 +82,9 @@ public sealed class WholeWorkflowConstructionTests
         };
         state = await Advance(state, runtime);
         var pending = Assert.Single(durable!.Construction.PendingCalls);
+        Assert.NotNull(pending.Assignments);
+        Assert.Equal(pending.ScopeFingerprint, pending.Assignments.ScopeFingerprint);
+        Assert.Equal(PlanningGates.Response, pending.Gate);
         state = await Advance(durable, runtime, "retry");
         var replay = new FakeRuntime(); state = await Advance(state, replay);
         var actual = Assert.Single(replay.Requests);

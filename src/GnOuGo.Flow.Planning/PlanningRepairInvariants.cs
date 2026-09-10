@@ -24,7 +24,7 @@ internal static class PlanningRepairInvariants
             var nodes = PlanningGraphCompiler.Enumerate(replacement.Steps.Concat(replacement.Finally)).ToLookup(n => n.Key, StringComparer.Ordinal);
             foreach (var node in PlanningGraphCompiler.Enumerate(workflow.Steps.Concat(workflow.Finally)))
                 if (nodes[node.Key].Count() != 1 || (preparation.AllowedStepTypes.Contains(node.Type, StringComparer.Ordinal) && nodes[node.Key].First().Type != node.Type) || (node.CapabilityId is null || preparation.Capabilities.Any(c => c.Id == node.CapabilityId)) && nodes[node.Key].First().CapabilityId != node.CapabilityId)
-                    diagnostics.Add(new("BEHAVIOR_REPAIR_REGRESSION", workflow.Key + "/" + node.Key, "Preserve existing actions and their selected capabilities; add validated shaping when needed."));
+                    diagnostics.Add(new("BEHAVIOR_REPAIR_REGRESSION", workflow.Key + "/" + node.Key, "Preserve the frozen actions and their selected capabilities."));
             var originalLocations = PlanningGraphValidation.Located(workflow.Steps, "/workflows/" + before.Workflows.IndexOf(workflow) + "/steps")
                 .Concat(PlanningGraphValidation.Located(workflow.Finally, "/workflows/" + before.Workflows.IndexOf(workflow) + "/finally")).ToDictionary(n => n.Node.Key, n => n.Path, StringComparer.Ordinal);
             foreach (var node in PlanningGraphCompiler.Enumerate(workflow.Steps.Concat(workflow.Finally)))

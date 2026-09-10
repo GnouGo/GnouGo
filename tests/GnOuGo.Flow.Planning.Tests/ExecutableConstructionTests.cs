@@ -12,21 +12,20 @@ namespace GnOuGo.Flow.Planning.Tests;
 public sealed class ExecutableConstructionTests
 {
     private static CancellationToken Ct => TestContext.Current.CancellationToken;
-    private static JsonObject Patch(string? node, string field, JsonNode? value) => new() { ["workflow"] = "main", ["node"] = node, ["field"] = field, ["value"] = value };
+    private static JsonObject Patch(string? node, string field, JsonNode? value) => new() { ["target"] = "f_" + PlanningGraphCompiler.Fingerprint(PlanningPatches.Coordinate("main", node, field))[..16], ["value"] = value };
     private static JsonObject Changes(params JsonObject[] patches) => new() { ["patches"] = new JsonArray(patches.Select(p => (JsonNode)p).ToArray()) };
     private static PlanningSchema ObjectSchema(params (string Name, string Type)[] fields) => new() { Type = "object", Properties = fields.Select(p => new PlanningPort { Name = p.Name, Schema = new() { Type = p.Type } }).ToList() };
 
     [Fact]
-    public void RootFunctionsAndDiagnosedCaseConditionsHavePrecisePatchCoordinates()
+    public void GlobalFunctionsStayFrozenWhileAnExactConditionTextCanBeRepaired()
     {
         var graph = Graph(); graph.Functions = "invalid code";
         var node = graph.Workflows[0].Steps[0]; node.Type = "switch"; node.Cases = [new("yes", new() { Kind = "expression", Text = "1 +" }, [])];
         var scope = PlanningPatches.Scope(graph, [new("FUNCTION_SYNTAX_INVALID", "/functions", "Invalid"), new("EXPR_PARSE", "/workflows/0/steps/0/cases/0/when/text", "Invalid")]);
-        var root = Patch(null, "functions", "function value() { return 1; }"); root["workflow"] = null;
-        var candidate = PlanningPatches.Apply(graph, Changes(root, Patch("greeting", "cases/0/when", new JsonObject { ["kind"] = "boolean", ["boolean"] = true })), scope, Preparation());
-        Assert.Equal("function value() { return 1; }", candidate.Functions);
-        Assert.True(candidate.Workflows[0].Steps[0].Cases[0].When!.Boolean);
-        Assert.Equal("invalid code", graph.Functions);
+        Assert.Single(scope);
+        var candidate = PlanningPatches.Apply(graph, Changes(Patch("greeting", "cases/0/when/text", "1 + 1")), scope, Preparation());
+        Assert.Equal("invalid code", candidate.Functions);
+        Assert.Equal("1 + 1", candidate.Workflows[0].Steps[0].Cases[0].When!.Text);
     }
 
     [Fact]
@@ -81,9 +80,9 @@ public sealed class ExecutableConstructionTests
     public void AtomicPatchesRejectDuplicatesAndUnscopedChanges()
     {
         var graph = Graph(); var before = PlanningGraphCompiler.Fingerprint(graph);
-        var input = PlanningModelValues.Workflow(graph.Workflows[0])["steps"]![0]!["input"]!.DeepClone();
-        var allowed = new HashSet<string> { PlanningPatches.Coordinate("main", "greeting", "input") };
-        Assert.Throws<InvalidOperationException>(() => PlanningPatches.Apply(graph, Changes(Patch("greeting", "input", input), Patch("greeting", "input", input.DeepClone())), allowed, Preparation()));
+        var input = PlanningFixtures.Workflow(graph.Workflows[0])["steps"]![0]!["input"]!.DeepClone();
+        var allowed = new HashSet<string> { PlanningPatches.Coordinate("main", "greeting", "input/members/0/value/text") };
+        Assert.Throws<InvalidOperationException>(() => PlanningPatches.Apply(graph, Changes(Patch("greeting", "input/members/0/value/text", "Fixed"), Patch("greeting", "input/members/0/value/text", "Again")), allowed, Preparation()));
         Assert.Equal(before, PlanningGraphCompiler.Fingerprint(graph));
     }
 
@@ -168,11 +167,12 @@ public sealed class ExecutableConstructionTests
     [Theory]
     [InlineData("workflow:main/field:functions.compute", "/workflows/0/functions/compute", null, "functions")]
     [InlineData("workflow:main/field:outputs.message", "/workflows/0/outputs/0", null, "outputs")]
-    public void RuntimeContractFindingsGrantOnlyTheirPlanningField(string location, string expected, string? node, string field)
+    public void UnlocatedRuntimeContractFindingsGrantNoContainerPermission(string location, string expected, string? node, string field)
     {
         var graph = Graph(); var finding = PlanningExecutableValidation.MapRuntimeDiagnostic(new("CONTRACT_INVALID", location, "Invalid contract"), graph);
         Assert.Equal(expected, finding.Location);
-        Assert.Equal([PlanningPatches.Coordinate("main", node, field)], PlanningPatches.Scope(graph, [finding]).ToArray());
+        Assert.DoesNotContain(PlanningPatches.Coordinate("main", node, field), PlanningPatches.Scope(graph, [finding]));
+        Assert.Empty(PlanningPatches.Scope(graph, [finding]));
     }
 
     [Fact]

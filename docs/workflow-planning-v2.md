@@ -13,7 +13,8 @@ flowchart TD
   B --> R[Deterministic validation and human behavior review]
   R --> G[PlanningGraph skeleton]
   G --> D[Resolve ownership, provenance, dataflow and dependencies]
-  D --> W[Complete typed subworkflows, callees before callers]
+  D --> H[Deterministic contract and binding propagation]
+  H --> W[Fill ready typed holes, producers before consumers]
   W --> T[Typed validation and targeted repairs]
   T --> L[PlanningGraphCompiler]
   L --> Y[YAML]
@@ -39,9 +40,18 @@ capabilities are rediscovered before granting execution authority. Execution fai
 evidence is kept separate from user intent.
 
 Human acceptance of the exact business behavior precedes executable construction.
+The skeleton inserts predefined pure decision-outcome and branch-result adapters
+before freezing topology; call and loop projections are compiler-owned bindings.
+Adapters have deterministic IDs and no capability or operation ownership. They
+preserve no-action outcomes and original payloads. Explicit unresolved value and
+schema descriptors prevent placeholders from becoming established contracts; the
+compiler rejects any unresolved descriptor.
 Dependencies include workflow calls inside branches, loops and finalizers. Missing
-targets and cycles stop before dispatch. Each construction request generates exactly
-one complete `PlanningWorkflow` JSON object. Independent ready workflows run up to
+targets and cycles stop before dispatch. Each construction request fills coordinator-issued holes in one workflow. Schemas
+resolve before bindings, and producers before consumers. Identity expressions retain
+their existing typed bindings. An unambiguous direct consumer contract can refine an
+open pure-producer result through a staged exact schema fragment, without a model call. The model cannot choose
+workflow IDs, topology, executors, capabilities, call targets, branches or finalizers. Independent ready workflows run up to
 the concurrency ceiling; callers wait for validated callee contracts. Workers receive
 immutable requests, and the coordinator commits results in stable workflow order.
 
@@ -56,8 +66,9 @@ Oversized requests and truncated responses pause with actionable diagnostics.
 
 ## Repairs and validation
 
-One repair engine applies atomic patches to diagnosed typed fields. The graph is
-staged and revalidated before commit. Global or unlocated findings grant no repair
+One repair engine applies atomic patches to diagnosed typed fields. Assignment deltas are
+staged against graph and dependency fingerprints and revalidated before commit.
+Invalid candidates remain staged for repair; valid neighboring fields are retained. Global or unlocated findings grant no repair
 scope. Accepted behavior, capability ownership, confirmations, finalizers, proven
 provenance and validated contracts are preserved. Producer defects are repaired
 before callers; changed producer contracts invalidate dependent callers.
@@ -67,10 +78,24 @@ scenarios, and semantic review. A repair must advance the first failing gate or
 strictly reduce its required findings without adding failures at that gate. Earlier
 passes and passing scenarios against unchanged fixtures must survive. No-op,
 repeated and regressing candidates are rejected while retaining the previous graph.
-Governing behavior or capability changes require renewed human review.
+Governing behavior or capability changes require renewed human review. Initial
+behavior generation happens once. A human revision retains the candidate, locates
+changes against exact excerpts of the revision, and stages patches to those fields.
+Diagnosed structural corrections use explicit insertion, removal or move coordinates;
+whole-plan and collection replacement are forbidden.
+The accepted business projection supplies revision context without repeating the
+baseline implementation. A reviewed input or output revision reopens that port's
+schema; unrelated baseline contracts remain reusable. Semantic review sends exact
+executable targets and routes changes to established contracts back through review.
+Unchanged pure native producers can reuse baseline literal values after checking
+their current contract, and derive literal result schemas without a model request.
+Unreviewed candidates never become baseline intent evidence.
 
-Repair response schemas enumerate the exact permitted workflow, node and field
-coordinates and omit unused definitions. An output-value finding permits only that
+Repair response schemas enumerate opaque IDs for exact permitted fields and omit
+unused definitions. Binding choices come from a scoped catalog; the coordinator
+constructs references. Expressions declare their parameters. Unknown, duplicate,
+overlapping and stale targets are rejected. Diagnostic identity uses the code,
+canonical location and rule discriminator; diagnostic prose never defines progress. An output-value finding permits only that
 value to change. Native argument diagnostics preserve unchanged members by name,
 including when removing an invalid argument shifts their serialized positions.
 Retrying a stopped repair revalidates the retained graph to recover its diagnostics;
@@ -83,23 +108,25 @@ Runtime expressions and WFScript remain supported, with their existing sandbox.
 
 ## Persistence, budgets and hosts
 
-Agent.Server persists schema **3** snapshots in encrypted KeyVault records with
+Agent.Server persists schema **4** snapshots in encrypted KeyVault records with
 tenant-scoped EF Core/SQLite indexes. The default workspace-resolved database is
-`.GnOuGo/data/gnougo-planning-v3.db`; snapshot, request, receipt and budget namespaces
+`.GnOuGo/data/gnougo-planning-v4.db`; snapshot, request, receipt and budget namespaces
 are versioned together. Older storage is unused. Optimistic revisions, cancellation,
 restart recovery, original-workflow save conflicts and human-wait accounting remain.
 
-Each request has a durable identity covering session, phase, workflow, attempt and
-request hash. Reservations are persisted before dispatch; completed encrypted receipts
+Each request has a durable identity covering session, revision, phase, workflow,
+gate, hole scope, attempt and request hash. Repair allowances are consumed when
+requests are reserved, persist across retries and restart, and never replace global budgets. Reservations are persisted before dispatch; completed encrypted receipts
 are replayed after restart. Unverifiable dispatches stop without redispatch or budget
 reset. Call, token, monetary, active-time and concurrency limits remain enforced.
-Defaults are concurrency **4**, repair allowance **3**, input ceiling **12,000** tokens
+Defaults are concurrency **4**, repair allowance **5 per workflow/gate** (configurable from 0–10 with `max_repairs_per_workflow_gate`), input ceiling **12,000** tokens
 per request and output ceiling **8,192** tokens.
 
 Agent.Server, Flow.Cli and Flow.Server inject the same planner and runtime factory.
 A host that omits injection fails explicitly. `/gnougo add` and `/gnougo reprompt`
 open the designer. SmartFlow **Improve** creates a persisted revision session from
 the saved workflow and execution failure evidence, then links to the designer.
+The designer reports resolved/unresolved field counts, the current gate and its consumed repair allowance.
 Telemetry reports phases, workflows, dependencies, repairs, validations, budgets and
 receipts with tenant propagation and content redaction.
 

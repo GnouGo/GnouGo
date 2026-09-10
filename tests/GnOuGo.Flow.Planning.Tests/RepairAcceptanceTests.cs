@@ -3,13 +3,17 @@ using System.Text.Json.Nodes;
 using GnOuGo.Flow.Core.Planning;
 using GnOuGo.Flow.Core.Runtime;
 using static GnOuGo.Flow.Planning.Tests.TypedPlannerTests;
-using static GnOuGo.Flow.Planning.Tests.WholeWorkflowConstructionTests;
+using static GnOuGo.Flow.Planning.Tests.HoleSessionTests;
 
 namespace GnOuGo.Flow.Planning.Tests;
 
 public sealed class RepairAcceptanceTests
 {
     private static CancellationToken Ct => TestContext.Current.CancellationToken;
+    private static JsonObject Patch(string workflow, string? node, string field, JsonNode? value) => new()
+    {
+        ["patches"] = new JsonArray(new JsonObject { ["target"] = "f_" + PlanningGraphCompiler.Fingerprint(PlanningPatches.Coordinate(workflow, node, field))[..16], ["value"] = value })
+    };
     private static PlanningDiagnostic Finding(string code) => new(code, "/workflows/0/steps/0/input/members/0/value/text", code);
     private static PlanningScenarioResult Scenario(string outcome) => new("same-fixture", outcome, "Fixed fixture", []);
 
@@ -26,7 +30,8 @@ public sealed class RepairAcceptanceTests
         child.Outputs[0].Name = "returnedPort"; child.Steps[0].Purpose = "private implementation marker";
         state.Graph!.Workflows[1] = child;
         state.Graph.Workflows.Add(new() { Key = "unrelated marker" });
-        state.Diagnostics = [new("ARGUMENT_INVALID", "/workflows/0/steps/0/input", "Fix argument")];
+        state.Graph.Workflows[0].Steps[0].Input = Obj(("ref", new() { Kind = "workflow", Source = "child" }), ("args", Obj(("requiredArgument", Str("invalid")))));
+        state.Diagnostics = [new("ARGUMENT_INVALID", "/workflows/0/steps/0/input/args/requiredArgument", "Fix argument")];
         var called = false;
         var runtime = new FakeRuntime { OnCall = (_, request, _) =>
         {
@@ -42,7 +47,7 @@ public sealed class RepairAcceptanceTests
     }
 
     [Fact]
-    public void LocalOperationConstructionCanSelectAnAllowedNativeEmitterWithoutGrantingExternalAuthority()
+    public void AcceptedExecutorCannotBeSubstitutedDuringConstruction()
     {
         var plan = BehaviorPlan(); var prep = Preparation();
         prep.Capabilities = [new() { Id = "local", StepType = "set", Resolution = "local", EffectKind = "none" }];
@@ -50,7 +55,7 @@ public sealed class RepairAcceptanceTests
         plan.Workflows[0].Steps[0].CapabilityId = "local";
         var graph = PlanningBehaviorPlans.Display(plan, prep);
         graph.Workflows[0].Steps[0].Type = "emit";
-        Assert.Empty(PlanningBehaviorPlans.ValidateImplementation(plan, graph, prep));
+        Assert.Contains(PlanningBehaviorPlans.ValidateImplementation(plan, graph, prep), d => d.Code == "BEHAVIOR_IMPLEMENTATION_CHANGED");
         graph.Workflows[0].Steps[0].Type = "mcp.call";
         Assert.Contains(PlanningBehaviorPlans.ValidateImplementation(plan, graph, prep), d => d.Code == "BEHAVIOR_IMPLEMENTATION_CHANGED");
         graph.Workflows[0].Steps[0].Type = "emit";
@@ -70,8 +75,7 @@ public sealed class RepairAcceptanceTests
         state.Construction.Workflows.Single(w => w.WorkflowKey == "child").Status = "constructed";
         state.Validation.Stage = 1;
         state.Diagnostics = [new("BAD_VALUE", "/workflows/1/steps/0/input/members/0/value/text", "Fix greeting")];
-        var input = PlanningModelValues.Compact(JsonSerializer.SerializeToNode(Obj(("message", Str("Fixed"))), PlanningJsonContext.Default.PlanningValue));
-        var patch = new JsonObject { ["patches"] = new JsonArray(new JsonObject { ["workflow"] = "child", ["node"] = "greeting", ["field"] = "input", ["value"] = input }) };
+        var patch = Patch("child", "greeting", "input/members/0/value/text", JsonValue.Create("Fixed"));
         var runtime = new FakeRuntime { OnCall = (_, _, _) => Task.FromResult(new LLMResponse { Json = patch }) };
         await new PlanningTypedRepair(new()).AdvanceAsync(state, runtime, Ct);
         Assert.True(state.Attempts.Last().Retained, string.Join("; ", state.Attempts.Last().Diagnostics.Select(d => d.Code)));
@@ -126,14 +130,13 @@ public sealed class RepairAcceptanceTests
         var scope = PlanningPatches.Scope(graph, diagnostics);
         Assert.Contains(PlanningPatches.Coordinate("main", null, "outputs/0/value"), scope);
         Assert.DoesNotContain(PlanningPatches.Coordinate("main", null, "outputs"), scope);
-        var patch = new JsonObject { ["patches"] = new JsonArray(new JsonObject
-        { ["workflow"] = "main", ["node"] = null, ["field"] = "outputs/0/value", ["value"] = new JsonObject { ["kind"] = "string", ["text"] = "Fixed" } }) };
+        var patch = Patch("main", null, "outputs/0/value", new JsonObject { ["kind"] = "literal", ["value"] = new JsonObject { ["kind"] = "string", ["text"] = "Fixed" } });
         var candidate = PlanningPatches.Apply(graph, patch, scope, Preparation());
         Assert.True(PlanningRepairInvariants.PreservesUndiagnosedFields(graph, candidate, diagnostics));
         candidate.Workflows[0].Outputs[0].Schema.Description = "Unrelated change";
         Assert.False(PlanningRepairInvariants.PreservesUndiagnosedFields(graph, candidate, diagnostics));
         patch["patches"]![0]!["field"] = "outputs";
-        patch["patches"]![0]!["value"] = PlanningModelValues.Workflow(graph.Workflows[0])["outputs"]!.DeepClone();
+        patch["patches"]![0]!["value"] = PlanningFixtures.Workflow(graph.Workflows[0])["outputs"]!.DeepClone();
         Assert.Throws<InvalidOperationException>(() => PlanningPatches.Apply(graph, patch, scope, Preparation()));
     }
 
@@ -141,11 +144,10 @@ public sealed class RepairAcceptanceTests
     public void ModelRepairSchemaRejectsUnscopedCoordinatesAndOmitsUnusedContracts()
     {
         var scope = new HashSet<string> { PlanningPatches.Coordinate("main", null, "outputs/0/value") };
-        var schema = PlanningPatches.ScopedSchema(Preparation(), scope);
+        var schema = PlanningPatches.CreateRequest(Graph(), Preparation(), scope).Schema;
         Assert.Empty(PlanningContractValidation.ValidateSchema(schema, strict: true));
         Assert.Null(schema["$defs"]!["workflow"]);
-        var patch = new JsonObject { ["patches"] = new JsonArray(new JsonObject
-        { ["workflow"] = "main", ["node"] = null, ["field"] = "outputs/0/value", ["value"] = new JsonObject { ["kind"] = "string", ["text"] = "Fixed" } }) };
+        var patch = Patch("main", null, "outputs/0/value", new JsonObject { ["kind"] = "literal", ["value"] = new JsonObject { ["kind"] = "string", ["text"] = "Fixed" } });
         Assert.Empty(PlanningContractValidation.ValidateInstance(patch, schema));
         patch["patches"]![0]!["workflow"] = "unrelated";
         Assert.NotEmpty(PlanningContractValidation.ValidateInstance(patch, schema));
@@ -200,8 +202,7 @@ public sealed class RepairAcceptanceTests
         state.Construction.Workflows[0].Status = "validated";
         state.CurrentPhase = PlanningPhase.Repair; state.Diagnostics = [Finding("BAD_VALUE")]; state.Validation.Stage = 2;
         var hash = PlanningGraphCompiler.Fingerprint(state.Graph);
-        var input = PlanningModelValues.Compact(JsonSerializer.SerializeToNode(Obj(("message", Str("Fixed"))), PlanningJsonContext.Default.PlanningValue));
-        var patch = new JsonObject { ["patches"] = new JsonArray(new JsonObject { ["workflow"] = "main", ["node"] = "greeting", ["field"] = "input", ["value"] = input }) };
+        var patch = Patch("main", "greeting", "input/members/0/value/text", JsonValue.Create("Fixed"));
         PlanningSnapshot? staged = null;
         var runtime = new FakeRuntime
         {
@@ -216,7 +217,7 @@ public sealed class RepairAcceptanceTests
         Assert.NotNull(staged); Assert.Equal(hash, PlanningGraphCompiler.Fingerprint(staged.Graph!));
         var replay = new FakeRuntime { ValidationResult = _ => regression ? [Finding("NEW_FAILURE")] : [] };
         await new PlanningTypedRepair(new()).AdvanceAsync(staged, replay, Ct);
-        Assert.Empty(replay.Requests); Assert.Equal(1, staged.Construction.Repairs);
+        Assert.Empty(replay.Requests); Assert.Equal(1, staged.RepairAllowances.Sum(a => a.Attempts));
         Assert.Equal(!regression, staged.Attempts.Last().Retained);
         if (regression) Assert.Equal(hash, PlanningGraphCompiler.Fingerprint(staged.Graph!));
         else Assert.NotEqual(hash, PlanningGraphCompiler.Fingerprint(staged.Graph!));
@@ -233,7 +234,7 @@ public sealed class RepairAcceptanceTests
         var child = FakeRuntime.ExecutableWorkflow(); child.Key = "child"; state.Graph!.Workflows[1] = child;
         state.Graph.Workflows[0].Steps = [new() { Key = "call", Type = "workflow.call", Input = Obj(("ref", new() { Kind = "workflow", Source = "child" }), ("args", Obj())) }];
         state.Graph.Workflows[0].Outputs = [new() { Name = "message", Schema = new() { Type = "string" }, Value = new() { Kind = "output", Source = "call", Path = ["message"] } }];
-        state.Graph.Workflows = state.Graph.Workflows.Select(w => JsonSerializer.Deserialize(PlanningModelValues.Workflow(w), PlanningJsonContext.Default.PlanningWorkflow)!).ToList();
+        state.Graph.Workflows = state.Graph.Workflows.Select(w => JsonSerializer.Deserialize(PlanningFixtures.Workflow(w), PlanningJsonContext.Default.PlanningWorkflow)!).ToList();
         foreach (var progress in state.Construction.Workflows)
         {
             progress.Status = "validated";
@@ -242,11 +243,7 @@ public sealed class RepairAcceptanceTests
         state.Validation.Stage = 2; state.CurrentPhase = PlanningPhase.Repair;
         state.Diagnostics = [new("CONTRACT_DESCRIPTION_INVALID", "/workflows/1/outputs/0/schema/description", "Describe the returned message")];
         var corrected = PlanningContext.Clone(state.Graph).Workflows[1]; corrected.Outputs[0].Schema.Description = "Returned greeting";
-        var patch = new JsonObject
-        {
-            ["patches"] = new JsonArray(new JsonObject
-            { ["workflow"] = "child", ["node"] = null, ["field"] = "outputs", ["value"] = PlanningModelValues.Workflow(corrected)["outputs"]!.DeepClone() })
-        };
+        var patch = Patch("child", null, "outputs/0/schema/description", JsonValue.Create("Returned greeting"));
         var runtime = new FakeRuntime { OnCall = (_, _, _) => Task.FromResult(new LLMResponse { Json = patch }) };
         await new PlanningTypedRepair(new()).AdvanceAsync(state, runtime, Ct);
         Assert.True(state.Attempts.Last().Retained, string.Join("; ", state.Attempts.Last().Diagnostics.Select(d => d.Code + ": " + d.Message)));
@@ -262,7 +259,7 @@ public sealed class RepairAcceptanceTests
         var state = Ready(); state.Graph!.Workflows[0] = FakeRuntime.ExecutableWorkflow();
         state.Graph.Workflows[0].Outputs[0].Value.Source = "missing";
         state.Construction.Workflows[0].Status = "constructed";
-        state.Construction.Repairs = 2;
+        state.RepairAllowances.Add(new() { WorkflowKey = "main", Gate = PlanningGates.Typed, Attempts = 2 });
         state.Status = PlanningStatus.Recovery; state.CurrentPhase = PlanningPhase.Repair;
         state.Diagnostics = [new("REPAIR_REPEATED", "$", "A candidate was repeated")];
         var runtime = new FakeRuntime();
@@ -272,7 +269,7 @@ public sealed class RepairAcceptanceTests
         Assert.Equal(PlanningPhase.Repair, state.CurrentPhase);
         Assert.Contains(state.Diagnostics, d => d.Code == "OUTPUT_REFERENCE_INVALID");
         Assert.NotEmpty(PlanningPatches.Scope(state.Graph!, state.Diagnostics));
-        Assert.Equal(2, state.Construction.Repairs);
+        Assert.Equal(2, state.RepairAllowances.Sum(a => a.Attempts));
         Assert.Empty(runtime.Requests);
     }
 
@@ -281,15 +278,8 @@ public sealed class RepairAcceptanceTests
     {
         var state = Ready(); state.Graph!.Workflows[0] = FakeRuntime.ExecutableWorkflow(); state.Construction.Workflows[0].Status = "validated";
         state.CurrentPhase = PlanningPhase.Repair; state.Diagnostics = [Finding("BAD_VALUE")]; state.Validation.Stage = 2;
-        var input = PlanningModelValues.Workflow(state.Graph.Workflows[0])["steps"]![0]!["input"]!.DeepClone();
-        var runtime = new FakeRuntime
-        {
-            OnCall = (_, _, _) => Task.FromResult(new LLMResponse
-            {
-                Json = new JsonObject
-                { ["patches"] = new JsonArray(new JsonObject { ["workflow"] = "main", ["node"] = "greeting", ["field"] = "input", ["value"] = input }) }
-            })
-        };
+        var runtime = new FakeRuntime { OnCall = (_, _, _) => Task.FromResult(new LLMResponse
+            { Json = Patch("main", "greeting", "input/members/0/value/text", JsonValue.Create("Hello")) }) };
         var before = PlanningGraphCompiler.Fingerprint(state.Graph);
         await new PlanningTypedRepair(new()).AdvanceAsync(state, runtime, Ct);
         Assert.Equal(PlanningStatus.Recovery, state.Status); Assert.Contains(state.Diagnostics, d => d.Code == "REPAIR_REPEATED");
@@ -304,7 +294,7 @@ public sealed class RepairAcceptanceTests
     public async Task FinalApprovalRejectsChangedValidationEvidence(string change)
     {
         var state = Ready(); var runtime = new FakeRuntime();
-        for (var i = 0; i < 8 && state.Status != PlanningStatus.FinalReview; i++) state = await Advance(state, runtime);
+        for (var i = 0; i < 20 && state.Status != PlanningStatus.FinalReview; i++) state = await Advance(state, runtime);
         Assert.Equal(PlanningStatus.FinalReview, state.Status);
         switch (change)
         {

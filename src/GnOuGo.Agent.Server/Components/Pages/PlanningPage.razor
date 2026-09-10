@@ -37,7 +37,7 @@
         <p aria-label="Generation configuration">Model: @_state.Request.Options["generator"]?["model"] · Reasoning: @(_state.Request.Generation.Reasoning ?? _state.Request.Options["generator"]?["reasoning"]?.GetValue<string>() ?? "medium")</p>
         @if (_state.Construction.Workflows.Count > 0)
         {
-            <p aria-live="polite">Validated workflows: @_state.Construction.Workflows.Count(w => w.Status == "validated") / @_state.Construction.Workflows.Count · Targeted repairs: @_state.Construction.Repairs</p>
+            <p aria-live="polite">Validated workflows: @_state.Construction.Workflows.Count(w => w.Status == "validated") / @_state.Construction.Workflows.Count · Targeted repairs: @_state.RepairAllowances.Sum(a => a.Attempts)</p>
         }
         @if (PlanningStatus.IsWaiting(_state.Status) || _state.Status is PlanningStatus.Failed or PlanningStatus.Unsupported)
         {
@@ -111,15 +111,16 @@
                 @foreach (var answer in _state.Intent.Answers) { <p>@answer.Question</p><ul>@foreach (var value in answer.Answers) { <li>@value.Key: @value.Value</li> }</ul> }
             </details>
         }
-        @if (_state.Diagnostics.Count > 0)
-        {
-            <h3 class="mt-3">Validation findings</h3>
-            @foreach (var workflow in _state.Construction.Workflows.Where(w => w.Diagnostics.Count > 0))
+            @foreach (var workflow in _state.Construction.Workflows)
             {
-                <p>Workflow: @workflow.WorkflowKey · Repair calls: @workflow.RepairCalls
+                <p>Workflow: @workflow.WorkflowKey · Fields: @workflow.ResolvedHoles resolved / @workflow.UnresolvedHoles unresolved
+                    <span> · Gate: @(workflow.Gate ?? "construction") · Repairs: @(_state.RepairAllowances.Where(a => a.WorkflowKey == workflow.WorkflowKey && a.Gate == workflow.Gate).Sum(a => a.Attempts)) / @_state.Request.MaxRepairsPerWorkflowGate</span>
                     @if (workflow.EstimatedInputTokens is { } estimate) { <span> · Estimated input: @estimate / @workflow.InputTokenLimit tokens</span> }
                 </p>
             }
+        @if (_state.Diagnostics.Count > 0)
+        {
+            <h3 class="mt-3">Validation findings</h3>
             <ul>@foreach (var group in _state.Diagnostics.GroupBy(d => (d.Code, d.Message)))
             {
                 <li><strong>@group.Key.Code</strong>: @group.Key.Message

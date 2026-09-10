@@ -34,7 +34,7 @@ public sealed class WorkflowPlanExecutor : IStepExecutor
                 Prompt = input["raw_prompt"]?.GetValue<string>() ?? "",
                 Options = options,
                 MaxConcurrency = input["max_concurrency"]?.GetValue<int>() ?? 4,
-                MaxRepairs = input["max_repairs"]?.GetValue<int>() ?? 3,
+                MaxRepairsPerWorkflowGate = input["max_repairs_per_workflow_gate"]?.GetValue<int>() ?? 5,
                 Generation = new()
                 {
                     Reasoning = generator["reasoning"]?.GetValue<string>(),
@@ -119,7 +119,7 @@ public sealed class WorkflowPlanExecutor : IStepExecutor
         {
             ["yaml"] = state.Yaml,
             ["workflow"] = new JsonObject { ["version"] = 1, ["name"] = state.Request.Name, ["workflows"] = new JsonArray(Parsing.WorkflowParser.Parse(state.Yaml!).Workflows.Keys.Select(w => (JsonNode?)JsonValue.Create(w)).ToArray()) },
-            ["meta"] = new JsonObject { ["model"] = target.Model, ["attempt"] = state.Construction.Repairs + 1, ["revision"] = state.Revision, ["artifact_hash"] = state.ArtifactHash, ["capability_preflight"] = state.Preparation?.LockedContract.DeepClone() },
+            ["meta"] = new JsonObject { ["model"] = target.Model, ["repair_attempts"] = state.RepairAllowances.Sum(a => a.Attempts), ["revision"] = state.Revision, ["artifact_hash"] = state.ArtifactHash, ["capability_preflight"] = state.Preparation?.LockedContract.DeepClone() },
             ["diagnostics"] = new JsonArray()
         };
     }

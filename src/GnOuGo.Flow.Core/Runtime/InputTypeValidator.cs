@@ -23,17 +23,18 @@ public static class InputTypeValidator
 
         foreach (var (name, def) in definitions)
         {
-            var value = inputs.ContainsKey(name) ? inputs[name] : null;
+            var present = inputs.ContainsKey(name);
+            var value = present ? inputs[name] : null;
 
             // Required check
-            if (def.Required && value == null)
+            if (def.Required && (!present || value is null && !def.Nullable))
             {
                 errors.Add($"Input '{name}' is required but was not provided.");
                 continue;
             }
 
             // Skip validation for absent optional inputs
-            if (value == null)
+            if (!present)
                 continue;
 
             ValidateNode(value, def, name, errors, 0);
@@ -54,7 +55,11 @@ public static class InputTypeValidator
         }
 
         if (node == null)
-            return; // null already handled by required check at call site
+        {
+            if (!def.Nullable && def.Type.ToLowerInvariant() is not ("any" or "null"))
+                errors.Add($"'{path}': declared type '{def.Type}' does not allow null.");
+            return;
+        }
 
         switch (def.Type.ToLowerInvariant())
         {

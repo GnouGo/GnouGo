@@ -41,7 +41,7 @@ internal sealed partial class PlanningScenarioFixtures
             if (ValidFixture(values)) { state.Validation.Inputs = values; state.Validation.InputsFingerprint = fingerprint; return true; }
         }
         state.CurrentPhase = "scenario_inputs";
-        var definitions = PlanningSchemas.WholeWorkflow(state.Preparation!)["$defs"]!.DeepClone().AsObject();
+        var definitions = PlanningSchemas.ValueDefinitions().DeepClone().AsObject();
         var variants = definitions["value"]!["anyOf"]!.AsArray();
         foreach (var variant in variants.ToArray())
         {

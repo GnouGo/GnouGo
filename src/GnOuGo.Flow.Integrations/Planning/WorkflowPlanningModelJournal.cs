@@ -14,8 +14,8 @@ namespace GnOuGo.Flow.Integrations.Planning;
 internal sealed class WorkflowPlanningModelJournal(StepExecutionContext context, IKeyVaultRecordStore records,
     PlanningRequest planning, LLMUsageBudgetScope budget) : ILLMClient
 {
-    internal const string Requests = "flow-planning-model-requests-v3";
-    internal const string Receipts = "flow-planning-model-receipts-v3";
+    internal const string Requests = "flow-planning-model-requests-v4";
+    internal const string Receipts = "flow-planning-model-receipts-v4";
     private readonly ConcurrentDictionary<string, byte> _active = new(StringComparer.Ordinal);
 
     public async Task<LLMResponse> CallAsync(LLMRequest request, CancellationToken ct)
@@ -68,7 +68,7 @@ internal sealed class WorkflowPlanningModelJournal(StepExecutionContext context,
 
 internal sealed class WorkflowPlanningBudgetSink(IKeyVaultRecordStore records, string tenant, string session) : ILLMUsageBudgetSink
 {
-    internal const string Collection = "flow-planning-budgets-v3";
+    internal const string Collection = "flow-planning-budgets-v4";
     public async ValueTask PersistAsync(LLMUsageBudgetSnapshot snapshot, CancellationToken ct)
         => await records.UpsertAsync(Collection, tenant, session, JsonSerializer.Serialize(snapshot, PlanningJsonContext.Default.LLMUsageBudgetSnapshot), WorkflowPlanningRuntimeFactory.Author, ct);
 }

@@ -94,8 +94,8 @@ internal sealed class PlanningIntentAssessment(TimeProvider time)
         var sources = new List<IntentSource> { new("request", "user_request", state.Request.Prompt) };
         if (state.Request.Options["policy"]?["instructions"]?.GetValue<string>() is { Length: > 0 } context)
             sources.Add(new("host", "host_constraint", context));
-        if (state.Request.Baseline is { } existing)
-            sources.Add(new("existing", "existing_workflow", JsonSerializer.Serialize(existing, PlanningJsonContext.Default.PlanningGraph)));
+        if (PlanningContext.BaselineText(state) is { } existing)
+            sources.Add(new("existing", "existing_workflow", existing));
         for (var index = 0; index < state.Intent.Answers.Count; index++)
         {
             var answer = state.Intent.Answers[index];

@@ -7,6 +7,7 @@ def test_load_settings_preserves_declared_mcp_servers(tmp_path) -> None:
     settings = load_settings(path)
     assert settings.workspace_root is not None
     assert settings.mcp_servers["declared"].command == "test-tool"
+    assert set(settings.mcp_servers) == {"declared"}
 
 
 def test_load_settings_has_default_telemetry_from_settings_example() -> None:

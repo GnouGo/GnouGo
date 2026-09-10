@@ -207,7 +207,7 @@ export const STEP_TYPES: StepTypeDef[] = [
       { name: 'limits', label: 'Workflow limits (JSON)', type: 'json', placeholder: '{ "max_steps_total": 100 }' },
       { name: 'llm_budget', label: 'Model budget (JSON)', type: 'json', placeholder: '{ "max_calls": 100, "max_total_tokens": 15000000 }' },
       { name: 'max_concurrency', label: 'Independent workflows', type: 'number', defaultValue: 4 },
-      { name: 'max_repairs', label: 'Typed repair allowance', type: 'number', defaultValue: 3 },
+      { name: 'max_repairs_per_workflow_gate', label: 'Repairs per workflow and gate', type: 'number', defaultValue: 5 },
     ],
   },
   {
