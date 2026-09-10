@@ -13,7 +13,8 @@ internal static class PlanningSchemaReferences
         .OrderBy(c => c.Id, StringComparer.Ordinal).SelectMany(c => Entries(c)
         .Where(entry => PlanningContractValidation.ValidateSchema(entry.Schema).Count == 0).Select(entry => (JsonNode)new JsonObject
         {
-            ["capabilityId"] = c.Id, ["schemaPointer"] = entry.Path
+            ["capabilityId"] = c.Id,
+            ["schemaPointer"] = entry.Path
         })).ToArray());
 
     internal static JsonObject Resolve(PlanningSchema schema, PlanningPreparation preparation)

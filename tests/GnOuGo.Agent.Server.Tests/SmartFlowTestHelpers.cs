@@ -1,4 +1,4 @@
-﻿using System.Reflection;
+using System.Reflection;
 using System.Text.Json.Nodes;
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -67,103 +67,7 @@ internal sealed class RecordingLlmClient : ILLMClient
     {
         CallCount++;
         LastRequest = request;
-        if (request.Prompt.Contains("provider-neutral workflow intent clarification analyst", StringComparison.OrdinalIgnoreCase))
-        {
-            var hasAnswers = request.Prompt.Contains("<clarification_answers_json>", StringComparison.Ordinal);
-            return Task.FromResult(WithUsage(new LLMResponse
-            {
-                Json = hasAnswers
-                    ? new JsonObject
-                    {
-                        ["outcome"] = "sufficient",
-                        ["reason"] = "The workflow intent is complete.",
-                        ["questions"] = new JsonArray()
-                    }
-                    : new JsonObject
-                    {
-                        ["outcome"] = "questions",
-                        ["reason"] = "Confirm the intended response style.",
-                        ["questions"] = new JsonArray
-                        {
-                            new JsonObject
-                            {
-                                ["id"] = "response_style",
-                                ["prompt"] = "How should the agent format its response?",
-                                ["options"] = new JsonArray
-                                {
-                                    new JsonObject
-                                    {
-                                        ["value"] = "Concise response",
-                                        ["description"] = "Return a focused response with the essential details.",
-                                        ["recommended"] = true,
-                                        ["external_write_confirmation_policy"] = "unchanged"
-                                    },
-                                    new JsonObject
-                                    {
-                                        ["value"] = "Detailed response",
-                                        ["description"] = "Return a more extensive response with supporting detail.",
-                                        ["recommended"] = false,
-                                        ["external_write_confirmation_policy"] = "unchanged"
-                                    }
-                                }
-                            }
-                        }
-                    }
-            }));
-        }
-        if (request.Prompt.Contains("domain-neutral workflow runtime analyst", StringComparison.OrdinalIgnoreCase))
-        {
-            return Task.FromResult(WithUsage(new LLMResponse
-            {
-                Json = new JsonObject
-                {
-                    ["complete"] = true,
-                    ["incomplete_reasons"] = new JsonArray(),
-                    ["operations"] = new JsonArray(),
-                    ["constraints"] = new JsonArray()
-                }
-            }));
-        }
-        if (request.Prompt.Contains("domain-neutral capability matcher", StringComparison.OrdinalIgnoreCase))
-        {
-            return Task.FromResult(WithUsage(new LLMResponse
-            {
-                Json = new JsonObject
-                {
-                    ["operation_matches"] = new JsonArray(),
-                    ["constraint_matches"] = new JsonArray()
-                }
-            }));
-        }
-        var text = BuildResponseText(request);
-        if (request.StructuredOutputSchema?["properties"] is JsonObject properties
-            && properties.ContainsKey("yaml"))
-        {
-            var addressedCodes = new JsonArray();
-            if (properties["addressed_diagnostic_codes"]?["items"]?["enum"] is JsonArray allowedCodes)
-            {
-                foreach (var code in allowedCodes)
-                    addressedCodes.Add(code?.DeepClone());
-            }
-
-            static string EnumValue(JsonObject schemaProperties, string name)
-                => schemaProperties[name]!["enum"]![0]!.GetValue<string>();
-            return Task.FromResult(WithUsage(new LLMResponse
-            {
-                Text = text,
-                Json = new JsonObject
-                {
-                    ["schema_version"] = EnumValue(properties, "schema_version"),
-                    ["contract_fingerprint"] = EnumValue(properties, "contract_fingerprint"),
-                    ["base_candidate_fingerprint"] = EnumValue(properties, "base_candidate_fingerprint"),
-                    ["diagnostic_fingerprint"] = EnumValue(properties, "diagnostic_fingerprint"),
-                    ["addressed_diagnostic_codes"] = addressedCodes,
-                    ["yaml"] = text
-                }
-            }));
-        }
-
-        return Task.FromResult(WithUsage(new LLMResponse { Text = text }));
+        return Task.FromResult(WithUsage(new LLMResponse { Text = "stub-response" }));
     }
 
     private static LLMResponse WithUsage(LLMResponse response)
@@ -177,97 +81,6 @@ internal sealed class RecordingLlmClient : ILLMClient
         return response;
     }
 
-    private static string BuildResponseText(LLMRequest request)
-    {
-        if (request.Prompt.Contains("preparing a raw user automation prompt", StringComparison.OrdinalIgnoreCase))
-        {
-            return """
-                # Generated chat agent
-
-                Build a persisted chat agent that accepts a `task` string and returns an `answer` string.
-                """;
-        }
-
-        if (request.Prompt.Contains("annotate normalized automation Markdown", StringComparison.OrdinalIgnoreCase))
-        {
-            return """
-                # Generated chat agent
-
-                Build a persisted chat agent that accepts a `task` string and returns an `answer` string.
-
-                ## Main workflow orchestration
-
-                Implement the answer directly in the main workflow. No leaf subworkflow is needed.
-                """;
-        }
-
-        if (request.Prompt.Contains("assembling the parent `main` workflow", StringComparison.OrdinalIgnoreCase))
-        {
-            return """
-                document:
-                  name: generated-agent
-                  skill:
-                    description: Generated chat agent workflow.
-                    tags: [agent, generated]
-                    inputs:
-                      task: { type: string }
-                    outputs:
-                      answer: { type: string }
-                main:
-                  inputs:
-                    task:
-                      type: string
-                      required: true
-                  steps:
-                    - id: final_answer
-                      type: set
-                      input:
-                        answer: "${data.inputs.task}"
-                  outputs:
-                    answer:
-                      expr: "${data.steps.final_answer.answer}"
-                      type: string
-                """;
-        }
-
-        if (request.Prompt.Contains("Generate a valid GnOuGo.Flow YAML workflow", StringComparison.OrdinalIgnoreCase)
-            || request.Prompt.Contains("Return only a complete workflow YAML document", StringComparison.OrdinalIgnoreCase)
-            || request.Prompt.Contains("Repair an existing GnOuGo.Flow YAML workflow", StringComparison.OrdinalIgnoreCase))
-        {
-            return """
-                version: 1
-                name: generated-agent
-                skill:
-                  description: Generated chat agent workflow.
-                  tags: [agent, generated]
-                  inputs:
-                    task:
-                      type: string
-                      description: User request to answer.
-                  outputs:
-                    answer:
-                      type: string
-                      description: Final answer for the user.
-                workflows:
-                  main:
-                    inputs:
-                      task:
-                        type: string
-                        required: true
-                    steps:
-                      - id: final_answer
-                        type: set
-                        input:
-                          answer: "${data.inputs.task}"
-                    outputs:
-                      answer:
-                        expr: "${data.steps.final_answer.answer}"
-                        type: string
-                """;
-        }
-
-        return "stub-response";
-    }
 }
 
 internal sealed class TestExchangeRateProvider(decimal rate = 1m) : IExchangeRateProvider
@@ -423,8 +236,7 @@ internal static class SmartFlowTestFactory
         RecordingLlmClient llmClient,
         IMcpClientFactory mcpFactory,
         LLMOptions? options = null,
-        IKeyVaultRuntimeConfigStore? keyVaultStore = null,
-        TypedWorkflowPlanningSettings? typedWorkflowPlanning = null)
+        IKeyVaultRuntimeConfigStore? keyVaultStore = null)
     {
         var runtimeStore = CreateRuntimeOptionsStore(options);
         var effectiveKeyVaultStore = keyVaultStore ?? new FakeKeyVaultRuntimeConfigStore();
@@ -440,8 +252,7 @@ internal static class SmartFlowTestFactory
             runtimeStore,
             CreateTelemetry(),
             NullLogger<ConfigureAgentsService>.Instance,
-            exchangeRateProvider: new TestExchangeRateProvider(),
-            typedWorkflowPlanning: typedWorkflowPlanning is null ? null : Options.Create(typedWorkflowPlanning));
+            exchangeRateProvider: new TestExchangeRateProvider());
     }
 
     public static SmartFlowService CreateSmartFlowService(
@@ -465,7 +276,7 @@ internal static class SmartFlowTestFactory
             configureAgents,
             new AgentHumanInputProvider(),
             CreateTelemetry(),
-            NullLogger<SmartFlowService>.Instance,
+            NullLogger<SmartFlowService>.Instance, null!,
             traceFileExporter: traceFileExporter);
     }
 

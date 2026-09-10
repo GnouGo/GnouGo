@@ -41,7 +41,6 @@
     <ProjectReference Include="..\GnOuGo.DocIngestor.Mcp\GnOuGo.DocIngestor.Mcp.csproj" />
     <ProjectReference Include="..\GnOuGo.Flow.Core\GnOuGo.Flow.Core.csproj" />
     <ProjectReference Include="..\GnOuGo.Flow.Planning\GnOuGo.Flow.Planning.csproj" />
-    <ProjectReference Include="..\GnOuGo.Flow.Authoring.JavaScript\GnOuGo.Flow.Authoring.JavaScript.csproj" />
     <ProjectReference Include="..\GnOuGo.Flow.Integrations\GnOuGo.Flow.Integrations.csproj" />
     <ProjectReference Include="..\GnOuGo.Flow.Mermaid\GnOuGo.Flow.Mermaid.csproj" />
     <ProjectReference Include="..\GnOuGo.Files.Server\GnOuGo.Files.Server.csproj" />
@@ -145,7 +144,6 @@
 
   <ItemGroup>
     <EmbeddedResource Include="SmartFlow\main-routing-agent.yaml" />
-    <EmbeddedResource Include="SmartFlow\dynamic-workflow-agent.yaml" />
     <EmbeddedResource Include="SmartFlow\configure-agents-agent.yaml" />
   </ItemGroup>
 

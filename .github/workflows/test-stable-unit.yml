@@ -1,4 +1,4 @@
-﻿name: Stable Unit Tests
+name: Stable Unit Tests
 
 on:
   workflow_call:
@@ -72,10 +72,6 @@ jobs:
       - name: Run gnougo-flow-cli unit tests
         working-directory: librairies/python/gnougo-flow-cli
         run: uv run --extra dev pytest -q
-
-      - name: Run planner benchmark comparator tests
-        working-directory: ${{ github.workspace }}
-        run: python -m unittest discover -s tests/planning_benchmarks -v
 
       - name: Test protocol acquisition recovery
         run: python -m unittest discover -s scripts/tests -v

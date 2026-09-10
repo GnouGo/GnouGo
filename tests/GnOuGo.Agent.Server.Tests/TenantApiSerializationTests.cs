@@ -1,4 +1,4 @@
-﻿using System.Text.Json;
+using System.Text.Json;
 using System.Text.Json.Nodes;
 using OtlpTenantCollector.Models;
 using OtlpTenantCollector.Web;
@@ -79,5 +79,3 @@ public sealed class TenantApiSerializationTests
         return document.RootElement.Clone();
     }
 }
-
-

@@ -8,8 +8,8 @@ internal static class PlanningProducerContracts
 {
     // A newly constructed action with declared object fields already has its producer
     // contract. Additional extraction belongs to an explicit transformation, not a
-    // second model-written interpretation of the same response. Preserve legacy
-    // structured declarations and their already-reviewed consumer bindings.
+    // second model-written interpretation of the same response. Preserve validated
+    // structured declarations and their accepted consumer bindings.
     internal static bool UsesDeclaredObject(PlanningNode node, PlanningPreparation preparation) => node.Type == "mcp.call" && node.StructuredOutput is null && !StructuredDecisions(node, preparation).Any() &&
         preparation.Capabilities.FirstOrDefault(c => c.Id == node.CapabilityId)?.OutputSchema is { } schema &&
         schema["type"]?.ToString() == "object" && schema["properties"] is System.Text.Json.Nodes.JsonObject { Count: > 0 };

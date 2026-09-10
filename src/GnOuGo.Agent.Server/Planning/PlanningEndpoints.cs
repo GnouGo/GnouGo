@@ -23,8 +23,15 @@ internal static class PlanningEndpoints
         {
             try
             {
-                var state = await service.SubmitAsync(id, new PlanningCommand { Kind = request.Kind, ExpectedRevision = request.ExpectedRevision, ArtifactHash = request.ArtifactHash, Text = request.Text, Answers = request.Answers,
-                    Generation = request.Generation is { } options ? new() { Reasoning = options.Reasoning, MaxNodesPerUnit = options.MaxNodesPerUnit, MaxInputTokensPerUnit = options.MaxInputTokensPerUnit, MaxOutputTokens = options.MaxOutputTokens } : null }, ct);
+                var state = await service.SubmitAsync(id, new PlanningCommand
+                {
+                    Kind = request.Kind,
+                    ExpectedRevision = request.ExpectedRevision,
+                    ArtifactHash = request.ArtifactHash,
+                    Text = request.Text,
+                    Answers = request.Answers,
+                    Generation = request.Generation is { } options ? new() { Reasoning = options.Reasoning, MaxInputTokensPerRequest = options.MaxInputTokensPerRequest, MaxOutputTokens = options.MaxOutputTokens } : null
+                }, ct);
                 return Results.Json(ToDto(state), ChatJsonContext.Default.PlanningSessionDto);
             }
             catch (PlanningConflictException ex) { return Results.Conflict(ex.Message); }
@@ -35,25 +42,22 @@ internal static class PlanningEndpoints
 
     internal static PlanningSessionDto ToDto(PlanningSnapshot snapshot) => new(
         snapshot.Request.SessionId, snapshot.Request.Name, snapshot.Revision, snapshot.Status, snapshot.BehaviorPlan?.Summary ?? snapshot.Graph?.Summary ?? "",
-        PlanningReviewFormatter.Diagram(DisplayGraph(snapshot), snapshot.Preparation, snapshot.PreviousGraph ?? snapshot.ReviewedGraph), PlanningReviewFormatter.BehaviorDetails(DisplayGraph(snapshot)), snapshot.Yaml, snapshot.ArtifactHash, snapshot.ApprovedHash,
+        PlanningReviewFormatter.Diagram(DisplayGraph(snapshot), snapshot.Preparation), PlanningReviewFormatter.BehaviorDetails(DisplayGraph(snapshot)), snapshot.Yaml, snapshot.ArtifactHash, snapshot.ApprovedHash,
         snapshot.ActiveMilliseconds, snapshot.HumanWaitMilliseconds + (snapshot.WaitingSinceUtc is { } waiting ? Math.Max(0, (DateTimeOffset.UtcNow - waiting).TotalMilliseconds) : 0),
         snapshot.Diagnostics.Select(d => new PlanningValidationDto(d.Code, d.Location, d.Message, d.Required)).ToArray(),
-        snapshot.Scenarios.Select(s => new PlanningScenarioDto(s.Id, s.Outcome, s.Description)).ToArray(),
-        snapshot.History.Select(r => new PlanningRevisionDto(r.Revision, r.ArtifactHash, r.Status, r.ChangedFragments)).ToArray(),
-        snapshot.Question is null ? null : HumanInputContract.BuildRequestPayload(snapshot.Question),
+        snapshot.Validation.Scenarios.Select(s => new PlanningScenarioDto(s.Id, s.Outcome, s.Description)).ToArray(),
+        snapshot.History.Select(r => new PlanningRevisionDto(r.Revision, r.ArtifactHash, r.Status, r.ChangedWorkflows)).ToArray(),
+        snapshot.Intent.Question is null ? null : HumanInputContract.BuildRequestPayload(snapshot.Intent.Question),
         snapshot.Usage?.Calls ?? 0, snapshot.Usage?.InputTokens ?? 0, snapshot.Usage?.OutputTokens ?? 0, snapshot.Usage?.EstimatedCost ?? 0, snapshot.Usage?.EstimatedCostCurrency ?? "", snapshot.Outcome,
-        snapshot.SchemaVersion, PlanningPhase.Resolve(snapshot),
+        PlanningPhase.Resolve(snapshot),
         snapshot.BehaviorPlan is null ? null : System.Text.Json.JsonSerializer.SerializeToNode(snapshot.BehaviorPlan, PlanningJsonContext.Default.PlanningBehaviorPlan)!.AsObject(),
         snapshot.ApprovedBehaviorHash, snapshot.Status == PlanningStatus.Recovery ? "Planning paused in " + PlanningPhase.Resolve(snapshot) + ". " + snapshot.Diagnostics.Count(d => d.Required) + " required findings remain; session history is retained." : null,
-        snapshot.Answers.Count, snapshot.Request.Options["generator"]?["model"]?.GetValue<string>(),
+        snapshot.Intent.Answers.Count, snapshot.Request.Options["generator"]?["model"]?.GetValue<string>(),
         snapshot.Request.Generation.Reasoning ?? snapshot.Request.Options["generator"]?["reasoning"]?.GetValue<string>() ?? "medium",
-        snapshot.ConstructionUnits.Where(u => u.Status != "superseded").Select(u => new PlanningUnitDto(u.Key, u.Kind, u.Status, u.NodeKeys.Count, u.Calls, u.RepairCalls,
-            u.ContractVersion, u.EstimatedInputTokens, u.InputTokenLimit, u.DispatchOutcome, u.PartialCandidate, u.GeneratedFieldGroups))
-            .Concat(snapshot.SourceCandidates.Select(c => new PlanningUnitDto(c.WorkflowKey, c.Format == PlanningConstructionStrategies.JavaScriptV1 ? "javascript_workflow" : "typed_workflow", c.Status,
-                c.Candidate is null ? 0 : PlanningGraphCompiler.Enumerate(c.Candidate.Steps.Concat(c.Candidate.Finally)).Count(), c.Calls, Math.Max(0, c.Calls - 1),
-                EstimatedInputTokens: c.EstimatedInputTokens, InputTokenLimit: c.InputTokenLimit)))
-            .ToArray(), snapshot.Dataflow?.Fingerprint, snapshot.Dataflow?.Bindings.Count ?? 0, snapshot.PreparationCheckpoint?.Stage, snapshot.Preparation?.DecisionContractVersion ?? 0, snapshot.Preparation?.Decisions.Count ?? 0,
-        snapshot.Request.ConstructionStrategy);
+        snapshot.Construction.Workflows.Select(w => new PlanningWorkflowDto(w.WorkflowKey, w.Status, w.Dependencies, w.Calls, w.RepairCalls,
+            w.EstimatedInputTokens, w.InputTokenLimit)).ToArray(), snapshot.Construction.Dataflow?.Fingerprint,
+        snapshot.Construction.Dataflow?.Bindings.Count ?? 0, snapshot.PreparationCheckpoint?.Stage,
+        snapshot.Preparation?.DecisionContractVersion ?? 0, snapshot.Preparation?.Decisions.Count ?? 0);
 
     private static PlanningGraph? DisplayGraph(PlanningSnapshot snapshot) => snapshot.BehaviorPlan is { } behavior ? PlanningBehaviorPlans.Display(behavior, snapshot.Preparation) : snapshot.Graph;
 }

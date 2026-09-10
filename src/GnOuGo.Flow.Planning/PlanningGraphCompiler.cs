@@ -195,7 +195,9 @@ public sealed partial class PlanningGraphCompiler
         }
         if (node.Retry is not null) result["retry"] = Retry(node.Retry);
         if (node.OnError.Count > 0)
-            result["on_error"] = new JsonObject { ["cases"] = new JsonArray(node.OnError.Select(c =>
+            result["on_error"] = new JsonObject
+            {
+                ["cases"] = new JsonArray(node.OnError.Select(c =>
             {
                 if (c.Action is not ("stop" or "continue")) throw new InvalidOperationException("Unknown error action.");
                 var errorCase = new JsonObject { ["action"] = c.Action };
@@ -203,7 +205,8 @@ public sealed partial class PlanningGraphCompiler
                 if (c.SetOutput is not null) errorCase["set_output"] = LowerValue(c.SetOutput, scope);
                 if (c.Retry is not null) errorCase["retry"] = Retry(c.Retry);
                 return (JsonNode)errorCase;
-            }).ToArray()) };
+            }).ToArray())
+            };
         if (node.Steps.Count > 0) result["steps"] = LowerSteps(node.Steps, scope);
         if (node.Branches.Count > 0) result["branches"] = new JsonArray(node.Branches.Select(b => (JsonNode)new JsonObject { ["steps"] = LowerSteps(b.Steps, scope) }).ToArray());
         if (node.Cases.Count > 0) result["cases"] = new JsonArray(node.Cases.Select(c =>
@@ -245,7 +248,10 @@ public sealed partial class PlanningGraphCompiler
 
     private static JsonObject Retry(Core.Models.RetryPolicy retry) => new()
     {
-        ["max"] = retry.Max, ["backoff_ms"] = retry.BackoffMs, ["backoff_mult"] = retry.BackoffMult, ["jitter_ms"] = retry.JitterMs
+        ["max"] = retry.Max,
+        ["backoff_ms"] = retry.BackoffMs,
+        ["backoff_mult"] = retry.BackoffMult,
+        ["jitter_ms"] = retry.JitterMs
     };
 
     private static JsonNode? LowerValue(PlanningValue value, LoweringScope scope, bool allowReferences = true, int depth = 0)

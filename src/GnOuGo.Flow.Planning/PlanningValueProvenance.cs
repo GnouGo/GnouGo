@@ -9,7 +9,7 @@ internal static class PlanningValueProvenance
         Func<PlanningNode, PlanningValue, bool> source, HashSet<string>? visited = null)
     {
         visited ??= new(StringComparer.Ordinal);
-        var key = workflow.Key + ":" + PlanningOutputBindings.Id(value);
+        var key = workflow.Key + ":" + PlanningBindingIdentity.Id(value);
         if (!visited.Add(key)) return false;
         try
         {

@@ -307,7 +307,7 @@ public static class ChatRequestBuilder
 
     /// <summary>
     /// Normalizes a generic reasoning level to the OpenAI <c>reasoning_effort</c> enum
-    /// ("minimal" | "low" | "medium" | "high"). Returns <c>null</c> when the field
+    /// ("none" | "minimal" | "low" | "medium" | "high" | "xhigh"). Returns <c>null</c> when the field
     /// must be omitted (auto / unknown / null).
     /// </summary>
     internal static string? NormalizeOpenAiReasoning(string? value)
@@ -316,10 +316,12 @@ public static class ChatRequestBuilder
         return value.Trim().ToLowerInvariant() switch
         {
             "auto" => null,
+            "none" => "none",
             "minimal" or "min" => "minimal",
             "low" => "low",
             "medium" or "med" => "medium",
             "high" or "max" or "maximum" => "high",
+            "xhigh" => "xhigh",
             _ => null
         };
     }

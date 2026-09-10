@@ -52,10 +52,10 @@ public sealed class StepExecutionContext
     public ExecutionLimits Limits { get; init; } = new();
     public int CallDepth { get; init; }
     public HashSet<string> CallStack { get; init; } = new();
-    internal LLMUsageBudgetScope? LLMUsageBudget { get; set; }
-    internal Planning.PlanningGenerationOptions? PlanningGeneration { get; set; }
-    internal Planning.PlanningPreparationCheckpoint? PreparationCheckpoint { get; set; }
-    internal Func<CancellationToken, Task>? PersistPreparation { get; set; }
+    public LLMUsageBudgetScope? LLMUsageBudget { get; set; }
+    public Planning.PlanningGenerationOptions? PlanningGeneration { get; set; }
+    public Planning.PlanningPreparationCheckpoint? PreparationCheckpoint { get; set; }
+    public Func<CancellationToken, Task>? PersistPreparation { get; set; }
     internal WorkflowExecutionScope? ExecutionScope { get; init; }
     internal WorkflowExecutionScope EffectiveExecutionScope =>
         ExecutionScope ?? new WorkflowExecutionScope(null, Engine.Evaluator, Engine.Interpolator);
@@ -67,7 +67,12 @@ public sealed class StepExecutionContext
     /// <summary>
     /// Executes an LLM call through the active provider-neutral usage budget, when configured.
     /// </summary>
-    public async Task<LLMResponse> CallLLMAsync(
+    public Func<LLMRequest, string, CancellationToken, Task<LLMResponse>>? PlanningModelDispatcher { get; set; }
+
+    public Task<LLMResponse> CallLLMAsync(ILLMClient client, LLMRequest request, string stage, CancellationToken ct)
+        => PlanningModelDispatcher is { } dispatcher ? dispatcher(request, stage, ct) : CallModelAsync(client, request, stage, ct);
+
+    public async Task<LLMResponse> CallModelAsync(
         ILLMClient client,
         LLMRequest request,
         string stage,
@@ -80,7 +85,8 @@ public sealed class StepExecutionContext
         if (PreparationCheckpoint is { } checkpoint)
         {
             checkpoint.Stage = stage;
-            checkpoint.RequestHashes.Add(Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(System.Text.Json.JsonSerializer.Serialize(request, Planning.PlanningJsonContext.Default.LLMRequest)))));
+            var requestHash = Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(System.Text.Json.JsonSerializer.Serialize(request, Planning.PlanningJsonContext.Default.LLMRequest))));
+            if (!checkpoint.RequestHashes.Contains(requestHash, StringComparer.Ordinal)) checkpoint.RequestHashes.Add(requestHash);
             if (PersistPreparation is not null) await PersistPreparation(ct).ConfigureAwait(false);
         }
 
@@ -154,7 +160,7 @@ public sealed class StepExecutionContext
             new KeyValuePair<string, object?>("gnougo-flow.plan.structured_output.requested", schemaRequested),
             new KeyValuePair<string, object?>("gnougo-flow.plan.structured_output.strict", request.StructuredOutputStrict == true),
             new KeyValuePair<string, object?>("gnougo-flow.plan.structured_output.schema_version",
-                schemaRequested ? "workflow-plan-response-v1" : string.Empty),
+                schemaRequested ? "planning-json-v3" : string.Empty),
             new KeyValuePair<string, object?>("gnougo-flow.plan.structured_output.schema_fingerprint", schemaFingerprint),
             new KeyValuePair<string, object?>("gnougo-flow.plan.structured_output.capability_source",
                 schemaRequested ? "runtime_request_contract" : "none"),
@@ -317,8 +323,8 @@ public sealed class TelemetrySpanScope : IDisposable
     public void AddEvent(string name, IReadOnlyList<KeyValuePair<string, object?>>? attributes = null)
         => _span.AddEvent(name, attributes);
 
-    internal ITelemetrySpan Span => _span;
-    internal IModelUsageCostEstimator? ModelUsageCostEstimator { get; }
+    public ITelemetrySpan Span => _span;
+    public IModelUsageCostEstimator? ModelUsageCostEstimator { get; }
 
     public void Fail(Exception ex)
     {

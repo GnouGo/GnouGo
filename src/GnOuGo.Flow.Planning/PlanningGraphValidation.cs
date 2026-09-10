@@ -521,8 +521,10 @@ public static class PlanningGraphValidation
 
     internal static JsonNode? Literal(PlanningValue value) => value.Kind switch
     {
-        "null" => null, "string" when value.Text?.Contains("${", StringComparison.Ordinal) != true => JsonValue.Create(value.Text ?? ""),
-        "number" => JsonValue.Create(value.Number), "boolean" => JsonValue.Create(value.Boolean),
+        "null" => null,
+        "string" when value.Text?.Contains("${", StringComparison.Ordinal) != true => JsonValue.Create(value.Text ?? ""),
+        "number" => JsonValue.Create(value.Number),
+        "boolean" => JsonValue.Create(value.Boolean),
         "object" => new JsonObject(value.Members.Select(m => new KeyValuePair<string, JsonNode?>(m.Name, Literal(m.Value)))),
         "array" => new JsonArray(value.Items.Select(Literal).ToArray()),
         _ => throw new InvalidOperationException("A schema configuration requires literals, not data references or expressions.")
@@ -531,8 +533,12 @@ public static class PlanningGraphValidation
     private static JsonObject ObjectSchema(IEnumerable<(string Name, JsonObject Schema)> properties)
     {
         var members = properties.ToArray();
-        return new() { ["type"] = "object", ["properties"] = new JsonObject(members.Select(p => new KeyValuePair<string, JsonNode?>(p.Name, p.Schema.DeepClone()))),
-            ["required"] = new JsonArray(members.Select(p => (JsonNode?)JsonValue.Create(p.Name)).ToArray()) };
+        return new()
+        {
+            ["type"] = "object",
+            ["properties"] = new JsonObject(members.Select(p => new KeyValuePair<string, JsonNode?>(p.Name, p.Schema.DeepClone()))),
+            ["required"] = new JsonArray(members.Select(p => (JsonNode?)JsonValue.Create(p.Name)).ToArray())
+        };
     }
 
     private static bool HasType(JsonNode? type, string name) => type is JsonValue scalar && scalar.TryGetValue<string>(out var value) && value == name ||

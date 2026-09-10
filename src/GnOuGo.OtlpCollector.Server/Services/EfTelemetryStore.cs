@@ -21,19 +21,13 @@ public sealed class EfTelemetryStore
 
     /// <summary>
     /// Initializes the database (creates tables if needed).
-    /// In DevMode, recreates the DB for a clean schema.
+    /// Existing data is preserved, including when another host has the database open.
     /// </summary>
-    public async Task InitializeAsync(bool devMode = false)
+    public async Task InitializeAsync(CancellationToken ct = default)
     {
         try
         {
-            if (devMode)
-            {
-                _logger.LogWarning("[DevMode] Database dropped and will be recreated with current schema.");
-                await _db.Database.EnsureDeletedAsync();
-            }
-
-            await _db.Database.EnsureCreatedAsync();
+            await _db.Database.EnsureCreatedAsync(ct);
             _logger.LogInformation("Database initialized successfully");
         }
         catch (Exception ex)

@@ -7,32 +7,6 @@ namespace GnOuGo.Flow.Planning.Tests;
 
 public sealed class BehaviorActivationTests
 {
-    [Theory]
-    [InlineData("parse", "inspect")]
-    [InlineData("lire", "analyser")]
-    public async Task UnrelatedLocalContainerBindingReturnsThroughBehaviorReviewAfterRestart(string first, string second)
-    {
-        var preparation = TypedPlannerTests.Preparation();
-        preparation.Capabilities = [new() { Id = "local-first", StepType = "set", Resolution = "local", EffectKind = "none", OperationIds = [first] },
-            new() { Id = "local-second", StepType = "set", Resolution = "local", EffectKind = "none", OperationIds = [second] }];
-        var plan = TypedPlannerTests.BehaviorPlan(); var workflow = plan.Workflows[0]; workflow.OperationIds = [first, second];
-        workflow.Steps = [new() { Key = "first", Kind = "operation", CapabilityId = "local-first", OperationIds = [first], Purpose = "Prepare input" },
-            new() { Key = "repeat", Kind = "loop", CapabilityId = "local-first", OperationIds = [second], Purpose = "Repeat observations", Steps =
-                [new() { Key = "observe", Kind = "operation", CapabilityId = "local-second", OperationIds = [second], Purpose = "Observe each item" }] }];
-        Assert.Contains(PlanningBehaviorPlans.Validate(plan, preparation), d => d.Location.EndsWith("/repeat/capabilityId", StringComparison.Ordinal));
-        var state = TypedPlannerTests.Session(PlanningStatus.Recovery); state.IntentChecked = true; state.Preparation = preparation; state.BehaviorPlan = plan;
-        state.ApprovedBehaviorHash = PlanningBehaviorPlans.Fingerprint(plan); state.Graph = PlanningBehaviorPlans.Display(plan, preparation);
-        state = JsonSerializer.Deserialize(JsonSerializer.Serialize(state, PlanningJsonContext.Default.PlanningSnapshot), PlanningJsonContext.Default.PlanningSnapshot)!;
-        workflow.Steps[1].CapabilityId = null; Assert.Empty(PlanningBehaviorPlans.Validate(plan, preparation));
-        foreach (var node in PlanningBehaviorPlans.Enumerate(workflow.Steps)) node.InputDependencies ??= [];
-        var runtime = new TypedPlannerTests.FakeRuntime { OnCall = (_, _, _) => Task.FromResult(new LLMResponse { Json = JsonSerializer.SerializeToNode(plan, PlanningJsonContext.Default.PlanningBehaviorPlan) }) };
-        var planner = new TypedWorkflowPlanner();
-        state = await planner.AdvanceAsync(state, new() { Kind = "retry", ExpectedRevision = state.Revision }, runtime, TestContext.Current.CancellationToken);
-        if (state.Status == PlanningStatus.Created) state = await planner.AdvanceAsync(state, new() { ExpectedRevision = state.Revision }, runtime, TestContext.Current.CancellationToken);
-        Assert.True(state.Status == PlanningStatus.BehaviorReview, string.Join("; ", state.Diagnostics.Select(d => d.Code + ": " + d.Message))); Assert.Null(state.ApprovedBehaviorHash);
-        Assert.Equal("repeat", state.BehaviorPlan!.Workflows[0].Steps[1].Key);
-        Assert.Null(state.BehaviorPlan.Workflows[0].Steps[1].CapabilityId); Assert.Single(runtime.Requests);
-    }
 
     [Theory]
     [InlineData("default", "Publish result")]
@@ -43,7 +17,7 @@ public sealed class BehaviorActivationTests
         var decision = plan.Workflows[0].Steps[0]; decision.Outcomes.RemoveRange(1, 2);
         decision.Outcomes[0] = decision.Outcomes[0] with { Key = caseKey, Description = purpose };
         var explicitCase = JsonSerializer.Serialize(decision.Outcomes[0], PlanningJsonContext.Default.PlanningBehaviorOutcome);
-        var state = TypedPlannerTests.Session(PlanningStatus.Created); state.IntentChecked = true; state.Preparation = preparation; state.BehaviorPlan = plan;
+        var state = TypedPlannerTests.Session(PlanningStatus.Created); state.Intent.Checked = true; state.Preparation = preparation; state.BehaviorPlan = plan;
         var runtime = new TypedPlannerTests.FakeRuntime();
         state = await new TypedWorkflowPlanner().AdvanceAsync(state, new() { ExpectedRevision = state.Revision }, runtime, TestContext.Current.CancellationToken);
         Assert.Equal(PlanningStatus.BehaviorReview, state.Status); Assert.Empty(runtime.Requests); Assert.Null(state.ApprovedBehaviorHash);
@@ -66,7 +40,7 @@ public sealed class BehaviorActivationTests
         var plan = TypedPlannerTests.BehaviorPlan(); plan.Workflows[0].OperationIds = ["operation"];
         var node = plan.Workflows[0].Steps[0]; node.Kind = "operation"; node.CapabilityId = "binding"; node.OperationIds = ["operation"];
         preparation.AllowedStepTypes.Add("decision.evaluate");
-        var state = TypedPlannerTests.Session(PlanningStatus.Created); state.IntentChecked = true; state.Preparation = preparation;
+        var state = TypedPlannerTests.Session(PlanningStatus.Created); state.Intent.Checked = true; state.Preparation = preparation;
         var runtime = new TypedPlannerTests.FakeRuntime { OnCall = (_, _, _) => Task.FromResult(new LLMResponse { Json = JsonSerializer.SerializeToNode(plan, PlanningJsonContext.Default.PlanningBehaviorPlan) }) };
         state = await new TypedWorkflowPlanner().AdvanceAsync(state, new() { ExpectedRevision = state.Revision }, runtime, TestContext.Current.CancellationToken);
         Assert.Equal(PlanningStatus.BehaviorReview, state.Status);
@@ -106,7 +80,11 @@ public sealed class BehaviorActivationTests
         var preparation = TypedPlannerTests.Preparation();
         preparation.Capabilities.Add(new()
         {
-            Id = prefix + "cap", StepType = "mcp.call", EffectKind = "write", Required = true, OperationIds = [prefix + "op"],
+            Id = prefix + "cap",
+            StepType = "mcp.call",
+            EffectKind = "write",
+            Required = true,
+            OperationIds = [prefix + "op"],
             Activation = new("all_on_value", prefix + "group", prefix + "decision", "APPLY")
             { AllowedValues = ["APPLY", "NO_EFFECT"], NoEffectValues = ["NO_EFFECT"] }
         });
@@ -144,42 +122,18 @@ public sealed class BehaviorActivationTests
         var (plan, preparation) = Fixture("capability_");
         var inner = plan.Workflows[0];
         inner.Key = "child";
-        plan.Workflows.Insert(0, new() { Key = "main", Purpose = "Outer choice", Steps = [new()
+        plan.Workflows.Insert(0, new()
+        {
+            Key = "main",
+            Purpose = "Outer choice",
+            Steps = [new()
         {
             Key = "outer", Kind = "decision", Purpose = "Readiness", Outcomes = [
                 new("stop", "Stop", false, []),
                 new("otherwise", "Continue", true, [new() { Key = "call", Kind = "workflow", WorkflowKey = "child", Purpose = "Call child" }])]
-        }] });
+        }]
+        });
         Assert.Contains(PlanningBehaviorPlans.Validate(plan, preparation), d => d.Location.Contains("outer", StringComparison.Ordinal) && d.Message.Contains("non-mutating", StringComparison.Ordinal));
-    }
-
-    [Theory]
-    [InlineData(PlanningStatus.Recovery)]
-    [InlineData(PlanningStatus.BehaviorReview)]
-    public async Task RetryInvalidatedBehaviorRequiresNewReviewAndPreservesIntentAndUsage(string status)
-    {
-        var (plan, preparation) = Fixture("generic_");
-        plan.Workflows[0].Steps[0].Outcomes[0] = plan.Workflows[0].Steps[0].Outcomes[0] with { Key = "old_alias" };
-        var state = TypedPlannerTests.Session(status);
-        state.Preparation = preparation; state.BehaviorPlan = plan; state.IntentChecked = true;
-        state.Graph = PlanningBehaviorPlans.Display(plan, preparation);
-        state.ApprovedBehaviorHash = PlanningBehaviorPlans.Fingerprint(plan);
-        state.Answers.Add(new("Question", new JsonObject { ["answer"] = "Keep existing criteria" }));
-        state.ClarificationForms = 1; state.ClarificationQuestions = 2; state.ActiveMilliseconds = 123;
-        state.Diagnostics = [new("OLD", "$", "Old finding")];
-        var result = await new TypedWorkflowPlanner().AdvanceAsync(state, new() { Kind = "retry", ExpectedRevision = state.Revision }, new TypedPlannerTests.FakeRuntime(), TestContext.Current.CancellationToken);
-        Assert.Equal(PlanningStatus.Created, result.Status);
-        Assert.Equal(PlanningPhase.Behavior, result.CurrentPhase);
-        Assert.Null(result.ApprovedBehaviorHash); Assert.Null(result.Graph); Assert.Null(result.ArtifactHash);
-        Assert.NotNull(result.PreviousGraph); Assert.Empty(result.Diagnostics);
-        Assert.Equal(state.Request.SessionId, result.Request.SessionId);
-        Assert.Equal(state.Request.Prompt, result.Request.Prompt);
-        Assert.Single(result.Answers); Assert.Single(result.IntentHistory);
-        Assert.Equal(1, result.ClarificationForms); Assert.Equal(2, result.ClarificationQuestions);
-        Assert.True(result.ActiveMilliseconds >= 123);
-        var restored = JsonSerializer.Deserialize(JsonSerializer.Serialize(result, PlanningJsonContext.Default.PlanningSnapshot), PlanningJsonContext.Default.PlanningSnapshot)!;
-        Assert.Equal("APPLY", restored.Preparation!.Capabilities[0].Activation!.BranchValue);
-        Assert.Null(restored.ApprovedBehaviorHash);
     }
 
     [Fact]

@@ -4,30 +4,10 @@ using GnOuGo.Flow.Core.Planning;
 
 namespace GnOuGo.Flow.Planning;
 
-/// <summary>Compact model transport; persisted v2 contracts retain compatible defaults.</summary>
+/// <summary>Compact typed model transport.</summary>
 public static class PlanningModelValues
 {
     public static JsonObject Workflow(PlanningWorkflow workflow) => Compact(JsonSerializer.SerializeToNode(workflow, PlanningJsonContext.Default.PlanningWorkflow)!)!.AsObject();
-
-    public static JsonObject WholeWorkflow(PlanningWorkflow workflow)
-    {
-        var json = Workflow(workflow);
-        Trim(json);
-        return json;
-        static void Trim(JsonNode? node)
-        {
-            if (node is JsonArray array) { foreach (var item in array) Trim(item); return; }
-            if (node is not JsonObject obj) return;
-            string[]? fields = obj["kind"]?.ToString() switch
-            {
-                "loop_item" or "loop_index" or "loop_previous" or "artifact_collection" => ["kind", "source", "path"],
-                "decision_binding" => ["kind", "items"], "confirmation" => ["kind", "source", "text", "items"], _ => null
-            };
-            if (fields is not null)
-                foreach (var key in obj.Select(p => p.Key).Where(k => !fields.Contains(k, StringComparer.Ordinal)).ToArray()) obj.Remove(key);
-            foreach (var field in obj) Trim(field.Value);
-        }
-    }
 
     internal static JsonNode? Compact(JsonNode? node)
     {
@@ -38,9 +18,20 @@ public static class PlanningModelValues
         {
             names = kind.GetValue<string>() switch
             {
-                "null" => ["kind"], "string" or "expression" => ["kind", "text"], "number" => ["kind", "number"], "boolean" => ["kind", "boolean"],
-                "object" => ["kind", "members"], "array" => ["kind", "items"], "input" => ["kind", "source", "path"], "workflow" => ["kind", "source"],
-                "output" => ["kind", "source", "path", "resultChannel"], "template" or "compute" => ["kind", "text", "members"], _ => names
+                "null" => ["kind"],
+                "string" or "expression" => ["kind", "text"],
+                "number" => ["kind", "number"],
+                "boolean" => ["kind", "boolean"],
+                "object" => ["kind", "members"],
+                "array" => ["kind", "items"],
+                "input" => ["kind", "source", "path"],
+                "workflow" => ["kind", "source"],
+                "loop_item" or "loop_index" or "loop_previous" or "artifact_collection" => ["kind", "source", "path"],
+                "decision_binding" => ["kind", "items"],
+                "confirmation" => ["kind", "source", "text", "items"],
+                "output" => ["kind", "source", "path", "resultChannel"],
+                "template" or "compute" => ["kind", "text", "members"],
+                _ => names
             };
         }
         else if (obj.ContainsKey("schemaPointer") && obj.ContainsKey("nullable"))

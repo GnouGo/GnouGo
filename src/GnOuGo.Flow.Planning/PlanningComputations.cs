@@ -19,8 +19,11 @@ internal static class PlanningComputations
                 Literal { Value: string value } => [value],
                 Literal { Value: bool value } => [value ? "true" : "false"],
                 UnaryExpression { Operator: Acornima.Operator.LogicalNot } => ["true", "false"],
-                BinaryExpression { Operator: Acornima.Operator.Equality or Acornima.Operator.Inequality or Acornima.Operator.StrictEquality or Acornima.Operator.StrictInequality or
-                    Acornima.Operator.LessThan or Acornima.Operator.LessThanOrEqual or Acornima.Operator.GreaterThan or Acornima.Operator.GreaterThanOrEqual or Acornima.Operator.In or Acornima.Operator.InstanceOf } => ["true", "false"],
+                BinaryExpression
+                {
+                    Operator: Acornima.Operator.Equality or Acornima.Operator.Inequality or Acornima.Operator.StrictEquality or Acornima.Operator.StrictInequality or
+                    Acornima.Operator.LessThan or Acornima.Operator.LessThanOrEqual or Acornima.Operator.GreaterThan or Acornima.Operator.GreaterThanOrEqual or Acornima.Operator.In or Acornima.Operator.InstanceOf
+                } => ["true", "false"],
                 ConditionalExpression conditional => Union([conditional.Consequent, conditional.Alternate], depth),
                 CallExpression { Callee: ArrowFunctionExpression { Async: false } arrow } => Returns(arrow.Body, depth),
                 CallExpression { Callee: FunctionExpression { Async: false, Generator: false } function } => Returns(function.Body, depth),

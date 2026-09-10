@@ -45,3 +45,17 @@ dereference.
 without copying raw provider response bodies.
 
 Host adapters can reuse `RoutingLLMClientAdapter.MapRequest` and `MapResponse` to preserve output ceilings, disabled transport retries, completion status, tool calls, and usage consistently.
+
+## Durable planning runtime
+
+Register `TypedWorkflowPlanner` as `WorkflowEngine.WorkflowPlanner` and
+`Planning.WorkflowPlanningRuntimeFactory.CreateWorkspace()` as `PlanningRuntimeFactory`.
+The factory opens an exclusive tenant/session lease and stores schema-3 snapshots, immutable
+requests, completed receipts, and cumulative budgets through the public KeyVault record API.
+`GnOuGo.Flow.Planning` remains independently publishable with only Flow.Core as a dependency.
+
+Session identity includes the run and call site. Reopening an unchanged run reuses completed
+receipts; a reserved dispatch without a receipt stops. Changing the initial request under the
+same run ID is a conflict. Lease files contain no content and live under the workspace-resolved
+`.GnOuGo/data/flow-planning-v3/leases` directory. All payloads use `flow-planning-*-v3` encrypted
+record namespaces. Agent.Server's designer retains its EF-backed session indexes.

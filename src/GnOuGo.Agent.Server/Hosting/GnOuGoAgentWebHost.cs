@@ -478,15 +478,14 @@ public static class GnOuGoAgentWebHost
             builder.Configuration.GetSection(GnOuGo.Agent.Server.Configuration.TypedWorkflowPlanningSettings.SectionName));
         var planningSettings = builder.Configuration.GetSection(GnOuGo.Agent.Server.Configuration.TypedWorkflowPlanningSettings.SectionName)
             .Get<GnOuGo.Agent.Server.Configuration.TypedWorkflowPlanningSettings>() ?? new();
-        if (planningSettings.PlannerVersion is not (1 or 2) || planningSettings.MaxConcurrency is < 1 or > 16)
+        if (planningSettings.MaxConcurrency is < 1 or > 16)
             throw new InvalidOperationException("Invalid typed workflow planning configuration.");
-        var planningDbPath = GnOuGoWorkspace.ResolveDatabasePath(planningSettings.DatabasePath, applicationBasePath, ".GnOuGo/data/gnougo-planning.db");
+        var planningDbPath = GnOuGoWorkspace.ResolveDatabasePath(planningSettings.DatabasePath, applicationBasePath, ".GnOuGo/data/gnougo-planning-v3.db");
         builder.Services.AddDbContextFactory<GnOuGo.Agent.Server.Planning.PlanningDbContext>(options => options.UseSqlite($"Data Source={planningDbPath}"));
         builder.Services.AddSingleton<GnOuGo.KeyVault.Core.Services.IKeyVaultRecordStore>(_ =>
             GnOuGo.KeyVault.Core.Services.KeyVaultRecordStoreFactory.CreateWorkspaceStore(keyVaultDbPath, applicationBasePath));
         builder.Services.AddSingleton<GnOuGo.Flow.Core.Planning.IPlanningSessionStore, GnOuGo.Agent.Server.Planning.EfPlanningSessionStore>();
         builder.Services.AddSingleton<GnOuGo.Flow.Core.Planning.IWorkflowPlanner, GnOuGo.Flow.Planning.TypedWorkflowPlanner>();
-        builder.Services.AddSingleton<GnOuGo.Flow.Core.Planning.IPlanningSourceCompiler, GnOuGo.Flow.Authoring.JavaScript.JavaScriptPlanningSourceCompiler>();
         builder.Services.AddSingleton<GnOuGo.Agent.Server.Planning.PlanningSessionService>();
         builder.Services.AddHostedService(sp => sp.GetRequiredService<GnOuGo.Agent.Server.Planning.PlanningSessionService>());
         builder.Services.AddSingleton<SmartFlowService>();
@@ -803,9 +802,9 @@ public static class GnOuGoAgentWebHost
                 // Extract the project name from any relative path like ../../GnOuGo.Foo/GnOuGo.Foo.csproj
                 var normalised = projectArg.Replace('/', Path.DirectorySeparatorChar)
                                            .Replace('\\', Path.DirectorySeparatorChar);
-                var projectDir  = Path.GetDirectoryName(normalised) ?? "";
+                var projectDir = Path.GetDirectoryName(normalised) ?? "";
                 var projectName = Path.GetFileName(projectDir);
-                var csprojFile  = Path.GetFileName(normalised);
+                var csprojFile = Path.GetFileName(normalised);
 
                 if (string.IsNullOrEmpty(projectName) || string.IsNullOrEmpty(csprojFile)) continue;
 

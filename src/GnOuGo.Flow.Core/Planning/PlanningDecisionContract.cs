@@ -37,23 +37,18 @@ public sealed class PlanningInteractionContract
 public sealed class PlanningPreparationCheckpoint
 {
     public const int CurrentVersion = 2;
-    public int Version { get; set; } = 1;
+    public int Version { get; set; } = CurrentVersion;
     public string Fingerprint { get; set; } = "";
     public string Stage { get; set; } = "discovery";
     /// <summary>Retry must check current producer contracts before reusing catalog-dependent results.</summary>
     public bool RefreshDiscovery { get; set; }
-    public string? FeedbackCatalogHash { get; set; }
-    public bool FeedbackSuperseded { get; set; }
     public JsonObject ValidatedResults { get; set; } = new();
     public List<string> RequestHashes { get; set; } = [];
     public List<PlanningDiagnostic> Diagnostics { get; set; } = [];
 
     public static string CatalogHash(JsonNode catalog) => Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(catalog.ToJsonString())));
 
-    public static bool IsObsoleteMatchingQuestion(PlanningSnapshot state) => state.Status == PlanningStatus.Clarification &&
-        state.Question?.StepId.StartsWith("capability-clarification-", StringComparison.Ordinal) == true &&
-        state.Preparation is null && state.PreparationCheckpoint is { Version: < CurrentVersion } checkpoint &&
-        checkpoint.ValidatedResults["matching_candidate"] is not null;
+
 }
 
 public sealed record PlanningPreparationProgress(PlanningPreparationCheckpoint Checkpoint, PlanningPreparation? Preparation);

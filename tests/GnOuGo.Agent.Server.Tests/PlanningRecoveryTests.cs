@@ -39,15 +39,14 @@ public sealed class PlanningRecoveryTests
     public async Task ConfiguredModelLimitRetainsHistoricalUsage(int limit, int expectedCalls)
     {
         await using var fixture = await PlanningPersistenceTests.StoreFixture.CreateAsync();
-        var state = new PlanningSnapshot { Request = new() { TenantId = "planning-tests", Prompt = "Return a greeting", Name = "retained" },
-            Usage = new() { StartedAtUtc = DateTimeOffset.UtcNow, Calls = 100, EstimatedCostCurrency = "EUR" } };
+        var state = new PlanningSnapshot { Request = new() { TenantId = "planning-tests", Prompt = "Return a greeting", Name = "retained" }, Usage = new() { StartedAtUtc = DateTimeOffset.UtcNow, Calls = 100, EstimatedCostCurrency = "EUR" } };
         state.Request.Options["generator"] = new JsonObject { ["provider"] = "openai", ["model"] = "gpt-4o-mini" };
         Assert.True(await fixture.Store.TrySaveAsync(state, null, Ct));
         using var service = PlanningSessionLifecycleTests.Create(fixture, new TypedWorkflowPlanner(), PlanningSessionLifecycleTests.AgentCatalog(),
             new IntentClient(IntentClarificationFixture.Ready()), new() { BackgroundProcessingEnabled = false, MaxModelCalls = limit });
         var resumed = await service.SubmitAsync(state.Request.SessionId, new() { Kind = "advance", ExpectedRevision = state.Revision }, Ct);
         Assert.True(expectedCalls == resumed.Usage!.Calls, string.Join("; ", resumed.Diagnostics.Select(d => d.Code + ": " + d.Message)));
-        Assert.Equal(limit > 100, resumed.IntentChecked);
+        Assert.Equal(limit > 100, resumed.Intent.Checked);
         Assert.Equal(expectedCalls, (await service.GetAsync(state.Request.SessionId, Ct))!.Usage!.Calls);
     }
 
@@ -60,7 +59,7 @@ public sealed class PlanningRecoveryTests
         // phase boundary: catalog/generation correctness is covered by planner tests.
         var planner = new PlanningSessionLifecycleTests.DelegatePlanner(async (state, command, runtime, ct) =>
         {
-            if (state.IntentChecked && command.Kind == "advance")
+            if (state.Intent.Checked && command.Kind == "advance")
             {
                 state = JsonSerializer.Deserialize(JsonSerializer.Serialize(state, PlanningJsonContext.Default.PlanningSnapshot), PlanningJsonContext.Default.PlanningSnapshot)!;
                 state.Revision++; state.Status = PlanningStatus.BehaviorReview; state.CurrentPhase = PlanningPhase.Behavior;
@@ -83,7 +82,7 @@ public sealed class PlanningRecoveryTests
                 Assert.Contains("Understanding your request", page.Find("[aria-label='Current planning phase']").TextContent);
                 Assert.Empty(page.FindAll("input[type=radio][checked]"));
                 Assert.True(Button(page, "Submit answers").HasAttribute("disabled"));
-                Assert.Empty((await service.GetAsync(started.Request.SessionId, Ct))!.Answers);
+                Assert.Empty((await service.GetAsync(started.Request.SessionId, Ct))!.Intent.Answers);
             }
             // Reconnection creates a fresh component; pending questions stay unanswered.
             await using (var context = Context(service))
@@ -97,9 +96,9 @@ public sealed class PlanningRecoveryTests
                 await PlanningSessionLifecycleTests.WaitForStatus(service, started.Request.SessionId, PlanningStatus.BehaviorReview);
             }
             var resumed = (await service.GetAsync(started.Request.SessionId, Ct))!;
-            Assert.Equal(3, Assert.Single(resumed.Answers).Answers.Count);
-            Assert.Equal(1, resumed.ClarificationForms);
-            Assert.Equal(3, resumed.ClarificationQuestions);
+            Assert.Equal(3, Assert.Single(resumed.Intent.Answers).Answers.Count);
+            Assert.Equal(1, resumed.Intent.Forms);
+            Assert.Equal(3, resumed.Intent.Questions);
             Assert.Equal(3, client.Calls);
             Assert.Equal(3, resumed.Usage!.Calls);
             await Assert.ThrowsAsync<PlanningConflictException>(() => service.SubmitAsync(started.Request.SessionId,
@@ -144,12 +143,12 @@ public sealed class PlanningRecoveryTests
             var edited = (await restarted.GetAsync(state.Request.SessionId, Ct))!;
             Assert.Equal(state.Request.SessionId, edited.Request.SessionId);
             Assert.Equal(IntentClarificationFixture.Prompt, edited.Request.Prompt);
-            Assert.Equal(3, edited.Question!.Fields!.Count);
+            Assert.Equal(3, edited.Intent.Question!.Fields!.Count);
             Assert.Equal(3, edited.Usage!.Calls);
-            Assert.NotEmpty(Assert.Single(edited.IntentHistory).Diagnostics);
+            Assert.NotEmpty(Assert.Single(edited.Intent.History).Diagnostics);
             Assert.Empty(edited.Diagnostics);
-            Assert.Equal(1, edited.ClarificationForms);
-            Assert.Equal(3, edited.ClarificationQuestions);
+            Assert.Equal(1, edited.Intent.Forms);
+            Assert.Equal(3, edited.Intent.Questions);
             await Assert.ThrowsAsync<PlanningConflictException>(() => restarted.SubmitAsync(state.Request.SessionId,
                 new() { Kind = "retry", ExpectedRevision = recovery.Revision }, Ct));
         }
@@ -165,10 +164,13 @@ public sealed class PlanningRecoveryTests
         var state = new PlanningSnapshot
         {
             Request = new() { TenantId = "planning-tests", Prompt = "Inspect a resource before running available checks.", Name = "capability-recovery" },
-            Status = PlanningStatus.Recovery, CurrentPhase = PlanningPhase.Capabilities, IntentChecked = true,
+            Status = PlanningStatus.Recovery,
+            CurrentPhase = PlanningPhase.Capabilities,
             WaitingSinceUtc = DateTimeOffset.UtcNow.AddHours(-1),
             Diagnostics = [new("conditional_decision_source_unavailable", "/preparation/matching_issues/0",
                 "The directory result does not establish its contents. Declare a runtime observation.", ValidationStage: PlanningPhase.Capabilities)]
+,
+            Intent = new() { Checked = true }
         };
         Assert.True(await fixture.Store.TrySaveAsync(state, null, Ct));
         var client = new IntentClient(new JsonObject());
@@ -187,7 +189,7 @@ public sealed class PlanningRecoveryTests
             Assert.Equal(0, client.Calls);
             var restored = (await service.GetAsync(state.Request.SessionId, Ct))!;
             Assert.Null(restored.Outcome);
-            Assert.Null(restored.Question);
+            Assert.Null(restored.Intent.Question);
             Assert.Null(await fixture.Store.LoadAsync("another-tenant", state.Request.SessionId, Ct));
         }
         finally { await service.StopAsync(Ct); }
@@ -229,10 +231,14 @@ public sealed class PlanningRecoveryTests
     {
         await using var fixture = await PlanningPersistenceTests.StoreFixture.CreateAsync();
         var state = BehaviorFailure();
-        await new WorkflowPlanningRuntime(new WorkflowEngine()).EnrichPreparationAsync(state.Preparation!, Ct);
+        state.Preparation!.StepContracts["set"] = new JsonObject();
         Assert.True(await fixture.Store.TrySaveAsync(state, null, Ct));
-        var behavior = new PlanningBehaviorPlan { Summary = "Return a message", Workflows = [new() { Key = "main", Purpose = "Return a message",
-            Steps = [new() { Key = "value", Purpose = "Return a message" }], Outputs = [new("message", "The returned message", true)] }] };
+        var behavior = new PlanningBehaviorPlan
+        {
+            Summary = "Return a message",
+            Workflows = [new() { Key = "main", Purpose = "Return a message",
+            Steps = [new() { Key = "value", Purpose = "Return a message" }], Outputs = [new("message", "The returned message", true)] }]
+        };
         foreach (var node in behavior.Workflows.SelectMany(w => PlanningBehaviorPlans.Enumerate(w.Steps.Concat(w.Finally)))) node.InputDependencies ??= [];
         var client = new IntentClient(JsonSerializer.SerializeToNode(behavior, PlanningJsonContext.Default.PlanningBehaviorPlan)!);
         using var service = PlanningSessionLifecycleTests.Create(fixture, new TypedWorkflowPlanner(), PlanningSessionLifecycleTests.AgentCatalog(), client);
@@ -249,9 +255,9 @@ public sealed class PlanningRecoveryTests
             await PlanningSessionLifecycleTests.WaitForStatus(service, state.Request.SessionId, PlanningStatus.BehaviorReview);
             var reviewed = (await service.GetAsync(state.Request.SessionId, Ct))!;
             page.WaitForAssertion(() => Assert.NotNull(Button(page, "Accept behavior and generate")), TimeSpan.FromSeconds(5));
-            Assert.Null(reviewed.ReviewedGraph); Assert.Null(reviewed.ApprovedHash); Assert.Null(reviewed.Yaml); Assert.Null(reviewed.Graph); Assert.NotNull(reviewed.BehaviorPlan);
-            Assert.Equal(1, client.Calls); Assert.Equal(1, reviewed.Usage!.Calls);
-            Assert.Equal(2, reviewed.ClarificationForms); Assert.Equal(7, reviewed.ClarificationQuestions);
+            Assert.Null(reviewed.ApprovedHash); Assert.Null(reviewed.Yaml); Assert.Null(reviewed.Graph); Assert.NotNull(reviewed.BehaviorPlan);
+            Assert.Equal(0, client.Calls); Assert.Equal(0, reviewed.Usage!.Calls);
+            Assert.Equal(2, reviewed.Intent.Forms); Assert.Equal(7, reviewed.Intent.Questions);
             Assert.Equal(PlanningPhase.Behavior, reviewed.CurrentPhase);
             Assert.Empty(reviewed.Diagnostics);
             await Assert.ThrowsAsync<PlanningConflictException>(() => service.SubmitAsync(state.Request.SessionId,
@@ -282,8 +288,8 @@ public sealed class PlanningRecoveryTests
             await PlanningSessionLifecycleTests.WaitForStatus(service, state.Request.SessionId, PlanningStatus.Clarification);
             var edited = (await service.GetAsync(state.Request.SessionId, Ct))!;
             Assert.Null(edited.Graph); Assert.Null(edited.Preparation);
-            Assert.Equal(3, edited.ClarificationForms); Assert.Equal(10, edited.ClarificationQuestions);
-            Assert.Single(edited.IntentHistory); Assert.Empty(edited.Diagnostics);
+            Assert.Equal(3, edited.Intent.Forms); Assert.Equal(10, edited.Intent.Questions);
+            Assert.Single(edited.Intent.History); Assert.Empty(edited.Diagnostics);
             Assert.Equal(1, client.Calls);
         }
         finally { await service.StopAsync(Ct); }
@@ -291,20 +297,36 @@ public sealed class PlanningRecoveryTests
 
     private static PlanningSnapshot BehaviorFailure() => new()
     {
-        Request = new() { TenantId = "planning-tests", Prompt = "Return a message", Name = "behavior-recovery",
-            Options = new JsonObject { ["generator"] = new JsonObject { ["provider"] = "openai", ["model"] = "gpt-4o-mini" } } },
-        Status = PlanningStatus.Failed, CurrentPhase = PlanningPhase.Behavior, IntentChecked = true,
-        ClarificationForms = 2, ClarificationQuestions = 7,
+        Request = new()
+        {
+            TenantId = "planning-tests",
+            Prompt = "Return a message",
+            Name = "behavior-recovery",
+            Options = new JsonObject { ["generator"] = new JsonObject { ["provider"] = "openai", ["model"] = "gpt-4o-mini" } }
+        },
+        Status = PlanningStatus.Failed,
+        CurrentPhase = PlanningPhase.Behavior,
         Diagnostics = [new("PLANNING_FAILED", "$", "The authoritative schema reference is unresolved.")],
-        Preparation = new() { AllowedStepTypes = ["set"], RuntimeState = JsonNode.Parse("""
-            {"mode":"infer","discoveredServers":[],"constraints":[],"capabilities":[
+        Preparation = new()
+        {
+            AllowedStepTypes = ["set"],
+            RuntimeState = JsonNode.Parse("""
+            {"discoveredServers":[],"constraints":[],"capabilities":[
               {"id":"declared","description":"Return a message","required":false,"resolution":"local","server":null,"kind":null,"method":null,"requestBindings":[],"operationIds":[]}
             ]}
-            """)!.AsObject(), Capabilities = [new() { Id = "declared", StepType = "set", OperationIds = ["declared"],
-            OutputSchema = JsonNode.Parse("""{"type":"object","properties":{"message":{"type":"string"}},"required":["message"],"additionalProperties":false}""")!.AsObject() }] },
-        Graph = new() { Summary = "Return a message", Workflows = [new() { Key = "main",
-            Steps = [new() { Key = "value", Type = "set", Input = new() { Kind = "object", Members = [new("message", new() { Kind = "string", Text = "Hello" })] } }],
-            Outputs = [new() { Name = "message", Schema = new() { CapabilityId = "declared", SchemaPointer = "/message" }, Value = new() { Kind = "output", Source = "value", Path = ["message"] } }] }] }
+            """)!.AsObject(),
+            Capabilities = [new() { Id = "declared", StepType = "set", OperationIds = ["declared"],
+            OutputSchema = JsonNode.Parse("""{"type":"object","properties":{"message":{"type":"string"}},"required":["message"],"additionalProperties":false}""")!.AsObject() }]
+        },
+        BehaviorPlan = new()
+        {
+            Summary = "Return a message",
+            Workflows = [new() { Key = "main", Purpose = "Return a message",
+            Steps = [new() { Key = "value", Purpose = "Return a message", InputDependencies = [] }], Outputs = [new("message", "The returned message", true)] }]
+        }
+
+,
+        Intent = new() { Checked = true, Forms = 2, Questions = 7 }
     };
 
     private static BunitContext Context(GnOuGo.Agent.Server.Planning.PlanningSessionService service)

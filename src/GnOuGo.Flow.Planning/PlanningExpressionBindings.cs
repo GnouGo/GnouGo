@@ -20,7 +20,8 @@ internal static class PlanningExpressionBindings
             boundData |= node switch
             {
                 ArrowFunctionExpression arrow => arrow.Params.OfType<Identifier>().Any(p => p.Name == "data"),
-                FunctionExpression function => function.Params.OfType<Identifier>().Any(p => p.Name == "data"), _ => false
+                FunctionExpression function => function.Params.OfType<Identifier>().Any(p => p.Name == "data"),
+                _ => false
             };
             if (!boundData && node is MemberExpression { Object: MemberExpression { Object: Identifier { Name: "data" } } root } member && Name(root) == "steps")
             {

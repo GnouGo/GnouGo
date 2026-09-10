@@ -21,11 +21,11 @@ public sealed class RuntimeContractTests
                   - id: plan
                     type: workflow.plan
                     input:
-                      planner_version: 2
-                      generator: {model: fake, instruction: Return a greeting}
+                      raw_prompt: Return a greeting
+                      generator: {model: fake}
             """));
         var human = new RecoveryHuman();
-        var engine = new WorkflowEngine { WorkflowPlanner = new TypedWorkflowPlanner(), LLMClient = new InvalidIntentClient(), HumanInputProvider = human };
+        var engine = new WorkflowEngine { WorkflowPlanner = new TypedWorkflowPlanner(), PlanningRuntimeFactory = new PlannerArchitectureTests.RuntimeFactory(), LLMClient = new InvalidIntentClient(), HumanInputProvider = human };
         var result = await engine.ExecuteAsync(document.Workflows[document.Entrypoint!], new JsonObject(), Ct);
         Assert.False(result.Success);
         Assert.Equal(GnOuGo.Flow.Core.Models.ErrorCodes.WorkflowPlanAborted, result.Error!.Code);
@@ -59,7 +59,9 @@ public sealed class RuntimeContractTests
         var graph = TypedPlannerTests.Graph();
         graph.Workflows[0].Steps.Insert(0, new()
         {
-            Key = "repeat", Type = "loop.sequential", ItemVar = "item",
+            Key = "repeat",
+            Type = "loop.sequential",
+            ItemVar = "item",
             Input = TypedPlannerTests.Obj(("items", new() { Kind = "array", Items = [new() { Kind = "number", Number = 2147483648m }] })),
             Steps = [new() { Key = "copy", Type = "set", Input = TypedPlannerTests.Obj(("value", new() { Kind = "expression", Text = "item" })) }]
         });
@@ -83,52 +85,62 @@ public sealed class RuntimeContractTests
         var factory = new InMemoryMcpClientFactory();
         var tool = new McpToolInfo
         {
-            Name = method, Description = "Return the requested message.",
+            Name = method,
+            Description = "Return the requested message.",
             InputSchema = JsonNode.Parse("""{"type":"object","properties":{"mode":{"type":"string","enum":["read"]}},"required":["mode"],"additionalProperties":false}"""),
             OutputSchema = JsonNode.Parse("""{"type":"object","properties":{"message":{"type":"string"}},"required":["message"],"additionalProperties":false}""")
         };
         factory.RegisterServer(server, new() { Tools = [tool], ToolHandlers = new() { [method] = _ => { calls++; throw new InvalidOperationException("Live dispatch is forbidden during planning validation."); } } });
-        var runtime = new WorkflowPlanningRuntime(new WorkflowEngine { McpClientFactory = factory });
+        var runtime = new WorkflowPlanningRuntime(new WorkflowEngine { McpClientFactory = factory }, (_, _) => Task.CompletedTask);
         var request = new PlanningRequest
         {
-            TenantId = "tenant", Prompt = "Read the declared message.", Options = new JsonObject
+            TenantId = "tenant",
+            Prompt = "Read the declared message.",
+            Options = new JsonObject
             {
                 ["generator"] = new JsonObject { ["model"] = "fake" },
                 ["policy"] = new JsonObject { ["allowed_step_types"] = new JsonArray("mcp.call", "set") },
                 ["capability_preflight"] = new JsonObject
                 {
-                    ["mode"] = "explicit", ["requirements"] = new JsonArray(new JsonObject
+                    ["requirements"] = new JsonArray(new JsonObject
                     {
-                        ["id"] = "read", ["description"] = "Read the declared message.", ["required"] = true,
-                        ["alternatives"] = new JsonArray(new JsonObject { ["server"] = server, ["kind"] = "tool", ["method"] = method,
-                            ["request_bindings"] = new JsonArray(new JsonObject { ["path"] = "/mode", ["value"] = "read" }) })
+                        ["id"] = "read",
+                        ["description"] = "Read the declared message.",
+                        ["required"] = true,
+                        ["alternatives"] = new JsonArray(new JsonObject
+                        {
+                            ["server"] = server,
+                            ["kind"] = "tool",
+                            ["method"] = method,
+                            ["request_bindings"] = new JsonArray(new JsonObject { ["path"] = "/mode", ["value"] = "read" })
+                        })
                     })
                 }
             }
         };
-        var preparation = await runtime.PrepareAsync(request, Ct);
+        var preparation = (await runtime.PrepareAsync(new() { Request = request }, Ct)).Preparation!;
         var capability = Assert.Single(preparation.Capabilities);
-        preparation.StepContracts["mcp.call"]!["input"]!["properties"]!.AsObject().Remove("preserve_optional_nulls");
-        var legacyFingerprint = preparation.Fingerprint;
-        await runtime.EnrichPreparationAsync(preparation, Ct);
-        Assert.NotEqual(legacyFingerprint, preparation.Fingerprint);
         Assert.NotNull(preparation.StepContracts["mcp.call"]!["input"]!["properties"]!["preserve_optional_nulls"]);
         Assert.Empty(await runtime.ValidateCatalogAsync(preparation, Ct));
-        var graph = new PlanningGraph { Summary = request.Prompt, Workflows = [new()
+        var graph = new PlanningGraph
+        {
+            Summary = request.Prompt,
+            Workflows = [new()
         {
             Key = "main", OperationIds = capability.OperationIds,
             Steps = [new() { Key = "read", Type = "mcp.call", CapabilityId = capability.Id, OperationIds = capability.OperationIds }],
             Outputs = [new() { Name = "message", Schema = new() { CapabilityId = capability.Id, SchemaPointer = "/output/properties/message" }, Value = new() { Kind = "output", Source = "read", Path = ["message"] } }]
-        }] };
+        }]
+        };
         var yaml = new PlanningGraphCompiler().Compile(graph, preparation);
-        Assert.Empty(await runtime.ValidateAsync(yaml, request, preparation, Ct));
+        Assert.Empty(await runtime.ValidateAsync(new(yaml, request, preparation, PlanningGraphCompiler.CapabilityBindings(graph)), Ct));
         var binding = Assert.Single(PlanningGraphCompiler.CapabilityBindings(graph));
         Assert.Equal(capability.Id, binding.CapabilityId);
         Assert.Equal("main", binding.Workflow);
         Assert.Equal(WorkflowParser.Parse(yaml).Workflows["main"].Steps[0].Id, binding.Step);
-        Assert.Empty(await runtime.ValidateAsync(yaml, request, preparation, [binding], Ct));
-        Assert.Contains(await runtime.ValidateAsync(yaml, request, preparation, [binding with { Step = "unknown" }], Ct), d => d.Code == "ARTIFACT_OWNERSHIP_INVALID");
-        var scenarios = await runtime.ValidateScenariosAsync(yaml, preparation, Ct);
+        Assert.Empty(await runtime.ValidateAsync(new(yaml, request, preparation, [binding]), Ct));
+        Assert.Contains(await runtime.ValidateAsync(new(yaml, request, preparation, [binding with { Step = "unknown" }]), Ct), d => d.Code == "ARTIFACT_OWNERSHIP_INVALID");
+        var scenarios = await runtime.ValidateScenariosAsync(new(yaml, preparation, new(), new(), new()), Ct);
         Assert.All(scenarios, scenario => Assert.Equal("passed", scenario.Outcome));
         Assert.Equal(0, calls);
         tool.OutputSchema!["properties"]!["message"]!["type"] = "integer";
@@ -149,27 +161,5 @@ public sealed class RuntimeContractTests
         var result = await new WorkflowEngine().ExecuteAsync(compiled.Workflows[compiled.Entrypoint!], new JsonObject(), Ct);
         Assert.True(result.Success, result.Error?.Message);
         Assert.Equal("Hello", result.Outputs?["message"]?.GetValue<string>());
-    }
-
-    [Theory]
-    [InlineData(2)]
-    [InlineData(3)]
-    public async Task VersionBoundary_DoesNotSilentlyRunLegacyPlanning(int version)
-    {
-        var yaml = $$"""
-            version: 1
-            workflows:
-              main:
-                steps:
-                  - id: plan
-                    type: workflow.plan
-                    input:
-                      planner_version: {{version}}
-                      generator: {model: fake, instruction: Return a greeting}
-            """;
-        var compiled = new WorkflowCompiler().Compile(WorkflowParser.Parse(yaml));
-        var result = await new WorkflowEngine().ExecuteAsync(compiled.Workflows[compiled.Entrypoint!], new JsonObject(), Ct);
-        Assert.False(result.Success);
-        Assert.Contains(version == 2 ? "IWorkflowPlanner" : "Unsupported workflow planner version", result.Error!.Message, StringComparison.Ordinal);
     }
 }

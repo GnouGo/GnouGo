@@ -2,10 +2,12 @@
 
 This executable references the publishable planning package, serializes and restores
 a typed session using its generated JSON context, exports and imports YAML, compiles
-it, and executes its expressions without live integrations. It also advances a full
+it, and executes its expressions without live provider calls. It also advances a full
 typed planning session through behavior review, schema-constrained fake responses,
 scenario validation and exact revision approval, restoring serialized checkpoints
-between phases.
+between phases. The runtime integration also persists a reserved request, budget,
+and completed receipt in a temporary encrypted KeyVault database, reopens the session,
+and verifies that replay makes no extra model call. Temporary storage is removed afterward.
 
 It also creates an ephemeral certificate, rejects its untrusted chain, and validates
 it with an explicit in-memory trust root. No certificate is installed and certificate

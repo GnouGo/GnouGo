@@ -20,8 +20,15 @@ public static class PlanningBehaviorPlans
             var routing = owners[0];
             var key = routing.Key + "_producer_" + PlanningGraphCompiler.Fingerprint(capability.Id)[..8];
             if (plan.Workflows.SelectMany(w => Enumerate(w.Steps.Concat(w.Finally))).Any(n => n.Key == key)) continue;
-            var producer = new PlanningBehaviorNode { Key = key, Kind = "operation", CapabilityId = capability.Id,
-                Purpose = routing.Purpose, OperationIds = capability.OperationIds.ToList(), InputDependencies = routing.InputDependencies?.ToList() };
+            var producer = new PlanningBehaviorNode
+            {
+                Key = key,
+                Kind = "operation",
+                CapabilityId = capability.Id,
+                Purpose = routing.Purpose,
+                OperationIds = capability.OperationIds.ToList(),
+                InputDependencies = routing.InputDependencies?.ToList()
+            };
             foreach (var workflow in plan.Workflows) { Insert(workflow.Steps); Insert(workflow.Finally); }
             void Insert(List<PlanningBehaviorNode> nodes)
             {
@@ -168,17 +175,28 @@ public static class PlanningBehaviorPlans
 
     public static PlanningGraph Display(PlanningBehaviorPlan plan, PlanningPreparation? preparation)
     {
-        return new() { Summary = plan.Summary, Entrypoint = plan.Entrypoint, Workflows = plan.Workflows.Select(w => new PlanningWorkflow
+        return new()
         {
-            Key = w.Key, Purpose = w.Purpose, OperationIds = w.OperationIds.ToList(),
-            Inputs = w.Inputs.Select(p => new PlanningPort { Name = p.Name, Required = p.Required }).ToList(),
-            Outputs = w.Outputs.Select(p => new PlanningOutput { Name = p.Name }).ToList(),
-            Steps = w.Steps.Select(Node).ToList(), Finally = w.Finally.Select(Node).ToList()
-        }).ToList() };
+            Summary = plan.Summary,
+            Entrypoint = plan.Entrypoint,
+            Workflows = plan.Workflows.Select(w => new PlanningWorkflow
+            {
+                Key = w.Key,
+                Purpose = w.Purpose,
+                OperationIds = w.OperationIds.ToList(),
+                Inputs = w.Inputs.Select(p => new PlanningPort { Name = p.Name, Required = p.Required }).ToList(),
+                Outputs = w.Outputs.Select(p => new PlanningOutput { Name = p.Name }).ToList(),
+                Steps = w.Steps.Select(Node).ToList(),
+                Finally = w.Finally.Select(Node).ToList()
+            }).ToList()
+        };
 
         PlanningNode Node(PlanningBehaviorNode n) => new()
         {
-            Key = n.Key, Purpose = n.Purpose, CapabilityId = n.CapabilityId, OperationIds = n.OperationIds.ToList(),
+            Key = n.Key,
+            Purpose = n.Purpose,
+            CapabilityId = n.CapabilityId,
+            OperationIds = n.OperationIds.ToList(),
             Type = n.Kind switch { "decision" => "switch", "loop" => "loop.sequential", "confirmation" => "human.input", "workflow" => "workflow.call", "operation" => preparation?.Capabilities.FirstOrDefault(c => c.Id == n.CapabilityId)?.StepType ?? "set", _ => n.Kind },
             Input = n.Kind == "workflow" ? new() { Kind = "object", Members = [new("ref", new() { Kind = "workflow", Source = n.WorkflowKey })] } : new() { Kind = "object" },
             Steps = n.Kind == "parallel" ? [] : n.Steps.Select(Node).ToList(),
@@ -224,7 +242,9 @@ public static class PlanningBehaviorPlans
                 if (item.Kind == "workflow" && !node.Input.Members.Any(m => m.Name == "ref" && m.Value.Kind == "workflow" && m.Value.Source == item.WorkflowKey)) errors.Add(new("BEHAVIOR_IMPLEMENTATION_CHANGED", path, "Preserve the accepted workflow-call target."));
                 if (node.If is not null) errors.Add(new("BEHAVIOR_IMPLEMENTATION_CHANGED", path + "/" + item.Key + "/if", "Conditional actions must remain inside accepted decision outcomes; a new guard requires review."));
                 var type = item.Kind switch { "decision" => "switch", "loop" => "loop.sequential", "confirmation" => "human.input", "workflow" => "workflow.call", "operation" => preparation.Capabilities.FirstOrDefault(c => c.Id == item.CapabilityId)?.StepType ?? "set", _ => item.Kind };
-                if (node.Type != type || node.CapabilityId != item.CapabilityId || !item.OperationIds.Order(StringComparer.Ordinal).SequenceEqual(node.OperationIds.Order(StringComparer.Ordinal))) errors.Add(new("BEHAVIOR_IMPLEMENTATION_CHANGED", path + "/" + item.Key, "An accepted action or its capability changed."));
+                var localOperation = item.Kind == "operation" && preparation.Capabilities.FirstOrDefault(c => c.Id == item.CapabilityId) is { Resolution: "local" } local &&
+                    PlanningCapabilityBindings.LocalOperationTypes.Contains(node.Type, StringComparer.Ordinal) && PlanningCapabilityBindings.Supports(local, node.Type) && preparation.AllowedStepTypes.Contains(node.Type, StringComparer.Ordinal);
+                if (node.Type != type && !localOperation || node.CapabilityId != item.CapabilityId || !item.OperationIds.Order(StringComparer.Ordinal).SequenceEqual(node.OperationIds.Order(StringComparer.Ordinal))) errors.Add(new("BEHAVIOR_IMPLEMENTATION_CHANGED", path + "/" + item.Key, "An accepted action or its capability changed."));
                 if (item.Kind == "decision")
                 {
                     var cases = item.Outcomes.Where(o => !o.IsDefault).ToArray();
@@ -241,7 +261,7 @@ public static class PlanningBehaviorPlans
             }
             // Extra shaping is allowed; new external operations and control flow require review.
             foreach (var extra in actual.Where(n => !expected.Any(b => b.Key == n.Key)))
-                if (extra.Type != "set" || extra.CapabilityId is not null || extra.OperationIds.Count != 0 || extra.If is not null || extra.Steps.Count + extra.Cases.Count + extra.Branches.Count + extra.Default.Count != 0) errors.Add(new("BEHAVIOR_IMPLEMENTATION_CHANGED", path + "/" + extra.Key, "Only unconditional local shaping may be added without another behavior review."));
+                if (extra.Type != "set" || extra.CapabilityId is not null || extra.OperationIds.Count != 0 || extra.If is not null || extra.Steps.Count + extra.Cases.Count + extra.Branches.Count + extra.Default.Count != 0) errors.Add(new("BEHAVIOR_IMPLEMENTATION_CHANGED", path + "/" + extra.Key, "Added local shaping nodes require type=set, capabilityId=null, operationIds=[], if=null, and empty control-flow children. Keep ownership on the accepted business node; do not copy it onto new result-shaping nodes."));
         }
     }
 

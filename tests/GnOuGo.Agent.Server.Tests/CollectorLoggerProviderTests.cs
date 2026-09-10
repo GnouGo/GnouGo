@@ -1,4 +1,4 @@
-﻿using System.Diagnostics;
+using System.Diagnostics;
 using System.Text.Json.Nodes;
 using Microsoft.Extensions.Logging;
 using GnOuGo.Agent.Server.Configuration;
@@ -159,5 +159,3 @@ public sealed class CollectorLoggerProviderTests
         Assert.Contains("System.InvalidOperationException: Boom", logRow.Body, StringComparison.Ordinal);
     }
 }
-
-

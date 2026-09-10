@@ -37,11 +37,21 @@ internal static class PlanningDecisionRouting
             d.SourcePointer != first.SourcePointer || d.ContractSource != first.ContractSource || !JsonNode.DeepEquals(d.ResponseSchema, first.ResponseSchema) ||
             !Same(d.AllowedValues, first.AllowedValues) || !Same(d.NoEffectValues, first.NoEffectValues) || !Same(d.PermissionOperationIds, first.PermissionOperationIds)))
             throw new AmbiguousDecisionException(node.Key);
-        return new() { Version = first.Version, Group = string.Join(",", matches.Select(d => d.Group)), SourceOperationId = first.SourceOperationId,
-            SourceCapabilityId = first.SourceCapabilityId, SourcePointer = first.SourcePointer, ContractSource = first.ContractSource,
-            ResponseSchema = first.ResponseSchema.DeepClone().AsObject(), AllowedValues = first.AllowedValues.ToList(), NoEffectValues = first.NoEffectValues.ToList(),
+        return new()
+        {
+            Version = first.Version,
+            Group = string.Join(",", matches.Select(d => d.Group)),
+            SourceOperationId = first.SourceOperationId,
+            SourceCapabilityId = first.SourceCapabilityId,
+            SourcePointer = first.SourcePointer,
+            ContractSource = first.ContractSource,
+            ResponseSchema = first.ResponseSchema.DeepClone().AsObject(),
+            AllowedValues = first.AllowedValues.ToList(),
+            NoEffectValues = first.NoEffectValues.ToList(),
             EffectOperationIds = matches.SelectMany(d => d.EffectOperationIds).Distinct(StringComparer.Ordinal).ToList(),
-            InputOperationIds = matches.SelectMany(d => d.InputOperationIds).Distinct(StringComparer.Ordinal).ToList(), PermissionOperationIds = first.PermissionOperationIds.ToList() };
+            InputOperationIds = matches.SelectMany(d => d.InputOperationIds).Distinct(StringComparer.Ordinal).ToList(),
+            PermissionOperationIds = first.PermissionOperationIds.ToList()
+        };
 
         static bool Same(IEnumerable<string> left, IEnumerable<string> right) => left.Order(StringComparer.Ordinal).SequenceEqual(right.Order(StringComparer.Ordinal));
     }
@@ -68,8 +78,13 @@ internal static class PlanningDecisionRouting
                 && (contract.SourceCapabilityId.Length == 0 || producer.CapabilityId == contract.SourceCapabilityId)
                 && producer.OperationIds.Contains(contract.SourceOperationId) && value.Path.SequenceEqual(new[] { "response" }))).ToArray();
         if (bindings.Length == 0) throw new InvalidOperationException("The declared human confirmation is not available at this decision. Preserve its execution scope and route its exact result through an explicit boundary.");
-        return new() { Kind = "confirmation", Text = contract.AllowedValues.Except(contract.NoEffectValues).Single(),
-            Source = contract.NoEffectValues.Single(), Items = [bindings.OrderBy(b => b.Value.Path.Count).ThenBy(b => b.Id, StringComparer.Ordinal).First().Value] };
+        return new()
+        {
+            Kind = "confirmation",
+            Text = contract.AllowedValues.Except(contract.NoEffectValues).Single(),
+            Source = contract.NoEffectValues.Single(),
+            Items = [bindings.OrderBy(b => b.Value.Path.Count).ThenBy(b => b.Id, StringComparer.Ordinal).First().Value]
+        };
     }
 
     internal static PlanningDecisionContract[] LocalContracts(PlanningNode node, PlanningPreparation preparation) => node.Type != "decision.evaluate" ? [] :
@@ -77,8 +92,13 @@ internal static class PlanningDecisionRouting
 
     internal static JsonObject ConditionsSchema(PlanningNode node, PlanningPreparation preparation)
     {
-        static JsonObject Object(JsonObject properties) => new() { ["type"] = "object", ["properties"] = properties, ["additionalProperties"] = false,
-            ["required"] = new JsonArray(properties.Select(p => (JsonNode?)JsonValue.Create(p.Key)).ToArray()) };
+        static JsonObject Object(JsonObject properties) => new()
+        {
+            ["type"] = "object",
+            ["properties"] = properties,
+            ["additionalProperties"] = false,
+            ["required"] = new JsonArray(properties.Select(p => (JsonNode?)JsonValue.Create(p.Key)).ToArray())
+        };
         return Object(new JsonObject(LocalContracts(node, preparation).Select(d => new KeyValuePair<string, JsonNode?>(Field(d),
             Object(new JsonObject(d.AllowedValues.Except(d.NoEffectValues).Select(value => new KeyValuePair<string, JsonNode?>(value, new JsonObject { ["$ref"] = "#/$defs/value" }))))))));
     }
@@ -106,10 +126,10 @@ internal static class PlanningDecisionRouting
                     }
                     condition = new() { Kind = "compute", Members = members, Text = BooleanGuard + "return " + string.Join(" && ", members.Select(m => m.Name + " === true")) + ";" };
                 }
-                cases.Items.Add(new() { Kind = "object", Members = [new("when", condition), new("value", PlanningConstruction.Literal(JsonValue.Create(outcome)))] });
+                cases.Items.Add(new() { Kind = "object", Members = [new("when", condition), new("value", PlanningJsonTransport.Literal(JsonValue.Create(outcome)))] });
             }
-            var fields = new List<PlanningMember> { new("allowed_values", PlanningConstruction.Literal(new JsonArray(contract.AllowedValues.Select(v => (JsonNode?)JsonValue.Create(v)).ToArray()))), new("cases", cases) };
-            if (contract.NoEffectValues.Count == 1) fields.Add(new("default", PlanningConstruction.Literal(JsonValue.Create(contract.NoEffectValues[0]))));
+            var fields = new List<PlanningMember> { new("allowed_values", PlanningJsonTransport.Literal(new JsonArray(contract.AllowedValues.Select(v => (JsonNode?)JsonValue.Create(v)).ToArray()))), new("cases", cases) };
+            if (contract.NoEffectValues.Count == 1) fields.Add(new("default", PlanningJsonTransport.Literal(JsonValue.Create(contract.NoEffectValues[0]))));
             decisions.Members.Add(new(Field(contract), new() { Kind = "object", Members = fields }));
         }
         node.Input = new() { Kind = "object", Members = [new("decisions", decisions)] }; node.OnError.Clear();
@@ -140,9 +160,13 @@ internal static class PlanningDecisionRouting
     internal static JsonObject? OutputSchema(PlanningNode node, PlanningPreparation preparation)
     {
         var contracts = LocalContracts(node, preparation);
-        return contracts.Length == 0 ? null : new() { ["type"] = "object", ["additionalProperties"] = false,
+        return contracts.Length == 0 ? null : new()
+        {
+            ["type"] = "object",
+            ["additionalProperties"] = false,
             ["required"] = new JsonArray(contracts.Select(c => (JsonNode?)JsonValue.Create(Field(c))).ToArray()),
-            ["properties"] = new JsonObject(contracts.Select(c => new KeyValuePair<string, JsonNode?>(Field(c), c.ResponseSchema.DeepClone()))) };
+            ["properties"] = new JsonObject(contracts.Select(c => new KeyValuePair<string, JsonNode?>(Field(c), c.ResponseSchema.DeepClone())))
+        };
     }
     private static string Field(PlanningDecisionContract contract)
     {

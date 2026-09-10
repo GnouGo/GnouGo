@@ -14,7 +14,6 @@ STEP_TYPES = frozenset(
         "template.render",
         "llm.call",
         "workflow.call",
-        "workflow.plan",
         "workflow.route",
         "workflow.execute",
         "mcp.call",

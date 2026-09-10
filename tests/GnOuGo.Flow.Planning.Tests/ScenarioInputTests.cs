@@ -14,43 +14,25 @@ public sealed class ScenarioInputTests
         var state = Session(PlanningStatus.Validating); state.Graph = Graph(); state.Preparation = Preparation();
         state.Graph.Workflows[0].Inputs.Add(new() { Name = "resource", Required = true, Schema = new() { Type = "string" } });
         var graph = PlanningGraphCompiler.Fingerprint(state.Graph); var calls = 0; string? phase = null;
-        var runtime = new FakeRuntime { OnCheckpoint = snapshot =>
+        var runtime = new FakeRuntime
+        {
+            OnCheckpoint = snapshot =>
         {
             phase = JsonSerializer.Deserialize(JsonSerializer.Serialize(snapshot, PlanningJsonContext.Default.PlanningSnapshot), PlanningJsonContext.Default.PlanningSnapshot)!.CurrentPhase;
             return Task.CompletedTask;
-        }, OnCall = (currentPhase, _, _) =>
+        },
+            OnCall = (currentPhase, _, _) =>
         {
             calls++; Assert.Equal("scenario_inputs", currentPhase); Assert.Equal(currentPhase, phase);
             return Task.FromResult(new LLMResponse { CompletionStatus = "output_limit", Json = new JsonObject { ["partial"] = "must not be accepted" } });
-        } };
+        }
+        };
+        PlanningFixtures.Accept(state);
         state = await new TypedWorkflowPlanner().AdvanceAsync(state, new() { ExpectedRevision = state.Revision }, runtime, TestContext.Current.CancellationToken);
         Assert.Equal(1, calls); Assert.Equal(PlanningStatus.Recovery, state.Status);
         Assert.Equal("scenario_inputs", state.CurrentPhase);
-        Assert.Equal(graph, PlanningGraphCompiler.Fingerprint(state.Graph!)); Assert.Null(state.ScenarioInputs);
+        Assert.Equal(graph, PlanningGraphCompiler.Fingerprint(state.Graph!)); Assert.Null(state.Validation.Inputs);
         Assert.Contains(state.Diagnostics, d => d.Code == "MODEL_OUTPUT_LIMIT" && d.Message.Contains("8192", StringComparison.Ordinal));
-    }
-
-    [Theory]
-    [InlineData("accepted", "rejected")]
-    [InlineData("autorisé", "refusé")]
-    public void ConfirmationBooleanMustBeMappedToTheAcceptedDecisionLabels(string accepted, string rejected)
-    {
-        var graph = Graph(); var preparation = Preparation(); var workflow = graph.Workflows[0];
-        workflow.Steps.Add(new() { Key = "consent", Type = "human.input", Input = PlanningConstruction.Literal(HumanInputContract.ConfirmationInput("Allow the action?")) });
-        var route = new PlanningNode { Key = "route", Type = "switch", Expr = new() { Kind = "output", Source = "consent", Path = ["response"] },
-            Cases = [new(accepted, null, []), new(rejected, null, [])] }; workflow.Steps.Add(route);
-        var finding = Assert.Single(PlanningExecutableValidation.Validate(graph, preparation), d => d.Code == "SWITCH_OUTCOME_UNREACHABLE");
-        Assert.Equal("/workflows/0/steps/2/expr", finding.Location);
-        Assert.Contains(JsonValue.Create(accepted)!.ToJsonString(), finding.Message); Assert.Contains(JsonValue.Create(rejected)!.ToJsonString(), finding.Message);
-        var state = Session(PlanningStatus.Generating); state.Graph = graph; state.Preparation = preparation;
-        var fingerprint = PlanningGraphCompiler.Fingerprint(graph);
-        var targets = TypedWorkflowPlanner.DecisionContractContext(state, workflow, new() { NodeKeys = [route.Key] });
-        var target = Assert.Single(targets)!;
-        Assert.Equal(accepted, target["cases"]![0]!["value"]!.GetValue<string>()); Assert.Equal(rejected, target["cases"]![1]!["value"]!.GetValue<string>());
-        Assert.True(target["defaultHasNoActions"]!.GetValue<bool>()); Assert.Equal(fingerprint, PlanningGraphCompiler.Fingerprint(graph));
-        route.Expr = new() { Kind = "compute", Text = "response === true ? allowed : denied", Members =
-            [new("response", new() { Kind = "output", Source = "consent", Path = ["response"] }), new("allowed", Str(accepted)), new("denied", Str(rejected))] };
-        Assert.DoesNotContain(PlanningExecutableValidation.Validate(graph, preparation), d => d.Code == "SWITCH_OUTCOME_UNREACHABLE");
     }
 
     [Theory]
@@ -60,14 +42,32 @@ public sealed class ScenarioInputTests
     {
         var state = Session(PlanningStatus.Validating); state.Graph = Graph(); state.Preparation = Preparation();
         state.Preparation.AllowedStepTypes.Add("loop.sequential");
-        state.Preparation.Capabilities.Add(new() { Id = "cap", StepType = "mcp.call", Server = "renamed", Method = "observe", Kind = "tool",
+        state.Preparation.Capabilities.Add(new()
+        {
+            Id = "cap",
+            StepType = "mcp.call",
+            Server = "renamed",
+            Method = "observe",
+            Kind = "tool",
             InputSchema = JsonNode.Parse("""{"type":"object","properties":{}}""")!.AsObject(),
-            OutputSchema = JsonNode.Parse("""{"type":"object","properties":{"more":{"type":"boolean"}},"required":["more"]}""")!.AsObject() });
-        state.Graph.Workflows[0].Steps.Add(new() { Key = "pages", Type = "loop.sequential", Input = Obj(("while", new() { Kind = "compute", Text = "previous == null || previous.more",
-            Members = [new("previous", new() { Kind = "loop_previous", Source = "pages", Path = ["observe", "response"] })] })),
-            Steps = [new() { Key = "observe", Type = "mcp.call", CapabilityId = "cap", Input = Obj(("request", Obj())) }] });
+            OutputSchema = JsonNode.Parse("""{"type":"object","properties":{"more":{"type":"boolean"}},"required":["more"]}""")!.AsObject()
+        });
+        state.Graph.Workflows[0].Steps.Add(new()
+        {
+            Key = "pages",
+            Type = "loop.sequential",
+            Input = Obj(("while", new()
+            {
+                Kind = "compute",
+                Text = "previous == null || previous.more",
+                Members = [new("previous", new() { Kind = "loop_previous", Source = "pages", Path = ["observe", "response"] })]
+            })),
+            Steps = [new() { Key = "observe", Type = "mcp.call", CapabilityId = "cap", Input = Obj(("request", Obj())) }]
+        });
         var fingerprint = PlanningGraphCompiler.Fingerprint(state.Graph); var calls = 0;
-        var runtime = new FakeRuntime { OnCall = (phase, _, _) =>
+        var runtime = new FakeRuntime
+        {
+            OnCall = (phase, _, _) =>
         {
             if (phase == "semantic_review") return Task.FromResult(new LLMResponse { Json = new JsonObject { ["findings"] = new JsonArray() } });
             Assert.Equal("scenario_observations", phase); calls++;
@@ -75,7 +75,9 @@ public sealed class ScenarioInputTests
                 ? new PlanningValue { Kind = "boolean", Boolean = value }
                 : Obj(("response", Obj(("more", new() { Kind = "boolean", Boolean = value })))), PlanningJsonContext.Default.PlanningValue))!;
             return Task.FromResult(new LLMResponse { Json = new JsonObject { ["totalObservations"] = 2, ["responses"] = new JsonArray(Literal(calls < 3)) } });
-        } };
+        }
+        };
+        PlanningFixtures.Accept(state);
         var planner = new TypedWorkflowPlanner();
         state = await planner.AdvanceAsync(state, new() { ExpectedRevision = state.Revision }, runtime, TestContext.Current.CancellationToken);
         Assert.Equal(exhausted ? 2 : 3, calls); Assert.Equal(fingerprint, PlanningGraphCompiler.Fingerprint(state.Graph!));
@@ -83,46 +85,12 @@ public sealed class ScenarioInputTests
         if (exhausted) Assert.Contains(state.Diagnostics, d => d.Code == "SCENARIO_OBSERVATION_INVALID");
         else
         {
-            Assert.Single(state.ScenarioObservations);
+            Assert.Single(state.Validation.Observations);
             state = JsonSerializer.Deserialize(JsonSerializer.Serialize(state, PlanningJsonContext.Default.PlanningSnapshot), PlanningJsonContext.Default.PlanningSnapshot)!;
             state.Status = PlanningStatus.Validating;
             state = await planner.AdvanceAsync(state, new() { ExpectedRevision = state.Revision }, runtime, TestContext.Current.CancellationToken);
             Assert.Equal(3, calls); Assert.Equal(PlanningStatus.FinalReview, state.Status);
         }
-    }
-
-    [Fact]
-    public async Task PartialObservationSequenceResumesOnlyMissingItemsAndCannotPassEarly()
-    {
-        var state = Session(PlanningStatus.Validating); state.Graph = Graph(); state.Preparation = Preparation();
-        state.Preparation.AllowedStepTypes.Add("loop.sequential");
-        state.Preparation.Capabilities.Add(new() { Id = "source", StepType = "mcp.call", Server = "different", Method = "read", Kind = "tool",
-            InputSchema = new() { ["type"] = "object" },
-            OutputSchema = JsonNode.Parse("""{"type":"object","properties":{"again":{"type":"boolean"}},"required":["again"]}""")!.AsObject() });
-        state.Graph.Workflows[0].Steps.Add(new() { Key = "repeat", Type = "loop.sequential", Input = Obj(("while", new() { Kind = "compute", Text = "previous == null || previous.again",
-            Members = [new("previous", new() { Kind = "loop_previous", Source = "repeat", Path = ["read", "response"] })] })),
-            Steps = [new() { Key = "read", Type = "mcp.call", CapabilityId = "source", Input = Obj(("request", Obj())) }] });
-        state.ReviewedGraph = JsonSerializer.Deserialize(JsonSerializer.Serialize(state.Graph, PlanningJsonContext.Default.PlanningGraph), PlanningJsonContext.Default.PlanningGraph);
-        var calls = 0; var runtime = new FakeRuntime { OnCall = (phase, request, _) =>
-        {
-            if (phase == "semantic_review") return Task.FromResult(new LLMResponse { Json = new JsonObject { ["findings"] = new JsonArray() } });
-            calls++;
-            Assert.Equal(1, request.StructuredOutputSchema!["properties"]!["responses"]!["maxItems"]!.GetValue<int>());
-            if (calls == 3) return Task.FromResult(new LLMResponse { CompletionStatus = "output_limit" });
-            if (calls == 4) Assert.Contains("Observation number: 3", request.Prompt);
-            var sample = Obj(("response", Obj(("again", new() { Kind = "boolean", Boolean = calls < 3 }))));
-            return Task.FromResult(new LLMResponse { Json = new JsonObject { ["totalObservations"] = 3,
-                ["responses"] = new JsonArray(PlanningModelValues.Compact(JsonSerializer.SerializeToNode(sample, PlanningJsonContext.Default.PlanningValue))) } });
-        } };
-        var planner = new TypedWorkflowPlanner();
-        state = await planner.AdvanceAsync(state, new() { ExpectedRevision = state.Revision }, runtime, TestContext.Current.CancellationToken);
-        Assert.Equal(PlanningStatus.Recovery, state.Status); Assert.Equal(3, calls); Assert.Equal(0, runtime.ScenarioCalls);
-        Assert.Equal(2, Assert.Single(state.ScenarioObservations).Value!["responses"]!.AsArray().Count);
-        state = JsonSerializer.Deserialize(JsonSerializer.Serialize(state, PlanningJsonContext.Default.PlanningSnapshot), PlanningJsonContext.Default.PlanningSnapshot)!;
-        state = await planner.AdvanceAsync(state, new() { Kind = "retry", ExpectedRevision = state.Revision }, runtime, TestContext.Current.CancellationToken);
-        state = await planner.AdvanceAsync(state, new() { ExpectedRevision = state.Revision }, runtime, TestContext.Current.CancellationToken);
-        Assert.Equal(PlanningStatus.FinalReview, state.Status); Assert.Equal(4, calls); Assert.Equal(1, runtime.ScenarioCalls);
-        Assert.Equal(3, Assert.Single(state.ScenarioObservations).Value!["responses"]!.AsArray().Count);
     }
 
     [Theory]
@@ -143,8 +111,13 @@ public sealed class ScenarioInputTests
     public void UnresolvedLoopComputationIsDiagnosedAtItsInputBeforeScenarioSetup()
     {
         var graph = Graph(); var preparation = Preparation(); var workflow = graph.Workflows[0];
-        workflow.Steps.Add(new() { Key = "each", Type = "loop.sequential", Input = Obj(("items", new()
-            { Kind = "compute", Text = "Array.isArray(value) ? value : []", Members = [new("value", Obj())] })) });
+        workflow.Steps.Add(new()
+        {
+            Key = "each",
+            Type = "loop.sequential",
+            Input = Obj(("items", new()
+            { Kind = "compute", Text = "Array.isArray(value) ? value : []", Members = [new("value", Obj())] }))
+        });
         var finding = Assert.Single(PlanningExecutableValidation.Validate(graph, preparation), d => d.Code == "LOOP_ITEMS_CONTRACT_UNRESOLVED");
         Assert.Equal("/workflows/0/steps/1/input/members/0/value", finding.Location);
         Assert.Contains("typed array producer", finding.Message);
@@ -153,47 +126,21 @@ public sealed class ScenarioInputTests
     }
 
     [Fact]
-    public void LoopItemRepairOffersOnlyAvailableBindingsWithDeclaredArrayItems()
-    {
-        var graph = Graph(); var preparation = Preparation(); var workflow = graph.Workflows[0];
-        workflow.Inputs.Add(new() { Name = "entries", Schema = new() { Type = "array", Items = new() { Type = "string" } } });
-        var node = new PlanningNode { Key = "each", Type = "loop.sequential", Input = Obj(("items", new()
-            { Kind = "compute", Text = "[]", Members = [] })) }; workflow.Steps.Add(node);
-        var unit = new PlanningConstructionUnit { Key = "unit", Kind = "implementation", WorkflowKey = workflow.Key, NodeKeys = [node.Key], ContractVersion = PlanningDataflow.ContractVersion };
-        unit.Candidate = PlanningConstruction.UpgradeCandidate(graph, unit, PlanningConstruction.Values(workflow, unit), preparation);
-        unit.Diagnostics = PlanningExecutableValidation.Validate(graph, preparation).Where(d => d.Code == "LOOP_ITEMS_CONTRACT_UNRESOLVED").ToList();
-        var patch = PlanningUnitPatches.Create(graph, unit, PlanningConstruction.Schema(workflow, unit, preparation, graph), preparation);
-        var field = Assert.Single(patch.Schema["properties"]!["changes"]!["properties"]!.AsObject()); var shape = field.Value!;
-        Assert.Equal("binding", shape["properties"]!["kind"]!["enum"]![0]!.GetValue<string>());
-        var allowed = Assert.Single(shape["properties"]!["reference"]!["enum"]!.AsArray())!.GetValue<string>();
-        Assert.Equal("entries", PlanningDataflow.Index(workflow, preparation, graph, node.Key)[allowed].Value.Source);
-        var response = new JsonObject { ["changes"] = new JsonObject { [field.Key] = new JsonObject { ["kind"] = "binding", ["reference"] = allowed } }, ["remove"] = new JsonArray() };
-        var repaired = PlanningConstruction.Apply(graph, unit, patch.Apply(unit.Candidate, response), preparation);
-        Assert.DoesNotContain(PlanningExecutableValidation.Validate(repaired, preparation), d => d.Code == "LOOP_ITEMS_CONTRACT_UNRESOLVED");
-        Assert.Equal("string", Assert.Single(TypedWorkflowPlanner.ScenarioLoopItemSchemas(repaired, preparation)).Value!["type"]!.GetValue<string>());
-    }
-
-    [Fact]
     public void LoopFixturesUseResolvedProducerItemSchemasWithoutChangingTheGraph()
     {
         var preparation = Preparation(); var graph = Graph(); var workflow = graph.Workflows[0];
-        workflow.Steps.Add(new() { Key = "source", Type = "set", Input = Obj(("entries", new() { Kind = "array" })),
-            OutputSchema = new() { Type = "object", Properties = [new() { Name = "entries", Required = true, Schema = new() { Type = "array", Items = new() { Type = "string" } } }] } });
+        workflow.Steps.Add(new()
+        {
+            Key = "source",
+            Type = "set",
+            Input = Obj(("entries", new() { Kind = "array" })),
+            OutputSchema = new() { Type = "object", Properties = [new() { Name = "entries", Required = true, Schema = new() { Type = "array", Items = new() { Type = "string" } } }] }
+        });
         workflow.Steps.Add(new() { Key = "each", Type = "loop.sequential", Input = Obj(("items", new() { Kind = "output", Source = "source", Path = ["entries"] })) });
         var before = PlanningGraphCompiler.Fingerprint(graph);
-        var schemas = TypedWorkflowPlanner.ScenarioLoopItemSchemas(graph, preparation);
+        var schemas = PlanningScenarioFixtures.ScenarioLoopItemSchemas(graph, preparation);
         Assert.Equal("string", Assert.Single(schemas).Value!["type"]!.GetValue<string>());
         Assert.Equal(before, PlanningGraphCompiler.Fingerprint(graph));
-    }
-
-    [Fact]
-    public void LaterScenarioFailureIsProgressOnlyWhenEveryPreviouslyPassedScenarioStillPasses()
-    {
-        static PlanningScenarioResult Case(string id, string outcome) => new(id, outcome, "Synthetic", []);
-        var prior = new[] { Case("first", "passed"), Case("second", "inconclusive"), Case("third", "inconclusive") };
-        Assert.True(TypedWorkflowPlanner.PreservesScenarioProgress(prior, [Case("first", "passed"), Case("second", "passed"), Case("third", "failed")]));
-        Assert.False(TypedWorkflowPlanner.PreservesScenarioProgress(prior, [Case("first", "failed"), Case("second", "passed"), Case("third", "passed")]));
-        Assert.False(TypedWorkflowPlanner.PreservesScenarioProgress(prior, [Case("first", "passed"), Case("second", "passed")]));
     }
 
     [Fact]
@@ -202,17 +149,22 @@ public sealed class ScenarioInputTests
         var state = Session(PlanningStatus.Validating); state.Graph = Graph(); state.Preparation = Preparation();
         state.Graph.Workflows[0].Inputs.Add(new() { Name = "resource", Required = true, Schema = new() { Type = "string" }, Default = new() { Kind = "null" } });
         var calls = 0;
-        var runtime = new FakeRuntime { OnCall = (phase, _, _) =>
+        var runtime = new FakeRuntime
+        {
+            OnCall = (phase, _, _) =>
         {
             if (phase == "scenario_inputs") { calls++; return Task.FromResult(new LLMResponse { Json = new JsonObject { ["resource"] = new JsonObject { ["kind"] = "string", ["text"] = "provided" } } }); }
             return Task.FromResult(new LLMResponse { Json = new JsonObject { ["findings"] = new JsonArray() } });
-        } };
+        }
+        };
+        PlanningFixtures.Accept(state);
         var planner = new TypedWorkflowPlanner();
         state = await planner.AdvanceAsync(state, new() { ExpectedRevision = state.Revision }, runtime, TestContext.Current.CancellationToken);
         Assert.Equal(PlanningStatus.FinalReview, state.Status); Assert.Equal(1, calls);
-        state.ScenarioInputs!["resource"] = null; state.Status = PlanningStatus.Validating;
+        state.Validation.Inputs!["resource"] = null; state.Status = PlanningStatus.Validating;
         state = await planner.AdvanceAsync(state, new() { ExpectedRevision = state.Revision }, runtime, TestContext.Current.CancellationToken);
-        Assert.Equal(PlanningStatus.FinalReview, state.Status); Assert.Equal(2, calls); Assert.Equal("provided", state.ScenarioInputs!["resource"]!.GetValue<string>());
+        Assert.Equal(PlanningPhase.Repair, state.CurrentPhase); Assert.Equal(1, calls); Assert.Null(state.Validation.Inputs!["resource"]);
+        Assert.Contains(state.Diagnostics, d => d.Code == "SCENARIO_FIXTURE_CONTRACT_CHANGED");
         Assert.Equal("null", state.Graph!.Workflows[0].Inputs[0].Default!.Kind);
     }
 
@@ -225,23 +177,33 @@ public sealed class ScenarioInputTests
         state.Graph.Workflows[0].Inputs.Add(new() { Name = "resource", Required = true, Schema = new() { Type = "string", Description = "Absolute resource URL" } });
         var initialGraph = PlanningGraphCompiler.Fingerprint(state.Graph);
         var calls = 0;
-        var runtime = new FakeRuntime { OnCall = (phase, request, _) =>
+        var runtime = new FakeRuntime
+        {
+            OnCall = (phase, request, _) =>
         {
             if (phase == "semantic_review") return Task.FromResult(new LLMResponse { Json = new JsonObject { ["findings"] = new JsonArray() } });
             Assert.Equal("scenario_inputs", phase); calls++;
-            return Task.FromResult(new LLMResponse { Json = new JsonObject { ["resource"] = calls == 1 || exhausted
+            return Task.FromResult(new LLMResponse
+            {
+                Json = new JsonObject
+                {
+                    ["resource"] = calls == 1 || exhausted
                 ? new JsonObject { ["kind"] = "boolean", ["boolean"] = true }
-                : new JsonObject { ["kind"] = "string", ["text"] = "https://example.test/resources/42" } } });
-        } };
+                : new JsonObject { ["kind"] = "string", ["text"] = "https://example.test/resources/42" }
+                }
+            });
+        }
+        };
+        PlanningFixtures.Accept(state);
         var planner = new TypedWorkflowPlanner();
         state = await planner.AdvanceAsync(state, new() { ExpectedRevision = state.Revision }, runtime, TestContext.Current.CancellationToken);
         Assert.Equal(2, calls); Assert.Equal(initialGraph, PlanningGraphCompiler.Fingerprint(state.Graph!));
         Assert.Null(state.Graph!.Workflows[0].Inputs[0].Default);
         Assert.Equal(exhausted ? PlanningStatus.Recovery : PlanningStatus.FinalReview, state.Status);
-        if (exhausted) { Assert.Contains(state.Diagnostics, d => d.Code == "SCENARIO_INPUT_INVALID"); Assert.Null(state.ScenarioInputs); }
+        if (exhausted) { Assert.Contains(state.Diagnostics, d => d.Code == "SCENARIO_INPUT_INVALID"); Assert.Null(state.Validation.Inputs); }
         else
         {
-            Assert.Equal("https://example.test/resources/42", state.ScenarioInputs!["resource"]!.GetValue<string>());
+            Assert.Equal("https://example.test/resources/42", state.Validation.Inputs!["resource"]!.GetValue<string>());
             state = JsonSerializer.Deserialize(JsonSerializer.Serialize(state, PlanningJsonContext.Default.PlanningSnapshot), PlanningJsonContext.Default.PlanningSnapshot)!;
             state.Status = PlanningStatus.Validating;
             state = await planner.AdvanceAsync(state, new() { ExpectedRevision = state.Revision }, runtime, TestContext.Current.CancellationToken);

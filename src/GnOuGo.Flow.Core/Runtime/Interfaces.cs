@@ -69,6 +69,8 @@ public interface IExchangeRateProvider
 /// </summary>
 public sealed class LLMRequest
 {
+    /// <summary>Caller-assigned durable request identity; never model instructions.</summary>
+    public string? ClientRequestId { get; set; }
     public string? Provider { get; set; }
     public string Model { get; set; } = "";
     public string Prompt { get; set; } = "";

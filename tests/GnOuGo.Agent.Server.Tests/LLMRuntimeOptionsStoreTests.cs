@@ -1,4 +1,4 @@
-﻿using Microsoft.Extensions.Logging.Abstractions;
+using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using GnOuGo.AI.Core;
 using GnOuGo.Agent.Server.SmartFlow;

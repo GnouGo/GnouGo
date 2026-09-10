@@ -137,8 +137,6 @@ public sealed class PlanningSessionLifecycleTests
     {
         await using var fixture = await PlanningPersistenceTests.StoreFixture.CreateAsync();
         var state = State(PlanningStatus.Approved);
-        state.Yaml = "validated artifact";
-        state.ApprovedHash = state.ArtifactHash = PlanningGraphCompiler.Fingerprint(state.Yaml);
         Assert.True(await fixture.Store.TrySaveAsync(state, null, Ct));
         var writes = 0;
         var agents = new FakeMcpSession("GnOuGo.Agent.Mcp")
@@ -159,9 +157,8 @@ public sealed class PlanningSessionLifecycleTests
     {
         await using var fixture = await PlanningPersistenceTests.StoreFixture.CreateAsync();
         var state = State(PlanningStatus.Approved);
-        state.Yaml = "validated artifact";
-        state.ApprovedHash = state.ArtifactHash = PlanningGraphCompiler.Fingerprint(state.Yaml);
         state.Preparation!.StepContracts["set"] = new JsonObject { ["input"] = new JsonObject { ["type"] = "string" }, ["output"] = new JsonObject() };
+        ApproveFixture(state);
         Assert.True(await fixture.Store.TrySaveAsync(state, null, Ct));
         using var service = Create(fixture, new TypedWorkflowPlanner(), AgentCatalog());
         var result = await service.SubmitAsync(state.Request.SessionId, new() { Kind = "save", ExpectedRevision = 0, ArtifactHash = state.ArtifactHash }, Ct);
@@ -172,11 +169,36 @@ public sealed class PlanningSessionLifecycleTests
         Assert.Equal(result.Revision, (await service.GetAsync(state.Request.SessionId, Ct))!.Revision);
     }
 
-    private static PlanningSnapshot State(string status) => new()
+    private static PlanningSnapshot State(string status)
     {
-        Request = new() { TenantId = "planning-tests", Prompt = "Return a greeting", Name = "test-agent" }, Status = status,
-        Preparation = new() { AllowedStepTypes = ["set"] }, Graph = new() { Workflows = [new() { Key = "main" }] }
-    };
+        var state = new PlanningSnapshot
+        {
+            Request = new() { TenantId = "planning-tests", Prompt = "Return a greeting", Name = "test-agent" },
+            Status = status,
+            Preparation = new() { AllowedStepTypes = ["set"] },
+            Graph = new() { Workflows = [new() { Key = "main" }] },
+            BehaviorPlan = new() { Workflows = [new() { Key = "main", Purpose = "Return a greeting" }] }
+        };
+        if (status == PlanningStatus.Approved) ApproveFixture(state);
+        return state;
+    }
+    private static void ApproveFixture(PlanningSnapshot state)
+    {
+        // Models prior completed validation; individual host tests exercise save ownership and conflicts.
+        state.ApprovedBehaviorHash = PlanningBehaviorPlans.Fingerprint(state.BehaviorPlan!);
+        state.Validation = new()
+        {
+            Stage = 5,
+            Inputs = new(),
+            FixturesEstablished = true,
+            Scenarios = [new("nominal", "passed", "Fixture", [])],
+            GraphFingerprint = PlanningGraphCompiler.Fingerprint(state.Graph!)
+        };
+        state.Validation.ContractFingerprint = PlanningArtifactApproval.ContractFingerprint(state);
+        state.Validation.FixtureFingerprint = PlanningArtifactApproval.FixtureFingerprint(state);
+        state.Yaml = new PlanningGraphCompiler().Compile(state.Graph!, state.Preparation!, state.Request.Name);
+        state.ApprovedHash = state.ArtifactHash = PlanningGraphCompiler.Fingerprint(state.Yaml);
+    }
     internal static FakeMcpSession AgentCatalog() => new FakeMcpSession("GnOuGo.Agent.Mcp")
         .OnTool("agent_get_by_name", (_, _) => Task.FromResult(new McpCallResult { Content = new JsonObject { ["success"] = false, ["error_code"] = "NOT_FOUND" } }));
     internal static PlanningSessionService Create(PlanningPersistenceTests.StoreFixture fixture, IWorkflowPlanner planner, IMcpSession agents, ILLMClient? llm = null, TypedWorkflowPlanningSettings? settings = null)

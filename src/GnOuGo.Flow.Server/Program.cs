@@ -157,6 +157,7 @@ app.UseCors();
 app.MapGet("/health", () => Results.Ok(new { status = "ok", timestamp = DateTimeOffset.UtcNow }));
 
 app.MapPost("/api/workflow/run", async (
+    HttpContext httpContext,
     WorkflowRunRequest request,
     IWorkflowTelemetry telemetry,
     ILLMClient llm,
@@ -171,7 +172,9 @@ app.MapPost("/api/workflow/run", async (
         var prepared = PrepareWorkflowRun(request);
         using var cts = new CancellationTokenSource(TimeSpan.FromMinutes(2));
         var logger = loggerFactory.CreateLogger("GnOuGo.Flow.WorkflowEngine");
-        var result = await ExecuteWorkflowAsync(prepared.Workflow, prepared.Inputs, telemetry, llm, mcpFactory, mcpCache, hitlProvider, logger, null, cts.Token, checkpointer);
+        var runId = request.RunId ?? Guid.NewGuid().ToString("N");
+        httpContext.Response.Headers["X-Workflow-Run-Id"] = runId;
+        var result = await ExecuteWorkflowAsync(prepared.Workflow, prepared.Inputs, telemetry, llm, mcpFactory, mcpCache, hitlProvider, logger, runId, cts.Token, checkpointer, otelSettings.TenantId);
         return Results.Ok(ToWorkflowRunResponse(result));
     }
     catch (WorkflowParseException ex)
@@ -257,6 +260,8 @@ app.MapPost("/api/workflow/resume/{runId}", async (
 
         var engine = new WorkflowEngine
         {
+            WorkflowPlanner = new GnOuGo.Flow.Planning.TypedWorkflowPlanner(),
+            PlanningRuntimeFactory = GnOuGo.Flow.Integrations.Planning.WorkflowPlanningRuntimeFactory.CreateWorkspace(),
             LLMClient = llm,
             ModelUsageCostEstimator = new ModelMetadataUsageCostEstimator(),
             McpClientFactory = mcpFactory,
@@ -265,7 +270,7 @@ app.MapPost("/api/workflow/resume/{runId}", async (
             Checkpointer = checkpointer,
             Telemetry = telemetry,
             Logger = logger,
-            Limits = new ExecutionLimits { LogStepContent = true, RunId = runId }
+            Limits = new ExecutionLimits { LogStepContent = true, RunId = runId, TenantId = string.IsNullOrWhiteSpace(otelSettings.TenantId) ? "default" : otelSettings.TenantId.Trim() }
         };
 
         using var cts = new CancellationTokenSource(TimeSpan.FromMinutes(5));
@@ -340,7 +345,8 @@ app.MapPost("/api/workflow/run/stream", async (
 
     var streamingTelemetry = new StreamingWorkflowTelemetry(telemetry, evt => channel.Writer.TryWrite(evt));
     var logger = loggerFactory.CreateLogger("GnOuGo.Flow.WorkflowEngine");
-    var runId = Guid.NewGuid().ToString("N");
+    var runId = request.RunId ?? Guid.NewGuid().ToString("N");
+    httpContext.Response.Headers["X-Workflow-Run-Id"] = runId;
     using var timeoutCts = new CancellationTokenSource(TimeSpan.FromMinutes(10));
     using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(httpContext.RequestAborted, timeoutCts.Token);
 
@@ -351,7 +357,7 @@ app.MapPost("/api/workflow/run/stream", async (
     {
         try
         {
-            runResult = await ExecuteWorkflowAsync(prepared.Workflow, prepared.Inputs, streamingTelemetry, llm, mcpFactory, mcpCache, hitlProvider, logger, runId, linkedCts.Token, checkpointer);
+            runResult = await ExecuteWorkflowAsync(prepared.Workflow, prepared.Inputs, streamingTelemetry, llm, mcpFactory, mcpCache, hitlProvider, logger, runId, linkedCts.Token, checkpointer, otelSettings.TenantId);
         }
         catch (Exception ex)
         {
@@ -457,10 +463,12 @@ static Task<RunResult> ExecuteWorkflowAsync(
     ILogger logger,
     string? runId,
     CancellationToken ct,
-    IWorkflowCheckpointer? checkpointer = null)
+    IWorkflowCheckpointer? checkpointer = null, string? tenantId = null)
 {
     var engine = new WorkflowEngine
     {
+        WorkflowPlanner = new GnOuGo.Flow.Planning.TypedWorkflowPlanner(),
+        PlanningRuntimeFactory = GnOuGo.Flow.Integrations.Planning.WorkflowPlanningRuntimeFactory.CreateWorkspace(),
         LLMClient = llm,
         ModelUsageCostEstimator = new ModelMetadataUsageCostEstimator(),
         McpClientFactory = mcpFactory,
@@ -469,7 +477,7 @@ static Task<RunResult> ExecuteWorkflowAsync(
         Checkpointer = checkpointer,
         Telemetry = telemetry,
         Logger = logger,
-        Limits = new ExecutionLimits { LogStepContent = true, RunId = runId }
+        Limits = new ExecutionLimits { LogStepContent = true, RunId = runId, TenantId = string.IsNullOrWhiteSpace(tenantId) ? "default" : tenantId.Trim() }
     };
 
     return engine.ExecuteAsync(workflow, inputs, ct);
@@ -508,6 +516,7 @@ file sealed class InvalidWorkflowRunRequestException(string message) : Exception
 
 public sealed class WorkflowRunRequest
 {
+    public string? RunId { get; set; }
     public string Workflow { get; set; } = "";
     public string? Inputs { get; set; }
 }

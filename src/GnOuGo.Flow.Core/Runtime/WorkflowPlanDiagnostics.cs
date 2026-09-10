@@ -9,7 +9,7 @@ using GnOuGo.Flow.Core.Parsing;
 
 namespace GnOuGo.Flow.Core.Runtime;
 
-internal static class WorkflowPlanDiagnostics
+public static class WorkflowPlanDiagnostics
 {
     private static readonly JsonSerializerOptions DiagnosticJsonOptions = new(JsonSerializerDefaults.Web)
     {
@@ -100,7 +100,7 @@ internal static class WorkflowPlanDiagnostics
             message,
             new[]
             {
-                "Use the diagnostic code and message to repair the generated YAML before retrying.",
+                "Use the diagnostic code and message to correct the diagnosed typed workflow fields before retrying.",
                 "If this is a parser error, fix YAML syntax and root structure before changing workflow logic."
             });
     }
@@ -207,54 +207,54 @@ internal static class WorkflowPlanDiagnostics
         switch (node)
         {
             case JsonObject obj:
-            {
-                var code = ReadFingerprintValue(obj, "code")
-                           ?? ReadFingerprintValue(obj, "diagnostic_code")
-                           ?? ReadFingerprintValue(obj, "reason_code")
-                           ?? ReadFingerprintValue(obj, "issue_code");
-                if (!string.IsNullOrWhiteSpace(code))
                 {
-                    if (string.Equals(code, "PIPELINE_MAIN_UNPROVEN_EXTERNAL_ARTIFACT", StringComparison.OrdinalIgnoreCase))
+                    var code = ReadFingerprintValue(obj, "code")
+                               ?? ReadFingerprintValue(obj, "diagnostic_code")
+                               ?? ReadFingerprintValue(obj, "reason_code")
+                               ?? ReadFingerprintValue(obj, "issue_code");
+                    if (!string.IsNullOrWhiteSpace(code))
                     {
-                        var requestField = ReadFingerprintValue(obj, "request_field")
-                                           ?? ReadFingerprintValue(obj, "field")
-                                           ?? "artifact";
-                        var leafField = requestField.Split('.', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
-                            .LastOrDefault() ?? requestField;
-                        diagnostics.Add(code.Trim().ToUpperInvariant() + "|artifact_field=" + leafField.ToLowerInvariant());
-                        foreach (var property in obj)
+                        if (string.Equals(code, "PIPELINE_MAIN_UNPROVEN_EXTERNAL_ARTIFACT", StringComparison.OrdinalIgnoreCase))
                         {
-                            if (property.Key is "generated_yaml" or "invalid_yaml" or "message" or "legacy_summary")
-                                continue;
-                            CollectDiagnosticIdentities(property.Value, diagnostics);
+                            var requestField = ReadFingerprintValue(obj, "request_field")
+                                               ?? ReadFingerprintValue(obj, "field")
+                                               ?? "artifact";
+                            var leafField = requestField.Split('.', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+                                .LastOrDefault() ?? requestField;
+                            diagnostics.Add(code.Trim().ToUpperInvariant() + "|artifact_field=" + leafField.ToLowerInvariant());
+                            foreach (var property in obj)
+                            {
+                                if (property.Key is "generated_yaml" or "invalid_yaml" or "message" or "legacy_summary")
+                                    continue;
+                                CollectDiagnosticIdentities(property.Value, diagnostics);
+                            }
+                            break;
                         }
-                        break;
-                    }
 
-                    var identityFields = new[]
-                    {
+                        var identityFields = new[]
+                        {
                         "phase", "workflow", "workflow_name", "step", "step_id", "field", "location",
                         "path", "invalid_path", "leaf", "leaf_name", "output", "output_name",
                         "consumer", "consumer_step_id", "remediation_surface", "expected", "actual_type"
                     };
-                    var identity = new StringBuilder(code.Trim().ToUpperInvariant());
-                    foreach (var field in identityFields)
-                    {
-                        var value = ReadFingerprintValue(obj, field);
-                        if (!string.IsNullOrWhiteSpace(value))
-                            identity.Append('|').Append(field).Append('=').Append(value.Trim());
+                        var identity = new StringBuilder(code.Trim().ToUpperInvariant());
+                        foreach (var field in identityFields)
+                        {
+                            var value = ReadFingerprintValue(obj, field);
+                            if (!string.IsNullOrWhiteSpace(value))
+                                identity.Append('|').Append(field).Append('=').Append(value.Trim());
+                        }
+                        diagnostics.Add(identity.ToString());
                     }
-                    diagnostics.Add(identity.ToString());
-                }
 
-                foreach (var property in obj)
-                {
-                    if (property.Key is "generated_yaml" or "invalid_yaml" or "message" or "legacy_summary")
-                        continue;
-                    CollectDiagnosticIdentities(property.Value, diagnostics);
+                    foreach (var property in obj)
+                    {
+                        if (property.Key is "generated_yaml" or "invalid_yaml" or "message" or "legacy_summary")
+                            continue;
+                        CollectDiagnosticIdentities(property.Value, diagnostics);
+                    }
+                    break;
                 }
-                break;
-            }
             case JsonArray array:
                 foreach (var item in array)
                     CollectDiagnosticIdentities(item, diagnostics);
@@ -651,8 +651,8 @@ internal static class WorkflowPlanDiagnostics
         {
             var phase = GetString(details, "execution_phase");
             return phase == "finalization"
-                ? $"Repair finalization step '{failedStep}': one of its input, guard, or nested expressions reads a value that is not guaranteed to exist. Use the previous YAML and this step id to replace the exact reference with an earlier guaranteed output or a safe empty cleanup collection."
-                : $"Repair step '{failedStep}': one of its input, guard, or nested expressions reads a value that is not guaranteed to exist. Use the previous YAML and this step id to replace the exact reference with an earlier guaranteed output.";
+                ? $"Repair finalization step '{failedStep}': one of its input, guard, or nested expressions reads a value that is not guaranteed to exist. Use the compiler ownership mapping for this step to replace the exact typed reference with an earlier guaranteed output or a safe empty cleanup collection."
+                : $"Repair step '{failedStep}': one of its input, guard, or nested expressions reads a value that is not guaranteed to exist. Use the compiler ownership mapping for this step to replace the exact typed reference with an earlier guaranteed output.";
         }
 
         if (runtimeDetails is JsonObject outputDetails

@@ -1,136 +1,45 @@
 # gnougo-flow-cli
 
-CLI Python de démonstration pour lancer, valider et inspecter des workflows GnOuGo.Flow avec `gnougo-flow-core`.
+Python CLI for validating, inspecting, and executing saved GnOuGo workflows.
+Workflow planning is provided by the .NET Flow CLI, Flow Server, and Agent.Server
+using [Planner v2](../../../docs/workflow-planning-v2.md).
 
-## Installation (uv)
+## Install, test, and build
 
-```bash
+```sh
 uv sync --extra dev
+uv run pytest -q
+python -m build
 ```
 
-## Commandes
+## Usage
 
-```bash
-uv run gnougo-flow-cli --help
+```sh
 uv run gnougo-flow-cli validate examples/basic.yaml
 uv run gnougo-flow-cli inspect examples/basic.yaml
 uv run gnougo-flow-cli run examples/basic.yaml -i name=World
 uv run gnougo-flow-cli run examples/basic.yaml -j '{"name":"World"}'
 uv run gnougo-flow-cli run examples/basic.yaml -j @inputs.json
 uv run gnougo-flow-cli examples list
-uv run gnougo-flow-cli examples show basic
-uv run gnougo-flow-cli run examples/dynamic-workflow-agent.yaml -i "task=Write a short haiku about cloud security"
 ```
 
-## Configuration (axa-fr-app-settings)
+Use `--llm openai` for a configured provider or `--llm stub` for local fixtures.
+Use `--mcp real` for configured MCP servers or `--mcp stub` for the demo server.
+The `auto` choices use the configured service when available. These are runtime
+transport choices; the Python CLI contains no workflow planner.
 
-Le CLI charge la configuration via `axa-fr-app-settings` depuis:
+## Configuration
 
-- `settings.json` / `settings.yaml` (si présents)
-- `.env`
-- variables d'environnement `GNOUGO__*`
+Settings come from the specified settings file, conventional local example files,
+`.env`, and environment variables prefixed with `GNOUGO__`. Configure credentials
+through the environment, such as `GNOUGO__OPENAI__API_KEY`.
 
-Exemple `settings.json`:
+MCP servers use `LLM.McpServers` with declared transport, command or URL, arguments,
+and working directory. Relative `--project` paths resolve against the repository
+workspace. Discovery cache expiration defaults to one hour and can be configured
+with `McpCapabilityCache.SlidingExpirationSeconds`.
 
-```json
-{
-  "openai": {
-	"api_key": "sk-...",
-	"model": "gpt-4o-mini",
-	"base_url": null,
-	"organization": null,
-	"timeout_seconds": 60
-  }
-}
-```
-
-Exemple variables d'environnement:
-
-```bash
-export GNOUGO__OPENAI__API_KEY="sk-..."
-export GNOUGO__OPENAI__MODEL="gpt-4o-mini"
-```
-
-Choix du backend LLM:
-
-```bash
-uv run gnougo-flow-cli run examples/basic.yaml -i name=World --llm auto
-uv run gnougo-flow-cli run examples/basic.yaml -i name=World --llm openai
-uv run gnougo-flow-cli run examples/basic.yaml -i name=World --llm stub
-```
-
-- `auto`: OpenAI si clé dispo, sinon stub local
-- `openai`: exige une clé API
-- `stub`: mode démo hors-ligne
-
-Choix du backend MCP:
-
-```bash
-uv run gnougo-flow-cli run examples/mcp-discovery.yaml --mcp auto
-uv run gnougo-flow-cli run examples/mcp-discovery.yaml --mcp real
-uv run gnougo-flow-cli run examples/mcp-discovery.yaml --mcp stub
-uv run gnougo-flow-cli run examples/mcp-discovery-real.yaml --mcp real --llm stub
-```
-
-- `auto`: utilise un vrai client MCP stdio si des serveurs sont configurés, sinon stub.
-- `real`: impose le client MCP stdio réel.
-- `stub`: force le serveur MCP de démo local.
-
-Le CLI charge automatiquement les mêmes configurations MCP que .NET depuis:
-
-- `src/GnOuGo.Flow.Cli/appsettings.json`
-- `src/GnOuGo.Flow.Server/appsettings.json`
-
-Les chemins `--project` relatifs sont résolus vers la racine du workspace.
-
-MCP capability discovery is cached for one hour by default. Configure the sliding
-expiration with the same appsettings-style section used by the .NET host:
-
-```json
-{
-  "McpCapabilityCache": {
-    "SlidingExpirationSeconds": 3600
-  }
-}
-```
-
-## OpenTelemetry
-
-Vous pouvez exporter les spans via OTLP HTTP:
-
-```bash
-uv run gnougo-flow-cli run examples/basic.yaml -i name=World --otlp-endpoint http://localhost:4318/v1/traces
-```
-
-Configuration par defaut via `settings.example.json` (export désactivé par défaut):
-
-```json
-{
-  "telemetry": {
-	"enabled": false,
-	"service_name": "gnougo-flow-cli",
-	"otlp_endpoint": "http://localhost:4318/v1/traces",
-	"protocol": "http/protobuf",
-	"tenant_id": ""
-  }
-}
-```
-
-Priorite de resolution:
-
-- `--otlp-endpoint` (option CLI)
-- `telemetry.otlp_endpoint` dans les settings
-- sinon, pas d'export OTLP
-
-
-Workflow root spans include the workflow source for debugging. The emitted attributes are
-`gnougo-flow.workflow.source`, `gnougo-flow.workflow.source.format`,
-`gnougo-flow.workflow.source.length`, `gnougo-flow.workflow.source.truncated`, and
-`gnougo-flow.workflow.source.limit`. The source attribute is truncated at 64 KiB.
-
-## Notes de parite
-
-- Le CLI utilise `gnougo-flow-core`; il peut brancher un LLM OpenAI réel ou un stub.
-- `run` accepte les entrées Phase 7: `-i key=value` répétable et `-j JSON|@path.json`; `--inputs` reste disponible pour compatibilité.
-- `--run-id` active les sauvegardes de checkpoint en mémoire pendant l'exécution de démonstration.
-- `workflow.plan` reçoit maintenant un contexte enrichi (types d'étapes + documentation MCP découverte) et peut utiliser les patterns MCP direct ou LLM-assisted.
+Telemetry is disabled by default. Use `--otlp-endpoint` or the `telemetry` settings
+to export OTLP HTTP traces. Workflow source telemetry is truncated at 64 KiB.
+`--run-id` identifies in-memory workflow checkpoints in this demo runtime; durable
+planning sessions belong to the .NET hosts.

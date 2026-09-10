@@ -27,14 +27,14 @@ public sealed class IntentClarificationTests
         var runtime = Responses(IntentClarificationFixture.QuotedQuestions(), repaired);
         var result = await Send(Session(), runtime);
         Assert.Equal(PlanningStatus.Clarification, result.Status);
-        Assert.Equal(3, result.Question!.Fields!.Count);
-        Assert.Equal(new[] { "choice_0", "choice_1", "choice_2" }, result.Question.Fields.Select(f => f.Name));
-        Assert.All(result.Question.Fields, field => Assert.Equal(2, field.OptionDefinitions!.Count));
+        Assert.Equal(3, result.Intent.Question!.Fields!.Count);
+        Assert.Equal(new[] { "choice_0", "choice_1", "choice_2" }, result.Intent.Question.Fields.Select(f => f.Name));
+        Assert.All(result.Intent.Question.Fields, field => Assert.Equal(2, field.OptionDefinitions!.Count));
         Assert.Equal(new[] { "intent", "intent_repair" }, runtime.Phases);
         Assert.True(JsonNode.DeepEquals(runtime.Requests[0].StructuredOutputSchema, runtime.Requests[1].StructuredOutputSchema));
         Assert.Contains("INTENT_SCHEMA_INVALID", runtime.Requests[1].Prompt);
-        Assert.Equal(1, result.ClarificationForms);
-        Assert.Equal(3, result.ClarificationQuestions);
+        Assert.Equal(1, result.Intent.Forms);
+        Assert.Equal(3, result.Intent.Questions);
         Assert.Empty(result.Diagnostics);
         Assert.Contains(result.Events, e => e.Kind == "intent_repair_succeeded");
     }
@@ -64,8 +64,8 @@ public sealed class IntentClarificationTests
     public async Task InvalidContracts_ExhaustTwoCalls_AndPauseWithoutLosingTheSession(string defect)
     {
         var state = Session();
-        state.Request.Options["generator"] = new JsonObject { ["context"] = "Keep all approvals." };
-        state.Answers.Add(new("Model-written question", new JsonObject { ["prior"] = "yes" }));
+        state.Request.Options["policy"] = new JsonObject { ["instructions"] = "Keep all approvals." };
+        state.Intent.Answers.Add(new("Model-written question", new JsonObject { ["prior"] = "yes" })); state.Intent.Forms = 1; state.Intent.Questions = 1;
         var json = IntentClarificationFixture.Questions();
         switch (defect)
         {
@@ -84,13 +84,13 @@ public sealed class IntentClarificationTests
         Assert.False(PlanningStatus.IsTerminal(result.Status));
         Assert.Null(result.Outcome);
         Assert.NotNull(result.WaitingSinceUtc);
-        Assert.Null(result.Question);
+        Assert.Null(result.Intent.Question);
         Assert.Null(result.Graph);
-        Assert.False(result.IntentChecked);
+        Assert.False(result.Intent.Checked);
         Assert.Equal(state.Request.SessionId, result.Request.SessionId);
         Assert.Equal(2, runtime.Requests.Count);
         Assert.NotEmpty(result.Diagnostics);
-        Assert.Equal(1, result.ClarificationForms); // Retained answer, no invalid form counted.
+        Assert.Equal(1, result.Intent.Forms); // Retained answer, no invalid form counted.
         var paused = await Send(result, runtime);
         Assert.Equal(result.Revision, paused.Revision);
         Assert.Equal(2, runtime.Requests.Count);
@@ -145,9 +145,9 @@ public sealed class IntentClarificationTests
     public async Task EditedRecovery_ArchivesAnswersAndDiagnostics_PreservesBudgets_AndRejectsStaleCommands()
     {
         var state = Session(); state.Status = PlanningStatus.Recovery;
-        state.Answers.Add(new("Prior question", new JsonObject { ["answer"] = "Prior answer" }));
+        state.Intent.Answers.Add(new("Prior question", new JsonObject { ["answer"] = "Prior answer" })); state.Intent.Forms = 1; state.Intent.Questions = 1;
         state.Diagnostics.Add(new("INTENT_EVIDENCE_INVALID", "/evidence", "Invalid evidence"));
-        state.Request.Options["policy"] = "Keep approvals";
+        state.Request.Options["policy"] = new JsonObject { ["instructions"] = "Keep approvals" };
         state.Usage = new LLMUsageBudgetScope(new() { MaxCalls = 10 }).Snapshot;
         state.ActiveMilliseconds = 4321;
         state.WaitingSinceUtc = DateTimeOffset.UtcNow.AddHours(-2);
@@ -155,13 +155,13 @@ public sealed class IntentClarificationTests
         var runtime = Responses(IntentClarificationFixture.Ready());
         var edited = await Send(state, runtime, "edit_intent", "Return a greeting");
         Assert.Equal(state.Request.SessionId, edited.Request.SessionId);
-        Assert.Equal("Keep approvals", edited.Request.Options["policy"]!.GetValue<string>());
+        Assert.Equal("Keep approvals", edited.Request.Options["policy"]!["instructions"]!.GetValue<string>());
         Assert.Equal(originalUsage, JsonSerializer.Serialize(edited.Usage, PlanningJsonContext.Default.LLMUsageBudgetSnapshot));
-        Assert.Equal(1, edited.ClarificationForms);
-        Assert.Equal(1, edited.ClarificationQuestions);
-        Assert.Single(Assert.Single(edited.IntentHistory).Answers);
-        Assert.Single(edited.IntentHistory[0].Diagnostics);
-        Assert.Empty(edited.Answers);
+        Assert.Equal(1, edited.Intent.Forms);
+        Assert.Equal(1, edited.Intent.Questions);
+        Assert.Single(Assert.Single(edited.Intent.History).Answers);
+        Assert.Single(edited.Intent.History[0].Diagnostics);
+        Assert.Empty(edited.Intent.Answers);
         Assert.Empty(edited.Diagnostics);
         Assert.Null(edited.Preparation);
         Assert.InRange(edited.ActiveMilliseconds, 4321, 14321);
@@ -170,33 +170,8 @@ public sealed class IntentClarificationTests
         await Assert.ThrowsAsync<PlanningConflictException>(() => new TypedWorkflowPlanner().AdvanceAsync(edited,
             new() { Kind = "edit_intent", ExpectedRevision = state.Revision, Text = "stale" }, runtime, Ct));
         var reassessed = await Send(edited, runtime);
-        Assert.True(reassessed.IntentChecked);
-        Assert.Equal(1, reassessed.ClarificationForms);
+        Assert.True(reassessed.Intent.Checked);
+        Assert.Equal(1, reassessed.Intent.Forms);
         Assert.DoesNotContain("Prior answer", runtime.Requests[0].Prompt);
-    }
-
-    [Fact]
-    public async Task LegacyFailedSnapshot_CanRetryWithoutMigration_AndLimitsSurviveEdits()
-    {
-        var state = Session(); state.Status = PlanningStatus.Failed;
-        state.Diagnostics.Add(new("PLANNING_FAILED", "$", "The intent assessment lacks exact request evidence."));
-        var legacy = JsonSerializer.SerializeToNode(state, PlanningJsonContext.Default.PlanningSnapshot)!.AsObject();
-        foreach (var field in new[] { "currentPhase", "clarificationForms", "clarificationQuestions", "intentHistory" }) legacy.Remove(field);
-        state = JsonSerializer.Deserialize(legacy, PlanningJsonContext.Default.PlanningSnapshot)!;
-        var runtime = Responses(IntentClarificationFixture.Questions());
-        state = await Send(state, runtime, "retry");
-        Assert.Equal(2, state.SchemaVersion);
-        Assert.Empty(state.Diagnostics);
-        Assert.Single(state.IntentHistory[0].Diagnostics);
-        state = await Send(state, runtime);
-        Assert.Equal(PlanningStatus.Clarification, state.Status);
-        state.Status = PlanningStatus.Recovery;
-        state.Request.Options["intent_clarification"] = new JsonObject { ["max_rounds"] = 1 };
-        state = await Send(state, runtime, "edit_intent", IntentClarificationFixture.Prompt);
-        state = await Send(state, runtime);
-        Assert.Equal(PlanningStatus.Recovery, state.Status);
-        Assert.Contains(state.Diagnostics, d => d.Code == "CLARIFICATION_LIMIT");
-        Assert.Equal(1, state.ClarificationForms);
-        Assert.Equal(3, state.ClarificationQuestions);
     }
 }

@@ -779,11 +779,6 @@ class WorkflowEngine:
                         resolved_input = resolved
                     else:
                         resolved_input = self._interpolator.resolve_deep(step.source.input, data)
-                        if step.type == "workflow.plan":
-                            resolved_input = self._preserve_literal_repair_yaml(
-                                step.source.input,
-                                resolved_input,
-                            )
 
                 step_span = self.telemetry.step_start(
                     parent_span,
@@ -1101,26 +1096,6 @@ class WorkflowEngine:
             return ctx.data["steps"][key]
         return ctx.step.source.input
 
-    @staticmethod
-    def _preserve_literal_repair_yaml(source_input: Any, resolved_input: Any) -> Any:
-        if not isinstance(source_input, dict) or not isinstance(resolved_input, dict):
-            return resolved_input
-        source_repair = source_input.get("repair")
-        resolved_repair = resolved_input.get("repair")
-        if not isinstance(source_repair, dict) or not isinstance(resolved_repair, dict):
-            return resolved_input
-        existing_yaml = source_repair.get("existing_yaml")
-        if not isinstance(existing_yaml, str) or "${" not in existing_yaml:
-            return resolved_input
-        expressions = _scan_expressions(existing_yaml)
-        is_exact_expression = (
-            len(expressions) == 1
-            and existing_yaml[: expressions[0][0]].isspace()
-            and existing_yaml[expressions[0][1] :].isspace()
-        )
-        if not is_exact_expression:
-            resolved_repair["existing_yaml"] = existing_yaml
-        return resolved_input
 
     def evaluate_output_def(self, definition: Any, data: dict[str, Any]) -> Any:
         if definition.expr:
@@ -1148,7 +1123,6 @@ class WorkflowEngine:
             TemplateRenderExecutor,
             WorkflowCallExecutor,
             WorkflowExecuteExecutor,
-            WorkflowPlanExecutor,
             WorkflowRouteExecutor,
         )
 
@@ -1164,7 +1138,6 @@ class WorkflowEngine:
         registry.register(TemplateRenderExecutor())
         registry.register(LlmCallExecutor())
         registry.register(WorkflowCallExecutor())
-        registry.register(WorkflowPlanExecutor())
         registry.register(WorkflowExecuteExecutor())
         registry.register(WorkflowRouteExecutor())
         registry.register(McpCallExecutor())

@@ -280,7 +280,7 @@ Anthropic supports text responses, tool use (`tool_use` blocks), live model disc
 `LLMClientRequest.Reasoning` (and `LLMRequest.Reasoning` in `GnOuGo.Flow.Core`) controls the
 "thinking" / reasoning effort of capable models without hard-coding any provider-specific field.
 
-Accepted values: `"minimal" | "low" | "medium" | "high" | "max" | "auto"` (or `null`).
+Accepted values: `"none" | "minimal" | "low" | "medium" | "high" | "xhigh" | "max" | "auto"` (or `null`).
 
 | Value           | OpenAI / Copilot (GitHub Models)        | Ollama                | Anthropic / Claude         |
 |-----------------|-----------------------------------------|-----------------------|----------------------------|
@@ -289,7 +289,8 @@ Accepted values: `"minimal" | "low" | "medium" | "high" | "max" | "auto"` (or `n
 | `low`           | `reasoning_effort: "low"`               | `think: true`         | `thinking.budget_tokens=1024` |
 | `medium`        | `reasoning_effort: "medium"`            | `think: true`         | `thinking.budget_tokens=4096` |
 | `high` / `max`  | `reasoning_effort: "high"`              | `think: true`         | `thinking.budget_tokens=8192/16000` |
-| `none` / `off`  | (treated as `auto`)                     | `think: false`        | field omitted              |
+| `none`          | `reasoning_effort: "none"`              | `think: false`        | field omitted              |
+| `xhigh`         | `reasoning_effort: "xhigh"`             | field omitted         | adaptive effort `xhigh`; fixed budget omitted |
 
 For Claude Opus 4.7 and later Opus models, Anthropic no longer accepts fixed `thinking.budget_tokens`. The provider keeps the same GnOuGo `Reasoning` values and sends `thinking.type=adaptive` with `output_config.effort` instead. For example, `Reasoning="high"` becomes:
 

@@ -1,4 +1,4 @@
-﻿namespace GnOuGo.Agent.Server.Tests;
+namespace GnOuGo.Agent.Server.Tests;
 
 internal static class AgentServerTestEnvironment
 {
@@ -14,4 +14,3 @@ internal static class AgentServerTestEnvironment
     public static bool HasDevelopmentSettings(string serverContentRoot) =>
         File.Exists(Path.Combine(serverContentRoot, "appsettings.Development.json"));
 }
-

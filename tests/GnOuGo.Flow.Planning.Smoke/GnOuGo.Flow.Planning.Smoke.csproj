@@ -14,6 +14,6 @@
     <NoWarn>$(NoWarn);IL2026;IL2104;IL3053</NoWarn>
   </PropertyGroup>
   <ItemGroup><ProjectReference Include="../../src/GnOuGo.Flow.Planning/GnOuGo.Flow.Planning.csproj" /></ItemGroup>
-  <ItemGroup><ProjectReference Include="../../src/GnOuGo.Flow.Authoring.JavaScript/GnOuGo.Flow.Authoring.JavaScript.csproj" /></ItemGroup>
   <Import Project="../../build/GnOuGo.DarwinNativeCrypto.targets" />
+  <ItemGroup><ProjectReference Include="../../src/GnOuGo.Flow.Integrations/GnOuGo.Flow.Integrations.csproj" /></ItemGroup>
 </Project>

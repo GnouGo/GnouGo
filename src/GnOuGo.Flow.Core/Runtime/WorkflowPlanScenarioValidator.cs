@@ -9,7 +9,7 @@ using GnOuGo.Flow.Core.Runtime.Executors;
 namespace GnOuGo.Flow.Core.Runtime;
 
 /// <summary>Bounded synthetic path testing. No production integration is executed.</summary>
-internal static class WorkflowPlanScenarioValidator
+public static class WorkflowPlanScenarioValidator
 {
     public static async Task<IReadOnlyList<PlanningScenarioResult>> ValidateAsync(WorkflowDocument document, IMcpClientFactory? fakeFactory, CancellationToken ct, JsonObject? validationInputs = null, JsonObject? loopItemSchemas = null, JsonObject? observations = null)
     {

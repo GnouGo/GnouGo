@@ -35,4 +35,7 @@
   <Target Name="CleanClientApp" AfterTargets="Clean">
     <RemoveDir Directories="wwwroot" />
   </Target>
+  <ItemGroup>
+    <ProjectReference Include="../GnOuGo.Flow.Planning/GnOuGo.Flow.Planning.csproj" />
+  </ItemGroup>
 </Project>

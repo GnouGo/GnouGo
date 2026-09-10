@@ -177,13 +177,9 @@ public static class BuiltInStepContracts
             ("temperature", Number()))));
 
     private static JsonObject WorkflowPlanInput() => Object(
-        ("planner_version", PositiveInteger()),
-        ("mode", Enum("auto", "basic", "pipeline")),
+        new[] { "raw_prompt", "generator" },
         ("raw_prompt", String()),
         ("name", String()),
-        ("workflow_name", String()),
-        ("document_name", String()),
-        ("description", String()),
         ("intent_clarification", Object(
             ("mode", Enum("off", "when_needed", "always")),
             ("timeout_ms", PositiveInteger()),
@@ -198,10 +194,8 @@ public static class BuiltInStepContracts
                 new[] { "amount", "currency" },
                 ("amount", Number()),
                 ("currency", String()))),
-            ("max_estimated_cost_usd", Number()),
             ("unverifiable", Enum("fail")))),
         ("capability_preflight", Object(
-            ("mode", Enum("off", "infer", "explicit")),
             ("clarification", Object(
                 ("enabled", Boolean()),
                 ("timeout_ms", PositiveInteger()))),
@@ -228,39 +222,17 @@ public static class BuiltInStepContracts
                     ("method", String()),
                     ("request_bindings", CapabilityRequestBindings()))))))))),
         ("generator", Object(
-            ("mode", Enum("auto", "basic", "pipeline")),
-            ("provider", String()),
-            ("model", String()),
-            ("instruction", String()),
-            ("context", String()),
-            ("raw_prompt", String()),
-            ("name", String()),
-            ("workflow_name", String()),
-            ("document_name", String()),
-            ("description", String()),
-            ("reasoning", Enum("auto", "minimal", "low", "medium", "high", "max")),
-            ("pipeline_leaf_name", String()),
-            ("prefilter", AnyOf(
-                Boolean(),
-                Object(("provider", String()), ("model", String()), ("temperature", Number())))),
-            ("skill", OpenObject()),
-            ("inputs", OpenObject()),
-            ("outputs", OpenObject()))),
+            ("provider", String()), ("model", String()),
+            ("reasoning", Enum("minimal", "low", "medium", "high", "max")),
+            ("max_input_tokens", PositiveInteger()), ("max_output_tokens", PositiveInteger()))),
+        ("max_concurrency", PositiveInteger()),
+        ("max_repairs", PositiveInteger()),
         ("policy", Object(
+            ("instructions", String()),
             ("allowed_step_types", Array(String())),
             ("denied_step_types", Array(String())),
             ("allow_remote_workflow_refs", Boolean()))),
-        ("limits", Object(("max_steps_total", PositiveInteger()))),
-        ("validate", Object(
-            ("mode", Enum("strict")),
-            ("compile", Boolean()),
-            ("dry_run", Boolean()),
-            ("repair", Enum("auto")),
-            ("max_repair_attempts", PositiveInteger()))),
-        ("on_invalid", Object(("action", Enum("fail", "stop", "reprompt")), ("max_attempts", PositiveInteger()))),
-        ("skill", OpenObject()),
-        ("inputs", OpenObject()),
-        ("outputs", OpenObject()));
+        ("limits", Object(("max_steps_total", PositiveInteger()))));
 
     private static JsonObject McpCallInput() => Object(
         new[] { "server" },

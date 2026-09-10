@@ -44,7 +44,9 @@ internal static class PlanningOperationCompositions
     internal static IReadOnlyList<string> RequiredInputs(PlanningWorkflow workflow, PlanningNode node, PlanningPreparation preparation)
     {
         var owner = Owner(workflow, node, preparation);
-        if (owner is null) return preparation.Capabilities.FirstOrDefault(c => c.Id == node.CapabilityId)?.InputOperationIds ?? [];
+        if (owner is null) return node.Type == "workflow.call"
+            ? preparation.Capabilities.Where(c => c.OperationIds.Intersect(node.OperationIds, StringComparer.Ordinal).Any()).SelectMany(c => c.InputOperationIds).Distinct(StringComparer.Ordinal).ToArray()
+            : preparation.Capabilities.FirstOrDefault(c => c.Id == node.CapabilityId)?.InputOperationIds ?? [];
         if (owner.Steps[^1] != node) return [];
         return PlanningGraphCompiler.Enumerate([owner]).Where(n => n.CapabilityId is not null)
             .SelectMany(n => preparation.Capabilities.Single(c => c.Id == n.CapabilityId).InputOperationIds).Distinct(StringComparer.Ordinal).ToArray();

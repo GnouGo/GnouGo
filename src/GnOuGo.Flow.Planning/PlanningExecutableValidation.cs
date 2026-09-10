@@ -170,6 +170,9 @@ public static class PlanningExecutableValidation
     }
 
     public static PlanningDiagnostic MapRuntimeDiagnostic(PlanningDiagnostic diagnostic, PlanningGraph graph)
+        => PlanningDiagnosticLocations.TypedInput(MapRuntimeAddress(diagnostic, graph), graph);
+
+    private static PlanningDiagnostic MapRuntimeAddress(PlanningDiagnostic diagnostic, PlanningGraph graph)
     {
         if (diagnostic.Location.StartsWith("field:functions", StringComparison.Ordinal))
             return diagnostic with { Location = "/" + diagnostic.Location["field:".Length..].Replace('.', '/') };

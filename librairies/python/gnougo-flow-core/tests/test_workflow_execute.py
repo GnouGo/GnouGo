@@ -1,46 +1,15 @@
 from __future__ import annotations
 
 import pytest
-import yaml
 
 from gnougo_flow_core.compilation import WorkflowCompiler
 from gnougo_flow_core.errors import ErrorCodes, WorkflowRuntimeException
-from gnougo_flow_core.models import LLMResponse
 from gnougo_flow_core.parsing import WorkflowParser
 from gnougo_flow_core.runtime import WorkflowEngine
 
 
-def _ensure_generated_skill(yaml_text: str) -> str:
-    try:
-        parsed = yaml.safe_load(yaml_text)
-    except Exception:
-        return yaml_text
-
-    if not isinstance(parsed, dict) or isinstance(parsed.get("skill"), dict):
-        return yaml_text
-
-    parsed["skill"] = {
-        "description": "Generated workflow.",
-        "tags": ["generated"],
-        "inputs": {},
-        "outputs": {},
-    }
-    return yaml.safe_dump(parsed, sort_keys=False, allow_unicode=False)
 
 
-class _PlanLlm:
-    def __init__(self, *responses) -> None:
-        self._responses = [_ensure_generated_skill(response) if isinstance(response, str) else response for response in responses]
-        self.requests = []
-
-    async def call_async(self, request):
-        self.requests.append(request)
-        if request.prompt.startswith("Select only MCP servers/capabilities relevant to the task."):
-            return LLMResponse(json={"filtered": "No MCP servers configured."})
-        response = self._responses.pop(0)
-        if isinstance(response, Exception):
-            raise response
-        return LLMResponse(text=response)
 
 
 class _Telemetry:
@@ -74,7 +43,7 @@ async def _run_main(yaml_text: str, inputs=None, llm_client=None, engine: Workfl
 
 
 @pytest.mark.asyncio
-async def test_workflow_execute_basic_plan_then_execute_returns_output() -> None:
+async def test_workflow_execute_saved_artifact_returns_output() -> None:
     generated_yaml = """
     version: 1
     workflows:
@@ -99,14 +68,9 @@ async def test_workflow_execute_basic_plan_then_execute_returns_output() -> None
           main:
             steps:
               - id: generate
-                type: workflow.plan
+                type: set
                 input:
-                  mode: basic
-                  generator:
-                    model: gpt-4
-                    instruction: Generate a greeting
-                  validate:
-                    compile: true
+                  yaml: "${data.inputs.artifact}"
               - id: run
                 type: workflow.execute
                 input:
@@ -114,7 +78,7 @@ async def test_workflow_execute_basic_plan_then_execute_returns_output() -> None
             outputs:
               answer: "${data.steps.run.outputs.answer}"
         """,
-        llm_client=_PlanLlm(generated_yaml),
+        inputs={"artifact": generated_yaml},
     )
 
     assert result.success
@@ -216,12 +180,9 @@ async def test_workflow_execute_multi_step_generated_workflow_executes_all_steps
           main:
             steps:
               - id: generate
-                type: workflow.plan
+                type: set
                 input:
-                  mode: basic
-                  generator:
-                    model: gpt-4
-                    instruction: test
+                  yaml: "${data.inputs.artifact}"
               - id: run
                 type: workflow.execute
                 input:
@@ -231,7 +192,7 @@ async def test_workflow_execute_multi_step_generated_workflow_executes_all_steps
               steps_executed: "${data.steps.run.run.steps_executed}"
               success: "${data.steps.run.run.success}"
         """,
-        llm_client=_PlanLlm(generated_yaml),
+        inputs={"artifact": generated_yaml},
     )
 
     assert result.success
@@ -260,18 +221,15 @@ async def test_workflow_execute_no_outputs_defined_falls_back_to_steps_data() ->
           main:
             steps:
               - id: generate
-                type: workflow.plan
+                type: set
                 input:
-                  mode: basic
-                  generator:
-                    model: gpt-4
-                    instruction: test
+                  yaml: "${data.inputs.artifact}"
               - id: run
                 type: workflow.execute
                 input:
                   from_step: generate
         """,
-        llm_client=_PlanLlm(generated_yaml),
+        inputs={"artifact": generated_yaml},
     )
 
     assert result.success
@@ -314,12 +272,9 @@ async def test_workflow_execute_with_args_defaults_and_type_validation() -> None
           main:
             steps:
               - id: generate
-                type: workflow.plan
+                type: set
                 input:
-                  mode: basic
-                  generator:
-                    model: gpt-4
-                    instruction: test
+                  yaml: "${data.inputs.artifact}"
               - id: run
                 type: workflow.execute
                 input:
@@ -329,7 +284,7 @@ async def test_workflow_execute_with_args_defaults_and_type_validation() -> None
             outputs:
               greeting: "${data.steps.run.outputs.greeting}"
         """,
-        llm_client=_PlanLlm(generated_yaml),
+        inputs={"artifact": generated_yaml},
     )
 
     assert result.success
@@ -360,12 +315,9 @@ async def test_workflow_execute_invalid_args_fail_with_input_validation() -> Non
           main:
             steps:
               - id: generate
-                type: workflow.plan
+                type: set
                 input:
-                  mode: basic
-                  generator:
-                    model: gpt-4
-                    instruction: test
+                  yaml: "${data.inputs.artifact}"
               - id: run
                 type: workflow.execute
                 input:
@@ -373,7 +325,7 @@ async def test_workflow_execute_invalid_args_fail_with_input_validation() -> Non
                   args:
                     name: 123
         """,
-        llm_client=_PlanLlm(generated_yaml),
+        inputs={"artifact": generated_yaml},
     )
 
     assert not result.success
@@ -403,18 +355,15 @@ async def test_workflow_execute_exceeds_call_depth_fails_with_cycle_detected() -
           main:
             steps:
               - id: generate
-                type: workflow.plan
+                type: set
                 input:
-                  mode: basic
-                  generator:
-                    model: gpt-4
-                    instruction: test
+                  yaml: "${data.inputs.artifact}"
               - id: run
                 type: workflow.execute
                 input:
                   from_step: generate
         """,
-        llm_client=_PlanLlm(generated_yaml),
+        inputs={"artifact": generated_yaml},
         engine=engine,
     )
 
@@ -443,18 +392,15 @@ async def test_workflow_execute_generated_workflow_failure_propagates_error() ->
           main:
             steps:
               - id: generate
-                type: workflow.plan
+                type: set
                 input:
-                  mode: basic
-                  generator:
-                    model: gpt-4
-                    instruction: test
+                  yaml: "${data.inputs.artifact}"
               - id: run
                 type: workflow.execute
                 input:
                   from_step: generate
         """,
-        llm_client=_PlanLlm(generated_yaml, WorkflowRuntimeException(ErrorCodes.LLM_NETWORK, "LLM unreachable")),
+        inputs={"artifact": generated_yaml}, llm_client=_UnavailableLlm(),
     )
 
     assert not result.success
@@ -508,18 +454,15 @@ async def test_workflow_execute_starts_dedicated_subworkflow_telemetry_span() ->
           main:
             steps:
               - id: generate
-                type: workflow.plan
+                type: set
                 input:
-                  mode: basic
-                  generator:
-                    model: gpt-4
-                    instruction: test
+                  yaml: "${data.inputs.artifact}"
               - id: run
                 type: workflow.execute
                 input:
                   from_step: generate
         """,
-        llm_client=_PlanLlm(generated_yaml),
+        inputs={"artifact": generated_yaml},
         engine=engine,
     )
 
@@ -531,3 +474,8 @@ async def test_workflow_execute_starts_dedicated_subworkflow_telemetry_span() ->
     assert "type: set" in telemetry.workflow_starts[1]["source_text"]
     assert len(telemetry.workflow_ends) == 2
 
+
+
+class _UnavailableLlm:
+    async def call_async(self, request):
+        raise WorkflowRuntimeException(ErrorCodes.LLM_NETWORK, "LLM unreachable")

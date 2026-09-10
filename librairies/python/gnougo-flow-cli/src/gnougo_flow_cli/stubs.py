@@ -18,22 +18,6 @@ from gnougo_flow_core.models import (
 
 class EchoLLMClient:
     async def call_async(self, request: LLMRequest) -> LLMResponse:
-        if "Generate a valid GnOuGo.Flow YAML document" in request.prompt:
-            return LLMResponse(
-                text=(
-                    "version: 1\n"
-                    "workflows:\n"
-                    "  generated:\n"
-                    "    steps:\n"
-                    "      - id: answer\n"
-                    "        type: set\n"
-                    "        input:\n"
-                    "          text: \"Stub generated workflow executed\"\n"
-                    "    outputs:\n"
-                    "      answer: \"${data.steps.answer.text}\"\n"
-                )
-            )
-
         if request.tools:
             return LLMResponse(
                 text="I will call the first MCP capability",
@@ -109,6 +93,3 @@ class DemoMcpFactory:
 class AutoApproveHumanProvider:
     async def request_input_async(self, request):
         return {"response": "approve", "run_id": request.run_id, "step_id": request.step_id}
-
-
-

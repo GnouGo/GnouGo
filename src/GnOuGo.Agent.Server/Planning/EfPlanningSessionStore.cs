@@ -7,7 +7,7 @@ namespace GnOuGo.Agent.Server.Planning;
 /// <summary>Immutable encrypted revisions with an optimistic EF Core/SQLite index.</summary>
 public sealed class EfPlanningSessionStore(IDbContextFactory<PlanningDbContext> contexts, IKeyVaultRecordStore records) : IPlanningSessionStore
 {
-    internal const string Collection = "agent-planning-snapshots-v2";
+    internal const string Collection = "agent-planning-snapshots-v3";
     internal const string Author = "GnOuGo.Agent.Server.Planning";
 
     public async Task<PlanningSnapshot?> LoadAsync(string tenantId, string sessionId, CancellationToken ct)

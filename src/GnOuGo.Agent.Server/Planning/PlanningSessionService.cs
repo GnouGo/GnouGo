@@ -46,11 +46,10 @@ public sealed class PlanningSessionService(
     public Task<PlanningSnapshot?> GetAsync(string id, CancellationToken ct) => store.LoadAsync(Tenant, id, ct);
     public Task<IReadOnlyList<PlanningSnapshot>> ListAsync(CancellationToken ct) => store.ListAsync(Tenant, ct);
 
-    public async Task<PlanningSnapshot> StartAsync(string name, string prompt, bool reviseExisting, CancellationToken ct)
+    public async Task<PlanningSnapshot> StartAsync(string name, string prompt, bool reviseExisting, CancellationToken ct, JsonObject? failureEvidence = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(name);
         ArgumentException.ThrowIfNullOrWhiteSpace(prompt);
-        PlanningConstructionStrategies.Validate(settings.Value.ConstructionStrategy);
         name = name.Trim();
         if (name is "." or ".." || name.IndexOfAny(Path.GetInvalidFileNameChars()) >= 0 || name.Contains('/') || name.Contains('\\')) throw new ArgumentException("The agent name is invalid.");
         await using var runtime = await runtimeFactory.CreateAsync(ct);
@@ -70,10 +69,18 @@ public sealed class PlanningSessionService(
             options["host_save"] = new JsonObject { ["agent_id"] = response!["agent"]!["id"]!.DeepClone(), ["original_hash"] = PlanningGraphCompiler.Fingerprint(original!) };
         var state = new PlanningSnapshot
         {
-            Request = new PlanningRequest { TenantId = Tenant, Name = name, Prompt = prompt.Trim(), ExistingYaml = original, Options = options, MaxConcurrency = settings.Value.MaxConcurrency,
-                ConstructionStrategy = settings.Value.ConstructionStrategy,
-                Generation = new() { Reasoning = settings.Value.Reasoning, MaxNodesPerUnit = settings.Value.MaxNodesPerUnit,
-                    MaxInputTokensPerUnit = settings.Value.MaxInputTokensPerUnit, MaxOutputTokens = settings.Value.MaxOutputTokens } },
+            Request = new PlanningRequest
+            {
+                TenantId = Tenant,
+                Name = name,
+                Prompt = prompt.Trim(),
+                Baseline = original is null ? null : PlanningGraphImporter.ImportBaseline(original),
+                FailureEvidence = failureEvidence?.DeepClone().AsObject(),
+                Options = options,
+                MaxConcurrency = settings.Value.MaxConcurrency,
+                MaxRepairs = settings.Value.MaxRepairs,
+                Generation = new() { Reasoning = settings.Value.Reasoning, MaxInputTokensPerRequest = settings.Value.MaxInputTokensPerRequest, MaxOutputTokens = settings.Value.MaxOutputTokens }
+            },
             UpdatedAtUtc = DateTimeOffset.UtcNow
         };
         PlanningGenerationPolicy.Validate(state.Request.Generation);
@@ -220,7 +227,8 @@ public sealed class PlanningSessionService(
         using var activity = Activities.StartActivity("planning.advance");
         activity?.SetTag("tenant.id", Tenant);
         activity?.SetTag("gnougo.planning.session_id", current.Request.SessionId);
-        activity?.SetTag("gnougo.planning.version", current.SchemaVersion);
+        activity?.SetTag("gnougo.planning.version", 2);
+        activity?.SetTag("gnougo.planning.snapshot_schema", current.SchemaVersion);
         activity?.SetTag("gnougo.planning.phase", PlanningPhase.Resolve(current));
         activity?.SetTag("gnougo.planning.revision", current.Revision);
         var sw = Stopwatch.StartNew();
@@ -229,7 +237,7 @@ public sealed class PlanningSessionService(
             // Recovery commands are durable state changes; model/provider availability
             // must not prevent editing, configuration, cancellation or an intent retry.
             // A prepared retry needs the configured MCP runtime to check its catalog.
-            var updated = await planner.AdvanceAsync(current, command, new WorkflowPlanningRuntime(new WorkflowEngine()), ct);
+            var updated = await planner.AdvanceAsync(current, command, new WorkflowPlanningRuntime(new WorkflowEngine(), (_, _) => Task.CompletedTask), ct);
             var finalBudget = await records.GetAsync(PlanningBudgetSink.Collection, Tenant, current.Request.SessionId, EfPlanningSessionStore.Author, ct);
             if (finalBudget is not null) updated.Usage = JsonSerializer.Deserialize(finalBudget.Value, PlanningJsonContext.Default.LLMUsageBudgetSnapshot);
             updated.ActiveMilliseconds = current.ActiveMilliseconds + sw.Elapsed.TotalMilliseconds;
@@ -237,7 +245,7 @@ public sealed class PlanningSessionService(
             ObserveTransition(current, updated, sw, activity);
             return updated;
         }
-        if (current.ActiveMilliseconds >= 18_000_000 && command.Kind == "advance")
+        if (current.ActiveMilliseconds >= (PlanningBudgetOptions.Parse(current.Request.Options)?.MaxElapsed?.TotalMilliseconds ?? settings.Value.MaxActiveMilliseconds) && command.Kind == "advance")
         {
             var previous = current.Revision++;
             current.Status = PlanningStatus.Failed;
@@ -248,19 +256,21 @@ public sealed class PlanningSessionService(
         await using var runtime = await runtimeFactory.CreateAsync(ct);
         var receipt = await records.GetAsync(PlanningBudgetSink.Collection, Tenant, current.Request.SessionId, EfPlanningSessionStore.Author, ct);
         var initial = receipt is null ? current.Usage : JsonSerializer.Deserialize(receipt.Value, PlanningJsonContext.Default.LLMUsageBudgetSnapshot);
-        var money = current.Request.Options["llm_budget"]?["max_estimated_cost"];
+        var configured = PlanningBudgetOptions.Parse(current.Request.Options);
         var budget = new LLMUsageBudgetScope(new LLMUsageBudgetLimits
         {
-            MaxCalls = settings.Value.MaxModelCalls > 0 ? settings.Value.MaxModelCalls : throw new InvalidOperationException("TypedWorkflowPlanning:MaxModelCalls must be positive."), MaxTotalTokens = 15_000_000,
-            MaxEstimatedCost = new MonetaryAmount(money?["amount"]?.GetValue<decimal>() ?? budgetSettings.Value.Amount, money?["currency"]?.GetValue<string>() ?? budgetSettings.Value.Currency)
+            MaxCalls = Math.Min(configured?.MaxCalls ?? settings.Value.MaxModelCalls, settings.Value.MaxModelCalls),
+            MaxTotalTokens = Math.Min(configured?.MaxTotalTokens ?? settings.Value.MaxTotalTokens, settings.Value.MaxTotalTokens),
+            MaxEstimatedCost = configured?.MaxEstimatedCost ?? new MonetaryAmount(budgetSettings.Value.Amount, budgetSettings.Value.Currency)
         }, initial, sink: new PlanningBudgetSink(records, Tenant, current.Request.SessionId), exchangeRateProvider: exchangeRates);
         var estimator = new ModelMetadataUsageCostEstimator(runtime.Options);
-        var receiptRevision = SourceReceiptRevision(current);
-        var journal = new PlanningModelJournal(runtime.LlmClient, contexts, records, Tenant, current.Request.SessionId, receiptRevision, budget, estimator, current.Request.Generation);
+        var journal = new PlanningModelJournal(runtime.LlmClient, contexts, records, Tenant, current.Request.SessionId, budget, estimator, current.Request.Generation);
         var engine = new WorkflowEngine
         {
-            LLMClient = journal, McpClientFactory = runtime.McpClientFactory,
-            LLMCapabilities = runtime.LlmCapabilityResolver, ModelUsageCostEstimator = estimator,
+            LLMClient = journal,
+            McpClientFactory = runtime.McpClientFactory,
+            LLMCapabilities = runtime.LlmCapabilityResolver,
+            ModelUsageCostEstimator = estimator,
             ExchangeRateProvider = exchangeRates,
             LlmDefaults = new LlmRuntimeDefaults { Provider = runtime.Options.DefaultProvider, Model = runtime.Options.DefaultModel },
             Limits = new ExecutionLimits { LogStepContent = false, TenantId = Tenant, RunId = current.Request.SessionId }
@@ -288,38 +298,28 @@ public sealed class PlanningSessionService(
         return result;
     }
 
-    internal static long SourceReceiptRevision(PlanningSnapshot snapshot)
-    {
-        if (PlanningConstructionStrategies.IsWholeWorkflow(snapshot.Request.ConstructionStrategy) &&
-            snapshot.SourceCandidates.SingleOrDefault(c => c.PendingPrompt is not null) is { } pending)
-            return pending.PendingRevision ?? throw new InvalidOperationException("A pending authoring request has no durable receipt revision.");
-        return snapshot.Revision;
-    }
-
     private void ObserveTransition(PlanningSnapshot current, PlanningSnapshot result, Stopwatch sw, Activity? activity)
     {
         var phase = PlanningPhase.Resolve(result);
         activity?.SetTag("gnougo.planning.phase", phase);
-        activity?.SetTag("gnougo.planning.construction_strategy", result.Request.ConstructionStrategy);
-        activity?.SetTag("gnougo.planning.source.calls", result.SourceCandidates.Sum(c => c.Calls));
-        activity?.SetTag("gnougo.planning.source.repair_calls", result.SourceCandidates.Sum(c => Math.Max(0, c.Calls - 1)));
         activity?.SetTag("gnougo.planning.revision", result.Revision);
         activity?.SetTag("gnougo.planning.status", result.Status);
-        activity?.SetTag("gnougo.planning.units.completed", result.ConstructionUnits.Count(u => u.Status == "validated"));
-        activity?.SetTag("gnougo.planning.units.total", result.ConstructionUnits.Count(u => u.Status != "superseded"));
-        activity?.SetTag("gnougo.planning.units.repair_calls", result.ConstructionUnits.Sum(u => u.RepairCalls));
-        activity?.SetTag("gnougo.planning.bindings.count", result.Dataflow?.Bindings.Count ?? 0);
+        activity?.SetTag("gnougo.planning.workflows.completed", result.Construction.Workflows.Count(u => u.Status == "validated"));
+        activity?.SetTag("gnougo.planning.workflows.total", result.Construction.Workflows.Count);
+        activity?.SetTag("gnougo.planning.workflows.repair_calls", result.Construction.Workflows.Sum(u => u.RepairCalls));
+        activity?.SetTag("gnougo.planning.bindings.count", result.Construction.Dataflow?.Bindings.Count ?? 0);
         activity?.SetTag("gnougo.planning.preparation.stage", result.PreparationCheckpoint?.Stage);
         activity?.SetTag("gnougo.planning.decisions.version", result.Preparation?.DecisionContractVersion ?? 0);
         activity?.SetTag("gnougo.planning.decisions.count", result.Preparation?.Decisions.Count ?? 0);
-        activity?.SetTag("gnougo.planning.units.input_estimate.max", result.ConstructionUnits.Select(u => u.EstimatedInputTokens ?? 0).DefaultIfEmpty().Max());
-        activity?.SetTag("gnougo.planning.units.dispatch_blocked", result.ConstructionUnits.Count(u => u.DispatchOutcome == "not_dispatched"));
+        activity?.SetTag("gnougo.planning.workflows.input_estimate.max", result.Construction.Workflows.Select(u => u.EstimatedInputTokens ?? 0).DefaultIfEmpty().Max());
         activity?.SetTag("gnougo.planning.diagnostic_codes", string.Join(",", result.Diagnostics.Select(d => d.Code).Distinct(StringComparer.Ordinal)));
         foreach (var attempt in result.Attempts.Skip(current.Attempts.Count))
             activity?.AddEvent(new ActivityEvent("planning.validation_attempt", tags: new ActivityTagsCollection
             {
-                ["phase"] = attempt.Phase, ["candidate_hash"] = attempt.CandidateHash,
-                ["stage"] = attempt.Stage, ["retained"] = attempt.Retained,
+                ["phase"] = attempt.Phase,
+                ["candidate_hash"] = attempt.CandidateHash,
+                ["stage"] = attempt.Stage,
+                ["retained"] = attempt.Retained,
                 ["diagnostic_codes"] = string.Join(",", attempt.Diagnostics.Select(d => d.Code).Distinct(StringComparer.Ordinal))
             }));
         foreach (var evt in result.Events.Skip(current.Events.Count))
@@ -329,7 +329,9 @@ public sealed class PlanningSessionService(
             activity?.SetTag("gnougo.planning.repair.outcome", repairOutcome);
             activity?.AddEvent(new ActivityEvent("planning.repair", tags: new ActivityTagsCollection
             {
-                ["phase"] = evt.Phase, ["outcome"] = repairOutcome, ["diagnostic_count"] = evt.Count
+                ["phase"] = evt.Phase,
+                ["outcome"] = repairOutcome,
+                ["diagnostic_count"] = evt.Count
             }));
         }
         if (result.Status == PlanningStatus.Recovery)
@@ -346,8 +348,9 @@ public sealed class PlanningSessionService(
         if (state.Status == PlanningStatus.Saved && command.ArtifactHash == state.ApprovedHash) return state;
         if (state.Status is not (PlanningStatus.Approved or PlanningStatus.Saving) || string.IsNullOrEmpty(state.Yaml) || state.ArtifactHash != command.ArtifactHash || state.ApprovedHash != state.ArtifactHash || state.ArtifactHash != PlanningGraphCompiler.Fingerprint(state.Yaml))
             throw new PlanningConflictException("Saving requires approval of this exact validated artifact.");
+        PlanningArtifactApproval.Verify(state);
         await using var runtime = await runtimeFactory.CreateAsync(ct);
-        var validation = new WorkflowPlanningRuntime(new WorkflowEngine { McpClientFactory = runtime.McpClientFactory });
+        var validation = new WorkflowPlanningRuntime(new WorkflowEngine { McpClientFactory = runtime.McpClientFactory }, (_, _) => Task.CompletedTask);
         var errors = await validation.ValidateCatalogAsync(state.Preparation!, ct);
         if (errors.Count != 0)
         {
@@ -401,16 +404,17 @@ public sealed class PlanningSessionService(
 
     private JsonObject CreateOptions(string provider, string model) => new()
     {
-        ["planner_version"] = 2,
-        ["generator"] = new JsonObject { ["provider"] = provider, ["model"] = model, ["reasoning"] = settings.Value.Reasoning, ["context"] = "Generate a self-contained chat-agent workflow. Host configuration, credentials and saving the agent are outside its runtime boundary. Preserve every required operation, runtime outcome, and resource cleanup. The .GnOuGo directory is reserved for internal state. Workflow-created files belong under workflows/<purpose-specific-name>; propagate declared materialization outputs to subsequent steps. Unless explicitly requested otherwise, obtain runtime human confirmation before the first external write, with zero writes after rejection. Do not request review of the workflow's own YAML during execution." },
-        ["capability_preflight"] = new JsonObject { ["mode"] = "infer" },
+        ["generator"] = new JsonObject { ["provider"] = provider, ["model"] = model, ["reasoning"] = settings.Value.Reasoning },
+        ["capability_preflight"] = new JsonObject(),
         ["intent_clarification"] = new JsonObject { ["max_rounds"] = 3, ["max_questions"] = 15, ["max_questions_per_round"] = 5 },
         ["policy"] = new JsonObject
         {
+            ["instructions"] = "Generate a self-contained chat-agent workflow. Host configuration, credentials and saving the agent are outside its runtime boundary. Preserve every required operation, runtime outcome, and resource cleanup. The .GnOuGo directory is reserved for internal state. Workflow-created files belong under workflows/<purpose-specific-name>; propagate declared materialization outputs to subsequent steps. Unless explicitly requested otherwise, obtain runtime human confirmation before the first external write, with zero writes after rejection. Do not request review of the workflow's own YAML during execution.",
             ["allowed_step_types"] = new JsonArray("mcp.list", "mcp.call", "llm.call", "set", "emit", "assert.non_null", "template.render", "sequence", "parallel", "loop.sequential", "loop.parallel", "switch", "decision.evaluate", "human.input", "workflow.call"),
-            ["denied_step_types"] = new JsonArray("workflow.plan", "workflow.execute"), ["allow_remote_workflow_refs"] = false
+            ["denied_step_types"] = new JsonArray("workflow.plan", "workflow.execute"),
+            ["allow_remote_workflow_refs"] = false
         },
         ["limits"] = new JsonObject { ["max_steps_total"] = 300 },
-        ["llm_budget"] = new JsonObject { ["max_estimated_cost"] = new JsonObject { ["amount"] = budgetSettings.Value.Amount, ["currency"] = budgetSettings.Value.Currency } }
+        ["llm_budget"] = new JsonObject { ["max_calls"] = settings.Value.MaxModelCalls, ["max_total_tokens"] = settings.Value.MaxTotalTokens, ["max_elapsed_ms"] = settings.Value.MaxActiveMilliseconds, ["max_estimated_cost"] = new JsonObject { ["amount"] = budgetSettings.Value.Amount, ["currency"] = budgetSettings.Value.Currency } }
     };
 }

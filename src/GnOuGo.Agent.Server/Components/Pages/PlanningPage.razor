@@ -12,7 +12,7 @@
 <main id="planningReview" class="container py-4" style="max-width: 1100px; margin: auto; padding: 1.5rem;">
     <a href="/">← Back to chat</a>
     <h1>Workflow designer</h1>
-    <p><span class="badge text-bg-secondary" aria-label="Planner version">Planner v@(_state?.SchemaVersion ?? 2)</span></p>
+    <p><span class="badge text-bg-secondary" aria-label="Planner version">Planner v2</span></p>
     @if (_error is not null) { <p role="alert" class="text-danger">@_error</p> }
     @if (_state is null)
     {
@@ -35,13 +35,9 @@
         <p aria-live="polite"><strong>@Phase(_state.Status)</strong> · Revision @_state.Revision</p>
         <p aria-label="Current planning phase">Phase: @Phase(PlanningPhase.Resolve(_state))</p>
         <p aria-label="Generation configuration">Model: @_state.Request.Options["generator"]?["model"] · Reasoning: @(_state.Request.Generation.Reasoning ?? _state.Request.Options["generator"]?["reasoning"]?.GetValue<string>() ?? "medium")</p>
-        @if (_state.ConstructionUnits.Count > 0)
+        @if (_state.Construction.Workflows.Count > 0)
         {
-            <p aria-live="polite">Validated units: @_state.ConstructionUnits.Count(u => u.Status == "validated") / @_state.ConstructionUnits.Count(u => u.Status != "superseded") · Targeted repairs: @_state.ConstructionUnits.Sum(u => u.RepairCalls)</p>
-            @if (_state.ConstructionUnits.Any(u => u.PartialCandidate))
-            {
-                <p>Incomplete field construction · Completed field groups: @_state.ConstructionUnits.Sum(u => u.GeneratedFieldGroups). Partial units require complete validation before approval.</p>
-            }
+            <p aria-live="polite">Validated workflows: @_state.Construction.Workflows.Count(w => w.Status == "validated") / @_state.Construction.Workflows.Count · Targeted repairs: @_state.Construction.Repairs</p>
         }
         @if (PlanningStatus.IsWaiting(_state.Status) || _state.Status is PlanningStatus.Failed or PlanningStatus.Unsupported)
         {
@@ -58,16 +54,16 @@
                 ? "The generated clarification could not be validated."
                 : PlanningPhase.Resolve(_state) == PlanningPhase.Capabilities
                     ? "Capability preparation paused before behavior review. The findings explain the unresolved operations and missing runtime contracts. Technical defects require repair; questions are reserved for unresolved behavior choices."
-                    : "Construction paused. The findings identify the failed stage and candidate; rejected attempts are shown separately. Validated units are retained.") Your request and session history are retained. Retry, edit the request, or cancel planning.</p>
+                    : "Construction paused. The findings identify the failed stage and candidate; rejected attempts are shown separately. Validated workflows are retained.") Your request and session history are retained. Retry, edit the request, or cancel planning.</p>
         }
-        @if (_state.ReviewedGraph is null && _state.ApprovedBehaviorHash is null && _state.Status is PlanningStatus.Recovery or PlanningStatus.Failed or PlanningStatus.Unsupported)
+        @if (_state.ApprovedBehaviorHash is null && _state.Status is PlanningStatus.Recovery or PlanningStatus.Failed or PlanningStatus.Unsupported)
         {
             <div class="my-3"><label for="plan-intent-edit">Edit request</label><textarea id="plan-intent-edit" class="form-control" rows="7" @bind="_intentText"></textarea></div>
             <button class="btn btn-secondary" disabled="@(_busy || string.IsNullOrWhiteSpace(_intentText))" @onclick='() => SubmitAsync("edit_intent", _intentText)'>Save request and retry</button>
         }
         @if (_state.Status is PlanningStatus.Failed or PlanningStatus.Unsupported or PlanningStatus.Recovery) { <button class="btn btn-secondary" disabled="@_busy" @onclick='() => SubmitAsync("retry")'>Retry from the retained plan</button> }
         @if (_state.Status == PlanningStatus.Recovery) { <button class="btn btn-outline-secondary" disabled="@_busy" @onclick='() => SubmitAsync("cancel")'>Cancel planning</button> }
-        @if (_state.Question is { } question && _state.Status == PlanningStatus.Clarification)
+        @if (_state.Intent.Question is { } question && _state.Status == PlanningStatus.Clarification)
         {
             <h3>@question.Prompt</h3>
             @foreach (var field in question.Fields ?? [])
@@ -96,7 +92,7 @@
         {
             <button class="btn btn-primary" disabled="@_busy" @onclick='() => SubmitAsync("save")'>Save approved revision</button>
         }
-        @if ((_state.Graph is not null || _state.BehaviorPlan is not null) && (_state.Status is PlanningStatus.BehaviorReview or PlanningStatus.FinalReview or PlanningStatus.Approved || (_state.ReviewedGraph is not null || _state.ApprovedBehaviorHash is not null) && _state.Status is PlanningStatus.Failed or PlanningStatus.Unsupported or PlanningStatus.Recovery))
+        @if ((_state.Graph is not null || _state.BehaviorPlan is not null) && (_state.Status is PlanningStatus.BehaviorReview or PlanningStatus.FinalReview or PlanningStatus.Approved || (_state.ApprovedBehaviorHash is not null) && _state.Status is PlanningStatus.Failed or PlanningStatus.Unsupported or PlanningStatus.Recovery))
         {
             <div class="my-3"><label for="plan-feedback">What would you like to change?</label><textarea id="plan-feedback" class="form-control" rows="3" @bind="_feedback"></textarea></div>
             <button class="btn btn-secondary" disabled="@(_busy || string.IsNullOrWhiteSpace(_feedback))" @onclick='() => SubmitAsync("revise", _feedback)'>Revise in natural language</button>
@@ -109,19 +105,19 @@
         {
             <p>Permission to publish comes from runtime human confirmation. The generated review result cannot authorize publication.</p>
         }
-        @if (_state.Answers.Count > 0)
+        @if (_state.Intent.Answers.Count > 0)
         {
-            <details open class="my-3"><summary>Answered clarification forms (@_state.Answers.Count)</summary>
-                @foreach (var answer in _state.Answers) { <p>@answer.Question</p><ul>@foreach (var value in answer.Answers) { <li>@value.Key: @value.Value</li> }</ul> }
+            <details open class="my-3"><summary>Answered clarification forms (@_state.Intent.Answers.Count)</summary>
+                @foreach (var answer in _state.Intent.Answers) { <p>@answer.Question</p><ul>@foreach (var value in answer.Answers) { <li>@value.Key: @value.Value</li> }</ul> }
             </details>
         }
         @if (_state.Diagnostics.Count > 0)
         {
             <h3 class="mt-3">Validation findings</h3>
-            @foreach (var unit in _state.ConstructionUnits.Where(u => u.Status is "invalid" or "recovery"))
+            @foreach (var workflow in _state.Construction.Workflows.Where(w => w.Diagnostics.Count > 0))
             {
-                <p>Operations: @string.Join(", ", unit.NodeKeys) · Repair calls: @unit.RepairCalls · Dispatch: @(unit.DispatchOutcome ?? "Not recorded")
-                    @if (unit.EstimatedInputTokens is { } estimate) { <span> · Estimated input: @estimate / @unit.InputTokenLimit tokens</span> }
+                <p>Workflow: @workflow.WorkflowKey · Repair calls: @workflow.RepairCalls
+                    @if (workflow.EstimatedInputTokens is { } estimate) { <span> · Estimated input: @estimate / @workflow.InputTokenLimit tokens</span> }
                 </p>
             }
             <ul>@foreach (var group in _state.Diagnostics.GroupBy(d => (d.Code, d.Message)))
@@ -133,23 +129,22 @@
         }
         @if ((_state.BehaviorPlan is { } behavior ? GnOuGo.Flow.Planning.PlanningBehaviorPlans.Display(behavior, _state.Preparation) : _state.Graph) is { } graph)
         {
-            @if (_state.ReviewedGraph is null && _state.ApprovedBehaviorHash is null && _state.Status is PlanningStatus.Recovery or PlanningStatus.Failed)
+            @if (_state.ApprovedBehaviorHash is null && _state.Status is PlanningStatus.Recovery or PlanningStatus.Failed)
             {
                 <p role="status">Unvalidated behavior candidate — review and approval are still pending.</p>
             }
             <p>@graph.Summary</p>
-            <MarkdownContent Content="@("```mermaid\n" + GnOuGo.Flow.Planning.PlanningReviewFormatter.Diagram(graph, _state.Preparation, _state.PreviousGraph ?? _state.ReviewedGraph) + "\n```")" />
+            <MarkdownContent Content="@("```mermaid\n" + GnOuGo.Flow.Planning.PlanningReviewFormatter.Diagram(graph, _state.Preparation) + "\n```")" />
             <ul>@foreach (var detail in _state.BehaviorPlan is { } readable ? GnOuGo.Flow.Planning.PlanningReviewFormatter.BehaviorDetails(readable) : GnOuGo.Flow.Planning.PlanningReviewFormatter.BehaviorDetails(graph)) { <li>@detail</li> }</ul>
         }
-        @if (_state.Scenarios.Count > 0)
+        @if (_state.Validation.Scenarios.Count > 0)
         {
-            <details class="my-3"><summary>Synthetic scenario coverage</summary><ul>@foreach (var scenario in _state.Scenarios) { <li>@scenario.Outcome — @scenario.Description (@scenario.Id)</li> }</ul></details>
+            <details class="my-3"><summary>Synthetic scenario coverage</summary><ul>@foreach (var scenario in _state.Validation.Scenarios) { <li>@scenario.Outcome — @scenario.Description (@scenario.Id)</li> }</ul></details>
         }
         @if (_state.Yaml is not null)
         {
-            <details class="my-3"><summary>Advanced: inspect or edit YAML</summary>
-                <textarea class="form-control" aria-label="Workflow YAML" rows="18" @bind="_yaml"></textarea>
-                @if (_state.Status is not (PlanningStatus.Saved or PlanningStatus.Saving or PlanningStatus.Cancelled)) { <button class="btn btn-secondary" disabled="@_busy" @onclick='() => SubmitAsync("edit_yaml", _yaml)'>Revalidate edited YAML</button> }
+            <details class="my-3"><summary>Inspect generated YAML</summary>
+                <textarea class="form-control" aria-label="Workflow YAML" rows="18" readonly>@_state.Yaml</textarea>
             </details>
         }
         @if (_state.Attempts.Count > 0)
@@ -163,23 +158,15 @@
         {
             <details class="my-3"><summary>Revision history</summary><ul>@foreach (var revision in _state.History) { <li>Revision @revision.Revision — @Phase(revision.Status) · @revision.ArtifactHash[..Math.Min(12, revision.ArtifactHash.Length)]</li> }</ul></details>
         }
-        @if (_state.IntentHistory.Count > 0)
+        @if (_state.Intent.History.Count > 0)
         {
             <details class="my-3"><summary>Request and recovery history</summary>
-                @foreach (var revision in _state.IntentHistory)
+                @foreach (var revision in _state.Intent.History)
                 {
                     <p><strong>Revision @revision.Revision</strong> — @revision.Prompt</p>
                     <ul>@foreach (var diagnostic in revision.Diagnostics) { <li>@diagnostic.Code: @diagnostic.Message</li> }</ul>
                 }
             </details>
-        }
-        @if (_state.ChangedFragments.Count > 0)
-        {
-            <p>Changed workflows: @string.Join(", ", _state.ChangedFragments)</p>
-        }
-        @if ((_state.PreviousGraph ?? _state.ReviewedGraph) is { } previousGraph)
-        {
-            <details open><summary>Changes in this revision</summary><ul>@foreach (var change in GnOuGo.Flow.Planning.PlanningReviewFormatter.Diff(previousGraph, _state.Graph)) { <li>@change</li> }</ul></details>
         }
         @if (_state.Status == PlanningStatus.Saving) { <button class="btn btn-secondary" disabled="@_busy" @onclick='() => SubmitAsync("save")'>Retry saving the approved revision</button> }
 
@@ -193,7 +180,7 @@
     [SupplyParameterFromQuery(Name = "agent")] public string? AgentName { get; set; }
     private PlanningSnapshot? _state;
     private IReadOnlyList<PlanningSnapshot> _sessions = [];
-    private string _name = "", _prompt = "", _feedback = "", _yaml = "", _intentText = "";
+    private string _name = "", _prompt = "", _feedback = "", _intentText = "";
     private bool _reviseExisting, _busy;
     private string? _error;
     private readonly Dictionary<string, string> _answers = new(StringComparer.Ordinal);
@@ -225,8 +212,7 @@
         if (differentSession || _state?.Request.Prompt != state.Request.Prompt) _intentText = state.Request.Prompt;
         if (differentSession) { _renderedRevision = -1; _feedback = ""; _answers.Clear(); }
         if (differentSession) _reasoning = state.Request.Generation.Reasoning ?? state.Request.Options["generator"]?["reasoning"]?.GetValue<string>() ?? "medium";
-        if (differentSession || _state?.Revision != state.Revision) _yaml = state.Yaml ?? "";
-        if (_state?.Question?.StepId != state.Question?.StepId) _answers.Clear();
+        if (_state?.Intent.Question?.StepId != state.Intent.Question?.StepId) _answers.Clear();
         _state = state;
     }
     private async Task PollAsync()
@@ -259,7 +245,6 @@
         try
         {
             _state = await Planning.SubmitAsync(_state.Request.SessionId, new PlanningCommand { Kind = kind, ExpectedRevision = _state.Revision, ArtifactHash = _state.ArtifactHash, Text = text, Answers = answers }, _lifetime.Token);
-            _yaml = _state.Yaml ?? "";
         }
         catch (Exception ex) when (ex is not OperationCanceledException) { _error = ex.Message; await RefreshAsync(); }
         finally { _busy = false; }
@@ -273,14 +258,14 @@
         {
             var options = _state.Request.Generation;
             _state = await Planning.SubmitAsync(_state.Request.SessionId, new() { Kind = "configure_generation", ExpectedRevision = _state.Revision,
-                Generation = new() { Reasoning = _reasoning, MaxNodesPerUnit = options.MaxNodesPerUnit, MaxInputTokensPerUnit = options.MaxInputTokensPerUnit, MaxOutputTokens = options.MaxOutputTokens } }, _lifetime.Token);
+                Generation = new() { Reasoning = _reasoning, MaxInputTokensPerRequest = options.MaxInputTokensPerRequest, MaxOutputTokens = options.MaxOutputTokens } }, _lifetime.Token);
         }
         catch (Exception ex) when (ex is not OperationCanceledException) { _error = ex.Message; await RefreshAsync(); }
         finally { _busy = false; }
     }
     private Task AnswerAsync() => SubmitAsync("answer", answers: new JsonObject(_answers.Select(a => new KeyValuePair<string, JsonNode?>(a.Key, JsonValue.Create(a.Value)))));
     private void SetAnswer(string key, string value) => _answers[key] = value;
-    private bool CanAnswer() => _state?.Question?.Fields?.All(f => !f.Required || !string.IsNullOrWhiteSpace(_answers.GetValueOrDefault(f.Name))) == true;
+    private bool CanAnswer() => _state?.Intent.Question?.Fields?.All(f => !f.Required || !string.IsNullOrWhiteSpace(_answers.GetValueOrDefault(f.Name))) == true;
     private TimeSpan WaitDuration() => TimeSpan.FromMilliseconds((_state?.HumanWaitMilliseconds ?? 0) + (_state?.WaitingSinceUtc is { } waiting ? Math.Max(0, (DateTimeOffset.UtcNow - waiting).TotalMilliseconds) : 0));
     private static string Phase(string status) => status switch
     {
@@ -288,8 +273,6 @@
         PlanningPhase.Intent => "Understanding your request", PlanningPhase.Capabilities => "Checking available capabilities", PlanningPhase.Behavior => "Designing the workflow behavior",
         PlanningStatus.Recovery => "Waiting for your recovery choice",
         "semantic_review" => "Reviewing the workflow", "fragment" or "repair_fragment" => "Generating workflow steps", "revision_scope" => "Reviewing requested changes",
-        "fragment_inputs" or "fragment_contracts" => "Resolving typed producer contracts", "fragment_implementation" => "Constructing executable units",
-        "fragment_outputs" => "Connecting public outputs", "repair_unit" => "Repairing the affected unit",
         PlanningStatus.Clarification => "Your answers are needed", PlanningStatus.BehaviorReview => "Review the proposed behavior",
         PlanningStatus.Generating => "Generating workflow steps", PlanningStatus.Revising => "Applying your requested changes", PlanningStatus.Validating => "Checking contracts and scenarios",
         PlanningStatus.FinalReview => "Ready for final review", PlanningStatus.Approved => "Approved and ready to save",

@@ -1,6 +1,5 @@
 # GnOuGo.Agent (Blazor + Minimal API)
 
-Planner v2 uses [typed data bindings and field-level recovery](../../docs/planner-v2-data-bindings.md). Recovery shows validation findings, dispatch size and repair progress above the behavior diagram.
 
 This solution contains:
 - **GnOuGo.Agent.Server**: Blazor (server interactive) UI + Minimal API streaming endpoint; published as a trimmed self-contained single-file executable with bundled MCP tools.
@@ -10,94 +9,26 @@ This solution contains:
 
 ### Typed workflow designer
 
-Open `/planning` for combined name/description entry, behavior diagrams, guided
-clarification, natural-language revisions, full YAML edit revalidation, and approval
-of an exact artifact. Encrypted sessions and model receipts survive reconnect/restart;
-EF Core stores tenant-scoped revision indexes. Direct designer sessions use version 2.
-`TypedWorkflowPlanning:PlannerVersion` defaults to `2`: `/gnougo add` and
-`/gnougo reprompt` open the designer. Set it explicitly to `1` to roll back to the
-compatibility chat workflow. Restart Agent.Server after changing this setting.
-There is no automatic fallback after version-2 failure. This default change does
-not establish that the live quality and performance release gates have passed.
+Open `/planning` to create or revise a workflow. `/gnougo add` and `/gnougo reprompt`
+open the same designer. SmartFlow **Improve** persists a revision session with the
+saved workflow and separate failure evidence, then links to the designer.
 
-The designer shows **Planner v2** and the current phase. Intent responses use structured
-source/excerpt evidence and one targeted repair. Exhausted repair pauses in durable
-`recovery` with **Edit request**, **Retry**, and **Cancel**. Request edits before the first behavior
-approval archive prior answers and findings, preserve all cumulative budgets, and restart
-intent assessment. Recovery and pending questions survive reconnect/restart without
-automatic answers. The existing failed v2 snapshots can be retried without migration.
-New immutable snapshots use a versioned Brotli payload before KeyVault encryption,
-reducing repeated history storage without truncating attempts, events or answers.
-Agent.Server owns this encoding and reads both compressed and legacy JSON payloads;
-the EF Core index, tenant checks, revision checks and snapshot schema version stay unchanged.
-Behavior review now presents a business contract before code, expressions or schemas are
-constructed. It shows operation ownership, business inputs/outputs, decisions (including
-no-action defaults), external effects, runtime confirmations and cleanup. Questions,
-answered forms and recovery actions appear above the diagram. Acceptance locks the
-exact behavior hash. Unapproved legacy candidates return through this review.
-Decision outcomes must match locked activation values, and defaults cannot contain writes
-or lifecycle operations. A retained review invalidated by these contract checks requires
-a fresh review; retry preserves its request, answers, history and cumulative spending.
-Elaboration validates native inputs, producer fields, templates, JavaScript syntax and
-schemas; repairs use atomic field patches. Current findings follow the retained candidate,
-with rejected attempts shown separately. Final approval still requires complete validation.
-The opt-in `TypedV2_*` tests cover live recovery and a separate three-generation campaign.
-For provider outages, `GNOU_GO_LIVE_TYPED_PLANNING_PROBE=1` enables only
-`TypedV2_ProbeConfiguredProvider_WithoutAdvancingSessions`. Run it with the campaign's
-existing budget and KeyVault authorization settings. It sends one small structured request
-with the configured model, reasoning and transport policy, an enforced 512-token output
-ceiling, and no hidden retries. Its reservation remains in the cumulative ledger if usage
-is unavailable. Background planning stays disabled; probe success neither advances saved
-sessions nor counts as generation or execution acceptance.
+Planner v2 requires business behavior acceptance before complete typed subworkflow
+construction. Callees precede callers; independent workflows use concurrency four.
+Targeted typed repairs preserve accepted behavior and passing validation scenarios.
+The final YAML view is read-only, and approval targets the exact validated artifact.
 
-Executable generation uses resumable units of at most four nodes, after resolving input
-and producer schemas. Accepted decision cases/defaults and runtime confirmation contracts
-are constructed deterministically. Shape and conversion defects enter scoped repair before
-recovery; validated units remain cached across Retry and restart. The designer shows the
-effective model, reasoning and unit/repair progress. Paused sessions expose **Generation
-settings**, using a revision-checked `configure_generation` command without clearing answers
-or behavior approval. Changing settings invalidates final artifact approval.
+Schema 3 snapshots, model requests, receipts and budgets are encrypted in KeyVault.
+Tenant-scoped EF Core/SQLite indexes use the workspace-resolved
+`.GnOuGo/data/gnougo-planning-v3.db`. Prior storage is unused. Reservations precede
+model dispatch; completed receipts replay after restart. Unverifiable dispatches stop.
+Optimistic revisions and original-workflow hashes protect approval and saving.
 
-`TypedWorkflowPlanning:Reasoning` defaults to `low`; explicit generation settings are retained.
-
-`TypedWorkflowPlanning:ConstructionStrategy` defaults to `typed-units-v2`. Set it to
-`javascript-v1` to opt new planner-v2 sessions into bounded Jint/Acornima authoring:
-
-```sh
-dotnet run --project src/GnOuGo.Agent.Server -- --TypedWorkflowPlanning:ConstructionStrategy=javascript-v1
-```
-
-For the equivalent whole-subworkflow JSON path, select `typed-workflows-v1`.
-Both formats share construction scheduling, validation and bounded repair.
-The paired comparison uses 32,000 input tokens; normal new-session defaults remain
-12,000. No production checkpoint-import endpoint or strategy-switch command is added.
-
-Existing sessions retain their stored strategy. The planning API exposes it alongside
-source-unit progress; the UI's existing behavior review, YAML review and approval flow
-remain in use. Each source unit receives at most two repairs, and its source and receipt
-state are encrypted using the existing planning store. No JavaScript editor is required.
-See [the same-scenario live comparison](../../docs/planner-javascript-construction.md)
-for activation, limits and results.
-`MaxNodesPerUnit`, `MaxInputTokensPerUnit` and `MaxOutputTokens` default to `4`, `12000`
-(estimated input) and `8192` (enforced output). Independent unit calls retain concurrency four.
-Output ceilings cannot be dropped by compatibility fallback, and journaled calls disable
-hidden transport retries. The compatibility YAML also uses low reasoning; changing only that
-YAML does not configure designer sessions. Live tests retain the cumulative campaign ledger
-and all unresolved reservations; insufficient balance blocks further paid dispatch.
-The rollout guide documents isolated-provider prerequisites and the explicit operator
-override for existing KeyVault configuration with a persistent cumulative budget ledger.
-
-The v2 live harness also routes Copilot SDK inference through a temporary loopback
-policy host. Each upstream HTTP dispatch reserves conservative cost in the same
-ledger, retains the configured model and low reasoning, and enforces at most 8,192
-output tokens. Verified usage is counted once; missing receipts retain reservations.
-The harness requires the MCP process's interception handshake before fixture
-execution and requires actual SDK receipts for acceptance. WebSocket inference,
-duplicate dispatch identifiers, and other provider destinations are rejected.
-Credentials stay in memory, and the temporary endpoint is removed during cleanup.
-
-See [the implementation and rollout guide](../../docs/workflow-planning-v2.md) for
-diagrams, configuration, API contracts, persistence limits and test/publish commands.
+`TypedWorkflowPlanning` configures `Reasoning` (default `low`), `MaxConcurrency` (4),
+`MaxModelCalls` (100), `MaxInputTokensPerRequest` (12000), and `MaxOutputTokens` (8192).
+The designer shows phase, workflow, dependency, repair and budget progress.
+Recovery retains accepted evidence and cumulative spending. See
+[the planner architecture](../../docs/workflow-planning-v2.md) for all gates and invariants.
 
 ### Component boundaries
 
@@ -140,7 +71,7 @@ flowchart TD
 All three mounted services use the stable C# MCP SDK `2.2.0` and one stateless Streamable HTTP transport. Each route carries its logical server identity as endpoint metadata. The SDK's request-local `ConfigureSessionOptions` hook sets the exact server name/version and replaces the request's tool collection with only tools marked for that route; missing or unknown metadata fails closed. Because the options are request-local, concurrent discovery cannot leak one route's catalog into another.
 
 The default placeholders in `appsettings.json` intentionally use port `0`:
-    
+
 ```json
 {
   "LLM": {
@@ -376,32 +307,22 @@ known to be current.
 
 When no explicit/default agent is selected, `SmartFlowService` runs the embedded `SmartFlow/main-routing-agent.yaml` workflow. That workflow uses `workflow.route` to expand all persisted database agents (`ref: { kind: database }`), select one or more relevant sub-workflows, auto-extract structured inputs from the prompt/history, and request any remaining missing or invalid declared inputs through the existing Human Input form before execution. Candidate forms are presented one at a time, then the completed workflows use their configured execution policy. The route also includes a local general fallback workflow so a fresh installation can still answer prompts before any persisted agents exist.
 
-`/gnougo add` first runs generic up-front intent clarification, then inventory-first capability preflight and workflow decomposition, using medium reasoning. The clarification analyst sees only the raw request and caller context and shares a budget of three forms, fifteen questions, and at most five questions per form with every later planning stage. Each question shows two or three described answers with the AI recommendation first, badged, and preselected; the user can select Other and type a custom answer or abandon planning. The selected label, description, custom-answer status, and visible external-write confirmation consequence remain authoritative planning evidence. Questions follow the request language, while fixed controls use the Agent UI culture. Capability and extraction stages use ordinary HITL only for validated user-intent ambiguity. Technical contract repair remains automatic. After that repair is exhausted, one behavior-only form may offer to continue read-only when every blocker is a conditional external write and the validated reads or execution can still return a safe result; preserving the writes remains recommended and stops planning. Catalog IDs, schemas, provider choices, and generation-time guesses about future runtime decisions are never requested. Once inferred preflight succeeds, decomposition reuses the locked proof so immutable operation/catalog ownership and shared artifact materializers remain attached to their declared data-flow roots.
+`/gnougo add` and `/gnougo reprompt` open the same persisted designer. Intent clarification
+precedes capability discovery. Capability classifications require explicit intent evidence and
+provider-neutral schema metadata. The business behavior requires human acceptance before
+construction of its typed graph. Callees are completed and validated before their callers;
+independent subworkflows may run concurrently. Every construction response contains one complete
+typed workflow. The deterministic compiler alone emits YAML, and the designer shows it read-only.
 
-The built-in `/gnougo add` workflow caps extraction, each leaf, and parent assembly at one initial candidate plus three repairs. Models with known or previously proven structured-output support use strict internal response schemas for normalization, YAML generation, and parent assembly; legacy models keep the text path. Invalid structured JSON gets one identical schema retry and then a technical `LLM_SCHEMA` failure. Candidate convergence is independent of HITL: stale, unchanged, or regressive repairs cannot replace the best validated candidate, while removing blockers that share a code at different validated locations counts as progress; two non-improving responses stop with `WORKFLOW_PLAN_REPAIR_STALLED`. The public generated YAML and `workflow.plan` result remain unchanged.
+Typed repairs are limited to diagnosed fields, preserve accepted behavior and ownership, and
+must improve the first failing validation stage while retaining all previous passes. Final approval
+binds the exact graph, capability contracts, validation fixtures, revision, and artifact hash.
+Choosing **Improve** after execution failure creates a revision session with the saved workflow
+and separate failure evidence, then links to this designer.
 
-If physical capability selection narrowed the discovered catalog and required matching blockers survive its ordinary repair, `/gnougo add` performs one bounded full-catalog rewind. The rewind rematches complete discovery and may re-adjudicate only challenged exact-denial constraint classifications from original evidence before the final rematch; all operations and unrelated inventory fields remain immutable. Replacement inventory and matching contracts must be schema-valid, have changed fingerprints where applicable, and strictly reduce blocker identities; otherwise planning fails closed with a sanitized upstream-contract diagnostic and does not ask the user to debug planner mechanics.
-
-```mermaid
-flowchart TD
-    A["/gnougo add"] --> B["Clarify user intent"]
-    B --> C["Discover MCP capabilities"]
-    C --> D["Match and lock operation contracts"]
-    D -->|"safe behavioral ambiguity"| E["HITL form"]
-    E --> D
-    D --> F["Normalize and decompose"]
-    F --> G["Generate leaves in parallel"]
-    G --> H["Parse, compile, and validate"]
-    H -->|"bounded improving repair"| G
-    H --> I["Assemble parent graph"]
-    I --> J["Final validation and dry run"]
-    J -->|"bounded improving repair"| I
-    J --> K["Review and persist agent"]
-```
-
-After clarification, the first capability structured call inventories runtime operations and constraints without seeing tools. `required` means the generated plan must implement an obligation, including every requested conditional branch; only explicitly optional enrichment may be omitted, and that classification requires exact request/context evidence. A compact paged selector then chooses relevant physical MCP tools from one entry per tool, adds MCP-declared artifact producers and complete-operation wrappers, and expands authoritative schemas and selector variants only for that selected set before final matching. If inventory or required-candidate selection is incomplete, each stage gets one bounded repair. Complete discovery remains available to dry runs and deterministic validation, and the 256,000-character expanded-catalog guard is unchanged. Documented scalar selectors make logical variants of a multi-action MCP tool distinct and lock their literal request values through decomposition and YAML validation. Mutually exclusive runtime outcomes are locked as one exact-value switch rather than reported as creation-time ambiguity. A requested uncertain outcome is represented by an explicit non-mutating switch case. Flow first prefers one discovered typed enum output and can next impose a strict provider-neutral structured-output contract on one compatible MCP/LLM producer. When the declared decision operation is local processing with several valid upstream operations, and `decision.evaluate` is registered and policy-allowed, Flow instead synthesizes one finite local evaluator containing every stable opaque decision field. Its values come only from selector schemas and validated no-effect inventory evidence; every declared upstream operation must participate in its boolean conditions. The owning leaf is validated before parent assembly, including exact cases, no-effect defaults, one evaluator occurrence, and typed producer-to-consumer routing across workflow boundaries. Ad-hoc `set`, functions, caller inputs, fixed generation-time decisions, and mutating default branches remain rejected. Structured diagnostics identify automatic normalization, behavior relaxation, and terminal technical failure without recording prompts, answers, descriptions, or provider-specific identifiers. Host configuration, internal provider/credential resolution, and the outer agent-persistence action are outside the generated workflow inventory. Required resource cleanup is generated under the Flow workflow-level `finally` array.
-
-Core native container and shaping steps such as sequences, branches, loops, ordinary local shaping, and MCP invocation plumbing are excluded from the capability catalog. They remain available to generated workflow structure but cannot be presented as alternatives or complementary external primitives beside an MCP action. Capability-bearing native contracts such as model calls, human interaction, and the finite `decision.evaluate` contract remain discoverable when policy-allowed.
+See [the planner architecture](../../docs/workflow-planning-v2.md) for contracts, budgets,
+receipt replay, dependency scheduling, and validation. Agent.Server keeps encrypted KeyVault
+payloads and tenant-scoped EF Core/SQLite indexes in the schema-3 storage namespace.
 
 All `/gnougo add` planning phases request provider-managed background execution. OpenAI providers
 use the configured `RequestPolicy.BackgroundProtocol`: `Auto` probes Responses,
@@ -431,73 +352,16 @@ does not consume the human-input budget. User-requested cancellation remains `CA
 
 Read and write capabilities remain discoverable by default; preflight describes availability rather than silently changing an MCP server's execution policy. When preflight fails, the chat response and trace show the sanitized error code, unavailable operation IDs/descriptions, and failed catalogs instead of only the summary message. Catalog discovery failures direct the operator to restore MCP startup, connectivity, or configuration (or remove the catalog); missing capabilities retain separate capability-oriented recovery guidance.
 
-In inferred mode, matching is reported per operation as `matched`, `composed`, `conditional`, `local`, `ambiguous`, `contract_gap`, or `unavailable`. Operations explicitly classify their execution/effect kind, exact upstream `input_operation_ids`, and any runtime decision source; the declared edges let a local validation be traced to its external producer without provider-specific inference. Constraints explicitly classify exact denials versus structural policies, so Flow does not guess those semantics from domain wording. Repeated exact catalog IDs are deduplicated, and native-only constraint candidates remain orchestration policy because exact denied alternatives are an MCP-only contract. Selector bindings form a structural specificity order for one physical tool: a whole-tool or partial-selector entry whose bindings are a strict compatible subset of another entry is a catalog ancestor, not an additional invocation. Flow removes these ancestors from malformed final or advisory selections; one unique maximal descendant becomes the match and records `selector_ancestor_chain_canonicalized`, while incomparable maxima remain alternatives. When those maxima form a proven mutually exclusive selector family and the locked operation declares a runtime decision source, they become the conditional set and `conditional_selector_family_canonicalized` is recorded. If a declared alternative set collapses to only one logical capability, it becomes actionable `unavailable` with `selector_ancestor_chain_insufficient`; ancestor duplication cannot manufacture the missing effect branch. Unknown IDs, missing decision sources, incompatible selector topology, or ungrounded decision values still fail closed. Flow then recursively closes declared artifact dependencies: a unique minimal acyclic chain such as materializer → comparison payload → consumer is composed automatically, while multiple, missing, cyclic, and over-limit graphs remain explicit fail-closed outcomes. Final artifact lineage accepts direct producer values, typed workflow boundaries, transparent `set` aliases, and exact same-path `assert.non_null` refinements; renaming, casts, concatenation, normalization, and other transforms remain rejected. If a conditional branch set is incorrectly locked to an upstream authorization gate whose contract cannot cover the branch values, Flow searches only its declared upstream operation edges and all inputs of local aliases. It prefers one complete typed enum contract, otherwise one structured semantic root of the artifact composition, excluding technical materializers; among several declared artifact consumers, only a sole maximal required-artifact-kind superset is canonical. A declared multi-input local reducer may aggregate otherwise incomparable valid sources through `decision.evaluate`; incomparable physical producers without that local contract remain ambiguous. The confirmation operation and write ordering remain independent. Unique recovery emits `conditional_decision_source_canonicalized`; local synthesis emits sanitized `conditional_local_decision_contract_synthesized`. Multiple or absent sources outside that safe contract emit `conditional_decision_source_ambiguous` or `conditional_decision_source_unavailable` as technical gaps and never ask the user to choose technical lineage. If one producer owns several independent decisions, each receives a distinct stable field derived from opaque operation identity; incompatible enum contracts therefore cannot overwrite one another during extraction.
-Conditional matching also distinguishes mutually exclusive selector alternatives from a provider-neutral ordered composition: when the locked operation explicitly permits no effect, the matcher may declare that every structurally distinct selected capability runs once, in catalog order, inside one guarded effect case. Every no-effect branch must carry exact task evidence overlapping that operation's structural requirement, so availability, permission, safety-boundary, and ordinary failure policies cannot manufacture an abstention branch. Flow validates the matching mode, exact order, no-effect case, and non-mutating default without deriving lifecycle semantics from tool or provider names.
-A one-capability `all_on_value` match is valid only when the operation explicitly permits no effect; one-capability selector alternatives and guarded effects without that contract remain malformed.
-Coverage requirements distinguish intrinsic `capability_contract` behavior from `workflow_structure` guarantees such as cardinality, complete-scope iteration, ordering, finalization, failure handling, quality thresholds, runtime argument values or instructions, input locator representation, and locally derivable parameter mapping. Only the intrinsic primitive is compared with static tool cards even when an evidence excerpt retains structural context; structural guarantees remain locked for workflow generation and validation. If an evidence-qualified reviewer still reports a gap, one bounded provider-neutral adjudication must prove whether the primitive itself is missing or only controlled workflow-structure facets differ. Structural-only differences are canonicalized automatically with sanitized reason `capability_coverage_workflow_structure_canonicalized`; malformed adjudication is a model-contract violation and never opens HITL. One bounded repair can resolve remaining malformed, unknown-ID, ambiguous, initially unavailable, or confirmed intrinsic-gap decisions while preserving already valid unrelated matches; an ungrounded conditional write also unlocks its declared upstream decision chain so both sides can be repaired together. The coverage review and adjudication see only selected cards, lock allowed IDs in their schemas, accept harmless Unicode/whitespace normalization in copied evidence, record precise sanitized contract issue codes, and retry invalid contracts once. Structured pipeline extraction independently declares exact `owned_operation_ids` for each leaf. A unique owner lets Flow restore omitted exact planned-tool occurrences from the locked contract; unknown or duplicate owners fail closed without description, provider/tool-name, catalog-number, or leaf-order matching. If only genuine user-intent ambiguity remains, `/gnougo add` presents one batched form about observable behavior and restarts complete preflight. It never asks the user to repair match cardinality, select catalog IDs, assemble producer chains, distinguish capability primitives from workflow structure, or predict a runtime decision. A valid intrinsic coverage gap may use the shared form budget to ask whether its documented weaker behavior is acceptable. Separately, after automatic repair is exhausted, an all-conditional-write decision gap may offer only preserve-and-stop or explicit read-only continuation when all required reads/execution remain safe. Missing input, timeout, malformed output, unavailable reads/execution, lifecycle gaps, mixed blockers, or exhausted budgets fail closed without that relaxation. Repeated malformed matching is `model_contract_violation`; a terminal decision-contract gap is `unsupported` with guidance to permit the local evaluator, configure a compatible typed contract, relax to read-only when offered, or revise the request. Traces include corrected form/question counters and sanitized matching, local-decision, artifact-closure, conditional-grounding, and coverage events. Remaining failures include sanitized `matching_issues` or `contract_issues`; raw answers, full schemas, prompts, repository content, credentials, and model reasoning are not included.
-
-The single-selector outcome depends on catalog evidence: `conditional_selector_set_insufficient` or `selector_ancestor_chain_insufficient` is `unavailable` only when the catalog exposes no compatible sibling. If a compatible sibling exists but the model omitted it, the response remains a repairable model-contract violation. This distinction prevents both fabricated branch coverage and false capability-unavailable errors.
-
-External writes inferred from a short intention are classified separately from reads and AI execution. The structured inventory declares external-write confirmation as `required`, `forbidden`, or `unspecified`, with exact request/context evidence required for either explicit choice. `/gnougo add` receives a locked platform confirmation operation and ordering policy unless the validated policy is `forbidden`; `unspecified` remains fail-safe. This is language-neutral, so an explicit instruction such as “Aucune confirmation humaine” is honored without provider- or locale-specific keyword rules. A conditional rule such as “only after confirmation” never becomes a document-wide denied tool, while unconditional prohibitions still reject exact denied calls.
-
-The live chat harnesses below explicitly select planner version 1 to retain compatibility-path coverage; they do not validate the default version-2 designer. The focused live `/gnougo add` smoke test uses the current KeyVault-backed runtime, requires successful discovery of every configured catalog, generates and compiles a provider-neutral fixed-output workflow with no requested external effect, verifies persistence, then deletes the unique temporary agent and restores the previous default-agent setting:
+Planner safety, lifecycle, and persistence tests use typed fixtures and deterministic transport doubles:
 
 ```bash
-GNOU_GO_LIVE_AGENT_ADD_SMOKE=1 dotnet test \
-  tests/GnOuGo.Agent.Server.Tests/GnOuGo.Agent.Server.Tests.csproj \
-  --filter 'FullyQualifiedName~LiveAgentAddSmokeTests.GenericNoExternalEffectIntent_GeneratesValidPersistedAgent'
+dotnet test tests/GnOuGo.Flow.Planning.Tests
+dotnet test tests/GnOuGo.Agent.Server.Tests --filter 'FullyQualifiedName~Planning|FullyQualifiedName~SmartFlow'
 ```
 
-The same harness has a conditional-runtime-choice case whose intent requires multiple independent effect branches. With a catalog that lacks any one branch, it verifies that selector-ancestor duplication is removed and the result is the actionable `CAPABILITY_PREFLIGHT_UNAVAILABLE`, never a model-contract cardinality error or a partially persisted agent:
-
-```bash
-GNOU_GO_LIVE_AGENT_ADD_SMOKE=1 dotnet test \
-  tests/GnOuGo.Agent.Server.Tests/GnOuGo.Agent.Server.Tests.csproj \
-  --filter 'FullyQualifiedName~LiveAgentAddSmokeTests.ConditionalRuntimeChoiceIntent_FailsClosedWhenCatalogLacksEveryRequiredEffectBranch'
-```
-
-The recorded SmartGuide pull-request-review request has a separate generation-only case. It persists and compiles the generated workflow, then removes the temporary agent; it never executes the workflow, clones the target repository, or publishes a GitHub review:
-
-```bash
-GNOU_GO_LIVE_AGENT_ADD_SMOKE=1 dotnet test \
-  tests/GnOuGo.Agent.Server.Tests/GnOuGo.Agent.Server.Tests.csproj \
-  --filter 'FullyQualifiedName~LiveAgentAddSmokeTests.RecordedPullRequestReviewIntent_GeneratesValidPersistedAgentWithoutExecution'
-```
-
-`/gnougo add` applies `WorkflowPlanningBudget` only to agent-workflow generation. The default is `50 EUR`; normal .NET configuration sources can override `Amount`, `Currency`, the ten-second ECB fetch timeout, the maximum seven-day quote age, and optional static `SOURCE/TARGET` rates with their common `StaticRatesAsOfUtc`. Static operator rates take precedence. Otherwise the server uses the official ECB daily EUR reference-rate feed and derives cross-rates through EUR. The first quote per currency pair is pinned inside the budget scope. Missing pricing, currency, or a fresh conversion quote fails closed; `/gnougo reprompt` and generated-agent execution do not receive this default planning limit.
-
-The intention-first live acceptance harness is opt-in because it uses the configured KeyVault-backed provider and external MCP servers. It requires a fresh dedicated validation project with an explicitly attested provider-side hard limit at or below the authorized budget after conversion. The attestation variables below are mandatory; the harness does not modify or query provider billing configuration. The authorized budget defaults to `50/EUR` and remains configurable.
-
-```powershell
-$env:GNOU_GO_LIVE_INTENT_AGENT_E2E = "1"
-$env:GNOU_GO_LIVE_INTENT_AGENT_PROVIDER_PROJECT_ISOLATED = "1"
-$env:GNOU_GO_LIVE_INTENT_AGENT_BUDGET_AMOUNT = "50"
-$env:GNOU_GO_LIVE_INTENT_AGENT_BUDGET_CURRENCY = "EUR"
-$env:GNOU_GO_LIVE_INTENT_AGENT_PROVIDER_HARD_LIMIT_AMOUNT = "50"
-$env:GNOU_GO_LIVE_INTENT_AGENT_PROVIDER_HARD_LIMIT_CURRENCY = "EUR"
-$env:GNOU_GO_LIVE_INTENT_AGENT_BUDGET_STATE_PATH = Join-Path $env:TEMP "gnougo-live-intent-budget.json"
-# Optional when provider latency requires a longer wall-clock window; default: 120, maximum: 1440.
-$env:GNOU_GO_LIVE_INTENT_AGENT_MAX_ELAPSED_MINUTES = "360"
-# Optional non-monetary ceilings for an explicitly larger cycle; defaults: 120 calls / 5,000,000 tokens.
-$env:GNOU_GO_LIVE_INTENT_AGENT_MAX_CALLS = "240"
-$env:GNOU_GO_LIVE_INTENT_AGENT_MAX_TOTAL_TOKENS = "10000000"
-
-# Gate 1: provider probe plus one diagnostic generation.
-$env:GNOU_GO_LIVE_INTENT_AGENT_GENERATIONS = "1"
-dotnet test tests/GnOuGo.Agent.Server.Tests/GnOuGo.Agent.Server.Tests.csproj `
-  --filter "FullyQualifiedName~LiveIntentAgentGenerationTests.SimpleIntent_GeneratesThreeValidatedAgentsUsingLiveConfiguration"
-
-# Gate 2: only after Gate 1 succeeds, consume the remaining shared budget.
-Remove-Item Env:GNOU_GO_LIVE_INTENT_AGENT_GENERATIONS
-dotnet test tests/GnOuGo.Agent.Server.Tests/GnOuGo.Agent.Server.Tests.csproj `
-  --filter "FullyQualifiedName~LiveIntentAgentGenerationTests.SimpleIntent_GeneratesThreeValidatedAgentsUsingLiveConfiguration"
-```
-
-The first process performs one minimal provider probe and one diagnostic generation. The second process requires the successful redacted ledger from that gate and performs three independent generations. Together they share 120 LLM calls, five million tokens, a 120-minute elapsed limit by default, and the configured monetary limit. For a newly attested larger cycle, `GNOU_GO_LIVE_INTENT_AGENT_MAX_CALLS` and `GNOU_GO_LIVE_INTENT_AGENT_MAX_TOTAL_TOKENS` may raise those non-monetary ceilings up to 3,000 calls and 50 million tokens; `GNOU_GO_LIVE_INTENT_AGENT_MAX_ELAPSED_MINUTES` may raise the wall-clock ceiling up to 1440 minutes. None of these settings resets counters or weakens the configured monetary limit. Runtime HTTP recovery is the only automatic provider retry layer; a persistent rate limit or any terminal/deterministic failure stops the current process instead of starting another planning call. The version-4 ledger locks both non-monetary ceilings together with its budget definition, provider-cap definition, pinned quote/source/date, cumulative normalized usage, and phase flags. Reopening it with changed ceilings, monetary limits, currencies, quote, or attestation fails closed. An older ledger cannot start this cycle. The ledger is retained after failed processes and after final acceptance so a diagnosed code correction can be tested without resetting the shared limits and the completed cycle remains auditable. Its terminal completion flag prevents reuse after success. Starting over with a new ledger requires a newly attested dedicated provider project.
-
-The harness uses a unique temporary SQLite database for its disabled embedded telemetry store and removes the database plus WAL/SHM sidecars during cleanup. When `GNOU_GO_LIVE_INTENT_AGENT_PROGRESS_PATH` is set, typed provider failures record only the provider-neutral classification, HTTP status, actual attempt count, exhaustion flag, accepted retry delay, and provider-safe error code in addition to budget counters. Endpoints, prompts, models, response bodies, and credentials are never written to the progress log.
-
-The harness submits the same short user intention and simulates the human for initial inputs, every up-front or follow-up clarification form, generated-YAML approval, publication rejection, and the scoped confirmation for the disposable fixture. It exercises both an AI-recommended answer and a native custom answer, validates every discovered MCP call and literal selector, executes a read-only review against the configured public acceptance PR while denying publication, and exercises the confirmed write path only against a disposable draft fixture. Unexpected human prompts fail the test. It restores the previous default-agent setting and removes the fixture PR/branch, generated agents, and isolated workspaces in `finally`; the redacted immutable budget ledger remains as the audit record.
+Planning budgets cover both add and reprompt sessions. Monetary conversion rates are pinned
+within each budget scope; missing prices or unverifiable usage fail closed. Saved request
+receipts and cumulative budget reservations survive restart in encrypted tenant-owned storage.
 
 The Blazor chat session now carries a server-facing `ConversationId`. The UI keeps its local transcript for display, while `SmartFlowService` loads recent server-side messages into the routing workflow as `history` and appends the user/assistant turn after a successful answer. HTTP clients can also pass `conversationId` and `prompt` on `/api/chat` or `/api/chat/stream`; if omitted, the server creates a new conversation id and returns/emits it.
 
@@ -810,9 +674,7 @@ dotnet test "C:\github\GnouGo\tests\GnOuGo.Agent.Server.Tests\GnOuGo.Agent.Serve
 
 Capability inference failures in v2 pause in durable recovery with operation-level
 findings. Rejected matching repairs remain separate from the retained candidate.
-See the [capability recovery diagnosis and next architecture step](../../docs/planner-v2-capability-recovery.md).
 
-Planner v2 decision contracts, confirmation routing, recovery and live validation are described in [Planner v2 decisions](../../docs/planner-v2-decisions.md).
 
 Retry for a prepared session uses the configured MCP runtime to check current tool
 contracts before reusing executable checkpoints. Catalog changes return through

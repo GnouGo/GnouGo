@@ -1,4 +1,3 @@
-using System.Collections.Concurrent;
 using System.Diagnostics;
 using System.Diagnostics.Metrics;
 using System.Text.Json;
@@ -16,11 +15,10 @@ namespace GnOuGo.Agent.Server.Planning;
 /// <summary>Durable request receipts prevent replaying completed model work after a crash.</summary>
 internal sealed class PlanningModelJournal(
     ILLMClient inner, IDbContextFactory<PlanningDbContext> contexts, IKeyVaultRecordStore records,
-    string tenantId, string sessionId, long revision, LLMUsageBudgetScope budget, IModelUsageCostEstimator estimator, PlanningGenerationOptions? generation = null) : ILLMClient
+    string tenantId, string sessionId, LLMUsageBudgetScope budget, IModelUsageCostEstimator estimator, PlanningGenerationOptions? generation = null) : ILLMClient
 {
-    internal const string Collection = "agent-planning-model-receipts-v2";
-    internal const string RequestCollection = "agent-planning-model-requests-v2";
-    private readonly ConcurrentDictionary<string, int> _occurrences = new(StringComparer.Ordinal);
+    internal const string Collection = "agent-planning-model-receipts-v3";
+    internal const string RequestCollection = "agent-planning-model-requests-v3";
     private static readonly Meter Metrics = new("GnOuGo.Agent.Planning");
     private static readonly Histogram<double> ProviderDuration = Metrics.CreateHistogram<double>("gen_ai.client.operation.duration", "s");
     private static readonly Histogram<long> TokenUsage = Metrics.CreateHistogram<long>("gen_ai.client.token.usage", "{token}");
@@ -28,19 +26,30 @@ internal sealed class PlanningModelJournal(
     public async Task<LLMResponse> CallAsync(LLMRequest request, CancellationToken ct)
     {
         PlanningGenerationPolicy.Apply(request, generation ?? new());
+        var key = request.ClientRequestId;
+        if (string.IsNullOrWhiteSpace(key) || !key.StartsWith(sessionId + ":", StringComparison.Ordinal))
+            throw new InvalidOperationException("A session-owned durable request identity is required before dispatch.");
+        request.ClientRequestId = null;
         var requestHash = PlanningGraphCompiler.Fingerprint(JsonSerializer.Serialize(request, PlanningJsonContext.Default.LLMRequest));
-        var occurrence = _occurrences.AddOrUpdate(requestHash, 0, (_, prior) => prior + 1);
-        var key = revision + ":" + requestHash + ":" + occurrence;
+        request.ClientRequestId = key;
+        if (!key.EndsWith(":" + requestHash, StringComparison.Ordinal))
+            throw new InvalidOperationException("The reserved model request changed before dispatch.");
         await using var db = await contexts.CreateDbContextAsync(ct);
         var existing = await db.Calls.AsNoTracking().SingleOrDefaultAsync(c => c.TenantId == tenantId && c.SessionId == sessionId && c.RequestHash == key, ct);
         if (existing is not null)
         {
-            if (existing.Status != "completed")
+            var record = await records.GetAsync(Collection, tenantId, existing.PayloadKey, EfPlanningSessionStore.Author, ct);
+            if (record is null)
                 throw new WorkflowRuntimeException(ErrorCodes.LlmBudgetUnverifiable, "A previous planning request has no durable completion receipt. Its usage cannot be verified; it was not dispatched again.");
-            var record = await records.GetAsync(Collection, tenantId, existing.PayloadKey, EfPlanningSessionStore.Author, ct)
-                ?? throw new InvalidOperationException("The encrypted model receipt is unavailable.");
-            return JsonSerializer.Deserialize(record.Value, PlanningJsonContext.Default.LLMResponse)
+            var completed = JsonSerializer.Deserialize(record.Value, PlanningJsonContext.Default.LLMResponse)
                 ?? throw new InvalidOperationException("The encrypted model receipt is invalid.");
+            // Encryption and the index are separate stores. A crash after receipt persistence
+            // can leave a reservation; the exact owned receipt safely completes that index.
+            if (existing.Status != "completed")
+            {
+                db.Attach(existing); existing.Status = "completed"; await db.SaveChangesAsync(ct);
+            }
+            return completed;
         }
         var row = new PlanningCallIndex { TenantId = tenantId, SessionId = sessionId, RequestHash = key, PayloadKey = sessionId + ":" + key };
         db.Calls.Add(row);
@@ -86,7 +95,7 @@ internal sealed class PlanningModelJournal(
 
 internal sealed class PlanningBudgetSink(IKeyVaultRecordStore records, string tenantId, string sessionId) : ILLMUsageBudgetSink
 {
-    internal const string Collection = "agent-planning-budgets-v2";
+    internal const string Collection = "agent-planning-budgets-v3";
     public async ValueTask PersistAsync(LLMUsageBudgetSnapshot snapshot, CancellationToken ct)
         => await records.UpsertAsync(Collection, tenantId, sessionId, JsonSerializer.Serialize(snapshot, PlanningJsonContext.Default.LLMUsageBudgetSnapshot), EfPlanningSessionStore.Author, ct);
 }

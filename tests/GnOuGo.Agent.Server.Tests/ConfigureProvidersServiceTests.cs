@@ -1,4 +1,4 @@
-﻿using System.Reflection;
+using System.Reflection;
 using System.Diagnostics;
 using System.Net;
 using System.Net.Sockets;
@@ -1454,8 +1454,8 @@ public sealed class ConfigureProvidersServiceTests
             {
                 ["copilot"] = new() { Url = "https://models.github.ai/inference", Type = "copilot" },
                 ["openai"] = new() { Url = "https://api.openai.com/v1", Type = "openai", ApiKey = "runtime-secret" }
-                },
-                ModelOverrides = TestModelOverrides("gpt-5-search-api")
+            },
+            ModelOverrides = TestModelOverrides("gpt-5-search-api")
         });
 
         using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(10));
@@ -1502,7 +1502,7 @@ public sealed class ConfigureProvidersServiceTests
 
     [Fact]
     public async Task ExecuteAsync_LlmAdd_ValidationUsesSanitizedParametersAndSmallOutputAllowance()
-    {   
+    {
         var llm = new RecordingLlmClient();
         var keyVaultStore = new FakeKeyVaultRuntimeConfigStore();
         var modelCatalog = new FakeModelCatalog()

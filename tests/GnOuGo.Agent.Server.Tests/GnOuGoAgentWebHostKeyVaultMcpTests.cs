@@ -1,4 +1,4 @@
-﻿using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection;
 using GnOuGo.AI.Core;
 using GnOuGo.Agent.Server.Hosting;
 using GnOuGo.Agent.Server.SmartFlow;
@@ -57,7 +57,3 @@ public sealed class GnOuGoAgentWebHostKeyVaultMcpTests
         }
     }
 }
-
-
-
-

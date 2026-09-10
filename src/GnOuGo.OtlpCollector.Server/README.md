@@ -53,7 +53,7 @@ Main settings are in `src/GnOuGo.OtlpCollector.Server/appsettings.json`:
 - `Ingest:ChannelCapacity`: ingest queue capacity
 - `Retention:SweepSeconds`: retention sweep interval
 - `TelemetryRouting`: optional OTLP/HTTP forwarding rules and collector destinations
-- `DevMode:Enabled`: allow missing tenant id in development
+- `DevMode:Enabled`: allow missing tenant id in development. Startup preserves existing telemetry; development mode never deletes the database.
 - `Kestrel:Endpoints`: OTLP/http listen addresses and protocols
 
 ## Telemetry routing

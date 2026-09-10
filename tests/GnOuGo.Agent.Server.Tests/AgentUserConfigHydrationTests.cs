@@ -1,4 +1,4 @@
-﻿using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection;
 using GnOuGo.Agent.Mcp.Services;
 using GnOuGo.Agent.Server.Hosting;
 using GnOuGo.Agent.Server.SmartFlow;
@@ -57,6 +57,3 @@ public sealed class AgentUserConfigHydrationTests
         }
     }
 }
-
-
-

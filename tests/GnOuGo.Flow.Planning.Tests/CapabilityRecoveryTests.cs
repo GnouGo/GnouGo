@@ -16,14 +16,14 @@ public sealed class CapabilityRecoveryTests
     [InlineData("Inspecter la ressource fournie et exécuter les contrôles disponibles.")]
     public async Task MixedCapabilityFindings_PauseWithActualDetails_AndRetryRetainsAnswers(string prompt)
     {
-        var state = new PlanningSnapshot { Request = new() { TenantId = "tenant", Prompt = prompt }, IntentChecked = true };
-        state.Answers.Add(new("Publication choice", new JsonObject { ["choice"] = "retain_confirmation" }));
+        var state = new PlanningSnapshot { Request = new() { TenantId = "tenant", Prompt = prompt }, Intent = new() { Checked = true } };
+        state.Intent.Answers.Add(new("Publication choice", new JsonObject { ["choice"] = "retain_confirmation" })); state.Intent.Forms = 1; state.Intent.Questions = 1;
         var runtime = new TypedPlannerTests.FakeRuntime { OnPrepare = _ => throw Failure() };
         var result = await new TypedWorkflowPlanner().AdvanceAsync(state, new() { ExpectedRevision = 0 }, runtime, Ct);
         Assert.Equal(PlanningStatus.Recovery, result.Status);
         Assert.Equal(PlanningPhase.Capabilities, result.CurrentPhase);
         Assert.Null(result.Outcome);
-        Assert.Null(result.Question);
+        Assert.Null(result.Intent.Question);
         Assert.Null(result.Graph);
         Assert.Null(result.Preparation);
         Assert.Equal(4, result.Diagnostics.Count);
@@ -39,11 +39,11 @@ public sealed class CapabilityRecoveryTests
         Assert.Equal(1, runtime.PreparationCalls);
         var retry = await new TypedWorkflowPlanner().AdvanceAsync(waiting, new() { Kind = "retry", ExpectedRevision = waiting.Revision }, runtime, Ct);
         Assert.Empty(retry.Diagnostics);
-        Assert.Equal(4, Assert.Single(retry.IntentHistory).Diagnostics.Count);
-        Assert.Single(retry.Answers);
-        Assert.True(retry.IntentChecked);
+        Assert.Equal(4, Assert.Single(retry.Intent.History).Diagnostics.Count);
+        Assert.Single(retry.Intent.Answers);
+        Assert.True(retry.Intent.Checked);
         Assert.True(retry.HumanWaitMilliseconds >= 3_600_000);
-        Assert.Equal(1, retry.ClarificationForms);
+        Assert.Equal(1, retry.Intent.Forms);
         Assert.Equal(1, runtime.PreparationCalls);
         await Assert.ThrowsAsync<PlanningConflictException>(() => new TypedWorkflowPlanner().AdvanceAsync(retry,
             new() { Kind = "edit_intent", ExpectedRevision = waiting.Revision, Text = "stale" }, runtime, Ct));
@@ -52,7 +52,7 @@ public sealed class CapabilityRecoveryTests
     [Fact]
     public async Task ConfirmedUnavailableCapability_RemainsUnsupported()
     {
-        var state = new PlanningSnapshot { Request = new() { TenantId = "tenant", Prompt = "Requested operation" }, IntentChecked = true };
+        var state = new PlanningSnapshot { Request = new() { TenantId = "tenant", Prompt = "Requested operation" }, Intent = new() { Checked = true } };
         var runtime = new TypedPlannerTests.FakeRuntime { OnPrepare = _ => throw new WorkflowRuntimeException(ErrorCodes.CapabilityPreflightUnavailable, "No declared producer exists.") };
         var result = await new TypedWorkflowPlanner().AdvanceAsync(state, new(), runtime, Ct);
         Assert.Equal(PlanningStatus.Unsupported, result.Status);
@@ -66,8 +66,15 @@ public sealed class CapabilityRecoveryTests
             ["raw"] = "PRIVATE_TRANSPORT_PAYLOAD",
             ["matching_issues"] = new JsonArray(
                 new JsonObject { ["operation_id"] = "execute_checks", ["status"] = "ambiguous", ["reason"] = "The runtime resource type is unresolved." },
-                new JsonObject { ["operation_id"] = "execute_when_present", ["status"] = "contract_gap", ["reason_code"] = "conditional_decision_source_unavailable",
-                    ["reason"] = "The resource path supplies no content observation.", ["decision_operation_id"] = "observe_content", ["hint"] = "Declare the missing runtime observation." }),
+                new JsonObject
+                {
+                    ["operation_id"] = "execute_when_present",
+                    ["status"] = "contract_gap",
+                    ["reason_code"] = "conditional_decision_source_unavailable",
+                    ["reason"] = "The resource path supplies no content observation.",
+                    ["decision_operation_id"] = "observe_content",
+                    ["hint"] = "Declare the missing runtime observation."
+                }),
             ["rejected_matching_issues"] = new JsonArray(new JsonObject { ["code"] = "CAPABILITY_REWIND_REJECTED", ["reason"] = "Rejected expanded-catalog repair.", ["required"] = false })
         });
 }

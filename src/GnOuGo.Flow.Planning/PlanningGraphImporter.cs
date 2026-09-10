@@ -13,41 +13,8 @@ public static class PlanningGraphImporter
     public static PlanningGraph Import(string yaml, PlanningPreparation preparation)
         => ImportCore(yaml, preparation);
 
-    internal static PlanningGraph ImportRevision(string yaml, PlanningPreparation preparation, PlanningGraph? baseline)
-    {
-        var graph = ImportCore(yaml, preparation);
-        if (baseline is null) return graph;
-        var workflowKeys = baseline.Workflows.ToDictionary(w => w.Key == baseline.Entrypoint ? "main" : "w_" + PlanningGraphCompiler.Fingerprint(w.Key)[..16], w => w.Key, StringComparer.Ordinal);
-        graph.Entrypoint = workflowKeys.GetValueOrDefault(graph.Entrypoint, graph.Entrypoint);
-        foreach (var workflow in graph.Workflows)
-        {
-            workflow.Key = workflowKeys.GetValueOrDefault(workflow.Key, workflow.Key);
-            var prior = baseline.Workflows.FirstOrDefault(w => w.Key == workflow.Key);
-            if (prior is null) continue;
-            var nodes = PlanningGraphCompiler.Enumerate(prior.Steps.Concat(prior.Finally)).ToDictionary(n => "n_" + PlanningGraphCompiler.Fingerprint(n.Key)[..16], StringComparer.Ordinal);
-            foreach (var node in PlanningGraphCompiler.Enumerate(workflow.Steps.Concat(workflow.Finally)))
-            {
-                if (nodes.TryGetValue(node.Key, out var old))
-                {
-                    node.Key = old.Key;
-                    if (node.Type == old.Type && node.CapabilityId == old.CapabilityId) node.OperationIds = old.OperationIds.ToList();
-                }
-                RewriteCalls(node.Input);
-            }
-            // Ownership is the accepted obligation; validation checks its implementation.
-            workflow.OperationIds = prior.OperationIds.ToList();
-        }
-        return graph;
-
-        void RewriteCalls(PlanningValue value)
-        {
-            if (value.Kind == "workflow" && value.Source is { } source) value.Source = workflowKeys.GetValueOrDefault(source, source);
-            foreach (var child in value.Members.Select(m => m.Value).Concat(value.Items)) RewriteCalls(child);
-        }
-    }
-
     // A revision baseline describes existing behavior, but grants no capability to execute it.
-    internal static PlanningGraph InspectForRevision(string yaml) => ImportCore(yaml, null);
+    public static PlanningGraph ImportBaseline(string yaml) => ImportCore(yaml, null);
 
     private static PlanningGraph ImportCore(string yaml, PlanningPreparation? preparation)
     {
@@ -64,16 +31,21 @@ public static class PlanningGraphImporter
             if (workflow.Skill is not null) throw new InvalidOperationException("Per-workflow skill metadata requires explicit import support.");
             var imported = new PlanningWorkflow
             {
-                Key = key, Purpose = "Imported workflow " + key, Functions = workflow.Functions,
+                Key = key,
+                Purpose = "Imported workflow " + key,
+                Functions = workflow.Functions,
                 Inputs = (workflow.Inputs ?? []).Select(p => new PlanningPort
                 {
-                    Name = p.Key, Required = p.Value.Required,
+                    Name = p.Key,
+                    Required = p.Value.Required,
                     Schema = Schema(JsonSchemaConverter.InputDefToSchema(p.Value).AsObject()),
                     Default = p.Value.Default is null ? null : Value(DefaultValue(p.Value.Default, p.Value.Type))
                 }).ToList(),
                 Outputs = (workflow.Outputs ?? []).Select(p => new PlanningOutput
                 {
-                    Name = p.Key, Schema = Schema(JsonSchemaConverter.OutputDefToSchema(p.Value).AsObject()), Value = new PlanningValue { Kind = "expression", Text = p.Value.Expr }
+                    Name = p.Key,
+                    Schema = Schema(JsonSchemaConverter.OutputDefToSchema(p.Value).AsObject()),
+                    Value = new PlanningValue { Kind = "expression", Text = p.Value.Expr }
                 }).ToList(),
                 Steps = workflow.Steps.Select(s => Node(s, preparation)).ToList(),
                 Finally = workflow.Finally.Select(s => Node(s, preparation)).ToList()
@@ -89,8 +61,14 @@ public static class PlanningGraphImporter
         var input = Value(step.Input ?? new JsonObject());
         var node = new PlanningNode
         {
-            Key = step.Id, Type = step.Type, Purpose = "Imported " + step.Type, Input = input,
-            Output = step.Output, ItemVar = step.ItemVar, IndexVar = step.IndexVar, Retry = step.Retry,
+            Key = step.Id,
+            Type = step.Type,
+            Purpose = "Imported " + step.Type,
+            Input = input,
+            Output = step.Output,
+            ItemVar = step.ItemVar,
+            IndexVar = step.IndexVar,
+            Retry = step.Retry,
             If = step.If is null ? null : new PlanningValue { Kind = "expression", Text = step.If },
             Expr = step.Expr is null ? null : new PlanningValue { Kind = "expression", Text = step.Expr },
             OutputSchema = step.OutputSchema is JsonObject schema ? Schema(schema) : null,
@@ -150,7 +128,8 @@ public static class PlanningGraphImporter
         var nullable = schema["type"] is JsonArray array && array.Any(v => v?.GetValue<string>() == "null") && (values is null || values.Any(v => v is null));
         return new PlanningSchema
         {
-            Type = type, Nullable = nullable,
+            Type = type,
+            Nullable = nullable,
             Description = schema["description"]?.GetValue<string>(),
             Enum = (values ?? []).Where(v => v is not null).Select(v => v!.GetValue<string>()).ToList(),
             Items = schema["items"] is JsonObject items ? Schema(items) : null,

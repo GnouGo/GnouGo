@@ -9,37 +9,35 @@ namespace GnOuGo.Agent.Server.Tests;
 public sealed class PlanningPageTests
 {
     [Fact]
-    public async Task PartialFieldProgressSurvivesPersistenceAndIsNeverPresentedAsValidated()
+    public async Task WorkflowProgressSurvivesPersistenceAndIsNeverPresentedAsValidated()
     {
         var ct = Xunit.TestContext.Current.CancellationToken;
         await using var fixture = await PlanningPersistenceTests.StoreFixture.CreateAsync();
-        var state = Session("Partial construction", ""); state.Status = PlanningStatus.Recovery; state.CurrentPhase = "fragment_implementation";
+        var state = Session("Partial construction", ""); state.Status = PlanningStatus.Recovery; state.CurrentPhase = PlanningPhase.Construction;
         state.Yaml = null; state.ArtifactHash = null;
-        state.ConstructionUnits = [new() { Key = "unit", NodeKeys = ["step"], Status = "partial", PartialCandidate = true, GeneratedFieldGroups = 2, Calls = 2,
-            Candidate = new System.Text.Json.Nodes.JsonObject { ["nodes"] = new System.Text.Json.Nodes.JsonObject() } }];
+        state.Construction.Workflows = [new() { WorkflowKey = "main", Status = "constructed", Calls = 2 }];
         Assert.True(await fixture.Store.TrySaveAsync(state, null, ct));
         using var service = PlanningSessionLifecycleTests.Create(fixture, new TypedWorkflowPlanner(), PlanningSessionLifecycleTests.AgentCatalog());
         await using var context = new BunitContext(); context.JSInterop.Mode = JSRuntimeMode.Loose; context.Services.AddSingleton(service);
         var page = context.Render<PlanningPage>(p => p.Add(x => x.SessionId, state.Request.SessionId));
-        page.WaitForAssertion(() => Assert.Contains("Completed field groups: 2", page.Markup));
-        Assert.Contains("Validated units: 0 / 1", page.Markup);
-        Assert.Contains("Partial units require complete validation before approval", page.Markup);
+        page.WaitForAssertion(() => Assert.Contains("Validated workflows: 0 / 1", page.Markup));
+        Assert.DoesNotContain(page.FindAll("button"), b => b.TextContent.Contains("Approve"));
         var restored = (await service.GetAsync(state.Request.SessionId, ct))!;
         var dto = GnOuGo.Agent.Server.Planning.PlanningEndpoints.ToDto(restored);
-        Assert.True(dto.Units![0].PartialCandidate); Assert.Equal(2, dto.Units[0].GeneratedFieldGroups);
-        Assert.Equal(2, restored.ConstructionUnits[0].Calls); Assert.Null(restored.ApprovedHash);
+        Assert.Equal("constructed", dto.Workflows![0].Status); Assert.Equal(2, dto.Workflows[0].Calls);
+        Assert.Equal(2, restored.Construction.Workflows[0].Calls); Assert.Null(restored.ApprovedHash);
     }
 
     [Fact]
-    public async Task RecoveryGenerationSettingsAndUnitsSurviveRestartWithoutChangingApproval()
+    public async Task RecoveryGenerationSettingsAndWorkflowsSurviveRestartWithoutChangingApproval()
     {
         var ct = Xunit.TestContext.Current.CancellationToken;
         await using var fixture = await PlanningPersistenceTests.StoreFixture.CreateAsync();
-        var state = Session("Paused generation", ""); state.Status = PlanningStatus.Recovery; state.CurrentPhase = "fragment";
+        var state = Session("Paused generation", ""); state.Status = PlanningStatus.Recovery; state.CurrentPhase = PlanningPhase.Construction;
         state.ApprovedBehaviorHash = "accepted-behavior"; state.ApprovedHash = "old-artifact";
-        state.Answers = [new("Which outcome?", new() { ["choice"] = "retain" })]; state.ClarificationForms = 1;
+        state.Intent.Answers = [new("Which outcome?", new() { ["choice"] = "retain" })]; state.Intent.Forms = 1;
         state.Request.Options["generator"] = new System.Text.Json.Nodes.JsonObject { ["model"] = "configured-model", ["reasoning"] = "medium" };
-        state.ConstructionUnits = [new() { Key = "unit", Status = "validated", Calls = 2, RepairCalls = 1, CandidateHash = "receipt" }];
+        state.Construction.Workflows = [new() { WorkflowKey = "main", Status = "validated", Calls = 2, RepairCalls = 1, GraphFingerprint = "receipt" }];
         Assert.True(await fixture.Store.TrySaveAsync(state, null, ct));
         using var service = PlanningSessionLifecycleTests.Create(fixture, new TypedWorkflowPlanner(), PlanningSessionLifecycleTests.AgentCatalog());
         await using (var context = new BunitContext())
@@ -54,8 +52,8 @@ public sealed class PlanningPageTests
         using var reopened = PlanningSessionLifecycleTests.Create(fixture, new TypedWorkflowPlanner(), PlanningSessionLifecycleTests.AgentCatalog());
         var restored = (await reopened.GetAsync(state.Request.SessionId, ct))!;
         Assert.Equal("low", restored.Request.Generation.Reasoning); Assert.Equal(state.ApprovedBehaviorHash, restored.ApprovedBehaviorHash);
-        Assert.Null(restored.ApprovedHash); Assert.Single(restored.Answers); Assert.Single(restored.GenerationHistory);
-        Assert.Equal(2, restored.ConstructionUnits[0].Calls); Assert.Equal(1, restored.ConstructionUnits[0].RepairCalls);
+        Assert.Null(restored.ApprovedHash); Assert.Single(restored.Intent.Answers); Assert.Single(restored.GenerationHistory);
+        Assert.Equal(2, restored.Construction.Workflows[0].Calls); Assert.Equal(1, restored.Construction.Workflows[0].RepairCalls);
         Assert.Null(await fixture.Store.LoadAsync("another-tenant", state.Request.SessionId, ct));
         await Assert.ThrowsAsync<PlanningConflictException>(() => reopened.SubmitAsync(state.Request.SessionId,
             new() { Kind = "configure_generation", ExpectedRevision = state.Revision, Generation = new() { Reasoning = "high" } }, ct));
@@ -69,10 +67,11 @@ public sealed class PlanningPageTests
         var state = new PlanningSnapshot
         {
             Request = new() { TenantId = "planning-tests", Prompt = "Return a message", Name = "early-review" },
-            Status = PlanningStatus.BehaviorReview, CurrentPhase = PlanningPhase.Behavior,
+            Status = PlanningStatus.BehaviorReview,
+            CurrentPhase = PlanningPhase.Behavior,
             Preparation = new() { AllowedStepTypes = ["set"] },
             BehaviorPlan = new() { Summary = "Return a greeting", Workflows = [new() { Key = "main", Purpose = "Return the requested greeting", Steps = [new() { Key = "greeting", Purpose = "Return a message" }], Outputs = [new("message", "A readable greeting", true)] }] },
-            Answers = [new("Which greeting?", new() { ["greeting"] = "Hello" })], ClarificationForms = 1, ClarificationQuestions = 1
+            Intent = new() { Answers = [new("Which greeting?", new() { ["greeting"] = "Hello" })], Forms = 1, Questions = 1 }
         };
         state.ArtifactHash = PlanningBehaviorPlans.Fingerprint(state.BehaviorPlan);
         Assert.True(await fixture.Store.TrySaveAsync(state, null, ct));
@@ -91,7 +90,7 @@ public sealed class PlanningPageTests
         using var reopened = PlanningSessionLifecycleTests.Create(fixture, new TypedWorkflowPlanner(), PlanningSessionLifecycleTests.AgentCatalog());
         var restored = (await reopened.GetAsync(state.Request.SessionId, ct))!;
         Assert.Equal(state.ArtifactHash, restored.ApprovedBehaviorHash); Assert.Null(restored.ApprovedHash);
-        Assert.Equal(PlanningStatus.Generating, restored.Status); Assert.Single(restored.Answers); Assert.Equal(1, restored.ClarificationQuestions);
+        Assert.Equal(PlanningStatus.Generating, restored.Status); Assert.Single(restored.Intent.Answers); Assert.Equal(1, restored.Intent.Questions);
         Assert.Null(await fixture.Store.LoadAsync("different-tenant", state.Request.SessionId, ct));
         await Assert.ThrowsAsync<PlanningConflictException>(() => reopened.SubmitAsync(state.Request.SessionId, new() { Kind = "accept_behavior", ExpectedRevision = state.Revision, ArtifactHash = state.ArtifactHash }, ct));
     }
@@ -109,21 +108,25 @@ public sealed class PlanningPageTests
         context.JSInterop.Mode = JSRuntimeMode.Loose;
         context.Services.AddSingleton(service);
         var page = context.Render<PlanningPage>(parameters => parameters.Add(p => p.SessionId, first.Request.SessionId));
-        page.WaitForAssertion(() => Assert.Equal("first YAML", page.Find("textarea[aria-label='Workflow YAML']").GetAttribute("value")));
+        page.WaitForAssertion(() => Assert.Equal("first YAML", page.Find("textarea[aria-label='Workflow YAML']").TextContent));
         page.Render(parameters => parameters.Add(p => p.SessionId, second.Request.SessionId));
         page.WaitForAssertion(() =>
         {
-            Assert.Equal("second YAML", page.Find("textarea[aria-label='Workflow YAML']").GetAttribute("value"));
+            Assert.Equal("second YAML", page.Find("textarea[aria-label='Workflow YAML']").TextContent);
             Assert.DoesNotContain("first YAML", page.Markup);
             Assert.Equal("Second", page.Find("h2").TextContent);
         });
+        Assert.True(page.Find("textarea[aria-label='Workflow YAML']").HasAttribute("readonly"));
         Assert.True(context.JSInterop.Invocations.Count(invocation => invocation.Identifier == "GnOuGo.Agent.markdown.enhance") >= 2);
     }
 
     private static PlanningSnapshot Session(string name, string yaml) => new()
     {
         Request = new() { Name = name, TenantId = "planning-tests", Prompt = "Return a greeting" },
-        Status = PlanningStatus.FinalReview, Revision = 4, Yaml = yaml, ArtifactHash = PlanningGraphCompiler.Fingerprint(yaml),
+        Status = PlanningStatus.FinalReview,
+        Revision = 4,
+        Yaml = yaml,
+        ArtifactHash = PlanningGraphCompiler.Fingerprint(yaml),
         Graph = new() { Summary = "Behavior for " + name, Workflows = [new() { Key = "main", Purpose = name, Steps = [new() { Key = "step", Type = "set", Purpose = "Return greeting" }] }] }
     };
 }

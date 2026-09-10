@@ -16,7 +16,11 @@ public sealed class BehaviorRecoveryTests
         var preparation = Preparation();
         preparation.Capabilities.Add(new()
         {
-            Id = "producer", StepType = "mcp.call", Server = server, Method = method, Kind = "tool",
+            Id = "producer",
+            StepType = "mcp.call",
+            Server = server,
+            Method = method,
+            Kind = "tool",
             InputSchema = JsonNode.Parse("""{"type":"object","properties":{},"additionalProperties":false}""")!.AsObject(),
             OutputSchema = JsonNode.Parse("""{"type":"object","properties":{"content":{"type":"string"}},"required":["content"],"additionalProperties":false}""")!.AsObject()
         });
@@ -32,7 +36,7 @@ public sealed class BehaviorRecoveryTests
     }
     private static PlanningSnapshot Behavior(PlanningGraph? retained = null, string status = PlanningStatus.Created)
     {
-        var state = Session(status); state.IntentChecked = true; state.Preparation = Catalog();
+        var state = Session(status); state.Intent.Checked = true; state.Preparation = Catalog();
         state.CurrentPhase = PlanningPhase.Behavior; state.Graph = retained;
         return state;
     }
@@ -43,23 +47,6 @@ public sealed class BehaviorRecoveryTests
     {
         var count = 0;
         return new() { OnCall = (_, _, _) => Task.FromResult(new LLMResponse { Json = responses[Math.Min(count++, responses.Length - 1)].DeepClone() }) };
-    }
-
-    [Theory]
-    [InlineData("Return the declared content", "host-a", "read_a")]
-    [InlineData("Retourne le contenu déclaré", "renamed-42", "operation_97")]
-    [InlineData("Devuelve el contenido declarado", "catalog-z", "op_z")]
-    public async Task InvalidLegacySchema_DoesNotDelayEarlyBehaviorReview(string prompt, string server, string method)
-    {
-        var state = Behavior(Candidate()); state.Request.Prompt = prompt; state.Preparation = Catalog(server, method);
-        var runtime = Responses(JsonSerializer.SerializeToNode(BehaviorPlan(), PlanningJsonContext.Default.PlanningBehaviorPlan)!);
-        state = await Send(state, runtime);
-        Assert.Equal(PlanningStatus.BehaviorReview, state.Status);
-        Assert.Equal(new[] { "behavior" }, runtime.Phases);
-        Assert.Equal(1, state.BehaviorAssessmentCalls);
-        Assert.Empty(state.Diagnostics);
-        Assert.Null(state.Graph); Assert.NotNull(state.PreviousGraph); Assert.NotNull(state.BehaviorPlan);
-        Assert.Null(state.ReviewedGraph); Assert.Null(state.ApprovedHash); Assert.Null(state.Yaml);
     }
 
     [Fact]
@@ -98,40 +85,21 @@ public sealed class BehaviorRecoveryTests
     }
 
     [Fact]
-    public async Task FailedLegacyCandidate_RetryMustReviewBehaviorBeforeElaboration()
-    {
-        var state = Behavior(Candidate(), PlanningStatus.Failed);
-        state.CurrentPhase = null;
-        state.Diagnostics.Add(new("PLANNING_FAILED", "$", "The authoritative schema reference is unresolved."));
-        var runtime = Responses(JsonSerializer.SerializeToNode(BehaviorPlan(), PlanningJsonContext.Default.PlanningBehaviorPlan)!);
-        state = await Send(state, runtime, "retry");
-        Assert.Equal(PlanningStatus.Created, state.Status);
-        Assert.Equal(PlanningPhase.Behavior, state.CurrentPhase);
-        Assert.Empty(state.Diagnostics); Assert.NotEmpty(Assert.Single(state.IntentHistory).Diagnostics);
-        state = JsonSerializer.Deserialize(JsonSerializer.Serialize(state, PlanningJsonContext.Default.PlanningSnapshot), PlanningJsonContext.Default.PlanningSnapshot)!;
-        state = await Send(state, runtime);
-        Assert.Equal(PlanningStatus.BehaviorReview, state.Status);
-        Assert.Equal(new[] { "behavior" }, runtime.Phases);
-        Assert.Equal(0, runtime.ValidationCalls); Assert.Equal(0, runtime.ScenarioCalls);
-        await Assert.ThrowsAsync<PlanningConflictException>(() => Send(state, runtime, "approve"));
-    }
-
-    [Fact]
     public async Task RecoveryWithGraph_CanEditWithoutCompiling_AndPreservesSpentBudgets()
     {
         var state = Behavior(Candidate(), PlanningStatus.Recovery);
-        state.ClarificationForms = 2; state.ClarificationQuestions = 7; state.BehaviorAssessmentCalls = 2;
-        state.Answers.Add(new("Earlier question", new JsonObject { ["answer"] = "Earlier answer" }));
+        state.Intent.Forms = 2; state.Intent.Questions = 7; state.BehaviorAssessmentCalls = 2;
+        state.Intent.Answers.Add(new("Earlier question", new JsonObject { ["answer"] = "Earlier answer" }));
         state.Usage = new LLMUsageBudgetScope(new() { MaxCalls = 10 }).Snapshot;
         state.Diagnostics.Add(new("SCHEMA_REFERENCE_INVALID", "/workflows/0/outputs/0/schema", "Unresolved pointer"));
         state.WaitingSinceUtc = DateTimeOffset.UtcNow.AddHours(-2);
         var priorUsage = JsonSerializer.Serialize(state.Usage, PlanningJsonContext.Default.LLMUsageBudgetSnapshot);
         var edited = await Send(state, new FakeRuntime(), "edit_intent", "Return a greeting");
-        Assert.Null(edited.Graph); Assert.Null(edited.Preparation); Assert.False(edited.IntentChecked);
+        Assert.Null(edited.Graph); Assert.Null(edited.Preparation); Assert.False(edited.Intent.Checked);
         Assert.Equal(state.Request.SessionId, edited.Request.SessionId);
-        Assert.Equal(2, edited.ClarificationForms); Assert.Equal(7, edited.ClarificationQuestions);
+        Assert.Equal(2, edited.Intent.Forms); Assert.Equal(7, edited.Intent.Questions);
         Assert.Equal(priorUsage, JsonSerializer.Serialize(edited.Usage, PlanningJsonContext.Default.LLMUsageBudgetSnapshot));
-        Assert.Single(Assert.Single(edited.IntentHistory).Answers); Assert.Empty(edited.Answers);
+        Assert.Single(Assert.Single(edited.Intent.History).Answers); Assert.Empty(edited.Intent.Answers);
         Assert.True(edited.HumanWaitMilliseconds >= 7_200_000); Assert.InRange(edited.ActiveMilliseconds, 0, 10_000);
     }
 
@@ -141,11 +109,16 @@ public sealed class BehaviorRecoveryTests
     public void PatchCannotDropBoundaryOrChangeUnrelatedValidWork(bool dropOutput)
     {
         var graph = Candidate(); graph.Workflows[0].Steps.Add(new() { Key = "independent", Input = Obj(("nonce", Str("Keep this"))) });
-        var patch = new JsonObject { ["patches"] = new JsonArray(new JsonObject
+        var patch = new JsonObject
         {
-            ["workflow"] = "main", ["node"] = dropOutput ? null : "independent", ["field"] = dropOutput ? "outputs" : "input",
-            ["value"] = dropOutput ? new JsonArray() : PlanningModelValues.Workflow(new() { Steps = [new() { Input = Obj(("nonce", Str("Changed"))) }] })["steps"]![0]!["input"]!.DeepClone()
-        }) };
+            ["patches"] = new JsonArray(new JsonObject
+            {
+                ["workflow"] = "main",
+                ["node"] = dropOutput ? null : "independent",
+                ["field"] = dropOutput ? "outputs" : "input",
+                ["value"] = dropOutput ? new JsonArray() : PlanningModelValues.Workflow(new() { Steps = [new() { Input = Obj(("nonce", Str("Changed"))) }] })["steps"]![0]!["input"]!.DeepClone()
+            })
+        };
         Assert.Throws<InvalidOperationException>(() => PlanningPatches.Apply(graph, patch, new HashSet<string>(), Catalog()));
         Assert.Single(graph.Workflows[0].Outputs);
         Assert.Equal("Keep this", graph.Workflows[0].Steps[1].Input.Members[0].Value.Text);
@@ -248,8 +221,11 @@ public sealed class BehaviorRecoveryTests
         graph.Workflows[0].Steps[0].Input = Obj(("structured_output", synthesized), ("model", Str("fake")));
         graph.Workflows[0].Outputs.Add(new() { Name = "structured", Schema = new() { Type = "integer" }, Value = new() { Kind = "output", Source = "greeting", ResultChannel = "structured", Path = ["content"] } });
         var factory = new InMemoryMcpClientFactory();
-        factory.RegisterServer(server, new() { Tools = [new() { Name = method, InputSchema = catalog.Capabilities[0].InputSchema, OutputSchema = catalog.Capabilities[0].OutputSchema }],
-            ToolHandlers = new() { [method] = _ => new McpCallResult { Content = new JsonObject { ["content"] = "raw" } } } });
+        factory.RegisterServer(server, new()
+        {
+            Tools = [new() { Name = method, InputSchema = catalog.Capabilities[0].InputSchema, OutputSchema = catalog.Capabilities[0].OutputSchema }],
+            ToolHandlers = new() { [method] = _ => new McpCallResult { Content = new JsonObject { ["content"] = "raw" } } }
+        });
         var yaml = new PlanningGraphCompiler().Compile(graph, catalog);
         var compiled = new WorkflowCompiler().Compile(WorkflowParser.Parse(yaml));
         var result = await new WorkflowEngine { McpClientFactory = factory, LLMClient = new StructuredClient() }.ExecuteAsync(compiled.Workflows[compiled.Entrypoint!], new JsonObject(), Ct);

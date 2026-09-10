@@ -29,20 +29,6 @@ internal static class PlanningArtifactBindings
         }
     }
 
-    internal static JsonObject? ArgumentSchema(PlanningWorkflow workflow, PlanningNode node, string argument, PlanningPreparation preparation, PlanningGraph graph)
-    {
-        var requirements = preparation.Capabilities.FirstOrDefault(c => c.Id == node.CapabilityId)?.ArtifactContract?.Consumes
-            .Where(c => c.Required && c.Pointer == "/" + PlanningSchemaReferences.Escape(argument)).ToArray();
-        if (requirements is not { Length: > 0 }) return null;
-        var eligible = PlanningDataflow.Index(workflow, preparation, graph, node.Key).Values.Where(binding =>
-            requirements.All(required => Proves(workflow, binding.Value, required.Kind, preparation, graph, new(StringComparer.Ordinal)))).Select(b => b.Id).ToArray();
-        if (eligible.Length == 0) throw new UnresolvedArtifactException("No available original producer binding proves required artifact " +
-            string.Join(", ", requirements.Select(r => r.Kind)) + " for argument '" + argument + "'. A transformed result or matching string type cannot establish artifact identity.");
-        return PlanningDataflow.BindingSchema(eligible);
-    }
-
-    internal sealed class UnresolvedArtifactException(string message) : InvalidOperationException(message);
-
     internal static bool Proves(PlanningWorkflow workflow, PlanningValue value, string kind, PlanningPreparation preparation, PlanningGraph graph, HashSet<string> visited)
     {
         return PlanningValueProvenance.Proves(workflow, value, graph, (producer, reference) => producer.Type == "mcp.call" &&

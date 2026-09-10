@@ -11,7 +11,7 @@ namespace GnOuGo.Flow.Core.Runtime;
 /// Executes a generated workflow once with deterministic fake providers to catch
 /// runtime input-resolution issues before workflow.plan accepts the YAML.
 /// </summary>
-internal static class WorkflowPlanDryRunValidator
+public static class WorkflowPlanDryRunValidator
 {
     public static async Task ValidateAsync(
         WorkflowDocument generatedDoc,
@@ -364,7 +364,7 @@ internal static class WorkflowPlanDryRunValidator
         return Array.Empty<string>();
     }
 
-    internal static JsonNode? CreateSampleFromJsonSchema(JsonNode? schema)
+    public static JsonNode? CreateSampleFromJsonSchema(JsonNode? schema)
     {
         if (schema is not JsonObject obj)
             return JsonValue.Create("dry-run");
@@ -395,7 +395,7 @@ internal static class WorkflowPlanDryRunValidator
         };
     }
 
-    internal static JsonNode? CreateArtifactSample(JsonNode? schema, McpArtifactContract? artifacts)
+    public static JsonNode? CreateArtifactSample(JsonNode? schema, McpArtifactContract? artifacts)
     {
         var sample = CreateSuccessfulMcpSampleFromJsonSchema(schema);
         foreach (var artifact in artifacts?.Produces.Where(p => p.Encoding == "json_array") ?? [])
@@ -408,7 +408,7 @@ internal static class WorkflowPlanDryRunValidator
         return sample;
     }
 
-    internal static JsonNode? CreateSuccessfulMcpSampleFromJsonSchema(JsonNode? schema)
+    public static JsonNode? CreateSuccessfulMcpSampleFromJsonSchema(JsonNode? schema)
     {
         var sample = CreateSampleFromJsonSchema(schema);
         if (sample is JsonObject obj && schema is JsonObject schemaObj)

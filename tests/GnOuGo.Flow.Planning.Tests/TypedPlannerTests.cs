@@ -13,7 +13,8 @@ public sealed class TypedPlannerTests
     internal static PlanningPreparation Preparation() => new() { Fingerprint = "catalog-v1", AllowedStepTypes = ["set", "emit", "switch", "sequence", "parallel", "loop.sequential", "workflow.call", "human.input", "mcp.call"] };
     internal static PlanningGraph Graph() => new()
     {
-        Summary = "Return a greeting", Workflows = [new()
+        Summary = "Return a greeting",
+        Workflows = [new()
         {
             Key = "main", Purpose = "Return a greeting",
             Steps = [new() { Key = "greeting", Type = "set", Input = Obj(("message", Str("Hello"))) }],
@@ -22,7 +23,8 @@ public sealed class TypedPlannerTests
     };
     internal static PlanningBehaviorPlan BehaviorPlan() => CompleteInputDependencies(new()
     {
-        Summary = "Return a greeting", Workflows = [new()
+        Summary = "Return a greeting",
+        Workflows = [new()
         {
             Key = "main", Purpose = "Return a greeting", Outputs = [new("message", "The greeting", true)],
             Steps = [new() { Key = "greeting", Purpose = "Return a greeting" }]
@@ -91,7 +93,7 @@ public sealed class TypedPlannerTests
 
     [Theory]
     [InlineData(PlanningStatus.Created, "intent")]
-    [InlineData(PlanningStatus.Generating, "fragment")]
+
     public async Task ProviderFailurePausesWithAnActionableFindingAndRetainsTheSession(string status, string phase)
     {
         var state = Session(status);
@@ -101,7 +103,7 @@ public sealed class TypedPlannerTests
         Assert.Equal(PlanningStatus.Recovery, result.Status); Assert.Equal(phase, result.CurrentPhase);
         Assert.Equal(state.Request.SessionId, result.Request.SessionId);
         Assert.Equal(state.Graph is null, result.Graph is null);
-        Assert.Null(result.Question); Assert.Null(result.Outcome);
+        Assert.Null(result.Intent.Question); Assert.Null(result.Outcome);
         var diagnostic = Assert.Single(result.Diagnostics);
         Assert.Equal("LLM_PROVIDER_TRANSPORT", diagnostic.Code);
         Assert.Contains("503", diagnostic.Message); Assert.Contains("upstream_unavailable", diagnostic.Message);
@@ -113,43 +115,11 @@ public sealed class TypedPlannerTests
     {
         var runtime = new FakeRuntime { ScenarioOutcome = "inconclusive" };
         var state = Session(PlanningStatus.Validating);
-        state.Graph = Graph(); state.Preparation = Preparation(); state.Request.MaxRepairs = 0;
+        state.Graph = Graph(); state.Preparation = Preparation(); state.Request.MaxRepairs = 0; PlanningFixtures.Accept(state);
         state = await Send(new TypedWorkflowPlanner(), state, runtime);
-        Assert.Equal(PlanningStatus.Recovery, state.Status);
+        Assert.Equal(PlanningPhase.Repair, state.CurrentPhase);
         Assert.Contains(state.Diagnostics, d => d.Code == "SCENARIO_INCONCLUSIVE");
         Assert.DoesNotContain("semantic_review", runtime.Phases);
-    }
-
-    [Fact]
-    public async Task ManualYamlEdit_InvalidatesApproval_AndRunsCompleteValidationAgain()
-    {
-        var planner = new TypedWorkflowPlanner();
-        var runtime = new FakeRuntime();
-        var state = Session(PlanningStatus.Validating);
-        state.Graph = Graph(); state.Preparation = Preparation();
-        state = await Send(planner, state, runtime);
-        state = await Send(planner, state, runtime, "approve");
-        var oldHash = state.ArtifactHash;
-        state = await Send(planner, state, runtime, "edit_yaml", state.Yaml!.Replace("Hello", "Welcome", StringComparison.Ordinal));
-        Assert.Equal(PlanningStatus.Validating, state.Status);
-        Assert.Null(state.ApprovedHash);
-        state = await Send(planner, state, runtime);
-        Assert.True(state.Status == PlanningStatus.FinalReview, string.Join("; ", state.Diagnostics.Select(d => d.Code + ": " + d.Message)));
-        Assert.NotEqual(oldHash, state.ArtifactHash);
-        Assert.Equal(3, runtime.ValidationCalls);
-        Assert.Equal(2, runtime.ScenarioCalls);
-    }
-
-    [Fact]
-    public async Task FragmentCannotRemoveReviewedFinalizer()
-    {
-        var state = Session(PlanningStatus.Generating);
-        state.Graph = Graph(); state.Preparation = Preparation();
-        state.Graph.Workflows[0].Finally.Add(new() { Key = "cleanup", Type = "set", Input = Obj(("closed", new() { Kind = "boolean", Boolean = true })) });
-        var result = await Send(new TypedWorkflowPlanner(), state, new FakeRuntime());
-        Assert.Equal(PlanningStatus.Recovery, result.Status);
-        Assert.Single(result.Graph!.Workflows[0].Finally);
-        Assert.Contains(result.Diagnostics, d => d.Message.Contains("reviewed control flow", StringComparison.Ordinal));
     }
 
     [Fact]
@@ -170,7 +140,7 @@ public sealed class TypedPlannerTests
     {
         var time = new FixedClock();
         var state = Session(PlanningStatus.BehaviorReview);
-        state.Graph = Graph(); state.Preparation = Preparation(); state.ArtifactHash = "review";
+        state.Preparation = Preparation(); state.BehaviorPlan = BehaviorPlan(); state.ArtifactHash = PlanningBehaviorPlans.Fingerprint(state.BehaviorPlan);
         state.WaitingSinceUtc = time.GetUtcNow().AddHours(-2);
         state = await Send(new TypedWorkflowPlanner(time), state, new FakeRuntime(), "accept_behavior");
         Assert.Equal(7_200_000, state.HumanWaitMilliseconds);
@@ -209,31 +179,13 @@ public sealed class TypedPlannerTests
     }
 
     [Fact]
-    public async Task ExistingWorkflow_IsImportedBeforeModelWork_AndUnsupportedFieldsBlockRevision()
-    {
-        var yaml = new PlanningGraphCompiler().Compile(Graph(), Preparation());
-        var state = Session(); state.Request.ExistingYaml = yaml;
-        var runtime = new FakeRuntime();
-        var next = await Send(new TypedWorkflowPlanner(), state, runtime);
-        Assert.NotNull(next.PreviousGraph);
-        Assert.Contains("existing_workflow", runtime.Requests[0].Prompt);
-        Assert.Contains("Hello", runtime.Requests[0].Prompt);
-        state.Request.ExistingYaml = yaml + "meta: {hidden: true}\n";
-        runtime = new FakeRuntime();
-        next = await Send(new TypedWorkflowPlanner(), state, runtime);
-        Assert.Equal(PlanningStatus.Unsupported, next.Status);
-        Assert.Contains(next.Diagnostics, d => d.Code == "IMPORT_UNSUPPORTED");
-        Assert.Empty(runtime.Requests);
-    }
-
-    [Fact]
     public async Task ClarificationRetainsTheQuestionMeaningWhenTheAnswerIsShort()
     {
         var state = Session(PlanningStatus.Clarification);
-        state.Question = new() { StepId = "question", Prompt = "Clarify the behavior", Fields = [new() { Name = "behavior_0", Description = "Should approval be required before an external write?", Type = "text", Required = true, AllowCustomAnswer = true }] };
+        state.Intent.Question = new() { StepId = "question", Prompt = "Clarify the behavior", Fields = [new() { Name = "behavior_0", Description = "Should approval be required before an external write?", Type = "text", Required = true, AllowCustomAnswer = true }] };
         var next = await new TypedWorkflowPlanner().AdvanceAsync(state, new() { Kind = "answer", ExpectedRevision = state.Revision, Answers = new JsonObject { ["behavior_0"] = "yes" } }, new FakeRuntime(), Ct);
         Assert.Equal(PlanningStatus.Created, next.Status);
-        Assert.Contains("Should approval be required before an external write?", Assert.Single(next.Answers).Question);
+        Assert.Contains("Should approval be required before an external write?", Assert.Single(next.Intent.Answers).Question);
     }
 
     [Fact]
@@ -255,78 +207,6 @@ public sealed class TypedPlannerTests
         public override DateTimeOffset GetUtcNow() => new(2026, 9, 5, 12, 0, 0, TimeSpan.Zero);
     }
 
-    [Fact]
-    public async Task ElaborationUsesFourConcurrentCalls_AndResumesOnlyMissingFragments()
-    {
-        var state = Session(PlanningStatus.Generating);
-        state.Preparation = Preparation();
-        state.Graph = new() { Entrypoint = "w0", Workflows = Enumerable.Range(0, 8).Select(i => { var workflow = Graph().Workflows[0]; workflow.Key = "w" + i; return workflow; }).ToList() };
-        var entered = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
-        var release = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
-        var calls = 0;
-        var runtime = new FakeRuntime { OnCall = async (_, _, ct) =>
-        {
-            var index = Interlocked.Increment(ref calls) - 1;
-            if (index == 3) entered.SetResult();
-            await release.Task.WaitAsync(ct);
-            var workflow = Graph().Workflows[0]; workflow.Key = "w" + index;
-            return new() { Json = PlanningModelValues.Workflow(workflow) };
-        } };
-        var planner = new TypedWorkflowPlanner();
-        var advance = Send(planner, state, runtime);
-        await entered.Task.WaitAsync(TimeSpan.FromSeconds(10), Ct);
-        Assert.Equal(4, calls);
-        release.SetResult();
-        state = await advance;
-        Assert.Equal(4, state.Fragments.Count);
-        Assert.Equal(PlanningStatus.Generating, state.Status);
-        state = await Send(new TypedWorkflowPlanner(), state, runtime);
-        Assert.Equal(8, calls);
-        Assert.Equal(8, state.Fragments.Count);
-        Assert.Equal(PlanningStatus.Validating, state.Status);
-    }
-
-    [Fact]
-    public async Task NonImprovingRepair_RestoresTheBestCandidate()
-    {
-        var state = Session(PlanningStatus.Validating); state.Graph = Graph(); state.Preparation = Preparation();
-        var runtime = new FakeRuntime
-        {
-            ValidationResult = count => [new(count == 1 ? "ORIGINAL_DEFECT" : "REGRESSION", "main", "A required check failed.")],
-            OnCall = (_, _, _) =>
-            {
-                var input = new JsonObject { ["kind"] = "object", ["members"] = new JsonArray(new JsonObject { ["name"] = "message", ["value"] = new JsonObject { ["kind"] = "string", ["text"] = "Regressed" } }) };
-                return Task.FromResult(new LLMResponse { Json = new JsonObject { ["patches"] = new JsonArray(new JsonObject { ["workflow"] = "main", ["node"] = "greeting", ["field"] = "input", ["value"] = input }) } });
-            }
-        };
-        var planner = new TypedWorkflowPlanner();
-        state = await Send(planner, state, runtime);
-        state = await Send(planner, state, runtime);
-        state = await Send(planner, state, runtime);
-        Assert.Equal(PlanningStatus.Recovery, state.Status);
-        Assert.Equal("Hello", state.Graph!.Workflows[0].Steps[0].Input.Members[0].Value.Text);
-        Assert.Contains(state.Diagnostics, d => d.Code == "ORIGINAL_DEFECT");
-        Assert.Contains(state.Attempts, a => !a.Retained && a.Diagnostics.Any(d => d.Code == "REGRESSION"));
-    }
-
-    [Fact]
-    public async Task NaturalLanguageRevision_InvalidatesPriorApproval()
-    {
-        var state = Session(PlanningStatus.Approved); state.Graph = Graph(); state.Preparation = Preparation();
-        state.Yaml = new PlanningGraphCompiler().Compile(state.Graph, state.Preparation);
-        state.ArtifactHash = state.ApprovedHash = PlanningGraphCompiler.Fingerprint(state.Yaml);
-        var runtime = new FakeRuntime { OnCall = (_, _, _) => Task.FromResult(new LLMResponse
-        {
-            Json = new JsonObject { ["affectedWorkflows"] = new JsonArray("main"), ["changesBehavior"] = false, ["evidence"] = "Change greeting wording" }
-        }) };
-        state = await Send(new TypedWorkflowPlanner(), state, runtime, "revise", "Change greeting wording");
-        Assert.Equal(PlanningStatus.Generating, state.Status);
-        Assert.Null(state.ApprovedHash);
-        Assert.Null(state.Yaml);
-        Assert.NotNull(state.PreviousGraph);
-        Assert.Contains("main", state.ChangedFragments);
-    }
-
     internal sealed class FakeRuntime : IPlanningRuntime
     {
         public List<string> Phases { get; } = [];
@@ -345,7 +225,7 @@ public sealed class TypedPlannerTests
         public Task CheckpointAsync(PlanningSnapshot snapshot, CancellationToken ct) => OnCheckpoint?.Invoke(snapshot) ?? Task.CompletedTask;
         public Task<IReadOnlyList<PlanningDiagnostic>> ValidateCatalogAsync(PlanningPreparation preparation, CancellationToken ct)
         { CatalogCalls++; return Task.FromResult(CatalogDiagnostics); }
-        public Task<PlanningPreparation> PrepareAsync(PlanningRequest request, CancellationToken ct) { PreparationCalls++; return OnPrepare?.Invoke(request) ?? Task.FromResult(Preparation()); }
+        public async Task<PlanningPreparationProgress> PrepareAsync(PlanningSnapshot state, CancellationToken ct) { PreparationCalls++; return new(state.PreparationCheckpoint ?? new(), OnPrepare is null ? Preparation() : await OnPrepare(state.Request)); }
         public Task<LLMResponse> CallAsync(LLMRequest request, string phase, CancellationToken ct)
         {
             lock (Phases) { Phases.Add(phase); Requests.Add(request); }
@@ -354,27 +234,25 @@ public sealed class TypedPlannerTests
             {
                 "intent" => new JsonObject { ["outcome"] = "ready", ["reason"] = "Clear", ["evidence"] = new JsonArray(), ["questions"] = new JsonArray() },
                 "behavior" => JsonSerializer.SerializeToNode(BehaviorPlan(), PlanningJsonContext.Default.PlanningBehaviorPlan),
-                "fragment" => request.StructuredOutputSchema?["properties"]?["nodes"] is null ? PlanningModelValues.Workflow(Graph().Workflows[0]) : PlanningFragments.Values(Graph().Workflows[0]),
-                "fragment_inputs" or "fragment_contracts" or "fragment_implementation" or "fragment_outputs" => ConstructionResponse(request, phase),
+                "construction" => PlanningModelValues.Workflow(ExecutableWorkflow()),
                 "semantic_review" => new JsonObject { ["findings"] = new JsonArray() },
                 "scenario_inputs" => new JsonObject(request.StructuredOutputSchema!["properties"]!.AsObject().Select(p => new KeyValuePair<string, JsonNode?>(p.Key, new JsonObject { ["kind"] = "string", ["text"] = "fixture" }))),
                 _ => throw new InvalidOperationException("Unexpected model phase: " + phase)
             };
             return Task.FromResult(new LLMResponse { Json = json, Text = json!.ToJsonString() });
         }
-        internal static JsonObject ConstructionResponse(LLMRequest request, string phase)
+        internal static PlanningWorkflow ExecutableWorkflow()
         {
             var workflow = Graph().Workflows[0];
             workflow.Steps[0].OutputSchema = new() { Type = "object", Properties = [new() { Name = "message", Schema = new() { Type = "string" } }] };
-            var unit = new PlanningConstructionUnit { WorkflowKey = workflow.Key, Kind = phase[9..], NodeKeys = (request.StructuredOutputSchema?["properties"]?["nodes"]?["properties"] as JsonObject ?? []).Select(p => p.Key).ToList(), ContractVersion = PlanningDataflow.ContractVersion };
-            return PlanningConstruction.UpgradeCandidate(new() { Workflows = [workflow] }, unit, PlanningConstruction.Values(workflow, unit), Preparation());
+            return workflow;
         }
-        public Task<IReadOnlyList<PlanningDiagnostic>> ValidateAsync(string yaml, PlanningRequest request, PlanningPreparation preparation, CancellationToken ct)
+        public Task<IReadOnlyList<PlanningDiagnostic>> ValidateAsync(PlanningArtifactValidationRequest request, CancellationToken ct)
         {
-            ValidationCalls++; new WorkflowCompiler().Compile(WorkflowParser.Parse(yaml));
+            ValidationCalls++; new WorkflowCompiler().Compile(WorkflowParser.Parse(request.Yaml));
             return Task.FromResult(ValidationResult?.Invoke(ValidationCalls) ?? (IReadOnlyList<PlanningDiagnostic>)[]);
         }
-        public Task<IReadOnlyList<PlanningScenarioResult>> ValidateScenariosAsync(string yaml, PlanningPreparation preparation, CancellationToken ct)
+        public Task<IReadOnlyList<PlanningScenarioResult>> ValidateScenariosAsync(PlanningScenarioValidationRequest request, CancellationToken ct)
         {
             ScenarioCalls++;
             return Task.FromResult<IReadOnlyList<PlanningScenarioResult>>([new("nominal", ScenarioOutcome, "Fake integration scenario", [])]);

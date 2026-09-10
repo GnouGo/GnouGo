@@ -23,19 +23,22 @@ internal static class PlanningPersistenceSmoke
         var state = new PlanningSnapshot { Request = new() { TenantId = "smoke", SessionId = Guid.NewGuid().ToString("N"), Prompt = "Private published smoke content" } };
         if (!await store.TrySaveAsync(state, null, CancellationToken.None)) throw new InvalidOperationException("Insert failed.");
         state.Revision = 1; state.Status = PlanningStatus.Recovery; state.CurrentPhase = PlanningPhase.Intent;
-        state.ClarificationForms = 1; state.ClarificationQuestions = 3;
-        state.IntentHistory.Add(new(0, "Previous private request", [], [new("INTENT_EVIDENCE_INVALID", "/evidence", "Invalid evidence")]));
+        state.Intent.Forms = 1; state.Intent.Questions = 3;
+        state.Intent.History.Add(new(0, "Previous private request", [], [new("INTENT_EVIDENCE_INVALID", "/evidence", "Invalid evidence")]));
         if (!await store.TrySaveAsync(state, 0, CancellationToken.None)) throw new InvalidOperationException("Revision update failed.");
         var reopened = new EfPlanningSessionStore(factory, KeyVaultRecordStoreFactory.CreateWorkspaceStore(vault, directory));
         var restored = await reopened.LoadAsync("smoke", state.Request.SessionId, CancellationToken.None);
         if (restored?.Revision != 1 || restored.Status != PlanningStatus.Recovery || restored.CurrentPhase != PlanningPhase.Intent ||
-            restored.ClarificationForms != 1 || restored.ClarificationQuestions != 3 || restored.IntentHistory.Count != 1 ||
+            restored.Intent.Forms != 1 || restored.Intent.Questions != 3 || restored.Intent.History.Count != 1 ||
             await reopened.LoadAsync("different", state.Request.SessionId, CancellationToken.None) is not null ||
             (await reopened.ListAsync("smoke", CancellationToken.None)).Count == 0)
             throw new InvalidOperationException("Persistence or tenant isolation failed.");
         state.Revision = 2; state.CurrentPhase = PlanningPhase.Behavior; state.BehaviorAssessmentCalls = 2;
-        state.Graph = new() { Workflows = [new() { Key = "main", Outputs = [new() { Name = "pending", Schema = new() { CapabilityId = "missing", SchemaPointer = "/invalid" },
-            Value = new() { Kind = "output", Source = "pending", ResultChannel = "structured", Path = ["value"] } }] }] };
+        state.Graph = new()
+        {
+            Workflows = [new() { Key = "main", Outputs = [new() { Name = "pending", Schema = new() { CapabilityId = "missing", SchemaPointer = "/invalid" },
+            Value = new() { Kind = "output", Source = "pending", ResultChannel = "structured", Path = ["value"] } }] }]
+        };
         state.Diagnostics = [new("SCHEMA_REFERENCE_INVALID", "/workflows/0/outputs/0/schema", "Invalid retained candidate")];
         if (!await reopened.TrySaveAsync(state, 1, CancellationToken.None)) throw new InvalidOperationException("Behavior recovery update failed.");
         var behavior = await reopened.LoadAsync("smoke", state.Request.SessionId, CancellationToken.None);
@@ -49,24 +52,22 @@ internal static class PlanningPersistenceSmoke
         state.Attempts.Add(new(state.ApprovedBehaviorHash, PlanningPhase.Behavior, 1, true, []));
         state.Request.Generation.Reasoning = "low";
         state.GenerationHistory.Add(new(2, new() { Reasoning = "medium" }));
-        state.ConstructionUnits.Add(new() { Key = "main:implementation:message", WorkflowKey = "main", NodeKeys = ["message"],
-            Status = "validated", Calls = 2, RepairCalls = 1, CandidateHash = "receipt", RequestHashes = ["request"],
-            Candidate = new System.Text.Json.Nodes.JsonObject { ["private"] = "Encrypted executable candidate" } });
+        state.Construction.Workflows.Add(new() { WorkflowKey = "main", Status = "validated", Calls = 2, RepairCalls = 1, GraphFingerprint = "receipt" });
         if (!await reopened.TrySaveAsync(state, 2, CancellationToken.None)) throw new InvalidOperationException("Early review persistence failed.");
         var early = await reopened.LoadAsync("smoke", state.Request.SessionId, CancellationToken.None);
-        if (early?.BehaviorPlan is null || early.ApprovedBehaviorHash != state.ApprovedBehaviorHash || early.Attempts.Count != 1 || early.ClarificationQuestions != 3 ||
-            early.Request.Generation.Reasoning != "low" || early.GenerationHistory.Count != 1 || early.ConstructionUnits.Count != 1 ||
-            early.ConstructionUnits[0].RepairCalls != 1 || early.ConstructionUnits[0].Candidate?["private"]?.GetValue<string>() != "Encrypted executable candidate")
+        if (early?.BehaviorPlan is null || early.ApprovedBehaviorHash != state.ApprovedBehaviorHash || early.Attempts.Count != 1 || early.Intent.Questions != 3 ||
+            early.Request.Generation.Reasoning != "low" || early.GenerationHistory.Count != 1 || early.Construction.Workflows.Count != 1 ||
+            early.Construction.Workflows[0].RepairCalls != 1 || early.Construction.Workflows[0].GraphFingerprint != "receipt")
             throw new InvalidOperationException("Early review fields did not survive persistence.");
         state.Revision = 4;
         state.PreparationCheckpoint = new() { Version = PlanningPreparationCheckpoint.CurrentVersion, Stage = "matching", Fingerprint = "locked-contract", ValidatedResults = new System.Text.Json.Nodes.JsonObject { ["inventory"] = new System.Text.Json.Nodes.JsonArray() }, RequestHashes = ["preparation-receipt"] };
-        state.ScenarioInputs = new System.Text.Json.Nodes.JsonObject { ["resource"] = "scenario-only" };
-        state.ScenarioInputsFingerprint = "fixture-contract";
+        state.Validation.Inputs = new System.Text.Json.Nodes.JsonObject { ["resource"] = "scenario-only" };
+        state.Validation.InputsFingerprint = "fixture-contract";
         state.Preparation = new() { Decisions = [new() { Group = "permission", SourceOperationId = "confirm", SourceCapabilityId = "native", SourcePointer = "/response", PermissionOperationIds = ["confirm"] }] };
         if (!await reopened.TrySaveAsync(state, 3, CancellationToken.None)) throw new InvalidOperationException("Decision preparation persistence failed.");
         var prepared = await reopened.LoadAsync("smoke", state.Request.SessionId, CancellationToken.None);
         if (prepared?.PreparationCheckpoint?.Stage != "matching" || prepared.PreparationCheckpoint.RequestHashes.Count != 1 ||
-            prepared.Preparation?.Decisions.Single().PermissionOperationIds.Single() != "confirm" || prepared.ScenarioInputs?["resource"]?.GetValue<string>() != "scenario-only")
+            prepared.Preparation?.Decisions.Single().PermissionOperationIds.Single() != "confirm" || prepared.Validation.Inputs?["resource"]?.GetValue<string>() != "scenario-only")
             throw new InvalidOperationException("Decision and scenario contracts did not survive persistence.");
         Console.WriteLine("Planning persistence smoke passed.");
     }

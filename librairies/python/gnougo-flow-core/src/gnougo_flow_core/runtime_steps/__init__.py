@@ -16,7 +16,6 @@ from .switch_executor import SwitchExecutor
 from .template_render_executor import TemplateRenderExecutor
 from .workflow_call_executor import WorkflowCallExecutor
 from .workflow_execute_executor import WorkflowExecuteExecutor
-from .workflow_plan_executor import WorkflowPlanExecutor
 from .workflow_route_executor import WorkflowRouteExecutor
 
 _EXECUTOR_CLASSES = [
@@ -31,7 +30,6 @@ _EXECUTOR_CLASSES = [
     TemplateRenderExecutor,
     LlmCallExecutor,
     WorkflowCallExecutor,
-    WorkflowPlanExecutor,
     WorkflowRouteExecutor,
     WorkflowExecuteExecutor,
     McpListExecutor,
@@ -54,7 +52,6 @@ __all__ = [
     "TemplateRenderExecutor",
     "LlmCallExecutor",
     "WorkflowCallExecutor",
-    "WorkflowPlanExecutor",
     "WorkflowRouteExecutor",
     "WorkflowExecuteExecutor",
     "McpListExecutor",

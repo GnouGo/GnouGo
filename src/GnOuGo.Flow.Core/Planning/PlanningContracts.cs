@@ -7,25 +7,23 @@ namespace GnOuGo.Flow.Core.Planning;
 /// <summary>Versioned, provider-neutral input to a resumable planning session.</summary>
 public sealed class PlanningRequest
 {
-    public string ConstructionStrategy { get; set; } = PlanningConstructionStrategies.TypedUnitsV2;
     public string TenantId { get; set; } = "";
     public string SessionId { get; set; } = Guid.NewGuid().ToString("N");
     public string Name { get; set; } = "generated";
     public string Prompt { get; set; } = "";
-    public string? ExistingYaml { get; set; }
+    public PlanningGraph? Baseline { get; set; }
+    public JsonObject? FailureEvidence { get; set; }
     public JsonObject Options { get; set; } = new();
     public int MaxConcurrency { get; set; } = 4;
     public int MaxRepairs { get; set; } = 3;
     public PlanningGenerationOptions Generation { get; set; } = new();
-    public List<PlanningDiagnostic> PreparationFeedback { get; set; } = [];
 }
 
-/// <summary>Request-scoped construction limits; changing these never changes accepted behavior.</summary>
+/// <summary>Request-scoped model limits; changing these never changes accepted behavior.</summary>
 public sealed class PlanningGenerationOptions
 {
     public string? Reasoning { get; set; }
-    public int MaxNodesPerUnit { get; set; } = 4;
-    public int MaxInputTokensPerUnit { get; set; } = 12_000;
+    public int MaxInputTokensPerRequest { get; set; } = 12_000;
     public int MaxOutputTokens { get; set; } = 8_192;
 }
 
@@ -55,10 +53,12 @@ public static class PlanningPhase
     public const string Capabilities = "capabilities";
     public const string Behavior = "behavior";
 
+    public const string Dataflow = "dataflow";
+    public const string Construction = "construction";
+    public const string Repair = "repair";
     public static string Resolve(PlanningSnapshot snapshot) => snapshot.Status == PlanningStatus.Created
-        ? !snapshot.IntentChecked ? Intent : snapshot.Preparation is null ? Capabilities : Behavior
-        : snapshot.CurrentPhase ??
-        (snapshot.Graph is null ? !snapshot.IntentChecked ? Intent : snapshot.Preparation is null ? Capabilities : Behavior : snapshot.Status);
+        ? !snapshot.Intent.Checked ? Intent : snapshot.Preparation is null ? Capabilities : Behavior
+        : snapshot.CurrentPhase ?? snapshot.Status;
 }
 
 /// <summary>Commands always target an exact persisted revision; approval also targets its artifact hash.</summary>
@@ -72,86 +72,128 @@ public sealed class PlanningCommand
     public PlanningGenerationOptions? Generation { get; set; }
 }
 
-/// <summary>Contains private user content. Hosts must encrypt snapshots at rest, never log them.</summary>
+/// <summary>Private session state. Hosts encrypt all content and persist exact revisions.</summary>
 public sealed class PlanningSnapshot
 {
-    public int SchemaVersion { get; set; } = 2;
+    public int SchemaVersion { get; set; } = 3;
     public PlanningRequest Request { get; set; } = new();
     public long Revision { get; set; }
     public string Status { get; set; } = PlanningStatus.Created;
-    public string? CurrentPhase { get; set; }
-    public string? Outcome => Status switch
-    {
-        PlanningStatus.FinalReview or PlanningStatus.Approved => "generated",
-        PlanningStatus.Saved => "saved", PlanningStatus.Cancelled => "cancelled",
-        PlanningStatus.Unsupported => "unsupported", PlanningStatus.Failed => "failed", _ => null
-    };
+    public string? CurrentPhase { get; set; } = PlanningPhase.Intent;
     public DateTimeOffset UpdatedAtUtc { get; set; } = DateTimeOffset.UtcNow;
     public DateTimeOffset? WaitingSinceUtc { get; set; }
     public double ActiveMilliseconds { get; set; }
     public double HumanWaitMilliseconds { get; set; }
+    public PlanningIntentState Intent { get; set; } = new();
     public PlanningPreparation? Preparation { get; set; }
-    public PlanningGraph? Graph { get; set; }
+    public PlanningPreparationCheckpoint? PreparationCheckpoint { get; set; }
     public PlanningBehaviorPlan? BehaviorPlan { get; set; }
     public string? ApprovedBehaviorHash { get; set; }
-    public List<PlanningAttempt> Attempts { get; set; } = [];
-    public List<PlanningAnswer> Answers { get; set; } = [];
-    // Null identifies older snapshots; planners initialize these from the retained answers and pending form.
-    public int? ClarificationForms { get; set; }
-    public int? ClarificationQuestions { get; set; }
-    public List<PlanningIntentRevision> IntentHistory { get; set; } = [];
-    public HumanInputRequest? Question { get; set; }
+    public int BehaviorAssessmentCalls { get; set; }
+    public PlanningGraph? Graph { get; set; }
+    public PlanningConstructionState Construction { get; set; } = new();
+    public PlanningValidationState Validation { get; set; } = new();
     public List<PlanningDiagnostic> Diagnostics { get; set; } = [];
-    public List<PlanningScenarioResult> Scenarios { get; set; } = [];
-    public List<PlanningScenarioResult> BestScenarios { get; set; } = [];
-    public JsonObject? ScenarioInputs { get; set; }
-    public string? ScenarioInputsFingerprint { get; set; }
-    public JsonObject ScenarioObservations { get; set; } = new();
-    public List<PlanningRevision> History { get; set; } = [];
+    public List<PlanningAttempt> Attempts { get; set; } = [];
     public List<PlanningEvent> Events { get; set; } = [];
-    public Dictionary<string, PlanningFragment> Fragments { get; set; } = new(StringComparer.Ordinal);
-    public List<PlanningConstructionUnit> ConstructionUnits { get; set; } = [];
-    public List<PlanningSourceCandidate> SourceCandidates { get; set; } = [];
-    public string? SourceBehaviorHash { get; set; }
-    public PlanningDataflowContract? Dataflow { get; set; }
-    public PlanningPreparationCheckpoint? PreparationCheckpoint { get; set; }
-    public List<PlanningDiagnostic> PreparationFeedback { get; set; } = [];
-    public int PreparationReassessments { get; set; }
-    // Cumulative reassessments are retained; an explicit Retry opens a new bounded allowance.
-    public int PreparationReassessmentsAtRetry { get; set; }
-    public string? PreparationReviewFingerprint { get; set; }
+    public List<PlanningRevision> History { get; set; } = [];
     public List<PlanningGenerationRevision> GenerationHistory { get; set; } = [];
+    public LLMUsageBudgetSnapshot? Usage { get; set; }
     public string? Yaml { get; set; }
     public string? ArtifactHash { get; set; }
     public string? ApprovedHash { get; set; }
-    public int RepairAttempt { get; set; }
-    // The current automatic behavior assessment, separate from fragment repairs.
-    public int BehaviorAssessmentCalls { get; set; }
-    public int NonImprovingAttempts { get; set; }
-    public string? PreviousDiagnosticHash { get; set; }
-    public LLMUsageBudgetSnapshot? Usage { get; set; }
-    public string? SavedAgentId { get; set; }
-    public bool IntentChecked { get; set; }
-    public string? Feedback { get; set; }
-    // Additive provenance; older snapshots may recover assessment identity from retained attempts.
-    public string? FeedbackSource { get; set; }
-    public string? FeedbackAssessmentHash { get; set; }
-    public PlanningGraph? BestGraph { get; set; }
-    public List<PlanningDiagnostic> BestDiagnostics { get; set; } = [];
-    public Dictionary<string, PlanningFragment> BestFragments { get; set; } = new(StringComparer.Ordinal);
-    public PlanningGraph? ReviewedGraph { get; set; }
-    public List<string> ChangedFragments { get; set; } = [];
-    public PlanningGraph? PreviousGraph { get; set; }
-    public PlanningBehaviorPlan? BehaviorRevisionSource { get; set; }
-    public JsonObject? BehaviorRevisionPatch { get; set; }
     public string? ReviewMarkdown { get; set; }
+    public string? SavedAgentId { get; set; }
     public PlanningPendingCommand? PendingCommand { get; set; }
+    public string? Outcome => Status switch
+    {
+        PlanningStatus.FinalReview or PlanningStatus.Approved => "generated",
+        PlanningStatus.Saved => "saved",
+        PlanningStatus.Cancelled => "cancelled",
+        PlanningStatus.Unsupported => "unsupported",
+        PlanningStatus.Failed => "failed",
+        _ => null
+    };
+}
+
+public sealed class PlanningIntentState
+{
+    public PlanningAssessmentState Assessment { get; set; } = new();
+    public bool Checked { get; set; }
+    public int Forms { get; set; }
+    public int Questions { get; set; }
+    public HumanInputRequest? Question { get; set; }
+    public List<PlanningAnswer> Answers { get; set; } = [];
+    public List<PlanningIntentRevision> History { get; set; } = [];
+}
+
+public sealed class PlanningConstructionState
+{
+    public PlanningRepairState? Repair { get; set; }
+    public PlanningDataflowContract? Dataflow { get; set; }
+    public List<PlanningWorkflowProgress> Workflows { get; set; } = [];
+    public List<PlanningModelCall> PendingCalls { get; set; } = [];
+    public long ModelSequence { get; set; }
+    public int Repairs { get; set; }
+    public List<string> RejectedCandidates { get; set; } = [];
+}
+
+public sealed class PlanningRepairState
+{
+    public string GraphFingerprint { get; set; } = "";
+    public JsonObject Patches { get; set; } = new();
+}
+
+public sealed class PlanningWorkflowProgress
+{
+    public string WorkflowKey { get; set; } = "";
+    public string Status { get; set; } = "pending";
+    public List<string> Dependencies { get; set; } = [];
+    public string DependencyFingerprint { get; set; } = "";
+    public string? GraphFingerprint { get; set; }
+    public int Calls { get; set; }
+    public int RepairCalls { get; set; }
+    public int? EstimatedInputTokens { get; set; }
+    public int? InputTokenLimit { get; set; }
+    public List<PlanningDiagnostic> Diagnostics { get; set; } = [];
+}
+
+/// <summary>Exact request reserved before dispatch. Completed payloads belong to the host journal.</summary>
+public sealed class PlanningModelCall
+{
+    public string Id { get; set; } = "";
+    public string Phase { get; set; } = "";
+    public string WorkflowKey { get; set; } = "";
+    public string RequestHash { get; set; } = "";
+    public LLMRequest Request { get; set; } = new();
+}
+
+public sealed class PlanningValidationState
+{
+    public string? ContractFingerprint { get; set; }
+    public string? FixtureFingerprint { get; set; }
+    public bool FixturesEstablished { get; set; }
+    public PlanningAssessmentState Assessment { get; set; } = new();
+    public string? GraphFingerprint { get; set; }
+    public int Stage { get; set; }
+    public List<PlanningScenarioResult> Scenarios { get; set; } = [];
+    public JsonObject? Inputs { get; set; }
+    public string? InputsFingerprint { get; set; }
+    public JsonObject Observations { get; set; } = new();
+}
+
+public sealed class PlanningAssessmentState
+{
+    public string? Fingerprint { get; set; }
+    public int Attempts { get; set; }
+    public JsonObject? Candidate { get; set; }
+    public List<PlanningDiagnostic> Diagnostics { get; set; } = [];
 }
 
 public sealed record PlanningAnswer(string Question, JsonObject Answers);
 public sealed record PlanningIntentRevision(long Revision, string Prompt, List<PlanningAnswer> Answers, List<PlanningDiagnostic> Diagnostics);
 public sealed record PlanningPendingCommand(string PreviousStatus, PlanningCommand Command);
-public sealed record PlanningRevision(long Revision, string ArtifactHash, string Status, List<string> ChangedFragments);
+public sealed record PlanningRevision(long Revision, string ArtifactHash, string Status, List<string> ChangedWorkflows);
 public sealed record PlanningEvent(string Kind, string Phase, DateTimeOffset TimestampUtc, int Count = 0);
 public sealed record PlanningDiagnostic(string Code, string Location, string Message, bool Required = true, string? ValidationStage = null);
 public static class PlanningValidationStage
@@ -296,7 +338,7 @@ public sealed class PlanningValue
     public decimal? Number { get; set; }
     public bool? Boolean { get; set; }
     public string? Source { get; set; }
-    /// <summary>Null/default retains legacy addressing; structured selects validated post-processing JSON.</summary>
+    /// <summary>The default channel is the declared raw result; structured selects validated post-processing JSON.</summary>
     public string? ResultChannel { get; set; }
     public List<string> Path { get; set; } = [];
     public List<PlanningMember> Members { get; set; } = [];
@@ -332,55 +374,16 @@ public sealed record PlanningBranch(List<PlanningNode> Steps);
 public sealed record PlanningStructuredOutput(PlanningSchema Schema, bool Strict = true);
 public sealed record PlanningCase(string? Value, PlanningValue? When, List<PlanningNode> Steps);
 public sealed record PlanningErrorCase(PlanningValue? If, string Action, PlanningValue? SetOutput, Models.RetryPolicy? Retry);
-public sealed record PlanningFragment(string Fingerprint, PlanningWorkflow Workflow, bool Validated);
-
-/// <summary>Encrypted, resumable construction checkpoint. Candidates remain untrusted until validated.</summary>
-public sealed class PlanningConstructionUnit
-{
-    public string Key { get; set; } = "";
-    public string WorkflowKey { get; set; } = "";
-    public string Kind { get; set; } = "implementation";
-    public List<string> NodeKeys { get; set; } = [];
-    public List<string> Dependencies { get; set; } = [];
-    public string Fingerprint { get; set; } = "";
-    public string Status { get; set; } = "pending";
-    public JsonObject? Candidate { get; set; }
-    // Additive checkpoints: technical producer review never changes behavior approval.
-    public List<string> ConsumerContractReviews { get; set; } = [];
-    public bool WaitingForProducerReview { get; set; }
-    public JsonObject? ProducerReviewBaseline { get; set; }
-    public bool FlatSchemaGeneration { get; set; }
-    public JsonObject? SchemaDeclarations { get; set; }
-    public bool PartialCandidate { get; set; }
-    public int GeneratedFieldGroups { get; set; }
-    public string? CandidateHash { get; set; }
-    public List<string> RequestHashes { get; set; } = [];
-    public List<PlanningDiagnostic> Diagnostics { get; set; } = [];
-    public int Calls { get; set; }
-    public List<PlanningDiagnostic> DispatchDiagnostics { get; set; } = [];
-    public int RepairCalls { get; set; }
-    public int RepairCallsAtRetry { get; set; }
-    /// <summary>Exact undeclared-field findings actually sent for repair under the current dependency contracts.</summary>
-    public List<string> RepairedFieldFindings { get; set; } = [];
-    public string? RepairedFieldCandidateHash { get; set; }
-    public string? Functions { get; set; }
-    public int ContractVersion { get; set; }
-    public int? EstimatedInputTokens { get; set; }
-    public int? InputTokenLimit { get; set; }
-    public string? DispatchOutcome { get; set; }
-}
-
 /// <summary>Resolved data provenance; hosts encrypt this together with the planning snapshot.</summary>
 public sealed class PlanningDataflowContract
 {
+    public string ContractFingerprint { get; set; } = "";
+    public string? GraphFingerprint { get; set; }
     public int Version { get; set; } = 1;
     public string Fingerprint { get; set; } = "";
     public List<PlanningBinding> Bindings { get; set; } = [];
     public List<PlanningOperationDataflow> Operations { get; set; } = [];
     public Dictionary<string, List<string>> InputObligations { get; set; } = new(StringComparer.Ordinal);
-    public List<string> AssessedWorkflows { get; set; } = [];
-    public int AssessmentCalls { get; set; }
-    public int AssessmentCallsAtRetry { get; set; }
 }
 
 public sealed record PlanningBinding(string Id, string WorkflowKey, PlanningValue Value, JsonObject Schema, string Availability);
@@ -393,29 +396,19 @@ public interface IWorkflowPlanner
     Task<PlanningSnapshot> AdvanceAsync(PlanningSnapshot snapshot, PlanningCommand command, IPlanningRuntime runtime, CancellationToken ct);
 }
 
-/// <summary>Host-independent boundary to existing discovery, policies, model transport and validators.</summary>
-/// <summary>Compiler-derived capability ownership, separate from executable YAML.</summary>
 public sealed record PlanningArtifactBinding(string Workflow, string Step, string CapabilityId);
+public sealed record PlanningArtifactValidationRequest(string Yaml, PlanningRequest Request, PlanningPreparation Preparation, IReadOnlyList<PlanningArtifactBinding> Bindings);
+public sealed record PlanningScenarioValidationRequest(string Yaml, PlanningPreparation Preparation, JsonObject Inputs, JsonObject LoopItemSchemas, JsonObject Observations);
 
+/// <summary>Required host effects. Ownership and scenario evidence cannot be silently omitted.</summary>
 public interface IPlanningRuntime
 {
-    Task<PlanningPreparation> PrepareAsync(PlanningRequest request, CancellationToken ct);
-    async Task<PlanningPreparationProgress> AdvancePreparationAsync(PlanningRequest request, PlanningPreparationCheckpoint checkpoint,
-        Func<CancellationToken, Task> persist, CancellationToken ct) => new(checkpoint, await PrepareAsync(request, ct));
-    Task EnrichPreparationAsync(PlanningPreparation preparation, CancellationToken ct) => Task.CompletedTask;
+    Task<PlanningPreparationProgress> PrepareAsync(PlanningSnapshot snapshot, CancellationToken ct);
     Task<LLMResponse> CallAsync(LLMRequest request, string phase, CancellationToken ct);
-    Task<IReadOnlyList<PlanningDiagnostic>> ValidateAsync(string yaml, PlanningRequest request, PlanningPreparation preparation, CancellationToken ct);
-    Task<IReadOnlyList<PlanningDiagnostic>> ValidateAsync(string yaml, PlanningRequest request, PlanningPreparation preparation,
-        IReadOnlyList<PlanningArtifactBinding> bindings, CancellationToken ct) => ValidateAsync(yaml, request, preparation, ct);
-    Task<IReadOnlyList<PlanningScenarioResult>> ValidateScenariosAsync(string yaml, PlanningPreparation preparation, CancellationToken ct);
-    Task<IReadOnlyList<PlanningScenarioResult>> ValidateScenariosAsync(string yaml, PlanningPreparation preparation, JsonObject inputs, CancellationToken ct)
-        => ValidateScenariosAsync(yaml, preparation, ct);
-    Task<IReadOnlyList<PlanningScenarioResult>> ValidateScenariosAsync(string yaml, PlanningPreparation preparation, JsonObject inputs, JsonObject loopItemSchemas, CancellationToken ct)
-        => ValidateScenariosAsync(yaml, preparation, inputs, ct);
-    Task<IReadOnlyList<PlanningScenarioResult>> ValidateScenariosAsync(string yaml, PlanningPreparation preparation, JsonObject inputs, JsonObject loopItemSchemas, JsonObject observations, CancellationToken ct)
-        => ValidateScenariosAsync(yaml, preparation, inputs, loopItemSchemas, ct);
-    Task<IReadOnlyList<PlanningDiagnostic>> ValidateCatalogAsync(PlanningPreparation preparation, CancellationToken ct) => Task.FromResult<IReadOnlyList<PlanningDiagnostic>>([]);
-    Task CheckpointAsync(PlanningSnapshot snapshot, CancellationToken ct) => Task.CompletedTask;
+    Task<IReadOnlyList<PlanningDiagnostic>> ValidateAsync(PlanningArtifactValidationRequest request, CancellationToken ct);
+    Task<IReadOnlyList<PlanningScenarioResult>> ValidateScenariosAsync(PlanningScenarioValidationRequest request, CancellationToken ct);
+    Task<IReadOnlyList<PlanningDiagnostic>> ValidateCatalogAsync(PlanningPreparation preparation, CancellationToken ct);
+    Task CheckpointAsync(PlanningSnapshot snapshot, CancellationToken ct);
 }
 
 public interface IPlanningSessionStore
@@ -435,6 +428,7 @@ public sealed class PlanningConflictException(string message) : InvalidOperation
 [JsonSerializable(typeof(PlanningDataflowContract))]
 [JsonSerializable(typeof(Dictionary<string, List<string>>))]
 [JsonSerializable(typeof(PlanningGraph))]
+[JsonSerializable(typeof(PlanningDataflowContract))]
 [JsonSerializable(typeof(PlanningBehaviorPlan))]
 [JsonSerializable(typeof(PlanningBehaviorWorkflow))]
 [JsonSerializable(typeof(PlanningStructuredOutput))]
@@ -451,6 +445,9 @@ public sealed class PlanningConflictException(string message) : InvalidOperation
 [JsonSerializable(typeof(PlanningValue))]
 [JsonSerializable(typeof(List<PlanningDiagnostic>))]
 [JsonSerializable(typeof(List<PlanningSnapshot>))]
+[JsonSerializable(typeof(PlanningWorkflowProgress))]
+[JsonSerializable(typeof(PlanningConstructionState))]
+[JsonSerializable(typeof(PlanningValidationState))]
 [JsonSerializable(typeof(LLMRequest))]
 [JsonSerializable(typeof(LLMResponse))]
 [JsonSerializable(typeof(LLMUsageBudgetSnapshot))]

@@ -1,4 +1,4 @@
-﻿
+
 namespace GnOuGo.Agent.Server.Tests;
 
 public sealed class BundledBrowserMcpPublishTests

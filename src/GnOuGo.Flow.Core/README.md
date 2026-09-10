@@ -18,78 +18,12 @@ result. Invalid fallbacks stop downstream execution with
 Declarative workflow engine based on a YAML DSL, **NativeAOT**-compatible (.NET 10).
 Write YAML workflows that orchestrate LLMs, MCP servers, templates, loops, human input, and dynamic code generation — all from a single file.
 
-## Versioned typed planning
+## Typed planning
 
-`workflow.plan` accepts optional `planner_version`, defaulting to `1`. Version `2`
-delegates to `WorkflowEngine.WorkflowPlanner`; consumers inject `TypedWorkflowPlanner`
-from the separately publishable `GnOuGo.Flow.Planning` package. Flow.Core has no
-reference to that package. Executable YAML and the established result shape remain
-compatible, and version-2 failures never trigger a legacy fallback.
-
-Core owns the provider-neutral planning request, snapshot, command and event contracts,
-`IWorkflowPlanner`, `IPlanningRuntime` and tenant-scoped `IPlanningSessionStore`.
-`IPlanningSourceCompiler` is the optional provider-neutral authoring boundary. The
-separate JavaScript package implements it; Core never references that package.
-`PlanningRequest.ConstructionStrategy` defaults to `typed-units-v2`; hosts may select
-`javascript-v1` for new sessions. Source candidates and pending receipt revisions
-are private additive snapshot fields and must remain encrypted by the owning host.
-`PlanningContractValidation.ValidateInstanceFindings` returns exact JSON Pointer
-locations alongside readable schema violations. Property names containing dots,
-brackets, slashes or tildes remain unambiguous; the existing string diagnostics API
-retains its formatting for compatible callers.
-`WorkflowPlanningRuntime` adapts established discovery and validation. Required
-inconclusive scenarios block acceptance; human waits are separate from active time.
-Nominal scenarios retain handled runtime errors as `SCENARIO_RECOVERED_ERROR` findings.
-A successful `on_error` fallback does not count as successful nominal construction;
-explicit failure and cancellation scenarios separately validate recovery and cleanup.
-Construction checkpoints optionally retain hashes of diagnosed field repairs and the received
-candidate. Older version-2 snapshots default to no established field-repair evidence.
-Optional feedback provenance distinguishes user revisions from model assessments and
-identifies the assessed graph. Schema version 2 and older encrypted snapshots remain compatible.
-Locked capability metadata includes artifact provenance and finite activation contracts.
-Older snapshots recover this metadata from their encrypted preflight contract through
-`IPlanningRuntime.EnrichPreparationAsync`, without rediscovery or model inference.
-Recursive JSON Schema alternatives retain the current instance path. Reusing a recursive
-definition at a deeper value cannot bypass validation through the recursion guard.
-Validation diagnostics retain their runtime, capability, or conditional-activation stage
-and identify the failing producer, consumer, or decision whenever available.
-Decision-lineage findings identify the switch expression for targeted repair. Exact
-producer references may traverse declared sequence/switch child results; absent branch
-outputs remain subject to full runtime-path validation. Local decision reducers retain
-every physical input reached through declared local dependencies, even when one input
-already exposes a compatible enum. A selected ancestor cannot replace a multi-input
-decision or discard its human-input dependency.
-Separate local evaluators are identified by their locked decision fields, while each
-evaluator must still cover its exact input set. Pending session phases describe the next
-assessment; recovery preserves the phase that actually failed.
-Version-2 recovery is a waiting state with retry, request edit and cancel choices.
-`PlanningSnapshot` retains schema version 2 with additive current-phase and cumulative
-clarification counters and `behaviorAssessmentCalls`. `PlanningBehaviorPlan` captures
-reviewable obligations before executable construction. Optional behavior approval hashes,
-structured-output declarations and validation-attempt history preserve version-2 compatibility. Typed output references may select
-`resultChannel: structured` for validated post-processing JSON; absent/default preserves
-existing addressing. `edit_intent` is revision guarded and available before the first
-behavior approval during recovery or early failure, even with a retained invalid graph; hosts preserve encrypted answer/diagnostic
-history and usage. Standalone `workflow.plan` presents recovery through its injected
-human-input provider and never treats recovery as artifact approval.
-Additive construction checkpoints retain unit dependencies, candidate hashes, validation
-findings, repair counts and model request references. Optional `FlatSchemaGeneration`
-and `SchemaDeclarations` fields retain bounded schema-transport recovery state without
-changing executable graph contracts or snapshot version. `PlanningGenerationOptions` supplies
-request-scoped node/input/output limits and optional reasoning, while `configure_generation`
-changes paused-session settings under the existing revision guard. The provider-neutral
-`LLMRequest` flags `RequireOutputTokenLimit` and `DisableTransportRetries` let journaled hosts
-require an enforced output ceiling and own every billable retry. `HumanInputContract` also
-provides the deterministic runtime confirmation input; confirm results contain a boolean
-`response`. Persistence and transport enforcement remain host/integration responsibilities.
-See [planner usage](../GnOuGo.Flow.Planning/README.md) and
-[the host rollout guide](../../docs/workflow-planning-v2.md).
-
-Compilation and string interpolation share JavaScript token boundaries for `${...}`,
-including nested object braces, comments, quoted strings, regex and template literals.
-Step-input expressions are syntax-checked before execution, alongside guards and outputs.
-Only `set` supports an executable `output_schema` assertion; its computed values belong
-inside `input`, and confirmations use the declared `HumanInputContract` response shape.
+`workflow.plan` invokes the injected `IWorkflowPlanner` and `IPlanningRuntimeFactory`.
+Hosts reference `GnOuGo.Flow.Planning` for the sole Planner v2 implementation. Core
+retains provider-neutral contracts and runtime validation without referencing another
+GnOuGo project. See [workflow planning](../../docs/workflow-planning-v2.md).
 
 ## MCP protocol compatibility
 
@@ -128,7 +62,7 @@ client is used for validation, but never substitutes for live-session setup.
   - [decision.evaluate](#decisionevaluate--finite-runtime-decisions)
   - [workflow.call](#workflowcall--call-a-sub-workflow)
   - [workflow.route](#workflowroute--route-to-workflow-candidates)
-  - [workflow.plan](#workflowplan--generate-a-workflow-dynamically-via-llm)
+  - [workflow.plan](#workflowplan--typed-workflow-planning)
   - [workflow.execute](#workflowexecute--execute-a-planned-workflow)
 - [Typed Inputs](#typed-inputs)
 - [Typed Outputs](#typed-outputs)
@@ -1365,495 +1299,38 @@ Before each selected workflow runs, `workflow.route` emits a `gnougo-flow.step.t
 
 ---
 
-### `workflow.plan` — Generate a Workflow Dynamically via LLM
+### `workflow.plan` — Typed workflow planning
 
-The most powerful step type: asks an LLM to **generate a complete YAML workflow** from a natural-language instruction, then validates and compiles it before execution.
-
-`mode` defaults to `auto`. Auto mode first asks the configured LLM to estimate the request's cyclomatic complexity and choose `basic` or `pipeline`. It chooses `basic` for requests under 10 meaningful branches, and `pipeline` when the request should be decomposed into leaf workflows before assembly.
-
-Every internal planning call is background-capable: automatic mode classification, capability
-inventory and repair, physical candidate selection, capability matching and repair, MCP
-prefiltering, pipeline stages, and final generation. With OpenAI this uses background Responses
-and preserves strict structured-output schemas. Ordinary `llm.call`, chat, and tool-calling
-requests keep their existing routing unless their caller explicitly opts into background mode.
-
-#### Basic usage
+This step invokes the host's injected Planner v2. Missing planner injection fails
+explicitly. Clarification, locked capabilities, business behavior review and complete
+typed subworkflow construction precede deterministic lowering. Compilation, semantic
+and scenario validation and final approval are mandatory. Models return typed JSON;
+`PlanningGraphCompiler` alone produces the reviewed YAML.
 
 ```yaml
 - id: plan
   type: workflow.plan
   input:
-    mode: auto                    # default; use basic to force the single-plan path
+    raw_prompt: "${data.inputs.intent}"
     generator:
-      model: gpt-4o
-      instruction: "Build a workflow that fetches weather for Paris and summarizes it."
-      context: "Available tools include weather and summarization APIs."
-```
-
-#### Full configuration
-
-```yaml
-- id: plan
-  type: workflow.plan
-  input:
-    mode: auto                    # auto | basic | pipeline | repair
-    raw_prompt: "${data.inputs.request}"
-    intent_clarification:
-      mode: always                # off (default) | when_needed | always
-      timeout_ms: 36000000
-      max_rounds: 2
-      max_questions: 8
-      max_questions_per_round: 5
-    llm_budget:                   # Optional; absent preserves legacy behavior
-      max_calls: 40
-      max_total_tokens: 1500000
-      max_elapsed_ms: 1800000
-      max_estimated_cost:         # Optional; requires usage, pricing, and conversion metadata
-        amount: 50
-        currency: EUR
+      model: "${data.inputs.model}"
+      reasoning: low
+      max_input_tokens: 12000
+      max_output_tokens: 8192
+    max_concurrency: 4
+    max_repairs: 3
+    llm_budget:
+      max_calls: 100
+      max_total_tokens: 15000000
+      max_elapsed_ms: 18000000
       unverifiable: fail
-    capability_preflight:
-      mode: infer                 # off (default) | infer | explicit
-      clarification:
-        enabled: true             # opt-in; default false
-        timeout_ms: 36000000      # one batched human clarification form
-    generator:
-      model: gpt-4o                 # LLM model for planning
-      provider: openai              # Optional — LLM provider
-      instruction: "Analyze the user's request and build a workflow."
-      context: "${json(data.inputs)}"
-
-      # Reasoning effort for the planning LLM call (and the MCP pre-filter).
-      # Defaults to "medium" because planning is reasoning-heavy work.
-      # Set to "auto" to let the provider decide, or any of:
-      # "minimal" | "low" | "medium" | "high" | "max" | "auto".
-      # Models without thinking support ignore this field.
-      reasoning: medium
-
-      # MCP pre-filter: uses an LLM to select only relevant MCP servers/tools
-      # before injecting them into the planning prompt (reduces prompt size)
-      prefilter: true               # true (default) | false | { model, provider }
-
-    # Policy constraints — restrict what the LLM can generate
-    policy:
-      allowed_step_types:           # Whitelist of step types
-        - llm.call
-        - mcp.call
-        - mcp.list
-        - template.render
-        - set
-        - decision.evaluate
-        - emit
-        - sequence
-      denied_step_types:            # Blacklist (takes precedence)
-        - workflow.plan             # Prevent recursive planning
-      allow_remote_workflow_refs: false
-
-    # Limits
-    limits:
-      max_steps_total: 20           # Maximum number of steps in the generated workflow
-
-    # Validation
-    validate:
-      mode: strict                  # Optional marker; strict validation is mandatory
-      compile: true                 # Legacy field; compile/semantic validation is always forced
-      dry_run: true                 # Execute once with deterministic fake providers
-      repair: auto                  # Optional marker; bounded automatic repair is mandatory
-      max_repair_attempts: 3        # Preferred repair attempt budget
-
-    # Self-correction on failure
-    on_invalid:
-      action: reprompt              # Legacy field; invalid YAML is always reprompted while attempts remain
-      max_attempts: 3               # Legacy repair attempt budget when validate.max_repair_attempts is absent
 ```
 
-#### Generic intent clarification
-
-`intent_clarification` is disabled by default. `always` requires an up-front form before discovery or generation unless the structured analyst classifies the request as intrinsically contradictory, unsafe, or impossible to clarify. `when_needed` first permits the analyst to classify an already decision-complete request as `sufficient` without displaying a form.
-
-Each form contains one to `max_questions_per_round` single-choice questions, with two or three mutually exclusive described options. The AI recommendation is first, marked recommended, and preselected, but the user must submit explicitly. Rich hosts add a custom Other answer and an Abandon action. Generated question content follows the raw request language; fixed controls are localized by the host and fall back to English.
-
-The round and question limits are shared by the complete `workflow.plan` run. Selected option labels, descriptions, custom-answer status, and the provider-neutral external-write confirmation consequence are preserved as planning evidence. A host-rendered consequence makes `required` or `forbidden` visible before selection, and the selected consequence is authoritative over a later `unspecified` inventory response. Conflicting selected consequences fail closed. Remaining rounds may be used for genuine intent ambiguity discovered after bounded capability or extraction repair. After automatic matching repair is exhausted, one behavior-only form may also offer explicit read-only continuation, but only when every blocker is a conditional external write and a validated read/execution result remains safe. Its recommended answer preserves the requested writes and stops; accepting read-only omits only those writes and restarts complete preflight once. It never offers unconditional writes, a generation-time fixed decision, removal of required cleanup, or weakening of required reads/execution. Runtime-dependent outcomes remain conditional workflow branches and are never sent to the human for prediction.
-
-Malformed model contracts, invalid catalog IDs, unavailable reads/execution, schema violations, lifecycle gaps, mixed blockers, and ordinary generation defects are not clarification-eligible. They retain their normal fail-closed errors. Intent clarification uses `WORKFLOW_PLAN_CLARIFICATION_FAILED` for provider, timeout, response, or analyst-contract failures; `WORKFLOW_PLAN_CANNOT_PLAN_SAFELY` for intrinsic or budget-exhausted ambiguity; and `WORKFLOW_PLAN_ABORTED` for explicit abandonment. Submitted form and question counters are refreshed immediately and included with later terminal matching failures. Failure metadata contains only stage, classification, counts, reason, and recommended action—not submitted answers.
-
-When physical candidate selection narrowed the discovered catalog and a required matching blocker survives the normal repair, capability preflight performs one bounded full-catalog rewind. It first rematches against complete discovery. If a challenged `exact_denial` classification still cannot establish a valid contract, the same rewind epoch may re-adjudicate only those constraint classifications from the original evidence, preserving every operation and all other inventory fields exactly, before one full-catalog rematch. It accepts the result only when the structured contracts are valid, the applicable inventory and matching fingerprints changed, and blocker identities are a strict subset of the previous set. An unchanged, malformed, or regressive result fails closed as an upstream contract defect and never becomes a technical user question.
-
-#### Provider-neutral LLM usage budgets
-
-`llm_budget` bounds every LLM call made by the `workflow.plan` step, including clarification, discovery filtering, capability inference, extraction, quality review, generation, and repair. The contract is disabled when absent. Configured call and elapsed limits are checked before dispatch; token and estimated-cost totals are recorded from provider-neutral response usage before a response can be accepted. `max_estimated_cost` accepts a positive decimal amount and an uppercase three-letter currency. The legacy `max_estimated_cost_usd` field remains supported as a USD alias, but the canonical and legacy limits cannot be set together. Missing usage, pricing, pricing currency, or a required exchange quote fails closed with `LLM_BUDGET_UNVERIFIABLE`.
-
-Hosts may attach a parent `LLMUsageBudgetScope` to `WorkflowEngine.LLMUsageBudget`. A plan scope becomes its child, so it can tighten but never loosen the host allowance; routed child workflows inherit the same parent. `IModelUsageCostEstimator.EstimateCostWithCurrency` reports the pricing-metadata currency; existing estimators remain compatible through the default USD adapter. `IExchangeRateProvider` supplies provider-neutral conversion quotes. A scope pins the first validated quote for each currency pair in its durable snapshot and reuses it for every later call. Monetary scopes serialize unaccounted calls, limiting local estimation overshoot to one in-flight request. A provider-side hard spend limit is still required when an exact monetary ceiling matters.
-
-Budget snapshots contain call counts, token totals, normalized estimated cost and currency, pinned quote metadata, and the legacy USD total. `gnougo-flow.llm_budget.updated` telemetry emits those cumulative counters plus elapsed time, stage, status, and a random call identifier, without serializing the quote list. Neither contract contains prompts, responses, credentials, provider bodies, or human answers.
-
-#### Generic capability preflight
-
-`capability_preflight.mode: infer` discovers every configured MCP catalog and starts by inventorying positive runtime operations and constraints without exposing tools. When `generator.prefilter` is enabled (the default), Flow then pages through a compact one-entry-per-physical-tool catalog to select relevant candidates, adds compatible MCP-declared artifact producers, and only then builds the schema-aware matching catalog. Enum, `const`, nested selector, discriminator, `oneOf`, and `anyOf` variants reference their base physical contract and carry only their exact request bindings. Required unavailable operations fail before classification, decomposition, or YAML generation. Prohibitions, safety rules, ordering requirements, and invariants are constraints rather than executable operations, so abstaining never requires a tool.
-
-The inventory excludes configuration already supplied by the host, provider or credential resolution performed internally by a selected capability, and persistence performed outside the generated workflow. Inventory completeness means that all requested runtime intentions were enumerated; it does not assert that tools or selector matches exist. If the first inventory is incomplete or violates its structured evidence contract, Flow performs one bounded repair call. The repair receives the rejected bounded candidate and precise field-level issue codes. A second evidence-contract violation fails with `CAPABILITY_PREFLIGHT_INFERENCE_FAILED`, classification `model_contract_violation`, and a retry/change-model recommendation; it is not presented as user-intent ambiguity. Candidate selection likewise performs one bounded repair when a required external operation has no candidate after every compact page was considered. A second omission is allowed to reach the authoritative matcher, which reports `CAPABILITY_PREFLIGHT_UNAVAILABLE` only after the compact full catalog has been considered. Complete discovery is retained for dry runs and deterministic schema validation; filtering changes inference context only and preserves the original tool schemas and metadata.
-
-Schema-aware catalog traversal is bounded to four schema levels, 64 selector values per property, 512 description characters, and 256,000 expanded characters. Selector variants retain a branch description declared beside an exact `oneOf` or `anyOf` binding, allowing a parameterized tool to publish distinct provider-neutral semantics for each finite operation without exposing its implementation. The limit remains a fail-closed safety boundary. Oversize diagnostics include total characters, selected and full server/tool counts, base and variant counts, and the largest contributing tools. No catalog is silently truncated.
-
-Native Flow containers and ordinary deterministic shaping steps are workflow structure, not external capabilities. Sequence, parallel, loop, switch, `set`, workflow-routing, MCP-invocation plumbing, and emit contracts are therefore omitted from capability matching while remaining available to generation and validation. Capability-bearing native steps, including model calls, human interaction, and `decision.evaluate`, remain in the catalog when policy-allowed. This prevents a structural loop from being treated as an alternative or complementary primitive beside the action it repeats.
-
-Each operation is classified as `external_effect`, `human_interaction`, or `local_processing`; external effects are additionally classified as `read`, `write`, `execute`, or owned-resource `lifecycle`. `required` describes whether the generated plan must implement the operation, not whether a conditional effect runs on every execution. The original request, caller context, and every accepted clarification question/answer remain separate provider-neutral evidence sources with stable IDs. `coverage_requirements`, `optionality_evidence`, write-confirmation evidence, and any no-effect outcome reference one source plus one excerpt. A no-effect branch must have exact evidence overlapping that operation's `workflow_structure` requirement; availability, permission, safety-boundary, and ordinary failure policies cannot manufacture an abstention branch for an otherwise required effect. Each coverage requirement also declares `capability_contract` when the selected card itself must document the intrinsic primitive, or `workflow_structure` for cardinality, uniqueness, complete-scope iteration, ordering, conditions, finalization, failure handling, quality thresholds, runtime instructions and argument values, input locator representation, or locally derivable parameter mapping. Capability-card coverage review receives only the first class and judges only its intrinsic primitive even if an evidence excerpt retains structural context; the latter remains locked for workflow generation and validation instead of making a generic parameterized tool appear insufficient. Flow resolves each reference into a stable anchor after Unicode NFC and whitespace normalization while preserving exact case, punctuation, accents, and word order; paraphrases and excerpts spanning sources fail closed. Runtime-dependent operations carry a provider-neutral `decision_source_operation_id` instead of relying on domain words or provider names to guess their source. Operations declare exact backward data-flow edges through `input_operation_ids`; this lets Flow trace a local validation/projection to one upstream capability producer without inferring from descriptions, adjacency, or provider names. Unknown, self, and forward edges are rejected. Constraints are independently classified as `exact_denial` or `workflow_policy`; conditional, ordering, cardinality, coverage, confirmation, and quality rules are structural policies rather than document-wide denials. Matching can select one capability, the smallest complementary composition, a conditional set of selector variants, or no capability for local work.
-
-After matching, an independent provider-neutral coverage review compares every grounded requirement against the exact selected catalog cards. Requirement IDs carry their canonical anchored excerpts through review and rematching; structured verdicts are accepted only when operation IDs, requirement IDs, catalog IDs, and catalog excerpts validate deterministically. Before an incomplete verdict can unlock matching, one bounded evidence-grounded adjudication separates a genuinely absent intrinsic primitive from differences that belong only to workflow structure. The latter is canonicalized with reason `capability_coverage_workflow_structure_canonicalized`; its controlled facets cover cardinality, uniqueness, scope iteration, ordering, conditions, confirmation, finalization, failure/cancellation, quality thresholds, runtime arguments, input representation, and local mapping. Adjudication never consults provider, server, tool, URL, catalog-numbering, operation-description, or domain-name heuristics, and malformed adjudication is a model-contract violation rather than a human question. A confirmed intrinsic gap unlocks only the affected operation for one targeted rematch while unrelated decisions remain fixed. If the catalog still documents only a weaker intrinsic behavior, an active top-level intent-clarification session may present one relaxation form whose recommended option preserves the original requirement and stops. Only explicit acceptance of the documented weaker behavior restarts planning with the accepted question/answer as a concrete clarified-intent evidence source. The same evidence fingerprint is never asked twice; preserved requirements, exhausted clarification budgets, and repeated gaps fail with `CAPABILITY_PREFLIGHT_UNAVAILABLE` and reason `incomplete_effect_coverage`.
-
-A conditional capability set is accepted only with a grounded decision contract. Flow first uses a selected producer capability's typed enum output when it covers every effect branch. If the locked decision source cannot cover those values, Flow inspects only declared `input_operation_ids`, tracing local-processing edges without descriptions or names. One typed enum producer remains preferred, followed by exactly one structured-decision-capable semantic root of a selected artifact composition. When the declared decision operation is `local_processing`, has at least two distinct valid physical upstream operations, and `decision.evaluate` is registered and policy-allowed, Flow may instead synthesize one local evaluator. Selector schemas supply its effect values, and only validated inventory evidence supplies a no-effect value. Stable opaque field names allow one evaluator to own several conditional groups. Every upstream operation must participate in its boolean conditions. Equal or incomparable physical roots without that declared local reducer remain `conditional_decision_source_ambiguous`; absent sources remain `conditional_decision_source_unavailable`. These are technical lineage outcomes and never ask the human to choose tools or predict the runtime value.
-The internal matching contract distinguishes mutually exclusive selector alternatives (`conditional_mode=exactly_one`) from a guarded effect or ordered conditional composition (`conditional_mode=all_on_value`). `exactly_one` still requires at least two distinct branches. `all_on_value` accepts one or more structurally distinct MCP invocations only when the operation explicitly declares a no-effect outcome, and assigns catalog order as execution order; every selected capability then runs once inside the single effect case and none runs in every declared no-effect case. This represents both one guarded write and an explicitly matched multi-call effect without inferring provider-specific lifecycle semantics.
-When the declared intent also permits an outcome with no external effect, additional enum values are retained as explicit non-mutating switch cases instead of being forced into a write branch. If a single selected `llm.call` or MCP producer has no suitable output enum, Flow can project a provider-neutral strict `structured_output` contract at `/json/decision`; the synthesized enum contains every effect branch plus a collision-free `NO_EFFECT` value when required. Shared structured or local producers receive one stable opaque-operation-derived field per conditional operation. For a local multi-source reducer, each declared upstream operation is routed into a distinct required opaque boolean input on its decision-owning leaf, preserving exact typed lineage across the parent graph without deriving meaning from labels or domains. Local evaluators must contain exactly all locked fields, exact effect cases, an allowed no-effect default only when declared, and no fixed or non-expression conditions; ad-hoc `set`, functions, and caller-input discriminators remain invalid. Pipeline leaf generation validates one locked producer and unchanged typed public decision outputs through direct expressions or transparent projections. Leaf preparation also validates switch shape, literal case coverage, exact call placement/order, explicit no-effect cases, and the non-mutating default before parent assembly. Final assembled-document validation retains complete cross-workflow lineage checks and routes an unproven producer-to-consumer decision path to parent-graph repair. Final validation proves the producer identity, output path, enum, input participation, switch coverage, ordered composition calls, non-mutating no-effect cases, and non-mutating default.
-
-Multiple independently required read variants without this proof remain composed, unconditional calls; ambiguous writes, execution, or lifecycle effects fail closed. For one physical capability, selector bindings define a specificity order. Any whole-tool or partial-selector entry whose bindings are a strict compatible subset of a selected descendant is removed as a representational ancestor. A unique maximal descendant is canonicalized to one match with reason `selector_ancestor_chain_canonicalized`; multiple incomparable maxima remain alternatives. A malformed advisory set is canonicalized to a conditional match only when those maxima prove one mutually exclusive selector family and the locked operation declares a decision source, emitting `conditional_selector_family_canonicalized`. When a declared alternative set collapses to one logical capability, it is normalized to `unavailable` with reason `selector_ancestor_chain_insufficient`; representational ancestors cannot stand in for missing effect branches. Every referenced ID must be known; absent decision sources, incompatible families, and ungrounded branch values remain fail-closed contract outcomes. During the one bounded matching repair, an ungrounded conditional set unlocks its upstream decision operation as a coupled repair unit while preserving unrelated valid matches. If repair still cannot establish a safe contract, the result is the actionable `CAPABILITY_PREFLIGHT_UNAVAILABLE` reason `conditional_decision_contract_gap`, not a request for the user to predict a runtime outcome. Grounding attempts emit sanitized counts and `gnougo-flow.plan.capability_matching.conditional_grounding` events containing only operation/catalog IDs, paths, enum values, contract source, and failure code. A successful source correction additionally emits normalization reason `conditional_decision_source_canonicalized` with only operation IDs, selected catalog IDs, the producer catalog ID, and contract source; ordered conditional composition emits `conditional_composition_canonicalized`. Accepted conditional sets are emitted under one expression-based `switch`: `exactly_one` variants have distinct literal case values, while every `all_on_value` member shares one effect case and is validated in locked order.
-A one-capability `exactly_one` selector or a one-capability `all_on_value` match without an explicit no-effect contract remains invalid and is never converted into an unconditional write.
-Pipeline composition preserves the extractor's exact operation, opaque catalog, method, and selector claims. Split conditional effect variants are consolidated under their earliest exact variant owner; the decision-producing leaf is never selected unless it actually claims a branch. Missing or ambiguous locked ownership fails extraction repair instead of falling back to lexical leaf, provider, tool, or domain scoring. Required capability occurrences are a multiset: two operations selecting the same physical tool still require two statically verifiable calls. Final conditional validation reserves the calls in the one valid switch for that conditional group and attributes physically identical calls outside the switch only to other locked operation identities; an unowned duplicate still fails closed. Local operations remain semantic blueprint obligations instead of being forced onto an arbitrary native step. Constraint matching also deduplicates repeated exact IDs; a constraint that references only native Flow capabilities is normalized to provider-neutral orchestration policy because exact denied alternatives are an MCP-only contract.
-
-The single-selector outcome depends on catalog evidence: `conditional_selector_set_insufficient` or `selector_ancestor_chain_insufficient` is `unavailable` only when no compatible sibling exists in the catalog. If the catalog contains a compatible sibling that the model omitted, the response remains a repairable model-contract violation.
-
-Matching-contract failures retain the model-reported status, selected and candidate counts, and bounded invalid-field names. Each `matching_issues[]` entry exposes a stable `validation_issue` such as unsupported status, malformed arrays, unknown IDs, missing reason, selection cardinality, decision reference, conditional mode/topology, or local-processing mismatch. The one repair prompt receives these structured diagnostics while valid unrelated matches remain locked; `reason_code=model_repair_exhausted` describes only the exhausted repair outcome, not the underlying defect. Prompts, credentials, response bodies, and model reasoning are never included.
-
-MCP tools may advertise the versioned `_meta.gnougo.artifacts` contract. Flow
-uses its domain-neutral artifact kinds and JSON pointers to compose producers
-with consumers: one materialized output can feed multiple later leaves, and the
-main workflow must route that exact value without constructing a locator.
-Before model repair, inferred matching recursively closes required artifact
-dependencies to one bounded fixed point. A unique minimal acyclic producer
-graph is composed automatically, including multi-hop graphs; multiple minimal
-graphs remain ambiguous, while missing, cyclic, or over-limit graphs fail
-closed with sanitized `artifact_closure_*` reason codes. Producer reuse prefers
-capabilities selected by declared upstream `input_operation_ids`.
-Explicit metadata is authoritative; schema/description inference remains only
-for external MCP compatibility. Final validation traces required consumer
-values across direct calls, transparent `set` aliases, exact same-path
-`assert.non_null` refinements, and typed workflow
-input/output boundaries; invented, transformed, or kind-incompatible values
-are rejected. When preflight is enabled, an artifact
-materializer with no remaining locked capability occurrence fails with
-`CAPABILITY_PREFLIGHT_REDUNDANT_ARTIFACT_PRODUCER`. Multiple explicitly
-requested source operations still produce multiple locked occurrences.
-
-MCP tools may also advertise `_meta.gnougo.composition` version `1`. A
-`complete_operation` lists lower-level tools or prompts from the same server
-that it encapsulates. Candidate expansion keeps the wrapper visible when a
-phase is selected, and matching normalizes wrapper-plus-phase ambiguity to the
-complete operation so generated workflows do not start a session they never
-finish or invoke both layers redundantly. Invalid or self-referential metadata
-fails closed.
-
-Selector variants are also canonicalized structurally before repair. When a
-single final match repeats one physical whole-tool card alongside exactly one
-of its bound variants, Flow removes only the redundant whole-tool card and
-keeps the variant's literal bindings. It never chooses between sibling variants
-from operation wording, provider names, tool names, or domain keywords.
-
-When a grounded runtime decision crosses pipeline leaf boundaries, Flow owns
-the technical boundary contract: the producer output and every conditional
-consumer input are canonicalized to the same required string enum and routed
-unchanged through main. Incompatible extractor schemas are replaced by that
-locked contract, and bounded extraction retries recompute boundary diagnostics
-from the current candidate instead of carrying stale errors forward.
-
-In Planner v2, capability coverage rematch returns only the exact affected operation entries. The host merges those entries into the retained matching contract before semantic validation; unrelated operations and constraints are absent from the response schema and cannot be rewritten by repair. Version 1 retains its existing response format.
-
-The matcher computes completeness deterministically and performs at most one repair while retaining valid unrelated decisions. Its independent coverage review and gap adjudication receive only the exact selected capability cards. Their strict response schemas lock operation, requirement, and selected catalog IDs and bound every array and excerpt; gap adjudication additionally locks a controlled structural-facet vocabulary. Unicode normalization and whitespace folding are allowed for copied evidence, while case and punctuation remain exact. If either review violates its contract, Flow records bounded field-level issue codes and makes at most one repair call with the rejected bounded candidate and precise issue list. A repeated violation fails closed with sanitized `contract_issues` and a retry-or-change-model recommendation instead of an opaque review error or HITL.
-
-When the top-level intent clarification session is active and only genuine user-intent ambiguity remains, it may spend its remaining shared form budget and then restart complete discovery, inventory, matching, and generation. The legacy `capability_preflight.clarification.enabled` contract remains available when top-level clarification is off. Missing providers, timeouts, incomplete forms, malformed contracts, unavailable reads/execution, lifecycle gaps, mixed blockers, or ambiguity after the applicable retry fail closed. Flow never asks the user to predict a runtime-dependent branch, repair catalog cardinality, choose catalog IDs, or assemble an artifact producer graph. After matching repair is exhausted, a separate behavior-only relaxation is eligible only if every remaining blocker is a conditional external write and a safe required read/execution result remains. The form offers preserve-and-stop first, or explicit read-only continuation; accepting restarts complete preflight once, while deduplication and the shared budget prevent repeated prompts. Confirmed required omissions and unresolved conditional decision-contract gaps use `CAPABILITY_PREFLIGHT_UNAVAILABLE`; malformed or unknown-ID decisions use `CAPABILITY_PREFLIGHT_INFERENCE_FAILED`. Both expose bounded sanitized diagnostics and current submitted form/question counts without prompts, answers, or model reasoning. The inventory declares an `external_write_confirmation_policy` of `required`, `forbidden`, or `unspecified`, backed by exact request/context evidence for either explicit choice. Flow injects a required `human_interaction` operation and ordering constraint before the first external write unless that validated policy is `forbidden`; this replaces language-dependent keyword detection and keeps `unspecified` fail-safe.
-
-Ordinary `workflow.plan` callers remain compatible because the default is `off`. `explicit` mode performs the same deterministic validation without an inference call:
-
-```yaml
-capability_preflight:
-  mode: explicit
-  requirements:
-    - id: load_object
-      description: Load an object from configured storage.
-      required: true
-      alternatives:
-        - server: object-storage
-          kind: tool
-          method: get_object
-          request_bindings:
-            - path: /method
-              value: get_metadata
-        - server: archive-storage
-          kind: prompt
-          method: retrieve_object
-    - id: send_notification
-      description: Notify the caller when processing finishes.
-      required: false
-      alternatives:
-        - server: messaging
-          kind: tool
-          method: send_message
-  constraints:
-    - id: preserve_source
-      description: Never delete the source object.
-      required: true
-      denied_alternatives:
-        - server: object-storage
-          kind: tool
-          method: delete_object
-          request_bindings:
-            - path: /mode
-              value: permanent
-```
-
-`request_bindings` are optional for backward compatibility. Each binding is an RFC 6901 JSON Pointer relative to `mcp.call.input.request` and a JSON scalar value documented by the discovered input schema. When present, the generated call must contain that exact literal request value; expressions and opaque request construction do not satisfy it. Selector-aware denials reject only the matching logical variant, while a denial without bindings rejects the whole tool or prompt. Discovery, inference, and availability failures return `CAPABILITY_PREFLIGHT_DISCOVERY_FAILED`, `CAPABILITY_PREFLIGHT_INFERENCE_FAILED`, and `CAPABILITY_PREFLIGHT_UNAVAILABLE` respectively.
-
-#### Auto and basic modes
-
-`mode: auto` is the default. It performs one classifier LLM call before generation and returns the classifier result under `meta.mode_selection`. The classifier estimates complexity by counting meaningful branches such as conditions, switch/case paths, loops, retries, error handling, cleanup paths, validation branches, tool-orchestration choices, and state transitions.
-
-Use `mode: basic` to skip classification and run the original single workflow-generation path directly. Use `mode: pipeline` to force decomposition. Use `mode: repair` to make a targeted patch-style repair to an existing workflow while still returning a complete replacement YAML document.
-
-#### Repair mode
-
-Use `mode: repair` when a workflow already exists and should be minimally changed because of a runtime error or an explicit repair instruction. The LLM receives the existing YAML, optional failed input, optional runtime error details, and optional user repair instructions. It must preserve public inputs, outputs, workflow identity, behavior, and MCP choices unless the repair evidence proves they are wrong.
-
-```yaml
-- id: repair_plan
-  type: workflow.plan
-  input:
-    mode: repair
-    generator:
-      model: gpt-4o
-      reasoning: medium
-      prefilter: true
-      context: "Keep this compatible with persisted chat-agent workflows."
-    repair:
-      existing_yaml: "${data.inputs.current_workflow}"
-      prompt: "${data.inputs.user_repair_instruction}"   # Optional when error.message is present
-      failed_input: "${data.inputs.failed_user_prompt}"   # Optional
-      error:                                             # Optional when prompt is present
-        code: "${data.inputs.error_code}"
-        type: "${data.inputs.error_type}"
-        message: "${data.inputs.error_message}"
-        details: "${data.inputs.error_details}"
-      scope:                                             # Optional surgical lock
-        workflow: "${data.inputs.failed_workflow}"
-        step_id: "${data.inputs.failed_step_id}"
-    validate:
-      mode: strict
-      dry_run: true
-      max_repair_attempts: 3
-```
-
-`repair.existing_yaml` is required. At least one of `repair.prompt` or `repair.error.message` must be present. When `repair.error` is present, `repair.error.message` is required. When `repair.scope.step_id` is set, validation becomes surgical: every workflow, local `workflow.call`, step ID/type/order, branch, skill, and public contract must remain unchanged. Only the identified failing step, its existing direct consumers, and directly dependent output expressions may change. An over-broad proposal is rejected with `REPAIR_SCOPE_VIOLATION` and can be reprompted within the configured attempt bound. The returned shape is the same as other modes: `{ workflow, yaml, meta, diagnostics }`, with `meta.mode: repair`.
-
-#### Pipeline mode
-
-Use `mode: pipeline` when the input is a raw user automation prompt that should be cleaned up, segmented into leaf subworkflows, and assembled into one local YAML document.
-
-```yaml
-- id: plan_pipeline
-  type: workflow.plan
-  input:
-    mode: pipeline
-    name: source-record-report
-    skill:
-      description: Build a report from records in a configured source.
-      tags: [records, report]
-      inputs:
-        target_collection:
-          type: string
-          required: false
-          default: inventory-main
-        number_of_records_to_process:
-          type: number
-          required: false
-          default: 20
-      outputs:
-        report_path: string
-    raw_prompt: "${data.inputs.prompt}"
-    generator:
-      model: gpt-4o
-      provider: openai
-      reasoning: medium
-      prefilter: false
-    validate:
-      mode: strict
-      dry_run: true
-      max_repair_attempts: 3
-    on_invalid:
-      action: reprompt
-      max_attempts: 3
-```
-
-Pipeline mode runs five traced phases:
-
-1. `normalize_user_prompt` rewrites the raw prompt as clean Markdown without changing meaning.
-2. `mark_extractable_blocks` uses strict structured extraction when the resolved model explicitly supports structured output. A schema-valid parsed JSON response from an earlier planner phase also proves support for the same resolved provider/model; selecting `capability_preflight.mode: infer` by itself is not proof. Other modes fall back to annotated Markdown when support remains unknown or is explicitly unavailable. Structured extraction returns metadata plus annotated Markdown: the Markdown still wraps only significant algorithmic sections in `:::subworkflow name="..."` blocks and adds a `## Main workflow orchestration` section, while the sidecar records each leaf's description, typed input/output schemas, exact `owned_operation_ids`, and planned MCP tools/prompts to call. Every non-main locked operation ID has at most one declared leaf owner. When that unique structural claim exists but the extractor omitted a matching planned-tool entry, deterministic composition restores every exact locked catalog occurrence on that owner; unknown or duplicate ownership fails closed and is repaired without using descriptions, provider/tool names, catalog numbering, or leaf order. Initial and patched leaves carrying immutable MCP ownership are canonicalized to `external_work` with a compatible role before scoring. Quality diagnostics identify challenged locked operations by stable IDs, and such challenges are deferred to their authoritative contract phase rather than sent to extraction repair.
-3. `extract_subworkflow_specs` parses those blocks as-is, builds generation prompts, and reports validation errors for nested blocks or subworkflow-call mentions.
-4. `generate_subworkflows` runs the normal `workflow.plan` generator for each leaf workflow in parallel. Each leaf prompt contains only that leaf's goal, input/output contract, and content; leaf generation forbids `workflow.call` and `workflow.plan`, preserves the configured MCP prefilter behavior, forces validation, retries failed leaf generation up to the parent repair attempt budget, and rejects bare `type: object` schemas unless they define non-empty `properties`.
-5. `assemble_main_workflow` sends a compact leaf manifest, the generated leaf contracts, and a minimal main-graph DSL context to the LLM. The LLM returns only a `document` plus orchestration `graph`; the runtime renders the real `main` workflow deterministically and grafts the validated leaf workflows before final validation. If that graph inserts a pure exact `set` alias between one uniquely proven artifact producer and a compatible consumer input, deterministic normalization replaces the alias with the producer output. Exact nested fields of structured workflow outputs retain the same producer lineage across caller arguments; literal, transformed, or multiply sourced values remain fail-closed. Direct leaf input contracts preserve an authoritative source's nested nullability only when both non-null structures are already assignable. Property-local boolean `required` flags in generated JSON Schema fragments are canonicalized into the parent schema's standard `required` array before validation, including nested objects.
-
-Structured extraction generates one complete initial candidate. Later deterministic or
-extraction-quality repairs are bounded patches against the best structurally valid candidate:
-`add_leaf`, `replace_leaf`,
-`remove_leaf`, `merge_leaves`, or `replace_main_orchestration`. Every patch carries the
-exact SHA-256 candidate fingerprint and the exact stable `addressed_diagnostic_ids` it claims
-to repair. Diagnostic identities hash the code, leaf, remediation surface, and sorted extraction
-evidence paths, so two findings with the same code on different leaves remain independent.
-Replacements retain immutable capability ownership and
-cannot remove or weaken previously validated input/output schema members;
-merges atomically union it; required ownership prevents removal; and new leaves cannot
-invent external capabilities. Deterministic validation is rerun after every patch. Valid
-candidates are ranked by evidence-qualified critical findings, warnings, semantic score,
-and patch size, with the earlier candidate retained on ties. Quality non-improvement,
-deterministic regression, and validation non-improvement are counted and reported separately.
-Two repeated diagnostic fingerprints or rejected patches stop with `WORKFLOW_PLAN_REPAIR_STALLED` without
-emitting a rejected candidate. Legacy non-structured extraction retains complete bounded
-regeneration for compatibility.
-
-Extraction schema pruning recognizes both Flow `required_properties` and array-valued JSON
-Schema `required`; the boolean Flow input-level `required` flag remains a separate annotation.
-A weak required property is preserved and receives an exact nested diagnostic instead of being
-deleted. Malformed, blank, duplicate, or undeclared required-property entries fail deterministic
-validation with patchable `INVALID_EXTRACTION_INPUT_SCHEMA` or
-`INVALID_EXTRACTION_OUTPUT_SCHEMA` diagnostics before quality review.
-
-Every accepted conditional branch group has one shared typed result contract. Leaf blueprints add a path-total projection step after action calls, and public outputs bind to that projection rather than to a branch-local or last action call. A branch-dependent binding or a conditional group without exact enum coverage is rejected before leaf YAML generation.
-
-The extraction quality reviewer must attach request substrings or RFC 6901 pointers into
-the canonical extraction or locked capability contract to critical diagnostics. Only a
-verifiable critical finding can block. Unsupported claims are downgraded to advisory,
-and a score or retry verdict alone cannot reject a deterministically valid candidate. A
-malformed structured review receives one retry against the unchanged candidate and then
-fails closed as a contract defect. Human clarification is considered only when every
-remaining evidence-qualified blocker is `intent_ambiguity`; plan, capability, contract,
-provider, and malformed-output defects are never delegated to the user.
-
-Critical extraction diagnostics are retained in a remediation ledger keyed by stable diagnostic identity. After every patch, deterministic extraction validation runs again. An addressed baseline finding disappears when its relevant surface changed, deterministic validation passed, and the delta reviewer no longer reports that identity; positive obligation evidence is allowed to remain. A patch to unrelated orchestration cannot erase a leaf-contract blocker. Delta-review prompts include only changed leaf/main surfaces, hashes of unchanged leaves, referenced capability cards, and baseline blockers rather than the complete annotated extraction and catalog.
-
-Pipeline convergence telemetry is content-bounded: it records candidate hashes, changed leaf
-names, addressed IDs, raw and stabilized diagnostic IDs, counts, and stabilization reason codes.
-It never records prompts, model responses, secrets, or repository content through these events.
-
-Generated public outputs must remain concrete. Before final validation, Flow strengthens outputs from locked producer contracts where possible and removes only unverifiable or nullable nested properties (including their `required_properties` entries) when the Flow contract cannot represent their exact value set. It never narrows nullable values to non-null scalars and never invents array item or root-output types; a weak root contract still fails with `WEAK_OUTPUT_SCHEMA` diagnostics.
-
-The final YAML has exactly one hierarchy level: `main` may call local leaf workflows with `workflow.call`, while leaf workflows must never contain `workflow.call` or `workflow.plan`. The returned `pipeline` object includes `normalized_markdown`, `annotated_markdown`, and parsed `specs`; each spec includes `description`, `input_schemas`, `output_schemas`, and `planned_tools`.
-
-When structured extraction is active and `planned_tools[].required` is true, leaf generation must emit an explicit direct `mcp.call` with matching `input.server`, `input.kind`, and literal `input.method` or `input.methods`. Pipeline validation rejects a generated leaf that omits a required planned tool. If pipeline-level MCP context was built, extraction also verifies planned server/tool/prompt names against the discovered capabilities; otherwise final MCP-aware validation still checks generated calls against the runtime registry.
-
-Locked capability occurrences are assigned as an exact multiset. Deterministic ownership normalization excludes local shaping leaves, rewards positive action-family agreement between a capability and a leaf, and ignores actions mentioned only as prohibitions. This keeps complementary capabilities in cohesive producer/action leaves without relying on product or server names.
-
-When a generated leaf workflow contains root-level helper functions, final assembly moves those helpers into the grafted leaf workflow's own `functions:` block. They are not promoted to the final document root, so helpers remain isolated with the leaf that uses them.
-
-Standalone generated leaf:
-
-```yaml
-version: 1
-name: parse-resource
-functions: |
-  function parseResourceId(resourceId) {
-    var parts = resourceId.replace(/\/$/, "").split("/");
-    return {
-      namespace: parts[parts.length - 2],
-      item: parts[parts.length - 1]
-    };
-  }
-workflows:
-  parse_resource:
-    inputs:
-      resource_id: { type: string, required: true }
-    steps:
-      - id: parsed
-        type: set
-        input:
-          value: "${functions.parseResourceId(data.inputs.resource_id)}"
-    outputs:
-      namespace: "${data.steps.parsed.value.namespace}"
-      item: "${data.steps.parsed.value.item}"
-```
-
-Composed pipeline document:
-
-```yaml
-version: 1
-name: resource-pipeline
-workflows:
-  main:
-    inputs:
-      resource_id: { type: string, required: true }
-    steps:
-      - id: parse
-        type: workflow.call
-        input:
-          ref: { kind: local, name: parse_resource }
-          args:
-            resource_id: "${data.inputs.resource_id}"
-    outputs:
-      namespace: "${data.steps.parse.outputs.namespace}"
-      item: "${data.steps.parse.outputs.item}"
-
-  parse_resource:
-    functions: |
-      function parseResourceId(resourceId) {
-        var parts = resourceId.replace(/\/$/, "").split("/");
-        return {
-          namespace: parts[parts.length - 2],
-          item: parts[parts.length - 1]
-        };
-      }
-    inputs:
-      resource_id: { type: string, required: true }
-    steps:
-      - id: parsed
-        type: set
-        input:
-          value: "${functions.parseResourceId(data.inputs.resource_id)}"
-    outputs:
-      namespace: "${data.steps.parsed.value.namespace}"
-      item: "${data.steps.parsed.value.item}"
-```
-
-Configured `name`, `skill`, and public input schemas are authoritative and are preserved exactly in the root skill and `main` workflow. Leaf inputs are call arguments and are not automatically promoted to public inputs; the main assembler maps public names to leaf argument names and derives internal values in workflow steps. When no structured contract is configured, the final assembly phase infers the public contract from the normalized user request, but leaf call arguments and available outputs come from the actual generated leaf workflows rather than the initial extraction draft. Composition rejects any `data.inputs.<name>` reference that is not declared by the resolved main input contract, and it also rejects calls that omit required arguments from the generated leaf contract.
-
-`validate.max_repair_attempts` controls the bounded number of repairs after the initial candidate. When it is absent, legacy `on_invalid.max_attempts` continues to mean the total candidate-attempt limit for compatibility, then the default total is 3. The repair budget is applied to extractable-block annotation, each leaf generation, and the final main-workflow assembly. If block extraction validation fails, the next `mark_extractable_blocks` attempt receives the previous annotated Markdown plus exact validation feedback. If final parsing, policy, hierarchy, compilation, or semantic validation fails, the next assembly attempt receives the previous YAML response and structured validation error so it can repair the complete `document` and `graph` mapping.
-
-Planner response formatting is strict-first and internal. When structured output is supported or already proven for the selected target, normalization returns `normalized_markdown`, leaf/basic generation returns a versioned envelope containing `yaml`, and parent assembly returns separate `document_yaml` and `graph_yaml` fields. Repair envelopes lock the immutable contract, base candidate, diagnostic fingerprint, and addressable diagnostic codes with schema enums. A missing or schema-invalid JSON response is retried once with the identical contract and then fails as `LLM_SCHEMA`; it is never silently downgraded to text. Every schema-valid planner response emits sanitized proof containing strict/requested flags, schema version and fingerprint, capability source, parsed status, and local-validation status; prompts, responses, schemas, answers, and secrets are excluded. Models whose support is unavailable or still unknown retain the legacy text path. These envelopes do not change the public `workflow.plan` output or generated YAML syntax, and every YAML payload still passes parsing, policy, compilation, semantic, capability-lineage, artifact-provenance, and optional dry-run validation.
-
-Each generation phase keeps one best candidate. A repair may replace it only by reaching a later validation checkpoint or strictly reducing the blocking diagnostic-identity set; an identity combines the validated code with its workflow, step, field, or path, so removing one of several same-code blockers is measurable progress. Stale fingerprints, unchanged candidates, and regressions are rejected atomically; two non-improving responses terminate with `WORKFLOW_PLAN_REPAIR_STALLED`. A new contract epoch is opened only when the immutable leaf/main contract fingerprint changes. Telemetry records only response mode, schema version, phase/attempt, fingerprints, epoch, progress, diagnostic counts, and stall reason—not prompts, responses, YAML, credentials, or human answers.
-
-The final composed pipeline document uses the same validation sequence as standard `workflow.plan`: policy and limits are enforced, compiler validation and MCP-contract-aware semantic validation are always forced, and `validate.dry_run` executes the complete entrypoint with deterministic fake LLM, MCP, and human-input providers. `validate.compile: false` is accepted only as a legacy no-op and cannot disable strict validation. MCP discovery contracts are collected once for final validation, and every assembly attempt emits its own `workflow.plan.validate` telemetry span.
-
-**Output:** `{ workflow: { version, name, workflows: [...] }, yaml: "...", meta: { model, attempt?, mode, mode_selection? }, diagnostics: [...], pipeline? }`
-
-**Features:**
-
-- **Automatic MCP discovery**: Connects to all configured MCP servers, lists their tools/prompts, and injects them into the planning prompt so the LLM knows what's available. A transient discovery failure is retried up to three total attempts with progressive 500 ms and 1,000 ms delays.
-- **MCP pre-filter**: Uses a lightweight LLM call to select only the MCP servers/tools relevant to the task instruction — reduces prompt size and cost.
-- **Full DSL reference injection**: The LLM receives the complete DSL documentation (step types, expressions, error handling) so it can generate valid workflows.
-- **Policy enforcement**: Generated workflows are validated against allowed/denied step types and max step limits.
-- **Mandatory strict validation before acceptance**: `workflow.plan` always runs the validator, compiler, and semantic checks before returning a plan. `validate.compile: false` is tolerated for older workflows but is ignored. This catches non-fatal validator diagnostics such as unknown step types, invalid container shapes, unknown YAML structural keys, future step references, conditional branch/loop mapping errors, and invalid `data.steps.<id>.response.<field>` mappings.
-- **Structured repair diagnostics**: Validation and `dry_run` failures include machine-readable `details.diagnostics[]` entries with stable codes, locations, hints, expected shapes, allowed paths when available, the deterministic sample inputs, selected branch/default container path, source expression when known, and `llm_guidance` for reprompt repair.
-- **Executor-owned step contracts**: Every registered executor must expose declarative JSON Schema input/output contracts. Planning validation recursively rejects missing required fields, wrong literal types, unknown keys (including nested keys), and mutually exclusive fields. A custom registered executor without a contract fails closed.
-- **Static expression type inference**: Exact `${...}` references inherit types from workflow inputs, previous step outputs, `set.output_schema`, and scoped loop variables; embedded interpolation is a string, and built-ins such as `len`, `toNumber`, `exists`, `json`, `pick`, and `omit` have known result types. Incompatible assignments such as `llm.call.text` into `max_tokens` or `data.<item_var>.title` into an integer workflow-call input fail with `EXPR_TYPE_MISMATCH` before dry-run. Opaque/custom expressions remain runtime-validated.
-- **Local workflow-call contracts**: Literal local `workflow.call` targets are validated against the called workflow's declared inputs. Missing, extra, and wrongly typed `input.args` fail during plan validation, and the called workflow's typed outputs are propagated so invented paths like `data.steps.call.outputs.unknown` are rejected.
-- **Optional dry-run validation**: Set `validate.dry_run: true` to execute the generated workflow once with deterministic fake LLM, MCP, human-input, and routing providers. A valid declared input default is preferred; otherwise a string enum uses its first declared value, while unconstrained strings retain the synthetic sample. This catches runtime input-resolution errors such as free-form `llm.call.text` being used where a number is required. Dry-run MCP sessions expose only discovered tools: an invented method fails instead of receiving a generic mock response. The dry-run never calls real LLMs or MCP tools. Planner v2 observation fixtures also execute their request expressions and input-contract validation against fake integrations before substituting a result; an explicit fixture cannot hide invalid generated arguments.
-- **MCP output contracts**: MCP discovery injects complete `input_schema`, `output_schema`, and `example_response` metadata into the planning prompt. `output_schema` / `example_response` define which fields may be read from `mcp.call` single-tool `response` objects.
-- **Fail-closed MCP discovery**: A generated tool-mode `mcp.call` is rejected when its server catalog is missing, discovery failed after all retries, or the discovered catalog is empty. Dynamic server names cannot pass plan validation because their existence cannot be proven.
-- **MCP envelope, target, and request validation**: Unknown fields at `mcp.call.input` are rejected with a suggestion to move tool arguments under `input.request`. Literal `method` and every literal entry in `methods` must exist in the discovered server contract. The shared request is validated against every selected tool schema.
-- **Expanded JSON Schema checks**: MCP requests support `enum`, `const`, `allOf`, exact `oneOf`, `anyOf`, string length/pattern, numeric bounds/multiples, object/array size, `uniqueItems`, nested schemas, and schema-correct `additionalProperties` behavior. Quoted numeric, integer, and boolean YAML scalars remain strings during `workflow.plan` validation and fail when the contract requires real booleans or numbers.
-- **Runtime request validation**: Requests containing expressions or `request_template` are checked again after resolution/rendering and immediately before `CallToolAsync`. The live tool catalog proves the method exists, and the resolved request must satisfy that tool's `input_schema`.
-- **Bounded automatic self-correction**: If the generated YAML is invalid (parse error, policy violation, compilation error, semantic mapping error, or optional dry-run failure), the structured error is sent back to the LLM for up to `validate.max_repair_attempts` repairs after the initial candidate. Legacy `on_invalid.max_attempts` remains a total-attempt limit, and the default remains three total attempts. `on_invalid.action` is accepted only for compatibility and cannot disable automatic repair while attempts remain.
-- **Repair-stall detection**: Validation diagnostics and YAML structure are normalized and fingerprinted. Two non-improving repair responses or a repeated diagnostic/structure cycle stop leaf repair with `WORKFLOW_PLAN_REPAIR_STALLED` and return control to extraction/blueprint repair instead of consuming the remaining repair budget. Repair prompts retain only the best current YAML and a bounded, deduplicated diagnostic history.
-- **OpenTelemetry tracing**: Full GenAI convention traces for the planning LLM call, MCP discovery, and pre-filter phases.
-
-Workflow execution traces also include injected workflow inputs on the workflow span:
-
-- `gnougo-flow.workflow.inputs` as a single JSON string with secret-looking keys such as `token`, `password`, `secret`, and `api_key` redacted.
-- `gnougo-flow.workflow.inputs.count`
-- `gnougo-flow.workflow.inputs.keys`
-
-**Semantic mapping guardrails:** generated plans must not read `data.steps.<id>.*` from steps that are produced only inside a `switch` case, an `if`-guarded step, or a loop body unless that value is first mapped into a guaranteed location. Function arguments are evaluated eagerly, so `coalesce(data.steps.fix.value, data.steps.question.value)` is still unsafe when either step may not have executed. Prefer a common workflow-level output alias in every branch, or a guaranteed normalization step with a stable output schema.
-
-Loop outputs need special care: `data.steps.<loop_id>.results` is an array of per-iteration `data.steps` snapshots, not an array of the last child step's output. If a loop child `set` step named `build_item_result` produces `processed`, post-loop code must read `iteration.build_item_result.processed`. To produce a flat list, create a typed child `set` step in the loop and flatten/filter through that child step id.
-
-Generated YAML should preserve typed scalars: emit `required: false`, `strict: true`, `timeout_ms: 1200000`, and `append: false` as booleans/numbers, not quoted strings. Use literal block scalars (`|`) for multiline prompts/templates or strings containing JSON/double quotes. Required string fields must be present and non-empty; use an optional nullable string field when empty text is a valid value.
-
----
+Inputs cover intent, model configuration, clarification, capability requirements and
+constraints, policies, structural limits and budgets. The result contains deterministic
+YAML after exact artifact approval. Use `workflow.execute` to execute that artifact.
+See [the planner architecture](../../docs/workflow-planning-v2.md) for session contracts,
+repair invariants, capability evidence, persistence and deployment.
 
 ### `workflow.execute` — Execute a Planned Workflow
 
@@ -1863,9 +1340,9 @@ Executes a workflow that was dynamically generated by `workflow.plan`.
 - id: plan
   type: workflow.plan
   input:
+    raw_prompt: "${data.inputs.task}"
     generator:
       model: gpt-4o
-      instruction: "${data.inputs.task}"
 
 - id: execute
   type: workflow.execute
@@ -2060,7 +1537,8 @@ Increase these limits only for trusted workflows; prefer simplifying expressions
 Define reusable functions in the `functions:` block (document-level or workflow-level).
 When `workflow.plan` generates custom functions, each generated `function` must be immediately preceded by JSDoc with typed `@param` entries for every parameter and a typed `@returns` entry for the output:
 
-Before generated YAML is validated, the planner may add a missing exact-name `@param` tag only when deterministic JavaScript usage proves a coarse semantic type such as object, array, string, number, or boolean. Ambiguous parameters are not guessed and continue to fail validation with `FUNCTION_JSDOC_PARAM_MISSING`.
+Missing or ambiguous function documentation produces a typed diagnostic. Corrections modify
+the graph's function field through the same scoped repair engine before deterministic lowering.
 
 Scope rules:
 
@@ -2179,7 +1657,7 @@ on_error:
 | `CAPABILITY_PREFLIGHT_INFERENCE_FAILED` | No | Capability inventory inference was invalid or incomplete |
 | `CAPABILITY_PREFLIGHT_REDUNDANT_ARTIFACT_PRODUCER` | No | The workflow contains an artifact materializer that was not locked by capability preflight |
 | `WORKFLOW_PLAN_REPAIR_STALLED` | No | The same diagnostics survived two repair attempts |
-| `TEMPLATE_PLAN` | No | `workflow.plan` failed to generate valid YAML |
+| `TEMPLATE_PLAN` | No | Typed planning stopped before approval |
 | `TEMPLATE_POLICY` | No | Generated workflow violates policy constraints |
 | `HUMAN_INPUT_TIMEOUT` | No | User didn't respond within `timeout_ms` |
 | `NO_HITL_PROVIDER` | No | No human input provider configured |
@@ -2247,14 +1725,3 @@ The engine is fully **NativeAOT**-compatible:
 - Scripting: Jint v4+ (pure interpreter, no Reflection.Emit)
 
 The native `collect_json_arrays(completedLoop.results, ["child", "response", "field"])` expression concatenates original JSON-array strings without altering records or numeric precision. Artifact provenance requires an exact original producer declaring `encoding: "json_array"`; missing, conditional, malformed or transformed source results cannot establish identity. The primitive cannot be overridden by workflow helpers.
-
-### Whole-subworkflow construction contracts
-
-`PlanningConstructionStrategies.TypedWorkflowsV1` adds the opt-in `typed-workflows-v1`
-format alongside `javascript-v1` and the unchanged default `typed-units-v2`.
-`IsWholeWorkflow` identifies the two complete-subworkflow strategies. The additive
-`PlanningSourceCandidate.Format` and `PendingSchema` fields preserve format identity
-and the exact response schema across encrypted checkpoint restart. Older source
-records default to JavaScript; existing request input limits remain unchanged.
-Concrete source compilation is still injected through `IPlanningSourceCompiler`;
-Flow.Core does not reference its implementations.

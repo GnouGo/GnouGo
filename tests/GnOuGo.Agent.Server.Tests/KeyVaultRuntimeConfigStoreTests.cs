@@ -1,4 +1,4 @@
-﻿using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
 using GnOuGo.AI.Core;
 using GnOuGo.Agent.Server.Configuration;
