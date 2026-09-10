@@ -46,10 +46,13 @@ COPY global.json ./
 # Copy scripts used by local metadata generation; Docker publish skips this target.
 COPY scripts/ scripts/
 
-# Copy csproj files for layer caching (server + core dependency)
+# Copy csproj files for layer caching (server and all transitive dependencies)
 COPY src/GnOuGo.Flow.Server/GnOuGo.Flow.Server.csproj src/GnOuGo.Flow.Server/
 COPY src/GnOuGo.Flow.Core/GnOuGo.Flow.Core.csproj     src/GnOuGo.Flow.Core/
 COPY src/GnOuGo.Flow.Integrations/GnOuGo.Flow.Integrations.csproj src/GnOuGo.Flow.Integrations/
+COPY src/GnOuGo.Flow.Planning/GnOuGo.Flow.Planning.csproj src/GnOuGo.Flow.Planning/
+COPY src/GnOuGo.KeyVault.Core/GnOuGo.KeyVault.Core.csproj src/GnOuGo.KeyVault.Core/
+COPY src/GnOuGo.Workspace/GnOuGo.Workspace.csproj src/GnOuGo.Workspace/
 COPY src/GnOuGo.AI.Core/GnOuGo.AI.Core.csproj         src/GnOuGo.AI.Core/
 COPY src/GnOuGo.Auth.Core/GnOuGo.Auth.Core.csproj     src/GnOuGo.Auth.Core/
 COPY src/GnOuGo.Mcp.Core/GnOuGo.Mcp.Core.csproj       src/GnOuGo.Mcp.Core/
@@ -60,6 +63,9 @@ RUN dotnet restore src/GnOuGo.Flow.Server/GnOuGo.Flow.Server.csproj
 COPY src/GnOuGo.Flow.Server/ src/GnOuGo.Flow.Server/
 COPY src/GnOuGo.Flow.Core/   src/GnOuGo.Flow.Core/
 COPY src/GnOuGo.Flow.Integrations/ src/GnOuGo.Flow.Integrations/
+COPY src/GnOuGo.Flow.Planning/ src/GnOuGo.Flow.Planning/
+COPY src/GnOuGo.KeyVault.Core/ src/GnOuGo.KeyVault.Core/
+COPY src/GnOuGo.Workspace/ src/GnOuGo.Workspace/
 COPY src/GnOuGo.AI.Core/     src/GnOuGo.AI.Core/
 COPY src/GnOuGo.Auth.Core/   src/GnOuGo.Auth.Core/
 COPY src/GnOuGo.Mcp.Core/     src/GnOuGo.Mcp.Core/
