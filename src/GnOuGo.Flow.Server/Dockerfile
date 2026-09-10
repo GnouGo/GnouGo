@@ -97,6 +97,7 @@ HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
     CMD ["dotnet", "--list-runtimes", "||", "exit", "1"]
 
 ENV ASPNETCORE_ENVIRONMENT=Production \
-    ASPNETCORE_URLS=http://+:5300
+    URLS=http://+:5300 \
+    ASPNETCORE_HTTP_PORTS=""
 
 ENTRYPOINT ["dotnet", "GnOuGo.Flow.Server.dll"]

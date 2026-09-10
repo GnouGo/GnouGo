@@ -36,6 +36,13 @@ if (File.Exists(runtimeAppSettingsPath))
     }
 }
 
+// Runtime files supply defaults; deployment settings and explicit arguments win.
+builder.Configuration.AddEnvironmentVariables();
+if (args.Length > 0)
+{
+    builder.Configuration.AddCommandLine(args);
+}
+
 // ── Configuration (typed) ──
 builder.Services.Configure<OpenTelemetrySettings>(
     builder.Configuration.GetSection(OpenTelemetrySettings.SectionName));
