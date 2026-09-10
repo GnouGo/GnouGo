@@ -1,4 +1,4 @@
-name: Whole-workflow planning validation
+name: Deterministic planner validation
 
 on:
   pull_request:
