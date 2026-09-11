@@ -185,10 +185,33 @@ Request IDs and evaluation identities make accounting durable across restart and
 missing historical resolution origins and candidate counts remain unknown.
 The designer layout is unchanged.
 
+Construction derives a dependency graph over the current active hole identities.
+Schema equalities are resolved before dependent values; established producer, input
+default, call and control-flow prerequisites determine readiness. Independent fields
+on the same or different nodes share a request in canonical-location order, up to the
+complete prompt/schema ceiling. Variable shared obligation coverage remains sequential.
+Dependencies are recomputed after accepted assignments. Opaque external schemas and
+dependency cycles produce located diagnostics before a speculative request.
+
+The progress API separates deterministic and model-resolved schema holes. `modelRequired`
+counts active fields whose semantic need was established after deterministic closure;
+that attribution is retained after model resolution. Request records retain their reason
+(binding choice, computation, business value or business schema). `modelUsed` requires receipt
+evidence. Reservations and unverifiable dispatches are separate, and missing attribution
+or usage remains null. `requestCounts` groups calls and estimated/actual tokens by
+workflow, phase and gate, with `$plan` for assessments without a workflow owner.
+Mandatory semantic review is attributed separately from executable-hole decisions.
+Schema context includes the smallest available typed source contracts, without repeating
+their descendant schemas, and only unresolved consumer arguments. Result-schema response
+contracts exclude defaults because the runtime applies defaults at input boundaries only.
+Before human review, uniquely proven capability activation values can replace invalid
+outcome aliases; valid values and ambiguous branch mappings are never rewritten.
+
 `GnOuGo.Flow.Planning` emits redacted convergence and gate events through both
 Agent.Server and Flow runtime telemetry. Metrics `gnougo.planning.holes`,
 `gnougo.planning.binding_candidates`, `gnougo.planning.repairs` and
-`gnougo.planning.gate_failures` retain tenant propagation. Hole identities appear in
+`gnougo.planning.gate_failures`, `gnougo.planning.model_calls`,
+`gnougo.planning.request_tokens` and `gnougo.planning.avoidable_calls` retain tenant propagation. Hole and request identities appear in
 trace events, never metric dimensions. Existing phase, dependency, validation, budget
 and receipt telemetry remains available.
 

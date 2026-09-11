@@ -9,6 +9,102 @@ namespace GnOuGo.Flow.Planning.Tests;
 
 public sealed class HoleConstructionTests
 {
+    [Fact]
+    public void SchemaContextDoesNotRepeatTypedParentAndDescendantContracts()
+    {
+        var (state, workflow, _) = ConvergenceDomainTests.Input();
+        var contract = JsonNode.Parse("""{"type":"object","properties":{"nested":{"type":"object","properties":{"value":{"type":"number","minimum":1,"maximum":5}},"required":["value"],"additionalProperties":false}},"required":["nested"],"additionalProperties":false}""")!.AsObject();
+        state.Preparation!.Capabilities.Single().OutputSchema = contract;
+        workflow.Outputs.Add(new() { Name = "observed", Schema = new() { Type = "unresolved" } });
+        PlanningGraphSkeleton.Add(state, workflow, null, "/workflows/0/outputs/0/schema", "schema", "Public observation");
+        var request = PlanningHoleRequests.Create(state, workflow, [state.Construction.Holes.Single(h => h.Kind == "schema")]);
+        var candidates = PlanningDataflow.Index(workflow, state.Preparation, state.Graph!, PlanningDataflow.WorkflowOutputs).Values
+            .Where(b => PlanningSchemaPropagation.Established(b.Schema) && b.Availability is not ("opaque" or "absent")).ToArray();
+        var sources = request.Context["sourceContracts"]!.AsObject();
+        Assert.True(sources.Count < candidates.Length);
+        var original = new JsonObject(candidates.Select(b => new KeyValuePair<string, JsonNode?>(b.Id, new JsonObject { ["schema"] = b.Schema.DeepClone() })));
+        Assert.True(PlanningJsonTransport.EstimateInputTokens(sources.ToJsonString(), new()) < PlanningJsonTransport.EstimateInputTokens(original.ToJsonString(), new()));
+        var root = candidates.Single(b => b.Value.Kind == "output" && b.Value.Path.Count == 0);
+        Assert.True(JsonNode.DeepEquals(contract, sources[root.Id]!["schema"]));
+    }
+    [Fact]
+    public void ResultSchemaCannotInventDefaultsThatRuntimeDoesNotApply()
+    {
+        var state = HoleSessionTests.Ready(); var workflow = state.Graph!.Workflows[0];
+        var node = workflow.Steps[0]; node.Type = "set";
+        state.Construction.Holes.Clear();
+        PlanningGraphSkeleton.Add(state, workflow, node, "/workflows/0/steps/0/outputSchema", "schema", "Computed result");
+        var hole = state.Construction.Holes.Single();
+        var request = PlanningHoleRequests.Create(state, workflow, [hole]);
+        Assert.Equal("null", request.Schema["$defs"]!["port"]!["properties"]!["default"]!["type"]!.ToString());
+        Assert.False(request.Schema["$defs"]!.AsObject().ContainsKey("value"));
+        var contract = new PlanningSchema { Type = "object", Properties = [new() { Name = "result", Schema = new() { Type = "string" }, Default = Str("invented") }] };
+        JsonObject Response() => new() { ["assignments"] = new JsonObject { [hole.Id] = PlanningModelValues.Compact(System.Text.Json.JsonSerializer.SerializeToNode(contract, PlanningJsonContext.Default.PlanningSchema)) } };
+        Assert.NotEmpty(PlanningContractValidation.ValidateInstance(Response(), request.Schema));
+        contract.Properties[0].Default = null;
+        Assert.Empty(PlanningContractValidation.ValidateInstance(Response(), request.Schema));
+        var previous = request.Schema.DeepClone().AsObject();
+        var definitions = PlanningSchemas.ValueDefinitions();
+        previous["$defs"]!["port"]!["properties"]!["default"] = definitions["port"]!["properties"]!["default"]!.DeepClone();
+        previous["$defs"]!["value"] = definitions["value"]!.DeepClone();
+        previous["$defs"]!["member"] = definitions["member"]!.DeepClone();
+        Assert.True(PlanningJsonTransport.EstimateInputTokens(request.Prompt, request.Schema) < PlanningJsonTransport.EstimateInputTokens(request.Prompt, previous));
+    }
+    [Fact]
+    public void ProducerSchemaRequestsIncludeOnlyUnresolvedConsumerFields()
+    {
+        var (state, workflow, consumerHole) = ConvergenceDomainTests.Input();
+        state.Preparation!.Capabilities.Single().InputOperationIds = ["produce"];
+        state.Preparation.Capabilities.Single().InputSchema["properties"]!["unrelatedOptional"] = new JsonObject { ["type"] = "string", ["description"] = new string('x', 5000) };
+        var producer = new PlanningNode { Key = "producer", Type = "set", OperationIds = ["produce"], OutputSchema = new() { Type = "unresolved" } };
+        workflow.Steps.Insert(0, producer);
+        consumerHole.Path = consumerHole.Path.Replace("/steps/0/", "/steps/1/", StringComparison.Ordinal);
+        PlanningGraphSkeleton.Add(state, workflow, producer, "/workflows/0/steps/0/outputSchema", "schema", "Declared producer result");
+        var request = PlanningHoleRequests.Create(state, workflow, [state.Construction.Holes.Single(h => h.Kind == "schema")]);
+        Assert.DoesNotContain("unrelatedOptional", request.Prompt);
+        var expected = PlanningHoleRequests.Expected(state, workflow, consumerHole);
+        Assert.True(JsonNode.DeepEquals(expected, request.Context["consumerContracts"]!["consume"]!["unresolvedInputs"]![consumerHole.CanonicalLocation]));
+        var previous = request.Prompt + state.Preparation.Capabilities.Single().InputSchema.ToJsonString();
+        Assert.True(PlanningJsonTransport.EstimateInputTokens(request.Prompt, request.Schema) < PlanningJsonTransport.EstimateInputTokens(previous, request.Schema));
+        Assert.True(state.Preparation.Capabilities.Single().InputSchema["properties"]!.AsObject().ContainsKey("unrelatedOptional"));
+    }
+    [Fact]
+    public void ProducerSchemaRequestsCannotSatisfyOriginalArtifactArguments()
+    {
+        var (state, workflow, consumerHole) = ConvergenceDomainTests.Input();
+        var capability = state.Preparation!.Capabilities.Single();
+        capability.InputOperationIds = ["produce"];
+        capability.InputSchema["properties"]!["argument"]!["description"] = new string('x', 4000);
+        var producer = new PlanningNode { Key = "producer", Type = "set", OperationIds = ["produce"], OutputSchema = new() { Type = "unresolved" } };
+        workflow.Steps.Insert(0, producer);
+        consumerHole.Path = consumerHole.Path.Replace("/steps/0/", "/steps/1/", StringComparison.Ordinal);
+        PlanningGraphSkeleton.Add(state, workflow, producer, "/workflows/0/steps/0/outputSchema", "schema", "Declared producer result");
+        var holes = state.Construction.Holes.Where(h => h.Kind == "schema").ToArray();
+        var before = PlanningHoleRequests.Create(state, workflow, holes);
+        capability.ArtifactContract = new(1, [], [new("original.document", "/argument", true)]);
+        var after = PlanningHoleRequests.Create(state, workflow, holes);
+        Assert.Null(after.Context["consumerContracts"]);
+        Assert.True(PlanningJsonTransport.EstimateInputTokens(after.Prompt, after.Schema) < PlanningJsonTransport.EstimateInputTokens(before.Prompt, before.Schema));
+        Assert.Single(capability.ArtifactContract.Consumes);
+        Assert.Equal(4000, capability.InputSchema["properties"]!["argument"]!["description"]!.ToString().Length);
+    }
+    [Fact]
+    public void StructuredResultResponseForbidsOptionalMembersBeforeDispatch()
+    {
+        var state = HoleSessionTests.Ready(); var workflow = state.Graph!.Workflows[0]; var node = workflow.Steps[0];
+        node.Type = "mcp.call"; node.CapabilityId = "external"; node.StructuredOutput = new(new() { Type = "unresolved" });
+        state.Preparation!.Capabilities.Add(new() { Id = "external", StepType = "mcp.call" });
+        state.Construction.Holes.Clear();
+        PlanningGraphSkeleton.Add(state, workflow, node, "/workflows/0/steps/0/structuredOutput/schema", "schema", "Extract the declared result");
+        var hole = state.Construction.Holes.Single(); var request = PlanningHoleRequests.Create(state, workflow, [hole]);
+        var contract = new PlanningSchema { Type = "object", Properties = [new() { Name = "body", Required = false, Schema = new() { Type = "string", Nullable = true } }] };
+        JsonObject Response() => new() { ["assignments"] = new JsonObject { [hole.Id] = PlanningModelValues.Compact(System.Text.Json.JsonSerializer.SerializeToNode(contract, PlanningJsonContext.Default.PlanningSchema)) } };
+        Assert.Empty(PlanningContractValidation.ValidateSchema(request.Schema, true));
+        Assert.NotEmpty(PlanningContractValidation.ValidateInstance(Response(), request.Schema));
+        contract.Properties[0].Required = true;
+        Assert.Empty(PlanningContractValidation.ValidateInstance(Response(), request.Schema));
+        Assert.DoesNotContain("/output", request.Schema.ToJsonString()); // Opaque references grant no selectable schema.
+    }
     [Theory]
     [InlineData(0)]
     [InlineData(5)]

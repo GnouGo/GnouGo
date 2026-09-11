@@ -100,6 +100,8 @@ public sealed class PlanningSnapshot
     public List<PlanningAttempt> Attempts { get; set; } = [];
     public List<PlanningEvent> Events { get; set; } = [];
     public List<PlanningGateProgress> GateProgress { get; set; } = [];
+    public List<PlanningRequestAccounting> RequestAccounting { get; set; } = [];
+    public List<PlanningRequestCounts> RequestCounts { get; set; } = [];
     public List<PlanningRevision> History { get; set; } = [];
     public List<PlanningGenerationRevision> GenerationHistory { get; set; } = [];
     public LLMUsageBudgetSnapshot? Usage { get; set; }
@@ -169,6 +171,10 @@ public sealed class PlanningWorkflowProgress
     public int DeterministicallyResolvedHoles { get; set; }
     public int ModelHoles { get; set; }
     public int ModelHoleExposures { get; set; }
+    public int DeterministicSchemaHoles { get; set; }
+    public int ModelSchemaHoles { get; set; }
+    public int? ModelRequired { get; set; }
+    public int? ModelUsed { get; set; }
     public List<PlanningHoleProgress> HoleChoices { get; set; } = [];
     public List<PlanningGateCounts> Gates { get; set; } = [];
     public string? Gate { get; set; }

@@ -84,7 +84,12 @@ internal static class CapabilitySelectionRequests
         var referenced = inventory.Operations.Where(o => operationIds.Contains(o.Id)).SelectMany(o => o.InputOperationIds).ToHashSet(StringComparer.Ordinal);
         foreach (var dependency in inventory.Operations.Where(o => referenced.Contains(o.Id) && !operationIds.Contains(o.Id)).OrderBy(o => o.Id, StringComparer.Ordinal))
             dependencies[dependency.Id] = dependency.Description;
-        return new() { ["operations"] = operations, ["exact_denials"] = constraints, ["obligations"] = obligations, ["dependencies"] = dependencies };
+        // A scoped implementation restriction is not a global physical denial.
+        // It still governs candidate selection; dropping policy-only constraints
+        // would let a later matcher choose an unauthorized implementation.
+        var policies = new JsonArray(inventory.Constraints.Where(c => c.Required && c.EnforcementKind == "workflow_policy")
+            .Select(c => (JsonNode?)JsonValue.Create(c.Description)).DistinctBy(n => n!.ToString(), StringComparer.Ordinal).ToArray());
+        return new() { ["operations"] = operations, ["exact_denials"] = constraints, ["obligations"] = obligations, ["dependencies"] = dependencies, ["governing_policies"] = policies };
     }
 
     private static JsonObject Schema(IReadOnlySet<string> operations, IReadOnlySet<string> constraints, IReadOnlySet<string> catalogIds)

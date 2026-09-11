@@ -37,18 +37,19 @@ internal static class PlanningBindingResolution
                     workflow = state.Graph!.Workflows.Single(w => w.Key == workflow.Key); changed = true; continue;
                 }
                 var domain = PlanningHoleEligibility.Analyze(state, workflow, hole);
-                if (domain.Literal && Fixed(expected, out var fixedValue))
+                if (ForcedLiteral(hole, domain, out var fixedValue))
                 {
                     Assign(state, hole, JsonSerializer.SerializeToNode(PlanningSkeletonInputs.Literal(fixedValue), PlanningJsonContext.Default.PlanningValue));
                     workflow = state.Graph!.Workflows.Single(w => w.Key == workflow.Key); changed = true; continue;
                 }
-                if (Unique(state, workflow, hole) is { } selected)
+                hole.DirectCandidateCount = domain.Direct.Count; hole.ComputationParameterCount = domain.Parameters.Count;
+                if (Unique(domain) is { } selected)
                 {
                     Assign(state, hole, JsonSerializer.SerializeToNode(selected.Value, PlanningJsonContext.Default.PlanningValue));
                     workflow = state.Graph!.Workflows.Single(w => w.Key == workflow.Key); changed = true; continue;
                 }
                 var node = PlanningGraphCompiler.Enumerate(workflow.Steps.Concat(workflow.Finally)).SingleOrDefault(n => n.Key == hole.NodeKey);
-                if (node is null || expected["type"]?.ToString() != "object" || expected["properties"] is not JsonObject properties || PlanningHoleEligibility.ArtifactKinds(state, workflow, hole).Any()) continue;
+                if (node is null || domain.Omission || expected["type"]?.ToString() != "object" || expected["properties"] is not JsonObject properties || PlanningHoleEligibility.ArtifactKinds(state, workflow, hole).Any()) continue;
                 var required = (expected["required"] as JsonArray ?? []).Select(n => n!.ToString()).ToHashSet(StringComparer.Ordinal);
                 var fields = properties.Where(p => required.Contains(p.Key)).ToArray();
                 if (fields.Length == 0) continue;
@@ -65,19 +66,29 @@ internal static class PlanningBindingResolution
         } while (changed);
         PlanningConvergence.Refresh(state);
     }
-    private static bool Fixed(JsonObject contract, out JsonNode? value)
+    internal static bool Fixed(JsonObject contract, out JsonNode? value)
     {
         if (contract.TryGetPropertyValue("const", out value) || contract["enum"] is JsonArray { Count: 1 } values && Set(values[0], out value) || contract.TryGetPropertyValue("default", out value))
             return PlanningContractValidation.ValidateInstance(value, contract).Count == 0;
         value = null; return false;
         static bool Set(JsonNode? item, out JsonNode? selected) { selected = item; return true; }
     }
+    internal static bool ForcedLiteral(PlanningHole hole, PlanningHoleDomain domain, out JsonNode? value)
+    {
+        value = null;
+        if (!domain.Literal || domain.Contract is not { } contract) return false;
+        var fixedDomain = contract.ContainsKey("const") || contract["enum"] is JsonArray { Count: 1 };
+        // A default is a fallback, not proof that a dynamic optional argument is
+        // irrelevant. Choosing a default over eligible business data is semantic.
+        return (fixedDomain || domain.Direct.Count == 0 && domain.Parameters.Count == 0 && (!hole.Optional || domain.Outstanding.Count == 0)) && Fixed(contract, out value);
+    }
     internal static PlanningBinding? Unique(PlanningSnapshot state, PlanningWorkflow workflow, PlanningHole hole)
     {
         var domain = PlanningHoleEligibility.Analyze(state, workflow, hole);
         hole.DirectCandidateCount = domain.Direct.Count; hole.ComputationParameterCount = domain.Parameters.Count;
-        return domain.ProvenTransfer && domain.Direct.Count == 1 ? domain.Direct[0] : null;
+        return Unique(domain);
     }
+    internal static PlanningBinding? Unique(PlanningHoleDomain domain) => domain.ProvenTransfer && !domain.Omission && domain.Direct.Count == 1 ? domain.Direct[0] : null;
 
     internal static bool RepairStaged(PlanningSnapshot state, PlanningStagedAssignments staged, out PlanningGraph? graph)
     {
@@ -110,6 +121,6 @@ internal static class PlanningBindingResolution
     internal static void Assign(PlanningSnapshot state, PlanningHole hole, JsonNode? value)
     {
         var json = PlanningFieldPaths.Json(state.Graph!); PlanningFieldPaths.Replace(json, hole.Path, value);
-        state.Graph = JsonSerializer.Deserialize(json, PlanningJsonContext.Default.PlanningGraph)!; hole.Resolved = true; hole.ResolutionOrigin = "deterministic";
+        state.Graph = JsonSerializer.Deserialize(json, PlanningJsonContext.Default.PlanningGraph)!; hole.Resolved = true; hole.ResolutionOrigin = "deterministic"; hole.ModelRequiredReason = null;
     }
 }

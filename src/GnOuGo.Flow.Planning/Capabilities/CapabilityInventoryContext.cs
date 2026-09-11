@@ -194,6 +194,7 @@ internal static class CapabilityInventoryContext
     internal static JsonObject BuildCapabilityInventorySchema() => new()
     {
         ["type"] = "object",
+        ["$defs"] = new JsonObject { ["evidence"] = BuildCapabilityEvidenceReferenceSchema() },
         ["properties"] = new JsonObject
         {
             ["complete"] = new JsonObject { ["type"] = "boolean" },
@@ -202,7 +203,7 @@ internal static class CapabilityInventoryContext
                 ["type"] = "string",
                 ["enum"] = new JsonArray("required", "forbidden", "unspecified")
             },
-            ["external_write_confirmation_evidence"] = BuildCapabilityEvidenceReferenceSchema(),
+            ["external_write_confirmation_evidence"] = new JsonObject { ["$ref"] = "#/$defs/evidence" },
             ["incomplete_reasons"] = new JsonObject
             {
                 ["type"] = "array",
@@ -250,10 +251,10 @@ internal static class CapabilityInventoryContext
                             ["maxItems"] = 8,
                             ["items"] = BuildCapabilityCoverageEvidenceReferenceSchema()
                         },
-                        ["optionality_evidence"] = BuildCapabilityEvidenceReferenceSchema(),
+                        ["optionality_evidence"] = new JsonObject { ["$ref"] = "#/$defs/evidence" },
                         ["decision_source_operation_id"] = new JsonObject { ["type"] = "string" },
                         ["allow_no_effect_outcome"] = new JsonObject { ["type"] = "boolean" },
-                        ["no_effect_outcome_evidence"] = BuildCapabilityEvidenceReferenceSchema(),
+                        ["no_effect_outcome_evidence"] = new JsonObject { ["$ref"] = "#/$defs/evidence" },
                         ["intent_origin"] = new JsonObject
                         {
                             ["type"] = "string",
@@ -293,6 +294,9 @@ internal static class CapabilityInventoryContext
 
     internal static string BuildCapabilityMatchingPrompt(CapabilityInventory inventory, CapabilityCatalog catalog)
     {
+        var conditionalGuidance = inventory.Operations.Any(o => !string.IsNullOrEmpty(o.DecisionSourceOperationId))
+            ? TypedConfirmationMatchingGuidance + " Conditional effects follow the locked decision source through declared dependencies. Exactly-one branches differ at one selector path. All-on-value executes a necessary composition in order for the effect value and nothing for the declared no-effect outcome. Opaque decision outputs require a validated structured projection before use."
+            : "";
         var operations = new JsonArray(inventory.Operations.Select(static operation => (JsonNode)new JsonObject
         {
             ["id"] = operation.Id,
@@ -301,17 +305,28 @@ internal static class CapabilityInventoryContext
             ["execution_kind"] = operation.ExecutionKind,
             ["external_effect_kind"] = operation.ExternalEffectKind,
             ["input_operation_ids"] = new JsonArray(operation.InputOperationIds.Select(static id => (JsonNode?)JsonValue.Create(id)).ToArray()),
-            ["coverage_requirements"] = new JsonArray(operation.CoverageRequirementEvidence.Select(evidence => (JsonNode)new JsonObject
+            ["coverage_requirements"] = new JsonArray(operation.CoverageRequirementEvidence.Where(e => !operation.WorkflowStructureCoverageRequirementIds.Contains(e.Id)).Select(evidence => (JsonNode)new JsonObject
             {
                 ["requirement"] = evidence.Excerpt,
-                ["enforcement_kind"] = operation.WorkflowStructureCoverageRequirementIds.Contains(evidence.Id)
-                    ? WorkflowStructureCoverageEnforcementKind
-                    : CapabilityContractCoverageEnforcementKind
+                ["enforcement_kind"] = CapabilityContractCoverageEnforcementKind
             }).ToArray()),
+            ["workflow_requirements"] = new JsonArray(operation.CoverageRequirementEvidence.Where(e => operation.WorkflowStructureCoverageRequirementIds.Contains(e.Id))
+                .Select(evidence => (JsonNode?)JsonValue.Create(evidence.Excerpt)).ToArray()),
             ["decision_source_operation_id"] = operation.DecisionSourceOperationId,
             ["allow_no_effect_outcome"] = operation.AllowNoEffectOutcome
         }).ToArray());
-        var constraints = new JsonArray(inventory.Constraints.Select(static constraint => (JsonNode)new JsonObject
+        foreach (var operation in operations.OfType<JsonObject>())
+        {
+            foreach (var field in new[] { "input_operation_ids", "coverage_requirements", "workflow_requirements" })
+                if (operation[field] is JsonArray { Count: 0 }) operation.Remove(field);
+            // The scoped response schema already excludes conditional matching
+            // when no decision producer exists. Do not repeat empty selector facts.
+            if (operation["decision_source_operation_id"]?.ToString() == "")
+            { operation.Remove("decision_source_operation_id"); operation.Remove("allow_no_effect_outcome"); }
+        }
+        var policies = new JsonObject(inventory.Constraints.Where(c => c.Required && c.EnforcementKind == "workflow_policy")
+            .Select(c => new KeyValuePair<string, JsonNode?>(c.Id, JsonValue.Create(c.Description))));
+        var constraints = new JsonArray(inventory.Constraints.Where(c => !c.Required || c.EnforcementKind != "workflow_policy").Select(static constraint => (JsonNode)new JsonObject
         {
             ["id"] = constraint.Id,
             ["description"] = constraint.Description,
@@ -319,27 +334,100 @@ internal static class CapabilityInventoryContext
             ["enforcement_kind"] = constraint.EnforcementKind
         }).ToArray());
         return $$"""
-            Match the validated operations to the declared capability contracts. Use only metadata, schemas and explicit intent evidence.
-            {{TypedConfirmationMatchingGuidance}}
-            Choose the smallest sufficient implementation. Composed entries are jointly necessary, never alternative implementations.
-            A selector variant inherits its whole-tool contract; select the most specific sufficient fixed bindings.
-            Select a whole tool when enum arguments are dynamic business data. A complete_operation wrapper replaces its encapsulated phases.
-            A required argument needs a compatible business input, declared default/fixed selector or proven producer output.
-            Ordinary scalar arguments may be parsed or derived locally from declared business inputs or reused observations.
-            External artifacts require their original producer; local calculations cannot establish artifact provenance.
-            Reuse a declared upstream producer instead of adding duplicate reads. Include necessary lifecycle and cleanup prerequisites.
-            Conditional effects follow the locked decision source through declared dependencies. Exactly-one branches differ at one selector path.
-            All-on-value executes a necessary composition in order for the effect value and nothing for the declared no-effect outcome.
-            Human permission does not choose business outcomes. Opaque decision outputs require a validated structured projection before use.
-            Report unavailable if these contracts cannot implement an operation. Give a concise reason without task content or hidden reasoning.
+            Match intrinsic contracts from declared evidence. Enforce workflow requirements in composition and obey implementation policies.
+            {{conditionalGuidance}}
+            Use minimal sufficient entries; compositions contain necessary parts, never alternatives.
+            Variants inherit whole-tool contracts: use the most specific sufficient fixed selectors, whole tools for dynamic enums. complete_operation wrappers replace internal phases.
+            Required arguments need compatible inputs, defaults/fixed values or proven outputs. Scalars may derive from business inputs/observations; artifacts require original producers, never calculations.
+            Reuse upstream producers; include lifecycle/cleanup prerequisites. Mark unsatisfied contracts unavailable; identify missing contract fields without private values.
 
             <runtime_inventory>
-            {{new JsonObject { ["operations"] = operations, ["constraints"] = constraints }.ToJsonString()}}
+            {{PlanningPromptContext.Json(new JsonObject { ["operations"] = operations, ["required_workflow_policies"] = policies, ["constraints"] = constraints })}}
             </runtime_inventory>
 
             <capability_catalog>
-            {{catalog.Text}}
+            {{MatchingCatalog(catalog)}}
             </capability_catalog>
             """;
+    }
+
+    internal static string MatchingCatalog(CapabilityCatalog catalog)
+    {
+        // Lossless factoring of repeated transport text. IDs and candidate boundaries are unchanged.
+        var best = catalog.Text;
+        Dictionary<string, string[]> sharedFragments = new(StringComparer.Ordinal);
+        foreach (var widths in new[] { new[] { 12, 24, 48 }, new[] { 4, 8, 12, 16, 24, 32, 48 } })
+        {
+            var fragments = new Dictionary<string, int>(StringComparer.Ordinal);
+            foreach (var entry in catalog.Entries)
+            {
+                var words = Regex.Matches(entry.Card, @"\S+\s*").Cast<Match>().ToArray();
+                foreach (var width in widths)
+                    for (var i = 0; i + width <= words.Length; i++)
+                    {
+                        var end = words[i + width - 1].Index + words[i + width - 1].Length;
+                        var fragment = entry.Card[words[i].Index..end];
+                        if (fragment.Length >= 64) fragments[fragment] = fragments.GetValueOrDefault(fragment) + 1;
+                    }
+            }
+            sharedFragments = fragments.Where(p => p.Value > 1).Select(p => p.Key).GroupBy(p => p[..32], StringComparer.Ordinal)
+                .ToDictionary(g => g.Key, g => g.OrderByDescending(p => p.Length).ThenBy(p => p, StringComparer.Ordinal).ToArray(), StringComparer.Ordinal);
+            foreach (var separator in new[] { "", ", ", ". ", "; ", "\n" })
+            {
+                var compact = Pack(separator);
+                if (PlanningJsonTransport.EstimateInputTokens(compact, new()) < PlanningJsonTransport.EstimateInputTokens(best, new())) best = compact;
+            }
+        }
+        return best;
+
+        string Pack(string separator)
+        {
+            var groups = new JsonArray();
+            foreach (var group in catalog.Entries.GroupBy(e => (e.Resolution, e.Server, e.Kind, e.Method)))
+            {
+                var entries = group.ToArray(); var prefix = entries[0].Card;
+                foreach (var entry in entries.Skip(1))
+                {
+                    var length = 0;
+                    while (length < prefix.Length && length < entry.Card.Length && prefix[length] == entry.Card[length]) length++;
+                    if (length > 0 && char.IsHighSurrogate(prefix[length - 1])) length--;
+                    prefix = prefix[..length];
+                }
+                if (entries.Length == 1) prefix = "";
+                var suffix = entries.Length == 1 ? "" : entries[0].Card[prefix.Length..];
+                foreach (var entry in entries.Skip(1))
+                {
+                    var length = 0;
+                    while (length < suffix.Length && length < entry.Card.Length - prefix.Length && suffix[^(length + 1)] == entry.Card[^(length + 1)]) length++;
+                    if (length > 0 && char.IsLowSurrogate(suffix[^length])) length--;
+                    suffix = length == 0 ? "" : suffix[^length..];
+                }
+                groups.Add((JsonNode)new JsonObject
+                {
+                    ["prefix"] = prefix,
+                    ["suffix"] = suffix,
+                    ["entries"] = new JsonObject(entries.Select(e => new KeyValuePair<string, JsonNode?>(e.Id,
+                        new JsonArray(Parts(e.Card.Substring(prefix.Length, e.Card.Length - prefix.Length - suffix.Length), separator).Select(p => (JsonNode?)JsonValue.Create(p)).ToArray()))))
+                });
+            }
+            return PlanningPromptContext.Instructions + "Each entry's exact contract text is its group's prefix, its parts joined with separator, then its group's suffix.\n" +
+                PlanningPromptContext.Json(PlanningPromptContext.Share(new JsonObject { ["separator"] = separator, ["groups"] = groups }));
+        }
+
+        IEnumerable<string> Parts(string value, string separator)
+        {
+            if (separator.Length > 0) return value.Split(separator, StringSplitOptions.None);
+            var parts = new List<string>(); var start = 0;
+            for (var i = 0; i + 32 <= value.Length; i++)
+            {
+                if (!sharedFragments.TryGetValue(value.Substring(i, 32), out var candidates)) continue;
+                var fragment = candidates.FirstOrDefault(p => value.AsSpan(i).StartsWith(p.AsSpan(), StringComparison.Ordinal));
+                if (fragment is null) continue;
+                if (i > start) parts.Add(value[start..i]);
+                parts.Add(fragment); i += fragment.Length - 1; start = i + 1;
+            }
+            if (start < value.Length) parts.Add(value[start..]);
+            return parts;
+        }
     }
 }

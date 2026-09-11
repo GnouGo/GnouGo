@@ -10,6 +10,135 @@ namespace GnOuGo.Flow.Planning.Tests;
 
 public sealed class BehaviorRecoveryTests
 {
+    [Theory]
+    [InlineData("steps")]
+    [InlineData("nested")]
+    [InlineData("finally")]
+    public async Task CompletedDecisionProducersDoNotShiftStagedRepairCoordinates(string placement)
+    {
+        var state = Behavior(); var preparation = state.Preparation!;
+        preparation.Capabilities.Clear();
+        preparation.Capabilities.Add(new() { Id = "decision", StepType = "decision.evaluate", Resolution = "native", Required = true, OperationIds = ["decide"] });
+        preparation.Capabilities.Add(new() { Id = "other", StepType = "set", Resolution = "local", EffectKind = "none", OperationIds = ["other"] });
+        var plan = BehaviorPlan(); var workflow = plan.Workflows[0]; workflow.OperationIds = ["decide", "other"];
+        var routing = new PlanningBehaviorNode { Key = "route", Kind = "decision", Purpose = "Route the declared decision", OperationIds = ["decide"], CapabilityId = "other", InputDependencies = [],
+            Outcomes = [new("yes", "Selected", false, []), new("default", "No action", true, [])] };
+        workflow.Steps = [new() { Key = "retained", Kind = "operation", Purpose = "Retain the other operation", OperationIds = ["other"], CapabilityId = "other", InputDependencies = [] }];
+        var path = placement == "nested" ? "/workflows/0/steps/0/steps/0/capabilityId" : "/workflows/0/" + placement + "/0/capabilityId";
+        if (placement == "finally") workflow.Finally.Add(routing);
+        else workflow.Steps.Insert(0, placement == "nested" ? new() { Key = "group", Kind = "sequence", Purpose = "Group the decision", InputDependencies = [], Steps = [routing] } : routing);
+        state.BehaviorAssessment.Candidate = JsonSerializer.SerializeToNode(plan, PlanningJsonContext.Default.PlanningBehaviorPlan)!.AsObject();
+        var runtime = new FakeRuntime { OnCall = (_, request, _) =>
+        {
+            Assert.Contains(path, request.Prompt);
+            var variant = Assert.Single(request.StructuredOutputSchema!["properties"]!["patches"]!["items"]!["anyOf"]!.AsArray())!;
+            return Task.FromResult(new LLMResponse { Json = new JsonObject { ["patches"] = new JsonArray(new JsonObject { ["target"] = variant["properties"]!["target"]!["enum"]![0]!.DeepClone(), ["value"] = null }) } });
+        } };
+        await new PlanningBehaviorAssessment(TimeProvider.System).AssessAsync(state, runtime, Ct);
+        Assert.Equal(PlanningStatus.BehaviorReview, state.Status);
+        Assert.Single(runtime.Requests); Assert.All(state.Attempts, attempt => Assert.True(attempt.Retained));
+        Assert.Null(PlanningFieldPaths.Read(state.BehaviorAssessment.Candidate, path));
+        Assert.Equal("other", PlanningBehaviorPlans.Enumerate(state.BehaviorPlan!.Workflows[0].Steps).Single(n => n.Key == "retained").CapabilityId);
+        Assert.Single(PlanningBehaviorPlans.Enumerate(state.BehaviorPlan.Workflows[0].Steps.Concat(state.BehaviorPlan.Workflows[0].Finally)), n => n.CapabilityId == "decision");
+    }
+
+    [Fact]
+    public void MissingCapabilityInsertionCannotInventOwnershipOrBusinessInputs()
+    {
+        var plan = BehaviorPlan(); plan.Workflows[0].Inputs.Add(new("request", "Runtime request", true));
+        var candidate = JsonSerializer.SerializeToNode(plan, PlanningJsonContext.Default.PlanningBehaviorPlan)!.AsObject();
+        var preparation = Preparation(); preparation.Capabilities.Add(new() { Id = "missing", StepType = "set", Resolution = "local", EffectKind = "none", OperationIds = ["owned"] });
+        var source = PlanningSchemas.Behavior(preparation);
+        var path = "/workflows/0/steps/" + plan.Workflows[0].Steps.Count;
+        var targets = PlanningBehaviorPatches.Scope(candidate, source, [new("BEHAVIOR_CONTRACT_INVALID", path, "Missing implementation", Rule: "insert_behavior_node:missing")]);
+        var previous = PlanningExactPatches.Schema(targets, source);
+        var target = Assert.Single(targets);
+        var node = candidate["workflows"]![0]!["steps"]![0]!.DeepClone();
+        node["key"] = target.Schema["properties"]!["key"]!["enum"]![0]!.DeepClone();
+        node["capabilityId"] = "missing"; node["operationIds"] = new JsonArray("owned"); node["inputDependencies"] = new JsonArray("owned");
+        var patch = new JsonObject { ["patches"] = new JsonArray(new JsonObject { ["target"] = target.Id, ["value"] = node }) };
+        Assert.Empty(PlanningContractValidation.ValidateInstance(patch, previous)); // Previously cost a failed behavior repair.
+        PlanningBehaviorPatches.RestrictCapabilities(candidate, targets, preparation);
+        var schema = PlanningExactPatches.Schema(targets, source);
+        Assert.Empty(PlanningContractValidation.ValidateSchema(schema, strict: true));
+        Assert.NotEmpty(PlanningContractValidation.ValidateInstance(patch, schema));
+        node["inputDependencies"] = new JsonArray("request");
+        Assert.Empty(PlanningContractValidation.ValidateInstance(patch, schema));
+        node["operationIds"] = new JsonArray();
+        Assert.NotEmpty(PlanningContractValidation.ValidateInstance(patch, schema));
+        node["operationIds"] = new JsonArray("owned"); node["inputDependencies"] = new JsonArray("request", "request");
+        Assert.NotEmpty(PlanningContractValidation.ValidateInstance(patch, schema));
+        Assert.True(JsonNode.DeepEquals(candidate, JsonSerializer.SerializeToNode(plan, PlanningJsonContext.Default.PlanningBehaviorPlan)));
+    }
+
+    [Fact]
+    public void BehaviorCapabilityRepairsExposeOnlyCompatibleOwnedImplementations()
+    {
+        var candidate = JsonSerializer.SerializeToNode(BehaviorPlan(), PlanningJsonContext.Default.PlanningBehaviorPlan)!.AsObject();
+        candidate["workflows"]![0]!["steps"]![0]!["operationIds"] = new JsonArray("owned");
+        var preparation = Preparation(); preparation.Capabilities.Clear();
+        preparation.Capabilities.Add(new() { Id = "right", Resolution = "local", EffectKind = "none", StepType = "set", OperationIds = ["owned"] });
+        preparation.Capabilities.Add(new() { Id = "wrong", Resolution = "local", EffectKind = "none", StepType = "set", OperationIds = ["different"] });
+        preparation.Capabilities.Add(new() { Id = "confirmation", StepType = "human.input", OperationIds = ["owned"] });
+        var prior = new JsonObject { ["type"] = new JsonArray("string", "null"), ["enum"] = new JsonArray("right", "wrong", "confirmation", null) };
+        List<PlanningExactPatches.Target> targets = [new("field", "/workflows/0/steps/0/capabilityId", prior)];
+        PlanningBehaviorPatches.RestrictCapabilities(candidate, targets, preparation);
+        var schema = PlanningExactPatches.Schema(targets, new());
+        Assert.Empty(PlanningContractValidation.ValidateSchema(schema, strict: true));
+        var patch = new JsonObject { ["patches"] = new JsonArray(new JsonObject { ["target"] = "field", ["value"] = "right" }) };
+        Assert.Empty(PlanningContractValidation.ValidateInstance(patch, schema));
+        patch["patches"]![0]!["value"] = "wrong";
+        Assert.NotEmpty(PlanningContractValidation.ValidateInstance(patch, schema));
+        patch["patches"]![0]!["value"] = "confirmation";
+        Assert.NotEmpty(PlanningContractValidation.ValidateInstance(patch, schema));
+        patch["patches"]![0]!["value"] = null;
+        Assert.Empty(PlanningContractValidation.ValidateInstance(patch, schema));
+        Assert.True(PlanningJsonTransport.EstimateInputTokens("", schema) < PlanningJsonTransport.EstimateInputTokens("", PlanningExactPatches.Schema([targets[0] with { Schema = prior }], new())));
+
+        var insertion = new PlanningExactPatches.Target("missing", "/workflows/0/steps/1",
+            new JsonObject { ["type"] = "object", ["properties"] = new JsonObject { ["capabilityId"] = PlanningHoleRequests.Enum("right") } }, Add: true);
+        targets.Add(insertion);
+        var beforeInsertion = PlanningExactPatches.Schema(targets, new());
+        PlanningBehaviorPatches.RestrictCapabilities(candidate, targets, preparation);
+        Assert.Equal("field", Assert.Single(targets).Id); // Existing references precede potentially redundant additions.
+        Assert.True(PlanningJsonTransport.EstimateInputTokens("", PlanningExactPatches.Schema(targets, new())) < PlanningJsonTransport.EstimateInputTokens("", beforeInsertion));
+        List<PlanningExactPatches.Target> standalone = [insertion];
+        PlanningBehaviorPatches.RestrictCapabilities(candidate, standalone, preparation);
+        Assert.Single(standalone); // An independently missing implementation still permits its exact insertion.
+
+        targets = [targets[0] with { Schema = prior }, new("ownership", "/workflows/0/steps/0/operationIds/0", PlanningHoleRequests.Enum("owned", "different"))];
+        PlanningBehaviorPatches.RestrictCapabilities(candidate, targets, preparation);
+        Assert.True(JsonNode.DeepEquals(prior, targets[0].Schema)); // Explicit companion ownership changes govern the joint domain.
+        targets = [targets[0] with { Schema = PlanningHoleRequests.Enum("wrong") }];
+        Assert.Throws<PlanningHoleUnavailableException>(() => PlanningBehaviorPatches.RestrictCapabilities(candidate, targets, preparation));
+    }
+
+    [Fact]
+    public void RepeatedExactPatchContractsAreSharedWithoutExpandingEditPermissions()
+    {
+        var values = Enumerable.Range(0, 30).Select(i => "declared_operation_" + i).ToArray();
+        var field = PlanningHoleRequests.Enum(values);
+        var targets = Enumerable.Range(0, 20).Select(i => new PlanningExactPatches.Target("f" + i, "/field" + i, field.DeepClone().AsObject())).ToArray();
+        var source = new JsonObject { ["$defs"] = new JsonObject { ["patchField0"] = PlanningHoleRequests.Type("boolean") } };
+        var original = source.DeepClone();
+        var schema = PlanningExactPatches.Schema(targets, source);
+        Assert.Empty(PlanningContractValidation.ValidateSchema(schema, strict: true));
+        var shared = Assert.Single(schema["$defs"]!.AsObject());
+        Assert.Equal("patchField1", shared.Key);
+        var expanded = schema.DeepClone().AsObject();
+        foreach (var variant in expanded["properties"]!["patches"]!["items"]!["anyOf"]!.AsArray())
+            variant!["properties"]!["value"] = shared.Value!.DeepClone();
+        expanded.Remove("$defs");
+        Assert.True(PlanningJsonTransport.EstimateInputTokens("", expanded) - PlanningJsonTransport.EstimateInputTokens("", schema) > 1000);
+        var response = new JsonObject { ["patches"] = new JsonArray(new JsonObject { ["target"] = "f0", ["value"] = values[0] }) };
+        Assert.Empty(PlanningContractValidation.ValidateInstance(response, schema));
+        response["patches"]![0]!["value"] = "undeclared";
+        Assert.NotEmpty(PlanningContractValidation.ValidateInstance(response, schema));
+        response["patches"]![0]!["value"] = values[0]; response["patches"]![0]!["target"] = "outside";
+        Assert.NotEmpty(PlanningContractValidation.ValidateInstance(response, schema));
+        Assert.True(JsonNode.DeepEquals(original, source));
+    }
+
     [Fact]
     public async Task TruncatedInitialBehaviorRetriesConsumeTheResponseGateAllowance()
     {
@@ -76,7 +205,7 @@ public sealed class BehaviorRecoveryTests
         var target = Assert.Single(targets); Assert.True(target.Remove); Assert.Equal("/workflows/0/steps/0", target.Path);
         var context = PlanningBehaviorRevision.Context(candidate);
         Assert.Equal(new[] { "anchors", "fields" }, context.Select(p => p.Key));
-        Assert.All(context["fields"]!.AsObject(), p => Assert.IsType<JsonArray>(p.Value));
+        Assert.All(context["fields"]!.AsObject().SelectMany(p => p.Value!.AsObject()), p => Assert.IsType<JsonArray>(p.Value));
         Assert.DoesNotContain("\"steps\":", context.ToJsonString());
     }
 
@@ -133,7 +262,7 @@ public sealed class BehaviorRecoveryTests
             {
                 var context = JsonNode.Parse(request.Prompt![ (request.Prompt.IndexOf("Coordinates:\n", StringComparison.Ordinal) + "Coordinates:\n".Length)..])!.AsObject();
                 var anchor = context["anchors"]!.AsObject().Single(p => p.Value![1]!.ToString() == "greeting").Key;
-                var target = context["fields"]!.AsObject().Single(p => p.Value![0]!.ToString() == anchor + "/purpose" && p.Value[1]!.ToString() == "replace").Key;
+                var target = context["fields"]!["replace"]!.AsObject().Single(p => p.Value![0]!.ToString() == anchor + "/purpose").Key;
                 return Task.FromResult(new LLMResponse { Json = new JsonObject { ["fields"] = new JsonArray(new JsonObject { ["target"] = target, ["evidence"] = "formal" }) } });
             }
             Assert.Equal("behavior_repair", phase);
@@ -148,6 +277,78 @@ public sealed class BehaviorRecoveryTests
         Assert.Equal("Return a formal greeting", revised.BehaviorPlan.Workflows[0].Steps[0].Purpose);
         Assert.Equal(["behavior_revision_scope", "behavior_repair"], runtime.Phases);
         Assert.Single(revised.RepairAllowances);
+    }
+
+    [Fact]
+    public async Task RevisionCoordinatesShareOperationLabelsAndUseScopedIdsWithFewerTokens()
+    {
+        var state = Behavior(); var plan = BehaviorPlan();
+        var prototype = JsonSerializer.SerializeToNode(plan.Workflows[0].Steps[0], PlanningJsonContext.Default.PlanningBehaviorNode)!;
+        for (var i = 1; i < 24; i++)
+        {
+            var node = JsonSerializer.Deserialize(prototype, PlanningJsonContext.Default.PlanningBehaviorNode)!;
+            node.Key = "action_" + i; plan.Workflows[0].Steps.Add(node);
+        }
+        state.BehaviorAssessment.Candidate = JsonSerializer.SerializeToNode(plan, PlanningJsonContext.Default.PlanningBehaviorPlan)!.AsObject();
+        state.BehaviorRevision = new() { Text = "Change the description." };
+        var original = state.BehaviorAssessment.Candidate.DeepClone();
+        var runtime = new FakeRuntime { OnCall = (_, request, _) =>
+        {
+            var context = PlanningBehaviorRevision.Context(state.BehaviorAssessment.Candidate);
+            var oldFields = new JsonObject();
+            var oldIds = new JsonArray();
+            foreach (var operation in context["fields"]!.AsObject())
+                foreach (var field in operation.Value!.AsObject())
+                {
+                    var id = "r_" + PlanningGraphCompiler.Fingerprint(field.Key)[..16];
+                    oldIds.Add(id);
+                    oldFields[id] = new JsonArray(field.Value![0]!.DeepClone(), JsonValue.Create(operation.Key), field.Value[1]?.DeepClone());
+                }
+            var oldSchema = request.StructuredOutputSchema!.DeepClone().AsObject();
+            oldSchema["properties"]!["fields"]!["items"]!["properties"]!["target"]!["enum"] = oldIds;
+            var oldContext = new JsonObject { ["anchors"] = context["anchors"]!.DeepClone(), ["fields"] = oldFields };
+            var prefix = request.Prompt![..(request.Prompt.IndexOf("Coordinates:\n", StringComparison.Ordinal) + "Coordinates:\n".Length)];
+            var before = PlanningJsonTransport.EstimateInputTokens(prefix + oldContext.ToJsonString(), oldSchema);
+            var after = PlanningJsonTransport.EstimateInputTokens(request.Prompt, request.StructuredOutputSchema.AsObject());
+            Assert.True(before - after > 1000, $"Before {before}, after {after}");
+            var chosen = context["fields"]!["replace"]!.AsObject().First(p => p.Value![0]!.ToString().EndsWith("/purpose", StringComparison.Ordinal)).Key;
+            return Task.FromResult(new LLMResponse { Json = new JsonObject { ["fields"] = new JsonArray(new JsonObject { ["target"] = chosen, ["evidence"] = "description" }) } });
+        } };
+        await PlanningBehaviorRevision.LocateAsync(state, runtime, Ct);
+        Assert.True(state.BehaviorRevision.Located);
+        Assert.Single(state.BehaviorRevision.Fields);
+        Assert.True(JsonNode.DeepEquals(original, state.BehaviorAssessment.Candidate));
+    }
+
+    [Fact]
+    public async Task RevisionScopeReplaysThePersistedTargetDomainAgainstTheRetainedCandidate()
+    {
+        var state = Behavior();
+        state.BehaviorAssessment.Candidate = JsonSerializer.SerializeToNode(BehaviorPlan(), PlanningJsonContext.Default.PlanningBehaviorPlan)!.AsObject();
+        state.BehaviorRevision = new() { Text = "Revise this description." };
+        LLMRequest? issued = null;
+        var capture = new FakeRuntime { OnCall = (_, request, _) =>
+        {
+            issued = request;
+            return Task.FromResult(new LLMResponse { Json = new JsonObject { ["fields"] = new JsonArray(new JsonObject { ["target"] = "r0", ["evidence"] = "description" }) } });
+        } };
+        await PlanningBehaviorRevision.LocateAsync(state, capture, Ct);
+        var expectedPath = state.BehaviorRevision.Fields.Single().Path;
+        state.BehaviorRevision.Located = false; state.BehaviorRevision.Fields.Clear();
+        var schema = issued!.StructuredOutputSchema!.DeepClone().AsObject();
+        var ids = schema["properties"]!["fields"]!["items"]!["properties"]!["target"]!["enum"]!.AsArray();
+        for (var i = 0; i < ids.Count; i++) ids[i] = "retained_" + i;
+        var call = PlanningModelCalls.Reserve(state, "behavior_revision_scope", "", PlanningModelCalls.Request(state, "Persisted coordinates", schema));
+        var replay = new FakeRuntime { OnCall = (_, request, _) =>
+        {
+            Assert.Equal(call.Id, request.ClientRequestId);
+            Assert.Equal("Persisted coordinates", request.Prompt);
+            Assert.True(JsonNode.DeepEquals(schema, request.StructuredOutputSchema));
+            return Task.FromResult(new LLMResponse { Json = new JsonObject { ["fields"] = new JsonArray(new JsonObject { ["target"] = "retained_0", ["evidence"] = "description" }) } });
+        } };
+        await PlanningBehaviorRevision.LocateAsync(state, replay, Ct);
+        Assert.Equal(expectedPath, Assert.Single(state.BehaviorRevision.Fields).Path);
+        Assert.Empty(state.Construction.PendingCalls);
     }
 
     [Fact]

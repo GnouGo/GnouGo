@@ -63,6 +63,38 @@ public static class PlanningBehaviorPlans
         }
     }
 
+    /// <summary>Before review, restore locked outcome values only when action placement proves a unique mapping.</summary>
+    internal static void CompleteLockedOutcomes(PlanningBehaviorPlan plan, PlanningPreparation preparation)
+    {
+        var decisions = plan.Workflows.SelectMany(w => Enumerate(w.Steps.Concat(w.Finally))).Where(n => n.Kind == "decision").ToArray();
+        foreach (var group in preparation.Capabilities.Where(c => c.Required && c.Activation is not null).GroupBy(c => c.Activation!.Group, StringComparer.Ordinal))
+        {
+            var activation = group.First().Activation!;
+            var candidates = new List<(PlanningBehaviorNode Node, Dictionary<int, string> Values)>();
+            foreach (var decision in decisions)
+            {
+                var outcomes = decision.Outcomes.Select((outcome, index) => (outcome, index)).Where(p => !p.outcome.IsDefault).ToArray();
+                if (outcomes.Length != activation.AllowedValues.Count || !group.All(c => outcomes.Sum(o => Enumerate(o.outcome.Steps).Count(n => n.CapabilityId == c.Id)) == 1)) continue;
+                var values = new Dictionary<int, string>();
+                foreach (var (outcome, index) in outcomes)
+                {
+                    var branches = group.Where(c => Enumerate(outcome.Steps).Any(n => n.CapabilityId == c.Id)).Select(c => c.Activation!.BranchValue).Distinct(StringComparer.Ordinal).ToArray();
+                    if (branches.Length == 1) values[index] = branches[0];
+                }
+                var remaining = activation.AllowedValues.Except(values.Values, StringComparer.Ordinal).ToArray();
+                var empty = outcomes.Where(o => !values.ContainsKey(o.index) && o.outcome.Steps.Count == 0).ToArray();
+                if (remaining.Length == 1 && empty.Length == 1 && activation.NoEffectValues.Contains(remaining[0], StringComparer.Ordinal)) values[empty[0].index] = remaining[0];
+                if (values.Count != outcomes.Length || values.Values.Distinct(StringComparer.Ordinal).Count() != outcomes.Length ||
+                    outcomes.Any(o => activation.AllowedValues.Contains(o.outcome.Key, StringComparer.Ordinal) && o.outcome.Key != values[o.index])) continue;
+                // Valid domain values and all unrelated identities remain unchanged.
+                if (outcomes.Any(o => o.outcome.Key != values[o.index])) candidates.Add((decision, values));
+            }
+            if (candidates.Count != 1) continue;
+            foreach (var (index, value) in candidates[0].Values)
+                candidates[0].Node.Outcomes[index] = candidates[0].Node.Outcomes[index] with { Key = value };
+        }
+    }
+
     public static IReadOnlyList<PlanningDiagnostic> Validate(PlanningBehaviorPlan plan, PlanningPreparation preparation)
     {
         var findings = new List<PlanningDiagnostic>();
@@ -262,7 +294,12 @@ public static class PlanningBehaviorPlans
                         errors.Add(new("BUSINESS_INPUT_BINDING_MISSING", inputPath, "The accepted operation must consume business input '" + input + "'. A default or example cannot replace its dynamic binding.", Rule: "input:" + input));
                 }
                 if (item.Kind == "workflow" && !node.Input.Members.Any(m => m.Name == "ref" && m.Value.Kind == "workflow" && m.Value.Source == item.WorkflowKey)) errors.Add(new("BEHAVIOR_IMPLEMENTATION_CHANGED", path, "Preserve the accepted workflow-call target."));
-                if (node.If is not null) errors.Add(new("BEHAVIOR_IMPLEMENTATION_CHANGED", path + "/" + item.Key + "/if", "Conditional actions must remain inside accepted decision outcomes; a new guard requires review."));
+                if (node.If is not null)
+                {
+                    var owner = graph.Workflows.Single(w => PlanningGraphCompiler.Enumerate(w.Steps.Concat(w.Finally)).Contains(node));
+                    if (!PlanningSkeletonInputs.FinalizerCompletesOnSuccess(owner, preparation, node))
+                        errors.Add(new("BEHAVIOR_IMPLEMENTATION_CHANGED", path + "/" + item.Key + "/if", "Conditional actions must remain inside accepted decision outcomes; a new guard requires review."));
+                }
                 var type = item.Kind switch { "decision" => "switch", "loop" => "loop.sequential", "confirmation" => "human.input", "workflow" => "workflow.call", "operation" => preparation.Capabilities.FirstOrDefault(c => c.Id == item.CapabilityId)?.StepType ?? "set", _ => item.Kind };
                 if (node.Type != type || node.CapabilityId != item.CapabilityId || !item.OperationIds.Order(StringComparer.Ordinal).SequenceEqual(node.OperationIds.Order(StringComparer.Ordinal))) errors.Add(new("BEHAVIOR_IMPLEMENTATION_CHANGED", path + "/" + item.Key, "An accepted action or its capability changed."));
                 if (item.Kind == "decision")

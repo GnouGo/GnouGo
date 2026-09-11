@@ -80,6 +80,7 @@ internal static class PlanningGraphSkeleton
                     }
                 }
             }
+            PlanningSkeletonInputs.GuardFinalizers(workflow, state.Preparation!);
         }
         foreach (var hole in state.Construction.Holes)
         {

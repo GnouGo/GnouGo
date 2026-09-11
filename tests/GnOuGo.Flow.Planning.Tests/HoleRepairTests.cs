@@ -78,20 +78,27 @@ public sealed class HoleRepairTests
     public async Task InvalidLiteralRemainsStagedAndAnExactPatchPreservesItsNeighborsAcrossRestart()
     {
         var state = Ready(); var runtime = new FakeRuntime();
-        state = await Advance(state, runtime); // Schema holes.
+        var schema = new PlanningSchema { Type = "object", Properties = [new() { Name = "message", Required = true, Schema = new() { Type = "string" } }, new() { Name = "retained", Required = true, Schema = new() { Type = "string" } }] };
+        state.Graph!.Workflows[0].Steps[0].OutputSchema = schema;
+        state.Graph.Workflows[0].Outputs[0].Schema = schema;
+        foreach (var hole in state.Construction.Holes.Where(h => h.Kind == "schema")) hole.Resolved = true;
         string? before = null;
         var invalid = new FakeRuntime { OnCheckpoint = checkpoint =>
         { if (checkpoint.Construction.PendingCalls.Count > 0) before = PlanningGraphCompiler.Fingerprint(checkpoint.Graph!); return Task.CompletedTask; } };
         invalid.OnCall = (_, request, _) =>
         {
-            var assignments = invalid.FillHoles(request, new() { Workflows = [FakeRuntime.ExecutableWorkflow()] });
-            var id = assignments["assignments"]!.AsObject().First().Key;
+            var executable = FakeRuntime.ExecutableWorkflow();
+            executable.Steps[0].Input = Obj(("message", Str("Hello")), ("retained", Str("untouched")));
+            var assignments = invalid.FillHoles(request, new() { Workflows = [executable] });
+            Assert.Equal(2, assignments["assignments"]!.AsObject().Count);
+            var id = assignments["assignments"]!.AsObject().Single(p => p.Value?["json"]?.ToString() == "Hello").Key;
             assignments["assignments"]![id] = new JsonObject { ["kind"] = "literal", ["json"] = 7 };
             return Task.FromResult(new LLMResponse { Json = assignments });
         };
         state = await Advance(state, invalid);
         Assert.Equal(PlanningPhase.Repair, state.CurrentPhase);
         var staged = Assert.Single(state.Construction.Candidates);
+        Assert.Contains(staged.Payload["assignments"]!.AsObject(), p => p.Value?["json"]?.ToString() == "untouched");
         Assert.Equal(before, PlanningGraphCompiler.Fingerprint(state.Graph!));
         Assert.Contains(staged.Diagnostics, d => d.Location.StartsWith("/assignments/", StringComparison.Ordinal));
         state = JsonSerializer.Deserialize(JsonSerializer.Serialize(state, PlanningJsonContext.Default.PlanningSnapshot), PlanningJsonContext.Default.PlanningSnapshot)!;
@@ -104,6 +111,7 @@ public sealed class HoleRepairTests
         } };
         state = await Advance(state, repair);
         Assert.Empty(state.Construction.Candidates);
+        Assert.Equal("untouched", state.Graph!.Workflows[0].Steps[0].Input.Members.Single(m => m.Name == "retained").Value.Text);
         Assert.Equal(1, Assert.Single(state.RepairAllowances).Attempts);
         Assert.Equal(PlanningGates.Response, state.RepairAllowances[0].Gate);
         for (var i = 0; i < 10 && !PlanningStatus.IsWaiting(state.Status); i++) state = await Advance(state, runtime);

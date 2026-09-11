@@ -1,10 +1,24 @@
 using Acornima.Ast;
+using System.Text.Json.Nodes;
+using System.Text.RegularExpressions;
 
 namespace GnOuGo.Flow.Planning;
 
 /// <summary>Resolve JavaScript names lexically before attributing use to typed inputs.</summary>
 internal static class PlanningComputationScopes
 {
+    internal const string ExpressionDescription = "Executable ECMAScript expression using the supplied parameter identifiers.";
+    private static readonly string[] Globals = ["JSON", "Math", "Object", "Array", "String", "Number", "Boolean", "RegExp", "Set", "Map", "URL", "Error", "TypeError", "parseInt", "parseFloat", "isNaN", "isFinite", "encodeURI", "decodeURI", "encodeURIComponent", "decodeURIComponent", "undefined", "NaN", "Infinity"];
+
+    // A necessary lexical condition, not a replacement for the AST, provenance or
+    // runtime checks. Scoped identities have a compiler-owned ASCII spelling.
+    // In particular, unquoted prose is not an executable string expression.
+    internal static JsonObject ExpressionSchema() => new()
+    {
+        ["type"] = "string", ["description"] = ExpressionDescription, ["minLength"] = 1,
+        ["pattern"] = """^\s*(?:[\(\[\{'"`!~+\-0-9./]|(?:p_[0-9a-f]{12}|u_[A-Za-z0-9_$]+|""" +
+            string.Join('|', Globals.Select(Regex.Escape)) + """|true|false|null|new|typeof|void|delete|function|async|await|yield|this|const|let|var|return|if|for|while|do|switch|try|throw|class)\b)"""
+    };
     private sealed class Scope(Scope? parent, bool function = false)
     {
         internal readonly Scope? Parent = parent;
@@ -23,7 +37,7 @@ internal static class PlanningComputationScopes
     internal static HashSet<string> Used(Node expression, IReadOnlyList<string> names)
     {
         var root = new Scope(null, true);
-        foreach (var name in new[] { "JSON", "Math", "Object", "Array", "String", "Number", "Boolean", "RegExp", "Set", "Map", "URL", "Error", "TypeError", "parseInt", "parseFloat", "isNaN", "isFinite", "encodeURI", "decodeURI", "encodeURIComponent", "decodeURIComponent", "undefined", "NaN", "Infinity" }) root.Bindings[name] = false;
+        foreach (var name in Globals) root.Bindings[name] = false;
         foreach (var name in names) root.Bindings[name] = true;
         var scopes = new Dictionary<Node, Scope>();
         var declarations = new HashSet<Node>();

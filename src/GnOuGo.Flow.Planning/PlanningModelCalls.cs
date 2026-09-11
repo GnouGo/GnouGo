@@ -44,6 +44,12 @@ internal static class PlanningModelCalls
         request.ClientRequestId = id;
         var call = new PlanningModelCall { Id = id, Phase = phase, WorkflowKey = workflow, RequestHash = hash, Request = request, Gate = gate, ScopeFingerprint = scope, Revision = state.Revision };
         state.Construction.PendingCalls.Add(call);
+        state.RequestAccounting.Add(new()
+        {
+            Id = id, Revision = state.Revision, WorkflowKey = string.IsNullOrEmpty(workflow) ? "$plan" : workflow,
+            Phase = phase, Gate = gate, EstimatedInputTokens = estimate, Repair = phase.EndsWith("_repair", StringComparison.Ordinal),
+            Purpose = gate == PlanningGates.Semantic || phase.Contains("semantic", StringComparison.Ordinal) ? "mandatory_validation" : phase == PlanningPhase.Construction ? "executable_holes" : "assessment"
+        });
         return call;
     }
 
@@ -51,9 +57,23 @@ internal static class PlanningModelCalls
     {
         var call = Reserve(state, phase, workflow, request);
         await runtime.CheckpointAsync(state, ct);
-        var response = await runtime.CallAsync(call.Request, call.Phase, ct);
+        var response = await DispatchAsync(state, runtime, call, ct);
         state.Construction.PendingCalls.Remove(call);
         RequireComplete(response, call.Request.MaxTokens);
+        return response;
+    }
+
+    internal static async Task<LLMResponse> DispatchAsync(PlanningSnapshot state, IPlanningRuntime runtime, PlanningModelCall call, CancellationToken ct)
+    {
+        LLMResponse response;
+        try { response = await runtime.CallAsync(call.Request, call.Phase, ct); }
+        catch
+        {
+            if (state.RequestAccounting.SingleOrDefault(a => a.Id == call.Id) is { } interrupted) interrupted.Evidence = "unverifiable";
+            PlanningConvergence.Refresh(state);
+            throw;
+        }
+        PlanningConvergence.Receipt(state, call, response);
         return response;
     }
 

@@ -57,6 +57,8 @@ public sealed class PlanningPersistenceTests
         state.Construction.Holes[0].DirectCandidateCount = 2;
         state.Construction.Holes[0].ComputationParameterCount = 4;
         state.GateProgress.Add(new() { WorkflowKey = "main", Gate = PlanningGates.Typed, Failures = 1, Evaluations = ["evaluation"] });
+        state.RequestAccounting.Add(new() { Id = "durable-request", WorkflowKey = "main", Phase = "construction", Gate = PlanningGates.Response,
+            Evidence = "receipt", HoleReasons = new() { ["h_exact"] = "binding_choice" }, InputTokens = 100, OutputTokens = null, AvoidableDispatches = 0, AvoidableExtraRequests = 0 });
         state.PreparationCheckpoint = new() { Stage = "matching", ValidatedResults = new JsonObject { ["inventory"] = "PRIVATE_PREPARATION_CONTENT" }, RequestHashes = ["hash"] };
         Assert.True(await fixture.Store.TrySaveAsync(state, null, Ct));
         state.Revision = 1; state.Status = PlanningStatus.BehaviorReview;
@@ -78,6 +80,9 @@ public sealed class PlanningPersistenceTests
         Assert.Equal("model", restoredHole.ResolutionOrigin);
         Assert.Equal(2, restoredHole.DirectCandidateCount); Assert.Equal(4, restoredHole.ComputationParameterCount);
         Assert.Equal("evaluation", Assert.Single(Assert.Single(restored.GateProgress).Evaluations));
+        var accounting = Assert.Single(restored.RequestAccounting);
+        Assert.Equal("receipt", accounting.Evidence); Assert.Equal("binding_choice", accounting.HoleReasons["h_exact"]);
+        Assert.Equal(100, accounting.InputTokens); Assert.Null(accounting.OutputTokens);
         Assert.Equal("matching", restored.PreparationCheckpoint!.Stage);
         Assert.Equal("hash", Assert.Single(restored.PreparationCheckpoint.RequestHashes));
         Assert.Null(await reopened.LoadAsync("two", "same", Ct));

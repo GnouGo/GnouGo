@@ -10,6 +10,95 @@ namespace GnOuGo.Flow.Planning.Tests;
 public sealed class CapabilityMatchingRequestTests
 {
     [Fact]
+    public void RepeatedCatalogEncodingMetadataIsSentOnce()
+    {
+        var description = string.Concat(Enumerable.Repeat("A declared source supplies this exact immutable argument and result contract. ", 20));
+        var entries = Enumerable.Range(0, 8).Select(i => new CapabilityCatalogEntry("entry" + i, "mcp", "provider", "tool", "method" + i,
+            description, [], description + i, [], [], null, null)).ToArray();
+        var compact = CapabilityInventoryContext.MatchingCatalog(new(entries, string.Join('\n', entries.Select(e => e.Id + " " + e.Card))));
+        var expanded = PromptContextTests.Expand(JsonNode.Parse(compact[(compact.IndexOf('\n') + 1)..])!)!;
+        var groups = expanded["groups"]!.AsArray();
+        Assert.Equal(8, groups.Count);
+        Assert.All(groups.OfType<JsonObject>(), group => Assert.False(group.ContainsKey("separator")));
+        var repeated = groups.DeepClone().AsArray();
+        foreach (var group in repeated.OfType<JsonObject>()) group["separator"] = expanded["separator"]!.DeepClone();
+        Assert.True(PlanningJsonTransport.EstimateInputTokens(expanded.ToJsonString(), new()) < PlanningJsonTransport.EstimateInputTokens(repeated.ToJsonString(), new()));
+        foreach (var group in groups.OfType<JsonObject>())
+            foreach (var entry in group["entries"]!.AsObject())
+                Assert.Equal(entries.Single(e => e.Id == entry.Key).Card,
+                    group["prefix"]!.ToString() + string.Join(expanded["separator"]!.ToString(), entry.Value!.AsArray().Select(p => p!.ToString())) + group["suffix"]);
+    }
+
+    [Fact]
+    public void CatalogFactoringPreservesUnicodeAndLiteralSeparators()
+    {
+        var shared = string.Concat(Enumerable.Repeat("Declared contract: 🧪 Unicode é accents; original \"quotes\", commas, newlines\n", 20));
+        var entries = new[] { "🧪", "🧬", "literal" }.Select((suffix, index) => new CapabilityCatalogEntry("c" + index, "mcp", "provider", "tool", "method",
+            "Declared metadata", [], shared + suffix + " -> tail 🧪", [], [], null, null)).ToArray();
+        var original = string.Join('\n', entries.Select(e => e.Id + " " + e.Card));
+        var compact = CapabilityInventoryContext.MatchingCatalog(new(entries, original));
+        Assert.True(compact.Length < original.Length);
+        var expanded = PromptContextTests.Expand(JsonNode.Parse(compact[(compact.IndexOf('\n') + 1)..])!)!;
+        foreach (var group in expanded["groups"]!.AsArray().OfType<JsonObject>())
+            foreach (var entry in group["entries"]!.AsObject())
+                Assert.Equal(entries.Single(e => e.Id == entry.Key).Card,
+                    group["prefix"]!.ToString() + string.Join(expanded["separator"]!.ToString(), entry.Value!.AsArray().Select(p => p!.ToString())) + group["suffix"]);
+    }
+    [Fact]
+    public void SavedCodeReviewSelectorCatalogIsLosslesslySharedWithFewerTokens()
+    {
+        var data = JsonNode.Parse(File.ReadAllText(Path.Combine(AppContext.BaseDirectory, "Fixtures", "CodeReviewMatchingCatalog.json")))!.AsArray();
+        var entries = data.Select(n => new CapabilityCatalogEntry(n!["id"]!.ToString(), n["resolution"]!.ToString(), n["server"]?.ToString(), n["kind"]?.ToString(), n["method"]!.ToString(),
+            "Frozen public metadata", [], n["card"]!.ToString(), [], [], null, null)).ToArray();
+        var original = string.Join('\n', entries.Select(e => e.Card));
+        var compact = CapabilityInventoryContext.MatchingCatalog(new(entries, original));
+        Assert.True(compact.Length < original.Length);
+        var expanded = PromptContextTests.Expand(JsonNode.Parse(compact[(compact.IndexOf('\n') + 1)..])!)!;
+        var recovered = expanded["groups"]!.AsArray().OfType<JsonObject>().SelectMany(group => group["entries"]!.AsObject().Select(e =>
+            new KeyValuePair<string, string>(e.Key, group["prefix"]!.ToString() + string.Join(expanded["separator"]!.ToString(), e.Value!.AsArray().Select(p => p!.ToString())) + group["suffix"]))).ToDictionary(p => p.Key, p => p.Value);
+        Assert.Equal(entries.Length, recovered.Count);
+        Assert.All(entries, entry => Assert.Equal(entry.Card, recovered[entry.Id]));
+        var schema = PlanningHoleRequests.Object(("result", PlanningHoleRequests.Type("string")));
+        Assert.True(PlanningJsonTransport.EstimateInputTokens(compact, schema) < PlanningJsonTransport.EstimateInputTokens(original, schema));
+    }
+    [Fact]
+    public void CompilerOwnedObligationsAreNotCapabilityRequirements()
+    {
+        const string structural = "Run in finalization after success, failure and cancellation.";
+        var operation = new CapabilityInventoryOperation("op", "Release the declared owned resource", true, "external_effect", "lifecycle")
+        {
+            CoverageRequirementEvidence = [new("primitive", "request", 0, 7, "Release"), new("structure", "request", 8, structural.Length, structural)],
+            WorkflowStructureCoverageRequirementIds = ["structure"]
+        };
+        var inventory = new CapabilityInventory(true, [operation], [], []);
+        var catalog = new CapabilityCatalog([new("cap", "mcp", "provider", "tool", "operation", "Declared release", [], "Release a declared resource", [], [], null, null)], "Declared release");
+        var request = Assert.Single(CapabilityMatchingRequests.Build(inventory, catalog, new Dictionary<string, IReadOnlySet<string>> { ["op"] = new HashSet<string>(["cap"]) }, 12000));
+        var start = request.Prompt.IndexOf("<runtime_inventory>", StringComparison.Ordinal) + "<runtime_inventory>".Length;
+        var end = request.Prompt.IndexOf("</runtime_inventory>", StringComparison.Ordinal);
+        var context = JsonNode.Parse(request.Prompt[start..end])!;
+        Assert.Contains("Release", context["operations"]![0]!["coverage_requirements"]!.ToJsonString());
+        Assert.DoesNotContain(structural, context["operations"]![0]!["coverage_requirements"]!.ToJsonString());
+        Assert.Equal(structural, context["operations"]![0]!["workflow_requirements"]![0]!.ToString());
+        Assert.Equal("structure", Assert.Single(operation.WorkflowStructureCoverageRequirementIds));
+        Assert.Equal(2, operation.CoverageRequirementEvidence.Count); // The governing contract is retained for behavior and compilation.
+    }
+    [Fact]
+    public void ScopedImplementationPolicySurvivesSelectionAndMatchingWithoutGlobalDenial()
+    {
+        const string policy = "For the declared analysis, compose the exact preparation and analysis capabilities; another implementation is not authorized.";
+        var inventory = new CapabilityInventory(true, [new("op", "Analyze the declared input", true, "external_effect", "execute")],
+            [new("scope", policy, true, "workflow_policy")], []);
+        var operations = new HashSet<string>(["op"], StringComparer.Ordinal);
+        var physical = new PhysicalCapabilityCatalog([new("physical", "provider", "tool", "analyze", "Declared analysis", [])], 50);
+        var page = Assert.Single(CapabilitySelectionRequests.Build(inventory, physical, false, operations, new HashSet<string>(), 12000));
+        Assert.Contains(policy, page.Prompt);
+        var catalog = new CapabilityCatalog([new("cap", "mcp", "provider", "tool", "analyze", "Declared analysis", [], "Declared analysis", [], [], null, null)], "Declared analysis");
+        var request = Assert.Single(CapabilityMatchingRequests.Build(inventory, catalog, new Dictionary<string, IReadOnlySet<string>> { ["op"] = new HashSet<string>(["cap"]) }, 12000));
+        Assert.Contains(policy, request.Prompt);
+        Assert.Empty(request.Schema["properties"]!["constraint_matches"]!["properties"]!.AsObject());
+        Assert.Equal("workflow_policy", inventory.Constraints.Single().EnforcementKind);
+    }
+    [Fact]
     public void ExclusiveConditionalDomainRejectsASingleAlternativeBeforeDispatch()
     {
         var inventory = new CapabilityInventory(true,
@@ -23,6 +112,25 @@ public sealed class CapabilityMatchingRequestTests
         Assert.NotEmpty(PlanningContractValidation.ValidateInstance(candidate, request.Schema));
         candidate["operation_matches"]!["effect"]!["catalog_ids"] = new JsonArray("a", "b");
         Assert.Empty(PlanningContractValidation.ValidateInstance(candidate, request.Schema));
+    }
+
+    [Fact]
+    public void RequiredPolicyMetadataIsSharedWithoutDroppingIdsOrGoverningText()
+    {
+        var policies = Enumerable.Range(0, 16).Select(i => new CapabilityInventoryConstraint("p" + i, "Declared required policy " + i, true, "workflow_policy")).ToArray();
+        var inventory = new CapabilityInventory(true, [new("op", "Declared operation", true, "external_effect", "read")],
+            [.. policies, new("denied", "Declared denial", true, "exact_denial"), new("optional", "Optional policy", false, "workflow_policy")], []);
+        var prompt = CapabilityInventoryContext.BuildCapabilityMatchingPrompt(inventory, new([], ""));
+        var start = prompt.IndexOf("<runtime_inventory>", StringComparison.Ordinal) + "<runtime_inventory>".Length;
+        var end = prompt.IndexOf("</runtime_inventory>", StringComparison.Ordinal);
+        var context = JsonNode.Parse(prompt[start..end])!.AsObject();
+        Assert.Equal(16, context["required_workflow_policies"]!.AsObject().Count);
+        Assert.All(policies, policy => Assert.Equal(policy.Description, context["required_workflow_policies"]![policy.Id]!.ToString()));
+        Assert.Equal(2, context["constraints"]!.AsArray().Count);
+        var previous = context.DeepClone().AsObject(); previous.Remove("required_workflow_policies");
+        foreach (var policy in policies) previous["constraints"]!.AsArray().Add(new JsonObject
+        { ["id"] = policy.Id, ["description"] = policy.Description, ["required"] = true, ["enforcement_kind"] = "workflow_policy" });
+        Assert.True(PlanningJsonTransport.EstimateInputTokens(previous.ToJsonString(), new()) - PlanningJsonTransport.EstimateInputTokens(context.ToJsonString(), new()) > 300);
     }
 
     [Fact]
@@ -138,6 +246,27 @@ public sealed class CapabilityMatchingRequestTests
             Assert.DoesNotContain(entries.Single(e => e.Id == foreign).Card, request.Prompt);
         }
         Assert.Contains("First declared operation", requests[1].Prompt);
+        Assert.Contains("Second declared operation", requests[0].Prompt);
+        Assert.Contains("Declared downstream operations, matched separately:", requests[0].Prompt);
+    }
+
+    [Fact]
+    public void CrossOperationPolicyKeepsConsumerBoundaryWithoutGrantingConsumerAuthority()
+    {
+        var inventory = new CapabilityInventory(true,
+            [new("prepare", "Prepare an immutable comparison", true, "external_effect", "read"),
+             new("analyze", "Analyze the prepared comparison", true, "external_effect", "execute") { InputOperationIds = ["prepare"] },
+             new("unrelated", "Unrelated external effect", true, "external_effect", "read")],
+            [new("chain", "The analysis implementation uses declared preparation followed by declared analysis.", true, "workflow_policy")], []);
+        var catalog = new CapabilityCatalog(inventory.Operations.Select(o => new CapabilityCatalogEntry("cap_" + o.Id, "mcp", "provider", "tool", o.Id,
+            o.Description, [], "contract_" + o.Id, [], [], null, null)).ToArray(), "");
+        var scopes = inventory.Operations.ToDictionary(o => o.Id, o => (IReadOnlySet<string>)new HashSet<string>(["cap_" + o.Id], StringComparer.Ordinal));
+        var request = CapabilityMatchingRequests.Build(inventory, catalog, scopes, 12000).Single(r => r.Owner == "prepare");
+        Assert.Contains("Analyze the prepared comparison", request.Prompt);
+        Assert.DoesNotContain("Unrelated external effect", request.Prompt);
+        Assert.DoesNotContain("contract_analyze", request.Prompt);
+        Assert.DoesNotContain("cap_analyze", request.Schema.ToJsonString());
+        Assert.Equal("prepare", Assert.Single(request.Schema["properties"]!["operation_matches"]!["properties"]!.AsObject()).Key);
     }
 
     [Fact]

@@ -274,7 +274,7 @@ public sealed partial class PlanningGraphCompiler
             case "object":
                 EnsureUnique(value.Members.Select(m => m.Name), "member");
                 var obj = new JsonObject();
-                foreach (var member in value.Members) obj[member.Name] = LowerValue(member.Value, scope, allowReferences, depth + 1);
+                foreach (var member in value.Members.Where(m => m.Value.Kind != PlanningSkeletonInputs.Omitted)) obj[member.Name] = LowerValue(member.Value, scope, allowReferences, depth + 1);
                 return obj;
             case "array": return new JsonArray(value.Items.Select(v => LowerValue(v, scope, allowReferences, depth + 1)).ToArray());
             case "workflow" when allowReferences:
@@ -374,7 +374,7 @@ public sealed partial class PlanningGraphCompiler
         else if (value.Kind == "object")
         {
             EnsureUnique(value.Members.Select(m => m.Name), "member");
-            expression = "({" + string.Join(",", value.Members.Select(m => JsonSerializer.Serialize(m.Name, PlanningJsonContext.Default.String) + ":" + ExpressionBody(m.Value))) + "})";
+            expression = "({" + string.Join(",", value.Members.Where(m => m.Value.Kind != PlanningSkeletonInputs.Omitted).Select(m => JsonSerializer.Serialize(m.Name, PlanningJsonContext.Default.String) + ":" + ExpressionBody(m.Value))) + "})";
         }
         else if (value.Kind == "array") expression = "[" + string.Join(",", value.Items.Select(ExpressionBody)) + "]";
         else

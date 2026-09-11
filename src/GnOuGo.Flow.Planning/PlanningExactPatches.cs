@@ -53,13 +53,23 @@ internal static class PlanningExactPatches
     internal static JsonObject Schema(IReadOnlyList<Target> targets, JsonObject source)
     {
         if (targets.Count == 0) throw new InvalidOperationException("No exact editable fields were located.");
+        var definitions = source["$defs"]?.DeepClone().AsObject() ?? new JsonObject();
+        var shared = new Dictionary<string, string>(StringComparer.Ordinal);
+        foreach (var group in targets.GroupBy(t => t.Schema.ToJsonString(), StringComparer.Ordinal).Where(g => g.Count() > 1 && g.Key.Length >= 96))
+        {
+            var index = shared.Count;
+            string name;
+            do { name = "patchField" + index++.ToString(System.Globalization.CultureInfo.InvariantCulture); } while (definitions.ContainsKey(name));
+            definitions[name] = group.First().Schema.DeepClone(); shared[group.Key] = name;
+        }
         var schema = PlanningHoleRequests.Object(("patches", new JsonObject
         {
             ["type"] = "array", ["minItems"] = 1, ["maxItems"] = targets.Count,
             ["items"] = new JsonObject { ["anyOf"] = new JsonArray(targets.Select(t => (JsonNode?)PlanningHoleRequests.Object(
-                ("target", PlanningHoleRequests.Enum(t.Id)), ("value", t.Schema.DeepClone().AsObject()))).ToArray()) }
+                ("target", PlanningHoleRequests.Enum(t.Id)), ("value", shared.TryGetValue(t.Schema.ToJsonString(), out var name)
+                    ? new JsonObject { ["$ref"] = "#/$defs/" + name } : t.Schema.DeepClone().AsObject()))).ToArray()) }
         }));
-        if (source["$defs"] is { } definitions) schema["$defs"] = definitions.DeepClone();
+        if (definitions.Count > 0) schema["$defs"] = definitions;
         PlanningHoleRequests.PruneDefinitions(schema); return schema;
     }
     internal static JsonObject Apply(JsonObject payload, JsonObject patches, IReadOnlyList<Target> targets, JsonObject schema)

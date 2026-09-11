@@ -88,7 +88,7 @@ public sealed class CapabilitySelectionRequestTests
     private static CapabilityInventory Inventory() => new(true,
         Operations.Select(id => new CapabilityInventoryOperation(id, "Declared external read", true, "external_effect", "read")
         { CoverageRequirements = ["Shared declared obligation"], CoverageRequirementEvidence = [new("e", "source", 0, 26, "Shared declared obligation")] }).ToArray(),
-        [new("policy", "unrelated policy", true, "workflow_policy")], []);
+        [new("policy", "unrelated policy", false, "workflow_policy")], []);
     private static PhysicalCapabilityCatalog Catalog() => new(Enumerable.Range(1, 100)
         .Select(i => new PhysicalCapabilityEntry($"physical_{i:D6}", "provider", "tool", "m" + i, "Declared metadata: " + new string('x', 900), [])).ToArray(), 100000);
     private static JsonObject Response(string id) => new()

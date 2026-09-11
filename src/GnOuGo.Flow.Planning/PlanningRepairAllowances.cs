@@ -20,6 +20,8 @@ internal static class PlanningRepairAllowances
     internal static void Reserved(PlanningSnapshot state, string workflow, string gate)
     {
         Get(state, workflow, gate).Attempts++;
+        var call = state.Construction.PendingCalls.LastOrDefault(c => c.WorkflowKey == workflow && c.Gate == gate);
+        if (call is not null && state.RequestAccounting.SingleOrDefault(a => a.Id == call.Id) is { } accounting) accounting.Repair = true;
         if (state.Construction.Workflows.SingleOrDefault(w => w.WorkflowKey == workflow) is { } progress)
         { progress.RepairCalls++; progress.Gate = gate; }
     }

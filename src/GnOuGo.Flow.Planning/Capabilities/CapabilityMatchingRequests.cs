@@ -122,7 +122,7 @@ internal static class CapabilityMatchingRequests
             var scoped = inventory with
             {
                 Operations = inventory.Operations.Where(o => operations.Contains(o.Id)).ToArray(),
-                Constraints = inventory.Constraints.Where(c => constraints.Contains(c.Id)).ToArray()
+                Constraints = inventory.Constraints.Where(c => constraints.Contains(c.Id) || c.Required && c.EnforcementKind == "workflow_policy").ToArray()
             };
             var dependencies = new HashSet<string>(StringComparer.Ordinal);
             var pending = new Stack<string>(scoped.Operations.SelectMany(o => o.InputOperationIds.Append(o.DecisionSourceOperationId)));
@@ -134,7 +134,15 @@ internal static class CapabilityMatchingRequests
             }
             var evidence = new JsonObject(inventory.Operations.Where(o => dependencies.Contains(o.Id) && !operations.Contains(o.Id))
                 .Select(o => new KeyValuePair<string, JsonNode?>(o.Id, new JsonObject { ["description"] = o.Description, ["execution_kind"] = o.ExecutionKind, ["inputs"] = new JsonArray(o.InputOperationIds.Select(id => (JsonNode?)JsonValue.Create(id)).ToArray()) })));
-            var prompt = CapabilityInventoryContext.BuildCapabilityMatchingPrompt(scoped, scopedCatalog) + "\nDeclared upstream operations:\n" + evidence.ToJsonString();
+            var prompt = CapabilityInventoryContext.BuildCapabilityMatchingPrompt(scoped, scopedCatalog) + "\nDeclared upstream operations:\n" + PlanningPromptContext.Json(evidence);
+            // A workflow-wide implementation policy can span separately inventoried
+            // effects. Preserve the declared consumer boundary without importing its
+            // capability catalog or allowing this request to match that effect.
+            var consumers = new JsonObject(inventory.Operations.Where(o => !operations.Contains(o.Id) &&
+                    o.InputOperationIds.Append(o.DecisionSourceOperationId).Any(operations.Contains))
+                .Select(o => new KeyValuePair<string, JsonNode?>(o.Id, JsonValue.Create(o.Description))));
+            if (consumers.Count != 0)
+                prompt += "\nDeclared downstream operations, matched separately:\n" + PlanningPromptContext.Json(consumers);
             if (previous is not null)
             {
                 var retained = CapabilityMatchAssessment.TypedMatchingCandidate(previous);
@@ -143,7 +151,7 @@ internal static class CapabilityMatchingRequests
                 foreach (var id in constraints) current[id] = retained["constraint_matches"]![id]!.DeepClone();
                 var diagnostics = new JsonArray(previous.Issues.Where(i => operations.Contains(i.OperationId) || constraints.Contains(i.OperationId))
                     .Select(i => (JsonNode)new JsonObject { ["owner"] = i.OperationId, ["code"] = i.ReasonCode, ["fields"] = new JsonArray(i.InvalidFields.Select(f => (JsonNode?)JsonValue.Create(f)).ToArray()), ["message"] = i.Reason }).ToArray());
-                prompt += "\nRepair these retained decisions only:\n" + current.ToJsonString() + "\nDiagnostics:\n" + diagnostics.ToJsonString();
+                prompt += "\nRepair these retained decisions only:\n" + PlanningPromptContext.Json(current) + "\nDiagnostics:\n" + PlanningPromptContext.Json(diagnostics);
             }
             var tokens = PlanningJsonTransport.EstimateInputTokens(prompt, schema);
             if (tokens > inputCeiling)

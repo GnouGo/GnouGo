@@ -50,8 +50,8 @@ internal static class JsonSchemaInstanceValidator
         }
 
         if (schema["allOf"] is JsonArray allOf)
-            foreach (var variant in allOf.OfType<JsonObject>())
-                ValidateInstanceNode(value, variant, root, path, errors, referenceStack);
+            foreach (var variant in allOf)
+                ValidateChild(value, variant, root, path, errors, referenceStack);
 
         if (schema["anyOf"] is JsonArray anyOf && CountMatchingVariants(value, anyOf, root, path, referenceStack) == 0)
         {
@@ -115,10 +115,10 @@ internal static class JsonSchemaInstanceValidator
     private static int CountMatchingVariants(JsonNode? value, JsonArray variants, JsonObject root, InstanceLocation path, HashSet<string> referenceStack)
     {
         var matches = 0;
-        foreach (var variant in variants.OfType<JsonObject>())
+        foreach (var variant in variants)
         {
             var variantErrors = new List<PlanningInstanceFinding>();
-            ValidateInstanceNode(value, variant, root, path, variantErrors, new HashSet<string>(referenceStack, StringComparer.Ordinal));
+            ValidateChild(value, variant, root, path, variantErrors, new HashSet<string>(referenceStack, StringComparer.Ordinal));
             if (variantErrors.Count == 0)
                 matches++;
         }
@@ -216,9 +216,9 @@ internal static class JsonSchemaInstanceValidator
         var properties = schema["properties"] as JsonObject;
         foreach (var (name, childValue) in obj)
         {
-            if (properties != null && properties.TryGetPropertyValue(name, out var childSchema) && childSchema is JsonObject childObject)
+            if (properties != null && properties.TryGetPropertyValue(name, out var childSchema))
             {
-                ValidateInstanceNode(childValue, childObject, root, path.Child(name), errors, referenceStack);
+                ValidateChild(childValue, childSchema, root, path.Child(name), errors, referenceStack);
                 continue;
             }
             if (schema["additionalProperties"] is JsonValue additionalValue
@@ -240,9 +240,16 @@ internal static class JsonSchemaInstanceValidator
                 for (var j = i + 1; j < array.Count; j++)
                     if (JsonNode.DeepEquals(array[i], array[j]))
                         errors.Add(new(path.Child(j).Pointer, $"{path}: items at indexes {i} and {j} must be unique", "uniqueItems"));
-        if (schema["items"] is JsonObject itemSchema)
-            for (var i = 0; i < array.Count; i++)
-                ValidateInstanceNode(array[i], itemSchema, root, path.Child(i), errors, referenceStack);
+        var prefix = schema["prefixItems"] as JsonArray;
+        for (var i = 0; i < array.Count; i++)
+            ValidateChild(array[i], prefix is not null && i < prefix.Count ? prefix[i] : schema["items"], root, path.Child(i), errors, referenceStack);
+    }
+
+    private static void ValidateChild(JsonNode? value, JsonNode? schema, JsonObject root, InstanceLocation path, List<PlanningInstanceFinding> errors, HashSet<string> referenceStack)
+    {
+        if (schema is JsonObject contract) ValidateInstanceNode(value, contract, root, path, errors, referenceStack);
+        else if (schema is JsonValue boolean && boolean.TryGetValue<bool>(out var allowed) && !allowed)
+            errors.Add(new(path.Pointer, $"{path}: value is not allowed by schema", "false_schema"));
     }
 
     private static void ValidateString(JsonNode? value, JsonObject schema, InstanceLocation path, List<PlanningInstanceFinding> errors)

@@ -47,6 +47,8 @@ internal sealed class PlanningHoleRepair
             }
         var pendingCall = state.Construction.PendingCalls.SingleOrDefault(c => c.Phase == PlanningPhase.Repair && c.WorkflowKey == staged.WorkflowKey);
         var schema = pendingCall?.Request.StructuredOutputSchema?.DeepClone().AsObject() ?? PlanningExactPatches.Schema(scopes, staged.ResponseSchema);
+        if (pendingCall is null && schema["$defs"]?["computationText"] is JsonObject expression)
+            expression["description"] = PlanningComputationScopes.ExpressionDescription;
         var fields = new JsonObject(scopes.Select(s => new KeyValuePair<string, JsonNode?>(s.Id, new JsonObject
         {
             ["path"] = s.Path, ["current"] = PlanningFieldPaths.Read(staged.Payload, s.Path)?.DeepClone()
@@ -65,7 +67,7 @@ internal sealed class PlanningHoleRepair
             PlanningConvergence.Expose(state, relevant, call.Id);
         }
         await runtime.CheckpointAsync(state, ct);
-        var response = await runtime.CallAsync(call.Request, call.Phase, ct);
+        var response = await PlanningModelCalls.DispatchAsync(state, runtime, call, ct);
         state.Construction.PendingCalls.Remove(call);
         if (response.CompletionStatus == "output_limit") PlanningConvergence.Failure(state, staged.WorkflowKey, PlanningGates.Response, call.Id, [new("MODEL_OUTPUT_LIMIT", "$", "The assignment patch reached its output ceiling.")]);
         PlanningModelCalls.RequireComplete(response, call.Request.MaxTokens);

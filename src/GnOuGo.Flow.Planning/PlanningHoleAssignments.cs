@@ -28,11 +28,17 @@ internal static class PlanningHoleAssignments
                 {
                     var contract = JsonSerializer.Deserialize(assignment, PlanningJsonContext.Default.PlanningSchema)!;
                     PlanningGraphValidation.RequireTyped(PlanningGraphCompiler.ToJsonSchema(contract, state.Preparation!), 0);
+                    if (hole.Path.EndsWith("/structuredOutput/schema", StringComparison.Ordinal))
+                    {
+                        var failures = PlanningContractValidation.ValidateSchema(PlanningGraphCompiler.ToJsonSchema(contract, state.Preparation!), strict: true);
+                        if (failures.Count > 0) throw new InvalidOperationException(string.Join("; ", failures));
+                    }
                     value = JsonSerializer.SerializeToNode(contract, PlanningJsonContext.Default.PlanningSchema);
                 }
                 else
                 {
                     var binding = Value(assignment, staged.Bindings, staged.ParameterScopes.GetValueOrDefault(hole.Id));
+                    if (binding is null && hole.Optional) binding = new() { Kind = PlanningSkeletonInputs.Omitted };
                     if (binding is not null)
                     {
                         if (hole.Kind == "default" && !PlanningGraphValidation.IsLiteral(binding)) throw new InvalidOperationException("An input default must be literal.");

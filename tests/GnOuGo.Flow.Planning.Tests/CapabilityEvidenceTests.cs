@@ -1,6 +1,7 @@
 using System.Reflection;
 using System.Collections;
 using System.Text.Json.Nodes;
+using GnOuGo.Flow.Core.Planning;
 using GnOuGo.Flow.Core.Runtime;
 using GnOuGo.Flow.Planning.Capabilities;
 
@@ -8,6 +9,26 @@ namespace GnOuGo.Flow.Planning.Tests;
 
 public sealed class CapabilityEvidenceTests
 {
+    [Fact]
+    public void InventoryEvidenceContractsAreSharedWithoutWeakeningRequiredFields()
+    {
+        var schema = CapabilityInventoryContext.BuildCapabilityInventorySchema();
+        var expanded = schema.DeepClone().AsObject();
+        var evidence = expanded["$defs"]!["evidence"]!;
+        expanded["properties"]!["external_write_confirmation_evidence"] = evidence.DeepClone();
+        foreach (var field in new[] { "optionality_evidence", "no_effect_outcome_evidence" })
+            expanded["properties"]!["operations"]!["items"]!["properties"]![field] = evidence.DeepClone();
+        expanded.Remove("$defs");
+        Assert.Empty(PlanningContractValidation.ValidateSchema(schema, strict: true));
+        var prompt = new string('x', (12018 - 256) * 3 - System.Text.Encoding.UTF8.GetByteCount(expanded.ToJsonString()));
+        Assert.Equal(12018, PlanningJsonTransport.EstimateInputTokens(prompt, expanded));
+        Assert.True(PlanningJsonTransport.EstimateInputTokens(prompt, schema) < 12000);
+        var candidate = JsonNode.Parse("""{"complete":true,"external_write_confirmation_policy":"unspecified","external_write_confirmation_evidence":{"source_id":"","excerpt":""},"incomplete_reasons":[],"operations":[],"constraints":[]}""")!;
+        Assert.Empty(PlanningContractValidation.ValidateInstance(candidate, schema));
+        candidate["external_write_confirmation_evidence"]!.AsObject().Remove("excerpt");
+        Assert.NotEmpty(PlanningContractValidation.ValidateInstance(candidate, schema));
+        Assert.NotEmpty(PlanningContractValidation.ValidateInstance(candidate, expanded));
+    }
 
     [Theory]
     [InlineData("Release the created resource after execution.")]
@@ -58,11 +79,12 @@ public sealed class CapabilityEvidenceTests
             properties["external_write_confirmation_policy"]!["enum"]!.AsArray()
                 .Select(static item => item!.GetValue<string>()));
         Assert.Contains(requiredProperties, static item => item?.GetValue<string>() == "external_write_confirmation_evidence");
-        Assert.Equal("object", properties["external_write_confirmation_evidence"]!["type"]!.GetValue<string>());
+        Assert.Equal("#/$defs/evidence", properties["external_write_confirmation_evidence"]!["$ref"]!.GetValue<string>());
+        Assert.Equal("object", schema["$defs"]!["evidence"]!["type"]!.GetValue<string>());
         Assert.NotNull(operationProperties["input_operation_ids"]);
         Assert.Contains(requiredOperationProperties, static item => item?.GetValue<string>() == "input_operation_ids");
         Assert.NotNull(operationProperties["optionality_evidence"]);
-        Assert.Equal("object", operationProperties["optionality_evidence"]!["type"]!.GetValue<string>());
+        Assert.Equal("#/$defs/evidence", operationProperties["optionality_evidence"]!["$ref"]!.GetValue<string>());
         Assert.Contains(requiredOperationProperties, static item => item?.GetValue<string>() == "optionality_evidence");
         var coverageItemProperties = Assert.IsType<JsonObject>(
             operationProperties["coverage_requirements"]!["items"]!["properties"]);

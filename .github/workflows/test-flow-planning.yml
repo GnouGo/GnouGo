@@ -8,9 +8,11 @@ on:
       - 'src/GnOuGo.Agent.Shared/**'
       - 'tests/GnOuGo.Flow.*/**'
       - 'tests/GnOuGo.Agent.Server.Tests/**'
+      - 'tests/GnOuGo.Agent.Planning.Benchmark/**'
       - '.github/workflows/test-flow-planning.yml'
       - 'GnOuGo.Agent.sln'
       - 'docs/workflow-planning-v2.md'
+      - 'docs/planner-codereview-convergence.md'
   workflow_dispatch:
 
 permissions:
@@ -33,6 +35,8 @@ jobs:
           dotnet test tests/GnOuGo.Agent.Server.Tests/GnOuGo.Agent.Server.Tests.csproj -m:1 -warnaserror /p:SkipClientBuild=true
       - name: Pack planning library
         run: dotnet pack src/GnOuGo.Flow.Planning/GnOuGo.Flow.Planning.csproj -c Release -warnaserror
+      - name: Build isolated live benchmark host
+        run: dotnet build tests/GnOuGo.Agent.Planning.Benchmark/GnOuGo.Agent.Planning.Benchmark.csproj -m:1 -warnaserror -p:SkipClientBuild=true
       - name: Publish and run Native AOT smoke
         run: |
           dotnet publish tests/GnOuGo.Flow.Planning.Smoke/GnOuGo.Flow.Planning.Smoke.csproj -c Release -r linux-x64 --self-contained true -warnaserror -o artifacts/planning-smoke

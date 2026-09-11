@@ -208,7 +208,7 @@ public static class PlanningExecutableValidation
 
     private static JsonNode? Preview(PlanningValue value) => value.Kind switch
     {
-        "object" => new JsonObject(value.Members.Select(m => new KeyValuePair<string, JsonNode?>(m.Name, Preview(m.Value)))),
+        "object" => new JsonObject(value.Members.Where(m => m.Value.Kind != PlanningSkeletonInputs.Omitted).Select(m => new KeyValuePair<string, JsonNode?>(m.Name, Preview(m.Value)))),
         "array" => new JsonArray(value.Items.Select(Preview).ToArray()),
         "workflow" => new JsonObject { ["kind"] = "local", ["name"] = value.Source },
         "input" or "output" or "loop_item" or "loop_index" or "loop_previous" or "artifact_collection" or "expression" or "compute" or "template" => JsonValue.Create("${data.value}"),

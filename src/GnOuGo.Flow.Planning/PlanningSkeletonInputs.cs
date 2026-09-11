@@ -1,4 +1,5 @@
 using System.Text.Json.Nodes;
+using System.Text.Json;
 using GnOuGo.Flow.Core.Planning;
 using GnOuGo.Flow.Core.Runtime;
 
@@ -6,6 +7,59 @@ namespace GnOuGo.Flow.Planning;
 
 internal static class PlanningSkeletonInputs
 {
+    // Explicit absence keeps the canonical member identity stable across staged
+    // assignments. Only deterministic lowering removes it from the request object.
+    internal const string Omitted = "omitted";
+    internal static void GuardFinalizers(PlanningWorkflow workflow, PlanningPreparation preparation)
+    {
+        foreach (var node in PlanningGraphCompiler.Enumerate(workflow.Finally).Where(n => n.If is null))
+            if (FinalizerGuard(workflow, preparation, node) is { } guard) node.If = guard;
+    }
+
+    internal static bool GuardedFinalizerSource(PlanningWorkflow workflow, PlanningPreparation preparation, PlanningNode consumer, string source)
+        => FinalizerSources(workflow, preparation, consumer).Any(n => n.Key == source) &&
+            consumer.If is { Kind: "expression" } condition && condition.Text == FinalizerGuard(workflow, preparation, consumer)?.Text;
+
+    internal static bool FinalizerCompletesOnSuccess(PlanningWorkflow workflow, PlanningPreparation preparation, PlanningNode node)
+        => workflow.Finally.Contains(node) && node.OnError.Count == 0 && node.If is { Kind: "expression" } condition &&
+            condition.Text == FinalizerGuard(workflow, preparation, node)?.Text;
+
+    private static PlanningValue? FinalizerGuard(PlanningWorkflow workflow, PlanningPreparation preparation, PlanningNode node)
+    {
+        var sources = FinalizerSources(workflow, preparation, node);
+        return sources.Count == 0 ? null : new() { Kind = "expression", Text = string.Join(" && ", sources.Select(n =>
+            "data.steps[" + JsonSerializer.Serialize(n.Key, PlanningJsonContext.Default.String) + "] != null")) };
+    }
+
+    private static IReadOnlyList<PlanningNode> FinalizerSources(PlanningWorkflow workflow, PlanningPreparation preparation, PlanningNode node)
+    {
+        if (!PlanningGraphCompiler.Enumerate(workflow.Finally).Contains(node)) return [];
+        var required = PlanningOperationCompositions.RequiredInputs(workflow, node, preparation);
+        if (required.Count == 0) return [];
+        var result = new List<PlanningNode>();
+        foreach (var operation in required)
+        {
+            // An unconditional materializer publishes its original resource only after
+            // successful execution. Failed setup grants no cleanup path or ownership.
+            var producers = Unconditional(workflow.Steps).Where(n => n.Type == "mcp.call" && n.If is null && n.OnError.Count == 0 &&
+                n.OperationIds.Contains(operation) && preparation.Capabilities.SingleOrDefault(c => c.Id == n.CapabilityId)?.ArtifactContract?.Produces.Any(a => a.Mode == "materialize") == true).ToArray();
+            if (producers.Length != 1) return [];
+            result.Add(producers[0]);
+        }
+        return result.DistinctBy(n => n.Key).OrderBy(n => n.Key, StringComparer.Ordinal).ToArray();
+
+        static IEnumerable<PlanningNode> Unconditional(IEnumerable<PlanningNode> nodes)
+        {
+            foreach (var node in nodes.Where(n => n.If is null && n.OnError.Count == 0))
+            {
+                yield return node;
+                // SequenceExecutor shares the parent's step data even when a later
+                // child fails. Branches and loop iterations have different scopes.
+                if (node.Type == "sequence")
+                    foreach (var child in Unconditional(node.Steps)) yield return child;
+            }
+        }
+    }
     internal static void Build(PlanningSnapshot state, PlanningWorkflow workflow, PlanningNode node, string path, PlanningCapability? capability)
     {
         if (node.Type == "human.input" && state.Preparation!.Interactions.Any(i => i.CapabilityId == node.CapabilityId && node.OperationIds.Contains(i.OperationId)))
@@ -42,16 +96,17 @@ internal static class PlanningSkeletonInputs
             var required = (schema["required"] as JsonArray ?? []).Select(v => v!.ToString()).ToHashSet(StringComparer.Ordinal);
             foreach (var (name, field) in properties)
             {
-                if (!required.Contains(name) && !locked.ContainsKey(name)) continue;
                 var memberPath = root + "/members/" + destination.Members.Count + "/value";
                 PlanningValue value;
-                if (field is JsonObject child && child["properties"] is JsonObject children && locked[name] is null or JsonObject)
+                if (locked.ContainsKey(name) && locked[name] is null) value = Literal(null);
+                else if ((required.Contains(name) || locked.ContainsKey(name)) && field is JsonObject child && child["properties"] is JsonObject children && locked[name] is null or JsonObject)
                 { value = new() { Kind = "object" }; Fill(value, children, child, locked[name] as JsonObject ?? new(), memberPath); }
                 else if (locked.TryGetPropertyValue(name, out var literal)) value = Literal(literal);
                 else
                 {
                     value = new() { Kind = PlanningGraphSkeleton.Unresolved };
                     PlanningGraphSkeleton.Add(state, workflow, node, memberPath, "value", node.Purpose + "; argument " + name, field as JsonObject);
+                    state.Construction.Holes[^1].Optional = !required.Contains(name);
                 }
                 destination.Members.Add(new(name, value));
             }

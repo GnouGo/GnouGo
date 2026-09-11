@@ -6,6 +6,64 @@ namespace GnOuGo.Flow.Planning.Tests;
 
 public sealed class ContractPropagationTests
 {
+    [Fact]
+    public void LoopItemConsumerPropagatesNestedArrayInputContractWithoutModelCalls()
+    {
+        var state = HoleSessionTests.Ready(); var workflow = state.Graph!.Workflows[0];
+        workflow.Inputs = [new() { Name = "source", Required = true, Schema = Unknown() }]; workflow.Outputs.Clear();
+        var consumer = new PlanningNode { Key = "consume", Type = "set", Input = Obj(("value", new() { Kind = "loop_item", Source = "each", Path = ["nested"] })), OutputSchema = Object(("value", new() { Type = "integer" })) };
+        workflow.Steps = [new() { Key = "each", Type = "loop.sequential", Input = Obj(("items", new() { Kind = "input", Source = "source" })), Steps = [consumer] }];
+        state.Construction.Holes.Clear(); PlanningGraphSkeleton.Add(state, workflow, null, "/workflows/0/inputs/0/schema", "schema", "Items");
+        Assert.True(PlanningContractPropagation.Resolve(state));
+        Assert.Equal("integer", state.Graph.Workflows[0].Inputs[0].Schema.Items!.Properties.Single().Schema.Type);
+        Assert.Equal("deterministic", Assert.Single(state.Construction.Holes).ResolutionOrigin);
+        Assert.Empty(state.RequestAccounting);
+    }
+
+    [Fact]
+    public void FrozenAdapterContractPropagatesToPublicProjectionWithoutSchemaCalls()
+    {
+        var state = HoleSessionTests.Ready(); var workflow = state.Graph!.Workflows[0];
+        var adapter = workflow.Steps[0]; adapter.InternalRole = "branch_result";
+        adapter.OutputSchema = Object(("outcome", new() { Type = "string", Enum = ["EFFECT", "NO_EFFECT"] }));
+        adapter.Input = Obj(("outcome", Str("NO_EFFECT")));
+        workflow.Outputs[0].Value = new() { Kind = "output", Source = adapter.Key, Path = ["outcome"] };
+        var frozen = PlanningGraphSkeleton.Fingerprint(state.Graph);
+        state.Construction.Holes.Clear(); PlanningGraphSkeleton.Add(state, workflow, null, "/workflows/0/outputs/0/schema", "schema", "Projected outcome");
+        Assert.True(PlanningContractPropagation.Resolve(state));
+        Assert.Equal(new[] { "EFFECT", "NO_EFFECT" }, state.Graph.Workflows[0].Outputs[0].Schema.Enum);
+        Assert.Equal(frozen, PlanningGraphSkeleton.Fingerprint(state.Graph));
+        Assert.Empty(state.RequestAccounting);
+    }
+    [Fact]
+    public void SplitNestedArrayContractsPropagateWithoutSchemaRequests()
+    {
+        var state = HoleSessionTests.Ready(); var workflow = state.Graph!.Workflows[0];
+        workflow.Inputs = [new() { Name = "source", Required = true, Schema = Object(("items", new() { Type = "array", Items = Unknown() })) }];
+        workflow.Steps.Clear();
+        workflow.Outputs = [new() { Name = "result", Schema = Object(("items", new() { Type = "array", Items = new() { Type = "integer" } })), Value = new() { Kind = "input", Source = "source" } }];
+        state.Construction.Holes.Clear();
+        PlanningGraphSkeleton.Add(state, workflow, null, "/workflows/0/inputs/0/schema/properties/0/schema/items", "schema", "Array element contract");
+        Assert.True(PlanningContractPropagation.Resolve(state));
+        Assert.Equal("integer", state.Graph.Workflows[0].Inputs[0].Schema.Properties.Single().Schema.Items!.Type);
+        Assert.True(Assert.Single(state.Construction.Holes).Resolved);
+        Assert.Empty(state.Construction.PendingCalls);
+    }
+
+    [Fact]
+    public void AuthoritativeReferencePropagationPreservesBoundsAndUnions()
+    {
+        var state = HoleSessionTests.Ready(); var workflow = state.Graph!.Workflows[0];
+        var contract = JsonNode.Parse("""{"type":"object","properties":{"value":{"oneOf":[{"type":"number","minimum":1},{"type":"null"}]}},"required":["value"],"additionalProperties":false}""")!.AsObject();
+        state.Preparation!.Capabilities.Add(new() { Id = "declared", OutputSchema = contract });
+        workflow.Inputs = [new() { Name = "source", Required = true, Schema = new() { CapabilityId = "declared", SchemaPointer = "/output" } }];
+        workflow.Steps.Clear(); workflow.Outputs[0].Schema = Unknown(); workflow.Outputs[0].Value = new() { Kind = "input", Source = "source" };
+        state.Construction.Holes.Clear(); PlanningGraphSkeleton.Add(state, workflow, null, "/workflows/0/outputs/0/schema", "schema", "Boundary");
+        Assert.True(PlanningContractPropagation.Resolve(state));
+        Assert.Equal("declared", state.Graph.Workflows[0].Outputs[0].Schema.CapabilityId);
+        Assert.True(JsonNode.DeepEquals(contract, PlanningGraphCompiler.ToJsonSchema(state.Graph.Workflows[0].Outputs[0].Schema, state.Preparation)));
+        Assert.Empty(state.Construction.PendingCalls);
+    }
     private static PlanningSchema Unknown() => new() { Type = PlanningGraphSkeleton.Unresolved };
     private static PlanningSchema Object(params (string Name, PlanningSchema Schema)[] fields) => new()
     { Type = "object", Properties = fields.Select(f => new PlanningPort { Name = f.Name, Required = true, Schema = f.Schema }).ToList() };
@@ -95,6 +153,7 @@ public sealed class ContractPropagationTests
         state.Construction.Holes.Clear(); PlanningGraphSkeleton.Add(state, workflow, node, "/workflows/0/steps/0/outputSchema", "schema", "opaque");
         Assert.False(PlanningContractPropagation.Resolve(state)); Assert.False(state.Construction.Holes.Single().Resolved);
         Assert.Single(state.Preparation.Capabilities.Single().OutputSchema);
+        Assert.Throws<PlanningHoleUnavailableException>(() => PlanningWorkflowConstruction.Batch(state, workflow));
     }
 
     [Fact]

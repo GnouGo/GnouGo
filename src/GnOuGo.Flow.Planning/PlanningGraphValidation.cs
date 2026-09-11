@@ -136,11 +136,12 @@ public static class PlanningGraphValidation
                     var requestIndex = node.Input.Members.FindIndex(m => m.Name == "request");
                     var requestLocation = location + "/input/members/" + requestIndex + "/value";
                     foreach (var name in (capability.InputSchema["required"] as JsonArray ?? []).Select(n => n!.GetValue<string>()))
-                        if (!arguments.Members.Any(m => m.Name == name) && !capability.RequestBindings.Any(b => b.Path == "/" + PlanningSchemaReferences.Escape(name)))
+                        if (!arguments.Members.Any(m => m.Name == name && m.Value.Kind != PlanningSkeletonInputs.Omitted) && !capability.RequestBindings.Any(b => b.Path == "/" + PlanningSchemaReferences.Escape(name)))
                             errors.Add(new("CAPABILITY_ARGUMENT_MISSING", requestLocation, "The selected capability requires argument '" + name + "'.", Rule: "required:" + name));
                     for (var ai = 0; ai < arguments.Members.Count; ai++)
                     {
                         var member = arguments.Members[ai]; var field = requestLocation + "/members/" + ai + "/value";
+                        if (member.Value.Kind == PlanningSkeletonInputs.Omitted) continue;
                         if (argumentSchemas[member.Name] is not JsonObject expected)
                         {
                             if (capability.InputSchema["additionalProperties"]?.ToString() == "false") errors.Add(new("CAPABILITY_ARGUMENT_UNKNOWN", field, "This capability does not declare argument '" + member.Name + "'."));
@@ -365,7 +366,7 @@ public static class PlanningGraphValidation
                     "boolean" => new JsonObject { ["type"] = "boolean" },
                     "template" => new JsonObject { ["type"] = "string" },
                     "null" => new JsonObject { ["type"] = "null" },
-                    "object" => ObjectSchema(value.Members.Select(m => (m.Name, ValueSchema(m.Value, visiting) ?? new JsonObject()))),
+                    "object" => ObjectSchema(value.Members.Where(m => m.Value.Kind != PlanningSkeletonInputs.Omitted).Select(m => (m.Name, ValueSchema(m.Value, visiting) ?? new JsonObject()))),
                     "array" when value.Items.Count == 0 => new JsonObject { ["type"] = "array", ["maxItems"] = 0 },
                     "array" => new JsonObject { ["type"] = "array", ["items"] = new JsonObject { ["anyOf"] = new JsonArray(value.Items.Select(v => (JsonNode?)(ValueSchema(v, visiting) ?? new JsonObject())).ToArray()) } },
                     _ => null
@@ -525,7 +526,7 @@ public static class PlanningGraphValidation
         "string" when value.Text?.Contains("${", StringComparison.Ordinal) != true => JsonValue.Create(value.Text ?? ""),
         "number" => JsonValue.Create(value.Number),
         "boolean" => JsonValue.Create(value.Boolean),
-        "object" => new JsonObject(value.Members.Select(m => new KeyValuePair<string, JsonNode?>(m.Name, Literal(m.Value)))),
+        "object" => new JsonObject(value.Members.Where(m => m.Value.Kind != PlanningSkeletonInputs.Omitted).Select(m => new KeyValuePair<string, JsonNode?>(m.Name, Literal(m.Value)))),
         "array" => new JsonArray(value.Items.Select(Literal).ToArray()),
         _ => throw new InvalidOperationException("A schema configuration requires literals, not data references or expressions.")
     };
@@ -547,16 +548,18 @@ public static class PlanningGraphValidation
     internal static void RequireTyped(JsonObject schema, int depth)
     {
         if (depth > 32) throw new InvalidOperationException("Schema nesting exceeds 32 levels.");
+        if (schema.ContainsKey("const") || schema["enum"] is JsonArray { Count: > 0 }) return;
+        if (schema["allOf"] is JsonArray && PlanningSchemaPropagation.Established(schema)) return;
         var type = schema["type"];
         if (type is null && schema["$ref"] is null && schema["anyOf"] is null && schema["oneOf"] is null)
             throw new InvalidOperationException("An output schema requires a concrete type.");
         if (HasType(type, "object"))
         {
             var properties = schema["properties"] as JsonObject;
-            if ((properties is null || properties.Count == 0) && schema["additionalProperties"] is not JsonObject)
+            if ((properties is null || properties.Count == 0) && schema["additionalProperties"] is not JsonObject && schema["additionalProperties"]?.ToString() != "false")
                 throw new InvalidOperationException("An object output requires declared properties or typed additional properties; required names alone are insufficient.");
         }
-        if (HasType(type, "array") && schema["items"] is not JsonObject)
+        if (HasType(type, "array") && schema["items"] is not JsonObject && !PlanningSchemaPropagation.Established(schema))
             throw new InvalidOperationException("An array output requires typed items.");
         foreach (var child in (schema["properties"] as JsonObject ?? []).Select(p => p.Value).OfType<JsonObject>()) RequireTyped(child, depth + 1);
         if (schema["items"] is JsonObject items) RequireTyped(items, depth + 1);

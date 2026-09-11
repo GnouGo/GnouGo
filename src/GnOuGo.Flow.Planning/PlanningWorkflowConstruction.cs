@@ -6,7 +6,7 @@ using GnOuGo.Flow.Core.Runtime;
 namespace GnOuGo.Flow.Planning;
 
 /// <summary>Coordinates scoped hole assignments; workers never author workflow structure.</summary>
-internal sealed class PlanningWorkflowConstruction
+internal sealed partial class PlanningWorkflowConstruction
 {
     internal async Task AdvanceAsync(PlanningSnapshot state, IPlanningRuntime runtime, CancellationToken ct)
     {
@@ -44,20 +44,8 @@ internal sealed class PlanningWorkflowConstruction
             progress.ResolvedHoles = state.Construction.Holes.Count(h => h.WorkflowKey == workflow.Key && h.Resolved);
             progress.UnresolvedHoles = holes.Length;
             if (holes.Length == 0) { progress.Status = "constructed"; continue; }
-            var schemaHoles = holes.Where(h => h.Kind == "schema").ToArray();
-            if (schemaHoles.Length > 0) holes = schemaHoles;
-            else if (holes.Any(h => h.Kind == "default")) holes = holes.Where(h => h.Kind == "default").ToArray();
-            else
-            {
-                var producer = PlanningGraphCompiler.Enumerate(workflow.Steps.Concat(workflow.Finally))
-                    .FirstOrDefault(n => holes.Any(h => h.NodeKey == n.Key));
-                holes = holes.Where(h => h.NodeKey == producer?.Key).ToArray();
-            }
-            // Coupled argument domains are recalculated after each accepted field.
-            if (holes.Length > 1 && holes[0].Kind == "value" && holes[0].NodeKey is not null &&
-                holes.Any(h => PlanningHoleEligibility.Analyze(state, workflow, h).Outstanding.Count > 0)) holes = holes.Take(1).ToArray();
             PlanningHoleRequests.Request request;
-            try { request = PlanningHoleRequests.Create(state, workflow, holes); }
+            try { (holes, request) = Batch(state, workflow); }
             catch (PlanningHoleUnavailableException error)
             {
                 PlanningConvergence.Failure(state, workflow.Key, PlanningGates.Typed, PlanningGraphCompiler.Fingerprint(state.Graph!),
@@ -78,6 +66,7 @@ internal sealed class PlanningWorkflowConstruction
                 if (progress.ResponseRepairPending) PlanningRepairAllowances.Reserved(state, workflow.Key, PlanningGates.Response);
             }
             PlanningConvergence.Expose(state, holes, call.Id);
+            PlanningConvergence.AttributeHoles(state, call, workflow, holes);
             progress.DependencyFingerprint = DependencyFingerprint(state, progress);
             call.Assignments = new()
             {
@@ -98,12 +87,14 @@ internal sealed class PlanningWorkflowConstruction
         {
             if (result.Error is not null)
             {
+                if (state.RequestAccounting.SingleOrDefault(a => a.Id == result.Item.Call.Id) is { } interrupted) interrupted.Evidence = "unverifiable";
                 var code = result.Error is LLMClientException provider ? "LLM_PROVIDER_" + provider.Kind.ToString().ToUpperInvariant() : "MODEL_DISPATCH_INTERRUPTED";
                 var detail = result.Error is LLMClientException rejected ? " Provider status: " + rejected.StatusCode + "; code: " + rejected.SafeProviderCode + "." : "";
                 var failure = new PlanningDiagnostic(code, result.Item.Progress.WorkflowKey, "The pending request has no verifiable receipt; reconcile it before continuing." + detail);
                 state.Diagnostics.Add(failure); PlanningConvergence.Failure(state, result.Item.Progress.WorkflowKey, PlanningGates.Response, result.Item.Call.Id, [failure]); continue;
             }
             state.Construction.PendingCalls.Remove(result.Item.Call);
+            PlanningConvergence.Receipt(state, result.Item.Call, result.Response!);
             if (result.Response!.CompletionStatus == "output_limit")
             {
                 result.Item.Progress.ResponseRepairPending = true;

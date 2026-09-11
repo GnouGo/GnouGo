@@ -122,7 +122,19 @@ public sealed class PlannerArchitectureTests
         var variant = Assert.Single(request.Schema["properties"]!["assignments"]!["properties"]![hole.Id]!["anyOf"]!.AsArray());
         Assert.Equal(new[] { "kind", "expression" }, variant!["properties"]!.AsObject().Select(p => p.Key));
         Assert.Equal("compute", variant["properties"]!["kind"]!["enum"]![0]!.ToString());
-        Assert.DoesNotContain("$defs", request.Schema.Select(p => p.Key));
+        Assert.Equal(new[] { "computationText" }, request.Schema["$defs"]!.AsObject().Select(p => p.Key));
+        Assert.Empty(PlanningContractValidation.ValidateSchema(request.Schema, strict: true));
         Assert.DoesNotContain("workflows", request.Context.AsObject().Select(p => p.Key));
+    }
+
+    [Fact]
+    public void IndependentBatchesKeepTheExistingHoleAssignmentProtocolAndBudgets()
+    {
+        var state = HoleSessionTests.Ready(); var workflow = state.Graph!.Workflows.Single();
+        var batch = PlanningWorkflowConstruction.Batch(state, workflow);
+        Assert.Equal(new[] { "assignments" }, batch.Request.Schema["properties"]!.AsObject().Select(p => p.Key));
+        Assert.Equal(4, state.SchemaVersion); Assert.Equal(4, state.Request.MaxConcurrency);
+        Assert.Equal(5, state.Request.MaxRepairsPerWorkflowGate);
+        Assert.Equal(12000, state.Request.Generation.MaxInputTokensPerRequest); Assert.Equal(8192, state.Request.Generation.MaxOutputTokens);
     }
 }

@@ -88,11 +88,11 @@ internal sealed partial class PlanningSemanticReview
         if (repair && !pending && PlanningRepairAllowances.Get(state, owner, PlanningGates.Response).Attempts >= state.Request.MaxRepairsPerWorkflowGate)
             throw new SemanticAssessmentException(state.Validation.Assessment.Diagnostics.Concat(new[] { new PlanningDiagnostic("REPAIR_EXHAUSTED", "/semanticReview", "The assessment response repair allowance is exhausted.") }).ToList());
         var sequence = state.Construction.ModelSequence;
-        var call = PlanningModelCalls.Reserve(state, phase, owner, PlanningModelCalls.Request(state, prompt, schema), PlanningGates.Response,
+        var call = PlanningModelCalls.Reserve(state, phase, owner, PlanningModelCalls.Request(state, prompt, schema), PlanningGates.Semantic,
             PlanningGraphCompiler.Fingerprint(state.Validation.Assessment.Fingerprint + schema.ToJsonString()));
         if (repair && sequence != state.Construction.ModelSequence) PlanningRepairAllowances.Reserved(state, owner, PlanningGates.Response);
         await runtime.CheckpointAsync(state, ct);
-        var response = await runtime.CallAsync(call.Request, call.Phase, ct);
+        var response = await PlanningModelCalls.DispatchAsync(state, runtime, call, ct);
         state.Construction.PendingCalls.Remove(call);
         PlanningModelCalls.RequireComplete(response, call.Request.MaxTokens);
         if (response.Json is not JsonObject json || PlanningContractValidation.ValidateInstance(json, schema).Count != 0)

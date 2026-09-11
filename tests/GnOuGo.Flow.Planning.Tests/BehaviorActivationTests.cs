@@ -7,6 +7,50 @@ namespace GnOuGo.Flow.Planning.Tests;
 
 public sealed class BehaviorActivationTests
 {
+    [Fact]
+    public async Task ProvenActivationAliasesConvergeWithoutARepairRequestBeforeHumanReview()
+    {
+        var (plan, preparation) = Fixture("generic_");
+        var decision = plan.Workflows[0].Steps[0];
+        decision.Outcomes[0] = decision.Outcomes[0] with { Key = "effect_alias" };
+        decision.Outcomes[1] = decision.Outcomes[1] with { Key = "no_effect_alias" };
+        foreach (var node in PlanningBehaviorPlans.Enumerate(plan.Workflows[0].Steps)) node.InputDependencies = [];
+        Assert.Contains(PlanningBehaviorPlans.Validate(plan, preparation), d => d.Rule == "behavior_25");
+        var state = TypedPlannerTests.Session(PlanningStatus.Created); state.Intent.Checked = true; state.Preparation = preparation; state.BehaviorPlan = plan;
+        var runtime = new TypedPlannerTests.FakeRuntime();
+        state = await new TypedWorkflowPlanner().AdvanceAsync(state, new() { ExpectedRevision = state.Revision }, runtime, TestContext.Current.CancellationToken);
+        Assert.Equal(PlanningStatus.BehaviorReview, state.Status); Assert.Empty(runtime.Requests);
+        Assert.Null(state.ApprovedBehaviorHash); Assert.Null(state.Graph);
+        var result = state.BehaviorPlan!.Workflows[0].Steps[0];
+        Assert.Equal(new[] { "APPLY", "NO_EFFECT", "unknown" }, result.Outcomes.Select(o => o.Key));
+        Assert.Equal("effect", Assert.Single(result.Outcomes[0].Steps).Key);
+        Assert.Empty(result.Outcomes[1].Steps);
+        var hash = PlanningBehaviorPlans.Fingerprint(state.BehaviorPlan);
+        PlanningBehaviorPlans.CompleteLockedOutcomes(state.BehaviorPlan, preparation);
+        Assert.Equal(hash, PlanningBehaviorPlans.Fingerprint(state.BehaviorPlan));
+    }
+
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public void ActivationCompletionDoesNotSwapValidValuesOrGuessBetweenEmptyOutcomes(bool swap)
+    {
+        var (plan, preparation) = Fixture("generic_"); var decision = plan.Workflows[0].Steps[0];
+        if (swap)
+        {
+            decision.Outcomes[0] = decision.Outcomes[0] with { Key = "NO_EFFECT" };
+            decision.Outcomes[1] = decision.Outcomes[1] with { Key = "APPLY" };
+        }
+        else
+        {
+            decision.Outcomes[1] = decision.Outcomes[1] with { Key = "alias" };
+            decision.Outcomes.Add(new("another_alias", "Another business outcome", false, []));
+        }
+        var before = PlanningBehaviorPlans.Fingerprint(plan);
+        PlanningBehaviorPlans.CompleteLockedOutcomes(plan, preparation);
+        Assert.Equal(before, PlanningBehaviorPlans.Fingerprint(plan));
+        Assert.NotEmpty(PlanningBehaviorPlans.Validate(plan, preparation));
+    }
 
     [Theory]
     [InlineData("default", "Publish result")]

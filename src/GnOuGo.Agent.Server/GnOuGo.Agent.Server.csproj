@@ -52,6 +52,7 @@
   </ItemGroup>
   <ItemGroup>
     <InternalsVisibleTo Include="GnOuGo.Agent.Server.Tests" />
+    <InternalsVisibleTo Include="GnOuGo.Agent.Planning.Benchmark" />
   </ItemGroup>
   <ItemGroup>
     <PackageReference Include="Markdig" Version="1.3.2" />

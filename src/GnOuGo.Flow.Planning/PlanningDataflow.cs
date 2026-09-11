@@ -9,7 +9,7 @@ internal static class PlanningDataflow
 {
     internal const string WorkflowOutputs = "$outputs";
 
-    internal static Dictionary<string, PlanningBinding> Index(PlanningWorkflow workflow, PlanningPreparation preparation, PlanningGraph graph, string? consumer = null)
+    internal static Dictionary<string, PlanningBinding> Index(PlanningWorkflow workflow, PlanningPreparation preparation, PlanningGraph graph, string? consumer = null, bool includeUnresolved = false)
     {
         var result = new Dictionary<string, PlanningBinding>(StringComparer.Ordinal);
         var nodes = PlanningGraphCompiler.Enumerate(workflow.Steps.Concat(workflow.Finally)).ToArray();
@@ -32,7 +32,11 @@ internal static class PlanningDataflow
         {
             JsonObject schema;
             try { schema = resolve(source); }
-            catch (InvalidOperationException) { continue; }
+            catch (InvalidOperationException)
+            {
+                if (includeUnresolved) result[PlanningBindingIdentity.Id(source)] = new(PlanningBindingIdentity.Id(source), workflow.Key, source, new(), "opaque");
+                continue;
+            }
             var paths = Paths(schema, [], 0);
             if (source.Kind == "output" && nodes.FirstOrDefault(n => n.Key == source.Source) is { Type: "parallel" } parallel)
                 paths = paths.Concat(Enumerable.Range(0, parallel.Branches.Count).SelectMany(i =>
@@ -77,6 +81,10 @@ internal static class PlanningDataflow
             if (consumer is null) return true;
             foreach (var condition in Guards(key))
             {
+                // WorkflowEngine evaluates public outputs only after successful
+                // main execution and finalization. The coordinator's materializer
+                // guard is necessarily true on that path, never on failure cleanup.
+                if (consumer == WorkflowOutputs && PlanningSkeletonInputs.FinalizerCompletesOnSuccess(workflow, preparation, nodes.Single(n => n.Key == key))) continue;
                 if (consumer == WorkflowOutputs || !Guards(consumer).Any(guard => JsonNode.DeepEquals(
                     JsonSerializer.SerializeToNode(condition, PlanningJsonContext.Default.PlanningValue),
                     JsonSerializer.SerializeToNode(guard, PlanningJsonContext.Default.PlanningValue)))) return false;
@@ -85,7 +93,8 @@ internal static class PlanningDataflow
             // container outside that body. A direct producer is available only in the same body.
             var path = locations[key]; var target = consumer == WorkflowOutputs ? "/outputs" : locations[consumer];
             // Main execution can stop before any producer; finalizers cannot assume those results exist.
-            if (target.StartsWith("/finally/", StringComparison.Ordinal) && path.StartsWith("/steps/", StringComparison.Ordinal)) return false;
+            if (target.StartsWith("/finally/", StringComparison.Ordinal) && path.StartsWith("/steps/", StringComparison.Ordinal) &&
+                !PlanningSkeletonInputs.GuardedFinalizerSource(workflow, preparation, nodes.Single(n => n.Key == consumer), key)) return false;
             if (target.StartsWith(path + "/", StringComparison.Ordinal)) return false; // An executing ancestor has no completed result yet.
             foreach (var marker in new[] { "/cases/", "/default/", "/branches/" })
             {
@@ -207,12 +216,12 @@ internal static class PlanningDataflow
         return findings;
     }
 
-    internal static (HashSet<string> Operations, HashSet<string> Nodes) OperationDependencies(PlanningWorkflow workflow, PlanningNode node, PlanningPreparation preparation, PlanningGraph? graph = null, HashSet<string>? consumedInputs = null, PlanningValue? inputOverride = null)
+    internal static (HashSet<string> Operations, HashSet<string> Nodes) OperationDependencies(PlanningWorkflow workflow, PlanningNode node, PlanningPreparation preparation, PlanningGraph? graph = null, HashSet<string>? consumedInputs = null, PlanningValue? inputOverride = null, Func<PlanningValue, JsonObject?>? contractResolver = null)
     {
         var located = PlanningGraphValidation.Located(workflow.Steps, "/steps").Concat(PlanningGraphValidation.Located(workflow.Finally, "/finally")).ToArray();
         var path = located.Single(p => p.Node == node).Path;
         var dependencies = new HashSet<string>(StringComparer.Ordinal); var visited = new HashSet<string>(StringComparer.Ordinal);
-        var resolve = PlanningGraphValidation.OptionalValueContractResolver(graph ?? new() { Workflows = [workflow] }, workflow, preparation);
+        var resolve = contractResolver ?? PlanningGraphValidation.OptionalValueContractResolver(graph ?? new() { Workflows = [workflow] }, workflow, preparation);
         IEnumerable<PlanningValue> ValidInputReferences(PlanningNode current)
         {
             if (current.Type != "mcp.call" || current.Input.Kind != "object" ||

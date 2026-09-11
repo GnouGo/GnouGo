@@ -14,15 +14,22 @@ internal static class PlanningHoleRequests
     {
         var definitions = PlanningSchemas.ValueDefinitions().DeepClone().AsObject();
         foreach (var name in definitions.Select(p => p.Key).Where(k => k is not ("schema" or "port" or "value" or "member")).ToArray()) definitions.Remove(name);
+        definitions["computationText"] = PlanningComputationScopes.ExpressionSchema();
         var literalVariants = definitions["value"]!["anyOf"]!.AsArray();
         foreach (var variant in literalVariants.ToArray())
             if (variant?["properties"]?["kind"]?["enum"]?[0]?.ToString() is not ("null" or "string" or "number" or "boolean" or "object" or "array")) literalVariants.Remove(variant);
         // Literal strings are data; the expression variant shares the old string shape.
         literalVariants.Single(v => v!["properties"]!["kind"]!["enum"]![0]!.ToString() == "string")!["properties"]!["kind"]!["enum"] = new JsonArray("string");
+        // Runtime defaults are applied at workflow input boundaries, not to result
+        // contracts. Result-schema choices must not invent unavailable values, and
+        // need no recursive literal/default authoring grammar in their response.
+        if (!holes.Any(h => h.Kind == "schema" && h.NodeKey is null && h.Path.Contains("/inputs/", StringComparison.Ordinal)))
+            definitions["port"]!["properties"]!["default"] = Type("null");
         var relevant = PlanningWorkflowConstruction.RelevantPreparation(state.Preparation!, workflow);
         var capabilities = holes.Select(h => PlanningHoleContracts.Target(workflow, h).Node?.CapabilityId).OfType<string>().ToHashSet(StringComparer.Ordinal);
         relevant.Capabilities = relevant.Capabilities.Where(c => capabilities.Contains(c.Id)).ToList();
-        var references = PlanningSchemaReferences.Index(relevant);
+        var references = PlanningSchemaReferences.Index(relevant).Where(r => PlanningSchemaPropagation.Established(PlanningSchemaReferences.Resolve(
+            new() { CapabilityId = r!["capabilityId"]!.ToString(), SchemaPointer = r["schemaPointer"]!.ToString() }, relevant))).ToArray();
         var schemaVariants = definitions["schema"]!["anyOf"]!.AsArray(); schemaVariants.RemoveAt(0);
         foreach (var group in references.GroupBy(r => r!["capabilityId"]!.ToString(), StringComparer.Ordinal))
             schemaVariants.Add((JsonNode)Object(("kind", Enum("reference")), ("capabilityId", Enum(group.Key)), ("schemaPointer", Enum(group.Select(r => r!["schemaPointer"]!.ToString()).ToArray()))));
@@ -59,12 +66,49 @@ internal static class PlanningHoleRequests
             }
         }
         definitions["objectSchema"] = new JsonObject { ["anyOf"] = objectSchemas };
+        if (holes.Any(h => h.Path.EndsWith("/structuredOutput/schema", StringComparison.Ordinal)))
+        {
+            foreach (var name in new[] { "schema", "objectSchema", "port" })
+            {
+                var strict = definitions[name]!.DeepClone();
+                Rewrite(strict);
+                if (name == "port")
+                { strict["properties"]!["required"] = new JsonObject { ["type"] = "boolean", ["const"] = true }; strict["properties"]!["default"] = Type("null"); }
+                definitions["strict_" + name] = strict;
+            }
+            void Rewrite(JsonNode? current)
+            {
+                if (current is JsonObject obj)
+                {
+                    if (obj["$ref"]?.ToString() is "#/$defs/schema" or "#/$defs/port") obj["$ref"] = "#/$defs/strict_" + obj["$ref"]!.ToString()[8..];
+                    if (obj["properties"]?["kind"]?["enum"]?[0]?.ToString() == "inline") obj["properties"]!["additionalProperties"] = Type("null");
+                    if (obj["properties"]?["kind"]?["enum"]?[0]?.ToString() == "reference")
+                    {
+                        var properties = obj["properties"]!;
+                        var capability = properties["capabilityId"]!["enum"]![0]!.ToString();
+                        var pointers = properties["schemaPointer"]!["enum"]!.AsArray();
+                        foreach (var pointer in pointers.ToArray())
+                        {
+                            var referenced = PlanningSchemaReferences.Resolve(new() { CapabilityId = capability, SchemaPointer = pointer!.ToString() }, relevant);
+                            if (PlanningContractValidation.ValidateSchema(Object(("field", referenced)), true).Count > 0) pointers.Remove(pointer);
+                        }
+                    }
+                    foreach (var child in obj.ToArray()) Rewrite(child.Value);
+                    if (obj["anyOf"] is JsonArray variants)
+                        foreach (var variant in variants.OfType<JsonObject>().Where(v => v["properties"]?["schemaPointer"]?["enum"] is JsonArray { Count: 0 }).ToArray()) variants.Remove(variant);
+                }
+                else if (current is JsonArray array) foreach (var child in array) Rewrite(child);
+            }
+        }
         var fields = new JsonObject(); var descriptions = new JsonObject(); var bindingContext = new JsonObject();
         var bindings = new Dictionary<string, PlanningValue>(StringComparer.Ordinal);
         var parameterScopes = new Dictionary<string, List<string>>(StringComparer.Ordinal);
         foreach (var hole in holes)
         {
             var node = PlanningGraphCompiler.Enumerate(workflow.Steps.Concat(workflow.Finally)).SingleOrDefault(n => n.Key == hole.NodeKey);
+            if (hole.Kind == "schema" && hole.Path.EndsWith("/outputSchema", StringComparison.Ordinal) && node?.Type == "mcp.call" &&
+                state.Preparation!.Capabilities.SingleOrDefault(c => c.Id == node.CapabilityId) is { } external && !PlanningSchemaPropagation.Established(external.OutputSchema))
+                throw new PlanningHoleUnavailableException(hole.CanonicalLocation, "The external result has no authoritative typed contract. Supply provider metadata or clarify the boundary; a model cannot establish an opaque result schema.");
             if (node?.Type == "switch" && PlanningDecisionRouting.Contract(node, state.Preparation!) is not null)
                 throw new InvalidOperationException("The locked decision producer is not available. Establish its contract and provenance before routing.");
             var domain = PlanningHoleEligibility.Analyze(state, workflow, hole);
@@ -85,7 +129,7 @@ internal static class PlanningHoleRequests
                 if (domain.Direct.Any(b => b.Id == binding.Id)) choices.Add((JsonNode)JsonValue.Create(parameter)!);
             }
             var variants = new JsonArray();
-            if (hole.Kind == "schema") fields[hole.Id] = new JsonObject { ["$ref"] = node?.Type == "set" && hole.Path.EndsWith("/outputSchema", StringComparison.Ordinal) ? "#/$defs/objectSchema" : "#/$defs/schema" };
+            if (hole.Kind == "schema") fields[hole.Id] = new JsonObject { ["$ref"] = hole.Path.EndsWith("/structuredOutput/schema", StringComparison.Ordinal) ? "#/$defs/strict_objectSchema" : node?.Type == "set" && hole.Path.EndsWith("/outputSchema", StringComparison.Ordinal) ? "#/$defs/objectSchema" : "#/$defs/schema" };
             else
             {
                 if (choices.Count > 0)
@@ -96,11 +140,11 @@ internal static class PlanningHoleRequests
                 {
                     var parameters = new JsonArray(domain.Parameters.Select(b => (JsonNode?)JsonValue.Create("p_" + b.Id[2..14])).ToArray());
                     parameterScopes[hole.Id] = parameters.Select(p => p!.ToString()).ToList();
-                    variants.Add((JsonNode)Object(("kind", Enum("compute")), ("expression", new JsonObject { ["type"] = "string", ["minLength"] = 1 })));
+                    variants.Add((JsonNode)Object(("kind", Enum("compute")), ("expression", new JsonObject { ["$ref"] = "#/$defs/computationText" })));
                 }
                 if (domain.Literal)
                     variants.Add((JsonNode)Object(("kind", Enum("literal")), ("json", PlanningLiteralSchemas.Create(domain.Contract, hole.CanonicalLocation))));
-                if (hole.Kind == "default") variants.Add((JsonNode)Object(("kind", Enum("absent"))));
+                if (hole.Kind == "default" || domain.Omission) variants.Add((JsonNode)Object(("kind", Enum("absent"))));
                 if (variants.Count == 0) throw new PlanningHoleUnavailableException(hole.CanonicalLocation, "No binding or computation satisfies the field's available contracts and outstanding obligations.");
                 fields[hole.Id] = new JsonObject { ["anyOf"] = variants };
             }
@@ -116,9 +160,44 @@ internal static class PlanningHoleRequests
             var selected = holes.Select(h => PlanningHoleContracts.Target(workflow, h).Node?.CapabilityId).OfType<string>().ToHashSet(StringComparer.Ordinal);
             context["contracts"] = new JsonObject(relevant.Capabilities.Where(c => selected.Contains(c.Id)).Select(c => new KeyValuePair<string, JsonNode?>(c.Id,
                 new JsonObject { ["output"] = c.OutputSchema.DeepClone() })));
+            var sources = new JsonObject();
+            foreach (var hole in holes.Where(h => h.Kind == "schema"))
+            {
+                if (hole.NodeKey is null && hole.Path.Contains("/inputs/", StringComparison.Ordinal)) continue;
+                var node = PlanningHoleContracts.Target(workflow, hole).Node;
+                var obligations = PlanningHoleEligibility.Obligations(state, workflow, node);
+                var included = new List<PlanningBinding>();
+                foreach (var binding in PlanningDataflow.Index(workflow, state.Preparation!, state.Graph!, node?.Key ?? PlanningDataflow.WorkflowOutputs).Values
+                    .OrderBy(b => b.Value.Path.Count).ThenBy(b => b.Id, StringComparer.Ordinal))
+                {
+                    if (!PlanningSchemaPropagation.Established(binding.Schema) || binding.Availability is "opaque" or "absent" ||
+                        node is not null && !PlanningHoleEligibility.Dependencies(state, workflow, node, binding.Value).Overlaps(obligations)) continue;
+                    // A typed parent's contract already contains its descendant
+                    // contracts. Keep the smallest available typed roots, including
+                    // a branch projection when its containing envelope is opaque.
+                    if (included.Any(parent => parent.Value.Kind == binding.Value.Kind && parent.Value.Source == binding.Value.Source && parent.Value.ResultChannel == binding.Value.ResultChannel &&
+                        parent.Value.Path.Count <= binding.Value.Path.Count && parent.Value.Path.SequenceEqual(binding.Value.Path.Take(parent.Value.Path.Count), StringComparer.Ordinal))) continue;
+                    included.Add(binding);
+                    sources[binding.Id] = new JsonObject { ["source"] = PlanningModelValues.Compact(JsonSerializer.SerializeToNode(binding.Value, PlanningJsonContext.Default.PlanningValue)), ["schema"] = binding.Schema.DeepClone() };
+                }
+            }
+            if (sources.Count > 0) context["sourceContracts"] = sources;
+            var consumers = new JsonObject();
+            var producerOperations = holes.Where(h => h.Kind == "schema").Select(h => PlanningHoleContracts.Target(workflow, h).Node)
+                .OfType<PlanningNode>().SelectMany(n => n.OperationIds).ToHashSet(StringComparer.Ordinal);
+            foreach (var consumer in state.Preparation!.Capabilities.Where(c => c.InputOperationIds.Any(producerOperations.Contains)))
+            {
+                var unresolved = new JsonObject();
+                foreach (var target in state.Construction.Holes.Where(h => h.WorkflowKey == workflow.Key && !h.Resolved && !h.Superseded && h.Kind == "value"))
+                    if (PlanningHoleContracts.Target(workflow, target).Node?.CapabilityId == consumer.Id &&
+                        !PlanningHoleEligibility.ArtifactKinds(state, workflow, target).Any() && Expected(state, workflow, target) is { } contract)
+                        unresolved[target.CanonicalLocation] = contract.DeepClone();
+                if (unresolved.Count > 0) consumers[consumer.Id] = new JsonObject { ["obligation"] = consumer.Description, ["unresolvedInputs"] = unresolved };
+            }
+            if (consumers.Count > 0) context["consumerContracts"] = consumers;
         }
         return new("Assign the unresolved fields. Expressions use the supplied parameters; the coordinator retains only referenced parameters. " +
-            PlanningPromptContext.Instructions + "\n" + PlanningPromptContext.Share(context).ToJsonString(), schema, bindings, context) { ParameterScopes = parameterScopes };
+            PlanningPromptContext.Instructions + "\n" + PlanningPromptContext.Json(PlanningPromptContext.Share(context)), schema, bindings, context) { ParameterScopes = parameterScopes };
     }
 
     private static JsonObject BoundaryEvidence(PlanningSnapshot state, PlanningWorkflow workflow)

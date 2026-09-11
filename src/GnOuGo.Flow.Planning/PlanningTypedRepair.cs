@@ -65,7 +65,7 @@ internal sealed class PlanningTypedRepair(PlanningValidationPipeline validation)
             }
             if (call.Assignments is null) throw new PlanningConflictException("The pending repair has no verifiable binding scope. Reconcile its receipt before continuing.");
             await runtime.CheckpointAsync(state, ct);
-            var response = await runtime.CallAsync(call.Request, call.Phase, ct);
+            var response = await PlanningModelCalls.DispatchAsync(state, runtime, call, ct);
             state.Construction.PendingCalls.Remove(call);
             if (response.CompletionStatus == "output_limit") PlanningConvergence.Failure(state, owner ?? "$plan", PlanningGates.Response, call.Id, [new("MODEL_OUTPUT_LIMIT", "$", "The typed patch reached its output ceiling.")]);
             PlanningModelCalls.RequireComplete(response, call.Request.MaxTokens);

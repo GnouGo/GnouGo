@@ -13,13 +13,39 @@ public sealed class PlanningHole
     public string Kind { get; set; } = "value";
     public string Purpose { get; set; } = "";
     public JsonObject? ExpectedSchema { get; set; }
+    /// <summary>The declared argument may be omitted, subject to remaining dependency obligations.</summary>
+    public bool Optional { get; set; }
     public bool Resolved { get; set; }
     public string? ResolutionOrigin { get; set; }
     public bool Superseded { get; set; }
     public List<string> ExposedRequests { get; set; } = [];
     public int? DirectCandidateCount { get; set; }
     public int? ComputationParameterCount { get; set; }
+    public string? ModelRequiredReason { get; set; }
 }
+
+/// <summary>Receipt-backed accounting. Null usage means unavailable, never zero usage.</summary>
+public sealed class PlanningRequestAccounting
+{
+    public string Id { get; set; } = "";
+    public long Revision { get; set; }
+    public string WorkflowKey { get; set; } = "$plan";
+    public string Phase { get; set; } = "";
+    public string Gate { get; set; } = "";
+    public string Purpose { get; set; } = "assessment";
+    public int EstimatedInputTokens { get; set; }
+    public string Evidence { get; set; } = "reserved";
+    public bool? Repair { get; set; }
+    public long? InputTokens { get; set; }
+    public long? OutputTokens { get; set; }
+    public Dictionary<string, string> HoleReasons { get; set; } = new(StringComparer.Ordinal);
+    public int? AvoidableDispatches { get; set; }
+    public int? AvoidableExtraRequests { get; set; }
+}
+
+public sealed record PlanningRequestCounts(string WorkflowKey, string Phase, string Gate, int Reservations, int ModelUsed,
+    int Unverifiable, int EstimatedInputTokens, long? InputTokens, long? OutputTokens, int? AvoidableDispatches, int? AvoidableExtraRequests,
+    int? Repairs = null, int? Failures = null);
 
 /// <summary>Encrypted assignment delta against an exact graph; not a second authoritative graph.</summary>
 public sealed class PlanningStagedAssignments
@@ -52,6 +78,7 @@ public sealed class PlanningGateProgress
     public string Gate { get; set; } = "";
     public int Failures { get; set; }
     public List<string> Evaluations { get; set; } = [];
+    public Dictionary<string, string> EvaluationPhases { get; set; } = new(StringComparer.Ordinal);
 }
 
 public sealed record PlanningGateCounts(string Gate, int Repairs, int Failures);

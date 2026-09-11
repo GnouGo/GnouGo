@@ -29,10 +29,15 @@ internal static class PlanningArtifactBindings
         }
     }
 
-    internal static bool Proves(PlanningWorkflow workflow, PlanningValue value, string kind, PlanningPreparation preparation, PlanningGraph graph, HashSet<string> visited)
+    internal static bool Proves(PlanningWorkflow workflow, PlanningValue value, string kind, PlanningPreparation preparation, PlanningGraph graph, HashSet<string> visited, IReadOnlySet<string>? originOperations = null, string? originNode = null)
     {
-        return PlanningValueProvenance.Proves(workflow, value, graph, (producer, reference) => producer.Type == "mcp.call" &&
-            preparation.Capabilities.FirstOrDefault(c => c.Id == producer.CapabilityId)?.ArtifactContract?.Produces.Any(p =>
-                p.Kind == kind && p.Pointer == "/" + string.Join("/", reference.Path.Select(PlanningSchemaReferences.Escape))) == true);
+        return PlanningValueProvenance.Proves(workflow, value, graph, (producer, reference) =>
+        {
+            var capability = preparation.Capabilities.FirstOrDefault(c => c.Id == producer.CapabilityId);
+            return producer.Type == "mcp.call" &&
+                (originNode is null || producer.Key == originNode && PlanningGraphCompiler.Enumerate(workflow.Steps.Concat(workflow.Finally)).Contains(producer)) &&
+                (originOperations is null || producer.OperationIds.Concat(capability?.OperationIds ?? []).Any(originOperations.Contains)) &&
+                capability?.ArtifactContract?.Produces.Any(p => p.Kind == kind && p.Pointer == "/" + string.Join("/", reference.Path.Select(PlanningSchemaReferences.Escape))) == true;
+        });
     }
 }
