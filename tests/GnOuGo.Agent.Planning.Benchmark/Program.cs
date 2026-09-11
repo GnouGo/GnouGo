@@ -24,6 +24,14 @@ const string evidenceKey = "codereview-bc72dd6";
 var root = AppContext.BaseDirectory;
 var records = KeyVaultRecordStoreFactory.CreateWorkspaceStore(null, root);
 var benchmarkPath = GnOuGoWorkspace.ResolveDatabasePath(Environment.GetEnvironmentVariable("PLANNING_BENCHMARK_DATABASE"), root, ".GnOuGo/data/planner-benchmark/gnougo-planning-v4.db");
+if (args[0] == "replay")
+{
+    if (args.Length != 3 || !long.TryParse(args[2], out var revision)) throw new ArgumentException("Use replay SESSION REVISION. This command cannot make live requests.");
+    using var replayCancellation = new CancellationTokenSource(TimeSpan.FromMinutes(10));
+    Console.CancelKeyPress += (_, e) => { e.Cancel = true; replayCancellation.Cancel(); };
+    await OfflineReplay.RunAsync(new Contexts(benchmarkPath, readOnly: true), records, tenant, args[1], revision, replayCancellation.Token);
+    return;
+}
 Directory.CreateDirectory(Path.GetDirectoryName(benchmarkPath)!);
 var contexts = new Contexts(benchmarkPath);
 await using (var db = contexts.CreateDbContext()) await db.Database.EnsureCreatedAsync();
@@ -48,6 +56,12 @@ if (args[0] == "inspect")
 {
     var value = await store.LoadAsync(tenant, args[1], ct) ?? throw new InvalidOperationException("Session not found.");
     Console.WriteLine(JsonSerializer.Serialize(value, PlanningJsonContext.Default.PlanningSnapshot));
+    return;
+}
+if (args[0] == "inspect-rejection")
+{
+    var value = await records.GetAsync("agent-planning-benchmark-rejections-v4", tenant, args[1], EfPlanningSessionStore.Author, ct);
+    Console.WriteLine(value?.Value ?? "null");
     return;
 }
 if (args[0] is "report" or "summary")
@@ -108,6 +122,16 @@ if (args[0] == "execute")
     return;
 }
 var background = args[0] == "resume" || args[0] == "command" && args.Length > 2 && args[2] == "revise";
+// Preserve the transport's already-redacted rejection before its public failure
+// mapper removes provider details. Private schema coordinates remain encrypted;
+// this observer neither dispatches nor turns a rejection into a model receipt.
+var rejections = new System.Collections.Concurrent.ConcurrentQueue<string>();
+void CaptureRejection(object? sender, System.Runtime.ExceptionServices.FirstChanceExceptionEventArgs error)
+{
+    if (error.Exception is HttpRequestException { StatusCode: System.Net.HttpStatusCode.BadRequest } http)
+        rejections.Enqueue(http.Message);
+}
+AppDomain.CurrentDomain.FirstChanceException += CaptureRejection;
 using var service = new PlanningSessionService(store, contexts, records, runtime, new TypedWorkflowPlanner(), new EcbExchangeRateProvider(ratesHttp),
     Options.Create(new WorkflowPlanningBudgetSettings()), Options.Create(new TypedWorkflowPlanningSettings { BackgroundProcessingEnabled = background }),
     Options.Create(new OpenTelemetrySettings { TenantId = tenant }), NullLogger<PlanningSessionService>.Instance);
@@ -158,11 +182,16 @@ while (!PlanningStatus.IsWaiting(state.Status) && !PlanningStatus.IsTerminal(sta
     else state = await service.SubmitAsync(state.Request.SessionId, new() { Kind = "advance", ExpectedRevision = state.Revision }, ct);
 }
 if (background) await service.StopAsync(ct);
+AppDomain.CurrentDomain.FirstChanceException -= CaptureRejection;
+if (!rejections.IsEmpty)
+    await records.UpsertAsync("agent-planning-benchmark-rejections-v4", tenant, state.Request.SessionId,
+        new JsonArray(rejections.Distinct(StringComparer.Ordinal).Select(message => (JsonNode?)JsonValue.Create(message)).ToArray()).ToJsonString(), EfPlanningSessionStore.Author, ct);
 Console.WriteLine($"session={state.Request.SessionId} revision={state.Revision} status={state.Status} phase={state.CurrentPhase} calls={state.Usage?.Calls ?? 0} artifact={state.ArtifactHash}");
 foreach (var finding in state.Diagnostics) Console.WriteLine($"finding={finding.Code} location={finding.Location}");
 Environment.ExitCode = state.Status is PlanningStatus.FinalReview or PlanningStatus.Approved or PlanningStatus.BehaviorReview ? 0 : 2;
 
-internal sealed class Contexts(string path) : IDbContextFactory<PlanningDbContext>
+internal sealed class Contexts(string path, bool readOnly = false) : IDbContextFactory<PlanningDbContext>
 {
-    public PlanningDbContext CreateDbContext() => new(new DbContextOptionsBuilder<PlanningDbContext>().UseSqlite("Data Source=" + path).Options);
+    public PlanningDbContext CreateDbContext() => new(new DbContextOptionsBuilder<PlanningDbContext>().UseSqlite(new Microsoft.Data.Sqlite.SqliteConnectionStringBuilder
+    { DataSource = path, Mode = readOnly ? Microsoft.Data.Sqlite.SqliteOpenMode.ReadOnly : Microsoft.Data.Sqlite.SqliteOpenMode.ReadWriteCreate }.ToString()).Options);
 }

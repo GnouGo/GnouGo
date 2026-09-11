@@ -27,7 +27,7 @@ internal static class PlanningBehaviorRevision
         var targets = issued.Zip(catalog.Values).ToDictionary(pair => pair.First, pair => pair.Second, StringComparer.Ordinal);
         var context = Context(candidate, catalog);
         var prompt = "Locate only fields affected by the human's requested behavior revision. Select necessary companion changes together. " +
-            "Cite an exact nonempty excerpt from the revision for every selected field. Unrelated behavior and identities remain locked.\nRevision:\n" + revision.Text +
+            "Select each target once, citing one exact nonempty revision excerpt. Unrelated behavior and identities remain locked.\nRevision:\n" + revision.Text +
             "\nFields are grouped by operation; target IDs map to [path, current scalar value or element identity]. " +
             "An anchor maps its alias to [parent-relative path, retained identity]; field paths use those aliases.\nCoordinates:\n" + PlanningPromptContext.Json(context);
         var response = await PlanningModelCalls.StructuredAsync(state, runtime, "behavior_revision_scope", prompt, schema, ct);

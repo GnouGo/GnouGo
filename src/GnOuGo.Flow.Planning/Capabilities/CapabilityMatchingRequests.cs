@@ -143,6 +143,12 @@ internal static class CapabilityMatchingRequests
                 .Select(o => new KeyValuePair<string, JsonNode?>(o.Id, JsonValue.Create(o.Description))));
             if (consumers.Count != 0)
                 prompt += "\nDeclared downstream operations, matched separately:\n" + PlanningPromptContext.Json(consumers);
+            var retainedConsumers = new JsonObject((previous?.OperationMatches ?? []).Where(m => consumers.ContainsKey(m.Operation.Id) &&
+                    m.Status is "matched" or "composed" or "conditional" && !previous!.Issues.Any(i => i.Required && i.OperationId == m.Operation.Id))
+                .Select(m => new KeyValuePair<string, JsonNode?>(m.Operation.Id, new JsonArray(catalog.Entries.Where(e => m.CatalogIds.Contains(e.Id))
+                    .Select(e => (JsonNode)new JsonObject { ["resolution"] = e.Resolution, ["server"] = e.Server, ["method"] = e.Method }).ToArray()))));
+            if (retainedConsumers.Count != 0)
+                prompt += "\nRetained downstream implementations (read-only evidence, outside this matching scope):\n" + PlanningPromptContext.Json(retainedConsumers);
             if (previous is not null)
             {
                 var retained = CapabilityMatchAssessment.TypedMatchingCandidate(previous);

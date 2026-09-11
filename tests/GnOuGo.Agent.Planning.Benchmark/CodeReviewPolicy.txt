@@ -1,5 +1,6 @@
 Benchmark execution policy:
 For this isolated benchmark only, use git_compare_refs followed by copilot_review as the review implementation. Other review implementations are outside this benchmark's execution authority. This constraint does not restrict the production catalog or the original saved session.
+Comparison and analysis are separate effects: git_compare_refs supplies the original comparison; copilot_review consumes it for analysis. Each effect implements its own part of that chain.
 That implementation restriction applies only to code-review analysis. Dependency installation, manifest discovery, linters and tests may use any eligible execution capability, including an interactive execution agent, provided it works in the same owned clone and reports actual command results.
 Generate one reusable workflow accepting a single PR URL and review instructions. The two supplied PR URLs are separate input cases, never two PRs in one execution.
 Create exactly one isolated clone per execution. Install the project's declared dependencies before running available linters, unit tests and integration tests, using only that clone. Account for each review instruction in the returned evidence. Report checks that are absent or cannot run; never treat an unexecuted required check as passing.

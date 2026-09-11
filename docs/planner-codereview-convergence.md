@@ -24,7 +24,7 @@ workflow, with one owned clone per execution.
 
 ## Comparable regressions
 
-- The original operation-op9 matching request fell from **12,810 to 11,410**
+- The original operation-op9 matching request fell from **12,810 to 11,475**
   estimated input tokens at the same checkpoint, with identical candidate IDs and
   response schema. Public fixtures reconstruct every original catalog card after
   lossless sharing. Required workflow policies and structural evidence remain present. An intermediate
@@ -83,11 +83,20 @@ workflow, with one owned clone per execution.
   review projection instead of the staged candidate. Regressions for top-level,
   nested and finalizer decisions now repair the original node in one request while
   retaining neighboring fields and compiler-owned producer insertion.
+- Scoped matching preserves directly declared consumer descriptions and, on
+  recovery, already matched downstream implementation identities as read-only
+  evidence. Consumer catalogs and response authority remain outside that scope.
+  Runs 17 and 18 then passed the previously blocked comparison checkpoint; this
+  does not count as full workflow convergence.
+- Run 18 repeated revision coordinates with different evidence excerpts twice.
+  Asking for one excerpt per target allowed the next bounded scope response to
+  pass. Duplicate coordinates remain rejected; the later behavior patches exhausted
+  their allowance and the candidate was not approved.
 
 ## Retained live attempts
 
-Counts below were observed during work on 2026-09-11. Active runs are provisional.
-Every retry retains its session budget and repair allowance. Runs 01, 09 and 13 have
+Counts below were observed during work on 2026-09-11. All live attempts are stopped.
+Every retry retains its session budget and repair allowance. Runs 01, 09, 13 and 17 have
 unverifiable dispatches and are never redispatched. Runs 02–04 predate the explicit
 review-implementation constraint. Behavior acceptance is not executable approval.
 
@@ -108,9 +117,10 @@ review-implementation constraint. Behavior acceptance is not executable approval
 | 13 | 96 | recovery / repair | 31 | 30 | 126104 | 21874 | 11991 |
 | 14 | 72 | unsupported / capabilities | 22 | 22 | 93667 | 20438 | 11995 |
 | 15 | 77 | recovery / behavior | 26 | 26 | 137793 | 24898 | 11824 |
-| 16 | 84 | created / capabilities | 26 | 26 | 119193 | 23884 | 11911 |
-| 17 | 70 | unsupported / capabilities | 22 | 22 | 100107 | 13451 | 11858 |
-| 18 | 73 | behavior_review / behavior | 23 | 23 | 107407 | 19901 | 11901 |
+| 16 | 138 | unsupported / capabilities | 43 | 43 | 209533 | 34827 | 11977 |
+| 17 | 85 | recovery / behavior | 25 | 24 | 109784 | 16576 | 11858 |
+| 18 | 182 | recovery / behavior | 55 | 55 | 280216 | 47590 | 11901 |
+| 19 | 76 | recovery / capabilities | 21 | 21 | 105885 | 33827 | 11950 |
 
 - 01: provider connection failed after seven verifiable receipts; the remaining dispatch is unverifiable.
 - 02: matching incorrectly required a cleanup primitive to implement workflow finalization; compiler-owned evidence is now excluded from intrinsic matching requirements.
@@ -129,9 +139,10 @@ review-implementation constraint. Behavior acceptance is not executable approval
 - 14: inventory repair needed 12,018 input tokens. Sharing its repeated evidence schema allowed bounded recovery; comparison and cleanup matching remain unresolved.
 - 15: initial behavior omitted three implementations and selected one capability outside its ownership. Five scoped repairs introduced invalid business-input dependencies and were rejected. The allowance is exhausted and retained. New insertion schemas restrict ownership and business-input names before dispatch.
 
-- 16: behavior review selected a configured command that could not establish clone-scoped integration-test execution. It was not accepted; a persisted targeted revision is in progress with unchanged budgets.
-- 17: comparison matching remains unavailable; no behavior has been accepted.
-- 18: behavior review selected configured unit/integration test commands without proof of the owned working directory and treated manifest filenames as manifest contents. It has not been accepted.
+- 16: behavior review selected a configured command that could not establish clone-scoped integration-test execution. It was not accepted. Its persisted revision stopped on unresolved lint execution contracts with unchanged budgets.
+- 17: comparison matching passed after adding the declared downstream boundary. Initial behavior needed repair; request 25 received HTTP 400 without a verifiable receipt and is never redispatched. No behavior has been accepted.
+- 18: behavior review selected configured unit/integration test commands without proof of the owned working directory and treated manifest filenames as manifest contents. It has not been accepted. Its revision passed comparison matching once the already matched downstream implementation was supplied as read-only evidence. Two revision-scope responses repeated targets and were rejected. The third scope passed, but the subsequent behavior repairs exhausted five attempts without a valid accepted candidate.
+- 19: capability matching stopped twice at the 8,192-token output ceiling. The last matching-repair receipt contains no text or structured candidate. Revision 76 is stopped with `MODEL_OUTPUT_LIMIT` at `/preparation`; no behavior plan or graph exists. All 21 dispatches have receipts. No further live request is authorized.
 
 Session identities, for the encrypted evidence ledger:
 
@@ -153,6 +164,7 @@ Session identities, for the encrypted evidence ledger:
 - 16: `458146849ffc40f4a13fb93373d564b9`
 - 17: `c3c0dd776c404bc1a116dcdf36374894`
 - 18: `4c75e60116264d2791a21cf3ae248ee2`
+- 19: `e3fa76e61c51468787b27470eae09eba`
 
 ## Request attribution by workflow, phase and gate
 
@@ -162,7 +174,7 @@ requests; only verifiable receipts count as model use. Repeated observations and
 receipt replay do not increment attribution. Detailed identities remain in traces,
 not metric dimensions.
 
-| Run | Workflow | Phase | Gate | Reserved / receipts | Estimated input | Actual input / output | Repairs / failures |
+| Run | Workflow | Phase | Gate | Reservations / receipts | Estimated input | Actual input / output | Repairs / failures |
 | --- | --- | --- | --- | --- | ---: | --- | --- |
 | 01 | $plan | intent | response_contract | 2 / 2 | 3695 | 1991 / 1102 | unknown / unknown |
 | 01 | $plan | intent_repair | response_contract | 1 / 1 | 2662 | 1584 / 558 | unknown / unknown |
@@ -311,10 +323,10 @@ not metric dimensions.
 | 15 | review_single_pull_request | behavior | behavior_contract | 0 / 0 | 0 | 0 / 0 | 0 / 1 |
 | 16 | $plan | intent | response_contract | 2 / 2 | 4633 | 2349 / 652 | 0 / 0 |
 | 16 | $plan | workflow.plan.capability_inventory | response_contract | 2 / 2 | 13529 | 6819 / 7678 | 0 / 0 |
-| 16 | $plan | workflow.plan.capability_inventory_repair | response_contract | 1 / 1 | 11283 | 6288 / 3916 | 1 / 0 |
-| 16 | $plan | workflow.plan.capability_candidates | response_contract | 4 / 4 | 43696 | 27220 / 2066 | 0 / 0 |
-| 16 | $plan | workflow.plan.capability_matching | response_contract | 13 / 13 | 95613 | 59442 / 5621 | 0 / 0 |
-| 16 | $plan | workflow.plan.capability_matching_repair | response_contract | 1 / 1 | 9811 | 6307 / 628 | 1 / 0 |
+| 16 | $plan | workflow.plan.capability_inventory_repair | response_contract | 2 / 2 | 22771 | 12509 / 7690 | 2 / 0 |
+| 16 | $plan | workflow.plan.capability_candidates | response_contract | 8 / 8 | 88732 | 54856 / 4170 | 0 / 0 |
+| 16 | $plan | workflow.plan.capability_matching | response_contract | 24 / 24 | 177649 | 109308 / 10409 | 0 / 0 |
+| 16 | $plan | workflow.plan.capability_matching_repair | response_contract | 2 / 2 | 20391 | 12924 / 905 | 2 / 0 |
 | 16 | $plan | workflow.plan.capability_coverage_review | response_contract | 1 / 1 | 2203 | 1111 / 393 | 0 / 0 |
 | 16 | $plan | behavior | response_contract | 1 / 1 | 10669 | 6715 / 2849 | 0 / 0 |
 | 16 | review_single_pull_request | behavior_repair | behavior_contract | 1 / 1 | 4589 | 2942 / 81 | 1 / 0 |
@@ -325,15 +337,31 @@ not metric dimensions.
 | 17 | $plan | workflow.plan.capability_inventory_repair | response_contract | 1 / 1 | 10468 | 5783 / 3183 | 1 / 0 |
 | 17 | $plan | workflow.plan.capability_candidates | response_contract | 4 / 4 | 42331 | 26292 / 2780 | 0 / 0 |
 | 17 | $plan | workflow.plan.capability_matching | response_contract | 13 / 13 | 92648 | 57140 / 3753 | 0 / 0 |
-| 17 | $plan | workflow.plan.capability_matching_repair | response_contract | 2 / 2 | 10529 | 6407 / 155 | 2 / 0 |
-| 18 | $plan | intent | response_contract | 1 / 1 | 2219 | 1125 / 398 | 0 / 0 |
+| 17 | $plan | workflow.plan.capability_matching_repair | response_contract | 3 / 3 | 15778 | 9496 / 891 | 3 / 0 |
+| 17 | $plan | behavior | response_contract | 1 / 1 | 10457 | 6588 / 2389 | 0 / 0 |
+| 17 | review_single_pull_request | behavior_repair | behavior_contract | 1 / 0 | 9989 | unknown / unknown | 1 / 0 |
+| 17 | $plan | behavior | behavior_contract | 0 / 0 | 0 | 0 / 0 | 0 / 1 |
+| 17 | review_single_pull_request | behavior | behavior_contract | 0 / 0 | 0 | 0 / 0 | 0 / 1 |
+| 18 | $plan | intent | response_contract | 2 / 2 | 4697 | 2380 / 726 | 0 / 0 |
 | 18 | $plan | intent_repair | response_contract | 1 / 1 | 2985 | 1559 / 369 | 1 / 0 |
-| 18 | $plan | workflow.plan.capability_inventory | response_contract | 1 / 1 | 6667 | 3360 / 3982 | 0 / 0 |
-| 18 | $plan | workflow.plan.capability_inventory_repair | response_contract | 1 / 1 | 11134 | 6243 / 3875 | 1 / 0 |
-| 18 | $plan | workflow.plan.capability_candidates | response_contract | 4 / 4 | 42503 | 26612 / 2490 | 0 / 0 |
-| 18 | $plan | workflow.plan.capability_matching | response_contract | 13 / 13 | 94245 | 58629 / 5062 | 0 / 0 |
-| 18 | $plan | workflow.plan.capability_matching_repair | response_contract | 1 / 1 | 5312 | 3348 / 114 | 1 / 0 |
+| 18 | $plan | workflow.plan.capability_inventory | response_contract | 2 / 2 | 13592 | 6850 / 7798 | 0 / 0 |
+| 18 | $plan | workflow.plan.capability_inventory_repair | response_contract | 2 / 2 | 22943 | 12765 / 7827 | 2 / 0 |
+| 18 | $plan | workflow.plan.capability_candidates | response_contract | 8 / 8 | 86084 | 53672 / 4517 | 0 / 0 |
+| 18 | $plan | workflow.plan.capability_matching | response_contract | 25 / 25 | 185997 | 115355 / 10056 | 0 / 0 |
+| 18 | $plan | workflow.plan.capability_matching_repair | response_contract | 4 / 4 | 24271 | 14578 / 1066 | 4 / 0 |
 | 18 | $plan | behavior | response_contract | 1 / 1 | 10380 | 6531 / 3611 | 0 / 0 |
+| 18 | $plan | workflow.plan.capability_coverage_review | response_contract | 1 / 1 | 2197 | 1117 / 200 | 0 / 0 |
+| 18 | $plan | behavior_revision_scope | response_contract | 3 / 3 | 23353 | 21149 / 2421 | 0 / 0 |
+| 18 | pr_review_with_human_publish_gate | behavior_repair | response_contract | 1 / 1 | 5194 | 3425 / 614 | 1 / 0 |
+| 18 | pr_review_with_human_publish_gate | behavior_repair | behavior_contract | 5 / 5 | 57655 | 40835 / 8385 | 5 / 5 |
+| 18 | pr_review_with_human_publish_gate | behavior | response_contract | 0 / 0 | 0 | 0 / 0 | 0 / 1 |
+| 18 | pr_review_with_human_publish_gate | behavior | behavior_contract | 0 / 0 | 0 | 0 / 0 | 0 / 1 |
+| 19 | $plan | intent | response_contract | 1 / 1 | 2443 | 1234 / 97 | 0 / 0 |
+| 19 | $plan | workflow.plan.capability_inventory | response_contract | 1 / 1 | 6891 | 3469 / 3422 | 0 / 0 |
+| 19 | $plan | workflow.plan.capability_inventory_repair | response_contract | 1 / 1 | 11099 | 6160 / 3656 | 1 / 0 |
+| 19 | $plan | workflow.plan.capability_candidates | response_contract | 4 / 4 | 42593 | 26436 / 3227 | 0 / 0 |
+| 19 | $plan | workflow.plan.capability_matching | response_contract | 13 / 13 | 102120 | 63313 / 15233 | 0 / 0 |
+| 19 | $plan | workflow.plan.capability_matching_repair | response_contract | 1 / 1 | 8846 | 5273 / 8192 | 1 / 0 |
 
 ## Hole accounting
 
@@ -345,6 +373,46 @@ not metric dimensions.
 | 08 | automatic_single_pr_review | 111 | 9 | 62 / 91 | 0 / 5 | unknown / 62 |
 | 09 | review_single_pull_request | 92 | 3 | 10 / 12 | 0 / 3 | unknown / 9 |
 | 13 | review_single_github_pull_request | 102 | 1 | 5 / 8 | 0 / 3 | unknown / 5 |
+
+## Offline continuation and evidence boundary
+
+Live execution stopped after run 19, per the user's instruction. The new benchmark
+`replay` command uses the existing planner and runtime with a receipt-only test
+transport. It reads schema-4 records, opens the EF index read-only, creates no live
+provider or persistence writer, and stops at human review or missing evidence.
+It neither resets persisted allowances nor turns local accounting into live usage.
+
+Replaying immutable revision **74** of run 19 (the pending call-21 reservation)
+produced the same first blocker: `MODEL_OUTPUT_LIMIT` at `/preparation`, after
+one local advance and one replayed receipt, with **zero provider dispatches**.
+The saved revision, call index and encrypted budget were verified unchanged.
+The repair scope and candidate validation use the current production code; no
+complete matching candidate exists to patch locally. The earlier captured matching
+decisions still report unresolved review artifact input and cleanup capability
+coverage. Those model decisions are not authority to infer missing operation edges,
+change classifications or grant new capabilities. No speculative production fix was
+added for the truncated response.
+
+New generic regressions cover truncated matching repair with both null and
+schema-valid partial JSON, retained decisions, a single request and recorded usage;
+receipt replay isolation; changed content, identities and owners; missing or
+unverifiable evidence; and cancellation. Existing downstream-context regression
+continues to prove that retained implementation evidence grants no response authority
+over the consumer. The preceding fixes and their comparable results are listed above.
+
+This offline continuation passed 16 matching tests and 53 Agent.Server planning
+tests (including ten new replay/truncation cases), the benchmark build with warnings
+treated as errors, and all 18 frozen fixture self-checks. The fixture self-checks
+still do not constitute execution of a generated workflow. No provider call was
+made during this continuation. Broader release checks remain pending below.
+
+The next missing evidence is a complete response to the matching-repair scope whose
+captured estimate is **8,846 input tokens**, with an unchanged **8,192 output-token
+ceiling** (the failed receipt recorded 5,273 actual input tokens). This describes
+one request, not a forecast for the full session: remaining preparation, behavior,
+construction and validation calls are unknown. Repeating the same request may
+truncate again. Any live continuation requires explicit approval; no new session
+will start automatically. Overall convergence remains **0 successful live runs**.
 
 ## Outstanding acceptance
 

@@ -22,6 +22,6 @@ That intermediate request omitted governing policies from matching. The current
 request retains required policies and distinguishes workflow evidence from intrinsic
 capability requirements; it fit at 11,837 tokens without losing that evidence.
 Sharing the required-policy classification once, while retaining each policy ID
-and exact description, reduces the current request to **11,410 tokens**.
+and exact description, reduces the current request to **11,475 tokens**.
 The candidate IDs and the 2,644-character response schema are unchanged.
 These are preparation checkpoint measurements, not end-to-end call savings.

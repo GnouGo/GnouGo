@@ -24,6 +24,7 @@ dotnet run --no-build --project tests/GnOuGo.Agent.Planning.Benchmark -- capture
 dotnet run --no-build --project tests/GnOuGo.Agent.Planning.Benchmark -- start CodeReviewConvergence01
 dotnet run --no-build --project tests/GnOuGo.Agent.Planning.Benchmark -- inspect SESSION
 dotnet run --no-build --project tests/GnOuGo.Agent.Planning.Benchmark -- summary SESSION
+dotnet run --no-build --project tests/GnOuGo.Agent.Planning.Benchmark -- replay SESSION CAPTURED_REVISION
 dotnet run --no-build --project tests/GnOuGo.Agent.Planning.Benchmark -- verify-fixtures frozen
 dotnet run --no-build --project tests/GnOuGo.Agent.Planning.Benchmark -- command SESSION accept_behavior EXACT_BEHAVIOR_HASH
 dotnet run --no-build --project tests/GnOuGo.Agent.Planning.Benchmark -- command SESSION revise "Concrete behavior revision"
@@ -40,6 +41,23 @@ never retry an unverifiable dispatch or reset its budget. Three independent succ
 sessions are required; a preparation checkpoint alone is not a successful benchmark.
 `summary` emits redacted usage and convergence counts without prompts, responses or
 candidate payloads. `report` includes individual durable receipt identities and usage.
+`replay` runs the production planner in memory from an immutable captured revision,
+using its frozen catalog and exact encrypted request/receipt pairs. Use the revision
+containing the pending reservation to reproduce a stopped response. The planning
+index is opened read-only; no provider, budget sink, journal writer or session writer
+is created. New identities, changed request contents and missing receipts stop replay
+without a fallback. Truncated and invalid receipts pass unchanged to the production
+validators. Human review remains a stopping point. Output contains only redacted
+state, diagnostic locations and replay counts; it verifies the saved session, call
+index and budget stayed unchanged. In-memory replay accounting is not new live usage.
+Running `replay` on an already waiting revision performs no advance.
+
+Live commands (`start`, `resume`, `command`, `execute`) require separate authorization
+after an offline evidence boundary; replay never invokes them. The current CodeReview
+run is stopped, and no new live session is authorized automatically.
+Provider HTTP 400 details observed by the harness are retained only in encrypted
+benchmark records. `inspect-rejection SESSION` reads this private evidence to stdout;
+filter it in memory just like `inspect`. A rejection is never a completed model receipt.
 `revise` and `resume` use Agent.Server's persisted background revision queue; ordinary
 benchmark advancement is explicit. Run only one background benchmark host per
 isolated database, since restart recovery discovers every active session there.

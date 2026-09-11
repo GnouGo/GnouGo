@@ -206,6 +206,41 @@ public sealed class CapabilityMatchingRequestTests
         }
     }
 
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task TruncatedMatchingRepairRetainsDecisionsAndStopsWithoutAnotherRequest(bool hasPartialCandidate)
+    {
+        var inventory = new CapabilityInventory(true, [new("op", "Explicit confirmation", true, "human_interaction", "none")], [], []);
+        var catalog = new CapabilityCatalog([new("cap", "native", null, null, "human.input", "Human input", [], "Human input", [], [], null, null)], "Human input");
+        var previous = new CapabilityMatchingEvaluation([new(inventory.Operations[0], "unavailable", "Missing decision", [], [])], [], [], true);
+        var retained = CapabilityMatchAssessment.TypedMatchingCandidate(previous);
+        var state = new PlanningSnapshot { PreparationCheckpoint = new() };
+        state.PreparationCheckpoint.ValidatedResults["matching_candidate"] = retained.DeepClone();
+        var partial = await new LocalMatcher().CallAsync(new(), TestContext.Current.CancellationToken);
+        var runtime = new TypedPlannerTests.FakeRuntime
+        {
+            OnCall = (_, _, _) => Task.FromResult(new LLMResponse { CompletionStatus = "output_limit", Json = hasPartialCandidate ? partial.Json : null,
+                Usage = new JsonObject { ["output_tokens"] = 8192 } })
+        };
+        var ctx = new StepExecutionContext
+        {
+            Engine = new WorkflowEngine(), Step = new() { Source = new() { Id = "planning", Type = "workflow.plan" } },
+            PreparationCheckpoint = state.PreparationCheckpoint, PlanningGeneration = new(),
+            PlanningModelDispatcher = (request, phase, ct) => PlanningModelCalls.CallAsync(state, runtime, phase, request, ct)
+        };
+        var error = await Assert.ThrowsAsync<WorkflowRuntimeException>(() => CapabilityMatchingRequests.CallAsync(ctx, new LocalMatcher(), inventory, catalog,
+            [], null, "fixture", "low", TestContext.Current.CancellationToken, previous));
+        Assert.Equal("MODEL_OUTPUT_LIMIT", error.Code);
+        Assert.Equal("workflow.plan.capability_matching_repair", Assert.Single(runtime.Phases));
+        Assert.True(JsonNode.DeepEquals(retained, state.PreparationCheckpoint.ValidatedResults["matching_candidate"]));
+        Assert.Single(state.PreparationCheckpoint.ValidatedResults);
+        Assert.Empty(state.Construction.PendingCalls);
+        Assert.Equal("receipt", Assert.Single(state.RequestAccounting).Evidence);
+        Assert.Equal(8192, state.RequestAccounting[0].OutputTokens);
+        Assert.Null(state.BehaviorPlan); Assert.Null(state.Graph);
+    }
+
     [Fact]
     public void MatchingScopesKeepUnrelatedImplementationsOutOfPromptsAndResponseSchemas()
     {
@@ -267,6 +302,14 @@ public sealed class CapabilityMatchingRequestTests
         Assert.DoesNotContain("contract_analyze", request.Prompt);
         Assert.DoesNotContain("cap_analyze", request.Schema.ToJsonString());
         Assert.Equal("prepare", Assert.Single(request.Schema["properties"]!["operation_matches"]!["properties"]!.AsObject()).Key);
+        var previous = new CapabilityMatchingEvaluation(
+            [new(inventory.Operations[0], "unavailable", "Missing downstream implementation", [], []),
+             new(inventory.Operations[1], "matched", "Declared analysis", ["cap_analyze"], [])], [], [], true);
+        var repaired = Assert.Single(CapabilityMatchingRequests.Build(inventory, catalog, scopes, 12000, previous));
+        Assert.Contains("Retained downstream implementations", repaired.Prompt);
+        Assert.Contains("\"method\":\"analyze\"", repaired.Prompt);
+        Assert.DoesNotContain("cap_analyze", repaired.Schema.ToJsonString());
+        Assert.DoesNotContain("contract_analyze", repaired.Prompt);
     }
 
     [Fact]
