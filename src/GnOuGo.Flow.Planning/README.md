@@ -75,8 +75,11 @@ contracts stop without reopening the unfiltered catalog.
 Matching context shares repeated catalog text and emits ordinary UTF-8 JSON without
 HTML escaping. Candidate IDs and expanded contract text are preserved exactly.
 Required workflow policies remain in selection and matching context even when they
-do not constitute global catalog denials. Workflow structure evidence is distinguished
-from intrinsic capability requirements, so implementation restrictions remain visible.
+do not constitute global catalog denials. Validated workflow structure evidence is
+carried separately as planner-owned requirements for behavior validation, construction
+and compilation. Capability matching evaluates intrinsic primitives and required
+argument/artifact contracts; a primitive need not implement finalizer scheduling.
+Implementation restrictions and original-artifact ownership remain mandatory.
 
 Semantic review uses established graph contracts for local values. Generic native
 executor schemas do not override business outputs or grant capability-revision

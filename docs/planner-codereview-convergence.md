@@ -121,6 +121,7 @@ review-implementation constraint. Behavior acceptance is not executable approval
 | 17 | 85 | recovery / behavior | 25 | 24 | 109784 | 16576 | 11858 |
 | 18 | 182 | recovery / behavior | 55 | 55 | 280216 | 47590 | 11901 |
 | 19 | 76 | recovery / capabilities | 21 | 21 | 105885 | 33827 | 11950 |
+| 20 | 64 | unsupported / capabilities | 20 | 20 | 100179 | 17489 | 11923 |
 
 - 01: provider connection failed after seven verifiable receipts; the remaining dispatch is unverifiable.
 - 02: matching incorrectly required a cleanup primitive to implement workflow finalization; compiler-owned evidence is now excluded from intrinsic matching requirements.
@@ -143,6 +144,7 @@ review-implementation constraint. Behavior acceptance is not executable approval
 - 17: comparison matching passed after adding the declared downstream boundary. Initial behavior needed repair; request 25 received HTTP 400 without a verifiable receipt and is never redispatched. No behavior has been accepted.
 - 18: behavior review selected configured unit/integration test commands without proof of the owned working directory and treated manifest filenames as manifest contents. It has not been accepted. Its revision passed comparison matching once the already matched downstream implementation was supplied as read-only evidence. Two revision-scope responses repeated targets and were rejected. The third scope passed, but the subsequent behavior repairs exhausted five attempts without a valid accepted candidate.
 - 19: capability matching stopped twice at the 8,192-token output ceiling. The last matching-repair receipt contains no text or structured candidate. Revision 76 is stopped with `MODEL_OUTPUT_LIMIT` at `/preparation`; no behavior plan or graph exists. All 21 dispatches have receipts. No further live request is authorized.
+- 20: the single fresh run from frozen `a2b81f3` stopped on cleanup capability matching. Its complete receipt required catalog entries to implement finalizer scheduling and preserve original failures. The inventory had already classified both as workflow structure. No behavior plan, graph, executable validation or approval was reached; no retry or second live session followed.
 
 Session identities, for the encrypted evidence ledger:
 
@@ -165,6 +167,7 @@ Session identities, for the encrypted evidence ledger:
 - 17: `c3c0dd776c404bc1a116dcdf36374894`
 - 18: `4c75e60116264d2791a21cf3ae248ee2`
 - 19: `e3fa76e61c51468787b27470eae09eba`
+- 20: `43c7d728e6c54455b1abb3a706689dfb`
 
 ## Request attribution by workflow, phase and gate
 
@@ -362,6 +365,12 @@ not metric dimensions.
 | 19 | $plan | workflow.plan.capability_candidates | response_contract | 4 / 4 | 42593 | 26436 / 3227 | 0 / 0 |
 | 19 | $plan | workflow.plan.capability_matching | response_contract | 13 / 13 | 102120 | 63313 / 15233 | 0 / 0 |
 | 19 | $plan | workflow.plan.capability_matching_repair | response_contract | 1 / 1 | 8846 | 5273 / 8192 | 1 / 0 |
+| 20 | $plan | intent | response_contract | 1 / 1 | 2443 | 1234 / 357 | 0 / 0 |
+| 20 | $plan | workflow.plan.capability_inventory | response_contract | 1 / 1 | 6891 | 3469 / 3900 | 0 / 0 |
+| 20 | $plan | workflow.plan.capability_inventory_repair | response_contract | 1 / 1 | 11605 | 6302 / 3541 | 1 / 0 |
+| 20 | $plan | workflow.plan.capability_candidates | response_contract | 4 / 4 | 44817 | 27508 / 2775 | 0 / 0 |
+| 20 | $plan | workflow.plan.capability_matching | response_contract | 12 / 12 | 95018 | 57996 / 6658 | 0 / 0 |
+| 20 | $plan | workflow.plan.capability_matching_repair | response_contract | 1 / 1 | 6055 | 3670 / 258 | 1 / 0 |
 
 ## Hole accounting
 
@@ -413,6 +422,59 @@ one request, not a forecast for the full session: remaining preparation, behavio
 construction and validation calls are unknown. Repeating the same request may
 truncate again. Any live continuation requires explicit approval; no new session
 will start automatically. Overall convergence remains **0 successful live runs**.
+
+## Single-session validation from frozen commit
+
+The next user-authorized validation froze **`a2b81f365de1f18a3e067e7c2723bbdbfcbd1797`**
+after the full offline planning CI test set passed: 584 Planning, 63 Integrations,
+841 Flow.Core and 321 Agent.Server tests (**1,809 total**). No deterministic
+regression was found and no production code changed before the live run.
+The planning NuGet package and benchmark host built with warnings treated as errors.
+The published macOS ARM64 Native AOT planning/encrypted-persistence smoke passed
+under the existing documented Jint/Darwin publish exceptions.
+
+All 18 frozen transport fixture self-checks passed. Receipt-only replays of run 19
+revision 74, run 13 revision 95 and run 17 revision 84 reproduced their recorded
+output-limit or unverifiable-receipt boundaries with zero provider dispatches and
+unchanged persisted state. Immutable run 08 revision 119 retained graph fingerprint
+`a2806d4b0de2951bb0d71ef62475f7bd18502e444f2ae151832d6e7a8e666a64`
+and all 34 resolved fields among 111 active holes.
+
+The frozen catalog fingerprint remains
+`792eebc5c700c51dd30fa69fd4680dee8b65fb8b8bc35ed9611bd2a61762fc43`.
+The unchanged benchmark policy file SHA-256 is
+`b92002cf07ef660981dc5c758d775be40589045d14df706cf454ca3c58e52604`.
+One fresh session, `CodeReviewConvergence20_a2b81f3`, was authorized after these
+checks. A failure permits offline diagnosis and repair, not another live start.
+Only complete independent execution and exact-hash approval satisfy a successful
+session; preparation or behavior review alone does not.
+
+Run 20 ended at revision 64 after **20 calls / 117,668 tokens**, with all receipts
+persisted. The first blocker is `CAPABILITY_CONTRACT_UNRESOLVED` at
+`/preparation/matching_issues/0`, for the required owned-resource cleanup operation.
+Classification: a matching-request responsibility error followed by a semantic
+model rejection, not a token ceiling, transport error or compiler failure. The
+matching prompt explicitly delegated workflow enforcement to capability composition,
+although the captured inventory marked these obligations as `workflow_structure`.
+
+The offline correction moves those exact classified excerpts into a separate
+`planner_owned_requirements` map and assigns enforcement to behavior validation,
+construction and compilation. Intrinsic requirements, artifact arguments, policies,
+catalog scope and the response schema retain their authority. No names or keywords
+are inspected and no captured match is promoted to success. Two new generic cases
+(initial matching and repair with exclusively structural evidence) failed before
+the fix and passed afterward; all **586 planning tests** and **53 Agent.Server
+planning tests** passed, and the benchmark host rebuilt without warnings.
+Receipt-only replay from run 20 revision 60 consumed its one captured receipt and
+retained the same unavailable result with zero provider calls and unchanged saved
+session, call index and budget. Replay validates the captured response; it cannot
+predict a new response to the corrected request.
+
+This corrects the responsibility expressed by the request. It does not establish
+that a future response will select a valid owned-path deletion contract: the recorded
+response also questioned that proof. Its unavailable result remains preserved.
+No independent execution or exact-hash approval is possible without a completed
+artifact. Another live run is not authorized by this failed attempt.
 
 ## Outstanding acceptance
 

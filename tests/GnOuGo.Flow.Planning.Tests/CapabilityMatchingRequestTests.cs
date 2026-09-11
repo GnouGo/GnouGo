@@ -78,9 +78,43 @@ public sealed class CapabilityMatchingRequestTests
         var context = JsonNode.Parse(request.Prompt[start..end])!;
         Assert.Contains("Release", context["operations"]![0]!["coverage_requirements"]!.ToJsonString());
         Assert.DoesNotContain(structural, context["operations"]![0]!["coverage_requirements"]!.ToJsonString());
-        Assert.Equal(structural, context["operations"]![0]!["workflow_requirements"]![0]!.ToString());
+        Assert.Equal(structural, context["planner_owned_requirements"]!["op"]![0]!.ToString());
         Assert.Equal("structure", Assert.Single(operation.WorkflowStructureCoverageRequirementIds));
         Assert.Equal(2, operation.CoverageRequirementEvidence.Count); // The governing contract is retained for behavior and compilation.
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void StructureOnlyEvidenceHasPlannerOwnershipInInitialAndRepairMatching(bool repair)
+    {
+        const string structure = "Release the owned resource after success, failure or cancellation; retain the original failure.";
+        const string primitiveContract = "Deletes the resource supplied through the required original owned_resource argument.";
+        var operation = new CapabilityInventoryOperation("effect", structure, true, "external_effect", "lifecycle")
+        {
+            InputOperationIds = ["producer"],
+            CoverageRequirementEvidence = [new("structure", "request", 0, structure.Length, structure)],
+            WorkflowStructureCoverageRequirementIds = ["structure"]
+        };
+        var inventory = new CapabilityInventory(true, [new("producer", "Receive the declared original resource", true, "local_processing", "none"), operation],
+            [new("ownership", "Only the original owned artifact is authorized.", true, "workflow_policy")], []);
+        var catalog = new CapabilityCatalog([new("cap", "mcp", "provider", "tool", "operation", primitiveContract, [], primitiveContract, [], [], null, null)], primitiveContract);
+        var previous = repair ? new CapabilityMatchingEvaluation([new(operation, "unavailable", "Missing workflow scheduling", [], [])], [], [], true) : null;
+        var request = Assert.Single(CapabilityMatchingRequests.Build(inventory, catalog,
+            new Dictionary<string, IReadOnlySet<string>> { ["effect"] = new HashSet<string>(["cap"]) }, 12000, previous));
+        var start = request.Prompt.IndexOf("<runtime_inventory>", StringComparison.Ordinal) + "<runtime_inventory>".Length;
+        var end = request.Prompt.IndexOf("</runtime_inventory>", StringComparison.Ordinal);
+        var context = JsonNode.Parse(request.Prompt[start..end])!;
+        Assert.Equal(structure, context["planner_owned_requirements"]?["effect"]?[0]?.GetValue<string>());
+        var matchedOperation = context["operations"]![0]!.AsObject();
+        Assert.False(matchedOperation.ContainsKey("workflow_requirements"));
+        Assert.False(matchedOperation.ContainsKey("coverage_requirements"));
+        Assert.Equal("producer", matchedOperation["input_operation_ids"]![0]!.GetValue<string>());
+        Assert.Contains(primitiveContract, request.Prompt);
+        Assert.Equal("Only the original owned artifact is authorized.", context["required_workflow_policies"]!["ownership"]!.GetValue<string>());
+        Assert.Equal(structure, operation.CoverageRequirementEvidence.Single().Excerpt);
+        Assert.Equal("structure", Assert.Single(operation.WorkflowStructureCoverageRequirementIds));
+        Assert.Equal("effect", Assert.Single(request.Schema["properties"]!["operation_matches"]!["properties"]!.AsObject()).Key);
     }
     [Fact]
     public void ScopedImplementationPolicySurvivesSelectionAndMatchingWithoutGlobalDenial()

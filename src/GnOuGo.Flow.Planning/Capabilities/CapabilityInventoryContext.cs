@@ -310,20 +310,25 @@ internal static class CapabilityInventoryContext
                 ["requirement"] = evidence.Excerpt,
                 ["enforcement_kind"] = CapabilityContractCoverageEnforcementKind
             }).ToArray()),
-            ["workflow_requirements"] = new JsonArray(operation.CoverageRequirementEvidence.Where(e => operation.WorkflowStructureCoverageRequirementIds.Contains(e.Id))
-                .Select(evidence => (JsonNode?)JsonValue.Create(evidence.Excerpt)).ToArray()),
             ["decision_source_operation_id"] = operation.DecisionSourceOperationId,
             ["allow_no_effect_outcome"] = operation.AllowNoEffectOutcome
         }).ToArray());
         foreach (var operation in operations.OfType<JsonObject>())
         {
-            foreach (var field in new[] { "input_operation_ids", "coverage_requirements", "workflow_requirements" })
+            foreach (var field in new[] { "input_operation_ids", "coverage_requirements" })
                 if (operation[field] is JsonArray { Count: 0 }) operation.Remove(field);
             // The scoped response schema already excludes conditional matching
             // when no decision producer exists. Do not repeat empty selector facts.
             if (operation["decision_source_operation_id"]?.ToString() == "")
             { operation.Remove("decision_source_operation_id"); operation.Remove("allow_no_effect_outcome"); }
         }
+        // Matching selects intrinsic primitives; it cannot implement orchestration.
+        // Retain validated structural evidence under its actual enforcement owner,
+        // including operations whose evidence consists entirely of mixed structure.
+        var plannerRequirements = new JsonObject(inventory.Operations.Where(o => o.WorkflowStructureCoverageRequirementIds.Count > 0)
+            .Select(o => new KeyValuePair<string, JsonNode?>(o.Id, new JsonArray(o.CoverageRequirementEvidence
+                .Where(e => o.WorkflowStructureCoverageRequirementIds.Contains(e.Id))
+                .Select(e => (JsonNode?)JsonValue.Create(e.Excerpt)).ToArray()))));
         var policies = new JsonObject(inventory.Constraints.Where(c => c.Required && c.EnforcementKind == "workflow_policy")
             .Select(c => new KeyValuePair<string, JsonNode?>(c.Id, JsonValue.Create(c.Description))));
         var constraints = new JsonArray(inventory.Constraints.Where(c => !c.Required || c.EnforcementKind != "workflow_policy").Select(static constraint => (JsonNode)new JsonObject
@@ -334,7 +339,7 @@ internal static class CapabilityInventoryContext
             ["enforcement_kind"] = constraint.EnforcementKind
         }).ToArray());
         return $$"""
-            Match intrinsic contracts from declared evidence. Enforce workflow requirements in composition and obey implementation policies.
+            Match intrinsic contracts from declared evidence and obey implementation policies. Planner-owned requirements are enforced by behavior validation, workflow construction and compilation; they do not require an individual catalog entry to implement orchestration. Required argument and original-artifact contracts still apply.
             {{conditionalGuidance}}
             Use minimal sufficient entries; compositions contain necessary parts, never alternatives.
             Variants inherit whole-tool contracts: use the most specific sufficient fixed selectors, whole tools for dynamic enums. complete_operation wrappers replace internal phases.
@@ -342,7 +347,7 @@ internal static class CapabilityInventoryContext
             Reuse upstream producers; include lifecycle/cleanup prerequisites. Mark unsatisfied contracts unavailable; identify missing contract fields without private values.
 
             <runtime_inventory>
-            {{PlanningPromptContext.Json(new JsonObject { ["operations"] = operations, ["required_workflow_policies"] = policies, ["constraints"] = constraints })}}
+            {{PlanningPromptContext.Json(new JsonObject { ["operations"] = operations, ["planner_owned_requirements"] = plannerRequirements, ["required_workflow_policies"] = policies, ["constraints"] = constraints })}}
             </runtime_inventory>
 
             <capability_catalog>
