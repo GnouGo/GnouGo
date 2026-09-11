@@ -8,6 +8,59 @@ namespace GnOuGo.Flow.Planning.Tests;
 public sealed class SemanticReviewTests
 {
     [Fact]
+    public void LocalReviewUsesExecutableContractsAndCannotChallengeTheGenericExecutorSchema()
+    {
+        var graph = Graph(); var preparation = Preparation();
+        var node = graph.Workflows[0].Steps[0];
+        var capability = new PlanningCapability { Id = "local", StepType = "set" };
+        preparation.Capabilities.Add(capability); node.CapabilityId = capability.Id;
+        capability.Resolution = "local";
+        capability.OutputSchema = new JsonObject { ["type"] = "object", ["additionalProperties"] = true };
+        node.OutputSchema = new() { Type = "object", Properties = [new() { Name = "message", Required = true, Schema = new() { Type = "string" } }] };
+        var context = PlanningSemanticReview.SemanticCapabilities(graph, preparation);
+        Assert.Empty(context["schemas"]!.AsObject());
+        Assert.Null(Assert.Single(context["capabilities"]!.AsArray())!["outputSchema"]);
+        var targets = PlanningSemanticReview.SemanticTargets(graph, preparation);
+        Assert.DoesNotContain("/workflows/0/steps/0/preparation", targets.Keys);
+        Assert.Contains("/workflows/0/steps/0/behavior", targets.Keys);
+        Assert.Contains("message", PlanningSemanticContext.Executable(graph).ToJsonString());
+        capability.Resolution = "mcp";
+        Assert.Contains("/workflows/0/steps/0/preparation", PlanningSemanticReview.SemanticTargets(graph, preparation).Keys);
+    }
+
+    [Theory]
+    [InlineData("unchanged", true)]
+    [InlineData("graph", false)]
+    [InlineData("contracts", false)]
+    [InlineData("fixtures", false)]
+    [InlineData("behavior", false)]
+    [InlineData("external", false)]
+    public void InvalidReviewTargetsRequireUnchangedEvidenceBeforeAssessmentOnlyRecovery(string change, bool allowed)
+    {
+        var state = Session(PlanningStatus.Recovery); state.Graph = Graph(); state.Preparation = Preparation();
+        state.Preparation.Capabilities.Add(new() { Id = "local", StepType = "set", Resolution = change == "external" ? "mcp" : "local" });
+        state.Graph.Workflows[0].Steps[0].CapabilityId = "local";
+        PlanningFixtures.Accept(state);
+        state.Validation.Stage = 4;
+        state.Validation.GraphFingerprint = PlanningGraphCompiler.Fingerprint(state.Graph);
+        state.Validation.ContractFingerprint = PlanningContext.Contracts(state);
+        state.Validation.FixtureFingerprint = PlanningContext.Fixtures(state);
+        state.Diagnostics = [new("arbitrary_code", "/workflows/0/steps/0/preparation", "An arbitrary assessment message."),
+            new("GOVERNING_CONTRACT_REVIEW_REQUIRED", "$", "Human review required.")];
+        state.RepairAllowances.Add(new() { WorkflowKey = "main", Gate = PlanningGates.Semantic, Attempts = 2 });
+        if (change == "graph") state.Graph.Summary += "changed";
+        if (change == "contracts") state.Preparation.Capabilities[0].Description += "changed";
+        if (change == "fixtures") state.Validation.Inputs = new JsonObject { ["changed"] = true };
+        if (change == "behavior") state.Diagnostics[0] = state.Diagnostics[0] with { Location = "/workflows/0/behavior" };
+        var before = PlanningGraphCompiler.Fingerprint(state.Graph);
+        Assert.Equal(allowed, PlanningSemanticReview.ReassessInvalidTargets(state));
+        Assert.Equal(before, PlanningGraphCompiler.Fingerprint(state.Graph));
+        Assert.Equal(2, Assert.Single(state.RepairAllowances).Attempts);
+        Assert.Equal(2, state.Diagnostics.Count);
+        if (allowed) Assert.Equal(1, state.Validation.Assessment.Attempts);
+    }
+
+    [Fact]
     public void ReviewIndexDistinguishesDefaultChildrenFromTheFollowingAdapter()
     {
         var graph = Graph();
@@ -45,7 +98,7 @@ public sealed class SemanticReviewTests
     [Fact]
     public void SemanticFindingsOfferOnlyExactExecutableFieldsAndGoverningReviewLocations()
     {
-        var graph = Graph(); var targets = PlanningSemanticReview.SemanticTargets(graph);
+        var graph = Graph(); var targets = PlanningSemanticReview.SemanticTargets(graph, Preparation());
         Assert.Contains("/workflows/0/steps/0/input/members/0/value", targets.Keys);
         Assert.Contains("/workflows/0/steps/0/behavior", targets.Keys);
         Assert.DoesNotContain("/workflows/0/steps/0/input", targets.Keys);

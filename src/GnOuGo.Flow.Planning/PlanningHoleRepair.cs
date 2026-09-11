@@ -33,30 +33,60 @@ internal sealed class PlanningHoleRepair
         var scopes = PlanningExactPatches.Scope(staged.Payload, staged.ResponseSchema, staged.Diagnostics);
         if (scopes.Count == 0) { PlanningContext.Stop(state, "REPAIR_SCOPE_UNRESOLVED", "The staged findings identify no exact editable fields.", staged.WorkflowKey); return; }
         if (!pending && !PlanningRepairAllowances.Available(state, staged.WorkflowKey, gate)) return;
-        var schema = PlanningExactPatches.Schema(scopes, staged.ResponseSchema);
+        var relevant = staged.Targets.Where(h => scopes.Any(s => s.Path == "/assignments/" + h.Id || s.Path.StartsWith("/assignments/" + h.Id + "/", StringComparison.Ordinal))).ToArray();
+        if (!pending)
+            foreach (var hole in relevant)
+            {
+                var bindingTarget = scopes.SingleOrDefault(t => t.Path == "/assignments/" + hole.Id + "/binding");
+                if (bindingTarget is null) continue;
+                var domain = PlanningHoleEligibility.Analyze(state, state.Graph!.Workflows.Single(w => w.Key == staged.WorkflowKey), hole);
+                var eligible = domain.Direct.Select(b => b.Id).ToHashSet(StringComparer.Ordinal);
+                var ids = staged.Bindings.Where(b => eligible.Contains(PlanningBindingIdentity.Id(b.Value))).Select(b => b.Key).ToArray();
+                if (ids.Length == 0) throw new PlanningHoleUnavailableException(hole.CanonicalLocation, "Resolve the producer contract before repairing this binding; no admissible source remains.");
+                scopes[scopes.IndexOf(bindingTarget)] = bindingTarget with { Schema = PlanningHoleRequests.Enum(ids) };
+            }
+        var pendingCall = state.Construction.PendingCalls.SingleOrDefault(c => c.Phase == PlanningPhase.Repair && c.WorkflowKey == staged.WorkflowKey);
+        var schema = pendingCall?.Request.StructuredOutputSchema?.DeepClone().AsObject() ?? PlanningExactPatches.Schema(scopes, staged.ResponseSchema);
         var fields = new JsonObject(scopes.Select(s => new KeyValuePair<string, JsonNode?>(s.Id, new JsonObject
         {
             ["path"] = s.Path, ["current"] = PlanningFieldPaths.Read(staged.Payload, s.Path)?.DeepClone()
         })));
-        var relevant = staged.Targets.Where(h => scopes.Any(s => s.Path == "/assignments/" + h.Id || s.Path.StartsWith("/assignments/" + h.Id + "/", StringComparison.Ordinal))).ToArray();
-        var context = PlanningHoleRequests.Create(state, state.Graph!.Workflows.Single(w => w.Key == staged.WorkflowKey), relevant);
-        var prompt = "Repair the exact fields identified by target IDs. Preserve every other assignment.\n" + fields.ToJsonString() + "\n" +
-            JsonSerializer.Serialize(staged.Diagnostics, PlanningJsonContext.Default.ListPlanningDiagnostic) + "\n" + context.Prompt;
+        // Retain the staged parameter identities and response schema across restart. Current
+        // eligibility is checked again before commit; recreating a request cannot alter a receipt.
+        var context = PlanningHoleRepairContext.Create(state, staged, relevant);
+        var prompt = "Repair the exact fields identified by target IDs.\n" + fields.ToJsonString() + "\n" +
+            JsonSerializer.Serialize(staged.Diagnostics, PlanningJsonContext.Default.ListPlanningDiagnostic) + "\n" +
+            PlanningPromptContext.Instructions + PlanningPromptContext.Share(context).ToJsonString();
         var before = state.Construction.ModelSequence;
         var call = PlanningModelCalls.Reserve(state, PlanningPhase.Repair, staged.WorkflowKey, PlanningModelCalls.Request(state, prompt, schema), gate, staged.ScopeFingerprint);
-        if (before != state.Construction.ModelSequence) PlanningRepairAllowances.Reserved(state, staged.WorkflowKey, gate);
+        if (before != state.Construction.ModelSequence)
+        {
+            PlanningRepairAllowances.Reserved(state, staged.WorkflowKey, gate);
+            PlanningConvergence.Expose(state, relevant, call.Id);
+        }
         await runtime.CheckpointAsync(state, ct);
         var response = await runtime.CallAsync(call.Request, call.Phase, ct);
-        state.Construction.PendingCalls.Remove(call); PlanningModelCalls.RequireComplete(response, call.Request.MaxTokens);
-        if (response.Json is not JsonObject patches) { PlanningContext.Stop(state, "PATCH_INVALID", "A complete exact-field response is required."); return; }
+        state.Construction.PendingCalls.Remove(call);
+        if (response.CompletionStatus == "output_limit") PlanningConvergence.Failure(state, staged.WorkflowKey, PlanningGates.Response, call.Id, [new("MODEL_OUTPUT_LIMIT", "$", "The assignment patch reached its output ceiling.")]);
+        PlanningModelCalls.RequireComplete(response, call.Request.MaxTokens);
+        if (response.Json is not JsonObject patches)
+        {
+            PlanningConvergence.Failure(state, staged.WorkflowKey, PlanningGates.Response, call.Id, [new("PATCH_INVALID", "$", "A complete exact-field response is required.")]);
+            PlanningContext.Stop(state, "PATCH_INVALID", "A complete exact-field response is required."); return;
+        }
         JsonObject candidate;
         try { candidate = PlanningExactPatches.Apply(staged.Payload, patches, scopes, schema); }
-        catch (InvalidOperationException error) { PlanningContext.Stop(state, "PATCH_INVALID", error.Message); return; }
+        catch (InvalidOperationException error)
+        {
+            PlanningConvergence.Failure(state, staged.WorkflowKey, PlanningGates.Response, call.Id, [new("PATCH_INVALID", "$", error.Message)]);
+            PlanningContext.Stop(state, "PATCH_INVALID", error.Message); return;
+        }
         var hash = PlanningGraphCompiler.Fingerprint(candidate.ToJsonString());
         if (hash == PlanningGraphCompiler.Fingerprint(staged.Payload.ToJsonString()) || staged.RejectedCandidates.Contains(hash, StringComparer.Ordinal))
         { PlanningContext.Stop(state, "REPAIR_REPEATED", "The repair repeated a staged candidate."); return; }
         var previous = staged.Payload; staged.Payload = candidate;
         var (graph, findings) = PlanningHoleAssignments.Evaluate(state, staged);
+        PlanningConvergence.Failure(state, staged.WorkflowKey, findings.Any(d => d.Code == "HOLE_RESPONSE_INVALID") ? PlanningGates.Response : PlanningGates.Typed, hash, findings);
         var oldIds = staged.Diagnostics.Where(d => d.Required).Select(d => PlanningFieldPaths.DiagnosticId(d, previous)).ToHashSet(StringComparer.Ordinal);
         var newIds = findings.Where(d => d.Required).Select(d => PlanningFieldPaths.DiagnosticId(d, candidate)).ToHashSet(StringComparer.Ordinal);
         var nextStage = findings.Any(d => d.Code == "HOLE_RESPONSE_INVALID") ? 0 : 1;

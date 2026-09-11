@@ -32,6 +32,15 @@ internal static class PlanningWorkflowProvenance
         return found;
     }
 
+    internal static IEnumerable<string> RequiredAtInvocation(PlanningGraph graph, PlanningWorkflow workflow, PlanningNode consumer, PlanningPreparation preparation)
+    {
+        if (!graph.Workflows.SelectMany(w => PlanningGraphCompiler.Enumerate(w.Steps.Concat(w.Finally))).Any(n => Target(n) == workflow.Key)) yield break;
+        var local = PlanningGraphCompiler.Enumerate(workflow.Steps.Concat(workflow.Finally)).SelectMany(n => n.OperationIds
+            .Concat(preparation.Capabilities.FirstOrDefault(c => c.Id == n.CapabilityId)?.OperationIds ?? [])).ToHashSet(StringComparer.Ordinal);
+        foreach (var operation in PlanningOperationCompositions.RequiredInputs(workflow, consumer, preparation))
+            if (!local.Contains(operation)) yield return operation;
+    }
+
     internal static IReadOnlyList<PlanningDiagnostic>? InputFindings(PlanningGraph graph, PlanningWorkflow callee,
         string requiredOperation, IReadOnlySet<string> consumedInputs, PlanningPreparation preparation)
     {

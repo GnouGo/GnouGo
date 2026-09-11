@@ -98,16 +98,24 @@ public sealed class PlanningSessionLifecycleTests
         finally { await service.StopAsync(Ct); }
     }
 
-    [Fact]
-    public async Task NaturalLanguageCommand_IsPersistedBeforeDispatch_AndResumesAfterRestart()
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task NaturalLanguageCommand_IsPersistedBeforeDispatch_AndResumesAfterRestart(bool stagedBehavior)
     {
         await using var fixture = await PlanningPersistenceTests.StoreFixture.CreateAsync();
         var state = State(PlanningStatus.FinalReview);
+        if (stagedBehavior)
+        {
+            state.Status = PlanningStatus.Recovery; state.Graph = null; state.BehaviorPlan = null;
+            state.BehaviorAssessment.Candidate = new JsonObject { ["summary"] = "Retained invalid behavior" };
+        }
         Assert.True(await fixture.Store.TrySaveAsync(state, null, Ct));
         var seen = new TaskCompletionSource<string>(TaskCreationOptions.RunContinuationsAsynchronously);
         var planner = new DelegatePlanner((snapshot, command, _, _) =>
         {
-            Assert.Equal(PlanningStatus.FinalReview, snapshot.Status);
+            Assert.Equal(stagedBehavior ? PlanningStatus.Recovery : PlanningStatus.FinalReview, snapshot.Status);
+            if (stagedBehavior) Assert.Equal("Retained invalid behavior", snapshot.BehaviorAssessment.Candidate!["summary"]!.ToString());
             Assert.Equal("revise", command.Kind);
             var next = JsonSerializer.Deserialize(JsonSerializer.Serialize(snapshot, PlanningJsonContext.Default.PlanningSnapshot), PlanningJsonContext.Default.PlanningSnapshot)!;
             next.Revision++; next.Status = PlanningStatus.BehaviorReview;

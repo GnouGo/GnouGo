@@ -294,7 +294,7 @@ internal static class CapabilityPrerequisites
     }
 
     internal static List<McpServerDiscovery> ExpandSelectedOperationalArtifactPrerequisites(
-        IReadOnlyList<McpServerDiscovery>? selected, IReadOnlyList<McpServerDiscovery> complete, string userInstruction)
+        IReadOnlyList<McpServerDiscovery>? selected, IReadOnlyList<McpServerDiscovery> complete)
     {
         var result = selected?.Select(CloneDiscovery).ToList() ?? new List<McpServerDiscovery>();
         if (result.Count == 0 || complete.Count == 0)

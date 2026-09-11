@@ -46,9 +46,11 @@ internal static class PlanningDataflow
                 try
                 {
                     var contract = resolve(value);
-                    var conditional = source.Kind == "output" && (Guards(source.Source!).Any() ||
+                    var conditional = consumer is null && source.Kind == "output" && (Guards(source.Source!).Any() ||
                         new[] { "/cases/", "/default/", "/branches/" }.Any(marker => locations[source.Source!].Contains(marker, StringComparison.Ordinal)));
                     var availability = conditional ? "conditional" : contract.Count == 0 ? "opaque" : Nullable(contract) ? "nullable" : "unconditional";
+                    if (source.Kind == "input" && workflow.Inputs.Single(p => p.Name == source.Source) is { Required: false } input &&
+                        (input.Default is null || !PlanningGraphValidation.IsLiteral(input.Default) || PlanningContractValidation.ValidateInstance(PlanningGraphValidation.Literal(input.Default), PlanningGraphCompiler.ToJsonSchema(input.Schema, preparation)).Count > 0)) availability = "absent";
                     var id = PlanningBindingIdentity.Id(value);
                     result[id] = new(id, workflow.Key, value, contract, availability);
                 }
@@ -82,6 +84,8 @@ internal static class PlanningDataflow
             // Results inside conditional/parallel/loop bodies are addressed through the completed
             // container outside that body. A direct producer is available only in the same body.
             var path = locations[key]; var target = consumer == WorkflowOutputs ? "/outputs" : locations[consumer];
+            // Main execution can stop before any producer; finalizers cannot assume those results exist.
+            if (target.StartsWith("/finally/", StringComparison.Ordinal) && path.StartsWith("/steps/", StringComparison.Ordinal)) return false;
             if (target.StartsWith(path + "/", StringComparison.Ordinal)) return false; // An executing ancestor has no completed result yet.
             foreach (var marker in new[] { "/cases/", "/default/", "/branches/" })
             {
@@ -126,7 +130,15 @@ internal static class PlanningDataflow
     internal static IEnumerable<PlanningValue> References(PlanningValue value)
     {
         if (value.Kind is "input" or "output" or "loop_item" or "loop_index" or "loop_previous" or "artifact_collection") yield return value;
-        foreach (var child in value.Members.Select(m => m.Value).Concat(value.Items)) foreach (var reference in References(child)) yield return reference;
+        var members = value.Members.AsEnumerable();
+        if (value.Kind == "compute")
+        {
+            HashSet<string> used;
+            try { used = PlanningComputationScopes.Used(new Acornima.Parser().ParseExpression(PlanningComputations.Expression(value.Text)), value.Members.Select(m => m.Name).ToArray()); }
+            catch (Exception ex) when (ex is InvalidOperationException or Acornima.ParseErrorException) { yield break; }
+            members = members.Where(m => used.Contains(m.Name));
+        }
+        foreach (var child in members.Select(m => m.Value).Concat(value.Items)) foreach (var reference in References(child)) yield return reference;
     }
 
     internal static HashSet<string> BusinessInputs(PlanningWorkflow workflow, PlanningNode node)

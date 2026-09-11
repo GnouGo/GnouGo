@@ -106,7 +106,7 @@ public sealed class PlanningSessionService(
             if (current.Revision != command.ExpectedRevision) throw new PlanningConflictException("The planning session changed. Reload before submitting.");
             if (command.Kind == "revise")
             {
-                if (current.Graph is null && current.BehaviorPlan is null || string.IsNullOrWhiteSpace(command.Text) || current.Status is PlanningStatus.Saved or PlanningStatus.Saving or PlanningStatus.Cancelled)
+                if (current.Graph is null && current.BehaviorPlan is null && current.BehaviorAssessment.Candidate is null || string.IsNullOrWhiteSpace(command.Text) || current.Status is PlanningStatus.Saved or PlanningStatus.Saving or PlanningStatus.Cancelled)
                     throw new PlanningConflictException("This session cannot accept a revision request.");
                 current.PendingCommand = new(current.Status, command);
                 current.Status = PlanningStatus.Revising;
@@ -300,6 +300,7 @@ public sealed class PlanningSessionService(
 
     private void ObserveTransition(PlanningSnapshot current, PlanningSnapshot result, Stopwatch sw, Activity? activity)
     {
+        PlanningConvergenceTelemetry.Observe(current, result, (name, tags) => activity?.AddEvent(new ActivityEvent(name, tags: new ActivityTagsCollection(tags))));
         var phase = PlanningPhase.Resolve(result);
         activity?.SetTag("gnougo.planning.phase", phase);
         activity?.SetTag("gnougo.planning.revision", result.Revision);

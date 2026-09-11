@@ -11,6 +11,33 @@ namespace GnOuGo.Flow.Planning.Tests;
 public sealed class BehaviorRecoveryTests
 {
     [Fact]
+    public async Task TruncatedInitialBehaviorRetriesConsumeTheResponseGateAllowance()
+    {
+        var state = Behavior(); state.Request.MaxRepairsPerWorkflowGate = 1;
+        var runtime = new FakeRuntime { OnCall = (_, _, _) => Task.FromResult(new LLMResponse { CompletionStatus = "output_limit" }) };
+        state = await HoleSessionTests.Advance(state, runtime);
+        Assert.Equal(PlanningStatus.Recovery, state.Status); Assert.Single(runtime.Requests);
+        state = await HoleSessionTests.Advance(state, runtime, "retry");
+        state = await HoleSessionTests.Advance(state, runtime);
+        Assert.Equal(PlanningStatus.Recovery, state.Status); Assert.Equal(2, runtime.Requests.Count);
+        var allowance = Assert.Single(state.RepairAllowances); Assert.Equal("$plan", allowance.WorkflowKey); Assert.Equal(PlanningGates.Response, allowance.Gate); Assert.Equal(1, allowance.Attempts);
+        Assert.Equal(2, Assert.Single(state.GateProgress).Failures);
+        state = await HoleSessionTests.Advance(PlanningContext.Clone(state), runtime, "retry");
+        state = await HoleSessionTests.Advance(state, runtime);
+        Assert.Contains(state.Diagnostics, d => d.Code == "REPAIR_EXHAUSTED"); Assert.Equal(2, runtime.Requests.Count);
+    }
+
+    [Fact]
+    public async Task InvalidBehaviorPatchRecordsAResponseGateFailure()
+    {
+        var state = Behavior(); state.BehaviorPlan = BehaviorPlan(); state.BehaviorPlan.Workflows[0].Steps[0].Purpose = "";
+        var runtime = Responses(new JsonObject { ["patches"] = new JsonArray(new JsonObject { ["target"] = "unknown", ["value"] = "new purpose" }) });
+        state = await Send(state, runtime);
+        Assert.Contains(state.Diagnostics, d => d.Code == "PATCH_INVALID");
+        Assert.Equal(1, Assert.Single(state.GateProgress, g => g.Gate == PlanningGates.Response).Failures);
+    }
+
+    [Fact]
     public void RevisionContextCannotPromoteAnUnreviewedCandidateToBaselineEvidence()
     {
         var state = Behavior(); state.Request.Baseline = Graph();
@@ -37,6 +64,20 @@ public sealed class BehaviorRecoveryTests
         Assert.Empty(candidate["workflows"]![0]!["inputs"]!.AsArray());
         Assert.Empty(PlanningBehaviorPatches.Scope(candidate, schema,
             [new("BEHAVIOR_REVISION_REQUIRED", "/workflows/0/inputs", "Cannot replace a collection", Rule: "revision_add")]));
+    }
+
+    [Fact]
+    public void BehaviorRemovalDoesNotExposeOverlappingDescendantEdits()
+    {
+        var candidate = JsonSerializer.SerializeToNode(BehaviorPlan(), PlanningJsonContext.Default.PlanningBehaviorPlan)!.AsObject();
+        var targets = PlanningBehaviorPatches.Scope(candidate, PlanningSchemas.Behavior(Preparation()),
+            [new("BEHAVIOR_REVISION_REQUIRED", "/workflows/0/steps/0", "Remove action", Rule: "revision_remove"),
+             new("BEHAVIOR_REVISION_REQUIRED", "/workflows/0/steps/0/purpose", "Revise action", Rule: "revision_replace")]);
+        var target = Assert.Single(targets); Assert.True(target.Remove); Assert.Equal("/workflows/0/steps/0", target.Path);
+        var context = PlanningBehaviorRevision.Context(candidate);
+        Assert.Equal(new[] { "anchors", "fields" }, context.Select(p => p.Key));
+        Assert.All(context["fields"]!.AsObject(), p => Assert.IsType<JsonArray>(p.Value));
+        Assert.DoesNotContain("\"steps\":", context.ToJsonString());
     }
 
     private static CancellationToken Ct => TestContext.Current.CancellationToken;
@@ -91,7 +132,8 @@ public sealed class BehaviorRecoveryTests
             if (phase == "behavior_revision_scope")
             {
                 var context = JsonNode.Parse(request.Prompt![ (request.Prompt.IndexOf("Coordinates:\n", StringComparison.Ordinal) + "Coordinates:\n".Length)..])!.AsObject();
-                var target = context.Single(p => p.Value!["path"]!.ToString() == "/workflows/0/steps/0/purpose" && p.Value["operation"]!.ToString() == "replace").Key;
+                var anchor = context["anchors"]!.AsObject().Single(p => p.Value![1]!.ToString() == "greeting").Key;
+                var target = context["fields"]!.AsObject().Single(p => p.Value![0]!.ToString() == anchor + "/purpose" && p.Value[1]!.ToString() == "replace").Key;
                 return Task.FromResult(new LLMResponse { Json = new JsonObject { ["fields"] = new JsonArray(new JsonObject { ["target"] = target, ["evidence"] = "formal" }) } });
             }
             Assert.Equal("behavior_repair", phase);
@@ -205,7 +247,7 @@ public sealed class BehaviorRecoveryTests
                 ["value"] = dropOutput ? new JsonArray() : PlanningFixtures.Workflow(new() { Steps = [new() { Input = Obj(("nonce", Str("Changed"))) }] })["steps"]![0]!["input"]!.DeepClone()
             })
         };
-        Assert.Throws<InvalidOperationException>(() => PlanningPatches.Apply(graph, patch, new HashSet<string>(), Catalog()));
+        Assert.Throws<InvalidOperationException>(() => PlanningPatches.Apply(graph, patch, new HashSet<string>(), Catalog(), new PlanningDataflowContract()));
         Assert.Single(graph.Workflows[0].Outputs);
         Assert.Equal("Keep this", graph.Workflows[0].Steps[1].Input.Members[0].Value.Text);
     }
@@ -230,7 +272,7 @@ public sealed class BehaviorRecoveryTests
         var diagnostics = PlanningGraphValidation.Validate(graph, Catalog());
         var scope = PlanningPatches.Scope(graph, diagnostics);
         var patch = new JsonObject { ["patches"] = new JsonArray(new JsonObject { ["workflow"] = "main", ["node"] = "greeting", ["field"] = "if", ["value"] = null }) };
-        Assert.Throws<InvalidOperationException>(() => PlanningPatches.Apply(graph, patch, scope, Catalog()));
+        Assert.Throws<InvalidOperationException>(() => PlanningPatches.Apply(graph, patch, scope, Catalog(), new PlanningDataflowContract()));
         Assert.False(graph.Workflows[0].Steps[0].If!.Boolean);
     }
 

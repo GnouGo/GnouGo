@@ -28,7 +28,7 @@ public sealed class CapabilityRecoveryTests
         Assert.Null(result.Preparation);
         Assert.Equal(4, result.Diagnostics.Count);
         Assert.Contains(result.Diagnostics, d => d.Code == "conditional_decision_source_unavailable" && d.Message.Contains("observe_content") && d.Message.Contains("runtime observation"));
-        Assert.Contains(result.Diagnostics, d => !d.Required && d.Location.Contains("rejected_matching_issues"));
+        Assert.Contains(result.Diagnostics, d => !d.Required && d.Location.Contains("contract_issues"));
         Assert.All(result.Diagnostics, d => Assert.Equal(PlanningPhase.Capabilities, d.ValidationStage));
         Assert.DoesNotContain(result.Diagnostics, d => d.Message.Contains("PRIVATE_TRANSPORT_PAYLOAD"));
         Assert.Empty(runtime.Requests);
@@ -75,6 +75,6 @@ public sealed class CapabilityRecoveryTests
                     ["decision_operation_id"] = "observe_content",
                     ["hint"] = "Declare the missing runtime observation."
                 }),
-            ["rejected_matching_issues"] = new JsonArray(new JsonObject { ["code"] = "CAPABILITY_REWIND_REJECTED", ["reason"] = "Rejected expanded-catalog repair.", ["required"] = false })
+            ["contract_issues"] = new JsonArray(new JsonObject { ["code"] = "CAPABILITY_CONTRACT_NOTE", ["reason"] = "Declared output contract requires review.", ["required"] = false })
         });
 }

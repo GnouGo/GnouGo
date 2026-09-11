@@ -15,7 +15,7 @@ internal static class PlanningExactPatches
             JsonNode? current;
             try { current = PlanningFieldPaths.Read(payload, diagnostic.Location); }
             catch (InvalidOperationException) { continue; }
-            foreach (var path in Leaves(current, diagnostic.Location))
+            foreach (var path in Leaves(current, diagnostic.Location, diagnostic.Location.Split('/').Contains("json", StringComparer.Ordinal)))
             {
                 try
                 {
@@ -30,19 +30,24 @@ internal static class PlanningExactPatches
         }
         return targets.DistinctBy(t => t.Path).OrderBy(t => t.Path, StringComparer.Ordinal).ToList();
     }
-    private static IEnumerable<string> Leaves(JsonNode? value, string path)
+    private static IEnumerable<string> Leaves(JsonNode? value, string path, bool rawJson = false)
     {
         if (value is JsonObject obj)
         {
-            if (obj["kind"]?.ToString() == "literal") { yield return path + "/value"; yield break; }
-            if (obj["kind"]?.ToString() is "null" or "string" or "number" or "boolean" or "array" or "object") { yield return path; yield break; }
-            if (obj["kind"]?.ToString() == "compute")
+            if (!rawJson && obj["kind"]?.ToString() == "literal")
+            {
+                var field = obj.ContainsKey("json") ? "json" : "value";
+                foreach (var leaf in Leaves(obj[field], path + "/" + field, field == "json")) yield return leaf;
+                yield break;
+            }
+            if (!rawJson && obj["kind"]?.ToString() is "null" or "string" or "number" or "boolean" or "array" or "object") { yield return path; yield break; }
+            if (!rawJson && obj["kind"]?.ToString() == "compute")
             { yield return path + "/expression"; yield return path + "/bindings"; yield break; }
             foreach (var (name, child) in obj)
-                foreach (var field in Leaves(child, path + "/" + PlanningFieldPaths.Escape(name))) yield return field;
+                foreach (var field in Leaves(child, path + "/" + PlanningFieldPaths.Escape(name), rawJson)) yield return field;
         }
         else if (value is JsonArray array && array.Count > 0)
-            for (var i = 0; i < array.Count; i++) foreach (var field in Leaves(array[i], path + "/" + i)) yield return field;
+            for (var i = 0; i < array.Count; i++) foreach (var field in Leaves(array[i], path + "/" + i, rawJson)) yield return field;
         else yield return path;
     }
     internal static JsonObject Schema(IReadOnlyList<Target> targets, JsonObject source)

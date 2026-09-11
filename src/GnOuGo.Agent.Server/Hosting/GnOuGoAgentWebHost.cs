@@ -270,6 +270,7 @@ public static class GnOuGoAgentWebHost
                         .AddMeter(AgentOTelTelemetry.MeterName)
                         .AddMeter("GnOuGo.AI.Core.Routing")
                         .AddMeter("GnOuGo.Agent.Planning")
+                        .AddMeter("GnOuGo.Flow.Planning")
                         .AddMeter("GnOuGo.AI.Local.Models")
                         .AddMeter("GnOuGo.AI.Local.Inference")
                         .AddAspNetCoreInstrumentation()

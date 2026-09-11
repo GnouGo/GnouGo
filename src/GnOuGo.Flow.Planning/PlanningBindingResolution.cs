@@ -12,7 +12,9 @@ internal static class PlanningBindingResolution
         bool changed;
         do
         {
-            changed = PlanningSchemaPropagation.Resolve(state, workflow);
+            changed = PlanningContractPropagation.Resolve(state);
+            workflow = state.Graph!.Workflows.Single(w => w.Key == workflow.Key);
+            changed |= PlanningSchemaPropagation.Resolve(state, workflow);
             workflow = state.Graph!.Workflows.Single(w => w.Key == workflow.Key);
             foreach (var hole in state.Construction.Holes.Where(h => h.WorkflowKey == workflow.Key && !h.Resolved && h.Kind == "value").ToArray())
             {
@@ -34,16 +36,26 @@ internal static class PlanningBindingResolution
                     Assign(state, hole, JsonSerializer.SerializeToNode(literal, PlanningJsonContext.Default.PlanningValue));
                     workflow = state.Graph!.Workflows.Single(w => w.Key == workflow.Key); changed = true; continue;
                 }
+                var domain = PlanningHoleEligibility.Analyze(state, workflow, hole);
+                if (domain.Literal && Fixed(expected, out var fixedValue))
+                {
+                    Assign(state, hole, JsonSerializer.SerializeToNode(PlanningSkeletonInputs.Literal(fixedValue), PlanningJsonContext.Default.PlanningValue));
+                    workflow = state.Graph!.Workflows.Single(w => w.Key == workflow.Key); changed = true; continue;
+                }
                 if (Unique(state, workflow, hole) is { } selected)
                 {
                     Assign(state, hole, JsonSerializer.SerializeToNode(selected.Value, PlanningJsonContext.Default.PlanningValue));
                     workflow = state.Graph!.Workflows.Single(w => w.Key == workflow.Key); changed = true; continue;
                 }
                 var node = PlanningGraphCompiler.Enumerate(workflow.Steps.Concat(workflow.Finally)).SingleOrDefault(n => n.Key == hole.NodeKey);
-                if (node?.Type != "set" || !hole.Path.EndsWith("/input", StringComparison.Ordinal) || expected["properties"] is not JsonObject fields) continue;
+                if (node is null || expected["type"]?.ToString() != "object" || expected["properties"] is not JsonObject properties || PlanningHoleEligibility.ArtifactKinds(state, workflow, hole).Any()) continue;
+                var required = (expected["required"] as JsonArray ?? []).Select(n => n!.ToString()).ToHashSet(StringComparer.Ordinal);
+                var fields = properties.Where(p => required.Contains(p.Key)).ToArray();
+                if (fields.Length == 0) continue;
                 var value = new PlanningValue { Kind = "object" };
                 foreach (var (name, _) in fields) value.Members.Add(new(name, new() { Kind = PlanningGraphSkeleton.Unresolved }));
                 Assign(state, hole, JsonSerializer.SerializeToNode(value, PlanningJsonContext.Default.PlanningValue));
+                hole.Superseded = true;
                 workflow = state.Graph!.Workflows.Single(w => w.Key == workflow.Key);
                 node = PlanningGraphCompiler.Enumerate(workflow.Steps.Concat(workflow.Finally)).Single(n => n.Key == hole.NodeKey);
                 foreach (var (name, schema) in fields)
@@ -51,13 +63,20 @@ internal static class PlanningBindingResolution
                 changed = true;
             }
         } while (changed);
+        PlanningConvergence.Refresh(state);
+    }
+    private static bool Fixed(JsonObject contract, out JsonNode? value)
+    {
+        if (contract.TryGetPropertyValue("const", out value) || contract["enum"] is JsonArray { Count: 1 } values && Set(values[0], out value) || contract.TryGetPropertyValue("default", out value))
+            return PlanningContractValidation.ValidateInstance(value, contract).Count == 0;
+        value = null; return false;
+        static bool Set(JsonNode? item, out JsonNode? selected) { selected = item; return true; }
     }
     internal static PlanningBinding? Unique(PlanningSnapshot state, PlanningWorkflow workflow, PlanningHole hole)
     {
-        if (PlanningHoleRequests.Expected(state, workflow, hole) is not { } expected) return null;
-        var candidates = PlanningHoleRequests.Catalog(state, workflow, hole)
-            .Where(b => b.Availability != "conditional" && PlanningGraphValidation.TypesFit(b.Schema, expected) && Evidence(state, workflow, hole, b)).ToArray();
-        return candidates.Length == 1 ? candidates[0] : null;
+        var domain = PlanningHoleEligibility.Analyze(state, workflow, hole);
+        hole.DirectCandidateCount = domain.Direct.Count; hole.ComputationParameterCount = domain.Parameters.Count;
+        return domain.ProvenTransfer && domain.Direct.Count == 1 ? domain.Direct[0] : null;
     }
 
     internal static bool RepairStaged(PlanningSnapshot state, PlanningStagedAssignments staged, out PlanningGraph? graph)
@@ -73,7 +92,7 @@ internal static class PlanningBindingResolution
             var parameter = staged.Bindings.FirstOrDefault(p => PlanningBindingIdentity.Id(p.Value) == binding.Id).Key;
             if (parameter is null) continue;
             var parameters = scope.SingleOrDefault(t => t.Path == root + "/bindings");
-            if (!staged.Payload["assignments"]![hole.Id]!["bindings"]!.AsArray().Select(p => p!.ToString()).SequenceEqual([parameter], StringComparer.Ordinal))
+            if (staged.Payload["assignments"]![hole.Id]!["bindings"] is JsonArray retainedParameters && !retainedParameters.Select(p => p!.ToString()).SequenceEqual([parameter], StringComparer.Ordinal))
             {
                 if (parameters is null) continue;
                 patches.Add((JsonNode)new JsonObject { ["target"] = parameters.Id, ["value"] = new JsonArray(parameter) });
@@ -88,30 +107,9 @@ internal static class PlanningBindingResolution
         staged.Payload = previous; return false;
     }
 
-    private static bool Evidence(PlanningSnapshot state, PlanningWorkflow workflow, PlanningHole hole, PlanningBinding binding)
-    {
-        if (hole.NodeKey is null)
-            return binding.Value.Kind == "output";
-        var node = PlanningGraphCompiler.Enumerate(workflow.Steps.Concat(workflow.Finally)).Single(n => n.Key == hole.NodeKey);
-        var requiredInputs = state.Construction.Dataflow?.InputObligations.GetValueOrDefault(workflow.Key + "/" + node.Key) ?? [];
-        var requiredOperations = PlanningOperationCompositions.RequiredInputs(workflow, node, state.Preparation!);
-        if (node.Type is "loop.sequential" or "loop.parallel")
-        {
-            // Operations performed by the fixed body establish the loop result, not
-            // the source collection evaluated before entering that body.
-            var body = PlanningGraphCompiler.Enumerate(node.Steps).ToArray();
-            var contained = body.SelectMany(n => n.OperationIds).Concat(body.Select(PlanningWorkflowProvenance.Target).OfType<string>()
-                .SelectMany(key => state.Graph!.Workflows.Single(w => w.Key == key).OperationIds)).ToHashSet(StringComparer.Ordinal);
-            requiredOperations = requiredOperations.Where(op => !contained.Contains(op)).ToArray();
-        }
-        if (requiredInputs.Count == 0 && requiredOperations.Count == 0) return false;
-        var inputs = new HashSet<string>(StringComparer.Ordinal);
-        var operations = PlanningDataflow.OperationDependencies(workflow, node, state.Preparation!, state.Graph!, inputs, binding.Value).Operations;
-        return (requiredInputs.Count == 0 || requiredInputs.Any(inputs.Contains)) && (requiredOperations.Count == 0 || requiredOperations.Any(operations.Contains));
-    }
     internal static void Assign(PlanningSnapshot state, PlanningHole hole, JsonNode? value)
     {
         var json = PlanningFieldPaths.Json(state.Graph!); PlanningFieldPaths.Replace(json, hole.Path, value);
-        state.Graph = JsonSerializer.Deserialize(json, PlanningJsonContext.Default.PlanningGraph)!; hole.Resolved = true;
+        state.Graph = JsonSerializer.Deserialize(json, PlanningJsonContext.Default.PlanningGraph)!; hole.Resolved = true; hole.ResolutionOrigin = "deterministic";
     }
 }

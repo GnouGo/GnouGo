@@ -15,6 +15,13 @@ internal static class PlanningComputationScopes
 
     internal static void Validate(Node expression, IReadOnlyList<string> names)
     {
+        var used = Used(expression, names);
+        foreach (var name in names.Where(name => !used.Contains(name)))
+            throw new InvalidOperationException("Computation parameter '" + name + "' is unused. A declared binding must participate in the computation; it cannot disguise a hard-coded result.");
+    }
+
+    internal static HashSet<string> Used(Node expression, IReadOnlyList<string> names)
+    {
         var root = new Scope(null, true);
         foreach (var name in new[] { "JSON", "Math", "Object", "Array", "String", "Number", "Boolean", "RegExp", "Set", "Map", "URL", "Error", "TypeError", "parseInt", "parseFloat", "isNaN", "isFinite", "encodeURI", "decodeURI", "encodeURIComponent", "decodeURIComponent", "undefined", "NaN", "Infinity" }) root.Bindings[name] = false;
         foreach (var name in names) root.Bindings[name] = true;
@@ -23,8 +30,7 @@ internal static class PlanningComputationScopes
         var used = new HashSet<string>(StringComparer.Ordinal);
         Build(expression, root, null);
         Check(expression, null, true);
-        foreach (var name in names.Where(name => !used.Contains(name)))
-            throw new InvalidOperationException("Computation parameter '" + name + "' is unused. A declared binding must participate in the computation; it cannot disguise a hard-coded result.");
+        return used;
 
         void Build(Node node, Scope scope, Node? parent)
         {

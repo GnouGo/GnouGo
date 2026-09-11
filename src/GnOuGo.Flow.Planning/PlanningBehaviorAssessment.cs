@@ -22,15 +22,23 @@ internal sealed class PlanningBehaviorAssessment(TimeProvider time)
         }
         if (assessment.Candidate is null)
         {
+            var retry = state.BehaviorAssessmentCalls > 0;
+            var pending = state.Construction.PendingCalls.Any(c => c.Phase == PlanningPhase.Behavior && c.WorkflowKey == "$plan");
+            if (retry && !pending && !PlanningRepairAllowances.Available(state, "$plan", PlanningGates.Response)) return;
+            var initialSequence = state.Construction.ModelSequence;
             var call = PlanningModelCalls.Reserve(state, PlanningPhase.Behavior, "$plan",
                 PlanningModelCalls.Request(state, InitialPrompt(state), schema), PlanningGates.Response, state.Preparation!.Fingerprint);
+            if (retry && initialSequence != state.Construction.ModelSequence) PlanningRepairAllowances.Reserved(state, "$plan", PlanningGates.Response);
             await runtime.CheckpointAsync(state, ct);
             var response = await runtime.CallAsync(call.Request, call.Phase, ct);
             state.Construction.PendingCalls.Remove(call); state.BehaviorAssessmentCalls++;
+            if (response.CompletionStatus == "output_limit")
+                PlanningConvergence.Failure(state, "$plan", PlanningGates.Response, call.Id, [new("MODEL_OUTPUT_LIMIT", "$", "The initial behavior response reached its output ceiling.")]);
             PlanningModelCalls.RequireComplete(response, call.Request.MaxTokens);
             assessment.Candidate = response.Json as JsonObject ?? new JsonObject();
             Evaluate(state, assessment.Candidate, schema, out var initial, out var stage);
             assessment.Diagnostics = initial; assessment.Stage = stage;
+            PlanningConvergence.Failure(state, "$plan", stage == 0 ? PlanningGates.Response : PlanningGates.Behavior, PlanningGraphCompiler.Fingerprint(assessment.Candidate.ToJsonString()), initial);
             await runtime.CheckpointAsync(state, ct);
             if (initial.Count == 0) ReadyForBehaviorReview(state, state.BehaviorPlan!);
             else state.Diagnostics = initial;
@@ -48,6 +56,7 @@ internal sealed class PlanningBehaviorAssessment(TimeProvider time)
         }
         var owner = PlanningBehaviorPatches.Owner(assessment.Candidate, targets);
         var gate = beforeStage == 0 ? PlanningGates.Response : PlanningGates.Behavior;
+        PlanningConvergence.Failure(state, owner, gate, PlanningGraphCompiler.Fingerprint(assessment.Candidate.ToJsonString()), findings);
         if (!state.Construction.PendingCalls.Any(c => c.Phase == "behavior_repair" && c.WorkflowKey == owner) &&
             !PlanningRepairAllowances.Available(state, owner, gate)) return;
         var patchSchema = PlanningExactPatches.Schema(targets, schema);
@@ -64,16 +73,23 @@ internal sealed class PlanningBehaviorAssessment(TimeProvider time)
         if (sequence != state.Construction.ModelSequence) PlanningRepairAllowances.Reserved(state, owner, gate);
         await runtime.CheckpointAsync(state, ct);
         var result = await runtime.CallAsync(reservation.Request, reservation.Phase, ct);
-        state.Construction.PendingCalls.Remove(reservation); PlanningModelCalls.RequireComplete(result, reservation.Request.MaxTokens);
+        state.Construction.PendingCalls.Remove(reservation);
+        if (result.CompletionStatus == "output_limit") PlanningConvergence.Failure(state, owner, PlanningGates.Response, reservation.Id, [new("MODEL_OUTPUT_LIMIT", "$", "The behavior patch reached its output ceiling.")]);
+        PlanningModelCalls.RequireComplete(result, reservation.Request.MaxTokens);
         var previous = assessment.Candidate;
         JsonObject candidate;
         try { candidate = PlanningExactPatches.Apply(previous, result.Json as JsonObject ?? new(), targets, patchSchema); }
-        catch (InvalidOperationException error) { PlanningContext.Stop(state, "PATCH_INVALID", error.Message); return; }
+        catch (InvalidOperationException error)
+        {
+            PlanningConvergence.Failure(state, owner, PlanningGates.Response, reservation.Id, [new("PATCH_INVALID", "$", error.Message)]);
+            PlanningContext.Stop(state, "PATCH_INVALID", error.Message); return;
+        }
         var hash = PlanningGraphCompiler.Fingerprint(candidate.ToJsonString());
         if (hash == PlanningGraphCompiler.Fingerprint(previous.ToJsonString()) || assessment.RejectedCandidates.Contains(hash, StringComparer.Ordinal))
         { PlanningContext.Stop(state, "REPAIR_REPEATED", "The behavior repair repeated an existing candidate."); return; }
         var retainedPlan = state.BehaviorPlan;
         Evaluate(state, candidate, schema, out var remaining, out var nextStage);
+        PlanningConvergence.Failure(state, owner, nextStage == 0 ? PlanningGates.Response : PlanningGates.Behavior, hash, remaining);
         var oldIds = findings.Select(d => PlanningFieldPaths.DiagnosticId(d, previous)).ToHashSet(StringComparer.Ordinal);
         var newIds = remaining.Select(d => PlanningFieldPaths.DiagnosticId(d, candidate)).ToHashSet(StringComparer.Ordinal);
         var accepted = remaining.Count == 0 || nextStage > beforeStage || nextStage == beforeStage && newIds.IsProperSubsetOf(oldIds);

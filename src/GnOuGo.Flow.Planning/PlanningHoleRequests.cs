@@ -7,7 +7,8 @@ namespace GnOuGo.Flow.Planning;
 /// <summary>Model contracts expose unresolved fields and compiler-owned binding choices only.</summary>
 internal static class PlanningHoleRequests
 {
-    internal sealed record Request(string Prompt, JsonObject Schema, Dictionary<string, PlanningValue> Bindings, JsonNode Context);
+    internal sealed record Request(string Prompt, JsonObject Schema, Dictionary<string, PlanningValue> Bindings, JsonNode Context)
+    { internal Dictionary<string, List<string>> ParameterScopes { get; init; } = new(StringComparer.Ordinal); }
 
     internal static Request Create(PlanningSnapshot state, PlanningWorkflow workflow, IReadOnlyList<PlanningHole> holes)
     {
@@ -19,15 +20,31 @@ internal static class PlanningHoleRequests
         // Literal strings are data; the expression variant shares the old string shape.
         literalVariants.Single(v => v!["properties"]!["kind"]!["enum"]![0]!.ToString() == "string")!["properties"]!["kind"]!["enum"] = new JsonArray("string");
         var relevant = PlanningWorkflowConstruction.RelevantPreparation(state.Preparation!, workflow);
+        var capabilities = holes.Select(h => PlanningHoleContracts.Target(workflow, h).Node?.CapabilityId).OfType<string>().ToHashSet(StringComparer.Ordinal);
+        relevant.Capabilities = relevant.Capabilities.Where(c => capabilities.Contains(c.Id)).ToList();
         var references = PlanningSchemaReferences.Index(relevant);
         var schemaVariants = definitions["schema"]!["anyOf"]!.AsArray(); schemaVariants.RemoveAt(0);
         foreach (var group in references.GroupBy(r => r!["capabilityId"]!.ToString(), StringComparer.Ordinal))
             schemaVariants.Add((JsonNode)Object(("kind", Enum("reference")), ("capabilityId", Enum(group.Key)), ("schemaPointer", Enum(group.Select(r => r!["schemaPointer"]!.ToString()).ToArray()))));
+        foreach (var inline in schemaVariants.OfType<JsonObject>().Where(v => v["properties"]?["kind"]?["enum"]?[0]?.ToString() == "inline").ToArray())
+        {
+            schemaVariants.Remove(inline);
+            foreach (var type in new[] { "string", "number", "integer", "boolean", "array", "object" })
+            {
+                var variant = inline.DeepClone().AsObject(); var properties = variant["properties"]!;
+                properties["type"] = Enum(type);
+                properties["items"] = type == "array" ? new JsonObject { ["$ref"] = "#/$defs/schema" } : Type("null");
+                if (type != "object") { properties["properties"]!["maxItems"] = 0; properties["additionalProperties"] = Type("null"); }
+                if (type != "string") properties["enum"]!["maxItems"] = 0;
+                schemaVariants.Add((JsonNode)variant);
+            }
+        }
         var objectSchemas = new JsonArray();
         foreach (var variant in schemaVariants.OfType<JsonObject>())
         {
             if (variant["properties"]!["kind"]!["enum"]![0]!.ToString() == "inline")
             {
+                if (variant["properties"]!["type"]!["enum"]![0]!.ToString() != "object") continue;
                 var objectSchema = variant.DeepClone().AsObject(); objectSchema["properties"]!["type"] = Enum("object");
                 objectSchemas.Add((JsonNode)objectSchema);
             }
@@ -44,12 +61,16 @@ internal static class PlanningHoleRequests
         definitions["objectSchema"] = new JsonObject { ["anyOf"] = objectSchemas };
         var fields = new JsonObject(); var descriptions = new JsonObject(); var bindingContext = new JsonObject();
         var bindings = new Dictionary<string, PlanningValue>(StringComparer.Ordinal);
+        var parameterScopes = new Dictionary<string, List<string>>(StringComparer.Ordinal);
         foreach (var hole in holes)
         {
             var node = PlanningGraphCompiler.Enumerate(workflow.Steps.Concat(workflow.Finally)).SingleOrDefault(n => n.Key == hole.NodeKey);
             if (node?.Type == "switch" && PlanningDecisionRouting.Contract(node, state.Preparation!) is not null)
                 throw new InvalidOperationException("The locked decision producer is not available. Establish its contract and provenance before routing.");
-            var available = Catalog(state, workflow, hole);
+            var domain = PlanningHoleEligibility.Analyze(state, workflow, hole);
+            hole.DirectCandidateCount = domain.Direct.Count;
+            hole.ComputationParameterCount = domain.Parameters.Count;
+            var available = domain.Direct.Concat(domain.Parameters).DistinctBy(b => b.Id).ToArray();
             var choices = new JsonArray();
             foreach (var binding in available)
             {
@@ -61,7 +82,7 @@ internal static class PlanningHoleRequests
                     ["value"] = PlanningModelValues.Compact(JsonSerializer.SerializeToNode(binding.Value, PlanningJsonContext.Default.PlanningValue)),
                     ["schema"] = binding.Schema.DeepClone(), ["availability"] = binding.Availability
                 };
-                choices.Add((JsonNode)JsonValue.Create(parameter)!);
+                if (domain.Direct.Any(b => b.Id == binding.Id)) choices.Add((JsonNode)JsonValue.Create(parameter)!);
             }
             var variants = new JsonArray();
             if (hole.Kind == "schema") fields[hole.Id] = new JsonObject { ["$ref"] = node?.Type == "set" && hole.Path.EndsWith("/outputSchema", StringComparison.Ordinal) ? "#/$defs/objectSchema" : "#/$defs/schema" };
@@ -70,57 +91,64 @@ internal static class PlanningHoleRequests
                 if (choices.Count > 0)
                 {
                     variants.Add((JsonNode)Object(("kind", Enum("binding")), ("binding", new JsonObject { ["type"] = "string", ["enum"] = choices.DeepClone() })));
-                    variants.Add((JsonNode)Object(("kind", Enum("compute")), ("expression", Type("string")),
-                        ("bindings", new JsonObject { ["type"] = "array", ["items"] = new JsonObject { ["type"] = "string", ["enum"] = choices.DeepClone() }, ["maxItems"] = choices.Count })));
                 }
-                variants.Add((JsonNode)Object(("kind", Enum("literal")), ("value", new JsonObject { ["$ref"] = "#/$defs/value" })));
+                if (domain.Parameters.Count > 0)
+                {
+                    var parameters = new JsonArray(domain.Parameters.Select(b => (JsonNode?)JsonValue.Create("p_" + b.Id[2..14])).ToArray());
+                    parameterScopes[hole.Id] = parameters.Select(p => p!.ToString()).ToList();
+                    variants.Add((JsonNode)Object(("kind", Enum("compute")), ("expression", new JsonObject { ["type"] = "string", ["minLength"] = 1 })));
+                }
+                if (domain.Literal)
+                    variants.Add((JsonNode)Object(("kind", Enum("literal")), ("json", PlanningLiteralSchemas.Create(domain.Contract, hole.CanonicalLocation))));
                 if (hole.Kind == "default") variants.Add((JsonNode)Object(("kind", Enum("absent"))));
+                if (variants.Count == 0) throw new PlanningHoleUnavailableException(hole.CanonicalLocation, "No binding or computation satisfies the field's available contracts and outstanding obligations.");
                 fields[hole.Id] = new JsonObject { ["anyOf"] = variants };
             }
-            descriptions[hole.Id] = new JsonObject { ["field"] = hole.CanonicalLocation.Length > 0 ? hole.CanonicalLocation : hole.Path, ["executor"] = node?.Type, ["obligation"] = hole.Purpose, ["expected"] = Expected(state, workflow, hole)?.DeepClone() };
+            descriptions[hole.Id] = new JsonObject { ["field"] = hole.CanonicalLocation.Length > 0 ? hole.CanonicalLocation : hole.Path, ["executor"] = node?.Type, ["obligation"] = hole.Purpose, ["parameters"] = parameterScopes.TryGetValue(hole.Id, out var scope) ? new JsonArray(scope.Select(p => (JsonNode?)JsonValue.Create(p)).ToArray()) : null, ["expected"] = hole.Kind == "schema" || domain.Parameters.Count > 0 ? domain.Contract?.DeepClone() : null };
         }
         var assignments = new JsonObject { ["type"] = "object", ["properties"] = fields, ["required"] = new JsonArray(holes.Select(h => (JsonNode?)JsonValue.Create(h.Id)).ToArray()), ["additionalProperties"] = false };
         var schema = Object(("assignments", assignments)); schema["$defs"] = definitions;
         PruneDefinitions(schema);
         var context = new JsonObject { ["holes"] = descriptions, ["bindings"] = bindingContext };
         if (holes.Any(h => h.Kind == "schema"))
-            context["contracts"] = new JsonObject(relevant.Capabilities.Select(c => new KeyValuePair<string, JsonNode?>(c.Id,
-                new JsonObject { ["input"] = c.InputSchema.DeepClone(), ["output"] = c.OutputSchema.DeepClone() })));
-        return new("Fill the unresolved fields. Control flow and workflow calls are already fixed. A loop items field supplies its source collection; its body performs iteration and calls. A compute expression uses only its selected parameter names from bindings. " +
-            "Literal values are data; schemas must preserve the stated contracts. Bindings and result projections are supplied by the coordinator. " +
-            PlanningPromptContext.Instructions + "\n" + PlanningPromptContext.Share(context).ToJsonString(), schema, bindings, context);
+        {
+            if (BoundaryEvidence(state, workflow) is { Count: > 0 } evidence) context["boundaryEvidence"] = evidence;
+            var selected = holes.Select(h => PlanningHoleContracts.Target(workflow, h).Node?.CapabilityId).OfType<string>().ToHashSet(StringComparer.Ordinal);
+            context["contracts"] = new JsonObject(relevant.Capabilities.Where(c => selected.Contains(c.Id)).Select(c => new KeyValuePair<string, JsonNode?>(c.Id,
+                new JsonObject { ["output"] = c.OutputSchema.DeepClone() })));
+        }
+        return new("Assign the unresolved fields. Expressions use the supplied parameters; the coordinator retains only referenced parameters. " +
+            PlanningPromptContext.Instructions + "\n" + PlanningPromptContext.Share(context).ToJsonString(), schema, bindings, context) { ParameterScopes = parameterScopes };
+    }
+
+    private static JsonObject BoundaryEvidence(PlanningSnapshot state, PlanningWorkflow workflow)
+    {
+        if (state.BehaviorPlan is null) return new();
+        // Related unresolved boundaries still have accepted business contracts. Follow
+        // locked operation edges, never descriptions or names, to retain that evidence.
+        var operations = workflow.OperationIds.ToHashSet(StringComparer.Ordinal);
+        bool changed;
+        do
+        {
+            changed = false;
+            foreach (var capability in state.Preparation!.Capabilities.Where(c => c.OperationIds.Any(operations.Contains)))
+                foreach (var input in capability.InputOperationIds) changed |= operations.Add(input);
+        } while (changed);
+        var related = state.BehaviorPlan.Workflows.Where(w => w.Key != workflow.Key && w.OperationIds.Any(operations.Contains));
+        return new JsonObject(related.Select(w => new KeyValuePair<string, JsonNode?>(w.Key, new JsonObject
+        {
+            ["inputs"] = new JsonObject(w.Inputs.Select(p => new KeyValuePair<string, JsonNode?>(p.Name, JsonValue.Create(p.Description)))),
+            ["outputs"] = new JsonObject(w.Outputs.Select(p => new KeyValuePair<string, JsonNode?>(p.Name, JsonValue.Create(p.Description))))
+        })));
     }
 
     internal static IReadOnlyList<PlanningBinding> Catalog(PlanningSnapshot state, PlanningWorkflow workflow, PlanningHole hole)
     {
-        if (hole.Kind is "schema" or "default") return [];
-        return PlanningDataflow.Index(workflow, state.Preparation!, state.Graph!, hole.NodeKey ?? PlanningDataflow.WorkflowOutputs).Values
-            .Where(b => b.Availability != "opaque").OrderBy(b => b.Id, StringComparer.Ordinal).ToArray();
+        return PlanningHoleEligibility.Analyze(state, workflow, hole).Direct;
     }
-    internal static JsonObject? Expected(PlanningSnapshot state, PlanningWorkflow workflow, PlanningHole hole)
-    {
-        if (hole.ExpectedSchema is not null) return hole.ExpectedSchema;
-        try
-        {
-            if (hole.NodeKey is null)
-            {
-                var root = "/workflows/" + state.Graph!.Workflows.IndexOf(workflow);
-                var parts = hole.Path[(root.Length + 1)..].Split('/');
-                var contract = parts[0] == "outputs" ? workflow.Outputs[int.Parse(parts[1], System.Globalization.CultureInfo.InvariantCulture)].Schema : workflow.Inputs[int.Parse(parts[1], System.Globalization.CultureInfo.InvariantCulture)].Schema;
-                return PlanningGraphCompiler.ToJsonSchema(contract, state.Preparation!);
-            }
-            var node = PlanningGraphCompiler.Enumerate(workflow.Steps.Concat(workflow.Finally)).Single(n => n.Key == hole.NodeKey);
-            if (node.Type == "workflow.call")
-            {
-                var arguments = node.Input.Members.Single(m => m.Name == "args").Value;
-                var index = int.Parse(hole.Path.Split('/')[^2], System.Globalization.CultureInfo.InvariantCulture);
-                var callee = state.Graph!.Workflows.Single(w => w.Key == PlanningWorkflowProvenance.Target(node));
-                return PlanningGraphCompiler.ToJsonSchema(callee.Inputs.Single(p => p.Name == arguments.Members[index].Name).Schema, state.Preparation!);
-            }
-            return node.OutputSchema is null ? null : PlanningGraphCompiler.ToJsonSchema(node.OutputSchema, state.Preparation!);
-        }
-        catch (InvalidOperationException) { return null; }
-    }
+    internal static JsonObject? Expected(PlanningSnapshot state, PlanningWorkflow workflow, PlanningHole hole) => PlanningHoleContracts.Expected(state, workflow, hole);
+    internal static string Scope(IEnumerable<PlanningHole> holes, JsonObject schema) => PlanningGraphCompiler.Fingerprint(
+        string.Join("\n", holes.OrderBy(h => h.Id, StringComparer.Ordinal).Select(h => h.Id + "|" + h.CanonicalLocation + "|" + h.Kind)) + "\n" + schema.ToJsonString());
     internal static JsonObject Object(params (string Name, JsonObject Schema)[] fields) => new()
     {
         ["type"] = "object", ["properties"] = new JsonObject(fields.Select(f => new KeyValuePair<string, JsonNode?>(f.Name, f.Schema))),

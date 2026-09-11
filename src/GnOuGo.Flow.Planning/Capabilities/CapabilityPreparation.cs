@@ -89,6 +89,7 @@ internal static class CapabilityPreparation
                     if (!JsonNode.DeepEquals(previousDiscovery, currentDiscovery))
                     {
                         checkpoint.ValidatedResults.Remove("selection");
+                        checkpoint.ValidatedResults.Remove("physical_candidates");
                         checkpoint.ValidatedResults.Remove("matching_candidate");
                     }
                     checkpoint.RefreshDiscovery = false;
@@ -345,7 +346,6 @@ internal static class CapabilityPreparation
                 await SaveTypedPreparationResultAsync(ctx, "inventory", JsonSerializer.SerializeToNode(inventory, TypedContractJsonContext.Default.CapabilityInventory), ct);
             }
 
-            var evidenceAdjudicatedInventory = inventory;
             var (effectiveConfirmationPolicy, effectiveConfirmationPolicySource) =
                 ResolveEffectiveExternalWriteConfirmationPolicy(inventory, evidenceSources);
             inferenceSpan.SetAttribute(
@@ -360,22 +360,19 @@ internal static class CapabilityPreparation
             inferenceSpan.SetAttribute("gnougo-flow.plan.capability_inventory.constraint_count", inventory.Constraints.Count);
 
             inferencePhase = "physical_capability_candidate_selection";
-            var matchingDiscovery = ctx.PreparationCheckpoint?.ValidatedResults["selection"] is JsonNode selectionCheckpoint
+            var matchingDiscovery = ctx.PreparationCheckpoint?.ValidatedResults["selection"] is JsonNode selectionCheckpoint &&
+                (ctx.PreparationCheckpoint.ValidatedResults["physical_candidates"] is not null || !inventory.Operations.Any(o => o.ExecutionKind == "external_effect"))
                 ? JsonSerializer.Deserialize(selectionCheckpoint, TypedContractJsonContext.Default.ListMcpServerDiscovery)!
-                : IsCapabilityCandidateSelectionEnabled(generator)
-                ? await SelectPhysicalCapabilityCandidatesAsync(
+                : await SelectPhysicalCapabilityCandidatesAsync(
                     llmClient,
                     inventory,
                     discovered,
-                    instruction,
-                    generatorContext,
                     provider,
                     model,
                     reasoning,
                     ctx,
                     inferenceSpan,
-                    ct)
-                : discovered.Select(CloneDiscovery).ToList();
+                    ct);
 
             await SaveTypedPreparationResultAsync(ctx, "selection", JsonSerializer.SerializeToNode(matchingDiscovery, TypedContractJsonContext.Default.ListMcpServerDiscovery), ct);
             inferencePhase = "capability_catalog_expansion";
@@ -390,16 +387,8 @@ internal static class CapabilityPreparation
             var matchingSchema = BuildTypedCapabilityMatchingSchema(inventory, catalog);
             var matchingResponse = ctx.PreparationCheckpoint?.ValidatedResults["matching_candidate"] is JsonNode retainedMatching
                 ? new LLMResponse { Json = retainedMatching.DeepClone() }
-                : await ctx.CallLLMAsync(llmClient, new LLMRequest
-                {
-                    Provider = provider,
-                    Model = model,
-                    Prompt = BuildCapabilityMatchingPrompt(inventory, catalog),
-                    Reasoning = reasoning,
-                    UseBackgroundMode = true,
-                    StructuredOutputSchema = matchingSchema,
-                    StructuredOutputStrict = true
-                }, "workflow.plan.capability_matching", ct);
+                : await CapabilityMatchingRequests.CallAsync(ctx, llmClient, inventory, catalog, discovered,
+                    provider, model, reasoning, ct);
             RecordPlannerStructuredOutputProof(ctx, provider, model, matchingResponse.Json, matchingSchema);
             AddUsageAttributes(inferenceSpan, matchingResponse.Usage, model, provider);
             inferencePhase = "capability_matching_parse";
@@ -423,7 +412,6 @@ internal static class CapabilityPreparation
             await SaveTypedPreparationResultAsync(ctx, "matching_candidate", matchingResponse.Json, ct);
             var repairRequired = RequiresCapabilityMatchingRepair(evaluation);
             inferenceSpan.SetAttribute("gnougo-flow.plan.capability_matching.repair_attempted", repairRequired);
-            inferenceSpan.SetAttribute("gnougo-flow.plan.capability_matching.upstream_rewind_attempted", false);
             if (repairRequired)
             {
                 ctx.AddTelemetryEvent("gnougo-flow.step.thinking", new[]
@@ -433,16 +421,8 @@ internal static class CapabilityPreparation
                     new KeyValuePair<string, object?>("gnougo-flow.thinking.level", "info")
                 });
                 inferencePhase = "capability_matching_repair_call";
-                var repairedMatchingResponse = await ctx.CallLLMAsync(llmClient, new LLMRequest
-                {
-                    Provider = provider,
-                    Model = model,
-                    Prompt = BuildCapabilityMatchingRepairPrompt(inventory, catalog, evaluation),
-                    Reasoning = reasoning,
-                    UseBackgroundMode = true,
-                    StructuredOutputSchema = matchingSchema.DeepClone(),
-                    StructuredOutputStrict = true
-                }, "workflow.plan.capability_matching_repair", ct);
+                var repairedMatchingResponse = await CapabilityMatchingRequests.CallAsync(ctx, llmClient, inventory, catalog, discovered,
+                    provider, model, reasoning, ct, evaluation);
                 RecordPlannerStructuredOutputProof(ctx, provider, model, repairedMatchingResponse.Json, matchingSchema);
                 AddUsageAttributes(inferenceSpan, repairedMatchingResponse.Usage, model, provider);
                 inferencePhase = "capability_matching_repair_parse";
@@ -465,236 +445,6 @@ internal static class CapabilityPreparation
                 }
                 evaluation = PreserveValidCapabilityMatches(evaluation, repaired);
                 await SaveTypedPreparationResultAsync(ctx, "matching_candidate", repairedMatchingResponse.Json, ct);
-            }
-
-            if (HasRequiredCapabilityMatchingBlocker(evaluation)
-                && IsCapabilityDiscoveryNarrowed(matchingDiscovery, discovered)
-                && (evaluation.Issues.Any(issue => issue.Status == "unavailable")))
-            {
-                inferenceSpan.SetAttribute("gnougo-flow.plan.capability_matching.upstream_rewind_attempted", true);
-                ctx.AddTelemetryEvent("gnougo-flow.step.thinking", new[]
-                {
-                    new KeyValuePair<string, object?>("gnougo-flow.thinking.message",
-                        "A required capability-matching blocker remained after narrowed-catalog matching; re-adjudicating once against the complete discovered catalog."),
-                    new KeyValuePair<string, object?>("gnougo-flow.thinking.level", "info")
-                });
-
-                inferencePhase = "capability_matching_upstream_rewind";
-                var expandedCatalog = BuildSchemaAwareCapabilityCatalog(discovered, allowedNativeTypes, discovered);
-                var remappedEvaluation = RemapCapabilityMatchingCatalogIds(evaluation, catalog, expandedCatalog);
-                matchingSchema = BuildTypedCapabilityMatchingSchema(inventory, expandedCatalog);
-                var initialBlockers = BuildCapabilityMatchingBlockerIdentities(remappedEvaluation);
-                var initialFingerprint = BuildCapabilityMatchingFingerprint(remappedEvaluation);
-                var rewindResponse = await ctx.CallLLMAsync(llmClient, new LLMRequest
-                {
-                    Provider = provider,
-                    Model = model,
-                    Prompt = BuildCapabilityMatchingRepairPrompt(inventory, expandedCatalog, remappedEvaluation),
-                    Reasoning = reasoning,
-                    UseBackgroundMode = true,
-                    StructuredOutputSchema = matchingSchema.DeepClone(),
-                    StructuredOutputStrict = true
-                }, "workflow.plan.capability_matching_rewind", ct);
-                RecordPlannerStructuredOutputProof(ctx, provider, model, rewindResponse.Json, matchingSchema);
-                AddUsageAttributes(inferenceSpan, rewindResponse.Usage, model, provider);
-
-                CapabilityMatchingEvaluation rewound;
-                try
-                {
-                    rewound = ParseCapabilityMatchingEvaluation(
-                        ParseStructuredObject(rewindResponse, "expanded-catalog capability matching rewind"),
-                        inventory,
-                        expandedCatalog);
-                    rewound = NormalizeLocalProcessingMatches(rewound);
-                    rewound = NormalizeCapabilityCompositionMatches(rewound, expandedCatalog);
-                    rewound = NormalizeConditionalSelectorMatches(rewound, expandedCatalog, inventory);
-                    rewound = EnforceCapabilityPrerequisiteClosure(rewound, expandedCatalog);
-                    rewound = NormalizePlatformSafetyMatches(rewound, expandedCatalog);
-                    rewound = PreserveValidCapabilityMatches(remappedEvaluation, rewound);
-                    RecordCapabilityMatchingNormalizationTelemetry(inferenceSpan, rewound, "upstream_rewind");
-                    RecordConditionalGroundingTelemetry(inferenceSpan.Span, rewound, "upstream_rewind");
-                }
-                catch (Exception ex) when (ex is not OperationCanceledException)
-                {
-                    rewound = BuildMalformedCapabilityMatchingEvaluation(inventory, ex.Message);
-                }
-
-                var remainingBlockers = BuildCapabilityMatchingBlockerIdentities(rewound);
-                var rewindFingerprint = BuildCapabilityMatchingFingerprint(rewound);
-                var blockersStrictlyReduced = remainingBlockers.Count < initialBlockers.Count
-                                              && remainingBlockers.IsSubsetOf(initialBlockers);
-                var fingerprintChanged = !string.Equals(
-                    rewindFingerprint,
-                    initialFingerprint,
-                    StringComparison.Ordinal);
-                var matchingRewindAccepted = rewound.ContractValid
-                                             && fingerprintChanged
-                                             && blockersStrictlyReduced;
-                var inventoryRewindAccepted = false;
-                if (!matchingRewindAccepted
-                    && TryGetInventoryRewindConstraintIds(
-                        evidenceAdjudicatedInventory,
-                        remappedEvaluation,
-                        out var challengedConstraintIds))
-                {
-                    inferencePhase = "capability_inventory_upstream_rewind";
-                    inferenceSpan.SetAttribute(
-                        "gnougo-flow.plan.capability_matching.upstream_rewind.inventory_attempted",
-                        true);
-                    var inventoryRewindResponse = await ctx.CallLLMAsync(llmClient, new LLMRequest
-                    {
-                        Provider = provider,
-                        Model = model,
-                        Prompt = BuildCapabilityInventoryMatchingRewindPrompt(
-                            evidenceSources,
-                            evidenceAdjudicatedInventory,
-                            remappedEvaluation,
-                            challengedConstraintIds),
-                        Reasoning = reasoning,
-                        UseBackgroundMode = true,
-                        StructuredOutputSchema = inventorySchema.DeepClone(),
-                        StructuredOutputStrict = true
-                    }, "workflow.plan.capability_inventory_rewind", ct);
-                    RecordPlannerStructuredOutputProof(
-                        ctx,
-                        provider,
-                        model,
-                        inventoryRewindResponse.Json,
-                        inventorySchema);
-                    AddUsageAttributes(inferenceSpan, inventoryRewindResponse.Usage, model, provider);
-
-                    try
-                    {
-                        var candidateEvidenceInventory = RemovePlannerBoundaryArtifacts(
-                            ParseCapabilityInventory(
-                                ParseStructuredObject(
-                                    inventoryRewindResponse,
-                                    "capability inventory upstream rewind"),
-                                evidenceSources),
-                            evidenceSources);
-                        var inventoryChanged = !string.Equals(
-                            BuildCapabilityInventoryFingerprint(candidateEvidenceInventory),
-                            BuildCapabilityInventoryFingerprint(evidenceAdjudicatedInventory),
-                            StringComparison.Ordinal);
-                        var inventoryContractValid = InventoryRewindPreservesStableContracts(
-                            evidenceAdjudicatedInventory,
-                            candidateEvidenceInventory,
-                            challengedConstraintIds);
-                        inferenceSpan.SetAttribute(
-                            "gnougo-flow.plan.capability_matching.upstream_rewind.inventory_fingerprint_changed",
-                            inventoryChanged);
-                        inferenceSpan.SetAttribute(
-                            "gnougo-flow.plan.capability_matching.upstream_rewind.inventory_contract_valid",
-                            inventoryContractValid);
-
-                        if (inventoryChanged && inventoryContractValid)
-                        {
-                            var candidateInventory = ApplyDefaultExternalWriteConfirmation(
-                                candidateEvidenceInventory);
-                            matchingSchema = BuildTypedCapabilityMatchingSchema(candidateInventory, expandedCatalog);
-                            inferencePhase = "capability_matching_after_inventory_rewind";
-                            var inventoryMatchingResponse = await ctx.CallLLMAsync(llmClient, new LLMRequest
-                            {
-                                Provider = provider,
-                                Model = model,
-                                Prompt = BuildCapabilityMatchingPrompt(candidateInventory, expandedCatalog),
-                                Reasoning = reasoning,
-                                UseBackgroundMode = true,
-                                StructuredOutputSchema = matchingSchema.DeepClone(),
-                                StructuredOutputStrict = true
-                            }, "workflow.plan.capability_matching_after_inventory_rewind", ct);
-                            RecordPlannerStructuredOutputProof(
-                                ctx,
-                                provider,
-                                model,
-                                inventoryMatchingResponse.Json,
-                                matchingSchema);
-                            AddUsageAttributes(inferenceSpan, inventoryMatchingResponse.Usage, model, provider);
-
-                            var inventoryRewound = ParseCapabilityMatchingEvaluation(
-                                ParseStructuredObject(
-                                    inventoryMatchingResponse,
-                                    "capability matching after inventory rewind"),
-                                candidateInventory,
-                                expandedCatalog);
-                            inventoryRewound = NormalizeLocalProcessingMatches(inventoryRewound);
-                            inventoryRewound = NormalizeCapabilityCompositionMatches(
-                                inventoryRewound,
-                                expandedCatalog);
-                            inventoryRewound = NormalizeConditionalSelectorMatches(
-                                inventoryRewound,
-                                expandedCatalog,
-                                candidateInventory);
-                            inventoryRewound = EnforceCapabilityPrerequisiteClosure(
-                                inventoryRewound,
-                                expandedCatalog);
-                            inventoryRewound = NormalizePlatformSafetyMatches(
-                                inventoryRewound,
-                                expandedCatalog);
-                            inventoryRewound = PreserveValidCapabilityMatches(
-                                remappedEvaluation,
-                                inventoryRewound);
-
-                            var inventoryRemainingBlockers = BuildCapabilityMatchingBlockerIdentities(
-                                inventoryRewound);
-                            var inventoryMatchingFingerprint = BuildCapabilityMatchingFingerprint(
-                                inventoryRewound);
-                            var inventoryBlockersStrictlyReduced = inventoryRemainingBlockers.Count
-                                                                   < initialBlockers.Count
-                                                               && inventoryRemainingBlockers.IsSubsetOf(
-                                                                   initialBlockers);
-                            var inventoryMatchingChanged = !string.Equals(
-                                inventoryMatchingFingerprint,
-                                initialFingerprint,
-                                StringComparison.Ordinal);
-                            inventoryRewindAccepted = inventoryRewound.ContractValid
-                                                      && inventoryMatchingChanged
-                                                      && inventoryBlockersStrictlyReduced;
-                            inferenceSpan.SetAttribute(
-                                "gnougo-flow.plan.capability_matching.upstream_rewind.inventory_remaining_blocker_count",
-                                inventoryRemainingBlockers.Count);
-                            inferenceSpan.SetAttribute(
-                                "gnougo-flow.plan.capability_matching.upstream_rewind.inventory_accepted",
-                                inventoryRewindAccepted);
-                            if (inventoryRewindAccepted)
-                            {
-                                evidenceAdjudicatedInventory = candidateEvidenceInventory;
-                                inventory = candidateInventory;
-                                rewound = inventoryRewound;
-                            }
-                        }
-                    }
-                    catch (Exception ex) when (ex is not OperationCanceledException)
-                    {
-                        inferenceSpan.SetAttribute(
-                            "gnougo-flow.plan.capability_matching.upstream_rewind.inventory_contract_valid",
-                            false);
-                        inferenceSpan.SetAttribute(
-                            "gnougo-flow.plan.capability_matching.upstream_rewind.inventory_accepted",
-                            false);
-                    }
-                }
-                inferenceSpan.SetAttribute(
-                    "gnougo-flow.plan.capability_matching.upstream_rewind.initial_blocker_count",
-                    initialBlockers.Count);
-                inferenceSpan.SetAttribute(
-                    "gnougo-flow.plan.capability_matching.upstream_rewind.remaining_blocker_count",
-                    remainingBlockers.Count);
-                inferenceSpan.SetAttribute(
-                    "gnougo-flow.plan.capability_matching.upstream_rewind.fingerprint_changed",
-                    fingerprintChanged);
-                inferenceSpan.SetAttribute(
-                    "gnougo-flow.plan.capability_matching.upstream_rewind.accepted",
-                    matchingRewindAccepted || inventoryRewindAccepted);
-
-                evaluation = matchingRewindAccepted || inventoryRewindAccepted
-                    ? rewound
-                    : rewound.ContractValid
-                        ? remappedEvaluation
-                        : MarkCapabilityMatchingRewindNonImproving(rewound, remappedEvaluation);
-                catalog = expandedCatalog;
-                await SaveTypedPreparationResultAsync(ctx, "selection", JsonSerializer.SerializeToNode(discovered, TypedContractJsonContext.Default.ListMcpServerDiscovery), ct);
-                await SaveTypedPreparationResultAsync(ctx, "matching_candidate", TypedMatchingCandidate(evaluation), ct);
             }
 
             RecordCapabilityMatchingFailureTelemetry(inferenceSpan, evaluation, repairRequired);

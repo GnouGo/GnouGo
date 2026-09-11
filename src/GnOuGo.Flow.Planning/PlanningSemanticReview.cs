@@ -12,7 +12,7 @@ internal sealed partial class PlanningSemanticReview
     internal async Task<List<PlanningDiagnostic>> ReviewAsync(PlanningSnapshot state, PlanningGraph graph, IPlanningRuntime runtime, CancellationToken ct)
     {
         var sources = PlanningIntentAssessment.IntentSources(state);
-        var targets = SemanticTargets(graph);
+        var targets = SemanticTargets(graph, state.Preparation!);
         var shape = PlanningSchemas.Review(graph.Workflows.Select(w => w.Key), targets.Keys);
         var context = new JsonObject
         {
@@ -112,22 +112,50 @@ internal sealed partial class PlanningSemanticReview
             { id = "c" + identities.Count; identities[fingerprint] = id; schemas[id] = schema.DeepClone(); }
             return new() { ["$ref"] = "#/schemas/" + id };
         }
-        var capabilities = new JsonArray(preparation.Capabilities.Where(c => owned.Contains(c.Id)).Select(c => (JsonNode)new JsonObject
+        var capabilities = new JsonArray(preparation.Capabilities.Where(c => owned.Contains(c.Id)).Select(c =>
         {
-            ["id"] = c.Id,
-            ["stepType"] = c.StepType,
-            ["inputSchema"] = Reference(c.InputSchema),
-            ["outputSchema"] = Reference(c.OutputSchema),
-            ["fixedInput"] = c.FixedInput.DeepClone(),
-            ["requestBindings"] = new JsonArray(c.RequestBindings.Select(b => (JsonNode)new JsonObject { ["path"] = b.Path, ["value"] = b.Value?.DeepClone() }).ToArray())
+            var contract = new JsonObject { ["id"] = c.Id, ["stepType"] = c.StepType, ["resolution"] = c.Resolution };
+            // A local operation uses the graph's established typed value contracts.
+            // The native executor's generic definition is not a business-output schema.
+            if (c.Resolution != "local")
+            {
+                contract["inputSchema"] = Reference(c.InputSchema);
+                contract["outputSchema"] = Reference(c.OutputSchema);
+            }
+            if (c.FixedInput.Count > 0) contract["fixedInput"] = c.FixedInput.DeepClone();
+            if (c.RequestBindings.Count > 0)
+                contract["requestBindings"] = new JsonArray(c.RequestBindings.Select(b => (JsonNode)new JsonObject { ["path"] = b.Path, ["value"] = b.Value?.DeepClone() }).ToArray());
+            return (JsonNode)contract;
         }).ToArray());
         return new() { ["capabilities"] = capabilities, ["schemas"] = schemas };
+    }
+
+    internal static bool ReassessInvalidTargets(PlanningSnapshot state)
+    {
+        if (state.Graph is null || state.Preparation is null || state.BehaviorPlan is null || state.Validation.Stage != 4 ||
+            state.Construction.PendingCalls.Count != 0 ||
+            state.Validation.GraphFingerprint != PlanningGraphCompiler.Fingerprint(state.Graph) ||
+            state.Validation.ContractFingerprint != PlanningContext.Contracts(state) ||
+            state.Validation.FixtureFingerprint != PlanningContext.Fixtures(state) ||
+            state.ApprovedBehaviorHash != PlanningBehaviorPlans.Fingerprint(state.BehaviorPlan)) return false;
+        var findings = state.Diagnostics.Where(d => d.Required && d.Code != "GOVERNING_CONTRACT_REVIEW_REQUIRED").ToArray();
+        var targets = SemanticTargets(state.Graph, state.Preparation);
+        if (findings.Length == 0 || findings.Any(d => !d.Location.EndsWith("/preparation", StringComparison.Ordinal) || targets.ContainsKey(d.Location))) return false;
+        // Reassess an invalid review contract, with no executable write permission.
+        // Earlier gates and fixtures are checked again; existing allowances persist.
+        state.Validation.Assessment = new()
+        {
+            Fingerprint = state.Validation.GraphFingerprint,
+            Attempts = 1,
+            Diagnostics = [new("SEMANTIC_REVIEW_LOCATION_INVALID", "/semanticReview", "The findings must use the current authoritative review targets.")]
+        };
+        return true;
     }
 
     internal sealed class SemanticAssessmentException(List<PlanningDiagnostic> diagnostics) : Exception
     { internal List<PlanningDiagnostic> Diagnostics { get; } = diagnostics; }
 
-    internal static Dictionary<string, (string Workflow, bool Behavior)> SemanticTargets(PlanningGraph graph)
+    internal static Dictionary<string, (string Workflow, bool Behavior)> SemanticTargets(PlanningGraph graph, PlanningPreparation preparation)
     {
         var targets = new Dictionary<string, (string, bool)>(StringComparer.Ordinal);
         for (var i = 0; i < graph.Workflows.Count; i++)
@@ -142,7 +170,8 @@ internal sealed partial class PlanningSemanticReview
             foreach (var (node, path) in PlanningGraphValidation.Located(workflow.Steps, root + "/steps").Concat(PlanningGraphValidation.Located(workflow.Finally, root + "/finally")))
             {
                 targets[path + "/behavior"] = (workflow.Key, true);
-                targets[path + "/preparation"] = (workflow.Key, false);
+                if (node.CapabilityId is { } capabilityId && preparation.Capabilities.Any(c => c.Id == capabilityId && c.Resolution != "local"))
+                    targets[path + "/preparation"] = (workflow.Key, false);
                 if (node.InternalRole is not null) continue;
                 foreach (var field in new[] { "input", "expr" }) fields.Add(new("scope", path + "/" + field, ""));
             }

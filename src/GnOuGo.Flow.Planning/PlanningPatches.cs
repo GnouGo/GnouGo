@@ -105,11 +105,14 @@ public static class PlanningPatches
             _ => PlanningHoleRequests.Type("string")
         };
     }
-    internal sealed record Request(JsonObject Schema, Dictionary<string, PlanningValue> Bindings, JsonNode Context);
-    internal static Request CreateRequest(PlanningGraph graph, PlanningPreparation preparation, IReadOnlySet<string> allowed)
+    internal sealed record Request(JsonObject Schema, Dictionary<string, PlanningValue> Bindings, JsonNode Context)
+    { internal Dictionary<string, List<string>> ParameterScopes { get; init; } = new(StringComparer.Ordinal); }
+    internal static Request CreateRequest(PlanningGraph graph, PlanningPreparation preparation, IReadOnlySet<string> allowed, PlanningDataflowContract dataflow)
     {
         var targets = Targets(graph, allowed); var bindings = new Dictionary<string, PlanningValue>(StringComparer.Ordinal);
         var definitions = PlanningSchemas.ValueDefinitions(); var contexts = new JsonArray();
+        var parameterScopes = new Dictionary<string, List<string>>(StringComparer.Ordinal);
+        for (var i = 0; i < targets.Count; i++) targets[i] = PlanningRepairDomains.Specialize(targets[i], graph, preparation, dataflow, bindings, contexts);
         foreach (var workflow in graph.Workflows)
         {
             var root = "/workflows/" + graph.Workflows.IndexOf(workflow) + "/";
@@ -119,19 +122,33 @@ public static class PlanningPatches
             var holes = values.Select(t => new PlanningHole { Id = t.Id, Path = t.Path, WorkflowKey = workflow.Key,
                 NodeKey = nodes.Where(n => t.Path.StartsWith(n.Path + "/", StringComparison.Ordinal)).OrderByDescending(n => n.Path.Length).FirstOrDefault().Node?.Key,
                 Kind = "value", Purpose = nodes.Where(n => t.Path.StartsWith(n.Path + "/", StringComparison.Ordinal)).OrderByDescending(n => n.Path.Length).FirstOrDefault().Node?.Purpose ?? workflow.Purpose }).ToArray();
-            var scoped = PlanningHoleRequests.Create(new() { Graph = graph, Preparation = preparation }, workflow, holes);
+            var snapshot = new PlanningSnapshot { Graph = PlanningContext.Clone(graph), Preparation = preparation };
+            snapshot.Construction.Dataflow = dataflow; snapshot.Construction.Holes = holes.ToList();
+            var unresolved = PlanningFieldPaths.Json(snapshot.Graph);
+            foreach (var hole in holes) PlanningFieldPaths.Replace(unresolved, hole.Path, JsonSerializer.SerializeToNode(new PlanningValue { Kind = PlanningGraphSkeleton.Unresolved }, PlanningJsonContext.Default.PlanningValue));
+            snapshot.Graph = JsonSerializer.Deserialize(unresolved, PlanningJsonContext.Default.PlanningGraph)!;
+            var scoped = PlanningHoleRequests.Create(snapshot, snapshot.Graph.Workflows.Single(w => w.Key == workflow.Key), holes);
             if (scoped.Schema["$defs"] is JsonObject defs) foreach (var (name, definition) in defs) definitions[name] = definition?.DeepClone();
             foreach (var pair in scoped.Bindings) bindings[pair.Key] = pair.Value;
+            foreach (var pair in scoped.ParameterScopes) parameterScopes[pair.Key] = pair.Value;
             foreach (var target in values)
                 targets[targets.IndexOf(target)] = target with { Schema = scoped.Schema["properties"]!["assignments"]!["properties"]![target.Id]!.DeepClone().AsObject() };
             contexts.Add(scoped.Context.DeepClone());
         }
-        return new(PlanningExactPatches.Schema(targets, new JsonObject { ["$defs"] = definitions }), bindings, contexts);
+        return new(PlanningExactPatches.Schema(targets, new JsonObject { ["$defs"] = definitions }), bindings, contexts) { ParameterScopes = parameterScopes };
     }
 
-    public static PlanningGraph Apply(PlanningGraph original, JsonObject response, IReadOnlySet<string> allowed, PlanningPreparation preparation)
+    public static PlanningGraph Apply(PlanningGraph original, JsonObject response, IReadOnlySet<string> allowed, PlanningPreparation preparation, PlanningDataflowContract dataflow)
     {
-        var request = CreateRequest(original, preparation, allowed);
+        var request = CreateRequest(original, preparation, allowed, dataflow);
+        var candidate = ApplyVerified(original, response, allowed, request);
+        var invalid = PlanningRepairDomains.Validate(candidate, preparation, dataflow, Targets(original, allowed));
+        if (invalid.Count > 0) throw new InvalidOperationException("The exact repair does not satisfy current field eligibility.");
+        return candidate;
+    }
+
+    internal static PlanningGraph ApplyVerified(PlanningGraph original, JsonObject response, IReadOnlySet<string> allowed, Request request)
+    {
         var errors = PlanningContractValidation.ValidateInstance(response, request.Schema);
         if (errors.Count > 0) throw new InvalidOperationException("Invalid exact-field repair: " + string.Join("; ", errors));
         var targets = Targets(original, allowed); var typed = response.DeepClone().AsObject();
@@ -140,7 +157,7 @@ public static class PlanningPatches
             var target = targets.Single(t => t.Id == patch!["target"]!.ToString());
             if (target.Schema["$ref"]?.ToString() == "#/$defs/value")
             {
-                var value = PlanningHoleAssignments.Value(patch!["value"]!.AsObject(), request.Bindings);
+                var value = PlanningHoleAssignments.Value(patch!["value"]!.AsObject(), request.Bindings, request.ParameterScopes.GetValueOrDefault(target.Id));
                 patch["value"] = PlanningModelValues.Compact(JsonSerializer.SerializeToNode(value, PlanningJsonContext.Default.PlanningValue));
             }
         }

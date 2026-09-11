@@ -30,13 +30,17 @@ internal sealed class PlanningTypedRepair(PlanningValidationPipeline validation)
         var gate = PlanningGates.FromStage(state.Validation.Stage);
         if (state.Construction.Repair is null && !state.Construction.PendingCalls.Any(c => c.Phase == PlanningPhase.Repair && c.WorkflowKey == (owner ?? "")) && !PlanningRepairAllowances.Available(state, owner ?? "", gate)) return;
         if (owner is not null) scope.RemoveWhere(s => JsonNode.Parse(s)?[0]?.GetValue<string>() != owner);
-        var preparation = owner is null ? state.Preparation! : PlanningWorkflowConstruction.RelevantPreparation(state.Preparation!, state.Graph!.Workflows.Single(w => w.Key == owner));
-        var transport = PlanningPatches.CreateRequest(state.Graph!, preparation, scope);
+        var dataflow = state.Construction.Dataflow ?? throw new PlanningConflictException("Resolve dataflow obligations before executable repair.");
+        var retained = state.Construction.Repair;
+        var pendingScope = state.Construction.PendingCalls.SingleOrDefault(c => c.Phase == PlanningPhase.Repair && c.WorkflowKey == (owner ?? ""))?.Assignments;
+        var transport = retained?.ResponseSchema is { } retainedSchema && retained.Bindings is { } retainedBindings
+            ? new PlanningPatches.Request(retainedSchema, retainedBindings, new JsonObject()) { ParameterScopes = retained.ParameterScopes }
+            : pendingScope is not null ? new PlanningPatches.Request(pendingScope.ResponseSchema, pendingScope.Bindings, new JsonObject()) { ParameterScopes = pendingScope.ParameterScopes }
+            : PlanningPatches.CreateRequest(state.Graph!, state.Preparation!, scope, dataflow);
         var schema = transport.Schema;
         var context = new JsonObject
         {
             ["assignments"] = transport.Context.DeepClone(),
-            ["callees"] = owner is null ? null : PlanningPromptContext.Callees(state, owner),
             ["previousRejection"] = state.Attempts.LastOrDefault(a => a.Phase == PlanningPhase.Repair && !a.Retained) is { } rejected
                 ? JsonSerializer.SerializeToNode(rejected.Diagnostics, PlanningJsonContext.Default.ListPlanningDiagnostic) : null,
             ["fields"] = new JsonObject(PlanningPatches.Targets(state.Graph!, scope).Select(t => new KeyValuePair<string, JsonNode?>(t.Id, new JsonObject
@@ -44,8 +48,7 @@ internal sealed class PlanningTypedRepair(PlanningValidationPipeline validation)
                 ["path"] = t.Path,
                 ["current"] = PlanningModelValues.Compact(PlanningFieldPaths.Read(PlanningFieldPaths.Json(state.Graph!), t.Path))
             }))),
-            ["diagnostics"] = JsonSerializer.SerializeToNode(state.Diagnostics, PlanningJsonContext.Default.ListPlanningDiagnostic),
-            ["capabilities"] = new JsonArray(preparation.Capabilities.Select(c => JsonSerializer.SerializeToNode(c, PlanningJsonContext.Default.PlanningCapability)).ToArray())
+            ["diagnostics"] = JsonSerializer.SerializeToNode(state.Diagnostics, PlanningJsonContext.Default.ListPlanningDiagnostic)
         };
         var prompt = "Repair only the exact target fields. Compute expressions use declared binding parameters. " + PlanningPromptContext.Instructions + "\n" + PlanningPromptContext.Share(context).ToJsonString();
         if (state.Construction.Repair is null)
@@ -56,41 +59,48 @@ internal sealed class PlanningTypedRepair(PlanningValidationPipeline validation)
             if (beforeSequence != state.Construction.ModelSequence)
             {
                 PlanningRepairAllowances.Reserved(state, owner ?? "", gate);
+                call.Assignments = new() { WorkflowKey = owner ?? "", ResponseSchema = schema, Bindings = transport.Bindings, ParameterScopes = transport.ParameterScopes };
+                var paths = PlanningPatches.Targets(state.Graph!, scope).Select(t => t.Path).ToArray();
+                PlanningConvergence.Expose(state, state.Construction.Holes.Where(h => !h.Superseded && paths.Any(p => p == h.Path || p.StartsWith(h.Path + "/", StringComparison.Ordinal))), call.Id);
             }
+            if (call.Assignments is null) throw new PlanningConflictException("The pending repair has no verifiable binding scope. Reconcile its receipt before continuing.");
             await runtime.CheckpointAsync(state, ct);
             var response = await runtime.CallAsync(call.Request, call.Phase, ct);
             state.Construction.PendingCalls.Remove(call);
+            if (response.CompletionStatus == "output_limit") PlanningConvergence.Failure(state, owner ?? "$plan", PlanningGates.Response, call.Id, [new("MODEL_OUTPUT_LIMIT", "$", "The typed patch reached its output ceiling.")]);
             PlanningModelCalls.RequireComplete(response, call.Request.MaxTokens);
             if (response.Json is not JsonObject patches)
-            { Reject(state, "PATCH_INVALID", "A complete typed patch response is required.", "invalid:" + state.Construction.ModelSequence); return; }
-            state.Construction.Repair = new() { GraphFingerprint = PlanningGraphCompiler.Fingerprint(state.Graph!), Patches = patches.DeepClone().AsObject() };
+            { Reject(state, owner ?? "$plan", "PATCH_INVALID", "A complete typed patch response is required.", "invalid:" + state.Construction.ModelSequence); return; }
+            state.Construction.Repair = new() { GraphFingerprint = PlanningGraphCompiler.Fingerprint(state.Graph!), Patches = patches.DeepClone().AsObject(), ResponseSchema = call.Assignments.ResponseSchema, Bindings = call.Assignments.Bindings, ParameterScopes = call.Assignments.ParameterScopes };
             await runtime.CheckpointAsync(state, ct);
         }
         var staged = state.Construction.Repair;
         if (staged.GraphFingerprint != PlanningGraphCompiler.Fingerprint(state.Graph!))
             throw new PlanningConflictException("The staged repair no longer targets the current graph.");
         PlanningGraph candidate;
-        try { candidate = PlanningPatches.Apply(state.Graph!, staged.Patches, scope, state.Preparation!); }
+        if (staged.ResponseSchema is null || staged.Bindings is null) throw new PlanningConflictException("The staged repair has no verifiable response contract. Retain it for reconciliation.");
+        try { candidate = PlanningPatches.ApplyVerified(state.Graph!, staged.Patches, scope, new(staged.ResponseSchema, staged.Bindings, new JsonObject()) { ParameterScopes = staged.ParameterScopes }); }
         catch (Exception error) when (error is InvalidOperationException or ArgumentException or JsonException or NullReferenceException)
-        { Reject(state, "PATCH_INVALID", error.Message, PlanningGraphCompiler.Fingerprint(staged.Patches.ToJsonString())); return; }
+        { Reject(state, owner ?? "$plan", "PATCH_INVALID", error.Message, PlanningGraphCompiler.Fingerprint(staged.Patches.ToJsonString())); return; }
         var hash = PlanningGraphCompiler.Fingerprint(candidate);
         if (hash == PlanningGraphCompiler.Fingerprint(state.Graph!) || state.Construction.RejectedCandidates.Contains(hash, StringComparer.Ordinal))
         { state.Construction.Repair = null; PlanningContext.Stop(state, "REPAIR_REPEATED", "The typed repair repeated a candidate or made no change."); return; }
         if (!PlanningRepairInvariants.PreservesUndiagnosedFields(state.Graph!, candidate, state.Diagnostics))
-        { Reject(state, "REPAIR_SCOPE_REGRESSION", "The repair modified typed fields outside the diagnosed locations.", hash); return; }
-        var regressions = new List<PlanningDiagnostic>();
+        { Reject(state, owner ?? "$plan", "REPAIR_SCOPE_REGRESSION", "The repair modified typed fields outside the diagnosed locations.", hash); return; }
+        var regressions = PlanningRepairDomains.Validate(candidate, state.Preparation!, dataflow, PlanningPatches.Targets(state.Graph!, scope));
         PlanningRepairInvariants.PreserveBehavior(state.Graph!, candidate, state.Preparation!, state.Diagnostics, regressions);
         // Pending workflows still contain their accepted, unimplemented skeletons.
         // They must not make every repair of an independent producer look like a new regression.
         var existingBehaviorFindings = PlanningBehaviorPlans.ValidateImplementation(state.BehaviorPlan!, state.Graph!, state.Preparation!);
         var existingIds = existingBehaviorFindings.Select(d => PlanningFieldPaths.DiagnosticId(d, PlanningFieldPaths.Json(state.Graph!))).ToHashSet(StringComparer.Ordinal);
         regressions.AddRange(PlanningBehaviorPlans.ValidateImplementation(state.BehaviorPlan!, candidate, state.Preparation!).Where(d => !existingIds.Contains(PlanningFieldPaths.DiagnosticId(d, PlanningFieldPaths.Json(candidate)))));
-        if (regressions.Any(d => d.Required)) { Reject(state, "REPAIR_BEHAVIOR_REGRESSION", "The repair changed accepted behavior or ownership.", hash); return; }
+        if (regressions.Any(d => d.Required)) { Reject(state, owner ?? "$plan", "REPAIR_BEHAVIOR_REGRESSION", "The repair changed accepted behavior or ownership.", hash); return; }
         if (!PlanningContractPreservation.Preserves(state, candidate))
-        { Reject(state, "REPAIR_CONTRACT_REGRESSION", "The repair weakened a previously validated contract.", hash); return; }
+        { Reject(state, owner ?? "$plan", "REPAIR_CONTRACT_REGRESSION", "The repair weakened a previously validated contract.", hash); return; }
         var baseline = new PlanningValidationReport(state.Validation.Stage, state.Diagnostics, state.Validation.Scenarios);
         var report = await validation.EvaluateAsync(state, candidate, runtime, ct, Math.Max(1, baseline.Stage));
-        if (!IsProgress(baseline, report, state.Graph!, candidate)) { Reject(state, "REPAIR_REGRESSION", "The repair did not strictly improve validation while preserving established passes.", hash); return; }
+        PlanningConvergence.Failure(state, owner ?? "$plan", PlanningGates.FromStage(report.Stage), hash, report.Diagnostics);
+        if (!IsProgress(baseline, report, state.Graph!, candidate)) { Reject(state, owner ?? "$plan", "REPAIR_REGRESSION", "The repair did not strictly improve validation while preserving established passes.", hash); return; }
         var changed = state.Construction.Workflows.Where(w => w.Status == "validated" &&
             w.DependencyFingerprint != PlanningWorkflowConstruction.DependencyFingerprint(state, w, candidate)).ToArray();
         state.Graph = candidate;
@@ -107,8 +117,10 @@ internal sealed class PlanningTypedRepair(PlanningValidationPipeline validation)
         state.Status = PlanningStatus.Validating;
     }
 
-    private static void Reject(PlanningSnapshot state, string code, string message, string hash)
+    private static void Reject(PlanningSnapshot state, string owner, string code, string message, string hash)
     {
+        if (code != "REPAIR_REGRESSION")
+            PlanningConvergence.Failure(state, owner, code == "PATCH_INVALID" ? PlanningGates.Response : PlanningGates.Typed, hash, [new(code, "/repair", message)]);
         state.Construction.Repair = null;
         state.Validation.Assessment = new();
         if (state.Construction.RejectedCandidates.Contains(hash, StringComparer.Ordinal))

@@ -12,6 +12,9 @@ internal sealed class PlanningWorkflowConstruction
     {
         if (state.Construction.Candidates.Count > 0)
         { Process(state); return; }
+        try { while (PlanningContractPropagation.Resolve(state)) { ct.ThrowIfCancellationRequested(); } }
+        catch (PlanningHoleUnavailableException error)
+        { PlanningContext.Stop(state, "CONTRACT_PROPAGATION_CONFLICT", error.Message, error.Location); return; }
         var work = state.Construction.Workflows;
         if (work.Any(p => p.Status == "constructed")) { state.Status = PlanningStatus.Validating; return; }
         var ready = work.Where(p => p.Status == "pending" && p.Dependencies.All(d => work.Single(c => c.WorkflowKey == d).Status == "validated"))
@@ -50,8 +53,18 @@ internal sealed class PlanningWorkflowConstruction
                     .FirstOrDefault(n => holes.Any(h => h.NodeKey == n.Key));
                 holes = holes.Where(h => h.NodeKey == producer?.Key).ToArray();
             }
-            var request = PlanningHoleRequests.Create(state, workflow, holes);
-            var scope = PlanningGraphCompiler.Fingerprint(JsonSerializer.Serialize(holes.ToList(), PlanningJsonContext.Default.ListPlanningHole));
+            // Coupled argument domains are recalculated after each accepted field.
+            if (holes.Length > 1 && holes[0].Kind == "value" && holes[0].NodeKey is not null &&
+                holes.Any(h => PlanningHoleEligibility.Analyze(state, workflow, h).Outstanding.Count > 0)) holes = holes.Take(1).ToArray();
+            PlanningHoleRequests.Request request;
+            try { request = PlanningHoleRequests.Create(state, workflow, holes); }
+            catch (PlanningHoleUnavailableException error)
+            {
+                PlanningConvergence.Failure(state, workflow.Key, PlanningGates.Typed, PlanningGraphCompiler.Fingerprint(state.Graph!),
+                    [new("HOLE_DOMAIN_UNRESOLVED", error.Location, error.Message)]);
+                PlanningContext.Stop(state, "HOLE_DOMAIN_UNRESOLVED", error.Message, error.Location); return;
+            }
+            var scope = PlanningHoleRequests.Scope(holes, request.Schema);
             progress.Gate = PlanningGates.Response;
             progress.EstimatedInputTokens = PlanningJsonTransport.EstimateInputTokens(request.Prompt, request.Schema);
             progress.InputTokenLimit = state.Request.Generation.MaxInputTokensPerRequest;
@@ -64,12 +77,13 @@ internal sealed class PlanningWorkflowConstruction
                 progress.Calls++;
                 if (progress.ResponseRepairPending) PlanningRepairAllowances.Reserved(state, workflow.Key, PlanningGates.Response);
             }
+            PlanningConvergence.Expose(state, holes, call.Id);
             progress.DependencyFingerprint = DependencyFingerprint(state, progress);
             call.Assignments = new()
             {
                 WorkflowKey = workflow.Key, GraphFingerprint = PlanningGraphCompiler.Fingerprint(state.Graph),
                 WorkflowFingerprint = PlanningHoleAssignments.WorkflowFingerprint(workflow), DependencyFingerprint = progress.DependencyFingerprint,
-                ScopeFingerprint = scope, Targets = holes.ToList(), ResponseSchema = request.Schema, Bindings = request.Bindings
+                ScopeFingerprint = scope, Targets = holes.ToList(), ResponseSchema = request.Schema, Bindings = request.Bindings, ParameterScopes = request.ParameterScopes
             };
             requests.Add((progress, call, call.Assignments));
         }
@@ -85,11 +99,17 @@ internal sealed class PlanningWorkflowConstruction
             if (result.Error is not null)
             {
                 var code = result.Error is LLMClientException provider ? "LLM_PROVIDER_" + provider.Kind.ToString().ToUpperInvariant() : "MODEL_DISPATCH_INTERRUPTED";
-                state.Diagnostics.Add(new(code, result.Item.Progress.WorkflowKey, "The pending request has no verifiable receipt; reconcile it before continuing.")); continue;
+                var detail = result.Error is LLMClientException rejected ? " Provider status: " + rejected.StatusCode + "; code: " + rejected.SafeProviderCode + "." : "";
+                var failure = new PlanningDiagnostic(code, result.Item.Progress.WorkflowKey, "The pending request has no verifiable receipt; reconcile it before continuing." + detail);
+                state.Diagnostics.Add(failure); PlanningConvergence.Failure(state, result.Item.Progress.WorkflowKey, PlanningGates.Response, result.Item.Call.Id, [failure]); continue;
             }
             state.Construction.PendingCalls.Remove(result.Item.Call);
             if (result.Response!.CompletionStatus == "output_limit")
-            { result.Item.Progress.ResponseRepairPending = true; state.Diagnostics.Add(new("MODEL_OUTPUT_LIMIT", result.Item.Progress.WorkflowKey, "The response reached its output ceiling; unresolved fields and prior assignments are retained.")); continue; }
+            {
+                result.Item.Progress.ResponseRepairPending = true;
+                var failure = new PlanningDiagnostic("MODEL_OUTPUT_LIMIT", result.Item.Progress.WorkflowKey, "The response reached its output ceiling; unresolved fields and prior assignments are retained.");
+                state.Diagnostics.Add(failure); PlanningConvergence.Failure(state, result.Item.Progress.WorkflowKey, PlanningGates.Response, result.Item.Call.Id, [failure]); continue;
+            }
             result.Item.Progress.ResponseRepairPending = false;
             result.Item.Candidate.Payload = result.Response.Json is JsonObject payload ? payload.DeepClone().AsObject() : new JsonObject();
             state.Construction.Candidates.Add(result.Item.Candidate);
@@ -106,6 +126,7 @@ internal sealed class PlanningWorkflowConstruction
             if (findings.Count > 0)
             {
                 candidate.Diagnostics = findings; candidate.Stage = findings.Any(d => d.Code == "HOLE_RESPONSE_INVALID") ? 0 : 1;
+                PlanningConvergence.Failure(state, candidate.WorkflowKey, PlanningGates.FromStage(candidate.Stage), PlanningGraphCompiler.Fingerprint(candidate.Payload.ToJsonString()), findings);
                 var progress = state.Construction.Workflows.Single(w => w.WorkflowKey == candidate.WorkflowKey);
                 progress.Gate = PlanningGates.FromStage(candidate.Stage); progress.Diagnostics = findings;
                 state.Diagnostics = findings; state.CurrentPhase = PlanningPhase.Repair; state.Status = PlanningStatus.Generating;

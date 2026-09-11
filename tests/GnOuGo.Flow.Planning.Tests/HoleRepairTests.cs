@@ -10,18 +10,18 @@ namespace GnOuGo.Flow.Planning.Tests;
 public sealed class HoleRepairTests
 {
     [Fact]
-    public void IdentityComputationRetainsTheOriginalTypedBindingAndRejectsUnusedCompanions()
+    public void IdentityComputationRetainsOnlyTheOriginalTypedBinding()
     {
         var values = new Dictionary<string, PlanningValue> { ["source"] = new() { Kind = "input", Source = "records" }, ["unused"] = Str("Unrelated") };
         var assignment = new JsonObject { ["kind"] = "compute", ["expression"] = "source", ["bindings"] = new JsonArray("source") };
         var value = PlanningHoleAssignments.Value(assignment, values);
         Assert.Equal("input", value!.Kind); Assert.Equal("records", value.Source);
         assignment["bindings"] = new JsonArray("source", "unused");
-        Assert.Throws<InvalidOperationException>(() => PlanningHoleAssignments.Value(assignment, values));
+        Assert.Equal("records", PlanningHoleAssignments.Value(assignment, values)!.Source);
     }
 
     [Fact]
-    public void OpenProducerContractIsRepairedAtomicallyWithItsRetainedConsumerBinding()
+    public void RetainedReceiptRefinesAnOpenProducerBeforeItsConsumerBindingCanCommit()
     {
         var state = Ready(); var workflow = state.Graph!.Workflows[0]; var producer = workflow.Steps[0];
         producer.Input = Obj(("message", Str("Hello"))); producer.OutputSchema = new() { CapabilityId = "open", SchemaPointer = "/output" };
@@ -29,8 +29,12 @@ public sealed class HoleRepairTests
         workflow.Outputs[0].Schema = new() { Type = "object", Properties = [new() { Name = "message", Schema = new() { Type = "string" } }] };
         state.Construction.Holes = state.Construction.Holes.Where(h => h.Path == "/workflows/0/outputs/0/value").ToList();
         PlanningDataflowResolver.Resolve(state);
-        var hole = Assert.Single(state.Construction.Holes); var request = PlanningHoleRequests.Create(state, workflow, [hole]);
-        var binding = request.Bindings.Single(p => p.Value.Kind == "output" && p.Value.Source == producer.Key && p.Value.Path.Count == 0).Key;
+        var hole = Assert.Single(state.Construction.Holes);
+        var original = new PlanningValue { Kind = "output", Source = producer.Key };
+        var binding = "p_" + PlanningBindingIdentity.Id(original)[2..14];
+        var request = new PlanningHoleRequests.Request("Retained request", PlanningHoleRequests.Object(("assignments", PlanningHoleRequests.Object((hole.Id,
+            PlanningHoleRequests.Object(("kind", PlanningHoleRequests.Enum("binding")), ("binding", PlanningHoleRequests.Enum(binding))))))),
+            new Dictionary<string, PlanningValue> { [binding] = original }, new JsonObject());
         var delta = new PlanningStagedAssignments { WorkflowKey = workflow.Key, WorkflowFingerprint = PlanningHoleAssignments.WorkflowFingerprint(workflow),
             DependencyFingerprint = PlanningWorkflowConstruction.DependencyFingerprint(state, state.Construction.Workflows[0]), Targets = [hole], Bindings = request.Bindings,
             ResponseSchema = request.Schema, Payload = new() { ["assignments"] = new JsonObject { [hole.Id] = new JsonObject { ["kind"] = "binding", ["binding"] = binding } } },
@@ -82,7 +86,7 @@ public sealed class HoleRepairTests
         {
             var assignments = invalid.FillHoles(request, new() { Workflows = [FakeRuntime.ExecutableWorkflow()] });
             var id = assignments["assignments"]!.AsObject().First().Key;
-            assignments["assignments"]![id] = new JsonObject { ["kind"] = "literal", ["value"] = new JsonObject { ["kind"] = "number", ["number"] = 7 } };
+            assignments["assignments"]![id] = new JsonObject { ["kind"] = "literal", ["json"] = 7 };
             return Task.FromResult(new LLMResponse { Json = assignments });
         };
         state = await Advance(state, invalid);
@@ -96,12 +100,12 @@ public sealed class HoleRepairTests
             Assert.Equal(PlanningPhase.Repair, phase);
             var target = request.StructuredOutputSchema!["properties"]!["patches"]!["items"]!["anyOf"]![0]!["properties"]!["target"]!["enum"]![0]!.ToString();
             return Task.FromResult(new LLMResponse { Json = new JsonObject { ["patches"] = new JsonArray(new JsonObject
-            { ["target"] = target, ["value"] = new JsonObject { ["kind"] = "string", ["text"] = "Hello" } }) } });
+            { ["target"] = target, ["value"] = "Hello" }) } });
         } };
         state = await Advance(state, repair);
         Assert.Empty(state.Construction.Candidates);
         Assert.Equal(1, Assert.Single(state.RepairAllowances).Attempts);
-        Assert.Equal(PlanningGates.Typed, state.RepairAllowances[0].Gate);
+        Assert.Equal(PlanningGates.Response, state.RepairAllowances[0].Gate);
         for (var i = 0; i < 10 && !PlanningStatus.IsWaiting(state.Status); i++) state = await Advance(state, runtime);
         Assert.Equal(PlanningStatus.FinalReview, state.Status);
         Assert.Single(invalid.Requests);

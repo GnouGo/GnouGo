@@ -65,10 +65,13 @@ public sealed class WorkflowPlanningRuntimeFactory(IKeyVaultRecordStore records,
             // The journal meters actual dispatches; replaying a receipt consumes no new allowance.
             context.LLMUsageBudget = null;
             var client = new WorkflowPlanningModelJournal(context, records, state.Request, budget);
+            var observed = JsonSerializer.Deserialize(JsonSerializer.Serialize(state, PlanningJsonContext.Default.PlanningSnapshot), PlanningJsonContext.Default.PlanningSnapshot)!;
             async Task Checkpoint(PlanningSnapshot snapshot, CancellationToken token)
             {
                 snapshot.Usage = budget.Snapshot;
                 await records.UpsertAsync(Sessions, tenant, key, JsonSerializer.Serialize(snapshot, PlanningJsonContext.Default.PlanningSnapshot), Author, token);
+                PlanningConvergenceTelemetry.Observe(observed, snapshot, (name, tags) => context.AddTelemetryEvent(name, tags));
+                observed = JsonSerializer.Deserialize(JsonSerializer.Serialize(snapshot, PlanningJsonContext.Default.PlanningSnapshot), PlanningJsonContext.Default.PlanningSnapshot)!;
             }
             await Checkpoint(state, ct);
             context.SetTelemetryAttribute("gnougo-flow.plan.session_id", key);

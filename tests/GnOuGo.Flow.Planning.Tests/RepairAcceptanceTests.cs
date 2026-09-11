@@ -18,7 +18,7 @@ public sealed class RepairAcceptanceTests
     private static PlanningScenarioResult Scenario(string outcome) => new("same-fixture", outcome, "Fixed fixture", []);
 
     [Fact]
-    public async Task CallerRepairIncludesCalleeContractsWithoutImplementationsOrUnrelatedWorkflows()
+    public async Task CallerRepairIncludesOnlyTheRelevantCalleeArgumentContract()
     {
         var behavior = BehaviorPlan();
         behavior.Workflows[0].Inputs = [new("subject", "Runtime subject", true)];
@@ -29,6 +29,7 @@ public sealed class RepairAcceptanceTests
         child.Inputs = [new() { Name = "requiredArgument", Required = true, Schema = new() { Type = "number" } }];
         child.Outputs[0].Name = "returnedPort"; child.Steps[0].Purpose = "private implementation marker";
         state.Graph!.Workflows[1] = child;
+        state.Graph.Workflows[0].Inputs[0].Schema = new() { Type = "number" };
         state.Graph.Workflows.Add(new() { Key = "unrelated marker" });
         state.Graph.Workflows[0].Steps[0].Input = Obj(("ref", new() { Kind = "workflow", Source = "child" }), ("args", Obj(("requiredArgument", Str("invalid")))));
         state.Diagnostics = [new("ARGUMENT_INVALID", "/workflows/0/steps/0/input/args/requiredArgument", "Fix argument")];
@@ -36,8 +37,8 @@ public sealed class RepairAcceptanceTests
         var runtime = new FakeRuntime { OnCall = (_, request, _) =>
         {
             called = true;
-            Assert.Contains("\"callees\":{\"child\":", request.Prompt);
-            Assert.Contains("requiredArgument", request.Prompt); Assert.Contains("returnedPort", request.Prompt);
+            Assert.Contains("requiredArgument", request.Prompt);
+            Assert.DoesNotContain("returnedPort", request.Prompt);
             Assert.DoesNotContain("private implementation marker", request.Prompt);
             Assert.DoesNotContain("unrelated marker", request.Prompt);
             return Task.FromResult(new LLMResponse { Json = new JsonObject() });
@@ -130,24 +131,24 @@ public sealed class RepairAcceptanceTests
         var scope = PlanningPatches.Scope(graph, diagnostics);
         Assert.Contains(PlanningPatches.Coordinate("main", null, "outputs/0/value"), scope);
         Assert.DoesNotContain(PlanningPatches.Coordinate("main", null, "outputs"), scope);
-        var patch = Patch("main", null, "outputs/0/value", new JsonObject { ["kind"] = "literal", ["value"] = new JsonObject { ["kind"] = "string", ["text"] = "Fixed" } });
-        var candidate = PlanningPatches.Apply(graph, patch, scope, Preparation());
+        var patch = Patch("main", null, "outputs/0/value", new JsonObject { ["kind"] = "literal", ["json"] = "Fixed" });
+        var candidate = PlanningPatches.Apply(graph, patch, scope, Preparation(), new PlanningDataflowContract());
         Assert.True(PlanningRepairInvariants.PreservesUndiagnosedFields(graph, candidate, diagnostics));
         candidate.Workflows[0].Outputs[0].Schema.Description = "Unrelated change";
         Assert.False(PlanningRepairInvariants.PreservesUndiagnosedFields(graph, candidate, diagnostics));
         patch["patches"]![0]!["field"] = "outputs";
         patch["patches"]![0]!["value"] = PlanningFixtures.Workflow(graph.Workflows[0])["outputs"]!.DeepClone();
-        Assert.Throws<InvalidOperationException>(() => PlanningPatches.Apply(graph, patch, scope, Preparation()));
+        Assert.Throws<InvalidOperationException>(() => PlanningPatches.Apply(graph, patch, scope, Preparation(), new PlanningDataflowContract()));
     }
 
     [Fact]
     public void ModelRepairSchemaRejectsUnscopedCoordinatesAndOmitsUnusedContracts()
     {
         var scope = new HashSet<string> { PlanningPatches.Coordinate("main", null, "outputs/0/value") };
-        var schema = PlanningPatches.CreateRequest(Graph(), Preparation(), scope).Schema;
+        var schema = PlanningPatches.CreateRequest(Graph(), Preparation(), scope, new PlanningDataflowContract()).Schema;
         Assert.Empty(PlanningContractValidation.ValidateSchema(schema, strict: true));
-        Assert.Null(schema["$defs"]!["workflow"]);
-        var patch = Patch("main", null, "outputs/0/value", new JsonObject { ["kind"] = "literal", ["value"] = new JsonObject { ["kind"] = "string", ["text"] = "Fixed" } });
+        Assert.Null(schema["$defs"]?["workflow"]);
+        var patch = Patch("main", null, "outputs/0/value", new JsonObject { ["kind"] = "literal", ["json"] = "Fixed" });
         Assert.Empty(PlanningContractValidation.ValidateInstance(patch, schema));
         patch["patches"]![0]!["workflow"] = "unrelated";
         Assert.NotEmpty(PlanningContractValidation.ValidateInstance(patch, schema));

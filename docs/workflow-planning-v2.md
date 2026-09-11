@@ -35,7 +35,9 @@ Every model response has a strict typed JSON schema. Every classification and co
 must have deterministically validated evidence from intent, declared schemas or
 provider-neutral metadata. Missing evidence requires eligible human clarification or
 stops the session. Provider names, tool names and domain vocabulary never establish
-execution authority. Saved YAML is imported once as a validated revision baseline;
+execution authority. A validated inventory containing only local operations never
+requests physical MCP selection merely to enumerate denied tools: its physical
+allowlist is empty, while native denials remain validated. Saved YAML is imported once as a validated revision baseline;
 capabilities are rediscovered before granting execution authority. Execution failure
 evidence is kept separate from user intent.
 
@@ -57,12 +59,47 @@ immutable requests, and the coordinator commits results in stable workflow order
 
 Requests contain only relevant accepted behavior, typed fields, native and capability
 contracts, callee boundaries and diagnostics. Repeated contract objects are shared.
-Construction and repair share the same scoped callee input/output boundaries;
-callee implementations are excluded. Call and control-flow result contracts are
+Construction and repair share one eligibility analysis at each exact field. Only
+referenced callee contract fragments are included; callee implementations are excluded. Call and control-flow result contracts are
 derived. Direct typed call references select a declared output port, while calls
 inside collected loop results retain their runtime `outputs` envelope.
 Raw YAML, unrelated workflows and previous attempts are excluded from construction.
 Oversized requests and truncated responses pause with actionable diagnostics.
+
+## Eligibility before dispatch
+
+Forward and backward propagation run to a fixed point through established bindings,
+nested members and call boundaries. Only unresolved schema fragments can be refined;
+locked producer contracts and opaque external results cannot be inferred from consumer
+requirements. Conflicting requirements produce located diagnostics before dispatch.
+Known object layouts are built by the coordinator and partially known schemas become
+exact member holes.
+
+`PlanningHoleEligibility` checks destination constraints, nullability, required member
+presence, defaults, consumer availability, business-input and operation obligations,
+and original-artifact identity. The same domain drives deterministic resolution and
+response schemas. Obligations are shared across arguments and credit established
+neighbors. Only a uniquely evidenced transfer is bound automatically; matching types
+alone cannot replace an intended computation. Coupled fields are processed sequentially;
+independent fields and workflows retain bounded parallel scheduling.
+
+Incoming operation obligations on callee inputs remain requirements on each invocation;
+callee construction does not invent local producer evidence. Caller validation must
+prove every such operation through its actual arguments before global approval.
+
+Direct binding IDs and computation parameters are separate domains. Parameters may
+have different types from the computed result. The coordinator fixes and persists parameter identities; computation responses contain
+only the expression text, never parameter arrays. Only parameters referenced by the
+expression establish provenance. Existing
+expression, semantic and scenario checks still apply.
+
+Literal assignments contain destination-typed JSON, with enums, bounds, nullable types
+and nested constraints enforced by the response schema. Dynamic or original-artifact
+obligations remove the literal alternative. Proven constants and defaults resolve
+without a model call. An empty domain pauses with a located diagnostic; it never
+reopens an unfiltered catalog. Requests omit unrelated bindings and duplicate schema
+representations. Exact repairs use the same domains and retain the persisted response
+contract when replaying a receipt; current eligibility is revalidated before commit.
 
 ## Repairs and validation
 
@@ -81,6 +118,9 @@ repeated and regressing candidates are rejected while retaining the previous gra
 Governing behavior or capability changes require renewed human review. Initial
 behavior generation happens once. A human revision retains the candidate, locates
 changes against exact excerpts of the revision, and stages patches to those fields.
+Revision localization shares retained identity anchors and scalar field values instead
+of repeating the whole behavior plan beside its coordinate catalog. Removing an
+element excludes redundant descendant targets before building the patch schema.
 Diagnosed structural corrections use explicit insertion, removal or move coordinates;
 whole-plan and collection replacement are forbidden.
 The accepted business projection supplies revision context without repeating the
@@ -122,13 +162,35 @@ reset. Call, token, monetary, active-time and concurrency limits remain enforced
 Defaults are concurrency **4**, repair allowance **5 per workflow/gate** (configurable from 0–10 with `max_repairs_per_workflow_gate`), input ceiling **12,000** tokens
 per request and output ceiling **8,192** tokens.
 
+Capability preparation uses this ceiling too. Physical catalog pages are sized from
+the complete prompt and scoped response schema. Repeated inventory evidence is shared;
+selection responses cannot refer to IDs outside their page. Matching requests contain
+the recorded candidates for their operation and declared artifact prerequisites.
+Matching repair revisits only failed decisions and necessary decision dependencies.
+Completed pages and matching scopes are checkpointed and validated again on restart.
+Unresolved contracts produce diagnostics instead of reopening the unfiltered catalog.
+Agent.Server accepts human revision of a retained invalid behavior candidate, so
+recovery preserves its valid neighboring fields rather than requiring regeneration.
+
 Agent.Server, Flow.Cli and Flow.Server inject the same planner and runtime factory.
 A host that omits injection fails explicitly. `/gnougo add` and `/gnougo reprompt`
 open the designer. SmartFlow **Improve** creates a persisted revision session from
 the saved workflow and execution failure evidence, then links to the designer.
 The designer reports resolved/unresolved field counts, the current gate and its consumed repair allowance.
-Telemetry reports phases, workflows, dependencies, repairs, validations, budgets and
-receipts with tenant propagation and content redaction.
+The progress API additionally exposes total active holes, deterministically resolved
+holes, distinct holes exposed to requests, total request exposures, per-hole direct
+binding and computation-parameter counts, and per-workflow/gate repair and failure
+counts (including plan-level behavior gates). Superseded container holes are excluded.
+Request IDs and evaluation identities make accounting durable across restart and replay;
+missing historical resolution origins and candidate counts remain unknown.
+The designer layout is unchanged.
+
+`GnOuGo.Flow.Planning` emits redacted convergence and gate events through both
+Agent.Server and Flow runtime telemetry. Metrics `gnougo.planning.holes`,
+`gnougo.planning.binding_candidates`, `gnougo.planning.repairs` and
+`gnougo.planning.gate_failures` retain tenant propagation. Hole identities appear in
+trace events, never metric dimensions. Existing phase, dependency, validation, budget
+and receipt telemetry remains available.
 
 ## Validation commands
 

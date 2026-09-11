@@ -50,7 +50,13 @@ public sealed class PlanningPersistenceTests
         state.Construction.Holes.Add(new() { Id = "h_exact", WorkflowKey = "main", NodeKey = "producer", Path = "/workflows/0/steps/0/input/members/0/value", Kind = "value" });
         state.Construction.Candidates.Add(new() { WorkflowKey = "main", GraphFingerprint = "revision-1", WorkflowFingerprint = "workflow-1", DependencyFingerprint = "callees-1", ScopeFingerprint = "scope-1",
             Targets = state.Construction.Holes.ToList(), Payload = new JsonObject { ["assignments"] = new JsonObject { ["h_exact"] = "PRIVATE_STAGED_ASSIGNMENT" } }, Stage = 1 });
+        state.Construction.Candidates[0].ParameterScopes["h_exact"] = ["p_fixed"];
         state.RepairAllowances.Add(new() { WorkflowKey = "main", Gate = PlanningGates.Typed, Attempts = 5 });
+        state.Construction.Holes[0].ExposedRequests = ["durable-request"];
+        state.Construction.Holes[0].ResolutionOrigin = "model";
+        state.Construction.Holes[0].DirectCandidateCount = 2;
+        state.Construction.Holes[0].ComputationParameterCount = 4;
+        state.GateProgress.Add(new() { WorkflowKey = "main", Gate = PlanningGates.Typed, Failures = 1, Evaluations = ["evaluation"] });
         state.PreparationCheckpoint = new() { Stage = "matching", ValidatedResults = new JsonObject { ["inventory"] = "PRIVATE_PREPARATION_CONTENT" }, RequestHashes = ["hash"] };
         Assert.True(await fixture.Store.TrySaveAsync(state, null, Ct));
         state.Revision = 1; state.Status = PlanningStatus.BehaviorReview;
@@ -63,8 +69,15 @@ public sealed class PlanningPersistenceTests
         Assert.Equal(state.Request.Prompt, restored.Request.Prompt);
         Assert.Equal(4, restored.SchemaVersion);
         Assert.Equal(5, Assert.Single(restored.RepairAllowances).Attempts);
-        Assert.Equal("revision-1", Assert.Single(restored.Construction.Candidates).GraphFingerprint);
-        Assert.Equal("h_exact", Assert.Single(restored.Construction.Holes).Id);
+        var retainedCandidate = Assert.Single(restored.Construction.Candidates);
+        Assert.Equal("revision-1", retainedCandidate.GraphFingerprint);
+        Assert.Equal("p_fixed", Assert.Single(retainedCandidate.ParameterScopes["h_exact"]));
+        var restoredHole = Assert.Single(restored.Construction.Holes);
+        Assert.Equal("h_exact", restoredHole.Id);
+        Assert.Equal("durable-request", Assert.Single(restoredHole.ExposedRequests));
+        Assert.Equal("model", restoredHole.ResolutionOrigin);
+        Assert.Equal(2, restoredHole.DirectCandidateCount); Assert.Equal(4, restoredHole.ComputationParameterCount);
+        Assert.Equal("evaluation", Assert.Single(Assert.Single(restored.GateProgress).Evaluations));
         Assert.Equal("matching", restored.PreparationCheckpoint!.Stage);
         Assert.Equal("hash", Assert.Single(restored.PreparationCheckpoint.RequestHashes));
         Assert.Null(await reopened.LoadAsync("two", "same", Ct));

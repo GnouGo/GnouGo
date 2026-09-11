@@ -43,7 +43,7 @@ internal static class PlanningProducerSchemaPropagation
             var valuePath = diagnostic.Location[..^"schema".Length] + "value";
             var bindingHole = staged.Targets.SingleOrDefault(h => h.Path == valuePath);
             if (bindingHole is null || staged.Payload["assignments"]?[bindingHole.Id] is not JsonObject assignment) continue;
-            var binding = PlanningHoleAssignments.Value(assignment, staged.Bindings);
+            var binding = PlanningHoleAssignments.Value(assignment, staged.Bindings, staged.ParameterScopes.GetValueOrDefault(bindingHole.Id));
             if (binding is not { Kind: "output", Source: not null, Path.Count: 0 }) continue;
             var producer = PlanningGraphValidation.Located(workflow.Steps, root + "/steps").Concat(PlanningGraphValidation.Located(workflow.Finally, root + "/finally")).SingleOrDefault(n => n.Node.Key == binding.Source);
             if (producer.Node is not { Type: "set", InternalRole: null, OutputSchema: not null } node) continue;
@@ -73,7 +73,7 @@ internal static class PlanningProducerSchemaPropagation
             foreach (var (name, schema) in transport.Schema["$defs"]!.AsObject()) staged.ResponseSchema["$defs"]![name] = schema?.DeepClone();
             staged.Diagnostics.Remove(diagnostic);
             staged.Diagnostics.Add(new("PRODUCER_CONTRACT_INCOMPLETE", "/assignments/" + hole.Id + "/properties", "Establish the producer's required result members before publishing its consumer boundary.", Rule: "output:" + output.Name));
-            staged.ScopeFingerprint = PlanningGraphCompiler.Fingerprint(JsonSerializer.Serialize(staged.Targets, PlanningJsonContext.Default.ListPlanningHole));
+            staged.ScopeFingerprint = PlanningHoleRequests.Scope(staged.Targets, staged.ResponseSchema);
             var progress = state.Construction.Workflows.Single(w => w.WorkflowKey == workflow.Key);
             progress.UnresolvedHoles = state.Construction.Holes.Count(h => h.WorkflowKey == workflow.Key && !h.Resolved);
             return true;

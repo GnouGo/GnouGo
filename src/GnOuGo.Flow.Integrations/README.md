@@ -59,3 +59,7 @@ receipts; a reserved dispatch without a receipt stops. Changing the initial requ
 same run ID is a conflict. Lease files contain no content and live under the workspace-resolved
 `.GnOuGo/data/flow-planning-v4/leases` directory. All payloads use `flow-planning-*-v4` encrypted
 record namespaces. Agent.Server's designer retains its EF-backed session indexes.
+
+Planner checkpoints emit the shared `GnOuGo.Flow.Planning` convergence and gate events
+through Flow runtime telemetry. Durable request identities deduplicate hole exposures,
+and trace events carry tenant and hole identities without adding hole IDs to metrics.

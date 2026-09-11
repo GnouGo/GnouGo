@@ -36,6 +36,8 @@ public sealed class WorkflowPlanningRuntime : IPlanningRuntime
     {
         var request = PlanningContext.EffectiveRequest(snapshot);
         var checkpoint = snapshot.PreparationCheckpoint ??= new() { Fingerprint = PlanningGraphCompiler.Fingerprint(request.Prompt) };
+        var previousGeneration = _context.PlanningGeneration;
+        _context.PlanningGeneration = request.Generation;
         _context.PreparationCheckpoint = checkpoint;
         _context.PersistPreparation = token => CheckpointAsync(snapshot, token);
         _context.PlanningModelDispatcher = (model, phase, token) => PlanningModelCalls.CallAsync(snapshot, this, phase, model, token);
@@ -47,6 +49,7 @@ public sealed class WorkflowPlanningRuntime : IPlanningRuntime
         }
         finally
         {
+            _context.PlanningGeneration = previousGeneration;
             _context.PreparationCheckpoint = null; _context.PersistPreparation = null; _context.PlanningModelDispatcher = null;
         }
     }

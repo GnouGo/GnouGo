@@ -99,6 +99,7 @@ public sealed class PlanningSnapshot
     public List<PlanningDiagnostic> Diagnostics { get; set; } = [];
     public List<PlanningAttempt> Attempts { get; set; } = [];
     public List<PlanningEvent> Events { get; set; } = [];
+    public List<PlanningGateProgress> GateProgress { get; set; } = [];
     public List<PlanningRevision> History { get; set; } = [];
     public List<PlanningGenerationRevision> GenerationHistory { get; set; } = [];
     public LLMUsageBudgetSnapshot? Usage { get; set; }
@@ -147,6 +148,9 @@ public sealed class PlanningRepairState
 {
     public string GraphFingerprint { get; set; } = "";
     public JsonObject Patches { get; set; } = new();
+    public JsonObject? ResponseSchema { get; set; }
+    public Dictionary<string, PlanningValue>? Bindings { get; set; }
+    public Dictionary<string, List<string>> ParameterScopes { get; set; } = new(StringComparer.Ordinal);
 }
 
 public sealed class PlanningWorkflowProgress
@@ -161,6 +165,12 @@ public sealed class PlanningWorkflowProgress
     public bool ResponseRepairPending { get; set; }
     public int ResolvedHoles { get; set; }
     public int UnresolvedHoles { get; set; }
+    public int TotalHoles { get; set; }
+    public int DeterministicallyResolvedHoles { get; set; }
+    public int ModelHoles { get; set; }
+    public int ModelHoleExposures { get; set; }
+    public List<PlanningHoleProgress> HoleChoices { get; set; } = [];
+    public List<PlanningGateCounts> Gates { get; set; } = [];
     public string? Gate { get; set; }
     public int? EstimatedInputTokens { get; set; }
     public int? InputTokenLimit { get; set; }

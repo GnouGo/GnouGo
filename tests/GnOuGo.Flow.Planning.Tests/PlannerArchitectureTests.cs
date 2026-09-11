@@ -109,4 +109,20 @@ public sealed class PlannerArchitectureTests
         Assert.Empty(PlanningContractValidation.ValidateSchema(request.Schema, strict: true));
         Assert.NotEmpty(PlanningContractValidation.ValidateInstance(PlanningFixtures.Workflow(TypedPlannerTests.FakeRuntime.ExecutableWorkflow()), request.Schema));
     }
+
+    [Fact]
+    public void ExecutableResponseDomainUsesCoordinatorOwnedBindingsAndParameterScopes()
+    {
+        var (state, workflow, hole) = ConvergenceDomainTests.Input("number");
+        workflow.Inputs[0].Schema = new() { Type = "array", Items = new() { Type = "string" } };
+        var domain = PlanningHoleEligibility.Analyze(state, workflow, hole);
+        var request = PlanningHoleRequests.Create(state, workflow, [hole]);
+        Assert.Empty(domain.Direct);
+        Assert.Equal(domain.Parameters.Count, request.ParameterScopes[hole.Id].Count);
+        var variant = Assert.Single(request.Schema["properties"]!["assignments"]!["properties"]![hole.Id]!["anyOf"]!.AsArray());
+        Assert.Equal(new[] { "kind", "expression" }, variant!["properties"]!.AsObject().Select(p => p.Key));
+        Assert.Equal("compute", variant["properties"]!["kind"]!["enum"]![0]!.ToString());
+        Assert.DoesNotContain("$defs", request.Schema.Select(p => p.Key));
+        Assert.DoesNotContain("workflows", request.Context.AsObject().Select(p => p.Key));
+    }
 }

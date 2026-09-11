@@ -14,6 +14,11 @@ public sealed class PlanningHole
     public string Purpose { get; set; } = "";
     public JsonObject? ExpectedSchema { get; set; }
     public bool Resolved { get; set; }
+    public string? ResolutionOrigin { get; set; }
+    public bool Superseded { get; set; }
+    public List<string> ExposedRequests { get; set; } = [];
+    public int? DirectCandidateCount { get; set; }
+    public int? ComputationParameterCount { get; set; }
 }
 
 /// <summary>Encrypted assignment delta against an exact graph; not a second authoritative graph.</summary>
@@ -28,6 +33,7 @@ public sealed class PlanningStagedAssignments
     public JsonObject Payload { get; set; } = new();
     public JsonObject ResponseSchema { get; set; } = new();
     public Dictionary<string, PlanningValue> Bindings { get; set; } = new(StringComparer.Ordinal);
+    public Dictionary<string, List<string>> ParameterScopes { get; set; } = new(StringComparer.Ordinal);
     public List<PlanningDiagnostic> Diagnostics { get; set; } = [];
     public List<string> RejectedCandidates { get; set; } = [];
     public int Stage { get; set; }
@@ -39,6 +45,18 @@ public sealed class PlanningGateAllowance
     public string Gate { get; set; } = "";
     public int Attempts { get; set; }
 }
+
+public sealed class PlanningGateProgress
+{
+    public string WorkflowKey { get; set; } = "";
+    public string Gate { get; set; } = "";
+    public int Failures { get; set; }
+    public List<string> Evaluations { get; set; } = [];
+}
+
+public sealed record PlanningGateCounts(string Gate, int Repairs, int Failures);
+
+public sealed record PlanningHoleProgress(string Id, int? DirectBindings, int? ComputationParameters);
 
 /// <summary>Human-requested behavior revision, located before any candidate field is edited.</summary>
 public sealed class PlanningBehaviorRevisionState

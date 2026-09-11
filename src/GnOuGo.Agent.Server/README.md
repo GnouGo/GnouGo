@@ -29,6 +29,13 @@ The designer shows phase, workflow, dependency, repair and budget progress.
 Recovery retains accepted evidence and cumulative spending. See
 [the planner architecture](../../docs/workflow-planning-v2.md) for all gates and invariants.
 
+The planning progress API exposes total active holes, deterministic resolutions,
+distinct model exposures, repeated request exposures, per-hole direct-binding and
+computation-parameter counts, and repair/failure counts per validation gate. These
+counts survive encrypted restart and receipt replay. Convergence trace events are
+redacted and tenant-scoped; hole IDs are excluded from metric dimensions. The designer
+layout is unchanged.
+
 ### Component boundaries
 
 This component is independently testable per `AGENTS.md` rules. It references `GnOuGo.Agent.Mcp`, `GnOuGo.KeyVault.Mcp`, `GnOuGo.DocIngestor.Mcp`, and `GnOuGo.OtlpCollector.Server` as project dependencies, mounting their services in-process to minimise coupling while exposing everything through a single host.

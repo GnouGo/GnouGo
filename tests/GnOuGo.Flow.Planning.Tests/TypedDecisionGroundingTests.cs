@@ -90,12 +90,17 @@ public sealed class TypedDecisionGroundingTests
             var catalog = Activator.CreateInstance(T("CapabilityCatalog"), new object?[] { catalogEntries, "" })!;
             var schema = (JsonObject)typeof(CapabilityMatchAssessment).GetMethod("BuildTypedCapabilityMatchingSchema", flags)!.Invoke(null, new[] { inventory, catalog })!;
             Assert.Empty(PlanningContractValidation.ValidateSchema(schema, strict: true));
-            var readProperties = schema["properties"]!["operation_matches"]!["properties"]!["read"]!["anyOf"]![0]!["properties"]!;
+            JsonNode Entry(string key)
+            {
+                var entry = schema["properties"]!["operation_matches"]!["properties"]![key]!;
+                return entry["$ref"] is { } reference ? schema["$defs"]![reference.ToString().Split('/')[^1]]! : entry;
+            }
+            var readProperties = Entry("read")["anyOf"]![0]!["properties"]!;
             Assert.Equal(1, readProperties["catalog_ids"]!["maxItems"]!.GetValue<int>());
             Assert.Equal(0, readProperties["candidate_catalog_ids"]!["maxItems"]!.GetValue<int>());
             Assert.DoesNotContain("conditional", readProperties["status"]!["enum"]!.AsArray().Select(v => v!.GetValue<string>()));
             Assert.Equal("", Assert.Single(readProperties["decision_operation_id"]!["enum"]!.AsArray())!.GetValue<string>());
-            var conditionalProperties = schema["properties"]!["operation_matches"]!["properties"]!["effect"]!["anyOf"]![0]!["properties"]!;
+            var conditionalProperties = Entry("effect")["anyOf"]![0]!["properties"]!;
             Assert.Equal("all_on_value", Assert.Single(conditionalProperties["conditional_mode"]!["enum"]!.AsArray())!.GetValue<string>());
             var badCandidate = (JsonObject)typeof(CapabilityMatchAssessment).GetMethod("TypedMatchingCandidate", flags)!.Invoke(null, new[] { eval })!;
             badCandidate["operation_matches"]!["effect"]!["conditional_mode"] = "exactly_one";

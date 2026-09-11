@@ -261,7 +261,7 @@ public sealed class TypedPlannerTests
                 else
                 {
                     var typed = JsonSerializer.Deserialize(value, PlanningJsonContext.Default.PlanningValue)!;
-                    if (PlanningGraphValidation.IsLiteral(typed)) assignments[id] = new JsonObject { ["kind"] = "literal", ["value"] = PlanningModelValues.Compact(value) };
+                    if (PlanningGraphValidation.IsLiteral(typed)) assignments[id] = new JsonObject { ["kind"] = "literal", ["json"] = PlanningGraphValidation.Literal(typed) };
                     else
                     {
                         var owner = state.Graph!.Workflows.Single(w => w.Key == hole.WorkflowKey);

@@ -56,9 +56,13 @@ internal static class PlanningEndpoints
         snapshot.Request.Generation.Reasoning ?? snapshot.Request.Options["generator"]?["reasoning"]?.GetValue<string>() ?? "medium",
         snapshot.Construction.Workflows.Select(w => new PlanningWorkflowDto(w.WorkflowKey, w.Status, w.Dependencies, w.Calls, w.RepairCalls,
             w.EstimatedInputTokens, w.InputTokenLimit, w.UnresolvedHoles, w.ResolvedHoles, w.Gate,
-            snapshot.RepairAllowances.Where(a => a.WorkflowKey == w.WorkflowKey && a.Gate == w.Gate).Sum(a => a.Attempts), snapshot.Request.MaxRepairsPerWorkflowGate)).ToArray(), snapshot.Construction.Dataflow?.Fingerprint,
+            snapshot.RepairAllowances.Where(a => a.WorkflowKey == w.WorkflowKey && a.Gate == w.Gate).Sum(a => a.Attempts), snapshot.Request.MaxRepairsPerWorkflowGate,
+            w.TotalHoles, w.DeterministicallyResolvedHoles, w.ModelHoles, w.ModelHoleExposures,
+            w.HoleChoices.Select(h => new PlanningHoleChoiceDto(h.Id, h.DirectBindings, h.ComputationParameters)).ToArray(),
+            w.Gates.Select(g => new PlanningGateProgressDto(g.Gate, g.Repairs, g.Failures)).ToArray())).ToArray(), snapshot.Construction.Dataflow?.Fingerprint,
         snapshot.Construction.Dataflow?.Bindings.Count ?? 0, snapshot.PreparationCheckpoint?.Stage,
-        snapshot.Preparation?.DecisionContractVersion ?? 0, snapshot.Preparation?.Decisions.Count ?? 0);
+        snapshot.Preparation?.DecisionContractVersion ?? 0, snapshot.Preparation?.Decisions.Count ?? 0,
+        snapshot.GateProgress.Select(g => new PlanningGateProgressDto(g.Gate, snapshot.RepairAllowances.Where(a => a.WorkflowKey == g.WorkflowKey && a.Gate == g.Gate).Sum(a => a.Attempts), g.Failures, g.WorkflowKey)).ToArray());
 
     private static PlanningGraph? DisplayGraph(PlanningSnapshot snapshot) => snapshot.BehaviorPlan is { } behavior ? PlanningBehaviorPlans.Display(behavior, snapshot.Preparation) : snapshot.Graph;
 }

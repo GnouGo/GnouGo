@@ -210,7 +210,7 @@ sealed class SmokeRuntime(PlanningGraph graph, PlanningPreparation preparation) 
         {
             var hole = _snapshot!.Construction.Holes.Single(h => h.Id == id);
             assignments[id] = hole.Kind == "schema" ? (hole.Path.EndsWith("/outputSchema", StringComparison.Ordinal) ? resultSchema : textSchema).DeepClone()
-                : new JsonObject { ["kind"] = "literal", ["value"] = new JsonObject { ["kind"] = "string", ["text"] = "ready" } };
+                : new JsonObject { ["kind"] = "literal", ["json"] = "ready" };
         }
         return new() { ["assignments"] = assignments };
     }

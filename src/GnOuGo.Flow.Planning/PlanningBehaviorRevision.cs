@@ -17,11 +17,11 @@ internal static class PlanningBehaviorRevision
             ["type"] = "array", ["minItems"] = 1, ["maxItems"] = catalog.Count,
             ["items"] = PlanningHoleRequests.Object(("target", PlanningHoleRequests.Enum(catalog.Keys.ToArray())), ("evidence", PlanningHoleRequests.Type("string")))
         }));
-        var context = new JsonObject(catalog.Select(p => new KeyValuePair<string, JsonNode?>(p.Key, new JsonObject
-        { ["path"] = p.Value.Path, ["operation"] = p.Value.Operation })));
+        var context = Context(candidate, catalog);
         var prompt = "Locate only fields affected by the human's requested behavior revision. Select necessary companion changes together. " +
             "Cite an exact nonempty excerpt from the revision for every selected field. Unrelated behavior and identities remain locked.\nRevision:\n" + revision.Text +
-            "\nRetained behavior:\n" + candidate.ToJsonString() + "\nCoordinates:\n" + context.ToJsonString();
+            "\nCoordinates map target IDs to [path, operation, current scalar value or element identity]. " +
+            "An anchor maps its alias to [parent-relative path, retained identity]; field paths use those aliases.\nCoordinates:\n" + context.ToJsonString();
         var response = await PlanningModelCalls.StructuredAsync(state, runtime, "behavior_revision_scope", prompt, schema, ct);
         var fields = new List<PlanningBehaviorRevisionField>();
         foreach (var selected in response["fields"]!.AsArray())
@@ -51,6 +51,42 @@ internal static class PlanningBehaviorRevision
     }
 
     private sealed record Target(string Path, string Operation);
+    internal static JsonObject Context(JsonObject candidate) => Context(candidate, Catalog(candidate));
+    private static JsonObject Context(JsonObject candidate, Dictionary<string, Target> catalog)
+    {
+        var anchors = new JsonObject();
+        var paths = new Dictionary<string, string>(StringComparer.Ordinal);
+        string Address(string path)
+        {
+            var parent = paths.Keys.Where(p => path == p || path.StartsWith(p + "/", StringComparison.Ordinal)).OrderByDescending(p => p.Length).FirstOrDefault();
+            return parent is null ? path : paths[parent] + path[parent.Length..];
+        }
+        void Visit(JsonNode? node, string path)
+        {
+            if (node is JsonObject obj)
+            {
+                if ((obj["key"] ?? obj["name"]) is { } identity)
+                {
+                    var alias = "a" + anchors.Count.ToString(System.Globalization.CultureInfo.InvariantCulture);
+                    anchors[alias] = new JsonArray(Address(path), identity.DeepClone()); paths[path] = alias;
+                }
+                foreach (var (name, value) in obj) Visit(value, path + "/" + PlanningFieldPaths.Escape(name));
+            }
+            else if (node is JsonArray array)
+                for (var i = 0; i < array.Count; i++) Visit(array[i], path + "/" + i);
+        }
+        Visit(candidate, "");
+        return new()
+        {
+            ["anchors"] = anchors,
+            ["fields"] = new JsonObject(catalog.Select(p =>
+            {
+                var value = PlanningFieldPaths.ReadOptional(candidate, p.Value.Path);
+                var current = value is JsonObject obj ? obj["key"] ?? obj["name"] : value;
+                return new KeyValuePair<string, JsonNode?>(p.Key, new JsonArray(Address(p.Value.Path), p.Value.Operation, current?.DeepClone()));
+            }))
+        };
+    }
     private static Dictionary<string, Target> Catalog(JsonObject candidate)
     {
         var targets = new Dictionary<string, Target>(StringComparer.Ordinal);

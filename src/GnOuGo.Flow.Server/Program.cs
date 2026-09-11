@@ -87,6 +87,7 @@ if (otelSettings.Enabled)
             metrics
                 .SetResourceBuilder(resourceBuilder)
                 .AddMeter(OTelWorkflowTelemetry.MeterName)
+                .AddMeter(GnOuGo.Flow.Planning.PlanningConvergenceTelemetry.MeterName)
                 .AddAspNetCoreInstrumentation()
                 .AddHttpClientInstrumentation()
                 .AddOtlpExporter(o =>

@@ -72,7 +72,10 @@ internal static class PlanningBehaviorPatches
             var names = Read(candidate, workflowPath + "/inputs")!.AsArray().Select(p => p!["name"]!.ToString()).ToArray();
             if (names.Length > 0) targets[i] = target with { Schema = PlanningHoleRequests.Enum(names) };
         }
-        return targets.DistinctBy(t => t.Id).OrderBy(t => t.Id, StringComparer.Ordinal).ToList();
+        // An explicitly removed element already removes its descendants. Offering
+        // those descendants as companion edits can only create overlapping patches.
+        return targets.Where(t => !targets.Any(parent => parent.Remove && t.Path.StartsWith(parent.Path + "/", StringComparison.Ordinal)))
+            .DistinctBy(t => t.Id).OrderBy(t => t.Id, StringComparer.Ordinal).ToList();
     }
 
     internal static string Owner(JsonObject candidate, IReadOnlyList<PlanningExactPatches.Target> targets)

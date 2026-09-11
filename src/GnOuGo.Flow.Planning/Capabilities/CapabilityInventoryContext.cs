@@ -319,50 +319,19 @@ internal static class CapabilityInventoryContext
             ["enforcement_kind"] = constraint.EnforcementKind
         }).ToArray());
         return $$"""
-            You are a domain-neutral capability matcher. Return only the requested structured JSON.
-
-            {{(TypedConfirmationMatchingGuidance)}}
-
-            {{("V2 contract: use the exact operation/constraint keys and statuses in the response schema. Technical alternatives without a sufficient declared implementation are unavailable, not a question to the user. Preserve declared decision dependencies exactly; native human confirmation yields boolean response, not an analysis enum. Do not add a selector dependency to an unconditional operation. A generic declared capability may consume earlier runtime observations through its arguments when that is sufficient.")}}
-
-            Decide every positive runtime operation independently:
-            - matched: exactly one catalog capability is sufficient;
-            - composed: two or more complementary catalog capabilities are jointly required;
-            - local: the inventory classified the operation as local_processing, so no catalog capability is selected;
-            - conditional: another inventory operation determines whether or which external effect executes; select either two or more selector-specific variants as mutually exclusive branches, or—only when allow_no_effect_outcome=true—one or more capabilities that must all execute in catalog_ids order for the single effect value;
-            - ambiguous: more than one plausible implementation remains and the catalog does not establish which is correct;
-            - unavailable: the catalog contains no sufficient implementation.
-
-            Prefer the smallest sufficient composition. A composition is valid only when every selected capability is necessary for the one operation. For a multi-action tool, choose selector-specific entries whose request_bindings describe the logical operation. Different selector values are distinct capabilities.
-            A selector entry with variant_of inherits the description, arguments, outputs, and artifact contract from the whole-tool entry identified by the same server, kind, and method; its compact row intentionally contains only the distinguishing literal request_bindings.
-            A whole-tool entry without request_bindings is appropriate when enum-valued arguments are runtime data rather than a fixed logical action. Prefer a combined selector entry over several single-selector entries when one physical call requires all of those fixed literal values.
-            Selector bindings form a structural specificity order for one physical capability. When every binding of one entry appears with the same value in a more-specific entry, the broader entry is only an ancestor representation: never select or retain it beside that descendant. Keep every incomparable maximal entry when they are genuine alternatives; keep only the unique maximal entry when all other referenced entries are its ancestors.
-            When an operation has a non-empty decision_source_operation_id, use status conditional and copy the locked decision_source_operation_id into decision_operation_id. Trace a local decision source only through its declared input_operation_ids; never infer the producer from descriptions or adjacency. Prefer a selected decision capability that documents one string enum output containing every selector branch value. When allow_no_effect_outcome=true, that enum may contain additional values that intentionally execute no external-effect branch. If no suitable discovered output exists, Flow may synthesize a strict provider-neutral structured-output projection for one selected MCP capability or native llm.call and will validate it after generation. Conditional variants must belong to one physical capability, share the same selector paths and every fixed selector except one mutually exclusive selector path, and use distinct values on that path. A conditional complementary composition is valid only when allow_no_effect_outcome=true: every selected capability is necessary for the single effect outcome, all selected invocations are structurally distinct, catalog_ids order is execution order, and the alternative is the declared no-effect outcome. Keep independently required read variants as composed when no runtime discriminator can be grounded. Include complementary unconditional prerequisites with selector alternatives only when necessary; they execute once outside the exclusive branch. This is runtime control flow, not user ambiguity. Never ask the user to predict a future runtime result.
-            Set conditional_mode=exactly_one for mutually exclusive selector variants. Set conditional_mode=all_on_value for a conditional complementary composition whose selected capabilities all execute in catalog_ids order. Use an empty conditional_mode for every non-conditional status.
-            A complete_operation composition entry encapsulates its listed lower-level phases. Select the complete operation alone when it is sufficient; never compose it with a phase it already encapsulates.
-
-            Capability sufficiency includes input provenance and data flow:
-            - Read each selected card's required arguments and bounded output fields. A required argument must be supplied by a semantically compatible workflow runtime input, a documented host-internal/default value, a literal selector binding, or an output of a selected producer capability.
-            - When a selected capability requires an existing external artifact such as a workspace, project root, directory, file, handle, or exact comparison payload, include the necessary producer capability or capabilities in the same composed match unless the user explicitly supplies that pre-existing artifact as a runtime input.
-            - A producer output may feed any number of operations. Selecting the same materializer as a prerequisite for several operations represents one shared locked occurrence unless the inventory contains distinct source-materialization operations.
-            - Ordinary scalar request values, identifiers, and selector-independent fields may be parsed or derived locally from declared runtime inputs or reused from an already selected upstream read. Do not add another external read to every composed match merely to resupply those values.
-            - A complementary producer in the same match must satisfy a documented artifact-contract dependency or another concrete multi-call prerequisite of that operation. Do not retain unrelated reads, broad selector entries, or alternative implementations alongside one sufficient exact selector.
-            - Use documented output fields to identify producers. Do not assume that local parsing, transformation, a URL, an identifier, or an invented string can create or prove an external artifact.
-            - A high-level capability may stand alone only when its documented contract encapsulates its prerequisites. Otherwise select the smallest prerequisite-closed composition.
-
-            For each constraint classified enforcement_kind=exact_denial, use enforced with every exact MCP catalog capability it unconditionally prohibits, or ambiguous when several exact denials are plausible. For enforcement_kind=workflow_policy, always use policy_only with no catalog IDs because the invariant must be enforced by workflow structure. Do not reinterpret constraint prose or deny a whole multi-action tool when only one selector-specific operation is prohibited.
-            Native Flow catalog IDs are never denied_catalog_ids or constraint candidate_catalog_ids. A constraint involving native orchestration remains policy_only; positive required interaction belongs in operation_matches.
-
-            Rules:
-            - Return only catalog IDs shown below; never invent server, tool, prompt, method, or selector names.
-            - Do not infer behavior from server names, product names, URLs, brands, or undocumented semantics.
-            - Every inventory operation and constraint ID must occur exactly once.
-            - matched requires one catalog_ids value; composed requires at least two; conditional requires either exactly one mutually exclusive selector subset of at least two entries plus any necessary complementary prerequisites, or, when allow_no_effect_outcome=true and conditional_mode=all_on_value, one or more entries that all execute in catalog_ids order for the single effect value; local and unavailable require none. candidate_catalog_ids are advisory and are ignored for a final matched, composed, or conditional decision.
-            - decision_operation_id is required only for conditional and must exactly equal that operation's non-empty decision_source_operation_id; return an empty string for all other statuses.
-            - conditional_mode is required: use exactly_one or all_on_value only for conditional, and an empty string otherwise.
-            - local is valid only for execution_kind=local_processing. External effects and human interaction must use a documented catalog or be unresolved.
-            - candidate_catalog_ids contain at most eight alternatives. They are required for ambiguous decisions and advisory for final decisions; catalog_ids alone define the selected implementation.
-            - Give a concise decision reason. Do not expose hidden reasoning or repeat task/repository content.
+            Match the validated operations to the declared capability contracts. Use only metadata, schemas and explicit intent evidence.
+            {{TypedConfirmationMatchingGuidance}}
+            Choose the smallest sufficient implementation. Composed entries are jointly necessary, never alternative implementations.
+            A selector variant inherits its whole-tool contract; select the most specific sufficient fixed bindings.
+            Select a whole tool when enum arguments are dynamic business data. A complete_operation wrapper replaces its encapsulated phases.
+            A required argument needs a compatible business input, declared default/fixed selector or proven producer output.
+            Ordinary scalar arguments may be parsed or derived locally from declared business inputs or reused observations.
+            External artifacts require their original producer; local calculations cannot establish artifact provenance.
+            Reuse a declared upstream producer instead of adding duplicate reads. Include necessary lifecycle and cleanup prerequisites.
+            Conditional effects follow the locked decision source through declared dependencies. Exactly-one branches differ at one selector path.
+            All-on-value executes a necessary composition in order for the effect value and nothing for the declared no-effect outcome.
+            Human permission does not choose business outcomes. Opaque decision outputs require a validated structured projection before use.
+            Report unavailable if these contracts cannot implement an operation. Give a concise reason without task content or hidden reasoning.
 
             <runtime_inventory>
             {{new JsonObject { ["operations"] = operations, ["constraints"] = constraints }.ToJsonString()}}

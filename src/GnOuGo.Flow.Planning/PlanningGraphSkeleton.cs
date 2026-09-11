@@ -24,7 +24,7 @@ internal static class PlanningGraphSkeleton
                 if (previous is null) Add(state, workflow, null, root + "/inputs/" + workflow.Inputs.IndexOf(port) + "/schema", "schema",
                     state.BehaviorPlan!.Workflows.Single(w => w.Key == workflow.Key).Inputs.Single(p => p.Name == port.Name).Description);
                 if (!port.Required && previous is null)
-                { port.Default = new() { Kind = Unresolved }; Add(state, workflow, null, root + "/inputs/" + workflow.Inputs.IndexOf(port) + "/default", "default", "Declared default for input " + port.Name + "; null means no default."); }
+                { port.Default = new() { Kind = Unresolved }; Add(state, workflow, null, root + "/inputs/" + workflow.Inputs.IndexOf(port) + "/default", "default", "Default for input " + port.Name + ": " + state.BehaviorPlan!.Workflows.Single(w => w.Key == workflow.Key).Inputs.Single(p => p.Name == port.Name).Description); }
             }
             foreach (var port in workflow.Outputs)
             {

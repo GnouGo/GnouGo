@@ -34,23 +34,17 @@ namespace GnOuGo.Flow.Planning.Capabilities;
 internal static class CapabilityDiscovery
 {
 
-    internal static bool IsCapabilityCandidateSelectionEnabled(JsonObject generator)
-    {
-        var prefilterNode = generator["prefilter"];
-        return prefilterNode == null
-               || prefilterNode is JsonObject
-               || prefilterNode is JsonValue value
-               && (!value.TryGetValue<bool>(out var enabled) || enabled);
-    }
-
     internal static async Task<List<McpServerDiscovery>> SelectPhysicalCapabilityCandidatesAsync(
-        ILLMClient llmClient, CapabilityInventory inventory, IReadOnlyList<McpServerDiscovery> completeDiscovery, string instruction, string generatorContext, string? provider, string model, string reasoning, StepExecutionContext ctx, TelemetrySpanScope inferenceSpan, CancellationToken ct)
+        ILLMClient llmClient, CapabilityInventory inventory, IReadOnlyList<McpServerDiscovery> completeDiscovery, string? provider, string model, string reasoning, StepExecutionContext ctx, TelemetrySpanScope inferenceSpan, CancellationToken ct)
     {
         var externalOperations = inventory.Operations
             .Where(static operation => string.Equals(operation.ExecutionKind, "external_effect", StringComparison.Ordinal))
             .ToArray();
         var constraints = inventory.Constraints.Where(static constraint => constraint.EnforcementKind == "exact_denial").ToArray();
-        if (externalOperations.Length == 0 && constraints.Length == 0)
+        // Only externally classified operations can grant MCP authority. With none, the
+        // physical allowlist is empty already; enumerating tools solely to deny them adds
+        // no authority restriction. Native denials remain checked against the native catalog.
+        if (externalOperations.Length == 0)
             return new List<McpServerDiscovery>();
 
         var catalog = BuildPhysicalCapabilityCatalog(completeDiscovery);
@@ -59,7 +53,6 @@ internal static class CapabilityDiscovery
         inferenceSpan.SetAttribute("gnougo-flow.plan.capability_candidates.full_prompt_count", completeDiscovery.Sum(static server => server.Prompts.Count));
         inferenceSpan.SetAttribute("gnougo-flow.plan.capability_candidates.catalog_entry_count", catalog.Entries.Count);
         inferenceSpan.SetAttribute("gnougo-flow.plan.capability_candidates.catalog_character_count", catalog.TotalCharacters);
-        inferenceSpan.SetAttribute("gnougo-flow.plan.capability_candidates.page_count", catalog.Pages.Count);
 
         if (catalog.Entries.Count == 0)
             return new List<McpServerDiscovery>();
@@ -79,22 +72,18 @@ internal static class CapabilityDiscovery
             static constraint => constraint.Id,
             static _ => new HashSet<string>(StringComparer.Ordinal),
             StringComparer.Ordinal);
-        var knownCatalogIds = catalog.Entries.Select(static entry => entry.Id).ToHashSet(StringComparer.Ordinal);
 
         await RunPhysicalCandidateSelectionPassAsync(
             ctx,
             llmClient,
             inventory,
             catalog,
-            instruction,
-            generatorContext,
             provider,
             model,
             reasoning,
             repair: false,
             targetOperationIds: externalOperations.Select(static operation => operation.Id).ToHashSet(StringComparer.Ordinal),
             targetConstraintIds: constraints.Select(static constraint => constraint.Id).ToHashSet(StringComparer.Ordinal),
-            knownCatalogIds,
             operationSelections,
             constraintSelections,
             inferenceSpan,
@@ -131,15 +120,12 @@ internal static class CapabilityDiscovery
                 llmClient,
                 inventory,
                 catalog,
-                instruction,
-                generatorContext,
                 provider,
                 model,
                 reasoning,
                 repair: true,
                 missingRequiredOperationIds,
                 missingRequiredExactDenialIds,
-                knownCatalogIds,
                 operationSelections,
                 constraintSelections,
                 inferenceSpan,
@@ -158,6 +144,8 @@ internal static class CapabilityDiscovery
                     .Take(PhysicalCapabilityMaxCandidatesPerInventoryItem).ToArray(),
                 StringComparer.Ordinal),
             repairAttempted);
+        await PlanningArtifactValidation.SaveTypedPreparationResultAsync(ctx, "physical_candidates",
+            JsonSerializer.SerializeToNode(selection, TypedContractJsonContext.Default.PhysicalCandidateSelection), ct);
         var selectedIds = selection.OperationCandidates.Values
             .Concat(selection.ConstraintCandidates.Values)
             .SelectMany(static ids => ids)
@@ -166,8 +154,7 @@ internal static class CapabilityDiscovery
         var selectedDiscovery = FilterDiscoveryToPhysicalEntries(completeDiscovery, selectedPhysicalEntries);
         selectedDiscovery = ExpandSelectedOperationalArtifactPrerequisites(
             selectedDiscovery,
-            completeDiscovery,
-            instruction);
+            completeDiscovery);
         selectedDiscovery = ExpandSelectedCompositionWrappers(selectedDiscovery, completeDiscovery);
 
         inferenceSpan.SetAttribute("gnougo-flow.plan.capability_candidates.selected_server_count", selectedDiscovery.Count);
@@ -190,50 +177,54 @@ internal static class CapabilityDiscovery
     }
 
     internal static async Task RunPhysicalCandidateSelectionPassAsync(
-        StepExecutionContext ctx, ILLMClient llmClient, CapabilityInventory inventory, PhysicalCapabilityCatalog catalog, string instruction, string generatorContext, string? provider, string model, string reasoning, bool repair, IReadOnlySet<string> targetOperationIds, IReadOnlySet<string> targetConstraintIds, IReadOnlySet<string> knownCatalogIds, Dictionary<string, HashSet<string>> operationSelections, Dictionary<string, HashSet<string>> constraintSelections, TelemetrySpanScope inferenceSpan, CancellationToken ct)
+        StepExecutionContext ctx, ILLMClient llmClient, CapabilityInventory inventory, PhysicalCapabilityCatalog catalog, string? provider, string model, string reasoning, bool repair, IReadOnlySet<string> targetOperationIds, IReadOnlySet<string> targetConstraintIds, Dictionary<string, HashSet<string>> operationSelections, Dictionary<string, HashSet<string>> constraintSelections, TelemetrySpanScope inferenceSpan, CancellationToken ct)
     {
         if (targetOperationIds.Count == 0 && targetConstraintIds.Count == 0)
             return;
 
-        for (var pageIndex = 0; pageIndex < catalog.Pages.Count; pageIndex++)
+        var pages = CapabilitySelectionRequests.Build(inventory, catalog, repair, targetOperationIds,
+            targetConstraintIds, ctx.PlanningGeneration?.MaxInputTokensPerRequest ?? new PlanningGenerationOptions().MaxInputTokensPerRequest);
+        inferenceSpan.SetAttribute("gnougo-flow.plan.capability_candidates.page_count", pages.Count);
+        for (var pageIndex = 0; pageIndex < pages.Count; pageIndex++)
         {
-            var response = await ctx.CallLLMAsync(llmClient, new LLMRequest
+            var page = pages[pageIndex];
+            var checkpointKey = "physical_selection_" + PlanningGraphCompiler.Fingerprint(page.Prompt + page.Schema.ToJsonString());
+            LLMResponse? response = null;
+            var retained = ctx.PreparationCheckpoint?.ValidatedResults[checkpointKey] as JsonObject;
+            if (retained is null)
             {
-                Provider = provider,
-                Model = model,
-                Prompt = BuildPhysicalCapabilitySelectionPrompt(
-                    inventory,
-                    catalog.Pages[pageIndex],
-                    pageIndex + 1,
-                    catalog.Pages.Count,
-                    instruction,
-                    generatorContext,
-                    repair,
-                    targetOperationIds,
-                    targetConstraintIds),
-                Reasoning = reasoning,
-                UseBackgroundMode = true,
-                StructuredOutputSchema = BuildPhysicalCapabilitySelectionSchema(),
-                StructuredOutputStrict = true
-            }, "workflow.plan.capability_candidates", ct);
-            AddUsageAttributes(inferenceSpan, response.Usage, model, provider);
+                response = await ctx.CallLLMAsync(llmClient, new LLMRequest
+                {
+                    Provider = provider,
+                    Model = model,
+                    Prompt = page.Prompt,
+                    Reasoning = reasoning,
+                    UseBackgroundMode = true,
+                    StructuredOutputSchema = page.Schema,
+                    StructuredOutputStrict = true
+                }, "workflow.plan.capability_candidates", ct);
+                AddUsageAttributes(inferenceSpan, response.Usage, model, provider);
+            }
 
+            JsonObject parsed;
             try
             {
-                var parsed = ParseStructuredObject(response, repair
+                parsed = retained ?? ParseStructuredObject(response!, repair
                     ? "physical capability candidate repair"
                     : "physical capability candidate selection");
+                if (PlanningContractValidation.ValidateInstance(parsed, page.Schema).Count != 0)
+                    throw new WorkflowRuntimeException(ErrorCodes.LlmSchema, "Capability candidates do not match the requested page scope.");
                 MergePhysicalCandidateSelections(
                     parsed["operation_candidates"] as JsonArray,
                     "operation_id",
                     targetOperationIds,
-                    knownCatalogIds,
+                    page.CatalogIds,
                     operationSelections);
                 MergePhysicalCandidateSelections(
                     parsed["constraint_candidates"] as JsonArray,
                     "constraint_id",
                     targetConstraintIds,
-                    knownCatalogIds,
+                    page.CatalogIds,
                     constraintSelections);
             }
             catch (Exception ex) when (ex is not OperationCanceledException)
@@ -244,7 +235,10 @@ internal static class CapabilityDiscovery
                     new KeyValuePair<string, object?>("repair", repair),
                     new KeyValuePair<string, object?>("error", SanitizeCapabilityInferenceDiagnostic(ex.Message, 1_000))
                 });
+                continue;
             }
+            if (retained is null)
+                await PlanningArtifactValidation.SaveTypedPreparationResultAsync(ctx, checkpointKey, parsed, ct);
         }
     }
 
@@ -336,53 +330,7 @@ internal static class CapabilityDiscovery
             .ToArray();
         var lines = ordered.Select(static entry => $"{entry.Id} {entry.Card}").ToArray();
         var totalCharacters = lines.Sum(static line => line.Length + Environment.NewLine.Length);
-        var pages = new List<string>();
-        var page = new StringBuilder();
-        foreach (var line in lines)
-        {
-            if (line.Length + Environment.NewLine.Length > PhysicalCapabilityPageMaxCharacters)
-            {
-                throw new WorkflowRuntimeException(
-                    ErrorCodes.CapabilityPreflightInferenceFailed,
-                    "One compact physical capability entry exceeds the safe selector page limit.",
-                    details: new JsonObject
-                    {
-                        ["phase"] = "capability_candidate_selection",
-                        ["reason"] = "physical_entry_too_large",
-                        ["maximum_page_characters"] = PhysicalCapabilityPageMaxCharacters,
-                        ["entry_characters"] = line.Length
-                    });
-            }
-
-            if (page.Length > 0 && page.Length + line.Length + Environment.NewLine.Length > PhysicalCapabilityPageMaxCharacters)
-            {
-                pages.Add(page.ToString());
-                page.Clear();
-            }
-            page.AppendLine(line);
-        }
-        if (page.Length > 0)
-            pages.Add(page.ToString());
-
-        if (pages.Count > PhysicalCapabilityMaxPages)
-        {
-            throw new WorkflowRuntimeException(
-                ErrorCodes.CapabilityPreflightInferenceFailed,
-                "The compact physical capability catalog exceeds the bounded selector limit.",
-                details: new JsonObject
-                {
-                    ["phase"] = "capability_candidate_selection",
-                    ["reason"] = "physical_catalog_too_large",
-                    ["maximum_pages"] = PhysicalCapabilityMaxPages,
-                    ["page_count"] = pages.Count,
-                    ["total_characters"] = totalCharacters,
-                    ["full_server_count"] = discovery.Count,
-                    ["full_tool_count"] = discovery.Sum(static server => server.Tools.Count),
-                    ["full_prompt_count"] = discovery.Sum(static server => server.Prompts.Count)
-                });
-        }
-
-        return new PhysicalCapabilityCatalog(ordered, pages, totalCharacters);
+        return new PhysicalCapabilityCatalog(ordered, totalCharacters);
     }
 
     internal static List<McpServerDiscovery> ExpandSelectedCompositionWrappers(
@@ -489,78 +437,6 @@ internal static class CapabilityDiscovery
             .Where(static server => server.Tools.Count > 0 || server.Prompts.Count > 0)
             .ToList();
     }
-
-    internal static string BuildPhysicalCapabilitySelectionPrompt(
-        CapabilityInventory inventory, string catalogPage, int pageNumber, int pageCount, string instruction, string context, bool repair, IReadOnlySet<string> targetOperationIds, IReadOnlySet<string> targetConstraintIds) => $$"""
-        You are a domain-neutral physical capability candidate selector. Return only the requested structured JSON.
-
-        This is {{(repair ? "the single bounded repair pass" : "the initial selection pass")}}, page {{pageNumber}} of {{pageCount}}. The catalog contains exactly one compact row per physical MCP tool or prompt. It keeps bounded selector literals inline for intent matching but does not expand them into separate rows; authoritative variants are expanded and validated only after physical candidates are selected.
-
-        For each target external operation, select zero or more plausible physical catalog IDs from this page. Select complementary prerequisite, lifecycle, and cleanup capabilities when their descriptions or artifact contracts make them relevant. When a plausible consumer declares a required artifact kind, also select a producer of that exact declared kind; the runtime will validate its pointers and dependency closure later. For each target constraint, select exact physical capabilities only when they may be unconditionally prohibited by that constraint. Do not select tools for local processing or human interaction. Do not invent IDs. An empty list is valid when this page contains no plausible candidate. Keep at most {{PhysicalCapabilityMaxCandidatesPerInventoryItem}} candidates per inventory item across the catalog.
-
-        <target_operation_ids>
-        {{new JsonArray(targetOperationIds.Order(StringComparer.Ordinal).Select(static id => (JsonNode?)JsonValue.Create(id)).ToArray()).ToJsonString()}}
-        </target_operation_ids>
-        <target_constraint_ids>
-        {{new JsonArray(targetConstraintIds.Order(StringComparer.Ordinal).Select(static id => (JsonNode?)JsonValue.Create(id)).ToArray()).ToJsonString()}}
-        </target_constraint_ids>
-        <runtime_inventory>
-        {{BuildCapabilityInventoryJson(inventory)}}
-        </runtime_inventory>
-        <compact_physical_catalog_page>
-        {{catalogPage}}
-        </compact_physical_catalog_page>
-
-        {{BuildUserTaskBlock(instruction, context)}}
-        """;
-
-    internal static JsonObject BuildPhysicalCapabilitySelectionSchema() => new()
-    {
-        ["type"] = "object",
-        ["properties"] = new JsonObject
-        {
-            ["operation_candidates"] = new JsonObject
-            {
-                ["type"] = "array",
-                ["items"] = new JsonObject
-                {
-                    ["type"] = "object",
-                    ["properties"] = new JsonObject
-                    {
-                        ["operation_id"] = new JsonObject { ["type"] = "string" },
-                        ["catalog_ids"] = new JsonObject
-                        {
-                            ["type"] = "array",
-                            ["items"] = new JsonObject { ["type"] = "string" }
-                        }
-                    },
-                    ["required"] = new JsonArray("operation_id", "catalog_ids"),
-                    ["additionalProperties"] = false
-                }
-            },
-            ["constraint_candidates"] = new JsonObject
-            {
-                ["type"] = "array",
-                ["items"] = new JsonObject
-                {
-                    ["type"] = "object",
-                    ["properties"] = new JsonObject
-                    {
-                        ["constraint_id"] = new JsonObject { ["type"] = "string" },
-                        ["catalog_ids"] = new JsonObject
-                        {
-                            ["type"] = "array",
-                            ["items"] = new JsonObject { ["type"] = "string" }
-                        }
-                    },
-                    ["required"] = new JsonArray("constraint_id", "catalog_ids"),
-                    ["additionalProperties"] = false
-                }
-            }
-        },
-        ["required"] = new JsonArray("operation_candidates", "constraint_candidates"),
-        ["additionalProperties"] = false
-    };
 
     /// <summary>
     /// Connects to each configured MCP server and lists its tools/prompts.

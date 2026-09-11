@@ -442,7 +442,7 @@ internal static class CapabilityMatchAssessment
             var shapeValid = validStatus && deniedValid && candidatesValid && knownDenied && knownCandidates && reasonText.Length > 0;
             shapeValid = shapeValid && status switch
             {
-                "enforced" => denied.Count > 0,
+                "enforced" => (denied.Count > 0 || NoPhysicalAuthority(inventory, catalog)) && candidates.Count == 0,
                 "policy_only" => denied.Count == 0
                                  && candidates.Count == 0
                                  && (normalizedNativePolicyOnly || string.Equals(
@@ -503,12 +503,18 @@ internal static class CapabilityMatchAssessment
             catalog);
     }
 
+    // The empty physical allowlist is stronger than any particular MCP denial. This
+    // proof relies on validated execution classifications and catalog metadata only.
+    internal static bool NoPhysicalAuthority(CapabilityInventory inventory, CapabilityCatalog catalog) =>
+        inventory.Operations.All(o => o.ExecutionKind != "external_effect") && catalog.Entries.All(e => e.Resolution != "mcp");
+
     internal static JsonObject BuildTypedCapabilityMatchingSchema(CapabilityInventory inventory, CapabilityCatalog catalog)
     {
         var schema = BuildCapabilityMatchingSchema();
         var operation = schema["properties"]!["operation_matches"]!["items"]!.DeepClone().AsObject();
         var constraint = schema["properties"]!["constraint_matches"]!["items"]!.DeepClone().AsObject();
-        var ids = new JsonObject { ["type"] = "string", ["enum"] = new JsonArray(catalog.Entries.Select(c => (JsonNode?)JsonValue.Create(c.Id)).ToArray()) };
+        var ids = new JsonObject { ["type"] = "string" };
+        if (catalog.Entries.Count > 0) ids["enum"] = new JsonArray(catalog.Entries.Select(c => (JsonNode?)JsonValue.Create(c.Id)).ToArray());
         schema["$defs"] = new JsonObject { ["catalogId"] = ids };
         JsonObject Entry(JsonObject template, string idField)
         {
@@ -530,6 +536,7 @@ internal static class CapabilityMatchAssessment
         foreach (var item in inventory.Operations)
         {
             var statuses = item.ExecutionKind == "local_processing" ? new[] { "local" }
+                : catalog.Entries.Count == 0 ? new[] { "unavailable" }
                 : item.DecisionSourceOperationId.Length == 0 ? new[] { "matched", "composed", "unavailable" } : new[] { "conditional", "unavailable" };
             var variants = new JsonArray();
             foreach (var status in statuses)
@@ -541,7 +548,8 @@ internal static class CapabilityMatchAssessment
                     : item.AllowNoEffectOutcome ? Enum("exactly_one", "all_on_value") : Enum("exactly_one");
                 properties["candidate_catalog_ids"]!["maxItems"] = 0;
                 var selected = properties["catalog_ids"]!;
-                selected["minItems"] = status is "matched" or "conditional" ? 1 : status == "composed" ? 2 : 0;
+                selected["minItems"] = status == "matched" ? 1 : status == "composed" ? 2 : status == "conditional"
+                    ? HasHumanDecisionSource(inventory, item) || item.AllowNoEffectOutcome ? 1 : 2 : 0;
                 selected["maxItems"] = status == "matched" ? 1 : status is "composed" or "conditional" ? 16 : 0;
                 variants.Add((JsonNode)entry);
             }
@@ -549,8 +557,38 @@ internal static class CapabilityMatchAssessment
         }
 
         schema["properties"]!["operation_matches"] = Object(operations);
-        schema["properties"]!["constraint_matches"] = Object(new JsonObject(inventory.Constraints.Select(c =>
-            new KeyValuePair<string, JsonNode?>(c.Id, Entry(constraint, "constraint_id")))));
+        var constraints = new JsonObject();
+        var physical = catalog.Entries.Where(e => e.Resolution == "mcp").Select(e => e.Id).ToArray();
+        foreach (var item in inventory.Constraints)
+        {
+            var statuses = item.EnforcementKind == "workflow_policy" ? new[] { "policy_only" }
+                : NoPhysicalAuthority(inventory, catalog) ? new[] { "enforced" } : new[] { "enforced", "ambiguous" };
+            var variants = new JsonArray();
+            foreach (var status in statuses)
+            {
+                var entry = Entry(constraint, "constraint_id"); var properties = entry["properties"]!;
+                properties["status"] = Enum(status);
+                foreach (var field in new[] { "denied_catalog_ids", "candidate_catalog_ids" })
+                {
+                    var selected = properties[field]!;
+                    var populated = physical.Length > 0 && (field == "denied_catalog_ids" && status == "enforced" || field == "candidate_catalog_ids" && status == "ambiguous");
+                    selected["items"] = physical.Length > 0 ? Enum(physical) : new JsonObject { ["type"] = "string" };
+                    selected["minItems"] = populated ? 1 : 0; selected["maxItems"] = populated ? field == "denied_catalog_ids" ? 64 : 8 : 0;
+                }
+                variants.Add((JsonNode)entry);
+            }
+            constraints[item.Id] = variants.Count == 1 ? variants[0]!.DeepClone() : new JsonObject { ["anyOf"] = variants };
+        }
+        schema["properties"]!["constraint_matches"] = Object(constraints);
+        // Locked local operations and policy constraints often have identical
+        // response domains. Share the schema instead of repeating it per identity.
+        foreach (var fields in new[] { operations, constraints })
+            foreach (var group in fields.ToArray().GroupBy(p => p.Value!.ToJsonString(), StringComparer.Ordinal).Where(g => g.Count() > 1))
+            {
+                var name = "match_" + PlanningGraphCompiler.Fingerprint(group.Key)[..16];
+                schema["$defs"]![name] = group.First().Value!.DeepClone();
+                foreach (var field in group) fields[field.Key] = new JsonObject { ["$ref"] = "#/$defs/" + name };
+            }
         return schema;
     }
 

@@ -32,7 +32,7 @@ internal static class PlanningHoleAssignments
                 }
                 else
                 {
-                    var binding = Value(assignment, staged.Bindings);
+                    var binding = Value(assignment, staged.Bindings, staged.ParameterScopes.GetValueOrDefault(hole.Id));
                     if (binding is not null)
                     {
                         if (hole.Kind == "default" && !PlanningGraphValidation.IsLiteral(binding)) throw new InvalidOperationException("An input default must be literal.");
@@ -41,7 +41,7 @@ internal static class PlanningHoleAssignments
                         {
                             var failures = PlanningContractValidation.ValidateInstanceFindings(PlanningGraphValidation.Literal(binding), expected);
                             foreach (var failure in failures)
-                                diagnostics.Add(new("HOLE_VALUE_INVALID", LiteralLocation(binding, "/assignments/" + hole.Id + "/value", failure.InstancePointer), failure.Message, Rule: failure.Rule));
+                                diagnostics.Add(new("HOLE_VALUE_INVALID", assignment.ContainsKey("json") ? "/assignments/" + hole.Id + "/json" + failure.InstancePointer : LiteralLocation(binding, "/assignments/" + hole.Id + "/value", failure.InstancePointer), failure.Message, Rule: failure.Rule));
                         }
                     }
                     value = binding is null ? null : JsonSerializer.SerializeToNode(binding, PlanningJsonContext.Default.PlanningValue);
@@ -56,6 +56,19 @@ internal static class PlanningHoleAssignments
         if (state.Construction.SkeletonFingerprint != PlanningGraphSkeleton.Fingerprint(graph))
             throw new PlanningConflictException("Hole assignments changed frozen topology.");
         var view = PlanningContext.Clone(state); view.Graph = graph;
+        // Receipt replay keeps its response contract, but never retains obsolete binding authority.
+        foreach (var hole in staged.Targets.Where(h => h.Kind != "schema"))
+        {
+            var scoped = PlanningContext.Clone(state); scoped.Graph = PlanningContext.Clone(graph);
+            foreach (var target in staged.Targets) scoped.Construction.Holes.Single(h => h.Id == target.Id).Resolved = true;
+            var current = PlanningFieldPaths.Json(scoped.Graph);
+            var value = JsonSerializer.Deserialize(PlanningFieldPaths.Read(current, hole.Path)?.ToJsonString() ?? "null", PlanningJsonContext.Default.PlanningValue);
+            PlanningFieldPaths.Replace(current, hole.Path, JsonSerializer.SerializeToNode(new PlanningValue { Kind = PlanningGraphSkeleton.Unresolved }, PlanningJsonContext.Default.PlanningValue));
+            scoped.Graph = JsonSerializer.Deserialize(current, PlanningJsonContext.Default.PlanningGraph)!;
+            scoped.Construction.Holes.Single(h => h.Id == hole.Id).Resolved = false;
+            if (PlanningHoleEligibility.Validate(scoped, scoped.Graph.Workflows.Single(w => w.Key == workflow.Key), hole, value) is { } invalid)
+                diagnostics.Add(Map(invalid, staged));
+        }
         view.Construction.Workflows.Single(w => w.WorkflowKey == workflow.Key).Status = "constructed";
         var remainingHoles = state.Construction.Holes.Where(h => h.WorkflowKey == workflow.Key && !h.Resolved && staged.Targets.All(t => t.Id != h.Id)).ToArray();
         var located = PlanningGraphValidation.Located(graph.Workflows.Single(w => w.Key == workflow.Key).Steps, "/workflows/" + graph.Workflows.FindIndex(w => w.Key == workflow.Key) + "/steps")
@@ -91,7 +104,7 @@ internal static class PlanningHoleAssignments
         }
         return root;
     }
-    internal static PlanningValue? Value(JsonObject assignment, IReadOnlyDictionary<string, PlanningValue> bindings)
+    internal static PlanningValue? Value(JsonObject assignment, IReadOnlyDictionary<string, PlanningValue> bindings, IReadOnlyList<string>? fixedParameters = null)
     {
         if (assignment["kind"]?.ToString() == "compute" && assignment["bindings"] is JsonArray parameters &&
             parameters.Select(p => p!.ToString()).Distinct(StringComparer.Ordinal).Count() != parameters.Count)
@@ -99,7 +112,9 @@ internal static class PlanningHoleAssignments
         return assignment["kind"]!.GetValue<string>() switch
         {
             "absent" => null,
-            "literal" => JsonSerializer.Deserialize(assignment["value"]!, PlanningJsonContext.Default.PlanningValue)!,
+            // Retained receipts carry their original schema. New literal requests expose destination JSON,
+            // which the coordinator turns into the same typed value as every other assignment.
+            "literal" => assignment.ContainsKey("json") ? PlanningSkeletonInputs.Literal(assignment["json"]) : JsonSerializer.Deserialize(assignment["value"]!, PlanningJsonContext.Default.PlanningValue)!,
             "binding" => Clone(bindings[assignment["binding"]!.GetValue<string>()]),
             "compute" => Compute(),
             _ => throw new InvalidOperationException("Unknown hole assignment.")
@@ -107,8 +122,11 @@ internal static class PlanningHoleAssignments
         PlanningValue Compute()
         {
             var value = new PlanningValue { Kind = "compute", Text = assignment["expression"]!.GetValue<string>(),
-                Members = assignment["bindings"]!.AsArray().Select(v => v!.GetValue<string>())
+                Members = (assignment["bindings"] is JsonArray retainedParameters ? retainedParameters.Select(v => v!.GetValue<string>())
+                    : fixedParameters ?? throw new InvalidOperationException("The computation has no retained coordinator parameter scope."))
                     .Select(id => new PlanningMember(id, Clone(bindings[id]))).ToList() };
+            var used = PlanningComputationScopes.Used(new Acornima.Parser().ParseExpression(PlanningComputations.Expression(value.Text)), value.Members.Select(m => m.Name).ToArray());
+            value.Members.RemoveAll(m => !used.Contains(m.Name));
             PlanningComputations.Validate(value);
             // An identity expression is the existing typed value. Keeping that
             // identity preserves item contracts and provenance without inference.
@@ -129,16 +147,35 @@ internal static class PlanningHoleAssignments
         {
             "binding" => root + "/binding",
             "compute" when suffix == "/text" => root + "/expression",
-            "compute" when suffix.StartsWith("/members/", StringComparison.Ordinal) => root + "/bindings/" + suffix.Split('/')[2],
+            "compute" when suffix.StartsWith("/members/", StringComparison.Ordinal) => staged.Payload["assignments"]![hole.Id]!["bindings"] is null ? root + "/expression" : root + "/bindings/" + suffix.Split('/')[2],
             "compute" => root,
+            "literal" when staged.Payload["assignments"]![hole.Id]!.AsObject().ContainsKey("json") => root + "/json" + JsonLiteralSuffix(staged.Payload["assignments"]![hole.Id]!["json"], suffix),
             "literal" => root + "/value" + suffix,
             _ => root
         } };
     }
+    private static string JsonLiteralSuffix(JsonNode? value, string suffix)
+    {
+        var parts = suffix.Split('/', StringSplitOptions.RemoveEmptyEntries); var path = "";
+        for (var i = 0; i < parts.Length; i++)
+        {
+            if (parts[i] == "members" && i + 2 < parts.Length && int.TryParse(parts[i + 1], out var index) && value is JsonObject obj && index >= 0 && index < obj.Count)
+            { var member = obj.ElementAt(index); path += "/" + PlanningFieldPaths.Escape(member.Key); value = member.Value; i += 2; }
+            else if (parts[i] == "items" && i + 1 < parts.Length && int.TryParse(parts[i + 1], out index) && value is JsonArray array && index >= 0 && index < array.Count)
+            { path += "/" + index; value = array[index]; i++; }
+            else break; // Typed scalar storage names (text/number/boolean) are not JSON members.
+        }
+        return path;
+    }
     internal static void Commit(PlanningSnapshot state, PlanningStagedAssignments staged, PlanningGraph graph)
     {
         state.Graph = graph;
-        foreach (var hole in staged.Targets) state.Construction.Holes.Single(h => h.Id == hole.Id).Resolved = true;
+        foreach (var hole in staged.Targets)
+        {
+            var retained = state.Construction.Holes.Single(h => h.Id == hole.Id);
+            retained.Resolved = true;
+            retained.ResolutionOrigin ??= retained.ExposedRequests.Count > 0 ? "model" : null;
+        }
         state.Construction.Candidates.Remove(staged);
         var progress = state.Construction.Workflows.Single(w => w.WorkflowKey == staged.WorkflowKey);
         progress.ResolvedHoles = state.Construction.Holes.Count(h => h.WorkflowKey == staged.WorkflowKey && h.Resolved);
@@ -146,6 +183,6 @@ internal static class PlanningHoleAssignments
         progress.Status = progress.UnresolvedHoles == 0 ? "constructed" : "pending";
         progress.Diagnostics.Clear(); progress.Gate = progress.Status == "constructed" ? PlanningGates.Typed : PlanningGates.Response;
         progress.GraphFingerprint = WorkflowFingerprint(graph.Workflows.Single(w => w.Key == staged.WorkflowKey));
-        state.Diagnostics.Clear(); PlanningContext.InvalidateArtifact(state);
+        state.Diagnostics.Clear(); PlanningContext.InvalidateArtifact(state); PlanningConvergence.Refresh(state);
     }
 }

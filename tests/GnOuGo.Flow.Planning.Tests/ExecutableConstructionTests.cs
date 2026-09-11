@@ -20,10 +20,10 @@ public sealed class ExecutableConstructionTests
     public void GlobalFunctionsStayFrozenWhileAnExactConditionTextCanBeRepaired()
     {
         var graph = Graph(); graph.Functions = "invalid code";
-        var node = graph.Workflows[0].Steps[0]; node.Type = "switch"; node.Cases = [new("yes", new() { Kind = "expression", Text = "1 +" }, [])];
+        var node = graph.Workflows[0].Steps[0]; node.Type = "switch"; node.Cases = [new("yes", new() { Kind = "compute", Text = "1 +" }, [])];
         var scope = PlanningPatches.Scope(graph, [new("FUNCTION_SYNTAX_INVALID", "/functions", "Invalid"), new("EXPR_PARSE", "/workflows/0/steps/0/cases/0/when/text", "Invalid")]);
         Assert.Single(scope);
-        var candidate = PlanningPatches.Apply(graph, Changes(Patch("greeting", "cases/0/when/text", "1 + 1")), scope, Preparation());
+        var candidate = PlanningPatches.Apply(graph, Changes(Patch("greeting", "cases/0/when/text", "1 + 1")), scope, Preparation(), new PlanningDataflowContract());
         Assert.Equal("invalid code", candidate.Functions);
         Assert.Equal("1 + 1", candidate.Workflows[0].Steps[0].Cases[0].When!.Text);
     }
@@ -72,7 +72,7 @@ public sealed class ExecutableConstructionTests
     {
         var original = Graph();
         var schema = JsonNode.Parse("""{"kind":"inline","type":"object","nullable":false,"description":null,"enum":[],"properties":[{"name":"message","required":true,"default":null,"schema":{"kind":"inline","type":"string","nullable":false,"description":null,"enum":[],"properties":[],"items":null,"additionalProperties":null}}],"items":null,"additionalProperties":null}""");
-        Assert.Throws<InvalidOperationException>(() => PlanningPatches.Apply(original, Changes(Patch("greeting", "outputSchema", schema)), new HashSet<string>(), Preparation()));
+        Assert.Throws<InvalidOperationException>(() => PlanningPatches.Apply(original, Changes(Patch("greeting", "outputSchema", schema)), new HashSet<string>(), Preparation(), new PlanningDataflowContract()));
         Assert.Null(original.Workflows[0].Steps[0].OutputSchema);
     }
 
@@ -82,7 +82,7 @@ public sealed class ExecutableConstructionTests
         var graph = Graph(); var before = PlanningGraphCompiler.Fingerprint(graph);
         var input = PlanningFixtures.Workflow(graph.Workflows[0])["steps"]![0]!["input"]!.DeepClone();
         var allowed = new HashSet<string> { PlanningPatches.Coordinate("main", "greeting", "input/members/0/value/text") };
-        Assert.Throws<InvalidOperationException>(() => PlanningPatches.Apply(graph, Changes(Patch("greeting", "input/members/0/value/text", "Fixed"), Patch("greeting", "input/members/0/value/text", "Again")), allowed, Preparation()));
+        Assert.Throws<InvalidOperationException>(() => PlanningPatches.Apply(graph, Changes(Patch("greeting", "input/members/0/value/text", "Fixed"), Patch("greeting", "input/members/0/value/text", "Again")), allowed, Preparation(), new PlanningDataflowContract()));
         Assert.Equal(before, PlanningGraphCompiler.Fingerprint(graph));
     }
 
@@ -93,7 +93,7 @@ public sealed class ExecutableConstructionTests
         var node = graph.Workflows[0].Steps[0]; node.Type = "mcp.call"; node.CapabilityId = "renamed";
         preparation.Capabilities.Add(new() { Id = "renamed", StepType = "mcp.call", Server = "host", Method = "tool", Kind = "tool", InputSchema = new() { ["type"] = "object" }, OutputSchema = new() { ["type"] = "object", ["properties"] = new JsonObject { ["message"] = new JsonObject { ["type"] = "string" } }, ["required"] = new JsonArray("message") } });
         node.Input = Obj(); node.OutputSchema = new() { CapabilityId = "renamed", SchemaPointer = "/output" };
-        Assert.Throws<InvalidOperationException>(() => PlanningPatches.Apply(graph, Changes(Patch("greeting", "outputSchema", null)), new HashSet<string>(), preparation));
+        Assert.Throws<InvalidOperationException>(() => PlanningPatches.Apply(graph, Changes(Patch("greeting", "outputSchema", null)), new HashSet<string>(), preparation, new PlanningDataflowContract()));
         graph.Workflows[0].Outputs[0].Value.Path = ["invented"];
         Assert.Contains(PlanningGraphValidation.Validate(graph, preparation), d => d.Code == "OUTPUT_REFERENCE_INVALID");
     }

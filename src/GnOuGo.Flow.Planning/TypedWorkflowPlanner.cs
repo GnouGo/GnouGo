@@ -100,7 +100,7 @@ public sealed class TypedWorkflowPlanner(TimeProvider? timeProvider = null) : IW
                     break;
                 case "retry":
                     if (state.Status is not (PlanningStatus.Recovery or PlanningStatus.Failed or PlanningStatus.Unsupported)) throw new PlanningConflictException("Only a stopped session can be retried.");
-                    if (state.Diagnostics.Any(d => d.Code == "GOVERNING_CONTRACT_REVIEW_REQUIRED")) break;
+                    if (state.Diagnostics.Any(d => d.Code == "GOVERNING_CONTRACT_REVIEW_REQUIRED") && !PlanningSemanticReview.ReassessInvalidTargets(state)) break;
                     PlanningIntentAssessment.ArchiveIntent(state);
                     state.Diagnostics.Clear();
                     if (state.CurrentPhase == PlanningPhase.Capabilities && state.PreparationCheckpoint is { } preparation && state.Construction.PendingCalls.Count == 0)
@@ -133,6 +133,8 @@ public sealed class TypedWorkflowPlanner(TimeProvider? timeProvider = null) : IW
             if (state.PreparationCheckpoint is not null) state.PreparationCheckpoint.Diagnostics = state.Diagnostics.ToList();
             PlanningContext.InvalidateArtifact(state);
         }
+        catch (PlanningHoleUnavailableException error)
+        { PlanningContext.Stop(state, "HOLE_DOMAIN_UNRESOLVED", error.Message, error.Location); }
         catch (LLMClientException error)
         {
             state.Diagnostics = [new("LLM_PROVIDER_" + error.Kind.ToString().ToUpperInvariant(), "$",
@@ -146,6 +148,7 @@ public sealed class TypedWorkflowPlanner(TimeProvider? timeProvider = null) : IW
             PlanningContext.Stop(state, code, error.Message);
         }
         state.ActiveMilliseconds += clock.Elapsed.TotalMilliseconds;
+        PlanningConvergence.Refresh(state);
         state.Revision++; state.UpdatedAtUtc = _time.GetUtcNow();
         if (PlanningStatus.IsWaiting(state.Status)) state.WaitingSinceUtc = state.UpdatedAtUtc;
         state.Events.Add(new("transition", PlanningPhase.Resolve(state), state.UpdatedAtUtc));

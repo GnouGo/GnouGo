@@ -86,6 +86,14 @@ internal sealed class PlanningValidationPipeline
         state.Validation.Scenarios = report.Scenarios;
         state.Diagnostics = report.Diagnostics;
         state.Attempts.Add(new(state.Validation.GraphFingerprint, "validation", report.Stage, true, report.Diagnostics));
+        foreach (var workflow in state.Graph!.Workflows)
+        {
+            var index = state.Graph.Workflows.IndexOf(workflow);
+            PlanningConvergence.Failure(state, workflow.Key, PlanningGates.FromStage(report.Stage), state.Validation.GraphFingerprint,
+                report.Diagnostics.Where(d => PlanningDataflowResolver.Owns(d, index, workflow.Key)));
+        }
+        PlanningConvergence.Failure(state, "$plan", PlanningGates.FromStage(report.Stage), state.Validation.GraphFingerprint,
+            report.Diagnostics.Where(d => !state.Graph.Workflows.Any(w => PlanningDataflowResolver.Owns(d, state.Graph.Workflows.IndexOf(w), w.Key))));
         if (report.Diagnostics.Any(d => d.Required))
         {
             PlanningContext.InvalidateArtifact(state);

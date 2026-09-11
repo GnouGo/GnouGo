@@ -26,7 +26,6 @@ namespace GnOuGo.Flow.Planning.Capabilities;
 
 internal static partial class CapabilityContracts
 {
-    internal const int PhysicalCapabilityPageMaxCharacters = 64_000;
     internal const int PhysicalCapabilityMaxPages = 64;
     internal const int PhysicalCapabilityMaxCandidatesPerInventoryItem = 24;
     internal const int PhysicalCapabilityDescriptionMaxCharacters = 384;
@@ -41,7 +40,6 @@ internal static partial class CapabilityContracts
 
     internal sealed record PhysicalCapabilityCatalog(
         IReadOnlyList<PhysicalCapabilityEntry> Entries,
-        IReadOnlyList<string> Pages,
         int TotalCharacters);
 
     internal sealed record PhysicalCandidateSelection(
@@ -180,11 +178,7 @@ internal static partial class CapabilityContracts
         IReadOnlyList<CapabilityOperationMatch> OperationMatches,
         IReadOnlyList<CapabilityConstraintMatch> ConstraintMatches,
         IReadOnlyList<CapabilityMatchingIssue> Issues,
-        bool ContractValid)
-    {
-
-        public IReadOnlyList<CapabilityMatchingIssue> RejectedRewindIssues { get; init; } = Array.Empty<CapabilityMatchingIssue>();
-    }
+        bool ContractValid);
 
     internal sealed record CapabilityCoverageEvidence(
         string CatalogId,
@@ -435,6 +429,7 @@ internal static partial class CapabilityContracts
     internal const string TypedConfirmationMatchingGuidance = "A declared human-interaction decision is boolean permission, so its conditional_mode must be all_on_value. Permission does not choose an effect's business result. Keep runtime-dependent enum arguments unbound by selecting the appropriate whole-tool or partial-selector entry; compute their values from the declared business-result dependencies during construction. Never select mutually exclusive result variants as if confirmation chose between them, or execute all those alternatives together.";
 
     [JsonSourceGenerationOptions(PropertyNamingPolicy = JsonKnownNamingPolicy.CamelCase)]
+    [JsonSerializable(typeof(PhysicalCandidateSelection))]
     [JsonSerializable(typeof(CapabilityInventory))]
     [JsonSerializable(typeof(List<McpServerDiscovery>))]
     [JsonSerializable(typeof(CapabilityMatchingEvaluation))]
