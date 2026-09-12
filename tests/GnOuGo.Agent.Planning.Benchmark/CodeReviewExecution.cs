@@ -17,6 +17,7 @@ namespace GnOuGo.Agent.Planning.Benchmark;
 
 internal static class CodeReviewExecution
 {
+    internal static int EstimateInput(LLMRequest request) => (Encoding.UTF8.GetByteCount(request.Prompt) + Encoding.UTF8.GetByteCount(request.StructuredOutputSchema?.ToJsonString() ?? "{}") + 2) / 3 + 256;
     internal static async Task RunAsync(PlanningSnapshot state, JsonArray discovery, LLMRuntimeOptionsStore options,
         IKeyVaultRuntimeConfigStore vault, IDbContextFactory<PlanningDbContext> contexts, IKeyVaultRecordStore records,
         IExchangeRateProvider rates, string inputPort, string instructionPort, CancellationToken ct)
@@ -75,6 +76,7 @@ internal static class CodeReviewExecution
                 new JsonObject { ["report"] = report.DeepClone(), ["outputs"] = outputs?.DeepClone(), ["error"] = errorMessage }.ToJsonString(), EfPlanningSessionStore.Author, ct);
             Console.WriteLine(report.ToJsonString());
             fixture.AssertComplete(success, variant == "invalid_input" ? errorCode : errorMessage, outputs);
+            report["passed"] = true;
             caseReports.Add(report);
         }
         await records.UpsertAsync("agent-planning-benchmark-validation-v5", state.Request.TenantId, state.Request.SessionId + ":" + state.ArtifactHash,
@@ -86,7 +88,7 @@ internal static class CodeReviewExecution
         public Task<LLMResponse> CallAsync(LLMRequest request, CancellationToken ct)
         {
             PlanningGenerationPolicy.Apply(request, generation);
-            var estimate = (Encoding.UTF8.GetByteCount(request.Prompt) + Encoding.UTF8.GetByteCount(request.StructuredOutputSchema?.ToJsonString() ?? "{}") + 2) / 3 + 256;
+            var estimate = EstimateInput(request);
             if (estimate > generation.MaxInputTokensPerRequest) throw new InvalidOperationException("Independent execution request exceeds the unchanged input ceiling.");
             request.ClientRequestId = null;
             var hash = PlanningGraphCompiler.Fingerprint(JsonSerializer.Serialize(request, PlanningJsonContext.Default.LLMRequest));

@@ -12,7 +12,7 @@ namespace GnOuGo.Agent.Planning.Benchmark;
 internal static class OfflineReplay
 {
     internal static async Task RunAsync(IDbContextFactory<PlanningDbContext> contexts, IKeyVaultRecordStore records,
-        string tenant, string session, long revision, CancellationToken ct)
+        string tenant, string session, long revision, CancellationToken ct, string? counterfactualRequest = null, LLMResponse? counterfactualResponse = null)
     {
         var store = new EfPlanningSessionStore(contexts, records);
         var latest = await store.LoadAsync(tenant, session, ct) ?? throw new InvalidOperationException("Session not found.");
@@ -39,6 +39,12 @@ internal static class OfflineReplay
                 receipt is null ? null : JsonSerializer.Deserialize(receipt.Value, PlanningJsonContext.Default.LLMResponse)));
         }
         var client = new ReceiptOnlyClient(session, evidence);
+        if (counterfactualRequest is not null)
+        {
+            if (counterfactualResponse is null || !evidence.TryGetValue(counterfactualRequest, out var original) || original.Item2 is null)
+                throw new InvalidOperationException("A counterfactual requires both the original completed receipt and the separate diagnostic receipt.");
+            evidence[counterfactualRequest] = (original.Item1, counterfactualResponse);
+        }
         var runtime = new WorkflowPlanningRuntime(new WorkflowEngine
         {
             LLMClient = client, McpClientFactory = new FrozenCatalog(discovery),
@@ -60,6 +66,7 @@ internal static class OfflineReplay
         Console.WriteLine(new JsonObject
         {
             ["session"] = session, ["sourceRevision"] = revision, ["sourceUnchanged"] = true,
+            ["counterfactual"] = counterfactualRequest is not null, ["counterfactualRequest"] = counterfactualRequest,
             ["status"] = state.Status, ["phase"] = state.CurrentPhase, ["localAdvances"] = advances,
             ["replayedReceipts"] = client.Replayed.Count, ["providerDispatches"] = 0,
             ["behaviorPresent"] = state.BehaviorPlan is not null, ["graphPresent"] = state.Graph is not null,

@@ -11,6 +11,8 @@
   <ItemGroup>
     <Compile Include="../Shared/IntentClarificationFixture.cs" Link="IntentClarificationFixture.cs" />
     <Compile Include="../GnOuGo.Agent.Planning.Benchmark/ReceiptOnlyClient.cs" Link="Benchmark/ReceiptOnlyClient.cs" />
+    <Compile Include="../GnOuGo.Agent.Planning.Benchmark/ProgressiveRules.cs" Link="Benchmark/ProgressiveRules.cs" />
+    <Compile Include="../GnOuGo.Agent.Planning.Benchmark/ProgressiveReport.cs" Link="Benchmark/ProgressiveReport.cs" />
     <ProjectReference Include="..\..\src\GnOuGo.Agent.Server\GnOuGo.Agent.Server.csproj" />
     <ProjectReference Include="..\..\src\GnOuGo.Flow.Integrations\GnOuGo.Flow.Integrations.csproj" />
     <ProjectReference Include="..\..\src\GnOuGo.GithubCopilot.Core\GnOuGo.GithubCopilot.Core.csproj" />

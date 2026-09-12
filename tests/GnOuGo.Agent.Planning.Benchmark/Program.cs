@@ -23,6 +23,11 @@ const string tenant = "planner-benchmark";
 const string evidenceKey = "codereview-bc72dd6";
 var root = AppContext.BaseDirectory;
 var records = KeyVaultRecordStoreFactory.CreateWorkspaceStore(null, root);
+if (args[0] == "campaign")
+{
+    await ProgressiveCampaign.RunAsync(args[1..], records, root);
+    return;
+}
 var benchmarkPath = GnOuGoWorkspace.ResolveDatabasePath(Environment.GetEnvironmentVariable("PLANNING_BENCHMARK_DATABASE"), root, ".GnOuGo/data/planner-benchmark/gnougo-planning-v5.db");
 if (args[0] == "replay")
 {
