@@ -1,0 +1,291 @@
+{
+  "campaignId": "schema5-clarification-20260912",
+  "manifest": {
+    "productionCommit": "9a3b3de8ce1e4baa228c636471bc41ea7c9bf061",
+    "binaries": {
+      "GnOuGo.AI.Core.dll": "2fbf98b5865dc0008595d25a1f208f84fabef0042bdd9075659e1d960326219d",
+      "GnOuGo.AI.Local.dll": "fb627be4c255fd43bde275ed92e6b5df5f5f48fdff00ac9063bda7c8cce9606c",
+      "GnOuGo.Agent.Mcp.dll": "61c1cedd0da1aaf3d39fd2c04fd7224a2e71bbade0e3e8a4151a7e58047fc1e7",
+      "GnOuGo.Agent.Planning.Benchmark.dll": "e5e1ad897efed1b4550907386bbbd2cb14ef4cf5aced5bc200a48e12dbee5ead",
+      "GnOuGo.Agent.Server.dll": "ce66dd48fc5ba85404c7805e74a9e13ace73d751319b295a361ebb32eb135d32",
+      "GnOuGo.Agent.Shared.dll": "e5124f59c6a6fdbc49b2b2fb5db7283078a7c3f99b39a1df6e3a3483167a68d8",
+      "GnOuGo.Assets.Animation.dll": "7e0d86e9db46de9ac66be803b5048065534007d2ed9f7123ef4e9c6bf631aa86",
+      "GnOuGo.Assets.Bears.dll": "ae2c4866f5ca8da8c11c59d4f0628afe1ce4d6012de9c5c31de1e9bf1e2b8e68",
+      "GnOuGo.Auth.Core.dll": "d6c37f0081421a1a8c8fe85356ad83c4ffc5630d0530428dcd4eccbc7cc0ebcb",
+      "GnOuGo.Diff.Core.dll": "02bae748d92c8e41a1f4e7a918b9d5e55206e87d86d41809f390b47e5de8327d",
+      "GnOuGo.DocIngestor.Core.dll": "0fb27465af7e2ce60976c58871decafd3fc4f68b4d3afa9ae6595a5d01a5ddda",
+      "GnOuGo.DocIngestor.Mcp.dll": "3f5bca6566beebd624a37b83bf43a091de4862218bf048570b9d7e1b07a8a9cf",
+      "GnOuGo.Files.Server.dll": "a8f45f883bf0560e0c7898c62f444eca5bc48ce7f8abfd6bf0c50de20fe6adf8",
+      "GnOuGo.Flow.Core.dll": "6660ffa1c95c734535efccb993d0f8ea89c610681e48b914eb24faf8e90191e7",
+      "GnOuGo.Flow.Integrations.dll": "0abbeb5788584360c1506e8f3f770a660a1eeceeda69938c1b32206d0460af6f",
+      "GnOuGo.Flow.Mermaid.dll": "d5cbc79b237adee248b5b933af6552661832765f99c523a561c25fdcd2ceb7de",
+      "GnOuGo.Flow.Planning.dll": "7a3bc59fd70906719bd5659d555e8a576cd676d45b56cc5fc70f623e622cf931",
+      "GnOuGo.KeyVault.Core.dll": "2b39577e334c188a874ddafe25ef0a8b902237570968e9e296b3732e63e15121",
+      "GnOuGo.KeyVault.Mcp.dll": "e75a97b4bb8d39e79709444dd8329634aacb25da4291c9eddf597f1294eb791a",
+      "GnOuGo.Mcp.Core.dll": "f84f098ffe1d065d099a62fb7f4ffe5dbae9ab3878c7b6260dafa8c96b378129",
+      "GnOuGo.Observability.Core.dll": "bd84442c385fdb436c03eb3f17176b340747ee1c9efcb609c9271bafc0a4509b",
+      "GnOuGo.OtlpCollector.Server.dll": "a4c5a9c961b1e6bfecaf7f2446ce665f79f35a8ad86d4bd263df65667969d370",
+      "GnOuGo.Workspace.dll": "060b3ac94daba4ff6602f2d495811d22661d67ff1a5940bd333ffd0bf4a76cce"
+    },
+    "model": {
+      "provider": "OpenAi",
+      "model": "gpt-5.5-2026-04-24",
+      "reasoningLevels": [
+        "low",
+        "medium",
+        "high",
+        "max"
+      ],
+      "structuredOutput": true
+    },
+    "evidenceHash": "43720f982d0d79997822ede2b93b130a26d5a3b93ed143ea46bb849ddd997643",
+    "policyHash": "b92002cf07ef660981dc5c758d775be40589045d14df706cf454ca3c58e52604",
+    "abUsed": false,
+    "limits": {
+      "input": 12000,
+      "dispatchTarget": 9600,
+      "output": 8192,
+      "concurrency": 4,
+      "repairsPerGate": 5,
+      "calls": 100,
+      "totalTokens": 15000000,
+      "activeMilliseconds": 18000000,
+      "amount": 50,
+      "currency": "EUR",
+      "reasoning": "low"
+    },
+    "stages": [
+      {
+        "stage": 1,
+        "status": "not_run",
+        "session": null,
+        "promptHash": "f0479816c14ebb7fd57d6a30d5ea88bcc40b80c6c15bfd5502a6fd0e7a38a1f9",
+        "catalogHash": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+        "fixtureHash": "f7a47f1fc0a6e114955dd4e0446ee2ce6fb8598a7e798aa2685809e38b36cc6b"
+      },
+      {
+        "stage": 2,
+        "status": "not_run",
+        "session": null,
+        "promptHash": "14932e22d2a2c7d417dbe3f25fd3c8dbd279af3d5cc1e4a7a2d943309af0f5f1",
+        "catalogHash": "f6f4912b0b69f353d69b84de4da738082e61c02018d8a63d7fefed409df7e2e9",
+        "fixtureHash": "0a8cf1d334b8401a8d124472f991e94c9012b3e3915b4a14ee8461f85e583649"
+      },
+      {
+        "stage": 3,
+        "status": "not_run",
+        "session": null,
+        "promptHash": "f5b167ad30f4791b775a12ffc46a66b0b6616e84d99418661188df3f745ffe28",
+        "catalogHash": "792eebc5c700c51dd30fa69fd4680dee8b65fb8b8bc35ed9611bd2a61762fc43",
+        "fixtureHash": "7ff54d7c4529bb9bb1e7ab4e25f1e59f83f85e7e08126a767e2136c5283ae498"
+      }
+    ]
+  },
+  "offlinePrerequisites": {
+    "solution": {
+      "passed": 3018,
+      "skipped": 1,
+      "failed": 0,
+      "warnings": 0
+    },
+    "harness": {
+      "build": "passed",
+      "warnings": 0,
+      "errors": 0
+    },
+    "referenceFixtureFamilies": 6,
+    "codeReviewFixtureCases": 18,
+    "liveCalls": 0
+  },
+  "report": {
+    "productionCommit": "9a3b3de8ce1e4baa228c636471bc41ea7c9bf061",
+    "model": {
+      "provider": "OpenAi",
+      "model": "gpt-5.5-2026-04-24",
+      "reasoningLevels": [
+        "low",
+        "medium",
+        "high",
+        "max"
+      ],
+      "structuredOutput": true
+    },
+    "stages": [
+      {
+        "stage": 1,
+        "campaignStatus": "blocked",
+        "harnessFailure": null,
+        "failureCode": null,
+        "planning": {
+          "session": "9978a0711f644ddfb9fabd4026bb681b",
+          "revision": 19,
+          "status": "stopped",
+          "outcome": null,
+          "phase": "capabilities",
+          "artifactHash": null,
+          "approvedHash": null,
+          "modelCalls": 5,
+          "reservations": 5,
+          "unverifiableDispatches": 0,
+          "journalReservationsWithoutReceipt": 0,
+          "decisionPages": 5,
+          "pagesByPhase": [
+            {
+              "phase": "intent",
+              "status": "completed",
+              "correction": false,
+              "pages": 3,
+              "splitChildren": 0
+            },
+            {
+              "phase": "intent_relations",
+              "status": "completed",
+              "correction": false,
+              "pages": 2,
+              "splitChildren": 0
+            }
+          ],
+          "engineResolvedExecutableDecisions": 0,
+          "otherEngineDecisions": null,
+          "modelDecisionIds": [
+            "$plan:interpret_0d9194da243451425662f7f2",
+            "$plan:interpret_296c3d7d109fc6ed78407201",
+            "$plan:interpret_3ba71042d587d0ca489c4c24",
+            "$plan:interpret_4011bc654d668cd598dbe5e1",
+            "$plan:interpret_4887540736f250184b357eb4",
+            "$plan:interpret_6e1774e55451bb32866d0d8f",
+            "$plan:interpret_7aa283f309ae868f29b29acb",
+            "$plan:interpret_891028f17241e8cfa172684a",
+            "$plan:interpret_a178ac697d36c1de25bbcbc6",
+            "$plan:interpret_d191f2731f26c0e2e13008e3",
+            "$plan:interpret_d7149cdfb34463b638c869b1",
+            "$plan:interpret_db680bbe39dc7360f4678032",
+            "$plan:interpret_db8c91bdb3e2dbe1e5da3a41",
+            "$plan:interpret_e2735938cd4c24e10e256c6b",
+            "$plan:interpret_e38c03ed002cd38e09f1728b",
+            "$plan:interpret_eeac9f57afde0035b32eaaa0",
+            "$plan:interpret_fc99cbd65432820905d89499",
+            "$plan:relation_ob_2a30acee58ac0a12_ob_7cff0d76fc8f4951",
+            "$plan:relation_ob_2a30acee58ac0a12_ob_88d6acb406afe870",
+            "$plan:relation_ob_2a30acee58ac0a12_ob_e479fae5d5fdb92e",
+            "$plan:relation_ob_5f95f149cf893c2d_ob_7cff0d76fc8f4951",
+            "$plan:relation_ob_5f95f149cf893c2d_ob_88d6acb406afe870",
+            "$plan:relation_ob_5f95f149cf893c2d_ob_e479fae5d5fdb92e",
+            "$plan:relation_ob_6ce59b9d0f2381a0_ob_7cff0d76fc8f4951",
+            "$plan:relation_ob_6ce59b9d0f2381a0_ob_88d6acb406afe870",
+            "$plan:relation_ob_6ce59b9d0f2381a0_ob_e479fae5d5fdb92e",
+            "$plan:relation_ob_7cff0d76fc8f4951_ob_88d6acb406afe870",
+            "$plan:relation_ob_7cff0d76fc8f4951_ob_e479fae5d5fdb92e",
+            "$plan:relation_ob_88d6acb406afe870_ob_7cff0d76fc8f4951",
+            "$plan:relation_ob_88d6acb406afe870_ob_e479fae5d5fdb92e",
+            "$plan:relation_ob_a253c7f18e21874e_ob_7cff0d76fc8f4951",
+            "$plan:relation_ob_a253c7f18e21874e_ob_88d6acb406afe870",
+            "$plan:relation_ob_a253c7f18e21874e_ob_e479fae5d5fdb92e",
+            "$plan:relation_ob_e479fae5d5fdb92e_ob_7cff0d76fc8f4951",
+            "$plan:relation_ob_e479fae5d5fdb92e_ob_88d6acb406afe870",
+            "$plan:relation_ob_ec3f4c80fd5c2dc1_ob_7cff0d76fc8f4951",
+            "$plan:relation_ob_ec3f4c80fd5c2dc1_ob_88d6acb406afe870",
+            "$plan:relation_ob_ec3f4c80fd5c2dc1_ob_e479fae5d5fdb92e"
+          ],
+          "modelExecutableDecisions": 0,
+          "executableHoleExposures": 0,
+          "userClarifications": 0,
+          "answeredForms": 0,
+          "clarificationDecision": null,
+          "largestEstimatedInput": 2817,
+          "largestActualInput": 2066,
+          "inputTokens": 7352,
+          "outputTokens": 1417,
+          "effectiveReasoning": [
+            "low"
+          ],
+          "requestsByPhase": [
+            {
+              "workflow": "$plan",
+              "phase": "intent",
+              "gate": "response_contract",
+              "reservations": 3,
+              "calls": 3,
+              "repairReservations": 0,
+              "inputTokens": 5044,
+              "outputTokens": 824
+            },
+            {
+              "workflow": "$plan",
+              "phase": "intent_relations",
+              "gate": "response_contract",
+              "reservations": 2,
+              "calls": 2,
+              "repairReservations": 0,
+              "inputTokens": 2308,
+              "outputTokens": 593
+            }
+          ],
+          "repairAllowances": [],
+          "failuresByGate": [],
+          "firstFailure": {
+            "code": "CONFIRMATION_POLICY_CONFLICT",
+            "phase": "capabilities",
+            "location": "/preparation",
+            "unverifiable": false
+          },
+          "diagnostics": [
+            {
+              "code": "CONFIRMATION_POLICY_CONFLICT",
+              "location": "/preparation",
+              "rule": null
+            }
+          ],
+          "modelDecisions": 38
+        },
+        "execution": {
+          "reservations": 0,
+          "completed": 0,
+          "withoutReceipt": 0,
+          "requests": []
+        }
+      },
+      {
+        "stage": 2,
+        "campaignStatus": "not_run",
+        "harnessFailure": null,
+        "failureCode": null
+      },
+      {
+        "stage": 3,
+        "campaignStatus": "not_run",
+        "harnessFailure": null,
+        "failureCode": null
+      }
+    ],
+    "preflightStop": null,
+    "diagnostic": null
+  },
+  "replay": {
+    "session": "9978a0711f644ddfb9fabd4026bb681b",
+    "sourceRevision": 14,
+    "sourceUnchanged": true,
+    "counterfactual": false,
+    "counterfactualRequest": null,
+    "status": "stopped",
+    "phase": "capabilities",
+    "localAdvances": 1,
+    "replayedReceipts": 1,
+    "providerDispatches": 0,
+    "behaviorPresent": false,
+    "graphPresent": false,
+    "diagnostics": [
+      {
+        "code": "CONFIRMATION_POLICY_CONFLICT",
+        "location": "/preparation"
+      }
+    ]
+  },
+  "firstBlockerClassification": "confirmation_policy_scope_conflation",
+  "diagnosticAb": {
+    "ran": false,
+    "reason": "The completed requests are intent interpretation and intent relations, not an eligible failed bounded behavior or semantic-review decision."
+  },
+  "productionChanged": false,
+  "freshSessions": 1
+}

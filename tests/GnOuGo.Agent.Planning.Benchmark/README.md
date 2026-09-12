@@ -1,8 +1,8 @@
 # CodeReview convergence benchmark
 
 The newly authorized progressive schema-5 campaign pins production to
-`5034d52d2637b1b20df2bdc60c387aa0f23f583a` and uses the separate campaign identity
-`schema5-local-metadata-20260912`. Use only `campaign` commands for this
+`9a3b3de8ce1e4baa228c636471bc41ea7c9bf061` and uses the separate campaign identity
+`schema5-clarification-20260912`. Use only `campaign` commands for this
 campaign: one standalone classifier, then one capability-backed batch processor,
 then one CodeReview session. Stage 1 accepts a justified typed outcome; Stage 2
 requires `ValidWorkflow`. A technical stop blocks subsequent starts and advancement.
@@ -15,9 +15,14 @@ The earlier `schema5-ee487c8` campaign stopped during model-capability preflight
 start. See [the progressive validation report](../../docs/planner-schema5-progressive-validation.md).
 `campaign archived-report` reads that unchanged campaign; it has no dispatch path.
 The commands below operate on the new campaign and cannot restart the earlier one.
-The new campaign stopped after an unjustified Stage 1 clarification; Stages 2 and 3
-remain unstarted. See [the live validation report](../../docs/planner-schema5-local-metadata-live-validation.md).
-Its single-start reservation is consumed; these commands do not authorize another attempt.
+The separate `schema5-local-metadata-20260912` campaign stopped after an unjustified
+Stage 1 clarification; its Stages 2 and 3 remain unstarted. See
+[that live validation report](../../docs/planner-schema5-local-metadata-live-validation.md).
+Its single-start reservation remains consumed. The current campaign uses a fresh
+namespace and database; it cannot restart either earlier campaign.
+The current campaign has now stopped technically at Stage 1 with
+`CONFIRMATION_POLICY_CONFLICT`. Its single start is consumed; Stages 2 and 3 were
+not run. See [the clarification live-validation report](../../docs/planner-schema5-clarification-live-validation.md).
 
 ```sh
 bash scripts/planner-schema4-audit.sh --export-progressive
@@ -58,7 +63,7 @@ including a repeated freeze. It cannot create or recover a planning session.
 
 Campaign state and fixture inputs use encrypted `agent-planning-progressive-*-v5`
 records under tenant `planner-progressive`. The isolated EF index is workspace-resolved
-`.GnOuGo/data/planner-progressive/schema5-local-metadata-20260912/gnougo-planning-v5.db`.
+`.GnOuGo/data/planner-progressive/schema5-clarification-20260912/gnougo-planning-v5.db`.
 The earlier database remains untouched. The historical export copies
 only immutable benchmark inputs; no historical session, reservation or budget is
 migrated. The saved classifier's public caller default (100) becomes the standalone
