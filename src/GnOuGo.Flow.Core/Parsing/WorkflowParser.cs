@@ -16,7 +16,7 @@ public static class WorkflowParser
     {
         var stream = new YamlStream();
         using var reader = new StringReader(yaml);
-        stream.Load(reader);
+        LoadYaml(stream, reader, yaml);
 
         if (stream.Documents.Count == 0)
             throw new WorkflowParseException("Empty YAML document");
@@ -79,7 +79,7 @@ public static class WorkflowParser
     {
         var stream = new YamlStream();
         using var reader = new StringReader(yaml);
-        stream.Load(reader);
+        LoadYaml(stream, reader, yaml);
 
         if (stream.Documents.Count == 0)
             return null;
@@ -87,6 +87,46 @@ public static class WorkflowParser
         var root = stream.Documents[0].RootNode as YamlMappingNode;
         var skillNode = root?.GetMapping("skill") ?? root?.GetMapping("skills");
         return skillNode == null ? null : ParseWorkflowSkill(skillNode);
+    }
+
+    private static void LoadYaml(YamlStream stream, TextReader reader, string yaml)
+    {
+        try
+        {
+            stream.Load(reader);
+        }
+        catch (YamlException ex)
+        {
+            throw CreateYamlSyntaxException(yaml, ex);
+        }
+    }
+
+    internal static WorkflowParseException CreateYamlSyntaxException(string yaml, YamlException exception)
+    {
+        var line = checked((int)exception.Start.Line + 1);
+        var column = checked((int)exception.Start.Column + 1);
+        var lines = yaml.Replace("\r\n", "\n", StringComparison.Ordinal).Replace('\r', '\n').Split('\n');
+        var sourceLine = line > 0 && line <= lines.Length ? lines[line - 1] : string.Empty;
+        var zeroBasedColumn = Math.Max(0, column - 1);
+        var excerptStart = Math.Min(sourceLine.Length, Math.Max(0, zeroBasedColumn - 100));
+        var excerptLength = Math.Min(sourceLine.Length - excerptStart, 220);
+        var excerpt = excerptLength > 0 ? sourceLine.Substring(excerptStart, excerptLength).Replace('\t', ' ') : string.Empty;
+        if (excerptStart > 0)
+            excerpt = "…" + excerpt;
+        if (excerptStart + excerptLength < sourceLine.Length)
+            excerpt += "…";
+        if (line > 1 && line - 2 < lines.Length)
+        {
+            var previousLine = lines[line - 2].Replace('\t', ' ');
+            if (previousLine.Length > 180)
+                previousLine = "…" + previousLine[^180..];
+            if (!string.IsNullOrWhiteSpace(previousLine))
+                excerpt = $"previous: {previousLine} | marked: {excerpt}";
+        }
+        var context = string.IsNullOrWhiteSpace(excerpt)
+            ? string.Empty
+            : $" Near YAML line {line}, column {column}: {excerpt}";
+        return new WorkflowParseException(exception.Message + context, line, column, exception);
     }
 
     private static readonly HashSet<string> RootFields = new(StringComparer.Ordinal)
@@ -390,7 +430,8 @@ public static class WorkflowParser
                 Nullable = nullable,
                 Required = required ?? true,
                 Default = map.GetScalar("default"),
-                Description = map.GetScalar("description")
+                Description = map.GetScalar("description"),
+                Enum = map.HasKey("enum") ? map.GetStringList("enum") : null
             };
 
             // Array element type
@@ -446,7 +487,8 @@ public static class WorkflowParser
                     Expr = map.GetScalar("expr") ?? "",
                     Type = type,
                     Nullable = nullable,
-                    Description = map.GetScalar("description")
+                    Description = map.GetScalar("description"),
+                    Enum = map.HasKey("enum") ? map.GetStringList("enum") : null
                 };
 
                 // Array element type
@@ -487,7 +529,8 @@ public static class WorkflowParser
                 {
                     Type = type,
                     Nullable = nullable,
-                    Description = map.GetScalar("description")
+                    Description = map.GetScalar("description"),
+                    Enum = map.HasKey("enum") ? map.GetStringList("enum") : null
                 };
 
                 var itemsNode = map.Children

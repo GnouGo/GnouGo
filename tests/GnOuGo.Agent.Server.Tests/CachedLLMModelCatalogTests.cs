@@ -1,4 +1,4 @@
-﻿using GnOuGo.AI.Core;
+using GnOuGo.AI.Core;
 using GnOuGo.Agent.Server.Configuration;
 using GnOuGo.Agent.Server.Hosting;
 using Microsoft.Extensions.Caching.Memory;
@@ -115,5 +115,3 @@ public sealed class CachedLlmModelCatalogTests
         Assert.Equal(2, inner.CallCount);
     }
 }
-
-

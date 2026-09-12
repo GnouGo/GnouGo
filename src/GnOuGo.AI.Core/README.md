@@ -21,6 +21,16 @@ Provides a **provider-agnostic routing layer** so that the rest of the system ne
 
 `ILLMModelCatalog` returns the provider-discovered catalog enriched with GnOuGo model metadata.
 
+`RoutingLLMClient.ResolveMetadata(provider, model)` resolves metadata using the same
+routing and model normalization as dispatch, including suggestions for unknown models.
+For runtime capability proof, use `ResolveDeclaredCapabilities(provider, model)` on
+`RoutingLLMClient` or `LLMModelMetadataResolver`. This operation performs no HTTP or
+model-list request. It accepts exact entries and declared aliases, merges embedded
+metadata then external files then saved overrides, and excludes fuzzy matches and
+heuristic defaults. Explicit false values and empty reasoning lists are preserved;
+absent capabilities remain unknown. Unreadable or malformed configured metadata files
+stop capability proof, while the editor's suggestion-oriented resolution remains available.
+
 - OpenAI-compatible providers and Copilot/GitHub Models return the advertised catalog directly.
 - GnOuGo does not run extra chat-completions probes during model listing.
 - OIDC client-credentials authentication is supported for both inference calls and model discovery.
@@ -74,14 +84,28 @@ cannot point back to `local`.
 
 ## HTTP resilience
 
-OpenAI, Ollama, Copilot/GitHub Models, and Anthropic HTTP operations retry transient
-HTTP `500`–`599` responses up to three times after the initial request. Retries use
-exponential backoff delays of 250 ms, 500 ms, and 1,000 ms, recreate the request (including
-its payload and authentication headers), honor cancellation, and emit a warning
-log for each retry. Terminal server failures and transport timeouts log the attempt
-count, attempt duration, and total elapsed request time before the provider raises
-the corresponding exception. Non-server HTTP responses such as `400`, `401`,
-`404`, and `429` are returned immediately to the provider's normal error handling.
+OpenAI, Ollama, Copilot/GitHub Models, and Anthropic HTTP operations make at most four
+attempts for `425`, `429`, `500`, `502`, `503`, and `504`. Every attempt receives a fresh
+request. A valid `Retry-After` delta or HTTP date is honored; otherwise recovery uses
+full-jitter exponential backoff from one second, capped at 30 seconds per wait and 60 seconds
+cumulatively. A delay outside that budget stops recovery instead of holding a workflow open.
+
+Before replay, GnOuGo inspects a bounded error envelope. Quota/billing, authentication,
+and authorization failures are terminal even when a gateway transports them as `429`.
+Other `4xx`, transport failures with uncertain delivery, timeouts, caller cancellation, and
+unknown statuses are never replayed. Logs contain only the operation, status, attempt, selected
+delay, and exhaustion state—not endpoints, prompts, payloads, response bodies, tokens, headers,
+or credentials.
+
+`RoutingLLMClient` exposes provider failures through the redacted
+`LLMProviderException` contract. `LLMProviderFailureKind` distinguishes transport,
+timeout, ordinary rate limiting, service unavailability, authentication,
+authorization, quota or billing exhaustion, invalid requests, unavailable models,
+and unknown terminal failures. Transport, timeout, rate-limit, and service failures
+are retryable; the remaining categories fail immediately. Exception metadata may contain an
+HTTP status, actual attempt count, retry-exhaustion flag, accepted `Retry-After`, and a safe
+provider error code, but never a response body, endpoint, credential, request prompt, or raw
+user content.
 
 ### OpenAI background Responses
 
@@ -91,13 +115,22 @@ strictness under `text.format`; reasoning effort and `max_output_tokens` are pre
 GnOuGo polls only responses whose status is `queued` or `in_progress`, returns `completed`
 responses, and surfaces terminal or unexpected statuses without silently switching protocols.
 
-The official `api.openai.com` endpoint never falls back from Responses to Chat Completions.
-OpenAI-compatible third-party endpoints fall back only for `405`, `501`, an explicit missing
-`/responses` route reported with `404`, or a `400` that explicitly says Responses/background
-mode is unsupported. Confirmed endpoint incompatibility is cached for the existing bounded
-cache duration; model, authentication, permission, quota, rate-limit, and malformed-request
-errors are never cached as endpoint incompatibility. Provider exceptions preserve the HTTP
-status without logging credentials or request payloads.
+`RequestPolicy.BackgroundProtocol` controls background calls. `Auto` probes Responses and uses
+Chat Completions only when the HTTP contract proves the route unsupported. `Responses` requires
+that protocol, while `ChatCompletions` bypasses the probe. In `Auto`, route-level `404`, `405`,
+and `501` results are cached immediately, even if the first Chat fallback later fails transiently.
+Request-specific errors are never cached. Ambiguous `400`/`422` incompatibility is cached only
+after a successful Chat fallback. The official OpenAI endpoint does not use a compatibility
+downgrade.
+
+The Chat request first preserves strict JSON Schema output, reasoning effort, tools, and the
+output-token limit through `max_completion_tokens`. A non-official endpoint that returns `400`
+or `422` for that request gets one legacy-compatible retry that omits only
+`max_completion_tokens`, provided the error is generic or identifies that token parameter rather
+than another explicit parameter. Official OpenAI endpoints never use this legacy retry. Successful
+compatibility results are cached for 65 minutes: Responses support is keyed by endpoint, while the
+legacy Chat requirement is keyed by endpoint, API version, and model. Provider exceptions and
+compatibility logs preserve only sanitized status and policy details.
 
 An internal `HttpClient` timeout is exposed as `TimeoutException`; cancellation requested by
 the caller remains `OperationCanceledException`.
@@ -123,6 +156,24 @@ the caller remains `OperationCanceledException`.
       "OpenAi": {
         "Url": "https://api.openai.com/v1",
         "ApiKey": "sk-..."             // or set OPENAI_API_KEY env var
+      },
+      "CompatibleGateway": {
+        "Url": "https://gateway.example/v1",
+        "Type": "openai",
+        "ApiVersion": "YYYY-MM-DD-preview",
+        "RequestPolicy": {
+          "BackgroundProtocol": "ChatCompletions",
+          "UnspecifiedOutputTokens": "Configured",
+          "DefaultMaxOutputTokens": 4096,
+          "MaxOutputTokensCap": 8192
+        },
+        "RetryPolicy": {
+          "MaxAttempts": 4,
+          "BaseDelayMilliseconds": 1000,
+          "MaxDelayMilliseconds": 30000,
+          "MaxTotalDelayMilliseconds": 60000,
+          "HonorRetryAfter": true
+        }
       },
       "Ollama": {
         "Url": "http://localhost:11434",
@@ -166,6 +217,14 @@ the caller remains `OperationCanceledException`.
   }
 }
 ```
+
+`MaxOutputTokens` in model metadata is always a supported ceiling, not an implicit request
+default. With the standards-based `UnspecifiedOutputTokens: Omit` default, callers that leave
+their limit unset emit neither `max_completion_tokens` nor `max_output_tokens`. An explicit caller
+limit is clamped to the model ceiling and optional provider cap. `Configured` supplies the stated
+default; `ModelMaximum` retains the former ceiling-as-default behavior only as an explicit legacy
+choice. Invalid combinations, including `Configured` without a positive default or a default
+above the provider cap, fail configuration validation.
 
 External metadata files use this shape:
 
@@ -231,7 +290,7 @@ Anthropic supports text responses, tool use (`tool_use` blocks), live model disc
 `LLMClientRequest.Reasoning` (and `LLMRequest.Reasoning` in `GnOuGo.Flow.Core`) controls the
 "thinking" / reasoning effort of capable models without hard-coding any provider-specific field.
 
-Accepted values: `"minimal" | "low" | "medium" | "high" | "max" | "auto"` (or `null`).
+Accepted values: `"none" | "minimal" | "low" | "medium" | "high" | "xhigh" | "max" | "auto"` (or `null`).
 
 | Value           | OpenAI / Copilot (GitHub Models)        | Ollama                | Anthropic / Claude         |
 |-----------------|-----------------------------------------|-----------------------|----------------------------|
@@ -240,7 +299,8 @@ Accepted values: `"minimal" | "low" | "medium" | "high" | "max" | "auto"` (or `n
 | `low`           | `reasoning_effort: "low"`               | `think: true`         | `thinking.budget_tokens=1024` |
 | `medium`        | `reasoning_effort: "medium"`            | `think: true`         | `thinking.budget_tokens=4096` |
 | `high` / `max`  | `reasoning_effort: "high"`              | `think: true`         | `thinking.budget_tokens=8192/16000` |
-| `none` / `off`  | (treated as `auto`)                     | `think: false`        | field omitted              |
+| `none`          | `reasoning_effort: "none"`              | `think: false`        | field omitted              |
+| `xhigh`         | `reasoning_effort: "xhigh"`             | field omitted         | adaptive effort `xhigh`; fixed budget omitted |
 
 For Claude Opus 4.7 and later Opus models, Anthropic no longer accepts fixed `thinking.budget_tokens`. The provider keeps the same GnOuGo `Reasoning` values and sends `thinking.type=adaptive` with `output_config.effort` instead. For example, `Reasoning="high"` becomes:
 

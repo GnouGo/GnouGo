@@ -26,6 +26,7 @@ public interface ILLMClient
 public interface ILLMCapabilityResolver
 {
     Task<bool?> SupportsStructuredOutputAsync(string? provider, string model, CancellationToken ct);
+    Task<IReadOnlyList<string>?> SupportedReasoningLevelsAsync(string? provider, string model, CancellationToken ct);
 }
 
 /// <summary>
@@ -38,6 +39,30 @@ public interface IModelUsageCostEstimator
         long? inputTokens = null,
         long? outputTokens = null,
         string? providerType = null);
+
+    /// <summary>
+    /// Estimates model usage with its pricing currency. Existing estimators are
+    /// treated as USD estimators until they override this currency-aware method.
+    /// </summary>
+    ModelUsageCostEstimate? EstimateCostWithCurrency(
+        string? model,
+        long? inputTokens = null,
+        long? outputTokens = null,
+        string? providerType = null)
+        => EstimateCost(model, inputTokens, outputTokens, providerType) is { } amount
+            ? new ModelUsageCostEstimate(amount, "USD")
+            : null;
+}
+
+/// <summary>
+/// Provider-neutral source of bounded exchange-rate quotes.
+/// </summary>
+public interface IExchangeRateProvider
+{
+    ValueTask<CurrencyExchangeQuote?> GetQuoteAsync(
+        string sourceCurrency,
+        string targetCurrency,
+        CancellationToken ct);
 }
 
 /// <summary>
@@ -45,6 +70,8 @@ public interface IModelUsageCostEstimator
 /// </summary>
 public sealed class LLMRequest
 {
+    /// <summary>Caller-assigned durable request identity; never model instructions.</summary>
+    public string? ClientRequestId { get; set; }
     public string? Provider { get; set; }
     public string Model { get; set; } = "";
     public string Prompt { get; set; } = "";
@@ -79,6 +106,10 @@ public sealed class LLMRequest
     /// When omitted, the provider uses model metadata or its own default.
     /// </summary>
     public int? MaxTokens { get; set; }
+    /// <summary>Fail closed if transport compatibility would remove the output ceiling.</summary>
+    public bool RequireOutputTokenLimit { get; set; }
+    /// <summary>The caller journals and budgets individual attempts; do not retry inference invisibly.</summary>
+    public bool DisableTransportRetries { get; set; }
 }
 
 /// <summary>
@@ -106,6 +137,8 @@ public sealed class LLMTool
 /// </summary>
 public sealed class LLMResponse
 {
+    /// <summary>Provider-neutral completion status, such as output_limit; absent for older adapters.</summary>
+    public string? CompletionStatus { get; set; }
     public string Text { get; set; } = "";
     public JsonNode? Json { get; set; }
     public JsonNode? Usage { get; set; }
@@ -375,7 +408,13 @@ public static class McpArtifactContractConventions
     public const string MaterializeMode = "materialize";
 }
 
-public sealed record McpProducedArtifact(string Kind, string Pointer, string Mode);
+[method: System.Text.Json.Serialization.JsonConstructor]
+public sealed record McpProducedArtifact(string Kind, string Pointer, string Mode, string? Encoding = null)
+{
+    // Retain the original public constructor and deconstruction for existing consumers.
+    public McpProducedArtifact(string kind, string pointer, string mode) : this(kind, pointer, mode, null) { }
+    public void Deconstruct(out string kind, out string pointer, out string mode) => (kind, pointer, mode) = (Kind, Pointer, Mode);
+}
 
 public sealed record McpConsumedArtifact(string Kind, string Pointer, bool Required);
 
@@ -387,6 +426,70 @@ public sealed record McpArtifactContract(
 public sealed record McpArtifactContractResolution(
     McpArtifactContract? Contract,
     IReadOnlyList<string> Errors);
+
+public static class McpCapabilityCompositionConventions
+{
+    public const string CompleteOperationKind = "complete_operation";
+}
+
+public sealed record McpEncapsulatedCapability(string Kind, string Method);
+
+public sealed record McpCapabilityComposition(
+    int Version,
+    string Kind,
+    IReadOnlyList<McpEncapsulatedCapability> Encapsulates);
+
+public sealed record McpCapabilityCompositionResolution(
+    McpCapabilityComposition? Contract,
+    IReadOnlyList<string> Errors);
+
+public static class McpOutputContractSources
+{
+    public const string ProtocolSchema = "protocol_schema";
+    public const string Example = "example";
+    public const string Description = "description";
+}
+
+/// <summary>
+/// Provider-neutral provenance and validation state for an MCP tool output schema.
+/// Only an authoritative, error-free contract may prove nested response fields.
+/// </summary>
+public sealed record McpOutputContractResolution(
+    JsonNode? Schema,
+    string Source,
+    bool Authoritative,
+    IReadOnlyList<string> Errors);
+
+public sealed record McpCapabilityActivation(
+    string Mode,
+    string Group,
+    string DecisionOperationId,
+    string BranchValue)
+{
+    /// <summary>Provider-neutral JSON Pointer to the decision producer's enum field.</summary>
+    public string DecisionOutputPath { get; init; } = "";
+
+    /// <summary>Closed set of values accepted by every branch in this activation group.</summary>
+    public IReadOnlyList<string> AllowedValues { get; init; } = Array.Empty<string>();
+
+    /// <summary>
+    /// Values in <see cref="AllowedValues"/> that intentionally execute no external-effect
+    /// branch. Final workflow validation proves that each such value has a non-mutating path.
+    /// </summary>
+    public IReadOnlyList<string> NoEffectValues { get; init; } = Array.Empty<string>();
+
+    /// <summary>
+    /// Provider-neutral source of the decision contract: a discovered capability output
+    /// schema, a strict Flow structured-output projection, or a local finite decision.
+    /// </summary>
+    public string DecisionContractSource { get; init; } = "capability_output";
+
+    /// <summary>Catalog capability that produces or projects the decision value.</summary>
+    public string DecisionProducerCatalogId { get; init; } = "";
+
+    /// <summary>Locked upstream operations that the local decision must evaluate.</summary>
+    public IReadOnlyList<string> DecisionInputOperationIds { get; init; } = Array.Empty<string>();
+}
 
 /// <summary>
 /// Describes an MCP tool.
@@ -411,16 +514,29 @@ public sealed class McpToolInfo
     public McpArtifactContractResolution? ArtifactContract { get; set; }
 
     /// <summary>
+    /// Optional consumer-resolved semantic composition contract. A complete
+    /// operation can advertise lower-level capabilities that it encapsulates.
+    /// </summary>
+    public McpCapabilityCompositionResolution? CompositionContract { get; set; }
+
+    /// <summary>
+    /// Optional provenance for <see cref="OutputSchema"/>. Protocol-declared schemas
+    /// are authoritative after deterministic validation; example- and description-
+    /// derived schemas are advisory planning hints only.
+    /// </summary>
+    public McpOutputContractResolution? OutputContract { get; set; }
+
+    /// <summary>
     /// Optional JSON Schema describing the tool result content returned as
     /// <c>data.steps.&lt;step_id&gt;.response</c> by <c>mcp.call</c>.
-    /// When omitted, planners must treat the response as opaque.
+    /// Consult <see cref="OutputContract"/> before using it as type evidence;
+    /// when no authoritative resolution exists, planners must treat the response as opaque.
     /// </summary>
     public JsonNode? OutputSchema { get; set; }
 
     /// <summary>
-    /// Optional representative response example for prompt guidance.
-    /// If <see cref="OutputSchema"/> is omitted, planning validation can infer
-    /// a conservative object shape from this example.
+    /// Optional representative response example for prompt guidance only.
+    /// Examples are never authoritative evidence for nested response fields.
     /// </summary>
     public JsonNode? ExampleResponse { get; set; }
 }

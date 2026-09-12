@@ -69,6 +69,82 @@ workflows:
     }
 
     [Fact]
+    public void Validate_PathTotalSwitchProjection_AllowsSharedTerminalStepId()
+    {
+        var doc = ParseDoc("""
+version: 1
+skill:
+  description: Shared switch projection test.
+  tags: [test]
+  inputs: {}
+  outputs: {}
+workflows:
+  main:
+    steps:
+      - id: route
+        type: switch
+        cases:
+          - when: ${true}
+            steps:
+              - id: result
+                type: set
+                output_schema:
+                  type: object
+                  properties:
+                    value: { type: string }
+                  required_properties: [value]
+                input:
+                  value: selected
+        default:
+          - id: result
+            type: set
+            output_schema:
+              type: object
+              properties:
+                value: { type: string }
+              required_properties: [value]
+            input:
+              value: default
+""");
+
+        var errors = _validator.Validate(doc);
+
+        Assert.DoesNotContain(errors, static error => error.Code == "DUPLICATE_STEP_ID");
+    }
+
+    [Fact]
+    public void Validate_SwitchBranchDuplicateWithoutCompatibleTerminalProjection_ReportsError()
+    {
+        var doc = ParseDoc("""
+version: 1
+skill:
+  description: Unsafe duplicate switch step test.
+  tags: [test]
+  inputs: {}
+  outputs: {}
+workflows:
+  main:
+    steps:
+      - id: route
+        type: switch
+        cases:
+          - when: ${true}
+            steps:
+              - id: result
+                type: set
+                input: { value: selected }
+        default:
+          - id: result
+            type: set
+            input: { value: default }
+""");
+
+        var errors = _validator.Validate(doc);
+
+        Assert.Contains(errors, static error => error.Code == "DUPLICATE_STEP_ID" && error.StepId == "result");
+    }
+
+    [Fact]
     public void Validate_UnknownStepType_ReportsError()
     {
         var doc = ParseDoc(@"

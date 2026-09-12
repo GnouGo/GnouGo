@@ -29,6 +29,7 @@ public sealed class RoutingLLMClient
     /// <param name="providers">Registered provider implementations.</param>
     public RoutingLLMClient(LLMOptions options, IEnumerable<ILLMProvider> providers)
     {
+        LLMOptionsValidation.ValidateAndThrow(options);
         _options = options;
         _metadataResolver = new LLMModelMetadataResolver(options);
         _providers = new Dictionary<string, ILLMProvider>(StringComparer.OrdinalIgnoreCase);
@@ -64,6 +65,55 @@ public sealed class RoutingLLMClient
 
         var model = string.IsNullOrWhiteSpace(request.Model) ? _options.DefaultModel : request.Model;
 
+        model = NormalizeModel(model);
+
+        var resolvedType = providerOpts.ResolvedType;
+
+        if (!_providers.TryGetValue(resolvedType, out var provider))
+        {
+            throw new InvalidOperationException(
+                $"No ILLMProvider registered for type '{resolvedType}'. " +
+                $"Registered: [{string.Join(", ", _providers.Keys)}]");
+        }
+
+        var metadata = _metadataResolver.Resolve(resolvedType, model);
+        var sanitizedRequest = LLMRequestSanitizer.Sanitize(request, metadata, providerOpts.RequestPolicy);
+        if (request.DisableTransportRetries) providerOpts = providerOpts.WithSingleAttempt();
+        try
+        {
+            if (!string.Equals(resolvedType, LocalLLMProvider.Type, StringComparison.OrdinalIgnoreCase))
+                return await provider.CallAsync(model, providerOpts, sanitizedRequest, ct).ConfigureAwait(false);
+
+            return await CallLocalWithFallbackAsync(provider, model, providerOpts, sanitizedRequest, ct).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException) when (ct.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            throw LLMProviderFailureClassifier.Classify(ex);
+        }
+    }
+
+    /// <summary>Uses the same declared metadata and routing as dispatch, without a provider call.</summary>
+    public LLMModelMetadata ResolveMetadata(string? provider, string? model)
+    {
+        var providerKey = ResolveProviderKey(provider, model);
+        var options = _options.ResolveProvider(providerKey) ?? throw new InvalidOperationException("The model provider is not configured.");
+        return _metadataResolver.Resolve(options.ResolvedType, NormalizeModel(string.IsNullOrWhiteSpace(model) ? _options.DefaultModel : model));
+    }
+
+    /// <summary>Resolves declared capabilities for the dispatch route without discovery or heuristic defaults.</summary>
+    public ModelCapabilityMetadata? ResolveDeclaredCapabilities(string? provider, string? model)
+    {
+        var providerKey = ResolveProviderKey(provider, model);
+        var options = _options.ResolveProvider(providerKey) ?? throw new InvalidOperationException("The model provider is not configured.");
+        return _metadataResolver.ResolveDeclaredCapabilities(options.ResolvedType, NormalizeModel(string.IsNullOrWhiteSpace(model) ? _options.DefaultModel : model));
+    }
+
+    private static string NormalizeModel(string model)
+    {
         // Strip "vendor/model" prefix for model routing if the provider is specified via prefix
         if (!string.IsNullOrWhiteSpace(model) && model.Contains('/'))
         {
@@ -77,21 +127,7 @@ public sealed class RoutingLLMClient
             }
         }
 
-        var resolvedType = providerOpts.ResolvedType;
-
-        if (!_providers.TryGetValue(resolvedType, out var provider))
-        {
-            throw new InvalidOperationException(
-                $"No ILLMProvider registered for type '{resolvedType}'. " +
-                $"Registered: [{string.Join(", ", _providers.Keys)}]");
-        }
-
-        var metadata = _metadataResolver.Resolve(resolvedType, model);
-        var sanitizedRequest = LLMRequestSanitizer.Sanitize(request, metadata);
-        if (!string.Equals(resolvedType, LocalLLMProvider.Type, StringComparison.OrdinalIgnoreCase))
-            return await provider.CallAsync(model, providerOpts, sanitizedRequest, ct).ConfigureAwait(false);
-
-        return await CallLocalWithFallbackAsync(provider, model, providerOpts, sanitizedRequest, ct).ConfigureAwait(false);
+        return model;
     }
 
     private async Task<LLMClientResponse> CallLocalWithFallbackAsync(
@@ -102,7 +138,7 @@ public sealed class RoutingLLMClient
         CancellationToken ct)
     {
         LocalLLMException? lastFailure = null;
-        for (var attempt = 1; attempt <= 2; attempt++)
+        for (var attempt = 1; attempt <= (request.DisableTransportRetries ? 1 : 2); attempt++)
         {
             if (attempt > 1)
             {
@@ -154,7 +190,7 @@ public sealed class RoutingLLMClient
         fallbackRequest.Provider = fallbackKey;
         fallbackRequest.Model = fallbackModel;
         var metadata = _metadataResolver.Resolve(fallbackOptions.ResolvedType, fallbackModel);
-        fallbackRequest = LLMRequestSanitizer.Sanitize(fallbackRequest, metadata);
+        fallbackRequest = LLMRequestSanitizer.Sanitize(fallbackRequest, metadata, fallbackOptions.RequestPolicy);
 
         using var fallbackActivity = ActivitySource.StartActivity("local_llm.fallback");
         fallbackActivity?.SetTag("gen_ai.provider.name", fallbackOptions.ResolvedType);
@@ -310,6 +346,8 @@ public sealed class LLMClientRequest
     /// Providers use this instead of hard-coded defaults.
     /// </summary>
     public int? MaxOutputTokens { get; set; }
+    public bool RequireOutputTokenLimit { get; set; }
+    public bool DisableTransportRetries { get; set; }
 }
 
 /// <summary>

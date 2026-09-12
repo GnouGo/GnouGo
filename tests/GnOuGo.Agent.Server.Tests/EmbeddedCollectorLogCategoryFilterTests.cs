@@ -1,4 +1,4 @@
-﻿using GnOuGo.Agent.Server.Telemetry;
+using GnOuGo.Agent.Server.Telemetry;
 
 namespace GnOuGo.Agent.Server.Tests;
 
@@ -46,4 +46,3 @@ public sealed class EmbeddedCollectorLogCategoryFilterTests
         Assert.True(EmbeddedCollectorLogCategoryFilter.ShouldCapture(category));
     }
 }
-

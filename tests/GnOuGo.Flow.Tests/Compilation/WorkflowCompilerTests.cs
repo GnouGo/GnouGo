@@ -387,4 +387,30 @@ workflows:
         Assert.Equal("string", outputs["result"].Type);
         Assert.Equal("The result text", outputs["result"].Description);
     }
+
+    [Fact]
+    public void Validate_StringEnum_RejectsInvalidShapeAndDefault()
+    {
+        var errors = _compiler.Validate(WorkflowParser.Parse("""
+version: 1
+workflows:
+  main:
+    inputs:
+      mode:
+        type: string
+        enum: [first, first]
+        default: third
+      count:
+        type: number
+        enum: [one]
+    steps:
+      - id: done
+        type: set
+        input: { ok: true }
+"""));
+
+        Assert.Contains(errors, error => error.Code == "INVALID_INPUT_SCHEMA" && error.Message!.Contains("unique non-empty", StringComparison.Ordinal));
+        Assert.Contains(errors, error => error.Code == "INVALID_INPUT_SCHEMA" && error.Message!.Contains("invalid default", StringComparison.Ordinal));
+        Assert.Contains(errors, error => error.Code == "INVALID_INPUT_SCHEMA" && error.Message!.Contains("only valid when type is 'string'", StringComparison.Ordinal));
+    }
 }

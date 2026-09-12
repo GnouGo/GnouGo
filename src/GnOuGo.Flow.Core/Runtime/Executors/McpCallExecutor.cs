@@ -64,7 +64,9 @@ public sealed class McpCallExecutor : IStepExecutor
         new(ErrorCodes.McpTimeout, true, "The MCP call timed out. This is retryable."),
         new(ErrorCodes.McpCallError, false, "A tool call failed, or LLM-assisted selection chose no valid MCP tool."),
         new(ErrorCodes.McpPromptError, false, "A prompt call failed, or LLM-assisted selection chose no valid MCP prompt."),
-        new(ErrorCodes.LlmNetwork, false, "LLM-assisted MCP selection was requested but no LLM client is configured.")
+        new(ErrorCodes.LlmNetwork, false, "LLM-assisted MCP selection was requested but no LLM client is configured."),
+        new(ErrorCodes.LlmBudgetExceeded, false, "The active host or workflow LLM usage budget was exceeded during assisted selection or synthesis."),
+        new(ErrorCodes.LlmBudgetUnverifiable, false, "The active LLM usage budget could not be verified during assisted selection or synthesis.")
     };
 
     public string DslSnippet => """
@@ -84,7 +86,7 @@ public sealed class McpCallExecutor : IStepExecutor
         By default, MCP tool errors raise MCP_CALL_ERROR/MCP_PROMPT_ERROR runtime exceptions so `on_error` handlers can run. Set `raise_on_error: false` only when the workflow intentionally wants to inspect `data.steps.<id>.status == "error"` as normal output.
         Optional `error_policy.detect_result_errors: true` treats common structured failure envelopes like `{ success: false, error_code, error_message }` as MCP errors even when the transport did not set IsError.
         For generated plans, do NOT use `mcp.call` with only `server` as the default next step after `mcp.list` unless calling everything is the explicit goal.
-        Request fields must statically match the discovered MCP input_schema. Do not pass nullable structured_output fields such as `string|null` into required request fields; make the source non-null, refine it with `assert.non_null`, add an exact `if: "${data.steps.x.json.field != null}"` guard on the same mcp.call step, or skip the call. A request property that is optional in the discovered schema is omitted automatically when its resolved value is null.
+        Request fields must statically match the discovered MCP input_schema. Do not pass nullable structured_output fields such as `string|null` into required request fields; make the source non-null, refine it with `assert.non_null`, add an exact `if: "${data.steps.x.json.field != null}"` guard on the same mcp.call step, or skip the call. A request property that is optional in the discovered schema is omitted automatically when its resolved value is null, unless preserve_optional_nulls=true. That explicit option keeps JSON null and still validates it against the tool schema.
 
         Output access patterns:
         - Single tool: `data.steps.<id>.status` ("ok"|"error") and `data.steps.<id>.response` (opaque tool-specific JSON).
@@ -158,8 +160,8 @@ public sealed class McpCallExecutor : IStepExecutor
           input:
             server: my-server
         ```
-        Output (single): `{ status, response }` (tool) or `{ status, text, messages }` (prompt)
-        Output (batch/auto): `{ status, results: [{ method, status, response|text }] }`
+        Output (single): `{ status, response, json? }` (tool) or `{ status, text, messages, json? }` (prompt)
+        Output (batch/auto): `{ status, results: [{ method, status, response|text }], json? }`
         Output (LLM-assisted): `{ status, selection_mode: "llm", text, tool_calls: [...], results: [...], json?: {...} }`
         """;
 
@@ -336,11 +338,20 @@ public sealed class McpCallExecutor : IStepExecutor
                 if (batchMethods.Count == 0)
                 {
                     ctx.SetTelemetryAttribute("gen_ai.response.finish_reason", "stop");
-                    return new JsonObject
+                    var emptyResult = new JsonObject
                     {
                         ["status"] = "ok",
                         ["results"] = new JsonArray()
                     };
+                    return await ApplyDirectStructuredOutputAsync(
+                        input,
+                        emptyResult,
+                        serverName,
+                        kind,
+                        Array.Empty<string>(),
+                        requestArgs,
+                        ctx,
+                        linkedCts.Token);
                 }
             }
 
@@ -357,7 +368,7 @@ public sealed class McpCallExecutor : IStepExecutor
                 foreach (var methodName in batchMethods!)
                 {
                     var itemCorrelation = correlation with { MethodName = methodName };
-                    var itemResult = await CallSingleAsync(session, kind, methodName, requestArgs?.DeepClone(), itemCorrelation, errorPolicy.DetectResultErrors, runtimeToolCatalog, ctx, realtimeProgressFingerprints, linkedCts.Token);
+                    var itemResult = await CallSingleAsync(session, kind, methodName, requestArgs?.DeepClone(), itemCorrelation, errorPolicy.DetectResultErrors, runtimeToolCatalog, GetBoolProperty(input, "preserve_optional_nulls") ?? false, ctx, realtimeProgressFingerprints, linkedCts.Token);
                     var itemObj = (JsonObject)itemResult!;
                     itemObj["method"] = methodName;
                     if (itemObj["status"]?.GetValue<string>() == "error")
@@ -373,18 +384,34 @@ public sealed class McpCallExecutor : IStepExecutor
                 };
                 if (errorPolicy.RaiseOnError && hasError)
                     ThrowMcpBatchError(kind, serverName, batchMethods!, batchResult);
-                return batchResult;
+                return await ApplyDirectStructuredOutputAsync(
+                    input,
+                    batchResult,
+                    serverName,
+                    kind,
+                    batchMethods!,
+                    requestArgs,
+                    ctx,
+                    linkedCts.Token);
             }
             else
             {
                 // ── Single mode (backward compatible) ──
                 var singleCorrelation = correlation with { MethodName = singleMethod };
-                var singleResult = await CallSingleAsync(session, kind, singleMethod!, requestArgs, singleCorrelation, errorPolicy.DetectResultErrors, runtimeToolCatalog, ctx, realtimeProgressFingerprints, linkedCts.Token);
+                var singleResult = await CallSingleAsync(session, kind, singleMethod!, requestArgs, singleCorrelation, errorPolicy.DetectResultErrors, runtimeToolCatalog, GetBoolProperty(input, "preserve_optional_nulls") ?? false, ctx, realtimeProgressFingerprints, linkedCts.Token);
                 var statusStr = (singleResult as JsonObject)?["status"]?.GetValue<string>();
                 ctx.SetTelemetryAttribute("gen_ai.response.finish_reason", statusStr == "error" ? "error" : "stop");
                 if (errorPolicy.RaiseOnError && statusStr == "error")
                     ThrowMcpSingleError(kind, serverName, singleMethod!, (JsonObject)singleResult!);
-                return singleResult;
+                return await ApplyDirectStructuredOutputAsync(
+                    input,
+                    (JsonObject)singleResult!,
+                    serverName,
+                    kind,
+                    new[] { singleMethod! },
+                    requestArgs,
+                    ctx,
+                    linkedCts.Token);
             }
         }
         catch (WorkflowRuntimeException)
@@ -533,14 +560,14 @@ public sealed class McpCallExecutor : IStepExecutor
             });
         }
 
-        var llmResponse = await llmClient.CallAsync(new LLMRequest
+        var llmResponse = await ctx.CallLLMAsync(llmClient, new LLMRequest
         {
             Provider = provider,
             Model = model,
             Prompt = BuildLlmSelectionPrompt(prompt),
             Temperature = temperature,
             Tools = BuildToolsList(capabilities, input)
-        }, ct);
+        }, "mcp.call.selection", ct);
 
         var finishReason = llmResponse.ToolCalls is { Count: > 0 } ? "tool_calls" : "stop";
         ctx.SetTelemetryAttribute("gen_ai.response.model", model);
@@ -575,7 +602,7 @@ public sealed class McpCallExecutor : IStepExecutor
                     $"mcp.call prompt mode selected unknown MCP capability '{toolCall.Name}'", retryable: false);
 
             var correlation = BuildCorrelationContext(ctx, session.ServerName, capability.Kind, capability.MethodName, null, requestContext);
-            var itemResult = await CallSingleAsync(session, capability.Kind, capability.MethodName, toolCall.Arguments?.DeepClone(), correlation, errorPolicy.DetectResultErrors, runtimeToolCatalog, ctx, realtimeProgressFingerprints, ct);
+            var itemResult = await CallSingleAsync(session, capability.Kind, capability.MethodName, toolCall.Arguments?.DeepClone(), correlation, errorPolicy.DetectResultErrors, runtimeToolCatalog, GetBoolProperty(input, "preserve_optional_nulls") ?? false, ctx, realtimeProgressFingerprints, ct);
             var itemObj = (JsonObject)itemResult!;
             itemObj["method"] = capability.MethodName;
             itemObj["kind"] = capability.Kind;
@@ -679,7 +706,7 @@ public sealed class McpCallExecutor : IStepExecutor
             });
         }
 
-        var response = await llmClient.CallAsync(new LLMRequest
+        var response = await ctx.CallLLMAsync(llmClient, new LLMRequest
         {
             Provider = provider,
             Model = model,
@@ -687,7 +714,7 @@ public sealed class McpCallExecutor : IStepExecutor
             Temperature = temperature,
             StructuredOutputSchema = structuredOutputSchema,
             StructuredOutputStrict = structuredOutputStrict
-        }, ct);
+        }, "mcp.call.synthesis", ct);
 
         ExtractUsageTelemetry(ctx, response.Usage as JsonObject, model, provider);
 
@@ -702,6 +729,93 @@ public sealed class McpCallExecutor : IStepExecutor
             });
         }
 
+        return response;
+    }
+
+    private static async Task<JsonObject> ApplyDirectStructuredOutputAsync(
+        JsonObject input,
+        JsonObject response,
+        string serverName,
+        string kind,
+        IReadOnlyList<string> methods,
+        JsonNode? requestArgs,
+        StepExecutionContext ctx,
+        CancellationToken ct)
+    {
+        var (structuredOutputSchema, structuredOutputStrict) = GetStructuredOutputConfig(input);
+        if (structuredOutputSchema == null)
+            return response;
+
+        var llmClient = ctx.Engine.LLMClient
+            ?? throw new WorkflowRuntimeException(
+                ErrorCodes.LlmNetwork,
+                "mcp.call structured_output requires an LLM client");
+        var requestedProvider = input["provider"]?.GetValue<string>();
+        var requestedModel = input["model"]?.GetValue<string>();
+        var (provider, model) = ctx.Engine.ResolveLlmTarget(requestedProvider, requestedModel);
+        if (string.IsNullOrWhiteSpace(model))
+        {
+            throw new WorkflowRuntimeException(
+                ErrorCodes.InputValidation,
+                "mcp.call structured_output requires 'model' unless WorkflowEngine.LlmDefaults.Model is configured");
+        }
+
+        double? temperature = null;
+        if (input.TryGetPropertyValue("temperature", out var temperatureNode) && temperatureNode != null)
+            temperature = ExpressionEvaluator.GetNumber(temperatureNode);
+
+        var toolCalls = new JsonArray(methods.Select(method => (JsonNode)new JsonObject
+        {
+            ["server"] = serverName,
+            ["kind"] = kind,
+            ["method"] = method,
+            ["arguments"] = requestArgs?.DeepClone()
+        }).ToArray());
+        var results = response["results"] is JsonArray batchResults
+            ? (JsonArray)batchResults.DeepClone()
+            : new JsonArray(response.DeepClone());
+        var structuredResponse = await RunStructuredPostProcessAsync(
+            llmClient,
+            provider,
+            model,
+            temperature,
+            "Normalize the direct MCP execution result into the requested structured output contract.",
+            toolCalls,
+            results,
+            structuredOutputSchema,
+            structuredOutputStrict,
+            ctx,
+            ct);
+
+        var structuredJson = structuredResponse.Json;
+        if (structuredJson == null && !string.IsNullOrWhiteSpace(structuredResponse.Text))
+        {
+            var textToParse = LlmCallExecutor.StripMarkdownCodeFences(structuredResponse.Text);
+            try { structuredJson = JsonNode.Parse(textToParse); }
+            catch (JsonException ex)
+            {
+                ctx.Engine.Logger.LogDebug(ex, "mcp.call direct structured post-process response was not valid JSON for model '{Model}'.", model);
+            }
+        }
+
+        if (structuredJson == null)
+        {
+            throw new WorkflowRuntimeException(
+                ErrorCodes.LlmSchema,
+                "mcp.call structured_output expected valid JSON but the LLM returned an incompatible response",
+                retryable: true);
+        }
+
+        var outputErrors = JsonSchemaContractValidator.ValidateInstance(structuredJson, structuredOutputSchema);
+        if (outputErrors.Count > 0)
+        {
+            throw new WorkflowRuntimeException(
+                ErrorCodes.LlmSchema,
+                "mcp.call returned JSON that does not conform to structured_output: " + string.Join("; ", outputErrors),
+                retryable: true);
+        }
+
+        response["json"] = structuredJson.DeepClone();
         return response;
     }
 
@@ -861,14 +975,35 @@ Produce the final answer strictly from the executed MCP results.
             if (string.IsNullOrWhiteSpace(name) || (allowed != null && !allowed.Contains(name)))
                 continue;
 
+            var outputSchema = node["output_schema"]?.DeepClone() ?? node["outputSchema"]?.DeepClone();
+            McpOutputContractResolution? outputContract = null;
+            if (node["output_contract"] is JsonObject outputContractNode)
+            {
+                var source = outputContractNode["source"]?.GetValue<string>() ?? "";
+                var authoritative = outputContractNode["authoritative"]?.GetValue<bool>() ?? false;
+                var errors = outputContractNode["errors"] is JsonArray errorNodes
+                    ? errorNodes.OfType<JsonValue>()
+                        .Select(static error => error.TryGetValue<string>(out var text) ? text : null)
+                        .Where(static error => !string.IsNullOrWhiteSpace(error))
+                        .Select(static error => error!)
+                        .ToArray()
+                    : Array.Empty<string>();
+                outputContract = new McpOutputContractResolution(
+                    outputContractNode["schema"]?.DeepClone() ?? outputSchema?.DeepClone(),
+                    source,
+                    authoritative,
+                    errors);
+            }
+
             capabilities.Add(CreateToolCapability(McpToolContractEnricher.EnrichTool(new McpToolInfo
             {
                 Name = name,
                 Description = node["description"]?.GetValue<string>(),
                 InputSchema = node["input_schema"]?.DeepClone() ?? node["inputSchema"]?.DeepClone(),
                 Meta = node["meta"]?.DeepClone() ?? node["_meta"]?.DeepClone(),
-                OutputSchema = node["output_schema"]?.DeepClone() ?? node["outputSchema"]?.DeepClone(),
-                ExampleResponse = node["example_response"]?.DeepClone() ?? node["exampleResponse"]?.DeepClone()
+                OutputSchema = outputSchema,
+                ExampleResponse = node["example_response"]?.DeepClone() ?? node["exampleResponse"]?.DeepClone(),
+                OutputContract = outputContract
             }), usedNames));
         }
     }
@@ -996,10 +1131,10 @@ Produce the final answer strictly from the executed MCP results.
     /// <summary>Calls a single tool or prompt and returns the result JsonObject.</summary>
     private static async Task<JsonNode?> CallSingleAsync(
         IMcpSession session, string kind, string method, JsonNode? requestArgs,
-        McpCorrelationContext correlation, bool detectResultErrors, IReadOnlyList<McpToolInfo>? runtimeToolCatalog,
+        McpCorrelationContext correlation, bool detectResultErrors, IReadOnlyList<McpToolInfo>? runtimeToolCatalog, bool preserveOptionalNulls,
         StepExecutionContext ctx, ConcurrentDictionary<string, byte>? realtimeProgressFingerprints, CancellationToken ct)
     {
-        if (kind == "tool")
+        if (kind == "tool" && !preserveOptionalNulls)
             requestArgs = NormalizeResolvedToolRequest(method, requestArgs, runtimeToolCatalog);
 
         EmitMcpContentEvent(ctx, "gen_ai.content.prompt", "gen_ai.prompt",
@@ -1121,6 +1256,8 @@ Produce the final answer strictly from the executed MCP results.
             {
                 ["server"] = session.ServerName,
                 ["method"] = method,
+                ["validation_findings"] = new JsonArray(JsonSchemaInstanceValidator.ValidateInstanceFindings(requestArgs ?? new JsonObject(), tool.InputSchema)
+                    .Select(static finding => (JsonNode)new JsonObject { ["instance_pointer"] = finding.InstancePointer, ["message"] = finding.Message }).ToArray()),
                 ["validation_errors"] = new JsonArray(validationErrors.Select(static error => (JsonNode?)JsonValue.Create(error)).ToArray())
             });
     }
@@ -1268,40 +1405,7 @@ Produce the final answer strictly from the executed MCP results.
     }
 
     private static JsonObject BuildHumanInputRequestPayload(HumanInputRequest request)
-    {
-        var payload = new JsonObject
-        {
-            ["prompt"] = request.Prompt,
-            ["mode"] = request.Mode,
-            ["run_id"] = request.RunId,
-            ["step_id"] = request.StepId,
-            ["timeout_ms"] = request.TimeoutMs
-        };
-        if (request.Context is not null)
-            payload["context"] = request.Context.DeepClone();
-        if (request.Choices is { Count: > 0 })
-            payload["choices"] = new JsonArray(request.Choices.Select(static choice => (JsonNode)JsonValue.Create(choice)!).ToArray());
-        if (request.Fields is { Count: > 0 })
-        {
-            payload["fields"] = new JsonArray(request.Fields.Select(static field =>
-            {
-                var node = new JsonObject
-                {
-                    ["name"] = field.Name,
-                    ["type"] = field.Type,
-                    ["required"] = field.Required
-                };
-                if (field.Description is not null)
-                    node["description"] = field.Description;
-                if (field.Options is { Count: > 0 })
-                    node["options"] = new JsonArray(field.Options.Select(static option => (JsonNode)JsonValue.Create(option)!).ToArray());
-                if (field.Default is not null)
-                    node["default"] = field.Default;
-                return (JsonNode)node;
-            }).ToArray());
-        }
-        return payload;
-    }
+        => HumanInputContract.BuildRequestPayload(request);
 
     private static string BuildProgressFingerprint(string? eventKind, string? message, string? file)
         => string.Join("\u001f", eventKind ?? string.Empty, message ?? string.Empty, file ?? string.Empty);

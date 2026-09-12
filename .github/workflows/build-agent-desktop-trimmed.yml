@@ -59,10 +59,7 @@ jobs:
           dotnet-version: "10.0.x"
 
       - name: Ensure OTLP proto files
-        shell: pwsh
-        run: |
-          dotnet restore src/GnOuGo.OtlpCollector.Server/GnOuGo.OtlpCollector.Server.csproj /p:SkipClientBuild=true
-          dotnet msbuild src/GnOuGo.OtlpCollector.Server/GnOuGo.OtlpCollector.Server.csproj -t:EnsureOtlpProtos /p:SkipClientBuild=true
+        uses: ./.github/actions/ensure-otlp-protos
 
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
@@ -202,6 +199,15 @@ jobs:
             $publishArgs += '-p:ObjCopyName=aarch64-linux-gnu-objcopy'
           }
           dotnet @publishArgs
+
+      - name: Validate Darwin native cryptography and planner
+        if: startsWith(matrix.rid, 'osx-')
+        shell: bash
+        run: |
+          dotnet publish tests/GnOuGo.Flow.Planning.Smoke/GnOuGo.Flow.Planning.Smoke.csproj \
+            -c Release -r ${{ matrix.rid }} --self-contained true \
+            -o artifacts/publish/planning-smoke/${{ matrix.rid }}
+          artifacts/publish/planning-smoke/${{ matrix.rid }}/GnOuGo.Flow.Planning.Smoke
 
       - name: Build UI (Vite)
         working-directory: src/GnOuGo.Agent.Server/ClientApp

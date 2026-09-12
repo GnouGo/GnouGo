@@ -13,6 +13,9 @@ public class ErrorCodesTests
         Assert.Equal("EVAL_ERROR", ErrorCodes.EvalError);
         Assert.Equal("INPUT_VALIDATION", ErrorCodes.InputValidation);
         Assert.Equal("TEMPLATE_PLAN", ErrorCodes.TemplatePlan);
+        Assert.Equal("WORKFLOW_PLAN_CLARIFICATION_FAILED", ErrorCodes.WorkflowPlanClarificationFailed);
+        Assert.Equal("WORKFLOW_PLAN_CANNOT_PLAN_SAFELY", ErrorCodes.WorkflowPlanCannotPlanSafely);
+        Assert.Equal("WORKFLOW_PLAN_ABORTED", ErrorCodes.WorkflowPlanAborted);
         Assert.Equal("TEMPLATE_POLICY", ErrorCodes.TemplatePolicy);
         Assert.Equal("TEMPLATE_SYNTAX", ErrorCodes.TemplateSyntax);
         Assert.Equal("TEMPLATE_RENDER", ErrorCodes.TemplateRender);

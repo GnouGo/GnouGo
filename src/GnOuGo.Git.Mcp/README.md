@@ -79,3 +79,5 @@ dotnet publish "C:\github\GnouGo\src\GnOuGo.Git.Mcp\GnOuGo.Git.Mcp.csproj" -c Re
 ```
 
 CI also validates a dedicated `win-x64` Native AOT publish for `GnOuGo.Git.Mcp` in `.github/workflows/build-agent-desktop-trimmed.yml`.
+
+`git_compare_refs` declares its `filesJson` artifact as `encoding: "json_array"`. The field contains the exact records on the returned page, including truncation metadata; clients must still implement pagination and assess completeness.

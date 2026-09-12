@@ -1,7 +1,9 @@
-﻿using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection;
 using GnOuGo.Agent.Mcp.Services;
 using GnOuGo.Agent.Server.Hosting;
 using GnOuGo.Agent.Server.SmartFlow;
+using GnOuGo.AI.Core;
+using GnOuGo.Flow.Core.Runtime;
 
 namespace GnOuGo.Agent.Server.Tests;
 
@@ -12,7 +14,11 @@ public sealed class AgentUserConfigHydrationTests
     {
         var dbPath = Path.Combine(Path.GetTempPath(), $"gnougo-agent-config-{Guid.NewGuid():N}.db");
 
-        await AgentMcpTestPersistence.SeedUserConfigAsync(dbPath, new UserConfigUpdate("ollama", "llama3:8b", "slimfaas"), TestContext.Current.CancellationToken);
+        await AgentMcpTestPersistence.SeedUserConfigAsync(dbPath, new UserConfigUpdate("ollama", "llama3:8b", "slimfaas",
+            ModelOverrides: new Dictionary<string, LLMModelMetadata>
+            {
+                ["ollama/llama3:8b"] = new() { Capabilities = new() { SupportsStructuredOutput = true, SupportsReasoningEffort = true, SupportedReasoningEfforts = ["low"] } }
+            }), TestContext.Current.CancellationToken);
 
         var contentRoot = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "..", "src", "GnOuGo.Agent.Server"));
         var app = GnOuGoAgentWebHost.Build(
@@ -40,6 +46,9 @@ public sealed class AgentUserConfigHydrationTests
 
             Assert.Equal("ollama", store.Current.DefaultProvider, ignoreCase: true);
             Assert.Contains(store.Current.DefaultModel, new[] { "llama3:8b", "llama3" });
+            var capabilities = app.Services.GetRequiredService<ILLMCapabilityResolver>();
+            Assert.True(await capabilities.SupportsStructuredOutputAsync("ollama", "llama3:8b", TestContext.Current.CancellationToken));
+            Assert.Equal(["low"], await capabilities.SupportedReasoningLevelsAsync("ollama", "llama3:8b", TestContext.Current.CancellationToken));
         }
         finally
         {
@@ -57,6 +66,3 @@ public sealed class AgentUserConfigHydrationTests
         }
     }
 }
-
-
-

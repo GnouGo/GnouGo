@@ -2,12 +2,64 @@ using System.Reflection;
 using GnOuGo.Flow.Core.Models;
 using GnOuGo.Flow.Core.Parsing;
 using GnOuGo.Flow.Core.Runtime;
+using GnOuGo.Flow.Core.Runtime.Executors;
 using Xunit;
 
 namespace GnOuGo.Flow.Tests.Runtime;
 
 public sealed class StepExpressionTypeValidationTests
 {
+    [Theory]
+    [InlineData("data.steps.source && data.steps.source.message || 'fallback'", "string")]
+    [InlineData("data.steps.source && data.steps.source.items || []", "array")]
+    [InlineData("false || 'fallback'", "string")]
+    [InlineData("null ?? 'fallback'", "string")]
+    [InlineData("true && false", "boolean")]
+    [InlineData("data.steps.source.message === 'yes' || false", "boolean")]
+    public void LogicalExpressionsInferReturnedOperands(string expression, string expected)
+    {
+        var schema = System.Text.Json.Nodes.JsonNode.Parse("""{"type":"object","properties":{"message":{"type":"string"},"items":{"type":"array","items":{"type":"string"}}},"required":["message","items"]}""");
+        var inferred = StepExpressionTypeValidator.InferValueSchema(System.Text.Json.Nodes.JsonValue.Create("${" + expression + "}"), null, new Dictionary<string, System.Text.Json.Nodes.JsonNode?> { ["source"] = schema });
+        Assert.Equal(expected, inferred?["type"]?.GetValue<string>());
+    }
+
+    [Fact]
+    public void McpResponseTyping_DoesNotUseExampleResponseAsAuthoritativeEvidence()
+    {
+        var document = WorkflowParser.Parse("""
+            version: 1
+            workflows:
+              main:
+                steps:
+                  - id: inspect
+                    type: mcp.call
+                    input:
+                      server: neutral-server
+                      kind: tool
+                      method: inspect
+                      request: {}
+            """);
+        var contracts = new Dictionary<(string ServerName, string ToolName), McpToolOutputContract>
+        {
+            [("neutral-server", "inspect")] = new McpToolOutputContract(
+                "neutral-server",
+                "inspect",
+                InputSchema: null,
+                OutputSchema: null,
+                ExampleResponse: System.Text.Json.Nodes.JsonNode.Parse("""{"checks":[{"status":"success"}]}"""))
+        };
+
+        var analysis = WorkflowStepOutputAnalyzer.AnalyzeWorkflow(
+            "main",
+            document.Workflows["main"],
+            document.Workflows,
+            contracts,
+            new WorkflowEngine().Registry.GetContracts());
+        var response = analysis.StepOutputs["inspect"].Properties["response"].Type;
+
+        Assert.True(response.IsOpaque);
+    }
+
     [Fact]
     public void SemanticValidation_RejectsWorkflowStringAssignedToIntegerField()
     {
@@ -370,67 +422,6 @@ workflows:
 
         Assert.Contains("FUNCTION_JSDOC_PARAM_MISSING", exception.InnerException!.Message);
         Assert.Contains("FUNCTION_JSDOC_RETURNS_MISSING", exception.InnerException.Message);
-    }
-
-    [Fact]
-    public void FunctionJsDocNormalizer_DoesNotDuplicateNestedObjectShapeParameter()
-    {
-        const string nestedParam = "@param {Array<{path:string,status:string}>} files";
-        var script = $$"""
-        /**
-         * Formats changed files.
-         * {{nestedParam}} - Changed files.
-         * @returns {string} Formatted files.
-         */
-        function formatFiles(files) {
-          return Array.isArray(files) ? String(files.length) : "0";
-        }
-        """;
-
-        var normalized = WorkflowPlanSemanticValidator.CompleteInferableFunctionParameterJsDoc(script);
-
-        Assert.Equal(1, normalized.Split(nestedParam, StringSplitOptions.None).Length - 1);
-    }
-
-    [Fact]
-    public void FunctionJsDocNormalizer_AddsOnlyParametersWithProvableCoarseTypes()
-    {
-        var script = """
-        /**
-         * Builds a request.
-         * @returns {object} Request payload.
-         */
-        function buildRequest(payload, items, label, count, enabled, opaque) {
-          if (!enabled) return {};
-          return {
-            id: payload.id,
-            first: Array.isArray(items) ? items[0] : null,
-            label: label.trim(),
-            count: count + 1,
-            opaque: opaque
-          };
-        }
-        """;
-
-        var normalized = WorkflowPlanSemanticValidator.CompleteInferableFunctionParameterJsDoc(script);
-
-        Assert.Contains("@param {object} payload", normalized);
-        Assert.Contains("@param {Array<object>} items", normalized);
-        Assert.Contains("@param {string} label", normalized);
-        Assert.Contains("@param {number} count", normalized);
-        Assert.Contains("@param {boolean} enabled", normalized);
-        Assert.DoesNotContain("@param {", normalized.AsSpan(normalized.IndexOf("opaque", StringComparison.Ordinal)).ToString());
-        var document = WorkflowParser.Parse($$"""
-        version: 1
-        functions: |
-        {{string.Join(Environment.NewLine, normalized.Split('\n').Select(static line => "  " + line))}}
-        workflows:
-          main:
-            steps: []
-        """);
-        var exception = Assert.Throws<TargetInvocationException>(() => InvokeSemanticValidation(document));
-        Assert.Contains("FUNCTION_JSDOC_PARAM_MISSING", exception.InnerException!.Message);
-        Assert.Contains("opaque", exception.InnerException.Message);
     }
 
     [Fact]
@@ -1351,6 +1342,32 @@ steps:
     }
 
     [Fact]
+    public void SemanticValidation_UsesDecisionEvaluateFiniteOutputContract()
+    {
+        var doc = Parse("""
+steps:
+  - id: decide
+    type: decision.evaluate
+    input:
+      decisions:
+        outcome:
+          allowed_values: [ACCEPT, REJECT]
+          cases:
+            - { when: true, value: ACCEPT }
+  - id: consume
+    type: template.render
+    input:
+      template: "Decision ${data.steps.decide.missing}"
+""");
+
+        var exception = Assert.Throws<TargetInvocationException>(() => InvokeSemanticValidation(doc));
+
+        Assert.Contains("STEP_OUTPUT_PROPERTY_UNKNOWN", exception.InnerException!.Message);
+        Assert.Contains("data.steps.decide.missing", exception.InnerException.Message);
+        Assert.Contains("data.steps.decide.outcome", exception.InnerException.Message);
+    }
+
+    [Fact]
     public void SemanticValidation_TypesLoopItemFromStructuredOutput()
     {
         var doc = WorkflowParser.Parse("""
@@ -1741,6 +1758,80 @@ workflows:
       title:
         type: string
         expr: "${data.steps.value.title}"
+""");
+
+        InvokeSemanticValidation(doc);
+    }
+
+    [Fact]
+    public void SemanticValidation_AcceptsPathTotalResultAfterNestedSwitch()
+    {
+        var doc = Parse("""
+steps:
+  - id: guard_inputs
+    type: switch
+    cases:
+      - when: ${true}
+        steps:
+          - id: route_decision
+            type: switch
+            cases:
+              - when: ${true}
+                steps:
+                  - id: selected_value
+                    type: set
+                    input:
+                      decision: APPROVE
+            default:
+              - id: default_value
+                type: set
+                input:
+                  decision: NO_EFFECT
+          - id: result
+            type: set
+            output_schema:
+              type: object
+              properties:
+                result:
+                  type: object
+                  properties:
+                    decision: { type: string }
+                    summary: { type: string }
+                  required_properties: [decision, summary]
+              required_properties: [result]
+            input:
+              result:
+                decision: APPROVE
+                summary: Complete
+    default:
+      - id: missing_value
+        type: set
+        input:
+          decision: NO_EFFECT
+      - id: result
+        type: set
+        output_schema:
+          type: object
+          properties:
+            result:
+              type: object
+              properties:
+                decision: { type: string }
+                summary: { type: string }
+              required_properties: [decision, summary]
+          required_properties: [result]
+        input:
+          result:
+            decision: NO_EFFECT
+            summary: Missing
+outputs:
+  result:
+    type: object
+    properties:
+      decision: { type: string }
+      summary: { type: string }
+    required_properties: [decision, summary]
+    expr: ${data.steps.guard_inputs.result.result}
 """);
 
         InvokeSemanticValidation(doc);

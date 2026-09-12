@@ -144,9 +144,10 @@ def load_settings(settings_path: Path | None = None) -> FlowCliSettings:
         else:
             builder.add_json_file(str(settings_path), optional=False)
 
-    # Conventional local files (support both legacy typo and correct filename).
-    builder.add_json_file("settings.example.json", optional=True)
-    builder.add_json_file("settings.exemple.json", optional=True)
+    else:
+        # Examples provide local defaults only when no explicit configuration was selected.
+        builder.add_json_file("settings.example.json", optional=True)
+        builder.add_json_file("settings.exemple.json", optional=True)
 
     # Environment sources (prefix + nested format: GNOUGO__OPENAI__API_KEY)
     builder.add_env_file(path=".env", optional=True, prefix="GNOUGO__", nested_delimiter="__")

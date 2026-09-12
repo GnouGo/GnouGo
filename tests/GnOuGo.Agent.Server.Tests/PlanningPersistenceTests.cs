@@ -1,0 +1,275 @@
+using System.Text;
+using System.Text.Json;
+using System.Text.Json.Nodes;
+using GnOuGo.Agent.Server.Planning;
+using GnOuGo.Flow.Core.Expressions;
+using GnOuGo.Flow.Core.Planning;
+using GnOuGo.Flow.Core.Runtime;
+using GnOuGo.KeyVault.Core.Services;
+using Microsoft.EntityFrameworkCore;
+
+namespace GnOuGo.Agent.Server.Tests;
+
+public sealed class PlanningPersistenceTests
+{
+    [Fact]
+    public async Task CompressedSnapshotsPreserveCompleteHistoryAcrossReopen()
+    {
+        await using var fixture = await StoreFixture.CreateAsync();
+        var state = new PlanningSnapshot { Request = new() { TenantId = "tenant", SessionId = "compressed", Prompt = "PRIVATE_REQUEST" }, Status = PlanningStatus.Stopped, CurrentPhase = "behavior", Usage = new() { Calls = 37, TotalTokens = 15000 }, Intent = new() { Forms = 1, Questions = 3 } };
+        state.Intent.Answers.Add(new("Retained question", new JsonObject { ["answer"] = "PRIVATE_ANSWER" }));
+        for (var i = 0; i < 500; i++) state.Attempts.Add(new("candidate_" + i, "construction", 1, false,
+            [new("INVALID_BINDING", "/workflows/0/steps/1/input", "Preserve this complete diagnostic and the original producer contract.")]));
+        var json = JsonSerializer.Serialize(state, PlanningJsonContext.Default.PlanningSnapshot);
+        Assert.True(await fixture.Store.TrySaveAsync(state, null, Ct));
+        await using var db = fixture.CreateDbContext();
+        var index = await db.Sessions.SingleAsync(Ct);
+        var record = await fixture.Records.GetAsync(EfPlanningSessionStore.Collection, "tenant", index.PayloadKey, EfPlanningSessionStore.Author, Ct);
+        Assert.True(record!.Value.Length < json.Length / 5);
+        var reopened = new EfPlanningSessionStore(fixture, fixture.Records);
+        var restored = await reopened.LoadAsync("tenant", "compressed", Ct);
+        Assert.Equal(json, JsonSerializer.Serialize(restored, PlanningJsonContext.Default.PlanningSnapshot));
+        Assert.Null(await reopened.LoadAsync("other", "compressed", Ct));
+    }
+
+    [Theory]
+    [InlineData("gnougo-planning-br5:INVALID_PRIVATE_PAYLOAD")]
+    [InlineData("gnougo-planning-br5:AA==")]
+    [InlineData("PRIVATE_INVALID_JSON")]
+    public void MalformedSnapshotEncodingReportsNoPlanningContent(string payload)
+    {
+        var error = Assert.Throws<InvalidOperationException>(() => PlanningSnapshotPayload.Decode(payload));
+        Assert.Equal("The encrypted planning revision is invalid.", error.Message);
+    }
+
+    [Fact]
+    public async Task EncryptedRevisions_SurviveReopen_RejectStaleWrites_AndIsolateTenants()
+    {
+        await using var fixture = await StoreFixture.CreateAsync();
+        var state = new PlanningSnapshot { Request = new() { TenantId = "one", SessionId = "same", Prompt = "PRIVATE_PLANNING_CONTENT_81352" } };
+        state.Construction.Holes.Add(new() { Id = "h_exact", WorkflowKey = "main", NodeKey = "producer", Path = "/workflows/0/steps/0/input/members/0/value", Kind = "value" });
+        state.Construction.Candidates.Add(new() { WorkflowKey = "main", GraphFingerprint = "revision-1", WorkflowFingerprint = "workflow-1", DependencyFingerprint = "callees-1", ScopeFingerprint = "scope-1",
+            Targets = state.Construction.Holes.ToList(), Payload = new JsonObject { ["assignments"] = new JsonObject { ["h_exact"] = "PRIVATE_STAGED_ASSIGNMENT" } }, Stage = 1 });
+        state.Construction.Candidates[0].ParameterScopes["h_exact"] = ["p_fixed"];
+        state.RepairAllowances.Add(new() { WorkflowKey = "main", Gate = PlanningGates.Typed, Attempts = 5 });
+        state.Construction.Holes[0].ExposedRequests = ["durable-request"];
+        state.Construction.Holes[0].ResolutionOrigin = "model";
+        state.Construction.Holes[0].DirectCandidateCount = 2;
+        state.Construction.Holes[0].ComputationParameterCount = 4;
+        state.GateProgress.Add(new() { WorkflowKey = "main", Gate = PlanningGates.Typed, Failures = 1, Evaluations = ["evaluation"] });
+        state.RequestAccounting.Add(new() { Id = "durable-request", WorkflowKey = "main", Phase = "construction", Gate = PlanningGates.Response,
+            Evidence = "receipt", HoleReasons = new() { ["h_exact"] = "binding_choice" }, InputTokens = 100, OutputTokens = null, AvoidableDispatches = 0, AvoidableExtraRequests = 0 });
+        state.PreparationCheckpoint = new() { Stage = "matching", ValidatedResults = new JsonObject { ["inventory"] = "PRIVATE_PREPARATION_CONTENT" }, RequestHashes = ["hash"] };
+        Assert.True(await fixture.Store.TrySaveAsync(state, null, Ct));
+        state.Revision = 1; state.Status = PlanningStatus.BehaviorReview;
+        Assert.True(await fixture.Store.TrySaveAsync(state, 0, Ct));
+        state.Revision = 2;
+        Assert.False(await fixture.Store.TrySaveAsync(state, 0, Ct));
+        var reopened = new EfPlanningSessionStore(fixture, fixture.Records);
+        var restored = await reopened.LoadAsync("one", "same", Ct);
+        Assert.Equal(1, restored!.Revision);
+        Assert.Equal(state.Request.Prompt, restored.Request.Prompt);
+        Assert.Equal(5, restored.SchemaVersion);
+        Assert.Equal(5, Assert.Single(restored.RepairAllowances).Attempts);
+        var retainedCandidate = Assert.Single(restored.Construction.Candidates);
+        Assert.Equal("revision-1", retainedCandidate.GraphFingerprint);
+        Assert.Equal("p_fixed", Assert.Single(retainedCandidate.ParameterScopes["h_exact"]));
+        var restoredHole = Assert.Single(restored.Construction.Holes);
+        Assert.Equal("h_exact", restoredHole.Id);
+        Assert.Equal("durable-request", Assert.Single(restoredHole.ExposedRequests));
+        Assert.Equal("model", restoredHole.ResolutionOrigin);
+        Assert.Equal(2, restoredHole.DirectCandidateCount); Assert.Equal(4, restoredHole.ComputationParameterCount);
+        Assert.Equal("evaluation", Assert.Single(Assert.Single(restored.GateProgress).Evaluations));
+        var accounting = Assert.Single(restored.RequestAccounting);
+        Assert.Equal("receipt", accounting.Evidence); Assert.Equal("binding_choice", accounting.HoleReasons["h_exact"]);
+        Assert.Equal(100, accounting.InputTokens); Assert.Null(accounting.OutputTokens);
+        Assert.Equal("matching", restored.PreparationCheckpoint!.Stage);
+        Assert.Equal("hash", Assert.Single(restored.PreparationCheckpoint.RequestHashes));
+        Assert.Null(await reopened.LoadAsync("two", "same", Ct));
+        state.Request.TenantId = "two"; state.Revision = 0;
+        Assert.True(await reopened.TrySaveAsync(state, null, Ct));
+        Assert.Single(await reopened.ListAsync("one", Ct));
+        Assert.Single(await reopened.ListAsync("two", Ct));
+        foreach (var file in Directory.GetFiles(fixture.Root, "*", SearchOption.AllDirectories))
+        {
+            var bytes = Encoding.UTF8.GetString(await File.ReadAllBytesAsync(file, Ct));
+            Assert.DoesNotContain("PRIVATE_PLANNING_CONTENT_81352", bytes);
+            Assert.DoesNotContain("PRIVATE_PREPARATION_CONTENT", bytes);
+            Assert.DoesNotContain("PRIVATE_STAGED_ASSIGNMENT", bytes);
+        }
+    }
+
+    [Fact]
+    public async Task ConcurrentRevisions_OnlyOneWriterWins()
+    {
+        await using var fixture = await StoreFixture.CreateAsync();
+        var state = new PlanningSnapshot { Request = new() { TenantId = "tenant", SessionId = "session", Prompt = "request" } };
+        Assert.True(await fixture.Store.TrySaveAsync(state, null, Ct));
+        var one = (await fixture.Store.LoadAsync("tenant", "session", Ct))!;
+        var two = (await fixture.Store.LoadAsync("tenant", "session", Ct))!;
+        one.Revision = two.Revision = 1;
+        one.Status = PlanningStatus.Cancelled; two.Status = PlanningStatus.Failed;
+        var results = await Task.WhenAll(fixture.Store.TrySaveAsync(one, 0, Ct), fixture.Store.TrySaveAsync(two, 0, Ct));
+        Assert.Single(results, result => result);
+        Assert.Equal(1, (await fixture.Store.LoadAsync("tenant", "session", Ct))!.Revision);
+    }
+
+    [Fact]
+    public async Task ModelReceipt_ReplaysWithoutDispatchOrDoubleCounting()
+    {
+        await using var fixture = await StoreFixture.CreateAsync();
+        var client = new CountingClient();
+        var budget = new LLMUsageBudgetScope(new() { MaxCalls = 5 });
+        var request = new LLMRequest { Model = "fake", Prompt = "PRIVATE_MODEL_REQUEST", StructuredOutputSchema = new JsonObject { ["type"] = "object" } };
+        Identify(request, "session");
+        var journal = new PlanningModelJournal(client, fixture, fixture.Records, "tenant", "session", budget, new FakeEstimator());
+        var original = await journal.CallAsync(request, Ct);
+        var calls = budget.Snapshot.Calls;
+        var reopened = new PlanningModelJournal(client, fixture, fixture.Records, "tenant", "session", budget, new FakeEstimator());
+        Assert.Equal(original.Text, (await reopened.CallAsync(request, Ct)).Text);
+        Assert.Equal(1, client.Calls);
+        Assert.Equal(calls, budget.Snapshot.Calls);
+        await using var db = fixture.CreateDbContext();
+        var key = (await db.Calls.SingleAsync(Ct)).PayloadKey;
+        var encryptedRequest = await fixture.Records.GetAsync(PlanningModelJournal.RequestCollection, "tenant", key, EfPlanningSessionStore.Author, Ct);
+        Assert.Contains(request.Prompt, encryptedRequest!.Value);
+        foreach (var file in Directory.GetFiles(fixture.Root, "*", SearchOption.AllDirectories))
+        {
+            var bytes = Encoding.UTF8.GetString(await File.ReadAllBytesAsync(file, Ct));
+            Assert.DoesNotContain("PRIVATE_MODEL_REQUEST", bytes);
+            Assert.DoesNotContain("PRIVATE_MODEL_RESPONSE", bytes);
+        }
+    }
+
+    [Theory]
+    [InlineData(null)]
+    [InlineData(500)]
+    [InlineData(503)]
+    public async Task UnknownRequestReceipt_IsNotSilentlyDispatchedAgain(int? statusCode)
+    {
+        await using var fixture = await StoreFixture.CreateAsync();
+        var client = new CountingClient { Fail = true, FailureStatusCode = statusCode };
+        var budget = new LLMUsageBudgetScope(new() { MaxCalls = 5 },
+            sink: new PlanningBudgetSink(fixture.Records, "tenant", "session"));
+        var request = new LLMRequest { Model = "fake", Prompt = "request" };
+        Identify(request, "session");
+        var journal = new PlanningModelJournal(client, fixture, fixture.Records, "tenant", "session", budget, new FakeEstimator());
+        await Assert.ThrowsAnyAsync<Exception>(() => journal.CallAsync(request, Ct));
+        var persisted = await fixture.Records.GetAsync(PlanningBudgetSink.Collection, "tenant", "session", EfPlanningSessionStore.Author, Ct);
+        var restoredBudget = new LLMUsageBudgetScope(new() { MaxCalls = 5 },
+            JsonSerializer.Deserialize(persisted!.Value, PlanningJsonContext.Default.LLMUsageBudgetSnapshot));
+        var reopened = new PlanningModelJournal(client, fixture, fixture.Records, "tenant", "session", restoredBudget, new FakeEstimator());
+        var failure = await Assert.ThrowsAsync<WorkflowRuntimeException>(() => reopened.CallAsync(request, Ct));
+        Assert.Equal(GnOuGo.Flow.Core.Models.ErrorCodes.LlmBudgetUnverifiable, failure.Code);
+        Assert.Equal(1, client.Calls);
+        Assert.Equal(1, restoredBudget.Snapshot.Calls);
+        await using var db = fixture.CreateDbContext();
+        var reservation = await db.Calls.SingleAsync(Ct);
+        Assert.Equal("reserved", reservation.Status);
+        Assert.Null(await fixture.Records.GetAsync(PlanningModelJournal.Collection, "tenant", reservation.PayloadKey, EfPlanningSessionStore.Author, Ct));
+    }
+
+    [Fact]
+    public async Task PendingWorkflowReplaysReceiptAfterCheckpointRevisionChanges()
+    {
+        await using var fixture = await StoreFixture.CreateAsync();
+        var client = new CountingClient();
+        var budget = new LLMUsageBudgetScope(new() { MaxCalls = 5 });
+        var request = new LLMRequest { Model = "fake", Prompt = "PRIVATE_PENDING_CONSTRUCTION" };
+        Identify(request, "session");
+        var original = new PlanningModelJournal(client, fixture, fixture.Records, "tenant", "session", budget, new FakeEstimator());
+        await original.CallAsync(request, Ct);
+        var state = new PlanningSnapshot
+        {
+            Revision = 9,
+            Request = new() { TenantId = "tenant", SessionId = "session", Prompt = "Construct a workflow" },
+            Construction = new() { PendingCalls = [new() { Id = request.ClientRequestId!, Phase = "construction", WorkflowKey = "main", Request = request }] }
+        };
+        Assert.True(await fixture.Store.TrySaveAsync(state, null, Ct));
+        var restored = (await fixture.Store.LoadAsync("tenant", "session", Ct))!;
+        Assert.Equal(9, restored.Revision);
+        var replay = new PlanningModelJournal(client, fixture, fixture.Records, "tenant", "session", budget, new FakeEstimator());
+        await replay.CallAsync(Assert.Single(restored.Construction.PendingCalls).Request, Ct);
+        Assert.Equal(1, client.Calls); Assert.Equal(1, budget.Snapshot.Calls);
+    }
+
+    [Fact]
+    public async Task PersistedReceiptCompletesAnInterruptedIndexCommitWithoutRedispatch()
+    {
+        await using var fixture = await StoreFixture.CreateAsync();
+        var client = new CountingClient(); var budget = new LLMUsageBudgetScope(new() { MaxCalls = 1 });
+        var request = new LLMRequest { Model = "fake", Prompt = "request" }; Identify(request, "session");
+        await new PlanningModelJournal(client, fixture, fixture.Records, "tenant", "session", budget, new FakeEstimator()).CallAsync(request, Ct);
+        await using (var db = fixture.CreateDbContext()) { var row = await db.Calls.SingleAsync(Ct); row.Status = "reserved"; await db.SaveChangesAsync(Ct); }
+        await new PlanningModelJournal(client, fixture, fixture.Records, "tenant", "session", budget, new FakeEstimator()).CallAsync(request, Ct);
+        Assert.Equal(1, client.Calls); Assert.Equal(1, budget.Snapshot.Calls);
+        await using var reopened = fixture.CreateDbContext(); Assert.Equal("completed", (await reopened.Calls.SingleAsync(Ct)).Status);
+    }
+
+    [Fact]
+    public async Task ConcurrentReservationsCannotExceedTheSharedCallBudget()
+    {
+        await using var fixture = await StoreFixture.CreateAsync();
+        var client = new CountingClient(); var budget = new LLMUsageBudgetScope(new() { MaxCalls = 1 });
+        var requests = Enumerable.Range(1, 4).Select(i => { var r = new LLMRequest { Model = "fake", Prompt = "request " + i }; Identify(r, "session", i); return r; }).ToArray();
+        var results = await Task.WhenAll(requests.Select(async request =>
+        {
+            try { await new PlanningModelJournal(client, fixture, fixture.Records, "tenant", "session", budget, new FakeEstimator()).CallAsync(request, Ct); return true; }
+            catch (WorkflowRuntimeException error) when (error.Code == GnOuGo.Flow.Core.Models.ErrorCodes.LlmBudgetExceeded) { return false; }
+        }));
+        Assert.Single(results, success => success); Assert.Equal(1, client.Calls); Assert.Equal(1, budget.Snapshot.Calls);
+        await using var db = fixture.CreateDbContext(); Assert.Equal(4, await db.Calls.CountAsync(Ct));
+    }
+
+    [Fact]
+    public void UnsupportedSnapshotSchemaAndUnencodedPayloadAreRejected()
+    {
+        Assert.Throws<InvalidOperationException>(() => PlanningSnapshotPayload.Decode("{}"));
+        var snapshot = new PlanningSnapshot { SchemaVersion = 2 };
+        Assert.Throws<InvalidOperationException>(() => PlanningSnapshotPayload.Encode(snapshot));
+    }
+
+    internal static void Identify(LLMRequest request, string session, int attempt = 1)
+    {
+        PlanningGenerationPolicy.Apply(request, new());
+        request.ClientRequestId = null;
+        var hash = GnOuGo.Flow.Planning.PlanningGraphCompiler.Fingerprint(JsonSerializer.Serialize(request, PlanningJsonContext.Default.LLMRequest));
+        request.ClientRequestId = session + ":" + attempt + ":construction:main:" + hash;
+    }
+
+    private static CancellationToken Ct => TestContext.Current.CancellationToken;
+    private sealed class CountingClient : ILLMClient
+    {
+        public int Calls { get; private set; }
+        public bool Fail { get; init; }
+        public int? FailureStatusCode { get; init; }
+        public Task<LLMResponse> CallAsync(LLMRequest request, CancellationToken ct)
+        {
+            Calls++;
+            if (FailureStatusCode is { } statusCode)
+                throw new LLMClientException(LLMClientFailureKind.ServiceUnavailable, "Provider unavailable", retryable: true, statusCode: statusCode);
+            if (Fail) throw new IOException("Simulated connection loss");
+            return Task.FromResult(new LLMResponse { Text = "PRIVATE_MODEL_RESPONSE", Usage = new JsonObject { ["input_tokens"] = 10, ["output_tokens"] = 5 } });
+        }
+    }
+    private sealed class FakeEstimator : IModelUsageCostEstimator
+    {
+        public decimal? EstimateCost(string? model, long? inputTokens = null, long? outputTokens = null, string? providerType = null) => 0;
+    }
+    internal sealed class StoreFixture(string root, bool retain = false) : IDbContextFactory<PlanningDbContext>, IAsyncDisposable
+    {
+        public string Root { get; } = root;
+        public IKeyVaultRecordStore Records { get; } = KeyVaultRecordStoreFactory.CreateWorkspaceStore(Path.Combine(root, "vault.db"), root);
+        public EfPlanningSessionStore Store => new(this, Records);
+        public PlanningDbContext CreateDbContext() => new(new DbContextOptionsBuilder<PlanningDbContext>().UseSqlite("Data Source=" + Path.Combine(Root, "planning.db") + ";Pooling=False").Options);
+        public static async Task<StoreFixture> CreateAsync(string? retainedDirectory = null)
+        {
+            var fixture = new StoreFixture(retainedDirectory ?? Path.Combine(Path.GetTempPath(), "GnOuGo.Planning.Tests", Guid.NewGuid().ToString("N")), retainedDirectory is not null);
+            Directory.CreateDirectory(fixture.Root);
+            await using var db = fixture.CreateDbContext();
+            await db.Database.EnsureCreatedAsync(Ct);
+            return fixture;
+        }
+        public ValueTask DisposeAsync() { Microsoft.Data.Sqlite.SqliteConnection.ClearAllPools(); if (!retain) Directory.Delete(Root, true); return ValueTask.CompletedTask; }
+    }
+}

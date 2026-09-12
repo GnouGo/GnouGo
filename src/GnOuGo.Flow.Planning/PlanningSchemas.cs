@@ -1,0 +1,124 @@
+using System.Text.Json.Nodes;
+using GnOuGo.Flow.Core.Planning;
+
+namespace GnOuGo.Flow.Planning;
+
+internal static class PlanningSchemas
+{
+    internal static JsonObject ValueDefinitions()
+    {
+        var definitions = new JsonObject
+        {
+            ["value"] = new JsonObject
+            {
+                ["anyOf"] = new JsonArray(
+                Object(("kind", Enum("null"))), Object(("kind", Enum("string", "expression")), ("text", String())),
+                Object(("kind", Enum("number")), ("number", Type("number"))), Object(("kind", Enum("boolean")), ("boolean", Type("boolean"))),
+                Object(("kind", Enum("object")), ("members", Array(Ref("member")))), Object(("kind", Enum("array")), ("items", Array(Ref("value")))),
+                Object(("kind", Enum("input")), ("source", String()), ("path", Array(String()))),
+                Object(("kind", Enum("output")), ("source", String()), ("resultChannel", Enum("default", "structured", "envelope")), ("path", Array(String()))),
+                Object(("kind", Enum("workflow")), ("source", String())),
+                Object(("kind", Enum("template", "compute")), ("text", String()), ("members", Array(Ref("member")))),
+                Object(("kind", Enum("loop_item", "loop_index", "loop_previous", "artifact_collection")), ("source", String()), ("path", Array(String()))),
+                Object(("kind", Enum("decision_binding")), ("items", Array(Ref("value")))),
+                Object(("kind", Enum("confirmation")), ("source", String()), ("text", String()), ("items", Array(Ref("value")))))
+            },
+            ["member"] = Object(("name", String()), ("value", Ref("value"))),
+            ["schema"] = new JsonObject
+            {
+                ["anyOf"] = new JsonArray(
+                Object(("kind", Enum("reference")), ("capabilityId", String()), ("schemaPointer", String())),
+                Object(("kind", Enum("inline")), ("type", Enum("string", "number", "integer", "boolean", "array", "object")),
+                ("nullable", Type("boolean")), ("description", Nullable(String())), ("enum", Array(String())),
+                ("items", Nullable(Ref("schema"))), ("properties", Array(Ref("port"))), ("additionalProperties", Nullable(Ref("schema")))))
+            },
+            ["port"] = Object(("name", String()), ("schema", Ref("schema")), ("required", Type("boolean")), ("default", Nullable(Ref("value")))),
+            ["output"] = Object(("name", String()), ("schema", Ref("schema")), ("value", Ref("value"))),
+            ["retry"] = Object(("max", Type("integer")), ("backoffMs", Type("integer")), ("backoffMult", Type("number")), ("jitterMs", Type("integer"))),
+            ["errorCase"] = Object(("if", Nullable(Ref("value"))), ("action", Enum("stop", "continue")), ("setOutput", Nullable(Ref("value"))), ("retry", Nullable(Ref("retry"))))
+        };
+        return definitions;
+    }
+
+    internal static void ScopeValues(JsonObject schema, PlanningWorkflow workflow)
+    {
+        if (schema["$defs"]?["value"]?["anyOf"] is not JsonArray variants) return;
+        foreach (var variant in variants.OfType<JsonObject>().ToArray())
+        {
+            var properties = variant["properties"]!.AsObject();
+            var kind = properties["kind"]!["enum"]![0]!.GetValue<string>();
+            string[]? sources = kind switch
+            {
+                "input" => workflow.Inputs.Select(p => p.Name).ToArray(),
+                "loop_item" => PlanningGraphCompiler.Enumerate(workflow.Steps.Concat(workflow.Finally)).Where(n => n.Type is "loop.sequential" or "loop.parallel").Select(n => n.Key).ToArray(),
+                "workflow" => PlanningGraphCompiler.Enumerate(workflow.Steps.Concat(workflow.Finally)).Select(PlanningWorkflowProvenance.Target).OfType<string>().Distinct(StringComparer.Ordinal).ToArray(),
+                _ => null
+            };
+            if (sources is null) continue;
+            if (sources.Length == 0) { variants.Remove(variant); continue; }
+            properties["source"] = Enum(sources);
+            properties["source"]!["description"] = kind == "loop_item" ? "The enclosing loop node key, never itemVar or indexVar." : "An exact declared contract identity.";
+        }
+    }
+
+
+    public static JsonObject Behavior(PlanningPreparation? preparation = null)
+    {
+        var root = Object(("summary", String()), ("entrypoint", String()), ("workflows", Array(Ref("behaviorWorkflow"))));
+        root["$defs"] = new JsonObject
+        {
+            ["behaviorPort"] = Object(("name", String()), ("description", String()), ("required", Type("boolean"))),
+            ["behaviorOutcome"] = Object(("key", String()), ("description", String()), ("isDefault", Type("boolean")), ("steps", Array(Ref("behaviorNode")))),
+            ["behaviorNode"] = Object(("key", String()), ("kind", Enum("operation", "decision", "loop", "sequence", "parallel", "confirmation", "workflow")),
+                ("purpose", String()), ("operationIds", Array(String())), ("capabilityId", Nullable(String())), ("workflowKey", Nullable(String())),
+                ("inputDependencies", Array(String())),
+                ("outcomes", Array(Ref("behaviorOutcome"))), ("steps", Array(Ref("behaviorNode")))),
+            ["behaviorWorkflow"] = Object(("key", String()), ("purpose", String()), ("operationIds", Array(String())),
+                ("inputs", Array(Ref("behaviorPort"))), ("outputs", Array(Ref("behaviorPort"))),
+                ("steps", Array(Ref("behaviorNode"))), ("finally", Array(Ref("behaviorNode"))))
+        };
+        if (preparation is not null)
+        {
+            var operations = preparation.Capabilities.SelectMany(c => c.OperationIds).Distinct(StringComparer.Ordinal).ToArray();
+            if (operations.Length > 0) root["$defs"]!["behaviorOperationId"] = Enum(operations);
+            foreach (var definition in new[] { "behaviorNode", "behaviorWorkflow" })
+            {
+                var field = Array(operations.Length == 0 ? String() : Ref("behaviorOperationId"));
+                if (operations.Length == 0) field["maxItems"] = 0;
+                root["$defs"]![definition]!["properties"]!["operationIds"] = field;
+            }
+            var node = root["$defs"]!["behaviorNode"]!;
+            var variants = new JsonArray();
+            foreach (var kind in new[] { "operation", "decision", "loop", "sequence", "parallel", "confirmation", "workflow" })
+            {
+                var variant = node.DeepClone(); var properties = variant["properties"]!;
+                properties["kind"] = Enum(kind);
+                var ids = preparation.Capabilities.Where(c => PlanningCapabilityBindings.SupportsBehavior(c, kind)).Select(c => c.Id).Distinct(StringComparer.Ordinal).ToArray();
+                properties["capabilityId"] = ids.Length == 0 ? Type("null") : Nullable(Enum(ids));
+                if (kind != "decision") properties["outcomes"]!["maxItems"] = 0;
+                if (kind is not ("loop" or "sequence" or "parallel")) properties["steps"]!["maxItems"] = 0;
+                if (kind != "workflow") properties["workflowKey"] = Type("null");
+                variants.Add(variant);
+            }
+            root["$defs"]!["behaviorNode"] = new JsonObject { ["anyOf"] = variants };
+        }
+        return root;
+    }
+
+
+
+
+    private static JsonObject String() => Type("string");
+    private static JsonObject Type(string type) => new() { ["type"] = type };
+    private static JsonObject Enum(params string[] values) => new() { ["type"] = "string", ["enum"] = new JsonArray(values.Select(v => (JsonNode?)JsonValue.Create(v)).ToArray()) };
+    private static JsonObject Ref(string name) => new() { ["$ref"] = "#/$defs/" + name };
+    private static JsonObject Nullable(JsonObject schema) => new() { ["anyOf"] = new JsonArray(schema, Type("null")) };
+    private static JsonObject Array(JsonObject item) => new() { ["type"] = "array", ["items"] = item };
+    private static JsonObject Object(params (string Name, JsonObject Schema)[] fields) => new()
+    {
+        ["type"] = "object",
+        ["properties"] = new JsonObject(fields.Select(f => new KeyValuePair<string, JsonNode?>(f.Name, f.Schema))),
+        ["required"] = new JsonArray(fields.Select(f => (JsonNode?)JsonValue.Create(f.Name)).ToArray()),
+        ["additionalProperties"] = false
+    };
+}

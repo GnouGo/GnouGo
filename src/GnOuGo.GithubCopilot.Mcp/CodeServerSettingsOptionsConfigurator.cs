@@ -26,6 +26,7 @@ internal sealed class CodeServerSettingsOptionsConfigurator(IConfiguration confi
 
     private static void ConfigureCopilot(IConfigurationSection section, CodeCopilotSettings settings)
     {
+        settings.InferenceProxyEndpoint = ReadNullableString(section, nameof(CodeCopilotSettings.InferenceProxyEndpoint), settings.InferenceProxyEndpoint);
         settings.Provider = ReadString(section, nameof(CodeCopilotSettings.Provider), settings.Provider);
         settings.Model = ReadString(section, nameof(CodeCopilotSettings.Model), settings.Model);
         settings.Mode = ReadString(section, nameof(CodeCopilotSettings.Mode), settings.Mode);

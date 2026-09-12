@@ -42,4 +42,7 @@
     <Content Include="examples\**\*" CopyToOutputDirectory="PreserveNewest" LinkBase="examples" />
   </ItemGroup>
 
+  <ItemGroup>
+    <ProjectReference Include="../GnOuGo.Flow.Planning/GnOuGo.Flow.Planning.csproj" />
+  </ItemGroup>
 </Project>

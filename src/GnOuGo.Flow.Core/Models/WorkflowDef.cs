@@ -45,6 +45,9 @@ public sealed class InputDef
     /// <summary>Default value when the caller does not supply one.</summary>
     public object? Default { get; set; }
 
+    /// <summary>Optional closed set of allowed string values.</summary>
+    public List<string>? Enum { get; set; }
+
     /// <summary>Element type descriptor (only when Type == "array").</summary>
     public InputDef? Items { get; set; }
 
@@ -82,6 +85,9 @@ public sealed class OutputDef
 
     /// <summary>Optional human-readable description.</summary>
     public string? Description { get; set; }
+
+    /// <summary>Optional closed set of allowed string values.</summary>
+    public List<string>? Enum { get; set; }
 
     /// <summary>Element type descriptor (only when Type == "array").</summary>
     public OutputDef? Items { get; set; }

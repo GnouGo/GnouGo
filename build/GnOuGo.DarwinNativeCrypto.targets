@@ -1,0 +1,32 @@
+<Project>
+  <!-- .NET 10's Apple crypto archive contains Swift/Clang debug references to
+       module caches absent from the runtime package (dotnet/runtime#124336).
+       Normalize only a publish-local copy of that archive, retaining all code
+       and link symbols. Never mutate NuGet packages or suppress diagnostics.
+       The planner Native AOT smoke exercises certificate-chain validation.
+       Remove this boundary when the distributed runtime archive is corrected. -->
+  <Target Name="PrepareGnOuGoDarwinNativeCrypto"
+          BeforeTargets="LinkNative"
+          DependsOnTargets="SetupOSSpecificProps"
+          Condition="'$(PublishAot)' == 'true' and '$(Configuration)' == 'Release' and '$(TargetFramework)' == 'net10.0' and ('$(RuntimeIdentifier)' == 'osx-arm64' or '$(RuntimeIdentifier)' == 'osx-x64')">
+    <PropertyGroup>
+      <_GnOuGoAppleCryptoSource>$(IlcFrameworkNativePath)libSystem.Security.Cryptography.Native.Apple.a</_GnOuGoAppleCryptoSource>
+      <_GnOuGoAppleCryptoDirectory>$([System.IO.Path]::GetFullPath('$(NativeIntermediateOutputPath)gnougo-apple-crypto'))</_GnOuGoAppleCryptoDirectory>
+      <_GnOuGoAppleCryptoCopy>$(_GnOuGoAppleCryptoDirectory)/libSystem.Security.Cryptography.Native.Apple.a</_GnOuGoAppleCryptoCopy>
+    </PropertyGroup>
+    <MakeDir Directories="$(_GnOuGoAppleCryptoDirectory)" />
+    <Copy SourceFiles="$(_GnOuGoAppleCryptoSource)" DestinationFiles="$(_GnOuGoAppleCryptoCopy)" />
+    <Exec Command="xcrun strip -S &quot;$(_GnOuGoAppleCryptoCopy)&quot;" />
+    <ItemGroup>
+      <NativeLibrary Remove="$(_GnOuGoAppleCryptoSource)" />
+      <NativeLibrary Include="$(_GnOuGoAppleCryptoCopy)" />
+      <_GnOuGoDarwinLinkArgument Include="@(LinkerArg)">
+        <Replacement>%(Identity)</Replacement>
+        <Replacement Condition="'%(Identity)' == '$(_GnOuGoAppleCryptoSource)'">&quot;$(_GnOuGoAppleCryptoCopy)&quot;</Replacement>
+      </_GnOuGoDarwinLinkArgument>
+      <LinkerArg Remove="@(LinkerArg)" />
+      <LinkerArg Include="@(_GnOuGoDarwinLinkArgument->'%(Replacement)')" />
+      <FileWrites Include="$(_GnOuGoAppleCryptoCopy)" />
+    </ItemGroup>
+  </Target>
+</Project>

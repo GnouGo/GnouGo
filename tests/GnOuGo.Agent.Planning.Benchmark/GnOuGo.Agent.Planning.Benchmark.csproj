@@ -1,0 +1,14 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="../../src/GnOuGo.Agent.Server/GnOuGo.Agent.Server.csproj" />
+    <None Include="CodeReviewPolicy.txt" CopyToOutputDirectory="PreserveNewest" />
+    <EmbeddedResource Include="CodeReviewExecutionFixture.cs" />
+  </ItemGroup>
+</Project>

@@ -50,13 +50,15 @@ public sealed class OllamaLLMProvider : ILLMProvider, ILLMModelCatalogProvider
             HttpCompletionOption.ResponseHeadersRead,
             _logger,
             "Ollama chat completion",
+            provider.RetryPolicy,
             ct);
 
         if (!resp.IsSuccessStatusCode)
         {
             var body = await HttpRequestHelper.ReadErrorBodyAsync(resp, ct);
-            throw new HttpRequestException(
-                $"Ollama chat call failed: {(int)resp.StatusCode} {resp.ReasonPhrase ?? ""} - {body}");
+            throw HttpRequestHelper.CreateFailure(
+                $"Ollama chat call failed: {(int)resp.StatusCode} {resp.ReasonPhrase ?? ""} - {body}",
+                resp);
         }
 
         await using var stream = await resp.Content.ReadAsStreamAsync(ct);
@@ -108,12 +110,14 @@ public sealed class OllamaLLMProvider : ILLMProvider, ILLMModelCatalogProvider
             HttpCompletionOption.ResponseHeadersRead,
             _logger,
             "Ollama model discovery",
+            provider.RetryPolicy,
             ct);
         if (!resp.IsSuccessStatusCode)
         {
             var body = await HttpRequestHelper.ReadErrorBodyAsync(resp, ct);
-            throw new HttpRequestException(
-                $"Ollama model list call failed: {(int)resp.StatusCode} {resp.ReasonPhrase ?? ""} - {body}");
+            throw HttpRequestHelper.CreateFailure(
+                $"Ollama model list call failed: {(int)resp.StatusCode} {resp.ReasonPhrase ?? ""} - {body}",
+                resp);
         }
 
         await using var stream = await resp.Content.ReadAsStreamAsync(ct);

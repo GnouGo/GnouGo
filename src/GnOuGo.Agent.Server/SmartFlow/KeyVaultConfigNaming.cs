@@ -69,45 +69,86 @@ internal static class KeyVaultConfigNaming
         KeyVaultConfigSecretKind kind,
         string logicalName)
     {
-        var secretKeys = secrets
-            .Select(secret => secret.Key)
-            .ToList();
+        return SelectPreferredSecrets(FindEquivalentSecrets(secrets, kind, logicalName), kind)
+            .SingleOrDefault()
+            ?.Key;
+    }
 
-        foreach (var candidate in GetCandidateKeys(kind, logicalName))
+    public static string ResolveWriteSecretKey(
+        IEnumerable<KeyVaultSecretSummary> secrets,
+        KeyVaultConfigSecretKind kind,
+        string logicalName)
+    {
+        var preferredKey = BuildSecretKey(kind, logicalName);
+        var canonical = FindEquivalentSecrets(secrets, kind, logicalName)
+            .Where(secret => GetPriority(kind, secret.Key) == 0)
+            .ToArray();
+
+        var exact = canonical.FirstOrDefault(secret =>
+            string.Equals(secret.Key, preferredKey, StringComparison.Ordinal));
+        if (exact is not null)
+            return exact.Key;
+
+        return canonical.Length switch
         {
-            var existing = secretKeys
-                .FirstOrDefault(key => string.Equals(key, candidate, StringComparison.OrdinalIgnoreCase));
+            0 => preferredKey,
+            1 => canonical[0].Key,
+            _ => throw CreateAmbiguousConfigurationException()
+        };
+    }
 
-            if (existing is not null)
-                return existing;
-        }
+    public static IReadOnlyList<KeyVaultSecretSummary> FindEquivalentSecrets(
+        IEnumerable<KeyVaultSecretSummary> secrets,
+        KeyVaultConfigSecretKind kind,
+        string logicalName)
+    {
+        if (string.IsNullOrWhiteSpace(logicalName))
+            return [];
 
-        return null;
+        return secrets
+            .Where(secret => string.Equals(
+                TryGetLogicalName(kind, secret.Key),
+                logicalName,
+                StringComparison.OrdinalIgnoreCase))
+            .OrderBy(secret => GetPriority(kind, secret.Key))
+            .ThenBy(secret => secret.Key, StringComparer.Ordinal)
+            .ToArray();
     }
 
     public static IReadOnlyList<KeyVaultSecretSummary> SelectPreferredSecrets(
         IEnumerable<KeyVaultSecretSummary> secrets,
         KeyVaultConfigSecretKind kind)
     {
-        var preferred = new Dictionary<string, KeyVaultSecretSummary>(StringComparer.OrdinalIgnoreCase);
-
-        foreach (var secret in secrets
+        var preferred = new List<(string LogicalName, KeyVaultSecretSummary Secret)>();
+        foreach (var group in secrets
                      .Where(summary => MatchesSecretKey(kind, summary.Key))
-                     .OrderBy(summary => GetPriority(kind, summary.Key))
-                     .ThenBy(summary => summary.Key, StringComparer.OrdinalIgnoreCase))
+                     .GroupBy(
+                         summary => TryGetLogicalName(kind, summary.Key)!,
+                         StringComparer.OrdinalIgnoreCase))
         {
-            var logicalName = TryGetLogicalName(kind, secret.Key);
-            if (string.IsNullOrWhiteSpace(logicalName) || preferred.ContainsKey(logicalName))
-                continue;
+            var priorityGroups = group
+                .GroupBy(secret => GetPriority(kind, secret.Key))
+                .ToArray();
+            if (priorityGroups.Any(static candidates => candidates.Count() != 1))
+                throw CreateAmbiguousConfigurationException();
 
-            preferred[logicalName] = secret;
+            var candidate = priorityGroups
+                .OrderBy(static candidates => candidates.Key)
+                .First()
+                .Single();
+
+            preferred.Add((group.Key, candidate));
         }
 
         return preferred
-            .OrderBy(item => item.Key, StringComparer.OrdinalIgnoreCase)
-            .Select(item => item.Value)
+            .OrderBy(item => item.LogicalName, StringComparer.OrdinalIgnoreCase)
+            .ThenBy(item => item.Secret.Key, StringComparer.Ordinal)
+            .Select(item => item.Secret)
             .ToList();
     }
+
+    private static InvalidDataException CreateAmbiguousConfigurationException()
+        => new("KeyVault contains ambiguous configuration keys for the same logical setting.");
 
     private static int GetPriority(KeyVaultConfigSecretKind kind, string key)
         => key.StartsWith(GetPrefix(kind), StringComparison.OrdinalIgnoreCase) ? 0 : 1;
@@ -132,4 +173,3 @@ internal static class KeyVaultConfigNaming
             _ => throw new ArgumentOutOfRangeException(nameof(kind), kind, null)
         };
 }
-

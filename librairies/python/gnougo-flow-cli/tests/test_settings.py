@@ -1,12 +1,13 @@
 from gnougo_flow_cli.settings import FlowCliSettings, load_settings
 
 
-def test_load_settings_imports_dotnet_mcp_servers() -> None:
-    settings = load_settings(None)
+def test_load_settings_preserves_declared_mcp_servers(tmp_path) -> None:
+    path = tmp_path / "settings.json"
+    path.write_text('{"LLM":{"McpServers":{"declared":{"Type":"stdio","Command":"test-tool"}}}}')
+    settings = load_settings(path)
     assert settings.workspace_root is not None
-    # Imported from src/GnOuGo.Flow.Cli/appsettings.json or src/GnOuGo.Flow.Server/appsettings.json
-    assert settings.mcp_servers
-    assert any(name.startswith("GnOuGo.") for name in settings.mcp_servers.keys())
+    assert settings.mcp_servers["declared"].command == "test-tool"
+    assert set(settings.mcp_servers) == {"declared"}
 
 
 def test_load_settings_has_default_telemetry_from_settings_example() -> None:
@@ -26,4 +27,3 @@ def test_mcp_capability_cache_accepts_dotnet_style_alias() -> None:
         {"McpCapabilityCache": {"SlidingExpirationSeconds": 42}}
     )
     assert settings.mcp_capability_cache.ttl_seconds == 42
-

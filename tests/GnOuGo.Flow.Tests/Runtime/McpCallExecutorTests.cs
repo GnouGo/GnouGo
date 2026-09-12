@@ -1712,6 +1712,110 @@ workflows:
             It.IsAny<CancellationToken>()), Times.Once);
     }
 
+    [Fact]
+    public async Task McpCall_DirectStructuredOutput_NormalizesExecutedResultAndExposesTypedJson()
+    {
+        var factory = new InMemoryMcpClientFactory();
+        factory.RegisterServer("data-server", new MockMcpServerConfig
+        {
+            Tools = [new McpToolInfo { Name = "fetch_data", InputSchema = JsonNode.Parse("{\"type\":\"object\"}") }],
+            ToolHandlers =
+            {
+                ["fetch_data"] = _ => new McpCallResult
+                {
+                    Content = new JsonObject { ["raw_value"] = "available" }
+                }
+            }
+        });
+
+        var mockLlm = new Mock<ILLMClient>(MockBehavior.Strict);
+        mockLlm.Setup(client => client.CallAsync(
+                It.Is<LLMRequest>(request => request.Prompt.Contains("raw_value", StringComparison.Ordinal)
+                                            && request.StructuredOutputSchema != null),
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new LLMResponse
+            {
+                Text = "{\"success\":true}",
+                Json = new JsonObject { ["success"] = true }
+            });
+
+        var result = await RunMain("""
+            version: 1
+            workflows:
+              main:
+                steps:
+                  - id: fetch
+                    type: mcp.call
+                    input:
+                      server: data-server
+                      method: fetch_data
+                      model: test-model
+                      request: {}
+                      structured_output:
+                        strict: true
+                        schema_inline:
+                          type: object
+                          additionalProperties: false
+                          properties:
+                            success: { type: boolean }
+                          required: [success]
+                outputs:
+                  success:
+                    expr: "${data.steps.fetch.json.success}"
+                    type: boolean
+            """, mcpFactory: factory, llm: mockLlm.Object);
+
+        Assert.True(result.Success, result.Error?.Message);
+        Assert.True(result.Outputs!["success"]!.GetValue<bool>());
+        mockLlm.VerifyAll();
+    }
+
+    [Fact]
+    public async Task McpCall_DirectStructuredOutput_FailsClosedWhenNormalizedJsonViolatesSchema()
+    {
+        var factory = new InMemoryMcpClientFactory();
+        factory.RegisterServer("data-server", new MockMcpServerConfig
+        {
+            Tools = [new McpToolInfo { Name = "fetch_data", InputSchema = JsonNode.Parse("{\"type\":\"object\"}") }],
+            ToolHandlers =
+            {
+                ["fetch_data"] = _ => new McpCallResult { Content = new JsonObject { ["raw_value"] = "available" } }
+            }
+        });
+        var mockLlm = new Mock<ILLMClient>();
+        mockLlm.Setup(client => client.CallAsync(It.IsAny<LLMRequest>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new LLMResponse
+            {
+                Json = new JsonObject { ["success"] = "not-a-boolean" }
+            });
+
+        var result = await RunMain("""
+            version: 1
+            workflows:
+              main:
+                steps:
+                  - id: fetch
+                    type: mcp.call
+                    input:
+                      server: data-server
+                      method: fetch_data
+                      model: test-model
+                      request: {}
+                      structured_output:
+                        strict: true
+                        schema_inline:
+                          type: object
+                          additionalProperties: false
+                          properties:
+                            success: { type: boolean }
+                          required: [success]
+            """, mcpFactory: factory, llm: mockLlm.Object);
+
+        Assert.False(result.Success);
+        Assert.Equal(ErrorCodes.LlmSchema, result.Error!.Code);
+        Assert.Contains("does not conform", result.Error.Message, StringComparison.Ordinal);
+    }
+
     // ------ Validation ------
 
     [Fact]

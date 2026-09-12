@@ -292,6 +292,10 @@ public sealed class WorkflowTraceFileExporter : IWorkflowTraceFileExporter, IDis
         var startUtc = spans.Min(static span => span.StartUtc);
         var endUtc = spans.Max(static span => span.StartUtc + span.Duration);
         var errorCount = spans.Count(static span => string.Equals(span.Status, "Error", StringComparison.Ordinal));
+        var spanIds = spans.Select(span => span.SpanId).ToHashSet(StringComparer.Ordinal);
+        var roots = spans.Where(span => span.ParentSpanId is null || !spanIds.Contains(span.ParentSpanId)).ToArray();
+        var finalFailed = roots.Any(span => span.Status == "Error");
+        var finalSucceeded = roots.Length > 0 && roots.All(span => span.Status == "Ok");
         var otelSettings = _openTelemetrySettings.CurrentValue;
 
         writer.WriteStartObject();
@@ -314,7 +318,8 @@ public sealed class WorkflowTraceFileExporter : IWorkflowTraceFileExporter, IDis
         writer.WriteString("startUtc", startUtc);
         writer.WriteString("endUtc", endUtc);
         writer.WriteNumber("durationMs", Math.Max(0d, (endUtc - startUtc).TotalMilliseconds));
-        writer.WriteString("status", errorCount == 0 ? "ok" : "error");
+        writer.WriteString("status", finalFailed ? "error" : finalSucceeded ? "ok" : "unknown");
+        writer.WriteBoolean("hasRecoveredErrors", finalSucceeded && errorCount > 0);
         writer.WriteEndObject();
 
         writer.WriteStartArray("spans");

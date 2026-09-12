@@ -1,5 +1,7 @@
 using System.Text.Json.Nodes;
 using System.Diagnostics;
+using System.Security.Cryptography;
+using System.Text;
 using GnOuGo.Flow.Core.Expressions;
 using GnOuGo.Flow.Core.Models;
 
@@ -50,6 +52,10 @@ public sealed class StepExecutionContext
     public ExecutionLimits Limits { get; init; } = new();
     public int CallDepth { get; init; }
     public HashSet<string> CallStack { get; init; } = new();
+    public LLMUsageBudgetScope? LLMUsageBudget { get; set; }
+    public Planning.PlanningGenerationOptions? PlanningGeneration { get; set; }
+    public Planning.PlanningPreparationCheckpoint? PreparationCheckpoint { get; set; }
+    public Func<CancellationToken, Task>? PersistPreparation { get; set; }
     internal WorkflowExecutionScope? ExecutionScope { get; init; }
     internal WorkflowExecutionScope EffectiveExecutionScope =>
         ExecutionScope ?? new WorkflowExecutionScope(null, Engine.Evaluator, Engine.Interpolator);
@@ -57,6 +63,131 @@ public sealed class StepExecutionContext
     public ExpressionEvaluator Evaluator => ExecutionScope?.Evaluator ?? Engine.Evaluator;
     public StringInterpolator Interpolator => ExecutionScope?.Interpolator ?? Engine.Interpolator;
     public CompiledDocument? ActiveDocument => ExecutionScope?.Workflow?.Document ?? Engine.CompiledDocument;
+
+    /// <summary>
+    /// Executes an LLM call through the active provider-neutral usage budget, when configured.
+    /// </summary>
+    public Func<LLMRequest, string, CancellationToken, Task<LLMResponse>>? PlanningModelDispatcher { get; set; }
+
+    public Task<LLMResponse> CallLLMAsync(ILLMClient client, LLMRequest request, string stage, CancellationToken ct)
+        => PlanningModelDispatcher is { } dispatcher ? dispatcher(request, stage, ct) : CallModelAsync(client, request, stage, ct);
+
+    public async Task<LLMResponse> CallModelAsync(
+        ILLMClient client,
+        LLMRequest request,
+        string stage,
+        CancellationToken ct)
+    {
+        ArgumentNullException.ThrowIfNull(client);
+        ArgumentNullException.ThrowIfNull(request);
+        if (PlanningGeneration is { } generation) Planning.PlanningGenerationPolicy.Apply(request, generation);
+
+        if (PreparationCheckpoint is { } checkpoint)
+        {
+            checkpoint.Stage = stage;
+            var requestHash = Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(System.Text.Json.JsonSerializer.Serialize(request, Planning.PlanningJsonContext.Default.LLMRequest))));
+            if (!checkpoint.RequestHashes.Contains(requestHash, StringComparer.Ordinal)) checkpoint.RequestHashes.Add(requestHash);
+            if (PersistPreparation is not null) await PersistPreparation(ct).ConfigureAwait(false);
+        }
+
+        if (LLMUsageBudget is null)
+        {
+            try
+            {
+                var unbudgetedResponse = await client.CallAsync(request, ct).ConfigureAwait(false);
+                EmitPlannerStructuredOutputResult(stage, request, unbudgetedResponse, callCompleted: true);
+                return unbudgetedResponse;
+            }
+            catch
+            {
+                EmitPlannerStructuredOutputResult(stage, request, response: null, callCompleted: false);
+                throw;
+            }
+        }
+
+        var callId = Guid.NewGuid().ToString("N");
+        try
+        {
+            var response = await LLMUsageBudget.CallAsync(
+                client,
+                Engine.ModelUsageCostEstimator,
+                request,
+                stage,
+                ct).ConfigureAwait(false);
+            EmitLLMBudgetEvent(callId, stage, "recorded", null);
+            EmitPlannerStructuredOutputResult(stage, request, response, callCompleted: true);
+            return response;
+        }
+        catch (WorkflowRuntimeException ex) when (
+            ex.Code is ErrorCodes.LlmBudgetExceeded or ErrorCodes.LlmBudgetUnverifiable)
+        {
+            EmitLLMBudgetEvent(callId, stage, "rejected", ex.Code);
+            EmitPlannerStructuredOutputResult(stage, request, response: null, callCompleted: false);
+            throw;
+        }
+        catch
+        {
+            EmitLLMBudgetEvent(callId, stage, "call_failed", null);
+            EmitPlannerStructuredOutputResult(stage, request, response: null, callCompleted: false);
+            throw;
+        }
+    }
+
+    private void EmitPlannerStructuredOutputResult(
+        string stage,
+        LLMRequest request,
+        LLMResponse? response,
+        bool callCompleted)
+    {
+        if (!stage.StartsWith("workflow.plan", StringComparison.Ordinal))
+            return;
+
+        var schema = request.StructuredOutputSchema;
+        var schemaRequested = schema is not null;
+        var parsed = response?.Json is not null;
+        var locallyValidated = schemaRequested
+                               && parsed
+                               && JsonSchemaContractValidator.ValidateInstance(response!.Json!, schema!).Count == 0;
+        var schemaFingerprint = schemaRequested
+            ? Convert.ToHexString(SHA256.HashData(
+                    Encoding.UTF8.GetBytes(schema!.ToJsonString())))
+                .ToLowerInvariant()
+            : string.Empty;
+        AddTelemetryEvent("gnougo-flow.plan.structured_output.result", new[]
+        {
+            new KeyValuePair<string, object?>("gnougo-flow.plan.structured_output.stage", stage),
+            new KeyValuePair<string, object?>("gnougo-flow.plan.structured_output.call_completed", callCompleted),
+            new KeyValuePair<string, object?>("gnougo-flow.plan.structured_output.requested", schemaRequested),
+            new KeyValuePair<string, object?>("gnougo-flow.plan.structured_output.strict", request.StructuredOutputStrict == true),
+            new KeyValuePair<string, object?>("gnougo-flow.plan.structured_output.schema_version",
+                schemaRequested ? "planning-json-v5" : string.Empty),
+            new KeyValuePair<string, object?>("gnougo-flow.plan.structured_output.schema_fingerprint", schemaFingerprint),
+            new KeyValuePair<string, object?>("gnougo-flow.plan.structured_output.capability_source",
+                schemaRequested ? "runtime_request_contract" : "none"),
+            new KeyValuePair<string, object?>("gnougo-flow.plan.structured_output.parsed", parsed),
+            new KeyValuePair<string, object?>("gnougo-flow.plan.structured_output.locally_validated", locallyValidated)
+        });
+    }
+
+    private void EmitLLMBudgetEvent(string callId, string stage, string status, string? errorCode)
+    {
+        var snapshot = LLMUsageBudget!.Snapshot;
+        AddTelemetryEvent("gnougo-flow.llm_budget.updated", new[]
+        {
+            new KeyValuePair<string, object?>("gnougo-flow.llm_budget.call_id", callId),
+            new KeyValuePair<string, object?>("gnougo-flow.llm_budget.stage", stage),
+            new KeyValuePair<string, object?>("gnougo-flow.llm_budget.status", status),
+            new KeyValuePair<string, object?>("gnougo-flow.llm_budget.error_code", errorCode),
+            new KeyValuePair<string, object?>("gnougo-flow.llm_budget.calls", snapshot.Calls),
+            new KeyValuePair<string, object?>("gnougo-flow.llm_budget.input_tokens", snapshot.InputTokens),
+            new KeyValuePair<string, object?>("gnougo-flow.llm_budget.output_tokens", snapshot.OutputTokens),
+            new KeyValuePair<string, object?>("gnougo-flow.llm_budget.total_tokens", snapshot.TotalTokens),
+            new KeyValuePair<string, object?>("gnougo-flow.llm_budget.estimated_cost", snapshot.EstimatedCost),
+            new KeyValuePair<string, object?>("gnougo-flow.llm_budget.estimated_cost_currency", snapshot.EstimatedCostCurrency),
+            new KeyValuePair<string, object?>("gnougo-flow.llm_budget.estimated_cost_usd", snapshot.EstimatedCostUsd),
+            new KeyValuePair<string, object?>("gnougo-flow.llm_budget.elapsed_ms", Math.Max(0, (DateTimeOffset.UtcNow - snapshot.StartedAtUtc).TotalMilliseconds))
+        });
+    }
 
     /// <summary>
     /// The active telemetry span for this step.
@@ -192,8 +323,8 @@ public sealed class TelemetrySpanScope : IDisposable
     public void AddEvent(string name, IReadOnlyList<KeyValuePair<string, object?>>? attributes = null)
         => _span.AddEvent(name, attributes);
 
-    internal ITelemetrySpan Span => _span;
-    internal IModelUsageCostEstimator? ModelUsageCostEstimator { get; }
+    public ITelemetrySpan Span => _span;
+    public IModelUsageCostEstimator? ModelUsageCostEstimator { get; }
 
     public void Fail(Exception ex)
     {

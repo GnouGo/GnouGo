@@ -55,6 +55,12 @@ Shell availability is auto-detected at runtime. The `cmd_get_environment` tool r
 - accepted `parametersJson` field names
 - required/optional markers and workspace-path hints
 
+The advertised input schema also contains one `oneOf` selector branch per alias. Each
+branch fixes `commandName` with `const` and carries the configured, provider-neutral
+operation description plus its parameter contract. Consumers can therefore retain the
+exact semantic contract for a selected alias without inspecting its name or executable
+script.
+
 This is intended to help planning workflows generate valid `cmd_run` calls directly.
 
 The packaged allowlist includes both read aliases and guarded workspace write aliases such as directory creation, Markdown writing, and recursive deletion. These capabilities are discoverable by default, but `cmd_run` still accepts only named aliases and validates every workspace path and parameter before execution.

@@ -20,6 +20,7 @@ internal static class HumanInputDslReference
           - mode (string, required for generated DSL): text, choice, form, or confirm.
           - context (any, optional): structured data shown next to the prompt.
           - timeout_ms (number, optional): milliseconds before HUMAN_INPUT_TIMEOUT. Default: 36000000 (10 hours). Use 0 for no timeout.
+          - allow_abandon (boolean, optional): expose an explicit form-level abandon action. Default: false.
 
         Mode selection priority (use the most constrained control that matches the required response):
           1. `confirm`: use for a binary approval, confirmation, or accept/reject decision.
@@ -106,6 +107,11 @@ internal static class HumanInputDslReference
               - name: priority
                 type: select
                 options: [low, medium, high]
+                option_definitions:
+                  - { value: low, description: "Minimize urgency.", recommended: false }
+                  - { value: medium, description: "Balance urgency and disruption.", recommended: true }
+                  - { value: high, description: "Treat this as urgent.", recommended: false }
+                allow_custom_answer: true
                 default: medium
               - name: notes
                 type: textarea
@@ -125,6 +131,9 @@ internal static class HumanInputDslReference
           - `choice` and `confirm` require a non-empty `choices` array of strings.
           - `form` requires a non-empty `fields` array.
           - `select`, `radio`, `multiselect`, and `checkbox` fields require non-empty `options`.
+          - `option_definitions`, when present, must describe every option exactly once and may mark at most one as recommended.
+          - `allow_custom_answer` permits a value outside the finite option list; hosts present it as a native Other control.
+          - An abandoned request returns `{ "_action": "abandon" }`; never treat abandonment as an answer.
           - Field names must be unique and non-empty.
           - Use `date` for ISO date input (`YYYY-MM-DD`); it is returned as a string.
 
@@ -180,6 +189,7 @@ public sealed class HumanInputExecutor : IStepExecutor
         var timeoutMs = HumanInputContract.DefaultTimeoutMs;
         if (input.TryGetPropertyValue("timeout_ms", out var tNode) && tNode != null)
             timeoutMs = (int)ExpressionEvaluator.GetNumber(tNode);
+        var allowAbandon = ReadBool(input["allow_abandon"], defaultValue: false);
 
         // Parse choices
         List<string>? choices = null;
@@ -201,6 +211,8 @@ public sealed class HumanInputExecutor : IStepExecutor
                     Required = ReadBool(fObj["required"], defaultValue: true),
                     Description = ReadString(fObj["description"]),
                     Options = (fObj["options"] as JsonArray)?.Select(o => ReadString(o) ?? "").ToList(),
+                    OptionDefinitions = ParseOptionDefinitions(fObj["option_definitions"] as JsonArray),
+                    AllowCustomAnswer = ReadBool(fObj["allow_custom_answer"], defaultValue: false),
                     Default = ReadString(fObj["default"]),
                 });
             }
@@ -216,36 +228,6 @@ public sealed class HumanInputExecutor : IStepExecutor
         var runId = ctx.Limits.RunId ?? Guid.NewGuid().ToString("N");
 
         // Emit telemetry event so the UI knows we are waiting
-        var requestPayload = new JsonObject
-        {
-            ["prompt"] = prompt,
-            ["mode"] = mode,
-            ["run_id"] = runId,
-            ["step_id"] = ctx.Step.Id,
-        };
-        requestPayload["timeout_ms"] = timeoutMs;
-        if (context != null) requestPayload["context"] = context.DeepClone();
-        if (choices != null) requestPayload["choices"] = new JsonArray(choices.Select(c => (JsonNode)JsonValue.Create(c)!).ToArray());
-        if (fields != null)
-        {
-            var fArr = new JsonArray();
-            foreach (var f in fields)
-            {
-                var fObj = new JsonObject { ["name"] = f.Name, ["type"] = f.Type, ["required"] = f.Required };
-                if (f.Description != null) fObj["description"] = f.Description;
-                if (f.Options != null) fObj["options"] = new JsonArray(f.Options.Select(o => (JsonNode)JsonValue.Create(o)!).ToArray());
-                if (f.Default != null) fObj["default"] = f.Default;
-                fArr.Add((JsonNode)fObj);
-            }
-            requestPayload["fields"] = fArr;
-        }
-
-        ctx.AddTelemetryEvent("gnougo-flow.step.waiting_for_human", new[]
-        {
-            new KeyValuePair<string, object?>("gnougo-flow.human.prompt", prompt),
-            new KeyValuePair<string, object?>("gnougo-flow.human.request", requestPayload.ToJsonString()),
-        });
-
         // Build the request
         var request = new HumanInputRequest
         {
@@ -257,7 +239,15 @@ public sealed class HumanInputExecutor : IStepExecutor
             Choices = choices,
             Fields = fields,
             TimeoutMs = timeoutMs,
+            AllowAbandon = allowAbandon,
         };
+
+        var requestPayload = HumanInputContract.BuildRequestPayload(request);
+        ctx.AddTelemetryEvent("gnougo-flow.step.waiting_for_human", new[]
+        {
+            new KeyValuePair<string, object?>("gnougo-flow.human.prompt", prompt),
+            new KeyValuePair<string, object?>("gnougo-flow.human.request", requestPayload.ToJsonString()),
+        });
 
         // Wait for user response with timeout
         using var cts = CancellationTokenSource.CreateLinkedTokenSource(ct);
@@ -267,6 +257,14 @@ public sealed class HumanInputExecutor : IStepExecutor
         try
         {
             var response = await provider.RequestInputAsync(request, cts.Token);
+
+            if (HumanInputContract.IsAbandoned(response))
+            {
+                if (!allowAbandon)
+                    throw new WorkflowRuntimeException(ErrorCodes.InputValidation,
+                        $"human.input step '{ctx.Step.Id}' received an abandon action when allow_abandon is false.");
+                return new JsonObject { [HumanInputContract.ActionProperty] = HumanInputContract.ActionAbandon };
+            }
 
             ctx.AddTelemetryEvent("gnougo-flow.step.human_input_resumed", new[]
             {
@@ -379,7 +377,52 @@ public sealed class HumanInputExecutor : IStepExecutor
             if (HumanInputContract.RequiresOptions(field.Type) && field.Options is not { Count: > 0 })
                 throw new WorkflowRuntimeException(ErrorCodes.InputValidation,
                     $"human.input field '{field.Name}' of type '{field.Type}' requires non-empty 'options'.");
+            if (field.OptionDefinitions is { Count: > 0 })
+            {
+                var values = field.OptionDefinitions.Select(static option => option.Value).ToArray();
+                if (values.Any(string.IsNullOrWhiteSpace)
+                    || values.Distinct(StringComparer.Ordinal).Count() != values.Length)
+                {
+                    throw new WorkflowRuntimeException(ErrorCodes.InputValidation,
+                        $"human.input field '{field.Name}' option_definitions require unique non-empty values.");
+                }
+                if (field.Options == null
+                    || values.Count() != field.Options.Count
+                    || !values.SequenceEqual(field.Options, StringComparer.Ordinal))
+                {
+                    throw new WorkflowRuntimeException(ErrorCodes.InputValidation,
+                        $"human.input field '{field.Name}' option_definitions must describe every option in the same order.");
+                }
+                if (field.OptionDefinitions.Count(static option => option.Recommended) > 1)
+                {
+                    throw new WorkflowRuntimeException(ErrorCodes.InputValidation,
+                        $"human.input field '{field.Name}' option_definitions may mark at most one option as recommended.");
+                }
+            }
+            if (field.AllowCustomAnswer && !HumanInputContract.RequiresOptions(field.Type))
+                throw new WorkflowRuntimeException(ErrorCodes.InputValidation,
+                    $"human.input field '{field.Name}' can allow a custom answer only for an option-based field.");
         }
+    }
+
+    private static List<HumanInputOptionDef>? ParseOptionDefinitions(JsonArray? definitions)
+    {
+        if (definitions == null)
+            return null;
+
+        var parsed = new List<HumanInputOptionDef>();
+        foreach (var node in definitions)
+        {
+            if (node is not JsonObject definition)
+                continue;
+            parsed.Add(new HumanInputOptionDef
+            {
+                Value = ReadString(definition["value"]) ?? "",
+                Description = ReadString(definition["description"]),
+                Recommended = ReadBool(definition["recommended"], defaultValue: false)
+            });
+        }
+        return parsed;
     }
 
     private static string? ReadString(JsonNode? node)

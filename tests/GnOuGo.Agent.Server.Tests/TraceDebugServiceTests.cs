@@ -1,4 +1,4 @@
-﻿using System.Diagnostics;
+using System.Diagnostics;
 using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
@@ -547,7 +547,7 @@ public sealed class TraceDebugServiceTests
             var provider = services.BuildServiceProvider();
             using var scope = provider.CreateScope();
             var store = scope.ServiceProvider.GetRequiredService<EfTelemetryStore>();
-            await store.InitializeAsync(devMode: false);
+            await store.InitializeAsync();
 
             return new CollectorTestHost(provider, dbPath);
         }

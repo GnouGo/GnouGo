@@ -1,4 +1,4 @@
-﻿using System.Diagnostics;
+using System.Diagnostics;
 using System.Runtime.CompilerServices;
 using System.Text;
 using System.Text.Json;
@@ -38,6 +38,9 @@ public sealed class ConfigureAgentsService
     private readonly string _workflowYaml;
     private readonly TimeSpan _mcpCacheSlidingExpiration;
     private readonly string _tenantId;
+    private readonly ILLMUsageBudgetScopeFactory? _llmUsageBudgetScopeFactory;
+    private readonly IExchangeRateProvider? _exchangeRateProvider;
+    private readonly WorkflowPlanningBudgetSettings _workflowPlanningBudget;
 
     internal string WorkflowSource => _workflowYaml;
 
@@ -54,7 +57,10 @@ public sealed class ConfigureAgentsService
         AgentUserConfigMcpClient? userConfigClient = null,
         IOptions<McpCapabilityCacheSettings>? mcpCapabilityCacheSettings = null,
         IOptions<WorkflowMermaidMarkdownOptions>? workflowMermaidOptions = null,
-        IOptions<OpenTelemetrySettings>? openTelemetrySettings = null)
+        IOptions<OpenTelemetrySettings>? openTelemetrySettings = null,
+        ILLMUsageBudgetScopeFactory? llmUsageBudgetScopeFactory = null,
+        IExchangeRateProvider? exchangeRateProvider = null,
+        IOptions<WorkflowPlanningBudgetSettings>? workflowPlanningBudget = null)
     {
         _llm = llm;
         _mcpFactory = mcpFactory;
@@ -69,6 +75,10 @@ public sealed class ConfigureAgentsService
         _workflowMermaidOptions = workflowMermaidOptions?.Value ?? new WorkflowMermaidMarkdownOptions();
         _mcpCacheSlidingExpiration = (mcpCapabilityCacheSettings?.Value ?? new McpCapabilityCacheSettings()).SlidingExpiration;
         _tenantId = WorkflowExecutionTenant.Resolve(openTelemetrySettings);
+        _llmUsageBudgetScopeFactory = llmUsageBudgetScopeFactory;
+        _exchangeRateProvider = exchangeRateProvider;
+        _workflowPlanningBudget = workflowPlanningBudget?.Value ?? new WorkflowPlanningBudgetSettings();
+        _workflowPlanningBudget.Validate();
 
         // Load the embedded workflow YAML
         var asm = typeof(ConfigureAgentsService).Assembly;
@@ -94,7 +104,7 @@ public sealed class ConfigureAgentsService
         string command,
         [EnumeratorCancellation] CancellationToken ct)
     {
-        await foreach (var evt in ExecuteAsync(command, animation: null, ct))
+        await foreach (var evt in ExecuteAsync(command, animation: null, traceContext: null, ct))
             yield return evt;
     }
 
@@ -103,13 +113,32 @@ public sealed class ConfigureAgentsService
         AgentWorkflowAnimationBridge? animation,
         [EnumeratorCancellation] CancellationToken ct)
     {
+        await foreach (var evt in ExecuteAsync(command, animation, traceContext: null, ct))
+            yield return evt;
+    }
+
+    internal async IAsyncEnumerable<SmartFlowEvent> ExecuteAsync(
+        string command,
+        AgentWorkflowAnimationBridge? animation,
+        AgentTraceContext? traceContext,
+        [EnumeratorCancellation] CancellationToken ct)
+    {
         var trimmedCommand = command.Trim();
 
         // Wrap the whole /gnougo command in a dedicated trace span so that workflow spans,
         // GenAI llm.call spans and MCP calls all appear under a single, well-named parent
         // — mirroring what ConfigureProvidersService does for /llm, /mcp, /status.
         var descriptor = DescribeCommand(trimmedCommand);
-        using var commandTrace = _otel.StartActivityScope(descriptor.SpanName);
+        if (descriptor.Action is "add" or "reprompt")
+        {
+            var link = descriptor.Action == "reprompt" && !string.IsNullOrWhiteSpace(descriptor.Argument)
+                ? "/planning?agent=" + Uri.EscapeDataString(descriptor.Argument) : "/planning";
+            yield return new SmartFlowEvent("answer", $"[Open the workflow designer]({link}) to describe, review, and revise the workflow. Planning sessions can be resumed after reconnecting.");
+            yield break;
+        }
+        using var commandTrace = traceContext is { } explicitTraceContext
+            ? _otel.StartActivityScope(descriptor.SpanName, explicitTraceContext)
+            : _otel.StartActivityScope(descriptor.SpanName);
         commandTrace.SetTag("gnougo.agent.command.route", "configure_agents");
         commandTrace.SetTag("gnougo.agent.command.name", trimmedCommand);
         commandTrace.SetTag("gnougo.agent.command.mode", descriptor.Mode);
@@ -154,12 +183,14 @@ public sealed class ConfigureAgentsService
             {
                 yield return new SmartFlowEvent(
                     "answer",
-                    "❌ Configure a default LLM provider first. Use `/llm add` to create one, then `/llm default` before retrying `/gnougo add`." );
+                    "❌ Configure a default LLM provider first. Use `/llm add` to create one, then `/llm default` before retrying `/gnougo add`.");
                 yield break;
             }
 
             inputs["agent_llm_provider"] = selection.Provider;
             inputs["agent_llm_model"] = selection.Model;
+            inputs["planning_budget_amount"] = _workflowPlanningBudget.Amount;
+            inputs["planning_budget_currency"] = _workflowPlanningBudget.Currency;
 
             yield return new SmartFlowEvent(
                 "thinking:info",
@@ -183,7 +214,9 @@ public sealed class ConfigureAgentsService
         var engine = new WorkflowEngine
         {
             LLMClient = runtime.LlmClient,
-            ModelUsageCostEstimator = new ModelMetadataUsageCostEstimator(),
+            ModelUsageCostEstimator = new ModelMetadataUsageCostEstimator(runtime.Options),
+            ExchangeRateProvider = _exchangeRateProvider,
+            LLMUsageBudget = _llmUsageBudgetScopeFactory?.CreateScope(),
             LLMCapabilities = runtime.LlmCapabilityResolver,
             LlmDefaults = new LlmRuntimeDefaults
             {
@@ -255,7 +288,11 @@ public sealed class ConfigureAgentsService
             commandTrace.SetTag("error.type", error.GetType().FullName);
             commandTrace.SetTag("error.message", presentation.TraceDetails);
             RecordFailureDetails(commandTrace.Activity, workflowError, presentation);
-            yield return new SmartFlowEvent("error", presentation.UserMessage);
+            yield return new SmartFlowEvent(
+                "error",
+                presentation.UserMessage,
+                ErrorCode: workflowError.Code,
+                Retryable: workflowError.Retryable);
             yield break;
         }
 
@@ -283,7 +320,11 @@ public sealed class ConfigureAgentsService
             var presentation = WorkflowFailureFormatter.Format(workflowError);
             commandTrace.SetStatus(ActivityStatusCode.Error, presentation.TraceDetails);
             RecordFailureDetails(commandTrace.Activity, workflowError, presentation);
-            yield return new SmartFlowEvent("error", presentation.UserMessage);
+            yield return new SmartFlowEvent(
+                "error",
+                presentation.UserMessage,
+                ErrorCode: workflowError.Code,
+                Retryable: workflowError.Retryable);
         }
         else
         {

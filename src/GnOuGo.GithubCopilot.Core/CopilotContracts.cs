@@ -1,5 +1,6 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using System.ComponentModel;
 using GitHub.Copilot;
 
 namespace GnOuGo.GithubCopilot.Core;
@@ -163,11 +164,37 @@ public sealed record CopilotSendRequest(
 public sealed record CopilotSendResult(
     string Handle,
     string CopilotSessionId,
+    [property: Description("Assistant response text. Claims about requested work require validation against execution observations; this text is not a machine-validated task outcome.")]
     string Content,
     string? Model,
     [property: JsonPropertyName("progressEvents")]
     IReadOnlyList<CopilotStreamEvent> Events,
-    bool Completed = true);
+    [property: Description("Whether the assistant turn completed. This does not certify that the requested work succeeded; use verified execution observations to establish its outcome.")]
+    bool Completed = true)
+{
+    private readonly IReadOnlyList<CopilotToolExecutionObservation> _toolExecutions = [];
+    [Description("Execution observations captured directly from SDK tool events during this invocation, separate from assistant claims. Consume these existing results to verify commanded work; no separate observation tool is needed. Empty observations, missing completion, missing exit codes, or conflicting completions cannot establish successful work.")]
+    public IReadOnlyList<CopilotToolExecutionObservation> ToolExecutions { get => _toolExecutions; init => _toolExecutions = value ?? []; }
+}
+
+public sealed record CopilotToolExecutionObservation(
+    string ToolCallId,
+    string? ParentToolCallId,
+    string? ToolName,
+    [property: Description("Exact JSON arguments from the tool-start event; null when that event was not observed. Use these to identify the work actually requested, not the assistant's summary.")]
+    string? ArgumentsJson,
+    bool CompletionObserved,
+    [property: Description("Whether the SDK reported successful tool invocation. This is distinct from a process exit code and does not alone establish task success.")]
+    bool? ToolSucceeded,
+    bool ConflictingCompletion,
+    IReadOnlyList<CopilotTerminalObservation> Terminals,
+    string? ErrorCode);
+
+public sealed record CopilotTerminalObservation(
+    string? WorkingDirectory,
+    [property: Description("Process exit code supplied by the SDK terminal result, not inferred from text. Null means process completion is not established. Match the invocation's arguments to the required work and check every required command separately.")]
+    long? ExitCode,
+    string? Text);
 
 public sealed record CopilotStreamEvent(string Kind, string Level, string Message, DateTimeOffset Timestamp);
 

@@ -395,11 +395,11 @@ public sealed class AnthropicLlmProviderTests
 
         var warning = Assert.Single(logger.Entries, entry => entry.Level == LogLevel.Warning);
         Assert.Contains("Anthropic batch API not available", warning.Message);
-        Assert.Contains("https://api.anthropic.test/v1/messages/batches", warning.Message);
         Assert.Contains("StatusCode: 404", warning.Message);
         Assert.Contains("ReasonPhrase: Not Found", warning.Message);
-        Assert.Contains("not_found_error", warning.Message);
-        Assert.Contains("Not found: /v1/messages/batches", warning.Message);
+        Assert.DoesNotContain("api.anthropic.test", warning.Message, StringComparison.Ordinal);
+        Assert.DoesNotContain("not_found_error", warning.Message, StringComparison.Ordinal);
+        Assert.DoesNotContain("Not found: /v1/messages/batches", warning.Message, StringComparison.Ordinal);
         Assert.Contains(logger.Entries, entry => entry.Level == LogLevel.Information
             && entry.Message.Contains("previously returned unsupported", StringComparison.Ordinal)
             && entry.Message.Contains("skipping background mode", StringComparison.Ordinal));

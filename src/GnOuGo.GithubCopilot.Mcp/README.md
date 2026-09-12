@@ -2,11 +2,30 @@
 
 MCP stdio server for safe code operations on a local project.
 
+Optional `Code:Copilot:InferenceProxyEndpoint` routes both managed Copilot sessions
+and legacy code operations through a loopback inference policy host. The host must
+accept `POST <endpoint>/ready` with `sdk-http-interception-v1`, then enforce and
+forward inference requests using `X-GnOuGo-Inference-Upstream` and
+`X-GnOuGo-Inference-Request`. Startup fails when this explicit policy host is
+unavailable. No direct HTTP or WebSocket fallback is allowed. KeyVault remains the
+highest-priority configuration source; the proxy setting contains no credentials.
+
 ## MCP protocol compatibility
 
 This stdio server uses the stable C# MCP SDK `2.0.0` with automatic protocol negotiation: clients prefer `2026-07-28` discovery and can initialize with stable `2025-11-25`. Launch the built apphost, or use `dotnet GnOuGo.GithubCopilot.Mcp.dll`; do not put `dotnet run` on an MCP stdio transport because CLI output can corrupt the JSONL stream. The GnOuGo progress stream remains a stderr side channel and does not alter the MCP wire contract.
 
 ## Features
+
+For message and one-shot results, `completed` means the assistant turn completed. It does
+not establish that the requested work succeeded. The advertised field descriptions keep
+turn completion separate from verified execution outcomes and assistant response text.
+`toolExecutions` exposes tool-start arguments and terminal results captured directly
+from SDK events. Each terminal observation preserves the process exit code, working
+directory and output separately from the tool invocation's success flag. Verify every
+required command against these observations. Empty observations, absent exit codes and
+conflicting completion events remain inconclusive; assistant prose never fills them in.
+The same invocation already returns these observations, so consuming them requires no
+additional external read operation. Legacy results deserialize with an empty list.
 
 - Inspect the active policy with `code_get_policy`.
 - Summarize a project with `code_project_summary`.
@@ -49,7 +68,7 @@ Relevant Copilot settings:
 - `Code:Copilot:EnableSandboxBypassGrants`: independent host gate for explicitly remembered sandbox-bypass approvals, default `false`.
 - `Code:Copilot:WorkflowGrantTtlSeconds`: inactivity expiry for in-memory workflow-run grants, default `86400`.
 
-MCP transport sessions are never used as Copilot session identity. Managed calls use a `cps_*` opaque handle bound to `TenantId`; one-shot calls create, execute, disconnect, and permanently delete one SDK session. Request `_meta.gnougo` propagates tenant, correlation, stable execution and agent identity, run, step, repository, PR number, and head SHA. The host owns the execution and agent fields; workflow inputs cannot override them.
+MCP transport sessions are never used as Copilot session identity. Managed calls use a `cps_*` opaque handle bound to `TenantId`; the session-create tool advertises that handle as a materialized `session.handle` artifact and lifecycle consumers declare the matching required artifact. One-shot calls create, execute, disconnect, and permanently delete one SDK session, and advertise a complete-operation composition encapsulating those lower-level session phases so a provider-neutral planner can avoid redundant wrapper-plus-phase execution. Request `_meta.gnougo` propagates tenant, correlation, stable execution and agent identity, run, step, repository, PR number, and head SHA. The host owns the execution and agent fields; workflow inputs cannot override them.
 
 Interactive permission, user-input, and nested MCP elicitation callbacks are bridged through stable MCP form elicitation. `copilot_session_create` publishes the managed-session permission enum and defaults to `interactive`. `copilot_one_shot` is deliberately non-interactive, publishes only `auto_approve_allowlist`, `deny`, and `approve_all`, and defaults to `deny`; its `permissionAllowlistJson` argument supplies the explicit allowlist when that mode is selected. Use `copilot_interactive_one_shot` for dependency installation, tests, linting, edits, or other one-turn work that may execute tools: it creates a managed interactive session and permanently deletes it after success, failure, or cancellation. `deny` is appropriate for pure review inference. `auto_approve_allowlist` permits only explicitly named read-only paths/tools. `approve_all` is rejected unless the host gate is enabled and must not be generated without explicit unattended intent and established host availability.
 Interactive permission prompts show the exact operation, warnings, sandbox-bypass status, and remembered scope. They offer **Allow once**, **Refuse**, and **Allow similar operations for this task** only when the SDK marks a matching scope as safe. When `EnableApproveAll` is enabled, the same interactive callback may also offer **Allow all for this Copilot task**, **Allow all for this workflow run**, and **Allow all future runs for this agent** when the required stable identities are available. Ordinary broad grants never include sandbox bypass. When `EnableSandboxBypassGrants` is also enabled, a bypass request offers explicit task, workflow, and future-agent choices that include ordinary and bypass operations. Future-agent approval requires a second confirmation and is stored by tenant plus stable agent ID, so it follows renames and survives restarts. Workflow grants are tenant/run scoped and expire after inactivity.
@@ -64,7 +83,7 @@ Provider resolution order is an explicit tool argument, the MCP provider overrid
 
 ## Pull-request review contract
 
-Git MCP supplies exact patches. `copilot_review_start` and `copilot_review` accept optional `reviewInstructions` (maximum 32,000 characters) and `existingCommentsJson`. Existing comments contain path, optional side/line range, body, and optional fingerprint; only comments relevant to the current batch are included as bounded untrusted model context. Copilot review results contain fingerprint, severity, category, confidence, path, diff side, line range, evidence, explanation, and optional suggested patch. The server rejects unknown paths and lines outside the supplied diff, removes matching fingerprints or equivalent location/body findings, and reports binary/submodule skips plus truncated files.
+Git MCP supplies exact patches. `copilot_review_start` and `copilot_review` accept optional `reviewInstructions` (maximum 32,000 characters) and `existingCommentsJson`. Optional `runtimeContextJson` is a JSON object (at most 32,000 characters) containing original upstream execution results under named keys, including failures and uncertainty. It is validated before session creation and included as encoded, untrusted context in every batch; it cannot authorize publication or replace caller instructions or existing comments. Existing comments contain path, optional side/line range, body, and optional fingerprint; only comments relevant to the current batch are included as bounded untrusted model context. Copilot review results contain fingerprint, severity, category, confidence, path, diff side, line range, evidence, explanation, and optional suggested patch. The server rejects unknown paths and lines outside the supplied diff, removes matching fingerprints or equivalent location/body findings, and reports binary/submodule skips plus truncated files.
 
 The review session has no tools, no configuration discovery, no write permission, and is deleted after completion. Publication is deliberately outside this MCP and belongs to the Flow agent plus the official GitHub MCP. The publication gate fails closed for stale SHAs, dry runs, no findings, and unapproved interactive runs. `auto_comment` can only submit `COMMENT`; automated approval and merge are unsupported.
 
@@ -78,7 +97,7 @@ Supported provider section names are:
 
 The section must contain at least `url`; `model` is recommended and falls back to `Code:Copilot:Model` when omitted. Supported provider fields include `type`, `wireApi`, `wireModel`, `authType`, `apiKey`, `bearerToken`, and OIDC fields such as `oidcIssuer`, `oidcClientId`, `oidcScopes`, `oidcClientSecret`, or `oidcPrivateKeyPem`. Keep secret values in KeyVault, environment variables, or another secure configuration provider; do not commit real tokens to `appsettings.json`.
 
-For local Agent/Desktop usage, LLM provider secrets saved by `/llm add` are stored through `GnOuGo.KeyVault.Core` with keys such as `LLM--Models--OpenAi` and legacy `gnougo_llm_OpenAi`. Canonical keys win over legacy keys for the same provider. Provider JSON is flattened into `Code:Copilot:Providers:<provider>:...`, and secrets prefixed with `LLM--McpServerOverrides--GnOuGo.GithubCopilot.Mcp--Code--Copilot--` are mapped to the matching `Code:Copilot:...` leaves. Objects and indexed collections are supported.
+For local Agent/Desktop usage, LLM provider secrets saved by `/llm add` are stored through `GnOuGo.KeyVault.Core` with keys such as `LLM--Models--OpenAi` and legacy `gnougo_llm_OpenAi`. Provider identity is case-insensitive. One canonical key wins over one legacy key; multiple same-priority canonical or legacy variants are ambiguous and fail startup without exposing their values. Agent configuration saves reuse the existing canonical key and retire equivalent aliases so the ambiguity cannot be recreated by a case-only edit. Provider JSON is flattened into `Code:Copilot:Providers:<provider>:...`, and secrets prefixed with `LLM--McpServerOverrides--GnOuGo.GithubCopilot.Mcp--Code--Copilot--` are mapped to the matching `Code:Copilot:...` leaves. Objects and indexed collections are supported.
 
 Configuration precedence is packaged/appsettings/environment/command line, then shared provider secrets, then MCP-specific KeyVault overrides. The complete KeyVault overlay therefore has the highest priority, with MCP-specific values winning over shared provider fields. It is loaded once when the MCP process starts. If optional KeyVault storage is missing or unavailable, the entire overlay is discarded and a redacted warning is logged; if a present value is malformed, ambiguous, or invalid for a typed setting, startup fails without logging the value.
 
@@ -138,6 +157,11 @@ dotnet test "C:\github\GnouGo\tests\GnOuGo.GithubCopilot.Core.Tests\GnOuGo.Githu
 ```
 
 ## Native AOT publish
+
+macOS Release AOT publishes normalize a local copy of the .NET 10 Apple cryptography
+archive's incomplete debug information. Code and link symbols are retained; the
+NuGet cache is unchanged. See the [published certificate-chain smoke and framework
+workaround](../../tests/GnOuGo.Flow.Planning.Smoke/README.md).
 
 The project is configured for Native AOT and trimming analysis. Source-level `IL2026`, `IL3050`, and `IL3055` diagnostics are treated as build errors. The tool consumes the EF Core-backed KeyVault boundary, so normal publishes suppress only the pinned EF package summaries `IL2104` and `IL3053`; `verify-warning-free-publishes.ps1 -AuditKnownTrimWarnings` re-enables them and verifies their exact origins.
 

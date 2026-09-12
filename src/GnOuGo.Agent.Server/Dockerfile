@@ -48,8 +48,8 @@ COPY global.json ./
 # Copy scripts used by local metadata generation; Docker publish skips this target.
 COPY scripts/ scripts/
 
-# Copy shared build targets imported by Agent.Server before restoring its project graph.
-COPY build/GnOuGo.BundledMcpTools.targets build/
+# Copy shared targets imported by the complete project graph before restore.
+COPY build/ build/
 
 # Copy csproj files for layer caching (server + shared/project dependencies)
 COPY src/GnOuGo.Agent.Server/GnOuGo.Agent.Server.csproj src/GnOuGo.Agent.Server/
@@ -68,6 +68,7 @@ COPY src/GnOuGo.DocIngestor.Core/GnOuGo.DocIngestor.Core.csproj src/GnOuGo.DocIn
 COPY src/GnOuGo.DocIngestor.Mcp/GnOuGo.DocIngestor.Mcp.csproj src/GnOuGo.DocIngestor.Mcp/
 COPY src/GnOuGo.Files.Server/GnOuGo.Files.Server.csproj src/GnOuGo.Files.Server/
 COPY src/GnOuGo.Flow.Core/GnOuGo.Flow.Core.csproj src/GnOuGo.Flow.Core/
+COPY src/GnOuGo.Flow.Planning/GnOuGo.Flow.Planning.csproj src/GnOuGo.Flow.Planning/
 COPY src/GnOuGo.Flow.Integrations/GnOuGo.Flow.Integrations.csproj src/GnOuGo.Flow.Integrations/
 COPY src/GnOuGo.Flow.Mermaid/GnOuGo.Flow.Mermaid.csproj src/GnOuGo.Flow.Mermaid/
 COPY src/GnOuGo.Git.Mcp/GnOuGo.Git.Mcp.csproj src/GnOuGo.Git.Mcp/

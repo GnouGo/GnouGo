@@ -1,4 +1,5 @@
 using System.Globalization;
+using GnOuGo.Flow.Core.Planning;
 using System.Text.Json.Nodes;
 using System.Text.RegularExpressions;
 
@@ -10,15 +11,18 @@ namespace GnOuGo.Flow.Core.Runtime;
 internal static class JsonSchemaInstanceValidator
 {
     public static IReadOnlyList<string> ValidateInstance(JsonNode? instance, JsonNode? schema)
+        => ValidateInstanceFindings(instance, schema).Select(f => f.Message).ToArray();
+
+    internal static IReadOnlyList<PlanningInstanceFinding> ValidateInstanceFindings(JsonNode? instance, JsonNode? schema)
     {
-        var errors = new List<string>();
+        var errors = new List<PlanningInstanceFinding>();
         if (schema is not JsonObject root)
         {
-            errors.Add("$: schema must be an object");
+            errors.Add(new("", "$: schema must be an object", "schema_type"));
             return errors;
         }
 
-        ValidateInstanceNode(instance, root, root, "$", errors, new HashSet<string>(StringComparer.Ordinal));
+        ValidateInstanceNode(instance, root, root, new("$", ""), errors, new HashSet<string>(StringComparer.Ordinal));
         return errors;
     }
 
@@ -26,19 +30,19 @@ internal static class JsonSchemaInstanceValidator
         JsonNode? value,
         JsonObject schema,
         JsonObject root,
-        string path,
-        List<string> errors,
+        InstanceLocation path,
+        List<PlanningInstanceFinding> errors,
         HashSet<string> referenceStack)
     {
         if (TryReadString(schema["$ref"], out var reference))
         {
             if (!TryResolveLocalReference(root, reference, out var referencedSchema) || referencedSchema is not JsonObject referencedObject)
             {
-                errors.Add($"{path}: unresolved schema reference '{reference}'");
+                errors.Add(new(path.Pointer, $"{path}: unresolved schema reference '{reference}'", "$ref"));
                 return;
             }
 
-            var referenceKey = $"{reference}|{path}";
+            var referenceKey = $"{reference}|{path.Pointer}";
             if (!referenceStack.Add(referenceKey))
                 return;
             ValidateInstanceNode(value, referencedObject, root, path, errors, referenceStack);
@@ -46,25 +50,26 @@ internal static class JsonSchemaInstanceValidator
         }
 
         if (schema["allOf"] is JsonArray allOf)
-            foreach (var variant in allOf.OfType<JsonObject>())
-                ValidateInstanceNode(value, variant, root, path, errors, referenceStack);
+            foreach (var variant in allOf)
+                ValidateChild(value, variant, root, path, errors, referenceStack);
 
-        if (schema["anyOf"] is JsonArray anyOf && CountMatchingVariants(value, anyOf, root, referenceStack) == 0)
+        if (schema["anyOf"] is JsonArray anyOf && CountMatchingVariants(value, anyOf, root, path, referenceStack) == 0)
         {
-            errors.Add($"{path}: value does not match any allowed schema variant");
+            if (!DescribeSelectedVariant(value, anyOf, root, path, errors, referenceStack))
+                errors.Add(new(path.Pointer, $"{path}: value does not match any allowed schema variant", "anyOf"));
             return;
         }
 
-        if (schema["oneOf"] is JsonArray oneOf && CountMatchingVariants(value, oneOf, root, referenceStack) != 1)
+        if (schema["oneOf"] is JsonArray oneOf && CountMatchingVariants(value, oneOf, root, path, referenceStack) != 1)
         {
-            errors.Add($"{path}: value must match exactly one allowed schema variant");
+            errors.Add(new(path.Pointer, $"{path}: value must match exactly one allowed schema variant", "oneOf"));
             return;
         }
 
         if (schema["if"] is JsonObject condition)
         {
-            var conditionErrors = new List<string>();
-            ValidateInstanceNode(value, condition, root, "$", conditionErrors, new HashSet<string>(referenceStack, StringComparer.Ordinal));
+            var conditionErrors = new List<PlanningInstanceFinding>();
+            ValidateInstanceNode(value, condition, root, path, conditionErrors, new HashSet<string>(referenceStack, StringComparer.Ordinal));
             var selectedBranch = conditionErrors.Count == 0 ? schema["then"] : schema["else"];
             if (selectedBranch is JsonObject selectedBranchSchema)
                 ValidateInstanceNode(value, selectedBranchSchema, root, path, errors, referenceStack);
@@ -72,20 +77,20 @@ internal static class JsonSchemaInstanceValidator
 
         if (schema.TryGetPropertyValue("const", out var constant) && !JsonNode.DeepEquals(value, constant))
         {
-            errors.Add(
-                $"{path}: value must equal {constant?.ToJsonString() ?? "null"}; received {value?.ToJsonString() ?? "null"}");
+            errors.Add(new(path.Pointer, $"{path}: value must equal {constant?.ToJsonString() ?? "null"}; received {value?.ToJsonString() ?? "null"}", "const"));
+            return;
         }
         if (schema["enum"] is JsonArray allowed && !allowed.Any(candidate => JsonNode.DeepEquals(value, candidate)))
         {
             var allowedText = string.Join(", ", allowed.Select(static candidate => candidate?.ToJsonString() ?? "null"));
-            errors.Add(
-                $"{path}: value is not included in enum; received {value?.ToJsonString() ?? "null"}; allowed values: {allowedText}");
+            errors.Add(new(path.Pointer, $"{path}: value is not included in enum; received {value?.ToJsonString() ?? "null"}; allowed values: {allowedText}", "enum"));
+            return;
         }
 
         var applicableType = ReadApplicableType(schema, value);
         if (applicableType != null && !MatchesType(value, applicableType))
         {
-            errors.Add($"{path}: expected {applicableType}");
+            errors.Add(new(path.Pointer, $"{path}: expected {applicableType}", "type"));
             return;
         }
 
@@ -107,17 +112,46 @@ internal static class JsonSchemaInstanceValidator
         }
     }
 
-    private static int CountMatchingVariants(JsonNode? value, JsonArray variants, JsonObject root, HashSet<string> referenceStack)
+    private static int CountMatchingVariants(JsonNode? value, JsonArray variants, JsonObject root, InstanceLocation path, HashSet<string> referenceStack)
     {
         var matches = 0;
-        foreach (var variant in variants.OfType<JsonObject>())
+        foreach (var variant in variants)
         {
-            var variantErrors = new List<string>();
-            ValidateInstanceNode(value, variant, root, "$", variantErrors, new HashSet<string>(referenceStack, StringComparer.Ordinal));
+            var variantErrors = new List<PlanningInstanceFinding>();
+            ValidateChild(value, variant, root, path, variantErrors, new HashSet<string>(referenceStack, StringComparer.Ordinal));
             if (variantErrors.Count == 0)
                 matches++;
         }
         return matches;
+    }
+
+    // Type and literal tags can identify one intended variant even when a nested
+    // field is invalid. Report that field without guessing among ambiguous branches.
+    private static bool DescribeSelectedVariant(JsonNode? value, JsonArray variants, JsonObject root, InstanceLocation path,
+        List<PlanningInstanceFinding> errors, HashSet<string> referenceStack)
+    {
+        var candidates = variants.OfType<JsonObject>().Where(v => Possible(v, new(StringComparer.Ordinal))).ToArray();
+        if (candidates.Length != 1) return false;
+        var details = new List<PlanningInstanceFinding>();
+        ValidateInstanceNode(value, candidates[0], root, path, details, new(referenceStack, StringComparer.Ordinal));
+        if (details.Count == 0) return false;
+        errors.AddRange(details); return true;
+
+        bool Possible(JsonObject variant, HashSet<string> visited)
+        {
+            if (TryReadString(variant["$ref"], out var reference) && visited.Add(reference) &&
+                TryResolveLocalReference(root, reference, out var resolved) && resolved is JsonObject target && !Possible(target, visited)) return false;
+            var type = ReadApplicableType(variant, value);
+            if (type is not null && !MatchesType(value, type)) return false;
+            if (variant.TryGetPropertyValue("const", out var constant) && !JsonNode.DeepEquals(value, constant)) return false;
+            if (variant["enum"] is JsonArray allowed && !allowed.Any(v => JsonNode.DeepEquals(v, value))) return false;
+            if (value is JsonObject obj && variant["properties"] is JsonObject properties)
+                foreach (var (name, property) in properties)
+                    if (obj.TryGetPropertyValue(name, out var actual) && property is JsonObject contract &&
+                        (contract.TryGetPropertyValue("const", out var tag) && !JsonNode.DeepEquals(actual, tag) ||
+                         contract["enum"] is JsonArray tags && !tags.Any(t => JsonNode.DeepEquals(actual, t)))) return false;
+            return true;
+        }
     }
 
     private static string? ReadApplicableType(JsonObject schema, JsonNode? value)
@@ -154,7 +188,7 @@ internal static class JsonSchemaInstanceValidator
         };
     }
 
-    private static void ValidateObject(JsonNode? value, JsonObject schema, JsonObject root, string path, List<string> errors, HashSet<string> referenceStack)
+    private static void ValidateObject(JsonNode? value, JsonObject schema, JsonObject root, InstanceLocation path, List<PlanningInstanceFinding> errors, HashSet<string> referenceStack)
     {
         if (value is not JsonObject obj)
             return;
@@ -162,7 +196,7 @@ internal static class JsonSchemaInstanceValidator
         if (schema["required"] is JsonArray required)
             foreach (var requiredName in required.OfType<JsonValue>().Select(node => node.TryGetValue<string>(out var name) ? name : null).Where(static name => name != null))
                 if (!obj.ContainsKey(requiredName!))
-                    errors.Add($"{path}.{requiredName}: missing required property");
+                    errors.Add(new(path.Child(requiredName!).Pointer, $"{path}.{requiredName}: missing required property", "required"));
         if (schema["dependentRequired"] is JsonObject dependentRequired)
         {
             foreach (var (propertyName, dependenciesNode) in dependentRequired)
@@ -174,7 +208,7 @@ internal static class JsonSchemaInstanceValidator
                              .Where(static name => !string.IsNullOrWhiteSpace(name)))
                 {
                     if (!obj.ContainsKey(dependency!))
-                        errors.Add($"{path}.{dependency}: missing property required by '{propertyName}'");
+                        errors.Add(new(path.Child(dependency!).Pointer, $"{path}.{dependency}: missing property required by '{propertyName}'", "dependentRequired:" + propertyName));
                 }
             }
         }
@@ -182,21 +216,21 @@ internal static class JsonSchemaInstanceValidator
         var properties = schema["properties"] as JsonObject;
         foreach (var (name, childValue) in obj)
         {
-            if (properties != null && properties.TryGetPropertyValue(name, out var childSchema) && childSchema is JsonObject childObject)
+            if (properties != null && properties.TryGetPropertyValue(name, out var childSchema))
             {
-                ValidateInstanceNode(childValue, childObject, root, $"{path}.{name}", errors, referenceStack);
+                ValidateChild(childValue, childSchema, root, path.Child(name), errors, referenceStack);
                 continue;
             }
             if (schema["additionalProperties"] is JsonValue additionalValue
                 && additionalValue.TryGetValue<bool>(out var additionalAllowed)
                 && !additionalAllowed)
-                errors.Add($"{path}.{name}: property is not allowed by schema");
+                errors.Add(new(path.Child(name).Pointer, $"{path}.{name}: property is not allowed by schema", "additionalProperties"));
             else if (schema["additionalProperties"] is JsonObject additionalSchema)
-                ValidateInstanceNode(childValue, additionalSchema, root, $"{path}.{name}", errors, referenceStack);
+                ValidateInstanceNode(childValue, additionalSchema, root, path.Child(name), errors, referenceStack);
         }
     }
 
-    private static void ValidateArray(JsonNode? value, JsonObject schema, JsonObject root, string path, List<string> errors, HashSet<string> referenceStack)
+    private static void ValidateArray(JsonNode? value, JsonObject schema, JsonObject root, InstanceLocation path, List<PlanningInstanceFinding> errors, HashSet<string> referenceStack)
     {
         if (value is not JsonArray array)
             return;
@@ -205,13 +239,20 @@ internal static class JsonSchemaInstanceValidator
             for (var i = 0; i < array.Count; i++)
                 for (var j = i + 1; j < array.Count; j++)
                     if (JsonNode.DeepEquals(array[i], array[j]))
-                        errors.Add($"{path}: items at indexes {i} and {j} must be unique");
-        if (schema["items"] is JsonObject itemSchema)
-            for (var i = 0; i < array.Count; i++)
-                ValidateInstanceNode(array[i], itemSchema, root, $"{path}[{i}]", errors, referenceStack);
+                        errors.Add(new(path.Child(j).Pointer, $"{path}: items at indexes {i} and {j} must be unique", "uniqueItems"));
+        var prefix = schema["prefixItems"] as JsonArray;
+        for (var i = 0; i < array.Count; i++)
+            ValidateChild(array[i], prefix is not null && i < prefix.Count ? prefix[i] : schema["items"], root, path.Child(i), errors, referenceStack);
     }
 
-    private static void ValidateString(JsonNode? value, JsonObject schema, string path, List<string> errors)
+    private static void ValidateChild(JsonNode? value, JsonNode? schema, JsonObject root, InstanceLocation path, List<PlanningInstanceFinding> errors, HashSet<string> referenceStack)
+    {
+        if (schema is JsonObject contract) ValidateInstanceNode(value, contract, root, path, errors, referenceStack);
+        else if (schema is JsonValue boolean && boolean.TryGetValue<bool>(out var allowed) && !allowed)
+            errors.Add(new(path.Pointer, $"{path}: value is not allowed by schema", "false_schema"));
+    }
+
+    private static void ValidateString(JsonNode? value, JsonObject schema, InstanceLocation path, List<PlanningInstanceFinding> errors)
     {
         if (value is not JsonValue jsonValue || !jsonValue.TryGetValue<string>(out var text) || text == null)
             return;
@@ -220,26 +261,35 @@ internal static class JsonSchemaInstanceValidator
             try
             {
                 if (!Regex.IsMatch(text, pattern, RegexOptions.CultureInvariant, TimeSpan.FromSeconds(1)))
-                    errors.Add($"{path}: string does not match pattern '{pattern}'");
+                    errors.Add(new(path.Pointer, $"{path}: string does not match pattern '{pattern}'", "pattern"));
             }
-            catch (ArgumentException) { errors.Add($"{path}: schema contains an invalid pattern"); }
+            catch (ArgumentException) { errors.Add(new(path.Pointer, $"{path}: schema contains an invalid pattern", "pattern_contract")); }
     }
 
-    private static void ValidateNumber(JsonNode? value, JsonObject schema, string path, List<string> errors)
+    private static void ValidateNumber(JsonNode? value, JsonObject schema, InstanceLocation path, List<PlanningInstanceFinding> errors)
     {
         if (!TryReadDecimal(value, out var number))
             return;
-        if (TryReadDecimal(schema["minimum"], out var minimum) && number < minimum) errors.Add($"{path}: number must be >= {minimum}");
-        if (TryReadDecimal(schema["maximum"], out var maximum) && number > maximum) errors.Add($"{path}: number must be <= {maximum}");
-        if (TryReadDecimal(schema["exclusiveMinimum"], out var exclusiveMinimum) && number <= exclusiveMinimum) errors.Add($"{path}: number must be > {exclusiveMinimum}");
-        if (TryReadDecimal(schema["exclusiveMaximum"], out var exclusiveMaximum) && number >= exclusiveMaximum) errors.Add($"{path}: number must be < {exclusiveMaximum}");
-        if (TryReadDecimal(schema["multipleOf"], out var multipleOf) && multipleOf > 0 && number % multipleOf != 0) errors.Add($"{path}: number must be a multiple of {multipleOf}");
+        if (TryReadDecimal(schema["minimum"], out var minimum) && number < minimum) errors.Add(new(path.Pointer, $"{path}: number must be >= {minimum}", "minimum"));
+        if (TryReadDecimal(schema["maximum"], out var maximum) && number > maximum) errors.Add(new(path.Pointer, $"{path}: number must be <= {maximum}", "maximum"));
+        if (TryReadDecimal(schema["exclusiveMinimum"], out var exclusiveMinimum) && number <= exclusiveMinimum) errors.Add(new(path.Pointer, $"{path}: number must be > {exclusiveMinimum}", "exclusiveMinimum"));
+        if (TryReadDecimal(schema["exclusiveMaximum"], out var exclusiveMaximum) && number >= exclusiveMaximum) errors.Add(new(path.Pointer, $"{path}: number must be < {exclusiveMaximum}", "exclusiveMaximum"));
+        if (TryReadDecimal(schema["multipleOf"], out var multipleOf) && multipleOf > 0 && number % multipleOf != 0) errors.Add(new(path.Pointer, $"{path}: number must be a multiple of {multipleOf}", "multipleOf"));
     }
 
-    private static void ValidateCount(int count, JsonObject schema, string minimumKeyword, string maximumKeyword, string path, string unit, List<string> errors)
+    private static void ValidateCount(int count, JsonObject schema, string minimumKeyword, string maximumKeyword, InstanceLocation path, string unit, List<PlanningInstanceFinding> errors)
     {
-        if (TryReadInteger(schema[minimumKeyword], out var minimum) && count < minimum) errors.Add($"{path}: must contain at least {minimum} {unit}");
-        if (TryReadInteger(schema[maximumKeyword], out var maximum) && count > maximum) errors.Add($"{path}: must contain at most {maximum} {unit}");
+        if (TryReadInteger(schema[minimumKeyword], out var minimum) && count < minimum) errors.Add(new(path.Pointer, $"{path}: must contain at least {minimum} {unit}", minimumKeyword));
+        if (TryReadInteger(schema[maximumKeyword], out var maximum) && count > maximum) errors.Add(new(path.Pointer, $"{path}: must contain at most {maximum} {unit}", maximumKeyword));
+    }
+
+    private readonly record struct InstanceLocation(string Display, string Pointer)
+    {
+        public override string ToString() => Display;
+        internal InstanceLocation Child(string name) => new(Display + "." + name,
+            Pointer + "/" + name.Replace("~", "~0", StringComparison.Ordinal).Replace("/", "~1", StringComparison.Ordinal));
+        internal InstanceLocation Child(int index) => new(Display + "[" + index.ToString(CultureInfo.InvariantCulture) + "]",
+            Pointer + "/" + index.ToString(CultureInfo.InvariantCulture));
     }
 
     private static bool TryReadString(JsonNode? node, out string text)

@@ -7,6 +7,19 @@ namespace GnOuGo.Flow.Tests.Runtime;
 
 public class InputTypeValidatorTests
 {
+    [Fact]
+    public void OptionalAndNullableAreIndependentAndNestedNullsAreValidated()
+    {
+        var workflow = MakeWorkflow(new() { Type = "number", Required = false });
+        Assert.Empty(InputTypeValidator.Validate(workflow, new JsonObject()));
+        Assert.Single(InputTypeValidator.Validate(workflow, new JsonObject { ["x"] = null }));
+        workflow.Inputs!["x"].Required = true; workflow.Inputs["x"].Nullable = true;
+        Assert.Empty(InputTypeValidator.Validate(workflow, new JsonObject { ["x"] = null }));
+        Assert.Single(InputTypeValidator.Validate(workflow, new JsonObject()));
+        workflow.Inputs["x"] = new() { Type = "array", Items = new() { Type = "object", Properties = new() { ["value"] = new() { Type = "number" } } } };
+        Assert.Single(InputTypeValidator.Validate(workflow, new JsonObject { ["x"] = new JsonArray(new JsonObject { ["value"] = null }) }));
+    }
+
     // ── Base type checks ──
 
     [Fact]
@@ -378,6 +391,33 @@ public class InputTypeValidatorTests
     }
 
     // ── Helper ──
+
+    [Fact]
+    public void Validate_StringEnum_RejectsUnknownValue()
+    {
+        var wf = MakeWorkflow(new InputDef
+        {
+            Type = "string",
+            Enum = ["first", "second"]
+        });
+
+        var errors = InputTypeValidator.Validate(wf, new JsonObject { ["x"] = "third" });
+
+        var error = Assert.Single(errors);
+        Assert.Contains("allowed values", error, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Validate_StringEnum_AcceptsDeclaredValue()
+    {
+        var wf = MakeWorkflow(new InputDef
+        {
+            Type = "string",
+            Enum = ["first", "second"]
+        });
+
+        Assert.Empty(InputTypeValidator.Validate(wf, new JsonObject { ["x"] = "second" }));
+    }
 
     private static WorkflowDef MakeWorkflow(InputDef def)
     {

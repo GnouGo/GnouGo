@@ -1,4 +1,4 @@
-﻿name: Publish .NET packages to NuGet
+name: Publish .NET packages to NuGet
 
 on:
   workflow_call:
@@ -51,6 +51,8 @@ jobs:
             'src/GnOuGo.Assets.Bears/GnOuGo.Assets.Bears.csproj',
             'src/GnOuGo.Assets.Animation/GnOuGo.Assets.Animation.csproj',
             'src/GnOuGo.Flow.Core/GnOuGo.Flow.Core.csproj',
+            'src/GnOuGo.KeyVault.Core/GnOuGo.KeyVault.Core.csproj',
+            'src/GnOuGo.Flow.Planning/GnOuGo.Flow.Planning.csproj',
             'src/GnOuGo.Flow.Integrations/GnOuGo.Flow.Integrations.csproj',
             'src/GnOuGo.Flow.Mermaid/GnOuGo.Flow.Mermaid.csproj'
           )

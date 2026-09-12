@@ -18,6 +18,7 @@ using OpenTelemetry.Resources;
 using OpenTelemetry.Trace;
 using GnOuGo.Agent.Server.Configuration;
 using GnOuGo.Agent.Server.Endpoints;
+using GnOuGo.Agent.Server.Planning;
 using GnOuGo.Agent.Server.SmartFlow;
 using GnOuGo.Agent.Server.Telemetry;
 using GnOuGo.Agent.Shared;
@@ -46,7 +47,8 @@ public static class GnOuGoAgentWebHost
         string[] args,
         string? urls = null,
         string? contentRoot = null,
-        bool enableHttpsRedirection = true)
+        bool enableHttpsRedirection = true,
+        Action<IServiceCollection>? configureServices = null)
     {
         WebApplicationBuilder builder;
         var isDesktopHosted = !string.IsNullOrWhiteSpace(contentRoot);
@@ -174,6 +176,11 @@ public static class GnOuGoAgentWebHost
         llmOptions.ModelOverrides.TryAdd(
             LocalModelCatalog.Qwen3Id,
             LocalModelCatalog.CreateMetadata(LocalModelCatalog.Qwen3));
+        LLMOptionsValidation.ValidateAndThrow(llmOptions);
+        var workflowPlanningBudget = builder.Configuration
+            .GetSection(WorkflowPlanningBudgetSettings.SectionName)
+            .Get<WorkflowPlanningBudgetSettings>() ?? new WorkflowPlanningBudgetSettings();
+        workflowPlanningBudget.Validate();
 
         // Resolve the dotnet executable used by this process so stdio MCP servers are spawned
         // with the SAME dotnet installation that's running the agent server.
@@ -187,6 +194,8 @@ public static class GnOuGoAgentWebHost
         // Register the normalized LLM options so runtime services receive the same MCP
         // configuration after command/path resolution.
         builder.Services.AddSingleton<IOptions<LLMOptions>>(_ => Options.Create(llmOptions));
+        builder.Services.AddSingleton<IOptions<WorkflowPlanningBudgetSettings>>(_ =>
+            Options.Create(workflowPlanningBudget));
 
         // OpenTelemetry configuration
         builder.Services.Configure<OpenTelemetrySettings>(
@@ -229,6 +238,7 @@ public static class GnOuGoAgentWebHost
                         .SetResourceBuilder(resourceBuilder)
                         .AddSource(AgentOTelTelemetry.ActivitySourceName)
                         .AddSource("GnOuGo.AI.Core.Routing")
+                        .AddSource("GnOuGo.Agent.Planning")
                         .AddSource("GnOuGo.AI.Local.Models")
                         .AddSource("GnOuGo.AI.Local.Inference");
 
@@ -259,6 +269,8 @@ public static class GnOuGoAgentWebHost
                         .SetResourceBuilder(resourceBuilder)
                         .AddMeter(AgentOTelTelemetry.MeterName)
                         .AddMeter("GnOuGo.AI.Core.Routing")
+                        .AddMeter("GnOuGo.Agent.Planning")
+                        .AddMeter("GnOuGo.Flow.Planning")
                         .AddMeter("GnOuGo.AI.Local.Models")
                         .AddMeter("GnOuGo.AI.Local.Inference")
                         .AddAspNetCoreInstrumentation()
@@ -335,6 +347,18 @@ public static class GnOuGoAgentWebHost
         {
             client.Timeout = Timeout.InfiniteTimeSpan;
         });
+        builder.Services.AddHttpClient("GnOuGo.Flow.ExchangeRates", client =>
+        {
+            client.Timeout = TimeSpan.FromSeconds(workflowPlanningBudget.ExchangeRateTimeoutSeconds);
+        });
+        builder.Services.AddSingleton<IExchangeRateProvider>(sp => new EcbExchangeRateProvider(
+            sp.GetRequiredService<IHttpClientFactory>().CreateClient("GnOuGo.Flow.ExchangeRates"),
+            new EcbExchangeRateProviderOptions
+            {
+                Endpoint = new Uri(workflowPlanningBudget.EcbEndpoint, UriKind.Absolute),
+                MaxQuoteAge = TimeSpan.FromDays(workflowPlanningBudget.MaxQuoteAgeDays),
+                StaticQuotes = workflowPlanningBudget.CreateStaticQuotes()
+            }));
         var localModelsDirectory = GnOuGoWorkspace.ResolveLocalModelsDirectory(applicationBasePath);
         builder.Services.AddSingleton<ILocalLLMRuntime>(sp => new LlamaSharpLocalLLMRuntime(
             localModelsDirectory,
@@ -451,6 +475,20 @@ public static class GnOuGoAgentWebHost
         builder.Services.AddSingleton<ConfigureProvidersService>();
         builder.Services.AddSingleton<LocalModelsService>();
         builder.Services.AddSingleton<ConfigureAgentsService>();
+        builder.Services.Configure<GnOuGo.Agent.Server.Configuration.TypedWorkflowPlanningSettings>(
+            builder.Configuration.GetSection(GnOuGo.Agent.Server.Configuration.TypedWorkflowPlanningSettings.SectionName));
+        var planningSettings = builder.Configuration.GetSection(GnOuGo.Agent.Server.Configuration.TypedWorkflowPlanningSettings.SectionName)
+            .Get<GnOuGo.Agent.Server.Configuration.TypedWorkflowPlanningSettings>() ?? new();
+        if (planningSettings.MaxConcurrency is < 1 or > 16)
+            throw new InvalidOperationException("Invalid typed workflow planning configuration.");
+        var planningDbPath = GnOuGoWorkspace.ResolveDatabasePath(planningSettings.DatabasePath, applicationBasePath, ".GnOuGo/data/gnougo-planning-v5.db");
+        builder.Services.AddDbContextFactory<GnOuGo.Agent.Server.Planning.PlanningDbContext>(options => options.UseSqlite($"Data Source={planningDbPath}"));
+        builder.Services.AddSingleton<GnOuGo.KeyVault.Core.Services.IKeyVaultRecordStore>(_ =>
+            GnOuGo.KeyVault.Core.Services.KeyVaultRecordStoreFactory.CreateWorkspaceStore(keyVaultDbPath, applicationBasePath));
+        builder.Services.AddSingleton<GnOuGo.Flow.Core.Planning.IPlanningSessionStore, GnOuGo.Agent.Server.Planning.EfPlanningSessionStore>();
+        builder.Services.AddSingleton<GnOuGo.Flow.Core.Planning.IWorkflowPlanner, GnOuGo.Flow.Planning.TypedWorkflowPlanner>();
+        builder.Services.AddSingleton<GnOuGo.Agent.Server.Planning.PlanningSessionService>();
+        builder.Services.AddHostedService(sp => sp.GetRequiredService<GnOuGo.Agent.Server.Planning.PlanningSessionService>());
         builder.Services.AddSingleton<SmartFlowService>();
         builder.Services.AddSingleton<TraceDebugService>();
 
@@ -458,6 +496,7 @@ public static class GnOuGoAgentWebHost
 
         builder.Services.AddSingleton<WordChunker>();
 
+        configureServices?.Invoke(builder.Services);
         var app = builder.Build();
 
         app.Services.InitializeAgentMcpAsync().GetAwaiter().GetResult();
@@ -569,6 +608,7 @@ public static class GnOuGoAgentWebHost
         app.MapGet("/api/chat/conversations/{conversationId}", ChatEndpoints.GetConversation);
         app.MapGnOuGoFilesServer(includeHealthEndpoint: false);
         app.MapGet("/api/version", (AppVersionInfo versionInfo) => versionInfo.ToDto());
+        app.MapPlanningEndpoints();
         app.MapGet("/api/llm/providers", LlmProviderEndpoints.ListProviders);
         app.MapGet("/api/llm/providers/{provider}/models", LlmProviderEndpoints.ListModelsAsync);
 
@@ -763,9 +803,9 @@ public static class GnOuGoAgentWebHost
                 // Extract the project name from any relative path like ../../GnOuGo.Foo/GnOuGo.Foo.csproj
                 var normalised = projectArg.Replace('/', Path.DirectorySeparatorChar)
                                            .Replace('\\', Path.DirectorySeparatorChar);
-                var projectDir  = Path.GetDirectoryName(normalised) ?? "";
+                var projectDir = Path.GetDirectoryName(normalised) ?? "";
                 var projectName = Path.GetFileName(projectDir);
-                var csprojFile  = Path.GetFileName(normalised);
+                var csprojFile = Path.GetFileName(normalised);
 
                 if (string.IsNullOrEmpty(projectName) || string.IsNullOrEmpty(csprojFile)) continue;
 

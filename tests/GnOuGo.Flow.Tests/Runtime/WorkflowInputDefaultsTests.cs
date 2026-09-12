@@ -1,12 +1,42 @@
 using System.Text.Json.Nodes;
 using GnOuGo.Flow.Core.Models;
 using GnOuGo.Flow.Core.Runtime;
+using GnOuGo.Flow.Core.Compilation;
+using GnOuGo.Flow.Core.Parsing;
+using GnOuGo.Flow.Core.Expressions;
 using Xunit;
 
 namespace GnOuGo.Flow.Tests.Runtime;
 
 public class WorkflowInputDefaultsTests
 {
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task EngineAppliesDefaultsBeforeExecutionAndPreservesExplicitNull(bool child)
+    {
+        var document = new WorkflowCompiler().Compile(WorkflowParser.Parse("""
+            version: 1
+            workflows:
+              main:
+                inputs:
+                  limit: { type: number, required: false, default: 100 }
+                steps: []
+                outputs:
+                  result: { type: number, expr: "${data.inputs.limit}" }
+            """));
+        var engine = new WorkflowEngine(); var workflow = document.Workflows["main"]; var input = new JsonObject();
+        Task<RunResult> Run(JsonObject value) => child
+            ? engine.ExecuteChildWorkflowAsync(workflow, value, new(), 0, [], null, TestContext.Current.CancellationToken)
+            : engine.ExecuteAsync(workflow, value, TestContext.Current.CancellationToken);
+        var result = await Run(input);
+        Assert.True(result.Success, result.Error?.Message);
+        Assert.True(JsonNode.DeepEquals(JsonNode.Parse("100"), result.Outputs!["result"]));
+        Assert.Empty(input);
+        var exception = await Assert.ThrowsAsync<WorkflowRuntimeException>(() => Run(new JsonObject { ["limit"] = null }));
+        Assert.Equal(ErrorCodes.InputValidation, exception.Code);
+    }
+
     [Fact]
     public void Apply_AddsMissingDefaults()
     {

@@ -14,6 +14,11 @@ Use English only.
 - **Flow.Core autonomy**:
   - `GnOuGo.Flow.Core` must never reference another `GnOuGo.*` project or package,
   - Flow.Core owns provider-neutral interfaces and contracts; concrete AI, MCP, and host integrations belong to consumers or `GnOuGo.Flow.Integrations` and must be injected through those interfaces.
+- **Provider-neutral planning behavior**:
+  - Flow.Core planning, clarification, inference, and validation behavior must derive only from stable Flow contracts, explicit configuration, runtime inputs, declared step or MCP schemas, and provider-supplied provider-neutral metadata,
+  - runtime behavior must never branch on provider, server, or tool names, catalog identifiers, URLs, domain nouns, use-case phrases, or prompt keywords,
+  - provider- and use-case-specific semantics belong in producer metadata or injected integrations outside Flow.Core,
+  - every AI-produced classification or contract must be validated deterministically; insufficient evidence must trigger generic human clarification when eligible or fail closed, never a provider-specific heuristic.
 
 ---
 

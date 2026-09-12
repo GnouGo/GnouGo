@@ -1,4 +1,4 @@
-﻿
+
 namespace GnOuGo.Agent.Server.Tests;
 
 public sealed class BundledBrowserMcpPublishTests
@@ -389,6 +389,17 @@ public sealed class BundledBrowserMcpPublishTests
         Assert.Contains("--is-shallow-repository", changelogScript);
     }
 
+    [Fact]
+    public void VersionWorkflow_UsesValidFallbackWhenPullRequestNumberIsUnavailable()
+    {
+        var workflowFile = Path.Combine(GetRepositoryRoot(), ".github", "workflows", "compute-version-tag.yml");
+        var yaml = File.ReadAllText(workflowFile);
+
+        Assert.Contains("github.event_name }}' == 'pull_request' && -n '${{ github.event.number }}'", yaml);
+        Assert.Contains("new_version=\"$version-pr.${{ github.event.number }}.${{ github.run_number }}\"", yaml);
+        Assert.Contains("new_version=\"$version-ci.${{ github.run_number }}\"", yaml);
+    }
+
 
     [Fact]
     public void AgentDockerfile_AllowsRestoreDuringPublishForGeneratedOtlpProtos()
@@ -410,7 +421,8 @@ public sealed class BundledBrowserMcpPublishTests
             StringComparison.Ordinal);
 
         Assert.True(restoreIndex >= 0, "The Agent.Server restore command was not found in the Dockerfile.");
-        AssertCopiedBeforeRestore(dockerfile, restoreIndex, "build/GnOuGo.BundledMcpTools.targets");
+        foreach (var target in Directory.EnumerateFiles(Path.Combine(root, "build"), "*.targets"))
+            AssertCopiedBeforeRestore(dockerfile, restoreIndex, Path.GetRelativePath(root, target).Replace('\\', '/'));
 
         var sharedTargetsPath = Path.Combine(root, "build", "GnOuGo.BundledMcpTools.targets");
         var sharedTargets = System.Xml.Linq.XDocument.Load(sharedTargetsPath);
@@ -495,8 +507,19 @@ public sealed class BundledBrowserMcpPublishTests
 
     private static void AssertCopiedBeforeRestore(string dockerfile, int restoreIndex, string repositoryPath)
     {
-        var copyIndex = dockerfile.IndexOf(repositoryPath, StringComparison.Ordinal);
-        Assert.True(copyIndex >= 0, $"The Docker restore layer does not copy '{repositoryPath}'.");
-        Assert.True(copyIndex < restoreIndex, $"The Docker restore layer copies '{repositoryPath}' after restore.");
+        var copied = dockerfile[..restoreIndex].Split('\n').Select(line => line.Trim())
+            .Where(line => line.StartsWith("COPY ", StringComparison.Ordinal))
+            .Select(line => line[5..].Trim())
+            .Where(line => !line.StartsWith("--", StringComparison.Ordinal))
+            .SelectMany(line =>
+            {
+                var arguments = line.StartsWith('[')
+                    ? System.Text.Json.JsonSerializer.Deserialize<string[]>(line)!
+                    : line.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries);
+                return arguments[..^1]; // The last argument is the destination.
+            })
+            .Any(source => source == repositoryPath ||
+                source.EndsWith('/') && repositoryPath.StartsWith(source, StringComparison.Ordinal));
+        Assert.True(copied, $"The Docker restore layer does not copy '{repositoryPath}' before restore.");
     }
 }
