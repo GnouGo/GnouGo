@@ -361,34 +361,39 @@ internal static class CapabilityInventoryContext
         // Lossless factoring of repeated transport text. IDs and candidate boundaries are unchanged.
         var best = catalog.Text;
         Dictionary<string, string[]> sharedFragments = new(StringComparer.Ordinal);
-        foreach (var widths in new[] { new[] { 12, 24, 48 }, new[] { 4, 8, 12, 16, 24, 32, 48 } })
+        foreach (var widths in new[] { new[] { 12, 24, 48 }, new[] { 1, 2, 4, 8, 12, 16, 24, 32, 48 } })
         {
             var fragments = new Dictionary<string, int>(StringComparer.Ordinal);
             foreach (var entry in catalog.Entries)
             {
-                var words = Regex.Matches(entry.Card, @"\S+\s*").Cast<Match>().ToArray();
+                // Compact contract members have punctuation boundaries without
+                // whitespace. Factoring remains lossless, including quoted commas.
+                var words = Regex.Matches(entry.Card, @"[^\s,;]+[,;\s]*").Cast<Match>().ToArray();
                 foreach (var width in widths)
                     for (var i = 0; i + width <= words.Length; i++)
                     {
                         var end = words[i + width - 1].Index + words[i + width - 1].Length;
                         var fragment = entry.Card[words[i].Index..end];
-                        if (fragment.Length >= 64) fragments[fragment] = fragments.GetValueOrDefault(fragment) + 1;
+                        if (fragment.Length >= 32) fragments[fragment] = fragments.GetValueOrDefault(fragment) + 1;
                     }
             }
             sharedFragments = fragments.Where(p => p.Value > 1).Select(p => p.Key).GroupBy(p => p[..32], StringComparer.Ordinal)
                 .ToDictionary(g => g.Key, g => g.OrderByDescending(p => p.Length).ThenBy(p => p, StringComparer.Ordinal).ToArray(), StringComparer.Ordinal);
             foreach (var separator in new[] { "", ", ", ". ", "; ", "\n" })
+            // Prefix sharing is an encoding choice, not a capability boundary.
+            // Distinct method IDs and their full contracts survive either grouping.
+            foreach (var separateMethods in new[] { true, false })
             {
-                var compact = Pack(separator);
+                var compact = Pack(separator, separateMethods);
                 if (PlanningJsonTransport.EstimateInputTokens(compact, new()) < PlanningJsonTransport.EstimateInputTokens(best, new())) best = compact;
             }
         }
         return best;
 
-        string Pack(string separator)
+        string Pack(string separator, bool separateMethods)
         {
             var groups = new JsonArray();
-            foreach (var group in catalog.Entries.GroupBy(e => (e.Resolution, e.Server, e.Kind, e.Method)))
+            foreach (var group in catalog.Entries.GroupBy(e => (e.Resolution, e.Server, e.Kind, Method: separateMethods ? e.Method : "")))
             {
                 var entries = group.ToArray(); var prefix = entries[0].Card;
                 foreach (var entry in entries.Skip(1))
@@ -415,7 +420,7 @@ internal static class CapabilityInventoryContext
                         new JsonArray(Parts(e.Card.Substring(prefix.Length, e.Card.Length - prefix.Length - suffix.Length), separator).Select(p => (JsonNode?)JsonValue.Create(p)).ToArray()))))
                 });
             }
-            return PlanningPromptContext.Instructions + "Each entry's exact contract text is its group's prefix, its parts joined with separator, then its group's suffix.\n" +
+            return "{$contextRef:id} expands to that exact shared value; JSON Schema references and constraints are unchanged. Entry contract = group.prefix + join(entry parts, separator) + group.suffix.\n" +
                 PlanningPromptContext.Json(PlanningPromptContext.Share(new JsonObject { ["separator"] = separator, ["groups"] = groups }));
         }
 

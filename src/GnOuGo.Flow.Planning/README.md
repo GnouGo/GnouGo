@@ -73,7 +73,9 @@ and matching repair use recorded candidates for the affected operation plus decl
 prerequisites; completed scopes are checkpointed and revalidated on replay. Unresolved
 contracts stop without reopening the unfiltered catalog.
 Matching context shares repeated catalog text and emits ordinary UTF-8 JSON without
-HTML escaping. Candidate IDs and expanded contract text are preserved exactly.
+HTML escaping. Compact JSON members and prefixes across methods may be shared when
+the complete encoding is smaller. Candidate IDs and expanded contract text are
+preserved exactly; text grouping never changes capability eligibility or ownership.
 Required workflow policies remain in selection and matching context even when they
 do not constitute global catalog denials. Validated workflow structure evidence is
 carried separately as planner-owned requirements for behavior validation, construction

@@ -541,6 +541,40 @@ performed zero provider dispatches and left persisted source state unchanged.
 Production code, catalog, policy and request ceilings are unchanged. This is the
 third and final authorized fresh start in the bounded series.
 
+Fresh session 3 (ledger run 23), `55e62ff6be5f4934a02362992be13f8f`, used
+`88249d5`. It stopped at revision 23 after seven calls with all receipts present:
+38,646 input / 18,738 output tokens. Matching the recorded manifest-reading scope
+required **12,651 estimated input tokens**, so `MODEL_INPUT_LIMIT` stopped it
+before any matching dispatch. The largest actually reserved estimate was 11,876.
+Classification: deterministic matching-context size failure, distinct from the
+first session's evidence transcription and the second session's provider outage.
+
+The minimal production correction stays inside the existing lossless catalog
+packer. It recognizes compact contract-member boundaries and short repeated
+fragments, shares prefixes across methods when smaller, and describes that same
+encoding concisely. Candidate IDs, exact card text, eligibility, constraints and
+request ceilings are unchanged. Two generic compact-JSON cases (short and long
+constraints) and the cross-method prefix regression verify exact reconstruction,
+including Unicode and literal commas. The long-constraint case was observed
+failing before the correction. Existing scope/schema and frozen-catalog tests pass.
+
+Rebuilding the captured scope with the same default-confirmation policy now needs
+**11,982 estimated input tokens**. This is a comparison at the same matching
+checkpoint, not a claim about total live-call savings. Its 18-token remaining margin
+applies only to this frozen request; new evidence or repairs still undergo the
+unchanged ceiling check. Offline replay of revision 22 changed from
+`MODEL_INPUT_LIMIT` to `REPLAY_EVIDENCE_REQUIRED`, with zero provider dispatches
+and unchanged source snapshot, request index and budget. Further convergence now
+requires new model evidence; none was requested or fabricated.
+
+After the correction, all **1,818 tests** passed (591 Planning, 63 Integrations,
+841 Core, 323 Server), as did the benchmark build, planner package build, 18 transport
+fixture self-checks and freshly published macOS ARM64 Native AOT planning/encrypted
+persistence smoke. These checks were warning-free under the documented publish
+exceptions. The bounded series ends at **three fresh sessions, zero complete
+successes**. No final-review artifact exists from these runs, so no generated
+workflow has passed the independent execution suite or exact-hash approval.
+
 ## Outstanding acceptance
 
 End-to-end convergence, both PR execution fixtures (including

@@ -9,6 +9,29 @@ namespace GnOuGo.Flow.Planning.Tests;
 
 public sealed class CapabilityMatchingRequestTests
 {
+    [Theory]
+    [InlineData(40)]
+    [InlineData(160)]
+    public void CompactContractMembersAreSharedWithoutChangingTheirTextOrCandidateScope(int length)
+    {
+        // Compact JSON has no whitespace at which the word-fragment packer can
+        // find repeated constraints. The distinct contracts must all remain eligible.
+        var bound = new string('a', length);
+        var entries = Enumerable.Range(0, 12).Select(i => new CapabilityCatalogEntry("entry" + i, "mcp", "provider", "tool", "method" + i,
+            "Declared metadata", [], $$"""{"method":"method{{i}}","pattern":"^{{bound}}$","description":"literal,comma 🧪 must remain intact","const":"value{{i}}"}""",
+            [], [], null, null)).ToArray();
+        var original = string.Join('\n', entries.Select(e => e.Id + " " + e.Card));
+        var compact = CapabilityInventoryContext.MatchingCatalog(new(entries, original));
+        Assert.True(PlanningJsonTransport.EstimateInputTokens(compact, new()) < PlanningJsonTransport.EstimateInputTokens(original, new()),
+            "Repeated compact contract members should not make a bounded matching request oversized.");
+        var expanded = PromptContextTests.Expand(JsonNode.Parse(compact[(compact.IndexOf('\n') + 1)..])!)!;
+        var recovered = expanded["groups"]!.AsArray().OfType<JsonObject>().SelectMany(group => group["entries"]!.AsObject().Select(e =>
+            new KeyValuePair<string, string>(e.Key, group["prefix"]!.ToString() + string.Join(expanded["separator"]!.ToString(), e.Value!.AsArray().Select(p => p!.ToString())) + group["suffix"])))
+            .ToDictionary(p => p.Key, p => p.Value);
+        Assert.Equal(entries.Length, recovered.Count);
+        Assert.All(entries, entry => Assert.Equal(entry.Card, recovered[entry.Id]));
+    }
+
     [Fact]
     public void RepeatedCatalogEncodingMetadataIsSentOnce()
     {
@@ -18,11 +41,11 @@ public sealed class CapabilityMatchingRequestTests
         var compact = CapabilityInventoryContext.MatchingCatalog(new(entries, string.Join('\n', entries.Select(e => e.Id + " " + e.Card))));
         var expanded = PromptContextTests.Expand(JsonNode.Parse(compact[(compact.IndexOf('\n') + 1)..])!)!;
         var groups = expanded["groups"]!.AsArray();
-        Assert.Equal(8, groups.Count);
+        Assert.Single(groups); // The common prefix is shared across distinct methods too.
+        Assert.Equal(8, groups.OfType<JsonObject>().Sum(group => group["entries"]!.AsObject().Count));
         Assert.All(groups.OfType<JsonObject>(), group => Assert.False(group.ContainsKey("separator")));
-        var repeated = groups.DeepClone().AsArray();
-        foreach (var group in repeated.OfType<JsonObject>()) group["separator"] = expanded["separator"]!.DeepClone();
-        Assert.True(PlanningJsonTransport.EstimateInputTokens(expanded.ToJsonString(), new()) < PlanningJsonTransport.EstimateInputTokens(repeated.ToJsonString(), new()));
+        Assert.True(PlanningJsonTransport.EstimateInputTokens(compact, new()) <
+            PlanningJsonTransport.EstimateInputTokens(string.Join('\n', entries.Select(e => e.Id + " " + e.Card)), new()));
         foreach (var group in groups.OfType<JsonObject>())
             foreach (var entry in group["entries"]!.AsObject())
                 Assert.Equal(entries.Single(e => e.Id == entry.Key).Card,
