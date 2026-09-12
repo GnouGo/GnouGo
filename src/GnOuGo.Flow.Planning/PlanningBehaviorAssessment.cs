@@ -10,6 +10,8 @@ internal sealed class PlanningBehaviorAssessment(TimeProvider time)
     {
         state.CurrentPhase = PlanningPhase.Behavior;
         PlanningContext.InvalidateArtifact(state);
+        await PlanningClarifications.ResolveAsync(state, runtime, allowQuestions: false, ct);
+        if (PlanningStatus.IsTerminal(state.Status)) return;
         var assessment = state.BehaviorAssessment;
         var schema = PlanningSchemas.Behavior(state.Preparation);
         if (state.BehaviorRevision is { Located: false } && assessment.Candidate is not null)
@@ -34,11 +36,15 @@ internal sealed class PlanningBehaviorAssessment(TimeProvider time)
             assessment.Diagnostics = initial; assessment.Stage = stage;
             PlanningConvergence.Failure(state, "$plan", stage == 0 ? PlanningGates.Response : PlanningGates.Behavior, PlanningGraphCompiler.Fingerprint(assessment.Candidate.ToJsonString()), initial);
             await runtime.CheckpointAsync(state, ct);
+            await PlanningClarifications.ResolveAsync(state, runtime, allowQuestions: true, ct);
+            if (PlanningStatus.IsTerminal(state.Status)) return;
             if (initial.Count == 0) ReadyForBehaviorReview(state, state.BehaviorPlan!);
             else state.Diagnostics = initial;
             return;
         }
         Evaluate(state, assessment.Candidate, schema, out var findings, out var beforeStage);
+        await PlanningClarifications.ResolveAsync(state, runtime, allowQuestions: true, ct);
+        if (PlanningStatus.IsTerminal(state.Status)) return;
         assessment.Diagnostics = findings; assessment.Stage = beforeStage;
         if (findings.Count == 0) { ReadyForBehaviorReview(state, state.BehaviorPlan!); return; }
         var targets = PlanningBehaviorPatches.Scope(assessment.Candidate, schema, findings);
@@ -117,7 +123,7 @@ internal sealed class PlanningBehaviorAssessment(TimeProvider time)
         PlanningBehaviorPlans.CompleteLockedOutcomes(plan, state.Preparation!);
         var completedLocations = Locations().OrderByDescending(p => p.Path.Length).ToArray();
         diagnostics = PlanningBehaviorPlans.Validate(plan, state.Preparation!).Select(Rebase)
-            .Concat(PlanningBehaviorRevision.Findings(state, candidate)).ToList(); stage = 1;
+            .Concat(PlanningBehaviorRevision.Findings(state, candidate)).Concat(PlanningBusinessAnswers.ValidateBehavior(state, plan)).ToList(); stage = 1;
         // The raw candidate remains staged; only a validated plan becomes reviewable.
         if (diagnostics.Count == 0) state.BehaviorPlan = plan;
 

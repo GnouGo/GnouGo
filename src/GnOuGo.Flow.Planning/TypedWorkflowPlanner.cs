@@ -37,7 +37,7 @@ public sealed class TypedWorkflowPlanner(TimeProvider? timeProvider = null) : IW
         { state.HumanWaitMilliseconds += Math.Max(0, (_time.GetUtcNow() - waiting).TotalMilliseconds); state.WaitingSinceUtc = null; }
         try
         {
-            if (command.Kind is "advance" or "approve" && PlanningBudgetOptions.Parse(state.Request.Options)?.MaxElapsed is { } maximum)
+            if (command.Kind is "advance" or "approve" or "answer" && PlanningBudgetOptions.Parse(state.Request.Options)?.MaxElapsed is { } maximum)
             {
                 var remaining = maximum.TotalMilliseconds - state.ActiveMilliseconds;
                 if (remaining <= 0) deadline.Cancel(); else deadline.CancelAfter(TimeSpan.FromMilliseconds(remaining));
@@ -48,27 +48,12 @@ public sealed class TypedWorkflowPlanner(TimeProvider? timeProvider = null) : IW
                 case "advance": await AdvancePhaseAsync(state, runtime, ct); break;
                 case "cancel": state.Status = PlanningStatus.Cancelled; state.ApprovedHash = null; state.PendingCommand = null; break;
                 case "answer":
-                    if (state.Status != PlanningStatus.Clarification || state.Intent.Question is null || command.Answers is null)
-                        throw new PlanningConflictException("No matching clarification is pending.");
-                    if (state.Intent.Question.Fields is null || state.Intent.Question.Fields.Any(f => f.Required &&
-                        (command.Answers[f.Name] is not JsonValue value || !value.TryGetValue<string>(out var text) || string.IsNullOrWhiteSpace(text))) ||
-                        command.Answers.Any(a => !state.Intent.Question.Fields.Any(f => f.Name == a.Key)))
-                        throw new PlanningConflictException("Submit a nonempty answer for every pending question.");
-                    if (state.Outcome is not PlanningNeedUserClarification clarification ||
-                        PlanningContractValidation.ValidateInstance(command.Answers, clarification.Decision.AnswerSchema).Count != 0)
-                        throw new PlanningConflictException("The answer does not satisfy the current typed business question.");
-                    var acceptedAnswers = command.Answers.DeepClone().AsObject();
-                    foreach (var field in state.Intent.Question.Fields)
-                        if (field.OptionDefinitions?.SingleOrDefault(o => o.Value == acceptedAnswers[field.Name]?.ToString()) is { } selected)
-                            acceptedAnswers[field.Name] = selected.Description;
-                    state.Intent.Answers.Add(new(state.Intent.Question.Prompt + "\n" + string.Join("\n", state.Intent.Question.Fields.Select(f => f.Description ?? f.Name)), acceptedAnswers));
-                    state.Outcome = null; state.TechnicalStop = null;
-                    state.Intent.Question = null; state.Intent.Assessment = new(); state.Intent.Checked = false; state.Preparation = null; state.PreparationCheckpoint = null;
-                    state.Status = PlanningStatus.Created; state.CurrentPhase = PlanningPhase.Intent; break;
+                    await PlanningBusinessAnswers.AcceptAsync(state, command, runtime, ct);
+                    break;
                 case "accept_behavior":
                     RequireReview(state, command, PlanningStatus.BehaviorReview);
                     if (state.BehaviorPlan is null || state.ArtifactHash != PlanningBehaviorPlans.Fingerprint(state.BehaviorPlan)) throw new PlanningConflictException("The behavior changed before acceptance.");
-                    var behaviorFindings = PlanningBehaviorPlans.Validate(state.BehaviorPlan, state.Preparation!);
+                    var behaviorFindings = PlanningBehaviorPlans.Validate(state.BehaviorPlan, state.Preparation!).Concat(PlanningBusinessAnswers.ValidateBehavior(state, state.BehaviorPlan)).ToList();
                     if (behaviorFindings.Any(d => d.Required)) { state.Diagnostics = behaviorFindings.ToList(); state.Status = PlanningStatus.Stopped; break; }
                     state.ApprovedBehaviorHash = state.ArtifactHash;
                     PlanningGraphSkeleton.Create(state);
@@ -88,7 +73,7 @@ public sealed class TypedWorkflowPlanner(TimeProvider? timeProvider = null) : IW
                     state.Request.Prompt = command.Kind == "edit_intent" ? command.Text.Trim() : state.Request.Prompt + "\n\nRequested revision:\n" + command.Text.Trim();
                     if (command.Kind == "revise")
                     {
-                        state.Request.Prompt += string.Concat(state.Intent.Answers.Select(a => "\nHuman clarification: " + a.Question + "\n" + a.Answers.ToJsonString()));
+                        state.Request.Prompt += string.Concat(state.Intent.Answers.Select(a => "\nHuman clarification: " + a.Question + "\n" + string.Join("\n", a.Answers.Select(v => PlanningBusinessAnswers.Describe(state, v.Key, v.Value)))));
                         if (state.Graph is not null) state.Request.Baseline = PlanningContext.Clone(state.Graph);
                     }
                     ResetForIntent(state);
@@ -143,7 +128,8 @@ public sealed class TypedWorkflowPlanner(TimeProvider? timeProvider = null) : IW
         catch (Exception error)
         {
             var code = error is WorkflowRuntimeException flow ? flow.Code : error is LLMClientException ? "MODEL_TRANSPORT_FAILURE" : "PLANNING_INVALID";
-            PlanningContext.Stop(state, code, error.Message);
+            if (!state.Diagnostics.Any(d => d.Code == code))
+                PlanningContext.Stop(state, code, error.Message, (error as WorkflowRuntimeException)?.Details?["location"]?.ToString() ?? "$");
         }
         PlanningOutcomes.Refresh(state);
         state.ActiveMilliseconds += clock.Elapsed.TotalMilliseconds;
@@ -219,6 +205,7 @@ public sealed class TypedWorkflowPlanner(TimeProvider? timeProvider = null) : IW
         state.Preparation = null; state.PreparationCheckpoint = null; state.BehaviorPlan = null; state.ApprovedBehaviorHash = null;
         state.BehaviorAssessmentCalls = 0; state.BehaviorAssessment = new(); state.Graph = null; state.Diagnostics.Clear();
         state.BehaviorRevision = null;
+        foreach (var decision in state.BusinessDecisions) decision.Status = "superseded";
         state.Construction = new() { ModelSequence = state.Construction.ModelSequence };
         state.Validation = new(); state.PendingCommand = null; state.ReviewMarkdown = null;
         PlanningContext.InvalidateArtifact(state);

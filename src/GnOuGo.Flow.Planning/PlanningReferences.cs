@@ -43,9 +43,35 @@ internal static class PlanningReferences
         if (reference.Owner != owner || reference.SourceRevision != revision || reference.SourceId != sourceId ||
             reference.SourceFingerprint != PlanningGraphCompiler.Fingerprint(text) || reference.Start < 0 || reference.Length < 1 ||
             reference.Start > text.Length - reference.Length ||
-            !Issue(owner, revision, sourceId, reference.Kind, text).Contains(reference))
+            !(reference.Kind.EndsWith(":clause", StringComparison.Ordinal)
+                ? ContainingRange(text, reference.Start) == (reference.Start, reference.Length)
+                : Issue(owner, revision, sourceId, reference.Kind, text).Contains(reference)))
             throw new PlanningConflictException("The evidence reference is foreign, stale or outside its issued scope.");
         return text.Substring(reference.Start, reference.Length);
+    }
+
+    internal static PlanningReference ContainingClause(PlanningSnapshot state, PlanningReference reference, string text)
+    {
+        _ = Resolve(state, reference.Id, new Dictionary<string, string> { [reference.SourceId] = text });
+        var (start, length) = ContainingRange(text, reference.Start);
+        if (reference.Start + reference.Length > start + length)
+            throw new PlanningConflictException("The selected subject crosses complete source clauses.");
+        var kind = reference.Kind.Split(':')[0] + ":clause";
+        var id = "r_" + PlanningGraphCompiler.Fingerprint(reference.Owner + ":" + reference.SourceId + ":" + reference.SourceFingerprint + ":clause:" + start + ":" + length)[..24];
+        var clause = reference with { Id = id, Kind = kind, Start = start, Length = length };
+        if (!state.References.Any(r => r.Id == id)) state.References.Add(clause);
+        return state.References.Single(r => r.Id == id);
+    }
+
+    private static (int Start, int Length) ContainingRange(string text, int anchor)
+    {
+        bool End(int index) => text[index] == '\n' || text[index] is '.' or '!' or '?' or ';' or '。' or '！' or '？' &&
+            (index + 1 == text.Length || char.IsWhiteSpace(text[index + 1]));
+        var start = anchor;
+        while (start > 0 && !End(start - 1)) start--;
+        var end = anchor;
+        while (end < text.Length) { if (End(end++)) break; }
+        return (start, end - start);
     }
 
     internal static string Resolve(PlanningSnapshot state, string id, IReadOnlyDictionary<string, string> sources)

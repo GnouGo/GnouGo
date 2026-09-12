@@ -115,9 +115,6 @@ internal static class CapabilityPreparation
             span.SetAttribute("mcp.servers_discovered", discovered.Count(static server => server.Discovered));
             span.SetAttribute("mcp.tools_total", discovered.Sum(static server => server.Tools.Count));
 
-            if (discovered.All(server => server.Discovered))
-                await PlanningClarifications.AskAfterDiscoveryAsync(snapshot, runtime, ct);
-
             IReadOnlyList<ResolvedCapability> resolved;
             IReadOnlyList<CapabilityConstraint> constraints;
             if (mode == "explicit")

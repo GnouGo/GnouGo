@@ -325,12 +325,15 @@ known to be current.
 
 When no explicit/default agent is selected, `SmartFlowService` runs the embedded `SmartFlow/main-routing-agent.yaml` workflow. That workflow uses `workflow.route` to expand all persisted database agents (`ref: { kind: database }`), select one or more relevant sub-workflows, auto-extract structured inputs from the prompt/history, and request any remaining missing or invalid declared inputs through the existing Human Input form before execution. Candidate forms are presented one at a time, then the completed workflows use their configured execution policy. The route also includes a local general fallback workflow so a fresh installation can still answer prompts before any persisted agents exist.
 
-`/gnougo add` and `/gnougo reprompt` open the same persisted designer. Intent clarification
-precedes capability discovery. Capability classifications require explicit intent evidence and
+`/gnougo add` and `/gnougo reprompt` open the same persisted designer. Business clarification
+follows capability preparation and deterministic resolution, and is reserved for remaining
+material business alternatives. Capability classifications require explicit intent evidence and
 provider-neutral schema metadata. The business behavior requires human acceptance before
 construction of its typed graph. Callees are completed and validated before their callers;
-independent subworkflows may run concurrently. Every construction response contains one complete
-typed workflow. The deterministic compiler alone emits YAML, and the designer shows it read-only.
+independent subworkflows may run concurrently. Construction responses assign only issued typed
+holes. The deterministic compiler alone emits YAML, and the designer shows it read-only.
+Clarifications show business labels and evidence-backed preference reasons, accept custom
+answers, and continue the same encrypted session without preselecting a preferred choice.
 
 Typed repairs are limited to diagnosed fields, preserve accepted behavior and ownership, and
 must improve the first failing validation stage while retaining all previous passes. Final approval

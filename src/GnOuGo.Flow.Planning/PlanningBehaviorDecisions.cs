@@ -10,14 +10,15 @@ internal static class PlanningBehaviorDecisions
     internal static async Task<PlanningBehaviorPlan> BuildAsync(PlanningSnapshot state, IPlanningRuntime runtime, CancellationToken ct)
     {
         var preparation = state.Preparation!;
+        var capabilities = preparation.Capabilities.Where(c => c.OperationIds.All(id => PlanningBusinessAnswers.Included(state, id))).ToList();
         var boundaries = state.Obligations.Where(o => o.Kind == "workflow_boundary").ToArray();
         var iterations = state.Obligations.Where(o => o.Kind == "iteration").ToArray();
         var decisions = new List<PlanningDecisionPages.Decision>();
-        var operations = preparation.Capabilities.SelectMany(c => c.OperationIds).Distinct(StringComparer.Ordinal).Order(StringComparer.Ordinal).ToArray();
+        var operations = capabilities.SelectMany(c => c.OperationIds).Distinct(StringComparer.Ordinal).Order(StringComparer.Ordinal).ToArray();
         foreach (var operation in operations)
         {
             var text = state.Obligations.SingleOrDefault(o => o.Id == operation) is { } obligation ? PlanningSourceDecisions.Text(state, obligation)
-                : string.Join("; ", preparation.Capabilities.Where(c => c.OperationIds.Contains(operation)).Select(c => c.Description).Distinct(StringComparer.Ordinal));
+                : string.Join("; ", capabilities.Where(c => c.OperationIds.Contains(operation)).Select(c => c.Description).Distinct(StringComparer.Ordinal));
             if (boundaries.Length > 0) decisions.Add(new("owner_" + operation, PlanningHoleRequests.Enum(["main", .. boundaries.Select(b => b.Id)]),
                 new JsonObject { ["operation"] = text, ["boundaries"] = Descriptions(boundaries), ["task"] = "Assign the operation to its requested reusable workflow boundary, or main." }, preparation.Fingerprint));
             if (iterations.Length > 0) decisions.Add(new("iteration_" + operation, PlanningHoleRequests.Enum(["once", .. iterations.Select(b => b.Id)]),
@@ -31,8 +32,9 @@ internal static class PlanningBehaviorDecisions
     internal static PlanningBehaviorPlan Assemble(PlanningSnapshot state, JsonObject choices)
     {
         var preparation = state.Preparation!;
+        var capabilities = preparation.Capabilities.Where(c => c.OperationIds.All(id => PlanningBusinessAnswers.Included(state, id))).ToList();
         var plan = new PlanningBehaviorPlan { Summary = state.Request.Prompt, Entrypoint = "main" };
-        var operations = preparation.Capabilities.SelectMany(c => c.OperationIds).Distinct(StringComparer.Ordinal).ToArray();
+        var operations = capabilities.SelectMany(c => c.OperationIds).Distinct(StringComparer.Ordinal).ToArray();
         var owners = operations.ToDictionary(id => id, id => choices["owner_" + id]?.ToString() ?? "main", StringComparer.Ordinal);
         var inputs = state.Obligations.Where(o => o.Kind == "business_input").ToDictionary(o => o.Id,
             o => new PlanningBehaviorPort("input_" + o.Id[3..], PlanningSourceDecisions.Text(state, o), o.Required), StringComparer.Ordinal);
@@ -46,7 +48,7 @@ internal static class PlanningBehaviorDecisions
             foreach (var input in mainInputs)
                 if (!inputs.Values.Any(p => p.Name == input.Name)) inputs["baseline:" + input.Name] = new(input.Name, input.Name, input.Required);
         }
-        var nodes = preparation.Capabilities.Select(c => new PlanningBehaviorNode
+        var nodes = capabilities.Select(c => new PlanningBehaviorNode
         {
             Key = "node_" + PlanningGraphCompiler.Fingerprint(c.Id)[..16], CapabilityId = c.Id,
             Kind = c.StepType == "human.input" ? "confirmation" : "operation", Purpose = c.Description,
@@ -55,7 +57,7 @@ internal static class PlanningBehaviorDecisions
         foreach (var node in nodes)
             if (node.OperationIds.Select(id => owners[id]).Distinct(StringComparer.Ordinal).Count() != 1)
                 throw new WorkflowRuntimeException("BEHAVIOR_OWNER_CONFLICT", "A shared capability must have one workflow owner: " + node.Key);
-        var order = Order(preparation.Capabilities);
+        var order = Order(capabilities);
         foreach (var owner in owners.Values.Append("main").Distinct(StringComparer.Ordinal).OrderBy(k => k == "main" ? "" : k, StringComparer.Ordinal))
         {
             var owned = nodes.Where(n => n.OperationIds.Any(id => owners[id] == owner)).OrderBy(n => order[n.CapabilityId!]).ToList();
@@ -83,23 +85,23 @@ internal static class PlanningBehaviorDecisions
         foreach (var workflow in plan.Workflows.Where(w => w.Key != "main"))
         {
             var ownedOperations = workflow.OperationIds.ToHashSet(StringComparer.Ordinal);
-            var requiredOperations = preparation.Capabilities.Where(c => c.OperationIds.Any(ownedOperations.Contains)).SelectMany(c => c.InputOperationIds)
+            var requiredOperations = capabilities.Where(c => c.OperationIds.Any(ownedOperations.Contains)).SelectMany(c => c.InputOperationIds)
                 .Where(id => !ownedOperations.Contains(id)).ToHashSet(StringComparer.Ordinal);
-            foreach (var producer in preparation.Capabilities.Where(c => c.OperationIds.Any(requiredOperations.Contains)))
+            foreach (var producer in capabilities.Where(c => c.OperationIds.Any(requiredOperations.Contains)))
             {
                 workflow.Inputs.Add(new(ResultPort(producer), producer.Description, true));
                 foreach (var node in PlanningBehaviorPlans.Enumerate(workflow.Steps.Concat(workflow.Finally)))
-                    if (preparation.Capabilities.Any(c => c.OperationIds.Any(node.OperationIds.Contains) && c.InputOperationIds.Any(producer.OperationIds.Contains)))
+                    if (capabilities.Any(c => c.OperationIds.Any(node.OperationIds.Contains) && c.InputOperationIds.Any(producer.OperationIds.Contains)))
                         node.InputDependencies = (node.InputDependencies ?? []).Append(ResultPort(producer)).Distinct(StringComparer.Ordinal).ToList();
             }
-            foreach (var producer in preparation.Capabilities.Where(c => c.OperationIds.Any(ownedOperations.Contains) &&
-                preparation.Capabilities.Any(consumer => consumer.OperationIds.Any(id => !ownedOperations.Contains(id)) && consumer.InputOperationIds.Any(c.OperationIds.Contains))))
+            foreach (var producer in capabilities.Where(c => c.OperationIds.Any(ownedOperations.Contains) &&
+                capabilities.Any(consumer => consumer.OperationIds.Any(id => !ownedOperations.Contains(id)) && consumer.InputOperationIds.Any(c.OperationIds.Contains))))
                 workflow.Outputs.Add(new(ResultPort(producer), producer.Description, true));
         }
         // Workflow edges derive from operation producers, never model-owned call IDs.
         foreach (var workflow in plan.Workflows.Where(w => w.Key != "main"))
         {
-            var consumers = preparation.Capabilities.Where(c => c.InputOperationIds.Any(workflow.OperationIds.Contains)).SelectMany(c => c.OperationIds).Select(id => owners[id]).Distinct(StringComparer.Ordinal).ToArray();
+            var consumers = capabilities.Where(c => c.InputOperationIds.Any(workflow.OperationIds.Contains)).SelectMany(c => c.OperationIds).Select(id => owners[id]).Distinct(StringComparer.Ordinal).ToArray();
             var callers = consumers.Where(k => k != workflow.Key).Select(k => plan.Workflows.Single(w => w.Key == k)).ToArray();
             if (callers.Length == 0) callers = [main];
             if (callers.Length != 1) throw new WorkflowRuntimeException("BEHAVIOR_CALL_OWNERSHIP_UNRESOLVED", "Shared executable resource ownership requires one declared call boundary for " + workflow.Key);
@@ -115,7 +117,7 @@ internal static class PlanningBehaviorDecisions
             {
                 if (ordered.Contains(node)) return;
                 if (!visiting.Add(node)) throw new WorkflowRuntimeException("BEHAVIOR_BOUNDARY_CYCLE", "The requested workflow boundary requires interleaved producer and consumer execution: " + workflow.Key);
-                var requires = preparation.Capabilities.Where(c => c.OperationIds.Any(produced[node].Contains)).SelectMany(c => c.InputOperationIds).ToHashSet(StringComparer.Ordinal);
+                var requires = capabilities.Where(c => c.OperationIds.Any(produced[node].Contains)).SelectMany(c => c.InputOperationIds).ToHashSet(StringComparer.Ordinal);
                 foreach (var producer in workflow.Steps.Where(p => p != node && produced[p].Overlaps(requires)).OrderBy(p => p.Key, StringComparer.Ordinal)) Visit(producer);
                 visiting.Remove(node); ordered.Add(node);
             }
@@ -126,7 +128,7 @@ internal static class PlanningBehaviorDecisions
         // Local computations have operation ownership, not an external capability
         // binding. The executable skeleton selects their native executor.
         foreach (var node in PlanningBehaviorPlans.Enumerate(plan.Workflows.SelectMany(w => w.Steps.Concat(w.Finally))))
-            if (preparation.Capabilities.Any(c => c.Id == node.CapabilityId && c.Resolution == "local")) node.CapabilityId = null;
+            if (capabilities.Any(c => c.Id == node.CapabilityId && c.Resolution == "local")) node.CapabilityId = null;
         return plan;
 
         IEnumerable<string> BusinessInputs(IEnumerable<string> operationIds)
@@ -142,7 +144,7 @@ internal static class PlanningBehaviorDecisions
         void Route(List<PlanningBehaviorNode> steps)
         {
             foreach (var node in steps.ToArray()) Route(node.Steps);
-            foreach (var group in preparation.Capabilities.Where(c => c.Activation is not null).GroupBy(c => c.Activation!.Group, StringComparer.Ordinal))
+            foreach (var group in capabilities.Where(c => c.Activation is not null).GroupBy(c => c.Activation!.Group, StringComparer.Ordinal))
             {
                 var body = steps.Where(n => group.Any(c => c.Id == n.CapabilityId)).ToArray();
                 if (body.Length == 0) continue;

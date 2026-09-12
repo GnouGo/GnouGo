@@ -12,7 +12,7 @@ public static class PlanningArtifactApproval
     {
         if (state.Graph is null || state.Preparation is null || state.BehaviorPlan is null ||
             state.ApprovedBehaviorHash != PlanningBehaviorPlans.Fingerprint(state.BehaviorPlan) ||
-            state.Diagnostics.Any(d => d.Required) || state.Validation.Stage != 5 ||
+            state.Diagnostics.Any(d => d.Required) || PlanningBusinessAnswers.ValidateBehavior(state, state.BehaviorPlan).Any() || state.Validation.Stage != 5 ||
             state.Validation.Scenarios.Count == 0 || state.Validation.Scenarios.Any(s => s.Outcome != "passed") ||
             state.Validation.GraphFingerprint != PlanningGraphCompiler.Fingerprint(state.Graph) ||
             state.Validation.ContractFingerprint != ContractFingerprint(state) || state.Validation.FixtureFingerprint != FixtureFingerprint(state))

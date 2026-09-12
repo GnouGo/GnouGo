@@ -7,6 +7,7 @@
   </PropertyGroup>
   <ItemGroup>
     <None Update="Fixtures/*.json" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="../GnOuGo.Agent.Planning.Benchmark/CodeReviewPolicy.txt" Link="Fixtures/CodeReviewPolicy.txt" CopyToOutputDirectory="PreserveNewest" />
     <Compile Include="../Shared/IntentClarificationFixture.cs" Link="IntentClarificationFixture.cs" />
     <ProjectReference Include="../../src/GnOuGo.Flow.Planning/GnOuGo.Flow.Planning.csproj" />
     <PackageReference Include="Microsoft.Extensions.Caching.Memory" Version="10.0.11" />

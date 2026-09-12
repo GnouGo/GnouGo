@@ -30,6 +30,10 @@ and durable correction lineage. `FinalReview` waits for exact-hash approval befo
 returning `ValidWorkflow`. Missing business choices return `NeedUserClarification`;
 technical stops remain distinct from proven `Unsupported`. Injected model capability
 resolvers must declare supported reasoning levels for the phase profile.
+Business decision records retain governing references, applicability, exclusions and
+typed selections. Clarifications expose canonical choices, labels and justified
+preference reasons; their resolution belongs to the injected planner. The general
+`human.input` DSL and Schema-5 persistence format remain unchanged.
 
 ## MCP protocol compatibility
 

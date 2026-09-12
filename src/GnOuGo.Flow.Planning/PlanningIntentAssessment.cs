@@ -28,10 +28,13 @@ internal sealed class PlanningIntentAssessment(TimeProvider time)
             var field = 0;
             foreach (var entry in answer.Answers.OrderBy(p => p.Key, StringComparer.Ordinal))
             {
+                if (state.BusinessDecisions.Any(d => d.Id == entry.Key && d.SelectedChoiceId == entry.Value?.ToString())) continue;
                 var text = ReadText(entry.Value) ?? entry.Value?.ToJsonString() ?? "";
                 sources.Add(new($"answer_{index}_{field++}", "user_answer", text, answer.Question + "\nField: " + entry.Key));
             }
         }
+        foreach (var decision in state.BusinessDecisions.Where(d => d.CustomAnswer is not null && d.Status != "superseded"))
+            sources.Add(new("business_answer_" + decision.Id, "user_answer", decision.CustomAnswer!));
         return sources;
     }
 

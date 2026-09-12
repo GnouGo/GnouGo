@@ -19,31 +19,6 @@ public sealed class IntentClarificationTests
     }
 
     [Theory]
-    [InlineData("Choose a publishing policy.")]
-    [InlineData("Choisir une politique de publication.")]
-    [InlineData("Elegir una política de publicación.")]
-    public async Task BusinessChoicesUseOwnedEvidenceAndWaitForDiscovery(string prompt)
-    {
-        var state = Session(); state.Request.Prompt = prompt;
-        var runtime = ClarificationRuntime();
-        state = await Send(state, runtime);
-        Assert.True(state.Intent.Checked); Assert.Null(state.Intent.Question);
-        Assert.Equal(0, runtime.PreparationCalls);
-        state = await Send(state, runtime);
-        Assert.Equal(PlanningStatus.Clarification, state.Status); Assert.Equal(1, runtime.PreparationCalls);
-        var outcome = Assert.IsType<PlanningNeedUserClarification>(state.Outcome);
-        var obligation = Assert.Single(state.Obligations);
-        Assert.Equal(obligation.EvidenceReferences, outcome.Decision.EvidenceReferences);
-        Assert.Equal(prompt, PlanningSourceDecisions.Text(state, obligation));
-        Assert.Single(state.Intent.Question!.Fields!); Assert.Equal(1, state.Intent.Forms);
-        Assert.All(runtime.Requests, request =>
-        {
-            Assert.DoesNotContain("excerpt", request.StructuredOutputSchema!.ToJsonString());
-            Assert.InRange(PlanningJsonTransport.EstimateInputTokens(request.Prompt, request.StructuredOutputSchema.AsObject()), 1, 9600);
-        });
-    }
-
-    [Theory]
     [InlineData("external_read")]
     [InlineData("external_execute")]
     [InlineData("resource_lifecycle")]
@@ -87,50 +62,8 @@ public sealed class IntentClarificationTests
         Assert.Equal(state.Revision, stopped.Revision); Assert.Equal(defect is "quoted" or "unknown_field" ? 1 : 2, runtime.Requests.Count);
     }
 
-    [Fact]
-    public async Task HostPoliciesCannotSupplyBusinessClarificationEvidence()
-    {
-        var state = Session(); state.Request.Options["policy"] = new JsonObject { ["instructions"] = "A host policy." };
-        var references = PlanningReferences.Register(state, "host", "host_constraint", "A host policy.");
-        state.Obligations = [new("business", references.Select(r => r.Id).ToList(), "business_decision", "business_choice", true)];
-        var runtime = ClarificationRuntime();
-        var error = await Assert.ThrowsAsync<GnOuGo.Flow.Core.Expressions.WorkflowRuntimeException>(() => PlanningClarifications.AskAfterDiscoveryAsync(state, runtime, Ct));
-        Assert.Equal("CLARIFICATION_EVIDENCE_UNPROVEN", error.Code); Assert.Empty(runtime.Requests); Assert.Null(state.Outcome);
-    }
-
-    [Fact]
-    public async Task AnswersContinueTheSameSessionWithValidatedSchemaAndCumulativeAllowances()
-    {
-        var runtime = ClarificationRuntime(); var state = await Send(Session(), runtime); state = await Send(state, runtime);
-        var question = Assert.IsType<PlanningNeedUserClarification>(state.Outcome).Decision;
-        var planner = new TypedWorkflowPlanner();
-        await Assert.ThrowsAsync<PlanningConflictException>(() => planner.AdvanceAsync(state, new() { Kind = "answer", ExpectedRevision = state.Revision,
-            Answers = new JsonObject { [question.DecisionId] = 123 } }, runtime, Ct));
-        var next = await planner.AdvanceAsync(state, new() { Kind = "answer", ExpectedRevision = state.Revision,
-            Answers = new JsonObject { [question.DecisionId] = "choice_1" } }, runtime, Ct);
-        Assert.Equal(state.Request.SessionId, next.Request.SessionId); Assert.Equal(1, next.Intent.Forms); Assert.Null(next.Outcome);
-        Assert.Equal("Ask before publishing", Assert.Single(next.Intent.Answers).Answers[question.DecisionId]!.ToString());
-        Assert.Equal(state.RequestAccounting.Count, next.RequestAccounting.Count);
-        await Assert.ThrowsAsync<PlanningConflictException>(() => planner.AdvanceAsync(next, new() { Kind = "answer", ExpectedRevision = state.Revision,
-            Answers = new JsonObject { [question.DecisionId] = "choice_0" } }, runtime, Ct));
-    }
-
-    private static TypedPlannerTests.FakeRuntime ClarificationRuntime(string kind = "business_choice")
-    {
-        var runtime = new TypedPlannerTests.FakeRuntime { OnCall = (phase, request, _) =>
-        {
-            JsonObject answer = phase == "intent" ? TypedPlannerTests.FakeRuntime.Interpret(request, kind)
-                : new(request.StructuredOutputSchema!["properties"]!.AsObject().Select(p => new KeyValuePair<string, JsonNode?>(p.Key,
-                    new JsonObject { ["question"] = "Choose the publishing policy", ["first"] = "Publish automatically", ["second"] = "Ask before publishing" })));
-            return Task.FromResult(new LLMResponse { Json = answer });
-        } };
-        runtime.OnPrepareSnapshot = async state =>
-        {
-            await PlanningClarifications.AskAfterDiscoveryAsync(state, runtime, Ct);
-            return TypedPlannerTests.Preparation();
-        };
-        return runtime;
-    }
+    private static TypedPlannerTests.FakeRuntime ClarificationRuntime(string kind = "local_processing")
+        => new() { OnCall = (_, request, _) => Task.FromResult(new LLMResponse { Json = TypedPlannerTests.FakeRuntime.Interpret(request, kind) }) };
 
     [Fact]
     public async Task EditedRecovery_ArchivesAnswersAndDiagnostics_PreservesBudgets_AndRejectsStaleCommands()

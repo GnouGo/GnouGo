@@ -60,6 +60,13 @@ Typed outcomes distinguish `ValidWorkflow` (only after exact-hash approval),
 `FinalReview` is a waiting state. Provider failures, unverifiable dispatches, budget
 exhaustion and invalid output have separate technical status and cannot claim business
 unsupportedness. Clarification answers continue the same session with cumulative budgets.
+Clarification is a last resort after preparation and deterministic behavior resolution.
+Source fragments are checked in their complete clauses; runtime conditions, input
+defaults and confirmations remain executable behavior. Eligibility and governing
+references control automatic choices and the two-to-four labeled suggestions. A
+preferred suggestion requires declared evidence and is never preselected. Typed
+answers and bounded custom-answer decisions retain receipts and correction allowances.
+See [clarification](../../docs/planner-clarification-resolution.md).
 
 Progress and redacted telemetry expose pages, utilization, holes, resolution origin,
 request reasons, receipt evidence and calls/tokens/repairs/failures by workflow and gate.

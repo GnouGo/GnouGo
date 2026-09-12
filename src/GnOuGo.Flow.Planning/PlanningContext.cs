@@ -8,7 +8,7 @@ internal static class PlanningContext
 {
     internal static string Intent(PlanningSnapshot state) => state.Request.Prompt +
         (BaselineText(state) is not { } baseline ? "" : "\nExisting workflow behavior to preserve except for the requested revision:\n" + baseline) +
-        string.Concat(state.Intent.Answers.Select(a => "\nHuman clarification:\n" + a.Answers.ToJsonString()));
+        string.Concat(state.Intent.Answers.Select(a => "\nHuman clarification:\n" + string.Join("\n", a.Answers.Select(v => PlanningBusinessAnswers.Describe(state, v.Key, v.Value)))));
 
     internal static string? BaselineText(PlanningSnapshot state)
     {
@@ -20,7 +20,8 @@ internal static class PlanningContext
 
     internal static string Contracts(PlanningSnapshot state) => PlanningGraphCompiler.Fingerprint(
         PlanningBehaviorPlans.Fingerprint(state.BehaviorPlan!) + "\n" +
-        JsonSerializer.Serialize(state.Preparation, PlanningJsonContext.Default.PlanningPreparation));
+        JsonSerializer.Serialize(state.Preparation, PlanningJsonContext.Default.PlanningPreparation) +
+        (state.BusinessDecisions.Any(d => d.Status is "runtime" or "resolved") ? "\n" + PlanningBusinessAnswers.ContractFingerprint(state) : ""));
 
     internal static string Fixtures(PlanningSnapshot state) => PlanningGraphCompiler.Fingerprint(
         state.Validation.Inputs?.ToJsonString() + "\n" + state.Validation.Observations.ToJsonString());

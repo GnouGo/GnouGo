@@ -56,6 +56,18 @@ var state = new PlanningSnapshot
 };
 var restored = JsonSerializer.Deserialize(JsonSerializer.Serialize(state, PlanningJsonContext.Default.PlanningSnapshot), PlanningJsonContext.Default.PlanningSnapshot)!;
 if (restored.Construction.Dataflow?.Bindings.Count != 1) throw new InvalidOperationException("Published dataflow persistence failed.");
+var choiceState = new PlanningSnapshot
+{
+    BusinessDecisions = [new() { Id = "decision", Status = "resolved", ResolutionOrigin = "intent", SelectedChoiceId = "choice", ValuePresence = "omitted",
+        EvidenceReferences = ["reference"], Constraints = [new("require", "choice", "reference", "intent", "omitted")],
+        Alternatives = [new() { Id = "choice", EvidenceReference = "reference", Label = "Retain the result" }] }],
+    Outcome = new PlanningNeedUserClarification(new("decision", ["reference"], new JsonObject { ["type"] = "string" }, [])
+    { Question = "Choose the result", DependencyFingerprint = "scope", Choices = [new("choice", "Retain the result", true, "Declared preference", ["reference"])] })
+};
+var restoredChoices = JsonSerializer.Deserialize(JsonSerializer.Serialize(choiceState, PlanningJsonContext.Default.PlanningSnapshot), PlanningJsonContext.Default.PlanningSnapshot)!;
+if (restoredChoices.BusinessDecisions.Single().Constraints.Single().Applicability != "omitted" ||
+    restoredChoices.Outcome is not PlanningNeedUserClarification choiceOutcome || choiceOutcome.Decision.Choices.Single().PreferredReason != "Declared preference")
+    throw new InvalidOperationException("Published typed clarification serialization failed.");
 var compiler = new PlanningGraphCompiler();
 var yaml = compiler.Compile(restored.Graph!, preparation);
 var imported = PlanningGraphImporter.Import(yaml, preparation);

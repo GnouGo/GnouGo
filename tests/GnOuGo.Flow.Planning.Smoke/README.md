@@ -11,6 +11,8 @@ and completed receipt in a temporary encrypted KeyVault database, reopens the se
 and verifies that replay makes no extra model call. Temporary storage is removed afterward.
 The published integration adapter also resolves declared local model capabilities
 without registered transports and preserves unknown fields on partial declarations.
+Typed business decisions, omission applicability, choice labels and preference evidence
+also round-trip through the published source-generated serializer.
 
 It also creates an ephemeral certificate, rejects its untrusted chain, and validates
 it with an explicit in-memory trust root. No certificate is installed and certificate

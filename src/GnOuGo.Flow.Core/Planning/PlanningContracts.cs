@@ -107,6 +107,7 @@ public sealed class PlanningSnapshot
     public List<PlanningObligationRelation> ObligationRelations { get; set; } = [];
     public List<PlanningDecisionPage> DecisionPages { get; set; } = [];
     public List<PlanningDecisionCorrection> DecisionCorrections { get; set; } = [];
+    public List<PlanningBusinessDecision> BusinessDecisions { get; set; } = [];
     public PlanningOutcome? Outcome { get; set; }
     public PlanningTechnicalStop? TechnicalStop { get; set; }
     public List<PlanningRevision> History { get; set; } = [];

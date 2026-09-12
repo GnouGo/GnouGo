@@ -72,7 +72,11 @@ internal static class PlanningEndpoints
     private static PlanningOutcomeDto? Outcome(PlanningOutcome? outcome) => outcome switch
     {
         PlanningValidWorkflow valid => new(valid.Name, valid.ArtifactHash),
-        PlanningNeedUserClarification needed => new(needed.Name, Decision: new(needed.Decision.DecisionId, needed.Decision.EvidenceReferences, needed.Decision.AnswerSchema, needed.Decision.Obligations)),
+        PlanningNeedUserClarification needed => new(needed.Name, Decision: new(needed.Decision.DecisionId, needed.Decision.EvidenceReferences, needed.Decision.AnswerSchema, needed.Decision.Obligations)
+        {
+            Question = needed.Decision.Question, DependencyFingerprint = needed.Decision.DependencyFingerprint,
+            Choices = needed.Decision.Choices.Select(c => new PlanningClarificationChoiceDto(c.Id, c.Label, c.Preferred, c.PreferredReason, c.EvidenceReferences)).ToList()
+        }),
         PlanningUnsupported unsupported => new(unsupported.Name, Obligations: unsupported.Obligations.Select(o => new PlanningUnsupportedObligationDto(o.ObligationId, o.Code, o.EvidenceReferences)).ToArray()),
         _ => null
     };

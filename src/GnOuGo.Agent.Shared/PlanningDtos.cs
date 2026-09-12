@@ -5,7 +5,13 @@ namespace GnOuGo.Agent.Shared;
 public sealed record PlanningStartDto(string Name, string Prompt, bool ReviseExisting = false);
 public sealed record PlanningReasoningProfileDto(string Routine = "low", string Behavior = "medium", string SemanticReview = "medium");
 public sealed record PlanningGenerationDto(PlanningReasoningProfileDto? ReasoningProfile = null, int MaxInputTokensPerRequest = 12_000, int MaxOutputTokens = 8_192);
-public sealed record PlanningClarificationDto(string DecisionId, IReadOnlyList<string> EvidenceReferences, JsonObject AnswerSchema, IReadOnlyList<string> Obligations);
+public sealed record PlanningClarificationDto(string DecisionId, IReadOnlyList<string> EvidenceReferences, JsonObject AnswerSchema, IReadOnlyList<string> Obligations)
+{
+    public string Question { get; init; } = "";
+    public IReadOnlyList<PlanningClarificationChoiceDto> Choices { get; init; } = [];
+    public string? DependencyFingerprint { get; init; }
+}
+public sealed record PlanningClarificationChoiceDto(string Id, string Label, bool Preferred, string? PreferredReason, IReadOnlyList<string> EvidenceReferences);
 public sealed record PlanningUnsupportedObligationDto(string ObligationId, string Code, IReadOnlyList<string> EvidenceReferences);
 public sealed record PlanningOutcomeDto(string Kind, string? ArtifactHash = null, PlanningClarificationDto? Decision = null, IReadOnlyList<PlanningUnsupportedObligationDto>? Obligations = null);
 public sealed record PlanningTechnicalStopDto(string Code, string Phase, string Location, bool Unverifiable);

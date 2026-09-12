@@ -31,7 +31,48 @@ public sealed record PlanningDecisionCorrection(string DecisionId, string Eviden
 public sealed record PlanningObligation(string Id, List<string> EvidenceReferences, string Owner, string Kind, bool Required);
 public sealed record PlanningObligationRelation(string Producer, string Consumer, string Role);
 public sealed record PlanningClarification(string DecisionId, List<string> EvidenceReferences,
-    JsonObject AnswerSchema, List<string> Obligations);
+    JsonObject AnswerSchema, List<string> Obligations)
+{
+    public string Question { get; init; } = "";
+    public List<PlanningClarificationChoice> Choices { get; init; } = [];
+    public string? DependencyFingerprint { get; init; }
+}
+public sealed record PlanningClarificationChoice(string Id, string Label, bool Preferred,
+    string? PreferredReason, List<string> EvidenceReferences);
+
+/// <summary>Resolution evidence indexed into authoritative intent and contracts; never an executable graph.</summary>
+public sealed class PlanningBusinessDecision
+{
+    public string Id { get; set; } = "";
+    public string ObligationId { get; set; } = "";
+    public string SubjectReference { get; set; } = "";
+    public List<string> EvidenceReferences { get; set; } = [];
+    public string DependencyFingerprint { get; set; } = "";
+    public string Status { get; set; } = "pending";
+    public string? ResolutionOrigin { get; set; }
+    public string? SelectedChoiceId { get; set; }
+    public string? CustomAnswer { get; set; }
+    public string? CustomAnswerFingerprint { get; set; }
+    public bool CompleteDomain { get; set; }
+    /// <summary>Unknown unless established from a declared value or an exact typed answer. Omission differs from null.</summary>
+    public string ValuePresence { get; set; } = "unknown";
+    public List<PlanningBusinessAlternative> Alternatives { get; set; } = [];
+    public List<PlanningBusinessConstraint> Constraints { get; set; } = [];
+    public List<string> AffectedObligations { get; set; } = [];
+    public List<string> ReportedEvents { get; set; } = [];
+}
+public sealed class PlanningBusinessAlternative
+{
+    public string Id { get; set; } = "";
+    public string EvidenceReference { get; set; } = "";
+    public string Label { get; set; } = "";
+    public List<string> OperationIds { get; set; } = [];
+    public List<string> ExclusionReferences { get; set; } = [];
+    public string? ExclusionCode { get; set; }
+}
+/// <summary>A declared constraint. The source must belong to the current decision's evidence.</summary>
+public sealed record PlanningBusinessConstraint(string Kind, string ChoiceId, string SourceReference,
+    string Origin, string Applicability = "always");
 public sealed record PlanningUnsupportedObligation(string ObligationId, string Code, List<string> EvidenceReferences);
 public sealed record PlanningTechnicalStop(string Code, string Phase, string Location, bool Unverifiable = false);
 

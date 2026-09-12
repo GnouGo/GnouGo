@@ -4,6 +4,7 @@ using System.Text.Json;
 using System.Text.Json.Nodes;
 using Bunit;
 using GnOuGo.Agent.Server.Components.Pages;
+using GnOuGo.Agent.Server.Planning;
 using GnOuGo.Flow.Core.Planning;
 using GnOuGo.Flow.Core.Runtime;
 using GnOuGo.Flow.Planning;
@@ -56,7 +57,20 @@ public sealed class PlanningRecoveryTests
         await using var fixture = await PlanningPersistenceTests.StoreFixture.CreateAsync();
         var state = new PlanningSnapshot { Status = PlanningStatus.Clarification, Request = new() { TenantId = "planning-tests", Prompt = "Choose the requested business outcome", Name = "clarification" } };
         var schema = JsonNode.Parse("""{"type":"object","properties":{"choice":{"type":"string","enum":["first","second"]}},"required":["choice"],"additionalProperties":false}""")!.AsObject();
-        state.Outcome = new PlanningNeedUserClarification(new("business_choice", [], schema, ["requested_outcome"]));
+        var reference = new PlanningReference("owned", state.Request.TenantId + ":" + state.Request.SessionId, state.Revision,
+            "request", PlanningGraphCompiler.Fingerprint(state.Request.Prompt), "user_request", 0, state.Request.Prompt.Length);
+        state.References.Add(reference);
+        state.Preparation = new() { Fingerprint = "catalog" };
+        var fingerprint = PlanningGraphCompiler.Fingerprint(state.Request.Prompt + ":" +
+            JsonSerializer.Serialize(state.Intent.Answers, PlanningJsonContext.Default.ListPlanningAnswer) + ":" +
+            JsonSerializer.Serialize(state.Request.Baseline, PlanningJsonContext.Default.PlanningGraph) + ":" + state.Request.Options["policy"]?.ToJsonString() + ":" + state.Preparation.Fingerprint);
+        state.BusinessDecisions.Add(new() { Id = "choice", SubjectReference = reference.Id, EvidenceReferences = [reference.Id], Status = "eligible",
+            DependencyFingerprint = fingerprint, Alternatives = [new() { Id = "first", Label = "First business outcome", EvidenceReference = reference.Id },
+                new() { Id = "second", Label = "Second business outcome", EvidenceReference = reference.Id }] });
+        state.Outcome = new PlanningNeedUserClarification(new("choice", [reference.Id], schema, ["requested_outcome"])
+        { Question = "Choose the business outcome", DependencyFingerprint = fingerprint,
+            Choices = [new("first", "First business outcome", false, null, [reference.Id]),
+                new("second", "Second business outcome", true, "Matches the declared preference.", [reference.Id])] });
         state.Intent.Forms = state.Intent.Questions = 1;
         state.Intent.Question = new() { Prompt = "Choose the business outcome", Mode = "form", Fields = [new() { Name = "choice", Type = "radio", Required = true, Description = "Desired outcome",
             Options = ["first", "second"] }] };
@@ -65,6 +79,11 @@ public sealed class PlanningRecoveryTests
         await using var context = Context(service);
         var page = context.Render<PlanningPage>(p => p.Add(x => x.SessionId, state.Request.SessionId));
         Assert.Empty(page.FindAll("input[type=radio][checked]")); Assert.True(Button(page, "Submit answers").HasAttribute("disabled"));
+        Assert.Equal(2, page.FindAll("input[type=radio]").Count);
+        Assert.Contains("First business outcome", page.Markup); Assert.Contains("Matches the declared preference.", page.Markup);
+        Assert.Equal(2, PlanningEndpoints.ToDto(state).Outcome!.Decision!.Choices.Count);
+        page.Find("input[type=radio][value=second]").Change(new Microsoft.AspNetCore.Components.ChangeEventArgs { Value = "second" });
+        Assert.Equal("", page.Find("input.form-control").GetAttribute("value") ?? "");
         var result = await service.SubmitAsync(state.Request.SessionId, new() { Kind = "answer", ExpectedRevision = state.Revision, Answers = new JsonObject { ["choice"] = "first" } }, Ct);
         Assert.Single(result.Intent.Answers); Assert.Equal(1, result.Intent.Forms); Assert.Null(result.ApprovedHash);
         using var reopened = PlanningSessionLifecycleTests.Create(fixture, new TypedWorkflowPlanner(), PlanningSessionLifecycleTests.AgentCatalog(), settings: new() { BackgroundProcessingEnabled = false });

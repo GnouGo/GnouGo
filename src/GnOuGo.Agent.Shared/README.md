@@ -11,6 +11,10 @@ Typed outcomes distinguish approved workflows, business clarification and proven
 unsupportedness. Technical stops carry a separate reason. Decision-page counts,
 input targets and the routine/behavior/semantic reasoning profile use the existing
 designer controls; `FinalReview` remains a waiting state.
+`PlanningClarificationDto` also carries the business question, canonical choice IDs,
+labels, preference reasons, evidence references and dependency fingerprint. Clients
+display labels, leave every option unselected, and submit the chosen ID in the
+existing answer envelope. Custom text is validated in the same session.
 
 `PlanningWorkflowDto` reports active holes, deterministic resolutions, distinct
 model-exposed holes and repeated request exposures. `HoleChoices` separates direct

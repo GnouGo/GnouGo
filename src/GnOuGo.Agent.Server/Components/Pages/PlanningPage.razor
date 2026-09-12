@@ -73,11 +73,12 @@
             {
                 <fieldset class="mb-3">
                     <legend style="font-size:1rem">@field.Description</legend>
-                    @foreach (var option in field.OptionDefinitions ?? [])
+                    @foreach (var option in (_state.Outcome as PlanningNeedUserClarification)?.Decision.Choices ?? [])
                     {
-                        <label class="d-block"><input type="radio" name="@field.Name" value="@option.Value" checked="@(_answers.GetValueOrDefault(field.Name) == option.Value)" @onchange="() => SetAnswer(field.Name, option.Value)" /> @option.Value @(option.Recommended ? "(Recommended)" : "") — @option.Description</label>
+                        <label class="d-block"><input type="radio" name="@field.Name" value="@option.Id" checked="@(_answers.GetValueOrDefault(field.Name) == option.Id)" @onchange="() => SetAnswer(field.Name, option.Id)" /> @option.Label @(option.Preferred ? "(Preferred)" : "")</label>
+                        @if (option.PreferredReason is { } reason) { <p class="text-muted">@reason</p> }
                     }
-                    <label class="d-block">Your answer<input class="form-control" value="@_answers.GetValueOrDefault(field.Name)" @oninput="e => SetAnswer(field.Name, e.Value?.ToString() ?? string.Empty)" /></label>
+                    <label class="d-block">Custom answer<input class="form-control" value="@CustomAnswer(field.Name)" @oninput="e => SetAnswer(field.Name, e.Value?.ToString() ?? string.Empty)" /></label>
                 </fieldset>
             }
             <button class="btn btn-primary" disabled="@(_busy || !CanAnswer())" @onclick="AnswerAsync">Submit answers</button>
@@ -269,6 +270,7 @@
     }
     private Task AnswerAsync() => SubmitAsync("answer", answers: new JsonObject(_answers.Select(a => new KeyValuePair<string, JsonNode?>(a.Key, JsonValue.Create(a.Value)))));
     private void SetAnswer(string key, string value) => _answers[key] = value;
+    private string? CustomAnswer(string key) => (_state?.Outcome as PlanningNeedUserClarification)?.Decision.Choices.Any(c => c.Id == _answers.GetValueOrDefault(key)) == true ? "" : _answers.GetValueOrDefault(key);
     private bool CanAnswer() => _state?.Intent.Question?.Fields?.All(f => !f.Required || !string.IsNullOrWhiteSpace(_answers.GetValueOrDefault(f.Name))) == true;
     private TimeSpan WaitDuration() => TimeSpan.FromMilliseconds((_state?.HumanWaitMilliseconds ?? 0) + (_state?.WaitingSinceUtc is { } waiting ? Math.Max(0, (DateTimeOffset.UtcNow - waiting).TotalMilliseconds) : 0));
     private static string Phase(string status) => status switch

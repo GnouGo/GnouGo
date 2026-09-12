@@ -77,11 +77,20 @@ internal static class PlanningPersistenceSmoke
             EstimatedAnswerTokens = 30, Candidate = new System.Text.Json.Nodes.JsonObject { ["decision"] = "Private decision" }, RequestId = "receipt" }];
         state.DecisionCorrections = [new("decision", "source-fingerprint", "$plan", PlanningGates.Behavior)];
         state.Outcome = new PlanningNeedUserClarification(new("decision", ["reference"],
-            new System.Text.Json.Nodes.JsonObject { ["type"] = "string", ["maxLength"] = 64 }, ["obligation"]));
+            new System.Text.Json.Nodes.JsonObject { ["type"] = "string", ["maxLength"] = 64 }, ["obligation"])
+        { Question = "Private business question", DependencyFingerprint = "governing-proof",
+            Choices = [new("choice", "Private business choice", true, "Private declared preference", ["reference"])] });
+        state.BusinessDecisions = [new() { Id = "decision", SubjectReference = "reference", Status = "eligible", DependencyFingerprint = "governing-proof",
+            ValuePresence = "omitted", Constraints = [new("prefer", "choice", "reference", "intent", "omitted")],
+            Alternatives = [new() { Id = "choice", EvidenceReference = "reference", Label = "Private business choice" }], ReportedEvents = ["recorded"] }];
         state.Construction.Repair = new() { Ready = false, GraphFingerprint = "exact-revision",
             RequestContext = new System.Text.Json.Nodes.JsonObject { ["privateScope"] = "Encrypted scope" } };
         if (!await reopened.TrySaveAsync(state, 3, CancellationToken.None)) throw new InvalidOperationException("Decision preparation persistence failed.");
         var prepared = await reopened.LoadAsync("smoke", state.Request.SessionId, CancellationToken.None);
+        if (prepared?.BusinessDecisions.Single().Constraints.Single().Applicability != "omitted" ||
+            prepared.BusinessDecisions.Single().ReportedEvents.Single() != "recorded" ||
+            prepared.Outcome is not PlanningNeedUserClarification business || business.Decision.Choices.Single().PreferredReason != "Private declared preference")
+            throw new InvalidOperationException("Business decision proof did not survive encrypted persistence.");
         if (prepared?.PreparationCheckpoint?.Stage != "matching" || prepared.PreparationCheckpoint.RequestHashes.Count != 1 ||
             prepared.Preparation?.Decisions.Single().PermissionOperationIds.Single() != "confirm" || prepared.Validation.Inputs?["resource"]?.GetValue<string>() != "scenario-only" ||
             prepared.SchemaVersion != 5 || prepared.Construction.Candidates.Single().Payload["privateAssignment"]?.ToString() != "Encrypted staged content" ||

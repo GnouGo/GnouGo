@@ -7,7 +7,7 @@ namespace GnOuGo.Flow.Planning;
 /// <summary>Interpretation selects exact source spans; identities, text and relationship endpoints are engine owned.</summary>
 internal static class PlanningSourceDecisions
 {
-    private static readonly string[] Kinds = ["external_read", "external_write", "external_execute", "resource_lifecycle", "cleanup", "human_interaction", "local_processing", "workflow_policy", "implementation_policy", "confirmation_required", "confirmation_forbidden", "exact_denial", "business_input", "business_output", "business_choice", "iteration", "workflow_boundary", "information"];
+    private static readonly string[] Kinds = ["external_read", "external_write", "external_execute", "resource_lifecycle", "cleanup", "human_interaction", "local_processing", "workflow_policy", "implementation_policy", "confirmation_required", "confirmation_forbidden", "exact_denial", "business_input", "business_output", "business_choice", "explicit_value", "default_value", "runtime_condition", "business_preference", "iteration", "workflow_boundary", "information"];
     internal static IReadOnlyDictionary<string, string> Sources(PlanningSnapshot state)
         => PlanningIntentAssessment.IntentSources(state).ToDictionary(s => s.Id, s => s.Text, StringComparer.Ordinal);
     internal static string Text(PlanningSnapshot state, PlanningObligation obligation)
@@ -28,7 +28,7 @@ internal static class PlanningSourceDecisions
             return new PlanningDecisionPages.Decision(DecisionId(scope.Reference, scope.Source.Text), new JsonObject
             { ["type"] = "array", ["minItems"] = 0, ["maxItems"] = 4, ["items"] = item }, new JsonObject
             {
-                ["task"] = "Identify distinct requested operations, business inputs/outputs and policies in this source span. Select word boundary IDs (end is exclusive). Information has no execution authority. Runtime observations are operations, not missing business values. Do not invent intentions from these instructions.",
+                ["task"] = "Identify distinct requested operations, business inputs/outputs and policies in this source span. Select word boundary IDs (end is exclusive). Distinguish supplied explicit values, declared defaults, runtime conditions and nonbinding preferences from genuinely missing planning choices. Execution inputs and conditions are not missing planning decisions. Information has no execution authority. Runtime observations are operations. Do not invent intentions from these instructions.",
                 ["role"] = scope.Source.Kind, ["questionContext"] = scope.Source.QuestionContext, ["words"] = scope.Boundaries.Context.DeepClone()
             }, PlanningGraphCompiler.Fingerprint(scope.Source.Text.Substring(scope.Reference.Start, scope.Reference.Length)));
         }).ToArray();
@@ -42,7 +42,7 @@ internal static class PlanningSourceDecisions
                 if (!state.References.Contains(reference)) state.References.Add(reference);
                 var kind = item["kind"]!.ToString();
                 if (kind == "information") continue;
-                var owner = kind is "business_input" or "business_output" or "business_choice" ? "business_decision" : kind is "local_processing" or "workflow_policy" or "confirmation_required" or "confirmation_forbidden" or "iteration" or "workflow_boundary" ? "workflow" : "capability_contract";
+                var owner = kind is "business_input" or "business_output" or "business_choice" or "explicit_value" or "default_value" or "business_preference" ? "business_decision" : kind is "runtime_condition" or "local_processing" or "workflow_policy" or "confirmation_required" or "confirmation_forbidden" or "iteration" or "workflow_boundary" ? "workflow" : "capability_contract";
                 var id = "ob_" + PlanningGraphCompiler.Fingerprint(reference.SourceId + ":" + reference.Start + ":" + PlanningReferences.Resolve(state, reference.Id, Sources(state)) + ":" + kind)[..16];
                 var obligation = new PlanningObligation(id, [reference.Id], owner, kind, item["required"]!.GetValue<bool>());
                 if (obligations.Any(o => o.Id == id))
@@ -80,7 +80,7 @@ internal static class PlanningSourceDecisions
 
     internal static async Task RelateAsync(PlanningSnapshot state, IPlanningRuntime runtime, CancellationToken ct)
     {
-        var operations = state.Obligations.Where(IsOperation).ToArray();
+        var operations = state.Obligations.Where(o => IsOperation(o)).ToArray();
         var producers = state.Obligations.Where(o => IsOperation(o) || o.Kind is "business_input" or "implementation_policy").ToArray();
         var pairs = operations.SelectMany(consumer => producers.Where(p => p.Id != consumer.Id).Select(producer => (Producer: producer, Consumer: consumer))).ToArray();
         var choices = pairs.Select(pair => new PlanningDecisionPages.Decision("relation_" + pair.Producer.Id + "_" + pair.Consumer.Id,

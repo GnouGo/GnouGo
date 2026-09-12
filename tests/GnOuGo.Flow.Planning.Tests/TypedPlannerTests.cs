@@ -179,14 +179,14 @@ public sealed class TypedPlannerTests
     }
 
     [Fact]
-    public async Task ClarificationRetainsTheQuestionMeaningWhenTheAnswerIsShort()
+    public async Task LegacyPendingQuestionRequiresReassessmentOnExplicitInteraction()
     {
         var state = Session(PlanningStatus.Clarification);
         state.Intent.Question = new() { StepId = "question", Prompt = "Clarify the behavior", Fields = [new() { Name = "behavior_0", Description = "Should approval be required before an external write?", Type = "text", Required = true, AllowCustomAnswer = true }] };
         state.Outcome = new PlanningNeedUserClarification(new("behavior_0", [], PlanningHoleRequests.Object(("behavior_0", PlanningHoleRequests.Type("string"))), ["behavior"]));
         var next = await new TypedWorkflowPlanner().AdvanceAsync(state, new() { Kind = "answer", ExpectedRevision = state.Revision, Answers = new JsonObject { ["behavior_0"] = "yes" } }, new FakeRuntime(), Ct);
         Assert.Equal(PlanningStatus.Created, next.Status);
-        Assert.Contains("Should approval be required before an external write?", Assert.Single(next.Intent.Answers).Question);
+        Assert.Empty(next.Intent.Answers); Assert.Null(next.Intent.Question); Assert.Null(next.Outcome);
     }
 
     [Fact]

@@ -8,9 +8,9 @@ runtime validators, and the thin `workflow.plan` executor.
 ```mermaid
 flowchart TD
   I[Intent references and semantic decisions] --> C[Capability discovery and locked contracts]
-  C --> Q[Clarification for missing business decisions]
-  Q --> C
-  C --> B[PlanningBehaviorPlan]
+  C --> B[Deterministic behavior and evidence-backed decision resolution]
+  B --> Q[Clarify only remaining material business alternatives]
+  Q --> B
   B --> R[Deterministic validation and human behavior review]
   R --> G[PlanningGraph skeleton]
   G --> D[Resolve ownership, provenance, dataflow and dependencies]
@@ -38,13 +38,28 @@ assembled by the coordinator from bounded semantic decisions. Every phase target
 80% of the input ceiling and a 2,048-token structured answer; the hard 12,000/8,192
 ceilings remain unchanged. Technical sizing failures cannot trigger user clarification. Every classification and contract
 must have deterministically validated evidence from intent, declared schemas or
-provider-neutral metadata. Missing evidence requires eligible human clarification or
-stops the session. Provider names, tool names and domain vocabulary never establish
+provider-neutral metadata. Missing proof stops technically; only proven, materially
+different business alternatives may require clarification. Provider names, tool names and domain vocabulary never establish
 execution authority. A validated inventory containing only local operations never
 requests physical MCP selection merely to enumerate denied tools: its physical
 allowlist is empty, while native denials remain validated. Saved YAML is imported once as a validated revision baseline;
 capabilities are rediscovered before granting execution authority. Execution failure
 evidence is kept separate from user intent.
+
+Business-choice classifications are candidates for resolution. The engine uses the
+complete containing clause, current answers, baseline, policy and prepared contracts
+before exposing a question. Locked runtime decisions and confirmations remain
+executable behavior. The same eligibility calculation filters automatic selections
+and user choices; one admissible choice or proven equivalent behavior resolves without
+another model call. Declared defaults require applicability proof and distinguish
+omission from explicit null. A sampled response cannot prove a complete empty domain.
+
+Clarification presents two to four labeled suggestions and custom text. At most one
+suggestion has a preference justified by a governing source; it is never selected
+automatically. Selected IDs remain typed decisions. Custom text is assessed through
+bounded reference assignments and cannot authorize new capabilities. Answers retain
+the session, discovery, contracts, receipts and budgets; affected behavior must be
+reviewed again. See [clarification resolution and offline evidence](planner-clarification-resolution.md).
 
 Human acceptance of the exact business behavior precedes executable construction.
 The skeleton inserts predefined pure decision-outcome and branch-result adapters
