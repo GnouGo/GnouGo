@@ -16,9 +16,33 @@ public static class PlanningConvergenceTelemetry
     private static readonly Histogram<long> Tokens = Meter.CreateHistogram<long>("gnougo.planning.request_tokens", "{token}");
     private static readonly Counter<long> Avoidable = Meter.CreateCounter<long>("gnougo.planning.avoidable_calls", "{call}");
 
+    private static readonly Histogram<double> ContextUtilization = Meter.CreateHistogram<double>("gnougo.planning.context_utilization", "%");
+    private static readonly Counter<long> DecisionPages = Meter.CreateCounter<long>("gnougo.planning.decision_pages", "{page}");
+    private static readonly Counter<long> Stops = Meter.CreateCounter<long>("gnougo.planning.technical_stops", "{stop}");
+
     public static void Observe(PlanningSnapshot before, PlanningSnapshot after, Action<string, IReadOnlyList<KeyValuePair<string, object?>>> emit)
     {
         var tenant = new KeyValuePair<string, object?>("tenant.id", after.Request.TenantId);
+        foreach (var page in after.DecisionPages)
+        {
+            var prior = before.DecisionPages.SingleOrDefault(p => p.Id == page.Id);
+            if (prior?.Status == page.Status && prior.RequestId == page.RequestId) continue;
+            if (prior is null)
+            {
+                DecisionPages.Add(1, tenant, new("phase", page.Phase));
+                if (after.Request.Generation.MaxInputTokensPerRequest > 0) ContextUtilization.Record(100.0 * page.EstimatedInputTokens / after.Request.Generation.MaxInputTokensPerRequest, tenant, new("phase", page.Phase));
+            }
+            emit("planning.decision_page", [tenant, new("page", page.Id), new("parent", page.ParentId), new("phase", page.Phase),
+                new("workflow", page.WorkflowKey), new("status", page.Status), new("request", page.RequestId), new("decisions", page.Decisions.Count),
+                new("estimated_input_tokens", page.EstimatedInputTokens), new("input_target_tokens", page.InputTargetTokens), new("estimated_answer_tokens", page.EstimatedAnswerTokens), new("correction", page.Correction)]);
+        }
+        if (after.TechnicalStop is { } stop && before.TechnicalStop != stop)
+        {
+            Stops.Add(1, tenant, new("phase", stop.Phase), new("code", stop.Code));
+            emit("planning.technical_stop", [tenant, new("phase", stop.Phase), new("code", stop.Code), new("location", stop.Location), new("unverifiable", stop.Unverifiable)]);
+        }
+        if (before.Outcome != after.Outcome)
+            emit("planning.outcome", [tenant, new("outcome", after.Outcome?.Name), new("revision", after.Revision)]);
         foreach (var workflow in after.Construction.Workflows)
         {
             var previous = before.Construction.Workflows.SingleOrDefault(w => w.WorkflowKey == workflow.WorkflowKey);
@@ -50,7 +74,7 @@ public static class PlanningConvergenceTelemetry
             var prior = before.RequestAccounting.SingleOrDefault(a => a.Id == request.Id);
             if (prior?.Evidence == request.Evidence) continue;
             emit("planning.request_convergence", [tenant, new("request", request.Id), new("workflow", request.WorkflowKey), new("phase", request.Phase), new("gate", request.Gate),
-                new("evidence", request.Evidence), new("purpose", request.Purpose), new("estimated_input_tokens", request.EstimatedInputTokens),
+                new("evidence", request.Evidence), new("purpose", request.Purpose), new("reasoning", request.Reasoning), new("estimated_input_tokens", request.EstimatedInputTokens),
                 new("input_tokens", request.InputTokens), new("output_tokens", request.OutputTokens), new("avoidable_dispatches", request.AvoidableDispatches), new("avoidable_extra_requests", request.AvoidableExtraRequests)]);
             foreach (var (hole, reason) in request.HoleReasons)
                 emit("planning.hole_request", [tenant, new("request", request.Id), new("hole", hole), new("reason", reason), new("evidence", request.Evidence)]);

@@ -30,7 +30,8 @@ public sealed class HoleSessionTests
         var state = Ready(); var runtime = new FakeRuntime();
         for (var i = 0; i < 20 && !PlanningStatus.IsWaiting(state.Status); i++) state = await Advance(state, runtime);
         Assert.True(state.Status == PlanningStatus.FinalReview, JsonSerializer.Serialize(state.Diagnostics, PlanningJsonContext.Default.ListPlanningDiagnostic));
-        Assert.Equal(2, runtime.Phases.Count(p => p == "construction"));
+        Assert.Single(runtime.Phases, p => p == "construction");
+        Assert.Contains("construction_schema", runtime.Phases);
         Assert.Contains("semantic_review", runtime.Phases);
         Assert.True(runtime.ScenarioCalls > 0);
         Assert.Equal(5, state.Validation.Stage);
@@ -52,8 +53,8 @@ public sealed class HoleSessionTests
         }
         };
         state = await Advance(state, runtime);
-        Assert.Equal(PlanningStatus.Recovery, state.Status);
-        Assert.Contains(state.Diagnostics, d => d.Code == "MODEL_OUTPUT_LIMIT");
+        Assert.Equal(PlanningStatus.Stopped, state.Status);
+        Assert.Contains(state.Diagnostics, d => d.Code == "DECISION_OUTPUT_LIMIT");
         Assert.Empty(state.Construction.PendingCalls);
         Assert.Equal(before, PlanningGraphCompiler.Fingerprint(state.Graph!));
         state = await Advance(state, runtime); Assert.Single(runtime.Requests);
@@ -63,16 +64,16 @@ public sealed class HoleSessionTests
     public async Task OversizedRequestPausesBeforeDispatch()
     {
         var state = Ready(); state.Request.Generation.MaxInputTokensPerRequest = 1_000;
-        state.Construction.Holes.First(h => h.Kind == "schema").Purpose = new string('x', 40_000);
+        foreach (var hole in state.Construction.Holes.Where(h => h.Kind == "schema")) hole.Purpose = new string('x', 40_000);
         state.ApprovedBehaviorHash = PlanningBehaviorPlans.Fingerprint(state.BehaviorPlan!);
         var runtime = new FakeRuntime(); state = await Advance(state, runtime);
-        Assert.Equal(PlanningStatus.Recovery, state.Status);
-        Assert.Contains(state.Diagnostics, d => d.Code == "MODEL_INPUT_LIMIT");
+        Assert.Equal(PlanningStatus.Stopped, state.Status);
+        Assert.Contains(state.Diagnostics, d => d.Code == "DECISION_SIZE_UNSUPPORTED");
         Assert.Empty(runtime.Requests);
     }
 
     [Fact]
-    public async Task PendingRequestReusesIdentityAndExactPayloadAfterRestart()
+    public async Task UnverifiableRequestRetainsItsExactManifestAndCannotBeRetried()
     {
         var state = Ready(); PlanningSnapshot? durable = null;
         var runtime = new FakeRuntime
@@ -82,15 +83,17 @@ public sealed class HoleSessionTests
         };
         state = await Advance(state, runtime);
         var pending = Assert.Single(durable!.Construction.PendingCalls);
-        Assert.NotNull(pending.Assignments);
-        Assert.Equal(pending.ScopeFingerprint, pending.Assignments.ScopeFingerprint);
+        var page = Assert.Single(durable.DecisionPages, p => p.RequestId == pending.Id);
+        Assert.Equal(page.Id, pending.ScopeFingerprint);
         Assert.Equal(PlanningGates.Response, pending.Gate);
-        state = await Advance(durable, runtime, "retry");
-        var replay = new FakeRuntime(); state = await Advance(state, replay);
-        var actual = Assert.Single(replay.Requests);
-        Assert.Equal(pending.Id, actual.ClientRequestId);
-        Assert.Equal(pending.Request.Prompt, actual.Prompt);
-        Assert.Equal(1, state.Construction.Workflows[0].Calls);
+        Assert.Equal("unverifiable", Assert.Single(durable.RequestAccounting).Evidence);
+        var stopped = await Advance(durable, runtime);
+        Assert.Equal(durable.Revision, stopped.Revision);
+        await Assert.ThrowsAsync<ArgumentException>(() => Advance(durable, runtime, "retry"));
+        Assert.Single(runtime.Requests);
+        // A verifiable receipt replay is covered by the encrypted journal tests;
+        // this missing receipt must never become another provider dispatch.
+
     }
 
     [Fact]
@@ -106,7 +109,7 @@ public sealed class HoleSessionTests
         }
         };
         state = await Advance(state, runtime);
-        Assert.Equal(PlanningStatus.Recovery, state.Status);
+        Assert.Equal(PlanningStatus.Stopped, state.Status);
         Assert.Contains(state.Diagnostics, d => d.Code == GnOuGo.Flow.Core.Models.ErrorCodes.LlmBudgetExceeded);
         Assert.Single(state.Construction.PendingCalls);
         Assert.True(state.HumanWaitMilliseconds >= TimeSpan.FromHours(4).TotalMilliseconds);

@@ -86,12 +86,14 @@ internal sealed partial class PlanningWorkflowConstruction
             if (selected.Any(other => Coupled(hole, other))) continue;
             var candidate = PlanningHoleRequests.Create(state, workflow, [.. selected, hole]);
             var estimate = PlanningJsonTransport.EstimateInputTokens(candidate.Prompt, candidate.Schema);
-            if (estimate > state.Request.Generation.MaxInputTokensPerRequest)
+            var bounded = PlanningDecisionPages.BoundDomain(candidate.Schema);
+            var answerFits = PlanningDecisionPages.AnswerTokens(bounded) <= PlanningGenerationPolicy.AnswerTargetTokens;
+            if (estimate > PlanningGenerationPolicy.InputTarget(state.Request.Generation) || !answerFits)
             {
                 if (selected.Count > 0) continue;
-                throw new WorkflowRuntimeException("MODEL_INPUT_LIMIT", $"Field '{hole.CanonicalLocation}' needs approximately {estimate} input tokens; the ceiling is {state.Request.Generation.MaxInputTokensPerRequest}. Narrow this field's contract or obligation before retrying.");
+                throw new WorkflowRuntimeException(answerFits ? "MODEL_INPUT_LIMIT" : "MODEL_ANSWER_SIZE", $"Field '{hole.CanonicalLocation}' needs approximately {estimate} input tokens; the ceiling is {PlanningGenerationPolicy.InputTarget(state.Request.Generation)}. The indivisible field needs a smaller representable decision scope.");
             }
-            selected.Add(hole); request = candidate;
+            selected.Add(hole); request = candidate with { Schema = bounded };
         }
         return (selected.ToArray(), request!);
 

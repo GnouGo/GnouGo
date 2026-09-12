@@ -12,13 +12,13 @@ namespace GnOuGo.Flow.Integrations.Planning;
 public sealed class WorkflowPlanningRuntimeFactory(IKeyVaultRecordStore records, string leaseDirectory) : IPlanningRuntimeFactory
 {
     internal const string Author = "GnOuGo.Flow.Planning";
-    internal const string Sessions = "flow-planning-snapshots-v4";
-    private const string Definitions = "flow-planning-definitions-v4";
+    internal const string Sessions = "flow-planning-snapshots-v5";
+    private const string Definitions = "flow-planning-definitions-v5";
 
     public static WorkflowPlanningRuntimeFactory CreateWorkspace(string? keyVaultPath = null, string? leasePath = null, string? baseDirectory = null)
     {
         var root = baseDirectory ?? AppContext.BaseDirectory;
-        var leases = GnOuGoWorkspace.ResolveDatabasePath(leasePath, root, ".GnOuGo/data/flow-planning-v4/leases");
+        var leases = GnOuGoWorkspace.ResolveDatabasePath(leasePath, root, ".GnOuGo/data/flow-planning-v5/leases");
         return new(KeyVaultRecordStoreFactory.CreateWorkspaceStore(keyVaultPath, root), leases);
     }
 
@@ -51,7 +51,7 @@ public sealed class WorkflowPlanningRuntimeFactory(IKeyVaultRecordStore records,
             var saved = await records.GetAsync(Sessions, tenant, key, Author, ct);
             var state = saved is null ? initial : JsonSerializer.Deserialize(saved.Value, PlanningJsonContext.Default.PlanningSnapshot)
                 ?? throw new PlanningConflictException("The encrypted planning session is invalid.");
-            if (state.SchemaVersion != 4 || state.Request.TenantId != tenant || state.Request.SessionId != key || saved is not null && savedDefinition is null)
+            if (state.SchemaVersion != 5 || state.Request.TenantId != tenant || state.Request.SessionId != key || saved is not null && savedDefinition is null)
                 throw new PlanningConflictException("The planning session ownership or schema is invalid.");
             if (savedDefinition is null) await records.UpsertAsync(Definitions, tenant, key, definition, Author, ct);
             var receipt = await records.GetAsync(WorkflowPlanningBudgetSink.Collection, tenant, key, Author, ct);

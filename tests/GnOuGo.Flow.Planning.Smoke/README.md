@@ -6,7 +6,7 @@ it, and executes its expressions without live provider calls. It also advances a
 typed planning session through behavior review, deterministic skeletons and exact
 hole assignments,
 scenario validation and exact revision approval, restoring serialized checkpoints
-between phases using schema 4. The runtime integration also persists a reserved request, budget,
+between phases using schema 5. The runtime integration also persists a reserved request, budget,
 and completed receipt in a temporary encrypted KeyVault database, reopens the session,
 and verifies that replay makes no extra model call. Temporary storage is removed afterward.
 

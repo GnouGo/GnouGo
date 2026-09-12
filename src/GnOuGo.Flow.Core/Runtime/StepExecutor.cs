@@ -160,7 +160,7 @@ public sealed class StepExecutionContext
             new KeyValuePair<string, object?>("gnougo-flow.plan.structured_output.requested", schemaRequested),
             new KeyValuePair<string, object?>("gnougo-flow.plan.structured_output.strict", request.StructuredOutputStrict == true),
             new KeyValuePair<string, object?>("gnougo-flow.plan.structured_output.schema_version",
-                schemaRequested ? "planning-json-v4" : string.Empty),
+                schemaRequested ? "planning-json-v5" : string.Empty),
             new KeyValuePair<string, object?>("gnougo-flow.plan.structured_output.schema_fingerprint", schemaFingerprint),
             new KeyValuePair<string, object?>("gnougo-flow.plan.structured_output.capability_source",
                 schemaRequested ? "runtime_request_contract" : "none"),

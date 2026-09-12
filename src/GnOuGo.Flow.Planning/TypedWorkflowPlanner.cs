@@ -18,12 +18,12 @@ public sealed class TypedWorkflowPlanner(TimeProvider? timeProvider = null) : IW
     public async Task<PlanningSnapshot> AdvanceAsync(PlanningSnapshot snapshot, PlanningCommand command, IPlanningRuntime runtime, CancellationToken ct)
     {
         ArgumentNullException.ThrowIfNull(snapshot); ArgumentNullException.ThrowIfNull(command); ArgumentNullException.ThrowIfNull(runtime);
-        if (snapshot.SchemaVersion != 4) throw new PlanningConflictException("Unsupported planning snapshot. Start a new session.");
+        if (snapshot.SchemaVersion != 5) throw new PlanningConflictException("Unsupported planning snapshot. Start a new session.");
         if (snapshot.Revision != command.ExpectedRevision) throw new PlanningConflictException("The session changed. Reload the current revision.");
         if (string.IsNullOrWhiteSpace(snapshot.Request.TenantId) || string.IsNullOrWhiteSpace(snapshot.Request.SessionId) || string.IsNullOrWhiteSpace(snapshot.Request.Prompt))
             throw new ArgumentException("Tenant, session, and intent are required.");
         if (snapshot.Request.MaxConcurrency is < 1 or > 16 || snapshot.Request.MaxRepairsPerWorkflowGate is < 0 or > 10) throw new ArgumentException("Invalid planning limits.");
-        if (command.Kind is not ("advance" or "answer" or "accept_behavior" or "approve" or "revise" or "edit_intent" or "configure_generation" or "retry" or "cancel"))
+        if (command.Kind is not ("advance" or "answer" or "accept_behavior" or "approve" or "revise" or "edit_intent" or "configure_generation" or "cancel"))
             throw new ArgumentException("Unsupported planning command.");
         PlanningGenerationPolicy.Validate(snapshot.Request.Generation);
         var state = PlanningContext.Clone(snapshot);
@@ -54,14 +54,22 @@ public sealed class TypedWorkflowPlanner(TimeProvider? timeProvider = null) : IW
                         (command.Answers[f.Name] is not JsonValue value || !value.TryGetValue<string>(out var text) || string.IsNullOrWhiteSpace(text))) ||
                         command.Answers.Any(a => !state.Intent.Question.Fields.Any(f => f.Name == a.Key)))
                         throw new PlanningConflictException("Submit a nonempty answer for every pending question.");
-                    state.Intent.Answers.Add(new(state.Intent.Question.Prompt + "\n" + string.Join("\n", state.Intent.Question.Fields.Select(f => f.Description ?? f.Name)), command.Answers.DeepClone().AsObject()));
+                    if (state.Outcome is not PlanningNeedUserClarification clarification ||
+                        PlanningContractValidation.ValidateInstance(command.Answers, clarification.Decision.AnswerSchema).Count != 0)
+                        throw new PlanningConflictException("The answer does not satisfy the current typed business question.");
+                    var acceptedAnswers = command.Answers.DeepClone().AsObject();
+                    foreach (var field in state.Intent.Question.Fields)
+                        if (field.OptionDefinitions?.SingleOrDefault(o => o.Value == acceptedAnswers[field.Name]?.ToString()) is { } selected)
+                            acceptedAnswers[field.Name] = selected.Description;
+                    state.Intent.Answers.Add(new(state.Intent.Question.Prompt + "\n" + string.Join("\n", state.Intent.Question.Fields.Select(f => f.Description ?? f.Name)), acceptedAnswers));
+                    state.Outcome = null; state.TechnicalStop = null;
                     state.Intent.Question = null; state.Intent.Assessment = new(); state.Intent.Checked = false; state.Preparation = null; state.PreparationCheckpoint = null;
                     state.Status = PlanningStatus.Created; state.CurrentPhase = PlanningPhase.Intent; break;
                 case "accept_behavior":
                     RequireReview(state, command, PlanningStatus.BehaviorReview);
                     if (state.BehaviorPlan is null || state.ArtifactHash != PlanningBehaviorPlans.Fingerprint(state.BehaviorPlan)) throw new PlanningConflictException("The behavior changed before acceptance.");
                     var behaviorFindings = PlanningBehaviorPlans.Validate(state.BehaviorPlan, state.Preparation!);
-                    if (behaviorFindings.Any(d => d.Required)) { state.Diagnostics = behaviorFindings.ToList(); state.Status = PlanningStatus.Recovery; break; }
+                    if (behaviorFindings.Any(d => d.Required)) { state.Diagnostics = behaviorFindings.ToList(); state.Status = PlanningStatus.Stopped; break; }
                     state.ApprovedBehaviorHash = state.ArtifactHash;
                     PlanningGraphSkeleton.Create(state);
                     PlanningContext.InvalidateArtifact(state);
@@ -91,22 +99,12 @@ public sealed class TypedWorkflowPlanner(TimeProvider? timeProvider = null) : IW
                     }
                     break;
                 case "configure_generation":
-                    if (command.Generation is null || !(PlanningStatus.IsWaiting(state.Status) || state.Status is PlanningStatus.Failed or PlanningStatus.Unsupported)) throw new PlanningConflictException("Generation settings require a paused session.");
+                    if (command.Generation is null || !(PlanningStatus.IsWaiting(state.Status) || state.Status is PlanningStatus.Stopped or PlanningStatus.Failed or PlanningStatus.Unsupported)) throw new PlanningConflictException("Generation settings require a paused session.");
                     if (state.Construction.PendingCalls.Count != 0) throw new PlanningConflictException("Reconcile pending requests before changing generation settings.");
                     PlanningGenerationPolicy.Validate(command.Generation);
                     state.GenerationHistory.Add(new(state.Revision, state.Request.Generation)); state.Request.Generation = command.Generation;
                     state.ApprovedHash = null;
                     if (state.Status == PlanningStatus.FinalReview) { PlanningContext.InvalidateArtifact(state); state.Status = PlanningStatus.Validating; }
-                    break;
-                case "retry":
-                    if (state.Status is not (PlanningStatus.Recovery or PlanningStatus.Failed or PlanningStatus.Unsupported)) throw new PlanningConflictException("Only a stopped session can be retried.");
-                    if (state.Diagnostics.Any(d => d.Code == "GOVERNING_CONTRACT_REVIEW_REQUIRED") && !PlanningSemanticReview.ReassessInvalidTargets(state)) break;
-                    PlanningIntentAssessment.ArchiveIntent(state);
-                    state.Diagnostics.Clear();
-                    if (state.CurrentPhase == PlanningPhase.Capabilities && state.PreparationCheckpoint is { } preparation && state.Construction.PendingCalls.Count == 0)
-                        preparation.RefreshDiscovery = true;
-                    if (state.Construction.PendingCalls.Count == 0) state.Intent.Assessment = new();
-                    state.Status = state.Graph is null ? PlanningStatus.Created : state.Construction.Candidates.Count > 0 || state.CurrentPhase is PlanningPhase.Construction or PlanningPhase.Dataflow ? PlanningStatus.Generating : PlanningStatus.Validating;
                     break;
                 default: throw new ArgumentException("Unsupported planning command.");
             }
@@ -117,19 +115,19 @@ public sealed class TypedWorkflowPlanner(TimeProvider? timeProvider = null) : IW
         { PlanningContext.Stop(state, ErrorCodes.LlmBudgetExceeded, "The active planning time budget was exhausted. Pending dispatches must be reconciled before further work."); }
         catch (OperationCanceledException) when (callerCancellation.IsCancellationRequested) { throw; }
         catch (PlanningSemanticReview.SemanticAssessmentException error)
-        { state.Diagnostics = error.Diagnostics; state.Status = PlanningStatus.Recovery; state.CurrentPhase = "semantic_review"; PlanningContext.InvalidateArtifact(state); }
+        { state.Diagnostics = error.Diagnostics; state.Status = PlanningStatus.Stopped; state.CurrentPhase = "semantic_review"; PlanningContext.InvalidateArtifact(state); }
         catch (WorkflowRuntimeException error) when (error.Code == "PLANNING_CLARIFICATION_REQUIRED")
         {
             var question = error.Details?["question"] is { } json ? JsonSerializer.Deserialize(json, PlanningJsonContext.Default.HumanInputRequest) : null;
             var count = question?.Fields?.Count ?? 0;
-            if (question is null || count == 0 || state.Intent.Forms >= 3 || state.Intent.Questions + count > 15)
+            if (state.Outcome is not PlanningNeedUserClarification || question is null || count == 0 || state.Intent.Forms >= 3 || state.Intent.Questions + count > 15)
                 PlanningContext.Stop(state, "CLARIFICATION_LIMIT", "Required clarification cannot be completed within the remaining allowance.");
             else { state.Intent.Question = question; state.Intent.Forms++; state.Intent.Questions += count; state.Status = PlanningStatus.Clarification; }
         }
         catch (WorkflowRuntimeException error) when (state.CurrentPhase == PlanningPhase.Capabilities)
         {
             state.Diagnostics = PlanningPreparationDiagnostics.FromException(error);
-            state.Status = error.Code == ErrorCodes.CapabilityPreflightUnavailable ? PlanningStatus.Unsupported : PlanningStatus.Recovery;
+            state.Status = error.Code == ErrorCodes.CapabilityPreflightUnavailable ? PlanningStatus.Unsupported : PlanningStatus.Stopped;
             if (state.PreparationCheckpoint is not null) state.PreparationCheckpoint.Diagnostics = state.Diagnostics.ToList();
             PlanningContext.InvalidateArtifact(state);
         }
@@ -140,13 +138,14 @@ public sealed class TypedWorkflowPlanner(TimeProvider? timeProvider = null) : IW
             state.Diagnostics = [new("LLM_PROVIDER_" + error.Kind.ToString().ToUpperInvariant(), "$",
                 error.Message + (error.StatusCode is { } status ? " HTTP status: " + status + "." : "") +
                 (error.SafeProviderCode is { } code ? " Provider code: " + code + "." : ""))];
-            state.Status = PlanningStatus.Recovery; PlanningContext.InvalidateArtifact(state);
+            state.Status = PlanningStatus.Stopped; PlanningContext.InvalidateArtifact(state);
         }
         catch (Exception error)
         {
             var code = error is WorkflowRuntimeException flow ? flow.Code : error is LLMClientException ? "MODEL_TRANSPORT_FAILURE" : "PLANNING_INVALID";
             PlanningContext.Stop(state, code, error.Message);
         }
+        PlanningOutcomes.Refresh(state);
         state.ActiveMilliseconds += clock.Elapsed.TotalMilliseconds;
         PlanningConvergence.Refresh(state);
         state.Revision++; state.UpdatedAtUtc = _time.GetUtcNow();
@@ -204,6 +203,7 @@ public sealed class TypedWorkflowPlanner(TimeProvider? timeProvider = null) : IW
         if (findings.Any(d => d.Required))
         { state.Diagnostics = findings.ToList(); PlanningContext.Stop(state, "GOVERNING_CONTRACT_REVIEW_REQUIRED", "Current contracts require renewed review before approval."); return; }
         state.ApprovedHash = state.ArtifactHash; state.Status = PlanningStatus.Approved;
+        state.Outcome = new PlanningValidWorkflow(state.ArtifactHash!);
     }
 
     private static void RequireReview(PlanningSnapshot state, PlanningCommand command, string status)
@@ -213,7 +213,9 @@ public sealed class TypedWorkflowPlanner(TimeProvider? timeProvider = null) : IW
     }
     private static void ResetForIntent(PlanningSnapshot state)
     {
-        state.Intent.Checked = false; state.Intent.Question = null; state.Intent.Assessment = new(); state.Intent.Answers.Clear();
+        state.Outcome = null; state.TechnicalStop = null;
+        state.Intent.Checked = false;
+        state.Intent.Question = null; state.Intent.Assessment = new(); state.Intent.Answers.Clear();
         state.Preparation = null; state.PreparationCheckpoint = null; state.BehaviorPlan = null; state.ApprovedBehaviorHash = null;
         state.BehaviorAssessmentCalls = 0; state.BehaviorAssessment = new(); state.Graph = null; state.Diagnostics.Clear();
         state.BehaviorRevision = null;

@@ -13,7 +13,7 @@ public sealed class PlanningPageTests
     {
         var ct = Xunit.TestContext.Current.CancellationToken;
         await using var fixture = await PlanningPersistenceTests.StoreFixture.CreateAsync();
-        var state = Session("Partial construction", ""); state.Status = PlanningStatus.Recovery; state.CurrentPhase = PlanningPhase.Construction;
+        var state = Session("Partial construction", ""); state.Status = PlanningStatus.Stopped; state.CurrentPhase = PlanningPhase.Construction;
         state.Yaml = null; state.ArtifactHash = null;
         state.Construction.Workflows = [new() { WorkflowKey = "main", Status = "constructed", Calls = 2 }];
         Assert.True(await fixture.Store.TrySaveAsync(state, null, ct));
@@ -33,7 +33,7 @@ public sealed class PlanningPageTests
     {
         var ct = Xunit.TestContext.Current.CancellationToken;
         await using var fixture = await PlanningPersistenceTests.StoreFixture.CreateAsync();
-        var state = Session("Paused generation", ""); state.Status = PlanningStatus.Recovery; state.CurrentPhase = PlanningPhase.Construction;
+        var state = Session("Paused generation", ""); state.Status = PlanningStatus.Stopped; state.CurrentPhase = PlanningPhase.Construction;
         state.ApprovedBehaviorHash = "accepted-behavior"; state.ApprovedHash = "old-artifact";
         state.Intent.Answers = [new("Which outcome?", new() { ["choice"] = "retain" })]; state.Intent.Forms = 1;
         state.Request.Options["generator"] = new System.Text.Json.Nodes.JsonObject { ["model"] = "configured-model", ["reasoning"] = "medium" };
@@ -45,18 +45,18 @@ public sealed class PlanningPageTests
             context.JSInterop.Mode = JSRuntimeMode.Loose; context.Services.AddSingleton(service);
             var page = context.Render<PlanningPage>(p => p.Add(x => x.SessionId, state.Request.SessionId));
             page.WaitForAssertion(() => Assert.Contains("configured-model", page.Markup));
-            page.Find("select[aria-label='Generation reasoning']").Change("low");
+            page.Find("select[aria-label='Routine reasoning']").Change("low");
             Assert.Single(page.FindAll("button"), b => b.TextContent == "Apply generation settings").Click();
-            page.WaitForAssertion(() => Assert.Contains("Reasoning: low", page.Markup));
+            page.WaitForAssertion(() => Assert.Contains("Reasoning: routine low", page.Markup));
         }
         using var reopened = PlanningSessionLifecycleTests.Create(fixture, new TypedWorkflowPlanner(), PlanningSessionLifecycleTests.AgentCatalog());
         var restored = (await reopened.GetAsync(state.Request.SessionId, ct))!;
-        Assert.Equal("low", restored.Request.Generation.Reasoning); Assert.Equal(state.ApprovedBehaviorHash, restored.ApprovedBehaviorHash);
+        Assert.Equal("low", restored.Request.Generation.ReasoningProfile.Routine); Assert.Equal(state.ApprovedBehaviorHash, restored.ApprovedBehaviorHash);
         Assert.Null(restored.ApprovedHash); Assert.Single(restored.Intent.Answers); Assert.Single(restored.GenerationHistory);
         Assert.Equal(2, restored.Construction.Workflows[0].Calls); Assert.Equal(1, restored.Construction.Workflows[0].RepairCalls);
         Assert.Null(await fixture.Store.LoadAsync("another-tenant", state.Request.SessionId, ct));
         await Assert.ThrowsAsync<PlanningConflictException>(() => reopened.SubmitAsync(state.Request.SessionId,
-            new() { Kind = "configure_generation", ExpectedRevision = state.Revision, Generation = new() { Reasoning = "high" } }, ct));
+            new() { Kind = "configure_generation", ExpectedRevision = state.Revision, Generation = new() { ReasoningProfile = new() { Routine = "high" } } }, ct));
     }
 
     [Fact]

@@ -344,29 +344,6 @@ internal static class PlanningArtifactValidation
     };
     internal static string TypedPromptFingerprint(McpPromptInfo prompt) => Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(prompt.Description + TypedPromptInputSchema(prompt).ToJsonString())));
 
-    internal static void RequestTypedCapabilityClarification(CapabilityInventory inventory, CapabilityMatchingEvaluation? evaluation, CapabilityCatalog? catalog)
-    {
-        var context = BuildCapabilityClarificationContext(inventory, evaluation, catalog);
-        var issues = context["issues"]!.AsArray().OfType<JsonObject>().ToList();
-        var question = new HumanInputRequest
-        {
-            StepId = "capability-clarification",
-            Prompt = "Clarify the unresolved behavior before capability planning continues.",
-            Mode = "form",
-            AllowAbandon = true,
-            Fields = issues.Select((issue, index) => new HumanInputFieldDef
-            {
-                Name = "behavior_" + index,
-                Description = issue["description"]!.GetValue<string>(),
-                Type = "text",
-                Required = true,
-                AllowCustomAnswer = true
-            }).ToList()
-        };
-        throw new Expressions.WorkflowRuntimeException("PLANNING_CLARIFICATION_REQUIRED", "Observable behavior needs clarification.",
-            details: new JsonObject { ["question"] = JsonSerializer.SerializeToNode(question, PlanningJsonContext.Default.HumanInputRequest) });
-    }
-
     internal static WorkflowDocument ParseAndValidateGeneratedWorkflow(string yaml)
     {
         WorkflowDocument generatedDoc;

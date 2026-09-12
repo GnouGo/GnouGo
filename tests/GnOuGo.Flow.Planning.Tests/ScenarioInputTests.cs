@@ -29,10 +29,10 @@ public sealed class ScenarioInputTests
         };
         PlanningFixtures.Accept(state);
         state = await new TypedWorkflowPlanner().AdvanceAsync(state, new() { ExpectedRevision = state.Revision }, runtime, TestContext.Current.CancellationToken);
-        Assert.Equal(1, calls); Assert.Equal(PlanningStatus.Recovery, state.Status);
+        Assert.Equal(1, calls); Assert.Equal(PlanningStatus.Stopped, state.Status);
         Assert.Equal("scenario_inputs", state.CurrentPhase);
         Assert.Equal(graph, PlanningGraphCompiler.Fingerprint(state.Graph!)); Assert.Null(state.Validation.Inputs);
-        Assert.Contains(state.Diagnostics, d => d.Code == "MODEL_OUTPUT_LIMIT" && d.Message.Contains("8192", StringComparison.Ordinal));
+        Assert.Contains(state.Diagnostics, d => d.Code == "DECISION_OUTPUT_LIMIT");
     }
 
     [Theory]
@@ -67,22 +67,23 @@ public sealed class ScenarioInputTests
         var fingerprint = PlanningGraphCompiler.Fingerprint(state.Graph); var calls = 0;
         var runtime = new FakeRuntime
         {
-            OnCall = (phase, _, _) =>
+            OnCall = (phase, request, _) =>
         {
-            if (phase == "semantic_review") return Task.FromResult(new LLMResponse { Json = new JsonObject { ["findings"] = new JsonArray() } });
-            Assert.Equal("scenario_observations", phase); calls++;
-            JsonNode Literal(bool value) => PlanningModelValues.Compact(JsonSerializer.SerializeToNode(calls == 1 || exhausted
-                ? new PlanningValue { Kind = "boolean", Boolean = value }
-                : Obj(("response", Obj(("more", new() { Kind = "boolean", Boolean = value })))), PlanningJsonContext.Default.PlanningValue))!;
-            return Task.FromResult(new LLMResponse { Json = new JsonObject { ["totalObservations"] = 2, ["responses"] = new JsonArray(Literal(calls < 3)) } });
+            if (phase == "semantic_review") return Task.FromResult(new LLMResponse { Json = FakeRuntime.PassReview(request) });
+            Assert.StartsWith("scenario_observations", phase);
+            if (request.StructuredOutputSchema!["properties"]!.AsObject().Any(p => p.Key.StartsWith("observation_count_", StringComparison.Ordinal)))
+                return Task.FromResult(new LLMResponse { Json = Assignment(request, JsonValue.Create("2")) });
+            calls++;
+            var value = calls == 1 || exhausted ? (JsonNode?)JsonValue.Create("invalid") : JsonValue.Create(!request.Prompt.Contains("\"final\":true", StringComparison.Ordinal));
+            return Task.FromResult(new LLMResponse { Json = Assignment(request, value) });
         }
         };
         PlanningFixtures.Accept(state);
         var planner = new TypedWorkflowPlanner();
         state = await planner.AdvanceAsync(state, new() { ExpectedRevision = state.Revision }, runtime, TestContext.Current.CancellationToken);
-        Assert.Equal(exhausted ? 2 : 3, calls); Assert.Equal(fingerprint, PlanningGraphCompiler.Fingerprint(state.Graph!));
-        Assert.Equal(exhausted ? PlanningStatus.Recovery : PlanningStatus.FinalReview, state.Status);
-        if (exhausted) Assert.Contains(state.Diagnostics, d => d.Code == "SCENARIO_OBSERVATION_INVALID");
+        Assert.True(calls == (exhausted ? 2 : 3), string.Join("; ", state.Diagnostics.Select(d => d.Code + ": " + d.Message))); Assert.Equal(fingerprint, PlanningGraphCompiler.Fingerprint(state.Graph!));
+        Assert.Equal(exhausted ? PlanningStatus.Stopped : PlanningStatus.FinalReview, state.Status);
+        if (exhausted) Assert.Contains(state.Diagnostics, d => d.Code == "DECISION_CORRECTION_INVALID");
         else
         {
             Assert.Single(state.Validation.Observations);
@@ -151,10 +152,10 @@ public sealed class ScenarioInputTests
         var calls = 0;
         var runtime = new FakeRuntime
         {
-            OnCall = (phase, _, _) =>
+            OnCall = (phase, request, _) =>
         {
-            if (phase == "scenario_inputs") { calls++; return Task.FromResult(new LLMResponse { Json = new JsonObject { ["resource"] = new JsonObject { ["kind"] = "string", ["text"] = "provided" } } }); }
-            return Task.FromResult(new LLMResponse { Json = new JsonObject { ["findings"] = new JsonArray() } });
+            if (phase == "scenario_inputs") { calls++; return Task.FromResult(new LLMResponse { Json = Assignment(request, JsonValue.Create("provided")) }); }
+            return Task.FromResult(new LLMResponse { Json = FakeRuntime.PassReview(request) });
         }
         };
         PlanningFixtures.Accept(state);
@@ -181,16 +182,11 @@ public sealed class ScenarioInputTests
         {
             OnCall = (phase, request, _) =>
         {
-            if (phase == "semantic_review") return Task.FromResult(new LLMResponse { Json = new JsonObject { ["findings"] = new JsonArray() } });
-            Assert.Equal("scenario_inputs", phase); calls++;
+            if (phase == "semantic_review") return Task.FromResult(new LLMResponse { Json = FakeRuntime.PassReview(request) });
+            Assert.StartsWith("scenario_inputs", phase); calls++;
             return Task.FromResult(new LLMResponse
             {
-                Json = new JsonObject
-                {
-                    ["resource"] = calls == 1 || exhausted
-                ? new JsonObject { ["kind"] = "boolean", ["boolean"] = true }
-                : new JsonObject { ["kind"] = "string", ["text"] = "https://example.test/resources/42" }
-                }
+                Json = Assignment(request, calls == 1 || exhausted ? JsonValue.Create(true) : JsonValue.Create("https://example.test/resources/42"))
             });
         }
         };
@@ -199,8 +195,8 @@ public sealed class ScenarioInputTests
         state = await planner.AdvanceAsync(state, new() { ExpectedRevision = state.Revision }, runtime, TestContext.Current.CancellationToken);
         Assert.Equal(2, calls); Assert.Equal(initialGraph, PlanningGraphCompiler.Fingerprint(state.Graph!));
         Assert.Null(state.Graph!.Workflows[0].Inputs[0].Default);
-        Assert.Equal(exhausted ? PlanningStatus.Recovery : PlanningStatus.FinalReview, state.Status);
-        if (exhausted) { Assert.Contains(state.Diagnostics, d => d.Code == "SCENARIO_INPUT_INVALID"); Assert.Null(state.Validation.Inputs); }
+        Assert.Equal(exhausted ? PlanningStatus.Stopped : PlanningStatus.FinalReview, state.Status);
+        if (exhausted) { Assert.Contains(state.Diagnostics, d => d.Code == "DECISION_CORRECTION_INVALID"); Assert.Null(state.Validation.Inputs); }
         else
         {
             Assert.Equal("https://example.test/resources/42", state.Validation.Inputs!["resource"]!.GetValue<string>());
@@ -210,4 +206,6 @@ public sealed class ScenarioInputTests
             Assert.Equal(2, calls); Assert.Equal(PlanningStatus.FinalReview, state.Status);
         }
     }
+    private static JsonObject Assignment(LLMRequest request, JsonNode? value) => new(request.StructuredOutputSchema!["properties"]!.AsObject()
+        .Select(p => new KeyValuePair<string, JsonNode?>(p.Key, value?.DeepClone())));
 }

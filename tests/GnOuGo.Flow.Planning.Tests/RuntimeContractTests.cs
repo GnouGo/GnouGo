@@ -11,7 +11,7 @@ public sealed class RuntimeContractTests
     private static CancellationToken Ct => TestContext.Current.CancellationToken;
 
     [Fact]
-    public async Task StandaloneV2_RecoveryOffersEditRetryCancel_WithoutArtifactApproval()
+    public async Task StandaloneTechnicalStopDoesNotAskTheUserToRetryOrApprove()
     {
         var document = new WorkflowCompiler().Compile(WorkflowParser.Parse("""
             version: 1
@@ -28,8 +28,8 @@ public sealed class RuntimeContractTests
         var engine = new WorkflowEngine { WorkflowPlanner = new TypedWorkflowPlanner(), PlanningRuntimeFactory = new PlannerArchitectureTests.RuntimeFactory(), LLMClient = new InvalidIntentClient(), HumanInputProvider = human };
         var result = await engine.ExecuteAsync(document.Workflows[document.Entrypoint!], new JsonObject(), Ct);
         Assert.False(result.Success);
-        Assert.Equal(GnOuGo.Flow.Core.Models.ErrorCodes.WorkflowPlanAborted, result.Error!.Code);
-        Assert.Equal(3, human.Calls);
+        Assert.Equal(GnOuGo.Flow.Core.Models.ErrorCodes.TemplatePlan, result.Error!.Code);
+        Assert.Equal(0, human.Calls);
     }
 
     private sealed class InvalidIntentClient : ILLMClient

@@ -33,7 +33,7 @@ curl --fail http://localhost:5300/health
 The image includes the planner and encrypted persistence dependencies. Its `URLS`
 setting binds the exposed port on all container interfaces.
 
-The planning runtime stores encrypted schema-4 sessions and request receipts under the run ID.
+The planning runtime stores encrypted schema-5 sessions and request receipts under the run ID.
 Reopening a planning call with that identity reuses completed requests and retained budgets.
 Workflow execution checkpoint storage remains a separate host service.
 

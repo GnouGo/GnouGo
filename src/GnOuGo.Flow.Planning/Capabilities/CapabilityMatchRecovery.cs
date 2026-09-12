@@ -33,28 +33,6 @@ namespace GnOuGo.Flow.Planning.Capabilities;
 internal static class CapabilityMatchRecovery
 {
 
-    internal static CapabilityMatchingEvaluation BuildMalformedCapabilityMatchingEvaluation(
-        CapabilityInventory inventory, string reason)
-    {
-        var sanitized = SanitizeCapabilityInferenceDiagnostic(reason, 1_000);
-        if (sanitized.Length == 0)
-            sanitized = "The matching response was not a valid structured object.";
-        var operationMatches = inventory.Operations.Select(operation =>
-            new CapabilityOperationMatch(operation, "invalid", sanitized, Array.Empty<string>(), Array.Empty<string>())).ToArray();
-        var constraintMatches = inventory.Constraints.Select(constraint =>
-            new CapabilityConstraintMatch(constraint, "invalid", sanitized, Array.Empty<string>(), Array.Empty<string>())).ToArray();
-        var issues = inventory.Operations.Select(operation =>
-                new CapabilityMatchingIssue(operation.Id, operation.Description, operation.Required, "invalid", sanitized, Array.Empty<string>())
-                {
-                    ValidationIssue = "matching_response_malformed",
-                    InvalidFields = ["$"]
-                })
-            .Concat(inventory.Constraints.Select(constraint =>
-                new CapabilityMatchingIssue(constraint.Id, constraint.Description, constraint.Required, "invalid", sanitized, Array.Empty<string>())))
-            .ToArray();
-        return new CapabilityMatchingEvaluation(operationMatches, constraintMatches, issues, false);
-    }
-
     internal static string ReadMatchingString(JsonObject node, string property)
         => node[property] is JsonValue value && value.TryGetValue<string>(out var text) ? text.Trim() : string.Empty;
 
@@ -206,68 +184,8 @@ internal static class CapabilityMatchRecovery
                 "candidate_catalog_ids");
     }
 
-    internal static bool RequiresCapabilityMatchingRepair(CapabilityMatchingEvaluation evaluation)
-        => !evaluation.ContractValid || evaluation.Issues.Any(static issue => issue.Required);
-
-    internal static CapabilityMatchingEvaluation PreserveValidCapabilityMatches(
-        CapabilityMatchingEvaluation initial, CapabilityMatchingEvaluation repaired)
-    {
-        var dependencyUnlockedOperationIds = GetDependencyUnlockedDecisionOperationIds(initial);
-        var lockedOperationIds = initial.OperationMatches
-            .Where(static match => match.Status is "matched" or "composed" or "conditional" or "local")
-            .Where(match => !dependencyUnlockedOperationIds.Contains(match.Operation.Id))
-            .Select(static match => match.Operation.Id)
-            .ToHashSet(StringComparer.Ordinal);
-        var lockedConstraintIds = initial.ConstraintMatches
-            .Where(static match => match.Status is "enforced" or "policy_only")
-            .Select(static match => match.Constraint.Id)
-            .ToHashSet(StringComparer.Ordinal);
-        var initialOperations = initial.OperationMatches.ToDictionary(static match => match.Operation.Id, StringComparer.Ordinal);
-        var initialConstraints = initial.ConstraintMatches.ToDictionary(static match => match.Constraint.Id, StringComparer.Ordinal);
-        var operations = repaired.OperationMatches
-            .Select(match => lockedOperationIds.Contains(match.Operation.Id) ? initialOperations[match.Operation.Id] : match)
-            .ToArray();
-        var constraints = repaired.ConstraintMatches
-            .Select(match => lockedConstraintIds.Contains(match.Constraint.Id) ? initialConstraints[match.Constraint.Id] : match)
-            .ToArray();
-        var issues = repaired.Issues
-            .Where(issue => !lockedOperationIds.Contains(issue.OperationId) && !lockedConstraintIds.Contains(issue.OperationId))
-            .ToArray();
-        var mergedContractValid = operations.All(static match => match.Status != "invalid")
-                                  && constraints.All(static match => match.Status != "invalid")
-                                  && issues.All(static issue => issue.Status != "invalid");
-        return new CapabilityMatchingEvaluation(operations, constraints, issues, mergedContractValid);
-    }
-
-    internal static HashSet<string> GetDependencyUnlockedDecisionOperationIds(
-        CapabilityMatchingEvaluation evaluation)
-    {
-        var matches = evaluation.OperationMatches.ToDictionary(
-            static match => match.Operation.Id,
-            StringComparer.Ordinal);
-        var pending = new Stack<string>(evaluation.OperationMatches
-            .Where(static match => string.Equals(match.Status, "invalid", StringComparison.Ordinal)
-                                   && !string.IsNullOrWhiteSpace(match.DecisionGroundingFailureCode))
-            // Include the declared dependency chain without changing successful unrelated matches.
-            .SelectMany(static match => new[] { match.Operation.DecisionSourceOperationId, match.DecisionOperationId })
-            .Where(static operationId => !string.IsNullOrWhiteSpace(operationId))!);
-        var unlocked = new HashSet<string>(StringComparer.Ordinal);
-        while (pending.TryPop(out var operationId))
-        {
-            if (!unlocked.Add(operationId) || !matches.TryGetValue(operationId, out var match))
-                continue;
-
-            if (!string.IsNullOrWhiteSpace(match.Operation.DecisionSourceOperationId))
-                pending.Push(match.Operation.DecisionSourceOperationId);
-            foreach (var inputOperationId in match.Operation.InputOperationIds)
-                pending.Push(inputOperationId);
-        }
-
-        return unlocked;
-    }
-
     internal static void ThrowForUnresolvedCapabilityMatches(
-        CapabilityMatchingEvaluation evaluation, CapabilityCatalog catalog, bool repairAttempted)
+        CapabilityMatchingEvaluation evaluation, CapabilityCatalog catalog)
     {
         var blocking = evaluation.Issues.Where(static issue => issue.Required).Take(64).ToArray();
         if (evaluation.ContractValid && blocking.Length == 0)
@@ -298,11 +216,7 @@ internal static class CapabilityMatchRecovery
                 .Take(8)
                 .Select(static field => (JsonNode?)JsonValue.Create(
                     SanitizeCapabilityInferenceDiagnostic(field, 80))).ToArray()),
-            ["reason_code"] = issue.ReasonCode.Length > 0
-                ? issue.ReasonCode
-                : repairAttempted && issue.Status == "invalid"
-                    ? "model_repair_exhausted"
-                    : null,
+            ["reason_code"] = issue.ReasonCode.Length > 0 ? issue.ReasonCode : null,
             ["candidate_capabilities"] = new JsonArray(issue.CandidateCatalogIds
                 .Where(entryMap.ContainsKey)
                 .Take(8)
@@ -340,29 +254,16 @@ internal static class CapabilityMatchRecovery
                     ? "One or more required runtime operations have no matching discovered capability."
                     : unsupported
                         ? "One or more required runtime operations have no matching capability or safe provider-neutral decision contract."
-                    : "Capability matching remained ambiguous or invalid after one bounded repair attempt.",
+                    : "Capability decisions did not establish a valid, unambiguous contract.",
             details: new JsonObject
             {
                 ["phase"] = "capability_matching",
                 ["reason"] = onlyContractGaps ? "conditional_decision_contract_gap" : null,
-                ["reason_code"] = repairAttempted ? "model_repair_exhausted" : null,
                 ["classification"] = containsInvalidContract ? "model_contract_violation" : null,
-                ["repair_attempted"] = repairAttempted,
-                ["attempts"] = repairAttempted ? 2 : 1,
                 ["clarification_rounds"] = 0,
                 ["clarification_questions"] = 0,
                 ["matching_issues"] = issueNodes,
-                ["unavailable_capabilities"] = new JsonArray(unavailable),
-                ["planning_outcome"] = unsupported ? "unsupported" : "cannot_plan_safely",
-                ["recommended_action"] = onlyContractGaps
-                    ? "configure_decision_contract_or_enable_structured_projection"
-                    : onlyUnavailable
-                        ? "configure_capability_or_revise_request"
-                        : unsupported
-                            ? "configure_capability_or_decision_contract_or_revise_request"
-                        : containsInvalidContract
-                            ? "retry_or_change_planning_model"
-                            : "clarify_or_abandon"
+                ["unavailable_capabilities"] = new JsonArray(unavailable)
             });
     }
 }

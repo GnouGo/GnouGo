@@ -22,7 +22,7 @@ public sealed class PlanningRecoveryTests
         await using var fixture = await PlanningPersistenceTests.StoreFixture.CreateAsync();
         var calls = 0;
         var planner = new PlanningSessionLifecycleTests.DelegatePlanner((state, _, _, _) =>
-        { calls++; state.Revision++; state.Status = PlanningStatus.Recovery; return Task.FromResult(state); });
+        { calls++; state.Revision++; state.Status = PlanningStatus.Stopped; return Task.FromResult(state); });
         using var service = PlanningSessionLifecycleTests.Create(fixture, planner, PlanningSessionLifecycleTests.AgentCatalog(), settings: new() { BackgroundProcessingEnabled = false });
         var target = await service.StartAsync("target", "Plan target", false, Ct);
         var other = await service.StartAsync("other", "Plan other", false, Ct);
@@ -51,111 +51,50 @@ public sealed class PlanningRecoveryTests
     }
 
     [Fact]
-    public async Task RepairedQuestions_RenderWithoutDefaultAnswers_SubmitAndResume_RejectDuplicateSubmission()
+    public async Task TypedQuestionRequiresAnAnswerAndRejectsDuplicateSubmissionAfterRestart()
     {
         await using var fixture = await PlanningPersistenceTests.StoreFixture.CreateAsync();
-        var client = new IntentClient(IntentClarificationFixture.QuotedQuestions(), IntentClarificationFixture.Questions(), IntentClarificationFixture.Ready());
-        // Intent uses the actual planner and encrypted model journal. Stop at the next
-        // phase boundary: catalog/generation correctness is covered by planner tests.
-        var planner = new PlanningSessionLifecycleTests.DelegatePlanner(async (state, command, runtime, ct) =>
-        {
-            if (state.Intent.Checked && command.Kind == "advance")
-            {
-                state = JsonSerializer.Deserialize(JsonSerializer.Serialize(state, PlanningJsonContext.Default.PlanningSnapshot), PlanningJsonContext.Default.PlanningSnapshot)!;
-                state.Revision++; state.Status = PlanningStatus.BehaviorReview; state.CurrentPhase = PlanningPhase.Behavior;
-                return state;
-            }
-            return await new TypedWorkflowPlanner().AdvanceAsync(state, command, runtime, ct);
-        });
-        using var service = PlanningSessionLifecycleTests.Create(fixture, planner, PlanningSessionLifecycleTests.AgentCatalog(), client);
-        await service.StartAsync(Ct);
-        try
-        {
-            var started = await service.StartAsync("clarification-ui", IntentClarificationFixture.Prompt, false, Ct);
-            await PlanningSessionLifecycleTests.WaitForStatus(service, started.Request.SessionId, PlanningStatus.Clarification);
-            var pending = (await service.GetAsync(started.Request.SessionId, Ct))!;
-            await using (var context = Context(service))
-            {
-                var page = context.Render<PlanningPage>(p => p.Add(x => x.SessionId, started.Request.SessionId));
-                page.WaitForAssertion(() => Assert.Equal(3, page.FindAll("fieldset").Count));
-                Assert.Contains("Planner v2", page.Find("[aria-label='Planner version']").TextContent);
-                Assert.Contains("Understanding your request", page.Find("[aria-label='Current planning phase']").TextContent);
-                Assert.Empty(page.FindAll("input[type=radio][checked]"));
-                Assert.True(Button(page, "Submit answers").HasAttribute("disabled"));
-                Assert.Empty((await service.GetAsync(started.Request.SessionId, Ct))!.Intent.Answers);
-            }
-            // Reconnection creates a fresh component; pending questions stay unanswered.
-            await using (var context = Context(service))
-            {
-                var page = context.Render<PlanningPage>(p => p.Add(x => x.SessionId, started.Request.SessionId));
-                page.WaitForAssertion(() => Assert.Equal(3, page.FindAll("fieldset").Count));
-                Assert.True(Button(page, "Submit answers").HasAttribute("disabled"));
-                for (var index = 0; index < 3; index++) page.Find($"input[name='choice_{index}'][value=first]").Change("first");
-                Assert.False(Button(page, "Submit answers").HasAttribute("disabled"));
-                Button(page, "Submit answers").Click();
-                await PlanningSessionLifecycleTests.WaitForStatus(service, started.Request.SessionId, PlanningStatus.BehaviorReview);
-            }
-            var resumed = (await service.GetAsync(started.Request.SessionId, Ct))!;
-            Assert.Equal(3, Assert.Single(resumed.Intent.Answers).Answers.Count);
-            Assert.Equal(1, resumed.Intent.Forms);
-            Assert.Equal(3, resumed.Intent.Questions);
-            Assert.Equal(3, client.Calls);
-            Assert.Equal(3, resumed.Usage!.Calls);
-            await Assert.ThrowsAsync<PlanningConflictException>(() => service.SubmitAsync(started.Request.SessionId,
-                new() { Kind = "answer", ExpectedRevision = pending.Revision, Answers = new JsonObject { ["choice_0"] = "second" } }, Ct));
-        }
-        finally { await service.StopAsync(Ct); }
+        var state = new PlanningSnapshot { Status = PlanningStatus.Clarification, Request = new() { TenantId = "planning-tests", Prompt = "Choose the requested business outcome", Name = "clarification" } };
+        var schema = JsonNode.Parse("""{"type":"object","properties":{"choice":{"type":"string","enum":["first","second"]}},"required":["choice"],"additionalProperties":false}""")!.AsObject();
+        state.Outcome = new PlanningNeedUserClarification(new("business_choice", [], schema, ["requested_outcome"]));
+        state.Intent.Forms = state.Intent.Questions = 1;
+        state.Intent.Question = new() { Prompt = "Choose the business outcome", Mode = "form", Fields = [new() { Name = "choice", Type = "radio", Required = true, Description = "Desired outcome",
+            Options = ["first", "second"] }] };
+        Assert.True(await fixture.Store.TrySaveAsync(state, null, Ct));
+        using var service = PlanningSessionLifecycleTests.Create(fixture, new TypedWorkflowPlanner(), PlanningSessionLifecycleTests.AgentCatalog(), settings: new() { BackgroundProcessingEnabled = false });
+        await using var context = Context(service);
+        var page = context.Render<PlanningPage>(p => p.Add(x => x.SessionId, state.Request.SessionId));
+        Assert.Empty(page.FindAll("input[type=radio][checked]")); Assert.True(Button(page, "Submit answers").HasAttribute("disabled"));
+        var result = await service.SubmitAsync(state.Request.SessionId, new() { Kind = "answer", ExpectedRevision = state.Revision, Answers = new JsonObject { ["choice"] = "first" } }, Ct);
+        Assert.Single(result.Intent.Answers); Assert.Equal(1, result.Intent.Forms); Assert.Null(result.ApprovedHash);
+        using var reopened = PlanningSessionLifecycleTests.Create(fixture, new TypedWorkflowPlanner(), PlanningSessionLifecycleTests.AgentCatalog(), settings: new() { BackgroundProcessingEnabled = false });
+        Assert.Single((await reopened.GetAsync(state.Request.SessionId, Ct))!.Intent.Answers);
+        await Assert.ThrowsAsync<PlanningConflictException>(() => reopened.SubmitAsync(state.Request.SessionId, new() { Kind = "answer", ExpectedRevision = state.Revision, Answers = new JsonObject { ["choice"] = "second" } }, Ct));
     }
 
+
     [Fact]
-    public async Task RecoverySurvivesRestart_EditAndRetryPreserveHistoryUsageAndTenantIsolation()
+    public async Task TechnicalStopSurvivesRestartAndRevisionKeepsHistoryBudgetAndTenantIsolation()
     {
         await using var fixture = await PlanningPersistenceTests.StoreFixture.CreateAsync();
         var client = new IntentClient(new JsonObject());
         var state = new PlanningSnapshot { Request = new() { TenantId = "planning-tests", Prompt = "PRIVATE_RECOVERY_CONTENT_45687", Name = "recovery" } };
         state.Request.Options["generator"] = new JsonObject { ["provider"] = "openai", ["model"] = "gpt-4o-mini" };
         Assert.True(await fixture.Store.TrySaveAsync(state, null, Ct));
-        using (var first = PlanningSessionLifecycleTests.Create(fixture, new TypedWorkflowPlanner(), PlanningSessionLifecycleTests.AgentCatalog(), client))
-        {
-            await first.StartAsync(Ct);
-            try { await PlanningSessionLifecycleTests.WaitForStatus(first, state.Request.SessionId, PlanningStatus.Recovery); }
-            finally { await first.StopAsync(Ct); }
-        }
-        var recovery = (await fixture.Store.LoadAsync("planning-tests", state.Request.SessionId, Ct))!;
-        Assert.Equal(2, recovery.Usage!.Calls);
-        Assert.Null(recovery.Outcome);
-        Assert.Null(await fixture.Store.LoadAsync("different-tenant", state.Request.SessionId, Ct));
-        var restartClient = new IntentClient(IntentClarificationFixture.Questions());
-        using var restarted = PlanningSessionLifecycleTests.Create(fixture, new TypedWorkflowPlanner(), PlanningSessionLifecycleTests.AgentCatalog(), restartClient);
-        await restarted.StartAsync(Ct);
-        try
-        {
-            await using var context = Context(restarted);
-            var page = context.Render<PlanningPage>(p => p.Add(x => x.SessionId, state.Request.SessionId));
-            page.WaitForAssertion(() => Assert.Contains("Waiting for your recovery choice", page.Markup));
-            Assert.Equal(0, restartClient.Calls);
-            Assert.Equal(recovery.Revision, (await restarted.GetAsync(state.Request.SessionId, Ct))!.Revision);
-            Assert.NotNull(Button(page, "Retry from the retained plan"));
-            Assert.NotNull(Button(page, "Cancel planning"));
-            page.Find("#plan-intent-edit").Change(IntentClarificationFixture.Prompt);
-            Button(page, "Save request and retry").Click();
-            await PlanningSessionLifecycleTests.WaitForStatus(restarted, state.Request.SessionId, PlanningStatus.Clarification);
-            var edited = (await restarted.GetAsync(state.Request.SessionId, Ct))!;
-            Assert.Equal(state.Request.SessionId, edited.Request.SessionId);
-            Assert.Equal(IntentClarificationFixture.Prompt, edited.Request.Prompt);
-            Assert.Equal(3, edited.Intent.Question!.Fields!.Count);
-            Assert.Equal(3, edited.Usage!.Calls);
-            Assert.NotEmpty(Assert.Single(edited.Intent.History).Diagnostics);
-            Assert.Empty(edited.Diagnostics);
-            Assert.Equal(1, edited.Intent.Forms);
-            Assert.Equal(3, edited.Intent.Questions);
-            await Assert.ThrowsAsync<PlanningConflictException>(() => restarted.SubmitAsync(state.Request.SessionId,
-                new() { Kind = "retry", ExpectedRevision = recovery.Revision }, Ct));
-        }
-        finally { await restarted.StopAsync(Ct); }
+        using (var first = PlanningSessionLifecycleTests.Create(fixture, new TypedWorkflowPlanner(), PlanningSessionLifecycleTests.AgentCatalog(), client, new() { BackgroundProcessingEnabled = false }))
+            state = await first.SubmitAsync(state.Request.SessionId, new() { Kind = "advance", ExpectedRevision = state.Revision }, Ct);
+        Assert.Equal(PlanningStatus.Stopped, state.Status); Assert.Equal(2, state.Usage!.Calls); Assert.Null(state.Outcome); Assert.NotNull(state.TechnicalStop);
+        using var restarted = PlanningSessionLifecycleTests.Create(fixture, new TypedWorkflowPlanner(), PlanningSessionLifecycleTests.AgentCatalog(), client, new() { BackgroundProcessingEnabled = false });
+        await using var context = Context(restarted);
+        var page = context.Render<PlanningPage>(p => p.Add(x => x.SessionId, state.Request.SessionId));
+        Assert.Contains("Planning stopped", page.Markup); Assert.DoesNotContain(page.FindAll("button"), b => b.TextContent.Contains("Retry"));
+        var edited = await restarted.SubmitAsync(state.Request.SessionId, new() { Kind = "edit_intent", Text = "Return a revised value", ExpectedRevision = state.Revision }, Ct);
+        Assert.Equal(2, edited.Usage!.Calls); Assert.Single(edited.Intent.History); Assert.Empty(edited.Intent.Answers);
+        Assert.Equal(2, client.Calls); Assert.Null(await fixture.Store.LoadAsync("different-tenant", state.Request.SessionId, Ct));
         foreach (var file in Directory.GetFiles(fixture.Root, "*", SearchOption.AllDirectories))
             Assert.DoesNotContain(state.Request.Prompt, Encoding.UTF8.GetString(await File.ReadAllBytesAsync(file, Ct)));
     }
+
 
     [Fact]
     public async Task CapabilityRecovery_RestoresConcreteFindingsAboveDiagramWithoutSubmittingQuestions()
@@ -164,7 +103,7 @@ public sealed class PlanningRecoveryTests
         var state = new PlanningSnapshot
         {
             Request = new() { TenantId = "planning-tests", Prompt = "Inspect a resource before running available checks.", Name = "capability-recovery" },
-            Status = PlanningStatus.Recovery,
+            Status = PlanningStatus.Stopped,
             CurrentPhase = PlanningPhase.Capabilities,
             WaitingSinceUtc = DateTimeOffset.UtcNow.AddHours(-1),
             Diagnostics = [new("conditional_decision_source_unavailable", "/preparation/matching_issues/0",
@@ -180,9 +119,9 @@ public sealed class PlanningRecoveryTests
         {
             await using var context = Context(service);
             var page = context.Render<PlanningPage>(p => p.Add(x => x.SessionId, state.Request.SessionId));
-            page.WaitForAssertion(() => Assert.Contains("Capability preparation paused before behavior review", page.Markup));
+            page.WaitForAssertion(() => Assert.Contains("Planning stopped", page.Markup));
             Assert.Contains("Declare a runtime observation", page.Markup);
-            Assert.NotNull(Button(page, "Retry from the retained plan"));
+            Assert.DoesNotContain(page.FindAll("button"), b => b.TextContent.Contains("Retry"));
             Assert.NotNull(Button(page, "Cancel planning"));
             Assert.NotNull(page.Find("#plan-intent-edit"));
             Assert.Empty(page.FindAll("fieldset"));
@@ -212,12 +151,12 @@ public sealed class PlanningRecoveryTests
         try
         {
             var started = await service.StartAsync("telemetry", "PRIVATE_TELEMETRY_REQUEST_78231", false, Ct);
-            await PlanningSessionLifecycleTests.WaitForStatus(service, started.Request.SessionId, PlanningStatus.Recovery);
+            await PlanningSessionLifecycleTests.WaitForStatus(service, started.Request.SessionId, PlanningStatus.Stopped);
             Activity[] activities;
             lock (stopped) activities = stopped.Where(a => a.GetTagItem("gnougo.planning.session_id") as string == started.Request.SessionId).ToArray();
             var span = Assert.Single(activities);
             Assert.Equal(ActivityStatusCode.Ok, span.Status);
-            Assert.Equal("exhausted", span.GetTagItem("gnougo.planning.repair.outcome"));
+            Assert.Null(span.GetTagItem("gnougo.planning.outcome"));
             Assert.Equal(2, span.GetTagItem("gnougo.planning.version"));
             Assert.Equal("intent", span.GetTagItem("gnougo.planning.phase"));
             Assert.Null(span.GetTagItem("gnougo.planning.outcome"));
@@ -227,20 +166,11 @@ public sealed class PlanningRecoveryTests
     }
 
     [Fact]
-    public async Task RetainedBehaviorFailure_RestartAndUiRetryReachReviewWithoutApproving()
+    public async Task RetainedBehaviorFailureCannotRetryOrApproveAnUnvalidatedCandidate()
     {
         await using var fixture = await PlanningPersistenceTests.StoreFixture.CreateAsync();
-        var state = BehaviorFailure();
-        state.Preparation!.StepContracts["set"] = new JsonObject();
-        Assert.True(await fixture.Store.TrySaveAsync(state, null, Ct));
-        var behavior = new PlanningBehaviorPlan
-        {
-            Summary = "Return a message",
-            Workflows = [new() { Key = "main", Purpose = "Return a message",
-            Steps = [new() { Key = "value", Purpose = "Return a message" }], Outputs = [new("message", "The returned message", true)] }]
-        };
-        foreach (var node in behavior.Workflows.SelectMany(w => PlanningBehaviorPlans.Enumerate(w.Steps.Concat(w.Finally)))) node.InputDependencies ??= [];
-        var client = new IntentClient(JsonSerializer.SerializeToNode(behavior, PlanningJsonContext.Default.PlanningBehaviorPlan)!);
+        var state = BehaviorFailure(); Assert.True(await fixture.Store.TrySaveAsync(state, null, Ct));
+        var client = new IntentClient(new JsonObject());
         using var service = PlanningSessionLifecycleTests.Create(fixture, new TypedWorkflowPlanner(), PlanningSessionLifecycleTests.AgentCatalog(), client);
         await service.StartAsync(Ct);
         try
@@ -248,51 +178,30 @@ public sealed class PlanningRecoveryTests
             await using var context = Context(service);
             var page = context.Render<PlanningPage>(p => p.Add(x => x.SessionId, state.Request.SessionId));
             page.WaitForAssertion(() => Assert.Contains("Unvalidated behavior candidate", page.Markup));
-            Assert.Equal(0, client.Calls);
-            Assert.NotNull(page.Find("#plan-intent-edit"));
-            Assert.DoesNotContain(page.FindAll("button"), b => b.TextContent == "Accept behavior and generate");
-            Button(page, "Retry from the retained plan").Click();
-            await PlanningSessionLifecycleTests.WaitForStatus(service, state.Request.SessionId, PlanningStatus.BehaviorReview);
-            var reviewed = (await service.GetAsync(state.Request.SessionId, Ct))!;
-            page.WaitForAssertion(() => Assert.NotNull(Button(page, "Accept behavior and generate")), TimeSpan.FromSeconds(5));
-            Assert.Null(reviewed.ApprovedHash); Assert.Null(reviewed.Yaml); Assert.Null(reviewed.Graph); Assert.NotNull(reviewed.BehaviorPlan);
-            Assert.Equal(0, client.Calls); Assert.Equal(0, reviewed.Usage!.Calls);
-            Assert.Equal(2, reviewed.Intent.Forms); Assert.Equal(7, reviewed.Intent.Questions);
-            Assert.Equal(PlanningPhase.Behavior, reviewed.CurrentPhase);
-            Assert.Empty(reviewed.Diagnostics);
-            await Assert.ThrowsAsync<PlanningConflictException>(() => service.SubmitAsync(state.Request.SessionId,
-                new() { Kind = "accept_behavior", ExpectedRevision = state.Revision, ArtifactHash = reviewed.ArtifactHash }, Ct));
+            Assert.DoesNotContain(page.FindAll("button"), b => b.TextContent.Contains("Retry") || b.TextContent == "Accept behavior and generate");
+            var retained = (await service.GetAsync(state.Request.SessionId, Ct))!;
+            Assert.Equal(state.Revision, retained.Revision); Assert.Null(retained.ApprovedHash); Assert.Equal(0, client.Calls);
+            await Assert.ThrowsAsync<ArgumentException>(() => service.SubmitAsync(state.Request.SessionId, new() { Kind = "retry", ExpectedRevision = state.Revision }, Ct));
             Assert.Null(await fixture.Store.LoadAsync("different-tenant", state.Request.SessionId, Ct));
         }
         finally { await service.StopAsync(Ct); }
     }
 
+
     [Fact]
-    public async Task BehaviorRecovery_RetainsCandidateAndRepairBudgetAcrossRestart_AndAllowsUiEdit()
+    public async Task BehaviorStopRevisionPreservesTheConsumedAllowance()
     {
         await using var fixture = await PlanningPersistenceTests.StoreFixture.CreateAsync();
-        var state = BehaviorFailure(); state.Status = PlanningStatus.Recovery; state.BehaviorAssessmentCalls = 2;
+        var state = BehaviorFailure(); state.Status = PlanningStatus.Stopped; state.BehaviorAssessmentCalls = 2;
+        state.RepairAllowances.Add(new() { WorkflowKey = "main", Gate = "behavior", Attempts = 1 });
         Assert.True(await fixture.Store.TrySaveAsync(state, null, Ct));
-        var client = new IntentClient(IntentClarificationFixture.Questions());
-        using var service = PlanningSessionLifecycleTests.Create(fixture, new TypedWorkflowPlanner(), PlanningSessionLifecycleTests.AgentCatalog(), client);
-        await service.StartAsync(Ct);
-        try
-        {
-            await using var context = Context(service);
-            var page = context.Render<PlanningPage>(p => p.Add(x => x.SessionId, state.Request.SessionId));
-            page.WaitForAssertion(() => Assert.Contains("Construction paused", page.Markup));
-            Assert.Equal(0, client.Calls);
-            Assert.Equal(2, (await service.GetAsync(state.Request.SessionId, Ct))!.BehaviorAssessmentCalls);
-            page.Find("#plan-intent-edit").Change(IntentClarificationFixture.Prompt);
-            Button(page, "Save request and retry").Click();
-            await PlanningSessionLifecycleTests.WaitForStatus(service, state.Request.SessionId, PlanningStatus.Clarification);
-            var edited = (await service.GetAsync(state.Request.SessionId, Ct))!;
-            Assert.Null(edited.Graph); Assert.Null(edited.Preparation);
-            Assert.Equal(3, edited.Intent.Forms); Assert.Equal(10, edited.Intent.Questions);
-            Assert.Single(edited.Intent.History); Assert.Empty(edited.Diagnostics);
-            Assert.Equal(1, client.Calls);
-        }
-        finally { await service.StopAsync(Ct); }
+        using var service = PlanningSessionLifecycleTests.Create(fixture, new TypedWorkflowPlanner(), PlanningSessionLifecycleTests.AgentCatalog(), settings: new() { BackgroundProcessingEnabled = false });
+        await using var context = Context(service);
+        var page = context.Render<PlanningPage>(p => p.Add(x => x.SessionId, state.Request.SessionId));
+        Assert.Contains("Planning stopped", page.Markup); Assert.NotNull(page.Find("#plan-intent-edit"));
+        var edited = await service.SubmitAsync(state.Request.SessionId, new() { Kind = "edit_intent", Text = "Return a revised value", ExpectedRevision = state.Revision }, Ct);
+        Assert.Null(edited.Graph); Assert.Null(edited.Preparation); Assert.Equal(1, Assert.Single(edited.RepairAllowances).Attempts);
+        Assert.Equal(2, edited.Intent.Forms); Assert.Equal(7, edited.Intent.Questions); Assert.Single(edited.Intent.History);
     }
 
     private static PlanningSnapshot BehaviorFailure() => new()
@@ -344,6 +253,10 @@ public sealed class PlanningRecoveryTests
         public Task<LLMResponse> CallAsync(LLMRequest request, CancellationToken ct)
         {
             var json = responses[Math.Min(Interlocked.Increment(ref _calls) - 1, responses.Length - 1)].DeepClone();
+            if (json["outcome"]?.ToString() == "ready")
+                json = new JsonObject(request.StructuredOutputSchema!["properties"]!.AsObject().Select(p => new KeyValuePair<string, JsonNode?>(p.Key,
+                    new JsonArray(new JsonObject { ["start"] = p.Value!["items"]!["properties"]!["start"]!["enum"]![0]!.DeepClone(),
+                        ["end"] = p.Value!["items"]!["properties"]!["end"]!["enum"]!.AsArray()[^1]!.DeepClone(), ["kind"] = "local_processing", ["required"] = true }))));
             return Task.FromResult(new LLMResponse { Json = json, Text = json.ToJsonString(), Usage = new JsonObject { ["input_tokens"] = 10, ["output_tokens"] = 5 } });
         }
     }

@@ -14,13 +14,13 @@ public sealed class CapabilityRecoveryTests
     [Theory]
     [InlineData("Inspect the supplied resource and execute available checks.")]
     [InlineData("Inspecter la ressource fournie et exécuter les contrôles disponibles.")]
-    public async Task MixedCapabilityFindings_PauseWithActualDetails_AndRetryRetainsAnswers(string prompt)
+    public async Task MixedCapabilityFindings_StopWithActualDetailsAndRetainAnswers(string prompt)
     {
         var state = new PlanningSnapshot { Request = new() { TenantId = "tenant", Prompt = prompt }, Intent = new() { Checked = true } };
         state.Intent.Answers.Add(new("Publication choice", new JsonObject { ["choice"] = "retain_confirmation" })); state.Intent.Forms = 1; state.Intent.Questions = 1;
         var runtime = new TypedPlannerTests.FakeRuntime { OnPrepare = _ => throw Failure() };
         var result = await new TypedWorkflowPlanner().AdvanceAsync(state, new() { ExpectedRevision = 0 }, runtime, Ct);
-        Assert.Equal(PlanningStatus.Recovery, result.Status);
+        Assert.Equal(PlanningStatus.Stopped, result.Status);
         Assert.Equal(PlanningPhase.Capabilities, result.CurrentPhase);
         Assert.Null(result.Outcome);
         Assert.Null(result.Intent.Question);
@@ -37,26 +37,22 @@ public sealed class CapabilityRecoveryTests
         var waiting = await new TypedWorkflowPlanner().AdvanceAsync(restored, new() { ExpectedRevision = restored.Revision }, runtime, Ct);
         Assert.Equal(restored.Revision, waiting.Revision);
         Assert.Equal(1, runtime.PreparationCalls);
-        var retry = await new TypedWorkflowPlanner().AdvanceAsync(waiting, new() { Kind = "retry", ExpectedRevision = waiting.Revision }, runtime, Ct);
-        Assert.Empty(retry.Diagnostics);
-        Assert.Equal(4, Assert.Single(retry.Intent.History).Diagnostics.Count);
-        Assert.Single(retry.Intent.Answers);
-        Assert.True(retry.Intent.Checked);
-        Assert.True(retry.HumanWaitMilliseconds >= 3_600_000);
-        Assert.Equal(1, retry.Intent.Forms);
-        Assert.Equal(1, runtime.PreparationCalls);
-        await Assert.ThrowsAsync<PlanningConflictException>(() => new TypedWorkflowPlanner().AdvanceAsync(retry,
-            new() { Kind = "edit_intent", ExpectedRevision = waiting.Revision, Text = "stale" }, runtime, Ct));
+        await Assert.ThrowsAsync<ArgumentException>(() => new TypedWorkflowPlanner().AdvanceAsync(waiting, new() { Kind = "retry", ExpectedRevision = waiting.Revision }, runtime, Ct));
+        Assert.Equal(4, waiting.Diagnostics.Count); Assert.Single(waiting.Intent.Answers);
+        Assert.True(waiting.Intent.Checked); Assert.Equal(1, waiting.Intent.Forms); Assert.Equal(1, runtime.PreparationCalls);
+        Assert.NotNull(waiting.TechnicalStop);
+
     }
 
     [Fact]
-    public async Task ConfirmedUnavailableCapability_RemainsUnsupported()
+    public async Task UnsupportedAssertionWithoutProofIsATechnicalStop()
     {
         var state = new PlanningSnapshot { Request = new() { TenantId = "tenant", Prompt = "Requested operation" }, Intent = new() { Checked = true } };
         var runtime = new TypedPlannerTests.FakeRuntime { OnPrepare = _ => throw new WorkflowRuntimeException(ErrorCodes.CapabilityPreflightUnavailable, "No declared producer exists.") };
         var result = await new TypedWorkflowPlanner().AdvanceAsync(state, new(), runtime, Ct);
-        Assert.Equal(PlanningStatus.Unsupported, result.Status);
-        Assert.Equal("unsupported", result.Outcome);
+        Assert.Equal(PlanningStatus.Stopped, result.Status);
+        Assert.Null(result.Outcome);
+        Assert.NotNull(result.TechnicalStop);
         Assert.Equal("No declared producer exists.", Assert.Single(result.Diagnostics).Message);
     }
 

@@ -37,11 +37,13 @@ internal static class PlanningContext
     internal static void InvalidateArtifact(PlanningSnapshot state)
     {
         state.Yaml = null; state.ArtifactHash = null; state.ApprovedHash = null;
+        if (state.Outcome is PlanningValidWorkflow) state.Outcome = null;
     }
     internal static void Stop(PlanningSnapshot state, string code, string message, string location = "$")
     {
-        state.Status = PlanningStatus.Recovery;
+        state.Status = PlanningStatus.Stopped;
         state.Diagnostics.Add(new(code, location, message));
         InvalidateArtifact(state);
+        PlanningOutcomes.Refresh(state);
     }
 }

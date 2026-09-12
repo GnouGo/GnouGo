@@ -119,7 +119,12 @@ internal static partial class CapabilityContracts
         IReadOnlyList<CapabilitySchemaField> RequiredInputs,
         IReadOnlyList<CapabilitySchemaField> Outputs,
         McpArtifactContract? ArtifactContract,
-        McpCapabilityComposition? CompositionContract);
+        McpCapabilityComposition? CompositionContract)
+    {
+        // Immutable indexes into discovered declarations, not inferred summaries.
+        public JsonNode? InputContract { get; init; }
+        public JsonNode? OutputContract { get; init; }
+    }
 
     internal sealed record CapabilitySchemaField(
         string Path,

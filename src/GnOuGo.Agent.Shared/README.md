@@ -7,12 +7,17 @@ Planning clients create a session with `PlanningStartDto` and submit
 `PlanningCommandDto` with the observed revision. Final approval also carries the
 exact artifact hash. `PlanningSessionDto` exposes human-review state, diagnostics,
 budgets and workflow progress without exposing persistence payloads or model prompts.
+Typed outcomes distinguish approved workflows, business clarification and proven
+unsupportedness. Technical stops carry a separate reason. Decision-page counts,
+input targets and the routine/behavior/semantic reasoning profile use the existing
+designer controls; `FinalReview` remains a waiting state.
 
 `PlanningWorkflowDto` reports active holes, deterministic resolutions, distinct
 model-exposed holes and repeated request exposures. `HoleChoices` separates direct
 binding counts from computation-parameter counts; unknown historical attribution
 is nullable. Workflow and session gate progress retains repair and failure counts
-across retries and restart. These fields support the existing designer layout.
+across revisions and restart. There is no generic retry command. These fields support
+the existing designer layout.
 
 ```sh
 dotnet build src/GnOuGo.Agent.Shared/GnOuGo.Agent.Shared.csproj

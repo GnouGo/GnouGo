@@ -103,63 +103,6 @@ internal static class CapabilityCatalogBuilder
             Line = $"cap_{index + 1:D6} {item.Card}"
         }).ToArray();
         var totalCharacters = rendered.Sum(static item => item.Line.Length + Environment.NewLine.Length);
-        if (totalCharacters > CapabilityCatalogMaxCharacters)
-        {
-            var largestContributors = new JsonArray(rendered
-                .GroupBy(static item => new
-                {
-                    item.Item.Resolution,
-                    item.Item.Server,
-                    item.Item.Kind,
-                    item.Item.Method
-                })
-                .Select(static group => new
-                {
-                    group.Key.Resolution,
-                    group.Key.Server,
-                    group.Key.Kind,
-                    group.Key.Method,
-                    Characters = group.Sum(static item => item.Line.Length + Environment.NewLine.Length),
-                    Entries = group.Count(),
-                    Variants = group.Count(static item => item.Item.Bindings.Count > 0)
-                })
-                .OrderByDescending(static item => item.Characters)
-                .ThenBy(static item => item.Server, StringComparer.Ordinal)
-                .ThenBy(static item => item.Method, StringComparer.Ordinal)
-                .Take(8)
-                .Select(static item => (JsonNode)new JsonObject
-                {
-                    ["resolution"] = item.Resolution,
-                    ["server"] = item.Server,
-                    ["kind"] = item.Kind,
-                    ["method"] = item.Method,
-                    ["characters"] = item.Characters,
-                    ["entry_count"] = item.Entries,
-                    ["variant_count"] = item.Variants
-                }).ToArray());
-            throw new WorkflowRuntimeException(
-                ErrorCodes.CapabilityPreflightInferenceFailed,
-                "The schema-aware capability catalog exceeds the safe inference limit.",
-                details: new JsonObject
-                {
-                    ["phase"] = "capability_catalog",
-                    ["reason"] = "catalog_too_large",
-                    ["maximum_characters"] = CapabilityCatalogMaxCharacters,
-                    ["total_characters"] = totalCharacters,
-                    ["entry_count"] = ordered.Length,
-                    ["base_entry_count"] = ordered.Count(static item => item.Bindings.Count == 0),
-                    ["variant_count"] = ordered.Count(static item => item.Bindings.Count > 0),
-                    ["selected_server_count"] = discovered.Count,
-                    ["selected_tool_count"] = discovered.Sum(static server => server.Tools.Count),
-                    ["selected_prompt_count"] = discovered.Sum(static server => server.Prompts.Count),
-                    ["full_server_count"] = completeDiscovery?.Count ?? discovered.Count,
-                    ["full_tool_count"] = completeDiscovery?.Sum(static server => server.Tools.Count)
-                                          ?? discovered.Sum(static server => server.Tools.Count),
-                    ["full_prompt_count"] = completeDiscovery?.Sum(static server => server.Prompts.Count)
-                                            ?? discovered.Sum(static server => server.Prompts.Count),
-                    ["largest_contributors"] = largestContributors
-                });
-        }
 
         var entries = new List<CapabilityCatalogEntry>(rendered.Length);
         var text = new StringBuilder(totalCharacters);
@@ -179,7 +122,14 @@ internal static class CapabilityCatalogBuilder
                 item.RequiredInputs,
                 item.Outputs,
                 item.ArtifactContract,
-                item.CompositionContract));
+                item.CompositionContract)
+            {
+                InputContract = item.Resolution == "native" ? BuiltInStepContracts.Get(item.Method)?.InputSchema
+                    : discovered.Single(s => s.Name == item.Server).Tools.FirstOrDefault(t => t.Name == item.Method)?.InputSchema,
+                OutputContract = item.Resolution == "native" ? BuiltInStepContracts.Get(item.Method)?.OutputSchema
+                    : discovered.Single(s => s.Name == item.Server).Tools.FirstOrDefault(t => t.Name == item.Method) is { } declaration
+                        ? McpToolContractEnricher.GetAuthoritativeOutputSchema(declaration) : null
+            });
         }
 
         return new CapabilityCatalog(entries, text.ToString());
@@ -238,9 +188,7 @@ internal static class CapabilityCatalogBuilder
         var normalized = string.IsNullOrWhiteSpace(description)
             ? "No description supplied."
             : string.Join(' ', description.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries));
-        return normalized.Length <= CapabilityDescriptionMaxCharacters
-            ? normalized
-            : normalized[..CapabilityDescriptionMaxCharacters];
+        return normalized;
     }
 
     internal static string BuildCompactArgumentSummary(JsonNode? inputSchema, bool includeDescriptions)

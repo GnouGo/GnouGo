@@ -51,7 +51,7 @@ public sealed class HoleBatchingTests
         workflow.Inputs = [new() { Name = "source", Required = true, Schema = new() { Type = "unresolved" } }];
         state.Construction.Dataflow!.InputObligations[workflow.Key + "/" + workflow.Steps[0].Key] = ["source"];
         PlanningGraphSkeleton.Add(state, workflow, null, "/workflows/0/inputs/0/schema", "schema", "Source contract");
-        Assert.Equal("/workflows/0/inputs/0/schema", Assert.Single(PlanningWorkflowConstruction.Batch(state, workflow).Holes).Path);
+        Assert.Equal("/workflows/0/inputs/0/schema", ReadySchema(state, workflow).Path);
     }
 
     [Fact]
@@ -80,9 +80,9 @@ public sealed class HoleBatchingTests
         state.Construction.Holes.Clear();
         PlanningGraphSkeleton.Add(state, workflow, null, "/workflows/0/inputs/0/schema", "schema", "Business input");
         PlanningGraphSkeleton.Add(state, workflow, null, "/workflows/0/outputs/0/schema", "schema", "Returned contract");
-        var batch = PlanningWorkflowConstruction.Batch(state, workflow);
-        var source = Assert.Single(batch.Holes); Assert.Contains("/inputs/", source.Path);
+        var source = ReadySchema(state, workflow); Assert.Contains("/inputs/", source.Path);
         PlanningBindingResolution.Assign(state, source, System.Text.Json.JsonSerializer.SerializeToNode(new PlanningSchema { Type = "integer" }, PlanningJsonContext.Default.PlanningSchema));
+        state.Construction.PendingCalls.Clear();
         Assert.True(PlanningContractPropagation.Resolve(state));
         Assert.All(state.Construction.Holes, h => Assert.True(h.Resolved));
     }
@@ -166,10 +166,10 @@ public sealed class HoleBatchingTests
         var second = AddField(state, workflow, true);
         first.Purpose = new string('x', 4000); second.Purpose = new string('y', 4000);
         var individual = PlanningHoleRequests.Create(state, workflow, [first]);
-        state.Request.Generation.MaxInputTokensPerRequest = PlanningJsonTransport.EstimateInputTokens(individual.Prompt, individual.Schema) + 10;
+        state.Request.Generation.MaxInputTokensPerRequest = (PlanningJsonTransport.EstimateInputTokens(individual.Prompt, individual.Schema) + 10) * 5 / 4 + 1;
         var batch = PlanningWorkflowConstruction.Batch(state, workflow);
         Assert.Single(batch.Holes);
-        Assert.True(PlanningJsonTransport.EstimateInputTokens(batch.Request.Prompt, batch.Request.Schema) <= state.Request.Generation.MaxInputTokensPerRequest);
+        Assert.True(PlanningJsonTransport.EstimateInputTokens(batch.Request.Prompt, batch.Request.Schema) <= PlanningGenerationPolicy.InputTarget(state.Request.Generation));
     }
 
     [Fact]
@@ -180,7 +180,17 @@ public sealed class HoleBatchingTests
         PlanningGraphSkeleton.Add(state, workflow, null, "/workflows/0/inputs/0/schema", "schema", "Business input contract");
         var schema = state.Construction.Holes.Single(h => h.Kind == "schema");
         Assert.Contains(schema.Id, PlanningWorkflowConstruction.HoleDependencies(state, workflow)[value.Id]);
-        Assert.Equal(schema.Id, Assert.Single(PlanningWorkflowConstruction.Batch(state, workflow).Holes).Id);
+        Assert.Equal(schema.Id, ReadySchema(state, workflow).Id);
+    }
+
+    private static PlanningHole ReadySchema(PlanningSnapshot state, PlanningWorkflow workflow)
+    {
+        var edges = PlanningWorkflowConstruction.HoleDependencies(state, workflow);
+        var hole = Assert.Single(state.Construction.Holes, h => !h.Resolved && !h.Superseded && edges[h.Id].Count == 0 && h.Kind == "schema");
+        var dispatch = PlanningSchemaDecisions.Advance(state, workflow, hole);
+        Assert.NotNull(dispatch); Assert.Equal("construction_schema", dispatch.Call.Phase);
+        Assert.DoesNotContain("schemaPointer", dispatch.Call.Request.StructuredOutputSchema!.ToJsonString());
+        return hole;
     }
 
     private static PlanningHole AddField(PlanningSnapshot state, PlanningWorkflow workflow, bool separateNode)

@@ -61,10 +61,6 @@ internal static class PlanningSchemas
         }
     }
 
-    public static JsonObject Intent() => Object(
-        ("outcome", Enum("ready", "questions", "unsupported")), ("reason", String()), ("evidence", Evidence()),
-        ("questions", Array(Object(("id", String()), ("prompt", String()), ("evidence", Evidence()),
-            ("options", Array(Object(("value", String()), ("description", String()), ("recommended", Type("boolean")))))))));
 
     public static JsonObject Behavior(PlanningPreparation? preparation = null)
     {
@@ -111,13 +107,6 @@ internal static class PlanningSchemas
 
 
 
-    private static JsonObject Evidence() => Array(Object(("sourceId", String()), ("excerpt", String())));
-
-    public static JsonObject Review(IEnumerable<string>? workflows = null, IEnumerable<string>? locations = null) => Object(("findings", Array(Object(
-        ("code", String()), ("workflow", workflows is null ? String() : Enum(workflows.ToArray())), ("location", locations is null ? String() : Enum(locations.ToArray())),
-        ("message", String()), ("evidence", String()), ("blocking", Type("boolean"))))));
-
-    public static JsonObject Revision() => Object(("affectedWorkflows", Array(String())), ("changesBehavior", Type("boolean")), ("evidence", String()));
 
     private static JsonObject String() => Type("string");
     private static JsonObject Type(string type) => new() { ["type"] = type };

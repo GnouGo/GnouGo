@@ -50,14 +50,17 @@ Host adapters can reuse `RoutingLLMClientAdapter.MapRequest` and `MapResponse` t
 
 Register `TypedWorkflowPlanner` as `WorkflowEngine.WorkflowPlanner` and
 `Planning.WorkflowPlanningRuntimeFactory.CreateWorkspace()` as `PlanningRuntimeFactory`.
-The factory opens an exclusive tenant/session lease and stores schema-4 snapshots, immutable
+The factory opens an exclusive tenant/session lease and stores schema-5 snapshots, immutable
 requests, completed receipts, and cumulative budgets through the public KeyVault record API.
 `GnOuGo.Flow.Planning` remains independently publishable with only Flow.Core as a dependency.
+`RoutingLLMClientAdapter` exposes declared reasoning capabilities. Planning verifies
+the phase profile before dispatch and persists it with the exact request. Requests
+target 80% of the configured input ceiling; unknown usage remains nullable.
 
 Session identity includes the run and call site. Reopening an unchanged run reuses completed
 receipts; a reserved dispatch without a receipt stops. Changing the initial request under the
 same run ID is a conflict. Lease files contain no content and live under the workspace-resolved
-`.GnOuGo/data/flow-planning-v4/leases` directory. All payloads use `flow-planning-*-v4` encrypted
+`.GnOuGo/data/flow-planning-v5/leases` directory. All payloads use `flow-planning-*-v5` encrypted
 record namespaces. Agent.Server's designer retains its EF-backed session indexes.
 
 Planner checkpoints emit the shared `GnOuGo.Flow.Planning` convergence and gate events

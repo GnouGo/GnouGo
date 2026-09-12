@@ -38,7 +38,7 @@ internal sealed class PlanningTypedRepair(PlanningValidationPipeline validation)
             : pendingScope is not null ? new PlanningPatches.Request(pendingScope.ResponseSchema, pendingScope.Bindings, new JsonObject()) { ParameterScopes = pendingScope.ParameterScopes }
             : PlanningPatches.CreateRequest(state.Graph!, state.Preparation!, scope, dataflow);
         var schema = transport.Schema;
-        var context = new JsonObject
+        var context = retained is { Ready: false } ? retained.RequestContext.DeepClone().AsObject() : new JsonObject
         {
             ["assignments"] = transport.Context.DeepClone(),
             ["previousRejection"] = state.Attempts.LastOrDefault(a => a.Phase == PlanningPhase.Repair && !a.Retained) is { } rejected
@@ -50,28 +50,26 @@ internal sealed class PlanningTypedRepair(PlanningValidationPipeline validation)
             }))),
             ["diagnostics"] = JsonSerializer.SerializeToNode(state.Diagnostics, PlanningJsonContext.Default.ListPlanningDiagnostic)
         };
-        var prompt = "Repair only the exact target fields. Compute expressions use declared binding parameters. " + PlanningPromptContext.Instructions + "\n" + PlanningPromptContext.Share(context).ToJsonString();
-        if (state.Construction.Repair is null)
+        if (state.Construction.Repair is null or { Ready: false })
         {
-            var request = PlanningModelCalls.Request(state, prompt, schema);
-            var beforeSequence = state.Construction.ModelSequence;
-            var call = PlanningModelCalls.Reserve(state, PlanningPhase.Repair, owner ?? "", request, gate, PlanningGraphCompiler.Fingerprint(string.Join("\n", scope.Order(StringComparer.Ordinal))));
-            if (beforeSequence != state.Construction.ModelSequence)
+            state.Construction.Repair ??= new() { Ready = false, GraphFingerprint = PlanningGraphCompiler.Fingerprint(state.Graph!),
+                RequestContext = context.DeepClone().AsObject(), ResponseSchema = schema.DeepClone().AsObject(), Bindings = transport.Bindings, ParameterScopes = transport.ParameterScopes };
+            if (state.Construction.Repair.GraphFingerprint != PlanningGraphCompiler.Fingerprint(state.Graph!))
+                throw new PlanningConflictException("The pending repair no longer targets the current graph.");
+            var decisionEvidence = PlanningGraphCompiler.Fingerprint(state.ApprovedBehaviorHash + ":" + PlanningContext.Contracts(state));
+            var targets = PlanningPatches.Targets(state.Graph!, scope);
+            // Specializations in the issued transport are authoritative. Keep
+            // parameter IDs and bindings while paging exact independent fields.
+            foreach (var variant in schema["properties"]!["patches"]!["items"]!["anyOf"]!.AsArray())
             {
-                PlanningRepairAllowances.Reserved(state, owner ?? "", gate);
-                call.Assignments = new() { WorkflowKey = owner ?? "", ResponseSchema = schema, Bindings = transport.Bindings, ParameterScopes = transport.ParameterScopes };
-                var paths = PlanningPatches.Targets(state.Graph!, scope).Select(t => t.Path).ToArray();
-                PlanningConvergence.Expose(state, state.Construction.Holes.Where(h => !h.Superseded && paths.Any(p => p == h.Path || p.StartsWith(h.Path + "/", StringComparison.Ordinal))), call.Id);
+                var id = variant!["properties"]!["target"]!["enum"]![0]!.ToString();
+                var index = targets.FindIndex(t => t.Id == id);
+                targets[index] = targets[index] with { Schema = variant["properties"]!["value"]!.DeepClone().AsObject() };
             }
-            if (call.Assignments is null) throw new PlanningConflictException("The pending repair has no verifiable binding scope. Reconcile its receipt before continuing.");
-            await runtime.CheckpointAsync(state, ct);
-            var response = await PlanningModelCalls.DispatchAsync(state, runtime, call, ct);
-            state.Construction.PendingCalls.Remove(call);
-            if (response.CompletionStatus == "output_limit") PlanningConvergence.Failure(state, owner ?? "$plan", PlanningGates.Response, call.Id, [new("MODEL_OUTPUT_LIMIT", "$", "The typed patch reached its output ceiling.")]);
-            PlanningModelCalls.RequireComplete(response, call.Request.MaxTokens);
-            if (response.Json is not JsonObject patches)
-            { Reject(state, owner ?? "$plan", "PATCH_INVALID", "A complete typed patch response is required.", "invalid:" + state.Construction.ModelSequence); return; }
-            state.Construction.Repair = new() { GraphFingerprint = PlanningGraphCompiler.Fingerprint(state.Graph!), Patches = patches.DeepClone().AsObject(), ResponseSchema = call.Assignments.ResponseSchema, Bindings = call.Assignments.Bindings, ParameterScopes = call.Assignments.ParameterScopes };
+            var response = await PlanningExactPatches.ResolveAsync(state, runtime, PlanningPhase.Repair, owner ?? "$plan", gate,
+                targets, schema, context, decisionEvidence, ct);
+            state.Construction.Repair.Patches = response;
+            state.Construction.Repair.Ready = true;
             await runtime.CheckpointAsync(state, ct);
         }
         var staged = state.Construction.Repair;
@@ -127,6 +125,6 @@ internal sealed class PlanningTypedRepair(PlanningValidationPipeline validation)
         { PlanningContext.Stop(state, "REPAIR_REPEATED", "The typed repair repeated a rejected candidate."); return; }
         state.Construction.RejectedCandidates.Add(hash);
         state.Attempts.Add(new(hash, PlanningPhase.Repair, state.Validation.Stage, false, [new(code, "/repair", message)]));
-        state.Status = PlanningStatus.Generating; state.CurrentPhase = PlanningPhase.Repair;
+        PlanningContext.Stop(state, code, message);
     }
 }

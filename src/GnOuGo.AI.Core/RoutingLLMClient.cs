@@ -65,18 +65,7 @@ public sealed class RoutingLLMClient
 
         var model = string.IsNullOrWhiteSpace(request.Model) ? _options.DefaultModel : request.Model;
 
-        // Strip "vendor/model" prefix for model routing if the provider is specified via prefix
-        if (!string.IsNullOrWhiteSpace(model) && model.Contains('/'))
-        {
-            var slashIdx = model.IndexOf('/');
-            if (slashIdx > 0 && slashIdx < model.Length - 1)
-            {
-                var prefix = model[..slashIdx];
-                // Only strip if prefix looks like a vendor name (not a file path)
-                if (prefix.Length <= 30 && !prefix.Contains('.'))
-                    model = model[(slashIdx + 1)..];
-            }
-        }
+        model = NormalizeModel(model);
 
         var resolvedType = providerOpts.ResolvedType;
 
@@ -105,6 +94,32 @@ public sealed class RoutingLLMClient
         {
             throw LLMProviderFailureClassifier.Classify(ex);
         }
+    }
+
+    /// <summary>Uses the same declared metadata and routing as dispatch, without a provider call.</summary>
+    public LLMModelMetadata ResolveMetadata(string? provider, string? model)
+    {
+        var providerKey = ResolveProviderKey(provider, model);
+        var options = _options.ResolveProvider(providerKey) ?? throw new InvalidOperationException("The model provider is not configured.");
+        return _metadataResolver.Resolve(options.ResolvedType, NormalizeModel(string.IsNullOrWhiteSpace(model) ? _options.DefaultModel : model));
+    }
+
+    private static string NormalizeModel(string model)
+    {
+        // Strip "vendor/model" prefix for model routing if the provider is specified via prefix
+        if (!string.IsNullOrWhiteSpace(model) && model.Contains('/'))
+        {
+            var slashIdx = model.IndexOf('/');
+            if (slashIdx > 0 && slashIdx < model.Length - 1)
+            {
+                var prefix = model[..slashIdx];
+                // Only strip if prefix looks like a vendor name (not a file path)
+                if (prefix.Length <= 30 && !prefix.Contains('.'))
+                    model = model[(slashIdx + 1)..];
+            }
+        }
+
+        return model;
     }
 
     private async Task<LLMClientResponse> CallLocalWithFallbackAsync(

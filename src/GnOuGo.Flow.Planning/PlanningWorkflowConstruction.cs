@@ -24,7 +24,7 @@ internal sealed partial class PlanningWorkflowConstruction
             if (work.All(p => p.Status == "validated")) { state.Status = PlanningStatus.Validating; return; }
             PlanningContext.Stop(state, "WORKFLOW_DEPENDENCY_UNRESOLVED", "Resolve the diagnosed producer before filling caller fields."); return;
         }
-        var requests = new List<(PlanningWorkflowProgress Progress, PlanningModelCall Call, PlanningStagedAssignments Candidate)>();
+        var requests = new List<(PlanningWorkflowProgress Progress, PlanningModelCall Call, PlanningStagedAssignments? Candidate, PlanningDecisionPages.Dispatch? Decision)>();
         foreach (var progress in ready)
         {
             var pending = state.Construction.PendingCalls.SingleOrDefault(c => c.Phase == PlanningPhase.Construction && c.WorkflowKey == progress.WorkflowKey);
@@ -34,12 +34,25 @@ internal sealed partial class PlanningWorkflowConstruction
                 if (retained.WorkflowFingerprint != PlanningHoleAssignments.WorkflowFingerprint(state.Graph!.Workflows.Single(w => w.Key == progress.WorkflowKey)) ||
                     retained.DependencyFingerprint != DependencyFingerprint(state, progress))
                     throw new PlanningConflictException("The pending construction request targets a stale workflow or callee contract.");
-                requests.Add((progress, pending, retained));
+                requests.Add((progress, pending, retained, null));
                 continue;
             }
             var workflow = state.Graph!.Workflows.Single(w => w.Key == progress.WorkflowKey);
             PlanningBindingResolution.Resolve(state, workflow);
             workflow = state.Graph.Workflows.Single(w => w.Key == progress.WorkflowKey);
+            var edges = HoleDependencies(state, workflow);
+            var schemaHole = state.Construction.Holes.Where(h => h.WorkflowKey == workflow.Key && !h.Resolved && !h.Superseded && h.Kind == "schema" && edges[h.Id].Count == 0)
+                .OrderBy(h => h.CanonicalLocation, StringComparer.Ordinal).FirstOrDefault();
+            if (schemaHole is not null)
+            {
+                var sequenceBeforeSchema = state.Construction.ModelSequence;
+                if (PlanningSchemaDecisions.Advance(state, workflow, schemaHole) is { } decision)
+                {
+                    if (sequenceBeforeSchema != state.Construction.ModelSequence) progress.Calls++;
+                    requests.Add((progress, decision.Call, null, decision));
+                }
+                continue;
+            }
             var holes = state.Construction.Holes.Where(h => h.WorkflowKey == workflow.Key && !h.Resolved).OrderBy(h => h.Id, StringComparer.Ordinal).ToArray();
             progress.ResolvedHoles = state.Construction.Holes.Count(h => h.WorkflowKey == workflow.Key && h.Resolved);
             progress.UnresolvedHoles = holes.Length;
@@ -56,14 +69,12 @@ internal sealed partial class PlanningWorkflowConstruction
             progress.Gate = PlanningGates.Response;
             progress.EstimatedInputTokens = PlanningJsonTransport.EstimateInputTokens(request.Prompt, request.Schema);
             progress.InputTokenLimit = state.Request.Generation.MaxInputTokensPerRequest;
-            if (progress.ResponseRepairPending && !PlanningRepairAllowances.Available(state, workflow.Key, PlanningGates.Response)) return;
             var sequence = state.Construction.ModelSequence;
             var call = PlanningModelCalls.Reserve(state, PlanningPhase.Construction, workflow.Key,
                 PlanningModelCalls.Request(state, request.Prompt, request.Schema), PlanningGates.Response, scope);
             if (state.Construction.ModelSequence != sequence)
             {
                 progress.Calls++;
-                if (progress.ResponseRepairPending) PlanningRepairAllowances.Reserved(state, workflow.Key, PlanningGates.Response);
             }
             PlanningConvergence.Expose(state, holes, call.Id);
             PlanningConvergence.AttributeHoles(state, call, workflow, holes);
@@ -74,7 +85,7 @@ internal sealed partial class PlanningWorkflowConstruction
                 WorkflowFingerprint = PlanningHoleAssignments.WorkflowFingerprint(workflow), DependencyFingerprint = progress.DependencyFingerprint,
                 ScopeFingerprint = scope, Targets = holes.ToList(), ResponseSchema = request.Schema, Bindings = request.Bindings, ParameterScopes = request.ParameterScopes
             };
-            requests.Add((progress, call, call.Assignments));
+            requests.Add((progress, call, call.Assignments, null));
         }
         await runtime.CheckpointAsync(state, ct);
         var results = await Task.WhenAll(requests.Select(async item =>
@@ -95,18 +106,23 @@ internal sealed partial class PlanningWorkflowConstruction
             }
             state.Construction.PendingCalls.Remove(result.Item.Call);
             PlanningConvergence.Receipt(state, result.Item.Call, result.Response!);
+            if (result.Item.Decision is { } decision)
+            {
+                try { PlanningDecisionPages.Accept(state, decision, result.Response!); }
+                catch (GnOuGo.Flow.Core.Expressions.WorkflowRuntimeException error)
+                { state.Diagnostics.Add(new(error.Code, "/decisions/" + decision.Page.Decisions[0], error.Message)); }
+                continue;
+            }
             if (result.Response!.CompletionStatus == "output_limit")
             {
-                result.Item.Progress.ResponseRepairPending = true;
                 var failure = new PlanningDiagnostic("MODEL_OUTPUT_LIMIT", result.Item.Progress.WorkflowKey, "The response reached its output ceiling; unresolved fields and prior assignments are retained.");
                 state.Diagnostics.Add(failure); PlanningConvergence.Failure(state, result.Item.Progress.WorkflowKey, PlanningGates.Response, result.Item.Call.Id, [failure]); continue;
             }
-            result.Item.Progress.ResponseRepairPending = false;
-            result.Item.Candidate.Payload = result.Response.Json is JsonObject payload ? payload.DeepClone().AsObject() : new JsonObject();
-            state.Construction.Candidates.Add(result.Item.Candidate);
+            result.Item.Candidate!.Payload = result.Response.Json is JsonObject payload ? payload.DeepClone().AsObject() : new JsonObject();
+            state.Construction.Candidates.Add(result.Item.Candidate!);
         }
         await runtime.CheckpointAsync(state, ct);
-        if (state.Diagnostics.Count > 0) { state.Status = PlanningStatus.Recovery; return; }
+        if (state.Diagnostics.Count > 0) { state.Status = PlanningStatus.Stopped; return; }
         Process(state);
     }
     internal static void Process(PlanningSnapshot state)

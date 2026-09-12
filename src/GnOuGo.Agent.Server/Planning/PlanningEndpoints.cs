@@ -30,7 +30,7 @@ internal static class PlanningEndpoints
                     ArtifactHash = request.ArtifactHash,
                     Text = request.Text,
                     Answers = request.Answers,
-                    Generation = request.Generation is { } options ? new() { Reasoning = options.Reasoning, MaxInputTokensPerRequest = options.MaxInputTokensPerRequest, MaxOutputTokens = options.MaxOutputTokens } : null
+                    Generation = request.Generation is { } options ? new() { ReasoningProfile = options.ReasoningProfile is { } profile ? new() { Routine = profile.Routine, Behavior = profile.Behavior, SemanticReview = profile.SemanticReview } : new(), MaxInputTokensPerRequest = options.MaxInputTokensPerRequest, MaxOutputTokens = options.MaxOutputTokens } : null
                 }, ct);
                 return Results.Json(ToDto(state), ChatJsonContext.Default.PlanningSessionDto);
             }
@@ -48,12 +48,12 @@ internal static class PlanningEndpoints
         snapshot.Validation.Scenarios.Select(s => new PlanningScenarioDto(s.Id, s.Outcome, s.Description)).ToArray(),
         snapshot.History.Select(r => new PlanningRevisionDto(r.Revision, r.ArtifactHash, r.Status, r.ChangedWorkflows)).ToArray(),
         snapshot.Intent.Question is null ? null : HumanInputContract.BuildRequestPayload(snapshot.Intent.Question),
-        snapshot.Usage?.Calls ?? 0, snapshot.Usage?.InputTokens ?? 0, snapshot.Usage?.OutputTokens ?? 0, snapshot.Usage?.EstimatedCost ?? 0, snapshot.Usage?.EstimatedCostCurrency ?? "", snapshot.Outcome,
+        snapshot.Usage?.Calls ?? 0, snapshot.Usage?.InputTokens ?? 0, snapshot.Usage?.OutputTokens ?? 0, snapshot.Usage?.EstimatedCost ?? 0, snapshot.Usage?.EstimatedCostCurrency ?? "", Outcome(snapshot.Outcome),
         PlanningPhase.Resolve(snapshot),
         snapshot.BehaviorPlan is null ? null : System.Text.Json.JsonSerializer.SerializeToNode(snapshot.BehaviorPlan, PlanningJsonContext.Default.PlanningBehaviorPlan)!.AsObject(),
-        snapshot.ApprovedBehaviorHash, snapshot.Status == PlanningStatus.Recovery ? "Planning paused in " + PlanningPhase.Resolve(snapshot) + ". " + snapshot.Diagnostics.Count(d => d.Required) + " required findings remain; session history is retained." : null,
+        snapshot.ApprovedBehaviorHash, snapshot.Status == PlanningStatus.Stopped ? "Planning stopped in " + PlanningPhase.Resolve(snapshot) + ". " + snapshot.Diagnostics.Count(d => d.Required) + " required findings remain; session history is retained." : null,
         snapshot.Intent.Answers.Count, snapshot.Request.Options["generator"]?["model"]?.GetValue<string>(),
-        snapshot.Request.Generation.Reasoning ?? snapshot.Request.Options["generator"]?["reasoning"]?.GetValue<string>() ?? "medium",
+        new(snapshot.Request.Generation.ReasoningProfile.Routine, snapshot.Request.Generation.ReasoningProfile.Behavior, snapshot.Request.Generation.ReasoningProfile.SemanticReview),
         snapshot.Construction.Workflows.Select(w => new PlanningWorkflowDto(w.WorkflowKey, w.Status, w.Dependencies, w.Calls, w.RepairCalls,
             w.EstimatedInputTokens, w.InputTokenLimit, w.UnresolvedHoles, w.ResolvedHoles, w.Gate,
             snapshot.RepairAllowances.Where(a => a.WorkflowKey == w.WorkflowKey && a.Gate == w.Gate).Sum(a => a.Attempts), snapshot.Request.MaxRepairsPerWorkflowGate,
@@ -65,7 +65,17 @@ internal static class PlanningEndpoints
         snapshot.Preparation?.DecisionContractVersion ?? 0, snapshot.Preparation?.Decisions.Count ?? 0,
         snapshot.GateProgress.Select(g => new PlanningGateProgressDto(g.Gate, snapshot.RepairAllowances.Where(a => a.WorkflowKey == g.WorkflowKey && a.Gate == g.Gate).Sum(a => a.Attempts), g.Failures, g.WorkflowKey)).ToArray(),
         snapshot.RequestCounts.Select(a => new PlanningRequestCountsDto(a.WorkflowKey, a.Phase, a.Gate, a.Reservations, a.ModelUsed, a.Unverifiable,
-            a.EstimatedInputTokens, a.InputTokens, a.OutputTokens, a.AvoidableDispatches, a.AvoidableExtraRequests, a.Repairs, a.Failures)).ToArray());
+            a.EstimatedInputTokens, a.InputTokens, a.OutputTokens, a.AvoidableDispatches, a.AvoidableExtraRequests, a.Repairs, a.Failures)).ToArray(),
+        snapshot.TechnicalStop is { } stop ? new(stop.Code, stop.Phase, stop.Location, stop.Unverifiable) : null,
+        snapshot.DecisionPages.Select(p => new PlanningDecisionPageDto(p.Id, p.Phase, p.WorkflowKey, p.Status, p.Decisions.Count, p.EstimatedInputTokens, p.EstimatedAnswerTokens, p.InputTargetTokens, p.Correction)).ToArray());
+
+    private static PlanningOutcomeDto? Outcome(PlanningOutcome? outcome) => outcome switch
+    {
+        PlanningValidWorkflow valid => new(valid.Name, valid.ArtifactHash),
+        PlanningNeedUserClarification needed => new(needed.Name, Decision: new(needed.Decision.DecisionId, needed.Decision.EvidenceReferences, needed.Decision.AnswerSchema, needed.Decision.Obligations)),
+        PlanningUnsupported unsupported => new(unsupported.Name, Obligations: unsupported.Obligations.Select(o => new PlanningUnsupportedObligationDto(o.ObligationId, o.Code, o.EvidenceReferences)).ToArray()),
+        _ => null
+    };
 
     private static PlanningGraph? DisplayGraph(PlanningSnapshot snapshot) => snapshot.BehaviorPlan is { } behavior ? PlanningBehaviorPlans.Display(behavior, snapshot.Preparation) : snapshot.Graph;
 }

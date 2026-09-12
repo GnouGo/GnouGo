@@ -7,8 +7,9 @@ runtime validators, and the thin `workflow.plan` executor.
 
 ```mermaid
 flowchart TD
-  I[Intent] --> Q[Clarification when required]
-  Q --> C[Capability discovery and locked contracts]
+  I[Intent references and semantic decisions] --> C[Capability discovery and locked contracts]
+  C --> Q[Clarification for missing business decisions]
+  Q --> C
   C --> B[PlanningBehaviorPlan]
   B --> R[Deterministic validation and human behavior review]
   R --> G[PlanningGraph skeleton]
@@ -31,7 +32,11 @@ validation to cohesive components. `PlanningGraph` is the authoritative executab
 model. Intent, construction and validation state hold phase evidence and fingerprints.
 YAML is a derived, read-only artifact produced by `PlanningGraphCompiler`.
 
-Every model response has a strict typed JSON schema. Every classification and contract
+Every model response has a strict typed JSON schema. Engine-owned facts are issued
+references; models never reproduce known evidence or schemas. Initial behavior is
+assembled by the coordinator from bounded semantic decisions. Every phase targets
+80% of the input ceiling and a 2,048-token structured answer; the hard 12,000/8,192
+ceilings remain unchanged. Technical sizing failures cannot trigger user clarification. Every classification and contract
 must have deterministically validated evidence from intent, declared schemas or
 provider-neutral metadata. Missing evidence requires eligible human clarification or
 stops the session. Provider names, tool names and domain vocabulary never establish
@@ -64,7 +69,11 @@ referenced callee contract fragments are included; callee implementations are ex
 derived. Direct typed call references select a declared output port, while calls
 inside collected loop results retain their runtime `outputs` envelope.
 Raw YAML, unrelated workflows and previous attempts are excluded from construction.
-Oversized requests and truncated responses pause with actionable diagnostics.
+Indivisible oversized requests stop with technical diagnostics. Verified truncated
+multi-decision pages may split once into charged correction pages. Unchanged semantic
+decisions permit one model correction; five repairs per workflow/gate remain the outer
+allowance. There is no generic retry action. Phase reasoning defaults to medium for
+behavior and semantic review, low otherwise, with declared provider capability proof.
 
 ## Eligibility before dispatch
 
@@ -150,7 +159,7 @@ Runtime expressions and WFScript remain supported, with their existing sandbox.
 
 Agent.Server persists schema **4** snapshots in encrypted KeyVault records with
 tenant-scoped EF Core/SQLite indexes. The default workspace-resolved database is
-`.GnOuGo/data/gnougo-planning-v4.db`; snapshot, request, receipt and budget namespaces
+`.GnOuGo/data/gnougo-planning-v5.db`; snapshot, request, receipt and budget namespaces
 are versioned together. Older storage is unused. Optimistic revisions, cancellation,
 restart recovery, original-workflow save conflicts and human-wait accounting remain.
 

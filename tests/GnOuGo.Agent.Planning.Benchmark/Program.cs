@@ -23,7 +23,7 @@ const string tenant = "planner-benchmark";
 const string evidenceKey = "codereview-bc72dd6";
 var root = AppContext.BaseDirectory;
 var records = KeyVaultRecordStoreFactory.CreateWorkspaceStore(null, root);
-var benchmarkPath = GnOuGoWorkspace.ResolveDatabasePath(Environment.GetEnvironmentVariable("PLANNING_BENCHMARK_DATABASE"), root, ".GnOuGo/data/planner-benchmark/gnougo-planning-v4.db");
+var benchmarkPath = GnOuGoWorkspace.ResolveDatabasePath(Environment.GetEnvironmentVariable("PLANNING_BENCHMARK_DATABASE"), root, ".GnOuGo/data/planner-benchmark/gnougo-planning-v5.db");
 if (args[0] == "replay")
 {
     if (args.Length != 3 || !long.TryParse(args[2], out var revision)) throw new ArgumentException("Use replay SESSION REVISION. This command cannot make live requests.");
@@ -42,7 +42,7 @@ var ct = cancellation.Token;
 if (args[0] == "capture")
 {
     if (await store.LoadAsync(tenant, evidenceKey, ct) is not null) throw new InvalidOperationException("The benchmark evidence is already frozen.");
-    var sourceContexts = new Contexts(GnOuGoWorkspace.ResolveDatabasePath(null, root, ".GnOuGo/data/gnougo-planning-v4.db"));
+    var sourceContexts = new Contexts(GnOuGoWorkspace.ResolveDatabasePath(null, root, ".GnOuGo/data/gnougo-planning-v5.db"));
     var source = await new EfPlanningSessionStore(sourceContexts, records).LoadAsync("default", args[1], ct) ?? throw new InvalidOperationException("Source session not found.");
     var fingerprint = PlanningGraphCompiler.Fingerprint(JsonSerializer.Serialize(source, PlanningJsonContext.Default.PlanningSnapshot));
     var sourceRevision = source.Revision;
@@ -60,7 +60,7 @@ if (args[0] == "inspect")
 }
 if (args[0] == "inspect-rejection")
 {
-    var value = await records.GetAsync("agent-planning-benchmark-rejections-v4", tenant, args[1], EfPlanningSessionStore.Author, ct);
+    var value = await records.GetAsync("agent-planning-benchmark-rejections-v5", tenant, args[1], EfPlanningSessionStore.Author, ct);
     Console.WriteLine(value?.Value ?? "null");
     return;
 }
@@ -91,7 +91,7 @@ if (args[0] is "report" or "summary")
     await using var db = contexts.CreateDbContext();
     foreach (var row in await db.Calls.AsNoTracking().Where(c => c.TenantId == tenant && c.SessionId == args[1]).OrderBy(c => c.RequestHash).ToListAsync(ct))
     {
-        var record = await records.GetAsync("agent-planning-model-receipts-v4", tenant, row.PayloadKey, "GnOuGo.Agent.Server.Planning", ct);
+        var record = await records.GetAsync("agent-planning-model-receipts-v5", tenant, row.PayloadKey, "GnOuGo.Agent.Server.Planning", ct);
         var response = record is null ? null : JsonSerializer.Deserialize(record.Value, PlanningJsonContext.Default.LLMResponse);
         var accounting = value.RequestAccounting.SingleOrDefault(a => a.Id == row.RequestHash);
         Console.WriteLine($"request={row.RequestHash} status={row.Status} completion={response?.CompletionStatus} estimated={accounting?.EstimatedInputTokens} text_chars={response?.Text?.Length} usage={response?.Usage?.ToJsonString()}");
@@ -149,7 +149,7 @@ else if (args[0] is "command" or "clarify-policy")
     var kind = args[0] == "clarify-policy" ? "edit_intent" : args[2];
     if (kind == "approve")
     {
-        var validation = await records.GetAsync("agent-planning-benchmark-validation-v4", tenant, state.Request.SessionId + ":" + state.ArtifactHash, "GnOuGo.Agent.Server.Planning", ct);
+        var validation = await records.GetAsync("agent-planning-benchmark-validation-v5", tenant, state.Request.SessionId + ":" + state.ArtifactHash, "GnOuGo.Agent.Server.Planning", ct);
         var catalogHash = PlanningGraphCompiler.Fingerprint(evidence.PreparationCheckpoint!.ValidatedResults["discovery"]!.ToJsonString());
         if (validation is null || JsonNode.Parse(validation.Value) is not JsonArray { Count: 18 } results ||
             results.Any(result => result?["fixtureHash"]?.ToString() != CodeReviewExecutionFixture.Fingerprint || result["catalogHash"]?.ToString() != catalogHash || result["artifactHash"]?.ToString() != state.ArtifactHash))
@@ -184,7 +184,7 @@ while (!PlanningStatus.IsWaiting(state.Status) && !PlanningStatus.IsTerminal(sta
 if (background) await service.StopAsync(ct);
 AppDomain.CurrentDomain.FirstChanceException -= CaptureRejection;
 if (!rejections.IsEmpty)
-    await records.UpsertAsync("agent-planning-benchmark-rejections-v4", tenant, state.Request.SessionId,
+    await records.UpsertAsync("agent-planning-benchmark-rejections-v5", tenant, state.Request.SessionId,
         new JsonArray(rejections.Distinct(StringComparer.Ordinal).Select(message => (JsonNode?)JsonValue.Create(message)).ToArray()).ToJsonString(), EfPlanningSessionStore.Author, ct);
 Console.WriteLine($"session={state.Request.SessionId} revision={state.Revision} status={state.Status} phase={state.CurrentPhase} calls={state.Usage?.Calls ?? 0} artifact={state.ArtifactHash}");
 foreach (var finding in state.Diagnostics) Console.WriteLine($"finding={finding.Code} location={finding.Location}");

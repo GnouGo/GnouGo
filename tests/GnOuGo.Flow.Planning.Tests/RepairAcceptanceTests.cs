@@ -14,6 +14,7 @@ public sealed class RepairAcceptanceTests
     {
         ["patches"] = new JsonArray(new JsonObject { ["target"] = "f_" + PlanningGraphCompiler.Fingerprint(PlanningPatches.Coordinate(workflow, node, field))[..16], ["value"] = value })
     };
+    private static JsonObject ModelPatch(JsonObject patch) => new(patch["patches"]!.AsArray().Select(p => new KeyValuePair<string, JsonNode?>(p!["target"]!.ToString(), p["value"]?.DeepClone())));
     private static PlanningDiagnostic Finding(string code) => new(code, "/workflows/0/steps/0/input/members/0/value/text", code);
     private static PlanningScenarioResult Scenario(string outcome) => new("same-fixture", outcome, "Fixed fixture", []);
 
@@ -43,8 +44,8 @@ public sealed class RepairAcceptanceTests
             Assert.DoesNotContain("unrelated marker", request.Prompt);
             return Task.FromResult(new LLMResponse { Json = new JsonObject() });
         } };
-        await new PlanningTypedRepair(new()).AdvanceAsync(state, runtime, Ct);
-        Assert.True(called);
+        var error = await Assert.ThrowsAsync<GnOuGo.Flow.Core.Expressions.WorkflowRuntimeException>(() => new PlanningTypedRepair(new()).AdvanceAsync(state, runtime, Ct));
+        Assert.True(called, error.Code + ": " + error.Message);
     }
 
     [Fact]
@@ -77,7 +78,7 @@ public sealed class RepairAcceptanceTests
         state.Validation.Stage = 1;
         state.Diagnostics = [new("BAD_VALUE", "/workflows/1/steps/0/input/members/0/value/text", "Fix greeting")];
         var patch = Patch("child", "greeting", "input/members/0/value/text", JsonValue.Create("Fixed"));
-        var runtime = new FakeRuntime { OnCall = (_, _, _) => Task.FromResult(new LLMResponse { Json = patch }) };
+        var runtime = new FakeRuntime { OnCall = (_, _, _) => Task.FromResult(new LLMResponse { Json = ModelPatch(patch) }) };
         await new PlanningTypedRepair(new()).AdvanceAsync(state, runtime, Ct);
         Assert.True(state.Attempts.Last().Retained, string.Join("; ", state.Attempts.Last().Diagnostics.Select(d => d.Code)));
         Assert.Equal("Fixed", state.Graph.Workflows[1].Steps[0].Input.Members[0].Value.Text);
@@ -207,10 +208,10 @@ public sealed class RepairAcceptanceTests
         PlanningSnapshot? staged = null;
         var runtime = new FakeRuntime
         {
-            OnCall = (_, _, _) => Task.FromResult(new LLMResponse { Json = patch }),
+            OnCall = (_, _, _) => Task.FromResult(new LLMResponse { Json = ModelPatch(patch) }),
             OnCheckpoint = snapshot =>
             {
-                if (snapshot.Construction.Repair is not null) { staged = PlanningContext.Clone(snapshot); throw new IOException("Restart before candidate validation"); }
+                if (snapshot.Construction.Repair is { Ready: true }) { staged = PlanningContext.Clone(snapshot); throw new IOException("Restart before candidate validation"); }
                 return Task.CompletedTask;
             }
         };
@@ -223,6 +224,35 @@ public sealed class RepairAcceptanceTests
         if (regression) Assert.Equal(hash, PlanningGraphCompiler.Fingerprint(staged.Graph!));
         else Assert.NotEqual(hash, PlanningGraphCompiler.Fingerprint(staged.Graph!));
         Assert.Equal(regression ? "Hello" : "Fixed", staged.Graph!.Workflows[0].Steps[0].Input.Members[0].Value.Text);
+    }
+
+    [Fact]
+    public async Task RepairDomainsAndPageIdentityArePersistedBeforeDispatch()
+    {
+        var state = Ready(); state.Graph!.Workflows[0] = FakeRuntime.ExecutableWorkflow();
+        state.Construction.Workflows[0].Status = "validated";
+        state.CurrentPhase = PlanningPhase.Repair; state.Diagnostics = [Finding("BAD_VALUE")]; state.Validation.Stage = 2;
+        PlanningSnapshot? retained = null;
+        var first = new FakeRuntime { OnCheckpoint = snapshot =>
+        {
+            if (snapshot.Construction.PendingCalls.Count > 0)
+            { retained = PlanningContext.Clone(snapshot); throw new IOException("Stopped before dispatch"); }
+            return Task.CompletedTask;
+        } };
+        await Assert.ThrowsAsync<IOException>(() => new PlanningTypedRepair(new()).AdvanceAsync(state, first, Ct));
+        Assert.Empty(first.Requests); Assert.NotNull(retained);
+        Assert.False(retained.Construction.Repair!.Ready); Assert.NotNull(retained.Construction.Repair.Bindings);
+        var request = Assert.Single(retained.Construction.PendingCalls);
+        var replay = new FakeRuntime { OnCall = (_, current, _) =>
+        {
+            Assert.Equal(request.Request.Prompt, current.Prompt);
+            Assert.Equal(request.Request.ClientRequestId, current.ClientRequestId);
+            Assert.True(JsonNode.DeepEquals(request.Request.StructuredOutputSchema, current.StructuredOutputSchema));
+            return Task.FromResult(new LLMResponse { Json = ModelPatch(Patch("main", "greeting", "input/members/0/value/text", JsonValue.Create("Fixed"))) });
+        } };
+        await new PlanningTypedRepair(new()).AdvanceAsync(retained, replay, Ct);
+        Assert.Single(replay.Requests); Assert.Equal(1, retained.RepairAllowances.Sum(a => a.Attempts));
+        Assert.Equal("Fixed", retained.Graph!.Workflows[0].Steps[0].Input.Members[0].Value.Text);
     }
 
     [Fact]
@@ -245,7 +275,7 @@ public sealed class RepairAcceptanceTests
         state.Diagnostics = [new("CONTRACT_DESCRIPTION_INVALID", "/workflows/1/outputs/0/schema/description", "Describe the returned message")];
         var corrected = PlanningContext.Clone(state.Graph).Workflows[1]; corrected.Outputs[0].Schema.Description = "Returned greeting";
         var patch = Patch("child", null, "outputs/0/schema/description", JsonValue.Create("Returned greeting"));
-        var runtime = new FakeRuntime { OnCall = (_, _, _) => Task.FromResult(new LLMResponse { Json = patch }) };
+        var runtime = new FakeRuntime { OnCall = (_, _, _) => Task.FromResult(new LLMResponse { Json = ModelPatch(patch) }) };
         await new PlanningTypedRepair(new()).AdvanceAsync(state, runtime, Ct);
         Assert.True(state.Attempts.Last().Retained, string.Join("; ", state.Attempts.Last().Diagnostics.Select(d => d.Code + ": " + d.Message)));
         Assert.Equal("constructed", state.Construction.Workflows.Single(w => w.WorkflowKey == "main").Status);
@@ -255,23 +285,22 @@ public sealed class RepairAcceptanceTests
     }
 
     [Fact]
-    public async Task RetryingStoppedRepairRevalidatesItsScopeWithoutResettingTheAllowance()
+    public async Task StoppedRepairCannotRestartItsDecisionOrResetItsAllowance()
     {
         var state = Ready(); state.Graph!.Workflows[0] = FakeRuntime.ExecutableWorkflow();
         state.Graph.Workflows[0].Outputs[0].Value.Source = "missing";
         state.Construction.Workflows[0].Status = "constructed";
         state.RepairAllowances.Add(new() { WorkflowKey = "main", Gate = PlanningGates.Typed, Attempts = 2 });
-        state.Status = PlanningStatus.Recovery; state.CurrentPhase = PlanningPhase.Repair;
+        state.Status = PlanningStatus.Stopped; state.CurrentPhase = PlanningPhase.Repair;
         state.Diagnostics = [new("REPAIR_REPEATED", "$", "A candidate was repeated")];
         var runtime = new FakeRuntime();
-        state = await Advance(state, runtime, "retry");
-        Assert.Equal(PlanningStatus.Validating, state.Status);
-        state = await Advance(state, runtime);
-        Assert.Equal(PlanningPhase.Repair, state.CurrentPhase);
-        Assert.Contains(state.Diagnostics, d => d.Code == "OUTPUT_REFERENCE_INVALID");
-        Assert.NotEmpty(PlanningPatches.Scope(state.Graph!, state.Diagnostics));
-        Assert.Equal(2, state.RepairAllowances.Sum(a => a.Attempts));
+        await Assert.ThrowsAsync<ArgumentException>(() => Advance(state, runtime, "retry"));
+        var unchanged = await Advance(PlanningContext.Clone(state), runtime);
+        Assert.Equal(PlanningStatus.Stopped, unchanged.Status);
+        Assert.Contains(unchanged.Diagnostics, d => d.Code == "REPAIR_REPEATED");
+        Assert.Equal(2, unchanged.RepairAllowances.Sum(a => a.Attempts));
         Assert.Empty(runtime.Requests);
+
     }
 
     [Fact]
@@ -280,10 +309,10 @@ public sealed class RepairAcceptanceTests
         var state = Ready(); state.Graph!.Workflows[0] = FakeRuntime.ExecutableWorkflow(); state.Construction.Workflows[0].Status = "validated";
         state.CurrentPhase = PlanningPhase.Repair; state.Diagnostics = [Finding("BAD_VALUE")]; state.Validation.Stage = 2;
         var runtime = new FakeRuntime { OnCall = (_, _, _) => Task.FromResult(new LLMResponse
-            { Json = Patch("main", "greeting", "input/members/0/value/text", JsonValue.Create("Hello")) }) };
+            { Json = ModelPatch(Patch("main", "greeting", "input/members/0/value/text", JsonValue.Create("Hello"))) }) };
         var before = PlanningGraphCompiler.Fingerprint(state.Graph);
         await new PlanningTypedRepair(new()).AdvanceAsync(state, runtime, Ct);
-        Assert.Equal(PlanningStatus.Recovery, state.Status); Assert.Contains(state.Diagnostics, d => d.Code == "REPAIR_REPEATED");
+        Assert.Equal(PlanningStatus.Stopped, state.Status); Assert.Contains(state.Diagnostics, d => d.Code == "REPAIR_REPEATED");
         Assert.Equal(before, PlanningGraphCompiler.Fingerprint(state.Graph));
     }
 

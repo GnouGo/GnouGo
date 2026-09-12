@@ -44,9 +44,23 @@ namespace GnOuGo.Flow.Planning.Capabilities;
 
 internal static class CapabilityPreparation
 {
+    internal static string TypedCapabilityIdentity(ResolvedCapability capability, string stepType)
+    {
+        // Identity follows the issued operation and executable binding. Evidence,
+        // descriptions and contract revisions are fingerprinted separately.
+        var identity = new JsonObject
+        {
+            ["operations"] = new JsonArray(GetResolvedCapabilityOperationIds(capability).Order(StringComparer.Ordinal).Select(id => (JsonNode?)JsonValue.Create(id)).ToArray()),
+            ["type"] = stepType, ["resolution"] = capability.Resolution, ["server"] = capability.Server,
+            ["kind"] = capability.Kind, ["method"] = capability.Method,
+            ["arguments"] = new JsonObject(capability.RequestBindings.OrderBy(b => b.Path, StringComparer.Ordinal)
+                .Select(b => new KeyValuePair<string, JsonNode?>(b.Path, b.Value?.DeepClone())))
+        };
+        return "capability_" + PlanningGraphCompiler.Fingerprint(identity.ToJsonString())[..24];
+    }
 
     internal static async Task<CapabilityPreflightResult> RunCapabilityPreflightAsync(
-        StepExecutionContext ctx, JsonObject input, CancellationToken ct)
+        StepExecutionContext ctx, JsonObject input, PlanningSnapshot snapshot, IPlanningRuntime runtime, CancellationToken ct)
     {
         var preflight = input["capability_preflight"] as JsonObject;
         var mode = preflight?["requirements"] is JsonArray { Count: > 0 } ? "explicit" : "infer";
@@ -101,6 +115,9 @@ internal static class CapabilityPreparation
             span.SetAttribute("mcp.servers_discovered", discovered.Count(static server => server.Discovered));
             span.SetAttribute("mcp.tools_total", discovered.Sum(static server => server.Tools.Count));
 
+            if (discovered.All(server => server.Discovered))
+                await PlanningClarifications.AskAfterDiscoveryAsync(snapshot, runtime, ct);
+
             IReadOnlyList<ResolvedCapability> resolved;
             IReadOnlyList<CapabilityConstraint> constraints;
             if (mode == "explicit")
@@ -124,6 +141,13 @@ internal static class CapabilityPreparation
                         unresolvedDiscoveryServers,
                         Array.Empty<ResolvedCapability>());
                 resolved = ResolveExplicitCapabilities(requirements, discovered);
+                var unavailable = resolved.Where(c => c.Required && c.Resolution == "unavailable").ToArray();
+                if (unavailable.Length > 0)
+                {
+                    var proof = PlanningReferences.Register(snapshot, "explicit_requirements", "capability_requirement", preflight!.ToJsonString());
+                    snapshot.Outcome = new PlanningUnsupported(unavailable.Select(c => new PlanningUnsupportedObligation(c.Id,
+                        "DECLARED_ALTERNATIVES_UNAVAILABLE", proof.Select(r => r.Id).ToList())).ToList());
+                }
             }
             else
             {
@@ -148,7 +172,7 @@ internal static class CapabilityPreparation
                     instruction,
                     generatorContext,
                     evidenceSources,
-                    discovered,
+                    snapshot, runtime, discovered,
                     span.Span,
                     ct);
             }
@@ -205,15 +229,14 @@ internal static class CapabilityPreparation
     }
 
     internal static async Task<(IReadOnlyList<ResolvedCapability> Capabilities, IReadOnlyList<CapabilityConstraint> Constraints)> InferCapabilitiesAsync(
-        StepExecutionContext ctx, JsonObject input, JsonObject generator, string instruction, string generatorContext, IReadOnlyList<CapabilityEvidenceSource> evidenceSources, IReadOnlyList<McpServerDiscovery> discovered, ITelemetrySpan? parentSpan, CancellationToken ct, bool clarificationAllowed = true)
+        StepExecutionContext ctx, JsonObject input, JsonObject generator, string instruction, string generatorContext, IReadOnlyList<CapabilityEvidenceSource> evidenceSources, PlanningSnapshot snapshot, IPlanningRuntime runtime, IReadOnlyList<McpServerDiscovery> discovered, ITelemetrySpan? parentSpan, CancellationToken ct, bool clarificationAllowed = true)
     {
         var llmClient = ctx.Engine.LLMClient
             ?? throw new WorkflowRuntimeException(ErrorCodes.CapabilityPreflightInferenceFailed, "Capability inference requires an LLM client.");
         var (provider, resolvedModel) = ctx.Engine.ResolveLlmTarget(
             generator["provider"]?.GetValue<string>(),
             generator["model"]?.GetValue<string>());
-        var model = resolvedModel ?? "gpt-4";
-        var reasoning = generator["reasoning"]?.GetValue<string>() ?? "low";
+        var model = resolvedModel ?? "unknown";
         var allowedNativeTypes = ResolveAllowedNativeStepTypes(ctx, input);
 
         using var inferenceSpan = ctx.BeginTelemetrySpan(parentSpan!, "workflow.plan.capability_preflight.infer", "capability_preflight_infer", new[]
@@ -228,121 +251,12 @@ internal static class CapabilityPreparation
         var inferencePhase = "capability_inventory_call";
         try
         {
-            var inventorySchema = BuildCapabilityInventorySchema();
             CapabilityInventory inventory;
             if (ctx.PreparationCheckpoint?.ValidatedResults["inventory"] is JsonNode inventoryCheckpoint)
                 inventory = JsonSerializer.Deserialize(inventoryCheckpoint, TypedContractJsonContext.Default.CapabilityInventory)!;
             else
             {
-                var inventoryResponse = await ctx.CallLLMAsync(llmClient, new LLMRequest
-                {
-                    Provider = provider,
-                    Model = model,
-                    Prompt = BuildCapabilityInventoryPromptWithEvidence(evidenceSources),
-                    Reasoning = reasoning,
-                    UseBackgroundMode = true,
-                    StructuredOutputSchema = inventorySchema,
-                    StructuredOutputStrict = true
-                }, "workflow.plan.capability_inventory", ct);
-                RecordPlannerStructuredOutputProof(ctx, provider, model, inventoryResponse.Json, inventorySchema);
-                AddUsageAttributes(inferenceSpan, inventoryResponse.Usage, model, provider);
-                inferencePhase = "capability_inventory_parse";
-                JsonObject? rejectedInventoryCandidate = null;
-                IReadOnlyList<CapabilityInventoryContractIssue> initialContractIssues = Array.Empty<CapabilityInventoryContractIssue>();
-                IReadOnlyList<CapabilityInventoryContractIssue> finalContractIssues = Array.Empty<CapabilityInventoryContractIssue>();
-                try
-                {
-                    rejectedInventoryCandidate = ParseStructuredObject(inventoryResponse, "operation inventory");
-                    inventory = RemovePlannerBoundaryArtifacts(
-                        ParseCapabilityInventory(
-                            rejectedInventoryCandidate,
-                            evidenceSources),
-                        evidenceSources);
-                    rejectedInventoryCandidate = null;
-                    RecordCapabilityInventoryContractTelemetry(
-                        inferenceSpan,
-                        "initial",
-                        Array.Empty<CapabilityInventoryContractIssue>());
-                }
-                catch (Exception ex) when (ex is not OperationCanceledException)
-                {
-                    initialContractIssues = GetCapabilityInventoryContractIssues(ex);
-                    finalContractIssues = initialContractIssues;
-                    RecordCapabilityInventoryContractTelemetry(inferenceSpan, "initial", initialContractIssues);
-                    inventory = BuildInvalidCapabilityInventory(initialContractIssues);
-                }
-                if (!inventory.Complete)
-                {
-                    inferenceSpan.SetAttribute("gnougo-flow.plan.capability_inventory.repair_attempted", true);
-                    inferenceSpan.SetAttribute("gnougo-flow.plan.capability_inventory.initial_reason_count", inventory.IncompleteReasons.Count);
-                    ctx.AddTelemetryEvent("gnougo-flow.step.thinking", new[]
-                    {
-                    new KeyValuePair<string, object?>("gnougo-flow.thinking.message",
-                        "Capability inventory was incomplete; performing one bounded repair attempt."),
-                    new KeyValuePair<string, object?>("gnougo-flow.thinking.level", "info")
-                });
-
-                    inferencePhase = "capability_inventory_repair_call";
-                    var repairedInventoryResponse = await ctx.CallLLMAsync(llmClient, new LLMRequest
-                    {
-                        Provider = provider,
-                        Model = model,
-                        Prompt = BuildCapabilityInventoryRepairPrompt(
-                            evidenceSources,
-                            inventory,
-                            rejectedInventoryCandidate,
-                            initialContractIssues),
-                        Reasoning = reasoning,
-                        UseBackgroundMode = true,
-                        StructuredOutputSchema = inventorySchema.DeepClone(),
-                        StructuredOutputStrict = true
-                    }, "workflow.plan.capability_inventory_repair", ct);
-                    RecordPlannerStructuredOutputProof(ctx, provider, model, repairedInventoryResponse.Json, inventorySchema);
-                    AddUsageAttributes(inferenceSpan, repairedInventoryResponse.Usage, model, provider);
-                    inferencePhase = "capability_inventory_repair_parse";
-                    try
-                    {
-                        var repairedInventoryCandidate = ParseStructuredObject(
-                            repairedInventoryResponse,
-                            "operation inventory repair");
-                        inventory = RemovePlannerBoundaryArtifacts(
-                            ParseCapabilityInventory(
-                                repairedInventoryCandidate,
-                                evidenceSources),
-                            evidenceSources);
-                        finalContractIssues = Array.Empty<CapabilityInventoryContractIssue>();
-                        RecordCapabilityInventoryContractTelemetry(
-                            inferenceSpan,
-                            "repair",
-                            finalContractIssues);
-                    }
-                    catch (Exception ex) when (ex is not OperationCanceledException)
-                    {
-                        finalContractIssues = GetCapabilityInventoryContractIssues(ex);
-                        RecordCapabilityInventoryContractTelemetry(inferenceSpan, "repair", finalContractIssues);
-                        inventory = BuildInvalidCapabilityInventory(finalContractIssues);
-                    }
-                    if (!inventory.Complete)
-                    {
-                        if (finalContractIssues.Count > 0)
-                        {
-                            ThrowInvalidCapabilityInventoryContract(
-                                initialContractIssues,
-                                finalContractIssues,
-                                inventory);
-                        }
-
-                        if (IsInventoryClarificationEligible(inventory))
-                            RequestTypedCapabilityClarification(inventory, evaluation: null, catalog: null);
-
-                        ThrowIncompleteCapabilityInventory(inventory);
-                    }
-                }
-                else
-                {
-                    inferenceSpan.SetAttribute("gnougo-flow.plan.capability_inventory.repair_attempted", false);
-                }
-
+                inventory = await CapabilityInventoryDecisions.BuildAsync(snapshot, runtime, ct);
                 await SaveTypedPreparationResultAsync(ctx, "inventory", JsonSerializer.SerializeToNode(inventory, TypedContractJsonContext.Default.CapabilityInventory), ct);
             }
 
@@ -359,110 +273,19 @@ internal static class CapabilityPreparation
             inferenceSpan.SetAttribute("gnougo-flow.plan.capability_inventory.operation_count", inventory.Operations.Count);
             inferenceSpan.SetAttribute("gnougo-flow.plan.capability_inventory.constraint_count", inventory.Constraints.Count);
 
-            inferencePhase = "physical_capability_candidate_selection";
-            var matchingDiscovery = ctx.PreparationCheckpoint?.ValidatedResults["selection"] is JsonNode selectionCheckpoint &&
-                (ctx.PreparationCheckpoint.ValidatedResults["physical_candidates"] is not null || !inventory.Operations.Any(o => o.ExecutionKind == "external_effect"))
-                ? JsonSerializer.Deserialize(selectionCheckpoint, TypedContractJsonContext.Default.ListMcpServerDiscovery)!
-                : await SelectPhysicalCapabilityCandidatesAsync(
-                    llmClient,
-                    inventory,
-                    discovered,
-                    provider,
-                    model,
-                    reasoning,
-                    ctx,
-                    inferenceSpan,
-                    ct);
-
-            await SaveTypedPreparationResultAsync(ctx, "selection", JsonSerializer.SerializeToNode(matchingDiscovery, TypedContractJsonContext.Default.ListMcpServerDiscovery), ct);
-            inferencePhase = "capability_catalog_expansion";
-            var catalog = BuildSchemaAwareCapabilityCatalog(matchingDiscovery, allowedNativeTypes, discovered);
-            inferenceSpan.SetAttribute("gnougo-flow.plan.capability_catalog.entry_count", catalog.Entries.Count);
-            inferenceSpan.SetAttribute("gnougo-flow.plan.capability_catalog.character_count", catalog.Text.Length);
-            inferenceSpan.SetAttribute("gnougo-flow.plan.capability_catalog.selected_server_count", matchingDiscovery.Count);
-            inferenceSpan.SetAttribute("gnougo-flow.plan.capability_catalog.selected_tool_count", matchingDiscovery.Sum(static server => server.Tools.Count));
-            inferenceSpan.SetAttribute("gnougo-flow.plan.capability_catalog.selected_prompt_count", matchingDiscovery.Sum(static server => server.Prompts.Count));
-
-            inferencePhase = "capability_matching_call";
-            var matchingSchema = BuildTypedCapabilityMatchingSchema(inventory, catalog);
-            var matchingResponse = ctx.PreparationCheckpoint?.ValidatedResults["matching_candidate"] is JsonNode retainedMatching
-                ? new LLMResponse { Json = retainedMatching.DeepClone() }
-                : await CapabilityMatchingRequests.CallAsync(ctx, llmClient, inventory, catalog, discovered,
-                    provider, model, reasoning, ct);
-            RecordPlannerStructuredOutputProof(ctx, provider, model, matchingResponse.Json, matchingSchema);
-            AddUsageAttributes(inferenceSpan, matchingResponse.Usage, model, provider);
-            inferencePhase = "capability_matching_parse";
-            CapabilityMatchingEvaluation evaluation;
-            try
-            {
-                evaluation = ParseCapabilityMatchingEvaluation(
-                    ParseStructuredObject(matchingResponse, "capability matching"), inventory, catalog);
-                evaluation = NormalizeLocalProcessingMatches(evaluation);
-                evaluation = NormalizeCapabilityCompositionMatches(evaluation, catalog);
-                evaluation = NormalizeConditionalSelectorMatches(evaluation, catalog, inventory);
-                evaluation = EnforceCapabilityPrerequisiteClosure(evaluation, catalog);
-                evaluation = NormalizePlatformSafetyMatches(evaluation, catalog);
-                RecordCapabilityMatchingNormalizationTelemetry(inferenceSpan, evaluation, "initial");
-                RecordConditionalGroundingTelemetry(inferenceSpan.Span, evaluation, "initial");
-            }
-            catch (Exception ex) when (ex is not OperationCanceledException)
-            {
-                evaluation = BuildMalformedCapabilityMatchingEvaluation(inventory, ex.Message);
-            }
-            await SaveTypedPreparationResultAsync(ctx, "matching_candidate", matchingResponse.Json, ct);
-            var repairRequired = RequiresCapabilityMatchingRepair(evaluation);
-            inferenceSpan.SetAttribute("gnougo-flow.plan.capability_matching.repair_attempted", repairRequired);
-            if (repairRequired)
-            {
-                ctx.AddTelemetryEvent("gnougo-flow.step.thinking", new[]
-                {
-                    new KeyValuePair<string, object?>("gnougo-flow.thinking.message",
-                        "Capability matching contained unresolved operation decisions; performing one bounded repair attempt."),
-                    new KeyValuePair<string, object?>("gnougo-flow.thinking.level", "info")
-                });
-                inferencePhase = "capability_matching_repair_call";
-                var repairedMatchingResponse = await CapabilityMatchingRequests.CallAsync(ctx, llmClient, inventory, catalog, discovered,
-                    provider, model, reasoning, ct, evaluation);
-                RecordPlannerStructuredOutputProof(ctx, provider, model, repairedMatchingResponse.Json, matchingSchema);
-                AddUsageAttributes(inferenceSpan, repairedMatchingResponse.Usage, model, provider);
-                inferencePhase = "capability_matching_repair_parse";
-                CapabilityMatchingEvaluation repaired;
-                try
-                {
-                    repaired = ParseCapabilityMatchingEvaluation(
-                        ParseStructuredObject(repairedMatchingResponse, "capability matching repair"), inventory, catalog);
-                    repaired = NormalizeLocalProcessingMatches(repaired);
-                    repaired = NormalizeCapabilityCompositionMatches(repaired, catalog);
-                    repaired = NormalizeConditionalSelectorMatches(repaired, catalog, inventory);
-                    repaired = EnforceCapabilityPrerequisiteClosure(repaired, catalog);
-                    repaired = NormalizePlatformSafetyMatches(repaired, catalog);
-                    RecordCapabilityMatchingNormalizationTelemetry(inferenceSpan, repaired, "repair");
-                    RecordConditionalGroundingTelemetry(inferenceSpan.Span, repaired, "repair");
-                }
-                catch (Exception ex) when (ex is not OperationCanceledException)
-                {
-                    repaired = BuildMalformedCapabilityMatchingEvaluation(inventory, ex.Message);
-                }
-                evaluation = PreserveValidCapabilityMatches(evaluation, repaired);
-                await SaveTypedPreparationResultAsync(ctx, "matching_candidate", repairedMatchingResponse.Json, ct);
-            }
-
-            RecordCapabilityMatchingFailureTelemetry(inferenceSpan, evaluation, repairRequired);
-            ThrowForUnresolvedCapabilityMatches(evaluation, catalog, repairRequired);
+            inferencePhase = "capability_matching";
+            var catalog = BuildSchemaAwareCapabilityCatalog(discovered, allowedNativeTypes, discovered);
+            var matching = await CapabilityDecisionPages.MatchAsync(snapshot, runtime, inventory, catalog, ct);
+            var evaluation = ParseCapabilityMatchingEvaluation(matching, inventory, catalog);
+            evaluation = NormalizeLocalProcessingMatches(evaluation);
+            evaluation = NormalizeCapabilityCompositionMatches(evaluation, catalog);
+            evaluation = NormalizeConditionalSelectorMatches(evaluation, catalog, inventory);
+            evaluation = EnforceCapabilityPrerequisiteClosure(evaluation, catalog);
+            evaluation = NormalizePlatformSafetyMatches(evaluation, catalog);
+            RecordCapabilityMatchingNormalizationTelemetry(inferenceSpan, evaluation, "decisions");
+            RecordConditionalGroundingTelemetry(inferenceSpan.Span, evaluation, "decisions");
+            ThrowForUnresolvedCapabilityMatches(evaluation, catalog);
             await SaveTypedPreparationResultAsync(ctx, "matching_candidate", TypedMatchingCandidate(evaluation), ct);
-            inferencePhase = "capability_coverage_review";
-            evaluation = await ReviewCapabilityCoverageAndRematchAsync(
-                ctx,
-                input,
-                llmClient,
-                inventory,
-                catalog,
-                evaluation,
-                provider,
-                model,
-                reasoning,
-                inferenceSpan,
-                ct);
             evaluation = CanonicalizeSharedStructuredDecisionOutputPaths(evaluation);
             var (resolved, constraints) = ResolveCapabilityMatches(evaluation, catalog);
 
@@ -496,13 +319,13 @@ internal static class CapabilityPreparation
     }
 
     /// <summary>Reuses the established exact-capability inventory and validation boundary.</summary>
-    public static async Task<PlanningPreparation> PrepareTypedContractsAsync(StepExecutionContext ctx, PlanningRequest request, CancellationToken ct)
+    public static async Task<PlanningPreparation> PrepareTypedContractsAsync(StepExecutionContext ctx, PlanningRequest request, PlanningSnapshot snapshot, IPlanningRuntime runtime, CancellationToken ct)
     {
         var input = (JsonObject)request.Options.DeepClone();
         input["raw_prompt"] = request.Prompt;
         input["capability_preflight"] ??= new JsonObject();
         input["generator"] ??= new JsonObject();
-        var preflight = await RunCapabilityPreflightAsync(ctx, input, ct);
+        var preflight = await RunCapabilityPreflightAsync(ctx, input, snapshot, runtime, ct);
         var state = JsonSerializer.SerializeToNode(preflight, TypedContractJsonContext.Default.CapabilityPreflightResult) as JsonObject
             ?? throw new InvalidOperationException("Could not serialize the planning contract.");
         var allowed = (input["policy"]?["allowed_step_types"] as JsonArray)?.Select(v => v!.GetValue<string>()).ToList()
@@ -520,7 +343,7 @@ internal static class CapabilityPreparation
             var contract = declaredStepContracts.GetValueOrDefault(stepType);
             capabilities.Add(new PlanningCapability
             {
-                Id = "capability_" + capabilities.Count.ToString(System.Globalization.CultureInfo.InvariantCulture),
+                Id = TypedCapabilityIdentity(capability, stepType),
                 Description = capability.Description,
                 StepType = stepType,
                 Server = capability.Server,

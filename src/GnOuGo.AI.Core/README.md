@@ -21,6 +21,10 @@ Provides a **provider-agnostic routing layer** so that the rest of the system ne
 
 `ILLMModelCatalog` returns the provider-discovered catalog enriched with GnOuGo model metadata.
 
+`RoutingLLMClient.ResolveMetadata(provider, model)` resolves declared metadata using
+the same routing and model normalization as dispatch, without an inference request.
+Consumers can validate structured-output and reasoning support before reservation.
+
 - OpenAI-compatible providers and Copilot/GitHub Models return the advertised catalog directly.
 - GnOuGo does not run extra chat-completions probes during model listing.
 - OIDC client-credentials authentication is supported for both inference calls and model discovery.

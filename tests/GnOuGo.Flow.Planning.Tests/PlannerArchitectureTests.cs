@@ -24,7 +24,7 @@ public sealed class PlannerArchitectureTests
         Assert.Equal(new[] { "capability_preflight", "generator", "intent_clarification", "limits", "llm_budget", "max_concurrency", "max_repairs_per_workflow_gate", "name", "policy", "raw_prompt" }, properties.Select(p => p.Key).Order(StringComparer.Ordinal));
         Assert.Contains("raw_prompt", contract.InputSchema["required"]!.AsArray().Select(v => v!.ToString()));
         Assert.Contains("generator", contract.InputSchema["required"]!.AsArray().Select(v => v!.ToString()));
-        Assert.Equal(4, new PlanningSnapshot().SchemaVersion);
+        Assert.Equal(5, new PlanningSnapshot().SchemaVersion);
         Assert.DoesNotContain(typeof(PlanningRequest).GetProperties(), p => p.Name.Contains("Strategy", StringComparison.Ordinal) || p.Name.Contains("Version", StringComparison.Ordinal));
         Assert.DoesNotContain(typeof(IPlanningRuntime).GetMethods(), m => !m.IsAbstract);
     }
@@ -66,7 +66,7 @@ public sealed class PlannerArchitectureTests
                     type: workflow.execute
                     input: { from_step: plan }
                 outputs:
-                  message: "${data.steps.execute.outputs.message}"
+                  message: "${Object.values(data.steps.execute.outputs)[0]}"
             """);
         var compiled = new GnOuGo.Flow.Core.Compilation.WorkflowCompiler().Compile(document);
         var human = new Reviews(); var runtime = new TypedPlannerTests.FakeRuntime();
@@ -131,9 +131,11 @@ public sealed class PlannerArchitectureTests
     public void IndependentBatchesKeepTheExistingHoleAssignmentProtocolAndBudgets()
     {
         var state = HoleSessionTests.Ready(); var workflow = state.Graph!.Workflows.Single();
-        var batch = PlanningWorkflowConstruction.Batch(state, workflow);
-        Assert.Equal(new[] { "assignments" }, batch.Request.Schema["properties"]!.AsObject().Select(p => p.Key));
-        Assert.Equal(4, state.SchemaVersion); Assert.Equal(4, state.Request.MaxConcurrency);
+        var hole = state.Construction.Holes.First(h => h.Kind == "schema");
+        var request = PlanningSchemaDecisions.Advance(state, workflow, hole)!.Call.Request;
+        Assert.DoesNotContain("workflows", request.StructuredOutputSchema!.ToJsonString());
+        Assert.InRange(PlanningDecisionPages.AnswerTokens(request.StructuredOutputSchema.AsObject()), 1, 2048);
+        Assert.Equal(5, state.SchemaVersion); Assert.Equal(4, state.Request.MaxConcurrency);
         Assert.Equal(5, state.Request.MaxRepairsPerWorkflowGate);
         Assert.Equal(12000, state.Request.Generation.MaxInputTokensPerRequest); Assert.Equal(8192, state.Request.Generation.MaxOutputTokens);
     }

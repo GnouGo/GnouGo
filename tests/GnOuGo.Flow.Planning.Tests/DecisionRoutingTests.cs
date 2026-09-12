@@ -126,19 +126,19 @@ public sealed class DecisionRoutingTests
     }
 
     [Fact]
-    public async Task PreparationCheckpointSurvivesRecoveryAndRestart_WithoutLosingAnswers()
+    public async Task PreparationCheckpointSurvivesTechnicalStopAndRestartWithoutLosingAnswers()
     {
         var state = new PlanningSnapshot { Request = new() { Prompt = "Inspect the resource", TenantId = "tenant" }, Intent = new() { Checked = true, Answers = [new("Permission?", new JsonObject { ["choice"] = "confirm" })] } };
         var runtime = new CheckpointRuntime();
         state = await new TypedWorkflowPlanner().AdvanceAsync(state, new(), runtime, TestContext.Current.CancellationToken);
-        Assert.Equal(PlanningStatus.Recovery, state.Status); Assert.NotNull(state.PreparationCheckpoint);
+        Assert.Equal(PlanningStatus.Stopped, state.Status); Assert.NotNull(state.PreparationCheckpoint);
         state = JsonSerializer.Deserialize(JsonSerializer.Serialize(state, PlanningJsonContext.Default.PlanningSnapshot), PlanningJsonContext.Default.PlanningSnapshot)!;
-        state = await new TypedWorkflowPlanner().AdvanceAsync(state, new() { Kind = "retry", ExpectedRevision = state.Revision }, runtime, TestContext.Current.CancellationToken);
-        Assert.True(state.PreparationCheckpoint!.RefreshDiscovery);
-        state = JsonSerializer.Deserialize(JsonSerializer.Serialize(state, PlanningJsonContext.Default.PlanningSnapshot), PlanningJsonContext.Default.PlanningSnapshot)!;
-        Assert.True(state.PreparationCheckpoint!.RefreshDiscovery);
-        state = await new TypedWorkflowPlanner().AdvanceAsync(state, new() { ExpectedRevision = state.Revision }, runtime, TestContext.Current.CancellationToken);
-        Assert.NotNull(state.Preparation); Assert.Single(state.Intent.Answers); Assert.Equal(1, runtime.InventoryCalls);
+        await Assert.ThrowsAsync<ArgumentException>(() => new TypedWorkflowPlanner().AdvanceAsync(state, new() { Kind = "retry", ExpectedRevision = state.Revision }, runtime, TestContext.Current.CancellationToken));
+        var retained = JsonSerializer.Serialize(state.PreparationCheckpoint, PlanningJsonContext.Default.PlanningPreparationCheckpoint);
+        var stopped = await new TypedWorkflowPlanner().AdvanceAsync(state, new() { ExpectedRevision = state.Revision }, runtime, TestContext.Current.CancellationToken);
+        Assert.Equal(retained, JsonSerializer.Serialize(stopped.PreparationCheckpoint, PlanningJsonContext.Default.PlanningPreparationCheckpoint));
+        Assert.Null(stopped.Preparation); Assert.Single(stopped.Intent.Answers); Assert.Equal(1, runtime.InventoryCalls);
+
     }
 
     [Fact]

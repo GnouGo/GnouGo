@@ -22,7 +22,7 @@ public sealed class PlanningRequest
 /// <summary>Request-scoped model limits; changing these never changes accepted behavior.</summary>
 public sealed class PlanningGenerationOptions
 {
-    public string? Reasoning { get; set; }
+    public PlanningReasoningProfile ReasoningProfile { get; set; } = new();
     public int MaxInputTokensPerRequest { get; set; } = 12_000;
     public int MaxOutputTokens { get; set; } = 8_192;
 }
@@ -31,7 +31,7 @@ public static class PlanningStatus
 {
     public const string Created = "created";
     public const string Clarification = "clarification";
-    public const string Recovery = "recovery";
+    public const string Stopped = "stopped";
     public const string BehaviorReview = "behavior_review";
     public const string Generating = "generating";
     public const string Revising = "revising";
@@ -43,8 +43,8 @@ public static class PlanningStatus
     public const string Failed = "failed";
     public const string Unsupported = "unsupported";
     public const string Cancelled = "cancelled";
-    public static bool IsTerminal(string status) => status is Approved or Saved or Failed or Unsupported or Cancelled;
-    public static bool IsWaiting(string status) => status is Clarification or Recovery or BehaviorReview or FinalReview;
+    public static bool IsTerminal(string status) => status is Approved or Saved or Failed or Unsupported or Cancelled or Stopped;
+    public static bool IsWaiting(string status) => status is Clarification or BehaviorReview or FinalReview;
 }
 
 public static class PlanningPhase
@@ -75,7 +75,7 @@ public sealed class PlanningCommand
 /// <summary>Private session state. Hosts encrypt all content and persist exact revisions.</summary>
 public sealed class PlanningSnapshot
 {
-    public int SchemaVersion { get; set; } = 4;
+    public int SchemaVersion { get; set; } = 5;
     public PlanningRequest Request { get; set; } = new();
     public long Revision { get; set; }
     public string Status { get; set; } = PlanningStatus.Created;
@@ -102,6 +102,13 @@ public sealed class PlanningSnapshot
     public List<PlanningGateProgress> GateProgress { get; set; } = [];
     public List<PlanningRequestAccounting> RequestAccounting { get; set; } = [];
     public List<PlanningRequestCounts> RequestCounts { get; set; } = [];
+    public List<PlanningReference> References { get; set; } = [];
+    public List<PlanningObligation> Obligations { get; set; } = [];
+    public List<PlanningObligationRelation> ObligationRelations { get; set; } = [];
+    public List<PlanningDecisionPage> DecisionPages { get; set; } = [];
+    public List<PlanningDecisionCorrection> DecisionCorrections { get; set; } = [];
+    public PlanningOutcome? Outcome { get; set; }
+    public PlanningTechnicalStop? TechnicalStop { get; set; }
     public List<PlanningRevision> History { get; set; } = [];
     public List<PlanningGenerationRevision> GenerationHistory { get; set; } = [];
     public LLMUsageBudgetSnapshot? Usage { get; set; }
@@ -111,15 +118,6 @@ public sealed class PlanningSnapshot
     public string? ReviewMarkdown { get; set; }
     public string? SavedAgentId { get; set; }
     public PlanningPendingCommand? PendingCommand { get; set; }
-    public string? Outcome => Status switch
-    {
-        PlanningStatus.FinalReview or PlanningStatus.Approved => "generated",
-        PlanningStatus.Saved => "saved",
-        PlanningStatus.Cancelled => "cancelled",
-        PlanningStatus.Unsupported => "unsupported",
-        PlanningStatus.Failed => "failed",
-        _ => null
-    };
 }
 
 public sealed class PlanningIntentState
@@ -148,6 +146,8 @@ public sealed class PlanningConstructionState
 
 public sealed class PlanningRepairState
 {
+    public bool Ready { get; set; } = true;
+    public JsonObject RequestContext { get; set; } = new();
     public string GraphFingerprint { get; set; } = "";
     public JsonObject Patches { get; set; } = new();
     public JsonObject? ResponseSchema { get; set; }
@@ -164,7 +164,6 @@ public sealed class PlanningWorkflowProgress
     public string? GraphFingerprint { get; set; }
     public int Calls { get; set; }
     public int RepairCalls { get; set; }
-    public bool ResponseRepairPending { get; set; }
     public int ResolvedHoles { get; set; }
     public int UnresolvedHoles { get; set; }
     public int TotalHoles { get; set; }
@@ -186,6 +185,7 @@ public sealed class PlanningWorkflowProgress
 /// <summary>Exact request reserved before dispatch. Completed payloads belong to the host journal.</summary>
 public sealed class PlanningModelCall
 {
+    public string? ReasoningCapabilityFingerprint { get; set; }
     public PlanningStagedAssignments? Assignments { get; set; }
     public string Id { get; set; } = "";
     public string Phase { get; set; } = "";
@@ -455,6 +455,10 @@ public sealed class PlanningConflictException(string message) : InvalidOperation
 
 [JsonSourceGenerationOptions(PropertyNamingPolicy = JsonKnownNamingPolicy.CamelCase)]
 [JsonSerializable(typeof(PlanningSnapshot))]
+[JsonSerializable(typeof(PlanningOutcome))]
+[JsonSerializable(typeof(PlanningReference))]
+[JsonSerializable(typeof(List<PlanningReference>))]
+[JsonSerializable(typeof(PlanningDecisionPage))]
 [JsonSerializable(typeof(PlanningHole))]
 [JsonSerializable(typeof(List<PlanningHole>))]
 [JsonSerializable(typeof(PlanningStagedAssignments))]

@@ -38,6 +38,22 @@ internal sealed partial class PlanningSemanticReview
         return new() { ["references"] = references, ["schemas"] = schemas };
     }
 
+    private static JsonObject ScopedValueContracts(PlanningGraph graph, PlanningWorkflow workflow, string key, PlanningPreparation preparation)
+    {
+        var values = key == "$workflow" ? workflow.Outputs.Select(o => o.Value) : Values(PlanningGraphCompiler.Enumerate(workflow.Steps.Concat(workflow.Finally)).Single(n => n.Key == key));
+        var resolve = PlanningGraphValidation.ValueContractResolver(graph, workflow, preparation);
+        var result = new JsonObject();
+        foreach (var value in values.SelectMany(PlanningDataflow.References).DistinctBy(PlanningBindingIdentity.Id))
+        {
+            var item = new JsonObject { ["kind"] = value.Kind, ["source"] = value.Source, ["channel"] = value.ResultChannel,
+                ["path"] = new JsonArray(value.Path.Select(p => (JsonNode?)JsonValue.Create(p)).ToArray()) };
+            try { item["schema"] = resolve(value); }
+            catch (Exception error) when (error is InvalidOperationException or ArgumentException or FormatException) { item["unresolved"] = true; }
+            result[PlanningBindingIdentity.Id(value)] = item;
+        }
+        return result;
+    }
+
     private static IEnumerable<PlanningValue> Values(PlanningNode node)
     {
         yield return node.Input;

@@ -81,7 +81,7 @@ public sealed class BehaviorActivationTests
     public async Task BehaviorSchemaSeparatesCapabilityIdentifiersAndNativeDecisionProductionFromRouting()
     {
         var preparation = TypedPlannerTests.Preparation();
-        preparation.Capabilities.Add(new() { Id = "binding", CatalogId = "catalog", Resolution = "native", StepType = "decision.evaluate", EffectKind = "none", OperationIds = ["operation"] });
+        preparation.Capabilities.Add(new() { Id = "binding", Description = "Evaluate the requested decision", CatalogId = "catalog", Resolution = "native", StepType = "decision.evaluate", EffectKind = "none", OperationIds = ["operation"] });
         var plan = TypedPlannerTests.BehaviorPlan(); plan.Workflows[0].OperationIds = ["operation"];
         var node = plan.Workflows[0].Steps[0]; node.Kind = "operation"; node.CapabilityId = "binding"; node.OperationIds = ["operation"];
         preparation.AllowedStepTypes.Add("decision.evaluate");
@@ -89,7 +89,8 @@ public sealed class BehaviorActivationTests
         var runtime = new TypedPlannerTests.FakeRuntime { OnCall = (_, _, _) => Task.FromResult(new LLMResponse { Json = JsonSerializer.SerializeToNode(plan, PlanningJsonContext.Default.PlanningBehaviorPlan) }) };
         state = await new TypedWorkflowPlanner().AdvanceAsync(state, new() { ExpectedRevision = state.Revision }, runtime, TestContext.Current.CancellationToken);
         Assert.Equal(PlanningStatus.BehaviorReview, state.Status);
-        var schema = Assert.IsType<JsonObject>(Assert.Single(runtime.Requests).StructuredOutputSchema);
+        Assert.Empty(runtime.Requests);
+        var schema = PlanningSchemas.Behavior(preparation);
         Assert.Empty(PlanningContractValidation.ValidateSchema(schema, strict: true));
         IReadOnlyList<string> Findings() => PlanningContractValidation.ValidateInstance(JsonSerializer.SerializeToNode(plan, PlanningJsonContext.Default.PlanningBehaviorPlan), schema);
         Assert.Empty(Findings());
@@ -189,7 +190,7 @@ public sealed class BehaviorActivationTests
         var state = TypedPlannerTests.Session(PlanningStatus.BehaviorReview);
         state.Preparation = preparation; state.BehaviorPlan = plan; state.ArtifactHash = PlanningBehaviorPlans.Fingerprint(plan);
         var result = await new TypedWorkflowPlanner().AdvanceAsync(state, new() { Kind = "accept_behavior", ExpectedRevision = state.Revision, ArtifactHash = state.ArtifactHash }, new TypedPlannerTests.FakeRuntime(), TestContext.Current.CancellationToken);
-        Assert.Equal(PlanningStatus.Recovery, result.Status);
+        Assert.Equal(PlanningStatus.Stopped, result.Status);
         Assert.Null(result.ApprovedBehaviorHash); Assert.Null(result.Graph);
         Assert.NotEmpty(result.Diagnostics);
     }

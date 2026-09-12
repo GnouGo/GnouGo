@@ -9,8 +9,12 @@ contents or results of the supplied PRs. The harness cannot publish a GitHub rev
 
 `capture` reads a saved session once and writes an immutable encrypted evidence copy
 in the `planner-benchmark` tenant. It never advances or changes the source session.
-The isolated index defaults to `.GnOuGo/data/planner-benchmark/gnougo-planning-v4.db`,
+The isolated index defaults to `.GnOuGo/data/planner-benchmark/gnougo-planning-v5.db`,
 resolved through `GnOuGoWorkspace`; `PLANNING_BENCHMARK_DATABASE` can override it.
+Schema-4 evidence is inspected only through `scripts/planner-schema4-audit.sh` at
+the pinned historical commit. The current harness has no historical decoder.
+Before capturing schema-5 evidence, run `scripts/planner-schema4-audit.sh --verify-fixtures`
+for the frozen catalog check. This inspects schema-4 evidence without importing a session.
 The evidence retains the original intent and frozen catalog. `CodeReviewPolicy.txt`
 states the execution cases and review policy explicitly.
 The user-authorized `git_compare_refs` followed by `copilot_review` constraint is

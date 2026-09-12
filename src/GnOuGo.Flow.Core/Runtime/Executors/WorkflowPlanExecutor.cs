@@ -1,4 +1,5 @@
 using System.Text.Json.Nodes;
+using System.Text.Json;
 using GnOuGo.Flow.Core.Expressions;
 using GnOuGo.Flow.Core.Models;
 using GnOuGo.Flow.Core.Planning;
@@ -37,7 +38,12 @@ public sealed class WorkflowPlanExecutor : IStepExecutor
                 MaxRepairsPerWorkflowGate = input["max_repairs_per_workflow_gate"]?.GetValue<int>() ?? 5,
                 Generation = new()
                 {
-                    Reasoning = generator["reasoning"]?.GetValue<string>(),
+                    ReasoningProfile = new()
+                    {
+                        Routine = generator["reasoning_profile"]?["routine"]?.GetValue<string>() ?? "low",
+                        Behavior = generator["reasoning_profile"]?["behavior"]?.GetValue<string>() ?? "medium",
+                        SemanticReview = generator["reasoning_profile"]?["semantic_review"]?.GetValue<string>() ?? "medium"
+                    },
                     MaxInputTokensPerRequest = generator["max_input_tokens"]?.GetValue<int>() ?? 12_000,
                     MaxOutputTokens = generator["max_output_tokens"]?.GetValue<int>() ?? 8_192
                 }
@@ -55,19 +61,10 @@ public sealed class WorkflowPlanExecutor : IStepExecutor
             var command = new PlanningCommand { ExpectedRevision = state.Revision };
             if (PlanningStatus.IsWaiting(state.Status))
             {
-                var provider = ctx.Engine.HumanInputProvider ?? throw new WorkflowRuntimeException(ErrorCodes.WorkflowPlanClarificationFailed, "The typed planner requires a human-input provider for review.");
+                var provider = ctx.Engine.HumanInputProvider;
+                if (provider is null) break;
                 HumanInputRequest question;
                 if (state.Status == PlanningStatus.Clarification) question = state.Intent.Question!;
-                else if (state.Status == PlanningStatus.Recovery) question = new HumanInputRequest
-                {
-                    RunId = state.Request.SessionId,
-                    StepId = "recovery-" + state.Revision,
-                    Prompt = PlanningPhase.Resolve(state) == PlanningPhase.Intent ? "The generated clarification could not be validated. Retry, edit the request, or cancel." : "Automatic construction paused. Inspect the current findings, retry, change the behavior, or cancel.",
-                    Context = JsonValue.Create(string.Join("\n", state.Diagnostics.Select(d => d.Code + ": " + d.Message))),
-                    Mode = "choice",
-                    Choices = ["retry", state.ApprovedBehaviorHash is not null ? "revise" : "edit_intent", "cancel"],
-                    AllowAbandon = true
-                };
                 else question = new HumanInputRequest
                 {
                     RunId = state.Request.SessionId,
@@ -105,18 +102,33 @@ public sealed class WorkflowPlanExecutor : IStepExecutor
             ctx.SetTelemetryAttribute("gnougo-flow.plan.version", 2);
             ctx.SetTelemetryAttribute("gnougo-flow.plan.status", state.Status);
             ctx.SetTelemetryAttribute("gnougo-flow.plan.phase", PlanningPhase.Resolve(state));
-            ctx.SetTelemetryAttribute("gnougo-flow.plan.outcome", state.Outcome);
+            ctx.SetTelemetryAttribute("gnougo-flow.plan.outcome", state.Outcome?.Name);
             ctx.SetTelemetryAttribute("gnougo-flow.plan.active_ms", state.ActiveMilliseconds);
             ctx.SetTelemetryAttribute("gnougo-flow.plan.human_wait_ms", state.HumanWaitMilliseconds);
         }
-        if (state.Status != PlanningStatus.Approved)
+        if (state.Outcome is PlanningUnsupported or PlanningNeedUserClarification || PlanningStatus.IsWaiting(state.Status))
+            return new JsonObject
+            {
+                ["outcome"] = state.Outcome is null ? null : JsonSerializer.SerializeToNode(state.Outcome, PlanningJsonContext.Default.PlanningOutcome),
+                ["status"] = state.Status, ["session_id"] = state.Request.SessionId, ["revision"] = state.Revision,
+                ["artifact_hash"] = state.ArtifactHash,
+                ["question"] = state.Intent.Question is null ? null : JsonSerializer.SerializeToNode(state.Intent.Question, PlanningJsonContext.Default.HumanInputRequest)
+            };
+        if (state.Status != PlanningStatus.Approved || state.Outcome is not PlanningValidWorkflow valid || valid.ArtifactHash != state.ArtifactHash || state.ApprovedHash != state.ArtifactHash)
             throw new WorkflowRuntimeException(state.Status == PlanningStatus.Cancelled ? ErrorCodes.WorkflowPlanAborted : ErrorCodes.TemplatePlan,
-                state.Diagnostics.FirstOrDefault()?.Message ?? "Typed workflow planning stopped.");
+                state.Diagnostics.FirstOrDefault()?.Message ?? "Typed workflow planning stopped.", details: new JsonObject
+                {
+                    ["status"] = state.Status, ["session_id"] = state.Request.SessionId, ["revision"] = state.Revision,
+                    ["outcome"] = null,
+                    ["technical_stop"] = state.TechnicalStop is null ? null : JsonSerializer.SerializeToNode(state.TechnicalStop, PlanningJsonContext.Default.PlanningTechnicalStop)
+                });
         var catalog = await runtime.ValidateCatalogAsync(state.Preparation!, ct);
         if (catalog.Any(d => d.Required))
             throw new WorkflowRuntimeException(ErrorCodes.TemplatePlan, "The capability catalog changed after approval. Revise the planning session.");
         return new JsonObject
         {
+            ["outcome"] = JsonSerializer.SerializeToNode(state.Outcome, PlanningJsonContext.Default.PlanningOutcome),
+            ["status"] = state.Status, ["session_id"] = state.Request.SessionId,
             ["yaml"] = state.Yaml,
             ["workflow"] = new JsonObject { ["version"] = 1, ["name"] = state.Request.Name, ["workflows"] = new JsonArray(Parsing.WorkflowParser.Parse(state.Yaml!).Workflows.Keys.Select(w => (JsonNode?)JsonValue.Create(w)).ToArray()) },
             ["meta"] = new JsonObject { ["model"] = target.Model, ["repair_attempts"] = state.RepairAllowances.Sum(a => a.Attempts), ["revision"] = state.Revision, ["artifact_hash"] = state.ArtifactHash, ["capability_preflight"] = state.Preparation?.LockedContract.DeepClone() },

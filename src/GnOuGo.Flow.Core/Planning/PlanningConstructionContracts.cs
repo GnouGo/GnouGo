@@ -33,6 +33,7 @@ public sealed class PlanningRequestAccounting
     public string Phase { get; set; } = "";
     public string Gate { get; set; } = "";
     public string Purpose { get; set; } = "assessment";
+    public string? Reasoning { get; set; }
     public int EstimatedInputTokens { get; set; }
     public string Evidence { get; set; } = "reserved";
     public bool? Repair { get; set; }

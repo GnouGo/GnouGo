@@ -1,4 +1,5 @@
 using System.Text.Json.Nodes;
+using System.Text.Json;
 using GnOuGo.Flow.Core.Planning;
 
 namespace GnOuGo.Flow.Planning;
@@ -6,6 +7,59 @@ namespace GnOuGo.Flow.Planning;
 /// <summary>Before review, locate editable scalar fields and explicitly authorized structural coordinates.</summary>
 internal static class PlanningBehaviorPatches
 {
+    internal static async Task<JsonObject> ResolveAsync(PlanningSnapshot state, IPlanningRuntime runtime, string owner, string gate,
+        IReadOnlyList<PlanningExactPatches.Target> targets, JsonObject schema, JsonObject context, string evidence, CancellationToken ct)
+    {
+        var sources = PlanningSourceDecisions.Sources(state);
+        var known = new List<JsonNode?>();
+        foreach (var reference in state.References.Where(r => sources.TryGetValue(r.SourceId, out var text) && r.SourceFingerprint == PlanningGraphCompiler.Fingerprint(text)))
+            known.Add(JsonValue.Create(PlanningReferences.Resolve(state, reference.Id, sources)));
+        // Structural additions are constructed from the same owned operations as
+        // the initial plan. The model cannot invent a node, port, or identity.
+        var assembled = state.Preparation!.Capabilities.Any(c => c.OperationIds.Count > 0)
+            ? PlanningBehaviorDecisions.Assemble(state, new JsonObject()) : new PlanningBehaviorPlan { Summary = state.Request.Prompt };
+        var templates = JsonSerializer.SerializeToNode(assembled, PlanningJsonContext.Default.PlanningBehaviorPlan)!.AsObject();
+        void Collect(JsonNode? value)
+        {
+            known.Add(value?.DeepClone());
+            if (value is JsonObject obj) foreach (var child in obj) Collect(child.Value);
+            else if (value is JsonArray array) foreach (var child in array) Collect(child);
+        }
+        Collect(templates);
+        var domains = new Dictionary<string, Dictionary<string, JsonNode?>>(StringComparer.Ordinal);
+        var decisions = new List<PlanningDecisionPages.Decision>(); var values = new JsonObject();
+        foreach (var target in targets)
+        {
+            if (target.Remove || target.Destination is not null) { values[target.Id] = null; continue; }
+            var contract = target.Schema.DeepClone().AsObject();
+            if (schema["$defs"] is { } definitions) contract["$defs"] = definitions.DeepClone();
+            var candidates = new List<JsonNode?>(known);
+            if (state.BehaviorRevision?.Fields.SingleOrDefault(f => f.Path == target.Path) is { } revision &&
+                target.Path.Split('/')[^1] is "summary" or "purpose" or "description")
+                candidates = [JsonValue.Create(revision.Evidence)];
+            if (contract["enum"] is JsonArray options) candidates.AddRange(options.Select(v => v?.DeepClone()));
+            if (contract.ContainsKey("const")) candidates.Add(contract["const"]?.DeepClone());
+            if (target.Add && contract["properties"]?["key"]?["enum"] is JsonArray { Count: 1 } keys)
+                candidates.AddRange(known.OfType<JsonObject>().Where(o => o.ContainsKey("key")).Select(o =>
+                { var copy = o.DeepClone().AsObject(); copy["key"] = keys[0]?.DeepClone(); return copy; }).ToArray());
+            var eligible = candidates.Where(v => PlanningContractValidation.ValidateInstance(v, contract).Count == 0)
+                .DistinctBy(v => v?.ToJsonString() ?? "null", StringComparer.Ordinal).ToArray();
+            if (eligible.Length == 0)
+                throw new PlanningHoleUnavailableException(target.Path, "The behavior field has no evidenced, engine-owned value. Revise the governing decision; a model cannot author mechanical structure or copy an unknown contract.");
+            if (eligible.Length == 1) { values[target.Id] = eligible[0]?.DeepClone(); continue; }
+            var catalog = eligible.ToDictionary(v => "v_" + PlanningGraphCompiler.Fingerprint(v?.ToJsonString() ?? "null")[..16], v => v, StringComparer.Ordinal);
+            domains[target.Id] = catalog;
+            decisions.Add(new(target.Id, PlanningHoleRequests.Enum(catalog.Keys.Order(StringComparer.Ordinal).ToArray()), new JsonObject
+            {
+                ["field"] = target.Path, ["values"] = new JsonObject(catalog.Select(p => new KeyValuePair<string, JsonNode?>(p.Key, p.Value?.DeepClone()))),
+                ["diagnostics"] = context["diagnostics"]?.DeepClone()
+            }, evidence));
+        }
+        var selected = await PlanningDecisionPages.ResolveCorrectionsAsync(state, runtime, "behavior_repair", owner, gate, decisions, ct);
+        foreach (var choice in selected) values[choice.Key] = domains[choice.Key][choice.Value!.ToString()]?.DeepClone();
+        return new JsonObject { ["patches"] = new JsonArray(values.Select(p => (JsonNode?)new JsonObject { ["target"] = p.Key, ["value"] = p.Value?.DeepClone() }).ToArray()) };
+    }
+
     internal static void RestrictCapabilities(JsonObject candidate, List<PlanningExactPatches.Target> targets, PlanningPreparation preparation)
     {
         for (var index = 0; index < targets.Count; index++)
@@ -79,7 +133,10 @@ internal static class PlanningBehaviorPatches
                 var names = Read(candidate, workflowPath + "/inputs")!.AsArray().Select(p => p!["name"]!.ToString()).ToHashSet(StringComparer.Ordinal);
                 if (names.Contains(dependencies[index]!.ToString()) && !dependencies.Take(index).Any(d => JsonNode.DeepEquals(d, dependencies[index]))) continue;
                 var path = diagnostic.Location + "/" + index;
-                targets.Add(new(Id(candidate, path, "remove"), path, new JsonObject { ["type"] = "null" }, Remove: true));
+                // An invalid reference may be replaced by an admitted input.
+                // Do not simultaneously authorize removal of the same coordinate.
+                if (!targets.Any(t => t.Path == path))
+                    targets.Add(new(Id(candidate, path, "remove"), path, new JsonObject { ["type"] = "null" }, Remove: true));
             }
         }
         foreach (var diagnostic in findings.Where(d => d.Rule?.StartsWith("insert_behavior_node:", StringComparison.Ordinal) == true))

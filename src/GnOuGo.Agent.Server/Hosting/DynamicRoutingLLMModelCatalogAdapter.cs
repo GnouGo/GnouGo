@@ -1,4 +1,4 @@
-﻿using GnOuGo.AI.Core;
+using GnOuGo.AI.Core;
 using GnOuGo.Agent.Server.SmartFlow;
 using GnOuGo.Flow.Core.Runtime;
 using Microsoft.Extensions.Logging;
@@ -52,6 +52,16 @@ internal sealed class FlowLlmCapabilityResolver : ILLMCapabilityResolver
         _modelCatalog = modelCatalog;
         _store = store;
         _logger = logger;
+    }
+
+    public async Task<IReadOnlyList<string>?> SupportedReasoningLevelsAsync(string? provider, string model, CancellationToken ct)
+    {
+        var resolvedProvider = string.IsNullOrWhiteSpace(provider) ? _store.Current.DefaultProvider : provider;
+        var resolvedModel = string.IsNullOrWhiteSpace(model) ? _store.Current.DefaultModel : model;
+        if (string.IsNullOrWhiteSpace(resolvedProvider) || string.IsNullOrWhiteSpace(resolvedModel)) return null;
+        var models = await _modelCatalog.ListModelsAsync(resolvedProvider, ct);
+        var descriptor = models.FirstOrDefault(m => string.Equals(m.Id, resolvedModel, StringComparison.OrdinalIgnoreCase));
+        return descriptor?.Capabilities?.SupportsReasoningEffort == true ? descriptor.Capabilities.SupportedReasoningEfforts?.ToArray() : null;
     }
 
     public async Task<bool?> SupportsStructuredOutputAsync(string? provider, string model, CancellationToken ct)

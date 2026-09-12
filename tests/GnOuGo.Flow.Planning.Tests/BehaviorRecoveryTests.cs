@@ -11,6 +11,37 @@ namespace GnOuGo.Flow.Planning.Tests;
 public sealed class BehaviorRecoveryTests
 {
     [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task GoverningRemovalRetiresExactOwnershipCompanionsWithoutRegeneratingBehavior(bool unrelatedInvalidOwnership)
+    {
+        var state = Behavior(); state.Preparation = Preparation(); var plan = BehaviorPlan();
+        state.Preparation.Capabilities.Add(new() { Id = "retained", Resolution = "local", StepType = "set", EffectKind = "none", Required = true, OperationIds = ["read"] });
+        var workflow = plan.Workflows[0]; workflow.OperationIds = ["read", "publish"];
+        workflow.Steps[0].OperationIds = ["read"];
+        workflow.Steps.Add(new() { Key = "publication", Kind = "operation", Purpose = "Publish the result", CapabilityId = "removed", OperationIds = ["publish"], InputDependencies = [] });
+        if (unrelatedInvalidOwnership) workflow.OperationIds.Add("unrelated_invalid");
+        var candidate = JsonSerializer.SerializeToNode(plan, PlanningJsonContext.Default.PlanningBehaviorPlan)!.AsObject();
+        var path = "/workflows/0/steps/1";
+        state.BehaviorRevision = new() { Text = "Remove publication.", Located = true, Fields = [new(path,
+            PlanningFieldPaths.Canonical(candidate, path), "remove", PlanningGraphCompiler.Fingerprint(PlanningFieldPaths.Read(candidate, path)!.ToJsonString()), "Remove publication.")] };
+        var revised = PlanningBehaviorRevision.ApplyRemovals(state, candidate, PlanningSchemas.Behavior(state.Preparation));
+        Assert.Equal(2, candidate["workflows"]![0]!["steps"]!.AsArray().Count);
+        Assert.Single(revised["workflows"]![0]!["steps"]!.AsArray());
+        Assert.True(JsonNode.DeepEquals(candidate["workflows"]![0]!["steps"]![0], revised["workflows"]![0]!["steps"]![0]));
+        Assert.Equal(unrelatedInvalidOwnership ? ["read", "unrelated_invalid"] : new[] { "read" },
+            revised["workflows"]![0]!["operationIds"]!.AsArray().Select(o => o!.ToString()));
+        if (unrelatedInvalidOwnership) return;
+        state.BehaviorAssessment.Candidate = candidate;
+        var runtime = new FakeRuntime { OnCall = (_, _, _) => throw new InvalidOperationException("This revision has no unresolved semantic choice.") };
+        await new PlanningBehaviorAssessment(TimeProvider.System).AssessAsync(state, runtime, Ct);
+        Assert.True(state.Status == PlanningStatus.BehaviorReview, string.Join(";", state.Diagnostics));
+        Assert.Empty(runtime.Requests); Assert.Null(state.ApprovedBehaviorHash);
+        Assert.Equal("greeting", Assert.Single(state.BehaviorPlan!.Workflows[0].Steps).Key);
+        Assert.Equal("read", Assert.Single(state.BehaviorPlan.Workflows[0].OperationIds));
+    }
+
+    [Theory]
     [InlineData("steps")]
     [InlineData("nested")]
     [InlineData("finally")]
@@ -31,12 +62,12 @@ public sealed class BehaviorRecoveryTests
         var runtime = new FakeRuntime { OnCall = (_, request, _) =>
         {
             Assert.Contains(path, request.Prompt);
-            var variant = Assert.Single(request.StructuredOutputSchema!["properties"]!["patches"]!["items"]!["anyOf"]!.AsArray())!;
-            return Task.FromResult(new LLMResponse { Json = new JsonObject { ["patches"] = new JsonArray(new JsonObject { ["target"] = variant["properties"]!["target"]!["enum"]![0]!.DeepClone(), ["value"] = null }) } });
+            var field = Assert.Single(request.StructuredOutputSchema!["properties"]!.AsObject());
+            return Task.FromResult(new LLMResponse { Json = new JsonObject { [field.Key] = null } });
         } };
         await new PlanningBehaviorAssessment(TimeProvider.System).AssessAsync(state, runtime, Ct);
         Assert.Equal(PlanningStatus.BehaviorReview, state.Status);
-        Assert.Single(runtime.Requests); Assert.All(state.Attempts, attempt => Assert.True(attempt.Retained));
+        Assert.Empty(runtime.Requests); Assert.All(state.Attempts, attempt => Assert.True(attempt.Retained));
         Assert.Null(PlanningFieldPaths.Read(state.BehaviorAssessment.Candidate, path));
         Assert.Equal("other", PlanningBehaviorPlans.Enumerate(state.BehaviorPlan!.Workflows[0].Steps).Single(n => n.Key == "retained").CapabilityId);
         Assert.Single(PlanningBehaviorPlans.Enumerate(state.BehaviorPlan.Workflows[0].Steps.Concat(state.BehaviorPlan.Workflows[0].Finally)), n => n.CapabilityId == "decision");
@@ -140,29 +171,26 @@ public sealed class BehaviorRecoveryTests
     }
 
     [Fact]
-    public async Task TruncatedInitialBehaviorRetriesConsumeTheResponseGateAllowance()
+    public async Task MechanicalBehaviorDoesNotRequestAFullModelPlan()
     {
-        var state = Behavior(); state.Request.MaxRepairsPerWorkflowGate = 1;
-        var runtime = new FakeRuntime { OnCall = (_, _, _) => Task.FromResult(new LLMResponse { CompletionStatus = "output_limit" }) };
-        state = await HoleSessionTests.Advance(state, runtime);
-        Assert.Equal(PlanningStatus.Recovery, state.Status); Assert.Single(runtime.Requests);
-        state = await HoleSessionTests.Advance(state, runtime, "retry");
-        state = await HoleSessionTests.Advance(state, runtime);
-        Assert.Equal(PlanningStatus.Recovery, state.Status); Assert.Equal(2, runtime.Requests.Count);
-        var allowance = Assert.Single(state.RepairAllowances); Assert.Equal("$plan", allowance.WorkflowKey); Assert.Equal(PlanningGates.Response, allowance.Gate); Assert.Equal(1, allowance.Attempts);
-        Assert.Equal(2, Assert.Single(state.GateProgress).Failures);
-        state = await HoleSessionTests.Advance(PlanningContext.Clone(state), runtime, "retry");
-        state = await HoleSessionTests.Advance(state, runtime);
-        Assert.Contains(state.Diagnostics, d => d.Code == "REPAIR_EXHAUSTED"); Assert.Equal(2, runtime.Requests.Count);
+        var state = Behavior(); state.Preparation = Preparation();
+        state.Preparation.Capabilities.Add(new() { Id = "declared", Required = true, Description = "Return the declared value", Resolution = "local", StepType = "set", OperationIds = ["requested"] });
+        var runtime = new FakeRuntime { OnCall = (_, _, _) => throw new InvalidOperationException("No semantic ambiguity") };
+        state = await Send(state, runtime);
+        Assert.True(state.Status == PlanningStatus.BehaviorReview, string.Join(";", state.Diagnostics)); Assert.Empty(runtime.Requests);
+        Assert.Null(state.BehaviorPlan!.Workflows[0].Steps[0].CapabilityId);
+        Assert.Contains("requested", state.BehaviorPlan.Workflows[0].Steps[0].OperationIds);
+        Assert.Empty(state.RepairAllowances);
     }
+
 
     [Fact]
     public async Task InvalidBehaviorPatchRecordsAResponseGateFailure()
     {
         var state = Behavior(); state.BehaviorPlan = BehaviorPlan(); state.BehaviorPlan.Workflows[0].Steps[0].Purpose = "";
-        var runtime = Responses(new JsonObject { ["patches"] = new JsonArray(new JsonObject { ["target"] = "unknown", ["value"] = "new purpose" }) });
+        var runtime = Responses(new JsonObject { ["unknown"] = "new purpose" });
         state = await Send(state, runtime);
-        Assert.Contains(state.Diagnostics, d => d.Code == "PATCH_INVALID");
+        Assert.Contains(state.Diagnostics, d => d.Code == "DECISION_SCOPE_INVALID");
         Assert.Equal(1, Assert.Single(state.GateProgress, g => g.Gate == PlanningGates.Response).Failures);
     }
 
@@ -260,65 +288,36 @@ public sealed class BehaviorRecoveryTests
         {
             if (phase == "behavior_revision_scope")
             {
-                var context = JsonNode.Parse(request.Prompt![ (request.Prompt.IndexOf("Coordinates:\n", StringComparison.Ordinal) + "Coordinates:\n".Length)..])!.AsObject();
-                var anchor = context["anchors"]!.AsObject().Single(p => p.Value![1]!.ToString() == "greeting").Key;
-                var target = context["fields"]!["replace"]!.AsObject().Single(p => p.Value![0]!.ToString() == anchor + "/purpose").Key;
-                return Task.FromResult(new LLMResponse { Json = new JsonObject { ["fields"] = new JsonArray(new JsonObject { ["target"] = target, ["evidence"] = "formal" }) } });
+                return Task.FromResult(new LLMResponse { Json = RevisionAnswer(request, "/workflows/0/steps/0/purpose") });
             }
             Assert.Equal("behavior_repair", phase);
-            var variant = Assert.Single(request.StructuredOutputSchema!["properties"]!["patches"]!["items"]!["anyOf"]!.AsArray());
-            var id = variant!["properties"]!["target"]!["enum"]![0]!.ToString();
-            return Task.FromResult(new LLMResponse { Json = new JsonObject { ["patches"] = new JsonArray(new JsonObject { ["target"] = id, ["value"] = "Return a formal greeting" }) } });
+            var id = Assert.Single(request.StructuredOutputSchema!["properties"]!.AsObject()).Key;
+            return Task.FromResult(new LLMResponse { Json = new JsonObject { [id] = "Return a formal greeting" } });
         } };
         revised = await Send(revised, runtime);
         revised = await Send(revised, runtime);
         Assert.Equal(PlanningStatus.BehaviorReview, revised.Status);
         Assert.Equal("greeting", revised.BehaviorPlan!.Workflows[0].Steps[0].Key);
-        Assert.Equal("Return a formal greeting", revised.BehaviorPlan.Workflows[0].Steps[0].Purpose);
-        Assert.Equal(["behavior_revision_scope", "behavior_repair"], runtime.Phases);
-        Assert.Single(revised.RepairAllowances);
+        Assert.Equal("Describe the greeting as formal.", revised.BehaviorPlan.Workflows[0].Steps[0].Purpose);
+        Assert.Equal(["behavior_revision_scope"], runtime.Phases);
+        Assert.Empty(revised.RepairAllowances);
     }
 
     [Fact]
-    public async Task RevisionCoordinatesShareOperationLabelsAndUseScopedIdsWithFewerTokens()
+    public async Task RevisionCoordinatesArePagedAndDoNotAuthorizeUnrelatedContent()
     {
         var state = Behavior(); var plan = BehaviorPlan();
-        var prototype = JsonSerializer.SerializeToNode(plan.Workflows[0].Steps[0], PlanningJsonContext.Default.PlanningBehaviorNode)!;
-        for (var i = 1; i < 24; i++)
-        {
-            var node = JsonSerializer.Deserialize(prototype, PlanningJsonContext.Default.PlanningBehaviorNode)!;
-            node.Key = "action_" + i; plan.Workflows[0].Steps.Add(node);
-        }
+        for (var i = 1; i < 24; i++) plan.Workflows[0].Steps.Add(new() { Key = "action_" + i, Purpose = "Retained purpose" });
         state.BehaviorAssessment.Candidate = JsonSerializer.SerializeToNode(plan, PlanningJsonContext.Default.PlanningBehaviorPlan)!.AsObject();
         state.BehaviorRevision = new() { Text = "Change the description." };
         var original = state.BehaviorAssessment.Candidate.DeepClone();
-        var runtime = new FakeRuntime { OnCall = (_, request, _) =>
-        {
-            var context = PlanningBehaviorRevision.Context(state.BehaviorAssessment.Candidate);
-            var oldFields = new JsonObject();
-            var oldIds = new JsonArray();
-            foreach (var operation in context["fields"]!.AsObject())
-                foreach (var field in operation.Value!.AsObject())
-                {
-                    var id = "r_" + PlanningGraphCompiler.Fingerprint(field.Key)[..16];
-                    oldIds.Add(id);
-                    oldFields[id] = new JsonArray(field.Value![0]!.DeepClone(), JsonValue.Create(operation.Key), field.Value[1]?.DeepClone());
-                }
-            var oldSchema = request.StructuredOutputSchema!.DeepClone().AsObject();
-            oldSchema["properties"]!["fields"]!["items"]!["properties"]!["target"]!["enum"] = oldIds;
-            var oldContext = new JsonObject { ["anchors"] = context["anchors"]!.DeepClone(), ["fields"] = oldFields };
-            var prefix = request.Prompt![..(request.Prompt.IndexOf("Coordinates:\n", StringComparison.Ordinal) + "Coordinates:\n".Length)];
-            var before = PlanningJsonTransport.EstimateInputTokens(prefix + oldContext.ToJsonString(), oldSchema);
-            var after = PlanningJsonTransport.EstimateInputTokens(request.Prompt, request.StructuredOutputSchema.AsObject());
-            Assert.True(before - after > 1000, $"Before {before}, after {after}");
-            var chosen = context["fields"]!["replace"]!.AsObject().First(p => p.Value![0]!.ToString().EndsWith("/purpose", StringComparison.Ordinal)).Key;
-            return Task.FromResult(new LLMResponse { Json = new JsonObject { ["fields"] = new JsonArray(new JsonObject { ["target"] = chosen, ["evidence"] = "description" }) } });
-        } };
+        var runtime = new FakeRuntime { OnCall = (_, request, _) => Task.FromResult(new LLMResponse { Json = RevisionAnswer(request, "/workflows/0/steps/0/purpose") }) };
         await PlanningBehaviorRevision.LocateAsync(state, runtime, Ct);
-        Assert.True(state.BehaviorRevision.Located);
-        Assert.Single(state.BehaviorRevision.Fields);
+        Assert.True(state.BehaviorRevision.Located); Assert.Single(state.BehaviorRevision.Fields);
+        Assert.All(runtime.Requests, r => Assert.InRange(PlanningJsonTransport.EstimateInputTokens(r.Prompt, r.StructuredOutputSchema!.AsObject()), 1, 9600));
         Assert.True(JsonNode.DeepEquals(original, state.BehaviorAssessment.Candidate));
     }
+
 
     [Fact]
     public async Task RevisionScopeReplaysThePersistedTargetDomainAgainstTheRetainedCandidate()
@@ -326,30 +325,25 @@ public sealed class BehaviorRecoveryTests
         var state = Behavior();
         state.BehaviorAssessment.Candidate = JsonSerializer.SerializeToNode(BehaviorPlan(), PlanningJsonContext.Default.PlanningBehaviorPlan)!.AsObject();
         state.BehaviorRevision = new() { Text = "Revise this description." };
-        LLMRequest? issued = null;
-        var capture = new FakeRuntime { OnCall = (_, request, _) =>
-        {
-            issued = request;
-            return Task.FromResult(new LLMResponse { Json = new JsonObject { ["fields"] = new JsonArray(new JsonObject { ["target"] = "r0", ["evidence"] = "description" }) } });
-        } };
-        await PlanningBehaviorRevision.LocateAsync(state, capture, Ct);
-        var expectedPath = state.BehaviorRevision.Fields.Single().Path;
-        state.BehaviorRevision.Located = false; state.BehaviorRevision.Fields.Clear();
-        var schema = issued!.StructuredOutputSchema!.DeepClone().AsObject();
-        var ids = schema["properties"]!["fields"]!["items"]!["properties"]!["target"]!["enum"]!.AsArray();
-        for (var i = 0; i < ids.Count; i++) ids[i] = "retained_" + i;
-        var call = PlanningModelCalls.Reserve(state, "behavior_revision_scope", "", PlanningModelCalls.Request(state, "Persisted coordinates", schema));
-        var replay = new FakeRuntime { OnCall = (_, request, _) =>
-        {
-            Assert.Equal(call.Id, request.ClientRequestId);
-            Assert.Equal("Persisted coordinates", request.Prompt);
-            Assert.True(JsonNode.DeepEquals(schema, request.StructuredOutputSchema));
-            return Task.FromResult(new LLMResponse { Json = new JsonObject { ["fields"] = new JsonArray(new JsonObject { ["target"] = "retained_0", ["evidence"] = "description" }) } });
-        } };
-        await PlanningBehaviorRevision.LocateAsync(state, replay, Ct);
-        Assert.Equal(expectedPath, Assert.Single(state.BehaviorRevision.Fields).Path);
-        Assert.Empty(state.Construction.PendingCalls);
+        var runtime = new FakeRuntime { OnCall = (_, request, _) => Task.FromResult(new LLMResponse { Json = RevisionAnswer(request, "/summary") }) };
+        await PlanningBehaviorRevision.LocateAsync(state, runtime, Ct);
+        var path = Assert.Single(state.BehaviorRevision.Fields).Path;
+        var count = runtime.Requests.Count;
+        state = PlanningContext.Clone(state); state.BehaviorRevision!.Located = false; state.BehaviorRevision.Fields.Clear();
+        await PlanningBehaviorRevision.LocateAsync(state, runtime, Ct);
+        Assert.Equal(path, Assert.Single(state.BehaviorRevision.Fields).Path);
+        Assert.Equal(count, runtime.Requests.Count); Assert.Empty(state.Construction.PendingCalls);
     }
+
+    private static JsonObject RevisionAnswer(LLMRequest request, string path)
+    {
+        var context = JsonNode.Parse(request.Prompt![(request.Prompt.IndexOf(PlanningPromptContext.Instructions, StringComparison.Ordinal) + PlanningPromptContext.Instructions.Length)..])!.AsObject();
+        if (context["context"] is JsonObject compact) context = compact;
+        return new JsonObject(request.StructuredOutputSchema!["properties"]!.AsObject().Select(p => new KeyValuePair<string, JsonNode?>(p.Key,
+            context[p.Key]?["coordinate"]?.ToString() == path && context[p.Key]?["operation"]?.ToString() == "replace"
+                ? p.Value!["enum"]!.AsArray().First(v => v!.ToString() != "unchanged")!.DeepClone() : JsonValue.Create("unchanged"))));
+    }
+
 
     [Fact]
     public void WorkflowCallOwnershipProjectsFromAnExplicitUniqueOperationClaim()
@@ -370,29 +364,21 @@ public sealed class BehaviorRecoveryTests
     }
 
     [Fact]
-    public async Task BehaviorRepairsUseFiveDurableAttemptsAndRetainUnrelatedIdentities()
+    public async Task BehaviorCorrectionsKeepFiveGateAllowanceButCannotRepeatAnUnchangedDecision()
     {
-        var plan = BehaviorPlan(); plan.Workflows[0].Steps = Enumerable.Range(0, 6).Select(i => new PlanningBehaviorNode
-            { Key = "node_" + i, Purpose = "", InputDependencies = [] }).ToList();
-        var runtime = new FakeRuntime { OnCall = (phase, request, _) =>
-        {
-            if (phase == "behavior") return Task.FromResult(new LLMResponse { Json = JsonSerializer.SerializeToNode(plan, PlanningJsonContext.Default.PlanningBehaviorPlan) });
-            Assert.Equal("behavior_repair", phase);
-            var target = request.StructuredOutputSchema!["properties"]!["patches"]!["items"]!["anyOf"]![0]!["properties"]!["target"]!["enum"]![0]!.ToString();
-            return Task.FromResult(new LLMResponse { Json = new JsonObject { ["patches"] = new JsonArray(new JsonObject { ["target"] = target, ["value"] = "Return the declared result" }) } });
-        } };
-        var state = Behavior(); state.Request.MaxRepairsPerWorkflowGate = 5;
-        for (var i = 0; i < 10 && !PlanningStatus.IsWaiting(state.Status); i++) state = await Send(state, runtime);
-        Assert.Equal(PlanningStatus.Recovery, state.Status);
-        Assert.Contains(state.Diagnostics, d => d.Code == "REPAIR_EXHAUSTED");
-        Assert.Equal(5, Assert.Single(state.RepairAllowances).Attempts);
-        Assert.Single(runtime.Phases, p => p == "behavior");
-        Assert.Equal(5, runtime.Phases.Count(p => p == "behavior_repair"));
-        Assert.Equal(plan.Workflows[0].Steps.Select(n => n.Key), state.BehaviorAssessment.Candidate!["workflows"]![0]!["steps"]!.AsArray().Select(n => n!["key"]!.ToString()));
+        var state = Behavior(); state.Request.MaxRepairsPerWorkflowGate = 5; state.BehaviorPlan = BehaviorPlan(); state.BehaviorPlan.Workflows[0].Steps[0].Purpose = "";
+        var runtime = new FakeRuntime { OnCall = (_, request, _) => Task.FromResult(new LLMResponse { Json = new JsonObject(
+            request.StructuredOutputSchema!["properties"]!.AsObject().Select(p => new KeyValuePair<string, JsonNode?>(p.Key, JsonValue.Create("")))) }) };
+        state = await Send(state, runtime);
+        Assert.Equal(PlanningStatus.Stopped, state.Status);
+        Assert.Equal(5, state.Request.MaxRepairsPerWorkflowGate);
+        Assert.Single(runtime.Requests); Assert.Equal(1, Assert.Single(state.RepairAllowances).Attempts);
+        state = await Send(PlanningContext.Clone(state), runtime); Assert.Single(runtime.Requests);
     }
 
+
     [Fact]
-    public async Task RetainedInvalidDependencyUsesOneExactPatchAndScopedInputNames()
+    public async Task RetainedInvalidDependencyResolvesItsSoleScopedInputWithoutModelTranscription()
     {
         var state = Behavior(); state.BehaviorPlan = BehaviorPlan();
         state.BehaviorPlan.Workflows[0].Inputs.Add(new("resource", "Dynamic resource", true));
@@ -400,23 +386,20 @@ public sealed class BehaviorRecoveryTests
         var runtime = new FakeRuntime { OnCall = (phase, request, _) =>
         {
             Assert.Equal("behavior_repair", phase);
-            var variant = request.StructuredOutputSchema!["properties"]!["patches"]!["items"]!["anyOf"]!.AsArray()
-                .Single(v => v!["properties"]!["value"]?["enum"] is JsonArray values && values.Any(x => x?.ToString() == "resource"));
-            var target = variant!["properties"]!["target"]!["enum"]![0]!.ToString();
-            return Task.FromResult(new LLMResponse { Json = new JsonObject { ["patches"] = new JsonArray(new JsonObject { ["target"] = target, ["value"] = "resource" }) } });
+            var field = Assert.Single(request.StructuredOutputSchema!["properties"]!.AsObject());
+            Assert.Contains("resource", field.Value!.ToJsonString());
+            return Task.FromResult(new LLMResponse { Json = new JsonObject { [field.Key] = "resource" } });
         } };
         var result = await Send(state, runtime);
-        Assert.Equal(PlanningStatus.BehaviorReview, result.Status);
-        var request = Assert.Single(runtime.Requests);
-        Assert.Contains("producer_step", request.Prompt); Assert.Contains("Allowed inputs: resource", request.Prompt);
-        Assert.Null(request.StructuredOutputSchema!["$defs"]?["behaviorNode"]);
+        Assert.True(result.Status == PlanningStatus.BehaviorReview, string.Join(";", result.Diagnostics));
+        Assert.Empty(runtime.Requests);
         Assert.Equal("resource", Assert.Single(result.BehaviorPlan!.Workflows[0].Steps[0].InputDependencies!));
     }
 
     [Fact]
     public async Task RecoveryWithGraph_CanEditWithoutCompiling_AndPreservesSpentBudgets()
     {
-        var state = Behavior(Candidate(), PlanningStatus.Recovery);
+        var state = Behavior(Candidate(), PlanningStatus.Stopped);
         state.Intent.Forms = 2; state.Intent.Questions = 7; state.BehaviorAssessmentCalls = 2;
         state.Intent.Answers.Add(new("Earlier question", new JsonObject { ["answer"] = "Earlier answer" }));
         state.Usage = new LLMUsageBudgetScope(new() { MaxCalls = 10 }).Snapshot;

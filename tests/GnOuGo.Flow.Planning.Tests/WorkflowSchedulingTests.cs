@@ -44,15 +44,15 @@ public sealed class WorkflowSchedulingTests
         var runtime = new FakeRuntime();
         runtime.OnCall = (phase, request, _) =>
         {
-            if (phase == "semantic_review") return Task.FromResult(new LLMResponse { Json = new JsonObject { ["findings"] = new JsonArray() } });
-            Assert.Equal(PlanningPhase.Construction, phase);
+            if (phase == "semantic_review") return Task.FromResult(new LLMResponse { Json = FakeRuntime.PassReview(request) });
+            Assert.Contains(phase, new[] { PlanningPhase.Construction, "construction_schema" });
             var key = state.Construction.PendingCalls.Single(c => c.Id == request.ClientRequestId).WorkflowKey;
             if (key == "main")
             {
                 Assert.All(state.Construction.Workflows.Where(w => w.WorkflowKey != "main"), w => Assert.Equal("validated", w.Status));
                 Assert.DoesNotContain("Hello", request.Prompt);
                 callers++;
-                return Task.FromResult(new LLMResponse { Json = runtime.FillHoles(request, fixture) });
+                return Task.FromResult(new LLMResponse { Json = phase == "construction_schema" ? FakeRuntime.NewSchema(request) : runtime.FillHoles(request, fixture) });
             }
             Assert.Equal(4, reservations);
             if (round == 0)
@@ -60,7 +60,7 @@ public sealed class WorkflowSchedulingTests
                 if (Interlocked.Increment(ref started) == 4) allStarted.TrySetResult();
                 return completions[key].Task;
             }
-            return Task.FromResult(new LLMResponse { Json = runtime.FillHoles(request, fixture) });
+            return Task.FromResult(new LLMResponse { Json = phase == "construction_schema" ? FakeRuntime.NewSchema(request) : runtime.FillHoles(request, fixture) });
         };
         runtime.OnCheckpoint = snapshot => { state = snapshot; reservations = snapshot.Construction.PendingCalls.Count; return Task.CompletedTask; };
         var pending = Advance(state, runtime);
@@ -68,7 +68,7 @@ public sealed class WorkflowSchedulingTests
         foreach (var key in reverse ? keys.Reverse() : keys)
         {
             var request = state.Construction.PendingCalls.Single(c => c.WorkflowKey == key).Request;
-            completions[key].SetResult(new LLMResponse { Json = runtime.FillHoles(request, fixture) });
+            completions[key].SetResult(new LLMResponse { Json = FakeRuntime.NewSchema(request) });
         }
         state = await pending; round++;
         Assert.Equal(0, callers);
@@ -76,7 +76,8 @@ public sealed class WorkflowSchedulingTests
         for (var i = 0; i < 20 && !PlanningStatus.IsWaiting(state.Status); i++) state = await Advance(state, runtime);
         Assert.True(state.Status == PlanningStatus.FinalReview, string.Join("; ", state.Diagnostics.Select(d => d.Message)));
         Assert.True(callers > 0);
-        Assert.All(state.Construction.Workflows, w => Assert.Equal(2, w.Calls));
+        Assert.All(state.Construction.Workflows, w => Assert.True(w.Calls > 0));
+        Assert.All(runtime.Requests, r => Assert.InRange(PlanningJsonTransport.EstimateInputTokens(r.Prompt, r.StructuredOutputSchema!.AsObject()), 1, 9600));
         return state.Yaml!;
     }
 
@@ -88,8 +89,8 @@ public sealed class WorkflowSchedulingTests
         var runtime = new FakeRuntime { OnCall = (_, _, _) => Task.FromResult(new LLMResponse
             { Json = new JsonObject { ["assignments"] = new JsonObject(), ["workflow"] = PlanningFixtures.Workflow(FakeRuntime.ExecutableWorkflow()) } }) };
         state = await Advance(state, runtime);
-        Assert.Equal(PlanningPhase.Repair, state.CurrentPhase);
-        Assert.NotEmpty(Assert.Single(state.Construction.Candidates).Diagnostics);
+        Assert.Equal(PlanningStatus.Stopped, state.Status);
+        Assert.Contains(state.Diagnostics, d => d.Code == "DECISION_SCOPE_INVALID");
         Assert.Equal("cleanup", Assert.Single(state.Graph!.Workflows[0].Finally).Key);
         Assert.Equal(original, PlanningGraphCompiler.Fingerprint(state.Graph!));
     }

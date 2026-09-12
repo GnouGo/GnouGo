@@ -253,11 +253,11 @@ public sealed class DataflowBindingTests
     [Fact]
     public async Task IncompleteModelOutputIsReportedAsACompletionLimit_NotMalformedIntent()
     {
-        var state = Session(); state.Intent.Checked = true; state.Preparation = Preparation();
+        var state = Session();
         var runtime = new FakeRuntime { OnCall = (_, _, _) => Task.FromResult(new LLMResponse { CompletionStatus = "output_limit" }) };
         state = await new TypedWorkflowPlanner().AdvanceAsync(state, new() { ExpectedRevision = state.Revision }, runtime, TestContext.Current.CancellationToken);
-        Assert.Equal(PlanningStatus.Recovery, state.Status); Assert.Single(runtime.Requests);
-        Assert.Contains(state.Diagnostics, d => d.Code == "MODEL_OUTPUT_LIMIT"); Assert.Null(state.ApprovedBehaviorHash);
+        Assert.Equal(PlanningStatus.Stopped, state.Status); Assert.Single(runtime.Requests);
+        Assert.Contains(state.Diagnostics, d => d.Code == "DECISION_OUTPUT_LIMIT"); Assert.Null(state.ApprovedBehaviorHash);
     }
 
     [Fact]

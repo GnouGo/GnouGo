@@ -43,7 +43,7 @@ public sealed class WorkflowPlanningRuntime : IPlanningRuntime
         _context.PlanningModelDispatcher = (model, phase, token) => PlanningModelCalls.CallAsync(snapshot, this, phase, model, token);
         try
         {
-            var preparation = await CapabilityPreparation.PrepareTypedContractsAsync(_context, request, ct);
+            var preparation = await CapabilityPreparation.PrepareTypedContractsAsync(_context, request, snapshot, this, ct);
             checkpoint.Stage = "completed"; checkpoint.Diagnostics.Clear();
             return new(checkpoint, preparation);
         }
@@ -62,5 +62,39 @@ public sealed class WorkflowPlanningRuntime : IPlanningRuntime
         => PlanningArtifactValidation.ValidateTypedScenariosAsync(request.Yaml, request.Preparation, ct, request.Inputs, request.LoopItemSchemas, request.Observations);
     public Task<IReadOnlyList<PlanningDiagnostic>> ValidateCatalogAsync(PlanningPreparation preparation, CancellationToken ct)
         => PlanningArtifactValidation.ValidateTypedCatalogAsync(_context.Engine, preparation, ct);
-    public Task CheckpointAsync(PlanningSnapshot snapshot, CancellationToken ct) => _checkpoint(snapshot, ct);
+    public async Task CheckpointAsync(PlanningSnapshot snapshot, CancellationToken ct)
+    {
+        var unreserved = snapshot.Construction.PendingCalls.Where(c => c.ReasoningCapabilityFingerprint is null).ToArray();
+        foreach (var call in unreserved)
+        {
+            var resolver = _context.Engine.LLMCapabilities ?? _context.Engine.LLMClient as ILLMCapabilityResolver ?? _model as ILLMCapabilityResolver;
+            IReadOnlyList<string>? levels;
+            try { levels = resolver is null ? null : await resolver.SupportedReasoningLevelsAsync(call.Request.Provider, call.Request.Model, ct); }
+            catch (Exception error)
+            {
+                // Metadata lookup happens before the durable dispatch boundary.
+                // Do not leave a reservation that a final checkpoint would try
+                // to resolve again, or classify it as an unverifiable dispatch.
+                NotDispatched();
+                if (error is OperationCanceledException) throw;
+                throw new GnOuGo.Flow.Core.Expressions.WorkflowRuntimeException("MODEL_METADATA_UNAVAILABLE", "Model capability metadata could not be read. No planning request was dispatched.");
+            }
+            if (levels is null || call.Request.Reasoning is null || !levels.Contains(call.Request.Reasoning, StringComparer.Ordinal))
+            {
+                NotDispatched();
+                throw new GnOuGo.Flow.Core.Expressions.WorkflowRuntimeException("MODEL_REASONING_UNPROVEN", "The configured model metadata does not establish support for the phase reasoning level. No provider request was dispatched.");
+            }
+            call.ReasoningCapabilityFingerprint = PlanningGraphCompiler.Fingerprint(string.Join("\n", levels.Order(StringComparer.Ordinal)));
+
+            void NotDispatched()
+            {
+                foreach (var pending in unreserved)
+                {
+                    snapshot.Construction.PendingCalls.Remove(pending);
+                    if (snapshot.RequestAccounting.SingleOrDefault(a => a.Id == pending.Id) is { } reservation) reservation.Evidence = "not_dispatched";
+                }
+            }
+        }
+        await _checkpoint(snapshot, ct);
+    }
 }

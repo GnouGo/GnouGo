@@ -41,52 +41,19 @@ internal sealed partial class PlanningScenarioFixtures
             if (ValidFixture(values)) { state.Validation.Inputs = values; state.Validation.InputsFingerprint = fingerprint; return true; }
         }
         state.CurrentPhase = "scenario_inputs";
-        var definitions = PlanningSchemas.ValueDefinitions().DeepClone().AsObject();
-        var variants = definitions["value"]!["anyOf"]!.AsArray();
-        foreach (var variant in variants.ToArray())
+        var inputs = new JsonObject();
+        foreach (var port in workflow.Inputs)
         {
-            var kinds = variant!["properties"]!["kind"]!["enum"]!.AsArray();
-            foreach (var kind in kinds.ToArray()) if (kind?.ToString() is not ("string" or "number" or "boolean" or "null" or "object" or "array")) kinds.Remove(kind);
-            if (kinds.Count == 0) variants.Remove(variant);
+            inputs[port.Name] = await FixtureAsync(state, runtime, "scenario_inputs", workflow.Key, "/scenarioInputs/" + PlanningFieldPaths.Escape(port.Name),
+                contracts[port.Name]!.AsObject(), new JsonObject { ["businessInput"] = state.BehaviorPlan?.Workflows.Single(w => w.Key == workflow.Key).Inputs.SingleOrDefault(p => p.Name == port.Name)?.Description ?? port.Schema.Description,
+                    ["task"] = "Supply a nominal synthetic input value for validation. It is private fixture data, never an executable default or evidence of a real external observation." }, ct);
         }
-        var schema = new JsonObject
+        if (!ValidFixture(inputs))
         {
-            ["type"] = "object",
-            ["additionalProperties"] = false,
-            ["properties"] = new JsonObject(workflow.Inputs.Select(p => new KeyValuePair<string, JsonNode?>(p.Name, new JsonObject { ["$ref"] = "#/$defs/value" }))),
-            ["required"] = new JsonArray(workflow.Inputs.Select(p => (JsonNode?)JsonValue.Create(p.Name)).ToArray()),
-            ["$defs"] = definitions
-        };
-        PlanningJsonTransport.PruneDefinitions(schema);
-        var prompt = "Construct a nominal validation input fixture for the declared workflow. Use literal typed values only. " +
-            "Respect the intended domain and each input contract; generic placeholders may not satisfy formats such as URLs or structured identifiers. " +
-            "Use supplied example values when applicable. These values are for deterministic fake execution only and will never become workflow defaults or external call arguments. " +
-            "No live external effects are performed in these scenarios.\nBehavior:\n" + PlanningContext.Intent(state) + "\nInput contracts:\n" + contracts.ToJsonString();
-        var findings = new List<PlanningDiagnostic>();
-        for (var attempt = 0; attempt < 2; attempt++)
-        {
-            var actualPrompt = prompt + (findings.Count == 0 ? "" : "\nRepair these fixture fields:\n" + JsonSerializer.Serialize(findings, PlanningJsonContext.Default.ListPlanningDiagnostic));
-            if (PlanningJsonTransport.EstimateInputTokens(actualPrompt, schema) > state.Request.Generation.MaxInputTokensPerRequest)
-            { findings = [new("SCENARIO_INPUT_CONTEXT_TOO_LARGE", "/scenarioInputs", "The validation fixture exceeds the configured input context limit. No model request was sent.")]; break; }
-            JsonObject candidate;
-            try { candidate = await PlanningModelCalls.StructuredAsync(state, runtime, "scenario_inputs", actualPrompt, schema, ct); }
-            catch (GnOuGo.Flow.Core.Expressions.WorkflowRuntimeException ex) when (ex.Code == GnOuGo.Flow.Core.Models.ErrorCodes.LlmSchema)
-            { findings = [new("SCENARIO_INPUT_INVALID", "/scenarioInputs", "The model did not supply schema-valid literal fixture values.")]; continue; }
-            var inputs = new JsonObject(); findings.Clear();
-            foreach (var port in workflow.Inputs)
-            {
-                var value = JsonSerializer.Deserialize(candidate[port.Name]!, PlanningJsonContext.Default.PlanningValue)!;
-                if (!PlanningGraphValidation.IsLiteral(value)) { findings.Add(new("SCENARIO_INPUT_INVALID", "/scenarioInputs/" + port.Name, "Validation fixtures must be literal values.")); continue; }
-                try { inputs[port.Name] = PlanningGraphValidation.Literal(value); }
-                catch (Exception ex) when (ex is InvalidOperationException or ArgumentException)
-                { findings.Add(new("SCENARIO_INPUT_INVALID", "/scenarioInputs/" + port.Name, "The typed literal is malformed: " + ex.Message)); continue; }
-                if (port.Required && inputs[port.Name] is null) findings.Add(new("SCENARIO_INPUT_INVALID", "/scenarioInputs/" + port.Name, "A required execution input needs a provided non-null fixture value."));
-                findings.AddRange(PlanningContractValidation.ValidateInstance(inputs[port.Name], contracts[port.Name]!.AsObject()).Select(error => new PlanningDiagnostic("SCENARIO_INPUT_INVALID", "/scenarioInputs/" + port.Name, error)));
-            }
-            if (findings.Count != 0) continue;
-            state.Validation.Inputs = inputs; state.Validation.InputsFingerprint = fingerprint;
-            await runtime.CheckpointAsync(state, ct); return true;
+            state.Diagnostics = [new("SCENARIO_INPUT_INVALID", "/scenarioInputs", "The assembled fixture does not satisfy the executable input contracts.")];
+            state.Status = PlanningStatus.Stopped; return false;
         }
-        state.Diagnostics = findings; state.CurrentPhase = "scenario_inputs"; state.Status = PlanningStatus.Recovery; return false;
+        state.Validation.Inputs = inputs; state.Validation.InputsFingerprint = fingerprint;
+        await runtime.CheckpointAsync(state, ct); return true;
     }
 }

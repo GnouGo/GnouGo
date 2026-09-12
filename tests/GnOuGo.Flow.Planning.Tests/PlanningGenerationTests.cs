@@ -38,12 +38,12 @@ public sealed class PlanningGenerationTests
     [Fact]
     public async Task ConfigureGenerationPreservesBehaviorAnswersAndRejectsStaleCommands()
     {
-        var state = ApprovedSkeleton(); state.Status = PlanningStatus.Recovery;
+        var state = ApprovedSkeleton(); state.Status = PlanningStatus.Stopped;
         state.Intent.Answers.Add(new("Choose behavior", new() { ["answer"] = "accepted" })); state.Intent.Forms = 1;
         var approval = state.ApprovedBehaviorHash; var planner = new TypedWorkflowPlanner();
-        var next = await planner.AdvanceAsync(state, new() { Kind = "configure_generation", ExpectedRevision = state.Revision, Generation = new() { Reasoning = "low" } }, new FakeRuntime(), Ct);
+        var next = await planner.AdvanceAsync(state, new() { Kind = "configure_generation", ExpectedRevision = state.Revision, Generation = new() { ReasoningProfile = new() { Routine = "low" } } }, new FakeRuntime(), Ct);
         Assert.Equal(approval, next.ApprovedBehaviorHash); Assert.Single(next.Intent.Answers); Assert.Equal(1, next.Intent.Forms);
-        Assert.Single(next.GenerationHistory); Assert.Equal("low", next.Request.Generation.Reasoning);
+        Assert.Single(next.GenerationHistory); Assert.Equal("low", next.Request.Generation.ReasoningProfile.Routine);
         await Assert.ThrowsAsync<PlanningConflictException>(() => planner.AdvanceAsync(next, new() { Kind = "configure_generation", ExpectedRevision = state.Revision, Generation = new() }, new FakeRuntime(), Ct));
     }
 

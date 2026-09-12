@@ -39,7 +39,7 @@ public sealed class TypedPlanningDiagnosticTests
     {
         var state = new PlanningSnapshot { Status = PlanningStatus.Created, CurrentPhase = PlanningPhase.Intent, Intent = new() { Checked = intentChecked }, Preparation = prepared ? new() : null };
         Assert.Equal(phase, PlanningPhase.Resolve(state));
-        state.Status = PlanningStatus.Recovery; state.CurrentPhase = PlanningPhase.Capabilities;
+        state.Status = PlanningStatus.Stopped; state.CurrentPhase = PlanningPhase.Capabilities;
         Assert.Equal(PlanningPhase.Capabilities, PlanningPhase.Resolve(state));
     }
 
@@ -147,6 +147,6 @@ public sealed class TypedPlanningDiagnosticTests
         var restored = JsonSerializer.Deserialize(JsonSerializer.Serialize(snapshot, PlanningJsonContext.Default.PlanningSnapshot), PlanningJsonContext.Default.PlanningSnapshot)!;
         Assert.Equal("/result", Assert.Single(restored.Preparation!.Capabilities[0].ArtifactContract!.Produces).Pointer);
         Assert.Equal(PlanningValidationStage.CapabilityContracts, restored.Diagnostics[0].ValidationStage);
-        Assert.Equal(4, restored.SchemaVersion);
+        Assert.Equal(5, restored.SchemaVersion);
     }
 }

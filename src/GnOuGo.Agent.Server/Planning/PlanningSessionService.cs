@@ -79,7 +79,7 @@ public sealed class PlanningSessionService(
                 Options = options,
                 MaxConcurrency = settings.Value.MaxConcurrency,
                 MaxRepairsPerWorkflowGate = settings.Value.MaxRepairsPerWorkflowGate,
-                Generation = new() { Reasoning = settings.Value.Reasoning, MaxInputTokensPerRequest = settings.Value.MaxInputTokensPerRequest, MaxOutputTokens = settings.Value.MaxOutputTokens }
+                Generation = new() { ReasoningProfile = settings.Value.ReasoningProfile, MaxInputTokensPerRequest = settings.Value.MaxInputTokensPerRequest, MaxOutputTokens = settings.Value.MaxOutputTokens }
             },
             UpdatedAtUtc = DateTimeOffset.UtcNow
         };
@@ -216,6 +216,8 @@ public sealed class PlanningSessionService(
                 var revision = state.Revision++;
                 state.Status = PlanningStatus.Failed;
                 state.Diagnostics = [new("PLANNING_HOST_FAILURE", "$", "The planning host could not complete this phase. The encrypted session was retained.")];
+                state.Outcome = null;
+                state.TechnicalStop = new("PLANNING_HOST_FAILURE", PlanningPhase.Resolve(state), "$", state.RequestAccounting.Any(r => r.Evidence == "unverifiable"));
                 await store.TrySaveAsync(state, revision, CancellationToken.None);
             }
         }
@@ -232,11 +234,9 @@ public sealed class PlanningSessionService(
         activity?.SetTag("gnougo.planning.phase", PlanningPhase.Resolve(current));
         activity?.SetTag("gnougo.planning.revision", current.Revision);
         var sw = Stopwatch.StartNew();
-        if (command.Kind is "cancel" or "edit_intent" or "configure_generation" || command.Kind == "retry" && current.Preparation is null)
+        if (command.Kind is "cancel" or "edit_intent" or "configure_generation")
         {
-            // Recovery commands are durable state changes; model/provider availability
-            // must not prevent editing, configuration, cancellation or an intent retry.
-            // A prepared retry needs the configured MCP runtime to check its catalog.
+            // Human state changes remain available without a model/provider connection.
             var updated = await planner.AdvanceAsync(current, command, new WorkflowPlanningRuntime(new WorkflowEngine(), (_, _) => Task.CompletedTask), ct);
             var finalBudget = await records.GetAsync(PlanningBudgetSink.Collection, Tenant, current.Request.SessionId, EfPlanningSessionStore.Author, ct);
             if (finalBudget is not null) updated.Usage = JsonSerializer.Deserialize(finalBudget.Value, PlanningJsonContext.Default.LLMUsageBudgetSnapshot);
@@ -250,6 +250,8 @@ public sealed class PlanningSessionService(
             var previous = current.Revision++;
             current.Status = PlanningStatus.Failed;
             current.Diagnostics = [new(ErrorCodes.LlmBudgetExceeded, "$", "The active planning time budget has been exhausted.")];
+            current.Outcome = null;
+            current.TechnicalStop = new(ErrorCodes.LlmBudgetExceeded, PlanningPhase.Resolve(current), "$");
             if (!await store.TrySaveAsync(current, previous, ct)) throw new PlanningConflictException("The planning session changed.");
             return current;
         }
@@ -338,13 +340,13 @@ public sealed class PlanningSessionService(
                 ["diagnostic_count"] = evt.Count
             }));
         }
-        if (result.Status == PlanningStatus.Recovery)
-            logger.LogInformation("Planning session {SessionId} revision {Revision} is waiting for recovery in {Phase}. Diagnostic codes: {DiagnosticCodes}",
+        if (result.Status == PlanningStatus.Stopped)
+            logger.LogInformation("Planning session {SessionId} revision {Revision} is stopped in {Phase}. Diagnostic codes: {DiagnosticCodes}",
                 result.Request.SessionId, result.Revision, phase, string.Join(",", result.Diagnostics.Select(d => d.Code).Distinct(StringComparer.Ordinal)));
-        activity?.SetTag("gnougo.planning.outcome", result.Outcome);
+        activity?.SetTag("gnougo.planning.outcome", result.Outcome?.Name);
         activity?.SetStatus(result.Status == PlanningStatus.Failed ? ActivityStatusCode.Error : ActivityStatusCode.Ok);
         PhaseDuration.Record(sw.Elapsed.TotalSeconds, new KeyValuePair<string, object?>("phase", phase), new KeyValuePair<string, object?>("tenant.id", Tenant));
-        if (PlanningStatus.IsTerminal(result.Status)) Outcomes.Add(1, new KeyValuePair<string, object?>("outcome", result.Outcome), new KeyValuePair<string, object?>("tenant.id", Tenant));
+        if (PlanningStatus.IsTerminal(result.Status)) Outcomes.Add(1, new KeyValuePair<string, object?>("outcome", result.Outcome?.Name), new KeyValuePair<string, object?>("tenant.id", Tenant));
     }
 
     private async Task<PlanningSnapshot> SaveAsync(PlanningSnapshot state, PlanningCommand command, CancellationToken ct)
@@ -408,7 +410,7 @@ public sealed class PlanningSessionService(
 
     private JsonObject CreateOptions(string provider, string model) => new()
     {
-        ["generator"] = new JsonObject { ["provider"] = provider, ["model"] = model, ["reasoning"] = settings.Value.Reasoning },
+        ["generator"] = new JsonObject { ["provider"] = provider, ["model"] = model },
         ["capability_preflight"] = new JsonObject(),
         ["intent_clarification"] = new JsonObject { ["max_rounds"] = 3, ["max_questions"] = 15, ["max_questions_per_round"] = 5 },
         ["policy"] = new JsonObject

@@ -58,63 +58,33 @@ internal sealed partial class PlanningScenarioFixtures
                         retainedSamples.All(s => PlanningContractValidation.ValidateInstance(s, contract).Count == 0))
                     { samples = (JsonArray)retainedSamples.DeepClone(); total = expected; }
                     state.CurrentPhase = "scenario_observations";
-                    var definitions = PlanningSchemas.ValueDefinitions().DeepClone().AsObject();
-                    var variants = definitions["value"]!["anyOf"]!.AsArray();
-                    foreach (var variant in variants.ToArray())
+                    var behavior = new JsonObject
                     {
-                        var kinds = variant!["properties"]!["kind"]!["enum"]!.AsArray();
-                        foreach (var kind in kinds.ToArray()) if (kind?.ToString() is not ("string" or "number" or "boolean" or "null" or "object" or "array")) kinds.Remove(kind);
-                        if (kinds.Count == 0) variants.Remove(variant);
+                        ["condition"] = PlanningModelValues.Compact(JsonSerializer.SerializeToNode(loop.Input.Members.Single(m => m.Name == "while").Value, PlanningJsonContext.Default.PlanningValue)),
+                        ["producer"] = node.Purpose,
+                        ["task"] = "Provide a synthetic observation satisfying this loop condition. Preserve raw and structured result channels. Fixture values never assert real observations or human consent."
+                    };
+                    if (total == 0)
+                    {
+                        var id = "observation_count_" + PlanningGraphCompiler.Fingerprint(key)[..16];
+                        var countChoice = await PlanningDecisionPages.ResolveAsync(state, runtime, "scenario_observations", workflow.Key,
+                            [new(id, PlanningHoleRequests.Enum("2", "3"), behavior.DeepClone().AsObject(), fingerprint)], ct);
+                        total = int.Parse(countChoice[id]!.ToString(), System.Globalization.CultureInfo.InvariantCulture);
                     }
-                    var compactContext = PlanningModelValues.Compact(JsonSerializer.SerializeToNode(loop, PlanningJsonContext.Default.PlanningNode))!.AsObject().ToJsonString();
-                    var prompt = "Construct one observation in an explicit synthetic sequence of 2 or 3 successful observations for the named MCP step in this loop. " +
-                        "Use a typed literal matching its complete result envelope, keeping raw response and structured json separate. " +
-                        "The complete sequence must exercise continuation and then completion according to the producer contract and loop expressions. " +
-                        "Choose the smallest array cardinalities needed by those expressions; a numeric request limit alone does not require that many fixture records. " +
-                        "Do not duplicate structured data into an opaque raw result unless the loop consumes it. Preserve valid encoded artifact fields. " +
-                        "These are deterministic test data, never live evidence. Do not change the workflow or model human consent. " +
-                        "Execution must consume the entire sequence and stop without requesting another observation. " +
-                        "Return only the requested observation, not the previous or remaining ones.\nTarget: " + node.Key +
-                        "\nResult contract:\n" + contract.ToJsonString() + "\nLoop under test:\n" + compactContext;
-                    while (total == 0 || samples.Count < total)
+                    while (samples.Count < total)
                     {
-                        var shape = new JsonObject
+                        behavior["position"] = samples.Count; behavior["final"] = samples.Count + 1 == total;
+                        behavior["previous"] = samples.LastOrDefault()?.DeepClone();
+                        var sample = await FixtureAsync(state, runtime, "scenario_observations", workflow.Key, "/scenarioObservations/" + key + "/" + samples.Count,
+                            contract, behavior, ct);
+                        if (PlanningContractValidation.ValidateInstance(sample, contract).Count != 0)
                         {
-                            ["type"] = "object",
-                            ["additionalProperties"] = false,
-                            ["required"] = new JsonArray("responses", "totalObservations"),
-                            ["properties"] = new JsonObject
-                            {
-                                ["totalObservations"] = new JsonObject { ["type"] = "integer", ["enum"] = total == 0 ? new JsonArray(2, 3) : new JsonArray(total) },
-                                ["responses"] = new JsonObject { ["type"] = "array", ["minItems"] = 1, ["maxItems"] = 1, ["items"] = new JsonObject { ["$ref"] = "#/$defs/value" } }
-                            },
-                            ["$defs"] = definitions.DeepClone()
-                        };
-                        PlanningJsonTransport.PruneDefinitions(shape);
-                        var findings = new List<PlanningDiagnostic>(); JsonObject? rejected = null;
-                        for (var attempt = 0; attempt < 2; attempt++)
-                        {
-                            var actual = prompt + "\nObservation number: " + (samples.Count + 1) + "\nAccepted earlier observations:\n" + samples.ToJsonString() +
-                                (total == 0 ? "\nChoose totalObservations as 2 or 3; this first observation must continue." : "\nLocked totalObservations: " + total + (samples.Count + 1 == total ? "; this final observation must terminate." : "; this observation must continue.")) +
-                                (findings.Count == 0 ? "" : "\nRepair this observation only:\n" + rejected?.ToJsonString() + "\nFixture diagnostics:\n" + JsonSerializer.Serialize(findings, PlanningJsonContext.Default.ListPlanningDiagnostic));
-                            if (PlanningJsonTransport.EstimateInputTokens(actual, shape) > state.Request.Generation.MaxInputTokensPerRequest)
-                            { findings = [new("SCENARIO_OBSERVATION_CONTEXT_TOO_LARGE", key, "The explicit observation fixture exceeds the configured context ceiling; no request was dispatched.")]; break; }
-                            JsonObject response;
-                            try { response = await PlanningModelCalls.StructuredAsync(state, runtime, "scenario_observations", actual, shape, ct); }
-                            catch (GnOuGo.Flow.Core.Expressions.WorkflowRuntimeException ex) when (ex.Code == GnOuGo.Flow.Core.Models.ErrorCodes.LlmSchema)
-                            { findings = [new("SCENARIO_OBSERVATION_INVALID", key, "The synthetic observation has an invalid literal shape.")]; continue; }
-                            rejected = response; findings.Clear();
-                            var value = JsonSerializer.Deserialize(response["responses"]![0]!, PlanningJsonContext.Default.PlanningValue)!;
-                            if (!PlanningGraphValidation.IsLiteral(value)) { findings.Add(new("SCENARIO_OBSERVATION_INVALID", key, "Observations must be literal values.")); continue; }
-                            var sample = PlanningGraphValidation.Literal(value);
-                            findings.AddRange(PlanningContractValidation.ValidateInstance(sample, contract).Select(error => new PlanningDiagnostic("SCENARIO_OBSERVATION_INVALID", key, error)));
-                            if (findings.Count != 0) continue;
-                            total = response["totalObservations"]!.GetValue<int>(); samples.Add(sample);
-                            state.Validation.Observations[key] = new JsonObject { ["fingerprint"] = fingerprint, ["schema"] = contract.DeepClone(), ["responses"] = samples.DeepClone(), ["totalObservations"] = total };
-
-                            await runtime.CheckpointAsync(state, ct); break;
+                            state.Diagnostics = [new("SCENARIO_OBSERVATION_INVALID", key, "The assembled observation violates the producer contract.")];
+                            state.Status = PlanningStatus.Stopped; return false;
                         }
-                        if (findings.Count != 0) { state.Diagnostics = findings; state.CurrentPhase = "scenario_observations"; state.Status = PlanningStatus.Recovery; return false; }
+                        samples.Add(sample);
+                        state.Validation.Observations[key] = new JsonObject { ["fingerprint"] = fingerprint, ["schema"] = contract.DeepClone(), ["responses"] = samples.DeepClone(), ["totalObservations"] = total };
+                        await runtime.CheckpointAsync(state, ct);
                     }
                 }
         foreach (var key in state.Validation.Observations.Select(p => p.Key).Where(k => !retained.Contains(k)).ToArray())

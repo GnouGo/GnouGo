@@ -108,20 +108,19 @@ public sealed class HoleConstructionTests
     [Theory]
     [InlineData(0)]
     [InlineData(5)]
-    public async Task TruncatedResponseRetriesConsumeTheDurableResponseAllowance(int limit)
+    public async Task IndivisibleTruncationStopsWithoutRetryOrBudgetReset(int limit)
     {
         var state = Ready(); state.Request.MaxRepairsPerWorkflowGate = limit;
+        var graph = PlanningGraphCompiler.Fingerprint(state.Graph!);
         var runtime = new FakeRuntime { OnCall = (_, _, _) => Task.FromResult(new LLMResponse { CompletionStatus = "output_limit" }) };
-        for (var attempt = 0; attempt < limit + 2; attempt++)
-        {
-            state = PlanningContext.Clone(state); state.Status = PlanningStatus.Generating;
-            await new PlanningWorkflowConstruction().AdvanceAsync(state, runtime, TestContext.Current.CancellationToken);
-        }
-        Assert.Equal(limit + 1, runtime.Requests.Count);
-        Assert.Equal(limit, PlanningRepairAllowances.Get(state, "main", PlanningGates.Response).Attempts);
-        Assert.Contains(state.Diagnostics, d => d.Code == "REPAIR_EXHAUSTED");
-        Assert.Empty(state.Construction.Candidates);
+        state = await HoleSessionTests.Advance(state, runtime);
+        Assert.Equal(PlanningStatus.Stopped, state.Status);
+        Assert.Contains(state.Diagnostics, d => d.Code == "DECISION_OUTPUT_LIMIT");
+        state = await HoleSessionTests.Advance(PlanningContext.Clone(state), runtime);
+        Assert.Single(runtime.Requests); Assert.Empty(state.RepairAllowances);
+        Assert.Equal(graph, PlanningGraphCompiler.Fingerprint(state.Graph!));
     }
+
 
     [Fact]
     public void BaselinePureConstantReuseRequiresAnUnchangedProducerAndMatchingContract()

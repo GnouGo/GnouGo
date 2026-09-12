@@ -18,8 +18,7 @@ internal static class PlanningModelCalls
             Prompt = prompt,
             Provider = generator?["provider"]?.GetValue<string>(),
             Model = generator?["model"]?.GetValue<string>() ?? "",
-            Reasoning = generator?["reasoning"]?.GetValue<string>() ?? "low",
-            StructuredOutputSchema = schema.DeepClone(),
+            StructuredOutputSchema = PlanningDecisionPages.BoundDomain(schema),
             StructuredOutputStrict = true,
             UseBackgroundMode = true
         }, state.Request.Generation);
@@ -29,13 +28,22 @@ internal static class PlanningModelCalls
     {
         // A restart replays the exact reserved request. Governing edits are blocked while a call is pending.
         var pending = state.Construction.PendingCalls.SingleOrDefault(c => c.Phase == phase && c.WorkflowKey == workflow);
-        if (pending is not null) return pending;
+        if (pending is not null)
+        {
+            if (scope is not null && scope != pending.ScopeFingerprint)
+                throw new PlanningConflictException("A different decision scope cannot replace a reserved request.");
+            return pending;
+        }
         PlanningGenerationPolicy.Apply(request, state.Request.Generation);
+        request.Reasoning = PlanningGenerationPolicy.ReasoningFor(state.Request.Generation, phase);
         if (request.StructuredOutputSchema is not JsonObject schema || PlanningContractValidation.ValidateSchema(schema, strict: true).Count != 0)
             throw new WorkflowRuntimeException(ErrorCodes.LlmSchema, "A valid strict typed response schema is required before dispatch.");
+        if (PlanningDecisionPages.AnswerTokens(schema) > PlanningGenerationPolicy.AnswerTargetTokens)
+            throw new WorkflowRuntimeException("MODEL_ANSWER_SIZE", "The indivisible response domain exceeds the structured-answer target. Split its decisions before reservation.");
         var estimate = PlanningJsonTransport.EstimateInputTokens(request.Prompt ?? "", schema);
-        if (estimate > state.Request.Generation.MaxInputTokensPerRequest)
-            throw new WorkflowRuntimeException("MODEL_INPUT_LIMIT", $"The request needs approximately {estimate} input tokens; the ceiling is {state.Request.Generation.MaxInputTokensPerRequest}. No request was dispatched.");
+        var target = PlanningGenerationPolicy.InputTarget(state.Request.Generation);
+        if (estimate > target)
+            throw new WorkflowRuntimeException("MODEL_INPUT_LIMIT", $"The indivisible decision needs approximately {estimate} input tokens; the dispatch target is {target}. No request was reserved or dispatched.");
         request.ClientRequestId = null;
         var hash = PlanningGraphCompiler.Fingerprint(JsonSerializer.Serialize(request, PlanningJsonContext.Default.LLMRequest));
         gate ??= PlanningGates.Response;
@@ -47,8 +55,8 @@ internal static class PlanningModelCalls
         state.RequestAccounting.Add(new()
         {
             Id = id, Revision = state.Revision, WorkflowKey = string.IsNullOrEmpty(workflow) ? "$plan" : workflow,
-            Phase = phase, Gate = gate, EstimatedInputTokens = estimate, Repair = phase.EndsWith("_repair", StringComparison.Ordinal),
-            Purpose = gate == PlanningGates.Semantic || phase.Contains("semantic", StringComparison.Ordinal) ? "mandatory_validation" : phase == PlanningPhase.Construction ? "executable_holes" : "assessment"
+            Phase = phase, Gate = gate, Reasoning = request.Reasoning, EstimatedInputTokens = estimate, Repair = phase == PlanningPhase.Repair || phase.EndsWith("_repair", StringComparison.Ordinal),
+            Purpose = gate == PlanningGates.Semantic || phase.Contains("semantic", StringComparison.Ordinal) || phase.StartsWith("scenario_", StringComparison.Ordinal) ? "mandatory_validation" : phase == PlanningPhase.Repair || phase.StartsWith(PlanningPhase.Construction, StringComparison.Ordinal) ? "executable_holes" : "assessment"
         });
         return call;
     }
@@ -80,15 +88,7 @@ internal static class PlanningModelCalls
     internal static void RequireComplete(LLMResponse response, int? ceiling = null)
     {
         if (response.CompletionStatus == "output_limit")
-            throw new WorkflowRuntimeException("MODEL_OUTPUT_LIMIT", $"The model reached the output-token ceiling ({ceiling?.ToString() ?? "configured"} tokens). Adjust generation settings or revise the behavior before retrying.");
+            throw new WorkflowRuntimeException("MODEL_OUTPUT_LIMIT", $"The model reached the output-token ceiling ({ceiling?.ToString() ?? "configured"} tokens). The verified response is incomplete; no automatic retry is permitted.");
     }
 
-    internal static async Task<JsonObject> StructuredAsync(PlanningSnapshot state, IPlanningRuntime runtime, string phase, string prompt, JsonObject schema, CancellationToken ct)
-    {
-        // Each assessment owns its bounded repair policy; this transport never retries.
-        var response = await CallAsync(state, runtime, phase, Request(state, prompt, schema), ct);
-        if (response.Json is not JsonObject json || PlanningContractValidation.ValidateInstance(json, schema).Count != 0)
-            throw new WorkflowRuntimeException(ErrorCodes.LlmSchema, "The model response did not match the supplied typed schema.");
-        return json;
-    }
 }

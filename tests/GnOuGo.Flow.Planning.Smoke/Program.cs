@@ -78,16 +78,16 @@ var session = new PlanningSnapshot { Request = new() { TenantId = "smoke", Promp
 var runtime = new SmokeRuntime(graph, preparation);
 for (var attempt = 0; attempt < 30 && session.Status != PlanningStatus.Approved; attempt++)
 {
-    var kind = session.Status == PlanningStatus.Recovery ? "retry" : session.Status == PlanningStatus.BehaviorReview ? "accept_behavior" : session.Status == PlanningStatus.FinalReview ? "approve" : "advance";
+    var kind = session.Status == PlanningStatus.BehaviorReview ? "accept_behavior" : session.Status == PlanningStatus.FinalReview ? "approve" : "advance";
     session = await planner.AdvanceAsync(session, new() { Kind = kind, ExpectedRevision = session.Revision, ArtifactHash = session.ArtifactHash }, runtime, CancellationToken.None);
     session = JsonSerializer.Deserialize(JsonSerializer.Serialize(session, PlanningJsonContext.Default.PlanningSnapshot), PlanningJsonContext.Default.PlanningSnapshot)!;
-    if (session.Status is PlanningStatus.Failed or PlanningStatus.Unsupported) throw new InvalidOperationException("Published planner failed: " + session.Diagnostics.FirstOrDefault()?.Message);
+    if (session.Status is PlanningStatus.Failed or PlanningStatus.Unsupported or PlanningStatus.Stopped) throw new InvalidOperationException("Published planner failed: " + session.Diagnostics.FirstOrDefault()?.Message);
 }
 if (session.Status != PlanningStatus.Approved || session.ApprovedHash != PlanningGraphCompiler.Fingerprint(session.Yaml!)) throw new InvalidOperationException("Published planner did not reach exact revision approval.");
 var recovery = new PlanningSnapshot { Request = new() { TenantId = "smoke", Prompt = "Recover an invalid assessment" } };
 runtime.InvalidIntent = true;
 recovery = await planner.AdvanceAsync(recovery, new() { ExpectedRevision = recovery.Revision }, runtime, CancellationToken.None);
-if (recovery.Status != PlanningStatus.Recovery || recovery.Outcome is not null || recovery.Intent.Checked) throw new InvalidOperationException("Published intent recovery failed.");
+if (recovery.Status != PlanningStatus.Stopped || recovery.Outcome is not null || recovery.Intent.Checked) throw new InvalidOperationException("Published intent recovery failed.");
 recovery = JsonSerializer.Deserialize(JsonSerializer.Serialize(recovery, PlanningJsonContext.Default.PlanningSnapshot), PlanningJsonContext.Default.PlanningSnapshot)!;
 recovery = await planner.AdvanceAsync(recovery, new() { Kind = "edit_intent", Text = "Return the ready message", ExpectedRevision = recovery.Revision }, runtime, CancellationToken.None);
 runtime.InvalidIntent = false;
@@ -171,7 +171,13 @@ sealed class SmokeRuntime(PlanningGraph graph, PlanningPreparation preparation) 
 {
     private PlanningSnapshot? _snapshot;
     public bool InvalidIntent { get; set; }
-    public Task<PlanningPreparationProgress> PrepareAsync(PlanningSnapshot state, CancellationToken ct) => Task.FromResult(new PlanningPreparationProgress(new(), preparation));
+    public Task<PlanningPreparationProgress> PrepareAsync(PlanningSnapshot state, CancellationToken ct)
+    {
+        preparation.Capabilities = [new() { Id = "declared", Description = "Return the ready message", Required = true, Resolution = "available", StepType = "set",
+            OperationIds = state.Obligations.Where(o => o.Kind == "local_processing").Select(o => o.Id).ToList(),
+            FixedInput = new() { ["message"] = "ready" }, OutputSchema = JsonNode.Parse("""{"type":"object","properties":{"message":{"type":"string"}},"required":["message"],"additionalProperties":false}""")!.AsObject() }];
+        return Task.FromResult(new PlanningPreparationProgress(new(), preparation));
+    }
     public Task CheckpointAsync(PlanningSnapshot state, CancellationToken ct) { _snapshot = state; return Task.CompletedTask; }
     public Task<IReadOnlyList<PlanningDiagnostic>> ValidateCatalogAsync(PlanningPreparation prepared, CancellationToken ct) => Task.FromResult<IReadOnlyList<PlanningDiagnostic>>([]);
     public Task<LLMResponse> CallAsync(LLMRequest request, string phase, CancellationToken ct)
@@ -181,21 +187,14 @@ sealed class SmokeRuntime(PlanningGraph graph, PlanningPreparation preparation) 
         graph.Workflows[0].Steps[0].OutputSchema = new() { Type = "object", Properties = [new() { Name = "message", Schema = new() { Type = "string" } }] };
         JsonNode? json = InvalidIntent ? new JsonObject() : phase switch
         {
-            "intent" => JsonNode.Parse("""{"outcome":"ready","evidence":[],"reason":"Clear request","questions":[]}"""),
-            "behavior" => JsonSerializer.SerializeToNode(new PlanningBehaviorPlan
-            {
-                Summary = graph.Summary,
-                Entrypoint = graph.Entrypoint,
-                Workflows = graph.Workflows.Select(w => new PlanningBehaviorWorkflow
-                {
-                    Key = w.Key,
-                    Purpose = "Return the ready message",
-                    Steps = w.Steps.Select(n => new PlanningBehaviorNode { Key = n.Key, Purpose = "Return the ready message", InputDependencies = [] }).ToList(),
-                    Outputs = w.Outputs.Select(o => new PlanningBehaviorPort(o.Name, "The ready message", true)).ToList()
-                }).ToList()
-            }, PlanningJsonContext.Default.PlanningBehaviorPlan),
+            "intent" => new JsonObject(request.StructuredOutputSchema["properties"]!.AsObject().Select(p => new KeyValuePair<string, JsonNode?>(p.Key,
+                new JsonArray(new[] { "local_processing", "business_output" }.Select(role => (JsonNode?)new JsonObject
+                { ["start"] = p.Value!["items"]!["properties"]!["start"]!["enum"]![0]!.DeepClone(), ["end"] = p.Value!["items"]!["properties"]!["end"]!["enum"]!.AsArray()[^1]!.DeepClone(), ["kind"] = role, ["required"] = true }).ToArray())))),
+            "construction_schema" => new JsonObject(request.StructuredOutputSchema["properties"]!.AsObject().Select(p => new KeyValuePair<string, JsonNode?>(p.Key,
+                p.Value!["properties"]?["type"] is not null ? new JsonObject { ["type"] = "string", ["nullable"] = false }
+                    : new JsonObject { ["members"] = new JsonArray(new JsonObject { ["name"] = "message", ["required"] = true }), ["more"] = false }))),
             "construction" => FillHoles(request),
-            "semantic_review" => JsonNode.Parse("""{"findings":[]}"""),
+            "semantic_review" => new JsonObject(request.StructuredOutputSchema["properties"]!.AsObject().Select(p => new KeyValuePair<string, JsonNode?>(p.Key, new JsonObject { ["status"] = "passed" }))),
             _ => throw new InvalidOperationException("Unexpected model phase: " + phase)
         };
         return Task.FromResult(new LLMResponse { Json = json });
@@ -223,6 +222,6 @@ sealed class SmokeRuntime(PlanningGraph graph, PlanningPreparation preparation) 
     {
         var compiled = new WorkflowCompiler().Compile(WorkflowParser.Parse(request.Yaml));
         var result = await new WorkflowEngine().ExecuteAsync(compiled.Workflows[compiled.Entrypoint!], request.Inputs, ct);
-        return [new("nominal", result.Success && result.Outputs?["message"]?.GetValue<string>() == "ready" ? "passed" : "failed", "Execute the published greeting workflow", [])];
+        return [new("nominal", result.Success && result.Outputs?.AsObject().Single().Value?.ToString() == "ready" ? "passed" : "failed", "Execute the published greeting workflow", [])];
     }
 }

@@ -7,6 +7,33 @@ namespace GnOuGo.Flow.Planning;
 internal static class PlanningExactPatches
 {
     internal sealed record Target(string Id, string Path, JsonObject Schema, bool Add = false, bool Remove = false, string? Destination = null);
+
+    // Only this reference-keyed domain crosses the model boundary. The patch
+    // array below is coordinator-owned mutation IR, never a response contract.
+    internal static async Task<JsonObject> ResolveAsync(PlanningSnapshot state, IPlanningRuntime runtime, string phase, string owner,
+        string gate, IReadOnlyList<Target> targets, JsonObject source, JsonObject context, string evidence, CancellationToken ct)
+    {
+        var decisions = targets.Select(t =>
+        {
+            var schema = t.Schema.DeepClone().AsObject();
+            if (source["$defs"] is { } definitions) schema["$defs"] = definitions.DeepClone();
+            PlanningHoleRequests.PruneDefinitions(schema);
+            var scoped = context.DeepClone().AsObject();
+            if (scoped["fields"] is JsonObject fields)
+                scoped["fields"] = new JsonObject(fields.Where(p => p.Key == t.Id).Select(p => new KeyValuePair<string, JsonNode?>(p.Key, p.Value?.DeepClone())));
+            var hole = state.Construction.Holes.FirstOrDefault(h => !h.Superseded && h.WorkflowKey == owner &&
+                (t.Path == h.Path || t.Path.StartsWith(h.Path + "/", StringComparison.Ordinal) || t.Path.StartsWith("/assignments/" + h.Id + "/", StringComparison.Ordinal)));
+            var governingEvidence = hole is null ? evidence : PlanningGraphCompiler.Fingerprint(state.ApprovedBehaviorHash + ":" + PlanningContext.Contracts(state) + ":" + hole.CanonicalLocation);
+            return new PlanningDecisionPages.Decision(t.Id, PlanningDecisionPages.BoundDomain(schema), new JsonObject
+            {
+                ["field"] = t.Path, ["context"] = scoped,
+                ["operation"] = t.Remove ? "remove" : t.Destination is not null ? "move" : t.Add ? "insert" : "replace"
+            }, governingEvidence, hole?.Id, hole?.Id);
+        }).ToArray();
+        var assignments = await PlanningDecisionPages.ResolveCorrectionsAsync(state, runtime, phase, owner, gate, decisions, ct);
+        return new JsonObject { ["patches"] = new JsonArray(assignments.Select(p => (JsonNode?)new JsonObject
+        { ["target"] = p.Key, ["value"] = p.Value?.DeepClone() }).ToArray()) };
+    }
     internal static List<Target> Scope(JsonObject payload, JsonObject schema, IEnumerable<PlanningDiagnostic> findings)
     {
         var targets = new List<Target>();
@@ -133,6 +160,8 @@ internal static class PlanningExactPatches
             schema = Resolve(schema, value, token);
             if (schema["properties"] is JsonObject properties && properties[token] is JsonObject field)
             { schema = field; value = value is JsonObject obj ? obj[token] : null; }
+            else if (schema["prefixItems"] is JsonArray prefix && int.TryParse(token, out var offset) && offset >= 0 && offset < prefix.Count && prefix[offset] is JsonObject tuple)
+            { schema = tuple; value = value is JsonArray tupleValues && offset < tupleValues.Count ? tupleValues[offset] : null; }
             else if (schema["items"] is JsonObject items && int.TryParse(token, out var index))
             { schema = items; value = value is JsonArray array && index >= 0 && index < array.Count ? array[index] : null; }
             else throw new InvalidOperationException("The response schema has no exact field at this pointer.");

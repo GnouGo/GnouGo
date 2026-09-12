@@ -28,7 +28,7 @@ internal static class RuntimePersistenceSmoke
             {
                 request = PlanningGenerationPolicy.Apply(new()
                 {
-                    Model = "smoke",
+                    Model = "smoke", Reasoning = "low",
                     Prompt = "private native intent",
                     StructuredOutputStrict = true,
                     StructuredOutputSchema = JsonNode.Parse("""{"type":"object","properties":{},"required":[],"additionalProperties":false}""")
@@ -51,8 +51,10 @@ internal static class RuntimePersistenceSmoke
         }
         finally { if (Directory.Exists(directory)) Directory.Delete(directory, true); }
     }
-    private sealed class Client : ILLMClient
+    private sealed class Client : ILLMClient, ILLMCapabilityResolver
     {
+        public Task<bool?> SupportsStructuredOutputAsync(string? provider, string model, CancellationToken ct) => Task.FromResult<bool?>(true);
+        public Task<IReadOnlyList<string>?> SupportedReasoningLevelsAsync(string? provider, string model, CancellationToken ct) => Task.FromResult<IReadOnlyList<string>?>(["low", "medium"]);
         public int Calls { get; private set; }
         public Task<LLMResponse> CallAsync(LLMRequest request, CancellationToken ct)
         { Calls++; return Task.FromResult(new LLMResponse { Json = new JsonObject(), Usage = new JsonObject { ["total_tokens"] = 2 } }); }

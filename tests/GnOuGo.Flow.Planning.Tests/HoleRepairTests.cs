@@ -74,8 +74,10 @@ public sealed class HoleRepairTests
         Assert.Equal(Enumerable.Range(0, 12).Except([2, 10]), result["items"]!.AsArray().Select(i => i!.GetValue<int>()));
     }
 
-    [Fact]
-    public async Task InvalidLiteralRemainsStagedAndAnExactPatchPreservesItsNeighborsAcrossRestart()
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task InvalidLiteralRemainsStagedAndAnExactPatchPreservesItsNeighborsAcrossRestart(bool restartAfterReservation)
     {
         var state = Ready(); var runtime = new FakeRuntime();
         var schema = new PlanningSchema { Type = "object", Properties = [new() { Name = "message", Required = true, Schema = new() { Type = "string" } }, new() { Name = "retained", Required = true, Schema = new() { Type = "string" } }] };
@@ -102,12 +104,23 @@ public sealed class HoleRepairTests
         Assert.Equal(before, PlanningGraphCompiler.Fingerprint(state.Graph!));
         Assert.Contains(staged.Diagnostics, d => d.Location.StartsWith("/assignments/", StringComparison.Ordinal));
         state = JsonSerializer.Deserialize(JsonSerializer.Serialize(state, PlanningJsonContext.Default.PlanningSnapshot), PlanningJsonContext.Default.PlanningSnapshot)!;
+        if (restartAfterReservation)
+        {
+            PlanningSnapshot? reserved = null;
+            var interrupted = new FakeRuntime { OnCheckpoint = snapshot =>
+            {
+                if (snapshot.Construction.PendingCalls.Count > 0)
+                { reserved = PlanningContext.Clone(snapshot); throw new IOException("Restart before dispatch"); }
+                return Task.CompletedTask;
+            } };
+            await Assert.ThrowsAsync<IOException>(() => new PlanningHoleRepair().AdvanceAsync(state, interrupted, TestContext.Current.CancellationToken));
+            Assert.Empty(interrupted.Requests); Assert.NotNull(reserved); state = reserved;
+        }
         var repair = new FakeRuntime { OnCall = (phase, request, _) =>
         {
             Assert.Equal(PlanningPhase.Repair, phase);
-            var target = request.StructuredOutputSchema!["properties"]!["patches"]!["items"]!["anyOf"]![0]!["properties"]!["target"]!["enum"]![0]!.ToString();
-            return Task.FromResult(new LLMResponse { Json = new JsonObject { ["patches"] = new JsonArray(new JsonObject
-            { ["target"] = target, ["value"] = "Hello" }) } });
+            var target = Assert.Single(request.StructuredOutputSchema!["properties"]!.AsObject()).Key;
+            return Task.FromResult(new LLMResponse { Json = new JsonObject { [target] = "Hello" } });
         } };
         state = await Advance(state, repair);
         Assert.Empty(state.Construction.Candidates);

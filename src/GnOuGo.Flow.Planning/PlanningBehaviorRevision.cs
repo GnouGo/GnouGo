@@ -12,32 +12,29 @@ internal static class PlanningBehaviorRevision
         var revision = state.BehaviorRevision!;
         var candidate = state.BehaviorAssessment.Candidate!;
         var catalog = Catalog(candidate);
-        var schema = PlanningHoleRequests.Object(("fields", new JsonObject
+        var references = PlanningReferences.Register(state, "revision", "user_revision", revision.Text);
+        var decisions = new List<PlanningDecisionPages.Decision>();
+        var issued = new Dictionary<string, Target>(StringComparer.Ordinal);
+        foreach (var (id, target) in catalog)
+        foreach (var chunk in references.Chunk(8))
         {
-            ["type"] = "array", ["minItems"] = 1, ["maxItems"] = catalog.Count,
-            ["items"] = PlanningHoleRequests.Object(("target", PlanningHoleRequests.Enum(catalog.Keys.ToArray())), ("evidence", PlanningHoleRequests.Type("string")))
-        }));
-        // Replay the issued domain against the retained candidate. Target identities
-        // are request-local; canonical coordinates and original fingerprints remain
-        // the authority for applying the eventual patches.
-        schema = state.Construction.PendingCalls.SingleOrDefault(c => c.Phase == "behavior_revision_scope" && c.WorkflowKey == "")?.Request.StructuredOutputSchema as JsonObject ?? schema;
-        var issued = schema["properties"]!["fields"]!["items"]!["properties"]!["target"]!["enum"]!.AsArray().Select(v => v!.ToString()).ToArray();
-        if (issued.Length != catalog.Count || issued.Distinct(StringComparer.Ordinal).Count() != issued.Length)
-            throw new WorkflowRuntimeException("BEHAVIOR_REVISION_SCOPE_INVALID", "The issued revision scope no longer matches the retained candidate.");
-        var targets = issued.Zip(catalog.Values).ToDictionary(pair => pair.First, pair => pair.Second, StringComparer.Ordinal);
-        var context = Context(candidate, catalog);
-        var prompt = "Locate only fields affected by the human's requested behavior revision. Select necessary companion changes together. " +
-            "Select each target once, citing one exact nonempty revision excerpt. Unrelated behavior and identities remain locked.\nRevision:\n" + revision.Text +
-            "\nFields are grouped by operation; target IDs map to [path, current scalar value or element identity]. " +
-            "An anchor maps its alias to [parent-relative path, retained identity]; field paths use those aliases.\nCoordinates:\n" + PlanningPromptContext.Json(context);
-        var response = await PlanningModelCalls.StructuredAsync(state, runtime, "behavior_revision_scope", prompt, schema, ct);
+            var decisionId = "revision_" + id + "_" + chunk[0].Id;
+            issued[decisionId] = target;
+            decisions.Add(new(decisionId, PlanningHoleRequests.Enum(["unchanged", .. chunk.Select(r => r.Id)]), new JsonObject
+            {
+                ["coordinate"] = target.Path, ["operation"] = target.Operation,
+                ["current"] = PlanningFieldPaths.ReadOptional(candidate, target.Path)?.DeepClone(),
+                ["revision"] = PlanningReferences.Context(chunk, new Dictionary<string, string> { ["revision"] = revision.Text }),
+                ["task"] = "Select the revision evidence that requires this exact change, or unchanged. Unrelated identities and content remain locked."
+            }, PlanningGraphCompiler.Fingerprint(revision.Text + ":" + PlanningFieldPaths.Canonical(candidate, target.Path))));
+        }
+        var response = await PlanningDecisionPages.ResolveAsync(state, runtime, "behavior_revision_scope", "$plan", decisions, ct);
         var fields = new List<PlanningBehaviorRevisionField>();
-        foreach (var selected in response["fields"]!.AsArray())
+        foreach (var group in response.Where(p => p.Value?.ToString() != "unchanged").GroupBy(p => issued[p.Key]))
         {
-            var target = targets[selected!["target"]!.ToString()]; var evidence = selected["evidence"]!.ToString();
-            if (string.IsNullOrWhiteSpace(evidence) || !revision.Text.Contains(evidence, StringComparison.Ordinal))
-                throw new WorkflowRuntimeException("BEHAVIOR_REVISION_EVIDENCE_INVALID", "The revision scope needs exact human evidence before any edit.");
-            if (fields.Any(f => f.Path == target.Path)) throw new WorkflowRuntimeException("BEHAVIOR_REVISION_SCOPE_INVALID", "Duplicate revision coordinates are forbidden.");
+            var target = group.Key;
+            var evidence = string.Join(" ", group.Select(p => p.Value!.ToString()).Distinct(StringComparer.Ordinal)
+                .Select(id => PlanningReferences.Resolve(state, id, new Dictionary<string, string> { ["revision"] = revision.Text })));
             fields.Add(new(target.Path, PlanningFieldPaths.Canonical(candidate, target.Path), target.Operation,
                 Fingerprint(PlanningFieldPaths.ReadOptional(candidate, target.Path)), evidence));
         }
@@ -56,6 +53,47 @@ internal static class PlanningBehaviorRevision
             if (target is null || Fingerprint(PlanningFieldPaths.ReadOptional(candidate, target.Path)) != field.OriginalFingerprint) continue;
             yield return new("BEHAVIOR_REVISION_REQUIRED", target.Path, "Human revision: " + field.Evidence, Rule: "revision_" + field.Operation);
         }
+    }
+
+    internal static JsonObject ApplyRemovals(PlanningSnapshot state, JsonObject candidate, JsonObject schema)
+    {
+        var findings = Findings(state, candidate).Where(d => d.Rule == "revision_remove").ToArray();
+        if (findings.Length == 0) return candidate;
+        var targets = PlanningBehaviorPatches.Scope(candidate, schema, findings);
+        var retired = new HashSet<string>(StringComparer.Ordinal);
+        void Collect(JsonNode? value)
+        {
+            if (value is JsonObject obj)
+            {
+                if (obj["operationIds"] is JsonArray operations)
+                    retired.UnionWith(operations.Select(o => o!.ToString()));
+                foreach (var child in obj) Collect(child.Value);
+            }
+            else if (value is JsonArray children) foreach (var child in children) Collect(child);
+        }
+        foreach (var target in targets) Collect(PlanningFieldPaths.Read(candidate, target.Path));
+        retired.ExceptWith(state.Preparation!.Capabilities.SelectMany(c => c.OperationIds));
+        // Removal of an operation also retires its derived ownership entries.
+        // Issue exact companion coordinates only for those retired identities;
+        // unrelated invalid content must remain staged for its own diagnosis.
+        void Companions(JsonNode? value, string path)
+        {
+            if (targets.Any(t => path == t.Path || path.StartsWith(t.Path + "/", StringComparison.Ordinal))) return;
+            if (value is JsonObject obj)
+                foreach (var child in obj) Companions(child.Value, path + "/" + PlanningFieldPaths.Escape(child.Key));
+            else if (value is JsonArray children)
+                for (var i = 0; i < children.Count; i++)
+                {
+                    var coordinate = path + "/" + i;
+                    if (path.EndsWith("/operationIds", StringComparison.Ordinal) && retired.Contains(children[i]!.ToString()))
+                        targets.Add(new("retire_" + PlanningGraphCompiler.Fingerprint(PlanningFieldPaths.Canonical(candidate, coordinate))[..16], coordinate,
+                            new JsonObject { ["type"] = "null" }, Remove: true));
+                    else Companions(children[i], coordinate);
+                }
+        }
+        Companions(candidate, "");
+        return PlanningExactPatches.Apply(candidate, new JsonObject { ["patches"] = new JsonArray(targets.Select(t =>
+            (JsonNode?)new JsonObject { ["target"] = t.Id, ["value"] = null }).ToArray()) }, targets, PlanningExactPatches.Schema(targets, schema));
     }
 
     private sealed record Target(string Path, string Operation);

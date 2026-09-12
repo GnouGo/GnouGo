@@ -25,6 +25,12 @@ Hosts reference `GnOuGo.Flow.Planning` for the sole Planner v2 implementation. C
 retains provider-neutral contracts and runtime validation without referencing another
 GnOuGo project. See [workflow planning](../../docs/workflow-planning-v2.md).
 
+Schema-5 contracts include owned references, bounded decision pages, typed outcomes
+and durable correction lineage. `FinalReview` waits for exact-hash approval before
+returning `ValidWorkflow`. Missing business choices return `NeedUserClarification`;
+technical stops remain distinct from proven `Unsupported`. Injected model capability
+resolvers must declare supported reasoning levels for the phase profile.
+
 ## MCP protocol compatibility
 
 Flow.Core owns only provider-neutral MCP contracts and has no dependency on the MCP SDK or another GnOuGo package. `GnOuGo.Flow.Integrations` supplies the stable C# MCP SDK `2.2.0` HTTP/stdio implementation, which prefers MCP `2026-07-28` discovery with `server/discover` and automatically falls back to `2025-11-25` initialization. Flow does not use `Mcp-Session-Id` for Copilot identity.
@@ -1302,9 +1308,10 @@ Before each selected workflow runs, `workflow.route` emits a `gnougo-flow.step.t
 ### `workflow.plan` — Typed workflow planning
 
 This step invokes the host's injected Planner v2. Missing planner injection fails
-explicitly. Clarification, locked capabilities, business behavior review and complete
-typed subworkflow construction precede deterministic lowering. Compilation, semantic
-and scenario validation and final approval are mandatory. Models return typed JSON;
+explicitly. Clarification, locked capabilities, engine-built behavior review and
+deterministic skeletons with bounded typed assignments precede lowering. Compilation,
+semantic and scenario validation and final approval are mandatory. Models select issued
+references or fill unresolved semantic fields;
 `PlanningGraphCompiler` alone produces the reviewed YAML.
 
 ```yaml
@@ -1314,7 +1321,10 @@ and scenario validation and final approval are mandatory. Models return typed JS
     raw_prompt: "${data.inputs.intent}"
     generator:
       model: "${data.inputs.model}"
-      reasoning: low
+      reasoning_profile:
+        routine: low
+        behavior: medium
+        semantic_review: medium
       max_input_tokens: 12000
       max_output_tokens: 8192
     max_concurrency: 4
@@ -1540,10 +1550,10 @@ Increase these limits only for trusted workflows; prefer simplifying expressions
 ## WFScript — Custom JavaScript Functions
 
 Define reusable functions in the `functions:` block (document-level or workflow-level).
-When `workflow.plan` generates custom functions, each generated `function` must be immediately preceded by JSDoc with typed `@param` entries for every parameter and a typed `@returns` entry for the output:
-
-Missing or ambiguous function documentation produces a typed diagnostic. Corrections modify
-the graph's function field through the same scoped repair engine before deterministic lowering.
+Runtime functions use JSDoc with typed `@param` entries for every parameter and a
+typed `@returns` entry. Planner models supply only unresolved expression text over
+declared parameters. The deterministic compiler generates any required function
+wrapper and documentation; repairs cannot replace a global function block.
 
 Scope rules:
 

@@ -71,13 +71,13 @@ internal static class CodeReviewExecution
                 ["fixtureHash"] = fixtureHash, ["catalogHash"] = catalogHash,
                 ["errorCode"] = errorCode, ["usage"] = JsonSerializer.SerializeToNode(budget.Snapshot, PlanningJsonContext.Default.LLMUsageBudgetSnapshot) };
             // Retain failures too, before assertions; raw runtime/model evidence stays encrypted.
-            await records.UpsertAsync("agent-planning-benchmark-execution-v4", state.Request.TenantId, owner,
+            await records.UpsertAsync("agent-planning-benchmark-execution-v5", state.Request.TenantId, owner,
                 new JsonObject { ["report"] = report.DeepClone(), ["outputs"] = outputs?.DeepClone(), ["error"] = errorMessage }.ToJsonString(), EfPlanningSessionStore.Author, ct);
             Console.WriteLine(report.ToJsonString());
             fixture.AssertComplete(success, variant == "invalid_input" ? errorCode : errorMessage, outputs);
             caseReports.Add(report);
         }
-        await records.UpsertAsync("agent-planning-benchmark-validation-v4", state.Request.TenantId, state.Request.SessionId + ":" + state.ArtifactHash,
+        await records.UpsertAsync("agent-planning-benchmark-validation-v5", state.Request.TenantId, state.Request.SessionId + ":" + state.ArtifactHash,
             caseReports.ToJsonString(), EfPlanningSessionStore.Author, ct);
     }
 

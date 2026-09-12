@@ -8,13 +8,26 @@ namespace GnOuGo.Flow.Integrations;
 /// Real LLM client that routes requests to OpenAI or Ollama using <see cref="RoutingLLMClient"/>.
 /// Adapts from <see cref="ILLMClient"/> (GnOuGo.Flow) to <see cref="RoutingLLMClient"/> (GnOuGo.AI.Core).
 /// </summary>
-public sealed class RoutingLLMClientAdapter : ILLMClient
+public sealed class RoutingLLMClientAdapter : ILLMClient, ILLMCapabilityResolver
 {
     private readonly RoutingLLMClient _inner;
 
     public RoutingLLMClientAdapter(RoutingLLMClient inner)
     {
         _inner = inner;
+    }
+
+    public Task<bool?> SupportsStructuredOutputAsync(string? provider, string model, CancellationToken ct)
+    {
+        ct.ThrowIfCancellationRequested();
+        return Task.FromResult(_inner.ResolveMetadata(provider, model).Capabilities?.SupportsStructuredOutput);
+    }
+
+    public Task<IReadOnlyList<string>?> SupportedReasoningLevelsAsync(string? provider, string model, CancellationToken ct)
+    {
+        ct.ThrowIfCancellationRequested();
+        var capability = _inner.ResolveMetadata(provider, model).Capabilities;
+        return Task.FromResult<IReadOnlyList<string>?>(capability?.SupportsReasoningEffort == true ? capability.SupportedReasoningEfforts?.ToArray() : null);
     }
 
     public async Task<LLMResponse> CallAsync(LLMRequest request, CancellationToken ct)

@@ -17,8 +17,8 @@ internal sealed class PlanningModelJournal(
     ILLMClient inner, IDbContextFactory<PlanningDbContext> contexts, IKeyVaultRecordStore records,
     string tenantId, string sessionId, LLMUsageBudgetScope budget, IModelUsageCostEstimator estimator, PlanningGenerationOptions? generation = null) : ILLMClient
 {
-    internal const string Collection = "agent-planning-model-receipts-v4";
-    internal const string RequestCollection = "agent-planning-model-requests-v4";
+    internal const string Collection = "agent-planning-model-receipts-v5";
+    internal const string RequestCollection = "agent-planning-model-requests-v5";
     private static readonly Meter Metrics = new("GnOuGo.Agent.Planning");
     private static readonly Histogram<double> ProviderDuration = Metrics.CreateHistogram<double>("gen_ai.client.operation.duration", "s");
     private static readonly Histogram<long> TokenUsage = Metrics.CreateHistogram<long>("gen_ai.client.token.usage", "{token}");
@@ -95,7 +95,7 @@ internal sealed class PlanningModelJournal(
 
 internal sealed class PlanningBudgetSink(IKeyVaultRecordStore records, string tenantId, string sessionId) : ILLMUsageBudgetSink
 {
-    internal const string Collection = "agent-planning-budgets-v4";
+    internal const string Collection = "agent-planning-budgets-v5";
     public async ValueTask PersistAsync(LLMUsageBudgetSnapshot snapshot, CancellationToken ct)
         => await records.UpsertAsync(Collection, tenantId, sessionId, JsonSerializer.Serialize(snapshot, PlanningJsonContext.Default.LLMUsageBudgetSnapshot), EfPlanningSessionStore.Author, ct);
 }

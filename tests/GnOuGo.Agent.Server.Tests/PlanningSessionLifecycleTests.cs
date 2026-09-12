@@ -20,7 +20,7 @@ public sealed class PlanningSessionLifecycleTests
     public async Task PreparedRetryHasCatalogAccessWithoutCallingTheModel()
     {
         await using var fixture = await PlanningPersistenceTests.StoreFixture.CreateAsync();
-        var state = State(PlanningStatus.Recovery);
+        var state = State(PlanningStatus.Stopped);
         state.Preparation!.Capabilities = [new() { Id = "selected", StepType = "mcp.call", Kind = "tool", Server = "renamed", Method = "inspect",
             DeclarationFingerprint = "old-contract" }];
         Assert.True(await fixture.Store.TrySaveAsync(state, null, Ct));
@@ -35,7 +35,7 @@ public sealed class PlanningSessionLifecycleTests
         });
         using var service = Create(fixture, planner, new FakeMcpSession("renamed").WithTool("inspect"));
         var result = await service.SubmitAsync(state.Request.SessionId, new() { Kind = "retry", ExpectedRevision = state.Revision }, Ct);
-        Assert.Equal(PlanningStatus.Recovery, result.Status); Assert.NotNull(result.Usage); Assert.Equal(0, result.Usage.Calls);
+        Assert.Equal(PlanningStatus.Stopped, result.Status); Assert.NotNull(result.Usage); Assert.Equal(0, result.Usage.Calls);
     }
 
     [Fact]
@@ -107,14 +107,14 @@ public sealed class PlanningSessionLifecycleTests
         var state = State(PlanningStatus.FinalReview);
         if (stagedBehavior)
         {
-            state.Status = PlanningStatus.Recovery; state.Graph = null; state.BehaviorPlan = null;
+            state.Status = PlanningStatus.Stopped; state.Graph = null; state.BehaviorPlan = null;
             state.BehaviorAssessment.Candidate = new JsonObject { ["summary"] = "Retained invalid behavior" };
         }
         Assert.True(await fixture.Store.TrySaveAsync(state, null, Ct));
         var seen = new TaskCompletionSource<string>(TaskCreationOptions.RunContinuationsAsynchronously);
         var planner = new DelegatePlanner((snapshot, command, _, _) =>
         {
-            Assert.Equal(stagedBehavior ? PlanningStatus.Recovery : PlanningStatus.FinalReview, snapshot.Status);
+            Assert.Equal(stagedBehavior ? PlanningStatus.Stopped : PlanningStatus.FinalReview, snapshot.Status);
             if (stagedBehavior) Assert.Equal("Retained invalid behavior", snapshot.BehaviorAssessment.Candidate!["summary"]!.ToString());
             Assert.Equal("revise", command.Kind);
             var next = JsonSerializer.Deserialize(JsonSerializer.Serialize(snapshot, PlanningJsonContext.Default.PlanningSnapshot), PlanningJsonContext.Default.PlanningSnapshot)!;
@@ -213,9 +213,14 @@ public sealed class PlanningSessionLifecycleTests
     {
         var options = new LLMOptions { DefaultProvider = "openai", DefaultModel = "gpt-4o-mini" };
         var runtime = new SecureWorkflowRuntimeFactory(SmartFlowTestFactory.CreateRuntimeOptionsStore(options), new FakeKeyVaultRuntimeConfigStore().WithEffectiveOptions(options),
-            mcpClientFactoryOverride: new FakeMcpClientFactory(agents), llmClientOverride: llm);
+            mcpClientFactoryOverride: new FakeMcpClientFactory(agents), llmClientOverride: llm, llmCapabilityResolver: new DeclaredTestModel());
         return new(fixture.Store, fixture, fixture.Records, runtime, planner, new TestExchangeRateProvider(), Options.Create(new WorkflowPlanningBudgetSettings()),
             Options.Create(settings ?? new TypedWorkflowPlanningSettings()), Options.Create(new OpenTelemetrySettings { TenantId = "planning-tests" }), NullLogger<PlanningSessionService>.Instance);
+    }
+    private sealed class DeclaredTestModel : ILLMCapabilityResolver
+    {
+        public Task<bool?> SupportsStructuredOutputAsync(string? provider, string model, CancellationToken ct) => Task.FromResult<bool?>(true);
+        public Task<IReadOnlyList<string>?> SupportedReasoningLevelsAsync(string? provider, string model, CancellationToken ct) => Task.FromResult<IReadOnlyList<string>?>(["low", "medium"]);
     }
     internal static async Task WaitForStatus(PlanningSessionService service, string id, string status)
     {

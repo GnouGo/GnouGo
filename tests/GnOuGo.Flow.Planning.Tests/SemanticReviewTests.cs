@@ -35,9 +35,9 @@ public sealed class SemanticReviewTests
     [InlineData("fixtures", false)]
     [InlineData("behavior", false)]
     [InlineData("external", false)]
-    public void InvalidReviewTargetsRequireUnchangedEvidenceBeforeAssessmentOnlyRecovery(string change, bool allowed)
+    public async Task TechnicalStopsDoNotReassessUnlocatedFindingsOrResetAllowances(string change, bool _)
     {
-        var state = Session(PlanningStatus.Recovery); state.Graph = Graph(); state.Preparation = Preparation();
+        var state = Session(PlanningStatus.Stopped); state.Graph = Graph(); state.Preparation = Preparation();
         state.Preparation.Capabilities.Add(new() { Id = "local", StepType = "set", Resolution = change == "external" ? "mcp" : "local" });
         state.Graph.Workflows[0].Steps[0].CapabilityId = "local";
         PlanningFixtures.Accept(state);
@@ -53,11 +53,13 @@ public sealed class SemanticReviewTests
         if (change == "fixtures") state.Validation.Inputs = new JsonObject { ["changed"] = true };
         if (change == "behavior") state.Diagnostics[0] = state.Diagnostics[0] with { Location = "/workflows/0/behavior" };
         var before = PlanningGraphCompiler.Fingerprint(state.Graph);
-        Assert.Equal(allowed, PlanningSemanticReview.ReassessInvalidTargets(state));
-        Assert.Equal(before, PlanningGraphCompiler.Fingerprint(state.Graph));
+        var runtime = new FakeRuntime();
+        var stopped = await new TypedWorkflowPlanner().AdvanceAsync(state, new() { ExpectedRevision = state.Revision }, runtime, TestContext.Current.CancellationToken);
+        Assert.Equal(state.Revision, stopped.Revision); Assert.Empty(runtime.Requests);
+        Assert.Equal(before, PlanningGraphCompiler.Fingerprint(stopped.Graph!));
         Assert.Equal(2, Assert.Single(state.RepairAllowances).Attempts);
         Assert.Equal(2, state.Diagnostics.Count);
-        if (allowed) Assert.Equal(1, state.Validation.Assessment.Attempts);
+
     }
 
     [Fact]
@@ -183,93 +185,82 @@ public sealed class SemanticReviewTests
     [Theory]
     [InlineData("Restore each affected component", "Remove all temporary resources")]
     [InlineData("Restaurer chaque composant concerné", "Supprimer toutes les ressources temporaires")]
-    public async Task EvidenceRepairCannotDropFindingsOrTreatGeneratedQuestionsAsIntent(string requirement, string cleanup)
+    public async Task ExactEvidenceCorrectionsPreserveValidFindingsAndExcludeGeneratedQuestionText(string requirement, string cleanup)
     {
         var state = Session(PlanningStatus.Validating); state.Graph = Graph(); state.Preparation = Preparation();
         state.Request.Prompt = requirement + "\n" + cleanup;
         state.Intent.Answers.Add(new("Invented materialized context", new JsonObject { ["answer"] = "yes" }));
-        var calls = 0; var runtime = new FakeRuntime
-        {
-            OnCall = (_, request, _) =>
+        var calls = 0; string? retainedDecision = null; JsonNode? retainedFinding = null;
+        var runtime = new FakeRuntime { OnCall = (_, request, _) =>
         {
             calls++;
-            if (calls == 2)
+            var answer = new JsonObject();
+            foreach (var field in request.StructuredOutputSchema!["properties"]!.AsObject())
             {
-                Assert.Single(request.StructuredOutputSchema!["properties"]!.AsObject());
-                var allowed = request.StructuredOutputSchema["properties"]!["finding_1_evidence"]!["enum"]!.AsArray().Select(v => v!.GetValue<string>());
-                Assert.DoesNotContain("Invented materialized context", allowed); Assert.Contains(requirement, allowed);
-                Assert.DoesNotContain("Graph:", request.Prompt);
-                return Task.FromResult(new LLMResponse { Json = new JsonObject { ["finding_1_evidence"] = requirement } });
-            }
-            return Task.FromResult(new LLMResponse
-            {
-                Json = new JsonObject
+                if (calls == 1)
                 {
-                    ["findings"] = new JsonArray(
-                Finding("CLEANUP", cleanup), Finding("OBSERVATION", "Invented materialized context"))
+                    var domain = field.Value!["anyOf"]![1]!["properties"]!;
+                    var finding = new JsonObject { ["status"] = "finding", ["rule"] = "coverage", ["target"] = domain["target"]!["enum"]![0]!.DeepClone(),
+                        ["evidence"] = retainedDecision is null ? domain["evidence"]!["enum"]![0]!.DeepClone() : JsonValue.Create("unissued_evidence"), ["message"] = "Preserve the stated obligation." };
+                    if (retainedDecision is null) { retainedDecision = field.Key; retainedFinding = finding.DeepClone(); }
+                    answer[field.Key] = finding;
                 }
-            });
-        }
-        };
-        PlanningFixtures.Accept(state);
-        state = await new TypedWorkflowPlanner().AdvanceAsync(state, new() { ExpectedRevision = state.Revision }, runtime, TestContext.Current.CancellationToken);
-        Assert.Equal(2, calls);
-        Assert.Contains(state.Diagnostics, d => d.Code == "CLEANUP"); Assert.Contains(state.Diagnostics, d => d.Code == "OBSERVATION");
-        Assert.DoesNotContain(state.Diagnostics, d => d.Code.StartsWith("SEMANTIC_REVIEW", StringComparison.Ordinal));
-        JsonObject Finding(string code, string evidence) => new()
-        {
-            ["code"] = code,
-            ["workflow"] = "main",
-            ["location"] = "/workflows/0/steps/0/input/members/0/value",
-            ["message"] = code + " must preserve the requirement.",
-            ["evidence"] = evidence,
-            ["blocking"] = true
-        };
+                else
+                {
+                    Assert.NotEqual(retainedDecision, field.Key);
+                    var repairField = Assert.Single(field.Value!["properties"]!.AsObject());
+                    Assert.StartsWith("f_", repairField.Key);
+                    Assert.All(repairField.Value!["enum"]!.AsArray(), value => Assert.StartsWith("r_", value!.ToString()));
+                    answer[field.Key] = new JsonObject { [repairField.Key] = repairField.Value["enum"]![0]!.DeepClone() };
+                }
+            }
+            Assert.DoesNotContain("Invented materialized context", request.StructuredOutputSchema.ToJsonString());
+            return Task.FromResult(new LLMResponse { Json = answer });
+        } };
+        var fingerprint = PlanningGraphCompiler.Fingerprint(state.Graph);
+        var findings = await new PlanningSemanticReview().ReviewAsync(state, state.Graph, runtime, TestContext.Current.CancellationToken);
+        Assert.Equal(2, calls); Assert.Equal(2, findings.Count);
+        Assert.True(JsonNode.DeepEquals(retainedFinding, state.DecisionPages.First().Candidate![retainedDecision!]));
+        Assert.Equal(fingerprint, PlanningGraphCompiler.Fingerprint(state.Graph));
     }
 
     [Theory]
     [InlineData(false, false)]
     [InlineData(true, false)]
     [InlineData(false, true)]
-    public async Task InvalidAssessmentRepairsItsEvidenceOrPausesWithoutEditingTheExecutable(bool invalidWorkflow, bool exhausted)
+    public async Task SemanticRepairsCanChangeOnlyTheInvalidReference(bool invalidTarget, bool exhausted)
     {
         var state = Session(PlanningStatus.Validating); state.Graph = Graph(); state.Preparation = Preparation();
-        var original = PlanningGraphCompiler.Fingerprint(state.Graph); var calls = 0;
-        var runtime = new FakeRuntime
+        var fingerprint = PlanningGraphCompiler.Fingerprint(state.Graph); var calls = 0;
+        var runtime = new FakeRuntime { OnCall = (_, request, _) =>
         {
-            OnCall = (phase, request, _) =>
-        {
-            Assert.Equal("semantic_review", phase); calls++;
-            if (calls == 2) Assert.Contains("assessment contract only", request.Prompt);
-            if (calls == 2 && !invalidWorkflow)
-                return Task.FromResult(new LLMResponse { Json = new JsonObject { ["finding_0_evidence"] = exhausted ? "invented request evidence" : "Return a greeting" } });
-            return Task.FromResult(new LLMResponse
+            calls++; var answer = new JsonObject(); var first = true;
+            foreach (var field in request.StructuredOutputSchema!["properties"]!.AsObject())
             {
-                Json = new JsonObject
+                if (calls == 1 && first)
                 {
-                    ["findings"] = new JsonArray(new JsonObject
-                    {
-                        ["code"] = "SEMANTIC_NOTE",
-                        ["workflow"] = invalidWorkflow && calls == 1 ? "invented" : "main",
-                        ["location"] = "/workflows/0/steps/0/input/members/0/value",
-                        ["evidence"] = !invalidWorkflow && (calls == 1 || exhausted) ? "invented request evidence" : "Return a greeting",
-                        ["message"] = "The greeting requirement is explicitly retained.",
-                        ["blocking"] = false
-                    })
+                    var domain = field.Value!["anyOf"]![1]!["properties"]!;
+                    answer[field.Key] = new JsonObject { ["status"] = "finding", ["rule"] = "coverage", ["message"] = "The accepted obligation must be retained.",
+                        ["target"] = invalidTarget ? JsonValue.Create("unissued_target") : domain["target"]!["enum"]![0]!.DeepClone(),
+                        ["evidence"] = invalidTarget ? domain["evidence"]!["enum"]![0]!.DeepClone() : JsonValue.Create("unissued_evidence") };
                 }
-            });
-        }
-        };
-        PlanningFixtures.Accept(state);
-        state = await new TypedWorkflowPlanner().AdvanceAsync(state, new() { ExpectedRevision = state.Revision }, runtime, TestContext.Current.CancellationToken);
-        Assert.Equal(2, calls); Assert.Equal(1, state.RepairAllowances.Sum(a => a.Attempts));
-        Assert.Equal(original, PlanningGraphCompiler.Fingerprint(state.Graph!));
-        Assert.Equal(exhausted ? PlanningStatus.Recovery : PlanningStatus.FinalReview, state.Status);
+                else if (calls == 1) answer[field.Key] = new JsonObject { ["status"] = "passed" };
+                else
+                {
+                    var target = Assert.Single(field.Value!["properties"]!.AsObject());
+                    answer[field.Key] = exhausted ? new JsonObject { ["status"] = "passed" } : new JsonObject { [target.Key] = target.Value!["enum"]![0]!.DeepClone() };
+                }
+                first = false;
+            }
+            return Task.FromResult(new LLMResponse { Json = answer });
+        } };
         if (exhausted)
         {
-            Assert.Equal("semantic_review", state.CurrentPhase);
-            Assert.Contains(state.Diagnostics, d => d.Code == "SEMANTIC_REVIEW_EVIDENCE_INVALID");
-            Assert.DoesNotContain(state.Diagnostics, d => d.Code == "GRAPH_VALIDATION");
+            var error = await Assert.ThrowsAsync<GnOuGo.Flow.Core.Expressions.WorkflowRuntimeException>(() => new PlanningSemanticReview().ReviewAsync(state, state.Graph, runtime, TestContext.Current.CancellationToken));
+            Assert.Equal("DECISION_CORRECTION_INVALID", error.Code);
         }
+        else Assert.Single(await new PlanningSemanticReview().ReviewAsync(state, state.Graph, runtime, TestContext.Current.CancellationToken));
+        Assert.Equal(2, calls); Assert.Equal(1, state.RepairAllowances.Sum(a => a.Attempts));
+        Assert.Equal(fingerprint, PlanningGraphCompiler.Fingerprint(state.Graph));
     }
 }

@@ -18,133 +18,124 @@ public sealed class IntentClarificationTests
         return new() { OnCall = (_, _, _) => Task.FromResult(new LLMResponse { Json = responses[Math.Min(index++, responses.Length - 1)]?.DeepClone(), Text = "{malformed" }) };
     }
 
-    [Fact]
-    public async Task RecordedQuotedMultipleExcerpts_AreRepaired_AndAllThreeQuestionsReachTheForm()
-    {
-        var repaired = IntentClarificationFixture.Questions();
-        repaired["evidence"] = IntentClarificationFixture.Evidence("Review a proposed change.");
-        repaired["evidence"]!.AsArray().Add(IntentClarificationFixture.Evidence("Run available checks.")[0]!.DeepClone());
-        var runtime = Responses(IntentClarificationFixture.QuotedQuestions(), repaired);
-        var result = await Send(Session(), runtime);
-        Assert.Equal(PlanningStatus.Clarification, result.Status);
-        Assert.Equal(3, result.Intent.Question!.Fields!.Count);
-        Assert.Equal(new[] { "choice_0", "choice_1", "choice_2" }, result.Intent.Question.Fields.Select(f => f.Name));
-        Assert.All(result.Intent.Question.Fields, field => Assert.Equal(2, field.OptionDefinitions!.Count));
-        Assert.Equal(new[] { "intent", "intent_repair" }, runtime.Phases);
-        Assert.True(JsonNode.DeepEquals(runtime.Requests[0].StructuredOutputSchema, runtime.Requests[1].StructuredOutputSchema));
-        Assert.Contains("INTENT_SCHEMA_INVALID", runtime.Requests[1].Prompt);
-        Assert.Equal(1, result.Intent.Forms);
-        Assert.Equal(3, result.Intent.Questions);
-        Assert.Empty(result.Diagnostics);
-        Assert.Contains(result.Events, e => e.Kind == "intent_repair_succeeded");
-    }
-
     [Theory]
-    [InlineData("Review a proposed change. Run available checks.")]
-    [InlineData("Examiner une modification proposée. Exécuter les contrôles disponibles.")]
-    [InlineData("Revisar un cambio propuesto. Ejecutar las comprobaciones disponibles.")]
-    public async Task EquivalentLanguages_UseLiteralSourceEvidence(string prompt)
+    [InlineData("Choose a publishing policy.")]
+    [InlineData("Choisir une politique de publication.")]
+    [InlineData("Elegir una política de publicación.")]
+    public async Task BusinessChoicesUseOwnedEvidenceAndWaitForDiscovery(string prompt)
     {
         var state = Session(); state.Request.Prompt = prompt;
-        var runtime = Responses(IntentClarificationFixture.Questions(prompt));
-        var result = await Send(state, runtime);
-        Assert.Equal(PlanningStatus.Clarification, result.Status);
-        Assert.Single(runtime.Requests);
+        var runtime = ClarificationRuntime();
+        state = await Send(state, runtime);
+        Assert.True(state.Intent.Checked); Assert.Null(state.Intent.Question);
+        Assert.Equal(0, runtime.PreparationCalls);
+        state = await Send(state, runtime);
+        Assert.Equal(PlanningStatus.Clarification, state.Status); Assert.Equal(1, runtime.PreparationCalls);
+        var outcome = Assert.IsType<PlanningNeedUserClarification>(state.Outcome);
+        var obligation = Assert.Single(state.Obligations);
+        Assert.Equal(obligation.EvidenceReferences, outcome.Decision.EvidenceReferences);
+        Assert.Equal(prompt, PlanningSourceDecisions.Text(state, obligation));
+        Assert.Single(state.Intent.Question!.Fields!); Assert.Equal(1, state.Intent.Forms);
+        Assert.All(runtime.Requests, request =>
+        {
+            Assert.DoesNotContain("excerpt", request.StructuredOutputSchema!.ToJsonString());
+            Assert.InRange(PlanningJsonTransport.EstimateInputTokens(request.Prompt, request.StructuredOutputSchema.AsObject()), 1, 9600);
+        });
     }
 
     [Theory]
-    [InlineData("invented")]
-    [InlineData("unknown_source")]
-    [InlineData("wrong_source")]
-    [InlineData("host_only")]
-    [InlineData("model_question")]
-    [InlineData("options")]
-    [InlineData("id")]
-    [InlineData("malformed")]
-    public async Task InvalidContracts_ExhaustTwoCalls_AndPauseWithoutLosingTheSession(string defect)
+    [InlineData("external_read")]
+    [InlineData("external_execute")]
+    [InlineData("resource_lifecycle")]
+    [InlineData("local_processing")]
+    public async Task RuntimeFactsAndImplementationWorkCannotBecomeBusinessQuestions(string kind)
     {
         var state = Session();
-        state.Request.Options["policy"] = new JsonObject { ["instructions"] = "Keep all approvals." };
-        state.Intent.Answers.Add(new("Model-written question", new JsonObject { ["prior"] = "yes" })); state.Intent.Forms = 1; state.Intent.Questions = 1;
-        var json = IntentClarificationFixture.Questions();
-        switch (defect)
-        {
-            case "invented": json["evidence"] = IntentClarificationFixture.Evidence("Invented behavior"); break;
-            case "unknown_source": json["evidence"] = IntentClarificationFixture.Evidence(state.Request.Prompt, "missing"); break;
-            case "wrong_source": json["evidence"] = IntentClarificationFixture.Evidence(state.Request.Prompt, "answer_0_0"); break;
-            case "host_only": json["evidence"] = IntentClarificationFixture.Evidence("Keep all approvals.", "host"); break;
-            case "model_question": json["evidence"] = IntentClarificationFixture.Evidence("Model-written question", "answer_0_0"); break;
-            case "options": json["questions"]![0]!["options"]![1]!["value"] = "first"; break;
-            case "id": json["questions"]![1]!["id"] = "choice_0"; break;
-        }
-        var runtime = Responses(defect == "malformed" ? null : json);
-        var result = await Send(state, runtime);
-        Assert.Equal(PlanningStatus.Recovery, result.Status);
-        Assert.True(PlanningStatus.IsWaiting(result.Status));
-        Assert.False(PlanningStatus.IsTerminal(result.Status));
-        Assert.Null(result.Outcome);
-        Assert.NotNull(result.WaitingSinceUtc);
-        Assert.Null(result.Intent.Question);
-        Assert.Null(result.Graph);
-        Assert.False(result.Intent.Checked);
-        Assert.Equal(state.Request.SessionId, result.Request.SessionId);
-        Assert.Equal(2, runtime.Requests.Count);
-        Assert.NotEmpty(result.Diagnostics);
-        Assert.Equal(1, result.Intent.Forms); // Retained answer, no invalid form counted.
-        var paused = await Send(result, runtime);
-        Assert.Equal(result.Revision, paused.Revision);
-        Assert.Equal(2, runtime.Requests.Count);
-    }
-
-    [Fact]
-    public async Task SchemaAndSemanticFailures_ShareOneRepairAllowance()
-    {
-        var badEvidence = IntentClarificationFixture.Questions();
-        badEvidence["evidence"] = IntentClarificationFixture.Evidence("Not in the request");
-        var runtime = Responses(new JsonObject(), badEvidence, IntentClarificationFixture.Questions());
-        var result = await Send(Session(), runtime);
-        Assert.Equal(PlanningStatus.Recovery, result.Status);
-        Assert.Equal(2, runtime.Requests.Count);
-        Assert.Contains(result.Diagnostics, d => d.Location == "/evidence/0");
+        var runtime = ClarificationRuntime(kind);
+        state = await Send(state, runtime); state = await Send(state, runtime);
+        Assert.Null(state.Outcome); Assert.Null(state.Intent.Question);
+        Assert.DoesNotContain("clarification", runtime.Phases); Assert.Equal(0, state.Intent.Questions);
     }
 
     [Theory]
-    [InlineData("ready")]
-    [InlineData("drop")]
-    [InlineData("options")]
-    [InlineData("prompt")]
-    public async Task RepairCannotDiscardOrChangePreviouslyValidQuestions(string regression)
+    [InlineData("foreign")]
+    [InlineData("quoted")]
+    [InlineData("offset")]
+    [InlineData("unknown_field")]
+    public async Task EvidenceTranscriptionAndForeignSelectionsAreRejectedBeforeStaging(string defect)
     {
-        var original = IntentClarificationFixture.Questions();
-        original["evidence"] = IntentClarificationFixture.Evidence("Invented evidence");
-        var repaired = IntentClarificationFixture.Questions();
-        switch (regression)
+        var state = Session(); var runtime = new TypedPlannerTests.FakeRuntime { OnCall = (phase, request, _) =>
         {
-            case "ready": repaired = IntentClarificationFixture.Ready(); break;
-            case "drop": repaired["questions"]!.AsArray().RemoveAt(2); break;
-            case "options": repaired["questions"]![0]!["options"]![0]!["value"] = "changed"; break;
-            case "prompt": repaired["questions"]![0]!["prompt"] = "Changed question"; break;
-        }
-        var result = await Send(Session(), Responses(original, repaired));
-        Assert.Equal(PlanningStatus.Recovery, result.Status);
-        Assert.Contains(result.Diagnostics, d => d.Code == "INTENT_REPAIR_REGRESSION");
+            if (phase.EndsWith("_repair", StringComparison.Ordinal)) return Task.FromResult(new LLMResponse { Json = new JsonObject(request.StructuredOutputSchema!["properties"]!.AsObject().Select(p => new KeyValuePair<string, JsonNode?>(p.Key,
+                new JsonObject(p.Value!["properties"]!.AsObject().Select(f => new KeyValuePair<string, JsonNode?>(f.Key, JsonValue.Create("invalid"))))))) });
+            var response = TypedPlannerTests.FakeRuntime.Interpret(request);
+            var item = response.First().Value![0]!.AsObject();
+            if (defect == "foreign") item["start"] = "foreign_reference";
+            if (defect == "quoted") item["excerpt"] = state.Request.Prompt + "s";
+            if (defect == "offset") item["start"] = 0;
+            if (defect == "unknown_field") item["operationId"] = "invented";
+            Assert.NotEmpty(PlanningContractValidation.ValidateInstance(response, request.StructuredOutputSchema!.AsObject()));
+            return Task.FromResult(new LLMResponse { Json = response });
+        } };
+        state = await Send(state, runtime);
+        Assert.Equal(PlanningStatus.Stopped, state.Status); Assert.True(PlanningStatus.IsTerminal(state.Status));
+        Assert.False(PlanningStatus.IsWaiting(state.Status)); Assert.Null(state.WaitingSinceUtc);
+        Assert.Null(state.Outcome); Assert.NotNull(state.TechnicalStop); Assert.Null(state.Graph); Assert.Empty(state.Obligations);
+        Assert.Equal(defect is "quoted" or "unknown_field" ? 1 : 2, runtime.Requests.Count);
+        Assert.Equal(defect is "quoted" or "unknown_field" ? 0 : 1, state.DecisionCorrections.Count);
+        var stopped = await Send(PlanningContext.Clone(state), runtime);
+        Assert.Equal(state.Revision, stopped.Revision); Assert.Equal(defect is "quoted" or "unknown_field" ? 1 : 2, runtime.Requests.Count);
     }
 
     [Fact]
-    public async Task TargetedSemanticRepair_PreservesQuestions_AndProvidesExactDiagnosticPaths()
+    public async Task HostPoliciesCannotSupplyBusinessClarificationEvidence()
     {
-        var invalid = IntentClarificationFixture.Questions();
-        invalid["questions"]![1]!["evidence"] = IntentClarificationFixture.Evidence("« " + IntentClarificationFixture.Prompt + " »");
-        var runtime = Responses(invalid, IntentClarificationFixture.Questions());
-        var result = await Send(Session(), runtime);
-        Assert.Equal(PlanningStatus.Clarification, result.Status);
-        Assert.Contains("/questions/1/evidence/0", runtime.Requests[1].Prompt);
+        var state = Session(); state.Request.Options["policy"] = new JsonObject { ["instructions"] = "A host policy." };
+        var references = PlanningReferences.Register(state, "host", "host_constraint", "A host policy.");
+        state.Obligations = [new("business", references.Select(r => r.Id).ToList(), "business_decision", "business_choice", true)];
+        var runtime = ClarificationRuntime();
+        var error = await Assert.ThrowsAsync<GnOuGo.Flow.Core.Expressions.WorkflowRuntimeException>(() => PlanningClarifications.AskAfterDiscoveryAsync(state, runtime, Ct));
+        Assert.Equal("CLARIFICATION_EVIDENCE_UNPROVEN", error.Code); Assert.Empty(runtime.Requests); Assert.Null(state.Outcome);
+    }
+
+    [Fact]
+    public async Task AnswersContinueTheSameSessionWithValidatedSchemaAndCumulativeAllowances()
+    {
+        var runtime = ClarificationRuntime(); var state = await Send(Session(), runtime); state = await Send(state, runtime);
+        var question = Assert.IsType<PlanningNeedUserClarification>(state.Outcome).Decision;
+        var planner = new TypedWorkflowPlanner();
+        await Assert.ThrowsAsync<PlanningConflictException>(() => planner.AdvanceAsync(state, new() { Kind = "answer", ExpectedRevision = state.Revision,
+            Answers = new JsonObject { [question.DecisionId] = 123 } }, runtime, Ct));
+        var next = await planner.AdvanceAsync(state, new() { Kind = "answer", ExpectedRevision = state.Revision,
+            Answers = new JsonObject { [question.DecisionId] = "choice_1" } }, runtime, Ct);
+        Assert.Equal(state.Request.SessionId, next.Request.SessionId); Assert.Equal(1, next.Intent.Forms); Assert.Null(next.Outcome);
+        Assert.Equal("Ask before publishing", Assert.Single(next.Intent.Answers).Answers[question.DecisionId]!.ToString());
+        Assert.Equal(state.RequestAccounting.Count, next.RequestAccounting.Count);
+        await Assert.ThrowsAsync<PlanningConflictException>(() => planner.AdvanceAsync(next, new() { Kind = "answer", ExpectedRevision = state.Revision,
+            Answers = new JsonObject { [question.DecisionId] = "choice_0" } }, runtime, Ct));
+    }
+
+    private static TypedPlannerTests.FakeRuntime ClarificationRuntime(string kind = "business_choice")
+    {
+        var runtime = new TypedPlannerTests.FakeRuntime { OnCall = (phase, request, _) =>
+        {
+            JsonObject answer = phase == "intent" ? TypedPlannerTests.FakeRuntime.Interpret(request, kind)
+                : new(request.StructuredOutputSchema!["properties"]!.AsObject().Select(p => new KeyValuePair<string, JsonNode?>(p.Key,
+                    new JsonObject { ["question"] = "Choose the publishing policy", ["first"] = "Publish automatically", ["second"] = "Ask before publishing" })));
+            return Task.FromResult(new LLMResponse { Json = answer });
+        } };
+        runtime.OnPrepareSnapshot = async state =>
+        {
+            await PlanningClarifications.AskAfterDiscoveryAsync(state, runtime, Ct);
+            return TypedPlannerTests.Preparation();
+        };
+        return runtime;
     }
 
     [Fact]
     public async Task EditedRecovery_ArchivesAnswersAndDiagnostics_PreservesBudgets_AndRejectsStaleCommands()
     {
-        var state = Session(); state.Status = PlanningStatus.Recovery;
+        var state = Session(); state.Status = PlanningStatus.Stopped;
         state.Intent.Answers.Add(new("Prior question", new JsonObject { ["answer"] = "Prior answer" })); state.Intent.Forms = 1; state.Intent.Questions = 1;
         state.Diagnostics.Add(new("INTENT_EVIDENCE_INVALID", "/evidence", "Invalid evidence"));
         state.Request.Options["policy"] = new JsonObject { ["instructions"] = "Keep approvals" };
@@ -152,7 +143,7 @@ public sealed class IntentClarificationTests
         state.ActiveMilliseconds = 4321;
         state.WaitingSinceUtc = DateTimeOffset.UtcNow.AddHours(-2);
         var originalUsage = JsonSerializer.Serialize(state.Usage, PlanningJsonContext.Default.LLMUsageBudgetSnapshot);
-        var runtime = Responses(IntentClarificationFixture.Ready());
+        var runtime = new TypedPlannerTests.FakeRuntime();
         var edited = await Send(state, runtime, "edit_intent", "Return a greeting");
         Assert.Equal(state.Request.SessionId, edited.Request.SessionId);
         Assert.Equal("Keep approvals", edited.Request.Options["policy"]!["instructions"]!.GetValue<string>());

@@ -85,7 +85,9 @@ public static class BuiltInStepContracts
                 inputRequired: true),
             ["workflow.plan"] = Contract(
                 WorkflowPlanInput(),
-                Object(("workflow", OpenObject()), ("yaml", String()), ("meta", OpenObject()), ("diagnostics", Array(Any()))),
+                Object(("workflow", OpenObject()), ("yaml", String()), ("meta", OpenObject()), ("diagnostics", Array(Any())),
+                    ("status", String()), ("session_id", String()), ("revision", Integer()), ("artifact_hash", String()),
+                    ("outcome", OpenObject()), ("question", OpenObject())),
                 inputRequired: true),
             ["workflow.execute"] = Contract(
                 Object(new[] { "from_step" }, ("from_step", String()), ("args", Any())),
@@ -223,7 +225,8 @@ public static class BuiltInStepContracts
                     ("request_bindings", CapabilityRequestBindings()))))))))),
         ("generator", Object(
             ("provider", String()), ("model", String()),
-            ("reasoning", Enum("minimal", "low", "medium", "high", "max")),
+            ("reasoning_profile", Object(("routine", Enum("minimal", "low", "medium", "high", "max")),
+                ("behavior", Enum("minimal", "low", "medium", "high", "max")), ("semantic_review", Enum("minimal", "low", "medium", "high", "max")))),
             ("max_input_tokens", PositiveInteger()), ("max_output_tokens", PositiveInteger()))),
         ("max_concurrency", PositiveInteger()),
         ("max_repairs_per_workflow_gate", new JsonObject { ["type"] = "integer", ["minimum"] = 0, ["maximum"] = 10, ["default"] = 5 }),

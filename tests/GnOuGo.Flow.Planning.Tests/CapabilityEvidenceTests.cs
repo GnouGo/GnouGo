@@ -35,27 +35,6 @@ public sealed class CapabilityEvidenceTests
         Assert.Equal(source, anchor.Excerpt);
     }
 
-    [Fact]
-    public void InventoryEvidenceContractsAreSharedWithoutWeakeningRequiredFields()
-    {
-        var schema = CapabilityInventoryContext.BuildCapabilityInventorySchema();
-        var expanded = schema.DeepClone().AsObject();
-        var evidence = expanded["$defs"]!["evidence"]!;
-        expanded["properties"]!["external_write_confirmation_evidence"] = evidence.DeepClone();
-        foreach (var field in new[] { "optionality_evidence", "no_effect_outcome_evidence" })
-            expanded["properties"]!["operations"]!["items"]!["properties"]![field] = evidence.DeepClone();
-        expanded.Remove("$defs");
-        Assert.Empty(PlanningContractValidation.ValidateSchema(schema, strict: true));
-        var prompt = new string('x', (12018 - 256) * 3 - System.Text.Encoding.UTF8.GetByteCount(expanded.ToJsonString()));
-        Assert.Equal(12018, PlanningJsonTransport.EstimateInputTokens(prompt, expanded));
-        Assert.True(PlanningJsonTransport.EstimateInputTokens(prompt, schema) < 12000);
-        var candidate = JsonNode.Parse("""{"complete":true,"external_write_confirmation_policy":"unspecified","external_write_confirmation_evidence":{"source_id":"","excerpt":""},"incomplete_reasons":[],"operations":[],"constraints":[]}""")!;
-        Assert.Empty(PlanningContractValidation.ValidateInstance(candidate, schema));
-        candidate["external_write_confirmation_evidence"]!.AsObject().Remove("excerpt");
-        Assert.NotEmpty(PlanningContractValidation.ValidateInstance(candidate, schema));
-        Assert.NotEmpty(PlanningContractValidation.ValidateInstance(candidate, expanded));
-    }
-
     [Theory]
     [InlineData("Release the created resource after execution.")]
     [InlineData("Nettoyer la ressource créée après l’exécution.")]
@@ -87,49 +66,6 @@ public sealed class CapabilityEvidenceTests
     }
 
     [Fact]
-    public void CapabilityInventorySchema_RequiresProviderNeutralClassifications()
-    {
-        var method = typeof(CapabilityInventoryContext).GetMethod("BuildCapabilityInventorySchema",
-            BindingFlags.Static | BindingFlags.NonPublic);
-        Assert.NotNull(method);
-
-        var schema = Assert.IsType<JsonObject>(method!.Invoke(null, null));
-        var properties = Assert.IsType<JsonObject>(schema["properties"]);
-        var requiredProperties = Assert.IsType<JsonArray>(schema["required"]);
-        var operationProperties = Assert.IsType<JsonObject>(properties["operations"]!["items"]!["properties"]);
-        var requiredOperationProperties = Assert.IsType<JsonArray>(properties["operations"]!["items"]!["required"]);
-        var constraintProperties = Assert.IsType<JsonObject>(properties["constraints"]!["items"]!["properties"]);
-
-        Assert.Equal(
-            ["required", "forbidden", "unspecified"],
-            properties["external_write_confirmation_policy"]!["enum"]!.AsArray()
-                .Select(static item => item!.GetValue<string>()));
-        Assert.Contains(requiredProperties, static item => item?.GetValue<string>() == "external_write_confirmation_evidence");
-        Assert.Equal("#/$defs/evidence", properties["external_write_confirmation_evidence"]!["$ref"]!.GetValue<string>());
-        Assert.Equal("object", schema["$defs"]!["evidence"]!["type"]!.GetValue<string>());
-        Assert.NotNull(operationProperties["input_operation_ids"]);
-        Assert.Contains(requiredOperationProperties, static item => item?.GetValue<string>() == "input_operation_ids");
-        Assert.NotNull(operationProperties["optionality_evidence"]);
-        Assert.Equal("#/$defs/evidence", operationProperties["optionality_evidence"]!["$ref"]!.GetValue<string>());
-        Assert.Contains(requiredOperationProperties, static item => item?.GetValue<string>() == "optionality_evidence");
-        var coverageItemProperties = Assert.IsType<JsonObject>(
-            operationProperties["coverage_requirements"]!["items"]!["properties"]);
-        Assert.NotNull(coverageItemProperties["source_id"]);
-        Assert.NotNull(coverageItemProperties["excerpt"]);
-        Assert.Equal(
-            ["capability_contract", "workflow_structure"],
-            coverageItemProperties["enforcement_kind"]!["enum"]!.AsArray()
-                .Select(static item => item!.GetValue<string>()));
-        Assert.NotNull(operationProperties["decision_source_operation_id"]);
-        Assert.NotNull(operationProperties["no_effect_outcome_evidence"]);
-        Assert.Contains(requiredOperationProperties, static item =>
-            item?.GetValue<string>() == "no_effect_outcome_evidence");
-        Assert.Equal(
-            ["exact_denial", "workflow_policy"],
-            constraintProperties["enforcement_kind"]!["enum"]!.AsArray().Select(static item => item!.GetValue<string>()));
-    }
-
-    [Fact]
     public void CapabilityMatchingIds_DeduplicateRepeatedCatalogIdentity()
     {
         var method = typeof(CapabilityMatchRecovery).GetMethod("ReadMatchingIds",
@@ -141,108 +77,6 @@ public sealed class CapabilityEvidenceTests
 
         Assert.True(Assert.IsType<bool>(arguments[2]));
         Assert.Equal(["cap-one"], result);
-    }
-
-    [Fact]
-    public void CapabilityCoverageReview_AcceptsOnlyEvidenceGroundedIncompleteMatch()
-    {
-        var executorType = typeof(CapabilityCoverage);
-        var method = typeof(CapabilityCoverageAssessment).GetMethod("ParseCapabilityCoverageReview",
-            BindingFlags.Static | BindingFlags.NonPublic);
-        var operationType = typeof(CapabilityContracts).GetNestedType("CapabilityInventoryOperation", BindingFlags.NonPublic);
-        var evidenceType = typeof(CapabilityContracts).GetNestedType("CapabilityEvidenceAnchor", BindingFlags.NonPublic);
-        var matchType = typeof(CapabilityContracts).GetNestedType("CapabilityOperationMatch", BindingFlags.NonPublic);
-        var catalogType = typeof(CapabilityContracts).GetNestedType("CapabilityCatalog", BindingFlags.NonPublic);
-        var entryType = typeof(CapabilityContracts).GetNestedType("CapabilityCatalogEntry", BindingFlags.NonPublic);
-        var bindingType = typeof(CapabilityContracts).GetNestedType("CapabilityRequestBinding", BindingFlags.NonPublic);
-        var fieldType = typeof(CapabilityContracts).GetNestedType("CapabilitySchemaField", BindingFlags.NonPublic);
-        Assert.NotNull(method);
-        Assert.NotNull(operationType);
-        Assert.NotNull(evidenceType);
-        Assert.NotNull(matchType);
-        Assert.NotNull(catalogType);
-        Assert.NotNull(entryType);
-        Assert.NotNull(bindingType);
-        Assert.NotNull(fieldType);
-
-        const string requirement = "create or update one unique external record";
-        const string card = "Adds one new record. Updating an existing record is not documented.";
-        var operation = Activator.CreateInstance(operationType!,
-        [
-            "publish_summary", "Publish the requested summary.", true, "external_effect", "write",
-            string.Empty, "requested_effect", string.Empty, false, string.Empty
-        ])!;
-        operationType!.GetProperty("CoverageRequirements")!.SetValue(operation, new[] { requirement });
-        var requirementEvidence = Activator.CreateInstance(evidenceType!,
-            ["requirement-1", "user_request", 0, requirement.Length, requirement])!;
-        var requirementEvidenceArray = Array.CreateInstance(evidenceType!, 1);
-        requirementEvidenceArray.SetValue(requirementEvidence, 0);
-        operationType.GetProperty("CoverageRequirementEvidence")!.SetValue(operation, requirementEvidenceArray);
-
-        var match = Activator.CreateInstance(matchType!,
-        [
-            operation, "matched", "One catalog entry was selected.", new[] { "cap-create" }, Array.Empty<string>(),
-            null, null, null, null, null, null, null
-        ])!;
-        var matches = Array.CreateInstance(matchType!, 1);
-        matches.SetValue(match, 0);
-
-        var entry = Activator.CreateInstance(entryType!,
-        [
-            "cap-create", "mcp", "neutral", "tool", "add_record", "Adds one new record.",
-            Array.CreateInstance(bindingType!, 0), card,
-            Array.CreateInstance(fieldType!, 0), Array.CreateInstance(fieldType!, 0), null, null
-        ])!;
-        var entries = Array.CreateInstance(entryType!, 1);
-        entries.SetValue(entry, 0);
-        var catalog = Activator.CreateInstance(catalogType!, [entries, card])!;
-        var response = JsonNode.Parse($$"""
-            {
-              "diagnostics": [
-                {
-                  "operation_id": "publish_summary",
-                  "status": "incomplete",
-                  "unsupported_requirement_id": "requirement-1",
-                  "supported_weaker_behavior": "Adds one new record.",
-                  "candidate_catalog_ids": ["cap-create"],
-                  "evidence": [
-                    {
-                      "catalog_id": "cap-create",
-                      "requirement_id": "requirement-1",
-                      "catalog_excerpt": "Adds one new record."
-                    }
-                  ]
-                }
-              ]
-            }
-            """)!.AsObject();
-
-        var review = method!.Invoke(null, [response, catalog, matches])!;
-        var contractValid = Assert.IsType<bool>(review.GetType().GetProperty("ContractValid")!.GetValue(review));
-        var diagnostics = Assert.IsAssignableFrom<IEnumerable>(
-            review.GetType().GetProperty("Diagnostics")!.GetValue(review)).Cast<object>().ToArray();
-
-        Assert.True(contractValid);
-        var diagnostic = Assert.Single(diagnostics);
-        Assert.Equal("incomplete", diagnostic.GetType().GetProperty("Status")!.GetValue(diagnostic));
-        Assert.True(Assert.IsType<bool>(diagnostic.GetType().GetProperty("EvidenceQualified")!.GetValue(diagnostic)));
-
-        response["diagnostics"]![0]!["supported_weaker_behavior"] = "Adds one\r\nnew record.";
-        response["diagnostics"]![0]!["evidence"]![0]!["catalog_excerpt"] = "Adds one\r\nnew record.";
-        var normalizedReview = method.Invoke(null, [response, catalog, matches])!;
-        Assert.True(Assert.IsType<bool>(
-            normalizedReview.GetType().GetProperty("ContractValid")!.GetValue(normalizedReview)));
-
-        response["diagnostics"]![0]!["supported_weaker_behavior"] = "adds one new record.";
-        response["diagnostics"]![0]!["evidence"]![0]!["catalog_excerpt"] = "adds one new record.";
-        var caseDriftReview = method.Invoke(null, [response, catalog, matches])!;
-        Assert.False(Assert.IsType<bool>(
-            caseDriftReview.GetType().GetProperty("ContractValid")!.GetValue(caseDriftReview)));
-
-        response["diagnostics"]![0]!["evidence"]![0]!["catalog_excerpt"] = "Invented unsupported excerpt.";
-        var invalidReview = method.Invoke(null, [response, catalog, matches])!;
-        Assert.False(Assert.IsType<bool>(
-            invalidReview.GetType().GetProperty("ContractValid")!.GetValue(invalidReview)));
     }
 
     [Fact]

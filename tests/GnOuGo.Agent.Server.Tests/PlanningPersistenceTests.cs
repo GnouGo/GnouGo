@@ -16,7 +16,7 @@ public sealed class PlanningPersistenceTests
     public async Task CompressedSnapshotsPreserveCompleteHistoryAcrossReopen()
     {
         await using var fixture = await StoreFixture.CreateAsync();
-        var state = new PlanningSnapshot { Request = new() { TenantId = "tenant", SessionId = "compressed", Prompt = "PRIVATE_REQUEST" }, Status = PlanningStatus.Recovery, CurrentPhase = "behavior", Usage = new() { Calls = 37, TotalTokens = 15000 }, Intent = new() { Forms = 1, Questions = 3 } };
+        var state = new PlanningSnapshot { Request = new() { TenantId = "tenant", SessionId = "compressed", Prompt = "PRIVATE_REQUEST" }, Status = PlanningStatus.Stopped, CurrentPhase = "behavior", Usage = new() { Calls = 37, TotalTokens = 15000 }, Intent = new() { Forms = 1, Questions = 3 } };
         state.Intent.Answers.Add(new("Retained question", new JsonObject { ["answer"] = "PRIVATE_ANSWER" }));
         for (var i = 0; i < 500; i++) state.Attempts.Add(new("candidate_" + i, "construction", 1, false,
             [new("INVALID_BINDING", "/workflows/0/steps/1/input", "Preserve this complete diagnostic and the original producer contract.")]));
@@ -33,8 +33,8 @@ public sealed class PlanningPersistenceTests
     }
 
     [Theory]
-    [InlineData("gnougo-planning-br4:INVALID_PRIVATE_PAYLOAD")]
-    [InlineData("gnougo-planning-br4:AA==")]
+    [InlineData("gnougo-planning-br5:INVALID_PRIVATE_PAYLOAD")]
+    [InlineData("gnougo-planning-br5:AA==")]
     [InlineData("PRIVATE_INVALID_JSON")]
     public void MalformedSnapshotEncodingReportsNoPlanningContent(string payload)
     {
@@ -69,7 +69,7 @@ public sealed class PlanningPersistenceTests
         var restored = await reopened.LoadAsync("one", "same", Ct);
         Assert.Equal(1, restored!.Revision);
         Assert.Equal(state.Request.Prompt, restored.Request.Prompt);
-        Assert.Equal(4, restored.SchemaVersion);
+        Assert.Equal(5, restored.SchemaVersion);
         Assert.Equal(5, Assert.Single(restored.RepairAllowances).Attempts);
         var retainedCandidate = Assert.Single(restored.Construction.Candidates);
         Assert.Equal("revision-1", retainedCandidate.GraphFingerprint);

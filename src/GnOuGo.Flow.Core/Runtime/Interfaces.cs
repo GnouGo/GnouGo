@@ -26,6 +26,7 @@ public interface ILLMClient
 public interface ILLMCapabilityResolver
 {
     Task<bool?> SupportsStructuredOutputAsync(string? provider, string model, CancellationToken ct);
+    Task<IReadOnlyList<string>?> SupportedReasoningLevelsAsync(string? provider, string model, CancellationToken ct);
 }
 
 /// <summary>

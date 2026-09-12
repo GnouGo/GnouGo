@@ -15,9 +15,17 @@ internal static class PlanningGraphSkeleton
         foreach (var workflow in graph.Workflows)
         {
             var wi = graph.Workflows.IndexOf(workflow); var root = "/workflows/" + wi;
+            var boundaryProducers = state.Preparation!.Capabilities.ToDictionary(PlanningBehaviorDecisions.ResultPort, StringComparer.Ordinal);
             var baseline = state.Request.Baseline?.Workflows.SingleOrDefault(w => w.Key == workflow.Key);
             foreach (var port in workflow.Inputs)
             {
+                if (boundaryProducers.TryGetValue(port.Name, out var boundary))
+                {
+                    RequireBoundaryContract(boundary, root + "/inputs/" + workflow.Inputs.IndexOf(port));
+                    port.Schema = PlanningSchemaPropagation.Established(boundary.OutputSchema) ? new() { CapabilityId = boundary.Id, SchemaPointer = "/output" } : new() { Type = Unresolved };
+                    if (port.Schema.Type == Unresolved) Add(state, workflow, null, root + "/inputs/" + workflow.Inputs.IndexOf(port) + "/schema", "schema", boundary.Description);
+                    continue;
+                }
                 var previous = RevisedPort(state, workflow.Key, "inputs", port.Name) ? null : baseline?.Inputs.SingleOrDefault(p => p.Name == port.Name);
                 port.Schema = previous?.Schema ?? new() { Type = Unresolved };
                 port.Default = previous?.Default;
@@ -29,6 +37,17 @@ internal static class PlanningGraphSkeleton
             foreach (var port in workflow.Outputs)
             {
                 var path = root + "/outputs/" + workflow.Outputs.IndexOf(port);
+                if (boundaryProducers.TryGetValue(port.Name, out var boundary))
+                {
+                    RequireBoundaryContract(boundary, path);
+                    port.Schema = PlanningSchemaPropagation.Established(boundary.OutputSchema) ? new() { CapabilityId = boundary.Id, SchemaPointer = "/output" } : new() { Type = Unresolved };
+                    if (port.Schema.Type == Unresolved) Add(state, workflow, null, path + "/schema", "schema", boundary.Description);
+                    var producers = workflow.Steps.Where(n => n.OperationIds.Intersect(boundary.OperationIds, StringComparer.Ordinal).Any()).ToArray();
+                    if (producers.Length != 1)
+                        throw new PlanningHoleUnavailableException(path, "The call boundary requires an established unconditional result projection. A model cannot invent a producer contract or change its availability.");
+                    port.Value = new() { Kind = "output", Source = producers[0].Key };
+                    continue;
+                }
                 port.Schema = (RevisedPort(state, workflow.Key, "outputs", port.Name) ? null : baseline?.Outputs.SingleOrDefault(p => p.Name == port.Name)?.Schema) ?? new() { Type = Unresolved };
                 port.Value = new() { Kind = Unresolved };
                 if (port.Schema.Type == Unresolved) Add(state, workflow, null, path + "/schema", "schema", state.BehaviorPlan!.Workflows.Single(w => w.Key == workflow.Key).Outputs.Single(p => p.Name == port.Name).Description);
@@ -39,6 +58,12 @@ internal static class PlanningGraphSkeleton
             {
                 if (IsAdapter(node)) continue;
                 var capability = state.Preparation!.Capabilities.SingleOrDefault(c => c.Id == node.CapabilityId);
+                if (capability is null && node.CapabilityId is null)
+                {
+                    var declared = state.Preparation.Capabilities.Where(c => c.Resolution == "local" && c.StepType == node.Type &&
+                        c.OperationIds.Count > 0 && c.OperationIds.ToHashSet(StringComparer.Ordinal).SetEquals(node.OperationIds)).ToArray();
+                    if (declared.Length == 1) capability = declared[0];
+                }
                 if (PlanningProducerContracts.RequiresStructuredResult(node, state.Preparation))
                 {
                     node.StructuredOutput = new(new() { Type = Unresolved });
@@ -88,6 +113,12 @@ internal static class PlanningGraphSkeleton
             hole.Id = "h_" + PlanningGraphCompiler.Fingerprint(hole.CanonicalLocation)[..16];
         }
         state.Construction.SkeletonFingerprint = Fingerprint(graph);
+
+        static void RequireBoundaryContract(PlanningCapability capability, string path)
+        {
+            if (capability.Resolution != "local" && !PlanningSchemaPropagation.Established(capability.OutputSchema))
+                throw new PlanningHoleUnavailableException(path, "The producer crossing this workflow boundary has no authoritative result contract. A model cannot establish an opaque external result.");
+        }
     }
 
     internal static void Add(PlanningSnapshot state, PlanningWorkflow workflow, PlanningNode? node, string path, string kind, string purpose, JsonObject? expected = null)

@@ -64,7 +64,7 @@ public sealed class TypedPlannerTests
         var runtime = new FakeRuntime();
         var state = Session();
         for (var i = 0; i < 3; i++) state = await Send(planner, state, runtime);
-        Assert.Equal(PlanningStatus.BehaviorReview, state.Status);
+        Assert.True(state.Status == PlanningStatus.BehaviorReview, state.Status + ": " + string.Join("; ", state.Diagnostics.Select(d => d.Message)));
         Assert.DoesNotContain("fragment", runtime.Phases);
         var review = state;
         state = await Send(planner, state, runtime, "accept_behavior");
@@ -85,7 +85,7 @@ public sealed class TypedPlannerTests
     {
         var runtime = new FakeRuntime { InvalidJson = true };
         var state = await Send(new TypedWorkflowPlanner(), Session(), runtime);
-        Assert.Equal(PlanningStatus.Recovery, state.Status);
+        Assert.Equal(PlanningStatus.Stopped, state.Status);
         Assert.Equal(2, runtime.Requests.Count);
         Assert.True(JsonNode.DeepEquals(runtime.Requests[0].StructuredOutputSchema, runtime.Requests[1].StructuredOutputSchema));
         Assert.Null(state.Yaml);
@@ -100,7 +100,7 @@ public sealed class TypedPlannerTests
         if (status == PlanningStatus.Generating) { state.Graph = Graph(); state.Preparation = Preparation(); }
         var runtime = new FakeRuntime { OnCall = (_, _, _) => throw new LLMClientException(LLMClientFailureKind.Transport, "The provider could not be reached.", true, 503, "upstream_unavailable") };
         var result = await Send(new TypedWorkflowPlanner(), state, runtime);
-        Assert.Equal(PlanningStatus.Recovery, result.Status); Assert.Equal(phase, result.CurrentPhase);
+        Assert.Equal(PlanningStatus.Stopped, result.Status); Assert.Equal(phase, result.CurrentPhase);
         Assert.Equal(state.Request.SessionId, result.Request.SessionId);
         Assert.Equal(state.Graph is null, result.Graph is null);
         Assert.Null(result.Intent.Question); Assert.Null(result.Outcome);
@@ -130,7 +130,7 @@ public sealed class TypedPlannerTests
         state = await Send(new TypedWorkflowPlanner(), state, runtime);
         state = JsonSerializer.Deserialize(JsonSerializer.Serialize(state, PlanningJsonContext.Default.PlanningSnapshot), PlanningJsonContext.Default.PlanningSnapshot)!;
         state = await Send(new TypedWorkflowPlanner(), state, runtime);
-        Assert.Equal(PlanningStatus.BehaviorReview, state.Status);
+        Assert.True(state.Status == PlanningStatus.BehaviorReview, state.Status + ": " + string.Join("; ", state.Diagnostics.Select(d => d.Message)));
         Assert.Equal(1, runtime.Phases.Count(p => p == "intent"));
         Assert.Equal(1, runtime.PreparationCalls);
     }
@@ -183,6 +183,7 @@ public sealed class TypedPlannerTests
     {
         var state = Session(PlanningStatus.Clarification);
         state.Intent.Question = new() { StepId = "question", Prompt = "Clarify the behavior", Fields = [new() { Name = "behavior_0", Description = "Should approval be required before an external write?", Type = "text", Required = true, AllowCustomAnswer = true }] };
+        state.Outcome = new PlanningNeedUserClarification(new("behavior_0", [], PlanningHoleRequests.Object(("behavior_0", PlanningHoleRequests.Type("string"))), ["behavior"]));
         var next = await new TypedWorkflowPlanner().AdvanceAsync(state, new() { Kind = "answer", ExpectedRevision = state.Revision, Answers = new JsonObject { ["behavior_0"] = "yes" } }, new FakeRuntime(), Ct);
         Assert.Equal(PlanningStatus.Created, next.Status);
         Assert.Contains("Should approval be required before an external write?", Assert.Single(next.Intent.Answers).Question);
@@ -222,22 +223,46 @@ public sealed class TypedPlannerTests
         public Func<string, LLMRequest, CancellationToken, Task<LLMResponse>>? OnCall { get; set; }
         public Func<int, IReadOnlyList<PlanningDiagnostic>>? ValidationResult { get; init; }
         public Func<PlanningRequest, Task<PlanningPreparation>>? OnPrepare { get; init; }
+        public Func<PlanningSnapshot, Task<PlanningPreparation>>? OnPrepareSnapshot { get; set; }
         public Func<PlanningSnapshot, Task>? OnCheckpoint { get; set; }
         public Task CheckpointAsync(PlanningSnapshot snapshot, CancellationToken ct) { _state = snapshot; return OnCheckpoint?.Invoke(snapshot) ?? Task.CompletedTask; }
         public Task<IReadOnlyList<PlanningDiagnostic>> ValidateCatalogAsync(PlanningPreparation preparation, CancellationToken ct)
         { CatalogCalls++; return Task.FromResult(CatalogDiagnostics); }
-        public async Task<PlanningPreparationProgress> PrepareAsync(PlanningSnapshot state, CancellationToken ct) { PreparationCalls++; return new(state.PreparationCheckpoint ?? new(), OnPrepare is null ? Preparation() : await OnPrepare(state.Request)); }
+        public async Task<PlanningPreparationProgress> PrepareAsync(PlanningSnapshot state, CancellationToken ct) { PreparationCalls++; return new(state.PreparationCheckpoint ?? new(), OnPrepareSnapshot is not null ? await OnPrepareSnapshot(state) : OnPrepare is null ? PreparedLocal(state) : await OnPrepare(state.Request)); }
+        private static PlanningPreparation PreparedLocal(PlanningSnapshot state)
+        {
+            var preparation = Preparation();
+            preparation.Capabilities.Add(new() { Id = "local_greeting", StepType = "set", Resolution = "available", Description = "Return a greeting", Required = true,
+                OperationIds = state.Obligations.Where(o => o.Kind == "local_processing").Select(o => o.Id).DefaultIfEmpty("greeting").ToList(),
+                FixedInput = new() { ["message"] = "Hello" }, OutputSchema = new() { ["type"] = "object", ["properties"] = new JsonObject { ["message"] = new JsonObject { ["type"] = "string" } }, ["required"] = new JsonArray("message"), ["additionalProperties"] = false } });
+            return preparation;
+        }
+        internal static JsonObject Interpret(LLMRequest request, string kind = "local_processing") => new(request.StructuredOutputSchema!["properties"]!.AsObject().Select(p =>
+        {
+            JsonObject Item(string role) => new() { ["kind"] = role, ["required"] = true,
+                ["start"] = p.Value!["items"]!["properties"]!["start"]!["enum"]![0]!.DeepClone(),
+                ["end"] = p.Value!["items"]!["properties"]!["end"]!["enum"]!.AsArray()[^1]!.DeepClone() };
+            var items = new JsonArray(Item(kind));
+            if (kind == "local_processing") items.Add((JsonNode)Item("business_output"));
+            return new KeyValuePair<string, JsonNode?>(p.Key, items);
+        }));
+        internal static JsonObject PassReview(LLMRequest request) => new(request.StructuredOutputSchema!["properties"]!.AsObject().Select(p =>
+            new KeyValuePair<string, JsonNode?>(p.Key, new JsonObject { ["status"] = "passed" })));
+        internal static JsonObject NewSchema(LLMRequest request) => new(request.StructuredOutputSchema!["properties"]!.AsObject().Select(p =>
+            new KeyValuePair<string, JsonNode?>(p.Key, p.Value!["properties"]?["type"] is not null ? new JsonObject { ["type"] = "string", ["nullable"] = false }
+                : new JsonObject { ["members"] = new JsonArray(new JsonObject { ["name"] = "message", ["required"] = true }), ["more"] = false })));
         public Task<LLMResponse> CallAsync(LLMRequest request, string phase, CancellationToken ct)
         {
             lock (Phases) { Phases.Add(phase); Requests.Add(request); }
             if (OnCall is not null) return OnCall(phase, request, ct);
             JsonNode? json = InvalidJson ? new JsonObject() : phase switch
             {
-                "intent" => new JsonObject { ["outcome"] = "ready", ["reason"] = "Clear", ["evidence"] = new JsonArray(), ["questions"] = new JsonArray() },
+                "intent" => Interpret(request),
                 "behavior" => JsonSerializer.SerializeToNode(BehaviorPlan(), PlanningJsonContext.Default.PlanningBehaviorPlan),
                 "construction" => FillHoles(request, new PlanningGraph { Workflows = [ExecutableWorkflow()] }),
-                "semantic_review" => new JsonObject { ["findings"] = new JsonArray() },
-                "scenario_inputs" => new JsonObject(request.StructuredOutputSchema!["properties"]!.AsObject().Select(p => new KeyValuePair<string, JsonNode?>(p.Key, new JsonObject { ["kind"] = "string", ["text"] = "fixture" }))),
+                "semantic_review" => PassReview(request),
+                "construction_schema" => NewSchema(request),
+                "scenario_inputs" => new JsonObject(request.StructuredOutputSchema!["properties"]!.AsObject().Select(p => new KeyValuePair<string, JsonNode?>(p.Key, JsonValue.Create("fixture")))),
                 _ => throw new InvalidOperationException("Unexpected model phase: " + phase)
             };
             return Task.FromResult(new LLMResponse { Json = json, Text = json!.ToJsonString() });
@@ -261,6 +286,8 @@ public sealed class TypedPlannerTests
                 else
                 {
                     var typed = JsonSerializer.Deserialize(value, PlanningJsonContext.Default.PlanningValue)!;
+                    if (typed.Kind == "output" && fixture.Workflows[0].Steps.FindIndex(n => n.Key == typed.Source) is var sourceIndex && sourceIndex >= 0)
+                        typed.Source = state.Graph!.Workflows.Single(w => w.Key == hole.WorkflowKey).Steps[sourceIndex].Key;
                     if (PlanningGraphValidation.IsLiteral(typed)) assignments[id] = new JsonObject { ["kind"] = "literal", ["json"] = PlanningGraphValidation.Literal(typed) };
                     else
                     {
