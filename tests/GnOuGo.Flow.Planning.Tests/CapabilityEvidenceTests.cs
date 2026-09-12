@@ -9,6 +9,32 @@ namespace GnOuGo.Flow.Planning.Tests;
 
 public sealed class CapabilityEvidenceTests
 {
+    [Theory]
+    [InlineData("Inspect the record.", "Inspect the records.")]
+    [InlineData("Vérifier le résultat.", "Vérifier les résultats.")]
+    [InlineData("Verify the record.", "verify the record.")]
+    public void RepeatedTranscriptionChangesNeverBecomeExactIntentEvidence(string source, string altered)
+    {
+        var sources = CapabilityInventoryEvidence.BuildCapabilityEvidenceSources(source, "").ToDictionary(s => s.Id, StringComparer.Ordinal);
+        var initial = new JsonObject { ["source_id"] = "user_request", ["excerpt"] = altered };
+        var initialIssues = new List<CapabilityContracts.CapabilityInventoryContractIssue>();
+        var repairedIssues = new List<CapabilityContracts.CapabilityInventoryContractIssue>();
+        Assert.Null(CapabilityInventoryEvidence.ResolveCapabilityEvidenceReference(initial, sources, "effect", "coverage_requirements", 0, false, initialIssues));
+        Assert.Null(CapabilityInventoryEvidence.ResolveCapabilityEvidenceReference(initial.DeepClone(), sources, "effect", "coverage_requirements", 0, false, repairedIssues));
+        Assert.Equal("excerpt_not_found", Assert.Single(initialIssues).Code);
+        Assert.Equal(initialIssues[0], Assert.Single(repairedIssues));
+        Assert.Equal("effect", initialIssues[0].OperationId);
+        Assert.Equal("coverage_requirements", initialIssues[0].Field);
+        Assert.Equal(0, initialIssues[0].Index);
+
+        var exact = new JsonObject { ["source_id"] = "user_request", ["excerpt"] = source };
+        var validIssues = new List<CapabilityContracts.CapabilityInventoryContractIssue>();
+        var anchor = CapabilityInventoryEvidence.ResolveCapabilityEvidenceReference(exact, sources, "effect", "coverage_requirements", 0, false, validIssues);
+        Assert.Empty(validIssues);
+        Assert.NotNull(anchor);
+        Assert.Equal(source, anchor.Excerpt);
+    }
+
     [Fact]
     public void InventoryEvidenceContractsAreSharedWithoutWeakeningRequiredFields()
     {

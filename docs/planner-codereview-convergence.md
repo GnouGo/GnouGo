@@ -476,6 +476,38 @@ response also questioned that proof. Its unavailable result remains preserved.
 No independent execution or exact-hash approval is possible without a completed
 artifact. Another live run is not authorized by this failed attempt.
 
+## Bounded convergence series, 2026-09-12
+
+The user authorized at most three fresh sessions, with the full offline suite before
+each and a stop after one complete success, repeated blocker class or required human
+clarification. The first run used `42885c677d037df9b7b25789d35afcacccd85bcd`.
+All 1,811 offline tests passed (586 Planning, 63 Integrations, 841 Core, 321 Server),
+as did the package/build checks, 18 fixture self-checks, four captured failure replays
+and the published Native AOT planning/persistence smoke. Catalog and policy stayed
+frozen; production code was unchanged.
+
+Fresh session 1 (ledger run 21), `be73a018a5494d01b40e7da869fc9c75`, stopped at
+revision 10 after four calls and 21,536 tokens (12,419 input / 9,117 output).
+The largest reserved input estimate was 11,153. All four receipts are verifiable.
+Both inventory responses changed a singular source word to a plural and therefore
+failed exact-evidence validation at the same coverage coordinate. Classification:
+model transcription failure, not a parser or normalization defect. The mandatory
+evidence check remains intact; no production change is justified by this result.
+Three generic regression cases reproduce repeated inflection/case changes remaining
+invalid while an exact source citation passes. No catalog matching, behavior plan
+or executable graph was reached, and this session was not retried.
+
+The general receipt-only replay consumed the initial inventory receipt and stopped
+at its next unmatched reservation identity. Direct offline inventory validation is
+used to check both captured responses; this does not claim a complete session replay
+or invent a replacement response.
+
+Before fresh session 2, all **1,814 tests** passed (589 Planning, 63 Integrations,
+841 Core, 321 Server). The 18 frozen fixture self-checks and the existing published
+Native AOT planning/persistence smoke passed again; production binaries are unchanged.
+The first failure is retained as a model-evidence failure, without a speculative
+production fix or a retry of its session.
+
 ## Outstanding acceptance
 
 Three independent successful sessions, both PR execution fixtures (including
