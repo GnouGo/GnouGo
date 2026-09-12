@@ -1,15 +1,33 @@
 using System.Text.Json;
 using System.Text.Json.Nodes;
+using GnOuGo.AI.Core;
 using GnOuGo.Flow.Core.Models;
 using GnOuGo.Flow.Core.Planning;
 using GnOuGo.Flow.Core.Runtime;
 using GnOuGo.Flow.Integrations.Planning;
+using GnOuGo.Flow.Integrations;
 using GnOuGo.Flow.Planning;
 
 internal static class RuntimePersistenceSmoke
 {
     internal static async Task RunAsync()
     {
+        var metadata = new LLMOptions
+        {
+            DefaultProvider = "configured", DefaultModel = "declared",
+            Models = { ["configured"] = new() { Type = "neutral" } },
+            ModelOverrides =
+            {
+                ["neutral/declared"] = new() { Capabilities = new() { SupportsStructuredOutput = true, SupportsReasoningEffort = true, SupportedReasoningEfforts = ["low"] } },
+                ["neutral/partial"] = new() { Capabilities = new() { SupportsReasoningEffort = true } }
+            }
+        };
+        var capabilities = new RoutingLLMClientAdapter(new RoutingLLMClient(metadata, []));
+        if (await capabilities.SupportsStructuredOutputAsync(null, "", CancellationToken.None) != true ||
+            await capabilities.SupportedReasoningLevelsAsync(null, "", CancellationToken.None) is not { Count: 1 } levels || levels[0] != "low" ||
+            await capabilities.SupportedReasoningLevelsAsync(null, "partial", CancellationToken.None) is not null ||
+            await capabilities.SupportsStructuredOutputAsync(null, "unknown", CancellationToken.None) is not null)
+            throw new InvalidOperationException("Published declared capability resolution failed.");
         var directory = Path.Combine(Path.GetTempPath(), "gnougo-planning-native-" + Guid.NewGuid().ToString("N"));
         try
         {

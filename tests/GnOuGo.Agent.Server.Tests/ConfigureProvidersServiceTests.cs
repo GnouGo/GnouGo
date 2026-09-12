@@ -2107,6 +2107,8 @@ public sealed class ConfigureProvidersServiceTests
 
         Assert.True(runtimeStore.Current.ModelOverrides.TryGetValue("openai/gpt-5-search-api", out var reviewedMetadata));
         Assert.False(reviewedMetadata.Capabilities.SupportsStructuredOutput);
+        var runtimeCapabilities = new GnOuGo.Agent.Server.Hosting.FlowLlmCapabilityResolver(runtimeStore);
+        Assert.False(await runtimeCapabilities.SupportsStructuredOutputAsync("openai", "gpt-5-search-api", token));
 
         var spans = DrainPersistedSpans(telemetryHarness.Queue);
         Assert.Contains(spans, span => span.Name == "configure.providers.llm.edit.interactive");

@@ -6,6 +6,10 @@ campaign: one standalone classifier, then one capability-backed batch processor,
 then one CodeReview session. Stage 1 accepts a justified typed outcome; Stage 2
 requires `ValidWorkflow`. A technical stop blocks subsequent starts and advancement.
 The harness profile is low for every planning phase; production defaults are unchanged.
+Capability preflight now uses the injected local resolver. Its bootstrap reads KeyVault
+provider settings and Agent's persisted default selection and model overrides, matching
+Agent.Server. It creates no metadata HTTP client or model-list catalog. This code
+correction does not unfreeze or restart the archived campaign below.
 The attempted campaign stopped during model-capability preflight, before any session
 start. See [the progressive validation report](../../docs/planner-schema5-progressive-validation.md).
 The commands below document the harness; they do not authorize restarting this stopped campaign.

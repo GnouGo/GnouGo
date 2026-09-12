@@ -20,14 +20,19 @@ public sealed class RoutingLLMClientAdapter : ILLMClient, ILLMCapabilityResolver
     public Task<bool?> SupportsStructuredOutputAsync(string? provider, string model, CancellationToken ct)
     {
         ct.ThrowIfCancellationRequested();
-        return Task.FromResult(_inner.ResolveMetadata(provider, model).Capabilities?.SupportsStructuredOutput);
+        return Task.FromResult(_inner.ResolveDeclaredCapabilities(provider, model)?.SupportsStructuredOutput);
     }
 
     public Task<IReadOnlyList<string>?> SupportedReasoningLevelsAsync(string? provider, string model, CancellationToken ct)
     {
         ct.ThrowIfCancellationRequested();
-        var capability = _inner.ResolveMetadata(provider, model).Capabilities;
-        return Task.FromResult<IReadOnlyList<string>?>(capability?.SupportsReasoningEffort == true ? capability.SupportedReasoningEfforts?.ToArray() : null);
+        var capability = _inner.ResolveDeclaredCapabilities(provider, model);
+        return Task.FromResult<IReadOnlyList<string>?>(capability?.SupportsReasoningEffort switch
+        {
+            true => capability.SupportedReasoningEfforts?.ToArray(),
+            false => [],
+            _ => null
+        });
     }
 
     public async Task<LLMResponse> CallAsync(LLMRequest request, CancellationToken ct)

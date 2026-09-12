@@ -9,6 +9,8 @@ scenario validation and exact revision approval, restoring serialized checkpoint
 between phases using schema 5. The runtime integration also persists a reserved request, budget,
 and completed receipt in a temporary encrypted KeyVault database, reopens the session,
 and verifies that replay makes no extra model call. Temporary storage is removed afterward.
+The published integration adapter also resolves declared local model capabilities
+without registered transports and preserves unknown fields on partial declarations.
 
 It also creates an ephemeral certificate, rejects its untrusted chain, and validates
 it with an explicit in-memory trust root. No certificate is installed and certificate

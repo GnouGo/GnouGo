@@ -1,6 +1,5 @@
 using System.Text.Json;
 using System.Text.Json.Nodes;
-using System.Net;
 using GnOuGo.AI.Core;
 using GnOuGo.Agent.Planning.Benchmark;
 using GnOuGo.Agent.Server.Configuration;
@@ -10,6 +9,9 @@ using GnOuGo.Flow.Core.Planning;
 using GnOuGo.Flow.Core.Runtime;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
+using GnOuGo.Agent.Mcp;
+using GnOuGo.Agent.Mcp.Services;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace GnOuGo.Agent.Server.Tests;
 
@@ -25,32 +27,30 @@ public sealed class ProgressiveCampaignTests
     }
 
     [Fact]
-    public async Task MissingModelCatalogFailsCapabilityPreflightWithoutGenerationOrRetry()
+    public async Task BenchmarkHydratesPersistedMetadataAndDefaultsBeforeCapabilityChecks()
     {
-        using var handler = new MissingCatalog();
-        using var http = new HttpClient(handler);
-        var options = new LLMOptions { DefaultProvider = "fixture", DefaultModel = "configured-model",
-            Models = new() { ["fixture"] = new() { Type = "openai", Url = "https://provider.example/v1", ApiKey = "fixture-secret" } } };
-        var store = new LLMRuntimeOptionsStore(Options.Create(options), NullLogger<LLMRuntimeOptionsStore>.Instance);
-        var catalog = new RoutingLLMModelCatalog(options, [new OpenAiLLMProvider(http)]);
-        var resolver = new FlowLlmCapabilityResolver(catalog, store, NullLogger<FlowLlmCapabilityResolver>.Instance);
-        var error = await Assert.ThrowsAsync<HttpRequestException>(() => resolver.SupportedReasoningLevelsAsync("fixture", "configured-model", CancellationToken.None));
-        Assert.Equal(HttpStatusCode.NotFound, error.StatusCode);
-        Assert.Equal(1, handler.Requests);
-        Assert.DoesNotContain("fixture-secret", error.ToString());
-    }
-
-    private sealed class MissingCatalog : HttpMessageHandler
-    {
-        internal int Requests;
-        protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken ct)
+        var path = AgentMcpTestPersistence.CreateIsolatedDatabasePath("benchmark-metadata");
+        var ct = TestContext.Current.CancellationToken;
+        try
         {
-            Requests++;
-            Assert.Equal(HttpMethod.Get, request.Method);
-            Assert.Equal("/v1/models", request.RequestUri!.AbsolutePath);
-            return Task.FromResult(new HttpResponseMessage(HttpStatusCode.NotFound)
-            { Content = new StringContent("""{"code":"NotFound","message":"The requested resource was not found","details":[]}""") });
+            var configured = FlowLlmCapabilityResolverTests.ConfiguredOptions();
+            await AgentMcpTestPersistence.SeedUserConfigAsync(path, new("deployment", "reviewed", null, ModelOverrides: configured.ModelOverrides), ct);
+            configured.ModelOverrides.Clear(); configured.DefaultModel = "unreviewed";
+            for (var restart = 0; restart < 2; restart++)
+            {
+                var store = SmartFlowTestFactory.CreateRuntimeOptionsStore(new LLMOptions());
+                var services = new ServiceCollection().AddSingleton(store).AddSingleton<ILLMCapabilityResolver, FlowLlmCapabilityResolver>();
+                services.AddAgentMcpPersistence(path);
+                await using var provider = services.BuildServiceProvider();
+                await using var scope = provider.CreateAsyncScope();
+                await ProgressiveRules.HydrateModelAsync(store, new FakeKeyVaultRuntimeConfigStore().WithEffectiveOptions(configured), scope.ServiceProvider.GetRequiredService<IUserConfigRepository>(), ct);
+                Assert.Equal("reviewed", store.Current.DefaultModel);
+                var resolver = provider.GetRequiredService<ILLMCapabilityResolver>();
+                Assert.Equal(["low", "medium"], await resolver.SupportedReasoningLevelsAsync(null, "", ct));
+                Assert.True(await resolver.SupportsStructuredOutputAsync(null, "", ct));
+            }
         }
+        finally { AgentMcpTestPersistence.CleanupIsolatedWorkspace(path); }
     }
 
     [Fact]

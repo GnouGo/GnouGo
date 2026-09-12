@@ -23,11 +23,23 @@ Tenant-scoped EF Core/SQLite indexes use the workspace-resolved
 model dispatch; completed receipts replay after restart. Unverifiable dispatches stop.
 Optimistic revisions and original-workflow hashes protect approval and saving.
 
-`TypedWorkflowPlanning` configures `Reasoning` (default `low`), `MaxConcurrency` (4),
+`TypedWorkflowPlanning` configures `ReasoningProfile` (`Routine: low`, `Behavior: medium`,
+`SemanticReview: medium`), `MaxConcurrency` (4),
 `MaxModelCalls` (100), `MaxInputTokensPerRequest` (12000), and `MaxOutputTokens` (8192).
 The designer shows phase, workflow, dependency, repair and budget progress.
 Recovery retains accepted evidence and cumulative spending. See
 [the planner architecture](../../docs/workflow-planning-v2.md) for all gates and invariants.
+
+The injected `ILLMCapabilityResolver` reads the current local metadata used by `/llm edit`:
+embedded catalog entries, metadata files and saved Agent model overrides. Provider
+connections are hydrated from KeyVault; reviewed model overrides and default selection
+are hydrated from Agent's user configuration. Edits take effect on the next lookup.
+Capability checks never list provider models or contact an HTTP endpoint. Exact entries
+and declared aliases establish support; fuzzy editor suggestions do not authorize
+requests until reviewed and saved. Missing reasoning proof stops with
+`MODEL_REASONING_UNPROVEN`; unreadable configured metadata uses `MODEL_METADATA_UNAVAILABLE`.
+Model discovery remains available to the configuration UI. Existing stopped sessions
+are retained and are not automatically restarted by a configuration edit or deployment.
 
 The planning progress API exposes total active holes, deterministic resolutions,
 distinct model exposures, repeated request exposures, per-hole direct-binding and

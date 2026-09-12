@@ -53,7 +53,13 @@ Register `TypedWorkflowPlanner` as `WorkflowEngine.WorkflowPlanner` and
 The factory opens an exclusive tenant/session lease and stores schema-5 snapshots, immutable
 requests, completed receipts, and cumulative budgets through the public KeyVault record API.
 `GnOuGo.Flow.Planning` remains independently publishable with only Flow.Core as a dependency.
-`RoutingLLMClientAdapter` exposes declared reasoning capabilities. Planning verifies
+`RoutingLLMClientAdapter` exposes declared reasoning and Structured Output capabilities
+through AI.Core's `ResolveDeclaredCapabilities`, using the same routing as dispatch.
+Capability lookup makes no model-list or HTTP requests. Exact entries and declared
+aliases use embedded metadata, files and overrides; fuzzy suggestions and heuristic
+defaults cannot establish support. Unknown capabilities remain unknown, explicit
+unsupported reasoning returns an empty list, and unreadable configured files fail closed.
+Planning verifies
 the phase profile before dispatch and persists it with the exact request. Requests
 target 80% of the configured input ceiling; unknown usage remains nullable.
 

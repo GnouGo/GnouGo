@@ -104,6 +104,14 @@ public sealed class RoutingLLMClient
         return _metadataResolver.Resolve(options.ResolvedType, NormalizeModel(string.IsNullOrWhiteSpace(model) ? _options.DefaultModel : model));
     }
 
+    /// <summary>Resolves declared capabilities for the dispatch route without discovery or heuristic defaults.</summary>
+    public ModelCapabilityMetadata? ResolveDeclaredCapabilities(string? provider, string? model)
+    {
+        var providerKey = ResolveProviderKey(provider, model);
+        var options = _options.ResolveProvider(providerKey) ?? throw new InvalidOperationException("The model provider is not configured.");
+        return _metadataResolver.ResolveDeclaredCapabilities(options.ResolvedType, NormalizeModel(string.IsNullOrWhiteSpace(model) ? _options.DefaultModel : model));
+    }
+
     private static string NormalizeModel(string model)
     {
         // Strip "vendor/model" prefix for model routing if the provider is specified via prefix

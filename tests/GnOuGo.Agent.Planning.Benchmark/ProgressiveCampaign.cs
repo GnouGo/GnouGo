@@ -3,6 +3,8 @@ using System.Security.Cryptography;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using GnOuGo.AI.Core;
+using GnOuGo.Agent.Mcp;
+using GnOuGo.Agent.Mcp.Services;
 using GnOuGo.Agent.Server.Configuration;
 using GnOuGo.Agent.Server.Hosting;
 using GnOuGo.Agent.Server.Planning;
@@ -17,7 +19,6 @@ using GnOuGo.KeyVault.Mcp;
 using GnOuGo.Workspace;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 
@@ -72,11 +73,16 @@ internal static class ProgressiveCampaign
         RequireFrozenProduction();
         var services = new ServiceCollection().AddLogging();
         services.AddKeyVaultMcpPersistence(KeyVaultDatabasePathResolver.Resolve(null, root));
-        await using var provider = services.BuildServiceProvider();
-        var vault = new KeyVaultRuntimeConfigStore(provider.GetRequiredService<IServiceScopeFactory>(), NullLogger<KeyVaultRuntimeConfigStore>.Instance);
+        services.AddAgentMcpPersistence(AgentMcpHostingExtensions.ResolveDatabasePath(null, root));
         var generator = evidence["generator"]!;
         var options = new LLMRuntimeOptionsStore(Options.Create(new LLMOptions { DefaultProvider = generator["provider"]!.ToString(), DefaultModel = generator["model"]!.ToString() }), NullLogger<LLMRuntimeOptionsStore>.Instance);
-        options.ReplaceRuntimeOptions(await vault.BuildEffectiveOptionsAsync(options.Current, ct));
+        services.AddSingleton(options);
+        services.AddSingleton<IKeyVaultRuntimeConfigStore, KeyVaultRuntimeConfigStore>();
+        services.AddSingleton<ILLMCapabilityResolver, FlowLlmCapabilityResolver>();
+        await using var provider = services.BuildServiceProvider();
+        var vault = provider.GetRequiredService<IKeyVaultRuntimeConfigStore>();
+        await using (var scope = provider.CreateAsyncScope())
+            await ProgressiveRules.HydrateModelAsync(options, vault, scope.ServiceProvider.GetRequiredService<IUserConfigRepository>(), ct);
         if (args[0] == "archive-preflight")
         {
             // Audit-only import of the already observed failure; never contact a provider.
@@ -99,11 +105,7 @@ internal static class ProgressiveCampaign
             Console.WriteLine(await ReportAsync(archived, contexts, records, store, ct));
             return;
         }
-        using var metadataHttp = LLMHttpClientFactory.Create(options.Current.DangerousAcceptAnyServerCertificate, TimeSpan.FromMinutes(2), NullLogger.Instance);
-        using var metadataCache = new MemoryCache(new MemoryCacheOptions());
-        var modelCatalog = new CachedLlmModelCatalog(new DynamicRoutingLLMModelCatalogAdapter(metadataHttp, options, NullLoggerFactory.Instance), options,
-            metadataCache, new ModelCatalogCacheSettings(), NullLogger<CachedLlmModelCatalog>.Instance);
-        var capabilities = new FlowLlmCapabilityResolver(modelCatalog, options, NullLogger<FlowLlmCapabilityResolver>.Instance);
+        var capabilities = provider.GetRequiredService<ILLMCapabilityResolver>();
         var stage = args[0] == "freeze" ? 1 : int.Parse(args[1], System.Globalization.CultureInfo.InvariantCulture);
         var discovery = ProgressiveScenarios.Catalog(stage, evidence);
         var runtimeFactory = new SecureWorkflowRuntimeFactory(options, vault, mcpClientFactoryOverride: new FrozenCatalog(discovery), llmCapabilityResolver: capabilities);

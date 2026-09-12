@@ -1,6 +1,8 @@
 using System.Text.Json.Nodes;
 using System.Text.Json;
+using GnOuGo.Agent.Mcp.Services;
 using GnOuGo.Agent.Server.Configuration;
+using GnOuGo.Agent.Server.SmartFlow;
 using GnOuGo.Flow.Core.Planning;
 using GnOuGo.Flow.Core.Runtime;
 
@@ -19,6 +21,16 @@ internal static class ProgressiveRules
     {
         if (manifest?["preflightStop"] is not null)
             throw new InvalidOperationException("The campaign stopped during preflight; no provider request or session start is permitted.");
+    }
+
+    internal static async Task HydrateModelAsync(LLMRuntimeOptionsStore options, IKeyVaultRuntimeConfigStore vault, IUserConfigRepository userConfigs, CancellationToken ct)
+    {
+        options.ReplaceRuntimeOptions(await vault.BuildEffectiveOptionsAsync(options.Current, ct));
+        var saved = await userConfigs.GetAsync(ct: ct);
+        foreach (var entry in saved.ModelOverrides ?? new Dictionary<string, GnOuGo.AI.Core.LLMModelMetadata>())
+            options.UpsertModelOverride(entry.Key, entry.Value);
+        if (!string.IsNullOrWhiteSpace(saved.DefaultLlmProvider) && !options.SetDefaultProvider(saved.DefaultLlmProvider, saved.DefaultLlmModel))
+            throw new InvalidOperationException("The saved default model provider is not configured.");
     }
 
     internal static void RequireStart(JsonArray stages, int stage)

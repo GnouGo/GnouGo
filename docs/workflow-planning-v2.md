@@ -75,6 +75,14 @@ decisions permit one model correction; five repairs per workflow/gate remain the
 allowance. There is no generic retry action. Phase reasoning defaults to medium for
 behavior and semantic review, low otherwise, with declared provider capability proof.
 
+The planner obtains this proof only through the injected `ILLMCapabilityResolver`.
+Agent.Server and Flow integrations resolve exact local metadata and declared aliases
+from the same sources used by the model configuration editor, without remote model
+listing or HTTP calls. Saved overrides take precedence over metadata files and embedded
+entries. Fuzzy suggestions and heuristic defaults are excluded from runtime proof.
+The host hydrates provider connections and saved model configuration before planning;
+the planner owns neither discovery URLs nor configuration persistence.
+
 ## Eligibility before dispatch
 
 Forward and backward propagation run to a fixed point through established bindings,
