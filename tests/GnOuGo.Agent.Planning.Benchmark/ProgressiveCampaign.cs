@@ -28,7 +28,8 @@ internal static class ProgressiveCampaign
 {
     internal const string Tenant = "planner-progressive", Author = "GnOuGo.Agent.Planning.Benchmark";
     internal const string EvidenceCollection = "agent-planning-progressive-evidence-v5", CampaignCollection = "agent-planning-progressive-campaigns-v5";
-    internal const string CampaignId = "schema5-ee487c8";
+    internal const string CampaignId = "schema5-local-metadata-20260912";
+    private const string ArchivedCampaignId = "schema5-ee487c8";
 
     internal static async Task RunAsync(string[] args, IKeyVaultRecordStore records, string root)
     {
@@ -41,15 +42,18 @@ internal static class ProgressiveCampaign
         {
             Console.WriteLine(new JsonObject { ["referencePrompt"] = evidence["referencePrompt"]!.DeepClone(), ["referenceGraph"] = evidence["referenceGraph"]!.DeepClone(), ["referenceBehavior"] = evidence["referenceBehavior"]!.DeepClone() }.ToJsonString()); return;
         }
-        var path = GnOuGoWorkspace.ResolveDatabasePath(null, root, ".GnOuGo/data/planner-progressive/gnougo-planning-v5.db");
-        var readOnly = args[0] is "report" or "inspect" or "replay";
+        var archivedReport = args[0] == "archived-report";
+        var path = GnOuGoWorkspace.ResolveDatabasePath(null, root, archivedReport
+            ? ".GnOuGo/data/planner-progressive/gnougo-planning-v5.db"
+            : $".GnOuGo/data/planner-progressive/{CampaignId}/gnougo-planning-v5.db");
+        var readOnly = args[0] is "report" or "archived-report" or "inspect" or "replay";
         if (!readOnly) Directory.CreateDirectory(Path.GetDirectoryName(path)!);
         using var lease = readOnly ? null : new FileStream(path + ".campaign.lock", FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.None);
         var contexts = new Contexts(path, readOnly);
         var store = new EfPlanningSessionStore(contexts, records);
-        var saved = await records.GetAsync(CampaignCollection, Tenant, CampaignId, Author, ct);
+        var saved = await records.GetAsync(CampaignCollection, Tenant, archivedReport ? ArchivedCampaignId : CampaignId, Author, ct);
         var manifest = saved is null ? null : JsonNode.Parse(saved.Value)!.AsObject();
-        if (args[0] == "report")
+        if (args[0] is "report" or "archived-report")
         {
             if (manifest is null) throw new InvalidOperationException("Campaign is not frozen.");
             Console.WriteLine(await ReportAsync(manifest, contexts, records, store, ct)); return;
@@ -138,7 +142,7 @@ internal static class ProgressiveCampaign
         if (args[0] == "start")
         {
             ProgressiveRules.RequireStart(stages, stage);
-            stageEntry["status"] = "starting"; stageEntry["name"] = "Schema5ProgressiveStage" + stage;
+            stageEntry["status"] = "starting"; stageEntry["name"] = CampaignId + "-stage-" + stage;
             await SaveAsync(records, manifest, ct); // A crash never grants a second start.
             state = await service.StartAsync(stageEntry["name"]!.ToString(), ProgressiveScenarios.Prompt(stage, evidence, policy), false, ct);
             stageEntry["session"] = state.Request.SessionId; stageEntry["status"] = "running";

@@ -1,7 +1,8 @@
 # CodeReview convergence benchmark
 
-The progressive schema-5 campaign pins production to
-`ee487c8d998721368b20c89653526c919a70f881`. Use only `campaign` commands for this
+The newly authorized progressive schema-5 campaign pins production to
+`5034d52d2637b1b20df2bdc60c387aa0f23f583a` and uses the separate campaign identity
+`schema5-local-metadata-20260912`. Use only `campaign` commands for this
 campaign: one standalone classifier, then one capability-backed batch processor,
 then one CodeReview session. Stage 1 accepts a justified typed outcome; Stage 2
 requires `ValidWorkflow`. A technical stop blocks subsequent starts and advancement.
@@ -10,9 +11,10 @@ Capability preflight now uses the injected local resolver. Its bootstrap reads K
 provider settings and Agent's persisted default selection and model overrides, matching
 Agent.Server. It creates no metadata HTTP client or model-list catalog. This code
 correction does not unfreeze or restart the archived campaign below.
-The attempted campaign stopped during model-capability preflight, before any session
+The earlier `schema5-ee487c8` campaign stopped during model-capability preflight, before any session
 start. See [the progressive validation report](../../docs/planner-schema5-progressive-validation.md).
-The commands below document the harness; they do not authorize restarting this stopped campaign.
+`campaign archived-report` reads that unchanged campaign; it has no dispatch path.
+The commands below operate on the new campaign and cannot restart the earlier one.
 
 ```sh
 bash scripts/planner-schema4-audit.sh --export-progressive
@@ -53,7 +55,8 @@ including a repeated freeze. It cannot create or recover a planning session.
 
 Campaign state and fixture inputs use encrypted `agent-planning-progressive-*-v5`
 records under tenant `planner-progressive`. The isolated EF index is workspace-resolved
-`.GnOuGo/data/planner-progressive/gnougo-planning-v5.db`. The historical export copies
+`.GnOuGo/data/planner-progressive/schema5-local-metadata-20260912/gnougo-planning-v5.db`.
+The earlier database remains untouched. The historical export copies
 only immutable benchmark inputs; no historical session, reservation or budget is
 migrated. The saved classifier's public caller default (100) becomes the standalone
 classifier's optional public threshold; its original callee required that argument.
