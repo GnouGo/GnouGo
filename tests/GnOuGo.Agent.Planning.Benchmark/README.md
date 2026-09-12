@@ -15,6 +15,9 @@ The earlier `schema5-ee487c8` campaign stopped during model-capability preflight
 start. See [the progressive validation report](../../docs/planner-schema5-progressive-validation.md).
 `campaign archived-report` reads that unchanged campaign; it has no dispatch path.
 The commands below operate on the new campaign and cannot restart the earlier one.
+The new campaign stopped after an unjustified Stage 1 clarification; Stages 2 and 3
+remain unstarted. See [the live validation report](../../docs/planner-schema5-local-metadata-live-validation.md).
+Its single-start reservation is consumed; these commands do not authorize another attempt.
 
 ```sh
 bash scripts/planner-schema4-audit.sh --export-progressive
