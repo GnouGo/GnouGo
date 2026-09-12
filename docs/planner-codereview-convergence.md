@@ -508,9 +508,42 @@ Native AOT planning/persistence smoke passed again; production binaries are unch
 The first failure is retained as a model-evidence failure, without a speculative
 production fix or a retry of its session.
 
+Fresh session 2 (ledger run 22), `c90ee39c4b014950ac533e8e5901f084`, used
+`a072f7b`. It passed capability preparation and reached behavior review at revision
+68 after 22 calls, including one targeted behavior repair. The reusable workflow
+accepts a PR URL and review instructions; the reviewed behavior retains one owned
+clone, declared checks, conditional publication and cleanup. That exact behavior
+hash was accepted in the isolated benchmark. Construction then completed nine
+requests before request 32 failed with provider HTTP 500 at revision 100.
+
+Classification: external provider service failure (`LLM_PROVIDER_SERVICEUNAVAILABLE`),
+with a reserved request and no completion receipt. The request identity belongs to
+revision 97. It remains stopped and was never redispatched. The 31 verified
+receipts account for 113,830 input / 21,641 output tokens; usage for request 32 is
+unknown. The largest estimated input was 11,930, below the unchanged ceiling.
+Construction reported 100 active holes, one deterministic resolution, three schema
+holes resolved by model, and 11 distinct exposed holes. These partial counts do not
+establish convergence or call savings.
+
+The generic missing-receipt regression now covers retryable HTTP 500 and 503 as
+well as connection loss. It reloads the encrypted budget and verifies that the
+reservation remains charged, a reopened journal makes no second dispatch, and no
+completion receipt is fabricated. There is no demonstrated production defect to
+patch. Offline replay from revisions 98 and 99 reproduces
+`MODEL_DISPATCH_INTERRUPTED` with zero provider dispatches and unchanged source,
+index and budget. No executable artifact or independent execution was reached.
+
+Before fresh session 3, all **1,816 offline tests** passed (589 Planning, 63
+Integrations, 841 Core, 323 Server), including the three missing-receipt cases.
+All 18 transport fixture self-checks, the published Native AOT persistence smoke,
+and the four previously captured failure-boundary replays passed again. Replays
+performed zero provider dispatches and left persisted source state unchanged.
+Production code, catalog, policy and request ceilings are unchanged. This is the
+third and final authorized fresh start in the bounded series.
+
 ## Outstanding acceptance
 
-Three independent successful sessions, both PR execution fixtures (including
+End-to-end convergence, both PR execution fixtures (including
 failure cleanup and rejected publication), exact-hash approval, final solution /
 frontend / package checks, published trimmed and Native AOT persistence smokes,
 PR #99 update and GitHub Actions verification remain pending. The independent

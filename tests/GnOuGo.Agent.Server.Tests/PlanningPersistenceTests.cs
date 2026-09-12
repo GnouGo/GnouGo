@@ -141,20 +141,32 @@ public sealed class PlanningPersistenceTests
         }
     }
 
-    [Fact]
-    public async Task UnknownRequestReceipt_IsNotSilentlyDispatchedAgain()
+    [Theory]
+    [InlineData(null)]
+    [InlineData(500)]
+    [InlineData(503)]
+    public async Task UnknownRequestReceipt_IsNotSilentlyDispatchedAgain(int? statusCode)
     {
         await using var fixture = await StoreFixture.CreateAsync();
-        var client = new CountingClient { Fail = true };
-        var budget = new LLMUsageBudgetScope(new() { MaxCalls = 5 });
+        var client = new CountingClient { Fail = true, FailureStatusCode = statusCode };
+        var budget = new LLMUsageBudgetScope(new() { MaxCalls = 5 },
+            sink: new PlanningBudgetSink(fixture.Records, "tenant", "session"));
         var request = new LLMRequest { Model = "fake", Prompt = "request" };
         Identify(request, "session");
         var journal = new PlanningModelJournal(client, fixture, fixture.Records, "tenant", "session", budget, new FakeEstimator());
         await Assert.ThrowsAnyAsync<Exception>(() => journal.CallAsync(request, Ct));
-        var reopened = new PlanningModelJournal(client, fixture, fixture.Records, "tenant", "session", budget, new FakeEstimator());
+        var persisted = await fixture.Records.GetAsync(PlanningBudgetSink.Collection, "tenant", "session", EfPlanningSessionStore.Author, Ct);
+        var restoredBudget = new LLMUsageBudgetScope(new() { MaxCalls = 5 },
+            JsonSerializer.Deserialize(persisted!.Value, PlanningJsonContext.Default.LLMUsageBudgetSnapshot));
+        var reopened = new PlanningModelJournal(client, fixture, fixture.Records, "tenant", "session", restoredBudget, new FakeEstimator());
         var failure = await Assert.ThrowsAsync<WorkflowRuntimeException>(() => reopened.CallAsync(request, Ct));
         Assert.Equal(GnOuGo.Flow.Core.Models.ErrorCodes.LlmBudgetUnverifiable, failure.Code);
         Assert.Equal(1, client.Calls);
+        Assert.Equal(1, restoredBudget.Snapshot.Calls);
+        await using var db = fixture.CreateDbContext();
+        var reservation = await db.Calls.SingleAsync(Ct);
+        Assert.Equal("reserved", reservation.Status);
+        Assert.Null(await fixture.Records.GetAsync(PlanningModelJournal.Collection, "tenant", reservation.PayloadKey, EfPlanningSessionStore.Author, Ct));
     }
 
     [Fact]
@@ -230,9 +242,12 @@ public sealed class PlanningPersistenceTests
     {
         public int Calls { get; private set; }
         public bool Fail { get; init; }
+        public int? FailureStatusCode { get; init; }
         public Task<LLMResponse> CallAsync(LLMRequest request, CancellationToken ct)
         {
             Calls++;
+            if (FailureStatusCode is { } statusCode)
+                throw new LLMClientException(LLMClientFailureKind.ServiceUnavailable, "Provider unavailable", retryable: true, statusCode: statusCode);
             if (Fail) throw new IOException("Simulated connection loss");
             return Task.FromResult(new LLMResponse { Text = "PRIVATE_MODEL_RESPONSE", Usage = new JsonObject { ["input_tokens"] = 10, ["output_tokens"] = 5 } });
         }
