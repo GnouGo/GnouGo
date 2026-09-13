@@ -9,6 +9,13 @@ Correct exact-revision behavior acceptance is an intermediate checkpoint; a sepa
 independent fixtures and their exact artifact hash. The first meaningful blocker
 stops the campaign; no replacement start, Stage 2 or reasoning A/B is permitted.
 
+This campaign has consumed its only start. Correct behavior was accepted at revision
+41 and construction continued. The session stopped at revision 105 when the first
+targeted dataflow repair received `LLM_PROVIDER_SERVICEUNAVAILABLE` without a
+verifiable receipt. The five-decision truncated intent page split successfully into
+two completed children with no repair charge. No final artifact or candidate
+execution approval exists. See the [result and offline evidence](../../docs/planner-recursive-partitions-validation.md).
+
 Reports distinguish initial pages, semantic corrections and recursive output
 partitions, including effective gates, parent/child identities, partition depth and
 terminal singleton truncation. Partition dispatches consume global budgets without
