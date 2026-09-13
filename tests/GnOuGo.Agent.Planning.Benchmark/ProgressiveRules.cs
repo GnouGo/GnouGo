@@ -33,9 +33,10 @@ internal static class ProgressiveRules
             throw new InvalidOperationException("The saved default model provider is not configured.");
     }
 
-    internal static void RequireStart(JsonArray stages, int stage)
+    internal static void RequireStart(JsonArray stages, int stage, int maximumStage = 3)
     {
         if (stage is < 1 or > 3) throw new InvalidOperationException("Only three staged starts are authorized.");
+        if (stage > maximumStage) throw new InvalidOperationException("This campaign does not authorize the requested stage.");
         if (stages[stage - 1]!["status"]!.ToString() != "not_run") throw new InvalidOperationException("This stage already owns its single start reservation.");
         if (stage > 1 && stages[stage - 2]!["status"]!.ToString() != "passed") throw new InvalidOperationException("The previous stage has not passed its gate.");
         if (stage == 3 && stages[1]!["outcome"]?.ToString() != "valid_workflow") throw new InvalidOperationException("Stage 2 must produce ValidWorkflow before CodeReview.");

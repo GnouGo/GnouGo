@@ -13,6 +13,8 @@ The published integration adapter also resolves declared local model capabilitie
 without registered transports and preserves unknown fields on partial declarations.
 Typed business decisions, omission applicability, choice labels and preference evidence
 also round-trip through the published source-generated serializer.
+Scoped confirmation subjects, permission operation IDs and default applicability
+round-trip through that same Schema-5 serializer.
 
 It also creates an ephemeral certificate, rejects its untrusted chain, and validates
 it with an explicit in-memory trust root. No certificate is installed and certificate

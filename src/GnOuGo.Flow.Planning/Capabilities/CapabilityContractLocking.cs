@@ -177,51 +177,7 @@ internal static class CapabilityContractLocking
                 : Array.Empty<CapabilityAlternative>();
             constraints.Add(new CapabilityConstraint(match.Constraint.Id, match.Constraint.Description, match.Constraint.Required, alternatives));
         }
-        return (CoalescePlatformConfirmationCapabilities(resolved), constraints);
-    }
-
-    internal static IReadOnlyList<ResolvedCapability> CoalescePlatformConfirmationCapabilities(
-        IReadOnlyList<ResolvedCapability> capabilities)
-    {
-        var platformConfirmations = capabilities
-            .Where(static capability => capability.Required
-                                        && string.Equals(capability.Resolution, "native", StringComparison.Ordinal)
-                                        && capability.OperationId?.StartsWith(
-                                            "platform_confirm_external_write",
-                                            StringComparison.Ordinal) == true
-                                        && string.Equals(
-                                            capability.Description,
-                                            PlatformExternalWriteConfirmationOperationDescription,
-                                            StringComparison.Ordinal))
-            .ToArray();
-        if (platformConfirmations.Length != 1)
-            return capabilities;
-
-        var platformConfirmation = platformConfirmations[0];
-        var compatibleExisting = capabilities
-            .Where(capability => !ReferenceEquals(capability, platformConfirmation)
-                                 && capability.Required
-                                 && string.Equals(capability.Resolution, "native", StringComparison.Ordinal)
-                                 && string.Equals(capability.Method, platformConfirmation.Method, StringComparison.Ordinal)
-                                 && string.Equals(capability.CatalogId, platformConfirmation.CatalogId, StringComparison.Ordinal)
-                                 && capability.Activation == null
-                                 && (string.Equals(capability.ExecutionKind, "human_interaction", StringComparison.Ordinal)
-                                     || string.Equals(capability.ExternalEffectKind, "write", StringComparison.Ordinal)))
-            .ToArray();
-        if (compatibleExisting.Length != 1)
-            return capabilities;
-
-        var existing = compatibleExisting[0];
-        var operationIds = GetResolvedCapabilityOperationIds(existing)
-            .Concat(GetResolvedCapabilityOperationIds(platformConfirmation))
-            .Distinct(StringComparer.Ordinal)
-            .ToArray();
-        var coalesced = existing with { OperationIds = operationIds };
-        return capabilities
-            .Where(capability => !ReferenceEquals(capability, existing)
-                                 && !ReferenceEquals(capability, platformConfirmation))
-            .Append(coalesced)
-            .ToArray();
+        return (resolved, constraints);
     }
 
     internal static IReadOnlyList<string> GetResolvedCapabilityOperationIds(ResolvedCapability capability)

@@ -9,6 +9,7 @@ internal static class CapabilityInventoryDecisions
 {
     internal static async Task<CapabilityInventory> BuildAsync(PlanningSnapshot state, IPlanningRuntime runtime, CancellationToken ct)
     {
+        await PlanningConfirmationPolicies.ResolveAsync(state, runtime, ct);
         await PlanningSourceDecisions.RelateAsync(state, runtime, ct);
         var sources = PlanningSourceDecisions.Sources(state);
         var obligations = state.Obligations.Where(PlanningSourceDecisions.IsOperation).ToDictionary(o => o.Id, StringComparer.Ordinal);
@@ -50,15 +51,10 @@ internal static class CapabilityInventoryDecisions
             };
         }).ToArray();
         var constraints = state.Obligations.Where(o => o.Kind is "workflow_policy" or "exact_denial" or "confirmation_required" or "confirmation_forbidden")
-            .Select(o => new CapabilityInventoryConstraint(o.Id, PlanningSourceDecisions.Text(state, o), o.Required, o.Kind == "exact_denial" ? "exact_denial" : "workflow_policy")).ToArray();
+            .Select(o => new CapabilityInventoryConstraint(o.Id, PlanningSourceDecisions.Text(state, o), o.Required,
+                o.Kind == "exact_denial" && !state.ScopedPolicies.Any(p => p.ObligationId == o.Id) ? "exact_denial" : "workflow_policy")).ToArray();
         if (operations.Length == 0)
             throw new WorkflowRuntimeException("INTENT_OPERATION_UNRESOLVED", "No evidenced runtime operation was established. This is not proof of an unavailable capability.");
-        var confirmation = state.Obligations.Where(o => o.Kind is "confirmation_required" or "confirmation_forbidden").ToArray();
-        if (confirmation.Select(o => o.Kind).Distinct(StringComparer.Ordinal).Count() > 1)
-            throw new WorkflowRuntimeException("CONFIRMATION_POLICY_CONFLICT", "The governing sources disagree about confirmation; no implementation was authorized.");
-        var policy = confirmation.FirstOrDefault();
-        return new(true, operations, constraints, [], policy is null ? "unspecified" : policy.Kind == "confirmation_required" ? "required" : "forbidden",
-            policy is null ? "" : PlanningSourceDecisions.Text(state, policy))
-        { ExternalWriteConfirmationEvidenceAnchor = policy is null ? null : Anchor(policy) };
+        return new(true, operations, constraints, []) { PolicyScopeVersion = 1, ScopedPolicies = state.ScopedPolicies.ToArray() };
     }
 }

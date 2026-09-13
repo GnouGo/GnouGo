@@ -405,13 +405,7 @@ internal static class CapabilitySelectionValidation
         var normalizedOperationIds = new HashSet<string>(StringComparer.Ordinal);
         var operations = evaluation.OperationMatches.Select(match =>
         {
-            var isPlatformConfirmation = match.Operation.Id.StartsWith(
-                                             "platform_confirm_external_write",
-                                             StringComparison.Ordinal)
-                                         && string.Equals(
-                                             match.Operation.Description,
-                                             PlatformExternalWriteConfirmationOperationDescription,
-                                             StringComparison.Ordinal);
+            var isPlatformConfirmation = match.Operation.PermissionPolicyId is not null;
             var isDeclaredHumanInteraction = string.Equals(
                 match.Operation.ExecutionKind,
                 "human_interaction",
@@ -424,7 +418,7 @@ internal static class CapabilitySelectionValidation
             {
                 Status = "matched",
                 Reason = isPlatformConfirmation
-                    ? "The platform-owned external-write safety gate uses the registered native human.input step."
+                    ? "The scoped permission gate uses the registered native human.input step."
                     : "The locked inventory classifies this operation as provider-neutral human interaction implemented by the registered native human.input step.",
                 CatalogIds = [confirmation.Id],
                 CandidateCatalogIds = Array.Empty<string>(),
@@ -432,35 +426,9 @@ internal static class CapabilitySelectionValidation
             };
         }).ToArray();
 
-        var normalizedConstraintIds = new HashSet<string>(StringComparer.Ordinal);
-        var constraints = evaluation.ConstraintMatches.Select(match =>
-        {
-            if (!match.Constraint.Id.StartsWith("platform_external_write_after_confirmation", StringComparison.Ordinal)
-                || !string.Equals(
-                    match.Constraint.Description,
-                    PlatformExternalWriteConfirmationConstraintDescription,
-                    StringComparison.Ordinal))
-            {
-                return match;
-            }
-
-            normalizedConstraintIds.Add(match.Constraint.Id);
-            return match with
-            {
-                Status = "policy_only",
-                Reason = "The platform-owned confirmation ordering rule is enforced by workflow topology.",
-                DeniedCatalogIds = Array.Empty<string>(),
-                CandidateCatalogIds = Array.Empty<string>()
-            };
-        }).ToArray();
-
-        if (normalizedOperationIds.Count == 0 && normalizedConstraintIds.Count == 0)
-            return evaluation;
-
-        var issues = evaluation.Issues.Where(issue =>
-                !normalizedOperationIds.Contains(issue.OperationId)
-                && !normalizedConstraintIds.Contains(issue.OperationId))
-            .ToArray();
+        var constraints = evaluation.ConstraintMatches;
+        if (normalizedOperationIds.Count == 0) return evaluation;
+        var issues = evaluation.Issues.Where(issue => !normalizedOperationIds.Contains(issue.OperationId)).ToArray();
         var contractValid = operations.All(static match => match.Status != "invalid")
                             && constraints.All(static match => match.Status != "invalid")
                             && issues.All(static issue => issue.Status != "invalid");

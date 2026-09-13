@@ -79,7 +79,7 @@ public sealed class TypedDecisionGroundingTests
             var inventoryOperations = Array.CreateInstance(T("CapabilityInventoryOperation"), all.Length);
             for (var i = 0; i < all.Length; i++) inventoryOperations.SetValue(all[i].GetType().GetProperty("Operation")!.GetValue(all[i]), i);
             var inventory = Activator.CreateInstance(T("CapabilityInventory"), new object?[] { true, inventoryOperations,
-    empty(T("CapabilityInventoryConstraint")), empty(T("CapabilityInventoryIncompleteReason")), "required", "explicit consent" })!;
+    empty(T("CapabilityInventoryConstraint")), empty(T("CapabilityInventoryIncompleteReason")) })!;
             var contextType = T("TypedContractJsonContext");
             var context = (System.Text.Json.Serialization.JsonSerializerContext)contextType.GetProperty("Default")!.GetValue(null)!;
             var info = context.GetTypeInfo(inventory.GetType())!;

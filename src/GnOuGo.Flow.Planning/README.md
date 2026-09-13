@@ -68,6 +68,11 @@ preferred suggestion requires declared evidence and is never preselected. Typed
 answers and bounded custom-answer decisions retain receipts and correction allowances.
 See [clarification](../../docs/planner-clarification-resolution.md).
 
+Confirmation policies govern issued actions and interaction subjects. Different scopes
+do not conflict or disable each other's permission requirements. The coordinator locks
+scoped permission sources and constructs their guards before topology freezes; the
+compiler rejects effects outside those guards. See [confirmation scopes](../../docs/planner-confirmation-scopes.md).
+
 Progress and redacted telemetry expose pages, utilization, holes, resolution origin,
 request reasons, receipt evidence and calls/tokens/repairs/failures by workflow and gate.
 Missing usage stays unknown. Detailed request and hole IDs belong in traces, not metric

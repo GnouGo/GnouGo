@@ -60,6 +60,9 @@ public sealed class PlanningPersistenceTests
         state.RequestAccounting.Add(new() { Id = "durable-request", WorkflowKey = "main", Phase = "construction", Gate = PlanningGates.Response,
             Evidence = "receipt", HoleReasons = new() { ["h_exact"] = "binding_choice" }, InputTokens = 100, OutputTokens = null, AvoidableDispatches = 0, AvoidableExtraRequests = 0 });
         state.PreparationCheckpoint = new() { Stage = "matching", ValidatedResults = new JsonObject { ["inventory"] = "PRIVATE_PREPARATION_CONTENT" }, RequestHashes = ["hash"] };
+        state.ScopedPolicies.Add(new() { Id = "PRIVATE_SCOPED_POLICY", ObligationId = "governor", ClauseReference = "owned_clause", EvidenceFingerprint = "policy_fingerprint",
+            Rule = "require_confirmation", ScopeKind = "operation", Target = "effect", TargetOperationIds = ["effect"], PermissionOperationId = "permission",
+            Applicability = "unless_explicit", Origin = "policy", Status = "resolved" });
         Assert.True(await fixture.Store.TrySaveAsync(state, null, Ct));
         state.Revision = 1; state.Status = PlanningStatus.BehaviorReview;
         Assert.True(await fixture.Store.TrySaveAsync(state, 0, Ct));
@@ -85,6 +88,9 @@ public sealed class PlanningPersistenceTests
         Assert.Equal(100, accounting.InputTokens); Assert.Null(accounting.OutputTokens);
         Assert.Equal("matching", restored.PreparationCheckpoint!.Stage);
         Assert.Equal("hash", Assert.Single(restored.PreparationCheckpoint.RequestHashes));
+        var scopedPolicy = Assert.Single(restored.ScopedPolicies);
+        Assert.Equal("policy_fingerprint", scopedPolicy.EvidenceFingerprint); Assert.Equal("unless_explicit", scopedPolicy.Applicability);
+        Assert.Equal("owned_clause", scopedPolicy.ClauseReference); Assert.Equal(["effect"], scopedPolicy.TargetOperationIds); Assert.Equal("permission", scopedPolicy.PermissionOperationId);
         Assert.Null(await reopened.LoadAsync("two", "same", Ct));
         state.Request.TenantId = "two"; state.Revision = 0;
         Assert.True(await reopened.TrySaveAsync(state, null, Ct));
@@ -96,6 +102,7 @@ public sealed class PlanningPersistenceTests
             Assert.DoesNotContain("PRIVATE_PLANNING_CONTENT_81352", bytes);
             Assert.DoesNotContain("PRIVATE_PREPARATION_CONTENT", bytes);
             Assert.DoesNotContain("PRIVATE_STAGED_ASSIGNMENT", bytes);
+            Assert.DoesNotContain("PRIVATE_SCOPED_POLICY", bytes);
         }
     }
 

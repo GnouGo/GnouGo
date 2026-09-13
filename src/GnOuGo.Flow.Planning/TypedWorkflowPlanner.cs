@@ -43,6 +43,7 @@ public sealed class TypedWorkflowPlanner(TimeProvider? timeProvider = null) : IW
                 if (remaining <= 0) deadline.Cancel(); else deadline.CancelAfter(TimeSpan.FromMilliseconds(remaining));
             }
             ct.ThrowIfCancellationRequested();
+            if (command.Kind is "advance" or "accept_behavior" or "approve") PlanningConfirmationPolicies.RequireCurrent(state);
             switch (command.Kind)
             {
                 case "advance": await AdvancePhaseAsync(state, runtime, ct); break;
@@ -205,6 +206,7 @@ public sealed class TypedWorkflowPlanner(TimeProvider? timeProvider = null) : IW
         state.Preparation = null; state.PreparationCheckpoint = null; state.BehaviorPlan = null; state.ApprovedBehaviorHash = null;
         state.BehaviorAssessmentCalls = 0; state.BehaviorAssessment = new(); state.Graph = null; state.Diagnostics.Clear();
         state.BehaviorRevision = null;
+        state.ScopedPolicies.Clear();
         foreach (var decision in state.BusinessDecisions) decision.Status = "superseded";
         state.Construction = new() { ModelSequence = state.Construction.ModelSequence };
         state.Validation = new(); state.PendingCommand = null; state.ReviewMarkdown = null;

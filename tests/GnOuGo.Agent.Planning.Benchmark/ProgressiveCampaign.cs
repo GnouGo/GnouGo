@@ -30,6 +30,7 @@ internal static class ProgressiveCampaign
     internal const string EvidenceCollection = "agent-planning-progressive-evidence-v5", CampaignCollection = "agent-planning-progressive-campaigns-v5";
     internal const string CampaignId = "schema5-clarification-20260912";
     private const string ArchivedCampaignId = "schema5-ee487c8";
+    private const int MaximumStage = 1;
 
     internal static async Task RunAsync(string[] args, IKeyVaultRecordStore records, string root)
     {
@@ -64,7 +65,8 @@ internal static class ProgressiveCampaign
             var session = entry["session"]!.ToString();
             if (args[0] == "inspect")
                 Console.WriteLine(JsonSerializer.Serialize(await store.LoadAsync(Tenant, session, ct), PlanningJsonContext.Default.PlanningSnapshot));
-            else await OfflineReplay.RunAsync(contexts, records, Tenant, session, long.Parse(args[2], System.Globalization.CultureInfo.InvariantCulture), ct);
+            else await OfflineReplay.RunAsync(contexts, records, Tenant, session, long.Parse(args[2], System.Globalization.CultureInfo.InvariantCulture), ct,
+                frozenModel: manifest!["model"]?.AsObject());
             return;
         }
         if (args[0] == "selfcheck")
@@ -73,6 +75,7 @@ internal static class ProgressiveCampaign
             await CodeReviewExecutionFixture.VerifyAsync(evidence["discovery"]!.AsArray(), ct);
             return;
         }
+        if (args[0] == "ab") throw new InvalidOperationException("This campaign authorizes no reasoning A/B request.");
         ProgressiveRules.RequirePreflight(manifest);
         RequireFrozenProduction();
         var services = new ServiceCollection().AddLogging();
@@ -141,7 +144,7 @@ internal static class ProgressiveCampaign
         PlanningSnapshot state;
         if (args[0] == "start")
         {
-            ProgressiveRules.RequireStart(stages, stage);
+            ProgressiveRules.RequireStart(stages, stage, MaximumStage);
             stageEntry["status"] = "starting"; stageEntry["name"] = CampaignId + "-stage-" + stage;
             await SaveAsync(records, manifest, ct); // A crash never grants a second start.
             state = await service.StartAsync(stageEntry["name"]!.ToString(), ProgressiveScenarios.Prompt(stage, evidence, policy), false, ct);
@@ -261,7 +264,8 @@ internal static class ProgressiveCampaign
         ["productionCommit"] = ProgressiveRules.ProductionCommit, ["binaries"] = binaries,
         ["model"] = model, ["evidenceHash"] = PlanningGraphCompiler.Fingerprint(frozen),
         ["policyHash"] = PlanningGraphCompiler.Fingerprint(policy), ["abUsed"] = false,
-        ["limits"] = new JsonObject { ["input"] = 12000, ["dispatchTarget"] = 9600, ["output"] = 8192, ["concurrency"] = 4, ["repairsPerGate"] = 5,
+        ["limits"] = new JsonObject { ["maximumStage"] = MaximumStage, ["diagnosticAbAllowed"] = false,
+            ["input"] = 12000, ["dispatchTarget"] = 9600, ["output"] = 8192, ["concurrency"] = 4, ["repairsPerGate"] = 5,
             ["calls"] = 100, ["totalTokens"] = 15000000, ["activeMilliseconds"] = 18000000, ["amount"] = 50, ["currency"] = "EUR", ["reasoning"] = "low" },
         ["stages"] = new JsonArray(Enumerable.Range(1, 3).Select(s => (JsonNode)new JsonObject
         {

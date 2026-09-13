@@ -61,6 +61,25 @@ public sealed class OfflinePlanningReplayTests
     }
 
     private static CancellationToken Ct => TestContext.Current.CancellationToken;
+    [Fact]
+    public async Task ReplayUsesOnlyFrozenModelDeclarationsAndStillRejectsNewRequests()
+    {
+        var evidence = new Dictionary<string, (LLMRequest, LLMResponse?)>();
+        var unknown = new ReceiptOnlyClient("session", evidence);
+        Assert.Null(await unknown.SupportedReasoningLevelsAsync(null, "fixture", Ct));
+        var metadata = new JsonObject { ["provider"] = "frozen", ["model"] = "fixture",
+            ["reasoningLevels"] = new JsonArray("low"), ["structuredOutput"] = false };
+        var client = new ReceiptOnlyClient("session", evidence, metadata);
+        Assert.Equal(["low"], await client.SupportedReasoningLevelsAsync("frozen", "fixture", Ct));
+        Assert.False(await client.SupportsStructuredOutputAsync(null, "fixture", Ct));
+        Assert.Null(await client.SupportedReasoningLevelsAsync("foreign", "fixture", Ct));
+        Assert.Null(await client.SupportedReasoningLevelsAsync("frozen", "foreign", Ct));
+        var error = await Assert.ThrowsAsync<WorkflowRuntimeException>(() => client.CallAsync(Request(), Ct));
+        Assert.Equal("REPLAY_EVIDENCE_REQUIRED", error.Code);
+        Assert.Empty(client.Replayed);
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => client.SupportedReasoningLevelsAsync(null, "fixture", new CancellationToken(true)));
+    }
+
     private static LLMRequest Request()
     {
         var request = new LLMRequest { Model = "fixture", Prompt = "Captured private prompt", StructuredOutputSchema = new JsonObject { ["type"] = "object" } };

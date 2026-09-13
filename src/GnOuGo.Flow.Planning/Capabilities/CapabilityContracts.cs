@@ -89,6 +89,7 @@ internal static partial class CapabilityContracts
         public HashSet<string> WorkflowStructureCoverageRequirementIds { get; init; } = new(StringComparer.Ordinal);
         public CapabilityEvidenceAnchor? OptionalityEvidenceAnchor { get; init; }
         public CapabilityEvidenceAnchor? NoEffectOutcomeEvidenceAnchor { get; init; }
+        public string? PermissionPolicyId { get; init; }
     }
     internal sealed record CapabilityInventoryConstraint(
         string Id,
@@ -100,11 +101,10 @@ internal static partial class CapabilityContracts
         bool Complete,
         IReadOnlyList<CapabilityInventoryOperation> Operations,
         IReadOnlyList<CapabilityInventoryConstraint> Constraints,
-        IReadOnlyList<CapabilityInventoryIncompleteReason> IncompleteReasons,
-        string ExternalWriteConfirmationPolicy = "unspecified",
-        string ExternalWriteConfirmationEvidence = "")
+        IReadOnlyList<CapabilityInventoryIncompleteReason> IncompleteReasons)
     {
-        public CapabilityEvidenceAnchor? ExternalWriteConfirmationEvidenceAnchor { get; init; }
+        public int PolicyScopeVersion { get; init; }
+        public IReadOnlyList<PlanningScopedPolicy> ScopedPolicies { get; init; } = [];
     }
 
     internal sealed record CapabilityCatalogEntry(
@@ -238,8 +238,7 @@ internal static partial class CapabilityContracts
     internal sealed record SelectorVariant(
         IReadOnlyList<CapabilityRequestBinding> Bindings,
         string? Description = null);
-    internal const string PlatformExternalWriteConfirmationOperationDescription = "Require explicit human confirmation immediately before the first external write.";
-    internal const string PlatformExternalWriteConfirmationConstraintDescription = "No external write may execute before explicit human confirmation.";
+    internal const string ScopedConfirmationOperationDescription = "Require explicit human confirmation before its governed actions.";
     internal const string SynthesizedEffectDecisionValue = "EFFECT";
     internal const string SynthesizedNoEffectDecisionValue = "NO_EFFECT";
     internal const string ConditionalExactlyOneActivationMode = "exactly_one";
@@ -343,8 +342,7 @@ internal static partial class CapabilityContracts
         IReadOnlyList<ResolvedCapability> Capabilities,
         IReadOnlyList<CapabilityConstraint> Constraints)
     {
-        public string EffectiveExternalWriteConfirmationPolicy { get; init; } = "unspecified";
-        public string ExternalWriteConfirmationPolicySource { get; init; } = "none";
+        public IReadOnlyList<PlanningScopedPolicy> ScopedPolicies { get; init; } = [];
 
         public IReadOnlyList<ResolvedCapability> RequiredMcpCapabilities => Capabilities
             .Where(static capability => capability.Required

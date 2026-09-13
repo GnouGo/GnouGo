@@ -1,4 +1,5 @@
 using System.Text.Json;
+using System.Text.Json.Nodes;
 using GnOuGo.Flow.Core.Expressions;
 using GnOuGo.Flow.Core.Models;
 using GnOuGo.Flow.Core.Planning;
@@ -8,9 +9,26 @@ using GnOuGo.Flow.Planning;
 namespace GnOuGo.Agent.Planning.Benchmark;
 
 // Offline test transport. There is deliberately no provider or journal fallback.
-internal sealed class ReceiptOnlyClient(string session, IReadOnlyDictionary<string, (LLMRequest Request, LLMResponse? Response)> evidence) : ILLMClient
+internal sealed class ReceiptOnlyClient(string session, IReadOnlyDictionary<string, (LLMRequest Request, LLMResponse? Response)> evidence,
+    JsonObject? frozenModel = null) : ILLMClient, ILLMCapabilityResolver
 {
     internal HashSet<string> Replayed { get; } = new(StringComparer.Ordinal);
+
+    // Only the campaign's archived metadata proves preflight support. A receipt
+    // alone is not a declaration of model capabilities, and no discovery runs here.
+    public Task<IReadOnlyList<string>?> SupportedReasoningLevelsAsync(string? provider, string model, CancellationToken ct)
+    {
+        ct.ThrowIfCancellationRequested();
+        return Task.FromResult<IReadOnlyList<string>?>(Matches(provider, model) && frozenModel?["reasoningLevels"] is JsonArray levels
+            ? levels.Select(v => v!.ToString()).ToArray() : null);
+    }
+    public Task<bool?> SupportsStructuredOutputAsync(string? provider, string model, CancellationToken ct)
+    {
+        ct.ThrowIfCancellationRequested();
+        return Task.FromResult(Matches(provider, model) ? frozenModel?["structuredOutput"]?.GetValue<bool>() : null);
+    }
+    private bool Matches(string? provider, string model) => frozenModel is not null &&
+        (provider is null || provider == frozenModel["provider"]?.ToString()) && model == frozenModel["model"]?.ToString();
 
     public Task<LLMResponse> CallAsync(LLMRequest request, CancellationToken ct)
     {

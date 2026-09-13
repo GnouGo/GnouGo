@@ -10,7 +10,7 @@ namespace GnOuGo.Flow.Planning.Tests;
 public sealed class TypedPlannerTests
 {
     private static CancellationToken Ct => TestContext.Current.CancellationToken;
-    internal static PlanningPreparation Preparation() => new() { Fingerprint = "catalog-v1", AllowedStepTypes = ["set", "emit", "switch", "sequence", "parallel", "loop.sequential", "workflow.call", "human.input", "mcp.call"] };
+    internal static PlanningPreparation Preparation() => new() { PolicyScopeVersion = 1, Fingerprint = "catalog-v1", AllowedStepTypes = ["set", "emit", "switch", "sequence", "parallel", "loop.sequential", "workflow.call", "human.input", "mcp.call"] };
     internal static PlanningGraph Graph() => new()
     {
         Summary = "Return a greeting",

@@ -360,58 +360,11 @@ internal static class CapabilityInventoryValidation
                 }
             }
         }
-        var confirmationPolicy = json["external_write_confirmation_policy"]?.GetValue<string>()?.Trim().ToLowerInvariant()
-                                 ?? "unspecified";
-        if (confirmationPolicy is not ("required" or "forbidden" or "unspecified"))
-            throw new InvalidOperationException("Capability inventory has an invalid external-write confirmation policy contract.");
-        var confirmationEvidenceAnchor = json.ContainsKey("external_write_confirmation_evidence")
-            ? ResolveCapabilityEvidenceReference(
-                json["external_write_confirmation_evidence"],
-                sourcesById,
-                string.Empty,
-                "external_write_confirmation_evidence",
-                null,
-                allowEmpty: true,
-                contractIssues)
-            : null;
-        if (confirmationPolicy == "unspecified" && confirmationEvidenceAnchor is not null)
-        {
-            contractIssues.Add(NewCapabilityInventoryContractIssue(
-                "evidence_forbidden",
-                string.Empty,
-                "external_write_confirmation_evidence",
-                null,
-                confirmationEvidenceAnchor.SourceId,
-                confirmationEvidenceAnchor.Id));
-            confirmationEvidenceAnchor = null;
-        }
-        else if (confirmationPolicy != "unspecified" && confirmationEvidenceAnchor is null
-                 && !contractIssues.Any(static issue => issue.OperationId.Length == 0
-                                                        && issue.Field == "external_write_confirmation_evidence"))
-            contractIssues.Add(NewCapabilityInventoryContractIssue(
-                "evidence_missing",
-                string.Empty,
-                "external_write_confirmation_evidence",
-                null));
-
-        if (contractIssues.Count > 0)
-            throw new CapabilityInventoryContractException(contractIssues);
-
-        var confirmationEvidence = confirmationEvidenceAnchor?.Excerpt ?? string.Empty;
-
+        if (contractIssues.Count > 0) throw new CapabilityInventoryContractException(contractIssues);
         var reasons = ParseCapabilityInventoryReasons(json["incomplete_reasons"] as JsonArray);
-        if (complete && reasons.Count > 0)
-            throw new InvalidOperationException("A complete capability inventory cannot contain incomplete reasons.");
-        return new CapabilityInventory(
-            complete,
-            operations,
-            constraints,
-            reasons,
-            confirmationPolicy,
-            confirmationEvidence)
-        {
-            ExternalWriteConfirmationEvidenceAnchor = confirmationEvidenceAnchor
-        };
+        if (complete && reasons.Count > 0) throw new InvalidOperationException("A complete inventory cannot contain incomplete reasons.");
+        // This parser cannot manufacture scope proof from a historical scalar policy.
+        return new CapabilityInventory(complete, operations, constraints, reasons);
     }
 
     internal static CapabilityInventory RemovePlannerBoundaryArtifacts(
@@ -426,71 +379,6 @@ internal static class CapabilityInventoryValidation
             return inventory with { Operations = inventory.Operations.Where(operation => operation.IntentOrigin != "derived_failure_handling").ToArray() };
         }
     }
-
-    internal static CapabilityInventory ApplyDefaultExternalWriteConfirmation(
-        CapabilityInventory inventory)
-    {
-        if (!inventory.Complete
-            || string.Equals(
-                inventory.ExternalWriteConfirmationPolicy,
-                "forbidden",
-                StringComparison.Ordinal)
-            || !inventory.Operations.Any(static operation => operation.ExecutionKind == "external_effect"
-                && operation.ExternalEffectKind == "write"))
-        {
-            return inventory;
-        }
-
-        var identifiers = inventory.Operations.Select(static operation => operation.Id)
-            .Concat(inventory.Constraints.Select(static constraint => constraint.Id))
-            .ToHashSet(StringComparer.Ordinal);
-        var operationId = CreateUniqueInventoryId("platform_confirm_external_write", identifiers);
-        identifiers.Add(operationId);
-        var constraintId = CreateUniqueInventoryId("platform_external_write_after_confirmation", identifiers);
-        return inventory with
-        {
-            Operations = inventory.Operations.Concat([
-                new CapabilityInventoryOperation(
-                    operationId,
-                    PlatformExternalWriteConfirmationOperationDescription,
-                    true,
-                    "human_interaction",
-                    "none")
-            ]).ToArray(),
-            Constraints = inventory.Constraints.Concat([
-                new CapabilityInventoryConstraint(
-                    constraintId,
-                    PlatformExternalWriteConfirmationConstraintDescription,
-                    true,
-                    "workflow_policy")
-            ]).ToArray()
-        };
-    }
-
-    internal static (string Policy, string Source) ResolveEffectiveExternalWriteConfirmationPolicy(
-        CapabilityInventory inventory, IReadOnlyList<CapabilityEvidenceSource> evidenceSources)
-    {
-        if (inventory.ExternalWriteConfirmationPolicy is "required" or "forbidden")
-        {
-            var sourceKind = inventory.ExternalWriteConfirmationEvidenceAnchor is { } anchor
-                ? evidenceSources.FirstOrDefault(source => string.Equals(source.Id, anchor.SourceId, StringComparison.Ordinal))?.Kind
-                : null;
-            return (inventory.ExternalWriteConfirmationPolicy, sourceKind switch
-            {
-                "clarification" => "clarification",
-                "caller_context" => "caller",
-                "user_request" => "explicit_request",
-                _ => "validated_evidence"
-            });
-        }
-
-        var hasExternalWrite = inventory.Operations.Any(static operation =>
-            operation.ExecutionKind == "external_effect" && operation.ExternalEffectKind == "write");
-        return hasExternalWrite ? ("required", "platform_default") : ("unspecified", "none");
-    }
-
-    internal static (string Policy, string Source) ResolveEffectiveExternalWriteConfirmationPolicy(IReadOnlyList<ResolvedCapability> capabilities, string mode)
-        => capabilities.Any(c => c.Required && c.Resolution == "native" && c.Method == "human.input") ? ("required", "locked_contract") : ("unspecified", "none");
 
     internal static string CreateUniqueInventoryId(string preferred, IReadOnlySet<string> identifiers)
     {
@@ -583,9 +471,7 @@ internal static class CapabilityInventoryValidation
         return new JsonObject
         {
             ["complete"] = inventory.Complete,
-            ["external_write_confirmation_policy"] = inventory.ExternalWriteConfirmationPolicy,
-            ["external_write_confirmation_evidence"] = BuildCapabilityEvidenceReferenceJson(
-                inventory.ExternalWriteConfirmationEvidenceAnchor),
+            ["scoped_policies"] = JsonSerializer.SerializeToNode(inventory.ScopedPolicies.ToList(), PlanningJsonContext.Default.ListPlanningScopedPolicy),
             ["incomplete_reasons"] = reasons,
             ["operations"] = operations,
             ["constraints"] = constraints

@@ -254,8 +254,7 @@ internal static class CapabilityInventoryEvidence
         var projected = new JsonObject
         {
             ["complete"] = rejectedCandidate["complete"]?.DeepClone(),
-            ["external_write_confirmation_policy"] = rejectedCandidate["external_write_confirmation_policy"]?.DeepClone(),
-            ["external_write_confirmation_evidence"] = rejectedCandidate["external_write_confirmation_evidence"]?.DeepClone(),
+            ["scoped_policies"] = rejectedCandidate["scoped_policies"]?.DeepClone(),
             ["incomplete_reasons"] = rejectedCandidate["incomplete_reasons"]?.DeepClone(),
             ["operations"] = new JsonArray((rejectedCandidate["operations"] as JsonArray)?
                 .OfType<JsonObject>()

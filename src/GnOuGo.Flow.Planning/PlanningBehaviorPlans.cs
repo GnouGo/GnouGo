@@ -66,7 +66,7 @@ public static class PlanningBehaviorPlans
     /// <summary>Before review, restore locked outcome values only when action placement proves a unique mapping.</summary>
     internal static void CompleteLockedOutcomes(PlanningBehaviorPlan plan, PlanningPreparation preparation)
     {
-        var decisions = plan.Workflows.SelectMany(w => Enumerate(w.Steps.Concat(w.Finally))).Where(n => n.Kind == "decision").ToArray();
+        var decisions = plan.Workflows.SelectMany(w => Enumerate(w.Steps.Concat(w.Finally))).Where(n => n.Kind == "decision" && !PlanningConfirmationGuards.IsGuard(n.Key, preparation)).ToArray();
         foreach (var group in preparation.Capabilities.Where(c => c.Required && c.Activation is not null).GroupBy(c => c.Activation!.Group, StringComparer.Ordinal))
         {
             var activation = group.First().Activation!;
@@ -97,7 +97,7 @@ public static class PlanningBehaviorPlans
 
     public static IReadOnlyList<PlanningDiagnostic> Validate(PlanningBehaviorPlan plan, PlanningPreparation preparation)
     {
-        var findings = new List<PlanningDiagnostic>();
+        var findings = PlanningConfirmationGuards.BehaviorFindings(plan, preparation).ToList();
         void Error(string location, string message, string rule) => findings.Add(new("BEHAVIOR_CONTRACT_INVALID", location, message, Rule: rule));
         var known = preparation.Capabilities.SelectMany(c => c.OperationIds).ToHashSet(StringComparer.Ordinal);
         var owners = new HashSet<string>(StringComparer.Ordinal);

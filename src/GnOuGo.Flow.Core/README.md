@@ -34,6 +34,9 @@ Business decision records retain governing references, applicability, exclusions
 typed selections. Clarifications expose canonical choices, labels and justified
 preference reasons; their resolution belongs to the injected planner. The general
 `human.input` DSL and Schema-5 persistence format remain unchanged.
+Scoped permission records retain governing references, applicable action IDs and
+permission-source ownership; they do not change the general human-input transport.
+See [confirmation scopes](../../docs/planner-confirmation-scopes.md).
 
 ## MCP protocol compatibility
 

@@ -66,6 +66,8 @@ public sealed class ProgressiveCampaignTests
         Assert.Throws<InvalidOperationException>(() => ProgressiveRules.RequireStart(stages, 3));
         stages[1]!["outcome"] = "valid_workflow"; ProgressiveRules.RequireStart(stages, 3);
         Assert.Throws<InvalidOperationException>(() => ProgressiveRules.RequireStart(stages, 4));
+        Assert.Throws<InvalidOperationException>(() => ProgressiveRules.RequireStart(stages, 2, maximumStage: 1));
+        Assert.Throws<InvalidOperationException>(() => ProgressiveRules.RequireStart(JsonNode.Parse(stages.ToJsonString())!.AsArray(), 3, maximumStage: 1));
     }
 
     [Theory]

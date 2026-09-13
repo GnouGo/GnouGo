@@ -1,31 +1,33 @@
 # CodeReview convergence benchmark
 
-The newly authorized progressive schema-5 campaign pins production to
-`9a3b3de8ce1e4baa228c636471bc41ea7c9bf061` and uses the separate campaign identity
-`schema5-clarification-20260912`. Use only `campaign` commands for this
-campaign: one standalone classifier, then one capability-backed batch processor,
-then one CodeReview session. Stage 1 accepts a justified typed outcome; Stage 2
-requires `ValidWorkflow`. A technical stop blocks subsequent starts and advancement.
-The harness profile is low for every planning phase; production defaults are unchanged.
-Capability preflight now uses the injected local resolver. Its bootstrap reads KeyVault
-provider settings and Agent's persisted default selection and model overrides, matching
-Agent.Server. It creates no metadata HTTP client or model-list catalog. This code
-correction does not unfreeze or restart the archived campaign below.
-The earlier `schema5-ee487c8` campaign stopped during model-capability preflight, before any session
-start. See [the progressive validation report](../../docs/planner-schema5-progressive-validation.md).
-`campaign archived-report` reads that unchanged campaign; it has no dispatch path.
-The commands below operate on the new campaign and cannot restart the earlier one.
-The separate `schema5-local-metadata-20260912` campaign stopped after an unjustified
-Stage 1 clarification; its Stages 2 and 3 remain unstarted. See
-[that live validation report](../../docs/planner-schema5-local-metadata-live-validation.md).
-Its single-start reservation remains consumed. The current campaign uses a fresh
-namespace and database; it cannot restart either earlier campaign.
-The current campaign has now stopped technically at Stage 1 with
-`CONFIRMATION_POLICY_CONFLICT`. Its single start is consumed; Stages 2 and 3 were
-not run. See [the clarification live-validation report](../../docs/planner-schema5-clarification-live-validation.md).
+The scoped-confirmation campaign authorizes exactly one fresh standalone classifier
+session, with all reasoning profiles `low`. Stages 2 and 3 and the diagnostic A/B
+command are disabled for this campaign. Its production commit and isolated identity
+are pinned in `ProgressiveRules` and `ProgressiveCampaign` after offline checks.
+Stage 1 accepts only a justified typed outcome. `FinalReview` requires all six
+independent execution cases and exact artifact-hash approval before `ValidWorkflow`.
+A technical stop consumes the start and prohibits further advancement.
+
+Capability preflight uses Agent.Server's injected local resolver. Bootstrap reads
+KeyVault provider settings and Agent's persisted default model and metadata overrides;
+it creates no metadata HTTP client or model-list catalog.
+
+Archived campaigns remain untouched:
+
+- `schema5-ee487c8`: model-capability preflight failure, no session start; see
+  [the progressive report](../../docs/planner-schema5-progressive-validation.md).
+- `schema5-local-metadata-20260912`: unjustified Stage-1 clarification; see
+  [the metadata report](../../docs/planner-schema5-local-metadata-live-validation.md).
+- `schema5-clarification-20260912`: false `CONFIRMATION_POLICY_CONFLICT`; see
+  [the clarification report](../../docs/planner-schema5-clarification-live-validation.md).
+
+Strict replay of the last campaign at revision 14 reproduced the original conflict
+before correction. Corrected replay stops at `REPLAY_EVIDENCE_REQUIRED` for the new
+scope decision, with zero provider dispatches and unchanged session/journal/budget.
+Audit replay uses archived model declarations; completed receipts alone do not prove
+capabilities. Synthetic scope regression responses never replace historical receipts.
 
 ```sh
-bash scripts/planner-schema4-audit.sh --export-progressive
 dotnet build tests/GnOuGo.Agent.Planning.Benchmark -m:1 -warnaserror -p:SkipClientBuild=true -p:SkipModelMetadataGeneration=true
 dotnet test GnOuGo.Agent.sln -m:1 -warnaserror
 dotnet run --no-build --project tests/GnOuGo.Agent.Planning.Benchmark -- campaign selfcheck
@@ -38,21 +40,13 @@ dotnet run --no-build --project tests/GnOuGo.Agent.Planning.Benchmark -- campaig
 dotnet run --no-build --project tests/GnOuGo.Agent.Planning.Benchmark -- campaign approve 1 EXACT_REVISION EXACT_ARTIFACT_HASH
 ```
 
-Repeat those explicit commands for Stage 2 only after Stage 1 passes. For Stage 3,
-`campaign execute 3 PR_INPUT_PORT INSTRUCTIONS_INPUT_PORT` runs the existing 18
-CodeReview fixtures. `campaign justify STAGE REVISION JUSTIFICATION` records a
-reviewer's evidence-backed assessment of a non-workflow outcome; it cannot answer
-a missing business choice or pass Stage 2. `campaign advance STAGE` resumes the
-same verified owned session without a new start. A crash during creation permits
-lookup of the uniquely named persisted session, never a second creation attempt.
-
-`campaign replay STAGE REVISION` is receipt-only. `campaign ab STAGE PAGE_ID` permits
-one additional medium request only for the last completed low request, with one
-bounded semantic decision (at most 2,400 estimated input / 512 answer tokens).
-It uses the existing session budget, records both receipts separately and performs
-a labelled in-memory counterfactual replay. It does not change or resume the stopped
-live session. Sizing, truncation, missing contracts and unverifiable/provider failures
-are ineligible. Receipt replay cannot reset this allowance.
+Do not repeat these commands for another stage or replacement session.
+`campaign justify STAGE REVISION JUSTIFICATION` records an evidence-backed review of
+a non-workflow outcome; it cannot answer a missing business choice. `campaign advance
+STAGE` resumes the same verified owned session without a new start. A crash during
+creation permits lookup of the uniquely named persisted session, never a second
+creation attempt. `campaign replay STAGE REVISION` is receipt-only; missing evidence
+stops it. The campaign refuses `campaign ab` before resolving or dispatching a request.
 
 If preflight fails before a session or manifest exists, `campaign archive-preflight
 CAPTURED_ERROR_FILE CAPTURED_BINARY_HASHES_FILE` archives the already observed failure
@@ -63,7 +57,7 @@ including a repeated freeze. It cannot create or recover a planning session.
 
 Campaign state and fixture inputs use encrypted `agent-planning-progressive-*-v5`
 records under tenant `planner-progressive`. The isolated EF index is workspace-resolved
-`.GnOuGo/data/planner-progressive/schema5-clarification-20260912/gnougo-planning-v5.db`.
+`.GnOuGo/data/planner-progressive/schema5-scoped-confirmation-20260913/gnougo-planning-v5.db`.
 The earlier database remains untouched. The historical export copies
 only immutable benchmark inputs; no historical session, reservation or budget is
 migrated. The saved classifier's public caller default (100) becomes the standalone
@@ -72,8 +66,8 @@ classifier's optional public threshold; its original callee required that argume
 `campaign report` contains redacted counts, identities and diagnostics. Engine decision
 counts cover active executable holes with persisted deterministic resolution origins;
 other engine decisions remain unknown. Model page decisions and executable-hole
-exposures are separate measures. Planning, independent execution and the optional
-diagnostic are attributed separately. `describe` and `inspect` contain private fixture
+exposures are separate measures. Planning and independent execution usage are
+attributed separately; this campaign authorizes no diagnostic request. `describe` and `inspect` contain private fixture
 or session content: filter them in memory and never redirect them to plain files.
 
 This explicit live harness drives `PlanningSessionService` from Agent.Server using
@@ -118,8 +112,8 @@ private snapshot content to stdout: filter it in memory, and do not redirect it 
 plain files. Progress output contains only session/revision, phases, counts, hashes
 and diagnostic codes/locations. Keep failed and unverifiable attempts in the report;
 never retry an unverifiable dispatch or reset its budget. The earlier CodeReview-only
-campaign required three independent successful sessions; the progressive campaign
-authorizes only the three gated starts above. A preparation checkpoint alone is not a
+campaign required three independent successful sessions; the current scoped-confirmation campaign
+authorizes only its single Stage-1 start. A preparation checkpoint alone is not a
 successful benchmark.
 `summary` emits redacted usage and convergence counts without prompts, responses or
 candidate payloads. `report` includes individual durable receipt identities and usage.

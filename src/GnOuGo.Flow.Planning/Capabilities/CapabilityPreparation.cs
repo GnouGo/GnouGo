@@ -117,6 +117,7 @@ internal static class CapabilityPreparation
 
             IReadOnlyList<ResolvedCapability> resolved;
             IReadOnlyList<CapabilityConstraint> constraints;
+            IReadOnlyList<PlanningScopedPolicy> scopedPolicies;
             if (mode == "explicit")
             {
                 var requirements = ParseExplicitCapabilityRequirements(preflight?["requirements"] as JsonArray);
@@ -138,6 +139,10 @@ internal static class CapabilityPreparation
                         unresolvedDiscoveryServers,
                         Array.Empty<ResolvedCapability>());
                 resolved = ResolveExplicitCapabilities(requirements, discovered);
+                await PlanningConfirmationPolicies.ResolveAsync(snapshot, runtime, ct);
+                scopedPolicies = snapshot.ScopedPolicies;
+                if (scopedPolicies.Any(p => p.TargetOperationIds.Count > 0) || resolved.Any(c => c.ExternalEffectKind == "write"))
+                    throw PlanningConfirmationPolicies.Failure("CONFIRMATION_SCOPE_UNRESOLVED", "explicit_requirements", "Explicit capability bindings require governed operation ownership before permission can be locked.");
                 var unavailable = resolved.Where(c => c.Required && c.Resolution == "unavailable").ToArray();
                 if (unavailable.Length > 0)
                 {
@@ -162,7 +167,7 @@ internal static class CapabilityPreparation
                     instruction,
                     generatorContext);
 
-                (resolved, constraints) = await InferCapabilitiesAsync(
+                (resolved, constraints, scopedPolicies) = await InferCapabilitiesAsync(
                     ctx,
                     input,
                     generator,
@@ -189,16 +194,8 @@ internal static class CapabilityPreparation
                 new KeyValuePair<string, object?>("gnougo-flow.thinking.level", "info")
             });
 
-            var (confirmationPolicy, confirmationPolicySource) = ResolveEffectiveExternalWriteConfirmationPolicy(
-                resolved,
-                mode);
-            span.SetAttribute("gnougo-flow.plan.capability_preflight.external_write_confirmation_policy", confirmationPolicy);
-            span.SetAttribute("gnougo-flow.plan.capability_preflight.external_write_confirmation_policy_source", confirmationPolicySource);
-            return new CapabilityPreflightResult(discovered, resolved, constraints)
-            {
-                EffectiveExternalWriteConfirmationPolicy = confirmationPolicy,
-                ExternalWriteConfirmationPolicySource = confirmationPolicySource
-            };
+            span.SetAttribute("gnougo-flow.plan.capability_preflight.scoped_policy_count", scopedPolicies.Count);
+            return new CapabilityPreflightResult(discovered, resolved, constraints) { ScopedPolicies = scopedPolicies };
         }
         catch (OperationCanceledException)
         {
@@ -225,7 +222,7 @@ internal static class CapabilityPreparation
         }
     }
 
-    internal static async Task<(IReadOnlyList<ResolvedCapability> Capabilities, IReadOnlyList<CapabilityConstraint> Constraints)> InferCapabilitiesAsync(
+    internal static async Task<(IReadOnlyList<ResolvedCapability> Capabilities, IReadOnlyList<CapabilityConstraint> Constraints, IReadOnlyList<PlanningScopedPolicy> Policies)> InferCapabilitiesAsync(
         StepExecutionContext ctx, JsonObject input, JsonObject generator, string instruction, string generatorContext, IReadOnlyList<CapabilityEvidenceSource> evidenceSources, PlanningSnapshot snapshot, IPlanningRuntime runtime, IReadOnlyList<McpServerDiscovery> discovered, ITelemetrySpan? parentSpan, CancellationToken ct, bool clarificationAllowed = true)
     {
         var llmClient = ctx.Engine.LLMClient
@@ -248,24 +245,12 @@ internal static class CapabilityPreparation
         var inferencePhase = "capability_inventory_call";
         try
         {
-            CapabilityInventory inventory;
-            if (ctx.PreparationCheckpoint?.ValidatedResults["inventory"] is JsonNode inventoryCheckpoint)
-                inventory = JsonSerializer.Deserialize(inventoryCheckpoint, TypedContractJsonContext.Default.CapabilityInventory)!;
-            else
-            {
-                inventory = await CapabilityInventoryDecisions.BuildAsync(snapshot, runtime, ct);
-                await SaveTypedPreparationResultAsync(ctx, "inventory", JsonSerializer.SerializeToNode(inventory, TypedContractJsonContext.Default.CapabilityInventory), ct);
-            }
-
-            var (effectiveConfirmationPolicy, effectiveConfirmationPolicySource) =
-                ResolveEffectiveExternalWriteConfirmationPolicy(inventory, evidenceSources);
-            inferenceSpan.SetAttribute(
-                "gnougo-flow.plan.capability_inventory.external_write_confirmation_policy",
-                effectiveConfirmationPolicy);
-            inferenceSpan.SetAttribute(
-                "gnougo-flow.plan.capability_inventory.external_write_confirmation_policy_source",
-                effectiveConfirmationPolicySource);
-            inventory = ApplyDefaultExternalWriteConfirmation(inventory);
+            // Recompute the inventory from current scoped decisions. Completed decision pages
+            // replay without dispatch; historical inventory snapshots do not grant scope proof.
+            var inventory = await CapabilityInventoryDecisions.BuildAsync(snapshot, runtime, ct);
+            await SaveTypedPreparationResultAsync(ctx, "inventory", JsonSerializer.SerializeToNode(inventory, TypedContractJsonContext.Default.CapabilityInventory), ct);
+            inventory = CapabilityConfirmationPolicies.Apply(inventory);
+            inferenceSpan.SetAttribute("gnougo-flow.plan.capability_inventory.scoped_policy_count", inventory.ScopedPolicies.Count);
 
             inferenceSpan.SetAttribute("gnougo-flow.plan.capability_inventory.operation_count", inventory.Operations.Count);
             inferenceSpan.SetAttribute("gnougo-flow.plan.capability_inventory.constraint_count", inventory.Constraints.Count);
@@ -287,7 +272,7 @@ internal static class CapabilityPreparation
             var (resolved, constraints) = ResolveCapabilityMatches(evaluation, catalog);
 
             inferenceSpan.Complete();
-            return (resolved, constraints);
+            return (resolved, constraints, inventory.ScopedPolicies);
         }
         catch (OperationCanceledException)
         {
@@ -371,6 +356,8 @@ internal static class CapabilityPreparation
         var preparation = new PlanningPreparation
         {
             Fingerprint = fingerprint,
+            PolicyScopeVersion = 1,
+            ScopedPolicies = preflight.ScopedPolicies.ToList(),
             LockedContract = locked,
             RuntimeState = state,
             Capabilities = capabilities,
@@ -378,6 +365,7 @@ internal static class CapabilityPreparation
             StepContracts = stepContracts
         };
         PopulateTypedDecisions(preparation);
+        PlanningConfirmationGuards.Lock(preparation);
         return preparation;
     }
 

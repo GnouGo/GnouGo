@@ -12,7 +12,8 @@ namespace GnOuGo.Agent.Planning.Benchmark;
 internal static class OfflineReplay
 {
     internal static async Task RunAsync(IDbContextFactory<PlanningDbContext> contexts, IKeyVaultRecordStore records,
-        string tenant, string session, long revision, CancellationToken ct, string? counterfactualRequest = null, LLMResponse? counterfactualResponse = null)
+        string tenant, string session, long revision, CancellationToken ct, string? counterfactualRequest = null, LLMResponse? counterfactualResponse = null,
+        JsonObject? frozenModel = null)
     {
         var store = new EfPlanningSessionStore(contexts, records);
         var latest = await store.LoadAsync(tenant, session, ct) ?? throw new InvalidOperationException("Session not found.");
@@ -38,7 +39,7 @@ internal static class OfflineReplay
             evidence.Add(row.RequestHash, (JsonSerializer.Deserialize(request.Value, PlanningJsonContext.Default.LLMRequest)!,
                 receipt is null ? null : JsonSerializer.Deserialize(receipt.Value, PlanningJsonContext.Default.LLMResponse)));
         }
-        var client = new ReceiptOnlyClient(session, evidence);
+        var client = new ReceiptOnlyClient(session, evidence, frozenModel);
         if (counterfactualRequest is not null)
         {
             if (counterfactualResponse is null || !evidence.TryGetValue(counterfactualRequest, out var original) || original.Item2 is null)

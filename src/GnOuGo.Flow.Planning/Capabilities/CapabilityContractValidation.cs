@@ -222,8 +222,7 @@ internal static class CapabilityContractValidation
 
         return new JsonObject
         {
-            ["effective_external_write_confirmation_policy"] = preflight.EffectiveExternalWriteConfirmationPolicy,
-            ["external_write_confirmation_policy_source"] = preflight.ExternalWriteConfirmationPolicySource,
+            ["scoped_policies"] = JsonSerializer.SerializeToNode(preflight.ScopedPolicies.ToList(), PlanningJsonContext.Default.ListPlanningScopedPolicy),
             ["capabilities"] = capabilities,
             ["constraints"] = constraints
         };

@@ -124,6 +124,7 @@ internal static class PlanningBehaviorDecisions
             foreach (var node in workflow.Steps) Visit(node);
             workflow.Steps = ordered;
         }
+        PlanningConfirmationGuards.Wrap(plan, preparation);
         PlanningBehaviorPlans.CompleteOwnership(plan, preparation); PlanningBehaviorPlans.CompleteReviewDefaults(plan); PlanningBehaviorPlans.CompleteLockedOutcomes(plan, preparation);
         // Local computations have operation ownership, not an external capability
         // binding. The executable skeleton selects their native executor.

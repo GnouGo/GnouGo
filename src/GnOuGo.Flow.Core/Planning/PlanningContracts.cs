@@ -108,6 +108,7 @@ public sealed class PlanningSnapshot
     public List<PlanningDecisionPage> DecisionPages { get; set; } = [];
     public List<PlanningDecisionCorrection> DecisionCorrections { get; set; } = [];
     public List<PlanningBusinessDecision> BusinessDecisions { get; set; } = [];
+    public List<PlanningScopedPolicy> ScopedPolicies { get; set; } = [];
     public PlanningOutcome? Outcome { get; set; }
     public PlanningTechnicalStop? TechnicalStop { get; set; }
     public List<PlanningRevision> History { get; set; } = [];
@@ -239,6 +240,8 @@ public sealed record PlanningScenarioResult(string Id, string Outcome, string De
 
 public sealed class PlanningPreparation
 {
+    public int PolicyScopeVersion { get; set; }
+    public List<PlanningScopedPolicy> ScopedPolicies { get; set; } = [];
     public int DecisionContractVersion { get; set; }
     public List<PlanningDecisionContract> Decisions { get; set; } = [];
     public List<PlanningInteractionContract> Interactions { get; set; } = [];
@@ -480,6 +483,7 @@ public sealed class PlanningConflictException(string message) : InvalidOperation
 [JsonSerializable(typeof(PlanningCommand))]
 [JsonSerializable(typeof(PlanningRequest))]
 [JsonSerializable(typeof(PlanningPreparation))]
+[JsonSerializable(typeof(List<PlanningScopedPolicy>))]
 [JsonSerializable(typeof(PlanningCapability))]
 [JsonSerializable(typeof(PlanningNode))]
 [JsonSerializable(typeof(PlanningSchema))]

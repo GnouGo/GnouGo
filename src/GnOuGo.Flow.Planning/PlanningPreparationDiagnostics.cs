@@ -11,7 +11,9 @@ internal static class PlanningPreparationDiagnostics
     {
         var findings = new List<PlanningDiagnostic>
         {
-            new(error.Code, "/preparation", error.Message, ValidationStage: PlanningPhase.Capabilities)
+            new(error.Code, error.Details?["policy_target"] is JsonValue target && target.TryGetValue<string>(out var identity)
+                ? "/preparation/policies/@" + identity.Replace("~", "~0", StringComparison.Ordinal).Replace("/", "~1", StringComparison.Ordinal)
+                : "/preparation", error.Message, ValidationStage: PlanningPhase.Capabilities)
         };
         if (error.Details is JsonObject details && Read(details, "inference_error") is { } inferenceError)
             findings.Add(new(error.Code, "/preparation/" + (Read(details, "inference_phase") ?? "inference"),

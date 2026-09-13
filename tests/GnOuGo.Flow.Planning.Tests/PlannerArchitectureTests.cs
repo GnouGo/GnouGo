@@ -8,6 +8,15 @@ namespace GnOuGo.Flow.Planning.Tests;
 public sealed class PlannerArchitectureTests
 {
     [Fact]
+    public void ConfirmationAuthorityIsScopedAndCoreOwned()
+    {
+        Assert.Equal(typeof(PlanningSnapshot).Assembly, typeof(PlanningScopedPolicy).Assembly);
+        Assert.Null(typeof(Capabilities.CapabilityContracts.CapabilityInventory).GetProperty("ExternalWriteConfirmationPolicy"));
+        Assert.Null(typeof(Capabilities.CapabilityContracts.CapabilityPreflightResult).GetProperty("EffectiveExternalWriteConfirmationPolicy"));
+        Assert.NotNull(typeof(PlanningPreparation).GetProperty(nameof(PlanningPreparation.ScopedPolicies)));
+        Assert.Equal(0, new PlanningPreparation().PolicyScopeVersion);
+    }
+    [Fact]
     public void CoreHasNoGnOuGoDependencyAndPlanningDependsOnlyOnCore()
     {
         Assert.DoesNotContain(typeof(IWorkflowPlanner).Assembly.GetReferencedAssemblies(), a => a.Name!.StartsWith("GnOuGo.", StringComparison.Ordinal));
