@@ -69,11 +69,13 @@ internal static class ProgressiveReport
             ["largestActualInput"] = calls.Select(c => c.InputTokens).DefaultIfEmpty(null).Max(),
             ["inputTokens"] = Sum(calls.Where(c => verified.Contains(c.Id)).Select(c => c.InputTokens)),
             ["outputTokens"] = Sum(calls.Where(c => verified.Contains(c.Id)).Select(c => c.OutputTokens)),
+            ["allDispatchUsageKnown"] = calls.All(c => verified.Contains(c.Id) && c.InputTokens.HasValue && c.OutputTokens.HasValue),
             ["effectiveReasoning"] = new JsonArray(calls.Select(c => c.Reasoning).Distinct(StringComparer.Ordinal).Select(r => (JsonNode?)JsonValue.Create(r)).ToArray()),
             ["requestsByPhase"] = new JsonArray(calls.GroupBy(c => (c.WorkflowKey, c.Phase, c.Gate)).Select(g => (JsonNode)new JsonObject
             {
                 ["workflow"] = g.Key.WorkflowKey, ["phase"] = g.Key.Phase, ["gate"] = g.Key.Gate,
                 ["reservations"] = g.Count(), ["calls"] = g.Count(c => verified.Contains(c.Id)), ["repairReservations"] = g.Count(c => c.Repair == true),
+                ["allDispatchUsageKnown"] = g.All(c => verified.Contains(c.Id) && c.InputTokens.HasValue && c.OutputTokens.HasValue),
                 ["inputTokens"] = Sum(g.Where(c => verified.Contains(c.Id)).Select(c => c.InputTokens)), ["outputTokens"] = Sum(g.Where(c => verified.Contains(c.Id)).Select(c => c.OutputTokens))
             }).ToArray()),
             ["repairAllowances"] = new JsonArray(state.RepairAllowances.Select(a => (JsonNode)new JsonObject { ["workflow"] = a.WorkflowKey, ["gate"] = a.Gate, ["consumed"] = a.Attempts }).ToArray()),

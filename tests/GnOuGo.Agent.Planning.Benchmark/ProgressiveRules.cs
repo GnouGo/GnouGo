@@ -45,6 +45,60 @@ internal static class ProgressiveRules
 
     internal static bool ShouldAdvance(string command) => command is "start" or "advance";
 
+    // Campaign observation only. Never changes a graph, assignment, request or planner budget.
+    internal static void ObserveThresholdRepair(JsonObject stage, PlanningSnapshot state, IReadOnlyDictionary<string, LLMResponse?> receipts)
+    {
+        if (stage["status"]?.ToString() == "blocked") return;
+        void Block(string code, string classification)
+        {
+            stage["status"] = "blocked"; stage["failureCode"] = code;
+            stage["harnessFailure"] = classification; stage["revision"] = state.Revision;
+        }
+        if (state.TechnicalStop?.Unverifiable == true || state.RequestAccounting.Any(c => c.Evidence == "unverifiable"))
+        { Block(state.TechnicalStop?.Code ?? "MODEL_REQUEST_UNVERIFIABLE", "UnverifiableRequest"); return; }
+
+        var findings = state.Construction.Candidates.SelectMany(candidate => candidate.Diagnostics
+            .Where(d => d.Required && d.Code == "BUSINESS_INPUT_BINDING_MISSING" && d.Rule == "input:threshold")
+            .SelectMany(d => candidate.Targets.Where(h => d.Location == "/assignments/" + h.Id || d.Location.StartsWith("/assignments/" + h.Id + "/", StringComparison.Ordinal))
+                .Select(h => (candidate.WorkflowKey, Location: h.CanonicalLocation))))
+            .Distinct().OrderBy(f => f.WorkflowKey, StringComparer.Ordinal).ThenBy(f => f.Location, StringComparer.Ordinal).ToArray();
+        if (stage["thresholdRepair"] is not JsonObject watch)
+        {
+            if (findings.Length == 0) return;
+            var finding = findings[0];
+            stage["thresholdRepair"] = new JsonObject
+            {
+                ["status"] = "awaiting_repair", ["workflow"] = finding.WorkflowKey, ["location"] = finding.Location,
+                ["code"] = "BUSINESS_INPUT_BINDING_MISSING", ["rule"] = "input:threshold", ["observedRevision"] = state.Revision,
+                ["priorAttempts"] = state.Attempts.Count,
+                ["priorRequests"] = new JsonArray(state.RequestAccounting.Select(c => (JsonNode?)JsonValue.Create(c.Id)).ToArray())
+            };
+            return; // The initial finding is eligible for the existing repair, not a campaign stop.
+        }
+        if (watch["status"]?.ToString() != "awaiting_repair") return;
+        var prior = watch["priorRequests"]!.AsArray().Select(v => v!.ToString()).ToHashSet(StringComparer.Ordinal);
+        var calls = state.RequestAccounting.Where(c => c.WorkflowKey == watch["workflow"]!.ToString() && c.Phase == PlanningPhase.Repair && !prior.Contains(c.Id)).ToArray();
+        var remaining = findings.Any(f => f.WorkflowKey == watch["workflow"]!.ToString() && f.Location == watch["location"]!.ToString());
+        if (calls.Length == 0)
+        {
+            if (!remaining && state.TechnicalStop is null) { watch["status"] = "resolved_without_model"; watch["assessedRevision"] = state.Revision; }
+            return;
+        }
+        watch["requests"] = new JsonArray(calls.Select(c => (JsonNode?)JsonValue.Create(c.Id)).ToArray());
+        if (calls.Any(c => !receipts.TryGetValue(c.Id, out var receipt) || receipt is null))
+        { Block("BENCHMARK_REPAIR_RECEIPT_UNAVAILABLE", "UnverifiableRequest"); return; }
+        if (calls.Any(c => state.Construction.PendingCalls.Any(p => p.Id == c.Id))) return; // A verified receipt still needs normal planner assessment.
+        if (!calls.Any(c => receipts[c.Id]!.CompletionStatus != "output_limit")) return;
+        var rejected = state.Attempts.Skip(watch["priorAttempts"]!.GetValue<int>()).Any(a => a.Phase == PlanningPhase.Repair && !a.Retained);
+        watch["assessedRevision"] = state.Revision;
+        if (remaining || rejected)
+        {
+            watch["status"] = "failed_with_receipt";
+            Block("BENCHMARK_THRESHOLD_REPAIR_FAILED", "PlannerModelConvergence");
+        }
+        else watch["status"] = "resolved";
+    }
+
     internal static void RequireOpen(JsonObject stage)
     {
         if (stage["status"]?.ToString() is "blocked" or "accepted_behavior" or "passed")

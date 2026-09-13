@@ -17,6 +17,111 @@ namespace GnOuGo.Agent.Server.Tests;
 
 public sealed class ProgressiveCampaignTests
 {
+    private static PlanningSnapshot ThresholdCandidate() => new()
+    {
+        Revision = 20, Status = PlanningStatus.Generating, CurrentPhase = PlanningPhase.Repair,
+        Construction = new() { Candidates = [new()
+        {
+            WorkflowKey = "main", Targets = [new() { Id = "new_hole", CanonicalLocation = "/workflows/@main/steps/@action/input/members/@result/value" }],
+            Diagnostics = [new("BUSINESS_INPUT_BINDING_MISSING", "/assignments/new_hole", "PRIVATE_MESSAGE", Rule: "input:threshold")]
+        }] }
+    };
+
+    [Fact]
+    public void ThresholdObserverAllowsTheInitialFindingWithoutChangingThePlanner()
+    {
+        var state = ThresholdCandidate(); var stage = new JsonObject { ["status"] = "running" };
+        var before = JsonSerializer.Serialize(state, PlanningJsonContext.Default.PlanningSnapshot);
+        ProgressiveRules.ObserveThresholdRepair(stage, state, new Dictionary<string, LLMResponse?>());
+        Assert.Equal("running", stage["status"]!.ToString()); Assert.Equal("awaiting_repair", stage["thresholdRepair"]!["status"]!.ToString());
+        Assert.Equal(state.Construction.Candidates[0].Targets[0].CanonicalLocation, stage["thresholdRepair"]!["location"]!.ToString());
+        Assert.Equal(before, JsonSerializer.Serialize(state, PlanningJsonContext.Default.PlanningSnapshot));
+        Assert.DoesNotContain("PRIVATE_MESSAGE", stage.ToJsonString());
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void ThresholdObserverContinuesAfterValidatedResolution(bool deterministic)
+    {
+        var state = ThresholdCandidate(); var stage = new JsonObject { ["status"] = "running" };
+        var receipts = new Dictionary<string, LLMResponse?>();
+        ProgressiveRules.ObserveThresholdRepair(stage, state, receipts);
+        state.Construction.Candidates.Clear(); state.CurrentPhase = PlanningPhase.Construction; state.Revision++;
+        if (!deterministic)
+        {
+            state.RequestAccounting.Add(new() { Id = "repair", Phase = PlanningPhase.Repair, WorkflowKey = "main", Evidence = "receipt" });
+            receipts["repair"] = new() { Json = new JsonObject() };
+        }
+        ProgressiveRules.ObserveThresholdRepair(stage, state, receipts);
+        Assert.Equal("running", stage["status"]!.ToString());
+        Assert.Equal(deterministic ? "resolved_without_model" : "resolved", stage["thresholdRepair"]!["status"]!.ToString());
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void VerifiedThresholdRepairFailureStopsBeforeAnotherAdvanceAndSurvivesRestart(bool rejected)
+    {
+        var state = ThresholdCandidate(); var stage = new JsonObject { ["status"] = "running" };
+        var receipts = new Dictionary<string, LLMResponse?>();
+        ProgressiveRules.ObserveThresholdRepair(stage, state, receipts);
+        stage = JsonNode.Parse(stage.ToJsonString())!.AsObject();
+        state.RequestAccounting.Add(new() { Id = "repair", Phase = PlanningPhase.Repair, WorkflowKey = "main", Evidence = "receipt" });
+        receipts["repair"] = new() { Json = new JsonObject() }; state.Revision++;
+        if (rejected)
+        {
+            state.Construction.Candidates.Clear();
+            state.Attempts.Add(new("hash", PlanningPhase.Repair, 1, false, [new("REPAIR_REGRESSION", "main", "PRIVATE_DIAGNOSTIC")]));
+        }
+        var before = JsonSerializer.Serialize(state, PlanningJsonContext.Default.PlanningSnapshot);
+        ProgressiveRules.ObserveThresholdRepair(stage, state, receipts);
+        Assert.Equal("blocked", stage["status"]!.ToString()); Assert.Equal("PlannerModelConvergence", stage["harnessFailure"]!.ToString());
+        Assert.Equal("BENCHMARK_THRESHOLD_REPAIR_FAILED", stage["failureCode"]!.ToString());
+        Assert.Equal(before, JsonSerializer.Serialize(state, PlanningJsonContext.Default.PlanningSnapshot));
+        Assert.Throws<InvalidOperationException>(() => ProgressiveRules.RequireOpen(stage));
+        var retained = stage.ToJsonString(); ProgressiveRules.ObserveThresholdRepair(stage, state, receipts); Assert.Equal(retained, stage.ToJsonString());
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void UnknownRepairReceiptStopsWithoutClaimingSemanticFailure(bool providerStop)
+    {
+        var state = ThresholdCandidate(); var stage = new JsonObject { ["status"] = "running" };
+        ProgressiveRules.ObserveThresholdRepair(stage, state, new Dictionary<string, LLMResponse?>());
+        state.RequestAccounting.Add(new() { Id = "pending", Phase = PlanningPhase.Repair, WorkflowKey = "main", Evidence = providerStop ? "unverifiable" : "reserved" });
+        if (providerStop) state.TechnicalStop = new("LLM_PROVIDER_SERVICEUNAVAILABLE", "repair", "$", true);
+        ProgressiveRules.ObserveThresholdRepair(stage, state, new Dictionary<string, LLMResponse?> { ["pending"] = null });
+        Assert.Equal("blocked", stage["status"]!.ToString()); Assert.Equal("UnverifiableRequest", stage["harnessFailure"]!.ToString());
+        Assert.Single(state.RequestAccounting); Assert.Throws<InvalidOperationException>(() => ProgressiveRules.RequireOpen(stage));
+    }
+
+    [Fact]
+    public void ReceiptRecoveryAndOutputPartitionsWaitForNormalAssessment()
+    {
+        var state = ThresholdCandidate(); var stage = new JsonObject { ["status"] = "running" };
+        var receipts = new Dictionary<string, LLMResponse?>();
+        ProgressiveRules.ObserveThresholdRepair(stage, state, receipts);
+        state.RequestAccounting.Add(new() { Id = "parent", Phase = PlanningPhase.Repair, WorkflowKey = "main", Evidence = "receipt" });
+        receipts["parent"] = new() { CompletionStatus = "output_limit" };
+        ProgressiveRules.ObserveThresholdRepair(stage, state, receipts); Assert.Equal("running", stage["status"]!.ToString());
+        state.RequestAccounting.Add(new() { Id = "child", Phase = PlanningPhase.Repair, WorkflowKey = "main", Evidence = "receipt" });
+        receipts["child"] = new() { Json = new JsonObject() }; state.Construction.PendingCalls.Add(new() { Id = "child" });
+        ProgressiveRules.ObserveThresholdRepair(stage, state, receipts); Assert.Equal("running", stage["status"]!.ToString());
+        state.Construction.PendingCalls.Clear(); state.Construction.Candidates.Clear();
+        ProgressiveRules.ObserveThresholdRepair(stage, state, receipts); Assert.Equal("resolved", stage["thresholdRepair"]!["status"]!.ToString());
+    }
+
+    [Fact]
+    public void ThresholdObservationUsesIssuedCoordinatesAndRuleRatherThanMessages()
+    {
+        var state = ThresholdCandidate(); var stage = new JsonObject { ["status"] = "running" };
+        state.Construction.Candidates[0].Diagnostics[0] = new("BUSINESS_INPUT_BINDING_MISSING", "/assignments/new_hole", "threshold", Rule: "input:other");
+        ProgressiveRules.ObserveThresholdRepair(stage, state, new Dictionary<string, LLMResponse?>());
+        Assert.Null(stage["thresholdRepair"]);
+    }
+
     [Fact]
     public void ExactBehaviorAcceptanceWaitsForExplicitContinuationOfTheSameSession()
     {

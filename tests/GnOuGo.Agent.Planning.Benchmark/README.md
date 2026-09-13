@@ -1,6 +1,6 @@
 # CodeReview convergence benchmark
 
-The current recursive-partition campaign (`schema5-recursive-partitions-20260913`)
+The current recursive-partition rerun (`schema5-recursive-partitions-rerun-1`)
 permits exactly one fresh Stage-1 classifier session after offline validation and
 binary freeze. It uses the unchanged frozen scenario, model, catalog and policy,
 all-low reasoning, and 12,000/8,192 ceilings with a 9,600-token input target.
@@ -9,7 +9,21 @@ Correct exact-revision behavior acceptance is an intermediate checkpoint; a sepa
 independent fixtures and their exact artifact hash. The first meaningful blocker
 stops the campaign; no replacement start, Stage 2 or reasoning A/B is permitted.
 
-This campaign has consumed its only start. Correct behavior was accepted at revision
+Production remains frozen at `0f4ebfdbf733687c0dc4d1dc9c4b89ca702df95e`.
+Build harness changes with `-p:BuildProjectReferences=false` and verify all production
+DLL hashes against the archived manifest. The fixture fingerprint includes the
+harness assembly identity; record its new value alongside unchanged fixture source,
+input and assertion fingerprints. Do not rebuild production for this rerun.
+
+The harness observes the initial missing-threshold finding by code, rule and current
+canonical field. It permits the normal repair, then stops before another advancement
+if a verified, assessed response leaves that finding or is rejected. An unverifiable
+request stops without redispatch. Observation changes only campaign state, never
+planner inputs, assignments or budgets. Reports distinguish verified usage subtotals
+from unknown dispatch usage.
+
+The previous `schema5-recursive-partitions-20260913` campaign consumed its only start.
+Correct behavior was accepted at revision
 41 and construction continued. The session stopped at revision 105 when the first
 targeted dataflow repair received `LLM_PROVIDER_SERVICEUNAVAILABLE` without a
 verifiable receipt. The five-decision truncated intent page split successfully into

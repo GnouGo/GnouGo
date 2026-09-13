@@ -28,7 +28,7 @@ internal static class ProgressiveCampaign
 {
     internal const string Tenant = "planner-progressive", Author = "GnOuGo.Agent.Planning.Benchmark";
     internal const string EvidenceCollection = "agent-planning-progressive-evidence-v5", CampaignCollection = "agent-planning-progressive-campaigns-v5";
-    internal const string CampaignId = "schema5-recursive-partitions-20260913";
+    internal const string CampaignId = "schema5-recursive-partitions-rerun-1";
     private const string ArchivedCampaignId = "schema5-ee487c8";
     private const int MaximumStage = 1;
 
@@ -229,9 +229,16 @@ internal static class ProgressiveCampaign
                 if (stageEntry["status"]?.ToString() == "blocked") throw new InvalidOperationException("The campaign stopped at its first blocker.");
                 while (!PlanningStatus.IsWaiting(state.Status) && !PlanningStatus.IsTerminal(state.Status))
                 {
+                    if (stage == 1)
+                    {
+                        await ObserveRepairAsync(state, stageEntry, records, ct);
+                        await SaveAsync(records, manifest, ct); // Persist observation before the next advance/dispatch.
+                        if (stageEntry["status"]?.ToString() == "blocked") break;
+                    }
                     Console.WriteLine($"stage={stage} session={state.Request.SessionId} revision={state.Revision} phase={state.CurrentPhase} calls={state.Usage?.Calls ?? 0}");
                     state = await service.SubmitAsync(state.Request.SessionId, new() { ExpectedRevision = state.Revision }, ct);
                 }
+                if (stage == 1) await ObserveRepairAsync(state, stageEntry, records, ct);
             }
             stageEntry["outcome"] = state.Outcome?.Name;
             if (stageEntry["status"]?.ToString() != "blocked" && !(args[0] == "accept" && stageEntry["status"]?.ToString() == "behavior_accepted"))
@@ -250,6 +257,17 @@ internal static class ProgressiveCampaign
         Console.WriteLine(await ReportAsync(manifest, contexts, records, store, CancellationToken.None));
     }
 
+    private static async Task ObserveRepairAsync(PlanningSnapshot state, JsonObject stage, IKeyVaultRecordStore records, CancellationToken ct)
+    {
+        var receipts = new Dictionary<string, LLMResponse?>(StringComparer.Ordinal);
+        foreach (var call in state.RequestAccounting.Where(c => c.Phase == PlanningPhase.Repair))
+        {
+            var record = await records.GetAsync(PlanningModelJournal.Collection, Tenant, state.Request.SessionId + ":" + call.Id, EfPlanningSessionStore.Author, ct);
+            receipts[call.Id] = record is null ? null : JsonSerializer.Deserialize(record.Value, PlanningJsonContext.Default.LLMResponse);
+        }
+        ProgressiveRules.ObserveThresholdRepair(stage, state, receipts);
+    }
+
     private static async Task<JsonObject> ReportAsync(JsonObject manifest, Contexts contexts, IKeyVaultRecordStore records, EfPlanningSessionStore store, CancellationToken ct)
     {
         var reports = new JsonArray();
@@ -257,6 +275,7 @@ internal static class ProgressiveCampaign
         foreach (var entry in manifest["stages"]!.AsArray())
         {
             var summary = new JsonObject { ["stage"] = entry!["stage"]!.DeepClone(), ["campaignStatus"] = entry["status"]!.DeepClone(), ["harnessFailure"] = entry["harnessFailure"]?.DeepClone(), ["failureCode"] = entry["failureCode"]?.DeepClone(), ["acceptedBehaviorHash"] = entry["acceptedBehaviorHash"]?.DeepClone(), ["skeletonHash"] = entry["skeletonHash"]?.DeepClone() };
+            summary["thresholdRepair"] = entry["thresholdRepair"]?.DeepClone();
             if (entry["session"] is { } id)
             {
                 var state = await store.LoadAsync(Tenant, id.ToString(), ct) ?? throw new InvalidOperationException("Owned session missing.");
