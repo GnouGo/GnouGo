@@ -204,3 +204,7 @@ before `campaign approve 1 REVISION HASH` can approve the exact artifact. The fi
 technical/review/execution blocker closes the campaign. No patch/replacement loop,
 reasoning A/B request or Stage 2 is authorized. Archived `accepted_behavior` and
 blocked campaigns remain closed. See [omission semantics](../../docs/planner-omission-defaults.md).
+
+The [omission-default campaign report](../../docs/planner-omission-defaults-live-validation.md)
+records its one blocked session, partial decisions and receipt-only replay. It must
+not be resumed or replaced automatically.

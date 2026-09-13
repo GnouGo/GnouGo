@@ -74,3 +74,9 @@ revision 18 stops with `INTENT_SOURCE_AUTHORITY_UNPROVEN` on the obsolete source
 proof, with zero receipts replayed and zero provider requests. It verifies unchanged
 session, journal and budget. The baseline replay with the frozen prior binaries
 reproduced the original declaration failure using one retained receipt.
+
+The [single frozen live run](planner-omission-defaults-live-validation.md) stopped
+on verified declaration-response truncation before BehaviorReview. Its partial
+classification modifier has no default; no complete canonical declaration set was
+committed. The exact receipt replays offline. No post-live production patch or
+replacement session was made.
