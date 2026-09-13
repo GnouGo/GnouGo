@@ -16,6 +16,14 @@ Reports separate recursive partitions, output escalation and semantic repairs, r
 parent identities, effective ceilings and completion evidence. Historical requests,
 receipts and budgets remain immutable. See [validation](../../docs/planner-output-budget-escalation.md).
 
+The bounded-escalation campaign has consumed its single start. It stopped at revision
+32 with `DECLARATION_GROUNDING_UNRESOLVED`: the output member `category` was treated
+as a distinct input with unspecified presence. Nine verified requests completed,
+including four recursive partition children; no singleton required escalation.
+No behavior or artifact was approved and all six generated-workflow cases are not run.
+The exact blocker replays offline without dispatch. Do not start or advance this
+campaign again. See the [recorded result](../../docs/planner-output-budget-escalation.md#fresh-stage-1-result--stopped-before-behavior-review).
+
 ## Isolated singleton output diagnostic
 
 `diagnose-singleton-output schema5-singleton-output-16384-low-1` permits one

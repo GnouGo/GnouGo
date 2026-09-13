@@ -79,3 +79,64 @@ boundary, omitted default, invalid input and null threshold. Exact behavior acce
 precedes construction; exact artifact approval requires current validations and all
 six passing independent cases. The first meaningful blocker stops this campaign;
 there is no replacement session, Stage 2 or patch-and-rerun loop.
+
+## Fresh Stage-1 result — stopped before behavior review
+
+The campaign consumed its single start on production commit
+`02c59469d85531b475daee1cbdcc635e920ccd87`, with harness commit `e280d21`.
+Session `4d45ca3dc8b5442b9742b98fc83554ed` stopped at revision **32** with
+`DECLARATION_GROUNDING_UNRESOLVED` at `/declarations/@ob_60232a89ef5317dd`.
+There is no typed terminal outcome, accepted behavior hash or artifact hash.
+This is a technical semantic-grounding stop, not `Unsupported` or a user clarification.
+
+The retained source clause describes the output member: “category has exactly the
+values rejected, high, standard.” Interpretation classified it as `business_input`;
+declaration adjudication selected `distinct`, the issued name reference for `category`,
+and `presence: unspecified`. That assignment passes its issued JSON Schema, but
+canonical declaration validation requires established requiredness and rejects it.
+The deeper error is treating an output-member constraint as a new public input.
+No public declarations, behavior or executable graph were committed. No production
+patch was made after observing this blocker.
+
+| Measurement | Result |
+| --- | --- |
+| Verified calls / reservations / unverifiable dispatches | 9 / 9 / 0 |
+| Input / output tokens | 31,012 / 19,232 |
+| Reported reasoning / derived answer tokens | 17,416 / 1,816 |
+| Decision pages | 9: five initial, four output partitions |
+| Partition tree | `7 → 3+4`, then `3 → 1+2` |
+| Output escalations / semantic repairs | 0 / 0 |
+| Distinct issued model decision IDs | 31; not accepted ports |
+| Deterministic / model-resolved executable holes | 0 / 0; construction not reached |
+| Other engine decisions | Unknown; uninstrumented |
+| User clarifications / answers | 0 / 0 |
+| Largest estimated / actual input request | 9,335 / 8,147 tokens |
+| Accepted behavior / final / approved artifact hash | None |
+
+Calls by phase: intent **3** (5,231 input / 1,371 output tokens), confirmation scope
+**1** (4,907 / 395), declaration adjudication **5** (20,874 / 17,466). Each phase used
+zero semantic repairs. Both truncated multi-decision responses reported 8,192 output
+tokens entirely as reasoning; their partition children completed. No singleton
+truncated, so this live run does **not** exercise the new escalation path. Its coverage
+comes from the offline tests and published smoke, separately from the earlier isolated
+diagnostic evidence.
+
+All six generated-workflow execution cases are **not run**: accepted, rejected,
+boundary, omitted default, invalid input and null threshold. FinalReview and exact
+artifact approval were not reached. Reference-fixture selfchecks remain separate
+offline evidence, not execution of a generated artifact.
+
+Strict replay from revision **27** reused one exact historical receipt and reproduced
+the same declaration failure with **zero provider dispatches** and unchanged persisted
+session/budget. The offending assignment is retained in request 8's valid receipt;
+request 9 completed the other declaration partition before combined validation stopped.
+The [redacted report](planner-output-budget-escalation-live-report.json) retains request,
+schema/context and receipt fingerprints, the exact assignment, page lineage, usage,
+freeze manifest and replay evidence.
+
+All **23 frozen binary hashes** and production sources were unchanged after the run.
+The 36 original singleton-session records, 159 previous provider-failure records and
+three isolated-diagnostic records retained identical fingerprints and timestamps.
+Stages 2 and 3 were not run. No replacement session, reasoning experiment, provider
+retry or archived-session continuation occurred. This campaign is blocked; only
+read-only inspection/replay is permitted.
