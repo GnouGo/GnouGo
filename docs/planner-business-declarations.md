@@ -20,9 +20,13 @@ located `DECLARATION_GROUNDING_UNRESOLVED` technical stops before review. They d
 claim unsupportedness or ask the user to fix a technical proof gap.
 
 Public names come from source tokens or baseline contracts. Requiredness is resolved
-from complete evidence, independently of preliminary classification flags. Exact
-JSON default literals are parsed locally and apply on omission; no default and a
-literal null default remain distinct. Existing typed schemas remain authoritative.
+from complete evidence, independently of preliminary classification flags. Only separately interpreted `omission_default` evidence can supply a new default.
+Ordinary declarations and outputs expose only a null default-reference slot. Runtime
+conditions and `runtime_fallback` obligations retain executable authority without
+entering declaration adjudication. Exact JSON literals inside the omission evidence
+are parsed locally; no default and a literal null default remain distinct. Input/output
+aliases and modifiers cannot cross directions, and omission modifiers require optional
+input targets. See [omission semantics](planner-omission-defaults.md). Existing typed schemas remain authoritative.
 Unresolved type and preservation evidence stays available to typed construction.
 There is no new schema authoring or executable generation path.
 

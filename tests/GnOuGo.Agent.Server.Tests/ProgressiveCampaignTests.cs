@@ -18,7 +18,7 @@ namespace GnOuGo.Agent.Server.Tests;
 public sealed class ProgressiveCampaignTests
 {
     [Fact]
-    public void ExactBehaviorAcceptanceStopsWithoutConstructionOrRestart()
+    public void ExactBehaviorAcceptanceWaitsForExplicitContinuationOfTheSameSession()
     {
         Assert.False(ProgressiveRules.ShouldAdvance("accept")); Assert.False(ProgressiveRules.ShouldAdvance("approve"));
         Assert.True(ProgressiveRules.ShouldAdvance("start")); Assert.True(ProgressiveRules.ShouldAdvance("advance"));
@@ -27,9 +27,33 @@ public sealed class ProgressiveCampaignTests
         var state = new PlanningSnapshot { Status = PlanningStatus.Generating, BehaviorPlan = behavior, ApprovedBehaviorHash = hash, Graph = new() };
         var stage = new JsonObject { ["status"] = "waiting" };
         ProgressiveRules.RecordBehaviorCheckpoint(stage, state, hash, 0);
-        Assert.Equal("accepted_behavior", stage["status"]!.ToString()); Assert.Equal(hash, stage["acceptedBehaviorHash"]!.ToString());
+        Assert.Equal("behavior_accepted", stage["status"]!.ToString()); Assert.Equal(hash, stage["acceptedBehaviorHash"]!.ToString());
         Assert.NotNull(stage["skeletonHash"]); Assert.Null(state.Outcome); Assert.False(ProgressiveRules.CanPass(1, state, true));
-        Assert.Throws<InvalidOperationException>(() => ProgressiveRules.RequireOpen(JsonNode.Parse(stage.ToJsonString())!.AsObject()));
+        ProgressiveRules.RequireOpen(JsonNode.Parse(stage.ToJsonString())!.AsObject());
+        Assert.Throws<InvalidOperationException>(() => ProgressiveRules.RequireStart(new JsonArray(stage.DeepClone()), 1, maximumStage: 1));
+    }
+
+    [Theory]
+    [InlineData("blocked")]
+    [InlineData("accepted_behavior")]
+    [InlineData("passed")]
+    public void CompletedOrArchivedCampaignsCannotResume(string status)
+        => Assert.Throws<InvalidOperationException>(() => ProgressiveRules.RequireOpen(new() { ["status"] = status }));
+
+    [Fact]
+    public void RecoveryRecordsAcceptanceOnceAndDoesNotResetAnAdvancedSession()
+    {
+        var behavior = new PlanningBehaviorPlan(); var hash = GnOuGo.Flow.Planning.PlanningBehaviorPlans.Fingerprint(behavior);
+        var state = new PlanningSnapshot { Status = PlanningStatus.Generating, BehaviorPlan = behavior, ApprovedBehaviorHash = hash, Graph = new() };
+        var stage = new JsonObject { ["status"] = "waiting" };
+        Assert.True(ProgressiveRules.RecoverBehaviorCheckpoint(stage, state));
+        var persisted = JsonNode.Parse(stage.ToJsonString())!.AsObject();
+        state.CurrentPhase = PlanningPhase.Construction;
+        state.RequestAccounting.Add(new() { Id = "durable_construction_request", Evidence = "receipt" });
+        Assert.False(ProgressiveRules.RecoverBehaviorCheckpoint(persisted, state));
+        Assert.Equal(stage.ToJsonString(), persisted.ToJsonString()); Assert.Single(state.RequestAccounting);
+        state.ApprovedBehaviorHash = "changed";
+        Assert.Throws<InvalidOperationException>(() => ProgressiveRules.RecoverBehaviorCheckpoint(persisted, state));
     }
 
     [Theory]

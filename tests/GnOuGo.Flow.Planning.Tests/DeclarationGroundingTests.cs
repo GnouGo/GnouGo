@@ -38,8 +38,10 @@ public sealed class DeclarationGroundingTests
     {
         var obligation = state.Obligations.Single(o => o.Id == candidate);
         var clause = state.References.Single(r => r.Id == obligation.Grounding!.ClauseReference);
-        return PlanningReferences.Lexical(state, clause, PlanningSourceDecisions.Sources(state)[clause.SourceId])
-            .First(r => PlanningChoiceEvidence.Text(state, r.Id) == text).Id;
+        var matches = PlanningReferences.Lexical(state, clause, PlanningSourceDecisions.Sources(state)[clause.SourceId])
+            .Where(r => PlanningChoiceEvidence.Text(state, r.Id) == text).ToArray();
+        return (matches.FirstOrDefault(r => obligation.EvidenceReferences.Select(id => state.References.Single(e => e.Id == id))
+            .Any(e => r.Start >= e.Start && r.Start + r.Length <= e.Start + e.Length)) ?? matches.First()).Id;
     }
     internal static PlanningDeclarationAssignment Distinct(PlanningSnapshot state, string id, string name, string presence = "required", string? defaultText = null)
         => new(id, "distinct", null, Token(state, id, name), "main", presence, defaultText is null ? null : Token(state, id, defaultText));
@@ -64,14 +66,14 @@ public sealed class DeclarationGroundingTests
         Add(state, "Return classifiedResult:{id:string,amount:number,category:string}, all members", "result", "business_output");
         Add(state, "Classify as rejected when approved is false, high when approved is true and amount>=threshold, and standard otherwise.", "classification", "business_output");
         Add(state, "Preserve the original id and amount.", "preservation", "business_output");
-        Add(state, "defaulting to 100", "default", "default_value");
+        Add(state, "defaulting to 100", "default", "omission_default");
         Add(state, "classifying a single", "operation", "local_processing");
         state.Preparation!.Capabilities.Add(new() { Id = "local", StepType = "set", Resolution = "local", Required = true,
             Description = "Classify the original record under the declared rule.", OperationIds = ["operation"] });
-        return (state, [Distinct(state, "record", "record"), Distinct(state, "threshold", "threshold", "optional", "100"),
+        return (state, [Distinct(state, "record", "record"), Distinct(state, "threshold", "threshold", "optional"),
             Link("overlap", "threshold", presence: "optional"), Retire("description"), Distinct(state, "result", "classifiedResult"),
             Link("classification", "result", "modifier_of"), Link("preservation", "result", "modifier_of"),
-            Link("default", "threshold", "modifier_of", defaultReference: Token(state, "default", "100"))]);
+            Link("default", "threshold", "modifier_of", "optional", defaultReference: Token(state, "default", "100"))]);
     }
     private static void Commit(PlanningSnapshot state, List<PlanningDeclarationAssignment> assignments) => PlanningDeclarations.Commit(state, assignments, PlanningDeclarations.EvidenceFingerprint(state));
 
@@ -127,8 +129,8 @@ public sealed class DeclarationGroundingTests
     public async Task ModifierBeforeDeclarationAndCrossPageForwardAliasesCommitTogether()
     {
         var state = State("Default to 100 when omitted. Optional input limit is a number. Input limit is used in processing.");
-        Add(state, "Default to 100 when omitted.", "a", "default_value"); Add(state, "Optional input limit is a number.", "z"); Add(state, "Input limit is used in processing.", "b");
-        var assignments = new List<PlanningDeclarationAssignment> { Link("a", "b", "modifier_of", defaultReference: Token(state, "a", "100")), Link("b", "z"), Distinct(state, "z", "limit", "optional") };
+        Add(state, "Default to 100 when omitted.", "a", "omission_default"); Add(state, "Optional input limit is a number.", "z"); Add(state, "Input limit is used in processing.", "b");
+        var assignments = new List<PlanningDeclarationAssignment> { Link("a", "b", "modifier_of", "optional", defaultReference: Token(state, "a", "100")), Link("b", "z"), Distinct(state, "z", "limit", "optional") };
         var pages = PlanningDeclarations.Decisions(state);
         // Three separately persisted pages, including forward links. They grant
         // no port authority until the entire assignment graph is validated.
@@ -155,7 +157,9 @@ public sealed class DeclarationGroundingTests
     public void InvalidOrAmbiguousAdjudicationCannotGrantPortAuthority(string defect)
     {
         var state = State("Optional input limit defaults to 100 or 200. Input limit is optional."); Add(state, "Optional input limit", "a"); Add(state, "Input limit is optional.", "b");
-        var values = new List<PlanningDeclarationAssignment> { Distinct(state, "a", "limit", "optional", "100"), Link("b", "a") };
+        Add(state, "defaults to 100", "initial_default", "omission_default");
+        var values = new List<PlanningDeclarationAssignment> { Distinct(state, "a", "limit", "optional"), Link("b", "a"),
+            Link("initial_default", "a", "modifier_of", "optional", Token(state, "initial_default", "100")) };
         if (defect == "cycle") values[0] = Link("a", "b");
         if (defect == "missing") values[1] = Link("b", "foreign");
         if (defect == "name") values[0] = values[0] with { NameReference = "invented" };
@@ -163,7 +167,7 @@ public sealed class DeclarationGroundingTests
         if (defect == "incomplete") values.RemoveAt(1);
         if (defect == "unresolved") values[0] = Retire("a") with { Disposition = "unresolved" };
         if (defect == "presence") values[1] = values[1] with { Presence = "required" };
-        if (defect == "default") { Add(state, "200", "c", "default_value"); values.Add(Link("c", "a", "modifier_of", defaultReference: Token(state, "c", "200"))); }
+        if (defect == "default") { Add(state, "200", "c", "omission_default"); values.Add(Link("c", "a", "modifier_of", "optional", defaultReference: Token(state, "c", "200"))); }
         var error = Assert.Throws<WorkflowRuntimeException>(() => Commit(state, values));
         Assert.Equal("DECLARATION_GROUNDING_UNRESOLVED", error.Code); Assert.StartsWith("/declarations/", error.Details!["location"]!.ToString());
         Assert.Empty(state.Declarations); Assert.Null(state.DeclarationFingerprint); Assert.Null(state.Outcome); Assert.Null(state.Intent.Question);
@@ -173,7 +177,9 @@ public sealed class DeclarationGroundingTests
     public void DefaultsDistinguishNoDefaultAndExplicitNull()
     {
         var state = State("Optional inputs first and second may be null, second defaults to null."); Add(state, "first", "a"); Add(state, "second", "b");
-        Commit(state, [Distinct(state, "a", "first", "optional"), Distinct(state, "b", "second", "optional", "null")]);
+        Add(state, "second defaults to null", "default", "omission_default");
+        Commit(state, [Distinct(state, "a", "first", "optional"), Distinct(state, "b", "second", "optional"),
+            Link("default", "b", "modifier_of", "optional", Token(state, "default", "null"))]);
         Assert.Null(PlanningDeclarations.Default(state, state.Declarations.Single(d => PlanningDeclarations.Name(state, d) == "first")));
         Assert.Equal("null", PlanningDeclarations.Default(state, state.Declarations.Single(d => PlanningDeclarations.Name(state, d) == "second"))!.Kind);
     }

@@ -70,7 +70,11 @@ public sealed class BusinessClarificationTests
         Assert.Null(state.Intent.Question); Assert.Null(state.Outcome); Assert.Equal(0, state.Intent.Questions);
         Assert.Equal("runtime", Assert.Single(state.BusinessDecisions).Status);
         Assert.Contains("defaulting to 100", Assert.Single(runtime.Requests).Prompt);
-        PlanningDeclarations.Commit(state, [DeclarationGroundingTests.Distinct(state, "input", "threshold", "optional", "100")], PlanningDeclarations.EvidenceFingerprint(state));
+        // Current interpretation supplies a separate omission-default obligation;
+        // the retained business-choice fragment itself grants no default authority.
+        Evidence(state, "defaulting to 100 when omitted.", "omission_default", "default");
+        PlanningDeclarations.Commit(state, [DeclarationGroundingTests.Distinct(state, "input", "threshold", "optional"),
+            DeclarationGroundingTests.Link("default", "input", "modifier_of", "optional", DeclarationGroundingTests.Token(state, "default", "100"))], PlanningDeclarations.EvidenceFingerprint(state));
         var plan = PlanningBehaviorDecisions.Assemble(state, new());
         Assert.Contains("defaulting to 100", Assert.Single(plan.Workflows[0].Inputs).Description);
         Assert.False(plan.Workflows[0].Inputs[0].Required);

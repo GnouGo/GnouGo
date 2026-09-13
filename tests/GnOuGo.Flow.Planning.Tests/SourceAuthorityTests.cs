@@ -102,6 +102,7 @@ public sealed class SourceAuthorityTests
 
     [Theory]
     [InlineData("runtime_condition", PlanningSourceSemanticRole.RuntimeCondition)]
+    [InlineData("runtime_fallback", PlanningSourceSemanticRole.RuntimeCondition)]
     [InlineData("workflow_policy", PlanningSourceSemanticRole.PolicyConstraint)]
     public void SubjectsAndConditionsCarryNoActionAuthority(string kind, PlanningSourceSemanticRole role)
     {

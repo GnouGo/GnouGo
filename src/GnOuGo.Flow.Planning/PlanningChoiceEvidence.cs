@@ -42,7 +42,7 @@ internal static class PlanningChoiceEvidence
     internal static IEnumerable<string> Governors(PlanningSnapshot state, PlanningBusinessDecision decision)
     {
         return state.Obligations.Where(o => o.Id != decision.ObligationId && o.Kind is
-                "business_input" or "business_preference" or "explicit_value" or "default_value" or "runtime_condition" or "workflow_policy" or "confirmation_required" or "confirmation_forbidden")
+                "business_input" or "business_preference" or "explicit_value" or "omission_default" or "runtime_condition" or "runtime_fallback" or "workflow_policy" or "confirmation_required" or "confirmation_forbidden")
             .SelectMany(o => o.EvidenceReferences).Concat(Clauses(state).Where(r => Origin(state, r.Id) is "answer" or "baseline" or "policy").Select(r => r.Id))
             .Distinct(StringComparer.Ordinal);
     }

@@ -173,7 +173,7 @@ the frozen catalog hash and the embedded fixture-source hash, so changing fixtur
 cannot reuse old passing evidence. `verify-fixtures` validates the fixture responses
 against the frozen producer schemas without model calls; it is not workflow execution.
 
-## Canonical declaration Stage-1 campaign
+## Archived canonical declaration Stage-1 campaign
 
 The fresh canonical-declarations campaign permits one standalone-classifier start.
 `campaign accept 1 REVISION HASH` submits exact behavior approval once and stops
@@ -188,3 +188,19 @@ synthetic response or provider fallback is allowed. Production, catalog, policy,
 model, ceilings and all-low campaign reasoning are frozen before the single start.
 
 The [canonical-declaration campaign report](../../docs/planner-canonical-declarations-live-validation.md) records its one technical stop and receipt-only replay. That campaign is blocked; it must not be resumed or replaced automatically.
+
+## Omission-default Stage-1 campaign
+
+`schema5-omission-defaults-20260913` permits exactly one fresh Stage-1 start. It
+uses the same model, classifier, policy and ceilings with all-low reasoning.
+Acceptance requires independent inspection of the exact behavior revision/hash.
+`campaign accept 1 REVISION HASH` records an intermediate `behavior_accepted`
+checkpoint and skeleton without dispatching executable requests; a separate
+`campaign advance 1` continues that same session. Restart records a durable
+acceptance once and never resubmits it.
+
+At FinalReview, `campaign execute 1` must pass all six independent fixture cases
+before `campaign approve 1 REVISION HASH` can approve the exact artifact. The first
+technical/review/execution blocker closes the campaign. No patch/replacement loop,
+reasoning A/B request or Stage 2 is authorized. Archived `accepted_behavior` and
+blocked campaigns remain closed. See [omission semantics](../../docs/planner-omission-defaults.md).

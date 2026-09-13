@@ -28,7 +28,7 @@ internal static partial class PlanningDeclarations
         }
     }
 
-    internal static string EvidenceFingerprint(PlanningSnapshot state) => PlanningGraphCompiler.Fingerprint("declarations-v1:" +
+    internal static string EvidenceFingerprint(PlanningSnapshot state) => PlanningGraphCompiler.Fingerprint("declarations-v2:" +
         state.Request.TenantId + ":" + state.Request.SessionId + ":" +
         string.Join('|', state.Obligations.OrderBy(o => o.Id, StringComparer.Ordinal).Select(o => o.Id + ":" + o.Grounding?.Fingerprint)) + ":" +
         (state.Request.Baseline is { } graph ? PlanningGraphCompiler.Fingerprint(graph) : ""));
@@ -104,8 +104,11 @@ internal static partial class PlanningDeclarations
             var primary = inherited is null ? chosen[root] : null;
             var direction = inherited?.Direction ?? (candidates[root].Kind == "business_input" ? "input" : "output");
             var members = assignments.Where(a => roots[a.CandidateId] == root).OrderBy(a => a.CandidateId, StringComparer.Ordinal).ToArray();
-            if (members.Any(a => a.Disposition == "same_as" && candidates[a.CandidateId].Kind != (direction == "input" ? "business_input" : "business_output")))
-                throw Failure(root, "Input and output declarations cannot alias each other.");
+            if (members.Any(a => a.Disposition is "same_as" or "modifier_of" &&
+                (candidates[a.CandidateId].Kind == "omission_default" ? direction != "input" : candidates[a.CandidateId].Kind != (direction == "input" ? "business_input" : "business_output"))))
+                throw Failure(root, "Declaration aliases and modifiers must preserve input/output direction.");
+            if (members.Any(a => a.DefaultReference is not null && (candidates[a.CandidateId].Kind != "omission_default" || a.Disposition != "modifier_of" || a.Presence != "optional")))
+                throw Failure(root, "Only an evidenced omission modifier can supply an optional input default.");
             var presence = members.Select(a => a.Presence).Where(p => p != "unspecified").Distinct(StringComparer.Ordinal).ToArray();
             if (presence.Length > 1 || inherited is null && presence.Length == 0)
                 throw Failure(root, "Declaration requiredness is conflicting or unresolved.");

@@ -28,7 +28,7 @@ internal static class ProgressiveCampaign
 {
     internal const string Tenant = "planner-progressive", Author = "GnOuGo.Agent.Planning.Benchmark";
     internal const string EvidenceCollection = "agent-planning-progressive-evidence-v5", CampaignCollection = "agent-planning-progressive-campaigns-v5";
-    internal const string CampaignId = "schema5-canonical-declarations-20260913";
+    internal const string CampaignId = "schema5-omission-defaults-20260913";
     private const string ArchivedCampaignId = "schema5-ee487c8";
     private const int MaximumStage = 1;
 
@@ -168,12 +168,11 @@ internal static class ProgressiveCampaign
             }
             state = await service.GetAsync(stageEntry["session"]!.ToString(), ct) ?? throw new InvalidOperationException("Owned session missing.");
             ProgressiveRules.RequireOpen(stageEntry);
-            if (state.ApprovedBehaviorHash is { } acceptedHash)
+            if (ProgressiveRules.RecoverBehaviorCheckpoint(stageEntry, state))
             {
                 // Acceptance can be durable before the campaign manifest write.
-                // Recovery records that checkpoint; it never advances the skeleton.
-                ProgressiveRules.RecordBehaviorCheckpoint(stageEntry, state, acceptedHash,
-                    state.RequestAccounting.Select(r => r.Id).Distinct(StringComparer.Ordinal).Count());
+                // Recovery records the intermediate checkpoint. A separate explicit
+                // advance continues this same session without accepting twice.
                 stageEntry["revision"] = state.Revision;
                 await SaveAsync(records, manifest, ct);
                 Console.WriteLine(await ReportAsync(manifest, contexts, records, store, ct));
@@ -235,7 +234,7 @@ internal static class ProgressiveCampaign
                 }
             }
             stageEntry["outcome"] = state.Outcome?.Name;
-            if (stageEntry["status"]?.ToString() is not ("accepted_behavior" or "blocked"))
+            if (stageEntry["status"]?.ToString() != "blocked" && !(args[0] == "accept" && stageEntry["status"]?.ToString() == "behavior_accepted"))
                 stageEntry["status"] = ProgressiveRules.CanPass(stage, state, stageEntry["justification"] is not null) ? "passed" : state.TechnicalStop is not null || PlanningStatus.IsTerminal(state.Status) && state.Status != PlanningStatus.Approved ? "blocked" : "waiting";
             stageEntry["revision"] = state.Revision;
             await SaveAsync(records, manifest, ct);
@@ -293,7 +292,7 @@ internal static class ProgressiveCampaign
         ["productionCommit"] = ProgressiveRules.ProductionCommit, ["binaries"] = binaries,
         ["model"] = model, ["evidenceHash"] = PlanningGraphCompiler.Fingerprint(frozen),
         ["policyHash"] = PlanningGraphCompiler.Fingerprint(policy), ["abUsed"] = false,
-        ["limits"] = new JsonObject { ["maximumStage"] = MaximumStage, ["stopAfterBehaviorAcceptance"] = true, ["diagnosticAbAllowed"] = false,
+        ["limits"] = new JsonObject { ["maximumStage"] = MaximumStage, ["stopAfterBehaviorAcceptance"] = false, ["diagnosticAbAllowed"] = false,
             ["input"] = 12000, ["dispatchTarget"] = 9600, ["output"] = 8192, ["concurrency"] = 4, ["repairsPerGate"] = 5,
             ["calls"] = 100, ["totalTokens"] = 15000000, ["activeMilliseconds"] = 18000000, ["amount"] = 50, ["currency"] = "EUR", ["reasoning"] = "low" },
         ["stages"] = new JsonArray(Enumerable.Range(1, 3).Select(s => (JsonNode)new JsonObject

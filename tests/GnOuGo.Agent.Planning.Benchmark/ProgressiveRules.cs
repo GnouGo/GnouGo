@@ -47,7 +47,7 @@ internal static class ProgressiveRules
 
     internal static void RequireOpen(JsonObject stage)
     {
-        if (stage["status"]?.ToString() is "blocked" or "accepted_behavior")
+        if (stage["status"]?.ToString() is "blocked" or "accepted_behavior" or "passed")
             throw new InvalidOperationException("This campaign has reached its stopping checkpoint. Only inspection or offline replay is permitted.");
     }
 
@@ -59,8 +59,21 @@ internal static class ProgressiveRules
             state.RequestAccounting.Select(r => r.Id).Distinct(StringComparer.Ordinal).Count() != priorRequests ||
             state.Construction.Holes.Any(h => h.ExposedRequests.Count != 0))
             throw new InvalidOperationException("Behavior acceptance must preserve the exact review and create only its deterministic skeleton.");
-        stage["status"] = "accepted_behavior"; stage["acceptedBehaviorHash"] = reviewedHash;
+        stage["status"] = "behavior_accepted"; stage["acceptedBehaviorHash"] = reviewedHash;
         stage["skeletonHash"] = PlanningGraphCompiler.Fingerprint(state.Graph);
+    }
+
+    internal static bool RecoverBehaviorCheckpoint(JsonObject stage, PlanningSnapshot state)
+    {
+        if (stage["acceptedBehaviorHash"] is { } recorded)
+        {
+            if (recorded.ToString() != state.ApprovedBehaviorHash)
+                throw new InvalidOperationException("The accepted behavior differs from the recorded checkpoint.");
+            return false;
+        }
+        if (state.ApprovedBehaviorHash is not { } accepted) return false;
+        RecordBehaviorCheckpoint(stage, state, accepted, state.RequestAccounting.Select(r => r.Id).Distinct(StringComparer.Ordinal).Count());
+        return true;
     }
 
     internal static bool CanPass(int stage, PlanningSnapshot state, bool justified)

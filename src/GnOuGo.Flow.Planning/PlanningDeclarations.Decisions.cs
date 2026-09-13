@@ -9,10 +9,9 @@ internal static partial class PlanningDeclarations
     internal static PlanningObligation[] Candidates(PlanningSnapshot state)
     {
         var declarations = state.Obligations.Where(IsCandidate).ToArray();
-        if (declarations.Length == 0) return [];
         // Standalone defaults may precede their declaration. Their target is a
         // semantic decision, not a nearest-name or nearest-clause heuristic.
-        return declarations.Concat(state.Obligations.Where(o => o.Kind == "default_value"))
+        return declarations.Concat(state.Obligations.Where(o => o.Kind == "omission_default"))
             .DistinctBy(o => o.Id).OrderBy(o => o.Id, StringComparer.Ordinal).ToArray();
     }
     private static bool IsCandidate(PlanningObligation o) => o.Kind is "business_input" or "business_output";
@@ -50,7 +49,6 @@ internal static partial class PlanningDeclarations
         var candidates = Candidates(state);
         var sources = PlanningSourceDecisions.Sources(state);
         var baseline = Baselines(state);
-        var issued = candidates.Where(IsCandidate).Select(o => o.Id).Concat(baseline.Keys).Order(StringComparer.Ordinal).ToArray();
         var scopes = new[] { "main" }.Concat(state.Obligations.Where(o => o.Kind == "workflow_boundary").Select(o => o.Id))
             .Concat(baseline.Values.Select(p => p.Scope)).Distinct(StringComparer.Ordinal).Order(StringComparer.Ordinal).ToArray();
         var evidence = EvidenceFingerprint(state);
@@ -59,8 +57,19 @@ internal static partial class PlanningDeclarations
             var clause = state.References.Single(r => r.Id == group.Key);
             var lexical = PlanningReferences.Lexical(state, clause, sources[clause.SourceId]);
             var names = lexical.Where(r => NameToken(PlanningReferences.Resolve(state, r.Id, sources)) is not null).Select(r => r.Id).ToArray();
-            var literals = lexical.Where(r => TryLiteral(PlanningReferences.Resolve(state, r.Id, sources), out _)).Select(r => r.Id).ToArray();
-            var schema = PlanningHoleRequests.Object(group.Select(o => (o.Id, AssignmentSchema(o, names, literals, issued, scopes))).ToArray());
+            var schema = PlanningHoleRequests.Object(group.Select(o =>
+            {
+                var direction = o.Kind == "business_output" ? "output" : "input";
+                var targets = candidates.Where(IsCandidate).Where(t => t.Id != o.Id && t.Kind == (direction == "input" ? "business_input" : "business_output"))
+                    .Select(t => t.Id).Concat(baseline.Where(p => p.Value.Direction == direction).Select(p => p.Key)).Order(StringComparer.Ordinal).ToArray();
+                // Clause context explains the decision; only the selected omission
+                // evidence grants value authority. Neighboring condition literals do not.
+                var spans = o.EvidenceReferences.Select(id => state.References.Single(r => r.Id == id)).ToArray();
+                var literals = o.Kind == "omission_default" ? lexical.Where(r => spans.Any(span =>
+                    r.SourceId == span.SourceId && r.Start >= span.Start && r.Start + r.Length <= span.Start + span.Length) &&
+                    TryLiteral(PlanningReferences.Resolve(state, r.Id, sources), out _)).Select(r => r.Id).ToArray() : [];
+                return (o.Id, AssignmentSchema(state, o, names, literals, targets, scopes, baseline));
+            }).ToArray());
             var context = new JsonObject
             {
                 ["task"] = "Adjudicate public declarations jointly from the complete clause. Distinct establishes exactly one subject; same_as denotes the same declaration; modifier_of attaches optionality, default, type or preservation evidence without adding a port; not_a_declaration retains descriptive/governing evidence without port authority. Runtime result descriptions are not additional public outputs. Multiple distinct subjects can share a clause. A broad candidate without one unambiguous subject must remain unresolved; do not silently select one of its subjects. Use unresolved when the subject or modifiers cannot be established. Presence refers to the port, not its object members; unspecified contributes no presence constraint. A default is an explicitly declared JSON literal applied only on omission; null is a distinct literal. Names select exact source tokens; never rename or infer an undeclared name.",
@@ -79,13 +88,32 @@ internal static partial class PlanningDeclarations
         }).ToArray();
     }
 
-    private static JsonObject AssignmentSchema(PlanningObligation candidate, string[] names, string[] literals, string[] targets, string[] scopes)
+    private static JsonObject AssignmentSchema(PlanningSnapshot state, PlanningObligation candidate, string[] names, string[] literals,
+        string[] targets, string[] scopes, Dictionary<string, BaselinePort> baseline)
     {
         JsonObject Rule(string kind, params (string, JsonObject)[] fields) => PlanningHoleRequests.Object(
             new[] { ("disposition", PlanningHoleRequests.Enum([kind])) }.Concat(fields.Select(f => (f.Item1, f.Item2.DeepClone().AsObject()))).ToArray());
         var variants = new JsonArray(Rule("unresolved"), Rule("not_a_declaration"));
+        if (candidate.Kind == "omission_default")
+        {
+            // A default makes an input optional. Baseline contracts are already
+            // established: only an identical declared default can be reaffirmed.
+            var unestablished = targets.Where(id => !baseline.ContainsKey(id)).ToArray();
+            if (unestablished.Length > 0 && literals.Length > 0)
+                variants.Add((JsonNode)Rule("modifier_of", ("target", PlanningHoleRequests.Enum(unestablished)),
+                    ("presence", PlanningHoleRequests.Enum(["optional"])), ("default", PlanningHoleRequests.Enum(literals))));
+            foreach (var target in targets.Where(baseline.ContainsKey))
+            {
+                var port = baseline[target];
+                if (port.Required || port.Input?.Default is not { } value || !PlanningGraphValidation.IsLiteral(value)) continue;
+                var matching = literals.Where(id => JsonNode.DeepEquals(Literal(state, id), PlanningGraphValidation.Literal(value))).ToArray();
+                if (matching.Length > 0) variants.Add((JsonNode)Rule("modifier_of", ("target", PlanningHoleRequests.Enum([target])),
+                    ("presence", PlanningHoleRequests.Enum(["optional"])), ("default", PlanningHoleRequests.Enum(matching))));
+            }
+            return new() { ["anyOf"] = variants };
+        }
         var modifiers = new[] { ("presence", PlanningHoleRequests.Enum(["unspecified", "required", "optional"])),
-            ("default", literals.Length == 0 ? PlanningHoleRequests.Type("null") : new JsonObject { ["anyOf"] = new JsonArray(PlanningHoleRequests.Type("null"), PlanningHoleRequests.Enum(literals)) }) };
+            ("default", PlanningHoleRequests.Type("null")) };
         if (IsCandidate(candidate) && candidate.Grounding!.Authority == PlanningSourceAuthority.RequestedBehavior && names.Length > 0)
             variants.Add((JsonNode)Rule("distinct", [ ("name", PlanningHoleRequests.Enum(names)), ("scope", PlanningHoleRequests.Enum(scopes)), .. modifiers ]));
         var eligibleTargets = targets.Where(id => id != candidate.Id).ToArray();
