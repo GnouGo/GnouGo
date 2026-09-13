@@ -15,4 +15,6 @@ public sealed class PlanningScopedPolicy
     public string Status { get; set; } = "pending";
     public List<string> TargetOperationIds { get; set; } = [];
     public string? PermissionOperationId { get; set; }
+    public List<string> GoverningObligationIds { get; set; } = [];
+    public List<string> GoverningReferences { get; set; } = [];
 }

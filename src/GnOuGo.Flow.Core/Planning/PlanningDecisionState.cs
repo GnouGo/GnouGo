@@ -28,7 +28,19 @@ public sealed class PlanningDecisionPage
 }
 
 public sealed record PlanningDecisionCorrection(string DecisionId, string EvidenceFingerprint, string WorkflowKey, string Gate);
-public sealed record PlanningObligation(string Id, List<string> EvidenceReferences, string Owner, string Kind, bool Required);
+public sealed record PlanningObligation(string Id, List<string> EvidenceReferences, string Owner, string Kind, bool Required)
+{
+    public PlanningSourceGrounding? Grounding { get; init; }
+    public string? AdjudicationFingerprint { get; set; }
+    public string Disposition { get; set; } = "preliminary";
+    public List<string> PolicyIds { get; set; } = [];
+}
+
+/// <summary>Assigned by the coordinator from owned source metadata, never selected by a model.</summary>
+public enum PlanningSourceAuthority { Unknown, RequestedBehavior, ExistingBehavior, ConstraintsOnly }
+public enum PlanningSourceSemanticRole { Unknown, RequestedAction, ExistingAction, PolicyConstraint, RuntimeCondition, Declaration }
+public sealed record PlanningSourceGrounding(PlanningSourceAuthority Authority, PlanningSourceSemanticRole Role,
+    string ClauseReference, string? BaselineReference, string Fingerprint);
 public sealed record PlanningObligationRelation(string Producer, string Consumer, string Role);
 public sealed record PlanningClarification(string DecisionId, List<string> EvidenceReferences,
     JsonObject AnswerSchema, List<string> Obligations)

@@ -10,78 +10,82 @@ internal static class PlanningConfirmationPolicies
 {
     internal static void RequireCurrent(PlanningSnapshot state)
     {
-        if (state.Preparation is { PolicyScopeVersion: not 1 })
+        if (state.Preparation is { PolicyScopeVersion: not 2 })
             throw Failure("CONFIRMATION_SCOPE_UNRESOLVED", "preparation", "The accepted preparation predates scoped permission proof. Revise the intent to reassess its governing policies before execution or approval.");
+        if (state.Preparation is not null) PlanningSourceGroundingRules.ValidateAll(state);
     }
     internal static async Task ResolveAsync(PlanningSnapshot state, IPlanningRuntime runtime, CancellationToken ct)
     {
-        var obligations = state.Obligations.Where(o => o.Kind is "confirmation_required" or "confirmation_forbidden" or "workflow_policy" or "exact_denial").OrderBy(o => o.Id, StringComparer.Ordinal).ToArray();
+        PlanningSourceGroundingRules.ValidateAll(state);
+        var candidates = state.Obligations.Where(o => o.Kind is "confirmation_required" or "confirmation_forbidden" or "rejection_condition" or "workflow_policy" or "exact_denial")
+            .OrderBy(o => o.Id, StringComparer.Ordinal).ToArray();
         var operations = state.Obligations.Where(PlanningSourceDecisions.IsOperation).OrderBy(o => o.Id, StringComparer.Ordinal).ToArray();
-        var decisions = new List<PlanningDecisionPages.Decision>();
-        var pending = new List<PlanningScopedPolicy>();
-        foreach (var obligation in obligations)
-        {
-            var clause = PlanningChoiceEvidence.Parent(state, obligation.EvidenceReferences[0]);
-            var fingerprint = PlanningGraphCompiler.Fingerprint(clause.SourceFingerprint + ":" + clause.Id + ":" +
-                string.Join('|', operations.Select(o => o.Id + ":" + string.Join(',', o.EvidenceReferences))));
-            var retained = state.ScopedPolicies.SingleOrDefault(p => p.ObligationId == obligation.Id && p.EvidenceFingerprint == fingerprint);
-            if (retained is { Status: "resolved" }) { Validate(state, retained); pending.Add(retained); continue; }
-            var policy = new PlanningScopedPolicy { Id = "policy_" + obligation.Id, ObligationId = obligation.Id,
-                ClauseReference = clause.Id, EvidenceFingerprint = fingerprint, Origin = PlanningChoiceEvidence.Origin(state, clause.Id) };
-            pending.Add(policy);
-            var alternatives = new JsonArray(
-                PlanningHoleRequests.Object(("kind", PlanningHoleRequests.Enum("effect")),
-                    ("target", PlanningHoleRequests.Enum("read", "write", "execute", "lifecycle"))),
-                PlanningHoleRequests.Object(("kind", PlanningHoleRequests.Enum("unknown")),
-                    ("target", PlanningHoleRequests.Enum("unknown"))));
-            if (operations.Length > 0) alternatives.Add((JsonNode)PlanningHoleRequests.Object(("kind", PlanningHoleRequests.Enum("operation")),
-                ("target", PlanningHoleRequests.Enum(operations.Select(o => o.Id).ToArray()))));
-            var humans = operations.Where(o => o.Kind == "human_interaction").ToArray();
-            var targets = new JsonObject { ["type"] = "array", ["maxItems"] = humans.Length,
-                ["items"] = humans.Length == 0 ? PlanningHoleRequests.Type("string") : PlanningHoleRequests.Enum(humans.Select(o => o.Id).ToArray()) };
-            var permissionSchema = PlanningHoleRequests.Object(
-                ("rule", PlanningHoleRequests.Enum(obligation.Kind == "confirmation_required" ? ["require_confirmation"] :
-                    obligation.Kind == "confirmation_forbidden" ? ["forbid_confirmation"] : ["require_confirmation", "forbid_confirmation"])),
-                ("scope", new JsonObject { ["anyOf"] = alternatives }),
-                ("interactionTargets", new JsonObject { ["type"] = "array", ["maxItems"] = 0, ["items"] = PlanningHoleRequests.Type("string") }),
-                ("applicability", PlanningHoleRequests.Enum("always", "unless_explicit", "unknown")));
-            var responseSchema = obligation.Kind == "confirmation_required" ? permissionSchema : new JsonObject { ["anyOf"] = new JsonArray(permissionSchema,
-                PlanningHoleRequests.Object(("rule", PlanningHoleRequests.Enum("forbid_interaction")),
-                    ("scope", PlanningHoleRequests.Object(("kind", PlanningHoleRequests.Enum("interaction")), ("target", PlanningHoleRequests.Enum(clause.Id)))),
-                    ("interactionTargets", targets), ("applicability", PlanningHoleRequests.Enum("always", "unless_explicit", "unknown")))) };
-            if (obligation.Kind is "workflow_policy" or "exact_denial") responseSchema["anyOf"]!.AsArray().Add((JsonNode)PlanningHoleRequests.Object(
-                ("rule", PlanningHoleRequests.Enum("not_confirmation_policy")),
-                ("scope", PlanningHoleRequests.Object(("kind", PlanningHoleRequests.Enum("none")), ("target", PlanningHoleRequests.Enum(clause.Id)))),
-                ("interactionTargets", new JsonObject { ["type"] = "array", ["maxItems"] = 0, ["items"] = PlanningHoleRequests.Type("string") }),
-                ("applicability", PlanningHoleRequests.Enum("always"))));
-            decisions.Add(new(policy.Id, responseSchema, new JsonObject
-            {
-                ["clauseReference"] = clause.Id, ["clause"] = PlanningChoiceEvidence.Text(state, clause.Id),
-                ["operations"] = new JsonObject(operations.Select(o => new KeyValuePair<string, JsonNode?>(o.Id,
-                    new JsonObject { ["kind"] = o.Kind, ["clause"] = PlanningChoiceEvidence.Text(state, PlanningChoiceEvidence.Parent(state, o.EvidenceReferences[0]).Id) }))),
-                ["task"] = "Identify the exact action whose permission this clause governs. Requiring/forbidding confirmation for an action differs from prohibiting a particular human interaction. Use an effect class only for an explicit class-wide rule; otherwise select its operation. An interaction prohibition selects this clause as its subject and only matching human operation IDs; no matching operation means an empty target list, never a new operation or an executor-wide ban. unless_explicit requires a declared exception for an explicit user instruction. Other workflow policies and implementation prohibitions select not_confirmation_policy when offered. Unestablished permission subjects or conditions are unknown."
-            }, fingerprint));
-        }
-        state.ScopedPolicies = pending;
+        var groups = candidates.GroupBy(o => o.Grounding!.ClauseReference).OrderBy(g => g.Key, StringComparer.Ordinal).ToArray();
+        var decisions = groups.Select(g => PlanningPolicyClauseDecisions.Build(state, g.Key, g.ToArray(), candidates, operations)).ToArray();
+        // Reassemble from durable pages. Pending scope state is never permission proof.
+        state.ScopedPolicies = candidates.Select(o => new PlanningScopedPolicy { Id = "policy_" + o.Id, ObligationId = o.Id,
+            ClauseReference = o.Grounding!.ClauseReference, EvidenceFingerprint = PlanningPolicyClauseDecisions.Fingerprint(state, o.Grounding.ClauseReference, candidates, operations) }).ToList();
         var answers = await PlanningDecisionPages.ResolveAsync(state, runtime, "confirmation_scope", "$plan", decisions, ct);
-        foreach (var policy in pending.Where(p => p.Status != "resolved"))
+        var assignments = new Dictionary<string, JsonNode>(StringComparer.Ordinal);
+        foreach (var decision in decisions)
+            foreach (var field in answers[decision.Id]!.AsObject()) assignments.Add(field.Key, field.Value!);
+        var policies = new List<PlanningScopedPolicy>();
+        var permissions = new Dictionary<string, PlanningScopedPolicy>(StringComparer.Ordinal);
+        foreach (var obligation in candidates)
         {
-            var answer = answers[policy.Id]!;
-            policy.Rule = answer["rule"]!.ToString(); policy.ScopeKind = answer["scope"]!["kind"]!.ToString();
-            policy.Target = answer["scope"]!["target"]!.ToString(); policy.Applicability = answer["applicability"]!.ToString();
-            if (policy.Rule == "not_confirmation_policy") { policy.Status = "not_applicable"; continue; }
+            var answer = assignments[obligation.Id]; var rule = answer["rule"]!.ToString();
+            if (rule == "unknown") throw Failure("CONFIRMATION_SCOPE_UNRESOLVED", obligation.Id, "The complete clause did not establish its policy semantics.");
+            if (rule is "not_confirmation_policy" or "rejection_condition") continue;
+            var policy = new PlanningScopedPolicy
+            {
+                Id = "policy_" + obligation.Id, ObligationId = obligation.Id, ClauseReference = obligation.Grounding!.ClauseReference,
+                EvidenceFingerprint = PlanningPolicyClauseDecisions.Fingerprint(state, obligation.Grounding.ClauseReference, candidates, operations),
+                Origin = PlanningChoiceEvidence.Origin(state, obligation.Grounding.ClauseReference), Rule = rule,
+                ScopeKind = answer["scope"]!["kind"]!.ToString(), Target = answer["scope"]!["target"]!.ToString(),
+                Applicability = answer["applicability"]!.ToString(), Status = "resolved",
+                GoverningObligationIds = [obligation.Id], GoverningReferences = obligation.EvidenceReferences.Append(obligation.Grounding.ClauseReference).Distinct(StringComparer.Ordinal).Order(StringComparer.Ordinal).ToList()
+            };
             policy.TargetOperationIds = policy.ScopeKind == "effect" ? operations.Where(o => Effect(o) == policy.Target).Select(o => o.Id).ToList()
-                : policy.ScopeKind == "operation" ? [policy.Target] : answer["interactionTargets"]!.AsArray().Select(v => v!.ToString()).ToList();
-            if (policy.ScopeKind != "interaction" && answer["interactionTargets"]!.AsArray().Count != 0)
-                throw Failure("CONFIRMATION_SCOPE_UNRESOLVED", policy.Id, "Interaction targets cannot extend an operation or effect scope.");
-            policy.Status = "resolved";
+                : policy.ScopeKind == "operation" ? [policy.Target] : answer["interactionTargets"]?.AsArray().Select(v => v!.ToString()).ToList() ?? [];
             Validate(state, policy);
-            state.Events.Add(new("confirmation_policy_resolved", "confirmation_scope", DateTimeOffset.UtcNow, policy.TargetOperationIds.Count));
-            System.Diagnostics.Activity.Current?.AddEvent(new("planning.confirmation_policy", tags: new()
-            { ["policy_id"] = policy.Id, ["scope"] = policy.ScopeKind, ["rule"] = policy.Rule, ["target_count"] = policy.TargetOperationIds.Count }));
+            // Only the same complete clause, scope, applicability and semantics can coalesce.
+            var equivalent = policies.SingleOrDefault(p => p.ClauseReference == policy.ClauseReference && p.Rule == policy.Rule && p.ScopeKind == policy.ScopeKind &&
+                p.Target == policy.Target && p.Applicability == policy.Applicability && p.TargetOperationIds.Order(StringComparer.Ordinal).SequenceEqual(policy.TargetOperationIds.Order(StringComparer.Ordinal)));
+            if (equivalent is null) { policies.Add(policy); equivalent = policy; }
+            else
+            {
+                equivalent.GoverningObligationIds.Add(obligation.Id);
+                equivalent.GoverningReferences = equivalent.GoverningReferences.Concat(policy.GoverningReferences).Distinct(StringComparer.Ordinal).Order(StringComparer.Ordinal).ToList();
+            }
+            permissions.Add(obligation.Id, equivalent);
         }
-        state.ScopedPolicies = pending.Where(p => p.Status != "not_applicable").ToList();
-        foreach (var operation in operations) _ = Effective(state.ScopedPolicies, operation.Id);
+        foreach (var obligation in candidates.Where(o => assignments[o.Id]["rule"]!.ToString() == "rejection_condition"))
+        {
+            var owner = assignments[obligation.Id]["permissionRule"]!.ToString();
+            if (owner == obligation.Id || !permissions.TryGetValue(owner, out var permission) || permission.Rule != "require_confirmation")
+                throw Failure("CONFIRMATION_SCOPE_UNRESOLVED", obligation.Id, "The rejection condition requires a supported permission rule, not a retired or unrelated interaction.");
+            permission.GoverningObligationIds.Add(obligation.Id);
+            permission.GoverningReferences = permission.GoverningReferences.Concat(obligation.EvidenceReferences).Append(obligation.Grounding!.ClauseReference).Distinct(StringComparer.Ordinal).Order(StringComparer.Ordinal).ToList();
+            permissions.Add(obligation.Id, permission);
+        }
+        foreach (var policy in policies) Validate(state, policy);
+        // Do not change conflict detection: only admitted actions and adjudicated rules reach it.
+        foreach (var operation in operations) _ = Effective(policies, operation.Id);
+        state.ScopedPolicies = policies;
+        foreach (var obligation in candidates)
+        {
+            var fingerprint = PlanningPolicyClauseDecisions.Fingerprint(state, obligation.Grounding!.ClauseReference, candidates, operations);
+            var disposition = assignments[obligation.Id]["rule"]!.ToString();
+            if (obligation.AdjudicationFingerprint != fingerprint)
+            {
+                var kind = disposition is "not_confirmation_policy" or "rejection_condition" ? "policy_classification_retired" : "policy_normalized";
+                state.Events.Add(new(kind, "confirmation_scope", DateTimeOffset.UtcNow, 1));
+                System.Diagnostics.Activity.Current?.AddEvent(new("planning." + kind, tags: new()
+                { ["obligation_id"] = obligation.Id, ["authority"] = obligation.Grounding.Authority.ToString(), ["disposition"] = disposition }));
+            }
+            obligation.AdjudicationFingerprint = fingerprint; obligation.Disposition = disposition;
+            obligation.PolicyIds = permissions.TryGetValue(obligation.Id, out var permission) ? [permission.Id] : [];
+        }
         await runtime.CheckpointAsync(state, ct);
     }
 
@@ -97,6 +101,15 @@ internal static class PlanningConfirmationPolicies
         if (!PlanningChoiceEvidence.Current(state, policy.ClauseReference) || policy.Origin != PlanningChoiceEvidence.Origin(state, policy.ClauseReference) ||
             !state.Obligations.Any(o => o.Id == policy.ObligationId && o.EvidenceReferences.Any(r => PlanningChoiceEvidence.Parent(state, r).Id == policy.ClauseReference)))
             throw Failure("CONFIRMATION_SCOPE_STALE", policy.Id, "The scoped policy has no current owned governing evidence.");
+        if (!policy.GoverningObligationIds.Contains(policy.ObligationId, StringComparer.Ordinal) ||
+            policy.GoverningObligationIds.Distinct(StringComparer.Ordinal).Count() != policy.GoverningObligationIds.Count)
+            throw Failure("CONFIRMATION_SCOPE_STALE", policy.Id, "The adjudication must retain its distinct governing obligations.");
+        var governing = policy.GoverningObligationIds.Select(id => state.Obligations.SingleOrDefault(o => o.Id == id)).ToArray();
+        if (governing.Any(o => o is null)) throw Failure("CONFIRMATION_SCOPE_STALE", policy.Id, "The adjudication has a foreign governing obligation.");
+        foreach (var obligation in governing) PlanningSourceGroundingRules.Validate(state, obligation!);
+        var expectedReferences = governing.SelectMany(o => o!.EvidenceReferences.Append(o.Grounding!.ClauseReference)).Distinct(StringComparer.Ordinal).Order(StringComparer.Ordinal);
+        if (!expectedReferences.SequenceEqual(policy.GoverningReferences.Order(StringComparer.Ordinal)))
+            throw Failure("CONFIRMATION_SCOPE_STALE", policy.Id, "The adjudication lost or changed its governing references.");
         var operations = state.Obligations.Where(PlanningSourceDecisions.IsOperation).ToArray();
         if (policy.TargetOperationIds.Distinct(StringComparer.Ordinal).Count() != policy.TargetOperationIds.Count ||
             policy.TargetOperationIds.Any(id => !operations.Any(o => o.Id == id)))

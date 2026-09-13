@@ -8,7 +8,16 @@ namespace GnOuGo.Flow.Planning;
 
 internal sealed class PlanningIntentAssessment(TimeProvider time)
 {
-    internal sealed record IntentSource(string Id, string Kind, string Text, string? QuestionContext = null);
+    internal sealed record IntentSource(string Id, string Kind, string Text, string? QuestionContext = null)
+    {
+        internal PlanningSourceAuthority Authority => Kind switch
+        {
+            "user_request" or "user_answer" => PlanningSourceAuthority.RequestedBehavior,
+            "existing_workflow" => PlanningSourceAuthority.ExistingBehavior,
+            "host_constraint" => PlanningSourceAuthority.ConstraintsOnly,
+            _ => PlanningSourceAuthority.Unknown
+        };
+    }
     internal async Task AssessAsync(PlanningSnapshot state, IPlanningRuntime runtime, CancellationToken ct)
     {
         await PlanningSourceDecisions.InterpretAsync(state, runtime, ct);

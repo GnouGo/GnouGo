@@ -8,7 +8,7 @@ internal static class CapabilityConfirmationPolicies
 {
     internal static CapabilityInventory Apply(CapabilityInventory inventory)
     {
-        if (inventory.PolicyScopeVersion != 1)
+        if (inventory.PolicyScopeVersion != 2)
             throw PlanningConfirmationPolicies.Failure("CONFIRMATION_SCOPE_UNRESOLVED", "inventory", "The inventory must be reassessed with scoped policy evidence.");
         var policies = JsonSerializer.Deserialize(JsonSerializer.Serialize(inventory.ScopedPolicies.ToList(), PlanningJsonContext.Default.ListPlanningScopedPolicy), PlanningJsonContext.Default.ListPlanningScopedPolicy)!;
         var ungovernedWrites = inventory.Operations.Where(o => o.ExternalEffectKind == "write" &&

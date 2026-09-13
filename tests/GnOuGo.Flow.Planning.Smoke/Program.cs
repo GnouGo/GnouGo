@@ -46,7 +46,7 @@ var graph = new PlanningGraph
         Outputs = [new() { Name = "message", Schema = new() { Type = "string" }, Value = new() { Kind = "output", Source = "value", Path = ["message"] } }]
     }]
 };
-var preparation = new PlanningPreparation { PolicyScopeVersion = 1, AllowedStepTypes = ["set"] };
+var preparation = new PlanningPreparation { PolicyScopeVersion = 2, AllowedStepTypes = ["set"] };
 var state = new PlanningSnapshot
 {
     Graph = graph,
@@ -57,9 +57,16 @@ var state = new PlanningSnapshot
 var restored = JsonSerializer.Deserialize(JsonSerializer.Serialize(state, PlanningJsonContext.Default.PlanningSnapshot), PlanningJsonContext.Default.PlanningSnapshot)!;
 var policyState = new PlanningSnapshot { ScopedPolicies = [new() { Id = "policy", Rule = "require_confirmation", ScopeKind = "operation", Target = "effect",
     TargetOperationIds = ["effect"], PermissionOperationId = "permission", ClauseReference = "clause", EvidenceFingerprint = "evidence", Status = "resolved", Applicability = "unless_explicit" }] };
+policyState.Obligations.Add(new("governor", ["clause"], "workflow", "confirmation_forbidden", true)
+{ Grounding = new(PlanningSourceAuthority.ConstraintsOnly, PlanningSourceSemanticRole.PolicyConstraint, "clause", null, "proof"),
+    Disposition = "rejection_condition", AdjudicationFingerprint = "adjudicated", PolicyIds = ["policy"] });
+policyState.ScopedPolicies[0].GoverningObligationIds = ["governor"]; policyState.ScopedPolicies[0].GoverningReferences = ["clause"];
 var restoredPolicies = JsonSerializer.Deserialize(JsonSerializer.Serialize(policyState, PlanningJsonContext.Default.PlanningSnapshot), PlanningJsonContext.Default.PlanningSnapshot)!;
 if (restoredPolicies.ScopedPolicies.Single().PermissionOperationId != "permission" || restoredPolicies.ScopedPolicies[0].TargetOperationIds.Single() != "effect" ||
     restoredPolicies.ScopedPolicies[0].Applicability != "unless_explicit") throw new InvalidOperationException("Published scoped policy serialization failed.");
+if (restoredPolicies.Obligations.Single().Grounding?.Authority != PlanningSourceAuthority.ConstraintsOnly ||
+    restoredPolicies.Obligations[0].Disposition != "rejection_condition" || restoredPolicies.Obligations[0].AdjudicationFingerprint != "adjudicated" ||
+    restoredPolicies.ScopedPolicies[0].GoverningObligationIds.Single() != "governor") throw new InvalidOperationException("Published source grounding serialization failed.");
 if (restored.Construction.Dataflow?.Bindings.Count != 1) throw new InvalidOperationException("Published dataflow persistence failed.");
 var choiceState = new PlanningSnapshot
 {

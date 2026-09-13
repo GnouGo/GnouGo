@@ -10,7 +10,7 @@ namespace GnOuGo.Flow.Planning.Tests;
 public sealed class TypedPlannerTests
 {
     private static CancellationToken Ct => TestContext.Current.CancellationToken;
-    internal static PlanningPreparation Preparation() => new() { PolicyScopeVersion = 1, Fingerprint = "catalog-v1", AllowedStepTypes = ["set", "emit", "switch", "sequence", "parallel", "loop.sequential", "workflow.call", "human.input", "mcp.call"] };
+    internal static PlanningPreparation Preparation() => new() { PolicyScopeVersion = 2, Fingerprint = "catalog-v1", AllowedStepTypes = ["set", "emit", "switch", "sequence", "parallel", "loop.sequential", "workflow.call", "human.input", "mcp.call"] };
     internal static PlanningGraph Graph() => new()
     {
         Summary = "Return a greeting",
@@ -242,8 +242,10 @@ public sealed class TypedPlannerTests
             JsonObject Item(string role) => new() { ["kind"] = role, ["required"] = true,
                 ["start"] = p.Value!["items"]!["properties"]!["start"]!["enum"]![0]!.DeepClone(),
                 ["end"] = p.Value!["items"]!["properties"]!["end"]!["enum"]!.AsArray()[^1]!.DeepClone() };
-            var items = new JsonArray(Item(kind));
-            if (kind == "local_processing") items.Add((JsonNode)Item("business_output"));
+            var allowed = p.Value!["items"]!["properties"]!["kind"]!["enum"]!.AsArray().Select(v => v!.ToString()).ToArray();
+            var selected = allowed.Contains(kind) ? kind : "information"; // Policy subjects are never synthetic operations.
+            var items = new JsonArray(Item(selected));
+            if (selected == "local_processing") items.Add((JsonNode)Item("business_output"));
             return new KeyValuePair<string, JsonNode?>(p.Key, items);
         }));
         internal static JsonObject PassReview(LLMRequest request) => new(request.StructuredOutputSchema!["properties"]!.AsObject().Select(p =>

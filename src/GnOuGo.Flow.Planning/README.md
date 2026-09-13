@@ -18,6 +18,12 @@ output. Capability assessment covers the catalog through obligation/candidate pa
 Descriptions cannot establish execution-context or original-artifact proof. Intrinsic
 operations, compiler responsibilities and runtime discovery remain distinct.
 
+Source authority comes from owned metadata. User requests and answers can introduce
+actions; existing actions require issued baseline nodes. Policy subjects cannot become
+operations. Complete clauses adjudicate preliminary permission labels together;
+rejection always prevents the protected action. See [source grounding and scoped
+confirmation](../../docs/planner-confirmation-scopes.md).
+
 Initial behavior is assembled from owned operations and bounded boundary/iteration
 choices. The executable skeleton freezes identities, topology, executors, ownership,
 branches, finalizers and established contracts after human acceptance. Callees precede

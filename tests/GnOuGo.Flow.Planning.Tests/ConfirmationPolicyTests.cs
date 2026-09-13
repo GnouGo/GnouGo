@@ -18,7 +18,7 @@ public sealed class ConfirmationPolicyTests
         Origin = "intent", Applicability = "always", Status = "resolved"
     };
     private static CapabilityInventory Inventory(IEnumerable<PlanningScopedPolicy> policies, params CapabilityInventoryOperation[] operations)
-        => new(true, operations, [], []) { PolicyScopeVersion = 1, ScopedPolicies = policies.ToArray() };
+        => new(true, operations, [], []) { PolicyScopeVersion = 2, ScopedPolicies = policies.ToArray() };
     private static CapabilityInventoryOperation Write(string id) => new(id, "Perform declared effect", true, "external_effect", "write");
 
     [Fact]
@@ -94,10 +94,12 @@ public sealed class ConfirmationPolicyTests
         Assert.DoesNotContain("write", permission.Description, StringComparison.OrdinalIgnoreCase);
     }
 
-    [Fact]
-    public void HistoricalInventoryCannotConvertItsMissingScopeToPermission()
+    [Theory]
+    [InlineData(0)]
+    [InlineData(1)]
+    public void HistoricalInventoryCannotConvertItsMissingScopeToPermission(int proofVersion)
     {
-        var old = new CapabilityInventory(true, [Write("effect")], [], []);
+        var old = new CapabilityInventory(true, [Write("effect")], [], []) { PolicyScopeVersion = proofVersion };
         var error = Assert.Throws<WorkflowRuntimeException>(() => CapabilityConfirmationPolicies.Apply(old));
         Assert.Equal("CONFIRMATION_SCOPE_UNRESOLVED", error.Code);
     }
@@ -135,6 +137,8 @@ public sealed class ConfirmationPolicyTests
         var operation = Assert.Single(PlanningReferences.Register(state, "request", "user_request", state.Request.Prompt));
         state.Obligations = [new("require", [first.Id], "workflow", "confirmation_required", true),
             new("forbid", [last.Id], "workflow", classification, true), new("local", [operation.Id], "workflow", "local_processing", true)];
+        state.Obligations = state.Obligations.Select(o => o with { Grounding = PlanningSourceGroundingRules.Create(state, o),
+            Disposition = PlanningSourceGroundingRules.OperationKinds.Contains(o.Kind) ? "admitted" : "preliminary" }).ToList();
         var calls = 0;
         PlanningSnapshot? receivedBeforeScopeCommit = null;
         var runtime = new TypedPlannerTests.FakeRuntime { OnCheckpoint = snapshot =>
@@ -147,25 +151,22 @@ public sealed class ConfirmationPolicyTests
             calls++; Assert.Equal("confirmation_scope", phase); Assert.Equal("low", request.Reasoning);
             Assert.Contains("write, with zero writes after rejection.", request.Prompt);
             Assert.Contains(prohibitedSubject + " during execution.", request.Prompt);
-            var response = new JsonObject(request.StructuredOutputSchema!["properties"]!.AsObject().Select(p =>
+            var response = PolicyGroundingTests.Reply(request, new()
             {
-                var forbid = p.Key == "policy_forbid";
-                return new KeyValuePair<string, JsonNode?>(p.Key, new JsonObject
+                ["require"] = PolicyGroundingTests.Permission("require_confirmation", "effect", "write", "unless_explicit"),
+                ["forbid"] = new JsonObject
                 {
-                    ["rule"] = forbid ? "forbid_interaction" : "require_confirmation",
-                    ["scope"] = new JsonObject { ["kind"] = forbid ? "interaction" : "effect", ["target"] = forbid ? PlanningChoiceEvidence.Parent(state, last.Id).Id : "write" },
-                    ["interactionTargets"] = new JsonArray(), ["applicability"] = forbid ? "always" : "unless_explicit"
-                });
-            }));
-            Assert.Empty(PlanningContractValidation.ValidateInstance(response, request.StructuredOutputSchema));
+                    ["rule"] = "forbid_interaction", ["scope"] = new JsonObject { ["kind"] = "interaction", ["target"] = PlanningChoiceEvidence.Parent(state, last.Id).Id },
+                    ["interactionTargets"] = new JsonArray(), ["applicability"] = "always"
+                }
+            });
+            Assert.Empty(PlanningContractValidation.ValidateInstance(response, request.StructuredOutputSchema!));
             var invalid = response.DeepClone().AsObject();
-            if (invalid["policy_forbid"] is { } forbidden)
-            {
-                forbidden["scope"] = new JsonObject { ["kind"] = "effect", ["target"] = "write" };
-                Assert.NotEmpty(PlanningContractValidation.ValidateInstance(invalid, request.StructuredOutputSchema));
-                forbidden["scope"] = new JsonObject { ["kind"] = "operation", ["target"] = "foreign_action" };
-                Assert.NotEmpty(PlanningContractValidation.ValidateInstance(invalid, request.StructuredOutputSchema));
-            }
+            var forbidden = invalid.SelectMany(p => p.Value!.AsObject()).Single(p => p.Key == "forbid").Value!;
+            forbidden["scope"] = new JsonObject { ["kind"] = "effect", ["target"] = "write" };
+            Assert.NotEmpty(PlanningContractValidation.ValidateInstance(invalid, request.StructuredOutputSchema!));
+            forbidden["scope"] = new JsonObject { ["kind"] = "operation", ["target"] = "foreign_action" };
+            Assert.NotEmpty(PlanningContractValidation.ValidateInstance(invalid, request.StructuredOutputSchema!));
             return Task.FromResult(new LLMResponse { Json = response });
         } };
         await PlanningConfirmationPolicies.ResolveAsync(state, runtime, Ct);

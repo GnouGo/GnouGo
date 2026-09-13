@@ -104,6 +104,7 @@ internal static partial class CapabilityContracts
         IReadOnlyList<CapabilityInventoryIncompleteReason> IncompleteReasons)
     {
         public int PolicyScopeVersion { get; init; }
+        public string? SourceGroundingFingerprint { get; init; }
         public IReadOnlyList<PlanningScopedPolicy> ScopedPolicies { get; init; } = [];
     }
 

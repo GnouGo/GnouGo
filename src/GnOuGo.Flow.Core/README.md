@@ -34,6 +34,9 @@ Business decision records retain governing references, applicability, exclusions
 typed selections. Clarifications expose canonical choices, labels and justified
 preference reasons; their resolution belongs to the injected planner. The general
 `human.input` DSL and Schema-5 persistence format remain unchanged.
+Additive Schema-5 grounding records retain coordinator-owned source authority,
+semantic roles and baseline references. Policy adjudications preserve preliminary
+labels for audit while downstream consumers use scoped rules and their dispositions.
 Scoped permission records retain governing references, applicable action IDs and
 permission-source ownership; they do not change the general human-input transport.
 See [confirmation scopes](../../docs/planner-confirmation-scopes.md).

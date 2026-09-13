@@ -352,11 +352,11 @@ internal static class CapabilityPreparation
                 ["input"] = contract.InputSchema.DeepClone(),
                 ["output"] = contract.OutputSchema.DeepClone()
             } : null)));
-        var fingerprint = Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(state.ToJsonString() + input["policy"]?.ToJsonString() + stepContracts.ToJsonString())));
+        var fingerprint = Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(state.ToJsonString() + input["policy"]?.ToJsonString() + stepContracts.ToJsonString() + PlanningSourceGroundingRules.Fingerprint(snapshot))));
         var preparation = new PlanningPreparation
         {
             Fingerprint = fingerprint,
-            PolicyScopeVersion = 1,
+            PolicyScopeVersion = 2,
             ScopedPolicies = preflight.ScopedPolicies.ToList(),
             LockedContract = locked,
             RuntimeState = state,

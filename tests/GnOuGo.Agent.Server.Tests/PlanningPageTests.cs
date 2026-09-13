@@ -69,7 +69,7 @@ public sealed class PlanningPageTests
             Request = new() { TenantId = "planning-tests", Prompt = "Return a message", Name = "early-review" },
             Status = PlanningStatus.BehaviorReview,
             CurrentPhase = PlanningPhase.Behavior,
-            Preparation = new() { PolicyScopeVersion = 1, AllowedStepTypes = ["set"] },
+            Preparation = new() { PolicyScopeVersion = 2, AllowedStepTypes = ["set"] },
             BehaviorPlan = new() { Summary = "Return a greeting", Workflows = [new() { Key = "main", Purpose = "Return the requested greeting", Steps = [new() { Key = "greeting", Purpose = "Return a message" }], Outputs = [new("message", "A readable greeting", true)] }] },
             Intent = new() { Answers = [new("Which greeting?", new() { ["greeting"] = "Hello" })], Forms = 1, Questions = 1 }
         };

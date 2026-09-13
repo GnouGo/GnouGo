@@ -50,11 +50,13 @@ internal static class CapabilityInventoryDecisions
                 WorkflowStructureCoverageRequirementIds = decision?.Role == "decision_no_effect" ? new([evidence.Id], StringComparer.Ordinal) : new(StringComparer.Ordinal)
             };
         }).ToArray();
-        var constraints = state.Obligations.Where(o => o.Kind is "workflow_policy" or "exact_denial" or "confirmation_required" or "confirmation_forbidden")
-            .Select(o => new CapabilityInventoryConstraint(o.Id, PlanningSourceDecisions.Text(state, o), o.Required,
-                o.Kind == "exact_denial" && !state.ScopedPolicies.Any(p => p.ObligationId == o.Id) ? "exact_denial" : "workflow_policy")).ToArray();
+        // Retiring a preliminary permission label never removes the underlying workflow constraint.
+        var constraints = state.Obligations.Where(o => o.Kind is "workflow_policy" or "exact_denial" or "confirmation_required" or "confirmation_forbidden" or "rejection_condition")
+            .Select(o => new CapabilityInventoryConstraint(o.Id, PlanningChoiceEvidence.Text(state, o.Grounding!.ClauseReference), o.Required,
+                o.Kind == "exact_denial" && o.PolicyIds.Count == 0 ? "exact_denial" : "workflow_policy")).ToArray();
         if (operations.Length == 0)
             throw new WorkflowRuntimeException("INTENT_OPERATION_UNRESOLVED", "No evidenced runtime operation was established. This is not proof of an unavailable capability.");
-        return new(true, operations, constraints, []) { PolicyScopeVersion = 1, ScopedPolicies = state.ScopedPolicies.ToArray() };
+        return new(true, operations, constraints, []) { PolicyScopeVersion = 2, ScopedPolicies = state.ScopedPolicies.ToArray(),
+            SourceGroundingFingerprint = PlanningSourceGroundingRules.Fingerprint(state) };
     }
 }

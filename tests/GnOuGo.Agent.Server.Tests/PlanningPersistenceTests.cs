@@ -62,7 +62,10 @@ public sealed class PlanningPersistenceTests
         state.PreparationCheckpoint = new() { Stage = "matching", ValidatedResults = new JsonObject { ["inventory"] = "PRIVATE_PREPARATION_CONTENT" }, RequestHashes = ["hash"] };
         state.ScopedPolicies.Add(new() { Id = "PRIVATE_SCOPED_POLICY", ObligationId = "governor", ClauseReference = "owned_clause", EvidenceFingerprint = "policy_fingerprint",
             Rule = "require_confirmation", ScopeKind = "operation", Target = "effect", TargetOperationIds = ["effect"], PermissionOperationId = "permission",
-            Applicability = "unless_explicit", Origin = "policy", Status = "resolved" });
+            Applicability = "unless_explicit", Origin = "policy", Status = "resolved", GoverningObligationIds = ["governor"], GoverningReferences = ["owned_clause"] });
+        state.Obligations.Add(new("governor", ["owned_clause"], "workflow", "confirmation_forbidden", true)
+        { Grounding = new(PlanningSourceAuthority.ConstraintsOnly, PlanningSourceSemanticRole.PolicyConstraint, "owned_clause", null, "PRIVATE_GROUNDING_PROOF"),
+            Disposition = "rejection_condition", AdjudicationFingerprint = "adjudicated", PolicyIds = ["PRIVATE_SCOPED_POLICY"] });
         Assert.True(await fixture.Store.TrySaveAsync(state, null, Ct));
         state.Revision = 1; state.Status = PlanningStatus.BehaviorReview;
         Assert.True(await fixture.Store.TrySaveAsync(state, 0, Ct));
@@ -91,6 +94,12 @@ public sealed class PlanningPersistenceTests
         var scopedPolicy = Assert.Single(restored.ScopedPolicies);
         Assert.Equal("policy_fingerprint", scopedPolicy.EvidenceFingerprint); Assert.Equal("unless_explicit", scopedPolicy.Applicability);
         Assert.Equal("owned_clause", scopedPolicy.ClauseReference); Assert.Equal(["effect"], scopedPolicy.TargetOperationIds); Assert.Equal("permission", scopedPolicy.PermissionOperationId);
+        var grounded = Assert.Single(restored.Obligations);
+        Assert.Equal("PRIVATE_GROUNDING_PROOF", grounded.Grounding!.Fingerprint);
+        Assert.Equal(PlanningSourceAuthority.ConstraintsOnly, grounded.Grounding.Authority);
+        Assert.Equal("rejection_condition", grounded.Disposition); Assert.Equal("adjudicated", grounded.AdjudicationFingerprint);
+        Assert.Equal(["PRIVATE_SCOPED_POLICY"], grounded.PolicyIds);
+        Assert.Equal(["governor"], scopedPolicy.GoverningObligationIds); Assert.Equal(["owned_clause"], scopedPolicy.GoverningReferences);
         Assert.Null(await reopened.LoadAsync("two", "same", Ct));
         state.Request.TenantId = "two"; state.Revision = 0;
         Assert.True(await reopened.TrySaveAsync(state, null, Ct));
@@ -103,6 +112,7 @@ public sealed class PlanningPersistenceTests
             Assert.DoesNotContain("PRIVATE_PREPARATION_CONTENT", bytes);
             Assert.DoesNotContain("PRIVATE_STAGED_ASSIGNMENT", bytes);
             Assert.DoesNotContain("PRIVATE_SCOPED_POLICY", bytes);
+            Assert.DoesNotContain("PRIVATE_GROUNDING_PROOF", bytes);
         }
     }
 

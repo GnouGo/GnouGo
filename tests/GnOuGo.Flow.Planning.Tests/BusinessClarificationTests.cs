@@ -20,7 +20,10 @@ public sealed class BusinessClarificationTests
         var text = PlanningSourceDecisions.Sources(state)[parent.SourceId];
         var offset = text.IndexOf(fragment, parent.Start, StringComparison.Ordinal);
         var reference = parent with { Id = "ref_" + id, Kind = parent.Kind + ":selection", Start = offset, Length = fragment.Length };
-        state.References.Add(reference); state.Obligations.Add(new(id, [reference.Id], "business_decision", kind, required));
+        state.References.Add(reference);
+        var obligation = new PlanningObligation(id, [reference.Id], "business_decision", kind, required);
+        state.Obligations.Add(obligation with { Grounding = PlanningSourceGroundingRules.Create(state, obligation),
+            Disposition = PlanningSourceGroundingRules.OperationKinds.Contains(kind) ? "admitted" : "preliminary" });
         return reference.Id;
     }
 
