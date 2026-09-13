@@ -1,5 +1,21 @@
 # CodeReview convergence benchmark
 
+## Current bounded-escalation campaign
+
+`schema5-output-budget-escalation-stage1-1` authorizes exactly one fresh Stage-1
+session on production commit `02c59469d85531b475daee1cbdcc635e920ccd87`. The model,
+frozen scenario/catalog/policy, all-low profiles and normal 12,000/8,192 ceilings
+remain unchanged. Verified singleton truncation may reserve the one engine-authorized
+16,384 output escalation. There is no reasoning A/B, replacement session or Stage 2.
+
+Freeze the harness binaries, run `campaign selfcheck`, then use `campaign freeze`
+and `campaign start 1` once. Review exact behavior before `campaign accept 1 REV HASH`,
+then explicitly `campaign advance 1`. Final artifact approval requires all six
+independent execution cases. The first meaningful blocker stops the campaign.
+Reports separate recursive partitions, output escalation and semantic repairs, retaining
+parent identities, effective ceilings and completion evidence. Historical requests,
+receipts and budgets remain immutable. See [validation](../../docs/planner-output-budget-escalation.md).
+
 ## Isolated singleton output diagnostic
 
 `diagnose-singleton-output schema5-singleton-output-16384-low-1` permits one
@@ -24,7 +40,7 @@ See the [exact result](../../docs/planner-singleton-output-diagnostic.md).
 
 ## Stage-1 campaigns
 
-The current recursive-partition rerun (`schema5-recursive-partitions-rerun-1`)
+The archived recursive-partition rerun (`schema5-recursive-partitions-rerun-1`)
 permits exactly one fresh Stage-1 classifier session after offline validation and
 binary freeze. It uses the unchanged frozen scenario, model, catalog and policy,
 all-low reasoning, and 12,000/8,192 ceilings with a 9,600-token input target.
@@ -33,7 +49,7 @@ Correct exact-revision behavior acceptance is an intermediate checkpoint; a sepa
 independent fixtures and their exact artifact hash. The first meaningful blocker
 stops the campaign; no replacement start, Stage 2 or reasoning A/B is permitted.
 
-Production remains frozen at `0f4ebfdbf733687c0dc4d1dc9c4b89ca702df95e`.
+That rerun froze production at `0f4ebfdbf733687c0dc4d1dc9c4b89ca702df95e`.
 Build harness changes with `-p:BuildProjectReferences=false` and verify all production
 DLL hashes against the archived manifest. The fixture fingerprint includes the
 harness assembly identity; record its new value alongside unchanged fixture source,

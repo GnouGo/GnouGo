@@ -28,7 +28,7 @@ internal static class ProgressiveCampaign
 {
     internal const string Tenant = "planner-progressive", Author = "GnOuGo.Agent.Planning.Benchmark";
     internal const string EvidenceCollection = "agent-planning-progressive-evidence-v5", CampaignCollection = "agent-planning-progressive-campaigns-v5";
-    internal const string CampaignId = "schema5-recursive-partitions-rerun-1";
+    internal const string CampaignId = "schema5-output-budget-escalation-stage1-1";
     private const string ArchivedCampaignId = "schema5-ee487c8";
     private const int MaximumStage = 1;
 
@@ -312,7 +312,7 @@ internal static class ProgressiveCampaign
         ["model"] = model, ["evidenceHash"] = PlanningGraphCompiler.Fingerprint(frozen),
         ["policyHash"] = PlanningGraphCompiler.Fingerprint(policy), ["abUsed"] = false,
         ["limits"] = new JsonObject { ["maximumStage"] = MaximumStage, ["stopAfterBehaviorAcceptance"] = false, ["diagnosticAbAllowed"] = false,
-            ["input"] = 12000, ["dispatchTarget"] = 9600, ["output"] = 8192, ["concurrency"] = 4, ["repairsPerGate"] = 5,
+            ["input"] = 12000, ["dispatchTarget"] = 9600, ["output"] = 8192, ["singletonOutputEscalation"] = 16384, ["concurrency"] = 4, ["repairsPerGate"] = 5,
             ["calls"] = 100, ["totalTokens"] = 15000000, ["activeMilliseconds"] = 18000000, ["amount"] = 50, ["currency"] = "EUR", ["reasoning"] = "low" },
         ["stages"] = new JsonArray(Enumerable.Range(1, 3).Select(s => (JsonNode)new JsonObject
         {
