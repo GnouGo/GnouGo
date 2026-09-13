@@ -22,6 +22,13 @@ request stops without redispatch. Observation changes only campaign state, never
 planner inputs, assignments or budgets. Reports distinguish verified usage subtotals
 from unknown dispatch usage.
 
+This rerun consumed its one start and is blocked at revision 21, before behavior
+review. A singleton declaration decision returned a verified `output_limit` receipt
+with 8,192 output tokens, all attributed to reasoning. Receipt-only replay reproduced
+the stop without dispatch. No threshold repair, final artifact or candidate execution
+was reached. See the [rerun report](../../docs/planner-recursive-partitions-rerun-validation.md).
+Do not start or advance this campaign again.
+
 The previous `schema5-recursive-partitions-20260913` campaign consumed its only start.
 Correct behavior was accepted at revision
 41 and construction continued. The session stopped at revision 105 when the first
