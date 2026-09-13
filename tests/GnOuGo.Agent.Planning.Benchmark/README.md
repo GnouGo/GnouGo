@@ -186,3 +186,5 @@ review mismatch without changing the saved planner candidate.
 named archived campaign. Changed requests require matching retained evidence; no
 synthetic response or provider fallback is allowed. Production, catalog, policy,
 model, ceilings and all-low campaign reasoning are frozen before the single start.
+
+The [canonical-declaration campaign report](../../docs/planner-canonical-declarations-live-validation.md) records its one technical stop and receipt-only replay. That campaign is blocked; it must not be resumed or replaced automatically.

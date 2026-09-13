@@ -81,3 +81,5 @@ adjudication. The updated stub exercises the production pass; the published reru
 passes. Restored-behavior and UI fixtures now use established baseline ports or
 explicitly assert rejection of ungrounded historical ports. No production policy,
 reasoning setting or token ceiling changed.
+
+The [single fresh Stage-1 campaign](planner-canonical-declarations-live-validation.md) stopped on a runtime-fallback/omission-default scope error before review. Its exact receipt reproduces offline; no post-live production fix or replacement session was made.
