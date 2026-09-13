@@ -23,6 +23,16 @@ const string tenant = "planner-benchmark";
 const string evidenceKey = "codereview-bc72dd6";
 var root = AppContext.BaseDirectory;
 var records = KeyVaultRecordStoreFactory.CreateWorkspaceStore(null, root);
+if (args[0] == "diagnose-singleton-output")
+{
+    if (args.Length != 2 || args[1] != SingletonOutputDiagnostic.Identity) throw new ArgumentException("The single authorized diagnostic identity is required.");
+    var sourcePath = GnOuGoWorkspace.ResolveDatabasePath(null, root, $".GnOuGo/data/planner-progressive/{SingletonOutputDiagnostic.SourceCampaign}/gnougo-planning-v5.db");
+    var diagnosticPath = GnOuGoWorkspace.ResolveDatabasePath(null, root, $".GnOuGo/data/planner-diagnostics/{SingletonOutputDiagnostic.Identity}/gnougo-planning-v5.db");
+    Directory.CreateDirectory(Path.GetDirectoryName(diagnosticPath)!);
+    using var lease = new FileStream(diagnosticPath + ".lock", FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.None);
+    await SingletonOutputDiagnostic.RunAsync(root, records, new Contexts(sourcePath, readOnly: true), new Contexts(diagnosticPath));
+    return;
+}
 if (args[0] == "campaign")
 {
     await ProgressiveCampaign.RunAsync(args[1..], records, root);

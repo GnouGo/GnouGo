@@ -1,5 +1,24 @@
 # CodeReview convergence benchmark
 
+## Isolated singleton output diagnostic
+
+`diagnose-singleton-output schema5-singleton-output-16384-low-1` permits one
+separately authorized request from the archived rerun's singleton declaration page.
+It clones the exact encrypted request, changes only the output ceiling to 16,384
+and its durable diagnostic identity, and preserves low reasoning and disabled retries.
+It creates no planning session. Its own EF index and encrypted journal/budget carry
+the original consumed usage; the original archive and budget remain unchanged.
+
+Build only the harness (`-p:BuildProjectReferences=false`) and run the focused
+`SingletonOutputDiagnosticTests`, persistence and campaign tests before dispatch.
+The command verifies frozen production DLLs and source request/receipt fingerprints.
+An existing receipt is read without dispatch; a reservation without a receipt stops.
+The result reports usage, exact JSON and validation against the original schema.
+No semantic correction, archive continuation, reasoning change or next output limit
+is authorized by this diagnostic.
+
+## Stage-1 campaigns
+
 The current recursive-partition rerun (`schema5-recursive-partitions-rerun-1`)
 permits exactly one fresh Stage-1 classifier session after offline validation and
 binary freeze. It uses the unchanged frozen scenario, model, catalog and policy,
