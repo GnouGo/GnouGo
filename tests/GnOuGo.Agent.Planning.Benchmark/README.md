@@ -17,6 +17,11 @@ The result reports usage, exact JSON and validation against the original schema.
 No semantic correction, archive continuation, reasoning change or next output limit
 is authorized by this diagnostic.
 
+The diagnostic has consumed its single dispatch. It completed with 74 output
+tokens, zero reported reasoning tokens and a schema-valid `modifier_of` assignment
+targeting `classifiedResult`. The archive and production binaries are unchanged.
+See the [exact result](../../docs/planner-singleton-output-diagnostic.md).
+
 ## Stage-1 campaigns
 
 The current recursive-partition rerun (`schema5-recursive-partitions-rerun-1`)
