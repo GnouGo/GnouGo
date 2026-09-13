@@ -8,7 +8,11 @@ public sealed record PlanningReference(string Id, string Owner, long SourceRevis
     string SourceFingerprint, string Kind, int Start, int Length);
 
 /// <summary>A bounded decision page. The exact request and its receipt remain in the model journal.</summary>
-public enum PlanningDecisionPageOrigin { Unknown, Initial, SemanticCorrection, OutputPartition }
+public enum PlanningDecisionPageOrigin { Unknown, Initial, SemanticCorrection, OutputPartition, OutputBudgetEscalation }
+
+/// <summary>One transport allowance for a canonical semantic decision and unchanged evidence.</summary>
+public sealed record PlanningOutputBudgetEscalation(string ParentPageId, string ParentRequestId, string ParentRequestHash,
+    string ParentReceiptFingerprint, string DecisionId, string CanonicalDecisionId, string EvidenceFingerprint, int Level = 1);
 
 public sealed class PlanningDecisionPage
 {
@@ -17,6 +21,9 @@ public sealed class PlanningDecisionPage
     public PlanningDecisionPageOrigin Origin { get; set; }
     public string? Gate { get; set; }
     public List<string> PartitionChildren { get; set; } = [];
+    public string? OutputEscalationChildId { get; set; }
+    public PlanningOutputBudgetEscalation? OutputBudgetEscalation { get; set; }
+    public int? EffectiveOutputTokens { get; set; }
     /// <summary>Whether assignments are already restricted to a semantic correction, including its output partitions.</summary>
     public bool Correction { get; set; }
     public string Phase { get; set; } = "";

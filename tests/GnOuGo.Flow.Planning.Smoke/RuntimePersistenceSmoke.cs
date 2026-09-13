@@ -81,9 +81,17 @@ internal static class RuntimePersistenceSmoke
                     pages[1].Origin != PlanningDecisionPageOrigin.OutputPartition || pages[1].Gate != PlanningGates.Response || pages[0].PartitionChildren.Count != 2)
                     throw new InvalidOperationException("Published encrypted partition tree recovery failed.");
                 var assignments = await PlanningDecisionPages.ResolveAsync(resumed.Snapshot, resumed.Runtime, "intent", "$plan", decisions, CancellationToken.None);
-                if (assignments.Count != 5 || client.Calls != 6 || resumed.Snapshot.RequestAccounting.Count != 5 ||
+                if (assignments.Count != 5 || client.Calls != 7 || resumed.Snapshot.RequestAccounting.Count != 6 ||
                     resumed.Snapshot.DecisionCorrections.Count != 0 || resumed.Snapshot.RepairAllowances.Count != 0)
                     throw new InvalidOperationException("Published recursive partition replay or accounting failed.");
+                var escalated = resumed.Snapshot.DecisionPages.Single(p => p.Origin == PlanningDecisionPageOrigin.OutputBudgetEscalation);
+                if (escalated.EffectiveOutputTokens != 16384 || escalated.OutputBudgetEscalation?.Level != 1)
+                    throw new InvalidOperationException("Published output escalation metadata was lost.");
+            }
+            await using (var resumed = await Factory().OpenAsync(Context(), Initial(), CancellationToken.None))
+            {
+                await PlanningDecisionPages.ResolveAsync(resumed.Snapshot, resumed.Runtime, "intent", "$plan", decisions, CancellationToken.None);
+                if (client.Calls != 7) throw new InvalidOperationException("Published escalated receipt replay dispatched again.");
             }
             foreach (var file in Directory.GetFiles(directory, "*", SearchOption.AllDirectories))
                 if (System.Text.Encoding.UTF8.GetString(await File.ReadAllBytesAsync(file)).Contains("private native intent", StringComparison.Ordinal))
@@ -102,7 +110,7 @@ internal static class RuntimePersistenceSmoke
             var fields = request.StructuredOutputSchema!["properties"]!.AsObject();
             return Task.FromResult(new LLMResponse
             {
-                CompletionStatus = fields.Count is 5 or 3 ? "output_limit" : "completed",
+                CompletionStatus = fields.Count is 5 or 3 || fields.Count == 1 && fields.ContainsKey("c") && request.MaxTokens == 8192 ? "output_limit" : "completed",
                 Json = new JsonObject(fields.Select(p => new KeyValuePair<string, JsonNode?>(p.Key, JsonValue.Create("yes")))),
                 Usage = new JsonObject { ["total_tokens"] = 2 }
             });

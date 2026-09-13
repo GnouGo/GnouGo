@@ -67,7 +67,8 @@ internal static class PlanningEndpoints
         snapshot.RequestCounts.Select(a => new PlanningRequestCountsDto(a.WorkflowKey, a.Phase, a.Gate, a.Reservations, a.ModelUsed, a.Unverifiable,
             a.EstimatedInputTokens, a.InputTokens, a.OutputTokens, a.AvoidableDispatches, a.AvoidableExtraRequests, a.Repairs, a.Failures)).ToArray(),
         snapshot.TechnicalStop is { } stop ? new(stop.Code, stop.Phase, stop.Location, stop.Unverifiable) : null,
-        snapshot.DecisionPages.Select(p => new PlanningDecisionPageDto(p.Id, p.Phase, p.WorkflowKey, p.Status, p.Decisions.Count, p.EstimatedInputTokens, p.EstimatedAnswerTokens, p.InputTargetTokens, p.Correction)).ToArray());
+        snapshot.DecisionPages.Select(p => new PlanningDecisionPageDto(p.Id, p.Phase, p.WorkflowKey, p.Status, p.Decisions.Count, p.EstimatedInputTokens, p.EstimatedAnswerTokens, p.InputTargetTokens, p.Correction,
+            p.Origin.ToString(), p.ParentId, p.OutputBudgetEscalation?.ParentRequestId, p.OutputBudgetEscalation?.Level, p.EffectiveOutputTokens)).ToArray());
 
     private static PlanningOutcomeDto? Outcome(PlanningOutcome? outcome) => outcome switch
     {

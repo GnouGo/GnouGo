@@ -203,13 +203,15 @@ public sealed class DecisionPagingTests
             state, runtime, "behavior", "main", FiveDecisions(), TestContext.Current.CancellationToken));
         Assert.Equal("DECISION_OUTPUT_LIMIT", error.Code);
         var stopped = Assert.Single(state.DecisionPages, p => p.Status == "stopped");
-        Assert.Equal("a", Assert.Single(stopped.Decisions)); Assert.Equal(3, runtime.Requests.Count);
+        Assert.Equal("a", Assert.Single(stopped.Decisions)); Assert.Equal(4, runtime.Requests.Count);
+        Assert.Equal(PlanningDecisionPageOrigin.OutputBudgetEscalation, stopped.Origin);
+        Assert.Equal(16384, stopped.EffectiveOutputTokens);
         Assert.Equal(stopped.Id, error.Details!["pageId"]!.ToString()); Assert.Equal(stopped.RequestId, error.Details["requestId"]!.ToString());
         Assert.Equal("/decisions/a", error.Details["location"]!.ToString());
         Assert.Empty(state.RepairAllowances); Assert.Empty(state.DecisionCorrections);
         await Assert.ThrowsAsync<GnOuGo.Flow.Core.Expressions.WorkflowRuntimeException>(() => PlanningDecisionPages.ResolveAsync(
             PlanningContext.Clone(state), runtime, "behavior", "main", FiveDecisions(), TestContext.Current.CancellationToken));
-        Assert.Equal(3, runtime.Requests.Count);
+        Assert.Equal(4, runtime.Requests.Count);
     }
 
     [Theory]

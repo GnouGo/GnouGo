@@ -108,7 +108,12 @@ internal sealed partial class PlanningWorkflowConstruction
             PlanningConvergence.Receipt(state, result.Item.Call, result.Response!);
             if (result.Item.Decision is { } decision)
             {
-                try { PlanningDecisionPages.Accept(state, decision, result.Response!); }
+                try
+                {
+                    var sequence = state.Construction.ModelSequence;
+                    PlanningDecisionPages.Accept(state, decision, result.Response!);
+                    if (state.Construction.ModelSequence != sequence) result.Item.Progress.Calls++;
+                }
                 catch (GnOuGo.Flow.Core.Expressions.WorkflowRuntimeException error)
                 { state.Diagnostics.Add(new(error.Code, "/decisions/" + decision.Page.Decisions[0], error.Message)); }
                 continue;

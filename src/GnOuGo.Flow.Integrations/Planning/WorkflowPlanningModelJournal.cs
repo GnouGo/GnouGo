@@ -20,12 +20,25 @@ internal sealed class WorkflowPlanningModelJournal(StepExecutionContext context,
 
     public async Task<LLMResponse> CallAsync(LLMRequest request, CancellationToken ct)
     {
+        if (request.OutputBudgetEscalation is not null) PlanningGenerationPolicy.Apply(request, planning.Generation);
         var key = request.ClientRequestId;
         var copy = JsonSerializer.Deserialize(JsonSerializer.Serialize(request, PlanningJsonContext.Default.LLMRequest), PlanningJsonContext.Default.LLMRequest)!;
         copy.ClientRequestId = null;
         if (string.IsNullOrEmpty(key) || !key.StartsWith(planning.SessionId + ":", StringComparison.Ordinal) ||
             !key.EndsWith(":" + PlanningGraphCompiler.Fingerprint(JsonSerializer.Serialize(copy, PlanningJsonContext.Default.LLMRequest)), StringComparison.Ordinal))
             throw new PlanningConflictException("A session-owned immutable model request must be reserved before dispatch.");
+        if (request.OutputBudgetEscalation is { } proof)
+        {
+            if (!proof.ParentRequestId.StartsWith(planning.SessionId + ":", StringComparison.Ordinal))
+                throw new PlanningConflictException("The output escalation parent belongs to another session.");
+            var parent = await records.GetAsync(Requests, planning.TenantId, proof.ParentRequestId, WorkflowPlanningRuntimeFactory.Author, ct);
+            var receipt = await records.GetAsync(Receipts, planning.TenantId, proof.ParentRequestId, WorkflowPlanningRuntimeFactory.Author, ct);
+            if (parent is null || receipt is null)
+                throw new PlanningConflictException("The output escalation requires a durable parent request and receipt.");
+            PlanningGenerationPolicy.ValidateOutputEscalation(request,
+                JsonSerializer.Deserialize(parent.Value, PlanningJsonContext.Default.LLMRequest)!,
+                JsonSerializer.Deserialize(receipt.Value, PlanningJsonContext.Default.LLMResponse)!, planning.SessionId);
+        }
         if (!_active.TryAdd(key, 0)) throw new PlanningConflictException("This planning request is already active.");
         var stopwatch = Stopwatch.StartNew();
         try
@@ -60,6 +73,9 @@ internal sealed class WorkflowPlanningModelJournal(StepExecutionContext context,
             new KeyValuePair<string, object?>("gnougo-flow.plan.session_id", planning.SessionId),
             new KeyValuePair<string, object?>("gnougo-flow.plan.request_id", key),
             new KeyValuePair<string, object?>("gnougo-flow.plan.receipt.outcome", outcome),
+            new KeyValuePair<string, object?>("gnougo-flow.plan.request.parent_request", request.OutputBudgetEscalation?.ParentRequestId),
+            new KeyValuePair<string, object?>("gnougo-flow.plan.request.escalation_level", request.OutputBudgetEscalation?.Level),
+            new KeyValuePair<string, object?>("gnougo-flow.plan.request.output_ceiling", request.MaxTokens),
             new KeyValuePair<string, object?>("gnougo-flow.plan.receipt.elapsed_ms", stopwatch.Elapsed.TotalMilliseconds),
             new KeyValuePair<string, object?>("gnougo-flow.plan.budget.calls", budget.Snapshot.Calls)
         });

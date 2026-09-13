@@ -29,7 +29,7 @@ public sealed class ScenarioInputTests
         };
         PlanningFixtures.Accept(state);
         state = await new TypedWorkflowPlanner().AdvanceAsync(state, new() { ExpectedRevision = state.Revision }, runtime, TestContext.Current.CancellationToken);
-        Assert.Equal(1, calls); Assert.Equal(PlanningStatus.Stopped, state.Status);
+        Assert.Equal(2, calls); Assert.Equal(PlanningStatus.Stopped, state.Status);
         Assert.Equal("scenario_inputs", state.CurrentPhase);
         Assert.Equal(graph, PlanningGraphCompiler.Fingerprint(state.Graph!)); Assert.Null(state.Validation.Inputs);
         Assert.Contains(state.Diagnostics, d => d.Code == "DECISION_OUTPUT_LIMIT");

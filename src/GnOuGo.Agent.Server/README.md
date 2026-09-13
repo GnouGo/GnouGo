@@ -26,6 +26,10 @@ Optimistic revisions and original-workflow hashes protect approval and saving.
 `TypedWorkflowPlanning` configures `ReasoningProfile` (`Routine: low`, `Behavior: medium`,
 `SemanticReview: medium`), `MaxConcurrency` (4),
 `MaxModelCalls` (100), `MaxInputTokensPerRequest` (12000), and `MaxOutputTokens` (8192).
+A verified singleton decision truncation at 8192 may use one identical request at
+16384 under the [bounded escalation policy](../../docs/planner-output-budget-escalation.md).
+The journal validates the exact owned parent and durable receipt; global budgets
+still apply and escalation consumes no semantic repair allowance.
 The designer shows phase, workflow, dependency, repair and budget progress.
 Recovery retains accepted evidence and cumulative spending. See
 [the planner architecture](../../docs/workflow-planning-v2.md) for all gates and invariants.

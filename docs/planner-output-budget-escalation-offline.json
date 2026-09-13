@@ -1,0 +1,64 @@
+{
+  "baseCommit": "471d8d78a9344f13bd2a05ba5c393cfe725f31bf",
+  "solutionTests": {
+    "passed": 3209,
+    "failed": 0,
+    "skipped": 1,
+    "projects": 29
+  },
+  "plannerTests": 771,
+  "focusedHarnessPersistenceTests": 68,
+  "solutionBuild": "passed_without_warnings",
+  "agentFrontend": "passed_without_warnings",
+  "packages": [
+    "GnOuGo.Flow.Core",
+    "GnOuGo.Flow.Planning",
+    "GnOuGo.Flow.Integrations",
+    "GnOuGo.Agent.Shared"
+  ],
+  "nativeAotPlanningAndEncryptedPersistence": "passed",
+  "trimmedAgentEfPersistence": "passed",
+  "newWarningSuppressions": 0,
+  "historicalReplay": {
+    "session": "7a27ef2963ae49589c9b6c4196644fe7",
+    "sourceRevision": 18,
+    "sourceUnchanged": true,
+    "counterfactual": false,
+    "counterfactualRequest": null,
+    "status": "stopped",
+    "phase": "capabilities",
+    "localAdvances": 1,
+    "replayedReceipts": 1,
+    "providerDispatches": 0,
+    "lastRequestPhase": "intent_declarations",
+    "lastRequestId": "7a27ef2963ae49589c9b6c4196644fe7:18:7:intent_declarations:response_contract:93beceaf3191e878:page_dce26807d63ff6bb781472891136f0334d779f6a8d4fde18ed693fb872c877b1:9cbb8cd36532eed55edca37f8347fc6dc9df13e4b5e21d8f7d8032b127524c62",
+    "behaviorPresent": false,
+    "graphPresent": false,
+    "diagnostics": [
+      {
+        "code": "REPLAY_EVIDENCE_REQUIRED",
+        "location": "/preparation"
+      }
+    ]
+  },
+  "unchangedFixtureSources": {
+    "tests/GnOuGo.Agent.Planning.Benchmark/ProgressiveScenarios.cs": "b28780fdb09e7484895c97f1fff90716ebdd9e2ae88c2be351941d53649d3b92",
+    "tests/GnOuGo.Agent.Planning.Benchmark/ProgressiveExecution.cs": "40a40ce81d7f9dd62ebda770dcb59cd64866cc88a202b7c84c08da4449fc4936",
+    "tests/GnOuGo.Agent.Planning.Benchmark/CodeReviewExecutionFixture.cs": "7ff54d7c4529bb9bb1e7ab4e25f1e59f83f85e7e08126a767e2136c5283ae498",
+    "tests/GnOuGo.Agent.Planning.Benchmark/CodeReviewPolicy.txt": "b92002cf07ef660981dc5c758d775be40589045d14df706cf454ca3c58e52604"
+  },
+  "archiveBaselines": {
+    "source": {
+      "records": 36,
+      "manifestFingerprint": "01ed849dc458d7caa8be5647d93fc4296038bfbeb56e8602d66d5c512cb37666"
+    },
+    "provider": {
+      "records": 159,
+      "manifestFingerprint": "2bb593447d106acacd3d39569f249ba7d98f486d4ef8d2185b88b7b331907ad3"
+    },
+    "diagnostic": {
+      "records": 3,
+      "manifestFingerprint": "1c16a17664ba7f65ab694d145935d814e811ff045a79913062737fafcf7c6622"
+    }
+  }
+}

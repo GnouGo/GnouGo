@@ -93,6 +93,38 @@ public sealed class WorkflowPlanningPersistenceTests : IDisposable
         Assert.Equal(ErrorCodes.LlmBudgetExceeded, error.Code); Assert.Equal(1, client.Calls);
     }
 
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task ExactEscalationSurvivesEncryptedRestartWithoutClampingOrRedispatch(bool interrupted)
+    {
+        var client = new Client { Truncate = true }; LLMRequest child;
+        PlanningSnapshot InitialWithBudget()
+        {
+            var state = Initial(); state.Request.Options["llm_budget"]!["max_calls"] = 3; return state;
+        }
+        await using (var session = await Factory().OpenAsync(Context(client), InitialWithBudget(), Ct))
+        {
+            var parent = Request(session.Snapshot, "parent");
+            var response = await session.Runtime.CallAsync(parent, "intent", Ct);
+            child = JsonSerializer.Deserialize(JsonSerializer.Serialize(parent, PlanningJsonContext.Default.LLMRequest), PlanningJsonContext.Default.LLMRequest)!;
+            child.MaxTokens = 16384;
+            child.OutputBudgetEscalation = new("workflow", parent.ClientRequestId!, PlanningGenerationPolicy.RequestFingerprint(parent),
+                PlanningGenerationPolicy.ReceiptFingerprint(response), "value", "semantic", "evidence");
+            child.ClientRequestId = session.Snapshot.Request.SessionId + ":child:" + PlanningGenerationPolicy.RequestFingerprint(child);
+            client.Truncate = false; client.Fail = interrupted;
+            if (interrupted) await Assert.ThrowsAsync<IOException>(() => session.Runtime.CallAsync(child, "intent", Ct));
+            else await session.Runtime.CallAsync(child, "intent", Ct);
+        }
+        client.Fail = false;
+        await using var reopened = await Factory().OpenAsync(Context(client), InitialWithBudget(), Ct);
+        if (interrupted) Assert.Equal(ErrorCodes.LlmBudgetUnverifiable,
+            (await Assert.ThrowsAsync<WorkflowRuntimeException>(() => reopened.Runtime.CallAsync(child, "intent", Ct))).Code);
+        else Assert.Equal("secret result", (await reopened.Runtime.CallAsync(child, "intent", Ct)).Json!["value"]!.ToString());
+        Assert.Equal(2, client.Calls); Assert.Equal(2, reopened.Snapshot.Usage!.Calls);
+        Assert.Equal(new int?[] { 8192, 16384 }, client.Ceilings);
+    }
+
     [Fact]
     public async Task ChangedRequestCannotResetAnExistingSession()
     {
@@ -132,11 +164,14 @@ public sealed class WorkflowPlanningPersistenceTests : IDisposable
         private int _calls;
         public int Calls => _calls;
         public bool Fail { get; set; }
+        public bool Truncate { get; set; }
+        public List<int?> Ceilings { get; } = [];
         public Task<LLMResponse> CallAsync(LLMRequest request, CancellationToken ct)
         {
             Interlocked.Increment(ref _calls);
+            lock (Ceilings) Ceilings.Add(request.MaxTokens);
             if (Fail) throw new IOException("interrupted");
-            return Task.FromResult(new LLMResponse { Json = new JsonObject { ["value"] = "secret result" }, Usage = new JsonObject { ["total_tokens"] = 5 } });
+            return Task.FromResult(new LLMResponse { CompletionStatus = Truncate ? "output_limit" : "completed", Json = new JsonObject { ["value"] = "secret result" }, Usage = new JsonObject { ["total_tokens"] = 5 } });
         }
     }
     public void Dispose() { if (Directory.Exists(_directory)) Directory.Delete(_directory, true); }

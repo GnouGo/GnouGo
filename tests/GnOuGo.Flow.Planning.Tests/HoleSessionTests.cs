@@ -41,23 +41,45 @@ public sealed class HoleSessionTests
     }
 
     [Fact]
-    public async Task TruncatedAssignmentsPauseWithoutCommittingOrRedispatching()
+    public async Task ExhaustedEscalationPausesWithoutCommittingOrRedispatching()
     {
         var state = Ready(); var before = PlanningGraphCompiler.Fingerprint(state.Graph!);
         var runtime = new FakeRuntime
         {
             OnCall = (_, request, _) =>
         {
-            Assert.Equal(8_192, request.MaxTokens); Assert.True(request.DisableTransportRetries);
+            Assert.Equal(request.OutputBudgetEscalation is null ? 8_192 : 16_384, request.MaxTokens); Assert.True(request.DisableTransportRetries);
             return Task.FromResult(new LLMResponse { CompletionStatus = "output_limit" });
         }
         };
         state = await Advance(state, runtime);
+        Assert.Equal(PlanningStatus.Generating, state.Status);
+        Assert.Single(state.Construction.PendingCalls, c => c.Request.OutputBudgetEscalation is not null);
+        state = await Advance(Clone(state), runtime);
         Assert.Equal(PlanningStatus.Stopped, state.Status);
         Assert.Contains(state.Diagnostics, d => d.Code == "DECISION_OUTPUT_LIMIT");
         Assert.Empty(state.Construction.PendingCalls);
         Assert.Equal(before, PlanningGraphCompiler.Fingerprint(state.Graph!));
-        state = await Advance(state, runtime); Assert.Single(runtime.Requests);
+        state = await Advance(state, runtime); Assert.Equal(2, runtime.Requests.Count);
+    }
+
+    [Fact]
+    public async Task EscalatedConstructionContinuesThroughMandatoryGatesAndExactApproval()
+    {
+        var state = Ready(); var runtime = new FakeRuntime();
+        runtime.OnCall = (_, _, _) =>
+        {
+            runtime.OnCall = null;
+            return Task.FromResult(new LLMResponse { CompletionStatus = "output_limit" });
+        };
+        for (var i = 0; i < 30 && !PlanningStatus.IsWaiting(state.Status); i++) state = await Advance(Clone(state), runtime);
+        Assert.Equal(PlanningStatus.FinalReview, state.Status);
+        Assert.Single(runtime.Requests, r => r.MaxTokens == 16384);
+        Assert.Equal(runtime.Phases.Count(p => p.StartsWith("construction", StringComparison.Ordinal)), state.Construction.Workflows.Single().Calls);
+        Assert.Single(state.DecisionPages, p => p.Origin == PlanningDecisionPageOrigin.OutputBudgetEscalation);
+        Assert.Empty(state.RepairAllowances); Assert.Empty(state.DecisionCorrections);
+        state = await Advance(state, runtime, "approve");
+        Assert.Equal(PlanningStatus.Approved, state.Status); Assert.Equal(state.ArtifactHash, state.ApprovedHash);
     }
 
     [Fact]

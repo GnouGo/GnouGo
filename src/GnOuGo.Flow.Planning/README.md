@@ -37,7 +37,7 @@ directions without rewriting locked constraints or inventing opaque external res
 All model requests pass the same central sizing boundary, including instructions,
 context, response schema and estimated transport overhead. Pages target 80% of the
 configured input ceiling (9,600 of 12,000 tokens by default) and structured answers
-of at most 2,048 estimated tokens. The hard output ceiling remains 8,192. Complete
+of at most 2,048 estimated tokens. Normal requests retain the 8,192 output ceiling. Complete
 catalog and evidence coverage does not depend on a single prompt. An indivisible
 oversized decision stops with a technical diagnostic; it does not raise limits or
 ask the user to solve a transport limitation.
@@ -47,10 +47,17 @@ patch, retains valid neighbors and rejects unknown, overlapping, unlocated, stal
 repeated or regressing changes. One unchanged decision/evidence pair permits at most
 one model correction, within five repairs per workflow/gate. A verified truncated
 multi-decision page partitions recursively in canonical order until each response
-completes or a single decision reaches the output ceiling. Partitions preserve the
+completes or a single decision exhausts its bounded allowance. Partitions preserve the
 parent's gate and restricted correction scope, consuming global model budgets but
 no semantic correction allowance. Persisted child identities and receipts retain
-completed siblings across restart. Unverifiable
+completed siblings across restart. A verified singleton truncation at exactly 8,192
+permits one identical request at 16,384, with unchanged reasoning. This output-budget
+escalation is shared by canonical decision and evidence across revisions and
+corrections. Both host journals require the exact owned parent request and durable
+truncation receipt. Escalation consumes global budgets, never a semantic repair
+allowance; a second truncation stops. Other configured ceilings do not escalate.
+See [bounded output escalation](../../docs/planner-output-budget-escalation.md).
+Unverifiable
 requests are never redispatched. Previously passing validation stages and scenarios
 must remain passing against unchanged fixtures.
 

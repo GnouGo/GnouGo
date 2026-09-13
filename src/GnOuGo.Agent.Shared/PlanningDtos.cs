@@ -15,7 +15,8 @@ public sealed record PlanningClarificationChoiceDto(string Id, string Label, boo
 public sealed record PlanningUnsupportedObligationDto(string ObligationId, string Code, IReadOnlyList<string> EvidenceReferences);
 public sealed record PlanningOutcomeDto(string Kind, string? ArtifactHash = null, PlanningClarificationDto? Decision = null, IReadOnlyList<PlanningUnsupportedObligationDto>? Obligations = null);
 public sealed record PlanningTechnicalStopDto(string Code, string Phase, string Location, bool Unverifiable);
-public sealed record PlanningDecisionPageDto(string Id, string Phase, string WorkflowKey, string Status, int Decisions, int EstimatedInputTokens, int EstimatedAnswerTokens, int InputTargetTokens, bool Correction);
+public sealed record PlanningDecisionPageDto(string Id, string Phase, string WorkflowKey, string Status, int Decisions, int EstimatedInputTokens, int EstimatedAnswerTokens, int InputTargetTokens, bool Correction,
+    string? Origin = null, string? ParentPageId = null, string? ParentRequestId = null, int? EscalationLevel = null, int? EffectiveOutputTokens = null);
 public sealed record PlanningCommandDto(string Kind, long ExpectedRevision, string? ArtifactHash = null, string? Text = null, JsonObject? Answers = null, PlanningGenerationDto? Generation = null);
 public sealed record PlanningWorkflowDto(string Key, string Status, IReadOnlyList<string> Dependencies, int Calls, int RepairCalls,
     int? EstimatedInputTokens, int? InputTokenLimit, int UnresolvedFields = 0, int ResolvedFields = 0, string? Gate = null, int RepairsConsumed = 0, int RepairsAllowed = 5,

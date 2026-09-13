@@ -20,10 +20,10 @@ internal static class ProgressiveReport
         int? PartitionDepth(PlanningDecisionPage page)
         {
             var depth = 0; var seen = new HashSet<string>(StringComparer.Ordinal);
-            while (page.Origin == PlanningDecisionPageOrigin.OutputPartition)
+            while (page.Origin is PlanningDecisionPageOrigin.OutputPartition or PlanningDecisionPageOrigin.OutputBudgetEscalation)
             {
                 if (!seen.Add(page.Id) || pages.SingleOrDefault(p => p.Id == page.ParentId) is not { } parent) return null;
-                depth++; page = parent;
+                if (page.Origin == PlanningDecisionPageOrigin.OutputPartition) depth++; page = parent;
             }
             return page.Origin == PlanningDecisionPageOrigin.Unknown ? null : depth;
         }
@@ -41,11 +41,17 @@ internal static class ProgressiveReport
             { ["phase"] = g.Key.Phase, ["status"] = g.Key.Status, ["correction"] = g.Key.Correction, ["origin"] = g.Key.Origin.ToString(), ["gate"] = g.Key.Gate,
                 ["pages"] = g.Count(), ["splitChildren"] = g.Count(p => p.Origin == PlanningDecisionPageOrigin.OutputPartition) }).ToArray()),
             ["outputPartitions"] = pages.Count(p => p.Origin == PlanningDecisionPageOrigin.OutputPartition),
+            ["outputEscalations"] = pages.Count(p => p.Origin == PlanningDecisionPageOrigin.OutputBudgetEscalation),
             ["semanticCorrectionPages"] = pages.Count(p => p.Origin == PlanningDecisionPageOrigin.SemanticCorrection),
             ["pageLineage"] = new JsonArray(pages.Select(p => (JsonNode)new JsonObject
             {
                 ["id"] = p.Id, ["parent"] = p.ParentId, ["origin"] = p.Origin.ToString(), ["gate"] = p.Gate, ["phase"] = p.Phase,
                 ["status"] = p.Status, ["correction"] = p.Correction, ["partitionDepth"] = PartitionDepth(p), ["requestId"] = p.RequestId,
+                ["escalationChildId"] = p.OutputEscalationChildId,
+                ["parentRequestId"] = p.OutputBudgetEscalation?.ParentRequestId, ["escalationLevel"] = p.OutputBudgetEscalation?.Level,
+                ["canonicalDecisionId"] = p.OutputBudgetEscalation?.CanonicalDecisionId, ["effectiveOutputTokens"] = p.EffectiveOutputTokens,
+                ["completionStatus"] = p.RequestId is { } requestId && receipts.TryGetValue(requestId, out var receipt)
+                    ? receipt?.CompletionStatus is "completed" or "output_limit" ? receipt.CompletionStatus : null : null,
                 ["decisions"] = new JsonArray(p.Decisions.Select(id => (JsonNode?)JsonValue.Create(id)).ToArray()),
                 ["children"] = new JsonArray(p.PartitionChildren.Select(id => (JsonNode?)JsonValue.Create(id)).ToArray()),
                 ["singletonOutputLimit"] = p.Decisions.Count == 1 && p.Diagnostics.Any(d => d.Code == "DECISION_OUTPUT_LIMIT")
@@ -75,6 +81,7 @@ internal static class ProgressiveReport
             {
                 ["workflow"] = g.Key.WorkflowKey, ["phase"] = g.Key.Phase, ["gate"] = g.Key.Gate,
                 ["reservations"] = g.Count(), ["calls"] = g.Count(c => verified.Contains(c.Id)), ["repairReservations"] = g.Count(c => c.Repair == true),
+                ["outputEscalations"] = g.Count(c => c.OutputBudgetEscalation is not null),
                 ["allDispatchUsageKnown"] = g.All(c => verified.Contains(c.Id) && c.InputTokens.HasValue && c.OutputTokens.HasValue),
                 ["inputTokens"] = Sum(g.Where(c => verified.Contains(c.Id)).Select(c => c.InputTokens)), ["outputTokens"] = Sum(g.Where(c => verified.Contains(c.Id)).Select(c => c.OutputTokens))
             }).ToArray()),

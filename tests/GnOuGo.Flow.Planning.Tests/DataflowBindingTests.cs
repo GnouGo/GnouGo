@@ -256,7 +256,7 @@ public sealed class DataflowBindingTests
         var state = Session();
         var runtime = new FakeRuntime { OnCall = (_, _, _) => Task.FromResult(new LLMResponse { CompletionStatus = "output_limit" }) };
         state = await new TypedWorkflowPlanner().AdvanceAsync(state, new() { ExpectedRevision = state.Revision }, runtime, TestContext.Current.CancellationToken);
-        Assert.Equal(PlanningStatus.Stopped, state.Status); Assert.Single(runtime.Requests);
+        Assert.Equal(PlanningStatus.Stopped, state.Status); Assert.Equal(2, runtime.Requests.Count);
         Assert.Contains(state.Diagnostics, d => d.Code == "DECISION_OUTPUT_LIMIT"); Assert.Null(state.ApprovedBehaviorHash);
     }
 

@@ -72,3 +72,9 @@ record namespaces. Agent.Server's designer retains its EF-backed session indexes
 Planner checkpoints emit the shared `GnOuGo.Flow.Planning` convergence and gate events
 through Flow runtime telemetry. Durable request identities deduplicate hole exposures,
 and trace events carry tenant and hole identities without adding hole IDs to metrics.
+
+Planning journals validate bounded singleton output escalation against the encrypted
+parent request and truncation receipt. Only the normal 8192 ceiling can escalate once
+to 16384; content and reasoning remain identical. Completed escalations replay without
+dispatch, and unverifiable reservations stop. See the
+[policy and validation](../../docs/planner-output-budget-escalation.md).

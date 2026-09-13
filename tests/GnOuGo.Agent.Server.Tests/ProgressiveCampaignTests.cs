@@ -357,6 +357,27 @@ public sealed class ProgressiveCampaignTests
         Assert.DoesNotContain("PRIVATE_", report.ToJsonString());
     }
 
+    [Fact]
+    public void EscalationReportingIsReplaySafeAndSeparateFromSemanticRepairs()
+    {
+        var proof = new PlanningOutputBudgetEscalation("parent", "request", "hash", "receipt", "choice", "semantic", "evidence");
+        var page = new PlanningDecisionPage { Id = "escalation", Origin = PlanningDecisionPageOrigin.OutputBudgetEscalation,
+            ParentId = "parent", OutputBudgetEscalation = proof, EffectiveOutputTokens = 16384, RequestId = "child" };
+        var accounting = new PlanningRequestAccounting { Id = "child", OutputBudgetEscalation = proof, EffectiveOutputTokens = 16384, Repair = false };
+        var state = new PlanningSnapshot { DecisionPages = [new() { Id = "parent", Origin = PlanningDecisionPageOrigin.OutputPartition,
+            ParentId = "root" }, new() { Id = "root", Origin = PlanningDecisionPageOrigin.Initial }, page, page], RequestAccounting = [accounting, accounting] };
+        var receipts = new Dictionary<string, LLMResponse?> { ["child"] = new() { CompletionStatus = "output_limit" } };
+        var report = ProgressiveReport.Build(state, receipts);
+        Assert.Equal(1, report["outputEscalations"]!.GetValue<int>()); Assert.Equal(0, report["semanticCorrectionPages"]!.GetValue<int>());
+        Assert.Equal(1, report["pageLineage"]![2]!["partitionDepth"]!.GetValue<int>());
+        Assert.Equal(16384, report["pageLineage"]![2]!["effectiveOutputTokens"]!.GetValue<int>());
+        Assert.Equal("output_limit", report["pageLineage"]![2]!["completionStatus"]!.ToString());
+        Assert.Equal("request", report["pageLineage"]![2]!["parentRequestId"]!.ToString());
+        Assert.Equal(0, report["requestsByPhase"]![0]!["repairReservations"]!.GetValue<int>());
+        Assert.True(JsonNode.DeepEquals(report, ProgressiveReport.Build(JsonSerializer.Deserialize(JsonSerializer.Serialize(state,
+            PlanningJsonContext.Default.PlanningSnapshot), PlanningJsonContext.Default.PlanningSnapshot)!, receipts)));
+    }
+
     private static (PlanningSnapshot, PlanningDecisionPage, LLMRequest, LLMResponse) Diagnostic()
     {
         var state = new PlanningSnapshot { TechnicalStop = new("REPAIR_REGRESSION", "behavior", "/field") };

@@ -35,7 +35,7 @@ YAML is a derived, read-only artifact produced by `PlanningGraphCompiler`.
 Every model response has a strict typed JSON schema. Engine-owned facts are issued
 references; models never reproduce known evidence or schemas. Initial behavior is
 assembled by the coordinator from bounded semantic decisions. Every phase targets
-80% of the input ceiling and a 2,048-token structured answer; the hard 12,000/8,192
+80% of the input ceiling and a 2,048-token structured answer; the normal 12,000/8,192
 ceilings remain unchanged. Technical sizing failures cannot trigger user clarification. Every classification and contract
 must have deterministically validated evidence from intent, declared schemas or
 provider-neutral metadata. Missing proof stops technically; only proven, materially
@@ -89,7 +89,13 @@ multi-decision pages recursively partition at the midpoint in canonical decision
 order. Output partitions inherit the phase, gate and restricted scope; they consume
 global model budgets without another semantic repair charge. Both child identities
 are persisted before dispatch, and restart validates and reuses completed siblings.
-Only a truncated singleton produces `DECISION_OUTPUT_LIMIT`, retaining its page,
+A verified singleton truncation at the normal 8,192 ceiling permits one identical
+request at 16,384, shared by canonical semantic decision and evidence across later
+corrections, gates and revisions. Both host journals verify the owned parent request
+and receipt before dispatch. The escalation consumes global budgets but no repair
+allowance. Its receipt and lineage survive restart; no second escalation is allowed.
+Other configured output ceilings retain their existing stopping behavior.
+An exhausted singleton produces `DECISION_OUTPUT_LIMIT`, retaining its page,
 decision and exact request identity. Historical page origin remains unknown; old
 repair charges and receipts are never relabeled or refunded. Unchanged semantic
 decisions permit one model correction; five repairs per workflow/gate remain the outer

@@ -34,6 +34,19 @@ internal sealed class PlanningModelJournal(
         request.ClientRequestId = key;
         if (!key.EndsWith(":" + requestHash, StringComparison.Ordinal))
             throw new InvalidOperationException("The reserved model request changed before dispatch.");
+        if (request.OutputBudgetEscalation is { } proof)
+        {
+            if (!proof.ParentRequestId.StartsWith(sessionId + ":", StringComparison.Ordinal))
+                throw new PlanningConflictException("The output escalation parent belongs to another session.");
+            var parentKey = sessionId + ":" + proof.ParentRequestId;
+            var issuedParent = await records.GetAsync(RequestCollection, tenantId, parentKey, EfPlanningSessionStore.Author, ct);
+            var parentReceipt = await records.GetAsync(Collection, tenantId, parentKey, EfPlanningSessionStore.Author, ct);
+            if (issuedParent is null || parentReceipt is null)
+                throw new PlanningConflictException("The output escalation requires a durable parent request and receipt.");
+            PlanningGenerationPolicy.ValidateOutputEscalation(request,
+                JsonSerializer.Deserialize(issuedParent.Value, PlanningJsonContext.Default.LLMRequest)!,
+                JsonSerializer.Deserialize(parentReceipt.Value, PlanningJsonContext.Default.LLMResponse)!, sessionId);
+        }
         await using var db = await contexts.CreateDbContextAsync(ct);
         var existing = await db.Calls.AsNoTracking().SingleOrDefaultAsync(c => c.TenantId == tenantId && c.SessionId == sessionId && c.RequestHash == key, ct);
         if (existing is not null)

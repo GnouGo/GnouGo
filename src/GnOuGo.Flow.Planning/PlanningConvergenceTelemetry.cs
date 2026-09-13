@@ -34,7 +34,9 @@ public static class PlanningConvergenceTelemetry
             }
             emit("planning.decision_page", [tenant, new("page", page.Id), new("parent", page.ParentId), new("phase", page.Phase),
                 new("workflow", page.WorkflowKey), new("status", page.Status), new("request", page.RequestId), new("decisions", page.Decisions.Count),
-                new("estimated_input_tokens", page.EstimatedInputTokens), new("input_target_tokens", page.InputTargetTokens), new("estimated_answer_tokens", page.EstimatedAnswerTokens), new("correction", page.Correction)]);
+                new("estimated_input_tokens", page.EstimatedInputTokens), new("input_target_tokens", page.InputTargetTokens), new("estimated_answer_tokens", page.EstimatedAnswerTokens), new("correction", page.Correction),
+                new("origin", page.Origin.ToString()), new("parent_request", page.OutputBudgetEscalation?.ParentRequestId),
+                new("escalation_level", page.OutputBudgetEscalation?.Level), new("output_ceiling", page.EffectiveOutputTokens)]);
         }
         if (after.TechnicalStop is { } stop && before.TechnicalStop != stop)
         {
@@ -75,7 +77,9 @@ public static class PlanningConvergenceTelemetry
             if (prior?.Evidence == request.Evidence) continue;
             emit("planning.request_convergence", [tenant, new("request", request.Id), new("workflow", request.WorkflowKey), new("phase", request.Phase), new("gate", request.Gate),
                 new("evidence", request.Evidence), new("purpose", request.Purpose), new("reasoning", request.Reasoning), new("estimated_input_tokens", request.EstimatedInputTokens),
-                new("input_tokens", request.InputTokens), new("output_tokens", request.OutputTokens), new("avoidable_dispatches", request.AvoidableDispatches), new("avoidable_extra_requests", request.AvoidableExtraRequests)]);
+                new("input_tokens", request.InputTokens), new("output_tokens", request.OutputTokens), new("avoidable_dispatches", request.AvoidableDispatches), new("avoidable_extra_requests", request.AvoidableExtraRequests),
+                new("parent_request", request.OutputBudgetEscalation?.ParentRequestId), new("escalation_level", request.OutputBudgetEscalation?.Level),
+                new("output_ceiling", request.EffectiveOutputTokens)]);
             foreach (var (hole, reason) in request.HoleReasons)
                 emit("planning.hole_request", [tenant, new("request", request.Id), new("hole", hole), new("reason", reason), new("evidence", request.Evidence)]);
             if (request.Evidence != "receipt") continue;

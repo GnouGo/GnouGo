@@ -35,7 +35,7 @@ internal static class PlanningModelCalls
             return pending;
         }
         PlanningGenerationPolicy.Apply(request, state.Request.Generation);
-        request.Reasoning = PlanningGenerationPolicy.ReasoningFor(state.Request.Generation, phase);
+        if (request.OutputBudgetEscalation is null) request.Reasoning = PlanningGenerationPolicy.ReasoningFor(state.Request.Generation, phase);
         if (request.StructuredOutputSchema is not JsonObject schema || PlanningContractValidation.ValidateSchema(schema, strict: true).Count != 0)
             throw new WorkflowRuntimeException(ErrorCodes.LlmSchema, "A valid strict typed response schema is required before dispatch.");
         if (PlanningDecisionPages.AnswerTokens(schema) > PlanningGenerationPolicy.AnswerTargetTokens)
@@ -56,6 +56,7 @@ internal static class PlanningModelCalls
         {
             Id = id, Revision = state.Revision, WorkflowKey = string.IsNullOrEmpty(workflow) ? "$plan" : workflow,
             Phase = phase, Gate = gate, Reasoning = request.Reasoning, EstimatedInputTokens = estimate, Repair = repair ?? (phase == PlanningPhase.Repair || phase.EndsWith("_repair", StringComparison.Ordinal)),
+            OutputBudgetEscalation = request.OutputBudgetEscalation, EffectiveOutputTokens = request.MaxTokens,
             Purpose = gate == PlanningGates.Semantic || phase.Contains("semantic", StringComparison.Ordinal) || phase.StartsWith("scenario_", StringComparison.Ordinal) ? "mandatory_validation" : phase == PlanningPhase.Repair || phase.StartsWith(PlanningPhase.Construction, StringComparison.Ordinal) ? "executable_holes" : "assessment"
         });
         return call;

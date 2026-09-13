@@ -36,6 +36,9 @@ public sealed class PlanningRequestAccounting
     public string? Reasoning { get; set; }
     public int EstimatedInputTokens { get; set; }
     public string Evidence { get; set; } = "reserved";
+    public string? ReceiptFingerprint { get; set; }
+    public PlanningOutputBudgetEscalation? OutputBudgetEscalation { get; set; }
+    public int? EffectiveOutputTokens { get; set; }
     public bool? Repair { get; set; }
     public long? InputTokens { get; set; }
     public long? OutputTokens { get; set; }

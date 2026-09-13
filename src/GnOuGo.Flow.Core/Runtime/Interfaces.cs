@@ -110,6 +110,9 @@ public sealed class LLMRequest
     public bool RequireOutputTokenLimit { get; set; }
     /// <summary>The caller journals and budgets individual attempts; do not retry inference invisibly.</summary>
     public bool DisableTransportRetries { get; set; }
+    /// <summary>Coordinator-issued output allowance; never sent as model instructions or provider parameters.</summary>
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    public Planning.PlanningOutputBudgetEscalation? OutputBudgetEscalation { get; set; }
 }
 
 /// <summary>

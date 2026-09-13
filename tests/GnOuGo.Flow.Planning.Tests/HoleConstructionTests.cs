@@ -108,16 +108,18 @@ public sealed class HoleConstructionTests
     [Theory]
     [InlineData(0)]
     [InlineData(5)]
-    public async Task IndivisibleTruncationStopsWithoutRetryOrBudgetReset(int limit)
+    public async Task IndivisibleTruncationStopsAfterOneEscalationWithoutRepairOrBudgetReset(int limit)
     {
         var state = Ready(); state.Request.MaxRepairsPerWorkflowGate = limit;
         var graph = PlanningGraphCompiler.Fingerprint(state.Graph!);
         var runtime = new FakeRuntime { OnCall = (_, _, _) => Task.FromResult(new LLMResponse { CompletionStatus = "output_limit" }) };
         state = await HoleSessionTests.Advance(state, runtime);
+        Assert.Equal(PlanningStatus.Generating, state.Status);
+        state = await HoleSessionTests.Advance(PlanningContext.Clone(state), runtime);
         Assert.Equal(PlanningStatus.Stopped, state.Status);
         Assert.Contains(state.Diagnostics, d => d.Code == "DECISION_OUTPUT_LIMIT");
         state = await HoleSessionTests.Advance(PlanningContext.Clone(state), runtime);
-        Assert.Single(runtime.Requests); Assert.Empty(state.RepairAllowances);
+        Assert.Equal(2, runtime.Requests.Count); Assert.Empty(state.RepairAllowances);
         Assert.Equal(graph, PlanningGraphCompiler.Fingerprint(state.Graph!));
     }
 

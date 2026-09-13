@@ -75,7 +75,12 @@ internal static class PlanningConvergence
     internal static void Receipt(PlanningSnapshot state, PlanningModelCall call, LLMResponse response)
     {
         var record = state.RequestAccounting.SingleOrDefault(a => a.Id == call.Id);
-        if (record is null || record.Evidence == "receipt") return;
+        if (record is null) return;
+        var fingerprint = PlanningGenerationPolicy.ReceiptFingerprint(response);
+        if (record.ReceiptFingerprint is not null && record.ReceiptFingerprint != fingerprint)
+            throw new PlanningConflictException("A retained request received different receipt evidence.");
+        record.ReceiptFingerprint = fingerprint;
+        if (record.Evidence == "receipt") return;
         record.Evidence = "receipt";
         record.InputTokens = Tokens("input_tokens", "prompt_tokens", "inputTokens");
         record.OutputTokens = Tokens("output_tokens", "completion_tokens", "outputTokens");
