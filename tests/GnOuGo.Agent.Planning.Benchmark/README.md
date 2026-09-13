@@ -1,20 +1,25 @@
 # CodeReview convergence benchmark
 
-The scoped-confirmation campaign authorizes exactly one fresh standalone classifier
-session, with all reasoning profiles `low`. Stages 2 and 3 and the diagnostic A/B
-command are disabled for this campaign. Its production commit and isolated identity
-are pinned in `ProgressiveRules` and `ProgressiveCampaign` after offline checks:
-`554374c21e00ed85af1e1b69daf15ba1d537e3d3`, campaign `schema5-scoped-confirmation-20260913`.
-Stage 1 accepts only a justified typed outcome. `FinalReview` requires all six
-independent execution cases and exact artifact-hash approval before `ValidWorkflow`.
-A technical stop consumes the start and prohibits further advancement.
+The source-authority campaign authorizes exactly one fresh standalone classifier
+session, with all reasoning profiles `low`. Stages 2 and 3 and diagnostic A/B requests
+are disabled. Production commit `25566657965b39774fae16f7a553622db66597dc` and isolated campaign
+`schema5-source-authority-2556665` are pinned after offline checks. Stage 1 accepts only a
+justified typed outcome; `FinalReview` requires all six independent execution cases
+and exact artifact-hash approval before `ValidWorkflow`. A technical stop consumes
+the start and prohibits further advancement or replacement sessions.
 
-This campaign's start is consumed. Stage 1 stopped after four completed calls because
-interpretation promoted a conditional policy subject to an operation and treated
-rejection behavior as forbidden confirmation. The unrelated YAML-review prohibition
-was correctly scoped. See [the scoped-confirmation live report](../../docs/planner-schema5-scoped-confirmation-live-validation.md).
-Stages 2 and 3 were not run, and no A/B request was made. Commands below document
-the completed protocol; they do not authorize another start or a changed freeze.
+Offline prerequisites: 3,077 passing solution tests, one optional live test skipped,
+warning-free solution/harness and package builds, Native AOT planning/encrypted
+persistence and trimmed Agent.Server EF persistence smokes. The reference fixture
+selfcheck passed without model calls. Public runtime interfaces, token ceilings,
+budgets and scenario inputs remain unchanged.
+
+This campaign has consumed its only start. It passed policy preparation and reached
+behavior review after six completed calls. Review was withheld because overlapping
+input declarations became two threshold ports and descriptive clauses became extra
+outputs. The isolated campaign is blocked; its original session remains unapproved
+at revision 32. See [the source-authority result](../../docs/planner-schema5-source-authority-live-validation.md).
+No executable construction, Stage 2, replacement session or A/B request followed.
 
 Capability preflight uses Agent.Server's injected local resolver. Bootstrap reads
 KeyVault provider settings and Agent's persisted default model and metadata overrides;
@@ -22,6 +27,9 @@ it creates no metadata HTTP client or model-list catalog.
 
 Archived campaigns remain untouched:
 
+- `schema5-scoped-confirmation-20260913`: policy subjects became operations and
+  rejection consequences became forbidden confirmation; see
+  [the scoped-confirmation report](../../docs/planner-schema5-scoped-confirmation-live-validation.md).
 - `schema5-ee487c8`: model-capability preflight failure, no session start; see
   [the progressive report](../../docs/planner-schema5-progressive-validation.md).
 - `schema5-local-metadata-20260912`: unjustified Stage-1 clarification; see
@@ -29,11 +37,13 @@ Archived campaigns remain untouched:
 - `schema5-clarification-20260912`: false `CONFIRMATION_POLICY_CONFLICT`; see
   [the clarification report](../../docs/planner-schema5-clarification-live-validation.md).
 
-Strict replay of the last campaign at revision 14 reproduced the original conflict
-before correction. Corrected replay stops at `REPLAY_EVIDENCE_REQUIRED` for the new
-scope decision, with zero provider dispatches and unchanged session/journal/budget.
-Audit replay uses archived model declarations; completed receipts alone do not prove
-capabilities. Synthetic scope regression responses never replace historical receipts.
+Strict replay of the scoped-confirmation campaign at revision 11 reproduced its
+conflict before correction (one retained receipt). Corrected replay stops at
+`INTENT_SOURCE_AUTHORITY_UNPROVEN` before consuming the old scope receipt: historical
+obligations have no current grounding proof. Both runs made zero provider dispatches
+and left the source session, journal and budget unchanged. Synthetic complete-clause
+regression responses never replace historical receipts. All archived campaigns retain
+their original identities and encrypted state.
 
 ```sh
 dotnet build tests/GnOuGo.Agent.Planning.Benchmark -m:1 -warnaserror -p:SkipClientBuild=true -p:SkipModelMetadataGeneration=true
@@ -65,7 +75,7 @@ including a repeated freeze. It cannot create or recover a planning session.
 
 Campaign state and fixture inputs use encrypted `agent-planning-progressive-*-v5`
 records under tenant `planner-progressive`. The isolated EF index is workspace-resolved
-`.GnOuGo/data/planner-progressive/schema5-scoped-confirmation-20260913/gnougo-planning-v5.db`.
+`.GnOuGo/data/planner-progressive/schema5-source-authority-2556665/gnougo-planning-v5.db`.
 The earlier database remains untouched. The historical export copies
 only immutable benchmark inputs; no historical session, reservation or budget is
 migrated. The saved classifier's public caller default (100) becomes the standalone

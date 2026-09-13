@@ -107,3 +107,8 @@ Native AOT planning/encrypted-persistence smoke and trimmed Agent.Server EF pers
 smoke passed with no warnings under existing documented publish exceptions. No UI
 source or runtime interface changed. The offline harness verified its six reference
 cases and all 18 frozen CodeReview fixture contracts, without model calls.
+
+The single source-authority campaign start is now consumed. Its policy preparation
+passed, but independent behavior review found a separate declaration-grounding defect.
+See the [live result and replay](planner-schema5-source-authority-live-validation.md).
+No production patch or replacement live run followed that finding.
