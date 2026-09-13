@@ -52,6 +52,7 @@ public sealed class DeterministicBindingTests
     public async Task DeclaredFixedValuesAndUniqueOutputRequireNoExecutableModelCalls()
     {
         var state = Ready(); state.Request.Baseline = new() { Workflows = [FakeRuntime.ExecutableWorkflow()] };
+        await PlanningDeclarations.ResolveAsync(state, new FakeRuntime(), TestContext.Current.CancellationToken);
         state.Preparation!.Capabilities.Add(new()
         {
             Id = "fixed", StepType = "set", EffectKind = "none", FixedInput = new() { ["message"] = "Hello" },

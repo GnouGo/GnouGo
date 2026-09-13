@@ -66,6 +66,10 @@ public sealed class PlanningPersistenceTests
         state.Obligations.Add(new("governor", ["owned_clause"], "workflow", "confirmation_forbidden", true)
         { Grounding = new(PlanningSourceAuthority.ConstraintsOnly, PlanningSourceSemanticRole.PolicyConstraint, "owned_clause", null, "PRIVATE_GROUNDING_PROOF"),
             Disposition = "rejection_condition", AdjudicationFingerprint = "adjudicated", PolicyIds = ["PRIVATE_SCOPED_POLICY"] });
+        state.DeclarationAssignments.Add(new("candidate", "distinct", null, "name_reference", "main", "optional", "default_reference"));
+        state.Declarations.Add(new("declaration", "input", "main", "name_reference", null, false, "default_reference",
+            ["candidate"], [], ["modifier_reference"], ["clause_reference"], "PRIVATE_DECLARATION_PROOF"));
+        state.DeclarationFingerprint = "PRIVATE_ADJUDICATION_PROOF";
         Assert.True(await fixture.Store.TrySaveAsync(state, null, Ct));
         state.Revision = 1; state.Status = PlanningStatus.BehaviorReview;
         Assert.True(await fixture.Store.TrySaveAsync(state, 0, Ct));
@@ -76,6 +80,10 @@ public sealed class PlanningPersistenceTests
         Assert.Equal(1, restored!.Revision);
         Assert.Equal(state.Request.Prompt, restored.Request.Prompt);
         Assert.Equal(5, restored.SchemaVersion);
+        Assert.Equal("PRIVATE_ADJUDICATION_PROOF", restored.DeclarationFingerprint);
+        Assert.Equal("PRIVATE_DECLARATION_PROOF", Assert.Single(restored.Declarations).ProofFingerprint);
+        Assert.Equal("default_reference", Assert.Single(restored.DeclarationAssignments).DefaultReference);
+        Assert.Equal(["modifier_reference"], restored.Declarations[0].ModifierReferences);
         Assert.Equal(5, Assert.Single(restored.RepairAllowances).Attempts);
         var retainedCandidate = Assert.Single(restored.Construction.Candidates);
         Assert.Equal("revision-1", retainedCandidate.GraphFingerprint);
@@ -113,6 +121,8 @@ public sealed class PlanningPersistenceTests
             Assert.DoesNotContain("PRIVATE_STAGED_ASSIGNMENT", bytes);
             Assert.DoesNotContain("PRIVATE_SCOPED_POLICY", bytes);
             Assert.DoesNotContain("PRIVATE_GROUNDING_PROOF", bytes);
+            Assert.DoesNotContain("PRIVATE_DECLARATION_PROOF", bytes);
+            Assert.DoesNotContain("PRIVATE_ADJUDICATION_PROOF", bytes);
         }
     }
 

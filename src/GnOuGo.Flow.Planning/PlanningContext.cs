@@ -20,7 +20,7 @@ internal static class PlanningContext
 
     internal static string Contracts(PlanningSnapshot state) => PlanningGraphCompiler.Fingerprint(
         PlanningBehaviorPlans.Fingerprint(state.BehaviorPlan!) + "\n" +
-        JsonSerializer.Serialize(state.Preparation, PlanningJsonContext.Default.PlanningPreparation) +
+        JsonSerializer.Serialize(state.Preparation, PlanningJsonContext.Default.PlanningPreparation) + state.DeclarationFingerprint +
         (state.BusinessDecisions.Any(d => d.Status is "runtime" or "resolved") ? "\n" + PlanningBusinessAnswers.ContractFingerprint(state) : ""));
 
     internal static string Fixtures(PlanningSnapshot state) => PlanningGraphCompiler.Fingerprint(

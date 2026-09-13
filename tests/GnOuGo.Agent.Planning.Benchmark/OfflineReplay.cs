@@ -70,6 +70,7 @@ internal static class OfflineReplay
             ["counterfactual"] = counterfactualRequest is not null, ["counterfactualRequest"] = counterfactualRequest,
             ["status"] = state.Status, ["phase"] = state.CurrentPhase, ["localAdvances"] = advances,
             ["replayedReceipts"] = client.Replayed.Count, ["providerDispatches"] = 0,
+            ["lastRequestPhase"] = state.RequestAccounting.LastOrDefault()?.Phase, ["lastRequestId"] = state.RequestAccounting.LastOrDefault()?.Id,
             ["behaviorPresent"] = state.BehaviorPlan is not null, ["graphPresent"] = state.Graph is not null,
             ["diagnostics"] = new JsonArray(state.Diagnostics.Select(d => (JsonNode)new JsonObject { ["code"] = d.Code, ["location"] = d.Location }).ToArray())
         }.ToJsonString());

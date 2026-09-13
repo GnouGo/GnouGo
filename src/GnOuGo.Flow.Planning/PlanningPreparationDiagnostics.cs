@@ -15,7 +15,7 @@ internal static class PlanningPreparationDiagnostics
                 ? "/preparation/policies/@" + identity.Replace("~", "~0", StringComparison.Ordinal).Replace("/", "~1", StringComparison.Ordinal)
                 : error.Details?["source_obligation"] is JsonValue obligation && obligation.TryGetValue<string>(out var sourceIdentity)
                     ? "/obligations/@" + sourceIdentity.Replace("~", "~0", StringComparison.Ordinal).Replace("/", "~1", StringComparison.Ordinal)
-                    : "/preparation", error.Message, ValidationStage: PlanningPhase.Capabilities)
+                    : Read(error.Details as JsonObject ?? new(), "location") ?? "/preparation", error.Message, ValidationStage: PlanningPhase.Capabilities)
         };
         if (error.Details is JsonObject details && Read(details, "inference_error") is { } inferenceError)
             findings.Add(new(error.Code, "/preparation/" + (Read(details, "inference_phase") ?? "inference"),

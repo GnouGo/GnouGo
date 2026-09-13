@@ -16,6 +16,7 @@ internal sealed class PlanningValidationPipeline
         var diagnostics = new List<PlanningDiagnostic>();
         if (state.Construction.Dataflow?.ContractFingerprint != PlanningContext.Contracts(state))
             diagnostics.Add(new("LOCKED_CONTRACT_CHANGED", "/preparation", "Locked contracts changed and require renewed human review."));
+        diagnostics.AddRange(PlanningDeclarations.ValidateDefaults(state, graph));
         diagnostics.AddRange(PlanningGraphValidation.Validate(graph, state.Preparation!));
         diagnostics.AddRange(PlanningExecutableValidation.Validate(graph, state.Preparation!));
         diagnostics.AddRange(PlanningArtifactBindings.PrerequisiteFindings(graph, state.Preparation!));

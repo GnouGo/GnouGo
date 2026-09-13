@@ -67,7 +67,7 @@ internal static class PlanningSchemas
         var root = Object(("summary", String()), ("entrypoint", String()), ("workflows", Array(Ref("behaviorWorkflow"))));
         root["$defs"] = new JsonObject
         {
-            ["behaviorPort"] = Object(("name", String()), ("description", String()), ("required", Type("boolean"))),
+            ["behaviorPort"] = Object(("name", String()), ("description", String()), ("required", Type("boolean")), ("declarationId", Nullable(String()))),
             ["behaviorOutcome"] = Object(("key", String()), ("description", String()), ("isDefault", Type("boolean")), ("steps", Array(Ref("behaviorNode")))),
             ["behaviorNode"] = Object(("key", String()), ("kind", Enum("operation", "decision", "loop", "sequence", "parallel", "confirmation", "workflow")),
                 ("purpose", String()), ("operationIds", Array(String())), ("capabilityId", Nullable(String())), ("workflowKey", Nullable(String())),

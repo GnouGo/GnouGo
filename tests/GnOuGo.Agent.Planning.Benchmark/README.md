@@ -172,3 +172,17 @@ the exact current artifact hash. Execution receipts and approval evidence also b
 the frozen catalog hash and the embedded fixture-source hash, so changing fixtures
 cannot reuse old passing evidence. `verify-fixtures` validates the fixture responses
 against the frozen producer schemas without model calls; it is not workflow execution.
+
+## Canonical declaration Stage-1 campaign
+
+The fresh canonical-declarations campaign permits one standalone-classifier start.
+`campaign accept 1 REVISION HASH` submits exact behavior approval once and stops
+with `accepted_behavior`, a skeleton hash and no executable dispatch. This checkpoint
+is not `ValidWorkflow` and does not unlock Stage 2. Restart cannot advance a blocked
+or accepted campaign. `campaign reject 1 REVISION HASH CODE` records an independent
+review mismatch without changing the saved planner candidate.
+
+`campaign audit-replay CAMPAIGN STAGE REVISION` is read-only receipt replay of a
+named archived campaign. Changed requests require matching retained evidence; no
+synthetic response or provider fallback is allowed. Production, catalog, policy,
+model, ceilings and all-low campaign reasoning are frozen before the single start.

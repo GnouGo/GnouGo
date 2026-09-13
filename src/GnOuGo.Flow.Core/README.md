@@ -1317,6 +1317,10 @@ Before each selected workflow runs, `workflow.route` emits a `gnougo-flow.step.t
 
 ### `workflow.plan` — Typed workflow planning
 
+Schema-5 planning state includes provider-neutral declaration assignments and canonical
+port identities. Input/output evidence spans are adjudicated before behavior review;
+public names and omission defaults remain source-owned. See [declaration grounding](../../docs/planner-business-declarations.md).
+
 This step invokes the host's injected Planner v2. Missing planner injection fails
 explicitly. Clarification, locked capabilities, engine-built behavior review and
 deterministic skeletons with bounded typed assignments precede lowering. Compilation,

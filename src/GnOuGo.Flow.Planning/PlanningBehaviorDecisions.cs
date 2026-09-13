@@ -36,18 +36,9 @@ internal static class PlanningBehaviorDecisions
         var plan = new PlanningBehaviorPlan { Summary = state.Request.Prompt, Entrypoint = "main" };
         var operations = capabilities.SelectMany(c => c.OperationIds).Distinct(StringComparer.Ordinal).ToArray();
         var owners = operations.ToDictionary(id => id, id => choices["owner_" + id]?.ToString() ?? "main", StringComparer.Ordinal);
-        var inputs = state.Obligations.Where(o => o.Kind == "business_input").ToDictionary(o => o.Id,
-            o => new PlanningBehaviorPort("input_" + o.Id[3..], PlanningSourceDecisions.Text(state, o), o.Required), StringComparer.Ordinal);
-        var outputs = state.Obligations.Where(o => o.Kind == "business_output")
-            .Select(o => new PlanningBehaviorPort("output_" + o.Id[3..], PlanningSourceDecisions.Text(state, o), o.Required)).ToList();
-        var mainInputs = state.Request.Baseline?.Workflows.SingleOrDefault(w => w.Key == state.Request.Baseline.Entrypoint)?.Inputs;
-        if (mainInputs is not null)
-        {
-            // Imported public names and contracts belong to the saved revision.
-            // Changes require a separately located human revision.
-            foreach (var input in mainInputs)
-                if (!inputs.Values.Any(p => p.Name == input.Name)) inputs["baseline:" + input.Name] = new(input.Name, input.Name, input.Required);
-        }
+        PlanningDeclarations.RequireCurrent(state);
+        var inputs = state.Declarations.Where(d => d.Direction == "input").ToDictionary(d => d.Id, d => PlanningDeclarations.Port(state, d), StringComparer.Ordinal);
+        var outputs = state.Declarations.Where(d => d.Direction == "output").ToArray();
         var nodes = capabilities.Select(c => new PlanningBehaviorNode
         {
             Key = "node_" + PlanningGraphCompiler.Fingerprint(c.Id)[..16], CapabilityId = c.Id,
@@ -63,8 +54,9 @@ internal static class PlanningBehaviorDecisions
             var owned = nodes.Where(n => n.OperationIds.Any(id => owners[id] == owner)).OrderBy(n => order[n.CapabilityId!]).ToList();
             var workflow = new PlanningBehaviorWorkflow { Key = owner, Purpose = owner == "main" ? state.Request.Prompt : PlanningSourceDecisions.Text(state, state.Obligations.Single(o => o.Id == owner)),
                 OperationIds = operations.Where(id => owners[id] == owner).ToList() };
-            workflow.Inputs = owner == "main" ? inputs.Values.ToList() : inputs.Values.Where(p => owned.Any(n => n.InputDependencies!.Contains(p.Name))).ToList();
-            if (owner == "main") workflow.Outputs = outputs;
+            workflow.Inputs = inputs.Where(p => state.Declarations.Single(d => d.Id == p.Key).WorkflowScope == owner ||
+                owner != "main" && owned.Any(n => n.InputDependencies!.Contains(p.Value.Name))).Select(p => p.Value).ToList();
+            workflow.Outputs = outputs.Where(d => d.WorkflowScope == owner).Select(d => PlanningDeclarations.Port(state, d)).ToList();
             foreach (var node in owned)
             {
                 if (node.OperationIds.Any(id => state.Obligations.Any(o => o.Id == id && o.Kind == "cleanup"))) workflow.Finally.Add(node);
@@ -138,7 +130,8 @@ internal static class PlanningBehaviorDecisions
             while (pending.TryPop(out var id))
             {
                 if (!visited.Add(id)) continue;
-                if (inputs.ContainsKey(id)) yield return id;
+                var canonical = PlanningDeclarations.CanonicalInput(state, id);
+                if (canonical is not null && inputs.ContainsKey(canonical)) yield return canonical;
                 foreach (var relation in state.ObligationRelations.Where(r => r.Consumer == id && r.Role != "failure")) pending.Push(relation.Producer);
             }
         }

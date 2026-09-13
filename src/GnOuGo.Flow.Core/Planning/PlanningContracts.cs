@@ -104,6 +104,9 @@ public sealed class PlanningSnapshot
     public List<PlanningRequestCounts> RequestCounts { get; set; } = [];
     public List<PlanningReference> References { get; set; } = [];
     public List<PlanningObligation> Obligations { get; set; } = [];
+    public List<PlanningDeclarationAssignment> DeclarationAssignments { get; set; } = [];
+    public List<PlanningBusinessDeclaration> Declarations { get; set; } = [];
+    public string? DeclarationFingerprint { get; set; }
     public List<PlanningObligationRelation> ObligationRelations { get; set; } = [];
     public List<PlanningDecisionPage> DecisionPages { get; set; } = [];
     public List<PlanningDecisionCorrection> DecisionCorrections { get; set; } = [];
@@ -297,7 +300,10 @@ public sealed class PlanningBehaviorWorkflow
     public List<PlanningBehaviorNode> Finally { get; set; } = [];
 }
 
-public sealed record PlanningBehaviorPort(string Name, string Description, bool Required);
+public sealed record PlanningBehaviorPort(string Name, string Description, bool Required)
+{
+    public string? DeclarationId { get; init; }
+}
 
 public sealed class PlanningBehaviorNode
 {
@@ -464,6 +470,10 @@ public sealed class PlanningConflictException(string message) : InvalidOperation
 [JsonSerializable(typeof(List<PlanningReference>))]
 [JsonSerializable(typeof(PlanningDecisionPage))]
 [JsonSerializable(typeof(PlanningSourceGrounding))]
+[JsonSerializable(typeof(PlanningDeclarationAssignment))]
+[JsonSerializable(typeof(List<PlanningDeclarationAssignment>))]
+[JsonSerializable(typeof(PlanningBusinessDeclaration))]
+[JsonSerializable(typeof(List<PlanningBusinessDeclaration>))]
 [JsonSerializable(typeof(PlanningHole))]
 [JsonSerializable(typeof(List<PlanningHole>))]
 [JsonSerializable(typeof(PlanningStagedAssignments))]

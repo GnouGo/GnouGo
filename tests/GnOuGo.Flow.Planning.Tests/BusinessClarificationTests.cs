@@ -70,6 +70,7 @@ public sealed class BusinessClarificationTests
         Assert.Null(state.Intent.Question); Assert.Null(state.Outcome); Assert.Equal(0, state.Intent.Questions);
         Assert.Equal("runtime", Assert.Single(state.BusinessDecisions).Status);
         Assert.Contains("defaulting to 100", Assert.Single(runtime.Requests).Prompt);
+        PlanningDeclarations.Commit(state, [DeclarationGroundingTests.Distinct(state, "input", "threshold", "optional", "100")], PlanningDeclarations.EvidenceFingerprint(state));
         var plan = PlanningBehaviorDecisions.Assemble(state, new());
         Assert.Contains("defaulting to 100", Assert.Single(plan.Workflows[0].Inputs).Description);
         Assert.False(plan.Workflows[0].Inputs[0].Required);

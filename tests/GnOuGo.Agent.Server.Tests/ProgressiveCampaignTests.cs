@@ -18,6 +18,39 @@ namespace GnOuGo.Agent.Server.Tests;
 public sealed class ProgressiveCampaignTests
 {
     [Fact]
+    public void ExactBehaviorAcceptanceStopsWithoutConstructionOrRestart()
+    {
+        Assert.False(ProgressiveRules.ShouldAdvance("accept")); Assert.False(ProgressiveRules.ShouldAdvance("approve"));
+        Assert.True(ProgressiveRules.ShouldAdvance("start")); Assert.True(ProgressiveRules.ShouldAdvance("advance"));
+        var behavior = new PlanningBehaviorPlan();
+        var hash = GnOuGo.Flow.Planning.PlanningBehaviorPlans.Fingerprint(behavior);
+        var state = new PlanningSnapshot { Status = PlanningStatus.Generating, BehaviorPlan = behavior, ApprovedBehaviorHash = hash, Graph = new() };
+        var stage = new JsonObject { ["status"] = "waiting" };
+        ProgressiveRules.RecordBehaviorCheckpoint(stage, state, hash, 0);
+        Assert.Equal("accepted_behavior", stage["status"]!.ToString()); Assert.Equal(hash, stage["acceptedBehaviorHash"]!.ToString());
+        Assert.NotNull(stage["skeletonHash"]); Assert.Null(state.Outcome); Assert.False(ProgressiveRules.CanPass(1, state, true));
+        Assert.Throws<InvalidOperationException>(() => ProgressiveRules.RequireOpen(JsonNode.Parse(stage.ToJsonString())!.AsObject()));
+    }
+
+    [Theory]
+    [InlineData("hash")]
+    [InlineData("skeleton")]
+    [InlineData("technical")]
+    [InlineData("request")]
+    [InlineData("construction")]
+    public void BehaviorCheckpointRejectsWrongReviewOrAnyExecutableDispatch(string defect)
+    {
+        var behavior = new PlanningBehaviorPlan(); var hash = GnOuGo.Flow.Planning.PlanningBehaviorPlans.Fingerprint(behavior);
+        var state = new PlanningSnapshot { Status = PlanningStatus.Generating, BehaviorPlan = behavior, ApprovedBehaviorHash = hash, Graph = new() };
+        if (defect == "hash") state.ApprovedBehaviorHash = "stale";
+        if (defect == "skeleton") state.Graph = null;
+        if (defect == "technical") state.TechnicalStop = new("ERROR", "behavior", "/field");
+        if (defect == "request") state.RequestAccounting.Add(new() { Id = "unexpected" });
+        if (defect == "construction") state.Construction.Holes.Add(new() { ExposedRequests = ["unexpected"] });
+        Assert.Throws<InvalidOperationException>(() => ProgressiveRules.RecordBehaviorCheckpoint(new(), state, hash, 0));
+    }
+
+    [Fact]
     public void ArchivedPreflightFailureCannotBeRestartedOrBypassed()
     {
         ProgressiveRules.RequirePreflight(null);

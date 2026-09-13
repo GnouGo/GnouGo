@@ -28,7 +28,7 @@ internal static class ProgressiveCampaign
 {
     internal const string Tenant = "planner-progressive", Author = "GnOuGo.Agent.Planning.Benchmark";
     internal const string EvidenceCollection = "agent-planning-progressive-evidence-v5", CampaignCollection = "agent-planning-progressive-campaigns-v5";
-    internal const string CampaignId = "schema5-source-authority-2556665";
+    internal const string CampaignId = "schema5-canonical-declarations-20260913";
     private const string ArchivedCampaignId = "schema5-ee487c8";
     private const int MaximumStage = 1;
 
@@ -43,16 +43,23 @@ internal static class ProgressiveCampaign
         {
             Console.WriteLine(new JsonObject { ["referencePrompt"] = evidence["referencePrompt"]!.DeepClone(), ["referenceGraph"] = evidence["referenceGraph"]!.DeepClone(), ["referenceBehavior"] = evidence["referenceBehavior"]!.DeepClone() }.ToJsonString()); return;
         }
+        var selectedCampaign = CampaignId;
+        if (args[0] == "audit-replay")
+        {
+            if (args.Length != 4 || !System.Text.RegularExpressions.Regex.IsMatch(args[1], "^[a-zA-Z0-9_-]+$"))
+                throw new ArgumentException("campaign audit-replay CAMPAIGN STAGE REVISION");
+            selectedCampaign = args[1]; args = ["replay", args[2], args[3]];
+        }
         var archivedReport = args[0] == "archived-report";
         var path = GnOuGoWorkspace.ResolveDatabasePath(null, root, archivedReport
             ? ".GnOuGo/data/planner-progressive/gnougo-planning-v5.db"
-            : $".GnOuGo/data/planner-progressive/{CampaignId}/gnougo-planning-v5.db");
+            : $".GnOuGo/data/planner-progressive/{selectedCampaign}/gnougo-planning-v5.db");
         var readOnly = args[0] is "report" or "archived-report" or "inspect" or "replay";
         if (!readOnly) Directory.CreateDirectory(Path.GetDirectoryName(path)!);
         using var lease = readOnly ? null : new FileStream(path + ".campaign.lock", FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.None);
         var contexts = new Contexts(path, readOnly);
         var store = new EfPlanningSessionStore(contexts, records);
-        var saved = await records.GetAsync(CampaignCollection, Tenant, archivedReport ? ArchivedCampaignId : CampaignId, Author, ct);
+        var saved = await records.GetAsync(CampaignCollection, Tenant, archivedReport ? ArchivedCampaignId : selectedCampaign, Author, ct);
         var manifest = saved is null ? null : JsonNode.Parse(saved.Value)!.AsObject();
         if (args[0] is "report" or "archived-report")
         {
@@ -160,7 +167,18 @@ internal static class ProgressiveCampaign
                 stageEntry["session"] = recovered[0].Request.SessionId; await SaveAsync(records, manifest, ct);
             }
             state = await service.GetAsync(stageEntry["session"]!.ToString(), ct) ?? throw new InvalidOperationException("Owned session missing.");
-            if (stageEntry["status"]?.ToString() == "blocked" && args[0] != "ab") throw new InvalidOperationException("The campaign stopped at its first blocker; only inspection, replay or an eligible diagnostic is permitted.");
+            ProgressiveRules.RequireOpen(stageEntry);
+            if (state.ApprovedBehaviorHash is { } acceptedHash)
+            {
+                // Acceptance can be durable before the campaign manifest write.
+                // Recovery records that checkpoint; it never advances the skeleton.
+                ProgressiveRules.RecordBehaviorCheckpoint(stageEntry, state, acceptedHash,
+                    state.RequestAccounting.Select(r => r.Id).Distinct(StringComparer.Ordinal).Count());
+                stageEntry["revision"] = state.Revision;
+                await SaveAsync(records, manifest, ct);
+                Console.WriteLine(await ReportAsync(manifest, contexts, records, store, ct));
+                return;
+            }
         }
         try
         {
@@ -188,7 +206,17 @@ internal static class ProgressiveCampaign
                     var proof = await records.GetAsync("agent-planning-benchmark-validation-v5", Tenant, state.Request.SessionId + ":" + hash, EfPlanningSessionStore.Author, ct);
                     ProgressiveRules.RequireApproval(state, revision, hash, proof is null ? null : JsonNode.Parse(proof.Value)!.AsArray(), stageEntry["fixtureHash"]!.ToString(), stageEntry["catalogHash"]!.ToString(), ProgressiveScenarios.Cases(stage));
                 }
+                var priorRequests = state.RequestAccounting.Select(r => r.Id).Distinct(StringComparer.Ordinal).Count();
                 state = await service.SubmitAsync(state.Request.SessionId, new() { Kind = args[0] == "accept" ? "accept_behavior" : "approve", ExpectedRevision = revision, ArtifactHash = hash }, ct);
+                if (args[0] == "accept") ProgressiveRules.RecordBehaviorCheckpoint(stageEntry, state, hash, priorRequests);
+            }
+            else if (args[0] == "reject")
+            {
+                if (args.Length != 5) throw new ArgumentException("campaign reject STAGE REVISION HASH CODE");
+                ProgressiveRules.RequireReview(state, long.Parse(args[2], System.Globalization.CultureInfo.InvariantCulture), args[3], PlanningStatus.BehaviorReview);
+                stageEntry["status"] = "blocked"; stageEntry["harnessFailure"] = "BehaviorReviewRejected"; stageEntry["failureCode"] = args[4];
+                await records.UpsertAsync(CampaignCollection, Tenant, CampaignId + ":review:" + stage,
+                    new JsonObject { ["revision"] = state.Revision, ["hash"] = args[3], ["code"] = args[4] }.ToJsonString(), Author, ct);
             }
             else if (args[0] == "justify")
             {
@@ -197,7 +225,7 @@ internal static class ProgressiveCampaign
                 stageEntry["justification"] = args[3];
             }
             else if (args[0] is not ("start" or "advance")) throw new ArgumentException("Unsupported campaign command.");
-            if (args[0] is "start" or "advance" or "accept")
+            if (ProgressiveRules.ShouldAdvance(args[0]))
             {
                 if (stageEntry["status"]?.ToString() == "blocked") throw new InvalidOperationException("The campaign stopped at its first blocker.");
                 while (!PlanningStatus.IsWaiting(state.Status) && !PlanningStatus.IsTerminal(state.Status))
@@ -207,7 +235,8 @@ internal static class ProgressiveCampaign
                 }
             }
             stageEntry["outcome"] = state.Outcome?.Name;
-            stageEntry["status"] = ProgressiveRules.CanPass(stage, state, stageEntry["justification"] is not null) ? "passed" : state.TechnicalStop is not null || PlanningStatus.IsTerminal(state.Status) && state.Status != PlanningStatus.Approved ? "blocked" : "waiting";
+            if (stageEntry["status"]?.ToString() is not ("accepted_behavior" or "blocked"))
+                stageEntry["status"] = ProgressiveRules.CanPass(stage, state, stageEntry["justification"] is not null) ? "passed" : state.TechnicalStop is not null || PlanningStatus.IsTerminal(state.Status) && state.Status != PlanningStatus.Approved ? "blocked" : "waiting";
             stageEntry["revision"] = state.Revision;
             await SaveAsync(records, manifest, ct);
         }
@@ -228,7 +257,7 @@ internal static class ProgressiveCampaign
         await using var db = contexts.CreateDbContext();
         foreach (var entry in manifest["stages"]!.AsArray())
         {
-            var summary = new JsonObject { ["stage"] = entry!["stage"]!.DeepClone(), ["campaignStatus"] = entry["status"]!.DeepClone(), ["harnessFailure"] = entry["harnessFailure"]?.DeepClone(), ["failureCode"] = entry["failureCode"]?.DeepClone() };
+            var summary = new JsonObject { ["stage"] = entry!["stage"]!.DeepClone(), ["campaignStatus"] = entry["status"]!.DeepClone(), ["harnessFailure"] = entry["harnessFailure"]?.DeepClone(), ["failureCode"] = entry["failureCode"]?.DeepClone(), ["acceptedBehaviorHash"] = entry["acceptedBehaviorHash"]?.DeepClone(), ["skeletonHash"] = entry["skeletonHash"]?.DeepClone() };
             if (entry["session"] is { } id)
             {
                 var state = await store.LoadAsync(Tenant, id.ToString(), ct) ?? throw new InvalidOperationException("Owned session missing.");
@@ -264,7 +293,7 @@ internal static class ProgressiveCampaign
         ["productionCommit"] = ProgressiveRules.ProductionCommit, ["binaries"] = binaries,
         ["model"] = model, ["evidenceHash"] = PlanningGraphCompiler.Fingerprint(frozen),
         ["policyHash"] = PlanningGraphCompiler.Fingerprint(policy), ["abUsed"] = false,
-        ["limits"] = new JsonObject { ["maximumStage"] = MaximumStage, ["diagnosticAbAllowed"] = false,
+        ["limits"] = new JsonObject { ["maximumStage"] = MaximumStage, ["stopAfterBehaviorAcceptance"] = true, ["diagnosticAbAllowed"] = false,
             ["input"] = 12000, ["dispatchTarget"] = 9600, ["output"] = 8192, ["concurrency"] = 4, ["repairsPerGate"] = 5,
             ["calls"] = 100, ["totalTokens"] = 15000000, ["activeMilliseconds"] = 18000000, ["amount"] = 50, ["currency"] = "EUR", ["reasoning"] = "low" },
         ["stages"] = new JsonArray(Enumerable.Range(1, 3).Select(s => (JsonNode)new JsonObject

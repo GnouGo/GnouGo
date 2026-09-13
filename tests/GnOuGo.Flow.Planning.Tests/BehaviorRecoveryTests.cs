@@ -21,6 +21,7 @@ public sealed class BehaviorRecoveryTests
         workflow.Steps[0].OperationIds = ["read"];
         workflow.Steps.Add(new() { Key = "publication", Kind = "operation", Purpose = "Publish the result", CapabilityId = "removed", OperationIds = ["publish"], InputDependencies = [] });
         if (unrelatedInvalidOwnership) workflow.OperationIds.Add("unrelated_invalid");
+        DeclarationGroundingTests.UseBaselinePorts(state, plan);
         var candidate = JsonSerializer.SerializeToNode(plan, PlanningJsonContext.Default.PlanningBehaviorPlan)!.AsObject();
         var path = "/workflows/0/steps/1";
         state.BehaviorRevision = new() { Text = "Remove publication.", Located = true, Fields = [new(path,
@@ -58,6 +59,7 @@ public sealed class BehaviorRecoveryTests
         var path = placement == "nested" ? "/workflows/0/steps/0/steps/0/capabilityId" : "/workflows/0/" + placement + "/0/capabilityId";
         if (placement == "finally") workflow.Finally.Add(routing);
         else workflow.Steps.Insert(0, placement == "nested" ? new() { Key = "group", Kind = "sequence", Purpose = "Group the decision", InputDependencies = [], Steps = [routing] } : routing);
+        DeclarationGroundingTests.UseBaselinePorts(state, plan);
         state.BehaviorAssessment.Candidate = JsonSerializer.SerializeToNode(plan, PlanningJsonContext.Default.PlanningBehaviorPlan)!.AsObject();
         var runtime = new FakeRuntime { OnCall = (_, request, _) =>
         {
@@ -214,7 +216,7 @@ public sealed class BehaviorRecoveryTests
             [new("BEHAVIOR_REVISION_REQUIRED", "/workflows/0/inputs/0", "Add the requested runtime input", Rule: "revision_add")]));
         Assert.True(target.Add);
         var response = new JsonObject { ["patches"] = new JsonArray(new JsonObject { ["target"] = target.Id,
-            ["value"] = new JsonObject { ["name"] = "source", ["description"] = "Required runtime source", ["required"] = true } }) };
+            ["value"] = new JsonObject { ["name"] = "source", ["description"] = "Required runtime source", ["required"] = true, ["declarationId"] = "issued_source" } }) };
         var result = PlanningExactPatches.Apply(candidate, response, [target], PlanningExactPatches.Schema([target], schema));
         Assert.Equal("source", result["workflows"]![0]!["inputs"]![0]!["name"]!.ToString());
         Assert.True(JsonNode.DeepEquals(candidate["workflows"]![0]!["steps"], result["workflows"]![0]!["steps"]));
@@ -284,6 +286,9 @@ public sealed class BehaviorRecoveryTests
         var revised = await Send(state, new(), "revise", "Describe the greeting as formal.");
         Assert.NotNull(revised.BehaviorAssessment.Candidate); Assert.Null(revised.ApprovedBehaviorHash);
         revised.Preparation = state.Preparation; revised.Intent.Checked = true;
+        var retainedPorts = JsonSerializer.Deserialize(revised.BehaviorAssessment.Candidate!, PlanningJsonContext.Default.PlanningBehaviorPlan)!;
+        DeclarationGroundingTests.UseBaselinePorts(revised, retainedPorts);
+        revised.BehaviorAssessment.Candidate = JsonSerializer.SerializeToNode(retainedPorts, PlanningJsonContext.Default.PlanningBehaviorPlan)!.AsObject();
         var runtime = new FakeRuntime { OnCall = (phase, request, _) =>
         {
             if (phase == "behavior_revision_scope")
@@ -383,6 +388,7 @@ public sealed class BehaviorRecoveryTests
         var state = Behavior(); state.BehaviorPlan = BehaviorPlan();
         state.BehaviorPlan.Workflows[0].Inputs.Add(new("resource", "Dynamic resource", true));
         state.BehaviorPlan.Workflows[0].Steps[0].InputDependencies = ["producer_step"];
+        DeclarationGroundingTests.UseBaselinePorts(state, state.BehaviorPlan);
         var runtime = new FakeRuntime { OnCall = (phase, request, _) =>
         {
             Assert.Equal("behavior_repair", phase);

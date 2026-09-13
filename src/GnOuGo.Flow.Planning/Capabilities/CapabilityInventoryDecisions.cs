@@ -10,6 +10,7 @@ internal static class CapabilityInventoryDecisions
     internal static async Task<CapabilityInventory> BuildAsync(PlanningSnapshot state, IPlanningRuntime runtime, CancellationToken ct)
     {
         await PlanningConfirmationPolicies.ResolveAsync(state, runtime, ct);
+        await PlanningDeclarations.ResolveAsync(state, runtime, ct);
         await PlanningSourceDecisions.RelateAsync(state, runtime, ct);
         var sources = PlanningSourceDecisions.Sources(state);
         var obligations = state.Obligations.Where(PlanningSourceDecisions.IsOperation).ToDictionary(o => o.Id, StringComparer.Ordinal);

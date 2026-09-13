@@ -9,6 +9,7 @@ internal sealed class PlanningBehaviorAssessment(TimeProvider time)
     internal async Task AssessAsync(PlanningSnapshot state, IPlanningRuntime runtime, CancellationToken ct)
     {
         state.CurrentPhase = PlanningPhase.Behavior;
+        PlanningDeclarations.RequireCurrent(state);
         PlanningContext.InvalidateArtifact(state);
         await PlanningClarifications.ResolveAsync(state, runtime, allowQuestions: false, ct);
         if (PlanningStatus.IsTerminal(state.Status)) return;
@@ -123,7 +124,7 @@ internal sealed class PlanningBehaviorAssessment(TimeProvider time)
         PlanningBehaviorPlans.CompleteLockedOutcomes(plan, state.Preparation!);
         var completedLocations = Locations().OrderByDescending(p => p.Path.Length).ToArray();
         diagnostics = PlanningBehaviorPlans.Validate(plan, state.Preparation!).Select(Rebase)
-            .Concat(PlanningBehaviorRevision.Findings(state, candidate)).Concat(PlanningBusinessAnswers.ValidateBehavior(state, plan)).ToList(); stage = 1;
+            .Concat(PlanningBehaviorRevision.Findings(state, candidate)).Concat(PlanningBusinessAnswers.ValidateBehavior(state, plan)).Concat(PlanningDeclarations.ValidateBehavior(state, plan)).ToList(); stage = 1;
         // The raw candidate remains staged; only a validated plan becomes reviewable.
         if (diagnostics.Count == 0) state.BehaviorPlan = plan;
 

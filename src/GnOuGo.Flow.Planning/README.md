@@ -24,7 +24,9 @@ operations. Complete clauses adjudicate preliminary permission labels together;
 rejection always prevents the protected action. See [source grounding and scoped
 confirmation](../../docs/planner-confirmation-scopes.md).
 
-Initial behavior is assembled from owned operations and bounded boundary/iteration
+Public inputs and outputs first pass [canonical declaration adjudication](../../docs/planner-business-declarations.md). Exact source names, aliases, defaults and preservation modifiers become one proven port per declaration; preliminary spans cannot create ports.
+
+Initial behavior is assembled from owned operations, canonical declarations and bounded boundary/iteration
 choices. The executable skeleton freezes identities, topology, executors, ownership,
 branches, finalizers and established contracts after human acceptance. Callees precede
 callers; independent workflows execute concurrently and commit in stable order.

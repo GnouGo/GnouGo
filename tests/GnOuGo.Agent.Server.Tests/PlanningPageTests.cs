@@ -59,8 +59,10 @@ public sealed class PlanningPageTests
             new() { Kind = "configure_generation", ExpectedRevision = state.Revision, Generation = new() { ReasoningProfile = new() { Routine = "high" } } }, ct));
     }
 
-    [Fact]
-    public async Task EarlyBehaviorReview_IsVisibleBeforeCode_ApprovalAndAnswersSurviveReopen()
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task EarlyBehaviorReview_IsVisibleBeforeCode_AndUngroundedHistoricalPortsCannotBeApproved(bool historicalPorts)
     {
         var ct = Xunit.TestContext.Current.CancellationToken;
         await using var fixture = await PlanningPersistenceTests.StoreFixture.CreateAsync();
@@ -70,7 +72,7 @@ public sealed class PlanningPageTests
             Status = PlanningStatus.BehaviorReview,
             CurrentPhase = PlanningPhase.Behavior,
             Preparation = new() { PolicyScopeVersion = 2, AllowedStepTypes = ["set"] },
-            BehaviorPlan = new() { Summary = "Return a greeting", Workflows = [new() { Key = "main", Purpose = "Return the requested greeting", Steps = [new() { Key = "greeting", Purpose = "Return a message" }], Outputs = [new("message", "A readable greeting", true)] }] },
+            BehaviorPlan = new() { Summary = "Return a greeting", Workflows = [new() { Key = "main", Purpose = "Return the requested greeting", Steps = [new() { Key = "greeting", Purpose = "A readable greeting" }], Outputs = historicalPorts ? [new("message", "A readable greeting", true)] : [] }] },
             Intent = new() { Answers = [new("Which greeting?", new() { ["greeting"] = "Hello" })], Forms = 1, Questions = 1 }
         };
         state.ArtifactHash = PlanningBehaviorPlans.Fingerprint(state.BehaviorPlan);
@@ -89,8 +91,9 @@ public sealed class PlanningPageTests
         }
         using var reopened = PlanningSessionLifecycleTests.Create(fixture, new TypedWorkflowPlanner(), PlanningSessionLifecycleTests.AgentCatalog());
         var restored = (await reopened.GetAsync(state.Request.SessionId, ct))!;
-        Assert.Equal(state.ArtifactHash, restored.ApprovedBehaviorHash); Assert.Null(restored.ApprovedHash);
-        Assert.Equal(PlanningStatus.Generating, restored.Status); Assert.Single(restored.Intent.Answers); Assert.Equal(1, restored.Intent.Questions);
+        Assert.Equal(historicalPorts ? null : state.ArtifactHash, restored.ApprovedBehaviorHash); Assert.Null(restored.ApprovedHash);
+        if (historicalPorts) Assert.Contains(restored.Diagnostics, d => d.Rule == "missing_declaration_proof");
+        Assert.Equal(historicalPorts ? PlanningStatus.Stopped : PlanningStatus.Generating, restored.Status); Assert.Single(restored.Intent.Answers); Assert.Equal(1, restored.Intent.Questions);
         Assert.Null(await fixture.Store.LoadAsync("different-tenant", state.Request.SessionId, ct));
         await Assert.ThrowsAsync<PlanningConflictException>(() => reopened.SubmitAsync(state.Request.SessionId, new() { Kind = "accept_behavior", ExpectedRevision = state.Revision, ArtifactHash = state.ArtifactHash }, ct));
     }

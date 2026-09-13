@@ -61,7 +61,12 @@ policyState.Obligations.Add(new("governor", ["clause"], "workflow", "confirmatio
 { Grounding = new(PlanningSourceAuthority.ConstraintsOnly, PlanningSourceSemanticRole.PolicyConstraint, "clause", null, "proof"),
     Disposition = "rejection_condition", AdjudicationFingerprint = "adjudicated", PolicyIds = ["policy"] });
 policyState.ScopedPolicies[0].GoverningObligationIds = ["governor"]; policyState.ScopedPolicies[0].GoverningReferences = ["clause"];
+policyState.DeclarationAssignments.Add(new("candidate", "distinct", null, "name", "main", "optional", "literal"));
+policyState.Declarations.Add(new("declaration", "input", "main", "name", null, false, "literal", ["candidate"], [], ["modifier"], ["clause"], "declaration_proof"));
+policyState.DeclarationFingerprint = "adjudication_proof";
 var restoredPolicies = JsonSerializer.Deserialize(JsonSerializer.Serialize(policyState, PlanningJsonContext.Default.PlanningSnapshot), PlanningJsonContext.Default.PlanningSnapshot)!;
+if (restoredPolicies.DeclarationFingerprint != "adjudication_proof" || restoredPolicies.Declarations.Single().DefaultReference != "literal" ||
+    restoredPolicies.DeclarationAssignments.Single().Presence != "optional") throw new InvalidOperationException("Published declaration serialization failed.");
 if (restoredPolicies.ScopedPolicies.Single().PermissionOperationId != "permission" || restoredPolicies.ScopedPolicies[0].TargetOperationIds.Single() != "effect" ||
     restoredPolicies.ScopedPolicies[0].Applicability != "unless_explicit") throw new InvalidOperationException("Published scoped policy serialization failed.");
 if (restoredPolicies.Obligations.Single().Grounding?.Authority != PlanningSourceAuthority.ConstraintsOnly ||
@@ -195,12 +200,13 @@ sealed class SmokeRuntime(PlanningGraph graph, PlanningPreparation preparation) 
 {
     private PlanningSnapshot? _snapshot;
     public bool InvalidIntent { get; set; }
-    public Task<PlanningPreparationProgress> PrepareAsync(PlanningSnapshot state, CancellationToken ct)
+    public async Task<PlanningPreparationProgress> PrepareAsync(PlanningSnapshot state, CancellationToken ct)
     {
+        await PlanningDeclarations.ResolveAsync(state, this, ct);
         preparation.Capabilities = [new() { Id = "declared", Description = "Return the ready message", Required = true, Resolution = "available", StepType = "set",
             OperationIds = state.Obligations.Where(o => o.Kind == "local_processing").Select(o => o.Id).ToList(),
             FixedInput = new() { ["message"] = "ready" }, OutputSchema = JsonNode.Parse("""{"type":"object","properties":{"message":{"type":"string"}},"required":["message"],"additionalProperties":false}""")!.AsObject() }];
-        return Task.FromResult(new PlanningPreparationProgress(new(), preparation));
+        return new(new(), preparation);
     }
     public Task CheckpointAsync(PlanningSnapshot state, CancellationToken ct) { _snapshot = state; return Task.CompletedTask; }
     public Task<IReadOnlyList<PlanningDiagnostic>> ValidateCatalogAsync(PlanningPreparation prepared, CancellationToken ct) => Task.FromResult<IReadOnlyList<PlanningDiagnostic>>([]);
@@ -214,6 +220,7 @@ sealed class SmokeRuntime(PlanningGraph graph, PlanningPreparation preparation) 
             "intent" => new JsonObject(request.StructuredOutputSchema["properties"]!.AsObject().Select(p => new KeyValuePair<string, JsonNode?>(p.Key,
                 new JsonArray(new[] { "local_processing", "business_output" }.Select(role => (JsonNode?)new JsonObject
                 { ["start"] = p.Value!["items"]!["properties"]!["start"]!["enum"]![0]!.DeepClone(), ["end"] = p.Value!["items"]!["properties"]!["end"]!["enum"]!.AsArray()[^1]!.DeepClone(), ["kind"] = role, ["required"] = true }).ToArray())))),
+            "intent_declarations" => DeclarationResponse(request),
             "construction_schema" => new JsonObject(request.StructuredOutputSchema["properties"]!.AsObject().Select(p => new KeyValuePair<string, JsonNode?>(p.Key,
                 p.Value!["properties"]?["type"] is not null ? new JsonObject { ["type"] = "string", ["nullable"] = false }
                     : new JsonObject { ["members"] = new JsonArray(new JsonObject { ["name"] = "message", ["required"] = true }), ["more"] = false }))),
@@ -222,6 +229,20 @@ sealed class SmokeRuntime(PlanningGraph graph, PlanningPreparation preparation) 
             _ => throw new InvalidOperationException("Unexpected model phase: " + phase)
         };
         return Task.FromResult(new LLMResponse { Json = json });
+    }
+    private JsonObject DeclarationResponse(LLMRequest request)
+    {
+        // Synthetic semantic response for this smoke's explicitly named message.
+        // Production still validates the issued lexical reference and full proof.
+        return new(request.StructuredOutputSchema!["properties"]!.AsObject().Select(page =>
+            new KeyValuePair<string, JsonNode?>(page.Key, new JsonObject(page.Value!["properties"]!.AsObject().Select(field =>
+            {
+                var obligation = _snapshot!.Obligations.Single(o => o.Id == field.Key);
+                var clause = _snapshot.References.Single(r => r.Id == obligation.Grounding!.ClauseReference);
+                var name = PlanningReferences.Lexical(_snapshot, clause, PlanningSourceDecisions.Sources(_snapshot)[clause.SourceId])
+                    .Single(r => PlanningChoiceEvidence.Text(_snapshot, r.Id) == "message");
+                return new KeyValuePair<string, JsonNode?>(field.Key, PlanningDeclarations.Assignment(new(field.Key, "distinct", null, name.Id, "main", "required", null)));
+            })))));
     }
     private JsonObject FillHoles(LLMRequest request)
     {

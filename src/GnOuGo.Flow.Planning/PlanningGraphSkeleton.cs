@@ -28,10 +28,14 @@ internal static class PlanningGraphSkeleton
                 }
                 var previous = RevisedPort(state, workflow.Key, "inputs", port.Name) ? null : baseline?.Inputs.SingleOrDefault(p => p.Name == port.Name);
                 port.Schema = previous?.Schema ?? new() { Type = Unresolved };
-                port.Default = previous?.Default;
-                if (previous is null) Add(state, workflow, null, root + "/inputs/" + workflow.Inputs.IndexOf(port) + "/schema", "schema",
+                var declaration = state.Declarations.SingleOrDefault(d => d.Id == state.BehaviorPlan!.Workflows.Single(w => w.Key == workflow.Key).Inputs.Single(p => p.Name == port.Name).DeclarationId);
+                port.Default = declaration is null ? previous?.Default : PlanningDeclarations.Default(state, declaration);
+                if (declaration?.BaselineReference is { } baselineReference)
+                    port.Schema = JsonSerializer.Deserialize(JsonSerializer.Serialize(PlanningDeclarations.Baselines(state)[baselineReference].Input!.Schema,
+                        PlanningJsonContext.Default.PlanningSchema), PlanningJsonContext.Default.PlanningSchema)!;
+                if (port.Schema.Type == Unresolved) Add(state, workflow, null, root + "/inputs/" + workflow.Inputs.IndexOf(port) + "/schema", "schema",
                     state.BehaviorPlan!.Workflows.Single(w => w.Key == workflow.Key).Inputs.Single(p => p.Name == port.Name).Description);
-                if (!port.Required && previous is null)
+                if (!port.Required && previous is null && declaration is null)
                 { port.Default = new() { Kind = Unresolved }; Add(state, workflow, null, root + "/inputs/" + workflow.Inputs.IndexOf(port) + "/default", "default", "Default for input " + port.Name + ": " + state.BehaviorPlan!.Workflows.Single(w => w.Key == workflow.Key).Inputs.Single(p => p.Name == port.Name).Description); }
             }
             foreach (var port in workflow.Outputs)

@@ -228,7 +228,7 @@ public sealed class TypedPlannerTests
         public Task CheckpointAsync(PlanningSnapshot snapshot, CancellationToken ct) { _state = snapshot; return OnCheckpoint?.Invoke(snapshot) ?? Task.CompletedTask; }
         public Task<IReadOnlyList<PlanningDiagnostic>> ValidateCatalogAsync(PlanningPreparation preparation, CancellationToken ct)
         { CatalogCalls++; return Task.FromResult(CatalogDiagnostics); }
-        public async Task<PlanningPreparationProgress> PrepareAsync(PlanningSnapshot state, CancellationToken ct) { PreparationCalls++; return new(state.PreparationCheckpoint ?? new(), OnPrepareSnapshot is not null ? await OnPrepareSnapshot(state) : OnPrepare is null ? PreparedLocal(state) : await OnPrepare(state.Request)); }
+        public async Task<PlanningPreparationProgress> PrepareAsync(PlanningSnapshot state, CancellationToken ct) { PreparationCalls++; if (OnPrepareSnapshot is null && OnPrepare is null) await PlanningDeclarations.ResolveAsync(state, this, ct); return new(state.PreparationCheckpoint ?? new(), OnPrepareSnapshot is not null ? await OnPrepareSnapshot(state) : OnPrepare is null ? PreparedLocal(state) : await OnPrepare(state.Request)); }
         private static PlanningPreparation PreparedLocal(PlanningSnapshot state)
         {
             var preparation = Preparation();
@@ -260,6 +260,8 @@ public sealed class TypedPlannerTests
             JsonNode? json = InvalidJson ? new JsonObject() : phase switch
             {
                 "intent" => Interpret(request),
+                "intent_declarations" => DeclarationGroundingTests.Response(request, PlanningDeclarations.Candidates(_state!).Select(o =>
+                    DeclarationGroundingTests.Distinct(_state!, o.Id, "greeting"))),
                 "behavior" => JsonSerializer.SerializeToNode(BehaviorPlan(), PlanningJsonContext.Default.PlanningBehaviorPlan),
                 "construction" => FillHoles(request, new PlanningGraph { Workflows = [ExecutableWorkflow()] }),
                 "semantic_review" => PassReview(request),

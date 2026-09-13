@@ -84,6 +84,25 @@ internal static class PlanningReferences
         return text.Substring(reference.Start, reference.Length);
     }
 
+    // Lexical coordinates only. The decision selects their semantic role; no
+    // token spelling is evidence that a declaration exists.
+    internal static List<PlanningReference> Lexical(PlanningSnapshot state, PlanningReference clause, string source)
+    {
+        var span = Resolve(state, clause.Id, new Dictionary<string, string> { [clause.SourceId] = source });
+        var result = new List<PlanningReference>();
+        foreach (Match match in Regex.Matches(span, "\"(?:[^\"\\\\]|\\\\.)*\"|[+-]?[0-9]+(?:\\.[0-9]+)?(?:[eE][+-]?[0-9]+)?|[\\p{L}_][\\p{L}\\p{N}_-]*"))
+        {
+            var start = clause.Start + match.Index;
+            var reference = clause with { Id = "r_" + PlanningGraphCompiler.Fingerprint(clause.Id + ":lexical:" + start + ":" + match.Length)[..24],
+                Kind = clause.Kind.Split(':')[0] + ":lexical", Start = start, Length = match.Length };
+            var retained = state.References.SingleOrDefault(r => r.Id == reference.Id);
+            if (retained is not null && retained != reference) throw new PlanningConflictException("A lexical reference no longer matches its issued coordinates.");
+            if (retained is null) state.References.Add(reference);
+            result.Add(reference);
+        }
+        return result;
+    }
+
     internal static (JsonObject Context, JsonObject Schema, Func<string, string, PlanningReference> Select) Boundaries(PlanningReference reference, string text)
     {
         var span = Resolve(reference, reference.Owner, reference.SourceRevision, reference.SourceId, text);

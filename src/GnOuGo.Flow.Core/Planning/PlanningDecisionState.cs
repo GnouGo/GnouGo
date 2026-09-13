@@ -42,6 +42,17 @@ public enum PlanningSourceSemanticRole { Unknown, RequestedAction, ExistingActio
 public sealed record PlanningSourceGrounding(PlanningSourceAuthority Authority, PlanningSourceSemanticRole Role,
     string ClauseReference, string? BaselineReference, string Fingerprint);
 public sealed record PlanningObligationRelation(string Producer, string Consumer, string Role);
+
+/// <summary>A reference-only adjudication of a preliminary declaration or modifier.</summary>
+public sealed record PlanningDeclarationAssignment(string CandidateId, string Disposition,
+    string? TargetId, string? NameReference, string? WorkflowScope, string Presence,
+    string? DefaultReference);
+
+/// <summary>Canonical public declaration. Text, defaults and contracts remain in their owned sources.</summary>
+public sealed record PlanningBusinessDeclaration(string Id, string Direction, string WorkflowScope,
+    string NameReference, string? BaselineReference, bool Required, string? DefaultReference,
+    List<string> Candidates, List<string> Aliases, List<string> ModifierReferences,
+    List<string> ClauseReferences, string ProofFingerprint);
 public sealed record PlanningClarification(string DecisionId, List<string> EvidenceReferences,
     JsonObject AnswerSchema, List<string> Obligations)
 {

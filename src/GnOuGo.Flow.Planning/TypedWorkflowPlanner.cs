@@ -54,7 +54,7 @@ public sealed class TypedWorkflowPlanner(TimeProvider? timeProvider = null) : IW
                 case "accept_behavior":
                     RequireReview(state, command, PlanningStatus.BehaviorReview);
                     if (state.BehaviorPlan is null || state.ArtifactHash != PlanningBehaviorPlans.Fingerprint(state.BehaviorPlan)) throw new PlanningConflictException("The behavior changed before acceptance.");
-                    var behaviorFindings = PlanningBehaviorPlans.Validate(state.BehaviorPlan, state.Preparation!).Concat(PlanningBusinessAnswers.ValidateBehavior(state, state.BehaviorPlan)).ToList();
+                    var behaviorFindings = PlanningBehaviorPlans.Validate(state.BehaviorPlan, state.Preparation!).Concat(PlanningBusinessAnswers.ValidateBehavior(state, state.BehaviorPlan)).Concat(PlanningDeclarations.ValidateBehavior(state, state.BehaviorPlan)).ToList();
                     if (behaviorFindings.Any(d => d.Required)) { state.Diagnostics = behaviorFindings.ToList(); state.Status = PlanningStatus.Stopped; break; }
                     state.ApprovedBehaviorHash = state.ArtifactHash;
                     PlanningGraphSkeleton.Create(state);
@@ -207,6 +207,7 @@ public sealed class TypedWorkflowPlanner(TimeProvider? timeProvider = null) : IW
         state.BehaviorAssessmentCalls = 0; state.BehaviorAssessment = new(); state.Graph = null; state.Diagnostics.Clear();
         state.BehaviorRevision = null;
         state.ScopedPolicies.Clear();
+        state.Declarations.Clear(); state.DeclarationAssignments.Clear(); state.DeclarationFingerprint = null;
         foreach (var decision in state.BusinessDecisions) decision.Status = "superseded";
         state.Construction = new() { ModelSequence = state.Construction.ModelSequence };
         state.Validation = new(); state.PendingCommand = null; state.ReviewMarkdown = null;

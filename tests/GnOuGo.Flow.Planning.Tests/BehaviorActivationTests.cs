@@ -17,6 +17,7 @@ public sealed class BehaviorActivationTests
         foreach (var node in PlanningBehaviorPlans.Enumerate(plan.Workflows[0].Steps)) node.InputDependencies = [];
         Assert.Contains(PlanningBehaviorPlans.Validate(plan, preparation), d => d.Rule == "behavior_25");
         var state = TypedPlannerTests.Session(PlanningStatus.Created); state.Intent.Checked = true; state.Preparation = preparation; state.BehaviorPlan = plan;
+        DeclarationGroundingTests.UseBaselinePorts(state, plan);
         var runtime = new TypedPlannerTests.FakeRuntime();
         state = await new TypedWorkflowPlanner().AdvanceAsync(state, new() { ExpectedRevision = state.Revision }, runtime, TestContext.Current.CancellationToken);
         Assert.Equal(PlanningStatus.BehaviorReview, state.Status); Assert.Empty(runtime.Requests);
@@ -63,6 +64,7 @@ public sealed class BehaviorActivationTests
         foreach (var node in PlanningBehaviorPlans.Enumerate(plan.Workflows[0].Steps)) node.InputDependencies = [];
         var explicitCase = JsonSerializer.Serialize(decision.Outcomes[0], PlanningJsonContext.Default.PlanningBehaviorOutcome);
         var state = TypedPlannerTests.Session(PlanningStatus.Created); state.Intent.Checked = true; state.Preparation = preparation; state.BehaviorPlan = plan;
+        DeclarationGroundingTests.UseBaselinePorts(state, plan);
         var runtime = new TypedPlannerTests.FakeRuntime();
         state = await new TypedWorkflowPlanner().AdvanceAsync(state, new() { ExpectedRevision = state.Revision }, runtime, TestContext.Current.CancellationToken);
         Assert.Equal(PlanningStatus.BehaviorReview, state.Status); Assert.Empty(runtime.Requests); Assert.Null(state.ApprovedBehaviorHash);
@@ -188,7 +190,8 @@ public sealed class BehaviorActivationTests
         var (plan, preparation) = Fixture("generic_");
         plan.Workflows[0].Steps[0].Outcomes[0] = plan.Workflows[0].Steps[0].Outcomes[0] with { Key = "old_alias" };
         var state = TypedPlannerTests.Session(PlanningStatus.BehaviorReview);
-        state.Preparation = preparation; state.BehaviorPlan = plan; state.ArtifactHash = PlanningBehaviorPlans.Fingerprint(plan);
+        state.Preparation = preparation; state.BehaviorPlan = plan;
+        DeclarationGroundingTests.UseBaselinePorts(state, plan); state.ArtifactHash = PlanningBehaviorPlans.Fingerprint(plan);
         var result = await new TypedWorkflowPlanner().AdvanceAsync(state, new() { Kind = "accept_behavior", ExpectedRevision = state.Revision, ArtifactHash = state.ArtifactHash }, new TypedPlannerTests.FakeRuntime(), TestContext.Current.CancellationToken);
         Assert.Equal(PlanningStatus.Stopped, result.Status);
         Assert.Null(result.ApprovedBehaviorHash); Assert.Null(result.Graph);

@@ -5,6 +5,7 @@ using GnOuGo.Agent.Server.Configuration;
 using GnOuGo.Agent.Server.SmartFlow;
 using GnOuGo.Flow.Core.Planning;
 using GnOuGo.Flow.Core.Runtime;
+using GnOuGo.Flow.Planning;
 
 namespace GnOuGo.Agent.Planning.Benchmark;
 
@@ -40,6 +41,26 @@ internal static class ProgressiveRules
         if (stages[stage - 1]!["status"]!.ToString() != "not_run") throw new InvalidOperationException("This stage already owns its single start reservation.");
         if (stage > 1 && stages[stage - 2]!["status"]!.ToString() != "passed") throw new InvalidOperationException("The previous stage has not passed its gate.");
         if (stage == 3 && stages[1]!["outcome"]?.ToString() != "valid_workflow") throw new InvalidOperationException("Stage 2 must produce ValidWorkflow before CodeReview.");
+    }
+
+    internal static bool ShouldAdvance(string command) => command is "start" or "advance";
+
+    internal static void RequireOpen(JsonObject stage)
+    {
+        if (stage["status"]?.ToString() is "blocked" or "accepted_behavior")
+            throw new InvalidOperationException("This campaign has reached its stopping checkpoint. Only inspection or offline replay is permitted.");
+    }
+
+    internal static void RecordBehaviorCheckpoint(JsonObject stage, PlanningSnapshot state, string reviewedHash, int priorRequests)
+    {
+        if (state.TechnicalStop is not null || state.Status != PlanningStatus.Generating || state.Graph is null ||
+            state.BehaviorPlan is null || state.ApprovedBehaviorHash != reviewedHash ||
+            PlanningBehaviorPlans.Fingerprint(state.BehaviorPlan) != reviewedHash || state.Construction.Dataflow is not null ||
+            state.RequestAccounting.Select(r => r.Id).Distinct(StringComparer.Ordinal).Count() != priorRequests ||
+            state.Construction.Holes.Any(h => h.ExposedRequests.Count != 0))
+            throw new InvalidOperationException("Behavior acceptance must preserve the exact review and create only its deterministic skeleton.");
+        stage["status"] = "accepted_behavior"; stage["acceptedBehaviorHash"] = reviewedHash;
+        stage["skeletonHash"] = PlanningGraphCompiler.Fingerprint(state.Graph);
     }
 
     internal static bool CanPass(int stage, PlanningSnapshot state, bool justified)

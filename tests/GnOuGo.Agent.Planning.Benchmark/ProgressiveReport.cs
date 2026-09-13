@@ -33,6 +33,13 @@ internal static class ProgressiveReport
             ["otherEngineDecisions"] = null,
             ["modelDecisionIds"] = new JsonArray(pages.Where(p => p.RequestId is not null && verified.Contains(p.RequestId)).SelectMany(p => p.Decisions.Select(d => p.WorkflowKey + ":" + d))
                 .Distinct(StringComparer.Ordinal).Order(StringComparer.Ordinal).Select(id => (JsonNode?)JsonValue.Create(id)).ToArray()),
+            ["approvedBehaviorHash"] = state.ApprovedBehaviorHash,
+            ["declarationProof"] = state.DeclarationFingerprint,
+            ["canonicalDeclarations"] = new JsonArray(state.Declarations.Select(d => (JsonNode)new JsonObject
+                { ["id"] = d.Id, ["direction"] = d.Direction, ["scope"] = d.WorkflowScope, ["candidateCount"] = d.Candidates.Count,
+                    ["aliases"] = d.Aliases.Count, ["modifierReferences"] = d.ModifierReferences.Count, ["baseline"] = d.BaselineReference is not null }).ToArray()),
+            ["declarationDispositions"] = new JsonObject(state.DeclarationAssignments.GroupBy(a => a.Disposition, StringComparer.Ordinal)
+                .Select(g => new KeyValuePair<string, JsonNode?>(g.Key, JsonValue.Create(g.Count())))),
             ["modelExecutableDecisions"] = holes.Count(h => h.Resolved && h.ResolutionOrigin == "model"),
             ["executableHoleExposures"] = holes.Sum(h => h.ExposedRequests.Distinct(StringComparer.Ordinal).Count(verified.Contains)),
             ["userClarifications"] = state.Intent.Questions, ["answeredForms"] = state.Intent.Answers.Count,
