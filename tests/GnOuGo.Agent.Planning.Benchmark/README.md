@@ -3,10 +3,18 @@
 The scoped-confirmation campaign authorizes exactly one fresh standalone classifier
 session, with all reasoning profiles `low`. Stages 2 and 3 and the diagnostic A/B
 command are disabled for this campaign. Its production commit and isolated identity
-are pinned in `ProgressiveRules` and `ProgressiveCampaign` after offline checks.
+are pinned in `ProgressiveRules` and `ProgressiveCampaign` after offline checks:
+`554374c21e00ed85af1e1b69daf15ba1d537e3d3`, campaign `schema5-scoped-confirmation-20260913`.
 Stage 1 accepts only a justified typed outcome. `FinalReview` requires all six
 independent execution cases and exact artifact-hash approval before `ValidWorkflow`.
 A technical stop consumes the start and prohibits further advancement.
+
+This campaign's start is consumed. Stage 1 stopped after four completed calls because
+interpretation promoted a conditional policy subject to an operation and treated
+rejection behavior as forbidden confirmation. The unrelated YAML-review prohibition
+was correctly scoped. See [the scoped-confirmation live report](../../docs/planner-schema5-scoped-confirmation-live-validation.md).
+Stages 2 and 3 were not run, and no A/B request was made. Commands below document
+the completed protocol; they do not authorize another start or a changed freeze.
 
 Capability preflight uses Agent.Server's injected local resolver. Bootstrap reads
 KeyVault provider settings and Agent's persisted default model and metadata overrides;

@@ -75,3 +75,9 @@ The authorized live validation is exactly one fresh Stage-1 classifier session a
 offline checks. Its scenario, host policy, 12,000/8,192 ceilings, 9,600 dispatch target,
 concurrency four and repair budgets remain unchanged. Every campaign request uses
 `low`; no diagnostic A/B request or Stage-2 start is authorized by this campaign.
+
+That single start is now consumed. See the
+[live result and deterministic replay](planner-schema5-scoped-confirmation-live-validation.md).
+The unrelated interaction was correctly scoped, but a new policy-interpretation defect
+prevented Stage 1 from reaching a valid outcome. No production fix or additional live
+session followed that stop.

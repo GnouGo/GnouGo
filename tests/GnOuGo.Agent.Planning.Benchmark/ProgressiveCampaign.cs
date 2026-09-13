@@ -28,7 +28,7 @@ internal static class ProgressiveCampaign
 {
     internal const string Tenant = "planner-progressive", Author = "GnOuGo.Agent.Planning.Benchmark";
     internal const string EvidenceCollection = "agent-planning-progressive-evidence-v5", CampaignCollection = "agent-planning-progressive-campaigns-v5";
-    internal const string CampaignId = "schema5-clarification-20260912";
+    internal const string CampaignId = "schema5-scoped-confirmation-20260913";
     private const string ArchivedCampaignId = "schema5-ee487c8";
     private const int MaximumStage = 1;
 

@@ -10,7 +10,7 @@ namespace GnOuGo.Agent.Planning.Benchmark;
 
 internal static class ProgressiveRules
 {
-    internal const string ProductionCommit = "9a3b3de8ce1e4baa228c636471bc41ea7c9bf061";
+    internal const string ProductionCommit = "554374c21e00ed85af1e1b69daf15ba1d537e3d3";
     internal static TypedWorkflowPlanningSettings Settings() => new()
     {
         BackgroundProcessingEnabled = false,
