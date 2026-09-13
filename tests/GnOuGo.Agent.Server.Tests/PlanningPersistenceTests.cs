@@ -70,6 +70,12 @@ public sealed class PlanningPersistenceTests
         state.Declarations.Add(new("declaration", "input", "main", "name_reference", null, false, "default_reference",
             ["candidate"], [], ["modifier_reference"], ["clause_reference"], "PRIVATE_DECLARATION_PROOF"));
         state.DeclarationFingerprint = "PRIVATE_ADJUDICATION_PROOF";
+        state.DecisionPages =
+        [
+            new() { Id = "root", Origin = PlanningDecisionPageOrigin.SemanticCorrection, Correction = true, Gate = PlanningGates.Typed, Status = "split", Decisions = ["a", "b"], PartitionChildren = ["left", "right"] },
+            new() { Id = "left", ParentId = "root", Origin = PlanningDecisionPageOrigin.OutputPartition, Correction = true, Gate = PlanningGates.Typed, Status = "completed", Decisions = ["a"], RequestId = "durable-request", Candidate = new() { ["a"] = "PRIVATE_PARTITION_VALUE" } },
+            new() { Id = "right", ParentId = "root", Origin = PlanningDecisionPageOrigin.OutputPartition, Correction = true, Gate = PlanningGates.Typed, Decisions = ["b"] }
+        ];
         Assert.True(await fixture.Store.TrySaveAsync(state, null, Ct));
         state.Revision = 1; state.Status = PlanningStatus.BehaviorReview;
         Assert.True(await fixture.Store.TrySaveAsync(state, 0, Ct));
@@ -80,6 +86,12 @@ public sealed class PlanningPersistenceTests
         Assert.Equal(1, restored!.Revision);
         Assert.Equal(state.Request.Prompt, restored.Request.Prompt);
         Assert.Equal(5, restored.SchemaVersion);
+        Assert.Equal(["left", "right"], restored.DecisionPages[0].PartitionChildren);
+        var partition = restored.DecisionPages[1];
+        Assert.Equal(PlanningDecisionPageOrigin.OutputPartition, partition.Origin); Assert.True(partition.Correction);
+        Assert.Equal(PlanningGates.Typed, partition.Gate); Assert.Equal("root", partition.ParentId);
+        Assert.Equal("completed", partition.Status); Assert.Equal("durable-request", partition.RequestId);
+        Assert.Equal("PRIVATE_PARTITION_VALUE", partition.Candidate!["a"]!.ToString());
         Assert.Equal("PRIVATE_ADJUDICATION_PROOF", restored.DeclarationFingerprint);
         Assert.Equal("PRIVATE_DECLARATION_PROOF", Assert.Single(restored.Declarations).ProofFingerprint);
         Assert.Equal("default_reference", Assert.Single(restored.DeclarationAssignments).DefaultReference);
@@ -123,6 +135,7 @@ public sealed class PlanningPersistenceTests
             Assert.DoesNotContain("PRIVATE_GROUNDING_PROOF", bytes);
             Assert.DoesNotContain("PRIVATE_DECLARATION_PROOF", bytes);
             Assert.DoesNotContain("PRIVATE_ADJUDICATION_PROOF", bytes);
+            Assert.DoesNotContain("PRIVATE_PARTITION_VALUE", bytes);
         }
     }
 

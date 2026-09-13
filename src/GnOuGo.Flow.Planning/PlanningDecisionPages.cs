@@ -26,7 +26,7 @@ internal static class PlanningDecisionPages
                 Accept(state, dispatch, await PlanningModelCalls.DispatchAsync(state, runtime, dispatch.Call, ct));
                 await runtime.CheckpointAsync(state, ct);
             }
-            foreach (var (key, value) in Page(state, phase, workflow, batch, null, true).Candidate!) result[key] = value?.DeepClone();
+            foreach (var (key, value) in Page(state, phase, workflow, batch, null, true, gate).Candidate!) result[key] = value?.DeepClone();
         }
         return result;
     }
@@ -61,9 +61,8 @@ internal static class PlanningDecisionPages
         {
             var page = Page(state, phase, workflow, batch, null, false);
             if (page.Status != "completed") return null;
-            if (page.Candidate is null || PlanningContractValidation.ValidateInstance(page.Candidate, Schema(batch)).Count != 0)
-                throw new PlanningConflictException("The retained decision page no longer satisfies its issued contract.");
-            foreach (var (id, value) in page.Candidate) values.Add(id, value?.DeepClone());
+            ValidateCompleted(state, page, phase, batch);
+            foreach (var (id, value) in page.Candidate!) values.Add(id, value?.DeepClone());
         }
         return values;
     }
@@ -119,39 +118,91 @@ internal static class PlanningDecisionPages
         => Instructions + PlanningPromptContext.Instructions + PlanningPromptContext.Json(PlanningPromptContext.Share(
             new JsonObject(decisions.Select(d => new KeyValuePair<string, JsonNode?>(d.Id, d.Context.DeepClone())))));
 
-    private static PlanningDecisionPage Page(PlanningSnapshot state, string phase, string workflow, Decision[] decisions, string? parent, bool correction)
+    private static PlanningDecisionPage Page(PlanningSnapshot state, string phase, string workflow, Decision[] decisions, string? parent, bool correction,
+        string? gate = null, PlanningDecisionPageOrigin? origin = null, bool create = true)
     {
+        gate ??= correction ? PlanningGates.Response : phase.StartsWith("semantic", StringComparison.Ordinal) ? PlanningGates.Semantic
+            : phase.StartsWith("behavior", StringComparison.Ordinal) ? PlanningGates.Behavior : PlanningGates.Response;
+        origin ??= correction ? PlanningDecisionPageOrigin.SemanticCorrection : PlanningDecisionPageOrigin.Initial;
         var schema = Schema(decisions); var prompt = Prompt(decisions);
         var fingerprint = PlanningGraphCompiler.Fingerprint(string.Join("|", decisions.Select(d => d.Id + ":" + d.CorrectionId + ":" + d.EvidenceFingerprint)));
-        var id = "page_" + PlanningGraphCompiler.Fingerprint(phase + ":" + workflow + ":" + parent + ":" + correction + ":" + fingerprint + ":" + prompt + ":" + schema.ToJsonString());
+        var effectivePhase = correction && !phase.EndsWith("repair", StringComparison.Ordinal) ? phase + "_repair" : phase;
+        var id = "page_" + PlanningGraphCompiler.Fingerprint("partition-v1:" + phase + ":" + workflow + ":" + parent + ":" + origin + ":" + gate + ":" + correction + ":" + fingerprint + ":" + prompt + ":" + schema.ToJsonString());
         var existing = state.DecisionPages.SingleOrDefault(p => p.Id == id);
-        if (existing is not null) return existing;
+        if (existing is not null)
+        {
+            if (existing.ParentId != parent || existing.Origin != origin || existing.Gate != gate || existing.Correction != correction ||
+                existing.Phase != effectivePhase || existing.WorkflowKey != workflow || existing.EvidenceFingerprint != fingerprint ||
+                !existing.Decisions.SequenceEqual(decisions.Select(d => d.Id), StringComparer.Ordinal))
+                throw new PlanningConflictException("The retained decision page does not match its issued scope and origin.");
+            return existing;
+        }
+        if (!create) throw new PlanningConflictException("A retained output partition is missing.");
         var referenceIds = state.References.Select(r => r.Id).ToHashSet(StringComparer.Ordinal);
-        var page = new PlanningDecisionPage { Id = id, ParentId = parent, Phase = correction && !phase.EndsWith("repair", StringComparison.Ordinal) ? phase + "_repair" : phase,
+        var page = new PlanningDecisionPage { Id = id, ParentId = parent, Phase = effectivePhase, Origin = origin.Value, Gate = gate,
             WorkflowKey = workflow, EvidenceFingerprint = fingerprint, Correction = correction,
             Decisions = decisions.Select(d => d.Id).ToList(), InputTargetTokens = PlanningGenerationPolicy.InputTarget(state.Request.Generation), EstimatedInputTokens = PlanningJsonTransport.EstimateInputTokens(prompt, schema), EstimatedAnswerTokens = AnswerTokens(schema),
             References = decisions.SelectMany(d => References(d.Context).Concat(References(d.Schema))).Where(referenceIds.Contains).Distinct(StringComparer.Ordinal).Order(StringComparer.Ordinal).ToList() };
         state.DecisionPages.Add(page); return page;
     }
 
-    private static Dispatch? NextPage(PlanningSnapshot state, string phase, string workflow, Decision[] decisions, string? parent = null, bool correction = false, string? correctionGate = null)
+    private static (Decision[] Decisions, PlanningDecisionPage Page)[] Partitions(PlanningSnapshot state, PlanningDecisionPage page, string phase, Decision[] decisions)
     {
-        var page = Page(state, phase, workflow, decisions, parent, correction);
+        if (decisions.Length <= 1 || page.Origin == PlanningDecisionPageOrigin.Unknown || page.Gate is null)
+            throw new PlanningConflictException("An output partition requires a known parent scope with multiple decisions.");
+        var create = page.PartitionChildren.Count == 0 && page.Status == "split";
+        var midpoint = decisions.Length / 2;
+        var children = new[] { decisions[..midpoint], decisions[midpoint..] }.Select(members => (Decisions: members,
+            Page: Page(state, phase, page.WorkflowKey, members, page.Id, page.Correction, page.Gate, PlanningDecisionPageOrigin.OutputPartition, create))).ToArray();
+        var ids = children.Select(c => c.Page.Id).ToArray();
+        if ((!create && !page.PartitionChildren.SequenceEqual(ids, StringComparer.Ordinal)) ||
+            !state.DecisionPages.Where(p => p.ParentId == page.Id).Select(p => p.Id).Order(StringComparer.Ordinal).SequenceEqual(ids.Order(StringComparer.Ordinal), StringComparer.Ordinal))
+            throw new PlanningConflictException("The output partitions do not exactly cover their issued parent scope.");
+        if (create) page.PartitionChildren = ids.ToList();
+        return children;
+    }
+
+    private static void ValidateCompleted(PlanningSnapshot state, PlanningDecisionPage page, string phase, Decision[] decisions)
+    {
+        if (page.Status != "completed" || page.Candidate is null || PlanningContractValidation.ValidateInstance(page.Candidate, Schema(decisions)).Count != 0)
+            throw new PlanningConflictException("The retained decision page no longer satisfies its issued contract.");
+        if (page.PartitionChildren.Count == 0)
+        {
+            if (state.DecisionPages.Any(p => p.ParentId == page.Id && p.Origin == PlanningDecisionPageOrigin.OutputPartition))
+                throw new PlanningConflictException("The retained parent lost its output partition identities.");
+            return;
+        }
+        var merged = new JsonObject();
+        foreach (var child in Partitions(state, page, phase, decisions))
+        {
+            ValidateCompleted(state, child.Page, phase, child.Decisions);
+            foreach (var (id, value) in child.Page.Candidate!) merged.Add(id, value?.DeepClone());
+        }
+        if (!JsonNode.DeepEquals(merged, page.Candidate))
+            throw new PlanningConflictException("The retained parent differs from its completed output partitions.");
+    }
+
+    private static Dispatch? NextPage(PlanningSnapshot state, string phase, string workflow, Decision[] decisions, string? parent = null, bool correction = false,
+        string? correctionGate = null, PlanningDecisionPageOrigin? origin = null)
+    {
+        var page = Page(state, phase, workflow, decisions, parent, correction, correctionGate, origin);
         if (page.Status == "completed")
         {
-            if (page.Candidate is null || PlanningContractValidation.ValidateInstance(page.Candidate, Schema(decisions)).Count != 0)
-                throw new PlanningConflictException("The retained decision page no longer satisfies its issued contract.");
+            ValidateCompleted(state, page, phase, decisions);
             return null;
         }
         if (page.Status == "stopped") throw new WorkflowRuntimeException("DECISION_STOPPED", "The retained decision page is stopped: " + page.Id);
         if (page.Status == "split")
         {
-            var midpoint = decisions.Length / 2;
-            foreach (var child in new[] { decisions[..midpoint], decisions[midpoint..] })
-                if (NextPage(state, phase, workflow, child, page.Id, true) is { } pending) return pending;
+            // Materialize both child identities before the first reservation checkpoint.
+            var children = Partitions(state, page, phase, decisions);
+            foreach (var child in children)
+                if (NextPage(state, phase, workflow, child.Decisions, page.Id, correction, page.Gate, PlanningDecisionPageOrigin.OutputPartition) is { } pending) return pending;
             page.Candidate = new JsonObject();
-            foreach (var child in new[] { decisions[..midpoint], decisions[midpoint..] })
-                foreach (var (key, value) in Page(state, phase, workflow, child, page.Id, true).Candidate!) page.Candidate.Add(key, value?.DeepClone());
+            foreach (var child in children)
+                foreach (var (key, value) in child.Page.Candidate!) page.Candidate.Add(key, value?.DeepClone());
+            if (PlanningContractValidation.ValidateInstance(page.Candidate, Schema(decisions)).Count != 0)
+                throw new PlanningConflictException("The combined output partitions violate the original decision contract.");
         }
         if (page.Candidate is not null)
         {
@@ -172,17 +223,17 @@ internal static class PlanningDecisionPages
             }
             page.Status = "completed"; page.Diagnostics.Clear(); return null;
         }
-        var gate = correctionGate ?? (correction ? PlanningGates.Response : phase.StartsWith("semantic", StringComparison.Ordinal) ? PlanningGates.Semantic
-            : phase.StartsWith("behavior", StringComparison.Ordinal) ? PlanningGates.Behavior : PlanningGates.Response);
+        var gate = page.Gate!;
+        var reserveCorrection = page.Origin == PlanningDecisionPageOrigin.SemanticCorrection;
         var hasPending = state.Construction.PendingCalls.Any(c => c.Phase == page.Phase && c.WorkflowKey == workflow);
-        if (correction && !hasPending)
+        if (reserveCorrection && !hasPending)
         {
             foreach (var decision in decisions) CheckCorrections(state, [decision.CorrectionId ?? decision.Id], decision.EvidenceFingerprint, workflow);
             if (!PlanningRepairAllowances.Available(state, workflow, gate)) Stop(state, page, "REPAIR_EXHAUSTED", "The workflow/gate repair allowance is exhausted.");
         }
         var sequence = state.Construction.ModelSequence;
-        var call = PlanningModelCalls.Reserve(state, page.Phase, workflow, PlanningModelCalls.Request(state, Prompt(decisions), Schema(decisions)), gate, page.Id);
-        if (correction && sequence != state.Construction.ModelSequence)
+        var call = PlanningModelCalls.Reserve(state, page.Phase, workflow, PlanningModelCalls.Request(state, Prompt(decisions), Schema(decisions)), gate, page.Id, repair: reserveCorrection);
+        if (reserveCorrection && sequence != state.Construction.ModelSequence)
         {
             foreach (var decision in decisions.DistinctBy(d => (d.CorrectionId ?? d.Id, d.EvidenceFingerprint))) RecordCorrections(state, [decision.CorrectionId ?? decision.Id], decision.EvidenceFingerprint, workflow, gate);
             PlanningRepairAllowances.Reserved(state, workflow, gate);
@@ -266,7 +317,8 @@ internal static class PlanningDecisionPages
         state.Construction.PendingCalls.Remove(dispatch.Call);
         if (response.CompletionStatus == "output_limit")
         {
-            if (page.Correction || page.Decisions.Count <= 1) Stop(state, page, "DECISION_OUTPUT_LIMIT", "An indivisible or already corrected decision exhausted the output ceiling.");
+            if (page.Origin == PlanningDecisionPageOrigin.Unknown) throw new PlanningConflictException("Unknown page origin cannot authorize output partitioning.");
+            if (page.Decisions.Count <= 1) Stop(state, page, "DECISION_OUTPUT_LIMIT", "An indivisible decision exhausted the output ceiling.");
             page.Status = "split"; return;
         }
         if (response.Json is not JsonObject answer || answer.Any(p => !page.Decisions.Contains(p.Key, StringComparer.Ordinal)))
@@ -278,8 +330,9 @@ internal static class PlanningDecisionPages
     {
         page.Status = "stopped";
         page.Diagnostics = [new(code, "/decisions/" + page.Decisions[0], message)];
-        PlanningConvergence.Failure(state, page.WorkflowKey, PlanningGates.Response, page.Id, page.Diagnostics);
-        throw new WorkflowRuntimeException(code, message);
+        PlanningConvergence.Failure(state, page.WorkflowKey, code == "DECISION_OUTPUT_LIMIT" ? page.Gate ?? PlanningGates.Response : PlanningGates.Response, page.Id, page.Diagnostics);
+        throw new WorkflowRuntimeException(code, message, details: new JsonObject
+        { ["location"] = page.Diagnostics[0].Location, ["decisionId"] = page.Decisions[0], ["pageId"] = page.Id, ["requestId"] = page.RequestId });
     }
 
     private static IEnumerable<string> References(JsonNode? value)

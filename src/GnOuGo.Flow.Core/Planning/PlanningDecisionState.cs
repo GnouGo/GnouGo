@@ -8,10 +8,16 @@ public sealed record PlanningReference(string Id, string Owner, long SourceRevis
     string SourceFingerprint, string Kind, int Start, int Length);
 
 /// <summary>A bounded decision page. The exact request and its receipt remain in the model journal.</summary>
+public enum PlanningDecisionPageOrigin { Unknown, Initial, SemanticCorrection, OutputPartition }
+
 public sealed class PlanningDecisionPage
 {
     public string Id { get; set; } = "";
     public string? ParentId { get; set; }
+    public PlanningDecisionPageOrigin Origin { get; set; }
+    public string? Gate { get; set; }
+    public List<string> PartitionChildren { get; set; } = [];
+    /// <summary>Whether assignments are already restricted to a semantic correction, including its output partitions.</summary>
     public bool Correction { get; set; }
     public string Phase { get; set; } = "";
     public string WorkflowKey { get; set; } = "$plan";

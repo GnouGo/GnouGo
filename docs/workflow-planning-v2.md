@@ -85,7 +85,13 @@ derived. Direct typed call references select a declared output port, while calls
 inside collected loop results retain their runtime `outputs` envelope.
 Raw YAML, unrelated workflows and previous attempts are excluded from construction.
 Indivisible oversized requests stop with technical diagnostics. Verified truncated
-multi-decision pages may split once into charged correction pages. Unchanged semantic
+multi-decision pages recursively partition at the midpoint in canonical decision-ID
+order. Output partitions inherit the phase, gate and restricted scope; they consume
+global model budgets without another semantic repair charge. Both child identities
+are persisted before dispatch, and restart validates and reuses completed siblings.
+Only a truncated singleton produces `DECISION_OUTPUT_LIMIT`, retaining its page,
+decision and exact request identity. Historical page origin remains unknown; old
+repair charges and receipts are never relabeled or refunded. Unchanged semantic
 decisions permit one model correction; five repairs per workflow/gate remain the outer
 allowance. There is no generic retry action. Phase reasoning defaults to medium for
 behavior and semantic review, low otherwise, with declared provider capability proof.

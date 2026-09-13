@@ -24,7 +24,7 @@ internal static class PlanningModelCalls
         }, state.Request.Generation);
     }
 
-    internal static PlanningModelCall Reserve(PlanningSnapshot state, string phase, string workflow, LLMRequest request, string? gate = null, string? scope = null)
+    internal static PlanningModelCall Reserve(PlanningSnapshot state, string phase, string workflow, LLMRequest request, string? gate = null, string? scope = null, bool? repair = null)
     {
         // A restart replays the exact reserved request. Governing edits are blocked while a call is pending.
         var pending = state.Construction.PendingCalls.SingleOrDefault(c => c.Phase == phase && c.WorkflowKey == workflow);
@@ -55,7 +55,7 @@ internal static class PlanningModelCalls
         state.RequestAccounting.Add(new()
         {
             Id = id, Revision = state.Revision, WorkflowKey = string.IsNullOrEmpty(workflow) ? "$plan" : workflow,
-            Phase = phase, Gate = gate, Reasoning = request.Reasoning, EstimatedInputTokens = estimate, Repair = phase == PlanningPhase.Repair || phase.EndsWith("_repair", StringComparison.Ordinal),
+            Phase = phase, Gate = gate, Reasoning = request.Reasoning, EstimatedInputTokens = estimate, Repair = repair ?? (phase == PlanningPhase.Repair || phase.EndsWith("_repair", StringComparison.Ordinal)),
             Purpose = gate == PlanningGates.Semantic || phase.Contains("semantic", StringComparison.Ordinal) || phase.StartsWith("scenario_", StringComparison.Ordinal) ? "mandatory_validation" : phase == PlanningPhase.Repair || phase.StartsWith(PlanningPhase.Construction, StringComparison.Ordinal) ? "executable_holes" : "assessment"
         });
         return call;

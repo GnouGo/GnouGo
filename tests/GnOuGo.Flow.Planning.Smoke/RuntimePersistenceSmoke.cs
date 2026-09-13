@@ -41,6 +41,8 @@ internal static class RuntimePersistenceSmoke
                 Limits = new() { RunId = "native", TenantId = "smoke" }
             };
             PlanningSnapshot Initial() => new() { Request = new() { TenantId = "smoke", Prompt = "private native intent" } };
+            var decisions = new[] { "a", "b", "c", "d", "e" }.Select(id => new PlanningDecisionPages.Decision(id,
+                new JsonObject { ["type"] = "string", ["enum"] = new JsonArray("yes", "no") }, new() { ["evidence"] = "private native intent" }, "frozen")).ToArray();
             LLMRequest request;
             await using (var session = await Factory().OpenAsync(Context(), Initial(), CancellationToken.None))
             {
@@ -62,6 +64,26 @@ internal static class RuntimePersistenceSmoke
                     throw new InvalidOperationException("Published session or budget persistence failed.");
                 await resumed.Runtime.CallAsync(request, "intent", CancellationToken.None);
                 if (client.Calls != 1) throw new InvalidOperationException("Published receipt replay dispatched another model request.");
+                resumed.Snapshot.Construction.PendingCalls.Clear();
+                resumed.Snapshot.Request.MaxRepairsPerWorkflowGate = 0;
+                for (var index = 0; index < 3; index++)
+                {
+                    var dispatch = PlanningDecisionPages.Next(resumed.Snapshot, "intent", "$plan", decisions)!;
+                    await resumed.Runtime.CheckpointAsync(resumed.Snapshot, CancellationToken.None);
+                    PlanningDecisionPages.Accept(resumed.Snapshot, dispatch, await PlanningModelCalls.DispatchAsync(resumed.Snapshot, resumed.Runtime, dispatch.Call, CancellationToken.None));
+                    await resumed.Runtime.CheckpointAsync(resumed.Snapshot, CancellationToken.None);
+                }
+            }
+            await using (var resumed = await Factory().OpenAsync(Context(), Initial(), CancellationToken.None))
+            {
+                var pages = resumed.Snapshot.DecisionPages;
+                if (pages.Count != 3 || pages[1].Status != "completed" || pages[2].Status != "split" ||
+                    pages[1].Origin != PlanningDecisionPageOrigin.OutputPartition || pages[1].Gate != PlanningGates.Response || pages[0].PartitionChildren.Count != 2)
+                    throw new InvalidOperationException("Published encrypted partition tree recovery failed.");
+                var assignments = await PlanningDecisionPages.ResolveAsync(resumed.Snapshot, resumed.Runtime, "intent", "$plan", decisions, CancellationToken.None);
+                if (assignments.Count != 5 || client.Calls != 6 || resumed.Snapshot.RequestAccounting.Count != 5 ||
+                    resumed.Snapshot.DecisionCorrections.Count != 0 || resumed.Snapshot.RepairAllowances.Count != 0)
+                    throw new InvalidOperationException("Published recursive partition replay or accounting failed.");
             }
             foreach (var file in Directory.GetFiles(directory, "*", SearchOption.AllDirectories))
                 if (System.Text.Encoding.UTF8.GetString(await File.ReadAllBytesAsync(file)).Contains("private native intent", StringComparison.Ordinal))
@@ -75,6 +97,15 @@ internal static class RuntimePersistenceSmoke
         public Task<IReadOnlyList<string>?> SupportedReasoningLevelsAsync(string? provider, string model, CancellationToken ct) => Task.FromResult<IReadOnlyList<string>?>(["low", "medium"]);
         public int Calls { get; private set; }
         public Task<LLMResponse> CallAsync(LLMRequest request, CancellationToken ct)
-        { Calls++; return Task.FromResult(new LLMResponse { Json = new JsonObject(), Usage = new JsonObject { ["total_tokens"] = 2 } }); }
+        {
+            Calls++;
+            var fields = request.StructuredOutputSchema!["properties"]!.AsObject();
+            return Task.FromResult(new LLMResponse
+            {
+                CompletionStatus = fields.Count is 5 or 3 ? "output_limit" : "completed",
+                Json = new JsonObject(fields.Select(p => new KeyValuePair<string, JsonNode?>(p.Key, JsonValue.Create("yes")))),
+                Usage = new JsonObject { ["total_tokens"] = 2 }
+            });
+        }
     }
 }

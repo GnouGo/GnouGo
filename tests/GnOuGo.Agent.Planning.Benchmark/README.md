@@ -1,5 +1,24 @@
 # CodeReview convergence benchmark
 
+The current recursive-partition campaign (`schema5-recursive-partitions-20260913`)
+permits exactly one fresh Stage-1 classifier session after offline validation and
+binary freeze. It uses the unchanged frozen scenario, model, catalog and policy,
+all-low reasoning, and 12,000/8,192 ceilings with a 9,600-token input target.
+Correct exact-revision behavior acceptance is an intermediate checkpoint; a separate
+`campaign advance 1` continues the same session. Final approval requires all six
+independent fixtures and their exact artifact hash. The first meaningful blocker
+stops the campaign; no replacement start, Stage 2 or reasoning A/B is permitted.
+
+Reports distinguish initial pages, semantic corrections and recursive output
+partitions, including effective gates, parent/child identities, partition depth and
+terminal singleton truncation. Partition dispatches consume global budgets without
+another repair charge. Historical missing origin remains `Unknown`, with no refunds.
+Completed siblings are validated and reused through their retained assignments and
+request receipts. `campaign audit-replay CAMPAIGN STAGE REVISION` reads an archived
+campaign without resuming it or substituting synthetic test responses for receipts.
+
+The following source-authority campaign is historical and remains blocked.
+
 The source-authority campaign authorizes exactly one fresh standalone classifier
 session, with all reasoning profiles `low`. Stages 2 and 3 and diagnostic A/B requests
 are disabled. Production commit `25566657965b39774fae16f7a553622db66597dc` and isolated campaign

@@ -46,7 +46,11 @@ Repairs use reference-keyed field assignments. The coordinator constructs the at
 patch, retains valid neighbors and rejects unknown, overlapping, unlocated, stale,
 repeated or regressing changes. One unchanged decision/evidence pair permits at most
 one model correction, within five repairs per workflow/gate. A verified truncated
-multi-decision page may split once into charged correction pages. Unverifiable
+multi-decision page partitions recursively in canonical order until each response
+completes or a single decision reaches the output ceiling. Partitions preserve the
+parent's gate and restricted correction scope, consuming global model budgets but
+no semantic correction allowance. Persisted child identities and receipts retain
+completed siblings across restart. Unverifiable
 requests are never redispatched. Previously passing validation stages and scenarios
 must remain passing against unchanged fixtures.
 

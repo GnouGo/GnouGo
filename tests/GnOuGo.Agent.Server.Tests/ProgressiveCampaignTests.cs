@@ -228,6 +228,30 @@ public sealed class ProgressiveCampaignTests
         Assert.True(JsonNode.DeepEquals(report, ProgressiveReport.Build(JsonSerializer.Deserialize(JsonSerializer.Serialize(state, PlanningJsonContext.Default.PlanningSnapshot), PlanningJsonContext.Default.PlanningSnapshot)!, receipts)));
     }
 
+    [Fact]
+    public void PartitionReportsKeepSemanticChargesAndUnknownHistorySeparate()
+    {
+        var state = new PlanningSnapshot
+        {
+            DecisionPages =
+            [
+                new() { Id = "historical", Correction = true, ParentId = "missing", RequestId = "old" },
+                new() { Id = "root", Origin = PlanningDecisionPageOrigin.SemanticCorrection, Correction = true, Gate = PlanningGates.Typed, PartitionChildren = ["child"] },
+                new() { Id = "child", ParentId = "root", Origin = PlanningDecisionPageOrigin.OutputPartition, Correction = true, Gate = PlanningGates.Typed, PartitionChildren = ["singleton"] },
+                new() { Id = "singleton", ParentId = "child", Origin = PlanningDecisionPageOrigin.OutputPartition, Correction = true, Gate = PlanningGates.Typed,
+                    Decisions = ["decision"], Diagnostics = [new("DECISION_OUTPUT_LIMIT", "/decisions/decision", "PRIVATE_MESSAGE")] }
+            ],
+            RequestAccounting = [new() { Id = "old", Repair = true }]
+        };
+        var report = ProgressiveReport.Build(state, new Dictionary<string, LLMResponse?>());
+        Assert.Equal(2, report["outputPartitions"]!.GetValue<int>()); Assert.Equal(1, report["semanticCorrectionPages"]!.GetValue<int>());
+        var lineage = report["pageLineage"]!.AsArray();
+        Assert.Equal("Unknown", lineage[0]!["origin"]!.ToString()); Assert.Null(lineage[0]!["partitionDepth"]);
+        Assert.Equal(2, lineage[3]!["partitionDepth"]!.GetValue<int>()); Assert.True(lineage[3]!["singletonOutputLimit"]!.GetValue<bool>());
+        Assert.Equal(1, report["requestsByPhase"]![0]!["repairReservations"]!.GetValue<int>()); // Never refund old charges.
+        Assert.DoesNotContain("PRIVATE_", report.ToJsonString());
+    }
+
     private static (PlanningSnapshot, PlanningDecisionPage, LLMRequest, LLMResponse) Diagnostic()
     {
         var state = new PlanningSnapshot { TechnicalStop = new("REPAIR_REGRESSION", "behavior", "/field") };

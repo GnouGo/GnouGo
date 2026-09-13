@@ -17,6 +17,16 @@ internal static class ProgressiveReport
         var calls = state.RequestAccounting.DistinctBy(r => r.Id).ToArray();
         var verified = receipts.Where(r => r.Value is not null).Select(r => r.Key).ToHashSet(StringComparer.Ordinal);
         var pages = state.DecisionPages.DistinctBy(p => p.Id).ToArray();
+        int? PartitionDepth(PlanningDecisionPage page)
+        {
+            var depth = 0; var seen = new HashSet<string>(StringComparer.Ordinal);
+            while (page.Origin == PlanningDecisionPageOrigin.OutputPartition)
+            {
+                if (!seen.Add(page.Id) || pages.SingleOrDefault(p => p.Id == page.ParentId) is not { } parent) return null;
+                depth++; page = parent;
+            }
+            return page.Origin == PlanningDecisionPageOrigin.Unknown ? null : depth;
+        }
         var holes = state.Construction.Holes.Where(h => !h.Superseded).DistinctBy(h => (h.WorkflowKey, h.Id)).ToArray();
         long? Sum(IEnumerable<long?> values) { var all = values.ToArray(); return all.Length == 0 ? 0 : all.Any(v => v is null) ? null : all.Sum(v => v!.Value); }
         var result = new JsonObject
@@ -27,8 +37,19 @@ internal static class ProgressiveReport
             ["unverifiableDispatches"] = calls.Count(r => r.Evidence == "unverifiable" && !verified.Contains(r.Id)),
             ["journalReservationsWithoutReceipt"] = receipts.Count(r => r.Value is null),
             ["decisionPages"] = pages.Length,
-            ["pagesByPhase"] = new JsonArray(pages.GroupBy(p => (p.Phase, p.Status, p.Correction)).Select(g => (JsonNode)new JsonObject
-            { ["phase"] = g.Key.Phase, ["status"] = g.Key.Status, ["correction"] = g.Key.Correction, ["pages"] = g.Count(), ["splitChildren"] = g.Count(p => p.ParentId is not null) }).ToArray()),
+            ["pagesByPhase"] = new JsonArray(pages.GroupBy(p => (p.Phase, p.Status, p.Correction, p.Origin, p.Gate)).Select(g => (JsonNode)new JsonObject
+            { ["phase"] = g.Key.Phase, ["status"] = g.Key.Status, ["correction"] = g.Key.Correction, ["origin"] = g.Key.Origin.ToString(), ["gate"] = g.Key.Gate,
+                ["pages"] = g.Count(), ["splitChildren"] = g.Count(p => p.Origin == PlanningDecisionPageOrigin.OutputPartition) }).ToArray()),
+            ["outputPartitions"] = pages.Count(p => p.Origin == PlanningDecisionPageOrigin.OutputPartition),
+            ["semanticCorrectionPages"] = pages.Count(p => p.Origin == PlanningDecisionPageOrigin.SemanticCorrection),
+            ["pageLineage"] = new JsonArray(pages.Select(p => (JsonNode)new JsonObject
+            {
+                ["id"] = p.Id, ["parent"] = p.ParentId, ["origin"] = p.Origin.ToString(), ["gate"] = p.Gate, ["phase"] = p.Phase,
+                ["status"] = p.Status, ["correction"] = p.Correction, ["partitionDepth"] = PartitionDepth(p), ["requestId"] = p.RequestId,
+                ["decisions"] = new JsonArray(p.Decisions.Select(id => (JsonNode?)JsonValue.Create(id)).ToArray()),
+                ["children"] = new JsonArray(p.PartitionChildren.Select(id => (JsonNode?)JsonValue.Create(id)).ToArray()),
+                ["singletonOutputLimit"] = p.Decisions.Count == 1 && p.Diagnostics.Any(d => d.Code == "DECISION_OUTPUT_LIMIT")
+            }).ToArray()),
             ["engineResolvedExecutableDecisions"] = holes.Count(h => h.Resolved && h.ResolutionOrigin == "deterministic"),
             ["otherEngineDecisions"] = null,
             ["modelDecisionIds"] = new JsonArray(pages.Where(p => p.RequestId is not null && verified.Contains(p.RequestId)).SelectMany(p => p.Decisions.Select(d => p.WorkflowKey + ":" + d))
