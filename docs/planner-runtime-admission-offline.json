@@ -292,5 +292,6 @@
   "earlierOfflineFailures": [
     "Parallel solution test/build encountered a missing generated OtlpCollector frontend asset; frontend rebuild and serial checks passed.",
     "Two Agent test transports returned the obsolete interpretation response shape; fixtures were updated without weakening metadata or cumulative-budget assertions."
-  ]
+  ],
+  "frozenImplementationCommit": "9487b2e28f89b4e6749634761de9eddfd937d430"
 }

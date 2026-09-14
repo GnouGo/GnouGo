@@ -1,0 +1,66 @@
+{
+  "commit": "9487b2e28f89b4e6749634761de9eddfd937d430",
+  "binaries": {
+    "GnOuGo.AI.Core.dll": "402c368d67941f268ef406e56a588786f2eef9f8cd24c7875823ddf90c986682",
+    "GnOuGo.AI.Local.dll": "83b06d8236470e29a8ff809301030ec127b8dd44e2e2ae8c7b8f6e72e8891e3f",
+    "GnOuGo.Agent.Mcp.dll": "a8fefb210daa19cc6366416831e481c9d6e709783103636cae1786881c648786",
+    "GnOuGo.Agent.Planning.Benchmark.dll": "21a7eeb1fee100bac7e4e87fd122a43147a451832689308b89a81c6fd1aa2622",
+    "GnOuGo.Agent.Server.dll": "37064635cd118822a9463e9d14127ad627d051195e97747790c04575192b8bd1",
+    "GnOuGo.Agent.Shared.dll": "a99231340810b8b74d3afad31bdc02f2187e8f3093b8db8809d47fd3ebdc2532",
+    "GnOuGo.Assets.Animation.dll": "5ed54103052fe21d65659165ad40b1f83559122cb82c1b04b45314924e5f4abb",
+    "GnOuGo.Assets.Bears.dll": "acc656fb99c6fdae87414fd38dee1fcf85c272325120b7428854c9218da38162",
+    "GnOuGo.Auth.Core.dll": "0cd44c4c419af4f6418798a795de11f576eafd2102a0899300070c4d45f9aca0",
+    "GnOuGo.Diff.Core.dll": "8301228d3106b09f12cf01c03540e516e7b989d1a552f990b3d7c58560585fe2",
+    "GnOuGo.DocIngestor.Core.dll": "bd384b8aff17ed0a2d1281fb79b284944a11d284f2535a7e2d337dda3445c143",
+    "GnOuGo.DocIngestor.Mcp.dll": "5dcf63ff477a8de7407f0f0b74c29d791a5a482e2dae5eaaa9b21473d0d7734b",
+    "GnOuGo.Files.Server.dll": "2ab2255c54b9d875b26e7978b92f8ed7ddecae78ebc17f65e43ecb3874c56148",
+    "GnOuGo.Flow.Core.dll": "1619a9dd7e92c9fa1690035fdb819f0706950e22fed3cea85d217a71a7287c4c",
+    "GnOuGo.Flow.Integrations.dll": "15784b80f8725c2a8a3bc98832a0acf4d0f8ff6485fe2aae4ea85033c01e0f2a",
+    "GnOuGo.Flow.Mermaid.dll": "ba8bf3af1a9c1f4104773c62c0edde3b7112b4be1cf73c11f70c19010a862fa0",
+    "GnOuGo.Flow.Planning.dll": "a4995313bdb99de86ac7370fa18383419d21cc04a3e5665b790a93d63ff342a8",
+    "GnOuGo.KeyVault.Core.dll": "d4f26d97ea190d35191439da9c98a5a381f138f48f13533854cff4de4549a07e",
+    "GnOuGo.KeyVault.Mcp.dll": "2ef2a3c94f137d2063e9ddcb2f09c8ecf3624a22253f26dd11eb84557f5db627",
+    "GnOuGo.Mcp.Core.dll": "6e3f735f3347c28ad792b3e065f3b080b17841458dbae9f4def8c08e23083ee2",
+    "GnOuGo.Observability.Core.dll": "cacae5fc0a709434099c7a176c47bfdd0d7739669156b05d2e14fd2a15d94dfc",
+    "GnOuGo.OtlpCollector.Server.dll": "ebf9a491dad84dc29cbb88795f8428f95e71f2cd157c63e5482b05e36c385371",
+    "GnOuGo.Workspace.dll": "79b84907efcaa768c61a3ddd9869a8fc72f63e6290365078416666ef99df4369"
+  },
+  "archiveFingerprint": "e5de391619ed1e7753bf15024f08fdfdf3723b74d1d53b5812c43adf2434cd46",
+  "model": {
+    "provider": "OpenAi",
+    "model": "gpt-5.5-2026-04-24",
+    "reasoningLevels": [
+      "low",
+      "medium",
+      "high",
+      "max"
+    ],
+    "structuredOutput": true
+  },
+  "sourceOptionsFingerprint": "8540aff092454fc0d849aaeab4d37590f5823619832a683a5e8e7a98d4c12657",
+  "transportConfigurationFingerprint": "47c745160512a0664b07c867827b1a9547a47df55e7cefcbaa18ebc00ed618ac",
+  "catalogFingerprint": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+  "cases": [
+    {
+      "name": "local",
+      "promptHash": "f0479816c14ebb7fd57d6a30d5ea88bcc40b80c6c15bfd5502a6fd0e7a38a1f9",
+      "declarationFixtureHash": "42ed7d498a6b215d22d4a6ec1d9b682f03df6c830f4c3892d2f6014d8bfa8019",
+      "status": "not_run"
+    },
+    {
+      "name": "mixed",
+      "promptHash": "4d9621fb3038a45e153bca3b2d0af7b1cd7e9a0f08e0501d7f98b4aecb13150a",
+      "declarationFixtureHash": "5a9f697b3ac85b53c25c323d8c58a958e87f51caeeeedf617eaef55f7d5bec0e",
+      "status": "not_run"
+    }
+  ],
+  "limits": {
+    "callsPerCase": 8,
+    "reasoning": "low",
+    "input": 12000,
+    "dispatchTarget": 9600,
+    "output": 8192,
+    "singletonOutput": 16384
+  },
+  "declarationEvidence": "Supplied canonical port fixtures; no live declaration convergence claimed."
+}

@@ -25,3 +25,37 @@ Generic synthetic fixtures separately cover local native execution, directive/co
 Each case has at most eight provider requests, including existing corrections, partitions and singleton escalation. Profiles stay `low`; input limits remain 12,000/9,600, normal output 8,192 and bounded singleton output 16,384. Separate encrypted checkpoints, requests, receipts, budgets and an EF index preserve restart safety. Completed receipts are reused; unverifiable reservations and stopped cases never redispatch. The first meaningful blocker stops the two-case sequence.
 
 The harness freezes commit, DLL hashes, input/configuration and fixture fingerprints, and archived accounting before dispatch. Reports distinguish synthetic preconditions from fresh evidence, record actual decision domains, and preserve unavailable usage as unknown. Neither diagnostic constitutes Stage-1 success.
+
+## Frozen implementation and results
+
+Production and the diagnostic harness were frozen at **`9487b2e28f89b4e6749634761de9eddfd937d430`**. Offline validation passed **3,353 tests**, including **888 planner**, **855 Core**, **412 Agent.Server** and **67 integration** tests; one existing optional live test was skipped. All **75** focused harness checks, frontend/package builds, reference selfchecks, Native AOT planning/encrypted restart and trimmed Agent.Server EF persistence smokes passed. Final builds and publishes were warning-free under the existing documented exceptions, with no added suppressions.
+
+Exactly one isolated case started: **local**. It stopped before interpretation completed, at the harness's eight-provider-request ceiling. The mixed case was **not run**. No planning session, behavior acceptance, construction, artifact approval, replacement case or Stage 2 was started.
+
+| Measurement | Local diagnostic |
+|---|---:|
+| Verified provider calls / durable journal requests | 8 / 8 |
+| Coordinator reservations / blocked before journal dispatch | 9 / 1 |
+| Unverifiable dispatches | 0 |
+| Input / output / reasoning tokens | 26,932 / 3,696 / 2,515 |
+| Largest estimated / actual input | 5,304 / 4,048 |
+| Completed pages / pending page | 8 / 1 |
+| Completed source decisions | 15 |
+| Output partitions / singleton escalations | 0 / 0 |
+| Semantic corrections / repair charges | 0 / 0 |
+| Operation-admission model calls | 0 |
+| Committed runtime evidence / operation set | Neither committed |
+
+All eight responses satisfy their original JSON schemas. The terminal exception is `InvalidOperationException: The isolated case exhausted its eight-request ceiling.` The ninth coordinator reservation never reached the journal or provider. The raw frozen report's `journalReservationsWithoutReceipt` field includes that coordinator-only reservation; it must not be interpreted as an unverifiable dispatch.
+
+The response-size estimator limited page packing under the unchanged 2,048-token structured-answer target. Completed pages held one to three decisions, with estimated answers of 826–1,728 tokens. Requests were comfortably below the 9,600 input target; this was neither input-limit nor output-limit exhaustion. The existing interpreter also processed the supplied port-only baseline and host constraints: the 15 completed decisions covered three baseline, six host and six user scopes. Complete interpretation requires more than the authorized eight calls in this captured layout.
+
+Partial candidate evidence is **not canonical admission**. Its runtime facets contain seven contracts, four policies, two planning directives, two local behaviors and one unresolved classification. There are no staged external-operation kinds in these completed receipts. In particular:
+
+- The authoring clause correctly separated `planning_directive` from the local `classifying a single record` span, without lifecycle authority.
+- A host-constraint decision, `interpret_566adf3b8e5bc3101e0a7ebc`, returned `unresolved`. It is schema-admissible but would block runtime-evidence validation. The request ceiling stopped the run before collective validation.
+- `Preserve the original id and amount.` was staged as a distinct local behavior. Constraint-versus-occurrence separation therefore remains unproven by this diagnostic.
+
+Increasing the diagnostic allowance alone would not establish convergence. The captured evidence identifies both a diagnostic-isolation/request-volume limitation and unresolved semantic work. No production patch or further provider request followed the stop. No missing receipt was substituted. Read-only audit revalidated the eight schemas through public Core contracts and read encrypted evidence through public KeyVault APIs. Frozen production sources, all 23 diagnostic DLLs and archived accounting remained unchanged.
+
+Artifacts: [offline checks](planner-runtime-admission-offline.json), [frozen manifest](planner-runtime-admission-manifest.json), [raw redacted report](planner-runtime-admission-report.json), and [blocker and partial evidence](planner-runtime-admission-blocker.json). These results do **not** establish live admission convergence or Stage-1 success.
