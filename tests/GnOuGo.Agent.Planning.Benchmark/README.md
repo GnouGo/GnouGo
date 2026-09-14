@@ -16,6 +16,15 @@ pass before exact artifact-hash approval. The first meaningful blocker or unveri
 request stops the campaign. No production patch, replacement session or Stage 2 follows.
 See [canonical-root validation](../../docs/planner-canonical-roots.md).
 
+This campaign consumed its only start on frozen production `d8e3f06`. Canonical
+record/threshold/classifiedResult declarations and constraints completed, then the
+session stopped at revision 30 with `INTENT_OPERATION_UNRESOLVED`: no runtime
+operation had been admitted by interpretation. Seven receipts are verified; no
+correction, output partition or escalation was needed. Behavior/artifact hashes
+are absent and all six execution cases are not run. Exact offline replay reproduces
+the stop with one receipt and no provider call. Do not resume or replace this campaign.
+
+
 ## Archived declaration-constraint rerun
 
 `schema5-declaration-constraints-stage1-rerun-1` permits one fresh Stage-1 session

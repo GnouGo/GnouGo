@@ -80,3 +80,86 @@ success requires all six independent execution cases and exact artifact-hash app
 The first meaningful blocker stops the campaign without a production patch,
 replacement session, provider retry or Stage 2. Live results are recorded separately
 from the synthetic and historical evidence above.
+
+## Fresh Stage-1 result: stopped after canonical declarations
+
+Production was frozen at `d8e3f068df55b1996f7d6fd8a1fdebbba26b334f`, with harness
+pin commit `57650d4`. Offline validation passed **3,294 solution tests** across 29
+projects, including **846 planner**, **855 Core**, **67 integrations** and **395
+Agent.Server** tests; the optional live-provider test remained skipped. The 30 new
+planner regression cases, 58 focused harness tests, reference selfchecks, package
+builds, Agent frontend build, Native AOT planning/encrypted restart and trimmed
+Agent.Server persistence all passed. Final builds/publishes were warning-free under
+the existing exceptions; no new suppression was added. An initial AOT overload
+warning was fixed before the final checks and production freeze.
+
+Exactly one fresh session, `d1d249a22d754ef680c646f00881ee32`, stopped at revision
+**30** in capability preparation. Its typed outcome is absent: this is a technical
+stop, not `ValidWorkflow`, `NeedUserClarification` or demonstrated `Unsupported`.
+The first blocker is **`INTENT_OPERATION_UNRESOLVED`**, at **`/preparation`**.
+
+Canonical declaration adjudication completed correctly:
+
+| Name | Direction/scope | Presence/default | Canonical ID |
+|---|---|---|---|
+| `record` | input / main | required; no omission default | `decl_89cf60869b3c67ae8d948cde` |
+| `threshold` | input / main | optional; omission default `100` | `decl_d9dced873ca13886d395895e` |
+| `classifiedResult` | output / main | required; no declaration default | `decl_e10c86997aef941cbd55d2f1` |
+
+Threshold's non-nullable numeric requirement is retained in its governing evidence;
+no executable schema has yet been constructed. The output has attached member/schema,
+`category` enum (`rejected`, `high`, `standard`) and original `id`/`amount` preservation
+evidence. There are six modifier assignments and no extra ports or aliases. This run
+needed **no duplicate-root correction**. Frozen-neighbor correction behavior is proved
+by the offline fixtures, not exercised by this live run.
+
+The saved interpretation classified both workflow creation and the classification
+rule as `workflow_policy`, with associated runtime conditions/value evidence. It
+admitted **zero runtime operations**. The unchanged capability inventory requires an
+evidenced operation and therefore stopped after declarations. This is an upstream
+planner/model interpretation convergence blocker; no provider, token-limit or
+duplicate-root failure occurred. It does not prove the requested workflow unsupported.
+No production change was made after observing it.
+
+| Phase / owner / gate | Verified calls | Input tokens | Output tokens | Repairs |
+|---|---:|---:|---:|---:|
+| intent / `$plan` / response_contract | 3 | 5,533 | 803 | 0 |
+| confirmation_scope / `$plan` / response_contract | 2 | 7,313 | 1,761 | 0 |
+| intent_declarations / `$plan` / response_contract | 2 | 6,588 | 1,001 | 0 |
+| Total | **7** | **19,434** | **3,565** | **0** |
+
+All seven reservations have verified receipts; there are zero unverifiable requests.
+Output usage includes **569 reasoning tokens**. All requests used `low`. Seven initial
+decision pages completed, containing 34 distinct issued model-decision IDs. There
+were **zero output partitions, singleton escalations or semantic corrections**.
+The largest input was **7,532 estimated / 5,250 actual tokens**, below the unchanged
+9,600 target and 12,000 ceiling. No user clarification occurred.
+
+Executable-hole counts are **0 deterministic / 0 model**, with zero exposures:
+construction was not reached. Other uninstrumented engine decisions remain unknown.
+Accepted behavior, skeleton, final artifact and approved artifact hashes are all
+absent. There was no behavior acceptance or workflow approval.
+
+| Independent execution case | Result |
+|---|---|
+| accepted | not run |
+| rejected | not run |
+| boundary | not run |
+| omitted default | not run |
+| invalid input | not run |
+| null threshold | not run |
+
+Independent execution made zero calls. Current-code strict replay from revision 22
+reused the exact attachment receipt and reproduced `INTENT_OPERATION_UNRESOLVED`
+with **one retained receipt, zero provider calls and unchanged persisted state**.
+The source-derived classification evidence and exact request/receipt fingerprints
+are retained in the [blocker record](planner-canonical-roots-blocker.json) and
+[full redacted report](planner-canonical-roots-report.json); private payloads remain
+in encrypted storage. The [frozen manifest](planner-canonical-roots-manifest.json)
+records binaries, model, settings and benchmark fingerprints.
+
+Post-run checks confirm unchanged production/harness binaries, fixture sources and
+all archived campaign/snapshot/request/receipt/budget fingerprints. This campaign is
+blocked and has consumed its only authorized start. No patch, replacement session,
+provider retry or Stage 2 was performed. This result proves live declaration
+convergence, **not end-to-end workflow success**.

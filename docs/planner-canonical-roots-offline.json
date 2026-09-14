@@ -113,5 +113,28 @@
     "tests/GnOuGo.Agent.Planning.Benchmark/CodeReviewPolicy.txt": "b92002cf07ef660981dc5c758d775be40589045d14df706cf454ca3c58e52604"
   },
   "sanitizedFixtureSha256": "585f339dc38638a034c4fdeeabfc7a0582b8f021ccf59088ea9c5910c5be0dfd",
-  "syntheticEvidence": "Fixture source, references and initial root candidate are retained public benchmark evidence, not a receipt. Corrected root and attachment responses are explicitly synthetic. Strict replay never substitutes them."
+  "syntheticEvidence": "Fixture source, references and initial root candidate are retained public benchmark evidence, not a receipt. Corrected root and attachment responses are explicitly synthetic. Strict replay never substitutes them.",
+  "frozenProductionCommit": "d8e3f068df55b1996f7d6fd8a1fdebbba26b334f",
+  "harnessPinCommit": "57650d4",
+  "harnessSha256": "1aabf1f32b8342687c80079d0f0dd3ce8357649f3ae95295ec33cb41af0c70ff",
+  "unchangedArchiveAccountingBeforeLive": {
+    "campaignRecords": 16,
+    "campaignFingerprint": "ea705a80668d08a6340824da4077ad7d518b243d9f61ae1abfbc03663f8d4ecd",
+    "agent-planning-snapshots-v5": {
+      "records": 367,
+      "fingerprint": "50e000fd4613312678e07c30c881378131937327a516d9ae0b1d2a63a67171db"
+    },
+    "agent-planning-model-requests-v5": {
+      "records": 89,
+      "fingerprint": "ad4e14d728220432408a0a525814538bf62c6b2bed96cf1f0bdb825ba5c50c85"
+    },
+    "agent-planning-model-receipts-v5": {
+      "records": 87,
+      "fingerprint": "6991677834bd539f625e0c828fb9797f30ae3e7c1f3ba618ad12b65417420b0b"
+    },
+    "agent-planning-budgets-v5": {
+      "records": 12,
+      "fingerprint": "1cc0cf9eae44473db318934eaddcf54f936502f946234ad609b4be03793fe5de"
+    }
+  }
 }
