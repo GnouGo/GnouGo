@@ -21,10 +21,11 @@ public sealed class RuntimeAdmissionDiagnosticTests
         else Assert.Throws<InvalidOperationException>(() => RuntimeAdmissionDiagnosticRules.RequireCase(name, report));
     }
     [Theory]
-    [InlineData(8, "intent", "low", true)]
-    [InlineData(9, "intent", "low", false)]
+    [InlineData(16, "intent", "low", true)]
+    [InlineData(17, "intent", "low", true)] // Checkpoint accounting cannot masquerade as a dispatch limit.
     [InlineData(1, "intent_operations", "low", true)]
     [InlineData(1, "intent_operations_repair", "low", true)]
+    [InlineData(1, "intent_relations", "low", true)]
     [InlineData(1, "behavior", "low", false)]
     [InlineData(1, "construction", "low", false)]
     [InlineData(1, "intent", "medium", false)]
@@ -35,6 +36,16 @@ public sealed class RuntimeAdmissionDiagnosticTests
         if (allowed) RuntimeAdmissionDiagnosticRules.RequireRequest(state);
         else Assert.Throws<InvalidOperationException>(() => RuntimeAdmissionDiagnosticRules.RequireRequest(state));
     }
+    [Theory]
+    [InlineData(16, true)]
+    [InlineData(17, false)]
+    public void PackedRequestsMustFitBeforeDispatch(int pages, bool allowed)
+    {
+        Assert.Equal(16, RuntimeAdmissionDiagnosticRules.MaxCalls);
+        if (allowed) RuntimeAdmissionDiagnosticRules.RequirePreflight(pages);
+        else Assert.Throws<InvalidOperationException>(() => RuntimeAdmissionDiagnosticRules.RequirePreflight(pages));
+    }
+
     [Fact]
     public void ReceiptReplayDoesNotIncreaseDistinctRequestAccounting()
     {

@@ -75,9 +75,11 @@ public sealed class PlanningPersistenceTests
         state.OperationAdmissionFingerprint = "PRIVATE_OPERATION_SET";
         state.RuntimeEvidenceFingerprint = "PRIVATE_RUNTIME_SET";
         state.RuntimeEvidence = [new("runtime", "source", "clause", "local_behavior", "anchor", "subject", "anchor", "local_processing", "distinct", null, null, true, "PRIVATE_RUNTIME_PROOF")
-            { ExecutionScope = PlanningRuntimeExecutionScope.GeneratedWorkflow, Origin = PlanningRuntimeEvidenceOrigin.SourceInterpretation }];
+            { ExecutionScope = PlanningRuntimeExecutionScope.GeneratedWorkflow, Origin = PlanningRuntimeEvidenceOrigin.SourceInterpretation },
+            new("policy_runtime", "policy_source", "policy_clause", "policy", null, null, null, null, null, null, null, false, "engine_policy_proof")
+            { ExecutionScope = PlanningRuntimeExecutionScope.Policy, Origin = PlanningRuntimeEvidenceOrigin.EngineSourceAuthority }];
         state.Obligations.Add(new("canonical_action", ["primary_clause"], "workflow", "local_processing", true)
-        { Disposition = "admitted", OperationAdmission = new(2, "canonical_action", "anchor", null,
+        { Disposition = "admitted", OperationAdmission = new(3, "canonical_action", "anchor", null,
             [new("operation_clause", "primary_clause", "anchor", "local_processing", true, null, null) { RuntimeEvidenceId = "runtime" },
              new("operation_rules", "governing_clause", "rule_anchor", "local_processing", true, "canonical_action", null)],
             "PRIVATE_OPERATION_EVIDENCE", "PRIVATE_OPERATION_PROOF") });
@@ -129,11 +131,13 @@ public sealed class PlanningPersistenceTests
         Assert.Equal("owned_clause", scopedPolicy.ClauseReference); Assert.Equal(["effect"], scopedPolicy.TargetOperationIds); Assert.Equal("permission", scopedPolicy.PermissionOperationId);
         Assert.Equal("PRIVATE_OPERATION_SET", restored.OperationAdmissionFingerprint);
         var admission = Assert.Single(restored.Obligations, o => o.OperationAdmission is not null).OperationAdmission!;
-        Assert.Equal("PRIVATE_OPERATION_PROOF", admission.ProofFingerprint); Assert.Equal(2, admission.Version);
+        Assert.Equal("PRIVATE_OPERATION_PROOF", admission.ProofFingerprint); Assert.Equal(3, admission.Version);
         Assert.Equal("PRIVATE_RUNTIME_SET", restored.RuntimeEvidenceFingerprint);
-        Assert.Equal("PRIVATE_RUNTIME_PROOF", Assert.Single(restored.RuntimeEvidence).ProofFingerprint);
+        Assert.Equal("PRIVATE_RUNTIME_PROOF", restored.RuntimeEvidence[0].ProofFingerprint);
         Assert.Equal(PlanningRuntimeExecutionScope.GeneratedWorkflow, restored.RuntimeEvidence[0].ExecutionScope);
         Assert.Equal(PlanningRuntimeEvidenceOrigin.SourceInterpretation, restored.RuntimeEvidence[0].Origin);
+        Assert.Equal(PlanningRuntimeEvidenceOrigin.EngineSourceAuthority, restored.RuntimeEvidence[1].Origin);
+        Assert.Equal("policy", restored.RuntimeEvidence[1].Role);
         Assert.Equal("runtime", admission.Assignments[0].RuntimeEvidenceId);
         Assert.Equal("canonical_action", admission.Assignments[1].TargetId); Assert.Equal("governing_clause", admission.Assignments[1].ClauseReference);
         var grounded = Assert.Single(restored.Obligations, o => o.Id == "governor");
@@ -266,6 +270,24 @@ public sealed class PlanningPersistenceTests
         await new PlanningModelJournal(client, fixture, fixture.Records, "tenant", "session", budget, new FakeEstimator()).CallAsync(request, Ct);
         Assert.Equal(1, client.Calls); Assert.Equal(1, budget.Snapshot.Calls);
         await using var reopened = fixture.CreateDbContext(); Assert.Equal("completed", (await reopened.Calls.SingleAsync(Ct)).Status);
+    }
+
+    [Fact]
+    public async Task DiagnosticSixteenDispatchBudgetPersistsAndReplaysWithoutAnotherDispatch()
+    {
+        await using var fixture = await StoreFixture.CreateAsync();
+        var client = new CountingClient(); var options = new LLMUsageBudgetLimits { MaxCalls = 16 };
+        var budget = new LLMUsageBudgetScope(options, sink: new PlanningBudgetSink(fixture.Records, "tenant", "session"));
+        var requests = Enumerable.Range(1, 17).Select(i => { var r = new LLMRequest { Model = "fake", Prompt = "decision " + i }; Identify(r, "session", i); return r; }).ToArray();
+        var journal = new PlanningModelJournal(client, fixture, fixture.Records, "tenant", "session", budget, new FakeEstimator());
+        foreach (var request in requests.Take(16)) await journal.CallAsync(request, Ct);
+        var saved = await fixture.Records.GetAsync(PlanningBudgetSink.Collection, "tenant", "session", EfPlanningSessionStore.Author, Ct);
+        var restored = new LLMUsageBudgetScope(options, JsonSerializer.Deserialize(saved!.Value, PlanningJsonContext.Default.LLMUsageBudgetSnapshot));
+        var reopened = new PlanningModelJournal(client, fixture, fixture.Records, "tenant", "session", restored, new FakeEstimator());
+        await reopened.CallAsync(requests[0], Ct);
+        var failure = await Assert.ThrowsAsync<WorkflowRuntimeException>(() => reopened.CallAsync(requests[16], Ct));
+        Assert.Equal(GnOuGo.Flow.Core.Models.ErrorCodes.LlmBudgetExceeded, failure.Code);
+        Assert.Equal(16, client.Calls); Assert.Equal(16, restored.Snapshot.Calls);
     }
 
     [Fact]

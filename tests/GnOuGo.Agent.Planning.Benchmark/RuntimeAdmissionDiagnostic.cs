@@ -25,8 +25,8 @@ using Microsoft.Extensions.Options;
 namespace GnOuGo.Agent.Planning.Benchmark;
 
 // No PlanningSessionService starts or approvals. The supplied port-only baseline
-// is a diagnostic precondition, not fresh model declaration evidence.
-internal static class RuntimeAdmissionDiagnostic
+// and exact declaration attachments are fixture preconditions, not fresh model declaration evidence.
+internal static partial class RuntimeAdmissionDiagnostic
 {
     private const string Tenant = "runtime-admission-diagnostics", Collection = "agent-planning-diagnostics-v5", Author = "GnOuGo.Agent.Planning.Benchmark";
     private static string Identity => RuntimeAdmissionDiagnosticRules.Identity;
@@ -41,10 +41,11 @@ internal static class RuntimeAdmissionDiagnostic
 
     internal static async Task RunAsync(string command, string? commit, string root, IKeyVaultRecordStore records)
     {
+        if (command == "selfcheck") { await SelfcheckAsync(); return; }
         using var cancel = new CancellationTokenSource(TimeSpan.FromHours(5));
         Console.CancelKeyPress += (_, e) => { e.Cancel = true; cancel.Cancel(); }; var ct = cancel.Token;
         var directory = GnOuGoWorkspace.ResolveDatabasePath(null, root, $".GnOuGo/data/planner-diagnostics/{Identity}/gnougo-planning-v5.db");
-        if (command is not ("freeze" or "run" or "report")) throw new ArgumentException("diagnose-runtime-admission freeze COMMIT | run | report");
+        if (command is not ("freeze" or "run" or "report")) throw new ArgumentException("diagnose-runtime-admission freeze COMMIT | run | report | selfcheck");
         if (command == "report")
         {
             Console.WriteLine((await ReportAsync(records, ct)).ToJsonString()); return;
@@ -90,9 +91,9 @@ internal static class RuntimeAdmissionDiagnostic
                 ["catalogFingerprint"] = campaign["stages"]![0]!["catalogHash"]!.DeepClone(),
                 ["cases"] = new JsonArray(RuntimeAdmissionDiagnosticRules.Cases.Select(name => (JsonNode)new JsonObject
                 { ["name"] = name, ["promptHash"] = PlanningGraphCompiler.Fingerprint(name == "local" ? ProgressiveScenarios.Simple : Mixed),
-                    ["declarationFixtureHash"] = PlanningGraphCompiler.Fingerprint(Ports(name)), ["status"] = "not_run" }).ToArray()),
-                ["limits"] = new JsonObject { ["callsPerCase"] = 8, ["reasoning"] = "low", ["input"] = 12000, ["dispatchTarget"] = 9600, ["output"] = 8192, ["singletonOutput"] = 16384 },
-                ["declarationEvidence"] = "Supplied canonical port fixtures; no live declaration convergence claimed." };
+                    ["declarationFixtureHash"] = DeclarationFixtureHash(name), ["preflight"] = Preflight(name, source), ["status"] = "not_run" }).ToArray()),
+                ["limits"] = new JsonObject { ["callsPerCase"] = RuntimeAdmissionDiagnosticRules.MaxCalls, ["reasoning"] = "low", ["input"] = 12000, ["dispatchTarget"] = 9600, ["output"] = 8192, ["singletonOutput"] = 16384 },
+                ["declarationEvidence"] = "Supplied canonical ports and exact owned attachment fixtures; no live declaration convergence claimed." };
             await records.UpsertAsync(Collection, Tenant, Identity, manifest.ToJsonString(), Author, ct); Console.WriteLine(manifest.ToJsonString()); return;
         }
         if (manifest is null || !JsonNode.DeepEquals(manifest["binaries"], binaries) || manifest["archiveFingerprint"]!.ToString() != archive ||
@@ -104,7 +105,7 @@ internal static class RuntimeAdmissionDiagnostic
             var name = frozen!["name"]!.ToString();
             if (!RuntimeAdmissionDiagnosticRules.Cases.Contains(name, StringComparer.Ordinal) ||
                 frozen["promptHash"]!.ToString() != PlanningGraphCompiler.Fingerprint(name == "local" ? ProgressiveScenarios.Simple : Mixed) ||
-                frozen["declarationFixtureHash"]!.ToString() != PlanningGraphCompiler.Fingerprint(Ports(name)))
+                frozen["declarationFixtureHash"]!.ToString() != DeclarationFixtureHash(name))
                 throw new InvalidOperationException("A frozen diagnostic precondition changed.");
         }
         using var ratesHttp = new HttpClient(); JsonObject? previous = null;
@@ -139,11 +140,10 @@ internal static class RuntimeAdmissionDiagnostic
         if (completed is not null) return JsonNode.Parse(completed.Value)!.AsObject();
         var retained = await records.GetAsync(Collection, Tenant, id + ":checkpoint", Author, ct);
         var envelope = retained is null ? new JsonObject { ["phase"] = "intent" } : JsonNode.Parse(retained.Value)!.AsObject();
-        var state = retained is null ? new PlanningSnapshot { Request = new() { SessionId = id, TenantId = Tenant,
-            Prompt = name == "local" ? ProgressiveScenarios.Simple : Mixed, Baseline = Ports(name), Options = source.Request.Options.DeepClone().AsObject(),
-            MaxRepairsPerWorkflowGate = 5, Generation = new() { ReasoningProfile = new() { Routine = "low", Behavior = "low", SemanticReview = "low" } } } }
+        var state = retained is null ? NewState(name, source)
             : JsonSerializer.Deserialize(envelope["snapshot"], PlanningJsonContext.Default.PlanningSnapshot)!;
-        state.Request.Options["llm_budget"]!["max_calls"] = 8;
+        if (state.Request.Options["llm_budget"]!["max_calls"]!.GetValue<int>() != RuntimeAdmissionDiagnosticRules.MaxCalls)
+            throw new InvalidOperationException("The persisted diagnostic budget changed.");
         async Task Save(PlanningSnapshot snapshot, CancellationToken token)
         {
             RuntimeAdmissionDiagnosticRules.RequireRequest(snapshot);
@@ -170,11 +170,10 @@ internal static class RuntimeAdmissionDiagnostic
             if (envelope["phase"]!.ToString() == "intent")
             {
                 await Save(state, ct); await PlanningSourceDecisions.InterpretAsync(state, runtime, ct);
-                // Keep only fresh runtime evidence from this request. Canonical
-                // public contracts are supplied fixture preconditions, not tested here.
+                // Preserve the exact live interpretation in audit storage. Replace
+                // only declaration candidates with the frozen, labelled precondition.
                 envelope["interpretedObligations"] = JsonSerializer.SerializeToNode(state.Obligations, PlanningJsonContext.Default.ListPlanningObligation);
-                state.Obligations.Clear(); state.OperationAdmissionFingerprint = null;
-                PlanningDeclarations.Commit(state, [], PlanningDeclarations.EvidenceFingerprint(state));
+                InstallDeclarations(name, state); state.OperationAdmissionFingerprint = null;
                 envelope["phase"] = "admission"; await Save(state, ct);
             }
             await PlanningOperations.ResolveAsync(state, runtime, ct); PlanningOperations.RequireExecutableIntent(state);
@@ -182,6 +181,15 @@ internal static class RuntimeAdmissionDiagnostic
             if (operations.Count(o => o.Kind == "local_processing") != 1 || operations.Count(o => o.Kind == "external_read") != (name == "mixed" ? 1 : 0) ||
                 operations.Any(o => o.Kind is not ("local_processing" or "external_read")))
                 throw new WorkflowRuntimeException("DIAGNOSTIC_ADMISSION_MISMATCH", "The isolated fixture's expected runtime actions were not established.");
+            if (name == "mixed")
+            {
+                envelope["phase"] = "relations"; await Save(state, ct);
+                await PlanningSourceDecisions.RelateAsync(state, runtime, ct);
+                var read = operations.Single(o => o.Kind == "external_read"); var local = operations.Single(o => o.Kind == "local_processing");
+                if (!state.ObligationRelations.Any(r => r.Producer == read.Id && r.Consumer == local.Id && r.Role == "data") ||
+                    state.ObligationRelations.Any(r => r.Producer == local.Id && r.Consumer == read.Id))
+                    throw new WorkflowRuntimeException("DIAGNOSTIC_DEPENDENCY_MISMATCH", "The local transformation must depend on the external read without a reverse dependency.");
+            }
         }
         catch (Exception error)
         {
@@ -192,11 +200,11 @@ internal static class RuntimeAdmissionDiagnostic
         }
         }
         envelope["phase"] = failure is null ? "completed" : "stopped";
-        // A stop is persisted even when the ninth attempted reservation is rejected.
+        // Stops are durable even when global budgeting rejects a reservation before dispatch.
         envelope["snapshot"] = JsonSerializer.SerializeToNode(state, PlanningJsonContext.Default.PlanningSnapshot);
         await records.UpsertAsync(Collection, Tenant, id + ":checkpoint", envelope.ToJsonString(), Author, CancellationToken.None);
         var receipts = new Dictionary<string, LLMResponse?>();
-        var domains = new JsonArray();
+        var domains = new JsonArray(); var journalRequests = new HashSet<string>(StringComparer.Ordinal);
         foreach (var call in state.RequestAccounting.DistinctBy(c => c.Id))
         {
             var receipt = await records.GetAsync(PlanningModelJournal.Collection, Tenant, id + ":" + call.Id, EfPlanningSessionStore.Author, CancellationToken.None);
@@ -204,6 +212,7 @@ internal static class RuntimeAdmissionDiagnostic
             var issued = await records.GetAsync(PlanningModelJournal.RequestCollection, Tenant, id + ":" + call.Id, EfPlanningSessionStore.Author, CancellationToken.None);
             if (issued is not null)
             {
+                journalRequests.Add(call.Id);
                 var request = JsonSerializer.Deserialize(issued.Value, PlanningJsonContext.Default.LLMRequest)!;
                 domains.Add(new JsonObject { ["requestId"] = call.Id, ["requestFingerprint"] = PlanningGraphCompiler.Fingerprint(issued.Value),
                     ["schemaFingerprint"] = PlanningGraphCompiler.Fingerprint(request.StructuredOutputSchema!.ToJsonString()),
@@ -214,6 +223,19 @@ internal static class RuntimeAdmissionDiagnostic
             }
         }
         var report = ProgressiveReport.Build(state, receipts);
+        var declarations = state.OperationAdmissionFingerprint is not null ? PlanningOperations.DeclarationExclusions(state) : null;
+        report["journalRequests"] = journalRequests.Count;
+        report["journalReservationsWithoutReceipt"] = journalRequests.Count(key => !receipts.TryGetValue(key, out var response) || response is null);
+        report["coordinatorReservationsWithoutJournalRequest"] = state.RequestAccounting.Select(c => c.Id).Distinct(StringComparer.Ordinal).Count(key => !journalRequests.Contains(key));
+        report["modelRuntimeDecisionsRemoved"] = PlanningSourceDecisions.InterpretationDecisions(state).Count(d => d.Schema["properties"]!["runtime"] is null);
+        report["declarationCoveredOccurrences"] = declarations?.Count;
+        report["declarationExclusions"] = declarations is null ? null : new JsonObject(declarations.Select(p => new KeyValuePair<string, JsonNode?>(p.Key,
+            new JsonArray(p.Value.Select(v => (JsonNode?)JsonValue.Create(v)).ToArray()))));
+        report["dependencies"] = new JsonArray(state.ObligationRelations.Select(r => (JsonNode)new JsonObject { ["producer"] = r.Producer, ["consumer"] = r.Consumer, ["role"] = r.Role }).ToArray());
+        report["fixtureDeclarations"] = state.Declarations.Count == 0 ? null : new JsonArray(state.Declarations.Select(d => (JsonNode)new JsonObject
+        { ["name"] = PlanningDeclarations.Name(state, d), ["direction"] = d.Direction, ["required"] = d.Required,
+            ["default"] = PlanningDeclarations.Default(state, d) is { } value ? JsonSerializer.SerializeToNode(value, PlanningJsonContext.Default.PlanningValue) : null,
+            ["modifiers"] = d.ModifierReferences.Count }).ToArray());
         report["case"] = name; report["status"] = failure is null ? "passed" : "stopped"; report["firstBlocker"] = failure;
         report["runtimeRoles"] = new JsonObject(state.RuntimeEvidence.GroupBy(e => e.Role).Select(g => new KeyValuePair<string, JsonNode?>(g.Key, JsonValue.Create(g.Count()))));
         report["runtimeEvidence"] = new JsonArray(state.RuntimeEvidence.Select(e => (JsonNode)new JsonObject
@@ -245,9 +267,10 @@ internal static class RuntimeAdmissionDiagnostic
     private static async Task<string> ArchiveAsync(IKeyVaultRecordStore records, CancellationToken ct)
     {
         var parts = new List<string>();
-        foreach (var collection in new[] { ProgressiveCampaign.CampaignCollection, EfPlanningSessionStore.Collection, PlanningModelJournal.RequestCollection, PlanningModelJournal.Collection, PlanningBudgetSink.Collection })
-            foreach (var item in (await records.ListAsync(collection, ProgressiveCampaign.Tenant, EfPlanningSessionStore.Author, ct)).OrderBy(r => r.Key, StringComparer.Ordinal))
-                parts.Add(collection + ":" + item.Key + ":" + PlanningGraphCompiler.Fingerprint(item.Value));
+        foreach (var tenant in new[] { ProgressiveCampaign.Tenant, Tenant })
+        foreach (var collection in new[] { ProgressiveCampaign.CampaignCollection, Collection, EfPlanningSessionStore.Collection, PlanningModelJournal.RequestCollection, PlanningModelJournal.Collection, PlanningBudgetSink.Collection })
+            foreach (var item in (await records.ListAsync(collection, tenant, EfPlanningSessionStore.Author, ct)).Where(r => !r.Key.StartsWith(Identity, StringComparison.Ordinal)).OrderBy(r => r.Key, StringComparer.Ordinal))
+                parts.Add(tenant + ":" + collection + ":" + item.Key + ":" + PlanningGraphCompiler.Fingerprint(item.Value));
         return PlanningGraphCompiler.Fingerprint(string.Join('|', parts));
     }
 }

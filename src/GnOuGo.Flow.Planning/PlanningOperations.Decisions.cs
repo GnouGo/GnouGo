@@ -25,7 +25,8 @@ internal static partial class PlanningOperations
     {
         RequireRuntimeEvidence(state);
         var sources = SourceScopes(state);
-        return state.RuntimeEvidence.Where(e => e.Role is "local_behavior" or "runtime_action")
+        var excluded = DeclarationExclusions(state);
+        return state.RuntimeEvidence.Where(e => (e.Role is "local_behavior" or "runtime_action") && !excluded.ContainsKey(e.Id))
             .OrderBy(e => state.References.Single(r => r.Id == e.SourceReference).SourceId, StringComparer.Ordinal)
             .ThenBy(e => state.References.Single(r => r.Id == e.ActionReference).Start).ThenBy(e => e.Id, StringComparer.Ordinal)
             .Select(e => sources.Single(s => s.Clause.Id == e.ClauseReference) with { Evidence = e }).ToArray();

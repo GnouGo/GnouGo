@@ -10,5 +10,6 @@
     <ProjectReference Include="../../src/GnOuGo.Agent.Server/GnOuGo.Agent.Server.csproj" />
     <None Include="CodeReviewPolicy.txt" CopyToOutputDirectory="PreserveNewest" />
     <EmbeddedResource Include="CodeReviewExecutionFixture.cs" />
+    <EmbeddedResource Include="RuntimeEvidenceDeclarations.json" />
   </ItemGroup>
 </Project>

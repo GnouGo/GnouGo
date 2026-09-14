@@ -247,6 +247,8 @@ public sealed class TypedPlannerTests
             var selected = allowed.Contains(kind) ? kind : "information";
             var items = new JsonArray(Item(selected));
             if (selected == "local_processing") items.Add((JsonNode)Item("declaration_candidate"));
+            if (p.Value!["properties"]!["runtime"] is null)
+                return new KeyValuePair<string, JsonNode?>(p.Key, new JsonObject { ["obligations"] = items });
             var variant = p.Value!["properties"]!["runtime"]!["items"]!["anyOf"]!.AsArray()
                 .FirstOrDefault(v => v!["properties"]?["kind"]?["enum"]?.AsArray().Any(k => k!.ToString() == selected) == true);
             var runtime = new JsonObject { ["role"] = "policy" };

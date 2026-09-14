@@ -136,7 +136,7 @@ public sealed class FlowLlmCapabilityResolverTests
             // Source interpretation includes the request and host policy pages.
             // Stop after that phase; these synthetic receipts make no convergence claim.
             var response = new JsonObject(request.StructuredOutputSchema!["properties"]!.AsObject()
-                .Select(p => new KeyValuePair<string, JsonNode?>(p.Key, new JsonObject
+                .Select(p => new KeyValuePair<string, JsonNode?>(p.Key, p.Value!["properties"]!["runtime"] is null ? new JsonObject { ["obligations"] = new JsonArray() } : new JsonObject
                 { ["obligations"] = new JsonArray(), ["runtime"] = new JsonArray(new JsonObject { ["role"] = "contract" }) })));
             return Task.FromResult(new LLMResponse { Json = response, Usage = new JsonObject { ["input_tokens"] = 10, ["output_tokens"] = 5 } });
         }

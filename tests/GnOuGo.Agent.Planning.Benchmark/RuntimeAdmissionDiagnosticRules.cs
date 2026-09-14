@@ -5,7 +5,8 @@ namespace GnOuGo.Agent.Planning.Benchmark;
 
 internal static class RuntimeAdmissionDiagnosticRules
 {
-    internal const string Identity = "schema5-runtime-admission-diagnostics-1";
+    internal const string Identity = "schema5-runtime-evidence-diagnostics-1";
+    internal const int MaxCalls = 16;
     internal static readonly string[] Cases = ["local", "mixed"];
     internal static void RequireCase(string name, JsonObject? previous)
     {
@@ -14,12 +15,15 @@ internal static class RuntimeAdmissionDiagnosticRules
     }
     internal static void RequireRequest(PlanningSnapshot state)
     {
-        if (state.RequestAccounting.Select(c => c.Id).Distinct(StringComparer.Ordinal).Count() > 8)
-            throw new InvalidOperationException("The isolated case exhausted its eight-request ceiling.");
-        if (state.RequestAccounting.Any(c => c.Phase is not ("intent" or "intent_repair" or "intent_operations" or "intent_operations_repair") || c.Reasoning != "low"))
+        if (state.RequestAccounting.Any(c => c.Phase is not ("intent" or "intent_repair" or "intent_operations" or "intent_operations_repair" or "intent_relations" or "intent_relations_repair") || c.Reasoning != "low"))
             throw new InvalidOperationException("This diagnostic cannot dispatch other phases or reasoning profiles.");
         if (state.Graph is not null || state.BehaviorPlan is not null || state.ApprovedBehaviorHash is not null || state.ApprovedHash is not null)
             throw new InvalidOperationException("An admission diagnostic cannot construct or approve a workflow.");
+    }
+
+    internal static void RequirePreflight(int interpretationPages)
+    {
+        if (interpretationPages > MaxCalls) throw new InvalidOperationException("Packed interpretation exceeds the frozen diagnostic budget before dispatch.");
     }
 
     // Report only semantic enum domains. Source text, names, scoped references

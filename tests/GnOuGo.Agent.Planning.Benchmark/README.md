@@ -389,8 +389,18 @@ report` reads the retained redacted report without dispatch. These commands crea
 no planning session and cannot accept behavior or approve a workflow.
 
 The pure-local and read-plus-local cases supply explicit canonical declaration
-preconditions. Fresh production interpretation provides the independent runtime
-evidence. Each case has an eight-provider-request ceiling, all-low profiles and
+preconditions, including exact owned declaration and preservation attachments.
+The harness retains fresh interpretation receipts and non-declaration obligations;
+it installs only the explicitly labelled canonical declaration fixture before admission.
+Fresh production interpretation provides the independent runtime evidence.
+`diagnose-runtime-admission selfcheck` validates these fixtures without provider calls.
+The identity is `schema5-runtime-evidence-diagnostics-1`; the previous diagnostic is immutable.
+Each case has a durable sixteen-dispatch budget, all-low profiles and
 unchanged output partition/escalation limits. Completed receipts survive restart;
-stopped cases and unverifiable reservations cannot retry. See
+stopped cases and unverifiable reservations cannot retry. The mixed case runs only
+after the local case passes, and verifies read-to-transform dataflow through the
+existing relationship requests. Interpretation packing is checked before dispatch;
+coordinator-only reservations are reported separately from actual journal requests.
+Reports count omitted policy runtime facets separately from covered local occurrences.
+See
 [runtime admission](../../docs/planner-runtime-admission.md) for the evidence boundary.

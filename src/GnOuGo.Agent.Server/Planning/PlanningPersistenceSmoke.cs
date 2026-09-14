@@ -74,9 +74,11 @@ internal static class PlanningPersistenceSmoke
         state.OperationAdmissionFingerprint = "operation-set-proof";
         state.RuntimeEvidenceFingerprint = "runtime-proof";
         state.RuntimeEvidence = [new("runtime", "source", "clause", "local_behavior", "anchor", "subject", "anchor", "local_processing", "distinct", null, null, true, "proof")
-            { ExecutionScope = PlanningRuntimeExecutionScope.GeneratedWorkflow, Origin = PlanningRuntimeEvidenceOrigin.SourceInterpretation }];
+            { ExecutionScope = PlanningRuntimeExecutionScope.GeneratedWorkflow, Origin = PlanningRuntimeEvidenceOrigin.SourceInterpretation },
+            new("policy_runtime", "policy_source", "policy_clause", "policy", null, null, null, null, null, null, null, false, "engine_policy_proof")
+            { ExecutionScope = PlanningRuntimeExecutionScope.Policy, Origin = PlanningRuntimeEvidenceOrigin.EngineSourceAuthority }];
         state.Obligations = [new("action", ["anchor"], "workflow", "local_processing", true)
-        { Disposition = "admitted", OperationAdmission = new(2, "action", "anchor", null,
+        { Disposition = "admitted", OperationAdmission = new(3, "action", "anchor", null,
             [new("decision", "clause", "anchor", "local_processing", true, null, null) { RuntimeEvidenceId = "runtime" },
              new("reuse", "rules", "rule_anchor", "local_processing", true, "action", null)], "evidence-proof", "operation-proof") }];
         state.References = [new("reference", "smoke:" + state.Request.SessionId, 4, "request", "source-fingerprint", "user_request", 0, 7)];
@@ -95,10 +97,10 @@ internal static class PlanningPersistenceSmoke
             RequestContext = new System.Text.Json.Nodes.JsonObject { ["privateScope"] = "Encrypted scope" } };
         if (!await reopened.TrySaveAsync(state, 3, CancellationToken.None)) throw new InvalidOperationException("Decision preparation persistence failed.");
         var prepared = await reopened.LoadAsync("smoke", state.Request.SessionId, CancellationToken.None);
-        if (prepared?.RuntimeEvidenceFingerprint != "runtime-proof" || prepared.RuntimeEvidence.Single().ProofFingerprint != "proof" ||
-            prepared.RuntimeEvidence[0].ExecutionScope != PlanningRuntimeExecutionScope.GeneratedWorkflow || prepared.RuntimeEvidence[0].Origin != PlanningRuntimeEvidenceOrigin.SourceInterpretation)
+        if (prepared?.RuntimeEvidenceFingerprint != "runtime-proof" || prepared.RuntimeEvidence[0].ProofFingerprint != "proof" ||
+            prepared.RuntimeEvidence[0].ExecutionScope != PlanningRuntimeExecutionScope.GeneratedWorkflow || prepared.RuntimeEvidence[0].Origin != PlanningRuntimeEvidenceOrigin.SourceInterpretation || prepared.RuntimeEvidence[1].Origin != PlanningRuntimeEvidenceOrigin.EngineSourceAuthority || prepared.RuntimeEvidence[1].Role != "policy")
             throw new InvalidOperationException("Runtime execution evidence did not survive encrypted persistence.");
-        if (prepared?.OperationAdmissionFingerprint != "operation-set-proof" || prepared.Obligations.Single().OperationAdmission is not { Version: 2 } admission ||
+        if (prepared?.OperationAdmissionFingerprint != "operation-set-proof" || prepared.Obligations.Single().OperationAdmission is not { Version: 3 } admission ||
             admission.Assignments[0].RuntimeEvidenceId != "runtime" || admission.Assignments[1].TargetId != "action" || admission.Assignments[1].ClauseReference != "rules" || admission.ProofFingerprint != "operation-proof")
             throw new InvalidOperationException("Canonical operation evidence did not survive encrypted persistence.");
         if (prepared?.BusinessDecisions.Single().Constraints.Single().Applicability != "omitted" ||

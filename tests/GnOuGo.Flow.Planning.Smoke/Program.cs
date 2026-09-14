@@ -103,7 +103,7 @@ var computation = new WorkflowCompiler().Compile(WorkflowParser.Parse(compiler.C
 var computationResult = await new WorkflowEngine().ExecuteAsync(computation.Workflows[computation.Entrypoint!], new JsonObject(), CancellationToken.None);
 if (!computationResult.Success || computationResult.Outputs?["message"]?.ToString() != "READY") throw new InvalidOperationException("Published named computation failed.");
 var planner = new TypedWorkflowPlanner();
-var session = new PlanningSnapshot { Request = new() { TenantId = "smoke", Prompt = "Return the ready message" } };
+var session = new PlanningSnapshot { Request = new() { TenantId = "smoke", Prompt = "Produce the ready value. Required output message." } };
 var runtime = new SmokeRuntime(graph, preparation);
 for (var attempt = 0; attempt < 30 && session.Status != PlanningStatus.Approved; attempt++)
 {
@@ -118,7 +118,7 @@ runtime.InvalidIntent = true;
 recovery = await planner.AdvanceAsync(recovery, new() { ExpectedRevision = recovery.Revision }, runtime, CancellationToken.None);
 if (recovery.Status != PlanningStatus.Stopped || recovery.Outcome is not null || recovery.Intent.Checked) throw new InvalidOperationException("Published intent recovery failed.");
 recovery = JsonSerializer.Deserialize(JsonSerializer.Serialize(recovery, PlanningJsonContext.Default.PlanningSnapshot), PlanningJsonContext.Default.PlanningSnapshot)!;
-recovery = await planner.AdvanceAsync(recovery, new() { Kind = "edit_intent", Text = "Return the ready message", ExpectedRevision = recovery.Revision }, runtime, CancellationToken.None);
+recovery = await planner.AdvanceAsync(recovery, new() { Kind = "edit_intent", Text = "Produce the ready value. Required output message.", ExpectedRevision = recovery.Revision }, runtime, CancellationToken.None);
 runtime.InvalidIntent = false;
 recovery = await planner.AdvanceAsync(recovery, new() { ExpectedRevision = recovery.Revision }, runtime, CancellationToken.None);
 if (!recovery.Intent.Checked || recovery.Intent.History.Count != 1 || recovery.Diagnostics.Count != 0) throw new InvalidOperationException("Published edited intent did not resume.");
@@ -219,6 +219,7 @@ sealed class SmokeRuntime(PlanningGraph graph, PlanningPreparation preparation) 
     {
         await PlanningDeclarations.ResolveAsync(state, this, ct);
         await PlanningOperations.ResolveAsync(state, this, ct);
+        PlanningOperations.RequireExecutableIntent(state);
         preparation.Capabilities = [new() { Id = "declared", Description = "Return the ready message", Required = true, Resolution = "available", StepType = "set",
             OperationIds = state.Obligations.Where(PlanningSourceDecisions.IsOperation).Select(o => o.Id).ToList(),
             FixedInput = new() { ["message"] = "ready" }, OutputSchema = JsonNode.Parse("""{"type":"object","properties":{"message":{"type":"string"}},"required":["message"],"additionalProperties":false}""")!.AsObject() }];
@@ -245,12 +246,19 @@ sealed class SmokeRuntime(PlanningGraph graph, PlanningPreparation preparation) 
         };
         return Task.FromResult(new LLMResponse { Json = json });
     }
-    private static JsonObject IntentResponse(LLMRequest request) => new(request.StructuredOutputSchema!["properties"]!.AsObject().Select(p =>
+    private JsonObject IntentResponse(LLMRequest request) => new(request.StructuredOutputSchema!["properties"]!.AsObject().Select(p =>
     {
         var schema = p.Value!["properties"]!["obligations"]!["items"]!["properties"]!;
         JsonObject Span() => new() { ["start"] = schema["start"]!["enum"]![0]!.DeepClone(), ["end"] = schema["end"]!["enum"]!.AsArray()[^1]!.DeepClone() };
-        var obligations = new JsonArray(new[] { "local_processing", "declaration_candidate" }.Select(role =>
-        { var value = Span(); value["kind"] = role; value["required"] = true; return (JsonNode)value; }).ToArray());
+        if (p.Value!["properties"]!["runtime"] is null)
+            return new KeyValuePair<string, JsonNode?>(p.Key, new JsonObject { ["obligations"] = new JsonArray() });
+        // Explicit synthetic fixture clauses separate the executable action from
+        // the public output contract. This is not production interpretation.
+        var declaration = PlanningSourceDecisions.InterpretationDecisions(_snapshot!).Single(d => d.Id == p.Key).Context["words"]!["b0"]!.ToString() == "Required";
+        var obligation = Span(); obligation["kind"] = declaration ? "declaration_candidate" : "local_processing"; obligation["required"] = true;
+        var obligations = new JsonArray(obligation);
+        if (declaration) return new KeyValuePair<string, JsonNode?>(p.Key, new JsonObject { ["obligations"] = obligations,
+            ["runtime"] = new JsonArray(new JsonObject { ["role"] = "contract" }) });
         var runtime = p.Value["properties"]!["runtime"]!["items"]!["anyOf"]![1]!["properties"]!;
         return new KeyValuePair<string, JsonNode?>(p.Key, new JsonObject { ["obligations"] = obligations,
             ["runtime"] = new JsonArray(new JsonObject { ["role"] = "local_behavior", ["kind"] = "local_processing", ["action"] = Span(),

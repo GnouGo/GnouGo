@@ -22,7 +22,9 @@ internal static class PlanningFixtures
         foreach (var reference in PlanningReferences.Register(state, source.Id, source.Kind, source.Text).ToArray().Where(r => !string.IsNullOrWhiteSpace(source.Text.Substring(r.Start, r.Length))))
         {
             if (state.RuntimeEvidence.Any(e => state.References.Single(r => r.Id == e.SourceReference) is var covered && covered.SourceId == reference.SourceId && covered.Start <= reference.Start && covered.Start + covered.Length >= reference.Start + reference.Length)) continue;
-            state.RuntimeEvidence.Add(PlanningOperations.SealRuntime(state, new("", reference.Id, PlanningChoiceEvidence.Parent(state, reference.Id).Id,
+            if (source.Authority == PlanningSourceAuthority.ConstraintsOnly)
+                state.RuntimeEvidence.Add(PlanningOperations.PolicyEvidence(state, reference));
+            else state.RuntimeEvidence.Add(PlanningOperations.SealRuntime(state, new("", reference.Id, PlanningChoiceEvidence.Parent(state, reference.Id).Id,
                 "contract", null, null, null, null, null, null, null, false, "")));
         }
         state.RuntimeEvidenceFingerprint = PlanningOperations.RuntimeFingerprint(state);

@@ -71,6 +71,9 @@ internal static partial class PlanningDecisionPages
         return values;
     }
 
+    internal static int PackedPageCount(PlanningSnapshot state, IReadOnlyList<Decision> decisions)
+        => Pack(state, decisions.OrderBy(d => d.Id, StringComparer.Ordinal).ToArray()).Count();
+
     private static IEnumerable<Decision[]> Pack(PlanningSnapshot state, IReadOnlyList<Decision> decisions)
     {
         var batch = new List<Decision>();

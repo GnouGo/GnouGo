@@ -72,7 +72,7 @@ public sealed record PlanningRuntimeEvidence(string Id, string SourceReference, 
     public PlanningRuntimeEvidenceOrigin Origin { get; init; }
 }
 public enum PlanningRuntimeExecutionScope { Unknown, PlanningArtifact, PublicContract, Policy, GeneratedWorkflow }
-public enum PlanningRuntimeEvidenceOrigin { Unknown, SourceInterpretation }
+public enum PlanningRuntimeEvidenceOrigin { Unknown, SourceInterpretation, EngineSourceAuthority }
 
 /// <summary>Canonical operation proof; preliminary source labels confer no execution authority.</summary>
 public sealed record PlanningOperationAdmission(int Version, string CanonicalId, string AnchorReference,

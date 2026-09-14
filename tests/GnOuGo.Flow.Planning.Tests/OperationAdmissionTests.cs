@@ -103,8 +103,9 @@ public sealed class OperationAdmissionTests
         var state = State("Process the supplied value."); state.Request.Options["policy"] = new JsonObject { ["instructions"] = "Create an external resource only with permission." };
         var source = PlanningIntentAssessment.IntentSources(state).Single(s => s.Authority == PlanningSourceAuthority.ConstraintsOnly);
         var reference = PlanningReferences.Register(state, source.Id, source.Kind, source.Text)[0];
-        var schema = PlanningOperations.RuntimeSchema(state, source.Authority, PlanningReferences.Boundaries(reference, source.Text).Schema);
-        Assert.DoesNotContain("local_behavior", schema.ToJsonString()); Assert.DoesNotContain("runtime_action", schema.ToJsonString());
+        Assert.Throws<InvalidOperationException>(() => PlanningOperations.RuntimeSchema(state, source.Authority, PlanningReferences.Boundaries(reference, source.Text).Schema));
+        var pages = PlanningSourceDecisions.InterpretationDecisions(state).Where(d => d.Context["role"]!.ToString() == "host_constraint");
+        Assert.NotEmpty(pages); Assert.All(pages, p => Assert.Null(p.Schema["properties"]!["runtime"]));
     }
 
     [Theory]
