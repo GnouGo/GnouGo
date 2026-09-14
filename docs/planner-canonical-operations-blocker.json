@@ -1,0 +1,241 @@
+{
+  "session": "984756f1099448a3856e6280d53ebba3",
+  "revision": 34,
+  "firstObservedSemanticFinding": {
+    "classification": "workflow_authoring_vs_runtime_action",
+    "decision": "operation_r_65b1fb92b2914560b8224cf4",
+    "clause": "Create one reusable workflow classifying a single record.",
+    "assignment": {
+      "status": "operations",
+      "actions": [
+        {
+          "start": "b0",
+          "end": "b8",
+          "kind": "resource_lifecycle",
+          "target": null,
+          "baseline": null,
+          "required": true
+        }
+      ]
+    },
+    "stagedOnly": true,
+    "admitted": false,
+    "requestEvidence": {
+      "requestId": "984756f1099448a3856e6280d53ebba3:12:5:intent_operations:response_contract:93beceaf3191e878:page_66ac6cfd92fcd4b0d86b4e46a2379745cc25ba2065029a3470228c3d0c76d107:a8c7e2f5cde0495074e10ff3ca2d77290d089d362e47dff41820776b5476bd63",
+      "status": "completed",
+      "requestFingerprint": "32966aa251e97754c20fe6f2ee6972c7fd42946eb9e07f176d9f2dce79ba0d71",
+      "receiptFingerprint": "bcc954f20c77d76c2adc915a331d3642213127125116510aa3ad1193f2d9a204",
+      "inputTokens": 579,
+      "outputTokens": 63,
+      "reasoningTokens": 0
+    },
+    "assessment": "The workflow-authoring request was selected as a required resource_lifecycle runtime action. Source ownership and a RequestedBehavior authority check do not prove execution scope."
+  },
+  "terminalPlannerStop": {
+    "classification": "verified_singleton_output_exhaustion",
+    "code": "DECISION_OUTPUT_LIMIT",
+    "location": "/decisions/operation_r_8f9f6d01e24b42f645c7795e",
+    "decision": "operation_r_8f9f6d01e24b42f645c7795e",
+    "clause": "Return classifiedResult:{id:string,amount:number,category:string}, all members required.",
+    "assignment": null,
+    "requestEvidence": {
+      "requestId": "984756f1099448a3856e6280d53ebba3:30:10:intent_operations:response_contract:93beceaf3191e878:page_d43d882e31ecdda57f3f425ad15fd11ec1e36092a52f79a4b0323762690a2485:25576a214d5802c9472d78d8886787b0996276e9d477194318f54d7f19a69750",
+      "status": "completed",
+      "requestFingerprint": "da52939ffb018526f485fc1e6e69e2a6c40125c6bd9386023f1337019cd29d42",
+      "receiptFingerprint": "0630c5690d58d232944c1d9822101cbcb6ca92d097832d43f3632d298002cc27",
+      "inputTokens": 890,
+      "outputTokens": 16384,
+      "reasoningTokens": 16384
+    },
+    "page": {
+      "id": "page_d43d882e31ecdda57f3f425ad15fd11ec1e36092a52f79a4b0323762690a2485",
+      "parentId": "page_db6af557b9f4702e949d35acecc35f0b024cb68715fbd4a191398964d9b1e26e",
+      "origin": 4,
+      "gate": "response_contract",
+      "partitionChildren": [],
+      "outputEscalationChildId": null,
+      "outputBudgetEscalation": {
+        "parentPageId": "page_db6af557b9f4702e949d35acecc35f0b024cb68715fbd4a191398964d9b1e26e",
+        "parentRequestId": "984756f1099448a3856e6280d53ebba3:28:9:intent_operations:response_contract:93beceaf3191e878:page_db6af557b9f4702e949d35acecc35f0b024cb68715fbd4a191398964d9b1e26e:cf1c145f2d3c439ada3ffd9736edeebff7dcd3096ce8bf57aa7d7fe936d0abc2",
+        "parentRequestHash": "cf1c145f2d3c439ada3ffd9736edeebff7dcd3096ce8bf57aa7d7fe936d0abc2",
+        "parentReceiptFingerprint": "86046107577167c5dd20254582e796b82312c9e662de59c6ae9897bb9c483368",
+        "decisionId": "operation_r_8f9f6d01e24b42f645c7795e",
+        "canonicalDecisionId": "operation_r_8f9f6d01e24b42f645c7795e",
+        "evidenceFingerprint": "1eee174803c984dff30f8fee17d21db139432fa1913365174061dc8047e14167",
+        "level": 1
+      },
+      "effectiveOutputTokens": 16384,
+      "correction": false,
+      "phase": "intent_operations",
+      "workflowKey": "$plan",
+      "evidenceFingerprint": "c6ba0591bb029e902ae92a59396f8e75db387d7df3a4cdcf253c98b08cabf6ee",
+      "decisions": [
+        "operation_r_8f9f6d01e24b42f645c7795e"
+      ],
+      "status": "stopped",
+      "estimatedInputTokens": 1623,
+      "inputTargetTokens": 9600,
+      "estimatedAnswerTokens": 512,
+      "requestId": "984756f1099448a3856e6280d53ebba3:30:10:intent_operations:response_contract:93beceaf3191e878:page_d43d882e31ecdda57f3f425ad15fd11ec1e36092a52f79a4b0323762690a2485:25576a214d5802c9472d78d8886787b0996276e9d477194318f54d7f19a69750"
+    }
+  },
+  "strictTerminalReplay": {
+    "session": "984756f1099448a3856e6280d53ebba3",
+    "sourceRevision": 30,
+    "sourceUnchanged": true,
+    "counterfactual": false,
+    "counterfactualRequest": null,
+    "status": "stopped",
+    "phase": "capabilities",
+    "localAdvances": 1,
+    "replayedReceipts": 2,
+    "providerDispatches": 0,
+    "lastRequestPhase": "intent_operations",
+    "lastRequestId": "984756f1099448a3856e6280d53ebba3:30:10:intent_operations:response_contract:93beceaf3191e878:page_d43d882e31ecdda57f3f425ad15fd11ec1e36092a52f79a4b0323762690a2485:25576a214d5802c9472d78d8886787b0996276e9d477194318f54d7f19a69750",
+    "behaviorPresent": false,
+    "graphPresent": false,
+    "diagnostics": [
+      {
+        "code": "DECISION_OUTPUT_LIMIT",
+        "location": "/decisions/operation_r_8f9f6d01e24b42f645c7795e"
+      }
+    ]
+  },
+  "committedOperations": 0,
+  "stagedDecisions": [
+    {
+      "page": "page_da1ab5213ab740017f628ff56090d277899b7fcdd92a5fea1b507d221bae3505",
+      "status": "completed",
+      "requestId": "984756f1099448a3856e6280d53ebba3:10:4:intent_operations:response_contract:93beceaf3191e878:page_da1ab5213ab740017f628ff56090d277899b7fcdd92a5fea1b507d221bae3505:392a622887a1f64af2ffaaf0b7c94988f25582ce50a7bb345c35fcefaf14188f",
+      "decision": "operation_r_65b1fb92b2914560b8224cf4",
+      "clause": "Create one reusable workflow classifying a single record.",
+      "assignment": {
+        "status": "operations",
+        "actions": [
+          {
+            "start": "b0",
+            "end": "b8",
+            "kind": "resource_lifecycle",
+            "target": null,
+            "baseline": null,
+            "required": true
+          }
+        ]
+      }
+    },
+    {
+      "page": "page_66ac6cfd92fcd4b0d86b4e46a2379745cc25ba2065029a3470228c3d0c76d107",
+      "status": "completed",
+      "requestId": "984756f1099448a3856e6280d53ebba3:12:5:intent_operations:response_contract:93beceaf3191e878:page_66ac6cfd92fcd4b0d86b4e46a2379745cc25ba2065029a3470228c3d0c76d107:a8c7e2f5cde0495074e10ff3ca2d77290d089d362e47dff41820776b5476bd63",
+      "decision": "operation_r_65b1fb92b2914560b8224cf4",
+      "clause": "Create one reusable workflow classifying a single record.",
+      "assignment": {
+        "status": "operations",
+        "actions": [
+          {
+            "start": "b0",
+            "end": "b8",
+            "kind": "resource_lifecycle",
+            "target": null,
+            "baseline": null,
+            "required": true
+          }
+        ]
+      }
+    },
+    {
+      "page": "page_7614d740c658f91f5d0d1f4d72e8302835b54145e1a0e58a8f2b60aa039f43c5",
+      "status": "completed",
+      "requestId": "984756f1099448a3856e6280d53ebba3:17:6:intent_operations:response_contract:93beceaf3191e878:page_7614d740c658f91f5d0d1f4d72e8302835b54145e1a0e58a8f2b60aa039f43c5:20605f7d8c1b28f459d5312fd02ed12e8dc2ba0f92e1200256b6f8f1c6a32507",
+      "decision": "operation_r_8883d65f4a2370e6c2b814f7",
+      "clause": "Required input record is an object with required id:string, amount:number and approved:boolean.",
+      "assignment": {
+        "status": "not_an_operation"
+      }
+    },
+    {
+      "page": "page_8b413485bd40c98d583930579aaae19458bb8d4a2de2ae402301fbc492c0ecbd",
+      "status": "completed",
+      "requestId": "984756f1099448a3856e6280d53ebba3:21:7:intent_operations:response_contract:93beceaf3191e878:page_8b413485bd40c98d583930579aaae19458bb8d4a2de2ae402301fbc492c0ecbd:a657b0424ccdf56d75f25994ffead2fecb95ab787e3c0eeb9dd147b1c6577a2e",
+      "decision": "operation_r_c0fb15089d35f820ad471b14",
+      "clause": "Optional input threshold is a non-nullable number defaulting to 100 when omitted.",
+      "assignment": {
+        "status": "operations",
+        "actions": [
+          {
+            "start": "b7",
+            "end": "b12",
+            "kind": "local_processing",
+            "target": null,
+            "baseline": null,
+            "required": true
+          }
+        ]
+      }
+    },
+    {
+      "page": "page_7ad9c4918b685f11d05261a664fc7db4702b12e457d1d25a96103f8e58eb1497",
+      "status": "completed",
+      "requestId": "984756f1099448a3856e6280d53ebba3:23:8:intent_operations:response_contract:93beceaf3191e878:page_7ad9c4918b685f11d05261a664fc7db4702b12e457d1d25a96103f8e58eb1497:3676421cb58a5dd1f95708abb8b250827e4186f91aeb9afe9df796ee7e058a96",
+      "decision": "operation_r_c0fb15089d35f820ad471b14",
+      "clause": "Optional input threshold is a non-nullable number defaulting to 100 when omitted.",
+      "assignment": {
+        "status": "operations",
+        "actions": [
+          {
+            "start": "b7",
+            "end": "b12",
+            "kind": "local_processing",
+            "target": null,
+            "baseline": null,
+            "required": true
+          }
+        ]
+      }
+    },
+    {
+      "page": "page_db6af557b9f4702e949d35acecc35f0b024cb68715fbd4a191398964d9b1e26e",
+      "status": "escalating",
+      "requestId": "984756f1099448a3856e6280d53ebba3:28:9:intent_operations:response_contract:93beceaf3191e878:page_db6af557b9f4702e949d35acecc35f0b024cb68715fbd4a191398964d9b1e26e:cf1c145f2d3c439ada3ffd9736edeebff7dcd3096ce8bf57aa7d7fe936d0abc2",
+      "decision": "operation_r_8f9f6d01e24b42f645c7795e",
+      "clause": "Return classifiedResult:{id:string,amount:number,category:string}, all members required.",
+      "assignment": null
+    },
+    {
+      "page": "page_d43d882e31ecdda57f3f425ad15fd11ec1e36092a52f79a4b0323762690a2485",
+      "status": "stopped",
+      "requestId": "984756f1099448a3856e6280d53ebba3:30:10:intent_operations:response_contract:93beceaf3191e878:page_d43d882e31ecdda57f3f425ad15fd11ec1e36092a52f79a4b0323762690a2485:25576a214d5802c9472d78d8886787b0996276e9d477194318f54d7f19a69750",
+      "decision": "operation_r_8f9f6d01e24b42f645c7795e",
+      "clause": "Return classifiedResult:{id:string,amount:number,category:string}, all members required.",
+      "assignment": null
+    }
+  ],
+  "archiveAccountingUnchanged": true,
+  "productionSourcesAndBinariesUnchanged": true,
+  "liveSessionsStarted": 1,
+  "replacementSessionsStarted": 0,
+  "stage2Started": false,
+  "productionPatchesAfterLive": 0,
+  "strictAdmissionReplay": {
+    "session": "984756f1099448a3856e6280d53ebba3",
+    "sourceRevision": 12,
+    "sourceUnchanged": true,
+    "counterfactual": false,
+    "counterfactualRequest": null,
+    "status": "stopped",
+    "phase": "capabilities",
+    "localAdvances": 1,
+    "replayedReceipts": 2,
+    "providerDispatches": 0,
+    "lastRequestPhase": "intent_operations",
+    "lastRequestId": "984756f1099448a3856e6280d53ebba3:12:6:intent_operations:response_contract:93beceaf3191e878:page_7614d740c658f91f5d0d1f4d72e8302835b54145e1a0e58a8f2b60aa039f43c5:20605f7d8c1b28f459d5312fd02ed12e8dc2ba0f92e1200256b6f8f1c6a32507",
+    "behaviorPresent": false,
+    "graphPresent": false,
+    "diagnostics": [
+      {
+        "code": "REPLAY_EVIDENCE_REQUIRED",
+        "location": "/preparation"
+      }
+    ]
+  }
+}

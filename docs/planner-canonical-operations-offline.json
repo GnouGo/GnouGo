@@ -306,5 +306,28 @@
       "records": 13,
       "fingerprint": "ba298ee1dbf41e74bd4d613ab246214efc6565e917b5e66d56bd436937eb3c21"
     }
+  },
+  "frozenProductionCommit": "4941985d0d41b8a4e8d9596621a8f202dd2bfa86",
+  "harnessPinCommit": "862cd49",
+  "harnessSha256": "728a2a2322843c3d1df43467502145a89801a4b0becd1b35aaee0dd8c739437e",
+  "archiveAccountingAfterLive": {
+    "campaignRecords": 17,
+    "campaignFingerprint": "3b0585d94a26ac7fc803542a6d7086b1102ee23ebb250be122a141fab913717e",
+    "agent-planning-snapshots-v5": {
+      "records": 398,
+      "fingerprint": "bcc69690a0c020c2ffbee6e06fb47e3da1ed18b8e268d90e6fb3685493828493"
+    },
+    "agent-planning-model-requests-v5": {
+      "records": 96,
+      "fingerprint": "a543debdba987cdc25a42dac21d804ad5a05e3aa459b44a290103856b9cf9b71"
+    },
+    "agent-planning-model-receipts-v5": {
+      "records": 94,
+      "fingerprint": "3bc3f70b5924b76c37f666571bb3c716540cd30028706cdf328be69d85b4b027"
+    },
+    "agent-planning-budgets-v5": {
+      "records": 13,
+      "fingerprint": "ba298ee1dbf41e74bd4d613ab246214efc6565e917b5e66d56bd436937eb3c21"
+    }
   }
 }
