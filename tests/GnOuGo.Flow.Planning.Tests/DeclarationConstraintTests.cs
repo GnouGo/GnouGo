@@ -47,13 +47,17 @@ public sealed class DeclarationConstraintTests
         }
         values.Add(Link(enumEvidence.Id, output.Id, "modifier_of"));
         values.Add(Link(preservation.Id, output.Id, "modifier_of"));
+        // The source/root assignments are unchanged; synthetic attachment targets
+        // use current public identity rather than historical candidate-derived IDs.
+        var identities = state.Declarations.ToDictionary(d => d.Id, d => PlanningDeclarations.CanonicalId(PlanningDeclarations.Name(state, d), d.WorkflowScope, d.Direction));
+        values = values.Select(a => a.TargetId is { } target && identities.TryGetValue(target, out var id) ? a with { TargetId = id } : a).ToList();
         state.Declarations.Clear(); state.DeclarationAssignments.Clear(); state.DeclarationFingerprint = null;
         state.Preparation = TypedPlannerTests.Preparation();
         // Revalidate the same captured root assignments; only the new attachment answers are synthetic additions.
         var runtime = Runtime(values);
         await PlanningDeclarations.ResolveAsync(state, runtime, Ct);
         Assert.Equal(roots, Roots(state, state.DeclarationAssignments));
-        var canonical = Assert.Single(state.Declarations, d => d.Id == output.Id);
+        var canonical = Assert.Single(state.Declarations, d => d.Id == identities[output.Id]);
         Assert.Equal(output.Direction, canonical.Direction); Assert.Equal(output.Required, canonical.Required);
         Assert.Equal(output.WorkflowScope, canonical.WorkflowScope); Assert.Equal(output.NameReference, canonical.NameReference);
         Assert.Contains(enumEvidence.EvidenceReferences[0], canonical.ModifierReferences);
@@ -200,7 +204,7 @@ public sealed class DeclarationConstraintTests
         var baseline = PlanningDeclarations.Baselines(state).Single().Key;
         var values = Canonicalize(state, [Distinct(state, "input", "supplied"), Link("existing", baseline, "modifier_of")]);
         var schema = OmissionDefaultTests.Schema(state, "existing", values);
-        Assert.DoesNotContain(PlanningDeclarations.CanonicalId("input", values[0].NameReference!, "main", "input"), schema.ToJsonString());
+        Assert.DoesNotContain(PlanningDeclarations.CanonicalId(PlanningDeclarations.SourceName(state, values[0].NameReference!), "main", "input"), schema.ToJsonString());
         var before = PlanningGraphCompiler.Fingerprint(state.Request.Baseline);
         Commit(state, values);
         Assert.Equal(before, PlanningGraphCompiler.Fingerprint(state.Request.Baseline));

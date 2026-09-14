@@ -28,7 +28,7 @@ internal static partial class PlanningDeclarations
         }
     }
 
-    internal static string EvidenceFingerprint(PlanningSnapshot state) => PlanningGraphCompiler.Fingerprint("declarations-v4:" +
+    internal static string EvidenceFingerprint(PlanningSnapshot state) => PlanningGraphCompiler.Fingerprint("declarations-v5:" +
         state.Request.TenantId + ":" + state.Request.SessionId + ":" +
         string.Join('|', state.Obligations.OrderBy(o => o.Id, StringComparer.Ordinal).Select(o => o.Id + ":" + o.Grounding?.Fingerprint)) + ":" +
         (state.Request.Baseline is { } graph ? PlanningGraphCompiler.Fingerprint(graph) : ""));
@@ -70,8 +70,8 @@ internal static partial class PlanningDeclarations
         => PlanningGraphCompiler.Fingerprint(evidence + ":" + JsonSerializer.Serialize(assignments.OrderBy(a => a.CandidateId, StringComparer.Ordinal).ToList(), PlanningJsonContext.Default.ListPlanningDeclarationAssignment) + ":" +
             JsonSerializer.Serialize(declarations, PlanningJsonContext.Default.ListPlanningBusinessDeclaration));
 
-    internal static string CanonicalId(string root, string name, string scope, string direction)
-        => "decl_" + PlanningGraphCompiler.Fingerprint(root + ":" + name + ":" + scope + ":" + direction)[..24];
+    internal static string CanonicalId(string name, string scope, string direction)
+        => "decl_" + PlanningGraphCompiler.Fingerprint("public-declaration-v1:" + new JsonArray(direction, scope, name).ToJsonString())[..24];
 
     private static void ValidateAssignments(IEnumerable<PlanningDecisionPages.Decision> pages, List<PlanningDeclarationAssignment> assignments)
     {
@@ -93,13 +93,22 @@ internal static partial class PlanningDeclarations
 
     private static List<PlanningBusinessDeclaration> ValidateRoots(PlanningSnapshot state, List<PlanningDeclarationAssignment> assignments)
     {
+        var result = AssessRoots(state, assignments);
+        var conflicts = RootConflicts(result);
+        if (conflicts.Count > 0) throw RootFailure(conflicts[0], "duplicate_public_identity",
+            "Distinct declarations claim the same public name and scope. Identity must be adjudicated explicitly.");
+        return result;
+    }
+
+    private static List<PlanningBusinessDeclaration> AssessRoots(PlanningSnapshot state, List<PlanningDeclarationAssignment> assignments)
+    {
         PlanningSourceGroundingRules.ValidateAll(state);
         var candidates = Candidates(state).Where(IsCandidate).ToDictionary(o => o.Id, StringComparer.Ordinal);
         Coverage(candidates.Keys, assignments);
         ValidateAssignments(Decisions(state), assignments);
         var result = new List<PlanningBusinessDeclaration>();
         foreach (var (id, port) in Baselines(state))
-            result.Add(new(CanonicalId(id, id, port.Scope, port.Direction), port.Direction, port.Scope, id, id, port.Required,
+            result.Add(new(CanonicalId(port.Name, port.Scope, port.Direction), port.Direction, port.Scope, id, id, port.Required,
                 null, [], [], [], [], PlanningGraphCompiler.Fingerprint(EvidenceFingerprint(state) + ":" + id)));
         foreach (var root in assignments.Where(IsDistinct))
         {
@@ -107,12 +116,10 @@ internal static partial class PlanningDeclarations
             var scope = root.WorkflowScope!;
             var clauses = new[] { candidates[root.CandidateId].Grounding!.ClauseReference, root.DeclarationReference!, root.PresenceReference! }
                 .Distinct(StringComparer.Ordinal).Order(StringComparer.Ordinal).ToList();
-            result.Add(new(CanonicalId(root.CandidateId, root.NameReference!, scope, direction), direction, scope, root.NameReference!, null,
+            result.Add(new(CanonicalId(SourceName(state, root.NameReference!), scope, direction), direction, scope, root.NameReference!, null,
                 root.Presence == "required", null, [root.CandidateId], [], [], clauses,
                 PlanningGraphCompiler.Fingerprint(EvidenceFingerprint(state) + ":" + JsonSerializer.Serialize(root, PlanningJsonContext.Default.PlanningDeclarationAssignment))));
         }
-        if (result.GroupBy(d => (d.WorkflowScope, d.Direction, Name: Name(state, d))).Any(g => g.Count() > 1))
-            throw Failure("$plan", "Distinct declarations claim the same public name and scope. Identity must be adjudicated explicitly.");
         return result.OrderBy(d => d.Id, StringComparer.Ordinal).ToList();
     }
 
@@ -174,7 +181,9 @@ internal static partial class PlanningDeclarations
 
     internal static string Name(PlanningSnapshot state, PlanningBusinessDeclaration declaration) => declaration.BaselineReference is { } baseline
         ? Baselines(state).GetValueOrDefault(baseline)?.Name ?? throw Failure(declaration.Id, "The baseline name reference is stale.")
-        : NameToken(PlanningChoiceEvidence.Text(state, declaration.NameReference)) ?? throw Failure(declaration.Id, "The public name is not a supported lexical token.");
+        : SourceName(state, declaration.NameReference);
+    internal static string SourceName(PlanningSnapshot state, string reference)
+        => NameToken(PlanningChoiceEvidence.Text(state, reference)) ?? throw Failure(reference, "The public name is not a supported lexical token.");
     private static string? NameToken(string token)
     {
         if (token.StartsWith('"') && TryLiteral(token, out var value) && value is JsonValue text && text.TryGetValue<string>(out var name)) return string.IsNullOrWhiteSpace(name) ? null : name;

@@ -117,7 +117,7 @@ internal static class RuntimePersistenceSmoke
                 {
                     ["output"] = PlanningDeclarations.Assignment(new("output", "distinct_output", null, name, "main", "required", null)
                         { DeclarationReference = clauseId, PresenceReference = clauseId }),
-                    ["member"] = PlanningDeclarations.Assignment(new("member", "modifier_of", PlanningDeclarations.CanonicalId("output", name, "main", "output"), null, null, "unspecified", null))
+                    ["member"] = PlanningDeclarations.Assignment(new("member", "modifier_of", PlanningDeclarations.CanonicalId("report", "main", "output"), null, null, "unspecified", null))
                 };
                 await PlanningDecisionPages.ResolveAsync(snapshot, opened.Runtime, "intent_declarations", "$plan", PlanningDeclarations.Decisions(snapshot), CancellationToken.None);
                 if (snapshot.Declarations.Count != 0 || snapshot.DeclarationFingerprint is not null) throw new InvalidOperationException("Staged roots granted premature port authority.");
@@ -135,6 +135,46 @@ internal static class RuntimePersistenceSmoke
             {
                 await PlanningDeclarations.ResolveAsync(resumed.Snapshot, resumed.Runtime, CancellationToken.None);
                 if (client.Calls != rootCalls + 1) throw new InvalidOperationException("Published declaration replay dispatched again.");
+            }
+            PlanningSnapshot DuplicateDeclarations() => new() { Request = new() { TenantId = "smoke", Prompt = "Required output receipt is returned.", MaxRepairsPerWorkflowGate = 1 } };
+            await using (var opened = await Factory().OpenAsync(Context("duplicate-declarations"), DuplicateDeclarations(), CancellationToken.None))
+            {
+                var snapshot = opened.Snapshot;
+                var source = PlanningIntentAssessment.IntentSources(snapshot).Single(s => s.Id == "request");
+                var parent = PlanningReferences.Register(snapshot, source.Id, source.Kind, source.Text).Single();
+                foreach (var id in new[] { "root", "overlap" })
+                {
+                    var reference = parent with { Id = parent.Id + "_" + id, Kind = parent.Kind + ":selection" };
+                    snapshot.References.Add(reference);
+                    var obligation = new PlanningObligation(id, [reference.Id], "business_decision", "declaration_candidate", true);
+                    snapshot.Obligations.Add(obligation with { Grounding = PlanningSourceGroundingRules.Create(snapshot, obligation) });
+                }
+                var clauseId = snapshot.Obligations[0].Grounding!.ClauseReference;
+                var name = PlanningReferences.Lexical(snapshot, snapshot.References.Single(r => r.Id == clauseId), source.Text)
+                    .Single(r => PlanningChoiceEvidence.Text(snapshot, r.Id) == "receipt").Id;
+                var initial = new[] { "root", "overlap" }.Select(id => new PlanningDeclarationAssignment(id, "distinct_output", null, name, "main", "required", null)
+                    { DeclarationReference = clauseId, PresenceReference = clauseId }).ToList();
+                client.DeclarationAnswers = initial.ToDictionary(a => a.CandidateId, PlanningDeclarations.Assignment);
+                await PlanningDecisionPages.ResolveAsync(snapshot, opened.Runtime, "intent_declarations", "$plan", PlanningDeclarations.Decisions(snapshot), CancellationToken.None);
+                client.DeclarationAnswers["overlap"] = PlanningDeclarations.Assignment(new("overlap", "same_as", PlanningDeclarations.CanonicalId("receipt", "main", "output"), null, null, "unspecified", null));
+                await PlanningDecisionPages.ResolveCorrectionsAsync(snapshot, opened.Runtime, "intent_declarations", "$plan", PlanningGates.Response,
+                    PlanningDeclarations.RootCorrections(snapshot, initial), CancellationToken.None);
+                if (snapshot.Declarations.Count != 0) throw new InvalidOperationException("A correction granted premature declaration authority.");
+            }
+            var correctedCalls = client.Calls;
+            await using (var resumed = await Factory().OpenAsync(Context("duplicate-declarations"), DuplicateDeclarations(), CancellationToken.None))
+            {
+                await PlanningDeclarations.ResolveAsync(resumed.Snapshot, resumed.Runtime, CancellationToken.None);
+                var declaration = resumed.Snapshot.Declarations.Single();
+                if (client.Calls != correctedCalls + 1 || declaration.Id != PlanningDeclarations.CanonicalId("receipt", "main", "output") ||
+                    declaration.Aliases.Count != 1 || resumed.Snapshot.RepairAllowances.Sum(a => a.Attempts) != 1 || resumed.Snapshot.DecisionCorrections.Count != 1 ||
+                    resumed.Snapshot.DecisionPages.Count(p => p.SourceDecisionIds is { Count: 1 }) != 1)
+                    throw new InvalidOperationException("Published duplicate-root correction lost its identity, receipt or finite allowance.");
+            }
+            await using (var resumed = await Factory().OpenAsync(Context("duplicate-declarations"), DuplicateDeclarations(), CancellationToken.None))
+            {
+                await PlanningDeclarations.ResolveAsync(resumed.Snapshot, resumed.Runtime, CancellationToken.None);
+                if (client.Calls != correctedCalls + 1) throw new InvalidOperationException("Published duplicate-root replay dispatched again.");
             }
             foreach (var file in Directory.GetFiles(directory, "*", SearchOption.AllDirectories))
                 if (System.Text.Encoding.UTF8.GetString(await File.ReadAllBytesAsync(file)).Contains("private native intent", StringComparison.Ordinal))
@@ -159,7 +199,8 @@ internal static class RuntimePersistenceSmoke
                 {
                     var values = new JsonObject();
                     foreach (var field in page.Value!["properties"]!.AsObject())
-                        values[field.Key] = answers[field.Key].DeepClone();
+                        values[field.Key] = page.Key.StartsWith("declarations_root_conflict_", StringComparison.Ordinal) && answers[field.Key]["disposition"]?.ToString() is "same_as" or "modifier_of"
+                            ? new JsonObject { ["disposition"] = "deferred_attachment" } : answers[field.Key].DeepClone();
                     response[page.Key] = values;
                 }
                 return Task.FromResult(new LLMResponse { CompletionStatus = "completed", Json = response, Usage = new JsonObject { ["total_tokens"] = 2 } });

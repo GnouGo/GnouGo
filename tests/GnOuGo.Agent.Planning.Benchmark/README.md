@@ -1,6 +1,22 @@
 # CodeReview convergence benchmark
 
-## Frozen declaration-constraint rerun
+## Canonical-root validation campaign
+
+`schema5-canonical-roots-stage1-1` permits exactly one fresh Stage-1 start after
+canonical-identity and bounded duplicate-correction offline checks. Its comparison
+campaign is `schema5-declaration-constraints-stage1-rerun-1`. Freeze the corrected
+production commit/binaries first; preserve the configured model, all-low profiles,
+scenario/catalog/policy and existing budgets. No historical candidates, receipts or
+approvals are imported. Reports retain original decision IDs for coupled corrections.
+
+Review exact canonical ports, omission semantics, output-member attachments and
+classification/preservation behavior before exact acceptance. Advance the same session
+through construction and bounded repairs. All six independent execution cases must
+pass before exact artifact-hash approval. The first meaningful blocker or unverifiable
+request stops the campaign. No production patch, replacement session or Stage 2 follows.
+See [canonical-root validation](../../docs/planner-canonical-roots.md).
+
+## Archived declaration-constraint rerun
 
 `schema5-declaration-constraints-stage1-rerun-1` permits one fresh Stage-1 session
 on unchanged production `9667f600135ee0fd13dba6c5cc901f545ee79452`. Its comparison

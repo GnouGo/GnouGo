@@ -434,7 +434,7 @@ public sealed class ProgressiveCampaignTests
             DecisionPages =
             [
                 new() { Id = "historical", Correction = true, ParentId = "missing", RequestId = "old" },
-                new() { Id = "root", Origin = PlanningDecisionPageOrigin.SemanticCorrection, Correction = true, Gate = PlanningGates.Typed, PartitionChildren = ["child"] },
+                new() { Id = "root", Origin = PlanningDecisionPageOrigin.SemanticCorrection, Correction = true, Gate = PlanningGates.Typed, PartitionChildren = ["child"], SourceDecisionIds = ["original"] },
                 new() { Id = "child", ParentId = "root", Origin = PlanningDecisionPageOrigin.OutputPartition, Correction = true, Gate = PlanningGates.Typed, PartitionChildren = ["singleton"] },
                 new() { Id = "singleton", ParentId = "child", Origin = PlanningDecisionPageOrigin.OutputPartition, Correction = true, Gate = PlanningGates.Typed,
                     Decisions = ["decision"], Diagnostics = [new("DECISION_OUTPUT_LIMIT", "/decisions/decision", "PRIVATE_MESSAGE")] }
@@ -445,6 +445,7 @@ public sealed class ProgressiveCampaignTests
         Assert.Equal(2, report["outputPartitions"]!.GetValue<int>()); Assert.Equal(1, report["semanticCorrectionPages"]!.GetValue<int>());
         var lineage = report["pageLineage"]!.AsArray();
         Assert.Equal("Unknown", lineage[0]!["origin"]!.ToString()); Assert.Null(lineage[0]!["partitionDepth"]);
+        Assert.Null(lineage[0]!["sourceDecisionIds"]); Assert.Equal("original", lineage[1]!["sourceDecisionIds"]![0]!.ToString());
         Assert.Equal(2, lineage[3]!["partitionDepth"]!.GetValue<int>()); Assert.True(lineage[3]!["singletonOutputLimit"]!.GetValue<bool>());
         Assert.Equal(1, report["requestsByPhase"]![0]!["repairReservations"]!.GetValue<int>()); // Never refund old charges.
         Assert.DoesNotContain("PRIVATE_", report.ToJsonString());

@@ -26,7 +26,8 @@ retains provider-neutral contracts and runtime validation without referencing an
 GnOuGo project. See [workflow planning](../../docs/workflow-planning-v2.md).
 
 Schema-5 contracts include owned references, bounded decision pages, typed outcomes
-and durable correction lineage. `FinalReview` waits for exact-hash approval before
+and durable correction lineage. Coupled correction pages may retain coordinator-owned
+original decision IDs; absent lineage is omitted from serialization. `FinalReview` waits for exact-hash approval before
 returning `ValidWorkflow`. Missing business choices return `NeedUserClarification`;
 technical stops remain distinct from proven `Unsupported`. Injected model capability
 resolvers must declare supported reasoning levels for the phase profile.

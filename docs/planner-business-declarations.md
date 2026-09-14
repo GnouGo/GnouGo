@@ -34,9 +34,20 @@ literal references within omission evidence. Baseline defaults can only be reaff
 unchanged. No default and a literal null default remain distinct. Runtime fallback
 values and conditional literals cannot authorize output defaults.
 
-Repeated spans, matching names and shared clauses do not prove identity. Multiple
-subjects in a clause may establish distinct ports. Duplicate public identities,
-unknown references, unresolved subjects, conflicting defaults or unsupported evidence
+Public identity is a versioned, unambiguously encoded tuple of direction, workflow
+scope and exact resolved name, with ordinal spelling and case. Candidate IDs, source
+coordinates and baseline fingerprints identify evidence, not public ports. Baseline
+and new declarations use the same identity calculation. Input/output names may match
+when their directions differ.
+
+Repeated spans and shared clauses do not prove that their contracts agree. Compatible
+duplicate root claims receive one targeted semantic correction before attachment.
+Only conflicting candidates are editable; their established direction, scope and
+presence stay fixed. Other roots and baseline ports are frozen, and their identities
+are excluded from new-name choices. The correction may retain an evidenced root,
+defer overlapping evidence to attachment, retire a non-declaration, or stop unresolved.
+Contradictory contracts, invalid individual claims and remaining duplicates fail closed.
+Unknown references, unresolved subjects, conflicting defaults or unsupported evidence
 stop with located `DECLARATION_GROUNDING_UNRESOLVED` before behavior review. Reference
 validation proves ownership and structural consistency; arbitrary natural-language
 meaning remains the responsibility of bounded adjudication and existing review.
@@ -54,8 +65,12 @@ canonical inputs and their aliases become business data producers; modifiers do 
 Initial/restored behavior, repairs and exact acceptance enforce this same proof.
 
 `PlanningDeclarationAssignment` retains reference-only declaration/presence evidence.
-Canonical `PlanningBusinessDeclaration` holds the proven direction. Internal source
-and declaration proofs are version 4; storage and encrypted namespaces remain 5.
+Canonical `PlanningBusinessDeclaration` holds the proven direction. Source proof is
+version 4 and declaration proof is version 5; storage and encrypted namespaces remain 5.
+Duplicate corrections retain their original clause-decision identities and evidence
+fingerprints in durable page lineage. Grouping pages cannot grant a second correction
+or output escalation. The original receipts remain immutable; restart reuses the
+correction delta and revalidates the complete root set before attachment.
 Historical directional interpretations are audit evidence, not automatically upgraded
 assignments. Explicit revision/reassessment must establish current proof while keeping
 cumulative budgets and durable request history. Archived campaigns remain untouched.
@@ -80,7 +95,7 @@ canonical dependencies, review rejection and default preservation. Agent tests a
 published smokes cover encrypted/source-generated persistence and the single-session
 behavior-acceptance checkpoint. Live results are reported separately.
 
-## Validation before the fresh campaign
+## Historical validation before the initial declaration campaign
 
 The final offline pass has **3,114 passing solution tests**, including **718 planner**,
 **841 Core** and **359 Agent.Server** tests; one optional provider test is skipped.
@@ -104,3 +119,6 @@ explicitly assert rejection of ungrounded historical ports. No production policy
 reasoning setting or token ceiling changed.
 
 The [single fresh Stage-1 campaign](planner-canonical-declarations-live-validation.md) stopped on a runtime-fallback/omission-default scope error before review. Its exact receipt reproduces offline; no post-live production fix or replacement session was made.
+
+Current identity/correction regressions and validation are recorded in
+[canonical-root convergence](planner-canonical-roots.md).

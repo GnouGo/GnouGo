@@ -30,6 +30,9 @@ public sealed class PlanningDecisionPage
     public string WorkflowKey { get; set; } = "$plan";
     public string EvidenceFingerprint { get; set; } = "";
     public List<string> Decisions { get; set; } = [];
+    /// <summary>Original semantic decisions sharing a coupled correction's finite allowances; coordinator-owned lineage.</summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public List<string>? SourceDecisionIds { get; set; }
     public List<string> References { get; set; } = [];
     public string Status { get; set; } = "pending";
     public int EstimatedInputTokens { get; set; }

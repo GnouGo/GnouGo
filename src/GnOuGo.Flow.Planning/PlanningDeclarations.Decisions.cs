@@ -21,7 +21,7 @@ internal static partial class PlanningDeclarations
             // Durable pages are the staging area. Replaying this call revalidates
             // completed roots before constructing the exact dependent target domain.
             var rootValues = await PlanningDecisionPages.ResolveAsync(state, runtime, "intent_declarations", "$plan", Decisions(state), ct);
-            var roots = Parse(rootValues);
+            var roots = await CorrectDuplicateRootsAsync(state, runtime, Parse(rootValues), ct);
             var attachments = AttachmentDecisions(state, roots);
             var linked = Parse(await PlanningDecisionPages.ResolveAsync(state, runtime, "intent_declarations", "$plan", attachments, ct));
             Commit(state, roots.Where(a => a.Disposition != "deferred_attachment").Concat(linked).ToList(), fingerprint);
@@ -72,7 +72,7 @@ internal static partial class PlanningDeclarations
             var context = Context(state, group.Key, group, lexical);
             context["task"] = "Establish public declarations from complete evidence. distinct_input/output requires an explicitly declared subject and established port presence, not member presence or obligation necessity. Select owned declaration and presence evidence. Defer aliases and type, enum, preservation or presence modifiers for attachment to canonical declarations. A broad candidate without one established subject is unresolved. Shared clauses or overlapping spans alone do not prove identity. Known baseline ports are already established; do not redeclare them.";
             context["presenceEvidence"] = new JsonObject(presenceReferences.Select(id => new KeyValuePair<string, JsonNode?>(id, JsonValue.Create(PlanningChoiceEvidence.Text(state, id)))));
-            context["baselinePorts"] = new JsonObject(baseline.Select(p => new KeyValuePair<string, JsonNode?>(CanonicalId(p.Key, p.Key, p.Value.Scope, p.Value.Direction),
+            context["baselinePorts"] = new JsonObject(baseline.Select(p => new KeyValuePair<string, JsonNode?>(CanonicalId(p.Value.Name, p.Value.Scope, p.Value.Direction),
                 new JsonObject { ["name"] = p.Value.Name, ["direction"] = p.Value.Direction, ["scope"] = p.Value.Scope, ["presence"] = p.Value.Required ? "required" : "optional" })));
             context["scopes"] = new JsonObject(state.Obligations.Where(o => o.Kind == "workflow_boundary").Select(o =>
                 new KeyValuePair<string, JsonNode?>(o.Id, JsonValue.Create(PlanningSourceDecisions.Text(state, o)))));

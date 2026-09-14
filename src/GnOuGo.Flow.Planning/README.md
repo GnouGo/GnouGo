@@ -29,8 +29,12 @@ Public inputs and outputs first pass [canonical declaration adjudication](../../
 `declaration_constraint` evidence enters the existing attachment pages directly for
 member types, enums, nullability and preservation. It must attach as `modifier_of`
 an established declaration or stop unresolved. It cannot create ports or supply
-defaults. Actual `explicit_value` obligations remain separate. Source/declaration
-proof version 4 preserves the existing Schema-5 storage boundary.
+defaults. Actual `explicit_value` obligations remain separate. Source proof 4 and
+declaration proof 5 retain the existing Schema-5 storage boundary. Canonical port
+IDs depend only on direction, scope and exact name. Compatible duplicate roots get
+one correction restricted to their conflicting candidates, with other roots frozen.
+Original decision/evidence lineage prevents another correction or output escalation
+through regrouping; incompatible contracts still stop before review.
 
 Initial behavior is assembled from owned operations, canonical declarations and bounded boundary/iteration
 choices. The executable skeleton freezes identities, topology, executors, ownership,

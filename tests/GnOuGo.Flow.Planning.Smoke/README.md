@@ -58,3 +58,9 @@ dotnet publish tests/GnOuGo.Flow.Planning.Smoke -c Release -r osx-arm64 \
 ```
 
 Re-audit the exception if the Jint version or sandbox binding implementation changes.
+
+The duplicate-root fixture persists a targeted correction separately from the initial
+root pages. Encrypted restart reuses its receipt, original decision lineage and one
+repair reservation, then attaches the alias to a name/scope/direction-derived
+canonical ID. A second restart dispatches nothing. Both fixtures run in the published
+Native AOT binary, using synthetic transports rather than historical model receipts.

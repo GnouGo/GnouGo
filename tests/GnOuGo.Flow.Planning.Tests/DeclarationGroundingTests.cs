@@ -53,9 +53,10 @@ public sealed class DeclarationGroundingTests
     internal static List<PlanningDeclarationAssignment> Canonicalize(PlanningSnapshot state, IEnumerable<PlanningDeclarationAssignment> source)
     {
         var values = source.ToList();
-        var targets = values.Where(a => a.Disposition is "distinct_input" or "distinct_output").DistinctBy(a => a.CandidateId).ToDictionary(a => a.CandidateId,
-            a => PlanningDeclarations.CanonicalId(a.CandidateId, a.NameReference!, a.WorkflowScope!, a.Disposition == "distinct_input" ? "input" : "output"));
-        foreach (var (id, port) in PlanningDeclarations.Baselines(state)) targets[id] = PlanningDeclarations.CanonicalId(id, id, port.Scope, port.Direction);
+        var targets = values.Where(a => a.Disposition is "distinct_input" or "distinct_output")
+            .Where(a => state.References.Any(r => r.Id == a.NameReference)).DistinctBy(a => a.CandidateId).ToDictionary(a => a.CandidateId,
+            a => PlanningDeclarations.CanonicalId(PlanningDeclarations.SourceName(state, a.NameReference!), a.WorkflowScope!, a.Disposition == "distinct_input" ? "input" : "output"));
+        foreach (var (id, port) in PlanningDeclarations.Baselines(state)) targets[id] = PlanningDeclarations.CanonicalId(port.Name, port.Scope, port.Direction);
         return values.Select(a => a.TargetId is { } target && targets.TryGetValue(target, out var canonical) ? a with { TargetId = canonical } : a).ToList();
     }
     internal static List<PlanningDeclarationAssignment> Roots(PlanningSnapshot state, IEnumerable<PlanningDeclarationAssignment> assignments)

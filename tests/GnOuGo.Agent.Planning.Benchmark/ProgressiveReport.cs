@@ -67,6 +67,7 @@ internal static class ProgressiveReport
                 ["completionStatus"] = p.RequestId is { } requestId && receipts.TryGetValue(requestId, out var receipt)
                     ? receipt?.CompletionStatus is "completed" or "output_limit" ? receipt.CompletionStatus : null : null,
                 ["decisions"] = new JsonArray(p.Decisions.Select(id => (JsonNode?)JsonValue.Create(id)).ToArray()),
+                ["sourceDecisionIds"] = p.SourceDecisionIds is null ? null : new JsonArray(p.SourceDecisionIds.Select(id => (JsonNode?)JsonValue.Create(id)).ToArray()),
                 ["children"] = new JsonArray(p.PartitionChildren.Select(id => (JsonNode?)JsonValue.Create(id)).ToArray()),
                 ["singletonOutputLimit"] = p.Decisions.Count == 1 && p.Diagnostics.Any(d => d.Code == "DECISION_OUTPUT_LIMIT")
             }).ToArray()),

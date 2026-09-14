@@ -13,8 +13,10 @@ internal static partial class PlanningDecisionPages
             parent.Request.MaxTokens != PlanningGenerationPolicy.NormalOutputTokens || state.Request.Generation.MaxOutputTokens != PlanningGenerationPolicy.NormalOutputTokens)
             return false;
         var decision = dispatch.Decisions[0]; var canonical = decision.CorrectionId ?? decision.Id;
+        var owners = CorrectionIdentities(decision).ToHashSet(StringComparer.Ordinal);
         if (state.DecisionPages.Any(p => p.WorkflowKey == page.WorkflowKey && p.OutputBudgetEscalation is { } used &&
-            used.CanonicalDecisionId == canonical && used.EvidenceFingerprint == decision.EvidenceFingerprint)) return false;
+            (used.CanonicalDecisionId == canonical || (p.SourceDecisionIds ?? [used.CanonicalDecisionId]).Any(owners.Contains)) &&
+            used.EvidenceFingerprint == decision.EvidenceFingerprint)) return false;
         var accounting = state.RequestAccounting.SingleOrDefault(a => a.Id == parent.Id);
         if (accounting?.Evidence != "receipt" || accounting.ReceiptFingerprint != PlanningGenerationPolicy.ReceiptFingerprint(response) ||
             parent.Id != page.RequestId || parent.RequestHash != PlanningGenerationPolicy.RequestFingerprint(parent.Request) ||

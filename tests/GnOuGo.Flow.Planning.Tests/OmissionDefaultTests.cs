@@ -154,7 +154,7 @@ public sealed class OmissionDefaultTests
         state.Request.Baseline.Workflows[0].Inputs.Add(new() { Name = "required", Required = true, Schema = new() { Type = "number" } });
         foreach (var (id, port) in PlanningDeclarations.Baselines(state))
         {
-            var value = Link("omission", PlanningDeclarations.CanonicalId(id, id, port.Scope, port.Direction), "modifier_of", "optional", Token(state, "omission", "100"));
+            var value = Link("omission", PlanningDeclarations.CanonicalId(port.Name, port.Scope, port.Direction), "modifier_of", "optional", Token(state, "omission", "100"));
             Assert.NotEmpty(PlanningContractValidation.ValidateInstance(PlanningDeclarations.Assignment(value), Schema(state, "omission", assignments)));
         }
     }
