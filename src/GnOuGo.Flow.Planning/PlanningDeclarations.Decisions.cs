@@ -7,7 +7,7 @@ namespace GnOuGo.Flow.Planning;
 internal static partial class PlanningDeclarations
 {
     internal static PlanningObligation[] Candidates(PlanningSnapshot state) => state.Obligations
-        .Where(o => IsCandidate(o) || o.Kind == "omission_default").OrderBy(o => o.Id, StringComparer.Ordinal).ToArray();
+        .Where(o => IsCandidate(o) || o.Kind is "omission_default" or "declaration_constraint").OrderBy(o => o.Id, StringComparer.Ordinal).ToArray();
     private static bool IsCandidate(PlanningObligation o) => o.Kind == "declaration_candidate";
     private static bool IsDistinct(PlanningDeclarationAssignment a) => a.Disposition is "distinct_input" or "distinct_output";
 
@@ -52,7 +52,8 @@ internal static partial class PlanningDeclarations
         var baseline = Baselines(state);
         var scopes = new[] { "main" }.Concat(state.Obligations.Where(o => o.Kind == "workflow_boundary").Select(o => o.Id))
             .Concat(baseline.Values.Select(p => p.Scope)).Distinct(StringComparer.Ordinal).Order(StringComparer.Ordinal).ToArray();
-        var presenceReferences = candidates.Select(o => o.Grounding!.ClauseReference).Distinct(StringComparer.Ordinal).Order(StringComparer.Ordinal).ToArray();
+        var presenceReferences = candidates.Where(o => IsCandidate(o) || o.Kind == "omission_default")
+            .Select(o => o.Grounding!.ClauseReference).Distinct(StringComparer.Ordinal).Order(StringComparer.Ordinal).ToArray();
         return candidates.Where(IsCandidate).GroupBy(o => o.Grounding!.ClauseReference, StringComparer.Ordinal).OrderBy(g => g.Key, StringComparer.Ordinal).Select(group =>
         {
             var lexical = Lexical(state, group.Key);
@@ -84,7 +85,7 @@ internal static partial class PlanningDeclarations
         var roots = ValidateRoots(state, assignments);
         var fingerprint = Proof(EvidenceFingerprint(state), assignments, roots);
         var pending = assignments.Where(a => a.Disposition == "deferred_attachment").Select(a => a.CandidateId).ToHashSet(StringComparer.Ordinal);
-        return Candidates(state).Where(o => pending.Contains(o.Id) || o.Kind == "omission_default")
+        return Candidates(state).Where(o => pending.Contains(o.Id) || o.Kind is "omission_default" or "declaration_constraint")
             .GroupBy(o => o.Grounding!.ClauseReference, StringComparer.Ordinal).OrderBy(g => g.Key, StringComparer.Ordinal).Select(group =>
         {
             var lexical = Lexical(state, group.Key);
@@ -101,7 +102,8 @@ internal static partial class PlanningDeclarations
 
     private static JsonObject AttachmentSchema(PlanningSnapshot state, PlanningObligation candidate, List<PlanningBusinessDeclaration> roots, PlanningReference[] lexical)
     {
-        var variants = new JsonArray(Rule("unresolved"), Rule("not_a_declaration"));
+        var variants = new JsonArray(Rule("unresolved"));
+        if (candidate.Kind != "declaration_constraint") variants.Add((JsonNode)Rule("not_a_declaration"));
         var targets = roots.Where(d => candidate.Grounding!.Authority != PlanningSourceAuthority.ExistingBehavior || d.BaselineReference is not null).ToArray();
         if (candidate.Kind == "omission_default")
         {
@@ -123,7 +125,7 @@ internal static partial class PlanningDeclarations
         }
         else if (targets.Length > 0)
         {
-            foreach (var kind in new[] { "same_as", "modifier_of" })
+            foreach (var kind in candidate.Kind == "declaration_constraint" ? new[] { "modifier_of" } : ["same_as", "modifier_of"])
                 variants.Add((JsonNode)Rule(kind, ("target", PlanningHoleRequests.Enum(targets.Select(d => d.Id).ToArray())),
                     ("presence", PlanningHoleRequests.Enum(["unspecified"])), ("default", PlanningHoleRequests.Type("null"))));
         }

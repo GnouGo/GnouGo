@@ -28,7 +28,7 @@ internal static partial class PlanningDeclarations
         }
     }
 
-    internal static string EvidenceFingerprint(PlanningSnapshot state) => PlanningGraphCompiler.Fingerprint("declarations-v3:" +
+    internal static string EvidenceFingerprint(PlanningSnapshot state) => PlanningGraphCompiler.Fingerprint("declarations-v4:" +
         state.Request.TenantId + ":" + state.Request.SessionId + ":" +
         string.Join('|', state.Obligations.OrderBy(o => o.Id, StringComparer.Ordinal).Select(o => o.Id + ":" + o.Grounding?.Fingerprint)) + ":" +
         (state.Request.Baseline is { } graph ? PlanningGraphCompiler.Fingerprint(graph) : ""));
@@ -127,7 +127,7 @@ internal static partial class PlanningDeclarations
             throw Failure("$plan", "Deferred attachments are staging decisions and cannot grant declaration authority.");
         var rootAssignments = assignments.Where(a => IsCandidate(candidates[a.CandidateId])).Select(RootAssignment).ToList();
         var roots = ValidateRoots(state, rootAssignments);
-        var linked = assignments.Where(a => a.Disposition is "same_as" or "modifier_of" || candidates[a.CandidateId].Kind == "omission_default").ToList();
+        var linked = assignments.Where(a => a.Disposition is "same_as" or "modifier_of" || candidates[a.CandidateId].Kind is "omission_default" or "declaration_constraint").ToList();
         ValidateAssignments(AttachmentDecisions(state, rootAssignments), linked);
         var result = new List<PlanningBusinessDeclaration>();
         foreach (var root in roots)

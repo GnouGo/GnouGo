@@ -1,0 +1,703 @@
+{
+  "evidence": "Sanitized immutable request evidence and declaration state captured at BehaviorReview revision 44; not a model receipt. Corrected classifications and assignments are synthetic test responses only.",
+  "snapshot": {
+    "schemaVersion": 5,
+    "revision": 44,
+    "request": {
+      "tenantId": "planner-progressive",
+      "sessionId": "36cc6d8ce339488184bd30ea22c6c04f",
+      "prompt": "Create one reusable workflow classifying a single record.\nRequired input record is an object with required id:string, amount:number and approved:boolean.\nOptional input threshold is a non-nullable number defaulting to 100 when omitted.\nReturn classifiedResult:{id:string,amount:number,category:string}, all members required.\nClassify as rejected when approved is false, high when approved is true and amount>=threshold, and standard otherwise.\ncategory has exactly the values rejected, high, standard. Preserve the original id and amount.\nThis is deterministic, local, in-memory business processing."
+    },
+    "references": [
+      {
+        "id": "r_590b0a1dd49e1390b3129032",
+        "owner": "planner-progressive:36cc6d8ce339488184bd30ea22c6c04f",
+        "sourceRevision": 0,
+        "sourceId": "request",
+        "sourceFingerprint": "f0479816c14ebb7fd57d6a30d5ea88bcc40b80c6c15bfd5502a6fd0e7a38a1f9",
+        "kind": "user_request:selection",
+        "start": 0,
+        "length": 57
+      },
+      {
+        "id": "r_97c2be8740ea1555e098745e",
+        "owner": "planner-progressive:36cc6d8ce339488184bd30ea22c6c04f",
+        "sourceRevision": 0,
+        "sourceId": "request",
+        "sourceFingerprint": "f0479816c14ebb7fd57d6a30d5ea88bcc40b80c6c15bfd5502a6fd0e7a38a1f9",
+        "kind": "user_request:clause",
+        "start": 0,
+        "length": 57
+      },
+      {
+        "id": "r_7d7c4bd43246bf71e9789e36",
+        "owner": "planner-progressive:36cc6d8ce339488184bd30ea22c6c04f",
+        "sourceRevision": 0,
+        "sourceId": "request",
+        "sourceFingerprint": "f0479816c14ebb7fd57d6a30d5ea88bcc40b80c6c15bfd5502a6fd0e7a38a1f9",
+        "kind": "user_request:selection",
+        "start": 11,
+        "length": 17
+      },
+      {
+        "id": "r_78236db21c01a31ba4001932",
+        "owner": "planner-progressive:36cc6d8ce339488184bd30ea22c6c04f",
+        "sourceRevision": 0,
+        "sourceId": "request",
+        "sourceFingerprint": "f0479816c14ebb7fd57d6a30d5ea88bcc40b80c6c15bfd5502a6fd0e7a38a1f9",
+        "kind": "user_request:selection",
+        "start": 29,
+        "length": 28
+      },
+      {
+        "id": "r_3ca696021a67988bcde90a62",
+        "owner": "planner-progressive:36cc6d8ce339488184bd30ea22c6c04f",
+        "sourceRevision": 0,
+        "sourceId": "request",
+        "sourceFingerprint": "f0479816c14ebb7fd57d6a30d5ea88bcc40b80c6c15bfd5502a6fd0e7a38a1f9",
+        "kind": "user_request:selection",
+        "start": 58,
+        "length": 95
+      },
+      {
+        "id": "r_fe7675197746e9cec91aee93",
+        "owner": "planner-progressive:36cc6d8ce339488184bd30ea22c6c04f",
+        "sourceRevision": 0,
+        "sourceId": "request",
+        "sourceFingerprint": "f0479816c14ebb7fd57d6a30d5ea88bcc40b80c6c15bfd5502a6fd0e7a38a1f9",
+        "kind": "user_request:clause",
+        "start": 58,
+        "length": 95
+      },
+      {
+        "id": "r_09bff9639456ee882db3bebd",
+        "owner": "planner-progressive:36cc6d8ce339488184bd30ea22c6c04f",
+        "sourceRevision": 0,
+        "sourceId": "request",
+        "sourceFingerprint": "f0479816c14ebb7fd57d6a30d5ea88bcc40b80c6c15bfd5502a6fd0e7a38a1f9",
+        "kind": "user_request:selection",
+        "start": 98,
+        "length": 55
+      },
+      {
+        "id": "r_ee46bf093d9963067eeb294c",
+        "owner": "planner-progressive:36cc6d8ce339488184bd30ea22c6c04f",
+        "sourceRevision": 0,
+        "sourceId": "request",
+        "sourceFingerprint": "f0479816c14ebb7fd57d6a30d5ea88bcc40b80c6c15bfd5502a6fd0e7a38a1f9",
+        "kind": "user_request:selection",
+        "start": 154,
+        "length": 67
+      },
+      {
+        "id": "r_a88093743ec3b51142ef286c",
+        "owner": "planner-progressive:36cc6d8ce339488184bd30ea22c6c04f",
+        "sourceRevision": 0,
+        "sourceId": "request",
+        "sourceFingerprint": "f0479816c14ebb7fd57d6a30d5ea88bcc40b80c6c15bfd5502a6fd0e7a38a1f9",
+        "kind": "user_request:clause",
+        "start": 154,
+        "length": 81
+      },
+      {
+        "id": "r_3dc56a4fc6c895a8d71b52b0",
+        "owner": "planner-progressive:36cc6d8ce339488184bd30ea22c6c04f",
+        "sourceRevision": 0,
+        "sourceId": "request",
+        "sourceFingerprint": "f0479816c14ebb7fd57d6a30d5ea88bcc40b80c6c15bfd5502a6fd0e7a38a1f9",
+        "kind": "user_request:selection",
+        "start": 154,
+        "length": 81
+      },
+      {
+        "id": "r_dc4af055f067fdc935e2d989",
+        "owner": "planner-progressive:36cc6d8ce339488184bd30ea22c6c04f",
+        "sourceRevision": 0,
+        "sourceId": "request",
+        "sourceFingerprint": "f0479816c14ebb7fd57d6a30d5ea88bcc40b80c6c15bfd5502a6fd0e7a38a1f9",
+        "kind": "user_request:selection",
+        "start": 236,
+        "length": 66
+      },
+      {
+        "id": "r_41707edbec57cb7a4c857ecc",
+        "owner": "planner-progressive:36cc6d8ce339488184bd30ea22c6c04f",
+        "sourceRevision": 0,
+        "sourceId": "request",
+        "sourceFingerprint": "f0479816c14ebb7fd57d6a30d5ea88bcc40b80c6c15bfd5502a6fd0e7a38a1f9",
+        "kind": "user_request:clause",
+        "start": 236,
+        "length": 88
+      },
+      {
+        "id": "r_f24c3c4ca4665b5ed20f78de",
+        "owner": "planner-progressive:36cc6d8ce339488184bd30ea22c6c04f",
+        "sourceRevision": 0,
+        "sourceId": "request",
+        "sourceFingerprint": "f0479816c14ebb7fd57d6a30d5ea88bcc40b80c6c15bfd5502a6fd0e7a38a1f9",
+        "kind": "user_request:selection",
+        "start": 303,
+        "length": 11
+      },
+      {
+        "id": "r_a2f175c4507acb7e30bac828",
+        "owner": "planner-progressive:36cc6d8ce339488184bd30ea22c6c04f",
+        "sourceRevision": 0,
+        "sourceId": "request",
+        "sourceFingerprint": "f0479816c14ebb7fd57d6a30d5ea88bcc40b80c6c15bfd5502a6fd0e7a38a1f9",
+        "kind": "user_request:selection",
+        "start": 325,
+        "length": 44
+      },
+      {
+        "id": "r_d3b0148219dfec3164eb1c73",
+        "owner": "planner-progressive:36cc6d8ce339488184bd30ea22c6c04f",
+        "sourceRevision": 0,
+        "sourceId": "request",
+        "sourceFingerprint": "f0479816c14ebb7fd57d6a30d5ea88bcc40b80c6c15bfd5502a6fd0e7a38a1f9",
+        "kind": "user_request:clause",
+        "start": 325,
+        "length": 118
+      },
+      {
+        "id": "r_12c5a6f9ceb301b2231059d1",
+        "owner": "planner-progressive:36cc6d8ce339488184bd30ea22c6c04f",
+        "sourceRevision": 0,
+        "sourceId": "request",
+        "sourceFingerprint": "f0479816c14ebb7fd57d6a30d5ea88bcc40b80c6c15bfd5502a6fd0e7a38a1f9",
+        "kind": "user_request:selection",
+        "start": 370,
+        "length": 49
+      },
+      {
+        "id": "r_20dc26cb99f1456250c78848",
+        "owner": "planner-progressive:36cc6d8ce339488184bd30ea22c6c04f",
+        "sourceRevision": 0,
+        "sourceId": "request",
+        "sourceFingerprint": "f0479816c14ebb7fd57d6a30d5ea88bcc40b80c6c15bfd5502a6fd0e7a38a1f9",
+        "kind": "user_request:selection",
+        "start": 420,
+        "length": 23
+      },
+      {
+        "id": "r_7eb0b701aa63ed80de56fe5b",
+        "owner": "planner-progressive:36cc6d8ce339488184bd30ea22c6c04f",
+        "sourceRevision": 0,
+        "sourceId": "request",
+        "sourceFingerprint": "f0479816c14ebb7fd57d6a30d5ea88bcc40b80c6c15bfd5502a6fd0e7a38a1f9",
+        "kind": "user_request:selection",
+        "start": 444,
+        "length": 57
+      },
+      {
+        "id": "r_c9324efd644832192a32f24b",
+        "owner": "planner-progressive:36cc6d8ce339488184bd30ea22c6c04f",
+        "sourceRevision": 0,
+        "sourceId": "request",
+        "sourceFingerprint": "f0479816c14ebb7fd57d6a30d5ea88bcc40b80c6c15bfd5502a6fd0e7a38a1f9",
+        "kind": "user_request:clause",
+        "start": 444,
+        "length": 57
+      },
+      {
+        "id": "r_9390af478783d7c6a7b93644",
+        "owner": "planner-progressive:36cc6d8ce339488184bd30ea22c6c04f",
+        "sourceRevision": 0,
+        "sourceId": "request",
+        "sourceFingerprint": "f0479816c14ebb7fd57d6a30d5ea88bcc40b80c6c15bfd5502a6fd0e7a38a1f9",
+        "kind": "user_request:selection",
+        "start": 502,
+        "length": 36
+      },
+      {
+        "id": "r_9ab3ee96eccc88806a3be2e7",
+        "owner": "planner-progressive:36cc6d8ce339488184bd30ea22c6c04f",
+        "sourceRevision": 0,
+        "sourceId": "request",
+        "sourceFingerprint": "f0479816c14ebb7fd57d6a30d5ea88bcc40b80c6c15bfd5502a6fd0e7a38a1f9",
+        "kind": "user_request:clause",
+        "start": 501,
+        "length": 37
+      },
+      {
+        "id": "r_d678897dda945117060d357e",
+        "owner": "planner-progressive:36cc6d8ce339488184bd30ea22c6c04f",
+        "sourceRevision": 0,
+        "sourceId": "request",
+        "sourceFingerprint": "f0479816c14ebb7fd57d6a30d5ea88bcc40b80c6c15bfd5502a6fd0e7a38a1f9",
+        "kind": "user_request:selection",
+        "start": 539,
+        "length": 60
+      },
+      {
+        "id": "r_040518fa435f1c09d3e4e306",
+        "owner": "planner-progressive:36cc6d8ce339488184bd30ea22c6c04f",
+        "sourceRevision": 0,
+        "sourceId": "request",
+        "sourceFingerprint": "f0479816c14ebb7fd57d6a30d5ea88bcc40b80c6c15bfd5502a6fd0e7a38a1f9",
+        "kind": "user_request:clause",
+        "start": 539,
+        "length": 60
+      },
+      {
+        "id": "r_8a1b162001769511b7c14417",
+        "owner": "planner-progressive:36cc6d8ce339488184bd30ea22c6c04f",
+        "sourceRevision": 0,
+        "sourceId": "request",
+        "sourceFingerprint": "f0479816c14ebb7fd57d6a30d5ea88bcc40b80c6c15bfd5502a6fd0e7a38a1f9",
+        "kind": "user_request:selection",
+        "start": 562,
+        "length": 37
+      },
+      {
+        "id": "r_62e8cd73d5b81e572dbad027",
+        "owner": "planner-progressive:36cc6d8ce339488184bd30ea22c6c04f",
+        "sourceRevision": 0,
+        "sourceId": "request",
+        "sourceFingerprint": "f0479816c14ebb7fd57d6a30d5ea88bcc40b80c6c15bfd5502a6fd0e7a38a1f9",
+        "kind": "user_request:lexical",
+        "start": 243,
+        "length": 16
+      },
+      {
+        "id": "r_ca7c3f7ad32631e6a28b0d23",
+        "owner": "planner-progressive:36cc6d8ce339488184bd30ea22c6c04f",
+        "sourceRevision": 0,
+        "sourceId": "request",
+        "sourceFingerprint": "f0479816c14ebb7fd57d6a30d5ea88bcc40b80c6c15bfd5502a6fd0e7a38a1f9",
+        "kind": "user_request:lexical",
+        "start": 169,
+        "length": 9
+      },
+      {
+        "id": "r_2526f44919efcecf6c6b717c",
+        "owner": "planner-progressive:36cc6d8ce339488184bd30ea22c6c04f",
+        "sourceRevision": 0,
+        "sourceId": "request",
+        "sourceFingerprint": "f0479816c14ebb7fd57d6a30d5ea88bcc40b80c6c15bfd5502a6fd0e7a38a1f9",
+        "kind": "user_request:lexical",
+        "start": 218,
+        "length": 3
+      },
+      {
+        "id": "r_f82fba41d8ee99ed95e3ae6c",
+        "owner": "planner-progressive:36cc6d8ce339488184bd30ea22c6c04f",
+        "sourceRevision": 0,
+        "sourceId": "request",
+        "sourceFingerprint": "f0479816c14ebb7fd57d6a30d5ea88bcc40b80c6c15bfd5502a6fd0e7a38a1f9",
+        "kind": "user_request:lexical",
+        "start": 73,
+        "length": 6
+      }
+    ],
+    "obligations": [
+      {
+        "id": "ob_3c0b833dd4ba7970",
+        "evidenceReferences": [
+          "r_590b0a1dd49e1390b3129032"
+        ],
+        "owner": "workflow",
+        "kind": "workflow_policy",
+        "required": false,
+        "grounding": {
+          "authority": 1,
+          "role": 3,
+          "clauseReference": "r_97c2be8740ea1555e098745e",
+          "baselineReference": null,
+          "fingerprint": "5de652e9ea2097cf7abd08eda4a43d1b35ae0dd00d28e558da064334c56d5ac6"
+        },
+        "adjudicationFingerprint": "bb6d21b3d42d12da6e7ff8acb655fe8ecaf298f0a892e023723ec6ac8556c2f8",
+        "disposition": "not_confirmation_policy",
+        "policyIds": []
+      },
+      {
+        "id": "ob_9d223d81bb313bf4",
+        "evidenceReferences": [
+          "r_7d7c4bd43246bf71e9789e36"
+        ],
+        "owner": "capability_contract",
+        "kind": "implementation_policy",
+        "required": false,
+        "grounding": {
+          "authority": 1,
+          "role": 3,
+          "clauseReference": "r_97c2be8740ea1555e098745e",
+          "baselineReference": null,
+          "fingerprint": "3e39f42bec1bf12ff938aabddac7c5484ea491afc486d579f003f6c40952f09b"
+        },
+        "adjudicationFingerprint": null,
+        "disposition": "preliminary",
+        "policyIds": []
+      },
+      {
+        "id": "ob_2c11ec7e73bd09c6",
+        "evidenceReferences": [
+          "r_78236db21c01a31ba4001932"
+        ],
+        "owner": "workflow",
+        "kind": "local_processing",
+        "required": false,
+        "grounding": {
+          "authority": 1,
+          "role": 1,
+          "clauseReference": "r_97c2be8740ea1555e098745e",
+          "baselineReference": null,
+          "fingerprint": "cbaefe1a66b61b7162dcc14f4327295ec09ea18d54e57a3dccb0268fe0038f6d"
+        },
+        "adjudicationFingerprint": null,
+        "disposition": "admitted",
+        "policyIds": []
+      },
+      {
+        "id": "ob_e8d7f7e83e407733",
+        "evidenceReferences": [
+          "r_3ca696021a67988bcde90a62"
+        ],
+        "owner": "business_decision",
+        "kind": "declaration_candidate",
+        "required": true,
+        "grounding": {
+          "authority": 1,
+          "role": 5,
+          "clauseReference": "r_fe7675197746e9cec91aee93",
+          "baselineReference": null,
+          "fingerprint": "bc4dc78b737fff5770c56cd539316497997db1562e4f61411ccc2b79e3602f5d"
+        },
+        "adjudicationFingerprint": null,
+        "disposition": "preliminary",
+        "policyIds": []
+      },
+      {
+        "id": "ob_585d6fc199818b75",
+        "evidenceReferences": [
+          "r_09bff9639456ee882db3bebd"
+        ],
+        "owner": "capability_contract",
+        "kind": "implementation_policy",
+        "required": true,
+        "grounding": {
+          "authority": 1,
+          "role": 3,
+          "clauseReference": "r_fe7675197746e9cec91aee93",
+          "baselineReference": null,
+          "fingerprint": "7282f4e2af3e7d7f44224c829f874297f3f6e09c360bfe5bf495acbf8dac9d32"
+        },
+        "adjudicationFingerprint": null,
+        "disposition": "preliminary",
+        "policyIds": []
+      },
+      {
+        "id": "ob_e677ca575f62fc91",
+        "evidenceReferences": [
+          "r_ee46bf093d9963067eeb294c"
+        ],
+        "owner": "business_decision",
+        "kind": "declaration_candidate",
+        "required": true,
+        "grounding": {
+          "authority": 1,
+          "role": 5,
+          "clauseReference": "r_a88093743ec3b51142ef286c",
+          "baselineReference": null,
+          "fingerprint": "5b80de7e7d53c10aa973b1854781cb3445d0b597338b3d2026b9315476c38b22"
+        },
+        "adjudicationFingerprint": null,
+        "disposition": "preliminary",
+        "policyIds": []
+      },
+      {
+        "id": "ob_74c871c4a0d0e70f",
+        "evidenceReferences": [
+          "r_3dc56a4fc6c895a8d71b52b0"
+        ],
+        "owner": "business_decision",
+        "kind": "omission_default",
+        "required": true,
+        "grounding": {
+          "authority": 1,
+          "role": 5,
+          "clauseReference": "r_a88093743ec3b51142ef286c",
+          "baselineReference": null,
+          "fingerprint": "b311ad7545bb031cd7499030db30254e60dfb52c30df801ff5f881fadaf516dc"
+        },
+        "adjudicationFingerprint": null,
+        "disposition": "preliminary",
+        "policyIds": []
+      },
+      {
+        "id": "ob_3956dfa516982d75",
+        "evidenceReferences": [
+          "r_dc4af055f067fdc935e2d989"
+        ],
+        "owner": "business_decision",
+        "kind": "declaration_candidate",
+        "required": true,
+        "grounding": {
+          "authority": 1,
+          "role": 5,
+          "clauseReference": "r_41707edbec57cb7a4c857ecc",
+          "baselineReference": null,
+          "fingerprint": "879a454164f23ee3cd42469736207bb9f291e22b88fed672c682b2414437152d"
+        },
+        "adjudicationFingerprint": null,
+        "disposition": "preliminary",
+        "policyIds": []
+      },
+      {
+        "id": "ob_5a533c5150d07243",
+        "evidenceReferences": [
+          "r_f24c3c4ca4665b5ed20f78de"
+        ],
+        "owner": "capability_contract",
+        "kind": "implementation_policy",
+        "required": true,
+        "grounding": {
+          "authority": 1,
+          "role": 3,
+          "clauseReference": "r_41707edbec57cb7a4c857ecc",
+          "baselineReference": null,
+          "fingerprint": "49464bf53509e4c8191e060969190b30a73be7995eafee40f0c898138b0f982d"
+        },
+        "adjudicationFingerprint": null,
+        "disposition": "preliminary",
+        "policyIds": []
+      },
+      {
+        "id": "ob_3af9cc7d111726d6",
+        "evidenceReferences": [
+          "r_a2f175c4507acb7e30bac828"
+        ],
+        "owner": "workflow",
+        "kind": "runtime_condition",
+        "required": true,
+        "grounding": {
+          "authority": 1,
+          "role": 4,
+          "clauseReference": "r_d3b0148219dfec3164eb1c73",
+          "baselineReference": null,
+          "fingerprint": "baf8f232f9781ac09465409684ec5e54c7b39a14e6f64e61d23fa160a04d614c"
+        },
+        "adjudicationFingerprint": null,
+        "disposition": "preliminary",
+        "policyIds": []
+      },
+      {
+        "id": "ob_f8c96003052b2503",
+        "evidenceReferences": [
+          "r_12c5a6f9ceb301b2231059d1"
+        ],
+        "owner": "workflow",
+        "kind": "runtime_condition",
+        "required": true,
+        "grounding": {
+          "authority": 1,
+          "role": 4,
+          "clauseReference": "r_d3b0148219dfec3164eb1c73",
+          "baselineReference": null,
+          "fingerprint": "caedfe744a51d1c9076514db3282698aad0d1190ab5fc72a0da1ba0bd4b7d9bf"
+        },
+        "adjudicationFingerprint": null,
+        "disposition": "preliminary",
+        "policyIds": []
+      },
+      {
+        "id": "ob_284bb7535c4d2224",
+        "evidenceReferences": [
+          "r_20dc26cb99f1456250c78848"
+        ],
+        "owner": "workflow",
+        "kind": "runtime_fallback",
+        "required": true,
+        "grounding": {
+          "authority": 1,
+          "role": 4,
+          "clauseReference": "r_d3b0148219dfec3164eb1c73",
+          "baselineReference": null,
+          "fingerprint": "858fef3146d3e6b1211ef048f4817bd2b3a61aa8d2b03adb7fbe66dc4377d72e"
+        },
+        "adjudicationFingerprint": null,
+        "disposition": "preliminary",
+        "policyIds": []
+      },
+      {
+        "id": "ob_4222548667785c98",
+        "evidenceReferences": [
+          "r_7eb0b701aa63ed80de56fe5b"
+        ],
+        "owner": "business_decision",
+        "kind": "explicit_value",
+        "required": false,
+        "grounding": {
+          "authority": 1,
+          "role": 5,
+          "clauseReference": "r_c9324efd644832192a32f24b",
+          "baselineReference": null,
+          "fingerprint": "7a496a44c70ea84d7bca64ba6424a5746b961e104d17309c7c474be4071e1575"
+        },
+        "adjudicationFingerprint": null,
+        "disposition": "preliminary",
+        "policyIds": []
+      },
+      {
+        "id": "ob_8f21e95a6a821a67",
+        "evidenceReferences": [
+          "r_9390af478783d7c6a7b93644"
+        ],
+        "owner": "workflow",
+        "kind": "workflow_policy",
+        "required": true,
+        "grounding": {
+          "authority": 1,
+          "role": 3,
+          "clauseReference": "r_9ab3ee96eccc88806a3be2e7",
+          "baselineReference": null,
+          "fingerprint": "11e9a0ae75fa1a9ae0118756355b8339ac899a1532389ab59f751a4540db6f58"
+        },
+        "adjudicationFingerprint": "080c2b69c374146da6ebb23e7fdb811961f85df41502dc4f7cb328b841f225d5",
+        "disposition": "not_confirmation_policy",
+        "policyIds": []
+      },
+      {
+        "id": "ob_0e88a8ec9e7cf21e",
+        "evidenceReferences": [
+          "r_d678897dda945117060d357e"
+        ],
+        "owner": "capability_contract",
+        "kind": "implementation_policy",
+        "required": false,
+        "grounding": {
+          "authority": 1,
+          "role": 3,
+          "clauseReference": "r_040518fa435f1c09d3e4e306",
+          "baselineReference": null,
+          "fingerprint": "d9eac70dc57bf6f2a7c64eadc948a006b424c1538a01600114151bcd694b236f"
+        },
+        "adjudicationFingerprint": null,
+        "disposition": "preliminary",
+        "policyIds": []
+      },
+      {
+        "id": "ob_9bbff8b840741044",
+        "evidenceReferences": [
+          "r_8a1b162001769511b7c14417"
+        ],
+        "owner": "workflow",
+        "kind": "local_processing",
+        "required": false,
+        "grounding": {
+          "authority": 1,
+          "role": 1,
+          "clauseReference": "r_040518fa435f1c09d3e4e306",
+          "baselineReference": null,
+          "fingerprint": "d18f9e4f78d17b97d5194c1551028b240f82f052a16fef56efe230f5320372eb"
+        },
+        "adjudicationFingerprint": null,
+        "disposition": "admitted",
+        "policyIds": []
+      }
+    ],
+    "declarations": [
+      {
+        "id": "decl_0ff6237704faf7629de8caa1",
+        "direction": "output",
+        "workflowScope": "main",
+        "nameReference": "r_62e8cd73d5b81e572dbad027",
+        "baselineReference": null,
+        "required": true,
+        "defaultReference": null,
+        "candidates": [
+          "ob_3956dfa516982d75"
+        ],
+        "aliases": [],
+        "modifierReferences": [],
+        "clauseReferences": [
+          "r_41707edbec57cb7a4c857ecc"
+        ],
+        "proofFingerprint": "b4bd540eeba806c38ae6c3b216d91a0ae3f72f1f25dbd029a22b7620d4c050c1"
+      },
+      {
+        "id": "decl_33974753ee90b79cd8df1dd0",
+        "direction": "input",
+        "workflowScope": "main",
+        "nameReference": "r_ca7c3f7ad32631e6a28b0d23",
+        "baselineReference": null,
+        "required": false,
+        "defaultReference": "r_2526f44919efcecf6c6b717c",
+        "candidates": [
+          "ob_e677ca575f62fc91"
+        ],
+        "aliases": [],
+        "modifierReferences": [
+          "r_3dc56a4fc6c895a8d71b52b0"
+        ],
+        "clauseReferences": [
+          "r_a88093743ec3b51142ef286c"
+        ],
+        "proofFingerprint": "4f438a00d0ca84440911f2f2066d3a9c091ca3add0b9286490a5c8bd36b92deb"
+      },
+      {
+        "id": "decl_b13db39314dab34f88cc394e",
+        "direction": "input",
+        "workflowScope": "main",
+        "nameReference": "r_f82fba41d8ee99ed95e3ae6c",
+        "baselineReference": null,
+        "required": true,
+        "defaultReference": null,
+        "candidates": [
+          "ob_e8d7f7e83e407733"
+        ],
+        "aliases": [],
+        "modifierReferences": [],
+        "clauseReferences": [
+          "r_fe7675197746e9cec91aee93"
+        ],
+        "proofFingerprint": "1b5808f2aacfb97eb498189547d4be49630d5ad0bf08348b52de3b1f713bbfb2"
+      }
+    ],
+    "declarationAssignments": [
+      {
+        "candidateId": "ob_3956dfa516982d75",
+        "disposition": "distinct_output",
+        "targetId": null,
+        "nameReference": "r_62e8cd73d5b81e572dbad027",
+        "workflowScope": "main",
+        "presence": "required",
+        "defaultReference": null,
+        "declarationReference": "r_41707edbec57cb7a4c857ecc",
+        "presenceReference": "r_41707edbec57cb7a4c857ecc"
+      },
+      {
+        "candidateId": "ob_74c871c4a0d0e70f",
+        "disposition": "modifier_of",
+        "targetId": "decl_33974753ee90b79cd8df1dd0",
+        "nameReference": null,
+        "workflowScope": null,
+        "presence": "optional",
+        "defaultReference": "r_2526f44919efcecf6c6b717c"
+      },
+      {
+        "candidateId": "ob_e677ca575f62fc91",
+        "disposition": "distinct_input",
+        "targetId": null,
+        "nameReference": "r_ca7c3f7ad32631e6a28b0d23",
+        "workflowScope": "main",
+        "presence": "optional",
+        "defaultReference": null,
+        "declarationReference": "r_a88093743ec3b51142ef286c",
+        "presenceReference": "r_a88093743ec3b51142ef286c"
+      },
+      {
+        "candidateId": "ob_e8d7f7e83e407733",
+        "disposition": "distinct_input",
+        "targetId": null,
+        "nameReference": "r_f82fba41d8ee99ed95e3ae6c",
+        "workflowScope": "main",
+        "presence": "required",
+        "defaultReference": null,
+        "declarationReference": "r_fe7675197746e9cec91aee93",
+        "presenceReference": "r_fe7675197746e9cec91aee93"
+      }
+    ],
+    "declarationFingerprint": "a2339fbfd2c719f60800ad7a9f6e3995986b24b6f7cadc4ce8dba760fbb168a4"
+  }
+}

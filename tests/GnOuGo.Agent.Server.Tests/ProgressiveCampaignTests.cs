@@ -90,6 +90,26 @@ public sealed class ProgressiveCampaignTests
         Assert.Equal("passed", ProgressiveReport.ExecutionCase("case", new JsonObject { ["passed"] = true })["status"]!.ToString());
     }
 
+    [Fact]
+    public void ConstraintReportsExposeOnlyOwnedIdentifiersAndKeepHistoricalAttributionUnknown()
+    {
+        var state = new PlanningSnapshot
+        {
+            Obligations = [new("constraint", ["reference"], "business_decision", "declaration_constraint", true)
+                { Grounding = new(PlanningSourceAuthority.RequestedBehavior, PlanningSourceSemanticRole.Declaration, "clause", null, "proof") }],
+            DeclarationAssignments = [new("constraint", "modifier_of", "output", null, null, "unspecified", null),
+                new("historical", "modifier_of", "input", null, null, "unspecified", null)]
+        };
+        state.Request.Prompt = "PRIVATE";
+        var report = ProgressiveReport.Build(state, new Dictionary<string, LLMResponse?>());
+        Assert.Equal("output", report["declarationModifiers"]![0]!["targetId"]!.ToString());
+        Assert.Equal("declaration_constraint", report["declarationModifiers"]![0]!["kind"]!.ToString());
+        Assert.Null(report["declarationModifiers"]![1]!["kind"]);
+        Assert.DoesNotContain("PRIVATE", report.ToJsonString());
+        Assert.True(JsonNode.DeepEquals(report, ProgressiveReport.Build(JsonSerializer.Deserialize(JsonSerializer.Serialize(state,
+            PlanningJsonContext.Default.PlanningSnapshot), PlanningJsonContext.Default.PlanningSnapshot)!, new Dictionary<string, LLMResponse?>())));
+    }
+
     private static PlanningSnapshot ThresholdCandidate() => new()
     {
         Revision = 20, Status = PlanningStatus.Generating, CurrentPhase = PlanningPhase.Repair,

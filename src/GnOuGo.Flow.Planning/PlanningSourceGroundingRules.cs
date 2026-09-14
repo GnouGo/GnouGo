@@ -8,7 +8,7 @@ internal static class PlanningSourceGroundingRules
 {
     internal static readonly string[] OperationKinds = ["external_read", "external_write", "external_execute", "resource_lifecycle", "cleanup", "human_interaction", "local_processing"];
     internal static readonly string[] PolicyKinds = ["workflow_policy", "implementation_policy", "confirmation_required", "confirmation_forbidden", "rejection_condition", "exact_denial"];
-    private static readonly string[] Values = ["explicit_value", "omission_default", "runtime_condition", "runtime_fallback", "business_preference", "information"];
+    private static readonly string[] Values = ["explicit_value", "declaration_constraint", "omission_default", "runtime_condition", "runtime_fallback", "business_preference", "information"];
     internal static string[] Kinds(PlanningSourceAuthority authority) => authority switch
     {
         PlanningSourceAuthority.ConstraintsOnly => [.. PolicyKinds, .. Values],
@@ -54,7 +54,7 @@ internal static class PlanningSourceGroundingRules
             : obligation.Kind is "runtime_condition" or "runtime_fallback" or "rejection_condition" ? PlanningSourceSemanticRole.RuntimeCondition
             : source.Authority == PlanningSourceAuthority.ConstraintsOnly || PolicyKinds.Contains(obligation.Kind, StringComparer.Ordinal) ? PlanningSourceSemanticRole.PolicyConstraint
             : PlanningSourceSemanticRole.Declaration;
-        var fingerprint = PlanningGraphCompiler.Fingerprint("source-v3:" + source.Authority + ":" + role + ":" + clause.Id + ":" + clause.SourceFingerprint + ":" +
+        var fingerprint = PlanningGraphCompiler.Fingerprint("source-v4:" + source.Authority + ":" + role + ":" + clause.Id + ":" + clause.SourceFingerprint + ":" +
             obligation.Kind + ":" + obligation.Required + ":" + string.Join('|', obligation.EvidenceReferences) + ":" + baselineReference);
         return new(source.Authority, role, clause.Id, baselineReference, fingerprint);
     }

@@ -1,6 +1,20 @@
 # CodeReview convergence benchmark
 
-## Current bounded-escalation campaign
+## Current declaration-constraint campaign
+
+`schema5-declaration-constraints-stage1-1` authorizes one fresh classifier session
+after offline checks and the corrected production/binary freeze. Its comparison
+campaign is the archived `schema5-neutral-declarations-stage1-1`; no old session or
+receipt is imported. The configured model, all-low profiles, 12,000/8,192 limits,
+9,600 dispatch target, bounded 16,384 singleton escalation and repair budgets stay
+unchanged. Review the canonical ports, omission default and attached output-member
+constraints before exact behavior acceptance. Then advance the same session through
+construction and bounded repairs. `campaign execute 1` must pass all six independent
+cases before exact-hash approval. The first meaningful blocker stops the campaign;
+no replacement, provider redispatch, reasoning experiment or Stage 2 is permitted.
+See [declaration constraints](../../docs/planner-declaration-constraints.md).
+
+## Archived bounded-escalation campaign
 
 `schema5-output-budget-escalation-stage1-1` authorizes exactly one fresh Stage-1
 session on production commit `02c59469d85531b475daee1cbdcc635e920ccd87`. The model,

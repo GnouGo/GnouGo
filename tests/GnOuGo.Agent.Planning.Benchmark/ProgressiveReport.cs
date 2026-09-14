@@ -85,6 +85,13 @@ internal static class ProgressiveReport
                     ["aliases"] = d.Aliases.Count, ["modifierReferences"] = d.ModifierReferences.Count, ["baseline"] = d.BaselineReference is not null }).ToArray()),
             ["declarationDispositions"] = new JsonObject(state.DeclarationAssignments.GroupBy(a => a.Disposition, StringComparer.Ordinal)
                 .Select(g => new KeyValuePair<string, JsonNode?>(g.Key, JsonValue.Create(g.Count())))),
+            ["declarationModifiers"] = new JsonArray(state.DeclarationAssignments.Where(a => a.Disposition == "modifier_of")
+                .OrderBy(a => a.CandidateId, StringComparer.Ordinal).Select(a => (JsonNode)new JsonObject
+                {
+                    ["candidateId"] = a.CandidateId, ["targetId"] = a.TargetId,
+                    ["kind"] = state.Obligations.SingleOrDefault(o => o.Id == a.CandidateId)?.Kind,
+                    ["clauseReference"] = state.Obligations.SingleOrDefault(o => o.Id == a.CandidateId)?.Grounding?.ClauseReference
+                }).ToArray()),
             ["modelExecutableDecisions"] = holes.Count(h => h.Resolved && h.ResolutionOrigin == "model"),
             ["executableHoleExposures"] = holes.Sum(h => h.ExposedRequests.Distinct(StringComparer.Ordinal).Count(verified.Contains)),
             ["userClarifications"] = state.Intent.Questions, ["answeredForms"] = state.Intent.Answers.Count,

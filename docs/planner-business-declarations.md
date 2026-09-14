@@ -5,6 +5,15 @@ They retain owned evidence and complete clauses, but establish neither public po
 nor input/output direction. `omission_default` remains a separate modifier candidate;
 runtime conditions and fallbacks remain executable evidence.
 
+`declaration_constraint` identifies evidence governing an already declared public
+value or its members: type, enum/value domain, nullability/schema restrictions and
+preservation. It enters attachment pages directly, never root pages or root presence
+evidence. Its only responses are `modifier_of` a canonical declaration and
+`unresolved`; it cannot become a port, alias a root, assign a default, change public
+presence, or retire silently. `explicit_value` still denotes a supplied business or
+runtime value and is not automatically reclassified. Host-owned constraints may
+attach to established declarations but grant no operation or public-port authority.
+
 The existing `intent_declarations` phase has two dependent sets of bounded pages:
 
 1. Root decisions select `distinct_input`, `distinct_output`, `deferred_attachment`,
@@ -46,13 +55,14 @@ Initial/restored behavior, repairs and exact acceptance enforce this same proof.
 
 `PlanningDeclarationAssignment` retains reference-only declaration/presence evidence.
 Canonical `PlanningBusinessDeclaration` holds the proven direction. Internal source
-and declaration proofs are version 3; storage and encrypted namespaces remain 5.
+and declaration proofs are version 4; storage and encrypted namespaces remain 5.
 Historical directional interpretations are audit evidence, not automatically upgraded
 assignments. Explicit revision/reassessment must establish current proof while keeping
 cumulative budgets and durable request history. Archived campaigns remain untouched.
 
 See [neutral-declaration offline validation](planner-neutral-declarations.md) for the
-retained failure, corrected synthetic fixtures and current validation results.
+retained failure and [declaration-constraint validation](planner-declaration-constraints.md)
+for the attachment-only boundary and separately labelled fixture evidence.
 
 ## Offline regression evidence
 

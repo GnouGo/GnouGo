@@ -16,6 +16,9 @@ also round-trip through the published source-generated serializer.
 Canonical declaration assignments, declaration/presence evidence, exact names and omission-default references round-trip. The synthetic preparation transport exercises neutral declaration adjudication before behavior assembly. An encrypted restart between completed root pages and dependent attachments verifies output-member attachment, zero duplicate root dispatches, unchanged repair accounting and final proof replay.
 Scoped confirmation subjects, permission operation IDs and default applicability
 round-trip through that same Schema-5 serializer.
+The encrypted declaration checkpoint uses attachment-only `declaration_constraint`
+evidence for an output member. Restart resumes its attachment without another root
+request, semantic correction or repair charge.
 
 It also creates an ephemeral certificate, rejects its untrusted chain, and validates
 it with an explicit in-memory trust root. No certificate is installed and certificate

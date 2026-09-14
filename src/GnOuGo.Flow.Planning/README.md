@@ -26,6 +26,12 @@ confirmation](../../docs/planner-confirmation-scopes.md).
 
 Public inputs and outputs first pass [canonical declaration adjudication](../../docs/planner-business-declarations.md). Interpretation emits direction-neutral candidates. Existing adjudication pages establish canonical roots with explicit direction/presence before resolving aliases and modifiers against those roots; preliminary spans cannot create ports. Only `omission_default` modifiers can supply optional input defaults; `runtime_fallback` stays executable evidence. Output defaults, unspecified distinct-port presence and changes to established direction/presence through attachments are excluded by the response schema.
 
+`declaration_constraint` evidence enters the existing attachment pages directly for
+member types, enums, nullability and preservation. It must attach as `modifier_of`
+an established declaration or stop unresolved. It cannot create ports or supply
+defaults. Actual `explicit_value` obligations remain separate. Source/declaration
+proof version 4 preserves the existing Schema-5 storage boundary.
+
 Initial behavior is assembled from owned operations, canonical declarations and bounded boundary/iteration
 choices. The executable skeleton freezes identities, topology, executors, ownership,
 branches, finalizers and established contracts after human acceptance. Callees precede

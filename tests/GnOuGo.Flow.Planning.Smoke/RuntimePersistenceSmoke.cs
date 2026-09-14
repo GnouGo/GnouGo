@@ -101,15 +101,15 @@ internal static class RuntimePersistenceSmoke
                 var snapshot = opened.Snapshot;
                 var source = PlanningIntentAssessment.IntentSources(snapshot).Single(s => s.Id == "request");
                 var references = PlanningReferences.Register(snapshot, source.Id, source.Kind, source.Text);
-                void Candidate(string id, string fragment)
+                void Candidate(string id, string fragment, string kind)
                 {
                     var parent = references.Single(r => source.Text.Substring(r.Start, r.Length).Contains(fragment, StringComparison.Ordinal));
                     var reference = parent with { Id = parent.Id + "_" + id, Kind = parent.Kind + ":selection", Start = source.Text.IndexOf(fragment, StringComparison.Ordinal), Length = fragment.Length };
                     snapshot.References.Add(reference);
-                    var obligation = new PlanningObligation(id, [reference.Id], "business_decision", "declaration_candidate", true);
+                    var obligation = new PlanningObligation(id, [reference.Id], "business_decision", kind, true);
                     snapshot.Obligations.Add(obligation with { Grounding = PlanningSourceGroundingRules.Create(snapshot, obligation) });
                 }
-                Candidate("output", "Required output report"); Candidate("member", "Its status is a string.");
+                Candidate("output", "Required output report", "declaration_candidate"); Candidate("member", "Its status is a string.", "declaration_constraint");
                 var clauseId = snapshot.Obligations.Single(o => o.Id == "output").Grounding!.ClauseReference;
                 var name = PlanningReferences.Lexical(snapshot, snapshot.References.Single(r => r.Id == clauseId), source.Text)
                     .Single(r => PlanningChoiceEvidence.Text(snapshot, r.Id) == "report").Id;
@@ -159,8 +159,7 @@ internal static class RuntimePersistenceSmoke
                 {
                     var values = new JsonObject();
                     foreach (var field in page.Value!["properties"]!.AsObject())
-                        values[field.Key] = page.Key.StartsWith("declarations_roots_", StringComparison.Ordinal) && field.Key == "member"
-                            ? new JsonObject { ["disposition"] = "deferred_attachment" } : answers[field.Key].DeepClone();
+                        values[field.Key] = answers[field.Key].DeepClone();
                     response[page.Key] = values;
                 }
                 return Task.FromResult(new LLMResponse { CompletionStatus = "completed", Json = response, Usage = new JsonObject { ["total_tokens"] = 2 } });
