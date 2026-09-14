@@ -77,6 +77,18 @@ internal static class ProgressiveReport
                 .Distinct(StringComparer.Ordinal).Order(StringComparer.Ordinal).Select(id => (JsonNode?)JsonValue.Create(id)).ToArray()),
             ["approvedBehaviorHash"] = state.ApprovedBehaviorHash,
             ["declarationProof"] = state.DeclarationFingerprint,
+            ["operationAdmissionProof"] = state.OperationAdmissionFingerprint,
+            ["canonicalOperationCount"] = state.OperationAdmissionFingerprint is null ? null : state.Obligations.Count(o => o.OperationAdmission is not null),
+            ["canonicalOperations"] = state.OperationAdmissionFingerprint is null ? null : new JsonArray(state.Obligations.Where(o => o.OperationAdmission is not null)
+                .OrderBy(o => o.Id, StringComparer.Ordinal).Select(o => (JsonNode)new JsonObject
+                {
+                    ["id"] = o.Id, ["kind"] = o.Kind, ["required"] = o.Required, ["authority"] = o.Grounding?.Authority.ToString(),
+                    ["proofVersion"] = o.OperationAdmission!.Version, ["proofFingerprint"] = o.OperationAdmission.ProofFingerprint,
+                    ["anchorReference"] = o.OperationAdmission.AnchorReference, ["baselineReference"] = o.OperationAdmission.BaselineReference,
+                    ["governingReferences"] = new JsonArray(o.OperationAdmission.Assignments.Select(a => a.ClauseReference).Distinct(StringComparer.Ordinal)
+                        .Select(id => (JsonNode?)JsonValue.Create(id)).ToArray()),
+                    ["evidenceReuseCount"] = o.OperationAdmission.Assignments.Count(a => a.TargetId is not null)
+                }).ToArray()),
             ["canonicalDeclarations"] = new JsonArray(state.Declarations.Select(d => (JsonNode)new JsonObject
                 { ["id"] = d.Id, ["direction"] = d.Direction, ["scope"] = d.WorkflowScope, ["candidateCount"] = d.Candidates.Count,
                     ["name"] = ProgressiveRules.PublicName(state, d) is "record" or "threshold" or "classifiedResult" ? ProgressiveRules.PublicName(state, d) : null,

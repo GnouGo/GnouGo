@@ -44,6 +44,7 @@ public sealed class TypedWorkflowPlanner(TimeProvider? timeProvider = null) : IW
             }
             ct.ThrowIfCancellationRequested();
             if (command.Kind is "advance" or "accept_behavior" or "approve") PlanningConfirmationPolicies.RequireCurrent(state);
+            if (state.Preparation is not null && command.Kind is "advance" or "accept_behavior" or "approve") PlanningOperations.RequireCurrent(state);
             switch (command.Kind)
             {
                 case "advance": await AdvancePhaseAsync(state, runtime, ct); break;
@@ -207,6 +208,7 @@ public sealed class TypedWorkflowPlanner(TimeProvider? timeProvider = null) : IW
         state.BehaviorAssessmentCalls = 0; state.BehaviorAssessment = new(); state.Graph = null; state.Diagnostics.Clear();
         state.BehaviorRevision = null;
         state.ScopedPolicies.Clear();
+        state.OperationAdmissionFingerprint = null;
         state.Declarations.Clear(); state.DeclarationAssignments.Clear(); state.DeclarationFingerprint = null;
         foreach (var decision in state.BusinessDecisions) decision.Status = "superseded";
         state.Construction = new() { ModelSequence = state.Construction.ModelSequence };

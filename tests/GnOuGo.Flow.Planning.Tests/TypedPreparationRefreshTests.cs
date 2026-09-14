@@ -24,7 +24,7 @@ public sealed class TypedPreparationRefreshTests
         var request = Request(server, method);
         var checkpoint = new PlanningPreparationCheckpoint();
 
-        await runtime.PrepareAsync(new() { Request = request, PreparationCheckpoint = checkpoint }, Ct);
+        await runtime.PrepareAsync(PlanningFixtures.PreparedRequest(request, checkpoint), Ct);
         checkpoint.ValidatedResults["inventory"] = new JsonObject { ["retained"] = true };
         checkpoint.ValidatedResults["selection"] = new JsonArray("retained selection");
         checkpoint.ValidatedResults["matching_candidate"] = new JsonObject { ["retained"] = true };
@@ -34,7 +34,7 @@ public sealed class TypedPreparationRefreshTests
         checkpoint = JsonSerializer.Deserialize(JsonSerializer.Serialize(state, PlanningJsonContext.Default.PlanningSnapshot), PlanningJsonContext.Default.PlanningSnapshot)!.PreparationCheckpoint!;
         factory.RegisterServer(server, Server(method, changed ? "newObservation" : "original"));
 
-        var resumed = await runtime.PrepareAsync(new() { Request = request, PreparationCheckpoint = checkpoint }, Ct);
+        var resumed = await runtime.PrepareAsync(PlanningFixtures.PreparedRequest(request, checkpoint), Ct);
 
         Assert.NotNull(resumed.Preparation);
         Assert.False(checkpoint.RefreshDiscovery);
@@ -56,12 +56,12 @@ public sealed class TypedPreparationRefreshTests
         factory.RegisterServer("provider", Server("inspect", "original"));
         var runtime = new WorkflowPlanningRuntime(new WorkflowEngine { McpClientFactory = factory }, (_, _) => Task.CompletedTask);
         var checkpoint = new PlanningPreparationCheckpoint();
-        await runtime.PrepareAsync(new() { Request = Request("provider", "inspect"), PreparationCheckpoint = checkpoint }, Ct);
+        await runtime.PrepareAsync(PlanningFixtures.PreparedRequest(Request("provider", "inspect"), checkpoint), Ct);
         var retained = checkpoint.ValidatedResults.DeepClone();
         checkpoint.RefreshDiscovery = true;
         using var cancelled = new CancellationTokenSource();
         await cancelled.CancelAsync();
-        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => runtime.PrepareAsync(new() { Request = Request("provider", "inspect"), PreparationCheckpoint = checkpoint }, cancelled.Token));
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => runtime.PrepareAsync(PlanningFixtures.PreparedRequest(Request("provider", "inspect"), checkpoint), cancelled.Token));
         Assert.True(checkpoint.RefreshDiscovery);
         Assert.True(JsonNode.DeepEquals(retained, checkpoint.ValidatedResults));
     }

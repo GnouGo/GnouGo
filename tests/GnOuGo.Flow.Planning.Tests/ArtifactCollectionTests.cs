@@ -48,7 +48,7 @@ public sealed class ArtifactCollectionTests
                 }
             }
         };
-        var preparation = (await runtime.PrepareAsync(new() { Request = request }, TestContext.Current.CancellationToken)).Preparation!;
+        var preparation = (await runtime.PrepareAsync(PlanningFixtures.PreparedRequest(request), TestContext.Current.CancellationToken)).Preparation!;
         var producer = new PlanningNode { Key = "page", Type = "mcp.call", CapabilityId = preparation.Capabilities.Single(c => c.Method == method).Id, OperationIds = [method], Input = Obj(("request", Obj(("resource", new() { Kind = "input", Source = "resource" })))) };
         var loop = new PlanningNode { Key = "pages", Type = "loop.sequential", Input = Obj(("times", new() { Kind = "number", Number = 2 })), Steps = [producer] };
         var consumer = new PlanningNode { Key = "consumer", Type = "mcp.call", CapabilityId = preparation.Capabilities.Single(c => c.Method == "consume").Id, OperationIds = ["consume"] };

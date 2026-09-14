@@ -118,7 +118,7 @@ public sealed class RuntimeContractTests
                 }
             }
         };
-        var preparation = (await runtime.PrepareAsync(new() { Request = request }, Ct)).Preparation!;
+        var preparation = (await runtime.PrepareAsync(PlanningFixtures.PreparedRequest(request), Ct)).Preparation!;
         var capability = Assert.Single(preparation.Capabilities);
         Assert.NotNull(preparation.StepContracts["mcp.call"]!["input"]!["properties"]!["preserve_optional_nulls"]);
         Assert.Empty(await runtime.ValidateCatalogAsync(preparation, Ct));

@@ -9,6 +9,7 @@ internal static class CapabilityInventoryDecisions
 {
     internal static async Task<CapabilityInventory> BuildAsync(PlanningSnapshot state, IPlanningRuntime runtime, CancellationToken ct)
     {
+        await PlanningOperations.ResolveAsync(state, runtime, ct);
         await PlanningConfirmationPolicies.ResolveAsync(state, runtime, ct);
         await PlanningDeclarations.ResolveAsync(state, runtime, ct);
         await PlanningSourceDecisions.RelateAsync(state, runtime, ct);

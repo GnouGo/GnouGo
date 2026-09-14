@@ -71,6 +71,11 @@ internal static class PlanningPersistenceSmoke
         state.RepairAllowances = [new() { WorkflowKey = "main", Gate = PlanningGates.Typed, Attempts = 4 }];
         state.BehaviorRevision = new() { Text = "Private human revision", Located = true,
             Fields = [new("/workflows/0/purpose", "/workflows/@main/purpose", "replace", "previous-field", "human revision")] };
+        state.OperationAdmissionFingerprint = "operation-set-proof";
+        state.Obligations = [new("action", ["anchor"], "workflow", "local_processing", true)
+        { Disposition = "admitted", OperationAdmission = new(1, "action", "anchor", null,
+            [new("decision", "clause", "anchor", "local_processing", true, null, null),
+             new("reuse", "rules", "rule_anchor", "local_processing", true, "action", null)], "evidence-proof", "operation-proof") }];
         state.References = [new("reference", "smoke:" + state.Request.SessionId, 4, "request", "source-fingerprint", "user_request", 0, 7)];
         state.DecisionPages = [new() { Id = "page", Phase = "behavior", WorkflowKey = "$plan", EvidenceFingerprint = "source-fingerprint",
             Decisions = ["decision"], References = ["reference"], Status = "completed", EstimatedInputTokens = 700, InputTargetTokens = 9600,
@@ -87,6 +92,9 @@ internal static class PlanningPersistenceSmoke
             RequestContext = new System.Text.Json.Nodes.JsonObject { ["privateScope"] = "Encrypted scope" } };
         if (!await reopened.TrySaveAsync(state, 3, CancellationToken.None)) throw new InvalidOperationException("Decision preparation persistence failed.");
         var prepared = await reopened.LoadAsync("smoke", state.Request.SessionId, CancellationToken.None);
+        if (prepared?.OperationAdmissionFingerprint != "operation-set-proof" || prepared.Obligations.Single().OperationAdmission is not { Version: 1 } admission ||
+            admission.Assignments[1].TargetId != "action" || admission.Assignments[1].ClauseReference != "rules" || admission.ProofFingerprint != "operation-proof")
+            throw new InvalidOperationException("Canonical operation evidence did not survive encrypted persistence.");
         if (prepared?.BusinessDecisions.Single().Constraints.Single().Applicability != "omitted" ||
             prepared.BusinessDecisions.Single().ReportedEvents.Single() != "recorded" ||
             prepared.Outcome is not PlanningNeedUserClarification business || business.Decision.Choices.Single().PreferredReason != "Private declared preference")

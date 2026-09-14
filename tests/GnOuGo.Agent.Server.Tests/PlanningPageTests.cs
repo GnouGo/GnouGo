@@ -62,7 +62,7 @@ public sealed class PlanningPageTests
     [Theory]
     [InlineData(false)]
     [InlineData(true)]
-    public async Task EarlyBehaviorReview_IsVisibleBeforeCode_AndUngroundedHistoricalPortsCannotBeApproved(bool historicalPorts)
+    public async Task EarlyBehaviorReview_IsVisibleBeforeCode_AndHistoricalAdmissionCannotBeApproved(bool historicalPorts)
     {
         var ct = Xunit.TestContext.Current.CancellationToken;
         await using var fixture = await PlanningPersistenceTests.StoreFixture.CreateAsync();
@@ -91,9 +91,9 @@ public sealed class PlanningPageTests
         }
         using var reopened = PlanningSessionLifecycleTests.Create(fixture, new TypedWorkflowPlanner(), PlanningSessionLifecycleTests.AgentCatalog());
         var restored = (await reopened.GetAsync(state.Request.SessionId, ct))!;
-        Assert.Equal(historicalPorts ? null : state.ArtifactHash, restored.ApprovedBehaviorHash); Assert.Null(restored.ApprovedHash);
-        if (historicalPorts) Assert.Contains(restored.Diagnostics, d => d.Rule == "missing_declaration_proof");
-        Assert.Equal(historicalPorts ? PlanningStatus.Stopped : PlanningStatus.Generating, restored.Status); Assert.Single(restored.Intent.Answers); Assert.Equal(1, restored.Intent.Questions);
+        Assert.Null(restored.ApprovedBehaviorHash); Assert.Null(restored.ApprovedHash);
+        Assert.Contains(restored.Diagnostics, d => d.Code == "INTENT_OPERATION_PROOF_MISSING");
+        Assert.Equal(PlanningStatus.Stopped, restored.Status); Assert.Single(restored.Intent.Answers); Assert.Equal(1, restored.Intent.Questions);
         Assert.Null(await fixture.Store.LoadAsync("different-tenant", state.Request.SessionId, ct));
         await Assert.ThrowsAsync<PlanningConflictException>(() => reopened.SubmitAsync(state.Request.SessionId, new() { Kind = "accept_behavior", ExpectedRevision = state.Revision, ArtifactHash = state.ArtifactHash }, ct));
     }

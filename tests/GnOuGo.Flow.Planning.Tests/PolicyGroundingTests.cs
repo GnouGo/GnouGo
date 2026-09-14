@@ -20,7 +20,7 @@ public sealed class PolicyGroundingTests
         state.References.Add(reference);
         var obligation = new PlanningObligation(id, [reference.Id], sourceId == "host" ? "workflow" : "capability_contract", kind, true);
         obligation = obligation with { Grounding = PlanningSourceGroundingRules.Create(state, obligation),
-            Disposition = PlanningSourceGroundingRules.OperationKinds.Contains(kind) ? "admitted" : "preliminary" };
+            Disposition = "preliminary" };
         state.Obligations.Add(obligation); return obligation;
     }
     internal static JsonObject Permission(string rule, string scope, string target, string applicability = "always") => new()
@@ -79,6 +79,7 @@ public sealed class PolicyGroundingTests
         Add(state, "request", state.Request.Prompt, "action", "local_processing");
         var obligation = Add(state, "host", "Preserve the original record on failure.", "constraint", preliminary);
         var runtime = Runtime(new() { ["constraint"] = new() { ["rule"] = "not_confirmation_policy", ["reason"] = "other_workflow_constraint" } });
+        PlanningFixtures.AdmitHints(state);
         var inventory = await CapabilityInventoryDecisions.BuildAsync(state, runtime, Ct);
         Assert.Empty(inventory.ScopedPolicies); Assert.Single(inventory.Operations);
         Assert.Equal("not_confirmation_policy", obligation.Disposition);
@@ -93,8 +94,9 @@ public sealed class PolicyGroundingTests
         Add(state, "request", state.Request.Prompt, "action", "external_write");
         Add(state, "host", "Require permission for this action.", "require", "confirmation_required");
         Add(state, "host", "Do not ask for confirmation of this action.", "forbid", "confirmation_forbidden");
-        var runtime = Runtime(new() { ["require"] = Permission("require_confirmation", "operation", "action"),
-            ["forbid"] = Permission("forbid_confirmation", "operation", "action") });
+        PlanningFixtures.AdmitHints(state);
+        var runtime = Runtime(new() { ["require"] = Permission("require_confirmation", "operation", PlanningFixtures.OperationId(state, "action")),
+            ["forbid"] = Permission("forbid_confirmation", "operation", PlanningFixtures.OperationId(state, "action")) });
         var error = await Assert.ThrowsAsync<WorkflowRuntimeException>(() => PlanningConfirmationPolicies.ResolveAsync(state, runtime, Ct));
         Assert.Equal("CONFIRMATION_POLICY_CONFLICT", error.Code);
         Assert.All(state.ScopedPolicies, p => Assert.Equal("pending", p.Status));
@@ -107,8 +109,9 @@ public sealed class PolicyGroundingTests
         Add(state, "request", state.Request.Prompt, "action", "external_write");
         Add(state, "host", "Require permission to perform the action,", "first", "confirmation_required");
         Add(state, "host", "obtain consent for that action.", "second", "confirmation_required");
-        await PlanningConfirmationPolicies.ResolveAsync(state, Runtime(new() { ["first"] = Permission("require_confirmation", "operation", "action"),
-            ["second"] = Permission("require_confirmation", "operation", "action") }), Ct);
+        PlanningFixtures.AdmitHints(state);
+        await PlanningConfirmationPolicies.ResolveAsync(state, Runtime(new() { ["first"] = Permission("require_confirmation", "operation", PlanningFixtures.OperationId(state, "action")),
+            ["second"] = Permission("require_confirmation", "operation", PlanningFixtures.OperationId(state, "action")) }), Ct);
         var policy = Assert.Single(state.ScopedPolicies); Assert.Equal(2, policy.GoverningObligationIds.Count);
         Assert.Equal([policy.Id], state.Obligations.Single(o => o.Id == "second").PolicyIds);
     }

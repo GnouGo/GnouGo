@@ -69,13 +69,14 @@ public sealed class SourceAuthorityTests
             source = "answer_0_0";
         }
         var obligation = PolicyGroundingTests.Add(state, source, state.Request.Prompt, "action", "external_write");
+        PlanningFixtures.AdmitHints(state);
         var inventory = await CapabilityInventoryDecisions.BuildAsync(state, new TypedPlannerTests.FakeRuntime(), Ct);
         Assert.Equal(PlanningSourceAuthority.RequestedBehavior, obligation.Grounding!.Authority);
         Assert.Equal(PlanningSourceSemanticRole.RequestedAction, obligation.Grounding.Role);
-        Assert.Equal("action", Assert.Single(inventory.Operations).Id);
+        Assert.Equal(PlanningFixtures.OperationId(state, "action"), Assert.Single(inventory.Operations).Id);
         var protectedInventory = CapabilityConfirmationPolicies.Apply(inventory);
         var permission = Assert.Single(protectedInventory.Operations, o => o.ExecutionKind == "human_interaction");
-        Assert.Contains(permission.Id, protectedInventory.Operations.Single(o => o.Id == "action").InputOperationIds);
+        Assert.Contains(permission.Id, protectedInventory.Operations.Single(o => o.Id == PlanningFixtures.OperationId(state, "action")).InputOperationIds);
     }
 
     [Fact]
@@ -92,7 +93,7 @@ public sealed class SourceAuthorityTests
         var clause = PlanningReferences.Register(state, source.Id, source.Kind, source.Text)[0];
         var obligation = new PlanningObligation("existing_action", [clause.Id], "workflow", "local_processing", true);
         Assert.Throws<WorkflowRuntimeException>(() => PlanningSourceGroundingRules.Create(state, obligation));
-        obligation = obligation with { Grounding = PlanningSourceGroundingRules.Create(state, obligation, reference), Disposition = "admitted" };
+        obligation = obligation with { Grounding = PlanningSourceGroundingRules.Create(state, obligation, reference), Disposition = "preliminary" };
         PlanningSourceGroundingRules.Validate(state, obligation);
         Assert.Equal(PlanningSourceSemanticRole.ExistingAction, obligation.Grounding.Role);
         state.Request.Baseline.Workflows[0].Steps.Clear();

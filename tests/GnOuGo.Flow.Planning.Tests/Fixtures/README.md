@@ -25,3 +25,11 @@ Sharing the required-policy classification once, while retaining each policy ID
 and exact description, reduces the current request to **11,475 tokens**.
 The candidate IDs and the 2,644-character response schema are unchanged.
 These are preparation checkpoint measurements, not end-to-end call savings.
+
+`operation-admission-stage1.json` contains sanitized requested-source evidence and
+already validated declaration assignments from session
+`d1d249a22d754ef680c646f00881ee32`. It is an audit fixture, not a model receipt.
+`OperationAdmissionTests` supplies explicitly synthetic canonical action/reuse
+answers and revalidates the retained two-input/one-output declaration materialization.
+Strict encrypted historical replay stops at the new admission request because
+no matching receipt exists; it never consumes the synthetic answers.

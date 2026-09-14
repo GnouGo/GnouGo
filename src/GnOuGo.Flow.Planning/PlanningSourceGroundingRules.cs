@@ -63,9 +63,13 @@ internal static class PlanningSourceGroundingRules
     {
         if (obligation.Grounding is not { } grounding || grounding != Create(state, obligation, obligation.Grounding.BaselineReference))
             throw Failure(state, obligation.Id, "Current source authority and semantic grounding must be established before admission.");
+        if (obligation.OperationAdmission is not null) PlanningOperations.Validate(state, obligation);
+        else if (OperationKinds.Contains(obligation.Kind, StringComparer.Ordinal) && obligation.Disposition == "admitted")
+            throw new GnOuGo.Flow.Core.Expressions.WorkflowRuntimeException("INTENT_OPERATION_PROOF_MISSING", "Preliminary operation hints cannot grant canonical authority.",
+                details: new JsonObject { ["location"] = "/operations/@" + obligation.Id });
     }
     internal static string Fingerprint(PlanningSnapshot state) => PlanningGraphCompiler.Fingerprint(string.Join('|',
-        state.Obligations.OrderBy(o => o.Id, StringComparer.Ordinal).Select(o => o.Id + ":" + o.Grounding?.Fingerprint + ":" + o.Disposition + ":" + o.AdjudicationFingerprint)));
+        state.Obligations.OrderBy(o => o.Id, StringComparer.Ordinal).Select(o => o.Id + ":" + o.Grounding?.Fingerprint + ":" + o.Disposition + ":" + o.AdjudicationFingerprint + ":" + o.OperationAdmission?.ProofFingerprint)));
 
     internal static void ValidateAll(PlanningSnapshot state)
     {

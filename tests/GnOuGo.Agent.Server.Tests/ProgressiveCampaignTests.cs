@@ -110,6 +110,24 @@ public sealed class ProgressiveCampaignTests
             PlanningJsonContext.Default.PlanningSnapshot), PlanningJsonContext.Default.PlanningSnapshot)!, new Dictionary<string, LLMResponse?>())));
     }
 
+    [Fact]
+    public void OperationReportsKeepProofAndReuseSeparateFromUninstrumentedHistory()
+    {
+        var state = new PlanningSnapshot { OperationAdmissionFingerprint = "set", Request = new() { Prompt = "PRIVATE" } };
+        state.Obligations.Add(new("action", ["anchor"], "workflow", "local_processing", true)
+        { OperationAdmission = new(1, "action", "anchor", null,
+            [new("first", "primary", "anchor", "local_processing", true, null, null),
+             new("second", "rules", "rule_anchor", "local_processing", true, "action", null)], "evidence", "proof") });
+        var report = ProgressiveReport.Build(state, new Dictionary<string, LLMResponse?>());
+        Assert.Equal(1, report["canonicalOperationCount"]!.GetValue<int>());
+        Assert.Equal(1, report["canonicalOperations"]![0]!["evidenceReuseCount"]!.GetValue<int>());
+        Assert.DoesNotContain("PRIVATE", report.ToJsonString());
+        Assert.True(JsonNode.DeepEquals(report, ProgressiveReport.Build(JsonSerializer.Deserialize(JsonSerializer.Serialize(state,
+            PlanningJsonContext.Default.PlanningSnapshot), PlanningJsonContext.Default.PlanningSnapshot)!, new Dictionary<string, LLMResponse?>())));
+        Assert.Null(ProgressiveReport.Build(new(), new Dictionary<string, LLMResponse?>())["canonicalOperationCount"]);
+        Assert.Throws<InvalidOperationException>(() => ProgressiveRules.RequireStageOneOperations(state));
+    }
+
     private static PlanningSnapshot ThresholdCandidate() => new()
     {
         Revision = 20, Status = PlanningStatus.Generating, CurrentPhase = PlanningPhase.Repair,

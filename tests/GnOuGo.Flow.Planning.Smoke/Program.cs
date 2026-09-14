@@ -193,6 +193,14 @@ foreach (var valid in new[] { true, false })
     if (guardedResult.Success != valid || guardedResult.StepResults.Any(s => s.StepId == "after") != valid ||
         !guardedResult.StepResults.Any(s => s.StepId == "cleanup")) throw new InvalidOperationException("Published structured continuation guard failed.");
 }
+// Exercise actual bounded admission and source-generated restart, not only DTO serialization.
+var operations = new PlanningSnapshot { Request = new() { TenantId = "smoke", Prompt = "Transform an input. Apply its transformation rules." } };
+await PlanningOperations.ResolveAsync(operations, new SmokeRuntime(graph, preparation), CancellationToken.None);
+var operationRestart = JsonSerializer.Deserialize(JsonSerializer.Serialize(operations, PlanningJsonContext.Default.PlanningSnapshot), PlanningJsonContext.Default.PlanningSnapshot)!;
+await PlanningOperations.ResolveAsync(operationRestart, new SmokeRuntime(graph, preparation) { InvalidIntent = true }, CancellationToken.None);
+if (operationRestart.Obligations.Count(PlanningSourceDecisions.IsOperation) != 1 || operationRestart.Obligations.Single().OperationAdmission!.Assignments.Count != 2 ||
+    operationRestart.RequestAccounting.Count != operations.RequestAccounting.Count || operationRestart.OperationAdmissionFingerprint != operations.OperationAdmissionFingerprint)
+    throw new InvalidOperationException("Published canonical operation reuse/restart failed.");
 await RuntimePersistenceSmoke.RunAsync();
 Console.WriteLine("Typed planning and encrypted runtime persistence AOT smoke passed.");
 
@@ -202,9 +210,10 @@ sealed class SmokeRuntime(PlanningGraph graph, PlanningPreparation preparation) 
     public bool InvalidIntent { get; set; }
     public async Task<PlanningPreparationProgress> PrepareAsync(PlanningSnapshot state, CancellationToken ct)
     {
+        await PlanningOperations.ResolveAsync(state, this, ct);
         await PlanningDeclarations.ResolveAsync(state, this, ct);
         preparation.Capabilities = [new() { Id = "declared", Description = "Return the ready message", Required = true, Resolution = "available", StepType = "set",
-            OperationIds = state.Obligations.Where(o => o.Kind == "local_processing").Select(o => o.Id).ToList(),
+            OperationIds = state.Obligations.Where(PlanningSourceDecisions.IsOperation).Select(o => o.Id).ToList(),
             FixedInput = new() { ["message"] = "ready" }, OutputSchema = JsonNode.Parse("""{"type":"object","properties":{"message":{"type":"string"}},"required":["message"],"additionalProperties":false}""")!.AsObject() }];
         return new(new(), preparation);
     }
@@ -220,6 +229,7 @@ sealed class SmokeRuntime(PlanningGraph graph, PlanningPreparation preparation) 
             "intent" => new JsonObject(request.StructuredOutputSchema["properties"]!.AsObject().Select(p => new KeyValuePair<string, JsonNode?>(p.Key,
                 new JsonArray(new[] { "local_processing", "declaration_candidate" }.Select(role => (JsonNode?)new JsonObject
                 { ["start"] = p.Value!["items"]!["properties"]!["start"]!["enum"]![0]!.DeepClone(), ["end"] = p.Value!["items"]!["properties"]!["end"]!["enum"]!.AsArray()[^1]!.DeepClone(), ["kind"] = role, ["required"] = true }).ToArray())))),
+            "intent_operations" => OperationResponse(request),
             "intent_declarations" => DeclarationResponse(request),
             "construction_schema" => new JsonObject(request.StructuredOutputSchema["properties"]!.AsObject().Select(p => new KeyValuePair<string, JsonNode?>(p.Key,
                 p.Value!["properties"]?["type"] is not null ? new JsonObject { ["type"] = "string", ["nullable"] = false }
@@ -230,6 +240,14 @@ sealed class SmokeRuntime(PlanningGraph graph, PlanningPreparation preparation) 
         };
         return Task.FromResult(new LLMResponse { Json = json });
     }
+    private JsonObject OperationResponse(LLMRequest request) => new(request.StructuredOutputSchema!["properties"]!.AsObject().Select(page =>
+    {
+        var scope = PlanningOperations.Scopes(_snapshot!).Single(s => PlanningOperations.DecisionId(s) == page.Key);
+        var variants = page.Value!["anyOf"]!.AsArray().Single(v => v!["properties"]?["actions"] is not null)!["properties"]!["actions"]!["items"]!["anyOf"]!.AsArray();
+        var reuse = variants.FirstOrDefault(v => v!["properties"]!["target"]!["enum"] is not null)?["properties"]!["target"]!["enum"]![0]?.ToString();
+        return new KeyValuePair<string, JsonNode?>(page.Key, new JsonObject { ["status"] = "operations", ["actions"] = new JsonArray(new JsonObject
+        { ["kind"] = "local_processing", ["required"] = true, ["target"] = reuse, ["baseline"] = null, ["start"] = "b0", ["end"] = "b" + scope.Words.Count }) });
+    }));
     private JsonObject DeclarationResponse(LLMRequest request)
     {
         // Synthetic semantic response for this smoke's explicitly named message.

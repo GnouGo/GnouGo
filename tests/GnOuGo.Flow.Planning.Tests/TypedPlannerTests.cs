@@ -38,7 +38,7 @@ public sealed class TypedPlannerTests
     }
     internal static PlanningValue Str(string text) => new() { Kind = "string", Text = text };
     internal static PlanningValue Obj(params (string Key, PlanningValue Value)[] members) => new() { Kind = "object", Members = members.Select(m => new PlanningMember(m.Key, m.Value)).ToList() };
-    internal static PlanningSnapshot Session(string status = PlanningStatus.Created) => new() { Request = new() { TenantId = "tenant", Prompt = "Return a greeting", MaxRepairsPerWorkflowGate = 1 }, Status = status };
+    internal static PlanningSnapshot Session(string status = PlanningStatus.Created) { var state = new PlanningSnapshot { Request = new() { TenantId = "tenant", Prompt = "Return a greeting", MaxRepairsPerWorkflowGate = 1 }, Status = status }; PlanningOperations.Commit(state, []); return state; }
     private static Task<PlanningSnapshot> Send(IWorkflowPlanner planner, PlanningSnapshot state, IPlanningRuntime runtime, string kind = "advance", string? text = null)
         => planner.AdvanceAsync(state, new() { Kind = kind, ExpectedRevision = state.Revision, ArtifactHash = state.ArtifactHash, Text = text }, runtime, Ct);
 
@@ -228,12 +228,12 @@ public sealed class TypedPlannerTests
         public Task CheckpointAsync(PlanningSnapshot snapshot, CancellationToken ct) { _state = snapshot; return OnCheckpoint?.Invoke(snapshot) ?? Task.CompletedTask; }
         public Task<IReadOnlyList<PlanningDiagnostic>> ValidateCatalogAsync(PlanningPreparation preparation, CancellationToken ct)
         { CatalogCalls++; return Task.FromResult(CatalogDiagnostics); }
-        public async Task<PlanningPreparationProgress> PrepareAsync(PlanningSnapshot state, CancellationToken ct) { PreparationCalls++; if (OnPrepareSnapshot is null && OnPrepare is null) await PlanningDeclarations.ResolveAsync(state, this, ct); return new(state.PreparationCheckpoint ?? new(), OnPrepareSnapshot is not null ? await OnPrepareSnapshot(state) : OnPrepare is null ? PreparedLocal(state) : await OnPrepare(state.Request)); }
+        public async Task<PlanningPreparationProgress> PrepareAsync(PlanningSnapshot state, CancellationToken ct) { PreparationCalls++; if (OnPrepareSnapshot is null && OnPrepare is null) { await PlanningOperations.ResolveAsync(state, this, ct); await PlanningDeclarations.ResolveAsync(state, this, ct); } var prepared = OnPrepareSnapshot is not null ? await OnPrepareSnapshot(state) : OnPrepare is null ? PreparedLocal(state) : await OnPrepare(state.Request); if (OnPrepareSnapshot is not null || OnPrepare is not null) PlanningFixtures.AdmitHints(state); return new(state.PreparationCheckpoint ?? new(), prepared); }
         private static PlanningPreparation PreparedLocal(PlanningSnapshot state)
         {
             var preparation = Preparation();
             preparation.Capabilities.Add(new() { Id = "local_greeting", StepType = "set", Resolution = "available", Description = "Return a greeting", Required = true,
-                OperationIds = state.Obligations.Where(o => o.Kind == "local_processing").Select(o => o.Id).DefaultIfEmpty("greeting").ToList(),
+                OperationIds = state.Obligations.Where(PlanningSourceDecisions.IsOperation).Select(o => o.Id).DefaultIfEmpty("greeting").ToList(),
                 FixedInput = new() { ["message"] = "Hello" }, OutputSchema = new() { ["type"] = "object", ["properties"] = new JsonObject { ["message"] = new JsonObject { ["type"] = "string" } }, ["required"] = new JsonArray("message"), ["additionalProperties"] = false } });
             return preparation;
         }
@@ -260,6 +260,7 @@ public sealed class TypedPlannerTests
             JsonNode? json = InvalidJson ? new JsonObject() : phase switch
             {
                 "intent" => Interpret(request),
+                "intent_operations" => new JsonObject(request.StructuredOutputSchema!["properties"]!.AsObject().Select(p => new KeyValuePair<string, JsonNode?>(p.Key, OperationAdmissionTests.Actions(OperationAdmissionTests.Action(PlanningOperations.Scopes(_state!).Single(s => PlanningOperations.DecisionId(s) == p.Key)))))),
                 "intent_declarations" => DeclarationGroundingTests.Response(request, PlanningDeclarations.Candidates(_state!).Select(o =>
                     DeclarationGroundingTests.Distinct(_state!, o.Id, "greeting", direction: "output"))),
                 "behavior" => JsonSerializer.SerializeToNode(BehaviorPlan(), PlanningJsonContext.Default.PlanningBehaviorPlan),

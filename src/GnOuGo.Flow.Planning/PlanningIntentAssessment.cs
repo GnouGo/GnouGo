@@ -29,8 +29,10 @@ internal sealed class PlanningIntentAssessment(TimeProvider time)
         var sources = new List<IntentSource> { new("request", "user_request", state.Request.Prompt) };
         if (state.Request.Options["policy"]?["instructions"]?.GetValue<string>() is { Length: > 0 } context)
             sources.Add(new("host", "host_constraint", context));
-        if (PlanningContext.BaselineText(state) is { } existing)
-            sources.Add(new("existing", "existing_workflow", existing));
+        // Source references describe the supplied baseline. Approving a new behavior
+        // changes the review context, not the source authority of that baseline.
+        if (state.Request.Baseline is { } baseline)
+            sources.Add(new("existing", "existing_workflow", state.BehaviorRevision?.ReviewedBaselineBehavior ?? PlanningSemanticContext.Graph(baseline).ToJsonString()));
         for (var index = 0; index < state.Intent.Answers.Count; index++)
         {
             var answer = state.Intent.Answers[index];

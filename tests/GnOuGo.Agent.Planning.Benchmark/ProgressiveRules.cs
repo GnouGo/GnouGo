@@ -68,6 +68,19 @@ internal static class ProgressiveRules
         return text;
     }
 
+    internal static void RequireStageOneOperations(PlanningSnapshot state)
+    {
+        var actions = state.Obligations.Where(o => o.OperationAdmission is not null).ToArray();
+        var rules = "Classify as rejected when approved is false, high when approved is true and amount>=threshold, and standard otherwise.";
+        if (string.IsNullOrEmpty(state.OperationAdmissionFingerprint) || actions.Length == 0 || actions.Any(o => o.Kind != "local_processing" ||
+            o.Disposition != "admitted" || o.OperationAdmission is not { Version: 1 } || o.OperationAdmission.CanonicalId != o.Id ||
+            o.Grounding?.Authority != PlanningSourceAuthority.RequestedBehavior) ||
+            !actions.Any(o => o.Required && o.OperationAdmission!.Assignments.Any(a => SourceText(state, a.ClauseReference) == rules)) ||
+            state.BehaviorPlan is null || actions.Where(o => o.Required).Any(o => !state.BehaviorPlan.Workflows.Any(w =>
+                PlanningBehaviorPlans.Enumerate(w.Steps.Concat(w.Finally)).Any(n => n.OperationIds.Contains(o.Id)))))
+            throw new InvalidOperationException("STAGE1_OPERATION_REVIEW_MISMATCH");
+    }
+
     internal static void RequireStageOneDeclarations(PlanningSnapshot state)
     {
         void Require(bool condition) { if (!condition) throw new InvalidOperationException("STAGE1_DECLARATION_REVIEW_MISMATCH"); }

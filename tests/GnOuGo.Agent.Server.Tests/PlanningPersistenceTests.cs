@@ -72,6 +72,12 @@ public sealed class PlanningPersistenceTests
         state.Declarations.Add(new("declaration", "input", "main", "name_reference", null, false, "default_reference",
             ["candidate"], [], ["modifier_reference"], ["clause_reference"], "PRIVATE_DECLARATION_PROOF"));
         state.DeclarationFingerprint = "PRIVATE_ADJUDICATION_PROOF";
+        state.OperationAdmissionFingerprint = "PRIVATE_OPERATION_SET";
+        state.Obligations.Add(new("canonical_action", ["primary_clause"], "workflow", "local_processing", true)
+        { Disposition = "admitted", OperationAdmission = new(1, "canonical_action", "anchor", null,
+            [new("operation_clause", "primary_clause", "anchor", "local_processing", true, null, null),
+             new("operation_rules", "governing_clause", "rule_anchor", "local_processing", true, "canonical_action", null)],
+            "PRIVATE_OPERATION_EVIDENCE", "PRIVATE_OPERATION_PROOF") });
         state.DecisionPages =
         [
             new() { Id = "root", Origin = PlanningDecisionPageOrigin.SemanticCorrection, Correction = true, Gate = PlanningGates.Typed, Status = "split", Decisions = ["a", "b"], PartitionChildren = ["left", "right"] },
@@ -118,7 +124,11 @@ public sealed class PlanningPersistenceTests
         var scopedPolicy = Assert.Single(restored.ScopedPolicies);
         Assert.Equal("policy_fingerprint", scopedPolicy.EvidenceFingerprint); Assert.Equal("unless_explicit", scopedPolicy.Applicability);
         Assert.Equal("owned_clause", scopedPolicy.ClauseReference); Assert.Equal(["effect"], scopedPolicy.TargetOperationIds); Assert.Equal("permission", scopedPolicy.PermissionOperationId);
-        var grounded = Assert.Single(restored.Obligations);
+        Assert.Equal("PRIVATE_OPERATION_SET", restored.OperationAdmissionFingerprint);
+        var admission = Assert.Single(restored.Obligations, o => o.OperationAdmission is not null).OperationAdmission!;
+        Assert.Equal("PRIVATE_OPERATION_PROOF", admission.ProofFingerprint); Assert.Equal(1, admission.Version);
+        Assert.Equal("canonical_action", admission.Assignments[1].TargetId); Assert.Equal("governing_clause", admission.Assignments[1].ClauseReference);
+        var grounded = Assert.Single(restored.Obligations, o => o.Id == "governor");
         Assert.Equal("PRIVATE_GROUNDING_PROOF", grounded.Grounding!.Fingerprint);
         Assert.Equal(PlanningSourceAuthority.ConstraintsOnly, grounded.Grounding.Authority);
         Assert.Equal("rejection_condition", grounded.Disposition); Assert.Equal("adjudicated", grounded.AdjudicationFingerprint);

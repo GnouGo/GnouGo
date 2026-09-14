@@ -24,6 +24,8 @@ operations. Complete clauses adjudicate preliminary permission labels together;
 rejection always prevents the protected action. See [source grounding and scoped
 confirmation](../../docs/planner-confirmation-scopes.md).
 
+Runtime actions first pass [canonical operation admission](../../docs/planner-canonical-operations.md). Initial action classifications are hints. Bounded `intent_operations` pages examine complete requested clauses, establish source-anchored actions, and let later clauses reuse established actions with governing evidence. Policy subjects cannot create actions; baseline actions require exact node authority. Admission commits atomically before confirmation scoping and capability inventory, and zero admitted actions still stop with `INTENT_OPERATION_UNRESOLVED`. Operation proof version 1 is additive within Schema-5; explicit reassessment is required for missing historical proof.
+
 Public inputs and outputs first pass [canonical declaration adjudication](../../docs/planner-business-declarations.md). Interpretation emits direction-neutral candidates. Existing adjudication pages establish canonical roots with explicit direction/presence before resolving aliases and modifiers against those roots; preliminary spans cannot create ports. Only `omission_default` modifiers can supply optional input defaults; `runtime_fallback` stays executable evidence. Output defaults, unspecified distinct-port presence and changes to established direction/presence through attachments are excluded by the response schema.
 
 `declaration_constraint` evidence enters the existing attachment pages directly for

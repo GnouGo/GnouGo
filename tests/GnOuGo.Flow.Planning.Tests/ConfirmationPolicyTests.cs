@@ -138,7 +138,8 @@ public sealed class ConfirmationPolicyTests
         state.Obligations = [new("require", [first.Id], "workflow", "confirmation_required", true),
             new("forbid", [last.Id], "workflow", classification, true), new("local", [operation.Id], "workflow", "local_processing", true)];
         state.Obligations = state.Obligations.Select(o => o with { Grounding = PlanningSourceGroundingRules.Create(state, o),
-            Disposition = PlanningSourceGroundingRules.OperationKinds.Contains(o.Kind) ? "admitted" : "preliminary" }).ToList();
+            Disposition = "preliminary" }).ToList();
+        PlanningFixtures.AdmitHints(state);
         var calls = 0;
         PlanningSnapshot? receivedBeforeScopeCommit = null;
         var runtime = new TypedPlannerTests.FakeRuntime { OnCheckpoint = snapshot =>

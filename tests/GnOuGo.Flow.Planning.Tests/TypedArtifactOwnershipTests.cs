@@ -121,7 +121,7 @@ public sealed class TypedArtifactOwnershipTests
                 }
             }
         };
-        var preparation = (await runtime.PrepareAsync(new() { Request = request }, Ct)).Preparation!;
+        var preparation = (await runtime.PrepareAsync(PlanningFixtures.PreparedRequest(request), Ct)).Preparation!;
         var resolved = preparation.RuntimeState["capabilities"]!.AsArray();
         for (var i = 0; i < 2; i++)
         {

@@ -47,10 +47,21 @@ public sealed record PlanningDecisionCorrection(string DecisionId, string Eviden
 public sealed record PlanningObligation(string Id, List<string> EvidenceReferences, string Owner, string Kind, bool Required)
 {
     public PlanningSourceGrounding? Grounding { get; init; }
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public PlanningOperationAdmission? OperationAdmission { get; init; }
     public string? AdjudicationFingerprint { get; set; }
     public string Disposition { get; set; } = "preliminary";
     public List<string> PolicyIds { get; set; } = [];
 }
+
+/// <summary>One owned clause's contribution to a canonical action. Text remains in source references.</summary>
+public sealed record PlanningOperationAssignment(string DecisionId, string ClauseReference, string ActionReference,
+    string Kind, bool Required, string? TargetId, string? BaselineReference);
+
+/// <summary>Canonical operation proof; preliminary source labels confer no execution authority.</summary>
+public sealed record PlanningOperationAdmission(int Version, string CanonicalId, string AnchorReference,
+    string? BaselineReference, List<PlanningOperationAssignment> Assignments, string EvidenceFingerprint,
+    string ProofFingerprint);
 
 /// <summary>Assigned by the coordinator from owned source metadata, never selected by a model.</summary>
 public enum PlanningSourceAuthority { Unknown, RequestedBehavior, ExistingBehavior, ConstraintsOnly }

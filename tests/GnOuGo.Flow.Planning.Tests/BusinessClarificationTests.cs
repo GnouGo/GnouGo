@@ -23,7 +23,7 @@ public sealed class BusinessClarificationTests
         state.References.Add(reference);
         var obligation = new PlanningObligation(id, [reference.Id], "business_decision", kind, required);
         state.Obligations.Add(obligation with { Grounding = PlanningSourceGroundingRules.Create(state, obligation),
-            Disposition = PlanningSourceGroundingRules.OperationKinds.Contains(kind) ? "admitted" : "preliminary" });
+            Disposition = "preliminary" });
         return reference.Id;
     }
 
@@ -47,7 +47,7 @@ public sealed class BusinessClarificationTests
             .Select(p => new KeyValuePair<string, JsonNode?>(p.Key, new JsonObject { ["kind"] = kind, ["reference"] = reference }))) })
     };
     private static Task Resolve(PlanningSnapshot state, IPlanningRuntime? runtime = null, bool ask = true)
-        => PlanningClarifications.ResolveAsync(state, runtime ?? new TypedPlannerTests.FakeRuntime(), ask, Ct);
+        { PlanningFixtures.AdmitHints(state); return PlanningClarifications.ResolveAsync(state, runtime ?? new TypedPlannerTests.FakeRuntime(), ask, Ct); }
     private static async Task<PlanningSnapshot> Ask(PlanningSnapshot state, IPlanningRuntime? runtime = null)
     {
         var error = await Assert.ThrowsAsync<WorkflowRuntimeException>(() => Resolve(state, runtime));
@@ -120,10 +120,10 @@ public sealed class BusinessClarificationTests
         decision.Constraints.Add(new("require", "choice_draft", decision.SubjectReference, "intent"));
         var runtime = new TypedPlannerTests.FakeRuntime(); await Resolve(state, runtime);
         Assert.Equal("choice_draft", decision.SelectedChoiceId); Assert.Empty(runtime.Requests); Assert.Null(state.Outcome);
-        Assert.False(PlanningBusinessAnswers.Included(state, "publish"));
-        Assert.DoesNotContain(PlanningBehaviorPlans.Enumerate(PlanningBehaviorDecisions.Assemble(state, new()).Workflows[0].Steps), n => n.OperationIds.Contains("publish"));
+        Assert.False(PlanningBusinessAnswers.Included(state, PlanningFixtures.OperationId(state, "publish")));
+        Assert.DoesNotContain(PlanningBehaviorPlans.Enumerate(PlanningBehaviorDecisions.Assemble(state, new()).Workflows[0].Steps), n => n.OperationIds.Contains(PlanningFixtures.OperationId(state, "publish")));
         state = Session(); decision = Domain(state);
-        decision.Alternatives[1].OperationIds = ["publish"]; decision.Alternatives[1].EvidenceReference = decision.Alternatives[0].EvidenceReference;
+        decision.Alternatives[1].OperationIds = [PlanningFixtures.OperationId(state, "publish")]; decision.Alternatives[1].EvidenceReference = decision.Alternatives[0].EvidenceReference;
         await Resolve(state, runtime); Assert.Equal("equivalence", decision.ResolutionOrigin);
     }
 
@@ -219,6 +219,7 @@ public sealed class BusinessClarificationTests
     public async Task RealSessionConstructsIndependentBehaviorBeforeQuestionAndRetainsItAsUnapproved()
     {
         var state = Session(); Domain(state);
+        PlanningFixtures.AdmitHints(state);
         var result = await new TypedWorkflowPlanner().AdvanceAsync(state, new() { Kind = "advance", ExpectedRevision = state.Revision }, new TypedPlannerTests.FakeRuntime(), Ct);
         Assert.Equal(PlanningStatus.Clarification, result.Status);
         Assert.NotNull(result.BehaviorAssessment.Candidate); Assert.Null(result.ApprovedBehaviorHash); Assert.Null(result.Graph);
@@ -315,6 +316,7 @@ public sealed class BusinessClarificationTests
         var runtime = new TypedPlannerTests.FakeRuntime { OnCall = (_, request, _) => Task.FromResult(new LLMResponse
         { Json = new JsonObject(request.StructuredOutputSchema!["properties"]!.AsObject().Select(p => new KeyValuePair<string, JsonNode?>(p.Key,
             new JsonObject { ["kind"] = "technical" }))) }) };
+        PlanningFixtures.AdmitHints(state);
         var result = await new TypedWorkflowPlanner().AdvanceAsync(state, new() { Kind = "advance", ExpectedRevision = state.Revision }, runtime, Ct);
         Assert.Equal(PlanningStatus.Stopped, result.Status); Assert.Null(result.Outcome);
         Assert.Equal("/obligations/@choice", result.TechnicalStop!.Location); Assert.Single(result.Diagnostics);
@@ -351,7 +353,7 @@ public sealed class BusinessClarificationTests
         {
             var answer = new JsonObject(request.StructuredOutputSchema!["properties"]!.AsObject().Select(p => new KeyValuePair<string, JsonNode?>(p.Key,
                 new JsonObject { ["kind"] = "planning", ["alternatives"] = new JsonArray(
-                    new JsonObject { ["start"] = "b0", ["end"] = "b3", ["operations"] = new JsonArray("publish") },
+                    new JsonObject { ["start"] = "b0", ["end"] = "b3", ["operations"] = new JsonArray(PlanningFixtures.OperationId(state, "publish")) },
                     new JsonObject { ["start"] = "b4", ["end"] = "b7", ["operations"] = new JsonArray() }) })));
             Assert.Empty(PlanningContractValidation.ValidateInstance(answer, request.StructuredOutputSchema.AsObject()));
             var invented = answer.DeepClone(); invented.AsObject().First().Value!["preferred"] = true;

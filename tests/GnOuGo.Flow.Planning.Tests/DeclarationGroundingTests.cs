@@ -12,7 +12,7 @@ public sealed class DeclarationGroundingTests
     private static CancellationToken Ct => TestContext.Current.CancellationToken;
     internal const string Classifier = "Create one reusable workflow classifying a single record.\nRequired input record is an object with required id:string, amount:number and approved:boolean.\nOptional input threshold is a non-nullable number defaulting to 100 when omitted.\nReturn classifiedResult:{id:string,amount:number,category:string}, all members required.\nClassify as rejected when approved is false, high when approved is true and amount>=threshold, and standard otherwise.\ncategory has exactly the values rejected, high, standard. Preserve the original id and amount.\nThis is deterministic, local, in-memory business processing.";
     internal static PlanningSnapshot State(string prompt)
-    { var state = TypedPlannerTests.Session(); state.Request.Prompt = prompt; state.Preparation = TypedPlannerTests.Preparation(); return state; }
+    { var state = TypedPlannerTests.Session(); state.Request.Prompt = prompt; state.Preparation = TypedPlannerTests.Preparation(); PlanningOperations.Commit(state, []); return state; }
     internal static PlanningObligation Add(PlanningSnapshot state, string fragment, string id, string kind = "declaration_candidate")
         => PolicyGroundingTests.Add(state, "request", fragment, id, kind);
     internal static void UseBaselinePorts(PlanningSnapshot state, PlanningBehaviorPlan plan)
@@ -25,6 +25,7 @@ public sealed class DeclarationGroundingTests
             Inputs = w.Inputs.Select(p => new PlanningPort { Name = p.Name, Required = p.Required, Schema = new() { Type = "string" } }).ToList(),
             Outputs = w.Outputs.Select(p => new PlanningOutput { Name = p.Name, Schema = new() { Type = "string" }, Value = new() { Kind = "string", Text = "fixture" } }).ToList()
         }).ToList() };
+        PlanningFixtures.AdmitHints(state);
         PlanningDeclarations.Commit(state, [], PlanningDeclarations.EvidenceFingerprint(state));
         foreach (var workflow in plan.Workflows)
         {
@@ -86,6 +87,7 @@ public sealed class DeclarationGroundingTests
         Add(state, "classifying a single", "operation", "local_processing");
         state.Preparation!.Capabilities.Add(new() { Id = "local", StepType = "set", Resolution = "local", Required = true,
             Description = "Classify the original record under the declared rule.", OperationIds = ["operation"] });
+        PlanningFixtures.AdmitHints(state);
         return (state, Canonicalize(state, [Distinct(state, "record", "record"), Distinct(state, "threshold", "threshold", "optional"),
             Link("overlap", "threshold"), Retire("description"), Distinct(state, "result", "classifiedResult", direction: "output"),
             Link("classification", "result", "modifier_of"), Link("preservation", "result", "modifier_of"),
@@ -105,7 +107,7 @@ public sealed class DeclarationGroundingTests
             return Task.FromResult(new LLMResponse { Json = response });
         } };
         await PlanningDeclarations.ResolveAsync(state, runtime, Ct);
-        state.ObligationRelations = [new("overlap", "operation", "data"), new("record", "operation", "data")];
+        state.ObligationRelations = [new("overlap", PlanningFixtures.OperationId(state, "operation"), "data"), new("record", PlanningFixtures.OperationId(state, "operation"), "data")];
         var plan = PlanningBehaviorDecisions.Assemble(state, new());
         var workflow = Assert.Single(plan.Workflows);
         Assert.Equal(["record", "threshold"], workflow.Inputs.Select(p => p.Name).Order(StringComparer.Ordinal));

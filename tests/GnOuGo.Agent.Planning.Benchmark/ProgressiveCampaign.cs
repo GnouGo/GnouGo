@@ -28,8 +28,8 @@ internal static class ProgressiveCampaign
 {
     internal const string Tenant = "planner-progressive", Author = "GnOuGo.Agent.Planning.Benchmark";
     internal const string EvidenceCollection = "agent-planning-progressive-evidence-v5", CampaignCollection = "agent-planning-progressive-campaigns-v5";
-    internal const string CampaignId = "schema5-canonical-roots-stage1-1";
-    private const string PreviousCampaignId = "schema5-declaration-constraints-stage1-rerun-1";
+    internal const string CampaignId = "schema5-canonical-operations-stage1-1";
+    private const string PreviousCampaignId = "schema5-canonical-roots-stage1-1";
     private const string ArchivedCampaignId = "schema5-ee487c8";
     private const int MaximumStage = 1;
 
@@ -229,7 +229,7 @@ internal static class ProgressiveCampaign
                 if (args[0] == "accept")
                 {
                     ProgressiveRules.RequireReview(state, revision, hash, PlanningStatus.BehaviorReview);
-                    if (stage == 1) ProgressiveRules.RequireStageOneDeclarations(state);
+                    if (stage == 1) { ProgressiveRules.RequireStageOneDeclarations(state); ProgressiveRules.RequireStageOneOperations(state); }
                     if (stage == 3 && !new[] { "git_compare_refs", "copilot_review" }.All(m => state.Preparation!.Capabilities.Any(c => c.Method == m))) throw new InvalidOperationException("The benchmark implementation restriction is missing.");
                 }
                 else

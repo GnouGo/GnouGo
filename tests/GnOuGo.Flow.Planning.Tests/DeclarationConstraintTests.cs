@@ -45,6 +45,7 @@ public sealed class DeclarationConstraintTests
                 obligation = obligation with { Kind = "declaration_constraint", Disposition = "preliminary", AdjudicationFingerprint = null, PolicyIds = [] };
             state.Obligations[i] = obligation with { Grounding = PlanningSourceGroundingRules.Create(state, obligation) };
         }
+        PlanningFixtures.AdmitHints(state);
         values.Add(Link(enumEvidence.Id, output.Id, "modifier_of"));
         values.Add(Link(preservation.Id, output.Id, "modifier_of"));
         // The source/root assignments are unchanged; synthetic attachment targets
