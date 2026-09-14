@@ -22,8 +22,7 @@ public sealed class SourceAuthorityTests
     [InlineData("local_processing")]
     [InlineData("workflow_boundary")]
     [InlineData("iteration")]
-    [InlineData("business_input")]
-    [InlineData("business_output")]
+    [InlineData("declaration_candidate")]
     public void PolicySourcesCannotDeclareOperationsOrWorkflowStructureInTheResponseSchema(string kind)
     {
         var state = TypedPlannerTests.Session();

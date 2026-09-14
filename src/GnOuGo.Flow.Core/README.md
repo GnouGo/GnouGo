@@ -1319,7 +1319,7 @@ Before each selected workflow runs, `workflow.route` emits a `gnougo-flow.step.t
 
 Schema-5 planning state includes provider-neutral declaration assignments and canonical
 port identities. Input/output evidence spans are adjudicated before behavior review;
-public names and omission defaults remain source-owned. New default references originate only from `omission_default` input modifiers; runtime fallback obligations cannot authorize port defaults. See [declaration grounding](../../docs/planner-business-declarations.md).
+public names and omission defaults remain source-owned. Direction-neutral candidates acquire direction only through canonical root adjudication, with owned declaration/presence proof references; attachment requests target established canonical identities. New default references originate only from `omission_default` input modifiers; runtime fallback obligations cannot authorize port defaults. See [declaration grounding](../../docs/planner-business-declarations.md).
 
 This step invokes the host's injected Planner v2. Missing planner injection fails
 explicitly. Clarification, locked capabilities, engine-built behavior review and

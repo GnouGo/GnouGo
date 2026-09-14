@@ -1,51 +1,58 @@
 # Canonical business declarations
 
-Schema-5 source interpretation produces **candidate** `business_input` and
-`business_output` obligations. Candidates cannot directly create public ports or
-become independent data producers.
+Schema-5 interpretation produces direction-neutral `declaration_candidate` obligations.
+They retain owned evidence and complete clauses, but establish neither public ports
+nor input/output direction. `omission_default` remains a separate modifier candidate;
+runtime conditions and fallbacks remain executable evidence.
 
-Preparation validates source authority, then adjudicates complete clauses through
-bounded `intent_declarations` pages using the routine reasoning profile. Each
-candidate selects one issued assignment: `distinct`, `same_as`, `modifier_of`,
-`not_a_declaration`, or `unresolved`. `distinct` selects an exact lexical name
-reference and a declared workflow scope. Lexical indexing establishes coordinates;
-it does not classify keywords or infer names. Existing sources can reference only
-issued baseline ports. Modifiers may precede declarations or point across pages.
+The existing `intent_declarations` phase has two dependent sets of bounded pages:
 
-The coordinator commits only a completely covered, acyclic assignment graph. Every
-alias and modifier must reach one distinct declaration or existing baseline port.
-Repeated spans and shared clauses do not prove identity. Conflicting presence,
-defaults, duplicate public names, unknown references and unresolved identity produce
-located `DECLARATION_GROUNDING_UNRESOLVED` technical stops before review. They do not
-claim unsupportedness or ask the user to fix a technical proof gap.
+1. Root decisions select `distinct_input`, `distinct_output`, `deferred_attachment`,
+   `not_a_declaration`, or `unresolved`. New roots require source-owned public names,
+   scope, declaration evidence and presence evidence. Presence must be `required`
+   or `optional`; preliminary obligation necessity and member requiredness cannot
+   establish it. Baseline ports are already established; policies cannot create ports.
+2. Attachment pages are built only after roots validate. Deferred candidates select
+   `same_as`, `modifier_of`, `not_a_declaration`, or `unresolved`. Targets are issued
+   canonical declaration IDs, never preliminary candidates or alias chains. A member
+   constraint can attach to a proven output without an interpretation-direction lock.
 
-Public names come from source tokens or baseline contracts. Requiredness is resolved
-from complete evidence, independently of preliminary classification flags. Only separately interpreted `omission_default` evidence can supply a new default.
-Ordinary declarations and outputs expose only a null default-reference slot. Runtime
-conditions and `runtime_fallback` obligations retain executable authority without
-entering declaration adjudication. Exact JSON literals inside the omission evidence
-are parsed locally; no default and a literal null default remain distinct. Input/output
-aliases and modifiers cannot cross directions, and omission modifiers require optional
-input targets. See [omission semantics](planner-omission-defaults.md). Existing typed schemas remain authoritative.
-Unresolved type and preservation evidence stays available to typed construction.
-There is no new schema authoring or executable generation path.
+Root pages include complete declaration and omission evidence before choosing port
+presence. Ordinary attachments inherit direction, scope and presence, carry only
+`presence: unspecified` and a null default-reference slot, and cannot rename ports.
+Omission modifiers require optional canonical input targets and exact issued JSON
+literal references within omission evidence. Baseline defaults can only be reaffirmed
+unchanged. No default and a literal null default remain distinct. Runtime fallback
+values and conditional literals cannot authorize output defaults.
 
-`PlanningSnapshot` retains assignments, canonical declaration references and their
-proof fingerprints. Behavior ports carry their canonical identity. Initial and
-restored behavior, staged repairs and exact acceptance validate one port per public
-declaration, its scope, exact name, requiredness and governing description. Dependency
-analysis exposes canonical inputs and remaps historical aliases without treating
-modifiers as data producers. Executable validation preserves declared defaults.
+Repeated spans, matching names and shared clauses do not prove identity. Multiple
+subjects in a clause may establish distinct ports. Duplicate public identities,
+unknown references, unresolved subjects, conflicting defaults or unsupported evidence
+stop with located `DECLARATION_GROUNDING_UNRESOLVED` before behavior review. Reference
+validation proves ownership and structural consistency; arbitrary natural-language
+meaning remains the responsibility of bounded adjudication and existing review.
 
-Schema and encrypted namespaces remain **5**. Source-generated serialization covers
-the additive contracts. Old checkpoints lacking declaration proof cannot authorize
-review or acceptance; explicit intent revision reassesses preparation. Revisions
-invalidate declaration proofs while keeping cumulative budgets, durable pages and
-receipts. Archived campaigns are never rewritten or supplied synthetic receipts.
+Completed decision pages are the staging area. No roots or partial ports enter the
+canonical declaration collection before all required assignments validate. Attachment
+requests include the validated root-set fingerprint. Restart revalidates and reuses
+completed root and attachment pages without duplicate requests, events or charges.
+The existing phase, routine reasoning profile, bounded partitions/escalation,
+correction policy and global budgets are unchanged.
 
-Redacted declaration events count committed dispositions. Replay revalidates the
-proof without duplicating adjudication events. Names and source text do not appear
-in convergence metrics. Confirmation adjudication and guards are unchanged.
+Behavior assembly consumes exactly one port per canonical declaration, preserving
+source names, declaration IDs, defaults and deduplicated governing clauses. Only
+canonical inputs and their aliases become business data producers; modifiers do not.
+Initial/restored behavior, repairs and exact acceptance enforce this same proof.
+
+`PlanningDeclarationAssignment` retains reference-only declaration/presence evidence.
+Canonical `PlanningBusinessDeclaration` holds the proven direction. Internal source
+and declaration proofs are version 3; storage and encrypted namespaces remain 5.
+Historical directional interpretations are audit evidence, not automatically upgraded
+assignments. Explicit revision/reassessment must establish current proof while keeping
+cumulative budgets and durable request history. Archived campaigns remain untouched.
+
+See [neutral-declaration offline validation](planner-neutral-declarations.md) for the
+retained failure, corrected synthetic fixtures and current validation results.
 
 ## Offline regression evidence
 

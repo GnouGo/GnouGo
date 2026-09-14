@@ -245,7 +245,7 @@ public sealed class TypedPlannerTests
             var allowed = p.Value!["items"]!["properties"]!["kind"]!["enum"]!.AsArray().Select(v => v!.ToString()).ToArray();
             var selected = allowed.Contains(kind) ? kind : "information"; // Policy subjects are never synthetic operations.
             var items = new JsonArray(Item(selected));
-            if (selected == "local_processing") items.Add((JsonNode)Item("business_output"));
+            if (selected == "local_processing") items.Add((JsonNode)Item("declaration_candidate"));
             return new KeyValuePair<string, JsonNode?>(p.Key, items);
         }));
         internal static JsonObject PassReview(LLMRequest request) => new(request.StructuredOutputSchema!["properties"]!.AsObject().Select(p =>
@@ -261,7 +261,7 @@ public sealed class TypedPlannerTests
             {
                 "intent" => Interpret(request),
                 "intent_declarations" => DeclarationGroundingTests.Response(request, PlanningDeclarations.Candidates(_state!).Select(o =>
-                    DeclarationGroundingTests.Distinct(_state!, o.Id, "greeting"))),
+                    DeclarationGroundingTests.Distinct(_state!, o.Id, "greeting", direction: "output"))),
                 "behavior" => JsonSerializer.SerializeToNode(BehaviorPlan(), PlanningJsonContext.Default.PlanningBehaviorPlan),
                 "construction" => FillHoles(request, new PlanningGraph { Workflows = [ExecutableWorkflow()] }),
                 "semantic_review" => PassReview(request),

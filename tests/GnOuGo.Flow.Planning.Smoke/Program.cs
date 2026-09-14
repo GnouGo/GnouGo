@@ -61,12 +61,12 @@ policyState.Obligations.Add(new("governor", ["clause"], "workflow", "confirmatio
 { Grounding = new(PlanningSourceAuthority.ConstraintsOnly, PlanningSourceSemanticRole.PolicyConstraint, "clause", null, "proof"),
     Disposition = "rejection_condition", AdjudicationFingerprint = "adjudicated", PolicyIds = ["policy"] });
 policyState.ScopedPolicies[0].GoverningObligationIds = ["governor"]; policyState.ScopedPolicies[0].GoverningReferences = ["clause"];
-policyState.DeclarationAssignments.Add(new("candidate", "distinct", null, "name", "main", "optional", "literal"));
+policyState.DeclarationAssignments.Add(new("candidate", "distinct_input", null, "name", "main", "optional", null) { DeclarationReference = "clause", PresenceReference = "presence_clause" });
 policyState.Declarations.Add(new("declaration", "input", "main", "name", null, false, "literal", ["candidate"], [], ["modifier"], ["clause"], "declaration_proof"));
 policyState.DeclarationFingerprint = "adjudication_proof";
 var restoredPolicies = JsonSerializer.Deserialize(JsonSerializer.Serialize(policyState, PlanningJsonContext.Default.PlanningSnapshot), PlanningJsonContext.Default.PlanningSnapshot)!;
 if (restoredPolicies.DeclarationFingerprint != "adjudication_proof" || restoredPolicies.Declarations.Single().DefaultReference != "literal" ||
-    restoredPolicies.DeclarationAssignments.Single().Presence != "optional") throw new InvalidOperationException("Published declaration serialization failed.");
+    restoredPolicies.DeclarationAssignments.Single().Presence != "optional" || restoredPolicies.DeclarationAssignments[0].PresenceReference != "presence_clause") throw new InvalidOperationException("Published declaration serialization failed.");
 if (restoredPolicies.ScopedPolicies.Single().PermissionOperationId != "permission" || restoredPolicies.ScopedPolicies[0].TargetOperationIds.Single() != "effect" ||
     restoredPolicies.ScopedPolicies[0].Applicability != "unless_explicit") throw new InvalidOperationException("Published scoped policy serialization failed.");
 if (restoredPolicies.Obligations.Single().Grounding?.Authority != PlanningSourceAuthority.ConstraintsOnly ||
@@ -218,7 +218,7 @@ sealed class SmokeRuntime(PlanningGraph graph, PlanningPreparation preparation) 
         JsonNode? json = InvalidIntent ? new JsonObject() : phase switch
         {
             "intent" => new JsonObject(request.StructuredOutputSchema["properties"]!.AsObject().Select(p => new KeyValuePair<string, JsonNode?>(p.Key,
-                new JsonArray(new[] { "local_processing", "business_output" }.Select(role => (JsonNode?)new JsonObject
+                new JsonArray(new[] { "local_processing", "declaration_candidate" }.Select(role => (JsonNode?)new JsonObject
                 { ["start"] = p.Value!["items"]!["properties"]!["start"]!["enum"]![0]!.DeepClone(), ["end"] = p.Value!["items"]!["properties"]!["end"]!["enum"]!.AsArray()[^1]!.DeepClone(), ["kind"] = role, ["required"] = true }).ToArray())))),
             "intent_declarations" => DeclarationResponse(request),
             "construction_schema" => new JsonObject(request.StructuredOutputSchema["properties"]!.AsObject().Select(p => new KeyValuePair<string, JsonNode?>(p.Key,
@@ -241,7 +241,7 @@ sealed class SmokeRuntime(PlanningGraph graph, PlanningPreparation preparation) 
                 var clause = _snapshot.References.Single(r => r.Id == obligation.Grounding!.ClauseReference);
                 var name = PlanningReferences.Lexical(_snapshot, clause, PlanningSourceDecisions.Sources(_snapshot)[clause.SourceId])
                     .Single(r => PlanningChoiceEvidence.Text(_snapshot, r.Id) == "message");
-                return new KeyValuePair<string, JsonNode?>(field.Key, PlanningDeclarations.Assignment(new(field.Key, "distinct", null, name.Id, "main", "required", null)));
+                return new KeyValuePair<string, JsonNode?>(field.Key, PlanningDeclarations.Assignment(new(field.Key, "distinct_output", null, name.Id, "main", "required", null) { DeclarationReference = clause.Id, PresenceReference = clause.Id }));
             })))));
     }
     private JsonObject FillHoles(LLMRequest request)

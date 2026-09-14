@@ -66,7 +66,9 @@ public sealed class PlanningPersistenceTests
         state.Obligations.Add(new("governor", ["owned_clause"], "workflow", "confirmation_forbidden", true)
         { Grounding = new(PlanningSourceAuthority.ConstraintsOnly, PlanningSourceSemanticRole.PolicyConstraint, "owned_clause", null, "PRIVATE_GROUNDING_PROOF"),
             Disposition = "rejection_condition", AdjudicationFingerprint = "adjudicated", PolicyIds = ["PRIVATE_SCOPED_POLICY"] });
-        state.DeclarationAssignments.Add(new("candidate", "distinct", null, "name_reference", "main", "optional", "default_reference"));
+        state.DeclarationAssignments.Add(new("candidate", "distinct_input", null, "name_reference", "main", "optional", null)
+            { DeclarationReference = "PRIVATE_DECLARATION_REFERENCE", PresenceReference = "PRIVATE_PRESENCE_REFERENCE" });
+        state.DeclarationAssignments.Add(new("default_candidate", "modifier_of", "declaration", null, null, "optional", "default_reference"));
         state.Declarations.Add(new("declaration", "input", "main", "name_reference", null, false, "default_reference",
             ["candidate"], [], ["modifier_reference"], ["clause_reference"], "PRIVATE_DECLARATION_PROOF"));
         state.DeclarationFingerprint = "PRIVATE_ADJUDICATION_PROOF";
@@ -94,7 +96,9 @@ public sealed class PlanningPersistenceTests
         Assert.Equal("PRIVATE_PARTITION_VALUE", partition.Candidate!["a"]!.ToString());
         Assert.Equal("PRIVATE_ADJUDICATION_PROOF", restored.DeclarationFingerprint);
         Assert.Equal("PRIVATE_DECLARATION_PROOF", Assert.Single(restored.Declarations).ProofFingerprint);
-        Assert.Equal("default_reference", Assert.Single(restored.DeclarationAssignments).DefaultReference);
+        Assert.Equal("PRIVATE_DECLARATION_REFERENCE", restored.DeclarationAssignments[0].DeclarationReference);
+        Assert.Equal("PRIVATE_PRESENCE_REFERENCE", restored.DeclarationAssignments[0].PresenceReference);
+        Assert.Equal("default_reference", restored.DeclarationAssignments[1].DefaultReference);
         Assert.Equal(["modifier_reference"], restored.Declarations[0].ModifierReferences);
         Assert.Equal(5, Assert.Single(restored.RepairAllowances).Attempts);
         var retainedCandidate = Assert.Single(restored.Construction.Candidates);

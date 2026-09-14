@@ -13,7 +13,7 @@ public sealed class DeclarationGroundingTests
     internal const string Classifier = "Create one reusable workflow classifying a single record.\nRequired input record is an object with required id:string, amount:number and approved:boolean.\nOptional input threshold is a non-nullable number defaulting to 100 when omitted.\nReturn classifiedResult:{id:string,amount:number,category:string}, all members required.\nClassify as rejected when approved is false, high when approved is true and amount>=threshold, and standard otherwise.\ncategory has exactly the values rejected, high, standard. Preserve the original id and amount.\nThis is deterministic, local, in-memory business processing.";
     internal static PlanningSnapshot State(string prompt)
     { var state = TypedPlannerTests.Session(); state.Request.Prompt = prompt; state.Preparation = TypedPlannerTests.Preparation(); return state; }
-    internal static PlanningObligation Add(PlanningSnapshot state, string fragment, string id, string kind = "business_input")
+    internal static PlanningObligation Add(PlanningSnapshot state, string fragment, string id, string kind = "declaration_candidate")
         => PolicyGroundingTests.Add(state, "request", fragment, id, kind);
     internal static void UseBaselinePorts(PlanningSnapshot state, PlanningBehaviorPlan plan)
     {
@@ -43,45 +43,60 @@ public sealed class DeclarationGroundingTests
         return (matches.FirstOrDefault(r => obligation.EvidenceReferences.Select(id => state.References.Single(e => e.Id == id))
             .Any(e => r.Start >= e.Start && r.Start + r.Length <= e.Start + e.Length)) ?? matches.First()).Id;
     }
-    internal static PlanningDeclarationAssignment Distinct(PlanningSnapshot state, string id, string name, string presence = "required", string? defaultText = null)
-        => new(id, "distinct", null, Token(state, id, name), "main", presence, defaultText is null ? null : Token(state, id, defaultText));
+    internal static PlanningDeclarationAssignment Distinct(PlanningSnapshot state, string id, string name, string presence = "required", string? defaultText = null, string direction = "input")
+        => new(id, "distinct_" + direction, null, Token(state, id, name), "main", presence, defaultText is null ? null : Token(state, id, defaultText))
+            { DeclarationReference = state.Obligations.Single(o => o.Id == id).Grounding!.ClauseReference,
+                PresenceReference = state.Obligations.Single(o => o.Id == id).Grounding!.ClauseReference };
     internal static PlanningDeclarationAssignment Link(string id, string target, string disposition = "same_as", string presence = "unspecified", string? defaultReference = null)
         => new(id, disposition, target, null, null, presence, defaultReference);
     internal static PlanningDeclarationAssignment Retire(string id) => new(id, "not_a_declaration", null, null, null, "unspecified", null);
+    internal static List<PlanningDeclarationAssignment> Canonicalize(PlanningSnapshot state, IEnumerable<PlanningDeclarationAssignment> source)
+    {
+        var values = source.ToList();
+        var targets = values.Where(a => a.Disposition is "distinct_input" or "distinct_output").DistinctBy(a => a.CandidateId).ToDictionary(a => a.CandidateId,
+            a => PlanningDeclarations.CanonicalId(a.CandidateId, a.NameReference!, a.WorkflowScope!, a.Disposition == "distinct_input" ? "input" : "output"));
+        foreach (var (id, port) in PlanningDeclarations.Baselines(state)) targets[id] = PlanningDeclarations.CanonicalId(id, id, port.Scope, port.Direction);
+        return values.Select(a => a.TargetId is { } target && targets.TryGetValue(target, out var canonical) ? a with { TargetId = canonical } : a).ToList();
+    }
+    internal static List<PlanningDeclarationAssignment> Roots(PlanningSnapshot state, IEnumerable<PlanningDeclarationAssignment> assignments)
+        => assignments.Where(a => state.Obligations.Single(o => o.Id == a.CandidateId).Kind == "declaration_candidate")
+            .Select(PlanningDeclarations.RootAssignment).ToList();
     internal static JsonObject Response(LLMRequest request, IEnumerable<PlanningDeclarationAssignment> assignments)
     {
-        var fields = assignments.ToDictionary(a => a.CandidateId, PlanningDeclarations.Assignment, StringComparer.Ordinal);
+        var fields = assignments.ToDictionary(a => a.CandidateId, StringComparer.Ordinal);
         return new(request.StructuredOutputSchema!["properties"]!.AsObject().Select(p => new KeyValuePair<string, JsonNode?>(p.Key,
-            new JsonObject(p.Value!["properties"]!.AsObject().Select(f => new KeyValuePair<string, JsonNode?>(f.Key, fields[f.Key].DeepClone()))))));
+            new JsonObject(p.Value!["properties"]!.AsObject().Select(f => new KeyValuePair<string, JsonNode?>(f.Key,
+                PlanningDeclarations.Assignment(p.Key.StartsWith("declarations_roots_", StringComparison.Ordinal)
+                    ? PlanningDeclarations.RootAssignment(fields[f.Key]) : fields[f.Key])))))));
     }
     internal static (PlanningSnapshot State, List<PlanningDeclarationAssignment> Assignments) Captured()
     {
         var state = State(Classifier);
-        // The seven declaration fragments and kinds below were retained from
-        // session 3f11a9cf, revision 27. Requiredness is intentionally preliminary.
+        // Sanitized fragments from session 3f11a9cf, revision 27, reinterpreted
+        // synthetically as neutral candidates. Historical kinds/receipts remain archived.
         Add(state, "Required input record is an object with required id:string, amount:number and approved:boolean.", "record");
         Add(state, "Optional input threshold is a non-nullable number defaulting to 100", "threshold");
         Add(state, "threshold is a non-nullable", "overlap");
-        Add(state, "Create one reusable workflow classifying a single", "description", "business_output");
-        Add(state, "Return classifiedResult:{id:string,amount:number,category:string}, all members", "result", "business_output");
-        Add(state, "Classify as rejected when approved is false, high when approved is true and amount>=threshold, and standard otherwise.", "classification", "business_output");
-        Add(state, "Preserve the original id and amount.", "preservation", "business_output");
+        Add(state, "Create one reusable workflow classifying a single", "description", "declaration_candidate");
+        Add(state, "Return classifiedResult:{id:string,amount:number,category:string}, all members", "result", "declaration_candidate");
+        Add(state, "Classify as rejected when approved is false, high when approved is true and amount>=threshold, and standard otherwise.", "classification", "declaration_candidate");
+        Add(state, "Preserve the original id and amount.", "preservation", "declaration_candidate");
         Add(state, "defaulting to 100", "default", "omission_default");
         Add(state, "classifying a single", "operation", "local_processing");
         state.Preparation!.Capabilities.Add(new() { Id = "local", StepType = "set", Resolution = "local", Required = true,
             Description = "Classify the original record under the declared rule.", OperationIds = ["operation"] });
-        return (state, [Distinct(state, "record", "record"), Distinct(state, "threshold", "threshold", "optional"),
-            Link("overlap", "threshold", presence: "optional"), Retire("description"), Distinct(state, "result", "classifiedResult"),
+        return (state, Canonicalize(state, [Distinct(state, "record", "record"), Distinct(state, "threshold", "threshold", "optional"),
+            Link("overlap", "threshold"), Retire("description"), Distinct(state, "result", "classifiedResult", direction: "output"),
             Link("classification", "result", "modifier_of"), Link("preservation", "result", "modifier_of"),
-            Link("default", "threshold", "modifier_of", "optional", defaultReference: Token(state, "default", "100"))]);
+            Link("default", "threshold", "modifier_of", "optional", defaultReference: Token(state, "default", "100"))]));
     }
-    private static void Commit(PlanningSnapshot state, List<PlanningDeclarationAssignment> assignments) => PlanningDeclarations.Commit(state, assignments, PlanningDeclarations.EvidenceFingerprint(state));
+    private static void Commit(PlanningSnapshot state, List<PlanningDeclarationAssignment> assignments) => PlanningDeclarations.Commit(state, Canonicalize(state, assignments), PlanningDeclarations.EvidenceFingerprint(state));
 
     [Fact]
     public async Task CapturedFragmentsProduceTwoNamedInputsOneOutputAndAnOmissionDefault()
     {
         var (state, assignments) = Captured();
-        Assert.Equal(3, state.Obligations.Count(o => o.Kind == "business_input")); Assert.Equal(4, state.Obligations.Count(o => o.Kind == "business_output"));
+        Assert.Equal(7, state.Obligations.Count(o => o.Kind == "declaration_candidate"));
         var runtime = new TypedPlannerTests.FakeRuntime { OnCall = (phase, request, _) =>
         {
             Assert.Equal("intent_declarations", phase); Assert.Equal("low", request.Reasoning);
@@ -130,10 +145,11 @@ public sealed class DeclarationGroundingTests
     {
         var state = State("Default to 100 when omitted. Optional input limit is a number. Input limit is used in processing.");
         Add(state, "Default to 100 when omitted.", "a", "omission_default"); Add(state, "Optional input limit is a number.", "z"); Add(state, "Input limit is used in processing.", "b");
-        var assignments = new List<PlanningDeclarationAssignment> { Link("a", "b", "modifier_of", "optional", defaultReference: Token(state, "a", "100")), Link("b", "z"), Distinct(state, "z", "limit", "optional") };
-        var pages = PlanningDeclarations.Decisions(state);
-        // Three separately persisted pages, including forward links. They grant
-        // no port authority until the entire assignment graph is validated.
+        var assignments = new List<PlanningDeclarationAssignment> { Link("a", "z", "modifier_of", "optional", defaultReference: Token(state, "a", "100")), Link("b", "z"), Distinct(state, "z", "limit", "optional") };
+        assignments = Canonicalize(state, assignments);
+        var pages = PlanningDeclarations.Decisions(state).Concat(PlanningDeclarations.AttachmentDecisions(state, Roots(state, assignments)));
+        // Dependent pages preserve modifier-before-declaration evidence without
+        // granting port authority before the complete delta is validated.
         foreach (var page in pages)
         {
             var runtime = new TypedPlannerTests.FakeRuntime { OnCall = (_, request, _) => Task.FromResult(new LLMResponse { Json = Response(request, assignments) }) };
@@ -272,11 +288,11 @@ public sealed class DeclarationGroundingTests
         var state = State("Preserve the existing result."); state.Request.Baseline = TypedPlannerTests.Graph();
         var source = PlanningIntentAssessment.IntentSources(state).Single(s => s.Id == "existing");
         var reference = PlanningReferences.Register(state, source.Id, source.Kind, source.Text)[0];
-        var obligation = new PlanningObligation("existing", [reference.Id], "business_decision", "business_output", true);
+        var obligation = new PlanningObligation("existing", [reference.Id], "business_decision", "declaration_candidate", true);
         state.Obligations.Add(obligation with { Grounding = PlanningSourceGroundingRules.Create(state, obligation) });
         var baseline = PlanningDeclarations.Baselines(state).Single().Key;
         var schema = Assert.Single(PlanningDeclarations.Decisions(state)).Schema;
-        var invalid = new JsonObject { ["existing"] = new JsonObject { ["disposition"] = "distinct", ["name"] = baseline, ["scope"] = "main", ["presence"] = "required", ["default"] = null } };
+        var invalid = new JsonObject { ["existing"] = new JsonObject { ["disposition"] = "distinct_output", ["name"] = baseline, ["scope"] = "main", ["presence"] = "required", ["default"] = null } };
         Assert.NotEmpty(PlanningContractValidation.ValidateInstance(invalid, schema));
         Commit(state, [Link("existing", baseline)]);
         Assert.Equal("message", PlanningDeclarations.Name(state, Assert.Single(state.Declarations)));
@@ -307,7 +323,7 @@ public sealed class DeclarationGroundingTests
         var (state, assignments) = Captured();
         foreach (var page in PlanningDeclarations.Decisions(state))
         {
-            var response = new JsonObject(page.Schema["properties"]!.AsObject().Select(p => new KeyValuePair<string, JsonNode?>(p.Key, PlanningDeclarations.Assignment(assignments.Single(a => a.CandidateId == p.Key)))));
+            var response = new JsonObject(page.Schema["properties"]!.AsObject().Select(p => new KeyValuePair<string, JsonNode?>(p.Key, PlanningDeclarations.Assignment(PlanningDeclarations.RootAssignment(assignments.Single(a => a.CandidateId == p.Key))))));
             Assert.Empty(PlanningContractValidation.ValidateInstance(response, page.Schema));
             var field = response.First().Value!.AsObject(); field["text"] = "Copied clause";
             Assert.NotEmpty(PlanningContractValidation.ValidateInstance(response, page.Schema));

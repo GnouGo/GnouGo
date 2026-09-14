@@ -22,7 +22,7 @@ committing. Runtime conditions/fallbacks do not enter this graph; their original
 evidence remains available in governing behavior and executable/semantic context.
 No language, provider or scenario keywords drive admission.
 
-Internal source and declaration fingerprints advance to version 2. Encrypted
+The omission correction introduced internal proof version 2; current neutral declaration adjudication uses version 3 (see [canonical declarations](planner-business-declarations.md)). Encrypted
 snapshot/request/receipt/budget namespaces remain Schema-5. There is no compatibility
 alias for `default_value`: historical proofs cannot authorize current assignments.
 Explicit intent revision reassesses preparation without resetting cumulative

@@ -13,7 +13,7 @@ internal static class PlanningSourceGroundingRules
     {
         PlanningSourceAuthority.ConstraintsOnly => [.. PolicyKinds, .. Values],
         PlanningSourceAuthority.RequestedBehavior or PlanningSourceAuthority.ExistingBehavior => [.. OperationKinds, .. PolicyKinds, .. Values,
-            "business_input", "business_output", "business_choice", "iteration", "workflow_boundary"],
+            "declaration_candidate", "business_choice", "iteration", "workflow_boundary"],
         _ => ["information"]
     };
 
@@ -54,7 +54,7 @@ internal static class PlanningSourceGroundingRules
             : obligation.Kind is "runtime_condition" or "runtime_fallback" or "rejection_condition" ? PlanningSourceSemanticRole.RuntimeCondition
             : source.Authority == PlanningSourceAuthority.ConstraintsOnly || PolicyKinds.Contains(obligation.Kind, StringComparer.Ordinal) ? PlanningSourceSemanticRole.PolicyConstraint
             : PlanningSourceSemanticRole.Declaration;
-        var fingerprint = PlanningGraphCompiler.Fingerprint("source-v2:" + source.Authority + ":" + role + ":" + clause.Id + ":" + clause.SourceFingerprint + ":" +
+        var fingerprint = PlanningGraphCompiler.Fingerprint("source-v3:" + source.Authority + ":" + role + ":" + clause.Id + ":" + clause.SourceFingerprint + ":" +
             obligation.Kind + ":" + obligation.Required + ":" + string.Join('|', obligation.EvidenceReferences) + ":" + baselineReference);
         return new(source.Authority, role, clause.Id, baselineReference, fingerprint);
     }

@@ -13,7 +13,7 @@ The published integration adapter also resolves declared local model capabilitie
 without registered transports and preserves unknown fields on partial declarations.
 Typed business decisions, omission applicability, choice labels and preference evidence
 also round-trip through the published source-generated serializer.
-Canonical declaration assignments, exact names and omission-default references also round-trip; the synthetic preparation transport exercises the production declaration adjudicator before behavior assembly.
+Canonical declaration assignments, declaration/presence evidence, exact names and omission-default references round-trip. The synthetic preparation transport exercises neutral declaration adjudication before behavior assembly. An encrypted restart between completed root pages and dependent attachments verifies output-member attachment, zero duplicate root dispatches, unchanged repair accounting and final proof replay.
 Scoped confirmation subjects, permission operation IDs and default applicability
 round-trip through that same Schema-5 serializer.
 

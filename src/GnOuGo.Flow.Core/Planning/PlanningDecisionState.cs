@@ -59,7 +59,13 @@ public sealed record PlanningObligationRelation(string Producer, string Consumer
 /// <summary>A reference-only adjudication of a preliminary declaration or modifier.</summary>
 public sealed record PlanningDeclarationAssignment(string CandidateId, string Disposition,
     string? TargetId, string? NameReference, string? WorkflowScope, string Presence,
-    string? DefaultReference);
+    string? DefaultReference)
+{
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    public string? DeclarationReference { get; init; }
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    public string? PresenceReference { get; init; }
+}
 
 /// <summary>Canonical public declaration. Text, defaults and contracts remain in their owned sources.</summary>
 public sealed record PlanningBusinessDeclaration(string Id, string Direction, string WorkflowScope,
