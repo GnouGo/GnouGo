@@ -55,3 +55,49 @@ added. The full evidence index is [recorded separately](planner-declaration-cons
 Strict replay on current proof version 4 stops at obsolete source-authority proof
 with no model dispatch or substituted receipt. The archived snapshot remains
 unchanged. Corrected fixture materialization is a separate synthetic evidence track.
+
+## Single Stage-1 result: provider transport stop
+
+Production was frozen at `9667f600135ee0fd13dba6c5cc901f545ee79452`, with
+harness pin `5d88fb2`. The [manifest](planner-declaration-constraints-stage1-manifest.json)
+records the binary hashes and unchanged model, scenario/catalog/policy and budgets.
+After the pin, 58 focused campaign/diagnostic tests and both reference selfchecks
+passed. Fixture source hashes remain identical; the derived fixture fingerprint
+changes with the harness assembly identity.
+
+Campaign `schema5-declaration-constraints-stage1-1` consumed its one authorized start.
+Session `62c17331a05147328eaa431fd7a47d57` stopped at revision 2, during its first
+intent request, with `LLM_PROVIDER_TRANSPORT` at `$`. The retained diagnostic says
+the provider could not be reached. There is no verifiable receipt; the evidence does
+not establish the underlying network/provider cause or permit assessment of the
+model response. This is a technical stop, not `Unsupported` or a business clarification.
+
+| Measurement | Result |
+|---|---|
+| Terminal outcome / execution status | No typed business outcome / stopped |
+| Requests | 1 reservation, 0 verified calls, 1 unverifiable dispatch |
+| Actual input / output / reasoning tokens | Unknown; no receipt |
+| Largest estimated / actual input | 3,095 / unknown |
+| Decision pages | 1 reserved intent page |
+| Model decisions / executable holes | 0 verified decisions; construction not reached |
+| Other engine decisions | Unknown (uninstrumented) |
+| Partitions / singleton escalations / semantic repairs | 0 / 0 / 0 |
+| Clarifications | 0 |
+| Canonical declarations and attachments | Not reached; no live validation claim |
+| Accepted behavior / skeleton / final / approved hashes | Absent |
+| Accepted, rejected, boundary, omitted-default, invalid-input, null-threshold cases | All six not run |
+
+The exact request identity and fingerprint, absent receipt, gate accounting and
+individual fixture statuses are in the [redacted report](planner-declaration-constraints-stage1-report.json).
+Its zero token subtotals describe verified receipts only; total actual usage is unknown.
+
+Offline replay from revision 1 stopped before replay because the existing audit tool
+requires a captured catalog. Discovery had not completed, and no historical response
+exists for this request. No synthetic response was substituted and no provider was
+called during that inspection. The earlier captured-behavior replay and corrected
+synthetic attachment regressions remain separate evidence tracks.
+
+Frozen production/binary hashes and all archived campaign accounting were rechecked
+and remain unchanged. The campaign is blocked: no retry, replacement session,
+behavior approval, execution, production patch or Stage 2 was performed after the
+provider failure. Complete live convergence remains unproven.

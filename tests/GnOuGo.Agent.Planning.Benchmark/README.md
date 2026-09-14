@@ -14,6 +14,13 @@ cases before exact-hash approval. The first meaningful blocker stops the campaig
 no replacement, provider redispatch, reasoning experiment or Stage 2 is permitted.
 See [declaration constraints](../../docs/planner-declaration-constraints.md).
 
+This campaign consumed its single start and stopped at revision 2 with an
+unverifiable `LLM_PROVIDER_TRANSPORT` on the first intent request. No declarations,
+behavior acceptance or execution results were reached. Its request must not be
+redispatched, and the campaign must not be resumed or replaced automatically.
+The report records unknown actual usage and six not-run execution cases.
+
+
 ## Archived bounded-escalation campaign
 
 `schema5-output-budget-escalation-stage1-1` authorizes exactly one fresh Stage-1

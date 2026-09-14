@@ -1,0 +1,259 @@
+{
+  "campaign": "schema5-declaration-constraints-stage1-1",
+  "productionCommit": "9667f600135ee0fd13dba6c5cc901f545ee79452",
+  "model": {
+    "provider": "OpenAi",
+    "model": "gpt-5.5-2026-04-24",
+    "reasoningLevels": [
+      "low",
+      "medium",
+      "high",
+      "max"
+    ],
+    "structuredOutput": true
+  },
+  "stages": [
+    {
+      "stage": 1,
+      "campaignStatus": "blocked",
+      "harnessFailure": "UnverifiableRequest",
+      "failureCode": "LLM_PROVIDER_TRANSPORT",
+      "acceptedBehaviorHash": null,
+      "skeletonHash": null,
+      "thresholdRepair": null,
+      "planning": {
+        "session": "62c17331a05147328eaa431fd7a47d57",
+        "revision": 2,
+        "status": "stopped",
+        "outcome": null,
+        "phase": "intent",
+        "artifactHash": null,
+        "approvedHash": null,
+        "finalArtifactHash": null,
+        "modelCalls": 0,
+        "reservations": 1,
+        "unverifiableDispatches": 1,
+        "journalReservationsWithoutReceipt": 1,
+        "decisionPages": 1,
+        "pagesByPhase": [
+          {
+            "phase": "intent",
+            "status": "pending",
+            "correction": false,
+            "origin": "Initial",
+            "gate": "response_contract",
+            "pages": 1,
+            "splitChildren": 0
+          }
+        ],
+        "outputPartitions": 0,
+        "outputEscalations": 0,
+        "semanticCorrectionPages": 0,
+        "pageLineage": [
+          {
+            "id": "page_2b97beba48d95a30e36c897e66de8414a238ac787b88152c8f33f887eb08ace9",
+            "parent": null,
+            "origin": "Initial",
+            "gate": "response_contract",
+            "phase": "intent",
+            "status": "pending",
+            "correction": false,
+            "partitionDepth": 0,
+            "requestId": "62c17331a05147328eaa431fd7a47d57:0:1:intent:response_contract:93beceaf3191e878:page_2b97beba48d95a30e36c897e66de8414a238ac787b88152c8f33f887eb08ace9:21dc8617fa400813859eda17b458cd2d16a841176ce97a94df19be8a3e7bf40e",
+            "escalationChildId": null,
+            "parentRequestId": null,
+            "escalationLevel": null,
+            "canonicalDecisionId": null,
+            "effectiveOutputTokens": 8192,
+            "completionStatus": null,
+            "decisions": [
+              "interpret_0703613ffd46f2f5258637f4",
+              "interpret_0ef750cc9dc352f372f9457a",
+              "interpret_147ed8518d22789ffdf6330f",
+              "interpret_19da0d35eb3ec2071d6dc480",
+              "interpret_4188ae4b492b6823c98a8065",
+              "interpret_43c7014fce6b55da889d040b"
+            ],
+            "children": [],
+            "singletonOutputLimit": false
+          }
+        ],
+        "engineResolvedExecutableDecisions": 0,
+        "otherEngineDecisions": null,
+        "modelDecisionIds": [],
+        "approvedBehaviorHash": null,
+        "declarationProof": null,
+        "canonicalDeclarations": [],
+        "declarationDispositions": {},
+        "declarationModifiers": [],
+        "modelExecutableDecisions": 0,
+        "executableHoleExposures": 0,
+        "userClarifications": 0,
+        "answeredForms": 0,
+        "clarificationDecision": null,
+        "largestEstimatedInput": 3095,
+        "largestActualInput": null,
+        "inputTokens": 0,
+        "outputTokens": 0,
+        "reasoningTokens": 0,
+        "allDispatchUsageKnown": false,
+        "effectiveReasoning": [
+          "low"
+        ],
+        "requestsByPhase": [
+          {
+            "workflow": "$plan",
+            "phase": "intent",
+            "gate": "response_contract",
+            "reservations": 1,
+            "calls": 0,
+            "repairReservations": 0,
+            "outputEscalations": 0,
+            "allDispatchUsageKnown": false,
+            "inputTokens": 0,
+            "outputTokens": 0
+          }
+        ],
+        "repairAllowances": [],
+        "failuresByGate": [],
+        "firstFailure": {
+          "code": "LLM_PROVIDER_TRANSPORT",
+          "phase": "intent",
+          "location": "$",
+          "unverifiable": true
+        },
+        "diagnostics": [
+          {
+            "code": "LLM_PROVIDER_TRANSPORT",
+            "location": "$",
+            "rule": null
+          }
+        ],
+        "modelDecisions": 0
+      },
+      "requestEvidence": [
+        {
+          "requestId": "62c17331a05147328eaa431fd7a47d57:0:1:intent:response_contract:93beceaf3191e878:page_2b97beba48d95a30e36c897e66de8414a238ac787b88152c8f33f887eb08ace9:21dc8617fa400813859eda17b458cd2d16a841176ce97a94df19be8a3e7bf40e",
+          "status": "reserved",
+          "requestFingerprint": "c1af1187a60ef464513b842b1cef34a2e13858e2a6faf3ca85bc06e9fae6b9bc",
+          "receiptFingerprint": null,
+          "inputTokens": null,
+          "outputTokens": null,
+          "reasoningTokens": null
+        }
+      ],
+      "execution": {
+        "reservations": 0,
+        "completed": 0,
+        "withoutReceipt": 0,
+        "requests": [],
+        "cases": [
+          {
+            "case": "accepted",
+            "status": "not_run",
+            "artifactHash": null,
+            "fixtureHash": null,
+            "catalogHash": null,
+            "errorCode": null
+          },
+          {
+            "case": "rejected",
+            "status": "not_run",
+            "artifactHash": null,
+            "fixtureHash": null,
+            "catalogHash": null,
+            "errorCode": null
+          },
+          {
+            "case": "boundary",
+            "status": "not_run",
+            "artifactHash": null,
+            "fixtureHash": null,
+            "catalogHash": null,
+            "errorCode": null
+          },
+          {
+            "case": "omitted_default",
+            "status": "not_run",
+            "artifactHash": null,
+            "fixtureHash": null,
+            "catalogHash": null,
+            "errorCode": null
+          },
+          {
+            "case": "invalid_input",
+            "status": "not_run",
+            "artifactHash": null,
+            "fixtureHash": null,
+            "catalogHash": null,
+            "errorCode": null
+          },
+          {
+            "case": "null_threshold",
+            "status": "not_run",
+            "artifactHash": null,
+            "fixtureHash": null,
+            "catalogHash": null,
+            "errorCode": null
+          }
+        ]
+      }
+    },
+    {
+      "stage": 2,
+      "campaignStatus": "not_run",
+      "harnessFailure": null,
+      "failureCode": null,
+      "acceptedBehaviorHash": null,
+      "skeletonHash": null,
+      "thresholdRepair": null
+    },
+    {
+      "stage": 3,
+      "campaignStatus": "not_run",
+      "harnessFailure": null,
+      "failureCode": null,
+      "acceptedBehaviorHash": null,
+      "skeletonHash": null,
+      "thresholdRepair": null
+    }
+  ],
+  "preflightStop": null,
+  "diagnostic": null,
+  "validationEvidence": {
+    "freshSessionsStarted": 1,
+    "productionUnchanged": true,
+    "productionBinariesUnchanged": true,
+    "archivedAccountingUnchanged": true,
+    "archiveIntegritySha256": "e293b66f8ef059a35e9f0d2fe60c7735b744e4c015cc8dd588bceaa21e99f01a",
+    "offlineEvidence": "planner-declaration-constraints-offline.json",
+    "frozenHarnessFocusedTests": 58,
+    "fixtureSourcesUnchanged": {
+      "tests/GnOuGo.Agent.Planning.Benchmark/ProgressiveScenarios.cs": "b28780fdb09e7484895c97f1fff90716ebdd9e2ae88c2be351941d53649d3b92",
+      "tests/GnOuGo.Agent.Planning.Benchmark/ProgressiveExecution.cs": "40a40ce81d7f9dd62ebda770dcb59cd64866cc88a202b7c84c08da4449fc4936",
+      "tests/GnOuGo.Agent.Planning.Benchmark/CodeReviewExecutionFixture.cs": "7ff54d7c4529bb9bb1e7ab4e25f1e59f83f85e7e08126a767e2136c5283ae498",
+      "tests/GnOuGo.Agent.Planning.Benchmark/CodeReviewPolicy.txt": "b92002cf07ef660981dc5c758d775be40589045d14df706cf454ca3c58e52604"
+    },
+    "terminalClassification": "ProviderTransportUnverifiable",
+    "firstBlockerMessage": "The LLM provider could not be reached.",
+    "underlyingTransportCause": null,
+    "usageSemantics": "Planning input/output/reasoning subtotals cover verified receipts only. No receipt was obtained, so total actual usage is unknown, not zero.",
+    "actualTotalInputTokens": null,
+    "actualTotalOutputTokens": null,
+    "actualTotalReasoningTokens": null,
+    "offlineReplay": {
+      "sourceRevision": 1,
+      "result": "blocked_before_replay",
+      "reason": "A captured catalog is required for offline replay; the session stopped before discovery and has no completed provider receipt.",
+      "replayedReceipts": 0,
+      "providerDispatches": 0,
+      "syntheticSubstitution": false
+    },
+    "behaviorReviewReached": false,
+    "canonicalAttachmentsAssessedLive": false,
+    "replacementSessions": 0,
+    "providerRetries": 0,
+    "stage2Started": false,
+    "stoppingRule": "First meaningful technical failure; no further model requests or production changes."
+  }
+}
