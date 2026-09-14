@@ -17,6 +17,79 @@ namespace GnOuGo.Agent.Server.Tests;
 
 public sealed class ProgressiveCampaignTests
 {
+    // Synthetic canonical fixture; no historical receipt is replaced by these assignments.
+    private static PlanningSnapshot ReviewedClassifier()
+    {
+        var state = new PlanningSnapshot { Revision = 10, DeclarationFingerprint = "proof", BehaviorPlan = new() { Workflows = [new()] } };
+        state.Request.Prompt = "Required input record. Optional input threshold is a non-nullable number defaulting to 100 when omitted. Return classifiedResult. category has exactly the values rejected, high, standard. Preserve the original id and amount.";
+        string Reference(string text)
+        {
+            var id = "ref_" + state.References.Count;
+            state.References.Add(new(id, state.Request.TenantId + ":" + state.Request.SessionId, 1, "request",
+                GnOuGo.Flow.Planning.PlanningGraphCompiler.Fingerprint(state.Request.Prompt), "evidence", state.Request.Prompt.IndexOf(text, StringComparison.Ordinal), text.Length));
+            return id;
+        }
+        foreach (var name in new[] { "record", "threshold", "classifiedResult" })
+        {
+            var direction = name == "classifiedResult" ? "output" : "input";
+            var required = name != "threshold";
+            var clauses = name == "threshold" ? new[] { "Optional input threshold is a non-nullable number defaulting to 100 when omitted." }
+                : name == "classifiedResult" ? new[] { "Return classifiedResult.", "category has exactly the values rejected, high, standard." } : ["Required input record."];
+            state.Declarations.Add(new(name, direction, "main", Reference(name), null, required, name == "threshold" ? Reference("100") : null,
+                ["candidate_" + name], [], [], clauses.Select(Reference).ToList(), "root_proof"));
+            (direction == "input" ? state.BehaviorPlan.Workflows[0].Inputs : state.BehaviorPlan.Workflows[0].Outputs).Add(new(name, "Reviewed evidence", required) { DeclarationId = name });
+        }
+        return state;
+    }
+
+    [Fact]
+    public void FrozenClassifierDeclarationsAreReviewedWithoutChangingState()
+    {
+        var state = ReviewedClassifier();
+        var before = JsonSerializer.Serialize(state, PlanningJsonContext.Default.PlanningSnapshot);
+        ProgressiveRules.RequireStageOneDeclarations(state);
+        Assert.Equal(before, JsonSerializer.Serialize(state, PlanningJsonContext.Default.PlanningSnapshot));
+        ProgressiveRules.RequireStageOneDeclarations(JsonSerializer.Deserialize(before, PlanningJsonContext.Default.PlanningSnapshot)!);
+    }
+
+    [Theory]
+    [InlineData("extra_input")]
+    [InlineData("extra_output")]
+    [InlineData("default")]
+    [InlineData("required")]
+    [InlineData("category")]
+    [InlineData("foreign")]
+    [InlineData("identity")]
+    public void DeclarationReviewBlocksIncorrectCanonicalBehavior(string defect)
+    {
+        var state = ReviewedClassifier();
+        if (defect == "extra_input") state.BehaviorPlan!.Workflows[0].Inputs.Add(new("category", "Member", true));
+        if (defect == "extra_output") state.BehaviorPlan!.Workflows[0].Outputs.Add(new("description", "Description", true));
+        if (defect == "default") state.Declarations[1] = state.Declarations[1] with { DefaultReference = null };
+        if (defect == "required") state.Declarations[1] = state.Declarations[1] with { Required = true };
+        if (defect == "category") { var clause = state.Declarations[2].ClauseReferences.Last(); state.Declarations[2].ClauseReferences.Remove(clause); state.Declarations[0].ClauseReferences.Add(clause); }
+        if (defect == "foreign") state.References[0] = state.References[0] with { Owner = "foreign" };
+        if (defect == "identity") state.BehaviorPlan!.Workflows[0].Outputs[0] = state.BehaviorPlan.Workflows[0].Outputs[0] with { DeclarationId = "other" };
+        Assert.Throws<InvalidOperationException>(() => ProgressiveRules.RequireStageOneDeclarations(state));
+    }
+
+    [Fact]
+    public void ReasoningAndCaseReportsDeduplicateReceiptsAndKeepUnknownUsage()
+    {
+        var call = new PlanningRequestAccounting { Id = "request", Evidence = "receipt", InputTokens = 30, OutputTokens = 100 };
+        var state = new PlanningSnapshot { RequestAccounting = [call, call], ArtifactHash = "behavior" };
+        var receipts = new Dictionary<string, LLMResponse?> { ["request"] = new() { Usage = JsonNode.Parse("""{"completion_tokens_details":{"reasoning_tokens":80}}""")!.AsObject() } };
+        var report = ProgressiveReport.Build(state, receipts);
+        Assert.Equal(80, report["reasoningTokens"]!.GetValue<long>()); Assert.Null(report["finalArtifactHash"]);
+        Assert.True(JsonNode.DeepEquals(report, ProgressiveReport.Build(JsonSerializer.Deserialize(JsonSerializer.Serialize(state, PlanningJsonContext.Default.PlanningSnapshot), PlanningJsonContext.Default.PlanningSnapshot)!, receipts)));
+        receipts["request"]!.Usage = null;
+        Assert.Null(ProgressiveReport.Build(state, receipts)["reasoningTokens"]);
+        var failed = ProgressiveReport.ExecutionCase("case", new JsonObject { ["report"] = new JsonObject { ["passed"] = false }, ["privateFailure"] = "PRIVATE" });
+        Assert.Equal("failed", failed["status"]!.ToString()); Assert.DoesNotContain("PRIVATE", failed.ToJsonString());
+        Assert.Equal("not_run", ProgressiveReport.ExecutionCase("case", null)["status"]!.ToString());
+        Assert.Equal("passed", ProgressiveReport.ExecutionCase("case", new JsonObject { ["passed"] = true })["status"]!.ToString());
+    }
+
     private static PlanningSnapshot ThresholdCandidate() => new()
     {
         Revision = 20, Status = PlanningStatus.Generating, CurrentPhase = PlanningPhase.Repair,

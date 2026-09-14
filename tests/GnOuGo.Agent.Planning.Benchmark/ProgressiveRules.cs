@@ -11,7 +11,7 @@ namespace GnOuGo.Agent.Planning.Benchmark;
 
 internal static class ProgressiveRules
 {
-    internal const string ProductionCommit = "02c59469d85531b475daee1cbdcc635e920ccd87";
+    internal const string ProductionCommit = "87ed861284729dfa2475bd5c25546b76339d7453";
     internal static TypedWorkflowPlanningSettings Settings() => new()
     {
         BackgroundProcessingEnabled = false,
@@ -44,6 +44,59 @@ internal static class ProgressiveRules
     }
 
     internal static bool ShouldAdvance(string command) => command is "start" or "advance";
+
+    // Independent checks for the frozen Stage-1 fixture only; never planner inference.
+    internal static string? SourceText(PlanningSnapshot state, string reference)
+    {
+        var matches = state.References.Where(r => r.Id == reference).ToArray();
+        if (matches.Length != 1) return null;
+        var r = matches[0]; var source = state.Request.Prompt;
+        if (r.SourceId != "request" || r.Owner != state.Request.TenantId + ":" + state.Request.SessionId ||
+            r.SourceRevision > state.Revision || r.SourceFingerprint != PlanningGraphCompiler.Fingerprint(source) ||
+            r.Start < 0 || r.Length < 1 || r.Start > source.Length - r.Length) return null;
+        return source.Substring(r.Start, r.Length);
+    }
+
+    internal static string? PublicName(PlanningSnapshot state, PlanningBusinessDeclaration declaration)
+    {
+        var text = SourceText(state, declaration.NameReference);
+        if (text?.StartsWith('"') == true)
+        {
+            try { return JsonNode.Parse(text)?.GetValue<string>(); }
+            catch (JsonException) { return null; }
+        }
+        return text;
+    }
+
+    internal static void RequireStageOneDeclarations(PlanningSnapshot state)
+    {
+        void Require(bool condition) { if (!condition) throw new InvalidOperationException("STAGE1_DECLARATION_REVIEW_MISMATCH"); }
+        Require(state.Declarations.Count == 3 && !string.IsNullOrEmpty(state.DeclarationFingerprint));
+        var expected = new[] { (Name: "record", Direction: "input", Required: true),
+            (Name: "threshold", Direction: "input", Required: false), (Name: "classifiedResult", Direction: "output", Required: true) };
+        Require(state.BehaviorPlan?.Workflows.Count == 1);
+        var workflow = state.BehaviorPlan!.Workflows[0];
+        Require(workflow.Inputs.Count == 2 && workflow.Outputs.Count == 1);
+        foreach (var item in expected)
+        {
+            var matches = state.Declarations.Where(d => PublicName(state, d) == item.Name).ToArray();
+            Require(matches.Length == 1);
+            var declaration = matches[0];
+            Require(declaration.Direction == item.Direction && declaration.Required == item.Required && !string.IsNullOrEmpty(declaration.ProofFingerprint));
+            var ports = (item.Direction == "input" ? workflow.Inputs : workflow.Outputs).Where(p => p.Name == item.Name).ToArray();
+            Require(ports.Length == 1 && ports[0].DeclarationId == declaration.Id && ports[0].Required == item.Required);
+            if (item.Name == "threshold")
+            {
+                Require(declaration.DefaultReference is not null && SourceText(state, declaration.DefaultReference) == "100");
+                Require(declaration.ClauseReferences.Any(r => SourceText(state, r)?.Contains("non-nullable number defaulting to 100 when omitted", StringComparison.Ordinal) == true));
+            }
+            else Require(declaration.DefaultReference is null);
+            if (item.Name == "classifiedResult")
+            {
+                Require(declaration.ClauseReferences.Any(r => SourceText(state, r)?.Contains("category has exactly the values rejected, high, standard", StringComparison.Ordinal) == true));
+            }
+        }
+    }
 
     // Campaign observation only. Never changes a graph, assignment, request or planner budget.
     internal static void ObserveThresholdRepair(JsonObject stage, PlanningSnapshot state, IReadOnlyDictionary<string, LLMResponse?> receipts)

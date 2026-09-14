@@ -12,6 +12,19 @@ internal static class ProgressiveReport
             if (response?.Usage?[name] is JsonValue value && value.TryGetValue<long>(out var count)) return count;
         return null;
     }
+    internal static long? ReasoningUsage(LLMResponse? response)
+    {
+        foreach (var key in new[] { "completion_tokens_details", "output_tokens_details" })
+            if (response?.Usage?[key]?["reasoning_tokens"] is JsonValue value && value.TryGetValue<long>(out var count)) return count;
+        return null;
+    }
+    internal static JsonObject ExecutionCase(string name, JsonNode? stored)
+    {
+        var report = stored?["report"] ?? stored;
+        return new() { ["case"] = name, ["status"] = report is null ? "not_run" : report["passed"]?.GetValue<bool>() == true ? "passed" : "failed",
+            ["artifactHash"] = report?["artifactHash"]?.DeepClone(), ["fixtureHash"] = report?["fixtureHash"]?.DeepClone(),
+            ["catalogHash"] = report?["catalogHash"]?.DeepClone(), ["errorCode"] = report?["errorCode"]?.DeepClone() };
+    }
     internal static JsonObject Build(PlanningSnapshot state, IReadOnlyDictionary<string, LLMResponse?> receipts)
     {
         var calls = state.RequestAccounting.DistinctBy(r => r.Id).ToArray();
@@ -33,6 +46,7 @@ internal static class ProgressiveReport
         {
             ["session"] = state.Request.SessionId, ["revision"] = state.Revision, ["status"] = state.Status, ["outcome"] = state.Outcome?.Name,
             ["phase"] = state.CurrentPhase, ["artifactHash"] = state.ArtifactHash, ["approvedHash"] = state.ApprovedHash,
+            ["finalArtifactHash"] = state.Yaml is null ? null : GnOuGo.Flow.Planning.PlanningGraphCompiler.Fingerprint(state.Yaml),
             ["modelCalls"] = calls.Count(r => verified.Contains(r.Id)), ["reservations"] = calls.Length,
             ["unverifiableDispatches"] = calls.Count(r => r.Evidence == "unverifiable" && !verified.Contains(r.Id)),
             ["journalReservationsWithoutReceipt"] = receipts.Count(r => r.Value is null),
@@ -64,6 +78,10 @@ internal static class ProgressiveReport
             ["declarationProof"] = state.DeclarationFingerprint,
             ["canonicalDeclarations"] = new JsonArray(state.Declarations.Select(d => (JsonNode)new JsonObject
                 { ["id"] = d.Id, ["direction"] = d.Direction, ["scope"] = d.WorkflowScope, ["candidateCount"] = d.Candidates.Count,
+                    ["name"] = ProgressiveRules.PublicName(state, d) is "record" or "threshold" or "classifiedResult" ? ProgressiveRules.PublicName(state, d) : null,
+                    ["required"] = d.Required, ["default100"] = d.DefaultReference is { } value && ProgressiveRules.SourceText(state, value) == "100",
+                    ["clauseReferences"] = new JsonArray(d.ClauseReferences.Select(r => (JsonNode?)JsonValue.Create(r)).ToArray()),
+                    ["proofFingerprint"] = d.ProofFingerprint,
                     ["aliases"] = d.Aliases.Count, ["modifierReferences"] = d.ModifierReferences.Count, ["baseline"] = d.BaselineReference is not null }).ToArray()),
             ["declarationDispositions"] = new JsonObject(state.DeclarationAssignments.GroupBy(a => a.Disposition, StringComparer.Ordinal)
                 .Select(g => new KeyValuePair<string, JsonNode?>(g.Key, JsonValue.Create(g.Count())))),
@@ -75,6 +93,7 @@ internal static class ProgressiveReport
             ["largestActualInput"] = calls.Select(c => c.InputTokens).DefaultIfEmpty(null).Max(),
             ["inputTokens"] = Sum(calls.Where(c => verified.Contains(c.Id)).Select(c => c.InputTokens)),
             ["outputTokens"] = Sum(calls.Where(c => verified.Contains(c.Id)).Select(c => c.OutputTokens)),
+            ["reasoningTokens"] = Sum(calls.Where(c => verified.Contains(c.Id)).Select(c => ReasoningUsage(receipts[c.Id]))),
             ["allDispatchUsageKnown"] = calls.All(c => verified.Contains(c.Id) && c.InputTokens.HasValue && c.OutputTokens.HasValue),
             ["effectiveReasoning"] = new JsonArray(calls.Select(c => c.Reasoning).Distinct(StringComparer.Ordinal).Select(r => (JsonNode?)JsonValue.Create(r)).ToArray()),
             ["requestsByPhase"] = new JsonArray(calls.GroupBy(c => (c.WorkflowKey, c.Phase, c.Gate)).Select(g => (JsonNode)new JsonObject

@@ -28,7 +28,8 @@ internal static class ProgressiveCampaign
 {
     internal const string Tenant = "planner-progressive", Author = "GnOuGo.Agent.Planning.Benchmark";
     internal const string EvidenceCollection = "agent-planning-progressive-evidence-v5", CampaignCollection = "agent-planning-progressive-campaigns-v5";
-    internal const string CampaignId = "schema5-output-budget-escalation-stage1-1";
+    internal const string CampaignId = "schema5-neutral-declarations-stage1-1";
+    private const string PreviousCampaignId = "schema5-output-budget-escalation-stage1-1";
     private const string ArchivedCampaignId = "schema5-ee487c8";
     private const int MaximumStage = 1;
 
@@ -39,6 +40,22 @@ internal static class ProgressiveCampaign
         var ct = cancel.Token;
         var frozen = await records.GetAsync(EvidenceCollection, Tenant, "frozen", Author, ct) ?? throw new InvalidOperationException("Export historical benchmark inputs through the audit tool first.");
         var evidence = JsonNode.Parse(frozen.Value)!.AsObject();
+        if (args[0] == "archive-integrity")
+        {
+            var campaigns = (await records.ListAsync(CampaignCollection, Tenant, Author, ct)).Where(r => !r.Key.StartsWith(CampaignId, StringComparison.Ordinal)).ToArray();
+            var sessions = campaigns.SelectMany(r => JsonNode.Parse(r.Value)?["stages"] is JsonArray stages
+                ? stages.Select(s => s?["session"]?.ToString()).OfType<string>() : []).ToHashSet(StringComparer.Ordinal);
+            var result = new JsonObject { ["campaignRecords"] = campaigns.Length,
+                ["campaignFingerprint"] = PlanningGraphCompiler.Fingerprint(string.Join('\n', campaigns.OrderBy(r => r.Key, StringComparer.Ordinal).Select(r => r.Key + ":" + r.Value))) };
+            foreach (var collection in new[] { EfPlanningSessionStore.Collection, PlanningModelJournal.RequestCollection, PlanningModelJournal.Collection, PlanningBudgetSink.Collection })
+            {
+                var retained = (await records.ListAsync(collection, Tenant, EfPlanningSessionStore.Author, ct))
+                    .Where(r => sessions.Contains(r.Key.Split(':')[0])).OrderBy(r => r.Key, StringComparer.Ordinal).ToArray();
+                result[collection] = new JsonObject { ["records"] = retained.Length,
+                    ["fingerprint"] = PlanningGraphCompiler.Fingerprint(string.Join('\n', retained.Select(r => r.Key + ":" + r.Value))) };
+            }
+            Console.WriteLine(result.ToJsonString()); return;
+        }
         if (args[0] == "describe")
         {
             Console.WriteLine(new JsonObject { ["referencePrompt"] = evidence["referencePrompt"]!.DeepClone(), ["referenceGraph"] = evidence["referenceGraph"]!.DeepClone(), ["referenceBehavior"] = evidence["referenceBehavior"]!.DeepClone() }.ToJsonString()); return;
@@ -134,6 +151,18 @@ internal static class ProgressiveCampaign
         if (args[0] == "freeze")
         {
             var candidate = CreateManifest(evidence, frozen.Value, policy, binaries, model);
+            var priorRecord = await records.GetAsync(CampaignCollection, Tenant, PreviousCampaignId, Author, ct) ?? throw new InvalidOperationException("The comparison campaign is missing.");
+            var prior = JsonNode.Parse(priorRecord.Value)!;
+            foreach (var field in new[] { "model", "evidenceHash", "policyHash", "limits" })
+                if (!JsonNode.DeepEquals(prior[field], candidate[field])) throw new InvalidOperationException("Benchmark configuration drift: " + field);
+            foreach (var field in new[] { "promptHash", "catalogHash" })
+                if (!JsonNode.DeepEquals(prior["stages"]![0]![field], candidate["stages"]![0]![field])) throw new InvalidOperationException("Stage-1 input drift: " + field);
+            var previousPath = GnOuGoWorkspace.ResolveDatabasePath(null, root, $".GnOuGo/data/planner-progressive/{PreviousCampaignId}/gnougo-planning-v5.db");
+            var previousState = await new EfPlanningSessionStore(new Contexts(previousPath, readOnly: true), records).LoadAsync(Tenant, prior["stages"]![0]!["session"]!.ToString(), ct)
+                ?? throw new InvalidOperationException("The comparison session is missing.");
+            candidate["requestConfigurationHash"] = RequestConfigurationHash(previousState);
+            candidate["hostPolicyHash"] = PlanningGraphCompiler.Fingerprint(previousState.Request.Options["policy"]!.ToJsonString());
+            candidate["previousCampaign"] = PreviousCampaignId;
             if (manifest is not null) { RequireManifest(manifest, candidate); Console.WriteLine("Campaign already frozen; no sessions started."); return; }
             await using (var db = contexts.CreateDbContext()) await db.Database.EnsureCreatedAsync(ct);
             await SaveAsync(records, candidate, ct); Console.WriteLine(candidate.ToJsonString()); return;
@@ -181,6 +210,8 @@ internal static class ProgressiveCampaign
         }
         try
         {
+            if (RequestConfigurationHash(state) != manifest["requestConfigurationHash"]?.ToString())
+                throw new InvalidOperationException("Effective host policy, model or budget settings differ from the frozen comparison session.");
             if (args[0] == "ab") await ProgressiveDiagnostic.RunAsync(manifest, state, args[2], contexts, records, runtime, rates, ct);
             else if (args[0] == "execute")
             {
@@ -198,6 +229,7 @@ internal static class ProgressiveCampaign
                 if (args[0] == "accept")
                 {
                     ProgressiveRules.RequireReview(state, revision, hash, PlanningStatus.BehaviorReview);
+                    if (stage == 1) ProgressiveRules.RequireStageOneDeclarations(state);
                     if (stage == 3 && !new[] { "git_compare_refs", "copilot_review" }.All(m => state.Preparation!.Capabilities.Any(c => c.Method == m))) throw new InvalidOperationException("The benchmark implementation restriction is missing.");
                 }
                 else
@@ -242,7 +274,7 @@ internal static class ProgressiveCampaign
             }
             stageEntry["outcome"] = state.Outcome?.Name;
             if (stageEntry["status"]?.ToString() != "blocked" && !(args[0] == "accept" && stageEntry["status"]?.ToString() == "behavior_accepted"))
-                stageEntry["status"] = ProgressiveRules.CanPass(stage, state, stageEntry["justification"] is not null) ? "passed" : state.TechnicalStop is not null || PlanningStatus.IsTerminal(state.Status) && state.Status != PlanningStatus.Approved ? "blocked" : "waiting";
+                stageEntry["status"] = state.Outcome is PlanningValidWorkflow && ProgressiveRules.CanPass(stage, state, false) ? "passed" : state.TechnicalStop is not null || PlanningStatus.IsTerminal(state.Status) && state.Status != PlanningStatus.Approved ? "blocked" : "waiting";
             stageEntry["revision"] = state.Revision;
             await SaveAsync(records, manifest, ct);
         }
@@ -280,12 +312,21 @@ internal static class ProgressiveCampaign
             {
                 var state = await store.LoadAsync(Tenant, id.ToString(), ct) ?? throw new InvalidOperationException("Owned session missing.");
                 var receipts = new Dictionary<string, LLMResponse?>(StringComparer.Ordinal);
+                var requestEvidence = new JsonArray();
                 foreach (var row in await db.Calls.AsNoTracking().Where(c => c.TenantId == Tenant && c.SessionId == id.ToString()).ToListAsync(ct))
                 {
                     var receipt = await records.GetAsync(PlanningModelJournal.Collection, Tenant, row.PayloadKey, EfPlanningSessionStore.Author, ct);
                     receipts[row.RequestHash] = receipt is null ? null : JsonSerializer.Deserialize(receipt.Value, PlanningJsonContext.Default.LLMResponse);
+                    var issued = await records.GetAsync(PlanningModelJournal.RequestCollection, Tenant, row.PayloadKey, EfPlanningSessionStore.Author, ct);
+                    requestEvidence.Add(new JsonObject { ["requestId"] = row.RequestHash, ["status"] = row.Status,
+                        ["requestFingerprint"] = issued is null ? null : PlanningGraphCompiler.Fingerprint(issued.Value),
+                        ["receiptFingerprint"] = receipt is null ? null : PlanningGraphCompiler.Fingerprint(receipt.Value),
+                        ["inputTokens"] = ProgressiveReport.Usage(receipts[row.RequestHash], false),
+                        ["outputTokens"] = ProgressiveReport.Usage(receipts[row.RequestHash], true),
+                        ["reasoningTokens"] = ProgressiveReport.ReasoningUsage(receipts[row.RequestHash]) });
                 }
                 summary["planning"] = ProgressiveReport.Build(state, receipts);
+                summary["requestEvidence"] = requestEvidence;
                 var execution = await db.Calls.AsNoTracking().Where(c => c.TenantId == Tenant && c.SessionId.StartsWith(id.ToString() + ":execution:")).ToListAsync(ct);
                 var executionRequests = new JsonArray();
                 foreach (var row in execution)
@@ -300,10 +341,18 @@ internal static class ProgressiveCampaign
                 }
                 summary["execution"] = new JsonObject { ["reservations"] = execution.Count, ["completed"] = executionRequests.Count(r => r!["receipt"]!.GetValue<bool>()),
                     ["withoutReceipt"] = executionRequests.Count(r => !r!["receipt"]!.GetValue<bool>()), ["requests"] = executionRequests };
+                var cases = new JsonArray();
+                foreach (var name in ProgressiveScenarios.Cases(entry["stage"]!.GetValue<int>()))
+                {
+                    var owner = state.Request.SessionId + ":execution:" + state.ArtifactHash + ":" + entry["fixtureHash"] + ":" + entry["catalogHash"] + ":" + name;
+                    var record = await records.GetAsync("agent-planning-benchmark-execution-v5", Tenant, owner, EfPlanningSessionStore.Author, ct);
+                    cases.Add(ProgressiveReport.ExecutionCase(name, record is null ? null : JsonNode.Parse(record.Value)));
+                }
+                summary["execution"]!["cases"] = cases;
             }
             reports.Add(summary);
         }
-        return new JsonObject { ["productionCommit"] = manifest["productionCommit"]!.DeepClone(), ["model"] = manifest["model"]!.DeepClone(), ["stages"] = reports,
+        return new JsonObject { ["campaign"] = CampaignId, ["productionCommit"] = manifest["productionCommit"]!.DeepClone(), ["model"] = manifest["model"]!.DeepClone(), ["stages"] = reports,
             ["preflightStop"] = manifest["preflightStop"]?.DeepClone(), ["diagnostic"] = manifest["diagnostic"]?.DeepClone() };
     }
     private static JsonObject CreateManifest(JsonObject evidence, string frozen, string policy, JsonObject binaries, JsonObject model) => new()
@@ -324,11 +373,14 @@ internal static class ProgressiveCampaign
     };
     private static Task SaveAsync(IKeyVaultRecordStore records, JsonObject manifest, CancellationToken ct)
         => records.UpsertAsync(CampaignCollection, Tenant, CampaignId, manifest.ToJsonString(), Author, ct);
+    private static string RequestConfigurationHash(PlanningSnapshot state) => PlanningGraphCompiler.Fingerprint(
+        state.Request.Options.ToJsonString() + ":" + JsonSerializer.Serialize(state.Request.Generation, PlanningJsonContext.Default.PlanningGenerationOptions)
+        + ":" + state.Request.MaxConcurrency + ":" + state.Request.MaxRepairsPerWorkflowGate);
     private static JsonObject BinaryHashes(string root) => new(Directory.GetFiles(root, "GnOuGo.*.dll").Order(StringComparer.Ordinal)
         .Select(p => new KeyValuePair<string, JsonNode?>(Path.GetFileName(p), JsonValue.Create(Convert.ToHexStringLower(SHA256.HashData(File.ReadAllBytes(p)))))));
     private static void RequireManifest(JsonObject existing, JsonObject candidate)
     {
-        foreach (var field in new[] { "productionCommit", "binaries", "model", "evidenceHash", "policyHash", "limits" })
+        foreach (var field in new[] { "productionCommit", "binaries", "model", "evidenceHash", "policyHash", "limits", "requestConfigurationHash", "hostPolicyHash" })
             if (!JsonNode.DeepEquals(existing[field], candidate[field])) throw new InvalidOperationException("The existing campaign cannot be refrozen with changed inputs.");
     }
     private static void RequireFrozenProduction()
