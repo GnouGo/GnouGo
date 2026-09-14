@@ -1,6 +1,28 @@
 # CodeReview convergence benchmark
 
-## Current declaration-constraint campaign
+## Frozen declaration-constraint rerun
+
+`schema5-declaration-constraints-stage1-rerun-1` permits one fresh Stage-1 session
+on unchanged production `9667f600135ee0fd13dba6c5cc901f545ee79452`. Its comparison
+campaign is `schema5-declaration-constraints-stage1-1`, whose first request stopped
+without a verifiable receipt. No prior session, request, candidate or approval is
+resumed or imported.
+
+Only the harness identity/comparison and reporting change. Build the harness with
+`-p:BuildProjectReferences=false`, verify every production DLL against the previous
+manifest, and preserve fixture sources separately from the harness-dependent fixture
+fingerprint. Run offline solution/harness checks and reference selfchecks before
+`campaign freeze` and the single `campaign start 1`.
+
+Keep all-low reasoning and the existing model, policy, budgets, 12,000/9,600 input
+ceiling/target, 8,192 normal output and bounded 16,384 singleton escalation. Review
+canonical ports and attached constraints before exact behavior acceptance, then
+advance the same session. Six independent execution cases must pass before exact
+artifact approval. Stop at the first meaningful blocker or unverifiable request.
+Transport failure before usable planner evidence is infrastructure/provider
+reliability, not a planner defect. No retry, production patch, replacement or Stage 2.
+
+## Previous declaration-constraint campaign
 
 `schema5-declaration-constraints-stage1-1` authorizes one fresh classifier session
 after offline checks and the corrected production/binary freeze. Its comparison
