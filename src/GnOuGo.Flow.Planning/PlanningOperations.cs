@@ -8,20 +8,41 @@ namespace GnOuGo.Flow.Planning;
 /// <summary>Canonical action authority, committed once after bounded complete-clause adjudication.</summary>
 internal static partial class PlanningOperations
 {
-    internal static string EvidenceFingerprint(PlanningSnapshot state) => PlanningGraphCompiler.Fingerprint("operation-evidence-v1:" +
+    internal static string EvidenceFingerprint(PlanningSnapshot state) => PlanningGraphCompiler.Fingerprint("operation-evidence-v2:" +
         state.Request.TenantId + ":" + state.Request.SessionId + ":" + new JsonArray(PlanningIntentAssessment.IntentSources(state)
             .Where(s => s.Authority is PlanningSourceAuthority.RequestedBehavior or PlanningSourceAuthority.ExistingBehavior)
             .Select(s => (JsonNode)new JsonArray(s.Id, s.Authority.ToString(), s.Text, s.QuestionContext)).ToArray()).ToJsonString() + ":" +
-        (state.Request.Baseline is { } baseline ? PlanningGraphCompiler.Fingerprint(baseline) : "") + ":" + state.BehaviorRevision?.Text);
+        (state.Request.Baseline is { } baseline ? PlanningGraphCompiler.Fingerprint(baseline) : "") + ":" + state.BehaviorRevision?.Text + ":" + state.RuntimeEvidenceFingerprint + ":" + state.DeclarationFingerprint);
 
     internal static async Task ResolveAsync(PlanningSnapshot state, IPlanningRuntime runtime, CancellationToken ct)
     {
         PlanningSourceGroundingRules.ValidateAll(state);
         if (state.OperationAdmissionFingerprint is not null) { RequireCurrent(state); return; }
+        RequireRuntimeEvidence(state);
+        PlanningDeclarations.RequireCurrent(state);
         var staged = new List<PlanningObligation>();
-        foreach (var scope in Scopes(state))
+        var scopes = Scopes(state);
+        // Establish distinct occurrences before attaching governing evidence. No
+        // operation-kind question is needed for a validated execution boundary.
+        foreach (var scope in scopes.Where(s => s.Evidence!.Occurrence == "distinct"))
         {
             ct.ThrowIfCancellationRequested();
+            var assignment = Assignment(scope, null);
+            var operation = Create(state, assignment);
+            if (staged.Any(o => o.Id == operation.Id)) throw Failure(scope.Clause.Id, "Two distinct proofs claim the same runtime occurrence.");
+            staged.Add(operation);
+        }
+        foreach (var scope in scopes.Where(s => s.Evidence!.Occurrence == "governing"))
+        {
+            ct.ThrowIfCancellationRequested();
+            var targets = EligibleTargets(state, scope.Evidence!, staged).ToArray();
+            if (targets.Length == 0) throw Failure(scope.Clause.Id, "Governing runtime evidence has no established compatible occurrence.");
+            if (targets.Length == 1)
+            {
+                var operation = Extend(state, targets[0], Assignment(scope, targets[0].Id));
+                staged.RemoveAll(o => o.Id == operation.Id); staged.Add(operation);
+                continue;
+            }
             var decision = Decision(state, scope, staged);
             var response = await PlanningDecisionPages.ResolveAsync(state, runtime, "intent_operations", "$plan", [decision], ct);
             Apply(state, scope, decision, response[decision.Id]!.AsObject(), staged);
@@ -37,25 +58,16 @@ internal static partial class PlanningOperations
             throw Failure(scope.Clause.Id, "Operation assignments contain unknown or out-of-scope fields.");
         var status = response["status"]!.ToString();
         if (status == "unresolved") throw Failure(scope.Clause.Id, "Complete action identity, kind or coverage remains unresolved.");
-        if (status == "not_an_operation") return;
-        var before = staged.ToDictionary(o => o.Id, StringComparer.Ordinal);
-        var selected = new HashSet<string>(StringComparer.Ordinal);
-        foreach (var value in response["actions"]!.AsArray())
-        {
-            PlanningReference anchor;
-            try { anchor = scope.Select(value!["start"]!.ToString(), value["end"]!.ToString()); }
-            catch (PlanningConflictException) { throw Failure(scope.Clause.Id, "The action boundaries are not an issued source span."); }
-            if (!state.References.Contains(anchor)) state.References.Add(anchor);
-            var assignment = new PlanningOperationAssignment(decision.Id, scope.Clause.Id, anchor.Id, value!["kind"]!.ToString(),
-                value["required"]!.GetValue<bool>(), value["target"]?.ToString(), value["baseline"]?.ToString());
-            var operation = assignment.TargetId is { } target
-                ? before.TryGetValue(target, out var established) ? Extend(state, established, assignment) : throw Failure(scope.Clause.Id, "The reuse target is not an established canonical action.")
-                : Create(state, assignment);
-            if (!selected.Add(operation.Id) || assignment.TargetId is null && staged.Any(o => o.Id == operation.Id))
-                throw Failure(scope.Clause.Id, "Multiple assignments claim the same action occurrence. Reuse its established identity explicitly.");
-            staged.RemoveAll(o => o.Id == operation.Id); staged.Add(operation);
-        }
+        var target = response["target"]!.ToString();
+        var established = EligibleTargets(state, scope.Evidence!, staged).SingleOrDefault(o => o.Id == target)
+            ?? throw Failure(scope.Clause.Id, "The reuse target is not an eligible established action.");
+        var operation = Extend(state, established, Assignment(scope, target));
+        staged.RemoveAll(o => o.Id == operation.Id); staged.Add(operation);
     }
+
+    private static PlanningOperationAssignment Assignment(Scope scope, string? target) => new(DecisionId(scope), scope.Clause.Id,
+        scope.Evidence!.ActionReference!, scope.Evidence.Kind!, scope.Evidence.Required, target, scope.Evidence.BaselineReference)
+        { RuntimeEvidenceId = scope.Evidence.Id };
 
     internal static PlanningObligation Create(PlanningSnapshot state, PlanningOperationAssignment assignment)
     {
@@ -65,7 +77,7 @@ internal static partial class PlanningOperations
         var id = CanonicalId(state, anchor, assignment.BaselineReference);
         var operation = new PlanningObligation(id, [anchor.Id], assignment.Kind == "local_processing" ? "workflow" : "capability_contract", assignment.Kind, assignment.Required);
         operation = operation with { Grounding = PlanningSourceGroundingRules.Create(state, operation, assignment.BaselineReference), Disposition = "admitted" };
-        return Prove(state, operation, new(1, id, anchor.Id, assignment.BaselineReference, [assignment], EvidenceFingerprint(state), ""));
+        return Prove(state, operation, new(2, id, anchor.Id, assignment.BaselineReference, [assignment], EvidenceFingerprint(state), ""));
     }
 
     private static PlanningObligation Extend(PlanningSnapshot state, PlanningObligation operation, PlanningOperationAssignment assignment)
@@ -92,7 +104,7 @@ internal static partial class PlanningOperations
     internal static string Text(PlanningSnapshot state, PlanningObligation operation) => string.Join(" ",
         operation.OperationAdmission!.Assignments.Select(a => a.ClauseReference).Distinct(StringComparer.Ordinal).Select(id => PlanningChoiceEvidence.Text(state, id)));
 
-    private static PlanningObligation Prove(PlanningSnapshot state, PlanningObligation operation, PlanningOperationAdmission admission)
+    internal static PlanningObligation Prove(PlanningSnapshot state, PlanningObligation operation, PlanningOperationAdmission admission)
         => operation with { OperationAdmission = admission with { ProofFingerprint = Proof(operation, admission) } };
 
     private static string Proof(PlanningObligation operation, PlanningOperationAdmission admission) => PlanningGraphCompiler.Fingerprint(
@@ -110,6 +122,10 @@ internal static partial class PlanningOperations
         if (fingerprint != state.OperationAdmissionFingerprint)
         {
             state.Events.Add(new("operations_admitted", "intent_operations", DateTimeOffset.UtcNow, operations.Count));
+            foreach (var group in state.RuntimeEvidence.Where(e => e.Role is "planning_directive" or "contract" or "policy").GroupBy(e => e.Role))
+                state.Events.Add(new("operation_excluded_" + group.Key, "intent_operations", DateTimeOffset.UtcNow, group.Count()));
+            state.Events.Add(new("local_behavior_engine_resolved", "intent_operations", DateTimeOffset.UtcNow, operations.Count(o => o.Kind == "local_processing")));
+            state.Events.Add(new("external_actions_admitted", "intent_operations", DateTimeOffset.UtcNow, operations.Count(o => o.Kind != "local_processing")));
             foreach (var operation in operations)
             {
                 var proof = operation.OperationAdmission!;
@@ -126,6 +142,7 @@ internal static partial class PlanningOperations
 
     internal static void RequireCurrent(PlanningSnapshot state)
     {
+        RequireRuntimeEvidence(state);
         foreach (var operation in state.Obligations.Where(o => o.OperationAdmission is not null)) Validate(state, operation);
         if (state.OperationAdmissionFingerprint is null || state.OperationAdmissionFingerprint != Fingerprint(state))
             throw Failure("$plan", "Canonical operation admission requires explicit reassessment with current evidence.", "INTENT_OPERATION_PROOF_MISSING");
@@ -134,7 +151,7 @@ internal static partial class PlanningOperations
     internal static void Validate(PlanningSnapshot state, PlanningObligation operation)
     {
         var proof = operation.OperationAdmission;
-        if (proof is not { Version: 1 } || proof.CanonicalId != operation.Id || operation.Disposition != "admitted" ||
+        if (proof is not { Version: 2 } || proof.CanonicalId != operation.Id || operation.Disposition != "admitted" ||
             operation.EvidenceReferences.Count != 1 || operation.EvidenceReferences[0] != proof.AnchorReference ||
             proof.EvidenceFingerprint != EvidenceFingerprint(state) || proof.Assignments.Count == 0 || proof.ProofFingerprint != Proof(operation, proof))
             throw Failure(operation.Id, "Current canonical admission proof is missing or stale.", "INTENT_OPERATION_PROOF_MISSING");
@@ -157,8 +174,15 @@ internal static partial class PlanningOperations
     {
         if (!PlanningSourceGroundingRules.OperationKinds.Contains(assignment.Kind, StringComparer.Ordinal) ||
             !PlanningChoiceEvidence.Current(state, assignment.ClauseReference) || !PlanningChoiceEvidence.Current(state, assignment.ActionReference) ||
-            PlanningChoiceEvidence.Parent(state, assignment.ActionReference).Id != assignment.ClauseReference || assignment.DecisionId != "operation_" + assignment.ClauseReference)
+            PlanningChoiceEvidence.Parent(state, assignment.ActionReference).Id != assignment.ClauseReference || assignment.DecisionId != "operation_" + assignment.RuntimeEvidenceId)
             throw Failure(assignment.ClauseReference, "An operation requires exact current clause and action references.");
+        var evidence = state.RuntimeEvidence.SingleOrDefault(e => e.Id == assignment.RuntimeEvidenceId)
+            ?? throw Failure(assignment.ClauseReference, "Admission requires current runtime evidence, not an interpretation label.");
+        ValidateRuntime(state, evidence);
+        if (evidence.ActionReference != assignment.ActionReference || evidence.ClauseReference != assignment.ClauseReference ||
+            evidence.Kind != assignment.Kind || evidence.Required != assignment.Required || evidence.BaselineReference != assignment.BaselineReference ||
+            (assignment.TargetId is null) != (evidence.Occurrence == "distinct"))
+            throw Failure(assignment.ClauseReference, "The assignment changed its proven execution boundary or occurrence.");
         var reference = state.References.Single(r => r.Id == assignment.ActionReference);
         var source = PlanningIntentAssessment.IntentSources(state).Single(s => s.Id == reference.SourceId);
         if (source.Authority == PlanningSourceAuthority.RequestedBehavior && assignment.BaselineReference is null) return;

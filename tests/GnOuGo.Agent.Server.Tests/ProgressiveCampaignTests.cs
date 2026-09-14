@@ -115,7 +115,7 @@ public sealed class ProgressiveCampaignTests
     {
         var state = new PlanningSnapshot { OperationAdmissionFingerprint = "set", Request = new() { Prompt = "PRIVATE" } };
         state.Obligations.Add(new("action", ["anchor"], "workflow", "local_processing", true)
-        { OperationAdmission = new(1, "action", "anchor", null,
+        { OperationAdmission = new(2, "action", "anchor", null,
             [new("first", "primary", "anchor", "local_processing", true, null, null),
              new("second", "rules", "rule_anchor", "local_processing", true, "action", null)], "evidence", "proof") });
         var report = ProgressiveReport.Build(state, new Dictionary<string, LLMResponse?>());

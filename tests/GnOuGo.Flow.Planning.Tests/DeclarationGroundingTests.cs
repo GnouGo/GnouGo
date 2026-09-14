@@ -12,7 +12,7 @@ public sealed class DeclarationGroundingTests
     private static CancellationToken Ct => TestContext.Current.CancellationToken;
     internal const string Classifier = "Create one reusable workflow classifying a single record.\nRequired input record is an object with required id:string, amount:number and approved:boolean.\nOptional input threshold is a non-nullable number defaulting to 100 when omitted.\nReturn classifiedResult:{id:string,amount:number,category:string}, all members required.\nClassify as rejected when approved is false, high when approved is true and amount>=threshold, and standard otherwise.\ncategory has exactly the values rejected, high, standard. Preserve the original id and amount.\nThis is deterministic, local, in-memory business processing.";
     internal static PlanningSnapshot State(string prompt)
-    { var state = TypedPlannerTests.Session(); state.Request.Prompt = prompt; state.Preparation = TypedPlannerTests.Preparation(); PlanningOperations.Commit(state, []); return state; }
+    { var state = TypedPlannerTests.Session(); state.Request.Prompt = prompt; state.Preparation = TypedPlannerTests.Preparation(); PlanningFixtures.EmptyRuntime(state); PlanningOperations.Commit(state, []); return state; }
     internal static PlanningObligation Add(PlanningSnapshot state, string fragment, string id, string kind = "declaration_candidate")
         => PolicyGroundingTests.Add(state, "request", fragment, id, kind);
     internal static void UseBaselinePorts(PlanningSnapshot state, PlanningBehaviorPlan plan)
@@ -27,6 +27,7 @@ public sealed class DeclarationGroundingTests
         }).ToList() };
         PlanningFixtures.AdmitHints(state);
         PlanningDeclarations.Commit(state, [], PlanningDeclarations.EvidenceFingerprint(state));
+        PlanningFixtures.RefreshAdmission(state);
         foreach (var workflow in plan.Workflows)
         {
             var scope = workflow.Key == plan.Entrypoint ? "main" : workflow.Key;
@@ -93,7 +94,7 @@ public sealed class DeclarationGroundingTests
             Link("classification", "result", "modifier_of"), Link("preservation", "result", "modifier_of"),
             Link("default", "threshold", "modifier_of", "optional", defaultReference: Token(state, "default", "100"))]));
     }
-    private static void Commit(PlanningSnapshot state, List<PlanningDeclarationAssignment> assignments) => PlanningDeclarations.Commit(state, Canonicalize(state, assignments), PlanningDeclarations.EvidenceFingerprint(state));
+    private static void Commit(PlanningSnapshot state, List<PlanningDeclarationAssignment> assignments) { PlanningDeclarations.Commit(state, Canonicalize(state, assignments), PlanningDeclarations.EvidenceFingerprint(state)); PlanningFixtures.RefreshAdmission(state); }
 
     [Fact]
     public async Task CapturedFragmentsProduceTwoNamedInputsOneOutputAndAnOmissionDefault()
@@ -106,7 +107,7 @@ public sealed class DeclarationGroundingTests
             var response = Response(request, assignments); Assert.Empty(PlanningContractValidation.ValidateInstance(response, request.StructuredOutputSchema!));
             return Task.FromResult(new LLMResponse { Json = response });
         } };
-        await PlanningDeclarations.ResolveAsync(state, runtime, Ct);
+        await PlanningDeclarations.ResolveAsync(state, runtime, Ct); PlanningFixtures.RefreshAdmission(state);
         state.ObligationRelations = [new("overlap", PlanningFixtures.OperationId(state, "operation"), "data"), new("record", PlanningFixtures.OperationId(state, "operation"), "data")];
         var plan = PlanningBehaviorDecisions.Assemble(state, new());
         var workflow = Assert.Single(plan.Workflows);
@@ -208,7 +209,7 @@ public sealed class DeclarationGroundingTests
     {
         var state = State("Preserve the saved public contract."); state.Request.Baseline = TypedPlannerTests.Graph();
         state.Request.Baseline.Workflows[0].Inputs.Add(new() { Name = "limit", Required = false, Default = new() { Kind = "number", Number = 100 }, Schema = new() { Type = "number" } });
-        var runtime = new TypedPlannerTests.FakeRuntime(); await PlanningDeclarations.ResolveAsync(state, runtime, Ct);
+        var runtime = new TypedPlannerTests.FakeRuntime(); await PlanningDeclarations.ResolveAsync(state, runtime, Ct); PlanningFixtures.RefreshAdmission(state);
         Assert.Empty(runtime.Requests); Assert.Equal(2, state.Declarations.Count);
         var declaration = state.Declarations.Single(d => d.Direction == "input"); Assert.Equal("limit", PlanningDeclarations.Name(state, declaration));
         Assert.Equal(100m, PlanningDeclarations.Default(state, declaration)!.Number);
@@ -239,7 +240,7 @@ public sealed class DeclarationGroundingTests
         if (defect == "proof") state.DeclarationFingerprint = "stale";
         var result = await new TypedWorkflowPlanner().AdvanceAsync(Review(state), new() { Kind = "accept_behavior", ExpectedRevision = state.Revision, ArtifactHash = state.ArtifactHash }, new TypedPlannerTests.FakeRuntime(), Ct);
         Assert.Equal(PlanningStatus.Stopped, result.Status); Assert.Null(result.ApprovedBehaviorHash); Assert.Null(result.Graph);
-        Assert.Contains(result.Diagnostics, d => d.Code is "DECLARATION_GROUNDING_UNRESOLVED" or "BEHAVIOR_DECLARATION_MISMATCH");
+        Assert.Contains(result.Diagnostics, d => d.Code is "DECLARATION_GROUNDING_UNRESOLVED" or "BEHAVIOR_DECLARATION_MISMATCH" || defect == "proof" && d.Code == "INTENT_OPERATION_PROOF_MISSING");
     }
 
     [Fact]

@@ -4,6 +4,38 @@ namespace GnOuGo.Flow.Planning.Tests;
 
 internal static class PlanningFixtures
 {
+    internal static PlanningRuntimeEvidence Runtime(PlanningSnapshot state, PlanningReference reference, string kind = "local_processing",
+        string occurrence = "distinct", string? subject = null, string? baseline = null, string? resourceAction = null, bool required = true)
+    {
+        var clause = PlanningChoiceEvidence.Parent(state, reference.Id);
+        var evidence = PlanningOperations.SealRuntime(state, new("", reference.Id, clause.Id,
+            kind == "local_processing" ? "local_behavior" : "runtime_action", reference.Id, subject ?? clause.Id, reference.Id,
+            kind, occurrence, baseline, resourceAction, required, ""));
+        state.RuntimeEvidence.RemoveAll(e => e.Id == evidence.Id); state.RuntimeEvidence.Add(evidence);
+        EmptyRuntime(state);
+        return evidence;
+    }
+    internal static void EmptyRuntime(PlanningSnapshot state)
+    {
+        state.RuntimeEvidence.RemoveAll(e => !PlanningChoiceEvidence.Current(state, e.SourceReference));
+        foreach (var source in PlanningIntentAssessment.IntentSources(state))
+        foreach (var reference in PlanningReferences.Register(state, source.Id, source.Kind, source.Text).ToArray().Where(r => !string.IsNullOrWhiteSpace(source.Text.Substring(r.Start, r.Length))))
+        {
+            if (state.RuntimeEvidence.Any(e => state.References.Single(r => r.Id == e.SourceReference) is var covered && covered.SourceId == reference.SourceId && covered.Start <= reference.Start && covered.Start + covered.Length >= reference.Start + reference.Length)) continue;
+            state.RuntimeEvidence.Add(PlanningOperations.SealRuntime(state, new("", reference.Id, PlanningChoiceEvidence.Parent(state, reference.Id).Id,
+                "contract", null, null, null, null, null, null, null, false, "")));
+        }
+        state.RuntimeEvidenceFingerprint = PlanningOperations.RuntimeFingerprint(state);
+    }
+
+    internal static void RefreshAdmission(PlanningSnapshot state)
+    {
+        EmptyRuntime(state);
+        var operations = state.Obligations.Where(o => o.OperationAdmission is not null).Select(o =>
+            PlanningOperations.Prove(state, o, o.OperationAdmission! with { EvidenceFingerprint = PlanningOperations.EvidenceFingerprint(state) })).ToList();
+        PlanningOperations.Commit(state, operations);
+    }
+
     // Explicit synthetic admission for downstream fixtures. Test-authored operation
     // hints are the answers; production always uses bounded decision pages.
     internal static void AdmitHints(PlanningSnapshot state)
@@ -12,20 +44,26 @@ internal static class PlanningFixtures
         var map = new Dictionary<string, string>(StringComparer.Ordinal);
         var admitted = state.Obligations.Where(o => o.OperationAdmission is not null).ToList();
         foreach (var hint in hints)
+            Runtime(state, state.References.Single(r => r.Id == hint.EvidenceReferences[0]), hint.Kind,
+                baseline: hint.Grounding?.BaselineReference, resourceAction: hint.Kind is "cleanup" or "resource_lifecycle" ? "delete" : null, required: hint.Required);
+        EmptyRuntime(state);
+        foreach (var hint in hints) state.Obligations.Remove(hint);
+        foreach (var hint in hints)
         {
             var clause = PlanningChoiceEvidence.Parent(state, hint.EvidenceReferences[0]);
-            var assignment = new PlanningOperationAssignment("operation_" + clause.Id, clause.Id, hint.EvidenceReferences[0], hint.Kind,
-                hint.Required, null, hint.Grounding?.BaselineReference);
+            var evidence = state.RuntimeEvidence.Single(e => e.ActionReference == hint.EvidenceReferences[0] && e.Kind == hint.Kind);
+            var assignment = new PlanningOperationAssignment("operation_" + evidence.Id, clause.Id, hint.EvidenceReferences[0], hint.Kind,
+                hint.Required, null, hint.Grounding?.BaselineReference) { RuntimeEvidenceId = evidence.Id };
             var operation = PlanningOperations.Create(state, assignment);
             if (!admitted.Any(o => o.Id == operation.Id)) admitted.Add(operation);
-            map.Add(hint.Id, operation.Id); state.Obligations.Remove(hint);
+            map.Add(hint.Id, operation.Id);
         }
         // Remap fixture relationships, capability boundaries and assertions' retained
         // objects in place. Evidence and proof objects never participate in remapping.
         var seen = new HashSet<object>(ReferenceEqualityComparer.Instance);
         void Remap(object? value)
         {
-            if (value is null or string or PlanningReference or PlanningSourceGrounding or PlanningOperationAdmission || !seen.Add(value)) return;
+            if (value is null or string or PlanningReference or PlanningSourceGrounding or PlanningOperationAdmission or PlanningRuntimeEvidence || !seen.Add(value)) return;
             if (value is IList<string> names) { for (var i = 0; i < names.Count; i++) if (map.TryGetValue(names[i], out var id)) names[i] = id; return; }
             if (value is System.Collections.IEnumerable list) { foreach (var item in list) Remap(item); return; }
             if (value.GetType().Namespace != typeof(PlanningSnapshot).Namespace) return;
@@ -38,15 +76,16 @@ internal static class PlanningFixtures
             }
         }
         if (map.Count != 0) Remap(state);
+        admitted = admitted.Select(o => PlanningOperations.Prove(state, o, o.OperationAdmission! with { EvidenceFingerprint = PlanningOperations.EvidenceFingerprint(state) })).ToList();
         PlanningOperations.Commit(state, admitted);
     }
     internal static PlanningSnapshot PreparedRequest(PlanningRequest request, PlanningPreparationCheckpoint? checkpoint = null)
     {
         var state = new PlanningSnapshot { Request = request, PreparationCheckpoint = checkpoint };
-        var scope = PlanningOperations.Scopes(state)[0];
-        var decision = PlanningOperations.Decision(state, scope, []); var staged = new List<PlanningObligation>();
-        PlanningOperations.Apply(state, scope, decision, OperationAdmissionTests.Actions(OperationAdmissionTests.Action(scope, "external_read")), staged);
-        PlanningOperations.Commit(state, staged); return state;
+        var scope = PlanningOperations.SourceScopes(state)[0];
+        Runtime(state, scope.Clause, "external_read");
+        PlanningDeclarations.ResolveAsync(state, new TypedPlannerTests.FakeRuntime(), default).GetAwaiter().GetResult();
+        PlanningOperations.ResolveAsync(state, new TypedPlannerTests.FakeRuntime(), default).GetAwaiter().GetResult(); return state;
     }
     internal static string OperationId(PlanningSnapshot state, string evidenceId) => state.Obligations.FirstOrDefault(o =>
         o.OperationAdmission is { } proof && proof.AnchorReference.EndsWith("_" + evidenceId, StringComparison.Ordinal))?.Id ?? evidenceId;

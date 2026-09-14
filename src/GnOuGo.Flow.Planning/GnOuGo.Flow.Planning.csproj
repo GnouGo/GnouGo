@@ -14,6 +14,7 @@
   <ItemGroup>
     <InternalsVisibleTo Include="GnOuGo.Flow.Planning.Tests" />
     <InternalsVisibleTo Include="GnOuGo.Flow.Planning.Smoke" />
+    <InternalsVisibleTo Include="GnOuGo.Agent.Planning.Benchmark" />
     <ProjectReference Include="../GnOuGo.Flow.Core/GnOuGo.Flow.Core.csproj" />
     <None Include="README.md" Pack="true" PackagePath="/" />
   </ItemGroup>

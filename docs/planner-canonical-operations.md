@@ -1,5 +1,7 @@
 # Canonical runtime-operation admission
 
+This document retains the operation-proof-v1 implementation and its failed frozen campaign as historical evidence. The current operation-proof-v2 boundary and its separate diagnostics are documented in [runtime admission](planner-runtime-admission.md). The campaign below must not be resumed.
+
 Operation interpretation labels are preliminary evidence. The existing bounded decision-page coordinator runs `intent_operations` before confirmation scoping in both inferred and explicit capability preparation. It examines complete requested clauses even when initial interpretation labelled them only as policies.
 
 Each clause selects issued action boundaries and typed kinds: local processing, external read/write/execute, resource lifecycle, cleanup, or human interaction. It may instead establish no operation or stop unresolved. Up to four actions can be represented in one clause decision; insufficient capacity must stop unresolved rather than omit actions. Responses contain no invented descriptions, operation identities or contracts.

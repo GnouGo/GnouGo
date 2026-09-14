@@ -195,6 +195,13 @@ foreach (var valid in new[] { true, false })
 }
 // Exercise actual bounded admission and source-generated restart, not only DTO serialization.
 var operations = new PlanningSnapshot { Request = new() { TenantId = "smoke", Prompt = "Transform an input. Apply its transformation rules." } };
+var operationClauses = PlanningOperations.SourceScopes(operations);
+foreach (var scope in operationClauses)
+{
+    operations.RuntimeEvidence.Add(PlanningOperations.SealRuntime(operations, new("", scope.Clause.Id, scope.Clause.Id, "local_behavior", scope.Clause.Id,
+        operationClauses[0].Clause.Id, scope.Clause.Id, "local_processing", scope == operationClauses[0] ? "distinct" : "governing", null, null, true, "")));
+}
+operations.RuntimeEvidenceFingerprint = PlanningOperations.RuntimeFingerprint(operations);
 await PlanningOperations.ResolveAsync(operations, new SmokeRuntime(graph, preparation), CancellationToken.None);
 var operationRestart = JsonSerializer.Deserialize(JsonSerializer.Serialize(operations, PlanningJsonContext.Default.PlanningSnapshot), PlanningJsonContext.Default.PlanningSnapshot)!;
 await PlanningOperations.ResolveAsync(operationRestart, new SmokeRuntime(graph, preparation) { InvalidIntent = true }, CancellationToken.None);
@@ -210,8 +217,8 @@ sealed class SmokeRuntime(PlanningGraph graph, PlanningPreparation preparation) 
     public bool InvalidIntent { get; set; }
     public async Task<PlanningPreparationProgress> PrepareAsync(PlanningSnapshot state, CancellationToken ct)
     {
-        await PlanningOperations.ResolveAsync(state, this, ct);
         await PlanningDeclarations.ResolveAsync(state, this, ct);
+        await PlanningOperations.ResolveAsync(state, this, ct);
         preparation.Capabilities = [new() { Id = "declared", Description = "Return the ready message", Required = true, Resolution = "available", StepType = "set",
             OperationIds = state.Obligations.Where(PlanningSourceDecisions.IsOperation).Select(o => o.Id).ToList(),
             FixedInput = new() { ["message"] = "ready" }, OutputSchema = JsonNode.Parse("""{"type":"object","properties":{"message":{"type":"string"}},"required":["message"],"additionalProperties":false}""")!.AsObject() }];
@@ -226,9 +233,7 @@ sealed class SmokeRuntime(PlanningGraph graph, PlanningPreparation preparation) 
         graph.Workflows[0].Steps[0].OutputSchema = new() { Type = "object", Properties = [new() { Name = "message", Schema = new() { Type = "string" } }] };
         JsonNode? json = InvalidIntent ? new JsonObject() : phase switch
         {
-            "intent" => new JsonObject(request.StructuredOutputSchema["properties"]!.AsObject().Select(p => new KeyValuePair<string, JsonNode?>(p.Key,
-                new JsonArray(new[] { "local_processing", "declaration_candidate" }.Select(role => (JsonNode?)new JsonObject
-                { ["start"] = p.Value!["items"]!["properties"]!["start"]!["enum"]![0]!.DeepClone(), ["end"] = p.Value!["items"]!["properties"]!["end"]!["enum"]!.AsArray()[^1]!.DeepClone(), ["kind"] = role, ["required"] = true }).ToArray())))),
+            "intent" => IntentResponse(request),
             "intent_operations" => OperationResponse(request),
             "intent_declarations" => DeclarationResponse(request),
             "construction_schema" => new JsonObject(request.StructuredOutputSchema["properties"]!.AsObject().Select(p => new KeyValuePair<string, JsonNode?>(p.Key,
@@ -240,14 +245,19 @@ sealed class SmokeRuntime(PlanningGraph graph, PlanningPreparation preparation) 
         };
         return Task.FromResult(new LLMResponse { Json = json });
     }
-    private JsonObject OperationResponse(LLMRequest request) => new(request.StructuredOutputSchema!["properties"]!.AsObject().Select(page =>
+    private static JsonObject IntentResponse(LLMRequest request) => new(request.StructuredOutputSchema!["properties"]!.AsObject().Select(p =>
     {
-        var scope = PlanningOperations.Scopes(_snapshot!).Single(s => PlanningOperations.DecisionId(s) == page.Key);
-        var variants = page.Value!["anyOf"]!.AsArray().Single(v => v!["properties"]?["actions"] is not null)!["properties"]!["actions"]!["items"]!["anyOf"]!.AsArray();
-        var reuse = variants.FirstOrDefault(v => v!["properties"]!["target"]!["enum"] is not null)?["properties"]!["target"]!["enum"]![0]?.ToString();
-        return new KeyValuePair<string, JsonNode?>(page.Key, new JsonObject { ["status"] = "operations", ["actions"] = new JsonArray(new JsonObject
-        { ["kind"] = "local_processing", ["required"] = true, ["target"] = reuse, ["baseline"] = null, ["start"] = "b0", ["end"] = "b" + scope.Words.Count }) });
+        var schema = p.Value!["properties"]!["obligations"]!["items"]!["properties"]!;
+        JsonObject Span() => new() { ["start"] = schema["start"]!["enum"]![0]!.DeepClone(), ["end"] = schema["end"]!["enum"]!.AsArray()[^1]!.DeepClone() };
+        var obligations = new JsonArray(new[] { "local_processing", "declaration_candidate" }.Select(role =>
+        { var value = Span(); value["kind"] = role; value["required"] = true; return (JsonNode)value; }).ToArray());
+        var runtime = p.Value["properties"]!["runtime"]!["items"]!["anyOf"]![1]!["properties"]!;
+        return new KeyValuePair<string, JsonNode?>(p.Key, new JsonObject { ["obligations"] = obligations,
+            ["runtime"] = new JsonArray(new JsonObject { ["role"] = "local_behavior", ["kind"] = "local_processing", ["action"] = Span(),
+                ["execution"] = "generated_workflow", ["subject"] = runtime["subject"]!["enum"]![0]!.DeepClone(), ["occurrence"] = "distinct", ["required"] = true, ["baseline"] = null }) });
     }));
+    private static JsonObject OperationResponse(LLMRequest request) => new(request.StructuredOutputSchema!["properties"]!.AsObject().Select(p =>
+        new KeyValuePair<string, JsonNode?>(p.Key, new JsonObject { ["status"] = "reuse", ["target"] = p.Value!["anyOf"]![1]!["properties"]!["target"]!["enum"]![0]!.DeepClone() })));
     private JsonObject DeclarationResponse(LLMRequest request)
     {
         // Synthetic semantic response for this smoke's explicitly named message.

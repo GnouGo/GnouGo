@@ -9,9 +9,9 @@ internal static class CapabilityInventoryDecisions
 {
     internal static async Task<CapabilityInventory> BuildAsync(PlanningSnapshot state, IPlanningRuntime runtime, CancellationToken ct)
     {
+        await PlanningDeclarations.ResolveAsync(state, runtime, ct);
         await PlanningOperations.ResolveAsync(state, runtime, ct);
         await PlanningConfirmationPolicies.ResolveAsync(state, runtime, ct);
-        await PlanningDeclarations.ResolveAsync(state, runtime, ct);
         await PlanningSourceDecisions.RelateAsync(state, runtime, ct);
         var sources = PlanningSourceDecisions.Sources(state);
         var obligations = state.Obligations.Where(PlanningSourceDecisions.IsOperation).ToDictionary(o => o.Id, StringComparer.Ordinal);
@@ -56,8 +56,7 @@ internal static class CapabilityInventoryDecisions
         var constraints = state.Obligations.Where(o => o.Kind is "workflow_policy" or "exact_denial" or "confirmation_required" or "confirmation_forbidden" or "rejection_condition")
             .Select(o => new CapabilityInventoryConstraint(o.Id, PlanningChoiceEvidence.Text(state, o.Grounding!.ClauseReference), o.Required,
                 o.Kind == "exact_denial" && o.PolicyIds.Count == 0 ? "exact_denial" : "workflow_policy")).ToArray();
-        if (operations.Length == 0)
-            throw new WorkflowRuntimeException("INTENT_OPERATION_UNRESOLVED", "No evidenced runtime operation was established. This is not proof of an unavailable capability.");
+        PlanningOperations.RequireExecutableIntent(state);
         return new(true, operations, constraints, []) { PolicyScopeVersion = 2, ScopedPolicies = state.ScopedPolicies.ToArray(),
             SourceGroundingFingerprint = PlanningSourceGroundingRules.Fingerprint(state) };
     }

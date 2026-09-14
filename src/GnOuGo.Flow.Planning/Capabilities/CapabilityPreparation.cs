@@ -139,9 +139,9 @@ internal static class CapabilityPreparation
                         unresolvedDiscoveryServers,
                         Array.Empty<ResolvedCapability>());
                 resolved = ResolveExplicitCapabilities(requirements, discovered);
+                await PlanningDeclarations.ResolveAsync(snapshot, runtime, ct);
                 await PlanningOperations.ResolveAsync(snapshot, runtime, ct);
-                if (!snapshot.Obligations.Any(PlanningSourceDecisions.IsOperation))
-                    throw new WorkflowRuntimeException("INTENT_OPERATION_UNRESOLVED", "No requested runtime operation has been canonically established.");
+                PlanningOperations.RequireExecutableIntent(snapshot);
                 await PlanningConfirmationPolicies.ResolveAsync(snapshot, runtime, ct);
                 scopedPolicies = snapshot.ScopedPolicies;
                 if (scopedPolicies.Any(p => p.TargetOperationIds.Count > 0) || resolved.Any(c => c.ExternalEffectKind == "write"))

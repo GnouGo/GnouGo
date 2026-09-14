@@ -1,0 +1,296 @@
+{
+  "baseCommit": "be887cfea9f6b8f3334f4f1d0f3e38dbfd4a2f08",
+  "snapshotSchema": 5,
+  "sourceProofVersion": 4,
+  "declarationProofVersion": 5,
+  "operationAdmissionProofVersion": 2,
+  "productionFiles": {
+    "src/GnOuGo.Agent.Server/Planning/PlanningPersistenceSmoke.cs": "3013b988cebe77e9a8fe2cc4be3a2a7b50341e9c676168395dc68d2b2955ad21",
+    "src/GnOuGo.Flow.Core/Planning/PlanningContracts.cs": "79a0300d8156e3c1b2b4dd5d0aba02c9a6ed763a191541eee61b6f43829c306e",
+    "src/GnOuGo.Flow.Core/Planning/PlanningDecisionState.cs": "ab07016467ac57d1e89054379aa06531f9c58262b6b4b1cc2cfafb93d94e6898",
+    "src/GnOuGo.Flow.Core/README.md": "a89e888c82c497345d1c700af47a810f0dcf61bbea26f2b5d5bb4367cbc9f66e",
+    "src/GnOuGo.Flow.Planning/Capabilities/CapabilityInventoryDecisions.cs": "aba8bd5d29fafa469e508b2821860d60b0c25da873c1c6972a964a96f814080d",
+    "src/GnOuGo.Flow.Planning/Capabilities/CapabilityPreparation.cs": "646d0020bd7a934df2a8657a59527276f11b74d8927524a8e6e6a9f019afc52c",
+    "src/GnOuGo.Flow.Planning/GnOuGo.Flow.Planning.csproj": "6998ee69a84eaf28c3bb83bd93e790f11507781da5abc784f15eb8b0344991ad",
+    "src/GnOuGo.Flow.Planning/PlanningDeclarations.cs": "2fa6b5e2253050d93f2f51f0e9127303c170d234f0f10f44e7577637ee77ff1a",
+    "src/GnOuGo.Flow.Planning/PlanningOperations.Decisions.cs": "07004ca1ef7f6ff2f6d2e454d6b8006fcc53ad0ff32818e23e7af81ec4749797",
+    "src/GnOuGo.Flow.Planning/PlanningOperations.cs": "b1e74fde029f82cfee0a3f6a9f52ca01616ebc1a3bdeb40cfe9d3ca598ac34b6",
+    "src/GnOuGo.Flow.Planning/PlanningSourceDecisions.cs": "1749d845a0cc5ba1d6d846c3c92b84afae0b7c6d4e767cd3c59ef136f3f8a550",
+    "src/GnOuGo.Flow.Planning/README.md": "37806dda2ed6ae6575ce9ad61511357bf13324d850f82c1cf152d6c8269e8260",
+    "src/GnOuGo.Flow.Planning/TypedWorkflowPlanner.cs": "99096d91f5c404797ef2da8a76f7846915eb816b76b9551184b7ed0f949aa3df",
+    "src/GnOuGo.Flow.Planning/PlanningOperations.Evidence.cs": "ae0774381346f176801188e24911f22db30fbacf28ff6d0da81b3b3b4b7b63dd"
+  },
+  "providerDispatches": 0,
+  "planningSessionsStarted": 0,
+  "baselineReplay": {
+    "session": "984756f1099448a3856e6280d53ebba3",
+    "sourceRevision": 30,
+    "sourceUnchanged": true,
+    "counterfactual": false,
+    "counterfactualRequest": null,
+    "status": "stopped",
+    "phase": "capabilities",
+    "localAdvances": 1,
+    "replayedReceipts": 2,
+    "providerDispatches": 0,
+    "lastRequestPhase": "intent_operations",
+    "lastRequestId": "984756f1099448a3856e6280d53ebba3:30:10:intent_operations:response_contract:93beceaf3191e878:page_d43d882e31ecdda57f3f425ad15fd11ec1e36092a52f79a4b0323762690a2485:25576a214d5802c9472d78d8886787b0996276e9d477194318f54d7f19a69750",
+    "behaviorPresent": false,
+    "graphPresent": false,
+    "diagnostics": [
+      {
+        "code": "DECISION_OUTPUT_LIMIT",
+        "location": "/decisions/operation_r_8f9f6d01e24b42f645c7795e"
+      }
+    ]
+  },
+  "currentStrictReplay": {
+    "session": "984756f1099448a3856e6280d53ebba3",
+    "sourceRevision": 30,
+    "sourceUnchanged": true,
+    "counterfactual": false,
+    "counterfactualRequest": null,
+    "status": "stopped",
+    "phase": "capabilities",
+    "localAdvances": 1,
+    "replayedReceipts": 0,
+    "providerDispatches": 0,
+    "lastRequestPhase": "intent_declarations",
+    "lastRequestId": "984756f1099448a3856e6280d53ebba3:30:10:intent_declarations:response_contract:93beceaf3191e878:page_d5d0beaf349057546aca88b2aac3a32387202fa4533072c7fd44a8ed0c20bbc7:2871129454666ed39a96a163d3b9e7575b8528b4915a7bbe55ad2cf60c8475ff",
+    "behaviorPresent": false,
+    "graphPresent": false,
+    "diagnostics": [
+      {
+        "code": "REPLAY_EVIDENCE_REQUIRED",
+        "location": "/preparation"
+      }
+    ]
+  },
+  "solutionResults": {
+    "Passed": 3353,
+    "NotExecuted": 1
+  },
+  "testProjects": [
+    {
+      "assembly": "GnOuGo.Flow.Tests.dll",
+      "results": {
+        "Passed": 855
+      }
+    },
+    {
+      "assembly": "GnOuGo.GithubCopilot.E2E.Tests.dll",
+      "results": {
+        "NotExecuted": 1
+      }
+    },
+    {
+      "assembly": "GnOuGo.Flow.Mermaid.Tests.dll",
+      "results": {
+        "Passed": 12
+      }
+    },
+    {
+      "assembly": "GnOuGo.Agent.Server.Tests.dll",
+      "results": {
+        "Passed": 412
+      }
+    },
+    {
+      "assembly": "GnOuGo.Git.Mcp.Tests.dll",
+      "results": {
+        "Passed": 48
+      }
+    },
+    {
+      "assembly": "GnOuGo.Flow.Integrations.Tests.dll",
+      "results": {
+        "Passed": 67
+      }
+    },
+    {
+      "assembly": "GnOuGo.Assets.Animation.Server.Tests.dll",
+      "results": {
+        "Passed": 13
+      }
+    },
+    {
+      "assembly": "GnOuGo.Observability.Core.Tests.dll",
+      "results": {
+        "Passed": 3
+      }
+    },
+    {
+      "assembly": "GnOuGo.AI.Local.Tests.dll",
+      "results": {
+        "Passed": 14
+      }
+    },
+    {
+      "assembly": "GnOuGo.Files.Server.Tests.dll",
+      "results": {
+        "Passed": 10
+      }
+    },
+    {
+      "assembly": "GnOuGo.Diff.Tests.dll",
+      "results": {
+        "Passed": 52
+      }
+    },
+    {
+      "assembly": "GnOuGo.Cmd.Mcp.Tests.dll",
+      "results": {
+        "Passed": 41
+      }
+    },
+    {
+      "assembly": "GnOuGo.Mcp.Core.Tests.dll",
+      "results": {
+        "Passed": 31
+      }
+    },
+    {
+      "assembly": "GnOuGo.GithubCopilot.Mcp.Tests.dll",
+      "results": {
+        "Passed": 110
+      }
+    },
+    {
+      "assembly": "GnOuGo.DocIngestor.Mcp.Tests.dll",
+      "results": {
+        "Passed": 7
+      }
+    },
+    {
+      "assembly": "GnOuGo.Assets.Animation.Tests.dll",
+      "results": {
+        "Passed": 38
+      }
+    },
+    {
+      "assembly": "GnOuGo.Agent.Mcp.Tests.dll",
+      "results": {
+        "Passed": 103
+      }
+    },
+    {
+      "assembly": "GnOuGo.Assets.Bears.Server.Tests.dll",
+      "results": {
+        "Passed": 28
+      }
+    },
+    {
+      "assembly": "GnOuGo.Assets.Bears.Tests.dll",
+      "results": {
+        "Passed": 91
+      }
+    },
+    {
+      "assembly": "GnOuGo.GithubCopilot.Core.Tests.dll",
+      "results": {
+        "Passed": 84
+      }
+    },
+    {
+      "assembly": "GnOuGo.OtlpCollector.Server.Tests.dll",
+      "results": {
+        "Passed": 7
+      }
+    },
+    {
+      "assembly": "GnOuGo.Browser.Mcp.Tests.dll",
+      "results": {
+        "Passed": 43
+      }
+    },
+    {
+      "assembly": "GnOuGo.Workspace.Tests.dll",
+      "results": {
+        "Passed": 30
+      }
+    },
+    {
+      "assembly": "GnOuGo.KeyVault.Core.Tests.dll",
+      "results": {
+        "Passed": 12
+      }
+    },
+    {
+      "assembly": "GnOuGo.AI.Core.Tests.dll",
+      "results": {
+        "Passed": 193
+      }
+    },
+    {
+      "assembly": "GnOuGo.KeyVault.Mcp.Tests.dll",
+      "results": {
+        "Passed": 9
+      }
+    },
+    {
+      "assembly": "GnOuGo.Document.Mcp.Tests.dll",
+      "results": {
+        "Passed": 63
+      }
+    },
+    {
+      "assembly": "GnOuGo.DocIngestor.Tests.dll",
+      "results": {
+        "Passed": 89
+      }
+    },
+    {
+      "assembly": "GnOuGo.Flow.Planning.Tests.dll",
+      "results": {
+        "Passed": 888
+      }
+    }
+  ],
+  "focusedHarnessCases": 75,
+  "solutionBuild": "passed_without_warnings",
+  "harnessBuild": "passed_without_warnings",
+  "frontendBuilds": {
+    "Agent.Server": "passed_without_warnings",
+    "OtlpCollector.Server": "passed_without_warnings"
+  },
+  "packages": {
+    "GnOuGo.Flow.Integrations.1.0.0.nupkg": "124a515cb70a1a436166238e67d958c36a9b4063de199dd60e632f17e0853eae",
+    "GnOuGo.Flow.Core.1.0.0.nupkg": "813368bc502c739c33bcc94bbbff7321272c517dbd526204bdbd9215cde46e72",
+    "GnOuGo.Flow.Planning.1.0.0.nupkg": "3086102134f474a82951a5233a4ad03c31cfc0877a047cef8ca55451bd8a8421",
+    "GnOuGo.Agent.Shared.1.0.0.nupkg": "47609f0d120920dca816dfd9623c2bfef7764ec8e6728e1ef9b48eb7504722ce"
+  },
+  "packagesResult": "passed_without_warnings",
+  "referenceSelfchecks": {
+    "classifierBatch": 6,
+    "codeReview": 18,
+    "modelCalls": 0
+  },
+  "publishedSmokes": {
+    "nativeAotPlanningAndEncryptedRestart": {
+      "rid": "osx-arm64",
+      "result": "passed",
+      "binarySha256": "06605f69179f3ca43a2aeb038b078e57b3536570a1a33f6e2c91a19fe2a3d1cb"
+    },
+    "trimmedAgentEfPersistence": {
+      "rid": "osx-arm64",
+      "result": "passed",
+      "binarySha256": "75626c68d2ba3dfd083c532efb05d145d86a14e8c16bad88c8c9127a3e4ed18d",
+      "publishOptions": "Existing persistence-only publish options: SkipBundledServerTools=true and SkipClientBuild=true; frontend assets built separately."
+    }
+  },
+  "publishWarnings": 0,
+  "newWarningSuppressions": 0,
+  "sanitizedDeclarationFixtureSha256": "890cdd12f85a420722887aaf12a00a4db5e8186e996613a22d18fed2a33cb373",
+  "unchangedBenchmarkFixtureSources": {
+    "tests/GnOuGo.Agent.Planning.Benchmark/ProgressiveScenarios.cs": "b28780fdb09e7484895c97f1fff90716ebdd9e2ae88c2be351941d53649d3b92",
+    "tests/GnOuGo.Agent.Planning.Benchmark/ProgressiveExecution.cs": "40a40ce81d7f9dd62ebda770dcb59cd64866cc88a202b7c84c08da4449fc4936",
+    "tests/GnOuGo.Agent.Planning.Benchmark/CodeReviewExecutionFixture.cs": "7ff54d7c4529bb9bb1e7ab4e25f1e59f83f85e7e08126a767e2136c5283ae498",
+    "tests/GnOuGo.Agent.Planning.Benchmark/CodeReviewPolicy.txt": "b92002cf07ef660981dc5c758d775be40589045d14df706cf454ca3c58e52604"
+  },
+  "syntheticEvidence": "Runtime facets and executable assignments in offline fixtures are explicitly synthetic. Historical responses are not substituted for changed requests.",
+  "admissionCheckpoint": "Established local runtime evidence admits without operation or capability-matching calls; native six-case execution is an offline fixture, not fresh end-to-end planning.",
+  "earlierOfflineFailures": [
+    "Parallel solution test/build encountered a missing generated OtlpCollector frontend asset; frontend rebuild and serial checks passed.",
+    "Two Agent test transports returned the obsolete interpretation response shape; fixtures were updated without weakening metadata or cumulative-budget assertions."
+  ]
+}

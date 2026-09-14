@@ -12,7 +12,7 @@ public sealed class DeclarationConstraintTests
 {
     private static CancellationToken Ct => TestContext.Current.CancellationToken;
     private static void Commit(PlanningSnapshot state, List<PlanningDeclarationAssignment> values)
-        => PlanningDeclarations.Commit(state, values, PlanningDeclarations.EvidenceFingerprint(state));
+        { PlanningDeclarations.Commit(state, values, PlanningDeclarations.EvidenceFingerprint(state)); PlanningFixtures.RefreshAdmission(state); }
     private static TypedPlannerTests.FakeRuntime Runtime(List<PlanningDeclarationAssignment> values) => new()
     {
         OnCall = (phase, request, _) =>
@@ -52,11 +52,11 @@ public sealed class DeclarationConstraintTests
         // use current public identity rather than historical candidate-derived IDs.
         var identities = state.Declarations.ToDictionary(d => d.Id, d => PlanningDeclarations.CanonicalId(PlanningDeclarations.Name(state, d), d.WorkflowScope, d.Direction));
         values = values.Select(a => a.TargetId is { } target && identities.TryGetValue(target, out var id) ? a with { TargetId = id } : a).ToList();
-        state.Declarations.Clear(); state.DeclarationAssignments.Clear(); state.DeclarationFingerprint = null;
+        state.Declarations.Clear(); state.DeclarationAssignments.Clear(); state.DeclarationFingerprint = null; PlanningFixtures.RefreshAdmission(state);
         state.Preparation = TypedPlannerTests.Preparation();
         // Revalidate the same captured root assignments; only the new attachment answers are synthetic additions.
         var runtime = Runtime(values);
-        await PlanningDeclarations.ResolveAsync(state, runtime, Ct);
+        await PlanningDeclarations.ResolveAsync(state, runtime, Ct); PlanningFixtures.RefreshAdmission(state);
         Assert.Equal(roots, Roots(state, state.DeclarationAssignments));
         var canonical = Assert.Single(state.Declarations, d => d.Id == identities[output.Id]);
         Assert.Equal(output.Direction, canonical.Direction); Assert.Equal(output.Required, canonical.Required);
@@ -94,7 +94,7 @@ public sealed class DeclarationConstraintTests
         Assert.DoesNotContain(rootPages, p => p.Schema["properties"]?["enum"] is not null);
         Assert.All(rootPages, p => Assert.Null(p.Context["presenceEvidence"]?[constraint.Grounding!.ClauseReference]));
         var runtime = Runtime(values);
-        await PlanningDeclarations.ResolveAsync(state, runtime, Ct);
+        await PlanningDeclarations.ResolveAsync(state, runtime, Ct); PlanningFixtures.RefreshAdmission(state);
         Assert.Equal(2, state.Declarations.Count);
         var inputDeclaration = Assert.Single(state.Declarations, d => d.Direction == "input");
         var outputDeclaration = Assert.Single(state.Declarations, d => d.Direction == "output");
@@ -169,7 +169,7 @@ public sealed class DeclarationConstraintTests
         Add(state, "Use the supplied color blue.", "value", "explicit_value");
         Add(state, "The decision returns false otherwise.", "fallback", "runtime_fallback");
         var runtime = new TypedPlannerTests.FakeRuntime();
-        await PlanningDeclarations.ResolveAsync(state, runtime, Ct);
+        await PlanningDeclarations.ResolveAsync(state, runtime, Ct); PlanningFixtures.RefreshAdmission(state);
         Assert.Empty(runtime.Requests); Assert.Empty(state.Declarations); Assert.Empty(state.DeclarationAssignments);
         Assert.Equal("explicit_value", state.Obligations[0].Kind);
     }

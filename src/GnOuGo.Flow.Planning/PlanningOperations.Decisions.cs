@@ -3,13 +3,13 @@ using GnOuGo.Flow.Core.Planning;
 
 namespace GnOuGo.Flow.Planning;
 
-/// <summary>Complete source clauses, not interpretation labels, define the admission domain.</summary>
+/// <summary>Only established runtime evidence can expose bounded action-identity choices.</summary>
 internal static partial class PlanningOperations
 {
     internal sealed record Scope(PlanningIntentAssessment.IntentSource Source, PlanningReference Clause,
-        JsonObject Words, JsonObject Boundaries, Func<string, string, PlanningReference> Select);
+        JsonObject Words, JsonObject Boundaries, Func<string, string, PlanningReference> Select, PlanningRuntimeEvidence? Evidence = null);
 
-    internal static Scope[] Scopes(PlanningSnapshot state) => PlanningIntentAssessment.IntentSources(state)
+    internal static Scope[] SourceScopes(PlanningSnapshot state) => PlanningIntentAssessment.IntentSources(state)
         .Where(s => s.Authority is PlanningSourceAuthority.RequestedBehavior or PlanningSourceAuthority.ExistingBehavior)
         .OrderBy(s => s.Authority == PlanningSourceAuthority.ExistingBehavior ? 0 : 1)
         .SelectMany(source => PlanningReferences.Register(state, source.Id, source.Kind, source.Text)
@@ -21,58 +21,40 @@ internal static partial class PlanningOperations
                 return new Scope(source, clause, boundaries.Context, boundaries.Schema, boundaries.Select);
             })).ToArray();
 
-    internal static string DecisionId(Scope scope) => "operation_" + scope.Clause.Id;
+    internal static Scope[] Scopes(PlanningSnapshot state)
+    {
+        RequireRuntimeEvidence(state);
+        var sources = SourceScopes(state);
+        return state.RuntimeEvidence.Where(e => e.Role is "local_behavior" or "runtime_action")
+            .OrderBy(e => state.References.Single(r => r.Id == e.SourceReference).SourceId, StringComparer.Ordinal)
+            .ThenBy(e => state.References.Single(r => r.Id == e.ActionReference).Start).ThenBy(e => e.Id, StringComparer.Ordinal)
+            .Select(e => sources.Single(s => s.Clause.Id == e.ClauseReference) with { Evidence = e }).ToArray();
+    }
+
+    internal static string DecisionId(Scope scope) => "operation_" + scope.Evidence!.Id;
 
     internal static PlanningDecisionPages.Decision Decision(PlanningSnapshot state, Scope scope, IReadOnlyList<PlanningObligation> staged)
     {
-        var variants = new JsonArray();
-        JsonObject Action(IEnumerable<string> kinds, string? target, string? baseline, bool? required)
+        var evidence = scope.Evidence ?? throw Failure(scope.Clause.Id, "A decision requires eligible runtime evidence.");
+        ValidateRuntime(state, evidence);
+        var targets = EligibleTargets(state, evidence, staged).ToArray();
+        var outcomes = new JsonArray(PlanningHoleRequests.Object(("status", PlanningHoleRequests.Enum(["unresolved"]))));
+        if (targets.Length > 0) outcomes.Add((JsonNode)PlanningHoleRequests.Object(
+            ("status", PlanningHoleRequests.Enum(["reuse"])), ("target", PlanningHoleRequests.Enum(targets.Select(o => o.Id).ToArray()))));
+        return new(DecisionId(scope), new JsonObject { ["anyOf"] = outcomes }, new JsonObject
         {
-            var schema = scope.Boundaries.DeepClone().AsObject();
-            var properties = schema["properties"]!.AsObject();
-            properties["kind"] = PlanningHoleRequests.Enum(kinds.ToArray());
-            properties["target"] = target is null ? PlanningHoleRequests.Type("null") : PlanningHoleRequests.Enum([target]);
-            properties["baseline"] = baseline is null ? PlanningHoleRequests.Type("null") : PlanningHoleRequests.Enum([baseline]);
-            properties["required"] = required is null ? PlanningHoleRequests.Type("boolean") : new JsonObject { ["type"] = "boolean", ["const"] = required.Value };
-            schema["required"] = new JsonArray(properties.Select(p => (JsonNode?)JsonValue.Create(p.Key)).ToArray());
-            return schema;
-        }
-        var baselineNodes = PlanningSourceGroundingRules.BaselineNodes(state);
-        if (scope.Source.Authority == PlanningSourceAuthority.RequestedBehavior)
-            variants.Add((JsonNode)Action(PlanningSourceGroundingRules.OperationKinds, null, null, null));
-        else if (scope.Source.Authority == PlanningSourceAuthority.ExistingBehavior) foreach (var (id, node) in baselineNodes.OrderBy(p => p.Key, StringComparer.Ordinal))
-        {
-            var kinds = BaselineKinds(node.Node);
-            if (kinds.Length > 0) variants.Add((JsonNode)Action(kinds, null, id, true));
-        }
-        foreach (var action in staged.Where(_ => scope.Source.Authority is PlanningSourceAuthority.RequestedBehavior or PlanningSourceAuthority.ExistingBehavior).OrderBy(o => o.Id, StringComparer.Ordinal))
-        {
-            var baseline = scope.Source.Authority == PlanningSourceAuthority.ExistingBehavior ? action.OperationAdmission!.BaselineReference : null;
-            if (scope.Source.Authority == PlanningSourceAuthority.ExistingBehavior && baseline is null) continue;
-            variants.Add((JsonNode)Action([action.Kind], action.Id, baseline, action.Required));
-        }
-        var outcomes = new JsonArray(
-            PlanningHoleRequests.Object(("status", PlanningHoleRequests.Enum(["not_an_operation"]))),
-            PlanningHoleRequests.Object(("status", PlanningHoleRequests.Enum(["unresolved"]))));
-        if (variants.Count > 0) outcomes.Add((JsonNode)PlanningHoleRequests.Object(
-            ("status", PlanningHoleRequests.Enum(["operations"])),
-            ("actions", new JsonObject { ["type"] = "array", ["minItems"] = 1, ["maxItems"] = 4,
-                ["items"] = new JsonObject { ["anyOf"] = variants } })));
-        var context = new JsonObject
-        {
-            ["task"] = "Identify every explicitly requested runtime action in this complete clause, independently of preliminary hints. local_processing is in-workflow parsing, validation, filtering, transformation, classification, aggregation or control flow. A policy mentioning an action does not request that action. Select action word boundaries; descriptions and identities are engine-owned. Reuse an issued target only when the clause governs that same action, preserving its kind, requiredness, occurrence and effects. Conditions and constraints may simultaneously govern an operation; reuse retains this clause without creating another action. not_an_operation retains its other obligations. If meaning, identity, baseline compatibility or complete coverage within four actions is unproven, use unresolved.",
-            ["sourceAuthority"] = scope.Source.Authority.ToString(), ["clause"] = scope.Clause.Id,
-            ["words"] = scope.Words.DeepClone(), ["questionContext"] = scope.Source.QuestionContext,
-            ["hints"] = new JsonArray(state.Obligations.Where(o => o.OperationAdmission is null && o.Grounding?.ClauseReference == scope.Clause.Id)
-                .Select(o => (JsonNode)new JsonObject { ["id"] = o.Id, ["kind"] = o.Kind }).ToArray()),
-            ["targets"] = new JsonObject(staged.OrderBy(o => o.Id, StringComparer.Ordinal).Select(o => new KeyValuePair<string, JsonNode?>(o.Id,
-                new JsonObject { ["kind"] = o.Kind, ["required"] = o.Required, ["evidence"] = Text(state, o), ["baseline"] = o.OperationAdmission!.BaselineReference }))),
-            ["baselineNodes"] = scope.Source.Authority == PlanningSourceAuthority.ExistingBehavior ? new JsonObject(baselineNodes.Select(p =>
-                new KeyValuePair<string, JsonNode?>(p.Key, new JsonObject { ["workflow"] = p.Value.Workflow, ["node"] = p.Value.Node.Key,
-                    ["type"] = p.Value.Node.Type, ["purpose"] = p.Value.Node.Purpose }))) : null
-        };
-        return new(DecisionId(scope), new JsonObject { ["anyOf"] = outcomes }, context, EvidenceFingerprint(state));
+            ["task"] = "Attach governing evidence to the same established runtime occurrence. Kind, effect, requiredness and source boundaries are locked. Descriptions alone cannot prove identity. Select an issued target, or unresolved.",
+            ["evidence"] = PlanningChoiceEvidence.Text(state, evidence.ClauseReference),
+            ["subject"] = PlanningChoiceEvidence.Text(state, evidence.SubjectReference!),
+            ["kind"] = evidence.Kind,
+            ["targets"] = new JsonObject(targets.Select(o => new KeyValuePair<string, JsonNode?>(o.Id, JsonValue.Create(Text(state, o)))))
+        }, EvidenceFingerprint(state));
     }
+
+    private static IEnumerable<PlanningObligation> EligibleTargets(PlanningSnapshot state, PlanningRuntimeEvidence evidence, IReadOnlyList<PlanningObligation> staged)
+        => staged.Where(o => o.Kind == evidence.Kind && o.Required == evidence.Required &&
+            (evidence.BaselineReference is null || evidence.BaselineReference == o.OperationAdmission!.BaselineReference) &&
+            o.OperationAdmission!.Assignments.Any(a => state.RuntimeEvidence.Single(e => e.Id == a.RuntimeEvidenceId).SubjectReference == evidence.SubjectReference));
 
     // Stable Flow executor semantics, never provider/tool naming. Unknown executor
     // boundaries cannot acquire a kind from their descriptive purpose.

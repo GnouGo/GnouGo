@@ -54,6 +54,7 @@ public sealed class DeterministicBindingTests
         var state = Ready(); state.Request.Baseline = new() { Workflows = [FakeRuntime.ExecutableWorkflow()] };
         PlanningFixtures.AdmitHints(state);
         await PlanningDeclarations.ResolveAsync(state, new FakeRuntime(), TestContext.Current.CancellationToken);
+        PlanningFixtures.RefreshAdmission(state);
         state.Preparation!.Capabilities.Add(new()
         {
             Id = "fixed", StepType = "set", EffectKind = "none", FixedInput = new() { ["message"] = "Hello" },

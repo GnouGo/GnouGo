@@ -56,7 +56,23 @@ public sealed record PlanningObligation(string Id, List<string> EvidenceReferenc
 
 /// <summary>One owned clause's contribution to a canonical action. Text remains in source references.</summary>
 public sealed record PlanningOperationAssignment(string DecisionId, string ClauseReference, string ActionReference,
-    string Kind, bool Required, string? TargetId, string? BaselineReference);
+    string Kind, bool Required, string? TargetId, string? BaselineReference)
+{
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? RuntimeEvidenceId { get; init; }
+}
+
+/// <summary>Source-owned execution evidence, independent of preliminary obligation labels.</summary>
+public sealed record PlanningRuntimeEvidence(string Id, string SourceReference, string ClauseReference, string Role,
+    string? ActionReference, string? SubjectReference, string? ExecutionReference, string? Kind,
+    string? Occurrence, string? BaselineReference, string? ResourceAction, bool Required,
+    string ProofFingerprint)
+{
+    public PlanningRuntimeExecutionScope ExecutionScope { get; init; }
+    public PlanningRuntimeEvidenceOrigin Origin { get; init; }
+}
+public enum PlanningRuntimeExecutionScope { Unknown, PlanningArtifact, PublicContract, Policy, GeneratedWorkflow }
+public enum PlanningRuntimeEvidenceOrigin { Unknown, SourceInterpretation }
 
 /// <summary>Canonical operation proof; preliminary source labels confer no execution authority.</summary>
 public sealed record PlanningOperationAdmission(int Version, string CanonicalId, string AnchorReference,

@@ -274,8 +274,7 @@ public sealed class PlanningRecoveryTests
             var json = responses[Math.Min(Interlocked.Increment(ref _calls) - 1, responses.Length - 1)].DeepClone();
             if (json["outcome"]?.ToString() == "ready")
                 json = new JsonObject(request.StructuredOutputSchema!["properties"]!.AsObject().Select(p => new KeyValuePair<string, JsonNode?>(p.Key,
-                    new JsonArray(new JsonObject { ["start"] = p.Value!["items"]!["properties"]!["start"]!["enum"]![0]!.DeepClone(),
-                        ["end"] = p.Value!["items"]!["properties"]!["end"]!["enum"]!.AsArray()[^1]!.DeepClone(), ["kind"] = "local_processing", ["required"] = true }))));
+                    new JsonObject { ["obligations"] = new JsonArray(), ["runtime"] = new JsonArray(new JsonObject { ["role"] = "contract" }) })));
             return Task.FromResult(new LLMResponse { Json = json, Text = json.ToJsonString(), Usage = new JsonObject { ["input_tokens"] = 10, ["output_tokens"] = 5 } });
         }
     }

@@ -38,7 +38,7 @@ public sealed class TypedPlannerTests
     }
     internal static PlanningValue Str(string text) => new() { Kind = "string", Text = text };
     internal static PlanningValue Obj(params (string Key, PlanningValue Value)[] members) => new() { Kind = "object", Members = members.Select(m => new PlanningMember(m.Key, m.Value)).ToList() };
-    internal static PlanningSnapshot Session(string status = PlanningStatus.Created) { var state = new PlanningSnapshot { Request = new() { TenantId = "tenant", Prompt = "Return a greeting", MaxRepairsPerWorkflowGate = 1 }, Status = status }; PlanningOperations.Commit(state, []); return state; }
+    internal static PlanningSnapshot Session(string status = PlanningStatus.Created) { var state = new PlanningSnapshot { Request = new() { TenantId = "tenant", Prompt = "Return a greeting", MaxRepairsPerWorkflowGate = 1 }, Status = status }; PlanningFixtures.EmptyRuntime(state); PlanningOperations.Commit(state, []); return state; }
     private static Task<PlanningSnapshot> Send(IWorkflowPlanner planner, PlanningSnapshot state, IPlanningRuntime runtime, string kind = "advance", string? text = null)
         => planner.AdvanceAsync(state, new() { Kind = kind, ExpectedRevision = state.Revision, ArtifactHash = state.ArtifactHash, Text = text }, runtime, Ct);
 
@@ -228,7 +228,7 @@ public sealed class TypedPlannerTests
         public Task CheckpointAsync(PlanningSnapshot snapshot, CancellationToken ct) { _state = snapshot; return OnCheckpoint?.Invoke(snapshot) ?? Task.CompletedTask; }
         public Task<IReadOnlyList<PlanningDiagnostic>> ValidateCatalogAsync(PlanningPreparation preparation, CancellationToken ct)
         { CatalogCalls++; return Task.FromResult(CatalogDiagnostics); }
-        public async Task<PlanningPreparationProgress> PrepareAsync(PlanningSnapshot state, CancellationToken ct) { PreparationCalls++; if (OnPrepareSnapshot is null && OnPrepare is null) { await PlanningOperations.ResolveAsync(state, this, ct); await PlanningDeclarations.ResolveAsync(state, this, ct); } var prepared = OnPrepareSnapshot is not null ? await OnPrepareSnapshot(state) : OnPrepare is null ? PreparedLocal(state) : await OnPrepare(state.Request); if (OnPrepareSnapshot is not null || OnPrepare is not null) PlanningFixtures.AdmitHints(state); return new(state.PreparationCheckpoint ?? new(), prepared); }
+        public async Task<PlanningPreparationProgress> PrepareAsync(PlanningSnapshot state, CancellationToken ct) { PreparationCalls++; if (OnPrepareSnapshot is null && OnPrepare is null) { await PlanningDeclarations.ResolveAsync(state, this, ct); await PlanningOperations.ResolveAsync(state, this, ct); } var prepared = OnPrepareSnapshot is not null ? await OnPrepareSnapshot(state) : OnPrepare is null ? PreparedLocal(state) : await OnPrepare(state.Request); if (OnPrepareSnapshot is not null || OnPrepare is not null) PlanningFixtures.AdmitHints(state); return new(state.PreparationCheckpoint ?? new(), prepared); }
         private static PlanningPreparation PreparedLocal(PlanningSnapshot state)
         {
             var preparation = Preparation();
@@ -239,14 +239,27 @@ public sealed class TypedPlannerTests
         }
         internal static JsonObject Interpret(LLMRequest request, string kind = "local_processing") => new(request.StructuredOutputSchema!["properties"]!.AsObject().Select(p =>
         {
+            var schema = p.Value!["properties"]!["obligations"]!["items"]!;
             JsonObject Item(string role) => new() { ["kind"] = role, ["required"] = true,
-                ["start"] = p.Value!["items"]!["properties"]!["start"]!["enum"]![0]!.DeepClone(),
-                ["end"] = p.Value!["items"]!["properties"]!["end"]!["enum"]!.AsArray()[^1]!.DeepClone() };
-            var allowed = p.Value!["items"]!["properties"]!["kind"]!["enum"]!.AsArray().Select(v => v!.ToString()).ToArray();
-            var selected = allowed.Contains(kind) ? kind : "information"; // Policy subjects are never synthetic operations.
+                ["start"] = schema["properties"]!["start"]!["enum"]![0]!.DeepClone(),
+                ["end"] = schema["properties"]!["end"]!["enum"]!.AsArray()[^1]!.DeepClone() };
+            var allowed = schema["properties"]!["kind"]!["enum"]!.AsArray().Select(v => v!.ToString()).ToArray();
+            var selected = allowed.Contains(kind) ? kind : "information";
             var items = new JsonArray(Item(selected));
             if (selected == "local_processing") items.Add((JsonNode)Item("declaration_candidate"));
-            return new KeyValuePair<string, JsonNode?>(p.Key, items);
+            var variant = p.Value!["properties"]!["runtime"]!["items"]!["anyOf"]!.AsArray()
+                .FirstOrDefault(v => v!["properties"]?["kind"]?["enum"]?.AsArray().Any(k => k!.ToString() == selected) == true);
+            var runtime = new JsonObject { ["role"] = "policy" };
+            if (variant is not null)
+            {
+                var fields = variant["properties"]!;
+                runtime = new() { ["role"] = fields["role"]!["enum"]![0]!.DeepClone(), ["kind"] = selected,
+                    ["action"] = new JsonObject { ["start"] = Item(selected)["start"]!.DeepClone(), ["end"] = Item(selected)["end"]!.DeepClone() },
+                    ["execution"] = "generated_workflow",
+                    ["subject"] = fields["subject"]!["enum"]![0]!.DeepClone(), ["occurrence"] = "distinct", ["required"] = true, ["baseline"] = null };
+                if (fields["ownership"] is not null) { runtime["ownership"] = "workflow_runtime_resource"; runtime["resourceAction"] = fields["resourceAction"]!["enum"]![0]!.DeepClone(); }
+            }
+            return new KeyValuePair<string, JsonNode?>(p.Key, new JsonObject { ["obligations"] = items, ["runtime"] = new JsonArray(runtime) });
         }));
         internal static JsonObject PassReview(LLMRequest request) => new(request.StructuredOutputSchema!["properties"]!.AsObject().Select(p =>
             new KeyValuePair<string, JsonNode?>(p.Key, new JsonObject { ["status"] = "passed" })));
@@ -260,7 +273,7 @@ public sealed class TypedPlannerTests
             JsonNode? json = InvalidJson ? new JsonObject() : phase switch
             {
                 "intent" => Interpret(request),
-                "intent_operations" => new JsonObject(request.StructuredOutputSchema!["properties"]!.AsObject().Select(p => new KeyValuePair<string, JsonNode?>(p.Key, OperationAdmissionTests.Actions(OperationAdmissionTests.Action(PlanningOperations.Scopes(_state!).Single(s => PlanningOperations.DecisionId(s) == p.Key)))))),
+                "intent_operations" => new JsonObject(request.StructuredOutputSchema!["properties"]!.AsObject().Select(p => new KeyValuePair<string, JsonNode?>(p.Key, new JsonObject { ["status"] = "reuse", ["target"] = p.Value!["anyOf"]![1]!["properties"]!["target"]!["enum"]![0]!.DeepClone() }))),
                 "intent_declarations" => DeclarationGroundingTests.Response(request, PlanningDeclarations.Candidates(_state!).Select(o =>
                     DeclarationGroundingTests.Distinct(_state!, o.Id, "greeting", direction: "output"))),
                 "behavior" => JsonSerializer.SerializeToNode(BehaviorPlan(), PlanningJsonContext.Default.PlanningBehaviorPlan),

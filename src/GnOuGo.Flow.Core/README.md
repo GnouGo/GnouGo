@@ -26,7 +26,7 @@ retains provider-neutral contracts and runtime validation without referencing an
 GnOuGo project. See [workflow planning](../../docs/workflow-planning-v2.md).
 
 Schema-5 contracts include owned references, bounded decision pages, typed outcomes
-and durable correction lineage. Additive canonical operation proofs bind source anchors, exact baseline authority and cross-clause reuse to existing obligations; preliminary classifications grant no action authority. Coupled correction pages may retain coordinator-owned
+and durable correction lineage. Independent runtime-evidence records distinguish planning, contract and policy evidence from generated-workflow actions. Canonical operation proofs bind owned action/subject references, exact baseline authority, runtime evidence and declaration coverage to existing obligations; preliminary classifications grant no action authority. Local processing grants no external capability authority. Coupled correction pages may retain coordinator-owned
 original decision IDs; absent lineage is omitted from serialization. `FinalReview` waits for exact-hash approval before
 returning `ValidWorkflow`. Missing business choices return `NeedUserClarification`;
 technical stops remain distinct from proven `Unsupported`. Injected model capability

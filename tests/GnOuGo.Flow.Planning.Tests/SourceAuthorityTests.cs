@@ -70,6 +70,8 @@ public sealed class SourceAuthorityTests
         }
         var obligation = PolicyGroundingTests.Add(state, source, state.Request.Prompt, "action", "external_write");
         PlanningFixtures.AdmitHints(state);
+        await PlanningDeclarations.ResolveAsync(state, new TypedPlannerTests.FakeRuntime(), Ct);
+        PlanningFixtures.RefreshAdmission(state);
         var inventory = await CapabilityInventoryDecisions.BuildAsync(state, new TypedPlannerTests.FakeRuntime(), Ct);
         Assert.Equal(PlanningSourceAuthority.RequestedBehavior, obligation.Grounding!.Authority);
         Assert.Equal(PlanningSourceSemanticRole.RequestedAction, obligation.Grounding.Role);

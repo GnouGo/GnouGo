@@ -19,13 +19,17 @@ internal static class PlanningSourceDecisions
         var scopes = sources.SelectMany(source => PlanningReferences.Register(state, source.Id, source.Kind, source.Text)
             .Where(r => !string.IsNullOrWhiteSpace(source.Text.Substring(r.Start, r.Length)))
             .Select(reference => (Reference: reference, Source: source, Boundaries: PlanningReferences.Boundaries(reference, source.Text)))).ToArray();
+        var subjects = PlanningOperations.RuntimeContext(state);
         var decisions = scopes.Select(scope =>
         {
             var item = InterpretationSchema(state, scope.Source.Authority, scope.Boundaries.Schema);
-            return new PlanningDecisionPages.Decision(DecisionId(scope.Reference, scope.Source.Text), new JsonObject
-            { ["type"] = "array", ["minItems"] = 0, ["maxItems"] = 4, ["items"] = item }, new JsonObject
+            return new PlanningDecisionPages.Decision(DecisionId(scope.Reference, scope.Source.Text), PlanningHoleRequests.Object(("obligations", new JsonObject
+            { ["type"] = "array", ["minItems"] = 0, ["maxItems"] = 4, ["items"] = item }),
+                ("runtime", PlanningOperations.RuntimeSchema(state, scope.Source.Authority, scope.Boundaries.Schema))), new JsonObject
             {
                 ["task"] = "Identify the semantic obligations expressed by this source. Operation kinds are preliminary hints; canonical admission establishes action authority. A clause can govern multiple semantic roles. Select word boundary IDs (end is exclusive). Operations require a requested action, not a subject mentioned by a policy or condition. Runtime observations become operations only when their performance is requested. A confirmation requirement already prevents its action on rejection; describing that consequence is rejection_condition. confirmation_forbidden means an explicit prohibition on asking for confirmation. A prohibition of another interaction is workflow_policy. omission_default supplies a public input only when that input is absent; select evidence including the omitted-input condition and its explicit JSON value. An input declaration with an omission default contributes both declaration_candidate and omission_default obligations. runtime_fallback specifies the executable result when other runtime conditions do not match; it is not a declaration default. Public declaration identity evidence is declaration_candidate; direction and public-port identity are established only by canonical adjudication. Evidence constraining a declared public value or its members, including types, enums/value domains, nullability/schema restrictions and preservation requirements, is declaration_constraint. It only attaches to an established declaration and never creates a public port. explicit_value supplies an actual business/runtime value, not a restriction on a declaration or its members. Supplied inputs, omission defaults and runtime conditions/fallbacks are not missing planning choices.",
+                ["runtimeTask"] = "Independently account for execution scope. Planning directives author the workflow; contracts describe public values and omission defaults. Neither is a runtime action. Local behavior performs a requested transformation inside the generated workflow, including classification rules and runtime fallbacks. It has no external effect. A runtime_action requires an explicit requested external/human/resource action and execution evidence. Resource lifecycle requires a runtime resource owned and created/acquired/released/deleted by that workflow, never authoring the workflow itself. Select the exact action span that proves generated-workflow execution and its issued subject clause. distinct establishes a separate requested occurrence; governing only adds rules to an existing occurrence with that subject. Multiple roles may coexist. Constraints-only sources cannot create actions. Unknown execution scope is unresolved.",
+                ["subjects"] = subjects.DeepClone(),
                 ["role"] = scope.Source.Kind, ["questionContext"] = scope.Source.QuestionContext, ["words"] = scope.Boundaries.Context.DeepClone(),
                 ["baselineNodes"] = scope.Source.Authority == PlanningSourceAuthority.ExistingBehavior ? new JsonObject(PlanningSourceGroundingRules.BaselineNodes(state).Select(p =>
                     new KeyValuePair<string, JsonNode?>(p.Key, new JsonObject { ["workflow"] = p.Value.Workflow, ["node"] = p.Value.Node.Key, ["type"] = p.Value.Node.Type, ["purpose"] = p.Value.Node.Purpose }))) : null
@@ -33,9 +37,12 @@ internal static class PlanningSourceDecisions
         }).ToArray();
         var values = await PlanningDecisionPages.ResolveAsync(state, runtime, "intent", "$plan", decisions, ct);
         var obligations = new List<PlanningObligation>();
+        var runtimeEvidence = new List<PlanningRuntimeEvidence>();
         foreach (var scope in scopes)
         {
-            foreach (var item in values[DecisionId(scope.Reference, scope.Source.Text)]!.AsArray())
+            var answer = values[DecisionId(scope.Reference, scope.Source.Text)]!;
+            runtimeEvidence.AddRange(PlanningOperations.ParseRuntime(state, scope.Reference, scope.Boundaries.Select, answer["runtime"]!.AsArray()));
+            foreach (var item in answer["obligations"]!.AsArray())
             {
                 var reference = scope.Boundaries.Select(item!["start"]!.ToString(), item["end"]!.ToString());
                 if (!state.References.Contains(reference)) state.References.Add(reference);
@@ -55,6 +62,9 @@ internal static class PlanningSourceDecisions
             }
         }
         state.Obligations = await ApplyRevisionAsync(state, runtime, obligations, ct);
+        state.RuntimeEvidence = runtimeEvidence;
+        state.RuntimeEvidenceFingerprint = PlanningOperations.RuntimeFingerprint(state);
+        PlanningOperations.RequireRuntimeEvidence(state);
         state.OperationAdmissionFingerprint = null;
         await runtime.CheckpointAsync(state, ct);
     }
@@ -120,7 +130,7 @@ internal static class PlanningSourceDecisions
 
     internal static bool IsOperation(PlanningObligation obligation) => PlanningSourceGroundingRules.OperationKinds.Contains(obligation.Kind, StringComparer.Ordinal) &&
         obligation.Grounding?.Role is PlanningSourceSemanticRole.RequestedAction or PlanningSourceSemanticRole.ExistingAction && obligation.Disposition == "admitted" &&
-        obligation.OperationAdmission is { Version: 1 } proof && proof.CanonicalId == obligation.Id;
+        obligation.OperationAdmission is { Version: 2 } proof && proof.CanonicalId == obligation.Id;
 
     internal static JsonObject InterpretationSchema(PlanningSnapshot state, PlanningSourceAuthority authority, JsonObject boundaries)
     {

@@ -104,6 +104,8 @@ public sealed class PlanningSnapshot
     public List<PlanningRequestCounts> RequestCounts { get; set; } = [];
     public List<PlanningReference> References { get; set; } = [];
     public List<PlanningObligation> Obligations { get; set; } = [];
+    public List<PlanningRuntimeEvidence> RuntimeEvidence { get; set; } = [];
+    public string? RuntimeEvidenceFingerprint { get; set; }
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public string? OperationAdmissionFingerprint { get; set; }
     public List<PlanningDeclarationAssignment> DeclarationAssignments { get; set; } = [];
@@ -477,6 +479,8 @@ public sealed class PlanningConflictException(string message) : InvalidOperation
 [JsonSerializable(typeof(PlanningOperationAssignment))]
 [JsonSerializable(typeof(List<PlanningOperationAssignment>))]
 [JsonSerializable(typeof(PlanningOperationAdmission))]
+[JsonSerializable(typeof(PlanningRuntimeEvidence))]
+[JsonSerializable(typeof(List<PlanningRuntimeEvidence>))]
 [JsonSerializable(typeof(PlanningDeclarationAssignment))]
 [JsonSerializable(typeof(List<PlanningDeclarationAssignment>))]
 [JsonSerializable(typeof(PlanningBusinessDeclaration))]

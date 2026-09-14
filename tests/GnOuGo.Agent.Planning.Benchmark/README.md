@@ -379,3 +379,18 @@ blocked campaigns remain closed. See [omission semantics](../../docs/planner-omi
 The [omission-default campaign report](../../docs/planner-omission-defaults-live-validation.md)
 records its one blocked session, partial decisions and receipt-only replay. It must
 not be resumed or replaced automatically.
+
+## Isolated runtime-admission diagnostics
+
+`diagnose-runtime-admission freeze COMMIT` freezes the two authorized diagnostic
+cases and current binaries; `diagnose-runtime-admission run` executes each case at
+most once and stops the sequence on its first blocker. `diagnose-runtime-admission
+report` reads the retained redacted report without dispatch. These commands create
+no planning session and cannot accept behavior or approve a workflow.
+
+The pure-local and read-plus-local cases supply explicit canonical declaration
+preconditions. Fresh production interpretation provides the independent runtime
+evidence. Each case has an eight-provider-request ceiling, all-low profiles and
+unchanged output partition/escalation limits. Completed receipts survive restart;
+stopped cases and unverifiable reservations cannot retry. See
+[runtime admission](../../docs/planner-runtime-admission.md) for the evidence boundary.

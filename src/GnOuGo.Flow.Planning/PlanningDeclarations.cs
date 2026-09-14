@@ -30,7 +30,7 @@ internal static partial class PlanningDeclarations
 
     internal static string EvidenceFingerprint(PlanningSnapshot state) => PlanningGraphCompiler.Fingerprint("declarations-v5:" +
         state.Request.TenantId + ":" + state.Request.SessionId + ":" +
-        string.Join('|', state.Obligations.OrderBy(o => o.Id, StringComparer.Ordinal).Select(o => o.Id + ":" + o.Grounding?.Fingerprint)) + ":" +
+        string.Join('|', state.Obligations.Where(o => o.OperationAdmission is null).OrderBy(o => o.Id, StringComparer.Ordinal).Select(o => o.Id + ":" + o.Grounding?.Fingerprint)) + ":" +
         (state.Request.Baseline is { } graph ? PlanningGraphCompiler.Fingerprint(graph) : ""));
 
     internal static void Commit(PlanningSnapshot state, List<PlanningDeclarationAssignment> assignments, string evidenceFingerprint)

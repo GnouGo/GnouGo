@@ -49,7 +49,7 @@ public sealed class CanonicalRootTests
         Assert.DoesNotContain("neighbor", decision.Schema["properties"]!.AsObject().Select(p => p.Key));
         Assert.Equal(acrossClauses ? 2 : 1, decision.SourceDecisionIds!.Count);
         var runtime = Runtime(initial, final);
-        await PlanningDeclarations.ResolveAsync(state, runtime, Ct);
+        await PlanningDeclarations.ResolveAsync(state, runtime, Ct); PlanningFixtures.RefreshAdmission(state);
         Assert.Equal(2, state.Declarations.Count);
         var input = state.Declarations.Single(d => d.Direction == "input");
         Assert.Equal(name, PlanningDeclarations.Name(state, input)); Assert.Equal(["a", "b"], input.Candidates); Assert.Equal(["b"], input.Aliases);
@@ -219,7 +219,7 @@ public sealed class CanonicalRootTests
         final.Add(Link("ob_0fed767efbdf95bc", threshold, "modifier_of", "optional", Token(state, "ob_0fed767efbdf95bc", "100")));
         final = Canonicalize(state, final);
         var runtime = Runtime(initial, final);
-        await PlanningDeclarations.ResolveAsync(state, runtime, Ct);
+        await PlanningDeclarations.ResolveAsync(state, runtime, Ct); PlanningFixtures.RefreshAdmission(state);
         Assert.Equal(initial.Single(a => a.CandidateId == threshold), state.DeclarationAssignments.Single(a => a.CandidateId == threshold));
         Assert.Equal(initial.Single(a => a.CandidateId == output), state.DeclarationAssignments.Single(a => a.CandidateId == output));
         var plan = PlanningBehaviorDecisions.Assemble(state, new()); var workflow = Assert.Single(plan.Workflows);

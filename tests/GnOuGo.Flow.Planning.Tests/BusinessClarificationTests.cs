@@ -79,6 +79,7 @@ public sealed class BusinessClarificationTests
         Assert.Contains("defaulting to 100", Assert.Single(plan.Workflows[0].Inputs).Description);
         Assert.False(plan.Workflows[0].Inputs[0].Required);
         Assert.DoesNotContain(runtime.Phases, p => p == "clarification");
+        PlanningFixtures.RefreshAdmission(state);
         var restarted = PlanningContext.Clone(state); var replay = new TypedPlannerTests.FakeRuntime();
         await Resolve(restarted, replay); Assert.Empty(replay.Requests);
         Assert.Equal(state.Events.Count, restarted.Events.Count);

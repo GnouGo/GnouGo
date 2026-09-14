@@ -80,6 +80,8 @@ public sealed class PolicyGroundingTests
         var obligation = Add(state, "host", "Preserve the original record on failure.", "constraint", preliminary);
         var runtime = Runtime(new() { ["constraint"] = new() { ["rule"] = "not_confirmation_policy", ["reason"] = "other_workflow_constraint" } });
         PlanningFixtures.AdmitHints(state);
+        await PlanningDeclarations.ResolveAsync(state, new TypedPlannerTests.FakeRuntime(), Ct);
+        PlanningFixtures.RefreshAdmission(state);
         var inventory = await CapabilityInventoryDecisions.BuildAsync(state, runtime, Ct);
         Assert.Empty(inventory.ScopedPolicies); Assert.Single(inventory.Operations);
         Assert.Equal("not_confirmation_policy", obligation.Disposition);

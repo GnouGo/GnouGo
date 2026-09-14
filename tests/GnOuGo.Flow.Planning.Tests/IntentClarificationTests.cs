@@ -44,7 +44,7 @@ public sealed class IntentClarificationTests
             if (phase.EndsWith("_repair", StringComparison.Ordinal)) return Task.FromResult(new LLMResponse { Json = new JsonObject(request.StructuredOutputSchema!["properties"]!.AsObject().Select(p => new KeyValuePair<string, JsonNode?>(p.Key,
                 new JsonObject(p.Value!["properties"]!.AsObject().Select(f => new KeyValuePair<string, JsonNode?>(f.Key, JsonValue.Create("invalid"))))))) });
             var response = TypedPlannerTests.FakeRuntime.Interpret(request);
-            var item = response.First().Value![0]!.AsObject();
+            var item = response.First().Value!["obligations"]![0]!.AsObject();
             if (defect == "foreign") item["start"] = "foreign_reference";
             if (defect == "quoted") item["excerpt"] = state.Request.Prompt + "s";
             if (defect == "offset") item["start"] = 0;

@@ -73,9 +73,12 @@ public sealed class PlanningPersistenceTests
             ["candidate"], [], ["modifier_reference"], ["clause_reference"], "PRIVATE_DECLARATION_PROOF"));
         state.DeclarationFingerprint = "PRIVATE_ADJUDICATION_PROOF";
         state.OperationAdmissionFingerprint = "PRIVATE_OPERATION_SET";
+        state.RuntimeEvidenceFingerprint = "PRIVATE_RUNTIME_SET";
+        state.RuntimeEvidence = [new("runtime", "source", "clause", "local_behavior", "anchor", "subject", "anchor", "local_processing", "distinct", null, null, true, "PRIVATE_RUNTIME_PROOF")
+            { ExecutionScope = PlanningRuntimeExecutionScope.GeneratedWorkflow, Origin = PlanningRuntimeEvidenceOrigin.SourceInterpretation }];
         state.Obligations.Add(new("canonical_action", ["primary_clause"], "workflow", "local_processing", true)
-        { Disposition = "admitted", OperationAdmission = new(1, "canonical_action", "anchor", null,
-            [new("operation_clause", "primary_clause", "anchor", "local_processing", true, null, null),
+        { Disposition = "admitted", OperationAdmission = new(2, "canonical_action", "anchor", null,
+            [new("operation_clause", "primary_clause", "anchor", "local_processing", true, null, null) { RuntimeEvidenceId = "runtime" },
              new("operation_rules", "governing_clause", "rule_anchor", "local_processing", true, "canonical_action", null)],
             "PRIVATE_OPERATION_EVIDENCE", "PRIVATE_OPERATION_PROOF") });
         state.DecisionPages =
@@ -126,7 +129,12 @@ public sealed class PlanningPersistenceTests
         Assert.Equal("owned_clause", scopedPolicy.ClauseReference); Assert.Equal(["effect"], scopedPolicy.TargetOperationIds); Assert.Equal("permission", scopedPolicy.PermissionOperationId);
         Assert.Equal("PRIVATE_OPERATION_SET", restored.OperationAdmissionFingerprint);
         var admission = Assert.Single(restored.Obligations, o => o.OperationAdmission is not null).OperationAdmission!;
-        Assert.Equal("PRIVATE_OPERATION_PROOF", admission.ProofFingerprint); Assert.Equal(1, admission.Version);
+        Assert.Equal("PRIVATE_OPERATION_PROOF", admission.ProofFingerprint); Assert.Equal(2, admission.Version);
+        Assert.Equal("PRIVATE_RUNTIME_SET", restored.RuntimeEvidenceFingerprint);
+        Assert.Equal("PRIVATE_RUNTIME_PROOF", Assert.Single(restored.RuntimeEvidence).ProofFingerprint);
+        Assert.Equal(PlanningRuntimeExecutionScope.GeneratedWorkflow, restored.RuntimeEvidence[0].ExecutionScope);
+        Assert.Equal(PlanningRuntimeEvidenceOrigin.SourceInterpretation, restored.RuntimeEvidence[0].Origin);
+        Assert.Equal("runtime", admission.Assignments[0].RuntimeEvidenceId);
         Assert.Equal("canonical_action", admission.Assignments[1].TargetId); Assert.Equal("governing_clause", admission.Assignments[1].ClauseReference);
         var grounded = Assert.Single(restored.Obligations, o => o.Id == "governor");
         Assert.Equal("PRIVATE_GROUNDING_PROOF", grounded.Grounding!.Fingerprint);

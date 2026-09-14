@@ -209,6 +209,7 @@ public sealed class TypedWorkflowPlanner(TimeProvider? timeProvider = null) : IW
         state.BehaviorRevision = null;
         state.ScopedPolicies.Clear();
         state.OperationAdmissionFingerprint = null;
+        state.RuntimeEvidence.Clear(); state.RuntimeEvidenceFingerprint = null;
         state.Declarations.Clear(); state.DeclarationAssignments.Clear(); state.DeclarationFingerprint = null;
         foreach (var decision in state.BusinessDecisions) decision.Status = "superseded";
         state.Construction = new() { ModelSequence = state.Construction.ModelSequence };
