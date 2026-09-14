@@ -1,0 +1,130 @@
+{
+  "evidenceKind": "retained_live_state_redacted_projection",
+  "session": "a6fb28068c654132909534280e487410",
+  "revision": 23,
+  "firstFailure": {
+    "code": "DECLARATION_GROUNDING_UNRESOLVED",
+    "phase": "capabilities",
+    "location": "/declarations/@$plan",
+    "unverifiable": false
+  },
+  "diagnostics": [
+    {
+      "code": "DECLARATION_GROUNDING_UNRESOLVED",
+      "location": "/declarations/@$plan",
+      "message": "Distinct declarations claim the same public name and scope. Identity must be adjudicated explicitly.",
+      "required": true,
+      "validationStage": "capabilities",
+      "rule": null
+    }
+  ],
+  "rootPage": {
+    "id": "page_b81e9a80ff04b03f9b7aea159e8abd38bba8262cbcb16ad510e00b75c389bb33",
+    "status": "completed",
+    "requestId": "a6fb28068c654132909534280e487410:18:6:intent_declarations:response_contract:93beceaf3191e878:page_b81e9a80ff04b03f9b7aea159e8abd38bba8262cbcb16ad510e00b75c389bb33:30b40b31db0d43d030bfad137034e101e69f479d69b9593713eefc4950eba550",
+    "evidenceFingerprint": "c5d8c088a58e07f26939433d937eca0efa64420fdbe5ac246176ceafde95bfdb",
+    "decisions": [
+      "declarations_roots_r_1b4e8ffa84e741dc7d54f395",
+      "declarations_roots_r_640c1f313d86cc38eb8ccdb8",
+      "declarations_roots_r_e74f4435afe19b3f575242b4"
+    ],
+    "stagedAssignments": [
+      {
+        "candidateId": "ob_44c3a5319cbc8547",
+        "disposition": "distinct_input",
+        "nameReference": "r_642ddd675535691143dffaf7",
+        "resolvedName": "input",
+        "scope": "main",
+        "presence": "required",
+        "clauseReference": "r_1b4e8ffa84e741dc7d54f395"
+      },
+      {
+        "candidateId": "ob_e2e1d85d32959b66",
+        "disposition": "distinct_input",
+        "nameReference": "r_642ddd675535691143dffaf7",
+        "resolvedName": "input",
+        "scope": "main",
+        "presence": "required",
+        "clauseReference": "r_1b4e8ffa84e741dc7d54f395"
+      },
+      {
+        "candidateId": "ob_3956dfa516982d75",
+        "disposition": "distinct_output",
+        "nameReference": "r_5671b0765e6dbbfcabcbcbc8",
+        "resolvedName": "classifiedResult",
+        "scope": "main",
+        "presence": "required",
+        "clauseReference": "r_640c1f313d86cc38eb8ccdb8"
+      },
+      {
+        "candidateId": "ob_391eff8e3e36fc8a",
+        "disposition": "distinct_input",
+        "nameReference": "r_4ef0205ca6aa0dfe26e705bb",
+        "resolvedName": "threshold",
+        "scope": "main",
+        "presence": "optional",
+        "clauseReference": "r_e74f4435afe19b3f575242b4"
+      },
+      {
+        "candidateId": "ob_393c11626c8f47af",
+        "disposition": "deferred_attachment",
+        "nameReference": null,
+        "resolvedName": null,
+        "scope": null,
+        "presence": null,
+        "clauseReference": null
+      }
+    ],
+    "requestFingerprint": "e4e26ab0ee481a94dfdde2379fb5295490e448af55729a23e08a99f660807c51",
+    "receiptFingerprint": "a8a589fa7e3747a56c312a5839183977c6a4e5a1f046c1392bee4db4cc8f8eed"
+  },
+  "constraintCandidates": [
+    {
+      "candidateId": "ob_31994882d225f429",
+      "clauseReference": "r_1b4e8ffa84e741dc7d54f395",
+      "evidenceReferences": [
+        "r_dde2014cc0167ab99cbbddaa"
+      ]
+    },
+    {
+      "candidateId": "ob_71bacc0dc31855eb",
+      "clauseReference": "r_1b4e8ffa84e741dc7d54f395",
+      "evidenceReferences": [
+        "r_d93de19aab1d67339a59b09f"
+      ]
+    },
+    {
+      "candidateId": "ob_b27a5cc904dc25b8",
+      "clauseReference": "r_e74f4435afe19b3f575242b4",
+      "evidenceReferences": [
+        "r_d1fb1461539540a9f894f436"
+      ]
+    },
+    {
+      "candidateId": "ob_576b3dd237abc52e",
+      "clauseReference": "r_640c1f313d86cc38eb8ccdb8",
+      "evidenceReferences": [
+        "r_63d58ed1353852bbbc7aec15"
+      ]
+    },
+    {
+      "candidateId": "ob_2675816419f003ee",
+      "clauseReference": "r_03c844776c08af5a2069a474",
+      "evidenceReferences": [
+        "r_c1271143aee95d7dc2f62bcc"
+      ]
+    },
+    {
+      "candidateId": "ob_22fe78002892f262",
+      "clauseReference": "r_d2c3d5f00c07c0f1a9b6de85",
+      "evidenceReferences": [
+        "r_12b80840d6eda601d17cf5d5"
+      ]
+    }
+  ],
+  "committedDeclarationCount": 0,
+  "committedAssignmentCount": 0,
+  "rootCauseClassification": "PlannerModelConvergence",
+  "rootCause": "Two declaration candidates from the same record clause selected distinct_input with the same issued name reference, resolving to the word input, and the same main scope. The page completed, but combined root validation rejected duplicate public identity before attachments or behavior assembly.",
+  "constraintProgress": "Enum and preservation evidence were classified as declaration_constraint. No canonical target or modifier attachment was committed because root validation stopped first."
+}

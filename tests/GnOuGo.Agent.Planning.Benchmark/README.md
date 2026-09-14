@@ -22,6 +22,14 @@ artifact approval. Stop at the first meaningful blocker or unverifiable request.
 Transport failure before usable planner evidence is infrastructure/provider
 reliability, not a planner defect. No retry, production patch, replacement or Stage 2.
 
+This rerun consumed its one start and stopped at revision 23 with
+`DECLARATION_GROUNDING_UNRESOLVED`. Two root candidates selected the same name
+`input` in scope `main`; no canonical declarations were committed. Six model calls
+were verified. Strict replay reproduced the stop using one receipt and no provider
+dispatch. All execution cases are not run. See the
+[frozen rerun result](../../docs/planner-declaration-constraints-rerun.md).
+Do not resume this blocked campaign or start a replacement automatically.
+
 ## Previous declaration-constraint campaign
 
 `schema5-declaration-constraints-stage1-1` authorizes one fresh classifier session
