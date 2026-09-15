@@ -69,5 +69,5 @@ The operation fixture first parses three identical copies of each action/governi
 assignment into one normalized evidence item, then persists a completed occurrence-identity page before admission
 commits. Encrypted restart reuses its `same_as` receipt, attaches a governing rule to the
 single canonical operation without a model call, and verifies a second restart adds no
-calls or repair charges. Runtime evidence uses action/governing roles without source-clause
-targets; operation proof version 4 remains in Schema-5 storage.
+calls or repair charges. The first action has unspecified necessity, the reused action has explicit required evidence, and the governing rule has unspecified necessity. Restart verifies one required canonical operation and its evidence. Runtime evidence uses action/governing roles without source-clause
+targets; operation proof version 5 remains in Schema-5 storage.

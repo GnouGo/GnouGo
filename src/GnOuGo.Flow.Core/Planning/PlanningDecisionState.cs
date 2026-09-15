@@ -56,7 +56,7 @@ public sealed record PlanningObligation(string Id, List<string> EvidenceReferenc
 
 /// <summary>One owned clause's contribution to a canonical action. Text remains in source references.</summary>
 public sealed record PlanningOperationAssignment(string DecisionId, string ClauseReference, string ActionReference,
-    string Kind, bool Required, string? TargetId, string? BaselineReference)
+    string Kind, PlanningOperationNecessity Necessity, string? TargetId, string? BaselineReference)
 {
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public string? RuntimeEvidenceId { get; init; }
@@ -67,13 +67,16 @@ public sealed record PlanningOperationAssignment(string DecisionId, string Claus
 /// <summary>Source-owned execution evidence, independent of preliminary obligation labels.</summary>
 public sealed record PlanningRuntimeEvidence(string Id, string SourceReference, string ClauseReference, string Role,
     string? ActionReference, string? ResourceReference, string? ExecutionReference, string? Kind,
-    string? EvidenceRole, string? BaselineReference, string? ResourceAction, bool Required,
+    string? EvidenceRole, string? BaselineReference, string? ResourceAction, PlanningOperationNecessity Necessity,
     string ProofFingerprint)
 {
     public PlanningRuntimeExecutionScope ExecutionScope { get; init; }
     public PlanningRuntimeEvidenceOrigin Origin { get; init; }
     public string? ResourceOwnership { get; init; }
+    public string? NecessityReference { get; init; }
 }
+/// <summary>Evidence about capability necessity, independent of occurrence identity and runtime conditions.</summary>
+public enum PlanningOperationNecessity { Unknown, Unspecified, Required, Optional }
 public enum PlanningRuntimeExecutionScope { Unknown, PlanningArtifact, PublicContract, Policy, GeneratedWorkflow }
 public enum PlanningRuntimeEvidenceOrigin { Unknown, SourceInterpretation, EngineSourceAuthority }
 

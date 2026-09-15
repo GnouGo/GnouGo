@@ -102,7 +102,7 @@ internal static partial class RuntimeAdmissionDiagnostic
             foreach (var reference in PlanningReferences.Register(state, input.Id, input.Kind, input.Text).ToArray().Where(r => !string.IsNullOrWhiteSpace(input.Text.Substring(r.Start, r.Length))))
                 state.RuntimeEvidence.Add(input.Authority == PlanningSourceAuthority.ConstraintsOnly ? PlanningOperations.PolicyEvidence(state, reference)
                     : PlanningOperations.SealRuntime(state, new("", reference.Id, PlanningChoiceEvidence.Parent(state, reference.Id).Id,
-                        "contract", null, null, null, null, null, null, null, false, "")));
+                        "contract", null, null, null, null, null, null, null, PlanningOperationNecessity.Unspecified, "")));
             var actionText = name == "local" ? "classifying a single record." : "Classify the loaded record: rejected when approved is false, high when approved is true and amount>=threshold, standard otherwise.";
             Add(actionText, "local_processing");
             if (name == "mixed") Add("Read the record identified by sourceId once from the external record store.", "external_read");
@@ -119,7 +119,7 @@ internal static partial class RuntimeAdmissionDiagnostic
                 var action = SourceSpan(state, state.Request.Prompt.IndexOf(text, StringComparison.Ordinal), text.Length);
                 var clause = PlanningChoiceEvidence.Parent(state, action.Id);
                 state.RuntimeEvidence.Add(PlanningOperations.SealRuntime(state, new("", action.Id, clause.Id,
-                    kind == "local_processing" ? "local_behavior" : "runtime_action", action.Id, null, action.Id, kind, "action", null, null, true, "")));
+                    kind == "local_processing" ? "local_behavior" : "runtime_action", action.Id, null, action.Id, kind, "action", null, null, PlanningOperationNecessity.Unspecified, "")));
             }
         }
         Console.WriteLine(new JsonObject { ["evidence"] = "synthetic fixture selfcheck", ["cases"] = cases }.ToJsonString());

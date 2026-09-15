@@ -73,14 +73,14 @@ internal static class PlanningPersistenceSmoke
             Fields = [new("/workflows/0/purpose", "/workflows/@main/purpose", "replace", "previous-field", "human revision")] };
         state.OperationAdmissionFingerprint = "operation-set-proof";
         state.RuntimeEvidenceFingerprint = "runtime-proof";
-        state.RuntimeEvidence = [new("runtime", "source", "clause", "local_behavior", "anchor", null, "anchor", "local_processing", "action", null, null, true, "proof")
-            { ExecutionScope = PlanningRuntimeExecutionScope.GeneratedWorkflow, Origin = PlanningRuntimeEvidenceOrigin.SourceInterpretation },
-            new("policy_runtime", "policy_source", "policy_clause", "policy", null, null, null, null, null, null, null, false, "engine_policy_proof")
+        state.RuntimeEvidence = [new("runtime", "source", "clause", "local_behavior", "anchor", null, "anchor", "local_processing", "action", null, null, PlanningOperationNecessity.Required, "proof")
+            { ExecutionScope = PlanningRuntimeExecutionScope.GeneratedWorkflow, Origin = PlanningRuntimeEvidenceOrigin.SourceInterpretation, NecessityReference = "private_necessity_reference" },
+            new("policy_runtime", "policy_source", "policy_clause", "policy", null, null, null, null, null, null, null, PlanningOperationNecessity.Unspecified, "engine_policy_proof")
             { ExecutionScope = PlanningRuntimeExecutionScope.Policy, Origin = PlanningRuntimeEvidenceOrigin.EngineSourceAuthority }];
         state.Obligations = [new("action", ["anchor"], "workflow", "local_processing", true)
-        { Disposition = "admitted", OperationAdmission = new(4, "action", "anchor", null,
-            [new("decision", "clause", "anchor", "local_processing", true, null, null) { RuntimeEvidenceId = "runtime", Disposition = "distinct", ResolutionOrigin = "deterministic" },
-             new("reuse", "rules", "rule_anchor", "local_processing", true, "action", null)], "evidence-proof", "operation-proof") }];
+        { Disposition = "admitted", OperationAdmission = new(5, "action", "anchor", null,
+            [new("decision", "clause", "anchor", "local_processing", PlanningOperationNecessity.Required, null, null) { RuntimeEvidenceId = "runtime", Disposition = "distinct", ResolutionOrigin = "deterministic" },
+             new("reuse", "rules", "rule_anchor", "local_processing", PlanningOperationNecessity.Unspecified, "action", null)], "evidence-proof", "operation-proof") }];
         state.References = [new("reference", "smoke:" + state.Request.SessionId, 4, "request", "source-fingerprint", "user_request", 0, 7)];
         state.DecisionPages = [new() { Id = "page", Phase = "behavior", WorkflowKey = "$plan", EvidenceFingerprint = "source-fingerprint",
             Decisions = ["decision"], References = ["reference"], Status = "completed", EstimatedInputTokens = 700, InputTargetTokens = 9600,
@@ -97,10 +97,10 @@ internal static class PlanningPersistenceSmoke
             RequestContext = new System.Text.Json.Nodes.JsonObject { ["privateScope"] = "Encrypted scope" } };
         if (!await reopened.TrySaveAsync(state, 3, CancellationToken.None)) throw new InvalidOperationException("Decision preparation persistence failed.");
         var prepared = await reopened.LoadAsync("smoke", state.Request.SessionId, CancellationToken.None);
-        if (prepared?.RuntimeEvidenceFingerprint != "runtime-proof" || prepared.RuntimeEvidence[0].ProofFingerprint != "proof" ||
+        if (prepared?.RuntimeEvidenceFingerprint != "runtime-proof" || prepared.RuntimeEvidence[0].ProofFingerprint != "proof" || prepared.RuntimeEvidence[0].Necessity != PlanningOperationNecessity.Required || prepared.RuntimeEvidence[0].NecessityReference != "private_necessity_reference" ||
             prepared.RuntimeEvidence[0].ExecutionScope != PlanningRuntimeExecutionScope.GeneratedWorkflow || prepared.RuntimeEvidence[0].Origin != PlanningRuntimeEvidenceOrigin.SourceInterpretation || prepared.RuntimeEvidence[1].Origin != PlanningRuntimeEvidenceOrigin.EngineSourceAuthority || prepared.RuntimeEvidence[1].Role != "policy")
             throw new InvalidOperationException("Runtime execution evidence did not survive encrypted persistence.");
-        if (prepared?.OperationAdmissionFingerprint != "operation-set-proof" || prepared.Obligations.Single().OperationAdmission is not { Version: 4 } admission ||
+        if (prepared?.OperationAdmissionFingerprint != "operation-set-proof" || prepared.Obligations.Single().OperationAdmission is not { Version: 5 } admission ||
             admission.Assignments[0].RuntimeEvidenceId != "runtime" || admission.Assignments[1].TargetId != "action" || admission.Assignments[1].ClauseReference != "rules" || admission.ProofFingerprint != "operation-proof")
             throw new InvalidOperationException("Canonical operation evidence did not survive encrypted persistence.");
         if (prepared?.BusinessDecisions.Single().Constraints.Single().Applicability != "omitted" ||

@@ -63,7 +63,7 @@ internal static partial class PlanningOperations
                 : "Decide only occurrence identity. Reuse an action when this is evidence for that same execution occurrence; keep genuinely independent executions distinct. Descriptions or equal kinds alone cannot establish identity.",
             ["clause"] = PlanningChoiceEvidence.Text(state, evidence.ClauseReference),
             ["action"] = PlanningChoiceEvidence.Text(state, evidence.ActionReference!),
-            ["kind"] = evidence.Kind, ["required"] = evidence.Required,
+            ["kind"] = evidence.Kind, ["necessity"] = evidence.Necessity.ToString(), ["necessityEvidence"] = evidence.NecessityReference is null ? null : PlanningChoiceEvidence.Text(state, evidence.NecessityReference),
             ["resourceAction"] = evidence.ResourceAction, ["resourceOwnership"] = evidence.ResourceOwnership,
             ["resource"] = evidence.ResourceReference is null ? null : PlanningChoiceEvidence.Text(state, evidence.ResourceReference),
             ["rootSetFingerprint"] = RootSetFingerprint(staged),
@@ -79,7 +79,7 @@ internal static partial class PlanningOperations
     private static bool Compatible(PlanningSnapshot state, PlanningRuntimeEvidence evidence, PlanningObligation operation)
     {
         var root = state.RuntimeEvidence.Single(e => e.Id == operation.OperationAdmission!.Assignments[0].RuntimeEvidenceId);
-        return operation.Kind == evidence.Kind && operation.Required == evidence.Required &&
+        return operation.Kind == evidence.Kind &&
             root.Role == evidence.Role && root.ExecutionScope == evidence.ExecutionScope &&
             root.BaselineReference == evidence.BaselineReference && root.ResourceAction == evidence.ResourceAction &&
             root.ResourceOwnership == evidence.ResourceOwnership;

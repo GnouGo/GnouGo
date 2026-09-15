@@ -10,8 +10,8 @@ internal static class PlanningFixtures
         var clause = PlanningChoiceEvidence.Parent(state, reference.Id);
         var evidence = PlanningOperations.SealRuntime(state, new("", reference.Id, clause.Id,
             kind == "local_processing" ? "local_behavior" : "runtime_action", reference.Id, kind is "resource_lifecycle" or "cleanup" ? resource ?? reference.Id : resource, reference.Id,
-            kind, evidenceRole, baseline, resourceAction, required, "")
-            { ResourceOwnership = kind is "resource_lifecycle" or "cleanup" ? "workflow_runtime_resource" : null });
+            kind, evidenceRole, baseline, resourceAction, required ? PlanningOperationNecessity.Unspecified : PlanningOperationNecessity.Optional, "")
+            { NecessityReference = required ? null : reference.Id, ResourceOwnership = kind is "resource_lifecycle" or "cleanup" ? "workflow_runtime_resource" : null });
         state.RuntimeEvidence.RemoveAll(e => e.Id == evidence.Id); state.RuntimeEvidence.Add(evidence);
         EmptyRuntime(state);
         return evidence;
@@ -26,7 +26,7 @@ internal static class PlanningFixtures
             if (source.Authority == PlanningSourceAuthority.ConstraintsOnly)
                 state.RuntimeEvidence.Add(PlanningOperations.PolicyEvidence(state, reference));
             else state.RuntimeEvidence.Add(PlanningOperations.SealRuntime(state, new("", reference.Id, PlanningChoiceEvidence.Parent(state, reference.Id).Id,
-                "contract", null, null, null, null, null, null, null, false, "")));
+                "contract", null, null, null, null, null, null, null, PlanningOperationNecessity.Unspecified, "")));
         }
         state.RuntimeEvidenceFingerprint = PlanningOperations.RuntimeFingerprint(state);
     }
@@ -56,7 +56,7 @@ internal static class PlanningFixtures
             var clause = PlanningChoiceEvidence.Parent(state, hint.EvidenceReferences[0]);
             var evidence = state.RuntimeEvidence.Single(e => e.ActionReference == hint.EvidenceReferences[0] && e.Kind == hint.Kind);
             var assignment = new PlanningOperationAssignment("operation_" + evidence.Id, clause.Id, hint.EvidenceReferences[0], hint.Kind,
-                hint.Required, null, hint.Grounding?.BaselineReference) { RuntimeEvidenceId = evidence.Id, Disposition = "distinct", ResolutionOrigin = "deterministic" };
+                evidence.Necessity, null, hint.Grounding?.BaselineReference) { RuntimeEvidenceId = evidence.Id, Disposition = "distinct", ResolutionOrigin = "deterministic" };
             var operation = PlanningOperations.Create(state, assignment);
             if (!admitted.Any(o => o.Id == operation.Id)) admitted.Add(operation);
             map.Add(hint.Id, operation.Id);

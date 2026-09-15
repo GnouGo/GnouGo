@@ -258,7 +258,7 @@ public sealed class TypedPlannerTests
                 runtime = new() { ["role"] = fields["role"]!["enum"]![0]!.DeepClone(), ["kind"] = selected,
                     ["action"] = new JsonObject { ["start"] = Item(selected)["start"]!.DeepClone(), ["end"] = Item(selected)["end"]!.DeepClone() },
                     ["execution"] = "generated_workflow",
-                    ["evidence"] = "action", ["required"] = true, ["baseline"] = null };
+                    ["evidence"] = "action", ["necessity"] = new JsonObject { ["state"] = "unspecified", ["evidence"] = null }, ["baseline"] = null };
                 if (fields["ownership"] is not null) { runtime["resource"] = runtime["action"]!.DeepClone(); runtime["ownership"] = "workflow_runtime_resource"; runtime["resourceAction"] = fields["resourceAction"]!["enum"]![0]!.DeepClone(); }
             }
             return new KeyValuePair<string, JsonNode?>(p.Key, new JsonObject { ["obligations"] = items, ["runtime"] = new JsonArray(runtime) });

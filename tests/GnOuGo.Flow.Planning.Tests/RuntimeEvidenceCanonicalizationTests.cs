@@ -14,7 +14,7 @@ public sealed class RuntimeEvidenceCanonicalizationTests
     private static JsonObject Role(string role) => new() { ["role"] = role };
     private static JsonObject Action() => JsonNode.Parse("""
         {"role":"local_behavior","kind":"local_processing","action":{"start":"b0","end":"b4"},
-         "execution":"generated_workflow","evidence":"action","required":true,"baseline":null}
+         "execution":"generated_workflow","evidence":"action","necessity":{"state":"required","evidence":{"start":"b0","end":"b4"}},"baseline":null}
         """)!.AsObject();
     private static List<PlanningRuntimeEvidence> Parse(PlanningSnapshot state, params JsonObject[] entries)
     {
@@ -46,7 +46,7 @@ public sealed class RuntimeEvidenceCanonicalizationTests
     }
 
     [Theory]
-    [InlineData("required")]
+    [InlineData("necessity")]
     [InlineData("baseline")]
     [InlineData("resourceAction")]
     [InlineData("ownership")]
@@ -62,7 +62,7 @@ public sealed class RuntimeEvidenceCanonicalizationTests
         var second = first.DeepClone().AsObject();
         switch (field)
         {
-            case "required": second[field] = false; break;
+            case "necessity": second[field]!["state"] = "optional"; break;
             case "baseline": first[field] = "baseline_one"; second[field] = "baseline_two"; break;
             case "resourceAction": second[field] = "delete"; break;
             case "ownership": second[field] = "foreign_resource"; break;

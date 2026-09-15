@@ -115,9 +115,9 @@ public sealed class ProgressiveCampaignTests
     {
         var state = new PlanningSnapshot { OperationAdmissionFingerprint = "set", Request = new() { Prompt = "PRIVATE" } };
         state.Obligations.Add(new("action", ["anchor"], "workflow", "local_processing", true)
-        { OperationAdmission = new(4, "action", "anchor", null,
-            [new("first", "primary", "anchor", "local_processing", true, null, null),
-             new("second", "rules", "rule_anchor", "local_processing", true, "action", null)], "evidence", "proof") });
+        { OperationAdmission = new(5, "action", "anchor", null,
+            [new("first", "primary", "anchor", "local_processing", PlanningOperationNecessity.Unspecified, null, null),
+             new("second", "rules", "rule_anchor", "local_processing", PlanningOperationNecessity.Required, "action", null)], "evidence", "proof") });
         var report = ProgressiveReport.Build(state, new Dictionary<string, LLMResponse?>());
         Assert.Equal(1, report["canonicalOperationCount"]!.GetValue<int>());
         Assert.Equal(1, report["canonicalOperations"]![0]!["evidenceReuseCount"]!.GetValue<int>());

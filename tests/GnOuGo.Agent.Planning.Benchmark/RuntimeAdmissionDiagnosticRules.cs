@@ -5,7 +5,7 @@ namespace GnOuGo.Agent.Planning.Benchmark;
 
 internal static class RuntimeAdmissionDiagnosticRules
 {
-    internal const string Identity = "schema5-runtime-evidence-deduplication-diagnostics-rerun-1";
+    internal const string Identity = "schema5-operation-necessity-diagnostics-1";
     internal const int MaxCalls = 16;
     internal static readonly string[] Cases = ["local", "mixed"];
     internal static void RequireCase(string name, JsonObject? previous)
@@ -36,7 +36,7 @@ internal static class RuntimeAdmissionDiagnosticRules
             if (node is JsonObject obj)
             {
                 if (obj["properties"] is JsonObject fields)
-                    foreach (var name in new[] { "role", "kind", "status", "evidence", "execution", "ownership", "resourceAction" })
+                    foreach (var name in new[] { "role", "kind", "status", "evidence", "execution", "ownership", "resourceAction", "state" })
                         if (fields[name]?["enum"] is JsonArray choices)
                         {
                             if (!values.TryGetValue(name, out var domain)) values[name] = domain = new(StringComparer.Ordinal);

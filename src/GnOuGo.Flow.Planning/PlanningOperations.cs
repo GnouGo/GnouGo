@@ -8,7 +8,7 @@ namespace GnOuGo.Flow.Planning;
 /// <summary>Canonical action authority, committed once after bounded complete-clause adjudication.</summary>
 internal static partial class PlanningOperations
 {
-    internal static string EvidenceFingerprint(PlanningSnapshot state) => PlanningGraphCompiler.Fingerprint("operation-evidence-v4:" +
+    internal static string EvidenceFingerprint(PlanningSnapshot state) => PlanningGraphCompiler.Fingerprint("operation-evidence-v5:" +
         state.Request.TenantId + ":" + state.Request.SessionId + ":" + new JsonArray(PlanningIntentAssessment.IntentSources(state)
             .Where(s => s.Authority is PlanningSourceAuthority.RequestedBehavior or PlanningSourceAuthority.ExistingBehavior)
             .Select(s => (JsonNode)new JsonArray(s.Id, s.Authority.ToString(), s.Text, s.QuestionContext)).ToArray()).ToJsonString() + ":" +
@@ -95,7 +95,7 @@ internal static partial class PlanningOperations
     { staged.RemoveAll(o => o.Id == operation.Id); staged.Add(operation); }
 
     private static PlanningOperationAssignment Assignment(Scope scope, string? target, string disposition, string origin) => new(DecisionId(scope), scope.Clause.Id,
-        scope.Evidence!.ActionReference!, scope.Evidence.Kind!, scope.Evidence.Required, target, scope.Evidence.BaselineReference)
+        scope.Evidence!.ActionReference!, scope.Evidence.Kind!, scope.Evidence.Necessity, target, scope.Evidence.BaselineReference)
         { RuntimeEvidenceId = scope.Evidence.Id, Disposition = disposition, ResolutionOrigin = origin };
 
     internal static PlanningObligation Create(PlanningSnapshot state, PlanningOperationAssignment assignment)
@@ -104,18 +104,18 @@ internal static partial class PlanningOperations
         if (assignment.TargetId is not null) throw Failure(assignment.ClauseReference, "A new operation cannot borrow another action identity.");
         var anchor = state.References.Single(r => r.Id == assignment.ActionReference);
         var id = CanonicalId(state, anchor, assignment.BaselineReference);
-        var operation = new PlanningObligation(id, [anchor.Id], assignment.Kind == "local_processing" ? "workflow" : "capability_contract", assignment.Kind, assignment.Required);
+        var operation = new PlanningObligation(id, [anchor.Id], assignment.Kind == "local_processing" ? "workflow" : "capability_contract", assignment.Kind, ResolveRequiredness(state, [assignment]));
         operation = operation with { Grounding = PlanningSourceGroundingRules.Create(state, operation, assignment.BaselineReference), Disposition = "admitted" };
-        return Prove(state, operation, new(4, id, anchor.Id, assignment.BaselineReference, [assignment], EvidenceFingerprint(state), ""));
+        return Prove(state, operation, new(5, id, anchor.Id, assignment.BaselineReference, [assignment], EvidenceFingerprint(state), ""));
     }
 
     private static PlanningObligation Extend(PlanningSnapshot state, PlanningObligation operation, PlanningOperationAssignment assignment)
     {
         Validate(state, operation); ValidateAssignment(state, assignment);
         if (!Compatible(state, state.RuntimeEvidence.Single(e => e.Id == assignment.RuntimeEvidenceId), operation) ||
-            assignment.TargetId != operation.Id || assignment.Kind != operation.Kind || assignment.Required != operation.Required ||
+            assignment.TargetId != operation.Id || assignment.Kind != operation.Kind ||
             assignment.BaselineReference is { } baseline && baseline != operation.OperationAdmission!.BaselineReference)
-            throw Failure(assignment.ClauseReference, "The reuse evidence contradicts the established kind, presence or baseline ownership.");
+            throw Failure(assignment.ClauseReference, "The reuse evidence contradicts the established kind or baseline ownership.");
         if (operation.OperationAdmission!.Assignments.Any(a => a.RuntimeEvidenceId == assignment.RuntimeEvidenceId))
             throw Failure(assignment.ClauseReference, "Repeated evidence cannot authorize another attachment.");
         return Prove(state, operation, operation.OperationAdmission! with { Assignments = [.. operation.OperationAdmission!.Assignments, assignment] });
@@ -137,7 +137,11 @@ internal static partial class PlanningOperations
         operation.OperationAdmission!.Assignments.Select(a => a.ClauseReference).Distinct(StringComparer.Ordinal).Select(id => PlanningChoiceEvidence.Text(state, id)));
 
     internal static PlanningObligation Prove(PlanningSnapshot state, PlanningObligation operation, PlanningOperationAdmission admission)
-        => operation with { OperationAdmission = admission with { ProofFingerprint = Proof(operation, admission) } };
+    {
+        operation = operation with { Required = ResolveRequiredness(state, admission.Assignments) };
+        operation = operation with { Grounding = PlanningSourceGroundingRules.Create(state, operation, admission.BaselineReference) };
+        return operation with { OperationAdmission = admission with { ProofFingerprint = Proof(operation, admission) } };
+    }
 
     private static string Proof(PlanningObligation operation, PlanningOperationAdmission admission) => PlanningGraphCompiler.Fingerprint(
         new JsonArray(operation.Id, operation.Kind, operation.Required, operation.Grounding?.Fingerprint).ToJsonString() + ":" +
@@ -194,12 +198,14 @@ internal static partial class PlanningOperations
     internal static void Validate(PlanningSnapshot state, PlanningObligation operation)
     {
         var proof = operation.OperationAdmission;
-        if (proof is not { Version: 4 } || proof.CanonicalId != operation.Id || operation.Disposition != "admitted" ||
+        if (proof is not { Version: 5 } || proof.CanonicalId != operation.Id || operation.Disposition != "admitted" ||
             operation.EvidenceReferences.Count != 1 || operation.EvidenceReferences[0] != proof.AnchorReference ||
             proof.EvidenceFingerprint != EvidenceFingerprint(state) || proof.Assignments.Count == 0 || proof.ProofFingerprint != Proof(operation, proof))
             throw Failure(operation.Id, "Current canonical admission proof is missing or stale.", "INTENT_OPERATION_PROOF_MISSING");
         if (operation.Grounding != PlanningSourceGroundingRules.Create(state, operation, proof.BaselineReference))
             throw Failure(operation.Id, "Canonical operation source authority changed.");
+        if (operation.Required != ResolveRequiredness(state, proof.Assignments))
+            throw Failure(operation.Id, "Canonical requiredness differs from its current necessity evidence.");
         var root = proof.Assignments[0];
         if (root.ActionReference != proof.AnchorReference || root.TargetId is not null || root.BaselineReference != proof.BaselineReference ||
             CanonicalId(state, state.References.Single(r => r.Id == proof.AnchorReference), proof.BaselineReference) != operation.Id)
@@ -208,7 +214,7 @@ internal static partial class PlanningOperations
         {
             ValidateAssignment(state, assignment);
             if (!Compatible(state, state.RuntimeEvidence.Single(e => e.Id == assignment.RuntimeEvidenceId), operation) ||
-                assignment.Kind != operation.Kind || assignment.Required != operation.Required ||
+                assignment.Kind != operation.Kind ||
                 assignment != root && assignment.TargetId != operation.Id || assignment.BaselineReference is { } baseline && baseline != proof.BaselineReference)
                 throw Failure(operation.Id, "Operation evidence contradicts its established contract.");
         }
@@ -226,7 +232,7 @@ internal static partial class PlanningOperations
         if (DeriveDeclarationExclusions(state).ContainsKey(evidence.Id))
             throw Failure(evidence.Id, "Canonical declaration evidence cannot authorize a standalone local occurrence.");
         if (evidence.ActionReference != assignment.ActionReference || evidence.ClauseReference != assignment.ClauseReference ||
-            evidence.Kind != assignment.Kind || evidence.Required != assignment.Required || evidence.BaselineReference != assignment.BaselineReference ||
+            evidence.Kind != assignment.Kind || evidence.Necessity != assignment.Necessity || evidence.BaselineReference != assignment.BaselineReference ||
             (assignment.Disposition == "distinct" ? assignment.TargetId is not null || evidence.EvidenceRole != "action" :
                 assignment.Disposition == "same_as" ? assignment.TargetId is null || evidence.EvidenceRole != "action" :
                 assignment.Disposition == "attach" ? assignment.TargetId is null || evidence.EvidenceRole != "governing" : true) ||

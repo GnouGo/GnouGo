@@ -180,7 +180,7 @@ internal static partial class RuntimeAdmissionDiagnostic
             await PlanningOperations.ResolveAsync(state, runtime, ct); PlanningOperations.RequireExecutableIntent(state);
             var operations = state.Obligations.Where(PlanningSourceDecisions.IsOperation).ToArray();
             if (operations.Count(o => o.Kind == "local_processing") != 1 || operations.Count(o => o.Kind == "external_read") != (name == "mixed" ? 1 : 0) ||
-                operations.Any(o => o.Kind is not ("local_processing" or "external_read")))
+                operations.Any(o => !o.Required || o.Kind is not ("local_processing" or "external_read")))
                 throw new WorkflowRuntimeException("DIAGNOSTIC_ADMISSION_MISMATCH", "The isolated fixture's expected runtime actions were not established.");
             if (name == "mixed")
             {
@@ -241,12 +241,12 @@ internal static partial class RuntimeAdmissionDiagnostic
         report["runtimeRoles"] = new JsonObject(state.RuntimeEvidence.GroupBy(e => e.Role).Select(g => new KeyValuePair<string, JsonNode?>(g.Key, JsonValue.Create(g.Count()))));
         report["runtimeEvidence"] = new JsonArray(state.RuntimeEvidence.Select(e => (JsonNode)new JsonObject
         { ["id"] = e.Id, ["role"] = e.Role, ["scope"] = e.ExecutionScope.ToString(), ["origin"] = e.Origin.ToString(),
-            ["kind"] = e.Kind, ["evidenceRole"] = e.EvidenceRole, ["actionReference"] = e.ActionReference,
+            ["kind"] = e.Kind, ["necessity"] = e.Necessity.ToString(), ["necessityReference"] = e.NecessityReference, ["evidenceRole"] = e.EvidenceRole, ["actionReference"] = e.ActionReference,
             ["resourceReference"] = e.ResourceReference, ["clauseReference"] = e.ClauseReference, ["proofFingerprint"] = e.ProofFingerprint }).ToArray());
         var assignments = state.Obligations.Where(PlanningSourceDecisions.IsOperation).SelectMany(o => o.OperationAdmission!.Assignments).ToArray();
         report["actionCandidates"] = state.RuntimeEvidence.Count(e => e.EvidenceRole == "action");
         report["canonicalOperations"] = state.OperationAdmissionFingerprint is null ? null : new JsonArray(state.Obligations.Where(PlanningSourceDecisions.IsOperation)
-            .Select(o => (JsonNode)new JsonObject { ["id"] = o.Id, ["kind"] = o.Kind, ["anchor"] = o.OperationAdmission!.AnchorReference,
+            .Select(o => (JsonNode)new JsonObject { ["id"] = o.Id, ["kind"] = o.Kind, ["required"] = o.Required, ["anchor"] = o.OperationAdmission!.AnchorReference,
                 ["evidence"] = new JsonArray(o.OperationAdmission.Assignments.Select(a => (JsonNode)new JsonObject
                 { ["decisionId"] = a.DecisionId, ["evidenceId"] = a.RuntimeEvidenceId, ["disposition"] = a.Disposition,
                     ["origin"] = a.ResolutionOrigin, ["target"] = a.TargetId }).ToArray()) }).ToArray());

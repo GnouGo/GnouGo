@@ -40,7 +40,7 @@ public sealed class OperationOccurrenceTests
         var scope = PlanningOperations.SourceScopes(state)[0];
         var schema = PlanningOperations.RuntimeSchema(state, PlanningSourceAuthority.RequestedBehavior, scope.Boundaries);
         var value = new JsonObject { ["role"] = "local_behavior", ["kind"] = "local_processing", ["action"] = new JsonObject { ["start"] = "b0", ["end"] = "b3" },
-            ["execution"] = "generated_workflow", ["evidence"] = "action", ["required"] = true, ["baseline"] = null };
+            ["execution"] = "generated_workflow", ["evidence"] = "action", ["necessity"] = new JsonObject { ["state"] = "unspecified", ["evidence"] = null }, ["baseline"] = null };
         Assert.Empty(PlanningContractValidation.ValidateInstance(new JsonArray(value.DeepClone()), schema));
         value["subject"] = PlanningOperations.SourceScopes(state)[1].Clause.Id;
         Assert.NotEmpty(PlanningContractValidation.ValidateInstance(new JsonArray(value.DeepClone()), schema));
@@ -124,7 +124,6 @@ public sealed class OperationOccurrenceTests
 
     [Theory]
     [InlineData("external_read", true)]
-    [InlineData("local_processing", false)]
     public async Task IncompatibleFactsCannotBecomeReuseAlternatives(string kind, bool required)
     {
         var state = OperationAdmissionTests.State("Transform the first value. Perform the second action.");

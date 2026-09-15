@@ -22,7 +22,7 @@ public sealed class OperationAdmissionTests
     private static PlanningRuntimeEvidence Exclude(PlanningSnapshot state, int clause, string role)
     {
         var source = PlanningOperations.SourceScopes(state)[clause].Clause;
-        var value = PlanningOperations.SealRuntime(state, new("", source.Id, source.Id, role, null, null, null, null, null, null, null, false, ""));
+        var value = PlanningOperations.SealRuntime(state, new("", source.Id, source.Id, role, null, null, null, null, null, null, null, PlanningOperationNecessity.Unspecified, ""));
         state.RuntimeEvidence.Add(value); PlanningFixtures.EmptyRuntime(state); return value;
     }
     private static TypedPlannerTests.FakeRuntime NoModel() => new() { OnCall = (_, _, _) => throw new InvalidOperationException("No semantic decision is unresolved.") };
@@ -308,7 +308,7 @@ public sealed class OperationAdmissionTests
         var state = State("Create an owned temporary resource."); var scope = PlanningOperations.SourceScopes(state)[0];
         var schema = PlanningOperations.RuntimeSchema(state, PlanningSourceAuthority.RequestedBehavior, scope.Boundaries);
         var action = new JsonObject { ["role"] = "runtime_action", ["kind"] = "resource_lifecycle", ["action"] = new JsonObject { ["start"] = "b0", ["end"] = "b5" },
-            ["execution"] = "generated_workflow", ["resource"] = new JsonObject { ["start"] = "b3", ["end"] = "b5" }, ["evidence"] = "action", ["required"] = true,
+            ["execution"] = "generated_workflow", ["resource"] = new JsonObject { ["start"] = "b3", ["end"] = "b5" }, ["evidence"] = "action", ["necessity"] = new JsonObject { ["state"] = "unspecified", ["evidence"] = null },
             ["baseline"] = null, ["ownership"] = "workflow_runtime_resource", ["resourceAction"] = "create" };
         Assert.Empty(PlanningContractValidation.ValidateInstance(new JsonArray(action.DeepClone()), schema));
         action.Remove("ownership"); Assert.NotEmpty(PlanningContractValidation.ValidateInstance(new JsonArray(action.DeepClone()), schema));

@@ -186,7 +186,7 @@ internal static class RuntimePersistenceSmoke
                 {
                     var answer = new JsonObject { ["role"] = "local_behavior", ["kind"] = "local_processing",
                         ["action"] = new JsonObject { ["start"] = "b0", ["end"] = scope.Boundaries["properties"]!["end"]!["enum"]!.AsArray().Last()!.DeepClone() },
-                        ["execution"] = "generated_workflow", ["evidence"] = scope == scopes[^1] ? "governing" : "action", ["required"] = true, ["baseline"] = null };
+                        ["execution"] = "generated_workflow", ["evidence"] = scope == scopes[^1] ? "governing" : "action", ["necessity"] = new JsonObject { ["state"] = scope == scopes[1] ? "required" : "unspecified", ["evidence"] = scope == scopes[1] ? new JsonObject { ["start"] = "b0", ["end"] = scope.Boundaries["properties"]!["end"]!["enum"]!.AsArray().Last()!.DeepClone() } : null }, ["baseline"] = null };
                     snapshot.RuntimeEvidence.AddRange(PlanningOperations.ParseRuntime(snapshot, scope.Clause, scope.Select,
                         new JsonArray(answer.DeepClone(), answer.DeepClone(), answer.DeepClone())));
                 }
@@ -194,7 +194,7 @@ internal static class RuntimePersistenceSmoke
                 snapshot.RuntimeEvidenceFingerprint = PlanningOperations.RuntimeFingerprint(snapshot);
                 var eligible = PlanningOperations.Scopes(snapshot);
                 var first = eligible[0].Evidence!;
-                var root = PlanningOperations.Create(snapshot, new("operation_" + first.Id, first.ClauseReference, first.ActionReference!, first.Kind!, first.Required, null, null)
+                var root = PlanningOperations.Create(snapshot, new("operation_" + first.Id, first.ClauseReference, first.ActionReference!, first.Kind!, first.Necessity, null, null)
                     { RuntimeEvidenceId = first.Id, Disposition = "distinct", ResolutionOrigin = "deterministic" });
                 var decision = PlanningOperations.Decision(snapshot, eligible[1], [root]);
                 await PlanningDecisionPages.ResolveAsync(snapshot, opened.Runtime, "intent_operations", "$plan", [decision], CancellationToken.None);
@@ -207,7 +207,7 @@ internal static class RuntimePersistenceSmoke
                 await using var resumed = await Factory().OpenAsync(Context("operations"), Operations(), CancellationToken.None);
                 await PlanningOperations.ResolveAsync(resumed.Snapshot, resumed.Runtime, CancellationToken.None);
                 var operation = resumed.Snapshot.Obligations.Single(PlanningSourceDecisions.IsOperation);
-                if (client.Calls != identityCalls || resumed.Snapshot.RuntimeEvidence.Count != 3 || operation.OperationAdmission!.Assignments.Count != 3 || resumed.Snapshot.RepairAllowances.Count != 0 ||
+                if (client.Calls != identityCalls || !operation.Required || resumed.Snapshot.RuntimeEvidence.Count != 3 || operation.OperationAdmission!.Assignments.Count != 3 || resumed.Snapshot.RepairAllowances.Count != 0 ||
                     operationFingerprint is not null && operationFingerprint != resumed.Snapshot.OperationAdmissionFingerprint)
                     throw new InvalidOperationException("Published encrypted operation identity/attachment replay failed.");
                 operationFingerprint = resumed.Snapshot.OperationAdmissionFingerprint;

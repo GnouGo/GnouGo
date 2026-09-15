@@ -199,7 +199,7 @@ var operationClauses = PlanningOperations.SourceScopes(operations);
 foreach (var scope in operationClauses)
 {
     operations.RuntimeEvidence.Add(PlanningOperations.SealRuntime(operations, new("", scope.Clause.Id, scope.Clause.Id, "local_behavior", scope.Clause.Id,
-        null, scope.Clause.Id, "local_processing", scope == operationClauses[0] ? "action" : "governing", null, null, true, "")));
+        null, scope.Clause.Id, "local_processing", scope == operationClauses[0] ? "action" : "governing", null, null, PlanningOperationNecessity.Unspecified, "")));
 }
 operations.RuntimeEvidenceFingerprint = PlanningOperations.RuntimeFingerprint(operations);
 await PlanningOperations.ResolveAsync(operations, new SmokeRuntime(graph, preparation), CancellationToken.None);
@@ -262,7 +262,7 @@ sealed class SmokeRuntime(PlanningGraph graph, PlanningPreparation preparation) 
         var runtime = p.Value["properties"]!["runtime"]!["items"]!["anyOf"]![1]!["properties"]!;
         return new KeyValuePair<string, JsonNode?>(p.Key, new JsonObject { ["obligations"] = obligations,
             ["runtime"] = new JsonArray(new JsonObject { ["role"] = "local_behavior", ["kind"] = "local_processing", ["action"] = Span(),
-                ["execution"] = "generated_workflow", ["evidence"] = "action", ["required"] = true, ["baseline"] = null }) });
+                ["execution"] = "generated_workflow", ["evidence"] = "action", ["necessity"] = new JsonObject { ["state"] = "unspecified", ["evidence"] = null }, ["baseline"] = null }) });
     }));
     private static JsonObject OperationResponse(LLMRequest request) => new(request.StructuredOutputSchema!["properties"]!.AsObject().Select(p =>
         new KeyValuePair<string, JsonNode?>(p.Key, new JsonObject { ["status"] = "same_as", ["target"] = p.Value!["anyOf"]!.AsArray().Single(v => v?["properties"]?["target"] is not null)!["properties"]!["target"]!["enum"]![0]!.DeepClone() })));

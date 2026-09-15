@@ -6,7 +6,7 @@ namespace GnOuGo.Flow.Planning;
 
 internal static partial class PlanningOperations
 {
-    internal static string RuntimeFingerprint(PlanningSnapshot state) => PlanningGraphCompiler.Fingerprint("runtime-evidence-v3:" +
+    internal static string RuntimeFingerprint(PlanningSnapshot state) => PlanningGraphCompiler.Fingerprint("runtime-evidence-v4:" +
         new JsonArray(PlanningIntentAssessment.IntentSources(state).Select(s => (JsonNode)new JsonArray(s.Id, s.Authority.ToString(), s.Text)).ToArray()).ToJsonString() + ":" +
         JsonSerializer.Serialize(state.RuntimeEvidence.OrderBy(e => e.Id, StringComparer.Ordinal).ToList(), PlanningJsonContext.Default.ListPlanningRuntimeEvidence));
 
@@ -22,7 +22,7 @@ internal static partial class PlanningOperations
                 ("role", PlanningHoleRequests.Enum([role])), ("kind", PlanningHoleRequests.Enum(kinds)),
                 ("action", boundaries.DeepClone().AsObject()), ("execution", PlanningHoleRequests.Enum(["generated_workflow"])),
                 ("evidence", PlanningHoleRequests.Enum(["action", "governing"])),
-                ("required", PlanningHoleRequests.Type("boolean")),
+                ("necessity", NecessitySchema(boundaries, baseline is not null)),
                 ("baseline", baseline is null ? PlanningHoleRequests.Type("null") : PlanningHoleRequests.Enum([baseline]))
             };
             if (kinds[0] is "resource_lifecycle" or "cleanup")
@@ -64,7 +64,9 @@ internal static partial class PlanningOperations
             var evidence = new PlanningRuntimeEvidence("", source.Id, PlanningChoiceEvidence.Parent(state, source.Id).Id, role,
                 actionReference, value["resource"] is { } resource ? Select(resource) : null,
                 value["execution"]?.ToString() == "generated_workflow" ? actionReference : null, value["kind"]?.ToString(), value["evidence"]?.ToString(),
-                value["baseline"]?.ToString(), value["resourceAction"]?.ToString(), value["required"]?.GetValue<bool>() ?? false, "") { ResourceOwnership = value["ownership"]?.ToString() };
+                value["baseline"]?.ToString(), value["resourceAction"]?.ToString(), role is "local_behavior" or "runtime_action" ? ParseNecessity(value["necessity"]?["state"]?.ToString()) : PlanningOperationNecessity.Unspecified, "")
+            { ResourceOwnership = value["ownership"]?.ToString(),
+                NecessityReference = value["necessity"]?["evidence"] is { } necessity ? Select(necessity) : null };
             var normalized = SealRuntime(state, evidence);
             var existing = result.SingleOrDefault(item => item.Id == normalized.Id);
             if (existing is not null)
@@ -82,7 +84,7 @@ internal static partial class PlanningOperations
 
     internal static PlanningRuntimeEvidence PolicyEvidence(PlanningSnapshot state, PlanningReference source)
         => SealRuntime(state, new("", source.Id, PlanningChoiceEvidence.Parent(state, source.Id).Id, "policy",
-            null, null, null, null, null, null, null, false, "")
+            null, null, null, null, null, null, null, PlanningOperationNecessity.Unspecified, "")
             { Origin = PlanningRuntimeEvidenceOrigin.EngineSourceAuthority });
 
     internal static PlanningRuntimeEvidence SealRuntime(PlanningSnapshot state, PlanningRuntimeEvidence evidence)
@@ -103,10 +105,10 @@ internal static partial class PlanningOperations
         return value with { ProofFingerprint = RuntimeProof(state, value) };
     }
 
-    private static string RuntimeProof(PlanningSnapshot state, PlanningRuntimeEvidence value) => PlanningGraphCompiler.Fingerprint("runtime-proof-v3:" +
+    private static string RuntimeProof(PlanningSnapshot state, PlanningRuntimeEvidence value) => PlanningGraphCompiler.Fingerprint("runtime-proof-v4:" +
         state.Request.TenantId + ":" + state.Request.SessionId + ":" +
         JsonSerializer.Serialize(value with { ProofFingerprint = "" }, PlanningJsonContext.Default.PlanningRuntimeEvidence) + ":" +
-        string.Join('|', new[] { value.SourceReference, value.ClauseReference, value.ActionReference, value.ResourceReference, value.ExecutionReference }
+        string.Join('|', new[] { value.SourceReference, value.ClauseReference, value.ActionReference, value.ResourceReference, value.ExecutionReference, value.NecessityReference }
             .OfType<string>().Select(id => id + ":" + PlanningChoiceEvidence.Text(state, id))));
 
     internal static void RequireRuntimeEvidence(PlanningSnapshot state)
@@ -124,7 +126,7 @@ internal static partial class PlanningOperations
 
     internal static void ValidateRuntime(PlanningSnapshot state, PlanningRuntimeEvidence evidence)
     {
-        var references = new[] { evidence.SourceReference, evidence.ClauseReference, evidence.ActionReference, evidence.ResourceReference, evidence.ExecutionReference }.OfType<string>();
+        var references = new[] { evidence.SourceReference, evidence.ClauseReference, evidence.ActionReference, evidence.ResourceReference, evidence.ExecutionReference, evidence.NecessityReference }.OfType<string>();
         if (references.Any(id => !PlanningChoiceEvidence.Current(state, id)) || evidence != SealRuntime(state, evidence) ||
             PlanningChoiceEvidence.Parent(state, evidence.SourceReference).Id != evidence.ClauseReference)
             throw Failure(evidence.Id, "Runtime evidence is stale, foreign or has changed.");
@@ -138,7 +140,7 @@ internal static partial class PlanningOperations
         if (evidence.Role is "planning_directive" or "contract" or "policy")
         {
             if (evidence.ActionReference is not null || evidence.Kind is not null || evidence.ResourceReference is not null || evidence.ExecutionReference is not null ||
-                evidence.ResourceAction is not null || evidence.ResourceOwnership is not null || evidence.BaselineReference is not null || evidence.EvidenceRole is not null || evidence.Required)
+                evidence.ResourceAction is not null || evidence.ResourceOwnership is not null || evidence.BaselineReference is not null || evidence.EvidenceRole is not null || evidence.Necessity != PlanningOperationNecessity.Unspecified || evidence.NecessityReference is not null)
                 throw Failure(evidence.Id, "Non-executable evidence cannot contain action authority.");
             return;
         }
@@ -159,6 +161,7 @@ internal static partial class PlanningOperations
         }
         else if (authority != PlanningSourceAuthority.RequestedBehavior || evidence.BaselineReference is not null)
             throw Failure(evidence.Id, "Only requested behavior can establish a new runtime action.");
+        ValidateNecessity(state, evidence);
         if (evidence.Kind is "resource_lifecycle" or "cleanup")
         {
             if (evidence.ResourceAction is not ("create" or "acquire" or "release" or "delete") || evidence.Kind == "cleanup" && evidence.ResourceAction is not ("release" or "delete"))
