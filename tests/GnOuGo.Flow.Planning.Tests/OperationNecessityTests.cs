@@ -129,13 +129,14 @@ public sealed class OperationNecessityTests
             return Task.CompletedTask;
         };
         await Assert.ThrowsAsync<OperationCanceledException>(() => PlanningOperations.ResolveAsync(state, runtime, Ct));
-        Assert.NotNull(checkpoint); var page = Assert.Single(checkpoint.DecisionPages).Id;
+        Assert.NotNull(checkpoint); var pages = checkpoint.DecisionPages.Select(p => p.Id).ToArray();
+        Assert.Equal(2, pages.Length);
         await PlanningOperations.ResolveAsync(checkpoint, NoModel(), Ct);
         Assert.False(Assert.Single(checkpoint.Obligations, PlanningSourceDecisions.IsOperation).Required);
         var restored = JsonSerializer.Deserialize(JsonSerializer.Serialize(checkpoint, PlanningJsonContext.Default.PlanningSnapshot), PlanningJsonContext.Default.PlanningSnapshot)!;
         await PlanningOperations.ResolveAsync(restored, NoModel(), Ct);
         Assert.Equal(checkpoint.OperationAdmissionFingerprint, restored.OperationAdmissionFingerprint);
-        Assert.Equal(page, Assert.Single(restored.DecisionPages).Id); Assert.Empty(restored.RequestAccounting); Assert.Empty(restored.RepairAllowances);
+        Assert.Equal(pages, restored.DecisionPages.Select(p => p.Id)); Assert.Empty(restored.RequestAccounting); Assert.Empty(restored.RepairAllowances);
         var operation = Assert.Single(restored.Obligations, PlanningSourceDecisions.IsOperation);
         restored.Obligations.Remove(operation); restored.Obligations.Add(operation with { Required = true });
         Assert.Throws<WorkflowRuntimeException>(() => PlanningOperations.RequireCurrent(restored));

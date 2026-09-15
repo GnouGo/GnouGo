@@ -42,11 +42,12 @@ internal static partial class RuntimeAdmissionDiagnostic
     private static void AddEffectReport(JsonObject report, PlanningSnapshot state, IReadOnlyDictionary<string, LLMResponse?> receipts, JsonArray domains)
     {
         static string Category(string decision) => decision.StartsWith("interpret_", StringComparison.Ordinal) ? "interpretation" :
-            decision.StartsWith("effect_", StringComparison.Ordinal) ? "effect_grounding" :
+            decision.StartsWith("effect_governing_", StringComparison.Ordinal) ? "effect_governing" :
+            decision.StartsWith("effect_", StringComparison.Ordinal) ? "effect_realizations" :
             decision.StartsWith("operation_", StringComparison.Ordinal) ? "occurrence_identity" : "relationships_or_other";
         long? Sum(IEnumerable<long?> values)
         { var all = values.ToArray(); return all.Any(v => v is null) ? null : all.Sum(v => v!.Value); }
-        report["decisionClasses"] = new JsonArray(new[] { "interpretation", "effect_grounding", "occurrence_identity", "relationships_or_other" }.Select(category =>
+        report["decisionClasses"] = new JsonArray(new[] { "interpretation", "effect_realizations", "effect_governing", "occurrence_identity", "relationships_or_other" }.Select(category =>
         {
             var requests = domains.Where(d => d!["decisions"]!.AsArray().Any(v => Category(v!.ToString()) == category)).ToArray();
             var verified = requests.Where(d => receipts.GetValueOrDefault(d!["requestId"]!.ToString()) is not null).ToArray();
@@ -64,7 +65,7 @@ internal static partial class RuntimeAdmissionDiagnostic
                 ["outputs"] = new JsonArray(o.OperationAdmission.Assignments.SelectMany(a => a.Effect!.Outputs).Distinct().Select(v => (JsonNode)JsonValue.Create(v)!).ToArray()),
                 ["producers"] = new JsonArray(o.OperationAdmission.Assignments.SelectMany(a => a.Effect!.Producers).Distinct().Select(v => (JsonNode)JsonValue.Create(v)!).ToArray()),
                 ["contributions"] = new JsonArray(o.OperationAdmission.Assignments.Select(a => (JsonNode)new JsonObject
-                { ["decisionId"] = a.Effect!.DecisionId, ["contribution"] = a.Effect.Contribution, ["origin"] = a.ResolutionOrigin,
+                { ["decisionId"] = a.Effect!.DecisionId, ["contribution"] = a.Effect.Contribution, ["origin"] = a.ResolutionOrigin, ["effectOrigin"] = a.Effect.Origin, ["evidenceFingerprint"] = a.Effect.EvidenceFingerprint,
                     ["selectedEffect"] = a.EffectId, ["governingReference"] = a.ClauseReference }).ToArray()) }).ToArray());
         report["effectValidationPassed"] = report["status"]?.ToString() == "passed";
     }

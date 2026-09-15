@@ -70,7 +70,7 @@ public sealed class RuntimeAdmissionDiagnosticTests
         {
             OperationAdmission = new(6, id, "evidence", null,
                 [new("decision", "clause", "action", kind, PlanningOperationNecessity.Required, null, null)
-                { Effect = new(1, "effect", "realizes", [], inputs.ToList(), outputs.ToList(), producers.ToList(), ["clause"], "model", "proof") }], "proof", "fingerprint")
+                { Effect = new(2, "effect", "realizes", [], inputs.ToList(), outputs.ToList(), producers.ToList(), ["clause"], "model", "proof") }], "proof", "fingerprint")
         };
 
     [Theory]

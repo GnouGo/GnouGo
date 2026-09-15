@@ -195,7 +195,7 @@ internal static class RuntimePersistenceSmoke
                 snapshot.RuntimeEvidenceFingerprint = PlanningOperations.RuntimeFingerprint(snapshot);
                 var eligible = PlanningOperations.Scopes(snapshot);
                 client.EffectState = snapshot;
-                var effectDecisions = eligible.Select(scope => PlanningOperations.EffectDecision(snapshot, scope)).ToArray();
+                var effectDecisions = eligible.Where(scope => scope.Evidence!.EvidenceRole == "action").Select(scope => PlanningOperations.EffectDecision(snapshot, scope)).ToArray();
                 await PlanningDecisionPages.ResolveAsync(snapshot, opened.Runtime, "intent_operations", "$plan", effectDecisions, CancellationToken.None);
                 if (snapshot.Obligations.Any(PlanningSourceDecisions.IsOperation)) throw new InvalidOperationException("Staged operation identity granted partial authority.");
             }
@@ -204,7 +204,9 @@ internal static class RuntimePersistenceSmoke
             for (var restart = 0; restart < 2; restart++)
             {
                 await using var resumed = await Factory().OpenAsync(Context("operations"), Operations(), CancellationToken.None);
+                client.EffectState = resumed.Snapshot;
                 await PlanningOperations.ResolveAsync(resumed.Snapshot, resumed.Runtime, CancellationToken.None);
+                if (restart == 0 && client.Calls == identityCalls + 1) identityCalls = client.Calls;
                 var operation = resumed.Snapshot.Obligations.Single(PlanningSourceDecisions.IsOperation);
                 if (client.Calls != identityCalls || !operation.Required || resumed.Snapshot.RuntimeEvidence.Count != 3 || operation.OperationAdmission!.Assignments.Count != 3 || resumed.Snapshot.RepairAllowances.Count != 0 ||
                     operationFingerprint is not null && operationFingerprint != resumed.Snapshot.OperationAdmissionFingerprint)
@@ -236,7 +238,7 @@ internal static class RuntimePersistenceSmoke
                 var target = PlanningOperations.EffectDomain(state, first.Evidence!).Single(p => p.Value.BoundaryReference == first.Evidence!.ActionReference).Key;
                 return Task.FromResult(new LLMResponse { CompletionStatus = "completed", Usage = new JsonObject { ["total_tokens"] = 2 },
                     Json = new JsonObject(fields.Select(p => new KeyValuePair<string, JsonNode?>(p.Key,
-                        OperationEffectFixtures.Answer(state, PlanningOperations.Scopes(state).Single(scope => PlanningOperations.EffectDecisionId(scope.Evidence!) == p.Key), [target])))) });
+                        OperationEffectFixtures.Answer(state, OperationEffectFixtures.Scope(state, p.Key), [target])))) });
             }
             if (DeclarationAnswers is { } answers)
             {

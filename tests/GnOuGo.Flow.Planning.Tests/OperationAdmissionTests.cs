@@ -207,9 +207,10 @@ public sealed class OperationAdmissionTests
         {
             Assert.Equal("intent_operations", phase); var field = request.StructuredOutputSchema!["properties"]!.AsObject().Single();
             Assert.DoesNotContain("external_write", field.Value!.ToJsonString()); Assert.DoesNotContain("resource_lifecycle", field.Value.ToJsonString());
-            return Task.FromResult(new LLMResponse { Json = new JsonObject { [field.Key] = field.Value["enum"]![0]!.DeepClone() }, CompletionStatus = "completed" });
+            return Task.FromResult(new LLMResponse { Json = OperationEffectFixtures.Response(state, request), CompletionStatus = "completed" });
         } };
-        await ResolveGrounded(state, runtime, Ct); Assert.Single(runtime.Requests);
+        OperationEffectFixtures.Seed(state, rootsOnly: true);
+        await PlanningOperations.ResolveAsync(state, runtime, Ct); Assert.Single(runtime.Requests);
         var restored = JsonSerializer.Deserialize(JsonSerializer.Serialize(state, PlanningJsonContext.Default.PlanningSnapshot), PlanningJsonContext.Default.PlanningSnapshot)!;
         await ResolveGrounded(restored, NoModel(), Ct); Assert.Equal(state.OperationAdmissionFingerprint, restored.OperationAdmissionFingerprint);
     }
@@ -296,7 +297,7 @@ public sealed class OperationAdmissionTests
         var root = Add(state, 0); Add(state, 1); Add(state, 2, evidenceRole: "governing");
         state.Intent.Checked = true;
         var runtime = new TypedPlannerTests.FakeRuntime();
-        runtime.OnPrepareSnapshot = async snapshot => { await ResolveGrounded(snapshot, runtime, Ct); return TypedPlannerTests.Preparation(); };
+        runtime.OnPrepareSnapshot = async snapshot => { OperationEffectFixtures.Seed(snapshot, rootsOnly: true); await PlanningOperations.ResolveAsync(snapshot, runtime, Ct); return TypedPlannerTests.Preparation(); };
         runtime.OnCall = (_, _, _) => throw new LLMClientException(LLMClientFailureKind.Transport, "Synthetic unavailable receipt.", true);
         var planner = new TypedWorkflowPlanner();
         state = await planner.AdvanceAsync(state, new() { ExpectedRevision = state.Revision }, runtime, Ct);

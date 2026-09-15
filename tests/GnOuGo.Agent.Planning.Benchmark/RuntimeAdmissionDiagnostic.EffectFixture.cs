@@ -57,6 +57,8 @@ internal static partial class RuntimeAdmissionDiagnostic
             ["historicalEffectGroundingDecisions"] = historicalEffectDecisions,
             ["fixtureStandaloneIdentityDecisions"] = requestFields.Count(k => k.StartsWith("operation_", StringComparison.Ordinal)),
             ["fixtureEffectGroundingDecisions"] = requestFields.Count(k => k.StartsWith("effect_", StringComparison.Ordinal)),
+            ["realizationDecisions"] = requestFields.Count(k => k.StartsWith("effect_", StringComparison.Ordinal) && !k.StartsWith("effect_governing_", StringComparison.Ordinal)),
+            ["governingDecisions"] = requestFields.Count(k => k.StartsWith("effect_governing_", StringComparison.Ordinal)),
             ["fixtureRelationshipDecisions"] = requestFields.Count(k => k.StartsWith("relation_", StringComparison.Ordinal)),
             ["effectGroundingRequests"] = requests.Count(r => r.StructuredOutputSchema!["properties"]!.AsObject().Any(p => p.Key.StartsWith("effect_", StringComparison.Ordinal))),
             ["relationshipRequests"] = requests.Count(r => r.StructuredOutputSchema!["properties"]!.AsObject().Any(p => p.Key.StartsWith("relation_", StringComparison.Ordinal))),
@@ -92,10 +94,10 @@ internal static partial class RuntimeAdmissionDiagnostic
                     continue;
                 }
                 if (!field.Key.StartsWith("effect_", StringComparison.Ordinal)) throw new InvalidOperationException("No standalone identity decision is permitted by this complete synthetic effect fixture.");
-                var scope = PlanningOperations.Scopes(state).Single(s => PlanningOperations.EffectDecisionId(s.Evidence!) == field.Key);
+                var scope = OperationEffectFixtures.Scope(state, field.Key);
                 var target = PlanningOperations.EffectDomain(state, scope.Evidence!).Single(p => p.Value.BoundaryKind == "result_realization").Key;
                 var descriptive = PlanningChoiceEvidence.Text(state, scope.Evidence!.ActionReference!) == "This is deterministic, local, in-memory business processing.";
-                answers[field.Key] = OperationEffectFixtures.Answer(state, scope, [target],
+                answers[field.Key] = descriptive && field.Key == PlanningOperations.EffectDecisionId(scope.Evidence) ? OperationEffectFixtures.Defer(scope) : OperationEffectFixtures.Answer(state, scope, [target],
                     descriptive || scope.Evidence.EvidenceRole == "governing" ? "governs" : "realizes",
                     state.Declarations.Where(d => d.Direction == "input").Select(d => d.Id));
             }

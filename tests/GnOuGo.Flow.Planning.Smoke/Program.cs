@@ -273,7 +273,7 @@ sealed class SmokeRuntime(PlanningGraph graph, PlanningPreparation preparation) 
         var target = targets.FirstOrDefault(p => p.Value.BoundaryKind == "result_realization").Key ??
             targets.Single(p => p.Value.BoundaryReference == first.Evidence!.ActionReference).Key;
         return new(request.StructuredOutputSchema!["properties"]!.AsObject().Select(p => new KeyValuePair<string, JsonNode?>(p.Key,
-            OperationEffectFixtures.Answer(state, PlanningOperations.Scopes(state).Single(s => PlanningOperations.EffectDecisionId(s.Evidence!) == p.Key), [target]))));
+            OperationEffectFixtures.Answer(state, OperationEffectFixtures.Scope(state, p.Key), [target]))));
     }
     private JsonObject DeclarationResponse(LLMRequest request)
     {

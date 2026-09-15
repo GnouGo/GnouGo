@@ -6,7 +6,7 @@ namespace GnOuGo.Agent.Planning.Benchmark;
 
 internal static class RuntimeAdmissionDiagnosticRules
 {
-    internal const string Identity = "schema5-effect-scoped-domains-diagnostics-1";
+    internal const string Identity = "schema5-realized-governing-diagnostics-1";
     internal const int MaxCalls = 16;
     internal static readonly string[] Cases = ["local", "mixed"];
     internal static void RequireCase(string name, JsonObject? previous)
@@ -38,7 +38,7 @@ internal static class RuntimeAdmissionDiagnosticRules
             "DIAGNOSTIC_ADMISSION_MISMATCH", "The frozen fixture requires exactly its declared runtime effects.");
         var local = operations.Single(o => o.Kind == "local_processing");
         var effects = local.OperationAdmission!.Assignments.Select(a => a.Effect!).ToArray();
-        Require(effects.All(e => e is { Version: 1 }) && effects.SelectMany(e => e.Outputs).ToHashSet(StringComparer.Ordinal).SetEquals([output]),
+        Require(effects.All(e => e is { Version: 2 }) && effects.SelectMany(e => e.Outputs).ToHashSet(StringComparer.Ordinal).SetEquals([output]),
             "DIAGNOSTIC_EFFECT_OWNERSHIP", "The transformation must produce the canonical public result.");
         var consumed = effects.SelectMany(e => e.Inputs).ToHashSet(StringComparer.Ordinal);
         if (name == "local") Require(consumed.SetEquals(inputs), "DIAGNOSTIC_INPUT_EFFECT", "The local effect must consume both canonical business inputs.");

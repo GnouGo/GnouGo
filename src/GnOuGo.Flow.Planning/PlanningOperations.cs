@@ -22,9 +22,9 @@ internal static partial class PlanningOperations
         PlanningDeclarations.RequireCurrent(state);
         var staged = new List<PlanningObligation>();
         var scopes = Scopes(state);
-        var mappings = await GroundEffects(state, runtime, scopes, ct);
-        // Effect grounding completes before any evidence acquires root authority.
-        foreach (var scope in scopes.Where(s => mappings[s.Evidence!.Id].Contribution == "realizes"))
+        var mappings = await GroundRealizations(state, runtime, scopes, ct);
+        // Realizations and identity selections precede every governing target domain.
+        foreach (var scope in scopes.Where(s => mappings.GetValueOrDefault(s.Evidence!.Id)?.Contribution == "realizes"))
         {
             var proof = mappings[scope.Evidence!.Id];
             var ids = proof.Candidates.Select(a => CanonicalId(state, a, scope.Evidence.Kind!, scope.Evidence.BaselineReference)).ToArray();
@@ -34,16 +34,18 @@ internal static partial class PlanningOperations
             if (existing is null) staged.Add(Create(state, assignment));
             else Replace(staged, Extend(state, existing, assignment));
         }
-        foreach (var scope in scopes.Where(s => mappings[s.Evidence!.Id].Contribution is "governs" or "shared_rule"))
+        var realized = ReadRealizations(state);
+        var governing = await GroundGoverning(state, runtime, GoverningScopes(scopes, mappings), realized, ct);
+        foreach (var scope in scopes.Where(s => governing.GetValueOrDefault(s.Evidence!.Id)?.Contribution is "governs" or "shared_rule"))
         {
-            var proof = mappings[scope.Evidence!.Id];
+            var proof = governing[scope.Evidence!.Id];
             var candidates = proof.Candidates.Select(a => CanonicalId(state, a, scope.Evidence.Kind!, scope.Evidence.BaselineReference)).ToHashSet(StringComparer.Ordinal);
             var targets = staged.Where(o => candidates.Contains(o.Id) && Compatible(state, scope.Evidence, o)).Select(o => o.Id).Order(StringComparer.Ordinal).ToArray();
             if (targets.Length != candidates.Count) throw Failure(scope.Clause.Id, "Governing effect evidence requires established compatible realizations.");
-            var selected = proof.Contribution == "shared_rule" ? targets : [await SelectIdentity(state, runtime, scope, proof, targets, ct)];
+            var selected = proof.Contribution == "shared_rule" ? targets : [targets.Single()];
             foreach (var id in selected)
                 Replace(staged, Extend(state, staged.Single(o => o.Id == id), Assignment(scope, proof, id, id, "attach",
-                    targets.Length == 1 || proof.Contribution == "shared_rule" ? "deterministic" : "model")));
+                    "deterministic")));
         }
         staged = await PlanningSourceDecisions.ApplyRevisionAsync(state, runtime, staged, ct);
         ValidateEffectDependencies(state, staged);
@@ -65,7 +67,7 @@ internal static partial class PlanningOperations
     private static void Replace(List<PlanningObligation> staged, PlanningObligation operation)
     { staged.RemoveAll(o => o.Id == operation.Id); staged.Add(operation); }
 
-    private static PlanningOperationAssignment Assignment(Scope scope, PlanningOperationEffectProof proof, string effectId, string? target, string disposition, string origin) => new(DecisionId(scope), scope.Clause.Id,
+    internal static PlanningOperationAssignment Assignment(Scope scope, PlanningOperationEffectProof proof, string effectId, string? target, string disposition, string origin) => new(DecisionId(scope), scope.Clause.Id,
         scope.Evidence!.ActionReference!, scope.Evidence.Kind!, scope.Evidence.Necessity, target, scope.Evidence.BaselineReference)
         { RuntimeEvidenceId = scope.Evidence.Id, Disposition = disposition, ResolutionOrigin = origin, Effect = proof, EffectId = effectId };
 

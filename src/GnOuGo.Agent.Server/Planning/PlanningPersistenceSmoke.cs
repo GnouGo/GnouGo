@@ -80,7 +80,7 @@ internal static class PlanningPersistenceSmoke
         state.Obligations = [new("action", ["anchor"], "workflow", "local_processing", true)
         { Disposition = "admitted", OperationAdmission = new(6, "action", "anchor", null,
             [new("decision", "clause", "anchor", "local_processing", PlanningOperationNecessity.Required, null, null) { RuntimeEvidenceId = "runtime", Disposition = "distinct", ResolutionOrigin = "deterministic", EffectId = "action",
-                Effect = new(1, "effect-decision", "realizes", [new("main", "private_result", "result_realization", "private_result")],
+                Effect = new(2, "effect-decision", "realizes", [new("main", "private_result", "result_realization", "private_result")],
                     ["private_input"], ["private_result"], [], ["private_boundary_evidence"], "model", "effect-evidence-proof") },
              new("reuse", "rules", "rule_anchor", "local_processing", PlanningOperationNecessity.Unspecified, "action", null)], "evidence-proof", "operation-proof") }];
         state.References = [new("reference", "smoke:" + state.Request.SessionId, 4, "request", "source-fingerprint", "user_request", 0, 7)];
@@ -103,7 +103,7 @@ internal static class PlanningPersistenceSmoke
             prepared.RuntimeEvidence[0].ExecutionScope != PlanningRuntimeExecutionScope.GeneratedWorkflow || prepared.RuntimeEvidence[0].Origin != PlanningRuntimeEvidenceOrigin.SourceInterpretation || prepared.RuntimeEvidence[1].Origin != PlanningRuntimeEvidenceOrigin.EngineSourceAuthority || prepared.RuntimeEvidence[1].Role != "policy")
             throw new InvalidOperationException("Runtime execution evidence did not survive encrypted persistence.");
         if (prepared?.OperationAdmissionFingerprint != "operation-set-proof" || prepared.Obligations.Single().OperationAdmission is not { Version: 6 } admission ||
-            admission.Assignments[0].RuntimeEvidenceId != "runtime" || admission.Assignments[0].Effect is not { Version: 1 } effect ||
+            admission.Assignments[0].RuntimeEvidenceId != "runtime" || admission.Assignments[0].Effect is not { Version: 2 } effect ||
             effect.Candidates.Single().OwnerReference != "private_result" || effect.Inputs.Single() != "private_input" || admission.Assignments[0].EffectId != "action" || admission.Assignments[1].TargetId != "action" || admission.Assignments[1].ClauseReference != "rules" || admission.ProofFingerprint != "operation-proof")
             throw new InvalidOperationException("Canonical operation evidence did not survive encrypted persistence.");
         if (prepared?.BusinessDecisions.Single().Constraints.Single().Applicability != "omitted" ||

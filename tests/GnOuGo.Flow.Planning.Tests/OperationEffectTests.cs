@@ -29,8 +29,9 @@ public sealed class OperationEffectTests
             foreach (var field in request.StructuredOutputSchema!["properties"]!.AsObject())
             {
                 Assert.StartsWith("effect_", field.Key); // identity selections would start operation_
-                var scope = PlanningOperations.Scopes(state).Single(s => PlanningOperations.EffectDecisionId(s.Evidence!) == field.Key);
-                response[field.Key] = OperationEffectFixtures.Answer(state, scope, [target], scope.Evidence!.Id == description.Id ? "governs" : "realizes");
+                var scope = OperationEffectFixtures.Scope(state, field.Key);
+                response[field.Key] = scope.Evidence!.Id == description.Id && field.Key == PlanningOperations.EffectDecisionId(description) ? OperationEffectFixtures.Defer(scope) :
+                    OperationEffectFixtures.Answer(state, scope, [target], scope.Evidence.Id == description.Id ? "governs" : "realizes");
             }
             return Task.FromResult(new LLMResponse { Json = response, CompletionStatus = "completed" });
         } };
@@ -122,14 +123,17 @@ public sealed class OperationEffectTests
     {
         var state = OperationAdmissionTests.State("Transform the first value. Transform the second value. This condition governs one transformation.");
         var first = Add(state, 0); var second = Add(state, 1); Add(state, 2, role: "governing");
-        OperationEffectFixtures.Seed(state);
+        OperationEffectFixtures.Seed(state, rootsOnly: true);
         var runtime = new TypedPlannerTests.FakeRuntime { OnCall = (_, request, _) =>
         {
             var field = request.StructuredOutputSchema!["properties"]!.AsObject().Single();
-            Assert.Equal(new[] { Own(state, first), Own(state, second) }.Order(StringComparer.Ordinal), field.Value!["enum"]!.AsArray().Select(v => v!.ToString()));
-            Assert.NotEmpty(PlanningContractValidation.ValidateInstance(JsonValue.Create("distinct"), field.Value.AsObject()));
-            Assert.NotEmpty(PlanningContractValidation.ValidateInstance(JsonValue.Create(first.ClauseReference), field.Value.AsObject()));
-            return Task.FromResult(new LLMResponse { Json = new JsonObject { [field.Key] = field.Value["enum"]![0]!.DeepClone() }, CompletionStatus = "completed" });
+            var scope = OperationEffectFixtures.Scope(state, field.Key);
+            var realized = PlanningOperations.ReadRealizations(state);
+            Assert.Equal(new[] { Own(state, first), Own(state, second) }.Order(StringComparer.Ordinal), PlanningOperations.RealizedDomain(state, scope.Evidence!, realized).Keys);
+            var answer = OperationEffectFixtures.Answer(state, scope, [Own(state, first)], "governs");
+            var foreign = answer.DeepClone().AsObject(); foreign["effects"] = OperationEffectFixtures.Strings([first.ClauseReference]);
+            Assert.NotEmpty(PlanningContractValidation.ValidateInstance(foreign, field.Value!.AsObject()));
+            return Task.FromResult(new LLMResponse { Json = new JsonObject { [field.Key] = answer }, CompletionStatus = "completed" });
         } };
         await PlanningOperations.ResolveAsync(state, runtime, Ct);
         Assert.Single(runtime.Requests); Assert.Equal(2, state.Obligations.Count(PlanningSourceDecisions.IsOperation));
@@ -204,10 +208,10 @@ public sealed class OperationEffectTests
         var runtime = new TypedPlannerTests.FakeRuntime { OnCall = (_, request, _) => Task.FromResult(new LLMResponse
         { CompletionStatus = "completed", Json = new JsonObject(request.StructuredOutputSchema!["properties"]!.AsObject().Select(p =>
             new KeyValuePair<string, JsonNode?>(p.Key, OperationEffectFixtures.Answer(state,
-                PlanningOperations.Scopes(state).Single(s => PlanningOperations.EffectDecisionId(s.Evidence!) == p.Key), [Own(state, first)])))) }) };
+                OperationEffectFixtures.Scope(state, p.Key), [Own(state, first)])))) }) };
         runtime.OnCheckpoint = snapshot =>
         {
-            if (checkpoint is null && snapshot.DecisionPages.Any(p => p.Status == "completed"))
+            if (checkpoint is null && snapshot.DecisionPages.Any(p => p.Status == "completed" && p.Decisions.Any(id => id.StartsWith("effect_governing_", StringComparison.Ordinal))))
             { checkpoint = PlanningContext.Clone(snapshot); throw new OperationCanceledException("Synthetic crash after verified receipt."); }
             return Task.CompletedTask;
         };
