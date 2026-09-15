@@ -53,3 +53,54 @@ and attachments are explicit frozen fixture preconditions. Both cases retain 16 
 reservations, all-low profiles, 12,000 input / 9,600 dispatch target, 8,192 output and the
 existing bounded singleton escalation. No full planning session, behavior acceptance,
 construction or Stage 1 is authorized. The first meaningful blocker stops the sequence.
+
+## Frozen isolated result
+
+Production and binaries were frozen at **3b5b2167fc60c0d0a0fd7555167e8a7684163bf4**.
+The effective model, policy, catalog, budgets and all-low profiles match the previous
+diagnostic. Exactly one LOCAL case ran; MIXED is **not run**.
+
+LOCAL stopped during source interpretation with an **unverifiable provider availability
+failure**. The saved redacted message is: “The LLM provider is temporarily unavailable.”
+Its HTTP status is not retained in the exception text. Canonical admission made zero
+model calls and committed no operation set. Interpretation did not finish, so neither
+runtime evidence nor fixture declaration attachments reached the admission checkpoint.
+The three declaration ports remain supplied diagnostic preconditions, not fresh evidence.
+
+| Measurement | LOCAL |
+|---|---:|
+| Verified receipts / durable requests and reservations | 11 / 12 |
+| Unverifiable requests | 1 |
+| Schema-valid responses / output-limit receipts | 7 / 4 |
+| Known input / output / reasoning tokens | 15,539 / 35,541 / 34,406 |
+| Largest estimated / actual input | 3,768 / 2,180 |
+| Decision pages / unique answered source decisions | 13 / 14 |
+| Output partitions / singleton escalations | 6 / 1 |
+| Semantic repairs, all gates | 0 |
+| Canonical identity decisions / governing attachment decisions | 0 / 0 |
+| Canonical operation set | Not committed |
+
+Usage for the unverifiable request is **unknown**; the totals cover verified receipts
+only. Engine-resolution counts beyond recorded executable work remain unknown. Nine
+ConstraintsOnly runtime facets remain absent from response schemas; this retained policy
+behavior and the four historical subject selections removed are not provider-call savings.
+
+The affected host-constraint decision is `interpret_746a70b73e67264e9f8a78ca`. Its singleton
+8,192-token receipt reports **632 input tokens, 8,192 reasoning tokens and no assignment**.
+The unchanged 16,384-token escalation failed without a receipt. Its prompt/schema
+fingerprints match the parent. No second escalation or retry occurred.
+
+Read-only audit validates the seven usable historical responses and preserves the four
+output-limit receipts. It cannot reproduce the missing provider response or complete
+interpretation: admission replay stops at the missing-proof boundary. No synthetic
+response substitutes for that unavailable evidence.
+
+All 23 frozen DLLs and production source hashes remain unchanged. The harness verified
+archived accounting unchanged; subsequent audits verified unchanged snapshots and budgets.
+There was no post-run production patch, replacement case, behavior acceptance,
+construction, Stage 1 or Stage 2. **Offline convergence is demonstrated; live canonical
+admission remains unproven by this run.**
+
+Artifacts: [manifest](planner-runtime-occurrence-manifest.json),
+[redacted report](planner-runtime-occurrence-report.json),
+[blocker, request fingerprints and audit limitation](planner-runtime-occurrence-blocker.json).
