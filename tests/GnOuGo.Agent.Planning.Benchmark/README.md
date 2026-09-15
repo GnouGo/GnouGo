@@ -448,3 +448,17 @@ The configured model, low reasoning, 16-reservation diagnostic allowance,
 remain unchanged. The first meaningful failure or unverifiable dispatch stops
 the sequence without a replacement case. Archived budgets and receipts remain
 untouched.
+
+## Isolated captured interpretation request
+
+`diagnose-captured-interpretation` accepts only the identity pinned in the harness.
+It verifies the captured request, parent receipt, stopped checkpoint and cumulative
+budget fingerprints before copying the exact generation request into a separate
+encrypted journal. No planning session is created. One durable reservation is
+allowed; completed receipts can be read again and unverifiable reservations cannot
+be redispatched. Original archive escalation authority is never transferred.
+
+The latest authorized identity, `schema5-realized-governing-singleton-diagnostic-1`,
+has consumed its one-dispatch allowance and is stopped on provider HTTP 500. Do not
+use it to start a replacement request or advance a campaign. See the
+[redacted diagnostic report](../../docs/planner-realized-singleton-diagnostic.md).

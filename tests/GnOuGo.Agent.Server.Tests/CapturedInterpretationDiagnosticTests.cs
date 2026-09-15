@@ -39,6 +39,31 @@ public sealed class CapturedInterpretationDiagnosticTests
     }
 
     [Theory]
+    [InlineData("prompt")]
+    [InlineData("schema")]
+    [InlineData("model")]
+    [InlineData("reasoning")]
+    [InlineData("temperature")]
+    [InlineData("transportRetries")]
+    [InlineData("outputLimit")]
+    public void ChangedGenerationCannotPassExactRequestVerification(string field)
+    {
+        var source = Source();
+        var copy = CapturedInterpretationDiagnostic.CreateRequest(source);
+        switch (field)
+        {
+            case "prompt": copy.Prompt += "changed"; break;
+            case "schema": copy.StructuredOutputSchema!["additionalProperties"] = true; break;
+            case "model": copy.Model = "other"; break;
+            case "reasoning": copy.Reasoning = "medium"; break;
+            case "temperature": copy.Temperature = 0.3; break;
+            case "transportRetries": copy.DisableTransportRetries = false; break;
+            case "outputLimit": copy.MaxTokens = 32768; break;
+        }
+        Assert.Throws<InvalidOperationException>(() => CapturedInterpretationDiagnostic.RequireIdenticalGeneration(source, copy));
+    }
+
+    [Theory]
     [InlineData("completed")]
     [InlineData("output_limit")]
     [InlineData("unverifiable")]

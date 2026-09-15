@@ -25,15 +25,17 @@ namespace GnOuGo.Agent.Planning.Benchmark;
 // One separately authorized transport diagnostic. It cannot create or advance a planner session.
 internal static class CapturedInterpretationDiagnostic
 {
-    internal const string Identity = "schema5-effect-interpretation-singleton-16384-low-1";
+    internal const string Identity = "schema5-realized-governing-singleton-diagnostic-1";
     internal const string Tenant = "runtime-admission-diagnostics";
-    internal const string SourceCampaign = "schema5-effect-grounded-admission-diagnostics-1";
+    internal const string SourceCampaign = "schema5-realized-governing-diagnostics-rerun-1";
     private const string SourceCase = SourceCampaign + ":local";
     private const string Collection = "agent-planning-diagnostics-v5", Author = "GnOuGo.Agent.Planning.Benchmark";
-    private const string Decision = "interpret_18819469387f8281c01c9120";
-    private const string SourceRequest = SourceCase + ":0:3:intent:response_contract:93beceaf3191e878:page_1a567eef6002e05aa7093ded0fd524dd6cbfdcacfbed0b0f34a1994217263a50:e001c096a7b4f9aa037dc6be6be9141a217af58445a743ed2bb8bd639b4bfa85";
-    private const string SourceRequestHash = "a681c93b81c4911ee1d87929732f2fb64b118d4d45078edbc2425961e7e58653";
-    private const string ParentReceiptHash = "e584a011c6a2c70a92d712b9520aa8e56cd3cd862347614fd81d3daf06a1d5fd";
+    private const string Decision = "interpret_3ef1aed4ec4fb268eae6f1b9";
+    private const string SourceRequest = SourceCase + ":0:5:intent:response_contract:93beceaf3191e878:page_a4237432cefa49bea8c3acb705f25a45d1b9e03ddfc04c680cc75f89d4776834:bdabce69f0501d17f4c549cc31ca60bf9ce254540c1d945df80fd6af86ecc3ee";
+    private const string SourceRequestHash = "12dd093242abfff616b7bb7e7c82160f8b803821991d8dd286fc9c501026fb38";
+    private const string ParentReceiptHash = "cf4a7fd402f967fcf0bf9828f01a642d2c39fbc0726024078cce67561c82b31c";
+    private const string SourceCheckpointHash = "0531d6be35591c47b404ccb9fb13ba596b8161a62482819f7eca5ca096d4fb85";
+    private const string SourceBudgetHash = "b9506d60062a7895b61f6598b540113cafaa0f65856da37cfb9cd3c610d1008e";
 
     internal static LLMRequest CreateRequest(LLMRequest source)
     {
@@ -85,6 +87,8 @@ internal static class CapturedInterpretationDiagnostic
     {
         var archived = await records.GetAsync(Collection, Tenant, SourceCase + ":checkpoint", Author)
             ?? throw new InvalidOperationException("Missing archived diagnostic checkpoint.");
+        if (PlanningGraphCompiler.Fingerprint(archived.Value) != SourceCheckpointHash)
+            throw new InvalidOperationException("The archived checkpoint differs from the retained evidence.");
         var envelope = JsonNode.Parse(archived.Value)!;
         var state = JsonSerializer.Deserialize(envelope["snapshot"], PlanningJsonContext.Default.PlanningSnapshot)!;
         if (envelope["phase"]?.ToString() != "stopped") throw new InvalidOperationException("The source diagnostic must remain stopped.");
@@ -105,7 +109,7 @@ internal static class CapturedInterpretationDiagnostic
             JsonSerializer.Deserialize(parentRequest.Value, PlanningJsonContext.Default.LLMRequest)!,
             JsonSerializer.Deserialize(parentReceipt.Value, PlanningJsonContext.Default.LLMResponse)!, SourceCase);
         var campaign = JsonNode.Parse((await records.GetAsync(Collection, Tenant, SourceCampaign, Author))!.Value)!;
-        if (campaign["commit"]?.ToString() != "107cbcdd1789cbefc6b67d53f3ab570499854245")
+        if (campaign["commit"]?.ToString() != "2f8b177ec6076cfdedbf524bd72a01d3f1b457d7")
             throw new InvalidOperationException("The authorized frozen production commit is required.");
         void RequireProductionHashes()
         {
@@ -117,6 +121,8 @@ internal static class CapturedInterpretationDiagnostic
         var before = await ArchiveFingerprintAsync(records, sourceContexts);
         var sourceBudget = await records.GetAsync(PlanningBudgetSink.Collection, Tenant, SourceCase, EfPlanningSessionStore.Author)
             ?? throw new InvalidOperationException("Missing archived cumulative budget.");
+        if (PlanningGraphCompiler.Fingerprint(sourceBudget.Value) != SourceBudgetHash)
+            throw new InvalidOperationException("The archived budget differs from the retained evidence.");
         var seed = JsonSerializer.Deserialize(sourceBudget.Value, PlanningJsonContext.Default.LLMUsageBudgetSnapshot)!;
         var limits = PlanningBudgetOptions.Parse(state.Request.Options) ?? throw new InvalidOperationException("Missing source limits.");
         using var cancel = new CancellationTokenSource(limits.MaxElapsed ?? TimeSpan.FromHours(5));
@@ -143,6 +149,7 @@ internal static class CapturedInterpretationDiagnostic
         {
             ["identity"] = Identity, ["sourceCase"] = SourceCase, ["sourceRequest"] = SourceRequest, ["decision"] = Decision,
             ["sourceRequestFingerprint"] = SourceRequestHash, ["parentReceiptFingerprint"] = ParentReceiptHash,
+            ["sourceCheckpointFingerprint"] = SourceCheckpointHash,
             ["request"] = diagnostic.ClientRequestId, ["productionCommit"] = campaign["commit"]!.DeepClone(),
             ["sourceArchiveFingerprint"] = before, ["sourceBudgetFingerprint"] = PlanningGraphCompiler.Fingerprint(sourceBudget.Value),
             ["contextFingerprint"] = PlanningGraphCompiler.Fingerprint(request.Prompt),
