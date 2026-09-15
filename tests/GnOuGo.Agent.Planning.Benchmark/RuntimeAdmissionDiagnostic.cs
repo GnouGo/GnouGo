@@ -83,7 +83,7 @@ internal static partial class RuntimeAdmissionDiagnostic
         var manifest = manifestRecord is null ? null : JsonNode.Parse(manifestRecord.Value)!.AsObject();
         if (command == "freeze")
         {
-            if (commit != "3cde040d451b22b8ea5141fac3858f2371656c09") throw new InvalidOperationException("The authorized production commit is required.");
+            if (commit != "2f8b177ec6076cfdedbf524bd72a01d3f1b457d7") throw new InvalidOperationException("The authorized production commit is required.");
             if (manifest is not null) throw new InvalidOperationException("This diagnostic has already been frozen.");
             var previousRecord = await records.GetAsync(Collection, Tenant, "schema5-effect-scoped-domains-diagnostics-1", Author, ct)
                 ?? throw new InvalidOperationException("The previous frozen settings are required.");
