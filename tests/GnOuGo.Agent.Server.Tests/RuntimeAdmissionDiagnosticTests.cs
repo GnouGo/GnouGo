@@ -8,17 +8,29 @@ public sealed class RuntimeAdmissionDiagnosticTests
 {
     [Theory]
     [InlineData("local", null, true)]
-    [InlineData("mixed", "passed", true)]
+    [InlineData("mixed", "passed", false)]
     [InlineData("mixed", "stopped", false)]
     [InlineData("mixed", null, false)]
     [InlineData("stage1", "passed", false)]
     [InlineData("stage2", "passed", false)]
     [InlineData("replacement", "passed", false)]
-    public void OnlyTwoGatedCasesAreAuthorized(string name, string? previous, bool allowed)
+    public void OnlyLocalIsAuthorizedEvenAfterLocalSuccess(string name, string? previous, bool allowed)
     {
         var report = previous is null ? null : new JsonObject { ["status"] = previous };
         if (allowed) RuntimeAdmissionDiagnosticRules.RequireCase(name, report);
         else Assert.Throws<InvalidOperationException>(() => RuntimeAdmissionDiagnosticRules.RequireCase(name, report));
+    }
+    [Theory]
+    [InlineData(false, false, false, false, true)]
+    [InlineData(true, false, false, false, false)]
+    [InlineData(false, true, false, false, false)]
+    [InlineData(false, false, true, false, false)]
+    [InlineData(false, false, false, true, false)]
+    [InlineData(true, true, true, true, false)]
+    public void ExistingDurableEvidencePreventsASecondStart(bool checkpoint, bool report, bool budget, bool reservations, bool allowed)
+    {
+        if (allowed) RuntimeAdmissionDiagnosticRules.RequireFreshStart(checkpoint, report, budget, reservations);
+        else Assert.Throws<InvalidOperationException>(() => RuntimeAdmissionDiagnosticRules.RequireFreshStart(checkpoint, report, budget, reservations));
     }
     [Theory]
     [InlineData(16, "intent", "low", true)]

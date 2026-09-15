@@ -462,3 +462,16 @@ The latest authorized identity, `schema5-realized-governing-singleton-diagnostic
 has consumed its one-dispatch allowance and is stopped on provider HTTP 500. Do not
 use it to start a replacement request or advance a campaign. See the
 [redacted diagnostic report](../../docs/planner-realized-singleton-diagnostic.md).
+
+## LOCAL-only realization-ordering rerun
+
+`schema5-realized-governing-diagnostics-rerun-2` authorizes LOCAL only. The mixed
+fixture remains available to offline tests and reporting, but `run-mixed` is
+refused even after a LOCAL pass. Another start is refused if the case already
+has a checkpoint, report, budget or durable reservation; inspect retained evidence
+through `report` or read-only audit instead.
+
+This campaign has consumed its single start and stopped on an unverifiable
+interpretation transport failure. See the
+[LOCAL report](../../docs/planner-realized-governing-rerun-2.md). No subsequent
+gate was started; production remains frozen at `2f8b177`.

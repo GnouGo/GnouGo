@@ -46,6 +46,8 @@ internal static partial class RuntimeAdmissionDiagnostic
         Console.CancelKeyPress += (_, e) => { e.Cancel = true; cancel.Cancel(); }; var ct = cancel.Token;
         var directory = GnOuGoWorkspace.ResolveDatabasePath(null, root, $".GnOuGo/data/planner-diagnostics/{Identity}/gnougo-planning-v5.db");
         if (command is not ("freeze" or "run-local" or "run-mixed" or "report")) throw new ArgumentException("diagnose-runtime-admission freeze COMMIT | run-local | run-mixed | report | selfcheck");
+        if (command is "run-local" or "run-mixed")
+            RuntimeAdmissionDiagnosticRules.RequireCase(command == "run-local" ? "local" : "mixed", null);
         if (command == "report")
         {
             Console.WriteLine((await ReportAsync(records, ct)).ToJsonString()); return;
@@ -85,7 +87,7 @@ internal static partial class RuntimeAdmissionDiagnostic
         {
             if (commit != "2f8b177ec6076cfdedbf524bd72a01d3f1b457d7") throw new InvalidOperationException("The authorized production commit is required.");
             if (manifest is not null) throw new InvalidOperationException("This diagnostic has already been frozen.");
-            var previousRecord = await records.GetAsync(Collection, Tenant, "schema5-realized-governing-diagnostics-1", Author, ct)
+            var previousRecord = await records.GetAsync(Collection, Tenant, "schema5-realized-governing-diagnostics-rerun-1", Author, ct)
                 ?? throw new InvalidOperationException("The previous frozen settings are required.");
             var previousManifest = JsonNode.Parse(previousRecord.Value)!;
             if (!JsonNode.DeepEquals(previousManifest["model"], campaign["model"]) ||
@@ -101,6 +103,7 @@ internal static partial class RuntimeAdmissionDiagnostic
                     throw new InvalidOperationException("A diagnostic scenario or declaration fixture changed.");
             }
             manifest = new() { ["commit"] = commit, ["binaries"] = binaries, ["archiveFingerprint"] = archive,
+                ["authorizedCases"] = new JsonArray("local"),
                 ["model"] = campaign["model"]!.DeepClone(), ["sourceOptionsFingerprint"] = PlanningGraphCompiler.Fingerprint(source.Request.Options.ToJsonString()),
                 ["transportConfigurationFingerprint"] = transportFingerprint,
                 ["catalogFingerprint"] = campaign["stages"]![0]!["catalogHash"]!.DeepClone(),
@@ -131,6 +134,13 @@ internal static partial class RuntimeAdmissionDiagnostic
         }
         var caseName = command == "run-local" ? "local" : "mixed";
         RuntimeAdmissionDiagnosticRules.RequireCase(caseName, previous);
+        var caseId = Identity + ":" + caseName;
+        await using (var db = await ((IDbContextFactory<PlanningDbContext>)contexts).CreateDbContextAsync(ct))
+            RuntimeAdmissionDiagnosticRules.RequireFreshStart(
+                await records.GetAsync(Collection, Tenant, caseId + ":checkpoint", Author, ct) is not null,
+                await records.GetAsync(Collection, Tenant, caseId + ":report", Author, ct) is not null,
+                await records.GetAsync(PlanningBudgetSink.Collection, Tenant, caseId, EfPlanningSessionStore.Author, ct) is not null,
+                await db.Calls.AnyAsync(c => c.TenantId == Tenant && c.SessionId == caseId, ct));
         await RunCaseAsync(caseName, source, contexts, records, transport.LlmClient, capabilities,
             new ModelMetadataUsageCostEstimator(transport.Options), new EcbExchangeRateProvider(ratesHttp), ct);
         if (archive != await ArchiveAsync(records, CancellationToken.None)) throw new InvalidOperationException("Archived accounting changed.");

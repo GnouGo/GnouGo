@@ -6,13 +6,17 @@ namespace GnOuGo.Agent.Planning.Benchmark;
 
 internal static class RuntimeAdmissionDiagnosticRules
 {
-    internal const string Identity = "schema5-realized-governing-diagnostics-rerun-1";
+    internal const string Identity = "schema5-realized-governing-diagnostics-rerun-2";
     internal const int MaxCalls = 16;
     internal static readonly string[] Cases = ["local", "mixed"];
     internal static void RequireCase(string name, JsonObject? previous)
     {
-        if (!Cases.Contains(name, StringComparer.Ordinal)) throw new InvalidOperationException("Only the two frozen diagnostic cases are authorized.");
-        if (name == "mixed" && previous?["status"]?.ToString() != "passed") throw new InvalidOperationException("The first diagnostic must pass before the mixed case.");
+        if (name != "local") throw new InvalidOperationException("This campaign authorizes LOCAL only; later gates require separate authorization.");
+    }
+    internal static void RequireFreshStart(bool checkpoint, bool report, bool budget, bool reservations)
+    {
+        if (checkpoint || report || budget || reservations)
+            throw new InvalidOperationException("This LOCAL has already started. Read its report; do not start or resume it again.");
     }
     internal static void RequireRequest(PlanningSnapshot state)
     {
