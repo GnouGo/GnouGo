@@ -65,10 +65,18 @@ internal static partial class PlanningOperations
                 actionReference, value["resource"] is { } resource ? Select(resource) : null,
                 value["execution"]?.ToString() == "generated_workflow" ? actionReference : null, value["kind"]?.ToString(), value["evidence"]?.ToString(),
                 value["baseline"]?.ToString(), value["resourceAction"]?.ToString(), value["required"]?.GetValue<bool>() ?? false, "") { ResourceOwnership = value["ownership"]?.ToString() };
-            result.Add(SealRuntime(state, evidence));
+            var normalized = SealRuntime(state, evidence);
+            var existing = result.SingleOrDefault(item => item.Id == normalized.Id);
+            if (existing is not null)
+            {
+                // The stable ID omits requiredness and baseline/resource metadata.
+                // Compare the complete normalized record before collapsing any duplicate.
+                if (existing != normalized)
+                    throw Failure(source.Id, "Runtime evidence with the same identity has conflicting semantic fields.", "INTENT_RUNTIME_EVIDENCE_CONFLICT");
+                continue;
+            }
+            result.Add(normalized);
         }
-        if (result.Select(e => e.Id).Distinct(StringComparer.Ordinal).Count() != result.Count)
-            throw Failure(source.Id, "Runtime evidence contains a repeated assignment.");
         return result;
     }
 

@@ -26,6 +26,13 @@ confirmation](../../docs/planner-confirmation-scopes.md).
 
 Runtime actions pass [evidence-based admission](../../docs/planner-runtime-admission.md). Source interpretation independently distinguishes planning directives, public contracts, local executable behavior and requested external actions. Canonical declarations resolve first. Directives, declarations, omission defaults and policy subjects produce no operation question. Interpretation supplies action or governing evidence, never an operation subject or canonical occurrence. Within `intent_operations`, unopposed actions establish roots deterministically; compatible action candidates use bounded identity-only decisions (`distinct`, `same_as`, retirement or unresolved). Governing evidence attaches only after roots exist, deterministically for a unique compatible root or through a validated canonical target set for shared/ambiguous scope. Local operations retain native nodes without external capability authority or capability-matching calls. Admission commits atomically before confirmation scoping and inventory. Neither proven local behavior nor an external action means `INTENT_OPERATION_UNRESOLVED`. ConstraintsOnly runtime policy scope is engine-owned and absent from model answers. Exact canonical declaration evidence excludes covered local occurrences without discarding independently evidenced actions in a shared clause. Runtime proof version 3 and operation proof version 4 are additive within Schema-5; missing historical proof requires explicit reassessment.
 
+Runtime parsing collapses exact duplicate normalized evidence in first-seen order,
+without a model correction or repair charge. It compares every record field because
+stable evidence IDs omit some contract metadata. Colliding IDs with different
+requiredness, baseline authority or resource semantics stop with the located
+`INTENT_RUNTIME_EVIDENCE_CONFLICT` diagnostic. Canonical IDs, fingerprints and the
+original model receipts remain unchanged by repeated identical entries.
+
 Public inputs and outputs first pass [canonical declaration adjudication](../../docs/planner-business-declarations.md). Interpretation emits direction-neutral candidates. Existing adjudication pages establish canonical roots with explicit direction/presence before resolving aliases and modifiers against those roots; preliminary spans cannot create ports. Only `omission_default` modifiers can supply optional input defaults; `runtime_fallback` stays executable evidence. Output defaults, unspecified distinct-port presence and changes to established direction/presence through attachments are excluded by the response schema.
 
 `declaration_constraint` evidence enters the existing attachment pages directly for

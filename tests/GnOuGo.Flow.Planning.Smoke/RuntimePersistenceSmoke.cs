@@ -183,8 +183,14 @@ internal static class RuntimePersistenceSmoke
                 var snapshot = opened.Snapshot;
                 var scopes = PlanningOperations.SourceScopes(snapshot);
                 foreach (var scope in scopes)
-                    snapshot.RuntimeEvidence.Add(PlanningOperations.SealRuntime(snapshot, new("", scope.Clause.Id, scope.Clause.Id,
-                        "local_behavior", scope.Clause.Id, null, scope.Clause.Id, "local_processing", scope == scopes[^1] ? "governing" : "action", null, null, true, "")));
+                {
+                    var answer = new JsonObject { ["role"] = "local_behavior", ["kind"] = "local_processing",
+                        ["action"] = new JsonObject { ["start"] = "b0", ["end"] = scope.Boundaries["properties"]!["end"]!["enum"]!.AsArray().Last()!.DeepClone() },
+                        ["execution"] = "generated_workflow", ["evidence"] = scope == scopes[^1] ? "governing" : "action", ["required"] = true, ["baseline"] = null };
+                    snapshot.RuntimeEvidence.AddRange(PlanningOperations.ParseRuntime(snapshot, scope.Clause, scope.Select,
+                        new JsonArray(answer.DeepClone(), answer.DeepClone(), answer.DeepClone())));
+                }
+                if (snapshot.RuntimeEvidence.Count != 3) throw new InvalidOperationException("Exact runtime evidence duplicates did not collapse.");
                 snapshot.RuntimeEvidenceFingerprint = PlanningOperations.RuntimeFingerprint(snapshot);
                 var eligible = PlanningOperations.Scopes(snapshot);
                 var first = eligible[0].Evidence!;
@@ -201,7 +207,7 @@ internal static class RuntimePersistenceSmoke
                 await using var resumed = await Factory().OpenAsync(Context("operations"), Operations(), CancellationToken.None);
                 await PlanningOperations.ResolveAsync(resumed.Snapshot, resumed.Runtime, CancellationToken.None);
                 var operation = resumed.Snapshot.Obligations.Single(PlanningSourceDecisions.IsOperation);
-                if (client.Calls != identityCalls || operation.OperationAdmission!.Assignments.Count != 3 || resumed.Snapshot.RepairAllowances.Count != 0 ||
+                if (client.Calls != identityCalls || resumed.Snapshot.RuntimeEvidence.Count != 3 || operation.OperationAdmission!.Assignments.Count != 3 || resumed.Snapshot.RepairAllowances.Count != 0 ||
                     operationFingerprint is not null && operationFingerprint != resumed.Snapshot.OperationAdmissionFingerprint)
                     throw new InvalidOperationException("Published encrypted operation identity/attachment replay failed.");
                 operationFingerprint = resumed.Snapshot.OperationAdmissionFingerprint;

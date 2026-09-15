@@ -65,7 +65,8 @@ repair reservation, then attaches the alias to a name/scope/direction-derived
 canonical ID. A second restart dispatches nothing. Both fixtures run in the published
 Native AOT binary, using synthetic transports rather than historical model receipts.
 
-The operation fixture persists a completed occurrence-identity page before admission
+The operation fixture first parses three identical copies of each action/governing
+assignment into one normalized evidence item, then persists a completed occurrence-identity page before admission
 commits. Encrypted restart reuses its `same_as` receipt, attaches a governing rule to the
 single canonical operation without a model call, and verifies a second restart adds no
 calls or repair charges. Runtime evidence uses action/governing roles without source-clause
