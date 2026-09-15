@@ -31,6 +31,16 @@ if (args[0] == "diagnose-runtime-admission")
 {
     await RuntimeAdmissionDiagnostic.RunAsync(args[1], args.Length > 2 ? args[2] : null, root, records); return;
 }
+if (args[0] == "diagnose-captured-interpretation")
+{
+    if (args.Length != 2 || args[1] != CapturedInterpretationDiagnostic.Identity) throw new ArgumentException("The single authorized diagnostic identity is required.");
+    var sourcePath = GnOuGoWorkspace.ResolveDatabasePath(null, root, $".GnOuGo/data/planner-diagnostics/{CapturedInterpretationDiagnostic.SourceCampaign}/gnougo-planning-v5.db");
+    var diagnosticPath = GnOuGoWorkspace.ResolveDatabasePath(null, root, $".GnOuGo/data/planner-diagnostics/{CapturedInterpretationDiagnostic.Identity}/gnougo-planning-v5.db");
+    Directory.CreateDirectory(Path.GetDirectoryName(diagnosticPath)!);
+    using var lease = new FileStream(diagnosticPath + ".lock", FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.None);
+    await CapturedInterpretationDiagnostic.RunAsync(root, records, new Contexts(sourcePath, readOnly: true), new Contexts(diagnosticPath));
+    return;
+}
 if (args[0] == "diagnose-singleton-output")
 {
     if (args.Length != 2 || args[1] != SingletonOutputDiagnostic.Identity) throw new ArgumentException("The single authorized diagnostic identity is required.");
