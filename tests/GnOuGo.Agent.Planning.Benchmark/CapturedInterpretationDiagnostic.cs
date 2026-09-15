@@ -25,15 +25,15 @@ namespace GnOuGo.Agent.Planning.Benchmark;
 // One separately authorized transport diagnostic. It cannot create or advance a planner session.
 internal static class CapturedInterpretationDiagnostic
 {
-    internal const string Identity = "schema5-singleton-interpretation-16384-low-1";
+    internal const string Identity = "schema5-effect-interpretation-singleton-16384-low-1";
     internal const string Tenant = "runtime-admission-diagnostics";
-    internal const string SourceCampaign = "schema5-runtime-occurrence-diagnostics-1";
+    internal const string SourceCampaign = "schema5-effect-grounded-admission-diagnostics-1";
     private const string SourceCase = SourceCampaign + ":local";
     private const string Collection = "agent-planning-diagnostics-v5", Author = "GnOuGo.Agent.Planning.Benchmark";
-    private const string Decision = "interpret_746a70b73e67264e9f8a78ca";
-    private const string SourceRequest = SourceCase + ":0:12:intent:response_contract:93beceaf3191e878:page_3cfa054ca0189296c1309c8c715405503695ecb19582f8135300875e3da3365e:73af344d3bbee04413cf04b75b8e83c83fcefd2a382aed9accb142d12d8d4236";
-    private const string SourceRequestHash = "21cbc130845c749897a61963aa55755e7192d337cd3424ce1c55c98fca58ef91";
-    private const string ParentReceiptHash = "30dfa2a56920902a01385d3065c9c5fdeb52cfbf49391753eef2477b27b33dfe";
+    private const string Decision = "interpret_18819469387f8281c01c9120";
+    private const string SourceRequest = SourceCase + ":0:3:intent:response_contract:93beceaf3191e878:page_1a567eef6002e05aa7093ded0fd524dd6cbfdcacfbed0b0f34a1994217263a50:e001c096a7b4f9aa037dc6be6be9141a217af58445a743ed2bb8bd639b4bfa85";
+    private const string SourceRequestHash = "a681c93b81c4911ee1d87929732f2fb64b118d4d45078edbc2425961e7e58653";
+    private const string ParentReceiptHash = "e584a011c6a2c70a92d712b9520aa8e56cd3cd862347614fd81d3daf06a1d5fd";
 
     internal static LLMRequest CreateRequest(LLMRequest source)
     {
@@ -105,6 +105,8 @@ internal static class CapturedInterpretationDiagnostic
             JsonSerializer.Deserialize(parentRequest.Value, PlanningJsonContext.Default.LLMRequest)!,
             JsonSerializer.Deserialize(parentReceipt.Value, PlanningJsonContext.Default.LLMResponse)!, SourceCase);
         var campaign = JsonNode.Parse((await records.GetAsync(Collection, Tenant, SourceCampaign, Author))!.Value)!;
+        if (campaign["commit"]?.ToString() != "107cbcdd1789cbefc6b67d53f3ab570499854245")
+            throw new InvalidOperationException("The authorized frozen production commit is required.");
         void RequireProductionHashes()
         {
             foreach (var binary in campaign["binaries"]!.AsObject().Where(b => b.Key != "GnOuGo.Agent.Planning.Benchmark.dll"))
