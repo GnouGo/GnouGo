@@ -9,7 +9,7 @@ internal static partial class PlanningOperations
     // These indexes are derived request domains. Only completed decision pages and
     // the proofs attached to admitted obligations are persisted.
     internal static string EffectDecisionId(PlanningRuntimeEvidence evidence) => "effect_" + evidence.Id;
-    internal static string EffectFingerprint(PlanningSnapshot state) => "effect-proof-v1:" + EvidenceFingerprint(state);
+    internal static string EffectFingerprint(PlanningSnapshot state) => "effect-proof-v1:scoped-domain-v1:" + EvidenceFingerprint(state);
 
     internal static string CanonicalId(PlanningSnapshot state, PlanningOperationEffectAnchor effect, string kind, string? baseline)
     {
@@ -85,6 +85,7 @@ internal static partial class PlanningOperations
     {
         var evidence = scope.Evidence!;
         var domain = EffectDomain(state, evidence);
+        var producers = AllEffects(state);
         var sources = PlanningSourceDecisions.Sources(state);
         var references = state.References.Where(r => sources.ContainsKey(r.SourceId) && PlanningChoiceEvidence.Current(state, r.Id) &&
             (r.Id == evidence.ActionReference || r.Id == evidence.ClauseReference ||
@@ -92,13 +93,16 @@ internal static partial class PlanningOperations
                 state.Obligations.Any(o => o.Kind is "workflow_boundary" or "iteration" && o.EvidenceReferences.Contains(r.Id))))
             .DistinctBy(r => r.Id).OrderBy(r => r.Id, StringComparer.Ordinal).ToArray();
         var variants = new JsonArray(PlanningHoleRequests.Object(("status", PlanningHoleRequests.Enum(["unresolved", "not_an_effect"]))));
-        if (domain.Count > 0)
+        // Each alternative is one execution scope. Foreign values must cross an
+        // established interface (for example a caller-side workflow.call effect),
+        // never become directly visible because another workflow was mentioned.
+        foreach (var group in domain.GroupBy(p => p.Value.WorkflowScope, StringComparer.Ordinal).OrderBy(g => g.Key, StringComparer.Ordinal))
             variants.Add((JsonNode)PlanningHoleRequests.Object(("status", PlanningHoleRequests.Enum(["mapped"])),
                 ("contribution", PlanningHoleRequests.Enum(evidence.EvidenceRole == "action" ? ["realizes", "governs", "shared_rule"] : ["governs", "shared_rule"])),
-                ("effects", ReferencesArray(domain.Keys, 1)),
-                ("inputs", ReferencesArray(state.Declarations.Where(d => d.Direction == "input").Select(d => d.Id))),
-                ("outputs", ReferencesArray(state.Declarations.Where(d => d.Direction == "output").Select(d => d.Id))),
-                ("producers", ReferencesArray(AllEffects(state).Keys)),
+                ("effects", ReferencesArray(group.Select(p => p.Key), 1)),
+                ("inputs", ReferencesArray(state.Declarations.Where(d => d.Direction == "input" && d.WorkflowScope == group.Key).Select(d => d.Id))),
+                ("outputs", ReferencesArray(state.Declarations.Where(d => d.Direction == "output" && d.WorkflowScope == group.Key).Select(d => d.Id))),
+                ("producers", ReferencesArray(producers.Where(p => p.Value.WorkflowScope == group.Key).Select(p => p.Key))),
                 ("evidence", ReferencesArray(references.Select(r => r.Id), 1))));
         return new(EffectDecisionId(evidence), new() { ["anyOf"] = variants }, new()
         {
@@ -115,9 +119,10 @@ internal static partial class PlanningOperations
                 new JsonObject { ["name"] = PlanningDeclarations.Name(state, d), ["direction"] = d.Direction, ["scope"] = d.WorkflowScope,
                     ["evidence"] = string.Join(" ", d.ClauseReferences.Distinct().Select(r => PlanningChoiceEvidence.Text(state, r))) }))),
             ["references"] = new JsonObject(references.Select(r => new KeyValuePair<string, JsonNode?>(r.Id, JsonValue.Create(PlanningChoiceEvidence.Text(state, r.Id))))),
-            ["producerEffects"] = new JsonObject(AllEffects(state).Select(p => new KeyValuePair<string, JsonNode?>(p.Key, JsonValue.Create(
+            ["producerEffects"] = new JsonObject(producers.Where(p => domain.Values.Any(e => e.WorkflowScope == p.Value.WorkflowScope))
+                .Select(p => new KeyValuePair<string, JsonNode?>(p.Key, new JsonObject { ["scope"] = p.Value.WorkflowScope, ["evidence"] =
                 state.Declarations.Any(d => d.Id == p.Value.OwnerReference) ? PlanningDeclarations.Name(state, state.Declarations.Single(d => d.Id == p.Value.OwnerReference)) :
-                PlanningChoiceEvidence.Current(state, p.Value.BoundaryReference) ? PlanningChoiceEvidence.Text(state, p.Value.BoundaryReference) : p.Value.BoundaryKind))))
+                PlanningChoiceEvidence.Current(state, p.Value.BoundaryReference) ? PlanningChoiceEvidence.Text(state, p.Value.BoundaryReference) : p.Value.BoundaryKind })))
         }, EffectFingerprint(state));
     }
 
@@ -137,17 +142,23 @@ internal static partial class PlanningOperations
         }
         var candidates = Values("effects").Select(id => domain[id]).ToList();
         var inputs = Values("inputs"); var outputs = Values("outputs"); var refs = Values("evidence");
+        var producerIds = Values("producers");
+        var producers = AllEffects(state);
+        if (candidates.Select(c => c.WorkflowScope).Distinct(StringComparer.Ordinal).Count() > 1)
+            throw Failure(scope.Evidence!.Id, "An effect assignment cannot combine incompatible workflow scopes.");
         if (status == "mapped" && !refs.Contains(scope.Evidence!.ClauseReference) && !refs.Contains(scope.Evidence!.ActionReference!))
             throw Failure(scope.Evidence.Id, "An effect assignment needs its own governing action or clause evidence.");
         foreach (var candidate in candidates)
         {
             if (inputs.Concat(outputs).Any(id => state.Declarations.Single(d => d.Id == id).WorkflowScope != candidate.WorkflowScope))
                 throw Failure(scope.Evidence!.Id, "Effect dataflow crosses an unestablished workflow boundary.");
+            if (producerIds.Any(id => !producers.TryGetValue(id, out var producer) || producer.WorkflowScope != candidate.WorkflowScope))
+                throw Failure(scope.Evidence!.Id, "A foreign producer requires an established effect in the consuming workflow scope.");
             if (candidate.BoundaryKind == "result_realization" && answer["contribution"]?.ToString() == "realizes" && !outputs.Contains(candidate.OwnerReference))
                 throw Failure(scope.Evidence!.Id, "A result realization must establish production of its exact owned result.");
         }
         return new(1, decision.Id, status == "not_an_effect" ? "none" : answer["contribution"]!.ToString(), candidates,
-            inputs, outputs, Values("producers"), refs, "model", EffectFingerprint(state));
+            inputs, outputs, producerIds, refs, "model", EffectFingerprint(state));
     }
 
     internal static PlanningOperationEffectProof BaselineEffect(PlanningSnapshot state, Scope scope)

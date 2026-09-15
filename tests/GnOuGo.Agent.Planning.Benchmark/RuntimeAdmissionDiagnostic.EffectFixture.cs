@@ -23,7 +23,9 @@ internal static partial class RuntimeAdmissionDiagnostic
         if (state.Obligations.Any(o => o.OperationAdmission is not null) || state.Construction.PendingCalls.Count != 0)
             throw new InvalidOperationException("The offline fixture requires the captured completed-interpretation checkpoint without pending dispatches or admitted operations.");
         var historicalIdentityDecisions = state.DecisionPages.Where(p => p.Phase == "intent_operations" && p.Status == "completed")
-            .SelectMany(p => p.Decisions).Distinct(StringComparer.Ordinal).Count();
+            .SelectMany(p => p.Decisions).Where(id => id.StartsWith("operation_", StringComparison.Ordinal)).Distinct(StringComparer.Ordinal).Count();
+        var historicalEffectDecisions = state.DecisionPages.Where(p => p.Phase == "intent_operations" && p.Status == "completed")
+            .SelectMany(p => p.Decisions).Where(id => id.StartsWith("effect_", StringComparison.Ordinal)).Distinct(StringComparer.Ordinal).Count();
         var accounting = state.RequestAccounting.Count;
         var declarations = state.DeclarationFingerprint;
         var client = new EffectFixtureClient(state);
@@ -52,6 +54,7 @@ internal static partial class RuntimeAdmissionDiagnostic
             ["evidence"] = "Synthetic effect-grounding responses over retained interpretation and declaration fixtures; not historical receipts or live evidence.",
             ["sourceIdentity"] = id, ["sourceUnchanged"] = true, ["providerDispatches"] = 0,
             ["historicalStandaloneIdentityDecisions"] = historicalIdentityDecisions,
+            ["historicalEffectGroundingDecisions"] = historicalEffectDecisions,
             ["fixtureStandaloneIdentityDecisions"] = requestFields.Count(k => k.StartsWith("operation_", StringComparison.Ordinal)),
             ["fixtureEffectGroundingDecisions"] = requestFields.Count(k => k.StartsWith("effect_", StringComparison.Ordinal)),
             ["fixtureRelationshipDecisions"] = requestFields.Count(k => k.StartsWith("relation_", StringComparison.Ordinal)),
