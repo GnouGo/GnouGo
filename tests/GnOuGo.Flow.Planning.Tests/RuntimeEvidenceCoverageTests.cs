@@ -88,7 +88,7 @@ public sealed class RuntimeEvidenceCoverageTests
         Assert.Equal(events, restored.Events.Count); Assert.Equal(state.OperationAdmissionFingerprint, restored.OperationAdmissionFingerprint);
         var uncommitted = PlanningContext.Clone(state); uncommitted.OperationAdmissionFingerprint = null;
         uncommitted.Obligations.RemoveAll(o => o.OperationAdmission is not null);
-        var governing = PlanningOperations.SealRuntime(uncommitted, covered with { Occurrence = "governing", SubjectReference = action.SubjectReference });
+        var governing = PlanningOperations.SealRuntime(uncommitted, covered with { EvidenceRole = "governing" });
         uncommitted.RuntimeEvidence[uncommitted.RuntimeEvidence.FindIndex(e => e.Id == covered.Id)] = governing;
         uncommitted.RuntimeEvidenceFingerprint = PlanningOperations.RuntimeFingerprint(uncommitted);
         await PlanningOperations.ResolveAsync(uncommitted, NoModel(), Ct);
@@ -134,7 +134,7 @@ public sealed class RuntimeEvidenceCoverageTests
         var state = JsonSerializer.Deserialize(await File.ReadAllTextAsync(Path.Combine(AppContext.BaseDirectory, "Fixtures", "operation-admission-stage1.json"), Ct), PlanningJsonContext.Default.PlanningSnapshot)!;
         PlanningFixtures.EmptyRuntime(state);
         var root = PlanningFixtures.Runtime(state, Span(state, "classifying a single record."));
-        PlanningFixtures.Runtime(state, Span(state, "Classify as rejected when approved is false, high when approved is true and amount>=threshold, and standard otherwise."), occurrence: "governing", subject: root.SubjectReference);
+        PlanningFixtures.Runtime(state, Span(state, "Classify as rejected when approved is false, high when approved is true and amount>=threshold, and standard otherwise."), evidenceRole: "governing");
         var preservation = PlanningFixtures.Runtime(state, Span(state, "Preserve the original id and amount."));
         PlanningDeclarations.Commit(state, state.DeclarationAssignments, PlanningDeclarations.EvidenceFingerprint(state));
         await PlanningOperations.ResolveAsync(state, NoModel(), Ct);

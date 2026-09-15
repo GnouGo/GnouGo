@@ -119,7 +119,7 @@ internal static partial class RuntimeAdmissionDiagnostic
                 var action = SourceSpan(state, state.Request.Prompt.IndexOf(text, StringComparison.Ordinal), text.Length);
                 var clause = PlanningChoiceEvidence.Parent(state, action.Id);
                 state.RuntimeEvidence.Add(PlanningOperations.SealRuntime(state, new("", action.Id, clause.Id,
-                    kind == "local_processing" ? "local_behavior" : "runtime_action", action.Id, clause.Id, action.Id, kind, "distinct", null, null, true, "")));
+                    kind == "local_processing" ? "local_behavior" : "runtime_action", action.Id, null, action.Id, kind, "action", null, null, true, "")));
             }
         }
         Console.WriteLine(new JsonObject { ["evidence"] = "synthetic fixture selfcheck", ["cases"] = cases }.ToJsonString());

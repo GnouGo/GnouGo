@@ -23,6 +23,10 @@ const string tenant = "planner-benchmark";
 const string evidenceKey = "codereview-bc72dd6";
 var root = AppContext.BaseDirectory;
 var records = KeyVaultRecordStoreFactory.CreateWorkspaceStore(null, root);
+if (args[0] == "audit-runtime-admission")
+{
+    await RuntimeAdmissionDiagnostic.AuditAsync(args[1], records); return;
+}
 if (args[0] == "diagnose-runtime-admission")
 {
     await RuntimeAdmissionDiagnostic.RunAsync(args[1], args.Length > 2 ? args[2] : null, root, records); return;

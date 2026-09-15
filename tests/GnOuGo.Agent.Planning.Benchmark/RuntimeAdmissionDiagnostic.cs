@@ -240,9 +240,21 @@ internal static partial class RuntimeAdmissionDiagnostic
         report["runtimeRoles"] = new JsonObject(state.RuntimeEvidence.GroupBy(e => e.Role).Select(g => new KeyValuePair<string, JsonNode?>(g.Key, JsonValue.Create(g.Count()))));
         report["runtimeEvidence"] = new JsonArray(state.RuntimeEvidence.Select(e => (JsonNode)new JsonObject
         { ["id"] = e.Id, ["role"] = e.Role, ["scope"] = e.ExecutionScope.ToString(), ["origin"] = e.Origin.ToString(),
-            ["kind"] = e.Kind, ["occurrence"] = e.Occurrence, ["actionReference"] = e.ActionReference,
-            ["subjectReference"] = e.SubjectReference, ["clauseReference"] = e.ClauseReference, ["proofFingerprint"] = e.ProofFingerprint }).ToArray());
-        report["engineAdmittedLocalActions"] = state.OperationAdmissionFingerprint is null ? null : state.Obligations.Count(o => o.OperationAdmission is not null && o.Kind == "local_processing");
+            ["kind"] = e.Kind, ["evidenceRole"] = e.EvidenceRole, ["actionReference"] = e.ActionReference,
+            ["resourceReference"] = e.ResourceReference, ["clauseReference"] = e.ClauseReference, ["proofFingerprint"] = e.ProofFingerprint }).ToArray());
+        var assignments = state.Obligations.Where(PlanningSourceDecisions.IsOperation).SelectMany(o => o.OperationAdmission!.Assignments).ToArray();
+        report["actionCandidates"] = state.RuntimeEvidence.Count(e => e.EvidenceRole == "action");
+        report["canonicalOperations"] = state.OperationAdmissionFingerprint is null ? null : new JsonArray(state.Obligations.Where(PlanningSourceDecisions.IsOperation)
+            .Select(o => (JsonNode)new JsonObject { ["id"] = o.Id, ["kind"] = o.Kind, ["anchor"] = o.OperationAdmission!.AnchorReference,
+                ["evidence"] = new JsonArray(o.OperationAdmission.Assignments.Select(a => (JsonNode)new JsonObject
+                { ["decisionId"] = a.DecisionId, ["evidenceId"] = a.RuntimeEvidenceId, ["disposition"] = a.Disposition,
+                    ["origin"] = a.ResolutionOrigin, ["target"] = a.TargetId }).ToArray()) }).ToArray());
+        report["identityModelDecisions"] = assignments.Where(a => a.ResolutionOrigin == "model" && a.Disposition is "distinct" or "same_as").DistinctBy(a => a.DecisionId).Count();
+        report["governingModelDecisions"] = assignments.Where(a => a.ResolutionOrigin == "model" && a.Disposition == "attach").DistinctBy(a => a.DecisionId).Count();
+        report["governingDeterministicAttachments"] = assignments.Count(a => a.ResolutionOrigin == "deterministic" && a.Disposition == "attach");
+        report["retiredActionCandidates"] = state.DecisionPages.Where(p => p.Phase == "intent_operations" && p.Status == "completed" && p.Candidate is not null)
+            .SelectMany(p => p.Candidate!.Where(v => v.Value?["status"]?.ToString() == "not_an_operation").Select(v => v.Key)).Distinct(StringComparer.Ordinal).Count();
+        report["engineAdmittedLocalActions"] = state.OperationAdmissionFingerprint is null ? null : state.Obligations.Count(o => o.OperationAdmission is not null && o.Kind == "local_processing" && o.OperationAdmission.Assignments[0].ResolutionOrigin == "deterministic");
         report["engineAdmittedExternalActions"] = state.OperationAdmissionFingerprint is null ? null : state.Obligations.Count(o => o.OperationAdmission is not null && o.Kind != "local_processing");
         report["admissionModelCalls"] = state.RequestAccounting.Count(c => c.Phase.StartsWith("intent_operations", StringComparison.Ordinal) && receipts.GetValueOrDefault(c.Id) is not null);
         report["fixturePreconditions"] = "Canonical declarations supplied; interpretation obligations retained encrypted but not adjudicated in this diagnostic.";

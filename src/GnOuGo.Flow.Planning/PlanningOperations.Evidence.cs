@@ -6,7 +6,7 @@ namespace GnOuGo.Flow.Planning;
 
 internal static partial class PlanningOperations
 {
-    internal static string RuntimeFingerprint(PlanningSnapshot state) => PlanningGraphCompiler.Fingerprint("runtime-evidence-v2:" +
+    internal static string RuntimeFingerprint(PlanningSnapshot state) => PlanningGraphCompiler.Fingerprint("runtime-evidence-v3:" +
         new JsonArray(PlanningIntentAssessment.IntentSources(state).Select(s => (JsonNode)new JsonArray(s.Id, s.Authority.ToString(), s.Text)).ToArray()).ToJsonString() + ":" +
         JsonSerializer.Serialize(state.RuntimeEvidence.OrderBy(e => e.Id, StringComparer.Ordinal).ToList(), PlanningJsonContext.Default.ListPlanningRuntimeEvidence));
 
@@ -15,19 +15,19 @@ internal static partial class PlanningOperations
         if (authority == PlanningSourceAuthority.ConstraintsOnly)
             throw new InvalidOperationException("Policy execution scope is engine owned and has no model response domain.");
         var variants = new JsonArray(PlanningHoleRequests.Object(("role", PlanningHoleRequests.Enum(["planning_directive", "contract", "policy", "unresolved"]))));
-        var subjects = SourceClauses(state).Select(c => c.Id).ToArray();
         JsonObject Action(string role, string[] kinds, string? baseline = null)
         {
             var fields = new List<(string, JsonObject)>
             {
                 ("role", PlanningHoleRequests.Enum([role])), ("kind", PlanningHoleRequests.Enum(kinds)),
                 ("action", boundaries.DeepClone().AsObject()), ("execution", PlanningHoleRequests.Enum(["generated_workflow"])),
-                ("subject", PlanningHoleRequests.Enum(subjects)), ("occurrence", PlanningHoleRequests.Enum(["distinct", "governing"])),
+                ("evidence", PlanningHoleRequests.Enum(["action", "governing"])),
                 ("required", PlanningHoleRequests.Type("boolean")),
                 ("baseline", baseline is null ? PlanningHoleRequests.Type("null") : PlanningHoleRequests.Enum([baseline]))
             };
             if (kinds[0] is "resource_lifecycle" or "cleanup")
             {
+                fields.Add(("resource", boundaries.DeepClone().AsObject()));
                 fields.Add(("ownership", PlanningHoleRequests.Enum(["workflow_runtime_resource"])));
                 fields.Add(("resourceAction", PlanningHoleRequests.Enum(kinds[0] == "cleanup" ? ["release", "delete"] : ["create", "acquire", "release", "delete"])));
             }
@@ -47,14 +47,6 @@ internal static partial class PlanningOperations
         return new() { ["type"] = "array", ["minItems"] = 1, ["maxItems"] = 4, ["items"] = new JsonObject { ["anyOf"] = variants } };
     }
 
-    internal static PlanningReference[] SourceClauses(PlanningSnapshot state) => PlanningIntentAssessment.IntentSources(state)
-        .SelectMany(s => PlanningReferences.Register(state, s.Id, s.Kind, s.Text).ToArray()
-            .Where(r => !string.IsNullOrWhiteSpace(s.Text.Substring(r.Start, r.Length)))
-            .Select(r => PlanningReferences.ContainingClause(state, r, s.Text))).DistinctBy(r => r.Id).ToArray();
-
-    internal static JsonObject RuntimeContext(PlanningSnapshot state) => new(SourceClauses(state).Select(r =>
-        new KeyValuePair<string, JsonNode?>(r.Id, JsonValue.Create(PlanningChoiceEvidence.Text(state, r.Id)))));
-
     internal static List<PlanningRuntimeEvidence> ParseRuntime(PlanningSnapshot state, PlanningReference source,
         Func<string, string, PlanningReference> select, JsonArray values)
     {
@@ -70,9 +62,9 @@ internal static partial class PlanningOperations
             var role = value!["role"]!.ToString();
             var actionReference = value["action"] is { } action ? Select(action) : null;
             var evidence = new PlanningRuntimeEvidence("", source.Id, PlanningChoiceEvidence.Parent(state, source.Id).Id, role,
-                actionReference, value["subject"]?.ToString(),
-                value["execution"]?.ToString() == "generated_workflow" ? actionReference : null, value["kind"]?.ToString(), value["occurrence"]?.ToString(),
-                value["baseline"]?.ToString(), value["resourceAction"]?.ToString(), value["required"]?.GetValue<bool>() ?? false, "");
+                actionReference, value["resource"] is { } resource ? Select(resource) : null,
+                value["execution"]?.ToString() == "generated_workflow" ? actionReference : null, value["kind"]?.ToString(), value["evidence"]?.ToString(),
+                value["baseline"]?.ToString(), value["resourceAction"]?.ToString(), value["required"]?.GetValue<bool>() ?? false, "") { ResourceOwnership = value["ownership"]?.ToString() };
             result.Add(SealRuntime(state, evidence));
         }
         if (result.Select(e => e.Id).Distinct(StringComparer.Ordinal).Count() != result.Count)
@@ -88,7 +80,7 @@ internal static partial class PlanningOperations
     internal static PlanningRuntimeEvidence SealRuntime(PlanningSnapshot state, PlanningRuntimeEvidence evidence)
     {
         var identity = PlanningGraphCompiler.Fingerprint(new JsonArray(evidence.SourceReference, evidence.Role,
-            evidence.ActionReference, evidence.SubjectReference, evidence.ExecutionReference).ToJsonString());
+            evidence.ActionReference, evidence.ResourceReference, evidence.ExecutionReference, evidence.Kind, evidence.EvidenceRole).ToJsonString());
         var value = evidence with { Id = "runtime_" + identity[..24], ProofFingerprint = "",
             Origin = evidence.Origin == PlanningRuntimeEvidenceOrigin.EngineSourceAuthority
                 ? PlanningRuntimeEvidenceOrigin.EngineSourceAuthority : PlanningRuntimeEvidenceOrigin.SourceInterpretation,
@@ -103,10 +95,10 @@ internal static partial class PlanningOperations
         return value with { ProofFingerprint = RuntimeProof(state, value) };
     }
 
-    private static string RuntimeProof(PlanningSnapshot state, PlanningRuntimeEvidence value) => PlanningGraphCompiler.Fingerprint("runtime-proof-v2:" +
+    private static string RuntimeProof(PlanningSnapshot state, PlanningRuntimeEvidence value) => PlanningGraphCompiler.Fingerprint("runtime-proof-v3:" +
         state.Request.TenantId + ":" + state.Request.SessionId + ":" +
         JsonSerializer.Serialize(value with { ProofFingerprint = "" }, PlanningJsonContext.Default.PlanningRuntimeEvidence) + ":" +
-        string.Join('|', new[] { value.SourceReference, value.ClauseReference, value.ActionReference, value.SubjectReference, value.ExecutionReference }
+        string.Join('|', new[] { value.SourceReference, value.ClauseReference, value.ActionReference, value.ResourceReference, value.ExecutionReference }
             .OfType<string>().Select(id => id + ":" + PlanningChoiceEvidence.Text(state, id))));
 
     internal static void RequireRuntimeEvidence(PlanningSnapshot state)
@@ -124,7 +116,7 @@ internal static partial class PlanningOperations
 
     internal static void ValidateRuntime(PlanningSnapshot state, PlanningRuntimeEvidence evidence)
     {
-        var references = new[] { evidence.SourceReference, evidence.ClauseReference, evidence.ActionReference, evidence.SubjectReference, evidence.ExecutionReference }.OfType<string>();
+        var references = new[] { evidence.SourceReference, evidence.ClauseReference, evidence.ActionReference, evidence.ResourceReference, evidence.ExecutionReference }.OfType<string>();
         if (references.Any(id => !PlanningChoiceEvidence.Current(state, id)) || evidence != SealRuntime(state, evidence) ||
             PlanningChoiceEvidence.Parent(state, evidence.SourceReference).Id != evidence.ClauseReference)
             throw Failure(evidence.Id, "Runtime evidence is stale, foreign or has changed.");
@@ -137,22 +129,21 @@ internal static partial class PlanningOperations
         if (evidence.Role == "unresolved") throw Failure(evidence.Id, "The source does not establish its runtime execution boundary.");
         if (evidence.Role is "planning_directive" or "contract" or "policy")
         {
-            if (evidence.ActionReference is not null || evidence.Kind is not null || evidence.SubjectReference is not null || evidence.ExecutionReference is not null ||
-                evidence.ResourceAction is not null || evidence.BaselineReference is not null || evidence.Occurrence is not null || evidence.Required)
+            if (evidence.ActionReference is not null || evidence.Kind is not null || evidence.ResourceReference is not null || evidence.ExecutionReference is not null ||
+                evidence.ResourceAction is not null || evidence.ResourceOwnership is not null || evidence.BaselineReference is not null || evidence.EvidenceRole is not null || evidence.Required)
                 throw Failure(evidence.Id, "Non-executable evidence cannot contain action authority.");
             return;
         }
-        if (authority == PlanningSourceAuthority.ConstraintsOnly || evidence.ActionReference is null || evidence.ExecutionReference is null || evidence.SubjectReference is null ||
-            evidence.Occurrence is not ("distinct" or "governing") || !PlanningSourceGroundingRules.OperationKinds.Contains(evidence.Kind) ||
+        if (authority == PlanningSourceAuthority.ConstraintsOnly || evidence.ActionReference is null || evidence.ExecutionReference is null ||
+            evidence.EvidenceRole is not ("action" or "governing") || !PlanningSourceGroundingRules.OperationKinds.Contains(evidence.Kind) ||
             evidence.Role != (evidence.Kind == "local_processing" ? "local_behavior" : "runtime_action"))
-            throw Failure(evidence.Id, "A requested runtime action needs a subject, execution boundary and occurrence proof.");
-        foreach (var id in new[] { evidence.ActionReference, evidence.ExecutionReference })
+            throw Failure(evidence.Id, "Runtime evidence needs its owned action span, execution boundary and action/governing role.");
+        foreach (var id in new[] { evidence.ActionReference, evidence.ExecutionReference, evidence.ResourceReference }.OfType<string>())
         {
             var selected = state.References.Single(r => r.Id == id);
             if (selected.SourceId != source.SourceId || selected.Start < source.Start || selected.Start + selected.Length > source.Start + source.Length)
                 throw Failure(evidence.Id, "Action and execution proof must be inside their owned source scope.");
         }
-        if (!SourceClauses(state).Any(c => c.Id == evidence.SubjectReference)) throw Failure(evidence.Id, "The subject is not an issued governing clause.");
         if (authority == PlanningSourceAuthority.ExistingBehavior)
         {
             if (evidence.BaselineReference is null || !PlanningSourceGroundingRules.BaselineNodes(state).TryGetValue(evidence.BaselineReference, out var node) ||
@@ -164,11 +155,15 @@ internal static partial class PlanningOperations
         {
             if (evidence.ResourceAction is not ("create" or "acquire" or "release" or "delete") || evidence.Kind == "cleanup" && evidence.ResourceAction is not ("release" or "delete"))
                 throw Failure(evidence.Id, "Resource lifecycle requires an explicit runtime ownership action.");
-            if (state.RuntimeEvidence.Any(e => e.ClauseReference == evidence.SubjectReference && e.Role == "planning_directive") &&
-                !state.RuntimeEvidence.Any(e => e.ClauseReference == evidence.SubjectReference && e.Role == "runtime_action" && e.Id != evidence.Id))
+            if (evidence.ResourceReference is null || evidence.ResourceOwnership != "workflow_runtime_resource")
+                throw Failure(evidence.Id, "Resource lifecycle requires owned resource evidence inside the requested runtime action scope.");
+            var resource = state.References.Single(r => r.Id == evidence.ResourceReference);
+            if (state.RuntimeEvidence.Where(e => e.Role == "planning_directive").Any(e =>
+                state.References.Single(r => r.Id == e.SourceReference) is var directive && directive.SourceId == resource.SourceId &&
+                directive.Start <= resource.Start && directive.Start + directive.Length >= resource.Start + resource.Length))
                 throw Failure(evidence.Id, "The planning artifact is not an owned runtime resource.");
         }
-        else if (evidence.ResourceAction is not null) throw Failure(evidence.Id, "This action cannot claim resource lifecycle authority.");
+        else if (evidence.ResourceAction is not null || evidence.ResourceReference is not null || evidence.ResourceOwnership is not null) throw Failure(evidence.Id, "This action cannot claim resource lifecycle authority.");
     }
 
     internal static void RequireExecutableIntent(PlanningSnapshot state)

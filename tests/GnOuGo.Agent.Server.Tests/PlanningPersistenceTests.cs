@@ -74,13 +74,13 @@ public sealed class PlanningPersistenceTests
         state.DeclarationFingerprint = "PRIVATE_ADJUDICATION_PROOF";
         state.OperationAdmissionFingerprint = "PRIVATE_OPERATION_SET";
         state.RuntimeEvidenceFingerprint = "PRIVATE_RUNTIME_SET";
-        state.RuntimeEvidence = [new("runtime", "source", "clause", "local_behavior", "anchor", "subject", "anchor", "local_processing", "distinct", null, null, true, "PRIVATE_RUNTIME_PROOF")
+        state.RuntimeEvidence = [new("runtime", "source", "clause", "local_behavior", "anchor", null, "anchor", "local_processing", "action", null, null, true, "PRIVATE_RUNTIME_PROOF")
             { ExecutionScope = PlanningRuntimeExecutionScope.GeneratedWorkflow, Origin = PlanningRuntimeEvidenceOrigin.SourceInterpretation },
             new("policy_runtime", "policy_source", "policy_clause", "policy", null, null, null, null, null, null, null, false, "engine_policy_proof")
             { ExecutionScope = PlanningRuntimeExecutionScope.Policy, Origin = PlanningRuntimeEvidenceOrigin.EngineSourceAuthority }];
         state.Obligations.Add(new("canonical_action", ["primary_clause"], "workflow", "local_processing", true)
-        { Disposition = "admitted", OperationAdmission = new(3, "canonical_action", "anchor", null,
-            [new("operation_clause", "primary_clause", "anchor", "local_processing", true, null, null) { RuntimeEvidenceId = "runtime" },
+        { Disposition = "admitted", OperationAdmission = new(4, "canonical_action", "anchor", null,
+            [new("operation_clause", "primary_clause", "anchor", "local_processing", true, null, null) { RuntimeEvidenceId = "runtime", Disposition = "distinct", ResolutionOrigin = "deterministic" },
              new("operation_rules", "governing_clause", "rule_anchor", "local_processing", true, "canonical_action", null)],
             "PRIVATE_OPERATION_EVIDENCE", "PRIVATE_OPERATION_PROOF") });
         state.DecisionPages =
@@ -131,7 +131,10 @@ public sealed class PlanningPersistenceTests
         Assert.Equal("owned_clause", scopedPolicy.ClauseReference); Assert.Equal(["effect"], scopedPolicy.TargetOperationIds); Assert.Equal("permission", scopedPolicy.PermissionOperationId);
         Assert.Equal("PRIVATE_OPERATION_SET", restored.OperationAdmissionFingerprint);
         var admission = Assert.Single(restored.Obligations, o => o.OperationAdmission is not null).OperationAdmission!;
-        Assert.Equal("PRIVATE_OPERATION_PROOF", admission.ProofFingerprint); Assert.Equal(3, admission.Version);
+        Assert.Equal("PRIVATE_OPERATION_PROOF", admission.ProofFingerprint); Assert.Equal(4, admission.Version);
+        Assert.Equal("action", restored.RuntimeEvidence[0].EvidenceRole);
+        Assert.Null(restored.RuntimeEvidence[0].ResourceReference);
+        Assert.Equal("distinct", admission.Assignments[0].Disposition);
         Assert.Equal("PRIVATE_RUNTIME_SET", restored.RuntimeEvidenceFingerprint);
         Assert.Equal("PRIVATE_RUNTIME_PROOF", restored.RuntimeEvidence[0].ProofFingerprint);
         Assert.Equal(PlanningRuntimeExecutionScope.GeneratedWorkflow, restored.RuntimeEvidence[0].ExecutionScope);

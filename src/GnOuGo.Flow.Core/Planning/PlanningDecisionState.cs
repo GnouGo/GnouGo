@@ -60,16 +60,19 @@ public sealed record PlanningOperationAssignment(string DecisionId, string Claus
 {
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public string? RuntimeEvidenceId { get; init; }
+    public string? Disposition { get; init; }
+    public string? ResolutionOrigin { get; init; }
 }
 
 /// <summary>Source-owned execution evidence, independent of preliminary obligation labels.</summary>
 public sealed record PlanningRuntimeEvidence(string Id, string SourceReference, string ClauseReference, string Role,
-    string? ActionReference, string? SubjectReference, string? ExecutionReference, string? Kind,
-    string? Occurrence, string? BaselineReference, string? ResourceAction, bool Required,
+    string? ActionReference, string? ResourceReference, string? ExecutionReference, string? Kind,
+    string? EvidenceRole, string? BaselineReference, string? ResourceAction, bool Required,
     string ProofFingerprint)
 {
     public PlanningRuntimeExecutionScope ExecutionScope { get; init; }
     public PlanningRuntimeEvidenceOrigin Origin { get; init; }
+    public string? ResourceOwnership { get; init; }
 }
 public enum PlanningRuntimeExecutionScope { Unknown, PlanningArtifact, PublicContract, Policy, GeneratedWorkflow }
 public enum PlanningRuntimeEvidenceOrigin { Unknown, SourceInterpretation, EngineSourceAuthority }

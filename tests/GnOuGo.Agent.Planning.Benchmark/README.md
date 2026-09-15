@@ -404,3 +404,22 @@ coordinator-only reservations are reported separately from actual journal reques
 Reports count omitted policy runtime facets separately from covered local occurrences.
 See
 [runtime admission](../../docs/planner-runtime-admission.md) for the evidence boundary.
+
+## Runtime occurrence diagnostics
+
+`schema5-runtime-occurrence-diagnostics-1` permits one local diagnostic followed only
+on success by one mixed diagnostic. Source interpretation supplies execution evidence;
+canonical root reuse and governing target sets are decided inside `intent_operations`.
+The frozen declaration ports and exact attachments remain explicit fixture preconditions.
+Each case retains 16 durable reservations and all existing model/token/reasoning budgets.
+Neither case starts a planning session, accepts behavior or constructs a workflow.
+
+Reports distinguish preliminary action candidates, canonical roots, model identity
+choices, deterministic governing attachments and explicit target sets. Removed source
+subject choices are not reported as saved provider calls. The first meaningful blocker
+stops the sequence; no replacement case or Stage 1 is authorized.
+
+`audit-runtime-admission CASE_ID` is read-only: it validates archived responses against
+their original schemas and attempts admission with receipt-only transport. Changed proofs
+or requests stop replay. It neither updates archived snapshots/budgets nor substitutes
+synthetic responses for receipts.

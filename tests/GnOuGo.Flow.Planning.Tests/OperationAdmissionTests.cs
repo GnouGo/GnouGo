@@ -16,9 +16,9 @@ public sealed class OperationAdmissionTests
         var state = new PlanningSnapshot { Request = new() { TenantId = "tenant", SessionId = "operation-fixture", Prompt = prompt } };
         PlanningFixtures.EmptyRuntime(state); return state;
     }
-    private static PlanningRuntimeEvidence Add(PlanningSnapshot state, int clause, string kind = "local_processing", string occurrence = "distinct",
-        string? subject = null, string? baseline = null, string? resourceAction = null)
-        => PlanningFixtures.Runtime(state, PlanningOperations.SourceScopes(state)[clause].Clause, kind, occurrence, subject, baseline, resourceAction);
+    private static PlanningRuntimeEvidence Add(PlanningSnapshot state, int clause, string kind = "local_processing", string evidenceRole = "action",
+        string? resource = null, string? baseline = null, string? resourceAction = null)
+        => PlanningFixtures.Runtime(state, PlanningOperations.SourceScopes(state)[clause].Clause, kind, evidenceRole, resource, baseline, resourceAction);
     private static PlanningRuntimeEvidence Exclude(PlanningSnapshot state, int clause, string role)
     {
         var source = PlanningOperations.SourceScopes(state)[clause].Clause;
@@ -72,7 +72,7 @@ public sealed class OperationAdmissionTests
     public async Task ConditionsReuseOneLocalOccurrenceAndCannotExposeExternalAlternatives()
     {
         var state = State("Transform an entry. When accepted choose the upper category. Otherwise choose the lower category.");
-        var root = Add(state, 0); Add(state, 1, occurrence: "governing", subject: root.SubjectReference); Add(state, 2, occurrence: "governing", subject: root.SubjectReference);
+        var root = Add(state, 0); Add(state, 1, evidenceRole: "governing"); Add(state, 2, evidenceRole: "governing");
         var condition = PolicyGroundingTests.Add(state, "request", "When accepted choose the upper category.", "condition", "runtime_condition");
         var fallback = PolicyGroundingTests.Add(state, "request", "Otherwise choose the lower category.", "fallback", "runtime_fallback");
         var runtime = NoModel(); await PlanningOperations.ResolveAsync(state, runtime, Ct);
@@ -149,7 +149,7 @@ public sealed class OperationAdmissionTests
     public async Task MissingOrForeignProofCannotBecomeAQuestion(string defect)
     {
         var state = State("Transform a value."); var evidence = Add(state, 0);
-        if (defect == "foreign") state.RuntimeEvidence[0] = evidence with { SubjectReference = "foreign" };
+        if (defect == "foreign") state.RuntimeEvidence[0] = evidence with { ResourceReference = "foreign" };
         if (defect == "missing") state.RuntimeEvidenceFingerprint = null;
         if (defect == "stale") state.Request.Prompt = "Do something else.";
         if (defect == "execution_scope") state.RuntimeEvidence[0] = evidence with { ExecutionScope = PlanningRuntimeExecutionScope.PlanningArtifact };
@@ -197,15 +197,17 @@ public sealed class OperationAdmissionTests
     public async Task GoverningAmbiguityUsesOnlyIssuedSameKindTargetsAndReplaysReceipt()
     {
         var state = State("Transform the first value. Transform the second value. Apply this rule to the requested transformation.");
-        var first = Add(state, 0); Add(state, 1, subject: first.SubjectReference); Add(state, 2, occurrence: "governing", subject: first.SubjectReference);
+        var first = Add(state, 0); Add(state, 1); Add(state, 2, evidenceRole: "governing");
         var runtime = new TypedPlannerTests.FakeRuntime { OnCall = (phase, request, _) =>
         {
             Assert.Equal("intent_operations", phase); var field = request.StructuredOutputSchema!["properties"]!.AsObject().Single();
             Assert.DoesNotContain("external_write", field.Value!.ToJsonString()); Assert.DoesNotContain("resource_lifecycle", field.Value.ToJsonString());
-            var target = field.Value["anyOf"]![1]!["properties"]!["target"]!["enum"]![0]!.DeepClone();
-            return Task.FromResult(new LLMResponse { Json = new JsonObject { [field.Key] = new JsonObject { ["status"] = "reuse", ["target"] = target } }, CompletionStatus = "completed" });
+            var attachment = field.Value["anyOf"]!.AsArray().FirstOrDefault(v => v?["properties"]?["targets"] is not null);
+            var answer = attachment is null ? new JsonObject { ["status"] = "distinct" }
+                : new JsonObject { ["status"] = "attach", ["targets"] = new JsonArray(attachment["properties"]!["targets"]!["items"]!["enum"]![0]!.DeepClone()) };
+            return Task.FromResult(new LLMResponse { Json = new JsonObject { [field.Key] = answer }, CompletionStatus = "completed" });
         } };
-        await PlanningOperations.ResolveAsync(state, runtime, Ct); Assert.Single(runtime.Requests);
+        await PlanningOperations.ResolveAsync(state, runtime, Ct); Assert.Equal(2, runtime.Requests.Count);
         var restored = JsonSerializer.Deserialize(JsonSerializer.Serialize(state, PlanningJsonContext.Default.PlanningSnapshot), PlanningJsonContext.Default.PlanningSnapshot)!;
         await PlanningOperations.ResolveAsync(restored, NoModel(), Ct); Assert.Equal(state.OperationAdmissionFingerprint, restored.OperationAdmissionFingerprint);
     }
@@ -289,7 +291,7 @@ public sealed class OperationAdmissionTests
     public async Task UnverifiableIdentityDecisionCannotRedispatchOrCommitPartialActions()
     {
         var state = State("Transform one value. Transform another value. Apply the shared rule.");
-        var root = Add(state, 0); Add(state, 1, subject: root.SubjectReference); Add(state, 2, occurrence: "governing", subject: root.SubjectReference);
+        var root = Add(state, 0); Add(state, 1); Add(state, 2, evidenceRole: "governing");
         state.Intent.Checked = true;
         var runtime = new TypedPlannerTests.FakeRuntime();
         runtime.OnPrepareSnapshot = async snapshot => { await PlanningOperations.ResolveAsync(snapshot, runtime, Ct); return TypedPlannerTests.Preparation(); };
@@ -306,7 +308,7 @@ public sealed class OperationAdmissionTests
         var state = State("Create an owned temporary resource."); var scope = PlanningOperations.SourceScopes(state)[0];
         var schema = PlanningOperations.RuntimeSchema(state, PlanningSourceAuthority.RequestedBehavior, scope.Boundaries);
         var action = new JsonObject { ["role"] = "runtime_action", ["kind"] = "resource_lifecycle", ["action"] = new JsonObject { ["start"] = "b0", ["end"] = "b5" },
-            ["execution"] = "generated_workflow", ["subject"] = scope.Clause.Id, ["occurrence"] = "distinct", ["required"] = true,
+            ["execution"] = "generated_workflow", ["resource"] = new JsonObject { ["start"] = "b3", ["end"] = "b5" }, ["evidence"] = "action", ["required"] = true,
             ["baseline"] = null, ["ownership"] = "workflow_runtime_resource", ["resourceAction"] = "create" };
         Assert.Empty(PlanningContractValidation.ValidateInstance(new JsonArray(action.DeepClone()), schema));
         action.Remove("ownership"); Assert.NotEmpty(PlanningContractValidation.ValidateInstance(new JsonArray(action.DeepClone()), schema));

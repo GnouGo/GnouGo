@@ -176,6 +176,36 @@ internal static class RuntimePersistenceSmoke
                 await PlanningDeclarations.ResolveAsync(resumed.Snapshot, resumed.Runtime, CancellationToken.None);
                 if (client.Calls != correctedCalls + 1) throw new InvalidOperationException("Published duplicate-root replay dispatched again.");
             }
+            PlanningSnapshot Operations() => new() { Request = new() { TenantId = "smoke", Prompt = "Transform the value. Transform according to the rules. This processing is deterministic.", MaxRepairsPerWorkflowGate = 0 } };
+            client.OperationAnswers = true;
+            await using (var opened = await Factory().OpenAsync(Context("operations"), Operations(), CancellationToken.None))
+            {
+                var snapshot = opened.Snapshot;
+                var scopes = PlanningOperations.SourceScopes(snapshot);
+                foreach (var scope in scopes)
+                    snapshot.RuntimeEvidence.Add(PlanningOperations.SealRuntime(snapshot, new("", scope.Clause.Id, scope.Clause.Id,
+                        "local_behavior", scope.Clause.Id, null, scope.Clause.Id, "local_processing", scope == scopes[^1] ? "governing" : "action", null, null, true, "")));
+                snapshot.RuntimeEvidenceFingerprint = PlanningOperations.RuntimeFingerprint(snapshot);
+                var eligible = PlanningOperations.Scopes(snapshot);
+                var first = eligible[0].Evidence!;
+                var root = PlanningOperations.Create(snapshot, new("operation_" + first.Id, first.ClauseReference, first.ActionReference!, first.Kind!, first.Required, null, null)
+                    { RuntimeEvidenceId = first.Id, Disposition = "distinct", ResolutionOrigin = "deterministic" });
+                var decision = PlanningOperations.Decision(snapshot, eligible[1], [root]);
+                await PlanningDecisionPages.ResolveAsync(snapshot, opened.Runtime, "intent_operations", "$plan", [decision], CancellationToken.None);
+                if (snapshot.Obligations.Any(PlanningSourceDecisions.IsOperation)) throw new InvalidOperationException("Staged operation identity granted partial authority.");
+            }
+            var identityCalls = client.Calls;
+            string? operationFingerprint = null;
+            for (var restart = 0; restart < 2; restart++)
+            {
+                await using var resumed = await Factory().OpenAsync(Context("operations"), Operations(), CancellationToken.None);
+                await PlanningOperations.ResolveAsync(resumed.Snapshot, resumed.Runtime, CancellationToken.None);
+                var operation = resumed.Snapshot.Obligations.Single(PlanningSourceDecisions.IsOperation);
+                if (client.Calls != identityCalls || operation.OperationAdmission!.Assignments.Count != 3 || resumed.Snapshot.RepairAllowances.Count != 0 ||
+                    operationFingerprint is not null && operationFingerprint != resumed.Snapshot.OperationAdmissionFingerprint)
+                    throw new InvalidOperationException("Published encrypted operation identity/attachment replay failed.");
+                operationFingerprint = resumed.Snapshot.OperationAdmissionFingerprint;
+            }
             foreach (var file in Directory.GetFiles(directory, "*", SearchOption.AllDirectories))
                 if (System.Text.Encoding.UTF8.GetString(await File.ReadAllBytesAsync(file)).Contains("private native intent", StringComparison.Ordinal))
                     throw new InvalidOperationException("Published planning content was stored in plaintext.");
@@ -188,10 +218,15 @@ internal static class RuntimePersistenceSmoke
         public Task<IReadOnlyList<string>?> SupportedReasoningLevelsAsync(string? provider, string model, CancellationToken ct) => Task.FromResult<IReadOnlyList<string>?>(["low", "medium"]);
         public int Calls { get; private set; }
         public Dictionary<string, JsonObject>? DeclarationAnswers { get; set; }
+        public bool OperationAnswers { get; set; }
         public Task<LLMResponse> CallAsync(LLMRequest request, CancellationToken ct)
         {
             Calls++;
             var fields = request.StructuredOutputSchema!["properties"]!.AsObject();
+            if (OperationAnswers)
+                return Task.FromResult(new LLMResponse { CompletionStatus = "completed", Usage = new JsonObject { ["total_tokens"] = 2 },
+                    Json = new JsonObject(fields.Select(p => new KeyValuePair<string, JsonNode?>(p.Key, new JsonObject { ["status"] = "same_as",
+                        ["target"] = p.Value!["anyOf"]!.AsArray().Single(v => v?["properties"]?["target"] is not null)!["properties"]!["target"]!["enum"]![0]!.DeepClone() }))) });
             if (DeclarationAnswers is { } answers)
             {
                 var response = new JsonObject();
