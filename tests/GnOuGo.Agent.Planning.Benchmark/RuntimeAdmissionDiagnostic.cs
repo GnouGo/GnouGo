@@ -83,8 +83,23 @@ internal static partial class RuntimeAdmissionDiagnostic
         var manifest = manifestRecord is null ? null : JsonNode.Parse(manifestRecord.Value)!.AsObject();
         if (command == "freeze")
         {
-            if (commit is null || commit.Length != 40 || !commit.All(Uri.IsHexDigit)) throw new InvalidOperationException("An exact frozen commit is required.");
+            if (commit != "107cbcdd1789cbefc6b67d53f3ab570499854245") throw new InvalidOperationException("The authorized production commit is required.");
             if (manifest is not null) throw new InvalidOperationException("This diagnostic has already been frozen.");
+            var previousRecord = await records.GetAsync(Collection, Tenant, "schema5-operation-necessity-diagnostics-1", Author, ct)
+                ?? throw new InvalidOperationException("The previous frozen settings are required.");
+            var previousManifest = JsonNode.Parse(previousRecord.Value)!;
+            if (!JsonNode.DeepEquals(previousManifest["model"], campaign["model"]) ||
+                previousManifest["transportConfigurationFingerprint"]!.ToString() != transportFingerprint ||
+                previousManifest["sourceOptionsFingerprint"]!.ToString() != PlanningGraphCompiler.Fingerprint(source.Request.Options.ToJsonString()) ||
+                !JsonNode.DeepEquals(previousManifest["catalogFingerprint"], campaign["stages"]![0]!["catalogHash"]))
+                throw new InvalidOperationException("The prior model, policy, catalog or budget configuration changed.");
+            foreach (var frozenCase in previousManifest["cases"]!.AsArray())
+            {
+                var name = frozenCase!["name"]!.ToString();
+                if (frozenCase["promptHash"]!.ToString() != PlanningGraphCompiler.Fingerprint(name == "local" ? ProgressiveScenarios.Simple : Mixed) ||
+                    frozenCase["declarationFixtureHash"]!.ToString() != DeclarationFixtureHash(name))
+                    throw new InvalidOperationException("A diagnostic scenario or declaration fixture changed.");
+            }
             manifest = new() { ["commit"] = commit, ["binaries"] = binaries, ["archiveFingerprint"] = archive,
                 ["model"] = campaign["model"]!.DeepClone(), ["sourceOptionsFingerprint"] = PlanningGraphCompiler.Fingerprint(source.Request.Options.ToJsonString()),
                 ["transportConfigurationFingerprint"] = transportFingerprint,
@@ -182,6 +197,7 @@ internal static partial class RuntimeAdmissionDiagnostic
             if (operations.Count(o => o.Kind == "local_processing") != 1 || operations.Count(o => o.Kind == "external_read") != (name == "mixed" ? 1 : 0) ||
                 operations.Any(o => !o.Required || o.Kind is not ("local_processing" or "external_read")))
                 throw new WorkflowRuntimeException("DIAGNOSTIC_ADMISSION_MISMATCH", "The isolated fixture's expected runtime actions were not established.");
+            CheckEffectFixture(name, state, operations);
             if (name == "mixed")
             {
                 envelope["phase"] = "relations"; await Save(state, ct);
@@ -257,12 +273,13 @@ internal static partial class RuntimeAdmissionDiagnostic
         report["governingModelDecisions"] = assignments.Where(a => a.ResolutionOrigin == "model" && a.Disposition == "attach").DistinctBy(a => a.DecisionId).Count();
         report["governingDeterministicAttachments"] = assignments.Count(a => a.ResolutionOrigin == "deterministic" && a.Disposition == "attach");
         report["retiredActionCandidates"] = state.DecisionPages.Where(p => p.Phase == "intent_operations" && p.Status == "completed" && p.Candidate is not null)
-            .SelectMany(p => p.Candidate!.Where(v => v.Value?["status"]?.ToString() == "not_an_operation").Select(v => v.Key)).Distinct(StringComparer.Ordinal).Count();
+            .SelectMany(p => p.Candidate!.Where(v => v.Value is JsonObject body && body["status"]?.ToString() == "not_an_operation").Select(v => v.Key)).Distinct(StringComparer.Ordinal).Count();
         report["engineAdmittedLocalActions"] = state.OperationAdmissionFingerprint is null ? null : state.Obligations.Count(o => o.OperationAdmission is not null && o.Kind == "local_processing" && o.OperationAdmission.Assignments[0].ResolutionOrigin == "deterministic");
         report["engineAdmittedExternalActions"] = state.OperationAdmissionFingerprint is null ? null : state.Obligations.Count(o => o.OperationAdmission is not null && o.Kind != "local_processing");
         report["admissionModelCalls"] = state.RequestAccounting.Count(c => c.Phase.StartsWith("intent_operations", StringComparison.Ordinal) && receipts.GetValueOrDefault(c.Id) is not null);
         report["fixturePreconditions"] = "Canonical declarations supplied; interpretation obligations retained encrypted but not adjudicated in this diagnostic.";
         report["requestDomains"] = domains;
+        AddEffectReport(report, state, receipts, domains);
         report["fullStageOneSuccess"] = false;
         await records.UpsertAsync(Collection, Tenant, id + ":report", report.ToJsonString(), Author, CancellationToken.None);
         return report;

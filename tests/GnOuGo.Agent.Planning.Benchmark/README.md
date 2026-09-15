@@ -429,3 +429,22 @@ synthetic responses for receipts.
 `audit-runtime-admission <case-id>` validates retained requests against their original schemas and runs receipt-only replay using the archived model metadata. Changed scopes stop at missing evidence; there is no provider fallback or archive write.
 
 `audit-effect-fixture schema5-operation-necessity-diagnostics-1:local` applies explicitly synthetic effect/dataflow assignments to a copy of retained interpretation and canonical declaration fixtures. It exercises production request builders and validation, reports effect-grounding and occurrence-selection decisions separately, and verifies restart plus unchanged archived checkpoint/budget. It neither starts a diagnostic campaign nor claims live semantic convergence. See [offline effect proof results](../../docs/planner-operation-effects.md).
+
+## Frozen effect-admission validation
+
+`schema5-effect-grounded-admission-diagnostics-1` freezes production at
+`107cbcdd1789cbefc6b67d53f3ab570499854245`. Only harness identity, effect acceptance
+checks and reporting change. LOCAL runs once; MIXED is allowed only after LOCAL
+passes. No planning session, behavior approval, construction or Stage 1 starts.
+
+The gate checks canonical input/result and producer ownership, requiredness,
+rules/fallbacks, descriptive attachment, declaration-only preservation and zero
+standalone occurrence-identity calls. Reports distinguish interpretation, effect
+grounding, identity selection and remaining relationship decisions using durable
+request schemas and receipts. Missing usage is retained as unknown.
+
+The configured model, low reasoning, 16-reservation diagnostic allowance,
+12,000/9,600 input limits, 8,192 output and bounded singleton escalation to 16,384
+remain unchanged. The first meaningful failure or unverifiable dispatch stops
+the sequence without a replacement case. Archived budgets and receipts remain
+untouched.

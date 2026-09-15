@@ -64,4 +64,38 @@ public sealed class RuntimeAdmissionDiagnosticTests
         Assert.Equal(["reuse", "unresolved"], report["status"]!.AsArray().Select(v => v!.ToString()));
         Assert.DoesNotContain("PRIVATE", report.ToJsonString());
     }
+
+    private static PlanningObligation Operation(string id, string kind, string[] inputs, string[] outputs, string[] producers) =>
+        new(id, ["evidence"], "workflow", kind, true)
+        {
+            OperationAdmission = new(6, id, "evidence", null,
+                [new("decision", "clause", "action", kind, PlanningOperationNecessity.Required, null, null)
+                { Effect = new(1, "effect", "realizes", [], inputs.ToList(), outputs.ToList(), producers.ToList(), ["clause"], "model", "proof") }], "proof", "fingerprint")
+        };
+
+    [Theory]
+    [InlineData("valid", true)]
+    [InlineData("missing_input", false)]
+    [InlineData("missing_output", false)]
+    [InlineData("identity_call", false)]
+    [InlineData("extra_operation", false)]
+    public void LocalGateRequiresCompleteEffectProof(string defect, bool allowed)
+    {
+        var ops = new List<PlanningObligation> { Operation("local", "local_processing",
+            defect == "missing_input" ? ["record"] : ["record", "threshold"], defect == "missing_output" ? [] : ["result"], []) };
+        if (defect == "extra_operation") ops.Add(Operation("extra", "external_write", [], [], []));
+        void Check() => RuntimeAdmissionDiagnosticRules.RequireEffects("local", ops, ["record", "threshold"], "result", defect == "identity_call" ? 1 : 0);
+        if (allowed) Check(); else Assert.Throws<GnOuGo.Flow.Core.Expressions.WorkflowRuntimeException>(Check);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void MixedGateRequiresGroundedReadDependency(bool dependency)
+    {
+        var ops = new[] { Operation("read", "external_read", ["source"], [], []),
+            Operation("local", "local_processing", ["threshold"], ["result"], dependency ? ["read"] : []) };
+        void Check() => RuntimeAdmissionDiagnosticRules.RequireEffects("mixed", ops, ["source", "threshold"], "result", 0);
+        if (dependency) Check(); else Assert.Throws<GnOuGo.Flow.Core.Expressions.WorkflowRuntimeException>(Check);
+    }
 }

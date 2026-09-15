@@ -1,11 +1,12 @@
 using System.Text.Json.Nodes;
 using GnOuGo.Flow.Core.Planning;
+using GnOuGo.Flow.Core.Expressions;
 
 namespace GnOuGo.Agent.Planning.Benchmark;
 
 internal static class RuntimeAdmissionDiagnosticRules
 {
-    internal const string Identity = "schema5-operation-necessity-diagnostics-1";
+    internal const string Identity = "schema5-effect-grounded-admission-diagnostics-1";
     internal const int MaxCalls = 16;
     internal static readonly string[] Cases = ["local", "mixed"];
     internal static void RequireCase(string name, JsonObject? previous)
@@ -24,6 +25,31 @@ internal static class RuntimeAdmissionDiagnosticRules
     internal static void RequirePreflight(int interpretationPages)
     {
         if (interpretationPages > MaxCalls) throw new InvalidOperationException("Packed interpretation exceeds the frozen diagnostic budget before dispatch.");
+    }
+
+    internal static void RequireEffects(string name, IReadOnlyList<PlanningObligation> operations,
+        IReadOnlyList<string> inputs, string output, int identityDecisions)
+    {
+        void Require(bool condition, string code, string message)
+        { if (!condition) throw new WorkflowRuntimeException(code, message); }
+        Require(identityDecisions == 0, "DIAGNOSTIC_IDENTITY_DECISION", "The fixture requires deterministic occurrence identity after effect grounding.");
+        Require(operations.Count == (name == "local" ? 1 : 2) && operations.All(o => o.Required && o.OperationAdmission is { Version: 6 }) &&
+            operations.Count(o => o.Kind == "local_processing") == 1 && operations.Count(o => o.Kind == "external_read") == (name == "mixed" ? 1 : 0),
+            "DIAGNOSTIC_ADMISSION_MISMATCH", "The frozen fixture requires exactly its declared runtime effects.");
+        var local = operations.Single(o => o.Kind == "local_processing");
+        var effects = local.OperationAdmission!.Assignments.Select(a => a.Effect!).ToArray();
+        Require(effects.All(e => e is { Version: 1 }) && effects.SelectMany(e => e.Outputs).ToHashSet(StringComparer.Ordinal).SetEquals([output]),
+            "DIAGNOSTIC_EFFECT_OWNERSHIP", "The transformation must produce the canonical public result.");
+        var consumed = effects.SelectMany(e => e.Inputs).ToHashSet(StringComparer.Ordinal);
+        if (name == "local") Require(consumed.SetEquals(inputs), "DIAGNOSTIC_INPUT_EFFECT", "The local effect must consume both canonical business inputs.");
+        else
+        {
+            var read = operations.Single(o => o.Kind == "external_read");
+            Require(consumed.Contains(inputs[1]) && effects.SelectMany(e => e.Producers).Contains(read.Id) &&
+                read.OperationAdmission!.Assignments.SelectMany(a => a.Effect!.Inputs).Contains(inputs[0]) &&
+                !read.OperationAdmission.Assignments.SelectMany(a => a.Effect!.Producers).Contains(local.Id),
+                "DIAGNOSTIC_DEPENDENCY_MISMATCH", "Read ownership and read-to-local dataflow must be grounded before relationship assessment.");
+        }
     }
 
     // Report only semantic enum domains. Source text, names, scoped references
