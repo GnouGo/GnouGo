@@ -1,0 +1,267 @@
+{
+  "format": 1,
+  "evidenceKind": "historical_retained_run_classifications",
+  "baselineCommit": "2536c277232995d9d9fac06c9fae9cfe058817a0",
+  "ledgerSha256": "03950243b6901800efa42a154bc51f52ac0f0bc96c34dc0313fc4ec69dde3acf",
+  "tenant": "planner-benchmark",
+  "storageSchema": 4,
+  "completeSuccesses": 0,
+  "catalogFingerprint": "792eebc5c700c51dd30fa69fd4680dee8b65fb8b8bc35ed9611bd2a61762fc43",
+  "policySha256": "b92002cf07ef660981dc5c758d775be40589045d14df706cf454ca3c58e52604",
+  "runs": [
+    {
+      "run": 1,
+      "session": "08bd95da593f4a0ba9e94b86b653b74d",
+      "revision": 22,
+      "classes": [
+        "external_execution"
+      ],
+      "hasUnverifiableDispatch": true,
+      "completeSuccess": false
+    },
+    {
+      "run": 2,
+      "session": "89faf6779b484a4ea73ec76195c9f924",
+      "revision": 133,
+      "classes": [
+        "capability_responsibility"
+      ],
+      "hasUnverifiableDispatch": false,
+      "completeSuccess": false
+    },
+    {
+      "run": 3,
+      "session": "5c40756a5506401fa3c5cde0e0e29d7f",
+      "revision": 100,
+      "classes": [
+        "behavior_structure"
+      ],
+      "hasUnverifiableDispatch": false,
+      "completeSuccess": false
+    },
+    {
+      "run": 4,
+      "session": "c390530f72114220bf048f781b9546c4",
+      "revision": 90,
+      "classes": [
+        "request_sizing"
+      ],
+      "hasUnverifiableDispatch": false,
+      "completeSuccess": false
+    },
+    {
+      "run": 5,
+      "session": "c4d90fef06b742e8b147c565563e0b2a",
+      "revision": 193,
+      "classes": [
+        "behavior_structure",
+        "executable_proof"
+      ],
+      "hasUnverifiableDispatch": false,
+      "completeSuccess": false
+    },
+    {
+      "run": 6,
+      "session": "c252fcd1384248339401a183df5fe323",
+      "revision": 120,
+      "classes": [
+        "output_truncation"
+      ],
+      "hasUnverifiableDispatch": false,
+      "completeSuccess": false
+    },
+    {
+      "run": 7,
+      "session": "e05e2150e3e34ff8a08030dd58966ecc",
+      "revision": 74,
+      "classes": [
+        "capability_responsibility"
+      ],
+      "hasUnverifiableDispatch": false,
+      "completeSuccess": false
+    },
+    {
+      "run": 8,
+      "session": "08ce4e7e6fef4653be727078cbd52313",
+      "revision": 144,
+      "classes": [
+        "executable_proof",
+        "nonconvergent_correction"
+      ],
+      "hasUnverifiableDispatch": false,
+      "completeSuccess": false
+    },
+    {
+      "run": 9,
+      "session": "bc8b235024e54693bc31cd84763c15d9",
+      "revision": 159,
+      "classes": [
+        "request_sizing",
+        "executable_proof",
+        "external_execution"
+      ],
+      "hasUnverifiableDispatch": true,
+      "completeSuccess": false
+    },
+    {
+      "run": 10,
+      "session": "57c836fbd68d4e65908949856e0f2b63",
+      "revision": 168,
+      "classes": [
+        "request_sizing",
+        "output_truncation",
+        "capability_responsibility",
+        "nonconvergent_correction"
+      ],
+      "hasUnverifiableDispatch": false,
+      "completeSuccess": false
+    },
+    {
+      "run": 11,
+      "session": "850a38fb2c6e4f9eb636d0c21672a06e",
+      "revision": 68,
+      "classes": [
+        "request_sizing",
+        "capability_responsibility"
+      ],
+      "hasUnverifiableDispatch": false,
+      "completeSuccess": false
+    },
+    {
+      "run": 12,
+      "session": "4cbb38f8952a449bbe76c3ab0b358d80",
+      "revision": 89,
+      "classes": [
+        "evidence_transcription",
+        "request_sizing",
+        "output_truncation",
+        "capability_responsibility"
+      ],
+      "hasUnverifiableDispatch": false,
+      "completeSuccess": false
+    },
+    {
+      "run": 13,
+      "session": "e1adbb441e0a42ea8898ad9bfb33ad22",
+      "revision": 96,
+      "classes": [
+        "request_sizing",
+        "behavior_structure",
+        "external_execution"
+      ],
+      "hasUnverifiableDispatch": true,
+      "completeSuccess": false
+    },
+    {
+      "run": 14,
+      "session": "4e753d88a123409d893169c2b3dba1a1",
+      "revision": 72,
+      "classes": [
+        "evidence_transcription",
+        "request_sizing"
+      ],
+      "hasUnverifiableDispatch": false,
+      "completeSuccess": false
+    },
+    {
+      "run": 15,
+      "session": "6968045bd9764b0b86b8d2ca10ae86e5",
+      "revision": 77,
+      "classes": [
+        "behavior_structure",
+        "nonconvergent_correction"
+      ],
+      "hasUnverifiableDispatch": false,
+      "completeSuccess": false
+    },
+    {
+      "run": 16,
+      "session": "458146849ffc40f4a13fb93373d564b9",
+      "revision": 138,
+      "classes": [
+        "capability_responsibility"
+      ],
+      "hasUnverifiableDispatch": false,
+      "completeSuccess": false
+    },
+    {
+      "run": 17,
+      "session": "c3c0dd776c404bc1a116dcdf36374894",
+      "revision": 85,
+      "classes": [
+        "external_execution"
+      ],
+      "hasUnverifiableDispatch": true,
+      "completeSuccess": false
+    },
+    {
+      "run": 18,
+      "session": "4c75e60116264d2791a21cf3ae248ee2",
+      "revision": 182,
+      "classes": [
+        "evidence_transcription",
+        "capability_responsibility",
+        "behavior_structure",
+        "nonconvergent_correction"
+      ],
+      "hasUnverifiableDispatch": false,
+      "completeSuccess": false
+    },
+    {
+      "run": 19,
+      "session": "e3fa76e61c51468787b27470eae09eba",
+      "revision": 76,
+      "classes": [
+        "output_truncation"
+      ],
+      "hasUnverifiableDispatch": false,
+      "completeSuccess": false
+    },
+    {
+      "run": 20,
+      "session": "43c7d728e6c54455b1abb3a706689dfb",
+      "revision": 64,
+      "classes": [
+        "capability_responsibility"
+      ],
+      "hasUnverifiableDispatch": false,
+      "completeSuccess": false
+    },
+    {
+      "run": 21,
+      "session": "be73a018a5494d01b40e7da869fc9c75",
+      "revision": 10,
+      "classes": [
+        "evidence_transcription"
+      ],
+      "hasUnverifiableDispatch": false,
+      "completeSuccess": false
+    },
+    {
+      "run": 22,
+      "session": "c90ee39c4b014950ac533e8e5901f084",
+      "revision": 100,
+      "classes": [
+        "external_execution"
+      ],
+      "hasUnverifiableDispatch": true,
+      "completeSuccess": false
+    },
+    {
+      "run": 23,
+      "session": "55e62ff6be5f4934a02362992be13f8f",
+      "revision": 23,
+      "classes": [
+        "request_sizing"
+      ],
+      "hasUnverifiableDispatch": false,
+      "completeSuccess": false
+    }
+  ],
+  "notes": [
+    "Private source snapshots, requests, receipts and budgets remain in encrypted schema-4 storage.",
+    "This manifest contains classifications and storage identities, not replacement model responses.",
+    "Synthetic regression responses are labelled by their test fixtures and are not historical receipts.",
+    "HTTP 400 records do not establish a common provider-rejection cause."
+  ]
+}

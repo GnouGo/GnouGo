@@ -31,9 +31,12 @@
   </ItemGroup>
 
   <!-- Automatically install Playwright Chromium browsers after build -->
+  <!-- Playwright retries failed downloads and can print "Error:" before a successful
+       exit. Its exit code is authoritative; MSBuild's compiler-diagnostic parser must
+       not turn recovered downloader messages into errors. Nonzero exits still fail. -->
   <Target Name="InstallPlaywrightBrowsers" AfterTargets="Build" Condition="'$(SkipPlaywrightBrowserInstall)' != 'true'">
     <Message Importance="high" Text="Installing Playwright Chromium browsers..." />
-    <Exec Command="node &quot;$(TargetDir).playwright/package/cli.js&quot; install chromium" WorkingDirectory="$(TargetDir)" StandardOutputImportance="low" />
+    <Exec Command="node &quot;$(TargetDir).playwright/package/cli.js&quot; install chromium" WorkingDirectory="$(TargetDir)" StandardOutputImportance="low" IgnoreStandardErrorWarningFormat="true" />
   </Target>
 
   <!--
@@ -49,7 +52,7 @@
     </PropertyGroup>
     <Message Importance="high" Text="Installing published Playwright Chromium browsers into $(PublishedPlaywrightBrowsersDir)..." />
     <MakeDir Directories="$(PublishedPlaywrightBrowsersDir)" />
-    <Exec Command="node &quot;$(PublishedPlaywrightCli)&quot; install chromium" WorkingDirectory="$(PublishDirFullPath)" EnvironmentVariables="PLAYWRIGHT_BROWSERS_PATH=$(PublishedPlaywrightBrowsersDir)" StandardOutputImportance="low" />
+    <Exec Command="node &quot;$(PublishedPlaywrightCli)&quot; install chromium" WorkingDirectory="$(PublishDirFullPath)" EnvironmentVariables="PLAYWRIGHT_BROWSERS_PATH=$(PublishedPlaywrightBrowsersDir)" StandardOutputImportance="low" IgnoreStandardErrorWarningFormat="true" />
   </Target>
 
 </Project>

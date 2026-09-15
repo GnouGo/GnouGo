@@ -37,4 +37,5 @@
     <Content Update="appsettings*.json" CopyToPublishDirectory="Never" />
   </ItemGroup>
 
+  <Import Project="../../build/GnOuGo.DarwinNativeCrypto.targets" />
 </Project>

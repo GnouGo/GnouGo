@@ -77,7 +77,11 @@ public sealed record CopilotReviewStartRequest(
     int MaxBatchCharacters = 60_000,
     CopilotPermissionMode PermissionMode = CopilotPermissionMode.Deny,
     string? ReviewInstructions = null,
-    IReadOnlyList<ExistingReviewComment>? ExistingComments = null);
+    IReadOnlyList<ExistingReviewComment>? ExistingComments = null)
+{
+    /// <summary>Optional JSON object containing original upstream execution results, retained as untrusted review context.</summary>
+    public string? RuntimeContextJson { get; init; }
+}
 
 public sealed record CopilotReviewSession(
     string ReviewHandle,

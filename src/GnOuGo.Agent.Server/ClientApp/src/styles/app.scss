@@ -729,11 +729,45 @@ html, body {
   background: var(--gnougo-surface-2);
 }
 
+.gnougo-hitl-option--recommended {
+  border-color: color-mix(in srgb, var(--gnougo-accent) 55%, var(--gnougo-border));
+  background: color-mix(in srgb, var(--gnougo-accent) 7%, var(--gnougo-surface));
+}
+
 .gnougo-hitl-option input {
   width: 16px;
   height: 16px;
   flex: 0 0 auto;
   accent-color: var(--gnougo-accent);
+}
+
+.gnougo-hitl-option__body {
+  min-width: 0;
+  display: grid;
+  gap: 3px;
+}
+
+.gnougo-hitl-option__title {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-weight: 620;
+}
+
+.gnougo-hitl-option__description {
+  color: var(--gnougo-muted);
+  font-size: 12px;
+}
+
+.gnougo-hitl-option__badge {
+  padding: 1px 7px;
+  border-radius: 999px;
+  color: var(--gnougo-accent);
+  background: color-mix(in srgb, var(--gnougo-accent) 13%, transparent);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: .02em;
+  text-transform: uppercase;
 }
 
 .gnougo-hitl-option--inline {
@@ -756,6 +790,34 @@ html, body {
   font-size: 12.5px;
   line-height: 1.45;
   tab-size: 2;
+}
+
+.gnougo-hitl-field__custom {
+  min-height: 88px;
+  margin-top: 2px;
+}
+
+.gnougo-hitl-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.gnougo-hitl-abandon {
+  min-height: 36px;
+  padding: 7px 12px;
+  border: 1px solid rgba(153, 27, 27, .45);
+  border-radius: 8px;
+  color: #991b1b;
+  background: transparent;
+  cursor: pointer;
+  font: inherit;
+  font-weight: 620;
+}
+
+.gnougo-hitl-abandon:hover {
+  background: rgba(153, 27, 27, .08);
 }
 
 /* Empty / errors */

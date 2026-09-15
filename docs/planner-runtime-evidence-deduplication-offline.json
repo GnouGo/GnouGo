@@ -1,0 +1,264 @@
+{
+  "baseCommit": "809e9fd0c58c374779400a8905ef34e79cc038d5",
+  "solutionResults": {
+    "Passed": 3401,
+    "NotExecuted": 1
+  },
+  "testProjectCount": 29,
+  "focusedTests": 62,
+  "newRegressionCases": 13,
+  "regressionsBeforeFix": "13 failed against the original parser",
+  "solutionBuild": "passed_without_warnings",
+  "harnessBuild": "passed_without_warnings",
+  "frontendBuilds": [
+    "Agent.Server",
+    "OtlpCollector.Server"
+  ],
+  "publishAndPackageChecks": [
+    {
+      "check": "agent-frontend",
+      "exitCode": 0,
+      "seconds": 1.0
+    },
+    {
+      "check": "GnOuGo.Flow.Core-package",
+      "exitCode": 0,
+      "seconds": 3.0
+    },
+    {
+      "check": "GnOuGo.Flow.Planning-package",
+      "exitCode": 0,
+      "seconds": 5.5
+    },
+    {
+      "check": "GnOuGo.Flow.Integrations-package",
+      "exitCode": 0,
+      "seconds": 2.5
+    },
+    {
+      "check": "GnOuGo.Agent.Shared-package",
+      "exitCode": 0,
+      "seconds": 1.3
+    },
+    {
+      "check": "aot-publish",
+      "exitCode": 0,
+      "seconds": 25.3
+    },
+    {
+      "check": "aot-smoke",
+      "exitCode": 0,
+      "seconds": 1.4
+    },
+    {
+      "check": "trimmed-publish",
+      "exitCode": 0,
+      "seconds": 39.4
+    },
+    {
+      "check": "trimmed-smoke",
+      "exitCode": 0,
+      "seconds": 2.0
+    }
+  ],
+  "packages": {
+    "GnOuGo.Flow.Integrations.1.0.0.nupkg": "8ba7909751a0fcbbde36d7b6a954fbcf8f68b3747ba01243508110b98dd67d8c",
+    "GnOuGo.Flow.Core.1.0.0.nupkg": "319cc5f41aa1d7d1de790185e798782af539414fc826066acd8640b314ba3f5f",
+    "GnOuGo.Flow.Planning.1.0.0.nupkg": "6dad7ec0da6efd54b5fce325f2504ce969c7e5f9da28c94b3239bc833aa1d3b5",
+    "GnOuGo.Agent.Shared.1.0.0.nupkg": "a0598059b6fbb27ac0dc9c564da446c03e633f9773f824dc998d7aa143fcfb16"
+  },
+  "nativeAotBinaryHash": "f0c71726371509750b2ad1b92b3f8685055703da98a63bbf2a8c071483f94b47",
+  "trimmedAgentBinaryHash": "bfe9f842c49b7c20515ff4de6e3df089fea1e164e0266c26065a9588b1a58aec",
+  "baselineReplay": {
+    "decisionId": "interpret_c181cf54a85cdff8848285fa",
+    "requestId": "schema5-runtime-occurrence-diagnostics-rerun-1:local:0:9:intent:response_contract:93beceaf3191e878:page_fc95895d355cc297828d569aad514de6eedac7d627387122e8f7899fdf598606:80d8d9b4fa2cb396f8ba9e83a5e687b8c6e1e111d7fce4fab18fad52e81008ee",
+    "requestFingerprint": "9cbb0fd00d2cde4b2ba61330d6d05eef16255a83e95f71cb02b88ddefef767a1",
+    "receiptFingerprint": "9b995a4f5dbbc0a7921e9bbb943054cb13b356730a89254d8d7aad802cf16ffc",
+    "sourceAuthority": "RequestedBehavior",
+    "sourceEvidence": "Return classifiedResult:{id:string,amount:number,category:string}, all members required.",
+    "schemaFindings": 0,
+    "exactAssignment": {
+      "obligations": [
+        {
+          "start": "b0",
+          "end": "b1",
+          "kind": "workflow_policy",
+          "required": false
+        },
+        {
+          "start": "b1",
+          "end": "b4",
+          "kind": "declaration_candidate",
+          "required": true
+        },
+        {
+          "start": "b1",
+          "end": "b4",
+          "kind": "declaration_constraint",
+          "required": true
+        }
+      ],
+      "runtime": [
+        {
+          "role": "contract"
+        },
+        {
+          "role": "contract"
+        },
+        {
+          "role": "contract"
+        }
+      ]
+    },
+    "receiptUsage": {
+      "completion_tokens": 163,
+      "completion_tokens_details": {
+        "accepted_prediction_tokens": 0,
+        "audio_tokens": 0,
+        "reasoning_tokens": 0,
+        "rejected_prediction_tokens": 0
+      },
+      "latency_checkpoint": {
+        "engine_tbt_ms": 8,
+        "engine_ttft_ms": 242,
+        "engine_ttlt_ms": 1495,
+        "pre_inference_ms": 103,
+        "service_tbt_ms": 8,
+        "service_ttft_ms": 471,
+        "service_ttlt_ms": 1721,
+        "user_visible_ttft_ms": 368
+      },
+      "prompt_tokens": 1910,
+      "prompt_tokens_details": {
+        "audio_tokens": 0,
+        "cached_tokens": 0
+      },
+      "total_tokens": 2073
+    },
+    "replayedCode": "INTENT_OPERATION_UNRESOLVED",
+    "replayedMessage": "Runtime evidence contains a repeated assignment.",
+    "replayedLocation": "/operations/@r_9595368567a8bbc18a027365",
+    "providerDispatches": 0,
+    "archiveUnchanged": true
+  },
+  "correctedReplay": {
+    "decisionId": "interpret_c181cf54a85cdff8848285fa",
+    "requestId": "schema5-runtime-occurrence-diagnostics-rerun-1:local:0:9:intent:response_contract:93beceaf3191e878:page_fc95895d355cc297828d569aad514de6eedac7d627387122e8f7899fdf598606:80d8d9b4fa2cb396f8ba9e83a5e687b8c6e1e111d7fce4fab18fad52e81008ee",
+    "requestFingerprint": "9cbb0fd00d2cde4b2ba61330d6d05eef16255a83e95f71cb02b88ddefef767a1",
+    "receiptFingerprint": "9b995a4f5dbbc0a7921e9bbb943054cb13b356730a89254d8d7aad802cf16ffc",
+    "sourceAuthority": "RequestedBehavior",
+    "sourceEvidence": "Return classifiedResult:{id:string,amount:number,category:string}, all members required.",
+    "schemaFindings": 0,
+    "exactAssignment": {
+      "obligations": [
+        {
+          "start": "b0",
+          "end": "b1",
+          "kind": "workflow_policy",
+          "required": false
+        },
+        {
+          "start": "b1",
+          "end": "b4",
+          "kind": "declaration_candidate",
+          "required": true
+        },
+        {
+          "start": "b1",
+          "end": "b4",
+          "kind": "declaration_constraint",
+          "required": true
+        }
+      ],
+      "runtime": [
+        {
+          "role": "contract"
+        },
+        {
+          "role": "contract"
+        },
+        {
+          "role": "contract"
+        }
+      ]
+    },
+    "receiptUsage": {
+      "completion_tokens": 163,
+      "completion_tokens_details": {
+        "accepted_prediction_tokens": 0,
+        "audio_tokens": 0,
+        "reasoning_tokens": 0,
+        "rejected_prediction_tokens": 0
+      },
+      "latency_checkpoint": {
+        "engine_tbt_ms": 8,
+        "engine_ttft_ms": 242,
+        "engine_ttlt_ms": 1495,
+        "pre_inference_ms": 103,
+        "service_tbt_ms": 8,
+        "service_ttft_ms": 471,
+        "service_ttlt_ms": 1721,
+        "user_visible_ttft_ms": 368
+      },
+      "prompt_tokens": 1910,
+      "prompt_tokens_details": {
+        "audio_tokens": 0,
+        "cached_tokens": 0
+      },
+      "total_tokens": 2073
+    },
+    "replay": "parsed",
+    "inputCount": 3,
+    "canonicalCount": 1,
+    "canonicalIds": [
+      "runtime_f93d2f02e96ff025f52c4cdc"
+    ],
+    "providerDispatches": 0,
+    "archiveUnchanged": true
+  },
+  "fullInterpretationReplay": {
+    "fullInterpretationReplay": "completed",
+    "canonicalRuntimeCount": 23,
+    "runtimeProof": "ff0409fc24dcc5d4171cead79418c88a0af4632d48a07b9b3d6d83f032becaf4",
+    "newReservations": 0,
+    "newRepairAllowances": 0,
+    "persistedCheckpointUnchanged": true
+  },
+  "admissionFixtureSelfcheck": {
+    "evidence": "synthetic fixture selfcheck",
+    "cases": [
+      {
+        "case": "local",
+        "passed": true,
+        "preflight": {
+          "interpretationPages": 9,
+          "sourceDecisions": 13,
+          "modelRuntimeDecisionsRemoved": 0,
+          "declarationFixtureValidated": true
+        },
+        "modelCalls": 0
+      },
+      {
+        "case": "mixed",
+        "passed": true,
+        "preflight": {
+          "interpretationPages": 9,
+          "sourceDecisions": 13,
+          "modelRuntimeDecisionsRemoved": 0,
+          "declarationFixtureValidated": true
+        },
+        "modelCalls": 0
+      }
+    ]
+  },
+  "referenceSelfchecks": {
+    "classifierBatch": 6,
+    "CodeReview": 18,
+    "modelCalls": 0
+  },
+  "warnings": 0,
+  "newSuppressions": 0,
+  "proofVersionsUnchanged": true,
+  "storageSchema": 5,
+  "liveDiagnostics": "not started; freeze the validated commit first"
+}

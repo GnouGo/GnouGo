@@ -12,7 +12,6 @@ from gnougo_flow_core.json_schema_contract_validator import (
 from gnougo_flow_core.parsing import WorkflowParser
 from gnougo_flow_core.runtime import WorkflowEngine
 from gnougo_flow_core.workflow_plan_semantic_validator import (
-    complete_inferable_function_parameter_jsdoc,
     validate_workflow_semantics,
 )
 
@@ -108,20 +107,7 @@ def test_enum_and_const_diagnostics_include_the_rejected_value() -> None:
     assert "2" in const_errors[0] and "1" in const_errors[0]
 
 
-def test_balanced_nested_jsdoc_types_and_safe_completion() -> None:
-    script = """
-    /**
-     * @param {Array<{id: string, meta: {active: boolean}}>} rows - Input rows.
-     * @returns {Array<{id: string}>} - Projected rows.
-     */
-    function project(rows) { return rows.map(x => ({ id: x.id })); }
-
-    /**
-     * @returns {string} - Joined values.
-     */
-    function join(values) { return values.join(','); }
-    """
-    completed = complete_inferable_function_parameter_jsdoc(script)
+def test_balanced_nested_jsdoc_types() -> None:
     document = WorkflowParser.parse(
         """
         version: 1
@@ -133,7 +119,7 @@ def test_balanced_nested_jsdoc_types_and_safe_completion() -> None:
           function project(rows) { return rows.map(x => ({ id: x.id })); }
 
           /**
-           * @param {Array<object>} values - Type inferred from deterministic function usage.
+           * @param {Array<object>} values - Values to join.
            * @returns {string} - Joined values.
            */
           function join(values) { return values.join(','); }
@@ -144,8 +130,6 @@ def test_balanced_nested_jsdoc_types_and_safe_completion() -> None:
     )
     validate_workflow_semantics(document)
 
-    assert "@param {Array<object>} values - Type inferred" in completed
-    assert completed.count("@param {Array<object>} values") == 1
 
 
 def test_step_ids_are_unique_across_main_and_finally_and_finalizer_cycles_count() -> None:

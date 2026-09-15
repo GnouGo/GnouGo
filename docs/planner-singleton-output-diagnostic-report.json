@@ -1,0 +1,79 @@
+{
+  "completion": "completed",
+  "inputTokens": 1274,
+  "outputTokens": 74,
+  "reasoningTokens": 0,
+  "finalAnswerTokens": 74,
+  "answerTokenAttribution": "derived: output tokens minus provider-reported reasoning tokens",
+  "schemaValid": true,
+  "schemaFindings": [],
+  "assignment": {
+    "declarations_r_f62567b1da3aa9193fdaad62": {
+      "ob_10482c39f2b5cfde": {
+        "disposition": "modifier_of",
+        "target": "ob_7c0dd31eb3577e6e",
+        "presence": "unspecified",
+        "default": null
+      }
+    }
+  },
+  "receiptFingerprint": "3b0330afbd0e870834abf9fe9a42953e72f4629335758e4d86dd52e3aff80e67",
+  "archiveUnchanged": true,
+  "manifest": {
+    "identity": "schema5-singleton-output-16384-low-1",
+    "sourceSession": "7a27ef2963ae49589c9b6c4196644fe7",
+    "sourceRequest": "7a27ef2963ae49589c9b6c4196644fe7:18:6:intent_declarations:response_contract:93beceaf3191e878:page_8671f487763176cf6eaa82f66798fc545290df8f0ec661a18756da0d6ed18018:2d289a0514c308703e35bae582087c247d2e1b66b8f81097fcd42c978b7abba7",
+    "sourceRequestHash": "2d289a0514c308703e35bae582087c247d2e1b66b8f81097fcd42c978b7abba7",
+    "sourceReceiptHash": "c851b7af0a1be7d527a54a54d77901fad3cd1bde5525f55086f4e7079b741b3c",
+    "request": "schema5-singleton-output-16384-low-1:fe4bae2ceee0982d65acde945e9c6723d5946bfe8228424d73ee605cbddd4df7",
+    "sourceArchiveFingerprint": "718208d26072a786c00ca2ee5b1cb6edfe3a44b6092d51e1457b9b5c6b2fc5fb",
+    "sourceBudgetFingerprint": "d2f12ca8fa17f4379c7b86e5451ecad9942779f9c37b9ad08d0bf22987863d8c",
+    "contextFingerprint": "e0f44c563c65ed59d0fb5cb672bcb36a89f59f34ea209daa707b3fdaa5bfb35e",
+    "schemaFingerprint": "6b07a8952c358aa5914da3068b42ea214a24324d11a77f4739df9a2299498f00",
+    "outputLimit": 16384,
+    "reasoning": "low",
+    "model": "gpt-5.5-2026-04-24",
+    "harnessHash": "a0f8dadcb98f32a2d0cd54e7075c9a3ec2831e28692a114306d00b54136dd8f4"
+  },
+  "harnessCommit": "0d01662",
+  "productionCommit": "0f4ebfdbf733687c0dc4d1dc9c4b89ca702df95e",
+  "interpretation": {
+    "ob_10482c39f2b5cfde": "Candidate concerning the category enumeration: rejected, high, standard.",
+    "ob_7c0dd31eb3577e6e": "Existing classifiedResult output declaration.",
+    "meaning": "Attach the category constraint to classifiedResult as a modifier. No new public port, presence constraint or omission default is introduced by this assignment."
+  },
+  "verification": {
+    "focusedTestsPassed": 61,
+    "focusedTestsFailed": 0,
+    "buildWarnings": 0,
+    "buildErrors": 0,
+    "productionDllsUnchanged": 22,
+    "productionSourceUnchanged": true,
+    "archivedRecordsUnchanged": 36,
+    "planningSessionsCreated": 0,
+    "archivedSessionResumed": false,
+    "diagnosticCalls": 1,
+    "diagnosticReservations": 1,
+    "verifiedReceipts": 1,
+    "reasoningExperiments": 0,
+    "replacementLimitsTried": 0,
+    "sourceArchiveAuditHash": "01ed849dc458d7caa8be5647d93fc4296038bfbeb56e8602d66d5c512cb37666"
+  },
+  "comparison": {
+    "original": {
+      "outputCeiling": 8192,
+      "inputTokens": 1274,
+      "outputTokens": 8192,
+      "reasoningTokens": 8192,
+      "usableCandidate": false
+    },
+    "diagnostic": {
+      "outputCeiling": 16384,
+      "inputTokens": 1274,
+      "outputTokens": 74,
+      "reasoningTokens": 0,
+      "usableCandidate": true
+    },
+    "limitation": "One independent model observation does not establish that the higher ceiling was necessary; no production limit change follows."
+  }
+}

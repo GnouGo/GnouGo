@@ -1,3 +1,4 @@
+using System.Text.Json;
 using System.Text.Json.Nodes;
 using GnOuGo.Cmd.Mcp;
 using Xunit;
@@ -103,6 +104,60 @@ public class CommandPolicyTests
         Assert.Contains("Pass parametersJson as a JSON object string", description);
         Assert.Contains("reserved .GnOuGo", description);
         Assert.DoesNotContain("Get-ChildItem", description);
+    }
+
+    [Fact]
+    public void BuildCmdRunInputSchema_DeclaresConfiguredCommandNamesAsExactSelectors()
+    {
+        var root = CreateTempDirectory();
+        var policy = new CommandPolicy(new CmdServerSettings
+        {
+            DefaultWorkingDirectory = root,
+            AllowedShells = ["powershell"],
+            AllowedCommands = new Dictionary<string, AllowedCommandSettings>(StringComparer.OrdinalIgnoreCase)
+            {
+                ["delete_directory"] = new()
+                {
+                    Description = "Delete one existing workspace directory recursively.",
+                    Shell = "powershell",
+                    Script = "Remove-Item {{path}}"
+                },
+                ["dotnet_test"] = new() { Shell = "powershell", Script = "dotnet test" }
+            }
+        }, root);
+        var generatedSchema = JsonSerializer.SerializeToElement(new
+        {
+            type = "object",
+            properties = new
+            {
+                commandName = new { type = "string" },
+                parametersJson = new { type = new[] { "string", "null" } }
+            },
+            required = new[] { "commandName" }
+        });
+
+        var enriched = policy.BuildCmdRunInputSchema(generatedSchema);
+
+        var values = enriched.GetProperty("properties")
+            .GetProperty("commandName")
+            .GetProperty("enum")
+            .EnumerateArray()
+            .Select(static value => value.GetString()!)
+            .ToArray();
+        Assert.Equal(["delete_directory", "dotnet_test"], values);
+        var selectorBranches = enriched.GetProperty("oneOf").EnumerateArray().ToArray();
+        Assert.Equal(2, selectorBranches.Length);
+        var deleteBranch = Assert.Single(selectorBranches, static branch =>
+            branch.GetProperty("properties").GetProperty("commandName").GetProperty("const").GetString()
+            == "delete_directory");
+        Assert.Contains(
+            "Delete one existing workspace directory recursively.",
+            deleteBranch.GetProperty("description").GetString(),
+            StringComparison.Ordinal);
+        Assert.Equal("string", enriched.GetProperty("properties")
+            .GetProperty("parametersJson")
+            .GetProperty("type")[0]
+            .GetString());
     }
 
     [Fact]

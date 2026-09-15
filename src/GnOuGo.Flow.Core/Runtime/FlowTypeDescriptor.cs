@@ -203,7 +203,12 @@ internal sealed record FlowTypeDescriptor
             return expected.Variants.Any(IsCompatibleWith);
 
         if (Kind == expected.Kind)
+        {
+            if (Kind == FlowTypeKind.String && expected.EnumValues.Count > 0)
+                return EnumValues.Count == 0
+                       || EnumValues.All(expected.EnumValues.Contains);
             return true;
+        }
 
         return Kind == FlowTypeKind.Integer && expected.Kind == FlowTypeKind.Number;
     }
@@ -237,6 +242,14 @@ internal sealed record FlowTypeDescriptor
 
         if (Kind != expected.Kind
             && !(Kind == FlowTypeKind.Integer && expected.Kind == FlowTypeKind.Number))
+        {
+            return BuildAssignmentIssue(path, this, expected);
+        }
+
+        if (Kind == FlowTypeKind.String
+            && expected.EnumValues.Count > 0
+            && EnumValues.Count > 0
+            && EnumValues.Any(value => !expected.EnumValues.Contains(value, StringComparer.Ordinal)))
         {
             return BuildAssignmentIssue(path, this, expected);
         }
@@ -348,6 +361,7 @@ internal sealed record FlowTypeDescriptor
         {
             FlowTypeKind.Any => "compatible",
             FlowTypeKind.Null => "null",
+            FlowTypeKind.String when EnumValues.Count > 0 => $"string enum [{string.Join(", ", EnumValues)}]",
             FlowTypeKind.String => "string",
             FlowTypeKind.Number => "number",
             FlowTypeKind.Integer => "integer",
@@ -418,6 +432,7 @@ internal static class FlowTypeDescriptorConverter
         descriptor = descriptor with
         {
             Description = definition.Description,
+            EnumValues = definition.Enum?.ToArray() ?? Array.Empty<string>(),
             Default = definition.Default == null
                 ? null
                 : InputDefaultValueConverter.ConvertToNode(definition.Default, definition)
@@ -445,7 +460,8 @@ internal static class FlowTypeDescriptorConverter
                 StringComparer.Ordinal),
             definition.AdditionalProperties == null ? null : FromOutputDef(definition.AdditionalProperties)) with
         {
-            Description = definition.Description
+            Description = definition.Description,
+            EnumValues = definition.Enum?.ToArray() ?? Array.Empty<string>()
         };
         return definition.Nullable
             ? FlowTypeDescriptor.Union([descriptor, FlowTypeDescriptor.Null]) with { Description = definition.Description }
@@ -623,6 +639,10 @@ internal static class FlowTypeDescriptorConverter
             obj["description"] = descriptor.Description;
         if (inputStyle && descriptor.Default != null)
             obj["default"] = descriptor.Default.DeepClone();
+        if (descriptor.EnumValues.Count > 0)
+            obj["enum"] = new JsonArray(descriptor.EnumValues
+                .Select(static value => (JsonNode?)JsonValue.Create(value))
+                .ToArray());
         if (descriptor.Items != null)
             obj["items"] = ToWorkflowContractNode(descriptor.Items, inputStyle);
         if (descriptor.Properties.Count > 0)

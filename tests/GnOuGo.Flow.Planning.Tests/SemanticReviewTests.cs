@@ -1,0 +1,266 @@
+using System.Text.Json.Nodes;
+using GnOuGo.Flow.Core.Planning;
+using GnOuGo.Flow.Core.Runtime;
+using static GnOuGo.Flow.Planning.Tests.TypedPlannerTests;
+
+namespace GnOuGo.Flow.Planning.Tests;
+
+public sealed class SemanticReviewTests
+{
+    [Fact]
+    public void LocalReviewUsesExecutableContractsAndCannotChallengeTheGenericExecutorSchema()
+    {
+        var graph = Graph(); var preparation = Preparation();
+        var node = graph.Workflows[0].Steps[0];
+        var capability = new PlanningCapability { Id = "local", StepType = "set" };
+        preparation.Capabilities.Add(capability); node.CapabilityId = capability.Id;
+        capability.Resolution = "local";
+        capability.OutputSchema = new JsonObject { ["type"] = "object", ["additionalProperties"] = true };
+        node.OutputSchema = new() { Type = "object", Properties = [new() { Name = "message", Required = true, Schema = new() { Type = "string" } }] };
+        var context = PlanningSemanticReview.SemanticCapabilities(graph, preparation);
+        Assert.Empty(context["schemas"]!.AsObject());
+        Assert.Null(Assert.Single(context["capabilities"]!.AsArray())!["outputSchema"]);
+        var targets = PlanningSemanticReview.SemanticTargets(graph, preparation);
+        Assert.DoesNotContain("/workflows/0/steps/0/preparation", targets.Keys);
+        Assert.Contains("/workflows/0/steps/0/behavior", targets.Keys);
+        Assert.Contains("message", PlanningSemanticContext.Executable(graph).ToJsonString());
+        capability.Resolution = "mcp";
+        Assert.Contains("/workflows/0/steps/0/preparation", PlanningSemanticReview.SemanticTargets(graph, preparation).Keys);
+    }
+
+    [Theory]
+    [InlineData("unchanged", true)]
+    [InlineData("graph", false)]
+    [InlineData("contracts", false)]
+    [InlineData("fixtures", false)]
+    [InlineData("behavior", false)]
+    [InlineData("external", false)]
+    public async Task TechnicalStopsDoNotReassessUnlocatedFindingsOrResetAllowances(string change, bool _)
+    {
+        var state = Session(PlanningStatus.Stopped); state.Graph = Graph(); state.Preparation = Preparation();
+        state.Preparation.Capabilities.Add(new() { Id = "local", StepType = "set", Resolution = change == "external" ? "mcp" : "local" });
+        state.Graph.Workflows[0].Steps[0].CapabilityId = "local";
+        PlanningFixtures.Accept(state);
+        state.Validation.Stage = 4;
+        state.Validation.GraphFingerprint = PlanningGraphCompiler.Fingerprint(state.Graph);
+        state.Validation.ContractFingerprint = PlanningContext.Contracts(state);
+        state.Validation.FixtureFingerprint = PlanningContext.Fixtures(state);
+        state.Diagnostics = [new("arbitrary_code", "/workflows/0/steps/0/preparation", "An arbitrary assessment message."),
+            new("GOVERNING_CONTRACT_REVIEW_REQUIRED", "$", "Human review required.")];
+        state.RepairAllowances.Add(new() { WorkflowKey = "main", Gate = PlanningGates.Semantic, Attempts = 2 });
+        if (change == "graph") state.Graph.Summary += "changed";
+        if (change == "contracts") state.Preparation.Capabilities[0].Description += "changed";
+        if (change == "fixtures") state.Validation.Inputs = new JsonObject { ["changed"] = true };
+        if (change == "behavior") state.Diagnostics[0] = state.Diagnostics[0] with { Location = "/workflows/0/behavior" };
+        var before = PlanningGraphCompiler.Fingerprint(state.Graph);
+        var runtime = new FakeRuntime();
+        var stopped = await new TypedWorkflowPlanner().AdvanceAsync(state, new() { ExpectedRevision = state.Revision }, runtime, TestContext.Current.CancellationToken);
+        Assert.Equal(state.Revision, stopped.Revision); Assert.Empty(runtime.Requests);
+        Assert.Equal(before, PlanningGraphCompiler.Fingerprint(stopped.Graph!));
+        Assert.Equal(2, Assert.Single(state.RepairAllowances).Attempts);
+        Assert.Equal(2, state.Diagnostics.Count);
+
+    }
+
+    [Fact]
+    public void ReviewIndexDistinguishesDefaultChildrenFromTheFollowingAdapter()
+    {
+        var graph = Graph();
+        graph.Workflows[0].Steps = [new() { Key = "decision", Type = "switch", Default = [new() { Key = "default_marker", InternalRole = "decision_outcome" }] },
+            new() { Key = "selection", InternalRole = "branch_result" }];
+        var context = PlanningSemanticContext.Executable(graph)["workflows"]![0]!;
+        Assert.Equal(["decision", "selection"], context["steps"]!.AsArray().Select(n => n!.ToString()));
+        Assert.Equal("/workflows/0/steps/1", context["nodes"]!["selection"]!["location"]!.ToString());
+        Assert.Equal("/workflows/0/steps/0/default/0", context["nodes"]!["default_marker"]!["location"]!.ToString());
+        Assert.Equal("default_marker", Assert.Single(context["nodes"]!["decision"]!["default"]!.AsArray())!.ToString());
+    }
+
+    [Fact]
+    public void SemanticContextOmitsAbsentOptionsWithoutChangingLiteralData()
+    {
+        var graph = Graph();
+        graph.Workflows[0].Steps[0].Cases.Add(new("null", null, []));
+        graph.Workflows[0].Steps[0].Input = Obj(("enabled", new() { Kind = "boolean", Boolean = false }),
+            ("count", new() { Kind = "number", Number = 0 }), ("missing", new() { Kind = "null" }));
+        var context = PlanningSemanticContext.Graph(graph);
+        var node = context["workflows"]![0]!["steps"]![0]!;
+        Assert.Null(node["onError"]);
+        Assert.False(node.AsObject().ContainsKey("if"));
+        Assert.Equal("null", node["cases"]![0]!["value"]!.ToString());
+        Assert.False(node["input"]!["members"]![0]!["value"]!["boolean"]!.GetValue<bool>());
+        Assert.Equal(0, node["input"]!["members"]![1]!["value"]!["number"]!.GetValue<int>());
+        Assert.Equal("null", node["input"]!["members"]![2]!["value"]!["kind"]!.ToString());
+        var executable = PlanningSemanticContext.Executable(graph);
+        var indexed = executable["workflows"]![0]!["nodes"]![graph.Workflows[0].Steps[0].Key]!;
+        Assert.Null(indexed["purpose"]);
+        Assert.Equal("/workflows/0/steps/0", indexed["location"]!.ToString());
+        Assert.True(JsonNode.DeepEquals(node["input"], indexed["input"]));
+    }
+
+    [Fact]
+    public void SemanticFindingsOfferOnlyExactExecutableFieldsAndGoverningReviewLocations()
+    {
+        var graph = Graph(); var targets = PlanningSemanticReview.SemanticTargets(graph, Preparation());
+        Assert.Contains("/workflows/0/steps/0/input/members/0/value", targets.Keys);
+        Assert.Contains("/workflows/0/steps/0/behavior", targets.Keys);
+        Assert.DoesNotContain("/workflows/0/steps/0/input", targets.Keys);
+        Assert.DoesNotContain(targets.Keys, path => path.Contains("/schema/", StringComparison.Ordinal) || path.Contains("/outputSchema", StringComparison.Ordinal));
+        Assert.DoesNotContain(targets.Keys, path => path.EndsWith("/functions", StringComparison.Ordinal) || path.EndsWith("/onError", StringComparison.Ordinal));
+    }
+
+    [Theory]
+    [InlineData("read", "group", "findings")]
+    [InlineData("lecture", "ensemble", "résultats")]
+    public void SemanticContractsDistinguishRawReferencesFromContainerEnvelopes(string producer, string container, string field)
+    {
+        var graph = Graph(); var prep = Preparation(); var workflow = graph.Workflows[0];
+        prep.Capabilities.Add(new()
+        {
+            Id = "external",
+            StepType = "mcp.call",
+            OutputSchema = new JsonObject
+            {
+                ["type"] = "object",
+                ["properties"] = new JsonObject { [field] = new JsonObject { ["type"] = "array", ["items"] = new JsonObject { ["type"] = "string" } } },
+                ["required"] = new JsonArray(field)
+            }
+        });
+        workflow.Steps.Insert(0, new()
+        {
+            Key = container,
+            Type = "sequence",
+            Steps = [new() { Key = producer, Type = "mcp.call", CapabilityId = "external",
+            StructuredOutput = new(new() { Type = "object", Properties = [new() { Name = "summary", Schema = new() { Type = "string" } }] }) }]
+        });
+        workflow.Steps[1].Input = Obj(("container", new() { Kind = "output", Source = container }),
+            ("raw", new() { Kind = "output", Source = producer }), ("structured", new() { Kind = "output", Source = producer, ResultChannel = "structured" }),
+            ("invalid", new() { Kind = "output", Source = "missing" }));
+        workflow.Outputs.Clear();
+        var context = PlanningSemanticReview.SemanticValueContracts(graph, prep);
+        JsonObject Entry(string source, string? channel = null) => Assert.Single(context["references"]!.AsArray().OfType<JsonObject>(),
+            p => p["source"]?.ToString() == source && p["resultChannel"]?.ToString() == channel);
+        JsonObject Schema(JsonObject entry) => context["schemas"]![entry["schema"]!["$ref"]!.ToString()["#/schemas/".Length..]]!.AsObject();
+        Assert.Equal("array", Schema(Entry(producer))["properties"]![field]!["type"]!.ToString());
+        Assert.Null(Schema(Entry(producer))["properties"]!["response"]);
+        var children = Schema(Entry(container))["properties"]![producer]!["properties"]!;
+        Assert.Equal("array", children["response"]!["properties"]![field]!["type"]!.ToString());
+        Assert.Equal("string", children["json"]!["properties"]!["summary"]!["type"]!.ToString());
+        Assert.Equal("string", Schema(Entry(producer, "structured"))["properties"]!["summary"]!["type"]!.ToString());
+        Assert.NotNull(Entry("missing")["unresolved"]); Assert.Null(Entry("missing")["schema"]);
+    }
+
+    [Theory]
+    [InlineData("producer", "consumer")]
+    [InlineData("renamed-source", "renamed-destination")]
+    public void SemanticReviewReceivesAuthoritativeSchemasWithExactBindingsAndSharedDefinitions(string first, string second)
+    {
+        var graph = Graph(); var preparation = Preparation();
+        graph.Workflows[0].Steps[0].CapabilityId = first;
+        graph.Workflows[0].Steps.Add(new() { Key = "other", Type = "mcp.call", CapabilityId = second });
+        var input = new JsonObject
+        {
+            ["type"] = "object",
+            ["properties"] = new JsonObject
+            { ["mode"] = new JsonObject { ["type"] = "string", ["enum"] = new JsonArray("allocate", "finalize") }, ["body"] = new JsonObject { ["type"] = "string" } },
+            ["required"] = new JsonArray("mode", "body"),
+            ["additionalProperties"] = false
+        };
+        preparation.Capabilities = [new() { Id = first, InputSchema = input, RequestBindings = [new("/mode", JsonValue.Create("allocate"))] },
+            new() { Id = second, InputSchema = input.DeepClone().AsObject(), RequestBindings = [new("/mode", JsonValue.Create("finalize"))] },
+            new() { Id = "unselected" }];
+        var context = PlanningSemanticReview.SemanticCapabilities(graph, preparation);
+        Assert.Equal(2, context["capabilities"]!.AsArray().Count); Assert.Equal(2, context["schemas"]!.AsObject().Count);
+        var source = context["capabilities"]![0]!; var consumer = context["capabilities"]![1]!;
+        Assert.True(JsonNode.DeepEquals(source["inputSchema"], consumer["inputSchema"]));
+        Assert.Equal("allocate", source["requestBindings"]![0]!["value"]!.GetValue<string>());
+        Assert.Equal("finalize", consumer["requestBindings"]![0]!["value"]!.GetValue<string>());
+        var inputId = source["inputSchema"]!["$ref"]!.GetValue<string>()["#/schemas/".Length..];
+        Assert.True(JsonNode.DeepEquals(input, context["schemas"]![inputId]));
+        Assert.False(context["schemas"]![inputId]!["properties"]!.AsObject().ContainsKey("inventedAssociationId"));
+        Assert.Empty(context["schemas"]![source["outputSchema"]!["$ref"]!.GetValue<string>()["#/schemas/".Length..]]!.AsObject());
+        context["schemas"]![inputId]!["properties"]!["body"]!["type"] = "integer";
+        Assert.Equal("string", input["properties"]!["body"]!["type"]!.GetValue<string>());
+    }
+
+    [Theory]
+    [InlineData("Restore each affected component", "Remove all temporary resources")]
+    [InlineData("Restaurer chaque composant concerné", "Supprimer toutes les ressources temporaires")]
+    public async Task ExactEvidenceCorrectionsPreserveValidFindingsAndExcludeGeneratedQuestionText(string requirement, string cleanup)
+    {
+        var state = Session(PlanningStatus.Validating); state.Graph = Graph(); state.Preparation = Preparation();
+        state.Request.Prompt = requirement + "\n" + cleanup;
+        state.Intent.Answers.Add(new("Invented materialized context", new JsonObject { ["answer"] = "yes" }));
+        var calls = 0; string? retainedDecision = null; JsonNode? retainedFinding = null;
+        var runtime = new FakeRuntime { OnCall = (_, request, _) =>
+        {
+            calls++;
+            var answer = new JsonObject();
+            foreach (var field in request.StructuredOutputSchema!["properties"]!.AsObject())
+            {
+                if (calls == 1)
+                {
+                    var domain = field.Value!["anyOf"]![1]!["properties"]!;
+                    var finding = new JsonObject { ["status"] = "finding", ["rule"] = "coverage", ["target"] = domain["target"]!["enum"]![0]!.DeepClone(),
+                        ["evidence"] = retainedDecision is null ? domain["evidence"]!["enum"]![0]!.DeepClone() : JsonValue.Create("unissued_evidence"), ["message"] = "Preserve the stated obligation." };
+                    if (retainedDecision is null) { retainedDecision = field.Key; retainedFinding = finding.DeepClone(); }
+                    answer[field.Key] = finding;
+                }
+                else
+                {
+                    Assert.NotEqual(retainedDecision, field.Key);
+                    var repairField = Assert.Single(field.Value!["properties"]!.AsObject());
+                    Assert.StartsWith("f_", repairField.Key);
+                    Assert.All(repairField.Value!["enum"]!.AsArray(), value => Assert.StartsWith("r_", value!.ToString()));
+                    answer[field.Key] = new JsonObject { [repairField.Key] = repairField.Value["enum"]![0]!.DeepClone() };
+                }
+            }
+            Assert.DoesNotContain("Invented materialized context", request.StructuredOutputSchema.ToJsonString());
+            return Task.FromResult(new LLMResponse { Json = answer });
+        } };
+        var fingerprint = PlanningGraphCompiler.Fingerprint(state.Graph);
+        var findings = await new PlanningSemanticReview().ReviewAsync(state, state.Graph, runtime, TestContext.Current.CancellationToken);
+        Assert.Equal(2, calls); Assert.Equal(2, findings.Count);
+        Assert.True(JsonNode.DeepEquals(retainedFinding, state.DecisionPages.First().Candidate![retainedDecision!]));
+        Assert.Equal(fingerprint, PlanningGraphCompiler.Fingerprint(state.Graph));
+    }
+
+    [Theory]
+    [InlineData(false, false)]
+    [InlineData(true, false)]
+    [InlineData(false, true)]
+    public async Task SemanticRepairsCanChangeOnlyTheInvalidReference(bool invalidTarget, bool exhausted)
+    {
+        var state = Session(PlanningStatus.Validating); state.Graph = Graph(); state.Preparation = Preparation();
+        var fingerprint = PlanningGraphCompiler.Fingerprint(state.Graph); var calls = 0;
+        var runtime = new FakeRuntime { OnCall = (_, request, _) =>
+        {
+            calls++; var answer = new JsonObject(); var first = true;
+            foreach (var field in request.StructuredOutputSchema!["properties"]!.AsObject())
+            {
+                if (calls == 1 && first)
+                {
+                    var domain = field.Value!["anyOf"]![1]!["properties"]!;
+                    answer[field.Key] = new JsonObject { ["status"] = "finding", ["rule"] = "coverage", ["message"] = "The accepted obligation must be retained.",
+                        ["target"] = invalidTarget ? JsonValue.Create("unissued_target") : domain["target"]!["enum"]![0]!.DeepClone(),
+                        ["evidence"] = invalidTarget ? domain["evidence"]!["enum"]![0]!.DeepClone() : JsonValue.Create("unissued_evidence") };
+                }
+                else if (calls == 1) answer[field.Key] = new JsonObject { ["status"] = "passed" };
+                else
+                {
+                    var target = Assert.Single(field.Value!["properties"]!.AsObject());
+                    answer[field.Key] = exhausted ? new JsonObject { ["status"] = "passed" } : new JsonObject { [target.Key] = target.Value!["enum"]![0]!.DeepClone() };
+                }
+                first = false;
+            }
+            return Task.FromResult(new LLMResponse { Json = answer });
+        } };
+        if (exhausted)
+        {
+            var error = await Assert.ThrowsAsync<GnOuGo.Flow.Core.Expressions.WorkflowRuntimeException>(() => new PlanningSemanticReview().ReviewAsync(state, state.Graph, runtime, TestContext.Current.CancellationToken));
+            Assert.Equal("DECISION_CORRECTION_INVALID", error.Code);
+        }
+        else Assert.Single(await new PlanningSemanticReview().ReviewAsync(state, state.Graph, runtime, TestContext.Current.CancellationToken));
+        Assert.Equal(2, calls); Assert.Equal(1, state.RepairAllowances.Sum(a => a.Attempts));
+        Assert.Equal(fingerprint, PlanningGraphCompiler.Fingerprint(state.Graph));
+    }
+}

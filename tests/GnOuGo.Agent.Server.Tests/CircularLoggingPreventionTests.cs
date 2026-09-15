@@ -1,4 +1,4 @@
-﻿using System.Diagnostics;
+using System.Diagnostics;
 using Microsoft.Extensions.Logging;
 using GnOuGo.Agent.Server.Configuration;
 using GnOuGo.Agent.Server.Telemetry;
@@ -89,4 +89,3 @@ public sealed class CircularLoggingPreventionTests
             ServiceName = "GnOuGo.Agent.Server"
         }));
 }
-

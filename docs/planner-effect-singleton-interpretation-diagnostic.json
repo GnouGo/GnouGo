@@ -1,0 +1,55 @@
+{
+  "completion": "completed",
+  "inputTokens": 582,
+  "outputTokens": 336,
+  "reasoningTokens": 283,
+  "finalAnswerTokens": 53,
+  "answerTokenAttribution": "derived: output tokens minus provider-reported reasoning tokens",
+  "schemaValid": true,
+  "schemaFindings": [],
+  "assignment": {
+    "interpret_18819469387f8281c01c9120": {
+      "obligations": [
+        {
+          "start": "b0",
+          "end": "b7",
+          "kind": "implementation_policy",
+          "required": true
+        }
+      ]
+    }
+  },
+  "receiptFingerprint": "825d52fc6b4b04a6a3e4069eea3adc40585ac704093860b79a0a4cd91a9cf434",
+  "archiveUnchanged": true,
+  "productionBinariesUnchanged": true,
+  "manifest": {
+    "identity": "schema5-effect-interpretation-singleton-16384-low-1",
+    "sourceCase": "schema5-effect-grounded-admission-diagnostics-1:local",
+    "sourceRequest": "schema5-effect-grounded-admission-diagnostics-1:local:0:3:intent:response_contract:93beceaf3191e878:page_1a567eef6002e05aa7093ded0fd524dd6cbfdcacfbed0b0f34a1994217263a50:e001c096a7b4f9aa037dc6be6be9141a217af58445a743ed2bb8bd639b4bfa85",
+    "decision": "interpret_18819469387f8281c01c9120",
+    "sourceRequestFingerprint": "a681c93b81c4911ee1d87929732f2fb64b118d4d45078edbc2425961e7e58653",
+    "parentReceiptFingerprint": "e584a011c6a2c70a92d712b9520aa8e56cd3cd862347614fd81d3daf06a1d5fd",
+    "request": "schema5-effect-interpretation-singleton-16384-low-1:c320483827cc9366f7c3aeb9d82844bb201715d8dd1ae03fdf9ae0ebd934bdf8",
+    "productionCommit": "107cbcdd1789cbefc6b67d53f3ab570499854245",
+    "sourceArchiveFingerprint": "1294a64ecaca49b96f8bde9f2aa0a268a4c6d0bf931c702420d284f842bd8d12",
+    "sourceBudgetFingerprint": "82b79239b65178ae1257912259062f6040ab1396c52a270bba074586fe76ef43",
+    "contextFingerprint": "17713138d78ebc64e2d3ffe92171e79e2e2bf2e81140ca82d204e5073209ff9a",
+    "schemaFingerprint": "05be35853295b7535d3a00f5734666a041c20afd2262483e9885a589b1292719",
+    "model": "gpt-5.5-2026-04-24",
+    "reasoning": "low",
+    "outputLimit": 16384,
+    "identicalGeneration": true,
+    "identityChange": "Isolated request ID and authorization; archived escalation metadata retained only as source evidence.",
+    "harnessHash": "a5089c27244fa1850a511523e1a696361349e38cc1f30be4ca7d4a32ca5a9b99"
+  },
+  "reservations": 1,
+  "verifiedReceipts": 1,
+  "validation": {
+    "harnessTestsPassed": 9,
+    "harnessBuildWarnings": 0,
+    "productionSourcesUnchanged": true,
+    "localStarts": 0,
+    "mixedStarts": 0,
+    "stageOneStarts": 0
+  }
+}

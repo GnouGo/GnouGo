@@ -22,11 +22,16 @@ public sealed class WorkflowEngine : IWorkflowRuntime
     public ILLMClient? LLMClient { get; set; }
     public ILLMCapabilityResolver? LLMCapabilities { get; set; }
     public IModelUsageCostEstimator? ModelUsageCostEstimator { get; set; }
+    public IExchangeRateProvider? ExchangeRateProvider { get; set; }
+    public LLMUsageBudgetScope? LLMUsageBudget { get; set; }
     public IWorkflowFetcher? WorkflowFetcher { get; set; }
     public ITemplateEngine? TemplateEngine { get; set; }
     public IMcpClientFactory? McpClientFactory { get; set; }
     public IHumanInputProvider? HumanInputProvider { get; set; }
     public IWorkflowCheckpointer? Checkpointer { get; set; }
+    /// <summary>Optional separately injected version-2 planner; Flow.Core does not reference its implementation.</summary>
+    public Planning.IWorkflowPlanner? WorkflowPlanner { get; set; }
+    public Planning.IPlanningRuntimeFactory? PlanningRuntimeFactory { get; set; }
     public IWorkflowCallResolver WorkflowCallResolver { get; set; } = new DefaultWorkflowCallResolver();
     public IWorkflowCandidateProvider? WorkflowCandidateProvider { get; set; }
     public IWorkflowTelemetry Telemetry { get; set; } = NullWorkflowTelemetry.Instance;
@@ -63,7 +68,7 @@ public sealed class WorkflowEngine : IWorkflowRuntime
 
         var data = new JsonObject
         {
-            ["inputs"] = inputs?.DeepClone() ?? new JsonObject(),
+            ["inputs"] = inputs is null or JsonObject ? WorkflowInputDefaults.Apply(workflow.Source, inputs) : inputs.DeepClone(),
             ["steps"] = new JsonObject(),
             ["env"] = new JsonObject()
         };
@@ -282,7 +287,7 @@ public sealed class WorkflowEngine : IWorkflowRuntime
 
         var data = new JsonObject
         {
-            ["inputs"] = inputs?.DeepClone() ?? new JsonObject(),
+            ["inputs"] = inputs is null or JsonObject ? WorkflowInputDefaults.Apply(workflow.Source, inputs) : inputs.DeepClone(),
             ["steps"] = new JsonObject(),
             ["env"] = new JsonObject()
         };
@@ -601,34 +606,44 @@ public sealed class WorkflowEngine : IWorkflowRuntime
                 Logger.LogError(ex, "Step '{StepId}' ({StepType}) failed: [{ErrorCode}] {ErrorMessage}",
                     step.Id, step.Type, ex.Code, ex.Message);
 
+                var failure = ex;
                 // Apply on_error handler
                 if (step.Source.OnError != null)
                 {
                     var handled = HandleOnError(step.Source.OnError, ex, step, data, executionScope);
                     if (handled.action == "continue")
                     {
-                        stepResult.Status = StepStatus.Succeeded;
-                        if (handled.output != null)
+                        var invalidOutput = ValidateContinuedStructuredOutput(step, resolvedInput, handled.output);
+                        if (invalidOutput is not null)
                         {
-                            var stepsObj2 = data["steps"] as JsonObject ?? new JsonObject();
-                            stepsObj2[step.Id] = handled.output.DeepClone();
-                            data["steps"] = stepsObj2;
-
-                            if (step.Source.Output != null)
-                                data[step.Source.Output] = handled.output.DeepClone();
-
-                            stepResult.Output = handled.output;
+                            failure = invalidOutput;
+                            stepResult.Error = failure.ToWorkflowError();
                         }
-                        stepResult.Duration = sw.Elapsed;
-                        Telemetry.StepEnd(stepSpan, new StepResultInfo
+                        else
                         {
-                            Status = StepStatus.Succeeded,
-                            Duration = sw.Elapsed,
-                            ErrorCode = ex.Code,
-                            ErrorMessage = ex.Message,
-                            GenAiFinishReason = "error_handled"
-                        });
-                        continue;
+                            stepResult.Status = StepStatus.Succeeded;
+                            if (handled.output != null)
+                            {
+                                var stepsObj2 = data["steps"] as JsonObject ?? new JsonObject();
+                                stepsObj2[step.Id] = handled.output.DeepClone();
+                                data["steps"] = stepsObj2;
+
+                                if (step.Source.Output != null)
+                                    data[step.Source.Output] = handled.output.DeepClone();
+
+                                stepResult.Output = handled.output;
+                            }
+                            stepResult.Duration = sw.Elapsed;
+                            Telemetry.StepEnd(stepSpan, new StepResultInfo
+                            {
+                                Status = StepStatus.Succeeded,
+                                Duration = sw.Elapsed,
+                                ErrorCode = ex.Code,
+                                ErrorMessage = ex.Message,
+                                GenAiFinishReason = "error_handled"
+                            });
+                            continue;
+                        }
                     }
                 }
 
@@ -638,11 +653,11 @@ public sealed class WorkflowEngine : IWorkflowRuntime
                 {
                     Status = StepStatus.Failed,
                     Duration = sw.Elapsed,
-                    ErrorCode = ex.Code,
-                    ErrorMessage = ex.Message,
+                    ErrorCode = failure.Code,
+                    ErrorMessage = failure.Message,
                     GenAiFinishReason = "error"
                 });
-                throw;
+                throw EnrichStepExecutionError(failure, executionScope, step);
             }
             finally
             {
@@ -686,6 +701,7 @@ public sealed class WorkflowEngine : IWorkflowRuntime
                     Limits = limits,
                     CallDepth = callDepth,
                     CallStack = callStack,
+                    LLMUsageBudget = LLMUsageBudget,
                     ExecutionScope = executionScope,
                     TelemetrySpan = stepSpan
                 };
@@ -878,6 +894,19 @@ public sealed class WorkflowEngine : IWorkflowRuntime
         result.Error.Details = details;
     }
 
+    private static WorkflowRuntimeException? ValidateContinuedStructuredOutput(CompiledStep step, JsonNode? resolvedInput, JsonNode? output)
+    {
+        if (step.Type is not ("mcp.call" or "llm.call") ||
+            (resolvedInput ?? step.Source.Input) is not JsonObject input || !input.TryGetPropertyValue("structured_output", out var declaration)) return null;
+        var contract = JsonSchemaContractValidator.ValidateStructuredOutput(declaration, allowDynamicSchemaReference: false);
+        var findings = contract.Errors.ToList();
+        if (output is not JsonObject envelope || !envelope.ContainsKey("json"))
+            findings.Add("The continuing error handler must produce the declared json result.");
+        else if (contract.Schema is not null) findings.AddRange(JsonSchemaContractValidator.ValidateInstance(envelope["json"], contract.Schema));
+        return findings.Count == 0 ? null : new WorkflowRuntimeException("STRUCTURED_FALLBACK_INVALID",
+            "The continuing error handler does not satisfy structured_output: " + string.Join("; ", findings));
+    }
+
     private (string action, JsonNode? output) HandleOnError(
         OnErrorDef onError,
         WorkflowRuntimeException ex,
@@ -1038,12 +1067,64 @@ public sealed class WorkflowEngine : IWorkflowRuntime
         var outputObj = new JsonObject();
         foreach (var (name, definition) in outputs)
         {
-            var value = EvaluateOutputDef(definition, data, executionScope);
-            ValidateWorkflowOutputValue(workflowName, name, definition, value);
-            outputObj[name] = value?.DeepClone();
+            try
+            {
+                var value = EvaluateOutputDef(definition, data, executionScope);
+                ValidateWorkflowOutputValue(workflowName, name, definition, value);
+                outputObj[name] = value?.DeepClone();
+            }
+            catch (WorkflowRuntimeException ex)
+            {
+                throw EnrichWorkflowOutputError(ex, workflowName, name);
+            }
         }
 
         return outputObj;
+    }
+
+    private static WorkflowRuntimeException EnrichStepExecutionError(
+        WorkflowRuntimeException error,
+        WorkflowExecutionScope executionScope,
+        CompiledStep step)
+    {
+        var details = error.Details?.DeepClone() as JsonObject ?? new JsonObject();
+        if (details.ContainsKey("failed_step_id"))
+            return error;
+
+        var workflowName = executionScope.Workflow?.Name;
+        details["failed_workflow"] = workflowName;
+        details["failed_step_id"] = step.Id;
+        details["failed_step_type"] = step.Type;
+        details["execution_phase"] = executionScope.IsFinalization ? "finalization" : "step";
+        var location = string.IsNullOrWhiteSpace(workflowName)
+            ? $"step '{step.Id}'"
+            : $"workflow '{workflowName}', step '{step.Id}'";
+        return new WorkflowRuntimeException(
+            error.Code,
+            $"{error.Message} [{location}]",
+            error.Retryable,
+            error,
+            details);
+    }
+
+    private static WorkflowRuntimeException EnrichWorkflowOutputError(
+        WorkflowRuntimeException error,
+        string workflowName,
+        string outputName)
+    {
+        var details = error.Details?.DeepClone() as JsonObject ?? new JsonObject();
+        if (details.ContainsKey("failed_output"))
+            return error;
+
+        details["failed_workflow"] = workflowName;
+        details["failed_output"] = outputName;
+        details["execution_phase"] = "workflow_output";
+        return new WorkflowRuntimeException(
+            error.Code,
+            $"{error.Message} [workflow '{workflowName}', output '{outputName}']",
+            error.Retryable,
+            error,
+            details);
     }
 
     private static void ValidateWorkflowOutputValue(
@@ -1087,6 +1168,7 @@ public sealed class WorkflowEngine : IWorkflowRuntime
         registry.Register(new Executors.LoopSequentialExecutor());
         registry.Register(new Executors.LoopParallelExecutor());
         registry.Register(new Executors.SwitchExecutor());
+        registry.Register(new Executors.DecisionEvaluateExecutor());
         registry.Register(new Executors.SetExecutor());
         registry.Register(new Executors.AssertNonNullExecutor());
         registry.Register(new Executors.TemplateRenderExecutor());

@@ -66,9 +66,8 @@ public static class OtlpCollectorHostingExtensions
     public static async Task InitializeOtlpCollectorAsync(this IServiceProvider services, CancellationToken ct = default)
     {
         using var scope = services.CreateScope();
-        var devModeOpts = scope.ServiceProvider.GetRequiredService<IOptions<DevModeOptions>>().Value;
         var efStore = scope.ServiceProvider.GetRequiredService<EfTelemetryStore>();
-        await efStore.InitializeAsync(devMode: devModeOpts.Enabled);
+        await efStore.InitializeAsync(ct);
     }
 
     public static IEndpointRouteBuilder MapOtlpGrpcReceivers(this IEndpointRouteBuilder endpoints)

@@ -1,3 +1,6 @@
 packages:
   - "src/*/ClientApp"
 
+# The pinned watcher install hook supports explicit native source builds.
+onlyBuiltDependencies:
+  - "@parcel/watcher"

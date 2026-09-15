@@ -94,8 +94,10 @@ jobs:
             new_version="$version-beta.${{ github.run_number }}"
           elif [[ '${{ github.ref }}' == 'refs/heads/main' ]]; then
             new_version="$version-dev.${{ github.run_number }}"
-          else
+          elif [[ '${{ github.event_name }}' == 'pull_request' && -n '${{ github.event.number }}' ]]; then
             new_version="$version-pr.${{ github.event.number }}.${{ github.run_number }}"
+          else
+            new_version="$version-ci.${{ github.run_number }}"
           fi
 
           tag='${{ steps.which_tag.outputs.tag }}'
@@ -151,4 +153,3 @@ jobs:
           fi
 
           git push origin "refs/tags/$version_tag"
-

@@ -13,6 +13,25 @@ namespace GnOuGo.GithubCopilot.Mcp.Tests;
 
 public sealed class CodeToolsStructuredOutputTests : IDisposable
 {
+    [Theory]
+    [InlineData("copilot_one_shot")]
+    [InlineData("copilot_interactive_one_shot")]
+    [InlineData("copilot_session_send")]
+    public void DiscoveredCompletionContractDoesNotClaimSuccessfulRequestedWork(string tool)
+    {
+        var schema = JsonNode.Parse(DiscoverCopilotTools()[tool].ProtocolTool.OutputSchema!.Value.GetRawText())!;
+        var completed = schema["properties"]!["completed"]!;
+        Assert.Equal("boolean", completed["type"]!.ToString());
+        Assert.Contains("does not certify", completed["description"]!.ToString());
+        Assert.Contains("execution observations", schema["properties"]!["content"]!["description"]!.ToString());
+        Assert.Null(schema["properties"]!["success"]);
+        var observations = schema["properties"]!["toolExecutions"]!;
+        Assert.Equal("array", observations["type"]!.ToString());
+        Assert.Contains("captured directly", observations["description"]!.ToString());
+        Assert.Contains("exitCode", observations.ToJsonString());
+        Assert.Contains("not inferred from text", observations.ToJsonString());
+    }
+
     private readonly string _root = Path.Combine(Path.GetTempPath(), "gnougo-code-tools-structured-output-tests-" + Guid.NewGuid().ToString("N"));
 
     public CodeToolsStructuredOutputTests()
@@ -73,6 +92,44 @@ public sealed class CodeToolsStructuredOutputTests : IDisposable
 
         Assert.NotEmpty(tools);
         Assert.All(tools, tool => Assert.NotNull(tool.ProtocolTool.OutputSchema));
+        Assert.All(tools, tool => AssertValidRequiredDeclarations(
+            JsonNode.Parse(tool.ProtocolTool.OutputSchema!.Value.GetRawText()),
+            tool.ProtocolTool.Name));
+    }
+
+    private static void AssertValidRequiredDeclarations(JsonNode? schema, string path)
+    {
+        if (schema is not JsonObject obj)
+            return;
+
+        var properties = obj["properties"] as JsonObject;
+        if (obj["required"] is JsonArray required)
+        {
+            Assert.NotNull(properties);
+            var names = required.Select((node, index) =>
+            {
+                var value = Assert.IsAssignableFrom<JsonValue>(node);
+                Assert.True(value.TryGetValue<string>(out var name), $"{path}.required[{index}] must be a string.");
+                Assert.False(string.IsNullOrWhiteSpace(name));
+                Assert.True(properties!.ContainsKey(name!), $"{path}.required[{index}] references undeclared property '{name}'.");
+                return name!;
+            }).ToArray();
+            Assert.Equal(names.Length, names.Distinct(StringComparer.Ordinal).Count());
+        }
+
+        if (properties != null)
+            foreach (var (name, property) in properties)
+                AssertValidRequiredDeclarations(property, $"{path}.properties.{name}");
+        foreach (var keyword in new[] { "$defs", "definitions" })
+            if (obj[keyword] is JsonObject definitions)
+                foreach (var (name, definition) in definitions)
+                    AssertValidRequiredDeclarations(definition, $"{path}.{keyword}.{name}");
+        foreach (var keyword in new[] { "items", "additionalProperties" })
+            AssertValidRequiredDeclarations(obj[keyword], $"{path}.{keyword}");
+        foreach (var keyword in new[] { "allOf", "anyOf", "oneOf" })
+            if (obj[keyword] is JsonArray variants)
+                for (var index = 0; index < variants.Count; index++)
+                    AssertValidRequiredDeclarations(variants[index], $"{path}.{keyword}[{index}]");
     }
 
     [Fact]
@@ -91,15 +148,111 @@ public sealed class CodeToolsStructuredOutputTests : IDisposable
         {
             var attribute = Assert.Single(method.GetCustomAttributes<McpMetaAttribute>());
             Assert.Equal(McpArtifactContractMetadata.MetaPropertyName, attribute.Name);
-            Assert.True(JsonNode.DeepEquals(
-                JsonNode.Parse(McpArtifactContractMetadata.WorkspaceDirectoryConsumerProjectRootJson),
-                JsonNode.Parse(attribute.JsonValue!)), method.Name);
+            var advertised = Assert.IsType<JsonObject>(JsonNode.Parse(attribute.JsonValue!));
+            var artifacts = Assert.IsType<JsonObject>(
+                advertised[McpArtifactContractMetadata.ArtifactsPropertyName]);
+            Assert.Contains(
+                Assert.IsType<JsonArray>(artifacts["consumes"]),
+                item => item is JsonObject consume
+                        && consume["kind"]?.GetValue<string>() == McpArtifactContractMetadata.WorkspaceDirectoryKind
+                        && consume["pointer"]?.GetValue<string>() == "/projectRoot"
+                        && consume["required"]?.GetValue<bool>() == true);
 
             var description = method.GetParameters()
                 .Single(parameter => string.Equals(parameter.Name, "projectRoot", StringComparison.Ordinal))
                 .GetCustomAttribute<System.ComponentModel.DescriptionAttribute>()?.Description;
             Assert.Contains("workspace.directory", description, StringComparison.Ordinal);
             Assert.DoesNotContain("git_clone", description, StringComparison.Ordinal);
+        }
+    }
+
+    [Fact]
+    public void CompleteCopilotReview_AdvertisesEncapsulatedReviewPhases()
+    {
+        var review = DiscoverCopilotTools()["copilot_review"];
+        var validation = McpCapabilityCompositionParser.ParseAndValidate(review.ProtocolTool.Meta);
+
+        Assert.True(validation.IsValid, string.Join(Environment.NewLine, validation.Errors));
+        Assert.Equal(McpCapabilityCompositionMetadata.CompleteOperationKind, validation.Contract!.Kind);
+        Assert.Equal(
+            ["copilot_review_start", "copilot_review_analyze_batch", "copilot_review_finish"],
+            validation.Contract.Encapsulates.Select(static capability => capability.Method).ToArray());
+        var artifactMetadata = Assert.IsType<JsonObject>(
+            review.ProtocolTool.Meta?[McpArtifactContractMetadata.MetaPropertyName]?[McpArtifactContractMetadata.ArtifactsPropertyName]);
+        Assert.Contains(
+            Assert.IsType<JsonArray>(artifactMetadata["consumes"]),
+            item => item is JsonObject consume
+                    && consume["kind"]?.GetValue<string>() == McpArtifactContractMetadata.RevisionComparisonFilesKind
+                    && consume["pointer"]?.GetValue<string>() == "/filesJson"
+                    && consume["required"]?.GetValue<bool>() == true);
+        var artifactValidation = McpArtifactContractParser.ParseAndValidate(
+            review.ProtocolTool.Meta,
+            JsonNode.Parse(review.ProtocolTool.InputSchema.GetRawText()),
+            JsonNode.Parse(review.ProtocolTool.OutputSchema!.Value.GetRawText()));
+        Assert.True(artifactValidation.IsValid, string.Join(Environment.NewLine, artifactValidation.Errors));
+    }
+
+    [Theory]
+    [InlineData("copilot_review")]
+    [InlineData("copilot_review_start")]
+    public void ReviewToolsDeclareOptionalRuntimeResultsContext(string name)
+    {
+        var schema = JsonNode.Parse(DiscoverCopilotTools()[name].ProtocolTool.InputSchema.GetRawText())!;
+        var context = schema["properties"]!["runtimeContextJson"]!;
+        Assert.Contains("string", context["type"]!.ToJsonString());
+        Assert.Contains("original upstream execution results", context["description"]!.ToString());
+        Assert.DoesNotContain(schema["required"]!.AsArray(), p => p?.ToString() == "runtimeContextJson");
+        Assert.NotNull(schema["properties"]!["reviewInstructions"]);
+        Assert.NotNull(schema["properties"]!["existingCommentsJson"]);
+    }
+
+    [Fact]
+    public void CopilotSessionAndOneShotTools_AdvertiseComposableLifecycleContracts()
+    {
+        var tools = DiscoverCopilotTools();
+        var create = tools["copilot_session_create"];
+        var createArtifacts = McpArtifactContractParser.ParseAndValidate(
+            create.ProtocolTool.Meta,
+            GetInputSchema(create),
+            JsonNode.Parse(create.ProtocolTool.OutputSchema!.Value.GetRawText()));
+        Assert.True(createArtifacts.IsValid, string.Join(Environment.NewLine, createArtifacts.Errors));
+        Assert.Contains(createArtifacts.Contract!.Produces, static artifact =>
+            artifact.Kind == McpArtifactContractMetadata.SessionHandleKind
+            && artifact.Pointer == "/handle"
+            && artifact.Mode == McpArtifactContractMetadata.MaterializeMode);
+        Assert.Contains(createArtifacts.Contract.Consumes, static artifact =>
+            artifact.Kind == McpArtifactContractMetadata.WorkspaceDirectoryKind
+            && artifact.Pointer == "/projectRoot"
+            && artifact.Required);
+
+        foreach (var method in new[]
+                 {
+                     "copilot_session_send",
+                     "copilot_session_disconnect",
+                     "copilot_session_delete"
+                 })
+        {
+            var tool = tools[method];
+            var artifacts = McpArtifactContractParser.ParseAndValidate(
+                tool.ProtocolTool.Meta,
+                GetInputSchema(tool),
+                JsonNode.Parse(tool.ProtocolTool.OutputSchema!.Value.GetRawText()));
+            Assert.True(artifacts.IsValid, string.Join(Environment.NewLine, artifacts.Errors));
+            var consumed = Assert.Single(artifacts.Contract!.Consumes);
+            Assert.Equal(McpArtifactContractMetadata.SessionHandleKind, consumed.Kind);
+            Assert.Equal("/handle", consumed.Pointer);
+            Assert.True(consumed.Required);
+        }
+
+        foreach (var method in new[] { "copilot_one_shot", "copilot_interactive_one_shot" })
+        {
+            var tool = tools[method];
+            var composition = McpCapabilityCompositionParser.ParseAndValidate(tool.ProtocolTool.Meta);
+            Assert.True(composition.IsValid, string.Join(Environment.NewLine, composition.Errors));
+            Assert.Equal(McpCapabilityCompositionMetadata.CompleteOperationKind, composition.Contract!.Kind);
+            Assert.Equal(
+                ["copilot_session_create", "copilot_session_send", "copilot_session_disconnect", "copilot_session_delete"],
+                composition.Contract.Encapsulates.Select(static capability => capability.Method).ToArray());
         }
     }
 
@@ -129,9 +282,15 @@ public sealed class CodeToolsStructuredOutputTests : IDisposable
         Assert.NotNull(interactiveSchema["properties"]?["permissionAllowlistJson"]);
         Assert.Contains("interactive", interactive.ProtocolTool.Description, StringComparison.OrdinalIgnoreCase);
         Assert.Contains("deletes", interactive.ProtocolTool.Description, StringComparison.OrdinalIgnoreCase);
-        Assert.True(JsonNode.DeepEquals(
-            JsonNode.Parse(McpArtifactContractMetadata.WorkspaceDirectoryConsumerProjectRootJson),
-            interactive.ProtocolTool.Meta?[McpArtifactContractMetadata.MetaPropertyName]));
+        var interactiveArtifacts = McpArtifactContractParser.ParseAndValidate(
+            interactive.ProtocolTool.Meta,
+            interactiveSchema,
+            JsonNode.Parse(interactive.ProtocolTool.OutputSchema!.Value.GetRawText()));
+        Assert.True(interactiveArtifacts.IsValid, string.Join(Environment.NewLine, interactiveArtifacts.Errors));
+        Assert.Contains(interactiveArtifacts.Contract!.Consumes, static artifact =>
+            artifact.Kind == McpArtifactContractMetadata.WorkspaceDirectoryKind
+            && artifact.Pointer == "/projectRoot"
+            && artifact.Required);
 
         foreach (var name in new[]
                  {
@@ -198,7 +357,8 @@ public sealed class CodeToolsStructuredOutputTests : IDisposable
             EnvironmentVariables = new Dictionary<string, string?>
             {
                 ["Code__DefaultWorkingDirectory"] = _root,
-                ["Code__AllowedWorkingRoots__0"] = _root
+                ["Code__AllowedWorkingRoots__0"] = _root,
+                ["KeyVault__DatabasePath"] = Path.Combine(_root, "isolated-keyvault.db")
             }
         });
         await using var client = await McpClient.CreateAsync(
@@ -226,9 +386,26 @@ public sealed class CodeToolsStructuredOutputTests : IDisposable
         var interactive = tools["copilot_interactive_one_shot"];
         var interactiveSchema = Assert.IsType<JsonObject>(JsonNode.Parse(interactive.JsonSchema.GetRawText()));
         Assert.Null(interactiveSchema["properties"]?["permissionMode"]);
-        Assert.True(JsonNode.DeepEquals(
-            JsonNode.Parse(McpArtifactContractMetadata.WorkspaceDirectoryConsumerProjectRootJson),
-            interactive.ProtocolTool.Meta?[McpArtifactContractMetadata.MetaPropertyName]));
+        var interactiveArtifacts = McpArtifactContractParser.ParseAndValidate(
+            interactive.ProtocolTool.Meta,
+            interactiveSchema,
+            JsonNode.Parse(interactive.ProtocolTool.OutputSchema!.Value.GetRawText()));
+        Assert.True(interactiveArtifacts.IsValid, string.Join(Environment.NewLine, interactiveArtifacts.Errors));
+        Assert.Contains(interactiveArtifacts.Contract!.Consumes, static artifact =>
+            artifact.Kind == McpArtifactContractMetadata.WorkspaceDirectoryKind
+            && artifact.Pointer == "/projectRoot"
+            && artifact.Required);
+        var reviewMetadata = tools["copilot_review"].ProtocolTool.Meta?[McpCapabilityCompositionMetadata.MetaPropertyName];
+        var reviewComposition = Assert.IsType<JsonObject>(
+            reviewMetadata?[McpCapabilityCompositionMetadata.CompositionPropertyName]);
+        Assert.Equal(
+            McpCapabilityCompositionMetadata.CompleteOperationKind,
+            reviewComposition["kind"]?.GetValue<string>());
+        Assert.Equal(
+            ["copilot_review_start", "copilot_review_analyze_batch", "copilot_review_finish"],
+            Assert.IsType<JsonArray>(reviewComposition["encapsulates"])
+                .Select(static item => item!["method"]!.GetValue<string>())
+                .ToArray());
         Assert.Equal(
             "management_only",
             tools["copilot_permission_grants_list"].ProtocolTool.Meta?["gnougo"]?["management"]?["visibility"]?.GetValue<string>());

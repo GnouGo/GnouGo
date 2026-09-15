@@ -9,34 +9,12 @@ using Xunit;
 
 namespace GnOuGo.Flow.Tests.Runtime;
 
-/// <summary>
-/// Tests for the workflow.execute step executor.
-/// Covers:
-///   - Basic plan ? execute flow (happy path)
-///   - Outputs evaluation from generated workflow
-///   - Missing from_step reference
-///   - Missing YAML in plan result
-///   - Call depth limit enforcement
-///   - Multi-step generated workflows
-///   - Generated workflow with no explicit outputs (falls back to steps data)
-///   - Generated workflow with typed outputs
-///   - Args forwarding to generated workflow
-///   - End-to-end workflow.plan ? workflow.execute integration
-/// </summary>
+/// <summary>Execution of workflow artifacts and runtime error propagation.</summary>
 public class WorkflowExecuteExecutorTests
 {
-    // -- Helpers --
-
-    private static CompiledWorkflow CompileMain(string yaml)
-    {
-        var doc = WorkflowParser.Parse(yaml);
-        var compiler = new WorkflowCompiler();
-        var compiled = compiler.Compile(doc);
-        return compiled.Workflows[compiled.Entrypoint!];
-    }
 
     private static async Task<RunResult> RunMain(string yaml, JsonObject? inputs = null,
-        ILLMClient? llmClient = null)
+        string? artifact = null, ILLMClient? llmClient = null)
     {
         var compiled = new WorkflowCompiler().Compile(WorkflowParser.Parse(yaml));
         var wf = compiled.Workflows[compiled.Entrypoint!];
@@ -44,32 +22,16 @@ public class WorkflowExecuteExecutorTests
         {
             LLMClient = llmClient,
         };
-        return await engine.ExecuteAsync(wf, inputs ?? new JsonObject(), CancellationToken.None);
+        inputs ??= new();
+        if (artifact is not null) inputs["artifact"] = artifact;
+        return await engine.ExecuteAsync(wf, inputs, TestContext.Current.CancellationToken);
     }
 
-    private static string WithGeneratedSkill(string yaml)
-    {
-        if (yaml.Contains("\nskill:", StringComparison.Ordinal) || yaml.StartsWith("skill:", StringComparison.Ordinal))
-            return yaml;
-
-        var versionIndex = yaml.IndexOf("version: 1", StringComparison.Ordinal);
-        if (versionIndex < 0)
-            return yaml;
-
-        var lineEnd = yaml.IndexOf('\n', versionIndex);
-        if (lineEnd < 0)
-            lineEnd = yaml.Length - 1;
-
-        const string skillBlock = "\nskill:\n  description: Generated workflow.\n  tags: [generated]\n  inputs: {}\n  outputs: {}";
-        return yaml.Insert(lineEnd, skillBlock);
-    }
-
-    // ------ Basic plan ? execute (happy path) ------
 
     [Fact]
-    public async Task WorkflowExecute_BasicPlanThenExecute_ReturnsOutput()
+    public async Task WorkflowExecute_ArtifactThenExecute_ReturnsOutput()
     {
-        // The LLM returns a valid generated workflow with a template.render step
+        // A workflow artifact with a template.render step.
         var generatedYaml = """
             version: 1
             workflows:
@@ -87,9 +49,6 @@ public class WorkflowExecuteExecutorTests
                     type: string
             """;
 
-        var mockLlm = new Mock<ILLMClient>();
-        mockLlm.Setup(l => l.CallAsync(It.IsAny<LLMRequest>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync(new LLMResponse { Text = WithGeneratedSkill(generatedYaml) });
 
         var result = await RunMain("""
             version: 1
@@ -97,14 +56,9 @@ public class WorkflowExecuteExecutorTests
               main:
                 steps:
                   - id: generate
-                    type: workflow.plan
+                    type: set
                     input:
-                      mode: basic
-                      generator:
-                        model: gpt-4
-                        instruction: Generate a greeting
-                      validate:
-                        compile: true
+                      yaml: "${data.inputs.artifact}"
 
                   - id: run
                     type: workflow.execute
@@ -113,7 +67,7 @@ public class WorkflowExecuteExecutorTests
 
                 outputs:
                   answer: "${data.steps.run.outputs.answer}"
-            """, llmClient: mockLlm.Object);
+            """, artifact: generatedYaml);
 
         Assert.True(result.Success);
         Assert.Equal("Hello, World!", result.Outputs!["answer"]!.GetValue<string>());
@@ -126,9 +80,6 @@ public class WorkflowExecuteExecutorTests
     {
         var generatedYaml = "version: 1\nworkflows:\n  gen:\n    steps:\n      - id: s\n        type: template.render\n        input:\n          engine: mustache\n          template: ok\n          mode: text";
 
-        var mockLlm = new Mock<ILLMClient>();
-        mockLlm.Setup(l => l.CallAsync(It.IsAny<LLMRequest>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync(new LLMResponse { Text = WithGeneratedSkill(generatedYaml) });
 
         var result = await RunMain("""
             version: 1
@@ -136,19 +87,14 @@ public class WorkflowExecuteExecutorTests
               main:
                 steps:
                   - id: generate
-                    type: workflow.plan
+                    type: set
                     input:
-                      mode: basic
-                      generator:
-                        model: gpt-4
-                        instruction: test
-                      validate:
-                        compile: false
+                      yaml: "${data.inputs.artifact}"
 
                   - id: run
                     type: workflow.execute
                     input: {}
-            """, llmClient: mockLlm.Object);
+            """, artifact: generatedYaml);
 
         Assert.False(result.Success);
         Assert.Equal(ErrorCodes.InputValidation, result.Error!.Code);
@@ -233,9 +179,6 @@ public class WorkflowExecuteExecutorTests
                     type: string
             """;
 
-        var mockLlm = new Mock<ILLMClient>();
-        mockLlm.Setup(l => l.CallAsync(It.IsAny<LLMRequest>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync(new LLMResponse { Text = WithGeneratedSkill(generatedYaml) });
 
         var result = await RunMain("""
             version: 1
@@ -243,14 +186,9 @@ public class WorkflowExecuteExecutorTests
               main:
                 steps:
                   - id: generate
-                    type: workflow.plan
+                    type: set
                     input:
-                      mode: basic
-                      generator:
-                        model: gpt-4
-                        instruction: test
-                      validate:
-                        compile: true
+                      yaml: "${data.inputs.artifact}"
 
                   - id: run
                     type: workflow.execute
@@ -261,7 +199,7 @@ public class WorkflowExecuteExecutorTests
                   result: "${data.steps.run.outputs.result}"
                   steps_executed: "${data.steps.run.run.steps_executed}"
                   success: "${data.steps.run.run.success}"
-            """, llmClient: mockLlm.Object);
+            """, artifact: generatedYaml);
 
         Assert.True(result.Success);
         Assert.Equal("first-second", result.Outputs!["result"]!.GetValue<string>());
@@ -285,9 +223,6 @@ public class WorkflowExecuteExecutorTests
                       answer: 42
             """;
 
-        var mockLlm = new Mock<ILLMClient>();
-        mockLlm.Setup(l => l.CallAsync(It.IsAny<LLMRequest>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync(new LLMResponse { Text = WithGeneratedSkill(generatedYaml) });
 
         var result = await RunMain("""
             version: 1
@@ -295,20 +230,15 @@ public class WorkflowExecuteExecutorTests
               main:
                 steps:
                   - id: generate
-                    type: workflow.plan
+                    type: set
                     input:
-                      mode: basic
-                      generator:
-                        model: gpt-4
-                        instruction: test
-                      validate:
-                        compile: true
+                      yaml: "${data.inputs.artifact}"
 
                   - id: run
                     type: workflow.execute
                     input:
                       from_step: generate
-            """, llmClient: mockLlm.Object);
+            """, artifact: generatedYaml);
 
         Assert.True(result.Success);
 
@@ -341,9 +271,6 @@ public class WorkflowExecuteExecutorTests
                       y: 2
             """;
 
-        var mockLlm = new Mock<ILLMClient>();
-        mockLlm.Setup(l => l.CallAsync(It.IsAny<LLMRequest>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync(new LLMResponse { Text = WithGeneratedSkill(generatedYaml) });
 
         var result = await RunMain("""
             version: 1
@@ -351,14 +278,9 @@ public class WorkflowExecuteExecutorTests
               main:
                 steps:
                   - id: generate
-                    type: workflow.plan
+                    type: set
                     input:
-                      mode: basic
-                      generator:
-                        model: gpt-4
-                        instruction: test
-                      validate:
-                        compile: true
+                      yaml: "${data.inputs.artifact}"
 
                   - id: run
                     type: workflow.execute
@@ -369,7 +291,7 @@ public class WorkflowExecuteExecutorTests
                   workflow_name: "${data.steps.run.workflow}"
                   steps_count: "${data.steps.run.run.steps_executed}"
                   was_success: "${data.steps.run.run.success}"
-            """, llmClient: mockLlm.Object);
+            """, artifact: generatedYaml);
 
         Assert.True(result.Success);
         Assert.Equal("my_workflow", result.Outputs!["workflow_name"]!.GetValue<string>());
@@ -393,9 +315,6 @@ public class WorkflowExecuteExecutorTests
                       ok: true
             """;
 
-        var mockLlm = new Mock<ILLMClient>();
-        mockLlm.Setup(l => l.CallAsync(It.IsAny<LLMRequest>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync(new LLMResponse { Text = WithGeneratedSkill(generatedYaml) });
 
         var compiled = new WorkflowCompiler().Compile(WorkflowParser.Parse("""
             version: 1
@@ -403,14 +322,9 @@ public class WorkflowExecuteExecutorTests
               main:
                 steps:
                   - id: generate
-                    type: workflow.plan
+                    type: set
                     input:
-                      mode: basic
-                      generator:
-                        model: gpt-4
-                        instruction: test
-                      validate:
-                        compile: true
+                      yaml: "${data.inputs.artifact}"
 
                   - id: run
                     type: workflow.execute
@@ -420,11 +334,11 @@ public class WorkflowExecuteExecutorTests
         var wf = compiled.Workflows[compiled.Entrypoint!];
         var engine = new WorkflowEngine
         {
-            LLMClient = mockLlm.Object,
+
             Limits = new ExecutionLimits { MaxCallDepth = 1 } // Very shallow depth
         };
 
-        var result = await engine.ExecuteAsync(wf, new JsonObject(), CancellationToken.None);
+        var result = await engine.ExecuteAsync(wf, new JsonObject { ["artifact"] = generatedYaml }, CancellationToken.None);
 
         // workflow.plan itself doesn't increment call depth, but workflow.execute
         // runs at callDepth 0 and executes sub-steps at callDepth 1.
@@ -432,11 +346,11 @@ public class WorkflowExecuteExecutorTests
         // Let's set to 0 for a definitive failure:
         engine = new WorkflowEngine
         {
-            LLMClient = mockLlm.Object,
+
             Limits = new ExecutionLimits { MaxCallDepth = 0 }
         };
 
-        result = await engine.ExecuteAsync(wf, new JsonObject(), CancellationToken.None);
+        result = await engine.ExecuteAsync(wf, new JsonObject { ["artifact"] = generatedYaml }, CancellationToken.None);
 
         Assert.False(result.Success);
         Assert.Equal(ErrorCodes.WorkflowCycleDetected, result.Error!.Code);
@@ -470,9 +384,6 @@ public class WorkflowExecuteExecutorTests
                     type: string
             """;
 
-        var mockLlm = new Mock<ILLMClient>();
-        mockLlm.Setup(l => l.CallAsync(It.IsAny<LLMRequest>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync(new LLMResponse { Text = WithGeneratedSkill(generatedYaml) });
 
         var result = await RunMain("""
             version: 1
@@ -480,14 +391,9 @@ public class WorkflowExecuteExecutorTests
               main:
                 steps:
                   - id: generate
-                    type: workflow.plan
+                    type: set
                     input:
-                      mode: basic
-                      generator:
-                        model: gpt-4
-                        instruction: test
-                      validate:
-                        compile: true
+                      yaml: "${data.inputs.artifact}"
 
                   - id: run
                     type: workflow.execute
@@ -498,7 +404,7 @@ public class WorkflowExecuteExecutorTests
 
                 outputs:
                   greeting: "${data.steps.run.outputs.greeting}"
-            """, llmClient: mockLlm.Object);
+            """, artifact: generatedYaml);
 
         Assert.True(result.Success);
         Assert.Equal("Hello, Alice!", result.Outputs!["greeting"]!.GetValue<string>());
@@ -524,9 +430,6 @@ public class WorkflowExecuteExecutorTests
                     type: string
             """;
 
-        var mockLlm = new Mock<ILLMClient>();
-        mockLlm.Setup(l => l.CallAsync(It.IsAny<LLMRequest>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync(new LLMResponse { Text = WithGeneratedSkill(generatedYaml) });
 
         var result = await RunMain("""
             version: 1
@@ -538,14 +441,9 @@ public class WorkflowExecuteExecutorTests
                     required: true
                 steps:
                   - id: generate
-                    type: workflow.plan
+                    type: set
                     input:
-                      mode: basic
-                      generator:
-                        model: gpt-4
-                        instruction: test
-                      validate:
-                        compile: true
+                      yaml: "${data.inputs.artifact}"
 
                   - id: run
                     type: workflow.execute
@@ -556,7 +454,7 @@ public class WorkflowExecuteExecutorTests
 
                 outputs:
                   result: "${data.steps.run.outputs.echoed}"
-            """, new JsonObject { ["user_msg"] = "Hi there!" }, llmClient: mockLlm.Object);
+            """, new JsonObject { ["user_msg"] = "Hi there!" }, artifact: generatedYaml);
 
         Assert.True(result.Success);
         Assert.Equal("Hi there!", result.Outputs!["result"]!.GetValue<string>());
@@ -617,7 +515,7 @@ public class WorkflowExecuteExecutorTests
     public async Task WorkflowExecute_GeneratedWorkflowFails_PropagatesError()
     {
         // Generate a workflow that calls an LLM without one being configured
-        // in the sub-context — it will fail
+        // in the sub-context ï¿½ it will fail
         var generatedYaml = """
             version: 1
             workflows:
@@ -630,21 +528,9 @@ public class WorkflowExecuteExecutorTests
                       prompt: "Hello"
             """;
 
-        var callCount = 0;
         var mockLlm = new Mock<ILLMClient>();
         mockLlm.Setup(l => l.CallAsync(It.IsAny<LLMRequest>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync(() =>
-            {
-                callCount++;
-                if (callCount == 1)
-                {
-                    // First call: workflow.plan LLM call
-                    return new LLMResponse { Text = WithGeneratedSkill(generatedYaml) };
-                }
-                // Second call: the generated workflow's llm.call
-                // Simulate a failure
-                throw new WorkflowRuntimeException(ErrorCodes.LlmNetwork, "LLM unreachable");
-            });
+            .ThrowsAsync(new WorkflowRuntimeException(ErrorCodes.LlmNetwork, "LLM unreachable"));
 
         var result = await RunMain("""
             version: 1
@@ -652,30 +538,24 @@ public class WorkflowExecuteExecutorTests
               main:
                 steps:
                   - id: generate
-                    type: workflow.plan
+                    type: set
                     input:
-                      mode: basic
-                      generator:
-                        model: gpt-4
-                        instruction: test
-                      validate:
-                        compile: true
+                      yaml: "${data.inputs.artifact}"
 
                   - id: run
                     type: workflow.execute
                     input:
                       from_step: generate
-            """, llmClient: mockLlm.Object);
+            """, artifact: generatedYaml, llmClient: mockLlm.Object);
 
         Assert.False(result.Success);
         // The error should be from the inner LLM call failure
         Assert.Equal(ErrorCodes.LlmNetwork, result.Error!.Code);
     }
 
-    // ------ End-to-end: plan + execute with set steps ------
 
     [Fact]
-    public async Task WorkflowExecute_EndToEnd_PlanAndExecuteSetSteps()
+    public async Task WorkflowExecute_ArtifactWithSetSteps()
     {
         var generatedYaml = """
             version: 1
@@ -700,9 +580,6 @@ public class WorkflowExecuteExecutorTests
                     type: number
             """;
 
-        var mockLlm = new Mock<ILLMClient>();
-        mockLlm.Setup(l => l.CallAsync(It.IsAny<LLMRequest>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync(new LLMResponse { Text = WithGeneratedSkill(generatedYaml) });
 
         var result = await RunMain("""
             version: 1
@@ -710,14 +587,9 @@ public class WorkflowExecuteExecutorTests
               main:
                 steps:
                   - id: generate
-                    type: workflow.plan
+                    type: set
                     input:
-                      mode: basic
-                      generator:
-                        model: gpt-4
-                        instruction: test
-                      validate:
-                        compile: true
+                      yaml: "${data.inputs.artifact}"
 
                   - id: run
                     type: workflow.execute
@@ -726,7 +598,7 @@ public class WorkflowExecuteExecutorTests
 
                 outputs:
                   item_count: "${data.steps.run.outputs.item_count}"
-            """, llmClient: mockLlm.Object);
+            """, artifact: generatedYaml);
 
         Assert.True(result.Success);
         Assert.Equal(2, (int)ExpressionEvaluator.GetNumber(result.Outputs!["item_count"]));
@@ -737,7 +609,7 @@ public class WorkflowExecuteExecutorTests
     [Fact]
     public async Task WorkflowExecute_PropagatesEnvToGeneratedWorkflow()
     {
-        // The generated workflow reads from env — env should be cloned from parent context
+        // The generated workflow reads from env ï¿½ env should be cloned from parent context
         var generatedYaml = """
             version: 1
             workflows:
@@ -753,9 +625,6 @@ public class WorkflowExecuteExecutorTests
                     type: string
             """;
 
-        var mockLlm = new Mock<ILLMClient>();
-        mockLlm.Setup(l => l.CallAsync(It.IsAny<LLMRequest>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync(new LLMResponse { Text = WithGeneratedSkill(generatedYaml) });
 
         var result = await RunMain("""
             version: 1
@@ -763,14 +632,9 @@ public class WorkflowExecuteExecutorTests
               main:
                 steps:
                   - id: generate
-                    type: workflow.plan
+                    type: set
                     input:
-                      mode: basic
-                      generator:
-                        model: gpt-4
-                        instruction: test
-                      validate:
-                        compile: true
+                      yaml: "${data.inputs.artifact}"
 
                   - id: run
                     type: workflow.execute
@@ -779,7 +643,7 @@ public class WorkflowExecuteExecutorTests
 
                 outputs:
                   env_data: "${data.steps.run.outputs.env_data}"
-            """, llmClient: mockLlm.Object);
+            """, artifact: generatedYaml);
 
         Assert.True(result.Success);
         // env_data should be a valid JSON string (even if empty object)
@@ -816,9 +680,6 @@ public class WorkflowExecuteExecutorTests
                     type: string
             """;
 
-        var mockLlm = new Mock<ILLMClient>();
-        mockLlm.Setup(l => l.CallAsync(It.IsAny<LLMRequest>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync(new LLMResponse { Text = WithGeneratedSkill(generatedYaml) });
 
         var result = await RunMain("""
             version: 1
@@ -826,20 +687,15 @@ public class WorkflowExecuteExecutorTests
               main:
                 steps:
                   - id: generate
-                    type: workflow.plan
+                    type: set
                     input:
-                      mode: basic
-                      generator:
-                        model: gpt-4
-                        instruction: test
-                      validate:
-                        compile: true
+                      yaml: "${data.inputs.artifact}"
 
                   - id: run
                     type: workflow.execute
                     input:
                       from_step: generate
-            """, llmClient: mockLlm.Object);
+            """, artifact: generatedYaml);
 
         Assert.True(result.Success);
         // Entrypoint is "main" (standard entrypoint), so "from_main" should be in outputs
@@ -848,65 +704,6 @@ public class WorkflowExecuteExecutorTests
         var outputs = runOutput!["outputs"] as JsonObject;
         Assert.NotNull(outputs);
         Assert.Equal("from_main", outputs!["answer"]!.GetValue<string>());
-    }
-
-    // ------ workflow.plan meta is accessible after execute ------
-
-    [Fact]
-    public async Task WorkflowExecute_PlanMetaIsAccessible()
-    {
-        var generatedYaml = """
-            version: 1
-            workflows:
-              generated:
-                steps:
-                  - id: s
-                    type: set
-                    input:
-                      ok: true
-                      status_text: "done"
-                outputs:
-                  status:
-                    expr: "${data.steps.s.status_text}"
-                    type: string
-            """;
-
-        var mockLlm = new Mock<ILLMClient>();
-        mockLlm.Setup(l => l.CallAsync(It.IsAny<LLMRequest>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync(new LLMResponse { Text = WithGeneratedSkill(generatedYaml) });
-
-        var result = await RunMain("""
-            version: 1
-            workflows:
-              main:
-                steps:
-                  - id: generate
-                    type: workflow.plan
-                    input:
-                      mode: basic
-                      generator:
-                        model: gpt-4
-                        instruction: test
-                      validate:
-                        compile: true
-
-                  - id: run
-                    type: workflow.execute
-                    input:
-                      from_step: generate
-
-                outputs:
-                  plan_model: "${data.steps.generate.meta.model}"
-                  plan_attempt: "${data.steps.generate.meta.attempt}"
-                  plan_yaml: "${data.steps.generate.yaml}"
-                  exec_status: "${data.steps.run.outputs.status}"
-            """, llmClient: mockLlm.Object);
-
-        Assert.True(result.Success);
-        Assert.Equal("gpt-4", result.Outputs!["plan_model"]!.GetValue<string>());
-        Assert.Equal(1, result.Outputs["plan_attempt"]!.GetValue<int>());
-        Assert.NotNull(result.Outputs["plan_yaml"]!.GetValue<string>());
-        Assert.Equal("done", result.Outputs["exec_status"]!.GetValue<string>());
     }
 
     // ------ Invalid generated YAML ------
@@ -965,9 +762,6 @@ public class WorkflowExecuteExecutorTests
                     type: string
             """;
 
-        var mockLlm = new Mock<ILLMClient>();
-        mockLlm.Setup(l => l.CallAsync(It.IsAny<LLMRequest>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync(new LLMResponse { Text = WithGeneratedSkill(generatedYaml) });
 
         var result = await RunMain("""
             version: 1
@@ -975,14 +769,9 @@ public class WorkflowExecuteExecutorTests
               main:
                 steps:
                   - id: generate
-                    type: workflow.plan
+                    type: set
                     input:
-                      mode: basic
-                      generator:
-                        model: gpt-4
-                        instruction: test
-                      validate:
-                        compile: true
+                      yaml: "${data.inputs.artifact}"
 
                   - id: run
                     type: workflow.execute
@@ -991,11 +780,9 @@ public class WorkflowExecuteExecutorTests
 
                 outputs:
                   text: "${data.steps.run.outputs.text}"
-            """, llmClient: mockLlm.Object);
+            """, artifact: generatedYaml);
 
         Assert.True(result.Success);
         Assert.Equal("Items: 3", result.Outputs!["text"]!.GetValue<string>());
     }
 }
-
-

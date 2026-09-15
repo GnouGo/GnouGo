@@ -1,0 +1,9 @@
+name: Ensure pinned OTLP protocols
+description: Restore the collector and retry only transient protocol acquisition failures
+runs:
+  using: composite
+  steps:
+    - shell: python
+      run: |
+        import runpy
+        runpy.run_path("scripts/ensure-otlp-protos.py", run_name="__main__")

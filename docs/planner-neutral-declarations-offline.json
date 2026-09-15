@@ -1,0 +1,110 @@
+{
+  "baseCommit": "9ffdd1d41530bd52f14f0e466e949b0629700962",
+  "liveSessionsStarted": 0,
+  "providerDispatches": 0,
+  "snapshotSchema": 5,
+  "sourceProofVersion": 3,
+  "declarationProofVersion": 3,
+  "productionFiles": {
+    "src/GnOuGo.Flow.Core/Planning/PlanningDecisionState.cs": "c1f104418a371e124750f0cab535cde46992662b079da0cb269ec8e58c3b0acd",
+    "src/GnOuGo.Flow.Planning/PlanningChoiceEvidence.cs": "3a57e5163f7b3bec8cdef7ee7a7e66a953ccb4dc843010a20a548f046a9e5d77",
+    "src/GnOuGo.Flow.Planning/PlanningDeclarations.Decisions.cs": "6d7532652f68958b1b0ce92f96443286af76ef2815b4670cf7147757072c7246",
+    "src/GnOuGo.Flow.Planning/PlanningDeclarations.cs": "8234e6eb015b88a38731dae541abeb50afe36b30c5283521e8a48ac657e6bfec",
+    "src/GnOuGo.Flow.Planning/PlanningSourceDecisions.cs": "09560016467727ac8ac3e96178cfe16a23a3cfc1afa7285c38d63d59981dfccf",
+    "src/GnOuGo.Flow.Planning/PlanningSourceGroundingRules.cs": "a4cd307e382dc90882390f8d721dc95a61f1aac96796c6f0b9634b3e7db8e54c"
+  },
+  "baselineReplay": {
+    "session": "4d45ca3dc8b5442b9742b98fc83554ed",
+    "sourceRevision": 27,
+    "sourceUnchanged": true,
+    "counterfactual": false,
+    "counterfactualRequest": null,
+    "status": "stopped",
+    "phase": "capabilities",
+    "localAdvances": 1,
+    "replayedReceipts": 1,
+    "providerDispatches": 0,
+    "lastRequestPhase": "intent_declarations",
+    "lastRequestId": "4d45ca3dc8b5442b9742b98fc83554ed:27:9:intent_declarations:response_contract:93beceaf3191e878:page_48352be03456fdc1bae63877cd187d615765e8e4a38c4d036aa257e711017fe9:42c9a6c884acda11d7d378435d722e5c7cacb1d21633e62dd0caa11fe084a967",
+    "behaviorPresent": false,
+    "graphPresent": false,
+    "diagnostics": [
+      {
+        "code": "DECLARATION_GROUNDING_UNRESOLVED",
+        "location": "/declarations/@ob_60232a89ef5317dd"
+      }
+    ]
+  },
+  "currentStrictReplay": {
+    "session": "4d45ca3dc8b5442b9742b98fc83554ed",
+    "sourceRevision": 27,
+    "sourceUnchanged": true,
+    "counterfactual": false,
+    "counterfactualRequest": null,
+    "status": "stopped",
+    "phase": "capabilities",
+    "localAdvances": 1,
+    "replayedReceipts": 0,
+    "providerDispatches": 0,
+    "lastRequestPhase": "intent_declarations",
+    "lastRequestId": "4d45ca3dc8b5442b9742b98fc83554ed:24:8:intent_declarations:response_contract:93beceaf3191e878:page_c066eed254e7a1b63dac1c8369b4dea4aabb84b188b67fd7632922f06d66931f:ba996273219a53fafde059fbc81855d5a604e82d4b9cae212c1edb75343af3de",
+    "behaviorPresent": false,
+    "graphPresent": false,
+    "diagnostics": [
+      {
+        "code": "INTENT_SOURCE_AUTHORITY_UNPROVEN",
+        "location": "/obligations/@ob_287f0fb931791b81"
+      }
+    ]
+  },
+  "replayInterpretation": "Baseline replay reproduced the archived blocker before edits. Current replay rejects obsolete source proof without reinterpreting historical directional decisions or substituting responses. Both verified unchanged persisted state.",
+  "solutionTests": {
+    "projects": 29,
+    "passed": 3224,
+    "failed": 0,
+    "skippedOptionalLiveProvider": 1
+  },
+  "components": {
+    "planner": 786,
+    "flowCore": 855,
+    "flowIntegrations": 67,
+    "agentServer": 385
+  },
+  "solutionBuild": "passed_without_warnings_serialized",
+  "initialBuildObservation": "The initial solution test/build emitted one transient MSB3026 file-copy contention warning. The final serialized build and complete no-build test run had no warnings.",
+  "harnessBuild": "passed_without_warnings",
+  "referenceFixtures": {
+    "classifierBatch": 6,
+    "codeReview": 18,
+    "modelCalls": 0
+  },
+  "packages": [
+    "GnOuGo.Flow.Core",
+    "GnOuGo.Flow.Planning",
+    "GnOuGo.Flow.Integrations",
+    "GnOuGo.Agent.Shared"
+  ],
+  "packagesResult": "passed_without_warnings",
+  "publishedSmokes": {
+    "nativeAotPlanningAndEncryptedRestart": {
+      "rid": "osx-arm64",
+      "result": "passed",
+      "binarySha256": "1f40c357aa71a5f29b0050d4e8c230af4b1b6d5308a35524f230183a687fa9fc"
+    },
+    "trimmedAgentEfPersistence": {
+      "rid": "osx-arm64",
+      "result": "passed",
+      "binarySha256": "a87a6f746c7de924b6dca590739d1b84518dc866439fefba04894ba073800bdd"
+    }
+  },
+  "publishWarnings": 0,
+  "newWarningSuppressions": 0,
+  "frontendChanges": false,
+  "unchangedBenchmarkFixtureSources": {
+    "tests/GnOuGo.Agent.Planning.Benchmark/ProgressiveScenarios.cs": "b28780fdb09e7484895c97f1fff90716ebdd9e2ae88c2be351941d53649d3b92",
+    "tests/GnOuGo.Agent.Planning.Benchmark/ProgressiveExecution.cs": "40a40ce81d7f9dd62ebda770dcb59cd64866cc88a202b7c84c08da4449fc4936",
+    "tests/GnOuGo.Agent.Planning.Benchmark/CodeReviewExecutionFixture.cs": "7ff54d7c4529bb9bb1e7ab4e25f1e59f83f85e7e08126a767e2136c5283ae498",
+    "tests/GnOuGo.Agent.Planning.Benchmark/CodeReviewPolicy.txt": "b92002cf07ef660981dc5c758d775be40589045d14df706cf454ca3c58e52604"
+  },
+  "syntheticEvidence": "Corrected semantic assignments are explicitly synthetic tests, not historical receipts or evidence of new live convergence."
+}

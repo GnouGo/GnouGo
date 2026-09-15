@@ -102,6 +102,19 @@ public sealed class McpArtifactContractTests
         Assert.Empty(result.Errors);
     }
 
+    [Theory]
+    [InlineData("json_array", true)]
+    [InlineData("unknown", false)]
+    public void DeclaredCollectionEncodingIsValidated(string encoding, bool valid)
+    {
+        var result = McpArtifactContractParser.ParseAndValidate(ToolMeta("""
+            {"artifacts":{"version":1,"produces":[{"kind":"records","pointer":"/value","mode":"materialize","encoding":"ENCODING"}],"consumes":[]}}
+            """.Replace("ENCODING", encoding, StringComparison.Ordinal)), null,
+            JsonNode.Parse("""{"type":"object","properties":{"value":{"type":"string"}},"required":["value"]}"""));
+        Assert.Equal(valid, result.IsValid);
+        if (valid) Assert.Equal(encoding, Assert.Single(result.Contract!.Produces).Encoding);
+    }
+
     private static JsonObject ToolMeta(string gnougoJson)
         => new() { [McpArtifactContractMetadata.MetaPropertyName] = JsonNode.Parse(gnougoJson) };
 }

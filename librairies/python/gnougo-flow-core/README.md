@@ -11,7 +11,9 @@ Write YAML workflows that orchestrate LLMs, MCP servers, templates, loops, human
 
 ## Package Status and Parity
 
-The .NET library at [`src/GnOuGo.Flow.Core/`](../../../src/GnOuGo.Flow.Core/) is the **source of truth**. The current Python parity baseline is commit `c4b069a`, verified against 919 Flow.Core tests and 33 Flow.Integrations tests; the independent Python suite contains 360 passing tests. See [`PORTING_TODO.md`](PORTING_TODO.md) for the implemented feature ledger, compatible Python extensions, and validation commands.
+The Python package provides parsing, validation, and workflow execution. Workflow planning
+runs in the independently published .NET `GnOuGo.Flow.Planning` package and its hosts.
+This package executes saved artifacts and contains no separate planner implementation.
 
 | Area | Status |
 |---|---|
@@ -21,7 +23,7 @@ The .NET library at [`src/GnOuGo.Flow.Core/`](../../../src/GnOuGo.Flow.Core/) is
 | Mustache `template.render` engine | Yes |
 | WFScript (`functions:` block) | Yes multi-statement (`var`/`let`/`const`, `if`/`else`, `return`) |
 | Runtime engine + step registry | Yes |
-| Step types, including `workflow.route`, `workflow.plan`, and `workflow.execute` | Yes |
+| Step types, including `workflow.route` and `workflow.execute` | Yes |
 | Nullable contracts, conditional JSON Schema, recursive type assignment | Yes |
 | Workflow `finally` lifecycle, independent timeout/budget, nested/resumed cleanup | Yes |
 | MCP integrations (`InMemoryMcpClientFactory`, `ConfiguredMcpClientFactory`, cache helper) | Yes |
@@ -30,11 +32,6 @@ The .NET library at [`src/GnOuGo.Flow.Core/`](../../../src/GnOuGo.Flow.Core/) is
 | MCP secure correlation context, live discovery, and HITL elicitation bridge | Yes |
 | `LLMRequest.reasoning` field | Yes |
 | Model metadata catalog (pricing, token limits, capabilities, overrides) | Yes |
-| `workflow.plan` default `mode="auto"` classifier | Yes |
-| `workflow.plan` defaults `reasoning="medium"` | Yes |
-| `workflow.plan` repair mode for persisted workflow fixes | Yes |
-| `workflow.plan` explicit/inferred capability preflight and surgical repair | Yes |
-| `workflow.plan` pipeline decomposition, structured extraction, quality reports, and strict semantic checks | Yes |
 | MCP tool `output_schema` / `example_response` planning contracts | Yes |
 | Workflow source telemetry (`source_text` / `source_format`) | Yes |
 | `JsonSchemaConverter` (inputs/outputs to JSON Schema) | Yes |
@@ -64,9 +61,9 @@ The .NET library at [`src/GnOuGo.Flow.Core/`](../../../src/GnOuGo.Flow.Core/) is
   - [loop.sequential](#loopsequential--iterate-sequentially)
   - [loop.parallel](#loopparallel--iterate-in-parallel)
   - [switch](#switch--conditional-branching)
+  - [decision.evaluate](#decisionevaluate--finite-runtime-decisions)
   - [workflow.call](#workflowcall--call-a-sub-workflow)
-  - [workflow.plan](#workflowplan--generate-a-workflow-dynamically-via-llm)
-  - [workflow.execute](#workflowexecute--execute-a-planned-workflow)
+  - [Workflow planning and artifact execution](#workflow-planning-and-artifact-execution)
 - [Typed Inputs](#typed-inputs)
 - [Typed Outputs](#typed-outputs)
 - [Workflow Finalization](#workflow-finalization)
@@ -634,7 +631,7 @@ Injected adapters may expose MCP elicitation. `ConfiguredMcpClientFactory` bridg
 | Batch/auto | `data.steps.<id>.results` (array) |
 | LLM-assisted | `data.steps.<id>.text`, `data.steps.<id>.json` |
 
-> **Important:** The `response` object is tool-specific. `workflow.plan` treats single-tool MCP responses as opaque unless the tool advertises `output_schema` or `example_response`. Access `data.steps.<id>.response.<field>` only for documented fields. Otherwise pass the whole response with `json(data.steps.<id>.response)` or add an `llm.call` normalization step with `structured_output`.
+> **Important:** The `response` object is tool-specific. Consume only fields declared by the tool's output contract; an example response is not execution authority. Access `data.steps.<id>.response.<field>` only for documented fields. Otherwise pass the whole response with `json(data.steps.<id>.response)` or add an `llm.call` normalization step with `structured_output`.
 
 ---
 
@@ -898,6 +895,27 @@ Two forms: expression-based and when-based.
 
 ---
 
+### `decision.evaluate` — Finite Runtime Decisions
+
+`decision.evaluate` atomically reduces multiple runtime results to finite provider-neutral values:
+
+```yaml
+- id: compute_decisions
+  type: decision.evaluate
+  input:
+    decisions:
+      publication:
+        allowed_values: [PUBLISH_A, PUBLISH_B, NO_EFFECT]
+        cases:
+          - { when: "${data.steps.first.is_valid}", value: PUBLISH_A }
+          - { when: "${data.steps.second.needs_attention}", value: PUBLISH_B }
+        default: NO_EFFECT
+```
+
+Values and case values must be non-empty and unique, conditions must resolve to booleans, and defaults must be allowed. Overlapping matches or no match/default fail with non-retryable `DECISION_EVALUATION_UNRESOLVED`; malformed or over-limit contracts use `INPUT_VALIDATION`. Decision and case counts use `max_switch_cases`. A failure exposes no partial field map.
+
+---
+
 ### `workflow.call` — Call a Sub-Workflow
 
 Calls another workflow through one canonical shape:
@@ -1094,238 +1112,26 @@ After extraction, defaults are applied and the selected workflow inputs are vali
 
 ---
 
-### `workflow.plan` — Generate a Workflow Dynamically via LLM
+### Workflow planning and artifact execution
 
-The most powerful step type: asks an LLM to **generate a complete YAML workflow** from a natural-language instruction, then validates and compiles it before execution.
+Workflow planning is provided by the .NET `GnOuGo.Flow.Planning` package through
+Agent.Server's designer, Flow CLI, and Flow Server. See the
+[single planner architecture](../../../docs/workflow-planning-v2.md).
+The Python runtime executes saved YAML artifacts and does not register `workflow.plan`.
 
-`mode` defaults to `auto`. Auto mode first asks the configured LLM to estimate the request's cyclomatic complexity and choose `basic` or `pipeline`. It chooses `basic` for requests under 10 meaningful branches, and `pipeline` when the request should be decomposed into leaf workflows before assembly.
-
-Every internal planning call is background-capable: auto-mode classification, capability inventory and repair, capability matching and repair, MCP server and capability prefiltering, pipeline stages, and final basic generation. Structured capability and pipeline calls use strict OpenAI-compatible schemas in which every declared object property is required. Ordinary `llm.call`, routing, and tool-calling requests keep their existing foreground behavior unless their caller explicitly enables background mode.
-
-#### Basic usage
+`workflow.execute` consumes an artifact from a preceding step:
 
 ```yaml
-- id: plan
-  type: workflow.plan
+- id: artifact
+  type: set
   input:
-    mode: auto                    # default; use basic to force the single-plan path
-    generator:
-      model: gpt-4o
-      instruction: "Build a workflow that fetches weather for Paris and summarizes it."
-      context: "Available tools include weather and summarization APIs."
-```
-
-#### Full configuration
-
-```yaml
-- id: plan
-  type: workflow.plan
-  input:
-    mode: auto                    # auto | basic | pipeline | repair
-    generator:
-      model: gpt-4o                 # LLM model for planning
-      provider: openai              # Optional — LLM provider
-      instruction: "Analyze the user's request and build a workflow."
-      context: "${json(data.inputs)}"
-
-      # Reasoning effort for the planning LLM call (and the MCP pre-filter).
-      # Defaults to "medium" because planning is reasoning-heavy work.
-      # Set to "auto" to let the provider decide, or any of:
-      # "minimal" | "low" | "medium" | "high" | "max" | "auto".
-      # Models without thinking support ignore this field.
-      reasoning: medium
-
-      # MCP pre-filter: uses an LLM to select only relevant MCP servers/tools
-      # before injecting them into the planning prompt (reduces prompt size)
-      prefilter: true               # true (default) | false | { model, provider }
-
-    # Policy constraints — restrict what the LLM can generate
-    policy:
-      allowed_step_types:           # Whitelist of step types
-        - llm.call
-        - mcp.call
-        - mcp.list
-        - template.render
-        - set
-        - emit
-        - sequence
-      denied_step_types:            # Blacklist (takes precedence)
-        - workflow.plan             # Prevent recursive planning
-      allow_remote_workflow_refs: false
-
-    # Limits
-    limits:
-      max_steps_total: 20           # Maximum number of steps in the generated workflow
-
-    # Validation
-    validate:
-      compile: true                 # Parse + compile the generated YAML (default: true)
-      dry_run: true                 # Optional: execute once with fake providers before accepting
-
-    # Self-correction on failure
-    on_invalid:
-      action: reprompt              # "reprompt" (re-send error to LLM) | "fail"
-      max_attempts: 3               # Number of attempts before giving up
-```
-
-#### Auto and basic modes
-
-`mode: auto` is the default. It performs one classifier LLM call before generation and returns the classifier result under `meta.mode_selection`. The classifier estimates complexity by counting meaningful branches such as conditions, switch/case paths, loops, retries, error handling, cleanup paths, validation branches, tool-orchestration choices, and state transitions.
-
-Use `mode: basic` to skip classification and run the original single workflow-generation path directly. Use `mode: pipeline` to force decomposition.
-
-#### Capability preflight
-
-`capability_preflight.mode` is `off` by default for backward compatibility. `explicit` deterministically resolves author-supplied requirements before generation; `infer` first inventories the user's positive runtime operations separately from constraints, then matches them against the complete physical MCP/native catalog. Required unavailable capabilities fail before workflow generation.
-
-```yaml
-- id: plan
-  type: workflow.plan
-  input:
-    mode: basic
-    capability_preflight:
-      mode: explicit                 # off | explicit | infer
-      requirements:
-        - id: read_status
-          description: Read the current inventory status.
-          required: true
-          alternatives:
-            - server: inventory
-              kind: tool
-              method: inventory_action
-              request_bindings:      # RFC 6901 pointers to documented enum/const selectors
-                - { path: /action, value: get_status }
-        - id: optional_notice
-          description: Notify an observer when available.
-          required: false
-          alternatives:
-            - { server: notifications, kind: tool, method: notify }
-      constraints:
-        - id: never_delete
-          description: Never select the delete operation.
-          required: true
-          denied_alternatives:
-            - server: inventory
-              kind: tool
-              method: inventory_action
-              request_bindings:
-                - { path: /action, value: delete }
-    generator:
-      model: gpt-4o
-      instruction: Read inventory status.
-```
-
-The selected operations become locked occurrences, not a set: two requirements for the same tool require two calls. Final validation checks exact MCP/native calls, selector bindings, constraints, occurrence counts, and `_meta.gnougo.artifacts` producer/consumer provenance through direct calls and transparent `set` aliases. Redundant artifact producers are rejected when one authoritative producer should be reused.
-
-In inferred mode, external writes receive a mandatory `human.input` confirmation operation before the first write unless the instruction explicitly requests unattended execution. Discovery and matching fail closed. Catalog safety bounds match .NET: selector depth 4, 64 selector values, descriptions capped at 512 characters, pages capped at 64,000 characters and 64 pages, 24 candidates per inventory item, and 256,000 expanded catalog characters.
-
-The result records decisions under `meta.capability_preflight`, including mode, requirement status, selected catalog IDs, constraints, and catalog count.
-
-#### Repair mode
-
-Use `mode: repair` to repair an existing persisted workflow. The LLM receives the current YAML plus a user repair instruction and/or structured runtime error details, then returns a full replacement YAML document. The prompt asks for the smallest patch-style change and the result still goes through parse, policy, limits, compile, semantic validation, MCP discovery coverage, and optional dry-run validation.
-
-```yaml
-- id: repair_plan
-  type: workflow.plan
-  input:
-    mode: repair
-    generator:
-      model: gpt-4o
-      reasoning: medium
-      prefilter: true
-    repair:
-      existing_yaml: "${data.inputs.workflow_yaml}"
-      prompt: "Fix the final output mapping without changing public inputs."
-      failed_input: "${data.inputs.failed_prompt}"
-      error:
-        code: MCP_CALL_ERROR
-        type: mcp.call
-        message: "Tool request used the wrong field name."
-        details:
-          tool: issue_get
-      scope:                         # Optional surgical repair lock
-        workflow: main
-        step_id: fetch_issue
-    validate:
-      compile: true
-      dry_run: true
-    on_invalid:
-      action: reprompt
-      max_attempts: 3
-```
-
-`repair.existing_yaml` is required, and at least one of `repair.prompt` or `repair.error.message` must be present. If `repair.error` is provided, `repair.error.message` is required. A scope requires both `workflow` and `step_id`; it preserves workflow topology, public contracts, step identities/types/order, branches, and unrelated expressions, allowing changes only to the target step and existing direct consumers. In repair mode, `on_invalid.max_attempts` bounds validation repair retries. Diagnostic fingerprints are normalized, and two unchanged repair attempts stop with `WORKFLOW_PLAN_REPAIR_STALLED`.
-
-#### Pipeline mode
-
-Pipeline mode normalizes the user prompt, asks the LLM to mark extractable `:::subworkflow` leaf blocks, generates each leaf as an independently valid workflow, then asks for a compact parent orchestration graph:
-
-```yaml
-document:
-  name: generated-pipeline-workflow
-graph:
-  inputs:
-    query: string
-  steps:
-    - id: call_collect_data
-      leaf: collect_data
-      args:
-        query: ${data.inputs.query}
-  outputs:
-    collect_data_outputs: ${data.steps.call_collect_data.outputs}
-```
-
-The runtime renders graph leaf nodes into local `workflow.call` steps, grafts the validated leaf workflows, moves leaf document-level `functions:` into that leaf workflow scope, checks required leaf arguments, and validates the final YAML. If extractable-block annotation fails validation, `workflow.plan` reprompts with the invalid annotated Markdown and exact validation errors.
-
-When `engine.llm_capabilities` is configured and reports that the selected provider/model supports structured output, pipeline extraction uses strict structured output for the extractable-block phase and rejects markdown-only extraction. Pipeline output includes `pipeline.specs`, `pipeline.quality_report`, and `pipeline.inspection` with leaf contracts, planned MCP tools, main graph inspection, and validation metadata.
-
-Pipeline mode is intentionally stricter than older Python releases: main assembly may orchestrate, branch, loop, derive deterministic values, and call generated leaves, but external work, LLM calls, raw MCP calls, human input, templates, and nested planning must stay inside leaf workflows. Extraction records `work_kind`, `contract_role`, `concrete_outcome`, catalog IDs, planned tools, and locked operation ownership through leaf generation, repair, deterministic main assembly, reporting, and final validation. External-work leaves with required planned MCP tools must emit matching `mcp.call` steps; weak root contracts and unrepresentable dataflow are not silently accepted.
-
-**Output:** `{ workflow: { version, name, workflows: [...] }, yaml: "...", meta: { model, attempt?, mode, mode_selection?, repair?, capability_preflight }, diagnostics: [...] }`
-
-**Features:**
-
-- **Automatic MCP discovery**: Connects to all configured MCP servers, lists their tools/prompts, and injects them into the planning prompt so the LLM knows what's available.
-- **MCP pre-filter**: Uses a lightweight LLM call to select only the MCP servers/tools relevant to the task instruction — reduces prompt size and cost.
-- **Full DSL reference injection**: The LLM receives the complete DSL documentation (step types, expressions, error handling) so it can generate valid workflows.
-- **Policy enforcement**: Generated workflows are validated against allowed/denied step types and max step limits.
-- **Full validation before acceptance**: `workflow.plan` runs the validator, compiler, and semantic checks before returning a plan. This catches non-fatal validator diagnostics such as unknown step types, invalid container shapes, future step references, conditional branch/loop mapping errors, and invalid `data.steps.<id>.response.<field>` mappings.
-- **Structured repair diagnostics**: Validation and `dry_run` failures include machine-readable `details["diagnostics"]` entries with stable codes, locations, hints, expected shapes, allowed paths when available, and `llm_guidance` for reprompt repair.
-- **Optional dry-run validation**: Set `validate.dry_run: true` to execute the generated workflow once with deterministic fake LLM, MCP, human-input, and routing providers. This catches runtime input-resolution errors such as free-form `llm.call.text` being used where a number is required. The dry-run never calls real LLMs or MCP tools.
-- **MCP output contracts**: MCP discovery injects complete `input_schema`, `output_schema`, and `example_response` metadata into the planning prompt. `output_schema` / `example_response` define which fields may be read from `mcp.call` single-tool `response` objects.
-- **MCP request normalization**: During `workflow.plan` validation, static `mcp.call.input.request` values are normalized against discovered `input_schema` contracts. Numeric, integer, and boolean YAML strings are converted to typed JSON values when the schema allows it, including nested objects, arrays, additional properties, and matching `oneOf` / `anyOf` object variants.
-- **Nullable MCP request guardrails**: Required MCP request fields reject nullable structured-output expressions such as `string|null` unless the exact value is first refined with `assert.non_null` or guarded on the same call.
-- **Finalization guidance**: Generated workflows may use `finally` for cleanup; finalizer calls participate in policy, cycle, capability, and step-count validation.
-- **Repair-stall safety**: Repeated normalized diagnostics stop after two unchanged repair attempts instead of spending the entire retry budget on an identical invalid plan.
-- **Self-correction**: If the generated YAML is invalid (parse error, policy violation, compilation error, or semantic mapping error), the error is sent back to the LLM for automatic correction.
-- **OpenTelemetry tracing**: Full GenAI convention traces for the planning LLM call, MCP discovery, and pre-filter phases.
-
-**Semantic mapping guardrails:** generated plans must not read `data.steps.<id>.*` from steps produced only inside a `switch` case, an `if`-guarded step, or a loop body unless that value is first mapped into a guaranteed location. Function arguments are evaluated eagerly, so `coalesce(data.steps.fix.value, data.steps.question.value)` is still unsafe when either step may not have executed. Prefer a common workflow-level output alias in every branch, or a guaranteed normalization step with a stable output schema.
-
----
-
-### `workflow.execute` — Execute a Planned Workflow
-
-Executes a workflow that was dynamically generated by `workflow.plan`.
-
-```yaml
-- id: plan
-  type: workflow.plan
-  input:
-    generator:
-      model: gpt-4o
-      instruction: "${data.inputs.task}"
-
-- id: execute
+    yaml: "${data.inputs.workflow_yaml}"
+- id: run
   type: workflow.execute
   input:
-    from_step: plan              # References the workflow.plan step that produced the YAML
+    from_step: artifact
+    args: {}
 ```
-
-The plan + execute pattern is the foundation of **agentic workflows**: the user describes a goal in natural language, the LLM plans the steps, and the engine executes them.
-
----
 
 ## Typed Inputs
 
@@ -1546,7 +1352,7 @@ Increase these limits only for trusted workflows; prefer simplifying expressions
 ## WFScript — Custom JavaScript Functions
 
 Define reusable functions in the `functions:` block (document-level or workflow-level).
-When `workflow.plan` generates custom functions, each generated `function` must be immediately preceded by JSDoc with typed `@param` entries for every parameter and a typed `@returns` entry for the output:
+Each custom `function` should be immediately preceded by JSDoc with typed `@param` entries for every parameter and a typed `@returns` entry for the output:
 
 ```yaml
 version: 1
@@ -1643,13 +1449,13 @@ on_error:
 | Code | Retryable | Description |
 |------|-----------|-------------|
 | `INPUT_VALIDATION` | No | Missing or malformed input |
+| `DECISION_EVALUATION_UNRESOLVED` | No | A finite decision has overlapping matches or no match/default |
 | `LLM_TIMEOUT` | Yes | LLM request timed out |
 | `LLM_NETWORK` | Yes | Transport failure, HTTP `425`/`429`, or provider `5xx` response |
 | `LLM_PROVIDER` | No | Provider rejected the request with another `4xx` response |
 | `MCP_CONNECTION_ERROR` | Yes | Cannot connect to MCP server |
 | `MCP_CALL_ERROR` / `MCP_PROMPT_ERROR` | Depends | MCP tool/prompt failure or transport cancellation |
 | `MCP_TIMEOUT` | Yes | Configured MCP call timeout elapsed |
-| `TEMPLATE_PLAN` | No | `workflow.plan` failed to generate valid YAML |
 | `TEMPLATE_POLICY` | No | Generated workflow violates policy constraints |
 | `CAPABILITY_PREFLIGHT_UNAVAILABLE` | No | A required locked capability cannot be resolved or represented |
 | `CAPABILITY_PREFLIGHT_DISCOVERY_FAILED` | No | Capability catalog discovery failed closed |

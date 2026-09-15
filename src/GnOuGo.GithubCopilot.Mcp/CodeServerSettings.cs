@@ -20,6 +20,7 @@ public sealed class CodeServerSettings
 
 public sealed class CodeCopilotSettings
 {
+    public string? InferenceProxyEndpoint { get; set; }
     public string Provider { get; set; } = "Copilot";
     public string Model { get; set; } = "gpt-5.4";
     public string Mode { get; set; } = "ask";
@@ -68,5 +69,4 @@ public sealed class CodeCopilotTelemetrySettings
     public string SourceName { get; set; } = "GnOuGo.GithubCopilot.Mcp.Copilot";
     public bool CaptureContent { get; set; }
 }
-
 

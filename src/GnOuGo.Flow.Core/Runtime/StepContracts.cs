@@ -43,6 +43,10 @@ public static class BuiltInStepContracts
                 Object(("results", Array(Any())), ("count", Integer())),
                 inputRequired: true),
             ["switch"] = Contract(ClosedObject(), OpenObject()),
+            ["decision.evaluate"] = Contract(
+                Object(new[] { "decisions" }, ("decisions", OpenObject())),
+                OpenObject(),
+                inputRequired: true),
             ["set"] = Contract(OpenObject(), OpenObject(), inputRequired: true),
             ["assert.non_null"] = Contract(OpenObject(), OpenObject(), inputRequired: true),
             ["template.render"] = Contract(
@@ -81,7 +85,9 @@ public static class BuiltInStepContracts
                 inputRequired: true),
             ["workflow.plan"] = Contract(
                 WorkflowPlanInput(),
-                Object(("workflow", OpenObject()), ("yaml", String()), ("meta", OpenObject()), ("diagnostics", Array(Any()))),
+                Object(("workflow", OpenObject()), ("yaml", String()), ("meta", OpenObject()), ("diagnostics", Array(Any())),
+                    ("status", String()), ("session_id", String()), ("revision", Integer()), ("artifact_hash", String()),
+                    ("outcome", OpenObject()), ("question", OpenObject())),
                 inputRequired: true),
             ["workflow.execute"] = Contract(
                 Object(new[] { "from_step" }, ("from_step", String()), ("args", Any())),
@@ -173,14 +179,28 @@ public static class BuiltInStepContracts
             ("temperature", Number()))));
 
     private static JsonObject WorkflowPlanInput() => Object(
-        ("mode", Enum("auto", "basic", "pipeline")),
+        new[] { "raw_prompt", "generator" },
         ("raw_prompt", String()),
         ("name", String()),
-        ("workflow_name", String()),
-        ("document_name", String()),
-        ("description", String()),
+        ("intent_clarification", Object(
+            ("mode", Enum("off", "when_needed", "always")),
+            ("timeout_ms", PositiveInteger()),
+            ("max_rounds", PositiveInteger()),
+            ("max_questions", PositiveInteger()),
+            ("max_questions_per_round", PositiveInteger()))),
+        ("llm_budget", Object(
+            ("max_calls", PositiveInteger()),
+            ("max_total_tokens", PositiveInteger()),
+            ("max_elapsed_ms", PositiveInteger()),
+            ("max_estimated_cost", Object(
+                new[] { "amount", "currency" },
+                ("amount", Number()),
+                ("currency", String()))),
+            ("unverifiable", Enum("fail")))),
         ("capability_preflight", Object(
-            ("mode", Enum("off", "infer", "explicit")),
+            ("clarification", Object(
+                ("enabled", Boolean()),
+                ("timeout_ms", PositiveInteger()))),
             ("requirements", Array(Object(
                 new[] { "id", "description", "required", "alternatives" },
                 ("id", String()),
@@ -204,39 +224,18 @@ public static class BuiltInStepContracts
                     ("method", String()),
                     ("request_bindings", CapabilityRequestBindings()))))))))),
         ("generator", Object(
-            ("mode", Enum("auto", "basic", "pipeline")),
-            ("provider", String()),
-            ("model", String()),
-            ("instruction", String()),
-            ("context", String()),
-            ("raw_prompt", String()),
-            ("name", String()),
-            ("workflow_name", String()),
-            ("document_name", String()),
-            ("description", String()),
-            ("reasoning", Enum("auto", "minimal", "low", "medium", "high", "max")),
-            ("pipeline_leaf_name", String()),
-            ("prefilter", AnyOf(
-                Boolean(),
-                Object(("provider", String()), ("model", String()), ("temperature", Number())))),
-            ("skill", OpenObject()),
-            ("inputs", OpenObject()),
-            ("outputs", OpenObject()))),
+            ("provider", String()), ("model", String()),
+            ("reasoning_profile", Object(("routine", Enum("minimal", "low", "medium", "high", "max")),
+                ("behavior", Enum("minimal", "low", "medium", "high", "max")), ("semantic_review", Enum("minimal", "low", "medium", "high", "max")))),
+            ("max_input_tokens", PositiveInteger()), ("max_output_tokens", PositiveInteger()))),
+        ("max_concurrency", PositiveInteger()),
+        ("max_repairs_per_workflow_gate", new JsonObject { ["type"] = "integer", ["minimum"] = 0, ["maximum"] = 10, ["default"] = 5 }),
         ("policy", Object(
+            ("instructions", String()),
             ("allowed_step_types", Array(String())),
             ("denied_step_types", Array(String())),
             ("allow_remote_workflow_refs", Boolean()))),
-        ("limits", Object(("max_steps_total", PositiveInteger()))),
-        ("validate", Object(
-            ("mode", Enum("strict")),
-            ("compile", Boolean()),
-            ("dry_run", Boolean()),
-            ("repair", Enum("auto")),
-            ("max_repair_attempts", PositiveInteger()))),
-        ("on_invalid", Object(("action", Enum("fail", "stop", "reprompt")), ("max_attempts", PositiveInteger()))),
-        ("skill", OpenObject()),
-        ("inputs", OpenObject()),
-        ("outputs", OpenObject()));
+        ("limits", Object(("max_steps_total", PositiveInteger()))));
 
     private static JsonObject McpCallInput() => Object(
         new[] { "server" },
@@ -257,6 +256,7 @@ public static class BuiltInStepContracts
         ("prompts", Array(Any())),
         ("structured_output", StructuredOutput()),
         ("raise_on_error", Boolean()),
+        ("preserve_optional_nulls", Boolean()),
         ("raiseOnError", Boolean()),
         ("error_policy", Object(("detect_result_errors", Boolean()), ("detectResultErrors", Boolean()))),
         ("detect_result_errors", Boolean()),
@@ -266,7 +266,8 @@ public static class BuiltInStepContracts
         new[] { "prompt" },
         ("prompt", String()),
         ("mode", Enum("text", "choice", "confirm", "form")),
-        ("timeout_ms", PositiveInteger()),
+        ("timeout_ms", NonNegativeInteger()),
+        ("allow_abandon", Boolean()),
         ("choices", Array(Any())),
         ("fields", Array(Object(new[] { "name" },
             ("name", String()),

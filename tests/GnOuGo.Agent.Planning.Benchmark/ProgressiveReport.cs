@@ -1,0 +1,135 @@
+using System.Text.Json.Nodes;
+using GnOuGo.Flow.Core.Planning;
+using GnOuGo.Flow.Core.Runtime;
+
+namespace GnOuGo.Agent.Planning.Benchmark;
+
+internal static class ProgressiveReport
+{
+    internal static long? Usage(LLMResponse? response, bool output)
+    {
+        foreach (var name in output ? new[] { "output_tokens", "completion_tokens", "outputTokens" } : new[] { "input_tokens", "prompt_tokens", "inputTokens" })
+            if (response?.Usage?[name] is JsonValue value && value.TryGetValue<long>(out var count)) return count;
+        return null;
+    }
+    internal static long? ReasoningUsage(LLMResponse? response)
+    {
+        foreach (var key in new[] { "completion_tokens_details", "output_tokens_details" })
+            if (response?.Usage?[key]?["reasoning_tokens"] is JsonValue value && value.TryGetValue<long>(out var count)) return count;
+        return null;
+    }
+    internal static JsonObject ExecutionCase(string name, JsonNode? stored)
+    {
+        var report = stored?["report"] ?? stored;
+        return new() { ["case"] = name, ["status"] = report is null ? "not_run" : report["passed"]?.GetValue<bool>() == true ? "passed" : "failed",
+            ["artifactHash"] = report?["artifactHash"]?.DeepClone(), ["fixtureHash"] = report?["fixtureHash"]?.DeepClone(),
+            ["catalogHash"] = report?["catalogHash"]?.DeepClone(), ["errorCode"] = report?["errorCode"]?.DeepClone() };
+    }
+    internal static JsonObject Build(PlanningSnapshot state, IReadOnlyDictionary<string, LLMResponse?> receipts)
+    {
+        var calls = state.RequestAccounting.DistinctBy(r => r.Id).ToArray();
+        var verified = receipts.Where(r => r.Value is not null).Select(r => r.Key).ToHashSet(StringComparer.Ordinal);
+        var pages = state.DecisionPages.DistinctBy(p => p.Id).ToArray();
+        int? PartitionDepth(PlanningDecisionPage page)
+        {
+            var depth = 0; var seen = new HashSet<string>(StringComparer.Ordinal);
+            while (page.Origin is PlanningDecisionPageOrigin.OutputPartition or PlanningDecisionPageOrigin.OutputBudgetEscalation)
+            {
+                if (!seen.Add(page.Id) || pages.SingleOrDefault(p => p.Id == page.ParentId) is not { } parent) return null;
+                if (page.Origin == PlanningDecisionPageOrigin.OutputPartition) depth++; page = parent;
+            }
+            return page.Origin == PlanningDecisionPageOrigin.Unknown ? null : depth;
+        }
+        var holes = state.Construction.Holes.Where(h => !h.Superseded).DistinctBy(h => (h.WorkflowKey, h.Id)).ToArray();
+        long? Sum(IEnumerable<long?> values) { var all = values.ToArray(); return all.Length == 0 ? 0 : all.Any(v => v is null) ? null : all.Sum(v => v!.Value); }
+        var result = new JsonObject
+        {
+            ["session"] = state.Request.SessionId, ["revision"] = state.Revision, ["status"] = state.Status, ["outcome"] = state.Outcome?.Name,
+            ["phase"] = state.CurrentPhase, ["artifactHash"] = state.ArtifactHash, ["approvedHash"] = state.ApprovedHash,
+            ["finalArtifactHash"] = state.Yaml is null ? null : GnOuGo.Flow.Planning.PlanningGraphCompiler.Fingerprint(state.Yaml),
+            ["modelCalls"] = calls.Count(r => verified.Contains(r.Id)), ["reservations"] = calls.Length,
+            ["unverifiableDispatches"] = calls.Count(r => r.Evidence == "unverifiable" && !verified.Contains(r.Id)),
+            ["journalReservationsWithoutReceipt"] = receipts.Count(r => r.Value is null),
+            ["decisionPages"] = pages.Length,
+            ["pagesByPhase"] = new JsonArray(pages.GroupBy(p => (p.Phase, p.Status, p.Correction, p.Origin, p.Gate)).Select(g => (JsonNode)new JsonObject
+            { ["phase"] = g.Key.Phase, ["status"] = g.Key.Status, ["correction"] = g.Key.Correction, ["origin"] = g.Key.Origin.ToString(), ["gate"] = g.Key.Gate,
+                ["pages"] = g.Count(), ["splitChildren"] = g.Count(p => p.Origin == PlanningDecisionPageOrigin.OutputPartition) }).ToArray()),
+            ["outputPartitions"] = pages.Count(p => p.Origin == PlanningDecisionPageOrigin.OutputPartition),
+            ["outputEscalations"] = pages.Count(p => p.Origin == PlanningDecisionPageOrigin.OutputBudgetEscalation),
+            ["semanticCorrectionPages"] = pages.Count(p => p.Origin == PlanningDecisionPageOrigin.SemanticCorrection),
+            ["pageLineage"] = new JsonArray(pages.Select(p => (JsonNode)new JsonObject
+            {
+                ["id"] = p.Id, ["parent"] = p.ParentId, ["origin"] = p.Origin.ToString(), ["gate"] = p.Gate, ["phase"] = p.Phase,
+                ["status"] = p.Status, ["correction"] = p.Correction, ["partitionDepth"] = PartitionDepth(p), ["requestId"] = p.RequestId,
+                ["escalationChildId"] = p.OutputEscalationChildId,
+                ["parentRequestId"] = p.OutputBudgetEscalation?.ParentRequestId, ["escalationLevel"] = p.OutputBudgetEscalation?.Level,
+                ["canonicalDecisionId"] = p.OutputBudgetEscalation?.CanonicalDecisionId, ["effectiveOutputTokens"] = p.EffectiveOutputTokens,
+                ["completionStatus"] = p.RequestId is { } requestId && receipts.TryGetValue(requestId, out var receipt)
+                    ? receipt?.CompletionStatus is "completed" or "output_limit" ? receipt.CompletionStatus : null : null,
+                ["decisions"] = new JsonArray(p.Decisions.Select(id => (JsonNode?)JsonValue.Create(id)).ToArray()),
+                ["sourceDecisionIds"] = p.SourceDecisionIds is null ? null : new JsonArray(p.SourceDecisionIds.Select(id => (JsonNode?)JsonValue.Create(id)).ToArray()),
+                ["children"] = new JsonArray(p.PartitionChildren.Select(id => (JsonNode?)JsonValue.Create(id)).ToArray()),
+                ["singletonOutputLimit"] = p.Decisions.Count == 1 && p.Diagnostics.Any(d => d.Code == "DECISION_OUTPUT_LIMIT")
+            }).ToArray()),
+            ["engineResolvedExecutableDecisions"] = holes.Count(h => h.Resolved && h.ResolutionOrigin == "deterministic"),
+            ["otherEngineDecisions"] = null,
+            ["modelDecisionIds"] = new JsonArray(pages.Where(p => p.RequestId is not null && verified.Contains(p.RequestId)).SelectMany(p => p.Decisions.Select(d => p.WorkflowKey + ":" + d))
+                .Distinct(StringComparer.Ordinal).Order(StringComparer.Ordinal).Select(id => (JsonNode?)JsonValue.Create(id)).ToArray()),
+            ["approvedBehaviorHash"] = state.ApprovedBehaviorHash,
+            ["declarationProof"] = state.DeclarationFingerprint,
+            ["operationAdmissionProof"] = state.OperationAdmissionFingerprint,
+            ["canonicalOperationCount"] = state.OperationAdmissionFingerprint is null ? null : state.Obligations.Count(o => o.OperationAdmission is not null),
+            ["canonicalOperations"] = state.OperationAdmissionFingerprint is null ? null : new JsonArray(state.Obligations.Where(o => o.OperationAdmission is not null)
+                .OrderBy(o => o.Id, StringComparer.Ordinal).Select(o => (JsonNode)new JsonObject
+                {
+                    ["id"] = o.Id, ["kind"] = o.Kind, ["required"] = o.Required, ["authority"] = o.Grounding?.Authority.ToString(),
+                    ["proofVersion"] = o.OperationAdmission!.Version, ["proofFingerprint"] = o.OperationAdmission.ProofFingerprint,
+                    ["anchorReference"] = o.OperationAdmission.AnchorReference, ["baselineReference"] = o.OperationAdmission.BaselineReference,
+                    ["governingReferences"] = new JsonArray(o.OperationAdmission.Assignments.Select(a => a.ClauseReference).Distinct(StringComparer.Ordinal)
+                        .Select(id => (JsonNode?)JsonValue.Create(id)).ToArray()),
+                    ["evidenceReuseCount"] = o.OperationAdmission.Assignments.Count(a => a.TargetId is not null)
+                }).ToArray()),
+            ["canonicalDeclarations"] = new JsonArray(state.Declarations.Select(d => (JsonNode)new JsonObject
+                { ["id"] = d.Id, ["direction"] = d.Direction, ["scope"] = d.WorkflowScope, ["candidateCount"] = d.Candidates.Count,
+                    ["name"] = ProgressiveRules.PublicName(state, d) is "record" or "threshold" or "classifiedResult" ? ProgressiveRules.PublicName(state, d) : null,
+                    ["required"] = d.Required, ["default100"] = d.DefaultReference is { } value && ProgressiveRules.SourceText(state, value) == "100",
+                    ["clauseReferences"] = new JsonArray(d.ClauseReferences.Select(r => (JsonNode?)JsonValue.Create(r)).ToArray()),
+                    ["proofFingerprint"] = d.ProofFingerprint,
+                    ["aliases"] = d.Aliases.Count, ["modifierReferences"] = d.ModifierReferences.Count, ["baseline"] = d.BaselineReference is not null }).ToArray()),
+            ["declarationDispositions"] = new JsonObject(state.DeclarationAssignments.GroupBy(a => a.Disposition, StringComparer.Ordinal)
+                .Select(g => new KeyValuePair<string, JsonNode?>(g.Key, JsonValue.Create(g.Count())))),
+            ["declarationModifiers"] = new JsonArray(state.DeclarationAssignments.Where(a => a.Disposition == "modifier_of")
+                .OrderBy(a => a.CandidateId, StringComparer.Ordinal).Select(a => (JsonNode)new JsonObject
+                {
+                    ["candidateId"] = a.CandidateId, ["targetId"] = a.TargetId,
+                    ["kind"] = state.Obligations.SingleOrDefault(o => o.Id == a.CandidateId)?.Kind,
+                    ["clauseReference"] = state.Obligations.SingleOrDefault(o => o.Id == a.CandidateId)?.Grounding?.ClauseReference
+                }).ToArray()),
+            ["modelExecutableDecisions"] = holes.Count(h => h.Resolved && h.ResolutionOrigin == "model"),
+            ["executableHoleExposures"] = holes.Sum(h => h.ExposedRequests.Distinct(StringComparer.Ordinal).Count(verified.Contains)),
+            ["userClarifications"] = state.Intent.Questions, ["answeredForms"] = state.Intent.Answers.Count,
+            ["clarificationDecision"] = (state.Outcome as PlanningNeedUserClarification)?.Decision.DecisionId,
+            ["largestEstimatedInput"] = calls.Length == 0 ? null : calls.Max(c => (int?)c.EstimatedInputTokens),
+            ["largestActualInput"] = calls.Select(c => c.InputTokens).DefaultIfEmpty(null).Max(),
+            ["inputTokens"] = Sum(calls.Where(c => verified.Contains(c.Id)).Select(c => c.InputTokens)),
+            ["outputTokens"] = Sum(calls.Where(c => verified.Contains(c.Id)).Select(c => c.OutputTokens)),
+            ["reasoningTokens"] = Sum(calls.Where(c => verified.Contains(c.Id)).Select(c => ReasoningUsage(receipts[c.Id]))),
+            ["allDispatchUsageKnown"] = calls.All(c => verified.Contains(c.Id) && c.InputTokens.HasValue && c.OutputTokens.HasValue),
+            ["effectiveReasoning"] = new JsonArray(calls.Select(c => c.Reasoning).Distinct(StringComparer.Ordinal).Select(r => (JsonNode?)JsonValue.Create(r)).ToArray()),
+            ["requestsByPhase"] = new JsonArray(calls.GroupBy(c => (c.WorkflowKey, c.Phase, c.Gate)).Select(g => (JsonNode)new JsonObject
+            {
+                ["workflow"] = g.Key.WorkflowKey, ["phase"] = g.Key.Phase, ["gate"] = g.Key.Gate,
+                ["reservations"] = g.Count(), ["calls"] = g.Count(c => verified.Contains(c.Id)), ["repairReservations"] = g.Count(c => c.Repair == true),
+                ["outputEscalations"] = g.Count(c => c.OutputBudgetEscalation is not null),
+                ["allDispatchUsageKnown"] = g.All(c => verified.Contains(c.Id) && c.InputTokens.HasValue && c.OutputTokens.HasValue),
+                ["inputTokens"] = Sum(g.Where(c => verified.Contains(c.Id)).Select(c => c.InputTokens)), ["outputTokens"] = Sum(g.Where(c => verified.Contains(c.Id)).Select(c => c.OutputTokens))
+            }).ToArray()),
+            ["repairAllowances"] = new JsonArray(state.RepairAllowances.Select(a => (JsonNode)new JsonObject { ["workflow"] = a.WorkflowKey, ["gate"] = a.Gate, ["consumed"] = a.Attempts }).ToArray()),
+            ["failuresByGate"] = new JsonArray(state.GateProgress.Select(g => (JsonNode)new JsonObject { ["workflow"] = g.WorkflowKey, ["gate"] = g.Gate, ["failures"] = g.Failures }).ToArray()),
+            ["firstFailure"] = state.TechnicalStop is { } stop ? new JsonObject { ["code"] = stop.Code, ["phase"] = stop.Phase, ["location"] = stop.Location, ["unverifiable"] = stop.Unverifiable } : null,
+            ["diagnostics"] = new JsonArray(state.Diagnostics.Select(d => (JsonNode)new JsonObject { ["code"] = d.Code, ["location"] = d.Location, ["rule"] = d.Rule }).ToArray())
+        };
+        result["modelDecisions"] = result["modelDecisionIds"]!.AsArray().Count;
+        return result;
+    }
+}

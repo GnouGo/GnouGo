@@ -1,0 +1,338 @@
+[
+  {
+    "id": "cap_000044",
+    "resolution": "mcp",
+    "server": "Github",
+    "kind": "tool",
+    "method": "request_copilot_review",
+    "card": "resolution=mcp server=Github kind=tool method=request_copilot_review description=Request a GitHub Copilot code review for a pull request. Use this for automated feedback on pull requests, usually before requesting a human reviewer. arguments=[/owner:string(required)(description=Repository owner), /pullNumber:number(required)(description=Pull request number), /repo:string(required)(description=Repository name)] outputs=[unknown] output_contract=[source=none;authority=opaque]"
+  },
+  {
+    "id": "cap_000047",
+    "resolution": "mcp",
+    "server": "GnOuGo.Cmd.Mcp",
+    "kind": "tool",
+    "method": "cmd_run",
+    "card": "resolution=mcp server=GnOuGo.Cmd.Mcp kind=tool method=cmd_run description=Runs one allowlisted command by name. Raw shell commands are not accepted; only preconfigured aliases may be executed. Commands execute within the default workspace. Returns a structured result with stdout, stderr, exit code, success flag, and error details if any. Workspace path parameters must stay outside the reserved .GnOuGo internal directory. Use workflows/<name> for workflow-owned working directories. Allowed commandName values: - cat_file: Print the contents of a file inside the default writable wor arguments=[/commandName:string(required)(description=Allowlisted command alias to execute.), /parametersJson:string|null(description=Optional JSON object string of named parameters, for example {\"path\":\"src\"}.), /timeoutMs:integer|null(description=Optional timeout override in milliseconds. It will be clamped by the server policy.)] outputs=[/commandName:string, /durationMs:number, /error_code:string|null, /error_message:string|null, /exitCode:integer, /finishedAtUtc:string|null, /message:string|null, /ok:boolean, /outputTruncated:boolean, /shell:string|null, /startedAtUtc:string|null, /stderr:string|null, /stdout:string|null, /success:boolean, /timedOut:boolean, /workingDirectory:string|null, /workingDirectoryRelative:string|null] output_contract=[source=protocol_schema;authority=authoritative;errors=0]"
+  },
+  {
+    "id": "cap_000048",
+    "resolution": "mcp",
+    "server": "GnOuGo.Cmd.Mcp",
+    "kind": "tool",
+    "method": "cmd_run",
+    "card": "resolution=mcp server=GnOuGo.Cmd.Mcp kind=tool method=cmd_run variant_of=GnOuGo.Cmd.Mcp/tool/cmd_run request_bindings=[/commandName=\"cat_file\"] description=Print the contents of a file inside the default writable workspace. Parameters: path (required, workspace path, file, Relative file path to read inside the writable workspace.)."
+  },
+  {
+    "id": "cap_000049",
+    "resolution": "mcp",
+    "server": "GnOuGo.Cmd.Mcp",
+    "kind": "tool",
+    "method": "cmd_run",
+    "card": "resolution=mcp server=GnOuGo.Cmd.Mcp kind=tool method=cmd_run variant_of=GnOuGo.Cmd.Mcp/tool/cmd_run request_bindings=[/commandName=\"create_directory\"] description=Create a subdirectory inside the default writable workspace and return its resolved path. Parameters: path (required, workspace path, directory, Relative directory path to create inside the writable workspace.)."
+  },
+  {
+    "id": "cap_000050",
+    "resolution": "mcp",
+    "server": "GnOuGo.Cmd.Mcp",
+    "kind": "tool",
+    "method": "cmd_run",
+    "card": "resolution=mcp server=GnOuGo.Cmd.Mcp kind=tool method=cmd_run variant_of=GnOuGo.Cmd.Mcp/tool/cmd_run request_bindings=[/commandName=\"delete_directory\"] description=Delete an existing subdirectory recursively inside the default writable workspace and return its resolved path. Parameters: path (required, workspace path, directory, Relative directory path to delete recursively inside the writable workspace.)."
+  },
+  {
+    "id": "cap_000051",
+    "resolution": "mcp",
+    "server": "GnOuGo.Cmd.Mcp",
+    "kind": "tool",
+    "method": "cmd_run",
+    "card": "resolution=mcp server=GnOuGo.Cmd.Mcp kind=tool method=cmd_run variant_of=GnOuGo.Cmd.Mcp/tool/cmd_run request_bindings=[/commandName=\"delete_file\"] description=Delete a file inside the default writable workspace. Parameters: path (required, workspace path, file, Relative file path to delete inside the writable workspace.)."
+  },
+  {
+    "id": "cap_000052",
+    "resolution": "mcp",
+    "server": "GnOuGo.Cmd.Mcp",
+    "kind": "tool",
+    "method": "cmd_run",
+    "card": "resolution=mcp server=GnOuGo.Cmd.Mcp kind=tool method=cmd_run variant_of=GnOuGo.Cmd.Mcp/tool/cmd_run request_bindings=[/commandName=\"dotnet_build\"] description=Build a .NET project or solution in the default writable workspace. Parameters: path (optional, workspace path, file, Relative path to the .csproj or .sln file to build.)."
+  },
+  {
+    "id": "cap_000053",
+    "resolution": "mcp",
+    "server": "GnOuGo.Cmd.Mcp",
+    "kind": "tool",
+    "method": "cmd_run",
+    "card": "resolution=mcp server=GnOuGo.Cmd.Mcp kind=tool method=cmd_run variant_of=GnOuGo.Cmd.Mcp/tool/cmd_run request_bindings=[/commandName=\"dotnet_restore\"] description=Restore NuGet packages for a .NET project or solution in the default writable workspace. Parameters: path (optional, workspace path, file, Relative path to the .csproj or .sln file to restore.)."
+  },
+  {
+    "id": "cap_000054",
+    "resolution": "mcp",
+    "server": "GnOuGo.Cmd.Mcp",
+    "kind": "tool",
+    "method": "cmd_run",
+    "card": "resolution=mcp server=GnOuGo.Cmd.Mcp kind=tool method=cmd_run variant_of=GnOuGo.Cmd.Mcp/tool/cmd_run request_bindings=[/commandName=\"dotnet_test\"] description=Run tests for a .NET project or solution in the default writable workspace. Parameters: path (optional, workspace path, file, Relative path to the test .csproj or .sln file.)."
+  },
+  {
+    "id": "cap_000055",
+    "resolution": "mcp",
+    "server": "GnOuGo.Cmd.Mcp",
+    "kind": "tool",
+    "method": "cmd_run",
+    "card": "resolution=mcp server=GnOuGo.Cmd.Mcp kind=tool method=cmd_run variant_of=GnOuGo.Cmd.Mcp/tool/cmd_run request_bindings=[/commandName=\"env\"] description=Print the current environment variables (filtered to the allow list). Parameters: none; omit parametersJson."
+  },
+  {
+    "id": "cap_000056",
+    "resolution": "mcp",
+    "server": "GnOuGo.Cmd.Mcp",
+    "kind": "tool",
+    "method": "cmd_run",
+    "card": "resolution=mcp server=GnOuGo.Cmd.Mcp kind=tool method=cmd_run variant_of=GnOuGo.Cmd.Mcp/tool/cmd_run request_bindings=[/commandName=\"find_files\"] description=Find files by name pattern in the default writable workspace. Parameters: pattern (required, File name pattern (e.g. *.cs, *.csproj).)."
+  },
+  {
+    "id": "cap_000057",
+    "resolution": "mcp",
+    "server": "GnOuGo.Cmd.Mcp",
+    "kind": "tool",
+    "method": "cmd_run",
+    "card": "resolution=mcp server=GnOuGo.Cmd.Mcp kind=tool method=cmd_run variant_of=GnOuGo.Cmd.Mcp/tool/cmd_run request_bindings=[/commandName=\"grep_recursive\"] description=Search for a text pattern recursively in the default writable workspace. Parameters: glob (optional, File glob pattern to filter (e.g. *.cs, *.json).); pattern (required, Text or regex pattern to search for.)."
+  },
+  {
+    "id": "cap_000058",
+    "resolution": "mcp",
+    "server": "GnOuGo.Cmd.Mcp",
+    "kind": "tool",
+    "method": "cmd_run",
+    "card": "resolution=mcp server=GnOuGo.Cmd.Mcp kind=tool method=cmd_run variant_of=GnOuGo.Cmd.Mcp/tool/cmd_run request_bindings=[/commandName=\"head_file\"] description=Print the first N lines of a file in the writable workspace. Parameters: lines (optional, Number of lines to print (default 50).); path (required, workspace path, file, Relative file path to read.)."
+  },
+  {
+    "id": "cap_000059",
+    "resolution": "mcp",
+    "server": "GnOuGo.Cmd.Mcp",
+    "kind": "tool",
+    "method": "cmd_run",
+    "card": "resolution=mcp server=GnOuGo.Cmd.Mcp kind=tool method=cmd_run variant_of=GnOuGo.Cmd.Mcp/tool/cmd_run request_bindings=[/commandName=\"list_relative_path\"] description=List the contents of a relative path located inside the default writable workspace. Parameters: path (required, workspace path, any, Relative path to inspect inside the writable workspace.)."
+  },
+  {
+    "id": "cap_000060",
+    "resolution": "mcp",
+    "server": "GnOuGo.Cmd.Mcp",
+    "kind": "tool",
+    "method": "cmd_run",
+    "card": "resolution=mcp server=GnOuGo.Cmd.Mcp kind=tool method=cmd_run variant_of=GnOuGo.Cmd.Mcp/tool/cmd_run request_bindings=[/commandName=\"list_root\"] description=List top-level entries in the default writable workspace. Parameters: none; omit parametersJson."
+  },
+  {
+    "id": "cap_000061",
+    "resolution": "mcp",
+    "server": "GnOuGo.Cmd.Mcp",
+    "kind": "tool",
+    "method": "cmd_run",
+    "card": "resolution=mcp server=GnOuGo.Cmd.Mcp kind=tool method=cmd_run variant_of=GnOuGo.Cmd.Mcp/tool/cmd_run request_bindings=[/commandName=\"os_info\"] description=Display OS and architecture information. Parameters: none; omit parametersJson."
+  },
+  {
+    "id": "cap_000062",
+    "resolution": "mcp",
+    "server": "GnOuGo.Cmd.Mcp",
+    "kind": "tool",
+    "method": "cmd_run",
+    "card": "resolution=mcp server=GnOuGo.Cmd.Mcp kind=tool method=cmd_run variant_of=GnOuGo.Cmd.Mcp/tool/cmd_run request_bindings=[/commandName=\"pnpm_install\"] description=Install Node.js dependencies using pnpm in the default writable workspace. Parameters: none; omit parametersJson."
+  },
+  {
+    "id": "cap_000063",
+    "resolution": "mcp",
+    "server": "GnOuGo.Cmd.Mcp",
+    "kind": "tool",
+    "method": "cmd_run",
+    "card": "resolution=mcp server=GnOuGo.Cmd.Mcp kind=tool method=cmd_run variant_of=GnOuGo.Cmd.Mcp/tool/cmd_run request_bindings=[/commandName=\"pnpm_run\"] description=Run a pnpm script in the default writable workspace. Parameters: script (required, Name of the npm script to run.)."
+  },
+  {
+    "id": "cap_000064",
+    "resolution": "mcp",
+    "server": "GnOuGo.Cmd.Mcp",
+    "kind": "tool",
+    "method": "cmd_run",
+    "card": "resolution=mcp server=GnOuGo.Cmd.Mcp kind=tool method=cmd_run variant_of=GnOuGo.Cmd.Mcp/tool/cmd_run request_bindings=[/commandName=\"print_working_directory\"] description=Print the current working directory of the default writable workspace. Parameters: none; omit parametersJson."
+  },
+  {
+    "id": "cap_000065",
+    "resolution": "mcp",
+    "server": "GnOuGo.Cmd.Mcp",
+    "kind": "tool",
+    "method": "cmd_run",
+    "card": "resolution=mcp server=GnOuGo.Cmd.Mcp kind=tool method=cmd_run variant_of=GnOuGo.Cmd.Mcp/tool/cmd_run request_bindings=[/commandName=\"rm\"] description=Remove a file or directory recursively inside the default writable workspace. Parameters: path (required, workspace path, any, Relative path to remove inside the writable workspace.)."
+  },
+  {
+    "id": "cap_000066",
+    "resolution": "mcp",
+    "server": "GnOuGo.Cmd.Mcp",
+    "kind": "tool",
+    "method": "cmd_run",
+    "card": "resolution=mcp server=GnOuGo.Cmd.Mcp kind=tool method=cmd_run variant_of=GnOuGo.Cmd.Mcp/tool/cmd_run request_bindings=[/commandName=\"tail_file\"] description=Print the last N lines of a file in the writable workspace. Parameters: lines (optional, Number of lines to print (default 50).); path (required, workspace path, file, Relative file path to read.)."
+  },
+  {
+    "id": "cap_000067",
+    "resolution": "mcp",
+    "server": "GnOuGo.Cmd.Mcp",
+    "kind": "tool",
+    "method": "cmd_run",
+    "card": "resolution=mcp server=GnOuGo.Cmd.Mcp kind=tool method=cmd_run variant_of=GnOuGo.Cmd.Mcp/tool/cmd_run request_bindings=[/commandName=\"tree\"] description=Display the directory tree structure of a relative path in the writable workspace. Parameters: depth (optional, Max directory depth (default 3).); path (optional, workspace path, any, Relative path to inspect.)."
+  },
+  {
+    "id": "cap_000068",
+    "resolution": "mcp",
+    "server": "GnOuGo.Cmd.Mcp",
+    "kind": "tool",
+    "method": "cmd_run",
+    "card": "resolution=mcp server=GnOuGo.Cmd.Mcp kind=tool method=cmd_run variant_of=GnOuGo.Cmd.Mcp/tool/cmd_run request_bindings=[/commandName=\"wc\"] description=Count lines, words, and characters of a file in the writable workspace. Parameters: path (required, workspace path, file, Relative file path.)."
+  },
+  {
+    "id": "cap_000069",
+    "resolution": "mcp",
+    "server": "GnOuGo.Cmd.Mcp",
+    "kind": "tool",
+    "method": "cmd_run",
+    "card": "resolution=mcp server=GnOuGo.Cmd.Mcp kind=tool method=cmd_run variant_of=GnOuGo.Cmd.Mcp/tool/cmd_run request_bindings=[/commandName=\"which\"] description=Locate an executable on the PATH. Parameters: name (required, Name of the executable to locate.)."
+  },
+  {
+    "id": "cap_000070",
+    "resolution": "mcp",
+    "server": "GnOuGo.Cmd.Mcp",
+    "kind": "tool",
+    "method": "cmd_run",
+    "card": "resolution=mcp server=GnOuGo.Cmd.Mcp kind=tool method=cmd_run variant_of=GnOuGo.Cmd.Mcp/tool/cmd_run request_bindings=[/commandName=\"write_file\"] description=Create or overwrite any text file inside the default writable workspace. The content must be provided as UTF-8 base64. Parameters: contentBase64 (required, File content encoded as UTF-8 base64.); path (required, workspace path, file, Relative file path to create inside the writable workspace.)."
+  },
+  {
+    "id": "cap_000071",
+    "resolution": "mcp",
+    "server": "GnOuGo.Cmd.Mcp",
+    "kind": "tool",
+    "method": "cmd_run",
+    "card": "resolution=mcp server=GnOuGo.Cmd.Mcp kind=tool method=cmd_run variant_of=GnOuGo.Cmd.Mcp/tool/cmd_run request_bindings=[/commandName=\"write_markdown_file\"] description=Create or overwrite a Markdown file inside the default writable workspace. The content must be provided as UTF-8 base64. Parameters: contentBase64 (required, Markdown content encoded as UTF-8 base64.); path (required, workspace path, file, Relative .md file path to create inside the writable workspace.)."
+  },
+  {
+    "id": "cap_000073",
+    "resolution": "mcp",
+    "server": "GnOuGo.Document.Mcp",
+    "kind": "tool",
+    "method": "document_list",
+    "card": "resolution=mcp server=GnOuGo.Document.Mcp kind=tool method=document_list description=Lists files with allowed extensions in a directory inside the workspace. Returns relative paths, sizes, and last-modified timestamps. Use relative paths only from the workspace root; omit directoryPath to use the default workspace (recommended — only the default workspace is authorized). arguments=[/directoryPath:string|null(description=Relative directory path inside the workspace, or omit/null to use the default working directory (recommended).), /recursive:boolean(description=Whether to search subdirectories recursively (default false).)] outputs=[/errorCode:string|null, /errorMessage:string|null, /files:array, /success:boolean] output_contract=[source=protocol_schema;authority=authoritative;errors=0]"
+  },
+  {
+    "id": "cap_000074",
+    "resolution": "mcp",
+    "server": "GnOuGo.Document.Mcp",
+    "kind": "tool",
+    "method": "document_read",
+    "card": "resolution=mcp server=GnOuGo.Document.Mcp kind=tool method=document_read description=Reads a document (PDF, DOCX, XLSX, PPTX, TXT, MD, CSV, JSON, XML, YAML) and returns its text content. For Office/PDF formats, extracts text and optionally formats it as markdown. Returns structured sections (pages, sheets, slides). Use a relative path only from the workspace root. arguments=[/filePath:string(required)(description=Relative file path only inside the workspace root, for example 'docs/report.pdf'.), /format:string|null(description=Output format: 'markdown' (default) or 'plain'.)] outputs=[/errorCode:string|null, /errorMessage:string|null, /extension:string|null, /filePath:string|null, /filePathAbsolute:string|null, /relativePath:string|null, /sections:array, /success:boolean] output_contract=[source=protocol_schema;authority=authoritative;errors=0]"
+  },
+  {
+    "id": "cap_000075",
+    "resolution": "mcp",
+    "server": "GnOuGo.Document.Mcp",
+    "kind": "tool",
+    "method": "document_write",
+    "card": "resolution=mcp server=GnOuGo.Document.Mcp kind=tool method=document_write description=Writes text content to a file. For .docx, automatically detects Markdown and maps headings, lists, emphasis, code, links, blockquotes, and tables to Word structures. For .pdf, generates a readable A4 PDF and automatically renders Markdown headings, lists, emphasis, code, links, blockquotes, tables, and separators. For .xlsx, generates a spreadsheet from tab/comma-separated text. For other allowed extensions, writes plain text. Allowed targets come from document_get_policy: file paths must be relative to the arguments=[/append:boolean(description=When false (default), overwrite/create the target file. When true, append content to an existing document; initialize the file first with append=false, then append incrementally to avoid oversized LLM context payloads.), /content:string(required)(description=Text content to write or append. For .xlsx, use tab or comma separated values.), /encoding:string|null(description=Text encoding: 'utf-8' (default), 'utf-8-bom', 'ascii', 'latin1'.), /filePath:string(required)(description=Relative file path only inside the workspace root, for example 'output/result.md'. The target must match document_get_policy.AllowedRoots and document_get_policy.AllowedExtensions.)] outputs=[/bytesWritten:integer|null, /errorCode:string|null, /errorMessage:string|null, /filePath:string|null, /filePathAbsolute:string|null, /relativePath:string|null, /success:boolean] output_contract=[source=protocol_schema;authority=authoritative;errors=0]"
+  },
+  {
+    "id": "cap_000077",
+    "resolution": "mcp",
+    "server": "GnOuGo.Git.Mcp",
+    "kind": "tool",
+    "method": "git_clone",
+    "card": "resolution=mcp server=GnOuGo.Git.Mcp kind=tool method=git_clone description=Clones a Git repository into a new workflow-owned directory below the visible workflows/ workspace root. Requires Git:AllowNetworkOperations=true and either Git:AllowMutations=true or Git:ReviewReadOnly=true. The reserved .GnOuGo internal directory is never a valid clone target. targetDirectory is a creation target, not an existing projectRoot before clone. The response projectRootRelative field is the materialized workspace.directory artifact for compatible downstream tools. arguments=[/branch:string|null(description=Optional plain branch name, full commit object ID, or fully qualified remote ref to checkout during clone. A full object ID or refs/... value is fetched exactly and checked out detached. When omitted and fetchAllBranches=false, Git MCP resolves the remote default branch.), /fetchAllBranches:boolean(description=When false, fetch only the selected/default branch. When true, fetch all remote branches. Defaults to false.), /historyDepth:integer(description=Commit history depth to fetch. 1 fetches the latest commit only; 0 fetches full history. Defaults to 1 for minimal clones.), /remoteUrl:string(required)(description=Remote Git URL to clone.), /tagFetchMode:string(description=Tag fetch mode: none, auto, or all. Defaults to none for minimal clones.), /targetDirectory:string(required)(description=Clone target directory relative to the workspace root. It must be a child of workflows/, for example workflows/repository-name, and must be empty or non-existing. .GnOuGo is reserved for internal state. After success, response.projectRootRelative contains the reusable workspace.directory artifact.)] outputs=[/branch:string|null, /error_code:string|null, /error_message:string|null, /fetchAllBranches:boolean, /historyDepth:integer, /ok:boolean, /output:string|null, /projectRootRelative:string, /remoteUrl:string, /repositoryRoot:string, /repositoryRootRelative:string|null, /resolvedBranch:string|null, /success:boolean, /tagFetchMode:string] output_contract=[source=protocol_schema;authority=authoritative;errors=0] artifacts=[produces(workspace.directory:/projectRootRelative:materialize) consumes()]"
+  },
+  {
+    "id": "cap_000078",
+    "resolution": "mcp",
+    "server": "GnOuGo.Git.Mcp",
+    "kind": "tool",
+    "method": "git_compare_refs",
+    "card": "resolution=mcp server=GnOuGo.Git.Mcp kind=tool method=git_compare_refs description=Resolves exact base/head/merge-base commits and returns a paginated per-file patch comparison with rename, binary, submodule, and truncation metadata. This is read-only and does not depend on the working tree. projectRoot consumes a required workspace.directory artifact and must identify an existing workspace-relative project root. arguments=[/baseRef:string(required)(description=Exact base commit SHA or fetched ref.), /compareFromMergeBase:boolean(description=When true (default), compare merge-base to head as GitHub PRs do; exact base/head/merge-base SHAs are always returned.), /cursor:string|null(description=Opaque pagination cursor returned by a previous call.), /headRef:string(required)(description=Exact head commit SHA or fetched ref.), /pageSize:integer(description=Maximum files in this page, capped by Git:MaxComparePageSize.), /projectRoot:string(required)(description=Required workspace-relative path to an existing project root outside the reserved .GnOuGo internal directory. Pass a documented workspace.directory artifact output or a caller-provided existing directory. Null, omitted, empty, absolute, file URI, home-relative, parent-traversal, and invented values are invalid.)] outputs=[/baseRef:string, /baseSha:string, /comparedFromSha:string, /error_code:string|null, /error_message:string|null, /files:array, /filesJson:string, /hasMore:boolean, /headRef:string, /headSha:string, /mergeBaseSha:string|null, /nextCursor:string|null, /offset:integer, /ok:boolean, /output:string|null, /pageSize:integer, /repositoryRoot:string, /repositoryRootRelative:string|null, /success:boolean, /totalFiles:integer, /totalPatchCharacters:integer, /truncatedFileCount:integer] output_contract=[source=protocol_schema;authority=authoritative;errors=0] artifacts=[produces(revision.comparison.files:/filesJson:materialize) consumes(workspace.directory:/projectRoot:required)]"
+  },
+  {
+    "id": "cap_000079",
+    "resolution": "mcp",
+    "server": "GnOuGo.Git.Mcp",
+    "kind": "tool",
+    "method": "git_diff",
+    "card": "resolution=mcp server=GnOuGo.Git.Mcp kind=tool method=git_diff description=Returns a truncated Git patch for an existing repository project root, optionally limited to one relative path. projectRoot consumes a required workspace.directory artifact and must identify an existing workspace-relative project root. arguments=[/projectRoot:string(required)(description=Required workspace-relative path to an existing project root outside the reserved .GnOuGo internal directory. Pass a documented workspace.directory artifact output or a caller-provided existing directory. Null, omitted, empty, absolute, file URI, home-relative, parent-traversal, and invented values are invalid.), /relativePath:string|null(description=Optional relative path only, from the workspace root, to diff.), /staged:boolean(description=When true, returns staged/index changes instead of unstaged working tree changes.)] outputs=[/error_code:string|null, /error_message:string|null, /ok:boolean, /output:string|null, /patch:string, /path:string|null, /projectRootRelative:string|null, /repositoryRoot:string, /repositoryRootRelative:string|null, /staged:boolean, /success:boolean, /truncated:boolean] output_contract=[source=protocol_schema;authority=authoritative;errors=0] artifacts=[produces() consumes(workspace.directory:/projectRoot:required)]"
+  },
+  {
+    "id": "cap_000082",
+    "resolution": "mcp",
+    "server": "GnOuGo.Git.Mcp",
+    "kind": "tool",
+    "method": "git_log",
+    "card": "resolution=mcp server=GnOuGo.Git.Mcp kind=tool method=git_log description=Returns recent commits for an existing repository project root. projectRoot consumes a required workspace.directory artifact and must identify an existing workspace-relative project root. arguments=[/maxCount:integer(description=Maximum number of commits to return.), /projectRoot:string(required)(description=Required workspace-relative path to an existing project root outside the reserved .GnOuGo internal directory. Pass a documented workspace.directory artifact output or a caller-provided existing directory. Null, omitted, empty, absolute, file URI, home-relative, parent-traversal, and invented values are invalid.)] outputs=[/commits:array, /error_code:string|null, /error_message:string|null, /ok:boolean, /output:string|null, /projectRootRelative:string|null, /repositoryRoot:string, /repositoryRootRelative:string|null, /success:boolean, /truncated:boolean] output_contract=[source=protocol_schema;authority=authoritative;errors=0] artifacts=[produces() consumes(workspace.directory:/projectRoot:required)]"
+  },
+  {
+    "id": "cap_000084",
+    "resolution": "mcp",
+    "server": "GnOuGo.Git.Mcp",
+    "kind": "tool",
+    "method": "git_status",
+    "card": "resolution=mcp server=GnOuGo.Git.Mcp kind=tool method=git_status description=Returns Git working tree and index status for an existing repository project root. projectRoot consumes a required workspace.directory artifact and must identify an existing workspace-relative project root. arguments=[/projectRoot:string(required)(description=Required workspace-relative path to an existing project root outside the reserved .GnOuGo internal directory. Pass a documented workspace.directory artifact output or a caller-provided existing directory. Null, omitted, empty, absolute, file URI, home-relative, parent-traversal, and invented values are invalid.)] outputs=[/entries:array, /error_code:string|null, /error_message:string|null, /headBranch:string|null, /isDetachedHead:boolean, /isDirty:boolean, /ok:boolean, /output:string|null, /projectRootRelative:string|null, /repositoryRoot:string, /repositoryRootRelative:string|null, /success:boolean] output_contract=[source=protocol_schema;authority=authoritative;errors=0] artifacts=[produces() consumes(workspace.directory:/projectRoot:required)]"
+  },
+  {
+    "id": "cap_000089",
+    "resolution": "mcp",
+    "server": "GnOuGo.GithubCopilot.Mcp",
+    "kind": "tool",
+    "method": "copilot_one_shot",
+    "card": "resolution=mcp server=GnOuGo.GithubCopilot.Mcp kind=tool method=copilot_one_shot description=Runs one non-interactive call in one ephemeral Copilot session, then disconnects and permanently deletes it. The deny default is appropriate for inference that needs no tool execution. Use copilot_interactive_one_shot for work that may install dependencies, run commands, edit files, or otherwise require user permission. approve_all is host-policy gated and generated workflows must not select it unless unattended execution was explicitly requested and availability is established. arguments=[/attachmentsJson:string|null, /model:string|null, /permissionAllowlistJson:string|null(description=Optional JSON array of read-only tool/path allowlist entries used only with auto_approve_allowlist.), /permissionMode:string(description=Non-interactive permission mode. deny is the safe default; auto_approve_allowlist permits only entries supplied in permissionAllowlistJson; approve_all is host-policy gated and must not be selected by generated workflows without explicit unattended intent and established availability.), /projectRoot:string(required)(description=Required workspace-relative path to an existing project root outside the reserved .GnOuGo internal directory. Pass a documented workspace.directory artifact output or a caller-provided existing directory; a URL, repository identifier, absolute path, or invented path is invalid.), /prompt:string(required), /provider:string|null, /tenantId:string|null] outputs=[/completed:boolean, /content:string, /copilotSessionId:string, /handle:string, /model:string|null, /progressEvents:array, /toolExecutions:array] output_contract=[source=protocol_schema;authority=authoritative;errors=0] artifacts=[produces() consumes(workspace.directory:/projectRoot:required)] composition=[kind=complete_operation;encapsulates=tool/copilot_session_create,tool/copilot_session_send,tool/copilot_session_disconnect,tool/copilot_session_delete]"
+  },
+  {
+    "id": "cap_000090",
+    "resolution": "mcp",
+    "server": "GnOuGo.GithubCopilot.Mcp",
+    "kind": "tool",
+    "method": "copilot_one_shot",
+    "card": "resolution=mcp server=GnOuGo.GithubCopilot.Mcp kind=tool method=copilot_one_shot variant_of=GnOuGo.GithubCopilot.Mcp/tool/copilot_one_shot request_bindings=[/permissionMode=\"approve_all\"]"
+  },
+  {
+    "id": "cap_000091",
+    "resolution": "mcp",
+    "server": "GnOuGo.GithubCopilot.Mcp",
+    "kind": "tool",
+    "method": "copilot_one_shot",
+    "card": "resolution=mcp server=GnOuGo.GithubCopilot.Mcp kind=tool method=copilot_one_shot variant_of=GnOuGo.GithubCopilot.Mcp/tool/copilot_one_shot request_bindings=[/permissionMode=\"auto_approve_allowlist\"]"
+  },
+  {
+    "id": "cap_000092",
+    "resolution": "mcp",
+    "server": "GnOuGo.GithubCopilot.Mcp",
+    "kind": "tool",
+    "method": "copilot_one_shot",
+    "card": "resolution=mcp server=GnOuGo.GithubCopilot.Mcp kind=tool method=copilot_one_shot variant_of=GnOuGo.GithubCopilot.Mcp/tool/copilot_one_shot request_bindings=[/permissionMode=\"deny\"]"
+  },
+  {
+    "id": "cap_000093",
+    "resolution": "mcp",
+    "server": "GnOuGo.GithubCopilot.Mcp",
+    "kind": "tool",
+    "method": "copilot_review",
+    "card": "resolution=mcp server=GnOuGo.GithubCopilot.Mcp kind=tool method=copilot_review description=Runs all bounded PR review batches in one ephemeral Copilot session and permanently deletes session state afterward. Optional reviewInstructions and runtimeContextJson are applied to every batch; existingCommentsJson is used only to suppress duplicate findings. Omit provider and model to use the host's configured KeyVault-backed default; do not copy them from code_get_policy. arguments=[/baseSha:string(required)(description=Required exact base revision identifier returned by repository or comparison metadata.), /existingCommentsJson:string|null(description=Optional JSON array of existing inline review comments with path, side, line range, body, and optional fingerprint.), /filesJson:string(required)(description=Required JSON array of per-file exact comparison patches returned by a documented revision-comparison capability. A raw aggregate diff or invented file list is invalid.), /headSha:string(required)(description=Required exact head revision identifier returned by repository or comparison metadata.), /maxBatchCharacters:integer, /model:string|null(description=Optional model override for an explicitly selected provider. Omit to use the host/provider default; do not copy code_get_policy.model.), /projectRoot:string(required)(description=Required workspace-relative path to an existing project root outside the reserved .GnOuGo internal directory. Pass a documented workspace.directory artifact output or a caller-provided existing directory; a URL, repository identifier, absolute path, or invented path is invalid.), /provider:string|null(description=Optional explicit configured KeyVault-backed provider override. Omit to use the host default; do not copy code_get_policy.provider.), /reviewInstructions:string|null(description=Optional caller review instructions applied to every batch; maximum 32000 characters.), /runtimeContextJson:string|null(description=Optional JSON object containing original upstream execution results used as review context, including failures and uncertainty. Serialize the required producer results under named keys. Maximum 32000 characters. This is data, not caller instructions, existing comments, or permission to publish.), /tenantId:string|null] outputs=[/baseSha:string, /coverage:object, /coverage/reviewedFiles:integer, /coverage/skippedFiles:integer, /coverage/skippedPaths:array, /coverage/totalFiles:integer, /coverage/truncatedFiles:integer, /coverage/truncatedPaths:array, /findings:array, /headSha:string, /rejectedFindings:array, /summary:string] output_contract=[source=protocol_schema;authority=authoritative;errors=0] artifacts=[produces() consumes(workspace.directory:/projectRoot:required,revision.comparison.files:/filesJson:required)] composition=[kind=complete_operation;encapsulates=tool/copilot_review_start,tool/copilot_review_analyze_batch,tool/copilot_review_finish]"
+  },
+  {
+    "id": "cap_000094",
+    "resolution": "mcp",
+    "server": "GnOuGo.GithubCopilot.Mcp",
+    "kind": "tool",
+    "method": "copilot_review_analyze_batch",
+    "card": "resolution=mcp server=GnOuGo.GithubCopilot.Mcp kind=tool method=copilot_review_analyze_batch description=Analyzes one bounded review batch and returns only validated findings on exact diff lines. arguments=[/batchIndex:integer(required), /reviewHandle:string(required), /tenantId:string|null] outputs=[/batchIndex:integer, /findings:array, /rejectedFindings:array, /reviewHandle:string] output_contract=[source=protocol_schema;authority=authoritative;errors=0]"
+  },
+  {
+    "id": "cap_000095",
+    "resolution": "mcp",
+    "server": "GnOuGo.GithubCopilot.Mcp",
+    "kind": "tool",
+    "method": "copilot_review_finish",
+    "card": "resolution=mcp server=GnOuGo.GithubCopilot.Mcp kind=tool method=copilot_review_finish description=Deduplicates validated findings, reports coverage/skips/truncation, then deletes the ephemeral Copilot review session. arguments=[/reviewHandle:string(required), /tenantId:string|null] outputs=[/baseSha:string, /coverage:object, /coverage/reviewedFiles:integer, /coverage/skippedFiles:integer, /coverage/skippedPaths:array, /coverage/totalFiles:integer, /coverage/truncatedFiles:integer, /coverage/truncatedPaths:array, /findings:array, /headSha:string, /rejectedFindings:array, /summary:string] output_contract=[source=protocol_schema;authority=authoritative;errors=0]"
+  },
+  {
+    "id": "cap_000108",
+    "resolution": "mcp",
+    "server": "GnOuGo.GithubCopilot.Mcp",
+    "kind": "tool",
+    "method": "copilot_review_start",
+    "card": "resolution=mcp server=GnOuGo.GithubCopilot.Mcp kind=tool method=copilot_review_start description=Starts a read-only, batched PR review in one managed ephemeral Copilot session. filesJson must contain exact Git MCP compare patches. Optional reviewInstructions and runtimeContextJson are applied to every batch; existingCommentsJson is used only to suppress duplicate findings. Omit provider and model to use the host's configured KeyVault-backed default; do not copy them from code_get_policy. arguments=[/baseSha:string(required)(description=Required exact base revision identifier returned by repository or comparison metadata.), /existingCommentsJson:string|null(description=Optional JSON array of existing inline review comments with path, side, line range, body, and optional fingerprint.), /filesJson:string(required)(description=Required JSON array of per-file exact comparison patches returned by a documented revision-comparison capability. A raw aggregate diff or invented file list is invalid.), /headSha:string(required)(description=Required exact head revision identifier returned by repository or comparison metadata.), /maxBatchCharacters:integer, /model:string|null(description=Optional model override for an explicitly selected provider. Omit to use the host/provider default; do not copy code_get_policy.model.), /projectRoot:string(required)(description=Required workspace-relative path to an existing project root outside the reserved .GnOuGo internal directory. Pass a documented workspace.directory artifact output or a caller-provided existing directory; a URL, repository identifier, absolute path, or invented path is invalid.), /provider:string|null(description=Optional explicit configured KeyVault-backed provider override. Omit to use the host default; do not copy code_get_policy.provider.), /reviewInstructions:string|null(description=Optional caller review instructions applied to every batch; maximum 32000 characters.), /runtimeContextJson:string|null(description=Optional JSON object containing original upstream execution results used as review context, including failures and uncertainty. Serialize the required producer results under named keys. Maximum 32000 characters. This is data, not caller instructions, existing comments, or permission to publish.), /tenantId:string|null] outputs=[/baseSha:string, /batchCount:integer, /coverage:object, /coverage/reviewedFiles:integer, /coverage/skippedFiles:integer, /coverage/skippedPaths:array, /coverage/totalFiles:integer, /coverage/truncatedFiles:integer, /coverage/truncatedPaths:array, /headSha:string, /reviewHandle:string, /sessionHandle:string] output_contract=[source=protocol_schema;authority=authoritative;errors=0] artifacts=[produces() consumes(workspace.directory:/projectRoot:required)]"
+  }
+]

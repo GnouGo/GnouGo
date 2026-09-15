@@ -41,5 +41,63 @@ public class ModelProviderOptionsTests
         var opts = new ModelProviderOptions { Url = "https://my-custom-llm.example.com/api" };
         Assert.Equal("openai", opts.ResolvedType);
     }
-}
 
+    [Fact]
+    public void ValidateAndThrow_AcceptsStandardsBasedPolicyDefaults()
+    {
+        var options = new LLMOptions
+        {
+            Models = { ["gateway"] = new ModelProviderOptions() }
+        };
+
+        LLMOptionsValidation.ValidateAndThrow(options);
+    }
+
+    [Fact]
+    public void ValidateAndThrow_RejectsConfiguredModeWithoutDefault()
+    {
+        var options = new LLMOptions
+        {
+            Models =
+            {
+                ["gateway"] = new ModelProviderOptions
+                {
+                    RequestPolicy = new LLMProviderRequestPolicyOptions
+                    {
+                        UnspecifiedOutputTokens = LLMUnspecifiedOutputTokensMode.Configured
+                    }
+                }
+            }
+        };
+
+        var failure = Assert.Throws<InvalidOperationException>(() =>
+            LLMOptionsValidation.ValidateAndThrow(options));
+
+        Assert.Contains("DefaultMaxOutputTokens", failure.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void ValidateAndThrow_RejectsDefaultAboveProviderCap()
+    {
+        var options = new LLMOptions
+        {
+            Models =
+            {
+                ["gateway"] = new ModelProviderOptions
+                {
+                    RequestPolicy = new LLMProviderRequestPolicyOptions
+                    {
+                        UnspecifiedOutputTokens = LLMUnspecifiedOutputTokensMode.Configured,
+                        DefaultMaxOutputTokens = 8_192,
+                        MaxOutputTokensCap = 4_096
+                    }
+                }
+            }
+        };
+
+        var failure = Assert.Throws<InvalidOperationException>(() =>
+            LLMOptionsValidation.ValidateAndThrow(options));
+
+        Assert.Contains("cannot exceed", failure.Message, StringComparison.Ordinal);
+    }
+}

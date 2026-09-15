@@ -2,6 +2,10 @@
 
 `GnOuGo.Browser.Mcp` is a **stdio** MCP server based on **Playwright.NET**. It exposes a set of web navigation tools usable from `GnOuGo.Flow` or any compatible MCP client.
 
+Build and publish install Chromium through the Playwright CLI. Installation succeeds
+only when that command exits with zero; its recovered download errors remain visible
+without being misclassified as compiler errors. A nonzero installer exit fails the build.
+
 ## MCP protocol compatibility
 
 This stdio server uses the stable C# MCP SDK `2.0.0` with automatic protocol negotiation: clients prefer `2026-07-28` discovery and can initialize with stable `2025-11-25`. Launch the built apphost, or use `dotnet GnOuGo.Browser.Mcp.dll`; do not put `dotnet run` on an MCP stdio transport because CLI output can corrupt the JSONL stream. The GnOuGo progress stream remains a stderr side channel and does not alter the MCP wire contract.

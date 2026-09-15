@@ -1,0 +1,140 @@
+{
+  "baseCommit": "a747cd6b1c6df76157a37cbb9d151834d46bd579",
+  "liveSessionsStarted": 0,
+  "providerDispatches": 0,
+  "snapshotSchema": 5,
+  "sourceProofVersion": 4,
+  "declarationProofVersion": 5,
+  "productionFiles": {
+    "src/GnOuGo.Flow.Core/Planning/PlanningDecisionState.cs": "eaa097ed40b4de72d33be6b9170d8c49994e3f09047cc7061791dfbe5dffeb2c",
+    "src/GnOuGo.Flow.Planning/PlanningDecisionPages.Escalation.cs": "d3f8d41ca6c0d1cd76519db0f91369222238facd0a3221ae6b2d7333f831cd1c",
+    "src/GnOuGo.Flow.Planning/PlanningDecisionPages.cs": "aaf21e723f4b865ae7c8cdd5e8a15c1b617c33523f628c210c82624e162730ad",
+    "src/GnOuGo.Flow.Planning/PlanningDeclarations.Decisions.cs": "58e4ebade6b0e0068ccf607381731143266f4e7d5acb444df949aaf39ca7b8e4",
+    "src/GnOuGo.Flow.Planning/PlanningDeclarations.cs": "c996816553c1cdb25489a3ded7ae61a33ea3c38e0fcff0d0138bbe294aaf0563",
+    "src/GnOuGo.Flow.Planning/PlanningDeclarations.Corrections.cs": "8f375514cef8f9cc1dff3efc9728fd89e47a747fa0b857b75d5a6e09c053c067"
+  },
+  "baselineReplay": {
+    "session": "a6fb28068c654132909534280e487410",
+    "sourceRevision": 20,
+    "sourceUnchanged": true,
+    "counterfactual": false,
+    "counterfactualRequest": null,
+    "status": "stopped",
+    "phase": "capabilities",
+    "localAdvances": 1,
+    "replayedReceipts": 1,
+    "providerDispatches": 0,
+    "lastRequestPhase": "intent_declarations",
+    "lastRequestId": "a6fb28068c654132909534280e487410:18:6:intent_declarations:response_contract:93beceaf3191e878:page_b81e9a80ff04b03f9b7aea159e8abd38bba8262cbcb16ad510e00b75c389bb33:30b40b31db0d43d030bfad137034e101e69f479d69b9593713eefc4950eba550",
+    "behaviorPresent": false,
+    "graphPresent": false,
+    "diagnostics": [
+      {
+        "code": "DECLARATION_GROUNDING_UNRESOLVED",
+        "location": "/declarations/@$plan"
+      }
+    ]
+  },
+  "currentStrictReplay": {
+    "session": "a6fb28068c654132909534280e487410",
+    "sourceRevision": 20,
+    "sourceUnchanged": true,
+    "counterfactual": false,
+    "counterfactualRequest": null,
+    "status": "stopped",
+    "phase": "capabilities",
+    "localAdvances": 1,
+    "replayedReceipts": 0,
+    "providerDispatches": 0,
+    "lastRequestPhase": "intent_declarations",
+    "lastRequestId": "a6fb28068c654132909534280e487410:18:6:intent_declarations:response_contract:93beceaf3191e878:page_b81e9a80ff04b03f9b7aea159e8abd38bba8262cbcb16ad510e00b75c389bb33:30b40b31db0d43d030bfad137034e101e69f479d69b9593713eefc4950eba550",
+    "behaviorPresent": false,
+    "graphPresent": false,
+    "diagnostics": [
+      {
+        "code": "CAPABILITY_PREFLIGHT_INFERENCE_FAILED",
+        "location": "/preparation"
+      },
+      {
+        "code": "CAPABILITY_PREFLIGHT_INFERENCE_FAILED",
+        "location": "/preparation/capability_inventory_call"
+      }
+    ]
+  },
+  "solutionTests": {
+    "projects": 29,
+    "passed": 3294,
+    "failed": 0,
+    "skippedOptionalLiveProvider": 1
+  },
+  "components": {
+    "Flow.Planning": 846,
+    "Flow.Core": 855,
+    "Flow.Integrations": 67,
+    "Agent.Server": 395
+  },
+  "newPlannerRegressionCases": 30,
+  "focusedHarnessTests": 58,
+  "solutionBuild": "passed_without_warnings",
+  "solutionRegressionBuild": "passed_without_warnings",
+  "harnessBuild": "passed_without_warnings",
+  "referenceFixtures": {
+    "classifierBatch": 6,
+    "codeReview": 18,
+    "modelCalls": 0
+  },
+  "packages": [
+    "GnOuGo.Flow.Core",
+    "GnOuGo.Flow.Planning",
+    "GnOuGo.Flow.Integrations",
+    "GnOuGo.Agent.Shared"
+  ],
+  "packagesResult": "passed_without_warnings",
+  "publishedSmokes": {
+    "nativeAotPlanningAndEncryptedRestart": {
+      "rid": "osx-arm64",
+      "result": "passed",
+      "binarySha256": "def481203c116a30cd2f91f23aff953a89d430543459a3517b2395e41381634d"
+    },
+    "trimmedAgentEfPersistence": {
+      "rid": "osx-arm64",
+      "result": "passed",
+      "binarySha256": "12ae2db7aac5740409f795e66a64ed940cc9d269cd6400c959c165e5b8da27d3"
+    }
+  },
+  "publishWarnings": 0,
+  "newWarningSuppressions": 0,
+  "frontendChanges": false,
+  "agentFrontendBuild": "passed_without_warnings",
+  "unchangedBenchmarkFixtureSources": {
+    "tests/GnOuGo.Agent.Planning.Benchmark/ProgressiveScenarios.cs": "b28780fdb09e7484895c97f1fff90716ebdd9e2ae88c2be351941d53649d3b92",
+    "tests/GnOuGo.Agent.Planning.Benchmark/ProgressiveExecution.cs": "40a40ce81d7f9dd62ebda770dcb59cd64866cc88a202b7c84c08da4449fc4936",
+    "tests/GnOuGo.Agent.Planning.Benchmark/CodeReviewExecutionFixture.cs": "7ff54d7c4529bb9bb1e7ab4e25f1e59f83f85e7e08126a767e2136c5283ae498",
+    "tests/GnOuGo.Agent.Planning.Benchmark/CodeReviewPolicy.txt": "b92002cf07ef660981dc5c758d775be40589045d14df706cf454ca3c58e52604"
+  },
+  "sanitizedFixtureSha256": "585f339dc38638a034c4fdeeabfc7a0582b8f021ccf59088ea9c5910c5be0dfd",
+  "syntheticEvidence": "Fixture source, references and initial root candidate are retained public benchmark evidence, not a receipt. Corrected root and attachment responses are explicitly synthetic. Strict replay never substitutes them.",
+  "frozenProductionCommit": "d8e3f068df55b1996f7d6fd8a1fdebbba26b334f",
+  "harnessPinCommit": "57650d4",
+  "harnessSha256": "1aabf1f32b8342687c80079d0f0dd3ce8357649f3ae95295ec33cb41af0c70ff",
+  "unchangedArchiveAccountingBeforeLive": {
+    "campaignRecords": 16,
+    "campaignFingerprint": "ea705a80668d08a6340824da4077ad7d518b243d9f61ae1abfbc03663f8d4ecd",
+    "agent-planning-snapshots-v5": {
+      "records": 367,
+      "fingerprint": "50e000fd4613312678e07c30c881378131937327a516d9ae0b1d2a63a67171db"
+    },
+    "agent-planning-model-requests-v5": {
+      "records": 89,
+      "fingerprint": "ad4e14d728220432408a0a525814538bf62c6b2bed96cf1f0bdb825ba5c50c85"
+    },
+    "agent-planning-model-receipts-v5": {
+      "records": 87,
+      "fingerprint": "6991677834bd539f625e0c828fb9797f30ae3e7c1f3ba618ad12b65417420b0b"
+    },
+    "agent-planning-budgets-v5": {
+      "records": 12,
+      "fingerprint": "1cc0cf9eae44473db318934eaddcf54f936502f946234ad609b4be03793fe5de"
+    }
+  }
+}

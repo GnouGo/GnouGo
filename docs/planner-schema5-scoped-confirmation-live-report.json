@@ -1,0 +1,301 @@
+{
+  "campaign": "schema5-scoped-confirmation-20260913",
+  "startedSessions": 1,
+  "authorization": {
+    "maximumStage": 1,
+    "replacementSessions": false,
+    "reasoningAb": false
+  },
+  "live": {
+    "productionCommit": "554374c21e00ed85af1e1b69daf15ba1d537e3d3",
+    "model": {
+      "provider": "OpenAi",
+      "model": "gpt-5.5-2026-04-24",
+      "reasoningLevels": [
+        "low",
+        "medium",
+        "high",
+        "max"
+      ],
+      "structuredOutput": true
+    },
+    "stages": [
+      {
+        "stage": 1,
+        "campaignStatus": "blocked",
+        "harnessFailure": null,
+        "failureCode": null,
+        "planning": {
+          "session": "78c92e2dedab4017bde7fefcca37c24e",
+          "revision": 15,
+          "status": "stopped",
+          "outcome": null,
+          "phase": "capabilities",
+          "artifactHash": null,
+          "approvedHash": null,
+          "modelCalls": 4,
+          "reservations": 4,
+          "unverifiableDispatches": 0,
+          "journalReservationsWithoutReceipt": 0,
+          "decisionPages": 4,
+          "pagesByPhase": [
+            {
+              "phase": "intent",
+              "status": "completed",
+              "correction": false,
+              "pages": 3,
+              "splitChildren": 0
+            },
+            {
+              "phase": "confirmation_scope",
+              "status": "completed",
+              "correction": false,
+              "pages": 1,
+              "splitChildren": 0
+            }
+          ],
+          "engineResolvedExecutableDecisions": 0,
+          "otherEngineDecisions": null,
+          "modelDecisionIds": [
+            "$plan:interpret_0ea4b81d5134d84e05666803",
+            "$plan:interpret_16eaa967281b3b9407d4c8e2",
+            "$plan:interpret_2605cc5ff932f9431a4ed6ff",
+            "$plan:interpret_5436d273debbb520824de408",
+            "$plan:interpret_55094adc431fe78335cf7956",
+            "$plan:interpret_56c2261c99dadfd43252fe01",
+            "$plan:interpret_66b4ae9942c1de535058be81",
+            "$plan:interpret_6c8d9c773892dc9460f68f21",
+            "$plan:interpret_6dc56e51c588d3fec603f1d2",
+            "$plan:interpret_858749b353be7d3a85448641",
+            "$plan:interpret_8b1cc3deda11d188d0bee96c",
+            "$plan:interpret_97ccdccf2a5bf72b98e3b5ec",
+            "$plan:interpret_a6e846589e7df65ca01ae2f9",
+            "$plan:interpret_b0dd5aa8d53474594be7e344",
+            "$plan:interpret_c7d58e6a09cfb5f3c7a49501",
+            "$plan:interpret_ef4edc43638f26423ce135d8",
+            "$plan:interpret_f754a5f3deea3293fa03c946",
+            "$plan:policy_ob_096fae902b960ec0",
+            "$plan:policy_ob_24cb28b3ebba6548",
+            "$plan:policy_ob_5a84bfd112c7fd43",
+            "$plan:policy_ob_7cdce72eb7ab18d4",
+            "$plan:policy_ob_8f21e95a6a821a67",
+            "$plan:policy_ob_b74bf136074f538d",
+            "$plan:policy_ob_ca231d7da8179e17",
+            "$plan:policy_ob_fe1343c1b67879be"
+          ],
+          "modelExecutableDecisions": 0,
+          "executableHoleExposures": 0,
+          "userClarifications": 0,
+          "answeredForms": 0,
+          "clarificationDecision": null,
+          "largestEstimatedInput": 6765,
+          "largestActualInput": 4090,
+          "inputTokens": 9156,
+          "outputTokens": 1849,
+          "effectiveReasoning": [
+            "low"
+          ],
+          "requestsByPhase": [
+            {
+              "workflow": "$plan",
+              "phase": "intent",
+              "gate": "response_contract",
+              "reservations": 3,
+              "calls": 3,
+              "repairReservations": 0,
+              "inputTokens": 5066,
+              "outputTokens": 1428
+            },
+            {
+              "workflow": "$plan",
+              "phase": "confirmation_scope",
+              "gate": "response_contract",
+              "reservations": 1,
+              "calls": 1,
+              "repairReservations": 0,
+              "inputTokens": 4090,
+              "outputTokens": 421
+            }
+          ],
+          "repairAllowances": [],
+          "failuresByGate": [],
+          "firstFailure": {
+            "code": "CONFIRMATION_POLICY_CONFLICT",
+            "phase": "capabilities",
+            "location": "/preparation/policies/@ob_4da13e7cace3eb0b",
+            "unverifiable": false
+          },
+          "diagnostics": [
+            {
+              "code": "CONFIRMATION_POLICY_CONFLICT",
+              "location": "/preparation/policies/@ob_4da13e7cace3eb0b",
+              "rule": null
+            }
+          ],
+          "modelDecisions": 25
+        },
+        "execution": {
+          "reservations": 0,
+          "completed": 0,
+          "withoutReceipt": 0,
+          "requests": []
+        }
+      },
+      {
+        "stage": 2,
+        "campaignStatus": "not_run",
+        "harnessFailure": null,
+        "failureCode": null
+      },
+      {
+        "stage": 3,
+        "campaignStatus": "not_run",
+        "harnessFailure": null,
+        "failureCode": null
+      }
+    ],
+    "preflightStop": null,
+    "diagnostic": null
+  },
+  "offlineValidation": {
+    "solutionPassed": 3049,
+    "solutionFailed": 0,
+    "solutionSkipped": 1,
+    "plannerPassed": 660,
+    "corePassed": 841,
+    "agentServerPassed": 352,
+    "solutionBuild": "passed_without_warnings",
+    "packages": [
+      "GnOuGo.Flow.Core",
+      "GnOuGo.Flow.Planning"
+    ],
+    "planningNativeAotSmoke": "passed",
+    "agentTrimmedPersistenceSmoke": "passed",
+    "publishWarnings": 0,
+    "fixtureSelfcheck": {
+      "classifierBatchFamilies": 6,
+      "codeReviewFixtureContracts": 18,
+      "providerDispatches": 0
+    }
+  },
+  "firstBlocker": {
+    "classification": "policy_subject_promoted_to_operation_and_rejection_condition_misclassified_as_confirmation_prohibition",
+    "code": "CONFIRMATION_POLICY_CONFLICT",
+    "phase": "capabilities",
+    "canonicalLocation": "/preparation/policies/@ob_4da13e7cace3eb0b",
+    "operation": "ob_4da13e7cace3eb0b",
+    "operationSource": "host_constraint",
+    "governingClauseReference": "r_baa3361a04ef60bb5a4a8067",
+    "requiredPolicy": "policy_ob_24cb28b3ebba6548",
+    "incorrectForbiddenPolicy": "policy_ob_096fae902b960ec0",
+    "unrelatedInteractionPolicy": "policy_ob_5a84bfd112c7fd43",
+    "unrelatedInteractionTargets": [],
+    "hostPolicyFingerprint": "317ecccc1f8dd3fa51e93cf519217cb4f49e5e09e1bb8de0c57f5343c68c36fb",
+    "scopePage": "page_569706d1073d32be5f50f6ab81da58433a3d52c881fef0ae706239582ad152dd",
+    "receipt": "completed",
+    "responseContract": "passed",
+    "persistedFailureGateAttribution": null,
+    "interpretation": "The source interpreter promoted a class mentioned by host policy into a requested action and labeled rejection behavior as confirmation_forbidden. The scope response retained that label; the narrowed response domain cannot express rejection semantics or retire this interpretation. This is a technical classification/grounding failure, not an actual contradictory business policy.",
+    "productionChangedAfterLive": false
+  },
+  "offlineReplay": {
+    "session": "78c92e2dedab4017bde7fefcca37c24e",
+    "sourceRevision": 11,
+    "replayedReceipts": 1,
+    "providerDispatches": 0,
+    "sourceUnchanged": true,
+    "counterfactual": false,
+    "status": "stopped",
+    "code": "CONFIRMATION_POLICY_CONFLICT",
+    "location": "/preparation/policies/@ob_4da13e7cace3eb0b"
+  },
+  "executionFixtures": {
+    "required": 6,
+    "executed": 0,
+    "reason": "FinalReview was not reached"
+  },
+  "approvedArtifactHash": null,
+  "frozenManifest": {
+    "productionCommit": "554374c21e00ed85af1e1b69daf15ba1d537e3d3",
+    "binaries": {
+      "GnOuGo.AI.Core.dll": "6344ab9ac08f7730d0a74a0916f80e99998b0d3bb5251f510874e568c3043b34",
+      "GnOuGo.AI.Local.dll": "f0318323c394fbd70b6be3b78f947c609728504478d7620315261532c7f0e297",
+      "GnOuGo.Agent.Mcp.dll": "2c1d44264fa800e2b4d15abe22041f0f6d7a03f54c59c4187209aef4b5e47a53",
+      "GnOuGo.Agent.Planning.Benchmark.dll": "e1fba4b5c5b5770e5524c109b0873703679fbc8f7ff1548b1cc37e9b74676a99",
+      "GnOuGo.Agent.Server.dll": "629ef5cf2eb8a0bac5793dce1ad0aec11f9e283a3674025ea0d5ac5f0f7cb02c",
+      "GnOuGo.Agent.Shared.dll": "6cf1604d4e27209d483d4f27a58058455b82edde674b8659c661fc22b01da3ae",
+      "GnOuGo.Assets.Animation.dll": "891443488b92f72417ad9092e178e5856c3041fb16a758065ae27f499b72378e",
+      "GnOuGo.Assets.Bears.dll": "928e74e8bcb287950fe5d8a27d2184d833a6b05437a238915c8489dbb590df64",
+      "GnOuGo.Auth.Core.dll": "27b107cefcd92bbbc7698f34be9b2507176498f6634cc5f3fb416fa50836ece4",
+      "GnOuGo.Diff.Core.dll": "c439d7f82d2402b2dff38939e668ce47053c6eec62eabc8e31cfc922038861a1",
+      "GnOuGo.DocIngestor.Core.dll": "3b6a600b42b3477e2b4c973e16b06c39dd5dd9a2dfd2b50c835766a2c1a2b824",
+      "GnOuGo.DocIngestor.Mcp.dll": "b6f3ed1a84a19a8bff79027e7fb64911b6af16617b7dee708bdd427436963a70",
+      "GnOuGo.Files.Server.dll": "be481e49ac984e0dadf9bbebd461af57a0482dcf58acb0364140151b1f3fe196",
+      "GnOuGo.Flow.Core.dll": "08af42525395daa6356e831d0be4345aa4d981f2752f9857a17ff328526460b1",
+      "GnOuGo.Flow.Integrations.dll": "4dbbdb55141696e925cc252f80ee4295eacb91c2adc30c05e3c3542d45c52d64",
+      "GnOuGo.Flow.Mermaid.dll": "aede5113aa9bef5696be99adc4cf09bac4e86a2f1383c4172b74dcce1c0d1292",
+      "GnOuGo.Flow.Planning.dll": "756b7e5841fd0802877dc334c6dcfb0af450012f43c7c43feb2bde122eac0ddd",
+      "GnOuGo.KeyVault.Core.dll": "e738bf7c9437a50001cc8203c2a2227aae6d9c9463ece5c8382b422fac4527f2",
+      "GnOuGo.KeyVault.Mcp.dll": "ddaa8fb67254fde4d3f8b72a7aa3c06f2c82b3cb662c533208fe66280161ea11",
+      "GnOuGo.Mcp.Core.dll": "7c0d69f849fe3db8829ee8ffbcc109a076fc9990409893d16c3cb0ef87f2763c",
+      "GnOuGo.Observability.Core.dll": "926eebde3aa8653c1aa5d19532661b4bc3c34450723928fe368ec9a2d98f30e3",
+      "GnOuGo.OtlpCollector.Server.dll": "e08700ee4704695144e734cbc73839b8b4b0995202e7d9eb85d2526bbf803432",
+      "GnOuGo.Workspace.dll": "ef4bbd1e45b0c26515505d52ca4dedd0a8ed4d542a30e64fd64809f17fb9ff8d"
+    },
+    "model": {
+      "provider": "OpenAi",
+      "model": "gpt-5.5-2026-04-24",
+      "reasoningLevels": [
+        "low",
+        "medium",
+        "high",
+        "max"
+      ],
+      "structuredOutput": true
+    },
+    "evidenceHash": "43720f982d0d79997822ede2b93b130a26d5a3b93ed143ea46bb849ddd997643",
+    "policyHash": "b92002cf07ef660981dc5c758d775be40589045d14df706cf454ca3c58e52604",
+    "abUsed": false,
+    "limits": {
+      "maximumStage": 1,
+      "diagnosticAbAllowed": false,
+      "input": 12000,
+      "dispatchTarget": 9600,
+      "output": 8192,
+      "concurrency": 4,
+      "repairsPerGate": 5,
+      "calls": 100,
+      "totalTokens": 15000000,
+      "activeMilliseconds": 18000000,
+      "amount": 50,
+      "currency": "EUR",
+      "reasoning": "low"
+    },
+    "stages": [
+      {
+        "stage": 1,
+        "status": "not_run",
+        "session": null,
+        "promptHash": "f0479816c14ebb7fd57d6a30d5ea88bcc40b80c6c15bfd5502a6fd0e7a38a1f9",
+        "catalogHash": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+        "fixtureHash": "fdefdb5a2d741df7414f867277fe0f538689060f074a3df70e78b3df4ef36d87"
+      },
+      {
+        "stage": 2,
+        "status": "not_run",
+        "session": null,
+        "promptHash": "14932e22d2a2c7d417dbe3f25fd3c8dbd279af3d5cc1e4a7a2d943309af0f5f1",
+        "catalogHash": "f6f4912b0b69f353d69b84de4da738082e61c02018d8a63d7fefed409df7e2e9",
+        "fixtureHash": "c2b3d25cf9059138f0d9e59261161ec41cb995ccfebe0798183c95d7cb3f82fb"
+      },
+      {
+        "stage": 3,
+        "status": "not_run",
+        "session": null,
+        "promptHash": "f5b167ad30f4791b775a12ffc46a66b0b6616e84d99418661188df3f745ffe28",
+        "catalogHash": "792eebc5c700c51dd30fa69fd4680dee8b65fb8b8bc35ed9611bd2a61762fc43",
+        "fixtureHash": "7ff54d7c4529bb9bb1e7ab4e25f1e59f83f85e7e08126a767e2136c5283ae498"
+      }
+    ]
+  }
+}

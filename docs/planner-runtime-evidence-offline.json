@@ -1,0 +1,276 @@
+{
+  "baseCommit": "3e268f006237ab2b304b3fc76d7a6e8ecf8c76d3",
+  "snapshotSchema": 5,
+  "sourceProofVersion": 4,
+  "declarationProofVersion": 5,
+  "runtimeEvidenceProofVersion": 2,
+  "operationAdmissionProofVersion": 3,
+  "productionFiles": {
+    "src/GnOuGo.Agent.Server/Planning/PlanningPersistenceSmoke.cs": "b203794c54c7ae56307fc705cf0f57dfc1cd5cd53cd078e3ec03112fe18a30cb",
+    "src/GnOuGo.Flow.Core/Planning/PlanningDecisionState.cs": "ecd5e719cbca831a1c40a1bb6c3455b6cdc1b3e33073185bc1a6d07ce21f43ef",
+    "src/GnOuGo.Flow.Core/README.md": "66b3efd45f40f762c5340a034a32d98509fc12869ba67eee41c24f2bdd5775f3",
+    "src/GnOuGo.Flow.Planning/PlanningDecisionPages.cs": "1d52addf2cdabac25d7cf2e584a41638c6665d461bf8b758e618a6beb7f30f5a",
+    "src/GnOuGo.Flow.Planning/PlanningOperations.Decisions.cs": "e4b95ffeff056bc970e57a431f625915e7629fc9c51326be7e55419d9e35cc6c",
+    "src/GnOuGo.Flow.Planning/PlanningOperations.Evidence.cs": "a7b83b6cf2e440e29d57d6a74e4a30189c850e722516cccd8e68a2e62322d2d7",
+    "src/GnOuGo.Flow.Planning/PlanningOperations.cs": "57cf3367613c34f8f34934971a41dc21abef5cbab4d22c91ae5cc8fb8877f87e",
+    "src/GnOuGo.Flow.Planning/PlanningSourceDecisions.cs": "cf61ac7d5d44983eed8a9cf44067065fd81808d0d678f69213477abe27afcac6",
+    "src/GnOuGo.Flow.Planning/README.md": "c0bf743674e031dcef087efb96a1af2025581dff929b02cd72cec2b896f7076e",
+    "src/GnOuGo.Flow.Planning/PlanningOperations.Coverage.cs": "59bb801d6dfc62a1eea94c289c43728993af14e27253c362729f6a225b142ebd"
+  },
+  "baselineAudit": {
+    "identity": "schema5-runtime-admission-diagnostics-1",
+    "verifiedHistoricalReceipts": 8,
+    "schemaFindings": 0,
+    "providerDispatches": 0,
+    "canonicalAdmissionCommitted": false,
+    "historicalTerminalFailure": "eight-request harness ceiling",
+    "reportSha256": "6d2bd8eb573c272bfe0a3d1fb2f1ce57e47e643fdf812a6c9f2e2c88445e26e3",
+    "replayLimitation": "Retained receipts validate their original schemas. Changed policy response domains cannot reuse those receipts; no missing or synthetic response was dispatched or substituted."
+  },
+  "solutionResults": {
+    "Passed": 3370,
+    "NotExecuted": 1
+  },
+  "testProjects": [
+    {
+      "assembly": "GnOuGo.DocIngestor.Tests.dll",
+      "results": {
+        "Passed": 89
+      }
+    },
+    {
+      "assembly": "GnOuGo.Diff.Tests.dll",
+      "results": {
+        "Passed": 52
+      }
+    },
+    {
+      "assembly": "GnOuGo.KeyVault.Core.Tests.dll",
+      "results": {
+        "Passed": 12
+      }
+    },
+    {
+      "assembly": "GnOuGo.Flow.Tests.dll",
+      "results": {
+        "Passed": 855
+      }
+    },
+    {
+      "assembly": "GnOuGo.Flow.Integrations.Tests.dll",
+      "results": {
+        "Passed": 67
+      }
+    },
+    {
+      "assembly": "GnOuGo.AI.Core.Tests.dll",
+      "results": {
+        "Passed": 193
+      }
+    },
+    {
+      "assembly": "GnOuGo.AI.Local.Tests.dll",
+      "results": {
+        "Passed": 14
+      }
+    },
+    {
+      "assembly": "GnOuGo.Agent.Mcp.Tests.dll",
+      "results": {
+        "Passed": 103
+      }
+    },
+    {
+      "assembly": "GnOuGo.Cmd.Mcp.Tests.dll",
+      "results": {
+        "Passed": 41
+      }
+    },
+    {
+      "assembly": "GnOuGo.Browser.Mcp.Tests.dll",
+      "results": {
+        "Passed": 43
+      }
+    },
+    {
+      "assembly": "GnOuGo.Agent.Server.Tests.dll",
+      "results": {
+        "Passed": 416
+      }
+    },
+    {
+      "assembly": "GnOuGo.Document.Mcp.Tests.dll",
+      "results": {
+        "Passed": 63
+      }
+    },
+    {
+      "assembly": "GnOuGo.KeyVault.Mcp.Tests.dll",
+      "results": {
+        "Passed": 9
+      }
+    },
+    {
+      "assembly": "GnOuGo.Files.Server.Tests.dll",
+      "results": {
+        "Passed": 10
+      }
+    },
+    {
+      "assembly": "GnOuGo.DocIngestor.Mcp.Tests.dll",
+      "results": {
+        "Passed": 7
+      }
+    },
+    {
+      "assembly": "GnOuGo.OtlpCollector.Server.Tests.dll",
+      "results": {
+        "Passed": 7
+      }
+    },
+    {
+      "assembly": "GnOuGo.GithubCopilot.Mcp.Tests.dll",
+      "results": {
+        "Passed": 110
+      }
+    },
+    {
+      "assembly": "GnOuGo.GithubCopilot.Core.Tests.dll",
+      "results": {
+        "Passed": 84
+      }
+    },
+    {
+      "assembly": "GnOuGo.GithubCopilot.E2E.Tests.dll",
+      "results": {
+        "NotExecuted": 1
+      }
+    },
+    {
+      "assembly": "GnOuGo.Observability.Core.Tests.dll",
+      "results": {
+        "Passed": 3
+      }
+    },
+    {
+      "assembly": "GnOuGo.Git.Mcp.Tests.dll",
+      "results": {
+        "Passed": 48
+      }
+    },
+    {
+      "assembly": "GnOuGo.Workspace.Tests.dll",
+      "results": {
+        "Passed": 30
+      }
+    },
+    {
+      "assembly": "GnOuGo.Mcp.Core.Tests.dll",
+      "results": {
+        "Passed": 31
+      }
+    },
+    {
+      "assembly": "GnOuGo.Flow.Mermaid.Tests.dll",
+      "results": {
+        "Passed": 12
+      }
+    },
+    {
+      "assembly": "GnOuGo.Assets.Bears.Tests.dll",
+      "results": {
+        "Passed": 91
+      }
+    },
+    {
+      "assembly": "GnOuGo.Assets.Animation.Tests.dll",
+      "results": {
+        "Passed": 38
+      }
+    },
+    {
+      "assembly": "GnOuGo.Assets.Animation.Server.Tests.dll",
+      "results": {
+        "Passed": 13
+      }
+    },
+    {
+      "assembly": "GnOuGo.Assets.Bears.Server.Tests.dll",
+      "results": {
+        "Passed": 28
+      }
+    },
+    {
+      "assembly": "GnOuGo.Flow.Planning.Tests.dll",
+      "results": {
+        "Passed": 901
+      }
+    }
+  ],
+  "solutionBuild": "passed_without_warnings",
+  "harnessBuild": "passed_without_warnings",
+  "frontendBuilds": {
+    "Agent.Server": "passed_without_warnings",
+    "OtlpCollector.Server": "passed_without_warnings"
+  },
+  "packages": {
+    "GnOuGo.Flow.Integrations.1.0.0.nupkg": "3467b26f453f56f7c159ad626f0306dd381954ea24252c9a7e08aadfbe15c048",
+    "GnOuGo.Flow.Core.1.0.0.nupkg": "f84506b5b08a2cbd12a54aa09075032520666c5769719c4495584196a128ee2b",
+    "GnOuGo.Flow.Planning.1.0.0.nupkg": "b02f869a20795a7c352584c1549c09488315c99fb881b93119a8b01628c2ac38",
+    "GnOuGo.Agent.Shared.1.0.0.nupkg": "f77459f6524db19622f4eb22d59927a82369adc80ebacb08aca713bc50979058"
+  },
+  "publishedSmokes": {
+    "nativeAotPlanningAndEncryptedRestart": {
+      "rid": "osx-arm64",
+      "result": "passed",
+      "binarySha256": "acd011f12e8cc7b4b2aa3d4d10791a90a0718b872192b88fb1988c0ef2005898"
+    },
+    "trimmedAgentEfPersistence": {
+      "rid": "osx-arm64",
+      "result": "passed",
+      "binarySha256": "5ba40fce9faf46b5858f6753f72294e17fe8cb567b848c3132acbabf4e209952",
+      "publishOptions": "Existing persistence-only publish options SkipBundledServerTools=true and SkipClientBuild=true; frontend built separately."
+    }
+  },
+  "referenceSelfchecks": {
+    "classifierBatch": 6,
+    "codeReview": 18,
+    "modelCalls": 0
+  },
+  "admissionFixtureSelfcheck": {
+    "evidence": "synthetic fixture selfcheck",
+    "cases": [
+      {
+        "case": "local",
+        "passed": true,
+        "preflight": {
+          "interpretationPages": 9,
+          "sourceDecisions": 13,
+          "modelRuntimeDecisionsRemoved": 0,
+          "declarationFixtureValidated": true
+        },
+        "modelCalls": 0
+      },
+      {
+        "case": "mixed",
+        "passed": true,
+        "preflight": {
+          "interpretationPages": 9,
+          "sourceDecisions": 13,
+          "modelRuntimeDecisionsRemoved": 0,
+          "declarationFixtureValidated": true
+        },
+        "modelCalls": 0
+      }
+    ]
+  },
+  "publishWarnings": 0,
+  "newWarningSuppressions": 0,
+  "earlierOfflineFailures": [
+    "Validation recursion during initial coverage implementation; removed recursive gate entry while retaining the same coverage derivation.",
+    "Synthetic assertions expected reference IDs to match despite equivalent owned coordinates; corrected assertions to check exact attached evidence.",
+    "Synthetic preparation helpers required their staged declaration proof too early from telemetry; telemetry now derives coverage after the existing outer gate.",
+    "Persistence test expected previous operation proof version 2; updated to version 3.",
+    "Published smoke used one span as both output declaration and runtime action; fixture now supplies separate explicit clauses and requires executable intent."
+  ]
+}

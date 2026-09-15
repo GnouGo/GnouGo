@@ -1,0 +1,88 @@
+{
+  "productionCommit": "9667f600135ee0fd13dba6c5cc901f545ee79452",
+  "binaries": {
+    "GnOuGo.AI.Core.dll": "47bd6c98de32b3c06b2c461922a6e2959382d28af88e5d4258b26a3159fd3cdd",
+    "GnOuGo.AI.Local.dll": "a063455a2d3b1548d17ab04e29141d4e5cebc0a345d98416719bfe5ef1b20e10",
+    "GnOuGo.Agent.Mcp.dll": "07fcb819fa9901b66cbcdcd53d1c555c26f5f36fc587c5c3609b23a3886c6f32",
+    "GnOuGo.Agent.Planning.Benchmark.dll": "cf363a0bf99ce92c74c5105268bc2a0925cd6b59c44fcdcc51b5752b3e81b610",
+    "GnOuGo.Agent.Server.dll": "c796b836d109749ca95ea265d35ed6756e8c5700929f19620417db052b05a76d",
+    "GnOuGo.Agent.Shared.dll": "3e5ee4a5813f3a4f7773d630018815aae22c68100c478f56eef754764b0a155b",
+    "GnOuGo.Assets.Animation.dll": "8d5ca31f022ba0508172461b3b3b3699ae77db332713ef90574bc1a210db9a22",
+    "GnOuGo.Assets.Bears.dll": "287b79199303e5f71df55b4764e304e25cee2bd2852c4166a5cdaa4af16e4a15",
+    "GnOuGo.Auth.Core.dll": "b39c6bf523c2e5ac0d5fb3c9093ae7904722206304297f74adcf2f4e7081b3fa",
+    "GnOuGo.Diff.Core.dll": "37abe9b472fc63199d7e3b591500b9456d56c44fed5fdba3593637df24f0878f",
+    "GnOuGo.DocIngestor.Core.dll": "b4cd5c493d255b2b3f6f3187b74acf5d199512a908b2e1fb7d9fc3ac0e1257c9",
+    "GnOuGo.DocIngestor.Mcp.dll": "1371e006d8e03a95159910a5f86bdd032946b8e72fc9f50d57a83856dd3d89da",
+    "GnOuGo.Files.Server.dll": "5975a6f197a365e343e3fab44907ea57a48e12e7e6c6f9b02f2a2bc68b608869",
+    "GnOuGo.Flow.Core.dll": "ec1fc30296048827eb22978e025432870997f446626a9d2152dae2c8176a23bd",
+    "GnOuGo.Flow.Integrations.dll": "6eebf41310da98b6997bb04eb9ccaa7f479764c96e5038aac87088d33580287e",
+    "GnOuGo.Flow.Mermaid.dll": "31ddee3fdff0088e8e166a89259cf7e108ff4a6d25a083ec315461dee602af4d",
+    "GnOuGo.Flow.Planning.dll": "835e774ca1537fb398b1329c4f5e34f6205401b3c2108e426ca09415750943a0",
+    "GnOuGo.KeyVault.Core.dll": "c3a29c79cc18bf6b23a9a2d999b20c654bb34d7fe3a81c8ac103c6df9636f1b1",
+    "GnOuGo.KeyVault.Mcp.dll": "cce8c97b6576c51ee07657219a08866aead9f2c6b710b93853b94abcf94c7c07",
+    "GnOuGo.Mcp.Core.dll": "867d08c1e1156768cdd4619d34f4656b0a7e6ccfcd79ad68fc1eba364f8798ee",
+    "GnOuGo.Observability.Core.dll": "f030077e503efb89ede85517dbb60edaca22d99a8442a572739ca19e1decf904",
+    "GnOuGo.OtlpCollector.Server.dll": "d348756732dc6a05f2eb18830d3df61163952267dfe3168be3a9e06ee939e5b7",
+    "GnOuGo.Workspace.dll": "bb4b6e743d8af5eadb62be810897c4baa972f50a50aa3cc507c7125d7512e614"
+  },
+  "model": {
+    "provider": "OpenAi",
+    "model": "gpt-5.5-2026-04-24",
+    "reasoningLevels": [
+      "low",
+      "medium",
+      "high",
+      "max"
+    ],
+    "structuredOutput": true
+  },
+  "evidenceHash": "43720f982d0d79997822ede2b93b130a26d5a3b93ed143ea46bb849ddd997643",
+  "policyHash": "b92002cf07ef660981dc5c758d775be40589045d14df706cf454ca3c58e52604",
+  "abUsed": false,
+  "limits": {
+    "maximumStage": 1,
+    "stopAfterBehaviorAcceptance": false,
+    "diagnosticAbAllowed": false,
+    "input": 12000,
+    "dispatchTarget": 9600,
+    "output": 8192,
+    "singletonOutputEscalation": 16384,
+    "concurrency": 4,
+    "repairsPerGate": 5,
+    "calls": 100,
+    "totalTokens": 15000000,
+    "activeMilliseconds": 18000000,
+    "amount": 50,
+    "currency": "EUR",
+    "reasoning": "low"
+  },
+  "stages": [
+    {
+      "stage": 1,
+      "status": "not_run",
+      "session": null,
+      "promptHash": "f0479816c14ebb7fd57d6a30d5ea88bcc40b80c6c15bfd5502a6fd0e7a38a1f9",
+      "catalogHash": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "fixtureHash": "b831ed947f3be006dce4c0c83298f13c3ccc8079c2ca3957e1bf21c05f5ad133"
+    },
+    {
+      "stage": 2,
+      "status": "not_run",
+      "session": null,
+      "promptHash": "14932e22d2a2c7d417dbe3f25fd3c8dbd279af3d5cc1e4a7a2d943309af0f5f1",
+      "catalogHash": "f6f4912b0b69f353d69b84de4da738082e61c02018d8a63d7fefed409df7e2e9",
+      "fixtureHash": "9023342c20813af7f751242cb400a6e624eac8b0f3f0ae2855335e17dcd7a71d"
+    },
+    {
+      "stage": 3,
+      "status": "not_run",
+      "session": null,
+      "promptHash": "f5b167ad30f4791b775a12ffc46a66b0b6616e84d99418661188df3f745ffe28",
+      "catalogHash": "792eebc5c700c51dd30fa69fd4680dee8b65fb8b8bc35ed9611bd2a61762fc43",
+      "fixtureHash": "7ff54d7c4529bb9bb1e7ab4e25f1e59f83f85e7e08126a767e2136c5283ae498"
+    }
+  ],
+  "requestConfigurationHash": "f004159fefeaecd72acb7f4f6133f074baa6be56387023ade1a995c82c3e20bb",
+  "hostPolicyHash": "7c3f8b0828a30ccbf73b0b8fd4cbaaaa4bf9eeed56e39dee8bb65a10b21c5bf8",
+  "previousCampaign": "schema5-neutral-declarations-stage1-1"
+}

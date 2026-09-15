@@ -29,6 +29,9 @@
   <ItemGroup>
     <ProjectReference Include="..\GnOuGo.AI.Core\GnOuGo.AI.Core.csproj" />
     <ProjectReference Include="..\GnOuGo.Flow.Core\GnOuGo.Flow.Core.csproj" />
+    <ProjectReference Include="../GnOuGo.Flow.Planning/GnOuGo.Flow.Planning.csproj" />
+    <ProjectReference Include="../GnOuGo.KeyVault.Core/GnOuGo.KeyVault.Core.csproj" />
+    <ProjectReference Include="../GnOuGo.Workspace/GnOuGo.Workspace.csproj" />
     <ProjectReference Include="..\GnOuGo.Mcp.Core\GnOuGo.Mcp.Core.csproj" />
   </ItemGroup>
 

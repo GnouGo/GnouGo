@@ -23,17 +23,18 @@ public static class InputTypeValidator
 
         foreach (var (name, def) in definitions)
         {
-            var value = inputs.ContainsKey(name) ? inputs[name] : null;
+            var present = inputs.ContainsKey(name);
+            var value = present ? inputs[name] : null;
 
             // Required check
-            if (def.Required && value == null)
+            if (def.Required && (!present || value is null && !def.Nullable))
             {
                 errors.Add($"Input '{name}' is required but was not provided.");
                 continue;
             }
 
             // Skip validation for absent optional inputs
-            if (value == null)
+            if (!present)
                 continue;
 
             ValidateNode(value, def, name, errors, 0);
@@ -54,7 +55,11 @@ public static class InputTypeValidator
         }
 
         if (node == null)
-            return; // null already handled by required check at call site
+        {
+            if (!def.Nullable && def.Type.ToLowerInvariant() is not ("any" or "null"))
+                errors.Add($"'{path}': declared type '{def.Type}' does not allow null.");
+            return;
+        }
 
         switch (def.Type.ToLowerInvariant())
         {
@@ -62,8 +67,11 @@ public static class InputTypeValidator
                 break; // anything is valid
 
             case "string":
-                if (node is not JsonValue sv || !sv.TryGetValue(out string? _))
+                if (node is not JsonValue sv || !sv.TryGetValue(out string? stringValue))
                     errors.Add($"'{path}': expected string, got {DescribeKind(node)}.");
+                else if (def.Enum is { Count: > 0 }
+                         && !def.Enum.Contains(stringValue, StringComparer.Ordinal))
+                    errors.Add($"'{path}': value '{stringValue}' is not one of the allowed values [{string.Join(", ", def.Enum)}].");
                 break;
 
             case "number":

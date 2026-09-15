@@ -1,4 +1,4 @@
-﻿using System.Reflection;
+using System.Reflection;
 using System.Text.Json.Nodes;
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -14,9 +14,11 @@ namespace GnOuGo.Agent.Server.Tests;
 
 internal sealed class FakeKeyVaultRuntimeConfigStore : IKeyVaultRuntimeConfigStore
 {
-    private readonly Dictionary<string, string> _values = new(StringComparer.OrdinalIgnoreCase);
-    private readonly Dictionary<string, KeyVaultSecretSummary> _summaries = new(StringComparer.OrdinalIgnoreCase);
+    private readonly Dictionary<string, string> _values = new(StringComparer.Ordinal);
+    private readonly Dictionary<string, KeyVaultSecretSummary> _summaries = new(StringComparer.Ordinal);
     private LLMOptions? _effectiveOptions;
+
+    public IReadOnlyCollection<string> SecretKeys => _values.Keys;
 
     public FakeKeyVaultRuntimeConfigStore WithEffectiveOptions(LLMOptions options)
     {
@@ -65,124 +67,34 @@ internal sealed class RecordingLlmClient : ILLMClient
     {
         CallCount++;
         LastRequest = request;
-        if (request.Prompt.Contains("domain-neutral workflow runtime analyst", StringComparison.OrdinalIgnoreCase))
-        {
-            return Task.FromResult(new LLMResponse
-            {
-                Json = new JsonObject
-                {
-                    ["complete"] = true,
-                    ["incomplete_reasons"] = new JsonArray(),
-                    ["operations"] = new JsonArray(),
-                    ["constraints"] = new JsonArray()
-                }
-            });
-        }
-        if (request.Prompt.Contains("domain-neutral capability matcher", StringComparison.OrdinalIgnoreCase))
-        {
-            return Task.FromResult(new LLMResponse
-            {
-                Json = new JsonObject
-                {
-                    ["operation_matches"] = new JsonArray(),
-                    ["constraint_matches"] = new JsonArray()
-                }
-            });
-        }
-        return Task.FromResult(new LLMResponse { Text = BuildResponseText(request) });
+        return Task.FromResult(WithUsage(new LLMResponse { Text = "stub-response" }));
     }
 
-    private static string BuildResponseText(LLMRequest request)
+    private static LLMResponse WithUsage(LLMResponse response)
     {
-        if (request.Prompt.Contains("preparing a raw user automation prompt", StringComparison.OrdinalIgnoreCase))
+        response.Usage = new JsonObject
         {
-            return """
-                # Generated chat agent
-
-                Build a persisted chat agent that accepts a `task` string and returns an `answer` string.
-                """;
-        }
-
-        if (request.Prompt.Contains("annotate normalized automation Markdown", StringComparison.OrdinalIgnoreCase))
-        {
-            return """
-                # Generated chat agent
-
-                Build a persisted chat agent that accepts a `task` string and returns an `answer` string.
-
-                ## Main workflow orchestration
-
-                Implement the answer directly in the main workflow. No leaf subworkflow is needed.
-                """;
-        }
-
-        if (request.Prompt.Contains("assembling the parent `main` workflow", StringComparison.OrdinalIgnoreCase))
-        {
-            return """
-                document:
-                  name: generated-agent
-                  skill:
-                    description: Generated chat agent workflow.
-                    tags: [agent, generated]
-                    inputs:
-                      task: { type: string }
-                    outputs:
-                      answer: { type: string }
-                main:
-                  inputs:
-                    task:
-                      type: string
-                      required: true
-                  steps:
-                    - id: final_answer
-                      type: set
-                      input:
-                        answer: "${data.inputs.task}"
-                  outputs:
-                    answer:
-                      expr: "${data.steps.final_answer.answer}"
-                      type: string
-                """;
-        }
-
-        if (request.Prompt.Contains("Generate a valid GnOuGo.Flow YAML workflow", StringComparison.OrdinalIgnoreCase)
-            || request.Prompt.Contains("Return only a complete workflow YAML document", StringComparison.OrdinalIgnoreCase)
-            || request.Prompt.Contains("Repair an existing GnOuGo.Flow YAML workflow", StringComparison.OrdinalIgnoreCase))
-        {
-            return """
-                version: 1
-                name: generated-agent
-                skill:
-                  description: Generated chat agent workflow.
-                  tags: [agent, generated]
-                  inputs:
-                    task:
-                      type: string
-                      description: User request to answer.
-                  outputs:
-                    answer:
-                      type: string
-                      description: Final answer for the user.
-                workflows:
-                  main:
-                    inputs:
-                      task:
-                        type: string
-                        required: true
-                    steps:
-                      - id: final_answer
-                        type: set
-                        input:
-                          answer: "${data.inputs.task}"
-                    outputs:
-                      answer:
-                        expr: "${data.steps.final_answer.answer}"
-                        type: string
-                """;
-        }
-
-        return "stub-response";
+            ["prompt_tokens"] = 8,
+            ["completion_tokens"] = 8,
+            ["total_tokens"] = 16
+        };
+        return response;
     }
+
+}
+
+internal sealed class TestExchangeRateProvider(decimal rate = 1m) : IExchangeRateProvider
+{
+    public ValueTask<CurrencyExchangeQuote?> GetQuoteAsync(
+        string sourceCurrency,
+        string targetCurrency,
+        CancellationToken ct)
+        => ValueTask.FromResult<CurrencyExchangeQuote?>(new CurrencyExchangeQuote(
+            sourceCurrency.Trim().ToUpperInvariant(),
+            targetCurrency.Trim().ToUpperInvariant(),
+            rate,
+            DateTimeOffset.UtcNow,
+            "deterministic_test_rate"));
 }
 
 internal sealed class FakeModelCatalog : ILLMModelCatalog
@@ -339,7 +251,8 @@ internal static class SmartFlowTestFactory
             runtimeFactory,
             runtimeStore,
             CreateTelemetry(),
-            NullLogger<ConfigureAgentsService>.Instance);
+            NullLogger<ConfigureAgentsService>.Instance,
+            exchangeRateProvider: new TestExchangeRateProvider());
     }
 
     public static SmartFlowService CreateSmartFlowService(
@@ -363,7 +276,7 @@ internal static class SmartFlowTestFactory
             configureAgents,
             new AgentHumanInputProvider(),
             CreateTelemetry(),
-            NullLogger<SmartFlowService>.Instance,
+            NullLogger<SmartFlowService>.Instance, null!,
             traceFileExporter: traceFileExporter);
     }
 

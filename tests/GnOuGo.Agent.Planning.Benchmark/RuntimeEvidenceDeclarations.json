@@ -1,0 +1,131 @@
+{
+  "local": {
+    "promptSha256": "f0479816c14ebb7fd57d6a30d5ea88bcc40b80c6c15bfd5502a6fd0e7a38a1f9",
+    "evidenceKind": "Explicit canonical declaration precondition. Local source derived from retained classifier; mixed attachments are synthetic. No fresh declaration convergence is claimed.",
+    "facts": [
+      {
+        "start": 58,
+        "length": 95,
+        "text": "Required input record is an object with required id:string, amount:number and approved:boolean.",
+        "kind": "declaration_candidate",
+        "direction": "input",
+        "name": "record",
+        "defaultText": null
+      },
+      {
+        "start": 154,
+        "length": 24,
+        "text": "Optional input threshold",
+        "kind": "declaration_candidate",
+        "direction": "input",
+        "name": "threshold",
+        "defaultText": null
+      },
+      {
+        "start": 179,
+        "length": 56,
+        "text": "is a non-nullable number defaulting to 100 when omitted.",
+        "kind": "omission_default",
+        "direction": "input",
+        "name": "threshold",
+        "defaultText": "100"
+      },
+      {
+        "start": 236,
+        "length": 88,
+        "text": "Return classifiedResult:{id:string,amount:number,category:string}, all members required.",
+        "kind": "declaration_candidate",
+        "direction": "output",
+        "name": "classifiedResult",
+        "defaultText": null
+      },
+      {
+        "start": 444,
+        "length": 57,
+        "text": "category has exactly the values rejected, high, standard.",
+        "kind": "declaration_constraint",
+        "direction": "output",
+        "name": "classifiedResult",
+        "defaultText": null
+      },
+      {
+        "start": 502,
+        "length": 36,
+        "text": "Preserve the original id and amount.",
+        "kind": "declaration_constraint",
+        "direction": "output",
+        "name": "classifiedResult",
+        "defaultText": null
+      }
+    ]
+  },
+  "mixed": {
+    "promptSha256": "4d9621fb3038a45e153bca3b2d0af7b1cd7e9a0f08e0501d7f98b4aecb13150a",
+    "evidenceKind": "Explicit canonical declaration precondition. Local source derived from retained classifier; mixed attachments are synthetic. No fresh declaration convergence is claimed.",
+    "facts": [
+      {
+        "start": 29,
+        "length": 61,
+        "text": "Required input sourceId:string identifies one record to load.",
+        "kind": "declaration_candidate",
+        "direction": "input",
+        "name": "sourceId",
+        "defaultText": null
+      },
+      {
+        "start": 91,
+        "length": 61,
+        "text": "Optional input threshold:number defaults to 100 when omitted;",
+        "kind": "declaration_candidate",
+        "direction": "input",
+        "name": "threshold",
+        "defaultText": null
+      },
+      {
+        "start": 123,
+        "length": 29,
+        "text": "defaults to 100 when omitted;",
+        "kind": "omission_default",
+        "direction": "input",
+        "name": "threshold",
+        "defaultText": "100"
+      },
+      {
+        "start": 153,
+        "length": 25,
+        "text": "explicit null is invalid.",
+        "kind": "declaration_constraint",
+        "direction": "input",
+        "name": "threshold",
+        "defaultText": null
+      },
+      {
+        "start": 386,
+        "length": 66,
+        "text": "Return classifiedResult:{id:string,amount:number,category:string};",
+        "kind": "declaration_candidate",
+        "direction": "output",
+        "name": "classifiedResult",
+        "defaultText": null
+      },
+      {
+        "start": 453,
+        "length": 52,
+        "text": "preserve the loaded record's original id and amount.",
+        "kind": "declaration_constraint",
+        "direction": "output",
+        "name": "classifiedResult",
+        "defaultText": null
+      },
+      {
+        "start": 506,
+        "length": 57,
+        "text": "category has exactly the values rejected, high, standard.",
+        "kind": "declaration_constraint",
+        "direction": "output",
+        "name": "classifiedResult",
+        "defaultText": null
+      }
+    ]
+  }
+}

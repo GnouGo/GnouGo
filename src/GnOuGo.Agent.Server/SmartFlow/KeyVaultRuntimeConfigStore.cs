@@ -99,6 +99,7 @@ public sealed class KeyVaultRuntimeConfigStore : IKeyVaultRuntimeConfigStore
 
             var authType = ReadConfigString(config, "authType", "auth_type") ?? "none";
             var model = ReadConfigString(config, "model") ?? string.Empty;
+            var existingProvider = effective.ResolveProvider(provider);
 
             effective.Models[provider] = new ModelProviderOptions
             {
@@ -112,7 +113,13 @@ public sealed class KeyVaultRuntimeConfigStore : IKeyVaultRuntimeConfigStore
                 Scopes = ReadConfigString(config, "oidcScopes", "oidc_scopes"),
                 ClientSecret = ReadConfigString(config, "oidcClientSecret", "oidc_client_secret"),
                 PrivateKeyPem = ReadConfigString(config, "oidcPrivateKeyPem", "oidc_private_key_pem"),
-                ApiVersion = ReadConfigString(config, "apiVersion", "api_version")
+                ApiVersion = ReadConfigString(config, "apiVersion", "api_version"),
+                RequestPolicy = existingProvider is null
+                    ? new LLMProviderRequestPolicyOptions()
+                    : CloneRequestPolicy(existingProvider.RequestPolicy),
+                RetryPolicy = existingProvider is null
+                    ? new LLMProviderRetryPolicyOptions()
+                    : CloneRetryPolicy(existingProvider.RetryPolicy)
             };
 
             if (string.Equals(effective.DefaultProvider, provider, StringComparison.OrdinalIgnoreCase)
@@ -170,6 +177,7 @@ public sealed class KeyVaultRuntimeConfigStore : IKeyVaultRuntimeConfigStore
             effective.DefaultProvider = fallback;
         }
 
+        LLMOptionsValidation.ValidateAndThrow(effective);
         return effective;
     }
 
@@ -378,7 +386,9 @@ public sealed class KeyVaultRuntimeConfigStore : IKeyVaultRuntimeConfigStore
                 ClientSecret = kv.Value.ClientSecret,
                 PrivateKeyPem = kv.Value.PrivateKeyPem,
                 Scopes = kv.Value.Scopes,
-                ApiVersion = kv.Value.ApiVersion
+                ApiVersion = kv.Value.ApiVersion,
+                RequestPolicy = CloneRequestPolicy(kv.Value.RequestPolicy),
+                RetryPolicy = CloneRetryPolicy(kv.Value.RetryPolicy)
             };
         }
 
@@ -409,4 +419,23 @@ public sealed class KeyVaultRuntimeConfigStore : IKeyVaultRuntimeConfigStore
 
         return clone;
     }
+
+    private static LLMProviderRequestPolicyOptions CloneRequestPolicy(LLMProviderRequestPolicyOptions source)
+        => new()
+        {
+            BackgroundProtocol = source.BackgroundProtocol,
+            UnspecifiedOutputTokens = source.UnspecifiedOutputTokens,
+            DefaultMaxOutputTokens = source.DefaultMaxOutputTokens,
+            MaxOutputTokensCap = source.MaxOutputTokensCap
+        };
+
+    private static LLMProviderRetryPolicyOptions CloneRetryPolicy(LLMProviderRetryPolicyOptions source)
+        => new()
+        {
+            MaxAttempts = source.MaxAttempts,
+            BaseDelayMilliseconds = source.BaseDelayMilliseconds,
+            MaxDelayMilliseconds = source.MaxDelayMilliseconds,
+            MaxTotalDelayMilliseconds = source.MaxTotalDelayMilliseconds,
+            HonorRetryAfter = source.HonorRetryAfter
+        };
 }

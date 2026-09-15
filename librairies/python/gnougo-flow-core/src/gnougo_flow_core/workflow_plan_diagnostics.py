@@ -96,7 +96,7 @@ def build_exception_details(
         diagnostics,
         message,
         [
-            "Use the diagnostic code and message to repair the generated YAML before retrying.",
+            "Use the diagnostic code and message to correct the diagnosed typed workflow fields before retrying.",
             "If this is a parser error, fix YAML syntax and root structure before changing workflow logic.",
         ],
     )

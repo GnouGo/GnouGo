@@ -607,6 +607,53 @@ workflows:
     }
 
     [Fact]
+    public async Task McpList_ReportsValidatedOutputContractProvenance()
+    {
+        var declaredSchema = JsonNode.Parse("""
+            {"type":"object","properties":{"checks":{"type":"array","items":{"type":"string"}}},"required":["checks"]}
+            """);
+        var factory = new InMemoryMcpClientFactory();
+        factory.RegisterServer("contract-provider", new MockMcpServerConfig
+        {
+            Tools =
+            [
+                new McpToolInfo
+                {
+                    Name = "declared_checks",
+                    OutputSchema = declaredSchema
+                },
+                new McpToolInfo
+                {
+                    Name = "described_checks",
+                    Description = "Returns response.checks as a planning hint."
+                }
+            ]
+        });
+
+        var result = await RunMain("""
+            version: 1
+            workflows:
+              main:
+                steps:
+                  - id: list
+                    type: mcp.list
+                    input:
+                      servers: [contract-provider]
+                      include: [tools]
+            """, mcpFactory: factory);
+
+        Assert.True(result.Success, result.Error?.Message);
+        var tools = Assert.IsType<JsonArray>(Assert.IsType<JsonObject>(result.StepResults[0].Output)["tools"]);
+        var declared = Assert.IsType<JsonObject>(tools.Single(item => item!["name"]!.GetValue<string>() == "declared_checks"));
+        Assert.True(declared["output_contract"]!["authoritative"]!.GetValue<bool>());
+        Assert.Equal(McpOutputContractSources.ProtocolSchema, declared["output_contract"]!["source"]!.GetValue<string>());
+        Assert.True(JsonNode.DeepEquals(declaredSchema, declared["output_contract"]!["schema"]));
+        var described = Assert.IsType<JsonObject>(tools.Single(item => item!["name"]!.GetValue<string>() == "described_checks"));
+        Assert.False(described["output_contract"]!["authoritative"]!.GetValue<bool>());
+        Assert.Equal(McpOutputContractSources.Description, described["output_contract"]!["source"]!.GetValue<string>());
+    }
+
+    [Fact]
     public async Task McpList_PreservesNamespacedToolMetadataFromCache()
     {
         var meta = JsonNode.Parse("""
