@@ -45,7 +45,7 @@ internal static partial class RuntimeAdmissionDiagnostic
         using var cancel = new CancellationTokenSource(TimeSpan.FromHours(5));
         Console.CancelKeyPress += (_, e) => { e.Cancel = true; cancel.Cancel(); }; var ct = cancel.Token;
         var directory = GnOuGoWorkspace.ResolveDatabasePath(null, root, $".GnOuGo/data/planner-diagnostics/{Identity}/gnougo-planning-v5.db");
-        if (command is not ("freeze" or "run" or "report")) throw new ArgumentException("diagnose-runtime-admission freeze COMMIT | run | report | selfcheck");
+        if (command is not ("freeze" or "run-local" or "run-mixed" or "report")) throw new ArgumentException("diagnose-runtime-admission freeze COMMIT | run-local | run-mixed | report | selfcheck");
         if (command == "report")
         {
             Console.WriteLine((await ReportAsync(records, ct)).ToJsonString()); return;
@@ -109,14 +109,15 @@ internal static partial class RuntimeAdmissionDiagnostic
                 throw new InvalidOperationException("A frozen diagnostic precondition changed.");
         }
         using var ratesHttp = new HttpClient(); JsonObject? previous = null;
-        foreach (var name in RuntimeAdmissionDiagnosticRules.Cases)
+        if (command == "run-mixed")
         {
-            if (name == "mixed" && previous?["status"]?.ToString() != "passed") break;
-            RuntimeAdmissionDiagnosticRules.RequireCase(name, previous);
-            previous = await RunCaseAsync(name, source, contexts, records, transport.LlmClient, capabilities,
-                new ModelMetadataUsageCostEstimator(transport.Options), new EcbExchangeRateProvider(ratesHttp), ct);
-            if (previous["status"]!.ToString() != "passed") break;
+            var completedLocal = await records.GetAsync(Collection, Tenant, Identity + ":local:report", Author, ct);
+            previous = completedLocal is null ? null : JsonNode.Parse(completedLocal.Value)!.AsObject();
         }
+        var caseName = command == "run-local" ? "local" : "mixed";
+        RuntimeAdmissionDiagnosticRules.RequireCase(caseName, previous);
+        await RunCaseAsync(caseName, source, contexts, records, transport.LlmClient, capabilities,
+            new ModelMetadataUsageCostEstimator(transport.Options), new EcbExchangeRateProvider(ratesHttp), ct);
         if (archive != await ArchiveAsync(records, CancellationToken.None)) throw new InvalidOperationException("Archived accounting changed.");
         if (!JsonNode.DeepEquals(binaries, Binaries())) throw new InvalidOperationException("Frozen binaries changed during the diagnostics.");
         await records.UpsertAsync(Collection, Tenant, Identity + ":archive-check", "unchanged", Author, CancellationToken.None);
@@ -250,6 +251,9 @@ internal static partial class RuntimeAdmissionDiagnostic
                 { ["decisionId"] = a.DecisionId, ["evidenceId"] = a.RuntimeEvidenceId, ["disposition"] = a.Disposition,
                     ["origin"] = a.ResolutionOrigin, ["target"] = a.TargetId }).ToArray()) }).ToArray());
         report["identityModelDecisions"] = assignments.Where(a => a.ResolutionOrigin == "model" && a.Disposition is "distinct" or "same_as").DistinctBy(a => a.DecisionId).Count();
+        report["identityDeterministicDecisions"] = assignments.Where(a => a.ResolutionOrigin == "deterministic" && a.Disposition is "distinct" or "same_as").DistinctBy(a => a.DecisionId).Count();
+        report["governingAttachmentsByOperation"] = state.OperationAdmissionFingerprint is null ? null : new JsonObject(state.Obligations.Where(PlanningSourceDecisions.IsOperation)
+            .Select(o => new KeyValuePair<string, JsonNode?>(o.Id, JsonValue.Create(o.OperationAdmission!.Assignments.Count(a => a.Disposition == "attach")))));
         report["governingModelDecisions"] = assignments.Where(a => a.ResolutionOrigin == "model" && a.Disposition == "attach").DistinctBy(a => a.DecisionId).Count();
         report["governingDeterministicAttachments"] = assignments.Count(a => a.ResolutionOrigin == "deterministic" && a.Disposition == "attach");
         report["retiredActionCandidates"] = state.DecisionPages.Where(p => p.Phase == "intent_operations" && p.Status == "completed" && p.Candidate is not null)
