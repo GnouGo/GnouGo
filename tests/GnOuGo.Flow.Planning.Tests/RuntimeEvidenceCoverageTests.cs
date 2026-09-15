@@ -11,6 +11,11 @@ namespace GnOuGo.Flow.Planning.Tests;
 public sealed class RuntimeEvidenceCoverageTests
 {
     private static CancellationToken Ct => TestContext.Current.CancellationToken;
+    private static Task ResolveGrounded(PlanningSnapshot state, IPlanningRuntime runtime, CancellationToken ct)
+    {
+        if (state.OperationAdmissionFingerprint is null) OperationEffectFixtures.Seed(state);
+        return PlanningOperations.ResolveAsync(state, runtime, ct);
+    }
     private static TypedPlannerTests.FakeRuntime NoModel() => new() { OnCall = (_, _, _) => throw new InvalidOperationException("No model ambiguity.") };
 
     [Fact]
@@ -46,7 +51,7 @@ public sealed class RuntimeEvidenceCoverageTests
         await PlanningSourceDecisions.InterpretAsync(restored, NoModel(), Ct);
         Assert.Equal(state.RuntimeEvidenceFingerprint, restored.RuntimeEvidenceFingerprint);
         Assert.Equal(state.RequestAccounting.Count, restored.RequestAccounting.Count);
-        await PlanningOperations.ResolveAsync(restored, NoModel(), Ct);
+        await ResolveGrounded(restored, NoModel(), Ct);
         Assert.DoesNotContain(restored.Obligations, PlanningSourceDecisions.IsOperation);
     }
 
@@ -78,20 +83,20 @@ public sealed class RuntimeEvidenceCoverageTests
         var assignments = Canonicalize(state, [Distinct(state, "result", "result", direction: "output"), Link("constraint", "result", "modifier_of")]);
         PlanningDeclarations.Commit(state, assignments, PlanningDeclarations.EvidenceFingerprint(state)); state.OperationAdmissionFingerprint = null;
         var before = state.DeclarationFingerprint;
-        await PlanningOperations.ResolveAsync(state, NoModel(), Ct);
+        await ResolveGrounded(state, NoModel(), Ct);
         Assert.Equal(action.Id, Assert.Single(state.Obligations, PlanningSourceDecisions.IsOperation).OperationAdmission!.Assignments.Single().RuntimeEvidenceId);
         Assert.Contains(covered, state.RuntimeEvidence); Assert.Single(PlanningOperations.DeclarationExclusions(state));
         Assert.Contains(Assert.Single(state.Declarations).ModifierReferences, id => PlanningChoiceEvidence.Text(state, id) == constraint);
         Assert.Equal(before, state.DeclarationFingerprint);
         var restored = PlanningContext.Clone(state); var events = restored.Events.Count;
-        await PlanningOperations.ResolveAsync(restored, NoModel(), Ct);
+        await ResolveGrounded(restored, NoModel(), Ct);
         Assert.Equal(events, restored.Events.Count); Assert.Equal(state.OperationAdmissionFingerprint, restored.OperationAdmissionFingerprint);
         var uncommitted = PlanningContext.Clone(state); uncommitted.OperationAdmissionFingerprint = null;
         uncommitted.Obligations.RemoveAll(o => o.OperationAdmission is not null);
         var governing = PlanningOperations.SealRuntime(uncommitted, covered with { EvidenceRole = "governing" });
         uncommitted.RuntimeEvidence[uncommitted.RuntimeEvidence.FindIndex(e => e.Id == covered.Id)] = governing;
         uncommitted.RuntimeEvidenceFingerprint = PlanningOperations.RuntimeFingerprint(uncommitted);
-        await PlanningOperations.ResolveAsync(uncommitted, NoModel(), Ct);
+        await ResolveGrounded(uncommitted, NoModel(), Ct);
         Assert.Single(Assert.Single(uncommitted.Obligations, PlanningSourceDecisions.IsOperation).OperationAdmission!.Assignments);
     }
 
@@ -108,10 +113,10 @@ public sealed class RuntimeEvidenceCoverageTests
         state.OperationAdmissionFingerprint = null;
         if (partial)
         {
-            var error = await Assert.ThrowsAsync<WorkflowRuntimeException>(() => PlanningOperations.ResolveAsync(state, NoModel(), Ct));
+            var error = await Assert.ThrowsAsync<WorkflowRuntimeException>(() => ResolveGrounded(state, NoModel(), Ct));
             Assert.Contains(action.Id, error.Details!["location"]!.ToString()); return;
         }
-        await PlanningOperations.ResolveAsync(state, NoModel(), Ct);
+        await ResolveGrounded(state, NoModel(), Ct);
         Assert.Equal(actionText == contract ? 0 : 1, state.Obligations.Count(PlanningSourceDecisions.IsOperation));
     }
 
@@ -124,7 +129,7 @@ public sealed class RuntimeEvidenceCoverageTests
         PlanningFixtures.Runtime(state, Span(state, "transform another value."));
         PlanningDeclarations.Commit(state, Canonicalize(state, [Distinct(state, "result", "result", direction: "output"),
             Link("first", "result", "modifier_of"), Link("second", "result", "modifier_of")]), PlanningDeclarations.EvidenceFingerprint(state));
-        state.OperationAdmissionFingerprint = null; await PlanningOperations.ResolveAsync(state, NoModel(), Ct);
+        state.OperationAdmissionFingerprint = null; await ResolveGrounded(state, NoModel(), Ct);
         Assert.Single(state.Obligations, PlanningSourceDecisions.IsOperation); Assert.Single(PlanningOperations.DeclarationExclusions(state));
     }
 
@@ -137,7 +142,7 @@ public sealed class RuntimeEvidenceCoverageTests
         PlanningFixtures.Runtime(state, Span(state, "Classify as rejected when approved is false, high when approved is true and amount>=threshold, and standard otherwise."), evidenceRole: "governing");
         var preservation = PlanningFixtures.Runtime(state, Span(state, "Preserve the original id and amount."));
         PlanningDeclarations.Commit(state, state.DeclarationAssignments, PlanningDeclarations.EvidenceFingerprint(state));
-        await PlanningOperations.ResolveAsync(state, NoModel(), Ct);
+        await ResolveGrounded(state, NoModel(), Ct);
         var operation = Assert.Single(state.Obligations, PlanningSourceDecisions.IsOperation);
         Assert.Equal("local_processing", operation.Kind); Assert.Equal(2, operation.OperationAdmission!.Assignments.Count);
         Assert.Contains(preservation.Id, PlanningOperations.DeclarationExclusions(state).Keys);
@@ -145,7 +150,7 @@ public sealed class RuntimeEvidenceCoverageTests
         Assert.Equal("classifiedResult", PlanningDeclarations.Name(state, Assert.Single(state.Declarations, d => d.Direction == "output")));
         var threshold = state.Declarations.Single(d => PlanningDeclarations.Name(state, d) == "threshold"); Assert.False(threshold.Required); Assert.Equal(100m, PlanningDeclarations.Default(state, threshold)!.Number);
         var canonical = operation.Id; var proof = state.DeclarationFingerprint;
-        var restored = PlanningContext.Clone(state); await PlanningOperations.ResolveAsync(restored, NoModel(), Ct);
+        var restored = PlanningContext.Clone(state); await ResolveGrounded(restored, NoModel(), Ct);
         Assert.Equal(canonical, Assert.Single(restored.Obligations, PlanningSourceDecisions.IsOperation).Id); Assert.Equal(proof, restored.DeclarationFingerprint);
         restored.Declarations[0].ModifierReferences.Add("foreign");
         Assert.Throws<WorkflowRuntimeException>(() => PlanningOperations.RequireCurrent(restored));

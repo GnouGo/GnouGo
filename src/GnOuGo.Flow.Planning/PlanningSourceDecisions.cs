@@ -118,16 +118,19 @@ internal static class PlanningSourceDecisions
         var operations = state.Obligations.Where(o => IsOperation(o)).ToArray();
         var producers = state.Obligations.Where(o => IsOperation(o) || o.Kind == "implementation_policy").Concat(
             state.Declarations.Where(d => d.Direction == "input").Select(d => new PlanningObligation(d.Id, d.ClauseReferences, "business_decision", "business_input", d.Required))).ToArray();
-        var pairs = operations.SelectMany(consumer => producers.Where(p => p.Id != consumer.Id).Select(producer => (Producer: producer, Consumer: consumer))).ToArray();
+        var grounded = PlanningOperations.EffectRelations(operations).ToArray();
+        var pairs = operations.SelectMany(consumer => producers.Where(p => p.Id != consumer.Id && p.Kind != "business_input")
+            .Select(producer => (Producer: producer, Consumer: consumer))).ToArray();
         var choices = pairs.Select(pair => new PlanningDecisionPages.Decision("relation_" + pair.Producer.Id + "_" + pair.Consumer.Id,
             PlanningHoleRequests.Enum(pair.Producer.Kind == "business_input" ? ["none", "data"] : pair.Producer.Kind == "implementation_policy" ? ["none", "policy"]
-                : pair.Producer.Kind == "resource_lifecycle" ? ["none", "data", "owned_resource", "failure"] : ["none", "data", "decision", "decision_no_effect", "failure"]),
+                : pair.Producer.Kind == "resource_lifecycle" ? (grounded.Any(r => r.Producer == pair.Producer.Id && r.Consumer == pair.Consumer.Id) ? ["none", "owned_resource", "failure"] : ["none", "data", "owned_resource", "failure"])
+                : grounded.Any(r => r.Producer == pair.Producer.Id && r.Consumer == pair.Consumer.Id) ? ["none", "decision", "decision_no_effect", "failure"] : ["none", "data", "decision", "decision_no_effect", "failure"]),
             new JsonObject { ["producer"] = pair.Producer.Kind == "business_input" ? PlanningDeclarations.Port(state, state.Declarations.Single(d => d.Id == pair.Producer.Id)).Description : Text(state, pair.Producer), ["consumer"] = Text(state, pair.Consumer),
                 ["task"] = "Select the explicit producer-to-consumer obligation. A decision controls an effect; decision_no_effect includes an explicit no-action outcome. Failure means handling this producer's failure. owned_resource requires the consumer to target the original resource materialized by this producer. policy applies a declared implementation restriction to this operation. Do not add incidental implementation dependencies." },
             PlanningGraphCompiler.Fingerprint(string.Join("|", pair.Producer.EvidenceReferences.Concat(pair.Consumer.EvidenceReferences))))).ToArray();
         var values = await PlanningDecisionPages.ResolveAsync(state, runtime, "intent_relations", "$plan", choices, ct);
         state.ObligationRelations = pairs.Select(pair => new PlanningObligationRelation(pair.Producer.Id, pair.Consumer.Id,
-            values["relation_" + pair.Producer.Id + "_" + pair.Consumer.Id]!.ToString())).Where(r => r.Role != "none").ToList();
+                values["relation_" + pair.Producer.Id + "_" + pair.Consumer.Id]!.ToString())).Where(r => r.Role != "none").Concat(grounded).Distinct().ToList();
         foreach (var consumer in operations)
             if (state.ObligationRelations.Count(r => r.Consumer == consumer.Id && r.Role is "decision" or "decision_no_effect") > 1)
                 throw new WorkflowRuntimeException("INTENT_DECISION_CONFLICT", "Multiple governing decisions require an explicit business composition for " + consumer.Id);
@@ -147,7 +150,7 @@ internal static class PlanningSourceDecisions
 
     internal static bool IsOperation(PlanningObligation obligation) => PlanningSourceGroundingRules.OperationKinds.Contains(obligation.Kind, StringComparer.Ordinal) &&
         obligation.Grounding?.Role is PlanningSourceSemanticRole.RequestedAction or PlanningSourceSemanticRole.ExistingAction && obligation.Disposition == "admitted" &&
-        obligation.OperationAdmission is { Version: 5 } proof && proof.CanonicalId == obligation.Id;
+        obligation.OperationAdmission is { Version: 6 } proof && proof.CanonicalId == obligation.Id;
 
     internal static JsonObject InterpretationSchema(PlanningSnapshot state, PlanningSourceAuthority authority, JsonObject boundaries)
     {

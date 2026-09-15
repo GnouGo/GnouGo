@@ -12,4 +12,5 @@
     <EmbeddedResource Include="CodeReviewExecutionFixture.cs" />
     <EmbeddedResource Include="RuntimeEvidenceDeclarations.json" />
   </ItemGroup>
+  <ItemGroup><Compile Include="../GnOuGo.Flow.Planning.Tests/OperationEffectFixtures.cs" Link="Fixtures/OperationEffectFixtures.cs" /></ItemGroup>
 </Project>

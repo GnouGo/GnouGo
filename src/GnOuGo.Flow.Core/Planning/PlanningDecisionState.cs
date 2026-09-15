@@ -62,7 +62,19 @@ public sealed record PlanningOperationAssignment(string DecisionId, string Claus
     public string? RuntimeEvidenceId { get; init; }
     public string? Disposition { get; init; }
     public string? ResolutionOrigin { get; init; }
+    public PlanningOperationEffectProof? Effect { get; init; }
+    public string? EffectId { get; init; }
 }
+
+/// <summary>Business effect ownership and an explicit execution boundary; not an executable node.</summary>
+public sealed record PlanningOperationEffectAnchor(string WorkflowScope, string OwnerReference,
+    string BoundaryKind, string BoundaryReference, string? IterationReference = null);
+
+/// <summary>Reference-only grounding retained on operation evidence. Candidates are a bounded identity domain,
+/// never a second operation graph. Inputs, results and governing evidence do not enter occurrence identity.</summary>
+public sealed record PlanningOperationEffectProof(int Version, string DecisionId, string Contribution,
+    List<PlanningOperationEffectAnchor> Candidates, List<string> Inputs, List<string> Outputs,
+    List<string> Producers, List<string> EvidenceReferences, string Origin, string EvidenceFingerprint);
 
 /// <summary>Source-owned execution evidence, independent of preliminary obligation labels.</summary>
 public sealed record PlanningRuntimeEvidence(string Id, string SourceReference, string ClauseReference, string Role,

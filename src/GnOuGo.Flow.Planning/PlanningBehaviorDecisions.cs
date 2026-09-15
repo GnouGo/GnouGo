@@ -17,6 +17,7 @@ internal static class PlanningBehaviorDecisions
         var operations = capabilities.SelectMany(c => c.OperationIds).Distinct(StringComparer.Ordinal).Order(StringComparer.Ordinal).ToArray();
         foreach (var operation in operations)
         {
+            if (state.Obligations.SingleOrDefault(o => o.Id == operation)?.OperationAdmission is not null) continue;
             var text = state.Obligations.SingleOrDefault(o => o.Id == operation) is { } obligation ? PlanningSourceDecisions.Text(state, obligation)
                 : string.Join("; ", capabilities.Where(c => c.OperationIds.Contains(operation)).Select(c => c.Description).Distinct(StringComparer.Ordinal));
             if (boundaries.Length > 0) decisions.Add(new("owner_" + operation, PlanningHoleRequests.Enum(["main", .. boundaries.Select(b => b.Id)]),
@@ -35,7 +36,8 @@ internal static class PlanningBehaviorDecisions
         var capabilities = preparation.Capabilities.Where(c => c.OperationIds.All(id => PlanningBusinessAnswers.Included(state, id))).ToList();
         var plan = new PlanningBehaviorPlan { Summary = state.Request.Prompt, Entrypoint = "main" };
         var operations = capabilities.SelectMany(c => c.OperationIds).Distinct(StringComparer.Ordinal).ToArray();
-        var owners = operations.ToDictionary(id => id, id => choices["owner_" + id]?.ToString() ?? "main", StringComparer.Ordinal);
+        var effectOwners = state.Obligations.Where(o => o.OperationAdmission is not null).ToDictionary(o => o.Id, o => PlanningOperations.EffectAnchor(state, o), StringComparer.Ordinal);
+        var owners = operations.ToDictionary(id => id, id => effectOwners.TryGetValue(id, out var effect) ? effect.WorkflowScope : choices["owner_" + id]?.ToString() ?? "main", StringComparer.Ordinal);
         PlanningDeclarations.RequireCurrent(state);
         var inputs = state.Declarations.Where(d => d.Direction == "input").ToDictionary(d => d.Id, d => PlanningDeclarations.Port(state, d), StringComparer.Ordinal);
         var outputs = state.Declarations.Where(d => d.Direction == "output").ToArray();
@@ -64,7 +66,7 @@ internal static class PlanningBehaviorDecisions
             }
             foreach (var iteration in state.Obligations.Where(o => o.Kind == "iteration"))
             {
-                var body = workflow.Steps.Where(n => n.OperationIds.Any(id => choices["iteration_" + id]?.ToString() == iteration.Id)).ToList();
+                var body = workflow.Steps.Where(n => n.OperationIds.Any(id => (effectOwners.TryGetValue(id, out var effect) ? effect.IterationReference : choices["iteration_" + id]?.ToString()) == iteration.Id)).ToList();
                 if (body.Count == 0) continue;
                 var at = workflow.Steps.IndexOf(body[0]); foreach (var node in body) workflow.Steps.Remove(node);
                 workflow.Steps.Insert(at, new() { Key = "loop_" + iteration.Id, Kind = "loop", Purpose = PlanningSourceDecisions.Text(state, iteration),

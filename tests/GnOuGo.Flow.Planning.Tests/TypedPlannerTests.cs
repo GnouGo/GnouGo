@@ -275,12 +275,7 @@ public sealed class TypedPlannerTests
             JsonNode? json = InvalidJson ? new JsonObject() : phase switch
             {
                 "intent" => Interpret(request),
-                "intent_operations" => new JsonObject(request.StructuredOutputSchema!["properties"]!.AsObject().Select(p =>
-                {
-                    var attach = p.Value!["anyOf"]!.AsArray().FirstOrDefault(v => v?["properties"]?["targets"] is not null);
-                    return new KeyValuePair<string, JsonNode?>(p.Key, attach is null ? new JsonObject { ["status"] = "distinct" }
-                        : new JsonObject { ["status"] = "attach", ["targets"] = new JsonArray(attach["properties"]!["targets"]!["items"]!["enum"]![0]!.DeepClone()) });
-                })),
+                "intent_operations" => OperationEffectFixtures.Response(_state!, request),
                 "intent_declarations" => DeclarationGroundingTests.Response(request, PlanningDeclarations.Candidates(_state!).Select(o =>
                     DeclarationGroundingTests.Distinct(_state!, o.Id, "greeting", direction: "output"))),
                 "behavior" => JsonSerializer.SerializeToNode(BehaviorPlan(), PlanningJsonContext.Default.PlanningBehaviorPlan),

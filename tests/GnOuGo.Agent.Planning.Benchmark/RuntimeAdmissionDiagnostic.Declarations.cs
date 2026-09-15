@@ -1,3 +1,4 @@
+using GnOuGo.Flow.Planning.Tests;
 using System.Text.Json.Nodes;
 using GnOuGo.Flow.Core.Planning;
 using GnOuGo.Flow.Core.Runtime;
@@ -108,6 +109,10 @@ internal static partial class RuntimeAdmissionDiagnostic
             if (name == "mixed") Add("Read the record identified by sourceId once from the external record store.", "external_read");
             Add(name == "local" ? "Preserve the original id and amount." : "preserve the loaded record's original id and amount.", "local_processing");
             state.RuntimeEvidenceFingerprint = PlanningOperations.RuntimeFingerprint(state);
+            OperationEffectFixtures.Seed(state, scope => OperationEffectFixtures.Answer(state, scope,
+                inputs: state.Declarations.Where(d => d.Direction == "input").Select(d => d.Id),
+                producers: scope.Evidence!.Kind == "local_processing" && name == "mixed" ? PlanningOperations.Scopes(state).Where(s => s.Evidence!.Kind == "external_read")
+                    .Select(s => PlanningOperations.EffectDomain(state, s.Evidence!).Single(p => p.Value.BoundaryReference == s.Evidence!.ActionReference).Key) : []));
             await PlanningOperations.ResolveAsync(state, new WorkflowPlanningRuntime(new WorkflowEngine(), (_, _) => Task.CompletedTask), CancellationToken.None);
             PlanningOperations.RequireExecutableIntent(state);
             if (state.Obligations.Count(PlanningSourceDecisions.IsOperation) != (name == "local" ? 1 : 2) ||

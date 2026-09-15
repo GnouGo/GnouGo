@@ -1,3 +1,4 @@
+using GnOuGo.Flow.Planning.Tests;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using GnOuGo.AI.Core;
@@ -193,11 +194,9 @@ internal static class RuntimePersistenceSmoke
                 if (snapshot.RuntimeEvidence.Count != 3) throw new InvalidOperationException("Exact runtime evidence duplicates did not collapse.");
                 snapshot.RuntimeEvidenceFingerprint = PlanningOperations.RuntimeFingerprint(snapshot);
                 var eligible = PlanningOperations.Scopes(snapshot);
-                var first = eligible[0].Evidence!;
-                var root = PlanningOperations.Create(snapshot, new("operation_" + first.Id, first.ClauseReference, first.ActionReference!, first.Kind!, first.Necessity, null, null)
-                    { RuntimeEvidenceId = first.Id, Disposition = "distinct", ResolutionOrigin = "deterministic" });
-                var decision = PlanningOperations.Decision(snapshot, eligible[1], [root]);
-                await PlanningDecisionPages.ResolveAsync(snapshot, opened.Runtime, "intent_operations", "$plan", [decision], CancellationToken.None);
+                client.EffectState = snapshot;
+                var effectDecisions = eligible.Select(scope => PlanningOperations.EffectDecision(snapshot, scope)).ToArray();
+                await PlanningDecisionPages.ResolveAsync(snapshot, opened.Runtime, "intent_operations", "$plan", effectDecisions, CancellationToken.None);
                 if (snapshot.Obligations.Any(PlanningSourceDecisions.IsOperation)) throw new InvalidOperationException("Staged operation identity granted partial authority.");
             }
             var identityCalls = client.Calls;
@@ -225,14 +224,20 @@ internal static class RuntimePersistenceSmoke
         public int Calls { get; private set; }
         public Dictionary<string, JsonObject>? DeclarationAnswers { get; set; }
         public bool OperationAnswers { get; set; }
+        public PlanningSnapshot? EffectState { get; set; }
         public Task<LLMResponse> CallAsync(LLMRequest request, CancellationToken ct)
         {
             Calls++;
             var fields = request.StructuredOutputSchema!["properties"]!.AsObject();
             if (OperationAnswers)
+            {
+                var state = EffectState!;
+                var first = PlanningOperations.Scopes(state).First(scope => scope.Evidence!.EvidenceRole == "action");
+                var target = PlanningOperations.EffectDomain(state, first.Evidence!).Single(p => p.Value.BoundaryReference == first.Evidence!.ActionReference).Key;
                 return Task.FromResult(new LLMResponse { CompletionStatus = "completed", Usage = new JsonObject { ["total_tokens"] = 2 },
-                    Json = new JsonObject(fields.Select(p => new KeyValuePair<string, JsonNode?>(p.Key, new JsonObject { ["status"] = "same_as",
-                        ["target"] = p.Value!["anyOf"]!.AsArray().Single(v => v?["properties"]?["target"] is not null)!["properties"]!["target"]!["enum"]![0]!.DeepClone() }))) });
+                    Json = new JsonObject(fields.Select(p => new KeyValuePair<string, JsonNode?>(p.Key,
+                        OperationEffectFixtures.Answer(state, PlanningOperations.Scopes(state).Single(scope => PlanningOperations.EffectDecisionId(scope.Evidence!) == p.Key), [target])))) });
+            }
             if (DeclarationAnswers is { } answers)
             {
                 var response = new JsonObject();

@@ -44,7 +44,9 @@ internal static partial class RuntimeAdmissionDiagnostic
                 ["completionStatus"] = response?.CompletionStatus, ["malformedJson"] = malformed,
                 ["schemaFindings"] = candidate is null ? null : PlanningContractValidation.ValidateInstance(candidate, issued.StructuredOutputSchema!).Count });
         }
-        var client = new ReceiptOnlyClient(id, evidence);
+        var manifest = await records.GetAsync(Collection, Tenant, id[..id.LastIndexOf(':')], Author, ct);
+        var frozenModel = manifest is null ? null : JsonNode.Parse(manifest.Value)?["model"] as JsonObject;
+        var client = new ReceiptOnlyClient(id, evidence, frozenModel);
         var runtime = new WorkflowPlanningRuntime(new WorkflowEngine { LLMClient = client, LLMCapabilities = client }, (_, _) => Task.CompletedTask);
         string? code = null, location = null;
         try { await PlanningOperations.ResolveAsync(state, runtime, ct); }

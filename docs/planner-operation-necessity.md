@@ -1,5 +1,7 @@
 # Operation identity and necessity
 
+The occurrence-selection description below records the necessity implementation and its retained run. Current admission uses [effect proofs](planner-operation-effects.md); necessity resolution is unchanged.
+
 Canonical runtime admission keeps occurrence identity separate from capability
 necessity. Kind, execution scope, role, baseline authority and resource semantics
 determine eligible occurrence targets. Requiredness cannot exclude an otherwise

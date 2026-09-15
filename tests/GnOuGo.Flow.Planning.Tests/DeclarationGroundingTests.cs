@@ -244,20 +244,19 @@ public sealed class DeclarationGroundingTests
     }
 
     [Fact]
-    public async Task RelationshipsExposeCanonicalInputsOnly()
+    public async Task RelationshipsReuseCanonicalInputsWithoutAnotherModelDecision()
     {
         var (state, assignments) = Captured(); Commit(state, assignments);
-        var runtime = new TypedPlannerTests.FakeRuntime { OnCall = (phase, request, _) =>
-        {
-            Assert.Equal("intent_relations", phase);
-            Assert.Equal(2, request.StructuredOutputSchema!["properties"]!.AsObject().Count);
-            return Task.FromResult(new LLMResponse { Json = new JsonObject(request.StructuredOutputSchema["properties"]!.AsObject()
-                .Select(p => new KeyValuePair<string, JsonNode?>(p.Key, JsonValue.Create("data")))) });
-        } };
+        state.Obligations.RemoveAll(o => o.OperationAdmission is not null); state.OperationAdmissionFingerprint = null;
+        state.DecisionPages.RemoveAll(p => p.Phase == "intent_operations");
+        OperationEffectFixtures.Seed(state, scope => OperationEffectFixtures.Answer(state, scope,
+            inputs: state.Declarations.Where(d => d.Direction == "input").Select(d => d.Id)));
+        var runtime = new TypedPlannerTests.FakeRuntime { OnCall = (_, _, _) => throw new InvalidOperationException("Relationships are already grounded.") };
+        await PlanningOperations.ResolveAsync(state, runtime, Ct);
         await PlanningSourceDecisions.RelateAsync(state, runtime, Ct);
         Assert.Equal(2, state.ObligationRelations.Count);
         Assert.All(state.ObligationRelations, r => Assert.Contains(state.Declarations, d => d.Id == r.Producer));
-        Assert.Single(runtime.Requests);
+        Assert.Empty(runtime.Requests);
     }
 
     [Fact]

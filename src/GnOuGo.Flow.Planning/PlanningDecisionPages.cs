@@ -74,6 +74,18 @@ internal static partial class PlanningDecisionPages
     internal static int PackedPageCount(PlanningSnapshot state, IReadOnlyList<Decision> decisions)
         => Pack(state, decisions.OrderBy(d => d.Id, StringComparer.Ordinal).ToArray()).Count();
 
+    internal static JsonObject ReadCompleted(PlanningSnapshot state, string phase, string workflow, IReadOnlyList<Decision> decisions)
+    {
+        var result = new JsonObject();
+        foreach (var batch in Pack(state, decisions.OrderBy(d => d.Id, StringComparer.Ordinal).ToArray()))
+        {
+            var page = Page(state, phase, workflow, batch, null, false, create: false);
+            ValidateCompleted(state, page, phase, batch);
+            foreach (var (id, value) in page.Candidate!) result.Add(id, value?.DeepClone());
+        }
+        return result;
+    }
+
     private static IEnumerable<Decision[]> Pack(PlanningSnapshot state, IReadOnlyList<Decision> decisions)
     {
         var batch = new List<Decision>();

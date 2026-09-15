@@ -33,9 +33,23 @@ internal static class PlanningFixtures
 
     internal static void RefreshAdmission(PlanningSnapshot state)
     {
+        var operations = state.Obligations.Where(o => o.OperationAdmission is not null).ToList();
+        state.Obligations.RemoveAll(o => o.OperationAdmission is not null);
         EmptyRuntime(state);
-        var operations = state.Obligations.Where(o => o.OperationAdmission is not null).Select(o =>
-            PlanningOperations.Prove(state, o, o.OperationAdmission! with { EvidenceFingerprint = PlanningOperations.EvidenceFingerprint(state) })).ToList();
+        if (operations.Count == 0) { AdmitHints(state); return; }
+        var old = operations.SelectMany(o => o.OperationAdmission!.Assignments).DistinctBy(a => a.RuntimeEvidenceId).ToDictionary(a => a.RuntimeEvidenceId!, StringComparer.Ordinal);
+        OperationEffectFixtures.Seed(state, scope => old.TryGetValue(scope.Evidence!.Id, out var assignment)
+            ? OperationEffectFixtures.Answer(state, scope, assignment.Effect!.Candidates.Select(a => PlanningOperations.CanonicalId(state, a, assignment.Kind, assignment.BaselineReference)),
+                assignment.Effect.Contribution, assignment.Effect.Inputs, assignment.Effect.Outputs, assignment.Effect.Producers)
+            : OperationEffectFixtures.Answer(state, scope));
+        operations = operations.Select(o => PlanningOperations.Prove(state, o, o.OperationAdmission! with
+        {
+            EvidenceFingerprint = PlanningOperations.EvidenceFingerprint(state),
+            Assignments = o.OperationAdmission!.Assignments.Select(a => a with { Effect = a.BaselineReference is not null
+                ? PlanningOperations.BaselineEffect(state, PlanningOperations.Scopes(state).Single(s => s.Evidence!.Id == a.RuntimeEvidenceId))
+                : PlanningOperations.ParseEffect(state, PlanningOperations.Scopes(state).Single(s => s.Evidence!.Id == a.RuntimeEvidenceId),
+                    state.DecisionPages.Last(p => p.Candidate?[a.Effect!.DecisionId] is not null).Candidate![a.Effect!.DecisionId]!.AsObject()) }).ToList()
+        })).ToList();
         PlanningOperations.Commit(state, operations);
     }
 
@@ -43,20 +57,34 @@ internal static class PlanningFixtures
     // hints are the answers; production always uses bounded decision pages.
     internal static void AdmitHints(PlanningSnapshot state)
     {
-        var hints = state.Obligations.Where(o => o.OperationAdmission is null && PlanningSourceGroundingRules.OperationKinds.Contains(o.Kind)).ToArray();
+        for (var i = 0; i < state.Obligations.Count; i++)
+            if (state.Obligations[i].OperationAdmission is null && PlanningSourceGroundingRules.OperationKinds.Contains(state.Obligations[i].Kind))
+                state.Obligations[i] = state.Obligations[i] with { Disposition = "preliminary" };
+        // Declaration fixtures may deliberately be between root/attachment decisions.
+        // Defer their synthetic operation precondition until declaration validation completes.
+        if (PlanningDeclarations.Candidates(state).Length > 0 && (state.DeclarationFingerprint is null ||
+            state.DeclarationAssignments.Count != PlanningDeclarations.Candidates(state).Length)) return;
+        if (state.Request.Baseline is not null && state.DeclarationFingerprint is null && PlanningDeclarations.Candidates(state).Length == 0)
+            PlanningDeclarations.Commit(state, [], PlanningDeclarations.EvidenceFingerprint(state));
+        var hints = state.Obligations.Where(o => o.OperationAdmission is null && PlanningSourceGroundingRules.OperationKinds.Contains(o.Kind) &&
+            !state.Obligations.Any(a => a.OperationAdmission?.AnchorReference == o.EvidenceReferences[0] && a.Kind == o.Kind)).ToArray();
         var map = new Dictionary<string, string>(StringComparer.Ordinal);
         var admitted = state.Obligations.Where(o => o.OperationAdmission is not null).ToList();
         foreach (var hint in hints)
             Runtime(state, state.References.Single(r => r.Id == hint.EvidenceReferences[0]), hint.Kind,
                 baseline: hint.Grounding?.BaselineReference, resourceAction: hint.Kind is "cleanup" or "resource_lifecycle" ? "delete" : null, required: hint.Required);
         EmptyRuntime(state);
-        foreach (var hint in hints) state.Obligations.Remove(hint);
+        OperationEffectFixtures.Seed(state);
         foreach (var hint in hints)
         {
             var clause = PlanningChoiceEvidence.Parent(state, hint.EvidenceReferences[0]);
             var evidence = state.RuntimeEvidence.Single(e => e.ActionReference == hint.EvidenceReferences[0] && e.Kind == hint.Kind);
             var assignment = new PlanningOperationAssignment("operation_" + evidence.Id, clause.Id, hint.EvidenceReferences[0], hint.Kind,
-                evidence.Necessity, null, hint.Grounding?.BaselineReference) { RuntimeEvidenceId = evidence.Id, Disposition = "distinct", ResolutionOrigin = "deterministic" };
+                evidence.Necessity, null, hint.Grounding?.BaselineReference) { RuntimeEvidenceId = evidence.Id, Disposition = "distinct", ResolutionOrigin = "deterministic",
+                Effect = evidence.BaselineReference is null ? PlanningOperations.ParseEffect(state,
+                    PlanningOperations.Scopes(state).Single(s => s.Evidence!.Id == evidence.Id),
+                    state.DecisionPages.Last(p => p.Candidate?[PlanningOperations.EffectDecisionId(evidence)] is not null).Candidate![PlanningOperations.EffectDecisionId(evidence)]!.AsObject()) : PlanningOperations.BaselineEffect(state, PlanningOperations.Scopes(state).Single(s => s.Evidence!.Id == evidence.Id)),
+                EffectId = PlanningOperations.EffectDomain(state, evidence).Single(p => p.Value.BoundaryReference == evidence.ActionReference || evidence.BaselineReference is not null).Key };
             var operation = PlanningOperations.Create(state, assignment);
             if (!admitted.Any(o => o.Id == operation.Id)) admitted.Add(operation);
             map.Add(hint.Id, operation.Id);
@@ -66,7 +94,7 @@ internal static class PlanningFixtures
         var seen = new HashSet<object>(ReferenceEqualityComparer.Instance);
         void Remap(object? value)
         {
-            if (value is null or string or PlanningReference or PlanningSourceGrounding or PlanningOperationAdmission or PlanningRuntimeEvidence || !seen.Add(value)) return;
+            if (value is null or string or PlanningObligation or PlanningReference or PlanningSourceGrounding or PlanningOperationAdmission or PlanningRuntimeEvidence || !seen.Add(value)) return;
             if (value is IList<string> names) { for (var i = 0; i < names.Count; i++) if (map.TryGetValue(names[i], out var id)) names[i] = id; return; }
             if (value is System.Collections.IEnumerable list) { foreach (var item in list) Remap(item); return; }
             if (value.GetType().Namespace != typeof(PlanningSnapshot).Namespace) return;

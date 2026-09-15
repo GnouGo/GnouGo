@@ -8,7 +8,7 @@ namespace GnOuGo.Flow.Planning;
 /// <summary>Canonical action authority, committed once after bounded complete-clause adjudication.</summary>
 internal static partial class PlanningOperations
 {
-    internal static string EvidenceFingerprint(PlanningSnapshot state) => PlanningGraphCompiler.Fingerprint("operation-evidence-v5:" +
+    internal static string EvidenceFingerprint(PlanningSnapshot state) => PlanningGraphCompiler.Fingerprint("operation-evidence-v6:" +
         state.Request.TenantId + ":" + state.Request.SessionId + ":" + new JsonArray(PlanningIntentAssessment.IntentSources(state)
             .Where(s => s.Authority is PlanningSourceAuthority.RequestedBehavior or PlanningSourceAuthority.ExistingBehavior)
             .Select(s => (JsonNode)new JsonArray(s.Id, s.Authority.ToString(), s.Text, s.QuestionContext)).ToArray()).ToJsonString() + ":" +
@@ -22,91 +22,62 @@ internal static partial class PlanningOperations
         PlanningDeclarations.RequireCurrent(state);
         var staged = new List<PlanningObligation>();
         var scopes = Scopes(state);
-        foreach (var scope in scopes.Where(s => s.Evidence!.EvidenceRole == "action"))
+        var mappings = await GroundEffects(state, runtime, scopes, ct);
+        // Effect grounding completes before any evidence acquires root authority.
+        foreach (var scope in scopes.Where(s => mappings[s.Evidence!.Id].Contribution == "realizes"))
         {
-            ct.ThrowIfCancellationRequested();
-            var targets = EligibleTargets(state, scope.Evidence!, staged).ToArray();
-            var exact = targets.SingleOrDefault(o => ExactIdentity(state, scope.Evidence!, o));
-            if (exact is not null)
-                Replace(staged, Extend(state, exact, Assignment(scope, exact.Id, "same_as", "deterministic")));
-            else if (targets.Length == 0)
-            {
-                var root = Create(state, Assignment(scope, null, "distinct", "deterministic"));
-                if (staged.Any(o => o.Id == root.Id)) throw Failure(scope.Clause.Id, "The same action anchor has contradictory execution facts.");
-                staged.Add(root);
-            }
-            else
-            {
-                var decision = Decision(state, scope, staged);
-                var response = await PlanningDecisionPages.ResolveAsync(state, runtime, "intent_operations", "$plan", [decision], ct);
-                Apply(state, scope, decision, response[decision.Id]!.AsObject(), staged);
-            }
+            var proof = mappings[scope.Evidence!.Id];
+            var ids = proof.Candidates.Select(a => CanonicalId(state, a, scope.Evidence.Kind!, scope.Evidence.BaselineReference)).ToArray();
+            var selected = await SelectIdentity(state, runtime, scope, proof, ids, ct);
+            var existing = staged.SingleOrDefault(o => o.Id == selected);
+            var assignment = Assignment(scope, proof, selected, existing?.Id, existing is null ? "distinct" : "same_as", ids.Length == 1 ? "deterministic" : "model");
+            if (existing is null) staged.Add(Create(state, assignment));
+            else Replace(staged, Extend(state, existing, assignment));
         }
-        // Governing evidence cannot influence root identity or create an occurrence.
-        var roots = staged.ToArray();
-        foreach (var scope in scopes.Where(s => s.Evidence!.EvidenceRole == "governing"))
+        foreach (var scope in scopes.Where(s => mappings[s.Evidence!.Id].Contribution is "governs" or "shared_rule"))
         {
-            ct.ThrowIfCancellationRequested();
-            var targets = EligibleTargets(state, scope.Evidence!, roots).ToArray();
-            if (targets.Length == 0) throw Failure(scope.Clause.Id, "Governing runtime evidence has no established compatible occurrence.");
-            if (targets.Length == 1)
-            {
-                var operation = staged.Single(o => o.Id == targets[0].Id);
-                Replace(staged, Extend(state, operation, Assignment(scope, operation.Id, "attach", "deterministic")));
-            }
-            else
-            {
-                var decision = Decision(state, scope, roots);
-                var response = await PlanningDecisionPages.ResolveAsync(state, runtime, "intent_operations", "$plan", [decision], ct);
-                Apply(state, scope, decision, response[decision.Id]!.AsObject(), staged);
-            }
+            var proof = mappings[scope.Evidence!.Id];
+            var candidates = proof.Candidates.Select(a => CanonicalId(state, a, scope.Evidence.Kind!, scope.Evidence.BaselineReference)).ToHashSet(StringComparer.Ordinal);
+            var targets = staged.Where(o => candidates.Contains(o.Id) && Compatible(state, scope.Evidence, o)).Select(o => o.Id).Order(StringComparer.Ordinal).ToArray();
+            if (targets.Length != candidates.Count) throw Failure(scope.Clause.Id, "Governing effect evidence requires established compatible realizations.");
+            var selected = proof.Contribution == "shared_rule" ? targets : [await SelectIdentity(state, runtime, scope, proof, targets, ct)];
+            foreach (var id in selected)
+                Replace(staged, Extend(state, staged.Single(o => o.Id == id), Assignment(scope, proof, id, id, "attach",
+                    targets.Length == 1 || proof.Contribution == "shared_rule" ? "deterministic" : "model")));
         }
         staged = await PlanningSourceDecisions.ApplyRevisionAsync(state, runtime, staged, ct);
+        ValidateEffectDependencies(state, staged);
         Commit(state, staged);
         await runtime.CheckpointAsync(state, ct);
     }
 
-    internal static void Apply(PlanningSnapshot state, Scope scope, PlanningDecisionPages.Decision decision, JsonObject response, List<PlanningObligation> staged)
+    private static async Task<string> SelectIdentity(PlanningSnapshot state, IPlanningRuntime runtime, Scope scope,
+        PlanningOperationEffectProof proof, string[] identities, CancellationToken ct)
     {
-        if (PlanningContractValidation.ValidateInstance(response, decision.Schema).Count != 0)
-            throw Failure(scope.Clause.Id, "Operation assignments contain unknown or out-of-scope fields.");
-        var status = response["status"]!.ToString();
-        if (status == "unresolved") throw Failure(scope.Clause.Id, "Complete action identity, kind or coverage remains unresolved.");
-        if (status == "not_an_operation") return;
-        if (status == "distinct")
-        {
-            var operation = Create(state, Assignment(scope, null, status, "model"));
-            if (staged.Any(o => o.Id == operation.Id)) throw Failure(scope.Clause.Id, "Distinct action identity is already occupied.");
-            staged.Add(operation); return;
-        }
-        var targets = status == "same_as" ? new[] { response["target"]!.ToString() }
-            : response["targets"]!.AsArray().Select(v => v!.ToString()).ToArray();
-        if (targets.Length == 0 || targets.Distinct(StringComparer.Ordinal).Count() != targets.Length)
-            throw Failure(scope.Clause.Id, "Governing targets must be a nonempty unique canonical set.");
-        foreach (var target in targets.Order(StringComparer.Ordinal))
-        {
-            var established = EligibleTargets(state, scope.Evidence!, staged).SingleOrDefault(o => o.Id == target)
-                ?? throw Failure(scope.Clause.Id, "The target is not an eligible established action.");
-            Replace(staged, Extend(state, established, Assignment(scope, target, status, "model")));
-        }
+        ct.ThrowIfCancellationRequested();
+        if (identities.Length == 0) throw Failure(scope.Clause.Id, "No proven effect identity is available.");
+        if (identities.Length == 1) return identities[0];
+        var decision = IdentityDecision(state, scope, proof, identities);
+        var response = await PlanningDecisionPages.ResolveAsync(state, runtime, "intent_operations", "$plan", [decision], ct);
+        return response[decision.Id]!.ToString();
     }
 
     private static void Replace(List<PlanningObligation> staged, PlanningObligation operation)
     { staged.RemoveAll(o => o.Id == operation.Id); staged.Add(operation); }
 
-    private static PlanningOperationAssignment Assignment(Scope scope, string? target, string disposition, string origin) => new(DecisionId(scope), scope.Clause.Id,
+    private static PlanningOperationAssignment Assignment(Scope scope, PlanningOperationEffectProof proof, string effectId, string? target, string disposition, string origin) => new(DecisionId(scope), scope.Clause.Id,
         scope.Evidence!.ActionReference!, scope.Evidence.Kind!, scope.Evidence.Necessity, target, scope.Evidence.BaselineReference)
-        { RuntimeEvidenceId = scope.Evidence.Id, Disposition = disposition, ResolutionOrigin = origin };
+        { RuntimeEvidenceId = scope.Evidence.Id, Disposition = disposition, ResolutionOrigin = origin, Effect = proof, EffectId = effectId };
 
     internal static PlanningObligation Create(PlanningSnapshot state, PlanningOperationAssignment assignment)
     {
         ValidateAssignment(state, assignment);
         if (assignment.TargetId is not null) throw Failure(assignment.ClauseReference, "A new operation cannot borrow another action identity.");
         var anchor = state.References.Single(r => r.Id == assignment.ActionReference);
-        var id = CanonicalId(state, anchor, assignment.BaselineReference);
+        var id = assignment.EffectId!;
         var operation = new PlanningObligation(id, [anchor.Id], assignment.Kind == "local_processing" ? "workflow" : "capability_contract", assignment.Kind, ResolveRequiredness(state, [assignment]));
         operation = operation with { Grounding = PlanningSourceGroundingRules.Create(state, operation, assignment.BaselineReference), Disposition = "admitted" };
-        return Prove(state, operation, new(5, id, anchor.Id, assignment.BaselineReference, [assignment], EvidenceFingerprint(state), ""));
+        return Prove(state, operation, new(6, id, anchor.Id, assignment.BaselineReference, [assignment], EvidenceFingerprint(state), ""));
     }
 
     private static PlanningObligation Extend(PlanningSnapshot state, PlanningObligation operation, PlanningOperationAssignment assignment)
@@ -119,18 +90,6 @@ internal static partial class PlanningOperations
         if (operation.OperationAdmission!.Assignments.Any(a => a.RuntimeEvidenceId == assignment.RuntimeEvidenceId))
             throw Failure(assignment.ClauseReference, "Repeated evidence cannot authorize another attachment.");
         return Prove(state, operation, operation.OperationAdmission! with { Assignments = [.. operation.OperationAdmission!.Assignments, assignment] });
-    }
-
-    internal static string CanonicalId(PlanningSnapshot state, PlanningReference anchor, string? baseline)
-    {
-        JsonArray identity;
-        if (baseline is not null)
-        {
-            if (!PlanningSourceGroundingRules.BaselineNodes(state).TryGetValue(baseline, out var node)) throw Failure(anchor.Id, "The baseline node is stale or foreign.");
-            identity = new("operation-v1", "existing", node.Workflow, node.Node.Key);
-        }
-        else identity = new("operation-v1", "requested", anchor.SourceId, anchor.Start, anchor.Length);
-        return "operation_" + PlanningGraphCompiler.Fingerprint(identity.ToJsonString())[..24];
     }
 
     internal static string Text(PlanningSnapshot state, PlanningObligation operation) => string.Join(" ",
@@ -157,6 +116,11 @@ internal static partial class PlanningOperations
         var fingerprint = Fingerprint(state);
         if (fingerprint != state.OperationAdmissionFingerprint)
         {
+            var effects = operations.SelectMany(o => o.OperationAdmission!.Assignments).Select(a => a.Effect!).DistinctBy(e => e.DecisionId).ToArray();
+            state.Events.Add(new("operation_effect_grounding_model", "intent_operations", DateTimeOffset.UtcNow, effects.Count(e => e.Origin == "model")));
+            state.Events.Add(new("operation_effect_grounding_baseline", "intent_operations", DateTimeOffset.UtcNow, effects.Count(e => e.Origin == "baseline")));
+            state.Events.Add(new("operation_identity_model", "intent_operations", DateTimeOffset.UtcNow,
+                operations.SelectMany(o => o.OperationAdmission!.Assignments).Where(a => a.ResolutionOrigin == "model").Select(a => a.DecisionId).Distinct().Count()));
             var excluded = DeriveDeclarationExclusions(state);
             state.Events.Add(new("runtime_policy_engine_resolved", "intent_operations", DateTimeOffset.UtcNow,
                 state.RuntimeEvidence.Count(e => e.Origin == PlanningRuntimeEvidenceOrigin.EngineSourceAuthority)));
@@ -191,6 +155,7 @@ internal static partial class PlanningOperations
         RequireRuntimeEvidence(state);
         PlanningDeclarations.RequireCurrent(state);
         foreach (var operation in state.Obligations.Where(o => o.OperationAdmission is not null)) Validate(state, operation);
+        ValidateEffectDependencies(state, state.Obligations.Where(o => o.OperationAdmission is not null).ToArray());
         if (state.OperationAdmissionFingerprint is null || state.OperationAdmissionFingerprint != Fingerprint(state))
             throw Failure("$plan", "Canonical operation admission requires explicit reassessment with current evidence.", "INTENT_OPERATION_PROOF_MISSING");
     }
@@ -198,7 +163,7 @@ internal static partial class PlanningOperations
     internal static void Validate(PlanningSnapshot state, PlanningObligation operation)
     {
         var proof = operation.OperationAdmission;
-        if (proof is not { Version: 5 } || proof.CanonicalId != operation.Id || operation.Disposition != "admitted" ||
+        if (proof is not { Version: 6 } || proof.CanonicalId != operation.Id || operation.Disposition != "admitted" ||
             operation.EvidenceReferences.Count != 1 || operation.EvidenceReferences[0] != proof.AnchorReference ||
             proof.EvidenceFingerprint != EvidenceFingerprint(state) || proof.Assignments.Count == 0 || proof.ProofFingerprint != Proof(operation, proof))
             throw Failure(operation.Id, "Current canonical admission proof is missing or stale.", "INTENT_OPERATION_PROOF_MISSING");
@@ -208,13 +173,13 @@ internal static partial class PlanningOperations
             throw Failure(operation.Id, "Canonical requiredness differs from its current necessity evidence.");
         var root = proof.Assignments[0];
         if (root.ActionReference != proof.AnchorReference || root.TargetId is not null || root.BaselineReference != proof.BaselineReference ||
-            CanonicalId(state, state.References.Single(r => r.Id == proof.AnchorReference), proof.BaselineReference) != operation.Id)
+            root.EffectId != operation.Id)
             throw Failure(operation.Id, "Canonical operation identity is not established by its root evidence.");
         foreach (var assignment in proof.Assignments)
         {
             ValidateAssignment(state, assignment);
             if (!Compatible(state, state.RuntimeEvidence.Single(e => e.Id == assignment.RuntimeEvidenceId), operation) ||
-                assignment.Kind != operation.Kind ||
+                assignment.Kind != operation.Kind || assignment.EffectId != operation.Id ||
                 assignment != root && assignment.TargetId != operation.Id || assignment.BaselineReference is { } baseline && baseline != proof.BaselineReference)
                 throw Failure(operation.Id, "Operation evidence contradicts its established contract.");
         }
@@ -233,18 +198,25 @@ internal static partial class PlanningOperations
             throw Failure(evidence.Id, "Canonical declaration evidence cannot authorize a standalone local occurrence.");
         if (evidence.ActionReference != assignment.ActionReference || evidence.ClauseReference != assignment.ClauseReference ||
             evidence.Kind != assignment.Kind || evidence.Necessity != assignment.Necessity || evidence.BaselineReference != assignment.BaselineReference ||
-            (assignment.Disposition == "distinct" ? assignment.TargetId is not null || evidence.EvidenceRole != "action" :
-                assignment.Disposition == "same_as" ? assignment.TargetId is null || evidence.EvidenceRole != "action" :
-                assignment.Disposition == "attach" ? assignment.TargetId is null || evidence.EvidenceRole != "governing" : true) ||
+            (assignment.Disposition == "distinct" ? assignment.TargetId is not null || assignment.Effect?.Contribution != "realizes" :
+                assignment.Disposition == "same_as" ? assignment.TargetId is null || assignment.Effect?.Contribution != "realizes" :
+                assignment.Disposition == "attach" ? assignment.TargetId is null || assignment.Effect?.Contribution is not ("governs" or "shared_rule") : true) ||
             assignment.ResolutionOrigin is not ("deterministic" or "model"))
             throw Failure(assignment.ClauseReference, "The assignment changed its proven execution boundary or occurrence.");
-        if (assignment.ResolutionOrigin == "model" && !state.DecisionPages.Any(p => p.Phase == "intent_operations" &&
-            p.Status == "completed" && p.Candidate?[assignment.DecisionId] is JsonObject selected &&
-            selected["status"]?.ToString() == assignment.Disposition && (assignment.Disposition == "distinct" ||
-                assignment.Disposition == "same_as" && selected["target"]?.ToString() == assignment.TargetId ||
-                assignment.Disposition == "attach" && selected["targets"] is JsonArray targets &&
-                targets.Any(t => t?.ToString() == assignment.TargetId))))
-            throw Failure(assignment.ClauseReference, "A model-owned identity or attachment requires its completed decision page.");
+        ValidateEffect(state, assignment);
+        if (!assignment.Effect!.Candidates.Any(a => CanonicalId(state, a, assignment.Kind, assignment.BaselineReference) == assignment.EffectId))
+            throw Failure(assignment.ClauseReference, "Operation identity is outside its grounded effect domain.");
+        if (assignment.ResolutionOrigin == "model")
+        {
+            var scope = DeriveScopes(state).Single(s => s.Evidence!.Id == evidence.Id);
+            var identities = assignment.Effect.Candidates.Select(a => CanonicalId(state, a, assignment.Kind, assignment.BaselineReference)).Order(StringComparer.Ordinal).ToArray();
+            var decision = IdentityDecision(state, scope, assignment.Effect, identities);
+            var values = PlanningDecisionPages.ReadCompleted(state, "intent_operations", "$plan", [decision]);
+            if (values[decision.Id]?.ToString() != assignment.EffectId)
+                throw Failure(assignment.ClauseReference, "The selected occurrence differs from its completed canonical-ID decision.");
+        }
+        else if (assignment.Effect.Candidates.Count != 1 && assignment.Effect.Contribution != "shared_rule")
+            throw Failure(assignment.ClauseReference, "Multiple proven identities require a bounded selection.");
         var reference = state.References.Single(r => r.Id == assignment.ActionReference);
         var source = PlanningIntentAssessment.IntentSources(state).Single(s => s.Id == reference.SourceId);
         if (source.Authority == PlanningSourceAuthority.RequestedBehavior && assignment.BaselineReference is null) return;

@@ -423,3 +423,9 @@ stops the sequence; no replacement case or Stage 1 is authorized.
 their original schemas and attempts admission with receipt-only transport. Changed proofs
 or requests stop replay. It neither updates archived snapshots/budgets nor substitutes
 synthetic responses for receipts.
+
+## Offline effect-proof replay
+
+`audit-runtime-admission <case-id>` validates retained requests against their original schemas and runs receipt-only replay using the archived model metadata. Changed scopes stop at missing evidence; there is no provider fallback or archive write.
+
+`audit-effect-fixture schema5-operation-necessity-diagnostics-1:local` applies explicitly synthetic effect/dataflow assignments to a copy of retained interpretation and canonical declaration fixtures. It exercises production request builders and validation, reports effect-grounding and occurrence-selection decisions separately, and verifies restart plus unchanged archived checkpoint/budget. It neither starts a diagnostic campaign nor claims live semantic convergence. See [offline effect proof results](../../docs/planner-operation-effects.md).

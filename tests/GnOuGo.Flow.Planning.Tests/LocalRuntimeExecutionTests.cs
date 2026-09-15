@@ -30,6 +30,7 @@ public sealed class LocalRuntimeExecutionTests
         PlanningFixtures.Runtime(state, PlanningOperations.SourceScopes(state).Single(s => s.Source.Id == "request").Clause);
         PlanningDeclarations.Commit(state, [], PlanningDeclarations.EvidenceFingerprint(state));
         var runtime = new TypedPlannerTests.FakeRuntime { OnCall = (_, _, _) => throw new InvalidOperationException("Unexpected model call.") };
+        OperationEffectFixtures.Seed(state);
         await PlanningOperations.ResolveAsync(state, runtime, ct);
         var operation = Assert.Single(state.Obligations);
         state.Preparation = TypedPlannerTests.Preparation(); state.Preparation.Capabilities = [new() { Id = "local", Resolution = "local", StepType = "set", Required = true, OperationIds = [operation.Id] }];

@@ -25,6 +25,11 @@ public sealed class OperationAdmissionTests
         var value = PlanningOperations.SealRuntime(state, new("", source.Id, source.Id, role, null, null, null, null, null, null, null, PlanningOperationNecessity.Unspecified, ""));
         state.RuntimeEvidence.Add(value); PlanningFixtures.EmptyRuntime(state); return value;
     }
+    private static Task ResolveGrounded(PlanningSnapshot state, IPlanningRuntime runtime, CancellationToken ct)
+    {
+        if (state.OperationAdmissionFingerprint is null) OperationEffectFixtures.Seed(state);
+        return PlanningOperations.ResolveAsync(state, runtime, ct);
+    }
     private static TypedPlannerTests.FakeRuntime NoModel() => new() { OnCall = (_, _, _) => throw new InvalidOperationException("No semantic decision is unresolved.") };
     private static void Replace(PlanningSnapshot state, PlanningRuntimeEvidence before, PlanningRuntimeEvidence after)
     { state.RuntimeEvidence.Remove(before); state.RuntimeEvidence.Add(PlanningOperations.SealRuntime(state, after)); PlanningFixtures.EmptyRuntime(state); }
@@ -38,7 +43,7 @@ public sealed class OperationAdmissionTests
         var state = State(text);
         var hint = PolicyGroundingTests.Add(state, "request", text, "hint", "workflow_policy");
         Add(state, 0); var runtime = NoModel();
-        await PlanningOperations.ResolveAsync(state, runtime, Ct);
+        await ResolveGrounded(state, runtime, Ct);
         var operation = Assert.Single(state.Obligations, PlanningSourceDecisions.IsOperation);
         Assert.Equal("local_processing", operation.Kind); Assert.Contains(hint, state.Obligations);
         PlanningOperations.RequireExecutableIntent(state); Assert.Empty(runtime.Requests);
@@ -63,7 +68,7 @@ public sealed class OperationAdmissionTests
     public async Task NonExecutableEvidenceIsNeverAnOperationQuestion(string text, string role)
     {
         var state = State(text); Exclude(state, 0, role); var runtime = NoModel();
-        await PlanningOperations.ResolveAsync(state, runtime, Ct);
+        await ResolveGrounded(state, runtime, Ct);
         Assert.Empty(PlanningOperations.Scopes(state)); Assert.Empty(runtime.Requests);
         Assert.Equal("INTENT_OPERATION_UNRESOLVED", Assert.Throws<WorkflowRuntimeException>(() => PlanningOperations.RequireExecutableIntent(state)).Code);
     }
@@ -75,7 +80,7 @@ public sealed class OperationAdmissionTests
         var root = Add(state, 0); Add(state, 1, evidenceRole: "governing"); Add(state, 2, evidenceRole: "governing");
         var condition = PolicyGroundingTests.Add(state, "request", "When accepted choose the upper category.", "condition", "runtime_condition");
         var fallback = PolicyGroundingTests.Add(state, "request", "Otherwise choose the lower category.", "fallback", "runtime_fallback");
-        var runtime = NoModel(); await PlanningOperations.ResolveAsync(state, runtime, Ct);
+        var runtime = NoModel(); await ResolveGrounded(state, runtime, Ct);
         var operation = Assert.Single(state.Obligations, PlanningSourceDecisions.IsOperation);
         Assert.Equal(3, operation.OperationAdmission!.Assignments.Count); Assert.Contains(condition, state.Obligations); Assert.Contains(fallback, state.Obligations); Assert.Empty(runtime.Requests);
     }
@@ -85,7 +90,7 @@ public sealed class OperationAdmissionTests
     {
         var state = State("Read the requested item. Classify the loaded item. Create a temporary resource. Delete the owned temporary resource.");
         Add(state, 0, "external_read"); Add(state, 1); Add(state, 2, "resource_lifecycle", resourceAction: "create"); Add(state, 3, "cleanup", resourceAction: "delete");
-        await PlanningOperations.ResolveAsync(state, NoModel(), Ct);
+        await ResolveGrounded(state, NoModel(), Ct);
         var ops = state.Obligations.Where(PlanningSourceDecisions.IsOperation).ToArray(); Assert.Equal(4, ops.Length);
         var read = ops.Single(o => o.Kind == "external_read"); var local = ops.Single(o => o.Kind == "local_processing");
         state.ObligationRelations = [new(read.Id, local.Id, "data")];
@@ -115,7 +120,7 @@ public sealed class OperationAdmissionTests
     public async Task IncompatibleLifecycleProofFailsClosed(string kind, string? action)
     {
         var state = State("Perform the requested action."); Add(state, 0, kind, resourceAction: action);
-        await Assert.ThrowsAsync<WorkflowRuntimeException>(() => PlanningOperations.ResolveAsync(state, NoModel(), Ct));
+        await Assert.ThrowsAsync<WorkflowRuntimeException>(() => ResolveGrounded(state, NoModel(), Ct));
         Assert.DoesNotContain(state.Obligations, PlanningSourceDecisions.IsOperation);
     }
 
@@ -123,7 +128,7 @@ public sealed class OperationAdmissionTests
     public async Task PlanningArtifactCannotSatisfyResourceOwnership()
     {
         var state = State("Create one reusable workflow."); Exclude(state, 0, "planning_directive"); Add(state, 0, "resource_lifecycle", resourceAction: "create");
-        await Assert.ThrowsAsync<WorkflowRuntimeException>(() => PlanningOperations.ResolveAsync(state, NoModel(), Ct));
+        await Assert.ThrowsAsync<WorkflowRuntimeException>(() => ResolveGrounded(state, NoModel(), Ct));
     }
 
     [Fact]
@@ -134,10 +139,10 @@ public sealed class OperationAdmissionTests
         var id = PlanningSourceGroundingRules.BaselineNodes(state).Single().Key;
         var evidence = PlanningFixtures.Runtime(state, scope.Clause, baseline: id);
         PlanningDeclarations.Commit(state, [], PlanningDeclarations.EvidenceFingerprint(state));
-        await PlanningOperations.ResolveAsync(state, NoModel(), Ct);
+        await ResolveGrounded(state, NoModel(), Ct);
         Assert.Equal(id, Assert.Single(state.Obligations).OperationAdmission!.BaselineReference);
         Replace(state, evidence, evidence with { BaselineReference = "foreign" }); state.OperationAdmissionFingerprint = null; state.Obligations.Clear();
-        await Assert.ThrowsAsync<WorkflowRuntimeException>(() => PlanningOperations.ResolveAsync(state, NoModel(), Ct));
+        await Assert.ThrowsAsync<WorkflowRuntimeException>(() => ResolveGrounded(state, NoModel(), Ct));
     }
 
     [Theory]
@@ -155,14 +160,14 @@ public sealed class OperationAdmissionTests
         if (defect == "execution_scope") state.RuntimeEvidence[0] = evidence with { ExecutionScope = PlanningRuntimeExecutionScope.PlanningArtifact };
         if (defect == "origin") state.RuntimeEvidence[0] = evidence with { Origin = PlanningRuntimeEvidenceOrigin.Unknown };
         if (defect is "execution_scope" or "origin") state.RuntimeEvidenceFingerprint = PlanningOperations.RuntimeFingerprint(state);
-        await Assert.ThrowsAsync<WorkflowRuntimeException>(() => PlanningOperations.ResolveAsync(state, NoModel(), Ct));
+        await Assert.ThrowsAsync<WorkflowRuntimeException>(() => ResolveGrounded(state, NoModel(), Ct));
     }
 
     [Fact]
     public async Task RuntimeKindIsIndependentOfPreliminaryHint()
     {
         var state = State("Transform the provided record."); PolicyGroundingTests.Add(state, "request", state.Request.Prompt, "wrong", "resource_lifecycle"); Add(state, 0);
-        await PlanningOperations.ResolveAsync(state, NoModel(), Ct);
+        await ResolveGrounded(state, NoModel(), Ct);
         Assert.Equal("local_processing", Assert.Single(state.Obligations, PlanningSourceDecisions.IsOperation).Kind);
     }
 
@@ -176,7 +181,7 @@ public sealed class OperationAdmissionTests
         var declarationProof = state.DeclarationFingerprint;
         var rule = state.Obligations.Single(o => o.Kind == "workflow_policy" && PlanningSourceDecisions.Text(state, o).StartsWith("Classify as", StringComparison.Ordinal));
         PlanningFixtures.Runtime(state, state.References.Single(r => r.Id == rule.Grounding!.ClauseReference));
-        var runtime = NoModel(); await PlanningOperations.ResolveAsync(state, runtime, Ct);
+        var runtime = NoModel(); await ResolveGrounded(state, runtime, Ct);
         PlanningDeclarations.RequireCurrent(state); Assert.Equal(declarationProof, state.DeclarationFingerprint);
         var op = Assert.Single(state.Obligations, PlanningSourceDecisions.IsOperation);
         state.Preparation = TypedPlannerTests.Preparation();
@@ -189,7 +194,7 @@ public sealed class OperationAdmissionTests
         Assert.False(threshold.Required); Assert.Equal(100m, PlanningDeclarations.Default(state, threshold)!.Number);
         Assert.Empty(PlanningDeclarations.ValidateBehavior(state, behavior)); Assert.Empty(runtime.Requests);
         var restarted = JsonSerializer.Deserialize(JsonSerializer.Serialize(state, PlanningJsonContext.Default.PlanningSnapshot), PlanningJsonContext.Default.PlanningSnapshot)!;
-        await PlanningOperations.ResolveAsync(restarted, NoModel(), Ct);
+        await ResolveGrounded(restarted, NoModel(), Ct);
         Assert.Equal(state.OperationAdmissionFingerprint, restarted.OperationAdmissionFingerprint); Assert.Equal(state.RequestAccounting.Count, restarted.RequestAccounting.Count);
     }
 
@@ -202,14 +207,11 @@ public sealed class OperationAdmissionTests
         {
             Assert.Equal("intent_operations", phase); var field = request.StructuredOutputSchema!["properties"]!.AsObject().Single();
             Assert.DoesNotContain("external_write", field.Value!.ToJsonString()); Assert.DoesNotContain("resource_lifecycle", field.Value.ToJsonString());
-            var attachment = field.Value["anyOf"]!.AsArray().FirstOrDefault(v => v?["properties"]?["targets"] is not null);
-            var answer = attachment is null ? new JsonObject { ["status"] = "distinct" }
-                : new JsonObject { ["status"] = "attach", ["targets"] = new JsonArray(attachment["properties"]!["targets"]!["items"]!["enum"]![0]!.DeepClone()) };
-            return Task.FromResult(new LLMResponse { Json = new JsonObject { [field.Key] = answer }, CompletionStatus = "completed" });
+            return Task.FromResult(new LLMResponse { Json = new JsonObject { [field.Key] = field.Value["enum"]![0]!.DeepClone() }, CompletionStatus = "completed" });
         } };
-        await PlanningOperations.ResolveAsync(state, runtime, Ct); Assert.Equal(2, runtime.Requests.Count);
+        await ResolveGrounded(state, runtime, Ct); Assert.Single(runtime.Requests);
         var restored = JsonSerializer.Deserialize(JsonSerializer.Serialize(state, PlanningJsonContext.Default.PlanningSnapshot), PlanningJsonContext.Default.PlanningSnapshot)!;
-        await PlanningOperations.ResolveAsync(restored, NoModel(), Ct); Assert.Equal(state.OperationAdmissionFingerprint, restored.OperationAdmissionFingerprint);
+        await ResolveGrounded(restored, NoModel(), Ct); Assert.Equal(state.OperationAdmissionFingerprint, restored.OperationAdmissionFingerprint);
     }
     [Fact]
     public async Task MultipleActionsInOneClauseRemainDistinct()
@@ -219,7 +221,7 @@ public sealed class OperationAdmissionTests
         var read = scope.Select("b0", "b3"); var local = scope.Select("b4", "b7");
         state.References.AddRange([read, local]);
         PlanningFixtures.Runtime(state, read, "external_read"); PlanningFixtures.Runtime(state, local);
-        await PlanningOperations.ResolveAsync(state, NoModel(), Ct);
+        await ResolveGrounded(state, NoModel(), Ct);
         Assert.Equal(2, state.Obligations.Count(PlanningSourceDecisions.IsOperation));
     }
 
@@ -234,7 +236,7 @@ public sealed class OperationAdmissionTests
         var scope = PlanningOperations.SourceScopes(state).Single(s => s.Source.Id == "request");
         var action = scope.Select("b3", "b7"); state.References.Add(action);
         PlanningFixtures.Runtime(state, action);
-        await PlanningOperations.ResolveAsync(state, NoModel(), Ct);
+        await ResolveGrounded(state, NoModel(), Ct);
         Assert.Equal("local_processing", Assert.Single(state.Obligations, PlanningSourceDecisions.IsOperation).Kind);
         Assert.Contains(state.RuntimeEvidence, e => e.ClauseReference == scope.Clause.Id && e.Role == "contract");
         Assert.Equal(declarationProof, state.DeclarationFingerprint); PlanningDeclarations.RequireCurrent(state);
@@ -246,7 +248,7 @@ public sealed class OperationAdmissionTests
         var state = State("Transform a value. Preserve its source."); Add(state, 0);
         state.RuntimeEvidence.RemoveAll(e => e.ClauseReference == PlanningOperations.SourceScopes(state)[1].Clause.Id);
         state.RuntimeEvidenceFingerprint = PlanningOperations.RuntimeFingerprint(state);
-        await Assert.ThrowsAsync<WorkflowRuntimeException>(() => PlanningOperations.ResolveAsync(state, NoModel(), Ct));
+        await Assert.ThrowsAsync<WorkflowRuntimeException>(() => ResolveGrounded(state, NoModel(), Ct));
         Assert.Empty(state.Obligations);
     }
 
@@ -257,7 +259,7 @@ public sealed class OperationAdmissionTests
     [InlineData("historical_version")]
     public async Task AdmissionCannotBeTransferredOrReusedWithStaleProof(string defect)
     {
-        var state = State("Transform a record."); Add(state, 0); await PlanningOperations.ResolveAsync(state, NoModel(), Ct);
+        var state = State("Transform a record."); Add(state, 0); await ResolveGrounded(state, NoModel(), Ct);
         if (defect == "fingerprint") state.OperationAdmissionFingerprint = null;
         if (defect == "tenant") state.Request.TenantId = "other";
         if (defect == "source") state.Request.Prompt += " Revised.";
@@ -275,8 +277,8 @@ public sealed class OperationAdmissionTests
             return Task.FromResult(new LLMResponse { Json = new JsonObject(request.StructuredOutputSchema!["properties"]!.AsObject().Select(p =>
                 new KeyValuePair<string, JsonNode?>(p.Key, p.Value!["enum"]![1]!.DeepClone()))) });
         } };
-        await PlanningOperations.ResolveAsync(state, runtime, Ct); Assert.Empty(state.Obligations);
-        var calls = runtime.Requests.Count; await PlanningOperations.ResolveAsync(PlanningContext.Clone(state), runtime, Ct); Assert.Equal(calls, runtime.Requests.Count);
+        await ResolveGrounded(state, runtime, Ct); Assert.Empty(state.Obligations);
+        var calls = runtime.Requests.Count; await ResolveGrounded(PlanningContext.Clone(state), runtime, Ct); Assert.Equal(calls, runtime.Requests.Count);
     }
 
     [Fact]
@@ -284,7 +286,7 @@ public sealed class OperationAdmissionTests
     {
         var state = State("Read a value. Transform it."); Add(state, 0, "external_read"); Add(state, 1);
         using var cancellation = new CancellationTokenSource(); await cancellation.CancelAsync();
-        await Assert.ThrowsAsync<OperationCanceledException>(() => PlanningOperations.ResolveAsync(state, NoModel(), cancellation.Token)); Assert.Empty(state.Obligations);
+        await Assert.ThrowsAsync<OperationCanceledException>(() => ResolveGrounded(state, NoModel(), cancellation.Token)); Assert.Empty(state.Obligations);
     }
 
     [Fact]
@@ -294,7 +296,7 @@ public sealed class OperationAdmissionTests
         var root = Add(state, 0); Add(state, 1); Add(state, 2, evidenceRole: "governing");
         state.Intent.Checked = true;
         var runtime = new TypedPlannerTests.FakeRuntime();
-        runtime.OnPrepareSnapshot = async snapshot => { await PlanningOperations.ResolveAsync(snapshot, runtime, Ct); return TypedPlannerTests.Preparation(); };
+        runtime.OnPrepareSnapshot = async snapshot => { await ResolveGrounded(snapshot, runtime, Ct); return TypedPlannerTests.Preparation(); };
         runtime.OnCall = (_, _, _) => throw new LLMClientException(LLMClientFailureKind.Transport, "Synthetic unavailable receipt.", true);
         var planner = new TypedWorkflowPlanner();
         state = await planner.AdvanceAsync(state, new() { ExpectedRevision = state.Revision }, runtime, Ct);

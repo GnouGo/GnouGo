@@ -1,3 +1,4 @@
+using GnOuGo.Flow.Planning.Tests;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using System.Security.Cryptography;
@@ -264,8 +265,16 @@ sealed class SmokeRuntime(PlanningGraph graph, PlanningPreparation preparation) 
             ["runtime"] = new JsonArray(new JsonObject { ["role"] = "local_behavior", ["kind"] = "local_processing", ["action"] = Span(),
                 ["execution"] = "generated_workflow", ["evidence"] = "action", ["necessity"] = new JsonObject { ["state"] = "unspecified", ["evidence"] = null }, ["baseline"] = null }) });
     }));
-    private static JsonObject OperationResponse(LLMRequest request) => new(request.StructuredOutputSchema!["properties"]!.AsObject().Select(p =>
-        new KeyValuePair<string, JsonNode?>(p.Key, new JsonObject { ["status"] = "same_as", ["target"] = p.Value!["anyOf"]!.AsArray().Single(v => v?["properties"]?["target"] is not null)!["properties"]!["target"]!["enum"]![0]!.DeepClone() })));
+    private JsonObject OperationResponse(LLMRequest request)
+    {
+        var state = _snapshot!;
+        var first = PlanningOperations.Scopes(state).First(s => s.Evidence!.EvidenceRole == "action");
+        var targets = PlanningOperations.EffectDomain(state, first.Evidence!);
+        var target = targets.FirstOrDefault(p => p.Value.BoundaryKind == "result_realization").Key ??
+            targets.Single(p => p.Value.BoundaryReference == first.Evidence!.ActionReference).Key;
+        return new(request.StructuredOutputSchema!["properties"]!.AsObject().Select(p => new KeyValuePair<string, JsonNode?>(p.Key,
+            OperationEffectFixtures.Answer(state, PlanningOperations.Scopes(state).Single(s => PlanningOperations.EffectDecisionId(s.Evidence!) == p.Key), [target]))));
+    }
     private JsonObject DeclarationResponse(LLMRequest request)
     {
         // Synthetic semantic response for this smoke's explicitly named message.

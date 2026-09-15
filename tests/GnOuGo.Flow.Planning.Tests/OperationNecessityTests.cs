@@ -21,17 +21,14 @@ public sealed class OperationNecessityTests
         return value;
     }
 
-    private static TypedPlannerTests.FakeRuntime Identity(string status = "same_as") => new() { OnCall = (phase, request, _) =>
+    private static TypedPlannerTests.FakeRuntime Identity(PlanningSnapshot state, string status = "same_as")
     {
-        Assert.Equal("intent_operations", phase);
-        var field = request.StructuredOutputSchema!["properties"]!.AsObject().Single();
-        var alternatives = field.Value!["anyOf"]!.AsArray();
-        var target = alternatives.Single(v => v?["properties"]?["target"] is not null)!["properties"]!["target"]!["enum"]![0]!;
-        var value = new JsonObject { ["status"] = status };
-        if (status == "same_as") value["target"] = target.DeepClone();
-        Assert.DoesNotContain("necessity", request.StructuredOutputSchema.ToJsonString());
-        return Task.FromResult(new LLMResponse { Json = new JsonObject { [field.Key] = value }, CompletionStatus = "completed" });
-    } };
+        var first = PlanningOperations.Scopes(state).First(s => s.Evidence!.EvidenceRole == "action");
+        var target = PlanningOperations.EffectDomain(state, first.Evidence!).First(p => p.Value.BoundaryReference == first.Evidence!.ActionReference).Key;
+        OperationEffectFixtures.Seed(state, scope => OperationEffectFixtures.Answer(state, scope,
+            status == "distinct" && scope.Evidence!.EvidenceRole == "action" ? null : [target]));
+        return NoModel();
+    }
     private static TypedPlannerTests.FakeRuntime NoModel() => new() { OnCall = (_, _, _) => throw new InvalidOperationException("Unexpected dispatch.") };
 
     [Theory]
@@ -42,11 +39,11 @@ public sealed class OperationNecessityTests
     {
         var state = OperationAdmissionTests.State("Transform the supplied value. The transformation is explicitly requested with its necessity stated here.");
         var first = Add(state, 0, PlanningOperationNecessity.Unspecified); Add(state, 1, second);
-        var runtime = Identity(); await PlanningOperations.ResolveAsync(state, runtime, Ct);
+        var runtime = Identity(state); await PlanningOperations.ResolveAsync(state, runtime, Ct);
         var operation = Assert.Single(state.Obligations, PlanningSourceDecisions.IsOperation);
         Assert.Equal(required, operation.Required); Assert.Equal(2, operation.OperationAdmission!.Assignments.Count);
-        Assert.Equal(PlanningOperations.CanonicalId(state, state.References.Single(r => r.Id == first.ActionReference), null), operation.Id);
-        Assert.Single(runtime.Requests); Assert.Empty(state.RepairAllowances);
+        Assert.Equal(PlanningOperations.EffectDomain(state, first).Single(p => p.Value.BoundaryReference == first.ActionReference).Key, operation.Id);
+        Assert.Empty(runtime.Requests); Assert.Empty(state.RepairAllowances);
         PlanningOperations.RequireCurrent(state);
     }
 
@@ -58,10 +55,10 @@ public sealed class OperationNecessityTests
         var state = OperationAdmissionTests.State("This transformation is mandatory. The same transformation is optional.");
         Add(state, 0, reversed ? PlanningOperationNecessity.Optional : PlanningOperationNecessity.Required);
         Add(state, 1, reversed ? PlanningOperationNecessity.Required : PlanningOperationNecessity.Optional);
-        var runtime = Identity();
+        var runtime = Identity(state);
         var error = await Assert.ThrowsAsync<WorkflowRuntimeException>(() => PlanningOperations.ResolveAsync(state, runtime, Ct));
         Assert.Equal("INTENT_OPERATION_UNRESOLVED", error.Code); Assert.NotNull(error.Details?["location"]);
-        Assert.Single(runtime.Requests); Assert.Null(state.OperationAdmissionFingerprint);
+        Assert.Empty(runtime.Requests); Assert.Null(state.OperationAdmissionFingerprint);
         Assert.DoesNotContain(state.Obligations, PlanningSourceDecisions.IsOperation);
         Assert.Empty(state.RepairAllowances);
     }
@@ -71,7 +68,7 @@ public sealed class OperationNecessityTests
     {
         var state = OperationAdmissionTests.State("The first transformation is mandatory. The second transformation is optional.");
         Add(state, 0, PlanningOperationNecessity.Required); Add(state, 1, PlanningOperationNecessity.Optional);
-        await PlanningOperations.ResolveAsync(state, Identity("distinct"), Ct);
+        await PlanningOperations.ResolveAsync(state, Identity(state, "distinct"), Ct);
         var operations = state.Obligations.Where(PlanningSourceDecisions.IsOperation).ToArray();
         Assert.Equal(2, operations.Length); Assert.Single(operations, o => o.Required); Assert.Single(operations, o => !o.Required);
     }
@@ -83,7 +80,7 @@ public sealed class OperationNecessityTests
     public async Task ExternalReadUsesTheSameNecessityRules(PlanningOperationNecessity necessity, bool required)
     {
         var state = OperationAdmissionTests.State("Read the external value with the declared necessity."); Add(state, 0, necessity, kind: "external_read");
-        await PlanningOperations.ResolveAsync(state, NoModel(), Ct);
+        await PlanningOperations.ResolveAsync(state, Identity(state), Ct);
         var operation = Assert.Single(state.Obligations, PlanningSourceDecisions.IsOperation);
         Assert.Equal("external_read", operation.Kind); Assert.Equal(required, operation.Required);
     }
@@ -94,7 +91,7 @@ public sealed class OperationNecessityTests
         var state = OperationAdmissionTests.State("Reading is required to implement this workflow. Perform the read only when enabled.");
         Add(state, 0, PlanningOperationNecessity.Required, kind: "external_read");
         Add(state, 1, PlanningOperationNecessity.Unspecified, "governing", "external_read");
-        await PlanningOperations.ResolveAsync(state, NoModel(), Ct);
+        await PlanningOperations.ResolveAsync(state, Identity(state), Ct);
         var operation = Assert.Single(state.Obligations, PlanningSourceDecisions.IsOperation);
         Assert.True(operation.Required); Assert.Equal("attach", operation.OperationAdmission!.Assignments[1].Disposition);
     }
@@ -106,7 +103,7 @@ public sealed class OperationNecessityTests
     {
         var state = OperationAdmissionTests.State("Transform the value. This rule governs the transformation.");
         Add(state, 0, PlanningOperationNecessity.Unspecified); Add(state, 1, governing, "governing");
-        await PlanningOperations.ResolveAsync(state, NoModel(), Ct);
+        await PlanningOperations.ResolveAsync(state, Identity(state), Ct);
         Assert.Equal(required, Assert.Single(state.Obligations, PlanningSourceDecisions.IsOperation).Required);
     }
 
@@ -115,20 +112,20 @@ public sealed class OperationNecessityTests
     {
         var state = OperationAdmissionTests.State("The transformation is optional. When performed use these rules.");
         Add(state, 0, PlanningOperationNecessity.Optional); Add(state, 1, PlanningOperationNecessity.Unspecified, "governing");
-        await PlanningOperations.ResolveAsync(state, NoModel(), Ct);
+        await PlanningOperations.ResolveAsync(state, Identity(state), Ct);
         Assert.False(Assert.Single(state.Obligations, PlanningSourceDecisions.IsOperation).Required);
     }
 
     [Fact]
-    public async Task CompletedIdentityReceiptRestoresNecessityProofWithoutDispatch()
+    public async Task CompletedSyntheticEffectPagesRestoreNecessityProofWithoutDispatch()
     {
         var state = OperationAdmissionTests.State("Transform the value. That transformation is optional. Apply the declared rules.");
         Add(state, 0, PlanningOperationNecessity.Unspecified); Add(state, 1, PlanningOperationNecessity.Optional); Add(state, 2, PlanningOperationNecessity.Unspecified, "governing");
-        PlanningSnapshot? checkpoint = null; var runtime = Identity();
+        PlanningSnapshot? checkpoint = null; var runtime = Identity(state);
         runtime.OnCheckpoint = snapshot =>
         {
             if (checkpoint is null && snapshot.DecisionPages.Any(p => p.Status == "completed"))
-            { checkpoint = PlanningContext.Clone(snapshot); throw new OperationCanceledException("Synthetic crash after completed identity receipt."); }
+            { checkpoint = PlanningContext.Clone(snapshot); throw new OperationCanceledException("Synthetic crash after completed fixture pages."); }
             return Task.CompletedTask;
         };
         await Assert.ThrowsAsync<OperationCanceledException>(() => PlanningOperations.ResolveAsync(state, runtime, Ct));
@@ -138,7 +135,7 @@ public sealed class OperationNecessityTests
         var restored = JsonSerializer.Deserialize(JsonSerializer.Serialize(checkpoint, PlanningJsonContext.Default.PlanningSnapshot), PlanningJsonContext.Default.PlanningSnapshot)!;
         await PlanningOperations.ResolveAsync(restored, NoModel(), Ct);
         Assert.Equal(checkpoint.OperationAdmissionFingerprint, restored.OperationAdmissionFingerprint);
-        Assert.Equal(page, Assert.Single(restored.DecisionPages).Id); Assert.Single(restored.RequestAccounting); Assert.Empty(restored.RepairAllowances);
+        Assert.Equal(page, Assert.Single(restored.DecisionPages).Id); Assert.Empty(restored.RequestAccounting); Assert.Empty(restored.RepairAllowances);
         var operation = Assert.Single(restored.Obligations, PlanningSourceDecisions.IsOperation);
         restored.Obligations.Remove(operation); restored.Obligations.Add(operation with { Required = true });
         Assert.Throws<WorkflowRuntimeException>(() => PlanningOperations.RequireCurrent(restored));
@@ -226,11 +223,11 @@ public sealed class OperationNecessityTests
         }
         PlanningFixtures.EmptyRuntime(state);
         PlanningDeclarations.Commit(state, state.DeclarationAssignments, PlanningDeclarations.EvidenceFingerprint(state));
-        var declarations = state.DeclarationFingerprint; var runtime = Identity();
+        var declarations = state.DeclarationFingerprint; var runtime = Identity(state);
         await PlanningOperations.ResolveAsync(state, runtime, Ct);
         var operation = Assert.Single(state.Obligations, PlanningSourceDecisions.IsOperation);
         Assert.True(operation.Required); Assert.Equal("local_processing", operation.Kind);
-        Assert.Equal(3, operation.OperationAdmission!.Assignments.Count(a => a.Disposition == "attach")); Assert.Single(runtime.Requests);
+        Assert.Equal(3, operation.OperationAdmission!.Assignments.Count(a => a.Disposition == "attach")); Assert.Empty(runtime.Requests);
         Assert.Single(PlanningOperations.DeclarationExclusions(state)); Assert.Equal(declarations, state.DeclarationFingerprint);
         Assert.Equal(["record", "threshold"], state.Declarations.Where(d => d.Direction == "input").Select(d => PlanningDeclarations.Name(state, d)).Order(StringComparer.Ordinal));
         Assert.Equal("classifiedResult", PlanningDeclarations.Name(state, Assert.Single(state.Declarations, d => d.Direction == "output")));
