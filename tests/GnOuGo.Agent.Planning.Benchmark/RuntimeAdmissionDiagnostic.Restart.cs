@@ -24,6 +24,12 @@ internal static partial class RuntimeAdmissionDiagnostic
             throw new InvalidOperationException("Read-only restart changed proof or accounting.");
         return new() { ["passed"] = true, ["providerCalls"] = transport.Calls, ["checkpointWrites"] = checkpoints,
             ["snapshotFingerprint"] = before, ["admissionFingerprint"] = restored.OperationAdmissionFingerprint,
+            ["operationIds"] = new JsonArray(restored.Obligations.Where(o => o.OperationAdmission is not null)
+                .OrderBy(o => o.Id, StringComparer.Ordinal).Select(o => (JsonNode?)JsonValue.Create(o.Id)).ToArray()),
+            ["contributionProofVersions"] = new JsonArray(PlanningOperations.ReadContributions(restored).Select(p => p.Version)
+                .Distinct().Select(v => (JsonNode?)JsonValue.Create(v)).ToArray()),
+            ["effectProofVersions"] = new JsonArray(restored.Obligations.Where(o => o.OperationAdmission is not null)
+                .SelectMany(o => o.OperationAdmission!.Assignments).Select(a => a.Effect!.Version).Distinct().Select(v => (JsonNode?)JsonValue.Create(v)).ToArray()),
             ["admissionProofVersions"] = new JsonArray(restored.Obligations.Where(o => o.OperationAdmission is not null)
                 .Select(o => o.OperationAdmission!.Version).Distinct().Select(v => (JsonNode?)JsonValue.Create(v)).ToArray()),
             ["contributionFingerprints"] = new JsonArray(PlanningOperations.ReadContributions(restored).Select(p => (JsonNode?)JsonValue.Create(p.ProofFingerprint)).ToArray()),

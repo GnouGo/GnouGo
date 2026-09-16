@@ -204,6 +204,44 @@ public sealed class RuntimeAdmissionDiagnosticTests
     }
 
     [Theory]
+    [InlineData("governs", true)]
+    [InlineData("supports", false)]
+    [InlineData("both", false)]
+    [InlineData("missing", false)]
+    [InlineData("partial", false)]
+    public void PropertyEvidenceCannotQualifyAsSupportEvenWhenAlsoGoverning(string role, bool accepted)
+    {
+        var state = new PlanningSnapshot(); state.Request.Prompt = "Execute task. Deterministic local processing.";
+        var start = state.Request.Prompt.IndexOf("Deterministic", StringComparison.Ordinal);
+        var length = state.Request.Prompt.Length - start;
+        state.References.Add(new("action", "request", 0, "request", "source", "span", 0, 13));
+        state.References.Add(new("property", "request", 0, "request", "source", "span", start, role == "partial" ? 5 : length));
+        var operation = Operation("local", "local_processing", ["record", "threshold"], ["result"], []);
+        var admission = operation.OperationAdmission!;
+        foreach (var contributionRole in role switch { "both" => new[] { "governs", "supports" }, "missing" => [], "partial" => ["governs"], _ => [role] })
+        {
+            admission.ExecutionContributions[0].Contributions.Add(new(contributionRole, "property", contributionRole, "local",
+                contributionRole == "supports" ? "requested_result_production" : "governing_property", "result", "result", PlanningContributionOrigin.ModelQualification));
+            admission.Assignments.Add(admission.Assignments[0] with { ContributionId = contributionRole, ActionReference = "property",
+                Disposition = contributionRole == "supports" ? "supports" : "attach" });
+        }
+        void Check() => RuntimeAdmissionDiagnosticRules.RequireGoverningOnly(state, operation, "request", start, length);
+        if (accepted) Check(); else Assert.Throws<GnOuGo.Flow.Core.Expressions.WorkflowRuntimeException>(Check);
+    }
+
+    [Fact]
+    public void SeveralQualifiedExecutionSpansMaySupportOneEffect()
+    {
+        var operation = Operation("local", "local_processing", ["record", "threshold"], ["result"], []);
+        var admission = operation.OperationAdmission!;
+        admission.ExecutionContributions[0].Contributions.Add(admission.ExecutionContributions[0].Contributions[0] with { Id = "rules", EvidenceReference = "rules" });
+        admission.Assignments.Add(admission.Assignments[0] with { ContributionId = "rules", ActionReference = "rules" });
+        admission.RealizationCoverage!.Contributions.Add(new("runtime", "supports", ["local"], ["rules"]) { ContributionId = "rules" });
+        admission.RealizationCoverage.Effects[0].SupportingEvidence.Add("rules");
+        RuntimeAdmissionDiagnosticRules.RequireEffects("local", [operation], ["record", "threshold"], "result", 0);
+    }
+
+    [Theory]
     [InlineData("valid", true)]
     [InlineData("missing_dependency", false)]
     [InlineData("reverse", false)]

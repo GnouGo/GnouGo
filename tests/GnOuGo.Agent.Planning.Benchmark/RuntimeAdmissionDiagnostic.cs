@@ -86,12 +86,12 @@ internal static partial class RuntimeAdmissionDiagnostic
         var manifest = manifestRecord is null ? null : JsonNode.Parse(manifestRecord.Value)!.AsObject();
         if (command == "freeze")
         {
-            if (commit != "504c0b91e530a6fcd41794630d2407ad3c5e2413") throw new InvalidOperationException("The authorized production commit is required.");
+            if (commit != RuntimeAdmissionDiagnosticRules.ProductionCommit) throw new InvalidOperationException("The authorized production commit is required.");
             if (manifest is not null) throw new InvalidOperationException("This diagnostic has already been frozen.");
             var previousRecord = await records.GetAsync(Collection, Tenant, RuntimeAdmissionDiagnosticRules.ComparisonIdentity, Author, ct)
                 ?? throw new InvalidOperationException("The previous frozen settings are required.");
             var previousManifest = JsonNode.Parse(previousRecord.Value)!;
-            if (previousManifest["commit"]?.ToString() != "cfc058fd52183854d09b2540b9f57d1e337797f9" || !JsonNode.DeepEquals(previousManifest["model"], campaign["model"]) ||
+            if (previousManifest["commit"]?.ToString() != RuntimeAdmissionDiagnosticRules.ComparisonProductionCommit || !JsonNode.DeepEquals(previousManifest["model"], campaign["model"]) ||
                 previousManifest["transportConfigurationFingerprint"]!.ToString() != transportFingerprint ||
                 previousManifest["sourceOptionsFingerprint"]!.ToString() != comparisonOptionsFingerprint ||
                 !JsonNode.DeepEquals(previousManifest["catalogFingerprint"], campaign["stages"]![0]!["catalogHash"]))
@@ -117,7 +117,7 @@ internal static partial class RuntimeAdmissionDiagnostic
                 ["comparisonIdentity"] = RuntimeAdmissionDiagnosticRules.ComparisonIdentity,
                 ["comparisonProductionCommit"] = previousManifest["commit"]!.DeepClone(),
                 ["comparisonSourceOptionsFingerprint"] = comparisonOptionsFingerprint,
-                ["expectedConfigurationAddition"] = "None; effective typed host policy and existing options unchanged from accepted LOCAL.",
+                ["expectedConfigurationAddition"] = "None; effective typed host policy and existing options unchanged from the comparison LOCAL.",
                 ["exchangeRatePrerequisite"] = exchangeRatePrerequisite,
                 ["authorizedCases"] = new JsonArray("local"),
                 ["model"] = campaign["model"]!.DeepClone(), ["sourceOptionsFingerprint"] = PlanningGraphCompiler.Fingerprint(source.Request.Options.ToJsonString()),
@@ -130,7 +130,7 @@ internal static partial class RuntimeAdmissionDiagnostic
                 ["declarationEvidence"] = "Supplied canonical ports and exact owned attachment fixtures; no live declaration convergence claimed." };
             await records.UpsertAsync(Collection, Tenant, Identity, manifest.ToJsonString(), Author, ct); Console.WriteLine(manifest.ToJsonString()); return;
         }
-        if (manifest is null || manifest["commit"]?.ToString() != "504c0b91e530a6fcd41794630d2407ad3c5e2413" ||
+        if (manifest is null || manifest["commit"]?.ToString() != RuntimeAdmissionDiagnosticRules.ProductionCommit ||
             !JsonNode.DeepEquals(manifest["binaries"], binaries) || manifest["archiveFingerprint"]!.ToString() != archive ||
             manifest["transportConfigurationFingerprint"]!.ToString() != transportFingerprint ||
             manifest["sourceOptionsFingerprint"]!.ToString() != PlanningGraphCompiler.Fingerprint(source.Request.Options.ToJsonString()))
@@ -320,7 +320,8 @@ internal static partial class RuntimeAdmissionDiagnostic
             ["kind"] = e.Kind, ["necessity"] = e.Necessity.ToString(), ["necessityReference"] = e.NecessityReference, ["evidenceRole"] = e.EvidenceRole, ["actionReference"] = e.ActionReference,
             ["resourceReference"] = e.ResourceReference, ["clauseReference"] = e.ClauseReference, ["proofFingerprint"] = e.ProofFingerprint }).ToArray());
         var assignments = state.Obligations.Where(PlanningSourceDecisions.IsOperation).SelectMany(o => o.OperationAdmission!.Assignments).ToArray();
-        report["actionCandidates"] = state.RuntimeEvidence.Count(e => e.EvidenceRole == "action");
+        report["preliminaryExecutableCandidates"] = state.RuntimeEvidence.Count(e => e.Role is "local_behavior" or "runtime_action");
+        report["historicalEvidenceRoleAuthority"] = "none; current contribution proofs alone qualify support";
         report["canonicalOperations"] = state.OperationAdmissionFingerprint is null ? null : new JsonArray(state.Obligations.Where(PlanningSourceDecisions.IsOperation)
             .Select(o => (JsonNode)new JsonObject { ["id"] = o.Id, ["kind"] = o.Kind, ["required"] = o.Required, ["anchor"] = o.OperationAdmission!.AnchorReference,
                 ["evidence"] = new JsonArray(o.OperationAdmission.Assignments.Select(a => (JsonNode)new JsonObject

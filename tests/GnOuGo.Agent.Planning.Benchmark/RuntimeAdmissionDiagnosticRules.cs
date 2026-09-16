@@ -8,8 +8,10 @@ namespace GnOuGo.Agent.Planning.Benchmark;
 
 internal static class RuntimeAdmissionDiagnosticRules
 {
-    internal const string Identity = "schema5-realization-coverage-diagnostics-1";
-    internal const string ComparisonIdentity = "schema5-occurrence-boundaries-diagnostics-1";
+    internal const string Identity = "schema5-execution-contributions-diagnostics-1";
+    internal const string ComparisonIdentity = "schema5-realization-coverage-diagnostics-1";
+    internal const string ProductionCommit = "5617c1b9024b48f09c0baf49d5e6f146df130879";
+    internal const string ComparisonProductionCommit = "504c0b91e530a6fcd41794630d2407ad3c5e2413";
     internal const int MaxCalls = 16;
     internal static readonly string[] Cases = ["local", "mixed"];
     internal static JsonObject WithTypedPolicy(JsonObject options)
@@ -115,6 +117,30 @@ internal static class RuntimeAdmissionDiagnosticRules
                 edges[0].Origin is PlanningDependencyOrigin.DeterministicBaseline or PlanningDependencyOrigin.DeterministicInterface or PlanningDependencyOrigin.ModelSemanticSelection,
                 "DIAGNOSTIC_DEPENDENCY_MISMATCH", "Read ownership and read-to-local dataflow must be grounded before relationship assessment.");
         }
+    }
+
+    // Fixture acceptance only: inspect exact qualified subspans, not preliminary
+    // labels or whole-clause membership. Even an additional governing assignment
+    // cannot hide property evidence incorrectly qualified as executable support.
+    internal static void RequireGoverningOnly(PlanningSnapshot state, PlanningObligation operation,
+        string sourceId, int start, int length)
+    {
+        var proof = operation.OperationAdmission!;
+        var contributions = proof.ExecutionContributions.SelectMany(p => p.Contributions)
+            .Where(c => c.EffectId == operation.Id).DistinctBy(c => c.Id).ToArray();
+        PlanningReference Reference(string id) => state.References.Single(r => r.Id == id);
+        bool Overlaps(string id)
+        {
+            var r = Reference(id);
+            return r.SourceId == sourceId && r.Start < start + length && start < r.Start + r.Length;
+        }
+        var governing = contributions.Where(c => c.Role == "governs" && proof.Assignments.Any(a =>
+            a.ContributionId == c.Id && a.Disposition == "attach")).Select(c => Reference(c.EvidenceReference)).ToArray();
+        if (start < 0 || length <= 0 || contributions.Any(c => c.Role == "supports" && Overlaps(c.EvidenceReference)) ||
+            proof.Assignments.Any(a => a.Disposition == "supports" && Overlaps(a.ActionReference)) ||
+            Enumerable.Range(start, length).Any(i => !char.IsWhiteSpace(state.Request.Prompt[i]) &&
+                !governing.Any(r => r.SourceId == sourceId && r.Start <= i && i < r.Start + r.Length)))
+            throw new WorkflowRuntimeException("DIAGNOSTIC_DESCRIPTIVE_SUPPORT", "Property evidence must be completely attached as governing evidence and must not authorize executable support.");
     }
 
     internal static void RequireRelationDomain(JsonNode? schema)

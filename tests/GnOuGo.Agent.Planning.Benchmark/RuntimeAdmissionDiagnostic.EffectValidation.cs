@@ -36,6 +36,12 @@ internal static partial class RuntimeAdmissionDiagnostic
         if (name == "local" && !local.OperationAdmission.Assignments.Any(a => a.Disposition == "attach" &&
             Covers(a.ClauseReference, "This is deterministic, local, in-memory business processing.")))
             throw new WorkflowRuntimeException("DIAGNOSTIC_DESCRIPTIVE_EVIDENCE", "Descriptive local evidence must attach to the established effect.");
+        if (name == "local")
+        {
+            const string description = "This is deterministic, local, in-memory business processing.";
+            RuntimeAdmissionDiagnosticRules.RequireGoverningOnly(state, local, "request",
+                state.Request.Prompt.IndexOf(description, StringComparison.Ordinal), description.Length);
+        }
         var preservation = name == "local" ? "Preserve the original id and amount." : "preserve the loaded record's original id and amount.";
         if (!output.ModifierReferences.Any(r => Covers(r, preservation)) || operations.Any(o => Covers(o.OperationAdmission!.AnchorReference, preservation)))
             throw new WorkflowRuntimeException("DIAGNOSTIC_PRESERVATION_EFFECT", "Preservation must remain output-contract evidence, not a standalone occurrence.");
@@ -74,9 +80,9 @@ internal static partial class RuntimeAdmissionDiagnostic
                 ["coverageProofFingerprint"] = o.OperationAdmission.RealizationCoverage.ProofFingerprint,
                 ["coverageDomainFingerprint"] = o.OperationAdmission.RealizationCoverage.DomainFingerprint,
                 ["supportingContributions"] = new JsonArray(o.OperationAdmission.RealizationCoverage.Contributions
-                    .Where(c => c.Disposition == "supports" && c.Effects.Contains(o.Id)).Select(c => (JsonNode?)JsonValue.Create(c.RuntimeEvidenceId)).ToArray()),
+                    .Where(c => c.Disposition == "supports" && c.Effects.Contains(o.Id)).Select(c => (JsonNode?)JsonValue.Create(c.ContributionId)).ToArray()),
                 ["governingContributions"] = new JsonArray(o.OperationAdmission.Assignments.Where(a => a.Disposition == "attach")
-                    .Select(a => (JsonNode?)JsonValue.Create(a.RuntimeEvidenceId)).ToArray()),
+                    .Select(a => (JsonNode?)JsonValue.Create(a.ContributionId)).ToArray()),
                 ["dependencyProofVersion"] = o.OperationAdmission.Dependencies!.Version,
                 ["dependencyDomainFingerprint"] = o.OperationAdmission.Dependencies.DomainFingerprint,
                 ["dependencyProofFingerprint"] = o.OperationAdmission.Dependencies.ProofFingerprint,
@@ -93,6 +99,7 @@ internal static partial class RuntimeAdmissionDiagnostic
                 ["contributions"] = new JsonArray(o.OperationAdmission.Assignments.Select(a => (JsonNode)new JsonObject
                 { ["decisionId"] = a.Effect!.DecisionId, ["contribution"] = a.Effect.Contribution, ["origin"] = a.ResolutionOrigin, ["effectOrigin"] = a.Effect.Origin, ["evidenceFingerprint"] = a.Effect.EvidenceFingerprint,
                     ["selectedEffect"] = a.EffectId, ["governingReference"] = a.ClauseReference }).ToArray()) }).ToArray());
+        AddContributionReport(report, state);
         report["effectValidationPassed"] = report["status"]?.ToString() == "passed";
     }
 }
