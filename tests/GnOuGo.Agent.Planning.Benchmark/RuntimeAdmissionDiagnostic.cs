@@ -87,7 +87,7 @@ internal static partial class RuntimeAdmissionDiagnostic
         {
             if (commit != "2f8b177ec6076cfdedbf524bd72a01d3f1b457d7") throw new InvalidOperationException("The authorized production commit is required.");
             if (manifest is not null) throw new InvalidOperationException("This diagnostic has already been frozen.");
-            var previousRecord = await records.GetAsync(Collection, Tenant, "schema5-realized-governing-diagnostics-rerun-2", Author, ct)
+            var previousRecord = await records.GetAsync(Collection, Tenant, "schema5-realized-governing-diagnostics-rerun-3", Author, ct)
                 ?? throw new InvalidOperationException("The previous frozen settings are required.");
             var previousManifest = JsonNode.Parse(previousRecord.Value)!;
             if (!JsonNode.DeepEquals(previousManifest["model"], campaign["model"]) ||
@@ -102,7 +102,18 @@ internal static partial class RuntimeAdmissionDiagnostic
                     frozenCase["declarationFixtureHash"]!.ToString() != DeclarationFixtureHash(name))
                     throw new InvalidOperationException("A diagnostic scenario or declaration fixture changed.");
             }
+            JsonObject exchangeRatePrerequisite;
+            using (var prerequisiteHttp = new HttpClient())
+                exchangeRatePrerequisite = await CheckExchangeRateAsync(
+                    new ModelMetadataUsageCostEstimator(transport.Options).EstimateCostWithCurrency(
+                        transport.Options.DefaultModel, 1, 1, transport.Options.DefaultProvider),
+                    PlanningBudgetOptions.Parse(source.Request.Options)?.MaxEstimatedCost?.Currency,
+                    new EcbExchangeRateProvider(prerequisiteHttp), ct);
+            Console.WriteLine(new JsonObject { ["exchangeRatePrerequisite"] = exchangeRatePrerequisite.DeepClone() }.ToJsonString());
+            if (exchangeRatePrerequisite["status"]!.ToString() != "passed")
+                throw new InvalidOperationException("Currency-conversion preflight failed; LOCAL was not started.");
             manifest = new() { ["commit"] = commit, ["binaries"] = binaries, ["archiveFingerprint"] = archive,
+                ["exchangeRatePrerequisite"] = exchangeRatePrerequisite,
                 ["authorizedCases"] = new JsonArray("local"),
                 ["model"] = campaign["model"]!.DeepClone(), ["sourceOptionsFingerprint"] = PlanningGraphCompiler.Fingerprint(source.Request.Options.ToJsonString()),
                 ["transportConfigurationFingerprint"] = transportFingerprint,

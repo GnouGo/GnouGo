@@ -6,7 +6,7 @@ namespace GnOuGo.Agent.Planning.Benchmark;
 
 internal static class RuntimeAdmissionDiagnosticRules
 {
-    internal const string Identity = "schema5-realized-governing-diagnostics-rerun-3";
+    internal const string Identity = "schema5-realized-governing-diagnostics-rerun-4";
     internal const int MaxCalls = 16;
     internal static readonly string[] Cases = ["local", "mixed"];
     internal static void RequireCase(string name, JsonObject? previous)

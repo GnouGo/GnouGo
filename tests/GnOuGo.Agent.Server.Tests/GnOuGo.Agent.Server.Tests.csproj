@@ -12,6 +12,7 @@
     <Compile Include="../Shared/IntentClarificationFixture.cs" Link="IntentClarificationFixture.cs" />
     <Compile Include="../GnOuGo.Agent.Planning.Benchmark/ReceiptOnlyClient.cs" Link="Benchmark/ReceiptOnlyClient.cs" />
     <Compile Include="../GnOuGo.Agent.Planning.Benchmark/RuntimeAdmissionDiagnosticRules.cs" Link="Benchmark/RuntimeAdmissionDiagnosticRules.cs" />
+    <Compile Include="../GnOuGo.Agent.Planning.Benchmark/RuntimeAdmissionDiagnostic.Prerequisites.cs" Link="Benchmark/RuntimeAdmissionDiagnostic.Prerequisites.cs" />
     <Compile Include="../GnOuGo.Agent.Planning.Benchmark/ProgressiveRules.cs" Link="Benchmark/ProgressiveRules.cs" />
     <Compile Include="../GnOuGo.Agent.Planning.Benchmark/ProgressiveReport.cs" Link="Benchmark/ProgressiveReport.cs" />
     <Compile Include="../GnOuGo.Agent.Planning.Benchmark/SingletonOutputDiagnostic.cs" Link="Benchmark/SingletonOutputDiagnostic.cs" />

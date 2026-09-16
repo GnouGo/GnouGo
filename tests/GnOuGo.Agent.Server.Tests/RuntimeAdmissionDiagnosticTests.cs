@@ -1,11 +1,43 @@
 using System.Text.Json.Nodes;
 using GnOuGo.Agent.Planning.Benchmark;
 using GnOuGo.Flow.Core.Planning;
+using GnOuGo.Flow.Core.Runtime;
 
 namespace GnOuGo.Agent.Server.Tests;
 
 public sealed class RuntimeAdmissionDiagnosticTests
 {
+    [Theory]
+    [InlineData("valid", "passed")]
+    [InlineData("missing", "blocked")]
+    [InlineData("foreign", "blocked")]
+    [InlineData("future", "blocked")]
+    [InlineData("transport", "blocked")]
+    public async Task CurrencyPrerequisiteChecksOnceWithoutRetry(string condition, string expected)
+    {
+        var rates = new RecordingRates(condition);
+        var report = await RuntimeAdmissionDiagnostic.CheckExchangeRateAsync(new(0.01m, "USD"), "EUR", rates, TestContext.Current.CancellationToken);
+        Assert.Equal(expected, report["status"]!.ToString());
+        Assert.Equal(1, rates.Calls);
+        Assert.Equal(0, report["modelCalls"]!.GetValue<int>());
+        Assert.Equal("USD", report["sourceCurrency"]!.ToString());
+        Assert.Equal("EUR", report["targetCurrency"]!.ToString());
+        Assert.DoesNotContain("PRIVATE", report.ToJsonString());
+    }
+
+    private sealed class RecordingRates(string condition) : IExchangeRateProvider
+    {
+        public int Calls { get; private set; }
+        public ValueTask<CurrencyExchangeQuote?> GetQuoteAsync(string sourceCurrency, string targetCurrency, CancellationToken ct)
+        {
+            Calls++;
+            if (condition == "transport") throw new HttpRequestException("PRIVATE_TRANSPORT_DETAIL");
+            return ValueTask.FromResult<CurrencyExchangeQuote?>(condition == "missing" ? null : new(sourceCurrency,
+                condition == "foreign" ? "GBP" : targetCurrency, 0.9m,
+                DateTimeOffset.UtcNow.AddHours(condition == "future" ? 1 : -1), "test"));
+        }
+    }
+
     [Theory]
     [InlineData("local", null, true)]
     [InlineData("mixed", "passed", false)]
