@@ -475,3 +475,18 @@ This campaign has consumed its single start and stopped on an unverifiable
 interpretation transport failure. See the
 [LOCAL report](../../docs/planner-realized-governing-rerun-2.md). No subsequent
 gate was started; production remains frozen at `2f8b177`.
+
+## LOCAL-only admission-dependency validation
+
+The current harness identity is `schema5-admission-dependencies-diagnostics-1`,
+with production frozen at `1b5513c`. Its single LOCAL start is consumed. It stopped
+during interpretation on a schema-valid unresolved runtime role for a structural
+fragment of the supplied baseline. Admission was not reached; MIXED and Stage 1
+were not run. See the [eight-section report](../../docs/planner-admission-dependencies-local-1.md).
+
+Use `diagnose-runtime-admission report` or `audit-runtime-admission
+schema5-admission-dependencies-diagnostics-1:local` to inspect retained evidence.
+Do not resume or replace this run. The harness refuses a second start and MIXED,
+and LOCAL acceptance additionally requires no legacy effect producers, an empty
+admission dependency proof and zero dependency-model decisions. Harness builds
+must use `-p:BuildProjectReferences=false` to preserve the frozen production DLLs.

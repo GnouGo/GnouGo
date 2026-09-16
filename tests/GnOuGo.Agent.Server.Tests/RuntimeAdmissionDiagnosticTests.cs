@@ -123,13 +123,18 @@ public sealed class RuntimeAdmissionDiagnosticTests
     [InlineData("missing_input", false)]
     [InlineData("missing_output", false)]
     [InlineData("identity_call", false)]
+    [InlineData("dependency_call", false)]
+    [InlineData("dependency_edge", false)]
+    [InlineData("legacy_producer", false)]
     [InlineData("extra_operation", false)]
     public void LocalGateRequiresCompleteEffectProof(string defect, bool allowed)
     {
         var ops = new List<PlanningObligation> { Operation("local", "local_processing",
-            defect == "missing_input" ? ["record"] : ["record", "threshold"], defect == "missing_output" ? [] : ["result"], []) };
+            defect == "missing_input" ? ["record"] : ["record", "threshold"], defect == "missing_output" ? [] : ["result"], defect == "dependency_edge" ? ["local"] : []) };
+        if (defect == "legacy_producer") ops[0].OperationAdmission!.Assignments[0].Effect!.Producers.Add("local");
         if (defect == "extra_operation") ops.Add(Operation("extra", "external_write", [], [], []));
-        void Check() => RuntimeAdmissionDiagnosticRules.RequireEffects("local", ops, ["record", "threshold"], "result", defect == "identity_call" ? 1 : 0);
+        void Check() => RuntimeAdmissionDiagnosticRules.RequireEffects("local", ops, ["record", "threshold"], "result",
+            defect == "identity_call" ? 1 : 0, defect == "dependency_call" ? 1 : 0);
         if (allowed) Check(); else Assert.Throws<GnOuGo.Flow.Core.Expressions.WorkflowRuntimeException>(Check);
     }
 

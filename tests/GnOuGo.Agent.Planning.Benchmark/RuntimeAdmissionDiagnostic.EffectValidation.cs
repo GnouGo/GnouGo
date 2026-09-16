@@ -16,7 +16,9 @@ internal static partial class RuntimeAdmissionDiagnostic
         var output = state.Declarations.Single(d => d.Direction == "output" && PlanningDeclarations.Name(state, d) == "classifiedResult");
         var identityDecisions = state.DecisionPages.Where(p => p.RequestId is not null).SelectMany(p => p.Decisions)
             .Where(d => d.StartsWith("operation_", StringComparison.Ordinal)).Distinct(StringComparer.Ordinal).Count();
-        RuntimeAdmissionDiagnosticRules.RequireEffects(name, operations, inputs, output.Id, identityDecisions);
+        var dependencyDecisions = state.DecisionPages.Where(p => p.RequestId is not null).SelectMany(p => p.Decisions)
+            .Where(d => d.StartsWith("data_", StringComparison.Ordinal)).Distinct(StringComparer.Ordinal).Count();
+        RuntimeAdmissionDiagnosticRules.RequireEffects(name, operations, inputs, output.Id, identityDecisions, dependencyDecisions);
         if (state.RuntimeEvidence.Any(e => e.Role == "unresolved" || e.ExecutionScope == PlanningRuntimeExecutionScope.Unknown))
             throw new WorkflowRuntimeException("DIAGNOSTIC_RUNTIME_UNRESOLVED", "Runtime evidence remains unresolved.");
         var local = operations.Single(o => o.Kind == "local_processing");
@@ -62,6 +64,10 @@ internal static partial class RuntimeAdmissionDiagnostic
         }).ToArray());
         report["effectMappings"] = state.OperationAdmissionFingerprint is null ? null : new JsonArray(state.Obligations.Where(PlanningSourceDecisions.IsOperation).Select(o =>
             (JsonNode)new JsonObject { ["operationId"] = o.Id, ["kind"] = o.Kind, ["required"] = o.Required,
+                ["admissionProofFingerprint"] = o.OperationAdmission!.ProofFingerprint,
+                ["dependencyProofVersion"] = o.OperationAdmission.Dependencies!.Version,
+                ["dependencyDomainFingerprint"] = o.OperationAdmission.Dependencies.DomainFingerprint,
+                ["dependencyProofFingerprint"] = o.OperationAdmission.Dependencies.ProofFingerprint,
                 ["inputs"] = new JsonArray(o.OperationAdmission!.Assignments.SelectMany(a => a.Effect!.Inputs).Distinct().Select(v => (JsonNode)JsonValue.Create(v)!).ToArray()),
                 ["outputs"] = new JsonArray(o.OperationAdmission.Assignments.SelectMany(a => a.Effect!.Outputs).Distinct().Select(v => (JsonNode)JsonValue.Create(v)!).ToArray()),
                 ["producers"] = new JsonArray(o.OperationAdmission.Dependencies!.Assignments.Where(a => a.Disposition == "data").Select(a => a.Producer).Distinct().Select(v => (JsonNode)JsonValue.Create(v)!).ToArray()),

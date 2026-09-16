@@ -6,7 +6,7 @@ namespace GnOuGo.Agent.Planning.Benchmark;
 
 internal static class RuntimeAdmissionDiagnosticRules
 {
-    internal const string Identity = "schema5-realized-governing-diagnostics-rerun-4";
+    internal const string Identity = "schema5-admission-dependencies-diagnostics-1";
     internal const int MaxCalls = 16;
     internal static readonly string[] Cases = ["local", "mixed"];
     internal static void RequireCase(string name, JsonObject? previous)
@@ -32,7 +32,7 @@ internal static class RuntimeAdmissionDiagnosticRules
     }
 
     internal static void RequireEffects(string name, IReadOnlyList<PlanningObligation> operations,
-        IReadOnlyList<string> inputs, string output, int identityDecisions)
+        IReadOnlyList<string> inputs, string output, int identityDecisions, int dependencyDecisions = 0)
     {
         void Require(bool condition, string code, string message)
         { if (!condition) throw new WorkflowRuntimeException(code, message); }
@@ -42,10 +42,17 @@ internal static class RuntimeAdmissionDiagnosticRules
             "DIAGNOSTIC_ADMISSION_MISMATCH", "The frozen fixture requires exactly its declared runtime effects.");
         var local = operations.Single(o => o.Kind == "local_processing");
         var effects = local.OperationAdmission!.Assignments.Select(a => a.Effect!).ToArray();
+        Require(operations.SelectMany(o => o.OperationAdmission!.Assignments).All(a => a.Effect is { Producers.Count: 0 }),
+            "DIAGNOSTIC_LEGACY_PRODUCER_AUTHORITY", "Current effect mappings cannot select operation producers.");
         Require(effects.All(e => e is { Version: 3 }) && effects.SelectMany(e => e.Outputs).ToHashSet(StringComparer.Ordinal).SetEquals([output]),
             "DIAGNOSTIC_EFFECT_OWNERSHIP", "The transformation must produce the canonical public result.");
         var consumed = effects.SelectMany(e => e.Inputs).ToHashSet(StringComparer.Ordinal);
-        if (name == "local") Require(consumed.SetEquals(inputs), "DIAGNOSTIC_INPUT_EFFECT", "The local effect must consume both canonical business inputs.");
+        if (name == "local")
+        {
+            Require(consumed.SetEquals(inputs), "DIAGNOSTIC_INPUT_EFFECT", "The local effect must consume both canonical business inputs.");
+            Require(dependencyDecisions == 0 && local.OperationAdmission.Dependencies!.Assignments.Count == 0,
+                "DIAGNOSTIC_DEPENDENCY_DECISION", "The singleton requires an engine-established empty operation-producer set without dependency-model decisions.");
+        }
         else
         {
             var read = operations.Single(o => o.Kind == "external_read");
