@@ -8,10 +8,10 @@ namespace GnOuGo.Agent.Planning.Benchmark;
 
 internal static class RuntimeAdmissionDiagnosticRules
 {
-    internal const string Identity = "schema5-execution-contributions-diagnostics-1";
-    internal const string ComparisonIdentity = "schema5-realization-coverage-diagnostics-1";
-    internal const string ProductionCommit = "5617c1b9024b48f09c0baf49d5e6f146df130879";
-    internal const string ComparisonProductionCommit = "504c0b91e530a6fcd41794630d2407ad3c5e2413";
+    internal const string Identity = "schema5-governing-applicability-diagnostics-1";
+    internal const string ComparisonIdentity = "schema5-execution-contributions-diagnostics-1";
+    internal const string ProductionCommit = "23bce4bc842e598d19866d92d497772e1f3c0538";
+    internal const string ComparisonProductionCommit = "5617c1b9024b48f09c0baf49d5e6f146df130879";
     internal const int MaxCalls = 16;
     internal static readonly string[] Cases = ["local", "mixed"];
     internal static JsonObject WithTypedPolicy(JsonObject options)
@@ -118,6 +118,19 @@ internal static class RuntimeAdmissionDiagnosticRules
                 edges[0].Origin is PlanningDependencyOrigin.DeterministicBaseline or PlanningDependencyOrigin.DeterministicInterface or PlanningDependencyOrigin.ModelSemanticSelection,
                 "DIAGNOSTIC_DEPENDENCY_MISMATCH", "Read ownership and read-to-local dataflow must be grounded before relationship assessment.");
         }
+    }
+
+    internal static void RequireLocalApplicability(PlanningObligation local)
+    {
+        var proof = local.OperationAdmission!;
+        if (proof.Assignments.Count(a => a.Disposition == "supports") != 1 ||
+            proof.GoverningApplicability.Count == 0 ||
+            proof.GoverningApplicability.Any(p => p.Version != 1 || p.Outcome != "active" ||
+                !p.Targets.SequenceEqual([local.Id]) || string.IsNullOrEmpty(p.ProofFingerprint) ||
+                p.Origin is not (PlanningApplicabilityOrigin.ModelApplicability or PlanningApplicabilityOrigin.DeterministicOwner) ||
+                p.Origin == PlanningApplicabilityOrigin.ModelApplicability && p.DecisionId is null ||
+                p.Origin == PlanningApplicabilityOrigin.DeterministicOwner && p.OwnerReferences.Count == 0))
+            throw new WorkflowRuntimeException("DIAGNOSTIC_APPLICABILITY", "LOCAL requires one qualified support and proven property applicability; singleton cardinality is insufficient.");
     }
 
     // Fixture acceptance only: inspect exact qualified subspans, not preliminary

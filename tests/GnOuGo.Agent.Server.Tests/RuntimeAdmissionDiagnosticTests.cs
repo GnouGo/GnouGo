@@ -8,6 +8,26 @@ namespace GnOuGo.Agent.Server.Tests;
 public sealed class RuntimeAdmissionDiagnosticTests
 {
     [Theory]
+    [InlineData("valid", true)]
+    [InlineData("stale", false)]
+    [InlineData("foreign", false)]
+    [InlineData("cardinality_only", false)]
+    [InlineData("missing_decision", false)]
+    [InlineData("extra_support", false)]
+    [InlineData("unknown_origin", false)]
+    public void ApplicabilityGateRequiresProofBeyondSingletonCardinality(string defect, bool accepted)
+    {
+        var operation = Operation("local", "local_processing", ["record", "threshold"], ["result"], []);
+        operation.OperationAdmission!.GoverningApplicability.Add(new(defect == "stale" ? 0 : 1, "property", "runtime", "owned",
+            "active", [defect == "foreign" ? "foreign" : "local"], null, [new("local", ["owned"])], [], null,
+            defect == "cardinality_only" ? PlanningApplicabilityOrigin.DeterministicOwner : defect == "unknown_origin" ? PlanningApplicabilityOrigin.Unknown : PlanningApplicabilityOrigin.ModelApplicability,
+            defect == "missing_decision" ? null : "applicability_property", "realized", "domain", "proof"));
+        if (defect == "extra_support") operation.OperationAdmission.Assignments.Add(operation.OperationAdmission.Assignments[0] with { ContributionId = "extra" });
+        void Check() => RuntimeAdmissionDiagnosticRules.RequireLocalApplicability(operation);
+        if (accepted) Check(); else Assert.Throws<GnOuGo.Flow.Core.Expressions.WorkflowRuntimeException>(Check);
+    }
+
+    [Theory]
     [InlineData("valid", "passed")]
     [InlineData("missing", "blocked")]
     [InlineData("foreign", "blocked")]

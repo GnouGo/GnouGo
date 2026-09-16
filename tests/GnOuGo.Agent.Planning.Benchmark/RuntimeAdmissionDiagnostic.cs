@@ -225,6 +225,9 @@ internal static partial class RuntimeAdmissionDiagnostic
                 operations.Any(o => !o.Required || o.Kind is not ("local_processing" or "external_read")))
                 throw new WorkflowRuntimeException("DIAGNOSTIC_ADMISSION_MISMATCH", "The isolated fixture's expected runtime actions were not established.");
             CheckEffectFixture(name, state, operations);
+            // Chronology belongs to this fresh campaign. Detached synthetic replay
+            // retains historical pages and validates current proofs separately.
+            CheckApplicabilitySequence(state, operations);
             var committed = await records.GetAsync(Collection, Tenant, id + ":checkpoint", Author, ct) ?? throw new InvalidOperationException("Missing committed checkpoint.");
             var committedBudget = await records.GetAsync(PlanningBudgetSink.Collection, Tenant, id, EfPlanningSessionStore.Author, ct);
             var restored = JsonSerializer.Deserialize(JsonNode.Parse(committed.Value)!["snapshot"], PlanningJsonContext.Default.PlanningSnapshot)!;

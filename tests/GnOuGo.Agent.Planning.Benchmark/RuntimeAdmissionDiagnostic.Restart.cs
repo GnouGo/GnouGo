@@ -40,7 +40,9 @@ internal static partial class RuntimeAdmissionDiagnostic
             ["coverageFingerprints"] = new JsonArray(restored.Obligations.Where(o => o.OperationAdmission is not null)
                 .OrderBy(o => o.Id, StringComparer.Ordinal).Select(o => (JsonNode?)JsonValue.Create(o.OperationAdmission!.RealizationCoverage!.ProofFingerprint)).ToArray()),
             ["dependencyFingerprints"] = new JsonArray(restored.Obligations.Where(o => o.OperationAdmission is not null)
-                .OrderBy(o => o.Id, StringComparer.Ordinal).Select(o => (JsonNode?)JsonValue.Create(o.OperationAdmission!.Dependencies!.ProofFingerprint)).ToArray()) };
+                .OrderBy(o => o.Id, StringComparer.Ordinal).Select(o => (JsonNode?)JsonValue.Create(o.OperationAdmission!.Dependencies!.ProofFingerprint)).ToArray()),
+            ["dependencyProofVersions"] = new JsonArray(restored.Obligations.Where(o => o.OperationAdmission is not null)
+                .Select(o => o.OperationAdmission!.Dependencies!.Version).Distinct().Select(v => (JsonNode?)JsonValue.Create(v)).ToArray()) };
     }
 
     private sealed class RejectRestartDispatch : ILLMClient

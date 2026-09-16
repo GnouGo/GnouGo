@@ -31,13 +31,14 @@ internal static partial class RuntimeAdmissionDiagnostic
         var rules = name == "local"
             ? "Classify as rejected when approved is false, high when approved is true and amount>=threshold, and standard otherwise."
             : "Classify the loaded record: rejected when approved is false, high when approved is true and amount>=threshold, standard otherwise.";
-        if (!local.OperationAdmission!.Assignments.Any(a => Covers(a.ClauseReference, rules)))
+        if (!local.OperationAdmission!.Assignments.Any(a => a.Disposition == "attach" && Covers(a.ClauseReference, rules)))
             throw new WorkflowRuntimeException("DIAGNOSTIC_GOVERNING_EVIDENCE", "Classification rules and fallback do not govern the canonical local effect.");
         if (name == "local" && !local.OperationAdmission.Assignments.Any(a => a.Disposition == "attach" &&
             Covers(a.ClauseReference, "This is deterministic, local, in-memory business processing.")))
             throw new WorkflowRuntimeException("DIAGNOSTIC_DESCRIPTIVE_EVIDENCE", "Descriptive local evidence must attach to the established effect.");
         if (name == "local")
         {
+            RuntimeAdmissionDiagnosticRules.RequireLocalApplicability(local);
             const string description = "This is deterministic, local, in-memory business processing.";
             RuntimeAdmissionDiagnosticRules.RequireGoverningOnly(state, local, "request",
                 state.Request.Prompt.IndexOf(description, StringComparison.Ordinal), description.Length);
@@ -102,5 +103,7 @@ internal static partial class RuntimeAdmissionDiagnostic
                     ["selectedEffect"] = a.EffectId, ["governingReference"] = a.ClauseReference }).ToArray()) }).ToArray());
         AddContributionReport(report, state);
         report["effectValidationPassed"] = report["status"]?.ToString() == "passed";
+        report["applicabilitySequenceAndDomainsVerified"] = report["status"]?.ToString() == "passed";
+        report["preliminaryKindApplicabilityAuthority"] = "none; applicability is validated against realized operations and owned property evidence";
     }
 }

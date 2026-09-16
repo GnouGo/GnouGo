@@ -25,6 +25,7 @@ internal static partial class RuntimeAdmissionDiagnostic
             return (JsonNode)new JsonObject
             {
                 ["id"] = c.Id, ["parentRuntimeEvidence"] = p.RuntimeEvidenceId,
+                ["preliminaryRuntimeKind"] = state.RuntimeEvidence.Single(e => e.Id == p.RuntimeEvidenceId).Kind,
                 ["ownedReference"] = c.EvidenceReference, ["sourceId"] = r.SourceId,
                 ["sourceStart"] = r.Start, ["sourceLength"] = r.Length,
                 ["qualifiedRole"] = c.Role, ["basis"] = c.Basis,
@@ -39,8 +40,17 @@ internal static partial class RuntimeAdmissionDiagnostic
             .GroupBy(c => c.Role + ":" + c.Origin).Select(g => new KeyValuePair<string, JsonNode?>(g.Key, JsonValue.Create(g.Count()))));
         try
         {
+            var applicability = PlanningOperations.ReadApplicability(state);
             report["governingApplicability"] = System.Text.Json.JsonSerializer.SerializeToNode(
-                PlanningOperations.ReadApplicability(state).ToList(), PlanningJsonContext.Default.ListPlanningGoverningApplicabilityProof);
+                applicability.ToList(), PlanningJsonContext.Default.ListPlanningGoverningApplicabilityProof);
+            report["governingProperties"] = new JsonArray(applicability.Select(p => (JsonNode)new JsonObject
+            {
+                ["contributionId"] = p.ContributionId, ["ownedReference"] = p.EvidenceReference,
+                ["preliminaryRuntimeKind"] = state.RuntimeEvidence.Single(e => e.Id == p.RuntimeEvidenceId).Kind,
+                ["targets"] = new JsonArray(p.Targets.Select(t => (JsonNode?)JsonValue.Create(t)).ToArray()),
+                ["outcome"] = p.Outcome, ["origin"] = p.Origin.ToString(), ["decisionId"] = p.DecisionId,
+                ["realizedSetFingerprint"] = p.RealizedSetFingerprint, ["proofFingerprint"] = p.ProofFingerprint
+            }).ToArray());
         }
         catch (WorkflowRuntimeException error)
         { report["governingApplicability"] = null; report["applicabilityUnavailableCode"] = error.Code; }
