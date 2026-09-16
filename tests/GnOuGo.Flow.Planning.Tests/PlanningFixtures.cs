@@ -7,6 +7,12 @@ internal static class PlanningFixtures
     internal static PlanningRuntimeEvidence Runtime(PlanningSnapshot state, PlanningReference reference, string kind = "local_processing",
         string evidenceRole = "action", string? resource = null, string? baseline = null, string? resourceAction = null, bool required = true)
     {
+        if (baseline is not null && reference.Baseline is not null)
+        {
+            var projected = PlanningBaselineProjection.Evidence(state, reference);
+            state.RuntimeEvidence.RemoveAll(e => e.Id == projected.Id); state.RuntimeEvidence.Add(projected);
+            EmptyRuntime(state); return projected;
+        }
         var clause = PlanningChoiceEvidence.Parent(state, reference.Id);
         var evidence = PlanningOperations.SealRuntime(state, new("", reference.Id, clause.Id,
             kind == "local_processing" ? "local_behavior" : "runtime_action", reference.Id, kind is "resource_lifecycle" or "cleanup" ? resource ?? reference.Id : resource, reference.Id,
@@ -23,12 +29,21 @@ internal static class PlanningFixtures
         foreach (var reference in PlanningReferences.Register(state, source.Id, source.Kind, source.Text).ToArray().Where(r => !string.IsNullOrWhiteSpace(source.Text.Substring(r.Start, r.Length))))
         {
             if (state.RuntimeEvidence.Any(e => state.References.Single(r => r.Id == e.SourceReference) is var covered && covered.SourceId == reference.SourceId && covered.Start <= reference.Start && covered.Start + covered.Length >= reference.Start + reference.Length)) continue;
-            if (source.Authority == PlanningSourceAuthority.ConstraintsOnly)
+            if (source.Baseline is not null)
+                state.RuntimeEvidence.Add(PlanningBaselineProjection.Evidence(state, reference));
+            else if (source.Authority == PlanningSourceAuthority.ConstraintsOnly)
                 state.RuntimeEvidence.Add(PlanningOperations.PolicyEvidence(state, reference));
             else state.RuntimeEvidence.Add(PlanningOperations.SealRuntime(state, new("", reference.Id, PlanningChoiceEvidence.Parent(state, reference.Id).Id,
                 "contract", null, null, null, null, null, null, null, PlanningOperationNecessity.Unspecified, "")));
         }
         state.RuntimeEvidenceFingerprint = PlanningOperations.RuntimeFingerprint(state);
+    }
+
+    // Synthetic corrected fixtures only: old source proofs remain immutable in their
+    // archived JSON; tests explicitly re-assess the selected current source assignments.
+    internal static void ReassessSyntheticSources(PlanningSnapshot state)
+    {
+        state.Obligations = state.Obligations.Select(o => o with { Grounding = PlanningSourceGroundingRules.Create(state, o, o.Grounding?.BaselineReference) }).ToList();
     }
 
     internal static void RefreshAdmission(PlanningSnapshot state)

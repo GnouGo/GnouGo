@@ -212,6 +212,22 @@ if (operationRestart.Obligations.Count(PlanningSourceDecisions.IsOperation) != 1
 await RuntimePersistenceSmoke.RunAsync();
 Console.WriteLine("Typed planning and encrypted runtime persistence AOT smoke passed.");
 
+// Native structural interpretation: port-only baselines require no model answer.
+var baselineState = new PlanningSnapshot { Request = new() { TenantId = "native-baseline", SessionId = "projection", Prompt = "",
+    Baseline = new() { Workflows = [new() { Inputs = [new() { Name = "value", Required = false,
+        Default = new() { Kind = "number", Number = 100 }, Schema = new() { Type = "number" } }] }] } } };
+var baselineRuntime = new WorkflowPlanningRuntime(new WorkflowEngine(), (_, _) => Task.CompletedTask);
+await PlanningSourceDecisions.InterpretAsync(baselineState, baselineRuntime, CancellationToken.None);
+await PlanningDeclarations.ResolveAsync(baselineState, baselineRuntime, CancellationToken.None);
+await PlanningOperations.ResolveAsync(baselineState, baselineRuntime, CancellationToken.None);
+var baselineRestart = PlanningContext.Clone(baselineState);
+PlanningOperations.RequireCurrent(baselineRestart);
+if (baselineRestart.RequestAccounting.Count != 0 || baselineRestart.RuntimeEvidence.Any(e => e.Origin != PlanningRuntimeEvidenceOrigin.EngineBaseline) ||
+    baselineRestart.References.Any(r => r.Baseline is not { Version: 1 }) || baselineRestart.Declarations.Single().Required ||
+    PlanningDeclarations.Default(baselineRestart, baselineRestart.Declarations.Single())?.Number != 100)
+    throw new InvalidOperationException("Published structural baseline projection/restart failed.");
+Console.WriteLine("Structural baseline projection and restart passed without model requests.");
+
 sealed class SmokeRuntime(PlanningGraph graph, PlanningPreparation preparation) : IPlanningRuntime
 {
     private PlanningSnapshot? _snapshot;

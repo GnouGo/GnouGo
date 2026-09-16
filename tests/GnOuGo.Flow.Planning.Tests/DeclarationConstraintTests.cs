@@ -198,7 +198,8 @@ public sealed class DeclarationConstraintTests
     {
         var state = State("Required input supplied is provided."); state.Request.Baseline = TypedPlannerTests.Graph();
         Add(state, "Required input supplied", "input");
-        var source = PlanningIntentAssessment.IntentSources(state).Single(s => s.Id == "existing");
+        state.Request.Baseline.Workflows[0].Outputs[0].Schema.Description = "Retain the declared output contract.";
+        var source = PlanningIntentAssessment.IntentSources(state).Single(s => s.Baseline is { OwnerKind: "port", Field: not null });
         var reference = PlanningReferences.Register(state, source.Id, source.Kind, source.Text)[0];
         var obligation = new PlanningObligation("existing", [reference.Id], "business_decision", "declaration_constraint", true);
         state.Obligations.Add(obligation with { Grounding = PlanningSourceGroundingRules.Create(state, obligation) });

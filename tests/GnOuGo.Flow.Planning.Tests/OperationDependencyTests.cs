@@ -211,13 +211,7 @@ public sealed class OperationDependencyTests
             var child = TypedPlannerTests.Graph().Workflows[0]; child.Key = "child";
             if (!missingInterface) state.Request.Baseline.Workflows.Add(child);
         }
-        var source = PlanningOperations.SourceScopes(state).First(s => s.Source.Authority == PlanningSourceAuthority.ExistingBehavior);
-        foreach (var node in PlanningSourceGroundingRules.BaselineNodes(state).Where(p => p.Value.Workflow == "main"))
-        {
-            // Distinct owned baseline node authority; each retains the same complete source clause.
-            var reference = source.Clause with { Id = "synthetic_baseline_" + node.Value.Node.Key, Start = source.Source.Text.IndexOf("\"" + node.Value.Node.Key + "\"", StringComparison.Ordinal) + 1, Length = node.Value.Node.Key.Length }; state.References.Add(reference);
-            PlanningFixtures.Runtime(state, reference, baseline: node.Key);
-        }
+        PlanningFixtures.EmptyRuntime(state);
         PlanningDeclarations.Commit(state, [], PlanningDeclarations.EvidenceFingerprint(state));
         OperationEffectFixtures.Seed(state, seedDependencies: false);
         return (state, OperationEffectFixtures.Staged(state));

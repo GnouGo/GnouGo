@@ -135,7 +135,7 @@ public sealed class OperationAdmissionTests
     public async Task BaselineNeedsItsExactCompatibleNode()
     {
         var state = State("Keep the existing behavior."); state.Request.Baseline = TypedPlannerTests.Graph();
-        var scope = PlanningOperations.SourceScopes(state).First(s => s.Source.Authority == PlanningSourceAuthority.ExistingBehavior);
+        var scope = PlanningOperations.SourceScopes(state).First(s => s.Source.Baseline is { OwnerKind: "node", Field: null });
         var id = PlanningSourceGroundingRules.BaselineNodes(state).Single().Key;
         var evidence = PlanningFixtures.Runtime(state, scope.Clause, baseline: id);
         PlanningDeclarations.Commit(state, [], PlanningDeclarations.EvidenceFingerprint(state));
@@ -176,6 +176,7 @@ public sealed class OperationAdmissionTests
     {
         var fixture = JsonNode.Parse(await File.ReadAllTextAsync(Path.Combine(AppContext.BaseDirectory, "Fixtures", "operation-admission-stage1.json"), Ct))!;
         var state = JsonSerializer.Deserialize(fixture.ToJsonString(), PlanningJsonContext.Default.PlanningSnapshot)!;
+        PlanningFixtures.ReassessSyntheticSources(state); // Explicit synthetic current-proof fixture, not receipt replay.
         state.RuntimeEvidence.Clear(); PlanningFixtures.EmptyRuntime(state);
         PlanningDeclarations.Commit(state, state.DeclarationAssignments, PlanningDeclarations.EvidenceFingerprint(state));
         var declarationProof = state.DeclarationFingerprint;
@@ -241,7 +242,7 @@ public sealed class OperationAdmissionTests
         var action = scope.Select("b3", "b7"); state.References.Add(action);
         PlanningFixtures.Runtime(state, action);
         await ResolveGrounded(state, NoModel(), Ct);
-        Assert.Equal("local_processing", Assert.Single(state.Obligations, PlanningSourceDecisions.IsOperation).Kind);
+        Assert.Equal("local_processing", Assert.Single(state.Obligations, o => PlanningSourceDecisions.IsOperation(o) && o.Grounding!.Authority == PlanningSourceAuthority.RequestedBehavior).Kind);
         Assert.Contains(state.RuntimeEvidence, e => e.ClauseReference == scope.Clause.Id && e.Role == "contract");
         Assert.Equal(declarationProof, state.DeclarationFingerprint); PlanningDeclarations.RequireCurrent(state);
     }

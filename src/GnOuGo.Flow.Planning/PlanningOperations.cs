@@ -8,7 +8,7 @@ namespace GnOuGo.Flow.Planning;
 /// <summary>Canonical action authority, committed once after bounded complete-clause adjudication.</summary>
 internal static partial class PlanningOperations
 {
-    internal static string EvidenceFingerprint(PlanningSnapshot state) => PlanningGraphCompiler.Fingerprint("operation-evidence-v7:" +
+    internal static string EvidenceFingerprint(PlanningSnapshot state) => PlanningGraphCompiler.Fingerprint("operation-evidence-v8:" +
         state.Request.TenantId + ":" + state.Request.SessionId + ":" + new JsonArray(PlanningIntentAssessment.IntentSources(state)
             .Where(s => s.Authority is PlanningSourceAuthority.RequestedBehavior or PlanningSourceAuthority.ExistingBehavior)
             .Select(s => (JsonNode)new JsonArray(s.Id, s.Authority.ToString(), s.Text, s.QuestionContext)).ToArray()).ToJsonString() + ":" +
@@ -20,6 +20,7 @@ internal static partial class PlanningOperations
         if (state.OperationAdmissionFingerprint is not null) { RequireCurrent(state); return; }
         RequireRuntimeEvidence(state);
         PlanningDeclarations.RequireCurrent(state);
+        PlanningBaselineProjection.RequireExecutableCoverage(state);
         var staged = new List<PlanningObligation>();
         var scopes = Scopes(state);
         var mappings = await GroundRealizations(state, runtime, scopes, ct);
@@ -80,7 +81,7 @@ internal static partial class PlanningOperations
         var id = assignment.EffectId!;
         var operation = new PlanningObligation(id, [anchor.Id], assignment.Kind == "local_processing" ? "workflow" : "capability_contract", assignment.Kind, ResolveRequiredness(state, [assignment]));
         operation = operation with { Grounding = PlanningSourceGroundingRules.Create(state, operation, assignment.BaselineReference), Disposition = "admitted" };
-        return Prove(state, operation, new(7, id, anchor.Id, assignment.BaselineReference, [assignment], EvidenceFingerprint(state), ""));
+        return Prove(state, operation, new(8, id, anchor.Id, assignment.BaselineReference, [assignment], EvidenceFingerprint(state), ""));
     }
 
     private static PlanningObligation Extend(PlanningSnapshot state, PlanningObligation operation, PlanningOperationAssignment assignment)
@@ -163,6 +164,7 @@ internal static partial class PlanningOperations
     {
         RequireRuntimeEvidence(state);
         PlanningDeclarations.RequireCurrent(state);
+        PlanningBaselineProjection.RequireExecutableCoverage(state);
         foreach (var operation in state.Obligations.Where(o => o.OperationAdmission is not null)) Validate(state, operation);
         ValidateEffectDependencies(state, state.Obligations.Where(o => o.OperationAdmission is not null).ToArray());
         if (state.OperationAdmissionFingerprint is null || state.OperationAdmissionFingerprint != Fingerprint(state))
@@ -172,7 +174,7 @@ internal static partial class PlanningOperations
     internal static void Validate(PlanningSnapshot state, PlanningObligation operation)
     {
         var proof = operation.OperationAdmission;
-        if (proof is not { Version: 7 } || proof.CanonicalId != operation.Id || operation.Disposition != "admitted" ||
+        if (proof is not { Version: 8 } || proof.CanonicalId != operation.Id || operation.Disposition != "admitted" ||
             operation.EvidenceReferences.Count != 1 || operation.EvidenceReferences[0] != proof.AnchorReference ||
             proof.EvidenceFingerprint != EvidenceFingerprint(state) || proof.Assignments.Count == 0 || proof.ProofFingerprint != Proof(operation, proof))
             throw Failure(operation.Id, "Current canonical admission proof is missing or stale.", "INTENT_OPERATION_PROOF_MISSING");

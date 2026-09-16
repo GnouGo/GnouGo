@@ -233,6 +233,7 @@ public sealed class OperationEffectTests
     public async Task CapturedClassifierEffectRetainsCanonicalPortsAndEliminatesStandaloneIdentityCalls()
     {
         var state = JsonSerializer.Deserialize(await File.ReadAllTextAsync(Path.Combine(AppContext.BaseDirectory, "Fixtures", "operation-admission-stage1.json"), Ct), PlanningJsonContext.Default.PlanningSnapshot)!;
+        PlanningFixtures.ReassessSyntheticSources(state); // Explicit synthetic current-proof fixture, not receipt replay.
         PlanningFixtures.EmptyRuntime(state);
         var fragments = new[] { ("classifying a single record.", "action"),
             ("Classify as rejected when approved is false, high when approved is true and amount>=threshold, and standard otherwise.", "action"),

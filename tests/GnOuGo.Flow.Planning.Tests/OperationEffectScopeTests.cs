@@ -101,7 +101,7 @@ public sealed class OperationEffectScopeTests
 
         var state = OperationAdmissionTests.State("Transform the returned value."); state.Request.Baseline = graph;
         var baseline = PlanningSourceGroundingRules.BaselineNodes(state).Single(p => p.Value.Workflow == "main");
-        var baselineSource = PlanningOperations.SourceScopes(state).First(s => s.Source.Authority == PlanningSourceAuthority.ExistingBehavior);
+        var baselineSource = PlanningOperations.SourceScopes(state).First(s => s.Source.Baseline is { OwnerKind: "node", Field: null, Workflow: "main" });
         var call = PlanningFixtures.Runtime(state, baselineSource.Clause, baseline: baseline.Key);
         var request = PlanningOperations.SourceScopes(state).Single(s => s.Source.Id == "request");
         var local = PlanningFixtures.Runtime(state, request.Clause);
@@ -117,7 +117,7 @@ public sealed class OperationEffectScopeTests
         Assert.NotEmpty(PlanningContractValidation.ValidateInstance(foreign, PlanningOperations.EffectDecision(state, scope).Schema));
         OperationEffectFixtures.Seed(state, _ => answer, dependency: (producer, consumer) => producer == callId && consumer == result);
         await PlanningOperations.ResolveAsync(state, NoModel(), Ct);
-        Assert.Equal(2, state.Obligations.Count(PlanningSourceDecisions.IsOperation));
+        Assert.Equal(3, state.Obligations.Count(PlanningSourceDecisions.IsOperation));
         Assert.Contains(new PlanningObligationRelation(callId, result, "data"), PlanningOperations.EffectRelations(state.Obligations));
     }
 

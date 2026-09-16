@@ -1,3 +1,4 @@
+using System.Text.Json;
 using System.Text.Json.Nodes;
 using GnOuGo.Flow.Core.Expressions;
 using GnOuGo.Flow.Core.Planning;
@@ -17,7 +18,7 @@ internal static class PlanningSourceDecisions
         (JsonObject Context, JsonObject Schema, Func<string, string, PlanningReference> Select) Boundaries)[] InterpretationScopes(PlanningSnapshot state)
     {
         var sources = PlanningIntentAssessment.IntentSources(state);
-        return sources.SelectMany(source => PlanningReferences.Register(state, source.Id, source.Kind, source.Text)
+        return sources.Where(s => !s.Structural).SelectMany(source => PlanningReferences.Register(state, source.Id, source.Kind, source.Text)
             .Where(r => !string.IsNullOrWhiteSpace(source.Text.Substring(r.Start, r.Length)))
             .Select(reference => (Reference: reference, Source: source, Boundaries: PlanningReferences.Boundaries(reference, source.Text)))).ToArray();
     }
@@ -27,20 +28,20 @@ internal static class PlanningSourceDecisions
         var scopes = InterpretationScopes(state);
         return scopes.Select(scope =>
         {
-            var item = InterpretationSchema(state, scope.Source.Authority, scope.Boundaries.Schema);
+            var item = scope.Source.Baseline is { } owner ? AnnotationSchema(owner, scope.Boundaries.Schema) : InterpretationSchema(state, scope.Source.Authority, scope.Boundaries.Schema);
             var policy = scope.Source.Authority == PlanningSourceAuthority.ConstraintsOnly;
             var fields = new List<(string, JsonObject)> { ("obligations", new JsonObject
             { ["type"] = "array", ["minItems"] = 0, ["maxItems"] = 4, ["items"] = item }) };
-            if (!policy) fields.Add(("runtime", PlanningOperations.RuntimeSchema(state, scope.Source.Authority, scope.Boundaries.Schema)));
+            if (!policy && scope.Source.Baseline is null) fields.Add(("runtime", PlanningOperations.RuntimeSchema(state, scope.Source.Authority, scope.Boundaries.Schema)));
             var context = new JsonObject
             {
                 ["task"] = "Identify the semantic obligations expressed by this source. Operation kinds are preliminary hints; canonical admission establishes action authority. A clause can govern multiple semantic roles. Select word boundary IDs (end is exclusive). Operations require a requested action, not a subject mentioned by a policy or condition. Runtime observations become operations only when their performance is requested. A confirmation requirement already prevents its action on rejection; describing that consequence is rejection_condition. confirmation_forbidden means an explicit prohibition on asking for confirmation. A prohibition of another interaction is workflow_policy. omission_default supplies a public input only when that input is absent; select evidence including the omitted-input condition and its explicit JSON value. An input declaration with an omission default contributes both declaration_candidate and omission_default obligations. runtime_fallback specifies the executable result when other runtime conditions do not match; it is not a declaration default. Public declaration identity evidence is declaration_candidate; direction and public-port identity are established only by canonical adjudication. Evidence constraining a declared public value or its members, including types, enums/value domains, nullability/schema restrictions and preservation requirements, is declaration_constraint. It only attaches to an established declaration and never creates a public port. explicit_value supplies an actual business/runtime value, not a restriction on a declaration or its members. Supplied inputs, omission defaults and runtime conditions/fallbacks are not missing planning choices.",
                 ["runtimeTask"] = "Independently account for execution scope. Planning directives author the workflow; contracts describe public values and omission defaults. Neither is a runtime action. Local behavior performs a requested transformation inside the generated workflow, including classification rules and runtime fallbacks. It has no external effect. A runtime_action requires an explicit requested external/human/resource action and execution evidence. Resource lifecycle requires a runtime resource owned and created/acquired/released/deleted by that workflow, never authoring the workflow itself. Select exact owned execution evidence. action describes requested executable work; governing describes rules, conditions or restrictions on executable work. Necessity concerns whether the action is needed to implement the workflow, not whether its runtime condition is true. Use unspecified unless an owned span explicitly establishes required or optional necessity; absence of optionality is not optional. This facet never establishes occurrence identity or selects another clause as an operation target. For resource lifecycle, also select its owned runtime resource span. Multiple roles may coexist. Constraints-only sources cannot create actions. Unknown execution scope is unresolved.",
                 ["role"] = scope.Source.Kind, ["questionContext"] = scope.Source.QuestionContext, ["words"] = scope.Boundaries.Context.DeepClone(),
-                ["baselineNodes"] = scope.Source.Authority == PlanningSourceAuthority.ExistingBehavior ? new JsonObject(PlanningSourceGroundingRules.BaselineNodes(state).Select(p =>
-                    new KeyValuePair<string, JsonNode?>(p.Key, new JsonObject { ["workflow"] = p.Value.Workflow, ["node"] = p.Value.Node.Key, ["type"] = p.Value.Node.Type, ["purpose"] = p.Value.Node.Purpose }))) : null
+                ["structuralOwner"] = scope.Source.Baseline is { } structural ? JsonSerializer.SerializeToNode(structural, PlanningJsonContext.Default.PlanningBaselineOwnership) : null
             };
-            if (policy) { context.Remove("runtimeTask"); }
+            if (policy || scope.Source.Baseline is not null) { context.Remove("runtimeTask"); }
+            if (scope.Source.Baseline is not null) context["task"] = "Classify only unresolved governing semantics in this designated annotation. Its structural owner, execution kind, public contracts and values are authoritative. This annotation cannot create ports or operations, change execution scope or establish resource ownership. Select owned word boundaries for constraints; information requires no additional obligation.";
             return new PlanningDecisionPages.Decision(DecisionId(scope.Reference, scope.Source.Text), PlanningHoleRequests.Object(fields.ToArray()), context,
                 PlanningGraphCompiler.Fingerprint(scope.Source.Text.Substring(scope.Reference.Start, scope.Reference.Length)));
         }).ToArray();
@@ -52,11 +53,14 @@ internal static class PlanningSourceDecisions
         var decisions = InterpretationDecisions(state);
         var values = await PlanningDecisionPages.ResolveAsync(state, runtime, "intent", "$plan", decisions, ct);
         var obligations = new List<PlanningObligation>();
-        var runtimeEvidence = new List<PlanningRuntimeEvidence>();
+        var runtimeEvidence = PlanningIntentAssessment.IntentSources(state).Where(s => s.Structural).SelectMany(s =>
+            PlanningReferences.Register(state, s.Id, s.Kind, s.Text).Select(r => PlanningBaselineProjection.Evidence(state, r))).ToList();
         foreach (var scope in scopes)
         {
             var answer = values[DecisionId(scope.Reference, scope.Source.Text)]!;
-            if (scope.Source.Authority == PlanningSourceAuthority.ConstraintsOnly)
+            if (scope.Source.Baseline is not null)
+                runtimeEvidence.Add(PlanningBaselineProjection.Evidence(state, scope.Reference));
+            else if (scope.Source.Authority == PlanningSourceAuthority.ConstraintsOnly)
                 runtimeEvidence.Add(PlanningOperations.PolicyEvidence(state, scope.Reference));
             else runtimeEvidence.AddRange(PlanningOperations.ParseRuntime(state, scope.Reference, scope.Boundaries.Select, answer["runtime"]!.AsArray()));
             foreach (var item in answer["obligations"]!.AsArray())
@@ -119,7 +123,8 @@ internal static class PlanningSourceDecisions
         var producers = state.Obligations.Where(o => IsOperation(o) || o.Kind == "implementation_policy").Concat(
             state.Declarations.Where(d => d.Direction == "input").Select(d => new PlanningObligation(d.Id, d.ClauseReferences, "business_decision", "business_input", d.Required))).ToArray();
         var grounded = PlanningOperations.EffectRelations(operations).ToArray();
-        var pairs = operations.SelectMany(consumer => producers.Where(p => p.Id != consumer.Id && p.Kind != "business_input")
+        var pairs = operations.SelectMany(consumer => producers.Where(p => p.Id != consumer.Id && p.Kind != "business_input" &&
+                (p.Kind != "implementation_policy" || PlanningBaselineProjection.OwnsOperation(state, p.Grounding!.ClauseReference, consumer)))
             .Select(producer => (Producer: producer, Consumer: consumer))).ToArray();
         var choices = pairs.Select(pair => new PlanningDecisionPages.Decision("relation_" + pair.Producer.Id + "_" + pair.Consumer.Id,
             PlanningHoleRequests.Enum(pair.Producer.Kind == "implementation_policy" ? ["none", "policy"]
@@ -150,25 +155,31 @@ internal static class PlanningSourceDecisions
 
     internal static bool IsOperation(PlanningObligation obligation) => PlanningSourceGroundingRules.OperationKinds.Contains(obligation.Kind, StringComparer.Ordinal) &&
         obligation.Grounding?.Role is PlanningSourceSemanticRole.RequestedAction or PlanningSourceSemanticRole.ExistingAction && obligation.Disposition == "admitted" &&
-        obligation.OperationAdmission is { Version: 7, Dependencies.Version: 1 } proof && proof.CanonicalId == obligation.Id;
+        obligation.OperationAdmission is { Version: 8, Dependencies.Version: 1 } proof && proof.CanonicalId == obligation.Id;
+
+    private static JsonObject AnnotationSchema(PlanningBaselineOwnership owner, JsonObject boundaries)
+    {
+        var schema = boundaries.DeepClone().AsObject();
+        schema["properties"]!["kind"] = PlanningHoleRequests.Enum(PlanningBaselineProjection.AnnotationKinds(owner));
+        schema["properties"]!["required"] = PlanningHoleRequests.Type("boolean");
+        schema["required"] = new JsonArray("start", "end", "kind", "required");
+        return schema;
+    }
 
     internal static JsonObject InterpretationSchema(PlanningSnapshot state, PlanningSourceAuthority authority, JsonObject boundaries)
     {
-        JsonObject Item(string[] kinds, string[]? baseline = null)
+        JsonObject Item(string[] kinds)
         {
             var item = boundaries.DeepClone().AsObject();
             item["properties"]!["kind"] = PlanningHoleRequests.Enum(kinds);
             item["properties"]!["required"] = PlanningHoleRequests.Type("boolean");
             item["required"] = new JsonArray("start", "end", "kind", "required");
-            if (baseline is not null)
-            { item["properties"]!["baseline"] = PlanningHoleRequests.Enum(baseline); item["required"]!.AsArray().Add((JsonNode)JsonValue.Create("baseline")!); }
             return item;
         }
         var allowed = PlanningSourceGroundingRules.Kinds(authority);
         if (authority != PlanningSourceAuthority.ExistingBehavior) return Item(allowed);
-        var variants = new JsonArray(Item(allowed.Except(PlanningSourceGroundingRules.OperationKinds, StringComparer.Ordinal).ToArray()));
-        var nodes = PlanningSourceGroundingRules.BaselineNodes(state).Keys.Order(StringComparer.Ordinal).ToArray();
-        if (nodes.Length > 0) variants.Add((JsonNode)Item(PlanningSourceGroundingRules.OperationKinds, nodes));
-        return new() { ["anyOf"] = variants };
+        // Structural operations never enter this response domain. Actual annotations
+        // use the narrower owner-specific schema above.
+        return Item(allowed.Except(PlanningSourceGroundingRules.OperationKinds, StringComparer.Ordinal).ToArray());
     }
 }

@@ -76,16 +76,20 @@ internal static class PlanningPersistenceSmoke
         state.RuntimeEvidence = [new("runtime", "source", "clause", "local_behavior", "anchor", null, "anchor", "local_processing", "action", null, null, PlanningOperationNecessity.Required, "proof")
             { ExecutionScope = PlanningRuntimeExecutionScope.GeneratedWorkflow, Origin = PlanningRuntimeEvidenceOrigin.SourceInterpretation, NecessityReference = "private_necessity_reference" },
             new("policy_runtime", "policy_source", "policy_clause", "policy", null, null, null, null, null, null, null, PlanningOperationNecessity.Unspecified, "engine_policy_proof")
-            { ExecutionScope = PlanningRuntimeExecutionScope.Policy, Origin = PlanningRuntimeEvidenceOrigin.EngineSourceAuthority }];
+            { ExecutionScope = PlanningRuntimeExecutionScope.Policy, Origin = PlanningRuntimeEvidenceOrigin.EngineSourceAuthority },
+            new("baseline_runtime", "baseline_source", "baseline_clause", "contract", null, null, null, null, null, null, null, PlanningOperationNecessity.Unspecified, "baseline-proof")
+            { ExecutionScope = PlanningRuntimeExecutionScope.PublicContract, Origin = PlanningRuntimeEvidenceOrigin.EngineBaseline }];
         state.Obligations = [new("action", ["anchor"], "workflow", "local_processing", true)
-        { Disposition = "admitted", OperationAdmission = new(7, "action", "anchor", null,
+        { Disposition = "admitted", OperationAdmission = new(8, "action", "anchor", null,
             [new("decision", "clause", "anchor", "local_processing", PlanningOperationNecessity.Required, null, null) { RuntimeEvidenceId = "runtime", Disposition = "distinct", ResolutionOrigin = "deterministic", EffectId = "action",
                 Effect = new(3, "effect-decision", "realizes", [new("main", "private_result", "result_realization", "private_result")],
                     ["private_input"], ["private_result"], [], ["private_boundary_evidence"], "model", "effect-evidence-proof") },
              new("reuse", "rules", "rule_anchor", "local_processing", PlanningOperationNecessity.Unspecified, "action", null)], "evidence-proof", "operation-proof")
             { Dependencies = new(1, "dependency-domain", [new("upstream", "action", "data", PlanningDependencyOrigin.ModelSemanticSelection,
                 ["private_data_evidence"], "data-decision")], "dependency-proof") } }];
-        state.References = [new("reference", "smoke:" + state.Request.SessionId, 4, "request", "source-fingerprint", "user_request", 0, 7)];
+        state.References = [new("reference", "smoke:" + state.Request.SessionId, 4, "request", "source-fingerprint", "user_request", 0, 7),
+            new("baseline_source", "smoke:" + state.Request.SessionId, 4, "baseline", "baseline-content", "existing_workflow", 0, 7)
+            { Baseline = new(1, "baseline-fingerprint", "port", "main", null, "input", "private_port", "schema/description") }];
         state.DecisionPages = [new() { Id = "page", Phase = "behavior", WorkflowKey = "$plan", EvidenceFingerprint = "source-fingerprint",
             Decisions = ["decision"], References = ["reference"], Status = "completed", EstimatedInputTokens = 700, InputTargetTokens = 9600,
             EstimatedAnswerTokens = 30, Candidate = new System.Text.Json.Nodes.JsonObject { ["decision"] = "Private decision" }, RequestId = "receipt" }];
@@ -104,7 +108,10 @@ internal static class PlanningPersistenceSmoke
         if (prepared?.RuntimeEvidenceFingerprint != "runtime-proof" || prepared.RuntimeEvidence[0].ProofFingerprint != "proof" || prepared.RuntimeEvidence[0].Necessity != PlanningOperationNecessity.Required || prepared.RuntimeEvidence[0].NecessityReference != "private_necessity_reference" ||
             prepared.RuntimeEvidence[0].ExecutionScope != PlanningRuntimeExecutionScope.GeneratedWorkflow || prepared.RuntimeEvidence[0].Origin != PlanningRuntimeEvidenceOrigin.SourceInterpretation || prepared.RuntimeEvidence[1].Origin != PlanningRuntimeEvidenceOrigin.EngineSourceAuthority || prepared.RuntimeEvidence[1].Role != "policy")
             throw new InvalidOperationException("Runtime execution evidence did not survive encrypted persistence.");
-        if (prepared?.OperationAdmissionFingerprint != "operation-set-proof" || prepared.Obligations.Single().OperationAdmission is not { Version: 7 } admission ||
+        if (prepared.RuntimeEvidence[2].Origin != PlanningRuntimeEvidenceOrigin.EngineBaseline ||
+            prepared.References[1].Baseline is not { Version: 1, Fingerprint: "baseline-fingerprint", Port: "private_port", Field: "schema/description" })
+            throw new InvalidOperationException("Structural baseline evidence did not survive encrypted persistence.");
+        if (prepared?.OperationAdmissionFingerprint != "operation-set-proof" || prepared.Obligations.Single().OperationAdmission is not { Version: 8 } admission ||
             admission.Dependencies is not { Version: 1, DomainFingerprint: "dependency-domain", ProofFingerprint: "dependency-proof" } dependency ||
             dependency.Assignments.Single().Origin != PlanningDependencyOrigin.ModelSemanticSelection || dependency.Assignments[0].EvidenceReferences.Single() != "private_data_evidence" ||
             admission.Assignments[0].RuntimeEvidenceId != "runtime" || admission.Assignments[0].Effect is not { Version: 3 } effect ||
@@ -120,7 +127,7 @@ internal static class PlanningPersistenceSmoke
             prepared.Construction.Candidates.Single().Diagnostics.Single().Rule != "required-member" || prepared.RepairAllowances.Single().Attempts != 4 ||
             prepared.BehaviorRevision?.Fields.Single().CanonicalLocation != "/workflows/@main/purpose")
             throw new InvalidOperationException("Decision and scenario contracts did not survive persistence.");
-        if (prepared.References.Single().SourceRevision != 4 || prepared.DecisionPages.Single().Candidate?["decision"]?.ToString() != "Private decision" ||
+        if (prepared.References.Single(r => r.Id == "reference").SourceRevision != 4 || prepared.DecisionPages.Single().Candidate?["decision"]?.ToString() != "Private decision" ||
             prepared.DecisionCorrections.Single().DecisionId != "decision" || prepared.Outcome is not PlanningNeedUserClarification clarification ||
             clarification.Decision.EvidenceReferences.Single() != "reference" || prepared.Construction.Repair is not { Ready: false } pending ||
             pending.RequestContext["privateScope"]?.ToString() != "Encrypted scope")

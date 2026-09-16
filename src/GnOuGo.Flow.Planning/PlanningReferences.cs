@@ -12,27 +12,28 @@ internal static class PlanningReferences
     {
         var owner = state.Request.TenantId + ":" + state.Request.SessionId;
         var fingerprint = PlanningGraphCompiler.Fingerprint(text);
-        var retained = state.References.Where(r => r.Owner == owner && r.SourceId == sourceId && r.Kind == kind && r.SourceFingerprint == fingerprint).ToList();
+        var baseline = PlanningIntentAssessment.IntentSources(state).SingleOrDefault(s => s.Id == sourceId)?.Baseline;
+        var retained = state.References.Where(r => r.Owner == owner && r.SourceId == sourceId && r.Kind == kind && r.SourceFingerprint == fingerprint && r.Baseline == baseline).ToList();
         if (retained.Count > 0) return retained;
-        var references = Issue(owner, state.Revision, sourceId, kind, text);
+        var references = Issue(owner, state.Revision, sourceId, kind, text, baseline);
         state.References.AddRange(references);
         return references;
     }
-    internal static List<PlanningReference> Issue(string owner, long revision, string sourceId, string kind, string text)
+    internal static List<PlanningReference> Issue(string owner, long revision, string sourceId, string kind, string text, PlanningBaselineOwnership? baseline = null)
     {
         var fingerprint = PlanningGraphCompiler.Fingerprint(text);
         var result = new List<PlanningReference>();
         for (var start = 0; start < text.Length;)
         {
-            var end = start;
+            var end = baseline is { Field: null } ? text.Length : start;
             while (end < text.Length && end - start < 256)
             {
                 var ch = text[end++];
                 if (char.IsHighSurrogate(ch) && end < text.Length && char.IsLowSurrogate(text[end])) end++;
                 if (ch is '\n' or '.' or '!' or '?' or ';' or '。' or '！' or '？') break;
             }
-            var coordinate = owner + ":" + revision.ToString(CultureInfo.InvariantCulture) + ":" + sourceId + ":" + fingerprint + ":" + start + ":" + end;
-            result.Add(new("r_" + PlanningGraphCompiler.Fingerprint(coordinate)[..24], owner, revision, sourceId, fingerprint, kind, start, end - start));
+            var coordinate = owner + ":" + revision.ToString(CultureInfo.InvariantCulture) + ":" + sourceId + ":" + fingerprint + ":" + start + ":" + end + (baseline is null ? "" : ":baseline-v1:" + baseline.Fingerprint);
+            result.Add(new("r_" + PlanningGraphCompiler.Fingerprint(coordinate)[..24], owner, revision, sourceId, fingerprint, kind, start, end - start) { Baseline = baseline });
             start = end;
         }
         return result;
@@ -44,8 +45,8 @@ internal static class PlanningReferences
             reference.SourceFingerprint != PlanningGraphCompiler.Fingerprint(text) || reference.Start < 0 || reference.Length < 1 ||
             reference.Start > text.Length - reference.Length ||
             !(reference.Kind.EndsWith(":clause", StringComparison.Ordinal)
-                ? ContainingRange(text, reference.Start) == (reference.Start, reference.Length)
-                : Issue(owner, revision, sourceId, reference.Kind, text).Contains(reference)))
+                ? (reference.Baseline is { Field: null } ? (0, text.Length) : ContainingRange(text, reference.Start)) == (reference.Start, reference.Length)
+                : Issue(owner, revision, sourceId, reference.Kind, text, reference.Baseline).Contains(reference)))
             throw new PlanningConflictException("The evidence reference is foreign, stale or outside its issued scope.");
         return text.Substring(reference.Start, reference.Length);
     }
@@ -53,11 +54,11 @@ internal static class PlanningReferences
     internal static PlanningReference ContainingClause(PlanningSnapshot state, PlanningReference reference, string text)
     {
         _ = Resolve(state, reference.Id, new Dictionary<string, string> { [reference.SourceId] = text });
-        var (start, length) = ContainingRange(text, reference.Start);
+        var (start, length) = reference.Baseline is { Field: null } ? (0, text.Length) : ContainingRange(text, reference.Start);
         if (reference.Start + reference.Length > start + length)
             throw new PlanningConflictException("The selected subject crosses complete source clauses.");
         var kind = reference.Kind.Split(':')[0] + ":clause";
-        var id = "r_" + PlanningGraphCompiler.Fingerprint(reference.Owner + ":" + reference.SourceId + ":" + reference.SourceFingerprint + ":clause:" + start + ":" + length)[..24];
+        var id = "r_" + PlanningGraphCompiler.Fingerprint(reference.Owner + ":" + reference.SourceId + ":" + reference.SourceFingerprint + (reference.Baseline is null ? "" : ":baseline-v1:" + reference.Baseline.Fingerprint) + ":clause:" + start + ":" + length)[..24];
         var clause = reference with { Id = id, Kind = kind, Start = start, Length = length };
         if (!state.References.Any(r => r.Id == id)) state.References.Add(clause);
         return state.References.Single(r => r.Id == id);
@@ -79,7 +80,8 @@ internal static class PlanningReferences
         var reference = state.References.SingleOrDefault(r => r.Id == id);
         if (reference is null || reference.Owner != state.Request.TenantId + ":" + state.Request.SessionId ||
             !sources.TryGetValue(reference.SourceId, out var text) || reference.SourceFingerprint != PlanningGraphCompiler.Fingerprint(text) ||
-            reference.Start < 0 || reference.Length < 1 || reference.Start > text.Length - reference.Length)
+            reference.Start < 0 || reference.Length < 1 || reference.Start > text.Length - reference.Length ||
+            reference.Baseline != PlanningIntentAssessment.IntentSources(state).SingleOrDefault(s => s.Id == reference.SourceId)?.Baseline)
             throw new PlanningConflictException("The selected reference is not part of the current owned evidence.");
         return text.Substring(reference.Start, reference.Length);
     }

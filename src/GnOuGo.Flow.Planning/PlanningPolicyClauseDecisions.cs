@@ -9,6 +9,8 @@ internal static class PlanningPolicyClauseDecisions
     internal static PlanningDecisionPages.Decision Build(PlanningSnapshot state, string clauseId,
         PlanningObligation[] group, PlanningObligation[] candidates, PlanningObligation[] operations)
     {
+        var fingerprint = Fingerprint(state, clauseId, candidates, operations);
+        operations = operations.Where(o => PlanningBaselineProjection.OwnsOperation(state, clauseId, o)).ToArray();
         var scopes = new JsonArray(
             PlanningHoleRequests.Object(("kind", PlanningHoleRequests.Enum("effect")), ("target", PlanningHoleRequests.Enum("read", "write", "execute", "lifecycle"))),
             PlanningHoleRequests.Object(("kind", PlanningHoleRequests.Enum("unknown")), ("target", PlanningHoleRequests.Enum("unknown"))));
@@ -42,7 +44,7 @@ internal static class PlanningPolicyClauseDecisions
                     ["ruleIds"] = new JsonArray(g.Select(o => (JsonNode?)JsonValue.Create(o.Id)).ToArray()) }))),
             ["task"] = "Adjudicate this complete clause together. The supplied classifications are preliminary. Assign each issued field its supported policy meaning; duplicates of the same permission are normalized. require_confirmation already prevents the governed action on rejection or unavailable permission. A statement of that consequence is rejection_condition, referencing its require_confirmation field, never forbid_confirmation. forbid_confirmation requires an explicit prohibition on requesting confirmation; forbid_interaction prohibits the specific interaction. Retire unsupported preliminary confirmation labels with not_confirmation_policy without deleting other governing constraints. An effect mentioned by a policy is only a scope over admitted operations. Use unless_explicit only for a declared explicit-user exception. Unknown subjects, applicability or unproven semantics are unknown."
         };
-        return new("policy_clause_" + clauseId, schema, context, Fingerprint(state, clauseId, candidates, operations));
+        return new("policy_clause_" + clauseId, schema, context, fingerprint);
     }
 
     internal static string Fingerprint(PlanningSnapshot state, string clauseId, PlanningObligation[] candidates, PlanningObligation[] operations)

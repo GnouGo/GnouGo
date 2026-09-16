@@ -1,0 +1,420 @@
+{
+  "evidence": "Offline implementation, original-schema historical replay, separately labelled synthetic fixtures. No live diagnostic.",
+  "baseHead": "eb94f52dfb421bc3062c72c4a4f02eeb78535079",
+  "previousProduction": "1b5513c28032c718eeb9ea4179e5c7981c51bbba",
+  "implementationState": "Validated working tree; no live freeze or campaign start",
+  "timestampUtc": "2026-09-16T10:00:49.571070+00:00",
+  "versions": {
+    "baselineProjection": 1,
+    "source": 5,
+    "runtime": 5,
+    "operationAdmission": 8,
+    "declaration": 5,
+    "effect": 3,
+    "dependency": 1,
+    "storage": 5
+  },
+  "solutionTests": {
+    "passed": 3509,
+    "optionalProviderSkipped": 1,
+    "plannerPassed": 1008,
+    "newStructuralRegressions": 15
+  },
+  "focusedAgentHarnessPersistence": {
+    "passed": 109
+  },
+  "historicalReplay": {
+    "identity": "schema5-admission-dependencies-diagnostics-1:local",
+    "providerDispatches": 0,
+    "sourceUnchanged": true,
+    "checkpointFingerprint": "08e58ae950a0da818e8f48a5e8bb387257327ce806fc4f44ad42e99e64cdf7c2",
+    "receiptChecks": [
+      {
+        "requestId": "schema5-admission-dependencies-diagnostics-1:local:0:1:intent:response_contract:93beceaf3191e878:page_587c91eef2739416f69fe1d52688265e2e6d782f65c35dc6ccec2f3419028f07:f80fa7a43f5459ad6bc053e30fd1566abb8e2b9cb668acb9b2606862f00fddfe",
+        "requestFingerprint": "76c9c5a99d4f267f8be799b9a65f492cb61efddb554103b66bc4406e267a8eb0",
+        "receiptFingerprint": "fc54d893e8f9810dfceb7d28fd08f94386c2adfdaf50b8470d46d853817797ce",
+        "completionStatus": null,
+        "malformedJson": false,
+        "schemaFindings": 0
+      },
+      {
+        "requestId": "schema5-admission-dependencies-diagnostics-1:local:0:2:intent:response_contract:93beceaf3191e878:page_1ebc9903833242ba10491d9e89cbfe54c6ae88a4ad90a33a814bb4226d576d4d:0a0d619d154c0592216f9291a6f7c837ac1e5f3d2e66e80667036693cd1573ae",
+        "requestFingerprint": "9e0a3df213a180d2ded4c0b78080d8ab8ae0e8d7dcdd98e2c77e3660ffb7784d",
+        "receiptFingerprint": "8691ba8e38c2b32b237aeab85439c916e22f3e8fd94f202daf2f3c1b20c86fe6",
+        "completionStatus": null,
+        "malformedJson": false,
+        "schemaFindings": 0
+      },
+      {
+        "requestId": "schema5-admission-dependencies-diagnostics-1:local:0:3:intent:response_contract:93beceaf3191e878:page_81300b17d7edeaca2fc47082012d42c163533a390cc9ced8c8d2e5a03191b03d:c90eab7f1185dbc762115f64885c7597bb3b47ab6e65e58aefb54057a6f9ca99",
+        "requestFingerprint": "a19951c9ed63b637e4501b646682988292b9f61041586603f3b21724d25f810a",
+        "receiptFingerprint": "b9ba85390746506e1d07f10f568f34468b8e39dba8428b5d230f9462f7270e2f",
+        "completionStatus": null,
+        "malformedJson": false,
+        "schemaFindings": 0
+      },
+      {
+        "requestId": "schema5-admission-dependencies-diagnostics-1:local:0:4:intent:response_contract:93beceaf3191e878:page_7265ca51eb30be1b4eb8f68bdfe60ffa35d6f14c233b5736b1b6e4a2c24ae112:bd7a976af94f84fc3f8eb161651ce996bbb15b6af4988bee9352224f9815dc7f",
+        "requestFingerprint": "08c7ff7e51064dd1b574aa9d63b2ed2269aef4a9f0a32550dbb341f1a766770f",
+        "receiptFingerprint": "d0f15be86a9dcc5ac28acec329ba8ffecc773eba07d1fff86bdf159017ddafd5",
+        "completionStatus": null,
+        "malformedJson": false,
+        "schemaFindings": 0
+      },
+      {
+        "requestId": "schema5-admission-dependencies-diagnostics-1:local:0:5:intent:response_contract:93beceaf3191e878:page_d6b4d5eb3d70083f17a7c9627d084cdf14093d707386778b5d699043782fb9e2:54eaf9e1f890990b08d1e1c84cb2ae8b25218b2fd7000619a886cff05477567e",
+        "requestFingerprint": "70997dc7c93ff1dfb6f25d7e08334d4b76c47f54640620ca894d2e3985e1b3e8",
+        "receiptFingerprint": "28f08f8fb71ff72c44ae81f5bdc6d3c9305a894c45ed43cc9f3b26c1eb28d51f",
+        "completionStatus": null,
+        "malformedJson": false,
+        "schemaFindings": 0
+      },
+      {
+        "requestId": "schema5-admission-dependencies-diagnostics-1:local:0:6:intent:response_contract:93beceaf3191e878:page_9bbec06b9a35b0562140c736a06d089e4cf6e4f0c6cc173152fb4784a2406434:3f4141db54b841be96e717df0b08d97bf3947eaa810745648b4dd52c56b616a9",
+        "requestFingerprint": "d72406d24fb71cfd5bcf6cc70e9f006b506f57226366ae3a7063d335653efa2d",
+        "receiptFingerprint": "e28a411c24910899d457fdf6339ed18d2a15ee04343bb85a2f90f8512067f16a",
+        "completionStatus": null,
+        "malformedJson": false,
+        "schemaFindings": 0
+      },
+      {
+        "requestId": "schema5-admission-dependencies-diagnostics-1:local:0:7:intent:response_contract:93beceaf3191e878:page_7559f13564ab8eb8dfa9217b227b9ce4b19333f124cca1e82319fcc62c253d64:07946d7aa1989f1cb46a2179a520f3a2c04ad6a5f9c6f77e10d0df09e2e18c79",
+        "requestFingerprint": "1a246b58c48fd4b12b9411e422972c6fd65fbdf0c07eff9b53c86129306009e5",
+        "receiptFingerprint": "71599f748e64b047a21f9cdce06ba66fd3ac538cb215dad0edf278dfa98802ba",
+        "completionStatus": null,
+        "malformedJson": false,
+        "schemaFindings": 0
+      },
+      {
+        "requestId": "schema5-admission-dependencies-diagnostics-1:local:0:8:intent:response_contract:93beceaf3191e878:page_4c5e2783dca64096aa4a41219beabd28a16e69edd9cf453cf77ee9b671e7d3a8:3354d3b000e8ab2ae79279e9749bfdb842f199fd4ae50535add2d19a3d38f504",
+        "requestFingerprint": "c4c120eff38937b2782a9080a1f1ec16d2262ac1559b4fd849cc6190f90d4c6a",
+        "receiptFingerprint": "8bdd5f265e7eeb1678a9e091fe9a3fd4ae07f2a5cb3efc593001fbe0b4f72ce6",
+        "completionStatus": null,
+        "malformedJson": false,
+        "schemaFindings": 0
+      },
+      {
+        "requestId": "schema5-admission-dependencies-diagnostics-1:local:0:9:intent:response_contract:93beceaf3191e878:page_99566f21064088fe98216e337021a09a1f2f1944383bae4fcf7813ce3b6a63d5:4949cc4bf4782cdddf115734af7af311a4296742b6b82df5255c0ea6fbfdad48",
+        "requestFingerprint": "30ed48868a7692d33be3a71f095fbd66f6888f47bdc629c07bf4063b4646e7f0",
+        "receiptFingerprint": "a9f178de2a7df41049d762ad2ceffdd48dcf40faf25da233a0fc53e2a7edd039",
+        "completionStatus": null,
+        "malformedJson": false,
+        "schemaFindings": 0
+      },
+      {
+        "requestId": "schema5-admission-dependencies-diagnostics-1:local:0:10:intent:response_contract:93beceaf3191e878:page_38a0bf92dbfa9e0bfad13c32f7dd751fdaef72fb52ab23a9544d4af39b1377f9:9dd83d4021e4e60f61430d08ac2b34b072fbed04f9f105604a8b2d0c4ae416ed",
+        "requestFingerprint": "fb340bb4158c4d7498fe2d32dde0dba265a598073c9e5cccd34c38805c3164d3",
+        "receiptFingerprint": "94ad1456ae127a9163c0dc284c7195e19fa5ff569ab7600b388a96f8691b1563",
+        "completionStatus": null,
+        "malformedJson": false,
+        "schemaFindings": 0
+      },
+      {
+        "requestId": "schema5-admission-dependencies-diagnostics-1:local:0:11:intent:response_contract:93beceaf3191e878:page_f25ffc43b3eab846accdd8f7942eb9b8f1aa5e9836e587c279149af436bb4754:9ee33cb8dc08dab7e3ff7543cbd8755cfe2374b15ddfd155f84ba6c0020a9ec3",
+        "requestFingerprint": "b1e71b92d7e8a685f850e0691a9715302cdbff825a168532143b96283bbd0c7c",
+        "receiptFingerprint": "e944889a77b0bdf9566b8e4abf8eba41a1e7738867307c65d8076916c53f816b",
+        "completionStatus": null,
+        "malformedJson": false,
+        "schemaFindings": 0
+      }
+    ],
+    "historicalSubjectSelections": 0,
+    "replayedReceipts": 0,
+    "blocker": "INTENT_OPERATION_UNRESOLVED",
+    "location": "/operations/@runtime_ea48b9c2d364d80145d7e033"
+  },
+  "domainComparison": {
+    "evidence": "Original-schema historical audit; current request-domain comparison and strict receipt-only replay. No synthetic responses or live evidence.",
+    "identity": "schema5-admission-dependencies-diagnostics-1:local",
+    "providerDispatches": 0,
+    "archiveUnchanged": true,
+    "checkpointFingerprint": "08e58ae950a0da818e8f48a5e8bb387257327ce806fc4f44ad42e99e64cdf7c2",
+    "budgetFingerprint": "c3feba44942c05206f03c5173bdd54c9d3dec2d5c6342ac62c222255ab7325b0",
+    "originalReceipts": [
+      {
+        "requestFingerprint": "76c9c5a99d4f267f8be799b9a65f492cb61efddb554103b66bc4406e267a8eb0",
+        "receiptFingerprint": "fc54d893e8f9810dfceb7d28fd08f94386c2adfdaf50b8470d46d853817797ce",
+        "originalSchemaFindings": 0
+      },
+      {
+        "requestFingerprint": "9e0a3df213a180d2ded4c0b78080d8ab8ae0e8d7dcdd98e2c77e3660ffb7784d",
+        "receiptFingerprint": "8691ba8e38c2b32b237aeab85439c916e22f3e8fd94f202daf2f3c1b20c86fe6",
+        "originalSchemaFindings": 0
+      },
+      {
+        "requestFingerprint": "a19951c9ed63b637e4501b646682988292b9f61041586603f3b21724d25f810a",
+        "receiptFingerprint": "b9ba85390746506e1d07f10f568f34468b8e39dba8428b5d230f9462f7270e2f",
+        "originalSchemaFindings": 0
+      },
+      {
+        "requestFingerprint": "08c7ff7e51064dd1b574aa9d63b2ed2269aef4a9f0a32550dbb341f1a766770f",
+        "receiptFingerprint": "d0f15be86a9dcc5ac28acec329ba8ffecc773eba07d1fff86bdf159017ddafd5",
+        "originalSchemaFindings": 0
+      },
+      {
+        "requestFingerprint": "70997dc7c93ff1dfb6f25d7e08334d4b76c47f54640620ca894d2e3985e1b3e8",
+        "receiptFingerprint": "28f08f8fb71ff72c44ae81f5bdc6d3c9305a894c45ed43cc9f3b26c1eb28d51f",
+        "originalSchemaFindings": 0
+      },
+      {
+        "requestFingerprint": "d72406d24fb71cfd5bcf6cc70e9f006b506f57226366ae3a7063d335653efa2d",
+        "receiptFingerprint": "e28a411c24910899d457fdf6339ed18d2a15ee04343bb85a2f90f8512067f16a",
+        "originalSchemaFindings": 0
+      },
+      {
+        "requestFingerprint": "1a246b58c48fd4b12b9411e422972c6fd65fbdf0c07eff9b53c86129306009e5",
+        "receiptFingerprint": "71599f748e64b047a21f9cdce06ba66fd3ac538cb215dad0edf278dfa98802ba",
+        "originalSchemaFindings": 0
+      },
+      {
+        "requestFingerprint": "c4c120eff38937b2782a9080a1f1ec16d2262ac1559b4fd849cc6190f90d4c6a",
+        "receiptFingerprint": "8bdd5f265e7eeb1678a9e091fe9a3fd4ae07f2a5cb3efc593001fbe0b4f72ce6",
+        "originalSchemaFindings": 0
+      },
+      {
+        "requestFingerprint": "30ed48868a7692d33be3a71f095fbd66f6888f47bdc629c07bf4063b4646e7f0",
+        "receiptFingerprint": "a9f178de2a7df41049d762ad2ceffdd48dcf40faf25da233a0fc53e2a7edd039",
+        "originalSchemaFindings": 0
+      },
+      {
+        "requestFingerprint": "fb340bb4158c4d7498fe2d32dde0dba265a598073c9e5cccd34c38805c3164d3",
+        "receiptFingerprint": "94ad1456ae127a9163c0dc284c7195e19fa5ff569ab7600b388a96f8691b1563",
+        "originalSchemaFindings": 0
+      },
+      {
+        "requestFingerprint": "b1e71b92d7e8a685f850e0691a9715302cdbff825a168532143b96283bbd0c7c",
+        "receiptFingerprint": "e944889a77b0bdf9566b8e4abf8eba41a1e7738867307c65d8076916c53f816b",
+        "originalSchemaFindings": 0
+      }
+    ],
+    "historicalInterpretationDecisions": 22,
+    "historicalBaselineDecisions": 5,
+    "currentInterpretationDecisions": 17,
+    "currentBaselineAnnotationDecisions": 0,
+    "currentStructuralInterpretationDecisions": 0,
+    "engineStructuralUnits": 5,
+    "historicalVerifiedRequests": 11,
+    "currentPackedInterpretationPages": 10,
+    "strictReplayStop": "REPLAY_EVIDENCE_REQUIRED",
+    "reusedMatchingReceipts": 0,
+    "liveCallSavings": null
+  },
+  "syntheticSelfchecks": {
+    "evidence": "synthetic fixture selfcheck",
+    "cases": [
+      {
+        "case": "local",
+        "passed": true,
+        "preflight": {
+          "interpretationPages": 8,
+          "sourceDecisions": 8,
+          "modelRuntimeDecisionsRemoved": 0,
+          "declarationFixtureValidated": true
+        },
+        "modelCalls": 0
+      },
+      {
+        "case": "mixed",
+        "passed": true,
+        "preflight": {
+          "interpretationPages": 9,
+          "sourceDecisions": 9,
+          "modelRuntimeDecisionsRemoved": 0,
+          "declarationFixtureValidated": true
+        },
+        "modelCalls": 0
+      }
+    ]
+  },
+  "syntheticClassifierAssertions": {
+    "localOperations": 1,
+    "required": true,
+    "inputs": [
+      "record",
+      "threshold"
+    ],
+    "output": "classifiedResult",
+    "governingAttachments": 4,
+    "preservationDeclarationExclusions": 1,
+    "standaloneIdentityDecisions": 0,
+    "operationProducerModelDecisions": 0,
+    "providerCalls": 0,
+    "effectGroundingDecisionCount": null,
+    "effectCountExplanation": "Effect-grounding count was not measured by the interpretation-domain comparison; separately seeded synthetic effect mappings are not provider calls."
+  },
+  "validation": [
+    {
+      "gate": "build",
+      "result": "passed",
+      "log": "/tmp/structural-baseline-build.log",
+      "sha256": "4d012c0d4d66ae40f8a1d771dccef35563d6419e54a6d6efcc3a3c339ac41f87",
+      "warningDiagnostics": 0
+    },
+    {
+      "gate": "harness-build",
+      "result": "passed",
+      "log": "/tmp/structural-baseline-harness-build.log",
+      "sha256": "bd13e722497bf2d512921d75b51b050f46b9b09d4d6c6dc8467e6af0afdf0eac",
+      "warningDiagnostics": 0
+    },
+    {
+      "gate": "final-tests",
+      "result": "passed",
+      "log": "/tmp/structural-baseline-final-tests.log",
+      "sha256": "992f7b6ca797d9bc591728ffe115e47456174d54c4e5383b5b7b2be53a5318cf",
+      "warningDiagnostics": 0
+    },
+    {
+      "gate": "final-planner",
+      "result": "passed",
+      "log": "/tmp/structural-baseline-final-planner.log",
+      "sha256": "c36c65e1ab89000c72effb0933e1c5821af5cd295d7a107c54401205c43dcb62",
+      "warningDiagnostics": 0
+    },
+    {
+      "gate": "focused-agent",
+      "result": "passed",
+      "log": "/tmp/structural-baseline-focused-agent.log",
+      "sha256": "878034128bdeed63b34f382ad133a66008c5b0b8c10fa05d9a165f7a4847215b",
+      "warningDiagnostics": 0
+    },
+    {
+      "gate": "agent-ui",
+      "result": "passed",
+      "log": "/tmp/structural-baseline-agent-ui.log",
+      "sha256": "8a1fa150e7822887f2a60b5e2cdfdf469b9c467e128dfadb8a6662f4dee3cbfa",
+      "warningDiagnostics": 0
+    },
+    {
+      "gate": "flow-ui",
+      "result": "passed",
+      "log": "/tmp/structural-baseline-flow-ui.log",
+      "sha256": "31ae517fec7a9314ff4a98ca4a931801d5fd2732541468da34957a9c7b8ad81c",
+      "warningDiagnostics": 0
+    },
+    {
+      "gate": "runtime-selfcheck",
+      "result": "passed",
+      "log": "/tmp/structural-baseline-runtime-selfcheck.log",
+      "sha256": "66511ef228b386e34072733760b24717a38f4acf286afd837d0e34857841d9de",
+      "warningDiagnostics": 0
+    },
+    {
+      "gate": "reference-selfcheck",
+      "result": "passed",
+      "log": "/tmp/structural-baseline-reference-selfcheck.log",
+      "sha256": "9f686a870f72a700efbe21e3d94c0d71eae57b32ae676ab697fde5460eeb65ba",
+      "warningDiagnostics": 0
+    },
+    {
+      "gate": "aot-publish",
+      "result": "passed",
+      "log": "/tmp/structural-baseline-aot-publish.log",
+      "sha256": "7aada432c93213d1c30d64bf0c9464a65779e30872d34f312eb6e60b8725325e",
+      "warningDiagnostics": 0
+    },
+    {
+      "gate": "aot-smoke",
+      "result": "passed",
+      "log": "/tmp/structural-baseline-aot-smoke.log",
+      "sha256": "cc4974b912f47ba80759bf415865058edd130243b5b065b8d55ad33b0c7cb3c9",
+      "warningDiagnostics": 0
+    },
+    {
+      "gate": "trim-publish",
+      "result": "passed",
+      "log": "/tmp/structural-baseline-trim-publish.log",
+      "sha256": "69ed936f21c996b05f80ae60dc4b0d4553f771ef7c9de213c4c87ca07ba2c58d",
+      "warningDiagnostics": 0
+    },
+    {
+      "gate": "trim-smoke",
+      "result": "passed",
+      "log": "/tmp/structural-baseline-trim-smoke.log",
+      "sha256": "5f54ccaa81322a2a9eb53cbb28b18f962f3eb3e4f87760fae6527699ebf9746a",
+      "warningDiagnostics": 0
+    },
+    {
+      "gate": "pack-GnOuGo.Flow.Core",
+      "result": "passed",
+      "log": "/tmp/structural-baseline-pack-GnOuGo.Flow.Core.log",
+      "sha256": "4b2df06ce730cb27a35f286e88c0969f92e9e3c32fe3d692ab684b2ac4678b60",
+      "warningDiagnostics": 0
+    },
+    {
+      "gate": "pack-GnOuGo.Flow.Planning",
+      "result": "passed",
+      "log": "/tmp/structural-baseline-pack-GnOuGo.Flow.Planning.log",
+      "sha256": "f7fddef7e8c87d45210310a4f005d5fa640009642a618f426a18dc5035d3e971",
+      "warningDiagnostics": 0
+    },
+    {
+      "gate": "pack-GnOuGo.Flow.Integrations",
+      "result": "passed",
+      "log": "/tmp/structural-baseline-pack-GnOuGo.Flow.Integrations.log",
+      "sha256": "fe831623b1cfb87e0883e1a3b2268477ce8eac89ae694bcc251dd420d7e886fb",
+      "warningDiagnostics": 0
+    },
+    {
+      "gate": "pack-GnOuGo.Agent.Shared",
+      "result": "passed",
+      "log": "/tmp/structural-baseline-pack-GnOuGo.Agent.Shared.log",
+      "sha256": "c3bb3c846486b81f76d786a45b5b8c36bade806ff23f8979cb4d5f6cd1d59e84",
+      "warningDiagnostics": 0
+    }
+  ],
+  "sourceHashes": {
+    "src/GnOuGo.Agent.Server/Planning/PlanningPersistenceSmoke.cs": "9964f7b828cc47b38e1ff40b14304b84a2ea1dceab7decbfdee5a063d921c840",
+    "src/GnOuGo.Flow.Core/Planning/PlanningContracts.cs": "53042c45c1fbeb674c60cba18ca467532e2829c0647b170050ca95b59b6bfbff",
+    "src/GnOuGo.Flow.Core/Planning/PlanningDecisionState.cs": "9efa4297637075c63518d12ce6860a111b12c62fd5279c0adceeef812c085d05",
+    "src/GnOuGo.Flow.Planning/PlanningBaselineProjection.cs": "b41cd1af0e332b7e299fe87d3018fa470d4c2c019d67b52b4072a00326fe4e24",
+    "src/GnOuGo.Flow.Planning/PlanningConfirmationPolicies.cs": "41136c648e02e6d912f0a5a77ec027cd8b0cf1ccbe17426fc753271b337e25f1",
+    "src/GnOuGo.Flow.Planning/PlanningDeclarations.Decisions.cs": "42ba1a798e365e2f94869933686f70846e90eb60f8c46c40e68fb19b2782f50d",
+    "src/GnOuGo.Flow.Planning/PlanningIntentAssessment.cs": "db12052b19ebc703c95d6c3bb532954b7c5fcca2f3590a957f068c5808233f4d",
+    "src/GnOuGo.Flow.Planning/PlanningOperations.Evidence.cs": "61f6083dff9cc6afbe6832c47de1ab7300178e1619170d6a8f3a621b6b38b349",
+    "src/GnOuGo.Flow.Planning/PlanningOperations.cs": "16431b001190130912ef5de9ec914376dde192935e745bea0a575d3ff2372b71",
+    "src/GnOuGo.Flow.Planning/PlanningPolicyClauseDecisions.cs": "9e63bb666a9dd1ab7e3688289580a44f0f5373f586fb3a77725b2d805c8ec661",
+    "src/GnOuGo.Flow.Planning/PlanningReferences.cs": "971dd63d9aa3c06b5c5366a68e5cc2e64d499e549b6613c5b40180eba24d9bd3",
+    "src/GnOuGo.Flow.Planning/PlanningSourceDecisions.cs": "1b5009b34b98d7343aa15b3f2df3d29bec7dc16cb66f29782ed477cac9800a7d",
+    "src/GnOuGo.Flow.Planning/PlanningSourceGroundingRules.cs": "1c91e2326c6ce51fc7af50ca7408e65361862551a94784d54c06c687e248333a"
+  },
+  "binaryHashes": {
+    "src/GnOuGo.Flow.Core/bin/Debug/net10.0/GnOuGo.Flow.Core.dll": "d84c605101e3473231f3ccadca7c386fb0f518b72a31fb7aa0dd1c40fef2808e",
+    "src/GnOuGo.Flow.Core/bin/Release/net10.0/GnOuGo.Flow.Core.dll": "f931f940b6fae3a6182380f8e491bb3ed8e6a0036bef0d50e9b1541ccdd104ac",
+    "src/GnOuGo.Flow.Planning/bin/Debug/net10.0/GnOuGo.Flow.Planning.dll": "681ed8ea41f79ae60e69cc1a277ee6310d3349e129d10c9d2006ff5f604501b1",
+    "src/GnOuGo.Flow.Planning/bin/Release/net10.0/GnOuGo.Flow.Planning.dll": "83584a737c5c8839de8e4a68fe5c32b0a8fcc95adf9351ce03e699720d3fd0b8",
+    "src/GnOuGo.Flow.Integrations/bin/Debug/net10.0/GnOuGo.Flow.Integrations.dll": "5c8cddde458cec4dfacd8ac10e4e4a713c9857f955a6deb63031bf76c6a62aaa",
+    "src/GnOuGo.Flow.Integrations/bin/Release/net10.0/GnOuGo.Flow.Integrations.dll": "22a1119943b41d7092a33c02c5ce48a56650fbfdf3e1d74c66f15f4b3b0768b6",
+    "src/GnOuGo.Agent.Shared/bin/Debug/net10.0/GnOuGo.Agent.Shared.dll": "7c4aa3d72fdb316ad65708f722fe6e23b8e216aec03143e3be42a819ad58ea8d",
+    "src/GnOuGo.Agent.Shared/bin/Release/net10.0/GnOuGo.Agent.Shared.dll": "b07d2602581aa4263ec5ce45d017431a047472342709b8204115bc86d2d40c4b",
+    "src/GnOuGo.Agent.Server/bin/Debug/net10.0/GnOuGo.Agent.Server.dll": "bae5e219133d9f08e09dcea38efc90a4c1c058fa80134b8f3c39d1923a8bf8fe",
+    "src/GnOuGo.Agent.Server/bin/Release/net10.0/GnOuGo.Agent.Server.dll": "07c1be3ed0248dc14e4203adb49d8aadbd9e5fa058f804e4a105908ce74a6656",
+    "tests/GnOuGo.Agent.Planning.Benchmark/bin/Debug/net10.0/GnOuGo.Agent.Planning.Benchmark.dll": "c0b5d511e708bf3eb0edab1ab431df4b9607881af2482fe266740e6dfecbcb7b",
+    "/tmp/structural-baseline-aot/GnOuGo.Flow.Planning.Smoke": "d9d5bada468cc9ad2aa932d47ab3d0d663e69c1dc56d5efe183b2e5422e4bce8",
+    "/tmp/structural-baseline-trimmed/GnOuGo.Agent.Server": "d670a697e1089f26b142a1c921c0785bb29ae8f161764fd2760ff7938d40f9f6"
+  },
+  "unchangedFixtures": {
+    "tests/GnOuGo.Flow.Planning.Tests/Fixtures/operation-admission-stage1.json": {
+      "sha256": "890cdd12f85a420722887aaf12a00a4db5e8186e996613a22d18fed2a33cb373",
+      "unchanged": true
+    },
+    "tests/GnOuGo.Agent.Planning.Benchmark/RuntimeEvidenceDeclarations.json": {
+      "sha256": "8644cd23ddc65e0a7545caaacb660cbeb80d5989c6e8f5e8c72258b1e50bfd32",
+      "unchanged": true
+    }
+  },
+  "packages": {
+    "GnOuGo.Flow.Integrations.1.0.0.nupkg": "e7d9616827c4f0fdcb6ab1b74ce17ea2412bf362783125577b26e25225b9735d",
+    "GnOuGo.Flow.Core.1.0.0.nupkg": "f57751c4c0c1e5434a4b7b59ea1bac1f33c44a7a7986d0f2d07282604b24d017",
+    "GnOuGo.Flow.Planning.1.0.0.nupkg": "7fff770c201194931aa1116dbc40ac5c09030560e9794aec6e5874232cc3b738",
+    "GnOuGo.Agent.Shared.1.0.0.nupkg": "db31d9640e76c0f3d325c07b6d30770c874e9032bf3089e871dc5a3b8b2e69ba"
+  },
+  "archiveIntegrity": "Checkpoint and budget unchanged; original requests and receipt fingerprints retained under public KeyVault read-only audits",
+  "providerDispatches": 0,
+  "liveCases": {
+    "LOCAL": "not run",
+    "MIXED": "not run",
+    "Stage1": "not run"
+  },
+  "nextGate": "LOCAL requiring separate authorization"
+}

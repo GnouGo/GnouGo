@@ -45,7 +45,7 @@ internal static class PlanningConfirmationPolicies
                 Applicability = answer["applicability"]!.ToString(), Status = "resolved",
                 GoverningObligationIds = [obligation.Id], GoverningReferences = obligation.EvidenceReferences.Append(obligation.Grounding.ClauseReference).Distinct(StringComparer.Ordinal).Order(StringComparer.Ordinal).ToList()
             };
-            policy.TargetOperationIds = policy.ScopeKind == "effect" ? operations.Where(o => Effect(o) == policy.Target).Select(o => o.Id).ToList()
+            policy.TargetOperationIds = policy.ScopeKind == "effect" ? operations.Where(o => Effect(o) == policy.Target && PlanningBaselineProjection.OwnsOperation(state, policy.ClauseReference, o)).Select(o => o.Id).ToList()
                 : policy.ScopeKind == "operation" ? [policy.Target] : answer["interactionTargets"]?.AsArray().Select(v => v!.ToString()).ToList() ?? [];
             Validate(state, policy);
             // Only the same complete clause, scope, applicability and semantics can coalesce.
@@ -112,11 +112,12 @@ internal static class PlanningConfirmationPolicies
             throw Failure("CONFIRMATION_SCOPE_STALE", policy.Id, "The adjudication lost or changed its governing references.");
         var operations = state.Obligations.Where(PlanningSourceDecisions.IsOperation).ToArray();
         if (policy.TargetOperationIds.Distinct(StringComparer.Ordinal).Count() != policy.TargetOperationIds.Count ||
-            policy.TargetOperationIds.Any(id => !operations.Any(o => o.Id == id)))
+            policy.TargetOperationIds.Any(id => !operations.Any(o => o.Id == id &&
+                governing.All(g => PlanningBaselineProjection.OwnsOperation(state, g!.Grounding!.ClauseReference, o)))))
             throw Failure("CONFIRMATION_SCOPE_UNRESOLVED", policy.Id, "The policy refers to an unknown or duplicate semantic action.");
         var expected = policy.ScopeKind switch
         {
-            "effect" when policy.Target is "read" or "write" or "execute" or "lifecycle" => operations.Where(o => Effect(o) == policy.Target).Select(o => o.Id),
+            "effect" when policy.Target is "read" or "write" or "execute" or "lifecycle" => operations.Where(o => Effect(o) == policy.Target && PlanningBaselineProjection.OwnsOperation(state, policy.ClauseReference, o)).Select(o => o.Id),
             "operation" when operations.Any(o => o.Id == policy.Target) => [policy.Target],
             "interaction" when policy.Target == policy.ClauseReference => policy.TargetOperationIds.Where(id => operations.Any(o => o.Id == id && o.Kind == "human_interaction")),
             _ => null

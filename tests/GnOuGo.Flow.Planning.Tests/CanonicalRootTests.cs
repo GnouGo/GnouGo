@@ -196,6 +196,7 @@ public sealed class CanonicalRootTests
     {
         var fixture = JsonNode.Parse(await File.ReadAllTextAsync(Path.Combine(AppContext.BaseDirectory, "Fixtures", "duplicate-roots-stage1.json"), Ct))!;
         var state = JsonSerializer.Deserialize(fixture["snapshot"]!.ToJsonString(), PlanningJsonContext.Default.PlanningSnapshot)!;
+        PlanningFixtures.ReassessSyntheticSources(state); // Explicit synthetic current-proof fixture, not receipt replay.
         state.Preparation = TypedPlannerTests.Preparation();
         PlanningFixtures.AdmitHints(state);
         var initial = fixture["rootCandidate"]!.AsObject().SelectMany(p => p.Value!.AsObject()).Select(p =>

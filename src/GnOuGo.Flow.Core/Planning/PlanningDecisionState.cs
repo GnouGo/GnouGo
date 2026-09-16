@@ -5,7 +5,16 @@ namespace GnOuGo.Flow.Core.Planning;
 
 /// <summary>An immutable index into an owned source, never a second copy of its contents.</summary>
 public sealed record PlanningReference(string Id, string Owner, long SourceRevision, string SourceId,
-    string SourceFingerprint, string Kind, int Start, int Length);
+    string SourceFingerprint, string Kind, int Start, int Length)
+{
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public PlanningBaselineOwnership? Baseline { get; init; }
+}
+
+/// <summary>Derived structural provenance. Coordinates resolve against the authoritative baseline,
+/// not a copied contract or a second graph. A field denotes an owner-bound prose annotation.</summary>
+public sealed record PlanningBaselineOwnership(int Version, string Fingerprint, string OwnerKind,
+    string? Workflow, string? Node, string? Direction, string? Port, string? Field);
 
 /// <summary>A bounded decision page. The exact request and its receipt remain in the model journal.</summary>
 public enum PlanningDecisionPageOrigin { Unknown, Initial, SemanticCorrection, OutputPartition, OutputBudgetEscalation }
@@ -90,7 +99,7 @@ public sealed record PlanningRuntimeEvidence(string Id, string SourceReference, 
 /// <summary>Evidence about capability necessity, independent of occurrence identity and runtime conditions.</summary>
 public enum PlanningOperationNecessity { Unknown, Unspecified, Required, Optional }
 public enum PlanningRuntimeExecutionScope { Unknown, PlanningArtifact, PublicContract, Policy, GeneratedWorkflow }
-public enum PlanningRuntimeEvidenceOrigin { Unknown, SourceInterpretation, EngineSourceAuthority }
+public enum PlanningRuntimeEvidenceOrigin { Unknown, SourceInterpretation, EngineSourceAuthority, EngineBaseline }
 
 /// <summary>Canonical operation proof; preliminary source labels confer no execution authority.</summary>
 public sealed record PlanningOperationAdmission(int Version, string CanonicalId, string AnchorReference,

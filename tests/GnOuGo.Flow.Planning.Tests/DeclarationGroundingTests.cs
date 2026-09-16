@@ -286,20 +286,17 @@ public sealed class DeclarationGroundingTests
     }
 
     [Fact]
-    public void ExistingSourceCanOnlyAliasAnIssuedBaselinePort()
+    public void BaselineStructureCannotIntroducePreliminaryDeclarationCandidates()
     {
         var state = State("Preserve the existing result."); state.Request.Baseline = TypedPlannerTests.Graph();
-        var source = PlanningIntentAssessment.IntentSources(state).Single(s => s.Id == "existing");
+        state.Request.Baseline.Workflows[0].Outputs[0].Schema.Description = "Keep this exact contract.";
+        var source = PlanningIntentAssessment.IntentSources(state).Single(s => s.Baseline is { OwnerKind: "port", Field: not null });
         var reference = PlanningReferences.Register(state, source.Id, source.Kind, source.Text)[0];
         var obligation = new PlanningObligation("existing", [reference.Id], "business_decision", "declaration_candidate", true);
-        state.Obligations.Add(obligation with { Grounding = PlanningSourceGroundingRules.Create(state, obligation) });
-        var baseline = PlanningDeclarations.Baselines(state).Single().Key;
-        var schema = Assert.Single(PlanningDeclarations.Decisions(state)).Schema;
-        var invalid = new JsonObject { ["existing"] = new JsonObject { ["disposition"] = "distinct_output", ["name"] = baseline, ["scope"] = "main", ["presence"] = "required", ["default"] = null } };
-        Assert.NotEmpty(PlanningContractValidation.ValidateInstance(invalid, schema));
-        Commit(state, [Link("existing", baseline)]);
+        Assert.Throws<WorkflowRuntimeException>(() => PlanningSourceGroundingRules.Create(state, obligation));
+        Commit(state, []);
         Assert.Equal("message", PlanningDeclarations.Name(state, Assert.Single(state.Declarations)));
-        Assert.Equal(baseline, state.Declarations[0].BaselineReference);
+        Assert.NotNull(state.Declarations[0].BaselineReference);
     }
 
     [Fact]

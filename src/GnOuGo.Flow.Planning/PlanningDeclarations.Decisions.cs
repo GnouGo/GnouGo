@@ -104,7 +104,7 @@ internal static partial class PlanningDeclarations
     {
         var variants = new JsonArray(Rule("unresolved"));
         if (candidate.Kind != "declaration_constraint") variants.Add((JsonNode)Rule("not_a_declaration"));
-        var targets = roots.Where(d => candidate.Grounding!.Authority != PlanningSourceAuthority.ExistingBehavior || d.BaselineReference is not null).ToArray();
+        var targets = roots.Where(d => (candidate.Grounding!.Authority != PlanningSourceAuthority.ExistingBehavior || d.BaselineReference is not null) && PlanningBaselineProjection.OwnsDeclaration(state, candidate, d)).ToArray();
         if (candidate.Kind == "omission_default")
         {
             var spans = candidate.EvidenceReferences.Select(id => state.References.Single(r => r.Id == id)).ToArray();

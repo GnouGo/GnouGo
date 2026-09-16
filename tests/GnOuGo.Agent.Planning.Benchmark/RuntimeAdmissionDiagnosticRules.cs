@@ -37,7 +37,7 @@ internal static class RuntimeAdmissionDiagnosticRules
         void Require(bool condition, string code, string message)
         { if (!condition) throw new WorkflowRuntimeException(code, message); }
         Require(identityDecisions == 0, "DIAGNOSTIC_IDENTITY_DECISION", "The fixture requires deterministic occurrence identity after effect grounding.");
-        Require(operations.Count == (name == "local" ? 1 : 2) && operations.All(o => o.Required && o.OperationAdmission is { Version: 7, Dependencies.Version: 1 }) &&
+        Require(operations.Count == (name == "local" ? 1 : 2) && operations.All(o => o.Required && o.OperationAdmission is { Version: 8, Dependencies.Version: 1 }) &&
             operations.Count(o => o.Kind == "local_processing") == 1 && operations.Count(o => o.Kind == "external_read") == (name == "mixed" ? 1 : 0),
             "DIAGNOSTIC_ADMISSION_MISMATCH", "The frozen fixture requires exactly its declared runtime effects.");
         var local = operations.Single(o => o.Kind == "local_processing");

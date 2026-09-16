@@ -10,6 +10,8 @@ internal sealed class PlanningIntentAssessment(TimeProvider time)
 {
     internal sealed record IntentSource(string Id, string Kind, string Text, string? QuestionContext = null)
     {
+        internal PlanningBaselineOwnership? Baseline { get; init; }
+        internal bool Structural => Baseline is { Field: null };
         internal PlanningSourceAuthority Authority => Kind switch
         {
             "user_request" or "user_answer" => PlanningSourceAuthority.RequestedBehavior,
@@ -31,8 +33,7 @@ internal sealed class PlanningIntentAssessment(TimeProvider time)
             sources.Add(new("host", "host_constraint", context));
         // Source references describe the supplied baseline. Approving a new behavior
         // changes the review context, not the source authority of that baseline.
-        if (state.Request.Baseline is { } baseline)
-            sources.Add(new("existing", "existing_workflow", state.BehaviorRevision?.ReviewedBaselineBehavior ?? PlanningSemanticContext.Graph(baseline).ToJsonString()));
+        sources.AddRange(PlanningBaselineProjection.Sources(state));
         for (var index = 0; index < state.Intent.Answers.Count; index++)
         {
             var answer = state.Intent.Answers[index];

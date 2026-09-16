@@ -90,8 +90,8 @@ public sealed class SourceAuthorityTests
         var selected = Selection("local_processing");
         Assert.NotEmpty(PlanningContractValidation.ValidateInstance(selected, schema));
         selected["baseline"] = "foreign"; Assert.NotEmpty(PlanningContractValidation.ValidateInstance(selected, schema));
-        selected["baseline"] = reference; Assert.Empty(PlanningContractValidation.ValidateInstance(selected, schema));
-        var source = PlanningIntentAssessment.IntentSources(state).Single(s => s.Id == "existing");
+        selected["baseline"] = reference; Assert.NotEmpty(PlanningContractValidation.ValidateInstance(selected, schema));
+        var source = PlanningIntentAssessment.IntentSources(state).Single(s => s.Baseline is { OwnerKind: "node", Field: null });
         var clause = PlanningReferences.Register(state, source.Id, source.Kind, source.Text)[0];
         var obligation = new PlanningObligation("existing_action", [clause.Id], "workflow", "local_processing", true);
         Assert.Throws<WorkflowRuntimeException>(() => PlanningSourceGroundingRules.Create(state, obligation));

@@ -40,13 +40,18 @@ internal static class PlanningSourceGroundingRules
         var source = reference is null ? null : PlanningIntentAssessment.IntentSources(state).SingleOrDefault(s => s.Id == reference.SourceId);
         if (source is null || source.Authority == PlanningSourceAuthority.Unknown || !Kinds(source.Authority).Contains(obligation.Kind, StringComparer.Ordinal))
             throw Failure(state, obligation.Id, "This source cannot introduce the selected semantic obligation.");
+        if (source.Baseline is { Field: not null } annotation && !PlanningBaselineProjection.AnnotationKinds(annotation).Contains(obligation.Kind, StringComparer.Ordinal))
+            throw Failure(state, obligation.Id, "An annotation cannot override its structural owner or create declarations or operations.");
         var clause = PlanningChoiceEvidence.Parent(state, reference!.Id);
         if (obligation.EvidenceReferences.Any(id => PlanningChoiceEvidence.Parent(state, id).Id != clause.Id))
             throw Failure(state, obligation.Id, "An obligation must belong to one complete owned clause.");
         var operation = OperationKinds.Contains(obligation.Kind, StringComparer.Ordinal);
+        if (source.Structural && (!operation || source.Baseline!.OwnerKind != "node"))
+            throw Failure(state, obligation.Id, "Typed contracts and containers do not create interpreted obligations.");
         if (source.Authority == PlanningSourceAuthority.ExistingBehavior && operation)
         {
-            if (baselineReference is null || !BaselineNodes(state).ContainsKey(baselineReference))
+            if (source.Baseline is not { OwnerKind: "node", Field: null } owner || baselineReference is null ||
+                PlanningBaselineProjection.NodeReference(state, owner) != baselineReference)
                 throw Failure(state, obligation.Id, "An existing operation must reference an issued baseline node.");
         }
         else if (baselineReference is not null) throw Failure(state, obligation.Id, "This semantic role cannot claim baseline operation authority.");
@@ -54,7 +59,7 @@ internal static class PlanningSourceGroundingRules
             : obligation.Kind is "runtime_condition" or "runtime_fallback" or "rejection_condition" ? PlanningSourceSemanticRole.RuntimeCondition
             : source.Authority == PlanningSourceAuthority.ConstraintsOnly || PolicyKinds.Contains(obligation.Kind, StringComparer.Ordinal) ? PlanningSourceSemanticRole.PolicyConstraint
             : PlanningSourceSemanticRole.Declaration;
-        var fingerprint = PlanningGraphCompiler.Fingerprint("source-v4:" + source.Authority + ":" + role + ":" + clause.Id + ":" + clause.SourceFingerprint + ":" +
+        var fingerprint = PlanningGraphCompiler.Fingerprint("source-v5:" + source.Authority + ":" + role + ":" + clause.Id + ":" + clause.SourceFingerprint + ":" +
             obligation.Kind + ":" + obligation.Required + ":" + string.Join('|', obligation.EvidenceReferences) + ":" + baselineReference);
         return new(source.Authority, role, clause.Id, baselineReference, fingerprint);
     }

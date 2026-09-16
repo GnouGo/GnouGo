@@ -185,11 +185,11 @@ public sealed class OperationNecessityTests
     {
         var state = OperationAdmissionTests.State("Keep the existing behavior."); state.Request.Baseline = TypedPlannerTests.Graph();
         state.Request.Baseline.Workflows[0].Steps[0].If = new() { Kind = "boolean", Boolean = false };
-        var scope = PlanningOperations.SourceScopes(state).First(s => s.Source.Authority == PlanningSourceAuthority.ExistingBehavior);
+        var scope = PlanningOperations.SourceScopes(state).First(s => s.Source.Baseline is { OwnerKind: "node", Field: null });
         var baseline = PlanningSourceGroundingRules.BaselineNodes(state).Single().Key;
         var evidence = PlanningFixtures.Runtime(state, scope.Clause, baseline: baseline);
-        var schema = PlanningOperations.RuntimeSchema(state, scope.Source.Authority, scope.Boundaries);
-        Assert.DoesNotContain("optional", schema.ToJsonString());
+        Assert.Throws<InvalidOperationException>(() => PlanningOperations.RuntimeSchema(state, scope.Source.Authority, scope.Boundaries));
+        Assert.Equal(PlanningOperationNecessity.Unspecified, evidence.Necessity);
         PlanningDeclarations.Commit(state, [], PlanningDeclarations.EvidenceFingerprint(state));
         await PlanningOperations.ResolveAsync(state, NoModel(), Ct);
         var operation = Assert.Single(state.Obligations, PlanningSourceDecisions.IsOperation);
@@ -202,6 +202,7 @@ public sealed class OperationNecessityTests
     public async Task CapturedLocalMismatchConvergesWithExplicitlySyntheticNecessityResponses()
     {
         var state = JsonSerializer.Deserialize(await File.ReadAllTextAsync(Path.Combine(AppContext.BaseDirectory, "Fixtures", "operation-admission-stage1.json"), Ct), PlanningJsonContext.Default.PlanningSnapshot)!;
+        PlanningFixtures.ReassessSyntheticSources(state); // Explicit synthetic current-proof fixture, not receipt replay.
         PlanningFixtures.EmptyRuntime(state);
         foreach (var (fragment, necessity, role) in new[]
         {

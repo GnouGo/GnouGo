@@ -35,7 +35,7 @@ internal static partial class RuntimeAdmissionDiagnostic
         RuntimeAdmissionDiagnosticRules.RequirePreflight(pages);
         InstallDeclarations(name, state);
         return new() { ["interpretationPages"] = pages, ["sourceDecisions"] = decisions.Length,
-            ["modelRuntimeDecisionsRemoved"] = decisions.Count(d => d.Schema["properties"]!["runtime"] is null),
+            ["modelRuntimeDecisionsRemoved"] = decisions.Count(d => d.Context["role"]?.ToString() == "host_constraint"),
             ["declarationFixtureValidated"] = true };
     }
 
@@ -101,7 +101,8 @@ internal static partial class RuntimeAdmissionDiagnostic
             // Synthetic evidence tests the supplied attachment coverage, not live interpretation.
             foreach (var input in PlanningIntentAssessment.IntentSources(state))
             foreach (var reference in PlanningReferences.Register(state, input.Id, input.Kind, input.Text).ToArray().Where(r => !string.IsNullOrWhiteSpace(input.Text.Substring(r.Start, r.Length))))
-                state.RuntimeEvidence.Add(input.Authority == PlanningSourceAuthority.ConstraintsOnly ? PlanningOperations.PolicyEvidence(state, reference)
+                state.RuntimeEvidence.Add(input.Baseline is not null ? PlanningBaselineProjection.Evidence(state, reference)
+                    : input.Authority == PlanningSourceAuthority.ConstraintsOnly ? PlanningOperations.PolicyEvidence(state, reference)
                     : PlanningOperations.SealRuntime(state, new("", reference.Id, PlanningChoiceEvidence.Parent(state, reference.Id).Id,
                         "contract", null, null, null, null, null, null, null, PlanningOperationNecessity.Unspecified, "")));
             var actionText = name == "local" ? "classifying a single record." : "Classify the loaded record: rejected when approved is false, high when approved is true and amount>=threshold, standard otherwise.";
