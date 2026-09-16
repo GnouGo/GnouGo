@@ -117,10 +117,16 @@ internal static partial class RuntimeAdmissionDiagnostic
                 dependency: (producer, consumer) => name == "mixed" && readIds.Contains(producer) && !readIds.Contains(consumer));
             await PlanningOperations.ResolveAsync(state, new WorkflowPlanningRuntime(new WorkflowEngine(), (_, _) => Task.CompletedTask), CancellationToken.None);
             PlanningOperations.RequireExecutableIntent(state);
+            var restart = await VerifyReadOnlyRestartAsync(state, PlanningContext.Clone(state), CancellationToken.None);
+            var stale = PlanningContext.Clone(state); stale.OperationAdmissionFingerprint = "stale";
+            var rejected = false;
+            try { await VerifyReadOnlyRestartAsync(stale, PlanningContext.Clone(stale), CancellationToken.None); }
+            catch (GnOuGo.Flow.Core.Expressions.WorkflowRuntimeException error) when (error.Code == "INTENT_OPERATION_PROOF_MISSING") { rejected = true; }
+            if (!rejected) throw new InvalidOperationException("Read-only restart accepted stale admission authority.");
             if (state.Obligations.Count(PlanningSourceDecisions.IsOperation) != (name == "local" ? 1 : 2) ||
                 PlanningOperations.DeclarationExclusions(state).Count != 1 || state.RequestAccounting.Count != 0)
                 throw new InvalidOperationException("Diagnostic fixture coverage did not converge without model calls.");
-            cases.Add((JsonNode)new JsonObject { ["case"] = name, ["passed"] = true, ["preflight"] = preflight, ["modelCalls"] = 0 });
+            cases.Add((JsonNode)new JsonObject { ["case"] = name, ["passed"] = true, ["preflight"] = preflight, ["modelCalls"] = 0, ["readOnlyRestart"] = restart });
             void Add(string text, string kind)
             {
                 var action = SourceSpan(state, state.Request.Prompt.IndexOf(text, StringComparison.Ordinal), text.Length);

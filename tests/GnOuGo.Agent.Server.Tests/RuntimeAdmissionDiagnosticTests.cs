@@ -132,9 +132,9 @@ public sealed class RuntimeAdmissionDiagnosticTests
     private static PlanningObligation Operation(string id, string kind, string[] inputs, string[] outputs, string[] producers) =>
         new(id, ["evidence"], "workflow", kind, true)
         {
-            OperationAdmission = new(8, id, "evidence", null,
+            OperationAdmission = new(9, id, "evidence", null,
                 [new("decision", "clause", "action", kind, PlanningOperationNecessity.Required, null, null)
-                { Effect = new(3, "effect", "realizes", [], inputs.ToList(), outputs.ToList(), [], ["clause"], "model", "proof") }], "proof", "fingerprint") { Dependencies = new(1, "domain", producers.Select(p =>
+                { Effect = new(4, "effect", "realizes", [new("main", "result", "result_realization", "result")], inputs.ToList(), outputs.ToList(), [], ["clause"], "model", "proof") }], "proof", "fingerprint") { Dependencies = new(1, "domain", producers.Select(p =>
                     new PlanningOperationDependencyAssignment(p, id, "data", PlanningDependencyOrigin.ModelSemanticSelection, ["clause"], "decision")).ToList(), "dependency-proof") }
         };
 
@@ -147,12 +147,18 @@ public sealed class RuntimeAdmissionDiagnosticTests
     [InlineData("dependency_edge", false)]
     [InlineData("legacy_producer", false)]
     [InlineData("extra_operation", false)]
+    [InlineData("stale_admission", false)]
+    [InlineData("stale_effect", false)]
+    [InlineData("invocation", false)]
     public void LocalGateRequiresCompleteEffectProof(string defect, bool allowed)
     {
         var ops = new List<PlanningObligation> { Operation("local", "local_processing",
             defect == "missing_input" ? ["record"] : ["record", "threshold"], defect == "missing_output" ? [] : ["result"], defect == "dependency_edge" ? ["local"] : []) };
         if (defect == "legacy_producer") ops[0].OperationAdmission!.Assignments[0].Effect!.Producers.Add("local");
         if (defect == "extra_operation") ops.Add(Operation("extra", "external_write", [], [], []));
+        if (defect == "stale_admission") ops[0] = ops[0] with { OperationAdmission = ops[0].OperationAdmission! with { Version = 8 } };
+        if (defect == "stale_effect") ops[0].OperationAdmission!.Assignments[0] = ops[0].OperationAdmission!.Assignments[0] with { Effect = ops[0].OperationAdmission!.Assignments[0].Effect! with { Version = 3 } };
+        if (defect == "invocation") ops[0].OperationAdmission!.Assignments[0].Effect!.Candidates[0] = new("main", "action", "invocation", "action");
         void Check() => RuntimeAdmissionDiagnosticRules.RequireEffects("local", ops, ["record", "threshold"], "result",
             defect == "identity_call" ? 1 : 0, defect == "dependency_call" ? 1 : 0);
         if (allowed) Check(); else Assert.Throws<GnOuGo.Flow.Core.Expressions.WorkflowRuntimeException>(Check);
@@ -167,5 +173,53 @@ public sealed class RuntimeAdmissionDiagnosticTests
             Operation("local", "local_processing", ["threshold"], ["result"], dependency ? ["read"] : []) };
         void Check() => RuntimeAdmissionDiagnosticRules.RequireEffects("mixed", ops, ["source", "threshold"], "result", 0);
         if (dependency) Check(); else Assert.Throws<GnOuGo.Flow.Core.Expressions.WorkflowRuntimeException>(Check);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void FrozenProducerAddsOnlyTypedEvidence(bool alreadyTyped)
+    {
+        var policy = GnOuGo.Agent.Server.Planning.AgentPlanningPolicy.Create();
+        if (!alreadyTyped) policy.Remove("declared_evidence");
+        var options = new JsonObject { ["policy"] = policy, ["other"] = 123 };
+        var before = options.ToJsonString();
+        var result = RuntimeAdmissionDiagnosticRules.WithTypedPolicy(options);
+        Assert.True(JsonNode.DeepEquals(result["policy"], GnOuGo.Agent.Server.Planning.AgentPlanningPolicy.Create()));
+        Assert.Equal(123, result["other"]!.GetValue<int>());
+        Assert.Equal(before, options.ToJsonString());
+    }
+
+    [Theory]
+    [InlineData("instructions")]
+    [InlineData("allow_remote_workflow_refs")]
+    [InlineData("declared_evidence")]
+    public void ChangedPolicyStopsBeforeDispatch(string field)
+    {
+        var policy = GnOuGo.Agent.Server.Planning.AgentPlanningPolicy.Create(); policy[field] = "changed";
+        Assert.Throws<InvalidOperationException>(() => RuntimeAdmissionDiagnosticRules.WithTypedPolicy(new JsonObject { ["policy"] = policy }));
+    }
+
+    [Theory]
+    [InlineData("valid", true)]
+    [InlineData("model_decision", false)]
+    [InlineData("model_origin", false)]
+    [InlineData("missing_meaning", false)]
+    public void TypedHostProjectionMustRemainEngineOwned(string defect, bool accepted)
+    {
+        var state = new PlanningSnapshot(); var policy = GnOuGo.Agent.Server.Planning.AgentPlanningPolicy.Create(); state.Request.Options["policy"] = policy;
+        var clauses = policy["declared_evidence"]!["clauses"]!.AsArray();
+        for (var i = 0; i < clauses.Count; i++)
+        {
+            var id = "ref" + i;
+            state.References.Add(new(id, "host", 0, "host", "source", "host_constraint", 0, 1));
+            state.RuntimeEvidence.Add(new("runtime" + i, id, id, "policy", null, null, null, null, null, null, null, PlanningOperationNecessity.Unspecified, "proof")
+            { Origin = defect == "model_origin" ? PlanningRuntimeEvidenceOrigin.SourceInterpretation : PlanningRuntimeEvidenceOrigin.EngineSourceAuthority });
+            foreach (var meaning in clauses[i]!["meanings"]!.AsArray()) state.Obligations.Add(new("ob" + state.Obligations.Count, [id], "workflow", meaning!["kind"]!.ToString(), true)
+            { Grounding = new(PlanningSourceAuthority.ConstraintsOnly, PlanningSourceSemanticRole.PolicyConstraint, id, null, "proof") { DeclaredPolicyFingerprint = "declared" } });
+        }
+        if (defect == "missing_meaning") state.Obligations.RemoveAt(0);
+        void Check() => RuntimeAdmissionDiagnosticRules.RequireTypedPolicy(state, defect == "model_decision" ? 1 : 0);
+        if (accepted) Check(); else Assert.Throws<GnOuGo.Flow.Core.Expressions.WorkflowRuntimeException>(Check);
     }
 }

@@ -37,6 +37,15 @@ internal static partial class RuntimeAdmissionDiagnostic
         var client = new EffectFixtureClient(state);
         var runtime = new WorkflowPlanningRuntime(new WorkflowEngine { LLMClient = client, LLMCapabilities = client }, (_, _) => Task.CompletedTask);
         await PlanningOperations.ResolveAsync(state, runtime, CancellationToken.None);
+        CheckEffectFixture("local", state, state.Obligations.Where(PlanningSourceDecisions.IsOperation).ToArray());
+        foreach (var text in new[] { "Classify as rejected when approved is false, high when approved is true and amount>=threshold, and standard otherwise.", "This is deterministic, local, in-memory business processing." })
+        {
+            var invalid = PlanningContext.Clone(state);
+            invalid.Obligations.Single(PlanningSourceDecisions.IsOperation).OperationAdmission!.Assignments.RemoveAll(a => PlanningChoiceEvidence.Text(invalid, a.ClauseReference).Trim() == text);
+            try { CheckEffectFixture("local", invalid, invalid.Obligations.Where(PlanningSourceDecisions.IsOperation).ToArray()); }
+            catch (GnOuGo.Flow.Core.Expressions.WorkflowRuntimeException) { continue; }
+            throw new InvalidOperationException("Missing governing evidence passed LOCAL acceptance.");
+        }
         await PlanningSourceDecisions.RelateAsync(state, runtime, CancellationToken.None);
         var operation = state.Obligations.Single(PlanningSourceDecisions.IsOperation);
         var inputs = state.Declarations.Where(d => state.ObligationRelations.Any(r => r.Producer == d.Id && r.Consumer == operation.Id)).Select(d => PlanningDeclarations.Name(state, d)).Order(StringComparer.Ordinal).ToArray();

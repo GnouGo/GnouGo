@@ -64,6 +64,8 @@ internal static partial class RuntimeAdmissionDiagnostic
         var sourcePath = GnOuGoWorkspace.ResolveDatabasePath(null, root, $".GnOuGo/data/planner-progressive/{ProgressiveCampaign.CampaignId}/gnougo-planning-v5.db");
         var source = await new EfPlanningSessionStore(new Contexts(sourcePath, readOnly: true), records).LoadAsync(ProgressiveCampaign.Tenant,
             campaign["stages"]![0]!["session"]!.ToString(), ct) ?? throw new InvalidOperationException("Retained settings are required.");
+        var comparisonOptionsFingerprint = PlanningGraphCompiler.Fingerprint(source.Request.Options.ToJsonString());
+        source.Request.Options = RuntimeAdmissionDiagnosticRules.WithTypedPolicy(source.Request.Options);
         var services = new ServiceCollection().AddLogging();
         services.AddKeyVaultMcpPersistence(KeyVaultDatabasePathResolver.Resolve(null, root));
         services.AddAgentMcpPersistence(AgentMcpHostingExtensions.ResolveDatabasePath(null, root));
@@ -85,14 +87,14 @@ internal static partial class RuntimeAdmissionDiagnostic
         var manifest = manifestRecord is null ? null : JsonNode.Parse(manifestRecord.Value)!.AsObject();
         if (command == "freeze")
         {
-            if (commit != "ba4f657610740207579ed5c2e14f99abaaa82e0a") throw new InvalidOperationException("The authorized production commit is required.");
+            if (commit != "cfc058fd52183854d09b2540b9f57d1e337797f9") throw new InvalidOperationException("The authorized production commit is required.");
             if (manifest is not null) throw new InvalidOperationException("This diagnostic has already been frozen.");
-            var previousRecord = await records.GetAsync(Collection, Tenant, "schema5-admission-dependencies-diagnostics-1", Author, ct)
+            var previousRecord = await records.GetAsync(Collection, Tenant, "schema5-structural-baseline-diagnostics-1", Author, ct)
                 ?? throw new InvalidOperationException("The previous frozen settings are required.");
             var previousManifest = JsonNode.Parse(previousRecord.Value)!;
             if (!JsonNode.DeepEquals(previousManifest["model"], campaign["model"]) ||
                 previousManifest["transportConfigurationFingerprint"]!.ToString() != transportFingerprint ||
-                previousManifest["sourceOptionsFingerprint"]!.ToString() != PlanningGraphCompiler.Fingerprint(source.Request.Options.ToJsonString()) ||
+                previousManifest["sourceOptionsFingerprint"]!.ToString() != comparisonOptionsFingerprint ||
                 !JsonNode.DeepEquals(previousManifest["catalogFingerprint"], campaign["stages"]![0]!["catalogHash"]))
                 throw new InvalidOperationException("The prior model, policy, catalog or budget configuration changed.");
             foreach (var frozenCase in previousManifest["cases"]!.AsArray())
@@ -113,7 +115,9 @@ internal static partial class RuntimeAdmissionDiagnostic
             if (exchangeRatePrerequisite["status"]!.ToString() != "passed")
                 throw new InvalidOperationException("Currency-conversion preflight failed; LOCAL was not started.");
             manifest = new() { ["commit"] = commit, ["binaries"] = binaries, ["archiveFingerprint"] = archive,
-                ["comparisonIdentity"] = "schema5-admission-dependencies-diagnostics-1",
+                ["comparisonIdentity"] = "schema5-structural-baseline-diagnostics-1",
+                ["comparisonSourceOptionsFingerprint"] = comparisonOptionsFingerprint,
+                ["expectedConfigurationAddition"] = "Current frozen production typed policy evidence; unchanged instructions and existing options.",
                 ["exchangeRatePrerequisite"] = exchangeRatePrerequisite,
                 ["authorizedCases"] = new JsonArray("local"),
                 ["model"] = campaign["model"]!.DeepClone(), ["sourceOptionsFingerprint"] = PlanningGraphCompiler.Fingerprint(source.Request.Options.ToJsonString()),
@@ -200,6 +204,7 @@ internal static partial class RuntimeAdmissionDiagnostic
         var runtime = new WorkflowPlanningRuntime(new WorkflowEngine { LLMClient = journal, LLMCapabilities = capabilities,
             Limits = new() { TenantId = Tenant, RunId = id, LogStepContent = false } }, Save);
         var alreadyStopped = envelope["phase"]!.ToString() == "stopped";
+        JsonObject? restart = null;
         string? failure = alreadyStopped ? state.TechnicalStop?.Code ?? "STOPPED" : null;
         if (!alreadyStopped)
         {
@@ -211,6 +216,7 @@ internal static partial class RuntimeAdmissionDiagnostic
                 RuntimeAdmissionDiagnosticRules.RequireStructuralBaseline(state,
                     PlanningIntentAssessment.IntentSources(state).Where(s => s.Structural).Select(s => s.Id).ToArray(),
                     PlanningSourceDecisions.InterpretationDecisions(state).Count(d => d.Context["role"]?.ToString() == "existing_workflow"));
+                RuntimeAdmissionDiagnosticRules.RequireTypedPolicy(state, PlanningSourceDecisions.InterpretationDecisions(state).Count(d => d.Context["role"]?.ToString() == "host_constraint"));
                 // Preserve the exact live interpretation in audit storage. Replace
                 // only declaration candidates with the frozen, labelled precondition.
                 envelope["interpretedObligations"] = JsonSerializer.SerializeToNode(state.Obligations, PlanningJsonContext.Default.ListPlanningObligation);
@@ -223,6 +229,13 @@ internal static partial class RuntimeAdmissionDiagnostic
                 operations.Any(o => !o.Required || o.Kind is not ("local_processing" or "external_read")))
                 throw new WorkflowRuntimeException("DIAGNOSTIC_ADMISSION_MISMATCH", "The isolated fixture's expected runtime actions were not established.");
             CheckEffectFixture(name, state, operations);
+            var committed = await records.GetAsync(Collection, Tenant, id + ":checkpoint", Author, ct) ?? throw new InvalidOperationException("Missing committed checkpoint.");
+            var committedBudget = await records.GetAsync(PlanningBudgetSink.Collection, Tenant, id, EfPlanningSessionStore.Author, ct);
+            var restored = JsonSerializer.Deserialize(JsonNode.Parse(committed.Value)!["snapshot"], PlanningJsonContext.Default.PlanningSnapshot)!;
+            restart = await VerifyReadOnlyRestartAsync(state, restored, ct);
+            if ((await records.GetAsync(Collection, Tenant, id + ":checkpoint", Author, ct))?.Value != committed.Value ||
+                (await records.GetAsync(PlanningBudgetSink.Collection, Tenant, id, EfPlanningSessionStore.Author, ct))?.Value != committedBudget?.Value)
+                throw new InvalidOperationException("Read-only restart changed persisted checkpoint or budget.");
             if (name == "mixed")
             {
                 envelope["phase"] = "relations"; await Save(state, ct);
@@ -266,11 +279,20 @@ internal static partial class RuntimeAdmissionDiagnostic
         }
         var report = ProgressiveReport.Build(state, receipts);
         var declarations = state.OperationAdmissionFingerprint is not null ? PlanningOperations.DeclarationExclusions(state) : null;
+        report["readOnlyRestart"] = restart;
+        report["durableBudgetCalls"] = budget.Snapshot.Calls;
+        report["remainingCallBudget"] = Math.Max(0, RuntimeAdmissionDiagnosticRules.MaxCalls - budget.Snapshot.Calls);
         report["journalRequests"] = journalRequests.Count;
         report["journalReservationsWithoutReceipt"] = journalRequests.Count(key => !receipts.TryGetValue(key, out var response) || response is null);
         report["coordinatorReservationsWithoutJournalRequest"] = state.RequestAccounting.Select(c => c.Id).Distinct(StringComparer.Ordinal).Count(key => !journalRequests.Contains(key));
         var interpretationDomain = PlanningSourceDecisions.InterpretationDecisions(state);
-        report["modelRuntimeDecisionsRemoved"] = interpretationDomain.Count(d => d.Context["role"]?.ToString() == "host_constraint" && d.Schema["properties"]!["runtime"] is null);
+        report["interpretationInitialPages"] = PlanningDecisionPages.PackedPageCount(state, interpretationDomain);
+        report["runtimeFacetDecisions"] = interpretationDomain.Count(d => d.Schema["properties"]!["runtime"] is not null);
+        report["runtimeFacetCallsAreEmbeddedInInterpretation"] = true;
+        report["typedHostPolicy"] = new JsonObject { ["modelInterpretationDecisions"] = interpretationDomain.Count(d => d.Context["role"]?.ToString() == "host_constraint"),
+            ["engineClauses"] = state.RuntimeEvidence.Count(e => e.Origin == PlanningRuntimeEvidenceOrigin.EngineSourceAuthority && state.References.Any(r => r.Id == e.SourceReference && r.SourceId == "host")),
+            ["projectedObligations"] = state.Obligations.Count(o => o.Grounding?.DeclaredPolicyFingerprint is not null),
+            ["metadataFingerprint"] = PlanningDeclaredPolicyProjection.Fingerprint(state) };
         report["baselineProjection"] = new JsonObject
         {
             ["structuralUnits"] = PlanningIntentAssessment.IntentSources(state).Count(s => s.Structural),

@@ -1,0 +1,37 @@
+using System.Text.Json;
+using System.Text.Json.Nodes;
+using GnOuGo.Flow.Core.Planning;
+using GnOuGo.Flow.Core.Runtime;
+using GnOuGo.Flow.Planning;
+
+namespace GnOuGo.Agent.Planning.Benchmark;
+
+internal static partial class RuntimeAdmissionDiagnostic
+{
+    private static async Task<JsonObject> VerifyReadOnlyRestartAsync(PlanningSnapshot expected, PlanningSnapshot restored, CancellationToken ct)
+    {
+        static string Fingerprint(PlanningSnapshot state) => PlanningGraphCompiler.Fingerprint(JsonSerializer.Serialize(state, PlanningJsonContext.Default.PlanningSnapshot));
+        var before = Fingerprint(restored);
+        if (expected.OperationAdmissionFingerprint is null || before != Fingerprint(expected))
+            throw new InvalidOperationException("The durable checkpoint does not contain the complete committed admission.");
+        var transport = new RejectRestartDispatch();
+        var checkpoints = 0;
+        var runtime = new WorkflowPlanningRuntime(new WorkflowEngine { LLMClient = transport }, (_, _) =>
+        { checkpoints++; throw new InvalidOperationException("Read-only restart attempted a checkpoint write."); });
+        PlanningOperations.RequireCurrent(restored);
+        await PlanningOperations.ResolveAsync(restored, runtime, ct);
+        if (transport.Calls != 0 || checkpoints != 0 || before != Fingerprint(restored))
+            throw new InvalidOperationException("Read-only restart changed proof or accounting.");
+        return new() { ["passed"] = true, ["providerCalls"] = transport.Calls, ["checkpointWrites"] = checkpoints,
+            ["snapshotFingerprint"] = before, ["admissionFingerprint"] = restored.OperationAdmissionFingerprint,
+            ["dependencyFingerprints"] = new JsonArray(restored.Obligations.Where(o => o.OperationAdmission is not null)
+                .OrderBy(o => o.Id, StringComparer.Ordinal).Select(o => (JsonNode?)JsonValue.Create(o.OperationAdmission!.Dependencies!.ProofFingerprint)).ToArray()) };
+    }
+
+    private sealed class RejectRestartDispatch : ILLMClient
+    {
+        internal int Calls { get; private set; }
+        public Task<LLMResponse> CallAsync(LLMRequest request, CancellationToken ct)
+        { Calls++; throw new InvalidOperationException("Read-only restart attempted provider dispatch."); }
+    }
+}
