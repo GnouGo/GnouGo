@@ -1,0 +1,607 @@
+{
+  "identity": "schema5-realized-governing-diagnostics-rerun-3",
+  "manifest": {
+    "commit": "2f8b177ec6076cfdedbf524bd72a01d3f1b457d7",
+    "binaries": {
+      "GnOuGo.AI.Core.dll": "34d074f5f824af45446ccc7f882a082bbb641642568d5ee54874f9faf5b744ed",
+      "GnOuGo.AI.Local.dll": "cea6222e28051899ba671166008efa14c9d588bf4f84ee4cd6a4d5a9b7579b27",
+      "GnOuGo.Agent.Mcp.dll": "f66352b4179d3f22168743c404e08b1793be2e1b847de9b1813b783317639f78",
+      "GnOuGo.Agent.Planning.Benchmark.dll": "a08d2a650490853911cc6ac812c393507c761e995c97e78b843909030ab7fba3",
+      "GnOuGo.Agent.Server.dll": "7a74a44e9828a045d9db8256e766458331519176a922baf6ce3cc5700ef9425d",
+      "GnOuGo.Agent.Shared.dll": "47ac0b2a7f618a60011ab2d2f41ac9d866f75f05148dd62790cf047b95595cdb",
+      "GnOuGo.Assets.Animation.dll": "6d3d854f8f6df4440b98ca2f3fbef65fdd40f77bf95369595ae0b9a382b7d477",
+      "GnOuGo.Assets.Bears.dll": "f93ad7bf45365cdf4bd31505142177180eaa4b880d9199ea6da757be1c83b9bf",
+      "GnOuGo.Auth.Core.dll": "12c861bf1946431639ab4d6b90ad41a6591d3e18bcbe38b8784f356ca67ce453",
+      "GnOuGo.Diff.Core.dll": "f194339f0eee917fe070f55d4669f2ea97c0e17e3a04c14a1ea73bd9afdb433a",
+      "GnOuGo.DocIngestor.Core.dll": "daa8e73f1304c40ba1bbd52785e1c853cf6b34603a96d51d688349e8f04425e9",
+      "GnOuGo.DocIngestor.Mcp.dll": "5a264c1d3d11d8903275457866f91b530958b53724df184f99229a8a01ead85c",
+      "GnOuGo.Files.Server.dll": "2bc40e37032c5a9b865a7363bfe12b591036331d394bfed886a6896bfabb9d88",
+      "GnOuGo.Flow.Core.dll": "7ff30c0962cad82cc4aa782c3ae91d69960f9600053a8337af64998c91d2e051",
+      "GnOuGo.Flow.Integrations.dll": "784e8393140945396b5a7350cde3d4ee62f0e11b7719d1d4d0262f43bf792b47",
+      "GnOuGo.Flow.Mermaid.dll": "f6fa87566f7a1648125701de5a0edb28154cf3e7804681ab316b17185d44a562",
+      "GnOuGo.Flow.Planning.dll": "d823d6214b977d09022769ff5d8e142eb25374187f3abc23e57d3cda89e5231c",
+      "GnOuGo.KeyVault.Core.dll": "a663969062cb20df247ddae77f51fee573d205995f692cb24c63daf8e7878dba",
+      "GnOuGo.KeyVault.Mcp.dll": "e519caee319f87cdd81660678e3f1d4b4eaaebab48e32e866d0c30ee7121c2dd",
+      "GnOuGo.Mcp.Core.dll": "b7be2243cbfe984076a8d4a60d2e9f1c31c9d34d43886724bf6287cfd05f1b08",
+      "GnOuGo.Observability.Core.dll": "5d8ab33e1f59ffe318d028857baa6e8c587f5a9e2a68771274adf0a5a78eccf2",
+      "GnOuGo.OtlpCollector.Server.dll": "c0031d43fde6bd3fcc0ebdeb91f8e83c5b4ecbf2a04f3234b991b37a8354f4cf",
+      "GnOuGo.Workspace.dll": "b1473276e75d7857b00227776d054693f697fba756546352ed979dec6e1efcc8"
+    },
+    "archiveFingerprint": "84be7c2ecead80fb51d787ca5512b2f8e8b295ee0887ccb4e0847f89b3a001e9",
+    "authorizedCases": [
+      "local"
+    ],
+    "model": {
+      "provider": "OpenAi",
+      "model": "gpt-5.5-2026-04-24",
+      "reasoningLevels": [
+        "low",
+        "medium",
+        "high",
+        "max"
+      ],
+      "structuredOutput": true
+    },
+    "sourceOptionsFingerprint": "8540aff092454fc0d849aaeab4d37590f5823619832a683a5e8e7a98d4c12657",
+    "transportConfigurationFingerprint": "47c745160512a0664b07c867827b1a9547a47df55e7cefcbaa18ebc00ed618ac",
+    "catalogFingerprint": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+    "cases": [
+      {
+        "name": "local",
+        "promptHash": "f0479816c14ebb7fd57d6a30d5ea88bcc40b80c6c15bfd5502a6fd0e7a38a1f9",
+        "declarationFixtureHash": "3120759bcc1a5590d8b7f6ee612a6f350bfd587c626c27f96c80868de47fe6fb",
+        "preflight": {
+          "interpretationPages": 11,
+          "sourceDecisions": 22,
+          "modelRuntimeDecisionsRemoved": 9,
+          "declarationFixtureValidated": true
+        },
+        "status": "not_run"
+      },
+      {
+        "name": "mixed",
+        "promptHash": "4d9621fb3038a45e153bca3b2d0af7b1cd7e9a0f08e0501d7f98b4aecb13150a",
+        "declarationFixtureHash": "5c9ed2adcc85b892ee5022b9e7218fd2512f4415e6785cdea19748631f7dbbf5",
+        "preflight": {
+          "interpretationPages": 12,
+          "sourceDecisions": 22,
+          "modelRuntimeDecisionsRemoved": 9,
+          "declarationFixtureValidated": true
+        },
+        "status": "not_run"
+      }
+    ],
+    "limits": {
+      "callsPerCase": 16,
+      "reasoning": "low",
+      "input": 12000,
+      "dispatchTarget": 9600,
+      "output": 8192,
+      "singletonOutput": 16384
+    },
+    "declarationEvidence": "Supplied canonical ports and exact owned attachment fixtures; no live declaration convergence claimed."
+  },
+  "cases": [
+    {
+      "session": "schema5-realized-governing-diagnostics-rerun-3:local",
+      "revision": 0,
+      "status": "stopped",
+      "outcome": null,
+      "phase": "intent",
+      "artifactHash": null,
+      "approvedHash": null,
+      "finalArtifactHash": null,
+      "modelCalls": 0,
+      "reservations": 1,
+      "unverifiableDispatches": 1,
+      "journalReservationsWithoutReceipt": 1,
+      "decisionPages": 1,
+      "pagesByPhase": [
+        {
+          "phase": "intent",
+          "status": "pending",
+          "correction": false,
+          "origin": "Initial",
+          "gate": "response_contract",
+          "pages": 1,
+          "splitChildren": 0
+        }
+      ],
+      "outputPartitions": 0,
+      "outputEscalations": 0,
+      "semanticCorrectionPages": 0,
+      "pageLineage": [
+        {
+          "id": "page_fcd94956642457e7ec1cb9990a7f514be16a971199b668734325736d3c3de77a",
+          "parent": null,
+          "origin": "Initial",
+          "gate": "response_contract",
+          "phase": "intent",
+          "status": "pending",
+          "correction": false,
+          "partitionDepth": 0,
+          "requestId": "schema5-realized-governing-diagnostics-rerun-3:local:0:1:intent:response_contract:93beceaf3191e878:page_fcd94956642457e7ec1cb9990a7f514be16a971199b668734325736d3c3de77a:915c7e40ecf5f976a545c1bce1592b895257b637e2692b3ce3ca545ef856ce2e",
+          "escalationChildId": null,
+          "parentRequestId": null,
+          "escalationLevel": null,
+          "canonicalDecisionId": null,
+          "effectiveOutputTokens": 8192,
+          "completionStatus": null,
+          "decisions": [
+            "interpret_0f0bc1539179f1e1e4f291ff",
+            "interpret_129eea96e794bd3a2e8d434f",
+            "interpret_1ca9c160b29bfaae140d3375",
+            "interpret_1f06d9513e9c8795104d3b2a",
+            "interpret_259e5d02d09f870cf6815327"
+          ],
+          "sourceDecisionIds": null,
+          "children": [],
+          "singletonOutputLimit": false
+        }
+      ],
+      "engineResolvedExecutableDecisions": 0,
+      "otherEngineDecisions": null,
+      "modelDecisionIds": [],
+      "approvedBehaviorHash": null,
+      "declarationProof": null,
+      "operationAdmissionProof": null,
+      "canonicalOperationCount": null,
+      "canonicalOperations": null,
+      "canonicalDeclarations": [],
+      "declarationDispositions": {},
+      "declarationModifiers": [],
+      "modelExecutableDecisions": 0,
+      "executableHoleExposures": 0,
+      "userClarifications": 0,
+      "answeredForms": 0,
+      "clarificationDecision": null,
+      "largestEstimatedInput": 3291,
+      "largestActualInput": null,
+      "inputTokens": 0,
+      "outputTokens": 0,
+      "reasoningTokens": 0,
+      "allDispatchUsageKnown": false,
+      "effectiveReasoning": [
+        "low"
+      ],
+      "requestsByPhase": [
+        {
+          "workflow": "$plan",
+          "phase": "intent",
+          "gate": "response_contract",
+          "reservations": 1,
+          "calls": 0,
+          "repairReservations": 0,
+          "outputEscalations": 0,
+          "allDispatchUsageKnown": false,
+          "inputTokens": 0,
+          "outputTokens": 0
+        }
+      ],
+      "repairAllowances": [],
+      "failuresByGate": [],
+      "firstFailure": {
+        "code": "LLM_BUDGET_UNVERIFIABLE",
+        "phase": "intent",
+        "location": "$",
+        "unverifiable": true
+      },
+      "diagnostics": [],
+      "modelDecisions": 0,
+      "journalRequests": 1,
+      "coordinatorReservationsWithoutJournalRequest": 0,
+      "modelRuntimeDecisionsRemoved": 9,
+      "declarationCoveredOccurrences": null,
+      "declarationExclusions": null,
+      "dependencies": [],
+      "fixtureDeclarations": null,
+      "case": "local",
+      "firstBlocker": "LLM_BUDGET_UNVERIFIABLE",
+      "runtimeRoles": {},
+      "runtimeEvidence": [],
+      "actionCandidates": 0,
+      "identityModelDecisions": 0,
+      "identityDeterministicDecisions": 0,
+      "governingAttachmentsByOperation": null,
+      "governingModelDecisions": 0,
+      "governingDeterministicAttachments": 0,
+      "retiredActionCandidates": 0,
+      "engineAdmittedLocalActions": null,
+      "engineAdmittedExternalActions": null,
+      "admissionModelCalls": 0,
+      "fixturePreconditions": "Canonical declarations supplied; interpretation obligations retained encrypted but not adjudicated in this diagnostic.",
+      "requestDomains": [
+        {
+          "requestId": "schema5-realized-governing-diagnostics-rerun-3:local:0:1:intent:response_contract:93beceaf3191e878:page_fcd94956642457e7ec1cb9990a7f514be16a971199b668734325736d3c3de77a:915c7e40ecf5f976a545c1bce1592b895257b637e2692b3ce3ca545ef856ce2e",
+          "requestFingerprint": "ea632c8cb4389d3bfd4428497a04453d0aea98ddc26524b536918945a46a54b1",
+          "schemaFingerprint": "91a0c1940a3f6ef01bf5579fbbdca9b969d304190cec8bd9f1401308b3e435e1",
+          "contextFingerprint": "930f9596eb83457fe514f37eae5af71168dd92a813f2cbac06acb73fd435d8f6",
+          "outputCeiling": 8192,
+          "domains": {
+            "kind": [
+              "business_choice",
+              "business_preference",
+              "confirmation_forbidden",
+              "confirmation_required",
+              "declaration_candidate",
+              "declaration_constraint",
+              "exact_denial",
+              "explicit_value",
+              "implementation_policy",
+              "information",
+              "iteration",
+              "omission_default",
+              "rejection_condition",
+              "runtime_condition",
+              "runtime_fallback",
+              "workflow_boundary",
+              "workflow_policy"
+            ],
+            "role": [
+              "contract",
+              "planning_directive",
+              "policy",
+              "unresolved"
+            ]
+          },
+          "decisions": [
+            "interpret_0f0bc1539179f1e1e4f291ff",
+            "interpret_129eea96e794bd3a2e8d434f",
+            "interpret_1ca9c160b29bfaae140d3375",
+            "interpret_1f06d9513e9c8795104d3b2a",
+            "interpret_259e5d02d09f870cf6815327"
+          ],
+          "receiptFingerprint": null
+        }
+      ],
+      "decisionClasses": [
+        {
+          "category": "interpretation",
+          "journalRequests": 1,
+          "verifiedCalls": 0,
+          "distinctExposedDecisions": 5,
+          "inputTokens": 0,
+          "outputTokens": 0,
+          "reasoningTokens": 0,
+          "unverifiableUsage": 1
+        },
+        {
+          "category": "effect_realizations",
+          "journalRequests": 0,
+          "verifiedCalls": 0,
+          "distinctExposedDecisions": 0,
+          "inputTokens": 0,
+          "outputTokens": 0,
+          "reasoningTokens": 0,
+          "unverifiableUsage": 0
+        },
+        {
+          "category": "effect_governing",
+          "journalRequests": 0,
+          "verifiedCalls": 0,
+          "distinctExposedDecisions": 0,
+          "inputTokens": 0,
+          "outputTokens": 0,
+          "reasoningTokens": 0,
+          "unverifiableUsage": 0
+        },
+        {
+          "category": "occurrence_identity",
+          "journalRequests": 0,
+          "verifiedCalls": 0,
+          "distinctExposedDecisions": 0,
+          "inputTokens": 0,
+          "outputTokens": 0,
+          "reasoningTokens": 0,
+          "unverifiableUsage": 0
+        },
+        {
+          "category": "relationships_or_other",
+          "journalRequests": 0,
+          "verifiedCalls": 0,
+          "distinctExposedDecisions": 0,
+          "inputTokens": 0,
+          "outputTokens": 0,
+          "reasoningTokens": 0,
+          "unverifiableUsage": 0
+        }
+      ],
+      "effectMappings": null,
+      "effectValidationPassed": false,
+      "fullStageOneSuccess": false
+    },
+    {
+      "case": "mixed",
+      "status": "not_run"
+    }
+  ],
+  "archiveCheck": "unchanged",
+  "postRunAudit": {
+    "outcome": "PROVIDER BLOCKER",
+    "classification": "A: external budget-conversion infrastructure blocker, before LLM transport",
+    "rootCause": "ConvertToBudgetCurrencyAsync rejected an invalid or unavailable exchange-rate quote at line 519 during ReserveChainAsync. The configured ECB integration supplied no usable quote. Underlying HTTP/data cause is not retained. The LLM transport was not called.",
+    "productionCommit": "2f8b177ec6076cfdedbf524bd72a01d3f1b457d7",
+    "freshCaseInitialUsage": {
+      "reservations": 0,
+      "verifiedReceipts": 0
+    },
+    "freshStarts": 1,
+    "authorizedCases": [
+      "local"
+    ],
+    "callCeiling": 16,
+    "journalAudit": {
+      "providerDispatches": 0,
+      "retainedGnOuGoFrames": [
+        "at GnOuGo.Flow.Core.Runtime.LLMUsageBudgetScope.ConvertToBudgetCurrencyAsync(ModelUsageCostEstimate estimate, String stage, CancellationToken ct) [line 519]",
+        "at GnOuGo.Flow.Core.Runtime.LLMUsageBudgetScope.ReserveChainAsync(LLMRequest request, IModelUsageCostEstimator costEstimator, String stage, List`1 reservations, CancellationToken ct) [line 282]",
+        "at GnOuGo.Flow.Core.Runtime.LLMUsageBudgetScope.CallAsync(ILLMClient client, IModelUsageCostEstimator costEstimator, LLMRequest request, String stage, CancellationToken ct) [line 196]",
+        "at GnOuGo.Flow.Core.Runtime.LLMUsageBudgetScope.CallAsync(ILLMClient client, IModelUsageCostEstimator costEstimator, LLMRequest request, String stage, CancellationToken ct) [line 202]",
+        "at GnOuGo.Agent.Server.Planning.PlanningModelJournal.CallAsync(LLMRequest request, CancellationToken ct) [line 73]",
+        "at GnOuGo.Agent.Server.Planning.PlanningModelJournal.CallAsync(LLMRequest request, CancellationToken ct) [line 78]",
+        "at GnOuGo.Flow.Core.Runtime.StepExecutionContext.CallModelAsync(ILLMClient client, LLMRequest request, String stage, CancellationToken ct) [line 97]",
+        "at GnOuGo.Flow.Planning.PlanningModelCalls.DispatchAsync(PlanningSnapshot state, IPlanningRuntime runtime, PlanningModelCall call, CancellationToken ct) [line 78]",
+        "at GnOuGo.Flow.Planning.PlanningDecisionPages.ResolveAsync(PlanningSnapshot state, IPlanningRuntime runtime, String phase, String workflow, IReadOnlyList`1 decisions, CancellationToken ct) [line 44]",
+        "at GnOuGo.Flow.Planning.PlanningSourceDecisions.InterpretAsync(PlanningSnapshot state, IPlanningRuntime runtime, CancellationToken ct) [line 53]",
+        "at GnOuGo.Agent.Planning.Benchmark.RuntimeAdmissionDiagnostic.RunCaseAsync(String name, PlanningSnapshot source, Contexts contexts, IKeyVaultRecordStore records, ILLMClient client, ILLMCapabilityResolver capabilities, IModelUsageCostEstimator estimator, IExchangeRateProvider rates, CancellationToken ct) [line 198]"
+      ],
+      "exceptionTypes": [
+        "GnOuGo.Flow.Core.Expressions.WorkflowRuntimeException"
+      ],
+      "checkpointFingerprint": "d7d94e00c14bf89e7b07a26c2de8675382d1aaf1ebd92558b43190d8c39191c3",
+      "failureFingerprint": "b302ced969c55eef77b26d551a0590dd33b0fffb5444e0bbeb1fdd493ee75746",
+      "safeFailure": "GnOuGo.Flow.Core.Expressions.WorkflowRuntimeException: The configured LLM usage budget could not be verified safely.",
+      "budgetFingerprint": null,
+      "budgetCalls": null,
+      "knownBudgetTokens": null,
+      "requestUsage": [
+        {
+          "requestId": "schema5-realized-governing-diagnostics-rerun-3:local:0:1:intent:response_contract:93beceaf3191e878:page_fcd94956642457e7ec1cb9990a7f514be16a971199b668734325736d3c3de77a:915c7e40ecf5f976a545c1bce1592b895257b637e2692b3ce3ca545ef856ce2e",
+          "inputTokens": null,
+          "outputTokens": null,
+          "reasoningTokens": null,
+          "finalAnswerTokensDerived": null,
+          "disableTransportRetries": true,
+          "maxOutput": 8192,
+          "generationFieldNames": [
+            "clientRequestId",
+            "provider",
+            "model",
+            "prompt",
+            "temperature",
+            "structuredOutputSchema",
+            "structuredOutputStrict",
+            "reasoning",
+            "useBackgroundMode",
+            "tools",
+            "maxTokens",
+            "requireOutputTokenLimit",
+            "disableTransportRetries"
+          ],
+          "reasoning": "low",
+          "completionStatus": null,
+          "receiptPresent": false,
+          "requestFingerprint": "ea632c8cb4389d3bfd4428497a04453d0aea98ddc26524b536918945a46a54b1",
+          "receiptFingerprint": null
+        }
+      ],
+      "scope": "Read-only post-run inspection; no transport is available in this tool."
+    },
+    "liveReceiptReplay": {
+      "identity": "schema5-realized-governing-diagnostics-rerun-3:local",
+      "providerDispatches": 0,
+      "sourceUnchanged": true,
+      "checkpointFingerprint": "d7d94e00c14bf89e7b07a26c2de8675382d1aaf1ebd92558b43190d8c39191c3",
+      "receiptChecks": [
+        {
+          "requestId": "schema5-realized-governing-diagnostics-rerun-3:local:0:1:intent:response_contract:93beceaf3191e878:page_fcd94956642457e7ec1cb9990a7f514be16a971199b668734325736d3c3de77a:915c7e40ecf5f976a545c1bce1592b895257b637e2692b3ce3ca545ef856ce2e",
+          "requestFingerprint": "ea632c8cb4389d3bfd4428497a04453d0aea98ddc26524b536918945a46a54b1",
+          "receiptFingerprint": null,
+          "completionStatus": null,
+          "malformedJson": false,
+          "schemaFindings": null
+        }
+      ],
+      "historicalSubjectSelections": 0,
+      "replayedReceipts": 0,
+      "blocker": "INTENT_OPERATION_PROOF_MISSING",
+      "location": "/operations/@$plan"
+    },
+    "offlineValidation": {
+      "productionCommit": "2f8b177ec6076cfdedbf524bd72a01d3f1b457d7",
+      "harnessBaseCommit": "2da06292b075e157cef0653bca83a5081270af83",
+      "productionDlls": {
+        "GnOuGo.AI.Core.dll": "34d074f5f824af45446ccc7f882a082bbb641642568d5ee54874f9faf5b744ed",
+        "GnOuGo.AI.Local.dll": "cea6222e28051899ba671166008efa14c9d588bf4f84ee4cd6a4d5a9b7579b27",
+        "GnOuGo.Agent.Mcp.dll": "f66352b4179d3f22168743c404e08b1793be2e1b847de9b1813b783317639f78",
+        "GnOuGo.Agent.Server.dll": "7a74a44e9828a045d9db8256e766458331519176a922baf6ce3cc5700ef9425d",
+        "GnOuGo.Agent.Shared.dll": "47ac0b2a7f618a60011ab2d2f41ac9d866f75f05148dd62790cf047b95595cdb",
+        "GnOuGo.Assets.Animation.dll": "6d3d854f8f6df4440b98ca2f3fbef65fdd40f77bf95369595ae0b9a382b7d477",
+        "GnOuGo.Assets.Bears.dll": "f93ad7bf45365cdf4bd31505142177180eaa4b880d9199ea6da757be1c83b9bf",
+        "GnOuGo.Auth.Core.dll": "12c861bf1946431639ab4d6b90ad41a6591d3e18bcbe38b8784f356ca67ce453",
+        "GnOuGo.Diff.Core.dll": "f194339f0eee917fe070f55d4669f2ea97c0e17e3a04c14a1ea73bd9afdb433a",
+        "GnOuGo.DocIngestor.Core.dll": "daa8e73f1304c40ba1bbd52785e1c853cf6b34603a96d51d688349e8f04425e9",
+        "GnOuGo.DocIngestor.Mcp.dll": "5a264c1d3d11d8903275457866f91b530958b53724df184f99229a8a01ead85c",
+        "GnOuGo.Files.Server.dll": "2bc40e37032c5a9b865a7363bfe12b591036331d394bfed886a6896bfabb9d88",
+        "GnOuGo.Flow.Core.dll": "7ff30c0962cad82cc4aa782c3ae91d69960f9600053a8337af64998c91d2e051",
+        "GnOuGo.Flow.Integrations.dll": "784e8393140945396b5a7350cde3d4ee62f0e11b7719d1d4d0262f43bf792b47",
+        "GnOuGo.Flow.Mermaid.dll": "f6fa87566f7a1648125701de5a0edb28154cf3e7804681ab316b17185d44a562",
+        "GnOuGo.Flow.Planning.dll": "d823d6214b977d09022769ff5d8e142eb25374187f3abc23e57d3cda89e5231c",
+        "GnOuGo.KeyVault.Core.dll": "a663969062cb20df247ddae77f51fee573d205995f692cb24c63daf8e7878dba",
+        "GnOuGo.KeyVault.Mcp.dll": "e519caee319f87cdd81660678e3f1d4b4eaaebab48e32e866d0c30ee7121c2dd",
+        "GnOuGo.Mcp.Core.dll": "b7be2243cbfe984076a8d4a60d2e9f1c31c9d34d43886724bf6287cfd05f1b08",
+        "GnOuGo.Observability.Core.dll": "5d8ab33e1f59ffe318d028857baa6e8c587f5a9e2a68771274adf0a5a78eccf2",
+        "GnOuGo.OtlpCollector.Server.dll": "c0031d43fde6bd3fcc0ebdeb91f8e83c5b4ecbf2a04f3234b991b37a8354f4cf",
+        "GnOuGo.Workspace.dll": "b1473276e75d7857b00227776d054693f697fba756546352ed979dec6e1efcc8"
+      },
+      "harnessHash": "a08d2a650490853911cc6ac812c393507c761e995c97e78b843909030ab7fba3",
+      "solutionTests": {
+        "projects": 29,
+        "passed": 3468,
+        "total": 3469,
+        "failed": 0,
+        "optionalProviderSkip": 1
+      },
+      "plannerTestsPassed": 975,
+      "focusedHarnessTestsPassed": 48,
+      "testsAdded": 0,
+      "frontendChecks": [
+        "Agent Vite",
+        "Otlp TypeScript/Vite"
+      ],
+      "packages": [
+        "Flow.Core",
+        "Flow.Planning",
+        "Flow.Integrations",
+        "Agent.Shared"
+      ],
+      "selfchecks": [
+        "harness synthetic local/mixed",
+        "six classifier/batch and 18 CodeReview reference cases"
+      ],
+      "publishSmokes": {
+        "nativeAot": "233aa42453ed922cb026abdcadd561dfc0f00df3b0234ab0ef8117d27230ed52",
+        "trimmedAgent": "d5bdffa3db03eecb6fcc5c9c67ff5336bd2fee97a67a1d3cef4cd6902a75d972",
+        "status": "passed",
+        "artifactPreparation": "Prior temporary publish directories absent. Republished retained Release outputs with --no-build; restored osx-arm64 assets for trimmed publish. Frozen diagnostic production DLLs unchanged."
+      },
+      "logs": {
+        "realized-local3-fixture-selfcheck.log": "9f686a870f72a700efbe21e3d94c0d71eae57b32ae676ab697fde5460eeb65ba",
+        "realized-local3-aot-publish.log": "6fbb90aaefe31be3f94b56a27da5f0dd1349c16a91bddbf1bc725ae4901e3429",
+        "realized-local3-trimmed-smoke.log": "5f54ccaa81322a2a9eb53cbb28b18f962f3eb3e4f87760fae6527699ebf9746a",
+        "realized-local3-trimmed-publish.log": "4f8432fffc3e0d678538fa2577ffa0c519653d8a6972fd0c071c371cd4d3a9fa",
+        "realized-local3-solution-tests.log": "2ddde589ac7bfb967042402a6e32cdc9abe6137b8e56fcea97b64189a20e4679",
+        "realized-local3-pack-GnOuGo.Flow.Planning.log": "0ca35bd1f70db56ffc07ecab1830fa510055d01cb0d9f07dfc6ae37e90fc6f78",
+        "realized-local3-trimmed-restore.log": "59ad3af6fafd2e7236c71f98ead12fb94f9cf00b628fbbafa42b67a03ed52dca",
+        "realized-local3-aot-smoke.log": "26c0ae49925627c193400b30b16247f4b76521de86a871efec92878c8c158a18",
+        "realized-local3-harness-build.log": "5900b42cf4682717a0f2cc889af1aaf1068e03d1ec478aead825d5eade5687f4",
+        "realized-local3-pack-GnOuGo.Agent.Shared.log": "93420f9e13064607341022dc1a511c7df36564ae30fa968f191b35577e50d71b",
+        "realized-local3-test-build.log": "546d2d75e3a0b9376ffdc148f7339fb6dda1773b9684c3c138030ac032538bc5",
+        "realized-local3-pack-GnOuGo.Flow.Core.log": "fba6ac00e3bb0a84f58f2f9121d06e692c87c69fe991c7b23c1d3d6d03fbcc57",
+        "realized-local3-focused-tests.log": "1617b561eed75f0937614ca0ddf9aea72eb9c7aebaeade01eeb7c9360fbba2e3",
+        "realized-local3-pack-GnOuGo.Flow.Integrations.log": "ca1478a583fbbba6e440244d010cbfbe37d2f39bf4daeaea56fd1b554f98be00",
+        "realized-local3-agent-ui.log": "a2e132012339befb37dbc4050fdde011995f4edaa98712ee415360ce0d28fcef",
+        "realized-local3-otlp-ui.log": "a07421c41a4ecb54858e39bef99a90e3188d0a7ea522870d9624fa0ba9cb285a"
+      },
+      "sourceDiffEmpty": true,
+      "archiveReplay": {
+        "identity": "schema5-realized-governing-diagnostics-rerun-2:local",
+        "providerDispatches": 0,
+        "sourceUnchanged": true,
+        "checkpointFingerprint": "db861f5de1c64a2487e9333c8ce1bb7814b607aa709c598ba80bcbb4ae4a145a",
+        "receiptChecks": [
+          {
+            "requestId": "schema5-realized-governing-diagnostics-rerun-2:local:0:1:intent:response_contract:93beceaf3191e878:page_0643da9a381238f528c483a75b15817ce72db9d637a7ce1eef6d0d93f2d979ba:e7e0bd04a899855e6aef1ac0ef67a2ea6d5aea124edaa1f6cae6f296d2b3f77f",
+            "requestFingerprint": "8da1e24c831ded904f78307c90287048e3b5dd902213c6c0026e4cd231172b4f",
+            "receiptFingerprint": "c53cf8945311fff55777b985a6ae387bdfed99a80f4d1266760fbf912cec7d42",
+            "completionStatus": null,
+            "malformedJson": false,
+            "schemaFindings": 0
+          },
+          {
+            "requestId": "schema5-realized-governing-diagnostics-rerun-2:local:0:2:intent:response_contract:93beceaf3191e878:page_6a6d9215f6f2c2dfc308a147c02404a1d7b7382824dcecaf5c5c60794fd3dbc2:63888c756914dfd46f55130679db83e216393ab52be9b9833b5721d3721d1263",
+            "requestFingerprint": "8f50b79fb172cff9a098ed1be8a0245dbcb0f88fc528623816e1e8bfd357aec8",
+            "receiptFingerprint": "51c0b63af27d511515c6124e034a598ff0288f64f587f193c8af5ac7ddfa2641",
+            "completionStatus": null,
+            "malformedJson": false,
+            "schemaFindings": 0
+          },
+          {
+            "requestId": "schema5-realized-governing-diagnostics-rerun-2:local:0:3:intent:response_contract:93beceaf3191e878:page_c2e19e0e57e7fed62c7817784797a4b4cb52af2c3972733dc6f5e934b2cf62ee:602bf0ad861b31101fcea9785d234d33934c86f37cd01cc1dd7fdfec7cda51d8",
+            "requestFingerprint": "1e9ab4dda0af23237b9353c0626ffdf0604076a6a9a952daace6dcdaa6b91865",
+            "receiptFingerprint": "a3b010b5becd015135eb8d18696d7058e93f7667e162a10420af7f42429961c9",
+            "completionStatus": null,
+            "malformedJson": false,
+            "schemaFindings": 0
+          },
+          {
+            "requestId": "schema5-realized-governing-diagnostics-rerun-2:local:0:4:intent:response_contract:93beceaf3191e878:page_0d1aea56569941e05bf72ec23cd561fdece4d481ce8a6c384c5004e0e90db06f:885412d6f58b32b4cf54feafce0fd254068cef74c3874338c64da21f0dcf434b",
+            "requestFingerprint": "a816b7bd5ffd4e9dd733ee6bc1a515c6b4c1a7207effabb65000490eda5e2ff8",
+            "receiptFingerprint": "7286ed3295ab5cc4961c37ccd981a380bece6e055bae986db4564f0e06f6a95e",
+            "completionStatus": null,
+            "malformedJson": false,
+            "schemaFindings": 0
+          },
+          {
+            "requestId": "schema5-realized-governing-diagnostics-rerun-2:local:0:5:intent:response_contract:93beceaf3191e878:page_74ac829f8c9186d4e5758a7308f2d6d5c60c0a319bda5a452e7a57d5c1585329:0862caa075644917ba12387f39dd054db9433ad3db233599d02613f3ec305c4a",
+            "requestFingerprint": "3c7a80697dd09897ed93e43000afa109697fb6bf7b42a230c18706899aa36863",
+            "receiptFingerprint": "7cb47dd58af0f1e4f95871c2484bb284c2a0c5565ade9471cb99e534bbef5cb7",
+            "completionStatus": null,
+            "malformedJson": false,
+            "schemaFindings": 0
+          },
+          {
+            "requestId": "schema5-realized-governing-diagnostics-rerun-2:local:0:6:intent:response_contract:93beceaf3191e878:page_b2117774964aab78062fde9e4c619d89c819f86f0e9802c8686fd2246508624f:a6546b67508539ee96bda32d0eff5390908934abc2b02db2b84789ef440cdc7e",
+            "requestFingerprint": "80e42b8d89115c39e14cfbafe435086c33084ed77165b40e17306a8df42a326b",
+            "receiptFingerprint": "39cf7a18d4fc3c46f5a73e4f373df1d729d07b22bbbfbf528a6da66fbe16b28c",
+            "completionStatus": null,
+            "malformedJson": false,
+            "schemaFindings": 0
+          },
+          {
+            "requestId": "schema5-realized-governing-diagnostics-rerun-2:local:0:7:intent:response_contract:93beceaf3191e878:page_dafd17894bcf8da1cd9789354bc0f7ad4ab9ed413f845ee73a2d236c7e8bf766:0df8b4062380e187f0fee73014d7a751be28731c872a72811b35c25912c9a0a5",
+            "requestFingerprint": "05950eebc381f4f3afad8b6f228ab12690b9870d646b75e519bb3e1c8e4264c8",
+            "receiptFingerprint": "a14cb7d5394007902b8d651d5c5991f57193f6a3b2d12301d94f37235d9c5d66",
+            "completionStatus": "output_limit",
+            "malformedJson": false,
+            "schemaFindings": null
+          },
+          {
+            "requestId": "schema5-realized-governing-diagnostics-rerun-2:local:0:8:intent:response_contract:93beceaf3191e878:page_027c3d3c73783972f180d50171641395d2bbd9f2bea03809465b02cfa5d6bc0f:97ccabba2b776ae8d4f9acb1894df864a47fbb3d96fe4d3a17ef3e9e7d7cf01b",
+            "requestFingerprint": "594fea35e8402c5bc6147c54a0585f244b97cd6b70c993fdeba6503d530b692f",
+            "receiptFingerprint": null,
+            "completionStatus": null,
+            "malformedJson": false,
+            "schemaFindings": null
+          }
+        ],
+        "historicalSubjectSelections": 0,
+        "replayedReceipts": 0,
+        "blocker": "INTENT_OPERATION_PROOF_MISSING",
+        "location": "/operations/@$plan"
+      },
+      "preflightComparison": {
+        "settingsAndInputsUnchanged": true,
+        "previousLocalPackedPages": 12,
+        "currentLocalPackedPages": 11,
+        "explanation": "PlanningReferences binds IDs to tenant/session; PlanningDecisionPages sorts by ID before bounded packing. New campaign identity changes ordering, not semantic inputs, schemas, options or production."
+      }
+    },
+    "decisionAccounting": {
+      "newPlannerDecisions": 0,
+      "removedPlannerDecisions": 0,
+      "exposedInterpretationDecisions": 5,
+      "completedInterpretationDecisions": 0,
+      "deterministicAdmissionAssignments": null,
+      "effectRealizationCalls": 0,
+      "effectGoverningCalls": 0,
+      "occurrenceIdentityCalls": 0,
+      "meaningOfZeroCalls": "Not reached; no admission convergence established."
+    },
+    "actualLlmTransportCalls": 0,
+    "actualLlmTransportCallsEvidence": "Retained exception arose at ConvertToBudgetCurrencyAsync line 519 inside ReserveChainAsync, before client.CallAsync. No budget reservation record exists; one journal reservation exists.",
+    "usage": {
+      "inputTokens": null,
+      "outputTokens": null,
+      "reasoningTokens": null,
+      "finalAnswerTokens": null,
+      "explanation": "No receipt. Harness numeric zero sums aggregate an empty set and are not measured usage."
+    },
+    "reservationInterpretation": "The journal persists before monetary-budget verification. Its conservative unverifiable-dispatch flag does not prove that the LLM transport was invoked.",
+    "partitionsCreated": 0,
+    "singletonEscalations": 0,
+    "semanticRepairs": 0,
+    "frozenProductionSourcesAndBinariesUnchanged": true,
+    "previousLocalArchiveUnchanged": true,
+    "allArchivedAccountingUnchanged": true,
+    "providerRetry": false,
+    "isolatedRetry": false,
+    "replacementStart": false,
+    "mixedStarted": false,
+    "stageOneStarted": false,
+    "proposedAction": "No production patch or retry. Investigate the exchange-rate prerequisite separately before authorizing another live request; do not bypass monetary limits.",
+    "nextGate": "isolate request",
+    "nextGateAuthorizedOrStarted": false,
+    "nextGateScope": "The failed exchange-rate prerequisite only; not another LLM request or LOCAL start."
+  }
+}
