@@ -27,6 +27,12 @@ public sealed class OperationEffectTests
             Assert.Equal("intent_operations", phase);
             var response = new JsonObject(request.StructuredOutputSchema!["properties"]!.AsObject().Select(field =>
             {
+                if (field.Key.StartsWith("contribution_", StringComparison.Ordinal))
+                {
+                    var scope = PlanningOperations.Scopes(state).Single(s => PlanningOperations.ContributionDecisionId(s.Evidence!) == field.Key);
+                    return new KeyValuePair<string, JsonNode?>(field.Key, OperationEffectFixtures.ContributionAnswer(state, scope,
+                        OperationEffectFixtures.Answer(state, scope, [target], scope.Evidence!.Id == description.Id ? "governs" : "realizes")));
+                }
                 Assert.StartsWith("coverage_", field.Key);
                 var group = PlanningOperations.CoverageGroups(state).Single(g => g.Id == field.Key);
                 return new KeyValuePair<string, JsonNode?>(field.Key, OperationEffectFixtures.CoverageAnswer(state, group,
@@ -40,7 +46,7 @@ public sealed class OperationEffectTests
         Assert.Equal(3, operation.OperationAdmission!.Assignments.Count);
         Assert.All(operation.OperationAdmission.Assignments, a => Assert.Equal("deterministic", a.ResolutionOrigin));
         Assert.Contains(operation.OperationAdmission.Assignments, a => a.RuntimeEvidenceId == description.Id && a.Disposition == "attach");
-        Assert.All(state.DecisionPages, p => Assert.All(p.Decisions, id => Assert.StartsWith("coverage_", id)));
+        Assert.All(state.DecisionPages, p => Assert.All(p.Decisions, id => Assert.True(id.StartsWith("coverage_", StringComparison.Ordinal) || id.StartsWith("contribution_", StringComparison.Ordinal))));
         Assert.Empty(state.RepairAllowances);
     }
 
@@ -114,7 +120,7 @@ public sealed class OperationEffectTests
     public async Task NoProvenIdentityStopsWithoutAStandaloneIdentityRequest()
     {
         var state = OperationAdmissionTests.State("This transformation is deterministic."); Add(state, 0, role: "governing");
-        OperationEffectFixtures.Seed(state);
+        OperationEffectFixtures.SeedContributions(state);
         var error = await Assert.ThrowsAsync<WorkflowRuntimeException>(() => PlanningOperations.ResolveAsync(state, NoModel(), Ct));
         Assert.Equal("INTENT_OPERATION_UNRESOLVED", error.Code); Assert.Empty(state.RequestAccounting);
     }

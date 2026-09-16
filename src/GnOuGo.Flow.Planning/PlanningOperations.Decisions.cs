@@ -7,7 +7,10 @@ namespace GnOuGo.Flow.Planning;
 internal static partial class PlanningOperations
 {
     internal sealed record Scope(PlanningIntentAssessment.IntentSource Source, PlanningReference Clause,
-        JsonObject Words, JsonObject Boundaries, Func<string, string, PlanningReference> Select, PlanningRuntimeEvidence? Evidence = null);
+        JsonObject Words, JsonObject Boundaries, Func<string, string, PlanningReference> Select, PlanningRuntimeEvidence? Evidence = null)
+    {
+        internal PlanningExecutionContribution? Contribution { get; init; }
+    }
 
     internal static Scope[] SourceScopes(PlanningSnapshot state) => PlanningIntentAssessment.IntentSources(state)
         .Where(s => s.Authority is PlanningSourceAuthority.RequestedBehavior or PlanningSourceAuthority.ExistingBehavior)
@@ -37,7 +40,7 @@ internal static partial class PlanningOperations
             .ThenBy(e => state.References.Single(r => r.Id == e.SourceReference).SourceId, StringComparer.Ordinal)
             .ThenBy(e => state.References.Single(r => r.Id == e.ActionReference).Start).ThenBy(e => e.Id, StringComparer.Ordinal)
             .Select(e => sources.Single(s => s.Clause.Id == e.ClauseReference) with { Evidence = e }).ToArray();
-        foreach (var group in scopes.Where(s => s.Evidence!.EvidenceRole == "action")
+        foreach (var group in scopes
             .GroupBy(s => EffectCoordinate(state, s.Evidence!.ActionReference!), StringComparer.Ordinal))
         {
             var first = group.First().Evidence!;

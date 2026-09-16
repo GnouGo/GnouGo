@@ -259,7 +259,7 @@ public sealed class TypedPlannerTests
                     ["action"] = new JsonObject { ["start"] = Item(selected)["start"]!.DeepClone(), ["end"] = Item(selected)["end"]!.DeepClone() },
                     ["execution"] = "generated_workflow",
                     ["boundary"] = kind == "local_processing" ? null : new JsonObject { ["kind"] = kind == "local_processing" ? "invocation" : kind == "human_interaction" ? "interaction" : "external_effect", ["owner"] = new JsonObject { ["start"] = Item(kind)["start"]!.DeepClone(), ["end"] = Item(kind)["end"]!.DeepClone() }, ["span"] = new JsonObject { ["start"] = Item(kind)["start"]!.DeepClone(), ["end"] = Item(kind)["end"]!.DeepClone() } },
-                    ["evidence"] = "action", ["necessity"] = new JsonObject { ["state"] = "unspecified", ["evidence"] = null }, ["baseline"] = null };
+                    ["necessity"] = new JsonObject { ["state"] = "unspecified", ["evidence"] = null }, ["baseline"] = null };
                 if (fields["ownership"] is not null) { runtime["resource"] = runtime["action"]!.DeepClone(); runtime["ownership"] = "workflow_runtime_resource"; runtime["resourceAction"] = fields["resourceAction"]!["enum"]![0]!.DeepClone(); }
             }
             return new KeyValuePair<string, JsonNode?>(p.Key, new JsonObject { ["obligations"] = items, ["runtime"] = new JsonArray(runtime) });

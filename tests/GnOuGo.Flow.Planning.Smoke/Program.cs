@@ -280,7 +280,7 @@ sealed class SmokeRuntime(PlanningGraph graph, PlanningPreparation preparation) 
         var runtime = p.Value["properties"]!["runtime"]!["items"]!["anyOf"]![1]!["properties"]!;
         return new KeyValuePair<string, JsonNode?>(p.Key, new JsonObject { ["obligations"] = obligations,
             ["runtime"] = new JsonArray(new JsonObject { ["role"] = "local_behavior", ["kind"] = "local_processing", ["action"] = Span(),
-                ["execution"] = "generated_workflow", ["boundary"] = null, ["evidence"] = "action", ["necessity"] = new JsonObject { ["state"] = "unspecified", ["evidence"] = null }, ["baseline"] = null }) });
+                ["execution"] = "generated_workflow", ["boundary"] = null,  ["necessity"] = new JsonObject { ["state"] = "unspecified", ["evidence"] = null }, ["baseline"] = null }) });
     }));
     private JsonObject OperationResponse(LLMRequest request) => OperationEffectFixtures.Response(_snapshot!, request);
     private JsonObject DeclarationResponse(LLMRequest request)

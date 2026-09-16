@@ -9,9 +9,9 @@ public sealed class OperationCoverageDurabilityTests
 {
     private static CancellationToken Ct => TestContext.Current.CancellationToken;
     private static TypedPlannerTests.FakeRuntime NoCalls() => new() { OnCall = (_, _, _) => throw new InvalidOperationException("Unexpected dispatch") };
-    private static PlanningSnapshot Independent()
+    private static PlanningSnapshot Independent(bool third = false)
     {
-        var state = OperationAdmissionTests.State("Perform the first transformation. Independently perform the second transformation.");
+        var state = OperationAdmissionTests.State("Perform the first transformation. Independently perform the second transformation." + (third ? " Independently perform the third transformation." : ""));
         foreach (var scope in PlanningOperations.SourceScopes(state)) PlanningFixtures.Runtime(state, scope.Clause);
         return state;
     }
@@ -19,14 +19,14 @@ public sealed class OperationCoverageDurabilityTests
     [Fact]
     public async Task PackingAndEnumerationDoNotChangeCanonicalCoverageOrDependencyProof()
     {
-        var state = Independent(); var other = PlanningContext.Clone(state);
-        var decisions = PlanningOperations.CoverageGroups(state).Select(g => g.Decision).ToArray();
+        var state = Independent(true); OperationEffectFixtures.SeedContributions(state); var other = PlanningContext.Clone(state);
+        var decisions = OperationEffectFixtures.Groups(state).Select(g => g.Decision).ToArray();
         Assert.Equal(1, PlanningDecisionPages.PackedPageCount(state, decisions));
         // Find a supported smaller target that changes packing, not semantics.
         for (var limit = 500; limit < 12000; limit += 100)
         {
             other.Request.Generation.MaxInputTokensPerRequest = limit;
-            try { if (PlanningDecisionPages.PackedPageCount(other, decisions) == 2) break; }
+            try { _ = PlanningDecisionPages.PackedPageCount(other, PlanningOperations.ContributionDecisions(other)); if (PlanningDecisionPages.PackedPageCount(other, decisions) == 2) break; }
             catch (WorkflowRuntimeException e) when (e.Code == "DECISION_SIZE_UNSUPPORTED") { }
         }
         Assert.Equal(2, PlanningDecisionPages.PackedPageCount(other, decisions));
@@ -41,7 +41,7 @@ public sealed class OperationCoverageDurabilityTests
     public async Task PartialCoverageCheckpointDoesNotCommitAndResumesExactRemainingPages()
     {
         var state = Independent(); state.Request.Generation.MaxInputTokensPerRequest = 2500;
-        var decisions = PlanningOperations.CoverageGroups(state).Select(g => g.Decision).ToArray();
+        var decisions = OperationEffectFixtures.Groups(state).Select(g => g.Decision).ToArray();
         var runtime = new TypedPlannerTests.FakeRuntime { OnCall = (_, request, _) => Task.FromResult(new LLMResponse
             { Json = OperationEffectFixtures.Response(state, request), CompletionStatus = "completed" }) };
         PlanningSnapshot? saved = null;
@@ -70,10 +70,10 @@ public sealed class OperationCoverageDurabilityTests
         var scopes = PlanningOperations.SourceScopes(state);
         PlanningFixtures.Runtime(state, scopes[0].Clause);
         PlanningFixtures.Runtime(state, scopes[1].Clause, independentBoundary: false);
-        var group = Assert.Single(PlanningOperations.CoverageGroups(state));
+        var group = Assert.Single(OperationEffectFixtures.Groups(state));
         Assert.Equal(2, group.Decision.SourceDecisionIds!.Count);
         state.Request.Generation.MaxInputTokensPerRequest = 100;
-        var failure = Assert.Throws<WorkflowRuntimeException>(() => PlanningOperations.CoverageGroups(state));
+        var failure = Assert.Throws<WorkflowRuntimeException>(() => OperationEffectFixtures.Groups(state));
         Assert.Equal("DECISION_SIZE_UNSUPPORTED", failure.Code); Assert.Empty(state.RequestAccounting);
     }
 
@@ -87,7 +87,7 @@ public sealed class OperationCoverageDurabilityTests
         state.RuntimeEvidence.Add(PlanningOperations.SealRuntime(state, initial with
         { Necessity = PlanningOperationNecessity.Required, NecessityReference = initial.ActionReference }));
         PlanningFixtures.Runtime(state, scopes[1].Clause, required: false, independentBoundary: false);
-        Assert.Empty(Assert.Single(PlanningOperations.CoverageGroups(state)).Plans);
+        Assert.Empty(Assert.Single(OperationEffectFixtures.Groups(state)).Plans);
         var error = await Assert.ThrowsAsync<WorkflowRuntimeException>(() => PlanningOperations.ResolveAsync(state, NoCalls(), Ct));
         Assert.Equal("INTENT_OPERATION_UNRESOLVED", error.Code); Assert.Empty(state.RequestAccounting); Assert.Empty(state.Obligations);
     }

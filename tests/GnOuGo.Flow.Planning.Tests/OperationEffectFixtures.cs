@@ -17,7 +17,7 @@ internal static class OperationEffectFixtures
         var ids = effects?.ToArray() ?? [(domain.FirstOrDefault(p => p.Value.BoundaryReference == scope.Evidence!.ActionReference).Key ?? domain.FirstOrDefault(p => p.Value.BoundaryKind == "result_realization").Key ?? domain.First().Key)];
         return new()
         {
-            ["status"] = "mapped", ["contribution"] = contribution ?? (scope.Evidence!.EvidenceRole == "action" ? "realizes" : "governs"),
+            ["status"] = "mapped", ["contribution"] = contribution ?? (scope.Evidence!.EvidenceRole == "governing" ? "governs" : "realizes"),
             ["effects"] = Strings(ids), ["inputs"] = Strings(inputs ?? []),
             ["outputs"] = Strings(outputs ?? ids.Select(id => known[id]).Where(a => a.BoundaryKind == "result_realization").Select(a => a.OwnerReference)),
             ["evidence"] = Strings([scope.Evidence!.ClauseReference])
@@ -36,7 +36,8 @@ internal static class OperationEffectFixtures
         SeedBoundaries(state);
         var scopes = PlanningOperations.Scopes(state).Where(s => s.Evidence!.BaselineReference is null).ToArray();
         var answers = scopes.ToDictionary(s => s.Evidence!.Id, s => answer?.Invoke(s) ??
-            (s.Evidence!.EvidenceRole == "action" ? Answer(state, s) : Defer(s)));
+            (s.Evidence!.EvidenceRole == "governing" ? Defer(s) : Answer(state, s)));
+        SeedContributions(state, answer);
         var groups = PlanningOperations.CoverageGroups(state);
         var values = new JsonObject(groups.Select(g => new KeyValuePair<string, JsonNode?>(g.Id, CoverageAnswer(state, g, answer))));
         SeedPages(state, groups.Select(g => g.Decision).ToArray(), values);
@@ -52,6 +53,45 @@ internal static class OperationEffectFixtures
             try { SeedDependencies(state, Staged(state), dependency); }
             catch (GnOuGo.Flow.Core.Expressions.WorkflowRuntimeException) { /* Invalid synthetic roots are assessed by the production admission call. */ }
     }
+
+    // Explicit synthetic qualification responses, not runtime-label authority in production.
+    internal static JsonObject ContributionAnswer(PlanningSnapshot state, PlanningOperations.Scope scope, JsonObject? value = null)
+    {
+        value ??= scope.Evidence!.EvidenceRole == "governing" ? Defer(scope) : Answer(state, scope);
+        if (value["status"]?.ToString() == "unresolved") return new() { ["status"] = "unresolved" };
+        var excluded = value["status"]?.ToString() == "not_an_effect";
+        var role = excluded ? "excluded" : value["status"]?.ToString() == "governing" || value["contribution"]?.ToString() is "governs" or "shared_rule" ? "governs" : "supports";
+        var domain = PlanningOperations.EffectDomain(state, scope.Evidence!);
+        var ids = value["effects"]?.AsArray().Select(v => v!.ToString()).ToArray() ?? (domain.Count == 0 ? [] : new[] { domain.First().Key });
+        if (!excluded && ids.Length == 0) return new() { ["status"] = "unresolved" };
+        var items = new JsonArray();
+        foreach (var id in excluded ? new[] { "" } : ids)
+        {
+            var item = new JsonObject { ["role"] = role, ["evidence"] = scope.Evidence!.ActionReference };
+            if (excluded) item["basis"] = "no_requested_execution";
+            else item["effect"] = id;
+            if (role == "supports")
+            {
+                var anchor = domain[id];
+                item["basis"] = anchor.BoundaryKind == "result_realization" ? "requested_result_production" : "requested_owned_occurrence";
+                item["owner"] = anchor.OwnerReference; item["boundary"] = anchor.BoundaryReference;
+            }
+            items.Add((JsonNode)item);
+        }
+        return new() { ["status"] = "qualified", ["contributions"] = items };
+    }
+
+    internal static void SeedContributions(PlanningSnapshot state, Func<PlanningOperations.Scope, JsonObject>? answer = null)
+    {
+        SeedBoundaries(state);
+        var scopes = PlanningOperations.Scopes(state).Where(s => s.Evidence!.BaselineReference is null).ToArray();
+        var values = new JsonObject(scopes.Select(s => new KeyValuePair<string, JsonNode?>(PlanningOperations.ContributionDecisionId(s.Evidence!),
+            ContributionAnswer(state, s, answer?.Invoke(s)))));
+        SeedPages(state, PlanningOperations.ContributionDecisions(state), values);
+    }
+
+    internal static PlanningOperations.CoverageGroup[] Groups(PlanningSnapshot state, Func<PlanningOperations.Scope, JsonObject>? answer = null)
+    { SeedContributions(state, answer); return PlanningOperations.CoverageGroups(state); }
 
     // Explicit synthetic boundary ownership, separate from action labels and historical receipts.
     internal static void SeedBoundaries(PlanningSnapshot state, Func<PlanningOperations.Scope, string>? workflow = null)
@@ -102,8 +142,8 @@ internal static class OperationEffectFixtures
     internal static JsonObject CoverageAnswer(PlanningSnapshot state, PlanningOperations.CoverageGroup group,
         Func<PlanningOperations.Scope, JsonObject>? answer = null)
     {
-        var answers = group.Scopes.ToDictionary(s => s.Evidence!.Id, s => answer?.Invoke(s) ??
-            (s.Evidence!.EvidenceRole == "action" ? Answer(state, s) : Defer(s)));
+        var answers = group.Scopes.DistinctBy(s => s.Evidence!.Id).ToDictionary(s => s.Evidence!.Id, s => answer?.Invoke(s) ??
+            (s.Evidence!.EvidenceRole == "governing" ? Defer(s) : Answer(state, s)));
         var plan = group.Plans.FirstOrDefault(p => p.Value.All(c =>
         {
             var value = answers[c.RuntimeEvidenceId];
@@ -111,7 +151,7 @@ internal static class OperationEffectFixtures
                 value["contribution"]?.ToString() is "governs" or "shared_rule" ? "governs" : "supports";
             if (value["status"]?.ToString() is "not_an_effect" or "unresolved") return false;
             var targets = value["effects"]?.AsArray().Select(v => v!.ToString()).Order().ToArray();
-            return c.Disposition == role && (targets is null || targets.SequenceEqual(c.Effects.Order()));
+            return c.Disposition == role && (targets is null || c.Effects.All(targets.Contains));
         }));
         if (plan.Key is null) return new() { ["status"] = "unresolved" };
         var effects = new JsonObject();
@@ -153,6 +193,8 @@ internal static class OperationEffectFixtures
 
     internal static JsonObject Response(PlanningSnapshot state, LLMRequest request) => new(request.StructuredOutputSchema!["properties"]!.AsObject().Select(p =>
     {
+        if (p.Key.StartsWith("contribution_", StringComparison.Ordinal))
+            return new KeyValuePair<string, JsonNode?>(p.Key, ContributionAnswer(state, PlanningOperations.Scopes(state).Single(s => PlanningOperations.ContributionDecisionId(s.Evidence!) == p.Key)));
         if (p.Key.StartsWith("coverage_", StringComparison.Ordinal))
             return new KeyValuePair<string, JsonNode?>(p.Key, CoverageAnswer(state, PlanningOperations.CoverageGroups(state).Single(g => g.Id == p.Key)));
         if (p.Key.StartsWith("boundary_", StringComparison.Ordinal))

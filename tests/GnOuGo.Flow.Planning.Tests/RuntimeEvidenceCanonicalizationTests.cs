@@ -14,7 +14,7 @@ public sealed class RuntimeEvidenceCanonicalizationTests
     private static JsonObject Role(string role) => new() { ["role"] = role };
     private static JsonObject Action() => JsonNode.Parse("""
         {"role":"local_behavior","kind":"local_processing","action":{"start":"b0","end":"b4"},
-         "execution":"generated_workflow","boundary":null,"evidence":"action","necessity":{"state":"required","evidence":{"start":"b0","end":"b4"}},"baseline":null}
+         "execution":"generated_workflow","boundary":null,"necessity":{"state":"required","evidence":{"start":"b0","end":"b4"}},"baseline":null}
         """)!.AsObject();
     private static List<PlanningRuntimeEvidence> Parse(PlanningSnapshot state, params JsonObject[] entries)
     {
@@ -80,13 +80,11 @@ public sealed class RuntimeEvidenceCanonicalizationTests
     [Theory]
     [InlineData("action")]
     [InlineData("kind")]
-    [InlineData("evidence")]
     public void DifferentOwnedEvidenceIsNotCollapsed(string field)
     {
         var state = State(); var first = Action(); var second = first.DeepClone().AsObject();
         if (field == "action") second["action"]!["start"] = "b1";
         else if (field == "kind") { second["role"] = "runtime_action"; second["kind"] = "external_read"; }
-        else second["evidence"] = "governing";
         var values = Parse(state, first, second, first);
         Assert.Equal(2, values.Count); Assert.NotEqual(values[0].Id, values[1].Id);
     }

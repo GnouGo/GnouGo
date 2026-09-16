@@ -135,7 +135,7 @@ public sealed class OperationNecessityTests
         };
         await Assert.ThrowsAsync<OperationCanceledException>(() => PlanningOperations.ResolveAsync(state, runtime, Ct));
         Assert.NotNull(checkpoint); var pages = checkpoint.DecisionPages.Select(p => p.Id).ToArray();
-        Assert.Single(pages);
+        Assert.Single(checkpoint.DecisionPages, p => p.Decisions.Any(id => id.StartsWith("coverage_", StringComparison.Ordinal)));
         await PlanningOperations.ResolveAsync(checkpoint, NoModel(), Ct);
         Assert.False(Assert.Single(checkpoint.Obligations, PlanningSourceDecisions.IsOperation).Required);
         var restored = JsonSerializer.Deserialize(JsonSerializer.Serialize(checkpoint, PlanningJsonContext.Default.PlanningSnapshot), PlanningJsonContext.Default.PlanningSnapshot)!;
@@ -155,7 +155,7 @@ public sealed class OperationNecessityTests
         var schema = PlanningOperations.RuntimeSchema(state, PlanningSourceAuthority.RequestedBehavior, scope.Boundaries);
         var span = new JsonObject { ["start"] = "b0", ["end"] = "b4" };
         var value = new JsonObject { ["role"] = "local_behavior", ["kind"] = "local_processing", ["action"] = span.DeepClone(),
-            ["execution"] = "generated_workflow", ["boundary"] = null, ["evidence"] = "action", ["baseline"] = null };
+            ["execution"] = "generated_workflow", ["boundary"] = null, ["baseline"] = null };
         IReadOnlyList<string> Validate() => PlanningContractValidation.ValidateInstance(new JsonArray(value.DeepClone()), schema);
         value["required"] = false; Assert.NotEmpty(Validate()); value.Remove("required");
         foreach (var kind in new[] { "required", "optional" })

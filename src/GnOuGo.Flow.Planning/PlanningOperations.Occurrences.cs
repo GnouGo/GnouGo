@@ -24,7 +24,7 @@ internal static partial class PlanningOperations
     private static void ValidateOccurrenceEvidence(PlanningSnapshot state, PlanningRuntimeEvidence evidence)
     {
         if (evidence.OccurrenceBoundary is not { } boundary) return;
-        if (evidence.EvidenceRole != "action" || evidence.BaselineReference is not null ||
+        if (evidence.BaselineReference is not null ||
             !BoundaryKinds(evidence.Kind!).Contains(boundary.Kind, StringComparer.Ordinal))
             throw Failure(evidence.Id, "Only a requested action with compatible explicit occurrence evidence can establish an invocation boundary.");
         var source = state.References.Single(r => r.Id == evidence.SourceReference);

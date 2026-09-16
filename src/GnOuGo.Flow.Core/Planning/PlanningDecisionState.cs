@@ -73,6 +73,7 @@ public sealed record PlanningOperationAssignment(string DecisionId, string Claus
     public string? ResolutionOrigin { get; init; }
     public PlanningOperationEffectProof? Effect { get; init; }
     public string? EffectId { get; init; }
+    public string? ContributionId { get; init; }
 }
 
 /// <summary>Business effect ownership and an explicit execution boundary; not an executable node.</summary>
@@ -119,6 +120,15 @@ public enum PlanningOperationNecessity { Unknown, Unspecified, Required, Optiona
 public enum PlanningRuntimeExecutionScope { Unknown, PlanningArtifact, PublicContract, Policy, GeneratedWorkflow }
 public enum PlanningRuntimeEvidenceOrigin { Unknown, SourceInterpretation, EngineSourceAuthority, EngineBaseline }
 
+/// <summary>Canonical qualification of owned evidence, before realization coverage. Candidate effects
+/// and preliminary runtime labels confer no executable authority.</summary>
+public sealed record PlanningExecutionContributionProof(int Version, string RuntimeEvidenceId, string? DecisionId,
+    string DomainFingerprint, List<PlanningExecutionContribution> Contributions, string ProofFingerprint);
+public sealed record PlanningExecutionContribution(string Id, string EvidenceReference, string Role,
+    string? EffectId, string Basis, string? OwnerReference, string? BoundaryReference,
+    PlanningContributionOrigin Origin);
+public enum PlanningContributionOrigin { Unknown, ModelQualification, DeterministicBaseline, DeterministicExclusion }
+
 /// <summary>Canonical operation proof; preliminary source labels confer no execution authority.</summary>
 public sealed record PlanningOperationAdmission(int Version, string CanonicalId, string AnchorReference,
     string? BaselineReference, List<PlanningOperationAssignment> Assignments, string EvidenceFingerprint,
@@ -126,6 +136,7 @@ public sealed record PlanningOperationAdmission(int Version, string CanonicalId,
 {
     public PlanningOperationDependencyProof? Dependencies { get; init; }
     public PlanningRealizationCoverageProof? RealizationCoverage { get; init; }
+    public List<PlanningExecutionContributionProof> ExecutionContributions { get; init; } = [];
 }
 
 /// <summary>Complete effect-owned realization authority, reconstructed from existing durable decision pages.</summary>
@@ -133,7 +144,10 @@ public sealed record PlanningRealizationCoverageProof(int Version, string Decisi
     List<string> SelectedEffects, List<PlanningRealizationContribution> Contributions,
     List<PlanningRealizedEffect> Effects, string ProofFingerprint);
 public sealed record PlanningRealizationContribution(string RuntimeEvidenceId, string Disposition,
-    List<string> Effects, List<string> EvidenceReferences);
+    List<string> Effects, List<string> EvidenceReferences)
+{
+    public string? ContributionId { get; init; }
+}
 public sealed record PlanningRealizedEffect(string Id, PlanningOperationEffectAnchor Anchor,
     List<string> SupportingEvidence, List<string> Inputs, List<string> Outputs);
 

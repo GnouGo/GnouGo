@@ -36,32 +36,11 @@ internal static partial class PlanningOperations
         var governing = realized.Where(a => a.EffectId == id && (a.ClauseReference == scope.Clause.Id ||
             scope.Evidence!.BaselineReference is { } baseline && a.BaselineReference == baseline)).ToArray();
         if (governing.Length == 0) return null;
-        return new(5, EffectDecisionId(scope.Evidence!, true), "governs", [domain[id]],
+        return new(6, EffectDecisionId(scope.Evidence!, true), "governs", [domain[id]],
             governing.SelectMany(a => a.Effect!.Inputs).Distinct().Order(StringComparer.Ordinal).ToList(),
             governing.SelectMany(a => a.Effect!.Outputs).Distinct().Order(StringComparer.Ordinal).ToList(),
             [],
             [scope.Clause.Id], "deterministic", GoverningFingerprint(state, realized));
     }
 
-    private static async Task<Dictionary<string, PlanningOperationEffectProof>> GroundGoverning(PlanningSnapshot state, IPlanningRuntime runtime,
-        Scope[] scopes, IReadOnlyList<PlanningOperationAssignment> realized, CancellationToken ct)
-    {
-        var deterministic = scopes.ToDictionary(s => s.Evidence!.Id, s => DeterministicGoverning(state, s, realized), StringComparer.Ordinal);
-        var decisions = scopes.Where(s => deterministic[s.Evidence!.Id] is null).Select(s => EffectDecision(state, s, realized)).ToArray();
-        var values = await PlanningDecisionPages.ResolveAsync(state, runtime, "intent_operations", "$plan", decisions, ct);
-        return scopes.ToDictionary(s => s.Evidence!.Id, s => deterministic[s.Evidence!.Id] ??
-            ParseEffect(state, s, values[EffectDecisionId(s.Evidence, true)]!.AsObject(), realized), StringComparer.Ordinal);
-    }
-
-    private static PlanningOperationEffectProof ReadGoverning(PlanningSnapshot state, Scope scope, IReadOnlyList<PlanningOperationAssignment> realized)
-    {
-        var covered = ReadCoverage(state).SelectMany(p => p.Contributions).Select(c => c.RuntimeEvidenceId).ToHashSet(StringComparer.Ordinal);
-        var scopes = DeriveScopes(state).Where(s => s.Evidence!.EvidenceRole == "governing" && !covered.Contains(s.Evidence.Id)).ToArray();
-        if (!scopes.Any(s => s.Evidence!.Id == scope.Evidence!.Id)) throw Failure(scope.Clause.Id, "This evidence was not deferred for governing assessment.");
-        var deterministic = DeterministicGoverning(state, scope, realized);
-        if (deterministic is not null) return deterministic;
-        var decisions = scopes.Where(s => DeterministicGoverning(state, s, realized) is null).Select(s => EffectDecision(state, s, realized)).ToArray();
-        var values = PlanningDecisionPages.ReadCompleted(state, "intent_operations", "$plan", decisions);
-        return ParseEffect(state, scope, values[EffectDecisionId(scope.Evidence!, true)]!.AsObject(), realized);
-    }
 }

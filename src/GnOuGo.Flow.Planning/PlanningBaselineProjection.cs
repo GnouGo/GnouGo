@@ -102,7 +102,8 @@ internal static class PlanningBaselineProjection
         {
             // A purpose cannot select an external effect or manufacture lifecycle ownership.
             if (PlanningOperations.BaselineKinds(node.Node).Length != 1 || !state.RuntimeEvidence.Any(e =>
-                e.BaselineReference == id && e.Origin == PlanningRuntimeEvidenceOrigin.EngineBaseline && e.EvidenceRole == "action"))
+                e.BaselineReference == id && e.Origin == PlanningRuntimeEvidenceOrigin.EngineBaseline &&
+                state.References.Single(r => r.Id == e.SourceReference).Baseline is { Field: null, OwnerKind: "node" }))
                 throw Failure(id, "The exact baseline node lacks a declared execution effect or resource ownership proof.");
         }
     }

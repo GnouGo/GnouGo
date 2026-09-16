@@ -159,12 +159,12 @@ public sealed class RuntimeAdmissionDiagnosticTests
     private static PlanningObligation Operation(string id, string kind, string[] inputs, string[] outputs, string[] producers) =>
         new(id, ["evidence"], "workflow", kind, true)
         {
-            OperationAdmission = new(10, id, "evidence", null,
+            OperationAdmission = new(11, id, "evidence", null,
                 [new("decision", "clause", "action", kind, PlanningOperationNecessity.Required, null, null)
-                { Effect = new(5, "effect", "realizes", [new("main", "result", "result_realization", "result")], inputs.ToList(), outputs.ToList(), [], ["clause"], "model", "proof") }], "proof", "fingerprint") { Dependencies = new(1, "domain", producers.Select(p =>
+                { ContributionId = "qualified", RuntimeEvidenceId = "runtime", Disposition = "supports", EffectId = id, Effect = new(6, "effect", "realizes", [new("main", "result", "result_realization", "result")], inputs.ToList(), outputs.ToList(), [], ["clause"], "model", "proof") }], "proof", "fingerprint") { ExecutionContributions = [new(1, "runtime", "qualification", "domain", [new("qualified", "action", "supports", id, "requested_result_production", "result", "result", PlanningContributionOrigin.ModelQualification)], "proof")], Dependencies = new(1, "domain", producers.Select(p =>
                     new PlanningOperationDependencyAssignment(p, id, "data", PlanningDependencyOrigin.ModelSemanticSelection, ["clause"], "decision")).ToList(), "dependency-proof"),
-                    RealizationCoverage = new(1, "coverage", "domain", [id], [new("runtime", "supports", [id], ["action"])],
-                        [new(id, new("main", "result", "result_realization", "result"), ["runtime"], inputs.ToList(), outputs.ToList())], "coverage-proof") }
+                    RealizationCoverage = new(2, "coverage", "domain", [id], [new("runtime", "supports", [id], ["action"]) { ContributionId = "qualified" }],
+                        [new(id, new("main", "result", "result_realization", "result"), ["qualified"], inputs.ToList(), outputs.ToList())], "coverage-proof") }
         };
 
     [Theory]

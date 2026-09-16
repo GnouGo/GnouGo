@@ -187,7 +187,7 @@ internal static class RuntimePersistenceSmoke
                 {
                     var answer = new JsonObject { ["role"] = "local_behavior", ["kind"] = "local_processing",
                         ["action"] = new JsonObject { ["start"] = "b0", ["end"] = scope.Boundaries["properties"]!["end"]!["enum"]!.AsArray().Last()!.DeepClone() },
-                        ["execution"] = "generated_workflow", ["evidence"] = scope == scopes[^1] ? "governing" : "action", ["necessity"] = new JsonObject { ["state"] = scope == scopes[1] ? "required" : "unspecified", ["evidence"] = scope == scopes[1] ? new JsonObject { ["start"] = "b0", ["end"] = scope.Boundaries["properties"]!["end"]!["enum"]!.AsArray().Last()!.DeepClone() } : null }, ["baseline"] = null };
+                        ["execution"] = "generated_workflow",  ["necessity"] = new JsonObject { ["state"] = scope == scopes[1] ? "required" : "unspecified", ["evidence"] = scope == scopes[1] ? new JsonObject { ["start"] = "b0", ["end"] = scope.Boundaries["properties"]!["end"]!["enum"]!.AsArray().Last()!.DeepClone() } : null }, ["baseline"] = null };
                     answer["boundary"] = scope == scopes[0] ? new JsonObject { ["kind"] = "invocation", ["owner"] = answer["action"]!.DeepClone(), ["span"] = answer["action"]!.DeepClone() } : null;
                     snapshot.RuntimeEvidence.AddRange(PlanningOperations.ParseRuntime(snapshot, scope.Clause, scope.Select,
                         new JsonArray(answer.DeepClone(), answer.DeepClone(), answer.DeepClone())));
@@ -196,7 +196,7 @@ internal static class RuntimePersistenceSmoke
                 snapshot.RuntimeEvidenceFingerprint = PlanningOperations.RuntimeFingerprint(snapshot);
                 var eligible = PlanningOperations.Scopes(snapshot);
                 client.EffectState = snapshot;
-                var effectDecisions = eligible.Where(scope => scope.Evidence!.EvidenceRole == "action").Select(scope => PlanningOperations.EffectDecision(snapshot, scope)).ToArray();
+                var effectDecisions = PlanningOperations.ContributionDecisions(snapshot);
                 await PlanningDecisionPages.ResolveAsync(snapshot, opened.Runtime, "intent_operations", "$plan", effectDecisions, CancellationToken.None);
                 if (snapshot.Obligations.Any(PlanningSourceDecisions.IsOperation)) throw new InvalidOperationException("Staged operation identity granted partial authority.");
             }
@@ -210,6 +210,10 @@ internal static class RuntimePersistenceSmoke
                 if (restart == 0 && client.Calls == identityCalls + 1) identityCalls = client.Calls;
                 var operation = resumed.Snapshot.Obligations.Single(PlanningSourceDecisions.IsOperation);
                 if (client.Calls != identityCalls || !operation.Required || resumed.Snapshot.RuntimeEvidence.Count != 3 || operation.OperationAdmission!.Assignments.Count != 3 || resumed.Snapshot.RepairAllowances.Count != 0 ||
+                    operation.OperationAdmission.Version != 11 || operation.OperationAdmission.RealizationCoverage?.Version != 2 ||
+                    operation.OperationAdmission.ExecutionContributions.Any(p => p.Version != 1) ||
+                    operation.OperationAdmission.Assignments.Count(a => a.Disposition == "supports") != 2 ||
+                    operation.OperationAdmission.Assignments.Count(a => a.Disposition == "attach") != 1 ||
                     operationFingerprint is not null && operationFingerprint != resumed.Snapshot.OperationAdmissionFingerprint)
                     throw new InvalidOperationException("Published encrypted operation identity/attachment replay failed.");
                 operationFingerprint = resumed.Snapshot.OperationAdmissionFingerprint;
@@ -223,7 +227,7 @@ internal static class RuntimePersistenceSmoke
                 foreach (var scope in PlanningOperations.SourceScopes(snapshot))
                     snapshot.RuntimeEvidence.AddRange(PlanningOperations.ParseRuntime(snapshot, scope.Clause, scope.Select, new JsonArray(new JsonObject
                     {
-                        ["role"] = "local_behavior", ["kind"] = "local_processing", ["execution"] = "generated_workflow", ["evidence"] = "action",
+                        ["role"] = "local_behavior", ["kind"] = "local_processing", ["execution"] = "generated_workflow",
                         ["boundary"] = new JsonObject { ["kind"] = "invocation", ["owner"] = new JsonObject { ["start"] = "b0", ["end"] = scope.Boundaries["properties"]!["end"]!["enum"]!.AsArray().Last()!.DeepClone() }, ["span"] = new JsonObject { ["start"] = "b0", ["end"] = scope.Boundaries["properties"]!["end"]!["enum"]!.AsArray().Last()!.DeepClone() } },
                         ["action"] = new JsonObject { ["start"] = "b0", ["end"] = scope.Boundaries["properties"]!["end"]!["enum"]!.AsArray().Last()!.DeepClone() },
                         ["necessity"] = new JsonObject { ["state"] = "unspecified", ["evidence"] = null }, ["baseline"] = null
@@ -278,7 +282,21 @@ internal static class RuntimePersistenceSmoke
                             OperationEffectFixtures.DependencyAnswer(p.Value!.AsObject(), p.Key == edge)))) });
                 }
                 return Task.FromResult(new LLMResponse { CompletionStatus = "completed", Usage = new JsonObject { ["total_tokens"] = 2 },
-                    Json = OperationEffectFixtures.Response(state, request) });
+                    Json = new JsonObject(fields.Select(field =>
+                    {
+                        // Explicit synthetic semantics for this published persistence fixture.
+                        JsonObject Mapping(PlanningOperations.Scope scope) => OperationEffectFixtures.Answer(state, scope,
+                            contribution: PlanningChoiceEvidence.Text(state, scope.Clause.Id).Trim() == "This processing is deterministic." ? "governs" : "realizes");
+                        if (field.Key.StartsWith("contribution_", StringComparison.Ordinal))
+                        {
+                            var scope = PlanningOperations.Scopes(state).Single(s => PlanningOperations.ContributionDecisionId(s.Evidence!) == field.Key);
+                            return new KeyValuePair<string, JsonNode?>(field.Key, OperationEffectFixtures.ContributionAnswer(state, scope, Mapping(scope)));
+                        }
+                        if (field.Key.StartsWith("coverage_", StringComparison.Ordinal))
+                            return new KeyValuePair<string, JsonNode?>(field.Key, OperationEffectFixtures.CoverageAnswer(state,
+                                PlanningOperations.CoverageGroups(state).Single(g => g.Id == field.Key), Mapping));
+                        throw new InvalidOperationException("Unexpected synthetic contribution/coverage decision.");
+                    })) });
             }
             if (DeclarationAnswers is { } answers)
             {

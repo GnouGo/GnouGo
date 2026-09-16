@@ -26,6 +26,7 @@ internal static partial class RuntimeAdmissionDiagnostic
             ["snapshotFingerprint"] = before, ["admissionFingerprint"] = restored.OperationAdmissionFingerprint,
             ["admissionProofVersions"] = new JsonArray(restored.Obligations.Where(o => o.OperationAdmission is not null)
                 .Select(o => o.OperationAdmission!.Version).Distinct().Select(v => (JsonNode?)JsonValue.Create(v)).ToArray()),
+            ["contributionFingerprints"] = new JsonArray(PlanningOperations.ReadContributions(restored).Select(p => (JsonNode?)JsonValue.Create(p.ProofFingerprint)).ToArray()),
             ["coverageProofVersions"] = new JsonArray(restored.Obligations.Where(o => o.OperationAdmission is not null)
                 .Select(o => o.OperationAdmission!.RealizationCoverage!.Version).Distinct().Select(v => (JsonNode?)JsonValue.Create(v)).ToArray()),
             ["coverageFingerprints"] = new JsonArray(restored.Obligations.Where(o => o.OperationAdmission is not null)

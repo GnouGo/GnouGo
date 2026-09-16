@@ -80,7 +80,6 @@ public sealed class OccurrenceBoundaryTests
 
     [Theory]
     [InlineData("foreign")]
-    [InlineData("governing")]
     [InlineData("kind")]
     public void UnownedOrIncompatibleBoundaryEvidenceCannotIssueIdentities(string fault)
     {

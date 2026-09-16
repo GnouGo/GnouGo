@@ -21,8 +21,10 @@ public sealed class OperationRealizedGoverningTests
     {
         var state = OperationAdmissionTests.State("Transform the value. The transformation is deterministic.");
         var action = Add(state, 0); var description = Add(state, 1, independent: false);
-        var group = Assert.Single(PlanningOperations.CoverageGroups(state));
-        Assert.Single(group.Effects); var selected = Own(state, action);
+        var selected = Own(state, action);
+        var group = Assert.Single(OperationEffectFixtures.Groups(state, s => OperationEffectFixtures.Answer(state, s, [selected],
+            s.Evidence!.Id == description.Id ? "governs" : "realizes")));
+        Assert.Single(group.Effects);
         Assert.All(group.Plans.Values, mappings => Assert.Contains(mappings, m => m.Disposition == "supports"));
         var answer = OperationEffectFixtures.CoverageAnswer(state, group, s => OperationEffectFixtures.Answer(state, s, [selected],
             s.Evidence!.Id == description.Id ? "governs" : "realizes"));
@@ -41,12 +43,23 @@ public sealed class OperationRealizedGoverningTests
     public async Task SameOwnedClauseApplicabilityIsIncludedWithoutAnotherGoverningRequest()
     {
         var state = OperationAdmissionTests.State("Transform the value according to its rules.");
-        Add(state, 0); Add(state, 0, "governing"); OperationEffectFixtures.Seed(state);
+        Add(state, 0);
+        OperationEffectFixtures.SeedBoundaries(state);
+        var scope = Assert.Single(PlanningOperations.Scopes(state));
+        var qualification = OperationEffectFixtures.ContributionAnswer(state, scope);
+        qualification["contributions"]!.AsArray().Add(OperationEffectFixtures.ContributionAnswer(state, scope,
+            OperationEffectFixtures.Defer(scope))["contributions"]![0]!.DeepClone());
+        OperationEffectFixtures.SeedPages(state, PlanningOperations.ContributionDecisions(state), new() { [PlanningOperations.ContributionDecisionId(scope.Evidence!)] = qualification });
+        var group = Assert.Single(PlanningOperations.CoverageGroups(state));
+        var mapping = Assert.Single(group.Plans);
+        var effect = Assert.Single(group.Effects).Key;
+        OperationEffectFixtures.SeedPages(state, [group.Decision], new() { [group.Id] = new JsonObject { ["status"] = "complete", ["mapping"] = mapping.Key,
+            ["effects"] = new JsonObject { [effect] = new JsonObject { ["inputs"] = new JsonArray(), ["outputs"] = new JsonArray() } } } });
         await PlanningOperations.ResolveAsync(state, NoModel(), Ct);
         var proof = Assert.Single(state.Obligations).OperationAdmission!;
         Assert.Single(proof.Assignments, a => a.Disposition == "attach");
-        Assert.Equal(1, proof.RealizationCoverage!.Version);
-        Assert.Single(state.DecisionPages); Assert.Empty(state.RequestAccounting);
+        Assert.Equal(2, proof.RealizationCoverage!.Version);
+        Assert.Single(state.DecisionPages, p => p.Decisions.Any(id => id.StartsWith("coverage_", StringComparison.Ordinal))); Assert.Empty(state.RequestAccounting);
     }
 
     [Theory]
@@ -56,9 +69,10 @@ public sealed class OperationRealizedGoverningTests
     {
         var state = OperationAdmissionTests.State("Transform the first value. Independently transform the second. These rules govern transformations.");
         var first = Add(state, 0); var second = Add(state, 1); var description = Add(state, 2, "governing");
-        var group = Assert.Single(PlanningOperations.CoverageGroups(state));
         var targets = new[] { Own(state, first), Own(state, second) };
-        Assert.All(group.Plans.Values, mappings =>
+        var groups = OperationEffectFixtures.Groups(state, s => s.Evidence!.Id == description.Id
+            ? OperationEffectFixtures.Answer(state, s, contribution == "shared_rule" ? targets : [targets[0]], contribution) : OperationEffectFixtures.Answer(state, s));
+        Assert.All(groups.SelectMany(g => g.Plans.Values), mappings =>
         {
             var realized = mappings.Where(m => m.Disposition == "supports").SelectMany(m => m.Effects).ToHashSet();
             Assert.All(mappings.Where(m => m.Disposition == "governs").SelectMany(m => m.Effects), t => Assert.Contains(t, realized));
@@ -75,7 +89,7 @@ public sealed class OperationRealizedGoverningTests
     public async Task NoExecutableAuthorityCannotBePromotedFromDescription()
     {
         var state = OperationAdmissionTests.State("This processing is deterministic."); Add(state, 0, "governing");
-        Assert.Empty(PlanningOperations.CoverageGroups(state));
+        OperationEffectFixtures.SeedContributions(state);
         var error = await Assert.ThrowsAsync<WorkflowRuntimeException>(() => PlanningOperations.ResolveAsync(state, NoModel(), Ct));
         Assert.Equal("INTENT_OPERATION_UNRESOLVED", error.Code); Assert.Empty(state.RequestAccounting); Assert.Empty(state.Obligations);
     }
@@ -97,7 +111,7 @@ public sealed class OperationRealizedGoverningTests
     public async Task OptionalOmissionIsPersistedAndCannotHideRequiredContribution()
     {
         var state = OperationAdmissionTests.State("Optionally transform the value."); Add(state, 0, required: false);
-        var group = Assert.Single(PlanningOperations.CoverageGroups(state));
+        var group = Assert.Single(OperationEffectFixtures.Groups(state));
         var answer = OperationEffectFixtures.CoverageAnswer(state, group, _ => new() { ["status"] = "omitted" });
         Assert.Empty(PlanningContractValidation.ValidateInstance(answer, group.Decision.Schema));
         OperationEffectFixtures.Seed(state, _ => new() { ["status"] = "omitted" });
@@ -108,7 +122,7 @@ public sealed class OperationRealizedGoverningTests
         Assert.Equal(state.OperationAdmissionFingerprint, restored.OperationAdmissionFingerprint);
         restored.DecisionPages.Clear(); Assert.Throws<WorkflowRuntimeException>(() => PlanningOperations.RequireCurrent(restored));
         var required = OperationAdmissionTests.State("Transform the value when enabled."); Add(required, 0);
-        Assert.DoesNotContain(Assert.Single(PlanningOperations.CoverageGroups(required)).Plans.Values.SelectMany(p => p), c => c.Disposition == "omitted");
+        Assert.DoesNotContain(Assert.Single(OperationEffectFixtures.Groups(required)).Plans.Values.SelectMany(p => p), c => c.Disposition == "omitted");
     }
 
     [Fact]
@@ -121,7 +135,7 @@ public sealed class OperationRealizedGoverningTests
             { Json = OperationEffectFixtures.Response(state, request), CompletionStatus = "completed" }) };
         runtime.OnCheckpoint = s =>
         {
-            if (saved is null && s.DecisionPages.Any(p => p.Status == "completed"))
+            if (saved is null && s.DecisionPages.Any(p => p.Status == "completed" && p.Decisions.Any(id => id.StartsWith("coverage_", StringComparison.Ordinal))))
             { saved = PlanningContext.Clone(s); throw new OperationCanceledException(); }
             return Task.CompletedTask;
         };
@@ -147,7 +161,7 @@ public sealed class OperationRealizedGoverningTests
     public void CoverageSchemaRejectsIncompleteAndForeignAssignments(string defect)
     {
         var state = OperationAdmissionTests.State("Perform a transformation."); Add(state, 0);
-        var group = Assert.Single(PlanningOperations.CoverageGroups(state));
+        var group = Assert.Single(OperationEffectFixtures.Groups(state));
         var answer = OperationEffectFixtures.CoverageAnswer(state, group);
         if (defect == "mapping") answer["mapping"] = "foreign";
         if (defect == "missing_effect") answer["effects"] = new JsonObject();
@@ -162,7 +176,7 @@ public sealed class OperationRealizedGoverningTests
     {
         var state = OperationAdmissionTests.State("Perform the first transformation. Independently perform another.");
         Add(state, 0); Add(state, 1);
-        var groups = PlanningOperations.CoverageGroups(state); Assert.Equal(2, groups.Length);
+        var groups = OperationEffectFixtures.Groups(state); Assert.Equal(2, groups.Length);
         foreach (var group in groups)
         {
             Assert.All(group.Plans.Values, p => Assert.All(p, c => Assert.Equal("supports", c.Disposition)));

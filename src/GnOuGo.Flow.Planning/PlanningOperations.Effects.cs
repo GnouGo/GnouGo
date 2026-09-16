@@ -9,7 +9,7 @@ internal static partial class PlanningOperations
     // These indexes are derived request domains. Only completed decision pages and
     // the proofs attached to admitted obligations are persisted.
     internal static string EffectDecisionId(PlanningRuntimeEvidence evidence, bool governing = false) => (governing ? "effect_governing_" : "effect_") + evidence.Id;
-    internal static string EffectFingerprint(PlanningSnapshot state) => "effect-proof-v5:coverage:admission-dependencies:" + EvidenceFingerprint(state);
+    internal static string EffectFingerprint(PlanningSnapshot state) => "effect-proof-v6:coverage:admission-dependencies:" + EvidenceFingerprint(state);
 
     internal static string CanonicalId(PlanningSnapshot state, PlanningOperationEffectAnchor effect, string kind, string? baseline)
     {
@@ -48,8 +48,7 @@ internal static partial class PlanningOperations
         if (evidence.Kind == "local_processing" && evidence.OccurrenceBoundary is null)
             foreach (var declaration in state.Declarations.Where(d => d.Direction == "output"))
                 Add(new(declaration.WorkflowScope, declaration.Id, "result_realization", declaration.Id));
-        foreach (var action in DeriveScopes(state).Select(s => s.Evidence!).Where(e => e.EvidenceRole == "action" &&
-            e.BaselineReference is null && e.OccurrenceBoundary is not null && CompatibleFacts(evidence, e) &&
+        foreach (var action in DeriveScopes(state).Select(s => s.Evidence!).Where(e => e.BaselineReference is null && e.OccurrenceBoundary is not null && CompatibleFacts(evidence, e) &&
             (evidence.OccurrenceBoundary is null || evidence.Id == e.Id) &&
             (evidence.ResourceReference is null || evidence.ResourceReference == e.ResourceReference)))
         {
@@ -78,7 +77,6 @@ internal static partial class PlanningOperations
     {
         var evidence = scope.Evidence!;
         var governing = realized is not null;
-        if (!governing && evidence.EvidenceRole != "action") throw Failure(evidence.Id, "Governing evidence cannot establish a realization.");
         var domain = governing ? RealizedDomain(state, evidence, realized!) : EffectDomain(state, evidence);
         if (governing && domain.Count == 0) throw Failure(evidence.Id, "Governing evidence requires a compatible realized effect.");
         var sources = PlanningSourceDecisions.Sources(state);
@@ -156,7 +154,7 @@ internal static partial class PlanningOperations
             if (candidate.BoundaryKind == "result_realization" && answer["contribution"]?.ToString() == "realizes" && !outputs.Contains(candidate.OwnerReference))
                 throw Failure(scope.Evidence!.Id, "A result realization must establish production of its exact owned result.");
         }
-        return new(5, decision.Id, status == "not_an_effect" ? "none" : status == "governing" ? "pending_governing" : answer["contribution"]!.ToString(), candidates,
+        return new(6, decision.Id, status == "not_an_effect" ? "none" : status == "governing" ? "pending_governing" : answer["contribution"]!.ToString(), candidates,
             inputs, outputs, [], refs, "model", decision.EvidenceFingerprint);
     }
 
@@ -168,7 +166,7 @@ internal static partial class PlanningOperations
         var graph = state.Request.Baseline!;
         var workflow = graph.Workflows.Single(w => w.Key == node.Workflow);
         var inputs = PlanningDataflow.BusinessInputs(workflow, node.Node);
-        return new(5, EffectDecisionId(evidence), evidence.EvidenceRole == "action" ? "realizes" : "governs", [anchor],
+        return new(6, EffectDecisionId(evidence), "realizes", [anchor],
             state.Declarations.Where(d => d.Direction == "input" && d.WorkflowScope == node.Workflow && inputs.Contains(PlanningDeclarations.Name(state, d))).Select(d => d.Id).Order(StringComparer.Ordinal).ToList(),
             [], [], [evidence.ClauseReference], "baseline", EffectFingerprint(state));
     }
@@ -176,13 +174,12 @@ internal static partial class PlanningOperations
     private static void ValidateEffect(PlanningSnapshot state, PlanningOperationAssignment assignment)
     {
         var effect = assignment.Effect ?? throw Failure(assignment.ClauseReference, "Current effect ownership proof is required.", "INTENT_OPERATION_PROOF_MISSING");
-        if (effect.Version != 5 || effect.Producers.Count != 0)
+        if (effect.Version != 6 || effect.Producers.Count != 0)
             throw Failure(assignment.ClauseReference, "Effect ownership proof is stale.", "INTENT_OPERATION_PROOF_MISSING");
         var scope = DeriveScopes(state).Single(s => s.Evidence!.Id == assignment.RuntimeEvidenceId);
         PlanningOperationEffectProof expected;
-        var covered = CoverageAssignments(state).SingleOrDefault(a => a.RuntimeEvidenceId == assignment.RuntimeEvidenceId && a.EffectId == assignment.EffectId);
+        var covered = CoverageAssignments(state).SingleOrDefault(a => a.ContributionId == assignment.ContributionId && a.EffectId == assignment.EffectId);
         if (covered is not null) expected = covered.Effect!;
-        else if (effect.Contribution is "governs" or "shared_rule") expected = ReadGoverning(state, scope, ReadRealizations(state));
         else throw Failure(assignment.ClauseReference, "Realization authority requires complete coverage.");
         if (JsonSerializer.Serialize(expected, PlanningJsonContext.Default.PlanningOperationEffectProof) !=
             JsonSerializer.Serialize(effect, PlanningJsonContext.Default.PlanningOperationEffectProof))

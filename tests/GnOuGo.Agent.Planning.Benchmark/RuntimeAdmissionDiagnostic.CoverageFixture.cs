@@ -21,12 +21,16 @@ internal static partial class RuntimeAdmissionDiagnostic
         var name = id.EndsWith(":mixed", StringComparison.Ordinal) ? "mixed" : "local";
         var originalAccounting = state.RequestAccounting.Count;
         state.Obligations.RemoveAll(o => o.OperationAdmission is not null); state.OperationAdmissionFingerprint = null;
-        var groups = PlanningOperations.CoverageGroups(state);
-        if (groups.Length != (name == "mixed" ? 2 : 1)) throw new InvalidOperationException("Captured coverage groups changed.");
+        // Explicit current-proof reassessment of detached fixture facts. Historical receipts remain unchanged.
+        state.RuntimeEvidence = state.RuntimeEvidence.Select(e => PlanningOperations.SealRuntime(state, e with { EvidenceRole = e.Origin == PlanningRuntimeEvidenceOrigin.EngineBaseline ? e.EvidenceRole : null })).ToList();
+        state.RuntimeEvidenceFingerprint = PlanningOperations.RuntimeFingerprint(state);
+        var qualifications = PlanningOperations.ContributionDecisions(state);
         var interpretation = PlanningSourceDecisions.InterpretationDecisions(state);
         var client = new CoverageFixtureClient(state);
         var runtime = new WorkflowPlanningRuntime(new WorkflowEngine { LLMClient = client, LLMCapabilities = client }, (_, _) => Task.CompletedTask);
         await PlanningOperations.ResolveAsync(state, runtime, CancellationToken.None);
+        var groups = PlanningOperations.CoverageGroups(state);
+        if (groups.Length != (name == "mixed" ? 2 : 1)) throw new InvalidOperationException("Captured coverage groups changed.");
         PlanningOperations.RequireCurrent(state); PlanningOperations.RequireExecutableIntent(state);
         var operations = state.Obligations.Where(PlanningSourceDecisions.IsOperation).ToArray();
         CheckEffectFixture(name, state, operations);
@@ -48,10 +52,13 @@ internal static partial class RuntimeAdmissionDiagnostic
             ["interpretationDecisions"] = interpretation.Length,
             ["interpretationInitialPages"] = PlanningDecisionPages.PackedPageCount(state, interpretation),
             ["independentContributionStatusDecisions"] = 0,
+            ["canonicalContributionDecisions"] = qualifications.Length,
+            ["contributionInitialPages"] = PlanningDecisionPages.PackedPageCount(state, qualifications),
+            ["contributionSchemas"] = new JsonArray(qualifications.Select(d => (JsonNode)new JsonObject { ["decision"] = d.Id, ["schemaBytes"] = System.Text.Encoding.UTF8.GetByteCount(d.Schema.ToJsonString()) }).ToArray()),
             ["jointCoverageDecisions"] = groups.Length,
             ["coverageInitialPages"] = PlanningDecisionPages.PackedPageCount(state, groups.Select(g => g.Decision).ToArray()),
-            ["assessedActionContributions"] = groups.Sum(g => g.Scopes.Count(s => s.Evidence!.EvidenceRole == "action")),
-            ["jointGoverningContributions"] = groups.Sum(g => g.Scopes.Count(s => s.Evidence!.EvidenceRole == "governing")),
+            ["assessedActionContributions"] = groups.Sum(g => g.Scopes.Count(s => s.Contribution!.Role == "supports")),
+            ["jointGoverningContributions"] = groups.Sum(g => g.Scopes.Count(s => s.Contribution!.Role == "governs")),
             ["additionalGoverningDecisions"] = fields.Count(k => k.StartsWith("effect_governing_", StringComparison.Ordinal)),
             ["identityDecisions"] = fields.Count(k => k.StartsWith("operation_", StringComparison.Ordinal)),
             ["dependencyDecisions"] = fields.Count(k => k.StartsWith("data_", StringComparison.Ordinal)),
@@ -77,23 +84,30 @@ internal static partial class RuntimeAdmissionDiagnostic
         public List<LLMRequest> Requests { get; } = [];
         public Task<bool?> SupportsStructuredOutputAsync(string? provider, string model, CancellationToken ct) => Task.FromResult<bool?>(true);
         public Task<IReadOnlyList<string>?> SupportedReasoningLevelsAsync(string? provider, string model, CancellationToken ct) => Task.FromResult<IReadOnlyList<string>?>(["low"]);
+        private static JsonObject SyntheticMapping(PlanningSnapshot snapshot, PlanningOperations.Scope scope)
+        {
+            // Frozen semantic expectations belong only to this labelled synthetic fixture.
+            var e = scope.Evidence!;
+            var description = PlanningChoiceEvidence.Text(snapshot, e.ClauseReference).Trim() == "This is deterministic, local, in-memory business processing.";
+            var role = description || e.Kind == "external_read" && e.OccurrenceBoundary is null ? "governs" : "realizes";
+            var names = e.Kind == "external_read" ? new[] { "sourceId" } : snapshot.Declarations.Any(d => PlanningDeclarations.Name(snapshot, d) == "sourceId") ? ["threshold"] : new[] { "record", "threshold" };
+            return OperationEffectFixtures.Answer(snapshot, scope, contribution: role,
+                inputs: snapshot.Declarations.Where(d => d.Direction == "input" && names.Contains(PlanningDeclarations.Name(snapshot, d))).Select(d => d.Id));
+        }
         public Task<LLMResponse> CallAsync(LLMRequest request, CancellationToken ct)
         {
             Requests.Add(request); var result = new JsonObject();
             foreach (var field in request.StructuredOutputSchema!["properties"]!.AsObject())
             {
-                if (field.Key.StartsWith("coverage_", StringComparison.Ordinal))
+                if (field.Key.StartsWith("contribution_", StringComparison.Ordinal))
+                {
+                    var scope = PlanningOperations.Scopes(state).Single(s => PlanningOperations.ContributionDecisionId(s.Evidence!) == field.Key);
+                    result[field.Key] = OperationEffectFixtures.ContributionAnswer(state, scope, SyntheticMapping(state, scope));
+                }
+                else if (field.Key.StartsWith("coverage_", StringComparison.Ordinal))
                 {
                     var group = PlanningOperations.CoverageGroups(state).Single(g => g.Id == field.Key);
-                    result[field.Key] = OperationEffectFixtures.CoverageAnswer(state, group, scope =>
-                    {
-                        var e = scope.Evidence!;
-                        var description = PlanningChoiceEvidence.Text(state, e.ClauseReference).Trim() == "This is deterministic, local, in-memory business processing.";
-                        var role = e.EvidenceRole == "governing" || description || e.Kind == "external_read" && e.OccurrenceBoundary is null ? "governs" : "realizes";
-                        var names = e.Kind == "external_read" ? new[] { "sourceId" } : state.Declarations.Any(d => PlanningDeclarations.Name(state, d) == "sourceId") ? ["threshold"] : new[] { "record", "threshold" };
-                        return OperationEffectFixtures.Answer(state, scope, contribution: role,
-                            inputs: state.Declarations.Where(d => d.Direction == "input" && names.Contains(PlanningDeclarations.Name(state, d))).Select(d => d.Id));
-                    });
+                    result[field.Key] = OperationEffectFixtures.CoverageAnswer(state, group, scope => SyntheticMapping(state, scope));
                 }
                 else if (field.Key.StartsWith("data_", StringComparison.Ordinal))
                 {

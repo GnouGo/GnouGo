@@ -65,12 +65,11 @@ repair reservation, then attaches the alias to a name/scope/direction-derived
 canonical ID. A second restart dispatches nothing. Both fixtures run in the published
 Native AOT binary, using synthetic transports rather than historical model receipts.
 
-The operation fixture first parses three identical copies of each action/governing
-assignment into one normalized evidence item, then persists completed joint coverage pages before admission
+The operation fixture first parses three identical copies of each preliminary runtime
+assignment into one normalized evidence item, then persists completed canonical contribution pages before admission
 commits. The synthetic outputless action carries explicit owned invocation-boundary evidence. Encrypted restart reuses the realization receipts, attaches a governing rule to the
 single canonical operation, and verifies a second restart adds no
-calls or repair charges. The first action has unspecified necessity, the reused action has explicit required evidence, and the governing rule has unspecified necessity. Restart verifies one required canonical operation and its evidence. Runtime evidence uses action/governing roles without source-clause
-targets; occurrence-boundary proof 1 and realization coverage proof 1, effect proof 5 and operation proof 10 remain in Schema-5 storage.
+calls or repair charges. The first action has unspecified necessity, the reused action has explicit required evidence, and the governing rule has unspecified necessity. Restart verifies one required canonical operation and its evidence. Canonical contribution proof 1 supplies support/governing authority, independently of historical runtime labels. Occurrence-boundary proof 1, realization coverage proof 2, effect proof 6 and operation proof 11 remain in Schema-5 storage.
 
 The admission dependency smoke journals synthetic, evidence-bound data decisions
 between two established operations, closes before atomic admission, then reopens

@@ -6,7 +6,7 @@ namespace GnOuGo.Flow.Planning;
 
 internal static partial class PlanningOperations
 {
-    internal static string RuntimeFingerprint(PlanningSnapshot state) => PlanningGraphCompiler.Fingerprint("runtime-evidence-v6:" +
+    internal static string RuntimeFingerprint(PlanningSnapshot state) => PlanningGraphCompiler.Fingerprint("runtime-evidence-v7:" +
         PlanningDeclaredPolicyProjection.Fingerprint(state) + ":" + new JsonArray(PlanningIntentAssessment.IntentSources(state).OrderBy(s => s.Id, StringComparer.Ordinal).Select(s => (JsonNode)new JsonArray(s.Id, s.Authority.ToString(), s.Text)).ToArray()).ToJsonString() + ":" +
         JsonSerializer.Serialize(state.RuntimeEvidence.OrderBy(e => e.Id, StringComparer.Ordinal).ToList(), PlanningJsonContext.Default.ListPlanningRuntimeEvidence));
 
@@ -21,7 +21,6 @@ internal static partial class PlanningOperations
             {
                 ("role", PlanningHoleRequests.Enum([role])), ("kind", PlanningHoleRequests.Enum(kinds)),
                 ("action", boundaries.DeepClone().AsObject()), ("execution", PlanningHoleRequests.Enum(["generated_workflow"])),
-                ("evidence", PlanningHoleRequests.Enum(["action", "governing"])),
                 ("boundary", OccurrenceEvidenceSchema(kinds, boundaries)),
                 ("necessity", NecessitySchema(boundaries, baseline is not null)),
                 ("baseline", baseline is null ? PlanningHoleRequests.Type("null") : PlanningHoleRequests.Enum([baseline]))
@@ -60,7 +59,7 @@ internal static partial class PlanningOperations
             var actionReference = value["action"] is { } action ? Select(action) : null;
             var evidence = new PlanningRuntimeEvidence("", source.Id, PlanningChoiceEvidence.Parent(state, source.Id).Id, role,
                 actionReference, value["resource"] is { } resource ? Select(resource) : null,
-                value["execution"]?.ToString() == "generated_workflow" ? actionReference : null, value["kind"]?.ToString(), value["evidence"]?.ToString(),
+                value["execution"]?.ToString() == "generated_workflow" ? actionReference : null, value["kind"]?.ToString(), null,
                 value["baseline"]?.ToString(), value["resourceAction"]?.ToString(), role is "local_behavior" or "runtime_action" ? ParseNecessity(value["necessity"]?["state"]?.ToString()) : PlanningOperationNecessity.Unspecified, "")
             { ResourceOwnership = value["ownership"]?.ToString(),
                 OccurrenceBoundary = value["boundary"] is { } boundary
@@ -89,7 +88,7 @@ internal static partial class PlanningOperations
     internal static PlanningRuntimeEvidence SealRuntime(PlanningSnapshot state, PlanningRuntimeEvidence evidence)
     {
         var identity = PlanningGraphCompiler.Fingerprint(new JsonArray(evidence.SourceReference, evidence.Role,
-            evidence.ActionReference, evidence.ResourceReference, evidence.ExecutionReference, evidence.Kind, evidence.EvidenceRole).ToJsonString());
+            evidence.ActionReference, evidence.ResourceReference, evidence.ExecutionReference, evidence.Kind).ToJsonString());
         var value = evidence with { Id = "runtime_" + identity[..24], ProofFingerprint = "",
             Origin = evidence.Origin is PlanningRuntimeEvidenceOrigin.EngineSourceAuthority or PlanningRuntimeEvidenceOrigin.EngineBaseline
                 ? evidence.Origin : PlanningRuntimeEvidenceOrigin.SourceInterpretation,
@@ -104,7 +103,7 @@ internal static partial class PlanningOperations
         return value with { ProofFingerprint = RuntimeProof(state, value) };
     }
 
-    private static string RuntimeProof(PlanningSnapshot state, PlanningRuntimeEvidence value) => PlanningGraphCompiler.Fingerprint("runtime-proof-v6:" +
+    private static string RuntimeProof(PlanningSnapshot state, PlanningRuntimeEvidence value) => PlanningGraphCompiler.Fingerprint("runtime-proof-v7:" +
         state.Request.TenantId + ":" + state.Request.SessionId + ":" +
         JsonSerializer.Serialize(value with { ProofFingerprint = "" }, PlanningJsonContext.Default.PlanningRuntimeEvidence) + ":" +
         string.Join('|', new[] { value.SourceReference, value.ClauseReference, value.ActionReference, value.ResourceReference, value.ExecutionReference, value.NecessityReference,
@@ -152,9 +151,9 @@ internal static partial class PlanningOperations
             return;
         }
         if (authority == PlanningSourceAuthority.ConstraintsOnly || evidence.ActionReference is null || evidence.ExecutionReference is null ||
-            evidence.EvidenceRole is not ("action" or "governing") || !PlanningSourceGroundingRules.OperationKinds.Contains(evidence.Kind) ||
+            !PlanningSourceGroundingRules.OperationKinds.Contains(evidence.Kind) ||
             evidence.Role != (evidence.Kind == "local_processing" ? "local_behavior" : "runtime_action"))
-            throw Failure(evidence.Id, "Runtime evidence needs its owned action span, execution boundary and action/governing role.");
+            throw Failure(evidence.Id, "Runtime evidence needs its owned action span, execution boundary and execution facts.");
         foreach (var id in new[] { evidence.ActionReference, evidence.ExecutionReference, evidence.ResourceReference }.OfType<string>())
         {
             var selected = state.References.Single(r => r.Id == id);
