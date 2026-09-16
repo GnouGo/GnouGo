@@ -37,6 +37,13 @@ internal static partial class RuntimeAdmissionDiagnostic
         })).ToArray());
         report["contributionCounts"] = new JsonObject(proofs.SelectMany(p => p.Contributions)
             .GroupBy(c => c.Role + ":" + c.Origin).Select(g => new KeyValuePair<string, JsonNode?>(g.Key, JsonValue.Create(g.Count()))));
+        try
+        {
+            report["governingApplicability"] = System.Text.Json.JsonSerializer.SerializeToNode(
+                PlanningOperations.ReadApplicability(state).ToList(), PlanningJsonContext.Default.ListPlanningGoverningApplicabilityProof);
+        }
+        catch (WorkflowRuntimeException error)
+        { report["governingApplicability"] = null; report["applicabilityUnavailableCode"] = error.Code; }
         report["preliminaryEvidenceRolePopulated"] = state.RuntimeEvidence.Count(e => e.EvidenceRole is not null);
     }
 }

@@ -32,6 +32,7 @@ public sealed class OperationRealizedGoverningTests
         var historical = new JsonObject { ["status"] = "governing", ["evidence"] = OperationEffectFixtures.Strings([action.ClauseReference]) };
         Assert.NotEmpty(PlanningContractValidation.ValidateInstance(historical, group.Decision.Schema));
         OperationEffectFixtures.SeedPages(state, [group.Decision], new() { [group.Id] = answer });
+        OperationEffectFixtures.SeedApplicability(state);
         await PlanningOperations.ResolveAsync(state, NoModel(), Ct);
         var operation = Assert.Single(state.Obligations);
         Assert.Equal(selected, operation.Id);
@@ -40,7 +41,7 @@ public sealed class OperationRealizedGoverningTests
     }
 
     [Fact]
-    public async Task SameOwnedClauseApplicabilityIsIncludedWithoutAnotherGoverningRequest()
+    public async Task ExactOwnedOccurrenceApplicabilityIsDeterministic()
     {
         var state = OperationAdmissionTests.State("Transform the value according to its rules.");
         Add(state, 0);
@@ -58,7 +59,7 @@ public sealed class OperationRealizedGoverningTests
         await PlanningOperations.ResolveAsync(state, NoModel(), Ct);
         var proof = Assert.Single(state.Obligations).OperationAdmission!;
         Assert.Single(proof.Assignments, a => a.Disposition == "attach");
-        Assert.Equal(2, proof.RealizationCoverage!.Version);
+        Assert.Equal(3, proof.RealizationCoverage!.Version);
         Assert.Single(state.DecisionPages, p => p.Decisions.Any(id => id.StartsWith("coverage_", StringComparison.Ordinal))); Assert.Empty(state.RequestAccounting);
     }
 
@@ -135,7 +136,7 @@ public sealed class OperationRealizedGoverningTests
             { Json = OperationEffectFixtures.Response(state, request), CompletionStatus = "completed" }) };
         runtime.OnCheckpoint = s =>
         {
-            if (saved is null && s.DecisionPages.Any(p => p.Status == "completed" && p.Decisions.Any(id => id.StartsWith("coverage_", StringComparison.Ordinal))))
+            if (saved is null && s.DecisionPages.Any(p => p.Status == "completed" && p.Decisions.Any(id => id.StartsWith("applicability_", StringComparison.Ordinal))))
             { saved = PlanningContext.Clone(s); throw new OperationCanceledException(); }
             return Task.CompletedTask;
         };

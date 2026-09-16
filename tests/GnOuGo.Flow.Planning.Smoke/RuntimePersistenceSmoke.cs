@@ -207,11 +207,11 @@ internal static class RuntimePersistenceSmoke
                 await using var resumed = await Factory().OpenAsync(Context("operations"), Operations(), CancellationToken.None);
                 client.EffectState = resumed.Snapshot;
                 await PlanningOperations.ResolveAsync(resumed.Snapshot, resumed.Runtime, CancellationToken.None);
-                if (restart == 0 && client.Calls == identityCalls + 1) identityCalls = client.Calls;
+                if (restart == 0 && client.Calls == identityCalls + 2) identityCalls = client.Calls;
                 var operation = resumed.Snapshot.Obligations.Single(PlanningSourceDecisions.IsOperation);
                 if (client.Calls != identityCalls || !operation.Required || resumed.Snapshot.RuntimeEvidence.Count != 3 || operation.OperationAdmission!.Assignments.Count != 3 || resumed.Snapshot.RepairAllowances.Count != 0 ||
-                    operation.OperationAdmission.Version != 11 || operation.OperationAdmission.RealizationCoverage?.Version != 2 ||
-                    operation.OperationAdmission.ExecutionContributions.Any(p => p.Version != 1) ||
+                    operation.OperationAdmission.Version != 12 || operation.OperationAdmission.RealizationCoverage?.Version != 3 ||
+                    operation.OperationAdmission.ExecutionContributions.Any(p => p.Version != 2) ||
                     operation.OperationAdmission.Assignments.Count(a => a.Disposition == "supports") != 2 ||
                     operation.OperationAdmission.Assignments.Count(a => a.Disposition == "attach") != 1 ||
                     operationFingerprint is not null && operationFingerprint != resumed.Snapshot.OperationAdmissionFingerprint)
@@ -292,6 +292,9 @@ internal static class RuntimePersistenceSmoke
                             var scope = PlanningOperations.Scopes(state).Single(s => PlanningOperations.ContributionDecisionId(s.Evidence!) == field.Key);
                             return new KeyValuePair<string, JsonNode?>(field.Key, OperationEffectFixtures.ContributionAnswer(state, scope, Mapping(scope)));
                         }
+                        if (field.Key.StartsWith("applicability_", StringComparison.Ordinal))
+                            return new KeyValuePair<string, JsonNode?>(field.Key, OperationEffectFixtures.ApplicabilityAnswer(
+                                PlanningOperations.ApplicabilityDecisions(state).Single(d => d.Id == field.Key)));
                         if (field.Key.StartsWith("coverage_", StringComparison.Ordinal))
                             return new KeyValuePair<string, JsonNode?>(field.Key, OperationEffectFixtures.CoverageAnswer(state,
                                 PlanningOperations.CoverageGroups(state).Single(g => g.Id == field.Key), Mapping));

@@ -132,6 +132,17 @@ internal static class PlanningSourceDecisions
         return obligations.Where(o => !removed.Contains(o.Id)).ToList();
     }
 
+    internal static (string Fingerprint, List<string> References) OperationRevisionEvidence(PlanningSnapshot state, PlanningObligation operation)
+    {
+        if (state.BehaviorRevision is null) throw new PlanningConflictException("Inactive ownership requires an explicit revision.");
+        var (decisions, _) = RevisionDomain(state, [operation]);
+        var choices = PlanningDecisionPages.ReadCompleted(state, "behavior_revision_obligations", "$plan", decisions);
+        var refs = choices.Where(p => p.Value!.ToString() != "retained").Select(p => p.Value!.ToString()).Distinct().Order(StringComparer.Ordinal).ToList();
+        if (refs.Count == 0) throw new PlanningConflictException("Inactive ownership requires a completed removal decision.");
+        return (PlanningGraphCompiler.Fingerprint(new JsonArray(decisions.OrderBy(d => d.Id, StringComparer.Ordinal)
+            .Select(d => (JsonNode)new JsonArray(d.Id, d.EvidenceFingerprint, choices[d.Id]!.ToString())).ToArray()).ToJsonString()), refs);
+    }
+
     internal static async Task RelateAsync(PlanningSnapshot state, IPlanningRuntime runtime, CancellationToken ct)
     {
         PlanningSourceGroundingRules.ValidateAll(state);
@@ -140,8 +151,11 @@ internal static class PlanningSourceDecisions
         var operations = state.Obligations.Where(o => IsOperation(o)).ToArray();
         var producers = state.Obligations.Where(o => IsOperation(o) || o.Kind == "implementation_policy").Concat(
             state.Declarations.Where(d => d.Direction == "input").Select(d => new PlanningObligation(d.Id, d.ClauseReferences, "business_decision", "business_input", d.Required))).ToArray();
-        var grounded = PlanningOperations.EffectRelations(operations).ToArray();
+        var policies = operations.SelectMany(consumer => producers.Where(p => p.Kind == "implementation_policy" &&
+            PlanningOperations.EstablishedPolicyApplicability(state, p, consumer)).Select(p => new PlanningObligationRelation(p.Id, consumer.Id, "policy"))).ToArray();
+        var grounded = PlanningOperations.EffectRelations(operations).Concat(policies).ToArray();
         var pairs = operations.SelectMany(consumer => producers.Where(p => p.Id != consumer.Id && p.Kind != "business_input" &&
+                !policies.Any(r => r.Producer == p.Id && r.Consumer == consumer.Id) &&
                 (p.Kind != "implementation_policy" || PlanningBaselineProjection.OwnsOperation(state, p.Grounding!.ClauseReference, consumer)))
             .Select(producer => (Producer: producer, Consumer: consumer))).ToArray();
         var choices = pairs.Select(pair => new PlanningDecisionPages.Decision("relation_" + pair.Producer.Id + "_" + pair.Consumer.Id,
@@ -173,7 +187,7 @@ internal static class PlanningSourceDecisions
 
     internal static bool IsOperation(PlanningObligation obligation) => PlanningSourceGroundingRules.OperationKinds.Contains(obligation.Kind, StringComparer.Ordinal) &&
         obligation.Grounding?.Role is PlanningSourceSemanticRole.RequestedAction or PlanningSourceSemanticRole.ExistingAction && obligation.Disposition == "admitted" &&
-        obligation.OperationAdmission is { Version: 11, Dependencies.Version: 1 } proof && proof.CanonicalId == obligation.Id;
+        obligation.OperationAdmission is { Version: 12, Dependencies.Version: 1 } proof && proof.CanonicalId == obligation.Id;
 
     private static JsonObject AnnotationSchema(PlanningBaselineOwnership owner, JsonObject boundaries)
     {

@@ -41,7 +41,8 @@ public sealed class OperationContributionTests
             return new KeyValuePair<string, JsonNode?>(g.Id, new JsonObject { ["status"] = "complete", ["mapping"] = plan.Key, ["effects"] = effects });
         }));
         OperationEffectFixtures.SeedPages(state, groups.Select(g => g.Decision).ToArray(), answers);
-        OperationEffectFixtures.SeedDependencies(state, PlanningOperations.MaterializeCoverage(state));
+        OperationEffectFixtures.SeedApplicability(state);
+        OperationEffectFixtures.SeedDependencies(state, OperationEffectFixtures.Staged(state));
     }
 
     [Fact]
@@ -57,12 +58,12 @@ public sealed class OperationContributionTests
         Assert.All(group.Plans.Values.SelectMany(p => p).Where(c => c.RuntimeEvidenceId == description), c => Assert.Equal("governs", c.Disposition));
         Cover(state); await PlanningOperations.ResolveAsync(state, NoCalls(), Ct);
         var operation = Assert.Single(state.Obligations, PlanningSourceDecisions.IsOperation);
-        Assert.True(operation.Required); Assert.Equal(11, operation.OperationAdmission!.Version);
-        Assert.Equal(2, operation.OperationAdmission.RealizationCoverage!.Version);
+        Assert.True(operation.Required); Assert.Equal(12, operation.OperationAdmission!.Version);
+        Assert.Equal(3, operation.OperationAdmission.RealizationCoverage!.Version);
         Assert.Equal(2, operation.OperationAdmission.Assignments.Count(a => a.Disposition == "supports"));
         Assert.Single(operation.OperationAdmission.Assignments, a => a.Disposition == "attach");
         Assert.DoesNotContain(state.DecisionPages.SelectMany(p => p.Decisions), id => id.StartsWith("operation_", StringComparison.Ordinal));
-        Assert.All(operation.OperationAdmission.ExecutionContributions, p => Assert.Equal(1, p.Version));
+        Assert.All(operation.OperationAdmission.ExecutionContributions, p => Assert.Equal(2, p.Version));
     }
 
     [Fact]
@@ -118,7 +119,7 @@ public sealed class OperationContributionTests
     {
         var state = Result("This processing is deterministic.");
         Qualify(state, s => Answer(state, s, "governs"));
-        Assert.Empty(Assert.Single(PlanningOperations.CoverageGroups(state)).Plans);
+        Assert.Empty(PlanningOperations.CoverageGroups(state));
         var error = await Assert.ThrowsAsync<WorkflowRuntimeException>(() => PlanningOperations.ResolveAsync(state, NoCalls(), Ct));
         Assert.Equal("INTENT_OPERATION_UNRESOLVED", error.Code); Assert.Empty(state.RequestAccounting);
     }
@@ -141,7 +142,7 @@ public sealed class OperationContributionTests
         var state = Result("Transform the supplied value."); var scope = Assert.Single(PlanningOperations.Scopes(state));
         var answer = Answer(state, scope);
         answer["contributions"]!.AsArray().Add((JsonNode)new JsonObject
-        { ["role"] = "excluded", ["basis"] = "no_requested_execution", ["evidence"] = scope.Evidence!.ActionReference });
+        { ["role"] = "excluded", ["basis"] = "no_operation_relevance", ["evidence"] = scope.Evidence!.ActionReference });
         Assert.Throws<WorkflowRuntimeException>(() => PlanningOperations.ParseContributions(state, scope, answer));
     }
 

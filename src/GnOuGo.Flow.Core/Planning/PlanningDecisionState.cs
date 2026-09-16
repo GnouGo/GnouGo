@@ -127,6 +127,16 @@ public sealed record PlanningExecutionContributionProof(int Version, string Runt
 public sealed record PlanningExecutionContribution(string Id, string EvidenceReference, string Role,
     string? EffectId, string Basis, string? OwnerReference, string? BoundaryReference,
     PlanningContributionOrigin Origin);
+/// <summary>Applicability of a qualified property, never executable authority. Inactive and
+/// workflow outcomes remain complete evidence even when no operation receives an attachment.</summary>
+public sealed record PlanningGoverningApplicabilityProof(int Version, string ContributionId, string RuntimeEvidenceId,
+    string EvidenceReference, string Outcome, List<string> Targets, string? WorkflowOwner,
+    List<PlanningGoverningTargetEvidence> TargetEvidence, List<string> OwnerReferences,
+    string? InactiveProofFingerprint, PlanningApplicabilityOrigin Origin, string? DecisionId,
+    string RealizedSetFingerprint, string DomainFingerprint, string ProofFingerprint);
+public sealed record PlanningGoverningTargetEvidence(string Target, List<string> EvidenceReferences);
+public enum PlanningApplicabilityOrigin { Unknown, ModelApplicability, DeterministicOwner, DeterministicInactive }
+
 public enum PlanningContributionOrigin { Unknown, ModelQualification, DeterministicBaseline, DeterministicExclusion }
 
 /// <summary>Canonical operation proof; preliminary source labels confer no execution authority.</summary>
@@ -137,6 +147,7 @@ public sealed record PlanningOperationAdmission(int Version, string CanonicalId,
     public PlanningOperationDependencyProof? Dependencies { get; init; }
     public PlanningRealizationCoverageProof? RealizationCoverage { get; init; }
     public List<PlanningExecutionContributionProof> ExecutionContributions { get; init; } = [];
+    public List<PlanningGoverningApplicabilityProof> GoverningApplicability { get; init; } = [];
 }
 
 /// <summary>Complete effect-owned realization authority, reconstructed from existing durable decision pages.</summary>

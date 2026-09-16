@@ -69,11 +69,11 @@ The operation fixture first parses three identical copies of each preliminary ru
 assignment into one normalized evidence item, then persists completed canonical contribution pages before admission
 commits. The synthetic outputless action carries explicit owned invocation-boundary evidence. Encrypted restart reuses the realization receipts, attaches a governing rule to the
 single canonical operation, and verifies a second restart adds no
-calls or repair charges. The first action has unspecified necessity, the reused action has explicit required evidence, and the governing rule has unspecified necessity. Restart verifies one required canonical operation and its evidence. Canonical contribution proof 1 supplies support/governing authority, independently of historical runtime labels. Occurrence-boundary proof 1, realization coverage proof 2, effect proof 6 and operation proof 11 remain in Schema-5 storage.
+calls or repair charges. The first action has unspecified necessity, the reused action has explicit required evidence, and the governing rule has unspecified necessity. Restart verifies one required canonical operation and its evidence. Canonical contribution proof 2 supplies support/unbound-property authority, independently of historical runtime labels. Occurrence-boundary proof 1, realization coverage proof 3, governing applicability proof 1, effect proof 7 and operation proof 12 remain in Schema-5 storage.
 
 The admission dependency smoke journals synthetic, evidence-bound data decisions
 between two established operations, closes before atomic admission, then reopens
 twice. Canonical edges, per-edge origins and fingerprints survive encrypted
 persistence without another request or a repair charge.
 
-The coverage proof is encrypted with the existing admission record. Aggregate executable support and governing mappings survive restart without a distinguished first assignment. The trimmed Agent.Server smoke also round-trips explicit optional omission evidence through generated serialization.
+The coverage proof is encrypted with the existing admission record. Aggregate executable support and separately proved property applicability survive restart without a distinguished first assignment. The trimmed Agent.Server smoke also round-trips explicit optional omission evidence through generated serialization.

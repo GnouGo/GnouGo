@@ -159,11 +159,11 @@ public sealed class RuntimeAdmissionDiagnosticTests
     private static PlanningObligation Operation(string id, string kind, string[] inputs, string[] outputs, string[] producers) =>
         new(id, ["evidence"], "workflow", kind, true)
         {
-            OperationAdmission = new(11, id, "evidence", null,
+            OperationAdmission = new(12, id, "evidence", null,
                 [new("decision", "clause", "action", kind, PlanningOperationNecessity.Required, null, null)
-                { ContributionId = "qualified", RuntimeEvidenceId = "runtime", Disposition = "supports", EffectId = id, Effect = new(6, "effect", "realizes", [new("main", "result", "result_realization", "result")], inputs.ToList(), outputs.ToList(), [], ["clause"], "model", "proof") }], "proof", "fingerprint") { ExecutionContributions = [new(1, "runtime", "qualification", "domain", [new("qualified", "action", "supports", id, "requested_result_production", "result", "result", PlanningContributionOrigin.ModelQualification)], "proof")], Dependencies = new(1, "domain", producers.Select(p =>
+                { ContributionId = "qualified", RuntimeEvidenceId = "runtime", Disposition = "supports", EffectId = id, Effect = new(7, "effect", "realizes", [new("main", "result", "result_realization", "result")], inputs.ToList(), outputs.ToList(), [], ["clause"], "model", "proof") }], "proof", "fingerprint") { ExecutionContributions = [new(2, "runtime", "qualification", "domain", [new("qualified", "action", "supports", id, "requested_result_production", "result", "result", PlanningContributionOrigin.ModelQualification)], "proof")], Dependencies = new(1, "domain", producers.Select(p =>
                     new PlanningOperationDependencyAssignment(p, id, "data", PlanningDependencyOrigin.ModelSemanticSelection, ["clause"], "decision")).ToList(), "dependency-proof"),
-                    RealizationCoverage = new(2, "coverage", "domain", [id], [new("runtime", "supports", [id], ["action"]) { ContributionId = "qualified" }],
+                    RealizationCoverage = new(3, "coverage", "domain", [id], [new("runtime", "supports", [id], ["action"]) { ContributionId = "qualified" }],
                         [new(id, new("main", "result", "result_realization", "result"), ["qualified"], inputs.ToList(), outputs.ToList())], "coverage-proof") }
         };
 
@@ -220,7 +220,7 @@ public sealed class RuntimeAdmissionDiagnosticTests
         var admission = operation.OperationAdmission!;
         foreach (var contributionRole in role switch { "both" => new[] { "governs", "supports" }, "missing" => [], "partial" => ["governs"], _ => [role] })
         {
-            admission.ExecutionContributions[0].Contributions.Add(new(contributionRole, "property", contributionRole, "local",
+            admission.ExecutionContributions[0].Contributions.Add(new(contributionRole, "property", contributionRole == "supports" ? "supports" : "governing_property", contributionRole == "supports" ? "local" : null,
                 contributionRole == "supports" ? "requested_result_production" : "governing_property", "result", "result", PlanningContributionOrigin.ModelQualification));
             admission.Assignments.Add(admission.Assignments[0] with { ContributionId = contributionRole, ActionReference = "property",
                 Disposition = contributionRole == "supports" ? "supports" : "attach" });

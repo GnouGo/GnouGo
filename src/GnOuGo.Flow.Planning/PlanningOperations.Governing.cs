@@ -16,8 +16,7 @@ internal static partial class PlanningOperations
             .ToDictionary(p => p.Key, p => p.Value, StringComparer.Ordinal);
 
     internal static Dictionary<string, PlanningOperationEffectAnchor> RealizedDomain(PlanningSnapshot state, PlanningRuntimeEvidence evidence,
-        IReadOnlyList<PlanningOperationAssignment> realized) => RealizedAnchors(state, realized.Where(a =>
-            CompatibleFacts(evidence, state.RuntimeEvidence.Single(e => e.Id == a.RuntimeEvidenceId))).ToArray());
+        IReadOnlyList<PlanningOperationAssignment> realized) => RealizedAnchors(state, realized.Where(a => evidence.BaselineReference is null || a.BaselineReference == evidence.BaselineReference).ToArray());
 
     internal static string GoverningFingerprint(PlanningSnapshot state, IReadOnlyList<PlanningOperationAssignment> realized) =>
         EffectFingerprint(state) + ":realized:" + PlanningGraphCompiler.Fingerprint(JsonSerializer.Serialize(
@@ -31,12 +30,11 @@ internal static partial class PlanningOperations
         if (domain.Count == 0) throw Failure(scope.Evidence!.Id, "Governing evidence requires a compatible realized effect.");
         if (domain.Count != 1) return null;
         var id = domain.Single().Key;
-        // Applicability is established by the same owned governing clause or
-        // exact baseline node. Kind compatibility alone is insufficient.
-        var governing = realized.Where(a => a.EffectId == id && (a.ClauseReference == scope.Clause.Id ||
-            scope.Evidence!.BaselineReference is { } baseline && a.BaselineReference == baseline)).ToArray();
+        // Only exact baseline ownership supplies this deterministic shortcut.
+        // A shared clause and kind compatibility are insufficient.
+        var governing = realized.Where(a => a.EffectId == id && (scope.Evidence!.BaselineReference is { } baseline && a.BaselineReference == baseline)).ToArray();
         if (governing.Length == 0) return null;
-        return new(6, EffectDecisionId(scope.Evidence!, true), "governs", [domain[id]],
+        return new(7, EffectDecisionId(scope.Evidence!, true), "governs", [domain[id]],
             governing.SelectMany(a => a.Effect!.Inputs).Distinct().Order(StringComparer.Ordinal).ToList(),
             governing.SelectMany(a => a.Effect!.Outputs).Distinct().Order(StringComparer.Ordinal).ToList(),
             [],

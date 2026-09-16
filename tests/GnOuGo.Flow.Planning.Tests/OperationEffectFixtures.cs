@@ -42,13 +42,7 @@ internal static class OperationEffectFixtures
         var values = new JsonObject(groups.Select(g => new KeyValuePair<string, JsonNode?>(g.Id, CoverageAnswer(state, g, answer))));
         SeedPages(state, groups.Select(g => g.Decision).ToArray(), values);
         if (rootsOnly || values.Any(p => p.Value?["status"]?.ToString() == "unresolved")) return;
-        var covered = groups.SelectMany(g => g.Scopes).Select(s => s.Evidence!.Id).ToHashSet();
-        var realized = PlanningOperations.ReadRealizations(state);
-        var pending = scopes.Where(s => !covered.Contains(s.Evidence!.Id) && s.Evidence.EvidenceRole == "governing")
-            .Where(s => PlanningOperations.RealizedDomain(state, s.Evidence!, realized).Count != 0 && PlanningOperations.DeterministicGoverning(state, s, realized) is null).ToArray();
-        values = new JsonObject(pending.Select(s => new KeyValuePair<string, JsonNode?>(PlanningOperations.EffectDecisionId(s.Evidence!, true),
-            answer is not null ? answers[s.Evidence!.Id].DeepClone() : Answer(state, s, [PlanningOperations.RealizedDomain(state, s.Evidence!, realized).First().Key], "governs"))));
-        SeedPages(state, pending.Select(s => PlanningOperations.EffectDecision(state, s, realized)).ToArray(), values);
+        SeedApplicability(state, answer);
         if (seedDependencies)
             try { SeedDependencies(state, Staged(state), dependency); }
             catch (GnOuGo.Flow.Core.Expressions.WorkflowRuntimeException) { /* Invalid synthetic roots are assessed by the production admission call. */ }
@@ -60,16 +54,16 @@ internal static class OperationEffectFixtures
         value ??= scope.Evidence!.EvidenceRole == "governing" ? Defer(scope) : Answer(state, scope);
         if (value["status"]?.ToString() == "unresolved") return new() { ["status"] = "unresolved" };
         var excluded = value["status"]?.ToString() == "not_an_effect";
-        var role = excluded ? "excluded" : value["status"]?.ToString() == "governing" || value["contribution"]?.ToString() is "governs" or "shared_rule" ? "governs" : "supports";
+        var role = excluded ? "excluded" : value["status"]?.ToString() == "governing" || value["contribution"]?.ToString() is "governs" or "shared_rule" ? "governing_property" : "supports";
         var domain = PlanningOperations.EffectDomain(state, scope.Evidence!);
         var ids = value["effects"]?.AsArray().Select(v => v!.ToString()).ToArray() ?? (domain.Count == 0 ? [] : new[] { domain.First().Key });
-        if (!excluded && ids.Length == 0) return new() { ["status"] = "unresolved" };
+        if (role == "supports" && ids.Length == 0) return new() { ["status"] = "unresolved" };
         var items = new JsonArray();
-        foreach (var id in excluded ? new[] { "" } : ids)
+        foreach (var id in role != "supports" ? new[] { "" } : ids)
         {
             var item = new JsonObject { ["role"] = role, ["evidence"] = scope.Evidence!.ActionReference };
-            if (excluded) item["basis"] = "no_requested_execution";
-            else item["effect"] = id;
+            if (excluded) item["basis"] = "no_operation_relevance";
+            else if (role == "supports") item["effect"] = id;
             if (role == "supports")
             {
                 var anchor = domain[id];
@@ -109,34 +103,27 @@ internal static class OperationEffectFixtures
         SeedPages(state, decisions, values);
     }
 
-    internal static List<PlanningObligation> Staged(PlanningSnapshot state)
+    internal static List<PlanningObligation> Staged(PlanningSnapshot state) => PlanningOperations.AttachApplicability(
+        state, PlanningOperations.MaterializeCoverage(state), PlanningOperations.ReadApplicability(state));
+
+    internal static JsonObject ApplicabilityAnswer(PlanningDecisionPages.Decision decision, IEnumerable<string>? targets = null)
     {
-        var realized = PlanningOperations.ReadRealizations(state);
-        var operations = PlanningOperations.MaterializeCoverage(state);
-        var covered = PlanningOperations.ReadCoverage(state).SelectMany(p => p.Contributions).Select(c => c.RuntimeEvidenceId).ToHashSet();
-        void Add(PlanningOperationAssignment assignment)
+        var selected = targets?.ToArray() ?? [decision.Context["realized"]!.AsObject().First().Key];
+        return new() { ["status"] = "active", ["bindings"] = new JsonArray(selected.Select(id => (JsonNode)new JsonObject
+        { ["target"] = id, ["evidence"] = Strings([decision.Context["references"]!.AsObject().First().Key]) }).ToArray()) };
+    }
+
+    internal static void SeedApplicability(PlanningSnapshot state, Func<PlanningOperations.Scope, JsonObject>? answer = null)
+    {
+        var decisions = PlanningOperations.ApplicabilityDecisions(state);
+        var scopes = PlanningOperations.QualifiedScopes(state);
+        SeedPages(state, decisions, new JsonObject(decisions.Select(d =>
         {
-            var existing = operations.Single(o => o.Id == assignment.EffectId);
-            operations.Remove(existing);
-            operations.Add(PlanningOperations.Prove(state, existing, existing.OperationAdmission! with
-            { Assignments = [.. existing.OperationAdmission!.Assignments, assignment] }));
-        }
-        foreach (var scope in PlanningOperations.Scopes(state))
-        {
-            if (covered.Contains(scope.Evidence!.Id)) continue;
-            var deterministic = scope.Evidence!.EvidenceRole == "governing" && PlanningOperations.RealizedDomain(state, scope.Evidence, realized).Count > 0
-                ? PlanningOperations.DeterministicGoverning(state, scope, realized) : null;
-            var value = state.DecisionPages.LastOrDefault(p => p.Candidate?[PlanningOperations.EffectDecisionId(scope.Evidence, true)] is not null)?
-                .Candidate![PlanningOperations.EffectDecisionId(scope.Evidence, true)] as JsonObject;
-            if (deterministic is null && value is null) continue;
-            var proof = deterministic ?? PlanningOperations.ParseEffect(state, scope, value!, realized);
-            foreach (var anchor in proof.Candidates)
-            {
-                var id = PlanningOperations.CanonicalId(state, anchor, scope.Evidence.Kind!, scope.Evidence.BaselineReference);
-                Add(PlanningOperations.Assignment(scope, proof, id, id, "attach", "deterministic"));
-            }
-        }
-        return operations;
+            var scope = scopes.Single(s => PlanningOperations.ApplicabilityDecisionId(s) == d.Id);
+            var result = answer?.Invoke(scope);
+            var targets = result?["effects"]?.AsArray().Select(v => v!.ToString());
+            return new KeyValuePair<string, JsonNode?>(d.Id, ApplicabilityAnswer(d, targets));
+        })));
     }
 
     internal static JsonObject CoverageAnswer(PlanningSnapshot state, PlanningOperations.CoverageGroup group,
@@ -148,7 +135,7 @@ internal static class OperationEffectFixtures
         {
             var value = answers[c.RuntimeEvidenceId];
             var role = value["status"]?.ToString() is "omitted" ? "omitted" : value["status"]?.ToString() == "governing" ||
-                value["contribution"]?.ToString() is "governs" or "shared_rule" ? "governs" : "supports";
+                value["contribution"]?.ToString() is "governs" or "shared_rule" ? "governing_property" : "supports";
             if (value["status"]?.ToString() is "not_an_effect" or "unresolved") return false;
             var targets = value["effects"]?.AsArray().Select(v => v!.ToString()).Order().ToArray();
             return c.Disposition == role && (targets is null || c.Effects.All(targets.Contains));
@@ -195,6 +182,8 @@ internal static class OperationEffectFixtures
     {
         if (p.Key.StartsWith("contribution_", StringComparison.Ordinal))
             return new KeyValuePair<string, JsonNode?>(p.Key, ContributionAnswer(state, PlanningOperations.Scopes(state).Single(s => PlanningOperations.ContributionDecisionId(s.Evidence!) == p.Key)));
+        if (p.Key.StartsWith("applicability_", StringComparison.Ordinal))
+            return new KeyValuePair<string, JsonNode?>(p.Key, ApplicabilityAnswer(PlanningOperations.ApplicabilityDecisions(state).Single(d => d.Id == p.Key)));
         if (p.Key.StartsWith("coverage_", StringComparison.Ordinal))
             return new KeyValuePair<string, JsonNode?>(p.Key, CoverageAnswer(state, PlanningOperations.CoverageGroups(state).Single(g => g.Id == p.Key)));
         if (p.Key.StartsWith("boundary_", StringComparison.Ordinal))

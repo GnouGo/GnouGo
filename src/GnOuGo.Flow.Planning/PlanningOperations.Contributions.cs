@@ -9,7 +9,7 @@ internal static partial class PlanningOperations
     // Derived domains only. The existing pages hold semantic answers; admission carries their proofs.
     internal static string ContributionDecisionId(PlanningRuntimeEvidence evidence) => "contribution_" + evidence.Id;
     private static string ContributionDomainFingerprint(PlanningSnapshot state, Scope scope, JsonObject schema, JsonObject context) =>
-        PlanningGraphCompiler.Fingerprint("execution-contribution-v1:" + EvidenceFingerprint(state) + ":" +
+        PlanningGraphCompiler.Fingerprint("execution-contribution-v2:" + EvidenceFingerprint(state) + ":" +
             scope.Evidence!.ProofFingerprint + ":" + schema.ToJsonString() + ":" + context.ToJsonString());
 
     internal static PlanningDecisionPages.Decision ContributionDecision(PlanningSnapshot state, Scope scope)
@@ -21,11 +21,11 @@ internal static partial class PlanningOperations
         var owned = new JsonObject { ["anyOf"] = new JsonArray(PlanningHoleRequests.Enum([reference.Id]), spans.Schema) };
         var domain = EffectDomain(state, evidence);
         var alternatives = new JsonArray(PlanningHoleRequests.Object(("role", PlanningHoleRequests.Enum(["excluded"])),
-            ("basis", PlanningHoleRequests.Enum(["no_requested_execution"])), ("evidence", owned.DeepClone().AsObject())));
+            ("basis", PlanningHoleRequests.Enum(["no_operation_relevance"])), ("evidence", owned.DeepClone().AsObject())),
+            PlanningHoleRequests.Object(("role", PlanningHoleRequests.Enum(["governing_property"])),
+                ("evidence", owned.DeepClone().AsObject())));
         foreach (var (id, anchor) in domain)
         {
-            alternatives.Add((JsonNode)PlanningHoleRequests.Object(("role", PlanningHoleRequests.Enum(["governs"])),
-                ("effect", PlanningHoleRequests.Enum([id])), ("evidence", owned.DeepClone().AsObject())));
             // Exact occurrence ownership is necessary for an occurrence support basis.
             // Several owned execution spans may support that same proven occurrence.
             if (anchor.BoundaryKind != "result_realization" && anchor.OccurrenceProof is null) continue;
@@ -42,7 +42,7 @@ internal static partial class PlanningOperations
         var context = new JsonObject
         {
             ["stage"] = "execution_contribution",
-            ["task"] = "Qualify all owned evidence before realization coverage. Support requires requested performance/result production, or requested execution of the exact owned occurrence. A property of execution is governing evidence only. Kind, necessity, generated-workflow scope, public declarations and candidate boundaries do not prove requested performance. Semantic labels are nonexclusive context, neither authority nor a veto. Select owned subspans to retain execution and properties separately within a mixed clause; account for the complete evidence. An exclusion must establish absence of requested execution, never optional omission. Return unresolved if qualification, effect ownership or complete coverage cannot be proven within this bounded response.",
+            ["task"] = "Qualify all owned evidence before realization coverage. Support requires requested performance/result production, or requested execution of the exact owned occurrence. Qualify a property of execution as governing_property without an effect target. An empty support domain does not establish irrelevance; preliminary execution kind does not restrict governing qualification. Applicability is established separately after realizations exist. Kind, necessity, generated-workflow scope, public declarations and candidate boundaries do not prove requested performance. Semantic labels are nonexclusive context, neither authority nor a veto. Select owned subspans to retain execution and properties separately within a mixed clause; account for the complete evidence. An exclusion must establish neither execution nor execution-governing relevance at this boundary, never optional omission. Preserve other semantic obligations. Return unresolved if qualification, effect ownership or complete coverage cannot be proven within this bounded response.",
             ["reference"] = reference.Id, ["span"] = PlanningChoiceEvidence.Text(state, reference.Id),
             ["clause"] = PlanningChoiceEvidence.Text(state, scope.Clause.Id), ["boundaries"] = spans.Context.DeepClone(),
             ["kind"] = evidence.Kind, ["necessity"] = evidence.Necessity.ToString(),
@@ -101,7 +101,7 @@ internal static partial class PlanningOperations
         for (var offset = parent.Start; offset < parent.Start + parent.Length; offset++)
             if (!char.IsWhiteSpace(scope.Source.Text[offset]) && !selected.Any(r => r.Start <= offset && r.Start + r.Length > offset))
                 throw Failure(scope.Evidence!.Id, "Contribution qualification did not cover its complete owned evidence.");
-        foreach (var support in contributions.Where(c => c.Role == "supports"))
+        foreach (var support in contributions.Where(c => c.Role != "excluded"))
         foreach (var exclusion in contributions.Where(c => c.Role == "excluded"))
         {
             var action = selected.First(r => r.Id == support.EvidenceReference);
@@ -111,7 +111,7 @@ internal static partial class PlanningOperations
         }
         foreach (var span in selected)
             if (!state.References.Any(r => r.Id == span.Id)) state.References.Add(span);
-        return SealContributionProof(new(1, scope.Evidence!.Id, decision.Id, decision.EvidenceFingerprint,
+        return SealContributionProof(new(2, scope.Evidence!.Id, decision.Id, decision.EvidenceFingerprint,
             contributions.Distinct().OrderBy(c => c.Id, StringComparer.Ordinal).ToList(), ""));
     }
 
@@ -126,11 +126,11 @@ internal static partial class PlanningOperations
     {
         KeyValuePair<string, PlanningOperationEffectAnchor>? anchor = excluded ? null : EffectDomain(state, evidence).Single();
         var structural = !excluded && PlanningIntentAssessment.IntentSources(state).Single(s => s.Id == state.References.Single(r => r.Id == evidence.SourceReference).SourceId).Structural;
-        var item = SealContribution(evidence.Id, new("", evidence.ActionReference ?? evidence.SourceReference, excluded ? "excluded" : structural ? "supports" : "governs",
-            anchor?.Key, excluded ? "canonical_source_or_declaration_exclusion" : structural ? "existing_baseline_execution" : "baseline_owner_annotation",
+        var item = SealContribution(evidence.Id, new("", evidence.ActionReference ?? evidence.SourceReference, excluded ? "excluded" : structural ? "supports" : "governing_property",
+            structural ? anchor?.Key : null, excluded ? "canonical_source_or_declaration_exclusion" : structural ? "existing_baseline_execution" : "baseline_owner_annotation",
             anchor?.Value.OwnerReference, anchor?.Value.BoundaryReference,
             excluded ? PlanningContributionOrigin.DeterministicExclusion : PlanningContributionOrigin.DeterministicBaseline));
-        return SealContributionProof(new(1, evidence.Id, null, PlanningGraphCompiler.Fingerprint("execution-contribution-v1:" +
+        return SealContributionProof(new(2, evidence.Id, null, PlanningGraphCompiler.Fingerprint("execution-contribution-v2:" +
             EvidenceFingerprint(state) + ":" + evidence.ProofFingerprint + ":" + state.DeclarationFingerprint), [item], ""));
     }
 

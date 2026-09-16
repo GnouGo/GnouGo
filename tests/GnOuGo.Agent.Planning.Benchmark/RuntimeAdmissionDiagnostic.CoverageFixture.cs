@@ -59,7 +59,12 @@ internal static partial class RuntimeAdmissionDiagnostic
             ["coverageInitialPages"] = PlanningDecisionPages.PackedPageCount(state, groups.Select(g => g.Decision).ToArray()),
             ["assessedActionContributions"] = groups.Sum(g => g.Scopes.Count(s => s.Contribution!.Role == "supports")),
             ["jointGoverningContributions"] = groups.Sum(g => g.Scopes.Count(s => s.Contribution!.Role == "governs")),
-            ["additionalGoverningDecisions"] = fields.Count(k => k.StartsWith("effect_governing_", StringComparison.Ordinal)),
+            ["governingApplicabilityDecisions"] = fields.Count(k => k.StartsWith("applicability_", StringComparison.Ordinal)),
+            ["applicabilityInitialPages"] = PlanningDecisionPages.PackedPageCount(state, PlanningOperations.ApplicabilityDecisions(state)),
+            ["applicabilitySchemas"] = new JsonArray(PlanningOperations.ApplicabilityDecisions(state).Select(d => (JsonNode)new JsonObject
+                { ["decision"] = d.Id, ["schemaBytes"] = System.Text.Encoding.UTF8.GetByteCount(d.Schema.ToJsonString()) }).ToArray()),
+            ["contributions"] = JsonSerializer.SerializeToNode(PlanningOperations.ReadContributions(state).ToList(), PlanningJsonContext.Default.ListPlanningExecutionContributionProof),
+            ["applicability"] = JsonSerializer.SerializeToNode(PlanningOperations.ReadApplicability(state).ToList(), PlanningJsonContext.Default.ListPlanningGoverningApplicabilityProof),
             ["identityDecisions"] = fields.Count(k => k.StartsWith("operation_", StringComparison.Ordinal)),
             ["dependencyDecisions"] = fields.Count(k => k.StartsWith("data_", StringComparison.Ordinal)),
             ["syntheticRequests"] = client.Requests.Count, ["newSyntheticReservations"] = state.RequestAccounting.Count - originalAccounting,
@@ -94,6 +99,32 @@ internal static partial class RuntimeAdmissionDiagnostic
             return OperationEffectFixtures.Answer(snapshot, scope, contribution: role,
                 inputs: snapshot.Declarations.Where(d => d.Direction == "input" && names.Contains(PlanningDeclarations.Name(snapshot, d))).Select(d => d.Id));
         }
+        private static JsonObject SyntheticQualification(PlanningSnapshot snapshot, PlanningOperations.Scope scope)
+        {
+            var local = !snapshot.Declarations.Any(d => PlanningDeclarations.Name(snapshot, d) == "sourceId");
+            var text = PlanningChoiceEvidence.Text(snapshot, scope.Clause.Id);
+            JsonObject Property(JsonNode reference) => new() { ["role"] = "governing_property", ["evidence"] = reference };
+            JsonObject Qualified(params JsonObject[] items) => new() { ["status"] = "qualified", ["contributions"] = new JsonArray(items.Select(i => (JsonNode)i).ToArray()) };
+            if (text.Trim() == "This is deterministic, local, in-memory business processing." || local && text.StartsWith("Classify as rejected", StringComparison.Ordinal))
+                return Qualified(Property(JsonValue.Create(scope.Evidence!.ActionReference)!));
+            var answer = OperationEffectFixtures.ContributionAnswer(snapshot, scope, SyntheticMapping(snapshot, scope));
+            if (local && PlanningChoiceEvidence.Text(snapshot, scope.Evidence!.ActionReference!) == "classifying a single record.")
+            {
+                JsonObject Range(int start, int end)
+                {
+                    var starts = scope.Boundaries["properties"]!["start"]!["enum"]!.AsArray().Select(v => v!.ToString()).ToArray();
+                    var ends = scope.Boundaries["properties"]!["end"]!["enum"]!.AsArray().Select(v => v!.ToString()).ToArray();
+                    return new() { ["start"] = starts.Single(b => scope.Select(b, ends[^1]).Start == start),
+                        ["end"] = ends.Single(b => { var r = scope.Select(starts[0], b); return r.Start + r.Length == end; }) };
+                }
+                var reference = snapshot.References.Single(r => r.Id == scope.Evidence!.ActionReference);
+                var support = answer["contributions"]![0]!.AsObject();
+                support["evidence"] = Range(reference.Start, reference.Start + "classifying".Length);
+                answer["contributions"]!.AsArray().Add((JsonNode)Property(Range(reference.Start + "classifying ".Length, reference.Start + reference.Length)));
+            }
+            return answer;
+        }
+
         public Task<LLMResponse> CallAsync(LLMRequest request, CancellationToken ct)
         {
             Requests.Add(request); var result = new JsonObject();
@@ -102,7 +133,15 @@ internal static partial class RuntimeAdmissionDiagnostic
                 if (field.Key.StartsWith("contribution_", StringComparison.Ordinal))
                 {
                     var scope = PlanningOperations.Scopes(state).Single(s => PlanningOperations.ContributionDecisionId(s.Evidence!) == field.Key);
-                    result[field.Key] = OperationEffectFixtures.ContributionAnswer(state, scope, SyntheticMapping(state, scope));
+                    result[field.Key] = SyntheticQualification(state, scope);
+                }
+                else if (field.Key.StartsWith("applicability_", StringComparison.Ordinal))
+                {
+                    var decision = PlanningOperations.ApplicabilityDecisions(state).Single(d => d.Id == field.Key);
+                    var candidates = PlanningOperations.MaterializeCoverage(state);
+                    var scope = PlanningOperations.QualifiedScopes(state).Single(s => PlanningOperations.ApplicabilityDecisionId(s) == field.Key);
+                    var kind = scope.Evidence!.Kind == "external_read" ? "external_read" : "local_processing";
+                    result[field.Key] = OperationEffectFixtures.ApplicabilityAnswer(decision, [candidates.Single(o => o.Kind == kind).Id]);
                 }
                 else if (field.Key.StartsWith("coverage_", StringComparison.Ordinal))
                 {

@@ -14,7 +14,7 @@ internal static partial class PlanningOperations
 
     internal static CoverageGroup[] CoverageGroups(PlanningSnapshot state)
     {
-        var scopes = QualifiedScopes(state).Where(s => s.Evidence!.BaselineReference is null)
+        var scopes = QualifiedScopes(state).Where(s => s.Contribution!.Role == "supports" && s.Evidence!.BaselineReference is null)
             .OrderBy(s => s.Contribution!.Id, StringComparer.Ordinal).ToArray();
         var domains = scopes.ToDictionary(s => s.Contribution!.Id, s => EffectDomain(state, s.Evidence!).Where(p => p.Key == s.Contribution!.EffectId).ToDictionary(), StringComparer.Ordinal);
         var remaining = scopes.ToList();
@@ -54,7 +54,7 @@ internal static partial class PlanningOperations
         var context = new JsonObject
         {
             ["stage"] = "realization_coverage",
-            ["task"] = "Select a complete issued coverage mapping using already qualified contribution authority. Support and governing roles are fixed and cannot be reclassified. Every selected effect needs qualified executable support. Governing evidence applies only to selected realized effects. Distinct owned boundaries remain distinct. Omission requires explicit optional necessity. Return scoped public dataflow for each selected effect, or unresolved.",
+            ["task"] = "Select a complete issued coverage mapping using already qualified contribution authority. Every selected effect needs qualified executable support. Properties are context only; this decision cannot bind their applicability, retire them or use them as support. Distinct owned boundaries remain distinct. Omission requires explicit optional necessity. Return scoped public dataflow for each selected effect, or unresolved.",
             ["contributions"] = new JsonObject(scopes.Select(s => new KeyValuePair<string, JsonNode?>(s.Contribution!.Id, new JsonObject
             {
                 ["action"] = PlanningChoiceEvidence.Text(state, s.Contribution!.EvidenceReference),
@@ -63,6 +63,10 @@ internal static partial class PlanningOperations
                 ["necessityEvidence"] = s.Evidence.NecessityReference,
                 ["eligibleEffects"] = CoverageStrings(domains[s.Contribution!.Id].Keys.Where(domain.ContainsKey))
             }))),
+            ["propertyContext"] = new JsonArray(QualifiedScopes(state).Where(s => s.Contribution!.Role == "governing_property")
+                .Select(s => (JsonNode)new JsonObject { ["evidence"] = s.Contribution!.EvidenceReference,
+                    ["property"] = PlanningChoiceEvidence.Text(state, s.Contribution.EvidenceReference),
+                    ["clause"] = PlanningChoiceEvidence.Text(state, s.Clause.Id) }).ToArray()),
             ["effects"] = new JsonObject(domain.Select(p => new KeyValuePair<string, JsonNode?>(p.Key, new JsonObject
             { ["scope"] = p.Value.WorkflowScope, ["owner"] = p.Value.OwnerReference, ["boundary"] = p.Value.BoundaryKind,
                 ["boundaryEvidence"] = p.Value.BoundaryReference }))),
@@ -75,7 +79,7 @@ internal static partial class PlanningOperations
         var alternatives = new JsonArray(PlanningHoleRequests.Object(("status", PlanningHoleRequests.Enum(["unresolved"]))));
         var schema = new JsonObject { ["anyOf"] = alternatives };
         var planContext = new JsonObject(); context["mappings"] = planContext;
-        var fingerprint = EffectFingerprint(state) + ":" + string.Join('|', ReadContributions(state).Select(p => p.ProofFingerprint)) + ":coverage-v2:" + PlanningGraphCompiler.Fingerprint(context.ToJsonString());
+        var fingerprint = EffectFingerprint(state) + ":" + string.Join('|', ReadContributions(state).Select(p => p.ProofFingerprint)) + ":coverage-v3:" + PlanningGraphCompiler.Fingerprint(context.ToJsonString());
         var decision = new PlanningDecisionPages.Decision(id, schema, context, fingerprint,
             SourceDecisionIds: scopes.Select(s => s.Contribution!.Id).ToArray());
         var byEffects = new Dictionary<string, JsonArray>(StringComparer.Ordinal);
@@ -169,7 +173,7 @@ internal static partial class PlanningOperations
             return new PlanningRealizedEffect(p.Key, group.Effects[p.Key], contributions.Where(c => c.Disposition == "supports" && c.Effects.Contains(p.Key))
                 .Select(c => c.ContributionId!).Order(StringComparer.Ordinal).ToList(), Values("inputs"), Values("outputs"));
         }).ToList();
-        var proof = new PlanningRealizationCoverageProof(2, group.Id, group.Decision.EvidenceFingerprint, effects.Select(e => e.Id).ToList(), contributions, effects, "");
+        var proof = new PlanningRealizationCoverageProof(3, group.Id, group.Decision.EvidenceFingerprint, effects.Select(e => e.Id).ToList(), contributions, effects, "");
         return proof with { ProofFingerprint = CoverageFingerprint(proof) };
     }
     private static string CoverageFingerprint(PlanningRealizationCoverageProof proof) => PlanningGraphCompiler.Fingerprint(
@@ -182,12 +186,12 @@ internal static partial class PlanningOperations
         try { values = PlanningDecisionPages.ReadCompleted(state, "intent_operations", "$plan", groups.Select(g => g.Decision).ToArray()); }
         catch (PlanningConflictException) { throw Failure("$plan", "Coverage requires its exact completed decision scope.", "INTENT_OPERATION_PROOF_MISSING"); }
         return groups.Select(g => ParseCoverage(state, g, values[g.Id]!.AsObject())).Concat(
-            QualifiedScopes(state).Where(s => s.Evidence!.BaselineReference is not null).GroupBy(s => s.Contribution!.EffectId, StringComparer.Ordinal).Select(group =>
+            QualifiedScopes(state).Where(s => s.Contribution!.Role == "supports" && s.Evidence!.BaselineReference is not null).GroupBy(s => s.Contribution!.EffectId, StringComparer.Ordinal).Select(group =>
             {
                 var support = group.Where(s => s.Contribution!.Role == "supports").OrderBy(s => s.Contribution!.Id, StringComparer.Ordinal).ToArray();
                 if (support.Length == 0) throw Failure(group.Key!, "Baseline annotations cannot establish execution.");
                 var mapping = BaselineEffect(state, support[0]); var anchor = mapping.Candidates.Single(); var id = group.Key!;
-                var proof = new PlanningRealizationCoverageProof(2, "coverage_baseline_" + id, EffectFingerprint(state), [id],
+                var proof = new PlanningRealizationCoverageProof(3, "coverage_baseline_" + id, EffectFingerprint(state), [id],
                     group.OrderBy(s => s.Contribution!.Id, StringComparer.Ordinal).Select(s => new PlanningRealizationContribution(s.Evidence!.Id, s.Contribution!.Role, [id], ContributionReferences(s))
                     { ContributionId = s.Contribution.Id }).ToList(),
                     [new(id, anchor, support.Select(s => s.Contribution!.Id).ToList(), mapping.Inputs, mapping.Outputs)], "");
@@ -211,14 +215,14 @@ internal static partial class PlanningOperations
         foreach (var id in contribution.Effects)
         {
             var effect = proof.Effects.Single(e => e.Id == id); var scope = scopes[contribution.ContributionId!];
-            var mapping = scope.Evidence!.BaselineReference is not null ? BaselineEffect(state, scope) with { Contribution = contribution.Disposition == "supports" ? "realizes" : "governs" } : new PlanningOperationEffectProof(6, proof.DecisionId, contribution.Disposition == "supports" ? "realizes" : "governs",
+            var mapping = scope.Evidence!.BaselineReference is not null ? BaselineEffect(state, scope) with { Contribution = contribution.Disposition == "supports" ? "realizes" : "governs" } : new PlanningOperationEffectProof(7, proof.DecisionId, contribution.Disposition == "supports" ? "realizes" : "governs",
                 [effect.Anchor], effect.Inputs, effect.Outputs, [], contribution.EvidenceReferences, "model", proof.DomainFingerprint);
             result.Add(Assignment(scope, mapping, id, id, contribution.Disposition == "supports" ? "supports" : "attach", "deterministic"));
         }
         return result.OrderBy(a => a.EffectId, StringComparer.Ordinal).ThenBy(a => a.RuntimeEvidenceId, StringComparer.Ordinal).ToList();
     }
 
-    private static List<PlanningObligation> ReadCompleteCoverage(PlanningSnapshot state) => MaterializeCoverage(state);
+    private static List<PlanningObligation> ReadCompleteCoverage(PlanningSnapshot state) => AttachApplicability(state, MaterializeCoverage(state), ReadApplicability(state));
 
     internal static List<PlanningObligation> MaterializeCoverage(PlanningSnapshot state)
     {
@@ -231,7 +235,7 @@ internal static partial class PlanningOperations
             var diagnostic = supports.OrderBy(a => a.ActionReference, StringComparer.Ordinal).First();
             var operation = new PlanningObligation(g.Key!, [diagnostic.ActionReference], diagnostic.Kind == "local_processing" ? "workflow" : "capability_contract", diagnostic.Kind,
                 ResolveRequiredness(state, assignments)) { Disposition = "admitted" };
-            return Prove(state, operation, new(11, operation.Id, diagnostic.ActionReference, diagnostic.BaselineReference, assignments, EvidenceFingerprint(state), "")
+            return Prove(state, operation, new(12, operation.Id, diagnostic.ActionReference, diagnostic.BaselineReference, assignments, EvidenceFingerprint(state), "")
             { ExecutionContributions = ReadContributions(state).ToList(), RealizationCoverage = proofs.SingleOrDefault(p => p.SelectedEffects.Contains(operation.Id)) });
         }).ToList();
     }

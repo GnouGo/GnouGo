@@ -8,7 +8,7 @@ namespace GnOuGo.Flow.Planning;
 /// <summary>Canonical action authority, committed once after bounded complete-clause adjudication.</summary>
 internal static partial class PlanningOperations
 {
-    internal static string EvidenceFingerprint(PlanningSnapshot state) => PlanningGraphCompiler.Fingerprint("operation-evidence-v11:" +
+    internal static string EvidenceFingerprint(PlanningSnapshot state) => PlanningGraphCompiler.Fingerprint("operation-evidence-v12:" +
         state.Request.TenantId + ":" + state.Request.SessionId + ":" + new JsonArray(PlanningIntentAssessment.IntentSources(state).OrderBy(s => s.Id, StringComparer.Ordinal)
             .Where(s => s.Authority is PlanningSourceAuthority.RequestedBehavior or PlanningSourceAuthority.ExistingBehavior)
             .Select(s => (JsonNode)new JsonArray(s.Id, s.Authority.ToString(), s.Text, s.QuestionContext)).ToArray()).ToJsonString() + ":" +
@@ -26,8 +26,10 @@ internal static partial class PlanningOperations
         await GroundOccurrenceBoundaries(state, runtime, ct);
         await GroundContributions(state, runtime, ct);
         await GroundCoverage(state, runtime, ct);
-        var staged = MaterializeCoverage(state);
+        await GroundApplicability(state, runtime, ct);
+        var staged = ReadCompleteCoverage(state);
         staged = await PlanningSourceDecisions.ApplyRevisionAsync(state, runtime, staged, ct);
+        staged = AttachApplicability(state, staged, SurvivingApplicability(state, staged));
         await ResolveDependenciesAsync(state, runtime, staged, ct);
         ValidateEffectDependencies(state, staged);
         Commit(state, staged);
@@ -62,6 +64,7 @@ internal static partial class PlanningOperations
         foreach (var operation in operations) Validate(state, operation);
         ValidateEffectDependencies(state, operations);
         ValidateCoverageSurvivors(state, operations);
+        ValidateApplicability(state, operations);
         var initial = state.Obligations.Where(o => o.OperationAdmission is null).ToList();
         if (initial.Any(o => operations.Any(a => a.Id == o.Id))) throw Failure("$plan", "An evidence identity cannot replace a canonical action.");
         state.Obligations = initial.Concat(operations.OrderBy(o => o.Id, StringComparer.Ordinal)).ToList();
@@ -74,6 +77,10 @@ internal static partial class PlanningOperations
             foreach (var group in qualifications.SelectMany(p => p.Contributions).GroupBy(c => (c.Role, c.Origin)))
                 state.Events.Add(new("operation_contribution_" + group.Key.Role + "_" + group.Key.Origin,
                     "intent_operations", DateTimeOffset.UtcNow, group.Count()));
+            state.Events.Add(new("operation_applicability_model", "intent_operations", DateTimeOffset.UtcNow,
+                ReadApplicability(state).Count(p => p.Origin == PlanningApplicabilityOrigin.ModelApplicability)));
+            state.Events.Add(new("operation_applicability_owner", "intent_operations", DateTimeOffset.UtcNow,
+                ReadApplicability(state).Count(p => p.Origin == PlanningApplicabilityOrigin.DeterministicOwner)));
             state.Events.Add(new("operation_realization_coverage", "intent_operations", DateTimeOffset.UtcNow, CoverageGroups(state).Length));
             state.Events.Add(new("operation_optional_omissions", "intent_operations", DateTimeOffset.UtcNow,
                 ReadCoverage(state).SelectMany(p => p.Contributions).Count(c => c.Disposition == "omitted")));
@@ -122,6 +129,7 @@ internal static partial class PlanningOperations
     private static string Fingerprint(PlanningSnapshot state) => PlanningGraphCompiler.Fingerprint(EvidenceFingerprint(state) + ":" +
         string.Join('|', ReadContributions(state).Select(p => p.ProofFingerprint)) + ":" +
         string.Join('|', ReadCoverage(state).OrderBy(p => p.DecisionId, StringComparer.Ordinal).Select(p => p.ProofFingerprint)) + ":" +
+        string.Join('|', SurvivingApplicability(state, state.Obligations.Where(o => o.OperationAdmission is not null).ToArray()).Select(p => p.ProofFingerprint)) + ":" +
         string.Join('|', state.Obligations.Where(o => o.OperationAdmission is not null).OrderBy(o => o.Id, StringComparer.Ordinal).Select(o => o.OperationAdmission!.ProofFingerprint)));
 
     internal static void RequireCurrent(PlanningSnapshot state)
@@ -132,6 +140,7 @@ internal static partial class PlanningOperations
         foreach (var operation in state.Obligations.Where(o => o.OperationAdmission is not null)) Validate(state, operation);
         ValidateEffectDependencies(state, state.Obligations.Where(o => o.OperationAdmission is not null).ToArray());
         ValidateCoverageSurvivors(state, state.Obligations.Where(o => o.OperationAdmission is not null).ToArray());
+        ValidateApplicability(state, state.Obligations.Where(o => o.OperationAdmission is not null).ToArray());
         if (state.OperationAdmissionFingerprint is null || state.OperationAdmissionFingerprint != Fingerprint(state))
             throw Failure("$plan", "Canonical operation admission requires explicit reassessment with current evidence.", "INTENT_OPERATION_PROOF_MISSING");
     }
@@ -146,7 +155,7 @@ internal static partial class PlanningOperations
     internal static void Validate(PlanningSnapshot state, PlanningObligation operation)
     {
         var proof = operation.OperationAdmission;
-        if (proof is not { Version: 11 } || proof.CanonicalId != operation.Id || operation.Disposition != "admitted" ||
+        if (proof is not { Version: 12 } || proof.CanonicalId != operation.Id || operation.Disposition != "admitted" ||
             operation.EvidenceReferences.Count != 1 || operation.EvidenceReferences[0] != proof.AnchorReference ||
             proof.EvidenceFingerprint != EvidenceFingerprint(state) || proof.Assignments.Count == 0 ||
             proof.Assignments.Select(a => a.ContributionId).Distinct(StringComparer.Ordinal).Count() != proof.Assignments.Count || proof.ProofFingerprint != Proof(operation, proof))
@@ -172,7 +181,7 @@ internal static partial class PlanningOperations
         foreach (var assignment in proof.Assignments)
         {
             ValidateAssignment(state, assignment);
-            if (!Compatible(state, state.RuntimeEvidence.Single(e => e.Id == assignment.RuntimeEvidenceId), operation) ||
+            if (assignment.Disposition == "supports" && !Compatible(state, state.RuntimeEvidence.Single(e => e.Id == assignment.RuntimeEvidenceId), operation) ||
                 assignment.Kind != operation.Kind || assignment.EffectId != operation.Id ||
                 assignment.TargetId != operation.Id || assignment.BaselineReference is { } baseline && baseline != proof.BaselineReference)
                 throw Failure(operation.Id, "Operation evidence contradicts its established contract.");
@@ -192,6 +201,19 @@ internal static partial class PlanningOperations
             throw Failure(evidence.Id, "Canonical declaration evidence cannot authorize a standalone local occurrence.");
         var qualification = ReadContributions(state).Single(p => p.RuntimeEvidenceId == evidence.Id).Contributions
             .SingleOrDefault(c => c.Id == assignment.ContributionId) ?? throw Failure(evidence.Id, "Current contribution authority is missing.");
+        if (assignment.Disposition == "attach")
+        {
+            if (qualification.Role != "governing_property" || qualification.EffectId is not null ||
+                qualification.EvidenceReference != assignment.ActionReference || evidence.Necessity != assignment.Necessity)
+                throw Failure(evidence.Id, "Only current qualified properties may supply governing attachments.");
+            var target = AttachApplicability(state, MaterializeCoverage(state), ReadApplicability(state))
+                .SingleOrDefault(o => o.Id == assignment.TargetId);
+            var expected = target?.OperationAdmission!.Assignments.SingleOrDefault(a => a.ContributionId == assignment.ContributionId);
+            if (expected is null || JsonSerializer.Serialize(expected, PlanningJsonContext.Default.PlanningOperationAssignment) !=
+                JsonSerializer.Serialize(assignment, PlanningJsonContext.Default.PlanningOperationAssignment))
+                throw Failure(evidence.Id, "Governing assignment differs from its current applicability proof.");
+            return;
+        }
         if (qualification.EvidenceReference != assignment.ActionReference || qualification.EffectId != assignment.EffectId ||
             qualification.Role != (assignment.Disposition == "supports" ? "supports" : "governs") || evidence.ClauseReference != assignment.ClauseReference ||
             evidence.Kind != assignment.Kind || evidence.Necessity != assignment.Necessity || evidence.BaselineReference != assignment.BaselineReference ||
