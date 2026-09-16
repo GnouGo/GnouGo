@@ -93,7 +93,7 @@ public sealed class RuntimeEvidenceCoverageTests
         Assert.Equal(events, restored.Events.Count); Assert.Equal(state.OperationAdmissionFingerprint, restored.OperationAdmissionFingerprint);
         var uncommitted = PlanningContext.Clone(state); uncommitted.OperationAdmissionFingerprint = null;
         uncommitted.Obligations.RemoveAll(o => o.OperationAdmission is not null);
-        var governing = PlanningOperations.SealRuntime(uncommitted, covered with { EvidenceRole = "governing" });
+        var governing = PlanningOperations.SealRuntime(uncommitted, covered with { EvidenceRole = "governing", OccurrenceBoundary = null });
         uncommitted.RuntimeEvidence[uncommitted.RuntimeEvidence.FindIndex(e => e.Id == covered.Id)] = governing;
         uncommitted.RuntimeEvidenceFingerprint = PlanningOperations.RuntimeFingerprint(uncommitted);
         await ResolveGrounded(uncommitted, NoModel(), Ct);

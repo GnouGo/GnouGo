@@ -315,7 +315,7 @@ public sealed class OperationAdmissionTests
         var state = State("Create an owned temporary resource."); var scope = PlanningOperations.SourceScopes(state)[0];
         var schema = PlanningOperations.RuntimeSchema(state, PlanningSourceAuthority.RequestedBehavior, scope.Boundaries);
         var action = new JsonObject { ["role"] = "runtime_action", ["kind"] = "resource_lifecycle", ["action"] = new JsonObject { ["start"] = "b0", ["end"] = "b5" },
-            ["execution"] = "generated_workflow", ["resource"] = new JsonObject { ["start"] = "b3", ["end"] = "b5" }, ["evidence"] = "action", ["necessity"] = new JsonObject { ["state"] = "unspecified", ["evidence"] = null },
+            ["execution"] = "generated_workflow", ["boundary"] = null, ["resource"] = new JsonObject { ["start"] = "b3", ["end"] = "b5" }, ["evidence"] = "action", ["necessity"] = new JsonObject { ["state"] = "unspecified", ["evidence"] = null },
             ["baseline"] = null, ["ownership"] = "workflow_runtime_resource", ["resourceAction"] = "create" };
         Assert.Empty(PlanningContractValidation.ValidateInstance(new JsonArray(action.DeepClone()), schema));
         action.Remove("ownership"); Assert.NotEmpty(PlanningContractValidation.ValidateInstance(new JsonArray(action.DeepClone()), schema));

@@ -24,6 +24,11 @@ public sealed class OperationNecessityTests
     private static TypedPlannerTests.FakeRuntime Identity(PlanningSnapshot state, string status = "same_as")
     {
         var first = PlanningOperations.Scopes(state).First(s => s.Evidence!.EvidenceRole == "action");
+        if (status == "same_as")
+        {
+            state.RuntimeEvidence = state.RuntimeEvidence.Select(e => e.Id == first.Evidence!.Id ? e : PlanningOperations.SealRuntime(state, e with { OccurrenceBoundary = null })).ToList();
+            PlanningFixtures.EmptyRuntime(state);
+        }
         var target = PlanningOperations.EffectDomain(state, first.Evidence!).First(p => p.Value.BoundaryReference == first.Evidence!.ActionReference).Key;
         OperationEffectFixtures.Seed(state, scope => OperationEffectFixtures.Answer(state, scope,
             status == "distinct" && scope.Evidence!.EvidenceRole == "action" ? null : [target]));
@@ -150,7 +155,7 @@ public sealed class OperationNecessityTests
         var schema = PlanningOperations.RuntimeSchema(state, PlanningSourceAuthority.RequestedBehavior, scope.Boundaries);
         var span = new JsonObject { ["start"] = "b0", ["end"] = "b4" };
         var value = new JsonObject { ["role"] = "local_behavior", ["kind"] = "local_processing", ["action"] = span.DeepClone(),
-            ["execution"] = "generated_workflow", ["evidence"] = "action", ["baseline"] = null };
+            ["execution"] = "generated_workflow", ["boundary"] = null, ["evidence"] = "action", ["baseline"] = null };
         IReadOnlyList<string> Validate() => PlanningContractValidation.ValidateInstance(new JsonArray(value.DeepClone()), schema);
         value["required"] = false; Assert.NotEmpty(Validate()); value.Remove("required");
         foreach (var kind in new[] { "required", "optional" })

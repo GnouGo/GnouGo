@@ -77,7 +77,24 @@ public sealed record PlanningOperationAssignment(string DecisionId, string Claus
 
 /// <summary>Business effect ownership and an explicit execution boundary; not an executable node.</summary>
 public sealed record PlanningOperationEffectAnchor(string WorkflowScope, string OwnerReference,
-    string BoundaryKind, string BoundaryReference, string? IterationReference = null);
+    string BoundaryKind, string BoundaryReference, string? IterationReference = null)
+{
+    public PlanningOccurrenceBoundaryProof? OccurrenceProof { get; init; }
+}
+
+/// <summary>Owned semantic evidence for a separately requested execution, not an operation identity.</summary>
+public sealed record PlanningOccurrenceBoundaryEvidence(string Kind, string OwnerReference, string BoundaryReference);
+/// <summary>Validated occurrence ownership. Stored with the existing effect proof, never as a second graph.</summary>
+public sealed record PlanningOccurrenceBoundaryProof(int Version, string RuntimeEvidenceId, string WorkflowScope,
+    string? ScopeReference, PlanningOccurrenceBoundaryEvidence Evidence, string? DecisionId, string Fingerprint);
+
+/// <summary>Producer-declared meaning of a complete policy source. Coordinates refer to unchanged instructions.</summary>
+[JsonUnmappedMemberHandling(JsonUnmappedMemberHandling.Disallow)]
+public sealed record PlanningDeclaredPolicyEvidence(int Version, string SourceFingerprint, List<PlanningDeclaredPolicyClause> Clauses);
+[JsonUnmappedMemberHandling(JsonUnmappedMemberHandling.Disallow)]
+public sealed record PlanningDeclaredPolicyClause(int Start, int Length, List<PlanningDeclaredPolicyMeaning> Meanings);
+[JsonUnmappedMemberHandling(JsonUnmappedMemberHandling.Disallow)]
+public sealed record PlanningDeclaredPolicyMeaning(string Kind, bool Required);
 
 /// <summary>Reference-only grounding retained on operation evidence. Candidates are a bounded identity domain,
 /// never a second operation graph. Inputs, results and governing evidence do not enter occurrence identity.</summary>
@@ -95,6 +112,7 @@ public sealed record PlanningRuntimeEvidence(string Id, string SourceReference, 
     public PlanningRuntimeEvidenceOrigin Origin { get; init; }
     public string? ResourceOwnership { get; init; }
     public string? NecessityReference { get; init; }
+    public PlanningOccurrenceBoundaryEvidence? OccurrenceBoundary { get; init; }
 }
 /// <summary>Evidence about capability necessity, independent of occurrence identity and runtime conditions.</summary>
 public enum PlanningOperationNecessity { Unknown, Unspecified, Required, Optional }
@@ -120,7 +138,10 @@ public enum PlanningDependencyOrigin { Unknown, DeterministicBaseline, Determini
 public enum PlanningSourceAuthority { Unknown, RequestedBehavior, ExistingBehavior, ConstraintsOnly }
 public enum PlanningSourceSemanticRole { Unknown, RequestedAction, ExistingAction, PolicyConstraint, RuntimeCondition, Declaration }
 public sealed record PlanningSourceGrounding(PlanningSourceAuthority Authority, PlanningSourceSemanticRole Role,
-    string ClauseReference, string? BaselineReference, string Fingerprint);
+    string ClauseReference, string? BaselineReference, string Fingerprint)
+{
+    public string? DeclaredPolicyFingerprint { get; init; }
+}
 public sealed record PlanningObligationRelation(string Producer, string Consumer, string Role);
 
 /// <summary>A reference-only adjudication of a preliminary declaration or modifier.</summary>

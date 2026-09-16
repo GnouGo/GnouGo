@@ -14,9 +14,9 @@ public sealed class OperationEffectScopeTests
     private static CancellationToken Ct => TestContext.Current.CancellationToken;
     private static TypedPlannerTests.FakeRuntime NoModel() => new() { OnCall = (_, _, _) => throw new InvalidOperationException("No new request expected.") };
 
-    private static PlanningSnapshot State()
+    private static PlanningSnapshot State(bool sameScope = false)
     {
-        var state = OperationAdmissionTests.State("Transform the supplied value. Independently transform another value. Run a separate workflow.");
+        var state = OperationAdmissionTests.State("Transform the supplied value. Independently transform another value. Run a separate workflow. Apply one of the requested effects.");
         state.Request.Baseline = new() { Workflows = [new() { Key = "main",
             Inputs = [new() { Name = "value", Required = true, Schema = new() { Type = "string" } }],
             Outputs = [new() { Name = "result", Schema = new() { Type = "string" } }] }] };
@@ -24,11 +24,14 @@ public sealed class OperationEffectScopeTests
         foreach (var source in PlanningOperations.SourceScopes(state).Where(s => s.Source.Id == "request").Take(2))
             PlanningFixtures.Runtime(state, source.Clause);
         PlanningDeclarations.Commit(state, [], PlanningDeclarations.EvidenceFingerprint(state));
+        var roots = PlanningOperations.Scopes(state);
+        OperationEffectFixtures.SeedBoundaries(state, s => sameScope || s.Evidence!.Id == roots[0].Evidence!.Id ? "main" : "other_scope");
         return state;
     }
 
     private static string Invocation(PlanningSnapshot state, PlanningOperations.Scope scope, string workflow) =>
-        PlanningOperations.EffectDomain(state, scope.Evidence!).Single(p => p.Value.WorkflowScope == workflow && p.Value.BoundaryReference == scope.Evidence!.ActionReference).Key;
+        PlanningOperations.Scopes(state).SelectMany(s => PlanningOperations.EffectDomain(state, s.Evidence!)).Where(p => p.Value.WorkflowScope == workflow && p.Value.OccurrenceProof is not null)
+            .OrderBy(p => p.Value.BoundaryReference != scope.Evidence!.ActionReference).First().Key;
 
     [Fact]
     public void SameScopeValuesAreValidAndIndependentOutputlessScopeRemainsAvailable()
@@ -40,9 +43,10 @@ public sealed class OperationEffectScopeTests
         var main = OperationEffectFixtures.Answer(state, scope, [Invocation(state, scope, "main")], inputs: [input], outputs: [output]);
         Assert.Empty(PlanningContractValidation.ValidateInstance(main, schema));
         Assert.Single(PlanningOperations.ParseEffect(state, scope, main).Candidates);
-        var independent = OperationEffectFixtures.Answer(state, scope, [Invocation(state, scope, "other_scope")]);
-        Assert.Empty(PlanningContractValidation.ValidateInstance(independent, schema));
-        Assert.Equal("other_scope", Assert.Single(PlanningOperations.ParseEffect(state, scope, independent).Candidates).WorkflowScope);
+        var independentScope = PlanningOperations.Scopes(state)[1];
+        var independent = OperationEffectFixtures.Answer(state, independentScope, [Invocation(state, independentScope, "other_scope")]);
+        Assert.Empty(PlanningContractValidation.ValidateInstance(independent, PlanningOperations.EffectDecision(state, independentScope).Schema));
+        Assert.Equal("other_scope", Assert.Single(PlanningOperations.ParseEffect(state, independentScope, independent).Candidates).WorkflowScope);
         Assert.Contains(state.Obligations, o => o.Id == "other_scope");
     }
 
@@ -52,7 +56,7 @@ public sealed class OperationEffectScopeTests
     [InlineData("producers")]
     public void ForeignDataflowIsImpossibleInTheResponseSchema(string field)
     {
-        var state = State(); var scope = PlanningOperations.Scopes(state)[0];
+        var state = State(); var scope = PlanningOperations.Scopes(state)[1];
         var answer = OperationEffectFixtures.Answer(state, scope, [Invocation(state, scope, "other_scope")]);
         answer[field] = OperationEffectFixtures.Strings([field == "producers" ? Invocation(state, scope, "main") :
             state.Declarations.Single(d => d.Direction == (field == "inputs" ? "input" : "output")).Id]);
@@ -68,7 +72,7 @@ public sealed class OperationEffectScopeTests
     {
         var state = State(); var scope = PlanningOperations.Scopes(state)[0];
         var answer = OperationEffectFixtures.Answer(state, scope,
-            [Invocation(state, scope, "main"), Invocation(state, scope, "other_scope")], contribution);
+            [Invocation(state, scope, "main"), Invocation(state, scope, "other_scope")], contribution, outputs: []);
         Assert.NotEmpty(PlanningContractValidation.ValidateInstance(answer, PlanningOperations.EffectDecision(state, scope).Schema));
         Assert.Throws<WorkflowRuntimeException>(() => PlanningOperations.ParseEffect(state, scope, answer));
     }
@@ -76,12 +80,16 @@ public sealed class OperationEffectScopeTests
     [Fact]
     public void AmbiguousEffectsWithinOneScopeRemainSelectable()
     {
-        var state = State(); var scopes = PlanningOperations.Scopes(state);
-        var answer = OperationEffectFixtures.Answer(state, scopes[0], scopes.Select(s => Invocation(state, s, "main")));
-        Assert.Empty(PlanningContractValidation.ValidateInstance(answer, PlanningOperations.EffectDecision(state, scopes[0]).Schema));
-        var proof = PlanningOperations.ParseEffect(state, scopes[0], answer);
+        var state = State(true); var scopes = PlanningOperations.Scopes(state);
+        var reference = PlanningOperations.SourceScopes(state).Last(s => s.Source.Id == "request").Clause;
+        var query = PlanningFixtures.Runtime(state, reference, independentBoundary: false);
+        OperationEffectFixtures.SeedBoundaries(state);
+        var selection = PlanningOperations.Scopes(state).Single(s => s.Evidence!.Id == query.Id);
+        var answer = OperationEffectFixtures.Answer(state, selection, scopes.Select(s => Invocation(state, s, "main")));
+        Assert.Empty(PlanningContractValidation.ValidateInstance(answer, PlanningOperations.EffectDecision(state, selection).Schema));
+        var proof = PlanningOperations.ParseEffect(state, selection, answer);
         Assert.Equal(2, proof.Candidates.Count);
-        var decision = PlanningOperations.IdentityDecision(state, scopes[0], proof, answer["effects"]!.AsArray().Select(v => v!.ToString()).ToArray());
+        var decision = PlanningOperations.IdentityDecision(state, selection, proof, answer["effects"]!.AsArray().Select(v => v!.ToString()).ToArray());
         Assert.Equal(2, decision.Schema["enum"]!.AsArray().Count);
     }
 
@@ -104,9 +112,10 @@ public sealed class OperationEffectScopeTests
         var baselineSource = PlanningOperations.SourceScopes(state).First(s => s.Source.Baseline is { OwnerKind: "node", Field: null, Workflow: "main" });
         var call = PlanningFixtures.Runtime(state, baselineSource.Clause, baseline: baseline.Key);
         var request = PlanningOperations.SourceScopes(state).Single(s => s.Source.Id == "request");
-        var local = PlanningFixtures.Runtime(state, request.Clause);
+        var local = PlanningFixtures.Runtime(state, request.Clause, independentBoundary: false);
         PlanningDeclarations.Commit(state, [], PlanningDeclarations.EvidenceFingerprint(state));
         var scope = PlanningOperations.Scopes(state).Single(s => s.Evidence!.Id == local.Id);
+        OperationEffectFixtures.SeedBoundaries(state);
         var callId = PlanningOperations.EffectDomain(state, call).Single().Key;
         var result = PlanningOperations.EffectDomain(state, local).Single(p => p.Value.BoundaryKind == "result_realization" && p.Value.WorkflowScope == "main").Key;
         var answer = OperationEffectFixtures.Answer(state, scope, [result]);
@@ -124,14 +133,14 @@ public sealed class OperationEffectScopeTests
     [Fact]
     public async Task RestartRetainsScopedRequestsReceiptsAndIdentity()
     {
-        var state = State(); var scopes = PlanningOperations.Scopes(state); PlanningSnapshot? saved = null;
+        var state = State(true); var scopes = PlanningOperations.Scopes(state); PlanningSnapshot? saved = null;
         var expected = scopes.ToDictionary(s => PlanningOperations.EffectDecisionId(s.Evidence!), s => OperationEffectFixtures.Answer(state, s, [Invocation(state, s, "main")]));
         var runtime = new TypedPlannerTests.FakeRuntime { OnCall = (_, request, _) => Task.FromResult(new LLMResponse
         { CompletionStatus = "completed", Json = new JsonObject(request.StructuredOutputSchema!["properties"]!.AsObject().Select(p =>
             new KeyValuePair<string, JsonNode?>(p.Key, expected[p.Key].DeepClone()))) }) };
         runtime.OnCheckpoint = s =>
         {
-            if (saved is null && s.DecisionPages.Any(p => p.Status == "completed"))
+            if (saved is null && s.DecisionPages.Any(p => p.Status == "completed" && p.Decisions.Any(id => id.StartsWith("effect_", StringComparison.Ordinal))))
             { saved = PlanningContext.Clone(s); throw new OperationCanceledException("Synthetic crash after a scoped receipt."); }
             return Task.CompletedTask;
         };

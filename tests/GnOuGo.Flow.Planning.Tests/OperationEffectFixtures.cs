@@ -12,12 +12,14 @@ internal static class OperationEffectFixtures
         IEnumerable<string>? outputs = null)
     {
         var domain = PlanningOperations.EffectDomain(state, scope.Evidence!);
-        var ids = effects?.ToArray() ?? [domain.First(p => p.Value.BoundaryReference == scope.Evidence!.ActionReference).Key];
+        var known = PlanningOperations.Scopes(state).SelectMany(s => PlanningOperations.EffectDomain(state, s.Evidence!))
+            .GroupBy(p => p.Key).ToDictionary(g => g.Key, g => g.First().Value, StringComparer.Ordinal);
+        var ids = effects?.ToArray() ?? [(domain.FirstOrDefault(p => p.Value.BoundaryReference == scope.Evidence!.ActionReference).Key ?? domain.Single(p => p.Value.BoundaryKind == "result_realization").Key)];
         return new()
         {
             ["status"] = "mapped", ["contribution"] = contribution ?? (scope.Evidence!.EvidenceRole == "action" ? "realizes" : "governs"),
             ["effects"] = Strings(ids), ["inputs"] = Strings(inputs ?? []),
-            ["outputs"] = Strings(outputs ?? ids.Select(id => domain[id]).Where(a => a.BoundaryKind == "result_realization").Select(a => a.OwnerReference)),
+            ["outputs"] = Strings(outputs ?? ids.Select(id => known[id]).Where(a => a.BoundaryKind == "result_realization").Select(a => a.OwnerReference)),
             ["evidence"] = Strings([scope.Evidence!.ClauseReference])
         };
     }
@@ -31,6 +33,7 @@ internal static class OperationEffectFixtures
 
     internal static void Seed(PlanningSnapshot state, Func<PlanningOperations.Scope, JsonObject>? answer = null, bool rootsOnly = false, Func<string, string, bool>? dependency = null, bool seedDependencies = true)
     {
+        SeedBoundaries(state);
         var scopes = PlanningOperations.Scopes(state).Where(s => s.Evidence!.BaselineReference is null).ToArray();
         var answers = scopes.ToDictionary(s => s.Evidence!.Id, s => answer?.Invoke(s) ??
             (s.Evidence!.EvidenceRole == "action" ? Answer(state, s) : Defer(s)));
@@ -49,6 +52,22 @@ internal static class OperationEffectFixtures
         if (seedDependencies)
             try { SeedDependencies(state, Staged(state), dependency); }
             catch (GnOuGo.Flow.Core.Expressions.WorkflowRuntimeException) { /* Invalid synthetic roots are assessed by the production admission call. */ }
+    }
+
+    // Explicit synthetic boundary ownership, separate from action labels and historical receipts.
+    internal static void SeedBoundaries(PlanningSnapshot state, Func<PlanningOperations.Scope, string>? workflow = null)
+    {
+        var scopes = PlanningOperations.Scopes(state).Where(s => s.Evidence!.OccurrenceBoundary is not null).ToArray();
+        var decisions = scopes.Select(s => PlanningOperations.OccurrenceDecision(state, s.Evidence!)).OfType<PlanningDecisionPages.Decision>().ToArray();
+        var values = new JsonObject(decisions.Select(d =>
+        {
+            var scope = scopes.Single(s => d.Id == "boundary_" + s.Evidence!.Id);
+            var selected = workflow?.Invoke(scope) ?? "main";
+            var variant = d.Schema["anyOf"]!.AsArray().Single(v => v!["properties"]?["scope"]?["enum"]?[0]?.ToString() == selected)!;
+            return new KeyValuePair<string, JsonNode?>(d.Id, new JsonObject { ["scope"] = selected,
+                ["scopeEvidence"] = variant["properties"]!["scopeEvidence"]!["enum"]?[0]?.DeepClone() });
+        }));
+        SeedPages(state, decisions, values);
     }
 
     internal static List<PlanningObligation> Staged(PlanningSnapshot state)
@@ -113,6 +132,8 @@ internal static class OperationEffectFixtures
 
     internal static JsonObject Response(PlanningSnapshot state, LLMRequest request) => new(request.StructuredOutputSchema!["properties"]!.AsObject().Select(p =>
     {
+        if (p.Key.StartsWith("boundary_", StringComparison.Ordinal))
+            return new KeyValuePair<string, JsonNode?>(p.Key, new JsonObject { ["scope"] = "main", ["scopeEvidence"] = null });
         if (p.Key.StartsWith("data_", StringComparison.Ordinal)) return new KeyValuePair<string, JsonNode?>(p.Key, DependencyAnswer(p.Value!.AsObject()));
         if (p.Key.StartsWith("operation_", StringComparison.Ordinal)) return new KeyValuePair<string, JsonNode?>(p.Key, p.Value!["enum"]![0]!.DeepClone());
         var scope = Scope(state, p.Key);

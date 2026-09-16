@@ -11,8 +11,8 @@ public sealed class OperationEffectTests
 {
     private static CancellationToken Ct => TestContext.Current.CancellationToken;
     private static TypedPlannerTests.FakeRuntime NoModel() => new() { OnCall = (_, _, _) => throw new InvalidOperationException("No unresolved identity is exposed.") };
-    private static PlanningRuntimeEvidence Add(PlanningSnapshot state, int clause, string kind = "local_processing", string role = "action", string? resourceAction = null) =>
-        PlanningFixtures.Runtime(state, PlanningOperations.SourceScopes(state)[clause].Clause, kind, evidenceRole: role, resourceAction: resourceAction);
+    private static PlanningRuntimeEvidence Add(PlanningSnapshot state, int clause, string kind = "local_processing", string role = "action", string? resourceAction = null, bool independent = true) =>
+        PlanningFixtures.Runtime(state, PlanningOperations.SourceScopes(state)[clause].Clause, kind, evidenceRole: role, resourceAction: resourceAction, independentBoundary: independent);
     private static string Own(PlanningSnapshot state, PlanningRuntimeEvidence evidence) => PlanningOperations.EffectDomain(state, evidence)
         .Single(p => p.Value.WorkflowScope == "main" && p.Value.BoundaryReference == evidence.ActionReference).Key;
 
@@ -20,7 +20,7 @@ public sealed class OperationEffectTests
     public async Task EffectGroundingReplacesBothProseIdentityDecisions()
     {
         var state = OperationAdmissionTests.State("Transform the supplied value. Apply the detailed transformation rules. This transformation is deterministic.");
-        var first = Add(state, 0); Add(state, 1); var description = Add(state, 2);
+        var first = Add(state, 0); Add(state, 1, independent: false); var description = Add(state, 2, independent: false);
         var target = Own(state, first);
         var runtime = new TypedPlannerTests.FakeRuntime { OnCall = (phase, request, _) =>
         {
@@ -63,6 +63,8 @@ public sealed class OperationEffectTests
         var clauses = PlanningOperations.SourceScopes(state).Where(s => s.Source.Id == "request").ToArray();
         foreach (var clause in clauses) PlanningFixtures.Runtime(state, clause.Clause);
         var output = Assert.Single(state.Declarations, d => d.Direction == "output");
+        foreach (var scope in PlanningOperations.Scopes(state))
+            Assert.Equal("invocation", Assert.Single(PlanningOperations.EffectDomain(state, scope.Evidence!)).Value.BoundaryKind);
         OperationEffectFixtures.Seed(state, scope => OperationEffectFixtures.Answer(state, scope, outputs: [output.Id]));
         await PlanningOperations.ResolveAsync(state, NoModel(), Ct);
         Assert.Equal(2, state.Obligations.Count(PlanningSourceDecisions.IsOperation));
@@ -77,7 +79,7 @@ public sealed class OperationEffectTests
         state.Request.Baseline = TypedPlannerTests.Graph(); state.Request.Baseline.Workflows[0].Steps.Clear();
         PlanningDeclarations.Commit(state, [], PlanningDeclarations.EvidenceFingerprint(state));
         var clause = PlanningOperations.SourceScopes(state).Single(s => s.Source.Id == "request");
-        var evidence = PlanningFixtures.Runtime(state, clause.Clause);
+        var evidence = PlanningFixtures.Runtime(state, clause.Clause, independentBoundary: false);
         var result = PlanningOperations.EffectDomain(state, evidence).Single(p => p.Value.BoundaryKind == "result_realization");
         OperationEffectFixtures.Seed(state, scope => OperationEffectFixtures.Answer(state, scope, [result.Key]));
         await PlanningOperations.ResolveAsync(state, NoModel(), Ct);
@@ -217,6 +219,7 @@ public sealed class OperationEffectTests
     [InlineData("boundary")]
     [InlineData("page")]
     [InlineData("version")]
+    [InlineData("occurrence")]
     public async Task RestoredEffectProofCannotBeAltered(string defect)
     {
         var state = OperationAdmissionTests.State("Transform the supplied value."); Add(state, 0); OperationEffectFixtures.Seed(state);
@@ -226,6 +229,8 @@ public sealed class OperationEffectTests
         if (defect == "boundary") proof.Assignments[0].Effect!.Candidates[0] = proof.Assignments[0].Effect!.Candidates[0] with { BoundaryReference = "foreign" };
         if (defect == "page") state.DecisionPages.Clear();
         if (defect == "version") proof.Assignments[0] = proof.Assignments[0] with { Effect = proof.Assignments[0].Effect! with { Version = 0 } };
+        if (defect == "occurrence") proof.Assignments[0].Effect!.Candidates[0] = proof.Assignments[0].Effect!.Candidates[0] with
+        { OccurrenceProof = proof.Assignments[0].Effect!.Candidates[0].OccurrenceProof! with { Version = 0 } };
         Assert.Throws<WorkflowRuntimeException>(() => PlanningOperations.RequireCurrent(state));
     }
 
@@ -246,7 +251,7 @@ public sealed class OperationEffectTests
             var start = state.Request.Prompt.IndexOf(text, StringComparison.Ordinal); Assert.True(start >= 0);
             var clause = PlanningOperations.SourceScopes(state).Single(s => s.Source.Id == "request" && s.Clause.Start <= start && s.Clause.Start + s.Clause.Length >= start + text.Length).Clause;
             var reference = clause with { Id = "synthetic_effect_" + start, Start = start, Length = text.Length }; state.References.Add(reference);
-            var evidence = PlanningFixtures.Runtime(state, reference, evidenceRole: role);
+            var evidence = PlanningFixtures.Runtime(state, reference, evidenceRole: role, independentBoundary: false);
             if (text.StartsWith("This is", StringComparison.Ordinal)) descriptive = evidence.Id;
         }
         PlanningDeclarations.Commit(state, state.DeclarationAssignments, PlanningDeclarations.EvidenceFingerprint(state));

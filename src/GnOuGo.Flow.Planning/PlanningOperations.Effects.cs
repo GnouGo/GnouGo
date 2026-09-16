@@ -9,7 +9,7 @@ internal static partial class PlanningOperations
     // These indexes are derived request domains. Only completed decision pages and
     // the proofs attached to admitted obligations are persisted.
     internal static string EffectDecisionId(PlanningRuntimeEvidence evidence, bool governing = false) => (governing ? "effect_governing_" : "effect_") + evidence.Id;
-    internal static string EffectFingerprint(PlanningSnapshot state) => "effect-proof-v3:admission-dependencies:" + EvidenceFingerprint(state);
+    internal static string EffectFingerprint(PlanningSnapshot state) => "effect-proof-v4:admission-dependencies:" + EvidenceFingerprint(state);
 
     internal static string CanonicalId(PlanningSnapshot state, PlanningOperationEffectAnchor effect, string kind, string? baseline)
     {
@@ -32,10 +32,6 @@ internal static partial class PlanningOperations
         return new JsonArray(span.SourceId, span.Start, span.Length).ToJsonString();
     }
 
-    private static string[] WorkflowScopes(PlanningSnapshot state) => new[] { "main" }
-        .Concat(state.Obligations.Where(o => o.Kind == "workflow_boundary").Select(o => o.Id))
-        .Concat(state.Declarations.Select(d => d.WorkflowScope)).Distinct(StringComparer.Ordinal).Order(StringComparer.Ordinal).ToArray();
-
     internal static Dictionary<string, PlanningOperationEffectAnchor> EffectDomain(PlanningSnapshot state, PlanningRuntimeEvidence evidence)
     {
         var result = new Dictionary<string, PlanningOperationEffectAnchor>(StringComparer.Ordinal);
@@ -49,18 +45,18 @@ internal static partial class PlanningOperations
         // A result slot is a possible single realization, not proof that every
         // action mentioning that output belongs to it. Grounding must establish
         // the result ownership AND the single-realization boundary.
-        if (evidence.Kind == "local_processing")
+        if (evidence.Kind == "local_processing" && evidence.OccurrenceBoundary is null)
             foreach (var declaration in state.Declarations.Where(d => d.Direction == "output"))
                 Add(new(declaration.WorkflowScope, declaration.Id, "result_realization", declaration.Id));
         foreach (var action in DeriveScopes(state).Select(s => s.Evidence!).Where(e => e.EvidenceRole == "action" &&
-            e.BaselineReference is null && CompatibleFacts(evidence, e)))
-        foreach (var workflow in WorkflowScopes(state))
+            e.BaselineReference is null && e.OccurrenceBoundary is not null && CompatibleFacts(evidence, e) &&
+            (evidence.OccurrenceBoundary is null || evidence.Id == e.Id) &&
+            (evidence.ResourceReference is null || evidence.ResourceReference == e.ResourceReference)))
         {
-            var boundary = action.Kind is "resource_lifecycle" or "cleanup" ? "resource_" + action.ResourceAction : "invocation";
-            var owner = action.ResourceReference ?? action.ActionReference!;
-            Add(new(workflow, owner, boundary, action.ActionReference!));
-            foreach (var iteration in state.Obligations.Where(o => o.Kind == "iteration"))
-                Add(new(workflow, owner, boundary, action.ActionReference!, iteration.Id));
+            var proof = ReadOccurrenceBoundary(state, action);
+            var boundary = action.Kind is "resource_lifecycle" or "cleanup" ? "resource_" + action.ResourceAction : proof.Evidence.Kind;
+            Add(new(proof.WorkflowScope, proof.Evidence.OwnerReference, boundary, proof.Evidence.BoundaryReference,
+                proof.Evidence.Kind == "iteration" ? proof.Evidence.BoundaryReference : null) { OccurrenceProof = proof });
         }
         return result.OrderBy(p => p.Key, StringComparer.Ordinal).ToDictionary(p => p.Key, p => p.Value, StringComparer.Ordinal);
     }
@@ -86,8 +82,11 @@ internal static partial class PlanningOperations
         var domain = governing ? RealizedDomain(state, evidence, realized!) : EffectDomain(state, evidence);
         if (governing && domain.Count == 0) throw Failure(evidence.Id, "Governing evidence requires a compatible realized effect.");
         var sources = PlanningSourceDecisions.Sources(state);
+        var boundaryReferences = domain.Values.SelectMany(a => new[] { a.OwnerReference, a.BoundaryReference, a.IterationReference,
+            a.OccurrenceProof?.ScopeReference, a.OccurrenceProof is { } proof ? state.RuntimeEvidence.Single(e => e.Id == proof.RuntimeEvidenceId).ClauseReference : null })
+            .OfType<string>().ToHashSet(StringComparer.Ordinal);
         var references = state.References.Where(r => sources.ContainsKey(r.SourceId) && PlanningChoiceEvidence.Current(state, r.Id) &&
-            (r.Id == evidence.ActionReference || r.Id == evidence.ClauseReference ||
+            (r.Id == evidence.ActionReference || r.Id == evidence.ClauseReference || boundaryReferences.Contains(r.Id) ||
                 state.Declarations.Any(d => d.ClauseReferences.Contains(r.Id)) ||
                 state.Obligations.Any(o => o.Kind is "workflow_boundary" or "iteration" && o.EvidenceReferences.Contains(r.Id))))
             .DistinctBy(r => r.Id).OrderBy(r => r.Id, StringComparer.Ordinal).ToArray();
@@ -157,7 +156,7 @@ internal static partial class PlanningOperations
             if (candidate.BoundaryKind == "result_realization" && answer["contribution"]?.ToString() == "realizes" && !outputs.Contains(candidate.OwnerReference))
                 throw Failure(scope.Evidence!.Id, "A result realization must establish production of its exact owned result.");
         }
-        return new(3, decision.Id, status == "not_an_effect" ? "none" : status == "governing" ? "pending_governing" : answer["contribution"]!.ToString(), candidates,
+        return new(4, decision.Id, status == "not_an_effect" ? "none" : status == "governing" ? "pending_governing" : answer["contribution"]!.ToString(), candidates,
             inputs, outputs, [], refs, "model", decision.EvidenceFingerprint);
     }
 
@@ -169,7 +168,7 @@ internal static partial class PlanningOperations
         var graph = state.Request.Baseline!;
         var workflow = graph.Workflows.Single(w => w.Key == node.Workflow);
         var inputs = PlanningDataflow.BusinessInputs(workflow, node.Node);
-        return new(3, EffectDecisionId(evidence), evidence.EvidenceRole == "action" ? "realizes" : "governs", [anchor],
+        return new(4, EffectDecisionId(evidence), evidence.EvidenceRole == "action" ? "realizes" : "governs", [anchor],
             state.Declarations.Where(d => d.Direction == "input" && d.WorkflowScope == node.Workflow && inputs.Contains(PlanningDeclarations.Name(state, d))).Select(d => d.Id).Order(StringComparer.Ordinal).ToList(),
             [], [], [evidence.ClauseReference], "baseline", EffectFingerprint(state));
     }
@@ -186,7 +185,7 @@ internal static partial class PlanningOperations
     private static void ValidateEffect(PlanningSnapshot state, PlanningOperationAssignment assignment)
     {
         var effect = assignment.Effect ?? throw Failure(assignment.ClauseReference, "Current effect ownership proof is required.", "INTENT_OPERATION_PROOF_MISSING");
-        if (effect.Version != 3 || effect.Producers.Count != 0)
+        if (effect.Version != 4 || effect.Producers.Count != 0)
             throw Failure(assignment.ClauseReference, "Effect ownership proof is stale.", "INTENT_OPERATION_PROOF_MISSING");
         var scope = DeriveScopes(state).Single(s => s.Evidence!.Id == assignment.RuntimeEvidenceId);
         PlanningOperationEffectProof expected;

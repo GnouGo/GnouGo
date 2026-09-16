@@ -5,7 +5,7 @@ namespace GnOuGo.Flow.Planning.Tests;
 internal static class PlanningFixtures
 {
     internal static PlanningRuntimeEvidence Runtime(PlanningSnapshot state, PlanningReference reference, string kind = "local_processing",
-        string evidenceRole = "action", string? resource = null, string? baseline = null, string? resourceAction = null, bool required = true)
+        string evidenceRole = "action", string? resource = null, string? baseline = null, string? resourceAction = null, bool required = true, bool independentBoundary = true)
     {
         if (baseline is not null && reference.Baseline is not null)
         {
@@ -17,7 +17,8 @@ internal static class PlanningFixtures
         var evidence = PlanningOperations.SealRuntime(state, new("", reference.Id, clause.Id,
             kind == "local_processing" ? "local_behavior" : "runtime_action", reference.Id, kind is "resource_lifecycle" or "cleanup" ? resource ?? reference.Id : resource, reference.Id,
             kind, evidenceRole, baseline, resourceAction, required ? PlanningOperationNecessity.Unspecified : PlanningOperationNecessity.Optional, "")
-            { NecessityReference = required ? null : reference.Id, ResourceOwnership = kind is "resource_lifecycle" or "cleanup" ? "workflow_runtime_resource" : null });
+            { OccurrenceBoundary = independentBoundary && evidenceRole == "action" ? new(kind is "resource_lifecycle" or "cleanup" ? "resource_transition" : kind == "local_processing" ? "invocation" : kind == "human_interaction" ? "interaction" : "external_effect", kind is "resource_lifecycle" or "cleanup" ? resource ?? reference.Id : reference.Id, reference.Id) : null,
+                NecessityReference = required ? null : reference.Id, ResourceOwnership = kind is "resource_lifecycle" or "cleanup" ? "workflow_runtime_resource" : null });
         state.RuntimeEvidence.RemoveAll(e => e.Id == evidence.Id); state.RuntimeEvidence.Add(evidence);
         EmptyRuntime(state);
         return evidence;

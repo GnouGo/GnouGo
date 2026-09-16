@@ -200,7 +200,8 @@ var operationClauses = PlanningOperations.SourceScopes(operations);
 foreach (var scope in operationClauses)
 {
     operations.RuntimeEvidence.Add(PlanningOperations.SealRuntime(operations, new("", scope.Clause.Id, scope.Clause.Id, "local_behavior", scope.Clause.Id,
-        null, scope.Clause.Id, "local_processing", scope == operationClauses[0] ? "action" : "governing", null, null, PlanningOperationNecessity.Unspecified, "")));
+        null, scope.Clause.Id, "local_processing", scope == operationClauses[0] ? "action" : "governing", null, null, PlanningOperationNecessity.Unspecified, "")
+        { OccurrenceBoundary = scope == operationClauses[0] ? new("invocation", scope.Clause.Id, scope.Clause.Id) : null }));
 }
 operations.RuntimeEvidenceFingerprint = PlanningOperations.RuntimeFingerprint(operations);
 await PlanningOperations.ResolveAsync(operations, new SmokeRuntime(graph, preparation), CancellationToken.None);
@@ -272,14 +273,14 @@ sealed class SmokeRuntime(PlanningGraph graph, PlanningPreparation preparation) 
         // Explicit synthetic fixture clauses separate the executable action from
         // the public output contract. This is not production interpretation.
         var declaration = PlanningSourceDecisions.InterpretationDecisions(_snapshot!).Single(d => d.Id == p.Key).Context["words"]!["b0"]!.ToString() == "Required";
-        var obligation = Span(); obligation["kind"] = declaration ? "declaration_candidate" : "local_processing"; obligation["required"] = true;
+        var obligation = Span(); obligation["kind"] = declaration ? "declaration_candidate" : "information"; obligation["required"] = true;
         var obligations = new JsonArray(obligation);
         if (declaration) return new KeyValuePair<string, JsonNode?>(p.Key, new JsonObject { ["obligations"] = obligations,
             ["runtime"] = new JsonArray(new JsonObject { ["role"] = "contract" }) });
         var runtime = p.Value["properties"]!["runtime"]!["items"]!["anyOf"]![1]!["properties"]!;
         return new KeyValuePair<string, JsonNode?>(p.Key, new JsonObject { ["obligations"] = obligations,
             ["runtime"] = new JsonArray(new JsonObject { ["role"] = "local_behavior", ["kind"] = "local_processing", ["action"] = Span(),
-                ["execution"] = "generated_workflow", ["evidence"] = "action", ["necessity"] = new JsonObject { ["state"] = "unspecified", ["evidence"] = null }, ["baseline"] = null }) });
+                ["execution"] = "generated_workflow", ["boundary"] = null, ["evidence"] = "action", ["necessity"] = new JsonObject { ["state"] = "unspecified", ["evidence"] = null }, ["baseline"] = null }) });
     }));
     private JsonObject OperationResponse(LLMRequest request)
     {

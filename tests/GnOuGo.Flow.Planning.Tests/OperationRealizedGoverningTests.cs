@@ -138,7 +138,10 @@ public sealed class OperationRealizedGoverningTests
         // A changed selected root changes both target domain and durable evidence fingerprint.
         var rootScope = PlanningOperations.Scopes(state).Single(s => s.Evidence!.Id == first.Id);
         var page = state.DecisionPages.Single(p => p.Candidate?.ContainsKey(PlanningOperations.EffectDecisionId(first)) == true);
-        page.Candidate![PlanningOperations.EffectDecisionId(first)] = OperationEffectFixtures.Answer(state, rootScope, [Own(state, second)]);
+        page.Candidate![PlanningOperations.EffectDecisionId(first)] = new JsonObject { ["status"] = "not_an_effect" };
+        var secondPage = state.DecisionPages.Single(p => p.Candidate?.ContainsKey(PlanningOperations.EffectDecisionId(second)) == true);
+        secondPage.Candidate![PlanningOperations.EffectDecisionId(second)] = OperationEffectFixtures.Answer(state,
+            PlanningOperations.Scopes(state).Single(s => s.Evidence!.Id == second.Id), [Own(state, second)]);
         var changed = PlanningOperations.ReadRealizations(state);
         var next = PlanningOperations.EffectDecision(state, scope, changed);
         Assert.NotEqual(original.EvidenceFingerprint, next.EvidenceFingerprint);

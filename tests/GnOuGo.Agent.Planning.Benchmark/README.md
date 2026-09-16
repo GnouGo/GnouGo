@@ -490,3 +490,7 @@ Do not resume or replace this run. The harness refuses a second start and MIXED,
 and LOCAL acceptance additionally requires no legacy effect producers, an empty
 admission dependency proof and zero dependency-model decisions. Harness builds
 must use `-p:BuildProjectReferences=false` to preserve the frozen production DLLs.
+
+## Offline occurrence-boundary fixture
+
+`audit-occurrence-fixture schema5-structural-baseline-diagnostics-1:local` reads the retained checkpoint and accounting without writing them. It builds an explicitly synthetic current-proof reassessment, installs the frozen declaration ports and attachments, and asserts the effect domain before supplying synthetic realization/governing answers. The check verifies one required result effect, public dataflow, rules/descriptive attachments, declaration-only preservation, zero identity/dependency decisions and receipt-free restart. It never constructs a provider transport or starts a campaign. Original-schema historical audit and strict changed-request replay remain separate commands and evidence tracks. See the [offline implementation report](../../docs/planner-occurrence-boundaries.md).

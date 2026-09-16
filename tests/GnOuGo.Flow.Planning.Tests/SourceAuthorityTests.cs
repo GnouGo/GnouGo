@@ -27,7 +27,9 @@ public sealed class SourceAuthorityTests
     {
         var state = TypedPlannerTests.Session();
         Assert.NotEmpty(PlanningContractValidation.ValidateInstance(Selection(kind), Schema(state, PlanningSourceAuthority.ConstraintsOnly)));
-        Assert.Empty(PlanningContractValidation.ValidateInstance(Selection(kind), Schema(state, PlanningSourceAuthority.RequestedBehavior)));
+        if (PlanningSourceGroundingRules.OperationKinds.Contains(kind))
+            Assert.NotEmpty(PlanningContractValidation.ValidateInstance(Selection(kind), Schema(state, PlanningSourceAuthority.RequestedBehavior)));
+        else Assert.Empty(PlanningContractValidation.ValidateInstance(Selection(kind), Schema(state, PlanningSourceAuthority.RequestedBehavior)));
         Assert.Empty(PlanningContractValidation.ValidateInstance(Selection("workflow_policy"), Schema(state, PlanningSourceAuthority.ConstraintsOnly)));
         var forged = Selection("workflow_policy"); forged["authority"] = "RequestedBehavior";
         Assert.NotEmpty(PlanningContractValidation.ValidateInstance(forged, Schema(state, PlanningSourceAuthority.ConstraintsOnly)));

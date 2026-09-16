@@ -14,7 +14,7 @@ public sealed class RuntimeEvidenceCanonicalizationTests
     private static JsonObject Role(string role) => new() { ["role"] = role };
     private static JsonObject Action() => JsonNode.Parse("""
         {"role":"local_behavior","kind":"local_processing","action":{"start":"b0","end":"b4"},
-         "execution":"generated_workflow","evidence":"action","necessity":{"state":"required","evidence":{"start":"b0","end":"b4"}},"baseline":null}
+         "execution":"generated_workflow","boundary":null,"evidence":"action","necessity":{"state":"required","evidence":{"start":"b0","end":"b4"}},"baseline":null}
         """)!.AsObject();
     private static List<PlanningRuntimeEvidence> Parse(PlanningSnapshot state, params JsonObject[] entries)
     {

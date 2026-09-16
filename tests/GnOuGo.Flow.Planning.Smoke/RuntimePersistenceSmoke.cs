@@ -188,6 +188,7 @@ internal static class RuntimePersistenceSmoke
                     var answer = new JsonObject { ["role"] = "local_behavior", ["kind"] = "local_processing",
                         ["action"] = new JsonObject { ["start"] = "b0", ["end"] = scope.Boundaries["properties"]!["end"]!["enum"]!.AsArray().Last()!.DeepClone() },
                         ["execution"] = "generated_workflow", ["evidence"] = scope == scopes[^1] ? "governing" : "action", ["necessity"] = new JsonObject { ["state"] = scope == scopes[1] ? "required" : "unspecified", ["evidence"] = scope == scopes[1] ? new JsonObject { ["start"] = "b0", ["end"] = scope.Boundaries["properties"]!["end"]!["enum"]!.AsArray().Last()!.DeepClone() } : null }, ["baseline"] = null };
+                    answer["boundary"] = scope == scopes[0] ? new JsonObject { ["kind"] = "invocation", ["owner"] = answer["action"]!.DeepClone(), ["span"] = answer["action"]!.DeepClone() } : null;
                     snapshot.RuntimeEvidence.AddRange(PlanningOperations.ParseRuntime(snapshot, scope.Clause, scope.Select,
                         new JsonArray(answer.DeepClone(), answer.DeepClone(), answer.DeepClone())));
                 }
@@ -223,6 +224,7 @@ internal static class RuntimePersistenceSmoke
                     snapshot.RuntimeEvidence.AddRange(PlanningOperations.ParseRuntime(snapshot, scope.Clause, scope.Select, new JsonArray(new JsonObject
                     {
                         ["role"] = "local_behavior", ["kind"] = "local_processing", ["execution"] = "generated_workflow", ["evidence"] = "action",
+                        ["boundary"] = new JsonObject { ["kind"] = "invocation", ["owner"] = new JsonObject { ["start"] = "b0", ["end"] = scope.Boundaries["properties"]!["end"]!["enum"]!.AsArray().Last()!.DeepClone() }, ["span"] = new JsonObject { ["start"] = "b0", ["end"] = scope.Boundaries["properties"]!["end"]!["enum"]!.AsArray().Last()!.DeepClone() } },
                         ["action"] = new JsonObject { ["start"] = "b0", ["end"] = scope.Boundaries["properties"]!["end"]!["enum"]!.AsArray().Last()!.DeepClone() },
                         ["necessity"] = new JsonObject { ["state"] = "unspecified", ["evidence"] = null }, ["baseline"] = null
                     })));

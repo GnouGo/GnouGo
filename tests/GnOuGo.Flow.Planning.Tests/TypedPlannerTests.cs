@@ -246,18 +246,19 @@ public sealed class TypedPlannerTests
             var allowed = schema["properties"]!["kind"]!["enum"]!.AsArray().Select(v => v!.ToString()).ToArray();
             var selected = allowed.Contains(kind) ? kind : "information";
             var items = new JsonArray(Item(selected));
-            if (selected == "local_processing") items.Add((JsonNode)Item("declaration_candidate"));
+            if (kind == "local_processing" && allowed.Contains("declaration_candidate")) items.Add((JsonNode)Item("declaration_candidate"));
             if (p.Value!["properties"]!["runtime"] is null)
                 return new KeyValuePair<string, JsonNode?>(p.Key, new JsonObject { ["obligations"] = items });
             var variant = p.Value!["properties"]!["runtime"]!["items"]!["anyOf"]!.AsArray()
-                .FirstOrDefault(v => v!["properties"]?["kind"]?["enum"]?.AsArray().Any(k => k!.ToString() == selected) == true);
+                .FirstOrDefault(v => v!["properties"]?["kind"]?["enum"]?.AsArray().Any(k => k!.ToString() == kind) == true);
             var runtime = new JsonObject { ["role"] = "policy" };
             if (variant is not null)
             {
                 var fields = variant["properties"]!;
-                runtime = new() { ["role"] = fields["role"]!["enum"]![0]!.DeepClone(), ["kind"] = selected,
+                runtime = new() { ["role"] = fields["role"]!["enum"]![0]!.DeepClone(), ["kind"] = kind,
                     ["action"] = new JsonObject { ["start"] = Item(selected)["start"]!.DeepClone(), ["end"] = Item(selected)["end"]!.DeepClone() },
                     ["execution"] = "generated_workflow",
+                    ["boundary"] = kind == "local_processing" ? null : new JsonObject { ["kind"] = kind == "local_processing" ? "invocation" : kind == "human_interaction" ? "interaction" : "external_effect", ["owner"] = new JsonObject { ["start"] = Item(kind)["start"]!.DeepClone(), ["end"] = Item(kind)["end"]!.DeepClone() }, ["span"] = new JsonObject { ["start"] = Item(kind)["start"]!.DeepClone(), ["end"] = Item(kind)["end"]!.DeepClone() } },
                     ["evidence"] = "action", ["necessity"] = new JsonObject { ["state"] = "unspecified", ["evidence"] = null }, ["baseline"] = null };
                 if (fields["ownership"] is not null) { runtime["resource"] = runtime["action"]!.DeepClone(); runtime["ownership"] = "workflow_runtime_resource"; runtime["resourceAction"] = fields["resourceAction"]!["enum"]![0]!.DeepClone(); }
             }

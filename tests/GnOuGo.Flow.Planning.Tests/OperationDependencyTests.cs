@@ -126,6 +126,7 @@ public sealed class OperationDependencyTests
         PolicyGroundingTests.Add(state, "request", "Create another workflow.", "child_scope", "workflow_boundary");
         foreach (var scope in PlanningOperations.SourceScopes(state).Where(s => s.Source.Id == "request").Take(2)) PlanningFixtures.Runtime(state, scope.Clause);
         var scopes = PlanningOperations.Scopes(state);
+        OperationEffectFixtures.SeedBoundaries(state, s => s.Evidence!.Id == scopes[0].Evidence!.Id ? "main" : "child_scope");
         OperationEffectFixtures.Seed(state, scope => OperationEffectFixtures.Answer(state, scope,
             [PlanningOperations.EffectDomain(state, scope.Evidence!).Single(p => p.Value.BoundaryReference == scope.Evidence!.ActionReference &&
                 p.Value.WorkflowScope == (scope.Evidence.Id == scopes[0].Evidence!.Id ? "main" : "child_scope")).Key]), seedDependencies: false);

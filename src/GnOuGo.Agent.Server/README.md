@@ -23,6 +23,8 @@ Tenant-scoped EF Core/SQLite indexes use the workspace-resolved
 model dispatch; completed receipts replay after restart. Unverifiable dispatches stop.
 Optimistic revisions and original-workflow hashes protect approval and saving.
 
+The host supplies its fixed planning policies as typed, provider-neutral clause evidence through `AgentPlanningPolicy`. Complete instructions remain available for scoped confirmation and other policy adjudication. The planner verifies the source fingerprint, allowed meanings and complete coverage before projecting obligations; typed policies grant no operation authority. Unannotated policy prose retains bounded interpretation. See [occurrence boundaries and policy projection](../../docs/planner-occurrence-boundaries.md).
+
 `TypedWorkflowPlanning` configures `ReasoningProfile` (`Routine: low`, `Behavior: medium`,
 `SemanticReview: medium`), `MaxConcurrency` (4),
 `MaxModelCalls` (100), `MaxInputTokensPerRequest` (12000), and `MaxOutputTokens` (8192).

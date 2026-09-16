@@ -413,13 +413,7 @@ public sealed class PlanningSessionService(
         ["generator"] = new JsonObject { ["provider"] = provider, ["model"] = model },
         ["capability_preflight"] = new JsonObject(),
         ["intent_clarification"] = new JsonObject { ["max_rounds"] = 3, ["max_questions"] = 15, ["max_questions_per_round"] = 5 },
-        ["policy"] = new JsonObject
-        {
-            ["instructions"] = "Generate a self-contained chat-agent workflow. Host configuration, credentials and saving the agent are outside its runtime boundary. Preserve every required operation, runtime outcome, and resource cleanup. The .GnOuGo directory is reserved for internal state. Workflow-created files belong under workflows/<purpose-specific-name>; propagate declared materialization outputs to subsequent steps. Unless explicitly requested otherwise, obtain runtime human confirmation before the first external write, with zero writes after rejection. Do not request review of the workflow's own YAML during execution.",
-            ["allowed_step_types"] = new JsonArray("mcp.list", "mcp.call", "llm.call", "set", "emit", "assert.non_null", "template.render", "sequence", "parallel", "loop.sequential", "loop.parallel", "switch", "decision.evaluate", "human.input", "workflow.call"),
-            ["denied_step_types"] = new JsonArray("workflow.plan", "workflow.execute"),
-            ["allow_remote_workflow_refs"] = false
-        },
+        ["policy"] = AgentPlanningPolicy.Create(),
         ["limits"] = new JsonObject { ["max_steps_total"] = 300 },
         ["llm_budget"] = new JsonObject { ["max_calls"] = settings.Value.MaxModelCalls, ["max_total_tokens"] = settings.Value.MaxTotalTokens, ["max_elapsed_ms"] = settings.Value.MaxActiveMilliseconds, ["max_estimated_cost"] = new JsonObject { ["amount"] = budgetSettings.Value.Amount, ["currency"] = budgetSettings.Value.Currency } }
     };

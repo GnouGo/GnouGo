@@ -43,6 +43,11 @@ internal static class PlanningSourceGroundingRules
         if (source.Baseline is { Field: not null } annotation && !PlanningBaselineProjection.AnnotationKinds(annotation).Contains(obligation.Kind, StringComparer.Ordinal))
             throw Failure(state, obligation.Id, "An annotation cannot override its structural owner or create declarations or operations.");
         var clause = PlanningChoiceEvidence.Parent(state, reference!.Id);
+        var declared = PlanningDeclaredPolicyProjection.Owns(state, source);
+        if (declared && (obligation.EvidenceReferences.Count != 1 ||
+            !PlanningDeclaredPolicyProjection.Clauses(state).Any(c => c.Reference.Id == reference.Id &&
+                c.Clause.Meanings.Any(m => m.Kind == obligation.Kind && m.Required == obligation.Required))))
+            throw Failure(state, obligation.Id, "The policy obligation differs from its producer-declared meaning or owned clause.");
         if (obligation.EvidenceReferences.Any(id => PlanningChoiceEvidence.Parent(state, id).Id != clause.Id))
             throw Failure(state, obligation.Id, "An obligation must belong to one complete owned clause.");
         var operation = OperationKinds.Contains(obligation.Kind, StringComparer.Ordinal);
@@ -59,9 +64,10 @@ internal static class PlanningSourceGroundingRules
             : obligation.Kind is "runtime_condition" or "runtime_fallback" or "rejection_condition" ? PlanningSourceSemanticRole.RuntimeCondition
             : source.Authority == PlanningSourceAuthority.ConstraintsOnly || PolicyKinds.Contains(obligation.Kind, StringComparer.Ordinal) ? PlanningSourceSemanticRole.PolicyConstraint
             : PlanningSourceSemanticRole.Declaration;
-        var fingerprint = PlanningGraphCompiler.Fingerprint("source-v5:" + source.Authority + ":" + role + ":" + clause.Id + ":" + clause.SourceFingerprint + ":" +
-            obligation.Kind + ":" + obligation.Required + ":" + string.Join('|', obligation.EvidenceReferences) + ":" + baselineReference);
-        return new(source.Authority, role, clause.Id, baselineReference, fingerprint);
+        var fingerprint = PlanningGraphCompiler.Fingerprint("source-v6:" + source.Authority + ":" + role + ":" + clause.Id + ":" + clause.SourceFingerprint + ":" +
+            obligation.Kind + ":" + obligation.Required + ":" + string.Join('|', obligation.EvidenceReferences) + ":" + baselineReference + ":" + PlanningDeclaredPolicyProjection.Fingerprint(state));
+        return new(source.Authority, role, clause.Id, baselineReference, fingerprint)
+        { DeclaredPolicyFingerprint = declared ? PlanningDeclaredPolicyProjection.Fingerprint(state) : null };
     }
 
     internal static void Validate(PlanningSnapshot state, PlanningObligation obligation)
