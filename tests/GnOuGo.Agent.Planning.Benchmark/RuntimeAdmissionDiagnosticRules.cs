@@ -8,7 +8,8 @@ namespace GnOuGo.Agent.Planning.Benchmark;
 
 internal static class RuntimeAdmissionDiagnosticRules
 {
-    internal const string Identity = "schema5-occurrence-boundaries-diagnostics-1";
+    internal const string Identity = "schema5-occurrence-boundaries-mixed-diagnostics-1";
+    internal const string ComparisonIdentity = "schema5-occurrence-boundaries-diagnostics-1";
     internal const int MaxCalls = 16;
     internal static readonly string[] Cases = ["local", "mixed"];
     internal static JsonObject WithTypedPolicy(JsonObject options)
@@ -33,12 +34,19 @@ internal static class RuntimeAdmissionDiagnosticRules
     }
     internal static void RequireCase(string name, JsonObject? previous)
     {
-        if (name != "local") throw new InvalidOperationException("This campaign authorizes LOCAL only; later gates require separate authorization.");
+        if (name != "mixed") throw new InvalidOperationException("This campaign authorizes MIXED only; LOCAL and later gates are refused.");
+        if (previous?["case"]?.ToString() != "local" || previous["status"]?.ToString() != "passed" ||
+            previous["effectValidationPassed"]?.GetValue<bool>() != true ||
+            previous["readOnlyRestart"]?["passed"]?.GetValue<bool>() != true ||
+            previous["readOnlyRestart"]?["providerCalls"]?.GetValue<int>() != 0 ||
+            previous["readOnlyRestart"]?["checkpointWrites"]?.GetValue<int>() != 0 ||
+            string.IsNullOrEmpty(previous["readOnlyRestart"]?["admissionFingerprint"]?.ToString()))
+            throw new InvalidOperationException("The accepted archived LOCAL with verified admission and read-only restart is required.");
     }
     internal static void RequireFreshStart(bool checkpoint, bool report, bool budget, bool reservations)
     {
         if (checkpoint || report || budget || reservations)
-            throw new InvalidOperationException("This LOCAL has already started. Read its report; do not start or resume it again.");
+            throw new InvalidOperationException("This MIXED has already started. Read its report; do not start or resume it again.");
     }
     internal static void RequireRequest(PlanningSnapshot state)
     {
@@ -75,14 +83,14 @@ internal static class RuntimeAdmissionDiagnosticRules
         var effects = local.OperationAdmission!.Assignments.Select(a => a.Effect!).ToArray();
         Require(operations.SelectMany(o => o.OperationAdmission!.Assignments).All(a => a.Effect is { Producers.Count: 0 }),
             "DIAGNOSTIC_LEGACY_PRODUCER_AUTHORITY", "Current effect mappings cannot select operation producers.");
-        Require(effects.All(e => e is { Version: 4 }) && effects.SelectMany(e => e.Outputs).ToHashSet(StringComparer.Ordinal).SetEquals([output]),
+        Require(operations.SelectMany(o => o.OperationAdmission!.Assignments).All(a => a.Effect is { Version: 4 }) && effects.SelectMany(e => e.Outputs).ToHashSet(StringComparer.Ordinal).SetEquals([output]),
             "DIAGNOSTIC_EFFECT_OWNERSHIP", "The transformation must produce the canonical public result.");
+        Require(effects.SelectMany(e => e.Candidates).All(e => e.BoundaryKind == "result_realization" && e.OwnerReference == output && e.WorkflowScope == "main" && e.OccurrenceProof is null) &&
+            effects.SelectMany(e => e.Candidates).Distinct().Count() == 1,
+            "DIAGNOSTIC_RESULT_REALIZATION", "The fixture requires one canonical main result realization.");
         var consumed = effects.SelectMany(e => e.Inputs).ToHashSet(StringComparer.Ordinal);
         if (name == "local")
         {
-            Require(effects.SelectMany(e => e.Candidates).All(e => e.BoundaryKind == "result_realization" && e.OwnerReference == output && e.WorkflowScope == "main" && e.OccurrenceProof is null) &&
-                effects.SelectMany(e => e.Candidates).Distinct().Count() == 1,
-                "DIAGNOSTIC_RESULT_REALIZATION", "LOCAL requires one canonical main result realization.");
             Require(consumed.SetEquals(inputs), "DIAGNOSTIC_INPUT_EFFECT", "The local effect must consume both canonical business inputs.");
             Require(dependencyDecisions == 0 && local.OperationAdmission.Dependencies!.Assignments.Count == 0,
                 "DIAGNOSTIC_DEPENDENCY_DECISION", "The singleton requires an engine-established empty operation-producer set without dependency-model decisions.");
@@ -90,11 +98,37 @@ internal static class RuntimeAdmissionDiagnosticRules
         else
         {
             var read = operations.Single(o => o.Kind == "external_read");
-            Require(consumed.Contains(inputs[1]) && local.OperationAdmission.Dependencies!.Assignments.Any(a => a.Disposition == "data" && a.Producer == read.Id) &&
-                read.OperationAdmission!.Assignments.SelectMany(a => a.Effect!.Inputs).Contains(inputs[0]) &&
-                !read.OperationAdmission.Dependencies!.Assignments.Any(a => a.Disposition == "data" && a.Producer == local.Id),
+            var readEffects = read.OperationAdmission!.Assignments.SelectMany(a => a.Effect!.Candidates).Distinct().ToArray();
+            Require(readEffects.Length == 1 && readEffects[0] is { WorkflowScope: "main", OccurrenceProof: { Version: 1, WorkflowScope: "main" } } &&
+                readEffects[0].OccurrenceProof!.Evidence.Kind == "external_effect" &&
+                !string.IsNullOrEmpty(readEffects[0].OccurrenceProof!.Fingerprint),
+                "DIAGNOSTIC_OCCURRENCE_OWNERSHIP", "The read requires its independently proven external occurrence.");
+            var edges = operations.SelectMany(o => o.OperationAdmission!.Dependencies!.Assignments).Where(a => a.Disposition == "data").ToArray();
+            Require(consumed.Contains(inputs[1]) && read.OperationAdmission.Assignments.SelectMany(a => a.Effect!.Inputs).Contains(inputs[0]) &&
+                edges.Length == 1 && edges[0].Producer == read.Id && edges[0].Consumer == local.Id && edges[0].EvidenceReferences.Count > 0 &&
+                edges[0].Origin is PlanningDependencyOrigin.DeterministicBaseline or PlanningDependencyOrigin.DeterministicInterface or PlanningDependencyOrigin.ModelSemanticSelection,
                 "DIAGNOSTIC_DEPENDENCY_MISMATCH", "Read ownership and read-to-local dataflow must be grounded before relationship assessment.");
         }
+    }
+
+    internal static void RequireRelationDomain(JsonNode? schema)
+    {
+        if (schema is JsonObject obj)
+        {
+            if (obj["enum"] is JsonArray choices && choices.Any(v => v?.ToString() == "data"))
+                throw new WorkflowRuntimeException("DIAGNOSTIC_DATA_AUTHORITY", "Later relationship schemas cannot establish operation data dependencies.");
+            foreach (var field in obj) RequireRelationDomain(field.Value);
+        }
+        else if (schema is JsonArray array) foreach (var item in array) RequireRelationDomain(item);
+    }
+
+    internal static void RequireProjectedData(IReadOnlyList<PlanningObligation> operations, IEnumerable<PlanningObligationRelation> relations)
+    {
+        var expected = operations.SelectMany(o => o.OperationAdmission!.Assignments.SelectMany(a => a.Effect!.Inputs).Distinct(StringComparer.Ordinal)
+                .Select(id => (id, o.Id)).Concat(o.OperationAdmission.Dependencies!.Assignments.Where(a => a.Disposition == "data").Select(a => (a.Producer, o.Id))))
+            .ToHashSet();
+        var actual = relations.Where(r => r.Role == "data").Select(r => (r.Producer, r.Consumer)).ToHashSet();
+        if (!expected.SetEquals(actual)) throw new WorkflowRuntimeException("DIAGNOSTIC_DATA_AUTHORITY", "Data relations must project only canonical public inputs and the admission dependency proof.");
     }
 
     // Report only semantic enum domains. Source text, names, scoped references

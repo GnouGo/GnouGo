@@ -46,12 +46,15 @@ internal static partial class RuntimeAdmissionDiagnostic
         Console.CancelKeyPress += (_, e) => { e.Cancel = true; cancel.Cancel(); }; var ct = cancel.Token;
         var directory = GnOuGoWorkspace.ResolveDatabasePath(null, root, $".GnOuGo/data/planner-diagnostics/{Identity}/gnougo-planning-v5.db");
         if (command is not ("freeze" or "run-local" or "run-mixed" or "report")) throw new ArgumentException("diagnose-runtime-admission freeze COMMIT | run-local | run-mixed | report | selfcheck");
-        if (command is "run-local" or "run-mixed")
-            RuntimeAdmissionDiagnosticRules.RequireCase(command == "run-local" ? "local" : "mixed", null);
+        if (command == "run-local") RuntimeAdmissionDiagnosticRules.RequireCase("local", null);
         if (command == "report")
         {
             Console.WriteLine((await ReportAsync(records, ct)).ToJsonString()); return;
         }
+        var acceptedLocal = await records.GetAsync(Collection, Tenant, RuntimeAdmissionDiagnosticRules.ComparisonIdentity + ":local:report", Author, ct)
+            ?? throw new InvalidOperationException("The accepted LOCAL report is required.");
+        RuntimeAdmissionDiagnosticRules.RequireCase("mixed", JsonNode.Parse(acceptedLocal.Value)!.AsObject());
+        var acceptedLocalFingerprint = PlanningGraphCompiler.Fingerprint(acceptedLocal.Value);
         Directory.CreateDirectory(Path.GetDirectoryName(directory)!);
         using var lease = new FileStream(directory + ".lock", FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.None);
         var contexts = new Contexts(directory);
@@ -64,8 +67,8 @@ internal static partial class RuntimeAdmissionDiagnostic
         var sourcePath = GnOuGoWorkspace.ResolveDatabasePath(null, root, $".GnOuGo/data/planner-progressive/{ProgressiveCampaign.CampaignId}/gnougo-planning-v5.db");
         var source = await new EfPlanningSessionStore(new Contexts(sourcePath, readOnly: true), records).LoadAsync(ProgressiveCampaign.Tenant,
             campaign["stages"]![0]!["session"]!.ToString(), ct) ?? throw new InvalidOperationException("Retained settings are required.");
-        var comparisonOptionsFingerprint = PlanningGraphCompiler.Fingerprint(source.Request.Options.ToJsonString());
         source.Request.Options = RuntimeAdmissionDiagnosticRules.WithTypedPolicy(source.Request.Options);
+        var comparisonOptionsFingerprint = PlanningGraphCompiler.Fingerprint(source.Request.Options.ToJsonString());
         var services = new ServiceCollection().AddLogging();
         services.AddKeyVaultMcpPersistence(KeyVaultDatabasePathResolver.Resolve(null, root));
         services.AddAgentMcpPersistence(AgentMcpHostingExtensions.ResolveDatabasePath(null, root));
@@ -89,10 +92,10 @@ internal static partial class RuntimeAdmissionDiagnostic
         {
             if (commit != "cfc058fd52183854d09b2540b9f57d1e337797f9") throw new InvalidOperationException("The authorized production commit is required.");
             if (manifest is not null) throw new InvalidOperationException("This diagnostic has already been frozen.");
-            var previousRecord = await records.GetAsync(Collection, Tenant, "schema5-structural-baseline-diagnostics-1", Author, ct)
+            var previousRecord = await records.GetAsync(Collection, Tenant, RuntimeAdmissionDiagnosticRules.ComparisonIdentity, Author, ct)
                 ?? throw new InvalidOperationException("The previous frozen settings are required.");
             var previousManifest = JsonNode.Parse(previousRecord.Value)!;
-            if (!JsonNode.DeepEquals(previousManifest["model"], campaign["model"]) ||
+            if (previousManifest["commit"]?.ToString() != commit || !JsonNode.DeepEquals(previousManifest["model"], campaign["model"]) ||
                 previousManifest["transportConfigurationFingerprint"]!.ToString() != transportFingerprint ||
                 previousManifest["sourceOptionsFingerprint"]!.ToString() != comparisonOptionsFingerprint ||
                 !JsonNode.DeepEquals(previousManifest["catalogFingerprint"], campaign["stages"]![0]!["catalogHash"]))
@@ -113,13 +116,14 @@ internal static partial class RuntimeAdmissionDiagnostic
                     new EcbExchangeRateProvider(prerequisiteHttp), ct);
             Console.WriteLine(new JsonObject { ["exchangeRatePrerequisite"] = exchangeRatePrerequisite.DeepClone() }.ToJsonString());
             if (exchangeRatePrerequisite["status"]!.ToString() != "passed")
-                throw new InvalidOperationException("Currency-conversion preflight failed; LOCAL was not started.");
+                throw new InvalidOperationException("Currency-conversion preflight failed; MIXED was not started.");
             manifest = new() { ["commit"] = commit, ["binaries"] = binaries, ["archiveFingerprint"] = archive,
-                ["comparisonIdentity"] = "schema5-structural-baseline-diagnostics-1",
+                ["comparisonIdentity"] = RuntimeAdmissionDiagnosticRules.ComparisonIdentity,
+                ["acceptedLocalReportFingerprint"] = acceptedLocalFingerprint,
                 ["comparisonSourceOptionsFingerprint"] = comparisonOptionsFingerprint,
-                ["expectedConfigurationAddition"] = "Current frozen production typed policy evidence; unchanged instructions and existing options.",
+                ["expectedConfigurationAddition"] = "None; effective typed host policy and existing options unchanged from accepted LOCAL.",
                 ["exchangeRatePrerequisite"] = exchangeRatePrerequisite,
-                ["authorizedCases"] = new JsonArray("local"),
+                ["authorizedCases"] = new JsonArray("mixed"),
                 ["model"] = campaign["model"]!.DeepClone(), ["sourceOptionsFingerprint"] = PlanningGraphCompiler.Fingerprint(source.Request.Options.ToJsonString()),
                 ["transportConfigurationFingerprint"] = transportFingerprint,
                 ["catalogFingerprint"] = campaign["stages"]![0]!["catalogHash"]!.DeepClone(),
@@ -130,7 +134,8 @@ internal static partial class RuntimeAdmissionDiagnostic
                 ["declarationEvidence"] = "Supplied canonical ports and exact owned attachment fixtures; no live declaration convergence claimed." };
             await records.UpsertAsync(Collection, Tenant, Identity, manifest.ToJsonString(), Author, ct); Console.WriteLine(manifest.ToJsonString()); return;
         }
-        if (manifest is null || !JsonNode.DeepEquals(manifest["binaries"], binaries) || manifest["archiveFingerprint"]!.ToString() != archive ||
+        if (manifest is null || manifest["acceptedLocalReportFingerprint"]?.ToString() != acceptedLocalFingerprint ||
+            !JsonNode.DeepEquals(manifest["binaries"], binaries) || manifest["archiveFingerprint"]!.ToString() != archive ||
             manifest["transportConfigurationFingerprint"]!.ToString() != transportFingerprint ||
             manifest["sourceOptionsFingerprint"]!.ToString() != PlanningGraphCompiler.Fingerprint(source.Request.Options.ToJsonString()))
             throw new InvalidOperationException("Frozen inputs, binaries or archive accounting changed.");
@@ -142,14 +147,9 @@ internal static partial class RuntimeAdmissionDiagnostic
                 frozen["declarationFixtureHash"]!.ToString() != DeclarationFixtureHash(name))
                 throw new InvalidOperationException("A frozen diagnostic precondition changed.");
         }
-        using var ratesHttp = new HttpClient(); JsonObject? previous = null;
-        if (command == "run-mixed")
-        {
-            var completedLocal = await records.GetAsync(Collection, Tenant, Identity + ":local:report", Author, ct);
-            previous = completedLocal is null ? null : JsonNode.Parse(completedLocal.Value)!.AsObject();
-        }
+        using var ratesHttp = new HttpClient();
         var caseName = command == "run-local" ? "local" : "mixed";
-        RuntimeAdmissionDiagnosticRules.RequireCase(caseName, previous);
+        RuntimeAdmissionDiagnosticRules.RequireCase(caseName, JsonNode.Parse(acceptedLocal.Value)!.AsObject());
         var caseId = Identity + ":" + caseName;
         await using (var db = await ((IDbContextFactory<PlanningDbContext>)contexts).CreateDbContextAsync(ct))
             RuntimeAdmissionDiagnosticRules.RequireFreshStart(
@@ -240,10 +240,15 @@ internal static partial class RuntimeAdmissionDiagnostic
             {
                 envelope["phase"] = "relations"; await Save(state, ct);
                 await PlanningSourceDecisions.RelateAsync(state, runtime, ct);
-                var read = operations.Single(o => o.Kind == "external_read"); var local = operations.Single(o => o.Kind == "local_processing");
-                if (!state.ObligationRelations.Any(r => r.Producer == read.Id && r.Consumer == local.Id && r.Role == "data") ||
-                    state.ObligationRelations.Any(r => r.Producer == local.Id && r.Consumer == read.Id))
-                    throw new WorkflowRuntimeException("DIAGNOSTIC_DEPENDENCY_MISMATCH", "The local transformation must depend on the external read without a reverse dependency.");
+                PlanningOperations.RequireCurrent(state);
+                RuntimeAdmissionDiagnosticRules.RequireProjectedData(operations, state.ObligationRelations);
+                foreach (var call in state.RequestAccounting.Where(c => c.Phase.StartsWith("intent_relations", StringComparison.Ordinal)).DistinctBy(c => c.Id))
+                {
+                    var requestRecord = await records.GetAsync(PlanningModelJournal.RequestCollection, Tenant, id + ":" + call.Id, EfPlanningSessionStore.Author, ct)
+                        ?? throw new InvalidOperationException("Missing issued relationship request.");
+                    var issuedRequest = JsonSerializer.Deserialize(requestRecord.Value, PlanningJsonContext.Default.LLMRequest)!;
+                    RuntimeAdmissionDiagnosticRules.RequireRelationDomain(issuedRequest.StructuredOutputSchema);
+                }
             }
         }
         catch (Exception error)
@@ -280,6 +285,9 @@ internal static partial class RuntimeAdmissionDiagnostic
         var report = ProgressiveReport.Build(state, receipts);
         var declarations = state.OperationAdmissionFingerprint is not null ? PlanningOperations.DeclarationExclusions(state) : null;
         report["readOnlyRestart"] = restart;
+        report["admissionCommitted"] = state.OperationAdmissionFingerprint is not null;
+        report["admissionFingerprint"] = state.OperationAdmissionFingerprint;
+        report["relationshipProjectionVerified"] = name == "mixed" && failure is null;
         report["durableBudgetCalls"] = budget.Snapshot.Calls;
         report["remainingCallBudget"] = Math.Max(0, RuntimeAdmissionDiagnosticRules.MaxCalls - budget.Snapshot.Calls);
         report["journalRequests"] = journalRequests.Count;

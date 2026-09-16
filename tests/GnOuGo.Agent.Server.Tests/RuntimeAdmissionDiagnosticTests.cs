@@ -39,18 +39,45 @@ public sealed class RuntimeAdmissionDiagnosticTests
     }
 
     [Theory]
-    [InlineData("local", null, true)]
-    [InlineData("mixed", "passed", false)]
+    [InlineData("local", null, false)]
+    [InlineData("local", "passed", false)]
+    [InlineData("mixed", "passed", true)]
     [InlineData("mixed", "stopped", false)]
     [InlineData("mixed", null, false)]
     [InlineData("stage1", "passed", false)]
     [InlineData("stage2", "passed", false)]
     [InlineData("replacement", "passed", false)]
-    public void OnlyLocalIsAuthorizedEvenAfterLocalSuccess(string name, string? previous, bool allowed)
+    public void OnlyMixedIsAuthorizedAfterVerifiedLocalSuccess(string name, string? previous, bool allowed)
     {
-        var report = previous is null ? null : new JsonObject { ["status"] = previous };
+        var report = previous is null ? null : AcceptedLocal();
+        if (report is not null) report["status"] = previous;
         if (allowed) RuntimeAdmissionDiagnosticRules.RequireCase(name, report);
         else Assert.Throws<InvalidOperationException>(() => RuntimeAdmissionDiagnosticRules.RequireCase(name, report));
+    }
+
+    private static JsonObject AcceptedLocal() => new()
+    {
+        ["case"] = "local", ["status"] = "passed", ["effectValidationPassed"] = true,
+        ["readOnlyRestart"] = new JsonObject { ["passed"] = true, ["providerCalls"] = 0, ["checkpointWrites"] = 0, ["admissionFingerprint"] = "proof" }
+    };
+
+    [Theory]
+    [InlineData("effectValidationPassed")]
+    [InlineData("readOnlyRestart")]
+    [InlineData("case")]
+    public void IncompleteLocalEvidenceDoesNotAuthorizeMixed(string missing)
+    {
+        var report = AcceptedLocal(); report.Remove(missing);
+        Assert.Throws<InvalidOperationException>(() => RuntimeAdmissionDiagnosticRules.RequireCase("mixed", report));
+    }
+
+    [Theory]
+    [InlineData("providerCalls")]
+    [InlineData("checkpointWrites")]
+    public void LocalRestartMustHaveBeenReadOnly(string field)
+    {
+        var report = AcceptedLocal(); report["readOnlyRestart"]![field] = 1;
+        Assert.Throws<InvalidOperationException>(() => RuntimeAdmissionDiagnosticRules.RequireCase("mixed", report));
     }
     [Theory]
     [InlineData(false, false, false, false, true)]
@@ -165,14 +192,60 @@ public sealed class RuntimeAdmissionDiagnosticTests
     }
 
     [Theory]
+    [InlineData("valid", true)]
+    [InlineData("missing_dependency", false)]
+    [InlineData("reverse", false)]
+    [InlineData("self", false)]
+    [InlineData("missing_evidence", false)]
+    [InlineData("missing_occurrence", false)]
+    [InlineData("stale_occurrence", false)]
+    [InlineData("foreign_scope", false)]
+    [InlineData("local_invocation", false)]
+    [InlineData("stale_effect", false)]
+    [InlineData("extra_operation", false)]
+    [InlineData("identity_call", false)]
+    public void MixedGateRequiresProvenOccurrencesAndExactlyOneSupportedEdge(string defect, bool allowed)
+    {
+        var read = Operation("read", "external_read", ["source"], [], defect == "reverse" ? ["local"] : []);
+        var proof = new PlanningOccurrenceBoundaryProof(defect == "stale_occurrence" ? 0 : 1, "runtime", "main", null,
+            new("external_effect", "action", "action"), null, "proof");
+        read.OperationAdmission!.Assignments[0].Effect!.Candidates[0] = new(defect == "foreign_scope" ? "other" : "main", "action", "invocation", "action")
+        { OccurrenceProof = defect == "missing_occurrence" ? null : proof };
+        if (defect == "stale_effect") read.OperationAdmission.Assignments[0] = read.OperationAdmission.Assignments[0] with
+        { Effect = read.OperationAdmission.Assignments[0].Effect! with { Version = 3 } };
+        var local = Operation("local", "local_processing", ["threshold"], ["result"], defect == "missing_dependency" ? [] : defect == "self" ? ["local"] : ["read"]);
+        if (defect == "missing_evidence") local.OperationAdmission!.Dependencies!.Assignments[0].EvidenceReferences.Clear();
+        if (defect == "local_invocation") local.OperationAdmission!.Assignments[0].Effect!.Candidates[0] = new("main", "action", "invocation", "action");
+        var ops = new List<PlanningObligation> { read, local };
+        if (defect == "extra_operation") ops.Add(Operation("write", "external_write", [], [], []));
+        void Check() => RuntimeAdmissionDiagnosticRules.RequireEffects("mixed", ops, ["source", "threshold"], "result", defect == "identity_call" ? 1 : 0, 2);
+        if (allowed) Check(); else Assert.Throws<GnOuGo.Flow.Core.Expressions.WorkflowRuntimeException>(Check);
+    }
+
+    [Theory]
     [InlineData(false)]
     [InlineData(true)]
-    public void MixedGateRequiresGroundedReadDependency(bool dependency)
+    public void LaterRelationshipDomainsCannotReintroduceData(bool data)
     {
-        var ops = new[] { Operation("read", "external_read", ["source"], [], []),
-            Operation("local", "local_processing", ["threshold"], ["result"], dependency ? ["read"] : []) };
-        void Check() => RuntimeAdmissionDiagnosticRules.RequireEffects("mixed", ops, ["source", "threshold"], "result", 0);
-        if (dependency) Check(); else Assert.Throws<GnOuGo.Flow.Core.Expressions.WorkflowRuntimeException>(Check);
+        var schema = new JsonObject { ["anyOf"] = new JsonArray(new JsonObject { ["enum"] = new JsonArray("none", data ? "data" : "policy") }) };
+        if (data) Assert.Throws<GnOuGo.Flow.Core.Expressions.WorkflowRuntimeException>(() => RuntimeAdmissionDiagnosticRules.RequireRelationDomain(schema));
+        else RuntimeAdmissionDiagnosticRules.RequireRelationDomain(schema);
+    }
+
+    [Theory]
+    [InlineData("valid", true)]
+    [InlineData("missing", false)]
+    [InlineData("extra", false)]
+    [InlineData("reverse", false)]
+    public void DownstreamDataIsExactlyTheAdmissionProjection(string defect, bool allowed)
+    {
+        var ops = new[] { Operation("read", "external_read", ["source"], [], []), Operation("local", "local_processing", ["threshold"], ["result"], ["read"]) };
+        var relations = new List<PlanningObligationRelation> { new("source", "read", "data"), new("threshold", "local", "data"), new("read", "local", "data"), new("policy", "read", "policy") };
+        if (defect == "missing") relations.RemoveAt(2);
+        if (defect == "extra") relations.Add(new("foreign", "local", "data"));
+        if (defect == "reverse") relations.Add(new("local", "read", "data"));
+        void Check() => RuntimeAdmissionDiagnosticRules.RequireProjectedData(ops, relations);
+        if (allowed) Check(); else Assert.Throws<GnOuGo.Flow.Core.Expressions.WorkflowRuntimeException>(Check);
     }
 
     [Theory]

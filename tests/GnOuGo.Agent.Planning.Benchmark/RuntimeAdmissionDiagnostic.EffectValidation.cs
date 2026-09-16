@@ -74,7 +74,12 @@ internal static partial class RuntimeAdmissionDiagnostic
                 ["outputs"] = new JsonArray(o.OperationAdmission.Assignments.SelectMany(a => a.Effect!.Outputs).Distinct().Select(v => (JsonNode)JsonValue.Create(v)!).ToArray()),
                 ["producers"] = new JsonArray(o.OperationAdmission.Dependencies!.Assignments.Where(a => a.Disposition == "data").Select(a => a.Producer).Distinct().Select(v => (JsonNode)JsonValue.Create(v)!).ToArray()),
                 ["dependencies"] = new JsonArray(o.OperationAdmission.Dependencies.Assignments.Select(a => (JsonNode)new JsonObject
-                { ["producer"] = a.Producer, ["consumer"] = a.Consumer, ["disposition"] = a.Disposition, ["origin"] = a.Origin.ToString(), ["decisionId"] = a.DecisionId }).ToArray()),
+                { ["producer"] = a.Producer, ["consumer"] = a.Consumer, ["disposition"] = a.Disposition, ["origin"] = a.Origin.ToString(), ["decisionId"] = a.DecisionId,
+                    ["evidenceReferences"] = new JsonArray(a.EvidenceReferences.Select(v => (JsonNode?)JsonValue.Create(v)).ToArray()) }).ToArray()),
+                ["effectAnchors"] = new JsonArray(o.OperationAdmission.Assignments.SelectMany(a => a.Effect!.Candidates).Distinct().Select(e => (JsonNode)new JsonObject
+                { ["scope"] = e.WorkflowScope, ["owner"] = e.OwnerReference, ["boundaryKind"] = e.BoundaryKind, ["boundaryReference"] = e.BoundaryReference,
+                    ["occurrenceProofVersion"] = e.OccurrenceProof?.Version, ["occurrenceProofFingerprint"] = e.OccurrenceProof?.Fingerprint,
+                    ["occurrenceEvidenceKind"] = e.OccurrenceProof?.Evidence.Kind }).ToArray()),
                 ["contributions"] = new JsonArray(o.OperationAdmission.Assignments.Select(a => (JsonNode)new JsonObject
                 { ["decisionId"] = a.Effect!.DecisionId, ["contribution"] = a.Effect.Contribution, ["origin"] = a.ResolutionOrigin, ["effectOrigin"] = a.Effect.Origin, ["evidenceFingerprint"] = a.Effect.EvidenceFingerprint,
                     ["selectedEffect"] = a.EffectId, ["governingReference"] = a.ClauseReference }).ToArray()) }).ToArray());
