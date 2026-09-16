@@ -40,7 +40,7 @@ internal static class PlanningFixtures
         var old = operations.SelectMany(o => o.OperationAdmission!.Assignments).DistinctBy(a => a.RuntimeEvidenceId).ToDictionary(a => a.RuntimeEvidenceId!, StringComparer.Ordinal);
         OperationEffectFixtures.Seed(state, scope => old.TryGetValue(scope.Evidence!.Id, out var assignment)
             ? OperationEffectFixtures.Answer(state, scope, assignment.Effect!.Candidates.Select(a => PlanningOperations.CanonicalId(state, a, assignment.Kind, assignment.BaselineReference)),
-                assignment.Effect.Contribution, assignment.Effect.Inputs, assignment.Effect.Outputs, assignment.Effect.Producers)
+                assignment.Effect.Contribution, assignment.Effect.Inputs, assignment.Effect.Outputs)
             : OperationEffectFixtures.Answer(state, scope));
         operations = operations.Select(o => PlanningOperations.Prove(state, o, o.OperationAdmission! with
         {
@@ -50,6 +50,7 @@ internal static class PlanningFixtures
                 : PlanningOperations.ParseEffect(state, PlanningOperations.Scopes(state).Single(s => s.Evidence!.Id == a.RuntimeEvidenceId),
                     state.DecisionPages.Last(p => p.Candidate?[a.Effect!.DecisionId] is not null).Candidate![a.Effect!.DecisionId]!.AsObject()) }).ToList()
         })).ToList();
+        OperationEffectFixtures.SeedDependencies(state, operations);
         PlanningOperations.Commit(state, operations);
     }
 
@@ -108,6 +109,7 @@ internal static class PlanningFixtures
         }
         if (map.Count != 0) Remap(state);
         admitted = admitted.Select(o => PlanningOperations.Prove(state, o, o.OperationAdmission! with { EvidenceFingerprint = PlanningOperations.EvidenceFingerprint(state) })).ToList();
+        OperationEffectFixtures.SeedDependencies(state, admitted);
         PlanningOperations.Commit(state, admitted);
     }
     internal static PlanningSnapshot PreparedRequest(PlanningRequest request, PlanningPreparationCheckpoint? checkpoint = null)

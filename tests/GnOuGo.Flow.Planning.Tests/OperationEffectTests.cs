@@ -126,6 +126,8 @@ public sealed class OperationEffectTests
         OperationEffectFixtures.Seed(state, rootsOnly: true);
         var runtime = new TypedPlannerTests.FakeRuntime { OnCall = (_, request, _) =>
         {
+            if (request.StructuredOutputSchema!["properties"]!.AsObject().All(p => p.Key.StartsWith("data_", StringComparison.Ordinal)))
+                return Task.FromResult(new LLMResponse { Json = OperationEffectFixtures.Response(state, request), CompletionStatus = "completed" });
             var field = request.StructuredOutputSchema!["properties"]!.AsObject().Single();
             var scope = OperationEffectFixtures.Scope(state, field.Key);
             var realized = PlanningOperations.ReadRealizations(state);
@@ -136,7 +138,7 @@ public sealed class OperationEffectTests
             return Task.FromResult(new LLMResponse { Json = new JsonObject { [field.Key] = answer }, CompletionStatus = "completed" });
         } };
         await PlanningOperations.ResolveAsync(state, runtime, Ct);
-        Assert.Single(runtime.Requests); Assert.Equal(2, state.Obligations.Count(PlanningSourceDecisions.IsOperation));
+        Assert.Single(runtime.Requests, r => r.StructuredOutputSchema!["properties"]!.AsObject().Any(p => p.Key.StartsWith("effect_", StringComparison.Ordinal))); Assert.Equal(2, state.Obligations.Count(PlanningSourceDecisions.IsOperation));
         Assert.Equal(1, state.Obligations.Count(o => o.OperationAdmission!.Assignments.Count == 2));
     }
 
@@ -170,8 +172,7 @@ public sealed class OperationEffectTests
     {
         var state = OperationAdmissionTests.State("Read the value. Transform the read result.");
         var read = Add(state, 0, "external_read"); var local = Add(state, 1);
-        OperationEffectFixtures.Seed(state, scope => OperationEffectFixtures.Answer(state, scope,
-            producers: scope.Evidence!.Id == local.Id ? [Own(state, read)] : []));
+        OperationEffectFixtures.Seed(state, dependency: (producer, consumer) => producer == Own(state, read) && consumer == Own(state, local));
         await PlanningOperations.ResolveAsync(state, NoModel(), Ct);
         var runtime = new TypedPlannerTests.FakeRuntime { OnCall = (_, request, _) =>
         {
@@ -184,19 +185,6 @@ public sealed class OperationEffectTests
         } };
         await PlanningSourceDecisions.RelateAsync(state, runtime, Ct);
         Assert.Contains(new PlanningObligationRelation(Own(state, read), Own(state, local), "data"), state.ObligationRelations);
-    }
-
-    [Theory]
-    [InlineData(false)]
-    [InlineData(true)]
-    public async Task CyclicOrUnrealizedProducerCannotGrantAuthority(bool cycle)
-    {
-        var state = OperationAdmissionTests.State("Transform the first value. Transform the second value.");
-        var first = Add(state, 0); var second = Add(state, 1);
-        OperationEffectFixtures.Seed(state, scope => !cycle && scope.Evidence!.Id == second.Id ? new() { ["status"] = "not_an_effect" } :
-            OperationEffectFixtures.Answer(state, scope, producers: [Own(state, scope.Evidence!.Id == first.Id ? second : first)]));
-        await Assert.ThrowsAsync<WorkflowRuntimeException>(() => PlanningOperations.ResolveAsync(state, NoModel(), Ct));
-        Assert.DoesNotContain(state.Obligations, PlanningSourceDecisions.IsOperation);
     }
 
     [Fact]

@@ -8,7 +8,7 @@ namespace GnOuGo.Flow.Planning;
 /// <summary>Canonical action authority, committed once after bounded complete-clause adjudication.</summary>
 internal static partial class PlanningOperations
 {
-    internal static string EvidenceFingerprint(PlanningSnapshot state) => PlanningGraphCompiler.Fingerprint("operation-evidence-v6:" +
+    internal static string EvidenceFingerprint(PlanningSnapshot state) => PlanningGraphCompiler.Fingerprint("operation-evidence-v7:" +
         state.Request.TenantId + ":" + state.Request.SessionId + ":" + new JsonArray(PlanningIntentAssessment.IntentSources(state)
             .Where(s => s.Authority is PlanningSourceAuthority.RequestedBehavior or PlanningSourceAuthority.ExistingBehavior)
             .Select(s => (JsonNode)new JsonArray(s.Id, s.Authority.ToString(), s.Text, s.QuestionContext)).ToArray()).ToJsonString() + ":" +
@@ -48,6 +48,7 @@ internal static partial class PlanningOperations
                     "deterministic")));
         }
         staged = await PlanningSourceDecisions.ApplyRevisionAsync(state, runtime, staged, ct);
+        await ResolveDependenciesAsync(state, runtime, staged, ct);
         ValidateEffectDependencies(state, staged);
         Commit(state, staged);
         await runtime.CheckpointAsync(state, ct);
@@ -79,7 +80,7 @@ internal static partial class PlanningOperations
         var id = assignment.EffectId!;
         var operation = new PlanningObligation(id, [anchor.Id], assignment.Kind == "local_processing" ? "workflow" : "capability_contract", assignment.Kind, ResolveRequiredness(state, [assignment]));
         operation = operation with { Grounding = PlanningSourceGroundingRules.Create(state, operation, assignment.BaselineReference), Disposition = "admitted" };
-        return Prove(state, operation, new(6, id, anchor.Id, assignment.BaselineReference, [assignment], EvidenceFingerprint(state), ""));
+        return Prove(state, operation, new(7, id, anchor.Id, assignment.BaselineReference, [assignment], EvidenceFingerprint(state), ""));
     }
 
     private static PlanningObligation Extend(PlanningSnapshot state, PlanningObligation operation, PlanningOperationAssignment assignment)
@@ -112,6 +113,7 @@ internal static partial class PlanningOperations
     {
         if (operations.Select(o => o.Id).Distinct(StringComparer.Ordinal).Count() != operations.Count) throw Failure("$plan", "Canonical operations have duplicate identities.");
         foreach (var operation in operations) Validate(state, operation);
+        ValidateEffectDependencies(state, operations);
         var initial = state.Obligations.Where(o => o.OperationAdmission is null).ToList();
         if (initial.Any(o => operations.Any(a => a.Id == o.Id))) throw Failure("$plan", "An evidence identity cannot replace a canonical action.");
         state.Obligations = initial.Concat(operations.OrderBy(o => o.Id, StringComparer.Ordinal)).ToList();
@@ -130,6 +132,11 @@ internal static partial class PlanningOperations
             foreach (var (evidence, declarations) in excluded)
                 System.Diagnostics.Activity.Current?.AddEvent(new("planning.operation_declaration_covered", tags: new()
                     { ["runtime_evidence_id"] = evidence, ["declaration_ids"] = string.Join(",", declarations) }));
+            var dependencies = operations.SelectMany(o => o.OperationAdmission!.Dependencies!.Assignments).ToArray();
+            foreach (var group in dependencies.Where(a => a.Disposition == "data").GroupBy(a => a.Origin))
+                state.Events.Add(new("operation_dependency_" + group.Key, "intent_operations", DateTimeOffset.UtcNow, group.Count()));
+            state.Events.Add(new("operation_dependency_model", "intent_operations", DateTimeOffset.UtcNow,
+                dependencies.Where(a => a.DecisionId is not null).Select(a => a.DecisionId).Distinct().Count()));
             state.Events.Add(new("operations_admitted", "intent_operations", DateTimeOffset.UtcNow, operations.Count));
             foreach (var group in state.RuntimeEvidence.Where(e => e.Role is "planning_directive" or "contract" or "policy").GroupBy(e => e.Role))
                 state.Events.Add(new("operation_excluded_" + group.Key, "intent_operations", DateTimeOffset.UtcNow, group.Count()));
@@ -165,7 +172,7 @@ internal static partial class PlanningOperations
     internal static void Validate(PlanningSnapshot state, PlanningObligation operation)
     {
         var proof = operation.OperationAdmission;
-        if (proof is not { Version: 6 } || proof.CanonicalId != operation.Id || operation.Disposition != "admitted" ||
+        if (proof is not { Version: 7 } || proof.CanonicalId != operation.Id || operation.Disposition != "admitted" ||
             operation.EvidenceReferences.Count != 1 || operation.EvidenceReferences[0] != proof.AnchorReference ||
             proof.EvidenceFingerprint != EvidenceFingerprint(state) || proof.Assignments.Count == 0 || proof.ProofFingerprint != Proof(operation, proof))
             throw Failure(operation.Id, "Current canonical admission proof is missing or stale.", "INTENT_OPERATION_PROOF_MISSING");

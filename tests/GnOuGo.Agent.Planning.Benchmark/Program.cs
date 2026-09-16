@@ -23,9 +23,9 @@ const string tenant = "planner-benchmark";
 const string evidenceKey = "codereview-bc72dd6";
 var root = AppContext.BaseDirectory;
 var records = KeyVaultRecordStoreFactory.CreateWorkspaceStore(null, root);
-if (args[0] == "audit-effect-fixture")
+if (args[0] is "audit-effect-fixture" or "audit-dependency-fixture")
 {
-    await RuntimeAdmissionDiagnostic.EffectFixtureAsync(args[1], records); return;
+    await RuntimeAdmissionDiagnostic.EffectFixtureAsync(args[1], records, args[0] == "audit-dependency-fixture"); return;
 }
 if (args[0] == "audit-runtime-admission")
 {

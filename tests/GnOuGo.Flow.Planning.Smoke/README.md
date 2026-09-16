@@ -71,3 +71,8 @@ commits. Encrypted restart reuses its `same_as` receipt, attaches a governing ru
 single canonical operation without a model call, and verifies a second restart adds no
 calls or repair charges. The first action has unspecified necessity, the reused action has explicit required evidence, and the governing rule has unspecified necessity. Restart verifies one required canonical operation and its evidence. Runtime evidence uses action/governing roles without source-clause
 targets; operation proof version 5 remains in Schema-5 storage.
+
+The admission dependency smoke journals synthetic, evidence-bound data decisions
+between two established operations, closes before atomic admission, then reopens
+twice. Canonical edges, per-edge origins and fingerprints survive encrypted
+persistence without another request or a repair charge.

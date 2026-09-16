@@ -69,10 +69,10 @@ internal static partial class PlanningOperations
         var governing = realized.Where(a => a.EffectId == id && (a.ClauseReference == scope.Clause.Id ||
             scope.Evidence!.BaselineReference is { } baseline && a.BaselineReference == baseline)).ToArray();
         if (governing.Length == 0) return null;
-        return new(2, EffectDecisionId(scope.Evidence!, true), "governs", [domain[id]],
+        return new(3, EffectDecisionId(scope.Evidence!, true), "governs", [domain[id]],
             governing.SelectMany(a => a.Effect!.Inputs).Distinct().Order(StringComparer.Ordinal).ToList(),
             governing.SelectMany(a => a.Effect!.Outputs).Distinct().Order(StringComparer.Ordinal).ToList(),
-            governing.SelectMany(a => a.Effect!.Producers).Distinct().Order(StringComparer.Ordinal).ToList(),
+            [],
             [scope.Clause.Id], "deterministic", GoverningFingerprint(state, realized));
     }
 

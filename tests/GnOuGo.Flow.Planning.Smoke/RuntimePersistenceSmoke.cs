@@ -213,6 +213,39 @@ internal static class RuntimePersistenceSmoke
                     throw new InvalidOperationException("Published encrypted operation identity/attachment replay failed.");
                 operationFingerprint = resumed.Snapshot.OperationAdmissionFingerprint;
             }
+            // Synthetic grounded effects are fixture preconditions. Dependency
+            // answers pass through the real encrypted journal before admission.
+            PlanningSnapshot Dependencies() => new() { Request = new() { TenantId = "smoke", Prompt = "Transform the input. Refine the transformed result.", MaxRepairsPerWorkflowGate = 0 } };
+            await using (var opened = await Factory().OpenAsync(Context("dependencies"), Dependencies(), CancellationToken.None))
+            {
+                var snapshot = opened.Snapshot;
+                foreach (var scope in PlanningOperations.SourceScopes(snapshot))
+                    snapshot.RuntimeEvidence.AddRange(PlanningOperations.ParseRuntime(snapshot, scope.Clause, scope.Select, new JsonArray(new JsonObject
+                    {
+                        ["role"] = "local_behavior", ["kind"] = "local_processing", ["execution"] = "generated_workflow", ["evidence"] = "action",
+                        ["action"] = new JsonObject { ["start"] = "b0", ["end"] = scope.Boundaries["properties"]!["end"]!["enum"]!.AsArray().Last()!.DeepClone() },
+                        ["necessity"] = new JsonObject { ["state"] = "unspecified", ["evidence"] = null }, ["baseline"] = null
+                    })));
+                snapshot.RuntimeEvidenceFingerprint = PlanningOperations.RuntimeFingerprint(snapshot);
+                OperationEffectFixtures.Seed(snapshot, seedDependencies: false);
+                client.EffectState = snapshot;
+                var domain = PlanningOperations.DependencyDecisions(snapshot, OperationEffectFixtures.Staged(snapshot));
+                await PlanningDecisionPages.ResolveAsync(snapshot, opened.Runtime, "intent_operations", "$plan", domain.Decisions, CancellationToken.None);
+                if (snapshot.Obligations.Any(PlanningSourceDecisions.IsOperation)) throw new InvalidOperationException("Partial dependency pages granted operation authority.");
+            }
+            var dependencyCalls = client.Calls; string? dependencyFingerprint = null;
+            for (var restart = 0; restart < 2; restart++)
+            {
+                await using var resumed = await Factory().OpenAsync(Context("dependencies"), Dependencies(), CancellationToken.None);
+                client.EffectState = resumed.Snapshot;
+                await PlanningOperations.ResolveAsync(resumed.Snapshot, resumed.Runtime, CancellationToken.None);
+                var proofs = resumed.Snapshot.Obligations.Where(PlanningSourceDecisions.IsOperation).Select(o => o.OperationAdmission!.Dependencies!).ToArray();
+                var edges = proofs.SelectMany(p => p.Assignments).Where(a => a.Disposition == "data").ToArray();
+                if (client.Calls != dependencyCalls || proofs.Length != 2 || edges.Length != 1 || edges[0].Origin != PlanningDependencyOrigin.ModelSemanticSelection ||
+                    dependencyFingerprint is not null && dependencyFingerprint != resumed.Snapshot.OperationAdmissionFingerprint)
+                    throw new InvalidOperationException("Published encrypted dependency proof replay failed.");
+                dependencyFingerprint = resumed.Snapshot.OperationAdmissionFingerprint;
+            }
             foreach (var file in Directory.GetFiles(directory, "*", SearchOption.AllDirectories))
                 if (System.Text.Encoding.UTF8.GetString(await File.ReadAllBytesAsync(file)).Contains("private native intent", StringComparison.Ordinal))
                     throw new InvalidOperationException("Published planning content was stored in plaintext.");
@@ -234,6 +267,14 @@ internal static class RuntimePersistenceSmoke
             if (OperationAnswers)
             {
                 var state = EffectState!;
+                if (fields.All(p => p.Key.StartsWith("data_", StringComparison.Ordinal)))
+                {
+                    var actions = PlanningOperations.ReadRealizations(state);
+                    var edge = PlanningOperations.DependencyDecisionId(actions[0].EffectId!, actions[1].EffectId!);
+                    return Task.FromResult(new LLMResponse { CompletionStatus = "completed", Usage = new JsonObject { ["total_tokens"] = 2 },
+                        Json = new JsonObject(fields.Select(p => new KeyValuePair<string, JsonNode?>(p.Key,
+                            OperationEffectFixtures.DependencyAnswer(p.Value!.AsObject(), p.Key == edge)))) });
+                }
                 var first = PlanningOperations.Scopes(state).First(scope => scope.Evidence!.EvidenceRole == "action");
                 var target = PlanningOperations.EffectDomain(state, first.Evidence!).Single(p => p.Value.BoundaryReference == first.Evidence!.ActionReference).Key;
                 return Task.FromResult(new LLMResponse { CompletionStatus = "completed", Usage = new JsonObject { ["total_tokens"] = 2 },

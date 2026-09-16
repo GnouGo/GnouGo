@@ -112,9 +112,10 @@ public sealed class RuntimeAdmissionDiagnosticTests
     private static PlanningObligation Operation(string id, string kind, string[] inputs, string[] outputs, string[] producers) =>
         new(id, ["evidence"], "workflow", kind, true)
         {
-            OperationAdmission = new(6, id, "evidence", null,
+            OperationAdmission = new(7, id, "evidence", null,
                 [new("decision", "clause", "action", kind, PlanningOperationNecessity.Required, null, null)
-                { Effect = new(2, "effect", "realizes", [], inputs.ToList(), outputs.ToList(), producers.ToList(), ["clause"], "model", "proof") }], "proof", "fingerprint")
+                { Effect = new(3, "effect", "realizes", [], inputs.ToList(), outputs.ToList(), [], ["clause"], "model", "proof") }], "proof", "fingerprint") { Dependencies = new(1, "domain", producers.Select(p =>
+                    new PlanningOperationDependencyAssignment(p, id, "data", PlanningDependencyOrigin.ModelSemanticSelection, ["clause"], "decision")).ToList(), "dependency-proof") }
         };
 
     [Theory]

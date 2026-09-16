@@ -109,13 +109,13 @@ public sealed class OperationEffectScopeTests
         var scope = PlanningOperations.Scopes(state).Single(s => s.Evidence!.Id == local.Id);
         var callId = PlanningOperations.EffectDomain(state, call).Single().Key;
         var result = PlanningOperations.EffectDomain(state, local).Single(p => p.Value.BoundaryKind == "result_realization" && p.Value.WorkflowScope == "main").Key;
-        var answer = OperationEffectFixtures.Answer(state, scope, [result], producers: [callId]);
+        var answer = OperationEffectFixtures.Answer(state, scope, [result]);
         Assert.Empty(PlanningContractValidation.ValidateInstance(answer, PlanningOperations.EffectDecision(state, scope).Schema));
         var foreign = answer.DeepClone().AsObject();
         foreign["producers"] = OperationEffectFixtures.Strings([PlanningOperations.EffectDomain(state, local)
             .Single(p => p.Value.BoundaryKind == "result_realization" && p.Value.WorkflowScope == "child").Key]);
         Assert.NotEmpty(PlanningContractValidation.ValidateInstance(foreign, PlanningOperations.EffectDecision(state, scope).Schema));
-        OperationEffectFixtures.Seed(state, _ => answer);
+        OperationEffectFixtures.Seed(state, _ => answer, dependency: (producer, consumer) => producer == callId && consumer == result);
         await PlanningOperations.ResolveAsync(state, NoModel(), Ct);
         Assert.Equal(2, state.Obligations.Count(PlanningSourceDecisions.IsOperation));
         Assert.Contains(new PlanningObligationRelation(callId, result, "data"), PlanningOperations.EffectRelations(state.Obligations));
@@ -137,6 +137,7 @@ public sealed class OperationEffectScopeTests
         };
         await Assert.ThrowsAsync<OperationCanceledException>(() => PlanningOperations.ResolveAsync(state, runtime, Ct));
         Assert.NotNull(saved);
+        OperationEffectFixtures.SeedDependencies(saved, OperationEffectFixtures.Staged(saved));
         var pageIds = saved.DecisionPages.Select(p => (p.Id, p.RequestId)).ToArray();
         var requests = JsonSerializer.Serialize(saved.RequestAccounting, PlanningJsonContext.Default.ListPlanningRequestAccounting);
         foreach (var scope in PlanningOperations.Scopes(saved))

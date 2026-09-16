@@ -44,10 +44,11 @@ internal static partial class RuntimeAdmissionDiagnostic
         static string Category(string decision) => decision.StartsWith("interpret_", StringComparison.Ordinal) ? "interpretation" :
             decision.StartsWith("effect_governing_", StringComparison.Ordinal) ? "effect_governing" :
             decision.StartsWith("effect_", StringComparison.Ordinal) ? "effect_realizations" :
-            decision.StartsWith("operation_", StringComparison.Ordinal) ? "occurrence_identity" : "relationships_or_other";
+            decision.StartsWith("operation_", StringComparison.Ordinal) ? "occurrence_identity" :
+            decision.StartsWith("data_", StringComparison.Ordinal) ? "operation_dependencies" : "relationships_or_other";
         long? Sum(IEnumerable<long?> values)
         { var all = values.ToArray(); return all.Any(v => v is null) ? null : all.Sum(v => v!.Value); }
-        report["decisionClasses"] = new JsonArray(new[] { "interpretation", "effect_realizations", "effect_governing", "occurrence_identity", "relationships_or_other" }.Select(category =>
+        report["decisionClasses"] = new JsonArray(new[] { "interpretation", "effect_realizations", "effect_governing", "occurrence_identity", "operation_dependencies", "relationships_or_other" }.Select(category =>
         {
             var requests = domains.Where(d => d!["decisions"]!.AsArray().Any(v => Category(v!.ToString()) == category)).ToArray();
             var verified = requests.Where(d => receipts.GetValueOrDefault(d!["requestId"]!.ToString()) is not null).ToArray();
@@ -63,7 +64,9 @@ internal static partial class RuntimeAdmissionDiagnostic
             (JsonNode)new JsonObject { ["operationId"] = o.Id, ["kind"] = o.Kind, ["required"] = o.Required,
                 ["inputs"] = new JsonArray(o.OperationAdmission!.Assignments.SelectMany(a => a.Effect!.Inputs).Distinct().Select(v => (JsonNode)JsonValue.Create(v)!).ToArray()),
                 ["outputs"] = new JsonArray(o.OperationAdmission.Assignments.SelectMany(a => a.Effect!.Outputs).Distinct().Select(v => (JsonNode)JsonValue.Create(v)!).ToArray()),
-                ["producers"] = new JsonArray(o.OperationAdmission.Assignments.SelectMany(a => a.Effect!.Producers).Distinct().Select(v => (JsonNode)JsonValue.Create(v)!).ToArray()),
+                ["producers"] = new JsonArray(o.OperationAdmission.Dependencies!.Assignments.Where(a => a.Disposition == "data").Select(a => a.Producer).Distinct().Select(v => (JsonNode)JsonValue.Create(v)!).ToArray()),
+                ["dependencies"] = new JsonArray(o.OperationAdmission.Dependencies.Assignments.Select(a => (JsonNode)new JsonObject
+                { ["producer"] = a.Producer, ["consumer"] = a.Consumer, ["disposition"] = a.Disposition, ["origin"] = a.Origin.ToString(), ["decisionId"] = a.DecisionId }).ToArray()),
                 ["contributions"] = new JsonArray(o.OperationAdmission.Assignments.Select(a => (JsonNode)new JsonObject
                 { ["decisionId"] = a.Effect!.DecisionId, ["contribution"] = a.Effect.Contribution, ["origin"] = a.ResolutionOrigin, ["effectOrigin"] = a.Effect.Origin, ["evidenceFingerprint"] = a.Effect.EvidenceFingerprint,
                     ["selectedEffect"] = a.EffectId, ["governingReference"] = a.ClauseReference }).ToArray()) }).ToArray());

@@ -95,7 +95,17 @@ public enum PlanningRuntimeEvidenceOrigin { Unknown, SourceInterpretation, Engin
 /// <summary>Canonical operation proof; preliminary source labels confer no execution authority.</summary>
 public sealed record PlanningOperationAdmission(int Version, string CanonicalId, string AnchorReference,
     string? BaselineReference, List<PlanningOperationAssignment> Assignments, string EvidenceFingerprint,
-    string ProofFingerprint);
+    string ProofFingerprint)
+{
+    public PlanningOperationDependencyProof? Dependencies { get; init; }
+}
+
+/// <summary>Operation dataflow only. Evidence and decision lineage are independent of page packing.</summary>
+public sealed record PlanningOperationDependencyProof(int Version, string DomainFingerprint,
+    List<PlanningOperationDependencyAssignment> Assignments, string ProofFingerprint);
+public sealed record PlanningOperationDependencyAssignment(string Producer, string Consumer, string Disposition,
+    PlanningDependencyOrigin Origin, List<string> EvidenceReferences, string? DecisionId);
+public enum PlanningDependencyOrigin { Unknown, DeterministicBaseline, DeterministicInterface, ModelSemanticSelection }
 
 /// <summary>Assigned by the coordinator from owned source metadata, never selected by a model.</summary>
 public enum PlanningSourceAuthority { Unknown, RequestedBehavior, ExistingBehavior, ConstraintsOnly }

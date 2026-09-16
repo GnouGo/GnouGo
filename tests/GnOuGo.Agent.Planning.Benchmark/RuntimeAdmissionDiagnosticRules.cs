@@ -37,21 +37,21 @@ internal static class RuntimeAdmissionDiagnosticRules
         void Require(bool condition, string code, string message)
         { if (!condition) throw new WorkflowRuntimeException(code, message); }
         Require(identityDecisions == 0, "DIAGNOSTIC_IDENTITY_DECISION", "The fixture requires deterministic occurrence identity after effect grounding.");
-        Require(operations.Count == (name == "local" ? 1 : 2) && operations.All(o => o.Required && o.OperationAdmission is { Version: 6 }) &&
+        Require(operations.Count == (name == "local" ? 1 : 2) && operations.All(o => o.Required && o.OperationAdmission is { Version: 7, Dependencies.Version: 1 }) &&
             operations.Count(o => o.Kind == "local_processing") == 1 && operations.Count(o => o.Kind == "external_read") == (name == "mixed" ? 1 : 0),
             "DIAGNOSTIC_ADMISSION_MISMATCH", "The frozen fixture requires exactly its declared runtime effects.");
         var local = operations.Single(o => o.Kind == "local_processing");
         var effects = local.OperationAdmission!.Assignments.Select(a => a.Effect!).ToArray();
-        Require(effects.All(e => e is { Version: 2 }) && effects.SelectMany(e => e.Outputs).ToHashSet(StringComparer.Ordinal).SetEquals([output]),
+        Require(effects.All(e => e is { Version: 3 }) && effects.SelectMany(e => e.Outputs).ToHashSet(StringComparer.Ordinal).SetEquals([output]),
             "DIAGNOSTIC_EFFECT_OWNERSHIP", "The transformation must produce the canonical public result.");
         var consumed = effects.SelectMany(e => e.Inputs).ToHashSet(StringComparer.Ordinal);
         if (name == "local") Require(consumed.SetEquals(inputs), "DIAGNOSTIC_INPUT_EFFECT", "The local effect must consume both canonical business inputs.");
         else
         {
             var read = operations.Single(o => o.Kind == "external_read");
-            Require(consumed.Contains(inputs[1]) && effects.SelectMany(e => e.Producers).Contains(read.Id) &&
+            Require(consumed.Contains(inputs[1]) && local.OperationAdmission.Dependencies!.Assignments.Any(a => a.Disposition == "data" && a.Producer == read.Id) &&
                 read.OperationAdmission!.Assignments.SelectMany(a => a.Effect!.Inputs).Contains(inputs[0]) &&
-                !read.OperationAdmission.Assignments.SelectMany(a => a.Effect!.Producers).Contains(local.Id),
+                !read.OperationAdmission.Dependencies!.Assignments.Any(a => a.Disposition == "data" && a.Producer == local.Id),
                 "DIAGNOSTIC_DEPENDENCY_MISMATCH", "Read ownership and read-to-local dataflow must be grounded before relationship assessment.");
         }
     }

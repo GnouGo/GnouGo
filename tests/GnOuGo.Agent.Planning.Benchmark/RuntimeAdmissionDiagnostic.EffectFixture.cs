@@ -13,7 +13,7 @@ internal static partial class RuntimeAdmissionDiagnostic
 {
     // This command never constructs a provider transport or writes a record. The
     // corrected effect answers below are explicitly synthetic fixture facts.
-    internal static async Task EffectFixtureAsync(string id, IKeyVaultRecordStore records)
+    internal static async Task EffectFixtureAsync(string id, IKeyVaultRecordStore records, bool retainMappings = false)
     {
         var ct = CancellationToken.None;
         var captured = await records.GetAsync(Collection, Tenant, id + ":checkpoint", Author, ct)
@@ -26,9 +26,14 @@ internal static partial class RuntimeAdmissionDiagnostic
             .SelectMany(p => p.Decisions).Where(id => id.StartsWith("operation_", StringComparison.Ordinal)).Distinct(StringComparer.Ordinal).Count();
         var historicalEffectDecisions = state.DecisionPages.Where(p => p.Phase == "intent_operations" && p.Status == "completed")
             .SelectMany(p => p.Decisions).Where(id => id.StartsWith("effect_", StringComparison.Ordinal)).Distinct(StringComparer.Ordinal).Count();
+        var historicalProducerSelections = state.DecisionPages.Where(p => p.Status == "completed" && p.Candidate is not null)
+            .SelectMany(p => p.Candidate!).Where(p => p.Value is JsonObject body && body.ContainsKey("producers")).Select(p => p.Key).Distinct().Count();
         var accounting = state.RequestAccounting.Count;
         var declarations = state.DeclarationFingerprint;
-        var client = new EffectFixtureClient(state);
+        var retained = retainMappings ? state.DecisionPages.Where(p => p.Status == "completed" && p.Candidate is not null)
+            .SelectMany(p => p.Candidate!).Where(p => p.Key.StartsWith("effect_", StringComparison.Ordinal)).GroupBy(p => p.Key)
+            .ToDictionary(g => g.Key, g => g.Last().Value!.DeepClone().AsObject(), StringComparer.Ordinal) : null;
+        var client = new EffectFixtureClient(state, retained);
         var runtime = new WorkflowPlanningRuntime(new WorkflowEngine { LLMClient = client, LLMCapabilities = client }, (_, _) => Task.CompletedTask);
         await PlanningOperations.ResolveAsync(state, runtime, ct);
         await PlanningSourceDecisions.RelateAsync(state, runtime, ct);
@@ -51,10 +56,17 @@ internal static partial class RuntimeAdmissionDiagnostic
         var requestFields = requests.SelectMany(r => r.StructuredOutputSchema!["properties"]!.AsObject().Select(p => p.Key)).ToArray();
         Console.WriteLine(new JsonObject
         {
-            ["evidence"] = "Synthetic effect-grounding responses over retained interpretation and declaration fixtures; not historical receipts or live evidence.",
+            ["evidence"] = retainMappings
+                ? "Synthetic producer-free projection of retained effect assignments; no other assignment fields changed. Original receipts remain immutable. Not historical replay or live evidence."
+                : "Synthetic effect-grounding responses over retained interpretation and declaration fixtures; not historical receipts or live evidence.",
             ["sourceIdentity"] = id, ["sourceUnchanged"] = true, ["providerDispatches"] = 0,
             ["historicalStandaloneIdentityDecisions"] = historicalIdentityDecisions,
             ["historicalEffectGroundingDecisions"] = historicalEffectDecisions,
+            ["historicalProducerSelections"] = historicalProducerSelections,
+            ["fixtureProducerSelections"] = 0,
+            ["fixtureDependencyDecisions"] = requestFields.Count(k => k.StartsWith("data_", StringComparison.Ordinal)),
+            ["dependencyProofVersion"] = operations[0].OperationAdmission!.Dependencies!.Version,
+            ["operationProducerEdges"] = operations.Sum(o => o.OperationAdmission!.Dependencies!.Assignments.Count(a => a.Disposition == "data")),
             ["fixtureStandaloneIdentityDecisions"] = requestFields.Count(k => k.StartsWith("operation_", StringComparison.Ordinal)),
             ["fixtureEffectGroundingDecisions"] = requestFields.Count(k => k.StartsWith("effect_", StringComparison.Ordinal)),
             ["realizationDecisions"] = requestFields.Count(k => k.StartsWith("effect_", StringComparison.Ordinal) && !k.StartsWith("effect_governing_", StringComparison.Ordinal)),
@@ -76,7 +88,7 @@ internal static partial class RuntimeAdmissionDiagnostic
         }.ToJsonString());
     }
 
-    private sealed class EffectFixtureClient(PlanningSnapshot state) : ILLMClient, ILLMCapabilityResolver
+    private sealed class EffectFixtureClient(PlanningSnapshot state, Dictionary<string, JsonObject>? retained = null) : ILLMClient, ILLMCapabilityResolver
     {
         internal List<LLMRequest> Requests { get; } = [];
         public Task<bool?> SupportsStructuredOutputAsync(string? provider, string model, CancellationToken ct) => Task.FromResult<bool?>(true);
@@ -94,6 +106,14 @@ internal static partial class RuntimeAdmissionDiagnostic
                     continue;
                 }
                 if (!field.Key.StartsWith("effect_", StringComparison.Ordinal)) throw new InvalidOperationException("No standalone identity decision is permitted by this complete synthetic effect fixture.");
+                if (retained is not null)
+                {
+                    if (!retained.TryGetValue(field.Key, out var original)) throw new InvalidOperationException("The retained fixture has no matching effect assignment.");
+                    var projection = original.DeepClone().AsObject(); projection.Remove("producers");
+                    if (PlanningContractValidation.ValidateInstance(projection, field.Value!.AsObject()).Count != 0)
+                        throw new InvalidOperationException("The explicitly synthetic producer-free projection does not fit the current domain.");
+                    answers[field.Key] = projection; continue;
+                }
                 var scope = OperationEffectFixtures.Scope(state, field.Key);
                 var target = PlanningOperations.EffectDomain(state, scope.Evidence!).Single(p => p.Value.BoundaryKind == "result_realization").Key;
                 var descriptive = PlanningChoiceEvidence.Text(state, scope.Evidence!.ActionReference!) == "This is deterministic, local, in-memory business processing.";

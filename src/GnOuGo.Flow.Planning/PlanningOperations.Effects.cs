@@ -9,7 +9,7 @@ internal static partial class PlanningOperations
     // These indexes are derived request domains. Only completed decision pages and
     // the proofs attached to admitted obligations are persisted.
     internal static string EffectDecisionId(PlanningRuntimeEvidence evidence, bool governing = false) => (governing ? "effect_governing_" : "effect_") + evidence.Id;
-    internal static string EffectFingerprint(PlanningSnapshot state) => "effect-proof-v2:realizations-first:" + EvidenceFingerprint(state);
+    internal static string EffectFingerprint(PlanningSnapshot state) => "effect-proof-v3:admission-dependencies:" + EvidenceFingerprint(state);
 
     internal static string CanonicalId(PlanningSnapshot state, PlanningOperationEffectAnchor effect, string kind, string? baseline)
     {
@@ -70,10 +70,6 @@ internal static partial class PlanningOperations
         left.BaselineReference == right.BaselineReference && left.ResourceAction == right.ResourceAction &&
         left.ResourceOwnership == right.ResourceOwnership;
 
-    private static Dictionary<string, PlanningOperationEffectAnchor> AllEffects(PlanningSnapshot state) =>
-        DeriveScopes(state).SelectMany(s => EffectDomain(state, s.Evidence!)).DistinctBy(p => p.Key, StringComparer.Ordinal)
-            .OrderBy(p => p.Key, StringComparer.Ordinal).ToDictionary(p => p.Key, p => p.Value, StringComparer.Ordinal);
-
     private static JsonObject ReferencesArray(IEnumerable<string> references, int minimum = 0)
     {
         var ids = references.Distinct(StringComparer.Ordinal).Order(StringComparer.Ordinal).ToArray();
@@ -89,7 +85,6 @@ internal static partial class PlanningOperations
         if (!governing && evidence.EvidenceRole != "action") throw Failure(evidence.Id, "Governing evidence cannot establish a realization.");
         var domain = governing ? RealizedDomain(state, evidence, realized!) : EffectDomain(state, evidence);
         if (governing && domain.Count == 0) throw Failure(evidence.Id, "Governing evidence requires a compatible realized effect.");
-        var producers = governing ? RealizedAnchors(state, realized!) : AllEffects(state);
         var sources = PlanningSourceDecisions.Sources(state);
         var references = state.References.Where(r => sources.ContainsKey(r.SourceId) && PlanningChoiceEvidence.Current(state, r.Id) &&
             (r.Id == evidence.ActionReference || r.Id == evidence.ClauseReference ||
@@ -112,15 +107,14 @@ internal static partial class PlanningOperations
                 ("effects", effects),
                 ("inputs", ReferencesArray(state.Declarations.Where(d => d.Direction == "input" && d.WorkflowScope == group.Key).Select(d => d.Id))),
                 ("outputs", ReferencesArray(state.Declarations.Where(d => d.Direction == "output" && d.WorkflowScope == group.Key).Select(d => d.Id))),
-                ("producers", ReferencesArray(producers.Where(p => p.Value.WorkflowScope == group.Key).Select(p => p.Key))),
                 ("evidence", ReferencesArray(references.Select(r => r.Id), 1))));
         }
         return new(EffectDecisionId(evidence, governing), new() { ["anyOf"] = variants }, new()
         {
             ["stage"] = governing ? "effect_governing" : "effect_realizations",
             ["task"] = governing
-                ? "Map this governing contribution to established realized effects. Select one applicable effect, or shared_rule only when the evidence governs every selected effect. Return this contribution's input/output and producer dependencies."
-                : "Determine whether this evidence establishes a runtime effect realization. A result_realization is one construction of the declared result; sharing an output alone does not establish it. Invocation anchors require independently requested execution, an intermediate stage or repeated effect. Rules or descriptive evidence that do not establish a realization return governing without selecting targets. Targets are resolved after realizations exist. For a realization return its complete business-input/output and producer dependencies. Select multiple effect identities only when evidence cannot distinguish them.",
+                ? "Map this governing contribution to established realized effects. Select one applicable effect, or shared_rule only when the evidence governs every selected effect. Return this contribution's public-input/output evidence."
+                : "Determine whether this evidence establishes a runtime effect realization. A result_realization is one construction of the declared result; sharing an output alone does not establish it. Invocation anchors require independently requested execution, an intermediate stage or repeated effect. Rules or descriptive evidence that do not establish a realization return governing without selecting targets. Targets are resolved after realizations exist. For a realization return its complete business-input/output evidence. Select multiple effect identities only when evidence cannot distinguish them.",
             ["action"] = PlanningChoiceEvidence.Text(state, evidence.ActionReference!),
             ["clause"] = PlanningChoiceEvidence.Text(state, evidence.ClauseReference),
             ["kind"] = evidence.Kind,
@@ -131,11 +125,7 @@ internal static partial class PlanningOperations
             ["declarations"] = new JsonObject(state.Declarations.Select(d => new KeyValuePair<string, JsonNode?>(d.Id,
                 new JsonObject { ["name"] = PlanningDeclarations.Name(state, d), ["direction"] = d.Direction, ["scope"] = d.WorkflowScope,
                     ["evidence"] = string.Join(" ", d.ClauseReferences.Distinct().Select(r => PlanningChoiceEvidence.Text(state, r))) }))),
-            ["references"] = new JsonObject(references.Select(r => new KeyValuePair<string, JsonNode?>(r.Id, JsonValue.Create(PlanningChoiceEvidence.Text(state, r.Id))))),
-            ["producerEffects"] = new JsonObject(producers.Where(p => domain.Values.Any(e => e.WorkflowScope == p.Value.WorkflowScope))
-                .Select(p => new KeyValuePair<string, JsonNode?>(p.Key, new JsonObject { ["scope"] = p.Value.WorkflowScope, ["evidence"] =
-                state.Declarations.Any(d => d.Id == p.Value.OwnerReference) ? PlanningDeclarations.Name(state, state.Declarations.Single(d => d.Id == p.Value.OwnerReference)) :
-                PlanningChoiceEvidence.Current(state, p.Value.BoundaryReference) ? PlanningChoiceEvidence.Text(state, p.Value.BoundaryReference) : p.Value.BoundaryKind })))
+            ["references"] = new JsonObject(references.Select(r => new KeyValuePair<string, JsonNode?>(r.Id, JsonValue.Create(PlanningChoiceEvidence.Text(state, r.Id)))))
         }, governing ? GoverningFingerprint(state, realized!) : EffectFingerprint(state));
     }
 
@@ -156,8 +146,6 @@ internal static partial class PlanningOperations
         }
         var candidates = Values("effects").Select(id => domain[id]).ToList();
         var inputs = Values("inputs"); var outputs = Values("outputs"); var refs = Values("evidence");
-        var producerIds = Values("producers");
-        var producers = realized is null ? AllEffects(state) : RealizedAnchors(state, realized);
         if (candidates.Select(c => c.WorkflowScope).Distinct(StringComparer.Ordinal).Count() > 1)
             throw Failure(scope.Evidence!.Id, "An effect assignment cannot combine incompatible workflow scopes.");
         if (status is "mapped" or "governing" && !refs.Contains(scope.Evidence!.ClauseReference) && !refs.Contains(scope.Evidence!.ActionReference!))
@@ -166,13 +154,11 @@ internal static partial class PlanningOperations
         {
             if (inputs.Concat(outputs).Any(id => state.Declarations.Single(d => d.Id == id).WorkflowScope != candidate.WorkflowScope))
                 throw Failure(scope.Evidence!.Id, "Effect dataflow crosses an unestablished workflow boundary.");
-            if (producerIds.Any(id => !producers.TryGetValue(id, out var producer) || producer.WorkflowScope != candidate.WorkflowScope))
-                throw Failure(scope.Evidence!.Id, "A foreign producer requires an established effect in the consuming workflow scope.");
             if (candidate.BoundaryKind == "result_realization" && answer["contribution"]?.ToString() == "realizes" && !outputs.Contains(candidate.OwnerReference))
                 throw Failure(scope.Evidence!.Id, "A result realization must establish production of its exact owned result.");
         }
-        return new(2, decision.Id, status == "not_an_effect" ? "none" : status == "governing" ? "pending_governing" : answer["contribution"]!.ToString(), candidates,
-            inputs, outputs, producerIds, refs, "model", decision.EvidenceFingerprint);
+        return new(3, decision.Id, status == "not_an_effect" ? "none" : status == "governing" ? "pending_governing" : answer["contribution"]!.ToString(), candidates,
+            inputs, outputs, [], refs, "model", decision.EvidenceFingerprint);
     }
 
     internal static PlanningOperationEffectProof BaselineEffect(PlanningSnapshot state, Scope scope)
@@ -183,7 +169,7 @@ internal static partial class PlanningOperations
         var graph = state.Request.Baseline!;
         var workflow = graph.Workflows.Single(w => w.Key == node.Workflow);
         var inputs = PlanningDataflow.BusinessInputs(workflow, node.Node);
-        return new(2, EffectDecisionId(evidence), evidence.EvidenceRole == "action" ? "realizes" : "governs", [anchor],
+        return new(3, EffectDecisionId(evidence), evidence.EvidenceRole == "action" ? "realizes" : "governs", [anchor],
             state.Declarations.Where(d => d.Direction == "input" && d.WorkflowScope == node.Workflow && inputs.Contains(PlanningDeclarations.Name(state, d))).Select(d => d.Id).Order(StringComparer.Ordinal).ToList(),
             [], [], [evidence.ClauseReference], "baseline", EffectFingerprint(state));
     }
@@ -200,7 +186,7 @@ internal static partial class PlanningOperations
     private static void ValidateEffect(PlanningSnapshot state, PlanningOperationAssignment assignment)
     {
         var effect = assignment.Effect ?? throw Failure(assignment.ClauseReference, "Current effect ownership proof is required.", "INTENT_OPERATION_PROOF_MISSING");
-        if (effect.Version != 2)
+        if (effect.Version != 3 || effect.Producers.Count != 0)
             throw Failure(assignment.ClauseReference, "Effect ownership proof is stale.", "INTENT_OPERATION_PROOF_MISSING");
         var scope = DeriveScopes(state).Single(s => s.Evidence!.Id == assignment.RuntimeEvidenceId);
         PlanningOperationEffectProof expected;
@@ -229,25 +215,4 @@ internal static partial class PlanningOperations
         return root.Effect!.Candidates.Single(a => CanonicalId(state, a, root.Kind, root.BaselineReference) == operation.Id);
     }
 
-    internal static IEnumerable<PlanningObligationRelation> EffectRelations(IEnumerable<PlanningObligation> operations) =>
-        operations.SelectMany(o => o.OperationAdmission!.Assignments.SelectMany(a => a.Effect!.Inputs.Concat(a.Effect.Producers))
-            .Distinct(StringComparer.Ordinal).Select(p => new PlanningObligationRelation(p, o.Id, "data")));
-
-    private static void ValidateEffectDependencies(PlanningSnapshot state, IReadOnlyList<PlanningObligation> operations)
-    {
-        var ids = operations.Select(o => o.Id).ToHashSet(StringComparer.Ordinal);
-        var relations = EffectRelations(operations).ToArray();
-        foreach (var relation in relations)
-            if (!ids.Contains(relation.Producer) && !state.Declarations.Any(d => d.Id == relation.Producer && d.Direction == "input"))
-                throw Failure(relation.Consumer, "A producer effect has no admitted realization.");
-        var visited = new HashSet<string>(StringComparer.Ordinal); var visiting = new HashSet<string>(StringComparer.Ordinal);
-        void Visit(string id)
-        {
-            if (visited.Contains(id)) return;
-            if (!visiting.Add(id)) throw Failure(id, "Grounded effects contain a dependency cycle.");
-            foreach (var relation in relations.Where(r => r.Consumer == id && ids.Contains(r.Producer))) Visit(relation.Producer);
-            visiting.Remove(id); visited.Add(id);
-        }
-        foreach (var id in ids) Visit(id);
-    }
 }

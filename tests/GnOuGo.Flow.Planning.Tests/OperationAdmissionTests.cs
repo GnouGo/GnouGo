@@ -205,12 +205,15 @@ public sealed class OperationAdmissionTests
         var first = Add(state, 0); Add(state, 1); Add(state, 2, evidenceRole: "governing");
         var runtime = new TypedPlannerTests.FakeRuntime { OnCall = (phase, request, _) =>
         {
-            Assert.Equal("intent_operations", phase); var field = request.StructuredOutputSchema!["properties"]!.AsObject().Single();
+            Assert.Equal("intent_operations", phase);
+            if (request.StructuredOutputSchema!["properties"]!.AsObject().All(p => p.Key.StartsWith("data_", StringComparison.Ordinal)))
+                return Task.FromResult(new LLMResponse { Json = OperationEffectFixtures.Response(state, request), CompletionStatus = "completed" });
+            var field = request.StructuredOutputSchema!["properties"]!.AsObject().Single();
             Assert.DoesNotContain("external_write", field.Value!.ToJsonString()); Assert.DoesNotContain("resource_lifecycle", field.Value.ToJsonString());
             return Task.FromResult(new LLMResponse { Json = OperationEffectFixtures.Response(state, request), CompletionStatus = "completed" });
         } };
         OperationEffectFixtures.Seed(state, rootsOnly: true);
-        await PlanningOperations.ResolveAsync(state, runtime, Ct); Assert.Single(runtime.Requests);
+        await PlanningOperations.ResolveAsync(state, runtime, Ct); Assert.Single(runtime.Requests, r => r.StructuredOutputSchema!["properties"]!.AsObject().Any(p => p.Key.StartsWith("effect_", StringComparison.Ordinal)));
         var restored = JsonSerializer.Deserialize(JsonSerializer.Serialize(state, PlanningJsonContext.Default.PlanningSnapshot), PlanningJsonContext.Default.PlanningSnapshot)!;
         await ResolveGrounded(restored, NoModel(), Ct); Assert.Equal(state.OperationAdmissionFingerprint, restored.OperationAdmissionFingerprint);
     }
