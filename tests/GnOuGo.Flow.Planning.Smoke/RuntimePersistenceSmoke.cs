@@ -277,11 +277,8 @@ internal static class RuntimePersistenceSmoke
                         Json = new JsonObject(fields.Select(p => new KeyValuePair<string, JsonNode?>(p.Key,
                             OperationEffectFixtures.DependencyAnswer(p.Value!.AsObject(), p.Key == edge)))) });
                 }
-                var first = PlanningOperations.Scopes(state).First(scope => scope.Evidence!.EvidenceRole == "action");
-                var target = PlanningOperations.EffectDomain(state, first.Evidence!).Single(p => p.Value.BoundaryReference == first.Evidence!.ActionReference).Key;
                 return Task.FromResult(new LLMResponse { CompletionStatus = "completed", Usage = new JsonObject { ["total_tokens"] = 2 },
-                    Json = new JsonObject(fields.Select(p => new KeyValuePair<string, JsonNode?>(p.Key,
-                        OperationEffectFixtures.Answer(state, OperationEffectFixtures.Scope(state, p.Key), [target])))) });
+                    Json = OperationEffectFixtures.Response(state, request) });
             }
             if (DeclarationAnswers is { } answers)
             {

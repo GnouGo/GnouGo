@@ -125,7 +125,17 @@ public sealed record PlanningOperationAdmission(int Version, string CanonicalId,
     string ProofFingerprint)
 {
     public PlanningOperationDependencyProof? Dependencies { get; init; }
+    public PlanningRealizationCoverageProof? RealizationCoverage { get; init; }
 }
+
+/// <summary>Complete effect-owned realization authority, reconstructed from existing durable decision pages.</summary>
+public sealed record PlanningRealizationCoverageProof(int Version, string DecisionId, string DomainFingerprint,
+    List<string> SelectedEffects, List<PlanningRealizationContribution> Contributions,
+    List<PlanningRealizedEffect> Effects, string ProofFingerprint);
+public sealed record PlanningRealizationContribution(string RuntimeEvidenceId, string Disposition,
+    List<string> Effects, List<string> EvidenceReferences);
+public sealed record PlanningRealizedEffect(string Id, PlanningOperationEffectAnchor Anchor,
+    List<string> SupportingEvidence, List<string> Inputs, List<string> Outputs);
 
 /// <summary>Operation dataflow only. Evidence and decision lineage are independent of page packing.</summary>
 public sealed record PlanningOperationDependencyProof(int Version, string DomainFingerprint,

@@ -66,13 +66,15 @@ canonical ID. A second restart dispatches nothing. Both fixtures run in the publ
 Native AOT binary, using synthetic transports rather than historical model receipts.
 
 The operation fixture first parses three identical copies of each action/governing
-assignment into one normalized evidence item, then persists completed realization pages before admission
+assignment into one normalized evidence item, then persists completed joint coverage pages before admission
 commits. The synthetic outputless action carries explicit owned invocation-boundary evidence. Encrypted restart reuses the realization receipts, attaches a governing rule to the
 single canonical operation, and verifies a second restart adds no
 calls or repair charges. The first action has unspecified necessity, the reused action has explicit required evidence, and the governing rule has unspecified necessity. Restart verifies one required canonical operation and its evidence. Runtime evidence uses action/governing roles without source-clause
-targets; occurrence-boundary proof 1 and operation proof 9 remain in Schema-5 storage.
+targets; occurrence-boundary proof 1 and realization coverage proof 1, effect proof 5 and operation proof 10 remain in Schema-5 storage.
 
 The admission dependency smoke journals synthetic, evidence-bound data decisions
 between two established operations, closes before atomic admission, then reopens
 twice. Canonical edges, per-edge origins and fingerprints survive encrypted
 persistence without another request or a repair charge.
+
+The coverage proof is encrypted with the existing admission record. Aggregate executable support and governing mappings survive restart without a distinguished first assignment. The trimmed Agent.Server smoke also round-trips explicit optional omission evidence through generated serialization.

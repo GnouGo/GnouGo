@@ -95,6 +95,16 @@ internal static class PlanningSourceDecisions
         List<PlanningObligation> obligations, CancellationToken ct)
     {
         if (state.BehaviorRevision is not { } revision) return obligations;
+        var (decisions, owners) = RevisionDomain(state, obligations);
+        var choices = await PlanningDecisionPages.ResolveAsync(state, runtime, "behavior_revision_obligations", "$plan", decisions, ct);
+        var superseded = choices.Where(p => p.Value!.ToString() != "retained").Select(p => owners[p.Key]).ToHashSet(StringComparer.Ordinal);
+        return obligations.Where(o => !superseded.Contains(o.Id)).ToList();
+    }
+
+    private static (List<PlanningDecisionPages.Decision> Decisions, Dictionary<string, string> Owners) RevisionDomain(
+        PlanningSnapshot state, List<PlanningObligation> obligations)
+    {
+        var revision = state.BehaviorRevision!;
         var references = PlanningReferences.Register(state, "revision", "user_revision", revision.Text);
         var decisions = new List<PlanningDecisionPages.Decision>();
         var owners = new Dictionary<string, string>(StringComparer.Ordinal);
@@ -110,9 +120,16 @@ internal static class PlanningSourceDecisions
                 ["task"] = "Keep an obligation that still governs the revised workflow. Select the exact revision reference only when it explicitly removes or supersedes this obligation, or this span describes a removal instruction rather than an operation to execute. Unrelated obligations remain retained. Absence of evidence on this page means retained."
             }, PlanningGraphCompiler.Fingerprint(string.Join("|", obligation.EvidenceReferences) + ":" + revision.Text)));
         }
-        var choices = await PlanningDecisionPages.ResolveAsync(state, runtime, "behavior_revision_obligations", "$plan", decisions, ct);
-        var superseded = choices.Where(p => p.Value!.ToString() != "retained").Select(p => owners[p.Key]).ToHashSet(StringComparer.Ordinal);
-        return obligations.Where(o => !superseded.Contains(o.Id)).ToList();
+        return (decisions, owners);
+    }
+
+    internal static List<PlanningObligation> ReadRevisionProjection(PlanningSnapshot state, List<PlanningObligation> obligations)
+    {
+        if (state.BehaviorRevision is null) return obligations;
+        var (decisions, owners) = RevisionDomain(state, obligations);
+        var choices = PlanningDecisionPages.ReadCompleted(state, "behavior_revision_obligations", "$plan", decisions);
+        var removed = choices.Where(p => p.Value!.ToString() != "retained").Select(p => owners[p.Key]).ToHashSet(StringComparer.Ordinal);
+        return obligations.Where(o => !removed.Contains(o.Id)).ToList();
     }
 
     internal static async Task RelateAsync(PlanningSnapshot state, IPlanningRuntime runtime, CancellationToken ct)
@@ -156,7 +173,7 @@ internal static class PlanningSourceDecisions
 
     internal static bool IsOperation(PlanningObligation obligation) => PlanningSourceGroundingRules.OperationKinds.Contains(obligation.Kind, StringComparer.Ordinal) &&
         obligation.Grounding?.Role is PlanningSourceSemanticRole.RequestedAction or PlanningSourceSemanticRole.ExistingAction && obligation.Disposition == "admitted" &&
-        obligation.OperationAdmission is { Version: 9, Dependencies.Version: 1 } proof && proof.CanonicalId == obligation.Id;
+        obligation.OperationAdmission is { Version: 10, Dependencies.Version: 1 } proof && proof.CanonicalId == obligation.Id;
 
     private static JsonObject AnnotationSchema(PlanningBaselineOwnership owner, JsonObject boundaries)
     {

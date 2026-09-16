@@ -1,0 +1,577 @@
+{
+  "outcome": "OFFLINE_PASS",
+  "baseHead": "dbc2e10c1ddc93b80649aeab444fce01730ff601",
+  "historicalProduction": "cfc058fd52183854d09b2540b9f57d1e337797f9",
+  "liveProviderDispatches": 0,
+  "liveLocal": "not run",
+  "liveMixed": "not run",
+  "stage1": "not run",
+  "proofVersions": {
+    "realizationCoverage": 1,
+    "effect": 5,
+    "admission": 10,
+    "occurrence": 1,
+    "source": 6,
+    "runtime": 6,
+    "declaration": 5,
+    "dependency": 1,
+    "baselineProjection": 1,
+    "storage": 5
+  },
+  "solution": {
+    "assemblies": 29,
+    "passed": 3579,
+    "failed": 0,
+    "skipped": 1
+  },
+  "plannerPassed": 1038,
+  "focusedOperationPassed": 156,
+  "focusedHarnessPassed": 79,
+  "productionSourceHashes": {
+    "src/GnOuGo.Agent.Server/Planning/PlanningPersistenceSmoke.cs": "47fc87461b849025a3c7bbbed150713be8e23b52b7bec1b82d7473141268053d",
+    "src/GnOuGo.Flow.Core/Planning/PlanningContracts.cs": "43d00319b594c6e7e5601a2e14d209bcb4962de56aa2f9e9eddfcf2c56e37226",
+    "src/GnOuGo.Flow.Core/Planning/PlanningDecisionState.cs": "0be82a5c8fb7691ccf965a362f9bed503f842f81c332e11bc707643ae038bb82",
+    "src/GnOuGo.Flow.Planning/PlanningOperations.Decisions.cs": "47dab06fc1427637ac2d1d13459b49ec43b56de52e0250917f7fdea8eca29fd4",
+    "src/GnOuGo.Flow.Planning/PlanningOperations.Effects.cs": "1a895e9c8f045dcfc69c1d076724e578aa09a8a8542a16fe87730add0d7b08d9",
+    "src/GnOuGo.Flow.Planning/PlanningOperations.Governing.cs": "dff25d7dca649948c0768ea69243ba50e5e6dde2775c5cf332c19ef9df36d00d",
+    "src/GnOuGo.Flow.Planning/PlanningOperations.RealizationCoverage.cs": "144b0713603f1c139d5f0a6a8441047b96d35fea9b7febbedcd70a1693c3feb7",
+    "src/GnOuGo.Flow.Planning/PlanningOperations.cs": "c098975b4cf117cd68e8160a1d6a6bca6c78a165551a59ddfc29e5caa168bccc",
+    "src/GnOuGo.Flow.Planning/PlanningSourceDecisions.cs": "27cb2c38f93cbe610b3741edaa064bb3051aa0af07fe2849a66c78edc3a14cc1"
+  },
+  "logs": {
+    "solution-build": {
+      "path": "/tmp/coverage-solution-build.log",
+      "sha256": "9b1d69d235436f7ea43124f4beafa28d7e9b33376d88e069cde632e27c71fac0",
+      "warningLines": [],
+      "errorLines": []
+    },
+    "solution-tests-final": {
+      "path": "/tmp/coverage-solution-tests-final.log",
+      "sha256": "c0caa68014f672280e8fb58967adac845d8118aedb7cf6c2aeba54a30d57e9dc",
+      "warningLines": [],
+      "errorLines": []
+    },
+    "harness-build": {
+      "path": "/tmp/coverage-harness-build.log",
+      "sha256": "7f65f6b9b31c8155529c5def50b0c82eff1b23ff2fa29e6957951f1b42044897",
+      "warningLines": [],
+      "errorLines": []
+    },
+    "focused-planner": {
+      "path": "/tmp/coverage-focused-planner.log",
+      "sha256": "0dcf02fb259e04a34e9ae8598c4db2753a8fc08ad2b8946ea875a1a4a64972c7",
+      "warningLines": [],
+      "errorLines": []
+    },
+    "focused-harness": {
+      "path": "/tmp/coverage-focused-harness.log",
+      "sha256": "aca97a66e8c747857d56b859ffdf2349cdbae5fc98dbb6c21352c749d0da5c8f",
+      "warningLines": [],
+      "errorLines": []
+    },
+    "agent-ui": {
+      "path": "/tmp/coverage-agent-ui.log",
+      "sha256": "87b74fd5b231de5d9760d665dabb8f4bc6bdf38992bb8bcace88329d31b8b99e",
+      "warningLines": [],
+      "errorLines": []
+    },
+    "flow-ui": {
+      "path": "/tmp/coverage-flow-ui.log",
+      "sha256": "35b87f795e22941130fc5661413b08f2d0faf98f9cc5588958299537fb95ad75",
+      "warningLines": [],
+      "errorLines": []
+    },
+    "aot-publish": {
+      "path": "/tmp/coverage-aot-publish.log",
+      "sha256": "b12693419163e92cde8d6131b6c2917d0839d988d76f84e12d2d9357375cc093",
+      "warningLines": [],
+      "errorLines": []
+    },
+    "aot-smoke": {
+      "path": "/tmp/coverage-aot-smoke.log",
+      "sha256": "cc4974b912f47ba80759bf415865058edd130243b5b065b8d55ad33b0c7cb3c9",
+      "warningLines": [],
+      "errorLines": []
+    },
+    "trim-publish": {
+      "path": "/tmp/coverage-trim-publish.log",
+      "sha256": "4449d4eda6d34bd45be2a32d45c47577075ad17e5eb0ab4f0f842663f088a08e",
+      "warningLines": [],
+      "errorLines": []
+    },
+    "trim-smoke": {
+      "path": "/tmp/coverage-trim-smoke.log",
+      "sha256": "5f54ccaa81322a2a9eb53cbb28b18f962f3eb3e4f87760fae6527699ebf9746a",
+      "warningLines": [],
+      "errorLines": []
+    },
+    "reference-selfcheck": {
+      "path": "/tmp/coverage-reference-selfcheck.log",
+      "sha256": "9f686a870f72a700efbe21e3d94c0d71eae57b32ae676ab697fde5460eeb65ba",
+      "warningLines": [],
+      "errorLines": []
+    },
+    "pack-Flow.Core": {
+      "path": "/tmp/coverage-pack-Flow.Core.log",
+      "sha256": "a86b2f5133f454dbecfadef0648978724e13815099f1231ad02e3565ddec9f13",
+      "warningLines": [],
+      "errorLines": []
+    },
+    "pack-Flow.Planning": {
+      "path": "/tmp/coverage-pack-Flow.Planning.log",
+      "sha256": "93cada7491eb00840aeca07b4ed80ccd3f7efc0b6976d8c6f1682dcbd272f784",
+      "warningLines": [],
+      "errorLines": []
+    },
+    "pack-Flow.Integrations": {
+      "path": "/tmp/coverage-pack-Flow.Integrations.log",
+      "sha256": "58ad91dfdb05abe14ebd9b5888d959b054ba11fbd05578c570d810bd77984c46",
+      "warningLines": [],
+      "errorLines": []
+    },
+    "pack-Agent.Shared": {
+      "path": "/tmp/coverage-pack-Agent.Shared.log",
+      "sha256": "c82c9595030237ad8e80f7355804846391ed36237ea3df67d0ed14b244fe809b",
+      "warningLines": [],
+      "errorLines": []
+    }
+  },
+  "historicalReplay": {
+    "identity": "schema5-occurrence-boundaries-mixed-diagnostics-1:mixed",
+    "providerDispatches": 0,
+    "sourceUnchanged": true,
+    "checkpointFingerprint": "e42d8b7dca6a60767e56604488f124cd30bdf090c11da26d586941961ecdd84b",
+    "receiptChecks": [
+      {
+        "requestId": "schema5-occurrence-boundaries-mixed-diagnostics-1:mixed:0:1:intent:response_contract:93beceaf3191e878:page_b80f8ea870e61befffc251dd5c480591407db4f38c2380417016695cd9332134:d502d16b9452defefd0bf330acf0d414fe03d02240ff92ae8b387dcabf737b48",
+        "requestFingerprint": "42c92a55ce383301391dece601add03f1e7d5ca6c15efe3b467c9b69bfe37464",
+        "receiptFingerprint": "851ffac3be73b3ffcad04492848de65ce925e61a0ee7577c29e85fb9ac9d221c",
+        "completionStatus": null,
+        "malformedJson": false,
+        "schemaFindings": 0
+      },
+      {
+        "requestId": "schema5-occurrence-boundaries-mixed-diagnostics-1:mixed:0:2:intent:response_contract:93beceaf3191e878:page_c282f122c0e789dd527e5849a5b5ab1f3432879f4c85889b4252408f546cc35a:6c24b8d37e7a87ce3c7e0df14998bcad4a41eeb724478a2561404a2006f88454",
+        "requestFingerprint": "4c70ce8f4de58824f3d1ead7ec2c42878eb580fda8c4c2ee8b3e5dfdd2878a11",
+        "receiptFingerprint": "68f1242ae1cada41eea24e283960a2579612fa6aac4b87fe6d3f7c39c4fb6cdc",
+        "completionStatus": null,
+        "malformedJson": false,
+        "schemaFindings": 0
+      },
+      {
+        "requestId": "schema5-occurrence-boundaries-mixed-diagnostics-1:mixed:0:3:intent:response_contract:93beceaf3191e878:page_6f70be0b27b930e7a6edd533b10069ac94e91ba4aa82955df572e7d74ac88b0b:e1e2787be6e4bebe2db9cf179630c105d808640b51a01240bc40a8e6788f5317",
+        "requestFingerprint": "8d177daee94149c4bbf9cd78067514c004b1579689fd31944bd0b6d5de55d899",
+        "receiptFingerprint": "dd846f2572f59e32a1d341132d7c27ff198bc11651b3bb0d839bb7d264800c32",
+        "completionStatus": null,
+        "malformedJson": false,
+        "schemaFindings": 0
+      },
+      {
+        "requestId": "schema5-occurrence-boundaries-mixed-diagnostics-1:mixed:0:4:intent:response_contract:93beceaf3191e878:page_f17ba7d63565425edc5eaf0f42f761a54e42c26ef63ba0aec3815b55ef526abc:3973b19f8a8624c189045554f31370c9dba3458b8d23bbaf86fa82503038cef7",
+        "requestFingerprint": "9b076663ba8f83d8171cb36844d8bbe13894f065e73a044b9aab272844cf553c",
+        "receiptFingerprint": "0511e230b08b690b30d289989979d8b2f149ae57b7256d3ba67b2ad601944f59",
+        "completionStatus": null,
+        "malformedJson": false,
+        "schemaFindings": 0
+      },
+      {
+        "requestId": "schema5-occurrence-boundaries-mixed-diagnostics-1:mixed:0:5:intent:response_contract:93beceaf3191e878:page_0f26cc95d3da19f0f42ab7a916d1c701417cbfc821ba61b41a44b5e1025deedc:4222a20664ada609faafbdf3f4613330a09d09e8a6710bc3cdc2e5c950cb08d0",
+        "requestFingerprint": "9d7fc274cadd4e3d99ae5fb4f9e2c907a014aafcb40c608bca613f9a8486bbfd",
+        "receiptFingerprint": "7554b35f6c8027a98056a35783e900eec21edc1dabc5a164e38a812c9a06757d",
+        "completionStatus": null,
+        "malformedJson": false,
+        "schemaFindings": 0
+      },
+      {
+        "requestId": "schema5-occurrence-boundaries-mixed-diagnostics-1:mixed:0:6:intent:response_contract:93beceaf3191e878:page_b1b4fab2c1525227475087f51cc7c14d6014cf0412df9414afaba96409d2b2f7:3b2e5fb269a4e315d073caeaecb202644021444fed0a190240f6734df285fce2",
+        "requestFingerprint": "174bbf0252933bea74428e9d4356846156da83e74d3838fd5ff4d435883c3ffa",
+        "receiptFingerprint": "fb41cbb705aa497cd919776ba1656bf4d8ce6abb60621d7ed4f28d2d6a110ee7",
+        "completionStatus": null,
+        "malformedJson": false,
+        "schemaFindings": 0
+      },
+      {
+        "requestId": "schema5-occurrence-boundaries-mixed-diagnostics-1:mixed:0:7:intent:response_contract:93beceaf3191e878:page_9fefc5a767c1825af92ad09f5de73f2d54f21d1da3d92739d149f8c96d1f5710:858c85c2f0261a11c313fe6c262c90a3b5b5e21ac3e386ab8630ee12cce122d8",
+        "requestFingerprint": "d23465a889dabb447f5fc4b997784ce7a0ec69a831ccc855c82675d1430b56ca",
+        "receiptFingerprint": "85ad7068413a0744b3bf2d214e524c3861671baa2823bc100c8e184c094064b7",
+        "completionStatus": null,
+        "malformedJson": false,
+        "schemaFindings": 0
+      },
+      {
+        "requestId": "schema5-occurrence-boundaries-mixed-diagnostics-1:mixed:0:8:intent:response_contract:93beceaf3191e878:page_2a2923e48a2bd030400330c5744a058229a42df8d29d818c09a3f5df21c83bd9:78d28a84b01e6b6171afdce90a397c1e0160ce4bdf07c1294014a69fcc0e0226",
+        "requestFingerprint": "9db583583805fbe116a3091b1c404803a9e28932fd92b18781546747d966a5f5",
+        "receiptFingerprint": "a39d759e2d1eac9cbaa3630fbb21289289a2827952c8cc58bdde4efb16f7b2a2",
+        "completionStatus": null,
+        "malformedJson": false,
+        "schemaFindings": 0
+      },
+      {
+        "requestId": "schema5-occurrence-boundaries-mixed-diagnostics-1:mixed:0:9:intent:response_contract:93beceaf3191e878:page_b61cd4d97c8532978803b2ca0af934a28c2b89fc41b1f7dbd3362cf36a49bf7d:c37ffe6d72db1078775f6b7055430c8cad1d55bb263833bd023e7f8f3f25ac63",
+        "requestFingerprint": "f6a935de9f79702e284d5ce3b253fb81b11a8d5d18f4837ba9c3cf5533cad740",
+        "receiptFingerprint": "97129653b8aec07d27a40a432347dccc447b4c4abfc6f767638825734c94be7c",
+        "completionStatus": null,
+        "malformedJson": false,
+        "schemaFindings": 0
+      },
+      {
+        "requestId": "schema5-occurrence-boundaries-mixed-diagnostics-1:mixed:0:10:intent_operations:response_contract:93beceaf3191e878:page_8952583bd67eccaa32a2ac5d77a83170f7a27254f9b291ab3f5c93b270235fd9:d7b275d9c3f2b6aeb5f6ec1989b3498cbe2e913cd0e26206e8e08f4e84132e56",
+        "requestFingerprint": "259dfd5c0c314b54169299f3e1ab6f0177d7283136635bcd0ee5e39cbff4bb1e",
+        "receiptFingerprint": "6132b29b5e1a78c9cd5abccb37d272253aac40b61cfa16f7cbb3bf40db894f14",
+        "completionStatus": null,
+        "malformedJson": false,
+        "schemaFindings": 0
+      }
+    ],
+    "historicalSubjectSelections": 0,
+    "replayedReceipts": 0,
+    "blocker": "INTENT_OPERATION_UNRESOLVED",
+    "location": "/operations/@runtime_082f2a85c350348c8f13eb21"
+  },
+  "strictChangedRequestReplay": {
+    "identity": "schema5-occurrence-boundaries-mixed-diagnostics-1:mixed",
+    "providerDispatches": 0,
+    "sourceUnchanged": true,
+    "checkpointFingerprint": "e42d8b7dca6a60767e56604488f124cd30bdf090c11da26d586941961ecdd84b",
+    "receiptChecks": [
+      {
+        "requestId": "schema5-occurrence-boundaries-mixed-diagnostics-1:mixed:0:1:intent:response_contract:93beceaf3191e878:page_b80f8ea870e61befffc251dd5c480591407db4f38c2380417016695cd9332134:d502d16b9452defefd0bf330acf0d414fe03d02240ff92ae8b387dcabf737b48",
+        "requestFingerprint": "42c92a55ce383301391dece601add03f1e7d5ca6c15efe3b467c9b69bfe37464",
+        "receiptFingerprint": "851ffac3be73b3ffcad04492848de65ce925e61a0ee7577c29e85fb9ac9d221c",
+        "completionStatus": null,
+        "malformedJson": false,
+        "schemaFindings": 0
+      },
+      {
+        "requestId": "schema5-occurrence-boundaries-mixed-diagnostics-1:mixed:0:2:intent:response_contract:93beceaf3191e878:page_c282f122c0e789dd527e5849a5b5ab1f3432879f4c85889b4252408f546cc35a:6c24b8d37e7a87ce3c7e0df14998bcad4a41eeb724478a2561404a2006f88454",
+        "requestFingerprint": "4c70ce8f4de58824f3d1ead7ec2c42878eb580fda8c4c2ee8b3e5dfdd2878a11",
+        "receiptFingerprint": "68f1242ae1cada41eea24e283960a2579612fa6aac4b87fe6d3f7c39c4fb6cdc",
+        "completionStatus": null,
+        "malformedJson": false,
+        "schemaFindings": 0
+      },
+      {
+        "requestId": "schema5-occurrence-boundaries-mixed-diagnostics-1:mixed:0:3:intent:response_contract:93beceaf3191e878:page_6f70be0b27b930e7a6edd533b10069ac94e91ba4aa82955df572e7d74ac88b0b:e1e2787be6e4bebe2db9cf179630c105d808640b51a01240bc40a8e6788f5317",
+        "requestFingerprint": "8d177daee94149c4bbf9cd78067514c004b1579689fd31944bd0b6d5de55d899",
+        "receiptFingerprint": "dd846f2572f59e32a1d341132d7c27ff198bc11651b3bb0d839bb7d264800c32",
+        "completionStatus": null,
+        "malformedJson": false,
+        "schemaFindings": 0
+      },
+      {
+        "requestId": "schema5-occurrence-boundaries-mixed-diagnostics-1:mixed:0:4:intent:response_contract:93beceaf3191e878:page_f17ba7d63565425edc5eaf0f42f761a54e42c26ef63ba0aec3815b55ef526abc:3973b19f8a8624c189045554f31370c9dba3458b8d23bbaf86fa82503038cef7",
+        "requestFingerprint": "9b076663ba8f83d8171cb36844d8bbe13894f065e73a044b9aab272844cf553c",
+        "receiptFingerprint": "0511e230b08b690b30d289989979d8b2f149ae57b7256d3ba67b2ad601944f59",
+        "completionStatus": null,
+        "malformedJson": false,
+        "schemaFindings": 0
+      },
+      {
+        "requestId": "schema5-occurrence-boundaries-mixed-diagnostics-1:mixed:0:5:intent:response_contract:93beceaf3191e878:page_0f26cc95d3da19f0f42ab7a916d1c701417cbfc821ba61b41a44b5e1025deedc:4222a20664ada609faafbdf3f4613330a09d09e8a6710bc3cdc2e5c950cb08d0",
+        "requestFingerprint": "9d7fc274cadd4e3d99ae5fb4f9e2c907a014aafcb40c608bca613f9a8486bbfd",
+        "receiptFingerprint": "7554b35f6c8027a98056a35783e900eec21edc1dabc5a164e38a812c9a06757d",
+        "completionStatus": null,
+        "malformedJson": false,
+        "schemaFindings": 0
+      },
+      {
+        "requestId": "schema5-occurrence-boundaries-mixed-diagnostics-1:mixed:0:6:intent:response_contract:93beceaf3191e878:page_b1b4fab2c1525227475087f51cc7c14d6014cf0412df9414afaba96409d2b2f7:3b2e5fb269a4e315d073caeaecb202644021444fed0a190240f6734df285fce2",
+        "requestFingerprint": "174bbf0252933bea74428e9d4356846156da83e74d3838fd5ff4d435883c3ffa",
+        "receiptFingerprint": "fb41cbb705aa497cd919776ba1656bf4d8ce6abb60621d7ed4f28d2d6a110ee7",
+        "completionStatus": null,
+        "malformedJson": false,
+        "schemaFindings": 0
+      },
+      {
+        "requestId": "schema5-occurrence-boundaries-mixed-diagnostics-1:mixed:0:7:intent:response_contract:93beceaf3191e878:page_9fefc5a767c1825af92ad09f5de73f2d54f21d1da3d92739d149f8c96d1f5710:858c85c2f0261a11c313fe6c262c90a3b5b5e21ac3e386ab8630ee12cce122d8",
+        "requestFingerprint": "d23465a889dabb447f5fc4b997784ce7a0ec69a831ccc855c82675d1430b56ca",
+        "receiptFingerprint": "85ad7068413a0744b3bf2d214e524c3861671baa2823bc100c8e184c094064b7",
+        "completionStatus": null,
+        "malformedJson": false,
+        "schemaFindings": 0
+      },
+      {
+        "requestId": "schema5-occurrence-boundaries-mixed-diagnostics-1:mixed:0:8:intent:response_contract:93beceaf3191e878:page_2a2923e48a2bd030400330c5744a058229a42df8d29d818c09a3f5df21c83bd9:78d28a84b01e6b6171afdce90a397c1e0160ce4bdf07c1294014a69fcc0e0226",
+        "requestFingerprint": "9db583583805fbe116a3091b1c404803a9e28932fd92b18781546747d966a5f5",
+        "receiptFingerprint": "a39d759e2d1eac9cbaa3630fbb21289289a2827952c8cc58bdde4efb16f7b2a2",
+        "completionStatus": null,
+        "malformedJson": false,
+        "schemaFindings": 0
+      },
+      {
+        "requestId": "schema5-occurrence-boundaries-mixed-diagnostics-1:mixed:0:9:intent:response_contract:93beceaf3191e878:page_b61cd4d97c8532978803b2ca0af934a28c2b89fc41b1f7dbd3362cf36a49bf7d:c37ffe6d72db1078775f6b7055430c8cad1d55bb263833bd023e7f8f3f25ac63",
+        "requestFingerprint": "f6a935de9f79702e284d5ce3b253fb81b11a8d5d18f4837ba9c3cf5533cad740",
+        "receiptFingerprint": "97129653b8aec07d27a40a432347dccc447b4c4abfc6f767638825734c94be7c",
+        "completionStatus": null,
+        "malformedJson": false,
+        "schemaFindings": 0
+      },
+      {
+        "requestId": "schema5-occurrence-boundaries-mixed-diagnostics-1:mixed:0:10:intent_operations:response_contract:93beceaf3191e878:page_8952583bd67eccaa32a2ac5d77a83170f7a27254f9b291ab3f5c93b270235fd9:d7b275d9c3f2b6aeb5f6ec1989b3498cbe2e913cd0e26206e8e08f4e84132e56",
+        "requestFingerprint": "259dfd5c0c314b54169299f3e1ab6f0177d7283136635bcd0ee5e39cbff4bb1e",
+        "receiptFingerprint": "6132b29b5e1a78c9cd5abccb37d272253aac40b61cfa16f7cbb3bf40db894f14",
+        "completionStatus": null,
+        "malformedJson": false,
+        "schemaFindings": 0
+      }
+    ],
+    "historicalSubjectSelections": 0,
+    "replayedReceipts": 0,
+    "blocker": "REPLAY_EVIDENCE_REQUIRED",
+    "location": null
+  },
+  "syntheticLocal": {
+    "evidence": "Explicit synthetic complete coverage and dependency answers on retained runtime/declaration fixtures; not historical receipts or live convergence.",
+    "sourceIdentity": "schema5-occurrence-boundaries-diagnostics-1:local",
+    "archiveUnchanged": true,
+    "providerDispatches": 0,
+    "checkpointFingerprint": "aa8190564d1600e7025fa93e4788d283b0d61309c1976e930ac0e3d6c38ad947",
+    "interpretationDecisions": 8,
+    "interpretationInitialPages": 8,
+    "independentContributionStatusDecisions": 0,
+    "jointCoverageDecisions": 1,
+    "coverageInitialPages": 1,
+    "assessedActionContributions": 2,
+    "jointGoverningContributions": 0,
+    "additionalGoverningDecisions": 0,
+    "identityDecisions": 0,
+    "dependencyDecisions": 0,
+    "syntheticRequests": 1,
+    "newSyntheticReservations": 1,
+    "actualTokens": null,
+    "readOnlyRestart": {
+      "passed": true,
+      "providerCalls": 0,
+      "checkpointWrites": 0,
+      "snapshotFingerprint": "22c9e0e7baa5dd68497b1864cbdbfcb7619c96f65d005da31e2f962b86a7661a",
+      "admissionFingerprint": "a088fbff46fa3213dab9d87b1c3a0bcf1721a7f2b848482501ed96b73fb82137",
+      "dependencyFingerprints": [
+        "f3d483fded5b6b4e686046d73e09e18df4e860ef6a1ef4c37f4ac0c4479fc563"
+      ]
+    },
+    "coverageSchemas": [
+      {
+        "decision": "coverage_693dfae0418b33679ea28976",
+        "schemaBytes": 961,
+        "mappingAlternatives": 3,
+        "selectedProof": "768fbcf2845e4800c5f911a71be7a023b67b704ddbee6bf2341519cf3e8c7b35"
+      }
+    ],
+    "requests": [
+      {
+        "estimatedInput": 1737,
+        "decisions": [
+          "coverage_693dfae0418b33679ea28976"
+        ]
+      }
+    ],
+    "operations": [
+      {
+        "id": "operation_e226ff9ed819b5a645e7d9de",
+        "kind": "local_processing",
+        "required": true,
+        "admissionProof": "baeb256b082973ae7b2ba378f5c6a2ffed4a822d314a389ef1c06011430b988f",
+        "coverageProof": "768fbcf2845e4800c5f911a71be7a023b67b704ddbee6bf2341519cf3e8c7b35",
+        "dependencyProof": "f3d483fded5b6b4e686046d73e09e18df4e860ef6a1ef4c37f4ac0c4479fc563",
+        "inputs": [
+          "record",
+          "threshold"
+        ],
+        "outputs": [
+          "classifiedResult"
+        ],
+        "supports": 1,
+        "governing": 1,
+        "producers": []
+      }
+    ]
+  },
+  "syntheticMixed": {
+    "evidence": "Explicit synthetic complete coverage and dependency answers on retained runtime/declaration fixtures; not historical receipts or live convergence.",
+    "sourceIdentity": "schema5-occurrence-boundaries-mixed-diagnostics-1:mixed",
+    "archiveUnchanged": true,
+    "providerDispatches": 0,
+    "checkpointFingerprint": "e42d8b7dca6a60767e56604488f124cd30bdf090c11da26d586941961ecdd84b",
+    "interpretationDecisions": 9,
+    "interpretationInitialPages": 9,
+    "independentContributionStatusDecisions": 0,
+    "jointCoverageDecisions": 2,
+    "coverageInitialPages": 1,
+    "assessedActionContributions": 3,
+    "jointGoverningContributions": 0,
+    "additionalGoverningDecisions": 0,
+    "identityDecisions": 0,
+    "dependencyDecisions": 2,
+    "syntheticRequests": 2,
+    "newSyntheticReservations": 2,
+    "actualTokens": null,
+    "readOnlyRestart": {
+      "passed": true,
+      "providerCalls": 0,
+      "checkpointWrites": 0,
+      "snapshotFingerprint": "b39a07d57375144b7188f8d42513be6ef811a50197846694bef7bdc4a47f7bf0",
+      "admissionFingerprint": "6d403adb97d90f34edc2fb5584d7ea5a90261f7d6e71948a2ddffada8cd30843",
+      "dependencyFingerprints": [
+        "214c92ee8d9dd562c9f30592dbdc8e3e36454336d5dc862bc0829d0096d8c4cf",
+        "f6075404d18fe2d79c365e7b3ed8b44f14ecf4d32259fd979b0b910a7e5681a8"
+      ]
+    },
+    "coverageSchemas": [
+      {
+        "decision": "coverage_1c401620de690b86e125c18f",
+        "schemaBytes": 891,
+        "mappingAlternatives": 1,
+        "selectedProof": "00e5de1982275af4f2ae6734ba36c0da4ef147534e748b574db5314c2fd74331"
+      },
+      {
+        "decision": "coverage_eb8550319d462ad3ad6eb36f",
+        "schemaBytes": 961,
+        "mappingAlternatives": 3,
+        "selectedProof": "12b676fd756364a47b098915b55f65fe22bb01126f440756850a425d077baadc"
+      }
+    ],
+    "requests": [
+      {
+        "estimatedInput": 2328,
+        "decisions": [
+          "coverage_1c401620de690b86e125c18f",
+          "coverage_eb8550319d462ad3ad6eb36f"
+        ]
+      },
+      {
+        "estimatedInput": 1624,
+        "decisions": [
+          "data_5c08362cc2429626ad7a458b",
+          "data_86548df79d3ec7bc5c25261c"
+        ]
+      }
+    ],
+    "operations": [
+      {
+        "id": "operation_6b515f252d71b693829d2fe4",
+        "kind": "external_read",
+        "required": true,
+        "admissionProof": "59533964b7fa8f1a6c05085ae17e2b39bd6ef4fa69b608fd68d4b35186ff415b",
+        "coverageProof": "12b676fd756364a47b098915b55f65fe22bb01126f440756850a425d077baadc",
+        "dependencyProof": "214c92ee8d9dd562c9f30592dbdc8e3e36454336d5dc862bc0829d0096d8c4cf",
+        "inputs": [
+          "sourceId"
+        ],
+        "outputs": [],
+        "supports": 1,
+        "governing": 1,
+        "producers": []
+      },
+      {
+        "id": "operation_e226ff9ed819b5a645e7d9de",
+        "kind": "local_processing",
+        "required": true,
+        "admissionProof": "4535dd3b6515911454dce1850f07c79b7ea75197b6425dc47943137dcee8e6c0",
+        "coverageProof": "00e5de1982275af4f2ae6734ba36c0da4ef147534e748b574db5314c2fd74331",
+        "dependencyProof": "f6075404d18fe2d79c365e7b3ed8b44f14ecf4d32259fd979b0b910a7e5681a8",
+        "inputs": [
+          "threshold"
+        ],
+        "outputs": [
+          "classifiedResult"
+        ],
+        "supports": 1,
+        "governing": 0,
+        "producers": [
+          {
+            "id": "operation_6b515f252d71b693829d2fe4",
+            "origin": "ModelSemanticSelection"
+          }
+        ]
+      }
+    ]
+  },
+  "syntheticSelfchecks": {
+    "evidence": "synthetic fixture selfcheck",
+    "cases": [
+      {
+        "case": "local",
+        "passed": true,
+        "preflight": {
+          "interpretationPages": 8,
+          "sourceDecisions": 8,
+          "modelRuntimeDecisionsRemoved": 0,
+          "declarationFixtureValidated": true
+        },
+        "modelCalls": 0,
+        "readOnlyRestart": {
+          "passed": true,
+          "providerCalls": 0,
+          "checkpointWrites": 0,
+          "snapshotFingerprint": "386f14e243989930af8279f5bfce7aa831b09dc3faaa1f4727854b3ae2f1913f",
+          "admissionFingerprint": "614d6fe4c2ab192bc507a608b2a3cb3375f38f5f98a79a1878d22629fc000623",
+          "dependencyFingerprints": [
+            "f0ac6da8390fbbe50bf8a13d0977ca0f9f8d97f8bc93d1978f2049aa04dc1c51"
+          ]
+        }
+      },
+      {
+        "case": "mixed",
+        "passed": true,
+        "preflight": {
+          "interpretationPages": 9,
+          "sourceDecisions": 9,
+          "modelRuntimeDecisionsRemoved": 0,
+          "declarationFixtureValidated": true
+        },
+        "modelCalls": 0,
+        "readOnlyRestart": {
+          "passed": true,
+          "providerCalls": 0,
+          "checkpointWrites": 0,
+          "snapshotFingerprint": "7e3c558d33cbf763cbf617627d44950cf0d12520bce719e41969edf498574af6",
+          "admissionFingerprint": "9c7451333ce34ea22cd074b840d240fd1b7d6436cdaf92cf2099a179b48b4f86",
+          "dependencyFingerprints": [
+            "81772d4f021c3dcb084d09953bcad1c22101a26f40701a586b0a6743465b46a7",
+            "922fdffb4066675f6e165e0a4c5a14f7a08f3912015798c563660803800e742c"
+          ]
+        }
+      }
+    ]
+  },
+  "publishedBinaryHashes": {
+    "/tmp/coverage-planning-aot/GnOuGo.Flow.Planning.Smoke": "e687b854a0a3f8261633fc1bd906d79ca02809599361e47434bd9df8dd6f4a43",
+    "/tmp/coverage-agent-trimmed/GnOuGo.Agent.Server": "e09c01f6d63329569685f53d0e8a8043c8891b79ebfbcb4308d07c19903c4213"
+  },
+  "packageHashes": {
+    "/tmp/coverage-packages/GnOuGo.Agent.Shared.1.0.0.nupkg": "41803c42cbdc9dd37f4ab9f7ad886a001de932cc1ec54b20568a84bcb6a327b8",
+    "/tmp/coverage-packages/GnOuGo.Flow.Core.1.0.0.nupkg": "9ef0105418b9e1a5e633accf16706d2df309a3efcff49947652b50f243b47580",
+    "/tmp/coverage-packages/GnOuGo.Flow.Integrations.1.0.0.nupkg": "b5988c034dc40f8280d3a64e8c6c559ae97fb8f5ac938386e61b4ad9e817db98",
+    "/tmp/coverage-packages/GnOuGo.Flow.Planning.1.0.0.nupkg": "b39d48a2bd38c22c7fa8b2ab1b2bb801ff5dd14132c0975fb0a85a4418071256"
+  },
+  "testedBinaryHashes": {
+    "tests/GnOuGo.Agent.Planning.Benchmark/bin/Debug/net10.0/GnOuGo.AI.Core.dll": "283c40afe4e87e54fb2021b1b4ad9c822529eb3e7cc36d09568eadcf9d26ffd7",
+    "tests/GnOuGo.Agent.Planning.Benchmark/bin/Debug/net10.0/GnOuGo.AI.Local.dll": "f7e1ab5adb2414a81a0fca47f1e0cefcf85862d36c73014e29b03af0fa29edbd",
+    "tests/GnOuGo.Agent.Planning.Benchmark/bin/Debug/net10.0/GnOuGo.Agent.Mcp.dll": "62b803eb5b92600c7526de101ad9b7561c4848b3583da2517f69387a652fdb0a",
+    "tests/GnOuGo.Agent.Planning.Benchmark/bin/Debug/net10.0/GnOuGo.Agent.Planning.Benchmark.dll": "1cb873e081a61a8b976373627983e085359329e6315e277c106458778bd9d96a",
+    "tests/GnOuGo.Agent.Planning.Benchmark/bin/Debug/net10.0/GnOuGo.Agent.Server.dll": "5255ee2fd4fff2f01bea99a8f8775649245800759b0cb3d4474a3e7fc2953e4a",
+    "tests/GnOuGo.Agent.Planning.Benchmark/bin/Debug/net10.0/GnOuGo.Agent.Shared.dll": "4becd820003dc8873d4132dfcad71388834faf6f4a5d807574aa8030cbc5ef66",
+    "tests/GnOuGo.Agent.Planning.Benchmark/bin/Debug/net10.0/GnOuGo.Assets.Animation.dll": "807edf34d623eb650c38045917ec0bfab06ed51834984619b6d71e11d814d62c",
+    "tests/GnOuGo.Agent.Planning.Benchmark/bin/Debug/net10.0/GnOuGo.Assets.Bears.dll": "11afae653ab1ff86d5049e0fba7d1009b8b251748e133839ac37ac6976bf9370",
+    "tests/GnOuGo.Agent.Planning.Benchmark/bin/Debug/net10.0/GnOuGo.Auth.Core.dll": "5d4b6612b863772f6fd574adff1fd3ebb3136b141253dfbaa1deca2e6c945671",
+    "tests/GnOuGo.Agent.Planning.Benchmark/bin/Debug/net10.0/GnOuGo.Diff.Core.dll": "5c502ea50edf9c78419e536d59fc7831139557b2bb669f8e688365a46c914e07",
+    "tests/GnOuGo.Agent.Planning.Benchmark/bin/Debug/net10.0/GnOuGo.DocIngestor.Core.dll": "80c32652becf0e958ba75abd2db07b6ceeda8af998d50d0a10ee121972e8a19a",
+    "tests/GnOuGo.Agent.Planning.Benchmark/bin/Debug/net10.0/GnOuGo.DocIngestor.Mcp.dll": "96b2afa4d14b486d3fb790b23b57ba8251b074fcd78fbe177fbac2f36669da3e",
+    "tests/GnOuGo.Agent.Planning.Benchmark/bin/Debug/net10.0/GnOuGo.Files.Server.dll": "e450f7356bbd6a841eaffe168b93871ab440eb9d5ced8adfa2bde8cb81132c39",
+    "tests/GnOuGo.Agent.Planning.Benchmark/bin/Debug/net10.0/GnOuGo.Flow.Core.dll": "d472cea88df7567bab4e262979073bafc0640325f783d3f05ca881f8ce39196b",
+    "tests/GnOuGo.Agent.Planning.Benchmark/bin/Debug/net10.0/GnOuGo.Flow.Integrations.dll": "c36c23599ddfe40b041eb18d8c768c0387d866187960beaaa1e8c57095dd6599",
+    "tests/GnOuGo.Agent.Planning.Benchmark/bin/Debug/net10.0/GnOuGo.Flow.Mermaid.dll": "034c7df4589dcdae7bd76926518bb0119f5b77e7fb931f4bfd632eeed520dafb",
+    "tests/GnOuGo.Agent.Planning.Benchmark/bin/Debug/net10.0/GnOuGo.Flow.Planning.dll": "40fda324bfd5f9322f25e25ddd4c336cf9bebaaeb239cf2f87719e45f56088ee",
+    "tests/GnOuGo.Agent.Planning.Benchmark/bin/Debug/net10.0/GnOuGo.KeyVault.Core.dll": "b1d2b28feb188c8108f5fbb7f74c66ba691d75c0dd51d25abe2f45343d88a64b",
+    "tests/GnOuGo.Agent.Planning.Benchmark/bin/Debug/net10.0/GnOuGo.KeyVault.Mcp.dll": "66674996b32b756c2770af43d8d3060a51cd685525633fddd92355617dcccfd6",
+    "tests/GnOuGo.Agent.Planning.Benchmark/bin/Debug/net10.0/GnOuGo.Mcp.Core.dll": "4fbe3c0abe3462c2f782ce25d5b39b795a3b70cce39f2e07df9c17bf7e764444",
+    "tests/GnOuGo.Agent.Planning.Benchmark/bin/Debug/net10.0/GnOuGo.Observability.Core.dll": "7a27242ff7bf5d3c26cb5103060baaa84ebb2a65d6d68d61cde811e40485f3ca",
+    "tests/GnOuGo.Agent.Planning.Benchmark/bin/Debug/net10.0/GnOuGo.OtlpCollector.Server.dll": "02eaec27baafbec09257c8b271cc2e41652443ea09ac2282fbf857d8ab647571",
+    "tests/GnOuGo.Agent.Planning.Benchmark/bin/Debug/net10.0/GnOuGo.Workspace.dll": "ed45d0e998e9acfadc040794f7702f9f30a83efa3a459b2ac8c1a93711b1fd30"
+  },
+  "unchangedFixtureSourceHashes": {
+    "tests/GnOuGo.Agent.Planning.Benchmark/RuntimeEvidenceDeclarations.json": "8644cd23ddc65e0a7545caaacb660cbeb80d5989c6e8f5e8c72258b1e50bfd32",
+    "tests/GnOuGo.Flow.Planning.Tests/Fixtures/operation-admission-stage1.json": "890cdd12f85a420722887aaf12a00a4db5e8186e996613a22d18fed2a33cb373"
+  },
+  "nextGate": "LOCAL, separately authorized"
+}

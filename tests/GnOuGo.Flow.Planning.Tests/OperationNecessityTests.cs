@@ -98,7 +98,7 @@ public sealed class OperationNecessityTests
         Add(state, 1, PlanningOperationNecessity.Unspecified, "governing", "external_read");
         await PlanningOperations.ResolveAsync(state, Identity(state), Ct);
         var operation = Assert.Single(state.Obligations, PlanningSourceDecisions.IsOperation);
-        Assert.True(operation.Required); Assert.Equal("attach", operation.OperationAdmission!.Assignments[1].Disposition);
+        Assert.True(operation.Required); Assert.Single(operation.OperationAdmission!.Assignments, a => a.Disposition == "attach");
     }
 
     [Theory]
@@ -135,7 +135,7 @@ public sealed class OperationNecessityTests
         };
         await Assert.ThrowsAsync<OperationCanceledException>(() => PlanningOperations.ResolveAsync(state, runtime, Ct));
         Assert.NotNull(checkpoint); var pages = checkpoint.DecisionPages.Select(p => p.Id).ToArray();
-        Assert.Equal(2, pages.Length);
+        Assert.Single(pages);
         await PlanningOperations.ResolveAsync(checkpoint, NoModel(), Ct);
         Assert.False(Assert.Single(checkpoint.Obligations, PlanningSourceDecisions.IsOperation).Required);
         var restored = JsonSerializer.Deserialize(JsonSerializer.Serialize(checkpoint, PlanningJsonContext.Default.PlanningSnapshot), PlanningJsonContext.Default.PlanningSnapshot)!;

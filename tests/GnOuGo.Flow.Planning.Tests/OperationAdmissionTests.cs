@@ -214,7 +214,7 @@ public sealed class OperationAdmissionTests
             return Task.FromResult(new LLMResponse { Json = OperationEffectFixtures.Response(state, request), CompletionStatus = "completed" });
         } };
         OperationEffectFixtures.Seed(state, rootsOnly: true);
-        await PlanningOperations.ResolveAsync(state, runtime, Ct); Assert.Single(runtime.Requests, r => r.StructuredOutputSchema!["properties"]!.AsObject().Any(p => p.Key.StartsWith("effect_", StringComparison.Ordinal)));
+        await PlanningOperations.ResolveAsync(state, runtime, Ct); Assert.DoesNotContain(runtime.Requests, r => r.StructuredOutputSchema!["properties"]!.AsObject().Any(p => p.Key.StartsWith("effect_governing_", StringComparison.Ordinal)));
         var restored = JsonSerializer.Deserialize(JsonSerializer.Serialize(state, PlanningJsonContext.Default.PlanningSnapshot), PlanningJsonContext.Default.PlanningSnapshot)!;
         await ResolveGrounded(restored, NoModel(), Ct); Assert.Equal(state.OperationAdmissionFingerprint, restored.OperationAdmissionFingerprint);
     }

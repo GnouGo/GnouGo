@@ -9,7 +9,7 @@ internal static partial class PlanningOperations
     // These indexes are derived request domains. Only completed decision pages and
     // the proofs attached to admitted obligations are persisted.
     internal static string EffectDecisionId(PlanningRuntimeEvidence evidence, bool governing = false) => (governing ? "effect_governing_" : "effect_") + evidence.Id;
-    internal static string EffectFingerprint(PlanningSnapshot state) => "effect-proof-v4:admission-dependencies:" + EvidenceFingerprint(state);
+    internal static string EffectFingerprint(PlanningSnapshot state) => "effect-proof-v5:coverage:admission-dependencies:" + EvidenceFingerprint(state);
 
     internal static string CanonicalId(PlanningSnapshot state, PlanningOperationEffectAnchor effect, string kind, string? baseline)
     {
@@ -156,7 +156,7 @@ internal static partial class PlanningOperations
             if (candidate.BoundaryKind == "result_realization" && answer["contribution"]?.ToString() == "realizes" && !outputs.Contains(candidate.OwnerReference))
                 throw Failure(scope.Evidence!.Id, "A result realization must establish production of its exact owned result.");
         }
-        return new(4, decision.Id, status == "not_an_effect" ? "none" : status == "governing" ? "pending_governing" : answer["contribution"]!.ToString(), candidates,
+        return new(5, decision.Id, status == "not_an_effect" ? "none" : status == "governing" ? "pending_governing" : answer["contribution"]!.ToString(), candidates,
             inputs, outputs, [], refs, "model", decision.EvidenceFingerprint);
     }
 
@@ -168,41 +168,22 @@ internal static partial class PlanningOperations
         var graph = state.Request.Baseline!;
         var workflow = graph.Workflows.Single(w => w.Key == node.Workflow);
         var inputs = PlanningDataflow.BusinessInputs(workflow, node.Node);
-        return new(4, EffectDecisionId(evidence), evidence.EvidenceRole == "action" ? "realizes" : "governs", [anchor],
+        return new(5, EffectDecisionId(evidence), evidence.EvidenceRole == "action" ? "realizes" : "governs", [anchor],
             state.Declarations.Where(d => d.Direction == "input" && d.WorkflowScope == node.Workflow && inputs.Contains(PlanningDeclarations.Name(state, d))).Select(d => d.Id).Order(StringComparer.Ordinal).ToList(),
             [], [], [evidence.ClauseReference], "baseline", EffectFingerprint(state));
-    }
-
-    private static async Task<Dictionary<string, PlanningOperationEffectProof>> GroundRealizations(PlanningSnapshot state, IPlanningRuntime runtime, Scope[] scopes, CancellationToken ct)
-    {
-        scopes = scopes.Where(s => s.Evidence!.EvidenceRole == "action").ToArray();
-        var decisions = scopes.Where(s => s.Evidence!.BaselineReference is null).Select(s => EffectDecision(state, s)).ToArray();
-        var values = await PlanningDecisionPages.ResolveAsync(state, runtime, "intent_operations", "$plan", decisions, ct);
-        return scopes.ToDictionary(s => s.Evidence!.Id, s => s.Evidence!.BaselineReference is null
-            ? ParseEffect(state, s, values[EffectDecisionId(s.Evidence)]!.AsObject()) : BaselineEffect(state, s), StringComparer.Ordinal);
     }
 
     private static void ValidateEffect(PlanningSnapshot state, PlanningOperationAssignment assignment)
     {
         var effect = assignment.Effect ?? throw Failure(assignment.ClauseReference, "Current effect ownership proof is required.", "INTENT_OPERATION_PROOF_MISSING");
-        if (effect.Version != 4 || effect.Producers.Count != 0)
+        if (effect.Version != 5 || effect.Producers.Count != 0)
             throw Failure(assignment.ClauseReference, "Effect ownership proof is stale.", "INTENT_OPERATION_PROOF_MISSING");
         var scope = DeriveScopes(state).Single(s => s.Evidence!.Id == assignment.RuntimeEvidenceId);
         PlanningOperationEffectProof expected;
-        if (effect.Contribution is "governs" or "shared_rule")
-        {
-            var realized = ReadRealizations(state);
-            expected = ReadGoverning(state, scope, realized);
-        }
-        else if (effect.Origin == "baseline") expected = BaselineEffect(state, scope);
-        else
-        {
-            var decisions = DeriveScopes(state).Where(s => s.Evidence!.EvidenceRole == "action" && s.Evidence.BaselineReference is null).Select(s => EffectDecision(state, s)).ToArray();
-            JsonObject values;
-            try { values = PlanningDecisionPages.ReadCompleted(state, "intent_operations", "$plan", decisions); }
-            catch (PlanningConflictException) { throw Failure(assignment.ClauseReference, "Effect grounding requires its exact completed request scope.", "INTENT_OPERATION_PROOF_MISSING"); }
-            expected = ParseEffect(state, scope, values[effect.DecisionId]!.AsObject());
-        }
+        var covered = CoverageAssignments(state).SingleOrDefault(a => a.RuntimeEvidenceId == assignment.RuntimeEvidenceId && a.EffectId == assignment.EffectId);
+        if (covered is not null) expected = covered.Effect!;
+        else if (effect.Contribution is "governs" or "shared_rule") expected = ReadGoverning(state, scope, ReadRealizations(state));
+        else throw Failure(assignment.ClauseReference, "Realization authority requires complete coverage.");
         if (JsonSerializer.Serialize(expected, PlanningJsonContext.Default.PlanningOperationEffectProof) !=
             JsonSerializer.Serialize(effect, PlanningJsonContext.Default.PlanningOperationEffectProof))
             throw Failure(assignment.ClauseReference, "Effect mappings changed after grounding.");
@@ -210,8 +191,10 @@ internal static partial class PlanningOperations
 
     internal static PlanningOperationEffectAnchor EffectAnchor(PlanningSnapshot state, PlanningObligation operation)
     {
-        var root = operation.OperationAdmission!.Assignments[0];
-        return root.Effect!.Candidates.Single(a => CanonicalId(state, a, root.Kind, root.BaselineReference) == operation.Id);
+        var anchors = operation.OperationAdmission!.Assignments.Where(a => a.Disposition == "supports").SelectMany(a => a.Effect!.Candidates)
+            .Where(a => CanonicalId(state, a, operation.Kind, operation.OperationAdmission.BaselineReference) == operation.Id).Distinct().ToArray();
+        if (anchors.Length != 1) throw Failure(operation.Id, "Aggregate executable authority must prove one effect owner.");
+        return anchors[0];
     }
 
 }

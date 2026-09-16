@@ -63,7 +63,8 @@ internal static partial class PlanningOperations
     }
 
     private static bool Compatible(PlanningSnapshot state, PlanningRuntimeEvidence evidence, PlanningObligation operation)
-        => CompatibleFacts(evidence, state.RuntimeEvidence.Single(e => e.Id == operation.OperationAdmission!.Assignments[0].RuntimeEvidenceId));
+        => operation.OperationAdmission!.Assignments.Where(a => a.Disposition == "supports").All(a =>
+            CompatibleFacts(evidence, state.RuntimeEvidence.Single(e => e.Id == a.RuntimeEvidenceId)));
 
     // Stable Flow executor semantics, never provider/tool naming. Unknown executor
     // boundaries cannot acquire a kind from their descriptive purpose.

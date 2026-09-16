@@ -105,6 +105,19 @@ internal static partial class RuntimeAdmissionDiagnostic
                     answers[field.Key] = field.Value!["enum"]!.AsArray().Any(v => v!.ToString() == "policy") ? "policy" : "none";
                     continue;
                 }
+                if (field.Key.StartsWith("coverage_", StringComparison.Ordinal))
+                {
+                    if (retained is not null) throw new InvalidOperationException("Historical contribution answers cannot substitute for current joint coverage proof.");
+                    var group = PlanningOperations.CoverageGroups(state).Single(g => g.Id == field.Key);
+                    answers[field.Key] = OperationEffectFixtures.CoverageAnswer(state, group, scope =>
+                    {
+                        var descriptive = PlanningChoiceEvidence.Text(state, scope.Evidence!.ActionReference!) == "This is deterministic, local, in-memory business processing.";
+                        var target = PlanningOperations.EffectDomain(state, scope.Evidence).Single(p => p.Value.BoundaryKind == "result_realization").Key;
+                        return OperationEffectFixtures.Answer(state, scope, [target], descriptive || scope.Evidence.EvidenceRole == "governing" ? "governs" : "realizes",
+                            state.Declarations.Where(d => d.Direction == "input").Select(d => d.Id));
+                    });
+                    continue;
+                }
                 if (!field.Key.StartsWith("effect_", StringComparison.Ordinal)) throw new InvalidOperationException("No standalone identity decision is permitted by this complete synthetic effect fixture.");
                 if (retained is not null)
                 {

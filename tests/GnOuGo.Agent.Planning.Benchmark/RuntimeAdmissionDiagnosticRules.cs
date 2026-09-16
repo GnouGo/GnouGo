@@ -76,14 +76,14 @@ internal static class RuntimeAdmissionDiagnosticRules
         void Require(bool condition, string code, string message)
         { if (!condition) throw new WorkflowRuntimeException(code, message); }
         Require(identityDecisions == 0, "DIAGNOSTIC_IDENTITY_DECISION", "The fixture requires deterministic occurrence identity after effect grounding.");
-        Require(operations.Count == (name == "local" ? 1 : 2) && operations.All(o => o.Required && o.OperationAdmission is { Version: 9, Dependencies.Version: 1 }) &&
+        Require(operations.Count == (name == "local" ? 1 : 2) && operations.All(o => o.Required && o.OperationAdmission is { Version: 10, Dependencies.Version: 1 }) &&
             operations.Count(o => o.Kind == "local_processing") == 1 && operations.Count(o => o.Kind == "external_read") == (name == "mixed" ? 1 : 0),
             "DIAGNOSTIC_ADMISSION_MISMATCH", "The frozen fixture requires exactly its declared runtime effects.");
         var local = operations.Single(o => o.Kind == "local_processing");
         var effects = local.OperationAdmission!.Assignments.Select(a => a.Effect!).ToArray();
         Require(operations.SelectMany(o => o.OperationAdmission!.Assignments).All(a => a.Effect is { Producers.Count: 0 }),
             "DIAGNOSTIC_LEGACY_PRODUCER_AUTHORITY", "Current effect mappings cannot select operation producers.");
-        Require(operations.SelectMany(o => o.OperationAdmission!.Assignments).All(a => a.Effect is { Version: 4 }) && effects.SelectMany(e => e.Outputs).ToHashSet(StringComparer.Ordinal).SetEquals([output]),
+        Require(operations.SelectMany(o => o.OperationAdmission!.Assignments).All(a => a.Effect is { Version: 5 }) && effects.SelectMany(e => e.Outputs).ToHashSet(StringComparer.Ordinal).SetEquals([output]),
             "DIAGNOSTIC_EFFECT_OWNERSHIP", "The transformation must produce the canonical public result.");
         Require(effects.SelectMany(e => e.Candidates).All(e => e.BoundaryKind == "result_realization" && e.OwnerReference == output && e.WorkflowScope == "main" && e.OccurrenceProof is null) &&
             effects.SelectMany(e => e.Candidates).Distinct().Count() == 1,

@@ -134,13 +134,11 @@ public sealed class OperationEffectScopeTests
     public async Task RestartRetainsScopedRequestsReceiptsAndIdentity()
     {
         var state = State(true); var scopes = PlanningOperations.Scopes(state); PlanningSnapshot? saved = null;
-        var expected = scopes.ToDictionary(s => PlanningOperations.EffectDecisionId(s.Evidence!), s => OperationEffectFixtures.Answer(state, s, [Invocation(state, s, "main")]));
         var runtime = new TypedPlannerTests.FakeRuntime { OnCall = (_, request, _) => Task.FromResult(new LLMResponse
-        { CompletionStatus = "completed", Json = new JsonObject(request.StructuredOutputSchema!["properties"]!.AsObject().Select(p =>
-            new KeyValuePair<string, JsonNode?>(p.Key, expected[p.Key].DeepClone()))) }) };
+        { CompletionStatus = "completed", Json = OperationEffectFixtures.Response(state, request) }) };
         runtime.OnCheckpoint = s =>
         {
-            if (saved is null && s.DecisionPages.Any(p => p.Status == "completed" && p.Decisions.Any(id => id.StartsWith("effect_", StringComparison.Ordinal))))
+            if (saved is null && s.DecisionPages.Any(p => p.Status == "completed" && p.Decisions.Any(id => id.StartsWith("coverage_", StringComparison.Ordinal))))
             { saved = PlanningContext.Clone(s); throw new OperationCanceledException("Synthetic crash after a scoped receipt."); }
             return Task.CompletedTask;
         };

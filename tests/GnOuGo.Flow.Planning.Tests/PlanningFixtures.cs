@@ -58,14 +58,7 @@ internal static class PlanningFixtures
             ? OperationEffectFixtures.Answer(state, scope, assignment.Effect!.Candidates.Select(a => PlanningOperations.CanonicalId(state, a, assignment.Kind, assignment.BaselineReference)),
                 assignment.Effect.Contribution, assignment.Effect.Inputs, assignment.Effect.Outputs)
             : OperationEffectFixtures.Answer(state, scope));
-        operations = operations.Select(o => PlanningOperations.Prove(state, o, o.OperationAdmission! with
-        {
-            EvidenceFingerprint = PlanningOperations.EvidenceFingerprint(state),
-            Assignments = o.OperationAdmission!.Assignments.Select(a => a with { Effect = a.BaselineReference is not null
-                ? PlanningOperations.BaselineEffect(state, PlanningOperations.Scopes(state).Single(s => s.Evidence!.Id == a.RuntimeEvidenceId))
-                : PlanningOperations.ParseEffect(state, PlanningOperations.Scopes(state).Single(s => s.Evidence!.Id == a.RuntimeEvidenceId),
-                    state.DecisionPages.Last(p => p.Candidate?[a.Effect!.DecisionId] is not null).Candidate![a.Effect!.DecisionId]!.AsObject()) }).ToList()
-        })).ToList();
+        operations = OperationEffectFixtures.Staged(state);
         OperationEffectFixtures.SeedDependencies(state, operations);
         PlanningOperations.Commit(state, operations);
     }
@@ -96,13 +89,7 @@ internal static class PlanningFixtures
         {
             var clause = PlanningChoiceEvidence.Parent(state, hint.EvidenceReferences[0]);
             var evidence = state.RuntimeEvidence.Single(e => e.ActionReference == hint.EvidenceReferences[0] && e.Kind == hint.Kind);
-            var assignment = new PlanningOperationAssignment("operation_" + evidence.Id, clause.Id, hint.EvidenceReferences[0], hint.Kind,
-                evidence.Necessity, null, hint.Grounding?.BaselineReference) { RuntimeEvidenceId = evidence.Id, Disposition = "distinct", ResolutionOrigin = "deterministic",
-                Effect = evidence.BaselineReference is null ? PlanningOperations.ParseEffect(state,
-                    PlanningOperations.Scopes(state).Single(s => s.Evidence!.Id == evidence.Id),
-                    state.DecisionPages.Last(p => p.Candidate?[PlanningOperations.EffectDecisionId(evidence)] is not null).Candidate![PlanningOperations.EffectDecisionId(evidence)]!.AsObject()) : PlanningOperations.BaselineEffect(state, PlanningOperations.Scopes(state).Single(s => s.Evidence!.Id == evidence.Id)),
-                EffectId = PlanningOperations.EffectDomain(state, evidence).Single(p => p.Value.BoundaryReference == evidence.ActionReference || evidence.BaselineReference is not null).Key };
-            var operation = PlanningOperations.Create(state, assignment);
+            var operation = PlanningOperations.MaterializeCoverage(state).Single(o => o.OperationAdmission!.Assignments.Any(a => a.RuntimeEvidenceId == evidence.Id));
             if (!admitted.Any(o => o.Id == operation.Id)) admitted.Add(operation);
             map.Add(hint.Id, operation.Id);
         }
@@ -124,6 +111,7 @@ internal static class PlanningFixtures
             }
         }
         if (map.Count != 0) Remap(state);
+        admitted = OperationEffectFixtures.Staged(state);
         admitted = admitted.Select(o => PlanningOperations.Prove(state, o, o.OperationAdmission! with { EvidenceFingerprint = PlanningOperations.EvidenceFingerprint(state) })).ToList();
         OperationEffectFixtures.SeedDependencies(state, admitted);
         PlanningOperations.Commit(state, admitted);

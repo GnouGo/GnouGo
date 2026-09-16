@@ -282,16 +282,7 @@ sealed class SmokeRuntime(PlanningGraph graph, PlanningPreparation preparation) 
             ["runtime"] = new JsonArray(new JsonObject { ["role"] = "local_behavior", ["kind"] = "local_processing", ["action"] = Span(),
                 ["execution"] = "generated_workflow", ["boundary"] = null, ["evidence"] = "action", ["necessity"] = new JsonObject { ["state"] = "unspecified", ["evidence"] = null }, ["baseline"] = null }) });
     }));
-    private JsonObject OperationResponse(LLMRequest request)
-    {
-        var state = _snapshot!;
-        var first = PlanningOperations.Scopes(state).First(s => s.Evidence!.EvidenceRole == "action");
-        var targets = PlanningOperations.EffectDomain(state, first.Evidence!);
-        var target = targets.FirstOrDefault(p => p.Value.BoundaryKind == "result_realization").Key ??
-            targets.Single(p => p.Value.BoundaryReference == first.Evidence!.ActionReference).Key;
-        return new(request.StructuredOutputSchema!["properties"]!.AsObject().Select(p => new KeyValuePair<string, JsonNode?>(p.Key,
-            OperationEffectFixtures.Answer(state, OperationEffectFixtures.Scope(state, p.Key), [target]))));
-    }
+    private JsonObject OperationResponse(LLMRequest request) => OperationEffectFixtures.Response(_snapshot!, request);
     private JsonObject DeclarationResponse(LLMRequest request)
     {
         // Synthetic semantic response for this smoke's explicitly named message.

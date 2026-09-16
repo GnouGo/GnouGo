@@ -23,6 +23,10 @@ const string tenant = "planner-benchmark";
 const string evidenceKey = "codereview-bc72dd6";
 var root = AppContext.BaseDirectory;
 var records = KeyVaultRecordStoreFactory.CreateWorkspaceStore(null, root);
+if (args.Length == 2 && args[0] == "audit-coverage-fixture")
+{
+    await RuntimeAdmissionDiagnostic.CoverageFixtureAsync(args[1], records); return;
+}
 if (args[0] == "audit-occurrence-fixture")
 {
     await RuntimeAdmissionDiagnostic.OccurrenceFixtureAsync(args[1], records); return;

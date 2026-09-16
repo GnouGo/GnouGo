@@ -25,14 +25,13 @@ public sealed class OperationEffectTests
         var runtime = new TypedPlannerTests.FakeRuntime { OnCall = (phase, request, _) =>
         {
             Assert.Equal("intent_operations", phase);
-            var response = new JsonObject();
-            foreach (var field in request.StructuredOutputSchema!["properties"]!.AsObject())
+            var response = new JsonObject(request.StructuredOutputSchema!["properties"]!.AsObject().Select(field =>
             {
-                Assert.StartsWith("effect_", field.Key); // identity selections would start operation_
-                var scope = OperationEffectFixtures.Scope(state, field.Key);
-                response[field.Key] = scope.Evidence!.Id == description.Id && field.Key == PlanningOperations.EffectDecisionId(description) ? OperationEffectFixtures.Defer(scope) :
-                    OperationEffectFixtures.Answer(state, scope, [target], scope.Evidence.Id == description.Id ? "governs" : "realizes");
-            }
+                Assert.StartsWith("coverage_", field.Key);
+                var group = PlanningOperations.CoverageGroups(state).Single(g => g.Id == field.Key);
+                return new KeyValuePair<string, JsonNode?>(field.Key, OperationEffectFixtures.CoverageAnswer(state, group,
+                    scope => OperationEffectFixtures.Answer(state, scope, [target], scope.Evidence!.Id == description.Id ? "governs" : "realizes")));
+            }));
             return Task.FromResult(new LLMResponse { Json = response, CompletionStatus = "completed" });
         } };
         await PlanningOperations.ResolveAsync(state, runtime, Ct);
@@ -41,7 +40,7 @@ public sealed class OperationEffectTests
         Assert.Equal(3, operation.OperationAdmission!.Assignments.Count);
         Assert.All(operation.OperationAdmission.Assignments, a => Assert.Equal("deterministic", a.ResolutionOrigin));
         Assert.Contains(operation.OperationAdmission.Assignments, a => a.RuntimeEvidenceId == description.Id && a.Disposition == "attach");
-        Assert.All(state.DecisionPages, p => Assert.All(p.Decisions, id => Assert.StartsWith("effect_", id)));
+        Assert.All(state.DecisionPages, p => Assert.All(p.Decisions, id => Assert.StartsWith("coverage_", id)));
         Assert.Empty(state.RepairAllowances);
     }
 
@@ -140,7 +139,7 @@ public sealed class OperationEffectTests
             return Task.FromResult(new LLMResponse { Json = new JsonObject { [field.Key] = answer }, CompletionStatus = "completed" });
         } };
         await PlanningOperations.ResolveAsync(state, runtime, Ct);
-        Assert.Single(runtime.Requests, r => r.StructuredOutputSchema!["properties"]!.AsObject().Any(p => p.Key.StartsWith("effect_", StringComparison.Ordinal))); Assert.Equal(2, state.Obligations.Count(PlanningSourceDecisions.IsOperation));
+        Assert.DoesNotContain(runtime.Requests, r => r.StructuredOutputSchema!["properties"]!.AsObject().Any(p => p.Key.StartsWith("effect_governing_", StringComparison.Ordinal))); Assert.Equal(2, state.Obligations.Count(PlanningSourceDecisions.IsOperation));
         Assert.Equal(1, state.Obligations.Count(o => o.OperationAdmission!.Assignments.Count == 2));
     }
 
@@ -196,12 +195,10 @@ public sealed class OperationEffectTests
         var first = Add(state, 0); Add(state, 1, role: "governing");
         PlanningSnapshot? checkpoint = null;
         var runtime = new TypedPlannerTests.FakeRuntime { OnCall = (_, request, _) => Task.FromResult(new LLMResponse
-        { CompletionStatus = "completed", Json = new JsonObject(request.StructuredOutputSchema!["properties"]!.AsObject().Select(p =>
-            new KeyValuePair<string, JsonNode?>(p.Key, OperationEffectFixtures.Answer(state,
-                OperationEffectFixtures.Scope(state, p.Key), [Own(state, first)])))) }) };
+        { CompletionStatus = "completed", Json = OperationEffectFixtures.Response(state, request) }) };
         runtime.OnCheckpoint = snapshot =>
         {
-            if (checkpoint is null && snapshot.DecisionPages.Any(p => p.Status == "completed" && p.Decisions.Any(id => id.StartsWith("effect_governing_", StringComparison.Ordinal))))
+            if (checkpoint is null && snapshot.DecisionPages.Any(p => p.Status == "completed" && p.Decisions.Any(id => id.StartsWith("coverage_", StringComparison.Ordinal))))
             { checkpoint = PlanningContext.Clone(snapshot); throw new OperationCanceledException("Synthetic crash after verified receipt."); }
             return Task.CompletedTask;
         };

@@ -80,12 +80,15 @@ internal static class PlanningPersistenceSmoke
             new("baseline_runtime", "baseline_source", "baseline_clause", "contract", null, null, null, null, null, null, null, PlanningOperationNecessity.Unspecified, "baseline-proof")
             { ExecutionScope = PlanningRuntimeExecutionScope.PublicContract, Origin = PlanningRuntimeEvidenceOrigin.EngineBaseline }];
         state.Obligations = [new("action", ["anchor"], "workflow", "local_processing", true)
-        { Disposition = "admitted", OperationAdmission = new(9, "action", "anchor", null,
+        { Disposition = "admitted", OperationAdmission = new(10, "action", "anchor", null,
             [new("decision", "clause", "anchor", "local_processing", PlanningOperationNecessity.Required, null, null) { RuntimeEvidenceId = "runtime", Disposition = "distinct", ResolutionOrigin = "deterministic", EffectId = "action",
-                Effect = new(4, "effect-decision", "realizes", [new("main", "private_result", "result_realization", "private_result") { OccurrenceProof = new(1, "runtime", "main", null, new("invocation", "private_owner", "private_boundary"), null, "boundary-proof") }],
+                Effect = new(5, "effect-decision", "realizes", [new("main", "private_result", "result_realization", "private_result") { OccurrenceProof = new(1, "runtime", "main", null, new("invocation", "private_owner", "private_boundary"), null, "boundary-proof") }],
                     ["private_input"], ["private_result"], [], ["private_boundary_evidence"], "model", "effect-evidence-proof") },
              new("reuse", "rules", "rule_anchor", "local_processing", PlanningOperationNecessity.Unspecified, "action", null)], "evidence-proof", "operation-proof")
-            { Dependencies = new(1, "dependency-domain", [new("upstream", "action", "data", PlanningDependencyOrigin.ModelSemanticSelection,
+            { RealizationCoverage = new(1, "coverage-decision", "coverage-domain", ["action"],
+                [new("runtime", "supports", ["action"], ["private_execution_evidence"]), new("optional-runtime", "omitted", [], ["private_optional_evidence"])],
+                [new("action", new("main", "private_result", "result_realization", "private_result"), ["runtime"], ["private_input"], ["private_result"])], "coverage-proof"),
+                Dependencies = new(1, "dependency-domain", [new("upstream", "action", "data", PlanningDependencyOrigin.ModelSemanticSelection,
                 ["private_data_evidence"], "data-decision")], "dependency-proof") } }];
         state.References = [new("reference", "smoke:" + state.Request.SessionId, 4, "request", "source-fingerprint", "user_request", 0, 7),
             new("baseline_source", "smoke:" + state.Request.SessionId, 4, "baseline", "baseline-content", "existing_workflow", 0, 7)
@@ -111,10 +114,12 @@ internal static class PlanningPersistenceSmoke
         if (prepared.RuntimeEvidence[2].Origin != PlanningRuntimeEvidenceOrigin.EngineBaseline ||
             prepared.References[1].Baseline is not { Version: 1, Fingerprint: "baseline-fingerprint", Port: "private_port", Field: "schema/description" })
             throw new InvalidOperationException("Structural baseline evidence did not survive encrypted persistence.");
-        if (prepared?.OperationAdmissionFingerprint != "operation-set-proof" || prepared.Obligations.Single().OperationAdmission is not { Version: 9 } admission ||
+        if (prepared?.OperationAdmissionFingerprint != "operation-set-proof" || prepared.Obligations.Single().OperationAdmission is not { Version: 10 } admission ||
+            admission.RealizationCoverage is not { Version: 1, DomainFingerprint: "coverage-domain", ProofFingerprint: "coverage-proof" } coverage ||
+            coverage.Contributions[1].Disposition != "omitted" || coverage.Effects[0].SupportingEvidence.Single() != "runtime" ||
             admission.Dependencies is not { Version: 1, DomainFingerprint: "dependency-domain", ProofFingerprint: "dependency-proof" } dependency ||
             dependency.Assignments.Single().Origin != PlanningDependencyOrigin.ModelSemanticSelection || dependency.Assignments[0].EvidenceReferences.Single() != "private_data_evidence" ||
-            admission.Assignments[0].RuntimeEvidenceId != "runtime" || admission.Assignments[0].Effect is not { Version: 4 } effect ||
+            admission.Assignments[0].RuntimeEvidenceId != "runtime" || admission.Assignments[0].Effect is not { Version: 5 } effect ||
             effect.Candidates.Single().OccurrenceProof is not { Version: 1, Fingerprint: "boundary-proof" } || effect.Candidates.Single().OwnerReference != "private_result" || effect.Inputs.Single() != "private_input" || admission.Assignments[0].EffectId != "action" || admission.Assignments[1].TargetId != "action" || admission.Assignments[1].ClauseReference != "rules" || admission.ProofFingerprint != "operation-proof")
             throw new InvalidOperationException("Canonical operation evidence did not survive encrypted persistence.");
         if (prepared?.BusinessDecisions.Single().Constraints.Single().Applicability != "omitted" ||

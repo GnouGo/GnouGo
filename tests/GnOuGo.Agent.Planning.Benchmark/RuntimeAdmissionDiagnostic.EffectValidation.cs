@@ -44,6 +44,7 @@ internal static partial class RuntimeAdmissionDiagnostic
     private static void AddEffectReport(JsonObject report, PlanningSnapshot state, IReadOnlyDictionary<string, LLMResponse?> receipts, JsonArray domains)
     {
         static string Category(string decision) => decision.StartsWith("interpret_", StringComparison.Ordinal) ? "interpretation" :
+            decision.StartsWith("coverage_", StringComparison.Ordinal) ? "realization_coverage" :
             decision.StartsWith("effect_governing_", StringComparison.Ordinal) ? "effect_governing" :
             decision.StartsWith("effect_", StringComparison.Ordinal) ? "effect_realizations" :
             decision.StartsWith("boundary_", StringComparison.Ordinal) ? "boundary_scope" :
@@ -51,7 +52,7 @@ internal static partial class RuntimeAdmissionDiagnostic
             decision.StartsWith("data_", StringComparison.Ordinal) ? "operation_dependencies" : "relationships_or_other";
         long? Sum(IEnumerable<long?> values)
         { var all = values.ToArray(); return all.Any(v => v is null) ? null : all.Sum(v => v!.Value); }
-        report["decisionClasses"] = new JsonArray(new[] { "interpretation", "effect_realizations", "effect_governing", "boundary_scope", "occurrence_identity", "operation_dependencies", "relationships_or_other" }.Select(category =>
+        report["decisionClasses"] = new JsonArray(new[] { "interpretation", "realization_coverage", "effect_realizations", "effect_governing", "boundary_scope", "occurrence_identity", "operation_dependencies", "relationships_or_other" }.Select(category =>
         {
             var requests = domains.Where(d => d!["decisions"]!.AsArray().Any(v => Category(v!.ToString()) == category)).ToArray();
             var verified = requests.Where(d => receipts.GetValueOrDefault(d!["requestId"]!.ToString()) is not null).ToArray();
