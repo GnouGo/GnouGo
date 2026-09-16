@@ -6,7 +6,7 @@ namespace GnOuGo.Agent.Planning.Benchmark;
 
 internal static class RuntimeAdmissionDiagnosticRules
 {
-    internal const string Identity = "schema5-admission-dependencies-diagnostics-1";
+    internal const string Identity = "schema5-structural-baseline-diagnostics-1";
     internal const int MaxCalls = 16;
     internal static readonly string[] Cases = ["local", "mixed"];
     internal static void RequireCase(string name, JsonObject? previous)
@@ -29,6 +29,15 @@ internal static class RuntimeAdmissionDiagnosticRules
     internal static void RequirePreflight(int interpretationPages)
     {
         if (interpretationPages > MaxCalls) throw new InvalidOperationException("Packed interpretation exceeds the frozen diagnostic budget before dispatch.");
+    }
+
+    internal static void RequireStructuralBaseline(PlanningSnapshot state, IReadOnlyCollection<string> sources, int baselineModelDecisions)
+    {
+        var evidence = state.RuntimeEvidence.Where(e => state.References.Any(r => r.Id == e.SourceReference && r.Baseline is not null)).ToArray();
+        if (baselineModelDecisions != 0 || evidence.Any(e => e.Origin != PlanningRuntimeEvidenceOrigin.EngineBaseline ||
+            e.Role != "contract" || e.ExecutionScope != PlanningRuntimeExecutionScope.PublicContract || e.ActionReference is not null || e.BaselineReference is not null) ||
+            !evidence.Select(e => state.References.Single(r => r.Id == e.SourceReference).SourceId).ToHashSet(StringComparer.Ordinal).SetEquals(sources))
+            throw new WorkflowRuntimeException("DIAGNOSTIC_BASELINE_PROJECTION", "The port-only fixture requires engine-owned structural contracts without baseline model decisions or actions.");
     }
 
     internal static void RequireEffects(string name, IReadOnlyList<PlanningObligation> operations,

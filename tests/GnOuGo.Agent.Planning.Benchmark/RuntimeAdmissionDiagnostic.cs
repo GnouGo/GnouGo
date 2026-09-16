@@ -85,9 +85,9 @@ internal static partial class RuntimeAdmissionDiagnostic
         var manifest = manifestRecord is null ? null : JsonNode.Parse(manifestRecord.Value)!.AsObject();
         if (command == "freeze")
         {
-            if (commit != "1b5513c28032c718eeb9ea4179e5c7981c51bbba") throw new InvalidOperationException("The authorized production commit is required.");
+            if (commit != "ba4f657610740207579ed5c2e14f99abaaa82e0a") throw new InvalidOperationException("The authorized production commit is required.");
             if (manifest is not null) throw new InvalidOperationException("This diagnostic has already been frozen.");
-            var previousRecord = await records.GetAsync(Collection, Tenant, "schema5-realized-governing-diagnostics-rerun-4", Author, ct)
+            var previousRecord = await records.GetAsync(Collection, Tenant, "schema5-admission-dependencies-diagnostics-1", Author, ct)
                 ?? throw new InvalidOperationException("The previous frozen settings are required.");
             var previousManifest = JsonNode.Parse(previousRecord.Value)!;
             if (!JsonNode.DeepEquals(previousManifest["model"], campaign["model"]) ||
@@ -113,6 +113,7 @@ internal static partial class RuntimeAdmissionDiagnostic
             if (exchangeRatePrerequisite["status"]!.ToString() != "passed")
                 throw new InvalidOperationException("Currency-conversion preflight failed; LOCAL was not started.");
             manifest = new() { ["commit"] = commit, ["binaries"] = binaries, ["archiveFingerprint"] = archive,
+                ["comparisonIdentity"] = "schema5-admission-dependencies-diagnostics-1",
                 ["exchangeRatePrerequisite"] = exchangeRatePrerequisite,
                 ["authorizedCases"] = new JsonArray("local"),
                 ["model"] = campaign["model"]!.DeepClone(), ["sourceOptionsFingerprint"] = PlanningGraphCompiler.Fingerprint(source.Request.Options.ToJsonString()),
@@ -207,6 +208,9 @@ internal static partial class RuntimeAdmissionDiagnostic
             if (envelope["phase"]!.ToString() == "intent")
             {
                 await Save(state, ct); await PlanningSourceDecisions.InterpretAsync(state, runtime, ct);
+                RuntimeAdmissionDiagnosticRules.RequireStructuralBaseline(state,
+                    PlanningIntentAssessment.IntentSources(state).Where(s => s.Structural).Select(s => s.Id).ToArray(),
+                    PlanningSourceDecisions.InterpretationDecisions(state).Count(d => d.Context["role"]?.ToString() == "existing_workflow"));
                 // Preserve the exact live interpretation in audit storage. Replace
                 // only declaration candidates with the frozen, labelled precondition.
                 envelope["interpretedObligations"] = JsonSerializer.SerializeToNode(state.Obligations, PlanningJsonContext.Default.ListPlanningObligation);
@@ -265,7 +269,16 @@ internal static partial class RuntimeAdmissionDiagnostic
         report["journalRequests"] = journalRequests.Count;
         report["journalReservationsWithoutReceipt"] = journalRequests.Count(key => !receipts.TryGetValue(key, out var response) || response is null);
         report["coordinatorReservationsWithoutJournalRequest"] = state.RequestAccounting.Select(c => c.Id).Distinct(StringComparer.Ordinal).Count(key => !journalRequests.Contains(key));
-        report["modelRuntimeDecisionsRemoved"] = PlanningSourceDecisions.InterpretationDecisions(state).Count(d => d.Schema["properties"]!["runtime"] is null);
+        var interpretationDomain = PlanningSourceDecisions.InterpretationDecisions(state);
+        report["modelRuntimeDecisionsRemoved"] = interpretationDomain.Count(d => d.Context["role"]?.ToString() == "host_constraint" && d.Schema["properties"]!["runtime"] is null);
+        report["baselineProjection"] = new JsonObject
+        {
+            ["structuralUnits"] = PlanningIntentAssessment.IntentSources(state).Count(s => s.Structural),
+            ["baselineModelDecisionsInDomain"] = interpretationDomain.Count(d => d.Context["role"]?.ToString() == "existing_workflow"),
+            ["engineEvidence"] = state.RuntimeEvidence.Count(e => e.Origin == PlanningRuntimeEvidenceOrigin.EngineBaseline),
+            ["baselineOperations"] = state.Obligations.Count(o => o.OperationAdmission?.BaselineReference is not null),
+            ["interpretationDecisionsInDomain"] = interpretationDomain.Length
+        };
         report["declarationCoveredOccurrences"] = declarations?.Count;
         report["declarationExclusions"] = declarations is null ? null : new JsonObject(declarations.Select(p => new KeyValuePair<string, JsonNode?>(p.Key,
             new JsonArray(p.Value.Select(v => (JsonNode?)JsonValue.Create(v)).ToArray()))));

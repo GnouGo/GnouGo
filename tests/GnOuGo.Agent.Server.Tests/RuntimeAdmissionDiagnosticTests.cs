@@ -109,6 +109,26 @@ public sealed class RuntimeAdmissionDiagnosticTests
         Assert.DoesNotContain("PRIVATE", report.ToJsonString());
     }
 
+    [Theory]
+    [InlineData("valid", true)]
+    [InlineData("model_decision", false)]
+    [InlineData("model_origin", false)]
+    [InlineData("action", false)]
+    [InlineData("missing_contract", false)]
+    public void PortOnlyBaselineRequiresEngineContractsWithoutModelAuthority(string defect, bool allowed)
+    {
+        var state = new PlanningSnapshot();
+        state.References.Add(new("ref", "owner", 0, "port", "fingerprint", "existing_workflow", 0, 1)
+        { Baseline = new(1, "baseline", "port", "main", null, "input", "value", null) });
+        if (defect != "missing_contract")
+            state.RuntimeEvidence.Add(new("runtime", "ref", "ref", defect == "action" ? "local_behavior" : "contract",
+                defect == "action" ? "ref" : null, null, null, null, null, null, null, PlanningOperationNecessity.Unspecified, "proof")
+            { Origin = defect == "model_origin" ? PlanningRuntimeEvidenceOrigin.SourceInterpretation : PlanningRuntimeEvidenceOrigin.EngineBaseline,
+                ExecutionScope = PlanningRuntimeExecutionScope.PublicContract });
+        void Check() => RuntimeAdmissionDiagnosticRules.RequireStructuralBaseline(state, ["port"], defect == "model_decision" ? 1 : 0);
+        if (allowed) Check(); else Assert.Throws<GnOuGo.Flow.Core.Expressions.WorkflowRuntimeException>(Check);
+    }
+
     private static PlanningObligation Operation(string id, string kind, string[] inputs, string[] outputs, string[] producers) =>
         new(id, ["evidence"], "workflow", kind, true)
         {
