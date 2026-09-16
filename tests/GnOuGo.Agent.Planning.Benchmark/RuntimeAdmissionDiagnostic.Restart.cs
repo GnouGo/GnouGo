@@ -24,6 +24,12 @@ internal static partial class RuntimeAdmissionDiagnostic
             throw new InvalidOperationException("Read-only restart changed proof or accounting.");
         return new() { ["passed"] = true, ["providerCalls"] = transport.Calls, ["checkpointWrites"] = checkpoints,
             ["snapshotFingerprint"] = before, ["admissionFingerprint"] = restored.OperationAdmissionFingerprint,
+            ["admissionProofVersions"] = new JsonArray(restored.Obligations.Where(o => o.OperationAdmission is not null)
+                .Select(o => o.OperationAdmission!.Version).Distinct().Select(v => (JsonNode?)JsonValue.Create(v)).ToArray()),
+            ["coverageProofVersions"] = new JsonArray(restored.Obligations.Where(o => o.OperationAdmission is not null)
+                .Select(o => o.OperationAdmission!.RealizationCoverage!.Version).Distinct().Select(v => (JsonNode?)JsonValue.Create(v)).ToArray()),
+            ["coverageFingerprints"] = new JsonArray(restored.Obligations.Where(o => o.OperationAdmission is not null)
+                .OrderBy(o => o.Id, StringComparer.Ordinal).Select(o => (JsonNode?)JsonValue.Create(o.OperationAdmission!.RealizationCoverage!.ProofFingerprint)).ToArray()),
             ["dependencyFingerprints"] = new JsonArray(restored.Obligations.Where(o => o.OperationAdmission is not null)
                 .OrderBy(o => o.Id, StringComparer.Ordinal).Select(o => (JsonNode?)JsonValue.Create(o.OperationAdmission!.Dependencies!.ProofFingerprint)).ToArray()) };
     }

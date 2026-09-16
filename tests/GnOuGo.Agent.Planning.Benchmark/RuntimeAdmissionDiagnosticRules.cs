@@ -8,7 +8,7 @@ namespace GnOuGo.Agent.Planning.Benchmark;
 
 internal static class RuntimeAdmissionDiagnosticRules
 {
-    internal const string Identity = "schema5-occurrence-boundaries-mixed-diagnostics-1";
+    internal const string Identity = "schema5-realization-coverage-diagnostics-1";
     internal const string ComparisonIdentity = "schema5-occurrence-boundaries-diagnostics-1";
     internal const int MaxCalls = 16;
     internal static readonly string[] Cases = ["local", "mixed"];
@@ -34,19 +34,12 @@ internal static class RuntimeAdmissionDiagnosticRules
     }
     internal static void RequireCase(string name, JsonObject? previous)
     {
-        if (name != "mixed") throw new InvalidOperationException("This campaign authorizes MIXED only; LOCAL and later gates are refused.");
-        if (previous?["case"]?.ToString() != "local" || previous["status"]?.ToString() != "passed" ||
-            previous["effectValidationPassed"]?.GetValue<bool>() != true ||
-            previous["readOnlyRestart"]?["passed"]?.GetValue<bool>() != true ||
-            previous["readOnlyRestart"]?["providerCalls"]?.GetValue<int>() != 0 ||
-            previous["readOnlyRestart"]?["checkpointWrites"]?.GetValue<int>() != 0 ||
-            string.IsNullOrEmpty(previous["readOnlyRestart"]?["admissionFingerprint"]?.ToString()))
-            throw new InvalidOperationException("The accepted archived LOCAL with verified admission and read-only restart is required.");
+        if (name != "local") throw new InvalidOperationException("This campaign authorizes LOCAL only; MIXED and later gates require separate authorization.");
     }
     internal static void RequireFreshStart(bool checkpoint, bool report, bool budget, bool reservations)
     {
         if (checkpoint || report || budget || reservations)
-            throw new InvalidOperationException("This MIXED has already started. Read its report; do not start or resume it again.");
+            throw new InvalidOperationException("This LOCAL has already started. Read its report; do not start or resume it again.");
     }
     internal static void RequireRequest(PlanningSnapshot state)
     {
@@ -80,6 +73,13 @@ internal static class RuntimeAdmissionDiagnosticRules
             operations.Count(o => o.Kind == "local_processing") == 1 && operations.Count(o => o.Kind == "external_read") == (name == "mixed" ? 1 : 0),
             "DIAGNOSTIC_ADMISSION_MISMATCH", "The frozen fixture requires exactly its declared runtime effects.");
         var local = operations.Single(o => o.Kind == "local_processing");
+        Require(operations.All(o => o.OperationAdmission!.RealizationCoverage is { Version: 1 } coverage &&
+            !string.IsNullOrEmpty(coverage.ProofFingerprint) && coverage.SelectedEffects.Contains(o.Id) &&
+            coverage.Effects.Count(e => e.Id == o.Id) == 1 &&
+            coverage.Effects.Single(e => e.Id == o.Id).SupportingEvidence.Count > 0 &&
+            coverage.Effects.Single(e => e.Id == o.Id).SupportingEvidence.All(id => coverage.Contributions.Any(c =>
+                c.RuntimeEvidenceId == id && c.Disposition == "supports" && c.Effects.Contains(o.Id) && c.EvidenceReferences.Count > 0))),
+            "DIAGNOSTIC_REALIZATION_COVERAGE", "Every admitted effect requires current complete coverage with owned executable support.");
         var effects = local.OperationAdmission!.Assignments.Select(a => a.Effect!).ToArray();
         Require(operations.SelectMany(o => o.OperationAdmission!.Assignments).All(a => a.Effect is { Producers.Count: 0 }),
             "DIAGNOSTIC_LEGACY_PRODUCER_AUTHORITY", "Current effect mappings cannot select operation producers.");

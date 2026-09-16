@@ -39,15 +39,15 @@ public sealed class RuntimeAdmissionDiagnosticTests
     }
 
     [Theory]
-    [InlineData("local", null, false)]
-    [InlineData("local", "passed", false)]
-    [InlineData("mixed", "passed", true)]
+    [InlineData("local", null, true)]
+    [InlineData("local", "passed", true)]
+    [InlineData("mixed", "passed", false)]
     [InlineData("mixed", "stopped", false)]
     [InlineData("mixed", null, false)]
     [InlineData("stage1", "passed", false)]
     [InlineData("stage2", "passed", false)]
     [InlineData("replacement", "passed", false)]
-    public void OnlyMixedIsAuthorizedAfterVerifiedLocalSuccess(string name, string? previous, bool allowed)
+    public void OnlyLocalIsAuthorizedEvenAfterLocalSuccess(string name, string? previous, bool allowed)
     {
         var report = previous is null ? null : AcceptedLocal();
         if (report is not null) report["status"] = previous;
@@ -162,7 +162,9 @@ public sealed class RuntimeAdmissionDiagnosticTests
             OperationAdmission = new(10, id, "evidence", null,
                 [new("decision", "clause", "action", kind, PlanningOperationNecessity.Required, null, null)
                 { Effect = new(5, "effect", "realizes", [new("main", "result", "result_realization", "result")], inputs.ToList(), outputs.ToList(), [], ["clause"], "model", "proof") }], "proof", "fingerprint") { Dependencies = new(1, "domain", producers.Select(p =>
-                    new PlanningOperationDependencyAssignment(p, id, "data", PlanningDependencyOrigin.ModelSemanticSelection, ["clause"], "decision")).ToList(), "dependency-proof") }
+                    new PlanningOperationDependencyAssignment(p, id, "data", PlanningDependencyOrigin.ModelSemanticSelection, ["clause"], "decision")).ToList(), "dependency-proof"),
+                    RealizationCoverage = new(1, "coverage", "domain", [id], [new("runtime", "supports", [id], ["action"])],
+                        [new(id, new("main", "result", "result_realization", "result"), ["runtime"], inputs.ToList(), outputs.ToList())], "coverage-proof") }
         };
 
     [Theory]
@@ -177,6 +179,11 @@ public sealed class RuntimeAdmissionDiagnosticTests
     [InlineData("stale_admission", false)]
     [InlineData("stale_effect", false)]
     [InlineData("invocation", false)]
+    [InlineData("missing_coverage", false)]
+    [InlineData("stale_coverage", false)]
+    [InlineData("missing_support", false)]
+    [InlineData("governing_only", false)]
+    [InlineData("foreign_effect", false)]
     public void LocalGateRequiresCompleteEffectProof(string defect, bool allowed)
     {
         var ops = new List<PlanningObligation> { Operation("local", "local_processing",
@@ -186,6 +193,11 @@ public sealed class RuntimeAdmissionDiagnosticTests
         if (defect == "stale_admission") ops[0] = ops[0] with { OperationAdmission = ops[0].OperationAdmission! with { Version = 8 } };
         if (defect == "stale_effect") ops[0].OperationAdmission!.Assignments[0] = ops[0].OperationAdmission!.Assignments[0] with { Effect = ops[0].OperationAdmission!.Assignments[0].Effect! with { Version = 3 } };
         if (defect == "invocation") ops[0].OperationAdmission!.Assignments[0].Effect!.Candidates[0] = new("main", "action", "invocation", "action");
+        if (defect == "missing_coverage") ops[0] = ops[0] with { OperationAdmission = ops[0].OperationAdmission! with { RealizationCoverage = null } };
+        if (defect == "stale_coverage") ops[0] = ops[0] with { OperationAdmission = ops[0].OperationAdmission! with { RealizationCoverage = ops[0].OperationAdmission!.RealizationCoverage! with { Version = 0 } } };
+        if (defect == "missing_support") ops[0].OperationAdmission!.RealizationCoverage!.Effects[0].SupportingEvidence.Clear();
+        if (defect == "governing_only") ops[0].OperationAdmission!.RealizationCoverage!.Contributions[0] = new("runtime", "governs", ["local"], ["action"]);
+        if (defect == "foreign_effect") ops[0].OperationAdmission!.RealizationCoverage!.SelectedEffects[0] = "foreign";
         void Check() => RuntimeAdmissionDiagnosticRules.RequireEffects("local", ops, ["record", "threshold"], "result",
             defect == "identity_call" ? 1 : 0, defect == "dependency_call" ? 1 : 0);
         if (allowed) Check(); else Assert.Throws<GnOuGo.Flow.Core.Expressions.WorkflowRuntimeException>(Check);

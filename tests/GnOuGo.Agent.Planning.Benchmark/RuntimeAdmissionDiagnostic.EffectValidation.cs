@@ -68,6 +68,14 @@ internal static partial class RuntimeAdmissionDiagnostic
         report["effectMappings"] = state.OperationAdmissionFingerprint is null ? null : new JsonArray(state.Obligations.Where(PlanningSourceDecisions.IsOperation).Select(o =>
             (JsonNode)new JsonObject { ["operationId"] = o.Id, ["kind"] = o.Kind, ["required"] = o.Required,
                 ["admissionProofFingerprint"] = o.OperationAdmission!.ProofFingerprint,
+                ["admissionProofVersion"] = o.OperationAdmission.Version,
+                ["coverageProofVersion"] = o.OperationAdmission.RealizationCoverage!.Version,
+                ["coverageProofFingerprint"] = o.OperationAdmission.RealizationCoverage.ProofFingerprint,
+                ["coverageDomainFingerprint"] = o.OperationAdmission.RealizationCoverage.DomainFingerprint,
+                ["supportingContributions"] = new JsonArray(o.OperationAdmission.RealizationCoverage.Contributions
+                    .Where(c => c.Disposition == "supports" && c.Effects.Contains(o.Id)).Select(c => (JsonNode?)JsonValue.Create(c.RuntimeEvidenceId)).ToArray()),
+                ["governingContributions"] = new JsonArray(o.OperationAdmission.Assignments.Where(a => a.Disposition == "attach")
+                    .Select(a => (JsonNode?)JsonValue.Create(a.RuntimeEvidenceId)).ToArray()),
                 ["dependencyProofVersion"] = o.OperationAdmission.Dependencies!.Version,
                 ["dependencyDomainFingerprint"] = o.OperationAdmission.Dependencies.DomainFingerprint,
                 ["dependencyProofFingerprint"] = o.OperationAdmission.Dependencies.ProofFingerprint,
