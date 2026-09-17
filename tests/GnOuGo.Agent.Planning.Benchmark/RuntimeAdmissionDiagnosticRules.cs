@@ -75,6 +75,7 @@ internal static class RuntimeAdmissionDiagnosticRules
             operations.Count(o => o.Kind == "local_processing") == 1 && operations.Count(o => o.Kind == "external_read") == (name == "mixed" ? 1 : 0),
             "DIAGNOSTIC_ADMISSION_MISMATCH", "The frozen fixture requires exactly its declared runtime effects.");
         var local = operations.Single(o => o.Kind == "local_processing");
+        foreach (var operation in operations) RequirePositiveSupports(operation);
         Require(operations.All(o => o.OperationAdmission!.ExecutionContributions.Count > 0 &&
             o.OperationAdmission.ExecutionContributions.All(p => p.Version == 2 && !string.IsNullOrEmpty(p.ProofFingerprint)) &&
             o.OperationAdmission.Assignments.All(a => o.OperationAdmission.ExecutionContributions.Any(p => p.RuntimeEvidenceId == a.RuntimeEvidenceId &&
@@ -122,15 +123,44 @@ internal static class RuntimeAdmissionDiagnosticRules
 
     internal static void RequireLocalApplicability(PlanningObligation local)
     {
+        RequirePositiveSupports(local);
         var proof = local.OperationAdmission!;
-        if (proof.Assignments.Count(a => a.Disposition == "supports") != 1 ||
-            proof.GoverningApplicability.Count == 0 ||
+        if (proof.GoverningApplicability.Count == 0 ||
             proof.GoverningApplicability.Any(p => p.Version != 1 || p.Outcome != "active" ||
                 !p.Targets.SequenceEqual([local.Id]) || string.IsNullOrEmpty(p.ProofFingerprint) ||
                 p.Origin is not (PlanningApplicabilityOrigin.ModelApplicability or PlanningApplicabilityOrigin.DeterministicOwner) ||
                 p.Origin == PlanningApplicabilityOrigin.ModelApplicability && p.DecisionId is null ||
                 p.Origin == PlanningApplicabilityOrigin.DeterministicOwner && p.OwnerReferences.Count == 0))
-            throw new WorkflowRuntimeException("DIAGNOSTIC_APPLICABILITY", "LOCAL requires one qualified support and proven property applicability; singleton cardinality is insufficient.");
+            throw new WorkflowRuntimeException("DIAGNOSTIC_APPLICABILITY", "LOCAL requires positive executable support and proven property applicability; singleton cardinality is insufficient.");
+    }
+
+    // Cardinality is not authority. This harness check complements, and never
+    // replaces, PlanningOperations.RequireCurrent and its owned-source validation.
+    internal static void RequirePositiveSupports(PlanningObligation operation)
+    {
+        var admission = operation.OperationAdmission;
+        var supports = admission?.Assignments.Where(a => a.Disposition == "supports").ToArray() ?? [];
+        bool Valid(PlanningOperationAssignment assignment)
+        {
+            if (admission is null || assignment.EffectId != operation.Id || assignment.TargetId != operation.Id ||
+                assignment.Kind != operation.Kind || assignment.BaselineReference != admission.BaselineReference ||
+                assignment.Effect is not { Version: 7 } effect) return false;
+            var matches = admission.ExecutionContributions.Where(p => p.Version == 2 &&
+                    !string.IsNullOrEmpty(p.ProofFingerprint) && p.RuntimeEvidenceId == assignment.RuntimeEvidenceId)
+                .SelectMany(p => p.Contributions).Where(c => c.Id == assignment.ContributionId).ToArray();
+            if (matches.Length != 1) return false;
+            var contribution = matches[0];
+            return contribution.Role == "supports" && contribution.EffectId == operation.Id &&
+                contribution.EvidenceReference == assignment.ActionReference && !string.IsNullOrWhiteSpace(contribution.EvidenceReference) &&
+                effect.Candidates.Any(anchor => contribution.OwnerReference == anchor.OwnerReference && contribution.BoundaryReference == anchor.BoundaryReference &&
+                    (contribution.Basis == "requested_result_production" && anchor.BoundaryKind == "result_realization" ||
+                     contribution.Basis == "requested_owned_occurrence" && anchor.BoundaryKind != "result_realization" && anchor.OccurrenceProof is { Version: 1 } ||
+                     contribution.Basis == "existing_baseline_execution" && anchor.BoundaryKind == "baseline" && admission.BaselineReference is not null));
+        }
+        if (supports.Length == 0 || supports.Select(a => a.ContributionId).Distinct(StringComparer.Ordinal).Count() != supports.Length ||
+            supports.Any(a => !Valid(a)) ||
+            supports.Any(a => a.Necessity == PlanningOperationNecessity.Required) && supports.Any(a => a.Necessity == PlanningOperationNecessity.Optional))
+            throw new WorkflowRuntimeException("DIAGNOSTIC_SUPPORT_AUTHORITY", "Every required effect needs positive, owned, compatible support for that canonical effect; support count cannot substitute for authority.");
     }
 
     // Fixture acceptance only: inspect exact qualified subspans, not preliminary

@@ -10,13 +10,13 @@ public sealed class OperationContributionTests
 {
     private static CancellationToken Ct => TestContext.Current.CancellationToken;
     private static TypedPlannerTests.FakeRuntime NoCalls() => new() { OnCall = (_, _, _) => throw new InvalidOperationException("Unexpected dispatch") };
-    private static PlanningSnapshot Result(string text)
+    private static PlanningSnapshot Result(string text, int supportCandidates = int.MaxValue)
     {
         var state = OperationAdmissionTests.State(text);
         state.Request.Baseline = TypedPlannerTests.Graph(); state.Request.Baseline.Workflows[0].Steps.Clear();
         PlanningDeclarations.Commit(state, [], PlanningDeclarations.EvidenceFingerprint(state));
-        foreach (var scope in PlanningOperations.SourceScopes(state).Where(s => s.Source.Id == "request"))
-            PlanningFixtures.Runtime(state, scope.Clause, independentBoundary: false);
+        foreach (var (scope, index) in PlanningOperations.SourceScopes(state).Where(s => s.Source.Id == "request").Select((scope, index) => (scope, index)))
+            PlanningFixtures.Runtime(state, scope.Clause, index < supportCandidates ? "local_processing" : "external_execute", independentBoundary: false);
         return state;
     }
     private static JsonObject Answer(PlanningSnapshot state, PlanningOperations.Scope scope, string role = "supports") =>
@@ -185,5 +185,76 @@ public sealed class OperationContributionTests
         operation.OperationAdmission.Assignments.Remove(assignment);
         operation.OperationAdmission.Assignments.Add(assignment with { Disposition = "supports" });
         Assert.Throws<WorkflowRuntimeException>(() => PlanningOperations.RequireCurrent(other));
+    }
+
+    [Fact]
+    public async Task SeveralSupportsKeepOneEffectAcrossEnumerationAndQualificationPagePacking()
+    {
+        var state = Result("Transform the supplied value. Select the first result according to its condition. Select the fallback result otherwise. This execution uses deterministic processing. This execution uses in-memory processing.", supportCandidates: 3);
+        var supports = PlanningOperations.Scopes(state).Where(s => s.Evidence!.Kind == "local_processing").Select(s => s.Evidence!.Id).ToHashSet(StringComparer.Ordinal);
+        Assert.Equal(3, supports.Count);
+        var other = PlanningContext.Clone(state);
+        var decisions = PlanningOperations.ContributionDecisions(state);
+        var initialPages = PlanningDecisionPages.PackedPageCount(state, decisions);
+        var changed = false;
+        for (var limit = 11900; limit >= 1000; limit -= 100)
+        {
+            other.Request.Generation.MaxInputTokensPerRequest = limit;
+            try
+            {
+                if (PlanningDecisionPages.PackedPageCount(other, decisions) > initialPages) { changed = true; break; }
+            }
+            catch (WorkflowRuntimeException error) when (error.Code == "DECISION_SIZE_UNSUPPORTED") { }
+        }
+        Assert.True(changed);
+        other.RuntimeEvidence.Reverse(); other.References.Reverse();
+        foreach (var snapshot in new[] { state, other })
+        {
+            Qualify(snapshot, s => supports.Contains(s.Evidence!.Id) ? Answer(snapshot, s) : new JsonObject
+            { ["status"] = "qualified", ["contributions"] = new JsonArray((JsonNode)new JsonObject
+                { ["role"] = "governing_property", ["evidence"] = s.Evidence.ActionReference }) });
+            Cover(snapshot);
+            await PlanningOperations.ResolveAsync(snapshot, NoCalls(), Ct);
+            var operation = Assert.Single(snapshot.Obligations, PlanningSourceDecisions.IsOperation);
+            Assert.Equal(3, operation.OperationAdmission!.Assignments.Count(a => a.Disposition == "supports"));
+            Assert.Empty(operation.OperationAdmission.Dependencies!.Assignments);
+        }
+        Assert.NotEqual(state.DecisionPages.Count(p => p.Decisions.Any(d => d.StartsWith("contribution_", StringComparison.Ordinal))),
+            other.DecisionPages.Count(p => p.Decisions.Any(d => d.StartsWith("contribution_", StringComparison.Ordinal))));
+        Assert.Equal(state.OperationAdmissionFingerprint, other.OperationAdmissionFingerprint);
+        Assert.Equal(PlanningOperations.ReadContributions(state).Select(p => p.ProofFingerprint), PlanningOperations.ReadContributions(other).Select(p => p.ProofFingerprint));
+        Assert.Equal(PlanningOperations.ReadCoverage(state).Select(p => p.ProofFingerprint), PlanningOperations.ReadCoverage(other).Select(p => p.ProofFingerprint));
+    }
+
+    [Fact]
+    public async Task SeveralSupportsSurvivePartialQualificationRestartWithoutDuplicateAuthority()
+    {
+        var state = Result("Transform the supplied value. Select the first result according to its condition. Select the fallback result otherwise.");
+        var uninterrupted = PlanningContext.Clone(state);
+        var runtime = new TypedPlannerTests.FakeRuntime { OnCall = (_, request, _) => Task.FromResult(new GnOuGo.Flow.Core.Runtime.LLMResponse
+            { Json = OperationEffectFixtures.Response(state, request), CompletionStatus = "completed" }) };
+        PlanningSnapshot? saved = null;
+        runtime.OnCheckpoint = s =>
+        {
+            if (saved is null && s.DecisionPages.Any(p => p.Status == "completed" && p.Decisions.Any(d => d.StartsWith("contribution_", StringComparison.Ordinal))))
+            { saved = PlanningContext.Clone(s); throw new OperationCanceledException(); }
+            return Task.CompletedTask;
+        };
+        await Assert.ThrowsAsync<OperationCanceledException>(() => PlanningOperations.ResolveAsync(state, runtime, Ct));
+        Assert.NotNull(saved); Assert.Null(saved.OperationAdmissionFingerprint);
+        var completed = saved.DecisionPages.Where(p => p.Status == "completed").Select(p => p.Id).ToArray();
+        var resumed = new TypedPlannerTests.FakeRuntime { OnCall = (_, request, _) => Task.FromResult(new GnOuGo.Flow.Core.Runtime.LLMResponse
+            { Json = OperationEffectFixtures.Response(saved, request), CompletionStatus = "completed" }) };
+        await PlanningOperations.ResolveAsync(saved, resumed, Ct);
+        Qualify(uninterrupted, s => Answer(uninterrupted, s)); Cover(uninterrupted);
+        await PlanningOperations.ResolveAsync(uninterrupted, NoCalls(), Ct);
+        Assert.Equal(uninterrupted.OperationAdmissionFingerprint, saved.OperationAdmissionFingerprint);
+        Assert.Equal(runtime.Requests.Count + resumed.Requests.Count, saved.RequestAccounting.Select(c => c.Id).Distinct().Count());
+        Assert.All(completed, id => Assert.Single(saved.DecisionPages, p => p.Id == id && p.Status == "completed"));
+        Assert.Equal(3, Assert.Single(saved.Obligations, PlanningSourceDecisions.IsOperation).OperationAdmission!.Assignments.Count(a => a.Disposition == "supports"));
+        var readOnly = NoCalls(); readOnly.OnCheckpoint = _ => throw new InvalidOperationException("Unexpected write");
+        var snapshot = JsonSerializer.Serialize(saved, PlanningJsonContext.Default.PlanningSnapshot);
+        await PlanningOperations.ResolveAsync(saved, readOnly, Ct);
+        Assert.Equal(snapshot, JsonSerializer.Serialize(saved, PlanningJsonContext.Default.PlanningSnapshot));
     }
 }

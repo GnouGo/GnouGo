@@ -13,7 +13,8 @@ public sealed class RuntimeAdmissionDiagnosticTests
     [InlineData("foreign", false)]
     [InlineData("cardinality_only", false)]
     [InlineData("missing_decision", false)]
-    [InlineData("extra_support", false)]
+    [InlineData("valid_extra_support", true)]
+    [InlineData("unqualified_extra_support", false)]
     [InlineData("unknown_origin", false)]
     public void ApplicabilityGateRequiresProofBeyondSingletonCardinality(string defect, bool accepted)
     {
@@ -22,7 +23,8 @@ public sealed class RuntimeAdmissionDiagnosticTests
             "active", [defect == "foreign" ? "foreign" : "local"], null, [new("local", ["owned"])], [], null,
             defect == "cardinality_only" ? PlanningApplicabilityOrigin.DeterministicOwner : defect == "unknown_origin" ? PlanningApplicabilityOrigin.Unknown : PlanningApplicabilityOrigin.ModelApplicability,
             defect == "missing_decision" ? null : "applicability_property", "realized", "domain", "proof"));
-        if (defect == "extra_support") operation.OperationAdmission.Assignments.Add(operation.OperationAdmission.Assignments[0] with { ContributionId = "extra" });
+        if (defect == "valid_extra_support") AddSupport(operation, "extra");
+        if (defect == "unqualified_extra_support") operation.OperationAdmission.Assignments.Add(operation.OperationAdmission.Assignments[0] with { ContributionId = "extra" });
         void Check() => RuntimeAdmissionDiagnosticRules.RequireLocalApplicability(operation);
         if (accepted) Check(); else Assert.Throws<GnOuGo.Flow.Core.Expressions.WorkflowRuntimeException>(Check);
     }
@@ -180,7 +182,7 @@ public sealed class RuntimeAdmissionDiagnosticTests
         new(id, ["evidence"], "workflow", kind, true)
         {
             OperationAdmission = new(12, id, "evidence", null,
-                [new("decision", "clause", "action", kind, PlanningOperationNecessity.Required, null, null)
+                [new("decision", "clause", "action", kind, PlanningOperationNecessity.Required, id, null)
                 { ContributionId = "qualified", RuntimeEvidenceId = "runtime", Disposition = "supports", EffectId = id, Effect = new(7, "effect", "realizes", [new("main", "result", "result_realization", "result")], inputs.ToList(), outputs.ToList(), [], ["clause"], "model", "proof") }], "proof", "fingerprint") { ExecutionContributions = [new(2, "runtime", "qualification", "domain", [new("qualified", "action", "supports", id, "requested_result_production", "result", "result", PlanningContributionOrigin.ModelQualification)], "proof")], Dependencies = new(1, "domain", producers.Select(p =>
                     new PlanningOperationDependencyAssignment(p, id, "data", PlanningDependencyOrigin.ModelSemanticSelection, ["clause"], "decision")).ToList(), "dependency-proof"),
                     RealizationCoverage = new(3, "coverage", "domain", [id], [new("runtime", "supports", [id], ["action"]) { ContributionId = "qualified" }],
@@ -249,16 +251,67 @@ public sealed class RuntimeAdmissionDiagnosticTests
         if (accepted) Check(); else Assert.Throws<GnOuGo.Flow.Core.Expressions.WorkflowRuntimeException>(Check);
     }
 
-    [Fact]
-    public void SeveralQualifiedExecutionSpansMaySupportOneEffect()
+    private static void AddSupport(PlanningObligation operation, string id)
+    {
+        var admission = operation.OperationAdmission!;
+        admission.ExecutionContributions[0].Contributions.Add(admission.ExecutionContributions[0].Contributions[0] with { Id = id, EvidenceReference = id });
+        admission.Assignments.Add(admission.Assignments[0] with { ContributionId = id, ActionReference = id });
+        admission.RealizationCoverage!.Contributions.Add(new("runtime", "supports", [operation.Id], [id]) { ContributionId = id });
+        admission.RealizationCoverage.Effects[0].SupportingEvidence.Add(id);
+    }
+
+    [Theory]
+    [InlineData(1, false)]
+    [InlineData(2, false)]
+    [InlineData(4, true)]
+    [InlineData(8, true)]
+    public void SeveralQualifiedExecutionSpansMaySupportOneEffect(int count, bool reverse)
     {
         var operation = Operation("local", "local_processing", ["record", "threshold"], ["result"], []);
-        var admission = operation.OperationAdmission!;
-        admission.ExecutionContributions[0].Contributions.Add(admission.ExecutionContributions[0].Contributions[0] with { Id = "rules", EvidenceReference = "rules" });
-        admission.Assignments.Add(admission.Assignments[0] with { ContributionId = "rules", ActionReference = "rules" });
-        admission.RealizationCoverage!.Contributions.Add(new("runtime", "supports", ["local"], ["rules"]) { ContributionId = "rules" });
-        admission.RealizationCoverage.Effects[0].SupportingEvidence.Add("rules");
+        for (var i = 1; i < count; i++) AddSupport(operation, "evidence" + i);
+        if (reverse)
+        {
+            operation.OperationAdmission!.Assignments.Reverse();
+            operation.OperationAdmission.ExecutionContributions[0].Contributions.Reverse();
+            operation.OperationAdmission.RealizationCoverage!.Contributions.Reverse();
+        }
         RuntimeAdmissionDiagnosticRules.RequireEffects("local", [operation], ["record", "threshold"], "result", 0);
+        Assert.Equal("local", operation.Id);
+        Assert.True(operation.Required);
+        Assert.Empty(operation.OperationAdmission!.Dependencies!.Assignments);
+        Assert.Equal(count, operation.OperationAdmission.Assignments.Count);
+    }
+
+    [Theory]
+    [InlineData("missing_basis")]
+    [InlineData("property_basis")]
+    [InlineData("foreign_effect")]
+    [InlineData("foreign_target")]
+    [InlineData("foreign_owner")]
+    [InlineData("foreign_boundary")]
+    [InlineData("stale_proof")]
+    [InlineData("property_role")]
+    [InlineData("necessity_conflict")]
+    public void EverySupportNeedsItsOwnCompatiblePositiveAuthority(string defect)
+    {
+        var operation = Operation("local", "local_processing", ["record", "threshold"], ["result"], []);
+        AddSupport(operation, "extra");
+        var proof = operation.OperationAdmission!;
+        var contribution = proof.ExecutionContributions[0].Contributions[1];
+        proof.ExecutionContributions[0].Contributions[1] = defect switch
+        {
+            "missing_basis" => contribution with { Basis = "" },
+            "property_basis" => contribution with { Basis = "governing_property" },
+            "foreign_effect" => contribution with { EffectId = "other" },
+            "foreign_owner" => contribution with { OwnerReference = "other" },
+            "foreign_boundary" => contribution with { BoundaryReference = "other" },
+            "property_role" => contribution with { Role = "governing_property" },
+            _ => contribution
+        };
+        if (defect == "foreign_target") proof.Assignments[1] = proof.Assignments[1] with { TargetId = "other" };
+        if (defect == "necessity_conflict") proof.Assignments[1] = proof.Assignments[1] with { Necessity = PlanningOperationNecessity.Optional };
+        if (defect == "stale_proof") proof.ExecutionContributions[0] = proof.ExecutionContributions[0] with { Version = 1 };
+        Assert.Throws<GnOuGo.Flow.Core.Expressions.WorkflowRuntimeException>(() => RuntimeAdmissionDiagnosticRules.RequirePositiveSupports(operation));
     }
 
     [Theory]
@@ -281,6 +334,8 @@ public sealed class RuntimeAdmissionDiagnosticTests
             new("external_effect", "action", "action"), null, "proof");
         read.OperationAdmission!.Assignments[0].Effect!.Candidates[0] = new(defect == "foreign_scope" ? "other" : "main", "action", "invocation", "action")
         { OccurrenceProof = defect == "missing_occurrence" ? null : proof };
+        read.OperationAdmission.ExecutionContributions[0].Contributions[0] = read.OperationAdmission.ExecutionContributions[0].Contributions[0] with
+        { Basis = "requested_owned_occurrence", OwnerReference = "action", BoundaryReference = "action" };
         if (defect == "stale_effect") read.OperationAdmission.Assignments[0] = read.OperationAdmission.Assignments[0] with
         { Effect = read.OperationAdmission.Assignments[0].Effect! with { Version = 3 } };
         var local = Operation("local", "local_processing", ["threshold"], ["result"], defect == "missing_dependency" ? [] : defect == "self" ? ["local"] : ["read"]);

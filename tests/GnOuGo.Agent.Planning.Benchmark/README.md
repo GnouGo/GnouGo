@@ -495,7 +495,17 @@ must use `-p:BuildProjectReferences=false` to preserve the frozen production DLL
 
 `audit-occurrence-fixture schema5-structural-baseline-diagnostics-1:local` reads the retained checkpoint and accounting without writing them. It builds an explicitly synthetic current-proof reassessment, installs the frozen declaration ports and attachments, and asserts the effect domain before supplying synthetic realization/governing answers. The check verifies one required result effect, public dataflow, rules/descriptive attachments, declaration-only preservation, zero identity/dependency decisions and receipt-free restart. It never constructs a provider transport or starts a campaign. Original-schema historical audit and strict changed-request replay remain separate commands and evidence tracks. See the [offline implementation report](../../docs/planner-occurrence-boundaries.md).
 
-## Occurrence-boundary LOCAL gate
+## Retained LOCAL support adjudication
+
+`adjudicate-local-support schema5-governing-applicability-diagnostics-1:local` reads only that retained case through the public KeyVault record API. It creates no planning session, provider transport, journal or budget reservation. A read-only store wrapper rejects writes/deletes, and completed-admission re-entry rejects provider calls and checkpoint writes.
+
+Acceptance requires at least one valid positive support per required effect, with every support bound to its current proof, owned evidence and canonical effect. Several qualified supports may establish the same effect. Properties cannot supply execution authority. The command checks the four reviewed result-production spans against their complete original clauses and qualification receipts, validates the unchanged classifier/dataflow and current proofs, and emits a separate adjudication report to stdout. It never rewrites the original stopped campaign report.
+
+The [retained adjudication report](../../docs/planner-local-support-adjudication.md) accepts this LOCAL evidence under the corrected contract; the historical campaign remains stopped under its original harness assertion. MIXED requires separate authorization.
+
+Build the harness with `-p:BuildProjectReferences=false` into a separate output directory to preserve the original diagnostic binary. Stage the manifest-verified frozen production DLLs into that directory without rebuilding them; disabling reference builds does not copy those DLLs into a new output location. Run the harness and planner contribution/applicability/coverage/necessity tests before adjudication. No live diagnostic is authorized by this command or its result.
+
+## Occurrence-boundary LOCAL gate history
 
 `schema5-occurrence-boundaries-diagnostics-1` consumed its one authorized LOCAL start on frozen production `cfc058f` and passed admission in twelve verified calls. The harness uses the frozen production policy producer, validates unchanged instructions/options and accepts admission/effect proofs 9/4. After commitment, it reloads the checkpoint and checks the complete proof/accounting with a transport that rejects all calls. A second start, MIXED and Stage 1 remain refused. Use `diagnose-runtime-admission report` or the read-only `audit-runtime-admission schema5-occurrence-boundaries-diagnostics-1:local` for retained evidence. See the [LOCAL report](../../docs/planner-occurrence-boundaries-local-1.md). No live command should be repeated for this identity.
 

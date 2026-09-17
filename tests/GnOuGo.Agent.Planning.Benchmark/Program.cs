@@ -23,6 +23,11 @@ const string tenant = "planner-benchmark";
 const string evidenceKey = "codereview-bc72dd6";
 var root = AppContext.BaseDirectory;
 var records = KeyVaultRecordStoreFactory.CreateWorkspaceStore(null, root);
+if (args[0] == "adjudicate-local-support")
+{
+    if (args.Length != 2) throw new ArgumentException("adjudicate-local-support RETAINED_CASE_ID");
+    await RuntimeAdmissionDiagnostic.AdjudicateRetainedLocalAsync(args[1], records); return;
+}
 if (args.Length == 2 && args[0] == "audit-coverage-fixture")
 {
     await RuntimeAdmissionDiagnostic.CoverageFixtureAsync(args[1], records); return;
